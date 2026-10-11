@@ -9,6 +9,7 @@ import {
   makeAppriseService,
   makeChannel,
 } from "@/v2/utils/notificationChannels.fixtures";
+import AppriseServiceFields from "@/v2/components/Notifications/AppriseServiceFields.vue";
 import NotificationChannelDialog from "./NotificationChannelDialog.vue";
 
 const api = vi.hoisted(() => ({
@@ -233,8 +234,12 @@ describe("NotificationChannelDialog", () => {
       stored_secrets: ["token"],
       has_secret: false,
     });
-  async function paste(wrapper: Wrapper, url: string) {
-    await textField(wrapper, "notifications.channel-paste-url")?.setValue(url);
+  async function paste(
+    wrapper: Wrapper,
+    url: string,
+    label = "notifications.channel-paste-url",
+  ) {
+    await textField(wrapper, label)?.setValue(url);
     // Past the field's debounce.
     await new Promise((resolve) => setTimeout(resolve, 450));
     await flushPromises();
@@ -269,6 +274,144 @@ describe("NotificationChannelDialog", () => {
       targets: ["romm"],
     });
     wrapper.unmount();
+  });
+
+  describe("a URL read after an earlier one", () => {
+    const label = "notifications.channel-service-url";
+    const cloud = {
+      service: "ntfy",
+      fields: { targets: ["romm"], mode: "cloud" },
+    };
+    const privateServer = {
+      service: "ntfy",
+      fields: { schema: "ntfy", host: "10.0.0.5", targets: ["romm"] },
+    };
+
+    async function openNtfy() {
+      const base = makeAppriseService();
+      const field = base.fields[0]!;
+      api.getAppriseServices.mockResolvedValue({
+        data: [
+          makeAppriseService({
+            url_fields: ["schema", "host", "port", "targets"],
+            fields: [
+              ...base.fields,
+              {
+                ...field,
+                key: "mode",
+                label: "Mode",
+                required: false,
+                advanced: true,
+                default: "private",
+                values: ["private", "cloud"],
+              },
+            ],
+          }),
+        ],
+      });
+      api.create.mockResolvedValue({ data: channel({ type: "apprise" }) });
+      const wrapper = await open(null, { admin: true });
+      await pick(wrapper, "apprise:ntfy");
+      await wrapper.findAll("input.r-text-field__input")[0]!.setValue("Phone");
+      return wrapper;
+    }
+
+    const saved = () => api.create.mock.calls[0]![0].fields;
+
+    it("drops what the earlier URL set when the new one leaves it out", async () => {
+      api.parseAppriseUrl
+        .mockResolvedValueOnce({ data: cloud })
+        .mockResolvedValueOnce({ data: privateServer });
+      const wrapper = await openNtfy();
+
+      await paste(wrapper, "ntfy://romm", label);
+      await paste(wrapper, "ntfy://10.0.0.5/romm", label);
+      await save(wrapper);
+
+      expect(saved()).toMatchObject({ host: "10.0.0.5", mode: "private" });
+      wrapper.unmount();
+    });
+
+    it("still drops it when the field was emptied in between", async () => {
+      api.parseAppriseUrl
+        .mockResolvedValueOnce({ data: cloud })
+        .mockResolvedValueOnce({ data: privateServer });
+      const wrapper = await openNtfy();
+
+      await paste(wrapper, "ntfy://romm", label);
+      await paste(wrapper, "", label);
+      await paste(wrapper, "ntfy://10.0.0.5/romm", label);
+      await save(wrapper);
+
+      expect(saved()).toMatchObject({ host: "10.0.0.5", mode: "private" });
+      wrapper.unmount();
+    });
+
+    it("keeps what was changed by hand since the earlier URL", async () => {
+      api.parseAppriseUrl
+        .mockResolvedValueOnce({
+          data: { ...cloud, fields: { ...cloud.fields, priority: "low" } },
+        })
+        .mockResolvedValueOnce({ data: privateServer });
+      const wrapper = await openNtfy();
+
+      await paste(wrapper, "ntfy://romm?priority=low", label);
+      const fields = wrapper.findComponent(AppriseServiceFields);
+      fields.vm.$emit("update:modelValue", {
+        ...(propOf(fields, "modelValue") as Record<string, unknown>),
+        priority: "high",
+      });
+      await nextTick();
+      await paste(wrapper, "ntfy://10.0.0.5/romm", label);
+      await save(wrapper);
+
+      expect(saved()).toMatchObject({ mode: "private", priority: "high" });
+      wrapper.unmount();
+    });
+
+    it("still drops it when a read in between failed", async () => {
+      api.parseAppriseUrl
+        .mockResolvedValueOnce({ data: cloud })
+        .mockRejectedValueOnce({ response: { data: { detail: "no topic" } } })
+        .mockResolvedValueOnce({ data: privateServer });
+      const wrapper = await openNtfy();
+
+      await paste(wrapper, "ntfy://romm", label);
+      await paste(wrapper, "ntfy://user:pass@10.0.0.5", label);
+      await paste(wrapper, "ntfy://10.0.0.5/romm", label);
+      await save(wrapper);
+
+      expect(saved()).toMatchObject({ host: "10.0.0.5", mode: "private" });
+      wrapper.unmount();
+    });
+
+    it("ignores a read that answers after a newer one", async () => {
+      let answerOlder: (value: unknown) => void = () => {};
+      api.parseAppriseUrl
+        .mockResolvedValueOnce({ data: cloud })
+        .mockReturnValueOnce(new Promise((resolve) => (answerOlder = resolve)))
+        .mockResolvedValueOnce({ data: privateServer });
+      const wrapper = await openNtfy();
+
+      await paste(wrapper, "ntfy://romm", label);
+      await paste(wrapper, "ntfy://user:pass@10.0.0.5/romm", label);
+      await paste(wrapper, "ntfy://10.0.0.5/romm", label);
+      answerOlder({
+        data: {
+          service: "ntfy",
+          fields: {
+            schema: "ntfy",
+            host: "older.example.com",
+            targets: ["romm"],
+          },
+        },
+      });
+      await flushPromises();
+      await save(wrapper);
+
+      expect(saved()).toMatchObject({ host: "10.0.0.5", mode: "private" });
+      wrapper.unmount();
+    });
   });
 
   it("says why it can't read a pasted URL", async () => {
