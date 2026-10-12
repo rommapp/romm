@@ -1,0 +1,23 @@
+{
+  "active-sessions": "Aktiva sessioner",
+  "days-ago": "för {n} d sedan",
+  "hours-ago": "för {n} h sedan",
+  "hours-minutes-ago": "för {h} h och {m} min sedan",
+  "just-now": "Just nu",
+  "live": "DIREKT",
+  "minutes-ago": "för {n} min sedan",
+  "no-activity": "Ingen spelar just nu",
+  "now-playing": "Spelas nu",
+  "playing-on": "Spelas på {device}",
+  "playing-since": "Spelas sedan {time}",
+  "release-failed": "Kunde inte avsluta sessionen",
+  "release-reason": "Orsak (valfri)",
+  "release-reason-placeholder": "Visas för spelaren vars session avslutas",
+  "release-session": "Avsluta",
+  "release-session-body": "Detta stoppar {game} omedelbart och kopplar från {user}. Osparade framsteg går förlorade.",
+  "release-session-title": "Avsluta strömningssessionen?",
+  "session-released": "Sessionen har avslutats",
+  "streaming-sessions": "Strömningssessioner",
+  "total-sessions": "Totalt antal sessioner",
+  "unknown-user": "Okänd användare"
+}
