@@ -420,6 +420,19 @@ async def add_save(
                 await fs_asset_handler.remove_file(f"{saves_path}/{actual_filename}")
             except FileNotFoundError:
                 pass
+            # The device's upload is the slot's newest; a retry of the head
+            # keeps its timestamp so other devices don't go stale.
+            promoted = db_save_handler.promote_to_slot_head(existing_by_hash)
+            # A promoted version moves the channel too; a retry of the head leaves it.
+            if promoted.updated_at != existing_by_hash.updated_at:
+                await hold_legacy_upload(
+                    promoted, request.user, rom, device.id if device else None
+                )
+                promoted = (
+                    db_save_handler.get_save(user_id=request.user.id, id=promoted.id)
+                    or promoted
+                )
+            existing_by_hash = promoted
             # A retry still counts as an upload to the slot, so the cap applies.
             if keep is not None:
                 await prune_save_slot(

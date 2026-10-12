@@ -1,5 +1,5 @@
 import functools
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any, cast
 
@@ -546,6 +546,7 @@ class DBCollectionsHandler(DBBaseHandler):
             query=query,
             filters=filters,
             user_id=user_id,
+            collection_user_id=smart_collection.user_id,
             include_related=False,
             session=session,
         )
@@ -648,6 +649,24 @@ class DBCollectionsHandler(DBBaseHandler):
             self.refresh_smart_collection(id, session=session)
 
         return len(ids)
+
+    @begin_session
+    def refresh_smart_collections_scoped_to(
+        self,
+        collection_id: int,
+        session: Session = INJECTED_SESSION,
+    ) -> None:
+        """Refresh the smart collections whose criteria name `collection_id`, since
+        sharing, unsharing or deleting it changes what their criteria match."""
+        rows = session.execute(
+            select(SmartCollection.id, SmartCollection.filter_criteria)
+        ).all()
+        for smart_collection_id, criteria in rows:
+            # A raw match, so rows with unrelated invalid criteria stay unparsed.
+            if isinstance(criteria, Mapping) and str(
+                criteria.get("collection_id")
+            ) == str(collection_id):
+                self.refresh_smart_collection(smart_collection_id, session=session)
 
     @begin_session
     def refresh_smart_collections_for_roms(

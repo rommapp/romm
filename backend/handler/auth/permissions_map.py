@@ -92,6 +92,10 @@ LEGACY_VIEWER_GRANTS: tuple[Grant, ...] = (
     (PermEntity.DEVICES, PermAction.READ, True),
     (PermEntity.DEVICES, PermAction.WRITE, True),
     (PermEntity.DEVICES, PermAction.DELETE, True),
+    (PermEntity.STREAMING, PermAction.READ, False),
+    (PermEntity.STREAMING, PermAction.WRITE, False),
+    (PermEntity.EMULATION, PermAction.READ, False),
+    (PermEntity.EMULATION, PermAction.WRITE, False),
 )
 
 # "Editor" == EDIT_SCOPES: viewer + library-wide write AND delete of

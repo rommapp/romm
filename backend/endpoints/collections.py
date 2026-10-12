@@ -14,7 +14,10 @@ from endpoints.responses.collection import (
     SmartCollectionSchema,
     VirtualCollectionSchema,
 )
-from endpoints.roms import refresh_affected_smart_collections
+from endpoints.roms import (
+    refresh_affected_smart_collections,
+    refresh_scoped_smart_collections,
+)
 from exceptions.endpoint_exceptions import (
     CollectionAlreadyExistsException,
     CollectionNotFoundInDatabaseException,
@@ -24,6 +27,7 @@ from handler.audit_handler import AuditTarget, changed_fields, record
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_rom_visibility_filter
 from handler.database import db_collection_handler, db_rom_handler
+from handler.database.rom_filters import RomFilterParams
 from handler.filesystem import fs_resource_handler
 from handler.filesystem.assets_handler import validate_image_upload
 from handler.filesystem.base_handler import CoverSize
@@ -88,6 +92,23 @@ def _record_collection(
     if getattr(collection, "is_favorite", False):
         return
     record(action, request, AuditTarget.of_collection(collection), data)
+
+
+def _criteria_collection_id(criteria: object) -> int | None:
+    filters = RomFilterParams.from_stored_criteria(criteria)
+    return filters.collection_id if filters else None
+
+
+def _check_criteria_collection(
+    criteria: object, user_id: int, kept_id: int | None = None
+) -> None:
+    """Refuse criteria newly scoped to a collection the owner can't see."""
+    collection_id = _criteria_collection_id(criteria)
+    if not collection_id or collection_id == kept_id:
+        return
+    collection = db_collection_handler.get_collection(collection_id)
+    if not collection or (collection.user_id != user_id and not collection.is_public):
+        raise CollectionNotFoundInDatabaseException(collection_id)
 
 
 @protected_route(router.post, "", [Scope.COLLECTIONS_WRITE])
@@ -191,6 +212,7 @@ async def add_smart_collection(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid JSON for filter_criteria field",
         ) from e
+    _check_criteria_collection(parsed_filter_criteria, request.user.id)
 
     cleaned_data = {
         "name": name,
@@ -529,6 +551,8 @@ async def update_collection(
     changed = changed_fields(
         collection, cleaned_data, ("name", "description", "is_public")
     )
+    if "is_public" in changed:
+        refresh_scoped_smart_collections(id)
     new_artwork = artwork is not None and artwork.filename is not None
     if (
         remove_cover
@@ -537,6 +561,10 @@ async def update_collection(
     ):
         changed.append("cover")
     before_ids, after_ids = set(collection.rom_ids), set(updated_collection.rom_ids)
+    if before_ids != after_ids:
+        refresh_affected_smart_collections(
+            sorted(before_ids ^ after_ids), membership_only=True
+        )
     if changed or before_ids != after_ids:
         _record_collection(
             request,
@@ -571,9 +599,13 @@ def update_collection_visibility(
     if collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
 
-    return CollectionSchema.model_validate(
-        db_collection_handler.update_collection(id, {"is_public": is_public})
+    updated_collection = db_collection_handler.update_collection(
+        id, {"is_public": is_public}
     )
+    if collection.is_public != is_public:
+        refresh_scoped_smart_collections(id)
+
+    return CollectionSchema.model_validate(updated_collection)
 
 
 class CollectionRomsPayload(PydanticBaseModel):
@@ -701,6 +733,13 @@ async def update_smart_collection(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid JSON for filter_criteria field",
             ) from e
+        # The form resends the stored scope on every edit; the ROM filters
+        # already match nothing for one the owner has since lost.
+        _check_criteria_collection(
+            parsed_filter_criteria,
+            request.user.id,
+            kept_id=_criteria_collection_id(smart_collection.filter_criteria),
+        )
 
     cleaned_data = {
         "name": name if name is not None else smart_collection.name,
@@ -768,6 +807,7 @@ async def delete_collection(
 
     log.info(f"Deleting {hl(collection.name, color=BLUE)} from database")
     db_collection_handler.delete_collection(id)
+    refresh_scoped_smart_collections(id)
     _record_collection(request, AuditAction.COLLECTION_DELETE, collection)
 
     try:

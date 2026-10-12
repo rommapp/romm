@@ -5,9 +5,10 @@ from fastapi import Request
 from decorators.auth import protected_route
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
+from handler.auth.dependencies import assert_rom_visible, can_access, get_permissions
 from handler.database import db_rom_handler
 from handler.netplay_handler import NetplayRoom, netplay_handler
+from models.permission import PermAction, PermEntity
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -55,6 +56,10 @@ async def get_rooms(request: Request, game_id: int) -> Dict[str, RoomsResponse]:
         raise RomNotFoundInDatabaseException(game_id)
 
     assert_rom_visible(request, rom)
+
+    # Empty rather than 403, like the streaming joinable list.
+    if not can_access(get_permissions(request), PermEntity.EMULATION, PermAction.READ):
+        return {}
 
     netplay_rooms = await netplay_handler.get_all()
 

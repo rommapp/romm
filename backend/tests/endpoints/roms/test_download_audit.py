@@ -170,7 +170,7 @@ def test_a_bulk_download_is_one_event_on_its_platform(
     assert event.data["count"] == 1
 
 
-def test_someone_elses_private_collection_is_kept_by_id_only(
+def test_someone_elses_private_collection_is_not_downloaded(
     client: TestClient,
     access_token: str,
     editor_user: User,
@@ -188,11 +188,11 @@ def test_someone_elses_private_collection_is_kept_by_id_only(
     )
     db_collection_handler.add_roms_to_collection(private.id, [rom.id])
 
-    client.get(
+    response = client.get(
         "/api/roms/download",
         params={"collection_id": private.id},
         headers=_auth(access_token),
     )
 
-    [event] = recorded_events()
-    assert (event.target_id, event.target_name) == (str(private.id), None)
+    assert response.status_code == 404
+    assert recorded_events() == []

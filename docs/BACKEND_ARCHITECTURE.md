@@ -894,9 +894,11 @@ Token format: `rmm_` + 64 hex chars (32-byte random)
 | `0072`         | Client tokens table                       |
 | `0149`, `0150` | ROM fs_name lookup indexes                |
 | `0151`         | State content hash                        |
-| `0152`         | Save channels and snapshots               |
-| `0153`         | Slotted saves filed under channels        |
-| `0154`         | ROM file sigil identity                   |
+| `0152`         | Cross-user smart collection scopes        |
+| `0153`         | Play permissions                          |
+| `0154`         | Save channels and snapshots               |
+| `0155`         | Slotted saves filed under channels        |
+| `0156`         | ROM file sigil identity                   |
 
 Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/PostgreSQL.
 
@@ -1439,6 +1441,12 @@ collections.read / collections.write : Collections
 users.read / users.write     : User management (admin)
 tasks.run                    : Task execution
 ```
+
+### Permission Groups
+
+Endpoints also check the caller's permission group (`handler/auth/permissions.py`), which holds entity and action grants plus per-user overrides. Most entities line up with a scope above; `streaming` and `emulation` have none. A `read` grant shows streaming and lets the user join someone else's session, while an "own items only" `read` shows it without the join. Starting a session takes `read` and `write`. A user who loses the grant keeps control of a session they already hold.
+
+`emulation` covers the in-browser players (EmulatorJS, Ruffle, js-dos, PICO-8, EasyRPG). A `read` grant lets the user play in the browser and join someone else's netplay room, and an "own items only" `read` plays without the join. Hosting a room takes `read` and `write`. A password room admits anyone with the password, so the invite stands in for the grant. ROM files are also served for downloads, so the grant hides the players in the UI and is enforced on the netplay sockets, the room list and the EasyRPG file route.
 
 ### CSRF Protection
 
@@ -2081,7 +2089,7 @@ Falls back to `FakeRedis` in test mode.
 | `OIDC_REDIRECT_URI`             |                      | Redirect URI                    |
 | `OIDC_USERNAME_ATTRIBUTE`       | `preferred_username` | Username claim                  |
 | `OIDC_CLAIM_ROLES`              |                      | Roles claim name                |
-| `OIDC_ROLE_VIEWER/EDITOR/ADMIN` |                      | Role mappings                   |
+| `OIDC_ROLE_VIEWER/EDITOR/ADMIN` |                      | Comma-separated role values     |
 | `OIDC_TLS_CACERTFILE`           |                      | Custom CA bundle for OIDC calls |
 | `OIDC_RP_INITIATED_LOGOUT`      | `false`              | Send logout to OIDC provider    |
 | `OIDC_END_SESSION_ENDPOINT`     |                      | End-session URL override        |

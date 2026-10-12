@@ -23,6 +23,7 @@ import os
 import re
 import zipfile
 import zlib
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, NamedTuple
@@ -42,12 +43,18 @@ from handler.filesystem import fs_asset_handler
 from handler.streaming import broker, commands, webstation
 from handler.streaming.config import ResolvedContainer
 from handler.streaming.session_store import set_session_disc
+from handler.sync.retroarch.emulator_names import retroarch_aliases
+from handler.sync.retroarch.sync_handler import (
+    emulator_from_dir_name,
+    group_states_by_slot,
+)
 from logger.logger import log
-from models.assets import State
+from models.assets import EMULATOR_MAX_LENGTH, State
 from models.rom import Rom
 from models.user import User
 from utils.filesystem import check_filename_length, sanitize_filename
 from utils.memory_cards import content_hash_of_bytes
+from utils.uploads import is_emulator_folder_name
 
 # Slot number encoded in each emulator's state filename, e.g. PCSX2 writes
 # "SERIAL (CRC).03.p2s" for slot 3 and Dolphin writes "GAMEID.s03". Resuming
@@ -140,15 +147,16 @@ def resolve_resume_state(
         raise HTTPException(status_code=404, detail="State not found")
 
     emulator = container.emulator
-    native = (state.emulator or "").lower() == emulator
+    core = state_core_for(container)
+    # Another core's file would land where this one's quick-load reads it.
+    by_stream = _filed_by_stream(state, emulator)
+    if by_stream and core is not None and not core.matches(state.core):
+        raise HTTPException(
+            status_code=400,
+            detail="State was made by a different RetroArch core",
+        )
+    native = is_native_state(state, emulator, core)
     if native:
-        # Another core's file would land where this one's quick-load reads it.
-        core = state_core_for(container)
-        if core is not None and not core.matches(state.core):
-            raise HTTPException(
-                status_code=400,
-                detail="State was made by a different RetroArch core",
-            )
         slot = slot_from_state_filename(emulator, state.file_name)
         if slot is not None:
             return state, slot, False
@@ -176,6 +184,8 @@ class PulledState(NamedTuple):
     content: bytes
     # The libretro core that wrote it; None from a broker too old to say.
     core: str | None = None
+    # RetroArch's folder name for that core, its library name.
+    library_name: str | None = None
 
 
 def fetch_state_file(container: ResolvedContainer, slot: int) -> PulledState | None:
@@ -199,7 +209,12 @@ def fetch_state_file(container: ResolvedContainer, slot: int) -> PulledState | N
     if not filename:
         log.warning("broker state-file response missing a filename")
         return None
-    return PulledState(filename, content, headers.get("X-State-Core") or None)
+    return PulledState(
+        filename,
+        content,
+        headers.get("X-State-Core") or None,
+        headers.get("X-State-Library") or None,
+    )
 
 
 def push_state_file(
@@ -307,6 +322,18 @@ class StateCore:
     # Whether `expected` is the platform's default core, which wrote every
     # state stored before cores were recorded.
     default_matches: bool
+    # The emulator other clients file the core's states under, from its
+    # RetroArch folder; None when the broker can't name it.
+    folder: str | None = None
+
+    @property
+    def filed_as(self) -> str:
+        return self.folder or self.expected
+
+    @property
+    def folders(self) -> list[str]:
+        """The emulators, lowercased, whose states Cloud Sync slots with this core's."""
+        return sorted({a.lower() for a in retroarch_aliases(self.filed_as) if a})
 
     def matches(self, core: str | None) -> bool:
         return core == self.expected or (core is None and self.default_matches)
@@ -326,12 +353,104 @@ def state_core_for(
     reply = launched if isinstance(launched, dict) else {}
     booted = reply.get("core")
     if isinstance(booted, str) and booted:
-        return StateCore(booted, reply.get("core_tier") == "default")
+        return StateCore(
+            booted,
+            reply.get("core_tier") == "default",
+            library_folder(reply.get("library_name")),
+        )
     default = webstation.default_core(container)
     expected = container.core or default
     if expected is None:
         return None
-    return StateCore(expected, default is not None and expected == default)
+    return StateCore(
+        expected,
+        default is not None and expected == default,
+        # From the cores reply default_core just cached, so no second request.
+        library_folder(webstation.core_library_name(container, expected)),
+    )
+
+
+def folder_name(name: Any) -> str | None:
+    """`name` when it can be an emulator column and one folder, else None."""
+    if (
+        isinstance(name, str)
+        and name
+        and len(name) <= EMULATOR_MAX_LENGTH
+        and is_emulator_folder_name(name)
+    ):
+        return name
+    return None
+
+
+def library_folder(library_name: Any) -> str | None:
+    """The emulator Cloud Sync files a RetroArch core's folder under, named
+    after its library name, or None when there's no usable name."""
+    if not isinstance(library_name, str) or not library_name:
+        return None
+    return folder_name(emulator_from_dir_name(library_name))
+
+
+def filed_emulator(
+    emulator: str, core: str | None, library_name: str | None = None
+) -> str:
+    """The emulator a stream files a state or save under: RetroArch's folder for
+    the core, where every other client files it, else the core id."""
+    # Without a recorded core, nothing would tell a state in the core's folder
+    # from another client's.
+    if emulator != "retroarch" or core is None:
+        return emulator
+    return library_folder(library_name) or folder_name(core) or emulator
+
+
+def _filed_by_stream(state: State, emulator: str) -> bool:
+    """Whether a stream on `emulator` filed this state: under the emulator, or
+    a RetroArch one with its core recorded, which only a stream records."""
+    if (state.emulator or "").lower() == emulator:
+        return True
+    return emulator == "retroarch" and state.is_stream_capture
+
+
+def _loads_in(state: State, emulator: str, core: StateCore) -> bool:
+    """Whether the running RetroArch core loads this state: one a stream wrote
+    with this core, or another client's in the core's folder."""
+    if _filed_by_stream(state, emulator):
+        return core.matches(state.core)
+    # By folder, as Cloud Sync slots it, so an alias of the core's name counts.
+    return (state.emulator or "").lower() in core.folders
+
+
+def is_native_state(state: State, emulator: str, core: StateCore | None) -> bool:
+    """Whether a stream on `emulator` loads this state as its own, no import."""
+    if core is None:
+        return _filed_by_stream(state, emulator)
+    return _loads_in(state, emulator, core)
+
+
+class StatePicks(NamedTuple):
+    """The state ids the resume picker offers, in the order given."""
+
+    native: list[int]
+    pickable: list[int]
+
+
+def state_picks(
+    candidates: Iterable[State],
+    emulator: str,
+    core: StateCore | None,
+    imports_states: bool,
+) -> StatePicks:
+    """Split the states the resume claim takes: native ones with a slot resume as
+    they are; with `imports_states` the rest import, except another core's capture."""
+    native: list[int] = []
+    pickable: list[int] = []
+    for state in candidates:
+        loads = is_native_state(state, emulator, core)
+        if loads and slot_from_state_filename(emulator, state.file_name) is not None:
+            native.append(state.id)
+            pickable.append(state.id)
+        elif imports_states and (loads or not _filed_by_stream(state, emulator)):
+            pickable.append(state.id)
+    return StatePicks(native, pickable)
 
 
 def user_states_for_emulator(
@@ -339,14 +458,14 @@ def user_states_for_emulator(
 ) -> list[State]:
     """The user's states for this ROM and emulator, newest first.
 
-    `core` narrows them to what a RetroArch core can load. Prune and dedup
-    leave it out: they work on the whole history, whichever core wrote it.
+    Args:
+        core: every state that RetroArch core loads, whoever filed it; without
+            it, the stream's own history, which prune and dedup work on.
     """
     states = [
         s
         for s in db_state_handler.get_states(user_id=user_id, rom_ids=[rom_id])
-        if (s.emulator or "").lower() == emulator
-        and (core is None or core.matches(s.core))
+        if is_native_state(s, emulator, core)
     ]
     # Ties on id, because updated_at only has second resolution: two captures
     # in the same second would otherwise order arbitrarily, and only the first
@@ -421,11 +540,14 @@ async def _remove_pruned_file(path: str) -> None:
 async def prune_state_history(
     user: User, rom: Rom, emulator: str, history: list[State] | None = None
 ) -> int:
-    """Delete the oldest states past the retention limit. Returns how many went.
+    """Delete the oldest states past the retention limit, sparing a capture a
+    Cloud Sync slot serves; a missing file still loses its row.
 
-    A file already gone from disk still loses its row, since a stale entry that
-    no longer opens is worse than a missing file. `history` is the newest-first
-    list a caller already holds, saving a second fetch and sort of the same rows.
+    Args:
+        history: the newest-first list a caller already holds, saving a refetch.
+
+    Returns:
+        How many went.
     """
     limit = STREAMING_STATE_HISTORY_LIMIT
     if limit <= 0:
@@ -439,6 +561,15 @@ async def prune_state_history(
     frozen = db_snapshot_handler.get_frozen_state_ids([s.id for s in states])
     states = [s for s in states if s.id not in frozen]
     stale = states[limit:]
+    if stale:
+        served = {
+            state.id
+            for state in group_states_by_slot(
+                db_state_handler.get_states(user_id=user.id, rom_ids=[rom.id])
+            ).values()
+            if not state.missing_from_fs
+        }
+        stale = [state for state in stale if state.id not in served]
     for state in stale:
         screenshot = state.screenshot
         db_state_handler.delete_state(state.id)
@@ -471,6 +602,7 @@ async def store_state_asset(
     disc_file_id: int | None = None,
     core: str | None = None,
     captured_at: datetime | None = None,
+    library_name: str | None = None,
 ) -> None:
     """Store a pulled state file as a new entry in the ROM's state history.
 
@@ -481,6 +613,8 @@ async def store_state_asset(
     Args:
         captured_at: when the state was written, for one filed after a newer
             capture; defaults to now.
+        library_name: RetroArch's folder name for `core`, which the state is
+            filed under.
     """
     history = user_states_for_emulator(user.id, rom.id, emulator)
     if await _is_duplicate_of_latest(history[0] if history else None, content):
@@ -495,7 +629,12 @@ async def store_state_asset(
     if captured_at is not None:
         fields |= {"created_at": captured_at, "updated_at": captured_at}
     stored = await store_state_file(
-        user, rom, emulator, content, stamped, fields=fields
+        user,
+        rom,
+        filed_emulator(emulator, core, library_name),
+        content,
+        stamped,
+        fields=fields,
     )
     if captured_at is not None:
         # Filed under newer captures, so the prune reads the history afresh.
@@ -541,7 +680,7 @@ async def pull_state_to_library(
         result = await asyncio.to_thread(fetch_state_file, container, slot)
         if result is None:
             continue
-        filename, content, core = result
+        filename, content, core, library_name = result
         try:
             filename = sanitize_filename(filename)
             # The library stores the name with a capture stamp, so that must fit.
@@ -561,7 +700,15 @@ async def pull_state_to_library(
             )
         try:
             await store_state_asset(
-                user, rom, emulator, filename, content, screenshot, disc_file_id, core
+                user,
+                rom,
+                emulator,
+                filename,
+                content,
+                screenshot,
+                disc_file_id,
+                core=core,
+                library_name=library_name,
             )
         except Exception:
             log.exception("failed to store pulled state %s", filename)
@@ -588,7 +735,9 @@ async def push_resume_state(
     Best-effort: a failure means the session just starts fresh, which the claim
     response reports through `resume`.
     """
-    if state_core is not None and not state_core.matches(resume_state.core):
+    if state_core is not None and not _loads_in(
+        resume_state, container.emulator.lower(), state_core
+    ):
         log.warning(
             "resume state is %s's, core %s booted, launching fresh",
             resume_state.core,

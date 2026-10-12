@@ -220,24 +220,59 @@ def states_in_slot(
     ]
 
 
-def resolve_state_by_slot(
-    user: User,
-    rom: Rom,
-    emulator: str | None,
-    requested_file_name: str,
-    prefer_on_disk: bool = True,
-) -> State | None:
-    """The state the slot a canonical name points at serves, whatever its name.
+class SlotStates(NamedTuple):
+    """A slot's states: a stream capture is served while newest, but Cloud Sync
+    never writes over or deletes one, as it belongs to the stream's history."""
 
-    Args:
-        prefer_on_disk: False ranks a `missing_from_fs` row by recency alone, so
-            an upload revives the newest state in place.
-    """
-    return max(
-        states_in_slot(user, rom, emulator, requested_file_name),
-        key=on_disk_recency_key if prefer_on_disk else recency_key,
-        default=None,
+    # What the slot serves, ranked on disk first.
+    served: State | None
+    # The non-captures, which a client upload or delete acts on.
+    own: list[State]
+
+    @property
+    def served_capture(self) -> State | None:
+        return self.served if self.served and self.served.is_stream_capture else None
+
+    @property
+    def own_head(self) -> State | None:
+        """The state an upload writes over."""
+        return max(self.own, key=recency_key, default=None)
+
+
+def slot_states(
+    user: User, rom: Rom, emulator: str | None, requested_file_name: str
+) -> SlotStates:
+    """The states in the slot a canonical name points at, under any alias."""
+    in_slot = states_in_slot(user, rom, emulator, requested_file_name)
+    return SlotStates(
+        max(in_slot, key=on_disk_recency_key, default=None),
+        [s for s in in_slot if not s.is_stream_capture],
     )
+
+
+def resolve_state_by_slot(
+    user: User, rom: Rom, emulator: str | None, requested_file_name: str
+) -> State | None:
+    """The state the slot a canonical name points at serves, whatever its name."""
+    return slot_states(user, rom, emulator, requested_file_name).served
+
+
+class CaptureCheck(NamedTuple):
+    """A state upload checked against the capture its slot serves."""
+
+    # The upload's hash when it had to be read, for the scan to skip a re-read.
+    content_hash: str | None
+    # The client sent back the capture it was served, which adds nothing.
+    is_copy: bool
+
+
+async def check_against_capture(slot: SlotStates, body: UploadFile) -> CaptureCheck:
+    """Hash the upload when the slot serves a capture on disk it could be a copy of."""
+    capture = slot.served_capture
+    if not (capture and capture.content_hash and not capture.missing_from_fs):
+        return CaptureCheck(None, False)
+    content_hash = await asyncio.to_thread(hash_save_content, body.file)
+    return CaptureCheck(content_hash, content_hash == capture.content_hash)
 
 
 # RetroArch's save RAM, the one save file that goes through slots. Companions
@@ -287,7 +322,7 @@ def _unslotted_save_at(
     )
 
 
-def _alias_lineages(lineage: SaveLineage) -> list[SaveLineage]:
+def alias_lineages(lineage: SaveLineage) -> list[SaveLineage]:
     """``lineage`` under each of its emulator's aliases."""
     return [
         lineage._replace(emulator=alias)
@@ -295,13 +330,13 @@ def _alias_lineages(lineage: SaveLineage) -> list[SaveLineage]:
     ]
 
 
-def _lineage_head(user: User, rom: Rom, lineage: SaveLineage) -> Save | None:
+def lineage_head(user: User, rom: Rom, lineage: SaveLineage) -> Save | None:
     """The newest `autosave` version across ``lineage``'s aliases."""
     return db_save_handler.get_lineage_head(
         user_id=user.id,
         rom_id=rom.id,
         slot=AUTOSAVE_SLOT,
-        lineages=_alias_lineages(lineage),
+        lineages=alias_lineages(lineage),
     )
 
 
@@ -324,11 +359,30 @@ def _served_version(head: Save, current: Save | None) -> Save:
     return current if may_load(current, aliases, aliases) else head
 
 
-def _served_head(user: User, rom: Rom, lineage: SaveLineage) -> Save | None:
-    head = _lineage_head(user, rom, lineage)
+def served_head(user: User, rom: Rom, lineage: SaveLineage) -> Save | None:
+    """The save RetroArch reads for ``lineage``: its channel's current or newest version."""
+    head = lineage_head(user, rom, lineage)
     if head is None:
         return None
     return _served_version(head, _channel_currents(user, [rom.id]).get(rom.id))
+
+
+async def add_autosave_version(
+    user: User, rom: Rom, save: Save, emulator: str | None, lineage: SaveLineage
+) -> None:
+    """Record `save` as `lineage`'s newest `autosave` version and its channel's
+    next snapshot, keeping `MAX_SAVES_PER_SLOT`."""
+    save.rom_id = rom.id
+    save.user_id = user.id
+    save.emulator = emulator
+    save.slot = AUTOSAVE_SLOT
+    db_save = await asyncio.to_thread(db_save_handler.add_save, save=save)
+    await hold_legacy_upload(db_save, user, rom, None)
+    # After the bridge, so a version it just made a snapshot hold is never pruned.
+    if MAX_SAVES_PER_SLOT:
+        await prune_save_slot(
+            user.id, rom.id, AUTOSAVE_SLOT, MAX_SAVES_PER_SLOT, lineage=lineage
+        )
 
 
 def resolve_save(
@@ -337,7 +391,7 @@ def resolve_save(
     """The save a RetroArch path serves: its channel's current or newest `autosave`
     version, else the unslotted save there."""
     lineage = save_lineage(emulator, requested_file_name)
-    head = _served_head(user, rom, lineage) if lineage else None
+    head = served_head(user, rom, lineage) if lineage else None
     return head or _unslotted_save_at(user, rom, emulator, requested_file_name)
 
 
@@ -357,7 +411,7 @@ def saves_at_path(
             rom_ids=[rom.id],
             slot=AUTOSAVE_SLOT,
             with_unslotted=True,
-            lineages=_alias_lineages(lineage),
+            lineages=alias_lineages(lineage),
         )
         # The manifest hides unslotted ones behind the head, so whatever their
         # case they would resurface once the versions go.
@@ -391,7 +445,7 @@ async def store_save(
             user, rom, emulator, requested_file_name, body
         )
 
-    served = await asyncio.to_thread(_served_head, user, rom, lineage)
+    served = await asyncio.to_thread(served_head, user, rom, lineage)
     # A re-sent file adds no version, so it can't push real history past the cap.
     content_hash = hash_save_content(body.file)
     if served and content_hash and content_hash == served.content_hash:
@@ -410,18 +464,7 @@ async def store_save(
         rom_id=rom.id,
         emulator=emulator,
     )
-    scanned.rom_id = rom.id
-    scanned.user_id = user.id
-    scanned.emulator = emulator
-    scanned.slot = AUTOSAVE_SLOT
-    db_save = await asyncio.to_thread(db_save_handler.add_save, save=scanned)
-    await hold_legacy_upload(db_save, user, rom, None)
-    # After the bridge, so a version it just made a snapshot hold is never pruned.
-    if MAX_SAVES_PER_SLOT:
-        await prune_save_slot(
-            user.id, rom.id, AUTOSAVE_SLOT, MAX_SAVES_PER_SLOT, lineage=lineage
-        )
-
+    await add_autosave_version(user, rom, scanned, emulator, lineage)
     return "created"
 
 
@@ -531,14 +574,62 @@ def state_screenshots(user: User, states: Collection[State]) -> dict[int, Screen
     return {state_id: shot for state_id, shot in matches.items() if shot}
 
 
+def _state_screenshot(user: User, state: State | None) -> Screenshot | None:
+    return state_screenshots(user, [state]).get(state.id) if state else None
+
+
+def slot_screenshot(
+    user: User, rom: Rom, emulator: str | None, requested_file_name: str
+) -> tuple[State | None, Screenshot | None]:
+    """The state a ``<slot>.png`` name resolves to, and that state's screenshot."""
+    state = resolve_state_by_slot(
+        user, rom, emulator, state_name_of_screenshot(requested_file_name)
+    )
+    return state, _state_screenshot(user, state)
+
+
 def resolve_state_screenshot_by_slot(
     user: User, rom: Rom, emulator: str | None, requested_file_name: str
 ) -> Screenshot | None:
     """The screenshot of the state a ``<slot>.png`` name resolves to."""
-    state = resolve_state_by_slot(
+    return slot_screenshot(user, rom, emulator, requested_file_name)[1]
+
+
+class ScreenshotUpload(NamedTuple):
+    """Where a ``<slot>.png`` upload goes."""
+
+    file_name: str
+    emulator: str | None
+    # The screenshot of the capture the slot serves, which a re-sent copy of
+    # leaves alone.
+    served: Screenshot | None
+
+
+def screenshot_upload_target(
+    user: User, rom: Rom, emulator: str | None, requested_file_name: str
+) -> ScreenshotUpload:
+    """Files a ``<slot>.png`` with the state the slot's next state upload writes
+    to, so a screenshot sent ahead of its state lands with it."""
+    slot = slot_states(
         user, rom, emulator, state_name_of_screenshot(requested_file_name)
     )
-    return state_screenshots(user, [state]).get(state.id) if state else None
+    capture = slot.served_capture
+    head = slot.own_head if capture else slot.served
+    served = _state_screenshot(user, capture)
+    if head is None:
+        return ScreenshotUpload(requested_file_name, emulator, served)
+    return ScreenshotUpload(f"{head.file_name}.png", head.emulator, served)
+
+
+async def screenshot_sent_back(served: Screenshot, body: UploadFile) -> bool:
+    """Whether the upload is a copy of the served capture's screenshot on disk."""
+    if served.missing_from_fs:
+        return False
+    body_hash, stored_hash = await asyncio.gather(
+        asyncio.to_thread(hash_save_content, body.file),
+        fs_asset_handler.compute_content_hash(served.full_path),
+    )
+    return body_hash is not None and body_hash == stored_hash
 
 
 def build_retroarch_sync_path(

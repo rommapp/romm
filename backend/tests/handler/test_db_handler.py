@@ -983,14 +983,38 @@ def test_get_matching_missing_rom_matches_title_id_without_hashes(platform: Plat
 def test_get_matching_missing_rom_hashes_take_precedence_over_title_id(
     platform: Platform,
 ):
-    """A hashed file is matched on its hashes, not on a shared title id."""
-    _add_missing_rom(
+    """A hash match wins over another missing entry sharing the title id."""
+    by_hash = _add_missing_rom(
         platform,
-        "other",
+        "by_hash",
         crc_hash="aabbccdd",
         md5_hash="md5val",
         sha1_hash="sha1val",
-        title_id="0100ABCD12340000",
+    )
+    _add_missing_rom(platform, "by_title_id", title_id="GALE01")
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id,
+        crc_hash="aabbccdd",
+        md5_hash="md5val",
+        sha1_hash="sha1val",
+        title_id="GALE01",
+    )
+    assert match is not None
+    assert match.id == by_hash.id
+
+
+def test_get_matching_missing_rom_falls_back_to_title_id_when_hashes_differ(
+    platform: Platform,
+):
+    """A file moved into a folder with extra files keeps its title id."""
+    missing = _add_missing_rom(
+        platform,
+        "moved",
+        crc_hash="aabbccdd",
+        md5_hash="md5val",
+        sha1_hash="sha1val",
+        title_id="GALE01",
     )
 
     match = db_rom_handler.get_matching_missing_rom(
@@ -998,7 +1022,30 @@ def test_get_matching_missing_rom_hashes_take_precedence_over_title_id(
         crc_hash="different",
         md5_hash="different",
         sha1_hash="different",
-        title_id="0100ABCD12340000",
+        title_id="GALE01",
+    )
+    assert match is not None
+    assert match.id == missing.id
+
+
+def test_get_matching_missing_rom_ambiguous_hashes_skip_title_id(
+    platform: Platform,
+):
+    """Ambiguous hashes return None rather than letting the title id pick."""
+    _add_missing_rom(
+        platform, "dup_a", crc_hash="aabbccdd", md5_hash="md5val", sha1_hash="sha1val"
+    )
+    _add_missing_rom(
+        platform, "dup_b", crc_hash="aabbccdd", md5_hash="md5val", sha1_hash="sha1val"
+    )
+    _add_missing_rom(platform, "by_title_id", title_id="GALE01")
+
+    match = db_rom_handler.get_matching_missing_rom(
+        platform_id=platform.id,
+        crc_hash="aabbccdd",
+        md5_hash="md5val",
+        sha1_hash="sha1val",
+        title_id="GALE01",
     )
     assert match is None
 

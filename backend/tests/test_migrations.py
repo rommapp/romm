@@ -24,7 +24,7 @@ import models
 from handler.database import db_collection_handler, db_rom_handler
 from handler.database.base_handler import sync_engine
 from models.base import BaseModel
-from models.collection import SmartCollection
+from models.collection import Collection, SmartCollection
 from models.platform import Platform
 from models.rom import FULL_PATH_HASH_LENGTH, Rom, RomFile, compute_full_path_hash
 from models.user import User
@@ -258,15 +258,15 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0148_rom_age_limits.py", "permission_groups"),
         ("0148_rom_age_limits.py", "users"),
         ("0151_state_content_hash.py", "states"),
-        ("0152_save_channels.py", "channels"),
-        ("0152_save_channels.py", "snapshots"),
-        ("0152_save_channels.py", "snapshot_states"),
-        ("0152_save_channels.py", "snapshot_pins"),
-        ("0152_save_channels.py", "device_channel_sync"),
-        ("0152_save_channels.py", "saves"),
-        ("0152_save_channels.py", "states"),
-        ("0152_save_channels.py", "screenshots"),
-        ("0154_rom_file_sigil_identity.py", "rom_files"),
+        ("0154_save_channels.py", "channels"),
+        ("0154_save_channels.py", "snapshots"),
+        ("0154_save_channels.py", "snapshot_states"),
+        ("0154_save_channels.py", "snapshot_pins"),
+        ("0154_save_channels.py", "device_channel_sync"),
+        ("0154_save_channels.py", "saves"),
+        ("0154_save_channels.py", "states"),
+        ("0154_save_channels.py", "screenshots"),
+        ("0156_rom_file_sigil_identity.py", "rom_files"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -348,6 +348,48 @@ def test_the_state_content_hash_revision_reverses_and_replays():
             migration.upgrade()
 
         assert _schema_of(connection, "states") == before
+
+
+def test_the_cross_user_smart_scopes_revision_empties_only_those_caches(
+    admin_user: User, editor_user: User
+):
+    migration = _load_migration("0152_cross_user_smart_scopes.py")
+    private, public = (
+        db_collection_handler.add_collection(
+            Collection(
+                name=name, description="", user_id=admin_user.id, is_public=is_public
+            )
+        )
+        for name, is_public in (("Secret", False), ("Shared", True))
+    )
+    borrowed, own, borrowed_public = (
+        db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name="Scoped",
+                user_id=owner.id,
+                rom_ids=[1, 2],
+                path_covers_small=["cover"],
+                filter_criteria={"collection_id": scope.id},
+            )
+        )
+        for owner, scope in (
+            (editor_user, private),
+            (admin_user, private),
+            (editor_user, public),
+        )
+    )
+
+    with sync_engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+
+    cleared = db_collection_handler.get_smart_collection(borrowed.id)
+    assert cleared is not None
+    assert (cleared.rom_ids, cleared.path_covers_small) == ([], [])
+    for kept_id in (own.id, borrowed_public.id):
+        kept = db_collection_handler.get_smart_collection(kept_id)
+        assert kept is not None
+        assert (kept.rom_ids, kept.path_covers_small) == ([1, 2], ["cover"])
 
 
 def test_the_user_oidc_sub_revision_reverses_and_replays():
@@ -462,7 +504,7 @@ def test_the_rom_file_title_ids_revision_reverses_and_replays():
 
 
 def test_the_save_channels_revision_reverses_and_replays():
-    migration = _load_migration("0152_save_channels.py")
+    migration = _load_migration("0154_save_channels.py")
     tables = ("saves", "states", "screenshots")
     created = (
         "channels",
@@ -494,7 +536,7 @@ def test_the_save_channels_revision_reverses_and_replays():
 def test_the_slot_link_revision_files_slotted_saves_under_channels(
     rom: Rom, admin_user: User
 ):
-    migration = _load_migration("0153_link_slots_to_channels.py")
+    migration = _load_migration("0155_link_slots_to_channels.py")
     db_rom_handler.add_rom_file(
         RomFile(rom_id=rom.id, file_name="game.sfc", file_path="p", file_size_bytes=8)
     )
@@ -538,7 +580,7 @@ def test_the_slot_link_revision_files_slotted_saves_under_channels(
 
 
 def test_the_rom_file_sigil_identity_revision_reverses_and_replays():
-    migration = _load_migration("0154_rom_file_sigil_identity.py")
+    migration = _load_migration("0156_rom_file_sigil_identity.py")
 
     with sync_engine.begin() as connection:
         before = _schema_of(connection, "rom_files")
@@ -1188,3 +1230,101 @@ def test_the_sibling_platform_names_revision_renames_only_the_stale_name():
         ("c64", "Commodore 64"),
         ("c128-custom", "C128 (custom)"),
     }
+
+
+_GROUPS = sa.table(
+    "permission_groups",
+    sa.column("id", sa.Integer),
+    sa.column("name", sa.String),
+    sa.column("description", sa.String),
+    sa.column("is_default", sa.Boolean),
+    sa.column("hide_unrated_roms", sa.Boolean),
+)
+_GRANTS = sa.table(
+    "permission_group_grants",
+    sa.column("group_id", sa.Integer),
+    sa.column("entity", sa.String),
+    sa.column("action", sa.String),
+    sa.column("own_only", sa.Boolean),
+)
+_OVERRIDES = sa.table(
+    "user_permission_overrides",
+    sa.column("user_id", sa.Integer),
+    sa.column("entity", sa.String),
+    sa.column("action", sa.String),
+    sa.column("granted", sa.Boolean),
+    sa.column("own_only", sa.Boolean),
+)
+
+
+_PLAY_ENTITIES = ("streaming", "emulation")
+
+
+def _play_grants(connection: sa.Connection) -> set[tuple[int, str, str, bool]]:
+    return {
+        (row.group_id, row.entity, row.action, bool(row.own_only))
+        for row in connection.execute(
+            sa.select(
+                _GRANTS.c.group_id,
+                _GRANTS.c.entity,
+                _GRANTS.c.action,
+                _GRANTS.c.own_only,
+            ).where(_GRANTS.c.entity.in_(_PLAY_ENTITIES))
+        )
+    }
+
+
+def _play_overrides(connection: sa.Connection) -> int:
+    return connection.execute(
+        sa.select(sa.func.count())
+        .select_from(_OVERRIDES)
+        .where(_OVERRIDES.c.entity.in_(_PLAY_ENTITIES))
+    ).scalar_one()
+
+
+def test_the_play_permissions_revision_backfills_reverses_and_replays(
+    admin_user: User,
+):
+    """0153 grants streaming and emulation to every existing group and downgrades cleanly."""
+    migration = _load_migration("0153_play_permissions.py")
+
+    with sync_engine.begin() as connection:
+        connection.execute(
+            _GROUPS.insert().values(
+                name="Locked down",
+                description="",
+                is_default=False,
+                hide_unrated_roms=False,
+            )
+        )
+        connection.execute(
+            _OVERRIDES.insert(),
+            [
+                {
+                    "user_id": admin_user.id,
+                    "entity": entity,
+                    "action": "write",
+                    "granted": False,
+                    "own_only": False,
+                }
+                for entity in _PLAY_ENTITIES
+            ],
+        )
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            migration.downgrade()
+            assert _play_grants(connection) == set()
+            assert _play_overrides(connection) == 0
+
+            migration.upgrade()
+            migration.upgrade()
+
+        group_ids: set[int] = set(connection.execute(sa.select(_GROUPS.c.id)).scalars())
+        assert len(group_ids) >= 3
+        assert _play_grants(connection) == {
+            (group_id, entity, action, False)
+            for group_id in group_ids
+            for entity in _PLAY_ENTITIES
+            for action in ("read", "write")
+        }
+        connection.execute(_GROUPS.delete().where(_GROUPS.c.name == "Locked down"))

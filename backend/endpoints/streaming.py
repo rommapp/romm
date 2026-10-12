@@ -7,6 +7,9 @@ is absent from READ_SCOPES -- which is all KIOSK_MODE hands an anonymous
 visitor. Without it, kiosk visitors (who all share one synthetic user, so
 session ownership cannot separate them) could claim sessions and overwrite
 each other's save states.
+
+On top of the scopes, the `streaming` permission grant decides who sees
+streaming, joins a session (read) and starts one (read and write).
 """
 
 import asyncio
@@ -47,9 +50,9 @@ from endpoints.responses.streaming import (
     SaveStateResponse,
     SessionStatusSchema,
     SlotCapabilitiesSchema,
-    StateCoreSchema,
     StreamingConfigSchema,
     StreamingContainerSchema,
+    StreamStatePicksSchema,
     SwapDiscResponse,
     VolumeResponse,
 )
@@ -58,6 +61,7 @@ from handler.auth.dependencies import assert_rom_visible
 from handler.database import (
     db_container_adoption_handler,
     db_rom_handler,
+    db_state_handler,
     db_user_handler,
 )
 from handler.redis_handler import async_cache
@@ -297,7 +301,7 @@ def _joinable_container_label(
     return entries[0].container_label or entries[0].label
 
 
-# Two checks per platform; past this many, a config waits a second timeout.
+# One check per platform; past this many, a config waits a second timeout.
 _CONFIG_CHECK_THREADS = 64
 # Shared by every request, so overlapping page loads hold no more threads than one.
 _config_pool = ThreadPoolExecutor(
@@ -332,6 +336,11 @@ def _check_key(kind: str, c: ResolvedContainer) -> Hashable:
 @protected_route(router.get, "/config", [Scope.ROMS_READ])
 async def get_config(request: Request) -> StreamingConfigSchema:
     """Return streaming configuration to the frontend"""
+    # The frontend hides every streaming surface on `enabled`.
+    if streaming_enabled() and not access.can_see_streaming(request):
+        return StreamingConfigSchema(
+            enabled=False, containers=[], emulator_labels=emulator_labels()
+        )
     # One row per platform: a pool is a backend concern, the frontend picks a
     # platform and the claim decides which container serves it.
     # The record carries the platform's label and capabilities, so a
@@ -342,28 +351,9 @@ async def get_config(request: Request) -> StreamingConfigSchema:
         if access.platform_is_visible(request, c.platform)
     ]
     # All at once, so a silent broker costs one timeout.
-    specs, cores = await asyncio.gather(
-        asyncio.gather(
-            *(
-                _shared_check(
-                    _check_key("spec", c),
-                    webstation.import_spec,
-                    c,
-                    c.emulator,
-                    c.platform,
-                )
-                for c in visible
-            )
-        ),
-        asyncio.gather(
-            *(
-                _shared_check(_check_key("core", c), states.state_core_for, c)
-                for c in visible
-            )
-        ),
-    )
+    specs = await asyncio.gather(*(_import_spec(c) for c in visible))
     safe_containers: list[StreamingContainerSchema] = []
-    for c, spec, core in zip(visible, specs, cores, strict=True):
+    for c, spec in zip(visible, specs, strict=True):
         safe_containers.append(
             StreamingContainerSchema(
                 platform=c.platform,
@@ -386,14 +376,6 @@ async def get_config(request: Request) -> StreamingConfigSchema:
                 supports_live_states=c.supports_live_states,
                 # So the picker only offers a foreign pick the claim will take.
                 import_kinds=spec.pickable_kinds() if spec is not None else [],
-                # So the picker hides states another RetroArch core wrote.
-                state_core=(
-                    StateCoreSchema(
-                        expected=core.expected, default_matches=core.default_matches
-                    )
-                    if core is not None
-                    else None
-                ),
             )
         )
 
@@ -402,6 +384,56 @@ async def get_config(request: Request) -> StreamingConfigSchema:
         containers=safe_containers,
         emulator_labels=emulator_labels(),
     )
+
+
+def _import_spec(c: ResolvedContainer) -> Awaitable[webstation.ImportSpec | None]:
+    return _shared_check(
+        _check_key("spec", c), webstation.import_spec, c, c.emulator, c.platform
+    )
+
+
+def _streamable_rom(
+    request: Request, rom_id: int
+) -> tuple[Rom, list[ResolvedContainer]]:
+    """The ROM and the containers serving its platform, else a 404 (the same one
+    for a hidden ROM, so its id can't launch it)."""
+    rom = db_rom_handler.get_rom(rom_id)
+    if rom is None:
+        raise HTTPException(status_code=404, detail="ROM not found")
+    assert_rom_visible(request, rom, not_found_detail="ROM not found")
+    platform = rom.platform_slug
+    candidates = containers_for_platform(platform)
+    if not candidates:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No streaming container configured for platform '{platform}'",
+        )
+    return rom, candidates
+
+
+@protected_route(router.get, "/states/{rom_id}", [Scope.ROMS_READ, Scope.ASSETS_READ])
+async def get_state_picks(request: Request, rom_id: int) -> StreamStatePicksSchema:
+    """The ROM's states the resume picker offers, checked as the claim checks a
+    pick; 404 when the ROM is hidden or missing, or no container serves it."""
+    rom, candidates = _streamable_rom(request, rom_id)
+    # The claim validates the pick against the pool's first container too.
+    c = candidates[0]
+    spec, core, shared = await asyncio.gather(
+        _import_spec(c),
+        _shared_check(_check_key("core", c), states.state_core_for, c),
+        asyncio.to_thread(
+            db_state_handler.get_rom_shared_states,
+            rom_id=rom.id,
+            user_id=request.user.id,
+        ),
+    )
+    picks = states.state_picks(
+        shared,
+        c.emulator,
+        core,
+        imports_states=spec is not None and spec.resume_slot() is not None,
+    )
+    return StreamStatePicksSchema(**picks._asdict())
 
 
 async def _win_container(
@@ -829,22 +861,10 @@ async def claim_session(
     Returns 409 if every container in the platform's first pool is occupied.
     Returns 428 if the container's pre-existing memory card needs a decision.
     """
-    rom = db_rom_handler.get_rom(req.rom_id)
-    if rom is None:
-        raise HTTPException(status_code=404, detail="ROM not found")
+    access.assert_can_start_streaming(request)
 
-    # A hidden ROM/platform must not be launchable via its id: enforce the same
-    # visibility policy as the ROM detail/content endpoints before any broker
-    # launch. Raises a 404 that masks the hidden ROM's existence.
-    assert_rom_visible(request, rom, not_found_detail="ROM not found")
-
+    rom, candidates = _streamable_rom(request, req.rom_id)
     platform = rom.platform_slug
-    candidates = containers_for_platform(platform)
-    if not candidates:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No streaming container configured for platform '{platform}'",
-        )
 
     # Pool members are interchangeable (`ResolvedContainer.interchangeable_with`),
     # so the pre-claim validation below holds for whichever one the walk wins.
@@ -1308,6 +1328,8 @@ async def join_session(
     through access.assert_session_owner, so a joiner cannot change the volume, write
     states, or release the container.
     """
+    access.assert_can_join_streaming(request)
+
     if container is not None:
         candidate, _, session = await access.resolve_named_container(
             platform, container
@@ -1733,6 +1755,9 @@ async def list_joinable_sessions(
     sessions whose host opted into multiplayer at launch, and only the fields
     a Join button needs. Sessions the caller is already hosting are left out.
     """
+    if not access.can_join_streaming(request):
+        return JoinableSessionsResponse(sessions=[])
+
     grouped = containers_by_key()
 
     sessions: list[JoinableSessionSchema] = []

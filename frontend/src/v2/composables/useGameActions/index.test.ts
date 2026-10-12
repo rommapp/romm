@@ -119,10 +119,19 @@ vi.mock("@/v2/composables/useCanPlay", () => ({
     canPlayEasyRpg,
     canPlayRuffle,
     canPlayNative,
-    canPlayStream: {
+    canReachStream: {
       get value() {
         return (
           Boolean(getRom()?.has_file_on_disk) && streamContainer.value !== null
+        );
+      },
+    },
+    canPlayStream: {
+      get value() {
+        return (
+          Boolean(getRom()?.has_file_on_disk) &&
+          streamContainer.value !== null &&
+          (grantedActions.value?.has("stream.start") ?? true)
         );
       },
     },
@@ -492,6 +501,17 @@ describe("useGameActions.play — launch confirmation", () => {
 
     expect(actions.canPlayStream.value).toBe(false);
     expect(actions.canDownload.value).toBe(false);
+  });
+
+  it("still offers Join without the grant to start a stream", () => {
+    grantedActions.value = new Set<ActionKey>(["rom.view"]);
+    streamContainer.value = { host: "http://stream" };
+    joinableSession.value = { host_username: "ada" };
+    const actions = useGameActions(() => romWithStatus());
+
+    expect(actions.canPlayStream.value).toBe(false);
+    expect(actions.canJoinStream.value).toBe(true);
+    expect(actions.playPath("stream")).toBeNull();
   });
 });
 

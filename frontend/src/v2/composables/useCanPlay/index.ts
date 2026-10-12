@@ -29,6 +29,7 @@ import {
   isPico8Rom,
   isRuffleEmulationSupported,
 } from "@/utils";
+import { useCan } from "@/v2/composables/useCan";
 
 export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
   canPlay: ComputedRef<boolean>;
@@ -37,6 +38,7 @@ export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
   canPlayPico8: ComputedRef<boolean>;
   canPlayEasyRpg: ComputedRef<boolean>;
   canPlayRuffle: ComputedRef<boolean>;
+  canReachStream: ComputedRef<boolean>;
   canPlayStream: ComputedRef<boolean>;
   canPlayNative: ComputedRef<boolean>;
 } {
@@ -46,10 +48,12 @@ export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
   const nativeStore = useNativeStore();
   const { value: heartbeat } = storeToRefs(heartbeatStore);
 
+  // The emulation read grant covers every in-browser engine.
+  const canPlayInBrowser = useCan("rom.play");
   const supportedBy = (check: typeof isEJSEmulationSupported) =>
     computed(() => {
       const rom = getRom();
-      if (!rom?.has_file_on_disk) return false;
+      if (!canPlayInBrowser.value || !rom?.has_file_on_disk) return false;
       return check(rom.platform_slug, heartbeat.value, configStore.config);
     });
 
@@ -75,11 +79,16 @@ export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
 
   // The broker is handed the ROM file, so a physical game or one missing
   // from the filesystem has nothing to stream any more than it has to boot.
-  const canPlayStream = computed(() => {
+  // Reaching the stream is enough to join one; starting one takes a grant.
+  const canReachStream = computed(() => {
     const rom = getRom();
     if (!rom?.has_file_on_disk) return false;
     return streamingStore.containerForPlatform(rom.platform_slug) !== null;
   });
+  const canStartStream = useCan("stream.start");
+  const canPlayStream = computed(
+    () => canReachStream.value && canStartStream.value,
+  );
 
   // The shell either downloads the file or reads it off disk, so the same
   // "something to boot" rule applies.
@@ -107,6 +116,7 @@ export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
     canPlayPico8,
     canPlayEasyRpg,
     canPlayRuffle,
+    canReachStream,
     canPlayStream,
     canPlayNative,
   };

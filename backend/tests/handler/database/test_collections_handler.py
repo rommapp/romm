@@ -157,10 +157,30 @@ def test_filter_roms_by_collection(platform: Platform, admin_user: User):
         collection.id, [rom.id for rom in in_collection]
     )
 
-    roms = db_rom_handler.get_roms_scalar(collection_id=collection.id)
+    roms = db_rom_handler.get_roms_scalar(
+        collection_id=collection.id, user_id=admin_user.id
+    )
 
     assert {rom.id for rom in roms} == {rom.id for rom in in_collection}
     assert outside.id not in {rom.id for rom in roms}
+
+
+def test_filter_roms_by_another_users_private_collection_returns_nothing(
+    platform: Platform, admin_user: User, editor_user: User
+):
+    rom = _add_rom(platform, 0, {})
+    collection = db_collection_handler.add_collection(
+        Collection(name="Shelf", description="", user_id=admin_user.id)
+    )
+    db_collection_handler.add_roms_to_collection(collection.id, [rom.id])
+
+    assert db_rom_handler.get_roms_scalar(collection_id=collection.id) == []
+    assert (
+        db_rom_handler.get_roms_scalar(
+            collection_id=collection.id, user_id=editor_user.id
+        )
+        == []
+    )
 
 
 def test_filter_roms_by_unknown_collection_returns_nothing(

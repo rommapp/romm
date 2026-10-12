@@ -332,6 +332,30 @@ async def test_a_legacy_upload_becomes_the_current_and_keeps_the_states(
     assert body["content_hash"] == md5(LEGACY)
 
 
+async def test_a_deduplicated_legacy_upload_becomes_the_current(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    rom: Rom,
+    game_file: RomFile,
+    legacy_device: Device,
+):
+    pushed = await snapshot_push(admin_user, rom, game_file)
+    synced_to(legacy_device, held_save(pushed))
+    first = upload(client, access_token, rom, legacy_device, LEGACY).json()
+    upload(client, access_token, rom, legacy_device, b"moved-on")
+
+    response = upload(client, access_token, rom, legacy_device, LEGACY)
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["id"] == first["id"]
+    channel = channel_of(pushed)
+    assert channel.current_snapshot_id is not None
+    current = db_snapshot_handler.get_snapshot(channel.current_snapshot_id)
+    assert current is not None
+    assert current.save_id == first["id"]
+
+
 async def test_a_legacy_device_behind_the_snapshots_is_sent_back_to_negotiate(
     client: TestClient,
     access_token: str,

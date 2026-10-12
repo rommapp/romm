@@ -662,12 +662,15 @@ class OpenIDHandler:
         role = Role.USER
         claims_provided = OIDC_CLAIM_ROLES and OIDC_CLAIM_ROLES in userinfo
         if claims_provided:
-            roles = userinfo[OIDC_CLAIM_ROLES] or []
-            if OIDC_ROLE_ADMIN and OIDC_ROLE_ADMIN in roles:
+            claim = userinfo[OIDC_CLAIM_ROLES] or []
+            # A single-valued claim must match whole, not by its characters.
+            roles = {claim} if isinstance(claim, str) else set(claim)
+            if OIDC_ROLE_ADMIN & roles:
                 role = Role.ADMIN
-            elif (OIDC_ROLE_EDITOR and OIDC_ROLE_EDITOR in roles) or (
-                OIDC_ROLE_VIEWER
-                and (OIDC_ROLE_VIEWER in roles or OIDC_ROLE_VIEWER == "*")
+            elif (
+                OIDC_ROLE_EDITOR & roles
+                or OIDC_ROLE_VIEWER & roles
+                or "*" in OIDC_ROLE_VIEWER
             ):
                 role = Role.USER
             else:

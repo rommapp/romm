@@ -4,8 +4,8 @@ import functools
 import glob
 import json
 import os
+import posixpath
 import sys
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, NotRequired, Self, TextIO, TypedDict
@@ -46,6 +46,9 @@ STRUCTURE_FIRMWARE_KEY: Final = "firmware"
 RESERVED_STRUCTURE_KEYS: Final = frozenset(
     {STRUCTURE_DEFAULT_KEY, STRUCTURE_FIRMWARE_KEY}
 )
+
+# Folder-name keys 5.2 wrote to config.yml, with the default each one had.
+RETIRED_FOLDER_KEYS: Final = {"roms_folder": "roms", "firmware_folder": "bios"}
 
 STRUCTURE_DOCS_URL: Final = (
     "https://docs.romm.app/latest/getting-started/folder-structure/"
@@ -242,6 +245,20 @@ def parse_platform_templates(
     return tuple(
         parse_structure_template(template, fs_slug=fs_slug) for template in templates
     )
+
+
+def _platform_first_layout(folder: str) -> bool | None:
+    """Whether the library keeps `folder` inside each platform folder.
+
+    `<folder>` at the library root wins when both layouts exist. Returns ``None``
+    when neither does, as in an empty or not yet mounted library.
+    """
+    if os.path.isdir(os.path.join(LIBRARY_BASE_PATH, folder)):
+        return False
+    pattern = os.path.join(LIBRARY_BASE_PATH, "*", glob.escape(folder))
+    if any(os.path.isdir(match) for match in glob.iglob(pattern)):
+        return True
+    return None
 
 
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config"
@@ -596,6 +613,8 @@ class ConfigManager:
     # Tests require custom config path
     def __init__(self, config_file: str = ROMM_USER_CONFIG_FILE) -> None:
         self.config_file = config_file
+        self._retired_layout_detected: bool | None = None
+        self._platform_first_layouts: dict[str, bool] = {}
 
         try:
             # Check if the config file is mounted
@@ -718,6 +737,7 @@ class ConfigManager:
 
     def _parse_config(self) -> None:
         """Parses each entry in the config.yml"""
+        self._retired_layout_detected = self._translate_retired_filesystem_keys()
 
         self.config = Config(
             CONFIG_FILE_MOUNTED=self._config_file_mounted,
@@ -972,34 +992,115 @@ class ConfigManager:
 
         return normalized
 
-    def _check_retired_filesystem_keys(self) -> None:
-        """Exit if config.yml still sets a folder name that a template replaced.
+    def _detect_platform_first(self, folder: str) -> bool | None:
+        # get_config() reparses on every call, and a found layout doesn't flip.
+        if folder not in self._platform_first_layouts:
+            detected = _platform_first_layout(folder)
+            if detected is None:
+                return None
+            self._platform_first_layouts[folder] = detected
+        return self._platform_first_layouts[folder]
 
-        Ignoring one would relocate the library under the user.
+    def _translate_retired_filesystem_keys(self) -> bool | None:
+        """Replace, in memory, the folder-name keys 5.2 saved on every settings
+        change with the templates that reproduce the layout 5.2 resolved them to.
+
+        Returns:
+            ``None`` when there was nothing to translate, otherwise whether the
+            library showed which layout it uses.
         """
-        retired: dict[str, tuple[str, Callable[[str], str]]] = {
-            "filesystem.roms_folder": (
-                STRUCTURE_DEFAULT_KEY,
-                lambda folder: f"{folder}/{{platform}}/{{game}}",
-            ),
-            "filesystem.firmware_folder": (
-                STRUCTURE_FIRMWARE_KEY,
-                lambda folder: f"{folder}/{{platform}}",
-            ),
+        filesystem = get_nested(self._raw_config, "filesystem")
+        if not isinstance(filesystem, dict) or not (
+            RETIRED_FOLDER_KEYS & filesystem.keys()
+        ):
+            return None
+        structure = filesystem.setdefault("structure", {})
+        if not isinstance(structure, dict):
+            return None
+
+        roms_folder, firmware_folder = (
+            filesystem.pop(key, default) for key, default in RETIRED_FOLDER_KEYS.items()
+        )
+        for key, folder in zip(
+            RETIRED_FOLDER_KEYS, (roms_folder, firmware_folder), strict=False
+        ):
+            if not isinstance(folder, str) or not folder:
+                log.critical(
+                    f"Invalid config.yml: filesystem.{key} must be a non-empty string"
+                )
+                sys.exit(3)
+
+        # Validation folds structure keys to lowercase, so `Default` is declared too.
+        undeclared = RESERVED_STRUCTURE_KEYS - {str(key).lower() for key in structure}
+        if not undeclared:
+            return True
+        platform_first = self._detect_platform_first(roms_folder)
+
+        def place(folder: str) -> str:
+            # A `.` folder is the library root, which a template spells as no section.
+            return posixpath.normpath(
+                f"{{platform}}/{folder}" if platform_first else f"{folder}/{{platform}}"
+            )
+
+        templates = {
+            STRUCTURE_DEFAULT_KEY: f"{place(roms_folder)}/{{game}}",
+            STRUCTURE_FIRMWARE_KEY: place(firmware_folder),
         }
-        for key, (structure_key, to_template) in retired.items():
-            folder = get_nested(self._raw_config, key)
-            if folder is None:
-                continue
+        # Templates have no escape for braces, so some folder names can't migrate.
+        try:
+            parse_structure_template(templates[STRUCTURE_DEFAULT_KEY])
+            parse_firmware_template(templates[STRUCTURE_FIRMWARE_KEY])
+        except ValueError as exc:
             log.critical(
-                f"Invalid config.yml: {key} is no longer supported. Replace it "
-                f"with the equivalent layout:\n\n"
-                f"  filesystem:\n"
-                f"    structure:\n"
-                f'      {structure_key}: "{to_template(folder)}"\n\n'
+                "Invalid config.yml: filesystem.roms_folder and "
+                "filesystem.firmware_folder can't be migrated to a layout "
+                f"template ({exc}). Rename the folder or set filesystem.structure. "
                 f"See {STRUCTURE_DOCS_URL}."
             )
             sys.exit(3)
+
+        structure.update({key: templates[key] for key in undeclared})
+        return platform_first is not None
+
+    def migrate_retired_filesystem_keys(self) -> None:
+        """Write the layout that replaces the retired folder keys to config.yml."""
+        config = self.get_config()
+        if self._retired_layout_detected is None:
+            return
+
+        layout = "\n".join(
+            f'      {key}: "{config.STRUCTURE_TEMPLATES[key]}"'
+            for key in (STRUCTURE_DEFAULT_KEY, STRUCTURE_FIRMWARE_KEY)
+        )
+        if not self._retired_layout_detected:
+            log.warning(
+                "The library is empty or not mounted, so filesystem.roms_folder and "
+                "filesystem.firmware_folder are migrated in memory only, as:\n\n"
+                f"  filesystem:\n    structure:\n{layout}\n\n"
+                "config.yml is updated on the first startup that finds the library."
+            )
+            return
+
+        try:
+            if not config.CONFIG_FILE_WRITABLE:
+                raise ConfigNotWritableException
+            self._write_raw_config()
+        except ConfigNotWritableException:
+            self._config_file_writable = False
+            log.warning(
+                "config.yml is read-only, so filesystem.roms_folder and "
+                "filesystem.firmware_folder are migrated in memory only. Replace "
+                f"them with the equivalent layout:\n\n"
+                f"  filesystem:\n    structure:\n{layout}\n\n"
+                f"See {STRUCTURE_DOCS_URL}."
+            )
+            return
+
+        log.info(
+            "Migrated filesystem.roms_folder and filesystem.firmware_folder "
+            f"in config.yml to the equivalent layout:\n\n"
+            f"  filesystem:\n    structure:\n{layout}\n"
+        )
 
     def check_library_layout(self) -> None:
         """Exit if the library is laid out as `{platform}/roms` with no template.
@@ -1009,11 +1110,7 @@ class ConfigManager:
         """
         if STRUCTURE_DEFAULT_KEY in self.config.STRUCTURE_TEMPLATES:
             return
-        if os.path.isdir(os.path.join(LIBRARY_BASE_PATH, "roms")):
-            return
-
-        pattern = os.path.join(LIBRARY_BASE_PATH, "*", "roms")
-        if not any(os.path.isdir(match) for match in glob.iglob(pattern)):
+        if not _platform_first_layout("roms"):
             return
 
         log.critical(
@@ -1029,8 +1126,6 @@ class ConfigManager:
 
     def _validate_config(self) -> None:
         """Validates the config.yml file"""
-        self._check_retired_filesystem_keys()
-
         if not isinstance(self.config.GAMELIST_AUTO_EXPORT_ON_SCAN, bool):
             log.critical("Invalid config.yml: scan.gamelist.export must be a boolean")
             sys.exit(3)
@@ -1433,6 +1528,9 @@ class ConfigManager:
                 "containers": self.config.STREAMING_CONTAINERS,
             }
 
+        self._write_raw_config()
+
+    def _write_raw_config(self) -> None:
         try:
             # Ensure the config directory exists
             os.makedirs(os.path.dirname(self.config_file), exist_ok=True)

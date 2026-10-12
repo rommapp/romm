@@ -30,10 +30,14 @@ import storeCollections from "@/stores/collections";
 import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
+import { installPermissionsHydration } from "@/v2/composables/useCan";
 
 const navigationStore = storeNavigation();
 const platformsStore = storePlatforms();
 const collectionsStore = storeCollections();
+
+// The play buttons read the in-browser play grant from the permissions store.
+installPermissionsHydration();
 
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("refreshDrawer", async () => {

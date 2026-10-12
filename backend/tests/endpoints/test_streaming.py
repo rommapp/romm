@@ -92,12 +92,27 @@ from handler.streaming.session_store import (
     StreamingSessionContended,
     release_own_session,
 )
-from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
+from handler.sync.retroarch import sync_handler as retroarch_sync
+from models.assets import (
+    AUTOSAVE_SLOT,
+    MemoryCard,
+    MemoryCardVersion,
+    Save,
+    Screenshot,
+    State,
+)
 from models.notification import NotificationKind
-from models.permission import HiddenEntity, PermEntity
+from models.permission import (
+    HiddenEntity,
+    PermAction,
+    PermEntity,
+    PermissionGroup,
+    PermissionGroupGrant,
+    UserPermissionOverride,
+)
 from models.platform import Platform
 from models.rom import Rom, RomFile, SaveTargetLayout
-from models.user import User
+from models.user import Role, User
 from utils.memory_cards import content_hash_of_bytes
 from utils.uploads import apply_datetime_tag
 from utils.zip_cache import ensure_zipfile_writable
@@ -145,9 +160,9 @@ def clear_import_spec_cache():
 
 
 @pytest.fixture(autouse=True)
-def clear_default_core_cache():
-    """Isolate webstation's default-core cache per test."""
-    with patch.dict(webstation._default_core_cache, clear=True):
+def clear_cores_cache():
+    """Isolate webstation's cores-route cache per test."""
+    with patch.dict(webstation._cores_cache, clear=True):
         yield
 
 
@@ -398,22 +413,170 @@ def test_get_config_ships_capabilities_for_a_retroarch_platform(client, access_t
     assert caps["autosave_slot"] == 10
 
 
-def test_config_ships_the_state_core_rule(client, access_token):
-    with _streaming(_webstation(platforms={"snes": "retroarch:bsnes"})):
+def _picks(client, token, rom: Rom, platform: str, spec=None, core=None):
+    container = _webstation(platforms={rom.platform_slug: platform})
+    with _streaming(container):
         with (
             patch(
-                "handler.streaming.webstation.require_import_spec", return_value=None
+                "handler.streaming.webstation.require_import_spec", return_value=spec
             ),
-            patch("handler.streaming.webstation.default_core", return_value="snes9x"),
+            patch("handler.streaming.states.state_core_for", return_value=core),
         ):
-            body = client.get(
-                "/api/streaming/config", headers=_auth(access_token)
-            ).json()
-    (snes,) = [c for c in body["containers"] if c["platform"] == "snes"]
-    assert snes["state_core"] == {"expected": "bsnes", "default_matches": False}
+            return client.get(f"/api/streaming/states/{rom.id}", headers=_auth(token))
 
 
-def test_config_asks_a_broker_its_spec_and_core_at_once(client, access_token):
+_STATE_IMPORT = webstation.ImportSpec(frozenset({"state"}), "push", 9)
+
+
+@pytest.mark.parametrize(
+    ("spec", "pickable"),
+    [(None, {"own", "synced"}), (_STATE_IMPORT, {"own", "synced", "foreign"})],
+)
+def test_state_picks_follow_the_resume_rules(
+    client, access_token, rom: Rom, admin_user: User, spec, pickable
+):
+    """The booted core's states resume natively, wherever they are filed; a
+    foreign one only through an import, and another core's capture never."""
+    made = {
+        "own": _core_state(rom, admin_user, "Game.state", "bsnes"),
+        "other_core": _core_state(rom, admin_user, "Game.state1", "snes9x"),
+        "synced": _add_state(rom, admin_user, "Game.state2", "bsnes"),
+        "foreign": _add_state(rom, admin_user, "Game.ss0", "snes9x"),
+    }
+    names = {state.id: name for name, state in made.items()}
+
+    r = _picks(
+        client,
+        access_token,
+        rom,
+        "retroarch:bsnes",
+        spec=spec,
+        core=states.StateCore("bsnes", False),
+    )
+
+    assert r.status_code == 200
+    assert {names[i] for i in r.json()["native"]} == {"own", "synced"}
+    assert {names[i] for i in r.json()["pickable"]} == pickable
+
+
+_BSNES = states.StateCore("bsnes", False)
+_PICK_STATES = [
+    # (id, emulator, core)
+    (5, "retroarch", "bsnes"),
+    (6, "retroarch", "snes9x"),
+    (7, "retroarch", None),
+    (8, "duckstation", None),
+    (9, "bsnes", None),
+    (10, "bsnes", "bsnes"),
+    (11, "snes9x", None),
+    (12, "Snes9x 2010", None),
+    (13, "Snes9x 2010", "snes9x2010"),
+    (14, "snes9x2010", "snes9x2010"),
+    (15, "snes9x2010", None),
+    (16, "Snes9x 2010", "snes9x"),
+    (17, "snes9x", "snes9x"),
+]
+
+
+@pytest.mark.parametrize(
+    ("core", "imports_states", "native", "pickable"),
+    [
+        # Another core's capture never; Cloud Sync's under the core's folder too.
+        (_BSNES, False, [5, 9, 10], [5, 9, 10]),
+        # A state with no core recorded is the default's.
+        (
+            states.StateCore("snes9x", True),
+            False,
+            [6, 7, 11, 16, 17],
+            [6, 7, 11, 16, 17],
+        ),
+        (
+            states.StateCore("snes9x2010", False, folder="Snes9x 2010"),
+            False,
+            [12, 13, 14],
+            [12, 13, 14],
+        ),
+        # Unknown core: only the stream's own, wherever the core filed them.
+        (None, False, [5, 6, 7, 10, 13, 14, 16, 17], [5, 6, 7, 10, 13, 14, 16, 17]),
+        # An import takes any other client's state, never another core's capture.
+        (_BSNES, True, [5, 9, 10], [5, 8, 9, 10, 11, 12, 15]),
+    ],
+)
+def test_state_picks_split_native_from_importable(
+    core, imports_states, native, pickable
+):
+    made = [
+        State(id=i, emulator=e, core=c, file_name="Game.state")
+        for i, e, c in _PICK_STATES
+    ]
+
+    picks = states.state_picks(made, "retroarch", core, imports_states)
+
+    assert picks == states.StatePicks(native, pickable)
+
+
+@pytest.mark.parametrize(("imports_states", "pickable"), [(False, []), (True, [1, 2])])
+def test_state_picks_offer_a_state_with_no_slot_only_through_an_import(
+    imports_states, pickable
+):
+    """The claim cannot resume `.state100` as it is, so only an import takes it."""
+    made = [
+        State(id=1, emulator="bsnes", file_name="Game.state100"),
+        State(id=2, emulator="retroarch", core="bsnes", file_name="Game.state100"),
+    ]
+
+    picks = states.state_picks(made, "retroarch", _BSNES, imports_states)
+
+    assert picks == states.StatePicks([], pickable)
+
+
+def test_state_picks_without_a_known_core_take_the_streams_own(
+    client, access_token, rom: Rom, admin_user: User
+):
+    own = _core_state(rom, admin_user, "Game.state", "bsnes")
+    _add_state(rom, admin_user, "Game.state2", "bsnes")
+
+    r = _picks(client, access_token, rom, "retroarch")
+
+    assert r.json() == {"native": [own.id], "pickable": [own.id]}
+
+
+def test_state_picks_list_states_newest_first(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """In the order the rom's state list carries them, so the first native one
+    is the newest the picker preselects."""
+    older = _add_state_at(rom, admin_user, "Game.01.p2s", 1)
+    newer = _add_state_at(rom, admin_user, "Game.02.p2s", 2)
+    shared = [
+        s.id
+        for s in db_state_handler.get_rom_shared_states(
+            rom_id=rom.id, user_id=admin_user.id
+        )
+    ]
+
+    r = _picks(client, access_token, rom, "pcsx2")
+
+    assert r.json()["native"] == shared
+    assert set(shared) == {older.id, newer.id}
+
+
+def test_state_picks_hide_a_hidden_rom(
+    client, viewer_access_token, viewer_user: User, rom: Rom
+):
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    assert _picks(client, viewer_access_token, rom, "pcsx2").status_code == 404
+
+
+def test_state_picks_404_without_a_container(client, access_token, rom: Rom):
+    with _streaming(_webstation(platforms={"snes": "retroarch"})):
+        r = client.get(f"/api/streaming/states/{rom.id}", headers=_auth(access_token))
+    assert r.status_code == 404
+
+
+def test_state_picks_ask_the_broker_its_spec_and_core_at_once(
+    client, access_token, rom: Rom
+):
     """So an unreachable broker costs the play screen one timeout, not two."""
     both = threading.Barrier(2, timeout=5)
 
@@ -421,7 +584,7 @@ def test_config_asks_a_broker_its_spec_and_core_at_once(client, access_token):
         both.wait()
         return value
 
-    with _streaming(_webstation(platforms={"snes": "retroarch"})):
+    with _streaming(_webstation(platforms={rom.platform_slug: "retroarch"})):
         with (
             patch("handler.streaming.webstation.require_import_spec", side_effect=meet),
             patch(
@@ -429,30 +592,40 @@ def test_config_asks_a_broker_its_spec_and_core_at_once(client, access_token):
                 side_effect=lambda c: meet(value="snes9x"),
             ),
         ):
-            r = client.get("/api/streaming/config", headers=_auth(access_token))
+            r = client.get(
+                f"/api/streaming/states/{rom.id}", headers=_auth(access_token)
+            )
     assert r.status_code == 200
+
+
+def test_config_leaves_the_state_rules_to_the_picks(client, access_token):
+    """The config asks the broker only its import spec; the core is the picks' call."""
+    with _streaming(_webstation(platforms={"snes": "retroarch"})):
+        with (
+            patch(
+                "handler.streaming.webstation.require_import_spec", return_value=None
+            ),
+            patch("handler.streaming.webstation.default_core") as default_core,
+        ):
+            body = client.get(
+                "/api/streaming/config", headers=_auth(access_token)
+            ).json()
+    default_core.assert_not_called()
+    assert "state_core" not in body["containers"][0]
 
 
 def test_config_asks_every_platform_at_once(client, access_token):
     """More checks than the default thread pool holds (at most 32), so a silent
     broker still costs the play screen one timeout rather than one per wave."""
-    platforms = (
-        "nes snes n64 gb gbc gba genesis atari2600 pokemon-mini psp psx sms "
-        "gamegear tg16 ngp wonderswan lynx"
-    ).split()
-    everyone = threading.Barrier(2 * len(platforms), timeout=5)
+    platforms = [f"platform-{n}" for n in range(34)]
+    everyone = threading.Barrier(len(platforms), timeout=5)
 
-    def meet(*_args, value=None):
+    def meet(*_args):
         everyone.wait()
-        return value
 
     with _streaming(_webstation(platforms=dict.fromkeys(platforms, "retroarch"))):
-        with (
-            patch("handler.streaming.webstation.require_import_spec", side_effect=meet),
-            patch(
-                "handler.streaming.webstation.default_core",
-                side_effect=lambda c: meet(value="snes9x"),
-            ),
+        with patch(
+            "handler.streaming.webstation.require_import_spec", side_effect=meet
         ):
             r = client.get("/api/streaming/config", headers=_auth(access_token))
     assert r.status_code == 200
@@ -468,24 +641,19 @@ def test_overlapping_configs_share_each_broker_check(client, access_token):
 
     def join(*args):
         joins.append(args[0])
-        if len(joins) == 4:
+        if len(joins) == 2:
             both_joined.set()
         return shared_check(*args)
 
-    def stall(*_args, value=None):
-        asked.append(value or "spec")
+    def stall(*_args):
+        asked.append("spec")
         assert both_joined.wait(timeout=5)
-        return value
 
     with _streaming(_webstation(platforms={"snes": "retroarch"})):
         with (
             patch.object(streaming, "_shared_check", side_effect=join),
             patch(
                 "handler.streaming.webstation.require_import_spec", side_effect=stall
-            ),
-            patch(
-                "handler.streaming.webstation.default_core",
-                side_effect=lambda c: stall(value="snes9x"),
             ),
             ThreadPoolExecutor(2) as pages,
         ):
@@ -497,18 +665,7 @@ def test_overlapping_configs_share_each_broker_check(client, access_token):
             ]
             responses = [load.result(timeout=10) for load in loads]
     assert [r.status_code for r in responses] == [200, 200]
-    assert sorted(asked) == ["snes9x", "spec"]
-
-
-def test_config_has_no_state_core_outside_retroarch(client, access_token):
-    with _streaming(_webstation()):
-        with patch(
-            "handler.streaming.webstation.require_import_spec", return_value=None
-        ):
-            body = client.get(
-                "/api/streaming/config", headers=_auth(access_token)
-            ).json()
-    assert all(c["state_core"] is None for c in body["containers"])
+    assert asked == ["spec"]
 
 
 def test_get_config_labels_each_platform_by_its_emulator(client, access_token):
@@ -5201,6 +5358,254 @@ def test_resume_takes_an_unrecorded_state_on_the_default_core(
     assert slot == 0
 
 
+# ── A RetroArch stream shares each core's states with every other client ──────
+
+
+def test_a_streamed_state_is_the_one_cloud_sync_serves_for_its_slot(
+    rom: Rom, admin_user: User
+):
+    _add_state(rom, admin_user, "Game.state.auto", "mgba")
+    streamed = _add_state(
+        rom,
+        admin_user,
+        "Game.20261008-153825000000.state.auto",
+        "mgba",
+        core="mgba",
+        updated_at=datetime(2099, 1, 1, tzinfo=timezone.utc),
+    )
+
+    served = retroarch_sync.resolve_state_by_slot(
+        admin_user, rom, "mgba", "Game.state.auto"
+    )
+    assert served is not None and served.id == streamed.id
+
+
+def test_a_retroarch_core_loads_its_own_states_from_every_client(
+    rom: Rom, admin_user: User
+):
+    synced = _add_state(rom, admin_user, "Game.state1", "mgba")
+    streamed = _add_state(rom, admin_user, "Game.state", "mgba", core="mgba")
+    legacy = _core_state(rom, admin_user, "Old.state", "mgba")
+    _core_state(rom, admin_user, "Other.state", "vba_next")
+    _add_state(rom, admin_user, "Other.state1", "vba_next")
+
+    loadable = states.user_states_for_emulator(
+        admin_user.id, rom.id, "retroarch", states.StateCore("mgba", True)
+    )
+
+    assert {s.id for s in loadable} == {synced.id, streamed.id, legacy.id}
+
+
+def test_a_retroarch_core_loads_states_filed_under_an_alias_of_its_folder(
+    rom: Rom, admin_user: User
+):
+    """Cloud Sync slots beetle_psx_hw with mednafen_psx_hw, both "Beetle PSX HW"."""
+    aliased = _add_state(rom, admin_user, "Game.state1", "beetle_psx_hw")
+    _add_state(rom, admin_user, "Other.state1", "mednafen_psx")
+
+    loadable = states.user_states_for_emulator(
+        admin_user.id,
+        rom.id,
+        "retroarch",
+        states.StateCore("mednafen_psx_hw", True, folder="mednafen_psx_hw"),
+    )
+
+    assert [s.id for s in loadable] == [aliased.id]
+
+
+def test_a_stream_never_prunes_another_clients_state(rom: Rom, admin_user: User):
+    """The stream's retention covers what it filed; Cloud Sync's and the
+    device clients' states under the same core are theirs to keep."""
+    synced = _add_state(
+        rom,
+        admin_user,
+        "Game.state1",
+        "mgba",
+        updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    )
+    legacy = _core_state(rom, admin_user, "Game.20260102-000000000000.state", "mgba")
+    db_state_handler.update_state(
+        legacy.id, {"updated_at": datetime(2026, 1, 2, tzinfo=timezone.utc)}
+    )
+    _core_state(rom, admin_user, "Game.20260103-000000000000.state", "mgba")
+
+    remaining = _prune_to_one(rom, admin_user)
+
+    assert synced.id in remaining
+    assert legacy.id not in remaining
+
+
+@pytest.mark.parametrize(
+    ("folder", "core", "library_name"),
+    [("bsnes", "bsnes", None), ("Snes9x 2010", "snes9x2010", "Snes9x 2010")],
+)
+def test_resume_takes_a_cloud_synced_state_of_the_booted_core(
+    rom: Rom, admin_user: User, folder, core, library_name
+):
+    """Filed under the core's folder, or its id when the broker names none, the
+    state is this container's own and resumes without an import."""
+    state = _add_state(rom, admin_user, "Game.state2", folder)
+    reply = {
+        "platform": "snes",
+        "default": "snes9x",
+        "cores": [{"core": core, "library_name": library_name}],
+    }
+    with patch("handler.streaming.broker.request", return_value=reply):
+        picked, slot, foreign = states.resolve_resume_state(
+            admin_user.id, rom, _snes(f"retroarch:{core}"), state.id
+        )
+    assert (picked.id, slot, foreign) == (state.id, 2, False)
+
+
+@pytest.mark.parametrize(
+    ("folder", "core"),
+    [
+        ("bsnes", states.StateCore("bsnes", False)),
+        ("Snes9x 2010", states.StateCore("snes9x2010", False, folder="Snes9x 2010")),
+    ],
+)
+def test_a_resume_push_sends_a_cloud_synced_state_of_the_booted_core(
+    rom: Rom, admin_user: User, folder: str, core: states.StateCore
+):
+    """The claim took it as the core's own, so the push must not refuse it."""
+    state = _add_state(rom, admin_user, "Game.state2", folder)
+    with (
+        patch(
+            "handler.filesystem.fs_asset_handler.read_file",
+            new=AsyncMock(return_value=b"state-bytes"),
+        ),
+        patch("handler.streaming.states.push_state_file", return_value=True) as push,
+    ):
+        pushed = asyncio.run(
+            states.push_resume_state(_snes(f"retroarch:{core.expected}"), state, core)
+        )
+    assert pushed is True
+    assert push.call_args.args[3] == core.expected
+
+
+@pytest.mark.parametrize("folder", ["bsnes", "Snes9x 2010"])
+def test_resume_takes_the_streams_own_state_when_the_core_is_unknown(
+    rom: Rom, admin_user: User, folder: str
+):
+    """Filed under the core's folder with the core it recorded, it is still the
+    stream's own; the broker refuses it if another core booted."""
+    state = _add_state(rom, admin_user, "Game.state3", folder, core="bsnes")
+    with patch("handler.streaming.webstation.default_core", return_value=None):
+        picked, slot, foreign = states.resolve_resume_state(
+            admin_user.id, rom, _snes("retroarch"), state.id
+        )
+    assert (picked.id, slot, foreign) == (state.id, 3, False)
+
+
+def test_hydrate_pushes_a_newer_cloud_synced_state_of_the_booted_core(
+    rom: Rom, admin_user: User
+):
+    _core_state(rom, admin_user, "Old.20260101-000000000000.state", "bsnes")
+    _add_state(
+        rom,
+        admin_user,
+        "Game.state.auto",
+        "bsnes",
+        updated_at=datetime(2099, 1, 1, tzinfo=timezone.utc),
+    )
+    push = _hydrate_core(
+        rom, admin_user, "retroarch:bsnes", states.StateCore("bsnes", False)
+    )
+    assert push.call_args.args[1:] == ("Game.state.auto", b"state-bytes", "bsnes")
+
+
+# ── A RetroArch stream files under the folder RetroArch names the core's ──────
+
+
+@pytest.mark.parametrize(
+    ("core", "library_name", "folder"),
+    [
+        # Cloud Sync files RetroArch's "mGBA" folder under the web player's id.
+        ("mgba", "mGBA", "mgba"),
+        ("melondsds", "melonDS DS", "melonDS DS"),
+        # A broker too old to name the folder leaves the core id.
+        ("melondsds", None, "melondsds"),
+        ("melondsds", "", "melondsds"),
+        ("melondsds", "bad/name", "melondsds"),
+        ("melondsds", "x" * 300, "melondsds"),
+        ("bad/core", None, "retroarch"),
+        (None, None, "retroarch"),
+        # With no core to mark it a capture, the folder would pass it off as
+        # another client's state.
+        (None, "melonDS DS", "retroarch"),
+    ],
+)
+def test_a_retroarch_state_is_filed_under_the_cores_folder(core, library_name, folder):
+    assert states.filed_emulator("retroarch", core, library_name) == folder
+
+
+def test_other_emulators_file_under_the_emulator():
+    assert states.filed_emulator("pcsx2", "mgba", "mGBA") == "pcsx2"
+
+
+@pytest.mark.parametrize(
+    ("core", "library_name", "folder"),
+    [("mgba", None, "mgba"), ("melondsds", "melonDS DS", "melonDS DS")],
+)
+def test_a_streamed_state_is_filed_where_cloud_sync_files_its_core(
+    rom: Rom, admin_user: User, core, library_name, folder
+):
+    """Clients file states under the core's folder, named after RetroArch's
+    library name, which for melonDS DS is not its core id."""
+
+    async def scanned(**kwargs: Any) -> State:
+        return _state_for(rom, admin_user, kwargs["file_name"], kwargs["emulator"])
+
+    with (
+        patch("handler.asset_store.scan_state", new=AsyncMock(side_effect=scanned)),
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
+    ):
+        asyncio.run(
+            states.store_state_asset(
+                admin_user,
+                rom,
+                "retroarch",
+                "Game.state",
+                b"s",
+                core=core,
+                library_name=library_name,
+            )
+        )
+
+    [stored] = db_state_handler.get_states(user_id=admin_user.id, rom_ids=[rom.id])
+    assert (stored.emulator, stored.core) == (folder, core)
+    assert re.fullmatch(r"Game\.\d{8}-\d{12}\.state", stored.file_name)
+
+
+def test_a_core_loads_every_clients_states_in_its_folder(rom: Rom, admin_user: User):
+    synced = _add_state(rom, admin_user, "Game.state1", "melonDS DS")
+    streamed = _add_state(rom, admin_user, "Game.state", "melonDS DS", core="melondsds")
+    # Filed under the core id while the broker could not name the folder.
+    unnamed = _add_state(rom, admin_user, "Game.state2", "melondsds", core="melondsds")
+    _add_state(rom, admin_user, "Other.state", "melonDS DS", core="melonds")
+    _add_state(rom, admin_user, "Other.state1", "melonDS")
+
+    loadable = states.user_states_for_emulator(
+        admin_user.id,
+        rom.id,
+        "retroarch",
+        states.StateCore("melondsds", True, folder="melonDS DS"),
+    )
+
+    assert {s.id for s in loadable} == {synced.id, streamed.id, unnamed.id}
+
+
+def test_a_stream_keeps_its_history_across_folders(rom: Rom, admin_user: User):
+    """Prune and dedup cover every state a stream filed, whichever folder."""
+    streamed = _add_state(rom, admin_user, "Game.state", "melonDS DS", core="melondsds")
+    unnamed = _add_state(rom, admin_user, "Game.state2", "melondsds", core="melondsds")
+    _add_state(rom, admin_user, "Game.state1", "melonDS DS")
+
+    history = states.user_states_for_emulator(admin_user.id, rom.id, "retroarch")
+
+    assert {s.id for s in history} == {streamed.id, unnamed.id}
+
+
 def _add_state_at(rom: Rom, user: User, file_name: str, day: int) -> State:
     """Add a state with an explicit updated_at, so history order is deterministic."""
     stored = _add_state(rom, user, file_name, "pcsx2")
@@ -5453,6 +5858,65 @@ def test_prune_state_history_drops_oldest_past_limit(rom: Rom, admin_user: User)
         "Game.20260102-000000000000.01.p2s",
         "Game.20260103-000000000000.01.p2s",
     }
+
+
+def _mgba_capture(
+    rom: Rom, user: User, file_name: str, day: int, **fields: Any
+) -> State:
+    stored = _add_state(rom, user, file_name, "mgba", core="mgba")
+    db_state_handler.update_state(
+        stored.id,
+        {"updated_at": datetime(2026, 1, day, tzinfo=timezone.utc)} | fields,
+    )
+    return stored
+
+
+def _prune_to_one(rom: Rom, user: User) -> set[int]:
+    with (
+        patch("handler.streaming.states.STREAMING_STATE_HISTORY_LIMIT", 1),
+        patch("handler.filesystem.fs_asset_handler.remove_file", new=AsyncMock()),
+    ):
+        asyncio.run(states.prune_state_history(user, rom, "retroarch"))
+    return {
+        s.id for s in db_state_handler.get_states(user_id=user.id, rom_ids=[rom.id])
+    }
+
+
+def test_a_prune_keeps_a_capture_cloud_sync_serves_from_its_slot(
+    rom: Rom, admin_user: User
+):
+    """A device holding the capture as its slot 1 would lose that slot."""
+    served = _mgba_capture(rom, admin_user, "Game.20260101-000000000000.state1", 1)
+    older = _mgba_capture(rom, admin_user, "Game.20260102-000000000000.state", 2)
+    newest = _mgba_capture(rom, admin_user, "Game.20260103-000000000000.state", 3)
+
+    remaining = _prune_to_one(rom, admin_user)
+
+    assert remaining == {served.id, newest.id}
+    assert older.id not in remaining
+
+
+def test_a_prune_drops_a_capture_once_a_newer_state_takes_its_slot(
+    rom: Rom, admin_user: User
+):
+    _mgba_capture(rom, admin_user, "Game.20260101-000000000000.state1", 1)
+    newest = _mgba_capture(rom, admin_user, "Game.20260103-000000000000.state", 3)
+    synced = _add_state(rom, admin_user, "Game.state1", "mgba")
+    db_state_handler.update_state(
+        synced.id, {"updated_at": datetime(2026, 1, 2, tzinfo=timezone.utc)}
+    )
+
+    assert _prune_to_one(rom, admin_user) == {newest.id, synced.id}
+
+
+def test_a_prune_drops_a_served_capture_whose_file_is_gone(rom: Rom, admin_user: User):
+    """Cloud Sync lists only states on disk, so a missing one serves nothing."""
+    _mgba_capture(
+        rom, admin_user, "Game.20260101-000000000000.state1", 1, missing_from_fs=True
+    )
+    newest = _mgba_capture(rom, admin_user, "Game.20260103-000000000000.state", 3)
+
+    assert _prune_to_one(rom, admin_user) == {newest.id}
 
 
 def test_prune_state_history_drops_the_pruned_thumbnail(rom: Rom, admin_user: User):
@@ -5768,10 +6232,18 @@ def _save_for(
 
 
 def _add_save(
-    rom: Rom, user: User, file_name: str, emulator: str, content_hash: str | None = None
+    rom: Rom,
+    user: User,
+    file_name: str,
+    emulator: str,
+    content_hash: str | None = None,
+    **overrides: Any,
 ) -> Save:
     return make_save(
-        rom, user, file_name, **_save_fields(rom, file_name, emulator, content_hash)
+        rom,
+        user,
+        file_name,
+        **(_save_fields(rom, file_name, emulator, content_hash) | overrides),
     )
 
 
@@ -5844,6 +6316,7 @@ def _exit_archive(
     members: dict[str, tuple[Any, bytes]],
     core: str | None = "mgba",
     written: dict[str, tuple[int, int, int, int, int, int]] | None = None,
+    library_name: object = None,
 ) -> bytes:
     """A webstation exit archive whose manifest labels each member with its kind,
     each member stamped with its `written` time when one is given."""
@@ -5858,6 +6331,8 @@ def _exit_archive(
         session: dict[str, Any] = {"emulator": "retroarch", "platform": "gba"}
         if core is not None:
             session["core"] = core
+        if library_name is not None:
+            session["library_name"] = library_name
         zf.writestr(
             ".broker-manifest.json",
             json.dumps(
@@ -5916,6 +6391,37 @@ def _stored_saves(rom: Rom, user: User) -> list[Save]:
     return list(db_save_handler.get_saves(user_id=user.id, rom_ids=[rom.id]))
 
 
+@pytest.mark.parametrize(
+    ("core", "library_name", "folder", "recorded"),
+    [
+        ("melondsds", "melonDS DS", "melonDS DS", "melonDS DS"),
+        ("mgba", "mGBA", "mgba", "mGBA"),
+        ("melondsds", None, "melondsds", None),
+        ("melondsds", "bad/name", "melondsds", "bad/name"),
+        # Not a string, so not a name at all.
+        ("melondsds", 7, "melondsds", None),
+    ],
+)
+def test_a_retroarch_exit_files_under_the_cores_folder(
+    rom: Rom, admin_user: User, core, library_name, folder, recorded
+):
+    """Where RetroArch, and so Cloud Sync, files that core's saves and states."""
+    content = _exit_archive(
+        {
+            "saves/x/Game.srm": ("save", b"sram"),
+            "states/x/Game.state": ("state", b"state-bytes"),
+        },
+        core=core,
+        library_name=library_name,
+    )
+    _write, store_state = _pull_exit(rom, admin_user, content)
+
+    [stored] = _stored_saves(rom, admin_user)
+    assert stored.emulator == folder
+    kwargs = store_state.call_args.kwargs
+    assert (kwargs["core"], kwargs["library_name"]) == (core, recorded)
+
+
 def test_a_retroarch_exit_files_its_one_save_raw_and_its_state_apart(
     rom: Rom, admin_user: User
 ):
@@ -5932,7 +6438,7 @@ def test_a_retroarch_exit_files_its_one_save_raw_and_its_state_apart(
 
     [stored] = _stored_saves(rom, admin_user)
     assert stored.emulator == "mgba"
-    assert stored.slot is None
+    assert stored.slot == AUTOSAVE_SLOT
     assert re.fullmatch(
         re.escape(rom.fs_name_no_ext)
         + r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-\d{3}\]\.srm",
@@ -5945,6 +6451,71 @@ def test_a_retroarch_exit_files_its_one_save_raw_and_its_state_apart(
     assert args.args[2:5] == ("retroarch", "Game.state", b"state-bytes")
     assert args.kwargs["screenshot"] == b"png-bytes"
     assert args.kwargs["core"] == "mgba"
+
+
+def test_a_raw_exit_save_is_the_version_retroarch_cloud_sync_serves(
+    rom: Rom, admin_user: User
+):
+    """Cloud Sync and the device clients read the core's `autosave` head."""
+    older = _add_save(
+        rom, admin_user, "Game [older].srm", "mgba", "old", slot=AUTOSAVE_SLOT
+    )
+    _stamp(
+        older,
+        datetime(2026, 10, 1, tzinfo=timezone.utc),
+        datetime(2026, 10, 1, tzinfo=timezone.utc),
+    )
+    content = _exit_archive({"saves/mGBA/Game.srm": ("save", b"eeprom")})
+
+    _pull_exit(rom, admin_user, content)
+
+    served = retroarch_sync.resolve_save(
+        admin_user, rom, "mgba", f"{rom.fs_name_no_ext}.srm"
+    )
+    assert served is not None
+    assert served.id != older.id
+    assert served.slot == AUTOSAVE_SLOT
+
+
+def test_a_raw_exit_save_matching_only_an_unslotted_save_still_files(
+    rom: Rom, admin_user: User
+):
+    """An exit filed before saves went through the slot is invisible to Cloud
+    Sync, so the same bytes are filed again where it reads them."""
+    _add_save(rom, admin_user, "Game [old].srm", "mgba", "same")
+
+    rm = _pull_raw_exit_save(rom, admin_user, "same")
+
+    rm.assert_not_awaited()
+    slotted = [s for s in _stored_saves(rom, admin_user) if s.slot == AUTOSAVE_SLOT]
+    assert len(slotted) == 1
+
+
+def test_a_raw_exit_save_prunes_only_its_own_cores_autosave_versions(
+    rom: Rom, admin_user: User
+):
+    for day, name in ((1, "Game [a].srm"), (2, "Game [b].srm")):
+        version = _add_save(
+            rom, admin_user, name, "mgba", f"h-{name}", slot=AUTOSAVE_SLOT
+        )
+        when = datetime(2026, 10, day, tzinfo=timezone.utc)
+        _stamp(version, when, when)
+    other_core = _add_save(
+        rom, admin_user, "Game [c].srm", "vba_next", "h-c", slot=AUTOSAVE_SLOT
+    )
+    content = _exit_archive({"saves/mGBA/Game.srm": ("save", b"eeprom")})
+
+    with (
+        patch("handler.sync.retroarch.sync_handler.MAX_SAVES_PER_SLOT", 2),
+        patch("handler.asset_store.remove_asset_file", new=AsyncMock()),
+    ):
+        _pull_exit(rom, admin_user, content)
+
+    names = {s.file_name for s in _stored_saves(rom, admin_user)}
+    assert "Game [a].srm" not in names
+    assert "Game [b].srm" in names
+    assert other_core.file_name in names
+    assert len(names) == 3
 
 
 def test_a_raw_exit_save_skips_a_version_name_already_taken(rom: Rom, admin_user: User):
@@ -6348,7 +6919,7 @@ def test_a_state_check_failure_skips_only_that_state(rom: Rom, admin_user: User)
 
 def test_an_unchanged_raw_save_is_not_filed_twice(rom: Rom, admin_user: User):
     content = _exit_archive({"saves/mGBA/Game.srm": ("save", b"eeprom")})
-    _add_save(rom, admin_user, "Game [old].srm", "mgba", "same")
+    _add_save(rom, admin_user, "Game [old].srm", "mgba", "same", slot=AUTOSAVE_SLOT)
 
     async def scanned(**kwargs: Any) -> Save:
         return _save_for(rom, admin_user, kwargs["file_name"], "mgba", "same")
@@ -6428,8 +6999,12 @@ def _pull_raw_exit_save(rom: Rom, user: User, content_hash: str) -> AsyncMock:
 
 def test_an_exit_back_on_an_older_save_boots_that_save_next(rom: Rom, admin_user: User):
     """The player loaded A after B and quit with A's bytes unchanged."""
-    older = _add_save(rom, admin_user, "Game [a].srm", "mgba", "same")
-    newer = _add_save(rom, admin_user, "Game [b].srm", "mgba", "other")
+    older = _add_save(
+        rom, admin_user, "Game [a].srm", "mgba", "same", slot=AUTOSAVE_SLOT
+    )
+    newer = _add_save(
+        rom, admin_user, "Game [b].srm", "mgba", "other", slot=AUTOSAVE_SLOT
+    )
     _stamp(
         older,
         datetime(2026, 10, 1, tzinfo=timezone.utc),
@@ -6459,7 +7034,9 @@ def test_an_exit_back_on_an_older_save_boots_that_save_next(rom: Rom, admin_user
 def test_an_exit_matching_only_a_missing_save_keeps_its_copy(
     rom: Rom, admin_user: User
 ):
-    gone = _add_save(rom, admin_user, "Game [a].srm", "mgba", "same")
+    gone = _add_save(
+        rom, admin_user, "Game [a].srm", "mgba", "same", slot=AUTOSAVE_SLOT
+    )
     with sync_session.begin() as session:
         session.execute(
             update(Save).where(Save.id == gone.id).values(missing_from_fs=True)
@@ -6469,6 +7046,19 @@ def test_an_exit_matching_only_a_missing_save_keeps_its_copy(
 
     rm.assert_not_awaited()
     assert len(_stored_saves(rom, admin_user)) == 2
+
+
+def test_an_exit_matching_the_slot_head_under_an_alias_adds_no_version(
+    rom: Rom, admin_user: User
+):
+    """Cloud Sync reads the slot across the folder's aliases, so a head filed
+    under RetroArch's own folder name is the save the exit brought back."""
+    _add_save(rom, admin_user, "Game [a].srm", "mGBA", "same", slot=AUTOSAVE_SLOT)
+
+    rm = _pull_raw_exit_save(rom, admin_user, "same")
+
+    rm.assert_awaited_once()
+    assert len(_stored_saves(rom, admin_user)) == 1
 
 
 # ── A launch with no pick boots the newest save, raw or zipped ────────────────
@@ -9127,6 +9717,22 @@ def test_a_pulled_state_names_its_core(rom: Rom):
     assert pulled == states.PulledState("Game.state", b"bytes", "bsnes")
 
 
+def test_a_pulled_state_names_its_cores_folder(rom: Rom):
+    resp = _state_file_response(
+        {
+            "X-State-Filename": "Game.state",
+            "X-State-Core": "melondsds",
+            "X-State-Library": "melonDS DS",
+        },
+        b"bytes",
+    )
+    with patch("handler.streaming.broker.urllib.request.urlopen", return_value=resp):
+        pulled = states.fetch_state_file(_resolved(_webstation_for(rom)), 0)
+    assert pulled == states.PulledState(
+        "Game.state", b"bytes", "melondsds", "melonDS DS"
+    )
+
+
 def test_a_pulled_state_from_an_older_broker_has_no_core(rom: Rom):
     resp = _state_file_response({"X-State-Filename": "Game.state"}, b"bytes")
     with patch("handler.streaming.broker.urllib.request.urlopen", return_value=resp):
@@ -9169,6 +9775,28 @@ def test_a_pulled_state_is_stored_with_its_core(rom: Rom, admin_user: User):
     assert [s.core for s in stored] == ["bsnes"]
 
 
+def test_a_pulled_state_is_filed_under_its_cores_folder(rom: Rom, admin_user: User):
+    store = AsyncMock()
+    with (
+        patch(
+            "handler.streaming.states.fetch_state_file",
+            return_value=states.PulledState(
+                "Game.state", b"state-bytes", "melondsds", "melonDS DS"
+            ),
+        ),
+        patch("handler.streaming.states.fetch_state_screenshot", return_value=None),
+        patch("handler.streaming.states.store_state_asset", store),
+    ):
+        ok = asyncio.run(
+            states.pull_state_to_library(
+                admin_user.id, rom.id, _snes("retroarch:melondsds"), 0
+            )
+        )
+    assert ok is True
+    kwargs = store.call_args.kwargs
+    assert (kwargs["core"], kwargs["library_name"]) == ("melondsds", "melonDS DS")
+
+
 _CORES_REPLY = {"platform": "snes", "default": "snes9x", "cores": []}
 
 
@@ -9193,7 +9821,7 @@ def test_default_core_asks_again_once_a_404_expires():
     """An upgraded broker gains the route, so an old one's 404 must not outlive
     the TTL."""
     with (
-        patch("handler.streaming.webstation._DEFAULT_CORE_TTL", 0.0),
+        patch("handler.streaming.webstation._CORES_TTL", 0.0),
         patch(
             "handler.streaming.broker.request", side_effect=_http_error(404)
         ) as request,
@@ -9251,6 +9879,67 @@ def test_a_configured_core_still_filters_when_the_default_is_unknown():
     with patch("handler.streaming.webstation.default_core", return_value=None):
         core = states.state_core_for(_snes("retroarch:bsnes"))
     assert core == states.StateCore("bsnes", default_matches=False)
+
+
+def test_state_core_takes_the_folder_activate_names():
+    core = states.state_core_for(
+        _snes("retroarch:snes9x2010"),
+        {"core": "snes9x2010", "core_tier": "untested", "library_name": "Snes9x 2010"},
+    )
+    assert core == states.StateCore("snes9x2010", False, folder="Snes9x 2010")
+
+
+@pytest.mark.parametrize("library_name", [None, "", "bad/name", 7])
+def test_state_core_has_no_folder_activate_cannot_name(library_name):
+    core = states.state_core_for(
+        _snes("retroarch:bsnes"),
+        {"core": "bsnes", "core_tier": "vetted", "library_name": library_name},
+    )
+    assert core == states.StateCore("bsnes", False)
+    assert core.filed_as == "bsnes"
+
+
+def test_state_core_takes_the_folder_from_the_cores_route_before_launch():
+    reply = {
+        "platform": "snes",
+        "default": "snes9x",
+        "cores": [
+            {"core": "snes9x", "library_name": "Snes9x"},
+            {"core": "snes9x2010", "library_name": "Snes9x 2010"},
+        ],
+    }
+    with patch("handler.streaming.broker.request", return_value=reply) as request:
+        configured = states.state_core_for(_snes("retroarch:snes9x2010"))
+        default = states.state_core_for(_snes("retroarch"))
+    assert configured == states.StateCore("snes9x2010", False, folder="Snes9x 2010")
+    assert default == states.StateCore("snes9x", True, folder="snes9x")
+    # Both answered from one cached reply.
+    assert request.call_count == 1
+
+
+def test_state_core_ignores_a_malformed_cores_row():
+    reply = {
+        "platform": "snes",
+        "default": "snes9x",
+        "cores": ["snes9x", {"core": 3}, {"core": "bsnes", "library_name": 4}],
+    }
+    with patch("handler.streaming.broker.request", return_value=reply):
+        core = states.state_core_for(_snes("retroarch:bsnes"))
+    assert core == states.StateCore("bsnes", False)
+
+
+def test_state_core_asks_an_unreachable_broker_once():
+    """Nothing is cached when it is down, so the folder lookup must not wait
+    out a second timeout."""
+    import urllib.error
+
+    with patch(
+        "handler.streaming.broker.request",
+        side_effect=urllib.error.URLError("broker down"),
+    ) as request:
+        core = states.state_core_for(_snes("retroarch:bsnes"))
+    assert core == states.StateCore("bsnes", False)
+    assert request.call_count == 1
 
 
 def test_no_state_core_outside_retroarch():
@@ -12856,3 +13545,180 @@ async def test_store_save_asset_fits_a_long_multibyte_rom_name(
     assert filename.startswith("ゲーム")
     assert filename.endswith("].saves.zip")
     add_save.assert_called_once()
+
+
+# ── streaming permission ──────────────────────────────────────────────────────
+
+
+def _override_streaming(
+    user: User, *actions: PermAction, granted: bool = False, own_only: bool = False
+) -> None:
+    with sync_session.begin() as s:
+        for action in actions:
+            s.add(
+                UserPermissionOverride(
+                    user_id=user.id,
+                    entity=PermEntity.STREAMING,
+                    action=action,
+                    granted=granted,
+                    own_only=own_only,
+                )
+            )
+
+
+def test_get_config_is_disabled_without_streaming_read(
+    client, viewer_access_token, viewer_user: User, rom: Rom
+):
+    """A user kept off streaming gets the same answer as a server without it."""
+    _override_streaming(viewer_user, PermAction.READ)
+    with _streaming(_container_for(rom)):
+        response = client.get(
+            "/api/streaming/config", headers=_auth(viewer_access_token)
+        )
+    assert response.status_code == 200
+    assert response.json()["enabled"] is False
+    assert response.json()["containers"] == []
+
+
+@pytest.fixture
+def guests_group() -> Iterator[int]:
+    """A group with no streaming grant; conftest keeps groups between tests."""
+    with sync_session.begin() as s:
+        group = PermissionGroup(
+            name="Guests",
+            grants=[
+                PermissionGroupGrant(entity=PermEntity.ROMS, action=PermAction.READ)
+            ],
+        )
+        s.add(group)
+        s.flush()
+        group_id = group.id
+    yield group_id
+    with sync_session.begin() as s:
+        s.query(PermissionGroup).filter_by(id=group_id).delete()
+
+
+def test_get_config_is_disabled_for_a_group_without_streaming(
+    client, rom: Rom, guests_group: int
+):
+    """A group an admin creates starts with no streaming grant."""
+    guest = db_user_handler.add_user(
+        User(username="guest", role=Role.USER, permission_group_id=guests_group)
+    )
+    with _streaming(_container_for(rom)):
+        response = client.get(
+            "/api/streaming/config", headers=_auth(_access_token(guest))
+        )
+    assert response.json()["enabled"] is False
+
+
+def test_get_config_keeps_streaming_for_an_admin_with_no_grants(
+    client, access_token, rom: Rom
+):
+    with _streaming(_container_for(rom)):
+        response = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert response.json()["enabled"] is True
+
+
+@pytest.mark.parametrize("action", [PermAction.READ, PermAction.WRITE])
+def test_claim_without_streaming_grant_is_forbidden(
+    client, viewer_access_token, viewer_user: User, rom: Rom, action: PermAction
+):
+    """Starting a session takes a container, so it needs both grants."""
+    _override_streaming(viewer_user, action)
+    with _streaming(_container_for(rom)):
+        with patch("handler.streaming.commands.launch") as call_broker:
+            r = _claim(client, viewer_access_token, rom.id)
+    assert r.status_code == 403
+    call_broker.assert_not_called()
+
+
+def test_an_own_only_streaming_grant_counts(
+    client, viewer_access_token, viewer_user: User, rom: Rom
+):
+    """A session the player starts is their own, so "own items only" counts."""
+    _override_streaming(
+        viewer_user, PermAction.READ, PermAction.WRITE, granted=True, own_only=True
+    )
+    with _streaming(_container_for(rom)):
+        config = client.get("/api/streaming/config", headers=_auth(viewer_access_token))
+        r = _claim_ok(client, viewer_access_token, rom.id)
+    assert config.json()["enabled"] is True
+    assert r.status_code == 202
+
+
+def test_claim_with_streaming_grant_still_launches(
+    client, viewer_access_token, rom: Rom
+):
+    with _streaming(_container_for(rom)):
+        r = _claim_ok(client, viewer_access_token, rom.id)
+    assert r.status_code == 202
+
+
+def test_joining_without_streaming_read_is_forbidden(
+    client, access_token, viewer_access_token, viewer_user: User, rom: Rom
+):
+    _override_streaming(viewer_user, PermAction.READ)
+    with _streaming(_ws_for(rom)):
+        _claim_multiplayer(client, access_token, rom.id)
+        with patch("handler.streaming.webstation.join") as join_broker:
+            response = _join(client, viewer_access_token, rom.platform_slug)
+    assert response.status_code == 403
+    join_broker.assert_not_called()
+
+
+def test_joining_needs_only_streaming_read(
+    client, access_token, viewer_access_token, viewer_user: User, rom: Rom
+):
+    """A guest seat runs on the host's container, so it costs no launch."""
+    _override_streaming(viewer_user, PermAction.WRITE)
+    with _streaming(_ws_for(rom)):
+        _claim_multiplayer(client, access_token, rom.id)
+        body = _joinable(client, viewer_access_token).json()
+        with _joined_room():
+            joined = _join(client, viewer_access_token, rom.platform_slug)
+    assert len(body["sessions"]) == 1
+    assert joined.status_code == 200
+
+
+def test_an_own_only_streaming_read_cannot_join_someone_elses_session(
+    client, access_token, viewer_access_token, viewer_user: User, rom: Rom
+):
+    """Another player's session is not the caller's own."""
+    _override_streaming(viewer_user, PermAction.READ, granted=True, own_only=True)
+    with _streaming(_ws_for(rom)):
+        _claim_multiplayer(client, access_token, rom.id)
+        listed = _joinable(client, viewer_access_token)
+        with patch("handler.streaming.webstation.join") as join_broker:
+            joined = _join(client, viewer_access_token, rom.platform_slug)
+    assert listed.status_code == 200
+    assert listed.json()["sessions"] == []
+    assert joined.status_code == 403
+    join_broker.assert_not_called()
+
+
+def test_joinable_is_empty_without_streaming_read(
+    client, access_token, viewer_access_token, viewer_user: User, rom: Rom
+):
+    _override_streaming(viewer_user, PermAction.READ)
+    with _streaming(_ws_for(rom)):
+        _claim_multiplayer(client, access_token, rom.id)
+        response = _joinable(client, viewer_access_token)
+    assert response.status_code == 200
+    assert response.json()["sessions"] == []
+
+
+def test_a_revoked_player_can_still_leave_their_session(
+    client, viewer_access_token, viewer_user: User, rom: Rom
+):
+    """Revoking streaming mid-game must not strand the player's save."""
+    with _streaming(_container_for(rom)):
+        assert _claim_ok(client, viewer_access_token, rom.id).status_code == 202
+        _override_streaming(viewer_user, PermAction.READ, PermAction.WRITE)
+        with _stub_stop():
+            r = client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                headers=_auth(viewer_access_token),
+            )
+    assert r.status_code == 200
+    assert r.json()["status"] == "released"

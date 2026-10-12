@@ -22,7 +22,8 @@ export type { ActionKey, Grant, PermissionScope };
 
 /** Mount-time helper: keep permissionsStore in sync with the current user by
  *  fetching /permissions/me on login and on the `permissions:changed` socket
- *  event. Call once high in the v2 tree (AppLayout): the watch is idempotent. */
+ *  event. Call once high in each layout (v2 AppLayout, v1 Main, console
+ *  Layout): the watch is idempotent. */
 export function installPermissionsHydration() {
   const auth = storeAuth();
   const permissions = storePermissions();

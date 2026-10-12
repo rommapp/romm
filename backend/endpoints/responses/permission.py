@@ -47,6 +47,10 @@ class ActionKey(enum.StrEnum):
     PLAYLIST_EDIT = "playlist.edit"
     # Library
     LIBRARY_SCAN = "library.scan"
+    # Streaming read has no key: the UI reads the streaming config's `enabled`.
+    STREAM_START = "stream.start"
+    # Netplay (rom.play is the emulation read grant)
+    NETPLAY_HOST = "netplay.host"
     # Users
     USER_VIEW = "user.view"
     USER_CREATE = "user.create"
@@ -63,7 +67,6 @@ class ActionKey(enum.StrEnum):
 _ENTITY_ACTION_KEYS: dict[tuple[PermEntity, PermAction], tuple[ActionKey, ...]] = {
     (PermEntity.ROMS, PermAction.READ): (
         ActionKey.ROM_VIEW,
-        ActionKey.ROM_PLAY,
         ActionKey.ROM_DOWNLOAD,
         ActionKey.ROM_FAVORITE,
     ),
@@ -88,6 +91,9 @@ _ENTITY_ACTION_KEYS: dict[tuple[PermEntity, PermAction], tuple[ActionKey, ...]] 
     ),
     (PermEntity.COLLECTIONS, PermAction.DELETE): (ActionKey.COLLECTION_DELETE,),
     (PermEntity.PLAYLISTS, PermAction.WRITE): (ActionKey.PLAYLIST_EDIT,),
+    (PermEntity.STREAMING, PermAction.WRITE): (ActionKey.STREAM_START,),
+    (PermEntity.EMULATION, PermAction.READ): (ActionKey.ROM_PLAY,),
+    (PermEntity.EMULATION, PermAction.WRITE): (ActionKey.NETPLAY_HOST,),
     (PermEntity.USERS, PermAction.READ): (ActionKey.USER_VIEW,),
     (PermEntity.USERS, PermAction.WRITE): (
         ActionKey.USER_CREATE,

@@ -35,6 +35,7 @@ import {
   onBeforeUnmount,
   onMounted,
   ref,
+  shallowRef,
   watch,
 } from "vue";
 import { useI18n } from "vue-i18n";
@@ -50,6 +51,8 @@ import streamingApi, {
   type LaunchReady,
   type MemoryCardImport,
   type MemoryCardImportDetail,
+  type StreamStatePicks,
+  type StreamingContainer,
 } from "@/services/api/streaming";
 import storeAuth from "@/stores/auth";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
@@ -239,14 +242,19 @@ watch(playerState, (state) =>
   setBgArt(state === "playing" ? null : bgCoverUrl.value),
 );
 
-const container = computed(() =>
-  rom.value
-    ? streamingStore.containerForPlatform(rom.value.platform_slug)
-    : null,
+// Pinned at claim, so a permission refresh that turns streaming off mid-game
+// leaves the session its controls until it ends.
+const heldContainer = shallowRef<StreamingContainer | null>(null);
+const container = computed(
+  () =>
+    heldContainer.value ??
+    (rom.value
+      ? streamingStore.containerForPlatform(rom.value.platform_slug)
+      : null),
 );
 
 const capabilities = computed(() =>
-  streamingStore.platformCapabilities(rom.value?.platform_slug),
+  streamingStore.containerCapabilities(container.value),
 );
 
 // Emulators that keep saves in the emulated filesystem rather than in
@@ -373,34 +381,51 @@ const selectedSave = computed<SaveSchema | null>(
     newestSave.value,
 );
 
-// A RetroArch state only loads in the core that wrote it. One stored before
-// cores were recorded has none, and was written by the platform's default.
-function coreMatches(state: UserStateSchema): boolean {
-  const core = container.value?.state_core;
-  if (!core) return true;
-  return state.core === core.expected || (!state.core && core.default_matches);
+// The backend picks the offered states by the claim's rules: native ones resume
+// as they are, the rest only through an import the broker declares.
+const statePicks = ref<StreamStatePicks | null>(null);
+// The rom whose picks have answered, which Play waits for.
+const statePicksRomId = ref<number | null>(null);
+let statePicksRequest = 0;
+// Keyed on what changes the answer, a rename included, so a config or rom
+// refresh that changes nothing asks nothing.
+const statePicksKey = computed(() => {
+  const current = container.value;
+  if (!rom.value || !current) return null;
+  const ids = (rom.value.all_user_states ?? [])
+    .map((s) => `${s.id}:${s.file_name}`)
+    .join(",");
+  const kinds = current.import_kinds.join(",");
+  return `${rom.value.id}|${current.emulator}|${kinds}|${ids}`;
+});
+watch(
+  statePicksKey,
+  async (key) => {
+    const romId = rom.value?.id;
+    if (key === null || romId === undefined || isJoining) return;
+    const request = ++statePicksRequest;
+    let picks: StreamStatePicks | null = null;
+    try {
+      ({ data: picks } = await streamingApi.fetchStatePicks(romId));
+    } catch {
+      // A failed refresh keeps the last answer, so the user's pick survives;
+      // with none yet, nothing is offered and Play boots fresh.
+    }
+    if (!alive.value || request !== statePicksRequest) return;
+    if (picks) statePicks.value = picks;
+    statePicksRomId.value = romId;
+  },
+  { immediate: true },
+);
+
+// In the order all_user_states carries them, newest first.
+function statesById(ids: number[] | undefined): UserStateSchema[] {
+  const wanted = new Set(ids);
+  return (rom.value?.all_user_states ?? []).filter((s) => wanted.has(s.id));
 }
 
-const nativeStreamStates = computed<UserStateSchema[]>(() => {
-  const emulator = emulatorKey(container.value?.emulator);
-  if (!rom.value || !emulator) return [];
-  return (rom.value.all_user_states ?? []).filter(
-    (s) => emulatorKey(s.emulator) === emulator && coreMatches(s),
-  );
-});
-
-// Every state regardless of which emulator wrote it where the broker declares
-// it can import one, which routes a foreign pick through the import path. This
-// emulator's own states still have to match the core, which the import refuses.
-const pickableStates = computed<UserStateSchema[]>(() => {
-  if (!rom.value) return [];
-  if (!container.value?.import_kinds.includes("state"))
-    return nativeStreamStates.value;
-  const emulator = emulatorKey(container.value?.emulator);
-  return (rom.value.all_user_states ?? []).filter(
-    (s) => emulatorKey(s.emulator) !== emulator || coreMatches(s),
-  );
-});
+const nativeStreamStates = computed(() => statesById(statePicks.value?.native));
+const pickableStates = computed(() => statesById(statePicks.value?.pickable));
 
 // Every capture is kept, so a heavy save-stater ends up with a history the
 // horizontal strip buries. Grid and list trade thumbnail size for how many
@@ -522,9 +547,16 @@ const emulatorLabel = computed(
   () => container.value?.label ?? platformLabel.value,
 );
 
-// Held with the resume picker, so Play never sends a pick the player can't see.
+// Held with the resume picker and its picks, so Play never sends a pick the
+// player can't see or skips the state about to be preselected.
 const playReady = computed(
-  () => !!rom.value && configFresh.value && playerState.value !== "loading",
+  () =>
+    !!rom.value &&
+    configFresh.value &&
+    playerState.value !== "loading" &&
+    (isJoining ||
+      statePicksKey.value === null ||
+      statePicksRomId.value === rom.value.id),
 );
 usePlayFocus(".r-v2-stream__play", playReady, gameRunning);
 
@@ -729,6 +761,7 @@ const claimedAt = ref<string | null>(null);
 
 function forgetClaim(): void {
   holdsClaim.value = false;
+  heldContainer.value = null;
   claimedContainer.value = null;
   claimedAt.value = null;
 }
@@ -957,6 +990,7 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
         multiplayerOnPlay.value,
       );
       claimedContainer.value = launching.container;
+      heldContainer.value = container.value;
       claimedAt.value = launching.claimed_at;
       holdsClaim.value = true;
       // Every exit path ran before there was a claim to hand back.

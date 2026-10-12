@@ -23,11 +23,22 @@ from handler.auth.constants import Scope
 from handler.database import db_rom_handler, db_user_handler
 from handler.netplay_handler import NetplayPlayerInfo, NetplayRoom
 from handler.socket_handler import netplay_socket_handler
+from models.permission import PermAction, PermEntity
 
 ROM_ID = 42
 PLATFORM_ID = 7
 VISIBLE_ROM = Mock(id=ROM_ID, platform_id=PLATFORM_ID)
 ROOM_1 = netplay_module._socket_room("room-1")
+
+
+def _grant(rooms: Mock, *actions: PermAction, own_only: bool = False) -> None:
+    """Hold only these emulation grants, as library-wide or own-only ones."""
+
+    def allows(entity: PermEntity, action: PermAction, *, owned: bool | None = None):
+        held = entity == PermEntity.EMULATION and action in actions
+        return held and (not own_only or owned is True)
+
+    rooms.permissions.return_value.allows = Mock(side_effect=allows)
 
 
 def _user(*scopes: Scope) -> Mock:
@@ -118,6 +129,7 @@ def rooms(mocker) -> Mock:
     mocker.patch.object(db_rom_handler, "get_rom_visibility", return_value=VISIBLE_ROM)
     permissions = mocker.patch.object(netplay_module, "resolve_permissions")
     permissions.return_value.can_see_rom = Mock(return_value=True)
+    permissions.return_value.allows = Mock(return_value=True)
     return Mock(store=store, handler=handler, permissions=permissions)
 
 
@@ -258,6 +270,29 @@ class TestOpenRoomAuthorization:
         assert server.sessions["sid"][AUTH_USER_SESSION_KEY] == 1
         assert server.sessions["sid"]["session_id"] == "room-1"
 
+    @pytest.mark.parametrize(
+        "held",
+        [(), (PermAction.READ,), (PermAction.WRITE,)],
+        ids=["none", "read", "write"],
+    )
+    async def test_rejects_without_emulation_read_and_write(
+        self, server, rooms, authorized, held
+    ):
+        _grant(rooms, *held)
+
+        result = await open_room("sid", _open())
+
+        assert result is not None and "Not authorized" in result
+        rooms.handler.set.assert_not_awaited()
+
+    async def test_an_own_only_grant_hosts(self, server, rooms, authorized):
+        """The room is the host's own, so an "own items only" grant counts."""
+        _grant(rooms, PermAction.READ, PermAction.WRITE, own_only=True)
+
+        assert await open_room("sid", _open()) is None
+
+        assert "room-1" in rooms.store
+
 
 class TestJoinRoomAuthorization:
     async def test_rejects_guest_without_a_password(self, mocker, server, rooms):
@@ -333,6 +368,43 @@ class TestJoinRoomAuthorization:
         joined = await join_room("sid", _join())
 
         assert joined is not None
+        server.enter_room.assert_awaited_once_with("sid", ROOM_1)
+
+    async def test_rejects_user_without_emulation_read(self, server, rooms, authorized):
+        rooms.store["room-1"] = _room()
+        _grant(rooms, PermAction.WRITE)
+
+        result = await join_room("sid", _join())
+
+        assert "Not authorized" in result
+        server.enter_room.assert_not_awaited()
+
+    async def test_rejects_an_own_only_read(self, server, rooms, authorized):
+        """The room is someone else's, so an "own items only" grant does not reach it."""
+        rooms.store["room-1"] = _room()
+        _grant(rooms, PermAction.READ, own_only=True)
+
+        result = await join_room("sid", _join())
+
+        assert "Not authorized" in result
+        server.enter_room.assert_not_awaited()
+
+    async def test_joins_with_emulation_read_alone(self, server, rooms, authorized):
+        rooms.store["room-1"] = _room()
+        _grant(rooms, PermAction.READ)
+
+        assert await join_room("sid", _join()) is not None
+
+        server.enter_room.assert_awaited_once_with("sid", ROOM_1)
+
+    async def test_a_password_invite_needs_no_emulation_grant(
+        self, server, rooms, authorized
+    ):
+        rooms.store["room-1"] = _room(password="s3cret")
+        _grant(rooms)
+
+        assert await join_room("sid", _join(password="s3cret")) is not None
+
         server.enter_room.assert_awaited_once_with("sid", ROOM_1)
 
 

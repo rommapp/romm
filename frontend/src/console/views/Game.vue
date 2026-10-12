@@ -30,6 +30,7 @@ import {
   getUnmatchedCoverImage,
   EXTENSION_REGEX,
 } from "@/utils/covers";
+import { useCan } from "@/v2/composables/useCan";
 
 type FocusZone =
   "play" | "description" | "details" | "shots" | "lightbox" | "states";
@@ -61,8 +62,11 @@ const descriptionOverlayRef = useTemplateRef<HTMLDivElement>(
   "description-overlay-ref",
 );
 const detailsOverlayRef = useTemplateRef<HTMLDivElement>("details-overlay-ref");
+const canPlayInBrowser = useCan("rom.play");
 const isConsoleEmulationDisabled = computed(
-  () => heartbeatStore.value.EMULATION.DISABLE_EMULATOR_JS,
+  () =>
+    heartbeatStore.value.EMULATION.DISABLE_EMULATOR_JS ||
+    !canPlayInBrowser.value,
 );
 
 const releaseDate = computed(() => {

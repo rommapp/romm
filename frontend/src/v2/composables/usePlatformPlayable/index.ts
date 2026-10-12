@@ -12,7 +12,8 @@
 // platform: "ruffle" for Flash, "jsdos" for Windows 3.x/9x, "dosbox" when
 // the EJS catalogue picks the dosbox_pure core (DOS is wrapped by EJS but
 // distinctive enough to surface by name in the UI), "emulatorjs" for
-// everything else playable, and `null` when nothing on the server can run it.
+// everything else playable, and `null` when nothing on the server can run it
+// or the user lacks the in-browser play grant.
 //
 // `mode` folds the in-browser answer together with streaming: a platform
 // served by a configured streaming container is playable too, just not in
@@ -34,6 +35,7 @@ import {
   isRuffleEmulationSupported,
   resolvePlatformSlug,
 } from "@/utils";
+import { useCan } from "@/v2/composables/useCan";
 
 export type PlatformEmulator =
   "emulatorjs" | "ruffle" | "jsdos" | "pico8" | "easyrpg" | "dosbox" | null;
@@ -77,8 +79,11 @@ export function usePlatformPlayable(getSlug: () => string | null | undefined): {
   const streamingStore = useStreamingStore();
   const { value: heartbeat } = storeToRefs(heartbeatStore);
 
+  const canPlayInBrowser = useCan("rom.play");
   const emulator = computed<PlatformEmulator>(() =>
-    resolveEmulator(getSlug(), heartbeat.value, configStore.config),
+    canPlayInBrowser.value
+      ? resolveEmulator(getSlug(), heartbeat.value, configStore.config)
+      : null,
   );
 
   const playable = computed(() => emulator.value !== null);
@@ -119,11 +124,13 @@ export function usePlatformPlayableChecker(): {
   // Expose computed functions so callers that consume them inside another
   // computed (sort comparator, bucket discriminator) re-run when the
   // heartbeat or admin-toggle state changes.
+  const canPlayInBrowser = useCan("rom.play");
   const getEmulator = computed(() => {
     const hb = heartbeat.value;
     const cfg = configStore.config;
+    const allowed = canPlayInBrowser.value;
     return (slug: string | null | undefined): PlatformEmulator =>
-      resolveEmulator(slug, hb, cfg);
+      allowed ? resolveEmulator(slug, hb, cfg) : null;
   });
 
   const isPlayable = computed(() => {

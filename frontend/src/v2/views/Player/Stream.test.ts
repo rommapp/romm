@@ -2,7 +2,11 @@ import { RBtn, RSlider } from "@v2/lib";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick, type Slots, type VNodeChild } from "vue";
-import type { SaveSchema, StateSchema } from "@/__generated__";
+import type {
+  SaveSchema,
+  StateSchema,
+  StreamStatePicksSchema,
+} from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
 import { detailedRomFixture } from "@/utils/rom.fixtures";
@@ -14,6 +18,7 @@ import Stream from "./Stream.vue";
 const mocks = vi.hoisted(() => ({
   claimSession: vi.fn(),
   fetchConfig: vi.fn(() => Promise.resolve()),
+  fetchStatePicks: vi.fn(),
   getRom: vi.fn(),
   fetchSessionStatus: vi.fn(),
   heartbeatSession: vi.fn(),
@@ -27,6 +32,8 @@ const mocks = vi.hoisted(() => ({
   setVolume: vi.fn(),
   container: null as Record<string, unknown> | null,
   capabilities: {} as Record<string, unknown>,
+  // Reactive once the store mock loads, so a test can turn streaming off.
+  streamingOff: { value: false },
   presenceTick: null as (() => Promise<void>) | null,
   playSession: { start: vi.fn(), flush: vi.fn() },
   socketHandlers: {} as Record<string, (payload: unknown) => unknown>,
@@ -55,6 +62,7 @@ vi.mock("@/services/api/rom", () => ({
 
 vi.mock("@/services/api/streaming", () => ({
   default: {
+    fetchStatePicks: mocks.fetchStatePicks,
     loadState: mocks.loadState,
     saveState: mocks.saveState,
     setVolume: mocks.setVolume,
@@ -78,24 +86,30 @@ vi.mock("@/v2/stores/galleryRoms", () => ({
   default: () => ({ getRomById: () => null }),
 }));
 
-vi.mock("@/stores/streaming", () => ({
-  useStreamingStore: () => ({
-    claimSession: mocks.claimSession,
-    containerForPlatform: () => mocks.container,
-    emulatorLabel: (emulator: string) =>
-      emulator === "duckstation" ? "DuckStation" : emulator,
-    platformCapabilities: () => mocks.capabilities,
-    fetchConfig: mocks.fetchConfig,
-    fetchSessionStatus: mocks.fetchSessionStatus,
-    forgetJoinableSession: vi.fn(),
-    heartbeatSession: mocks.heartbeatSession,
-    joinSession: mocks.joinSession,
-    releaseSession: mocks.releaseSession,
-    releaseSessionKeepalive: mocks.releaseSessionKeepalive,
-    saveAndExit: mocks.saveAndExit,
-    saveAndExitKeepalive: mocks.saveAndExitKeepalive,
-  }),
-}));
+vi.mock("@/stores/streaming", async () => {
+  const { ref } = await import("vue");
+  mocks.streamingOff = ref(false);
+  return {
+    useStreamingStore: () => ({
+      claimSession: mocks.claimSession,
+      containerForPlatform: () =>
+        mocks.streamingOff.value ? null : mocks.container,
+      containerCapabilities: (container: unknown) =>
+        container ? mocks.capabilities : {},
+      emulatorLabel: (emulator: string) =>
+        emulator === "duckstation" ? "DuckStation" : emulator,
+      fetchConfig: mocks.fetchConfig,
+      fetchSessionStatus: mocks.fetchSessionStatus,
+      forgetJoinableSession: vi.fn(),
+      heartbeatSession: mocks.heartbeatSession,
+      joinSession: mocks.joinSession,
+      releaseSession: mocks.releaseSession,
+      releaseSessionKeepalive: mocks.releaseSessionKeepalive,
+      saveAndExit: mocks.saveAndExit,
+      saveAndExitKeepalive: mocks.saveAndExitKeepalive,
+    }),
+  };
+});
 
 vi.mock("@/v2/composables/useActivityPresence", () => ({
   useActivityPresence: (_rom: unknown, tick: () => Promise<void>) => {
@@ -240,7 +254,8 @@ async function launch(opts: {
   states?: StateSchema[];
   liveStates?: boolean;
   imports?: ("save" | "state")[];
-  stateCore?: { expected: string; default_matches: boolean } | null;
+  // The backend's answer; every state is native unless a test says otherwise.
+  picks?: StreamStatePicksSchema | Error | Promise<StreamStatePicksSchema>;
 }): Promise<VueWrapper> {
   mocks.container = {
     name: "WEBSTATION-DEV",
@@ -249,13 +264,19 @@ async function launch(opts: {
     supports_save_picker: opts.picker,
     supports_live_states: opts.liveStates ?? true,
     import_kinds: opts.imports ?? [],
-    state_core: opts.stateCore ?? null,
     supports_memory_cards: false,
     supports_multiplayer: false,
   };
   mocks.getRom.mockResolvedValue({
     data: romWith(opts.saves ?? ARCHIVES, opts.states),
   });
+  const ids = (opts.states ?? []).map((state) => state.id);
+  const picks = opts.picks ?? { native: ids, pickable: ids };
+  mocks.fetchStatePicks.mockImplementation(() =>
+    picks instanceof Error
+      ? Promise.reject(picks)
+      : Promise.resolve(picks).then((data) => ({ data })),
+  );
   const wrapper = mount(Stream, {
     shallow: true,
     global: {
@@ -589,6 +610,8 @@ describe("Stream save picker", () => {
   });
 });
 
+type UserState = DetailedRom["all_user_states"][number];
+
 type StreamVm = {
   onPlay: () => Promise<void>;
   performStop: () => Promise<void>;
@@ -603,6 +626,10 @@ type StreamVm = {
   containerHost: string;
   errorMessage: string;
   errorHint: string;
+  playReady: boolean;
+  rom: DetailedRom;
+  pickableStates: UserState[];
+  selectedState: UserState | null;
 };
 
 function vmOf(wrapper: VueWrapper): StreamVm {
@@ -980,6 +1007,7 @@ describe("Stream state controls", () => {
 
   afterEach(() => {
     mocks.capabilities = {};
+    mocks.streamingOff.value = false;
   });
 
   async function barIcons(liveStates: boolean): Promise<unknown[]> {
@@ -992,6 +1020,18 @@ describe("Stream state controls", () => {
 
   it("offers Save and Load where the broker takes a state mid-game", async () => {
     const icons = await barIcons(true);
+    expect(icons).toContain("mdi-content-save-outline");
+    expect(icons).toContain("mdi-restore");
+  });
+
+  it("keeps the controls when streaming is revoked mid-game", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    await launchReady();
+    mocks.streamingOff.value = true;
+    await flushPromises();
+
+    const icons = wrapper.findAllComponents(RBtn).map((b) => b.props("icon"));
     expect(icons).toContain("mdi-content-save-outline");
     expect(icons).toContain("mdi-restore");
   });
@@ -1347,74 +1387,127 @@ describe("Stream state picker", () => {
   });
 
   const STATES = [
-    stateFixture({ id: 5, emulator: "retroarch" }),
+    stateFixture({ id: 7, emulator: "retroarch" }),
     stateFixture({ id: 6, emulator: "duckstation" }),
+    stateFixture({ id: 5, emulator: "retroarch" }),
   ];
 
   function pickableStateIds(wrapper: VueWrapper): number[] {
-    return (
-      wrapper.vm as unknown as { pickableStates: StateSchema[] }
-    ).pickableStates.map((s) => s.id);
+    return vmOf(wrapper).pickableStates.map((s) => s.id);
   }
 
-  it("offers only this emulator's states where the broker declares no state import", async () => {
-    const wrapper = await launch({ picker: false, states: STATES });
+  function selectedStateId(wrapper: VueWrapper): number | undefined {
+    return vmOf(wrapper).selectedState?.id;
+  }
 
-    expect(pickableStateIds(wrapper)).toEqual([5]);
+  it("asks the backend which of the rom's states to offer", async () => {
+    await launch({ picker: false, states: STATES });
+
+    expect(mocks.fetchStatePicks).toHaveBeenCalledWith(3);
   });
 
-  it("offers another emulator's states where the broker imports them", async () => {
+  it("offers the picked states in the rom's newest-first order", async () => {
     const wrapper = await launch({
       picker: false,
       states: STATES,
-      imports: ["state"],
+      picks: { native: [5], pickable: [5, 6] },
     });
 
-    expect(pickableStateIds(wrapper)).toEqual([5, 6]);
+    expect(pickableStateIds(wrapper)).toEqual([6, 5]);
   });
 
-  const CORE_STATES = [
-    stateFixture({ id: 5, emulator: "retroarch", core: "bsnes" }),
-    stateFixture({ id: 6, emulator: "retroarch", core: "snes9x" }),
-    stateFixture({ id: 7, emulator: "retroarch", core: null }),
-    stateFixture({ id: 8, emulator: "duckstation", core: null }),
-  ];
-
-  it("hides states another RetroArch core wrote", async () => {
+  it("preselects the newest native state, not a newer import", async () => {
     const wrapper = await launch({
       picker: false,
-      states: CORE_STATES,
-      stateCore: { expected: "bsnes", default_matches: false },
+      states: STATES,
+      picks: { native: [5], pickable: [6, 5] },
     });
 
-    expect(pickableStateIds(wrapper)).toEqual([5]);
+    expect(selectedStateId(wrapper)).toBe(5);
   });
 
-  it("treats a state with no core as the default's", async () => {
+  it("offers nothing when the backend can't say", async () => {
     const wrapper = await launch({
       picker: false,
-      states: CORE_STATES,
-      stateCore: { expected: "snes9x", default_matches: true },
+      states: STATES,
+      picks: new Error("offline"),
     });
 
-    expect(pickableStateIds(wrapper)).toEqual([6, 7]);
+    expect(pickableStateIds(wrapper)).toEqual([]);
+    expect(selectedStateId(wrapper)).toBeUndefined();
   });
 
-  it("filters nothing when the core is unknown", async () => {
-    const wrapper = await launch({ picker: false, states: CORE_STATES });
-
-    expect(pickableStateIds(wrapper)).toEqual([5, 6, 7]);
-  });
-
-  it("keeps foreign states for the import path but still hides other cores", async () => {
+  it("keeps the pick when a refresh of the picks fails", async () => {
     const wrapper = await launch({
       picker: false,
-      states: CORE_STATES,
-      imports: ["state"],
-      stateCore: { expected: "bsnes", default_matches: false },
+      states: STATES,
+      picks: { native: [7, 5], pickable: [7, 6, 5] },
+    });
+    const vm = vmOf(wrapper);
+    vm.selectedState = vm.rom.all_user_states[2]!;
+    mocks.fetchStatePicks.mockRejectedValue(new Error("offline"));
+
+    vm.rom = {
+      ...vm.rom,
+      all_user_states: vm.rom.all_user_states.filter((s) => s.id !== 6),
+    };
+    await flushPromises();
+
+    expect(mocks.fetchStatePicks).toHaveBeenCalledTimes(2);
+    expect(pickableStateIds(wrapper)).toEqual([7, 5]);
+    expect(selectedStateId(wrapper)).toBe(5);
+  });
+
+  it("holds Play until the picks answer", async () => {
+    let answer!: (picks: StreamStatePicksSchema) => void;
+    const wrapper = await launch({
+      picker: false,
+      states: STATES,
+      picks: new Promise((resolve) => (answer = resolve)),
+    });
+    expect(vmOf(wrapper).playReady).toBe(false);
+
+    answer({ native: [5], pickable: [5] });
+    await flushPromises();
+
+    expect(vmOf(wrapper).playReady).toBe(true);
+    expect(selectedStateId(wrapper)).toBe(5);
+  });
+
+  it("frees Play when the picks fail", async () => {
+    const wrapper = await launch({
+      picker: false,
+      states: STATES,
+      picks: new Error("offline"),
     });
 
-    expect(pickableStateIds(wrapper)).toEqual([5, 8]);
+    expect(vmOf(wrapper).playReady).toBe(true);
+    expect(selectedStateId(wrapper)).toBeUndefined();
+  });
+
+  it("asks again only when the answer could change", async () => {
+    const wrapper = await launch({ picker: false, states: STATES });
+    const vm = vmOf(wrapper);
+
+    vm.rom = { ...vm.rom, all_user_states: [...vm.rom.all_user_states] };
+    await flushPromises();
+
+    expect(mocks.fetchStatePicks).toHaveBeenCalledOnce();
+  });
+
+  it("asks again when a state is renamed", async () => {
+    const wrapper = await launch({ picker: false, states: STATES });
+    const vm = vmOf(wrapper);
+
+    vm.rom = {
+      ...vm.rom,
+      all_user_states: vm.rom.all_user_states.map((s) =>
+        s.id === 5 ? { ...s, file_name: "game.state100" } : s,
+      ),
+    };
+    await flushPromises();
+
+    expect(mocks.fetchStatePicks).toHaveBeenCalledTimes(2);
   });
 });
 

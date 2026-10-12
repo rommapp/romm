@@ -179,26 +179,15 @@ describe("UploadAssetDialog", () => {
     });
   });
 
-  it("files a save under the picked core and out of the slots", async () => {
+  it("files a save under the picked core in autosave", async () => {
     const wrapper = mountDialog("save", [new File(["x"], "a.srm")]);
     expect(wrapper.findAll("select")).toHaveLength(2);
     await choose(wrapper, 1, 1);
 
     expect(await submitted(wrapper)).toMatchObject({
       type: "save",
-      slot: null,
-      emulator: "mgba",
-    });
-  });
-
-  it("returns to autosave when the core is cleared", async () => {
-    const wrapper = mountDialog("save", [new File(["x"], "a.srm")]);
-    await choose(wrapper, 1, 1);
-    await choose(wrapper, 1, 0);
-
-    expect(await submitted(wrapper)).toMatchObject({
       slot: "autosave",
-      emulator: null,
+      emulator: "mgba",
     });
   });
 

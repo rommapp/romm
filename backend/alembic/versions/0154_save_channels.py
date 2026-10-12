@@ -1,7 +1,7 @@
 """Add channels, snapshots and their bank, and the content columns they need.
 
-Revision ID: 0152_save_channels
-Revises: 0151_state_content_hash
+Revision ID: 0154_save_channels
+Revises: 0153_play_permissions
 Create Date: 2026-10-05 00:00:00.000000
 
 """
@@ -15,8 +15,8 @@ from sqlalchemy.dialects.postgresql import ENUM
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0152_save_channels"
-down_revision = "0151_state_content_hash"
+revision = "0154_save_channels"
+down_revision = "0153_play_permissions"
 branch_labels = None
 depends_on = None
 

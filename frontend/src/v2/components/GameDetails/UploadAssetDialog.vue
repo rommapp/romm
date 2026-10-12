@@ -52,7 +52,6 @@ const { t } = useI18n();
 const { emulatorLabel } = useStreamingStore();
 
 const slot = ref<UploadSlot>(existingSlot(AUTOSAVE_SLOT));
-const slotPicked = ref(false);
 const newSlotName = ref("");
 const core = ref("");
 const files = ref<File[]>([]);
@@ -78,7 +77,6 @@ function isUploadSlot(value: unknown): value is UploadSlot {
 function onSlot(value: unknown) {
   if (!isUploadSlot(value)) return;
   slot.value = value;
-  slotPicked.value = true;
 }
 
 const coreItems = computed(() => [
@@ -91,7 +89,6 @@ watch(
   (open) => {
     if (!open) return;
     slot.value = existingSlot(AUTOSAVE_SLOT);
-    slotPicked.value = false;
     newSlotName.value = "";
     core.value = "";
     files.value = [];
@@ -99,13 +96,6 @@ watch(
   },
   { immediate: true },
 );
-
-// RetroArch Cloud Sync only lists unslotted saves, so a save filed under a core
-// leaves the slots unless one was picked on purpose.
-watch(core, (picked) => {
-  if (props.type !== "save" || slotPicked.value) return;
-  slot.value = picked ? NO_SLOT : existingSlot(AUTOSAVE_SLOT);
-});
 
 function addFiles(picked: File[]) {
   const seen = new Set(files.value.map((f) => f.name));

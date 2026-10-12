@@ -40,6 +40,8 @@ class PermEntity(enum.StrEnum):
     USERS = "users"
     TASKS = "tasks"
     LOGS = "logs"
+    STREAMING = "streaming"
+    EMULATION = "emulation"
 
 
 class PermAction(enum.StrEnum):

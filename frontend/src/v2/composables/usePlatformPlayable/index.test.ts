@@ -15,6 +15,7 @@ const pico8Slugs = new Set<string>();
 const easyRpgSlugs = new Set<string>();
 const streamContainers = new Map<string, { label: string; emulator: string }>();
 const streamingEnabled = { value: true };
+const canPlayInBrowser = { value: true };
 
 vi.mock("@/utils", () => ({
   isEJSEmulationSupported: (slug: string) => ejsSlugs.has(slug),
@@ -69,6 +70,9 @@ vi.mock("pinia", async (importOriginal) => {
   const actual = await importOriginal<typeof import("pinia")>();
   return { ...actual, storeToRefs: (store: unknown) => store };
 });
+vi.mock("@/v2/composables/useCan", () => ({
+  useCan: () => canPlayInBrowser,
+}));
 vi.mock("@/locales", () => ({
   default: {
     global: {
@@ -88,6 +92,7 @@ beforeEach(() => {
   easyRpgSlugs.clear();
   streamContainers.clear();
   streamingEnabled.value = true;
+  canPlayInBrowser.value = true;
 });
 
 describe("usePlatformPlayable", () => {
@@ -145,6 +150,19 @@ describe("usePlatformPlayable", () => {
     expect(streamLabel.value).toBeNull();
     expect(mode.value).toBeNull();
   });
+
+  it("drops the browser engine without the in-browser play grant", () => {
+    canPlayInBrowser.value = false;
+    ejsSlugs.add("psx");
+    streamContainers.set("psx", {
+      label: "DuckStation",
+      emulator: "duckstation",
+    });
+    const { mode, emulator, playable } = usePlatformPlayable(() => "psx");
+    expect(emulator.value).toBeNull();
+    expect(playable.value).toBe(false);
+    expect(mode.value).toBe("stream");
+  });
 });
 
 describe("usePlatformPlayableChecker", () => {
@@ -185,6 +203,14 @@ describe("usePlatformPlayableChecker", () => {
     streamContainers.set("ps2", { label: "PCSX2", emulator: "pcsx2" });
     const { isStreamable } = usePlatformPlayableChecker();
     expect(isStreamable.value("ps2")).toBe(false);
+  });
+
+  it("reports nothing playable without the in-browser play grant", () => {
+    canPlayInBrowser.value = false;
+    ejsSlugs.add("snes");
+    const { isPlayable, getEmulator } = usePlatformPlayableChecker();
+    expect(isPlayable.value("snes")).toBe(false);
+    expect(getEmulator.value("snes")).toBeNull();
   });
 });
 
