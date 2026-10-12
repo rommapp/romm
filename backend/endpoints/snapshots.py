@@ -16,8 +16,6 @@ from starlette.datastructures import UploadFile
 
 from decorators.auth import protected_route
 from endpoints.responses.snapshots import (
-    DIGEST_PREFIX,
-    CurrentRefSchema,
     MissingContentSchema,
     SnapshotConflictSchema,
     SnapshotSchema,
@@ -538,13 +536,10 @@ def _respond(result: WriteResult, viewer: User) -> JSONResponse:
     body = build_snapshot_schema(result.snapshot, channel, viewer)
     if result.outcome == Outcome.BRANCHED:
         assert result.conflict is not None, "a branched write names its conflict"
-        current = result.current
         conflict = SnapshotConflictSchema(
             current=(
-                CurrentRefSchema(
-                    id=current.id, digest=f"{DIGEST_PREFIX}{current.digest}"
-                )
-                if current
+                build_snapshot_schema(result.current, channel, viewer)
+                if result.current
                 else None
             ),
             branch=body,

@@ -218,7 +218,10 @@ def test_a_stale_push_is_a_conflict_kept_as_a_branch(
 
     assert response.status_code == status.HTTP_409_CONFLICT
     conflict = response.json()
-    assert conflict["current"] == {"id": second["id"], "digest": second["digest"]}
+    current = conflict["current"]
+    assert (current["id"], current["digest"]) == (second["id"], second["digest"])
+    assert current["device"] == second["device"]
+    assert current["created_at"][:19] == second["created_at"][:19]
     assert conflict["branch"]["kind"] == "branch"
 
 

@@ -118,13 +118,8 @@ class MissingContentSchema(BaseModel):
     missing: list[str]
 
 
-class CurrentRefSchema(BaseModel):
-    id: int
-    digest: str
-
-
 class SnapshotConflictSchema(BaseModel):
-    current: CurrentRefSchema | None
+    current: SnapshotSchema | None
     branch: SnapshotSchema
     reason: ConflictReason = Field(
         description=(

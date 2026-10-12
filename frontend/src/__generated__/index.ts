@@ -94,7 +94,6 @@ export type { ConvertoDict } from './models/ConvertoDict';
 export type { ConvertoSettingsPayload } from './models/ConvertoSettingsPayload';
 export type { CoverResource } from './models/CoverResource';
 export type { CsdbCredit } from './models/CsdbCredit';
-export type { CurrentRefSchema } from './models/CurrentRefSchema';
 export type { CustomLimitOffsetPage_SimpleRomSchema_ } from './models/CustomLimitOffsetPage_SimpleRomSchema_';
 export type { DemozooCredit } from './models/DemozooCredit';
 export type { DesktopSessionSchema } from './models/DesktopSessionSchema';
