@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from tests.factories import make_rom
 
 from config.config_manager import MetadataMediaType
+from endpoints.responses.rom import PROVIDER_METADATA_FIELDS
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.database import db_collection_handler, db_rom_handler
 from handler.database.base_handler import sync_session
@@ -441,6 +442,74 @@ def test_get_roms_keeps_total_from_the_rom_id_index(
     body = response.json()
     assert body["total"] == 1
     assert body["rom_id_index"] == [rom.id]
+
+
+@pytest.mark.parametrize("control_flag", [None, True])
+def test_get_roms_without_provider_metadata(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    control_flag: bool | None,
+) -> None:
+    make_rom(
+        platform,
+        "test_rom",
+        igdb_metadata={
+            "alternative_names": ["Test Rom Alt"],
+            "youtube_video_id": "dQw4w9WgXcQ",
+        },
+        ss_metadata={"video_path": "videos/test_rom.mp4"},
+        ra_metadata={"achievements": [], "hash_match": True},
+        manual_metadata={"genres": ["Puzzle"]},
+    )
+    headers = {"Authorization": f"Bearer {access_token}"}
+    params: dict[str, Any] = {"platform_id": platform.id}
+    if control_flag is not None:
+        params["with_provider_metadata"] = control_flag
+
+    response = client.get(
+        "/api/roms",
+        headers=headers,
+        params={**params, "with_provider_metadata": False},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    (item,) = response.json()["items"]
+
+    # Asked second, so a write to the row by the opt-out would empty it too.
+    response = client.get("/api/roms", headers=headers, params=params)
+    assert response.status_code == status.HTTP_200_OK
+    (control,) = response.json()["items"]
+
+    assert control["igdb_metadata"] and control["merged_ra_metadata"]
+    nulled = {key: item[key] for key in PROVIDER_METADATA_FIELDS}
+    assert nulled == dict.fromkeys(PROVIDER_METADATA_FIELDS)
+    # The placeholder rom_user is stamped per request, so it is left out.
+    changed = {
+        key for key in control.keys() - {"rom_user"} if item[key] != control[key]
+    }
+    assert changed == PROVIDER_METADATA_FIELDS
+    assert item["alternative_names"] == ["Test Rom Alt"]
+    assert item["youtube_video_id"] == "dQw4w9WgXcQ"
+    assert item["path_video"] == "videos/test_rom.mp4"
+    assert item["manual_metadata"] == {"genres": ["Puzzle"]}
+
+
+def test_provider_metadata_fields_leave_out_manual_metadata() -> None:
+    assert PROVIDER_METADATA_FIELDS == {
+        "igdb_metadata",
+        "moby_metadata",
+        "ss_metadata",
+        "launchbox_metadata",
+        "hasheous_metadata",
+        "flashpoint_metadata",
+        "hltb_metadata",
+        "demozoo_metadata",
+        "pouet_metadata",
+        "csdb_metadata",
+        "steam_metadata",
+        "gamelist_metadata",
+        "merged_ra_metadata",
+    }
 
 
 def test_get_roms_sorted_by_user_field_keeps_all_roms(

@@ -533,6 +533,12 @@ def _visible_siblings(db_rom: Rom, request: Request) -> list[Rom]:
     return [s for s in siblings if perms.can_see_rom(s)]
 
 
+# `manual_metadata` holds the user's own overrides, not a provider's.
+PROVIDER_METADATA_FIELDS = frozenset(
+    name for name in RomSchema.model_fields if name.endswith("_metadata")
+) - {"manual_metadata"}
+
+
 class SimpleRomSchema(RomSchema):
     screenshot_path: str | None = None
 
@@ -545,6 +551,7 @@ class SimpleRomSchema(RomSchema):
         siblings: Sequence[tuple[Rom, bool]] | None = None,
         screenshot_path: str | None = None,
         has_notes: bool | None = None,
+        with_provider_metadata: bool = True,
     ) -> SimpleRomSchema:
         db_rom = cls.populate_properties(db_rom, request, has_notes=has_notes)
         db_rom.screenshot_path = screenshot_path  # type: ignore[attr-defined]
@@ -576,7 +583,11 @@ class SimpleRomSchema(RomSchema):
             SiblingRomSchema.from_rom(s, is_main_sibling=is_main)
             for s, is_main in siblings
         ]
-        return cls.model_validate(db_rom)
+        schema = cls.model_validate(db_rom)
+        if with_provider_metadata:
+            return schema
+        # Copied, since the row lives in the caller's session and a write would be flushed.
+        return schema.model_copy(update=dict.fromkeys(PROVIDER_METADATA_FIELDS))
 
     @classmethod
     def from_orm_with_factory(cls, db_rom: Rom) -> SimpleRomSchema:

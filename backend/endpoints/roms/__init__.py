@@ -599,6 +599,16 @@ def get_roms(
             )
         ),
     ] = True,
+    with_provider_metadata: Annotated[
+        bool,
+        Query(
+            description=(
+                "Whether to include each rom's provider metadata. When false, every"
+                " `*_metadata` object but `manual_metadata` comes back null, meaning"
+                " not requested rather than no match; `metadatum` is unaffected."
+            )
+        ),
+    ] = True,
     order_by: Annotated[
         str,
         Query(
@@ -797,6 +807,7 @@ def get_roms(
                     siblings=siblings_by_rom.get(item.id, []),
                     screenshot_path=screenshot_by_rom.get(item.id),
                     has_notes=item.id in rom_ids_with_notes,
+                    with_provider_metadata=with_provider_metadata,
                 )
                 for item in items
             ]
