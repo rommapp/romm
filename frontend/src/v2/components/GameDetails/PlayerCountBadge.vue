@@ -15,6 +15,7 @@
 import { RIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import { searchLocation } from "@/v2/utils/searchLocation";
 
 defineOptions({ inheritAttrs: false });
 
@@ -46,15 +47,18 @@ const label = computed(() => {
 </script>
 
 <template>
-  <div class="player-count">
+  <!-- `player_counts` is a SCALAR_IN filter over `metadatum.player_count`,
+       so the pivot carries the provider's free-form string verbatim. -->
+  <router-link class="player-count" :to="searchLocation('playerCounts', value)">
     <RIcon :icon="icon" size="16" class="player-count__icon" />
     <span class="player-count__label">{{ label }}</span>
-  </div>
+  </router-link>
 </template>
 
 <style scoped>
 .player-count {
   display: inline-flex;
+  text-decoration: none;
   align-items: center;
   gap: 8px;
   padding: 5px 12px 5px 10px;
@@ -63,6 +67,13 @@ const label = computed(() => {
   border-radius: var(--r-radius-pill);
   font-size: 12px;
   color: var(--r-color-fg-secondary);
+}
+.player-count:hover .player-count__label {
+  color: var(--r-color-fg);
+}
+.player-count:focus-visible {
+  outline: 2px solid var(--r-color-brand-primary);
+  outline-offset: 2px;
 }
 .player-count__icon {
   color: var(--r-color-brand-primary);
