@@ -9,6 +9,8 @@ function setup({ cd = true, video = false } = {}) {
   const videoEl = document.createElement("video");
   const play = vi.spyOn(videoEl, "play").mockResolvedValue();
   vi.spyOn(videoEl, "pause").mockImplementation(() => undefined);
+  const load = vi.spyOn(videoEl, "load").mockImplementation(() => undefined);
+  if (video) videoEl.setAttribute("src", "/clip.mp4");
   const wrapper = mount(
     defineComponent({
       setup() {
@@ -26,7 +28,7 @@ function setup({ cd = true, video = false } = {}) {
       },
     }),
   );
-  return { active, img, play, wrapper };
+  return { active, img, load, play, videoEl, wrapper };
 }
 
 describe("useCoverAnimation", () => {
@@ -120,5 +122,35 @@ describe("useCoverAnimation", () => {
     await nextTick();
     vi.advanceTimersByTime(1000);
     expect(play).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops the hover clip source on leave and restores it on the next hover", async () => {
+    vi.useFakeTimers();
+    const { active, load, play, videoEl } = setup({ cd: false, video: true });
+
+    active.value = true;
+    await nextTick();
+    vi.advanceTimersByTime(1000);
+    expect(play).toHaveBeenCalledTimes(1);
+
+    active.value = false;
+    await nextTick();
+    expect(videoEl.hasAttribute("src")).toBe(false);
+    expect(load).toHaveBeenCalledTimes(1);
+
+    active.value = true;
+    await nextTick();
+    vi.advanceTimersByTime(1000);
+    expect(videoEl.getAttribute("src")).toBe("/clip.mp4");
+    expect(play).toHaveBeenCalledTimes(2);
+  });
+
+  it("drops the hover clip source on unmount", () => {
+    const { load, videoEl, wrapper } = setup({ cd: false, video: true });
+
+    wrapper.unmount();
+
+    expect(videoEl.hasAttribute("src")).toBe(false);
+    expect(load).toHaveBeenCalledTimes(1);
   });
 });
