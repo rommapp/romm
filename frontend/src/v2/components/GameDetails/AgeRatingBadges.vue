@@ -42,9 +42,7 @@ type Badge = {
   rating: string;
   category: string;
   rating_cover_url?: string | undefined;
-  // The entry verbatim as it sits in `metadatum.age_ratings`. The gallery's
-  // `age_ratings` filter is a JSON_ARRAY match, so the pivot has to carry the
-  // stored string rather than the reconstructed "CATEGORY: RATING" label.
+  // Search filters must use the stored entry, not the display label.
   raw: string;
 };
 
@@ -123,19 +121,19 @@ const badges = computed<Badge[]>(() => {
     >
       <template #activator="{ props: activatorProps }">
         <router-link
+          v-bind="activatorProps"
           class="age-ratings__link"
           :to="searchLocation('ageRatings', b.raw)"
         >
           <img
             v-if="b.rating_cover_url && !failedImages.has(b.rating_cover_url)"
-            v-bind="activatorProps"
             :src="b.rating_cover_url"
             :alt="b.category ? `${b.category}: ${b.rating}` : b.rating"
             class="age-ratings__img"
             loading="lazy"
             @error="failedImages.add(b.rating_cover_url!)"
           />
-          <span v-else v-bind="activatorProps" class="age-ratings__chip">
+          <span v-else class="age-ratings__chip">
             <RIcon icon="mdi-shield-outline" size="13" />
             {{ b.category ? `${b.category}: ${b.rating}` : b.rating }}
           </span>
