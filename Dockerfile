@@ -151,11 +151,11 @@ RUN rm -rf /tmp/RALibretro
 # Install rom-converto (optional); its static musl build runs on this glibc image.
 # Keep the version and both sums in sync with docker/Dockerfile.
 ARG TARGETARCH
-RUN ROM_CONVERTO_VERSION=v0.23.2 \
+RUN ROM_CONVERTO_VERSION=v0.24.0 \
     && arch="${TARGETARCH:-$(dpkg --print-architecture)}" \
     && case "${arch}" in \
-        amd64) rc="linux-x64-musl"; sum="734ecccfa77d425c01dc3ba621261389c1c23d23f0e5d6b8e3346fda1879d687" ;; \
-        arm64) rc="linux-arm64-musl"; sum="e90cca392b08b859b79bab13fcd47300ffc613d5dca7da1b4d1e38e3a4bbc297" ;; \
+        amd64) rc="linux-x64-musl"; sum="67964054931f7e74848bfe7b54ff1f0cacdc25596c29e3a79876f76e0f2407a8" ;; \
+        arm64) rc="linux-arm64-musl"; sum="60f9dc0fe7c3e3355c840c5e21c2b65b770b74ba78567aec7a2e5f846b8087ce" ;; \
         *) echo "unsupported architecture: ${arch}" && exit 1 ;; \
     esac \
     && curl -fsSL -o "/tmp/rom-converto-cli-${rc}" \
