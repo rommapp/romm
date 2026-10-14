@@ -147,16 +147,16 @@ class RomFeatures:
 def extract_tokens(
     *,
     platform_id: int,
-    genres: Sequence[str] | None = None,
-    franchises: Sequence[str] | None = None,
-    collections: Sequence[str] | None = None,
-    companies: Sequence[str] | None = None,
-    developers: Sequence[str] | None = None,
-    publishers: Sequence[str] | None = None,
-    game_modes: Sequence[str] | None = None,
-    keywords: Sequence[str] | None = None,
-    themes: Sequence[str] | None = None,
-    player_perspectives: Sequence[str] | None = None,
+    genres: Sequence[object] | None = None,
+    franchises: Sequence[object] | None = None,
+    collections: Sequence[object] | None = None,
+    companies: Sequence[object] | None = None,
+    developers: Sequence[object] | None = None,
+    publishers: Sequence[object] | None = None,
+    game_modes: Sequence[object] | None = None,
+    keywords: Sequence[object] | None = None,
+    themes: Sequence[object] | None = None,
+    player_perspectives: Sequence[object] | None = None,
     first_release_date: int | None = None,
 ) -> tuple[str, ...]:
     """Flatten a ROM's metadata into namespaced, deduplicated feature tokens."""
@@ -166,7 +166,7 @@ def extract_tokens(
     # to the merged one otherwise. Emitting both would count an IGDB-matched
     # game's studio twice while a game matched elsewhere counted once.
     has_roles = bool(developers) or bool(publishers)
-    company_facets: tuple[tuple[Facet, Sequence[str] | None], ...] = (
+    company_facets: tuple[tuple[Facet, Sequence[object] | None], ...] = (
         ((Facet.DEVELOPER, developers), (Facet.PUBLISHER, publishers))
         if has_roles
         else ((Facet.COMPANY, companies),)
@@ -183,7 +183,11 @@ def extract_tokens(
         (Facet.PERSPECTIVE, player_perspectives),
     ):
         for value in values or ():
-            cleaned = (value or "").strip()
+            # Older provider metadata can retain expanded {id, name} objects.
+            name = value.get("name") if isinstance(value, Mapping) else value
+            if not isinstance(name, str):
+                continue
+            cleaned = name.strip()
             if cleaned:
                 tokens.append(make_token(facet, cleaned))
 

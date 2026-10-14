@@ -165,6 +165,58 @@ def test_extract_tokens_skips_blanks_and_deduplicates():
     assert not any(token.endswith(":") for token in tokens)
 
 
+@pytest.mark.parametrize(
+    "field,facet",
+    [
+        ("genres", Facet.GENRE),
+        ("franchises", Facet.FRANCHISE),
+        ("collections", Facet.COLLECTION),
+        ("companies", Facet.COMPANY),
+        ("developers", Facet.DEVELOPER),
+        ("publishers", Facet.PUBLISHER),
+        ("game_modes", Facet.GAME_MODE),
+        ("keywords", Facet.KEYWORD),
+        ("themes", Facet.THEME),
+        ("player_perspectives", Facet.PERSPECTIVE),
+    ],
+)
+def test_extract_tokens_accepts_named_metadata_objects(field, facet):
+    tokens = extract_tokens(
+        platform_id=1,
+        **{field: ["Action", {"id": 1, "name": " Action "}, {"name": "Adventure"}]},
+    )
+
+    assert tokens == (
+        make_token(facet, "Action"),
+        make_token(facet, "Adventure"),
+        make_token(Facet.PLATFORM, "1"),
+    )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        None,
+        42,
+        False,
+        [],
+        {},
+        {"id": 1},
+        {"name": None},
+        {"name": 42},
+        {"name": {}},
+        {"name": "  "},
+    ],
+)
+def test_extract_tokens_skips_invalid_metadata_values(value):
+    tokens = extract_tokens(platform_id=1, genres=[value, "Action"])
+
+    assert tokens == (
+        make_token(Facet.GENRE, "Action"),
+        make_token(Facet.PLATFORM, "1"),
+    )
+
+
 def test_release_year_handles_seconds_and_millisecond_epochs():
     assert release_year_from_epoch(SUPER_NES_ERA_EPOCH) == 1991
     # Some provider rows arrive in milliseconds; both must land in the same decade.
