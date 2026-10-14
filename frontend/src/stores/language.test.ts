@@ -44,4 +44,9 @@ describe("language store", () => {
       store.defaultLanguage,
     );
   });
+
+  it("detects Swedish from a Swedish browser", () => {
+    const store = storeLanguage();
+    expect(store.detectBrowserLanguage(["sv-SE"]).value).toBe("sv_SE");
+  });
 });
