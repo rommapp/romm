@@ -139,17 +139,17 @@ def _lookup(
     return operation, converted_file_path(rom_id, rom_file, operation, input_ext)
 
 
-def _serve_cached(final_path: Path, *, touch: bool) -> Path | None:
-    """`final_path` if it is cached, or None while cleanup or a conversion holds its dir."""
+def _serve_cached(final_path: Path) -> Path | None:
+    """The cached copy, or None while cleanup or a conversion holds its dir.
+
+    Never touches the copy: its mtime feeds nginx's ETag, and refreshing it
+    would break resumable downloads.
+    """
     with (
         contextlib.suppress(OSError),
         _try_lock(final_path.parent, shared=True) as locked,
     ):
         if locked and final_path.exists():
-            if touch:
-                # Keep a served file fresh so TTL cleanup measures demand.
-                with contextlib.suppress(OSError):
-                    os.utime(final_path)
             return final_path
     return None
 
@@ -159,16 +159,10 @@ def get_cached_converted(
     rom_file: RomFile,
     platform_slug: str,
     target: str,
-    *,
-    touch: bool = False,
 ) -> Path | None:
-    """The converted file if it is already cached, without converting.
-
-    Args:
-        touch: Refresh its mtime so TTL cleanup measures demand.
-    """
+    """The converted file if it is already cached, without converting."""
     found = _lookup(rom_id, rom_file, platform_slug, target)
-    return _serve_cached(found[1], touch=touch) if found else None
+    return _serve_cached(found[1]) if found else None
 
 
 class FormatOutcome(enum.StrEnum):
@@ -235,14 +229,12 @@ async def resolve_format_download(
     *,
     allowed: bool,
     start: bool,
-    touch: bool,
 ) -> FormatResolution:
     """What a `?format=` download serves: the stored file if listed, else the first cached, then the first convertible format.
 
     Args:
         allowed: The caller may start a conversion.
         start: Start it now, rather than only report that one would run.
-        touch: Refresh a served copy's mtime so TTL cleanup measures demand.
     """
     if file_format(file.file_name) in formats:
         return FormatResolution(FormatOutcome.ORIGINAL)
@@ -260,7 +252,7 @@ async def resolve_format_download(
         if (found := _lookup(rom.id, file, rom.platform_slug, target))
     ]
     for _, final_path in candidates:
-        if cached := _serve_cached(final_path, touch=touch):
+        if cached := _serve_cached(final_path):
             return FormatResolution(FormatOutcome.CONVERTED, cached)
     if not allowed:
         return _UNAVAILABLE
@@ -301,7 +293,7 @@ async def get_or_convert(
     operation, final_path = found
 
     try:
-        if cached := _serve_cached(final_path, touch=True):
+        if cached := _serve_cached(final_path):
             return cached
 
         final_path.parent.mkdir(parents=True, exist_ok=True)
@@ -311,8 +303,6 @@ async def get_or_convert(
                 return None
             # A conversion may have finished between the check above and the lock.
             if final_path.exists():
-                with contextlib.suppress(OSError):
-                    os.utime(final_path)
                 return final_path
             if (final_path.parent / FAILED_FILE).exists():
                 return None
@@ -388,20 +378,20 @@ def cleanup_stale_conversions(reserve_bytes: int = 0) -> int:
     now = time.time()
     expired_before = now - converto.cache_ttl_hours * SECONDS_PER_HOUR
     deleted = 0
-    # (last served, size) of the final copies in each dir that survives the TTL pass.
+    # (newest mtime, size) of the final copies in each dir that survives the TTL pass.
     kept: list[tuple[float, int, Path]] = []
 
     for key_dir in cache_root.iterdir():
         if not key_dir.is_dir():
             continue
         with contextlib.suppress(FileNotFoundError):
-            stats, last_served = _stat_files(key_dir)
+            stats, newest_mtime = _stat_files(key_dir)
             partial_dir = key_dir / PARTIAL_DIR
-            if last_served < expired_before or partial_dir.exists():
+            if newest_mtime < expired_before or partial_dir.exists():
                 with _try_lock(key_dir) as locked:
                     if locked:
-                        stats, last_served = _stat_files(key_dir)
-                        if last_served < expired_before:
+                        stats, newest_mtime = _stat_files(key_dir)
+                        if newest_mtime < expired_before:
                             shutil.rmtree(key_dir, ignore_errors=True)
                             deleted += 1
                             continue
@@ -435,7 +425,7 @@ def cleanup_stale_conversions(reserve_bytes: int = 0) -> int:
         if used + reserve_bytes <= max_bytes:
             break
         with contextlib.suppress(FileNotFoundError), _try_lock(key_dir) as locked:
-            # A download may have touched the copy since the pass above.
+            # A conversion may have finished since the pass above.
             if not locked or any(
                 p.stat().st_mtime >= now - SERVE_GRACE_SECONDS for p in _files(key_dir)
             ):

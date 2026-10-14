@@ -1375,7 +1375,6 @@ async def _negotiate_format(
         formats,
         allowed=may_start_conversion(request),
         start=start,
-        touch=start,
     )
     if resolution.outcome == FormatOutcome.ORIGINAL:
         return None
