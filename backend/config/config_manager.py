@@ -263,6 +263,7 @@ def _platform_first_layout(folder: str) -> bool | None:
 
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config"
 ROMM_USER_CONFIG_FILE: Final = f"{ROMM_USER_CONFIG_PATH}/config.yml"
+ROMM_USER_SHADERS_PATH: Final = f"{ROMM_USER_CONFIG_PATH}/shaders"
 SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
 DEFAULT_EXCLUDED_EXTENSIONS: Final = [
     "db",
@@ -419,6 +420,54 @@ VALID_SCAN_PRIORITY_SOURCES = frozenset(
 # scan.priority.region win over them, for artwork, title and release date alike.
 VALID_SCAN_REGION_MODES = frozenset({"prefer_rom_tags", "prefer_config"})
 
+# Shaders bundled with EmulatorJS.
+BUILTIN_EJS_SHADERS: Final = frozenset(
+    {
+        "disabled",
+        "none",
+        "2xScaleHQ",
+        "2xScaleHQ.glslp",
+        "4xScaleHQ",
+        "4xScaleHQ.glslp",
+        "bicubic",
+        "bicubic.glslp",
+        "crt-aperture",
+        "crt-aperture.glslp",
+        "crt-beam",
+        "crt-beam.glslp",
+        "crt-caligari",
+        "crt-caligari.glslp",
+        "crt-easymode",
+        "crt-easymode.glslp",
+        "crt-geom",
+        "crt-geom.glslp",
+        "crt-lottes",
+        "crt-lottes.glslp",
+        "crt-mattias",
+        "crt-mattias.glslp",
+        "crt-yeetron",
+        "crt-yeetron.glslp",
+        "crt-zfast",
+        "crt-zfast.glslp",
+        "mix-frames",
+        "mix-frames.glslp",
+        "sabr",
+        "sabr.glslp",
+        "scanlines",
+        "scanlines.glslp",
+        "sharp-bilinear",
+        "sharp-bilinear.glslp",
+    }
+)
+
+# Allowed text extensions for EmulatorJS custom shaders.
+SUPPORTED_SHADER_EXTENSIONS: Final = frozenset(
+    {".glslp", ".glsl", ".hook", ".slangp", ".slang", ".cgp", ".cg"}
+)
+# Limits to prevent memory exhaustion and payload bloat on GET /api/config.
+MAX_SHADER_FILE_SIZE: Final = 512 * 1024  # 512 KB
+MAX_TOTAL_SHADERS_SIZE: Final = 5 * 1024 * 1024  # 5 MB
+
 
 @dataclasses.dataclass
 class ConvertoConfig:
@@ -531,6 +580,7 @@ class Config:
     EJS_DEFAULT_CORES: dict[str, str]  # platform_slug -> core_name
     EJS_SETTINGS: dict[str, EjsOption]  # core_name -> EjsOption
     EJS_CONTROLS: dict[str, EjsControls]  # core_name -> EjsControls
+    EJS_SHADERS: dict[str, str]  # relative_path -> file_content
     SCAN_METADATA_PRIORITY: list[str]
     SCAN_ARTWORK_PRIORITY: list[str]
     SCAN_ARTWORK_PRIORITY_OVERRIDES: dict[str, list[str]]
@@ -545,6 +595,7 @@ class Config:
     CONVERTO: ConvertoConfig
 
     def __init__(self, **entries: Any) -> None:
+        self.EJS_SHADERS: dict[str, str] = entries.pop("EJS_SHADERS", {})
         self.__dict__.update(entries)
 
     def _raw_template(self, key: str, fallback: str) -> str:
@@ -827,6 +878,7 @@ class ConfigManager:
             or {},
             EJS_SETTINGS=get_nested(self._raw_config, "emulatorjs.settings", {}),
             EJS_CONTROLS=self._get_ejs_controls(),
+            EJS_SHADERS=self._load_ejs_shaders(),
             SCAN_METADATA_PRIORITY=get_nested(
                 self._raw_config,
                 "scan.priority.metadata",
@@ -945,6 +997,85 @@ class ConfigManager:
             )
 
         return controls
+
+    def _load_ejs_shaders(self) -> dict[str, str]:
+        """Load custom shader files from the shaders directory next to config.yml."""
+        shaders_dir = (Path(self.config_file).parent / "shaders").resolve()
+        if not shaders_dir.is_dir():
+            return {}
+
+        shaders: dict[str, str] = {}
+        total_size = 0
+        visited_dirs: set[Path] = {shaders_dir}
+        for root, dirs, files in os.walk(shaders_dir, followlinks=True):
+            pruned_dirs: list[str] = []
+            for d in dirs:
+                if d.startswith("."):
+                    continue
+                resolved_dir = (Path(root) / d).resolve()
+                if (
+                    resolved_dir.is_relative_to(shaders_dir)
+                    and resolved_dir not in visited_dirs
+                ):
+                    visited_dirs.add(resolved_dir)
+                    pruned_dirs.append(d)
+            dirs[:] = pruned_dirs
+
+            for file in files:
+                if file.startswith("."):
+                    continue
+
+                traversal_path = Path(root) / file
+                resolved_file = traversal_path.resolve()
+
+                if not resolved_file.is_relative_to(shaders_dir):
+                    log.warning(
+                        f"Skipping shader file outside shaders directory: {hl(str(resolved_file))}"
+                    )
+                    continue
+
+                if not resolved_file.is_file():
+                    continue
+
+                rel_path = traversal_path.relative_to(shaders_dir).as_posix()
+                if resolved_file.suffix.lower() not in SUPPORTED_SHADER_EXTENSIONS:
+                    log.debug(
+                        f"Skipping unsupported shader file {hl(rel_path)} (unsupported extension)"
+                    )
+                    continue
+
+                try:
+                    file_size = resolved_file.stat().st_size
+                except OSError as exc:
+                    log.warning(f"Failed to inspect shader file {hl(rel_path)}: {exc}")
+                    continue
+
+                if file_size > MAX_SHADER_FILE_SIZE:
+                    log.warning(
+                        f"Skipping shader file {hl(rel_path)}: exceeds max size limit "
+                        f"({file_size} > {MAX_SHADER_FILE_SIZE} bytes)"
+                    )
+                    continue
+
+                if total_size + file_size > MAX_TOTAL_SHADERS_SIZE:
+                    log.warning(
+                        "Stopping shader ingestion: total custom shaders size exceeds quota limit "
+                        f"({MAX_TOTAL_SHADERS_SIZE} bytes)"
+                    )
+                    return dict(sorted(shaders.items()))
+
+                try:
+                    content = resolved_file.read_text(
+                        encoding="utf-8", errors="replace"
+                    )
+                except (OSError, UnicodeDecodeError) as exc:
+                    log.warning(f"Failed to read shader file {hl(rel_path)}: {exc}")
+                    continue
+
+                shaders[rel_path] = content
+                total_size += file_size
+
+        return dict(sorted(shaders.items()))
 
     def _format_ejs_controls_for_yaml(
         self,
@@ -1197,6 +1328,27 @@ class ConfigManager:
                         f"Invalid config.yml: emulatorjs.settings.{core} must be a dictionary"
                     )
                     sys.exit(3)
+
+                if "shader" in options:
+                    shader_value = options["shader"]
+                    if not isinstance(shader_value, str):
+                        log.critical(
+                            f"Invalid config.yml: emulatorjs.settings.{core}.shader must be a string"
+                        )
+                        sys.exit(3)
+
+                    if (
+                        shader_value not in BUILTIN_EJS_SHADERS
+                        and shader_value not in self.config.EJS_SHADERS
+                        and not any(
+                            k == shader_value or k.endswith(f"/{shader_value}")
+                            for k in self.config.EJS_SHADERS
+                        )
+                    ):
+                        log.warning(
+                            f"Unknown shader '{shader_value}' configured for core '{core}'. "
+                            "Make sure it is a valid built-in shader or placed in config/shaders/."
+                        )
 
         if not isinstance(self.config.EJS_CONTROLS, dict):
             log.critical("Invalid config.yml: emulatorjs.controls must be a dictionary")

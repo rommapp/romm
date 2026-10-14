@@ -614,6 +614,7 @@ export function installEJSDefaultOptionsTrap() {
       keepArcadeBiosWhole(value);
       applyOnlyEnabledCheats(value);
       skipDiskSelectionBeforeStart(value);
+      patchEmulatorJSShadersFs(value);
     },
   });
 }
@@ -892,3 +893,77 @@ export function createSaveQuitButton(label: string): HTMLButtonElement {
 
   return button;
 }
+
+/** Ensures Emscripten virtual filesystem directories exist for nested shaders under /shader. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function ensureShaderDirectories(fs: any, shaderPaths: string[]) {
+  if (!fs?.mkdir) return;
+  try {
+    fs.mkdir("/shader");
+  } catch {
+    // Root shader directory may already exist.
+  }
+  for (const path of shaderPaths) {
+    const segments = path.split("/").slice(0, -1);
+    let current = "/shader";
+    for (const segment of segments) {
+      if (!segment || segment === ".") continue;
+      current += "/" + segment;
+      try {
+        fs.mkdir(current);
+      } catch {
+        // Parent or directory may already exist.
+      }
+    }
+  }
+}
+
+/** Hooks Module assignment and GameManager.initShaders to ensure /shader subdirectories exist. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function patchEmulatorJSShadersFs(emulator: any) {
+  if (!emulator) return;
+
+  let currentModule = emulator.Module;
+  const initialShaders = emulator.shaders || window.EJS_shaders;
+  if (currentModule?.FS && initialShaders) {
+    ensureShaderDirectories(currentModule.FS, Object.keys(initialShaders));
+  }
+
+  Object.defineProperty(emulator, "Module", {
+    configurable: true,
+    enumerable: true,
+    get: () => currentModule,
+    set(mod) {
+      currentModule = mod;
+      const shaders = emulator.shaders || window.EJS_shaders;
+      if (mod?.FS && shaders) {
+        ensureShaderDirectories(mod.FS, Object.keys(shaders));
+      }
+    },
+  });
+
+  const gameManager = emulator.gameManager;
+  if (gameManager) {
+    const originalInitShaders = gameManager.initShaders;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    gameManager.initShaders = function (this: any, ...args: any[]) {
+      if (this.FS && this.EJS?.shaders) {
+        ensureShaderDirectories(this.FS, Object.keys(this.EJS.shaders));
+      }
+      return originalInitShaders
+        ? originalInitShaders.apply(this, args)
+        : undefined;
+    };
+  }
+}
+
+/** Sets EmulatorJS custom shaders on the global window. */
+export function setEmulatorJSShaders(shaders?: Record<string, string>) {
+  window.EJS_shaders = shaders || {};
+}
+
+/** Cleans up EmulatorJS custom shaders from the global window. */
+export function clearEmulatorJSShaders() {
+  window.EJS_shaders = {};
+}
+
