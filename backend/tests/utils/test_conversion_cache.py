@@ -578,6 +578,19 @@ class TestGetCachedConverted:
         assert get_cached_converted(1, f, "psp", "chd") == final
         assert final.stat().st_mtime == before
 
+    def test_touch_records_serve_in_sidecar_without_touching_copy(self, cache_root):
+        # A recorded serve must not refresh the copy's mtime (it feeds nginx's
+        # ETag). Instead the serve is recorded in a sidecar file so cleanup
+        # can spare the copy.
+        f = _rom_file()
+        final = _seed_cached(f, age_seconds=3600)
+        before = final.stat().st_mtime
+
+        assert get_cached_converted(1, f, "psp", "chd", touch=True) == final
+        assert final.stat().st_mtime == before
+        sidecar = final.parent / conversion_cache.LAST_SERVED_FILE
+        assert sidecar.stat().st_mtime > time.time() - 60
+
     def test_returns_none_while_key_dir_is_locked(self, cache_root):
         f = _rom_file()
         final = _seed_cached(f)
@@ -815,6 +828,20 @@ class TestCleanupStaleConversions:
         assert conversion_cache.cleanup_stale_conversions() == (0 if kept else 1)
         assert final.exists() is kept
 
+    def test_cleanup_spares_a_recently_served_copy(self, cache_root, converto, mocker):
+        # A copy served moments ago must survive cleanup even though its own
+        # mtime is old: the serve is recorded in a sidecar, not in the copy's
+        # mtime (which feeds nginx's ETag and must stay stable).
+        converto.cache_max_size_gb = 1
+        mocker.patch.object(conversion_cache, "BYTES_PER_GB", 100)
+        f = _rom_file()
+        final = _seed_cached(f, age_seconds=3600)
+        final.write_bytes(b"x" * 120)
+
+        assert get_cached_converted(1, f, "psp", "chd", touch=True) == final
+        assert conversion_cache.cleanup_stale_conversions() == 0
+        assert final.exists()
+
 
 class TestParseFormats:
     @pytest.mark.parametrize(
@@ -848,7 +875,7 @@ class TestResolveFormatDownload:
         _seed_cached(f)
 
         resolution = await resolve_format_download(
-            self._rom(), f, ("chd", "iso"), allowed=True, start=True
+            self._rom(), f, ("chd", "iso"), allowed=True, start=True, touch=True
         )
 
         assert resolution == FormatResolution(FormatOutcome.ORIGINAL)
@@ -864,6 +891,7 @@ class TestResolveFormatDownload:
             parse_formats("3ds,cia"),
             allowed=True,
             start=True,
+            touch=True,
         )
 
         assert resolution == FormatResolution(FormatOutcome.ORIGINAL)
@@ -876,7 +904,7 @@ class TestResolveFormatDownload:
         final = _seed_cached(f)
 
         resolution = await resolve_format_download(
-            self._rom(), f, ("cso", "chd"), allowed=True, start=True
+            self._rom(), f, ("cso", "chd"), allowed=True, start=True, touch=True
         )
 
         assert resolution == FormatResolution(FormatOutcome.CONVERTED, final)
@@ -888,7 +916,7 @@ class TestResolveFormatDownload:
         f = _rom_file()
 
         resolution = await resolve_format_download(
-            self._rom(), f, ("rvz", "cso", "chd"), allowed=True, start=True
+            self._rom(), f, ("rvz", "cso", "chd"), allowed=True, start=True, touch=True
         )
 
         assert resolution.outcome == FormatOutcome.CONVERTED
@@ -904,14 +932,14 @@ class TestResolveFormatDownload:
         (failed / FAILED_FILE).touch()
 
         resolution = await resolve_format_download(
-            self._rom(), f, ("chd", "cso"), allowed=True, start=True
+            self._rom(), f, ("chd", "cso"), allowed=True, start=True, touch=True
         )
 
         assert resolution.path is not None and resolution.path.suffix == ".cso"
 
     async def test_reports_pending_without_starting(self, cache_root, convert_outputs):
         resolution = await resolve_format_download(
-            self._rom(), _rom_file(), ("chd",), allowed=True, start=False
+            self._rom(), _rom_file(), ("chd",), allowed=True, start=False, touch=False
         )
 
         assert resolution.outcome == FormatOutcome.PENDING
@@ -930,7 +958,12 @@ class TestResolveFormatDownload:
         )
 
         resolution = await resolve_format_download(
-            self._rom(), _rom_file(), ("cso", "chd"), allowed=True, start=True
+            self._rom(),
+            _rom_file(),
+            ("cso", "chd"),
+            allowed=True,
+            start=True,
+            touch=True,
         )
 
         assert resolution.path is not None and resolution.path.suffix == ".chd"
@@ -943,7 +976,7 @@ class TestResolveFormatDownload:
 
         with _held_lock(key_dir):
             resolution = await resolve_format_download(
-                self._rom(), _rom_file(), ("chd",), allowed=True, start=True
+                self._rom(), _rom_file(), ("chd",), allowed=True, start=True, touch=True
             )
 
         assert resolution.outcome == FormatOutcome.PENDING
@@ -971,7 +1004,7 @@ class TestResolveFormatDownload:
         )
         with ExitStack() as stack:
             resolution = await resolve_format_download(
-                self._rom(), f, ("chd",), allowed=True, start=True
+                self._rom(), f, ("chd",), allowed=True, start=True, touch=True
             )
 
         assert resolution == FormatResolution(FormatOutcome.CONVERTED, final)
@@ -982,7 +1015,7 @@ class TestResolveFormatDownload:
         mocker.patch.object(conversion_cache, "MAX_STARTED_CONVERSIONS", 0)
 
         resolution = await resolve_format_download(
-            self._rom(), _rom_file(), ("chd",), allowed=True, start=True
+            self._rom(), _rom_file(), ("chd",), allowed=True, start=True, touch=True
         )
 
         assert resolution.outcome == FormatOutcome.PENDING

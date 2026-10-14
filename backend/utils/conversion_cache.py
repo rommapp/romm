@@ -48,6 +48,10 @@ CONVERSION_WAIT_SECONDS: Final = 15
 RETRY_AFTER_SECONDS: Final = 30
 PARTIAL_DIR: Final = ".partial"
 FAILED_FILE: Final = ".failed"
+# Records when a cached copy was last served. Its mtime (not the copy's) feeds
+# cleanup: touching the copy itself would change nginx's ETag and break
+# resumable downloads.
+LAST_SERVED_FILE: Final = ".last_served"
 # Give nginx time to open a copy after the X-Accel-Redirect response.
 SERVE_GRACE_SECONDS: Final = 60
 # Room a conversion to an uncompressed target reserves per input byte; the
@@ -139,17 +143,21 @@ def _lookup(
     return operation, converted_file_path(rom_id, rom_file, operation, input_ext)
 
 
-def _serve_cached(final_path: Path) -> Path | None:
-    """The cached copy, or None while cleanup or a conversion holds its dir.
+def _serve_cached(final_path: Path, *, touch: bool) -> Path | None:
+    """`final_path` if it is cached, or None while cleanup or a conversion holds its dir.
 
-    Never touches the copy: its mtime feeds nginx's ETag, and refreshing it
-    would break resumable downloads.
+    Args:
+        touch: Record the serve so cleanup spares the copy, without touching
+            the copy itself (its mtime feeds nginx's ETag).
     """
     with (
         contextlib.suppress(OSError),
         _try_lock(final_path.parent, shared=True) as locked,
     ):
         if locked and final_path.exists():
+            if touch:
+                with contextlib.suppress(OSError):
+                    (final_path.parent / LAST_SERVED_FILE).touch()
             return final_path
     return None
 
@@ -159,10 +167,16 @@ def get_cached_converted(
     rom_file: RomFile,
     platform_slug: str,
     target: str,
+    *,
+    touch: bool = False,
 ) -> Path | None:
-    """The converted file if it is already cached, without converting."""
+    """The converted file if it is already cached, without converting.
+
+    Args:
+        touch: Record the serve so cleanup spares the copy.
+    """
     found = _lookup(rom_id, rom_file, platform_slug, target)
-    return _serve_cached(found[1]) if found else None
+    return _serve_cached(found[1], touch=touch) if found else None
 
 
 class FormatOutcome(enum.StrEnum):
@@ -229,12 +243,14 @@ async def resolve_format_download(
     *,
     allowed: bool,
     start: bool,
+    touch: bool,
 ) -> FormatResolution:
     """What a `?format=` download serves: the stored file if listed, else the first cached, then the first convertible format.
 
     Args:
         allowed: The caller may start a conversion.
         start: Start it now, rather than only report that one would run.
+        touch: Record a served copy so cleanup spares it.
     """
     if file_format(file.file_name) in formats:
         return FormatResolution(FormatOutcome.ORIGINAL)
@@ -252,7 +268,7 @@ async def resolve_format_download(
         if (found := _lookup(rom.id, file, rom.platform_slug, target))
     ]
     for _, final_path in candidates:
-        if cached := _serve_cached(final_path):
+        if cached := _serve_cached(final_path, touch=touch):
             return FormatResolution(FormatOutcome.CONVERTED, cached)
     if not allowed:
         return _UNAVAILABLE
@@ -293,7 +309,7 @@ async def get_or_convert(
     operation, final_path = found
 
     try:
-        if cached := _serve_cached(final_path):
+        if cached := _serve_cached(final_path, touch=True):
             return cached
 
         final_path.parent.mkdir(parents=True, exist_ok=True)
