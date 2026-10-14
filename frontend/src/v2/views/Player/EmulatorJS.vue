@@ -1,9 +1,4 @@
 <script setup lang="ts">
-// EmulatorJS: v2 shell around the v1 <Player> component. The emulator
-// integration (EJS_* globals, loader fallback, save/state sync, firmware
-// resolution) is ported verbatim from `src/views/Player/EmulatorJS/Base.vue`
-// so behaviour stays identical; only the chrome is v2.
-//
 // Inside the RomM desktop shell the hero leads with the native launch, above
 // the in-browser one; a platform the shell alone can run opens this page with
 // the hero by itself, since nothing EmulatorJS owns applies to that launch.
@@ -13,10 +8,6 @@
 //   2. Resume: tabs (Saves/States), big <AssetPreview> of the selected
 //      asset, and an <AssetStrip> below to swap between options inline.
 //   3. Setup: disc / core / firmware + fullscreen + clear-cache.
-//
-// The running state mounts the v1 <Player> component (600 lines of EJS
-// wiring, not worth rewriting). LoadSaveStateDialog + EmulatorJSCacheDialog
-// are mounted in GlobalDialogs so the emitter bridge works.
 import {
   RAlert,
   RBtn,
@@ -41,8 +32,13 @@ import {
   watch,
 } from "vue";
 import { useI18n } from "vue-i18n";
-import { onBeforeRouteLeave } from "vue-router";
-import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
+import { onBeforeRouteLeave, useRoute } from "vue-router";
+import type {
+  FirmwareSchema,
+  SaveSchema,
+  SnapshotSchema,
+  StateSchema,
+} from "@/__generated__";
 import {
   userStorage,
   useUserLocalStorage,
@@ -50,6 +46,7 @@ import {
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import { AUTOSAVE_SLOT, SAVE_SLOT_MAX_LENGTH } from "@/services/api/save";
+import snapshotApi from "@/services/api/snapshot";
 import storeConfig from "@/stores/config";
 import { useNativeStore } from "@/stores/native";
 import type { DetailedRom } from "@/stores/roms";
@@ -85,7 +82,11 @@ import {
   useStageActive,
 } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
-import type { AssetType } from "@/v2/utils/assets";
+import {
+  emulatorKey,
+  isCoreCompatible,
+  type AssetType,
+} from "@/v2/utils/assets";
 import { joinNames } from "@/v2/utils/lists";
 import {
   resolveBezelHost,
@@ -112,12 +113,14 @@ import {
   slotChoiceKey,
   slotChoiceTitle,
   slotChoices,
+  slotForChannel,
   slotForSave,
   type SlotChoice,
 } from "@/v2/utils/saveSlots";
 import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
-import { exitEmulatorOnce } from "@/views/Player/EmulatorJS/utils";
+import { AUTO_STATE_SLOT, ownChannelLabels } from "@/v2/utils/snapshots";
 import { rememberCore, resolveRememberedCore } from "./coreStorage";
+import { exitEmulatorOnce } from "./ejsRuntime";
 import {
   isLaunchIntent,
   launchIntentFor,
@@ -132,11 +135,7 @@ import {
   type ResumeSelection,
 } from "./resumeSelection";
 
-// Reuse v1's heavy emulator integration; do NOT rewrite this. Lazy so the
-// bundle doesn't pull in the EJS shims until we actually mount the player.
-const Player = defineAsyncComponent(
-  () => import("@/views/Player/EmulatorJS/Player.vue"),
-);
+const Player = defineAsyncComponent(() => import("./EmulatorJSPlayer.vue"));
 
 const { t, locale } = useI18n();
 const snackbar = useSnackbar();
@@ -150,6 +149,8 @@ const playSession = usePlaySession();
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
 const resume = ref<ResumeSelection>({ save: null, state: null });
+const route = useRoute();
+const bootSnapshot = ref<SnapshotSchema | null>(null);
 
 const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
 const { romRoute, platformRoute } = usePlayerNav(
@@ -192,7 +193,7 @@ const playerRef = ref<{ flushPendingSave: () => Promise<void> } | null>(null);
 const exit = usePlayerExit(
   () => runtimeInjected,
   async () => {
-    // The flush also uninstalls v1's auto-save sync, which is what keeps its
+    // The flush also uninstalls the player's auto-save sync, which is what keeps its
     // own `beforeunload` handler from prompting on the way out.
     await playerRef.value?.flushPendingSave();
     endSession();
@@ -514,11 +515,12 @@ function currentIntent(): LaunchIntent {
     firmware: selectedFirmware.value,
     slot: slotChoice.value,
     customSlot: customSlot.value,
+    snapshotId: bootSnapshot.value?.id ?? null,
   });
 }
 
 // What the view had selected before the reload, re-applied over the defaults.
-function applyLaunchIntent(intent: LaunchIntent) {
+async function applyLaunchIntent(intent: LaunchIntent) {
   const selection = resolveLaunchIntent(intent, {
     saves: rom.value?.user_saves ?? [],
     states: compatibleStates.value,
@@ -529,24 +531,117 @@ function applyLaunchIntent(intent: LaunchIntent) {
   customSlot.value = selection.customSlot;
   selectedFirmware.value = selection.firmware;
   isSavesTabSelected.value = !resume.value.state;
+  if (selection.snapshotId != null) {
+    bootSnapshot.value = await fetchSnapshot(selection.snapshotId);
+  }
+}
+
+function ownChannel(id: string | null | undefined) {
+  return id
+    ? rom.value?.user_channels.find((c) => c.is_own && c.id === id)
+    : undefined;
 }
 
 // A slotted save fixes the write slot, and it stays put for the session
 // even when a state later displaces the save.
 function selectSave(save: SaveSchema) {
   resume.value = pickSave(save);
-  slotChoice.value = slotForSave(save, slotChoice.value);
+  slotChoice.value = slotForSave(
+    save,
+    slotChoice.value,
+    ownChannel(save.channel_id)?.label,
+  );
   isSavesTabSelected.value = true;
+  if (save.id !== bootSnapshot.value?.save?.id) bootSnapshot.value = null;
 }
 
 function unselectSave() {
   resume.value = { ...resume.value, save: null };
 }
 
+function inBank(snapshot: SnapshotSchema | null, stateId: number): boolean {
+  return Object.values(snapshot?.states ?? {}).some((slots) =>
+    Object.values(slots).some((state) => state.id === stateId),
+  );
+}
+
 function selectState(state: StateSchema) {
   resume.value = pickState(state);
   isSavesTabSelected.value = false;
+  if (!inBank(bootSnapshot.value, state.id)) bootSnapshot.value = null;
 }
+
+async function fetchSnapshot(id: number): Promise<SnapshotSchema | null> {
+  try {
+    const { data } = await snapshotApi.getSnapshot({ id });
+    return ownChannel(data.channel?.id) ? data : null;
+  } catch (error) {
+    console.error("[Play] Could not read the snapshot:", error);
+    return null;
+  }
+}
+
+/**
+ * The bank state a snapshot boots: the one asked for, else the auto state of
+ * a core this player runs, the core already selected first.
+ */
+function bootState(
+  snapshot: SnapshotSchema,
+  stateId: number | null,
+): { core: string; state: StateSchema } | null {
+  const runnable = [selectedCore.value, ...supportedCores.value].filter(
+    (core): core is string => !!core,
+  );
+  const states = rom.value?.user_states ?? [];
+  for (const core of runnable) {
+    const bankCore = Object.keys(snapshot.states).find(
+      (key) => emulatorKey(key) === emulatorKey(core),
+    );
+    if (!bankCore) continue;
+    const slots = snapshot.states[bankCore]!;
+    const wanted =
+      stateId != null
+        ? Object.values(slots).find((entry) => entry.id === stateId)
+        : slots[AUTO_STATE_SLOT];
+    const state = wanted && states.find((s) => s.id === wanted.id);
+    if (state) return { core, state };
+  }
+  return null;
+}
+
+/** Selects what a snapshot holds, preferring its auto state to its raw save. */
+async function bootFromSnapshot(snapshotId: number, stateId: number | null) {
+  const snapshot = await fetchSnapshot(snapshotId);
+  if (!snapshot) {
+    snackbar.error(t("play.snapshot-unavailable"));
+    return;
+  }
+  const picked = bootState(snapshot, stateId);
+  const save = rom.value?.user_saves.find((s) => s.id === snapshot.save?.id);
+  bootSnapshot.value = snapshot;
+  if (picked) {
+    selectedCore.value = picked.core;
+    selectState(picked.state);
+  } else if (save) {
+    selectSave(save);
+  }
+  const channel = ownChannel(snapshot.channel?.id);
+  if (channel) slotChoice.value = slotForChannel(channel.label);
+}
+
+function queryId(value: unknown): number | null {
+  const id = Number(Array.isArray(value) ? value[0] : value);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+/** The channel a booted snapshot rewinds when the session saves, if it is not the current. */
+const rewoundChannel = computed(() => {
+  const snapshot = bootSnapshot.value;
+  const channel = ownChannel(snapshot?.channel?.id);
+  return snapshot && channel && channel.current_snapshot_id !== snapshot.id
+    ? channel.label
+    : null;
+});
 
 function unselectState() {
   resume.value = { ...resume.value, state: null };
@@ -557,7 +652,7 @@ useEmitterEvent("stateSelected", selectState);
 
 watch(selectedCore, (newSelectedCore) => {
   const armed = resume.value.state;
-  if (armed?.emulator && armed.emulator !== newSelectedCore) unselectState();
+  if (armed && !isCoreCompatible(armed, newSelectedCore)) unselectState();
 });
 
 // A native launch moves saves on the server's side of this page, so the rom
@@ -635,10 +730,15 @@ onMounted(async () => {
   });
 
   if (storedIntent) {
-    applyLaunchIntent(storedIntent);
+    await applyLaunchIntent(storedIntent);
     await nextTick();
     void onPlay();
     return;
+  }
+
+  const snapshotId = queryId(route.query.snapshot);
+  if (snapshotId != null) {
+    await bootFromSnapshot(snapshotId, queryId(route.query.state));
   }
 });
 
@@ -748,8 +848,19 @@ function bootFromNewer() {
 // slot-less legacy save stays as an archive and progress goes to the pick.
 const slotChoice = ref<SlotChoice>(existingSlot(AUTOSAVE_SLOT));
 const customSlot = ref("");
-const boundSlot = computed(() => resume.value.save?.slot || null);
-const slotItems = computed(() => slotChoices(rom.value?.user_saves ?? []));
+const channelLabels = computed(() =>
+  ownChannelLabels(rom.value?.user_channels ?? []),
+);
+const boundSlot = computed(
+  () =>
+    ownChannel(bootSnapshot.value?.channel?.id)?.label ||
+    resume.value.save?.slot ||
+    ownChannel(resume.value.save?.channel_id)?.label ||
+    null,
+);
+const slotItems = computed(() =>
+  slotChoices(rom.value?.user_saves ?? [], Object.values(channelLabels.value)),
+);
 function onSlotChoice(value: unknown) {
   if (isSlotChoice(value)) slotChoice.value = value;
 }
@@ -892,7 +1003,13 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
                 @clear="clearSelectedAsset"
               />
               <RAlert
-                v-if="newerAsset"
+                v-if="rewoundChannel"
+                type="info"
+                density="compact"
+                :text="t('play.snapshot-rewinds', { channel: rewoundChannel })"
+              />
+              <RAlert
+                v-else-if="newerAsset"
                 type="warning"
                 density="compact"
                 :text="
@@ -970,6 +1087,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
                 type="save"
                 :selected-id="selectedAssetId"
                 :scrollable="false"
+                :channel-labels="channelLabels"
                 @select="pickAsset"
               />
               <AssetStrip
@@ -1083,6 +1201,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
         :state="resume.state"
         :save="resume.save"
         :save-slot="saveSlot"
+        :snapshot="bootSnapshot"
         :load-state-label="t('rom.load-save-or-state')"
         :bios="selectedFirmware"
         :firmware="firmwareOptions"

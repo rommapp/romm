@@ -1,7 +1,35 @@
-from fastapi import HTTPException, UploadFile, status
+import os
+import re
+from datetime import datetime
+
+from fastapi import HTTPException, status
+from starlette.datastructures import UploadFile
 
 from config import MAX_ASSET_UPLOAD_SIZE_BYTES
 from utils.filesystem import check_filename_length, sanitize_filename
+
+# Milliseconds are optional: files already on disk carry tags without them.
+DATETIME_TAG_PATTERN = re.compile(
+    r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(?:-\d{3})?\]"
+)
+
+
+def _untagged_parts(filename: str) -> tuple[str, str]:
+    name, ext = os.path.splitext(filename)
+    return DATETIME_TAG_PATTERN.sub("", name), ext
+
+
+def strip_datetime_tag(filename: str) -> str:
+    """`filename` without the datetime tag `apply_datetime_tag` gave it."""
+    name, ext = _untagged_parts(filename)
+    return f"{name}{ext}"
+
+
+def apply_datetime_tag(filename: str, at: datetime | None = None) -> str:
+    """`filename` with its datetime tag replaced by `at`, the server's local time now by default."""
+    name, ext = _untagged_parts(filename)
+    timestamp = (at or datetime.now()).strftime("%Y-%m-%d_%H-%M-%S-%f")[:-3]
+    return f"{name} [{timestamp}]{ext}"
 
 
 def sanitize_asset_filename(filename: str, label: str) -> str:

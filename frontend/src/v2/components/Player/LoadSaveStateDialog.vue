@@ -15,6 +15,7 @@ import { useConfirm } from "@/v2/composables/useConfirm";
 import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useSaveStateTabs } from "@/v2/composables/useSaveStateTabs";
 import type { Asset, AssetType } from "@/v2/utils/assets";
+import { ownChannelLabels } from "@/v2/utils/snapshots";
 
 defineOptions({ inheritAttrs: false });
 
@@ -103,6 +104,7 @@ function closeDialog() {
         :assets="saves"
         type="save"
         :scrollable="false"
+        :channel-labels="ownChannelLabels(rom?.user_channels ?? [])"
         @select="onSelect"
       />
       <AssetStrip

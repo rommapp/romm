@@ -85,6 +85,29 @@ describe("AssetList slot grouping", () => {
     expect(wrapper.findAll(".r-asset-group-head__count")).toHaveLength(3);
   });
 
+  it("groups a save a channel holds under that channel's slot", () => {
+    const held = saveFixture({ id: 90, slot: null, channel_id: "default-ch" });
+    const named = saveFixture({ id: 91, slot: null, channel_id: "hard-ch" });
+    const wrapper = mount(AssetList, {
+      props: {
+        assets: [...library(), held, named],
+        type: "save",
+        channelLabels: { "default-ch": "default", "hard-ch": "Hard mode" },
+      },
+      global: { stubs },
+    });
+
+    expect(titles(wrapper)).toEqual([
+      "autosave",
+      "Hard mode",
+      "main_quest",
+      "play.slot-none",
+    ]);
+    expect(wrapper.findAll(".r-asset-group-head__count")[0]?.text()).toContain(
+      "3",
+    );
+  });
+
   it("shows only the newest version per slot until unfolded", async () => {
     const wrapper = mountList({});
 

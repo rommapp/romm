@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import { expect, waitFor, within } from "storybook/test";
+import { expect, spyOn, waitFor, within } from "storybook/test";
 import { useRouter } from "vue-router";
 import type { DetailedRomSchema } from "@/__generated__";
+import snapshotApi from "@/services/api/snapshot";
 import storeAuth from "@/stores/auth";
 import { userFixture } from "@/utils/user.fixtures";
 import {
@@ -48,6 +49,11 @@ const meta: Meta<StoryArgs> = {
   title: "GameDetails/SaveDataTab",
   component: SaveDataTab,
   parameters: { ...CONTRAST_TODO_PARAMETERS, layout: "fullscreen" },
+  beforeEach: () => {
+    spyOn(snapshotApi, "getDetachedChannels").mockResolvedValue({
+      data: [],
+    } as never);
+  },
   args: {
     subtab: "saves",
     rom: storyDetailedRom(),

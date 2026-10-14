@@ -1,11 +1,15 @@
 import asyncio
 import hashlib
+import io
 import os
+import re
+import stat
 import threading
 import zipfile
+from dataclasses import dataclass
 from mimetypes import guess_type
 from pathlib import Path
-from typing import IO, TYPE_CHECKING
+from typing import IO, TYPE_CHECKING, BinaryIO
 
 import magic
 from fastapi import HTTPException, UploadFile, status
@@ -13,6 +17,7 @@ from fastapi.responses import FileResponse
 
 from config import ASSETS_BASE_PATH
 from logger.logger import log
+from models.assets import SaveShape
 from models.user import User
 from utils.media_types import IMAGE_EXT_BY_MIME_TYPE
 
@@ -32,6 +37,130 @@ _MIME_DETECTOR_LOCK = threading.Lock()
 # chunks against this ceiling rather than read whole. Sized well above any real
 # memory card or save archive.
 MAX_DECOMPRESSED_ENTRY_BYTES = 512 * 1024 * 1024
+# What an uploaded save archive may expand to in all, and hold, by its own
+# declaration; a lying entry still hits the per-entry ceiling while hashing.
+MAX_ARCHIVE_EXPANDED_BYTES = 4 * 1024 * 1024 * 1024
+MAX_ARCHIVE_ENTRIES = 65536
+
+_DRIVE_PREFIX = re.compile(r"^[A-Za-z]:")
+
+
+class UnsafeArchive(ValueError):
+    """An uploaded archive a client restoring it could not unpack safely."""
+
+
+def is_symlink_entry(info: zipfile.ZipInfo) -> bool:
+    """Whether a zip entry is a Unix symlink, whose target an unpacker that
+    follows it writes through on the next entry."""
+    return stat.S_ISLNK(info.external_attr >> 16)
+
+
+def leaves_save_folder(path: str) -> bool:
+    """Whether a relative path a client named would land outside the save folder."""
+    return (
+        "\x00" in path
+        or "\\" in path
+        or path.startswith("/")
+        or bool(_DRIVE_PREFIX.match(path))
+        or ".." in path.split("/")
+    )
+
+
+def check_zip(zf: zipfile.ZipFile) -> list[str]:
+    """The file entries of an uploaded archive, once every entry stays inside
+    the save folder and the whole expands within the limits.
+
+    Raises:
+        UnsafeArchive: an entry escapes, or the archive is too large.
+    """
+    infos = zf.infolist()
+    if len(infos) > MAX_ARCHIVE_ENTRIES:
+        raise UnsafeArchive(
+            f"the archive holds more than {MAX_ARCHIVE_ENTRIES} entries"
+        )
+    expanded = 0
+    for info in infos:
+        name = info.filename
+        if leaves_save_folder(name) or is_symlink_entry(info):
+            raise UnsafeArchive(f"entry {name!r} leaves the save folder")
+        expanded += info.file_size
+        if expanded > MAX_ARCHIVE_EXPANDED_BYTES:
+            raise UnsafeArchive("the archive expands past the size limit")
+    return [info.filename for info in infos if not info.is_dir()]
+
+
+RAW_UNIT_NAME = "unit"
+
+
+@dataclass(frozen=True)
+class UnpackedUnit:
+    names: list[str]
+    archived: bool
+
+
+def unpack_save_unit(
+    unit: bytes,
+    root: Path,
+    *,
+    max_total_bytes: int | None = None,
+    max_entry_bytes: int | None = None,
+) -> UnpackedUnit:
+    """Write a save unit's files under `root`: a zip's safe entries by name, else the raw unit.
+
+    Raises:
+        UnsafeArchive: `check_zip` refuses the zip, or its entries declare more
+            than `max_total_bytes` in all.
+    """
+    if not zipfile.is_zipfile(io.BytesIO(unit)):
+        (root / RAW_UNIT_NAME).write_bytes(unit)
+        return UnpackedUnit([RAW_UNIT_NAME], archived=False)
+    with zipfile.ZipFile(io.BytesIO(unit)) as zf:
+        names = [
+            name
+            for name in check_zip(zf)
+            if max_entry_bytes is None or zf.getinfo(name).file_size <= max_entry_bytes
+        ]
+        expanded = sum(zf.getinfo(name).file_size for name in names)
+        if max_total_bytes is not None and expanded > max_total_bytes:
+            raise UnsafeArchive(f"the unit expands past {max_total_bytes} bytes")
+        for name in names:
+            zf.extract(name, root)
+    return UnpackedUnit(names, archived=True)
+
+
+def check_upload(stream: BinaryIO) -> list[str] | None:
+    """`check_zip` for an upload that is an archive, or None for a raw file.
+    Leaves the stream where it was."""
+    position = stream.tell()
+    try:
+        if not zipfile.is_zipfile(stream):
+            return None
+        stream.seek(position)
+        try:
+            with zipfile.ZipFile(stream) as zf:
+                return check_zip(zf)
+        except zipfile.BadZipFile as exc:
+            raise UnsafeArchive("the archive can't be read") from exc
+    finally:
+        stream.seek(position)
+
+
+def save_shape_of(path: Path) -> SaveShape:
+    """A stored save's shape: an archive holds several members, a raw file one."""
+    return SaveShape.MULTI if zipfile.is_zipfile(path) else SaveShape.SINGLE
+
+
+def check_upload_archive(upload: UploadFile | None, label: str) -> None:
+    """422 for an uploaded archive `check_upload` refuses."""
+    if upload is None:
+        return
+    try:
+        check_upload(upload.file)
+    except UnsafeArchive as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"{label}: {exc}",
+        ) from exc
 
 
 def hash_zip_entry(zf: zipfile.ZipFile, name: str) -> str:
@@ -49,17 +178,34 @@ def hash_zip_entry(zf: zipfile.ZipFile, name: str) -> str:
     return hash_obj.hexdigest()
 
 
+def _combined_hash(zf: zipfile.ZipFile, names: list[str]) -> str:
+    combined = "\n".join(f"{name}:{hash_zip_entry(zf, name)}" for name in names)
+    return hashlib.md5(combined.encode(), usedforsecurity=False).hexdigest()
+
+
+def _file_entries(zf: zipfile.ZipFile) -> list[str]:
+    return [name for name in sorted(zf.namelist()) if not name.endswith("/")]
+
+
 def hash_zip_contents(zf: zipfile.ZipFile) -> str:
     """md5 of a zip archive's contents, keyed by sorted entry name and each
     entry's own hash. Shared by disk-path and in-memory hashing so both agree
     on a card or save archive's dedup hash."""
-    file_hashes = []
-    for name in sorted(zf.namelist()):
-        if not name.endswith("/"):
-            file_hash = hash_zip_entry(zf, name)
-            file_hashes.append(f"{name}:{file_hash}")
-    combined = "\n".join(file_hashes)
-    return hashlib.md5(combined.encode(), usedforsecurity=False).hexdigest()
+    return _combined_hash(zf, _file_entries(zf))
+
+
+def is_clock_member(name: str) -> bool:
+    """Whether sigil gives an entry the RTC role: `{stem}.rtc` or `clock.rtc`."""
+    return name.endswith(".rtc")
+
+
+def zip_identity_hash(zf: zipfile.ZipFile) -> str:
+    """Sigil's identity hash of a unit archive: its content hash without the
+    clock members, or the one remaining member's own hash."""
+    names = [name for name in _file_entries(zf) if not is_clock_member(name)]
+    if len(names) == 1:
+        return hash_zip_entry(zf, names[0])
+    return _combined_hash(zf, names)
 
 
 def hash_save_content(content: IO[bytes]) -> str | None:

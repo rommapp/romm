@@ -11,7 +11,7 @@ import { formatBytes } from "@/utils";
 import AssetFavoriteMark from "@/v2/components/shared/AssetFavoriteMark.vue";
 import AssetLabels from "@/v2/components/shared/AssetLabels.vue";
 import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
-import { dateOf, type AssetDateField } from "@/v2/utils/assets";
+import { coreOf, dateOf, type AssetDateField } from "@/v2/utils/assets";
 import { toCssUrl } from "@/v2/utils/css";
 
 defineOptions({ inheritAttrs: false });
@@ -176,10 +176,10 @@ const emptyText = computed(() =>
             :text="asset.slot"
           />
           <RTag
-            v-if="type === 'state' && asset.emulator"
+            v-if="type === 'state' && coreOf(asset)"
             tone="warning"
             size="x-small"
-            :text="emulatorLabel(asset.emulator)"
+            :text="emulatorLabel(coreOf(asset))"
           />
           <span class="r-asset-preview__chip">
             {{ formatBytes(asset.file_size_bytes) }}

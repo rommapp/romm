@@ -151,7 +151,7 @@ class TestDBStatesHandlerPlatformFiltering:
         assert retrieved_state.file_name == "test_state.state"
 
         # Verify the state is associated with the correct platform through ROM
-        assert retrieved_state.rom.platform_id == platform.id
+        assert retrieved_state.attached_rom.platform_id == platform.id
 
 
 class TestGetStatesRomIdsScope:

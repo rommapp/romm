@@ -17,6 +17,12 @@ import storeAuth from "@/stores/auth";
 import { errorMessage } from "@/v2/utils/errorMessage";
 import { openDb } from "@/v2/utils/idb";
 import { saveContentHash } from "@/v2/utils/saveSync/hash";
+import {
+  chainPush,
+  sendPush,
+  type SentPush,
+  type SnapshotPush,
+} from "@/v2/utils/saveSync/snapshotSession";
 
 const DB_NAME = "romm-player";
 const DB_VERSION = 6;
@@ -46,6 +52,8 @@ export interface PendingAsset {
   emulator?: string;
   /** Saves only: the device the session was playing on. */
   deviceId?: string | undefined;
+  /** The snapshot push the capture makes, sent as recorded on a retry. */
+  push?: SnapshotPush | undefined;
   capturedAt: number;
 }
 
@@ -53,6 +61,7 @@ interface HeldKey {
   id: string;
   kind: PendingAssetKind;
   romId: number;
+  capturedAt: number;
 }
 
 // `crypto.randomUUID` needs a secure context, which plain http on a LAN address
@@ -150,20 +159,21 @@ async function heldKeys(
     request.onsuccess = () => {
       const cursor = request.result;
       if (!cursor) return;
-      const [owner, kind, romId] = cursor.key as [
+      const [owner, kind, romId, capturedAt] = cursor.key as [
         number,
         PendingAssetKind,
+        number,
         number,
       ];
       const id = cursor.primaryKey as string;
       if (owner === userId && kinds.includes(kind) && !accepted.has(id)) {
-        held.push({ id, kind, romId });
+        held.push({ id, kind, romId, capturedAt });
       }
       cursor.continue();
     };
     return request;
   });
-  return held;
+  return held.sort((a, b) => a.capturedAt - b.capturedAt);
 }
 
 const pendingAssetStore = {
@@ -353,8 +363,14 @@ async function settle(entry: PendingAsset): Promise<SyncedAsset> {
   };
 }
 
+/**
+ * Args:
+ *   sent: The pushes this pass has sent, by channel, which later ones held on
+ *     the same base chain onto.
+ */
 async function uploadPendingAsset(
   entry: PendingAsset,
+  sent: Map<string, SentPush>,
 ): Promise<SyncedAsset | DroppedAsset | null> {
   if (!entry.bytes?.byteLength) {
     await pendingAssetStore.clear(entry.id);
@@ -362,6 +378,15 @@ async function uploadPendingAsset(
   }
 
   try {
+    if (entry.push) {
+      const channelId = entry.push.manifest.channel_id;
+      const previous = channelId ? sent.get(channelId) : undefined;
+      const outcome = await sendPush(
+        previous ? chainPush(entry.push, previous) : entry.push,
+      );
+      if (channelId) sent.set(channelId, { push: entry.push, outcome });
+      return await settle(entry);
+    }
     const rom = await uploadTarget(entry);
     const { upload, archived } =
       entry.kind === "state"
@@ -419,6 +444,7 @@ export async function syncPendingAssets(
   const synced: SyncedAsset[] = [];
   const dropped: DroppedAsset[] = [];
   const owner = currentUserId();
+  const sent = new Map<string, SentPush>();
   // One row at a time, so a queue of large states is never all in memory.
   for (const { id } of await heldKeys(kinds)) {
     // Signing out mid-pass must not hand the rest to whoever signs in next.
@@ -427,7 +453,7 @@ export async function syncPendingAssets(
       store.get(id),
     );
     if (!entry || entry.userId !== owner) continue;
-    const outcome = await uploadPendingAsset(entry);
+    const outcome = await uploadPendingAsset(entry, sent);
     if (!outcome) continue;
     if ("reason" in outcome) dropped.push(outcome);
     else synced.push(outcome);

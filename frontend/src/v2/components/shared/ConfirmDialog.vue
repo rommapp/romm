@@ -17,6 +17,7 @@ import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Events } from "@/types/emitter";
 import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
+import { typedMatches } from "@/v2/utils/typedConfirm";
 
 defineOptions({ inheritAttrs: false });
 
@@ -33,26 +34,9 @@ const tone = computed(() => payload.value?.tone ?? "warning");
 const confirmColor = computed(() =>
   tone.value === "danger" ? "error" : "warning",
 );
-// The hint renders the required string as HTML, which collapses runs of
-// whitespace, so a name carrying a double space (an unidentified platform
-// named from its folder, say) can never be typed back as stored. Compare on
-// the shape the user actually sees. Only the whitespace HTML actually
-// collapses counts: NBSP and friends render as themselves, so they stay
-// significant.
-const COLLAPSIBLE_WHITESPACE = /[ \t\n\r\f]+/g;
-
-function normalize(value: string): string {
-  return value.replace(COLLAPSIBLE_WHITESPACE, " ").replace(/^ | $/g, "");
-}
-
 const confirmDisabled = computed(() => {
   const required = payload.value?.requireTyped;
-  if (!required) return false;
-  const normalizedRequired = normalize(required);
-  // A phrase that renders as nothing would otherwise match the empty field
-  // and hand out the action for free, so demand it character for character.
-  if (!normalizedRequired) return typed.value !== required;
-  return normalize(typed.value) !== normalizedRequired;
+  return !!required && !typedMatches(required, typed.value);
 });
 
 function onShow(p: Payload) {

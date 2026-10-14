@@ -29,7 +29,7 @@ from handler.scan_handler import scan_save
 from handler.streaming import archive, broker, states, webstation
 from handler.streaming.config import ResolvedContainer
 from handler.streaming.session_store import DiscSwap
-from handler.sync.retroarch.sync_handler import add_autosave_version, lineage_head
+from handler.sync.retroarch.sync_handler import add_autosave_version, served_head
 from logger.logger import log
 from models.assets import Save, SaveLineage, State
 from models.rom import Rom
@@ -188,8 +188,8 @@ async def _store_save_file(
     lineage = SaveLineage.of(emulator, filename)
     if scanned_save.content_hash:
         if autosave:
-            # Across the folder's aliases, as Cloud Sync reads the slot.
-            head = lineage_head(user, rom, lineage)
+            # The save Cloud Sync serves, across the folder's aliases.
+            head = served_head(user, rom, lineage)
             existing = (
                 head
                 if head and head.content_hash == scanned_save.content_hash
@@ -389,7 +389,7 @@ def _capture_disc(
 
 
 # Stands in for the version tag, so the stem leaves it room.
-_VERSION_TAG_ROOM = " [0000-00-00_00-00-00]"
+_VERSION_TAG_ROOM = " [0000-00-00_00-00-00-000]"
 
 
 async def _store_raw_exit(
