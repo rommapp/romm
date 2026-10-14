@@ -123,14 +123,15 @@ class TestGetOrConvert:
         assert convert_outputs == []
         assert not any(cache_root.iterdir())
 
-    async def test_cache_hit_returns_path_and_refreshes_mtime(
+    async def test_cache_hit_returns_path_without_touching_mtime(
         self, cache_root, convert_outputs
     ):
         f = _rom_file()
         final = _seed_cached(f, age_seconds=3600)
+        before = final.stat().st_mtime
 
         assert await get_or_convert(1, f, "psp", "chd") == final
-        assert final.stat().st_mtime > time.time() - 60
+        assert final.stat().st_mtime == before
         assert convert_outputs == []
 
     async def test_oversized_conversion_returns_none_without_converting(
@@ -567,42 +568,35 @@ class TestGetCachedConverted:
 
         assert get_cached_converted(1, f, "psp", "chd") is None
 
-    @pytest.mark.parametrize("touch", [False, True])
-    def test_returns_the_copy_refreshing_mtime_only_when_asked(self, cache_root, touch):
+    def test_serving_leaves_mtime_untouched(self, cache_root):
+        # nginx builds its ETag from mtime+size: touching the copy on serve
+        # changes the ETag and breaks resumable downloads (If-Range never matches).
         f = _rom_file()
         final = _seed_cached(f, age_seconds=3600)
+        before = final.stat().st_mtime
 
-        assert get_cached_converted(1, f, "psp", "chd", touch=touch) == final
-        assert (final.stat().st_mtime > time.time() - 60) is touch
+        assert get_cached_converted(1, f, "psp", "chd") == final
+        assert final.stat().st_mtime == before
 
-    @pytest.mark.parametrize(
-        "touch",
-        [
-            pytest.param(False, id="lookup"),
-            pytest.param(True, id="download"),
-        ],
-    )
-    def test_returns_none_while_key_dir_is_locked(self, cache_root, touch):
+    def test_touch_records_serve_in_sidecar_without_touching_copy(self, cache_root):
+        # A recorded serve must not refresh the copy's mtime (it feeds nginx's
+        # ETag). Instead the serve is recorded in a sidecar file so cleanup
+        # can spare the copy.
+        f = _rom_file()
+        final = _seed_cached(f, age_seconds=3600)
+        before = final.stat().st_mtime
+
+        assert get_cached_converted(1, f, "psp", "chd", touch=True) == final
+        assert final.stat().st_mtime == before
+        sidecar = final.parent / conversion_cache.LAST_SERVED_FILE
+        assert sidecar.stat().st_mtime > time.time() - 60
+
+    def test_returns_none_while_key_dir_is_locked(self, cache_root):
         f = _rom_file()
         final = _seed_cached(f)
 
         with _held_lock(final.parent):
-            assert get_cached_converted(1, f, "psp", "chd", touch=touch) is None
-
-    @pytest.mark.parametrize(
-        "error",
-        [
-            pytest.param(FileNotFoundError, id="touch-not-found"),
-            pytest.param(PermissionError, id="permission-denied"),
-        ],
-    )
-    def test_touch_failure_still_serves_the_copy(self, cache_root, mocker, error):
-        f = _rom_file()
-        final = _seed_cached(f)
-        mocker.patch("os.utime", side_effect=error)
-
-        assert get_cached_converted(1, f, "psp", "chd", touch=True) == final
-        assert final.read_bytes() == b"cached"
+            assert get_cached_converted(1, f, "psp", "chd") is None
 
     def test_lock_open_failure_returns_none(self, cache_root, mocker):
         f = _rom_file()
@@ -834,29 +828,19 @@ class TestCleanupStaleConversions:
         assert conversion_cache.cleanup_stale_conversions() == (0 if kept else 1)
         assert final.exists() is kept
 
-    def test_size_eviction_rechecks_a_copy_served_after_the_ttl_pass(
-        self, cache_root, converto, mocker
-    ):
+    def test_cleanup_spares_a_recently_served_copy(self, cache_root, converto, mocker):
+        # A copy served moments ago must survive cleanup even though its own
+        # mtime is old: the serve is recorded in a sidecar, not in the copy's
+        # mtime (which feeds nginx's ETag and must stay stable).
         converto.cache_max_size_gb = 1
         mocker.patch.object(conversion_cache, "BYTES_PER_GB", 100)
         f = _rom_file()
-        final = _seed_cached(f)
+        final = _seed_cached(f, age_seconds=3600)
         final.write_bytes(b"x" * 120)
-        served = time.time() - 120
-        os.utime(final, (served, served))
-        iterdir = Path.iterdir
 
-        def serve_after_listing(path):
-            yield from iterdir(path)
-            if path == cache_root:
-                assert get_cached_converted(1, f, "psp", "chd", touch=True) == final
-
-        mocker.patch.object(
-            Path, "iterdir", side_effect=serve_after_listing, autospec=True
-        )
-
+        assert get_cached_converted(1, f, "psp", "chd", touch=True) == final
         assert conversion_cache.cleanup_stale_conversions() == 0
-        assert final.read_bytes() == b"x" * 120
+        assert final.exists()
 
 
 class TestParseFormats:

@@ -272,7 +272,7 @@ def test_a_format_needs_a_single_file(
         pytest.param("head", "authenticated", id="metadata"),
     ],
 )
-def test_get_refreshes_a_cached_copy_but_head_does_not(
+def test_get_records_serve_without_touching_copy_but_head_does_not(
     client: TestClient,
     access_token: str,
     rom: Rom,
@@ -304,7 +304,14 @@ def test_get_refreshes_a_cached_copy_but_head_does_not(
 
     assert response.status_code == status.HTTP_200_OK
     assert _redirect(response) == "/cache/converts/1-abc/test_rom.chd"
-    assert (cached_copy.stat().st_mtime > time.time() - 60) is (method == "get")
+    # The copy's mtime feeds nginx's ETag: neither method may refresh it.
+    assert cached_copy.stat().st_mtime <= time.time() - 60
+    # Only a real download records the serve, sparing the copy from cleanup.
+    sidecar = cached_copy.parent / conversion_cache.LAST_SERVED_FILE
+    if method == "get":
+        assert sidecar.stat().st_mtime > time.time() - 60
+    else:
+        assert not sidecar.exists()
     assert conversion_cache.cleanup_stale_conversions() == (0 if method == "get" else 1)
     assert cached_copy.exists() is (method == "get")
     conversion.convert.assert_not_called()

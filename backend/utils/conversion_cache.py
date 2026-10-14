@@ -48,6 +48,10 @@ CONVERSION_WAIT_SECONDS: Final = 15
 RETRY_AFTER_SECONDS: Final = 30
 PARTIAL_DIR: Final = ".partial"
 FAILED_FILE: Final = ".failed"
+# Records when a cached copy was last served. Its mtime (not the copy's) feeds
+# cleanup: touching the copy itself would change nginx's ETag and break
+# resumable downloads.
+LAST_SERVED_FILE: Final = ".last_served"
 # Give nginx time to open a copy after the X-Accel-Redirect response.
 SERVE_GRACE_SECONDS: Final = 60
 # Room a conversion to an uncompressed target reserves per input byte; the
@@ -140,16 +144,20 @@ def _lookup(
 
 
 def _serve_cached(final_path: Path, *, touch: bool) -> Path | None:
-    """`final_path` if it is cached, or None while cleanup or a conversion holds its dir."""
+    """`final_path` if it is cached, or None while cleanup or a conversion holds its dir.
+
+    Args:
+        touch: Record the serve so cleanup spares the copy, without touching
+            the copy itself (its mtime feeds nginx's ETag).
+    """
     with (
         contextlib.suppress(OSError),
         _try_lock(final_path.parent, shared=True) as locked,
     ):
         if locked and final_path.exists():
             if touch:
-                # Keep a served file fresh so TTL cleanup measures demand.
                 with contextlib.suppress(OSError):
-                    os.utime(final_path)
+                    (final_path.parent / LAST_SERVED_FILE).touch()
             return final_path
     return None
 
@@ -165,7 +173,7 @@ def get_cached_converted(
     """The converted file if it is already cached, without converting.
 
     Args:
-        touch: Refresh its mtime so TTL cleanup measures demand.
+        touch: Record the serve so cleanup spares the copy.
     """
     found = _lookup(rom_id, rom_file, platform_slug, target)
     return _serve_cached(found[1], touch=touch) if found else None
@@ -242,7 +250,7 @@ async def resolve_format_download(
     Args:
         allowed: The caller may start a conversion.
         start: Start it now, rather than only report that one would run.
-        touch: Refresh a served copy's mtime so TTL cleanup measures demand.
+        touch: Record a served copy so cleanup spares it.
     """
     if file_format(file.file_name) in formats:
         return FormatResolution(FormatOutcome.ORIGINAL)
@@ -311,8 +319,6 @@ async def get_or_convert(
                 return None
             # A conversion may have finished between the check above and the lock.
             if final_path.exists():
-                with contextlib.suppress(OSError):
-                    os.utime(final_path)
                 return final_path
             if (final_path.parent / FAILED_FILE).exists():
                 return None
@@ -388,20 +394,20 @@ def cleanup_stale_conversions(reserve_bytes: int = 0) -> int:
     now = time.time()
     expired_before = now - converto.cache_ttl_hours * SECONDS_PER_HOUR
     deleted = 0
-    # (last served, size) of the final copies in each dir that survives the TTL pass.
+    # (newest mtime, size) of the final copies in each dir that survives the TTL pass.
     kept: list[tuple[float, int, Path]] = []
 
     for key_dir in cache_root.iterdir():
         if not key_dir.is_dir():
             continue
         with contextlib.suppress(FileNotFoundError):
-            stats, last_served = _stat_files(key_dir)
+            stats, newest_mtime = _stat_files(key_dir)
             partial_dir = key_dir / PARTIAL_DIR
-            if last_served < expired_before or partial_dir.exists():
+            if newest_mtime < expired_before or partial_dir.exists():
                 with _try_lock(key_dir) as locked:
                     if locked:
-                        stats, last_served = _stat_files(key_dir)
-                        if last_served < expired_before:
+                        stats, newest_mtime = _stat_files(key_dir)
+                        if newest_mtime < expired_before:
                             shutil.rmtree(key_dir, ignore_errors=True)
                             deleted += 1
                             continue
@@ -435,7 +441,7 @@ def cleanup_stale_conversions(reserve_bytes: int = 0) -> int:
         if used + reserve_bytes <= max_bytes:
             break
         with contextlib.suppress(FileNotFoundError), _try_lock(key_dir) as locked:
-            # A download may have touched the copy since the pass above.
+            # A conversion may have finished since the pass above.
             if not locked or any(
                 p.stat().st_mtime >= now - SERVE_GRACE_SECONDS for p in _files(key_dir)
             ):
