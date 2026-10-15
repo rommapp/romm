@@ -33,6 +33,7 @@ from typing import Any
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from PIL import Image  # noqa: E402
+from redis.exceptions import RedisError  # noqa: E402
 from sqlalchemy import Connection, insert  # noqa: E402
 from sqlalchemy.engine.interfaces import DBAPIConnection  # noqa: E402
 from sqlalchemy.pool import ConnectionPoolEntry  # noqa: E402
@@ -1169,6 +1170,8 @@ def main() -> int:
 
             # Cover art, screenshots and media: write image files to the resources
             # tree and point the path columns at them, or leave them empty.
+            # Drawn whatever the image flags, so they never shift the rows.
+            n_shots = rng.randint(0, 4)
             media_paths: dict[str, str] = {}
             with_images = args.images and (
                 args.image_limit is None or rid - rom_id_base < args.image_limit
@@ -1182,7 +1185,7 @@ def main() -> int:
                     fidelity=rom_fidelity(
                         args.image_fidelity, rid, args.image_weighted_every
                     ),
-                    n_screenshots=rng.randint(0, 4),
+                    n_screenshots=n_shots,
                     with_media=args.image_media and has_ss,
                     caption=RomCaption(f["title"], platform["name"], f["region"]),
                 )
@@ -1193,7 +1196,6 @@ def main() -> int:
                 path_screenshots, media_paths = seeded.screenshots, seeded.media_paths
                 images_written += seeded.files_written
             elif with_images:
-                n_shots = rng.randint(0, 4)
                 path_cover_s, path_cover_l, path_screenshots = generate_rom_images(
                     img_rng, args.resources_path, platform["id"], rid, n_shots
                 )
@@ -1693,7 +1695,14 @@ def main() -> int:
     # The gallery caches its id list and indexes in Redis; rows written straight to
     # the database don't rotate that cache, so rotate it here.
     if not args.dry_run:
-        db_rom_handler.invalidate_filter_values_cache()
+        try:
+            db_rom_handler.invalidate_filter_values_cache()
+        except RedisError as exc:
+            print(
+                f"Warning: could not rotate the gallery cache ({exc}); "
+                "the seed is saved, but the gallery may show old lists until it is.",
+                file=sys.stderr,
+            )
 
     # ------------------------------- report --------------------------------
     elapsed = time.time() - t0

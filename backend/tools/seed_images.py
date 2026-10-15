@@ -1,15 +1,4 @@
-"""Realistic cover and media files for `generate_test_data.py`, at a chosen fidelity.
-
-Levels (`--image-fidelity`):
-  1 mosaic     one 264x396 mosaic per rom (generate_test_data's own writer)
-  2 shapes     real cover size mix, RomM's small-cover rule; debug art on flat colour
-  3 weight     level 2 over texture tuned to real bytes per pixel; some JPEG in big.png
-
-From level 2 every image carries the same debug guides: red/green/blue/white corner
-pixels, named corners, percent ticks, a circle that shows stretching, and a label
-naming the game and file. Each rom draws from its own random stream (seed, rom id),
-so roms can be drawn in any order or in parallel and still come out the same.
-"""
+"""Cover and media files with debug art for `generate_test_data.py` levels 2 and 3."""
 
 import math
 import random
@@ -91,9 +80,7 @@ CORNER_COLOURS: Final[dict[str, tuple[int, int, int]]] = {
 # Guides (circle, cross, ticks, boxes, corners, stats) are pure black on every rom.
 GUIDE_BLACK: Final = (0, 0, 0)
 CORNER_RING: Final = GUIDE_BLACK
-# The stats box is black on white so it reads at a distance. Only the kind cell
-# is tinted, and only for the two cover sizes, so a tile shows at a glance which
-# file the client loaded.
+# Black on white reads at a distance; the kind cell's tint shows which cover loaded.
 STATS_WHITE: Final = (255, 255, 255)
 KIND_CELL_COLOURS: Final[dict[str, tuple[int, int, int]]] = {
     "big": (255, 178, 120),
@@ -229,9 +216,8 @@ def _fitted_size(
     return size
 
 
-# The stats box is a fixed shape on the circle, the same on every tile whatever
-# its values: width, height, top and column shares are fractions of the radius.
-# The id column fits six digits, as ids reach 100000 at the seeder's default size.
+# Fractions of the circle's radius, so the box matches on every tile; the id column
+# fits six digits (the seeder's default reaches 100000).
 STATS_BOX_WIDTH: Final = 1.76
 STATS_BOX_HEIGHT: Final = 0.26
 STATS_BOX_TOP: Final = 0.16
@@ -375,20 +361,13 @@ def draw_debug_overlay(
             ys = sorted((y0, y0 + dy * reach))
             draw.rectangle((xs[0], ys[0], xs[1], ys[1]), fill=colour)
 
-    # A band of real transparency inside the circle (2px gap, 3 strokes wide) shows
-    # the page background behind the tile; the labels and circle are drawn over it
-    # opaque. Where a resize or format flattens alpha the fade vanishes, and JPEG
-    # files, which have no alpha, go without.
+    # Real transparency shows the page behind the tile; JPEG has no alpha.
     if fmt != "JPEG":
         outer = radius - line - 2
         img = _fade_ring(img, cx, cy, outer, outer - 3 * line)
         draw = ImageDraw.Draw(img)
 
-    # The game sits in the circle's top half, this file's facts in a box below the
-    # cross (roms.id, size, kind, format), and the path on the bottom edge, so the
-    # boxed stats also show which way is down. The kind (big, small, box2d,
-    # fanart...) lets every kind of art share one layout. The path is where the
-    # file was written; it may since have moved or changed.
+    # Game above the cross, file facts below it: the box also shows which way is down.
     gap = side * 0.08
     margin = side * 0.05
     edge = cy - gap
