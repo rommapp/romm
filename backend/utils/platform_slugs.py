@@ -467,6 +467,7 @@ class UniversalPlatformSlug(enum.StrEnum):
     Z80 = "z80"
     Z88 = "z88"
     ZEEBO = "zeebo"
+    ZELDA_CLASSIC = "zelda-classic"
     ZILOG_Z8000 = "zilog-z8000"
     ZINC = "zinc"
     ZOD = "zod"
