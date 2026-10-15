@@ -1197,7 +1197,7 @@ class FSRomsHandler(FSHandler):
             _record_title_id_source(rom_dir, rom_file)
 
         # New and changed rows were never read; reused ones only if rom-converto
-        # hasn't recognized them yet. Every row sits under the validated rom dir.
+        # hasn't read them yet. Every row sits under the validated rom dir.
         converto_sources = [
             (path, rom_file)
             for rom_file in rom_files
