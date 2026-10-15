@@ -8,6 +8,8 @@ play stats, collections and sync data, then bulk-inserts everything.
 Run from the backend directory:
 
     uv run tools/generate_test_data.py --roms 100000
+    uv run tools/generate_test_data.py --roms 2000 --image-fidelity 2   # real cover sizes, debug art
+    uv run tools/generate_test_data.py --roms 500 --image-fidelity 3    # real file weights too
 
 The script talks straight to the database configured by the usual env vars
 (DB_HOST, DB_NAME, ...). It assigns primary keys explicitly so foreign keys
@@ -23,6 +25,7 @@ import random
 import sys
 import time
 from collections.abc import Iterable
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -33,9 +36,17 @@ from PIL import Image  # noqa: E402
 from sqlalchemy import Connection, insert  # noqa: E402
 from sqlalchemy.engine.interfaces import DBAPIConnection  # noqa: E402
 from sqlalchemy.pool import ConnectionPoolEntry  # noqa: E402
+from tools.seed_images import (  # noqa: E402
+    RomCaption,
+    RomImageJob,
+    draw_rom_images,
+    plan_rom_images,
+    rom_fidelity,
+)
 
 from adapters.services.igdb import IGDB_PLATFORM_LIST  # noqa: E402
 from config import RESOURCES_BASE_PATH  # noqa: E402
+from handler.database import db_rom_handler  # noqa: E402
 from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST  # noqa: E402
 from handler.metadata.ss_handler import SCREENSAVER_PLATFORM_LIST  # noqa: E402
 from models.assets import Save, Screenshot, State  # noqa: E402
@@ -800,12 +811,51 @@ def main() -> int:
         "--images",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Generate mosaic PNG covers/screenshots on disk (default: on)",
+        help="Write cover, screenshot and media files on disk (default: on)",
     )
     parser.add_argument(
         "--resources-path",
         default=RESOURCES_BASE_PATH,
         help="Base dir for generated images (default: config RESOURCES_BASE_PATH)",
+    )
+    parser.add_argument(
+        "--image-fidelity",
+        type=int,
+        choices=(1, 2, 3),
+        default=1,
+        help=(
+            "How closely images match a real library: 1 mosaic (one size), "
+            "2 shapes (real cover size mix, debug art), 3 weight (real bytes per "
+            "pixel, some JPEG in big.png). Default: 1"
+        ),
+    )
+    parser.add_argument(
+        "--image-limit",
+        type=int,
+        default=None,
+        help="Write image files for only the first N roms (default: all)",
+    )
+    parser.add_argument(
+        "--image-weighted-every",
+        type=int,
+        default=10,
+        help=(
+            "At --image-fidelity 2, draw roms whose id is a multiple of N at level 3"
+            " (real bytes, JPEG in big.png), for image-conversion work; 0 = none."
+            " Default: 10"
+        ),
+    )
+    parser.add_argument(
+        "--image-media",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Also write ScreenScraper media (box3d, fanart...) for roms with SS data",
+    )
+    parser.add_argument(
+        "--image-workers",
+        type=int,
+        default=os.cpu_count() or 1,
+        help="Processes drawing images at fidelity 2+ (default: all cores; 1 = inline)",
     )
     args = parser.parse_args()
 
@@ -1047,8 +1097,16 @@ def main() -> int:
     if args.images:
         print(f"Writing cover/screenshot PNGs under {args.resources_path}")
     t0 = time.time()
+    # Images at fidelity 2+ are planned inline (their paths go into the rows) and
+    # drawn per batch, in worker processes when there are several.
+    image_pool = (
+        ProcessPoolExecutor(args.image_workers)
+        if args.images and args.image_fidelity > 1 and args.image_workers > 1
+        else None
+    )
     for batch_start in range(0, args.roms, args.batch_size):
         batch_end = min(batch_start + args.batch_size, args.roms)
+        image_jobs: list[RomImageJob] = []
         rom_rows, file_rows, ru_rows = [], [], []
         track_rows: list[dict[str, Any]] = []
         save_rows, state_rows, shot_rows, note_rows = [], [], [], []
@@ -1109,9 +1167,32 @@ def main() -> int:
             if not is_sibling and igdb_id is not None:
                 sibling_seed[platform["id"]] = {"igdb_id": igdb_id, "facts": f}
 
-            # Cover art + screenshots: write real mosaic PNGs to the resources
+            # Cover art, screenshots and media: write image files to the resources
             # tree and point the path columns at them, or leave them empty.
-            if args.images:
+            media_paths: dict[str, str] = {}
+            with_images = args.images and (
+                args.image_limit is None or rid - rom_id_base < args.image_limit
+            )
+            if with_images and args.image_fidelity > 1:
+                job = RomImageJob(
+                    resources_base=args.resources_path,
+                    seed=args.seed,
+                    platform_id=platform["id"],
+                    rom_id=rid,
+                    fidelity=rom_fidelity(
+                        args.image_fidelity, rid, args.image_weighted_every
+                    ),
+                    n_screenshots=rng.randint(0, 4),
+                    with_media=args.image_media and has_ss,
+                    caption=RomCaption(f["title"], platform["name"], f["region"]),
+                )
+                seeded = plan_rom_images(job)
+                if seeded.large:
+                    image_jobs.append(job)
+                path_cover_s, path_cover_l = seeded.small, seeded.large
+                path_screenshots, media_paths = seeded.screenshots, seeded.media_paths
+                images_written += seeded.files_written
+            elif with_images:
                 n_shots = rng.randint(0, 4)
                 path_cover_s, path_cover_l, path_screenshots = generate_rom_images(
                     img_rng, args.resources_path, platform["id"], rid, n_shots
@@ -1153,7 +1234,9 @@ def main() -> int:
                     "moby_metadata": (
                         build_moby_metadata(rng, f, platform) if has_moby else {}
                     ),
-                    "ss_metadata": build_ss_metadata(rng, f) if has_ss else {},
+                    "ss_metadata": (
+                        build_ss_metadata(rng, f) | media_paths if has_ss else {}
+                    ),
                     "ra_metadata": build_ra_metadata(rng, f) if has_ra else {},
                     "launchbox_metadata": (
                         build_launchbox_metadata(rng, f) if has_lb else {}
@@ -1443,6 +1526,13 @@ def main() -> int:
                         }
                     )
 
+        if image_pool is not None:
+            # list() waits for the batch and re-raises any worker's error.
+            list(image_pool.map(draw_rom_images, image_jobs, chunksize=4))
+        else:
+            for job in image_jobs:
+                draw_rom_images(job)
+
         if not args.dry_run:
             with sync_engine.begin() as conn:
                 bulk_insert(conn, Rom, rom_rows)
@@ -1597,13 +1687,21 @@ def main() -> int:
     counts["sync_sessions"] = len(sync_rows)
     counts["play_sessions"] = len(play_rows)
 
+    if image_pool is not None:
+        image_pool.shutdown()
+
+    # The gallery caches its id list and indexes in Redis; rows written straight to
+    # the database don't rotate that cache, so rotate it here.
+    if not args.dry_run:
+        db_rom_handler.invalidate_filter_values_cache()
+
     # ------------------------------- report --------------------------------
     elapsed = time.time() - t0
     print("\nDone in %.1fs. Row counts:" % elapsed)
     for name in sorted(counts):
         print(f"  {name:<20} {counts[name]:>12,}")
     if args.images:
-        print(f"  {'images (png)':<20} {images_written:>12,}")
+        print(f"  {'image files':<20} {images_written:>12,}")
     if not args.dry_run and user_rows:
         print(
             f"\nLogin with username '{user_rows[0]['username']}' "
