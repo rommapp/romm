@@ -36,7 +36,7 @@ from utils.tls import build_ca_ssl_context
 
 # Using the internal password flow
 oauth2_password_bearer = OAuth2PasswordBearer(
-    tokenUrl="/token",
+    tokenUrl="/api/token",
     auto_error=False,
     # The maps are keyed by Scope, which is a StrEnum; FastAPI wants plain str.
     scopes={
