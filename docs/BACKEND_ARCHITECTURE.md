@@ -1984,6 +1984,7 @@ Falls back to `FakeRedis` in test mode.
 | `RESCAN_ON_FILESYSTEM_CHANGE_DELAY`    | `5`         | Debounce delay (minutes)        |
 | `SEVEN_ZIP_TIMEOUT`                    | `180`       | Timeout for 7-Zip extraction    |
 | `REFRESH_RETROACHIEVEMENTS_CACHE_DAYS` |             | RA cache TTL (days)             |
+| `WEBP_QUALITY`                         | `90`        | WebP quality, or `lossless`     |
 
 #### Device Sync
 

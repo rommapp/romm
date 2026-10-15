@@ -8,14 +8,17 @@ from typing import Any, ClassVar, List
 
 from PIL import Image, UnidentifiedImageError
 
-from config import (
-    RESOURCES_BASE_PATH,
-)
+from config import RESOURCES_BASE_PATH, WEBP_QUALITY, WebPQuality
 from logger.logger import log
 from tasks.registry import CONVERT_IMAGES_TO_WEBP_SPEC
 from tasks.tasks import JobMetaStats, PeriodicTask
 from utils.images import frame_durations, webp_loop
 from utils.media_types import ALLOWED_IMAGE_EXTENSIONS
+
+# Stores WEBP_QUALITY; WebP copies older than this file get redone
+QUALITY_MARKER = ".webp_quality"
+# Without a marker, the copies were made at quality 90
+UNMARKED_QUALITY = "90"
 
 
 @dataclass
@@ -41,8 +44,13 @@ class ImageConverter:
         "YCbCr": "RGB",  # YCbCr to RGB
     }
 
-    def __init__(self, quality: int = 90) -> None:
+    def __init__(self, quality: WebPQuality = WEBP_QUALITY) -> None:
         self.quality = quality
+
+    def _save_options(self) -> dict[str, Any]:
+        if self.quality == "lossless":
+            return {"lossless": True}
+        return {"quality": self.quality}
 
     def _convert_image_mode(self, img: Image.Image) -> Image.Image:
         """Convert image to appropriate mode for WebP conversion.
@@ -85,11 +93,11 @@ class ImageConverter:
                         save_all=True,
                         duration=durations,
                         loop=webp_loop(img),
-                        quality=self.quality,
+                        **self._save_options(),
                     )
                 else:
                     self._convert_image_mode(img).save(
-                        webp_path, "WEBP", quality=self.quality, optimize=True
+                        webp_path, "WEBP", optimize=True, **self._save_options()
                     )
                 log.info(f"Created WebP version: {webp_path}")
                 return True
@@ -132,6 +140,29 @@ class ConvertImagesToWebPTask(PeriodicTask):
         self.error_count = 0
         self.errors: list[str] = []
 
+    def _redo_since(self) -> float | None:
+        """When WEBP_QUALITY last changed, or None if no copy needs redoing."""
+        marker = self.resources_path / QUALITY_MARKER
+        quality = str(self.converter.quality)
+        try:
+            stored: str | None = marker.read_text().strip()
+        except OSError:
+            stored = None
+        if stored is None and quality == UNMARKED_QUALITY:
+            return None
+        if stored != quality:
+            marker.write_text(f"{quality}\n")
+            log.info(f"WEBP_QUALITY is now {quality}, redoing existing WebP copies")
+        return marker.stat().st_mtime
+
+    @staticmethod
+    def _has_current_copy(image_path: Path, redo_since: float | None) -> bool:
+        try:
+            copied_at = image_path.with_suffix(".webp").stat().st_mtime
+        except FileNotFoundError:
+            return False
+        return redo_since is None or copied_at >= redo_since
+
     def _find_convertible_images(self) -> List[Path]:
         """Find all convertible images in the resources directory.
         Returns:
@@ -141,6 +172,7 @@ class ConvertImagesToWebPTask(PeriodicTask):
             log.warning(f"Resources path does not exist: {self.resources_path}")
             return []
 
+        redo_since = self._redo_since()
         image_files = [
             p
             for p in self.resources_path.rglob("**/cover/*")
@@ -148,7 +180,7 @@ class ConvertImagesToWebPTask(PeriodicTask):
             and not p.is_symlink()
             and p.suffix.lower() in ALLOWED_IMAGE_EXTENSIONS
             and p.suffix.lower() != ".webp"
-            and not p.with_suffix(".webp").exists()
+            and not self._has_current_copy(p, redo_since)
         ]
 
         return sorted(image_files)  # Sort for consistent processing order
@@ -166,7 +198,7 @@ class ConvertImagesToWebPTask(PeriodicTask):
                 img.verify()
 
             # Convert to WebP
-            if self.converter.convert_to_webp(image_path):
+            if self.converter.convert_to_webp(image_path, force=True):
                 self.processed_count += 1
                 return True
             else:

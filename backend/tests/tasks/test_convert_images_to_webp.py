@@ -1,8 +1,9 @@
+import os
 from pathlib import Path
 from typing import Any
 
 import pytest
-from PIL import Image
+from PIL import Image, ImageChops
 from pytest_mock import MockerFixture
 from tests.utils.test_images import (
     DURATIONS,
@@ -12,6 +13,7 @@ from tests.utils.test_images import (
 
 from tasks import tasks as tasks_module
 from tasks.scheduled.convert_images_to_webp import (
+    QUALITY_MARKER,
     ConvertImagesToWebPTask,
     ImageConverter,
 )
@@ -41,6 +43,15 @@ class TestImageConverter:
 
         with Image.open(tmp_path / "big.webp") as img:
             assert img.format == "WEBP"
+            assert frame_durations(img) == DURATIONS
+
+    def test_lossless_keeps_animation(self, tmp_path: Path):
+        source = tmp_path / "big.gif"
+        source.write_bytes(animated_image_bytes("GIF"))
+
+        assert ImageConverter("lossless").convert_to_webp(source)
+
+        with Image.open(tmp_path / "big.webp") as img:
             assert frame_durations(img) == DURATIONS
 
     def test_play_once_gif_stays_play_once(
@@ -137,6 +148,26 @@ class TestImageConverter:
 
         assert source.read_bytes() == original
 
+    def test_lossless_keeps_every_pixel(self, tmp_path: Path):
+        source = tmp_path / "cover.png"
+        original = Image.effect_noise((32, 32), 64).convert("RGB")
+        original.save(source)
+
+        assert ImageConverter("lossless").convert_to_webp(source)
+
+        with Image.open(tmp_path / "cover.webp") as img:
+            assert ImageChops.difference(original, img.convert("RGB")).getbbox() is None
+
+    def test_uses_the_given_quality(self, tmp_path: Path):
+        source = tmp_path / "cover.png"
+        Image.effect_noise((64, 64), 64).convert("RGB").save(source)
+        sizes = []
+        for quality in (10, 95):
+            assert ImageConverter(quality).convert_to_webp(source, force=True)
+            sizes.append((tmp_path / "cover.webp").stat().st_size)
+
+        assert sizes[0] < sizes[1]
+
     def test_reports_an_unreadable_image(
         self, converter: ImageConverter, tmp_path: Path
     ):
@@ -153,6 +184,11 @@ def _cover(root: Path, rom: str, name: str = "big.png") -> Path:
     jpeg = path.suffix.lower() in (".jpg", ".jpeg")
     Image.new("RGB", (4, 4), "red").save(path, format="JPEG" if jpeg else "PNG")
     return path
+
+
+def _age(path: Path, seconds: float) -> None:
+    when = path.stat().st_mtime + seconds
+    os.utime(path, (when, when))
 
 
 class TestConvertImagesToWebPTask:
@@ -287,3 +323,66 @@ class TestConvertImagesToWebPTask:
         result = await task.run()
 
         assert result == {"processed": 1, "errors": 0, "total": 1}
+
+    async def test_unmarked_copies_count_as_quality_90(
+        self,
+        task: ConvertImagesToWebPTask,
+        tmp_path: Path,
+        job_meta: list[dict[str, Any]],
+    ):
+        cover = _cover(tmp_path, "zelda")
+        cover.with_suffix(".webp").write_bytes(b"old copy")
+        task.converter = ImageConverter(90)
+
+        result = await task.run()
+
+        assert result == {"processed": 0, "errors": 0, "total": 0}
+        assert cover.with_suffix(".webp").read_bytes() == b"old copy"
+        assert not (tmp_path / QUALITY_MARKER).exists()
+
+    @pytest.mark.parametrize("stored", [None, "75"])
+    async def test_a_new_quality_redoes_every_copy(
+        self,
+        task: ConvertImagesToWebPTask,
+        tmp_path: Path,
+        job_meta: list[dict[str, Any]],
+        stored: str | None,
+    ):
+        if stored:
+            (tmp_path / QUALITY_MARKER).write_text(stored)
+        converted = _cover(tmp_path, "zelda")
+        converted.with_suffix(".webp").write_bytes(b"old copy")
+        _age(converted.with_suffix(".webp"), -10)
+        fresh = _cover(tmp_path, "metroid")
+        task.converter = ImageConverter("lossless")
+
+        result = await task.run()
+
+        assert result == {"processed": 2, "errors": 0, "total": 2}
+        for cover in (converted, fresh):
+            with Image.open(cover.with_suffix(".webp")) as img:
+                assert img.format == "WEBP"
+        assert (tmp_path / QUALITY_MARKER).read_text() == "lossless\n"
+
+    async def test_an_interrupted_redo_resumes(
+        self,
+        task: ConvertImagesToWebPTask,
+        tmp_path: Path,
+        job_meta: list[dict[str, Any]],
+    ):
+        marker = tmp_path / QUALITY_MARKER
+        marker.write_text("lossless\n")
+        redone = _cover(tmp_path, "zelda")
+        redone.with_suffix(".webp").write_bytes(b"new copy")
+        _age(redone.with_suffix(".webp"), 10)
+        pending = _cover(tmp_path, "metroid")
+        pending.with_suffix(".webp").write_bytes(b"old copy")
+        _age(pending.with_suffix(".webp"), -10)
+        task.converter = ImageConverter("lossless")
+
+        result = await task.run()
+
+        assert result == {"processed": 1, "errors": 0, "total": 1}
+        assert redone.with_suffix(".webp").read_bytes() == b"new copy"
+        with Image.open(pending.with_suffix(".webp")) as img:
+            assert img.format == "WEBP"
