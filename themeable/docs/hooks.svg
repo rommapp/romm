@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 400" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="13" role="img" aria-label="Themes reach RomM through three build-time hooks">
+<rect width="760" height="400" rx="12" fill="#ffffff"/>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#8c959f"/></marker></defs>
+<text x="24" y="40" font-size="15" font-weight="600" fill="#1f2328">Themes reach RomM through three build-time hooks, not source edits</text>
+<text x="24" y="74" font-size="11.5" font-weight="600" fill="#59636e">Stock upstream image</text>
+<text x="276" y="74" font-size="11.5" font-weight="600" fill="#59636e">themeable build hooks</text>
+<text x="528" y="74" font-size="11.5" font-weight="600" fill="#59636e">What the browser gets</text>
+<rect x="24" y="92" width="208" height="72" rx="8" fill="#ffffff" stroke="#8c959f" stroke-width="1.25"/>
+<text x="36" y="116" font-weight="600" fill="#1f2328">index.html</text>
+<text x="36" y="136" font-size="11.5" fill="#59636e">Built entry page of the app,</text>
+<text x="36" y="152" font-size="11.5" fill="#59636e">left alone in source</text>
+<rect x="276" y="92" width="208" height="72" rx="8" fill="#ddf4ff" stroke="#0969da" stroke-width="2"/>
+<text x="288" y="116" font-weight="600" fill="#1f2328">1 · Inject loader</text>
+<text x="288" y="136" font-size="11.5" fill="#1f2328">Adds the loader script tag;</text>
+<text x="288" y="152" font-size="11.5" fill="#1f2328">refreshes the sw.js revision</text>
+<rect x="528" y="92" width="208" height="72" rx="8" fill="#ffffff" stroke="#8c959f" stroke-width="1.25"/>
+<text x="540" y="116" font-weight="600" fill="#1f2328">Loader runs first</text>
+<text x="540" y="136" font-size="11.5" fill="#59636e">Sets data-romm-theme and</text>
+<text x="540" y="152" font-size="11.5" fill="#59636e">the romm_theme cookie</text>
+<path d="M232 128H274" stroke="#8c959f" stroke-width="1.25" marker-end="url(#a)"/>
+<path d="M484 128H526" stroke="#8c959f" stroke-width="1.25" marker-end="url(#a)"/>
+<rect x="24" y="184" width="208" height="72" rx="8" fill="#ffffff" stroke="#8c959f" stroke-width="1.25"/>
+<text x="36" y="208" font-weight="600" fill="#1f2328">nginx /assets block</text>
+<text x="36" y="228" font-size="11.5" fill="#59636e">Serves stock artwork</text>
+<text x="36" y="244" font-size="11.5" fill="#59636e">at stable URLs</text>
+<rect x="276" y="184" width="208" height="72" rx="8" fill="#ddf4ff" stroke="#0969da" stroke-width="2"/>
+<text x="288" y="208" font-weight="600" fill="#1f2328">2 · nginx rewrite</text>
+<text x="288" y="228" font-size="11.5" fill="#1f2328">try_files looks in</text>
+<text x="288" y="244" font-size="11.5" fill="#1f2328">/themes/$cookie_romm_theme</text>
+<rect x="528" y="184" width="208" height="72" rx="8" fill="#ffffff" stroke="#8c959f" stroke-width="1.25"/>
+<text x="540" y="208" font-weight="600" fill="#1f2328">Artwork by theme</text>
+<text x="540" y="228" font-size="11.5" fill="#59636e">Pack file if present,</text>
+<text x="540" y="244" font-size="11.5" fill="#59636e">otherwise the stock file</text>
+<path d="M232 220H274" stroke="#8c959f" stroke-width="1.25" marker-end="url(#a)"/>
+<path d="M484 220H526" stroke="#8c959f" stroke-width="1.25" marker-end="url(#a)"/>
+<rect x="24" y="276" width="208" height="72" rx="8" fill="#ffffff" stroke="#8c959f" stroke-width="1.25"/>
+<text x="36" y="300" font-weight="600" fill="#1f2328">tokens.css</text>
+<text x="36" y="320" font-size="11.5" fill="#59636e">~175 --r-* variables</text>
+<text x="36" y="336" font-size="11.5" fill="#59636e">per dark and light mode</text>
+<rect x="276" y="276" width="208" height="72" rx="8" fill="#ddf4ff" stroke="#0969da" stroke-width="2"/>
+<text x="288" y="300" font-weight="600" fill="#1f2328">3 · Copy packs</text>
+<text x="288" y="320" font-size="11.5" fill="#1f2328">Compiled packs land in</text>
+<text x="288" y="336" font-size="11.5" fill="#1f2328">/themes/(pack id)/</text>
+<rect x="528" y="276" width="208" height="72" rx="8" fill="#ffffff" stroke="#8c959f" stroke-width="1.25"/>
+<text x="540" y="300" font-weight="600" fill="#1f2328">Theme overrides</text>
+<text x="540" y="320" font-size="11.5" fill="#59636e">theme.css outranks stock</text>
+<text x="540" y="336" font-size="11.5" fill="#59636e">tokens on specificity</text>
+<path d="M232 312H274" stroke="#8c959f" stroke-width="1.25" marker-end="url(#a)"/>
+<path d="M484 312H526" stroke="#8c959f" stroke-width="1.25" marker-end="url(#a)"/>
+<text x="24" y="380" font-size="11.5" fill="#59636e">Only hook 2 edits an upstream file; hooks 1 and 3 are build scripts.</text></svg>

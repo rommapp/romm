@@ -1,0 +1,86 @@
+name: themeable upstream release
+
+# Daily: when rommapp/romm publishes a new stable release, merge it into a branch off
+# `themeable`, refresh the catalog, run the compatibility check and open a PR with the report.
+on:
+  schedule:
+    - cron: "17 9 * * *"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Upstream tag to adopt (defaults to the latest stable release)
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  adopt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: themeable
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Find the release to adopt
+        id: rel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ inputs.tag }}"
+          if [ -z "$tag" ]; then
+            tag=$(gh api repos/rommapp/romm/releases/latest --jq .tag_name)
+          fi
+          current=$(cat themeable/ROMM_VERSION)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if [ "$tag" = "$current" ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; fi
+          if git ls-remote --exit-code origin "refs/heads/themeable-upstream/$tag" >/dev/null; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Merge upstream tag
+        if: steps.rel.outputs.skip != 'true'
+        id: merge
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/rommapp/romm.git
+          git fetch upstream master "refs/tags/${{ steps.rel.outputs.tag }}:refs/tags/${{ steps.rel.outputs.tag }}"
+          # master stays a pure mirror of upstream; a fast-forward-only push keeps it that way.
+          git push origin upstream/master:refs/heads/master || echo "::warning::master has diverged from upstream; not updated"
+          git checkout -b "themeable-upstream/${{ steps.rel.outputs.tag }}"
+          if ! git merge --no-edit "${{ steps.rel.outputs.tag }}"; then
+            echo "conflict=true" >> "$GITHUB_OUTPUT"
+            git merge --abort
+          fi
+      - name: Open an issue on merge conflict
+        if: steps.merge.outputs.conflict == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --title "themeable: merging RomM ${{ steps.rel.outputs.tag }} conflicts" \
+            --body "Merging the upstream tag into \`themeable\` hit conflicts. The module only adds files plus a README banner, so the conflict is most likely in the root README.md. Resolve it by hand and run the workflow again."
+      - name: Refresh catalog and check
+        if: steps.rel.outputs.skip != 'true' && steps.merge.outputs.conflict != 'true'
+        id: check
+        working-directory: themeable
+        run: |
+          node scripts/check-upstream.mjs --report "$RUNNER_TEMP/report.md" && echo "ok=true" >> "$GITHUB_OUTPUT" || echo "ok=false" >> "$GITHUB_OUTPUT"
+          npm test
+          node scripts/catalog.mjs
+          echo "${{ steps.rel.outputs.tag }}" > ROMM_VERSION
+      - name: Open PR
+        if: steps.rel.outputs.skip != 'true' && steps.merge.outputs.conflict != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git add -A themeable
+          git commit -m "chore(themeable): adopt RomM ${{ steps.rel.outputs.tag }}"
+          git push origin HEAD
+          title="themeable: adopt RomM ${{ steps.rel.outputs.tag }}"
+          if [ "${{ steps.check.outputs.ok }}" != "true" ]; then title="$title (needs fixes)"; fi
+          gh pr create --base themeable --title "$title" --body-file "$RUNNER_TEMP/report.md"

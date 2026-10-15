@@ -1,0 +1,18 @@
+{
+  "name": "romm-themeable",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Theme and artwork module layered on top of stock RomM releases",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "catalog": "node scripts/catalog.mjs",
+    "check-upstream": "node scripts/check-upstream.mjs",
+    "preview": "node dev/preview.mjs",
+    "test": "node --test test/*.test.mjs"
+  }
+}

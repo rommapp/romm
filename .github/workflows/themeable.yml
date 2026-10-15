@@ -1,0 +1,66 @@
+name: themeable
+
+on:
+  push:
+    branches: [themeable]
+    paths: ["themeable/**", ".github/workflows/themeable*.yml"]
+  pull_request:
+    branches: [themeable]
+    paths: ["themeable/**", ".github/workflows/themeable*.yml"]
+  workflow_dispatch:
+    inputs:
+      default_theme:
+        description: Pack id used when a visitor has not picked a theme ("none" for stock)
+        default: none
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Unit tests
+        working-directory: themeable
+        run: npm test
+      - name: Upstream compatibility check
+        working-directory: themeable
+        run: node scripts/check-upstream.mjs --report "$RUNNER_TEMP/report.md"
+      - name: Report
+        if: always()
+        run: cat "$RUNNER_TEMP/report.md" >> "$GITHUB_STEP_SUMMARY" || true
+
+  image:
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read pinned RomM version
+        id: v
+        run: echo "romm=$(cat themeable/ROMM_VERSION)" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: themeable
+          file: themeable/docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            ROMM_VERSION=${{ steps.v.outputs.romm }}
+            THEMEABLE_DEFAULT=${{ inputs.default_theme || 'none' }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/romm-themeable:${{ steps.v.outputs.romm }}
+            ghcr.io/${{ github.repository_owner }}/romm-themeable:latest
