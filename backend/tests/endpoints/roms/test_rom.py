@@ -947,6 +947,32 @@ def test_update_rom_reparses_tags_on_fs_name_change(
 
 @patch.object(FSRomsHandler, "rename_fs_rom")
 @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_rom_responses_include_the_parsed_version_tag(
+    rename_fs_rom_mock: AsyncMock,
+    get_rom_by_id_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    # The version tag is taken out of `tags`, so the response field is the
+    # only place a client can read it from.
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"fs_name": "Helmet (version CN-07).nes"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["version"] == "CN-07"
+    assert response.json()["tags"] == []
+
+    for path in (f"/api/roms/{rom.id}", f"/api/roms/{rom.id}/simple"):
+        response = client.get(path, headers={"Authorization": f"Bearer {access_token}"})
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["version"] == "CN-07"
+
+
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
 def test_update_rom_manual_alternative_names_are_searchable(
     _get_rom_by_id_mock: AsyncMock,
     _rename_fs_rom_mock: AsyncMock,
