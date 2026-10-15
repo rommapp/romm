@@ -2,9 +2,10 @@
 // MediaShelf: mixed-shape art (a box spine next to a 16:9 screenshot) on a
 // shared baseline, each asset keeping its own proportions.
 import { RCarousel, RIcon } from "@v2/lib";
-import { computed, ref } from "vue";
+import { computed, ref, type VNode } from "vue";
 import { useI18n } from "vue-i18n";
 import MediaPinBtn from "@/v2/components/GameDetails/MediaPinBtn.vue";
+import { releaseMedia } from "@/v2/utils/releaseMedia";
 
 export type MediaShelfItem = {
   key: string;
@@ -41,6 +42,11 @@ function openImage(item: MediaShelfItem) {
 function close() {
   lightboxOpen.value = false;
 }
+
+// A clip left attached keeps its download open after the card is gone.
+function releaseVideo(vnode: VNode) {
+  releaseMedia(vnode.el as HTMLMediaElement);
+}
 </script>
 
 <template>
@@ -64,7 +70,8 @@ function close() {
             class="r-v2-media-shelf__media r-v2-media-shelf__media--video"
             :src="item.url"
             controls
-            preload="metadata"
+            preload="none"
+            @vue:before-unmount="releaseVideo"
           />
           <button
             v-else

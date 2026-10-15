@@ -31,6 +31,7 @@ import {
   type Ref,
 } from "vue";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
+import { releaseMedia } from "@/v2/utils/releaseMedia";
 
 export interface SpinConfig {
   /** Top rotational speed, deg/sec. */
@@ -229,7 +230,10 @@ export function useCoverAnimation(
   const { start: scheduleVideo, stop: cancelVideo } = useTimeoutFn(
     () => {
       const v = opts.videoEl.value;
-      if (!v) return;
+      const url = opts.videoUrl.value;
+      if (!v || !url) return;
+      // The src is dropped on release, so put it back before playing.
+      if (!v.getAttribute("src")) v.src = url;
       v.play()
         .then(() => {
           isVideoPlaying.value = true;
@@ -245,11 +249,7 @@ export function useCoverAnimation(
   function stopVideo() {
     cancelVideo();
     isVideoPlaying.value = false;
-    const v = opts.videoEl.value;
-    if (v) {
-      v.pause();
-      v.currentTime = 0;
-    }
+    if (opts.videoEl.value) releaseMedia(opts.videoEl.value);
   }
 
   watch(wantsVideo, (on) => {
@@ -266,7 +266,9 @@ export function useCoverAnimation(
     }
   });
 
-  onBeforeUnmount(() => opts.videoEl.value?.pause());
+  onBeforeUnmount(() => {
+    if (opts.videoEl.value) releaseMedia(opts.videoEl.value);
+  });
 
   return { isVideoPlaying, playLoad };
 }
