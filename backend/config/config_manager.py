@@ -420,45 +420,40 @@ VALID_SCAN_PRIORITY_SOURCES = frozenset(
 # scan.priority.region win over them, for artwork, title and release date alike.
 VALID_SCAN_REGION_MODES = frozenset({"prefer_rom_tags", "prefer_config"})
 
-# Shaders bundled with EmulatorJS.
-BUILTIN_EJS_SHADERS: Final = frozenset(
-    {
-        "disabled",
-        "none",
-        "2xScaleHQ",
-        "2xScaleHQ.glslp",
-        "4xScaleHQ",
-        "4xScaleHQ.glslp",
-        "bicubic",
-        "bicubic.glslp",
-        "crt-aperture",
-        "crt-aperture.glslp",
-        "crt-beam",
-        "crt-beam.glslp",
-        "crt-caligari",
-        "crt-caligari.glslp",
-        "crt-easymode",
-        "crt-easymode.glslp",
-        "crt-geom",
-        "crt-geom.glslp",
-        "crt-lottes",
-        "crt-lottes.glslp",
-        "crt-mattias",
-        "crt-mattias.glslp",
-        "crt-yeetron",
-        "crt-yeetron.glslp",
-        "crt-zfast",
-        "crt-zfast.glslp",
-        "mix-frames",
-        "mix-frames.glslp",
-        "sabr",
-        "sabr.glslp",
-        "scanlines",
-        "scanlines.glslp",
-        "sharp-bilinear",
-        "sharp-bilinear.glslp",
-    }
-)
+# Shaders bundled with EmulatorJS and their canonical runtime keys.
+BUILTIN_EJS_SHADERS_CANONICAL: Final[dict[str, str]] = {
+    "disabled": "disabled",
+    "none": "disabled",
+    "2xscalehq": "2xScaleHQ.glslp",
+    "2xscalehq.glslp": "2xScaleHQ.glslp",
+    "4xscalehq": "4xScaleHQ.glslp",
+    "4xscalehq.glslp": "4xScaleHQ.glslp",
+    "bicubic": "bicubic",
+    "bicubic.glslp": "bicubic",
+    "crt-aperture": "crt-aperture.glslp",
+    "crt-aperture.glslp": "crt-aperture.glslp",
+    "crt-beam": "crt-beam",
+    "crt-beam.glslp": "crt-beam",
+    "crt-caligari": "crt-caligari",
+    "crt-caligari.glslp": "crt-caligari",
+    "crt-easymode": "crt-easymode.glslp",
+    "crt-easymode.glslp": "crt-easymode.glslp",
+    "crt-geom": "crt-geom.glslp",
+    "crt-geom.glslp": "crt-geom.glslp",
+    "crt-lottes": "crt-lottes",
+    "crt-lottes.glslp": "crt-lottes",
+    "crt-mattias": "crt-mattias.glslp",
+    "crt-mattias.glslp": "crt-mattias.glslp",
+    "crt-yeetron": "crt-yeetron",
+    "crt-yeetron.glslp": "crt-yeetron",
+    "crt-zfast": "crt-zfast",
+    "crt-zfast.glslp": "crt-zfast",
+    "mix-frames": "mix-frames",
+    "mix-frames.glslp": "mix-frames",
+    "sabr": "sabr",
+    "sabr.glslp": "sabr",
+}
+BUILTIN_EJS_SHADERS: Final = frozenset(BUILTIN_EJS_SHADERS_CANONICAL.keys())
 
 # Allowed text extensions for EmulatorJS custom shaders.
 SUPPORTED_SHADER_EXTENSIONS: Final = frozenset(
@@ -1337,18 +1332,37 @@ class ConfigManager:
                         )
                         sys.exit(3)
 
-                    if (
-                        shader_value not in BUILTIN_EJS_SHADERS
-                        and shader_value not in self.config.EJS_SHADERS
-                        and not any(
-                            k == shader_value or k.endswith(f"/{shader_value}")
+                    shader_lower = shader_value.lower()
+                    if shader_lower in BUILTIN_EJS_SHADERS_CANONICAL:
+                        canonical = BUILTIN_EJS_SHADERS_CANONICAL[shader_lower]
+                        options["shader"] = canonical
+                        self.config.EJS_SETTINGS[core]["shader"] = canonical
+                    elif shader_value in self.config.EJS_SHADERS:
+                        pass
+                    else:
+                        matching_keys = [
+                            k
                             for k in self.config.EJS_SHADERS
-                        )
-                    ):
-                        log.warning(
-                            f"Unknown shader '{shader_value}' configured for core '{core}'. "
-                            "Make sure it is a valid built-in shader or placed in config/shaders/."
-                        )
+                            if k == shader_value or k.endswith(f"/{shader_value}")
+                        ]
+                        if len(matching_keys) == 1:
+                            canonical_name = matching_keys[0]
+                            options["shader"] = canonical_name
+                            self.config.EJS_SETTINGS[core]["shader"] = canonical_name
+                        elif len(matching_keys) > 1:
+                            log.warning(
+                                f"Ambiguous shader name '{shader_value}' for core '{core}'. "
+                                f"Matches multiple files: {matching_keys}. Please specify the full path."
+                            )
+                            options["shader"] = "disabled"
+                            self.config.EJS_SETTINGS[core]["shader"] = "disabled"
+                        else:
+                            log.warning(
+                                f"Unknown shader '{shader_value}' configured for core '{core}'. "
+                                "Make sure it is a valid built-in shader or placed in config/shaders/."
+                            )
+                            options["shader"] = "disabled"
+                            self.config.EJS_SETTINGS[core]["shader"] = "disabled"
 
         if not isinstance(self.config.EJS_CONTROLS, dict):
             log.critical("Invalid config.yml: emulatorjs.controls must be a dictionary")

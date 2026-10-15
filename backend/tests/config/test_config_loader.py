@@ -1181,7 +1181,21 @@ def test_ejs_settings_shader_validation(tmp_path, mocker, critical):
         "emulatorjs:\n  settings:\n    snes:\n      shader: crt-geom\n"
     )
     loader = ConfigManager(str(config_file))
-    assert loader.config.EJS_SETTINGS["snes"]["shader"] == "crt-geom"
+    assert loader.config.EJS_SETTINGS["snes"]["shader"] == "crt-geom.glslp"
+
+    # Built-in without .glslp native key remains as-is
+    config_file.write_text(
+        "emulatorjs:\n  settings:\n    snes:\n      shader: crt-beam\n"
+    )
+    loader = ConfigManager(str(config_file))
+    assert loader.config.EJS_SETTINGS["snes"]["shader"] == "crt-beam"
+
+    # Case-insensitive built-in alias normalizes to canonical key
+    config_file.write_text(
+        "emulatorjs:\n  settings:\n    snes:\n      shader: 2xScaleHQ\n"
+    )
+    loader = ConfigManager(str(config_file))
+    assert loader.config.EJS_SETTINGS["snes"]["shader"] == "2xScaleHQ.glslp"
 
     # Also validates newly added built-ins like crt-lottes and bicubic
     config_file.write_text(
@@ -1203,12 +1217,27 @@ def test_ejs_settings_shader_validation(tmp_path, mocker, critical):
     loader = ConfigManager(str(config_file))
     assert loader.config.EJS_SETTINGS["snes"]["shader"] == "presets/custom-crt.glslp"
 
-    # Validation also accepts basename if unique
+    # Validation normalizes unique basename to canonical relative path
     config_file.write_text(
         "emulatorjs:\n  settings:\n    snes:\n      shader: custom-crt.glslp\n"
     )
     loader = ConfigManager(str(config_file))
-    assert loader.config.EJS_SETTINGS["snes"]["shader"] == "custom-crt.glslp"
+    assert loader.config.EJS_SETTINGS["snes"]["shader"] == "presets/custom-crt.glslp"
+
+    # Ambiguous basename matching multiple files logs a warning and falls back to disabled
+    other_dir = shaders_dir / "other"
+    other_dir.mkdir()
+    (other_dir / "custom-crt.glslp").write_text("#other", encoding="utf-8")
+    warning = mocker.patch("config.config_manager.log.warning")
+    config_file.write_text(
+        "emulatorjs:\n  settings:\n    snes:\n      shader: custom-crt.glslp\n"
+    )
+    loader = ConfigManager(str(config_file))
+    assert any(
+        "Ambiguous shader name 'custom-crt.glslp'" in str(args)
+        for args in warning.call_args_list
+    )
+    assert loader.config.EJS_SETTINGS["snes"]["shader"] == "disabled"
 
     config_file.write_text("emulatorjs:\n  settings:\n    snes:\n      shader: 123\n")
     with pytest.raises(SystemExit) as excinfo:
@@ -1222,3 +1251,4 @@ def test_ejs_settings_shader_validation(tmp_path, mocker, critical):
     )
     loader = ConfigManager(str(config_file))
     assert any("nonexistent.glslp" in str(args) for args in warning.call_args_list)
+    assert loader.config.EJS_SETTINGS["snes"]["shader"] == "disabled"

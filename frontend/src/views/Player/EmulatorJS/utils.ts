@@ -924,7 +924,8 @@ export function patchEmulatorJSShadersFs(emulator: any) {
   if (!emulator) return;
 
   let currentModule = emulator.Module;
-  const initialShaders = emulator.shaders || window.EJS_shaders;
+  const initialShaders =
+    emulator.config?.shaders || emulator.shaders || window.EJS_shaders;
   if (currentModule?.FS && initialShaders) {
     ensureShaderDirectories(currentModule.FS, Object.keys(initialShaders));
   }
@@ -935,7 +936,8 @@ export function patchEmulatorJSShadersFs(emulator: any) {
     get: () => currentModule,
     set(mod) {
       currentModule = mod;
-      const shaders = emulator.shaders || window.EJS_shaders;
+      const shaders =
+        emulator.config?.shaders || emulator.shaders || window.EJS_shaders;
       if (mod?.FS && shaders) {
         ensureShaderDirectories(mod.FS, Object.keys(shaders));
       }
@@ -947,8 +949,10 @@ export function patchEmulatorJSShadersFs(emulator: any) {
     const originalInitShaders = gameManager.initShaders;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     gameManager.initShaders = function (this: any, ...args: any[]) {
-      if (this.FS && this.EJS?.shaders) {
-        ensureShaderDirectories(this.FS, Object.keys(this.EJS.shaders));
+      const shaders =
+        this.EJS?.config?.shaders || this.EJS?.shaders || window.EJS_shaders;
+      if (this.FS && shaders) {
+        ensureShaderDirectories(this.FS, Object.keys(shaders));
       }
       return originalInitShaders
         ? originalInitShaders.apply(this, args)

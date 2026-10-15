@@ -1284,6 +1284,60 @@ describe("EmulatorJS custom shaders", () => {
       expect(result).toBe("initialized");
     });
 
+    it("hooks gameManager.initShaders with shaders from EJS.config.shaders", () => {
+      const mockFs = { mkdir: vi.fn() };
+      const originalInitShaders = vi.fn(function () {
+        return "initialized";
+      });
+
+      const mockEmulator = {
+        gameManager: {
+          FS: mockFs,
+          EJS: {
+            config: {
+              shaders: {
+                "config_sub/nested.glsl": "void main() {}",
+              },
+            },
+          },
+          initShaders: originalInitShaders,
+        },
+      };
+
+      patchEmulatorJSShadersFs(mockEmulator);
+
+      const result = mockEmulator.gameManager.initShaders();
+      expect(mockFs.mkdir).toHaveBeenCalledWith("/shader");
+      expect(mockFs.mkdir).toHaveBeenCalledWith("/shader/config_sub");
+      expect(originalInitShaders).toHaveBeenCalled();
+      expect(result).toBe("initialized");
+    });
+
+    it("hooks gameManager.initShaders falling back to window.EJS_shaders", () => {
+      const mockFs = { mkdir: vi.fn() };
+      const originalInitShaders = vi.fn(function () {
+        return "initialized";
+      });
+      window.EJS_shaders = {
+        "global_sub/screen.glsl": "void main() {}",
+      };
+
+      const mockEmulator = {
+        gameManager: {
+          FS: mockFs,
+          EJS: {},
+          initShaders: originalInitShaders,
+        },
+      };
+
+      patchEmulatorJSShadersFs(mockEmulator);
+
+      mockEmulator.gameManager.initShaders();
+      expect(mockFs.mkdir).toHaveBeenCalledWith("/shader");
+      expect(mockFs.mkdir).toHaveBeenCalledWith("/shader/global_sub");
+      window.EJS_shaders = {};
+    });
+
     it("does nothing when emulator is null or undefined", () => {
       expect(() => patchEmulatorJSShadersFs(null)).not.toThrow();
       expect(() => patchEmulatorJSShadersFs(undefined)).not.toThrow();
