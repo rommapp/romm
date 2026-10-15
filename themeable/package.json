@@ -13,6 +13,7 @@
     "catalog": "node scripts/catalog.mjs",
     "check-upstream": "node scripts/check-upstream.mjs",
     "preview": "node dev/preview.mjs",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "visual": "node test/visual/run.mjs"
   }
 }

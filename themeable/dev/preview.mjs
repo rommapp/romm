@@ -81,7 +81,7 @@ writeFileSync(
     (mime ? `  include ${mime};\n` : "") +
     `  default_type application/octet-stream;\n  include ${nginxDir}/site.conf;\n}\n`,
 );
-const test = spawnSync("nginx", ["-t", "-p", nginxDir, "-c", join(nginxDir, "nginx.conf")], { encoding: "utf8" });
+const test = spawnSync("nginx", ["-e", "stderr", "-t", "-p", nginxDir, "-c", join(nginxDir, "nginx.conf")], { encoding: "utf8" });
 if (test.status !== 0) fail(`nginx rejected the patched config:\n${test.stderr}`);
 
 // 5. Stub API: heartbeat succeeds, everything else answers 401.
@@ -91,7 +91,7 @@ const api = createServer((req, res) => {
   res.end(ok ? "{}" : JSON.stringify({ detail: "Not authenticated (preview stub)" }));
 }).listen(apiPort, "127.0.0.1");
 
-const nginx = spawn("nginx", ["-p", nginxDir, "-c", join(nginxDir, "nginx.conf")], { stdio: "inherit" });
+const nginx = spawn("nginx", ["-e", "stderr", "-p", nginxDir, "-c", join(nginxDir, "nginx.conf")], { stdio: "inherit" });
 const stop = () => {
   nginx.kill();
   api.close();

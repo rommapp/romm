@@ -71,8 +71,21 @@ Run in `themeable/` (Node 20 or later; no dependencies to install):
 | `npm run catalog` | Regenerates `catalog/` from this repo's `frontend/`. |
 | `npm run check-upstream` | Compares the committed catalog with the current tree, checks hook anchors and packs; exits 1 on breakage. |
 | `npm run preview` | Local preview described above. |
+| `npm run visual` | Visual check: loads the login screen for stock and every pack in both modes and fails if a pack's tokens, artwork or inlined artwork didn't apply, or if it looks the same as stock. Needs a frontend build, nginx and Playwright's Chromium (set `CHROMIUM_PATH` to use another). |
 
 `scripts/verify-image.mjs --css <dir>` checks every pack token against a built image's CSS.
+
+## Automation
+
+Three workflows keep the module current without anyone touching it, leaving a PR trail to audit:
+
+| Workflow | Runs | Does |
+| --- | --- | --- |
+| `themeable` | Every push and PR to `themeable` | Unit tests and compatibility check, then the visual check, then (on push) builds and publishes `ghcr.io/stealthx3/romm-themeable:<ROMM_VERSION>` and `:latest`. |
+| `themeable upstream release` | Daily, or by hand with a tag | When RomM publishes a new release: fast-forwards `master`, merges the tag into a `themeable-upstream/<tag>` branch, runs the compatibility check, refreshes the catalog, bumps `ROMM_VERSION`, runs the visual check against the new release's frontend, and opens a PR with both reports. If everything passed, it merges the PR, which publishes the new image. Otherwise the PR stays open, titled "needs attention". |
+| `themeable visual check` | Called by the other two | Builds the frontend with upstream's own setup action and runs `npm run visual`; screenshots are kept as the `themeable-visual` artifact for 90 days. |
+
+A merge conflict or a missing secret opens an issue instead. Set the repository variable `THEMEABLE_AUTO_MERGE` to `false` to review every adoption before it merges.
 
 ## Per-release maintenance
 
@@ -95,7 +108,7 @@ The module ships as files added on top of a stock RomM release, never as edits t
 | 3. Catalog and checker | Token, asset and CSS-reference catalog; release diff report; token aliases | 2 to 3 days | Done |
 | 4. Theme editor | Standalone page at `/themeable/studio/`: token editor by group with contrast checks, live preview in an iframe, artwork slots with upload, fonts, zip export and import | 1.5 to 2 weeks | Not started; the loader's `preview()` and `postMessage` channel are in place for it |
 | 5. Save service (optional) | Sidecar at `/themeable/api` storing packs on a volume; admin check through RomM's `/api/users/me` | 3 to 5 days | Not started |
-| 6. Release automation | Daily upstream adoption PR (done); Playwright screenshots of key screens in both modes (to do) | 2 to 3 days | Partly done |
+| 6. Release automation | Daily upstream adoption PR with compatibility and visual checks; auto-merge when both pass; image published on merge | 2 to 3 days | Done for logged-out screens; screens behind login need a seeded backend in CI |
 
 **Next steps:**
 
@@ -128,6 +141,11 @@ The module ships as files added on top of a stock RomM release, never as edits t
 
 ## Repository setup
 
-- Make `themeable` the default branch in GitHub settings. Scheduled workflows only run from the default branch, and the landing page then shows this module.
-- Upstream's own workflows also exist in this fork; disable the ones you don't want under **Actions**.
+One-time settings for unattended running:
+
+1. **Default branch:** set it to `themeable` (Settings, General). Scheduled workflows only run from the default branch, and the landing page then shows this module.
+2. **Bot token:** create a fine-grained personal access token limited to this repository with Contents, Pull requests and Workflows set to read and write, and save it as the Actions secret `THEMEABLE_BOT_TOKEN`. GitHub's built-in token can't push upstream's workflow-file changes, which most releases include. Expect to renew it when it expires; the workflow opens an issue when it's missing.
+3. **Upstream's scheduled workflows:** once `themeable` is the default branch, upstream's `build.yml`, `image-scan.yml`, `trunk-check-all.yml`, `trunk-upgrade.yml` and `update-hltb-api-url.yml` start running on their schedules and fail or open PRs without upstream's secrets. Disable them under Actions; disabling doesn't touch the files, so upstream merges stay clean.
+
+GitHub also pauses scheduled workflows after 60 days without repository activity; each adopted release counts as activity.
 - RomM is AGPL-3.0. Published images must keep their source available, which this public fork does.

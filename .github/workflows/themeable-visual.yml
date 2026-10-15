@@ -1,0 +1,56 @@
+name: themeable visual check
+
+# Builds the RomM frontend at `ref`, serves it through the module's patched nginx
+# config and checks every pack in both modes. Called by the other themeable workflows.
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit or branch to check
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  visual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      # Upstream's own action, so the build tracks whatever Node and lockfile the release uses.
+      - name: Set up the frontend
+        uses: ./.github/actions/setup-frontend
+
+      - name: Build the frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Install nginx and the Playwright browser
+        run: |
+          command -v nginx >/dev/null || timeout 300 sudo apt-get install -y --no-install-recommends nginx-light
+          sudo systemctl stop nginx 2>/dev/null || true
+          (cd frontend && npx playwright install --only-shell chromium)
+
+      - name: Visual check
+        run: node themeable/test/visual/run.mjs --out "$RUNNER_TEMP/visual"
+
+      - name: Summary
+        if: always()
+        run: cat "$RUNNER_TEMP/visual/report.md" >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Upload screenshots and report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: themeable-visual
+          path: |
+            ${{ runner.temp }}/visual/report.md
+            ${{ runner.temp }}/visual/report.json
+            ${{ runner.temp }}/visual/shots/
+          retention-days: 90

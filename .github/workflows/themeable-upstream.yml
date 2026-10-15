@@ -1,7 +1,13 @@
 name: themeable upstream release
 
 # Daily: when rommapp/romm publishes a new stable release, merge it into a branch off
-# `themeable`, refresh the catalog, run the compatibility check and open a PR with the report.
+# `themeable`, refresh the catalog, run the compatibility and visual checks, and open a
+# PR with both reports. When every check passes the PR merges itself (set the repository
+# variable THEMEABLE_AUTO_MERGE to "false" to review first); the merge then publishes the image.
+#
+# Needs the THEMEABLE_BOT_TOKEN secret: a fine-grained token on this repository with
+# Contents, Pull requests and Workflows set to read and write. GitHub's built-in token
+# can't push upstream's workflow-file changes, which most releases include.
 on:
   schedule:
     - cron: "17 9 * * *"
@@ -12,75 +18,161 @@ on:
         required: false
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
   issues: write
 
+concurrency:
+  group: themeable-upstream
+  cancel-in-progress: false
+
 jobs:
-  adopt:
-    runs-on: ubuntu-latest
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      skip: ${{ steps.rel.outputs.skip }}
+      tag: ${{ steps.rel.outputs.tag }}
+      branch: ${{ steps.rel.outputs.branch }}
+      check_ok: ${{ steps.check.outputs.ok }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Require the bot token
+        env:
+          BOT_TOKEN: ${{ secrets.THEMEABLE_BOT_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "$BOT_TOKEN" ]; then exit 0; fi
+          title="themeable: add the THEMEABLE_BOT_TOKEN secret"
+          if [ -z "$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "$title in:title" --json number --jq '.[].number')" ]; then
+            gh issue create -R "$GITHUB_REPOSITORY" --title "$title" --body "Upstream adoption is paused. Create a fine-grained personal access token limited to this repository with **Contents**, **Pull requests** and **Workflows** set to read and write, then save it as the repository secret \`THEMEABLE_BOT_TOKEN\`. The next scheduled run picks it up."
+          fi
+          echo "::error::THEMEABLE_BOT_TOKEN is not set"
+          exit 1
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: themeable
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+          token: ${{ secrets.THEMEABLE_BOT_TOKEN }}
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: 24
+
       - name: Find the release to adopt
         id: rel
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="${{ inputs.tag }}"
-          if [ -z "$tag" ]; then
-            tag=$(gh api repos/rommapp/romm/releases/latest --jq .tag_name)
-          fi
-          current=$(cat themeable/ROMM_VERSION)
+          [ -n "$tag" ] || tag=$(gh api repos/rommapp/romm/releases/latest --jq .tag_name)
+          branch="themeable-upstream/$tag"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          if [ "$tag" = "$current" ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; fi
-          if git ls-remote --exit-code origin "refs/heads/themeable-upstream/$tag" >/dev/null; then
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          if [ "$tag" = "$(cat themeable/ROMM_VERSION)" ] || git ls-remote --exit-code origin "refs/heads/$branch" >/dev/null; then
+            echo "Nothing to adopt ($tag is current or already in progress)"
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
-      - name: Merge upstream tag
+
+      - name: Merge upstream
         if: steps.rel.outputs.skip != 'true'
         id: merge
         run: |
-          git config user.name "github-actions[bot]"
+          git config user.name "romm-themeable bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote add upstream https://github.com/rommapp/romm.git
           git fetch upstream master "refs/tags/${{ steps.rel.outputs.tag }}:refs/tags/${{ steps.rel.outputs.tag }}"
           # master stays a pure mirror of upstream; a fast-forward-only push keeps it that way.
           git push origin upstream/master:refs/heads/master || echo "::warning::master has diverged from upstream; not updated"
-          git checkout -b "themeable-upstream/${{ steps.rel.outputs.tag }}"
-          if ! git merge --no-edit "${{ steps.rel.outputs.tag }}"; then
-            echo "conflict=true" >> "$GITHUB_OUTPUT"
+          git checkout -b "${{ steps.rel.outputs.branch }}"
+          if ! git merge --no-edit -m "Merge RomM ${{ steps.rel.outputs.tag }} into themeable" "${{ steps.rel.outputs.tag }}"; then
+            git diff --name-only --diff-filter=U > "$RUNNER_TEMP/conflicts.txt"
             git merge --abort
+            echo "conflict=true" >> "$GITHUB_OUTPUT"
           fi
+
       - name: Open an issue on merge conflict
         if: steps.merge.outputs.conflict == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh issue create --title "themeable: merging RomM ${{ steps.rel.outputs.tag }} conflicts" \
-            --body "Merging the upstream tag into \`themeable\` hit conflicts. The module only adds files plus a README banner, so the conflict is most likely in the root README.md. Resolve it by hand and run the workflow again."
-      - name: Refresh catalog and check
-        if: steps.rel.outputs.skip != 'true' && steps.merge.outputs.conflict != 'true'
+          {
+            echo "Merging RomM ${{ steps.rel.outputs.tag }} into \`themeable\` hit conflicts in:"
+            echo
+            sed 's/^/- `/; s/$/`/' "$RUNNER_TEMP/conflicts.txt"
+            echo
+            echo "The module only adds files plus a banner in the root README.md, so resolve these by hand and run this workflow again."
+          } > "$RUNNER_TEMP/issue.md"
+          gh issue create -R "$GITHUB_REPOSITORY" --title "themeable: merging RomM ${{ steps.rel.outputs.tag }} conflicts" --body-file "$RUNNER_TEMP/issue.md"
+          exit 1
+
+      - name: Compatibility check, catalog refresh and tests
+        if: steps.rel.outputs.skip != 'true'
         id: check
         working-directory: themeable
         run: |
-          node scripts/check-upstream.mjs --report "$RUNNER_TEMP/report.md" && echo "ok=true" >> "$GITHUB_OUTPUT" || echo "ok=false" >> "$GITHUB_OUTPUT"
-          npm test
+          if node scripts/check-upstream.mjs --report "$RUNNER_TEMP/check.md"; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
           node scripts/catalog.mjs
           echo "${{ steps.rel.outputs.tag }}" > ROMM_VERSION
-      - name: Open PR
-        if: steps.rel.outputs.skip != 'true' && steps.merge.outputs.conflict != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
+          npm test
+
+      - name: Push the adoption branch
+        if: steps.rel.outputs.skip != 'true'
         run: |
           git add -A themeable
-          git commit -m "chore(themeable): adopt RomM ${{ steps.rel.outputs.tag }}"
-          git push origin HEAD
-          title="themeable: adopt RomM ${{ steps.rel.outputs.tag }}"
-          if [ "${{ steps.check.outputs.ok }}" != "true" ]; then title="$title (needs fixes)"; fi
-          gh pr create --base themeable --title "$title" --body-file "$RUNNER_TEMP/report.md"
+          git commit -m "chore(themeable): adopt RomM ${{ steps.rel.outputs.tag }}" -m "Catalog refreshed and ROMM_VERSION bumped by the upstream release workflow."
+          git push origin "HEAD:refs/heads/${{ steps.rel.outputs.branch }}"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: steps.rel.outputs.skip != 'true'
+        with:
+          name: themeable-check
+          path: ${{ runner.temp }}/check.md
+
+  visual:
+    needs: prepare
+    if: needs.prepare.outputs.skip != 'true'
+    uses: ./.github/workflows/themeable-visual.yml
+    with:
+      ref: ${{ needs.prepare.outputs.branch }}
+
+  finalize:
+    needs: [prepare, visual]
+    if: always() && needs.prepare.result == 'success' && needs.prepare.outputs.skip != 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: themeable-*
+          path: reports
+          merge-multiple: true
+
+      - name: Open the PR and merge it when every check passed
+        env:
+          GH_TOKEN: ${{ secrets.THEMEABLE_BOT_TOKEN }}
+          CHECK_OK: ${{ needs.prepare.outputs.check_ok }}
+          VISUAL: ${{ needs.visual.result }}
+          AUTO_MERGE: ${{ vars.THEMEABLE_AUTO_MERGE }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          BRANCH: ${{ needs.prepare.outputs.branch }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          passed=false
+          [ "$CHECK_OK" = "true" ] && [ "$VISUAL" = "success" ] && passed=true
+          {
+            echo "Adopts RomM [$TAG](https://github.com/rommapp/romm/releases/tag/$TAG). Generated by the upstream release workflow ([run]($RUN_URL); screenshots are in its \`themeable-visual\` artifact)."
+            echo
+            if [ "$passed" = "true" ]; then echo "**All checks passed.**"; else echo "**Needs attention:** compatibility check ok=$CHECK_OK, visual check $VISUAL."; fi
+            echo
+            cat reports/check.md 2>/dev/null || echo "_Compatibility report missing._"
+            echo
+            cat reports/report.md 2>/dev/null || echo "_Visual report missing._"
+          } > body.md
+          title="themeable: adopt RomM $TAG"
+          [ "$passed" = "true" ] || title="$title (needs attention)"
+          url=$(gh pr create -R "$GITHUB_REPOSITORY" --base themeable --head "$BRANCH" --title "$title" --body-file body.md)
+          echo "PR: $url"
+          if [ "$passed" = "true" ] && [ "$AUTO_MERGE" != "false" ]; then
+            gh pr merge "$url" --merge --delete-branch
+            echo "Merged; the push to themeable builds and publishes the $TAG image."
+          else
+            echo "::warning::Left open for review: $url"
+          fi
