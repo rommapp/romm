@@ -82,14 +82,14 @@ Three workflows keep the module current without anyone touching it, leaving a PR
 | Workflow | Runs | Does |
 | --- | --- | --- |
 | `themeable` | Every push and PR to `themeable` | Unit tests and compatibility check, then the visual check, then (on push) builds and publishes `ghcr.io/stealthx3/romm-themeable:<ROMM_VERSION>` and `:latest`. |
-| `themeable upstream release` | Daily, or by hand with a tag | When RomM publishes a new release: fast-forwards `master`, merges the tag into a `themeable-upstream/<tag>` branch, runs the compatibility check, refreshes the catalog, bumps `ROMM_VERSION`, runs the visual check against the new release's frontend, and opens a PR with both reports. If everything passed, it merges the PR, which publishes the new image. Otherwise the PR stays open, titled "needs attention". |
+| `themeable upstream release` | Hourly, or by hand with a tag | When RomM publishes a new stable release: moves `master` forward to that release's commit, merges the tag into a `themeable-upstream/<tag>` branch, runs the compatibility check, refreshes the catalog, bumps `ROMM_VERSION`, runs the visual check against the new release's frontend, and opens a PR with both reports. If everything passed, it merges the PR, which publishes the new image. Otherwise the PR stays open, titled "needs attention". |
 | `themeable visual check` | Called by the other two | Builds the frontend with upstream's own setup action and runs `npm run visual`; screenshots are kept as the `themeable-visual` artifact for 90 days. |
 
-A merge conflict or a missing secret opens an issue instead. Set the repository variable `THEMEABLE_AUTO_MERGE` to `false` to review every adoption before it merges.
+`master` is never synced on its own schedule: it moves only when a new stable release is posted, so it always equals the latest release commit (unreleased upstream commits, for example from a past **Sync fork**, are reset away) (prereleases and manual runs with other tags leave it alone). Don't use GitHub's **Sync fork** button, which would move it to upstream's latest commit. A merge conflict or a missing secret opens an issue instead. Set the repository variable `THEMEABLE_AUTO_MERGE` to `false` to review every adoption before it merges.
 
 ## Per-release maintenance
 
-The `themeable upstream release` workflow does this daily. By hand:
+The `themeable upstream release` workflow does this within an hour of each release. By hand:
 
 1. Merge the new upstream tag into `themeable`. The module only adds files, so the only likely conflict is the README banner.
 2. `npm run check-upstream` reports added, removed and renamed tokens and artwork, and any pack or hook that would break.
@@ -102,13 +102,13 @@ The module ships as files added on top of a stock RomM release, never as edits t
 
 | Phase | Deliverable | Estimate | Status |
 | --- | --- | --- | --- |
-| 0. Repo and pipeline | `master` mirrors upstream; module on `themeable`; CI builds `ghcr.io/stealthx3/romm-themeable:<tag>` | 1 to 2 days | Done |
+| 0. Repo and pipeline | `master` holds only upstream release commits; module on `themeable`; CI builds `ghcr.io/stealthx3/romm-themeable:<tag>` | 1 to 2 days | Done |
 | 1. Packs and static overlay | Pack schema, validator, compiler, example pack, derived Dockerfile | 3 to 4 days | Done |
 | 2. Runtime switching | Loader, cookie-driven nginx artwork, picker page, service worker revision fix, inlined-artwork rewrite | 3 to 5 days | Done, except saving the choice to the user's account |
 | 3. Catalog and checker | Token, asset and CSS-reference catalog; release diff report; token aliases | 2 to 3 days | Done |
 | 4. Theme editor | Standalone page at `/themeable/studio/`: token editor by group with contrast checks, live preview in an iframe, artwork slots with upload, fonts, zip export and import | 1.5 to 2 weeks | Not started; the loader's `preview()` and `postMessage` channel are in place for it |
 | 5. Save service (optional) | Sidecar at `/themeable/api` storing packs on a volume; admin check through RomM's `/api/users/me` | 3 to 5 days | Not started |
-| 6. Release automation | Daily upstream adoption PR with compatibility and visual checks; auto-merge when both pass; image published on merge | 2 to 3 days | Done for logged-out screens; screens behind login need a seeded backend in CI |
+| 6. Release automation | Hourly upstream release check and adoption PR with compatibility and visual checks; auto-merge when both pass; image published on merge | 2 to 3 days | Done for logged-out screens; screens behind login need a seeded backend in CI |
 
 **Next steps:**
 

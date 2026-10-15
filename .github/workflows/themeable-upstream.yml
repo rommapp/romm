@@ -1,6 +1,7 @@
 name: themeable upstream release
 
-# Daily: when rommapp/romm publishes a new stable release, merge it into a branch off
+# Hourly: when rommapp/romm publishes a new stable release, move `master` to that release
+# (master only ever holds upstream release commits), merge the release into a branch off
 # `themeable`, refresh the catalog, run the compatibility and visual checks, and open a
 # PR with both reports. When every check passes the PR merges itself (set the repository
 # variable THEMEABLE_AUTO_MERGE to "false" to review first); the merge then publishes the image.
@@ -10,7 +11,7 @@ name: themeable upstream release
 # can't push upstream's workflow-file changes, which most releases include.
 on:
   schedule:
-    - cron: "17 9 * * *"
+    - cron: "17 * * * *"
   workflow_dispatch:
     inputs:
       tag:
@@ -62,14 +63,45 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          latest=$(gh api repos/rommapp/romm/releases/latest --jq .tag_name)
           tag="${{ inputs.tag }}"
-          [ -n "$tag" ] || tag=$(gh api repos/rommapp/romm/releases/latest --jq .tag_name)
+          [ -n "$tag" ] || tag="$latest"
           branch="themeable-upstream/$tag"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
           echo "branch=$branch" >> "$GITHUB_OUTPUT"
           if [ "$tag" = "$(cat themeable/ROMM_VERSION)" ] || git ls-remote --exit-code origin "refs/heads/$branch" >/dev/null; then
             echo "Nothing to adopt ($tag is current or already in progress)"
             echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # master always equals the latest stable release commit. It moves forward when a release
+      # is posted, and is reset to the release when it holds unreleased upstream commits (from an
+      # earlier Sync fork); it holds no commits of its own. Manual runs with other tags leave it alone.
+      - name: Sync master to the release
+        env:
+          TAG: ${{ steps.rel.outputs.tag }}
+          LATEST: ${{ steps.rel.outputs.latest }}
+        run: |
+          git remote add upstream https://github.com/rommapp/romm.git
+          git fetch --no-tags upstream master "refs/tags/$TAG:refs/tags/$TAG"
+          if [ "$TAG" != "$LATEST" ]; then
+            echo "$TAG is not the latest stable release ($LATEST); master unchanged"
+            exit 0
+          fi
+          git fetch origin master
+          release=$(git rev-parse "$TAG^{commit}")
+          current=$(git rev-parse origin/master)
+          if [ "$release" = "$current" ]; then
+            echo "master is already at $TAG"
+          elif git merge-base --is-ancestor "$current" "$release"; then
+            git push origin "$release:refs/heads/master"
+            echo "master moved to $TAG ($release)"
+          elif git merge-base --is-ancestor "$release" "$current" && git merge-base --is-ancestor "$current" upstream/master; then
+            git push --force-with-lease="master:$current" origin "$release:refs/heads/master"
+            echo "master reset from unreleased upstream commit $current to $TAG ($release)"
+          else
+            echo "::warning::master ($current) has commits that are not upstream's; left unchanged"
           fi
 
       - name: Merge upstream
@@ -78,10 +110,6 @@ jobs:
         run: |
           git config user.name "romm-themeable bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git remote add upstream https://github.com/rommapp/romm.git
-          git fetch upstream master "refs/tags/${{ steps.rel.outputs.tag }}:refs/tags/${{ steps.rel.outputs.tag }}"
-          # master stays a pure mirror of upstream; a fast-forward-only push keeps it that way.
-          git push origin upstream/master:refs/heads/master || echo "::warning::master has diverged from upstream; not updated"
           git checkout -b "${{ steps.rel.outputs.branch }}"
           if ! git merge --no-edit -m "Merge RomM ${{ steps.rel.outputs.tag }} into themeable" "${{ steps.rel.outputs.tag }}"; then
             git diff --name-only --diff-filter=U > "$RUNNER_TEMP/conflicts.txt"
