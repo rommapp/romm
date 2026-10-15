@@ -1,8 +1,8 @@
-// useNavDestinations: single source of truth for the four primary
-// content destinations (Home / Platforms / Collections / Search) and the
-// route-path → active-tab derivation. Shared by `AppNav` (desktop top
-// pill) and `BottomNav` (mobile bottom bar) so the two never drift in
-// labels, icons, ordering, or active-state logic.
+// useNavDestinations: single source of truth for the five primary
+// content destinations (Home / Platforms / Collections / Search /
+// Activity) and the route-path → active-tab derivation. Shared by
+// `AppNav` (desktop top pill) and `BottomNav` (mobile bottom bar) so the
+// two never drift in labels, icons, ordering, or active-state logic.
 //
 // Highlighting is derived from `route.path` (not route names) so gallery
 // subroutes (e.g. `/rom/:id` reached from a platform) still light up
@@ -12,7 +12,8 @@ import type { ComputedRef } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 
-export type NavDestinationId = "home" | "platforms" | "collections" | "search";
+export type NavDestinationId =
+  "home" | "platforms" | "collections" | "search" | "activity";
 
 export interface NavDestination {
   id: NavDestinationId;
@@ -30,6 +31,7 @@ export const NAV_TARGETS: readonly { id: NavDestinationId; to: string }[] = [
   { id: "platforms", to: "/platforms" },
   { id: "collections", to: "/collections" },
   { id: "search", to: "/search" },
+  { id: "activity", to: "/activity" },
 ];
 
 const NAV_META: Record<NavDestinationId, { labelKey: string; icon: string }> = {
@@ -39,6 +41,9 @@ const NAV_META: Record<NavDestinationId, { labelKey: string; icon: string }> = {
   // keeps the icon stable across every generic "Collections" surface.
   collections: { labelKey: "common.collections", icon: "mdi-bookmark-outline" },
   search: { labelKey: "common.search", icon: "mdi-magnify" },
+  // Same glyph as the user menu entry, so the destination reads the same
+  // wherever it is reached from.
+  activity: { labelKey: "common.activity", icon: "mdi-access-point" },
 };
 
 // `path` is `base` itself or a page under it, so "/platform-x" isn't.
@@ -56,6 +61,7 @@ export function navDestinationAt(path: string): NavDestinationId | null {
     return "collections";
   }
   if (isUnder(path, "/search")) return "search";
+  if (isUnder(path, "/activity")) return "activity";
   return null;
 }
 

@@ -10,14 +10,18 @@ describe("navDestinationAt", () => {
     ["/collections", "collections"],
     ["/collection/smart/3", "collections"],
     ["/search", "search"],
+    ["/activity", "activity"],
   ])("puts %s under %s", (path, id) => {
     expect(navDestinationAt(path)).toBe(id);
   });
 
-  it.each(["/platform-invalid", "/collectionsx", "/searching", "/rom/7"])(
-    "leaves %s outside every destination",
-    (path) => {
-      expect(navDestinationAt(path)).toBeNull();
-    },
-  );
+  it.each([
+    "/platform-invalid",
+    "/collectionsx",
+    "/searching",
+    "/activity-log",
+    "/rom/7",
+  ])("leaves %s outside every destination", (path) => {
+    expect(navDestinationAt(path)).toBeNull();
+  });
 });
