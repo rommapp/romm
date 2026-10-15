@@ -17,7 +17,7 @@ COPY docker/gme /romm-gme
 RUN /romm-gme/build.sh /libgme /gme
 
 # Browser player runtimes. Keep the pins in sync with the emulator stage of docker/Dockerfile.
-FROM ubuntu:22.04 AS emulator-download
+FROM ubuntu:22.04@sha256:5ec03bb3441e8b0bf3b4f9cd4629a1ae763010dc3035bb8da3ae6cf026486401 AS emulator-download
 
 # trunk-ignore(hadolint/DL3008)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -93,7 +93,7 @@ RUN mkdir /emulators/easyrpg/rtp && \
     find /emulators/easyrpg/rtp \( -name '.git*' -o -name Makefile \) -exec rm -f {} +
 
 
-FROM ubuntu:22.04
+FROM ubuntu:22.04@sha256:5ec03bb3441e8b0bf3b4f9cd4629a1ae763010dc3035bb8da3ae6cf026486401
 
 # Prevent interactive prompts during installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -178,7 +178,7 @@ RUN npm install
 WORKDIR /app
 
 # Install uv for the non-root user
-COPY --from=ghcr.io/astral-sh/uv:0.12.19 /uv /uvx /usr/local/bin/
+COPY --from=ghcr.io/astral-sh/uv:0.12.19@sha256:04d046b13e60d6bcec73cbc5e1cad25d680dea90c8573340950a0ac2d1aef424 /uv /uvx /usr/local/bin/
 
 # Copy project files (including pyproject.toml and uv.lock)
 COPY pyproject.toml uv.lock* .python-version /app/

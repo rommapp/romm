@@ -20,6 +20,26 @@ done
 
 log() { printf '==> %s\n' "$*"; }
 
+# The Trunk launcher verifies the CLI against the sha256 pins in .trunk/trunk.yaml.
+TRUNK_LAUNCHER_VERSION=1.3.5
+TRUNK_LAUNCHER_SHA256=700f8bbedfd226595999ea2202b9a7af75ba8398dd711f5f159f5bbba6cbf322
+
+sha256_of() {
+	if command -v sha256sum >/dev/null; then sha256sum "$1"; else shasum -a 256 "$1"; fi |
+		cut -d' ' -f1
+}
+
+fetch_verified() {
+	local url="$1" want="$2" dest="$3" have
+	curl -fsSL "${url}" -o "${dest}"
+	have="$(sha256_of "${dest}")"
+	if [[ ${have} != "${want}" ]]; then
+		rm -f "${dest}"
+		echo "Checksum mismatch for ${url}: expected '${want}', got '${have}'" >&2
+		exit 1
+	fi
+}
+
 as_root() {
 	if [[ ${EUID} -eq 0 ]]; then "$@"; else sudo "$@"; fi
 }
@@ -41,15 +61,32 @@ apt_install() {
 }
 
 setup_uv() {
-	local want have
+	local want have platform target url sum tmp
 	want="$(sed -n 's/^ARG UV_VERSION=//p' "${ROOT}/docker/Dockerfile")"
 	have="$(uv --version 2>/dev/null || true)"
 	have="${have#uv }"
 	have="${have%% *}"
 	if [[ ${have} == "${want}" ]]; then return 0; fi
+	platform="$(uname -sm)"
+	case "${platform}" in
+	"Linux x86_64") target=x86_64-unknown-linux-gnu ;;
+	"Linux aarch64" | "Linux arm64") target=aarch64-unknown-linux-gnu ;;
+	"Darwin x86_64") target=x86_64-apple-darwin ;;
+	"Darwin arm64") target=aarch64-apple-darwin ;;
+	*)
+		echo "No uv build for ${platform}; install uv ${want} by hand" >&2
+		exit 1
+		;;
+	esac
+	url="https://github.com/astral-sh/uv/releases/download/${want}/uv-${target}.tar.gz"
 	log "Installing uv ${want} (found ${have:-none})"
-	curl -LsSf "https://astral.sh/uv/${want}/install.sh" |
-		env UV_UNMANAGED_INSTALL="${LOCAL_BIN}" sh >/dev/null
+	sum="$(curl -fsSL "${url}.sha256")"
+	tmp="$(mktemp -d)"
+	fetch_verified "${url}" "${sum%% *}" "${tmp}/uv.tar.gz"
+	tar -xzf "${tmp}/uv.tar.gz" -C "${tmp}" --strip-components=1
+	mkdir -p "${LOCAL_BIN}"
+	install -m 755 "${tmp}/uv" "${tmp}/uvx" "${LOCAL_BIN}/"
+	rm -rf "${tmp}"
 	hash -r
 }
 
@@ -61,7 +98,7 @@ setup_backend() {
 }
 
 setup_node() {
-	local want have full os arch dest
+	local want have full os arch dest file sum tmp
 	want="$(tr -d '[:space:]' <"${ROOT}/frontend/.nvmrc")"
 	have="$(node --version 2>/dev/null || true)"
 	if [[ ${have} == "v${want}."* ]]; then return 0; fi
@@ -76,8 +113,12 @@ setup_node() {
 	dest="${HOME}/.local/share/node/${full}"
 	log "Installing Node ${full} (found ${have:-none})"
 	mkdir -p "${dest}" "${LOCAL_BIN}"
-	curl -fsSL "https://nodejs.org/dist/${full}/node-${full}-${os}-${arch}.tar.xz" |
-		tar -xJ -C "${dest}" --strip-components=1
+	file="node-${full}-${os}-${arch}.tar.xz"
+	sum="$(curl -fsSL "https://nodejs.org/dist/${full}/SHASUMS256.txt" | awk -v f="${file}" '$2 == f { print $1 }')"
+	tmp="$(mktemp -d)"
+	fetch_verified "https://nodejs.org/dist/${full}/${file}" "${sum}" "${tmp}/${file}"
+	tar -xJf "${tmp}/${file}" -C "${dest}" --strip-components=1
+	rm -rf "${tmp}"
 	ln -sf "${dest}/bin/node" "${dest}/bin/npm" "${dest}/bin/npx" "${LOCAL_BIN}/"
 	hash -r
 }
@@ -96,7 +137,8 @@ setup_trunk() {
 	command -v trunk >/dev/null && return 0
 	log "Installing Trunk and its linters"
 	mkdir -p "${LOCAL_BIN}"
-	curl -fsSL https://trunk.io/releases/trunk -o "${LOCAL_BIN}/trunk"
+	fetch_verified "https://trunk.io/releases/launcher/${TRUNK_LAUNCHER_VERSION}/trunk" \
+		"${TRUNK_LAUNCHER_SHA256}" "${LOCAL_BIN}/trunk"
 	chmod +x "${LOCAL_BIN}/trunk"
 	hash -r
 	(cd "${ROOT}" && trunk install --ci >/dev/null 2>&1) ||
