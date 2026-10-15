@@ -97,6 +97,7 @@ def test_config_loader():
         "parallel_n64": {"vsync": "disabled"},
         "snes9x": {"snes9x_region": "ntsc"},
     }
+    assert loader.config.EJS_SHADERS == {}
     assert loader.config.EJS_CONTROLS == {
         "snes9x": {
             "_0": {0: {"value": "x", "value2": "BUTTON_2"}},
@@ -1061,3 +1062,219 @@ def test_a_platform_named_like_a_layout_key_uses_the_default(tmp_path):
 
     config = loader.get_config()
     assert config.platform_structure("firmware") == (config.default_structure,)
+
+
+def test_ejs_shaders_missing_dir(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("")
+    loader = ConfigManager(str(config_file))
+    assert loader.config.EJS_SHADERS == {}
+
+
+def test_ejs_shaders_loaded(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("")
+    shaders_dir = tmp_path / "shaders"
+    shaders_dir.mkdir()
+    (shaders_dir / "crt-geom.glslp").write_text("#reference preset", encoding="utf-8")
+    (shaders_dir / "crt-geom.glsl").write_text("void main() {}", encoding="utf-8")
+    sub_dir = shaders_dir / "resources"
+    sub_dir.mkdir()
+    (sub_dir / "pass.hook").write_text("HOOK pass", encoding="utf-8")
+
+    (shaders_dir / ".hidden_shader.glsl").write_text("hidden", encoding="utf-8")
+    hidden_dir = shaders_dir / ".hidden_dir"
+    hidden_dir.mkdir()
+    (hidden_dir / "pass.glsl").write_text("hidden pass", encoding="utf-8")
+
+    loader = ConfigManager(str(config_file))
+    assert loader.config.EJS_SHADERS == {
+        "crt-geom.glsl": "void main() {}",
+        "crt-geom.glslp": "#reference preset",
+        "resources/pass.hook": "HOOK pass",
+    }
+
+
+def test_ejs_shaders_binary_and_unsupported_extensions_skipped(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("")
+    shaders_dir = tmp_path / "shaders"
+    shaders_dir.mkdir()
+    (shaders_dir / "valid.glsl").write_text("void main() {}", encoding="utf-8")
+
+    # Binary assets like LUT textures or font files must not be ingested.
+    (shaders_dir / "texture.png").write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")
+    (shaders_dir / "font.bin").write_bytes(b"\x00\x01\x02\x03\xff\xfe\xfd")
+    (shaders_dir / "table.lut").write_bytes(b"\x80\x81\x82\x83")
+
+    loader = ConfigManager(str(config_file))
+    assert loader.config.EJS_SHADERS == {"valid.glsl": "void main() {}"}
+
+
+def test_ejs_shaders_single_file_size_limit_enforced(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("")
+    shaders_dir = tmp_path / "shaders"
+    shaders_dir.mkdir()
+    (shaders_dir / "small.glsl").write_text("small", encoding="utf-8")
+
+    # Exceeds MAX_SHADER_FILE_SIZE (512 KB)
+    large_content = "x" * (600 * 1024)
+    (shaders_dir / "large.glsl").write_text(large_content, encoding="utf-8")
+
+    loader = ConfigManager(str(config_file))
+    assert "large.glsl" not in loader.config.EJS_SHADERS
+    assert loader.config.EJS_SHADERS.get("small.glsl") == "small"
+
+
+def test_ejs_shaders_total_quota_limit_enforced(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("")
+    shaders_dir = tmp_path / "shaders"
+    shaders_dir.mkdir()
+
+    # Create 12 shaders of 500 KB each (6 MB total > 5 MB quota).
+    chunk = "x" * (500 * 1024)
+    for i in range(12):
+        (shaders_dir / f"shader_{i:02d}.glsl").write_text(chunk, encoding="utf-8")
+
+    loader = ConfigManager(str(config_file))
+    # At 500 KB per file, at most 10 files (5 MB) fit within the quota.
+    assert len(loader.config.EJS_SHADERS) <= 10
+    total_loaded_size = sum(
+        len(c.encode("utf-8")) for c in loader.config.EJS_SHADERS.values()
+    )
+    assert total_loaded_size <= 5 * 1024 * 1024
+
+
+def test_ejs_shaders_path_traversal_skipped(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("")
+    shaders_dir = tmp_path / "shaders"
+    shaders_dir.mkdir()
+    (shaders_dir / "valid.glsl").write_text("valid", encoding="utf-8")
+
+    outside_dir = tmp_path / "outside"
+    outside_dir.mkdir()
+    outside_file = outside_dir / "secret.glsl"
+    outside_file.write_text("secret_content", encoding="utf-8")
+
+    try:
+        (shaders_dir / "leak.glsl").symlink_to(outside_file)
+        (shaders_dir / "outside_symlink_dir").symlink_to(
+            outside_dir, target_is_directory=True
+        )
+        (shaders_dir / "loop_dir").symlink_to(shaders_dir, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pass
+
+    loader = ConfigManager(str(config_file))
+    assert "leak.glsl" not in loader.config.EJS_SHADERS
+    assert "outside_symlink_dir/secret.glsl" not in loader.config.EJS_SHADERS
+    assert "loop_dir/valid.glsl" not in loader.config.EJS_SHADERS
+    assert loader.config.EJS_SHADERS == {"valid.glsl": "valid"}
+
+
+def test_ejs_shaders_symlink_alias_and_circular_loop(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("")
+    shaders_dir = tmp_path / "shaders"
+    shaders_dir.mkdir()
+    passes_dir = shaders_dir / "passes"
+    passes_dir.mkdir()
+    (passes_dir / "pass1.glsl").write_text("pass1_content", encoding="utf-8")
+
+    try:
+        (shaders_dir / "alias").symlink_to(passes_dir, target_is_directory=True)
+        (shaders_dir / "loop").symlink_to(shaders_dir, target_is_directory=True)
+        (passes_dir / "subloop").symlink_to(passes_dir, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("Symlinks not supported in environment")
+
+    loader = ConfigManager(str(config_file))
+    assert "loop/valid.glsl" not in loader.config.EJS_SHADERS
+    assert "passes/subloop/pass1.glsl" not in loader.config.EJS_SHADERS
+    assert loader.config.EJS_SHADERS == {
+        "alias/pass1.glsl": "pass1_content",
+        "passes/pass1.glsl": "pass1_content",
+    }
+
+
+
+def test_ejs_settings_shader_validation(tmp_path, mocker, critical):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(
+        "emulatorjs:\n  settings:\n    snes:\n      shader: crt-geom\n"
+    )
+    loader = ConfigManager(str(config_file))
+    assert loader.config.EJS_SETTINGS["snes"]["shader"] == "crt-geom.glslp"
+
+    # Built-in without .glslp native key remains as-is
+    config_file.write_text(
+        "emulatorjs:\n  settings:\n    snes:\n      shader: crt-beam\n"
+    )
+    loader = ConfigManager(str(config_file))
+    assert loader.config.EJS_SETTINGS["snes"]["shader"] == "crt-beam"
+
+    # Case-insensitive built-in alias normalizes to canonical key
+    config_file.write_text(
+        "emulatorjs:\n  settings:\n    snes:\n      shader: 2xScaleHQ\n"
+    )
+    loader = ConfigManager(str(config_file))
+    assert loader.config.EJS_SETTINGS["snes"]["shader"] == "2xScaleHQ.glslp"
+
+    # Also validates newly added built-ins like crt-lottes and bicubic
+    config_file.write_text(
+        "emulatorjs:\n  settings:\n    snes:\n      shader: crt-lottes\n"
+    )
+    loader = ConfigManager(str(config_file))
+    assert loader.config.EJS_SETTINGS["snes"]["shader"] == "crt-lottes"
+
+    shaders_dir = tmp_path / "shaders"
+    shaders_dir.mkdir()
+    sub_dir = shaders_dir / "presets"
+    sub_dir.mkdir()
+    (sub_dir / "custom-crt.glslp").write_text("#custom", encoding="utf-8")
+
+    # Validation accepts full relative path
+    config_file.write_text(
+        "emulatorjs:\n  settings:\n    snes:\n      shader: presets/custom-crt.glslp\n"
+    )
+    loader = ConfigManager(str(config_file))
+    assert loader.config.EJS_SETTINGS["snes"]["shader"] == "presets/custom-crt.glslp"
+
+    # Validation normalizes unique basename to canonical relative path
+    config_file.write_text(
+        "emulatorjs:\n  settings:\n    snes:\n      shader: custom-crt.glslp\n"
+    )
+    loader = ConfigManager(str(config_file))
+    assert loader.config.EJS_SETTINGS["snes"]["shader"] == "presets/custom-crt.glslp"
+
+    # Ambiguous basename matching multiple files logs a warning and falls back to disabled
+    other_dir = shaders_dir / "other"
+    other_dir.mkdir()
+    (other_dir / "custom-crt.glslp").write_text("#other", encoding="utf-8")
+    warning = mocker.patch("config.config_manager.log.warning")
+    config_file.write_text(
+        "emulatorjs:\n  settings:\n    snes:\n      shader: custom-crt.glslp\n"
+    )
+    loader = ConfigManager(str(config_file))
+    assert any(
+        "Ambiguous shader name 'custom-crt.glslp'" in str(args)
+        for args in warning.call_args_list
+    )
+    assert loader.config.EJS_SETTINGS["snes"]["shader"] == "disabled"
+
+    config_file.write_text("emulatorjs:\n  settings:\n    snes:\n      shader: 123\n")
+    with pytest.raises(SystemExit) as excinfo:
+        ConfigManager(str(config_file))
+    assert excinfo.value.code == 3
+    assert "emulatorjs.settings.snes.shader must be a string" in critical()
+
+    warning = mocker.patch("config.config_manager.log.warning")
+    config_file.write_text(
+        "emulatorjs:\n  settings:\n    snes:\n      shader: nonexistent.glslp\n"
+    )
+    loader = ConfigManager(str(config_file))
+    assert any("nonexistent.glslp" in str(args) for args in warning.call_args_list)
+    assert loader.config.EJS_SETTINGS["snes"]["shader"] == "disabled"

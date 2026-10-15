@@ -43,6 +43,10 @@ import { useSnackbar, type SnackbarTone } from "@/v2/composables/useSnackbar";
 import { newest } from "@/v2/utils/assets";
 import { firmwareExternalFiles } from "@/v2/utils/playerFirmware";
 import { leaveFullscreen } from "@/v2/utils/playerFullscreen";
+import {
+  clearEmulatorJSShaders,
+  setEmulatorJSShaders,
+} from "@/v2/utils/playerShaders";
 import { browserDeviceId } from "@/v2/utils/saveSync/browserDevice";
 import { bytesEqual, saveContentHash } from "@/v2/utils/saveSync/hash";
 import { createRetryBackoff } from "@/v2/utils/saveSync/retryBackoff";
@@ -330,6 +334,7 @@ declare global {
     EJS_disableLocalStorage: boolean;
     EJS_disableAutoUnload: boolean;
     EJS_disableBatchBootup: boolean;
+    EJS_shaders?: Record<string, string>;
     EJS_onGameStart: () => void;
     EJS_onSaveState: (args: {
       screenshot?: ArrayBuffer;
@@ -437,6 +442,7 @@ window.EJS_DEBUG_XX = EJS_DEBUG;
 window.EJS_disableAutoUnload = EJS_DISABLE_AUTO_UNLOAD;
 window.EJS_disableBatchBootup = EJS_DISABLE_BATCH_BOOTUP;
 if (EJS_CACHE_LIMIT !== null) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
+setEmulatorJSShaders(configStore.config.EJS_SHADERS);
 
 installEJSDefaultOptionsTrap();
 const patchNetplayHostAudio = EJS_NETPLAY_ENABLED
@@ -1001,6 +1007,7 @@ function immediateExit() {
 }
 
 onUnmounted(() => {
+  clearEmulatorJSShaders();
   // Force full reload to reset COEP/COOP, so cross-origin isolation is turned off.
   window.location.reload();
 });

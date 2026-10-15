@@ -35,6 +35,7 @@ class ConfigResponse(TypedDict):
     EJS_DEFAULT_CORES: dict[str, str]
     EJS_SETTINGS: dict[str, dict[str, str]]
     EJS_CONTROLS: dict[str, EjsControls]
+    EJS_SHADERS: dict[str, str]
     SCAN_METADATA_PRIORITY: list[str]
     SCAN_ARTWORK_PRIORITY: list[str]
     SCAN_ARTWORK_PRIORITY_OVERRIDES: dict[str, list[str]]
