@@ -84,7 +84,7 @@ ROM_CONVERTO_ENABLED: Final[bool] = safe_str_to_bool(_get_env("ROM_CONVERTO_ENAB
 ROM_CONVERTO_TIMEOUT: Final[int] = max(
     1, safe_int(_get_env("ROM_CONVERTO_TIMEOUT"), 600)
 )
-# Concurrent conversion subprocesses per process (each web and RQ worker).
+# Conversions and a scan's archive reads each have this separate per-process limit.
 ROM_CONVERTO_MAX_CONCURRENCY: Final[int] = max(
     1, safe_int(_get_env("ROM_CONVERTO_MAX_CONCURRENCY"), 2)
 )

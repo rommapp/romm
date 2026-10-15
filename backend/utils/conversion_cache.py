@@ -20,8 +20,10 @@ from adapters.services.rom_converto import (
     RomConvertoTimeoutError,
     RomConvertoUnsafeSourceError,
     canonical_format,
+    conversion_source,
     download_targets,
     file_format,
+    is_archive,
     resolve_operation,
     rom_converto_service,
 )
@@ -130,13 +132,20 @@ def has_room_for(size_bytes: int) -> bool:
 
 def _lookup(
     rom_id: int, rom_file: RomFile, platform_slug: str, target: str
-) -> tuple[Operation, Path] | None:
-    """The operation bringing `rom_file` to `target` and its cache path."""
-    resolved = resolve_operation(platform_slug, target, rom_file.file_name)
+) -> tuple[Operation, Path, int] | None:
+    """The operation bringing `rom_file` to `target`, its cache path and the bytes it reads."""
+    source = conversion_source(rom_file)
+    if source is None:
+        return None
+    name, size = source
+    if is_archive(rom_file.file_name):
+        # A cue image brings its tracks along, so count every recorded member.
+        size = sum(member["size"] for member in rom_file.archive_members or [])
+    resolved = resolve_operation(platform_slug, target, name)
     if resolved is None:
         return None
     operation, input_ext = resolved
-    return operation, converted_file_path(rom_id, rom_file, operation, input_ext)
+    return operation, converted_file_path(rom_id, rom_file, operation, input_ext), size
 
 
 def _serve_cached(final_path: Path, *, touch: bool) -> Path | None:
@@ -225,7 +234,8 @@ def offered_download_formats(
         or not may_start_conversion(request)
     ):
         return []
-    return download_targets(platform_slug, files[0].file_name)
+    source = conversion_source(files[0])
+    return download_targets(platform_slug, source[0]) if source is not None else []
 
 
 async def resolve_format_download(
@@ -298,7 +308,7 @@ async def get_or_convert(
     found = _lookup(rom_id, rom_file, platform_slug, target)
     if found is None:
         return None
-    operation, final_path = found
+    operation, final_path, source_size = found
 
     try:
         if cached := _serve_cached(final_path, touch=True):
@@ -320,7 +330,7 @@ async def get_or_convert(
                 await asyncio.to_thread(
                     shutil.rmtree, final_path.parent / PARTIAL_DIR, True
                 )
-                size_bytes = (rom_file.file_size_bytes or 0) * (
+                size_bytes = source_size * (
                     EXPANSION_RESERVE_FACTOR
                     if operation.target in UNCOMPRESSED_TARGETS
                     else 1

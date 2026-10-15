@@ -17,8 +17,9 @@ from adapters.services.rom_converto import (
     RomConvertoOperationError,
     RomConvertoTimeoutError,
     resolve_operation,
+    rom_converto_service,
 )
-from config import ROM_CONVERTO_CACHE_PATH
+from config import LIBRARY_BASE_PATH, ROM_CONVERTO_CACHE_PATH
 from config.config_manager import ConvertoConfig
 from models.rom import Rom, RomFile
 from utils import conversion_cache
@@ -114,6 +115,72 @@ def convert_outputs(mocker) -> list[Path]:
 
 
 class TestGetOrConvert:
+    async def test_archive_converts_the_stored_path(self, cache_root, convert_outputs):
+        f = _rom_file(
+            file_name="My Game.zip",
+            archive_members=[
+                {"name": "rom.iso", "size": 1000},
+                {"name": "readme.txt", "size": 10},
+            ],
+        )
+
+        final = await get_or_convert(1, f, "psp", "chd")
+
+        assert final is not None
+        assert final.name == "My Game.chd"
+        assert final.read_bytes() == b"converted"
+        convert = cast(AsyncMock, rom_converto_service.convert)
+        convert.assert_awaited_once()
+        call = convert.await_args
+        assert call is not None
+        assert call.args[0].argv == ("chd", "compress")
+        assert call.kwargs["src"] == Path(LIBRARY_BASE_PATH) / f.full_path
+        assert call.kwargs["out"].name == "My Game.chd"
+        assert convert_outputs == [call.kwargs["out"]]
+
+    @pytest.mark.parametrize("member_size", [20, 30])
+    async def test_archive_reserves_the_member_size(
+        self, cache_root, converto, convert_outputs, mocker, member_size
+    ):
+        converto.cache_max_size_gb = 1
+        mocker.patch.object(conversion_cache, "BYTES_PER_GB", 100)
+        f = _rom_file(
+            file_name="My Game.zip",
+            file_size_bytes=1,
+            archive_members=[{"name": "rom.chd", "size": member_size}],
+        )
+
+        final = await get_or_convert(1, f, "psp", "iso")
+
+        if member_size * conversion_cache.EXPANSION_RESERVE_FACTOR > 100:
+            assert final is None
+            assert convert_outputs == []
+        else:
+            assert final is not None
+            assert final.name == "My Game.iso"
+            assert final.read_bytes() == b"converted"
+            assert len(convert_outputs) == 1
+
+    @pytest.mark.parametrize(("track_size", "converts"), [(50, True), (150, False)])
+    async def test_cue_archive_reserves_its_tracks(
+        self, cache_root, converto, convert_outputs, mocker, track_size, converts
+    ):
+        converto.cache_max_size_gb = 1
+        mocker.patch.object(conversion_cache, "BYTES_PER_GB", 100)
+        f = _rom_file(
+            file_name="Game.zip",
+            file_size_bytes=1,
+            archive_members=[
+                {"name": "Game.cue", "size": 1},
+                {"name": "Game (Track 1).bin", "size": track_size},
+            ],
+        )
+
+        final = await get_or_convert(1, f, "psx", "chd")
+
+        assert (final is not None) is converts
+        assert len(convert_outputs) == int(converts)
+
     async def test_unresolvable_returns_none_without_touching_disk(
         self, cache_root, convert_outputs
     ):
@@ -523,6 +590,34 @@ class TestOfferedDownloadFormats:
         mocker.patch.object(conversion_cache, "ROM_CONVERTO_ENABLED", True)
         converto.download_conversion_enabled = True
 
+    def test_archive_offers_the_single_images_targets(self):
+        f = _rom_file(
+            file_name="My Game.zip",
+            archive_members=[
+                {"name": "rom.iso", "size": 1000},
+                {"name": "readme.txt", "size": 10},
+            ],
+        )
+
+        assert offered_download_formats("psp", [f], self._request()) == [
+            "chd",
+            "cso",
+            "zso",
+        ]
+
+    @pytest.mark.parametrize(
+        "members",
+        [
+            None,
+            [{"name": "disc1.iso", "size": 100}, {"name": "disc2.iso", "size": 100}],
+        ],
+        ids=["unlisted", "two-images"],
+    )
+    def test_archive_without_one_image_offers_nothing(self, members):
+        f = _rom_file(file_name="My Game.zip", archive_members=members)
+
+        assert offered_download_formats("psp", [f], self._request()) == []
+
     def test_lists_what_the_single_file_converts_to(self):
         files = [_rom_file(file_name="game.chd")]
 
@@ -885,6 +980,62 @@ class TestResolveFormatDownload:
     @staticmethod
     def _rom() -> Rom:
         return cast(Rom, SimpleNamespace(id=1, platform_slug="psp"))
+
+    async def test_archive_download_converts_and_caches(
+        self, cache_root, convert_outputs
+    ):
+        f = _rom_file(
+            file_name="My Game.zip",
+            archive_members=[
+                {"name": "rom.iso", "size": 1000},
+                {"name": "readme.txt", "size": 10},
+            ],
+        )
+
+        resolution = await resolve_format_download(
+            self._rom(), f, ("chd",), allowed=True, start=True, touch=True
+        )
+
+        assert resolution.outcome == FormatOutcome.CONVERTED
+        assert resolution.path is not None
+        assert resolution.path.name == "My Game.chd"
+        assert resolution.path.read_bytes() == b"converted"
+        convert = cast(AsyncMock, rom_converto_service.convert)
+        convert.assert_awaited_once()
+        call = convert.await_args
+        assert call is not None
+        assert call.args[0].argv == ("chd", "compress")
+        assert call.kwargs["src"] == Path(LIBRARY_BASE_PATH) / f.full_path
+        assert call.kwargs["out"].name == "My Game.chd"
+
+    @pytest.mark.parametrize(
+        ("members", "target", "outcome"),
+        [
+            (None, "chd", FormatOutcome.UNAVAILABLE),
+            (
+                [
+                    {"name": "disc1.iso", "size": 100},
+                    {"name": "disc2.iso", "size": 100},
+                ],
+                "chd",
+                FormatOutcome.UNAVAILABLE,
+            ),
+            ([{"name": "rom.iso", "size": 100}], "zip", FormatOutcome.ORIGINAL),
+            ([{"name": "rom.iso", "size": 100}], "iso", FormatOutcome.UNAVAILABLE),
+        ],
+        ids=["unlisted", "two-images", "stored-zip", "member-format"],
+    )
+    async def test_archive_download_rejections_and_original(
+        self, cache_root, convert_outputs, members, target, outcome
+    ):
+        f = _rom_file(file_name="My Game.zip", archive_members=members)
+
+        resolution = await resolve_format_download(
+            self._rom(), f, (target,), allowed=True, start=True, touch=True
+        )
+
+        assert resolution == FormatResolution(outcome)
+        assert convert_outputs == []
 
     async def test_a_listed_stored_format_wins_over_a_cached_copy(self, cache_root):
         f = _rom_file()

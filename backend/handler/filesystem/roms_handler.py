@@ -658,7 +658,7 @@ class FSRomsHandler(FSHandler):
         )
 
     async def _read_converto_infos(self, sources: list[tuple[Path, RomFile]]) -> None:
-        """Write title ids and the read time onto the files rom-converto recognized."""
+        """Write title ids and the read time onto the files rom-converto read."""
         if not sources:
             return
         infos = await rom_converto_service.read_infos([p for p, _ in sources])
@@ -1037,7 +1037,7 @@ class FSRomsHandler(FSHandler):
             _record_title_id_source(rom_dir, rom_file)
 
         # New and changed rows were never read; reused ones only if rom-converto
-        # hasn't recognized them yet. Every row sits under the validated rom dir.
+        # hasn't read them yet. Every row sits under the validated rom dir.
         converto_sources = [
             (path, rom_file)
             for rom_file in rom_files

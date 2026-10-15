@@ -9,12 +9,18 @@ from urllib.parse import unquote
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.factories import make_platform
 
 from adapters.services.rom_converto import resolve_operation
 from config.config_manager import ConvertoConfig
+from handler.database import db_rom_handler
 from models.rom import Rom
 from utils import conversion_cache
-from utils.conversion_cache import FAILED_FILE, RETRY_AFTER_SECONDS
+from utils.conversion_cache import (
+    FAILED_FILE,
+    RETRY_AFTER_SECONDS,
+    _lookup,
+)
 
 
 @pytest.fixture
@@ -38,7 +44,7 @@ def conversion(tmp_path: Path, mocker):
     resolved = resolve_operation("psp", "chd", "test_rom.iso")
     assert resolved is not None
     lookup = mocker.patch.object(
-        conversion_cache, "_lookup", return_value=(resolved[0], final)
+        conversion_cache, "_lookup", return_value=(resolved[0], final, 1000)
     )
     mocker.patch.object(
         conversion_cache, "ROM_CONVERTO_CACHE_PATH", str(final.parent.parent)
@@ -83,6 +89,52 @@ def _download(client: TestClient, rom: Rom, *, token: str | None, **params):
 def _as_kiosk(mocker) -> None:
     mocker.patch("handler.auth.hybrid_auth.KIOSK_MODE", True)
     mocker.patch("handler.auth.permissions.KIOSK_MODE", True)
+
+
+@pytest.mark.parametrize(
+    ("members", "target", "expected"),
+    [
+        (
+            [{"name": "rom.iso", "size": 1000}, {"name": "readme.txt", "size": 10}],
+            "chd",
+            status.HTTP_200_OK,
+        ),
+        (None, "chd", status.HTTP_406_NOT_ACCEPTABLE),
+        (
+            [{"name": "disc1.iso", "size": 100}, {"name": "disc2.iso", "size": 100}],
+            "chd",
+            status.HTTP_406_NOT_ACCEPTABLE,
+        ),
+        ([{"name": "rom.iso", "size": 100}], "zip", status.HTTP_200_OK),
+        ([{"name": "rom.iso", "size": 100}], "iso", status.HTTP_406_NOT_ACCEPTABLE),
+    ],
+    ids=["single-image", "unlisted", "two-images", "stored-zip", "member-format"],
+)
+def test_archive_download_status(
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    rom_file,
+    conversion,
+    members,
+    target,
+    expected,
+):
+    psp = make_platform("psp")
+    db_rom_handler.update_rom(rom.id, {"platform_id": psp.id})
+    db_rom_handler.update_rom_file(rom_file.id, {"archive_members": members})
+    # The normal fixture accepts every target, including the member's own format.
+    conversion.lookup.side_effect = _lookup
+
+    response = _download(client, rom, token=access_token, format=target)
+
+    assert response.status_code == expected
+    if target == "zip":
+        assert _redirect(response) == f"/library/{rom_file.full_path}"
+    if target == "chd" and expected == status.HTTP_200_OK:
+        conversion.convert.assert_awaited_once()
+    else:
+        conversion.convert.assert_not_called()
 
 
 def test_download_is_untouched_without_a_format(

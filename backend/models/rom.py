@@ -401,7 +401,7 @@ class RomFile(BaseModel):
     title_id: Mapped[str | None] = mapped_column(String(length=TITLE_ID_MAX_LENGTH))
     # BigInteger because Switch title versions exceed int32
     title_version: Mapped[int | None] = mapped_column(BigInteger, default=None)
-    # When rom-converto last recognized the file; NULL queues it on the next scan.
+    # When rom-converto last read the file, including an archive it could not read; NULL queues it.
     converto_read_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True), default=None
     )

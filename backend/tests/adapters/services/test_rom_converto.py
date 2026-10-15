@@ -23,12 +23,15 @@ from adapters.services.rom_converto import (
     RomConvertoTimeoutError,
     RomConvertoUnsafeSourceError,
     canonical_format,
+    conversion_source,
+    cue_track_names,
     cue_tracks,
     download_targets,
     file_format,
+    is_archive,
     resolve_operation,
 )
-from models.rom import TITLE_ID_MAX_LENGTH
+from models.rom import TITLE_ID_MAX_LENGTH, RomFile
 from utils.filesystem import SERVED_FILE_MODE
 
 # rom-converto carries the images a file embeds in its info output.
@@ -95,6 +98,27 @@ class TestRun:
             with pytest.raises(asyncio.CancelledError):
                 await run
         assert proc.killed is True
+
+    async def test_tmpdir_is_the_sandbox_and_inherits_environment(self):
+        seen: list[Path] = []
+
+        async def spawn(*args, cwd, env=None, **kwargs):
+            assert env is not None
+            assert Path(env["TMPDIR"]) == Path(cwd)
+            assert env["ROMM_TEST_INHERITED"] == "inherited"
+            assert await anyio.Path(cwd).is_dir()
+            seen.append(Path(cwd))
+            return FakeProc()
+
+        with (
+            patch.dict(os.environ, {"ROMM_TEST_INHERITED": "inherited"}),
+            patch("shutil.which", return_value="/usr/bin/rom-converto"),
+            patch("asyncio.create_subprocess_exec", spawn),
+        ):
+            await rom_converto._run(["info", "--json", "Game.zip"], timeout_seconds=1)
+
+        assert len(seen) == 1
+        assert not seen[0].exists()
 
 
 class TestIsEnabled:
@@ -251,6 +275,64 @@ class TestReadInfos:
         assert runs == [["/roms/a.chd", "/roms/b.chd"], ["/roms/c.chd"]]
         assert set(infos) == set(paths)
 
+    async def test_archives_have_separate_runs(self, service: RomConvertoService):
+        runs: list[list[str]] = []
+        plain = [Path(f"/roms/plain-{i}.iso") for i in range(3)]
+        archives = [Path("/roms/My Game.zip"), Path("/roms/Other.7Z")]
+        paths = [plain[0], archives[0], plain[1], archives[1], plain[2]]
+
+        async def fake_run(argv: list[str], timeout_seconds: float):
+            assert argv[:2] == ["info", "--json"]
+            paths_file = anyio.Path(argv[argv.index("--paths-file") + 1])
+            listed = (await paths_file.read_text()).splitlines()
+            runs.append(listed)
+            records = [
+                {
+                    "path": p,
+                    "ok": True,
+                    "info": {"kind": "psx", "title_id": Path(p).stem},
+                }
+                for p in listed
+            ]
+            return 0, json.dumps(records), ""
+
+        with (
+            patch.object(rom_converto, "_run", fake_run),
+            patch.object(rom_converto, "INFO_RUN_MAX_FILES", 2),
+        ):
+            infos = await service.read_infos(paths)
+
+        assert len(runs) == 4
+        for archive in archives:
+            assert [str(archive)] in runs
+        plain_runs = [run for run in runs if run not in [[str(p)] for p in archives]]
+        assert sorted(map(len, plain_runs)) == [1, 2]
+        assert sorted(p for run in plain_runs for p in run) == sorted(map(str, plain))
+        assert infos == {path: RomConvertoInfo(title_id=path.stem) for path in paths}
+
+    async def test_archive_runs_share_the_concurrency_cap(
+        self, service: RomConvertoService
+    ):
+        running = peak = 0
+
+        async def fake_run(argv: list[str], timeout_seconds: float):
+            nonlocal running, peak
+            running += 1
+            peak = max(peak, running)
+            await asyncio.sleep(0.01)
+            running -= 1
+            return 0, "[]", ""
+
+        with (
+            patch.object(rom_converto, "_run", fake_run),
+            patch.object(rom_converto, "ROM_CONVERTO_MAX_CONCURRENCY", 3),
+        ):
+            await asyncio.gather(
+                *(service.read_infos([Path(f"/roms/{i}.zip")]) for i in range(5))
+            )
+
+        assert peak == 3
+
     async def test_paths_file_is_removed(self, service: RomConvertoService):
         calls: list[tuple[str, ...]] = []
         with (
@@ -265,13 +347,38 @@ class TestReadInfos:
         paths_file = calls[0][calls[0].index("--paths-file") + 1]
         assert not await anyio.Path(paths_file).exists()
 
-    async def test_nonzero_returns_empty(self, service: RomConvertoService):
-        proc = FakeProc(returncode=2, stderr=b"error: bad arguments")
+    @pytest.mark.parametrize(
+        ("file_name", "expected"),
+        [("game.iso", {}), ("game.zip", {Path("/roms/game.zip"): RomConvertoInfo()})],
+    )
+    async def test_nonzero_stamps_only_archives(
+        self, service: RomConvertoService, file_name: str, expected
+    ):
+        path = Path("/roms") / file_name
+        records = [{"path": str(path), "ok": False, "error": "could not detect"}]
+        proc = FakeProc(
+            returncode=2,
+            stdout=json.dumps(records).encode(),
+            stderr=b"error: bad arguments",
+        )
         with (
             patch("shutil.which", return_value="rc"),
             patch("asyncio.create_subprocess_exec", return_value=proc),
         ):
-            assert await service.read_infos([Path("/roms/game.iso")]) == {}
+            assert await service.read_infos([path]) == expected
+
+    @pytest.mark.parametrize(
+        ("file_name", "expected"),
+        [("game.iso", {}), ("game.zip", {Path("/roms/game.zip"): RomConvertoInfo()})],
+    )
+    async def test_timeout_stamps_only_archives(
+        self, service: RomConvertoService, file_name: str, expected
+    ):
+        path = Path("/roms") / file_name
+        with patch.object(
+            rom_converto, "_run", side_effect=RomConvertoTimeoutError("slow")
+        ):
+            assert await service.read_infos([path]) == expected
 
     @pytest.mark.parametrize(
         "stdout",
@@ -299,6 +406,16 @@ class TestReadInfos:
             rom_converto, "_run", return_value=(0, json.dumps(records), "")
         ):
             assert await service.read_infos([Path("/roms/game.iso")]) == {}
+
+    async def test_unrecognized_archive_returns_empty_info(
+        self, service: RomConvertoService
+    ):
+        path = Path("/roms/game.zip")
+        records = [{"path": str(path), "ok": False, "error": "could not detect"}]
+        with patch.object(
+            rom_converto, "_run", return_value=(0, json.dumps(records), "")
+        ):
+            assert await service.read_infos([path]) == {path: RomConvertoInfo()}
 
     @pytest.mark.parametrize(
         "path",
@@ -352,6 +469,20 @@ class TestReadInfosFailures:
     ):
         with patch.object(rom_converto, "_run", side_effect=error):
             assert await service.read_infos([Path("/roms/game.iso")]) == {}
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            pytest.param(RomConvertoBinaryNotFoundError("missing"), id="no-binary"),
+            pytest.param(RomConvertoError("failed"), id="run-error"),
+            pytest.param(OSError(8, "Exec format error"), id="os-error"),
+        ],
+    )
+    async def test_archive_stays_unread_when_the_run_cannot_start(
+        self, service: RomConvertoService, error: Exception
+    ):
+        with patch.object(rom_converto, "_run", side_effect=error):
+            assert await service.read_infos([Path("/roms/game.zip")]) == {}
 
 
 class TestIsolation:
@@ -443,6 +574,31 @@ class TestCanInspect:
 
     def test_unknown_manifest_inspects_everything(self, service: RomConvertoService):
         assert service.can_inspect(Path("/roms/anything.xyz")) is True
+
+    @pytest.mark.parametrize(
+        ("name", "expected"),
+        [
+            ("Game.zip", True),
+            ("Game.7Z", True),
+            ("Game.rar", True),
+            ("Game.tar", True),
+            ("Game.tar.gz", True),
+            ("Game.TGZ", True),
+            ("Game.gz", False),
+        ],
+    )
+    async def test_archives_do_not_need_manifest_extensions(
+        self, service: RomConvertoService, name: str, expected: bool
+    ):
+        proc = FakeProc(stdout=b'{"version": "0.24.0", "info_extensions": ["iso"]}')
+        with (
+            patch.object(rom_converto, "ROM_CONVERTO_ENABLED", True),
+            patch("shutil.which", return_value="/usr/bin/rom-converto"),
+            patch("asyncio.create_subprocess_exec", return_value=proc),
+        ):
+            assert await service.is_enabled() is True
+
+        assert service.can_inspect(Path("/roms") / name) is expected
 
 
 class TestParseInfo:
@@ -921,7 +1077,7 @@ class TestCueTracks:
         [
             pytest.param('FILE "game (Track 1).bin" BINARY', id="quoted"),
             pytest.param("FILE track.bin BINARY", id="bare"),
-            pytest.param('  file "track.bin" BINARY', id="lowercase-indented"),
+            pytest.param('  FILE "track.bin" BINARY', id="indented"),
         ],
     )
     def test_reads_a_track_beside_the_cue(self, tmp_path: Path, line: str):
@@ -953,6 +1109,172 @@ class TestCueTracks:
 
         with pytest.raises(RomConvertoUnsafeSourceError):
             cue_tracks(cue)
+
+    def test_reads_names_from_text(self):
+        text = (
+            'REM FILE "../ignored.bin" BINARY\n'
+            'FILE "Game (Track 1).bin" BINARY\n'
+            "  TRACK 01 MODE2/2352\n"
+            "  file track2.bin BINARY\n"
+            "  TRACK 02 AUDIO\n"
+        )
+
+        assert cue_track_names(text, "Game.cue") == ["Game (Track 1).bin"]
+
+    def test_skips_files_without_tracks(self):
+        text = (
+            'FILE "unused.bin" BINARY\n'
+            "  track 01 AUDIO\n"
+            'FILE "game.bin" BINARY\n'
+            "  TRACK 01 MODE2/2352\n"
+            'FILE "trailing.bin" BINARY\n'
+        )
+
+        assert cue_track_names(text, "Game.cue") == ["game.bin"]
+
+    @pytest.mark.parametrize("separator", ["\u2028", "\x0b"])
+    def test_rem_line_does_not_hide_a_track(self, separator: str):
+        text = (
+            'FILE "game.bin" BINARY\n'
+            "  TRACK 01 MODE2/2352\n"
+            'FILE "unused.bin" BINARY\n'
+            f"REM ignored{separator}TRACK 02 AUDIO\n"
+        )
+
+        assert cue_track_names(text, "Game.cue") == ["game.bin"]
+
+    def test_reads_crlf_lines(self):
+        text = 'FILE "game.bin" BINARY\r\n  TRACK 01 MODE2/2352\r\n'
+
+        assert cue_track_names(text, "Game.cue") == ["game.bin"]
+
+    @pytest.mark.parametrize(
+        "line",
+        [
+            pytest.param("\x1cTRACK 02 AUDIO", id="before-track"),
+            pytest.param("TRACK\x1f02 AUDIO", id="inside-track"),
+        ],
+    )
+    def test_words_split_only_on_the_cli_whitespace(self, line: str):
+        text = (
+            'FILE "game.bin" BINARY\n'
+            "  TRACK 01 MODE2/2352\n"
+            'FILE "unused.bin" BINARY\n'
+            f"{line}\n"
+        )
+
+        assert cue_track_names(text, "Game.cue") == ["game.bin"]
+
+    def test_a_lone_carriage_return_does_not_end_a_line(self, tmp_path: Path):
+        cue = tmp_path / "game.cue"
+        cue.write_bytes(b'FILE "game.bin" BINARY\r  TRACK 01 MODE2/2352\r')
+
+        assert cue_tracks(cue) == []
+
+    def test_unsafe_untracked_file_still_raises(self):
+        text = (
+            'FILE "game.bin" BINARY\n'
+            "  TRACK 01 MODE2/2352\n"
+            'FILE "../unused.bin" BINARY\n'
+        )
+
+        with pytest.raises(RomConvertoUnsafeSourceError):
+            cue_track_names(text, "Game.cue")
+
+    def test_lists_a_file_with_several_tracks_once(self):
+        text = 'FILE "game.bin" BINARY\n' "  TRACK 01 MODE2/2352\n" "  TRACK 02 AUDIO\n"
+
+        assert cue_track_names(text, "Game.cue") == ["game.bin"]
+
+    @pytest.mark.parametrize("name", ["../x.bin", "", ".", "..", "sub/x.bin", "/x.bin"])
+    def test_text_refuses_unsafe_names(self, name: str):
+        with pytest.raises(RomConvertoUnsafeSourceError):
+            cue_track_names(f'FILE "{name}" BINARY\n', "Game.cue")
+
+
+class TestArchiveSource:
+    @pytest.mark.parametrize(
+        ("name", "expected"),
+        [
+            ("Game.ZIP", True),
+            ("Game.7z", True),
+            ("Game.rar", True),
+            ("Game.tar", True),
+            ("Game.TAR.GZ", True),
+            ("Game.tgz", True),
+            ("Game.gz", False),
+            ("Game.zip.iso", False),
+        ],
+    )
+    def test_archive_suffix(self, name: str, expected: bool):
+        assert is_archive(name) is expected
+
+    @pytest.mark.parametrize(
+        ("file_name", "members", "expected"),
+        [
+            pytest.param(
+                "My Game.zip",
+                [{"name": "rom.iso", "size": 900}, {"name": "readme.txt", "size": 10}],
+                ("rom.iso", 900),
+                id="single-image",
+            ),
+            pytest.param("Game.iso", None, ("Game.iso", 123), id="plain"),
+            pytest.param(
+                "Game.zip",
+                [
+                    {"name": "Game.cue", "size": 90},
+                    {"name": "Game (Track 1).bin", "size": 900},
+                    {"name": "Game (Track 2).bin", "size": 800},
+                ],
+                ("Game.cue", 90),
+                id="cue-tracks",
+            ),
+            pytest.param(
+                "Game.TGZ",
+                [{"name": "Game.ISO", "size": 900}],
+                ("Game.ISO", 900),
+                id="case-insensitive",
+            ),
+        ],
+    )
+    def test_conversion_source(self, file_name, members, expected):
+        rom_file = RomFile(
+            file_name=file_name,
+            file_path="psp/roms",
+            file_size_bytes=123,
+            archive_members=members,
+        )
+
+        assert conversion_source(rom_file) == expected
+
+    @pytest.mark.parametrize(
+        "names",
+        [
+            pytest.param(None, id="no-listing"),
+            pytest.param([], id="empty"),
+            pytest.param(["readme.txt"], id="no-image"),
+            pytest.param(["d1.cue", "d2.cue"], id="two-cues"),
+            pytest.param(["game.cue", "game.iso"], id="cue-and-iso"),
+            pytest.param(["Bonus.avi", "Game.iso"], id="video-and-iso"),
+            pytest.param(["Game.gdi", "game.cue"], id="gdi-and-cue"),
+            pytest.param(["Game.3dsx", "Game.cia"], id="3dsx-and-cia"),
+            pytest.param(["Game.nsp", "x.nca"], id="nca-and-nsp"),
+            pytest.param(["game.iso", "__MACOSX/._game.iso"], id="appledouble-image"),
+        ],
+    )
+    def test_ambiguous_archive_has_no_source(self, names):
+        rom_file = RomFile(
+            file_name="Game.zip",
+            file_path="psp/roms",
+            file_size_bytes=123,
+            archive_members=(
+                [{"name": name, "size": 900} for name in names]
+                if names is not None
+                else None
+            ),
+        )
+
+        assert conversion_source(rom_file) is None
 
 
 class TestFileFormat:
@@ -1020,6 +1342,25 @@ class TestResolveOperation:
         assert op.output_name(Path(file_name), ext) == output_name
 
     @pytest.mark.parametrize(
+        ("file_name", "target", "input_ext", "expected"),
+        [
+            ("My Game.zip", "iso", ".cso", "My Game.iso"),
+            ("Game.ISO.7z", "chd", ".iso", "Game.chd"),
+            ("x.TAR.GZ", "chd", ".iso", "x.chd"),
+            ("Game.cso.zip", "chd", ".iso", "Game.cso.chd"),
+            ("Game.ISO", "chd", ".iso", "Game.chd"),
+        ],
+    )
+    def test_output_name_strips_archive_then_matching_input(
+        self, file_name: str, target: str, input_ext: str, expected: str
+    ):
+        resolved = resolve_operation("psp", target, f"member{input_ext}")
+
+        assert resolved is not None
+        op, ext = resolved
+        assert op.output_name(Path(file_name), ext) == expected
+
+    @pytest.mark.parametrize(
         ("platform", "target", "file_name"),
         [
             pytest.param("psp", "iso", "Game.iso", id="already-in-target-format"),
@@ -1049,11 +1390,15 @@ class TestResolveOperation:
         op, ext = resolved
         assert op.argv == ("cue", "to-iso")
         assert op.output_name(Path("Game.cue"), ext) == "Game.iso"
+        assert resolve_operation(platform, "iso", "Game.cue", lossless=True) is None
 
 
 class TestLibraryTargetsByPlatform:
     def test_psp_targets(self):
         assert LIBRARY_TARGETS_BY_PLATFORM["psp"] == {"chd", "cso", "iso", "zso"}
+
+    def test_ps2_still_supports_iso(self):
+        assert "iso" in LIBRARY_TARGETS_BY_PLATFORM["ps2"]
 
     def test_platforms_without_format_conversions(self):
         for slug in ("wiiu", "psvita", "nds", "ps3"):

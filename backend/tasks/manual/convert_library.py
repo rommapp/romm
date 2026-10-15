@@ -6,6 +6,7 @@ import os
 import shutil
 import tempfile
 import time
+from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Final
@@ -17,14 +18,18 @@ from adapters.services.rom_converto import (
     Operation,
     RomConvertoError,
     RomConvertoUnsafeSourceError,
+    conversion_source,
+    cue_track_names,
     cue_tracks,
     file_format,
+    is_archive,
     resolve_operation,
     rom_converto_service,
 )
 from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_rom_handler
+from handler.filesystem.roms_handler import rom_file_unchanged
 from handler.rom_files import refresh_rom_files
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -32,11 +37,13 @@ from models.rom import Rom, RomFile, RomFileCategory
 from tasks.registry import CONVERT_LIBRARY_SPEC
 from tasks.scheduled.convert_images_to_webp import ConversionStats
 from tasks.tasks import Task
+from utils.archives import ArchiveReadError, list_archive_members, read_archive_member
 from utils.context import initialize_context
 from utils.filesystem import LINK_FALLBACK_ERRNOS, TEMP_FILE_PREFIX
 
 _PLAYLIST_EXT: Final = ".m3u"
 _CONVERT_STAGE_PREFIX: Final = f"{TEMP_FILE_PREFIX}convert_"
+_MAX_CUE_BYTES: Final = 1 << 20
 
 
 @dataclass
@@ -91,7 +98,7 @@ def _sources(src: Path, final: Path, input_ext: str) -> list[Path]:
     """The files a conversion of `src` replaces, refusing one that would overwrite."""
     if final.exists():
         raise FileExistsError(f"{final.name} already exists")
-    if input_ext != CUE_EXT:
+    if is_archive(src.name) or input_ext != CUE_EXT:
         return [src]
     tracks = cue_tracks(src)
     if shared := _shared_tracks(src, tracks):
@@ -99,6 +106,46 @@ def _sources(src: Path, final: Path, input_ext: str) -> list[Path]:
             f"{src.name} shares {sorted(p.name for p in shared)} with another cue"
         )
     return [src, *tracks]
+
+
+def _archive_unchanged(src: Path, rom_file: RomFile) -> bool:
+    """Whether archive `src` still matches its recorded size and modification time."""
+    st = os.stat(src)
+    return rom_file_unchanged(
+        rom_file, size=st.st_size, mtime=st.st_mtime, hashable=False
+    )
+
+
+def _archive_unsafe_reason(
+    src: Path, rom_file: RomFile, image: str, image_size: int
+) -> str | None:
+    """Why deleting archive `src` once its `image` is converted could lose data, or None."""
+    try:
+        if not _archive_unchanged(src, rom_file):
+            return "changed since the last scan"
+        members = list_archive_members(src)
+        # The scan leaves junk such as logs out of the record; the archive holds them still.
+        recorded = [member["name"] for member in rom_file.archive_members or []]
+        if Counter(members) != Counter(recorded):
+            return "holds files the scan did not record"
+        others = [
+            member.replace("\\", "/").rsplit("/", 1)[-1].casefold()
+            for member in members
+            if member != image
+        ]
+        kept: set[str] = set()
+        if image.lower().endswith(CUE_EXT):
+            if image_size > _MAX_CUE_BYTES:
+                return "its cue sheet is too large"
+            # Strict UTF-8 that keeps a BOM, as the CLI reads the sheet.
+            text = read_archive_member(src, image, _MAX_CUE_BYTES).decode("utf-8")
+            kept = {track.casefold() for track in cue_track_names(text, image)}
+        # The CLI pulls a cue's tracks out by base name, so each must be unique.
+        if len(others) != len(set(others)) or set(others) != kept:
+            return "holds files the conversion would not keep"
+        return None
+    except (ArchiveReadError, OSError, RomConvertoUnsafeSourceError, ValueError) as exc:
+        return str(exc)
 
 
 def _drop_stale_stages(folder: Path) -> None:
@@ -123,12 +170,18 @@ def _publish(stage_dir: Path, final: Path) -> None:
         os.replace(staged, final)
 
 
-def _replace_sources(sources: list[Path], final: Path) -> int:
+def _replace_sources(sources: list[Path], final: Path, rom_file: RomFile) -> int:
     """Delete the converted files and return the bytes the conversion saved."""
     saved = sum(p.stat().st_size for p in sources if p.exists()) - final.stat().st_size
     for path in sources:
         try:
+            if is_archive(path.name) and not _archive_unchanged(path, rom_file):
+                log.warning(f"Kept {hl(path.name)}: it changed during the conversion")
+                saved -= path.stat().st_size
+                continue
             path.unlink(missing_ok=True)
+        except FileNotFoundError:
+            continue
         except OSError as exc:
             log.warning(
                 f"Converted to {hl(final.name)} but could not delete {path}: {exc}"
@@ -180,13 +233,21 @@ class ConvertLibraryTask(Task):
         self, rom: Rom, target: str, stats: ConvertLibraryStats
     ) -> None:
         single_file = rom.has_simple_single_file
-        planned: list[tuple[RomFile, Operation, str]] = []
+        planned: list[tuple[RomFile, Operation, str, str, int]] = []
         for rom_file in _game_files(rom):
             if file_format(rom_file.file_name) == target:
                 stats.already_converted += 1
                 continue
+            source = conversion_source(rom_file)
+            if source is None:
+                log.info(
+                    f"Not converting {hl(rom_file.file_name)}: no recorded single image"
+                )
+                stats.unsupported += 1
+                continue
+            source_name, source_size = source
             resolved = resolve_operation(
-                rom.platform_slug, target, rom_file.file_name, lossless=True
+                rom.platform_slug, target, source_name, lossless=True
             )
             if resolved is None:
                 stats.unsupported += 1
@@ -198,7 +259,7 @@ class ConvertLibraryTask(Task):
                 )
                 stats.failed += 1
                 continue
-            planned.append((rom_file, *resolved))
+            planned.append((rom_file, *resolved, source_name, source_size))
         if not planned:
             return
         if not rom.is_identified:
@@ -209,9 +270,17 @@ class ConvertLibraryTask(Task):
         stage_parent = fs_rom_handler.validate_path(rom.fs_path)
         await asyncio.to_thread(_drop_stale_stages, stage_parent)
         # Originals go only once the rom and its playlists point at the new files.
-        published: list[tuple[Path, Path, list[Path]]] = []
-        for rom_file, operation, input_ext in planned:
+        published: list[tuple[Path, Path, list[Path], RomFile]] = []
+        for rom_file, operation, input_ext, source_name, source_size in planned:
             src = fs_rom_handler.validate_path(rom_file.full_path)
+            if is_archive(src.name):
+                reason = await asyncio.to_thread(
+                    _archive_unsafe_reason, src, rom_file, source_name, source_size
+                )
+                if reason is not None:
+                    log.info(f"Not converting {hl(rom_file.file_name)}: {reason}")
+                    stats.unsupported += 1
+                    continue
             final = src.with_name(operation.output_name(src, input_ext))
             try:
                 sources = await asyncio.to_thread(_sources, src, final, input_ext)
@@ -224,11 +293,11 @@ class ConvertLibraryTask(Task):
                 log.warning(f"Could not convert {hl(rom_file.file_name)}: {exc}")
                 stats.failed += 1
                 continue
-            published.append((src, final, sources))
+            published.append((src, final, sources, rom_file))
 
         if not published:
             return
-        renames = {src.name: final.name for src, final, _ in published}
+        renames = {src.name: final.name for src, final, _, _ in published}
         try:
             if single_file:
                 db_rom_handler.update_rom(rom.id, {"fs_name": renames[rom.fs_name]})
@@ -240,13 +309,13 @@ class ConvertLibraryTask(Task):
             log.warning(f"Kept the originals of {hl(rom.fs_name)}: {exc}")
             stats.failed += len(published)
             if single_file:
-                for _, final, _ in published:
+                for _, final, _, _ in published:
                     final.unlink(missing_ok=True)
             return
 
-        for src, final, sources in published:
+        for src, final, sources, rom_file in published:
             stats.bytes_saved += await asyncio.to_thread(
-                _replace_sources, sources, final
+                _replace_sources, sources, final, rom_file
             )
             stats.converted += 1
             log.info(f"Converted {hl(src.name)} to {hl(final.name)}")
