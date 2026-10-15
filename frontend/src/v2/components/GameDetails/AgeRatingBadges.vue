@@ -11,6 +11,7 @@
 import { RIcon, RTooltip } from "@v2/lib";
 import { computed, reactive } from "vue";
 import type { DetailedRom } from "@/stores/roms";
+import { searchLocation } from "@/v2/utils/searchLocation";
 
 // IGDB hosts every rating icon at a conventional URL, but not every
 // `category_rating` combo is actually populated: old/regional ratings
@@ -41,6 +42,8 @@ type Badge = {
   rating: string;
   category: string;
   rating_cover_url?: string | undefined;
+  // Search filters must use the stored entry, not the display label.
+  raw: string;
 };
 
 // IGDB icon URLs use lowercased rating codes with "+" stripped
@@ -78,12 +81,13 @@ const badges = computed<Badge[]>(() => {
         rating,
         category,
         rating_cover_url: igdbIconUrl(category, rating),
+        raw: entry,
       };
     }
 
     // IGDB entries already carry the icon URL.
     const igdbMatch = igdbByRating.get(entry.trim());
-    if (igdbMatch) return igdbMatch;
+    if (igdbMatch) return { ...igdbMatch, raw: entry };
 
     // ScreenScraper entries carry the category but no icon URL;
     // reconstruct the same way as the manual case.
@@ -92,10 +96,16 @@ const badges = computed<Badge[]>(() => {
       return {
         ...ssMatch,
         rating_cover_url: igdbIconUrl(ssMatch.category, ssMatch.rating),
+        raw: entry,
       };
     }
 
-    return { rating: entry, category: "", rating_cover_url: undefined };
+    return {
+      rating: entry,
+      category: "",
+      rating_cover_url: undefined,
+      raw: entry,
+    };
   });
 });
 </script>
@@ -110,19 +120,24 @@ const badges = computed<Badge[]>(() => {
       :open-delay="250"
     >
       <template #activator="{ props: activatorProps }">
-        <img
-          v-if="b.rating_cover_url && !failedImages.has(b.rating_cover_url)"
+        <router-link
           v-bind="activatorProps"
-          :src="b.rating_cover_url"
-          :alt="b.category ? `${b.category}: ${b.rating}` : b.rating"
-          class="age-ratings__img"
-          loading="lazy"
-          @error="failedImages.add(b.rating_cover_url!)"
-        />
-        <span v-else v-bind="activatorProps" class="age-ratings__chip">
-          <RIcon icon="mdi-shield-outline" size="13" />
-          {{ b.category ? `${b.category}: ${b.rating}` : b.rating }}
-        </span>
+          class="age-ratings__link"
+          :to="searchLocation('ageRatings', b.raw)"
+        >
+          <img
+            v-if="b.rating_cover_url && !failedImages.has(b.rating_cover_url)"
+            :src="b.rating_cover_url"
+            :alt="b.category ? `${b.category}: ${b.rating}` : b.rating"
+            class="age-ratings__img"
+            loading="lazy"
+            @error="failedImages.add(b.rating_cover_url!)"
+          />
+          <span v-else class="age-ratings__chip">
+            <RIcon icon="mdi-shield-outline" size="13" />
+            {{ b.category ? `${b.category}: ${b.rating}` : b.rating }}
+          </span>
+        </router-link>
       </template>
     </RTooltip>
   </div>
@@ -134,6 +149,15 @@ const badges = computed<Badge[]>(() => {
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
+}
+.age-ratings__link {
+  display: inline-flex;
+  border-radius: var(--r-radius-sm);
+  text-decoration: none;
+}
+.age-ratings__link:focus-visible {
+  outline: 2px solid var(--r-color-brand-primary);
+  outline-offset: 2px;
 }
 .age-ratings__img {
   width: 44px;
