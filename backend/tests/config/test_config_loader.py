@@ -1175,6 +1175,32 @@ def test_ejs_shaders_path_traversal_skipped(tmp_path):
     assert loader.config.EJS_SHADERS == {"valid.glsl": "valid"}
 
 
+def test_ejs_shaders_symlink_alias_and_circular_loop(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("")
+    shaders_dir = tmp_path / "shaders"
+    shaders_dir.mkdir()
+    passes_dir = shaders_dir / "passes"
+    passes_dir.mkdir()
+    (passes_dir / "pass1.glsl").write_text("pass1_content", encoding="utf-8")
+
+    try:
+        (shaders_dir / "alias").symlink_to(passes_dir, target_is_directory=True)
+        (shaders_dir / "loop").symlink_to(shaders_dir, target_is_directory=True)
+        (passes_dir / "subloop").symlink_to(passes_dir, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("Symlinks not supported in environment")
+
+    loader = ConfigManager(str(config_file))
+    assert "loop/valid.glsl" not in loader.config.EJS_SHADERS
+    assert "passes/subloop/pass1.glsl" not in loader.config.EJS_SHADERS
+    assert loader.config.EJS_SHADERS == {
+        "alias/pass1.glsl": "pass1_content",
+        "passes/pass1.glsl": "pass1_content",
+    }
+
+
+
 def test_ejs_settings_shader_validation(tmp_path, mocker, critical):
     config_file = tmp_path / "config.yml"
     config_file.write_text(

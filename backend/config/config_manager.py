@@ -1001,20 +1001,25 @@ class ConfigManager:
 
         shaders: dict[str, str] = {}
         total_size = 0
-        visited_dirs: set[Path] = {shaders_dir}
         for root, dirs, files in os.walk(shaders_dir, followlinks=True):
             pruned_dirs: list[str] = []
+            ancestors = [
+                shaders_dir,
+                *Path(root).resolve().parents,
+                Path(root).resolve(),
+                *(p.resolve() for p in Path(root).parents),
+            ]
             for d in dirs:
                 if d.startswith("."):
                     continue
                 resolved_dir = (Path(root) / d).resolve()
                 if (
                     resolved_dir.is_relative_to(shaders_dir)
-                    and resolved_dir not in visited_dirs
+                    and resolved_dir not in ancestors
                 ):
-                    visited_dirs.add(resolved_dir)
                     pruned_dirs.append(d)
             dirs[:] = pruned_dirs
+
 
             for file in files:
                 if file.startswith("."):

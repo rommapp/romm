@@ -43,17 +43,19 @@ import { useSnackbar, type SnackbarTone } from "@/v2/composables/useSnackbar";
 import { newest } from "@/v2/utils/assets";
 import { firmwareExternalFiles } from "@/v2/utils/playerFirmware";
 import { leaveFullscreen } from "@/v2/utils/playerFullscreen";
+import {
+  clearEmulatorJSShaders,
+  setEmulatorJSShaders,
+} from "@/v2/utils/playerShaders";
 import { browserDeviceId } from "@/v2/utils/saveSync/browserDevice";
 import { bytesEqual, saveContentHash } from "@/v2/utils/saveSync/hash";
 import { createRetryBackoff } from "@/v2/utils/saveSync/retryBackoff";
 import {
   saveSave,
-  clearEmulatorJSShaders,
   captureScreenshot,
   dumpSaveFile,
   exitEmulatorOnce,
   heldFor,
-  setEmulatorJSShaders,
   resolveScreenshot,
   saveState,
   bootEmulatorJSSave,

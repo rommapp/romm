@@ -39,11 +39,13 @@ import {
   resolveScreenshot,
 } from "@/views/Player/EmulatorJS/utils";
 import {
-  bootEmulatorJSSave,
   clearEmulatorJSShaders,
+  setEmulatorJSShaders,
+} from "@/v2/utils/playerShaders";
+import {
+  bootEmulatorJSSave,
   installEJSDefaultOptionsTrap,
   invalidateEmulatorJSRomCacheIfRenamed,
-  setEmulatorJSShaders,
 } from "@/views/Player/EmulatorJS/utils";
 
 const { t } = useI18n();
