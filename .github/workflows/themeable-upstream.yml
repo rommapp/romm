@@ -156,7 +156,7 @@ jobs:
       - name: Push the adoption branch
         if: steps.rel.outputs.skip != 'true'
         run: |
-          git add -A themeable
+          git add -A themeable docker-compose.yml
           git commit -m "chore(themeable): adopt RomM ${{ steps.rel.outputs.tag }}" -m "Catalog refreshed; ROMM_VERSION and the root docker-compose.yml's image tag bumped by the upstream release workflow."
           git push origin "HEAD:refs/heads/${{ steps.rel.outputs.branch }}"
 
