@@ -360,6 +360,14 @@ def test_a_container_without_a_broker_secret_falls_back_to_the_env_secret(config
     assert container.broker_secret == "from-env"
 
 
+def test_a_blank_broker_secret_with_no_env_secret_sends_none():
+    """A bare `broker_secret:` key is YAML null, not the secret "None"."""
+    with patch("handler.streaming.config.STREAMING_BROKER_SECRET", ""):
+        container = resolve_entry({**_webstation(), "broker_secret": None})
+    assert container is not None
+    assert container.broker_secret == ""
+
+
 def test_a_config_warning_does_not_print_the_broker_secret(
     client, access_token, caplog
 ):
