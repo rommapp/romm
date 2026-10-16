@@ -413,9 +413,7 @@ def test_get_config_ships_capabilities_for_a_retroarch_platform(client, access_t
 
 
 def test_get_config_ships_capabilities_for_a_ppsspp_container(client, access_token):
-    """A webstation container that maps psp to standalone PPSSPP got no states,
-    so the player offered only save and exit (#5230). Its broker saves and
-    loads the same one working slot as RetroArch."""
+    """A psp: ppsspp container ships and accepts the broker's one working state slot."""
     container = {
         "host": "http://192.168.1.10:3000",
         "broker_host": "http://192.168.1.10:8000",

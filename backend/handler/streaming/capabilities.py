@@ -152,9 +152,8 @@ _EMULATOR_CAPABILITIES: dict[str, _SlotCapabilities] = {
         "autosave_slot": 10,
         "has_memory_card": False,
     },
-    # PPSSPP (psp) behind the webstation broker has the same one working slot,
-    # saved and loaded over its state hotkeys. Its memory stick saves ride the
-    # save archive, not a card route.
+    # PPSSPP (psp) gets the same one working slot over its state hotkeys; its
+    # memory stick saves ride the save archive, not a card route.
     "ppsspp": {
         "max_slots": 0,
         "has_autosave": True,
