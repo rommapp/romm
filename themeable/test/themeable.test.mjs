@@ -305,3 +305,28 @@ test("the compiled manifest carries the shared client values", async () => {
   assert.deepEqual(manifest.client, { ...CLIENT });
   assert.ok(readFileSync(join(out, "themeable/loader.js"), "utf8").includes(JSON.stringify(CLIENT.storage_key)));
 });
+
+test("docs/theme.example.json is current and sets every option validly", async () => {
+  const { buildExample, parseThemeColor, parseVuetifyThemes } = await import("../lib/example.mjs");
+  const { loadCatalog } = await import("../lib/catalog.mjs");
+  const { ROOT_FILES } = await import("../lib/pack.mjs");
+  const frontend = join(here, "..", "..", "frontend");
+  const readJson = (f) => JSON.parse(readFileSync(join(here, "..", f), "utf8"));
+  const expected = buildExample({
+    tokenCatalog: readJson("catalog/tokens.json"),
+    assetCatalog: readJson("catalog/assets.json"),
+    vuetify: parseVuetifyThemes(readFileSync(join(frontend, "src/styles/themes.ts"), "utf8")),
+    themeColor: parseThemeColor(readFileSync(join(frontend, "index.html"), "utf8")),
+  });
+  const example = readJson("docs/theme.example.json");
+  assert.deepEqual(example, expected, "run `npm run example`");
+
+  const schema = readJson("schema/theme.schema.json");
+  assert.deepEqual(Object.keys(example).sort(), Object.keys(schema.properties).sort(), "every top-level option is set");
+  assert.deepEqual(Object.keys(example.rootFiles).sort(), [...ROOT_FILES].sort());
+  const catalog = loadCatalog(join(here, "..", "catalog"));
+  assert.equal(Object.keys(example.assets).length, catalog.assets.size, "every replaceable file is listed");
+  assert.equal(new Set(Object.values(example.tokens).flatMap(Object.keys)).size, catalog.tokens.size, "every token is listed");
+  const { errors } = validatePack({ dir: tmpdir(), pack: example }, catalog);
+  assert.deepEqual(errors.filter((e) => !/missing file/.test(e)), []);
+});

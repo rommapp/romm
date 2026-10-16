@@ -34,7 +34,7 @@ export const EXCLUDED_ASSET_DIRS = [
   "romm",
 ];
 
-const ASSET_PATH = /^\/assets\/[A-Za-z0-9._/-]+$/;
+const ASSET_PATH = /^\/assets\/[A-Za-z0-9._/ -]+$/;
 const UNSAFE_VALUE = /[{};<>\\]/;
 const VUETIFY_COLOR = /^[a-z][a-z0-9-]*$/;
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;

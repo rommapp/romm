@@ -49,7 +49,7 @@
     "assets": {
       "type": "object",
       "description": "Stock /assets/... path to a file inside the pack with the same extension.",
-      "propertyNames": { "pattern": "^/assets/[A-Za-z0-9._/-]+$" },
+      "propertyNames": { "pattern": "^/assets/[A-Za-z0-9._/ -]+$" },
       "additionalProperties": { "type": "string" }
     },
     "rootFiles": {

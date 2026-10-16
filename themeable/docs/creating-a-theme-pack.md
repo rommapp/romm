@@ -57,6 +57,8 @@ To change the pack later, edit its files and click **Save changes** again; savin
 
 ## theme.json reference
 
+[`theme.example.json`](theme.example.json) sets every option below: each token at its stock value, the v1 palette, every replaceable file, every favicon, a font, the browser color and custom CSS. Copy the parts you want into your own `theme.json` and delete the rest; the file paths in it show where each replacement would go in your pack, but the files themselves aren't included. It is regenerated for every RomM release, so it always matches the current one.
+
 | Key | Required | What it does |
 | --- | --- | --- |
 | `id` | yes | Lowercase letters, digits and dashes, up to 64 characters, matching the folder name. `none`, `default`, `index` and `stock` are reserved. |

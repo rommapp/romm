@@ -141,6 +141,7 @@ jobs:
         run: |
           if node scripts/check-upstream.mjs --report "$RUNNER_TEMP/check.md"; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
           node scripts/catalog.mjs
+          node scripts/example.mjs
           echo "${{ steps.rel.outputs.tag }}" > ROMM_VERSION
           sed -i -E "s/(romm-themeable:|ROMM_VERSION: )[0-9]+\.[0-9]+\.[0-9]+[A-Za-z0-9.-]*/\1${{ steps.rel.outputs.tag }}/g" ../docker-compose.yml
           npm test

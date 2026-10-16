@@ -80,6 +80,7 @@ Run in `themeable/` (Node 20 or later; no dependencies to install):
 | `npm run build -- [--packs packs] [--catalog catalog] [--out dist] [--default <id>\|none]` | Validates and compiles the built-in packs into `dist/`; fails on any invalid pack. |
 | `npm run catalog` | Regenerates `catalog/` from this repo's `frontend/`; `--tokens <css file\|dir> --assets-list <file> --out <dir>` reads a built image instead. |
 | `npm run check-upstream -- [--upstream <repo root>] [--report <file.md>]` | Compares the committed catalog with the current tree, checks hook anchors, patches, overlay collisions and packs; exits 1 on breakage. |
+| `npm run example -- [--check]` | Regenerates [`docs/theme.example.json`](docs/theme.example.json), a pack with every option set, from the catalog and upstream's v1 palette; `--check` fails if it is out of date. The release workflow runs it after the catalog. |
 | `npm run preview` | Local preview described above. |
 | `npm run visual` | Visual check: loads the login screen for stock and every built-in pack in both modes and fails if a pack's tokens, artwork or inlined artwork didn't apply, or if it looks the same as stock. Needs a frontend build, nginx and Playwright's Chromium (set `CHROMIUM_PATH` to use another). |
 | `node scripts/apply-source.mjs --root <copy> [--only frontend\|backend] [--no-tests]` | Applies `overlay/` and `patches/` to a copy of RomM's source. Refuses the repository checkout itself unless `--force` (CI uses that on its throwaway checkout). |
