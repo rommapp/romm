@@ -36,6 +36,7 @@ const ASSET_PATH = /^\/assets\/[A-Za-z0-9._/-]+$/;
 const UNSAFE_VALUE = /[{};<>\\]/;
 const VUETIFY_COLOR = /^[a-z][a-z0-9-]*$/;
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
+const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 const FONT_FORMATS = { ".woff2": "woff2", ".woff": "woff", ".ttf": "truetype", ".otf": "opentype" };
 
 export function listPacks(packsDir) {
@@ -48,6 +49,7 @@ export function listPacks(packsDir) {
 export function loadPack(dir) {
   const file = join(dir, "theme.json");
   const pack = JSON.parse(readFileSync(file, "utf8"));
+  if (!isObject(pack)) throw new Error("theme.json must contain a JSON object");
   return { dir: resolve(dir), pack };
 }
 
@@ -68,7 +70,7 @@ export function applyAliases(pack, aliases = {}) {
   const warnings = [];
   for (const scope of SCOPES) {
     const tokens = pack.tokens?.[scope];
-    if (!tokens) continue;
+    if (!isObject(tokens)) continue;
     for (const [oldName, newName] of Object.entries(aliases)) {
       if (!(oldName in tokens)) continue;
       if (!(newName in tokens)) tokens[newName] = tokens[oldName];
@@ -95,10 +97,21 @@ export function validatePack({ dir, pack }, catalog = {}) {
   }
   if (typeof pack.name !== "string" || !pack.name.trim()) err("name is required");
 
-  const tokens = pack.tokens ?? {};
+  const section = (key) => {
+    if (pack[key] === undefined) return {};
+    if (isObject(pack[key])) return pack[key];
+    err(`${key}: must be an object`);
+    return {};
+  };
+
+  const tokens = section("tokens");
   for (const scope of Object.keys(tokens)) {
     if (!SCOPES.includes(scope)) {
       err(`tokens.${scope}: unknown scope (use ${SCOPES.join(", ")})`);
+      continue;
+    }
+    if (!isObject(tokens[scope])) {
+      err(`tokens.${scope}: must be an object of token names and values`);
       continue;
     }
     for (const [name, value] of Object.entries(tokens[scope])) {
@@ -112,12 +125,17 @@ export function validatePack({ dir, pack }, catalog = {}) {
     }
   }
 
-  for (const mode of Object.keys(pack.vuetify ?? {})) {
+  const vuetify = section("vuetify");
+  for (const mode of Object.keys(vuetify)) {
     if (mode !== "dark" && mode !== "light") {
       err(`vuetify.${mode}: use "dark" or "light"`);
       continue;
     }
-    for (const [name, value] of Object.entries(pack.vuetify[mode])) {
+    if (!isObject(vuetify[mode])) {
+      err(`vuetify.${mode}: must be an object of color names and hex values`);
+      continue;
+    }
+    for (const [name, value] of Object.entries(vuetify[mode])) {
       if (!VUETIFY_COLOR.test(name)) err(`vuetify.${mode}: bad color name "${name}"`);
       if (!HEX.test(value)) err(`vuetify.${mode}.${name}: must be a #rgb or #rrggbb hex color`);
     }
@@ -132,7 +150,7 @@ export function validatePack({ dir, pack }, catalog = {}) {
     }
   };
 
-  for (const [key, rel] of Object.entries(pack.assets ?? {})) {
+  for (const [key, rel] of Object.entries(section("assets"))) {
     if (!ASSET_PATH.test(key) || key.includes("..")) {
       err(`assets["${key}"]: must be an /assets/... path`);
       continue;
@@ -148,7 +166,7 @@ export function validatePack({ dir, pack }, catalog = {}) {
     }
   }
 
-  for (const [key, rel] of Object.entries(pack.rootFiles ?? {})) {
+  for (const [key, rel] of Object.entries(section("rootFiles"))) {
     if (!ROOT_FILES.has(key)) {
       err(`rootFiles["${key}"]: allowed keys are ${[...ROOT_FILES].join(", ")}`);
       continue;
@@ -156,7 +174,8 @@ export function validatePack({ dir, pack }, catalog = {}) {
     checkFile("rootFiles", key, rel);
   }
 
-  (pack.fonts ?? []).forEach((font, i) => {
+  if (pack.fonts !== undefined && !Array.isArray(pack.fonts)) err("fonts: must be a list");
+  (Array.isArray(pack.fonts) ? pack.fonts : []).forEach((font, i) => {
     if (!font || typeof font.family !== "string" || UNSAFE_VALUE.test(font.family) || /["']/.test(font.family)) {
       err(`fonts[${i}].family: required, without quotes or { } ; < > \\`);
     }
@@ -170,7 +189,7 @@ export function validatePack({ dir, pack }, catalog = {}) {
     }
   });
 
-  if (pack.pwa?.themeColor !== undefined && !HEX.test(pack.pwa.themeColor)) {
+  if (section("pwa").themeColor !== undefined && !HEX.test(pack.pwa.themeColor)) {
     err("pwa.themeColor must be a hex color");
   }
 

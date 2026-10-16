@@ -218,3 +218,45 @@ test("root docker-compose.yml pins the image to ROMM_VERSION", () => {
   for (const tag of tags) assert.equal(tag, version);
   assert.match(compose, /^\s+- \/path\/to\/themes:\/romm\/themes /m, "themes volume is mapped");
 });
+
+test("a malformed pack disables only itself", async () => {
+  const { collectPacks, compileAll } = await import("../lib/compile.mjs");
+  const folder = mkdtempSync(join(tmpdir(), "themeable-packs-"));
+  const shapes = {
+    "null-scope": { tokens: { common: null } },
+    "string-scope": { tokens: { dark: "red" } },
+    "null-tokens": { tokens: null },
+    "null-vuetify-mode": { vuetify: { dark: null } },
+    "fonts-object": { fonts: { family: "x" } },
+    "assets-list": { assets: ["/assets/isotipo.svg"] },
+    "pwa-string": { pwa: "#fff" },
+  };
+  for (const [id, extra] of Object.entries(shapes)) {
+    mkdirSync(join(folder, id));
+    writeFileSync(join(folder, id, "theme.json"), JSON.stringify({ id, name: id, ...extra }));
+  }
+  mkdirSync(join(folder, "not-an-object"));
+  writeFileSync(join(folder, "not-an-object", "theme.json"), "null");
+  const out = mkdtempSync(join(tmpdir(), "themeable-out-"));
+  const result = compileAll({
+    entries: collectPacks([
+      { dir: join(here, "../packs"), source: "built-in" },
+      { dir: folder, source: "folder" },
+    ]),
+    catalog: { aliases: { "--r-old": "--r-new" } },
+    outDir: out,
+    selected: "null-scope",
+    loaderSource: readFileSync(join(here, "../loader/loader.js"), "utf8"),
+    pickerFile: join(here, "../picker/index.html"),
+  });
+  for (const id of [...Object.keys(shapes), "not-an-object"]) {
+    const status = result.packs.find((p) => p.id === id);
+    assert.equal(status.valid, false, id);
+    assert.ok(status.errors.length, `${id} reports why`);
+    assert.ok(!existsSync(join(out, "themes", id)), `${id} leaves no output`);
+  }
+  assert.ok(result.packs.find((p) => p.id === "ember").valid, "built-in pack still compiles");
+  assert.ok(existsSync(join(out, "themes/ember/theme.css")));
+  assert.equal(result.effective, "none");
+  assert.match(result.reason, /has errors/);
+});

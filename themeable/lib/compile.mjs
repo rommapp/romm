@@ -2,7 +2,7 @@
 // the Branding tab's Save changes. Writes a web root fragment:
 //   themes/<id>/theme.css + artwork, themes/index.json,
 //   themeable/loader.js + picker, themeable/root/ (favicons of the selected pack).
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { applyAliases, compilePack, listPacks, loadPack, validatePack, PACK_ID } from "./pack.mjs";
 
@@ -65,34 +65,41 @@ export function compileAll({ entries, catalog, outDir, selected = STOCK_ID, load
   const compiled = [];
   const packs = [];
   for (const entry of entries) {
+    const pack = entry.loaded?.pack;
+    const text = (v, fallback = "") => (typeof v === "string" ? v : fallback);
     const status = {
-      id: entry.loaded?.pack?.id ?? entry.name,
-      name: entry.loaded?.pack?.name ?? entry.name,
-      description: entry.loaded?.pack?.description ?? "",
-      author: entry.loaded?.pack?.author ?? "",
-      version: entry.loaded?.pack?.version ?? "",
+      id: entry.name,
+      name: text(pack?.name, entry.name),
+      description: text(pack?.description),
+      author: text(pack?.author),
+      version: text(pack?.version),
       source: entry.source,
-      swatch: swatch(entry.loaded?.pack),
+      swatch: swatch(pack),
       valid: false,
       errors: [...entry.errors],
       warnings: [...entry.warnings],
     };
-    if (entry.loaded) {
-      status.warnings.push(...applyAliases(entry.loaded.pack, catalog.aliases));
+    packs.push(status);
+    if (!entry.loaded) continue;
+    // A malformed pack must only ever disable itself, never the other packs.
+    const themeDir = join(outDir, "themes", entry.name);
+    try {
+      status.warnings.push(...applyAliases(pack, catalog.aliases));
       const { errors, warnings } = validatePack(entry.loaded, catalog);
-      if (entry.loaded.pack.id !== entry.name) errors.push(`id "${entry.loaded.pack.id}" must match its folder name "${entry.name}"`);
+      if (pack.id !== entry.name) errors.push(`id "${pack.id}" must match its folder name "${entry.name}"`);
       status.errors.push(...errors);
       status.warnings.push(...warnings);
-      if (!status.errors.length) {
-        try {
-          compiled.push({ ...compilePack(entry.loaded, catalog), swatch: status.swatch });
-          status.valid = true;
-        } catch (e) {
-          status.errors.push(`compile failed: ${e.message}`);
-        }
-      }
+      if (status.errors.length) continue;
+      const c = { ...compilePack(entry.loaded, catalog), swatch: status.swatch };
+      mkdirSync(themeDir, { recursive: true });
+      writeFileSync(join(themeDir, "theme.css"), c.css);
+      for (const f of c.files) copy(f.from, join(outDir, f.to));
+      compiled.push(c);
+      status.valid = true;
+    } catch (e) {
+      status.errors.push(`could not be compiled: ${e.message}`);
+      rmSync(themeDir, { recursive: true, force: true });
     }
-    packs.push(status);
   }
 
   let effective = selected;
@@ -103,12 +110,12 @@ export function compileAll({ entries, catalog, outDir, selected = STOCK_ID, load
     effective = STOCK_ID;
   }
 
-  for (const c of compiled) {
-    const themeDir = join(outDir, "themes", c.meta.id);
-    mkdirSync(themeDir, { recursive: true });
-    writeFileSync(join(themeDir, "theme.css"), c.css);
-    for (const f of c.files) copy(f.from, join(outDir, f.to));
-    if (c.meta.id === effective) for (const f of c.rootFiles) copy(f.from, join(outDir, "themeable", "root", f.to));
+  const active = compiled.find((c) => c.meta.id === effective);
+  try {
+    for (const f of active?.rootFiles ?? []) copy(f.from, join(outDir, "themeable", "root", f.to));
+  } catch (e) {
+    rmSync(join(outDir, "themeable", "root"), { recursive: true, force: true });
+    packs.find((p) => p.id === effective)?.warnings.push(`favicons could not be copied, so RomM's own are used: ${e.message}`);
   }
 
   const manifest = { default: effective, themes: compiled.map((c) => ({ ...c.meta, swatch: c.swatch })) };
