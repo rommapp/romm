@@ -203,7 +203,7 @@ From a clone of this repository, the local preview serves a frontend build throu
 node themeable/dev/preview.mjs --packs-folder ./my-themes --default midnight
 ```
 
-See the [README](../README.md#quick-start) for building the frontend first.
+See the [README](../README.md#developing-the-module) for building the frontend first.
 
 ## Readable colors
 

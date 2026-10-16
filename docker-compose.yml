@@ -1,5 +1,5 @@
 # romm-themeable production deployment (upstream's development stack is on master).
-# Fill in every /path/to/... and REQUIRED value first; setup and upgrades: themeable/README.md#quick-start
+# Fill in every /path/to/... and REQUIRED value first; setup and upgrades: themeable/README.md#deploying
 
 # Keeps container, network and volume names the same whatever the folder is called.
 name: romm

@@ -1,7 +1,7 @@
 name: themeable upstream release
 
 # Adopts each new stable RomM release into `themeable` through a checked, self-merging PR.
-# Needs the THEMEABLE_BOT_TOKEN secret; see themeable/README.md#automation and #repository-setup.
+# Needs the THEMEABLE_BOT_TOKEN secret; see themeable/README.md#staying-current-with-romm and #repository-setup.
 on:
   schedule:
     - cron: "17 * * * *"

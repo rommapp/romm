@@ -1,7 +1,7 @@
 name: themeable source check
 
 # Checks RomM's source at `ref` with the overlay and patches applied: frontend lint and
-# type-check, and the Branding API tests. See themeable/README.md#automation.
+# type-check, and the Branding API tests. See themeable/README.md#staying-current-with-romm.
 on:
   workflow_call:
     inputs:
