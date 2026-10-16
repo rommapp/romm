@@ -53,7 +53,7 @@ COPY --from=module /out/hooks/default.conf.template /etc/nginx/templates/default
 COPY --from=module /out/src/backend/ /backend/
 COPY --from=module /themeable/ /themeable/
 # Compiled themes live in a writable folder so the backend can rebuild them as any user;
-# nginx reaches them through these links. Precompressed copies of the hooked files go,
+# nginx reaches them through these links (entrypoint.sh bridges a custom THEMEABLE_RUNTIME_DIR). Precompressed copies of the hooked files go,
 # since nginx would prefer them over the hooked versions.
 RUN set -eu; cd /var/www/html; \
     rm -f index.html.gz index.html.br sw.js.gz sw.js.br; \
