@@ -1,8 +1,5 @@
 #!/usr/bin/env node
-// Compiles every pack in packs/ into a web root fragment (see lib/compile.mjs) and fails
-// on any invalid pack. Used by CI, the local preview and the image's catalog check.
-//
-//   node scripts/build.mjs [--packs packs] [--catalog catalog] [--out dist] [--default <id>|none]
+// Compiles every pack in packs/ into a web root fragment; fails on any invalid pack.
 import { readFileSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";

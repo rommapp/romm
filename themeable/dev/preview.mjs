@@ -1,16 +1,6 @@
 #!/usr/bin/env node
-// Local preview without Docker: lays out a web root like the romm-themeable image
-// from a frontend build, applies the module the way the Dockerfile does, compiles
-// packs with the runtime script (as the container does at start-up) and serves it
-// all with the real, patched nginx template.
-//
-//   node themeable/dev/preview.mjs [--dist <frontend build>] [--packs-folder <dir>]
-//        [--default <id>|none] [--port 8099] [--api-port <port of a running backend>]
-//
-// Without --api-port, a stub API answers "logged out", which is enough for the login
-// screen and the theme picker. With it, nginx proxies /api to that backend; start the
-// backend with the THEMEABLE_* variables this prints so Branding can recompile.
-// Needs nginx on PATH. Ctrl-C stops everything.
+// Serves a frontend build like the romm-themeable image does, through the real patched nginx.
+// Options and the stub API: "Previewing without Docker" in themeable/README.md.
 import { spawn, spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";

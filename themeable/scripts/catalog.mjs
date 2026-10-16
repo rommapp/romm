@@ -1,8 +1,5 @@
 #!/usr/bin/env node
 // Regenerates catalog/tokens.json and catalog/assets.json from an upstream RomM tree or image.
-//
-//   node scripts/catalog.mjs                                   # from this repo's frontend/
-//   node scripts/catalog.mjs --tokens <css file|dir> --assets-list <file> --out <dir>
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";

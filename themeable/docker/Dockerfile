@@ -1,14 +1,6 @@
 # syntax=docker/dockerfile:1
-# RomM with the themeable module, built on a stock RomM release image.
-# Build context is the repository root:
-#
-#   docker build -f themeable/docker/Dockerfile \
-#     --build-arg ROMM_VERSION=<upstream tag> -t romm-themeable:<upstream tag> .
-#
-# The frontend is rebuilt from this branch's RomM source plus themeable/overlay and
-# themeable/patches (the Branding tab); the backend gets the Branding router patched
-# into the release image's own files. Theme packs are compiled when the container
-# starts, from the built-in packs and the folder mapped at /romm/themes.
+# RomM with the themeable module on a stock release image; build from the repository root.
+# How the stages fit together: themeable/README.md#how-it-works
 ARG ROMM_IMAGE=rommapp/romm
 ARG ROMM_VERSION=latest
 ARG NODE_IMAGE=node:24-alpine
@@ -52,9 +44,8 @@ COPY --from=module /out/hooks/index.html /out/hooks/sw.js /var/www/html/
 COPY --from=module /out/hooks/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=module /out/src/backend/ /backend/
 COPY --from=module /themeable/ /themeable/
-# Compiled themes live in a writable folder so the backend can rebuild them as any user;
-# nginx reaches them through these links (entrypoint.sh bridges a custom THEMEABLE_RUNTIME_DIR). Precompressed copies of the hooked files go,
-# since nginx would prefer them over the hooked versions.
+# nginx reaches the writable compiled themes through these links, and would prefer the
+# precompressed stock copies over the hooked files, so those go.
 RUN set -eu; cd /var/www/html; \
     rm -f index.html.gz index.html.br sw.js.gz sw.js.br; \
     rm -rf themes themeable; \

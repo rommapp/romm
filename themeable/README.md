@@ -18,6 +18,10 @@ services:
       - /path/to/themes:/romm/themes # theme packs, one folder each, plus themeable.json
 ```
 
+**First start:** replace every `/path/to/...` with a folder on the host, fill in every value marked `REQUIRED` (`openssl rand -hex 32` makes a good secret), run `docker compose up -d` from the clone's root and open `http://<host>/` to create the admin account. On this branch the root `docker-compose.yml` replaces upstream's development stack, which stays on `master` with `DEVELOPER_SETUP.md`. To build the image on the machine instead of pulling it, uncomment the `build:` block in the file and run `docker compose up -d --build`.
+
+**Upgrading:** back up the database, set the image tag to the new RomM release (images are tagged with the release they are built from), then run `docker compose pull && docker compose up -d`.
+
 Then:
 
 1. Put theme packs in `/path/to/themes`, one folder per pack ([how to write one](docs/creating-a-theme-pack.md)).
@@ -39,7 +43,7 @@ Then:
 docker build -f themeable/docker/Dockerfile --build-arg ROMM_VERSION=5.4.0 -t romm-themeable:5.4.0 .
 ```
 
-**Previewing without Docker:** build the frontend with the module applied, then serve it through the patched nginx config (needs `nginx` on your PATH). Without a backend the stub API is enough for the login screen and the theme picker; pass `--api-port` to proxy a running RomM backend.
+**Previewing without Docker:** build the frontend with the module applied, then serve it through the patched nginx config (needs `nginx` on your PATH). Without a backend the stub API is enough for the login screen and the theme picker; pass `--api-port` to proxy a running RomM backend, started with the `THEMEABLE_*` variables the preview prints so Branding can recompile. Other options: `--packs-folder <dir>`, `--default <id>|none`, `--port` (8099), `--dist <frontend build>`. Ctrl-C stops everything.
 
 ```bash
 mkdir -p /tmp/rt && cp -r frontend themeable /tmp/rt/   # a throwaway copy; the checkout stays untouched
@@ -73,15 +77,17 @@ Run in `themeable/` (Node 20 or later; no dependencies to install):
 | Command | Does |
 | --- | --- |
 | `npm test` | Unit tests, including both patches and the nginx rewrite against the real upstream files. |
-| `npm run build -- --default ember` | Validates and compiles the built-in packs into `dist/`; fails on any invalid pack. |
-| `npm run catalog` | Regenerates `catalog/` from this repo's `frontend/`. |
-| `npm run check-upstream` | Compares the committed catalog with the current tree, checks hook anchors, patches, overlay collisions and packs; exits 1 on breakage. |
+| `npm run build -- [--packs packs] [--catalog catalog] [--out dist] [--default <id>\|none]` | Validates and compiles the built-in packs into `dist/`; fails on any invalid pack. |
+| `npm run catalog` | Regenerates `catalog/` from this repo's `frontend/`; `--tokens <css file\|dir> --assets-list <file> --out <dir>` reads a built image instead. |
+| `npm run check-upstream -- [--upstream <repo root>] [--report <file.md>]` | Compares the committed catalog with the current tree, checks hook anchors, patches, overlay collisions and packs; exits 1 on breakage. |
 | `npm run preview` | Local preview described above. |
 | `npm run visual` | Visual check: loads the login screen for stock and every built-in pack in both modes and fails if a pack's tokens, artwork or inlined artwork didn't apply, or if it looks the same as stock. Needs a frontend build, nginx and Playwright's Chromium (set `CHROMIUM_PATH` to use another). |
-| `node scripts/apply-source.mjs --root <copy> [--only frontend\|backend]` | Applies `overlay/` and `patches/` to a copy of RomM's source. Refuses the repository checkout itself unless `--force` (CI uses that on its throwaway checkout). |
-| `node scripts/runtime.mjs [--select <id>\|none]` | What the container runs at start-up and on save; reads `THEMEABLE_PACKS_PATH` and `THEMEABLE_RUNTIME_DIR`. |
+| `node scripts/apply-source.mjs --root <copy> [--only frontend\|backend] [--no-tests]` | Applies `overlay/` and `patches/` to a copy of RomM's source. Refuses the repository checkout itself unless `--force` (CI uses that on its throwaway checkout). |
+| `node scripts/runtime.mjs [--select <id>\|none]` | What the container runs at start-up and on save; prints its status as JSON. Reads `THEMEABLE_PACKS_PATH` (default `/romm/themes`) and `THEMEABLE_RUNTIME_DIR` (default `/tmp/themeable`). |
+| `node scripts/apply-hooks.mjs --webroot <dir> --nginx <template> --out <dir> [--root-overlay <dir>] [--default <id>\|none]` | Writes the hooked `index.html` (loader tag), nginx template (`/assets` reads `/themes/<theme>/` first) and `sw.js` (precache revisions); the Dockerfile runs it. |
+| `node scripts/verify-image.mjs --css <image /assets dir> [--packs packs]` | Checks every pack token against a built image's CSS. |
 
-`scripts/verify-image.mjs --css <dir>` checks every pack token against a built image's CSS.
+`npm run visual` takes `--out <dir>` and `--port` (8199), uses Playwright from `frontend/node_modules`, and honours `CHROMIUM_PATH`.
 
 ## Automation
 

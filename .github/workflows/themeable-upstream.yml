@@ -1,14 +1,7 @@
 name: themeable upstream release
 
-# Hourly: when rommapp/romm publishes a new stable release, move `master` to that release
-# (master only ever holds upstream release commits), merge the release into a branch off
-# `themeable`, refresh the catalog, run the compatibility and visual checks, and open a
-# PR with both reports. When every check passes the PR merges itself (set the repository
-# variable THEMEABLE_AUTO_MERGE to "false" to review first); the merge then publishes the image.
-#
-# Needs the THEMEABLE_BOT_TOKEN secret: a fine-grained token on this repository with
-# Contents, Pull requests and Workflows set to read and write. GitHub's built-in token
-# can't push upstream's workflow-file changes, which most releases include.
+# Adopts each new stable RomM release into `themeable` through a checked, self-merging PR.
+# Needs the THEMEABLE_BOT_TOKEN secret; see themeable/README.md#automation and #repository-setup.
 on:
   schedule:
     - cron: "17 * * * *"
@@ -75,9 +68,8 @@ jobs:
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # master always equals the latest stable release commit. It moves forward when a release
-      # is posted, and is reset to the release when it holds unreleased upstream commits (from an
-      # earlier Sync fork); it holds no commits of its own. Manual runs with other tags leave it alone.
+      # master always equals the latest stable release commit, resetting away unreleased upstream
+      # commits; it holds none of its own. Manual runs with other tags leave it alone.
       - name: Sync master to the release
         env:
           TAG: ${{ steps.rel.outputs.tag }}

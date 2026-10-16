@@ -1,6 +1,5 @@
-// Finds CSS rules in upstream source that point at /assets/ artwork. Vite inlines
-// small files as data: URIs, so those rules never request the URL and nginx can't
-// swap them; the compiler re-points each rule at the pack's file instead.
+// Finds upstream CSS rules that point at /assets/ artwork. Vite inlines small files as data:
+// URIs that nginx can't swap, so the compiler re-points those rules at the pack's file.
 import { readFileSync, readdirSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 

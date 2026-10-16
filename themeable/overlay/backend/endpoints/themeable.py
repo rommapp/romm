@@ -1,8 +1,4 @@
-"""Branding (romm-themeable): list theme packs and choose the server's theme.
-
-Packs live in the mapped themes folder; compiling them is done by the module's
-Node runtime script, which this router runs and whose status it returns.
-"""
+"""Branding (romm-themeable): list theme packs and choose the server's theme."""
 
 import asyncio
 import json

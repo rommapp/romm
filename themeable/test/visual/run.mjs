@@ -1,12 +1,6 @@
 #!/usr/bin/env node
-// Visual check: serves a frontend build through the patched nginx (dev/preview.mjs),
-// then, for stock and every pack in dark and light mode, loads the login screen and
-// asserts the theme actually took effect. Writes screenshots plus report.md/report.json.
-//
-//   (cd frontend && npm run build)
-//   node themeable/test/visual/run.mjs [--out <dir>] [--port 8199]
-//
-// Uses Playwright from frontend/node_modules; set CHROMIUM_PATH to use a specific browser.
+// Loads the login screen for stock and every pack in both modes through the patched nginx,
+// asserting each theme took effect; writes screenshots and report.md/report.json.
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";

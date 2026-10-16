@@ -40,10 +40,7 @@ function splitDeclarations(body) {
   return out;
 }
 
-/**
- * Extracts --r-* custom properties per scope.
- * Returns { common: {name: value}, dark: {...}, light: {...}, "input-key": {...}, "input-pad": {...} }.
- */
+/** Extracts --r-* custom properties as { <scope>: { name: value } } for each token scope. */
 export function parseTokenCss(cssText) {
   const css = cssText.replace(/\/\*[\s\S]*?\*\//g, "");
   const scopes = Object.fromEntries(SCOPES.map((s) => [s, {}]));

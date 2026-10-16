@@ -83,10 +83,7 @@ export function applyAliases(pack, aliases = {}) {
   return warnings;
 }
 
-/**
- * Validates a pack against the upstream catalog.
- * catalog = { tokens: Set<string>, assets: Set<string> } (either may be omitted to skip that check).
- */
+/** Validates a pack against the upstream catalog ({ tokens, assets } Sets; either may be omitted). */
 export function validatePack({ dir, pack }, catalog = {}) {
   const errors = [];
   const warnings = [];
@@ -226,10 +223,7 @@ export function scopeSelectors(id) {
   };
 }
 
-/**
- * Compiles a validated pack.
- * Returns { css, files: [{ from, to }], rootFiles: [{ from, to }], meta, hash } with `to` relative to the output root.
- */
+/** Compiles a validated pack into { css, files, rootFiles, meta, hash }, paths relative to the output root. */
 export function compilePack({ dir, pack }, { cssReferences = {} } = {}) {
   const id = pack.id;
   const base = `/themes/${id}`;

@@ -1,8 +1,6 @@
 #!/usr/bin/env node
-// Compares the committed catalog with a fresh one from the current upstream tree and
-// checks the anchors the module relies on. Exits 1 when a pack or a hook would break.
-//
-//   node scripts/check-upstream.mjs [--upstream <repo root>] [--report <file.md>]
+// Compares the committed catalog with the current upstream tree and checks the module's anchors;
+// exits 1 when a pack or a hook would break.
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";

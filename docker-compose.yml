@@ -1,26 +1,5 @@
-# romm-themeable: RomM with theme packs managed from Administration -> Branding.
-#
-# Production deployment. On the themeable branch this file replaces upstream RomM's
-# root docker-compose.yml, which is a development stack (it is unchanged on master,
-# and DEVELOPER_SETUP.md describes it). It differs from upstream's
-# examples/docker-compose.example.yml in the image, the themes volume, pinned
-# versions, health checks and log limits.
-#
-# Before the first start:
-#   1. Replace every /path/to/... with a real folder on the host.
-#   2. Fill in every value marked REQUIRED. Use `openssl rand -hex 32` for secrets.
-#   3. From this folder, run `docker compose up -d` and open http://<host>/ to create
-#      the admin account.
-#
-# The theme module is part of the image; nothing else needs installing. At every
-# start the container compiles the packs in the themes folder (and the built-in
-# ones), then serves the theme selected in Administration -> Branding. If a pack is
-# broken, RomM still starts with its default look. Theme packs are covered in
-# themeable/docs/creating-a-theme-pack.md in the repository.
-#
-# Upgrading: change the image tag to the new RomM version (romm-themeable images
-# are tagged with the RomM release they are built from), then
-# `docker compose pull && docker compose up -d`. Back up the database first.
+# romm-themeable production deployment (upstream's development stack is on master).
+# Fill in every /path/to/... and REQUIRED value first; setup and upgrades: themeable/README.md#quick-start
 
 # Keeps container, network and volume names the same whatever the folder is called.
 name: romm
@@ -32,12 +11,9 @@ volumes:
 
 services:
   romm:
-    # Pinned to the RomM release this image is built from. :latest also exists, but
-    # a pinned tag keeps upgrades deliberate.
+    # Tagged with the RomM release it is built from; :latest also exists.
     image: ghcr.io/stealthx3/romm-themeable:5.4.0
-    # To build the image on this machine instead of pulling it, uncomment the block
-    # below and run `docker compose up -d --build` from a clone of
-    # https://github.com/Stealthx3/romm-themeable (themeable branch):
+    # To build on this machine instead, uncomment this and run `docker compose up -d --build`:
     # build:
     #   context: .
     #   dockerfile: themeable/docker/Dockerfile

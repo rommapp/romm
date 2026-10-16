@@ -1,8 +1,5 @@
 #!/usr/bin/env node
-// Checks compiled packs against the CSS actually shipped in a RomM image, so a pack
-// built for one release can't silently go stale on another.
-//
-//   node scripts/verify-image.mjs --css <image /assets dir with the built *.css> [--packs packs]
+// Checks compiled packs against the CSS shipped in a RomM image, so a pack can't go stale silently.
 import { join, resolve } from "node:path";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";

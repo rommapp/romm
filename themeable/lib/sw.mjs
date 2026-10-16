@@ -1,16 +1,12 @@
-// RomM's Workbox service worker precaches index.html (and a few root files) by MD5
-// revision. When the module changes one of those files, its revision must change too,
-// or browsers that installed the stock worker keep serving the stock copy.
+// RomM's service worker precaches root files by MD5 revision; a file the module changes needs
+// a new revision, or installed workers keep serving the stock copy.
 import { createHash } from "node:crypto";
 
 export function md5(buf) {
   return createHash("md5").update(buf).digest("hex");
 }
 
-/**
- * changed: { "index.html": Buffer|string, ... } keyed by precache url.
- * Returns { text, updated: [url...] }.
- */
+/** Sets the revision of each changed file ({ url: contents }); returns { text, updated }. */
 export function updatePrecacheRevisions(swText, changed) {
   const updated = [];
   let text = swText;

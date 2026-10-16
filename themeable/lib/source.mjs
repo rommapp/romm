@@ -1,6 +1,5 @@
-// Applies the module's additions to a copy of RomM's source: new files from
-// overlay/ (which must not already exist upstream) and the anchored patches in
-// patches/, in file-name order. Upstream files in the repository stay untouched.
+// Applies overlay/ (new files only) and the anchored patches/ to a copy of RomM's source,
+// never to the repository's own upstream files.
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";

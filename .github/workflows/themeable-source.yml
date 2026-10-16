@@ -1,8 +1,7 @@
 name: themeable source check
 
-# Applies themeable/overlay and themeable/patches to RomM's source at `ref` (inside the
-# CI checkout only) and checks the result: the patched frontend lints and type-checks,
-# and the Branding API's tests pass against MariaDB with the patched backend.
+# Checks RomM's source at `ref` with the overlay and patches applied: frontend lint and
+# type-check, and the Branding API tests. See themeable/README.md#automation.
 on:
   workflow_call:
     inputs:

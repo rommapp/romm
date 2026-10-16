@@ -1,7 +1,4 @@
-// Shared pack compilation for the image build, the container start-up step and
-// the Branding tab's Save changes. Writes a web root fragment:
-//   themes/<id>/theme.css + artwork, themes/index.json,
-//   themeable/loader.js + picker, themeable/root/ (favicons of the selected pack).
+// Pack compilation shared by the image build, container start-up and Branding's Save changes.
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { applyAliases, compilePack, listPacks, loadPack, validatePack, PACK_ID } from "./pack.mjs";
@@ -24,10 +21,7 @@ function copy(from, to) {
   copyFileSync(from, to);
 }
 
-/**
- * Loads packs from each source in order; a later source replaces an earlier pack with
- * the same folder name. Returns [{ name, dir, source, loaded?, errors, warnings }].
- */
+/** Loads packs from each source in order, a later source replacing a pack of the same folder name. */
 export function collectPacks(sources) {
   const byName = new Map();
   for (const { dir, source } of sources) {
@@ -57,10 +51,7 @@ export function readSelection(settingsFile) {
   }
 }
 
-/**
- * Validates and compiles packs into outDir.
- * Returns the status the Branding tab shows: every pack with its errors, and which theme is in effect.
- */
+/** Validates and compiles packs into outDir, returning the status the Branding tab shows. */
 export function compileAll({ entries, catalog, outDir, selected = STOCK_ID, loaderSource, pickerFile }) {
   const compiled = [];
   const packs = [];

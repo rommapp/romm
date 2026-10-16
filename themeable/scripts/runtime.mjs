@@ -1,13 +1,6 @@
 #!/usr/bin/env node
-// Compiles the built-in packs plus the packs in the mapped themes folder, inside the
-// running container. Runs at start-up (docker/entrypoint.sh) and when an admin saves
-// the Branding tab (via the backend). Prints the resulting status as JSON.
-//
-//   node scripts/runtime.mjs [--select <pack id>|none]
-//
-// Environment: THEMEABLE_PACKS_PATH (default /romm/themes), THEMEABLE_RUNTIME_DIR
-// (default /tmp/themeable). Output goes to <runtime>/builds/<n>, and <runtime>/current
-// is swapped to it in one rename, so nginx never serves a half-written build.
+// Compiles the built-in and folder packs in the running container (at start-up and on save);
+// builds go to <runtime>/builds/<n> and `current` swaps to one in a single rename.
 import {
   accessSync,
   closeSync,

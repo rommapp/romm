@@ -1,9 +1,6 @@
 #!/usr/bin/env node
-// Applies overlay/ and patches/ to a copy of RomM's source tree.
-//
-//   node scripts/apply-source.mjs --root <source copy> [--only frontend|backend] [--no-tests]
-//
-// Never point --root at the repository checkout itself: the upstream files there stay pristine.
+// Applies overlay/ and patches/ to a copy of RomM's source tree; the repository's own
+// upstream files stay pristine, so --root must not be the checkout itself.
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fail, parseArgs } from "../lib/args.mjs";

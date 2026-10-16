@@ -1,11 +1,5 @@
 #!/usr/bin/env node
-// Applies the hooks to files taken from a RomM image's web root, writing results to --out:
-//   index.html           loader tag added at the end of <head>
-//   default.conf.template  nginx /assets block reads /themes/<theme>/ first
-//   sw.js                precache revisions refreshed for every file the module changed
-//
-//   node scripts/apply-hooks.mjs --webroot /var/www/html --nginx <template> --out <dir>
-//        [--root-overlay <dir>] [--default <id>|none]
+// Applies the index.html, nginx and sw.js hooks to files from a RomM image's web root.
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fail, parseArgs } from "../lib/args.mjs";

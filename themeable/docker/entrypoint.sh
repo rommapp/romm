@@ -1,11 +1,9 @@
 #!/bin/sh
 # Compiles the theme packs, then hands over to RomM's own entrypoint unchanged.
-# A failure here never blocks RomM: without a build the loader is missing and
-# the browser simply shows RomM's default look.
+# A failure never blocks RomM: without a build the browser shows RomM's default look.
 
-# nginx reaches compiled themes through links fixed at /tmp/themeable (see the
-# Dockerfile), so a custom THEMEABLE_RUNTIME_DIR is bridged there; /tmp is writable
-# by any user, unlike the web root.
+# nginx's links are fixed at /tmp/themeable, so a custom THEMEABLE_RUNTIME_DIR is linked
+# there (/tmp is writable by any user, unlike the web root).
 WEB_RUNTIME_DIR=/tmp/themeable
 runtime_dir=${THEMEABLE_RUNTIME_DIR:-$WEB_RUNTIME_DIR}
 if [ "$runtime_dir" != "$WEB_RUNTIME_DIR" ]; then

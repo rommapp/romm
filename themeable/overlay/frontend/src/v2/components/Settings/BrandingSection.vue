@@ -1,7 +1,6 @@
 <script setup lang="ts">
-// BrandingSection (romm-themeable): choose the server's theme pack. Packs come from
-// the themes folder mapped into the container; saving stores the choice and has the
-// backend recompile every pack, so edits made on the host apply on save.
+// BrandingSection (romm-themeable): choose the server's theme pack. Saving recompiles every
+// pack from the mapped themes folder, so edits made on the host apply on save.
 import { RAlert, RBtn, REmptyState, RSpinner, RTag } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
