@@ -1,6 +1,6 @@
 // The one change to an upstream file: the nginx `location /assets` block learns to
 // look in /themes/<theme>/ first. Done by anchored rewrite so a mismatch fails loudly.
-import { PACK_ID } from "./pack.mjs";
+import { PACK_ID, ROOT_FILES } from "./pack.mjs";
 
 export const MARKER = "# themeable:";
 
@@ -29,7 +29,13 @@ export function patchNginx(conf, defaultTheme = "none") {
     .join("\n")
     .replace(/^\n/, "");
 
+  const rootFiles = [...ROOT_FILES].map((f) => f.slice(1).replace(/\./g, "\\.")).join("|");
   const block =
+    `${indent}${MARKER} favicons come from the server's selected theme when it ships them.\n` +
+    `${indent}location ~ "^/(${rootFiles})$" {\n` +
+    `${inner}add_header Cache-Control "no-cache";\n` +
+    `${inner}try_files /themeable/root$uri $uri =404;\n` +
+    `${indent}}\n\n` +
     `${indent}${MARKER} artwork comes from the active theme pack when it has the file.\n` +
     `${indent}# Responses depend on the romm_theme cookie, so they revalidate instead of caching blind.\n` +
     `${indent}location /assets {\n` +

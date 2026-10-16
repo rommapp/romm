@@ -46,14 +46,26 @@
     } catch (e) {
       fromUrl = null;
     }
-    if (fromUrl && known(fromUrl)) {
+    var preview = null;
+    try {
+      preview = new URLSearchParams(location.search).get("romm-theme-preview");
+    } catch (e) {
+      preview = null;
+    }
+    if (preview && known(preview)) return preview;
+    if (fromUrl === "default") {
+      try {
+        window.localStorage.removeItem(STORAGE_KEY);
+      } catch (e) {
+        /* nothing stored to clear */
+      }
+    } else if (fromUrl && known(fromUrl)) {
       save(fromUrl);
       return fromUrl;
     }
     var stored = readStored();
     if (stored && known(stored)) return stored;
-    var cookie = readCookie();
-    if (cookie && known(cookie)) return cookie;
+    // The cookie only carries the theme to nginx; the server's choice applies to anyone who hasn't picked one.
     return known(manifest.default) ? manifest.default : "none";
   }
 

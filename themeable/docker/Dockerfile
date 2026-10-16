@@ -1,48 +1,68 @@
 # syntax=docker/dockerfile:1
-# RomM with the themeable module layered on top of a stock release image.
-# Build context is the themeable/ folder:
+# RomM with the themeable module, built on a stock RomM release image.
+# Build context is the repository root:
 #
 #   docker build -f themeable/docker/Dockerfile \
-#     --build-arg ROMM_VERSION=<upstream tag> --build-arg THEMEABLE_DEFAULT=ember \
-#     -t romm-themeable:<upstream tag> themeable
+#     --build-arg ROMM_VERSION=<upstream tag> -t romm-themeable:<upstream tag> .
 #
-# Nothing upstream is rebuilt: packs are compiled against the CSS and artwork the
-# image actually ships, and the hooks are applied to copies of its files.
+# The frontend is rebuilt from this branch's RomM source plus themeable/overlay and
+# themeable/patches (the Branding tab); the backend gets the Branding router patched
+# into the release image's own files. Theme packs are compiled when the container
+# starts, from the built-in packs and the folder mapped at /romm/themes.
 ARG ROMM_IMAGE=rommapp/romm
 ARG ROMM_VERSION=latest
+ARG NODE_IMAGE=node:24-alpine
 
 FROM ${ROMM_IMAGE}:${ROMM_VERSION} AS romm
 
-# The stock image already carries Node, so the build runs there with no extra base image.
-FROM romm AS build
-ARG THEMEABLE_DEFAULT=none
+# The output is static JS/CSS, so it builds on the native platform like upstream's.
+FROM --platform=$BUILDPLATFORM ${NODE_IMAGE} AS frontend
+WORKDIR /src
+COPY frontend/package*.json frontend/.npmrc frontend/
+RUN cd frontend && npm ci --ignore-scripts --no-audit --no-fund
+COPY frontend/ frontend/
+COPY themeable/ themeable/
+RUN node themeable/scripts/apply-source.mjs --root /src --only frontend --force \
+ && cd frontend && npm run build
+
+# The release image carries Node, so the module's build steps run there.
+FROM romm AS module
 WORKDIR /themeable
-COPY . .
+COPY themeable/ ./
+COPY --from=frontend /src/frontend/dist /tmp/dist
 RUN set -eu; \
-    web=/var/www/html; \
-    mkdir -p /out/catalog /out/hooks; \
+    mkdir -p /out/catalog /out/hooks /out/src/backend; \
     cp catalog/token-aliases.json /out/catalog/; \
-    (cd "$web" && find assets -type f) > /out/assets.txt; \
-    node scripts/catalog.mjs --tokens "$web/assets" --assets-list /out/assets.txt --no-src --out /out/catalog; \
-    node scripts/build.mjs --catalog /out/catalog --out /out/web --default "$THEMEABLE_DEFAULT"; \
-    mkdir -p /out/web/root; \
-    (cd /out/web/root && find . -type f | sed 's#^\./##') > /out/root-files.txt; \
-    node scripts/apply-hooks.mjs --webroot "$web" --nginx /etc/nginx/templates/default.conf.template \
-      --root-overlay /out/web/root --out /out/hooks --default "$THEMEABLE_DEFAULT"
+    (cd /var/www/html && find assets -type f) > /tmp/assets.txt; \
+    node scripts/catalog.mjs --tokens /tmp/dist/assets --assets-list /tmp/assets.txt --no-src \
+      --css-refs-from catalog/assets.json --out /out/catalog; \
+    rm -rf catalog && cp -r /out/catalog catalog; \
+    node scripts/build.mjs --out /tmp/check; \
+    cp /backend/main.py /out/src/backend/main.py; \
+    node scripts/apply-source.mjs --root /out/src --only backend --no-tests; \
+    node scripts/apply-hooks.mjs --webroot /tmp/dist --nginx /etc/nginx/templates/default.conf.template --out /out/hooks; \
+    rm -rf dist /tmp/check overlay patches test dev
 
 FROM romm
 ARG ROMM_VERSION
-ARG THEMEABLE_DEFAULT=none
 LABEL org.opencontainers.image.source="https://github.com/Stealthx3/romm-themeable" \
-      org.opencontainers.image.description="RomM ${ROMM_VERSION} with the themeable theme module" \
-      io.romm-themeable.default-theme="${THEMEABLE_DEFAULT}"
-COPY --from=build /out/web/themes /var/www/html/themes
-COPY --from=build /out/web/themeable /var/www/html/themeable
-COPY --from=build /out/web/root/ /var/www/html/
-COPY --from=build /out/hooks/index.html /out/hooks/sw.js /var/www/html/
-COPY --from=build /out/hooks/default.conf.template /etc/nginx/templates/default.conf.template
-COPY --from=build /out/root-files.txt /tmp/themeable-root-files.txt
-# nginx prefers precompressed siblings, which still hold the stock content.
+      org.opencontainers.image.description="RomM ${ROMM_VERSION} with the themeable theme module"
+COPY --from=frontend /src/frontend/dist/ /var/www/html/
+COPY --from=module /out/hooks/index.html /out/hooks/sw.js /var/www/html/
+COPY --from=module /out/hooks/default.conf.template /etc/nginx/templates/default.conf.template
+COPY --from=module /out/src/backend/ /backend/
+COPY --from=module /themeable/ /themeable/
+# Compiled themes live in a writable folder so the backend can rebuild them as any user;
+# nginx reaches them through these links. Precompressed copies of the hooked files go,
+# since nginx would prefer them over the hooked versions.
 RUN set -eu; cd /var/www/html; \
-    for f in index.html sw.js $(cat /tmp/themeable-root-files.txt); do rm -f "$f.gz" "$f.br"; done; \
-    rm /tmp/themeable-root-files.txt
+    rm -f index.html.gz index.html.br sw.js.gz sw.js.br; \
+    rm -rf themes themeable; \
+    ln -s /tmp/themeable/current/themes themes; \
+    ln -s /tmp/themeable/current/themeable themeable; \
+    chmod +x /themeable/docker/entrypoint.sh
+ENV THEMEABLE_HOME=/themeable \
+    THEMEABLE_PACKS_PATH=/romm/themes \
+    THEMEABLE_RUNTIME_DIR=/tmp/themeable
+ENTRYPOINT ["/themeable/docker/entrypoint.sh"]
+CMD ["/init"]

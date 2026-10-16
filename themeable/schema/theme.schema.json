@@ -54,7 +54,7 @@
     },
     "rootFiles": {
       "type": "object",
-      "description": "Favicons and app icons; applied only when this pack is the image's default.",
+      "description": "Favicons and app icons; served from the server's selected theme.",
       "propertyNames": {
         "enum": [
           "/favicon.ico",
@@ -89,6 +89,6 @@
       "additionalProperties": false,
       "properties": { "themeColor": { "$ref": "#/$defs/hex" } }
     },
-    "extraCss": { "type": "string", "description": "Unsupported escape hatch, scoped to the theme." }
+    "extraCss": { "type": "string", "description": "A CSS file applied only while this theme is active (wrapped in the theme selector). Not checked against new RomM releases." }
   }
 }

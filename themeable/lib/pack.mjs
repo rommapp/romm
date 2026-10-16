@@ -180,7 +180,7 @@ export function validatePack({ dir, pack }, catalog = {}) {
     else {
       const text = readFileSync(full, "utf8");
       if (/<\/?style/i.test(text)) err("extraCss: must not contain <style> tags");
-      warnings.push("extraCss is unsupported across RomM releases; recheck it after every upgrade");
+      warnings.push("custom CSS (extraCss) isn't checked against new RomM releases; recheck it after upgrading");
     }
   }
 
@@ -245,7 +245,7 @@ export function compilePack({ dir, pack }, { cssReferences = {} } = {}) {
 
   if (pack.extraCss) {
     const extra = readFileSync(resolve(dir, pack.extraCss), "utf8");
-    parts.push(`/* extra.css (unsupported across releases) */\n:root[data-romm-theme="${id}"] {\n${extra}\n}\n`);
+    parts.push(`/* custom CSS (extraCss) */\n:root[data-romm-theme="${id}"] {\n${extra}\n}\n`);
   }
 
   const scope = `:root[data-romm-theme="${id}"]`;

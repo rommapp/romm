@@ -11,6 +11,7 @@ import { parseArgs } from "../lib/args.mjs";
 import { buildAssetCatalog, buildTokenCatalog, diffCatalogs, loadCatalog, readCss } from "../lib/catalog.mjs";
 import { findAssetsBlock } from "../lib/nginx.mjs";
 import { applyAliases, listPacks, loadPack, validatePack } from "../lib/pack.mjs";
+import { loadPatches, overlayFiles } from "../lib/source.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "..");
@@ -57,6 +58,23 @@ for (const [label, test] of anchors) {
     reason = ` (${e.message})`;
   }
   if (!ok) problems.push(`Anchor missing: ${label}${reason}`);
+}
+
+// Patches still apply, and overlay files don't collide with new upstream files.
+for (const patch of await loadPatches(join(root, "patches"))) {
+  const target = join(upstream, patch.file);
+  if (!existsSync(target)) {
+    problems.push(`Patch ${patch.name}: ${patch.file} no longer exists upstream`);
+    continue;
+  }
+  try {
+    patch.apply(readFileSync(target, "utf8"));
+  } catch (e) {
+    problems.push(`Patch ${patch.name} (${patch.description}) no longer applies: ${e.message}`);
+  }
+}
+for (const rel of overlayFiles(join(root, "overlay"))) {
+  if (existsSync(join(upstream, rel))) problems.push(`Overlay file ${rel} now exists upstream; rename it or turn it into a patch`);
 }
 
 // Every pack against the new catalog.

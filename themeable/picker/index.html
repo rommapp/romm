@@ -122,16 +122,10 @@
           try {
             stored = localStorage.getItem(KEY);
           } catch (e) {}
-          var m = document.cookie.match(/(?:^|;\s*)romm_theme=([a-z0-9-]+)/);
-          return stored || (m && m[1]) || manifest.default;
+          return stored || "default";
         }
         function use(id) {
-          try {
-            localStorage.setItem(KEY, id);
-          } catch (e) {}
-          var secure = location.protocol === "https:" ? "; Secure" : "";
-          document.cookie = "romm_theme=" + id + "; Path=/; Max-Age=31536000; SameSite=Lax" + secure;
-          location.href = "/";
+          location.href = "/?romm-theme=" + encodeURIComponent(id);
         }
         function card(theme, active) {
           var el = document.createElement("article");
@@ -169,13 +163,22 @@
           .then(function (manifest) {
             var active = current(manifest);
             var grid = document.getElementById("themes");
+            var server = manifest.themes.filter(function (t) {
+              return t.id === manifest.default;
+            })[0];
+            var serverChoice = {
+              id: "default",
+              name: "Server's theme",
+              description: "Follow the theme the admin picked" + (server ? " (currently " + server.name + ")" : " (currently RomM default)"),
+              swatch: server ? server.swatch : ["#07070f", "#8b74e8", "#e1a38d"],
+            };
             var stock = {
               id: "none",
-              name: "Stock RomM",
-              description: "The upstream look, no pack applied",
+              name: "RomM default",
+              description: "The stock RomM look, no theme applied",
               swatch: ["#07070f", "#8b74e8", "#e1a38d"],
             };
-            [stock].concat(manifest.themes).forEach(function (t) {
+            [serverChoice, stock].concat(manifest.themes).forEach(function (t) {
               grid.appendChild(card(t, t.id === active));
             });
           });

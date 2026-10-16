@@ -3,14 +3,10 @@ name: themeable
 on:
   push:
     branches: [themeable]
-    paths: ["themeable/**", ".github/workflows/themeable*.yml", "frontend/**", "docker/nginx/**"]
+    paths: ["themeable/**", ".github/workflows/themeable*.yml", "frontend/**", "backend/main.py", "docker/nginx/**"]
   pull_request:
     branches: [themeable]
   workflow_dispatch:
-    inputs:
-      default_theme:
-        description: Pack id used when a visitor has not picked a theme ("none" for stock)
-        default: none
 
 permissions:
   contents: read
@@ -36,6 +32,12 @@ jobs:
         if: always()
         run: cat "$RUNNER_TEMP/report.md" >> "$GITHUB_STEP_SUMMARY" || true
 
+  source:
+    needs: test
+    uses: ./.github/workflows/themeable-source.yml
+    with:
+      ref: ${{ github.sha }}
+
   visual:
     needs: test
     uses: ./.github/workflows/themeable-visual.yml
@@ -43,7 +45,7 @@ jobs:
       ref: ${{ github.sha }}
 
   image:
-    needs: [test, visual]
+    needs: [test, source, visual]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     steps:
@@ -62,16 +64,41 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build for a smoke test
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: themeable/docker/Dockerfile
+          platforms: linux/amd64
+          load: true
+          build-args: |
+            ROMM_VERSION=${{ steps.v.outputs.romm }}
+          tags: romm-themeable:smoke
+      - name: Smoke test the image
+        run: |
+          docker run --rm --entrypoint sh romm-themeable:smoke -c '
+            set -e
+            node /themeable/scripts/runtime.mjs --select ember > /tmp/status.json
+            grep -q "\"effective\":\"ember\"" /tmp/status.json
+            test -f /var/www/html/themes/ember/theme.css
+            test -f /var/www/html/themeable/loader.js
+            grep -q "/themeable/loader.js" /var/www/html/index.html
+            test -f /backend/endpoints/themeable.py
+            grep -q "themeable_router" /backend/main.py
+            export ROMM_PORT=8080 DEV_PORT=5000 IPV6_LISTEN= NGINX_ACCESS_LOG= ROMM_BASE_PATH=/romm ROMM_CACHE_BASE_PATH=/tmp/romm/cache
+            /docker-entrypoint.d/20-envsubst-on-templates.sh >/dev/null
+            nginx -t
+            echo "smoke test passed"
+          '
       - name: Build and push
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
-          context: themeable
+          context: .
           file: themeable/docker/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           build-args: |
             ROMM_VERSION=${{ steps.v.outputs.romm }}
-            THEMEABLE_DEFAULT=${{ inputs.default_theme || 'none' }}
           tags: |
             ghcr.io/${{ steps.v.outputs.owner }}/romm-themeable:${{ steps.v.outputs.romm }}
             ghcr.io/${{ steps.v.outputs.owner }}/romm-themeable:latest

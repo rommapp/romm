@@ -1,64 +1,70 @@
 # RomM Themeable
 
-A theme and artwork module for [RomM](https://github.com/rommapp/romm) that lives beside the upstream code instead of inside it. Theme packs change the v2 UI's colors, fonts, spacing, corner radius, motion, logos, backgrounds, placeholder art and platform icons. They are applied on top of a stock RomM release image, so each new upstream release needs a version bump and a read of one compatibility report, not a code merge.
+A theme and artwork module for [RomM](https://github.com/rommapp/romm) that lives beside the upstream code instead of inside it. Theme packs change the v2 UI's colors, fonts, spacing, corner radius, motion, logos, backgrounds, placeholder art, platform icons and favicons, and can add their own CSS. Packs live in a folder on the host; admins pick the server's theme in **Administration → Branding**. The module is layered onto each stock RomM release, so a new upstream release needs a version bump and a read of the release reports, not a code merge.
 
-Everything the module owns sits in this `themeable/` folder, plus two workflow files in `.github/workflows/` and a short banner at the top of the root `README.md`.
+Everything the module owns sits in this `themeable/` folder, plus the `themeable*` workflow files in `.github/workflows/` and a short banner at the top of the root `README.md`.
 
-**Status:** Phases 0 to 3 are built and tested; Phases 4 to 6 are planned. See [Development plan](#development-plan).
+**Status:** Phases 0 to 3, 6 and 8 are built and tested; Phase 4 (theme editor) is planned. See [Development plan](#development-plan).
 
 ## Quick start
 
-Build an image for a RomM release, with the example `ember` pack as the default theme:
+Run the published image (or build your own, below) with a themes folder mapped from the host. [`docker/docker-compose.example.yml`](docker/docker-compose.example.yml) is a complete example; the parts that differ from stock RomM are:
 
-```bash
-docker build -f themeable/docker/Dockerfile \
-  --build-arg ROMM_VERSION=5.4.0 \
-  --build-arg THEMEABLE_DEFAULT=ember \
-  -t romm-themeable:5.4.0 themeable
+```yaml
+services:
+  romm:
+    image: ghcr.io/stealthx3/romm-themeable:latest
+    volumes:
+      - /path/to/themes:/romm/themes # theme packs, one folder each, plus themeable.json
 ```
 
-Use it anywhere you'd use `rommapp/romm:5.4.0`; nothing else in your compose file changes. Then:
+Then:
 
-- `/themeable/` lists the installed themes and lets each browser pick one ("Stock RomM" turns theming off).
-- `?romm-theme=<id>` on any RomM URL switches theme, which is handy for links and testing.
-- `THEMEABLE_DEFAULT` sets what visitors get before they pick. `none` means stock.
+1. Put theme packs in `/path/to/themes`, one folder per pack ([how to write one](docs/creating-a-theme-pack.md)).
+2. In RomM, open **Administration → Branding**, choose a theme and click **Save changes**. Saving stores the choice in `/path/to/themes/themeable.json` and recompiles every pack from the folder, so edits made on the host apply when you save. The refresh button in the tab rescans the folder without changing the selection.
+3. Everyone who hasn't picked their own theme gets the server's theme on their next page load.
 
-To preview without Docker, build the frontend and serve it through the patched nginx config with a stub API (needs `nginx` on your PATH):
+**Getting back to RomM's own look** always works:
+
+- Choose **RomM default** (always the first entry) in Branding and save.
+- Delete or empty `themeable.json` in the themes folder and restart the container.
+- `?romm-theme=none` on any RomM URL forces it in that browser, even if the Branding tab itself fails to load.
+- A missing, unreadable or broken theme falls back to RomM's look automatically, and a pack that fails to compile never stops RomM from starting.
+
+**Per-browser choice:** `/themeable/` lists the installed themes and lets each browser pick its own, or follow the server's theme. `?romm-theme=<id>` switches a browser to a theme, `?romm-theme=default` returns it to the server's theme, and `?romm-theme-preview=<id>` shows a theme for one page view without saving anything (the Branding tab's **Preview** buttons use it).
+
+**Building the image yourself** (build context is the repository root):
 
 ```bash
-(cd frontend && npm ci && npm run build)
-node themeable/dev/preview.mjs --default ember    # http://localhost:8099/login and /themeable/
+docker build -f themeable/docker/Dockerfile --build-arg ROMM_VERSION=5.4.0 -t romm-themeable:5.4.0 .
+```
+
+**Previewing without Docker:** build the frontend with the module applied, then serve it through the patched nginx config (needs `nginx` on your PATH). Without a backend the stub API is enough for the login screen and the theme picker; pass `--api-port` to proxy a running RomM backend.
+
+```bash
+mkdir -p /tmp/rt && cp -r frontend themeable /tmp/rt/   # a throwaway copy; the checkout stays untouched
+node /tmp/rt/themeable/scripts/apply-source.mjs --root /tmp/rt --only frontend --force
+(cd /tmp/rt/frontend && npm ci && npm run build)
+node themeable/dev/preview.mjs --dist /tmp/rt/frontend/dist --packs-folder ./my-themes --default ember
+# http://localhost:8099/login and /themeable/; Branding needs a backend (--api-port)
 ```
 
 ## Writing a pack
 
-A pack is a folder in `packs/` holding `theme.json` and its files. The folder name must equal `id`. [`packs/ember`](packs/ember) is a full example; [`schema/theme.schema.json`](schema/theme.schema.json) gives editors autocompletion.
-
-| Key | What it does |
-| --- | --- |
-| `id`, `name`, `version`, `author`, `description` | Metadata shown in the picker. `id` is lowercase letters, digits and dashes. |
-| `tokens.common` / `tokens.dark` / `tokens.light` | Overrides for RomM's `--r-*` design tokens. `common` applies in both modes; `dark` and `light` win over it in their mode. |
-| `tokens.input-key` / `tokens.input-pad` | Overrides used only while the keyboard or a gamepad is driving focus. |
-| `assets` | Replaces a stock file: `"/assets/isotipo.svg": "assets/logo.svg"`. Same extension as the original. |
-| `rootFiles` | Favicons and app icons. Applied only for the image's default pack, since browsers cache them hard. |
-| `fonts` | `@font-face` entries for font files in the pack. Point `--r-font-family-sans` or `-display` at the family. |
-| `vuetify.dark` / `vuetify.light` | Best-effort palette for the legacy v1 UI (`primary`, `background`, `surface`...). |
-| `pwa.themeColor` | The browser chrome color (`<meta name="theme-color">`). |
-| `extraCss` | Escape hatch: raw CSS scoped to the theme. Unsupported across releases. |
-
-Every token name is checked against `catalog/tokens.json`, and every replaced file against `catalog/assets.json`. Run `npm run build` in this folder to validate and compile; errors name the key at fault.
+See **[Creating a theme pack](docs/creating-a-theme-pack.md)**: folder layout, every `theme.json` key, colors and fonts, artwork, favicons, custom CSS, previewing and installing. [`packs/ember`](packs/ember) is a full example and [`schema/theme.schema.json`](schema/theme.schema.json) gives editors autocompletion.
 
 ## How it works
 
-![Themes reach RomM through three build-time hooks](docs/hooks.svg)
+![Themes reach RomM through four hooks](docs/hooks.svg)
 
-The Dockerfile starts `FROM rommapp/romm:<tag>`, compiles the packs against the CSS and artwork that image actually ships, and changes three things:
+The Dockerfile starts `FROM rommapp/romm:<tag>` and changes these things:
 
-1. **Loader in `index.html`.** One `<script src="/themeable/loader.js">` at the end of `<head>`. Before the app renders, it picks the theme (URL, then this browser's choice, then the server default), sets `data-romm-theme` on `<html>`, adds the pack's stylesheet and sets the `romm_theme` cookie. RomM's service worker precaches `index.html` by MD5 revision, so the hook also updates that revision in `sw.js`; otherwise browsers that installed the stock worker would keep the stock page.
-2. **nginx `/assets` block.** `try_files /themes/$themeable_theme$uri $uri ...`, where `$themeable_theme` comes from the cookie through a `map` that only accepts valid pack ids. A pack's file wins if it has one; otherwise the stock file is served. These responses are sent `no-cache` with `Vary: Cookie`. This is the only upstream file the module edits, and it does so by anchored rewrite (`lib/nginx.mjs`) that fails the build if the block changes shape.
-3. **Packs copied to `/themes/<id>/`.** Each compiled `theme.css` scopes its rules under `:root[data-romm-theme="<id>"]`, which outranks upstream's token rules whatever order the stylesheets load in.
+1. **Loader in `index.html`.** One `<script src="/themeable/loader.js">` at the end of `<head>`. Before the app renders, it picks the theme (preview URL, then this browser's own choice, then the server's theme), sets `data-romm-theme` on `<html>`, adds the pack's stylesheet and sets the `romm_theme` cookie that tells nginx which artwork to serve. RomM's service worker precaches `index.html` by MD5 revision, so the hook also updates that revision in `sw.js`; otherwise browsers that installed the stock worker would keep the stock page.
+2. **nginx config.** In the `/assets` block, `try_files /themes/$themeable_theme$uri $uri ...`, where `$themeable_theme` comes from the cookie through a `map` that only accepts valid pack ids; a pack's file wins if it has one, otherwise the stock file is served, sent `no-cache` with `Vary: Cookie`. A second location serves favicons from the server's theme when it ships them. Both are an anchored rewrite (`lib/nginx.mjs`) that fails the build if the template changes shape.
+3. **Branding in RomM itself.** New files in `overlay/` (the Branding tab, its API client and English text, and the backend router) are copied into RomM's source, and the small edits in `patches/` register the tab in `Administration.vue` and the router in the backend's `main.py`. The image build rebuilds the frontend with them and patches the release image's own backend. Upstream files in this repository are never edited, so releases merge cleanly; a patch that stops applying fails the build and the release checks with a clear message.
+4. **Start-up compile.** The image's entrypoint (`docker/entrypoint.sh`) runs `scripts/runtime.mjs` before RomM's own entrypoint. It compiles the built-in packs and the packs in `/romm/themes` into `/tmp/themeable` (writable whatever user the container runs as; nginx reaches it through links in the web root), switching to each new build in one step. Saving in Branding runs the same script through the backend.
 
-Vite inlines small CSS artwork, such as the login background, into the app bundle as `data:` URIs. Those never hit nginx, so the catalog records every CSS rule in upstream source that uses an `/assets/` file. For each replaced file, the compiler emits a matching rule that points at the pack's copy.
+Each compiled `theme.css` scopes its rules under `:root[data-romm-theme="<id>"]`, which outranks upstream's token rules whatever order the stylesheets load in. Vite inlines small CSS artwork, such as the login background, into the app bundle as `data:` URIs, which never reach nginx; the catalog records every upstream CSS rule that uses an `/assets/` file, and the compiler emits a matching rule pointing at the pack's copy.
 
 ## Commands
 
@@ -66,12 +72,14 @@ Run in `themeable/` (Node 20 or later; no dependencies to install):
 
 | Command | Does |
 | --- | --- |
-| `npm test` | Unit tests, including the patch against the real nginx template. |
-| `npm run build -- --default ember` | Validates and compiles packs into `dist/`. |
+| `npm test` | Unit tests, including both patches and the nginx rewrite against the real upstream files. |
+| `npm run build -- --default ember` | Validates and compiles the built-in packs into `dist/`; fails on any invalid pack. |
 | `npm run catalog` | Regenerates `catalog/` from this repo's `frontend/`. |
-| `npm run check-upstream` | Compares the committed catalog with the current tree, checks hook anchors and packs; exits 1 on breakage. |
+| `npm run check-upstream` | Compares the committed catalog with the current tree, checks hook anchors, patches, overlay collisions and packs; exits 1 on breakage. |
 | `npm run preview` | Local preview described above. |
-| `npm run visual` | Visual check: loads the login screen for stock and every pack in both modes and fails if a pack's tokens, artwork or inlined artwork didn't apply, or if it looks the same as stock. Needs a frontend build, nginx and Playwright's Chromium (set `CHROMIUM_PATH` to use another). |
+| `npm run visual` | Visual check: loads the login screen for stock and every built-in pack in both modes and fails if a pack's tokens, artwork or inlined artwork didn't apply, or if it looks the same as stock. Needs a frontend build, nginx and Playwright's Chromium (set `CHROMIUM_PATH` to use another). |
+| `node scripts/apply-source.mjs --root <copy> [--only frontend\|backend]` | Applies `overlay/` and `patches/` to a copy of RomM's source. Refuses the repository checkout itself unless `--force` (CI uses that on its throwaway checkout). |
+| `node scripts/runtime.mjs [--select <id>\|none]` | What the container runs at start-up and on save; reads `THEMEABLE_PACKS_PATH` and `THEMEABLE_RUNTIME_DIR`. |
 
 `scripts/verify-image.mjs --css <dir>` checks every pack token against a built image's CSS.
 
@@ -81,9 +89,10 @@ Three workflows keep the module current without anyone touching it, leaving a PR
 
 | Workflow | Runs | Does |
 | --- | --- | --- |
-| `themeable` | Every push and PR to `themeable` | Unit tests and compatibility check, then the visual check, then (on push) builds and publishes `ghcr.io/stealthx3/romm-themeable:<ROMM_VERSION>` and `:latest`. |
+| `themeable` | Every push and PR to `themeable` | Unit tests and compatibility check, then the source and visual checks, then (on push) builds the image, smoke-tests it (start-up compile, theme links, patched files, nginx config) and publishes `ghcr.io/stealthx3/romm-themeable:<ROMM_VERSION>` and `:latest`. |
 | `themeable upstream release` | Hourly, or by hand with a tag | When RomM publishes a new stable release: moves `master` forward to that release's commit, merges the tag into a `themeable-upstream/<tag>` branch, runs the compatibility check, refreshes the catalog, bumps `ROMM_VERSION`, runs the visual check against the new release's frontend, and opens a PR with both reports. If everything passed, it merges the PR, which publishes the new image. Otherwise the PR stays open, titled "needs attention". |
-| `themeable visual check` | Called by the other two | Builds the frontend with upstream's own setup action and runs `npm run visual`; screenshots are kept as the `themeable-visual` artifact for 90 days. |
+| `themeable visual check` | Called by the other two | Builds the frontend (with the overlay and patches) using upstream's own setup action and runs `npm run visual`; screenshots are kept as the `themeable-visual` artifact for 90 days. |
+| `themeable source check` | Called by the other two | Applies the overlay and patches, lints and type-checks the patched frontend, and runs the Branding API tests against MariaDB with the patched backend. |
 
 `master` is never synced on its own schedule: it moves only when a new stable release is posted, so it always equals the latest release commit (unreleased upstream commits, for example from a past **Sync fork**, are reset away) (prereleases and manual runs with other tags leave it alone). Don't use GitHub's **Sync fork** button, which would move it to upstream's latest commit. A merge conflict or a missing secret opens an issue instead. Set the repository variable `THEMEABLE_AUTO_MERGE` to `false` to review every adoption before it merges.
 
@@ -107,14 +116,52 @@ The module ships as files added on top of a stock RomM release, never as edits t
 | 2. Runtime switching | Loader, cookie-driven nginx artwork, picker page, service worker revision fix, inlined-artwork rewrite | 3 to 5 days | Done, except saving the choice to the user's account |
 | 3. Catalog and checker | Token, asset and CSS-reference catalog; release diff report; token aliases | 2 to 3 days | Done |
 | 4. Theme editor | Standalone page at `/themeable/studio/`: token editor by group with contrast checks, live preview in an iframe, artwork slots with upload, fonts, zip export and import | 1.5 to 2 weeks | Not started; the loader's `preview()` and `postMessage` channel are in place for it |
-| 5. Save service (optional) | Sidecar at `/themeable/api` storing packs on a volume; admin check through RomM's `/api/users/me` | 3 to 5 days | Not started |
+| 5. Save service (optional) | Superseded by Phase 8, which manages packs from a host folder through RomM's own backend | | Superseded |
 | 6. Release automation | Hourly upstream release check and adoption PR with compatibility and visual checks; auto-merge when both pass; image published on merge | 2 to 3 days | Done for logged-out screens; screens behind login need a seeded backend in CI |
+| 8. Branding | Packs on a mapped host folder, managed from a new **Administration → Branding** tab; see [Phase 8](#phase-8-branding) | 2 to 2.5 weeks | Done |
+
+### Phase 8: Branding
+
+Theme packs live in a host folder mapped into the container (for example `/path/to/themes:/romm/themes`). Admins pick the server's theme in **Administration → Branding** and click **Save changes**, which stores the choice and recompiles the packs from the folder. No image rebuild is needed to add or change a theme.
+
+**Branding tab:**
+
+- A radio-button list of themes. **RomM default** (the stock look, no pack) is always the first option.
+- Each entry shows the theme's name, color swatch, source (built-in or host folder) and status: valid, or the validation errors that keep it from being used. A **Preview** link opens RomM with that theme in a new tab.
+- At most 10 themes per page; longer lists get page controls inside the tab.
+- **Save changes** at the end of the list saves the selection and reloads the packs, then shows the result.
+- Visible to admins only, in the v2 interface. Text is English only for now; untranslated strings fall back to English.
+
+**Always able to revert to RomM's default look:**
+
+- The selection is saved in `themeable.json` in the themes folder, so it survives rebuilds and can be edited from the host.
+- If `themeable.json` is missing or unreadable, or the selected theme has been removed or no longer compiles, RomM uses its default look and the Branding tab says why.
+- `?romm-theme=none` on any RomM URL forces the default look in that browser, even if the Branding tab itself fails to load.
+- A pack that fails to compile is skipped; it never stops RomM from starting.
+
+**How it fits the module's independence from upstream:**
+
+| Part | Where it lives | Upstream files touched |
+| --- | --- | --- |
+| Runtime compiler and startup hook | `themeable/scripts/`, an entrypoint wrapper in the image | None |
+| Backend API (`/api/themeable/...`, admin only) | New router in `themeable/overlay/backend/` | One small patch registering the router |
+| Branding tab | New component in `themeable/overlay/frontend/` | One small patch adding the tab to `Administration.vue` |
+
+New files are copied into RomM's source at build time from `themeable/overlay/`. Edits to existing files are small patches in `themeable/patches/`. The image build applies both and rebuilds the frontend, so the upstream files on this branch stay untouched and releases keep merging cleanly. If a release changes a patched spot, the patch stops applying, the build fails with a clear message, and the adoption PR stays open as "needs attention".
+
+| Step | Deliverable | Estimate | Status |
+| --- | --- | --- | --- |
+| 8a | Packs compiled from the mapped folder at startup and on save, into a writable folder inside the container; works as a non-root user | 2 to 3 days | Done |
+| 8b | Backend API: list packs with status, save the selection and reload | 2 days | Done |
+| 8c | Branding tab: radio list, RomM default first, 10 per page, Save changes | 3 to 4 days | Done |
+| 8d | Overlay and patch system, frontend rebuild in the image, release pipeline step | 3 days | Done |
+| 8e | Theme-pack guide, deployment example with the volume, verification | 1 to 2 days | Done |
 
 **Next steps:**
 
-- Save the chosen theme to `user.ui_settings` so it follows the user across devices. The backend replaces the whole object on each write, so the loader must read, merge and send it all back.
-- Add a theme entry to RomM's own UI. That needs an upstream patch, so for now the picker lives at `/themeable/`.
-- Build the editor (Phase 4) on the catalog's `group` field and token defaults.
+- Build the theme editor (Phase 4) on top of Branding: edit a pack's tokens with a live preview and save it into the themes folder.
+- Optionally save a user's own theme choice to their RomM account (`user.ui_settings`) so it follows them across devices. The backend replaces that whole object on each write, so the loader must read, merge and send it all back.
+- Translate the Branding tab's text. It is English only today because adding keys to every locale file would add conflict-prone edits to upstream files; untranslated text falls back to English.
 
 ## What the RomM codebase gives the module
 
@@ -136,7 +183,9 @@ The module ships as files added on top of a stock RomM release, never as edits t
 | JS-baked colors (`colorCoverArt`, `colorCanvas`) | Generated placeholder covers and the player canvas ignore themes | Accept, or carry a small patch to `v2/utils/covers.ts` |
 | Local token overrides | `.r-v2-bg__layer--a` redefines some surface tokens over cover art | Override in `extraCss` if needed |
 | Build-time platform-icon list | Packs can replace icons but not add platforms upstream lacks | Replace existing icons only |
-| Theme choice is per browser | A new device starts on the server default | `ui_settings` sync (next steps) |
+| Theme choice is per browser | A visitor's own pick doesn't follow them to other devices | The server's theme from Branding covers everyone who hasn't picked; `ui_settings` sync is a next step |
+| Patched RomM files | A release that reshapes `Administration.vue` or the router list in `main.py` stops a patch from applying | The compatibility check, the source check and the image build all fail with the patch's name; the adoption PR stays open and the daily audit proposes a fix |
+| Frontend rebuilt from this branch | The image's interface comes from this branch's copy of RomM's source rather than upstream's published build | Each release is merged in before building; the compatibility check compares the two |
 | v1 UI | Palette only | v1 is scheduled for deletion upstream |
 
 ## Repository setup

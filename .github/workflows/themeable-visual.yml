@@ -27,6 +27,9 @@ jobs:
       - name: Set up the frontend
         uses: ./.github/actions/setup-frontend
 
+      - name: Apply overlay and patches
+        run: node themeable/scripts/apply-source.mjs --root . --only frontend --force
+
       - name: Build the frontend
         working-directory: frontend
         run: npm run build

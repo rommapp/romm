@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
@@ -140,4 +140,72 @@ test("catalog diff reports removals", () => {
   assert.deepEqual(d.tokensRemoved, ["--r-b"]);
   assert.deepEqual(d.tokenDefaultsChanged, ["--r-a"]);
   assert.deepEqual(d.assetsRemoved, ["/assets/x.svg"]);
+});
+
+test("folder packs replace built-in ones and broken packs are reported", async () => {
+  const { collectPacks } = await import("../lib/compile.mjs");
+  const builtIn = mkdtempSync(join(tmpdir(), "themeable-builtin-"));
+  const folder = mkdtempSync(join(tmpdir(), "themeable-folder-"));
+  for (const [dir, name, source] of [[builtIn, "ember", "b"], [folder, "ember", "f"]]) {
+    mkdirSync(join(dir, name));
+    writeFileSync(join(dir, name, "theme.json"), JSON.stringify({ id: name, name: source }));
+  }
+  mkdirSync(join(folder, "broken"));
+  writeFileSync(join(folder, "broken", "theme.json"), "{ nope");
+  const entries = collectPacks([{ dir: builtIn, source: "built-in" }, { dir: folder, source: "folder" }]);
+  assert.deepEqual(entries.map((e) => [e.name, e.source]), [["broken", "folder"], ["ember", "folder"]]);
+  assert.match(entries[0].errors[0], /could not be read/);
+});
+
+test("an unreadable or invalid selection falls back to RomM's default look", async () => {
+  const { readSelection } = await import("../lib/compile.mjs");
+  const dir = mkdtempSync(join(tmpdir(), "themeable-sel-"));
+  const file = join(dir, "themeable.json");
+  assert.deepEqual(readSelection(file), { theme: "none", note: null });
+  writeFileSync(file, "garbage");
+  assert.equal(readSelection(file).theme, "none");
+  writeFileSync(file, JSON.stringify({ theme: "../etc" }));
+  assert.equal(readSelection(file).theme, "none");
+  writeFileSync(file, JSON.stringify({ theme: "ember" }));
+  assert.equal(readSelection(file).theme, "ember");
+});
+
+test("a selected theme that doesn't compile leaves RomM's default look in effect", async () => {
+  const { collectPacks, compileAll } = await import("../lib/compile.mjs");
+  const out = mkdtempSync(join(tmpdir(), "themeable-out-"));
+  const result = compileAll({
+    entries: collectPacks([{ dir: join(here, "../packs"), source: "built-in" }]),
+    catalog: { aliases: {} },
+    outDir: out,
+    selected: "missing",
+    loaderSource: readFileSync(join(here, "../loader/loader.js"), "utf8"),
+    pickerFile: join(here, "../picker/index.html"),
+  });
+  assert.equal(result.effective, "none");
+  assert.match(result.reason, /not installed/);
+  assert.match(readFileSync(join(out, "themeable/loader.js"), "utf8"), /"default":"none"/);
+});
+
+test("patches apply to the current upstream files and the overlay doesn't collide", async () => {
+  const { loadPatches, overlayFiles } = await import("../lib/source.mjs");
+  for (const patch of await loadPatches(join(here, "../patches"))) {
+    const original = readFileSync(join(repo, patch.file), "utf8");
+    const patched = patch.apply(original);
+    assert.notEqual(patched, original, `${patch.name} changed nothing`);
+    assert.equal(patch.apply(patched), patched, `${patch.name} is not idempotent`);
+  }
+  for (const rel of overlayFiles(join(here, "../overlay"))) {
+    assert.ok(!existsSync(join(repo, rel)), `${rel} exists upstream`);
+  }
+});
+
+test("the overlay refuses to replace an upstream file", async () => {
+  const { applyOverlay } = await import("../lib/source.mjs");
+  const overlay = mkdtempSync(join(tmpdir(), "themeable-ov-"));
+  const root = mkdtempSync(join(tmpdir(), "themeable-root-"));
+  mkdirSync(join(overlay, "backend"));
+  writeFileSync(join(overlay, "backend/main.py"), "ours");
+  mkdirSync(join(root, "backend"));
+  writeFileSync(join(root, "backend/main.py"), "upstream");
+  assert.throws(() => applyOverlay(overlay, root), /would replace an upstream file/);
 });

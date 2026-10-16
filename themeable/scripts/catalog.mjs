@@ -3,7 +3,7 @@
 //
 //   node scripts/catalog.mjs                                   # from this repo's frontend/
 //   node scripts/catalog.mjs --tokens <css file|dir> --assets-list <file> --out <dir>
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fail, parseArgs } from "../lib/args.mjs";
@@ -25,6 +25,11 @@ const assetCatalog = buildAssetCatalog({
   listFile: args["assets-list"] ? resolve(args["assets-list"]) : undefined,
   srcDir: args["no-src"] ? undefined : resolve(args.src ?? join(frontend, "src")),
 });
+
+// An image has no source to scan for CSS rules, so they can be carried over from a committed catalog.
+if (args["css-refs-from"]) {
+  assetCatalog.cssReferences = JSON.parse(readFileSync(resolve(args["css-refs-from"]), "utf8")).cssReferences ?? {};
+}
 
 mkdirSync(outDir, { recursive: true });
 writeFileSync(join(outDir, "tokens.json"), JSON.stringify(tokenCatalog, null, 2) + "\n");

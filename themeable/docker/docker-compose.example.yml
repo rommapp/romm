@@ -1,0 +1,65 @@
+# romm-themeable: RomM with theme packs managed from Administration -> Branding.
+# Based on upstream's examples/docker-compose.example.yml; the differences are the
+# image and the themes volume. Everything else works as in stock RomM.
+volumes:
+  mysql_data:
+  romm_resources:
+  romm_redis_data:
+
+services:
+  romm:
+    image: ghcr.io/stealthx3/romm-themeable:latest
+    # Or build it from a clone of this repository:
+    # build:
+    #   context: .
+    #   dockerfile: themeable/docker/Dockerfile
+    #   args:
+    #     ROMM_VERSION: 5.4.0
+    container_name: romm
+    restart: unless-stopped
+    environment:
+      - DB_HOST=romm-db
+      - DB_NAME=romm # Should match MARIADB_DATABASE in mariadb
+      - DB_USER=romm-user # Should match MARIADB_USER in mariadb
+      - DB_PASSWD= # Should match MARIADB_PASSWORD in mariadb
+      - ROMM_AUTH_SECRET_KEY= # Generate a key with `openssl rand -hex 32`
+      - SCREENSCRAPER_USER= # These are the recommended metadata providers
+      - SCREENSCRAPER_PASSWORD= # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#screenscraper
+      - RETROACHIEVEMENTS_API_KEY= # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#retroachievements
+      - STEAMGRIDDB_API_KEY= # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#steamgriddb
+      - HASHEOUS_API_ENABLED=true # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#hasheous
+      - SCAN_WORKERS=4 # How many ROMs to scan at once
+      - WEB_SERVER_CONCURRENCY=4 # Workers for API calls, raise for several concurrent users
+    volumes:
+      - romm_resources:/romm/resources # Resources fetched from IGDB (covers, screenshots, etc.)
+      - romm_redis_data:/redis-data # Cached data for background tasks
+      - /path/to/library:/romm/library # Your game library. Check https://docs.romm.app/latest/Getting-Started/Folder-Structure/ for more details.
+      - /path/to/assets:/romm/assets # Uploaded saves, states, etc.
+      - /path/to/config:/romm/config # (Optional) Path where config.yml is stored
+      - /path/to/themes:/romm/themes # Theme packs, one folder each; Branding saves its choice here as themeable.json
+      # - /path/to/sync:/romm/sync # Required for ENABLE_SYNC_FOLDER_WATCHER, and holds the SSH keys for ENABLE_SYNC_PUSH_PULL
+    ports:
+      - 80:8080
+    depends_on:
+      romm-db:
+        condition: service_healthy
+        restart: true
+
+  romm-db:
+    image: mariadb:latest
+    container_name: romm-db
+    restart: unless-stopped
+    environment:
+      - MARIADB_ROOT_PASSWORD= # Use a unique, secure password
+      - MARIADB_DATABASE=romm
+      - MARIADB_USER=romm-user
+      - MARIADB_PASSWORD=
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 30s
+      start_interval: 10s
+      interval: 10s
+      timeout: 5s
+      retries: 5
