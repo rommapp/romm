@@ -22,6 +22,7 @@ import {
   statSync,
   symlinkSync,
   writeFileSync,
+  writeSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -65,16 +66,37 @@ function writeJsonAtomic(file, data) {
   renameSync(tmp, file);
 }
 
+function alive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return e.code === "EPERM";
+  }
+}
+
+// The lock holds its owner's pid, so a run that was killed doesn't block the next one.
+function lockIsStale() {
+  try {
+    const pid = Number(readFileSync(lockFile, "utf8").trim());
+    if (Number.isInteger(pid) && pid > 0 && !alive(pid)) return true;
+    return Date.now() - statSync(lockFile).mtimeMs > 120000;
+  } catch {
+    return true;
+  }
+}
+
 function acquireLock() {
   const deadline = Date.now() + 30000;
   for (;;) {
     try {
-      closeSync(openSync(lockFile, "wx"));
+      const fd = openSync(lockFile, "wx");
+      writeSync(fd, String(process.pid));
+      closeSync(fd);
       return;
     } catch (e) {
       if (e.code !== "EEXIST") throw e;
-      // A lock older than two minutes belongs to a run that died.
-      if (Date.now() - statSync(lockFile).mtimeMs > 120000) rmSync(lockFile, { force: true });
+      if (lockIsStale()) rmSync(lockFile, { force: true });
       else if (Date.now() > deadline) throw new Error("another theme compile is still running");
       else Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250);
     }
@@ -85,14 +107,20 @@ function run() {
   mkdirSync(join(runtimeDir, "builds"), { recursive: true });
   const notes = [];
 
+  // A new selection is staged now (so an unwritable folder fails before any work) and
+  // only replaces themeable.json once its build is live, so a killed save changes nothing.
+  let selection;
+  let stagedSettings = null;
   if (args.select !== undefined) {
     const theme = String(args.select);
     if (theme !== STOCK_ID && (!PACK_ID.test(theme) || RESERVED_IDS.has(theme))) throw new Error(`"${theme}" is not a valid theme id`);
     if (!existsSync(packsDir)) mkdirSync(packsDir, { recursive: true });
-    writeJsonAtomic(settingsFile, { theme, updated: new Date().toISOString() });
+    stagedSettings = `${settingsFile}.${process.pid}.tmp`;
+    writeFileSync(stagedSettings, JSON.stringify({ theme, updated: new Date().toISOString() }, null, 2) + "\n");
+    selection = { theme, note: null };
+  } else {
+    selection = readSelection(settingsFile);
   }
-
-  const selection = readSelection(settingsFile);
   if (selection.note) notes.push(selection.note);
 
   const catalog = loadCatalog(join(home, "catalog"));
@@ -118,6 +146,7 @@ function run() {
   rmSync(tmpLink, { force: true });
   symlinkSync(join("builds", id), tmpLink);
   renameSync(tmpLink, link);
+  if (stagedSettings) renameSync(stagedSettings, settingsFile);
   for (const old of readdirSync(join(runtimeDir, "builds"))) {
     if (old !== id) rmSync(join(runtimeDir, "builds", old), { recursive: true, force: true });
   }
@@ -142,6 +171,7 @@ try {
   try {
     status = run();
   } finally {
+    rmSync(`${settingsFile}.${process.pid}.tmp`, { force: true });
     rmSync(lockFile, { force: true });
   }
 } catch (e) {

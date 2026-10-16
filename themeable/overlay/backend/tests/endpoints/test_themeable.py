@@ -1,5 +1,7 @@
+import asyncio
 import json
 import shutil
+import time
 from pathlib import Path
 
 import pytest
@@ -26,7 +28,62 @@ def themes(tmp_path, monkeypatch):
     monkeypatch.setenv("THEMEABLE_RUNTIME_DIR", str(runtime))
     monkeypatch.setattr(themeable, "THEMEABLE_HOME", MODULE_HOME)
     monkeypatch.setattr(themeable, "RUNTIME_DIR", runtime)
+    monkeypatch.setattr(themeable, "PACKS_PATH", packs)
     return packs
+
+
+# Stands in for runtime.mjs: takes the lock, stages a selection, ignores SIGTERM and
+# would only finish (writing "late") long after the backend gave up on it.
+SLOW_COMPILER = """
+import { mkdirSync, writeFileSync } from "node:fs";
+const runtime = process.env.THEMEABLE_RUNTIME_DIR;
+mkdirSync(runtime, { recursive: true });
+writeFileSync(`${runtime}/compile.lock`, String(process.pid));
+writeFileSync(`${process.env.THEMEABLE_PACKS_PATH}/themeable.json.${process.pid}.tmp`, "{}");
+process.on("SIGTERM", () => {});
+setTimeout(() => writeFileSync(`${runtime}/late`, "finished"), 4000);
+"""
+
+
+@pytest.fixture
+def slow_compiler(tmp_path, monkeypatch):
+    home = tmp_path / "slow-home"
+    (home / "scripts").mkdir(parents=True)
+    (home / "scripts" / "runtime.mjs").write_text(SLOW_COMPILER)
+    monkeypatch.setattr(themeable, "THEMEABLE_HOME", home)
+    monkeypatch.setattr(themeable, "STOP_GRACE_SECONDS", 0.5)
+    return themeable.RUNTIME_DIR
+
+
+def _assert_stopped_and_clean(runtime: Path, packs: Path) -> None:
+    assert not (runtime / "compile.lock").exists()
+    assert not list(packs.glob("themeable.json.*.tmp"))
+    assert not (packs / "themeable.json").exists()
+    time.sleep(4.5)
+    assert not (runtime / "late").exists(), "the compiler kept running"
+
+
+def test_timed_out_save_stops_the_compiler(
+    client, access_token, themes, slow_compiler, monkeypatch
+):
+    monkeypatch.setattr(themeable, "COMPILE_TIMEOUT_SECONDS", 1)
+    response = client.put(
+        "/api/themeable/branding",
+        json={"theme": "ember"},
+        headers=_auth(access_token),
+    )
+    assert response.status_code == status.HTTP_504_GATEWAY_TIMEOUT
+    assert "nothing was changed" in response.json()["detail"]
+    _assert_stopped_and_clean(slow_compiler, themes)
+
+
+async def test_cancelled_save_stops_the_compiler(themes, slow_compiler):
+    task = asyncio.create_task(themeable._run_compiler("ember"))
+    await asyncio.sleep(1)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    _assert_stopped_and_clean(slow_compiler, themes)
 
 
 def test_branding_requires_auth(client):

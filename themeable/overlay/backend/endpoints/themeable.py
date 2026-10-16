@@ -26,9 +26,11 @@ router = APIRouter(
 
 THEMEABLE_HOME = Path(os.environ.get("THEMEABLE_HOME", "/themeable"))
 RUNTIME_DIR = Path(os.environ.get("THEMEABLE_RUNTIME_DIR", "/tmp/themeable"))
+PACKS_PATH = Path(os.environ.get("THEMEABLE_PACKS_PATH", "/romm/themes"))
 STOCK_THEME = "none"
 THEME_ID = re.compile(r"^(none|[a-z0-9][a-z0-9-]{0,63})$")
 COMPILE_TIMEOUT_SECONDS = 120
+STOP_GRACE_SECONDS = 5
 
 
 class ThemePackSchema(BaseModel):
@@ -71,6 +73,33 @@ def _require_admin(request: Request) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
 
+async def _stop_compiler(proc: asyncio.subprocess.Process) -> None:
+    """Stop a compile that is no longer wanted, wait for it, and clear what it left behind.
+
+    Args:
+        proc (asyncio.subprocess.Process): The compiler process.
+    """
+    if proc.returncode is None:
+        proc.terminate()
+        try:
+            await asyncio.wait_for(proc.wait(), timeout=STOP_GRACE_SECONDS)
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+    # The runtime cleans these up itself unless it was killed mid-run.
+    lock = RUNTIME_DIR / "compile.lock"
+    try:
+        if lock.read_text(encoding="utf-8").strip() == str(proc.pid):
+            lock.unlink()
+    except OSError:
+        pass
+    for leftover in (
+        PACKS_PATH / f"themeable.json.{proc.pid}.tmp",
+        RUNTIME_DIR / f"current.{proc.pid}",
+    ):
+        leftover.unlink(missing_ok=True)
+
+
 async def _run_compiler(theme: str | None) -> BrandingStatusSchema:
     args = ["node", str(THEMEABLE_HOME / "scripts" / "runtime.mjs")]
     if theme is not None:
@@ -81,15 +110,26 @@ async def _run_compiler(theme: str | None) -> BrandingStatusSchema:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, stderr = await asyncio.wait_for(
-            proc.communicate(), timeout=COMPILE_TIMEOUT_SECONDS
-        )
-    except (OSError, asyncio.TimeoutError) as exc:
+    except OSError as exc:
         log.error(f"themeable: could not run the theme compiler: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="The theme compiler could not run",
         ) from exc
+    try:
+        stdout, stderr = await asyncio.wait_for(
+            proc.communicate(), timeout=COMPILE_TIMEOUT_SECONDS
+        )
+    except asyncio.TimeoutError as exc:
+        await asyncio.shield(_stop_compiler(proc))
+        log.error("themeable: the theme compiler timed out and was stopped")
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Compiling the themes took too long and was stopped; nothing was changed",
+        ) from exc
+    except asyncio.CancelledError:
+        await asyncio.shield(_stop_compiler(proc))
+        raise
 
     lines = stdout.decode(errors="replace").strip().splitlines()
     try:
