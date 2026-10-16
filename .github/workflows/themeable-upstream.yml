@@ -112,9 +112,19 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "${{ steps.rel.outputs.branch }}"
           if ! git merge --no-edit -m "Merge RomM ${{ steps.rel.outputs.tag }} into themeable" "${{ steps.rel.outputs.tag }}"; then
-            git diff --name-only --diff-filter=U > "$RUNNER_TEMP/conflicts.txt"
-            git merge --abort
-            echo "conflict=true" >> "$GITHUB_OUTPUT"
+            # The root docker-compose.yml is the module's production file; upstream's
+            # development stack in it is not used on this branch, so keep ours.
+            if git diff --name-only --diff-filter=U | grep -qx docker-compose.yml; then
+              git checkout --ours docker-compose.yml
+              git add docker-compose.yml
+            fi
+            if [ -z "$(git diff --name-only --diff-filter=U)" ]; then
+              git commit --no-edit
+            else
+              git diff --name-only --diff-filter=U > "$RUNNER_TEMP/conflicts.txt"
+              git merge --abort
+              echo "conflict=true" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
       - name: Open an issue on merge conflict
@@ -127,7 +137,7 @@ jobs:
             echo
             sed 's/^/- `/; s/$/`/' "$RUNNER_TEMP/conflicts.txt"
             echo
-            echo "The module only adds files plus a banner in the root README.md, so resolve these by hand and run this workflow again."
+            echo "The module only adds files, a banner in the root README.md and its own root docker-compose.yml (kept automatically), so resolve these by hand and run this workflow again."
           } > "$RUNNER_TEMP/issue.md"
           gh issue create -R "$GITHUB_REPOSITORY" --title "themeable: merging RomM ${{ steps.rel.outputs.tag }} conflicts" --body-file "$RUNNER_TEMP/issue.md"
           exit 1
@@ -140,14 +150,14 @@ jobs:
           if node scripts/check-upstream.mjs --report "$RUNNER_TEMP/check.md"; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
           node scripts/catalog.mjs
           echo "${{ steps.rel.outputs.tag }}" > ROMM_VERSION
-          sed -i -E "s/(romm-themeable:|ROMM_VERSION: )[0-9]+\.[0-9]+\.[0-9]+[A-Za-z0-9.-]*/\1${{ steps.rel.outputs.tag }}/g" docker/docker-compose.example.yml
+          sed -i -E "s/(romm-themeable:|ROMM_VERSION: )[0-9]+\.[0-9]+\.[0-9]+[A-Za-z0-9.-]*/\1${{ steps.rel.outputs.tag }}/g" ../docker-compose.yml
           npm test
 
       - name: Push the adoption branch
         if: steps.rel.outputs.skip != 'true'
         run: |
           git add -A themeable
-          git commit -m "chore(themeable): adopt RomM ${{ steps.rel.outputs.tag }}" -m "Catalog refreshed; ROMM_VERSION and the compose example's image tag bumped by the upstream release workflow."
+          git commit -m "chore(themeable): adopt RomM ${{ steps.rel.outputs.tag }}" -m "Catalog refreshed; ROMM_VERSION and the root docker-compose.yml's image tag bumped by the upstream release workflow."
           git push origin "HEAD:refs/heads/${{ steps.rel.outputs.branch }}"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

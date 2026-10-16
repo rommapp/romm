@@ -2,13 +2,13 @@
 
 A theme and artwork module for [RomM](https://github.com/rommapp/romm) that lives beside the upstream code instead of inside it. Theme packs change the v2 UI's colors, fonts, spacing, corner radius, motion, logos, backgrounds, placeholder art, platform icons and favicons, and can add their own CSS. Packs live in a folder on the host; admins pick the server's theme in **Administration → Branding**. The module is layered onto each stock RomM release, so a new upstream release needs a version bump and a read of the release reports, not a code merge.
 
-Everything the module owns sits in this `themeable/` folder, plus the `themeable*` workflow files in `.github/workflows/` and a short banner at the top of the root `README.md`.
+Everything the module owns sits in this `themeable/` folder, plus the `themeable*` workflow files in `.github/workflows/` and a short banner at the top of the root `README.md`, and the root `docker-compose.yml`, which on this branch is the production deployment instead of upstream's development stack.
 
 **Status:** Phases 0 to 3, 6 and 8 are built and tested; Phase 4 (theme editor) is planned. See [Development plan](#development-plan).
 
 ## Quick start
 
-Run the published image (or build your own, below) with a themes folder mapped from the host. [`docker/docker-compose.example.yml`](docker/docker-compose.example.yml) is a production-ready example: pinned image and MariaDB versions, health checks for both containers, log rotation, and every value you must fill in marked `REQUIRED`. Its image tag follows `ROMM_VERSION`, and the upstream release workflow bumps both together. The parts that differ from stock RomM are:
+Run the published image (or build your own, below) with a themes folder mapped from the host. The root [`docker-compose.yml`](../docker-compose.yml) is ready for production: pinned image and MariaDB versions, health checks for both containers, log rotation, and every value you must fill in marked `REQUIRED`. Its image tag follows `ROMM_VERSION`, and the upstream release workflow bumps both together. The parts that differ from stock RomM are:
 
 ```yaml
 services:
@@ -100,7 +100,7 @@ Three workflows keep the module current without anyone touching it, leaving a PR
 
 The `themeable upstream release` workflow does this within an hour of each release. By hand:
 
-1. Merge the new upstream tag into `themeable`. The module only adds files, so the only likely conflict is the README banner.
+1. Merge the new upstream tag into `themeable`. The module only adds files, so the only likely conflicts are the README banner and the root `docker-compose.yml`; for the latter, keep the themeable version (the workflow does this automatically).
 2. `npm run check-upstream` reports added, removed and renamed tokens and artwork, and any pack or hook that would break.
 3. Add renames to `catalog/token-aliases.json` (`{"--r-old": "--r-new"}`); packs using the old name keep compiling, with a warning.
 4. `npm run catalog`, then set `ROMM_VERSION` to the tag and push. The `themeable` workflow builds and publishes `ghcr.io/stealthx3/romm-themeable:<tag>`.

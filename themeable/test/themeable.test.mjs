@@ -210,9 +210,9 @@ test("the overlay refuses to replace an upstream file", async () => {
   assert.throws(() => applyOverlay(overlay, root), /would replace an upstream file/);
 });
 
-test("compose example pins the image to ROMM_VERSION", () => {
+test("root docker-compose.yml pins the image to ROMM_VERSION", () => {
   const version = readFileSync(join(here, "..", "ROMM_VERSION"), "utf8").trim();
-  const compose = readFileSync(join(here, "..", "docker", "docker-compose.example.yml"), "utf8");
+  const compose = readFileSync(join(here, "..", "..", "docker-compose.yml"), "utf8");
   const tags = [...compose.matchAll(/(?:romm-themeable:|ROMM_VERSION: )(\S+)/g)].map((m) => m[1]);
   assert.ok(tags.length >= 2, "image tag and build arg are present");
   for (const tag of tags) assert.equal(tag, version);
