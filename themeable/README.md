@@ -8,12 +8,12 @@ Everything the module owns sits in this `themeable/` folder, plus the `themeable
 
 ## Quick start
 
-Run the published image (or build your own, below) with a themes folder mapped from the host. [`docker/docker-compose.example.yml`](docker/docker-compose.example.yml) is a complete example; the parts that differ from stock RomM are:
+Run the published image (or build your own, below) with a themes folder mapped from the host. [`docker/docker-compose.example.yml`](docker/docker-compose.example.yml) is a production-ready example: pinned image and MariaDB versions, health checks for both containers, log rotation, and every value you must fill in marked `REQUIRED`. Its image tag follows `ROMM_VERSION`, and the upstream release workflow bumps both together. The parts that differ from stock RomM are:
 
 ```yaml
 services:
   romm:
-    image: ghcr.io/stealthx3/romm-themeable:latest
+    image: ghcr.io/stealthx3/romm-themeable:5.4.0 # or :latest
     volumes:
       - /path/to/themes:/romm/themes # theme packs, one folder each, plus themeable.json
 ```

@@ -140,13 +140,14 @@ jobs:
           if node scripts/check-upstream.mjs --report "$RUNNER_TEMP/check.md"; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
           node scripts/catalog.mjs
           echo "${{ steps.rel.outputs.tag }}" > ROMM_VERSION
+          sed -i -E "s/(romm-themeable:|ROMM_VERSION: )[0-9]+\.[0-9]+\.[0-9]+[A-Za-z0-9.-]*/\1${{ steps.rel.outputs.tag }}/g" docker/docker-compose.example.yml
           npm test
 
       - name: Push the adoption branch
         if: steps.rel.outputs.skip != 'true'
         run: |
           git add -A themeable
-          git commit -m "chore(themeable): adopt RomM ${{ steps.rel.outputs.tag }}" -m "Catalog refreshed and ROMM_VERSION bumped by the upstream release workflow."
+          git commit -m "chore(themeable): adopt RomM ${{ steps.rel.outputs.tag }}" -m "Catalog refreshed; ROMM_VERSION and the compose example's image tag bumped by the upstream release workflow."
           git push origin "HEAD:refs/heads/${{ steps.rel.outputs.branch }}"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
