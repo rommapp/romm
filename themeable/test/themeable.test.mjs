@@ -260,3 +260,13 @@ test("a malformed pack disables only itself", async () => {
   assert.equal(result.effective, "none");
   assert.match(result.reason, /has errors/);
 });
+
+test("reserved ids are rejected by the validator and the schema alike", () => {
+  const schema = JSON.parse(readFileSync(join(here, "..", "schema", "theme.schema.json"), "utf8"));
+  const schemaReserved = schema.properties.id.not.enum;
+  for (const id of ["none", "default", "index", "stock"]) {
+    assert.ok(schemaReserved.includes(id), `schema reserves ${id}`);
+    const { errors } = validatePack({ dir: tmpdir(), pack: { id, name: id } });
+    assert.ok(errors.some((e) => e.includes("reserved")), `validator reserves ${id}`);
+  }
+});

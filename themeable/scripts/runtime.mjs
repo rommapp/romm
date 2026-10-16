@@ -28,7 +28,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "../lib/args.mjs";
 import { loadCatalog } from "../lib/catalog.mjs";
 import { collectPacks, compileAll, readSelection, STOCK_ID } from "../lib/compile.mjs";
-import { PACK_ID } from "../lib/pack.mjs";
+import { PACK_ID, RESERVED_IDS } from "../lib/pack.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const home = resolve(here, "..");
@@ -87,7 +87,7 @@ function run() {
 
   if (args.select !== undefined) {
     const theme = String(args.select);
-    if (theme !== STOCK_ID && !PACK_ID.test(theme)) throw new Error(`"${theme}" is not a valid theme id`);
+    if (theme !== STOCK_ID && (!PACK_ID.test(theme) || RESERVED_IDS.has(theme))) throw new Error(`"${theme}" is not a valid theme id`);
     if (!existsSync(packsDir)) mkdirSync(packsDir, { recursive: true });
     writeJsonAtomic(settingsFile, { theme, updated: new Date().toISOString() });
   }

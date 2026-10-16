@@ -6,7 +6,9 @@ import { scopeSelectorList } from "./cssrefs.mjs";
 import { SCOPES, isTokenName } from "./tokens.mjs";
 
 export const PACK_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
-export const RESERVED_IDS = new Set(["none", "index", "stock"]);
+// "none" is RomM's own look, "default" means "follow the server" in the loader and picker,
+// and "index" would collide with themes/index.json.
+export const RESERVED_IDS = new Set(["none", "default", "index", "stock"]);
 
 /** Files that only change through a build-time overlay, because nginx serves them outside /assets. */
 export const ROOT_FILES = new Set([

@@ -59,7 +59,7 @@ To change the pack later, edit its files and click **Save changes** again; savin
 
 | Key | Required | What it does |
 | --- | --- | --- |
-| `id` | yes | Lowercase letters, digits and dashes, up to 64 characters, matching the folder name. `none`, `index` and `stock` are reserved. |
+| `id` | yes | Lowercase letters, digits and dashes, up to 64 characters, matching the folder name. `none`, `default`, `index` and `stock` are reserved. |
 | `name` | yes | Shown in Branding and the theme picker. |
 | `description`, `author`, `version` | no | Shown in Branding and the theme picker. |
 | `tokens` | no | Design-token overrides, see [Colors, spacing and fonts](#colors-spacing-and-fonts). |
