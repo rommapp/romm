@@ -6,7 +6,6 @@ import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import themeableApi, {
   type BrandingStatus,
-  STOCK_THEME,
   type ThemePack,
 } from "@/services/api/themeable";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
@@ -16,9 +15,6 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 defineOptions({ inheritAttrs: false });
 
 const PAGE_SIZE = 10;
-// RomM's stock palette, shown as the swatch of the "RomM default" entry.
-const STOCK_SWATCH = ["#07070f", "#8b74e8", "#e1a38d"];
-const PERSONAL_CHOICE_KEY = "romm-themeable.theme";
 
 type Option = Omit<ThemePack, "source"> & {
   source: ThemePack["source"] | "stock";
@@ -42,7 +38,10 @@ const {
   },
 );
 
-const selected = ref<string>(STOCK_THEME);
+// Ids, storage key and stock swatch come from the compiled status, so they match the loader's.
+const client = computed(() => status.value?.client ?? null);
+const stockId = computed(() => client.value?.stock_id ?? "");
+const selected = ref<string>("");
 const rescanning = ref(false);
 const page = ref(1);
 const saving = ref(false);
@@ -50,13 +49,13 @@ const savedOnce = ref(false);
 
 const options = computed<Option[]>(() => [
   {
-    id: STOCK_THEME,
+    id: stockId.value,
     name: t("branding.stock-name"),
     description: t("branding.stock-description"),
     author: "",
     version: "",
     source: "stock",
-    swatch: STOCK_SWATCH,
+    swatch: client.value?.stock_swatch ?? [],
     valid: true,
     errors: [],
     warnings: [],
@@ -74,7 +73,7 @@ const pageOptions = computed(() =>
 watch(status, (value) => {
   if (!value) return;
   const known = options.value.some((o) => o.id === value.selected);
-  selected.value = known ? value.selected : STOCK_THEME;
+  selected.value = known ? value.selected : stockId.value;
   const index = options.value.findIndex((o) => o.id === selected.value);
   page.value = Math.floor(Math.max(index, 0) / PAGE_SIZE) + 1;
 });
@@ -90,10 +89,12 @@ const folderWarning = computed(() => {
 });
 
 const personalChoice = computed(() => {
+  const key = client.value?.storage_key;
+  if (!key) return null;
   try {
     // The theme loader keeps one choice per browser and reads it before sign-in.
     // eslint-disable-next-line romm/no-unscoped-local-storage
-    return window.localStorage.getItem(PERSONAL_CHOICE_KEY);
+    return window.localStorage.getItem(key);
   } catch {
     return null;
   }
@@ -106,7 +107,8 @@ function sourceLabel(option: Option): string {
 }
 
 function previewHref(id: string): string {
-  return `/?romm-theme-preview=${encodeURIComponent(id)}`;
+  const param = client.value?.preview_param ?? "";
+  return `/?${param}=${encodeURIComponent(id)}`;
 }
 
 async function save(): Promise<void> {
@@ -300,7 +302,12 @@ function reloadPage(): void {
         >
           {{ t("branding.reload-now") }}
         </RBtn>
-        <RBtn type="submit" prepend-icon="mdi-content-save" :loading="saving">
+        <RBtn
+          type="submit"
+          prepend-icon="mdi-content-save"
+          :loading="saving"
+          :disabled="!selected"
+        >
           {{ t("branding.save") }}
         </RBtn>
       </div>

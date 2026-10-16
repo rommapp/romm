@@ -49,6 +49,18 @@ class ThemeFolderSchema(BaseModel):
     mounted: bool
 
 
+class ThemeableClientSchema(BaseModel):
+    # Published by themeable/lib/client.mjs, the one home of these values.
+    stock_id: str
+    follow_server_id: str
+    storage_key: str
+    cookie: str
+    url_param: str
+    preview_param: str
+    theme_attribute: str
+    stock_swatch: list[str]
+
+
 class BrandingStatusSchema(BaseModel):
     ok: bool
     generated: str
@@ -56,6 +68,7 @@ class BrandingStatusSchema(BaseModel):
     effective: str = STOCK_THEME
     notes: list[str] = []
     error: str | None = None
+    client: ThemeableClientSchema | None = None
     folder: ThemeFolderSchema | None = None
     packs: list[ThemePackSchema] = []
 

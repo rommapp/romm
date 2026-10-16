@@ -3,8 +3,11 @@
 (function () {
   "use strict";
   var manifest = __THEMEABLE_MANIFEST__;
-  var STORAGE_KEY = "romm-themeable.theme";
-  var COOKIE = "romm_theme";
+  var client = manifest.client;
+  var STOCK = client.stock_id;
+  var STORAGE_KEY = client.storage_key;
+  var COOKIE = client.cookie;
+  var COOKIE_VALUE = new RegExp("(?:^|;\\s*)" + COOKIE + "=([a-z0-9-]+)");
   var root = document.documentElement;
 
   function find(id) {
@@ -14,7 +17,7 @@
     return null;
   }
   function known(id) {
-    return id === "none" || find(id) !== null;
+    return id === STOCK || find(id) !== null;
   }
   function readStored() {
     try {
@@ -24,7 +27,7 @@
     }
   }
   function readCookie() {
-    var m = document.cookie.match(/(?:^|;\s*)romm_theme=([a-z0-9-]+)/);
+    var m = document.cookie.match(COOKIE_VALUE);
     return m ? m[1] : null;
   }
   function writeCookie(id) {
@@ -43,13 +46,13 @@
   function choose() {
     var fromUrl = null;
     try {
-      fromUrl = new URLSearchParams(location.search).get("romm-theme");
+      fromUrl = new URLSearchParams(location.search).get(client.url_param);
     } catch (e) {
       fromUrl = null;
     }
     var preview = null;
     try {
-      preview = new URLSearchParams(location.search).get("romm-theme-preview");
+      preview = new URLSearchParams(location.search).get(client.preview_param);
     } catch (e) {
       preview = null;
     }
@@ -57,7 +60,7 @@
       previewing = true;
       return preview;
     }
-    if (fromUrl === "default") {
+    if (fromUrl === client.follow_server_id) {
       try {
         window.localStorage.removeItem(STORAGE_KEY);
       } catch (e) {
@@ -70,12 +73,12 @@
     var stored = readStored();
     if (stored && known(stored)) return stored;
     // The cookie only carries the theme to nginx; the server's choice applies to anyone who hasn't picked one.
-    return known(manifest.default) ? manifest.default : "none";
+    return known(manifest.default) ? manifest.default : STOCK;
   }
 
   function apply(id) {
     var theme = find(id);
-    root.setAttribute("data-romm-theme", id);
+    root.setAttribute(client.theme_attribute, id);
     var old = document.getElementById("themeable-css");
     if (old) old.parentNode.removeChild(old);
     if (theme) {

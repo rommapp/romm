@@ -116,16 +116,16 @@
     </main>
     <script>
       (function () {
-        var KEY = "romm-themeable.theme";
-        function current(manifest) {
+        var client = null;
+        function current() {
           var stored = null;
           try {
-            stored = localStorage.getItem(KEY);
+            stored = localStorage.getItem(client.storage_key);
           } catch (e) {}
-          return stored || "default";
+          return stored || client.follow_server_id;
         }
         function use(id) {
-          location.href = "/?romm-theme=" + encodeURIComponent(id);
+          location.href = "/?" + client.url_param + "=" + encodeURIComponent(id);
         }
         function card(theme, active) {
           var el = document.createElement("article");
@@ -161,22 +161,23 @@
             return r.json();
           })
           .then(function (manifest) {
-            var active = current(manifest);
+            client = manifest.client;
+            var active = current();
             var grid = document.getElementById("themes");
             var server = manifest.themes.filter(function (t) {
               return t.id === manifest.default;
             })[0];
             var serverChoice = {
-              id: "default",
+              id: client.follow_server_id,
               name: "Server's theme",
               description: "Follow the theme the admin picked" + (server ? " (currently " + server.name + ")" : " (currently RomM default)"),
-              swatch: server ? server.swatch : ["#07070f", "#8b74e8", "#e1a38d"],
+              swatch: server ? server.swatch : client.stock_swatch,
             };
             var stock = {
-              id: "none",
+              id: client.stock_id,
               name: "RomM default",
               description: "The stock RomM look, no theme applied",
-              swatch: ["#07070f", "#8b74e8", "#e1a38d"],
+              swatch: client.stock_swatch,
             };
             [serverChoice, stock].concat(manifest.themes).forEach(function (t) {
               grid.appendChild(card(t, t.id === active));

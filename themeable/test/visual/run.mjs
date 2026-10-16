@@ -11,6 +11,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "../../lib/args.mjs";
 import { loadCatalog } from "../../lib/catalog.mjs";
 import { listPacks, loadPack } from "../../lib/pack.mjs";
+import { STOCK_ID, THEME_ATTRIBUTE } from "../../lib/client.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const mod = resolve(here, "../..");
@@ -41,7 +42,7 @@ function waitFor(url, ms = 30000) {
   });
 }
 
-const preview = spawn(process.execPath, [join(mod, "dev/preview.mjs"), "--default", "none", "--port", String(port), "--work", join(out, "preview")], {
+const preview = spawn(process.execPath, [join(mod, "dev/preview.mjs"), "--default", STOCK_ID, "--port", String(port), "--work", join(out, "preview")], {
   stdio: ["ignore", "inherit", "inherit"],
 });
 const stopPreview = () => preview.kill("SIGTERM");
@@ -93,9 +94,9 @@ try {
 
   const stock = {};
   for (const scheme of SCHEMES) {
-    const c = await capture("none", scheme);
+    const c = await capture(STOCK_ID, scheme);
     stock[scheme] = c.shot;
-    results.push({ theme: "none", scheme, failures: c.errors.map((e) => `page error: ${e}`), changed: 0 });
+    results.push({ theme: STOCK_ID, scheme, failures: c.errors.map((e) => `page error: ${e}`), changed: 0 });
     await c.ctx.close();
   }
 
@@ -104,11 +105,14 @@ try {
       const { ctx, page, errors, shot } = await capture(pack.id, scheme);
       const failures = errors.map((e) => `page error: ${e}`);
 
-      const state = await page.evaluate(() => ({
-        attr: document.documentElement.getAttribute("data-romm-theme"),
-        sheet: !!document.querySelector("#themeable-css")?.sheet,
-      }));
-      if (state.attr !== pack.id) failures.push(`data-romm-theme is "${state.attr}"`);
+      const state = await page.evaluate(
+        (attribute) => ({
+          attr: document.documentElement.getAttribute(attribute),
+          sheet: !!document.querySelector("#themeable-css")?.sheet,
+        }),
+        THEME_ATTRIBUTE,
+      );
+      if (state.attr !== pack.id) failures.push(`${THEME_ATTRIBUTE} is "${state.attr}"`);
       if (!state.sheet) failures.push("theme stylesheet did not load");
 
       const expected = { ...(pack.tokens?.common ?? {}), ...(pack.tokens?.[scheme] ?? {}) };
@@ -156,7 +160,7 @@ const failed = results.filter((r) => r.failures.length);
 const table = [
   "| Theme | Mode | Pixels changed vs stock | Result |",
   "| --- | --- | --- | --- |",
-  ...results.map((r) => `| ${r.theme} | ${r.scheme} | ${r.theme === "none" ? "baseline" : `${(r.changed * 100).toFixed(1)}%`} | ${r.failures.length ? r.failures.join("; ") : "pass"} |`),
+  ...results.map((r) => `| ${r.theme} | ${r.scheme} | ${r.theme === STOCK_ID ? "baseline" : `${(r.changed * 100).toFixed(1)}%`} | ${r.failures.length ? r.failures.join("; ") : "pass"} |`),
 ].join("\n");
 const report = [
   "## themeable visual check",

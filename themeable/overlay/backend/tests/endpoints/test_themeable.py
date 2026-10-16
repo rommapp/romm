@@ -111,6 +111,8 @@ def test_lists_built_in_packs_with_stock_look_selected(client, access_token):
     assert body["ok"] is True
     assert body["selected"] == "none"
     assert body["effective"] == "none"
+    assert body["client"]["stock_id"] == body["selected"]
+    assert body["client"]["storage_key"]
     ember = next(p for p in body["packs"] if p["id"] == "ember")
     assert ember["source"] == "built-in"
     assert ember["valid"] is True

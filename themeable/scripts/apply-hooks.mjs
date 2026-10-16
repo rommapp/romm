@@ -3,6 +3,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fail, parseArgs } from "../lib/args.mjs";
+import { STOCK_ID } from "../lib/client.mjs";
 import { injectLoader } from "../lib/html.mjs";
 import { patchNginx } from "../lib/nginx.mjs";
 import { updatePrecacheRevisions } from "../lib/sw.mjs";
@@ -11,7 +12,7 @@ const args = parseArgs();
 if (!args.webroot || !args.nginx || !args.out) fail("pass --webroot <dir> --nginx <template> --out <dir>");
 const webroot = resolve(args.webroot);
 const out = resolve(args.out);
-const defaultTheme = args.default ?? "none";
+const defaultTheme = args.default ?? STOCK_ID;
 mkdirSync(out, { recursive: true });
 
 try {

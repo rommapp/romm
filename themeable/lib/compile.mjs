@@ -1,10 +1,10 @@
 // Pack compilation shared by the image build, container start-up and Branding's Save changes.
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { CLIENT, STOCK_ID, STOCK_SWATCH } from "./client.mjs";
 import { applyAliases, compilePack, listPacks, loadPack, validatePack, PACK_ID } from "./pack.mjs";
 
-export const STOCK_ID = "none";
-const STOCK_SWATCH = { "--r-color-bg": "#07070f", "--r-color-brand-primary": "#8b74e8", "--r-color-brand-accent": "#e1a38d" };
+export { STOCK_ID } from "./client.mjs";
 const PLAIN_COLOR = /^(#[0-9a-f]{3,8}|rgba?\([^)]*\)|hsla?\([^)]*\))$/i;
 
 export function swatch(pack) {
@@ -13,8 +13,6 @@ export function swatch(pack) {
     return value && PLAIN_COLOR.test(value) ? value : STOCK_SWATCH[name];
   });
 }
-
-export const STOCK_SWATCH_VALUES = Object.values(STOCK_SWATCH);
 
 function copy(from, to) {
   mkdirSync(dirname(to), { recursive: true });
@@ -109,7 +107,7 @@ export function compileAll({ entries, catalog, outDir, selected = STOCK_ID, load
     packs.find((p) => p.id === effective)?.warnings.push(`favicons could not be copied, so RomM's own are used: ${e.message}`);
   }
 
-  const manifest = { default: effective, themes: compiled.map((c) => ({ ...c.meta, swatch: c.swatch })) };
+  const manifest = { default: effective, client: CLIENT, themes: compiled.map((c) => ({ ...c.meta, swatch: c.swatch })) };
   mkdirSync(join(outDir, "themes"), { recursive: true });
   writeFileSync(join(outDir, "themes", "index.json"), JSON.stringify(manifest, null, 2) + "\n");
 
@@ -119,5 +117,5 @@ export function compileAll({ entries, catalog, outDir, selected = STOCK_ID, load
   writeFileSync(join(outDir, "themeable", "loader.js"), loaderSource.replace("__THEMEABLE_MANIFEST__", embedded));
   copy(pickerFile, join(outDir, "themeable", "index.html"));
 
-  return { selected, effective, reason, packs, compiled };
+  return { selected, effective, reason, packs, compiled, client: CLIENT };
 }

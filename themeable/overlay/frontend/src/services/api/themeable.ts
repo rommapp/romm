@@ -23,6 +23,18 @@ export interface ThemeFolder {
   mounted: boolean;
 }
 
+/** Values shared with the theme loader and picker; their one home is themeable/lib/client.mjs. */
+export interface ThemeableClient {
+  stock_id: string;
+  follow_server_id: string;
+  storage_key: string;
+  cookie: string;
+  url_param: string;
+  preview_param: string;
+  theme_attribute: string;
+  stock_swatch: string[];
+}
+
 export interface BrandingStatus {
   ok: boolean;
   generated: string;
@@ -30,12 +42,10 @@ export interface BrandingStatus {
   effective: string;
   notes: string[];
   error: string | null;
+  client: ThemeableClient | null;
   folder: ThemeFolder | null;
   packs: ThemePack[];
 }
-
-/** Pack id meaning "no theme": RomM's own look. */
-export const STOCK_THEME = "none";
 
 async function getBranding() {
   return api.get<BrandingStatus>("/themeable/branding");

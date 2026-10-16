@@ -1,5 +1,6 @@
 // The one change to an upstream file: the nginx `location /assets` block learns to
 // look in /themes/<theme>/ first. Done by anchored rewrite so a mismatch fails loudly.
+import { COOKIE, STOCK_ID } from "./client.mjs";
 import { PACK_ID, ROOT_FILES } from "./pack.mjs";
 
 export const MARKER = "# themeable:";
@@ -16,9 +17,9 @@ export function findAssetsBlock(conf) {
   return { start: m.index, end: m.index + m[0].length, indent: m[1], body: m[2] };
 }
 
-export function patchNginx(conf, defaultTheme = "none") {
+export function patchNginx(conf, defaultTheme = STOCK_ID) {
   if (conf.includes(MARKER)) throw new Error("template is already patched");
-  if (defaultTheme !== "none" && !PACK_ID.test(defaultTheme)) throw new Error(`bad default theme "${defaultTheme}"`);
+  if (defaultTheme !== STOCK_ID && !PACK_ID.test(defaultTheme)) throw new Error(`bad default theme "${defaultTheme}"`);
   const { start, end, indent, body } = findAssetsBlock(conf);
   const inner = `${indent}    `;
 
@@ -37,17 +38,17 @@ export function patchNginx(conf, defaultTheme = "none") {
     `${inner}try_files /themeable/root$uri $uri =404;\n` +
     `${indent}}\n\n` +
     `${indent}${MARKER} artwork comes from the active theme pack when it has the file.\n` +
-    `${indent}# Responses depend on the romm_theme cookie, so they revalidate instead of caching blind.\n` +
+    `${indent}# Responses depend on the ${COOKIE} cookie, so they revalidate instead of caching blind.\n` +
     `${indent}location /assets {\n` +
     `${inner}add_header Cache-Control "no-cache";\n` +
     `${inner}add_header Vary Cookie;\n` +
     `${newBody}}`;
 
-  // A romm_theme query argument (set by preview tabs) wins over the cookie for that request only.
+  // The same-named query argument (set by preview tabs) wins over the cookie for that request only.
   const id = "[a-z0-9][a-z0-9-]{0,63}";
   const map =
-    `${MARKER} theme id from the romm_theme argument or cookie, limited to safe pack ids.\n` +
-    `map "$arg_romm_theme:$cookie_romm_theme" $themeable_theme {\n` +
+    `${MARKER} theme id from the ${COOKIE} argument or cookie, limited to safe pack ids.\n` +
+    `map "$arg_${COOKIE}:$cookie_${COOKIE}" $themeable_theme {\n` +
     `    default "${defaultTheme}";\n` +
     `    "~^(?<themeable_arg>${id}):" $themeable_arg;\n` +
     `    "~^[^:]*:(?<themeable_id>${id})$" $themeable_id;\n` +

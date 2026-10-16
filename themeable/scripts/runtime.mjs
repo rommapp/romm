@@ -21,6 +21,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "../lib/args.mjs";
 import { loadCatalog } from "../lib/catalog.mjs";
+import { CLIENT } from "../lib/client.mjs";
 import { collectPacks, compileAll, readSelection, STOCK_ID } from "../lib/compile.mjs";
 import { PACK_ID, RESERVED_IDS } from "../lib/pack.mjs";
 
@@ -149,6 +150,7 @@ function run() {
     generated: new Date().toISOString(),
     selected: result.selected,
     effective: result.effective,
+    client: CLIENT,
     notes,
     folder: folderInfo(),
     packs: result.packs,
@@ -169,7 +171,7 @@ try {
   }
 } catch (e) {
   // The previous build (if any) keeps serving; with none, the loader 404s and RomM shows its own look.
-  status = { ok: false, generated: new Date().toISOString(), error: e.message, folder: folderInfo() };
+  status = { ok: false, generated: new Date().toISOString(), error: e.message, client: CLIENT, folder: folderInfo() };
   try {
     writeJsonAtomic(statusFile, { ...(existsSync(statusFile) ? JSON.parse(readFileSync(statusFile, "utf8")) : {}), ...status });
   } catch {

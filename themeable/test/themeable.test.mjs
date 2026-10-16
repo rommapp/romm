@@ -270,3 +270,38 @@ test("reserved ids are rejected by the validator and the schema alike", () => {
     assert.ok(errors.some((e) => e.includes("reserved")), `validator reserves ${id}`);
   }
 });
+
+test("browser files read shared values from the manifest instead of declaring them", async () => {
+  const { CLIENT } = await import("../lib/client.mjs");
+  const files = [
+    "loader/loader.js",
+    "picker/index.html",
+    "overlay/frontend/src/v2/components/Settings/BrandingSection.vue",
+    "overlay/frontend/src/services/api/themeable.ts",
+  ];
+  const values = Object.values(CLIENT).flat();
+  for (const file of files) {
+    const text = readFileSync(join(here, "..", file), "utf8");
+    for (const value of values) {
+      for (const q of ['"', "'", "`"]) {
+        assert.ok(!text.includes(q + value + q), `${file} declares ${q}${value}${q}; read it from manifest.client`);
+      }
+    }
+  }
+});
+
+test("the compiled manifest carries the shared client values", async () => {
+  const { CLIENT } = await import("../lib/client.mjs");
+  const { collectPacks, compileAll } = await import("../lib/compile.mjs");
+  const out = mkdtempSync(join(tmpdir(), "themeable-out-"));
+  compileAll({
+    entries: collectPacks([{ dir: join(here, "../packs"), source: "built-in" }]),
+    catalog: { aliases: {} },
+    outDir: out,
+    loaderSource: readFileSync(join(here, "../loader/loader.js"), "utf8"),
+    pickerFile: join(here, "../picker/index.html"),
+  });
+  const manifest = JSON.parse(readFileSync(join(out, "themes/index.json"), "utf8"));
+  assert.deepEqual(manifest.client, { ...CLIENT });
+  assert.ok(readFileSync(join(out, "themeable/loader.js"), "utf8").includes(JSON.stringify(CLIENT.storage_key)));
+});

@@ -2,13 +2,13 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { extname, join, relative, resolve, sep } from "node:path";
+import { FOLLOW_SERVER_ID, STOCK_ID, THEME_ATTRIBUTE } from "./client.mjs";
 import { scopeSelectorList } from "./cssrefs.mjs";
 import { SCOPES, isTokenName } from "./tokens.mjs";
 
 export const PACK_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
-// "none" is RomM's own look, "default" means "follow the server" in the loader and picker,
-// and "index" would collide with themes/index.json.
-export const RESERVED_IDS = new Set(["none", "default", "index", "stock"]);
+// The stock and follow-the-server ids mean something to the loader; "index" would collide with themes/index.json.
+export const RESERVED_IDS = new Set([STOCK_ID, FOLLOW_SERVER_ID, "index", "stock"]);
 
 /** Files that only change through a build-time overlay, because nginx serves them outside /assets. */
 export const ROOT_FILES = new Set([
@@ -213,7 +213,7 @@ function block(selectors, decls) {
 
 /** Builds the selectors for each scope; specificity beats every upstream token rule. */
 export function scopeSelectors(id) {
-  const t = `:root[data-romm-theme="${id}"]`;
+  const t = `:root[${THEME_ATTRIBUTE}="${id}"]`;
   return {
     common: [`${t}.r-v2`, `${t} .r-v2`],
     dark: [`${t}.r-v2.r-v2-dark`, `${t}.r-v2-dark .r-v2`],
@@ -255,15 +255,15 @@ export function compilePack({ dir, pack }, { cssReferences = {} } = {}) {
     const decls = Object.fromEntries(
       Object.entries(colors).map(([k, v]) => [`--v-theme-${k}`, hexToRgbTriplet(v)]),
     );
-    parts.push(block([`:root[data-romm-theme="${id}"] .v-theme--${mode}`], decls));
+    parts.push(block([`:root[${THEME_ATTRIBUTE}="${id}"] .v-theme--${mode}`], decls));
   }
 
   if (pack.extraCss) {
     const extra = readFileSync(resolve(dir, pack.extraCss), "utf8");
-    parts.push(`/* custom CSS (extraCss) */\n:root[data-romm-theme="${id}"] {\n${extra}\n}\n`);
+    parts.push(`/* custom CSS (extraCss) */\n:root[${THEME_ATTRIBUTE}="${id}"] {\n${extra}\n}\n`);
   }
 
-  const scope = `:root[data-romm-theme="${id}"]`;
+  const scope = `:root[${THEME_ATTRIBUTE}="${id}"]`;
   const inlined = [];
   for (const [key, rel] of Object.entries(pack.assets ?? {})) {
     files.push({ from: resolve(dir, rel), to: `themes/${id}${key}` });
