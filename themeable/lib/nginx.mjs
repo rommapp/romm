@@ -35,7 +35,7 @@ export function patchNginx(conf, defaultTheme = STOCK_ID) {
     `${indent}${MARKER} favicons come from the server's selected theme when it ships them.\n` +
     `${indent}location ~ "^/(${rootFiles})$" {\n` +
     `${inner}add_header Cache-Control "no-cache";\n` +
-    `${inner}try_files /themeable/root$uri $uri =404;\n` +
+    `${inner}try_files $themeable_root$uri $uri =404;\n` +
     `${indent}}\n\n` +
     `${indent}${MARKER} artwork comes from the active theme pack when it has the file.\n` +
     `${indent}# Responses depend on the ${COOKIE} cookie, so they revalidate instead of caching blind.\n` +
@@ -52,6 +52,12 @@ export function patchNginx(conf, defaultTheme = STOCK_ID) {
     `    default "${defaultTheme}";\n` +
     `    "~^(?<themeable_arg>${id}):" $themeable_arg;\n` +
     `    "~^[^:]*:(?<themeable_id>${id})$" $themeable_id;\n` +
+    `}\n\n` +
+    `${MARKER} favicons: the server's theme, or the pack (or stock look) named by the ${COOKIE} argument.\n` +
+    `map $arg_${COOKIE} $themeable_root {\n` +
+    `    default "/themeable/root";\n` +
+    `    "${STOCK_ID}" "/themeable/stock";\n` +
+    `    "~^(?<themeable_root_id>${id})$" "/themes/$themeable_root_id/root";\n` +
     `}\n\n`;
 
   const patched = conf.slice(0, start) + block + conf.slice(end);

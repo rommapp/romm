@@ -330,3 +330,33 @@ test("docs/theme.example.json is current and sets every option validly", async (
   const { errors } = validatePack({ dir: tmpdir(), pack: example }, catalog);
   assert.deepEqual(errors.filter((e) => !/missing file/.test(e)), []);
 });
+
+test("Branding's preview slots name real stock files, and every pack's favicons are published", async () => {
+  const { PREVIEW_SLOTS, COOKIE, STOCK_ID } = await import("../lib/client.mjs");
+  const { loadCatalog } = await import("../lib/catalog.mjs");
+  const { ROOT_FILES } = await import("../lib/pack.mjs");
+  const catalog = loadCatalog(join(here, "..", "catalog"));
+  for (const [slot, url] of Object.entries(PREVIEW_SLOTS)) {
+    assert.ok(catalog.assets.has(url) || ROOT_FILES.has(url), `${slot}: ${url} is not a stock file`);
+  }
+
+  const { collectPacks, compileAll } = await import("../lib/compile.mjs");
+  const out = mkdtempSync(join(tmpdir(), "themeable-out-"));
+  const result = compileAll({
+    entries: collectPacks([{ dir: join(here, "../packs"), source: "built-in" }]),
+    catalog: { aliases: {} },
+    outDir: out,
+    selected: STOCK_ID,
+    loaderSource: readFileSync(join(here, "../loader/loader.js"), "utf8"),
+    pickerFile: join(here, "../picker/index.html"),
+  });
+  for (const c of result.compiled) {
+    for (const f of c.rootFiles) assert.ok(existsSync(join(out, "themes", c.meta.id, "root", f.to)), `${c.meta.id} ${f.to}`);
+  }
+  assert.ok(!existsSync(join(out, "themeable", "root")), "no favicons are served by default for the stock look");
+
+  const conf = readFileSync(join(here, "../../docker/nginx/templates/default.conf.template"), "utf8");
+  const patched = patchNginx(conf);
+  assert.match(patched, new RegExp(`map \\$arg_${COOKIE} \\$themeable_root \\{`));
+  assert.match(patched, /try_files \$themeable_root\$uri \$uri =404;/);
+});

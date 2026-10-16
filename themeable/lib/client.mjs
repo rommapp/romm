@@ -7,6 +7,13 @@ export const COOKIE = "romm_theme";
 export const URL_PARAM = "romm-theme";
 export const PREVIEW_PARAM = "romm-theme-preview";
 export const THEME_ATTRIBUTE = "data-romm-theme";
+// Stock URLs the Branding tab shows per pack; nginx serves the pack's file for ?<cookie>=<id>.
+export const PREVIEW_SLOTS = {
+  background: "/assets/auth_background_static.svg",
+  logo: "/assets/isotipo.svg",
+  wordmark: "/assets/logotipo.svg",
+  favicon: "/favicon-32x32.png",
+};
 export const STOCK_SWATCH = {
   "--r-color-bg": "#07070f",
   "--r-color-brand-primary": "#8b74e8",
@@ -22,4 +29,5 @@ export const CLIENT = Object.freeze({
   preview_param: PREVIEW_PARAM,
   theme_attribute: THEME_ATTRIBUTE,
   stock_swatch: Object.values(STOCK_SWATCH),
+  preview: { ...PREVIEW_SLOTS },
 });

@@ -49,7 +49,7 @@ themes/
    }
    ```
 
-2. In RomM, open **Administration → Branding** and click the refresh button. Midnight appears in the list; if anything in it is wrong, the entry says **Can't be used** and lists each problem.
+2. In RomM, open **Administration → Branding** and click the refresh button. Midnight appears in the list with its login background and logo, its wordmark on a dark and a light page, and its browser tab icon; anything the pack doesn't replace shows RomM's own. If anything in it is wrong, the entry says **Can't be used** and lists each problem.
 3. Click **Preview** to open RomM with the theme in a new tab, without changing anything for anyone else.
 4. Choose Midnight and click **Save changes**. Reload the page to see it.
 

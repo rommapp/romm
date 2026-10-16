@@ -59,6 +59,7 @@ class ThemeableClientSchema(BaseModel):
     preview_param: str
     theme_attribute: str
     stock_swatch: list[str]
+    preview: dict[str, str] = {}
 
 
 class BrandingStatusSchema(BaseModel):

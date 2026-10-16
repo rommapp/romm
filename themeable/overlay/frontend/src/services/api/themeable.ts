@@ -33,7 +33,11 @@ export interface ThemeableClient {
   preview_param: string;
   theme_attribute: string;
   stock_swatch: string[];
+  /** Stock URL per preview slot; `?<cookie>=<id>` makes nginx serve that pack's file. */
+  preview: Record<PreviewSlot, string>;
 }
+
+export type PreviewSlot = "background" | "logo" | "wordmark" | "favicon";
 
 export interface BrandingStatus {
   ok: boolean;

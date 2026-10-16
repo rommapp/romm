@@ -83,6 +83,8 @@ export function compileAll({ entries, catalog, outDir, selected = STOCK_ID, load
       mkdirSync(themeDir, { recursive: true });
       writeFileSync(join(themeDir, "theme.css"), c.css);
       for (const f of c.files) copy(f.from, join(outDir, f.to));
+      // Every pack's favicons, so Branding can preview them for packs that aren't selected.
+      for (const f of c.rootFiles) copy(f.from, join(themeDir, "root", f.to));
       compiled.push(c);
       status.valid = true;
     } catch (e) {
