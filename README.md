@@ -1,7 +1,7 @@
 <!-- trunk-ignore-all(markdownlint/MD033) -->
 <!-- trunk-ignore(markdownlint/MD041) -->
 > [!NOTE]
-> **romm-themeable:** this fork adds a theme and artwork module that sits on top of stock RomM releases. See [`themeable/README.md`](themeable/README.md) for deployment, the built-in themes, writing packs and how the fork tracks upstream. The root `docker-compose.yml` on this branch deploys romm-themeable in production; upstream's development stack is on `master`. Everything below is upstream RomM's README.
+> **romm-themeable:** this fork adds a theme and artwork module that sits on top of stock RomM releases. See [`themeable/README.md`](themeable/README.md) for deployment, the built-in themes, writing packs and how the fork tracks upstream. The root `docker-compose.yml` on this branch deploys romm-themeable in production; upstream's development stack is on `master`, but this project only syncs and deploys when a new full release is made on the upstream. Everything below is upstream RomM's README.
 
 <div align="center">
   <img src=".github/resources/isotipo.png" height="180px" width="auto" alt="romm logo">
