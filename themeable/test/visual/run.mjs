@@ -11,7 +11,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "../../lib/args.mjs";
 import { loadCatalog } from "../../lib/catalog.mjs";
 import { listPacks, loadPack } from "../../lib/pack.mjs";
-import { STOCK_ID, THEME_ATTRIBUTE } from "../../lib/client.mjs";
+import { CLIENT, STOCK_ID, THEME_ATTRIBUTE } from "../../lib/client.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const mod = resolve(here, "../..");
@@ -82,10 +82,12 @@ try {
 
   async function capture(theme, scheme) {
     const ctx = await browser.newContext({ colorScheme: scheme, viewport: { width: 1280, height: 800 } });
+    // RomM follows its own "settings.theme" (default dark), not the browser's color scheme.
+    await ctx.addInitScript((mode) => localStorage.setItem("settings.theme", mode), scheme);
     const page = await ctx.newPage();
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
-    await page.goto(`${base}${ROUTE}?romm-theme=${theme}`, { waitUntil: "networkidle" });
+    await page.goto(`${base}${ROUTE}?${CLIENT.url_param}=${theme}`, { waitUntil: "networkidle" });
     await page.waitForTimeout(1000);
     const shot = await page.screenshot();
     writeFileSync(join(out, "shots", `${theme}-${scheme}.png`), shot);

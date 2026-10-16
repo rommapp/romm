@@ -28,6 +28,20 @@ Then:
 2. In RomM, open **Administration → Branding**, choose a theme and click **Save changes**. Saving stores the choice in `/path/to/themes/themeable.json` and recompiles every pack from the folder, so edits made on the host apply when you save. The refresh button in the tab rescans the folder without changing the selection.
 3. Everyone who hasn't picked their own theme gets the server's theme on their next page load.
 
+**Built-in themes** ship in the image, ready to pick in Branding without adding anything to the themes folder:
+
+| Theme | Style | Look |
+| --- | --- | --- |
+| `phosphor` | Retro | Green-screen CRT terminal: monospace headings, scanlines, a monitor icon |
+| `handheld` | Retro | The four shades of a pocket LCD, with pixel-art icon, wordmark and landscape |
+| `neon` | Arcade | Synthwave magenta and cyan, a neon joystick and a sunset over a scrolling grid |
+| `cabinet` | Arcade | Classic cabinet red, yellow and black, a cabinet icon and a twinkling starfield |
+| `carbon` | Modern | Console-dashboard black with electric blue and teal, a play-badge icon |
+| `aurora` | Modern | Glassy teal, violet and coral over a drifting aurora, a gamepad icon |
+| `ember` | Warm | Charcoal and orange; the smallest complete example to copy |
+
+Each sets colors for both modes and the v1 interface, the logo, wordmark, loading logo, login background (animated, with a still version for Firefox) and favicons, and keeps text and buttons at readable contrast. Copy one into the themes folder under a new id to use it as a starting point.
+
 **Getting back to RomM's own look** always works:
 
 - Choose **RomM default** (always the first entry) in Branding and save.

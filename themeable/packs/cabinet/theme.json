@@ -1,0 +1,115 @@
+{
+  "$schema": "../../schema/theme.schema.json",
+  "id": "cabinet",
+  "name": "Cabinet",
+  "version": "1.0.0",
+  "author": "romm-themeable",
+  "description": "Arcade: classic cabinet red, yellow and black with a starfield",
+  "tokens": {
+    "common": {
+      "--r-color-brand-primary": "#d61a2b",
+      "--r-color-brand-primary-hover": "#ff4655",
+      "--r-color-brand-primary-pressed": "#b0141f",
+      "--r-color-brand-secondary": "#2563eb",
+      "--r-color-brand-secondary-hover": "#6b9bff",
+      "--r-color-brand-secondary-pressed": "#1d4fc4",
+      "--r-color-brand-accent": "#ffcc00",
+      "--r-color-brand-accent-hover": "#ffe066",
+      "--r-color-avatar-gradient": "linear-gradient(135deg, #ffcc00, #e11d2e)",
+      "--r-radius-xs": "2px",
+      "--r-radius-sm": "3px",
+      "--r-radius-chip": "3px",
+      "--r-radius-md": "4px",
+      "--r-radius-art": "4px",
+      "--r-radius-lg": "6px",
+      "--r-radius-card": "6px",
+      "--r-radius-xl": "8px",
+      "--r-font-family-display": "Impact, \"Arial Black\", \"Haettenschweiler\", \"Franklin Gothic Heavy\", sans-serif",
+      "--r-color-fav": "#ffcc00",
+      "--r-color-canvas-bg-deep": "#140f07"
+    },
+    "dark": {
+      "--r-color-bg": "#070707",
+      "--r-color-bg-elevated": "rgba(255, 214, 90, 0.04)",
+      "--r-color-surface": "rgba(255, 214, 90, 0.07)",
+      "--r-color-surface-hover": "rgba(255, 214, 90, 0.13)",
+      "--r-color-border": "rgba(255, 214, 90, 0.12)",
+      "--r-color-border-strong": "rgba(255, 214, 90, 0.24)",
+      "--r-color-panel": "rgba(16, 14, 10, 0.97)",
+      "--r-color-panel-border": "rgba(255, 214, 90, 0.16)",
+      "--r-color-tooltip-bg": "rgba(7, 7, 7, 0.95)",
+      "--r-color-toast-bg": "rgba(12, 10, 8, 0.93)",
+      "--r-color-auth-glass": "rgba(7, 7, 7, 0.7)",
+      "--r-color-cover-placeholder": "#1c1812",
+      "--r-color-cover-placeholder-bright": "#2a241a",
+      "--r-color-fg": "rgb(255, 248, 231)",
+      "--r-color-fg-heading": "rgb(255, 248, 231)",
+      "--r-color-fg-secondary": "rgba(255, 248, 231, 0.84)",
+      "--r-color-fg-muted": "rgba(255, 248, 231, 0.6)",
+      "--r-color-fg-faint": "rgba(255, 248, 231, 0.45)"
+    },
+    "light": {
+      "--r-color-bg": "#fff7e0",
+      "--r-color-bg-elevated": "rgba(38, 26, 6, 0.03)",
+      "--r-color-surface": "rgba(38, 26, 6, 0.05)",
+      "--r-color-surface-hover": "rgba(38, 26, 6, 0.11)",
+      "--r-color-border": "rgba(38, 26, 6, 0.14)",
+      "--r-color-border-strong": "rgba(38, 26, 6, 0.28)",
+      "--r-color-panel": "rgba(255, 244, 214, 0.98)",
+      "--r-color-panel-border": "rgba(38, 26, 6, 0.14)",
+      "--r-color-tooltip-bg": "rgba(255, 247, 224, 0.96)",
+      "--r-color-toast-bg": "rgba(255, 247, 224, 0.95)",
+      "--r-color-auth-glass": "rgba(255, 247, 224, 0.86)",
+      "--r-color-cover-placeholder": "#f3e3b8",
+      "--r-color-cover-placeholder-bright": "#f8edcd",
+      "--r-color-fg": "rgb(38, 26, 6)",
+      "--r-color-fg-heading": "rgba(38, 26, 6, 0.9)",
+      "--r-color-fg-secondary": "rgba(38, 26, 6, 0.84)",
+      "--r-color-fg-muted": "rgba(38, 26, 6, 0.74)",
+      "--r-color-fg-faint": "rgba(38, 26, 6, 0.58)",
+      "--r-color-brand-primary": "#c8102e",
+      "--r-color-brand-primary-hover": "#a30d25",
+      "--r-color-brand-primary-pressed": "#7f0a1d",
+      "--r-color-brand-secondary": "#1d4fc4",
+      "--r-color-brand-accent": "#9a6b00",
+      "--r-color-fav": "#c8102e"
+    }
+  },
+  "vuetify": {
+    "dark": {
+      "primary": "#d61a2b",
+      "secondary": "#2563eb",
+      "accent": "#ffcc00",
+      "background": "#070707",
+      "surface": "#14120e",
+      "toplayer": "#1e1b15"
+    },
+    "light": {
+      "primary": "#c8102e",
+      "secondary": "#1d4fc4",
+      "accent": "#9a6b00",
+      "background": "#fff7e0",
+      "surface": "#ffffff",
+      "toplayer": "#f6e8c2"
+    }
+  },
+  "assets": {
+    "/assets/isotipo.svg": "assets/isotipo.svg",
+    "/assets/logotipo.svg": "assets/logotipo.svg",
+    "/assets/logos/romm_logo_xbox_one_circle_grayscale.svg": "assets/isotipo.svg",
+    "/assets/auth_background.svg": "assets/auth_background.svg",
+    "/assets/auth_background_static.svg": "assets/auth_background_static.svg"
+  },
+  "rootFiles": {
+    "/favicon.ico": "root/favicon.ico",
+    "/favicon.svg": "root/favicon.svg",
+    "/favicon-16x16.png": "root/favicon-16x16.png",
+    "/favicon-32x32.png": "root/favicon-32x32.png",
+    "/apple-touch-icon.png": "root/apple-touch-icon.png",
+    "/android-chrome-192x192.png": "root/android-chrome-192x192.png",
+    "/android-chrome-512x512.png": "root/android-chrome-512x512.png"
+  },
+  "pwa": {
+    "themeColor": "#070707"
+  }
+}

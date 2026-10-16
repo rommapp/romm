@@ -7,7 +7,7 @@ A theme pack is a folder with a `theme.json` file and any artwork, fonts or CSS 
 | Location | Used for |
 | --- | --- |
 | The themes folder on the host, mapped to `/romm/themes` in the container | Your own packs. Add or edit them here, then use **Administration → Branding**. |
-| `themeable/packs/` in this repository | Built-in packs that ship inside the image, such as `ember`. A pack in the themes folder with the same id replaces the built-in one. |
+| `themeable/packs/` in this repository | Built-in packs that ship inside the image: `phosphor`, `handheld`, `neon`, `cabinet`, `carbon`, `aurora` and `ember`. A pack in the themes folder with the same id replaces the built-in one. |
 
 Each pack is one folder, and the folder name must equal the pack's `id`:
 
@@ -204,6 +204,10 @@ node themeable/dev/preview.mjs --packs-folder ./my-themes --default midnight
 ```
 
 See the [README](../README.md#quick-start) for building the frontend first.
+
+## Readable colors
+
+Solid buttons draw white text on `--r-color-brand-primary`, so keep that color at a contrast of at least 3:1 with white, in both modes, and at least 3:1 against `--r-color-bg` so selected items stand out. Put bright neon or pastel shades in `--r-color-brand-accent` instead. The wordmark (`/assets/logotipo.svg`) sits on the page background in both modes, so give it a mid-tone or an outline that reads on dark and light alike. The login screen is always dark; `--r-color-canvas-bg-deep` tints its card.
 
 ## Sharing a pack
 
