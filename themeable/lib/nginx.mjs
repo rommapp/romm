@@ -43,11 +43,14 @@ export function patchNginx(conf, defaultTheme = "none") {
     `${inner}add_header Vary Cookie;\n` +
     `${newBody}}`;
 
+  // A romm_theme query argument (set by preview tabs) wins over the cookie for that request only.
+  const id = "[a-z0-9][a-z0-9-]{0,63}";
   const map =
-    `${MARKER} theme id from the romm_theme cookie, limited to safe pack ids.\n` +
-    `map $cookie_romm_theme $themeable_theme {\n` +
+    `${MARKER} theme id from the romm_theme argument or cookie, limited to safe pack ids.\n` +
+    `map "$arg_romm_theme:$cookie_romm_theme" $themeable_theme {\n` +
     `    default "${defaultTheme}";\n` +
-    `    "~^(?<themeable_id>[a-z0-9][a-z0-9-]{0,63})$" $themeable_id;\n` +
+    `    "~^(?<themeable_arg>${id}):" $themeable_arg;\n` +
+    `    "~^[^:]*:(?<themeable_id>${id})$" $themeable_id;\n` +
     `}\n\n`;
 
   const patched = conf.slice(0, start) + block + conf.slice(end);

@@ -39,6 +39,7 @@
     }
     writeCookie(id);
   }
+  var previewing = false;
   function choose() {
     var fromUrl = null;
     try {
@@ -52,7 +53,10 @@
     } catch (e) {
       preview = null;
     }
-    if (preview && known(preview)) return preview;
+    if (preview && known(preview)) {
+      previewing = true;
+      return preview;
+    }
     if (fromUrl === "default") {
       try {
         window.localStorage.removeItem(STORAGE_KEY);
@@ -94,9 +98,69 @@
     }
   }
 
+  // A preview tab names its theme on each artwork URL instead, so the cookie other tabs share stays put.
+  var ARTWORK_ATTRS = ["src", "srcset", "href", "xlink:href", "poster", "style"];
+  function tagUrl(url) {
+    try {
+      var u = new URL(url, location.href);
+      if (u.origin !== location.origin || u.pathname.indexOf("/assets/") !== 0 || u.searchParams.has(COOKIE)) return url;
+      u.searchParams.set(COOKIE, current);
+      return u.pathname + u.search + u.hash;
+    } catch (e) {
+      return url;
+    }
+  }
+  function tagValue(name, value) {
+    if (name === "style") {
+      return value.replace(/url\((['"]?)([^'")]+)\1\)/g, function (m, q, url) {
+        return "url(" + q + tagUrl(url) + q + ")";
+      });
+    }
+    if (name === "srcset") {
+      return value
+        .split(",")
+        .map(function (part) {
+          var bits = part.trim().split(/\s+/);
+          bits[0] = tagUrl(bits[0]);
+          return bits.join(" ");
+        })
+        .join(", ");
+    }
+    return tagUrl(value);
+  }
+  function tagElement(el) {
+    if (el.nodeType !== 1) return;
+    for (var i = 0; i < ARTWORK_ATTRS.length; i++) {
+      var name = ARTWORK_ATTRS[i];
+      if (name !== "style" && name !== "poster" && !/^(img|source|image|video)$/i.test(el.tagName)) continue;
+      var value = el.getAttribute(name);
+      if (!value || value.indexOf("/assets/") < 0) continue;
+      var tagged = tagValue(name, value);
+      if (tagged !== value) el.setAttribute(name, tagged);
+    }
+  }
+  function tagTree(node) {
+    tagElement(node);
+    if (node.querySelectorAll) {
+      var all = node.querySelectorAll("img, source, image, video, [style*='/assets/']");
+      for (var i = 0; i < all.length; i++) tagElement(all[i]);
+    }
+  }
+
   var current = choose();
-  // nginx picks artwork from this cookie, so it must match before any image is requested.
-  if (readCookie() !== current) writeCookie(current);
+  if (previewing) {
+    tagTree(root);
+    new MutationObserver(function (records) {
+      for (var i = 0; i < records.length; i++) {
+        var r = records[i];
+        if (r.type === "attributes") tagElement(r.target);
+        else for (var j = 0; j < r.addedNodes.length; j++) tagTree(r.addedNodes[j]);
+      }
+    }).observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ARTWORK_ATTRS });
+  } else if (readCookie() !== current) {
+    // nginx picks artwork from this cookie, so it must match before any image is requested.
+    writeCookie(current);
+  }
   apply(current);
 
   var previewStyle = null;

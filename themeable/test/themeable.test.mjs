@@ -114,7 +114,7 @@ test("injects the loader once and keeps it in <head>", () => {
 test("patches the real nginx template's /assets block only", () => {
   const conf = readFileSync(join(repo, "docker/nginx/templates/default.conf.template"), "utf8");
   const patched = patchNginx(conf, "ember");
-  assert.match(patched, /map \$cookie_romm_theme \$themeable_theme \{\n {4}default "ember";/);
+  assert.match(patched, /map "\$arg_romm_theme:\$cookie_romm_theme" \$themeable_theme \{\n {4}default "ember";/);
   assert.match(patched, /location \/assets \{\n\s+add_header Cache-Control "no-cache";\n\s+add_header Vary Cookie;[\s\S]*?try_files \/themes\/\$themeable_theme\$uri \$uri \$uri\/ =404;/);
   assert.ok(patched.includes("location /assets/romm/resources/ {"), "other /assets locations stay");
   assert.throws(() => patchNginx(patched), /already patched/);
