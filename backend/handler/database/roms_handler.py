@@ -1999,6 +1999,39 @@ class DBRomsHandler(DBBaseHandler):
 
         return query.order_by(*order_clauses), sort_key
 
+    def get_page_rows_query(
+        self,
+        unfiltered_query: RomSelect,
+        page_ids: Sequence[int],
+        *,
+        sort_key: _GallerySortKey,
+        order_by: str,
+        order_dir: str,
+        user_id: int | None,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
+        include_file_stats: bool = False,
+    ) -> RomSelect:
+        # gotta do something here.
+
+        """The rows of one page, loaded by id.
+
+        The ids already passed every filter and the sibling grouping when the
+        page was picked, so none of that runs again. Re-ranking the whole library
+        to confirm a page's ids costs as much as picking them.
+        """
+        query = self.filter_roms(
+            query=unfiltered_query,
+            sort_key=sort_key,
+            order_by=order_by,
+            order_dir=order_dir,
+            user_id=user_id,
+            visibility=visibility,
+            include_file_stats=include_file_stats,
+            include_siblings=False,
+            include_notes=False,
+        )
+        return query.where(Rom.id.in_(page_ids)).order_by(None)
+
     def _scoped_roms_query(
         self,
         *,

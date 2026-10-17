@@ -150,7 +150,15 @@ def main() -> int:
         ids_plans = [_explain(session, ids_sql) for _ in range(args.repeat)]
         total = _report("1. page ids", ids_plans, args.plan)
 
-        load_statement = query.where(Rom.id.in_(page_ids)).order_by(None)
+        load_statement = db_rom_handler.get_page_rows_query(
+            unfiltered_query,
+            page_ids,
+            sort_key=sort_key,
+            order_by=args.order_by,
+            order_dir=args.order_dir,
+            user_id=args.user_id,
+            include_file_stats=True,
+        )
         load_sql = _compile(session, load_statement)
         load_plans = [_explain(session, load_sql) for _ in range(args.repeat)]
         total += _report("2. load rows by id", load_plans, args.plan)
