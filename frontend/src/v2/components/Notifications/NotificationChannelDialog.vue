@@ -166,13 +166,17 @@ let pasteRequest = 0;
 // The read in flight, which the field and a save share rather than race.
 let reading: { url: string; done: Promise<void> } | null = null;
 const parsedUrl = ref("");
+// What the last URL read put in the form, to tell it from what was typed since.
+let lastRead: Record<string, AppriseFieldValue> = {};
 const URL_LIKE = /^[a-z][\w+.-]*:\/\/\S+$/i;
 
-function clearPaste() {
+// Emptying the field leaves the form's values, so `keepRead` keeps what they were.
+function clearPaste(keepRead = false) {
   pasteRequest++;
   reading = null;
   pastedUrl.value = "";
   parsedUrl.value = "";
+  if (!keepRead) lastRead = {};
   pasteError.value = null;
   filling.value = false;
   filledFields.value = [];
@@ -263,12 +267,18 @@ async function readUrl(url: string) {
       });
       return;
     }
-    // What's typed beside a service's own URL (a Discord bot name) stays.
+    // Keep hand edits, but drop unchanged values from an earlier read: the
+    // full URL omits a default (ntfy's mode) that a half-typed read set.
     const typed =
       found.id === service.value?.id && found.url_fields.length > 0
         ? Object.fromEntries(
             Object.entries(appriseValues.value).filter(
-              ([key]) => !found.url_fields.includes(key),
+              ([key, value]) =>
+                !found.url_fields.includes(key) &&
+                !(
+                  key in lastRead &&
+                  JSON.stringify(lastRead[key]) === JSON.stringify(value)
+                ),
             ),
           )
         : {};
@@ -279,6 +289,9 @@ async function readUrl(url: string) {
     });
     removedSecrets.value = [];
     filledFields.value = Object.keys(data.fields);
+    lastRead = Object.fromEntries(
+      filledFields.value.map((key) => [key, appriseValues.value[key]!]),
+    );
     parsedUrl.value = url;
   } catch (err) {
     if (request !== pasteRequest) return;
@@ -297,7 +310,7 @@ watchDebounced(
   pastedUrl,
   (url) => {
     const pasted = url.trim();
-    if (!pasted) clearPaste();
+    if (!pasted) clearPaste(true);
     else if (URL_LIKE.test(pasted) && pasted !== parsedUrl.value) {
       void fillFromUrl(pasted);
     }
