@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // AppNav: the top navigation. Logo on the left, centred tab pill of
-// content destinations (Home / Platforms / Collections / Search), and
-// a right cluster of utility chrome (scan and conversion indicators, the
+// content destinations (Home / Platforms / Collections / Search /
+// Activity), and a right cluster of utility chrome (scan and conversion indicators, the
 // mini player on phones, user menu).
 // Highlighting is derived from `route.path`
 // rather than route names so gallery subroutes (e.g. /rom/:id) still
@@ -200,7 +200,7 @@ const scrolled = computed(
   justify-self: end;
 }
 
-/* On sm-and-down (phones + small tablets / landscape, <960px) the four
+/* On sm-and-down (phones + small tablets / landscape, <960px) the five
    primary destinations move to the bottom tab bar (BottomNav), so the
    centre pill is dropped from the top nav and the bar keeps only the
    logo (far left) + user cluster (far right). With just those two

@@ -401,7 +401,7 @@ export const layout = {
   // gallery scroll height on mobile.
   bottomNavHeight: "58px",
   // Cap for the bottom tab bar pill so it stays thumb-sized on large
-  // tablets (the sm range reaches 959px) instead of stretching the four
+  // tablets (the sm range reaches 959px) instead of stretching the five
   // destinations edge-to-edge. Below this width the pill just fills the
   // available row; above it, it centres at this width.
   bottomNavMaxWidth: "480px",
