@@ -116,7 +116,7 @@
     "vue-tsc": "^3.3.11"
   },
   "overrides": {
-    "rolldown": "1.2.11",
+    "rolldown": "1.2.13",
     "esbuild": "^0.28.1",
     "form-data": "^4.0.6",
     "@storybook/addon-vitest": {
@@ -130,5 +130,5 @@
     "node": "24",
     "npm": ">=11.10"
   },
-  "packageManager": "npm@11.20.0"
+  "packageManager": "npm@11.21.0"
 }
