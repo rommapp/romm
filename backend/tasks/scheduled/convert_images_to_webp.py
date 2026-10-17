@@ -47,7 +47,7 @@ class ImageConverter:
     def __init__(self, quality: WebPQuality = WEBP_QUALITY) -> None:
         self.quality = quality
 
-    def _save_options(self) -> dict[str, Any]:
+    def save_options(self) -> dict[str, Any]:
         if self.quality == "lossless":
             return {"lossless": True}
         return {"quality": self.quality}
@@ -79,30 +79,33 @@ class ImageConverter:
             log.debug(f"WebP already exists for {image_path}")
             return True
 
+        # Written next to the copy and moved over it once complete, so a failed
+        # write never leaves a broken copy that later runs would skip
+        tmp_path = webp_path.with_name(f".{webp_path.name}.tmp")
         try:
             with Image.open(image_path) as img:
                 if img.format == "WEBP":
-                    # Re-encoding would only lose quality, and writing over the
-                    # source in place would truncate it mid-read.
-                    if webp_path != image_path:
-                        shutil.copyfile(image_path, webp_path)
+                    # Re-encoding would only lose quality
+                    shutil.copyfile(image_path, tmp_path)
                 elif durations := frame_durations(img):
                     img.save(
-                        webp_path,
+                        tmp_path,
                         "WEBP",
                         save_all=True,
                         duration=durations,
                         loop=webp_loop(img),
-                        **self._save_options(),
+                        **self.save_options(),
                     )
                 else:
                     self._convert_image_mode(img).save(
-                        webp_path, "WEBP", optimize=True, **self._save_options()
+                        tmp_path, "WEBP", optimize=True, **self.save_options()
                     )
-                log.info(f"Created WebP version: {webp_path}")
-                return True
+            tmp_path.replace(webp_path)
+            log.info(f"Created WebP version: {webp_path}")
+            return True
 
         except Exception as exc:
+            tmp_path.unlink(missing_ok=True)
             log.error(f"Failed to create WebP version of {image_path}: {str(exc)}")
             return False
 

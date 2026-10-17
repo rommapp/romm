@@ -40,6 +40,7 @@ from handler.filesystem.resources_handler import (
 )
 from models.collection import Collection
 from models.rom import Rom
+from tasks.scheduled.convert_images_to_webp import ImageConverter
 from utils.images import frame_durations
 from utils.rate_limiter import ConcurrencyLimiter, RateLimiter
 
@@ -293,6 +294,20 @@ class TestFSResourcesHandler:
             assert small.format == "WEBP"
             assert small.size == SMALL_FRAME_SIZE
             assert frame_durations(small) == DURATIONS
+
+    def test_resize_cover_to_small_uses_the_webp_quality(
+        self, handler: FSResourcesHandler, tmp_path: Path
+    ):
+        handler.image_converter = ImageConverter("lossless")
+        save_path = tmp_path / "small.png"
+
+        with Image.open(BytesIO(animated_image_bytes("GIF"))) as img:
+            handler.resize_cover_to_small(img, save_path=str(save_path))
+
+        # VP8L is the lossless WebP bitstream; lossy frames use "VP8 "
+        data = save_path.read_bytes()
+        assert b"VP8L" in data
+        assert b"VP8 " not in data
 
     @pytest.mark.parametrize(
         "fmt, source_params",

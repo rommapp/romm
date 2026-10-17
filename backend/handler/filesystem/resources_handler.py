@@ -222,6 +222,7 @@ class FSResourcesHandler(FSHandler):
                 append_images=frames[1:],
                 duration=durations,
                 loop=webp_loop(cover),
+                **self.image_converter.save_options(),
             )
             return
 

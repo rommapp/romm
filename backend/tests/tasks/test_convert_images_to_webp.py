@@ -168,6 +168,24 @@ class TestImageConverter:
 
         assert sizes[0] < sizes[1]
 
+    def test_a_failed_write_keeps_the_old_copy(
+        self, converter: ImageConverter, tmp_path: Path, mocker: MockerFixture
+    ):
+        source = tmp_path / "big.png"
+        Image.new("RGB", (4, 4), "red").save(source)
+        (tmp_path / "big.webp").write_bytes(b"old copy")
+
+        def fill_disk(img: Image.Image, fp: Path, *args: Any, **kwargs: Any) -> None:
+            Path(fp).write_bytes(b"half")
+            raise OSError("No space left on device")
+
+        mocker.patch.object(Image.Image, "save", fill_disk)
+
+        assert not converter.convert_to_webp(source, force=True)
+
+        assert (tmp_path / "big.webp").read_bytes() == b"old copy"
+        assert sorted(p.name for p in tmp_path.iterdir()) == ["big.png", "big.webp"]
+
     def test_reports_an_unreadable_image(
         self, converter: ImageConverter, tmp_path: Path
     ):
