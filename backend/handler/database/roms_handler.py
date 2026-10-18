@@ -2010,17 +2010,19 @@ class DBRomsHandler(DBBaseHandler):
         user_id: int | None,
         visibility: RomVisibilityFilter = UNRESTRICTED,
         include_file_stats: bool = False,
+        filters: RomFilterParams | None = None,
     ) -> RomSelect:
-        # gotta do something here.
+        """The rows of one page, loaded by id without the filters or sibling grouping.
 
-        """The rows of one page, loaded by id.
-
-        The ids already passed every filter and the sibling grouping when the
-        page was picked, so none of that runs again. Re-ranking the whole library
-        to confirm a page's ids costs as much as picking them.
+        Only the status predicate is kept, so a page picked with `statuses=hidden`
+        is not emptied by the default hiding of hidden roms.
         """
+        filters = filters or RomFilterParams()
         query = self.filter_roms(
             query=unfiltered_query,
+            filters=RomFilterParams(
+                statuses=filters.statuses, statuses_logic=filters.statuses_logic
+            ),
             sort_key=sort_key,
             order_by=order_by,
             order_dir=order_dir,

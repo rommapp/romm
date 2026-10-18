@@ -839,6 +839,7 @@ def get_roms(
                     user_id=request.user.id,
                     visibility=perms.rom_visibility,
                     include_file_stats=not with_files,
+                    filters=filters,
                 )
             ).all()
             rows_by_id = {rom.id: rom for rom in page_rows}

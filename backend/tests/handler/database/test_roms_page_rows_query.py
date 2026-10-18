@@ -65,5 +65,23 @@ def test_loading_a_page_keeps_the_hidden_roms_filter():
     assert "rom_user.hidden" in _page_rows_sql(user_id=1)
 
 
+def test_loading_a_page_keeps_the_status_the_ids_were_picked_with():
+    query, sort_key = db_rom_handler.get_roms_query(order_by="name", user_id=1)
+    sql = _sql(
+        db_rom_handler.get_page_rows_query(
+            query,
+            PAGE_IDS,
+            sort_key=sort_key,
+            order_by="name",
+            order_dir="asc",
+            user_id=1,
+            filters=RomFilterParams(statuses=["hidden"]),
+        )
+    )
+
+    assert "rom_user.hidden is true" in sql
+    assert "rom_user.hidden is false" not in sql
+
+
 def test_loading_a_page_keeps_the_file_stats_the_serializer_reads():
     assert "rom_files" in _page_rows_sql(include_file_stats=True)
