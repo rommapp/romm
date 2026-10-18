@@ -270,6 +270,50 @@ def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
         assert _schema_of(connection, table) == before
 
 
+def test_the_rom_file_category_revision_adds_game_to_an_enum_made_without_it():
+    """0062 upgrades a database whose 0033 ran before GAME joined the enum."""
+    migration = _load_migration("0062_rom_file_category_enum.py")
+
+    with sync_engine.connect() as connection:
+        if not is_postgresql(connection):
+            pytest.skip("only PostgreSQL keeps the enum as a type of its own")
+
+        # A schema of its own, so the shared enum and table stay as migrated.
+        connection.execute(sa.text("CREATE SCHEMA pre_game_category"))
+        connection.execute(sa.text("SET search_path TO pre_game_category"))
+        connection.execute(
+            sa.text(
+                "CREATE TYPE romfilecategory AS ENUM ('DLC', 'HACK', 'MANUAL',"
+                " 'PATCH', 'UPDATE', 'MOD', 'DEMO', 'TRANSLATION', 'PROTOTYPE')"
+            )
+        )
+        connection.execute(
+            sa.text("CREATE TABLE rom_files (category romfilecategory)")
+        )
+        connection.execute(sa.text("INSERT INTO rom_files VALUES ('DLC')"))
+        connection.commit()
+        try:
+            context = MigrationContext.configure(connection)
+            with Operations.context(context), context.begin_transaction():
+                migration.upgrade()
+
+            labels = connection.execute(
+                sa.text("SELECT enum_range(NULL::romfilecategory)::text")
+            ).scalar_one()
+            category = connection.execute(
+                sa.text("SELECT category::text FROM rom_files")
+            ).scalar_one()
+        finally:
+            connection.rollback()
+            connection.execute(sa.text("RESET search_path"))
+            connection.execute(sa.text("DROP SCHEMA pre_game_category CASCADE"))
+            connection.commit()
+
+    # GAME lands ahead of DLC, where a fresh install has it.
+    assert labels.startswith("{GAME,DLC,")
+    assert category == "DLC"
+
+
 def test_the_play_session_sync_link_revision_reverses_and_replays():
     """0135 drops a column whose constraint each dialect handles differently.
 

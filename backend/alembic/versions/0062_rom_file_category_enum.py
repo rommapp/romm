@@ -39,6 +39,13 @@ def upgrade() -> None:
         )
         rom_file_category_enum.create(connection, checkfirst=True)
 
+        # 0033 made the type without GAME before 4.5.0. ADD VALUE needs to run
+        # outside a transaction; BEFORE 'DLC' keeps a fresh install's order.
+        with op.get_context().autocommit_block():
+            op.execute(
+                "ALTER TYPE romfilecategory ADD VALUE IF NOT EXISTS 'GAME' BEFORE 'DLC'"
+            )
+
         # remove bad values before alter
         op.execute("""
             UPDATE rom_files
