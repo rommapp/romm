@@ -89,7 +89,9 @@ def _report(name: str, plans: list[dict[str, Any]], show_plan: bool) -> float:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--user-id", type=int, default=1)
-    parser.add_argument("--order-by", default="name")
+    parser.add_argument(
+        "--order-by", default="", help="Empty is the endpoint's default (relevance)."
+    )
     parser.add_argument("--order-dir", default="asc")
     parser.add_argument("--offset", type=int, default=0)
     parser.add_argument("--limit", type=int, default=72)
@@ -110,11 +112,16 @@ def main() -> int:
     parser.add_argument("--plan", action="store_true", help="Print the last full plan.")
     args = parser.parse_args()
 
-    filters = RomFilterParams(
-        group_by_meta_id=not args.ungrouped, **json.loads(args.filters)
-    )
+    # JSON overrides the grouped default; --ungrouped overrides both.
+    params = {"group_by_meta_id": True, **json.loads(args.filters)}
+    if args.ungrouped:
+        params["group_by_meta_id"] = False
+    filters = RomFilterParams(**params)
     unfiltered_query, sort_key = db_rom_handler.get_roms_query(
-        user_id=args.user_id, order_by=args.order_by, order_dir=args.order_dir
+        user_id=args.user_id,
+        order_by=args.order_by,
+        order_dir=args.order_dir,
+        search_term=filters.search_term,
     )
     # The same flags the endpoint passes for a window without `with_files`.
     query = db_rom_handler.filter_roms(
@@ -140,7 +147,8 @@ def main() -> int:
             )
         database: str = session.execute(text("SELECT current_database()")).scalar_one()
         print(
-            f"database {database}, user {args.user_id}, order {args.order_by} "
+            f"database {database}, user {args.user_id}, "
+            f"order {args.order_by or 'default'} "
             f"{args.order_dir}, window {args.offset}+{args.limit}, "
             f"grouping {'off' if args.ungrouped else 'on'}, filters {args.filters}"
         )
@@ -165,6 +173,7 @@ def main() -> int:
             order_dir=args.order_dir,
             user_id=args.user_id,
             include_file_stats=True,
+            filters=filters,
         )
         load_sql = _compile(session, load_statement)
         load_plans = [_explain(session, load_sql) for _ in range(args.repeat)]
