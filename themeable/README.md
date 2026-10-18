@@ -1,5 +1,9 @@
 # RomM Themeable
 
+Release versioning for this downstream fork should operate as follows:
+
+<+1 for each RomM release>.<+1 for each feature update>.<+1 for any bugfix or optimization updates> - <Upstream RomM Version>
+
 A theme and artwork module for [RomM](https://github.com/rommapp/romm). Theme packs restyle RomM's interface: colors for light and dark mode, fonts, spacing, corner radius, motion, the logo and wordmark, login backgrounds, placeholder art, platform and provider icons, browser tab icons, and any extra CSS a pack brings. Packs live in a folder on the host, and admins choose the server's theme in **Administration → Branding**.
 
 The module sits beside RomM's code instead of inside it. Everything it owns lives in this `themeable/` folder, plus the `themeable*` workflows in `.github/workflows/`, a banner at the top of the root `README.md`, and the root `docker-compose.yml`, which on this branch deploys romm-themeable. Each stock RomM release is merged in, checked and rebuilt automatically, so adopting a new release needs an audit, not a code merge.
