@@ -1,8 +1,4 @@
-"""The pre-release rank that orders a sibling group's versions.
-
-It reads one case-insensitive regex over the filename, in place of a LIKE per
-tag. The regex has to keep the old rule: a tag counts only right after "(".
-"""
+"""The pre-release rank that orders a sibling group's versions: a tag counts only right after "("."""
 
 import re
 

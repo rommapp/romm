@@ -571,13 +571,7 @@ _PRERELEASE_PATTERN = (
 
 
 def _prerelease_rank() -> ColumnElement[Any]:
-    """Rank pre-release dumps after full releases within a sibling group.
-
-    Matched case-insensitively over the filename rather than against the parsed
-    `tags` column, which keeps whatever casing the dumper used, and which the
-    dedup window's covering index does not carry. One regex reads each name once;
-    a LIKE per tag read it once per tag, for every rom in the window.
-    """
+    """Rank pre-release dumps after full releases within a sibling group, by filename."""
     return case(
         (Rom.fs_name_no_ext.regexp_match(_PRERELEASE_PATTERN, flags="i"), 1),
         else_=0,

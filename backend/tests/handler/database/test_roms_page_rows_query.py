@@ -1,11 +1,4 @@
-"""Loading a page's rows by id.
-
-A gallery window runs two statements: one picks the page's ids, the next loads
-those rows. The ids were chosen by a query that already applied every filter
-and the sibling grouping, so the load must not carry either. Reusing the
-grouped query for it re-ranked the whole library to confirm 72 ids, which cost
-about a third of a window.
-"""
+"""Loading a page's rows by id, without the filters or the sibling grouping."""
 
 from sqlalchemy.dialects import postgresql
 from tests.conftest import engine  # noqa: F401  (loads the test database setup)
