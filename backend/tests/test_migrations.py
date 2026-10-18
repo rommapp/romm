@@ -271,7 +271,7 @@ def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
 
 
 def test_the_rom_file_category_revision_adds_game_to_an_enum_made_without_it():
-    """0062 upgrades a database whose 0033 ran before GAME joined the enum."""
+    """0062 upgrades a romfilecategory enum that has no GAME value."""
     migration = _load_migration("0062_rom_file_category_enum.py")
 
     with sync_engine.connect() as connection:
