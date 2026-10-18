@@ -71,7 +71,7 @@ These ship in the image, ready to choose without adding anything to the themes f
 
 | Theme | Style | Look |
 | --- | --- | --- |
-| `phosphor` | Retro | Green-screen CRT terminal: monospace headings, scanlines, a monitor icon |
+| `phosphor` | Retro | Green-screen CRT terminal: scanlines, a monitor icon and a pixel wordmark |
 | `handheld` | Retro | The four shades of a pocket LCD, with a pixel-art icon, wordmark and landscape |
 | `neon` | Arcade | Synthwave magenta and cyan, a neon joystick and a sunset over a scrolling grid |
 | `cabinet` | Arcade | Classic cabinet red, yellow and black, a cabinet icon and a twinkling starfield |

@@ -4,7 +4,7 @@
   "name": "Phosphor",
   "version": "1.0.0",
   "author": "romm-themeable",
-  "description": "Retro: a green-screen CRT terminal with scanlines and monospace headings",
+  "description": "Retro: a green-screen CRT terminal with scanlines and a monitor icon",
   "tokens": {
     "common": {
       "--r-color-brand-primary": "#178f40",

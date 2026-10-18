@@ -142,7 +142,7 @@ Artwork follows each visitor's theme: two people using different themes see diff
 }
 ```
 
-`src` is a `.woff2`, `.woff`, `.ttf` or `.otf` file inside the pack. Declaring a font only loads it; point `--r-font-family-sans` (body text) or `--r-font-family-display` (headings) at it to use it. Check a font's license before shipping it in a pack.
+`src` is a `.woff2`, `.woff`, `.ttf` or `.otf` file inside the pack. Declaring a font only loads it; point a token at it. `--r-font-family-sans` sets nearly all text, headings included, and `--r-font-family-mono` sets code-style text. `--r-font-family-display` is barely used by the current RomM release, so setting it alone changes almost nothing. Check a font's license before shipping it in a pack.
 
 ## Custom CSS
 
