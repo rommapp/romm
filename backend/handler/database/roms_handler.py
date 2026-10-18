@@ -563,23 +563,23 @@ def _region_rank() -> ColumnElement[Any]:
     )
 
 
+# "(" then any tag, so "(Demo)", "(Beta 2)" and "(Prototype)" match and a title that
+# merely contains "demo" does not. The group keeps the alternation after the "(".
+_PRERELEASE_PATTERN = (
+    rf"\(({'|'.join(re.escape(tag) for tag in PRERELEASE_FILENAME_TAGS)})"
+)
+
+
 def _prerelease_rank() -> ColumnElement[Any]:
     """Rank pre-release dumps after full releases within a sibling group.
 
-    Matched with a case-insensitive LIKE over the filename rather than against
-    the parsed `tags` column, which keeps whatever casing the dumper used, and
-    which the dedup window's covering index does not carry.
+    Matched case-insensitively over the filename rather than against the parsed
+    `tags` column, which keeps whatever casing the dumper used, and which the
+    dedup window's covering index does not carry. One regex reads each name once;
+    a LIKE per tag read it once per tag, for every rom in the window.
     """
     return case(
-        (
-            or_(
-                *[
-                    Rom.fs_name_no_ext.ilike(f"%({tag}%")
-                    for tag in PRERELEASE_FILENAME_TAGS
-                ]
-            ),
-            1,
-        ),
+        (Rom.fs_name_no_ext.regexp_match(_PRERELEASE_PATTERN, flags="i"), 1),
         else_=0,
     )
 
