@@ -2,10 +2,10 @@ name: themeable
 
 on:
   push:
-    branches: [themeable]
+    branches: [main]
     paths: ["themeable/**", ".github/workflows/themeable*.yml", "frontend/**", "backend/main.py", "docker/nginx/**"]
   pull_request:
-    branches: [themeable]
+    branches: [main]
   workflow_dispatch:
 
 permissions:

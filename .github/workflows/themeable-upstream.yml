@@ -1,6 +1,7 @@
 name: themeable upstream release
 
-# Adopts each new stable RomM release into `themeable` through a checked, self-merging PR.
+# Keeps `upstream` a clean copy of RomM's latest stable release, then adopts that release into
+# `main` (the branch with this project's changes) through a checked, self-merging PR.
 # Needs the THEMEABLE_BOT_TOKEN secret; see themeable/README.md#staying-current-with-romm and #repository-setup.
 on:
   schedule:
@@ -43,7 +44,7 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: themeable
+          ref: main
           fetch-depth: 0
           token: ${{ secrets.THEMEABLE_BOT_TOKEN }}
 
@@ -68,9 +69,9 @@ jobs:
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # master always equals the latest stable release commit, resetting away unreleased upstream
-      # commits; it holds none of its own. Manual runs with other tags leave it alone.
-      - name: Sync master to the release
+      # The `upstream` branch always equals the latest stable RomM release commit, resetting away
+      # unreleased upstream commits; it holds none of its own. Manual runs with other tags leave it alone.
+      - name: Sync the upstream branch to the release
         env:
           TAG: ${{ steps.rel.outputs.tag }}
           LATEST: ${{ steps.rel.outputs.latest }}
@@ -78,22 +79,22 @@ jobs:
           git remote add upstream https://github.com/rommapp/romm.git
           git fetch --no-tags upstream master "refs/tags/$TAG:refs/tags/$TAG"
           if [ "$TAG" != "$LATEST" ]; then
-            echo "$TAG is not the latest stable release ($LATEST); master unchanged"
+            echo "$TAG is not the latest stable release ($LATEST); the upstream branch is unchanged"
             exit 0
           fi
-          git fetch origin master
+          git fetch origin upstream
           release=$(git rev-parse "$TAG^{commit}")
-          current=$(git rev-parse origin/master)
+          current=$(git rev-parse origin/upstream)
           if [ "$release" = "$current" ]; then
-            echo "master is already at $TAG"
+            echo "the upstream branch is already at $TAG"
           elif git merge-base --is-ancestor "$current" "$release"; then
-            git push origin "$release:refs/heads/master"
-            echo "master moved to $TAG ($release)"
+            git push origin "$release:refs/heads/upstream"
+            echo "the upstream branch moved to $TAG ($release)"
           elif git merge-base --is-ancestor "$release" "$current" && git merge-base --is-ancestor "$current" upstream/master; then
-            git push --force-with-lease="master:$current" origin "$release:refs/heads/master"
-            echo "master reset from unreleased upstream commit $current to $TAG ($release)"
+            git push --force-with-lease="upstream:$current" origin "$release:refs/heads/upstream"
+            echo "the upstream branch reset from unreleased upstream commit $current to $TAG ($release)"
           else
-            echo "::warning::master ($current) has commits that are not upstream's; left unchanged"
+            echo "::warning::the upstream branch ($current) has commits that are not upstream's; left unchanged"
           fi
 
       - name: Merge upstream
@@ -103,7 +104,7 @@ jobs:
           git config user.name "romm-themeable bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "${{ steps.rel.outputs.branch }}"
-          if ! git merge --no-edit -m "Merge RomM ${{ steps.rel.outputs.tag }} into themeable" "${{ steps.rel.outputs.tag }}"; then
+          if ! git merge --no-edit -m "Merge RomM ${{ steps.rel.outputs.tag }} into main" "${{ steps.rel.outputs.tag }}"; then
             # The root docker-compose.yml is the module's production file; upstream's
             # development stack in it is not used on this branch, so keep ours.
             if git diff --name-only --diff-filter=U | grep -qx docker-compose.yml; then
@@ -125,7 +126,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           {
-            echo "Merging RomM ${{ steps.rel.outputs.tag }} into \`themeable\` hit conflicts in:"
+            echo "Merging RomM ${{ steps.rel.outputs.tag }} into \`main\` hit conflicts in:"
             echo
             sed 's/^/- `/; s/$/`/' "$RUNNER_TEMP/conflicts.txt"
             echo
@@ -208,11 +209,11 @@ jobs:
           } > body.md
           title="themeable: adopt RomM $TAG"
           [ "$passed" = "true" ] || title="$title (needs attention)"
-          url=$(gh pr create -R "$GITHUB_REPOSITORY" --base themeable --head "$BRANCH" --title "$title" --body-file body.md)
+          url=$(gh pr create -R "$GITHUB_REPOSITORY" --base main --head "$BRANCH" --title "$title" --body-file body.md)
           echo "PR: $url"
           if [ "$passed" = "true" ] && [ "$AUTO_MERGE" != "false" ]; then
             gh pr merge "$url" --merge --delete-branch
-            echo "Merged; the push to themeable builds and publishes the $TAG image."
+            echo "Merged; the push to main builds and publishes the $TAG image."
           else
             echo "::warning::Left open for review: $url"
           fi

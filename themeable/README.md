@@ -19,7 +19,7 @@ The module sits beside RomM's code instead of inside it. Everything it owns live
 
 ## Deploying
 
-The root [`docker-compose.yml`](../docker-compose.yml) deploys romm-themeable with MariaDB. It pins the image and database versions, health-checks both containers, rotates their logs, and marks every value you must fill in as `REQUIRED`. Settings are written in the file itself, as in upstream's example. Upstream's development stack, which normally lives in that file, stays on `master` with `DEVELOPER_SETUP.md`.
+The root [`docker-compose.yml`](../docker-compose.yml) deploys romm-themeable with MariaDB. It pins the image and database versions, health-checks both containers, rotates their logs, and marks every value you must fill in as `REQUIRED`. Settings are written in the file itself, as in upstream's example. Upstream's development stack, which normally lives in that file, stays on the `upstream` branch with `DEVELOPER_SETUP.md`.
 
 The parts that differ from stock RomM:
 
@@ -114,15 +114,15 @@ Four workflows keep the module current and leave a pull request trail to audit:
 | Workflow | Runs | Does |
 | --- | --- | --- |
 | `themeable` | Every push and pull request to `themeable` | Unit tests, compatibility check, then the source and visual checks; on push, builds the image, smoke-tests it (start-up compile, theme links, patched files, nginx config) and publishes `ghcr.io/stealthx3/romm-themeable:<ROMM_VERSION>` and `:latest` |
-| `themeable upstream release` | Hourly, or by hand with a tag | When RomM publishes a stable release: moves `master` to the release commit, merges the tag into a `themeable-upstream/<tag>` branch, runs the compatibility check, refreshes the catalog and the example pack, bumps `ROMM_VERSION` and the compose file's image tag, runs the visual and source checks against the new release, and opens a pull request with the reports. If everything passes it merges, which publishes the new image; otherwise it stays open as "needs attention" |
+| `themeable upstream release` | Hourly, or by hand with a tag | When RomM publishes a stable release: moves `upstream` to the release commit, merges the tag into a `themeable-upstream/<tag>` branch, runs the compatibility check, refreshes the catalog and the example pack, bumps `ROMM_VERSION` and the compose file's image tag, runs the visual and source checks against the new release, and opens a pull request with the reports. If everything passes it merges, which publishes the new image; otherwise it stays open as "needs attention" |
 | `themeable visual check` | Called by the other two | Builds the frontend with the overlay and patches, then loads the login screen for the stock look and every built-in pack in dark and light mode, failing if a pack's tokens, artwork or inlined artwork didn't apply or it looks identical to stock. Screenshots are kept for 90 days |
 | `themeable source check` | Called by the other two | Lints and type-checks the patched frontend and runs the Branding API tests against MariaDB with the patched backend |
 
-`master` holds nothing but upstream release commits and moves only when a stable release is published; prereleases and manual runs with other tags leave it alone, and GitHub's **Sync fork** button shouldn't be used. When a release changes upstream's root `docker-compose.yml`, the merge keeps this branch's version. Any other merge conflict, or a missing token, opens an issue instead. Setting the repository variable `THEMEABLE_AUTO_MERGE` to `false` holds every adoption for review.
+The repository has two long-lived branches. `upstream` is a clean copy of RomM: it holds nothing but upstream release commits and moves only when a stable release is published; prereleases and manual runs with other tags leave it alone, and GitHub's **Sync fork** button shouldn't be used. `main` holds this project's changes on top of RomM, and every release is merged into it. When a release changes upstream's root `docker-compose.yml`, the merge keeps `main`'s version. Any other merge conflict, or a missing token, opens an issue instead. Setting the repository variable `THEMEABLE_AUTO_MERGE` to `false` holds every adoption for review.
 
 To adopt a release by hand:
 
-1. Merge the release tag into `themeable`, keeping this branch's root `docker-compose.yml` if it conflicts.
+1. Merge the release tag into `main`, keeping its root `docker-compose.yml` if it conflicts.
 2. Run `npm run check-upstream` for the report of added, removed and renamed tokens and artwork, and any pack, hook or patch that would break.
 3. Record token renames in `catalog/token-aliases.json` (`{"--r-old": "--r-new"}`); packs using an old name keep compiling, with a warning.
 4. Run `npm run catalog` and `npm run example`, set `ROMM_VERSION` and the compose file's image tag to the release, and push.
@@ -199,9 +199,9 @@ Known limits:
 
 One-time settings for unattended running:
 
-1. **Default branch:** set it to `themeable`. Scheduled workflows only run from the default branch, and the landing page then shows this module.
+1. **Default branch:** set it to `main`. Scheduled workflows only run from the default branch, and the landing page then shows this module.
 2. **Bot token:** create a fine-grained personal access token for this repository with Contents, Pull requests and Workflows set to read and write, and save it as the Actions secret `THEMEABLE_BOT_TOKEN`. GitHub's built-in token can't push the workflow-file changes most upstream releases include. Renew it before it expires; the workflow opens an issue when it's missing.
-3. **Upstream's scheduled workflows:** disable upstream's `build.yml`, `image-scan.yml`, `trunk-check-all.yml`, `trunk-upgrade.yml` and `update-hltb-api-url.yml` under Actions. They run on schedules once `themeable` is the default branch and fail without upstream's secrets; disabling them leaves the files untouched, so merges stay clean.
+3. **Upstream's scheduled workflows:** disable upstream's `build.yml`, `image-scan.yml`, `trunk-check-all.yml`, `trunk-upgrade.yml` and `update-hltb-api-url.yml` under Actions. They run on schedules once `main` is the default branch and fail without upstream's secrets; disabling them leaves the files untouched, so merges stay clean.
 
 GitHub pauses scheduled workflows after 60 days without repository activity; each adopted release counts as activity.
 
