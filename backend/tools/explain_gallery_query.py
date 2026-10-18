@@ -98,6 +98,11 @@ def main() -> int:
         action="store_true",
         help="Leave siblings uncollapsed, to see the cost grouping adds.",
     )
+    parser.add_argument(
+        "--filters",
+        default="{}",
+        help='RomFilterParams as JSON, e.g. \'{"search_term": "astral"}\' or \'{"genres": ["Sport"]}\'.',
+    )
     parser.add_argument("--repeat", type=int, default=3)
     parser.add_argument(
         "--work-mem", help="Session work_mem for the run, e.g. 32MB (an experiment)."
@@ -105,7 +110,9 @@ def main() -> int:
     parser.add_argument("--plan", action="store_true", help="Print the last full plan.")
     args = parser.parse_args()
 
-    filters = RomFilterParams(group_by_meta_id=not args.ungrouped)
+    filters = RomFilterParams(
+        group_by_meta_id=not args.ungrouped, **json.loads(args.filters)
+    )
     unfiltered_query, sort_key = db_rom_handler.get_roms_query(
         user_id=args.user_id, order_by=args.order_by, order_dir=args.order_dir
     )
@@ -135,7 +142,7 @@ def main() -> int:
         print(
             f"database {database}, user {args.user_id}, order {args.order_by} "
             f"{args.order_dir}, window {args.offset}+{args.limit}, "
-            f"grouping {'off' if args.ungrouped else 'on'}"
+            f"grouping {'off' if args.ungrouped else 'on'}, filters {args.filters}"
         )
 
         ids_statement = (
