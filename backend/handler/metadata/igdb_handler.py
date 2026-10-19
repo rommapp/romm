@@ -772,6 +772,14 @@ class IGDBHandler(MetadataHandler):
         return await self._heartbeat("IGDB API", probe)
 
     def get_platform(self, slug: str) -> IGDBPlatform:
+        platform = self._base_platform(slug)
+        if platform["slug"] in IGDB_PLATFORM_FAMILIES:
+            family = IGDB_PLATFORM_FAMILIES[UPS(platform["slug"])]
+            platform["family_name"] = family["family_name"]
+            platform["family_slug"] = family["family_slug"]
+        return platform
+
+    def _base_platform(self, slug: str) -> IGDBPlatform:
         if slug in IGDB_PLATFORM_LIST:
             platform = IGDB_PLATFORM_LIST[UPS(slug)]
 
@@ -792,30 +800,28 @@ class IGDBHandler(MetadataHandler):
             platform_version = IGDB_PLATFORM_VERSIONS[slug]
             main_platform = IGDB_PLATFORM_LIST[platform_version["platform_slug"]]
 
-            return self._with_family(
-                IGDBPlatform(
-                    igdb_id=main_platform["id"],
-                    slug=slug,
-                    igdb_slug=main_platform["slug"],
-                    name=platform_version["name"],
-                    category=main_platform["category"],
-                    generation=main_platform["generation"],
-                    family_name=main_platform["family_name"],
-                    family_slug=main_platform["family_slug"],
-                    url=platform_version["url"],
-                    url_logo=self.normalize_cover_url(
-                        platform_version["url_logo"] or main_platform["url_logo"]
-                    ),
-                )
+            return IGDBPlatform(
+                igdb_id=main_platform["id"],
+                slug=slug,
+                igdb_slug=main_platform["slug"],
+                name=platform_version["name"],
+                category=main_platform["category"],
+                generation=main_platform["generation"],
+                family_name=main_platform["family_name"],
+                family_slug=main_platform["family_slug"],
+                url=platform_version["url"],
+                url_logo=self.normalize_cover_url(
+                    platform_version["url_logo"] or main_platform["url_logo"]
+                ),
             )
 
         # IGDB files every arcade game under Arcade. A provider that knows the
         # board supplies the name, so it doesn't read "Arcade".
         if slug in ARCADE_PLATFORMS:
-            arcade = self.get_platform(UPS.ARCADE)
+            arcade = self._base_platform(UPS.ARCADE)
             arcade["slug"] = slug
             arcade.pop("name", None)
-            return self._with_family(arcade)
+            return arcade
 
         unlisted_platform = IGDBPlatform(igdb_id=None, slug=slug)
         if slug in IGDB_SIBLING_PLATFORMS:
@@ -824,15 +830,7 @@ class IGDBHandler(MetadataHandler):
             unlisted_platform["family_name"] = sibling["family_name"]
             unlisted_platform["family_slug"] = sibling["family_slug"]
 
-        return self._with_family(unlisted_platform)
-
-    @staticmethod
-    def _with_family(platform: IGDBPlatform) -> IGDBPlatform:
-        if platform["slug"] in IGDB_PLATFORM_FAMILIES:
-            family = IGDB_PLATFORM_FAMILIES[UPS(platform["slug"])]
-            platform["family_name"] = family["family_name"]
-            platform["family_slug"] = family["family_slug"]
-        return platform
+        return unlisted_platform
 
     def get_platform_aliases(self, slug: str) -> tuple[str, list[str]]:
         """The platform's abbreviation and alternative names; a version shares its main platform's."""
