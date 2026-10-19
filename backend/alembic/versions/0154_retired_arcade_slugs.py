@@ -28,9 +28,9 @@ RETIRED_SLUGS = (
 
 def upgrade() -> None:
     op.execute(
-        sa.text("UPDATE platforms SET slug = 'arcade' WHERE slug IN :slugs").bindparams(
-            sa.bindparam("slugs", value=RETIRED_SLUGS, expanding=True)
-        )
+        sa.text(
+            "UPDATE platforms SET slug = 'arcade' WHERE LOWER(slug) IN :slugs"
+        ).bindparams(sa.bindparam("slugs", value=RETIRED_SLUGS, expanding=True))
     )
 
 
@@ -38,7 +38,7 @@ def downgrade() -> None:
     # The old slug is gone, so only a folder named after it can restore it.
     op.execute(
         sa.text(
-            "UPDATE platforms SET slug = fs_slug "
-            "WHERE slug = 'arcade' AND fs_slug IN :slugs"
+            "UPDATE platforms SET slug = LOWER(fs_slug) "
+            "WHERE slug = 'arcade' AND LOWER(fs_slug) IN :slugs"
         ).bindparams(sa.bindparam("slugs", value=RETIRED_SLUGS, expanding=True))
     )

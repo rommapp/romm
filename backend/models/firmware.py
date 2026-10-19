@@ -16,6 +16,8 @@ from models.base import (
     BaseModel,
     FileNamePartsMixin,
 )
+from utils.arcade_platforms import ARCADE_PLATFORMS
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 if TYPE_CHECKING:
     from models.platform import Platform
@@ -64,7 +66,9 @@ class Firmware(FileNamePartsMixin, BaseModel):
         sha1_hash: str,
         crc_hash: str,
     ) -> bool:
-        cache_entry = sync_cache.hget(KNOWN_BIOS_KEY, f"{platform_slug}:{file_name}")
+        # The known BIOS list files every arcade BIOS under Arcade.
+        bios_slug = UPS.ARCADE if platform_slug in ARCADE_PLATFORMS else platform_slug
+        cache_entry = sync_cache.hget(KNOWN_BIOS_KEY, f"{bios_slug}:{file_name}")
         if cache_entry:
             cache_json = json.loads(cache_entry)
             return file_size_bytes == int(cache_json.get("size", 0)) and (

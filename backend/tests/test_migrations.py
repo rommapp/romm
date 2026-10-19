@@ -1127,6 +1127,7 @@ def test_the_retired_arcade_slugs_revision_moves_boards_to_arcade_and_back():
     migration = _load_migration("0154_retired_arcade_slugs.py")
     for slug, fs_slug in (
         ("cps2", "cps2"),
+        ("CPS3", "CPS3"),
         ("system16", "sega16"),
         ("arcade", "arcade"),
         ("snes", "snes"),
@@ -1145,12 +1146,14 @@ def test_the_retired_arcade_slugs_revision_moves_boards_to_arcade_and_back():
 
     assert upgraded == {
         ("cps2", "arcade"),
+        ("CPS3", "arcade"),
         ("sega16", "arcade"),
         ("arcade", "arcade"),
         ("snes", "snes"),
     }
     assert downgraded == {
         ("cps2", "cps2"),
+        ("CPS3", "cps3"),
         ("sega16", "arcade"),
         ("arcade", "arcade"),
         ("snes", "snes"),
