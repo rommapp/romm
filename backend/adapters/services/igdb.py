@@ -4808,7 +4808,7 @@ def _igdb_family(slug: UPS) -> PlatformFamily:
     )
 
 
-# RomM slugs for IGDB platform versions IGDB keys by a different slug.
+# IGDB platform versions whose IGDB slug differs from RomM's.
 IGDB_PLATFORM_VERSIONS |= {
     UPS.HIKARU: IGDB_PLATFORM_VERSIONS["sega-hikaru"],
     UPS.NAOMI2: IGDB_PLATFORM_VERSIONS["naomi-2"],

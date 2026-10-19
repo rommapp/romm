@@ -815,8 +815,8 @@ class IGDBHandler(MetadataHandler):
                 )
             )
 
-        # IGDB files every arcade game under Arcade. The name is left to a
-        # provider that knows the board, so it doesn't read "Arcade".
+        # IGDB files every arcade game under Arcade. A provider that knows the
+        # board supplies the name, so it doesn't read "Arcade".
         if slug in ARCADE_PLATFORMS:
             arcade = self.get_platform(UPS.ARCADE)
             arcade["slug"] = slug

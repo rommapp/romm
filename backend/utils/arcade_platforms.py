@@ -10,8 +10,8 @@ ARCADE_SET_PLATFORMS: Final = frozenset(
     {UPS.ARCADE, UPS.MAME, UPS.MAME_ADVMAME, UPS.FBNEO, UPS.FBA}
 )
 
-# Every arcade platform. A provider with no platform of its own for one of
-# these files its games under Arcade.
+# Every arcade platform. A provider without a platform of its own for one
+# uses its Arcade entry instead.
 ARCADE_PLATFORMS: Final = ARCADE_SET_PLATFORMS | {
     UPS.ATOMISWAVE,
     UPS.CHIHIRO,
