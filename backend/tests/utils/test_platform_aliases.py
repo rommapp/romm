@@ -70,11 +70,20 @@ def test_resolves_easyrpg_to_rpg_maker():
         ("model1", UPS.ARCADE),
         ("namco22", UPS.ARCADE),
         ("system-32", UPS.ARCADE),
+        ("typex", UPS.TYPE_X),
     ],
 )
 def test_arcade_folders_resolve_by_emulator(folder: str, slug: UPS):
     """Emulator families and boards with their own emulator keep a slug; MAME-only boards are Arcade."""
     assert resolve_platform_slug(folder, _config()) == slug.value
+
+
+def test_a_binding_to_an_alias_resolves_to_its_platform():
+    config = _config(bindings={"capcom": "cps2"}, versions={"sega": "Mastersystem"})
+
+    assert resolve_platform_slug("capcom", config) == UPS.ARCADE.value
+    assert resolve_platform_slug("sega", config) == UPS.SMS.value
+    assert resolve_fs_slug(UPS.SMS.value, config) == "sega"
 
 
 def test_binding_and_version_win_over_alias():

@@ -107,6 +107,12 @@ def _fill_from_switch_entry(fallback_rom: BaseRom, index_entry: dict[str, Any]) 
     fallback_rom["url_screenshots"] = index_entry.get("screenshots", None) or []
 
 
+async def mame_title(shortname: str) -> str | None:
+    """MAME's full title for a set, region and revision tags included."""
+    entry = await async_cache.hget(MAME_XML_KEY, shortname)
+    return json.loads(entry).get("description") if entry else None
+
+
 class CoverResource(TypedDict):
     """One piece of artwork the manual cover search offers, in the shape
     SteamGridDB grids have, so every provider fills the same picker."""
@@ -483,14 +489,10 @@ class MetadataHandler(abc.ABC):
     async def _mame_format(self, search_term: str) -> str:
         from handler.filesystem import fs_rom_handler
 
-        index_entry = await async_cache.hget(MAME_XML_KEY, search_term)
-        if index_entry:
-            index_entry = json.loads(index_entry)
-            search_term = fs_rom_handler.get_file_name_with_no_tags(
-                index_entry.get("description", search_term)
-            )
-
-        return search_term
+        title = await mame_title(search_term)
+        return (
+            fs_rom_handler.get_file_name_with_no_tags(title) if title else search_term
+        )
 
     async def _scummvm_format(self, search_term: str) -> str:
         from handler.filesystem import fs_rom_handler

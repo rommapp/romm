@@ -4876,7 +4876,8 @@ _MOS_TECHNOLOGY_FAMILY = PlatformFamily(
     family_name="MOS Technology", family_slug="mos-technology"
 )
 
-# Platforms IGDB doesn't list, mapped to their family. Overrides a sibling's.
+# Platforms IGDB lists under no platform of their own, mapped to their family.
+# Overrides the family of a sibling or of the platform IGDB files them under.
 IGDB_PLATFORM_FAMILIES: dict[UPS, PlatformFamily] = {
     UPS.MODEL2: _igdb_family(UPS.DC),
     UPS.MODEL3: _igdb_family(UPS.DC),

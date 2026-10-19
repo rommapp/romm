@@ -824,20 +824,10 @@ class IGDBHandler(MetadataHandler):
         # IGDB files every arcade game under Arcade. The name is left to a
         # provider that knows the board, so it doesn't read "Arcade".
         if slug in ARCADE_PLATFORMS:
-            arcade = IGDB_PLATFORM_LIST[UPS.ARCADE]
-            return self._with_family(
-                IGDBPlatform(
-                    igdb_id=arcade["id"],
-                    slug=slug,
-                    igdb_slug=arcade["slug"],
-                    category=arcade["category"],
-                    generation=arcade["generation"],
-                    family_name=arcade["family_name"],
-                    family_slug=arcade["family_slug"],
-                    url=arcade["url"],
-                    url_logo=self.normalize_cover_url(arcade["url_logo"]),
-                )
-            )
+            arcade = self.get_platform(UPS.ARCADE)
+            arcade["slug"] = slug
+            arcade.pop("name", None)
+            return self._with_family(arcade)
 
         unlisted_platform = IGDBPlatform(igdb_id=None, slug=slug)
         if slug in IGDB_SIBLING_PLATFORMS:
@@ -861,8 +851,8 @@ class IGDBHandler(MetadataHandler):
         platform: SlugToIGDB
         if slug in IGDB_PLATFORM_LIST:
             platform = IGDB_PLATFORM_LIST[UPS(slug)]
-        elif _version_slug(slug) in IGDB_PLATFORM_VERSIONS:
-            version = IGDB_PLATFORM_VERSIONS[_version_slug(slug)]
+        elif (version_slug := _version_slug(slug)) in IGDB_PLATFORM_VERSIONS:
+            version = IGDB_PLATFORM_VERSIONS[version_slug]
             platform = IGDB_PLATFORM_LIST[version["platform_slug"]]
         else:
             return "", []

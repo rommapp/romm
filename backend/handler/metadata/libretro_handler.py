@@ -1,6 +1,5 @@
 import asyncio
 import hashlib
-import json
 import os
 import re
 from typing import Final, NotRequired, TypedDict
@@ -9,12 +8,11 @@ from adapters.services.libretro_thumbnails import LibretroThumbnailsService
 from adapters.services.libretro_thumbnails_types import LibretroArtType
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
-from handler.redis_handler import async_cache
 from logger.logger import log
 from utils.arcade_platforms import ARCADE_PLATFORMS
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-from .base_handler import MAME_XML_KEY, MetadataHandler
+from .base_handler import MetadataHandler, mame_title
 
 _PAREN_TAG_PATTERN = re.compile(r"\([^)]*\)")
 # Characters libretro replaces with `_` in its art filenames.
@@ -53,12 +51,6 @@ def _remove_file_extension(filename: str) -> str:
 def _strip_paren_tags(s: str) -> str:
     """Remove parenthetical tags like (USA), (SGB Enhanced) from a filename."""
     return _PAREN_TAG_PATTERN.sub("", s).strip()
-
-
-async def _mame_title(shortname: str) -> str | None:
-    """MAME's full title for a set, which libretro names arcade art by."""
-    entry = await async_cache.hget(MAME_XML_KEY, shortname)
-    return json.loads(entry)["description"] if entry else None
 
 
 def libretro_id_for(filename: str) -> str:
@@ -132,9 +124,6 @@ class LibretroHandler(MetadataHandler):
             return None
         return stripped_to_original[match]
 
-    def _find_matching_art(self, fs_name: str, listing: list[str]) -> str | None:
-        return self._match_art_name(_remove_file_extension(fs_name), listing)
-
     def _match_art_name(self, name: str, listing: list[str]) -> str | None:
         target = _UNSAFE_NAME_CHARS.sub("_", name)
 
@@ -172,8 +161,9 @@ class LibretroHandler(MetadataHandler):
             return LibretroRom(libretro_id=None)
 
         art_name = _remove_file_extension(fs_name)
+        # Libretro names arcade art by MAME's full title, not the set's shortname.
         if platform_slug in ARCADE_PLATFORMS:
-            art_name = await _mame_title(art_name) or art_name
+            art_name = await mame_title(art_name) or art_name
 
         matched = self._match_art_name(art_name, box_listing)
         if not matched:

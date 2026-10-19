@@ -128,6 +128,7 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
     "ti99": UPS.TI_99,
     "tic80": UPS.TIC_80,
     "tutor": UPS.TOMY_TUTOR,
+    "typex": UPS.TYPE_X,
     "vc4000": UPS.VC_4000,
     "vic20": UPS.VIC_20,
     "videopac": UPS.VIDEOPAC_G7400,
@@ -164,16 +165,20 @@ def _unambiguous_folders() -> dict[str, str]:
 PLATFORM_SLUG_FOLDERS: Final[dict[str, str]] = _unambiguous_folders()
 
 
+def _to_slug(name: str) -> str:
+    key = name.lower()
+    if key in UPS:
+        return key
+    alias = PLATFORM_FS_ALIASES.get(key)
+    return alias.value if alias else name
+
+
 def resolve_platform_slug(fs_slug: str, config: Config) -> str:
     """Resolve a platform folder name to a RomM platform slug."""
     key = fs_slug.lower()
     bound = config.PLATFORMS_BINDING.get(key) or config.PLATFORMS_VERSIONS.get(key)
-    if bound:
-        return bound
-    if key in UPS:
-        return key
-    alias = PLATFORM_FS_ALIASES.get(key)
-    return alias.value if alias else fs_slug
+    # A bound name resolves like a folder name, so it may be an alias too.
+    return _to_slug(bound or fs_slug)
 
 
 def resolve_fs_slug(slug: str, config: Config) -> str | None:
@@ -185,7 +190,7 @@ def resolve_fs_slug(slug: str, config: Config) -> str | None:
     """
     for mapping in (config.PLATFORMS_BINDING, config.PLATFORMS_VERSIONS):
         for fs_slug, bound in mapping.items():
-            if bound == slug:
+            if _to_slug(bound) == slug:
                 return fs_slug
     return PLATFORM_SLUG_FOLDERS.get(slug)
 

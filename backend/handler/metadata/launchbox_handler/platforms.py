@@ -220,12 +220,12 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
     UPS.ZX81: {"id": 147, "name": "Sinclair ZX-81"},
     UPS.ZXS: {"id": 46, "name": "Sinclair ZX Spectrum"},
 }
-LAUNCHBOX_PLATFORM_LIST |= arcade_fallbacks(LAUNCHBOX_PLATFORM_LIST)
 
 # Reverse lookup: LaunchBox platform ID → UPS slug
 LAUNCHBOX_PLATFORM_NAME_TO_SLUG = {
     v["id"]: k for k, v in LAUNCHBOX_PLATFORM_LIST.items()
 }
+LAUNCHBOX_PLATFORM_LIST |= arcade_fallbacks(LAUNCHBOX_PLATFORM_LIST)
 
 
 def get_platform(slug: str) -> LaunchboxPlatform:
