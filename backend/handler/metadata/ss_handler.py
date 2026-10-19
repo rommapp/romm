@@ -40,7 +40,6 @@ from handler.filesystem.base_handler import (
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import LookupHashes, Rom, RomFile
-from utils.arcade_platforms import ARCADE_PLATFORMS
 from utils.database import safe_int
 from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
@@ -2095,15 +2094,10 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     },
 }
 
-ARCADE_SS_IDS: Final = frozenset(
-    SCREENSAVER_PLATFORM_LIST[slug]["id"] for slug in ARCADE_PLATFORMS
-)
-
 SS_INDEXED_FORMAT_PLATFORMS: Final = IndexedFormatPlatforms(
     ps1=PS1_SS_ID,
     ps2=PS2_SS_ID,
     psp=PSP_SS_ID,
     switch=SWITCH_SS_ID,
-    arcade=ARCADE_SS_IDS,
     scummvm=SCREENSAVER_PLATFORM_LIST[UPS.SCUMMVM]["id"],
 )

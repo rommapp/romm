@@ -24,13 +24,11 @@ PS1_MOBY_ID: Final = 6
 PS2_MOBY_ID: Final = 7
 PSP_MOBY_ID: Final = 46
 SWITCH_MOBY_ID: Final = 203
-ARCADE_MOBY_IDS: Final = [143, 36]
 MOBY_INDEXED_FORMAT_PLATFORMS: Final = IndexedFormatPlatforms(
     ps1=PS1_MOBY_ID,
     ps2=PS2_MOBY_ID,
     psp=PSP_MOBY_ID,
     switch=SWITCH_MOBY_ID,
-    arcade=ARCADE_MOBY_IDS,
 )
 
 # Regex to detect MobyGames ID tags in filenames like (moby-12345)

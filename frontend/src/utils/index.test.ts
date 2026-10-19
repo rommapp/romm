@@ -166,10 +166,11 @@ describe("EasyRPG support", () => {
 });
 
 describe("arcade platforms", () => {
-  it("offers each emulator family only its own cores", () => {
+  it("offers each emulator family the cores that run its sets", () => {
     expect(getSupportedEJSCores("mame")).toEqual(["mame2003_plus", "mame2003"]);
     expect(getSupportedEJSCores("fbneo")).toEqual(["fbneo"]);
     expect(getSupportedEJSCores("fba")).toEqual([
+      "fbneo",
       "fbalpha2012_cps1",
       "fbalpha2012_cps2",
     ]);

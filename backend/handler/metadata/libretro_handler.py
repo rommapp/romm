@@ -9,7 +9,7 @@ from adapters.services.libretro_thumbnails_types import LibretroArtType
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from logger.logger import log
-from utils.arcade_platforms import ARCADE_PLATFORMS
+from utils.arcade_platforms import MAME_SHORTNAME_PLATFORMS
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import MetadataHandler, mame_title
@@ -162,7 +162,7 @@ class LibretroHandler(MetadataHandler):
 
         art_name = _remove_file_extension(fs_name)
         # Libretro names arcade art by MAME's full title, not the set's shortname.
-        if platform_slug in ARCADE_PLATFORMS:
+        if platform_slug in MAME_SHORTNAME_PLATFORMS:
             art_name = await mame_title(art_name) or art_name
 
         matched = self._match_art_name(art_name, box_listing)

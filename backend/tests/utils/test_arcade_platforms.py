@@ -15,7 +15,6 @@ from handler.metadata import (
     meta_tgdb_handler,
 )
 from handler.metadata.platform_names import resolve_platform_name
-from handler.metadata.ss_handler import ARCADE_SS_IDS, SS_INDEXED_FORMAT_PLATFORMS
 from utils.arcade_platforms import (
     ARCADE_PLATFORMS,
     ARCADE_SET_PLATFORMS,
@@ -59,11 +58,6 @@ def test_a_board_gets_no_retroachievements_console(slug: UPS):
     assert meta_hasheous_handler.get_platform(slug)["ra_id"] is None
 
 
-def test_shortnames_expand_on_every_screenscraper_arcade_system():
-    assert {53, 54, 56, 69, 75, 227, 230, 258} <= ARCADE_SS_IDS
-    assert SS_INDEXED_FORMAT_PLATFORMS.arcade == ARCADE_SS_IDS
-
-
 def test_only_sets_an_emulatorjs_core_runs_are_playable():
     assert {UPS.ARCADE, UPS.MAME, UPS.FBNEO, UPS.FBA} <= set(EJS_SUPPORTED_PLATFORMS)
     assert not (ARCADE_PLATFORMS - {UPS.ARCADE, UPS.MAME, UPS.FBNEO, UPS.FBA}) & set(
@@ -71,7 +65,11 @@ def test_only_sets_an_emulatorjs_core_runs_are_playable():
     )
 
 
-@pytest.mark.parametrize("slug", sorted(ARCADE_SET_PLATFORMS))
+@pytest.mark.parametrize("slug", [UPS.ARCADE, UPS.MAME, UPS.FBNEO, UPS.FBA])
 def test_set_platforms_feed_webrcade_as_arcade(slug: UPS):
     assert slug in WEBRCADE_SUPPORTED_PLATFORM_SLUGS
     assert WEBRCADE_SLUG_TO_TYPE_MAP[slug] == "arcade"
+
+
+def test_advancemame_is_left_out_of_webrcade():
+    assert UPS.MAME_ADVMAME not in WEBRCADE_SUPPORTED_PLATFORM_SLUGS

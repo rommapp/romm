@@ -2,7 +2,7 @@ import abc
 import json
 import re
 import unicodedata
-from collections.abc import Awaitable, Callable, Collection
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -23,6 +23,7 @@ from tasks.scheduled.update_switch_titledb import (
     SWITCH_TITLEDB_STORE,
 )
 from utils import get_version, int_or_none
+from utils.arcade_platforms import MAME_SHORTNAME_PLATFORMS
 from utils.cache import is_cache_store_ready
 from utils.context import ctx_httpx_client
 from utils.switch import derive_base_title_id
@@ -96,7 +97,6 @@ class IndexedFormatPlatforms:
     ps2: int
     psp: int
     switch: int
-    arcade: Collection[int]
     scummvm: int | None = None
 
 
@@ -374,7 +374,7 @@ class MetadataHandler(abc.ABC):
             if index_entry:
                 _fill_from_switch_entry(fallback_rom, index_entry)
 
-        if platform_id in platforms.arcade:
+        if rom.platform and rom.platform.slug in MAME_SHORTNAME_PLATFORMS:
             search_term = await self._mame_format(search_term)
             fallback_rom["name"] = search_term
 

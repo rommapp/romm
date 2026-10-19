@@ -3,11 +3,11 @@ from typing import Annotated, Any, Final, NotRequired, TypedDict
 from pydantic import BaseModel, BeforeValidator, Field, field_validator
 
 from tasks.scheduled.update_switch_titledb import TITLEDB_REGION_LIST
-from utils.arcade_platforms import ARCADE_SET_PLATFORMS
+from utils.arcade_platforms import PLAYABLE_ARCADE_SET_PLATFORMS
 from utils.database import safe_int
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-WEBRCADE_SUPPORTED_PLATFORM_SLUGS = ARCADE_SET_PLATFORMS | frozenset(
+WEBRCADE_SUPPORTED_PLATFORM_SLUGS = PLAYABLE_ARCADE_SET_PLATFORMS | frozenset(
     (
         UPS._3DO,
         UPS.ATARI2600,
@@ -45,7 +45,7 @@ WEBRCADE_SUPPORTED_PLATFORM_SLUGS = ARCADE_SET_PLATFORMS | frozenset(
 )
 
 WEBRCADE_SLUG_TO_TYPE_MAP: dict[str, str] = {
-    **dict.fromkeys(ARCADE_SET_PLATFORMS, "arcade"),
+    **dict.fromkeys(PLAYABLE_ARCADE_SET_PLATFORMS, "arcade"),
     UPS.ATARI2600: "2600",
     UPS.ATARI5200: "5200",
     UPS.ATARI7800: "7800",

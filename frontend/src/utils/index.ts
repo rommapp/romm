@@ -416,7 +416,7 @@ const _EJS_CORES_MAP: Record<string, string[]> = {
   ],
   mame: ["mame2003_plus", "mame2003"],
   fbneo: ["fbneo"],
-  fba: ["fbalpha2012_cps1", "fbalpha2012_cps2"],
+  fba: ["fbneo", "fbalpha2012_cps1", "fbalpha2012_cps2"],
   neogeoaes: ["fbneo"],
   neogeomvs: ["fbneo"],
   atari2600: ["stella2014"],

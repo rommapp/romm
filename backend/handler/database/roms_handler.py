@@ -98,7 +98,7 @@ from models.rom import (
 )
 from utils import get_version
 from utils.age_ratings import MIN_AGE_SOURCE_COLUMNS, compute_min_age
-from utils.arcade_platforms import ARCADE_SET_PLATFORMS
+from utils.arcade_platforms import PLAYABLE_ARCADE_SET_PLATFORMS
 from utils.database import (
     ROMS_SEARCH_FULLTEXT_COLUMNS,
     SORTABLE_NULLABLE_ROM_COLUMNS,
@@ -134,8 +134,7 @@ EJS_SUPPORTED_PLATFORMS = [
     UPS.AMIGA,
     UPS.AMIGA_CD,
     UPS.AMIGA_CD32,
-    # EmulatorJS has no AdvanceMAME core.
-    *sorted(ARCADE_SET_PLATFORMS - {UPS.MAME_ADVMAME}),
+    *sorted(PLAYABLE_ARCADE_SET_PLATFORMS),
     UPS.NEOGEOAES,
     UPS.NEOGEOMVS,
     UPS.ATARI2600,
