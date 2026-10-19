@@ -5,6 +5,7 @@ from config import LAUNCHBOX_API_ENABLED
 from handler.filesystem import fs_rom_handler
 from handler.redis_handler import async_cache
 from logger.logger import log
+from utils.arcade_platforms import ARCADE_PLATFORMS
 from utils.cache import is_cache_store_ready
 from utils.database import safe_int
 from utils.platform_slugs import UniversalPlatformSlug as UPS
@@ -168,7 +169,7 @@ class LaunchboxHandler(MetadataHandler):
 
             # Resolve MAME arcade filename (e.g. wrlok_l3.zip) to its full title
             # via LaunchBox's Mame.xml before name-based lookup.
-            if platform_slug == UPS.ARCADE:
+            if platform_slug in ARCADE_PLATFORMS:
                 mame_entry = await self._remote.get_mame_entry(fs_name)
                 if mame_entry:
                     name = (mame_entry.get("Name") or "").strip()

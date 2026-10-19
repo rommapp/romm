@@ -9,6 +9,7 @@ from adapters.services.mobygames_types import MobyGame
 from config import MOBYGAMES_API_KEY
 from logger.logger import log
 from models.rom import Rom
+from utils.arcade_platforms import arcade_fallbacks
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
@@ -1330,6 +1331,7 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
     UPS.ZX80: {"id": 118, "name": "ZX80", "slug": "zx80"},
     UPS.ZX81: {"id": 119, "name": "ZX81", "slug": "zx81"},
 }
+MOBYGAMES_PLATFORM_LIST |= arcade_fallbacks(MOBYGAMES_PLATFORM_LIST)
 
 # Reverse lookup
 MOBY_ID_TO_SLUG = {v["id"]: k for k, v in MOBYGAMES_PLATFORM_LIST.items()}

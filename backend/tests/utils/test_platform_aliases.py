@@ -57,6 +57,26 @@ def test_resolves_easyrpg_to_rpg_maker():
     assert resolve_fs_slug(UPS.RPG_MAKER.value, _config()) == "easyrpg"
 
 
+@pytest.mark.parametrize(
+    ("folder", "slug"),
+    [
+        ("mame", UPS.MAME),
+        ("fbneo", UPS.FBNEO),
+        ("naomi", UPS.NAOMI),
+        ("lindbergh", UPS.LINDBERGH),
+        ("laserdisc", UPS.DAPHNE),
+        ("cps2", UPS.ARCADE),
+        ("system16", UPS.ARCADE),
+        ("model1", UPS.ARCADE),
+        ("namco22", UPS.ARCADE),
+        ("system-32", UPS.ARCADE),
+    ],
+)
+def test_arcade_folders_resolve_by_emulator(folder: str, slug: UPS):
+    """Emulator families and boards with their own emulator keep a slug; MAME-only boards are Arcade."""
+    assert resolve_platform_slug(folder, _config()) == slug.value
+
+
 def test_binding_and_version_win_over_alias():
     bound = _config(bindings={"gamecube": "arcade"})
     assert resolve_platform_slug("gamecube", bound) == "arcade"
