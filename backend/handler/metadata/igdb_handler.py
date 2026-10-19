@@ -10,7 +10,6 @@ from adapters.services.igdb import (
     IGDB_PLATFORM_LIST,
     IGDB_PLATFORM_VERSIONS,
     IGDB_SIBLING_PLATFORMS,
-    IGDB_VERSION_SLUGS,
     IGDBService,
     SlugToIGDB,
 )
@@ -79,10 +78,6 @@ IGDB_TAG_REGEX = provider_tag_regex("igdb")
 # Jaro-Winkler score of an exact (post-normalization) title match. Only a first
 # pass hitting this may be trusted without widening the search.
 EXACT_MATCH_SCORE: Final = 1.0
-
-
-def _version_slug(slug: str) -> str:
-    return IGDB_VERSION_SLUGS[UPS(slug)] if slug in IGDB_VERSION_SLUGS else slug
 
 
 class IGDBPlatform(TypedDict):
@@ -799,9 +794,8 @@ class IGDBHandler(MetadataHandler):
                 url_logo=self.normalize_cover_url(platform["url_logo"]),
             )
 
-        version_slug = _version_slug(slug)
-        if version_slug in IGDB_PLATFORM_VERSIONS:
-            platform_version = IGDB_PLATFORM_VERSIONS[version_slug]
+        if slug in IGDB_PLATFORM_VERSIONS:
+            platform_version = IGDB_PLATFORM_VERSIONS[slug]
             main_platform = IGDB_PLATFORM_LIST[platform_version["platform_slug"]]
 
             return self._with_family(
@@ -851,9 +845,8 @@ class IGDBHandler(MetadataHandler):
         platform: SlugToIGDB
         if slug in IGDB_PLATFORM_LIST:
             platform = IGDB_PLATFORM_LIST[UPS(slug)]
-        elif (version_slug := _version_slug(slug)) in IGDB_PLATFORM_VERSIONS:
-            version = IGDB_PLATFORM_VERSIONS[version_slug]
-            platform = IGDB_PLATFORM_LIST[version["platform_slug"]]
+        elif slug in IGDB_PLATFORM_VERSIONS:
+            platform = IGDB_PLATFORM_LIST[IGDB_PLATFORM_VERSIONS[slug]["platform_slug"]]
         else:
             return "", []
 

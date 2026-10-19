@@ -2107,6 +2107,3 @@ SS_INDEXED_FORMAT_PLATFORMS: Final = IndexedFormatPlatforms(
     arcade=ARCADE_SS_IDS,
     scummvm=SCREENSAVER_PLATFORM_LIST[UPS.SCUMMVM]["id"],
 )
-
-# Reverse lookup
-SS_ID_TO_SLUG = {v["id"]: k for k, v in SCREENSAVER_PLATFORM_LIST.items()}

@@ -1331,9 +1331,6 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
     UPS.ZX80: {"id": 118, "name": "ZX80", "slug": "zx80"},
     UPS.ZX81: {"id": 119, "name": "ZX81", "slug": "zx81"},
 }
-
-# Reverse lookup
-MOBY_ID_TO_SLUG = {v["id"]: k for k, v in MOBYGAMES_PLATFORM_LIST.items()}
 MOBYGAMES_PLATFORM_LIST |= arcade_fallbacks(MOBYGAMES_PLATFORM_LIST)
 
 

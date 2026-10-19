@@ -4808,11 +4808,11 @@ def _igdb_family(slug: UPS) -> PlatformFamily:
     )
 
 
-# RomM slugs whose IGDB platform version is keyed by a different slug.
-IGDB_VERSION_SLUGS: dict[UPS, str] = {
-    UPS.HIKARU: "sega-hikaru",
-    UPS.NAOMI2: "naomi-2",
-    UPS.STV: "sega-titan-video",
+# RomM slugs for IGDB platform versions IGDB keys by a different slug.
+IGDB_PLATFORM_VERSIONS |= {
+    UPS.HIKARU: IGDB_PLATFORM_VERSIONS["sega-hikaru"],
+    UPS.NAOMI2: IGDB_PLATFORM_VERSIONS["naomi-2"],
+    UPS.STV: IGDB_PLATFORM_VERSIONS["sega-titan-video"],
 }
 
 # Platforms IGDB doesn't list, mapped to an IGDB platform they share a family
