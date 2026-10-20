@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, NotRequired, TypedDict, get_type_hints
+from typing import NotRequired, TypedDict, get_type_hints
 
 from fastapi import Request
 from pydantic import ConfigDict, Field, computed_field, field_validator, model_validator
@@ -44,9 +44,6 @@ from models.rom import (
 from utils.conversion_cache import offered_download_formats
 
 from .base import BaseModel, UTCDatetime
-
-if TYPE_CHECKING:
-    from handler.rom_media import RomMedia
 
 SORT_COMPARE_REGEX = re.compile(r"^([Tt]he|[Aa]|[Aa]nd)\s")
 
@@ -582,7 +579,7 @@ class SimpleRomSchema(RomSchema):
         siblings: Sequence[tuple[Rom, bool]] | None = None,
         screenshot_path: str | None = None,
         has_notes: bool | None = None,
-        media: Sequence[RomMedia] | None = None,
+        media: Sequence[RomMediaSchema] | None = None,
     ) -> SimpleRomSchema:
         db_rom = cls.populate_properties(db_rom, request, has_notes=has_notes)
         db_rom.screenshot_path = screenshot_path  # type: ignore[attr-defined]

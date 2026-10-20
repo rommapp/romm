@@ -45,6 +45,7 @@ from endpoints.responses.recommendation import SimilarRomSchema
 from endpoints.responses.rom import (
     DetailedRomSchema,
     ManualMetadata,
+    RomMediaSchema,
     RomUserSchema,
     SimpleRomSchema,
 )
@@ -788,9 +789,15 @@ def get_roms(
             if load_files:
                 for item in items:
                     apply_file_stats(item, files_by_rom.get(item.id, []))
-            resolve_media = (
-                fs_resource_handler.lexical_path_validator() if with_media else None
-            )
+            media_by_rom: dict[int, list[RomMediaSchema]] = {}
+            if with_media:
+                resolve_media = fs_resource_handler.lexical_path_validator()
+                media_by_rom = {
+                    item.id: describe_rom_media(
+                        item, files_by_rom.get(item.id, []), resolve_media
+                    )
+                    for item in items
+                }
 
             # Continue-playing rail
             screenshot_by_rom: dict[int, str | None] = {}
@@ -811,13 +818,7 @@ def get_roms(
                     siblings=siblings_by_rom.get(item.id, []),
                     screenshot_path=screenshot_by_rom.get(item.id),
                     has_notes=item.id in rom_ids_with_notes,
-                    media=(
-                        describe_rom_media(
-                            item, files_by_rom.get(item.id, []), resolve_media
-                        )
-                        if with_media
-                        else None
-                    ),
+                    media=media_by_rom.get(item.id),
                 )
                 for item in items
             ]

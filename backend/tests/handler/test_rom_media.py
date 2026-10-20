@@ -3,8 +3,9 @@ from typing import Any
 
 import pytest
 
+from endpoints.responses.rom import RomMediaSchema
 from handler.filesystem import fs_resource_handler
-from handler.rom_media import RomMedia, describe_rom_media
+from handler.rom_media import describe_rom_media as _describe
 from models.rom import Rom, RomFile
 
 
@@ -25,7 +26,11 @@ def _rom(**fields: Any) -> Rom:
     return Rom(id=1, platform_id=1, fs_path="nes/roms", fs_name="Game", **fields)
 
 
-def _by_path(media: list[RomMedia]) -> dict[str, RomMedia]:
+def describe_rom_media(rom: Rom, files: list[RomFile]) -> list[RomMediaSchema]:
+    return _describe(rom, files, fs_resource_handler.lexical_path_validator())
+
+
+def _by_path(media: list[RomMediaSchema]) -> dict[str, RomMediaSchema]:
     return {m.path.removeprefix("/assets/romm/resources/"): m for m in media}
 
 
@@ -167,8 +172,8 @@ def test_library_images_and_videos_are_listed_from_their_rows(
 
     media = describe_rom_media(rom, files)
 
-    assert media == [
-        RomMedia(
+    assert [m.model_dump(exclude_none=True) for m in media] == [
+        dict(
             type="image",
             source="library",
             path="/api/roms/1/files/content/Box%20Art.PNG",
@@ -176,13 +181,15 @@ def test_library_images_and_videos_are_listed_from_their_rows(
             format="png",
             file_id=1,
             md5="abc",
+            shadowed=False,
         ),
-        RomMedia(
+        dict(
             type="video",
             source="library",
             path="/api/roms/2/files/content/trailer.mp4",
             size_bytes=2000,
             format="mp4",
             file_id=2,
+            shadowed=False,
         ),
     ]
