@@ -1,6 +1,9 @@
 import { flushPromises, shallowMount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
+import { defineComponent, type PropType } from "vue";
 import { createMemoryHistory, createRouter } from "vue-router";
+import { romFixture } from "@/utils/rom.fixtures";
+import { GameCard } from "@/v2/components/GameCard";
 import type { GalleryItem } from "@/v2/composables/useGalleryVirtualItems";
 import { RVirtualScroller } from "@/v2/lib";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -23,6 +26,54 @@ function scrollerItems(wrapper: ReturnType<typeof shallowMount>) {
     .findComponent(RVirtualScroller)
     .props("items") as GalleryItem[];
 }
+
+describe("GalleryShell platform icons", () => {
+  it.each<{ showPlatformBadge?: boolean; expected: boolean }>([
+    { expected: true },
+    { showPlatformBadge: true, expected: true },
+    { showPlatformBadge: false, expected: false },
+  ])(
+    "forwards showPlatformBadge=$showPlatformBadge to cards",
+    async ({ expected, ...props }) => {
+      const galleryRoms = storeGalleryRoms();
+      galleryRoms.total = 1;
+      galleryRoms.byPosition.set(0, romFixture());
+      const router = createRouter({
+        history: createMemoryHistory(),
+        routes: [{ path: "/search", component: { template: "<div />" } }],
+      });
+      await router.push("/search");
+      const wrapper = shallowMount(GalleryShell, {
+        props: {
+          hasHeader: false,
+          searchPlaceholder: "",
+          emptyMessage: "",
+          ...props,
+        },
+        global: {
+          plugins: [router],
+          renderStubDefaultSlot: true,
+          stubs: {
+            GameCard: false,
+            RVirtualScroller: defineComponent({
+              props: {
+                items: {
+                  type: Array as PropType<GalleryItem[]>,
+                  required: true,
+                },
+              },
+              template: `<div><slot v-for="(item, index) in items" :key="item.key" :item="item" :index="index" /></div>`,
+            }),
+          },
+        },
+      });
+
+      const card = wrapper.getComponent(GameCard);
+      expect(card.props("showPlatformIcon")).toBe(expected);
+      expect(card.find(".r-gc__platform-icon").exists()).toBe(expected);
+    },
+  );
+});
 
 describe("GalleryShell re-sort skeleton", () => {
   it("paints only the known count while a re-sort refetches", async () => {
