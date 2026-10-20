@@ -170,12 +170,20 @@ class TestFSHandler:
             "/etc/passwd",
         ],
     )
-    def test_cached_path_validator_matches_validate_path(
-        self, handler: FSHandler, temp_dir: str, tmp_path: Path, path: str
+    @pytest.mark.parametrize(
+        "validator", ["cached_path_validator", "lexical_path_validator"]
+    )
+    def test_path_validators_match_validate_path(
+        self,
+        handler: FSHandler,
+        temp_dir: str,
+        tmp_path: Path,
+        path: str,
+        validator: str,
     ):
         (Path(temp_dir) / "dir").mkdir()
         (Path(temp_dir) / "linked").symlink_to(tmp_path, target_is_directory=True)
-        validate = handler.cached_path_validator()
+        validate = getattr(handler, validator)()
 
         try:
             expected = handler.validate_path(path)

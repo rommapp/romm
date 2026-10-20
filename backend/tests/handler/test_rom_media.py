@@ -74,6 +74,19 @@ def test_higher_priority_provider_shadows_the_same_kind(resources: Path) -> None
     }
 
 
+def test_a_missing_higher_priority_copy_shadows_nothing(resources: Path) -> None:
+    rom = _rom(
+        ss_metadata={"box3d_path": "roms/1/1/box3d/ss.png"},
+        gamelist_metadata={
+            "box3d_path": _store(resources, "roms/1/1/box3d/gl.png", 20)
+        },
+    )
+
+    media = describe_rom_media(rom, [])
+
+    assert [(m.source, m.shadowed) for m in media] == [("gamelist", False)]
+
+
 def test_a_shared_path_is_listed_once_for_its_first_provider(resources: Path) -> None:
     shared = _store(resources, "roms/1/1/fanart/fanart.jpg", 10)
     rom = _rom(
@@ -116,9 +129,7 @@ def test_each_disc_resolves_on_its_own(resources: Path) -> None:
 
 
 def test_recorded_paths_without_a_file_are_left_out(resources: Path) -> None:
-    _store(resources, "roms/1/1/logo", 0)
-    (resources / "roms/1/1/logo").unlink()
-    (resources / "roms/1/1/logo").mkdir()
+    (resources / "roms/1/1/logo").mkdir(parents=True)
     rom = _rom(
         path_cover_l="roms/1/1/cover/big.png",
         ss_metadata={

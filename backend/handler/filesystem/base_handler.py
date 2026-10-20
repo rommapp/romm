@@ -426,11 +426,7 @@ class FSHandler:
         return Path(normalized_path)
 
     def lexical_path_validator(self) -> Callable[[str], Path]:
-        """Return a check that joins a relative path onto the base, refusing escapes.
-
-        Unlike ``validate_path`` it never walks the path's directories, for
-        callers that only read a file's metadata.
-        """
+        """Return a ``validate_path`` that skips the symlink walk, for stat-only callers."""
         base_path_obj = Path(self.base_path).resolve()
         return lambda path: self._lexical_path(path, base_path_obj)
 

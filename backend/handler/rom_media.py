@@ -11,7 +11,7 @@ from config.config_manager import MetadataMediaType
 from handler.filesystem import fs_resource_handler
 from handler.scan_handler import MEDIA_PROVIDERS
 from models.rom import Rom, RomFile
-from utils.media_types import ALLOWED_IMAGE_EXTENSIONS, ALLOWED_VIDEO_EXTENSIONS
+from utils.media_types import is_allowed_image_file, is_allowed_video_file
 
 # Sources beside the metadata providers: RomM's own cover, manual and
 # screenshot slots, and media files sitting next to the rom in the library.
@@ -35,23 +35,41 @@ class RomMedia:
     shadowed: bool = False
 
 
-@dataclass(frozen=True)
-class _Resource:
-    type: str
-    source: str
-    path: str
-    disc: int | None = None
-    index: int | None = None
-    shadowed: bool = False
-
-
 def _file_format(name: str) -> str | None:
     return os.path.splitext(name)[1].lstrip(".").lower() or None
 
 
-def _resources(rom: Rom) -> list[_Resource]:
-    resources = [
-        _Resource(media_type, ROMM_MEDIA_SOURCE, path)
+def _stored_size(relative_path: str, resolve: Callable[[str], Path]) -> int | None:
+    try:
+        st = os.stat(resolve(relative_path))
+    except (OSError, ValueError):
+        return None
+    return st.st_size if stat.S_ISREG(st.st_mode) else None
+
+
+def _resource_media(
+    media_type: str,
+    source: str,
+    relative_path: str,
+    resolve: Callable[[str], Path],
+    **fields: Any,
+) -> RomMedia | None:
+    size = _stored_size(relative_path, resolve)
+    if size is None:
+        return None
+    return RomMedia(
+        type=media_type,
+        source=source,
+        path=f"{FRONTEND_RESOURCES_PATH}/{relative_path}",
+        size_bytes=size,
+        format=_file_format(relative_path),
+        **fields,
+    )
+
+
+def _resources(rom: Rom, resolve: Callable[[str], Path]) -> list[RomMedia]:
+    slots = [
+        _resource_media(media_type, ROMM_MEDIA_SOURCE, path, resolve)
         for media_type, path in (
             ("cover_large", rom.path_cover_l),
             ("cover_small", rom.path_cover_s),
@@ -59,11 +77,18 @@ def _resources(rom: Rom) -> list[_Resource]:
         )
         if path
     ]
-    resources += [
-        _Resource(MetadataMediaType.SCREENSHOT.value, ROMM_MEDIA_SOURCE, path, index=i)
+    slots += [
+        _resource_media(
+            MetadataMediaType.SCREENSHOT.value,
+            ROMM_MEDIA_SOURCE,
+            path,
+            resolve,
+            index=i,
+        )
         for i, path in enumerate(rom.path_screenshots or [])
         if path
     ]
+    resources = [media for media in slots if media]
 
     claimed_paths: set[str] = set()
     resolved: set[tuple[MetadataMediaType, int | None]] = set()
@@ -83,66 +108,46 @@ def _resources(rom: Rom) -> list[_Resource]:
             # A provider's main file competes with the others' main files
             # whatever disc it shows, so SS disc 1 outranks an undisced gamelist.
             slot = (media.media_type, None if is_main else disc)
-            resources.append(
-                _Resource(
-                    media.media_type.value,
-                    source,
-                    media.path,
-                    disc=disc,
-                    shadowed=slot in resolved,
-                )
+            stored = _resource_media(
+                media.media_type.value,
+                source,
+                media.path,
+                resolve,
+                disc=disc,
+                shadowed=slot in resolved,
             )
-            resolved.add(slot)
+            # Only a copy on disk can hide the lower-priority ones.
+            if stored:
+                resources.append(stored)
+                resolved.add(slot)
     return resources
 
 
-def _stored_size(relative_path: str, resolve: Callable[[str], Path]) -> int | None:
-    try:
-        st = os.stat(resolve(relative_path))
-    except (OSError, ValueError):
-        return None
-    return st.st_size if stat.S_ISREG(st.st_mode) else None
-
-
-def describe_rom_media(rom: Rom, files: Sequence[RomFile]) -> list[RomMedia]:
-    """Every media file of a rom that is on disk, highest priority first per kind.
-
-    Each kind and disc resolves to the copy RomM shows (ScreenScraper, then
-    gamelist, then LaunchBox); the copies it hides come back ``shadowed``.
+def describe_rom_media(
+    rom: Rom,
+    files: Sequence[RomFile],
+    resolve: Callable[[str], Path] | None = None,
+) -> list[RomMedia]:
+    """Every media file of a rom on disk, highest priority first per kind and disc.
 
     Args:
         rom: The rom, holding its cover, manual, screenshot and provider paths.
         files: The rom's files; top-level images and videos count as media.
+        resolve: A ``lexical_path_validator`` to share across a page of roms.
 
     Returns:
-        One entry per stored file. A recorded path whose file is gone is left out.
+        One entry per stored file; a copy a higher-priority source hides is
+        ``shadowed``, and a recorded path whose file is gone is left out.
     """
-    resolve = fs_resource_handler.lexical_path_validator()
-    media: list[RomMedia] = []
-    for resource in _resources(rom):
-        size = _stored_size(resource.path, resolve)
-        if size is None:
-            continue
-        media.append(
-            RomMedia(
-                type=resource.type,
-                source=resource.source,
-                path=f"{FRONTEND_RESOURCES_PATH}/{resource.path}",
-                size_bytes=size,
-                format=_file_format(resource.path),
-                disc=resource.disc,
-                index=resource.index,
-                shadowed=resource.shadowed,
-            )
-        )
+    resolve = resolve or fs_resource_handler.lexical_path_validator()
+    media = _resources(rom, resolve)
 
     for file in files:
         if not file.is_top_level or file.missing_from_fs:
             continue
-        ext = os.path.splitext(file.file_name)[1].lower()
-        if ext in ALLOWED_IMAGE_EXTENSIONS:
+        if is_allowed_image_file(file.file_name):
             media_type = "image"
-        elif ext in ALLOWED_VIDEO_EXTENSIONS:
+        elif is_allowed_video_file(file.file_name):
             media_type = "video"
         else:
             continue

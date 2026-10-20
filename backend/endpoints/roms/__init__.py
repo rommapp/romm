@@ -662,6 +662,7 @@ def get_roms(
     # Normalised once so the query layer and every cache key agree on case.
     order_by = order_by.lower()
     order_dir = order_dir.lower()
+    load_files = with_files or with_media
 
     unfiltered_query, sort_key = db_rom_handler.get_roms_query(
         user_id=request.user.id,
@@ -683,7 +684,7 @@ def get_roms(
         released_days=parsed_released_days,
         released_before_year=released_before_year,
         # The page's files answer all three flags without the subqueries.
-        include_file_stats=not with_files,
+        include_file_stats=not load_files,
         # Siblings and the notes indicator are resolved per page below.
         include_siblings=False,
         include_notes=False,
@@ -772,7 +773,7 @@ def get_roms(
             rom_ids = [i.id for i in items]
             files_by_rom = (
                 db_rom_handler.get_files_for_roms(rom_ids, session=session)
-                if with_files or with_media
+                if load_files
                 else {}
             )
             siblings_by_rom = db_rom_handler.get_siblings_for_roms(
@@ -784,9 +785,12 @@ def get_roms(
             rom_ids_with_notes = db_rom_handler.get_rom_ids_with_notes(
                 rom_ids, user_id=request.user.id, session=session
             )
-            if with_files:
+            if load_files:
                 for item in items:
                     apply_file_stats(item, files_by_rom.get(item.id, []))
+            resolve_media = (
+                fs_resource_handler.lexical_path_validator() if with_media else None
+            )
 
             # Continue-playing rail
             screenshot_by_rom: dict[int, str | None] = {}
@@ -808,7 +812,9 @@ def get_roms(
                     screenshot_path=screenshot_by_rom.get(item.id),
                     has_notes=item.id in rom_ids_with_notes,
                     media=(
-                        describe_rom_media(item, files_by_rom.get(item.id, []))
+                        describe_rom_media(
+                            item, files_by_rom.get(item.id, []), resolve_media
+                        )
                         if with_media
                         else None
                     ),
