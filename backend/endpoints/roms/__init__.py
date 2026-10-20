@@ -109,6 +109,7 @@ from handler.metadata.ss_handler import (
 )
 from handler.recommendation import similar_roms
 from handler.rom_conversion import promote_single_file_to_folder
+from handler.rom_media import describe_rom_media
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
@@ -644,6 +645,15 @@ def get_roms(
         bool,
         Query(description="Whether to include each rom's file entries."),
     ] = False,
+    with_media: Annotated[
+        bool,
+        Query(
+            description=(
+                "Whether to include each rom's stored media files, with their "
+                "size and format."
+            )
+        ),
+    ] = False,
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve roms."""
     perms = get_permissions(request)
@@ -762,7 +772,7 @@ def get_roms(
             rom_ids = [i.id for i in items]
             files_by_rom = (
                 db_rom_handler.get_files_for_roms(rom_ids, session=session)
-                if with_files
+                if with_files or with_media
                 else {}
             )
             siblings_by_rom = db_rom_handler.get_siblings_for_roms(
@@ -793,10 +803,15 @@ def get_roms(
                 SimpleRomSchema.from_orm_with_request(
                     db_rom=item,
                     request=request,
-                    files=files_by_rom.get(item.id, []),
+                    files=files_by_rom.get(item.id, []) if with_files else [],
                     siblings=siblings_by_rom.get(item.id, []),
                     screenshot_path=screenshot_by_rom.get(item.id),
                     has_notes=item.id in rom_ids_with_notes,
+                    media=(
+                        describe_rom_media(item, files_by_rom.get(item.id, []))
+                        if with_media
+                        else None
+                    ),
                 )
                 for item in items
             ]

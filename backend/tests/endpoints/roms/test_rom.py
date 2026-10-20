@@ -15,6 +15,7 @@ from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.database import db_collection_handler, db_rom_handler
 from handler.database.base_handler import sync_session
 from handler.database.rom_filters import RomFiltersDict
+from handler.filesystem import fs_resource_handler
 from handler.filesystem.resources_handler import FSResourcesHandler
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.flashpoint_handler import FlashpointHandler, FlashpointRom
@@ -704,6 +705,61 @@ def test_get_all_roms_with_files(
     assert item["files"][0]["file_name"] == "test_rom.zip"
     # with_files alone must not pull in sibling_roms
     assert item["sibling_roms"] == []
+
+
+def test_get_all_roms_with_media(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(fs_resource_handler, "base_path", tmp_path)
+    cover = tmp_path / "roms/1/1/cover/big.png"
+    cover.parent.mkdir(parents=True)
+    cover.write_bytes(b"x" * 2048)
+    rom = make_rom(
+        platform,
+        "media_rom",
+        fs_extension="",
+        path_cover_l="roms/1/1/cover/big.png",
+    )
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="boxart.png",
+            file_path=f"{rom.fs_path}/{rom.fs_name}",
+            file_size_bytes=4096,
+            last_modified=1700000000.0,
+        )
+    )
+
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "with_media": True},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    item = response.json()["items"][0]
+    assert [(m["type"], m["source"], m["size_bytes"]) for m in item["media"]] == [
+        ("cover_large", "romm", 2048),
+        ("image", "library", 4096),
+    ]
+    # with_media loads files to find library media, but only with_files lists them
+    assert item["files"] == []
+
+
+def test_get_all_roms_omits_media_by_default(
+    client: TestClient, access_token: str, rom: Rom, platform: Platform
+):
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["items"][0]["media"] is None
 
 
 def test_get_rom_content_requires_auth(client: TestClient, rom: Rom, rom_file):

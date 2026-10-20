@@ -400,8 +400,7 @@ class FSHandler:
 
         return filename
 
-    def validate_path(self, path: str) -> Path:
-        """Validate and normalize path to prevent directory traversal."""
+    def _lexical_path(self, path: str, base_path_obj: Path) -> Path:
         path_path = Path(path)
 
         # Check for explicit parent directory references
@@ -415,7 +414,6 @@ class FSHandler:
             raise ValueError(f"Path {path} must be relative, not absolute")
 
         # Normalize path without resolving the full path yet
-        base_path_obj = Path(self.base_path).resolve()
         base_path_str = str(base_path_obj)
         normalized_path = os.path.normpath(os.path.join(base_path_str, path_path))
         if normalized_path == base_path_str:
@@ -425,7 +423,23 @@ class FSHandler:
             raise ValueError(
                 f"Path {path} is outside the base directory {self.base_path}"
             )
-        full_path = Path(normalized_path)
+        return Path(normalized_path)
+
+    def lexical_path_validator(self) -> Callable[[str], Path]:
+        """Return a check that joins a relative path onto the base, refusing escapes.
+
+        Unlike ``validate_path`` it never walks the path's directories, for
+        callers that only read a file's metadata.
+        """
+        base_path_obj = Path(self.base_path).resolve()
+        return lambda path: self._lexical_path(path, base_path_obj)
+
+    def validate_path(self, path: str) -> Path:
+        """Validate and normalize path to prevent directory traversal."""
+        base_path_obj = Path(self.base_path).resolve()
+        full_path = self._lexical_path(path, base_path_obj)
+        if full_path == base_path_obj:
+            return base_path_obj
 
         try:
             # Detect a symlink anywhere in the path, not just at the leaf:
