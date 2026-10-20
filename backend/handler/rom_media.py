@@ -13,7 +13,7 @@ from handler.scan_handler import MEDIA_PROVIDERS
 from models.rom import Rom, RomFile
 from utils.media_types import is_allowed_image_file, is_allowed_video_file
 
-# Sources beside the metadata providers: RomM's own cover, manual and
+# Sources beside the metadata providers: the rom's own cover, manual and
 # screenshot slots, and media files sitting next to the rom in the library.
 ROMM_MEDIA_SOURCE = "romm"
 LIBRARY_MEDIA_SOURCE = "library"
