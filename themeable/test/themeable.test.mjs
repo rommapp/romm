@@ -637,3 +637,53 @@ test("zip-packs archives the built-in packs, which compile exactly as their fold
   const refused = spawnSync(process.execPath, [join(here, "../scripts/zip-packs.mjs"), "--out", join(here, "..")], { encoding: "utf8" });
   assert.notEqual(refused.status, 0, "an --out holding the packs is refused");
 });
+
+// Runs scripts/runtime.mjs against a scratch themes folder, as the container and the backend do.
+async function runtime(themes, runtimeDir, args = [], env = {}) {
+  const { spawnSync } = await import("node:child_process");
+  const r = spawnSync(process.execPath, [join(here, "../scripts/runtime.mjs"), ...args], {
+    encoding: "utf8",
+    env: { ...process.env, THEMEABLE_PACKS_PATH: themes, THEMEABLE_RUNTIME_DIR: runtimeDir, ...env },
+  });
+  return { code: r.status, status: JSON.parse(r.stdout.trim().split("\n").at(-1)) };
+}
+
+test("Convert zips a folder pack, parks the folder and recompiles, or changes nothing", async () => {
+  const { realpathSync, cpSync } = await import("node:fs");
+  const root = mkdtempSync(join(tmpdir(), "themeable-convert-"));
+  const themes = join(root, "themes");
+  const rt = join(root, "runtime");
+  mkdirSync(themes);
+  cpSync(join(here, "../packs/ember"), join(themes, "mine"), { recursive: true });
+  const minePack = JSON.parse(readFileSync(join(themes, "mine/theme.json"), "utf8"));
+  writeFileSync(join(themes, "mine/theme.json"), JSON.stringify({ ...minePack, id: "mine", name: "Mine" }));
+  mkdirSync(join(themes, "broken"));
+  writeFileSync(join(themes, "broken/theme.json"), JSON.stringify({ id: "broken", name: "Broken", assets: { "/assets/isotipo.svg": "gone.svg" } }));
+
+  const first = await runtime(themes, rt);
+  assert.equal(first.code, 0);
+  assert.equal(first.status.packs.find((p) => p.id === "mine").format, "folder");
+  const live = realpathSync(join(rt, "current"));
+
+  const bad = await runtime(themes, rt, ["--convert", "broken"]);
+  assert.equal(bad.code, 1);
+  assert.match(bad.status.error, /"broken" can't be converted: .*missing file gone.svg/);
+  assert.ok(bad.status.packs.some((p) => p.id === "mine"), "a refusal still reports the live packs");
+  assert.equal(JSON.parse(readFileSync(join(rt, "status.json"), "utf8")).error, undefined, "and isn't recorded as a failure");
+  const tooMany = await runtime(themes, rt, ["--convert", "mine"], { THEMEABLE_ZIP_MAX_ENTRIES: "1" });
+  assert.match(tooMany.status.error, /entries; the limit is 1/);
+  for (const [args, reason] of [[["--convert", "ember"], /no folder pack "ember"/], [["--convert", "../x"], /not a valid pack id/]]) {
+    assert.match((await runtime(themes, rt, args)).status.error, reason);
+  }
+  assert.deepEqual(readdirSync(themes).sort(), ["broken", "mine"], "refused converts leave the folder as it was");
+  assert.equal(realpathSync(join(rt, "current")), live, "and the live build in place");
+
+  const done = await runtime(themes, rt, ["--convert", "mine"]);
+  assert.equal(done.code, 0, done.status.error);
+  const mine = done.status.packs.find((p) => p.id === "mine");
+  assert.deepEqual([mine.valid, mine.format, mine.source], [true, "zip", "folder"]);
+  assert.match(done.status.notes.join(), /converted to mine.zip; its folder was moved to .converted\/mine\//);
+  assert.deepEqual(readdirSync(themes).sort(), [".converted", "broken", "mine.zip"]);
+  assert.ok(existsSync(join(themes, ".converted/mine/theme.json")));
+  assert.match((await runtime(themes, rt, ["--convert", "mine"])).status.error, /already a .zip archive/);
+});

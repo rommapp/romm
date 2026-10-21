@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Compiles the built-in and folder packs in the running container (at start-up and on save);
-// builds go to <runtime>/builds/<n> and `current` swaps to one in a single rename.
+// Compiles the built-in packs and the themes folder's packs in the running container (at start-up,
+// on save and on --convert); builds go to <runtime>/builds/<n> and `current` swaps to one in a single rename.
 import { createHash } from "node:crypto";
 import {
   accessSync,
@@ -19,13 +19,14 @@ import {
   writeFileSync,
   writeSync,
 } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "../lib/args.mjs";
 import { loadCatalog } from "../lib/catalog.mjs";
 import { CLIENT, RANDOM_ID } from "../lib/client.mjs";
 import { collectPacks, compileAll, readSelection, STOCK_ID } from "../lib/compile.mjs";
 import { PACK_ID, RESERVED_IDS } from "../lib/pack.mjs";
+import { CONVERTED_DIR, findPacks, zipFolderPack, ZIP_EXT } from "../lib/packfiles.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const home = resolve(here, "..");
@@ -119,6 +120,37 @@ function acquireLock() {
   }
 }
 
+// A request that was turned down before anything changed; it isn't recorded in status.json.
+class Refusal extends Error {}
+
+// Hidden from the pack list by its leading dot; removed on exit unless it was installed.
+let stagedArchive = null;
+
+/**
+ * Stages --convert <id>: the folder pack is zipped to a hidden file that stands in for it in this
+ * compile. Returns the entries to compile and what to do once the build is live.
+ */
+function stageConvert(id, entries) {
+  if (!PACK_ID.test(id) || RESERVED_IDS.has(id)) throw new Refusal(`"${id}" is not a valid pack id`);
+  const found = findPacks(packsDir).find((p) => p.id === id);
+  if (!found || found.format !== "folder") {
+    throw new Refusal(found ? `"${id}" is already a ${ZIP_EXT} archive` : `there is no folder pack "${id}" in the themes folder`);
+  }
+  stagedArchive = join(packsDir, `.${id}.${process.pid}${ZIP_EXT}.tmp`);
+  zipFolderPack(found.path, stagedArchive);
+  const staged = entries.map((e) => (e.name === id ? { ...e, format: "zip", path: stagedArchive, stamp: null, warnings: [] } : e));
+  const install = () => {
+    renameSync(stagedArchive, join(packsDir, `${id}${ZIP_EXT}`));
+    stagedArchive = null;
+    const parked = join(packsDir, CONVERTED_DIR);
+    mkdirSync(parked, { recursive: true });
+    const target = existsSync(join(parked, id)) ? join(parked, `${id}-${Date.now()}`) : join(parked, id);
+    renameSync(found.path, target);
+    return `"${id}" was converted to ${id}${ZIP_EXT}; its folder was moved to ${CONVERTED_DIR}/${basename(target)}/`;
+  };
+  return { entries: staged, install };
+}
+
 function run() {
   mkdirSync(join(runtimeDir, "builds"), { recursive: true });
   const notes = [];
@@ -140,10 +172,12 @@ function run() {
   if (selection.note) notes.push(selection.note);
 
   const catalog = loadCatalog(join(home, "catalog"));
-  const entries = collectPacks([
+  let entries = collectPacks([
     { dir: join(home, "packs"), source: "built-in" },
     { dir: packsDir, source: "folder" },
   ]);
+  const convert = args.convert !== undefined ? stageConvert(String(args.convert), entries) : null;
+  if (convert) entries = convert.entries;
 
   const id = `${Date.now()}-${process.pid}`;
   const buildDir = join(runtimeDir, "builds", id);
@@ -158,6 +192,13 @@ function run() {
     reuse: previousBuild(link),
   });
   if (result.reason) notes.push(result.reason);
+  if (convert) {
+    const converted = result.packs.find((p) => p.id === String(args.convert));
+    if (!converted?.valid) {
+      rmSync(buildDir, { recursive: true, force: true });
+      throw new Refusal(`"${args.convert}" can't be converted: ${converted?.errors.join("; ") || "it did not compile"}`);
+    }
+  }
   writeFileSync(join(buildDir, CACHE_FILE), JSON.stringify(result.cache));
 
   const tmpLink = `${link}.${process.pid}`;
@@ -165,6 +206,7 @@ function run() {
   symlinkSync(join("builds", id), tmpLink);
   renameSync(tmpLink, link);
   if (stagedSettings) renameSync(stagedSettings, settingsFile);
+  if (convert) notes.push(convert.install());
   for (const old of readdirSync(join(runtimeDir, "builds"))) {
     if (old !== id) rmSync(join(runtimeDir, "builds", old), { recursive: true, force: true });
   }
@@ -191,15 +233,25 @@ try {
     status = run();
   } finally {
     rmSync(`${settingsFile}.${process.pid}.tmp`, { force: true });
+    if (stagedArchive) rmSync(stagedArchive, { force: true });
     rmSync(lockFile, { force: true });
   }
 } catch (e) {
   // The previous build (if any) keeps serving; with none, the loader 404s and RomM shows its own look.
-  status = { ok: false, generated: new Date().toISOString(), error: e.message, client: CLIENT, folder: folderInfo() };
+  let previous = {};
   try {
-    writeJsonAtomic(statusFile, { ...(existsSync(statusFile) ? JSON.parse(readFileSync(statusFile, "utf8")) : {}), ...status });
+    previous = existsSync(statusFile) ? JSON.parse(readFileSync(statusFile, "utf8")) : {};
   } catch {
-    // Nothing more to record; the exit code and stdout carry the error.
+    previous = {};
+  }
+  const failure = { ok: false, generated: new Date().toISOString(), error: e.message, client: CLIENT, folder: folderInfo() };
+  status = { ...previous, ...failure };
+  if (!(e instanceof Refusal)) {
+    try {
+      writeJsonAtomic(statusFile, status);
+    } catch {
+      // Nothing more to record; the exit code and stdout carry the error.
+    }
   }
 }
 for (const p of status.packs ?? []) {

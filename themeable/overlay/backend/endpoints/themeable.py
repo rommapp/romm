@@ -1,4 +1,4 @@
-"""Branding (romm-themeable): list theme packs and choose the server's theme."""
+"""Branding (romm-themeable): list theme packs, choose the server's theme and convert folder packs."""
 
 import asyncio
 import json
@@ -25,6 +25,7 @@ RUNTIME_DIR = Path(os.environ.get("THEMEABLE_RUNTIME_DIR", "/tmp/themeable"))
 PACKS_PATH = Path(os.environ.get("THEMEABLE_PACKS_PATH", "/romm/themes"))
 STOCK_THEME = "none"
 THEME_ID = re.compile(r"^(none|[a-z0-9][a-z0-9-]{0,63})$")
+PACK_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 COMPILE_TIMEOUT_SECONDS = 120
 STOP_GRACE_SECONDS = 5
 
@@ -36,6 +37,7 @@ class ThemePackSchema(BaseModel):
     author: str
     version: str
     source: str  # "built-in" or "folder"
+    format: str = "folder"  # "zip" or "folder"
     swatch: list[str]
     valid: bool
     errors: list[str]
@@ -108,14 +110,13 @@ async def _stop_compiler(proc: asyncio.subprocess.Process) -> None:
     for leftover in (
         PACKS_PATH / f"themeable.json.{proc.pid}.tmp",
         RUNTIME_DIR / f"current.{proc.pid}",
+        *PACKS_PATH.glob(f".*.{proc.pid}.zip.tmp"),
     ):
         leftover.unlink(missing_ok=True)
 
 
-async def _run_compiler(theme: str | None) -> BrandingStatusSchema:
-    args = ["node", str(THEMEABLE_HOME / "scripts" / "runtime.mjs")]
-    if theme is not None:
-        args += ["--select", theme]
+async def _run_compiler(options: list[str]) -> BrandingStatusSchema:
+    args = ["node", str(THEMEABLE_HOME / "scripts" / "runtime.mjs"), *options]
     try:
         proc = await asyncio.create_subprocess_exec(
             *args,
@@ -174,7 +175,7 @@ async def get_branding(request: Request) -> BrandingStatusSchema:
             json.loads(status_file.read_text(encoding="utf-8"))
         )
     except (OSError, ValueError):
-        return await _run_compiler(None)
+        return await _run_compiler([])
 
 
 @protected_route(router.post, "/branding/rescan", [Scope.ROMS_READ])
@@ -188,7 +189,7 @@ async def rescan_branding(request: Request) -> BrandingStatusSchema:
         BrandingStatusSchema: Status after recompiling.
     """
     _require_admin(request)
-    return await _run_compiler(None)
+    return await _run_compiler([])
 
 
 @protected_route(router.put, "/branding", [Scope.ROMS_READ])
@@ -211,8 +212,31 @@ async def save_branding(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Invalid theme id",
         )
-    result = await _run_compiler(payload.theme)
+    result = await _run_compiler(["--select", payload.theme])
     log.info(
         f"themeable: {request.user.username} set the server theme to {payload.theme}"
     )
+    return result
+
+
+@protected_route(router.post, "/packs/{pack_id}/convert", [Scope.ROMS_READ])
+async def convert_pack(request: Request, pack_id: str) -> BrandingStatusSchema:
+    """Convert a folder pack in the themes folder to a .zip archive and recompile (admin only).
+
+    Args:
+        request (Request): FastAPI Request object.
+        pack_id (str): Id of the folder pack to convert.
+
+    Returns:
+        BrandingStatusSchema: Status after recompiling; on failure nothing in the folder changes.
+    """
+    _require_admin(request)
+    if not PACK_ID.match(pack_id):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Invalid pack id",
+        )
+    result = await _run_compiler(["--convert", pack_id])
+    if result.ok:
+        log.info(f"themeable: {request.user.username} converted {pack_id} to a .zip")
     return result

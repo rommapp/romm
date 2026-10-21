@@ -78,7 +78,7 @@ def test_timed_out_save_stops_the_compiler(
 
 
 async def test_cancelled_save_stops_the_compiler(themes, slow_compiler):
-    task = asyncio.create_task(themeable._run_compiler("ember"))
+    task = asyncio.create_task(themeable._run_compiler(["--select", "ember"]))
     await asyncio.sleep(1)
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
@@ -100,6 +100,10 @@ def test_branding_is_admin_only(client, editor_access_token):
         "/api/themeable/branding",
         json={"theme": "none"},
         headers=_auth(editor_access_token),
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    response = client.post(
+        "/api/themeable/packs/ember/convert", headers=_auth(editor_access_token)
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
 
@@ -196,3 +200,43 @@ def test_rescan_picks_up_new_folder_packs(client, access_token, themes):
     added = next(p for p in response.json()["packs"] if p["id"] == "added")
     assert added["source"] == "folder"
     assert added["valid"] is True
+
+
+def test_convert_turns_a_folder_pack_into_an_archive(client, access_token, themes):
+    (themes / "mine").mkdir()
+    (themes / "mine" / "theme.json").write_text(
+        json.dumps({"id": "mine", "name": "Mine"})
+    )
+    response = client.post(
+        "/api/themeable/packs/mine/convert", headers=_auth(access_token)
+    )
+    assert response.status_code == status.HTTP_200_OK
+    body = response.json()
+    assert body["ok"] is True
+    mine = next(p for p in body["packs"] if p["id"] == "mine")
+    assert mine["format"] == "zip"
+    assert mine["valid"] is True
+    assert (themes / "mine.zip").is_file()
+    assert (themes / ".converted" / "mine" / "theme.json").is_file()
+    assert not (themes / "mine").exists()
+
+
+def test_convert_refuses_and_changes_nothing(client, access_token, themes):
+    (themes / "broken").mkdir()
+    (themes / "broken" / "theme.json").write_text(
+        json.dumps({"id": "broken", "name": "Broken", "extraCss": "gone.css"})
+    )
+    response = client.post(
+        "/api/themeable/packs/broken/convert", headers=_auth(access_token)
+    )
+    body = response.json()
+    assert body["ok"] is False
+    assert "can't be converted" in body["error"]
+    assert sorted(p.name for p in themes.iterdir()) == ["broken"]
+    response = client.post(
+        "/api/themeable/packs/..%2Fetc/convert", headers=_auth(access_token)
+    )
+    assert response.status_code in (
+        status.HTTP_404_NOT_FOUND,
+        status.HTTP_422_UNPROCESSABLE_CONTENT,
+    )
