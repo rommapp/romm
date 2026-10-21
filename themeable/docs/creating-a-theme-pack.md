@@ -61,7 +61,7 @@ To change the pack later, edit its files and click **Save changes** again; savin
 
 | Key | Required | What it does |
 | --- | --- | --- |
-| `id` | yes | Lowercase letters, digits and dashes, up to 64 characters, matching the folder name. `none`, `default`, `index` and `stock` are reserved. |
+| `id` | yes | Lowercase letters, digits and dashes, up to 64 characters, matching the folder name. `none`, `default`, `random`, `index` and `stock` are reserved. |
 | `name` | yes | Shown in Branding and the theme picker. |
 | `description`, `author`, `version` | no | Shown in Branding and the theme picker. |
 | `tokens` | no | Design-token overrides, see [Colors, spacing and fonts](#colors-spacing-and-fonts). |
@@ -129,7 +129,7 @@ Artwork follows each visitor's theme: two people using different themes see diff
 
 ## Favicons
 
-`rootFiles` replaces the browser-tab icons. Allowed keys are `/favicon.ico`, `/favicon.svg`, `/favicon-16x16.png`, `/favicon-32x32.png`, `/apple-touch-icon.png`, `/android-chrome-192x192.png`, `/android-chrome-512x512.png` and `/safari-pinned-tab.svg`. They come from the **server's** selected theme, not each visitor's, because browsers fetch them without running any page code. Browsers cache favicons aggressively, so a change can take a while to show.
+`rootFiles` replaces the browser-tab icons. Allowed keys are `/favicon.ico`, `/favicon.svg`, `/favicon-16x16.png`, `/favicon-32x32.png`, `/apple-touch-icon.png`, `/android-chrome-192x192.png`, `/android-chrome-512x512.png` and `/safari-pinned-tab.svg`. They follow each visitor's theme, like the rest of the artwork; a browser that hasn't loaded a RomM page yet gets the server's theme's icons. Browsers cache favicons aggressively, so a change can take a while to show.
 
 ## Fonts
 
