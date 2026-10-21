@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
@@ -11,6 +11,7 @@ import { injectLoader } from "../lib/html.mjs";
 import { patchNginx } from "../lib/nginx.mjs";
 import { applyAliases, compilePack, hexToRgbTriplet, validatePack } from "../lib/pack.mjs";
 import { updatePrecacheRevisions, md5 } from "../lib/sw.mjs";
+import { folderFiles } from "../lib/packfiles.mjs";
 import * as zip from "../lib/zip.mjs";
 import { parseTokenCss } from "../lib/tokens.mjs";
 
@@ -23,7 +24,7 @@ function tempPack(pack, files = {}) {
     mkdirSync(dirname(join(dir, rel)), { recursive: true });
     writeFileSync(join(dir, rel), content);
   }
-  return { dir, pack: { id: "test", name: "Test", ...pack } };
+  return { files: folderFiles(dir), pack: { id: "test", name: "Test", ...pack } };
 }
 
 test("parses token scopes from minified CSS", () => {
@@ -154,9 +155,18 @@ test("folder packs replace built-in ones and broken packs are reported", async (
   }
   mkdirSync(join(folder, "broken"));
   writeFileSync(join(folder, "broken", "theme.json"), "{ nope");
+  const { compileAll } = await import("../lib/compile.mjs");
   const entries = collectPacks([{ dir: builtIn, source: "built-in" }, { dir: folder, source: "folder" }]);
   assert.deepEqual(entries.map((e) => [e.name, e.source]), [["broken", "folder"], ["ember", "folder"]]);
-  assert.match(entries[0].errors[0], /could not be read/);
+  const { packs } = compileAll({
+    entries,
+    catalog: { aliases: {} },
+    outDir: mkdtempSync(join(tmpdir(), "themeable-out-")),
+    loaderSource: readFileSync(join(here, "../loader/loader.js"), "utf8"),
+    pickerFile: join(here, "../picker/index.html"),
+  });
+  assert.match(packs[0].errors[0], /could not be read/);
+  assert.equal(packs[1].name, "f");
 });
 
 test("an unreadable or invalid selection falls back to RomM's default look", async () => {
@@ -268,7 +278,7 @@ test("reserved ids are rejected by the validator and the schema alike", () => {
   const schemaReserved = schema.properties.id.not.enum;
   for (const id of ["none", "default", "random", "index", "stock"]) {
     assert.ok(schemaReserved.includes(id), `schema reserves ${id}`);
-    const { errors } = validatePack({ dir: tmpdir(), pack: { id, name: id } });
+    const { errors } = validatePack({ files: folderFiles(tmpdir()), pack: { id, name: id } });
     assert.ok(errors.some((e) => e.includes("reserved")), `validator reserves ${id}`);
   }
 });
@@ -332,7 +342,7 @@ test("docs/theme.example.json is current and sets every option validly", async (
   const catalog = loadCatalog(join(here, "..", "catalog"));
   assert.equal(Object.keys(example.assets).length, catalog.assets.size, "every replaceable file is listed");
   assert.equal(new Set(Object.values(example.tokens).flatMap(Object.keys)).size, catalog.tokens.size, "every token is listed");
-  const { errors } = validatePack({ dir: tmpdir(), pack: example }, catalog);
+  const { errors } = validatePack({ files: folderFiles(tmpdir()), pack: example }, catalog);
   assert.deepEqual(errors.filter((e) => !/missing file/.test(e)), []);
 });
 
@@ -517,4 +527,97 @@ test("malformed archives are refused with the reason", () => {
   corrupt[30 + "a.txt".length] ^= 0xff;
   assert.throws(() => zip.openZip(write(corrupt)).read("a.txt"), /damaged|decompressed/);
   assert.throws(() => zip.openZip(write(Buffer.from("not a zip at all, just text"))), /not a zip archive/);
+});
+
+// Zips a built-in pack folder, optionally under `prefix` and with extra entries.
+function zipBuiltIn(id, out, { prefix = "", extra = {} } = {}) {
+  const dir = join(here, "../packs", id);
+  const files = folderFiles(dir)
+    .list()
+    .map((rel) => ({ name: prefix + rel, data: readFileSync(join(dir, rel)) }));
+  for (const [name, data] of Object.entries(extra)) files.push({ name, data: Buffer.from(data) });
+  zip.writeZip(join(out, `${id}.zip`), files);
+}
+
+async function compileFolder(folder, reuse = null) {
+  const { collectPacks, compileAll } = await import("../lib/compile.mjs");
+  const outDir = mkdtempSync(join(tmpdir(), "themeable-out-"));
+  const result = compileAll({
+    entries: collectPacks([{ dir: folder, source: "folder" }]),
+    catalog: { aliases: {} },
+    outDir,
+    loaderSource: readFileSync(join(here, "../loader/loader.js"), "utf8"),
+    pickerFile: join(here, "../picker/index.html"),
+    reuse,
+  });
+  return { ...result, outDir, status: (id) => result.packs.find((p) => p.id === id) };
+}
+
+test("archived packs compile like folders, at the root or inside one top-level folder", async () => {
+  const folder = mkdtempSync(join(tmpdir(), "themeable-zips-"));
+  zipBuiltIn("neon", folder);
+  zipBuiltIn("aurora", folder, { prefix: "aurora/", extra: { "__MACOSX/aurora/._theme.json": "x", "aurora/.DS_Store": "x" } });
+  const r = await compileFolder(folder);
+  for (const id of ["neon", "aurora"]) {
+    assert.equal(r.status(id).valid, true, `${id}: ${r.status(id).errors}`);
+    assert.equal(r.status(id).format, "zip");
+  }
+  const original = readFileSync(join(here, "../packs/neon/assets/isotipo.svg"));
+  assert.deepEqual(readFileSync(join(r.outDir, "themes/neon/assets/isotipo.svg")), original);
+  assert.ok(existsSync(join(r.outDir, "themes/aurora/root/favicon-32x32.png")));
+  assert.deepEqual(readdirSync(folder).sort(), ["aurora.zip", "neon.zip"], "nothing is unpacked into the themes folder");
+});
+
+test("archives that escape, nest or mislabel a pack are refused for that pack only", async () => {
+  const folder = mkdtempSync(join(tmpdir(), "themeable-zips-"));
+  const theme = (id, extra = {}) => JSON.stringify({ id, name: id, ...extra });
+  zip.writeZip(join(folder, "escape.zip"), [
+    { name: "theme.json", data: Buffer.from(theme("escape", { assets: { "/assets/isotipo.svg": "../../etc/passwd.svg" } })) },
+  ]);
+  const inner = join(mkdtempSync(join(tmpdir(), "themeable-inner-")), "nested.zip");
+  zip.writeZip(inner, [{ name: "theme.json", data: Buffer.from(theme("nested")) }]);
+  zip.writeZip(join(folder, "nested.zip"), [{ name: "nested.zip", data: readFileSync(inner) }]);
+  zip.writeZip(join(folder, "renamed.zip"), [{ name: "theme.json", data: Buffer.from(theme("other")) }]);
+  zip.writeZip(join(folder, "two-tops.zip"), [
+    { name: "a/theme.json", data: Buffer.from(theme("two-tops")) },
+    { name: "b/readme.txt", data: Buffer.from("x") },
+  ]);
+  writeFileSync(join(folder, "truncated.zip"), readFileSync(join(folder, "renamed.zip")).subarray(0, 40));
+  zipBuiltIn("ember", folder);
+  mkdirSync(join(folder, "ember"));
+  writeFileSync(join(folder, "ember", "theme.json"), theme("ember"));
+
+  const r = await compileFolder(folder);
+  assert.match(r.status("escape").errors.join(), /source must be a path inside the pack/);
+  assert.match(r.status("nested").errors.join(), /theme.json must be at the archive's root/);
+  assert.match(r.status("renamed").errors.join(), /must match its file name "renamed.zip"/);
+  assert.match(r.status("two-tops").errors.join(), /one top-level folder/);
+  assert.match(r.status("truncated").errors.join(), /the archive could not be read/);
+  assert.equal(r.status("ember").valid, true, "the archive wins over a folder with the same id");
+  assert.match(r.status("ember").warnings.join(), /folder ember\/ is ignored/);
+  assert.equal(r.packs.filter((p) => p.id === "ember").length, 1);
+});
+
+test("a compile reuses an unchanged archive and rereads one whose size or time changed", async () => {
+  const folder = mkdtempSync(join(tmpdir(), "themeable-zips-"));
+  zipBuiltIn("neon", folder);
+  const file = join(folder, "neon.zip");
+  // Whole seconds survive utimes exactly.
+  const mtime = 1_700_000_000;
+  utimesSync(file, mtime, mtime);
+  const first = await compileFolder(folder, { key: "k1", dir: null, packs: {} });
+  assert.equal(first.status("neon").valid, true);
+
+  // Same size and time, unreadable content: only a reused build can still be valid.
+  writeFileSync(file, Buffer.alloc(statSync(file).size));
+  utimesSync(file, mtime, mtime);
+  const reused = await compileFolder(folder, { key: "k1", dir: first.outDir, packs: first.cache });
+  assert.equal(reused.status("neon").valid, true);
+  assert.ok(existsSync(join(reused.outDir, "themes/neon/theme.css")));
+
+  const newCompiler = await compileFolder(folder, { key: "k2", dir: first.outDir, packs: first.cache });
+  assert.equal(newCompiler.status("neon").valid, false, "a different compiler key rereads the archive");
+  utimesSync(file, new Date(), new Date());
+  const touched = await compileFolder(folder, { key: "k1", dir: first.outDir, packs: first.cache });
+  assert.match(touched.status("neon").errors.join(), /the archive could not be read/);
 });

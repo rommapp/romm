@@ -8,7 +8,8 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "../lib/args.mjs";
 import { buildAssetCatalog, buildTokenCatalog, diffCatalogs, loadCatalog, readCss } from "../lib/catalog.mjs";
 import { findAssetsBlock } from "../lib/nginx.mjs";
-import { applyAliases, listPacks, loadPack, validatePack } from "../lib/pack.mjs";
+import { applyAliases, loadPack, validatePack } from "../lib/pack.mjs";
+import { findPacks, openPackFiles } from "../lib/packfiles.mjs";
 import { loadPatches, overlayFiles } from "../lib/source.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -79,12 +80,14 @@ for (const rel of overlayFiles(join(root, "overlay"))) {
 const catalog = loadCatalog(join(root, "catalog"));
 catalog.tokens = new Set(newCat.tokens.tokens.map((t) => t.name));
 catalog.assets = new Set(newCat.assets.files);
-for (const id of listPacks(join(root, "packs"))) {
-  const loaded = loadPack(join(root, "packs", id));
+for (const found of findPacks(join(root, "packs"))) {
+  const id = found.id;
+  const loaded = loadPack(openPackFiles(found));
   notes.push(...applyAliases(loaded.pack, catalog.aliases).map((w) => `packs/${id}: ${w}`));
   const { errors, warnings } = validatePack(loaded, catalog);
   problems.push(...errors.map((e) => `packs/${id}: ${e}`));
   notes.push(...warnings.map((w) => `packs/${id}: ${w}`));
+  loaded.files.close();
 }
 
 const section = (title, items) => (items.length ? `### ${title} (${items.length})\n\n${items.map((i) => `- \`${i}\``).join("\n")}\n` : "");

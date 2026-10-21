@@ -5,7 +5,8 @@ import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fail, parseArgs } from "../lib/args.mjs";
 import { buildTokenCatalog, readCss } from "../lib/catalog.mjs";
-import { listPacks, loadPack } from "../lib/pack.mjs";
+import { loadPack } from "../lib/pack.mjs";
+import { findPacks, openPackFiles } from "../lib/packfiles.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const args = parseArgs();
@@ -17,8 +18,11 @@ if (shipped.count === 0) fail(`no --r-* tokens in the image CSS at ${args.css}; 
 const names = new Set(shipped.tokens.map((t) => t.name));
 
 let missing = 0;
-for (const id of listPacks(packsDir)) {
-  const { pack } = loadPack(join(packsDir, id));
+for (const found of findPacks(packsDir)) {
+  const id = found.id;
+  const files = openPackFiles(found);
+  const { pack } = loadPack(files);
+  files.close();
   for (const [scope, tokens] of Object.entries(pack.tokens ?? {})) {
     for (const name of Object.keys(tokens)) {
       if (!names.has(name)) {

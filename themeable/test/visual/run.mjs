@@ -10,7 +10,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "../../lib/args.mjs";
 import { loadCatalog } from "../../lib/catalog.mjs";
-import { listPacks, loadPack } from "../../lib/pack.mjs";
+import { loadPack } from "../../lib/pack.mjs";
+import { findPacks, openPackFiles } from "../../lib/packfiles.mjs";
 import { CLIENT, RANDOM_ID, STOCK_ID, THEME_ATTRIBUTE } from "../../lib/client.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -28,7 +29,7 @@ const MIN_CHANGED = 0.01;
 
 const { chromium } = await import(pathToFileURL(join(repo, "frontend/node_modules/playwright/index.mjs")).href);
 const cssReferences = loadCatalog(join(mod, "catalog")).cssReferences ?? {};
-const packs = listPacks(join(mod, "packs")).map((id) => loadPack(join(mod, "packs", id)));
+const packs = findPacks(join(mod, "packs")).map((found) => loadPack(openPackFiles(found)));
 
 function waitFor(url, ms = 30000) {
   const end = Date.now() + ms;
@@ -75,11 +76,11 @@ async function pixelDiff(page, a, b) {
 }
 
 /** Fetches each URL with the page's cookies and checks it is the pack's own file. */
-async function checkFiles(page, files, dir, failures) {
-  for (const [url, rel] of Object.entries(files ?? {})) {
+async function checkFiles(page, urls, files, failures) {
+  for (const [url, rel] of Object.entries(urls ?? {})) {
     const res = await page.request.get(`${base}${url}`);
     if (!res.ok()) failures.push(`${url} returned ${res.status()}`);
-    else if (sha(await res.body()) !== sha(readFileSync(join(dir, rel)))) failures.push(`${url} is not the pack's file`);
+    else if (sha(await res.body()) !== sha(files.read(rel))) failures.push(`${url} is not the pack's file`);
   }
 }
 
@@ -112,7 +113,7 @@ try {
     await c.ctx.close();
   }
 
-  for (const { dir, pack } of packs) {
+  for (const { files, pack } of packs) {
     for (const scheme of SCHEMES) {
       const { ctx, page, errors, shot } = await capture(pack.id, scheme);
       const failures = errors.map((e) => `page error: ${e}`);
@@ -137,8 +138,8 @@ try {
       }
 
       // Tab icons follow the visitor's cookie, which the loader set to this pack.
-      await checkFiles(page, pack.rootFiles, dir, failures);
-      await checkFiles(page, pack.assets, dir, failures);
+      await checkFiles(page, pack.rootFiles, files, failures);
+      await checkFiles(page, pack.assets, files, failures);
       for (const key of Object.keys(pack.assets ?? {})) {
         for (const ref of cssReferences[key] ?? []) {
           if (ref.atRules.length) continue;
@@ -179,8 +180,8 @@ try {
     else {
       if (cookie !== attr) failures.push(`load ${i + 1}: cookie is "${cookie}", page shows "${attr}"`);
       if (attr === dealt.at(-1)) failures.push(`load ${i + 1}: dealt "${attr}" twice in a row`);
-      await checkFiles(page, drawn.pack.rootFiles, drawn.dir, failures);
-      await checkFiles(page, drawn.pack.assets, drawn.dir, failures);
+      await checkFiles(page, drawn.pack.rootFiles, drawn.files, failures);
+      await checkFiles(page, drawn.pack.assets, drawn.files, failures);
     }
     dealt.push(attr);
     if (i === 0) writeFileSync(join(out, "shots", `${RANDOM_ID}-dark.png`), await page.screenshot());

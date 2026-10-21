@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Compiles the built-in and folder packs in the running container (at start-up and on save);
 // builds go to <runtime>/builds/<n> and `current` swaps to one in a single rename.
+import { createHash } from "node:crypto";
 import {
   accessSync,
   closeSync,
@@ -10,6 +11,7 @@ import {
   openSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   renameSync,
   rmSync,
   statSync,
@@ -33,6 +35,26 @@ const runtimeDir = resolve(process.env.THEMEABLE_RUNTIME_DIR || "/tmp/themeable"
 const settingsFile = join(packsDir, "themeable.json");
 const statusFile = join(runtimeDir, "status.json");
 const lockFile = join(runtimeDir, "compile.lock");
+// Saved in each build, so the next compile can reuse its unchanged archives.
+const CACHE_FILE = "packs-cache.json";
+
+/** Changes whenever the compiler or catalog does, so a build from older code is never reused. */
+function compilerKey() {
+  const hash = createHash("sha256");
+  for (const dir of ["lib", "catalog"]) {
+    for (const name of readdirSync(join(home, dir)).sort()) hash.update(name).update(readFileSync(join(home, dir, name)));
+  }
+  return hash.digest("hex").slice(0, 16);
+}
+
+function previousBuild(link) {
+  try {
+    const dir = realpathSync(link);
+    return { key: compilerKey(), dir, packs: JSON.parse(readFileSync(join(dir, CACHE_FILE), "utf8")) };
+  } catch {
+    return { key: compilerKey(), dir: null, packs: {} };
+  }
+}
 
 function folderInfo() {
   const exists = existsSync(packsDir) && statSync(packsDir).isDirectory();
@@ -125,6 +147,7 @@ function run() {
 
   const id = `${Date.now()}-${process.pid}`;
   const buildDir = join(runtimeDir, "builds", id);
+  const link = join(runtimeDir, "current");
   const result = compileAll({
     entries,
     catalog,
@@ -132,10 +155,11 @@ function run() {
     selected: selection.theme,
     loaderSource: readFileSync(join(home, "loader", "loader.js"), "utf8"),
     pickerFile: join(home, "picker", "index.html"),
+    reuse: previousBuild(link),
   });
   if (result.reason) notes.push(result.reason);
+  writeFileSync(join(buildDir, CACHE_FILE), JSON.stringify(result.cache));
 
-  const link = join(runtimeDir, "current");
   const tmpLink = `${link}.${process.pid}`;
   rmSync(tmpLink, { force: true });
   symlinkSync(join("builds", id), tmpLink);

@@ -1,9 +1,9 @@
 // Theme pack loading, validation and compilation.
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { extname, join, relative, resolve, sep } from "node:path";
+import { extname } from "node:path";
 import { FOLLOW_SERVER_ID, RANDOM_ID, STOCK_ID, THEME_ATTRIBUTE } from "./client.mjs";
 import { scopeSelectorList } from "./cssrefs.mjs";
+import { packPath } from "./packfiles.mjs";
 import { SCOPES, isTokenName } from "./tokens.mjs";
 
 export const PACK_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
@@ -41,23 +41,11 @@ const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 const FONT_FORMATS = { ".woff2": "woff2", ".woff": "woff", ".ttf": "truetype", ".otf": "opentype" };
 
-export function listPacks(packsDir) {
-  if (!existsSync(packsDir)) return [];
-  return readdirSync(packsDir)
-    .filter((name) => existsSync(join(packsDir, name, "theme.json")))
-    .sort();
-}
-
-export function loadPack(dir) {
-  const file = join(dir, "theme.json");
-  const pack = JSON.parse(readFileSync(file, "utf8"));
+/** Reads theme.json from a pack's files (lib/packfiles.mjs). */
+export function loadPack(files) {
+  const pack = JSON.parse(files.read("theme.json").toString("utf8"));
   if (!isObject(pack)) throw new Error("theme.json must contain a JSON object");
-  return { dir: resolve(dir), pack };
-}
-
-function insidePack(dir, rel) {
-  const full = resolve(dir, rel);
-  return full === dir || full.startsWith(dir + sep) ? full : null;
+  return { files, pack };
 }
 
 export function hexToRgbTriplet(hex) {
@@ -84,7 +72,7 @@ export function applyAliases(pack, aliases = {}) {
 }
 
 /** Validates a pack against the upstream catalog ({ tokens, assets } Sets; either may be omitted). */
-export function validatePack({ dir, pack }, catalog = {}) {
+export function validatePack({ files, pack }, catalog = {}) {
   const errors = [];
   const warnings = [];
   const err = (m) => errors.push(m);
@@ -141,10 +129,10 @@ export function validatePack({ dir, pack }, catalog = {}) {
   }
 
   const checkFile = (where, key, rel) => {
-    const full = typeof rel === "string" ? insidePack(dir, rel) : null;
-    if (!full) return err(`${where}["${key}"]: source must be a path inside the pack`);
-    if (!existsSync(full) || !statSync(full).isFile()) return err(`${where}["${key}"]: missing file ${rel}`);
-    if (extname(full).toLowerCase() !== extname(key).toLowerCase()) {
+    const path = packPath(rel);
+    if (!path) return err(`${where}["${key}"]: source must be a path inside the pack`);
+    if (!files.exists(path)) return err(`${where}["${key}"]: missing file ${rel}`);
+    if (extname(path).toLowerCase() !== extname(key).toLowerCase()) {
       err(`${where}["${key}"]: source ${rel} must have the same extension as the file it replaces`);
     }
   };
@@ -178,9 +166,9 @@ export function validatePack({ dir, pack }, catalog = {}) {
     if (!font || typeof font.family !== "string" || UNSAFE_VALUE.test(font.family) || /["']/.test(font.family)) {
       err(`fonts[${i}].family: required, without quotes or { } ; < > \\`);
     }
-    const full = typeof font?.src === "string" ? insidePack(dir, font.src) : null;
-    if (!full || !existsSync(full)) err(`fonts[${i}].src: missing file inside the pack`);
-    else if (!FONT_FORMATS[extname(full).toLowerCase()]) err(`fonts[${i}].src: use .woff2, .woff, .ttf or .otf`);
+    const path = packPath(font?.src);
+    if (!path || !files.exists(path)) err(`fonts[${i}].src: missing file inside the pack`);
+    else if (!FONT_FORMATS[extname(path).toLowerCase()]) err(`fonts[${i}].src: use .woff2, .woff, .ttf or .otf`);
     for (const k of ["weight", "style", "display"]) {
       if (font?.[k] !== undefined && (typeof font[k] !== "string" || UNSAFE_VALUE.test(font[k]))) {
         err(`fonts[${i}].${k}: must be a plain string`);
@@ -193,10 +181,10 @@ export function validatePack({ dir, pack }, catalog = {}) {
   }
 
   if (pack.extraCss !== undefined) {
-    const full = typeof pack.extraCss === "string" ? insidePack(dir, pack.extraCss) : null;
-    if (!full || !existsSync(full)) err("extraCss: missing file inside the pack");
+    const path = packPath(pack.extraCss);
+    if (!path || !files.exists(path)) err("extraCss: missing file inside the pack");
     else {
-      const text = readFileSync(full, "utf8");
+      const text = files.read(path).toString("utf8");
       if (/<\/?style/i.test(text)) err("extraCss: must not contain <style> tags");
       warnings.push("custom CSS (extraCss) isn't checked against new RomM releases; recheck it after upgrading");
     }
@@ -223,16 +211,19 @@ export function scopeSelectors(id) {
   };
 }
 
-/** Compiles a validated pack into { css, files, rootFiles, meta, hash }, paths relative to the output root. */
-export function compilePack({ dir, pack }, { cssReferences = {} } = {}) {
+/**
+ * Compiles a validated pack into { css, files, rootFiles, meta, hash }. Each file is { path, to }:
+ * its path in the pack and where it goes relative to the output root.
+ */
+export function compilePack({ files: packFiles, pack }, { cssReferences = {} } = {}) {
   const id = pack.id;
   const base = `/themes/${id}`;
   const files = [];
   const parts = [`/* Generated by themeable from packs/${id}/theme.json. Do not edit. */\n`];
 
   for (const font of pack.fonts ?? []) {
-    const rel = relative(dir, resolve(dir, font.src)).split(sep).join("/");
-    files.push({ from: resolve(dir, font.src), to: `themes/${id}/${rel}` });
+    const rel = packPath(font.src);
+    files.push({ path: rel, to: `themes/${id}/${rel}` });
     const format = FONT_FORMATS[extname(rel).toLowerCase()];
     const props = [
       `  font-family: "${font.family}";`,
@@ -259,15 +250,15 @@ export function compilePack({ dir, pack }, { cssReferences = {} } = {}) {
   }
 
   if (pack.extraCss) {
-    const extra = readFileSync(resolve(dir, pack.extraCss), "utf8");
+    const extra = packFiles.read(packPath(pack.extraCss)).toString("utf8");
     parts.push(`/* custom CSS (extraCss) */\n:root[${THEME_ATTRIBUTE}="${id}"] {\n${extra}\n}\n`);
   }
 
   const scope = `:root[${THEME_ATTRIBUTE}="${id}"]`;
   const inlined = [];
   for (const [key, rel] of Object.entries(pack.assets ?? {})) {
-    files.push({ from: resolve(dir, rel), to: `themes/${id}${key}` });
-    const fileVersion = createHash("sha256").update(readFileSync(resolve(dir, rel))).digest("hex").slice(0, 10);
+    files.push({ path: packPath(rel), to: `themes/${id}${key}` });
+    const fileVersion = createHash("sha256").update(packFiles.read(packPath(rel))).digest("hex").slice(0, 10);
     const target = `${base}${key}?v=${fileVersion}`;
     for (const ref of cssReferences[key] ?? []) {
       const value = ref.value.split(key).join(target);
@@ -278,14 +269,14 @@ export function compilePack({ dir, pack }, { cssReferences = {} } = {}) {
   }
   if (inlined.length) parts.push(`/* Artwork the app bundle inlines, re-pointed at this pack. */\n${inlined.join("\n")}`);
   const rootFiles = Object.entries(pack.rootFiles ?? {}).map(([key, rel]) => ({
-    from: resolve(dir, rel),
+    path: packPath(rel),
     to: key.slice(1),
   }));
 
   const css = parts.filter(Boolean).join("\n");
   const hash = createHash("sha256");
   hash.update(css);
-  for (const f of [...files, ...rootFiles]) hash.update(f.to).update(readFileSync(f.from));
+  for (const f of [...files, ...rootFiles]) hash.update(f.to).update(packFiles.read(f.path));
   const version = hash.digest("hex").slice(0, 12);
 
   const meta = {
