@@ -21,7 +21,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "../lib/args.mjs";
 import { loadCatalog } from "../lib/catalog.mjs";
-import { CLIENT } from "../lib/client.mjs";
+import { CLIENT, RANDOM_ID } from "../lib/client.mjs";
 import { collectPacks, compileAll, readSelection, STOCK_ID } from "../lib/compile.mjs";
 import { PACK_ID, RESERVED_IDS } from "../lib/pack.mjs";
 
@@ -107,7 +107,7 @@ function run() {
   let stagedSettings = null;
   if (args.select !== undefined) {
     const theme = String(args.select);
-    if (theme !== STOCK_ID && (!PACK_ID.test(theme) || RESERVED_IDS.has(theme))) throw new Error(`"${theme}" is not a valid theme id`);
+    if (theme !== STOCK_ID && theme !== RANDOM_ID && (!PACK_ID.test(theme) || RESERVED_IDS.has(theme))) throw new Error(`"${theme}" is not a valid theme id`);
     if (!existsSync(packsDir)) mkdirSync(packsDir, { recursive: true });
     stagedSettings = `${settingsFile}.${process.pid}.tmp`;
     writeFileSync(stagedSettings, JSON.stringify({ theme, updated: new Date().toISOString() }, null, 2) + "\n");

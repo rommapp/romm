@@ -2,13 +2,13 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { extname, join, relative, resolve, sep } from "node:path";
-import { FOLLOW_SERVER_ID, STOCK_ID, THEME_ATTRIBUTE } from "./client.mjs";
+import { FOLLOW_SERVER_ID, RANDOM_ID, STOCK_ID, THEME_ATTRIBUTE } from "./client.mjs";
 import { scopeSelectorList } from "./cssrefs.mjs";
 import { SCOPES, isTokenName } from "./tokens.mjs";
 
 export const PACK_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
-// The stock and follow-the-server ids mean something to the loader; "index" would collide with themes/index.json.
-export const RESERVED_IDS = new Set([STOCK_ID, FOLLOW_SERVER_ID, "index", "stock"]);
+// The stock, follow-the-server and random ids mean something to the loader; "index" would collide with themes/index.json.
+export const RESERVED_IDS = new Set([STOCK_ID, FOLLOW_SERVER_ID, RANDOM_ID, "index", "stock"]);
 
 /** Files that only change through a build-time overlay, because nginx serves them outside /assets. */
 export const ROOT_FILES = new Set([

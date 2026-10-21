@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import vm from "node:vm";
 import { diffCatalogs } from "../lib/catalog.mjs";
 import { findCssReferences, scopeSelectorList } from "../lib/cssrefs.mjs";
 import { injectLoader } from "../lib/html.mjs";
@@ -264,7 +265,7 @@ test("a malformed pack disables only itself", async () => {
 test("reserved ids are rejected by the validator and the schema alike", () => {
   const schema = JSON.parse(readFileSync(join(here, "..", "schema", "theme.schema.json"), "utf8"));
   const schemaReserved = schema.properties.id.not.enum;
-  for (const id of ["none", "default", "index", "stock"]) {
+  for (const id of ["none", "default", "random", "index", "stock"]) {
     assert.ok(schemaReserved.includes(id), `schema reserves ${id}`);
     const { errors } = validatePack({ dir: tmpdir(), pack: { id, name: id } });
     assert.ok(errors.some((e) => e.includes("reserved")), `validator reserves ${id}`);
@@ -359,4 +360,100 @@ test("Branding's preview slots name real stock files, and every pack's favicons 
   const patched = patchNginx(conf);
   assert.match(patched, new RegExp(`map \\$arg_${COOKIE} \\$themeable_root \\{`));
   assert.match(patched, /try_files \$themeable_root\$uri \$uri =404;/);
+});
+
+// Runs the real loader against a stub page; `seed` makes Math.random repeatable.
+function runLoader(manifest, { cookie = "", stored = null, search = "", seed = 1 } = {}) {
+  const storage = new Map(stored ? [[manifest.client.storage_key, stored]] : []);
+  const attrs = {};
+  const doc = {
+    cookie,
+    documentElement: { setAttribute: (k, v) => (attrs[k] = v) },
+    getElementById: () => null,
+    createElement: () => ({ setAttribute() {} }),
+    head: { appendChild() {} },
+    querySelector: () => null,
+  };
+  let state = seed;
+  const ctx = vm.createContext({
+    document: doc,
+    location: { search, protocol: "http:", href: `http://romm.test/${search}`, origin: "http://romm.test" },
+    URL,
+    URLSearchParams,
+    MutationObserver: class {
+      observe() {}
+    },
+    // mulberry32
+    seeded: () => {
+      state = (state + 0x6d2b79f5) | 0;
+      let t = Math.imul(state ^ (state >>> 15), 1 | state);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    },
+  });
+  ctx.window = ctx;
+  ctx.addEventListener = () => {};
+  ctx.localStorage = { getItem: (k) => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, v), removeItem: (k) => storage.delete(k) };
+  vm.runInContext("Math.random = seeded;", ctx);
+  const source = readFileSync(join(here, "../loader/loader.js"), "utf8");
+  vm.runInContext(source.replace("__THEMEABLE_MANIFEST__", JSON.stringify(manifest)), ctx);
+  const cookieId = doc.cookie.match(new RegExp(`${manifest.client.cookie}=([a-z0-9-]+)`))?.[1] ?? null;
+  return { theme: attrs[manifest.client.theme_attribute], cookie: cookieId, stored: storage.get(manifest.client.storage_key) ?? null };
+}
+
+test("Random draws one usable pack per load, never the one this browser showed last", async () => {
+  const { CLIENT, RANDOM_ID, STOCK_ID } = await import("../lib/client.mjs");
+  const themes = ["aurora", "ember", "neon"].map((id) => ({ id, name: id, css: `/themes/${id}/theme.css` }));
+  const manifest = { default: RANDOM_ID, client: CLIENT, themes };
+  const counts = { aurora: 0, ember: 0, neon: 0 };
+  for (let seed = 1; seed <= 300; seed++) {
+    const r = runLoader(manifest, { cookie: `${CLIENT.cookie}=ember`, seed });
+    assert.notEqual(r.theme, "ember");
+    assert.equal(r.cookie, r.theme, "nginx gets the drawn pack, not the reserved id");
+    assert.equal(r.stored, null, "following the server's Random stores nothing");
+    counts[r.theme]++;
+  }
+  assert.ok(counts.aurora > 120 && counts.neon > 120, `uneven draw: ${JSON.stringify(counts)}`);
+  assert.deepEqual(runLoader(manifest, { seed: 7 }), runLoader(manifest, { seed: 7 }), "the same seed draws the same pack");
+
+  const one = { ...manifest, themes: themes.slice(1, 2) };
+  assert.equal(runLoader(one, { cookie: `${CLIENT.cookie}=ember` }).theme, "ember", "a single pack is drawn even if shown last");
+  assert.equal(runLoader({ ...manifest, themes: [] }, { stored: RANDOM_ID }).theme, STOCK_ID, "nothing to draw from means RomM's look");
+});
+
+test("a browser can choose Random for itself, and a Random preview leaves the cookie alone", async () => {
+  const { CLIENT, RANDOM_ID } = await import("../lib/client.mjs");
+  const themes = ["aurora", "ember"].map((id) => ({ id, name: id, css: `/themes/${id}/theme.css` }));
+  const manifest = { default: "ember", client: CLIENT, themes };
+  const chosen = runLoader(manifest, { search: `?${CLIENT.url_param}=${RANDOM_ID}`, cookie: `${CLIENT.cookie}=ember` });
+  assert.equal(chosen.stored, RANDOM_ID);
+  assert.equal(chosen.theme, "aurora");
+  assert.equal(chosen.cookie, "aurora");
+  assert.equal(runLoader(manifest, { stored: RANDOM_ID, cookie: `${CLIENT.cookie}=aurora` }).theme, "ember");
+  const preview = runLoader(manifest, { search: `?${CLIENT.preview_param}=${RANDOM_ID}`, cookie: `${CLIENT.cookie}=aurora` });
+  assert.equal(preview.theme, "ember");
+  assert.equal(preview.cookie, "aurora", "a preview tab never changes the shared cookie");
+});
+
+test("Random as the server's theme compiles, and falls back to RomM's look with nothing to draw", async () => {
+  const { RANDOM_ID } = await import("../lib/client.mjs");
+  const { collectPacks, compileAll, readSelection } = await import("../lib/compile.mjs");
+  const dir = mkdtempSync(join(tmpdir(), "themeable-sel-"));
+  writeFileSync(join(dir, "themeable.json"), JSON.stringify({ theme: RANDOM_ID }));
+  assert.equal(readSelection(join(dir, "themeable.json")).theme, RANDOM_ID);
+  const compile = (entries) =>
+    compileAll({
+      entries,
+      catalog: { aliases: {} },
+      outDir: mkdtempSync(join(tmpdir(), "themeable-out-")),
+      selected: RANDOM_ID,
+      loaderSource: readFileSync(join(here, "../loader/loader.js"), "utf8"),
+      pickerFile: join(here, "../picker/index.html"),
+    });
+  const withPacks = compile(collectPacks([{ dir: join(here, "../packs"), source: "built-in" }]));
+  assert.equal(withPacks.effective, RANDOM_ID);
+  assert.equal(withPacks.reason, null);
+  const empty = compile([]);
+  assert.equal(empty.effective, "none");
+  assert.match(empty.reason, /no usable packs/);
 });

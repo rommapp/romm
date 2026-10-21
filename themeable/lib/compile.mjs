@@ -1,7 +1,7 @@
 // Pack compilation shared by the image build, container start-up and Branding's Save changes.
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { CLIENT, STOCK_ID, STOCK_SWATCH } from "./client.mjs";
+import { CLIENT, RANDOM_ID, STOCK_ID, STOCK_SWATCH } from "./client.mjs";
 import { applyAliases, compilePack, listPacks, loadPack, validatePack, PACK_ID } from "./pack.mjs";
 
 export { STOCK_ID } from "./client.mjs";
@@ -95,7 +95,12 @@ export function compileAll({ entries, catalog, outDir, selected = STOCK_ID, load
 
   let effective = selected;
   let reason = null;
-  if (selected !== STOCK_ID && !compiled.some((c) => c.meta.id === selected)) {
+  if (selected === RANDOM_ID) {
+    if (!compiled.length) {
+      reason = "Random has no usable packs to choose from, so RomM's default look is in use";
+      effective = STOCK_ID;
+    }
+  } else if (selected !== STOCK_ID && !compiled.some((c) => c.meta.id === selected)) {
     const known = packs.find((p) => p.id === selected);
     reason = known ? `"${selected}" has errors, so RomM's default look is in use` : `"${selected}" is not installed, so RomM's default look is in use`;
     effective = STOCK_ID;

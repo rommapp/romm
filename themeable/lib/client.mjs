@@ -2,6 +2,8 @@
 // manifest's `client` section so the browser files never declare their own copies.
 export const STOCK_ID = "none";
 export const FOLLOW_SERVER_ID = "default";
+// Resolved by the loader to a usable pack on every page load; never a pack's own id.
+export const RANDOM_ID = "random";
 export const STORAGE_KEY = "romm-themeable.theme";
 export const COOKIE = "romm_theme";
 export const URL_PARAM = "romm-theme";
@@ -14,6 +16,8 @@ export const PREVIEW_SLOTS = {
   wordmark: "/assets/logotipo.svg",
   favicon: "/favicon-32x32.png",
 };
+// How long the Branding preview for Random shows each pack.
+export const RANDOM_CYCLE_MS = 2000;
 export const STOCK_SWATCH = {
   "--r-color-bg": "#07070f",
   "--r-color-brand-primary": "#8b74e8",
@@ -23,6 +27,8 @@ export const STOCK_SWATCH = {
 export const CLIENT = Object.freeze({
   stock_id: STOCK_ID,
   follow_server_id: FOLLOW_SERVER_ID,
+  random_id: RANDOM_ID,
+  random_cycle_ms: RANDOM_CYCLE_MS,
   storage_key: STORAGE_KEY,
   cookie: COOKIE,
   url_param: URL_PARAM,

@@ -5,6 +5,7 @@
   var manifest = __THEMEABLE_MANIFEST__;
   var client = manifest.client;
   var STOCK = client.stock_id;
+  var RANDOM = client.random_id;
   var STORAGE_KEY = client.storage_key;
   var COOKIE = client.cookie;
   var COOKIE_VALUE = new RegExp("(?:^|;\\s*)" + COOKIE + "=([a-z0-9-]+)");
@@ -17,7 +18,7 @@
     return null;
   }
   function known(id) {
-    return id === STOCK || find(id) !== null;
+    return id === STOCK || id === RANDOM || find(id) !== null;
   }
   function readStored() {
     try {
@@ -40,7 +41,8 @@
     } catch (e) {
       /* private mode: the cookie still carries the choice */
     }
-    writeCookie(id);
+    // Random's cookie is written once a pack is drawn, since nginx needs a real pack id.
+    if (id !== RANDOM) writeCookie(id);
   }
   var previewing = false;
   function choose() {
@@ -74,6 +76,18 @@
     if (stored && known(stored)) return stored;
     // The cookie only carries the theme to nginx; the server's choice applies to anyone who hasn't picked one.
     return known(manifest.default) ? manifest.default : STOCK;
+  }
+
+  // One draw per page load, so artwork and colors always come from the same pack.
+  function draw(avoid) {
+    var ids = manifest.themes.map(function (t) {
+      return t.id;
+    });
+    var pool = ids.length > 1 ? ids.filter(function (id) {
+      return id !== avoid;
+    }) : ids;
+    if (!pool.length) return STOCK;
+    return pool[Math.floor(Math.random() * pool.length)];
   }
 
   function apply(id) {
@@ -150,7 +164,10 @@
     }
   }
 
+  // The cookie still names the pack this browser showed last, which Random avoids repeating.
+  var lastShown = readCookie();
   var current = choose();
+  if (current === RANDOM) current = draw(lastShown);
   if (previewing) {
     tagTree(root);
     new MutationObserver(function (records) {

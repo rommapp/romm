@@ -5,6 +5,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fail, parseArgs } from "../lib/args.mjs";
 import { loadCatalog } from "../lib/catalog.mjs";
+import { RANDOM_ID } from "../lib/client.mjs";
 import { collectPacks, compileAll, STOCK_ID } from "../lib/compile.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -20,7 +21,7 @@ if (!catalog.cssReferences || !Object.keys(catalog.cssReferences).length) {
 }
 
 const entries = collectPacks([{ dir: packsDir, source: "built-in" }]);
-if (defaultTheme !== STOCK_ID && !entries.some((e) => e.name === defaultTheme)) {
+if (defaultTheme !== STOCK_ID && defaultTheme !== RANDOM_ID && !entries.some((e) => e.name === defaultTheme)) {
   fail(`--default ${defaultTheme} is not a pack in ${packsDir} (have: ${entries.map((e) => e.name).join(", ") || "none"})`);
 }
 

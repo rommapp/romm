@@ -20,7 +20,7 @@
   },
   "properties": {
     "$schema": { "type": "string" },
-    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$", "not": { "enum": ["none", "default", "index", "stock"] } },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$", "not": { "enum": ["none", "default", "random", "index", "stock"] } },
     "name": { "type": "string", "minLength": 1 },
     "version": { "type": "string" },
     "author": { "type": "string" },
