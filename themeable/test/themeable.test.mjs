@@ -358,8 +358,8 @@ test("Branding's preview slots name real stock files, and every pack's favicons 
 
   const conf = readFileSync(join(here, "../../docker/nginx/templates/default.conf.template"), "utf8");
   const patched = patchNginx(conf);
-  assert.match(patched, new RegExp(`map \\$arg_${COOKIE} \\$themeable_root \\{`));
-  assert.match(patched, /try_files \$themeable_root\$uri \$uri =404;/);
+  assert.match(patched, new RegExp(`map "\\$arg_${COOKIE}:\\$cookie_${COOKIE}" \\$themeable_root \\{`));
+  assert.match(patched, /add_header Vary Cookie;\n\s+try_files \$themeable_root\$uri \$uri =404;/);
 });
 
 // Runs the real loader against a stub page; `seed` makes Math.random repeatable.

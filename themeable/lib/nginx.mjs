@@ -32,9 +32,10 @@ export function patchNginx(conf, defaultTheme = STOCK_ID) {
 
   const rootFiles = [...ROOT_FILES].map((f) => f.slice(1).replace(/\./g, "\\.")).join("|");
   const block =
-    `${indent}${MARKER} favicons come from the server's selected theme when it ships them.\n` +
+    `${indent}${MARKER} favicons come from the visitor's theme when it ships them.\n` +
     `${indent}location ~ "^/(${rootFiles})$" {\n` +
     `${inner}add_header Cache-Control "no-cache";\n` +
+    `${inner}add_header Vary Cookie;\n` +
     `${inner}try_files $themeable_root$uri $uri =404;\n` +
     `${indent}}\n\n` +
     `${indent}${MARKER} artwork comes from the active theme pack when it has the file.\n` +
@@ -53,11 +54,13 @@ export function patchNginx(conf, defaultTheme = STOCK_ID) {
     `    "~^(?<themeable_arg>${id}):" $themeable_arg;\n` +
     `    "~^[^:]*:(?<themeable_id>${id})$" $themeable_id;\n` +
     `}\n\n` +
-    `${MARKER} favicons: the server's theme, or the pack (or stock look) named by the ${COOKIE} argument.\n` +
-    `map $arg_${COOKIE} $themeable_root {\n` +
+    `${MARKER} favicons: the pack (or stock look) in the ${COOKIE} argument, else the cookie, else the server's theme.\n` +
+    `map "$arg_${COOKIE}:$cookie_${COOKIE}" $themeable_root {\n` +
     `    default "/themeable/root";\n` +
-    `    "${STOCK_ID}" "/themeable/stock";\n` +
-    `    "~^(?<themeable_root_id>${id})$" "/themes/$themeable_root_id/root";\n` +
+    `    "~^${STOCK_ID}:" "/themeable/stock";\n` +
+    `    "~^(?<themeable_root_arg>${id}):" "/themes/$themeable_root_arg/root";\n` +
+    `    "~^[^:]*:${STOCK_ID}$" "/themeable/stock";\n` +
+    `    "~^[^:]*:(?<themeable_root_id>${id})$" "/themes/$themeable_root_id/root";\n` +
     `}\n\n`;
 
   const patched = conf.slice(0, start) + block + conf.slice(end);

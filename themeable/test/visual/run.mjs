@@ -11,7 +11,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "../../lib/args.mjs";
 import { loadCatalog } from "../../lib/catalog.mjs";
 import { listPacks, loadPack } from "../../lib/pack.mjs";
-import { CLIENT, STOCK_ID, THEME_ATTRIBUTE } from "../../lib/client.mjs";
+import { CLIENT, RANDOM_ID, STOCK_ID, THEME_ATTRIBUTE } from "../../lib/client.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const mod = resolve(here, "../..");
@@ -74,6 +74,16 @@ async function pixelDiff(page, a, b) {
   );
 }
 
+/** Fetches each URL with the page's cookies and checks it is the pack's own file. */
+async function checkFiles(page, files, dir, failures) {
+  for (const [url, rel] of Object.entries(files ?? {})) {
+    const res = await page.request.get(`${base}${url}`);
+    if (!res.ok()) failures.push(`${url} returned ${res.status()}`);
+    else if (sha(await res.body()) !== sha(readFileSync(join(dir, rel)))) failures.push(`${url} is not the pack's file`);
+  }
+}
+
+const RANDOM_LOADS = 4;
 const results = [];
 let browser;
 try {
@@ -126,10 +136,10 @@ try {
         if (norm(actual[name]) !== norm(value)) failures.push(`${name} is "${actual[name].trim()}", expected "${value}"`);
       }
 
-      for (const [key, rel] of Object.entries(pack.assets ?? {})) {
-        const res = await page.request.get(`${base}${key}`);
-        if (!res.ok()) failures.push(`${key} returned ${res.status()}`);
-        else if (sha(await res.body()) !== sha(readFileSync(join(dir, rel)))) failures.push(`${key} is not the pack's file`);
+      // Tab icons follow the visitor's cookie, which the loader set to this pack.
+      await checkFiles(page, pack.rootFiles, dir, failures);
+      await checkFiles(page, pack.assets, dir, failures);
+      for (const key of Object.keys(pack.assets ?? {})) {
         for (const ref of cssReferences[key] ?? []) {
           if (ref.atRules.length) continue;
           const value = await page.evaluate(
@@ -153,6 +163,30 @@ try {
       await ctx.close();
     }
   }
+
+  // Random: each load in one browser deals a different pack, and its artwork and tab icons follow.
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const page = await ctx.newPage();
+  const failures = [];
+  const dealt = [];
+  page.on("pageerror", (e) => failures.push(`page error: ${e.message}`));
+  for (let i = 0; i < RANDOM_LOADS; i++) {
+    await page.goto(`${base}${ROUTE}${i === 0 ? `?${CLIENT.url_param}=${RANDOM_ID}` : ""}`, { waitUntil: "networkidle" });
+    const attr = await page.evaluate((attribute) => document.documentElement.getAttribute(attribute), THEME_ATTRIBUTE);
+    const cookie = (await ctx.cookies()).find((c) => c.name === CLIENT.cookie)?.value;
+    const drawn = packs.find((p) => p.pack.id === attr);
+    if (!drawn) failures.push(`load ${i + 1}: ${THEME_ATTRIBUTE} is "${attr}", not a pack`);
+    else {
+      if (cookie !== attr) failures.push(`load ${i + 1}: cookie is "${cookie}", page shows "${attr}"`);
+      if (attr === dealt.at(-1)) failures.push(`load ${i + 1}: dealt "${attr}" twice in a row`);
+      await checkFiles(page, drawn.pack.rootFiles, drawn.dir, failures);
+      await checkFiles(page, drawn.pack.assets, drawn.dir, failures);
+    }
+    dealt.push(attr);
+    if (i === 0) writeFileSync(join(out, "shots", `${RANDOM_ID}-dark.png`), await page.screenshot());
+  }
+  results.push({ theme: RANDOM_ID, scheme: "dark", failures, changed: null, dealt });
+  await ctx.close();
 } finally {
   await browser?.close();
   stopPreview();
@@ -162,7 +196,7 @@ const failed = results.filter((r) => r.failures.length);
 const table = [
   "| Theme | Mode | Pixels changed vs stock | Result |",
   "| --- | --- | --- | --- |",
-  ...results.map((r) => `| ${r.theme} | ${r.scheme} | ${r.theme === STOCK_ID ? "baseline" : `${(r.changed * 100).toFixed(1)}%`} | ${r.failures.length ? r.failures.join("; ") : "pass"} |`),
+  ...results.map((r) => `| ${r.theme} | ${r.scheme} | ${r.dealt ? `dealt ${r.dealt.join(", ")}` : r.theme === STOCK_ID ? "baseline" : `${(r.changed * 100).toFixed(1)}%`} | ${r.failures.length ? r.failures.join("; ") : "pass"} |`),
 ].join("\n");
 const report = [
   "## themeable visual check",
