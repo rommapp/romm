@@ -1,32 +1,35 @@
 # Creating a theme pack
 
-A theme pack is a folder with a `theme.json` file and any artwork, fonts or CSS it uses. RomM compiles it into a stylesheet plus replacement files, and the theme applies to RomM's v2 interface (and, for colors only, the older v1 interface).
+A theme pack is a `.zip` archive holding a `theme.json` file and any artwork, fonts or CSS it uses. RomM compiles it into a stylesheet plus replacement files, and the theme applies to RomM's v2 interface (and, for colors only, the older v1 interface).
 
 ## Where packs live
 
 | Location | Used for |
 | --- | --- |
 | The themes folder on the host, mapped to `/romm/themes` in the container | Your own packs. Add or edit them here, then use **Administration → Branding**. |
-| `themeable/packs/` in this repository | Built-in packs that ship inside the image: `phosphor`, `handheld`, `neon`, `cabinet`, `carbon`, `aurora` and `ember`. A pack in the themes folder with the same id replaces the built-in one. |
+| `themeable/packs/` in this repository | Built-in packs that ship inside the image: `phosphor`, `handheld`, `neon`, `cabinet`, `carbon`, `aurora` and `ember`. They are folders here for easy editing, and the image build zips them. A pack in the themes folder with the same id replaces the built-in one. |
 
-Each pack is one folder, and the folder name must equal the pack's `id`:
+Each pack is one archive, and its file name must be the pack's `id` plus `.zip`. Inside, `theme.json` sits at the archive's root, or inside one top-level folder, which is what most zip tools make when you zip a folder. RomM reads the archive directly; nothing is unpacked into the themes folder.
 
 ```
 themes/
   themeable.json          ← written by Branding: the server's selected theme
-  midnight/
-    theme.json
-    assets/
-      isotipo.svg
-      auth_background.svg
-    fonts/
-      Inter-Variable.woff2
-    custom.css
+  midnight.zip
+    midnight/             ← optional top-level folder
+      theme.json
+      assets/
+        isotipo.svg
+        auth_background.svg
+      fonts/
+        Inter-Variable.woff2
+      custom.css
 ```
+
+**Folder packs.** A folder named after its id, holding a `theme.json`, still works in this release. Branding marks it **Folder pack: convert to .zip**, and its **Convert** button writes `<id>.zip`, moves the folder to `themes/.converted/<id>/` and recompiles. If the archive wouldn't compile, nothing changes and Branding says why. The next release drops folder packs. When a folder and an archive share an id, the archive is used.
 
 ## Your first pack
 
-1. Create `themes/midnight/theme.json`:
+1. In a working folder of your own (not the themes folder), create `midnight/theme.json`:
 
    ```json
    {
@@ -49,11 +52,24 @@ themes/
    }
    ```
 
-2. In RomM, open **Administration → Branding** and click the refresh button. Midnight appears in the list with its login background and logo, its wordmark on a dark and a light page, and its browser tab icon; anything the pack doesn't replace shows RomM's own. If anything in it is wrong, the entry says **Can't be used** and lists each problem.
-3. Click **Preview** to open RomM with the theme in a new tab, without changing anything for anyone else.
-4. Choose Midnight and click **Save changes**. Reload the page to see it.
+2. Zip the `midnight` folder as `midnight.zip` (see [Zipping a pack](#zipping-a-pack)) and copy it into the themes folder.
+3. In RomM, open **Administration → Branding** and click the refresh button. Midnight appears in the list with its login background and logo, its wordmark on a dark and a light page, and its browser tab icon; anything the pack doesn't replace shows RomM's own. If anything in it is wrong, the entry says **Can't be used** and lists each problem.
+4. Click **Preview** to open RomM with the theme in a new tab, without changing anything for anyone else.
+5. Choose Midnight and click **Save changes**. Reload the page to see it.
 
-To change the pack later, edit its files and click **Save changes** again; saving recompiles every pack from the folder.
+To change the pack later, edit its files, zip it again, replace `midnight.zip` in the themes folder and click the refresh button or **Save changes**. Only archives that changed are read again.
+
+## Zipping a pack
+
+Zip the pack's folder, then make sure the archive's name is the pack's id plus `.zip`.
+
+- **Windows:** in File Explorer, right-click the `midnight` folder and choose **Send to → Compressed (zipped) folder** (on Windows 11, **Compress to → ZIP File**). In PowerShell: `Compress-Archive -Path midnight -DestinationPath midnight.zip`.
+- **macOS:** in Finder, right-click the folder and choose **Compress "midnight"**. The `__MACOSX` and `.DS_Store` entries Finder adds are ignored. In Terminal: `zip -r midnight.zip midnight -x '*.DS_Store'`.
+- **Linux:** right-click the folder in your file manager and choose **Compress**, picking `.zip`. In a terminal: `zip -r midnight.zip midnight`.
+
+Zipping the files themselves, so `theme.json` is at the root of the archive, works too.
+
+**Limits.** Packs come from users and the web, so each archive is checked before anything in it is read: at most 2,000 files, 64 MB uncompressed in total, 16 MB per file, and a compression ratio of at most 100:1. Files must be stored or deflated, which every common zip tool does by default; encrypted, split and ZIP64 archives are refused. An administrator can change the limits with the `THEMEABLE_ZIP_MAX_ENTRIES`, `THEMEABLE_ZIP_MAX_TOTAL_MB`, `THEMEABLE_ZIP_MAX_FILE_MB` and `THEMEABLE_ZIP_MAX_RATIO` environment variables.
 
 ## theme.json reference
 
@@ -61,7 +77,7 @@ To change the pack later, edit its files and click **Save changes** again; savin
 
 | Key | Required | What it does |
 | --- | --- | --- |
-| `id` | yes | Lowercase letters, digits and dashes, up to 64 characters, matching the folder name. `none`, `default`, `random`, `index` and `stock` are reserved. |
+| `id` | yes | Lowercase letters, digits and dashes, up to 64 characters, matching the archive's file name without `.zip`. `none`, `default`, `random`, `index` and `stock` are reserved. |
 | `name` | yes | Shown in Branding and the theme picker. |
 | `description`, `author`, `version` | no | Shown in Branding and the theme picker. |
 | `tokens` | no | Design-token overrides, see [Colors, spacing and fonts](#colors-spacing-and-fonts). |
@@ -188,16 +204,17 @@ RomM's older interface (users can still switch to it) isn't themed beyond colors
 
 When packs compile, each one is validated, and problems show in Branding with the key at fault:
 
-- the `id` format, and that it matches the folder name;
+- that the archive is a readable zip within the limits above, with no paths that leave it, no duplicate names and no links;
+- the `id` format, and that it matches the archive's file name;
 - every token name exists in this RomM release, and values contain no unsafe characters;
-- every replaced file exists in the pack, sits inside the pack folder and keeps the original's extension; files under `/assets/emulatorjs`, `/assets/ruffle` and other player or library folders can't be replaced;
+- every replaced file exists in the pack, sits inside the pack and keeps the original's extension; files under `/assets/emulatorjs`, `/assets/ruffle` and other player or library folders can't be replaced;
 - fonts and the CSS file exist.
 
 A pack with problems is skipped; RomM keeps running with the other packs, and with its default look if the broken pack was the selected one.
 
 ## Trying a pack without a server
 
-From a clone of this repository, the local preview serves a frontend build through the same nginx setup as the image, with your folder as the themes folder:
+From a clone of this repository, the local preview serves a frontend build through the same nginx setup as the image, with your folder of `.zip` packs as the themes folder:
 
 ```bash
 node themeable/dev/preview.mjs --packs-folder ./my-themes --default midnight
@@ -211,4 +228,4 @@ Solid buttons draw white text on `--r-color-brand-primary`, so keep that color a
 
 ## Sharing a pack
 
-A pack is self-contained: zip its folder, and anyone running romm-themeable can unzip it into their themes folder and select it in Branding.
+A pack is one self-contained `.zip`: anyone running romm-themeable can copy it into their themes folder and select it in Branding.
