@@ -30,6 +30,8 @@ RUN set -eu; \
       --css-refs-from catalog/assets.json --out /out/catalog; \
     rm -rf catalog && cp -r /out/catalog catalog; \
     node scripts/build.mjs --out /tmp/check; \
+    node scripts/zip-packs.mjs --packs packs --out /tmp/packs; \
+    rm -rf packs && mv /tmp/packs packs; \
     cp /backend/main.py /out/src/backend/main.py; \
     node scripts/apply-source.mjs --root /out/src --only backend --no-tests; \
     node scripts/apply-hooks.mjs --webroot /tmp/dist --nginx /etc/nginx/templates/default.conf.template --out /out/hooks; \

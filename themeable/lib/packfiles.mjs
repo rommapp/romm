@@ -2,7 +2,7 @@
 // { format, list(), exists(path), read(path), close() } with paths relative to the pack root.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, posix, resolve, sep } from "node:path";
-import { openZip } from "./zip.mjs";
+import { openZip, writeZip } from "./zip.mjs";
 
 export const ZIP_EXT = ".zip";
 // Holds folder packs after Convert; a dot keeps it out of the pack list.
@@ -104,4 +104,10 @@ export function findPacks(dir) {
 
 export function openPackFiles({ format, path }, limits) {
   return format === "zip" ? zipFiles(path, limits) : folderFiles(path);
+}
+
+/** Writes a folder pack's files, in a stable order, to an archive with theme.json at its root. */
+export function zipFolderPack(dir, file) {
+  const files = folderFiles(dir);
+  writeZip(file, files.list().sort().map((name) => ({ name, data: files.read(name) })));
 }

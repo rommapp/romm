@@ -82,6 +82,7 @@ jobs:
             node /themeable/scripts/runtime.mjs --select ember > /tmp/status.json
             grep -q "\"effective\":\"ember\"" /tmp/status.json
             test -f /var/www/html/themes/ember/theme.css
+            test -f /themeable/packs/ember.zip
             test -f /var/www/html/themeable/loader.js
             grep -q "/themeable/loader.js" /var/www/html/index.html
             test -f /backend/endpoints/themeable.py

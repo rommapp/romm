@@ -621,3 +621,19 @@ test("a compile reuses an unchanged archive and rereads one whose size or time c
   const touched = await compileFolder(folder, { key: "k1", dir: first.outDir, packs: first.cache });
   assert.match(touched.status("neon").errors.join(), /the archive could not be read/);
 });
+
+test("zip-packs archives the built-in packs, which compile exactly as their folders do", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const out = join(mkdtempSync(join(tmpdir(), "themeable-zipped-")), "packs");
+  const run = spawnSync(process.execPath, [join(here, "../scripts/zip-packs.mjs"), "--out", out], { encoding: "utf8" });
+  assert.equal(run.status, 0, run.stderr);
+  const zipped = await compileFolder(out);
+  const folders = await compileFolder(join(here, "../packs"));
+  assert.ok(zipped.packs.every((p) => p.valid && p.format === "zip"));
+  assert.deepEqual(
+    zipped.compiled.map((c) => [c.meta.id, c.hash]),
+    folders.compiled.map((c) => [c.meta.id, c.hash]),
+  );
+  const refused = spawnSync(process.execPath, [join(here, "../scripts/zip-packs.mjs"), "--out", join(here, "..")], { encoding: "utf8" });
+  assert.notEqual(refused.status, 0, "an --out holding the packs is refused");
+});

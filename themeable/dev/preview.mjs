@@ -37,6 +37,8 @@ cpSync(join(repo, "frontend/assets"), join(web, "assets"), { recursive: true, fi
 
 // 2. The module as the image holds it, with a catalog taken from this build.
 cpSync(mod, moduleDir, { recursive: true, filter: (src) => !/\/(dist|node_modules)(\/|$)/.test(src.slice(mod.length)) });
+// Built-in packs ship as archives in the image, so the preview zips them the same way.
+run("scripts/zip-packs.mjs", {}, "--packs", join(mod, "packs"), "--out", join(moduleDir, "packs"));
 run("scripts/catalog.mjs", {}, "--tokens", join(dist, "assets"), "--assets-dir", join(web, "assets"), "--no-src",
   "--css-refs-from", join(mod, "catalog/assets.json"), "--out", join(moduleDir, "catalog"));
 run("scripts/apply-hooks.mjs", {}, "--webroot", dist, "--nginx", join(repo, "docker/nginx/templates/default.conf.template"), "--out", join(work, "hooks"));
