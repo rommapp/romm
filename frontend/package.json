@@ -105,7 +105,7 @@
     "openapi-typescript-codegen": "^0.29.0",
     "postcss": "^8.5.23",
     "sirv": "^3.0.2",
-    "storybook": "^10.2.19",
+    "storybook": "^10.6.2",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3",
     "vite": "^8.3.1",
