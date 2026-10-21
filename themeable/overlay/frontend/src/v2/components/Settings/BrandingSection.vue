@@ -415,15 +415,17 @@ function reloadPage(): void {
   accent-color: var(--r-color-brand-primary);
 }
 
+/* A fixed width, so Random's one chip per pack lines up with the three-chip swatches. */
 .r-v2-branding__swatch {
   display: inline-flex;
+  width: 42px;
   overflow: hidden;
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-sm);
 }
 .r-v2-branding__chip {
   display: block;
-  width: 14px;
+  flex: 1;
   height: 28px;
 }
 
