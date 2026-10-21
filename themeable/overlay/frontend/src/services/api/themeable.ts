@@ -10,6 +10,8 @@ export interface ThemePack {
   author: string;
   version: string;
   source: "built-in" | "folder";
+  /** How the pack is stored; folder packs in the themes folder can be converted. */
+  format: "zip" | "folder";
   swatch: string[];
   valid: boolean;
   errors: string[];
@@ -76,4 +78,11 @@ async function saveBranding(theme: string) {
   return api.put<BrandingStatus>("/themeable/branding", { theme });
 }
 
-export default { getBranding, rescanBranding, saveBranding };
+async function convertPack(id: string) {
+  return api.post<BrandingStatus>(
+    `/themeable/packs/${encodeURIComponent(id)}/convert`,
+    {},
+  );
+}
+
+export default { getBranding, rescanBranding, saveBranding, convertPack };

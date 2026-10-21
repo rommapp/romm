@@ -18,8 +18,9 @@ defineOptions({ inheritAttrs: false });
 
 const PAGE_SIZE = 10;
 
-type Option = Omit<ThemePack, "source"> & {
+type Option = Omit<ThemePack, "source" | "format"> & {
   source: ThemePack["source"] | "stock" | "draw";
+  format?: ThemePack["format"];
 };
 
 const { t } = useI18n();
@@ -50,6 +51,7 @@ const selected = ref<string>("");
 const rescanning = ref(false);
 const page = ref(1);
 const saving = ref(false);
+const converting = ref<string | null>(null);
 const savedOnce = ref(false);
 
 const options = computed<Option[]>(() => [
@@ -145,6 +147,29 @@ async function save(): Promise<void> {
     snackbar.error(t("branding.save-failed"));
   } finally {
     saving.value = false;
+  }
+}
+
+function canConvert(option: Option): boolean {
+  return option.source === "folder" && option.format === "folder";
+}
+
+async function convert(option: Option): Promise<void> {
+  converting.value = option.id;
+  try {
+    const { data } = await themeableApi.convertPack(option.id);
+    if (data.ok) {
+      status.value = data;
+      snackbar.success(t("branding.converted", { name: option.name }));
+    } else {
+      // A refused convert changed nothing, so the list stays as it was.
+      snackbar.error(data.error ?? t("branding.convert-failed"));
+    }
+  } catch (err) {
+    console.error("[branding] Could not convert the pack:", err);
+    snackbar.error(t("branding.convert-failed"));
+  } finally {
+    converting.value = null;
   }
 }
 
@@ -266,6 +291,12 @@ function reloadPage(): void {
                 tone="danger"
                 :text="t('branding.has-problems')"
               />
+              <RTag
+                v-if="canConvert(option)"
+                size="x-small"
+                tone="warning"
+                :text="t('branding.folder-pack')"
+              />
             </span>
             <span v-if="option.description" class="r-v2-branding__meta">
               {{ option.description }}
@@ -287,6 +318,21 @@ function reloadPage(): void {
             <ul v-if="option.errors.length" class="r-v2-branding__errors">
               <li v-for="(e, i) in option.errors" :key="i">{{ e }}</li>
             </ul>
+            <span v-if="canConvert(option)" class="r-v2-branding__convert">
+              <RBtn
+                variant="outlined"
+                size="small"
+                prepend-icon="mdi-folder-zip-outline"
+                :loading="converting === option.id"
+                :disabled="!!converting || saving"
+                @click.prevent="convert(option)"
+              >
+                {{ t("branding.convert") }}
+              </RBtn>
+              <span class="r-v2-branding__meta">{{
+                t("branding.convert-hint", { id: option.id })
+              }}</span>
+            </span>
           </span>
           <RBtn
             v-if="option.valid"
@@ -451,6 +497,14 @@ function reloadPage(): void {
 }
 
 .r-v2-branding__artwork {
+  margin-top: var(--r-space-2);
+}
+
+.r-v2-branding__convert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--r-space-2);
   margin-top: var(--r-space-2);
 }
 
