@@ -798,6 +798,13 @@ def test_format_credit_line_groups_roles_and_caps_names():
     assert format_credit_line(rows, limit=1) == "Music: Purple Motion"
 
 
+@pytest.mark.parametrize("who", ["<b>Future &amp; Crew</b>", "Future & Crew"])
+def test_scene_summary_normalizes_provider_text(who: str):
+    assert build_scene_summary(
+        types=["Demo"], who=who, year="1993", party_lines=[]
+    ) == ("Demo by Future & Crew (1993)")
+
+
 def test_scene_summary_places_the_pouet_score_before_the_links():
     summary = build_scene_summary(
         types=["Demo"],

@@ -21,6 +21,19 @@ from handler.metadata.launchbox_handler.types import LaunchboxMetadata, MediaReq
 PLATFORM = "Nintendo Entertainment System"
 
 
+@pytest.mark.parametrize("source", ["local", "remote"])
+def test_provider_summary_is_plain_text(source: str):
+    result = build_rom(
+        local={"Notes": "<p>Play &amp; explore.</p>"} if source == "local" else None,
+        remote=(
+            {"Overview": "<p>Play &amp; explore.</p>"} if source == "remote" else None
+        ),
+        launchbox_id=1,
+    )
+
+    assert result["summary"] == "Play & explore."
+
+
 @pytest.fixture
 def root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A LaunchBox install under tmp_path, with the media dirs pointed at it."""

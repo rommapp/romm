@@ -127,6 +127,25 @@ def _art(kind: str) -> str:
     return f"https://infinity.unstable.life/images/{kind}/1f/2e/{GAME_ID}?type=jpg"
 
 
+@pytest.mark.parametrize("path", ["scan", "by_id", "search"])
+async def test_provider_summary_is_plain_text(
+    handler: FlashpointHandler, api: FakeFlashpoint, path: str
+):
+    api.search_results = [
+        _api_game(originalDescription="<p>Poke &amp; play.</p><p>Again.</p>")
+    ]
+    if path == "scan":
+        result = await handler.get_rom("Interactive Buddy.swf", "browser")
+    elif path == "by_id":
+        result = await handler.get_rom_by_id(GAME_ID)
+    else:
+        result = (
+            await handler.get_matched_roms_by_name("Interactive Buddy", "browser")
+        )[0]
+
+    assert result["summary"] == "Poke & play.\nAgain."
+
+
 class TestRequest:
     async def test_drops_empty_query_values_and_names_romm(
         self, handler: FlashpointHandler, api: FakeFlashpoint

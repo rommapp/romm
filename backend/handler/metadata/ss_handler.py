@@ -53,6 +53,7 @@ from .base_handler import (
     strip_sensitive_query_params,
     tag_id_from_filename,
 )
+from .summary import normalize_summary
 
 SENSITIVE_KEYS = {"ssid", "sspassword"}
 
@@ -875,7 +876,7 @@ def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
     game_rom: SSRom = {
         "ss_id": ss_id,
         "name": html.unescape(res_name.replace(" : ", ": ")),  # Normalize colons
-        "summary": html.unescape(res_summary),
+        "summary": normalize_summary(res_summary),
         "url_cover": str(url_cover) if url_cover else "",
         "url_manual": str(url_manual) if url_manual else "",
         "url_screenshots": url_screenshots,

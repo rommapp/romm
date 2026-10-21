@@ -35,6 +35,7 @@ from handler.metadata.igdb_handler import (
     IGDBMetadata,
     IGDBMetadataMultiplayerMode,
     IGDBMetadataPlatform,
+    IGDBRom,
     TwitchAuth,
     _build_platforms_where,
     _platform_igdb_ids_with_twin,
@@ -1208,6 +1209,34 @@ def handler(service: FakeIGDBService) -> IGDBHandler:
 
 def _rom() -> MagicMock:
     return MagicMock(regions=[])
+
+
+@pytest.mark.parametrize("path", ["build", "scan", "by_id", "matched_id", "search"])
+@pytest.mark.parametrize("summary", ["<p>Sonic &amp; Knuckles</p>", "Sonic & Knuckles"])
+async def test_provider_summary_is_plain_text(
+    handler: IGDBHandler, service: FakeIGDBService, path: str, summary: str
+):
+    game = _make_game(1, "Sonic & Knuckles")
+    game["summary"] = summary
+    service.games = [[game]]
+    result: IGDBRom | None
+    if path == "build":
+        result = build_igdb_rom(handler, game, None, GENESIS_IGDB_ID)
+    elif path == "scan":
+        result = await handler.get_rom(_rom(), "Sonic & Knuckles.zip", GENESIS_IGDB_ID)
+    elif path == "by_id":
+        result = await handler.get_rom_by_id(_rom(), 1)
+    elif path == "matched_id":
+        result = await handler.get_matched_rom_by_id(_rom(), 1)
+    else:
+        result = (
+            await handler.get_matched_roms_by_name(
+                _rom(), game["name"], GENESIS_IGDB_ID
+            )
+        )[0]
+
+    assert result is not None
+    assert result["summary"] == "Sonic & Knuckles"
 
 
 class TestHeartbeat:

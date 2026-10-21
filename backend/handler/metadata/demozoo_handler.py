@@ -26,6 +26,7 @@ from .base_handler import (
     provider_tag_regex,
     tag_id_from_filename,
 )
+from .summary import normalize_summary
 
 DEMOZOO_TAG_REGEX = provider_tag_regex("demozoo")
 DEMOZOO_PROD_ID_RE = re.compile(
@@ -284,7 +285,7 @@ def build_scene_summary(
         bits.append(pouet_url)
     if csdb_url:
         bits.append(csdb_url)
-    return " · ".join(bits)
+    return normalize_summary(" · ".join(bits))
 
 
 def splice_csdb_url(summary: str, csdb_url: str | None) -> str:

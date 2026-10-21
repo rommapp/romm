@@ -149,6 +149,26 @@ async def test_get_rom_matches_by_name():
     service.get_app_details.assert_awaited_once_with(1091500)
 
 
+@pytest.mark.parametrize("path", ["scan", "by_id", "matched_id"])
+async def test_provider_summary_is_plain_text(path: str):
+    details = cast(
+        SteamAppDetails,
+        {**CYBERPUNK, "short_description": "<p>Play &amp; explore.</p>"},
+    )
+    handler, _ = _handler(
+        search_result=[{"type": "app", "name": "Cyberpunk 2077", "id": 1091500}],
+        details=details,
+    )
+    if path == "scan":
+        result = await handler.get_rom("Cyberpunk 2077.zip", "win")
+    elif path == "by_id":
+        result = await handler.get_rom_by_id(1091500)
+    else:
+        result = await handler.get_matched_rom_by_id(1091500, "win")
+
+    assert result["summary"] == "Play & explore."
+
+
 async def test_get_rom_ignores_non_app_search_hits():
     """Soundtracks and DLC share the search index with games."""
     handler, service = _handler(

@@ -21,6 +21,7 @@ from .base_handler import (
     provider_tag_regex,
     tag_id_from_filename,
 )
+from .summary import normalize_summary
 
 # Half-Life 2: never region locked, so a fetch failing means Steam is down.
 STEAM_HEARTBEAT_APP_ID: Final[int] = 220
@@ -402,7 +403,7 @@ class SteamHandler(MetadataHandler):
             steam_metadata=extract_steam_metadata(details),
         )
 
-        summary = details.get("short_description")
+        summary = normalize_summary(details.get("short_description"))
         if summary:
             rom["summary"] = summary
 

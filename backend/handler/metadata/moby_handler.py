@@ -18,6 +18,7 @@ from .base_handler import (
     provider_tag_regex,
     tag_id_from_filename,
 )
+from .summary import normalize_summary
 
 PS1_MOBY_ID: Final = 6
 PS2_MOBY_ID: Final = 7
@@ -85,7 +86,7 @@ def build_moby_rom(game: MobyGame) -> MobyGamesRom:
     rom = {
         "moby_id": game["game_id"],
         "name": game["title"],
-        "summary": game.get("description"),
+        "summary": normalize_summary(game.get("description")),
         "url_cover": pydash.get(game, "sample_cover.image", None),
         "url_screenshots": [s["image"] for s in game.get("sample_screenshots", [])],
         "moby_metadata": extract_metadata_from_moby_rom(game),
@@ -257,7 +258,7 @@ class MobyGamesHandler(MetadataHandler):
                     for k, v in {
                         "moby_id": rom["game_id"],
                         "name": rom["title"],
-                        "summary": rom.get("description", ""),
+                        "summary": normalize_summary(rom.get("description", "")),
                         "url_cover": pydash.get(rom, "sample_cover.image", None),
                         "url_screenshots": [
                             s["image"] for s in rom.get("sample_screenshots", [])

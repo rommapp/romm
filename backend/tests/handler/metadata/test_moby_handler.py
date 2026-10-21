@@ -15,6 +15,7 @@ from handler.metadata.moby_handler import (
     PSP_MOBY_ID,
     SWITCH_MOBY_ID,
     MobyGamesHandler,
+    MobyGamesRom,
 )
 from handler.redis_handler import async_cache
 from models.rom import Rom
@@ -257,6 +258,44 @@ class TestHelpers:
         metadata = moby_handler.extract_metadata_from_moby_rom(unscored)
 
         assert metadata["moby_score"] is None
+
+
+@pytest.mark.parametrize("path", ["build", "scan", "by_id", "matched_id", "search"])
+async def test_provider_summary_is_plain_text(
+    moby: tuple[MobyGamesHandler, AsyncMock], path: str
+):
+    handler, list_games = moby
+    game = _game(2, "Sonic & Knuckles Collection")
+    game["description"] = (
+        "<p>The Sonic &amp; Knuckles Collection contains three games:</p>"
+        "<ul><li><b>Sonic the Hedgehog 3</b></li>"
+        "<li>Sonic &amp; Knuckles</li><li>Sonic 3 &amp; Knuckles</li></ul>"
+    )
+    list_games.by_title["sonic & knuckles collection"] = [game]
+    list_games.by_title["Sonic & Knuckles Collection"] = [game]
+    list_games.by_id[2] = [game]
+
+    result: MobyGamesRom | None
+    if path == "build":
+        result = moby_handler.build_moby_rom(game)
+    elif path == "scan":
+        result = await handler.get_rom(
+            Rom(fs_name="Sonic & Knuckles Collection.zip"),
+            "Sonic & Knuckles Collection.zip",
+            SNES,
+        )
+    elif path == "by_id":
+        result = await handler.get_rom_by_id(2)
+    elif path == "matched_id":
+        result = await handler.get_matched_rom_by_id(2)
+    else:
+        result = (await handler.get_matched_roms_by_name(game["title"], SNES))[0]
+
+    assert result is not None
+    assert result["summary"] == (
+        "The Sonic & Knuckles Collection contains three games:\n"
+        "Sonic the Hedgehog 3\nSonic & Knuckles\nSonic 3 & Knuckles"
+    )
 
 
 class TestGetRom:

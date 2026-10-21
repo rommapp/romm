@@ -22,6 +22,7 @@ from models.rom import Rom, compute_name_sort_key
 from utils.filesystem import join_rel_path, rel_platform_folder
 
 from .base_handler import BaseRom, MetadataHandler
+from .summary import normalize_summary
 
 # https://github.com/Aloshi/EmulationStation/blob/master/GAMELISTS.md#reference
 
@@ -661,7 +662,7 @@ class GamelistHandler(MetadataHandler):
                     gamelist_id=str(uuid.uuid4()),
                     name=name,
                     name_sort_key=name_sort_key,
-                    summary=summary,
+                    summary=normalize_summary(summary),
                     regions=regions,
                     languages=languages,
                     gamelist_metadata=rom_metadata,

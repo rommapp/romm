@@ -63,6 +63,18 @@ def _rom_file(sha1: str = "disc1") -> RomFile:
     return file
 
 
+@pytest.mark.parametrize("summary", ["<p>Play &amp; explore.</p>", "Play & explore."])
+async def test_provider_summary_is_plain_text(
+    hasheous: tuple[HasheousHandler, HasheousStub], summary: str
+):
+    handler, stub = hasheous
+    stub.replies = [_json({"name": "Game", "summary": summary})]
+
+    result = await handler.get_igdb_game(HasheousRom(hasheous_id=1, igdb_id=2))
+
+    assert result["summary"] == "Play & explore."
+
+
 class TestRequest:
     async def test_posts_the_hashes_with_the_client_key(
         self, hasheous: tuple[HasheousHandler, HasheousStub]

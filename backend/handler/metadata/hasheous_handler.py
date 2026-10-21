@@ -28,6 +28,7 @@ from .igdb_handler import (
     IGDBMetadata,
     IGDBMetadataPlatform,
 )
+from .summary import normalize_summary
 
 
 class HasheousMetadata(TypedDict):
@@ -507,7 +508,7 @@ class HasheousHandler(MetadataHandler):
                 **hasheous_rom,
                 "slug": igdb_game.get("slug") or hasheous_rom.get("slug") or "",
                 "name": igdb_game.get("name") or hasheous_rom.get("name") or "",
-                "summary": igdb_game.get("summary", ""),
+                "summary": normalize_summary(igdb_game.get("summary", "")),
                 "url_cover": self.normalize_cover_url(
                     pydash.get(igdb_game, "cover.url", "")
                 ).replace("t_thumb", "t_1080p")

@@ -896,6 +896,20 @@ class TestBuildSSGame:
 
         assert result["name"] == "007 - Everything or Nothing"
 
+    @pytest.mark.parametrize("summary", ["<p>Ein &amp; Spiel.</p>", "Ein &amp; Spiel."])
+    def test_provider_summary_is_plain_text(self, summary: str):
+        game = cast(
+            SSGame,
+            {"id": "42", "medias": [], "synopsis": [{"langue": "de", "text": summary}]},
+        )
+        with patch(
+            "handler.metadata.ss_handler.cm.get_config",
+            return_value=_make_config(language_priority=["de"]),
+        ):
+            result = build_ss_game(self._make_rom(), game)
+
+        assert result["summary"] == "Ein & Spiel."
+
     def test_summary_uses_configured_language(self):
         config = _make_config(language_priority=["de", "en"])
         game = cast(

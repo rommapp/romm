@@ -35,6 +35,7 @@ from .base_handler import (
     provider_tag_regex,
     tag_id_from_filename,
 )
+from .summary import normalize_summary
 
 PS1_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.PSX]["id"]
 PS2_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.PS2]["id"]
@@ -535,7 +536,7 @@ def build_igdb_rom(
         igdb_id=rom["id"],
         slug=rom.get("slug", ""),
         name=localized_name,
-        summary=rom.get("summary", ""),
+        summary=normalize_summary(rom.get("summary", "")),
         url_cover=handler.normalize_cover_url(localized_cover).replace(
             "t_thumb", "t_1080p"
         ),

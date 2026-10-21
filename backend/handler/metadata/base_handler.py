@@ -30,6 +30,8 @@ from utils.switch import derive_base_title_id
 if TYPE_CHECKING:
     from models.rom import Rom
 
+from .summary import normalize_summary
+
 jarowinkler = JaroWinkler()
 
 METADATA_FIXTURES_DIR: Final = Path(__file__).parent / "fixtures"
@@ -102,7 +104,7 @@ class IndexedFormatPlatforms:
 
 def _fill_from_switch_entry(fallback_rom: BaseRom, index_entry: dict[str, Any]) -> None:
     fallback_rom["name"] = index_entry["name"]
-    fallback_rom["summary"] = index_entry.get("description", "")
+    fallback_rom["summary"] = normalize_summary(index_entry.get("description", ""))
     fallback_rom["url_cover"] = index_entry.get("iconUrl", "")
     fallback_rom["url_screenshots"] = index_entry.get("screenshots", None) or []
 

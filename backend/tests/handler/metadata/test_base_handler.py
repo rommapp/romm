@@ -531,10 +531,13 @@ class TestResolveIndexedTitle:
         assert fallback_rom == BaseRom(name="Indexed Title")
 
     @pytest.mark.asyncio
-    async def test_switch_entry_fills_the_fallback(self, handler: MetadataHandler):
+    @pytest.mark.parametrize("summary", ["Climb", "<p>Climb</p>"])
+    async def test_switch_entry_fills_the_fallback(
+        self, handler: MetadataHandler, summary: str
+    ):
         entry = {
             "name": "Celeste",
-            "description": "Climb",
+            "description": summary,
             "iconUrl": "https://example.com/icon.png",
             "screenshots": None,
         }

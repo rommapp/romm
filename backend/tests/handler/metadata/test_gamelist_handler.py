@@ -76,6 +76,32 @@ def test_parse_gamelist_xml_includes_folder_entries(tmp_path: Path, platform: Pl
     assert folder_entry.get("regions") == ["USA", "Europe"]
 
 
+@pytest.mark.parametrize("element", ["game", "folder"])
+def test_provider_summary_is_plain_text(
+    tmp_path: Path, platform: Platform, element: str
+):
+    gamelist_path = tmp_path / "gamelist.xml"
+    gamelist_path.write_text(
+        f"<gameList><{element}><path>./game.zip</path>"
+        "<desc><![CDATA[<p>Play &amp; explore.</p>]]></desc>"
+        f"</{element}></gameList>",
+        encoding="utf-8",
+    )
+    with (
+        patch(
+            "handler.metadata.gamelist_handler.extract_metadata_from_gamelist_rom",
+            return_value=MOCK_METADATA,
+        ),
+        patch(
+            "handler.metadata.gamelist_handler.get_preferred_media_types",
+            return_value=[],
+        ),
+    ):
+        result = GamelistHandler()._parse_gamelist_xml(gamelist_path, platform)
+
+    assert result["game.zip"]["summary"] == "Play & explore."
+
+
 def test_parse_gamelist_xml_keeps_game_entries(tmp_path: Path, platform: Platform):
     gamelist_path = tmp_path / "gamelist.xml"
     gamelist_path.write_text(
