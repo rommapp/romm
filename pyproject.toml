@@ -21,7 +21,7 @@ dependencies = [
   "apprise ~= 2.0",
   "authlib ~= 1.8.0",
   "bcrypt ~= 5.0",
-  "certifi >= 2024.7.4",
+  "certifi >= 2026.10.19",
   "colorama ~= 0.4",
   "croniter ~= 6.2",
   "cryptography>=49,<51",
@@ -143,6 +143,8 @@ package = false
 # A range, so Dependabot's bundled uv passes; docker/Dockerfile and ./Dockerfile pin the exact version.
 required-version = ">=0.12.15,<0.13"
 exclude-newer = "7 days"
+# certifi 2026.10.19 distrusts the compromised eMudhra intermediates; drop once it ages past the cooldown.
+exclude-newer-package = { certifi = false }
 
 [tool.ty.environment]
 root = ["./backend"]
