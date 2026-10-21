@@ -141,7 +141,7 @@ DEP002 = [ # DEP002 rule: Project should not contain unused dependencies
 [tool.uv]
 package = false
 # A range, so Dependabot's bundled uv passes; docker/Dockerfile and ./Dockerfile pin the exact version.
-required-version = ">=0.12.15,<0.13"
+required-version = ">=0.13.4,<0.14"
 exclude-newer = "7 days"
 # certifi 2026.10.19 distrusts the compromised eMudhra intermediates; drop once it ages past the cooldown.
 exclude-newer-package = { certifi = false }
