@@ -132,6 +132,21 @@ def test_save_selects_a_pack_and_stores_it_in_the_folder(
     assert saved["theme"] == "ember"
 
 
+def test_save_selects_random(client, access_token, themes):
+    response = client.put(
+        "/api/themeable/branding",
+        json={"theme": "random"},
+        headers=_auth(access_token),
+    )
+    assert response.status_code == status.HTTP_200_OK
+    body = response.json()
+    assert body["client"]["random_id"] == "random"
+    assert body["client"]["random_cycle_ms"] > 0
+    assert body["effective"] == "random"
+    saved = json.loads((themes / "themeable.json").read_text())
+    assert saved["theme"] == "random"
+
+
 def test_missing_theme_falls_back_to_the_stock_look(client, access_token):
     response = client.put(
         "/api/themeable/branding",

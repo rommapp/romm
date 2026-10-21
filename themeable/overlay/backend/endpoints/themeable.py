@@ -53,6 +53,8 @@ class ThemeableClientSchema(BaseModel):
     # Published by themeable/lib/client.mjs, the one home of these values.
     stock_id: str
     follow_server_id: str
+    random_id: str
+    random_cycle_ms: int
     storage_key: str
     cookie: str
     url_param: str
@@ -197,7 +199,8 @@ async def save_branding(
 
     Args:
         request (Request): FastAPI Request object.
-        payload (BrandingSelectionPayload): Pack id to use, or "none" for RomM's default look.
+        payload (BrandingSelectionPayload): Pack id to use, "random" for a pack drawn on
+            each page load, or "none" for RomM's default look.
 
     Returns:
         BrandingStatusSchema: Status after recompiling.
