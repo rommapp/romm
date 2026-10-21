@@ -76,7 +76,7 @@
     "@storybook/addon-a11y": "^10.2.19",
     "@storybook/addon-docs": "^10.2.19",
     "@storybook/addon-themes": "^10.2.19",
-    "@storybook/addon-vitest": "^10.6.0",
+    "@storybook/addon-vitest": "^10.6.2",
     "@storybook/vue3-vite": "^10.2.19",
     "@tailwindcss/vite": "^4.3.1",
     "@types/js-cookie": "^3.0.6",
