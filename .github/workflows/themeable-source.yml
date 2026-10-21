@@ -34,6 +34,11 @@ jobs:
       - name: Type-check the patched frontend
         working-directory: frontend
         run: npx vue-tsc --noEmit -p tsconfig.app.json
+      - name: Unit-test the module's frontend files
+        working-directory: frontend
+        run: |
+          tests=$(cd ../themeable/overlay/frontend && find src -type f -name '*.test.ts')
+          if [ -n "$tests" ]; then npx vitest run --project app $tests; fi
 
   backend:
     runs-on: ubuntu-24.04

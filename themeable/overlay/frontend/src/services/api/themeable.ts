@@ -27,6 +27,8 @@ export interface ThemeFolder {
 export interface ThemeableClient {
   stock_id: string;
   follow_server_id: string;
+  random_id: string;
+  random_cycle_ms: number;
   storage_key: string;
   cookie: string;
   url_param: string;
@@ -49,6 +51,17 @@ export interface BrandingStatus {
   client: ThemeableClient | null;
   folder: ThemeFolder | null;
   packs: ThemePack[];
+}
+
+/** Stock URL plus the theme argument: nginx answers with the pack's file, or RomM's own
+ * where the pack doesn't replace it. */
+export function artworkUrl(
+  client: ThemeableClient,
+  id: string,
+  slot: PreviewSlot,
+): string {
+  if (!client.preview?.[slot]) return "";
+  return `${client.preview[slot]}?${client.cookie}=${encodeURIComponent(id)}`;
 }
 
 async function getBranding() {

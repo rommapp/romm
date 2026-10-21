@@ -6,9 +6,10 @@ import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import themeableApi, {
   type BrandingStatus,
-  type PreviewSlot,
   type ThemePack,
 } from "@/services/api/themeable";
+import BrandingArtwork from "@/v2/components/Settings/BrandingArtwork.vue";
+import BrandingRandomArtwork from "@/v2/components/Settings/BrandingRandomArtwork.vue";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import { useFetchState } from "@/v2/composables/useFetchState";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -18,7 +19,7 @@ defineOptions({ inheritAttrs: false });
 const PAGE_SIZE = 10;
 
 type Option = Omit<ThemePack, "source"> & {
-  source: ThemePack["source"] | "stock";
+  source: ThemePack["source"] | "stock" | "draw";
 };
 
 const { t } = useI18n();
@@ -42,6 +43,9 @@ const {
 // Ids, storage key and stock swatch come from the compiled status, so they match the loader's.
 const client = computed(() => status.value?.client ?? null);
 const stockId = computed(() => client.value?.stock_id ?? "");
+const usablePacks = computed(() =>
+  (status.value?.packs ?? []).filter((p) => p.valid),
+);
 const selected = ref<string>("");
 const rescanning = ref(false);
 const page = ref(1);
@@ -49,6 +53,21 @@ const saving = ref(false);
 const savedOnce = ref(false);
 
 const options = computed<Option[]>(() => [
+  {
+    id: client.value?.random_id ?? "",
+    name: t("branding.random-name"),
+    description: usablePacks.value.length
+      ? t("branding.random-description", usablePacks.value.length)
+      : "",
+    author: "",
+    version: "",
+    source: "draw",
+    // Each pack's brand color, the middle of its swatch.
+    swatch: usablePacks.value.flatMap((p) => p.swatch.slice(1, 2)),
+    valid: usablePacks.value.length > 0,
+    errors: usablePacks.value.length ? [] : [t("branding.random-unavailable")],
+    warnings: [],
+  },
   {
     id: stockId.value,
     name: t("branding.stock-name"),
@@ -102,17 +121,10 @@ const personalChoice = computed(() => {
 });
 
 function sourceLabel(option: Option): string {
+  if (option.source === "draw") return t("branding.random-source");
   if (option.source === "stock") return t("branding.stock-source");
   if (option.source === "built-in") return t("branding.built-in");
   return t("branding.folder");
-}
-
-// Stock URL plus the theme argument: nginx answers with the pack's file, or RomM's own
-// where the pack doesn't replace it, exactly as visitors would see it.
-function artworkUrl(id: string, slot: PreviewSlot): string {
-  const c = client.value;
-  if (!c?.preview?.[slot]) return "";
-  return `${c.preview[slot]}?${c.cookie}=${encodeURIComponent(id)}`;
 }
 
 function previewHref(id: string): string {
@@ -258,60 +270,20 @@ function reloadPage(): void {
             <span v-if="option.description" class="r-v2-branding__meta">
               {{ option.description }}
             </span>
-            <span
-              v-if="option.valid && client?.preview"
-              class="r-v2-branding__artwork"
-              aria-hidden="true"
-            >
-              <span
-                class="r-v2-branding__art r-v2-branding__art--background"
-                :title="t('branding.art-background')"
-              >
-                <img
-                  :src="artworkUrl(option.id, 'background')"
-                  alt=""
-                  loading="lazy"
-                />
-                <img
-                  class="r-v2-branding__art-logo"
-                  :src="artworkUrl(option.id, 'logo')"
-                  alt=""
-                  loading="lazy"
-                />
-              </span>
-              <span
-                class="r-v2-branding__art r-v2-branding__art--wordmark r-v2-branding__art--dark"
-                :title="t('branding.art-wordmark-dark')"
-              >
-                <img
-                  :src="artworkUrl(option.id, 'wordmark')"
-                  alt=""
-                  loading="lazy"
-                />
-              </span>
-              <span
-                class="r-v2-branding__art r-v2-branding__art--wordmark r-v2-branding__art--light"
-                :title="t('branding.art-wordmark-light')"
-              >
-                <img
-                  :src="artworkUrl(option.id, 'wordmark')"
-                  alt=""
-                  loading="lazy"
-                />
-              </span>
-              <span
-                class="r-v2-branding__art r-v2-branding__art--favicon"
-                :title="t('branding.art-favicon')"
-              >
-                <img
-                  :src="artworkUrl(option.id, 'favicon')"
-                  alt=""
-                  width="24"
-                  height="24"
-                  loading="lazy"
-                />
-              </span>
-            </span>
+            <template v-if="option.valid && client?.preview">
+              <BrandingRandomArtwork
+                v-if="option.source === 'draw'"
+                class="r-v2-branding__artwork"
+                :packs="usablePacks"
+                :client="client"
+              />
+              <BrandingArtwork
+                v-else
+                :id="option.id"
+                class="r-v2-branding__artwork"
+                :client="client"
+              />
+            </template>
             <ul v-if="option.errors.length" class="r-v2-branding__errors">
               <li v-for="(e, i) in option.errors" :key="i">{{ e }}</li>
             </ul>
@@ -477,90 +449,7 @@ function reloadPage(): void {
 }
 
 .r-v2-branding__artwork {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--r-space-2);
   margin-top: var(--r-space-2);
-}
-
-.r-v2-branding__art {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 48px;
-  overflow: hidden;
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-md);
-}
-
-.r-v2-branding__art--background {
-  width: 120px;
-}
-
-.r-v2-branding__art--background > img:first-child {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.r-v2-branding__art-logo {
-  position: relative;
-  width: 32px;
-  height: 32px;
-  object-fit: contain;
-}
-
-.r-v2-branding__art--wordmark {
-  width: 104px;
-  padding: 0 var(--r-space-2);
-}
-
-.r-v2-branding__art--wordmark img {
-  max-width: 100%;
-  height: 20px;
-  object-fit: contain;
-}
-
-/* The wordmark sits on the page background in both modes, so show it on both. */
-.r-v2-branding__art--dark {
-  background: var(--r-color-canvas-bg);
-}
-
-.r-v2-branding__art--light {
-  background: var(--r-color-overlay-emphasis-bg);
-}
-
-.r-v2-branding__art--favicon {
-  width: 48px;
-  background: var(--r-color-surface);
-}
-
-html[data-bp~="xs"] .r-v2-branding__art {
-  height: 40px;
-}
-
-html[data-bp~="xs"] .r-v2-branding__art--background {
-  width: 96px;
-}
-
-html[data-bp~="xs"] .r-v2-branding__art-logo {
-  width: 26px;
-  height: 26px;
-}
-
-html[data-bp~="xs"] .r-v2-branding__art--wordmark {
-  width: 80px;
-}
-
-html[data-bp~="xs"] .r-v2-branding__art--wordmark img {
-  height: 16px;
-}
-
-html[data-bp~="xs"] .r-v2-branding__art--favicon {
-  width: 40px;
 }
 
 .r-v2-branding__errors {
