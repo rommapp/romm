@@ -149,7 +149,7 @@
           var btn = document.createElement("button");
           btn.type = "button";
           btn.textContent = active ? "In use" : "Use this theme";
-          btn.disabled = active;
+          btn.disabled = active || !!theme.unavailable;
           btn.addEventListener("click", function () {
             use(theme.id);
           });
@@ -164,9 +164,25 @@
             client = manifest.client;
             var active = current();
             var grid = document.getElementById("themes");
-            var server = manifest.themes.filter(function (t) {
-              return t.id === manifest.default;
-            })[0];
+            var count = manifest.themes.length;
+            // Each pack's brand color, so the card hints at the whole draw.
+            var random = {
+              id: client.random_id,
+              name: "Random",
+              description: count
+                ? "A different theme on every page load, from " + count + (count === 1 ? " theme" : " themes")
+                : "No themes are available to choose from",
+              swatch: manifest.themes.map(function (t) {
+                return t.swatch[1];
+              }),
+              unavailable: !count,
+            };
+            var server =
+              manifest.default === client.random_id
+                ? random
+                : manifest.themes.filter(function (t) {
+                    return t.id === manifest.default;
+                  })[0];
             var serverChoice = {
               id: client.follow_server_id,
               name: "Server's theme",
@@ -179,7 +195,7 @@
               description: "The stock RomM look, no theme applied",
               swatch: client.stock_swatch,
             };
-            [serverChoice, stock].concat(manifest.themes).forEach(function (t) {
+            [serverChoice, random, stock].concat(manifest.themes).forEach(function (t) {
               grid.appendChild(card(t, t.id === active));
             });
           });
