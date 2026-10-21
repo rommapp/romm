@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Loads the login screen for stock and every pack in both modes through the patched nginx,
-// asserting each theme took effect; writes screenshots and report.md/report.json.
+// Loads the login screen for stock, every built-in pack and one archive in the themes folder, in both
+// modes, through the patched nginx, asserting each theme took effect; writes screenshots and report.md/report.json.
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -11,7 +11,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "../../lib/args.mjs";
 import { loadCatalog } from "../../lib/catalog.mjs";
 import { loadPack } from "../../lib/pack.mjs";
-import { findPacks, openPackFiles } from "../../lib/packfiles.mjs";
+import { findPacks, folderFiles, openPackFiles, zipFiles } from "../../lib/packfiles.mjs";
+import { writeZip } from "../../lib/zip.mjs";
 import { CLIENT, RANDOM_ID, STOCK_ID, THEME_ATTRIBUTE } from "../../lib/client.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -31,6 +32,20 @@ const { chromium } = await import(pathToFileURL(join(repo, "frontend/node_module
 const cssReferences = loadCatalog(join(mod, "catalog")).cssReferences ?? {};
 const packs = findPacks(join(mod, "packs")).map((found) => loadPack(openPackFiles(found)));
 
+// One pack installed the way admins add them: an archive in the themes folder, zipped inside a folder.
+const ARCHIVED = { id: "archived", from: "aurora" };
+const themesFolder = join(out, "themes");
+mkdirSync(themesFolder, { recursive: true });
+{
+  const src = folderFiles(join(mod, "packs", ARCHIVED.from));
+  const files = src.list().map((name) => {
+    const data = name === "theme.json" ? Buffer.from(JSON.stringify({ ...JSON.parse(src.read(name)), id: ARCHIVED.id, name: "Archived" })) : src.read(name);
+    return { name: `${ARCHIVED.id}/${name}`, data };
+  });
+  writeZip(join(themesFolder, `${ARCHIVED.id}.zip`), files);
+  packs.push(loadPack(zipFiles(join(themesFolder, `${ARCHIVED.id}.zip`))));
+}
+
 function waitFor(url, ms = 30000) {
   const end = Date.now() + ms;
   return new Promise((ok, fail) => {
@@ -43,7 +58,7 @@ function waitFor(url, ms = 30000) {
   });
 }
 
-const preview = spawn(process.execPath, [join(mod, "dev/preview.mjs"), "--default", STOCK_ID, "--port", String(port), "--work", join(out, "preview")], {
+const preview = spawn(process.execPath, [join(mod, "dev/preview.mjs"), "--default", STOCK_ID, "--port", String(port), "--work", join(out, "preview"), "--packs-folder", themesFolder], {
   stdio: ["ignore", "inherit", "inherit"],
 });
 const stopPreview = () => preview.kill("SIGTERM");
