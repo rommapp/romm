@@ -39,7 +39,7 @@ dependencies = [
   "opentelemetry-instrumentation-httpx ~= 0.56",
   "opentelemetry-instrumentation-redis ~= 0.56",
   "opentelemetry-instrumentation-sqlalchemy ~= 0.56",
-  "pillow~=12.3",
+  "pillow~=13.0",
   "psycopg[c] ~= 3.2",
   "pydantic ~= 2.11",
   "pydash ~= 8.0",
@@ -143,8 +143,9 @@ package = false
 # A range, so Dependabot's bundled uv passes; docker/Dockerfile and ./Dockerfile pin the exact version.
 required-version = ">=0.13.4,<0.14"
 exclude-newer = "7 days"
-# certifi 2026.10.19 distrusts the compromised eMudhra intermediates; drop once it ages past the cooldown.
-exclude-newer-package = { certifi = false }
+# Security fixes newer than the cooldown: certifi 2026.10.19 (eMudhra distrust), pillow 13.0.0
+# (GHSA-8g5g-8vmr-9782). Drop each once it ages past the cooldown.
+exclude-newer-package = { certifi = false, pillow = false }
 
 [tool.ty.environment]
 root = ["./backend"]
