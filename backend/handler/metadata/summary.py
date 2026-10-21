@@ -224,13 +224,16 @@ class _SummaryParser(HTMLParser):
             self.handle_data(unescape(self.endtag_text))
 
     def handle_data(self, data: str) -> None:
+        if self.needs_boundary and data.isspace():
+            # Keep explicit newlines, not indentation between blocks.
+            data = "".join(char for char in data if char in "\r\n")
         if self.hidden_tag or not data:
             return
         if (
             self.needs_boundary
             and self.parts
-            and not self.parts[-1].endswith("\n")
-            and not data.startswith("\n")
+            and not self.parts[-1].endswith(("\r", "\n"))
+            and not data.startswith(("\r", "\n"))
         ):
             self.parts.append("\n")
         self.needs_boundary = False

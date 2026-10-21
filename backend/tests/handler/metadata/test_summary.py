@@ -30,6 +30,13 @@ from handler.metadata.summary import normalize_summary
         ("Press <player> to start", "Press <player> to start"),
         ("<p>First.</p><p>Second.</p>", "First.\nSecond."),
         ("<p>First.</p>\n<p>Second.</p>", "First.\nSecond."),
+        ("<p>First.</p>\n  <p>Second.</p>", "First.\nSecond."),
+        ("<p>First.</p>  <p>Second.</p>", "First.\nSecond."),
+        ("<p>First.</p>\n\t<p>Second.</p>", "First.\nSecond."),
+        (
+            "<ul>\n  <li>One</li>\n  <li>Two</li>\n</ul>",
+            "One\nTwo",
+        ),
         ("<p>First.</p>\n\n<p>Second.</p>", "First.\n\nSecond."),
         ("Text\n<p>Second.</p>", "Text\nSecond."),
         ("<div>First<div>Second</div>Third</div>", "First\nSecond\nThird"),
@@ -79,3 +86,25 @@ from handler.metadata.summary import normalize_summary
 )
 def test_normalize_summary(summary: str | None, expected: str):
     assert normalize_summary(summary) == expected
+
+
+@pytest.mark.parametrize("line_ending", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize(
+    ("summary", "expected"),
+    [
+        ("<p>First.</p>\n  <p>Second.</p>", "First.\nSecond."),
+        ("First.\n<p>Second.</p>", "First.\nSecond."),
+        ("<p>First.</p>\n\n  <p>Second.</p>", "First.\n\nSecond."),
+        ("<ul>\n  <li>One</li>\n  <li>Two</li>\n</ul>", "One\nTwo"),
+        (
+            " Plain text.\n\n  Keep indentation.\n",
+            " Plain text.\n\n  Keep indentation.\n",
+        ),
+    ],
+)
+def test_normalize_summary_preserves_line_endings(
+    summary: str, expected: str, line_ending: str
+):
+    assert normalize_summary(summary.replace("\n", line_ending)) == expected.replace(
+        "\n", line_ending
+    )

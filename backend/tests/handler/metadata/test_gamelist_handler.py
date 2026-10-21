@@ -77,13 +77,21 @@ def test_parse_gamelist_xml_includes_folder_entries(tmp_path: Path, platform: Pl
 
 
 @pytest.mark.parametrize("element", ["game", "folder"])
-def test_provider_summary_is_plain_text(
-    tmp_path: Path, platform: Platform, element: str
+@pytest.mark.parametrize(
+    ("description", "expected"),
+    [
+        ("&lt;b&gt;literal&lt;/b&gt; &amp;lt;3", "<b>literal</b> &lt;3"),
+        ("<![CDATA[<p>Play &amp; explore.</p>]]>", "<p>Play &amp; explore.</p>"),
+        ("Play &amp; explore.", "Play & explore."),
+    ],
+)
+def test_gamelist_summary_preserves_xml_text(
+    tmp_path: Path, platform: Platform, element: str, description: str, expected: str
 ):
     gamelist_path = tmp_path / "gamelist.xml"
     gamelist_path.write_text(
         f"<gameList><{element}><path>./game.zip</path>"
-        "<desc><![CDATA[<p>Play &amp; explore.</p>]]></desc>"
+        f"<desc>{description}</desc>"
         f"</{element}></gameList>",
         encoding="utf-8",
     )
@@ -99,7 +107,7 @@ def test_provider_summary_is_plain_text(
     ):
         result = GamelistHandler()._parse_gamelist_xml(gamelist_path, platform)
 
-    assert result["game.zip"]["summary"] == "Play & explore."
+    assert result["game.zip"]["summary"] == expected
 
 
 def test_parse_gamelist_xml_keeps_game_entries(tmp_path: Path, platform: Platform):

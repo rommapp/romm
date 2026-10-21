@@ -15,6 +15,7 @@ from handler.filesystem import (
     fs_rom_handler,
 )
 from handler.metadata.gamelist_handler import GamelistHandler
+from handler.metadata.summary import normalize_summary
 from models.platform import Platform
 from models.user import User
 from utils.gamelist_exporter import GamelistExporter
@@ -434,6 +435,23 @@ def isolated_filesystem(tmp_path, monkeypatch):
     monkeypatch.setattr(fs_resource_handler, "base_path", resources_base)
     monkeypatch.setattr(fs_platform_handler, "base_path", library_base)
     return IsolatedFilesystem(resources_base, library_base)
+
+
+async def test_export_import_preserves_normalized_summary(
+    platform_with_minimal_rom, isolated_filesystem
+):
+    platform, roms = platform_with_minimal_rom
+    summary = normalize_summary("&lt;b&gt;literal&lt;/b&gt; &amp;lt;3")
+    assert summary == "<b>literal</b> &lt;3"
+    db_rom_handler.update_rom(roms[0].id, {"summary": summary})
+
+    exporter = GamelistExporter(local_export=True)
+    assert await exporter.export_platform_to_file(platform.id, request=None) is True
+
+    gamelist = isolated_filesystem.platform_dir(platform) / "gamelist.xml"
+    imported = GamelistHandler()._parse_gamelist_xml(gamelist, platform)
+
+    assert imported[roms[0].fs_name]["summary"] == summary
 
 
 async def test_export_platform_to_file_copies_assets(
