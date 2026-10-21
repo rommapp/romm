@@ -25,8 +25,8 @@
 <text x="36" y="244" font-size="11.5" fill="#59636e">and favicons</text>
 <rect x="276" y="184" width="208" height="72" rx="8" fill="#ddf4ff" stroke="#0969da" stroke-width="2"/>
 <text x="288" y="208" font-weight="600" fill="#1f2328">2 · nginx rewrite</text>
-<text x="288" y="228" font-size="11.5" fill="#1f2328">Artwork by cookie, favicons</text>
-<text x="288" y="244" font-size="11.5" fill="#1f2328">from the server's theme</text>
+<text x="288" y="228" font-size="11.5" fill="#1f2328">Artwork and favicons from</text>
+<text x="288" y="244" font-size="11.5" fill="#1f2328">the visitor's theme cookie</text>
 <rect x="528" y="184" width="208" height="72" rx="8" fill="#ffffff" stroke="#8c959f" stroke-width="1.25"/>
 <text x="540" y="208" font-weight="600" fill="#1f2328">Artwork by theme</text>
 <text x="540" y="228" font-size="11.5" fill="#59636e">Pack file if present,</text>
