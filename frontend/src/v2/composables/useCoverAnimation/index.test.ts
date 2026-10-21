@@ -1,7 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { computed, defineComponent, h, nextTick, ref } from "vue";
-import { useCoverAnimation } from "./index";
+import { type UseCoverAnimation, useCoverAnimation } from "./index";
 
 function setup({ cd = true, video = false } = {}) {
   const active = ref(false);
@@ -9,10 +9,13 @@ function setup({ cd = true, video = false } = {}) {
   const videoEl = document.createElement("video");
   const play = vi.spyOn(videoEl, "play").mockResolvedValue();
   vi.spyOn(videoEl, "pause").mockImplementation(() => undefined);
+  const load = vi.spyOn(videoEl, "load").mockImplementation(() => undefined);
+  if (video) videoEl.setAttribute("src", "/clip.mp4");
+  let animation!: UseCoverAnimation;
   const wrapper = mount(
     defineComponent({
       setup() {
-        useCoverAnimation({
+        animation = useCoverAnimation({
           el: ref(img),
           containerEl: ref(document.createElement("div")),
           videoEl: ref(videoEl),
@@ -26,7 +29,7 @@ function setup({ cd = true, video = false } = {}) {
       },
     }),
   );
-  return { active, img, play, wrapper };
+  return { active, animation, img, load, play, videoEl, wrapper };
 }
 
 describe("useCoverAnimation", () => {
@@ -120,5 +123,108 @@ describe("useCoverAnimation", () => {
     await nextTick();
     vi.advanceTimersByTime(1000);
     expect(play).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a left hover clip's download for a few seconds, then drops it", async () => {
+    vi.useFakeTimers();
+    const { active, load, videoEl } = setup({ cd: false, video: true });
+
+    active.value = true;
+    await nextTick();
+    vi.advanceTimersByTime(1000);
+    active.value = false;
+    await nextTick();
+    vi.advanceTimersByTime(4999);
+    expect(videoEl.getAttribute("src")).toBe("/clip.mp4");
+    expect(load).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(1);
+    expect(videoEl.hasAttribute("src")).toBe(false);
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+
+  it("replays a clip hovered again before its download is dropped", async () => {
+    vi.useFakeTimers();
+    const { active, load, play, videoEl } = setup({ cd: false, video: true });
+
+    active.value = true;
+    await nextTick();
+    vi.advanceTimersByTime(1000);
+    active.value = false;
+    await nextTick();
+    vi.advanceTimersByTime(3000);
+    active.value = true;
+    await nextTick();
+    vi.advanceTimersByTime(5000);
+
+    expect(play).toHaveBeenCalledTimes(2);
+    expect(load).not.toHaveBeenCalled();
+    expect(videoEl.getAttribute("src")).toBe("/clip.mp4");
+  });
+
+  it("restores a dropped hover clip source on the next hover", async () => {
+    vi.useFakeTimers();
+    const { active, play, videoEl } = setup({ cd: false, video: true });
+
+    active.value = true;
+    await nextTick();
+    vi.advanceTimersByTime(1000);
+    active.value = false;
+    await nextTick();
+    vi.advanceTimersByTime(5000);
+    expect(videoEl.hasAttribute("src")).toBe(false);
+
+    active.value = true;
+    await nextTick();
+    vi.advanceTimersByTime(1000);
+    expect(videoEl.getAttribute("src")).toBe("/clip.mp4");
+    expect(play).toHaveBeenCalledTimes(2);
+  });
+
+  it("drops a left clip's download at once when another clip plays", async () => {
+    vi.useFakeTimers();
+    const first = setup({ cd: false, video: true });
+    const second = setup({ cd: false, video: true });
+
+    first.active.value = true;
+    await nextTick();
+    vi.advanceTimersByTime(1000);
+    first.active.value = false;
+    await nextTick();
+    second.active.value = true;
+    await nextTick();
+    vi.advanceTimersByTime(1000);
+
+    expect(second.play).toHaveBeenCalledTimes(1);
+    expect(first.load).toHaveBeenCalledTimes(1);
+    expect(first.videoEl.hasAttribute("src")).toBe(false);
+  });
+
+  it("shows the still again when another clip takes over playback", async () => {
+    vi.useFakeTimers();
+    const first = setup({ cd: false, video: true });
+    const second = setup({ cd: false, video: true });
+
+    first.active.value = true;
+    await nextTick();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(first.animation.isVideoPlaying.value).toBe(true);
+
+    // The first cover stays active (keyboard focus) while the second is hovered.
+    second.active.value = true;
+    await nextTick();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(first.animation.isVideoPlaying.value).toBe(false);
+    expect(second.animation.isVideoPlaying.value).toBe(true);
+  });
+
+  it("drops the hover clip source on unmount", () => {
+    const { load, videoEl, wrapper } = setup({ cd: false, video: true });
+
+    wrapper.unmount();
+
+    expect(videoEl.hasAttribute("src")).toBe(false);
+    expect(load).toHaveBeenCalledTimes(1);
   });
 });

@@ -54,6 +54,11 @@ export function resolveRomArtwork(rom: DetailedRom): MediaShelfItem[] {
   const seen = new Set<string>();
   const out: MediaShelfItem[] = [];
   const extraDiscs = (ss?.physical_extra_discs ?? []).filter((d) => d.path);
+  // A still shown in each clip's box until it plays: the title screen, else
+  // the first screenshot.
+  const poster = ss?.title_screen_path
+    ? versionedResourceUrl(ss.title_screen_path, rom.updated_at)
+    : rom.merged_screenshots?.[0];
 
   const artworkDefs: ArtworkDef[] = [
     {
@@ -166,6 +171,7 @@ export function resolveRomArtwork(rom: DetailedRom): MediaShelfItem[] {
         label: file.file_name.replace(/\.[^.]+$/, ""),
         url: versionedRomFileUrl(file),
         isVideo,
+        ...(isVideo && poster ? { poster } : {}),
       };
     })
     .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
@@ -182,6 +188,7 @@ export function resolveRomArtwork(rom: DetailedRom): MediaShelfItem[] {
         ? def.url
         : versionedResourceUrl(def.url, rom.updated_at),
       isVideo: def.isVideo ?? false,
+      ...(def.isVideo && poster ? { poster } : {}),
     });
   }
 
