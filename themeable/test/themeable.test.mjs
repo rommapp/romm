@@ -11,6 +11,7 @@ import { injectLoader } from "../lib/html.mjs";
 import { patchNginx } from "../lib/nginx.mjs";
 import { applyAliases, compilePack, hexToRgbTriplet, validatePack } from "../lib/pack.mjs";
 import { updatePrecacheRevisions, md5 } from "../lib/sw.mjs";
+import * as zip from "../lib/zip.mjs";
 import { parseTokenCss } from "../lib/tokens.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -459,4 +460,61 @@ test("Random as the server's theme compiles, and falls back to RomM's look with 
   const empty = compile([]);
   assert.equal(empty.effective, "none");
   assert.match(empty.reason, /no usable packs/);
+});
+
+// Archives for the zip tests; `patch` swaps same-length bytes to forge what writeZip refuses to write.
+function tempZip(files, patch = []) {
+  const file = join(mkdtempSync(join(tmpdir(), "themeable-zip-")), "pack.zip");
+  zip.writeZip(file, Object.entries(files).map(([name, data]) => ({ name, data: Buffer.from(data) })));
+  let buf = readFileSync(file);
+  for (const [from, to] of patch) buf = Buffer.from(buf.toString("latin1").split(from).join(to), "latin1");
+  writeFileSync(file, buf);
+  return file;
+}
+
+test("zip archives round-trip and every limit is checked before inflating", () => {
+  const file = tempZip({ "theme.json": "{}", "assets/a.svg": "<svg/>".repeat(40) });
+  const z = zip.openZip(file);
+  assert.deepEqual(z.names, ["theme.json", "assets/a.svg"]);
+  assert.equal(z.read("assets/a.svg").toString(), "<svg/>".repeat(40));
+  z.close();
+
+  const limits = { ...zip.LIMITS };
+  assert.throws(() => zip.openZip(file, { ...limits, entries: 1 }), /2 entries; the limit is 1/);
+  assert.throws(() => zip.openZip(file, { ...limits, file: 100 }), /"assets\/a.svg" is .* the limit is .* per file/);
+  assert.throws(() => zip.openZip(file, { ...limits, total: 200 }), /more than .* uncompressed/);
+  const bomb = tempZip({ "zeros.bin": Buffer.alloc(1024 * 1024) });
+  assert.throws(() => zip.openZip(bomb), /compresses more than 100:1/);
+  for (const name of ["MAX_ENTRIES", "MAX_TOTAL_BYTES", "MAX_FILE_BYTES", "MAX_RATIO"]) assert.ok(zip[name] > 0, name);
+});
+
+test("malformed archives are refused with the reason", () => {
+  const ok = { "aa/x.svg": "<svg/>", "b.svg": "<svg/>" };
+  const expectations = [
+    [tempZip(ok, [["aa/x.svg", "../x.svg"]]), /leaves the archive/],
+    [tempZip(ok, [["aa/x.svg", "/a/x.svg"]]), /absolute path/],
+    [tempZip(ok, [["aa/x.svg", "aa\\x.svg"]]), /backslash/],
+    [tempZip({ "a.svg": "1", "b.svg": "2" }, [["b.svg", "a.svg"]]), /appears more than once/],
+  ];
+  for (const [file, reason] of expectations) assert.throws(() => zip.openZip(file), reason);
+
+  const good = readFileSync(tempZip({ "a.txt": "hello" }));
+  const write = (buf) => {
+    const f = join(mkdtempSync(join(tmpdir(), "themeable-zip-")), "x.zip");
+    writeFileSync(f, buf);
+    return f;
+  };
+  const central = good.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+  const encrypted = Buffer.from(good);
+  encrypted.writeUInt16LE(encrypted.readUInt16LE(central + 8) | 1, central + 8);
+  assert.throws(() => zip.openZip(write(encrypted)), /encrypted/);
+  const method = Buffer.from(good);
+  method.writeUInt16LE(12, central + 10);
+  assert.throws(() => zip.openZip(write(method)), /compression method 12/);
+  assert.throws(() => zip.openZip(write(good.subarray(0, good.length - 30))), /not a zip archive|truncated|damaged/);
+  assert.throws(() => zip.openZip(write(good.subarray(10))), /truncated|damaged|not a zip/);
+  const corrupt = Buffer.from(good);
+  corrupt[30 + "a.txt".length] ^= 0xff;
+  assert.throws(() => zip.openZip(write(corrupt)).read("a.txt"), /damaged|decompressed/);
+  assert.throws(() => zip.openZip(write(Buffer.from("not a zip at all, just text"))), /not a zip archive/);
 });
