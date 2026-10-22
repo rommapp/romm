@@ -1,13 +1,13 @@
 // Theme pack loading, validation and compilation.
 import { createHash } from "node:crypto";
 import { extname } from "node:path";
-import { FOLLOW_SERVER_ID, RANDOM_ID, STOCK_ID, THEME_ATTRIBUTE } from "./client.mjs";
+import { FOLLOW_SERVER_ID, PACK_NAME_MAX, RANDOM_ID, STOCK_ID, THEME_ATTRIBUTE } from "./client.mjs";
 import { scopeSelectorList } from "./cssrefs.mjs";
 import { packPath } from "./packfiles.mjs";
 import { SCOPES, isTokenName } from "./tokens.mjs";
 
 export const PACK_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
-export const PACK_NAME_MAX = 80;
+export { PACK_NAME_MAX } from "./client.mjs";
 const CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
 
 /** Why a display name can't be used, or null. */

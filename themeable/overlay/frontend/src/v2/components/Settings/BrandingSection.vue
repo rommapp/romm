@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// BrandingSection (romm-themeable): choose the server's theme pack. Saving recompiles every
-// pack from the mapped themes folder, so edits made on the host apply on save.
-import { RAlert, RBtn, REmptyState, RSpinner, RTag } from "@v2/lib";
-import { computed, ref, watch } from "vue";
+// BrandingSection (romm-themeable): choose the server's theme pack, and upload, rename, convert
+// and delete packs. Every change recompiles the packs from the mapped themes folder.
+import { RAlert, RBtn, REmptyState, RSpinner, RTag, RTextField } from "@v2/lib";
+import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import themeableApi, {
   type BrandingStatus,
@@ -10,9 +10,12 @@ import themeableApi, {
 } from "@/services/api/themeable";
 import BrandingArtwork from "@/v2/components/Settings/BrandingArtwork.vue";
 import BrandingRandomArtwork from "@/v2/components/Settings/BrandingRandomArtwork.vue";
+import BrandingUpload from "@/v2/components/Settings/BrandingUpload.vue";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
+import { useConfirm } from "@/v2/composables/useConfirm";
 import { useFetchState } from "@/v2/composables/useFetchState";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { focusFromInput } from "@/v2/utils/autofocus";
 
 defineOptions({ inheritAttrs: false });
 
@@ -25,6 +28,7 @@ type Option = Omit<ThemePack, "source" | "format"> & {
 
 const { t } = useI18n();
 const snackbar = useSnackbar();
+const confirm = useConfirm();
 
 const {
   state: status,
@@ -51,7 +55,12 @@ const selected = ref<string>("");
 const rescanning = ref(false);
 const page = ref(1);
 const saving = ref(false);
-const converting = ref<string | null>(null);
+// The pack an action is running on, so only its buttons show progress.
+const busy = ref<string | null>(null);
+const renaming = ref<string | null>(null);
+const newName = ref("");
+const renameField = useTemplateRef<{ focus: () => void }[]>("renameField");
+const restoring = ref(false);
 const savedOnce = ref(false);
 
 const options = computed<Option[]>(() => [
@@ -154,23 +163,111 @@ function canConvert(option: Option): boolean {
   return option.source === "folder" && option.format === "folder";
 }
 
-async function convert(option: Option): Promise<void> {
-  converting.value = option.id;
+function isUploaded(option: Option): boolean {
+  return option.source === "folder" && option.format === "zip";
+}
+
+function canDelete(option: Option): boolean {
+  return isUploaded(option) || option.source === "built-in";
+}
+
+/** Runs one pack action; a refused one changed nothing, so the list stays as it was. */
+async function runAction(
+  id: string,
+  request: () => Promise<{ data: BrandingStatus }>,
+  success: string,
+  failure: string,
+): Promise<boolean> {
+  busy.value = id;
   try {
-    const { data } = await themeableApi.convertPack(option.id);
-    if (data.ok) {
-      status.value = data;
-      snackbar.success(t("branding.converted", { name: option.name }));
-    } else {
-      // A refused convert changed nothing, so the list stays as it was.
-      snackbar.error(data.error ?? t("branding.convert-failed"));
+    const { data } = await request();
+    if (!data.ok) {
+      snackbar.error(data.error ?? failure);
+      return false;
     }
+    status.value = data;
+    snackbar.success(success);
+    return true;
   } catch (err) {
-    console.error("[branding] Could not convert the pack:", err);
-    snackbar.error(t("branding.convert-failed"));
+    console.error(`[branding] ${failure}:`, err);
+    snackbar.error(failure);
+    return false;
   } finally {
-    converting.value = null;
+    busy.value = null;
   }
+}
+
+function convert(option: Option): Promise<boolean> {
+  return runAction(
+    option.id,
+    () => themeableApi.convertPack(option.id),
+    t("branding.converted", { name: option.name }),
+    t("branding.convert-failed"),
+  );
+}
+
+async function startRename(option: Option): Promise<void> {
+  renaming.value = option.id;
+  newName.value = option.name;
+  await nextTick();
+  focusFromInput(renameField.value?.[0]);
+}
+
+async function rename(option: Option): Promise<void> {
+  const name = newName.value.trim();
+  if (!name || name === option.name) {
+    renaming.value = null;
+    return;
+  }
+  const done = await runAction(
+    option.id,
+    () => themeableApi.renamePack(option.id, name),
+    t("branding.renamed", { name }),
+    t("branding.rename-failed"),
+  );
+  if (done) renaming.value = null;
+}
+
+async function remove(option: Option): Promise<void> {
+  const builtIn = option.source === "built-in";
+  const confirmed = await confirm({
+    title: t(builtIn ? "branding.hide-title" : "branding.delete-title", {
+      name: option.name,
+    }),
+    body: t(builtIn ? "branding.hide-body" : "branding.delete-body", {
+      id: option.id,
+    }),
+    confirmText: t(builtIn ? "branding.hide" : "branding.delete"),
+    tone: "danger",
+    // Deleting an archive can't be undone, so its id must be typed.
+    ...(builtIn ? {} : { requireTyped: option.id }),
+  });
+  if (!confirmed) return;
+  await runAction(
+    option.id,
+    () => themeableApi.deletePack(option.id),
+    t(builtIn ? "branding.hidden" : "branding.deleted", { name: option.name }),
+    t("branding.delete-failed"),
+  );
+}
+
+async function restoreBuiltIns(): Promise<void> {
+  restoring.value = true;
+  try {
+    await runAction(
+      "",
+      () => themeableApi.restoreBuiltInPacks(),
+      t("branding.restored"),
+      t("branding.restore-failed"),
+    );
+  } finally {
+    restoring.value = false;
+  }
+}
+
+function onUploaded(data: BrandingStatus): void {
+  status.value = data;
+  snackbar.success(data.notes.at(-1) ?? t("branding.uploaded"));
 }
 
 async function rescan(): Promise<void> {
@@ -217,6 +314,11 @@ function reloadPage(): void {
     />
 
     <form v-else class="r-v2-branding" @submit.prevent="save">
+      <BrandingUpload
+        :max-bytes="status?.max_upload_bytes ?? 0"
+        :disabled="saving || !!busy || status?.folder?.writable === false"
+        @uploaded="onUploaded"
+      />
       <p class="r-v2-branding__intro">{{ t("branding.subtitle") }}</p>
 
       <RAlert
@@ -318,20 +420,80 @@ function reloadPage(): void {
             <ul v-if="option.errors.length" class="r-v2-branding__errors">
               <li v-for="(e, i) in option.errors" :key="i">{{ e }}</li>
             </ul>
-            <span v-if="canConvert(option)" class="r-v2-branding__convert">
+            <span
+              v-if="renaming === option.id"
+              class="r-v2-branding__actions-row"
+            >
+              <RTextField
+                ref="renameField"
+                v-model="newName"
+                class="r-v2-branding__rename"
+                density="compact"
+                :label="t('branding.new-name')"
+                :maxlength="client?.pack_name_max"
+                @keydown.enter.prevent="rename(option)"
+                @keydown.esc.prevent="renaming = null"
+              />
               <RBtn
-                variant="outlined"
                 size="small"
-                prepend-icon="mdi-folder-zip-outline"
-                :loading="converting === option.id"
-                :disabled="!!converting || saving"
-                @click.prevent="convert(option)"
+                :loading="busy === option.id"
+                @click.prevent="rename(option)"
               >
-                {{ t("branding.convert") }}
+                {{ t("branding.rename-save") }}
               </RBtn>
-              <span class="r-v2-branding__meta">{{
-                t("branding.convert-hint", { id: option.id })
-              }}</span>
+              <RBtn
+                size="small"
+                variant="text"
+                :disabled="busy === option.id"
+                @click.prevent="renaming = null"
+              >
+                {{ t("branding.cancel") }}
+              </RBtn>
+            </span>
+            <span
+              v-else-if="canConvert(option) || canDelete(option)"
+              class="r-v2-branding__actions-row"
+            >
+              <template v-if="canConvert(option)">
+                <RBtn
+                  variant="outlined"
+                  size="small"
+                  prepend-icon="mdi-folder-zip-outline"
+                  :loading="busy === option.id"
+                  :disabled="!!busy || saving"
+                  @click.prevent="convert(option)"
+                >
+                  {{ t("branding.convert") }}
+                </RBtn>
+                <span class="r-v2-branding__meta">{{
+                  t("branding.convert-hint", { id: option.id })
+                }}</span>
+              </template>
+              <RBtn
+                v-if="isUploaded(option)"
+                variant="text"
+                size="small"
+                prepend-icon="mdi-pencil-outline"
+                :disabled="!!busy || saving"
+                @click.prevent="startRename(option)"
+              >
+                {{ t("branding.rename") }}
+              </RBtn>
+              <RBtn
+                v-if="canDelete(option)"
+                variant="text"
+                size="small"
+                :prepend-icon="
+                  option.source === 'built-in'
+                    ? 'mdi-eye-off-outline'
+                    : 'mdi-delete-outline'
+                "
+                :loading="busy === option.id"
+                :disabled="!!busy || saving"
+                @click.prevent="remove(option)"
+              >
+                {{ t("branding.delete") }}
+              </RBtn>
             </span>
           </span>
           <RBtn
@@ -375,6 +537,17 @@ function reloadPage(): void {
       </nav>
 
       <div class="r-v2-branding__actions">
+        <RBtn
+          v-if="status?.hidden?.length"
+          class="r-v2-branding__restore"
+          variant="text"
+          prepend-icon="mdi-restore"
+          :loading="restoring"
+          :disabled="saving || !!busy"
+          @click="restoreBuiltIns"
+        >
+          {{ t("branding.restore", { n: status.hidden.length }) }}
+        </RBtn>
         <RBtn
           v-if="savedOnce"
           variant="text"
@@ -500,7 +673,16 @@ function reloadPage(): void {
   margin-top: var(--r-space-2);
 }
 
-.r-v2-branding__convert {
+.r-v2-branding__restore {
+  margin-right: auto;
+}
+
+.r-v2-branding__rename {
+  flex: 1 1 200px;
+  max-width: 320px;
+}
+
+.r-v2-branding__actions-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;

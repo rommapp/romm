@@ -31,6 +31,7 @@ export interface ThemeableClient {
   follow_server_id: string;
   random_id: string;
   random_cycle_ms: number;
+  pack_name_max: number;
   storage_key: string;
   cookie: string;
   url_param: string;
@@ -53,6 +54,23 @@ export interface BrandingStatus {
   client: ThemeableClient | null;
   folder: ThemeFolder | null;
   packs: ThemePack[];
+  /** Built-in packs hidden by Delete; Restore built-in packs shows them again. */
+  hidden: string[];
+  /** The largest pack upload the server accepts. */
+  max_upload_bytes: number;
+}
+
+/** Why an upload was refused with 422. */
+export interface PackProblems {
+  message: string;
+  problems: string[];
+}
+
+/** An upload whose id is already installed (409); send it again with `replace` to confirm. */
+export interface PackClash {
+  message: string;
+  id: string;
+  name: string;
 }
 
 /** Stock URL plus the theme argument: nginx answers with the pack's file, or RomM's own
@@ -85,4 +103,38 @@ async function convertPack(id: string) {
   );
 }
 
-export default { getBranding, rescanBranding, saveBranding, convertPack };
+async function uploadPack(file: File, replace = false) {
+  const form = new FormData();
+  form.append("file", file);
+  return api.post<BrandingStatus>("/themeable/packs", form, {
+    params: replace ? { replace: true } : {},
+  });
+}
+
+async function renamePack(id: string, name: string) {
+  return api.patch<BrandingStatus>(
+    `/themeable/packs/${encodeURIComponent(id)}`,
+    { name },
+  );
+}
+
+async function deletePack(id: string) {
+  return api.delete<BrandingStatus>(
+    `/themeable/packs/${encodeURIComponent(id)}`,
+  );
+}
+
+async function restoreBuiltInPacks() {
+  return api.post<BrandingStatus>("/themeable/packs/built-ins/restore", {});
+}
+
+export default {
+  getBranding,
+  rescanBranding,
+  saveBranding,
+  convertPack,
+  uploadPack,
+  renamePack,
+  deletePack,
+  restoreBuiltInPacks,
+};

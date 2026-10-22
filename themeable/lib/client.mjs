@@ -16,6 +16,8 @@ export const PREVIEW_SLOTS = {
   wordmark: "/assets/logotipo.svg",
   favicon: "/favicon-32x32.png",
 };
+// The longest display name a pack can have; Rename checks it in the browser too.
+export const PACK_NAME_MAX = 80;
 // How long the Branding preview for Random shows each pack.
 export const RANDOM_CYCLE_MS = 2000;
 export const STOCK_SWATCH = {
@@ -29,6 +31,7 @@ export const CLIENT = Object.freeze({
   follow_server_id: FOLLOW_SERVER_ID,
   random_id: RANDOM_ID,
   random_cycle_ms: RANDOM_CYCLE_MS,
+  pack_name_max: PACK_NAME_MAX,
   storage_key: STORAGE_KEY,
   cookie: COOKIE,
   url_param: URL_PARAM,

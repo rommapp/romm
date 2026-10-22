@@ -292,6 +292,8 @@ test("browser files read shared values from the manifest instead of declaring th
     "overlay/frontend/src/v2/components/Settings/BrandingArtwork.vue",
     "overlay/frontend/src/v2/components/Settings/BrandingRandomArtwork.vue",
     "overlay/frontend/src/v2/composables/useArtworkCycle/index.ts",
+    "overlay/frontend/src/v2/components/Settings/BrandingUpload.vue",
+    "overlay/frontend/src/v2/composables/usePackUpload/index.ts",
     "overlay/frontend/src/services/api/themeable.ts",
   ];
   const values = Object.values(CLIENT).flat();
