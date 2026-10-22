@@ -52,12 +52,14 @@ themes/
    }
    ```
 
-2. Zip the `midnight` folder as `midnight.zip` (see [Zipping a pack](#zipping-a-pack)) and copy it into the themes folder.
-3. In RomM, open **Administration → Branding** and click the refresh button. Midnight appears in the list with its login background and logo, its wordmark on a dark and a light page, and its browser tab icon; anything the pack doesn't replace shows RomM's own. If anything in it is wrong, the entry says **Can't be used** and lists each problem.
+2. Zip the `midnight` folder (see [Zipping a pack](#zipping-a-pack)).
+3. In RomM, open **Administration → Branding** and drop the archive on **Upload a theme pack**. Branding checks it before installing anything and lists every problem it finds. You can also copy it into the themes folder as `midnight.zip` and click the refresh button. Midnight appears in the list with its login background and logo, its wordmark on a dark and a light page, and its browser tab icon; anything the pack doesn't replace shows RomM's own. If anything in it is wrong, the entry says **Can't be used** and lists each problem.
 4. Click **Preview** to open RomM with the theme in a new tab, without changing anything for anyone else.
 5. Choose Midnight and click **Save changes**. Reload the page to see it.
 
-To change the pack later, edit its files, zip it again, replace `midnight.zip` in the themes folder and click the refresh button or **Save changes**. Only archives that changed are read again.
+To change the pack later, edit its files, zip it again and upload it; Branding asks before replacing the installed Midnight. Copying it over `midnight.zip` in the themes folder and clicking the refresh button works too. Only archives that changed are read again.
+
+The pack's id comes from `theme.json`, not the archive's name, and a built-in pack can't be replaced by an upload: to change one, copy it, give it a new id and upload that.
 
 ## Zipping a pack
 
@@ -228,4 +230,4 @@ Solid buttons draw white text on `--r-color-brand-primary`, so keep that color a
 
 ## Sharing a pack
 
-A pack is one self-contained `.zip`: anyone running romm-themeable can copy it into their themes folder and select it in Branding.
+A pack is one self-contained `.zip`: anyone running romm-themeable can upload it in Branding, or copy it into their themes folder, and select it.

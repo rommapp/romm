@@ -47,14 +47,14 @@ docker build -f themeable/docker/Dockerfile --build-arg ROMM_VERSION=5.4.0 -t ro
 
 **Switching from stock RomM:** change the image and add the themes volume. The database, library and other volumes stay as they are, and RomM looks exactly as before until a theme is chosen.
 
-**Environment:** the image sets `THEMEABLE_PACKS_PATH` (`/romm/themes`, where packs are read from) and `THEMEABLE_RUNTIME_DIR` (`/tmp/themeable`, where compiled themes and `status.json` go). Both can be changed; a custom runtime folder is linked into place at start-up, and if it can't be used the container falls back to the default and says so in its log. `THEMEABLE_ZIP_MAX_ENTRIES` (2000), `THEMEABLE_ZIP_MAX_TOTAL_MB` (64), `THEMEABLE_ZIP_MAX_FILE_MB` (16) and `THEMEABLE_ZIP_MAX_RATIO` (100) set the limits every pack archive is checked against before it is read.
+**Environment:** the image sets `THEMEABLE_PACKS_PATH` (`/romm/themes`, where packs are read from) and `THEMEABLE_RUNTIME_DIR` (`/tmp/themeable`, where compiled themes and `status.json` go). Both can be changed; a custom runtime folder is linked into place at start-up, and if it can't be used the container falls back to the default and says so in its log. `THEMEABLE_MAX_UPLOAD_MB` (20) caps a pack upload from Branding. `THEMEABLE_ZIP_MAX_ENTRIES` (2000), `THEMEABLE_ZIP_MAX_TOTAL_MB` (64), `THEMEABLE_ZIP_MAX_FILE_MB` (16) and `THEMEABLE_ZIP_MAX_RATIO` (100) set the limits every pack archive is checked against before it is read.
 
 ## Choosing a theme
 
-**Administration → Branding** (admins only) lists every theme: **Random** first, then **RomM default**, then the built-in themes and the packs in the themes folder, ten per page. Each entry shows:
+**Administration → Branding** (admins only) starts with **Upload a theme pack**, then lists every theme: **Random** first, then **RomM default**, then the built-in themes and the packs in the themes folder, ten per page. Each entry shows:
 
 - its name, description, color swatch and source (RomM, built-in, or themes folder);
-- for a folder pack in the themes folder, **Folder pack: convert to .zip** and a **Convert** button, described below;
+- **Rename** and **Delete** for a pack in the themes folder, **Delete** for a built-in pack, and for a folder pack **Folder pack: convert to .zip** with a **Convert** button, all described below;
 - its artwork as visitors would see it: the login background with the logo, the wordmark on a dark and a light page, and the browser tab icon, with RomM's own wherever the pack doesn't replace something;
 - **In use** for the server's current theme, or **Can't be used** with every problem listed for a pack that fails validation;
 - a **Preview** button that opens RomM with the theme in a new tab without changing anything for anyone, including the admin's other tabs.
@@ -62,6 +62,10 @@ docker build -f themeable/docker/Dockerfile --build-arg ROMM_VERSION=5.4.0 -t ro
 **Random** deals each visitor a pack at random on every page load, from the packs that compiled, never repeating the pack that browser showed last when there is another to choose. Colors, artwork and browser tab icons all come from the pack dealt. Its artwork preview steps through those packs every 2 seconds, loading the next pack's images before a short cross-fade; it pauses while the tab is hidden and holds one pack with reduced motion on. The pack on show is named under the strip. With no usable packs, Random can't be chosen, and a saved Random falls back to RomM's look.
 
 Choose a theme and click **Save changes**. The choice is stored in `themeable.json` in the themes folder and every pack is recompiled from the folder, so edits made on the host take effect on save. The refresh button rescans the folder without changing the choice. Everyone who hasn't picked a theme of their own gets the server's theme on their next page load.
+
+**Uploading a pack:** drop a `.zip` on **Upload a theme pack**, or click it to choose one. The page refuses anything that isn't a `.zip` or is over the size limit (`THEMEABLE_MAX_UPLOAD_MB`, 20 MB by default) before sending it. The server stores the upload in a temporary file, cutting it off at the limit, and checks it exactly as a compile would: the archive limits, paths, `theme.json` and every file it names. A pack with problems is refused with each one listed, and nothing is written. A pack that passes is installed as `<id>.zip`, with the id taken from its `theme.json`, not the file name, and every pack is recompiled; if that compile fails, the themes folder is left as it was. If a pack with that id is already in the themes folder, Branding asks before replacing it. A built-in pack can't be replaced by an upload; to change one, upload your copy under a new id.
+
+**Renaming and deleting packs:** **Rename** changes a pack's display name by rewriting the `theme.json` inside its archive; the id stays the same, so the server's theme, browsers' choices and preview links keep working. **Delete** removes a pack's archive after you type its id to confirm. Deleting a built-in pack hides it for everyone instead, including after upgrades, and **Restore built-in packs** shows every hidden one again. If the deleted pack was the server's theme, the server switches to RomM default, and browsers that picked it follow the server's theme. RomM default can never be renamed or deleted, and folder packs need converting first. Every change runs under the compile lock and only touches the themes folder once its compile has succeeded.
 
 **Converting folder packs:** packs used to be folders, and a folder pack still works in this release. **Convert** writes `<id>.zip` from it, checks that the archive compiles, and only then installs the archive and moves the folder to `.converted/<id>/` in the themes folder. A pack that wouldn't compile is left as it was, with the reason shown. The next release drops folder packs.
 
@@ -162,7 +166,8 @@ Everything runs from `themeable/` with Node 20 or later and no dependencies to i
 | `npm run preview` | The local preview described below |
 | `npm run visual -- [--out <dir>] [--port 8199]` | The visual check; needs a frontend build, nginx and Playwright's Chromium from `frontend/node_modules` (`CHROMIUM_PATH` picks another browser) |
 | `node scripts/apply-source.mjs --root <copy> [--only frontend\|backend] [--no-tests]` | Applies `overlay/` and `patches/` to a copy of RomM's source; refuses the repository checkout itself unless `--force` |
-| `node scripts/runtime.mjs [--select <id>\|none\|random] [--convert <id>]` | The container's start-up, save and Convert step; prints its status as JSON |
+| `node scripts/runtime.mjs [--select <id>\|none\|random \| --convert <id> \| --install <file.zip> [--replace] \| --rename <id> --name <name> \| --delete <id> \| --restore-built-ins]` | The container's start-up step and every change Branding makes, one per run; prints its status as JSON |
+| `node scripts/runtime.mjs --validate-archive <file.zip>` | Checks an uploaded archive without changing anything; prints its id, name, problems and whether the id is installed |
 | `node scripts/zip-packs.mjs [--packs packs] --out <dir>` | Zips each folder pack into `<dir>/<id>.zip`, replacing `<dir>`; the Dockerfile and the preview run it on the built-in packs |
 | `node scripts/apply-hooks.mjs --webroot <dir> --nginx <template> --out <dir> [--root-overlay <dir>] [--default <id>\|none]` | Writes the hooked `index.html`, nginx template and `sw.js`; the Dockerfile runs it |
 | `node scripts/verify-image.mjs --css <image /assets dir> [--packs packs]` | Checks every pack token against a built image's CSS |
@@ -222,7 +227,7 @@ RomM is AGPL-3.0, so published images must keep their source available, which th
 Ideas that would build naturally on what exists, roughly in order of value:
 
 - **Theme editor.** A page at `/themeable/studio/` for editing a pack's tokens by group, with contrast warnings, a live preview (the loader's `preview()` hook and `postMessage` channel already exist for this), artwork slots with upload, and saving into the themes folder.
-- **Pack management in Branding.** Upload a zipped pack, download one, duplicate a built-in theme under a new id to customise it, and delete folder packs, all without touching the host.
+- **More pack management in Branding.** Download a pack, and duplicate a built-in theme under a new id to customise it, without touching the host.
 - **Contrast checks in the validator.** Warn when a pack's brand color is hard to read against white button text or the page, or its wordmark against either background, using the rules the built-in themes were made to.
 - **Theme choice that follows the user.** Store a visitor's own pick in their RomM account (`user.ui_settings`) so it carries across devices; the backend replaces that whole object on write, so the loader would read, merge and send it back.
 - **Separate light and dark choices.** Let the server, or a visitor, pair one theme for light mode with another for dark, or schedule seasonal themes.
