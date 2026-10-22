@@ -1,11 +1,14 @@
 import asyncio
+import io
 import json
 import shutil
 import time
+import zipfile
 from pathlib import Path
 
 import pytest
 from fastapi import status
+from tests._zipfile_shim import reload_zipfile
 
 import endpoints.themeable as themeable
 
@@ -92,9 +95,7 @@ def test_branding_requires_auth(client):
 
 
 def test_branding_is_admin_only(client, editor_access_token):
-    response = client.get(
-        "/api/themeable/branding", headers=_auth(editor_access_token)
-    )
+    response = client.get("/api/themeable/branding", headers=_auth(editor_access_token))
     assert response.status_code == status.HTTP_403_FORBIDDEN
     response = client.put(
         "/api/themeable/branding",
@@ -102,10 +103,18 @@ def test_branding_is_admin_only(client, editor_access_token):
         headers=_auth(editor_access_token),
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
-    response = client.post(
-        "/api/themeable/packs/ember/convert", headers=_auth(editor_access_token)
-    )
-    assert response.status_code == status.HTTP_403_FORBIDDEN
+    for method, url in (
+        ("post", "/api/themeable/packs/ember/convert"),
+        ("post", "/api/themeable/packs"),
+        ("patch", "/api/themeable/packs/ember"),
+        ("delete", "/api/themeable/packs/ember"),
+        ("post", "/api/themeable/packs/built-ins/restore"),
+    ):
+        kwargs = {"json": {"name": "x"}} if method == "patch" else {}
+        response = getattr(client, method)(
+            url, headers=_auth(editor_access_token), **kwargs
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN, url
 
 
 def test_lists_built_in_packs_with_stock_look_selected(client, access_token):
@@ -122,9 +131,7 @@ def test_lists_built_in_packs_with_stock_look_selected(client, access_token):
     assert ember["valid"] is True
 
 
-def test_save_selects_a_pack_and_stores_it_in_the_folder(
-    client, access_token, themes
-):
+def test_save_selects_a_pack_and_stores_it_in_the_folder(client, access_token, themes):
     response = client.put(
         "/api/themeable/branding",
         json={"theme": "ember"},
@@ -240,3 +247,116 @@ def test_convert_refuses_and_changes_nothing(client, access_token, themes):
         status.HTTP_404_NOT_FOUND,
         status.HTTP_422_UNPROCESSABLE_CONTENT,
     )
+
+
+def _pack_zip(pack_id: str, name: str, **extra) -> bytes:
+    reload_zipfile()
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(
+            f"{pack_id}/theme.json", json.dumps({"id": pack_id, "name": name, **extra})
+        )
+    return buffer.getvalue()
+
+
+def _upload(client, token: str, data: bytes, replace: bool = False):
+    return client.post(
+        "/api/themeable/packs" + ("?replace=true" if replace else ""),
+        files={"file": ("pack.zip", data, "application/zip")},
+        headers=_auth(token),
+    )
+
+
+def test_upload_installs_a_pack_and_asks_before_replacing(client, access_token, themes):
+    response = _upload(client, access_token, _pack_zip("dusk", "Dusk"))
+    assert response.status_code == status.HTTP_200_OK
+    body = response.json()
+    assert body["ok"] is True
+    assert body["max_upload_bytes"] == themeable.MAX_UPLOAD_BYTES
+    dusk = next(p for p in body["packs"] if p["id"] == "dusk")
+    assert (dusk["format"], dusk["name"], dusk["valid"]) == ("zip", "Dusk", True)
+    assert sorted(p.name for p in themes.iterdir()) == ["dusk.zip"]
+
+    response = _upload(client, access_token, _pack_zip("dusk", "Dusk 2"))
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.json()["detail"]["id"] == "dusk"
+    response = _upload(client, access_token, _pack_zip("dusk", "Dusk 2"), replace=True)
+    assert next(p for p in response.json()["packs"] if p["id"] == "dusk")["name"] == (
+        "Dusk 2"
+    )
+    assert not list((themeable.RUNTIME_DIR / "uploads").iterdir())
+
+
+def test_upload_refuses_bad_packs_with_their_problems(client, access_token, themes):
+    response = _upload(client, access_token, _pack_zip("neon", "My neon"))
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert "built-in" in response.json()["detail"]["problems"][0]
+
+    bad = _pack_zip("bad", "Bad", extraCss="missing.css")
+    response = _upload(client, access_token, bad)
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert "extraCss" in " ".join(response.json()["detail"]["problems"])
+
+    response = _upload(client, access_token, b"not a zip")
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert "could not be read" in response.json()["detail"]["problems"][0]
+    assert not list(themes.iterdir())
+
+
+def test_upload_over_the_size_cap_is_refused(client, access_token, themes, monkeypatch):
+    monkeypatch.setattr(themeable, "MAX_UPLOAD_BYTES", 1024)
+    monkeypatch.setattr(themeable, "MULTIPART_OVERHEAD_BYTES", 512)
+    response = _upload(client, access_token, b"x" * 4096)
+    assert response.status_code == status.HTTP_413_CONTENT_TOO_LARGE
+    response = client.post(
+        "/api/themeable/packs",
+        files={"other": ("pack.zip", b"PK", "application/zip")},
+        headers=_auth(access_token),
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert not list(themes.iterdir())
+
+
+def test_rename_and_delete_an_uploaded_pack(client, access_token, themes):
+    _upload(client, access_token, _pack_zip("dusk", "Dusk"))
+    response = client.patch(
+        "/api/themeable/packs/dusk",
+        json={"name": "Evening"},
+        headers=_auth(access_token),
+    )
+    assert next(p for p in response.json()["packs"] if p["id"] == "dusk")["name"] == (
+        "Evening"
+    )
+    client.put(
+        "/api/themeable/branding", json={"theme": "dusk"}, headers=_auth(access_token)
+    )
+    response = client.delete("/api/themeable/packs/dusk", headers=_auth(access_token))
+    body = response.json()
+    assert body["ok"] is True
+    assert body["selected"] == "none"
+    assert not (themes / "dusk.zip").exists()
+
+
+def test_built_in_packs_are_hidden_and_restored(client, access_token, themes):
+    response = client.delete("/api/themeable/packs/neon", headers=_auth(access_token))
+    body = response.json()
+    assert body["hidden"] == ["neon"]
+    assert all(p["id"] != "neon" for p in body["packs"])
+    response = client.patch(
+        "/api/themeable/packs/neon", json={"name": "X"}, headers=_auth(access_token)
+    )
+    assert response.json()["ok"] is False
+    response = client.post(
+        "/api/themeable/packs/built-ins/restore", headers=_auth(access_token)
+    )
+    assert response.json()["hidden"] == []
+    assert any(p["id"] == "neon" for p in response.json()["packs"])
+
+
+def test_romm_default_can_never_be_renamed_or_deleted(client, access_token):
+    response = client.patch(
+        "/api/themeable/packs/none", json={"name": "X"}, headers=_auth(access_token)
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    response = client.delete("/api/themeable/packs/none", headers=_auth(access_token))
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
