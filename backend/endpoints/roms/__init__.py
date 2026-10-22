@@ -827,9 +827,20 @@ def get_roms(
             )
 
         if page_ids:
-            # The rows are reordered by `page_ids` below, so the sort is dropped.
+            # The ids already passed the filters and the sibling grouping, so the
+            # rows load without re-running either.
             page_rows = session.scalars(
-                query.where(Rom.id.in_(page_ids)).order_by(None)
+                db_rom_handler.get_page_rows_query(
+                    unfiltered_query,
+                    page_ids,
+                    sort_key=sort_key,
+                    order_by=order_by,
+                    order_dir=order_dir,
+                    user_id=request.user.id,
+                    visibility=perms.rom_visibility,
+                    include_file_stats=not with_files,
+                    filters=filters,
+                )
             ).all()
             rows_by_id = {rom.id: rom for rom in page_rows}
             page_items = [rows_by_id[i] for i in page_ids if i in rows_by_id]

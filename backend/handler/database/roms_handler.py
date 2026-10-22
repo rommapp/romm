@@ -563,23 +563,17 @@ def _region_rank() -> ColumnElement[Any]:
     )
 
 
-def _prerelease_rank() -> ColumnElement[Any]:
-    """Rank pre-release dumps after full releases within a sibling group.
+# "(" then any tag, so "(Demo)", "(Beta 2)" and "(Prototype)" match and a title that
+# merely contains "demo" does not. The group keeps the alternation after the "(".
+_PRERELEASE_PATTERN = (
+    rf"\(({'|'.join(re.escape(tag) for tag in PRERELEASE_FILENAME_TAGS)})"
+)
 
-    Matched with a case-insensitive LIKE over the filename rather than against
-    the parsed `tags` column, which keeps whatever casing the dumper used, and
-    which the dedup window's covering index does not carry.
-    """
+
+def _prerelease_rank() -> ColumnElement[Any]:
+    """Rank pre-release dumps after full releases within a sibling group, by filename."""
     return case(
-        (
-            or_(
-                *[
-                    Rom.fs_name_no_ext.ilike(f"%({tag}%")
-                    for tag in PRERELEASE_FILENAME_TAGS
-                ]
-            ),
-            1,
-        ),
+        (Rom.fs_name_no_ext.regexp_match(_PRERELEASE_PATTERN, flags="i"), 1),
         else_=0,
     )
 
@@ -1998,6 +1992,41 @@ class DBRomsHandler(DBBaseHandler):
         )
 
         return query.order_by(*order_clauses), sort_key
+
+    def get_page_rows_query(
+        self,
+        unfiltered_query: RomSelect,
+        page_ids: Sequence[int],
+        *,
+        sort_key: _GallerySortKey,
+        order_by: str,
+        order_dir: str,
+        user_id: int | None,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
+        include_file_stats: bool = False,
+        filters: RomFilterParams | None = None,
+    ) -> RomSelect:
+        """The rows of one page, loaded by id without the filters or sibling grouping.
+
+        Only the status predicate is kept, so a page picked with `statuses=hidden`
+        is not emptied by the default hiding of hidden roms.
+        """
+        filters = filters or RomFilterParams()
+        query = self.filter_roms(
+            query=unfiltered_query,
+            filters=RomFilterParams(
+                statuses=filters.statuses, statuses_logic=filters.statuses_logic
+            ),
+            sort_key=sort_key,
+            order_by=order_by,
+            order_dir=order_dir,
+            user_id=user_id,
+            visibility=visibility,
+            include_file_stats=include_file_stats,
+            include_siblings=False,
+            include_notes=False,
+        )
+        return query.where(Rom.id.in_(page_ids)).order_by(None)
 
     def _scoped_roms_query(
         self,
