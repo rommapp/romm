@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Final, overload
+from typing import Final, Literal, overload
 
 import yarl
 from dotenv import load_dotenv
@@ -31,6 +31,15 @@ def _get_env_list(var: str, fallback: str | None = None) -> list[str]:
 def _get_env_set(var: str, fallback: str | None = None) -> frozenset[str]:
     """Parse a comma-separated env var into its set of non-empty, stripped values."""
     return frozenset(_get_env_list(var, fallback))
+
+
+WebPQuality = int | Literal["lossless"]
+
+
+def _webp_quality(value: str | None) -> WebPQuality:
+    if (value or "").lower() == "lossless":
+        return "lossless"
+    return min(100, max(0, safe_int(value, 90)))
 
 
 ROMM_BASE_URL: Final[str] = _get_env("ROMM_BASE_URL", "http://0.0.0.0")
@@ -316,6 +325,7 @@ SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON: Final[str] = _get_env(
     "SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON",
     "0 4 * * *",  # At 4:00 AM every day
 )
+WEBP_QUALITY: Final[WebPQuality] = _webp_quality(_get_env("WEBP_QUALITY"))
 ENABLE_SCHEDULED_CLEANUP_NETPLAY: Final[bool] = safe_str_to_bool(
     _get_env("ENABLE_SCHEDULED_CLEANUP_NETPLAY", "true")
 )

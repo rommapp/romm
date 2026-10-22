@@ -1,6 +1,6 @@
 import pytest
 
-from config import _get_env_list, _get_env_set
+from config import _get_env_list, _get_env_set, _webp_quality
 
 
 @pytest.mark.parametrize(
@@ -57,3 +57,20 @@ def test_get_env_set_fallback(monkeypatch, value, expected):
     else:
         monkeypatch.setenv("ROMM_TEST_SET", value)
     assert _get_env_set("ROMM_TEST_SET", "win, dos") == expected
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        (None, 90),
+        ("", 90),
+        ("75", 75),
+        ("lossless", "lossless"),
+        ("Lossless", "lossless"),
+        ("150", 100),
+        ("-5", 0),
+        ("high", 90),
+    ],
+)
+def test_webp_quality(value, expected):
+    assert _webp_quality(value) == expected
