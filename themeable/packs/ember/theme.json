@@ -7,9 +7,9 @@
   "description": "Warm charcoal and orange; example pack",
   "tokens": {
     "common": {
-      "--r-color-brand-primary": "#f08a4b",
-      "--r-color-brand-primary-hover": "#ffa66e",
-      "--r-color-brand-primary-pressed": "#c8642a",
+      "--r-color-brand-primary": "#d86a2e",
+      "--r-color-brand-primary-hover": "#e0733a",
+      "--r-color-brand-primary-pressed": "#b9561f",
       "--r-color-brand-secondary": "#e0a17a",
       "--r-color-brand-secondary-hover": "#f6d2bb",
       "--r-color-brand-secondary-pressed": "#b97a55",
@@ -42,7 +42,7 @@
   },
   "vuetify": {
     "dark": {
-      "primary": "#f08a4b",
+      "primary": "#d86a2e",
       "secondary": "#e0a17a",
       "background": "#120a07",
       "surface": "#1c110c"
