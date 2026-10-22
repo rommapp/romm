@@ -419,6 +419,7 @@ class RomSchema(BaseModel):
     is_identified: bool
 
     revision: str | None
+    version: str | None
     regions: list[str]
     languages: list[str]
     tags: list[str]
