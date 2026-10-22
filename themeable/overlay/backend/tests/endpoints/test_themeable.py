@@ -320,7 +320,9 @@ def test_built_in_packs_are_hidden_and_restored(client, access_token, themes):
     assert body["hidden"] == ["neon"]
     assert all(p["id"] != "neon" for p in body["packs"])
     response = client.patch(
-        "/api/themeable/packs/neon", json={"name": "Neon Nights"}, headers=_auth(access_token)
+        "/api/themeable/packs/neon",
+        json={"name": "Neon Nights"},
+        headers=_auth(access_token),
     )
     assert response.json()["ok"] is True
     response = client.patch(
@@ -359,7 +361,9 @@ def test_folder_packs_are_converted_to_archives(client, access_token, themes):
 
 def test_built_in_packs_are_renamed_and_reset(client, access_token, themes):
     response = client.patch(
-        "/api/themeable/packs/neon", json={"name": "Neon Nights"}, headers=_auth(access_token)
+        "/api/themeable/packs/neon",
+        json={"name": "Neon Nights"},
+        headers=_auth(access_token),
     )
     neon = next(p for p in response.json()["packs"] if p["id"] == "neon")
     assert (neon["name"], neon["default_name"]) == ("Neon Nights", "Neon")
