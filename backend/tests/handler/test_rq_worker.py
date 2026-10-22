@@ -78,7 +78,9 @@ def test_worker_reports_failed_tasks() -> None:
 
 
 @pytest.mark.parametrize("result", [True, False])
-def test_job_disposes_database_pool_before_returning(mocker, monkeypatch, result):
+def test_job_disposes_database_pool_before_returning(
+    mocker, monkeypatch, result
+) -> None:
     engine = MagicMock()
     monkeypatch.setitem(
         sys.modules,
@@ -95,7 +97,7 @@ def test_job_disposes_database_pool_before_returning(mocker, monkeypatch, result
     engine.dispose.assert_called_once_with()
 
 
-def test_job_disposes_database_pool_when_perform_raises(mocker, monkeypatch):
+def test_job_disposes_database_pool_when_perform_raises(mocker, monkeypatch) -> None:
     engine = MagicMock()
     monkeypatch.setitem(
         sys.modules,
@@ -113,7 +115,7 @@ def test_job_disposes_database_pool_when_perform_raises(mocker, monkeypatch):
     engine.dispose.assert_called_once_with()
 
 
-def test_job_without_database_does_not_import_it(mocker, monkeypatch):
+def test_job_without_database_does_not_import_it(mocker, monkeypatch) -> None:
     monkeypatch.delitem(sys.modules, "handler.database.base_handler", raising=False)
     mocker.patch("rq.Worker.perform_job", return_value=True)
     worker = RomMWorker(["default"], connection=FakeRedis(version=7))
@@ -124,7 +126,9 @@ def test_job_without_database_does_not_import_it(mocker, monkeypatch):
 
 
 @pytest.mark.parametrize("job_error", [None, RuntimeError("job failed")])
-def test_cleanup_failure_does_not_replace_job_outcome(mocker, monkeypatch, job_error):
+def test_cleanup_failure_does_not_replace_job_outcome(
+    mocker, monkeypatch, job_error
+) -> None:
     engine = MagicMock()
     engine.dispose.side_effect = RuntimeError("cleanup failed")
     monkeypatch.setitem(
