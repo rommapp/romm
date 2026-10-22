@@ -16,6 +16,7 @@ from handler.metadata import (
     meta_demozoo_handler,
     meta_hasheous_handler,
     meta_igdb_handler,
+    meta_libretro_handler,
     meta_moby_handler,
     meta_playmatch_handler,
     meta_ra_handler,
@@ -25,6 +26,7 @@ from handler.metadata import (
 from handler.metadata.demozoo_handler import DemozooRom
 from handler.metadata.hasheous_handler import HasheousMetadata, HasheousRom
 from handler.metadata.igdb_handler import IGDBRom
+from handler.metadata.libretro_handler import LibretroRom
 from handler.metadata.ra_handler import RAGameRom
 from handler.metadata.ss_handler import (
     SSRom,
@@ -1720,3 +1722,49 @@ async def test_scan_rom_flags_new_roms_and_writes_existing_ones(
     assert [(p["is_new"], p["is_identifying"], p["id"]) for p in payloads] == [
         (newly_added, True, rom.id)
     ]
+
+
+@pytest.mark.parametrize(
+    ("scan_type", "newly_added"),
+    [
+        (ScanType.COMPLETE, False),
+        (ScanType.QUICK, True),
+    ],
+)
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_libretro_handler, "get_rom", new_callable=AsyncMock)
+async def test_scan_rom_libretro_only_match_falls_back_to_filename_name(
+    mock_get_rom, mock_playmatch_enabled, scan_type: ScanType, newly_added: bool
+):
+    """Libretro matches by filename and supplies no name, so a scan that no other
+    provider identifies must still name the ROM instead of raising KeyError."""
+    mock_get_rom.return_value = LibretroRom(
+        libretro_id="Mario Kart Wii (USA).wbfs",
+        url_cover="https://thumbnails.libretro.com/mario-kart-wii.png",
+    )
+
+    platform = make_platform("wii", id=1, name="Wii")
+    # rom.name keeps the tags, so a passing assert proves the name came from the
+    # tag-stripped filename fallback rather than the existing row.
+    rom = make_rom(
+        platform,
+        "Mario Kart Wii (USA)",
+        fs_extension="wbfs",
+        fs_path="wii",
+        fs_size_bytes=1024,
+        tags=[],
+    )
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=scan_type,
+            rom=rom,
+            fs_rom=build_hashless_fs_rom(rom.fs_name, rom.fs_path, flat=True),
+            metadata_sources=[MetadataSource.LIBRETRO],
+            newly_added=newly_added,
+        )
+
+    mock_get_rom.assert_awaited_once()
+    assert result.libretro_id == "Mario Kart Wii (USA).wbfs"
+    assert result.name == "Mario Kart Wii"
