@@ -36,9 +36,10 @@ function preload(id: string): Promise<unknown> {
 const { current } = useArtworkCycle(ids, () => props.client.random_cycle_ms, {
   preload,
 });
-const currentName = computed(
-  () => props.packs.find((p) => p.id === current.value)?.name ?? "",
+const currentPack = computed(() =>
+  props.packs.find((p) => p.id === current.value),
 );
+const currentName = computed(() => currentPack.value?.name ?? "");
 </script>
 
 <template>
@@ -50,6 +51,7 @@ const currentName = computed(
           :key="current"
           class="r-v2-branding-random__layer"
           :client="client"
+          :cover="currentPack?.cover ?? null"
         />
       </Transition>
     </span>

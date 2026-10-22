@@ -80,6 +80,8 @@ const options = computed<Option[]>(() => [
     valid: drawIds.value.length > 0,
     errors: drawIds.value.length ? [] : [t("branding.random-unavailable")],
     warnings: [],
+    cover: null,
+    tags: [],
   },
   {
     id: stockId.value,
@@ -92,6 +94,8 @@ const options = computed<Option[]>(() => [
     valid: true,
     errors: [],
     warnings: [],
+    cover: null,
+    tags: [],
   },
   ...(status.value?.packs ?? []),
 ]);
@@ -426,6 +430,7 @@ function reloadPage(): void {
                 :id="option.id"
                 class="r-v2-branding__artwork"
                 :client="client"
+                :cover="option.cover"
               />
             </template>
             <ul v-if="option.errors.length" class="r-v2-branding__errors">
