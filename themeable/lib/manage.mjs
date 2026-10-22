@@ -1,5 +1,5 @@
-// Changes to the themes folder made from Branding: select, convert, install (upload), rename, delete
-// and restore. Each one is staged as stand-in packs and new settings that one compile tries; the
+// Changes to the themes folder made from Branding: select, install (upload), rename, reset a
+// built-in's name, delete and restore. Each one is staged as stand-in packs and new settings that one compile tries; the
 // themes folder only changes in install(), once that build is live, so a failure changes nothing.
 import { copyFileSync, existsSync, mkdirSync, renameSync, rmSync, unlinkSync } from "node:fs";
 import { basename, join } from "node:path";
@@ -54,6 +54,31 @@ function parkFolder(packsDir, id, path) {
 }
 
 /**
+ * Packs in the themes folder are archives only: each folder pack is zipped to <id>.zip and the
+ * folder moved to .converted/, keeping every file. A folder beside an archive of the same id is
+ * moved aside too. Returns one note per pack, including any that couldn't be converted.
+ */
+export function convertFolderPacks(packsDir, pid) {
+  const notes = [];
+  for (const found of findPacks(packsDir)) {
+    try {
+      if (found.format === "zip" && found.shadowed) {
+        notes.push(`the folder ${basename(found.shadowed)}/ was moved to ${parkFolder(packsDir, found.id, found.shadowed)} because ${found.id}${ZIP_EXT} is installed`);
+      } else if (found.format === "folder") {
+        const staged = join(packsDir, `.${found.id}.${pid}${ZIP_EXT}.tmp`);
+        zipFolderPack(found.path, staged);
+        renameSync(staged, join(packsDir, `${found.id}${ZIP_EXT}`));
+        notes.push(`the folder pack "${found.id}" was converted to ${found.id}${ZIP_EXT}; its folder was moved to ${parkFolder(packsDir, found.id, found.path)}`);
+      }
+    } catch (e) {
+      rmSync(join(packsDir, `.${found.id}.${pid}${ZIP_EXT}.tmp`), { force: true });
+      notes.push(`the folder pack "${found.id}" couldn't be converted to ${ZIP_EXT} (${e.message}), so it isn't used`);
+    }
+  }
+  return notes;
+}
+
+/**
  * Plans one operation. Returns { standIns, exclude, settings(s), verify(result), install(), cleanup() }:
  * stand-ins and excludes for the themes-folder source, the settings to save, a check of the compile
  * result, and the change to make once that build is live.
@@ -94,26 +119,6 @@ export function planOperation(op, { packsDir, builtInDir, pid, catalog }) {
       return { ...base, settings: (s) => ({ ...s, theme, random: { ...s.random, ...(op.random ?? {}) } }) };
     }
 
-    case "convert": {
-      checkId(op.id);
-      const found = inFolder(op.id);
-      if (!found || found.format !== "folder") {
-        throw new Refusal(found ? `"${op.id}" is already a ${ZIP_EXT} archive` : `there is no folder pack "${op.id}" in the themes folder`);
-      }
-      staged = stagedPath(op.id);
-      zipFolderPack(found.path, staged);
-      return {
-        ...base,
-        standIns: [{ id: op.id, format: "zip", path: staged }],
-        verify: mustCompile(op.id, "converted"),
-        install: () => {
-          renameSync(staged, join(packsDir, `${op.id}${ZIP_EXT}`));
-          staged = null;
-          return `"${op.id}" was converted to ${op.id}${ZIP_EXT}; its folder was moved to ${parkFolder(packsDir, op.id, found.path)}`;
-        },
-      };
-    }
-
     case "install": {
       const checked = validateArchive(op.file, { catalog, packsDir, builtInDir });
       if (checked.errors.length) throw new Refusal(`the pack can't be installed: ${checked.errors.join("; ")}`);
@@ -133,9 +138,6 @@ export function planOperation(op, { packsDir, builtInDir, pid, catalog }) {
         install: () => {
           renameSync(staged, join(packsDir, `${id}${ZIP_EXT}`));
           staged = null;
-          if (found?.format === "folder") {
-            return `"${checked.name}" replaced the folder pack "${id}", which was moved to ${parkFolder(packsDir, id, found.path)}`;
-          }
           return found ? `"${checked.name}" replaced the pack "${id}"` : `"${checked.name}" was added as "${id}"`;
         },
       };
@@ -145,13 +147,19 @@ export function planOperation(op, { packsDir, builtInDir, pid, catalog }) {
       checkId(op.id);
       const problem = badPackName(op.name);
       if (problem) throw new Refusal(problem);
+      const name = op.name.trim();
       const found = inFolder(op.id);
+      // A built-in pack's archive ships in the image, so its new name is kept in themeable.json.
       if (!found) {
-        throw new Refusal(isBuiltIn(op.id) ? `"${op.id}" is a built-in pack and can't be renamed` : `there is no pack "${op.id}" in the themes folder`);
+        if (!isBuiltIn(op.id)) throw new Refusal(`there is no pack "${op.id}"`);
+        return {
+          ...base,
+          settings: (s) => ({ ...s, names: { ...s.names, [op.id]: name } }),
+          install: () => `"${op.id}" is now named "${name}"`,
+        };
       }
-      if (found.format !== "zip") throw new Refusal(`"${op.id}" is a folder pack; convert it to ${ZIP_EXT} before renaming it`);
       staged = stagedPath(op.id);
-      rewriteZipPack(found.path, staged, (pack) => ({ ...pack, name: op.name.trim() }));
+      rewriteZipPack(found.path, staged, (pack) => ({ ...pack, name }));
       return {
         ...base,
         standIns: [{ id: op.id, format: "zip", path: staged }],
@@ -159,8 +167,21 @@ export function planOperation(op, { packsDir, builtInDir, pid, catalog }) {
         install: () => {
           renameSync(staged, found.path);
           staged = null;
-          return `"${op.id}" is now named "${op.name.trim()}"`;
+          return `"${op.id}" is now named "${name}"`;
         },
+      };
+    }
+
+    case "reset-name": {
+      checkId(op.id);
+      if (inFolder(op.id) || !isBuiltIn(op.id)) throw new Refusal(`only a renamed built-in pack has a name to reset`);
+      return {
+        ...base,
+        settings: (s) => {
+          const { [op.id]: _, ...names } = s.names;
+          return { ...s, names };
+        },
+        install: () => `"${op.id}" has its original name again`,
       };
     }
 
@@ -169,9 +190,6 @@ export function planOperation(op, { packsDir, builtInDir, pid, catalog }) {
       const found = inFolder(op.id);
       const fallBack = (s) => (s.theme === op.id ? { ...s, theme: STOCK_ID } : s);
       if (found) {
-        if (found.format !== "zip") {
-          throw new Refusal(`"${op.id}" is a folder pack; convert it to ${ZIP_EXT} first, or remove its folder on the host`);
-        }
         return {
           ...base,
           exclude: [op.id],

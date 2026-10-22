@@ -104,7 +104,6 @@ def test_branding_is_admin_only(client, editor_access_token):
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
     for method, url in (
-        ("post", "/api/themeable/packs/ember/convert"),
         ("post", "/api/themeable/packs"),
         ("patch", "/api/themeable/packs/ember"),
         ("delete", "/api/themeable/packs/ember"),
@@ -227,46 +226,6 @@ def test_rescan_picks_up_new_folder_packs(client, access_token, themes):
     assert added["valid"] is True
 
 
-def test_convert_turns_a_folder_pack_into_an_archive(client, access_token, themes):
-    (themes / "mine").mkdir()
-    (themes / "mine" / "theme.json").write_text(
-        json.dumps({"id": "mine", "name": "Mine"})
-    )
-    response = client.post(
-        "/api/themeable/packs/mine/convert", headers=_auth(access_token)
-    )
-    assert response.status_code == status.HTTP_200_OK
-    body = response.json()
-    assert body["ok"] is True
-    mine = next(p for p in body["packs"] if p["id"] == "mine")
-    assert mine["format"] == "zip"
-    assert mine["valid"] is True
-    assert (themes / "mine.zip").is_file()
-    assert (themes / ".converted" / "mine" / "theme.json").is_file()
-    assert not (themes / "mine").exists()
-
-
-def test_convert_refuses_and_changes_nothing(client, access_token, themes):
-    (themes / "broken").mkdir()
-    (themes / "broken" / "theme.json").write_text(
-        json.dumps({"id": "broken", "name": "Broken", "extraCss": "gone.css"})
-    )
-    response = client.post(
-        "/api/themeable/packs/broken/convert", headers=_auth(access_token)
-    )
-    body = response.json()
-    assert body["ok"] is False
-    assert "can't be converted" in body["error"]
-    assert sorted(p.name for p in themes.iterdir()) == ["broken"]
-    response = client.post(
-        "/api/themeable/packs/..%2Fetc/convert", headers=_auth(access_token)
-    )
-    assert response.status_code in (
-        status.HTTP_404_NOT_FOUND,
-        status.HTTP_422_UNPROCESSABLE_CONTENT,
-    )
-
-
 def _pack_zip(pack_id: str, name: str, **extra) -> bytes:
     reload_zipfile()
     buffer = io.BytesIO()
@@ -361,9 +320,13 @@ def test_built_in_packs_are_hidden_and_restored(client, access_token, themes):
     assert body["hidden"] == ["neon"]
     assert all(p["id"] != "neon" for p in body["packs"])
     response = client.patch(
-        "/api/themeable/packs/neon", json={"name": "X"}, headers=_auth(access_token)
+        "/api/themeable/packs/neon", json={"name": "Neon Nights"}, headers=_auth(access_token)
     )
-    assert response.json()["ok"] is False
+    assert response.json()["ok"] is True
+    response = client.patch(
+        "/api/themeable/packs/neon", json={"name": None}, headers=_auth(access_token)
+    )
+    assert response.json()["ok"] is True
     response = client.post(
         "/api/themeable/packs/built-ins/restore", headers=_auth(access_token)
     )
@@ -378,3 +341,30 @@ def test_romm_default_can_never_be_renamed_or_deleted(client, access_token):
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     response = client.delete("/api/themeable/packs/none", headers=_auth(access_token))
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+def test_folder_packs_are_converted_to_archives(client, access_token, themes):
+    (themes / "mine").mkdir()
+    (themes / "mine" / "theme.json").write_text(
+        json.dumps({"id": "mine", "name": "Mine"})
+    )
+    response = client.post(
+        "/api/themeable/branding/rescan", headers=_auth(access_token)
+    )
+    mine = next(p for p in response.json()["packs"] if p["id"] == "mine")
+    assert mine["format"] == "zip"
+    assert (themes / "mine.zip").is_file()
+    assert (themes / ".converted" / "mine" / "theme.json").is_file()
+
+
+def test_built_in_packs_are_renamed_and_reset(client, access_token, themes):
+    response = client.patch(
+        "/api/themeable/packs/neon", json={"name": "Neon Nights"}, headers=_auth(access_token)
+    )
+    neon = next(p for p in response.json()["packs"] if p["id"] == "neon")
+    assert (neon["name"], neon["default_name"]) == ("Neon Nights", "Neon")
+    response = client.patch(
+        "/api/themeable/packs/neon", json={"name": None}, headers=_auth(access_token)
+    )
+    neon = next(p for p in response.json()["packs"] if p["id"] == "neon")
+    assert (neon["name"], neon["default_name"]) == ("Neon", None)

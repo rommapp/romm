@@ -2,7 +2,7 @@
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { ACCESSIBILITY_TAG, CLIENT, RANDOM_ID, STOCK_ID, STOCK_SWATCH } from "./client.mjs";
-import { applyAliases, compilePack, loadPack, validatePack, PACK_ID } from "./pack.mjs";
+import { applyAliases, badPackName, compilePack, loadPack, validatePack, PACK_ID } from "./pack.mjs";
 import { findPacks, openPackFiles, ZIP_EXT } from "./packfiles.mjs";
 
 export { STOCK_ID } from "./client.mjs";
@@ -27,18 +27,19 @@ function copy(from, to) {
 
 /**
  * Finds the packs in each source folder in order, a later folder replacing a pack with the same id.
- * A source can `exclude` ids and add `standIns` ({ id, format, path }) that replace or add a pack for
- * one compile. An archive carries a stamp (size, modification time, inode) so an unchanged one can be
+ * A source can `exclude` ids, add `standIns` ({ id, format, path }) that replace or add a pack for
+ * one compile, and take `archivesOnly`, which skips folder packs. An archive carries a stamp (size, modification time, inode) so an unchanged one can be
  * reused; a stand-in never is.
  */
 export function collectPacks(sources) {
   const byName = new Map();
-  for (const { dir, source, exclude = [], standIns = [] } of sources) {
+  for (const { dir, source, exclude = [], standIns = [], archivesOnly = false } of sources) {
     for (const standIn of standIns) {
       byName.set(standIn.id, { name: standIn.id, source, format: standIn.format, path: standIn.path, stamp: null, errors: [], warnings: [] });
     }
     for (const found of findPacks(dir).filter((p) => !exclude.includes(p.id) && !standIns.some((s) => s.id === p.id))) {
-      const warnings = found.shadowed
+      if (archivesOnly && found.format !== "zip") continue;
+      const warnings = found.shadowed && !archivesOnly
         ? [`the folder ${basename(found.shadowed)}/ is ignored because ${found.id}${ZIP_EXT} is installed; remove one of them`]
         : [];
       let stamp = null;
@@ -66,26 +67,33 @@ export function readRandomPool(value) {
   return out;
 }
 
-/** Sort order for every pack list: accessibility packs, then built-ins, then the themes folder. */
-function packRank(source, tags) {
-  if (tags?.includes(ACCESSIBILITY_TAG)) return 0;
-  return source === "built-in" ? 1 : 2;
+// A pack's group, which sets its place in every list and which of Random's switches covers it.
+export const PACK_GROUPS = ["accessibility", "built-in", "folder"];
+export function packGroup(source, tags) {
+  if (tags?.includes(ACCESSIBILITY_TAG)) return "accessibility";
+  return source === "built-in" ? "built-in" : "folder";
 }
+const packRank = (source, tags) => PACK_GROUPS.indexOf(packGroup(source, tags));
+// Random's switch for each group; packs in the themes folder are always in the draw.
+const GROUP_SWITCH = { accessibility: "accessibility", "built-in": "built_in", folder: null };
 
 /**
- * Reads themeable.json: the server's theme, the built-in packs hidden by Delete and Random's
- * groups. Anything unreadable falls back to RomM's own look with nothing hidden.
+ * Reads themeable.json: the server's theme, the built-in packs hidden by Delete, Random's groups
+ * and the names given to built-in packs. Anything unreadable falls back to RomM's own look with nothing hidden.
  */
 export function readSelection(settingsFile) {
-  const fallback = { theme: STOCK_ID, hidden: [], random: readRandomPool(null) };
+  const fallback = { theme: STOCK_ID, hidden: [], random: readRandomPool(null), names: {} };
   if (!settingsFile || !existsSync(settingsFile)) return { ...fallback, note: null };
   try {
     const saved = JSON.parse(readFileSync(settingsFile, "utf8"));
     const theme = saved?.theme;
     const hidden = Array.isArray(saved?.hidden) ? saved.hidden.filter((id) => typeof id === "string" && PACK_ID.test(id)) : [];
     const random = readRandomPool(saved?.random);
-    if (theme === STOCK_ID || (typeof theme === "string" && PACK_ID.test(theme))) return { theme, hidden, random, note: null };
-    return { theme: STOCK_ID, hidden, random, note: `${settingsFile} has no valid "theme"; using RomM's default look` };
+    const names = Object.fromEntries(
+      Object.entries(saved?.names && typeof saved.names === "object" ? saved.names : {}).filter(([id, name]) => PACK_ID.test(id) && !badPackName(name)),
+    );
+    if (theme === STOCK_ID || (typeof theme === "string" && PACK_ID.test(theme))) return { theme, hidden, random, names, note: null };
+    return { theme: STOCK_ID, hidden, random, names, note: `${settingsFile} has no valid "theme"; using RomM's default look` };
   } catch (e) {
     return { ...fallback, note: `${settingsFile} could not be read (${e.message}); using RomM's default look` };
   }
@@ -101,7 +109,7 @@ function remember(status, c) {
  * `reuse` ({ key, dir, packs }) is the previous build: an archive whose stamp and compiler key
  * match is copied from `dir` instead of being opened again. The result's `cache` is the next `reuse.packs`.
  */
-export function compileAll({ entries, catalog, outDir, selected = STOCK_ID, randomPool = null, loaderSource, pickerFile, reuse = null }) {
+export function compileAll({ entries, catalog, outDir, selected = STOCK_ID, randomPool = null, names = {}, loaderSource, pickerFile, reuse = null }) {
   const compiled = [];
   const packs = [];
   const cache = {};
@@ -178,6 +186,17 @@ export function compileAll({ entries, catalog, outDir, selected = STOCK_ID, rand
     if (key) cache[entry.name] = { key, ...remember(status, c) };
   }
 
+  // A built-in pack renamed in Branding shows its new name everywhere, and keeps its own for Reset.
+  for (const status of packs) {
+    if (status.source !== "built-in" || !names[status.id]) continue;
+    status.default_name = status.name;
+    status.name = names[status.id];
+  }
+  for (let i = 0; i < compiled.length; i++) {
+    const renamed = compiled[i].source === "built-in" && names[compiled[i].meta.id];
+    if (renamed) compiled[i] = { ...compiled[i], meta: { ...compiled[i].meta, name: renamed } };
+  }
+
   const byRank = (a, b) => packRank(a.source, a.tags) - packRank(b.source, b.tags) || a.id.localeCompare(b.id);
   packs.sort(byRank);
   compiled.sort((a, b) => byRank({ ...a.meta, source: a.source }, { ...b.meta, source: b.source }));
@@ -185,10 +204,16 @@ export function compileAll({ entries, catalog, outDir, selected = STOCK_ID, rand
   // The exact ids Random may draw, resolved once here so the loader, picker and Branding agree.
   const pool = readRandomPool(randomPool);
   const draw = compiled
-    .filter((c) => (c.meta.tags.includes(ACCESSIBILITY_TAG) ? pool.accessibility : c.source !== "built-in" || pool.built_in))
+    .filter((c) => {
+      const toggle = GROUP_SWITCH[packGroup(c.source, c.meta.tags)];
+      return toggle === null || pool[toggle];
+    })
     .map((c) => c.meta.id);
+  // The ids each switch covers, so Branding can count the draw live before saving.
+  const members = { built_in: [], accessibility: [], always: [] };
+  for (const c of compiled) members[GROUP_SWITCH[packGroup(c.source, c.meta.tags)] ?? "always"].push(c.meta.id);
   if (pool.stock) draw.unshift(STOCK_ID);
-  const random = { ...pool, ids: draw };
+  const random = { ...pool, ids: draw, members };
 
   let effective = selected;
   let reason = null;

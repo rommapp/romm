@@ -173,7 +173,7 @@ test("an unreadable or invalid selection falls back to RomM's default look", asy
   const { readSelection } = await import("../lib/compile.mjs");
   const dir = mkdtempSync(join(tmpdir(), "themeable-sel-"));
   const file = join(dir, "themeable.json");
-  assert.deepEqual(readSelection(file), { theme: "none", hidden: [], random: { stock: false, built_in: true, accessibility: true }, note: null });
+  assert.deepEqual(readSelection(file), { theme: "none", hidden: [], random: { stock: false, built_in: true, accessibility: true }, names: {}, note: null });
   writeFileSync(file, "garbage");
   assert.equal(readSelection(file).theme, "none");
   writeFileSync(file, JSON.stringify({ theme: "../etc" }));
@@ -651,8 +651,8 @@ async function runtime(themes, runtimeDir, args = [], env = {}) {
   return { code: r.status, status: JSON.parse(r.stdout.trim().split("\n").at(-1)) };
 }
 
-test("Convert zips a folder pack, parks the folder and recompiles, or changes nothing", async () => {
-  const { realpathSync, cpSync } = await import("node:fs");
+test("folder packs in the themes folder are converted to archives on every run", async () => {
+  const { cpSync } = await import("node:fs");
   const root = mkdtempSync(join(tmpdir(), "themeable-convert-"));
   const themes = join(root, "themes");
   const rt = join(root, "runtime");
@@ -661,34 +661,32 @@ test("Convert zips a folder pack, parks the folder and recompiles, or changes no
   const minePack = JSON.parse(readFileSync(join(themes, "mine/theme.json"), "utf8"));
   writeFileSync(join(themes, "mine/theme.json"), JSON.stringify({ ...minePack, id: "mine", name: "Mine" }));
   mkdirSync(join(themes, "broken"));
-  writeFileSync(join(themes, "broken/theme.json"), JSON.stringify({ id: "broken", name: "Broken", assets: { "/assets/isotipo.svg": "gone.svg" } }));
+  writeFileSync(join(themes, "broken/theme.json"), JSON.stringify({ id: "broken", name: "Broken", extraCss: "gone.css" }));
+  zipBuiltIn("neon", themes);
+  mkdirSync(join(themes, "neon"));
+  writeFileSync(join(themes, "neon/theme.json"), JSON.stringify({ id: "neon", name: "Old neon folder" }));
 
   const first = await runtime(themes, rt);
-  assert.equal(first.code, 0);
-  assert.equal(first.status.packs.find((p) => p.id === "mine").format, "folder");
-  const live = realpathSync(join(rt, "current"));
+  assert.equal(first.code, 0, first.status.error);
+  assert.deepEqual(readdirSync(themes).sort(), [".converted", "broken.zip", "mine.zip", "neon.zip"]);
+  assert.deepEqual(readdirSync(join(themes, ".converted")).sort(), ["broken", "mine", "neon"], "every folder is kept, untouched");
+  assert.ok(existsSync(join(themes, ".converted/mine/assets/isotipo.svg")));
+  const status = (id) => first.status.packs.find((p) => p.id === id);
+  assert.deepEqual([status("mine").format, status("mine").valid, status("mine").name], ["zip", true, "Mine"]);
+  assert.equal(status("broken").valid, false, "a broken folder converts to a broken archive, with its problem shown");
+  assert.match(first.status.notes.join(), /"mine" was converted to mine.zip/);
+  assert.match(first.status.notes.join(), /folder neon\/ was moved .* because neon.zip is installed/);
 
-  const bad = await runtime(themes, rt, ["--convert", "broken"]);
-  assert.equal(bad.code, 1);
-  assert.match(bad.status.error, /"broken" can't be converted: .*missing file gone.svg/);
-  assert.ok(bad.status.packs.some((p) => p.id === "mine"), "a refusal still reports the live packs");
-  assert.equal(JSON.parse(readFileSync(join(rt, "status.json"), "utf8")).error, undefined, "and isn't recorded as a failure");
-  const tooMany = await runtime(themes, rt, ["--convert", "mine"], { THEMEABLE_ZIP_MAX_ENTRIES: "1" });
-  assert.match(tooMany.status.error, /entries; the limit is 1/);
-  for (const [args, reason] of [[["--convert", "ember"], /no folder pack "ember"/], [["--convert", "../x"], /not a pack that can be changed/]]) {
-    assert.match((await runtime(themes, rt, args)).status.error, reason);
+  mkdirSync(join(themes, "late"));
+  writeFileSync(join(themes, "late/theme.json"), JSON.stringify({ id: "late", name: "Late" }));
+  const again = await runtime(themes, rt, ["--select", "late"]);
+  assert.equal(again.status.effective, "late", "a folder added later is converted before the change is made");
+  assert.ok(existsSync(join(themes, "late.zip")));
+  for (const [args, reason] of [[["--convert", "mine"], null], [["--delete", "none"], /not a pack that can be changed/]]) {
+    const r = await runtime(themes, rt, args);
+    if (reason) assert.match(r.status.error, reason);
+    else assert.equal(r.code, 0, "--convert is gone; the run is a plain recompile");
   }
-  assert.deepEqual(readdirSync(themes).sort(), ["broken", "mine"], "refused converts leave the folder as it was");
-  assert.equal(realpathSync(join(rt, "current")), live, "and the live build in place");
-
-  const done = await runtime(themes, rt, ["--convert", "mine"]);
-  assert.equal(done.code, 0, done.status.error);
-  const mine = done.status.packs.find((p) => p.id === "mine");
-  assert.deepEqual([mine.valid, mine.format, mine.source], [true, "zip", "folder"]);
-  assert.match(done.status.notes.join(), /converted to mine.zip; its folder was moved to .converted\/mine\//);
-  assert.deepEqual(readdirSync(themes).sort(), [".converted", "broken", "mine.zip"]);
-  assert.ok(existsSync(join(themes, ".converted/mine/theme.json")));
-  assert.match((await runtime(themes, rt, ["--convert", "mine"])).status.error, /already a .zip archive/);
 });
 
 // A pack archive built from a built-in pack under a new id and name, for upload tests.
@@ -764,7 +762,6 @@ test("rename rewrites the archive's name and keeps the id; delete removes or hid
   assert.equal(renamed.status.packs.find((p) => p.id === "dusk").name, "Evening");
   assert.equal(renamed.status.effective, "dusk", "the server theme keeps working");
   for (const [args, reason] of [
-    [["--rename", "neon", "--name", "X"], /built-in pack and can't be renamed/],
     [["--rename", "none", "--name", "X"], /not a pack that can be changed/],
     [["--rename", "dusk", "--name", " "], /name is required/],
     [["--rename", "dusk", "--name", "x".repeat(81)], /at most 80 characters/],
@@ -798,16 +795,18 @@ test("the schema and the validator share the pack name limit", async () => {
   assert.equal(schema.properties.name.maxLength, PACK_NAME_MAX);
 });
 
-test("an upload can replace a folder pack, which is parked; Delete leaves folder packs alone", async () => {
-  const { themes, rt, uploads } = manageSetup();
-  mkdirSync(join(themes, "twilight"));
-  writeFileSync(join(themes, "twilight/theme.json"), JSON.stringify({ id: "twilight", name: "Old Twilight" }));
-  assert.match((await runtime(themes, rt, ["--delete", "twilight"])).status.error, /folder pack; convert it/);
-  assert.match((await runtime(themes, rt, ["--rename", "twilight", "--name", "X"])).status.error, /folder pack; convert it/);
-  const replaced = await runtime(themes, rt, ["--install", packArchive(uploads, "twilight", "Twilight"), "--replace"]);
-  assert.equal(replaced.code, 0, replaced.status.error);
-  assert.match(replaced.status.notes.join(), /replaced the folder pack "twilight", which was moved to .converted\/twilight\//);
-  assert.deepEqual(readdirSync(themes).sort(), [".converted", "twilight.zip"]);
+test("built-in packs are renamed through themeable.json and can get their name back", async () => {
+  const { themes, rt } = manageSetup();
+  const renamed = await runtime(themes, rt, ["--rename", "neon", "--name", "Neon Nights"]);
+  assert.equal(renamed.code, 0, renamed.status.error);
+  const neon = renamed.status.packs.find((p) => p.id === "neon");
+  assert.deepEqual([neon.name, neon.default_name], ["Neon Nights", "Neon"]);
+  assert.deepEqual(JSON.parse(readFileSync(join(themes, "themeable.json"), "utf8")).names, { neon: "Neon Nights" });
+  assert.equal((await runtime(themes, rt)).status.packs.find((p) => p.id === "neon").name, "Neon Nights", "the name survives restarts");
+  const reset = await runtime(themes, rt, ["--reset-name", "neon"]);
+  const back = reset.status.packs.find((p) => p.id === "neon");
+  assert.deepEqual([back.name, back.default_name], ["Neon", undefined]);
+  assert.match((await runtime(themes, rt, ["--reset-name", "none"])).status.error, /not a pack that can be changed/);
 });
 
 // WCAG contrast between two #rgb or #rrggbb colors.

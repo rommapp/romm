@@ -25,7 +25,7 @@ themes/
       custom.css
 ```
 
-**Folder packs.** A folder named after its id, holding a `theme.json`, still works in this release. Branding marks it **Folder pack: convert to .zip**, and its **Convert** button writes `<id>.zip`, moves the folder to `themes/.converted/<id>/` and recompiles. If the archive wouldn't compile, nothing changes and Branding says why. The next release drops folder packs. When a folder and an archive share an id, the archive is used.
+**Folder packs.** The themes folder takes `.zip` packs only. A folder pack left there by an older version is converted to `<id>.zip` when the container starts and the folder is moved to `themes/.converted/<id>/`. Keep your working folder outside the themes folder and zip it yourself, as below.
 
 ## Your first pack
 

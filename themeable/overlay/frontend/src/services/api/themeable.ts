@@ -10,9 +10,11 @@ export interface ThemePack {
   author: string;
   version: string;
   source: "built-in" | "folder";
-  /** How the pack is stored; folder packs in the themes folder can be converted. */
+  /** How the pack is stored; packs in the themes folder are always archives. */
   format: "zip" | "folder";
   tags: string[];
+  /** A renamed built-in pack's own name, for Reset name. */
+  default_name?: string | null;
   /** The first missing-cover art, or the colors RomM's generated art uses; null for neither. */
   cover: PackCover | null;
   swatch: string[];
@@ -83,6 +85,8 @@ export interface RandomGroups {
 
 export interface RandomPool extends RandomGroups {
   ids: string[];
+  /** The ids each switch covers; `always` holds uploaded packs, which are always drawn. */
+  members: Record<Exclude<keyof RandomGroups, "stock"> | "always", string[]>;
 }
 
 /** Why an upload was refused with 422. */
@@ -121,13 +125,6 @@ async function saveBranding(theme: string, random?: RandomGroups) {
   return api.put<BrandingStatus>("/themeable/branding", { theme, random });
 }
 
-async function convertPack(id: string) {
-  return api.post<BrandingStatus>(
-    `/themeable/packs/${encodeURIComponent(id)}/convert`,
-    {},
-  );
-}
-
 async function uploadPack(file: File, replace = false) {
   const form = new FormData();
   form.append("file", file);
@@ -136,7 +133,8 @@ async function uploadPack(file: File, replace = false) {
   });
 }
 
-async function renamePack(id: string, name: string) {
+/** Renames a pack; `null` gives a renamed built-in pack its own name back. */
+async function renamePack(id: string, name: string | null) {
   return api.patch<BrandingStatus>(
     `/themeable/packs/${encodeURIComponent(id)}`,
     { name },
@@ -157,7 +155,6 @@ export default {
   getBranding,
   rescanBranding,
   saveBranding,
-  convertPack,
   uploadPack,
   renamePack,
   deletePack,

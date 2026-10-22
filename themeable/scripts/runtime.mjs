@@ -26,7 +26,7 @@ import { parseArgs } from "../lib/args.mjs";
 import { loadCatalog } from "../lib/catalog.mjs";
 import { CLIENT } from "../lib/client.mjs";
 import { collectPacks, compileAll, readSelection } from "../lib/compile.mjs";
-import { planOperation, Refusal, validateArchive } from "../lib/manage.mjs";
+import { convertFolderPacks, planOperation, Refusal, validateArchive } from "../lib/manage.mjs";
 import { findPacks } from "../lib/packfiles.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -134,13 +134,13 @@ function requestedOperation() {
     }
     return { kind: "select", theme: String(args.select), random };
   }
-  if (args.convert !== undefined) return { kind: "convert", id: String(args.convert) };
   if (args.install !== undefined) return { kind: "install", file: resolve(String(args.install)), replace: args.replace === true };
   if (args.rename !== undefined) {
     // Read verbatim, so a name starting with "--" isn't taken for an option.
     const at = process.argv.indexOf("--name");
     return { kind: "rename", id: String(args.rename), name: at > 0 ? (process.argv[at + 1] ?? "") : "" };
   }
+  if (args["reset-name"] !== undefined) return { kind: "reset-name", id: String(args["reset-name"]) };
   if (args.delete !== undefined) return { kind: "delete", id: String(args.delete) };
   if (args["restore-built-ins"]) return { kind: "restore" };
   return { kind: "recompile" };
@@ -154,9 +154,11 @@ function run() {
   const builtInDir = join(home, "packs");
   const saved = readSelection(settingsFile);
   if (saved.note) notes.push(saved.note);
+  // The themes folder holds archives only; folder packs left from older versions are converted first.
+  if (existsSync(packsDir)) notes.push(...convertFolderPacks(packsDir, process.pid));
   const operation = planOperation(requestedOperation(), { packsDir, builtInDir, pid: process.pid, catalog });
   cleanups.push(operation.cleanup);
-  const settings = operation.settings({ theme: saved.theme, hidden: saved.hidden, random: saved.random });
+  const settings = operation.settings({ theme: saved.theme, hidden: saved.hidden, random: saved.random, names: saved.names });
 
   // Changed settings are staged now (so an unwritable folder fails before any work) and only
   // replace themeable.json once their build is live, so a stopped compile changes nothing.
@@ -164,7 +166,8 @@ function run() {
   const changed =
     settings.theme !== saved.theme ||
     settings.hidden.join() !== saved.hidden.join() ||
-    JSON.stringify(settings.random) !== JSON.stringify(saved.random);
+    JSON.stringify(settings.random) !== JSON.stringify(saved.random) ||
+    JSON.stringify(settings.names) !== JSON.stringify(saved.names);
   if (changed || args.select !== undefined) {
     if (!existsSync(packsDir)) mkdirSync(packsDir, { recursive: true });
     stagedSettings = `${settingsFile}.${process.pid}.tmp`;
@@ -173,7 +176,7 @@ function run() {
 
   const entries = collectPacks([
     { dir: builtInDir, source: "built-in", exclude: settings.hidden },
-    { dir: packsDir, source: "folder", exclude: operation.exclude, standIns: operation.standIns },
+    { dir: packsDir, source: "folder", exclude: operation.exclude, standIns: operation.standIns, archivesOnly: true },
   ]);
 
   const id = `${Date.now()}-${process.pid}`;
@@ -185,6 +188,7 @@ function run() {
     outDir: buildDir,
     selected: settings.theme,
     randomPool: settings.random,
+    names: settings.names,
     loaderSource: readFileSync(join(home, "loader", "loader.js"), "utf8"),
     pickerFile: join(home, "picker", "index.html"),
     reuse: previousBuild(link),

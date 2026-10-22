@@ -1,5 +1,5 @@
-"""Branding (romm-themeable): list theme packs, choose the server's theme, and upload, rename,
-convert and delete packs."""
+"""Branding (romm-themeable): list theme packs, choose the server's theme, and upload, rename
+and delete packs."""
 
 import asyncio
 import json
@@ -65,6 +65,8 @@ class ThemePackSchema(BaseModel):
     source: str  # "built-in" or "folder"
     format: str = "folder"  # "zip" or "folder"
     tags: list[str] = []
+    # Set when a built-in pack has been renamed; Reset name brings it back.
+    default_name: str | None = None
     cover: PackCoverSchema | None = None
     swatch: list[str]
     valid: bool
@@ -104,6 +106,8 @@ class RandomPoolSchema(BaseModel):
     built_in: bool
     accessibility: bool
     ids: list[str] = []
+    # The ids each switch covers ("always" for uploaded packs), for a live count before saving.
+    members: dict[str, list[str]] = {}
 
 
 class RandomPoolPayload(BaseModel):
@@ -133,7 +137,8 @@ class BrandingSelectionPayload(BaseModel):
 
 
 class PackRenamePayload(BaseModel):
-    name: str
+    # A new display name, or null to give a renamed built-in pack its own name back.
+    name: str | None
 
 
 def _require_admin(request: Request) -> None:
@@ -308,25 +313,6 @@ async def save_branding(
     return result
 
 
-@protected_route(router.post, "/packs/{pack_id}/convert", [Scope.ROMS_READ])
-async def convert_pack(request: Request, pack_id: str) -> BrandingStatusSchema:
-    """Convert a folder pack in the themes folder to a .zip archive and recompile (admin only).
-
-    Args:
-        request (Request): FastAPI Request object.
-        pack_id (str): Id of the folder pack to convert.
-
-    Returns:
-        BrandingStatusSchema: Status after recompiling; on failure nothing in the folder changes.
-    """
-    _require_admin(request)
-    _check_pack_id(pack_id)
-    result = await _run_compiler(["--convert", pack_id])
-    if result.ok:
-        log.info(f"themeable: {request.user.username} converted {pack_id} to a .zip")
-    return result
-
-
 async def _receive_upload(request: Request, staged: Path) -> None:
     """Stream the multipart file part to `staged`, refusing anything over the size cap."""
     content_length = request.headers.get("content-length")
@@ -428,19 +414,24 @@ async def upload_pack(request: Request, replace: bool = False) -> BrandingStatus
 async def rename_pack(
     request: Request, pack_id: str, payload: PackRenamePayload
 ) -> BrandingStatusSchema:
-    """Change an uploaded pack's display name; its id stays the same (admin only).
+    """Change a pack's display name, or reset a built-in's; its id stays the same (admin only).
 
     Args:
         request (Request): FastAPI Request object.
-        pack_id (str): Id of a .zip pack in the themes folder.
-        payload (PackRenamePayload): The new display name.
+        pack_id (str): Id of an uploaded or built-in pack.
+        payload (PackRenamePayload): The new display name, or null to reset a built-in's.
 
     Returns:
         BrandingStatusSchema: Status after recompiling; on failure the pack is unchanged.
     """
     _require_admin(request)
     _check_pack_id(pack_id)
-    result = await _run_compiler(["--rename", pack_id, "--name", payload.name])
+    options = (
+        ["--reset-name", pack_id]
+        if payload.name is None
+        else ["--rename", pack_id, "--name", payload.name]
+    )
+    result = await _run_compiler(options)
     if result.ok:
         log.info(f"themeable: {request.user.username} renamed the pack {pack_id}")
     return result
