@@ -78,6 +78,7 @@ class ThemeableClientSchema(BaseModel):
     random_id: str
     random_cycle_ms: int
     pack_name_max: int
+    guide_url: str
     storage_key: str
     cookie: str
     url_param: str

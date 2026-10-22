@@ -32,6 +32,8 @@ export interface ThemeableClient {
   random_id: string;
   random_cycle_ms: number;
   pack_name_max: number;
+  /** The "Creating a theme pack" guide on GitHub. */
+  guide_url: string;
   storage_key: string;
   cookie: string;
   url_param: string;

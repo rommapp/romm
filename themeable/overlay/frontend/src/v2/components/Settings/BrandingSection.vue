@@ -319,7 +319,16 @@ function reloadPage(): void {
         :disabled="saving || !!busy || status?.folder?.writable === false"
         @uploaded="onUploaded"
       />
-      <p class="r-v2-branding__intro">{{ t("branding.subtitle") }}</p>
+      <p class="r-v2-branding__intro">
+        {{ t("branding.subtitle") }}
+        <a
+          v-if="client?.guide_url"
+          :href="client.guide_url"
+          target="_blank"
+          rel="noopener"
+          >{{ t("branding.guide-link") }}</a
+        >
+      </p>
 
       <RAlert
         v-if="status?.error"

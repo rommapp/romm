@@ -16,6 +16,8 @@ export const PREVIEW_SLOTS = {
   wordmark: "/assets/logotipo.svg",
   favicon: "/favicon-32x32.png",
 };
+// The pack authoring guide, linked from Branding.
+export const GUIDE_URL = "https://github.com/Stealthx3/romm-themeable/blob/main/themeable/docs/creating-a-theme-pack.md";
 // The longest display name a pack can have; Rename checks it in the browser too.
 export const PACK_NAME_MAX = 80;
 // How long the Branding preview for Random shows each pack.
@@ -32,6 +34,7 @@ export const CLIENT = Object.freeze({
   random_id: RANDOM_ID,
   random_cycle_ms: RANDOM_CYCLE_MS,
   pack_name_max: PACK_NAME_MAX,
+  guide_url: GUIDE_URL,
   storage_key: STORAGE_KEY,
   cookie: COOKIE,
   url_param: URL_PARAM,
