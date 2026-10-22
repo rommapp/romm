@@ -50,6 +50,12 @@ UPLOAD_FIELD = "file"
 STOP_GRACE_SECONDS = 5
 
 
+class PackCoverSchema(BaseModel):
+    # What Branding previews: a pack's first missing-cover art, or the colors RomM's art uses.
+    url: str | None = None
+    colors: dict[str, str] | None = None
+
+
 class ThemePackSchema(BaseModel):
     id: str
     name: str
@@ -59,6 +65,7 @@ class ThemePackSchema(BaseModel):
     source: str  # "built-in" or "folder"
     format: str = "folder"  # "zip" or "folder"
     tags: list[str] = []
+    cover: PackCoverSchema | None = None
     swatch: list[str]
     valid: bool
     errors: list[str]
@@ -86,6 +93,7 @@ class ThemeableClientSchema(BaseModel):
     url_param: str
     preview_param: str
     theme_attribute: str
+    stylesheet_id: str
     stock_swatch: list[str]
     preview: dict[str, str] = {}
 

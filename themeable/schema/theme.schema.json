@@ -96,6 +96,25 @@
       "additionalProperties": false,
       "properties": { "themeColor": { "$ref": "#/$defs/hex" } }
     },
+    "covers": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Placeholder covers for games without one: recolor RomM's generated art, or replace it with your own (a variant is picked per game).",
+      "properties": {
+        "colors": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "base": { "type": "string", "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" },
+            "shade": { "type": "string", "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" },
+            "warm": { "type": "string", "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" },
+            "icon": { "type": "string", "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" }
+          }
+        },
+        "missing": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "type": "string" }, "description": "Art for games that were identified but have no cover (600 x 800 works best)." },
+        "unmatched": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "type": "string" }, "description": "Art for games that weren't identified." }
+      }
+    },
     "extraCss": { "type": "string", "description": "A CSS file applied only while this theme is active (wrapped in the theme selector). Not checked against new RomM releases." }
   }
 }

@@ -13,7 +13,7 @@ import { loadCatalog } from "../../lib/catalog.mjs";
 import { loadPack } from "../../lib/pack.mjs";
 import { findPacks, folderFiles, openPackFiles, zipFiles } from "../../lib/packfiles.mjs";
 import { writeZip } from "../../lib/zip.mjs";
-import { CLIENT, RANDOM_ID, STOCK_ID, THEME_ATTRIBUTE } from "../../lib/client.mjs";
+import { CLIENT, RANDOM_ID, STOCK_ID, STYLESHEET_ID, THEME_ATTRIBUTE } from "../../lib/client.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const mod = resolve(here, "../..");
@@ -134,11 +134,11 @@ try {
       const failures = errors.map((e) => `page error: ${e}`);
 
       const state = await page.evaluate(
-        (attribute) => ({
+        ([attribute, sheetId]) => ({
           attr: document.documentElement.getAttribute(attribute),
-          sheet: !!document.querySelector("#themeable-css")?.sheet,
+          sheet: !!document.getElementById(sheetId)?.sheet,
         }),
-        THEME_ATTRIBUTE,
+        [THEME_ATTRIBUTE, STYLESHEET_ID],
       );
       if (state.attr !== pack.id) failures.push(`${THEME_ATTRIBUTE} is "${state.attr}"`);
       if (!state.sheet) failures.push("theme stylesheet did not load");

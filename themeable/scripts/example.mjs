@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fail, parseArgs } from "../lib/args.mjs";
-import { buildExample, parseThemeColor, parseVuetifyThemes } from "../lib/example.mjs";
+import { buildExample, parseCoverArt, parseThemeColor, parseVuetifyThemes } from "../lib/example.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "..");
@@ -21,6 +21,7 @@ const text =
       assetCatalog: readJson("assets.json"),
       vuetify: parseVuetifyThemes(readFileSync(join(frontend, "src/styles/themes.ts"), "utf8")),
       themeColor: parseThemeColor(readFileSync(join(frontend, "index.html"), "utf8")),
+      coverArt: parseCoverArt(readFileSync(join(frontend, "src/v2/tokens/index.ts"), "utf8")),
     }),
     null,
     2,

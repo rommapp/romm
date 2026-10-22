@@ -1,7 +1,7 @@
 // Theme pack loading, validation and compilation.
 import { createHash } from "node:crypto";
 import { extname } from "node:path";
-import { FOLLOW_SERVER_ID, PACK_NAME_MAX, RANDOM_ID, STOCK_ID, THEME_ATTRIBUTE } from "./client.mjs";
+import { COVER_VARS, FOLLOW_SERVER_ID, PACK_NAME_MAX, RANDOM_ID, STOCK_ID, THEME_ATTRIBUTE } from "./client.mjs";
 import { scopeSelectorList } from "./cssrefs.mjs";
 import { packPath } from "./packfiles.mjs";
 import { SCOPES, isTokenName } from "./tokens.mjs";
@@ -10,6 +10,11 @@ export const PACK_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
 export { PACK_NAME_MAX } from "./client.mjs";
 export const PACK_TAG = /^[a-z][a-z0-9-]{0,31}$/;
 export const PACK_TAGS_MAX = 8;
+// Placeholder covers: RomM's generated art in the pack's colors, or the pack's own art.
+export const COVER_KINDS = ["missing", "unmatched"];
+export const COVER_COLORS = ["base", "shade", "warm", "icon"];
+export const COVER_VARIANTS_MAX = 8;
+const COVER_EXTENSIONS = [".svg", ".png", ".webp", ".jpg", ".jpeg"];
 const CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
 
 /** Why a display name can't be used, or null. */
@@ -201,6 +206,33 @@ export function validatePack({ files, pack }, catalog = {}) {
     err("pwa.themeColor must be a hex color");
   }
 
+  const covers = section("covers");
+  for (const key of Object.keys(covers)) {
+    if (key !== "colors" && !COVER_KINDS.includes(key)) err(`covers.${key}: use colors, ${COVER_KINDS.join(" or ")}`);
+  }
+  if (covers.colors !== undefined) {
+    if (!isObject(covers.colors)) err("covers.colors: must be an object of color names and hex values");
+    else {
+      for (const [name, value] of Object.entries(covers.colors)) {
+        if (!COVER_COLORS.includes(name)) err(`covers.colors.${name}: use ${COVER_COLORS.join(", ")}`);
+        else if (!HEX.test(value)) err(`covers.colors.${name}: must be a #rgb or #rrggbb hex color`);
+      }
+    }
+  }
+  for (const kind of COVER_KINDS) {
+    if (covers[kind] === undefined) continue;
+    const list = covers[kind];
+    if (!Array.isArray(list) || !list.length || list.length > COVER_VARIANTS_MAX) {
+      err(`covers.${kind}: a list of 1 to ${COVER_VARIANTS_MAX} image files`);
+      continue;
+    }
+    list.forEach((rel, i) => {
+      const path = packPath(rel);
+      if (!path || !files.exists(path)) err(`covers.${kind}[${i}]: missing file inside the pack`);
+      else if (!COVER_EXTENSIONS.includes(extname(path).toLowerCase())) err(`covers.${kind}[${i}]: use ${COVER_EXTENSIONS.join(", ")}`);
+    });
+  }
+
   if (pack.extraCss !== undefined) {
     const path = packPath(pack.extraCss);
     if (!path || !files.exists(path)) err("extraCss: missing file inside the pack");
@@ -289,6 +321,24 @@ export function compilePack({ files: packFiles, pack }, { cssReferences = {} } =
     }
   }
   if (inlined.length) parts.push(`/* Artwork the app bundle inlines, re-pointed at this pack. */\n${inlined.join("\n")}`);
+
+  // Placeholder covers reach RomM's generator as CSS variables (lib/client.mjs COVER_VARS).
+  const coverDecls = {};
+  const coverUrls = {};
+  for (const [name, value] of Object.entries(pack.covers?.colors ?? {})) coverDecls[COVER_VARS[name]] = value;
+  for (const kind of COVER_KINDS) {
+    const list = pack.covers?.[kind];
+    if (!Array.isArray(list)) continue;
+    coverUrls[kind] = list.map((rel, i) => {
+      const path = packPath(rel);
+      const to = `themes/${id}/covers/${kind}-${i + 1}${extname(path).toLowerCase()}`;
+      files.push({ path, to });
+      const fileVersion = createHash("sha256").update(packFiles.read(path)).digest("hex").slice(0, 10);
+      return `/${to}?v=${fileVersion}`;
+    });
+    coverDecls[COVER_VARS[kind]] = coverUrls[kind].join(" ");
+  }
+  parts.push(block([scope], coverDecls));
   const rootFiles = Object.entries(pack.rootFiles ?? {}).map(([key, rel]) => ({
     path: packPath(rel),
     to: key.slice(1),
@@ -311,5 +361,7 @@ export function compilePack({ files: packFiles, pack }, { cssReferences = {} } =
     hasAssets: Object.keys(pack.assets ?? {}).length > 0,
     tags: Array.isArray(pack.tags) ? [...pack.tags] : [],
   };
+  // What Branding previews: the first missing-cover artwork, or the colors RomM's art is drawn in.
+  meta.cover = { url: coverUrls.missing?.[0] ?? null, colors: pack.covers?.colors ?? null };
   return { css, files, rootFiles, meta, hash: version };
 }

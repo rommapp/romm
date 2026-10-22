@@ -13,10 +13,17 @@ export interface ThemePack {
   /** How the pack is stored; folder packs in the themes folder can be converted. */
   format: "zip" | "folder";
   tags: string[];
+  /** The first missing-cover art, or the colors RomM's generated art uses; null for neither. */
+  cover: PackCover | null;
   swatch: string[];
   valid: boolean;
   errors: string[];
   warnings: string[];
+}
+
+export interface PackCover {
+  url: string | null;
+  colors: Partial<Record<"base" | "shade" | "warm" | "icon", string>> | null;
 }
 
 export interface ThemeFolder {
@@ -42,6 +49,7 @@ export interface ThemeableClient {
   url_param: string;
   preview_param: string;
   theme_attribute: string;
+  stylesheet_id: string;
   stock_swatch: string[];
   /** Stock URL per preview slot; `?<cookie>=<id>` makes nginx serve that pack's file. */
   preview: Record<PreviewSlot, string>;

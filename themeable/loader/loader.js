@@ -91,11 +91,11 @@
   function apply(id) {
     var theme = find(id);
     root.setAttribute(client.theme_attribute, id);
-    var old = document.getElementById("themeable-css");
+    var old = document.getElementById(client.stylesheet_id);
     if (old) old.parentNode.removeChild(old);
     if (theme) {
       var link = document.createElement("link");
-      link.id = "themeable-css";
+      link.id = client.stylesheet_id;
       link.rel = "stylesheet";
       link.href = theme.css;
       link.setAttribute("blocking", "render");

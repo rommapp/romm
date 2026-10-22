@@ -324,7 +324,7 @@ test("the compiled manifest carries the shared client values", async () => {
 });
 
 test("docs/theme.example.json is current and sets every option validly", async () => {
-  const { buildExample, parseThemeColor, parseVuetifyThemes } = await import("../lib/example.mjs");
+  const { buildExample, parseCoverArt, parseThemeColor, parseVuetifyThemes } = await import("../lib/example.mjs");
   const { loadCatalog } = await import("../lib/catalog.mjs");
   const { ROOT_FILES } = await import("../lib/pack.mjs");
   const frontend = join(here, "..", "..", "frontend");
@@ -334,6 +334,7 @@ test("docs/theme.example.json is current and sets every option validly", async (
     assetCatalog: readJson("catalog/assets.json"),
     vuetify: parseVuetifyThemes(readFileSync(join(frontend, "src/styles/themes.ts"), "utf8")),
     themeColor: parseThemeColor(readFileSync(join(frontend, "index.html"), "utf8")),
+    coverArt: parseCoverArt(readFileSync(join(frontend, "src/v2/tokens/index.ts"), "utf8")),
   });
   const example = readJson("docs/theme.example.json");
   assert.deepEqual(example, expected, "run `npm run example`");
@@ -925,4 +926,35 @@ test("Random draws only from the groups Branding includes", async () => {
   assert.deepEqual(none.random.ids, []);
   assert.equal(none.effective, "none");
   assert.match(none.reason, /nothing to draw from/);
+});
+
+test("pack covers are validated and reach RomM's cover generator as CSS variables", async () => {
+  const { COVER_VARS } = await import("../lib/client.mjs");
+  const p = tempPack(
+    { covers: { colors: { base: "#112233", icon: "#fff" }, missing: ["c/a.svg", "c/b.png"], unmatched: ["c/q.svg"] } },
+    { "c/a.svg": "<svg/>", "c/b.png": "png", "c/q.svg": "<svg/>" },
+  );
+  assert.deepEqual(validatePack(p).errors, []);
+  const { css, files, meta } = compilePack(p);
+  assert.match(css, new RegExp(`${COVER_VARS.base}: #112233;`));
+  assert.match(css, new RegExp(`${COVER_VARS.missing}: /themes/test/covers/missing-1\\.svg\\?v=\\w+ /themes/test/covers/missing-2\\.png\\?v=\\w+;`));
+  assert.ok(files.some((f) => f.to === "themes/test/covers/unmatched-1.svg"));
+  assert.match(meta.cover.url, /^\/themes\/test\/covers\/missing-1\.svg\?v=/);
+  assert.deepEqual(meta.cover.colors, { base: "#112233", icon: "#fff" });
+
+  const bad = (covers, files = {}) => validatePack(tempPack({ covers }, files)).errors.join(" | ");
+  assert.match(bad({ colors: { base: "red" } }), /covers.colors.base: must be a #rgb/);
+  assert.match(bad({ colors: { glow: "#fff" } }), /covers.colors.glow: use base/);
+  assert.match(bad({ missing: [] }), /covers.missing: a list of 1 to 8/);
+  assert.match(bad({ missing: ["../x.svg"] }), /covers.missing\[0\]: missing file inside the pack/);
+  assert.match(bad({ missing: ["c.gif"] }, { "c.gif": "x" }), /use \.svg, \.png/);
+  assert.match(bad({ extra: [] }), /covers.extra: use colors/);
+});
+
+test("every built-in pack ships placeholder cover art", async () => {
+  const { findPacks } = await import("../lib/packfiles.mjs");
+  for (const found of findPacks(join(here, "../packs"))) {
+    const pack = JSON.parse(readFileSync(join(found.path, "theme.json"), "utf8"));
+    assert.ok(pack.covers?.missing?.length && pack.covers?.unmatched?.length && pack.covers?.colors, `${pack.id} has covers`);
+  }
 });

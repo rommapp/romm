@@ -999,5 +999,19 @@
   "pwa": {
     "themeColor": "#2a0145"
   },
+  "covers": {
+    "colors": {
+      "base": "#553e98",
+      "shade": "#371f69",
+      "warm": "#ff9b85",
+      "icon": "#f9f9f9"
+    },
+    "missing": [
+      "covers/missing.svg"
+    ],
+    "unmatched": [
+      "covers/unmatched.svg"
+    ]
+  },
   "extraCss": "custom.css"
 }

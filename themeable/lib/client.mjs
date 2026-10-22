@@ -9,6 +9,8 @@ export const COOKIE = "romm_theme";
 export const URL_PARAM = "romm-theme";
 export const PREVIEW_PARAM = "romm-theme-preview";
 export const THEME_ATTRIBUTE = "data-romm-theme";
+// The <link> the loader adds for a theme's stylesheet.
+export const STYLESHEET_ID = "themeable-css";
 // Stock URLs the Branding tab shows per pack; nginx serves the pack's file for ?<cookie>=<id>.
 export const PREVIEW_SLOTS = {
   background: "/assets/auth_background_static.svg",
@@ -22,6 +24,16 @@ export const GUIDE_URL = "https://github.com/Stealthx3/romm-themeable/blob/main/
 export const PACK_NAME_MAX = 80;
 // The pack tag that earns the Accessibility label and its own group in Random's draw.
 export const ACCESSIBILITY_TAG = "accessibility";
+// CSS variables a compiled theme sets for RomM's placeholder covers; patches/30-frontend-cover-art.mjs
+// writes the same names into RomM's cover generator.
+export const COVER_VARS = Object.freeze({
+  base: "--themeable-cover-base",
+  shade: "--themeable-cover-shade",
+  warm: "--themeable-cover-warm",
+  icon: "--themeable-cover-icon",
+  missing: "--themeable-cover-missing",
+  unmatched: "--themeable-cover-unmatched",
+});
 // How long the Branding preview for Random shows each pack.
 export const RANDOM_CYCLE_MS = 2000;
 export const STOCK_SWATCH = {
@@ -43,6 +55,7 @@ export const CLIENT = Object.freeze({
   url_param: URL_PARAM,
   preview_param: PREVIEW_PARAM,
   theme_attribute: THEME_ATTRIBUTE,
+  stylesheet_id: STYLESHEET_ID,
   stock_swatch: Object.values(STOCK_SWATCH),
   preview: { ...PREVIEW_SLOTS },
 });

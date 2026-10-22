@@ -165,6 +165,7 @@ export function compileAll({ entries, catalog, outDir, selected = STOCK_ID, rand
           // Every pack's favicons, so Branding can preview them for packs that aren't selected.
           for (const f of c.rootFiles) write(join(themeDir, "root", f.to), files.read(f.path));
           compiled.push(c);
+          status.cover = c.meta.cover;
           status.valid = true;
         }
       } catch (e) {

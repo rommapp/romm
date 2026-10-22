@@ -25,6 +25,13 @@ export function parseVuetifyThemes(source) {
   return palettes;
 }
 
+/** Reads RomM's placeholder cover palette (colorCoverArt) from upstream's frontend/src/v2/tokens/index.ts. */
+export function parseCoverArt(source) {
+  const body = source.match(/export const colorCoverArt = \{([\s\S]*?)\}/)?.[1];
+  if (!body) throw new Error("tokens/index.ts has no colorCoverArt");
+  return Object.fromEntries([...body.matchAll(/(\w+):\s*"(#[0-9a-fA-F]{3,6})"/g)].map((m) => [m[1], m[2].toLowerCase()]));
+}
+
 /** Reads the stock <meta name="theme-color"> from upstream's frontend/index.html. */
 export function parseThemeColor(html) {
   const m = html.match(/<meta\s+name="theme-color"\s+content="(#[0-9a-fA-F]{3,6})"/);
@@ -32,7 +39,7 @@ export function parseThemeColor(html) {
   return m[1].toLowerCase();
 }
 
-export function buildExample({ tokenCatalog, assetCatalog, vuetify, themeColor }) {
+export function buildExample({ tokenCatalog, assetCatalog, vuetify, themeColor, coverArt }) {
   const tokens = {};
   for (const scope of SCOPES) {
     const entries = tokenCatalog.tokens.filter((t) => scope in t.defaults).map((t) => [t.name, t.defaults[scope]]);
@@ -59,6 +66,7 @@ export function buildExample({ tokenCatalog, assetCatalog, vuetify, themeColor }
     rootFiles,
     fonts: [{ family: "Example Sans", src: "fonts/ExampleSans-Variable.woff2", weight: "100 900", style: "normal", display: "swap" }],
     pwa: { themeColor },
+    covers: { colors: coverArt, missing: ["covers/missing.svg"], unmatched: ["covers/unmatched.svg"] },
     extraCss: "custom.css",
   };
 }
