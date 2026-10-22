@@ -1,11 +1,22 @@
 <script setup lang="ts">
-// BrandingSection (romm-themeable): choose the server's theme pack, and upload, rename, convert
-// and delete packs. Every change recompiles the packs from the mapped themes folder.
-import { RAlert, RBtn, REmptyState, RSpinner, RTag, RTextField } from "@v2/lib";
-import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
+// BrandingSection (romm-themeable): choose the server's theme pack and what Random draws from,
+// and upload, rename and delete packs. Every change recompiles the packs from the themes folder.
+import {
+  RAlert,
+  RBtn,
+  RDialog,
+  REmptyState,
+  RMenu,
+  RMenuItem,
+  RSpinner,
+  RTag,
+  RTextField,
+} from "@v2/lib";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import themeableApi, {
   type BrandingStatus,
+  type RandomGroups,
   type ThemePack,
 } from "@/services/api/themeable";
 import BrandingArtwork from "@/v2/components/Settings/BrandingArtwork.vue";
@@ -15,7 +26,6 @@ import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useFetchState } from "@/v2/composables/useFetchState";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import { focusFromInput } from "@/v2/utils/autofocus";
 
 defineOptions({ inheritAttrs: false });
 
@@ -48,8 +58,28 @@ const {
 // Ids, storage key and stock swatch come from the compiled status, so they match the loader's.
 const client = computed(() => status.value?.client ?? null);
 const stockId = computed(() => client.value?.stock_id ?? "");
-// Random's draw as the compiler resolved it, so this list matches what visitors get.
-const drawIds = computed(() => status.value?.random?.ids ?? []);
+// Random's groups as they will be saved; the count follows them before Save changes.
+const groups = ref<RandomGroups>({
+  stock: false,
+  built_in: true,
+  accessibility: true,
+});
+const groupKeys = computed(
+  () => Object.keys(groups.value) as (keyof RandomGroups)[],
+);
+// The ids Random would draw with these groups, from the members the compiler published.
+const drawIds = computed(() => {
+  const random = status.value?.random;
+  if (!random) return [];
+  const { stock, ...packGroups } = groups.value;
+  return [
+    ...(stock ? [stockId.value] : []),
+    ...Object.entries(packGroups).flatMap(([key, on]) =>
+      on ? (random.members[key as keyof typeof random.members] ?? []) : [],
+    ),
+    ...(random.members.always ?? []),
+  ];
+});
 const drawPacks = computed(() =>
   (status.value?.packs ?? []).filter((p) => drawIds.value.includes(p.id)),
 );
@@ -59,9 +89,14 @@ const page = ref(1);
 const saving = ref(false);
 // The pack an action is running on, so only its buttons show progress.
 const busy = ref<string | null>(null);
-const renaming = ref<string | null>(null);
+const renaming = ref<Option | null>(null);
 const newName = ref("");
-const renameField = useTemplateRef<{ focus: () => void }[]>("renameField");
+const renameOpen = computed({
+  get: () => renaming.value !== null,
+  set: (open) => {
+    if (!open) renaming.value = null;
+  },
+});
 const restoring = ref(false);
 const savedOnce = ref(false);
 
@@ -109,6 +144,10 @@ const pageOptions = computed(() =>
 
 watch(status, (value) => {
   if (!value) return;
+  if (value.random) {
+    const { stock, built_in, accessibility } = value.random;
+    groups.value = { stock, built_in, accessibility };
+  }
   const known = options.value.some((o) => o.id === value.selected);
   selected.value = known ? value.selected : stockId.value;
   const index = options.value.findIndex((o) => o.id === selected.value);
@@ -152,7 +191,9 @@ function previewHref(id: string): string {
 async function save(): Promise<void> {
   saving.value = true;
   try {
-    const { data } = await themeableApi.saveBranding(selected.value);
+    const { data } = await themeableApi.saveBranding(selected.value, {
+      ...groups.value,
+    });
     status.value = data;
     savedOnce.value = true;
     if (data.ok) snackbar.success(t("branding.saved"));
@@ -165,16 +206,13 @@ async function save(): Promise<void> {
   }
 }
 
-function canConvert(option: Option): boolean {
-  return option.source === "folder" && option.format === "folder";
+// Every pack can be renamed and deleted except RomM default and Random.
+function canManage(option: Option): boolean {
+  return option.source === "built-in" || option.source === "folder";
 }
 
-function isUploaded(option: Option): boolean {
-  return option.source === "folder" && option.format === "zip";
-}
-
-function canDelete(option: Option): boolean {
-  return isUploaded(option) || option.source === "built-in";
+function isAccessible(option: Option): boolean {
+  return option.tags.includes(client.value?.accessibility_tag ?? "");
 }
 
 /** Runs one pack action; a refused one changed nothing, so the list stays as it was. */
@@ -203,25 +241,16 @@ async function runAction(
   }
 }
 
-function convert(option: Option): Promise<boolean> {
-  return runAction(
-    option.id,
-    () => themeableApi.convertPack(option.id),
-    t("branding.converted", { name: option.name }),
-    t("branding.convert-failed"),
-  );
-}
-
-async function startRename(option: Option): Promise<void> {
-  renaming.value = option.id;
+function startRename(option: Option): void {
+  renaming.value = option;
   newName.value = option.name;
-  await nextTick();
-  focusFromInput(renameField.value?.[0]);
 }
 
-async function rename(option: Option): Promise<void> {
+async function rename(): Promise<void> {
+  const option = renaming.value;
   const name = newName.value.trim();
-  if (!name || name === option.name) {
+  if (!option || !name) return;
+  if (name === option.name) {
     renaming.value = null;
     return;
   }
@@ -229,6 +258,16 @@ async function rename(option: Option): Promise<void> {
     option.id,
     () => themeableApi.renamePack(option.id, name),
     t("branding.renamed", { name }),
+    t("branding.rename-failed"),
+  );
+  if (done) renaming.value = null;
+}
+
+async function resetName(option: Option): Promise<void> {
+  const done = await runAction(
+    option.id,
+    () => themeableApi.renamePack(option.id, null),
+    t("branding.name-reset", { name: option.default_name ?? option.name }),
     t("branding.rename-failed"),
   );
   if (done) renaming.value = null;
@@ -409,14 +448,36 @@ function reloadPage(): void {
                 :text="t('branding.has-problems')"
               />
               <RTag
-                v-if="canConvert(option)"
+                v-if="isAccessible(option)"
                 size="x-small"
-                tone="warning"
-                :text="t('branding.folder-pack')"
+                tone="info"
+                :text="t('branding.accessibility')"
               />
             </span>
             <span v-if="option.description" class="r-v2-branding__meta">
               {{ option.description }}
+            </span>
+            <span
+              v-if="option.source === 'draw'"
+              class="r-v2-branding__groups"
+              role="group"
+              :aria-label="t('branding.random-groups')"
+            >
+              <span class="r-v2-branding__meta">{{
+                t("branding.random-groups")
+              }}</span>
+              <RBtn
+                v-for="key in groupKeys"
+                :key="key"
+                size="x-small"
+                :variant="groups[key] ? 'flat' : 'outlined'"
+                :prepend-icon="groups[key] ? 'mdi-check' : undefined"
+                :aria-pressed="groups[key]"
+                :disabled="saving"
+                @click.prevent="groups[key] = !groups[key]"
+              >
+                {{ t(`branding.random-group-${key}`) }}
+              </RBtn>
             </span>
             <template v-if="option.valid && client?.preview">
               <BrandingRandomArtwork
@@ -436,95 +497,102 @@ function reloadPage(): void {
             <ul v-if="option.errors.length" class="r-v2-branding__errors">
               <li v-for="(e, i) in option.errors" :key="i">{{ e }}</li>
             </ul>
-            <span
-              v-if="renaming === option.id"
-              class="r-v2-branding__actions-row"
-            >
-              <RTextField
-                ref="renameField"
-                v-model="newName"
-                class="r-v2-branding__rename"
-                density="compact"
-                :label="t('branding.new-name')"
-                :maxlength="client?.pack_name_max"
-                @keydown.enter.prevent="rename(option)"
-                @keydown.esc.prevent="renaming = null"
-              />
-              <RBtn
-                size="small"
-                :loading="busy === option.id"
-                @click.prevent="rename(option)"
-              >
-                {{ t("branding.rename-save") }}
-              </RBtn>
-              <RBtn
-                size="small"
-                variant="text"
-                :disabled="busy === option.id"
-                @click.prevent="renaming = null"
-              >
-                {{ t("branding.cancel") }}
-              </RBtn>
-            </span>
-            <span
-              v-else-if="canConvert(option) || canDelete(option)"
-              class="r-v2-branding__actions-row"
-            >
-              <template v-if="canConvert(option)">
-                <RBtn
-                  variant="outlined"
-                  size="small"
-                  prepend-icon="mdi-folder-zip-outline"
-                  :loading="busy === option.id"
-                  :disabled="!!busy || saving"
-                  @click.prevent="convert(option)"
-                >
-                  {{ t("branding.convert") }}
-                </RBtn>
-                <span class="r-v2-branding__meta">{{
-                  t("branding.convert-hint", { id: option.id })
-                }}</span>
-              </template>
-              <RBtn
-                v-if="isUploaded(option)"
-                variant="text"
-                size="small"
-                prepend-icon="mdi-pencil-outline"
-                :disabled="!!busy || saving"
-                @click.prevent="startRename(option)"
-              >
-                {{ t("branding.rename") }}
-              </RBtn>
-              <RBtn
-                v-if="canDelete(option)"
-                variant="text"
-                size="small"
-                :prepend-icon="
-                  option.source === 'built-in'
-                    ? 'mdi-eye-off-outline'
-                    : 'mdi-delete-outline'
-                "
-                :loading="busy === option.id"
-                :disabled="!!busy || saving"
-                @click.prevent="remove(option)"
-              >
-                {{ t("branding.delete") }}
-              </RBtn>
-            </span>
           </span>
-          <RBtn
-            v-if="option.valid"
-            variant="text"
-            density="compact"
-            prepend-icon="mdi-open-in-new"
-            :href="previewHref(option.id)"
-            target="_blank"
-            :tooltip="t('branding.preview-hint')"
-          >
-            {{ t("branding.preview") }}
-          </RBtn>
+          <span class="r-v2-branding__side">
+            <RBtn
+              v-if="option.valid"
+              variant="text"
+              density="compact"
+              prepend-icon="mdi-open-in-new"
+              :href="previewHref(option.id)"
+              target="_blank"
+              :tooltip="t('branding.preview-hint')"
+            >
+              {{ t("branding.preview") }}
+            </RBtn>
+            <RMenu v-if="canManage(option)" location="bottom end">
+              <template #activator="{ props: menuProps }">
+                <RBtn
+                  v-bind="menuProps"
+                  variant="outlined"
+                  density="compact"
+                  append-icon="mdi-chevron-down"
+                  :loading="busy === option.id"
+                  :disabled="(!!busy && busy !== option.id) || saving"
+                  :aria-label="t('branding.more-for', { name: option.name })"
+                  @click.prevent
+                >
+                  {{ t("branding.more") }}
+                </RBtn>
+              </template>
+              <RMenuItem
+                icon="mdi-pencil-outline"
+                :label="t('branding.rename-item')"
+                @click="startRename(option)"
+              />
+              <RMenuItem
+                v-if="option.default_name"
+                icon="mdi-restore"
+                :label="t('branding.reset-name')"
+                @click="resetName(option)"
+              />
+              <RMenuItem
+                icon="mdi-delete-outline"
+                variant="danger"
+                :label="t('branding.delete-item')"
+                @click="remove(option)"
+              />
+            </RMenu>
+          </span>
         </label>
       </fieldset>
+
+      <RDialog
+        v-model="renameOpen"
+        icon="mdi-pencil-outline"
+        width="440"
+        cancelable
+        :cancel-disabled="!!busy"
+      >
+        <template #header>
+          <span>{{
+            t("branding.rename-title", { name: renaming?.name ?? "" })
+          }}</span>
+        </template>
+        <template #content>
+          <div class="r-v2-branding__rename">
+            <p class="r-v2-branding__meta">{{ t("branding.rename-body") }}</p>
+            <!-- eslint-disable vuejs-accessibility/no-autofocus -- focusing the name field when the rename dialog opens is intentional modal UX -->
+            <RTextField
+              v-model="newName"
+              autofocus
+              :label="t('branding.new-name')"
+              :maxlength="client?.pack_name_max"
+              @keydown.enter.prevent="rename"
+            />
+            <!-- eslint-enable vuejs-accessibility/no-autofocus -->
+          </div>
+        </template>
+        <template #footer>
+          <RBtn
+            v-if="renaming?.default_name"
+            variant="text"
+            prepend-icon="mdi-restore"
+            :disabled="!!busy"
+            @click="renaming && resetName(renaming)"
+          >
+            {{ t("branding.reset-name") }}
+          </RBtn>
+          <RBtn
+            prepend-icon="mdi-content-save"
+            :loading="!!busy"
+            :disabled="!newName.trim()"
+            @click="rename"
+          >
+            {{ t("branding.rename-save") }}
+          </RBtn>
+        </template>
+      </RDialog>
 
       <nav
         v-if="pageCount > 1"
@@ -694,16 +762,24 @@ function reloadPage(): void {
 }
 
 .r-v2-branding__rename {
-  flex: 1 1 200px;
-  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--r-space-3);
 }
 
-.r-v2-branding__actions-row {
+.r-v2-branding__groups {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--r-space-2);
-  margin-top: var(--r-space-2);
+  margin-top: var(--r-space-1);
+}
+
+.r-v2-branding__side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--r-space-2);
 }
 
 .r-v2-branding__errors {
