@@ -106,6 +106,24 @@
     "/android-chrome-192x192.png": "root/android-chrome-192x192.png",
     "/android-chrome-512x512.png": "root/android-chrome-512x512.png"
   },
+  "covers": {
+    "colors": {
+      "base": "#0b1220",
+      "shade": "#05070b",
+      "warm": "#1f74f0",
+      "icon": "#e6edf7"
+    },
+    "missing": [
+      "covers/missing-1.svg",
+      "covers/missing-2.svg",
+      "covers/missing-3.svg"
+    ],
+    "unmatched": [
+      "covers/unmatched-1.svg",
+      "covers/unmatched-2.svg",
+      "covers/unmatched-3.svg"
+    ]
+  },
   "pwa": {
     "themeColor": "#05070b"
   }

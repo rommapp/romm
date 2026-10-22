@@ -60,6 +60,24 @@
     "/assets/auth_background.svg": "assets/auth_background.svg",
     "/assets/auth_background_static.svg": "assets/auth_background_static.svg"
   },
+  "covers": {
+    "colors": {
+      "base": "#2a130b",
+      "shade": "#120a07",
+      "warm": "#c8642a",
+      "icon": "#ffd27a"
+    },
+    "missing": [
+      "covers/missing-1.svg",
+      "covers/missing-2.svg",
+      "covers/missing-3.svg"
+    ],
+    "unmatched": [
+      "covers/unmatched-1.svg",
+      "covers/unmatched-2.svg",
+      "covers/unmatched-3.svg"
+    ]
+  },
   "pwa": {
     "themeColor": "#120a07"
   },
