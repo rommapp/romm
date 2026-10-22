@@ -23,6 +23,8 @@ ARG ALPINE_SHA256=294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77
 # Pins the base image tag, so it cannot read ../.python-version; keep the two in sync.
 ARG PYTHON_VERSION=3.14
 ARG PYTHON_ALPINE_SHA256=9e9fde4d32eedce0b661d9ab91e826b62dddf28e928c230ec55f1866cac66b01
+# The image's pip comes from CPython's bundled ensurepip, which lags pip's security releases.
+ARG PIP_VERSION=26.2.2
 ARG NODE_VERSION=24.22
 ARG NODE_ALPINE_SHA256=6a1c190e17215d844926b0677f4bf87273ff7d5e54db06d3b5b5863ab0b09a3d
 ARG NGINX_VERSION=1.30.5
@@ -37,6 +39,8 @@ ARG GME_COMMIT=9e23d10f9fd2a6a2f33b10912dd8dc7153258995
 
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
+ARG PIP_VERSION
+RUN pip install --no-cache-dir --upgrade pip==${PIP_VERSION}
 
 
 # PATCHED PYTHON RUNTIME
