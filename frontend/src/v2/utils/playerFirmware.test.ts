@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   firmwareExternalFiles,
   keepArcadeBiosWhole,
@@ -152,11 +152,13 @@ const emulator = (
     nightly?: boolean;
     externalFiles?: Record<string, string>;
   } = {},
+  downloadFile?: (path: string, ...args: unknown[]) => Promise<unknown>,
 ) => ({
   config: { biosUrl, externalFiles },
   getCore: () =>
     ["fbneo", "mame2003_plus"].includes(system) ? "arcade" : system,
   downloadGameFile: nightly ? undefined : () => undefined,
+  downloadFile,
 });
 
 describe("keepArcadeBiosWhole", () => {
@@ -172,6 +174,49 @@ describe("keepArcadeBiosWhole", () => {
         "/neogeo.zip": "/api/firmware/9/content/neogeo.zip",
       },
     });
+  });
+
+  it("converts the BIOS response before the game manager is created", async () => {
+    const archive = Uint8Array.from([0x50, 0x4b, 0x03, 0x04]).buffer;
+    const downloadFile = vi.fn(async () => ({ headers: {}, data: archive }));
+    const instance = emulator(
+      "fbneo",
+      "/api/firmware/9/content/neogeo.zip",
+      {},
+      downloadFile,
+    );
+    keepArcadeBiosWhole(instance);
+
+    // The EJS assignment trap runs before downloadFiles constructs gameManager.
+    expect(instance).not.toHaveProperty("gameManager");
+    const response = await instance.downloadFile?.(
+      "/api/firmware/9/content/neogeo.zip",
+      null,
+      true,
+      { responseType: "arraybuffer", method: "GET" },
+    );
+
+    expect(response).toMatchObject({ data: expect.any(Uint8Array) });
+    expect(Array.from((response as { data: Uint8Array }).data)).toEqual([
+      0x50, 0x4b, 0x03, 0x04,
+    ]);
+  });
+
+  it("preserves other download results unchanged", async () => {
+    const archive = Uint8Array.from([0x50, 0x4b]).buffer;
+    const downloadFile = vi.fn(async () => ({ headers: {}, data: archive }));
+    const instance = emulator(
+      "fbneo",
+      "/api/firmware/9/content/neogeo.zip",
+      {},
+      downloadFile,
+    );
+    keepArcadeBiosWhole(instance);
+
+    const response = await instance.downloadFile?.("/game.zip");
+
+    expect(response).toEqual({ headers: {}, data: archive });
+    expect((response as { data: ArrayBuffer }).data).toBe(archive);
   });
 
   it("leaves the BIOS to EmulatorJS on a build that keeps it whole", () => {
