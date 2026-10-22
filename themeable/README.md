@@ -86,13 +86,16 @@ These ship in the image, ready to choose without adding anything to the themes f
 | --- | --- | --- |
 | `phosphor` | Retro | Green-screen CRT terminal: scanlines, a monitor icon and a pixel wordmark |
 | `handheld` | Retro | The four shades of a pocket LCD, with a pixel-art icon, wordmark and landscape |
-| `neon` | Arcade | Synthwave magenta and cyan, a neon joystick and a sunset over a scrolling grid |
-| `cabinet` | Arcade | Classic cabinet red, yellow and black, a cabinet icon and a twinkling starfield |
+| `neon` | Arcade | Synthwave magenta and cyan, a neon joystick and a sunset over a rolling perspective grid |
+| `cabinet` | Arcade | Classic cabinet red, yellow and black, a cabinet icon and a softly twinkling starfield |
 | `carbon` | Modern | Console-dashboard black with electric blue and teal, a play-badge icon |
 | `aurora` | Modern | Glassy teal, violet and coral over a drifting aurora, a gamepad icon |
-| `ember` | Warm | Charcoal and orange; the smallest complete example |
+| `ember` | Warm | Charcoal and orange, a flame icon and rising sparks; the shortest pack to read as an example |
+| `contrast-dark` | Accessibility | White on pure black with a yellow focus ring; AAA text contrast and no motion |
+| `contrast-light` | Accessibility | Black on white with heavy borders; AAA text contrast and no motion |
+| `signal` | Accessibility | Blue for success and orange for danger, so state never rests on red against green; AAA text contrast and no motion |
 
-All but Ember replace the logo, wordmark, loading logo, login background (animated, with a still version for Firefox) and every browser tab icon, and all set colors for both modes and for RomM's older v1 interface. Their artwork is original. A pack in the themes folder with the same id replaces a built-in one, and copying one under a new id is a quick way to start a theme of your own.
+Every built-in pack replaces the logo, wordmark, loading logo, login background (animated, with a still version for Firefox and reduced motion) and every browser tab icon, and sets colors for both modes and for RomM's older v1 interface. The accessibility packs use the still background in both slots, a 3 px focus ring (thicker for keyboard and gamepad) and solid text colors at 7:1 or better; the two High Contrast packs keep one palette in both modes. Unit tests check that every built-in pack keeps 3:1 under white button text and a wordmark color at 3:1 on both its pages, and that the accessibility packs keep their text at 7:1. Their artwork is original. A pack in the themes folder with the same id replaces a built-in one, and copying one under a new id is a quick way to start a theme of your own.
 
 ## Writing a pack
 
@@ -209,6 +212,7 @@ Known limits:
 | Frontend rebuilt from this branch | The image's interface is built from this branch's copy of RomM's source | Each release is merged before building, and the checks compare the two |
 | Preview of CSS-only artwork | In a preview tab, backgrounds from RomM's own stylesheets that the previewed pack doesn't replace follow the visitor's theme | Affects that tab only |
 | Visual check scope | It covers logged-out screens | The source check and unit tests cover the rest |
+| Login link color | RomM's always-dark login screen colors "Forgot your password?" with the light-mode link color, which is dim there in light mode, in stock RomM too | A token can't change that one screen without the rest of the light interface |
 
 ## Repository setup
 

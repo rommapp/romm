@@ -7,7 +7,7 @@ A theme pack is a `.zip` archive holding a `theme.json` file and any artwork, fo
 | Location | Used for |
 | --- | --- |
 | The themes folder on the host, mapped to `/romm/themes` in the container | Your own packs. Add or edit them here, then use **Administration → Branding**. |
-| `themeable/packs/` in this repository | Built-in packs that ship inside the image: `phosphor`, `handheld`, `neon`, `cabinet`, `carbon`, `aurora` and `ember`. They are folders here for easy editing, and the image build zips them. A pack in the themes folder with the same id replaces the built-in one. |
+| `themeable/packs/` in this repository | Built-in packs that ship inside the image: `phosphor`, `handheld`, `neon`, `cabinet`, `carbon`, `aurora`, `ember`, and the accessibility packs `contrast-dark`, `contrast-light` and `signal`. They are folders here for easy editing, and the image build zips them. A pack in the themes folder with the same id replaces the built-in one. |
 
 Each pack is one archive, and its file name must be the pack's `id` plus `.zip`. Inside, `theme.json` sits at the archive's root, or inside one top-level folder, which is what most zip tools make when you zip a folder. RomM reads the archive directly; nothing is unpacked into the themes folder.
 
@@ -226,7 +226,9 @@ See the [README](../README.md#developing-the-module) for building the frontend f
 
 ## Readable colors
 
-Solid buttons draw white text on `--r-color-brand-primary`, so keep that color at a contrast of at least 3:1 with white, in both modes, and at least 3:1 against `--r-color-bg` so selected items stand out. Put bright neon or pastel shades in `--r-color-brand-accent` instead. The wordmark (`/assets/logotipo.svg`) sits on the page background in both modes, so give it a mid-tone or an outline that reads on dark and light alike. The login screen is always dark; `--r-color-canvas-bg-deep` tints its card.
+Solid buttons draw white text on `--r-color-brand-primary`, so keep that color at a contrast of at least 3:1 with white, in both modes, and at least 3:1 against `--r-color-bg` so selected items stand out. Put bright neon or pastel shades in `--r-color-brand-accent` instead. The wordmark (`/assets/logotipo.svg`) sits on the page background in both modes, so give it a mid-tone or an outline that reads on dark and light alike. The login screen is always dark; `--r-color-canvas-bg-deep` tints its card. It still reads some light-mode tokens when a visitor uses light mode, so keep light-mode `--r-color-bg-elevated` and `--r-color-surface` translucent, as stock RomM does, rather than solid near-white.
+
+For a pack aimed at accessibility, set solid text colors (`--r-color-fg-muted`, `--r-color-fg-faint` and the status colors) at 7:1 or better against `--r-color-bg`, and strengthen focus with `--r-color-focus`, `--r-focus-ring-width` (per input scope) and `--r-focus-ring-offset`. The built-in `contrast-dark`, `contrast-light` and `signal` packs are worked examples.
 
 ## Sharing a pack
 
