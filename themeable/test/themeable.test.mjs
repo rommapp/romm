@@ -808,3 +808,36 @@ test("an upload can replace a folder pack, which is parked; Delete leaves folder
   assert.match(replaced.status.notes.join(), /replaced the folder pack "twilight", which was moved to .converted\/twilight\//);
   assert.deepEqual(readdirSync(themes).sort(), [".converted", "twilight.zip"]);
 });
+
+// WCAG contrast between two #rgb or #rrggbb colors.
+function contrast(a, b) {
+  const lum = (hex) => {
+    const h = hex.length === 4 ? [...hex.slice(1)].map((c) => c + c).join("") : hex.slice(1, 7);
+    const [r, g, bl] = [0, 2, 4].map((i) => {
+      const c = parseInt(h.slice(i, i + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+  };
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+test("every built-in wordmark has a color that reads on its dark and its light page", async () => {
+  const { findPacks, openPackFiles } = await import("../lib/packfiles.mjs");
+  const { loadPack } = await import("../lib/pack.mjs");
+  const stock = Object.fromEntries(
+    JSON.parse(readFileSync(join(here, "../catalog/tokens.json"), "utf8")).tokens.map((t) => [t.name, t.defaults]),
+  );
+  for (const found of findPacks(join(here, "../packs"))) {
+    const { files, pack } = loadPack(openPackFiles(found));
+    const wordmark = pack.assets?.["/assets/logotipo.svg"];
+    if (!wordmark) continue;
+    const colors = [...files.read(wordmark).toString("utf8").matchAll(/(?:fill|stroke|stop-color)="(#[0-9a-f]{3}(?:[0-9a-f]{3})?)"/gi)].map((m) => m[1]);
+    for (const mode of ["dark", "light"]) {
+      const page = pack.tokens?.[mode]?.["--r-color-bg"] ?? pack.tokens?.common?.["--r-color-bg"] ?? stock["--r-color-bg"][mode];
+      const best = Math.max(...colors.map((c) => contrast(c, page)));
+      assert.ok(best >= 3, `${pack.id}: the wordmark's best color is ${best.toFixed(1)}:1 on the ${mode} page ${page}; logos need 3:1`);
+    }
+  }
+});
