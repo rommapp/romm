@@ -20,6 +20,8 @@ export const PREVIEW_SLOTS = {
 export const GUIDE_URL = "https://github.com/Stealthx3/romm-themeable/blob/main/themeable/docs/creating-a-theme-pack.md";
 // The longest display name a pack can have; Rename checks it in the browser too.
 export const PACK_NAME_MAX = 80;
+// The pack tag that earns the Accessibility label and its own group in Random's draw.
+export const ACCESSIBILITY_TAG = "accessibility";
 // How long the Branding preview for Random shows each pack.
 export const RANDOM_CYCLE_MS = 2000;
 export const STOCK_SWATCH = {
@@ -35,6 +37,7 @@ export const CLIENT = Object.freeze({
   random_cycle_ms: RANDOM_CYCLE_MS,
   pack_name_max: PACK_NAME_MAX,
   guide_url: GUIDE_URL,
+  accessibility_tag: ACCESSIBILITY_TAG,
   storage_key: STORAGE_KEY,
   cookie: COOKIE,
   url_param: URL_PARAM,

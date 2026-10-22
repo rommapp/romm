@@ -12,6 +12,7 @@ export interface ThemePack {
   source: "built-in" | "folder";
   /** How the pack is stored; folder packs in the themes folder can be converted. */
   format: "zip" | "folder";
+  tags: string[];
   swatch: string[];
   valid: boolean;
   errors: string[];
@@ -34,6 +35,8 @@ export interface ThemeableClient {
   pack_name_max: number;
   /** The "Creating a theme pack" guide on GitHub. */
   guide_url: string;
+  /** The tag that earns the Accessibility label and Random's accessibility group. */
+  accessibility_tag: string;
   storage_key: string;
   cookie: string;
   url_param: string;
@@ -58,8 +61,20 @@ export interface BrandingStatus {
   packs: ThemePack[];
   /** Built-in packs hidden by Delete; Restore built-in packs shows them again. */
   hidden: string[];
+  /** Random's groups and the ids they leave it to draw from. */
+  random: RandomPool | null;
   /** The largest pack upload the server accepts. */
   max_upload_bytes: number;
+}
+
+export interface RandomGroups {
+  stock: boolean;
+  built_in: boolean;
+  accessibility: boolean;
+}
+
+export interface RandomPool extends RandomGroups {
+  ids: string[];
 }
 
 /** Why an upload was refused with 422. */
@@ -94,8 +109,8 @@ async function rescanBranding() {
   return api.post<BrandingStatus>("/themeable/branding/rescan", {});
 }
 
-async function saveBranding(theme: string) {
-  return api.put<BrandingStatus>("/themeable/branding", { theme });
+async function saveBranding(theme: string, random?: RandomGroups) {
+  return api.put<BrandingStatus>("/themeable/branding", { theme, random });
 }
 
 async function convertPack(id: string) {

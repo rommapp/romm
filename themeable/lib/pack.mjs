@@ -8,6 +8,8 @@ import { SCOPES, isTokenName } from "./tokens.mjs";
 
 export const PACK_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
 export { PACK_NAME_MAX } from "./client.mjs";
+export const PACK_TAG = /^[a-z][a-z0-9-]{0,31}$/;
+export const PACK_TAGS_MAX = 8;
 const CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
 
 /** Why a display name can't be used, or null. */
@@ -94,6 +96,14 @@ export function validatePack({ files, pack }, catalog = {}) {
   }
   const nameProblem = badPackName(pack.name);
   if (nameProblem) err(nameProblem);
+  if (pack.tags !== undefined) {
+    const tags = pack.tags;
+    if (!Array.isArray(tags) || tags.length > PACK_TAGS_MAX || tags.some((t) => typeof t !== "string" || !PACK_TAG.test(t))) {
+      err(`tags: a list of up to ${PACK_TAGS_MAX} lowercase words (letters, digits, dashes)`);
+    } else if (new Set(tags).size !== tags.length) {
+      err("tags: each tag may appear once");
+    }
+  }
 
   const section = (key) => {
     if (pack[key] === undefined) return {};
@@ -299,6 +309,7 @@ export function compilePack({ files: packFiles, pack }, { cssReferences = {} } =
     css: `${base}/theme.css?v=${version}`,
     themeColor: pack.pwa?.themeColor ?? null,
     hasAssets: Object.keys(pack.assets ?? {}).length > 0,
+    tags: Array.isArray(pack.tags) ? [...pack.tags] : [],
   };
   return { css, files, rootFiles, meta, hash: version };
 }

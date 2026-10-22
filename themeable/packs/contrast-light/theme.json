@@ -4,7 +4,10 @@
   "name": "High Contrast Light",
   "version": "1.0.0",
   "author": "romm-themeable",
-  "description": "Accessibility: black on white with heavy borders, AAA contrast and no motion",
+  "description": "Black on white with heavy borders, AAA contrast and no motion",
+  "tags": [
+    "accessibility"
+  ],
   "tokens": {
     "common": {
       "--r-color-overlay-fg": "#ffffff",

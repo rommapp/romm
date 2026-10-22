@@ -4,7 +4,10 @@
   "name": "Signal",
   "version": "1.0.0",
   "author": "romm-themeable",
-  "description": "Accessibility: blue and orange states that never rely on red against green, AAA text and no motion",
+  "description": "Blue and orange states that never rely on red against green, AAA text and no motion",
+  "tags": [
+    "accessibility"
+  ],
   "tokens": {
     "common": {
       "--r-color-overlay-fg": "#ffffff",

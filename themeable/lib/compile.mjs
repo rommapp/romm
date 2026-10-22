@@ -1,7 +1,7 @@
 // Pack compilation shared by the image build, container start-up and Branding's Save changes.
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import { CLIENT, RANDOM_ID, STOCK_ID, STOCK_SWATCH } from "./client.mjs";
+import { ACCESSIBILITY_TAG, CLIENT, RANDOM_ID, STOCK_ID, STOCK_SWATCH } from "./client.mjs";
 import { applyAliases, compilePack, loadPack, validatePack, PACK_ID } from "./pack.mjs";
 import { findPacks, openPackFiles, ZIP_EXT } from "./packfiles.mjs";
 
@@ -53,20 +53,41 @@ export function collectPacks(sources) {
   return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// Which groups Random draws from until an admin changes them. Packs in the themes folder
+// without the accessibility tag are always in the draw.
+export const RANDOM_POOL_DEFAULTS = Object.freeze({ stock: false, built_in: true, accessibility: true });
+
+/** Random's groups from saved settings, each a boolean, with defaults for anything missing. */
+export function readRandomPool(value) {
+  const out = { ...RANDOM_POOL_DEFAULTS };
+  for (const key of Object.keys(RANDOM_POOL_DEFAULTS)) {
+    if (typeof value?.[key] === "boolean") out[key] = value[key];
+  }
+  return out;
+}
+
+/** Sort order for every pack list: accessibility packs, then built-ins, then the themes folder. */
+function packRank(source, tags) {
+  if (tags?.includes(ACCESSIBILITY_TAG)) return 0;
+  return source === "built-in" ? 1 : 2;
+}
+
 /**
- * Reads themeable.json: the server's theme and the built-in packs hidden by Delete. Anything
- * unreadable falls back to RomM's own look with nothing hidden.
+ * Reads themeable.json: the server's theme, the built-in packs hidden by Delete and Random's
+ * groups. Anything unreadable falls back to RomM's own look with nothing hidden.
  */
 export function readSelection(settingsFile) {
-  if (!settingsFile || !existsSync(settingsFile)) return { theme: STOCK_ID, hidden: [], note: null };
+  const fallback = { theme: STOCK_ID, hidden: [], random: readRandomPool(null) };
+  if (!settingsFile || !existsSync(settingsFile)) return { ...fallback, note: null };
   try {
     const saved = JSON.parse(readFileSync(settingsFile, "utf8"));
     const theme = saved?.theme;
     const hidden = Array.isArray(saved?.hidden) ? saved.hidden.filter((id) => typeof id === "string" && PACK_ID.test(id)) : [];
-    if (theme === STOCK_ID || (typeof theme === "string" && PACK_ID.test(theme))) return { theme, hidden, note: null };
-    return { theme: STOCK_ID, hidden, note: `${settingsFile} has no valid "theme"; using RomM's default look` };
+    const random = readRandomPool(saved?.random);
+    if (theme === STOCK_ID || (typeof theme === "string" && PACK_ID.test(theme))) return { theme, hidden, random, note: null };
+    return { theme: STOCK_ID, hidden, random, note: `${settingsFile} has no valid "theme"; using RomM's default look` };
   } catch (e) {
-    return { theme: STOCK_ID, hidden: [], note: `${settingsFile} could not be read (${e.message}); using RomM's default look` };
+    return { ...fallback, note: `${settingsFile} could not be read (${e.message}); using RomM's default look` };
   }
 }
 
@@ -80,7 +101,7 @@ function remember(status, c) {
  * `reuse` ({ key, dir, packs }) is the previous build: an archive whose stamp and compiler key
  * match is copied from `dir` instead of being opened again. The result's `cache` is the next `reuse.packs`.
  */
-export function compileAll({ entries, catalog, outDir, selected = STOCK_ID, loaderSource, pickerFile, reuse = null }) {
+export function compileAll({ entries, catalog, outDir, selected = STOCK_ID, randomPool = null, loaderSource, pickerFile, reuse = null }) {
   const compiled = [];
   const packs = [];
   const cache = {};
@@ -93,7 +114,7 @@ export function compileAll({ entries, catalog, outDir, selected = STOCK_ID, load
       packs.push(structuredClone(hit.status));
       if (hit.compiled) {
         cpSync(previousDir, themeDir, { recursive: true });
-        compiled.push(hit.compiled);
+        compiled.push({ ...hit.compiled, source: entry.source });
       }
       cache[entry.name] = hit;
       continue;
@@ -118,6 +139,7 @@ export function compileAll({ entries, catalog, outDir, selected = STOCK_ID, load
       version: text(pack?.version),
       source: entry.source,
       format: entry.format,
+      tags: Array.isArray(pack?.tags) ? pack.tags.filter((t) => typeof t === "string") : [],
       swatch: swatch(pack),
       valid: false,
       errors,
@@ -137,7 +159,7 @@ export function compileAll({ entries, catalog, outDir, selected = STOCK_ID, load
         status.errors.push(...checked.errors);
         status.warnings.push(...checked.warnings);
         if (!status.errors.length) {
-          c = { ...compilePack(loaded, catalog), swatch: status.swatch };
+          c = { ...compilePack(loaded, catalog), swatch: status.swatch, source: entry.source };
           write(join(themeDir, "theme.css"), c.css);
           for (const f of c.files) write(join(outDir, f.to), files.read(f.path));
           // Every pack's favicons, so Branding can preview them for packs that aren't selected.
@@ -155,11 +177,23 @@ export function compileAll({ entries, catalog, outDir, selected = STOCK_ID, load
     if (key) cache[entry.name] = { key, ...remember(status, c) };
   }
 
+  const byRank = (a, b) => packRank(a.source, a.tags) - packRank(b.source, b.tags) || a.id.localeCompare(b.id);
+  packs.sort(byRank);
+  compiled.sort((a, b) => byRank({ ...a.meta, source: a.source }, { ...b.meta, source: b.source }));
+
+  // The exact ids Random may draw, resolved once here so the loader, picker and Branding agree.
+  const pool = readRandomPool(randomPool);
+  const draw = compiled
+    .filter((c) => (c.meta.tags.includes(ACCESSIBILITY_TAG) ? pool.accessibility : c.source !== "built-in" || pool.built_in))
+    .map((c) => c.meta.id);
+  if (pool.stock) draw.unshift(STOCK_ID);
+  const random = { ...pool, ids: draw };
+
   let effective = selected;
   let reason = null;
   if (selected === RANDOM_ID) {
-    if (!compiled.length) {
-      reason = "Random has no usable packs to choose from, so RomM's default look is in use";
+    if (!draw.length) {
+      reason = "Random has nothing to draw from in the groups it includes, so RomM's default look is in use";
       effective = STOCK_ID;
     }
   } else if (selected !== STOCK_ID && !compiled.some((c) => c.meta.id === selected)) {
@@ -176,7 +210,7 @@ export function compileAll({ entries, catalog, outDir, selected = STOCK_ID, load
     packs.find((p) => p.id === effective)?.warnings.push(`favicons could not be copied, so RomM's own are used: ${e.message}`);
   }
 
-  const manifest = { default: effective, client: CLIENT, themes: compiled.map((c) => ({ ...c.meta, swatch: c.swatch })) };
+  const manifest = { default: effective, client: CLIENT, random, themes: compiled.map((c) => ({ ...c.meta, swatch: c.swatch, source: c.source })) };
   mkdirSync(join(outDir, "themes"), { recursive: true });
   writeFileSync(join(outDir, "themes", "index.json"), JSON.stringify(manifest, null, 2) + "\n");
 
@@ -186,5 +220,5 @@ export function compileAll({ entries, catalog, outDir, selected = STOCK_ID, load
   writeFileSync(join(outDir, "themeable", "loader.js"), loaderSource.replace("__THEMEABLE_MANIFEST__", embedded));
   copy(pickerFile, join(outDir, "themeable", "index.html"));
 
-  return { selected, effective, reason, packs, compiled, cache, client: CLIENT };
+  return { selected, effective, reason, packs, compiled, cache, random, client: CLIENT };
 }

@@ -78,11 +78,9 @@
     return known(manifest.default) ? manifest.default : STOCK;
   }
 
-  // One draw per page load, so artwork and colors always come from the same pack.
+  // One draw per page load from the ids the compiler resolved, so artwork and colors match.
   function draw(avoid) {
-    var ids = manifest.themes.map(function (t) {
-      return t.id;
-    });
+    var ids = manifest.random ? manifest.random.ids : [];
     var pool = ids.length > 1 ? ids.filter(function (id) {
       return id !== avoid;
     }) : ids;

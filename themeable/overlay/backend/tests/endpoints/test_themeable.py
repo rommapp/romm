@@ -158,6 +158,24 @@ def test_save_selects_random(client, access_token, themes):
     assert saved["theme"] == "random"
 
 
+def test_save_sets_randoms_groups(client, access_token, themes):
+    response = client.put(
+        "/api/themeable/branding",
+        json={"theme": "random", "random": {"stock": True, "built_in": False}},
+        headers=_auth(access_token),
+    )
+    body = response.json()
+    assert body["random"]["stock"] is True
+    assert body["random"]["built_in"] is False
+    assert body["random"]["ids"][0] == "none"
+    assert "neon" not in body["random"]["ids"]
+    assert "signal" in body["random"]["ids"]
+    saved = json.loads((themes / "themeable.json").read_text())
+    assert saved["random"] == {"stock": True, "built_in": False, "accessibility": True}
+    signal = next(p for p in body["packs"] if p["id"] == "signal")
+    assert signal["tags"] == ["accessibility"]
+
+
 def test_missing_theme_falls_back_to_the_stock_look(client, access_token):
     response = client.put(
         "/api/themeable/branding",

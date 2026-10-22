@@ -123,7 +123,17 @@ function acquireLock() {
 
 /** The one change this run makes, from the command line; with none it just recompiles. */
 function requestedOperation() {
-  if (args.select !== undefined) return { kind: "select", theme: String(args.select) };
+  if (args.select !== undefined) {
+    let random;
+    if (args["random-pool"] !== undefined) {
+      try {
+        random = JSON.parse(String(args["random-pool"]));
+      } catch {
+        throw new Refusal("--random-pool must be JSON");
+      }
+    }
+    return { kind: "select", theme: String(args.select), random };
+  }
   if (args.convert !== undefined) return { kind: "convert", id: String(args.convert) };
   if (args.install !== undefined) return { kind: "install", file: resolve(String(args.install)), replace: args.replace === true };
   if (args.rename !== undefined) {
@@ -146,12 +156,16 @@ function run() {
   if (saved.note) notes.push(saved.note);
   const operation = planOperation(requestedOperation(), { packsDir, builtInDir, pid: process.pid, catalog });
   cleanups.push(operation.cleanup);
-  const settings = operation.settings({ theme: saved.theme, hidden: saved.hidden });
+  const settings = operation.settings({ theme: saved.theme, hidden: saved.hidden, random: saved.random });
 
   // Changed settings are staged now (so an unwritable folder fails before any work) and only
   // replace themeable.json once their build is live, so a stopped compile changes nothing.
   let stagedSettings = null;
-  if (settings.theme !== saved.theme || settings.hidden.join() !== saved.hidden.join() || args.select !== undefined) {
+  const changed =
+    settings.theme !== saved.theme ||
+    settings.hidden.join() !== saved.hidden.join() ||
+    JSON.stringify(settings.random) !== JSON.stringify(saved.random);
+  if (changed || args.select !== undefined) {
     if (!existsSync(packsDir)) mkdirSync(packsDir, { recursive: true });
     stagedSettings = `${settingsFile}.${process.pid}.tmp`;
     writeFileSync(stagedSettings, JSON.stringify({ ...settings, updated: new Date().toISOString() }, null, 2) + "\n");
@@ -170,6 +184,7 @@ function run() {
     catalog,
     outDir: buildDir,
     selected: settings.theme,
+    randomPool: settings.random,
     loaderSource: readFileSync(join(home, "loader", "loader.js"), "utf8"),
     pickerFile: join(home, "picker", "index.html"),
     reuse: previousBuild(link),
@@ -202,6 +217,7 @@ function run() {
     client: CLIENT,
     notes,
     hidden: settings.hidden.filter((id) => findPacks(builtInDir).some((p) => p.id === id)),
+    random: result.random,
     folder: folderInfo(),
     packs: result.packs,
   };

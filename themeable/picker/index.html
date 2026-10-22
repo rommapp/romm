@@ -164,17 +164,21 @@
             client = manifest.client;
             var active = current();
             var grid = document.getElementById("themes");
-            var count = manifest.themes.length;
+            var count = manifest.random ? manifest.random.ids.length : 0;
             // Each pack's brand color, so the card hints at the whole draw.
             var random = {
               id: client.random_id,
               name: "Random",
               description: count
-                ? "A different theme on every page load, from " + count + (count === 1 ? " theme" : " themes")
+                ? "A different theme on every page load, from " + count + (count === 1 ? " choice" : " choices")
                 : "No themes are available to choose from",
-              swatch: manifest.themes.map(function (t) {
-                return t.swatch[1];
-              }),
+              swatch: manifest.themes
+                .filter(function (t) {
+                  return manifest.random.ids.indexOf(t.id) >= 0;
+                })
+                .map(function (t) {
+                  return t.swatch[1];
+                }),
               unavailable: !count,
             };
             var server =

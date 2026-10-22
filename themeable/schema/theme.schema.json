@@ -25,6 +25,13 @@
     "version": { "type": "string" },
     "author": { "type": "string" },
     "description": { "type": "string" },
+    "tags": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$" },
+      "description": "Short lowercase labels. \"accessibility\" shows an Accessibility label in Branding and puts the pack in Random's accessibility group."
+    },
     "tokens": {
       "type": "object",
       "description": "CSS custom properties from RomM's v2 tokens.css, per scope.",

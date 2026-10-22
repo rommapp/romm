@@ -173,7 +173,7 @@ test("an unreadable or invalid selection falls back to RomM's default look", asy
   const { readSelection } = await import("../lib/compile.mjs");
   const dir = mkdtempSync(join(tmpdir(), "themeable-sel-"));
   const file = join(dir, "themeable.json");
-  assert.deepEqual(readSelection(file), { theme: "none", hidden: [], note: null });
+  assert.deepEqual(readSelection(file), { theme: "none", hidden: [], random: { stock: false, built_in: true, accessibility: true }, note: null });
   writeFileSync(file, "garbage");
   assert.equal(readSelection(file).theme, "none");
   writeFileSync(file, JSON.stringify({ theme: "../etc" }));
@@ -420,7 +420,7 @@ function runLoader(manifest, { cookie = "", stored = null, search = "", seed = 1
 test("Random draws one usable pack per load, never the one this browser showed last", async () => {
   const { CLIENT, RANDOM_ID, STOCK_ID } = await import("../lib/client.mjs");
   const themes = ["aurora", "ember", "neon"].map((id) => ({ id, name: id, css: `/themes/${id}/theme.css` }));
-  const manifest = { default: RANDOM_ID, client: CLIENT, themes };
+  const manifest = { default: RANDOM_ID, client: CLIENT, themes, random: { ids: themes.map((t) => t.id) } };
   const counts = { aurora: 0, ember: 0, neon: 0 };
   for (let seed = 1; seed <= 300; seed++) {
     const r = runLoader(manifest, { cookie: `${CLIENT.cookie}=ember`, seed });
@@ -432,15 +432,15 @@ test("Random draws one usable pack per load, never the one this browser showed l
   assert.ok(counts.aurora > 120 && counts.neon > 120, `uneven draw: ${JSON.stringify(counts)}`);
   assert.deepEqual(runLoader(manifest, { seed: 7 }), runLoader(manifest, { seed: 7 }), "the same seed draws the same pack");
 
-  const one = { ...manifest, themes: themes.slice(1, 2) };
+  const one = { ...manifest, themes: themes.slice(1, 2), random: { ids: ["ember"] } };
   assert.equal(runLoader(one, { cookie: `${CLIENT.cookie}=ember` }).theme, "ember", "a single pack is drawn even if shown last");
-  assert.equal(runLoader({ ...manifest, themes: [] }, { stored: RANDOM_ID }).theme, STOCK_ID, "nothing to draw from means RomM's look");
+  assert.equal(runLoader({ ...manifest, themes: [], random: { ids: [] } }, { stored: RANDOM_ID }).theme, STOCK_ID, "nothing to draw from means RomM's look");
 });
 
 test("a browser can choose Random for itself, and a Random preview leaves the cookie alone", async () => {
   const { CLIENT, RANDOM_ID } = await import("../lib/client.mjs");
   const themes = ["aurora", "ember"].map((id) => ({ id, name: id, css: `/themes/${id}/theme.css` }));
-  const manifest = { default: "ember", client: CLIENT, themes };
+  const manifest = { default: "ember", client: CLIENT, themes, random: { ids: themes.map((t) => t.id) } };
   const chosen = runLoader(manifest, { search: `?${CLIENT.url_param}=${RANDOM_ID}`, cookie: `${CLIENT.cookie}=ember` });
   assert.equal(chosen.stored, RANDOM_ID);
   assert.equal(chosen.theme, "aurora");
@@ -471,7 +471,7 @@ test("Random as the server's theme compiles, and falls back to RomM's look with 
   assert.equal(withPacks.reason, null);
   const empty = compile([]);
   assert.equal(empty.effective, "none");
-  assert.match(empty.reason, /no usable packs/);
+  assert.match(empty.reason, /nothing to draw from/);
 });
 
 // Archives for the zip tests; `patch` swaps same-length bytes to forge what writeZip refuses to write.
@@ -859,7 +859,7 @@ test("accessibility packs keep every text color at 7:1 on their page", async () 
   const TEXT = ["fg", "fg-heading", "fg-secondary", "fg-muted", "fg-faint", "danger-fg", "warning-fg", "success", "danger", "warning", "info"];
   const packs = findPacks(join(here, "../packs"))
     .map((found) => JSON.parse(readFileSync(join(found.path, "theme.json"), "utf8")))
-    .filter((pack) => pack.description?.startsWith("Accessibility:"));
+    .filter((pack) => pack.tags?.includes("accessibility"));
   assert.ok(packs.length >= 3, "the accessibility packs are found");
   for (const pack of packs) {
     for (const mode of ["dark", "light"]) {
@@ -873,4 +873,56 @@ test("accessibility packs keep every text color at 7:1 on their page", async () 
       assert.ok(contrast(t["--r-color-focus"], t["--r-color-bg"]) >= 3, `${pack.id}: ${mode} focus ring needs 3:1`);
     }
   }
+});
+
+test("pack tags are validated, and the schema agrees with the validator", async () => {
+  const { PACK_TAGS_MAX } = await import("../lib/pack.mjs");
+  const check = (tags) => validatePack({ files: folderFiles(tmpdir()), pack: { id: "t", name: "T", tags } }).errors.join();
+  assert.equal(check(["accessibility", "retro"]), "");
+  for (const bad of ["accessibility", ["Bad Tag"], Array(PACK_TAGS_MAX + 1).fill(0).map((_, i) => `t${i}`), ["a", "a"]]) {
+    assert.match(check(bad), /tags/, JSON.stringify(bad));
+  }
+  const schema = JSON.parse(readFileSync(join(here, "../schema/theme.schema.json"), "utf8"));
+  assert.equal(schema.properties.tags.maxItems, PACK_TAGS_MAX);
+});
+
+test("packs are listed accessibility first, then built-ins, then the themes folder", async () => {
+  const folder = mkdtempSync(join(tmpdir(), "themeable-order-"));
+  zipBuiltIn("aurora", folder, { extra: {} });
+  const { renameSync } = await import("node:fs");
+  renameSync(join(folder, "aurora.zip"), join(folder, "aaa.zip"));
+  const { collectPacks, compileAll } = await import("../lib/compile.mjs");
+  const result = compileAll({
+    entries: collectPacks([{ dir: join(here, "../packs"), source: "built-in" }, { dir: folder, source: "folder" }]),
+    catalog: { aliases: {} },
+    outDir: mkdtempSync(join(tmpdir(), "themeable-out-")),
+    loaderSource: readFileSync(join(here, "../loader/loader.js"), "utf8"),
+    pickerFile: join(here, "../picker/index.html"),
+  });
+  const order = result.packs.map((p) => p.id);
+  assert.deepEqual(order.slice(0, 3), ["contrast-dark", "contrast-light", "signal"]);
+  assert.equal(order.at(-1), "aaa", "a themes-folder pack comes after every built-in, whatever its name");
+  assert.deepEqual(result.compiled.map((c) => c.meta.id), order.filter((id) => id !== "aaa"), "the manifest follows the same order");
+});
+
+test("Random draws only from the groups Branding includes", async () => {
+  const { collectPacks, compileAll, RANDOM_POOL_DEFAULTS } = await import("../lib/compile.mjs");
+  const run = (randomPool) =>
+    compileAll({
+      entries: collectPacks([{ dir: join(here, "../packs"), source: "built-in" }]),
+      catalog: { aliases: {} },
+      outDir: mkdtempSync(join(tmpdir(), "themeable-out-")),
+      selected: "random",
+      randomPool,
+      loaderSource: readFileSync(join(here, "../loader/loader.js"), "utf8"),
+      pickerFile: join(here, "../picker/index.html"),
+    });
+  const all = run(RANDOM_POOL_DEFAULTS).random.ids;
+  assert.ok(all.includes("neon") && all.includes("signal") && !all.includes("none"));
+  assert.deepEqual(run({ stock: true, built_in: false, accessibility: true }).random.ids, ["none", "contrast-dark", "contrast-light", "signal"]);
+  assert.ok(!run({ accessibility: false }).random.ids.includes("signal"));
+  const none = run({ stock: false, built_in: false, accessibility: false });
+  assert.deepEqual(none.random.ids, []);
+  assert.equal(none.effective, "none");
+  assert.match(none.reason, /nothing to draw from/);
 });

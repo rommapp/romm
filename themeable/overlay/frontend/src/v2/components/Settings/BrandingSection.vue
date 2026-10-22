@@ -48,8 +48,10 @@ const {
 // Ids, storage key and stock swatch come from the compiled status, so they match the loader's.
 const client = computed(() => status.value?.client ?? null);
 const stockId = computed(() => client.value?.stock_id ?? "");
-const usablePacks = computed(() =>
-  (status.value?.packs ?? []).filter((p) => p.valid),
+// Random's draw as the compiler resolved it, so this list matches what visitors get.
+const drawIds = computed(() => status.value?.random?.ids ?? []);
+const drawPacks = computed(() =>
+  (status.value?.packs ?? []).filter((p) => drawIds.value.includes(p.id)),
 );
 const selected = ref<string>("");
 const rescanning = ref(false);
@@ -67,16 +69,16 @@ const options = computed<Option[]>(() => [
   {
     id: client.value?.random_id ?? "",
     name: t("branding.random-name"),
-    description: usablePacks.value.length
-      ? t("branding.random-description", usablePacks.value.length)
+    description: drawIds.value.length
+      ? t("branding.random-description", drawIds.value.length)
       : "",
     author: "",
     version: "",
     source: "draw",
     // Each pack's brand color, the middle of its swatch.
-    swatch: usablePacks.value.flatMap((p) => p.swatch.slice(1, 2)),
-    valid: usablePacks.value.length > 0,
-    errors: usablePacks.value.length ? [] : [t("branding.random-unavailable")],
+    swatch: drawPacks.value.flatMap((p) => p.swatch.slice(1, 2)),
+    valid: drawIds.value.length > 0,
+    errors: drawIds.value.length ? [] : [t("branding.random-unavailable")],
     warnings: [],
   },
   {
@@ -416,7 +418,7 @@ function reloadPage(): void {
               <BrandingRandomArtwork
                 v-if="option.source === 'draw'"
                 class="r-v2-branding__artwork"
-                :packs="usablePacks"
+                :packs="drawPacks"
                 :client="client"
               />
               <BrandingArtwork

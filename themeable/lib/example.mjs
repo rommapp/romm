@@ -52,6 +52,7 @@ export function buildExample({ tokenCatalog, assetCatalog, vuetify, themeColor }
     version: "1.0.0",
     author: "romm-themeable",
     description: "Every option, with each token at its stock value and each replaceable file listed",
+    tags: ["example"],
     tokens,
     vuetify,
     assets,

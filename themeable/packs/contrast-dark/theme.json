@@ -4,7 +4,10 @@
   "name": "High Contrast Dark",
   "version": "1.0.0",
   "author": "romm-themeable",
-  "description": "Accessibility: white on pure black with yellow focus rings, AAA contrast and no motion",
+  "description": "White on pure black with yellow focus rings, AAA contrast and no motion",
+  "tags": [
+    "accessibility"
+  ],
   "tokens": {
     "common": {
       "--r-color-overlay-fg": "#ffffff",

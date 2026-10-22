@@ -4,6 +4,7 @@
 import { copyFileSync, existsSync, mkdirSync, renameSync, rmSync, unlinkSync } from "node:fs";
 import { basename, join } from "node:path";
 import { RANDOM_ID, STOCK_ID } from "./client.mjs";
+import { RANDOM_POOL_DEFAULTS } from "./compile.mjs";
 import { applyAliases, badPackName, loadPack, PACK_ID, RESERVED_IDS, validatePack } from "./pack.mjs";
 import { CONVERTED_DIR, findPacks, rewriteZipPack, zipFiles, zipFolderPack, ZIP_EXT } from "./packfiles.mjs";
 
@@ -84,7 +85,13 @@ export function planOperation(op, { packsDir, builtInDir, pid, catalog }) {
       if (theme !== STOCK_ID && theme !== RANDOM_ID && (!PACK_ID.test(theme) || RESERVED_IDS.has(theme))) {
         throw new Refusal(`"${theme}" is not a valid theme id`);
       }
-      return { ...base, settings: (s) => ({ ...s, theme }) };
+      if (op.random !== undefined) {
+        const keys = Object.keys(RANDOM_POOL_DEFAULTS);
+        if (!op.random || typeof op.random !== "object" || Object.entries(op.random).some(([k, v]) => !keys.includes(k) || typeof v !== "boolean")) {
+          throw new Refusal(`Random's groups must be true or false for ${keys.join(", ")}`);
+        }
+      }
+      return { ...base, settings: (s) => ({ ...s, theme, random: { ...s.random, ...(op.random ?? {}) } }) };
     }
 
     case "convert": {

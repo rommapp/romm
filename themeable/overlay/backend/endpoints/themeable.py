@@ -58,6 +58,7 @@ class ThemePackSchema(BaseModel):
     version: str
     source: str  # "built-in" or "folder"
     format: str = "folder"  # "zip" or "folder"
+    tags: list[str] = []
     swatch: list[str]
     valid: bool
     errors: list[str]
@@ -79,6 +80,7 @@ class ThemeableClientSchema(BaseModel):
     random_cycle_ms: int
     pack_name_max: int
     guide_url: str
+    accessibility_tag: str
     storage_key: str
     cookie: str
     url_param: str
@@ -86,6 +88,20 @@ class ThemeableClientSchema(BaseModel):
     theme_attribute: str
     stock_swatch: list[str]
     preview: dict[str, str] = {}
+
+
+class RandomPoolSchema(BaseModel):
+    # Which groups Random draws from, and the ids that leaves it.
+    stock: bool
+    built_in: bool
+    accessibility: bool
+    ids: list[str] = []
+
+
+class RandomPoolPayload(BaseModel):
+    stock: bool | None = None
+    built_in: bool | None = None
+    accessibility: bool | None = None
 
 
 class BrandingStatusSchema(BaseModel):
@@ -99,11 +115,13 @@ class BrandingStatusSchema(BaseModel):
     folder: ThemeFolderSchema | None = None
     packs: list[ThemePackSchema] = []
     hidden: list[str] = []
+    random: RandomPoolSchema | None = None
     max_upload_bytes: int = MAX_UPLOAD_BYTES
 
 
 class BrandingSelectionPayload(BaseModel):
     theme: str
+    random: RandomPoolPayload | None = None
 
 
 class PackRenamePayload(BaseModel):
@@ -257,7 +275,8 @@ async def save_branding(
     Args:
         request (Request): FastAPI Request object.
         payload (BrandingSelectionPayload): Pack id to use, "random" for a pack drawn on
-            each page load, or "none" for RomM's default look.
+            each page load, or "none" for RomM's default look, and optionally which
+            groups Random draws from.
 
     Returns:
         BrandingStatusSchema: Status after recompiling.
@@ -268,7 +287,13 @@ async def save_branding(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Invalid theme id",
         )
-    result = await _run_compiler(["--select", payload.theme])
+    options = ["--select", payload.theme]
+    if payload.random is not None:
+        options += [
+            "--random-pool",
+            json.dumps(payload.random.model_dump(exclude_none=True)),
+        ]
+    result = await _run_compiler(options)
     log.info(
         f"themeable: {request.user.username} set the server theme to {payload.theme}"
     )
