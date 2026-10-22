@@ -1,5 +1,6 @@
 import contextlib
 import logging
+import sys
 from typing import Any, Final
 
 import rq.scheduler
@@ -40,6 +41,19 @@ class RomMWorker(Worker):
         # added here is the only one that logger inherits.
         _silence_periodic_noise(logging.getLogger(rq.scheduler.__name__))
         self.push_exc_handler(report_task_failure)
+
+    def perform_job(self, job: Job, queue: Any) -> bool:
+        try:
+            return super().perform_job(job, queue)
+        finally:
+            # RQ exits the work horse with os._exit, bypassing pool finalizers.
+            # Jobs that never loaded the ORM do not need database cleanup.
+            database = sys.modules.get("handler.database.base_handler")
+            if database is not None:
+                try:
+                    database.sync_engine.dispose()
+                except Exception:
+                    self.log.exception("Could not close the work horse database pool")
 
     def handle_work_horse_killed(
         self, job: Job, retpid: int, ret_val: int, rusage: Any

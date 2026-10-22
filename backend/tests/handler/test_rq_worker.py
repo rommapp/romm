@@ -1,6 +1,8 @@
 import logging
+import sys
 from collections.abc import Iterator
 from dataclasses import replace
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -73,6 +75,75 @@ def test_worker_reports_failed_tasks() -> None:
     worker = RomMWorker(["default"], connection=FakeRedis(version=7))
 
     assert report_task_failure in worker._exc_handlers
+
+
+@pytest.mark.parametrize("result", [True, False])
+def test_job_disposes_database_pool_before_returning(mocker, monkeypatch, result):
+    engine = MagicMock()
+    monkeypatch.setitem(
+        sys.modules,
+        "handler.database.base_handler",
+        SimpleNamespace(sync_engine=engine),
+    )
+    perform = mocker.patch("rq.Worker.perform_job", return_value=result)
+    worker = RomMWorker(["default"], connection=FakeRedis(version=7))
+    job, queue = MagicMock(), MagicMock()
+
+    assert worker.perform_job(job, queue) is result
+
+    perform.assert_called_once_with(job, queue)
+    engine.dispose.assert_called_once_with()
+
+
+def test_job_disposes_database_pool_when_perform_raises(mocker, monkeypatch):
+    engine = MagicMock()
+    monkeypatch.setitem(
+        sys.modules,
+        "handler.database.base_handler",
+        SimpleNamespace(sync_engine=engine),
+    )
+    error = RuntimeError("job failed")
+    mocker.patch("rq.Worker.perform_job", side_effect=error)
+    worker = RomMWorker(["default"], connection=FakeRedis(version=7))
+
+    with pytest.raises(RuntimeError) as caught:
+        worker.perform_job(MagicMock(), MagicMock())
+
+    assert caught.value is error
+    engine.dispose.assert_called_once_with()
+
+
+def test_job_without_database_does_not_import_it(mocker, monkeypatch):
+    monkeypatch.delitem(sys.modules, "handler.database.base_handler", raising=False)
+    mocker.patch("rq.Worker.perform_job", return_value=True)
+    worker = RomMWorker(["default"], connection=FakeRedis(version=7))
+
+    assert worker.perform_job(MagicMock(), MagicMock()) is True
+
+    assert "handler.database.base_handler" not in sys.modules
+
+
+@pytest.mark.parametrize("job_error", [None, RuntimeError("job failed")])
+def test_cleanup_failure_does_not_replace_job_outcome(mocker, monkeypatch, job_error):
+    engine = MagicMock()
+    engine.dispose.side_effect = RuntimeError("cleanup failed")
+    monkeypatch.setitem(
+        sys.modules,
+        "handler.database.base_handler",
+        SimpleNamespace(sync_engine=engine),
+    )
+    mocker.patch("rq.Worker.perform_job", return_value=True, side_effect=job_error)
+    worker = RomMWorker(["default"], connection=FakeRedis(version=7))
+    log = mocker.patch.object(worker.log, "exception")
+
+    if job_error is None:
+        assert worker.perform_job(MagicMock(), MagicMock()) is True
+    else:
+        with pytest.raises(RuntimeError) as caught:
+            worker.perform_job(MagicMock(), MagicMock())
+        assert caught.value is job_error
+
+    log.assert_called_once_with("Could not close the work horse database pool")
 
 
 def test_a_killed_horse_is_reported_like_a_dead_worker(mocker) -> None:
