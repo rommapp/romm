@@ -18,6 +18,7 @@ from handler.filesystem.base_handler import (
 from logger.logger import log
 from models.rom import RomFile
 from utils import get_version
+from utils.arcade_platforms import ARCADE_SET_PLATFORMS, arcade_fallbacks
 from utils.context import ctx_httpx_client
 from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
@@ -1630,4 +1631,10 @@ HASHEOUS_PLATFORM_LIST: dict[UPS, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
+}
+# Hasheous's Arcade carries RetroAchievements' Arcade, which only hashes MAME
+# and FinalBurn sets.
+HASHEOUS_PLATFORM_LIST |= {
+    slug: platform if slug in ARCADE_SET_PLATFORMS else {**platform, "ra_id": None}
+    for slug, platform in arcade_fallbacks(HASHEOUS_PLATFORM_LIST).items()
 }

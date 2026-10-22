@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { Config } from "@/stores/config";
 import type { Heartbeat } from "@/stores/heartbeat";
 import {
+  getSupportedEJSCores,
+  isArcadeSystem,
   isEasyRpgEmulationSupported,
   isEasyRpgGame,
   isJsDosBundle,
@@ -160,5 +162,29 @@ describe("EasyRPG support", () => {
     expect(isEasyRpgGame(romFixture({ is_easyrpg_game: true }))).toBe(true);
     expect(isEasyRpgGame(romFixture({ is_easyrpg_game: false }))).toBe(false);
     expect(isEasyRpgGame(null)).toBe(false);
+  });
+});
+
+describe("arcade platforms", () => {
+  it("offers each emulator family the cores that run its sets", () => {
+    expect(getSupportedEJSCores("mame")).toEqual(["mame2003_plus", "mame2003"]);
+    expect(getSupportedEJSCores("fbneo")).toEqual(["fbneo"]);
+    expect(getSupportedEJSCores("fba")).toEqual([
+      "fbneo",
+      "fbalpha2012_cps1",
+      "fbalpha2012_cps2",
+    ]);
+    expect(getSupportedEJSCores("arcade")).toContain("fbneo");
+  });
+
+  it("offers no core for a board EmulatorJS can't run", () => {
+    expect(getSupportedEJSCores("naomi")).toEqual([]);
+    expect(getSupportedEJSCores("mame-advmame")).toEqual([]);
+  });
+
+  it("treats every arcade board as arcade hardware", () => {
+    expect(isArcadeSystem("naomi")).toBe(true);
+    expect(isArcadeSystem("model2")).toBe(true);
+    expect(isArcadeSystem("snes")).toBe(false);
   });
 });

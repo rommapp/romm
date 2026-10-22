@@ -1,6 +1,7 @@
 """Tests for the libretro thumbnails metadata handler."""
 
 import hashlib
+import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -8,6 +9,7 @@ import pytest
 from adapters.services.libretro_thumbnails import LibretroThumbnailsService
 from adapters.services.libretro_thumbnails_types import LibretroArtType
 from config.config_manager import MetadataMediaType
+from handler.metadata.base_handler import MAME_XML_KEY
 from handler.metadata.libretro_handler import (
     LIBRETRO_PLATFORM_LIST,
     LibretroHandler,
@@ -24,6 +26,11 @@ PSX_LISTING = [
     "Final Fantasy VII (Europe).png",
     "Metal Gear Solid (USA).png",
     "Sonic _ Knuckles Collection (USA).png",
+]
+
+NAOMI_LISTING = [
+    "Marvel Vs. Capcom 2_ New Age of Heroes (Export, Korea, Rev A).png",
+    "mvsc2.png",
 ]
 
 
@@ -80,45 +87,41 @@ def test_platform_list_uses_ups_keys():
 # ---------------------------------------------------------------------------
 
 
-def test_find_matching_art_exact_case_insensitive(handler: LibretroHandler):
+def test_match_art_name_exact_case_insensitive(handler: LibretroHandler):
     # The match should prefer the exact case-insensitive filename (region tag
     # included), so a PAL ROM lands on the (Europe) artwork.
-    result = handler._find_matching_art(
-        "Castlevania - Symphony of the Night (Europe).iso", PSX_LISTING
+    result = handler._match_art_name(
+        "Castlevania - Symphony of the Night (Europe)", PSX_LISTING
     )
     assert result == "Castlevania - Symphony of the Night (Europe).png"
 
 
-def test_find_matching_art_different_case(handler: LibretroHandler):
-    result = handler._find_matching_art(
-        "CASTLEVANIA - SYMPHONY OF THE NIGHT (USA).bin", PSX_LISTING
+def test_match_art_name_different_case(handler: LibretroHandler):
+    result = handler._match_art_name(
+        "CASTLEVANIA - SYMPHONY OF THE NIGHT (USA)", PSX_LISTING
     )
     assert result == "Castlevania - Symphony of the Night (USA).png"
 
 
-def test_find_matching_art_ampersand_normalized(handler: LibretroHandler):
+def test_match_art_name_ampersand_normalized(handler: LibretroHandler):
     # Libretro filenames replace `&` with `_`; ROM filename uses `&`.
-    result = handler._find_matching_art(
-        "Sonic & Knuckles Collection (USA).iso", PSX_LISTING
-    )
+    result = handler._match_art_name("Sonic & Knuckles Collection (USA)", PSX_LISTING)
     assert result == "Sonic _ Knuckles Collection (USA).png"
 
 
-def test_find_matching_art_fuzzy_fallback(handler: LibretroHandler):
+def test_match_art_name_fuzzy_fallback(handler: LibretroHandler):
     # No exact match, since the ROM has an extra `(Rev 1)` tag that libretro doesn't
     # index. Fuzzy fallback strips tags from both sides; the Europe variant
     # is the first tag-stripped candidate and wins.
-    result = handler._find_matching_art(
-        "Castlevania - Symphony of the Night (Europe) (Rev 1).iso", PSX_LISTING
+    result = handler._match_art_name(
+        "Castlevania - Symphony of the Night (Europe) (Rev 1)", PSX_LISTING
     )
     assert result is not None
     assert result.startswith("Castlevania - Symphony of the Night")
 
 
-def test_find_matching_art_no_match(handler: LibretroHandler):
-    result = handler._find_matching_art(
-        "Completely Made Up Game Title XYZ.iso", PSX_LISTING
-    )
+def test_match_art_name_no_match(handler: LibretroHandler):
+    result = handler._match_art_name("Completely Made Up Game Title XYZ", PSX_LISTING)
     assert result is None
 
 
@@ -236,6 +239,51 @@ def test_libretro_id_for_distinguishes_regions():
     assert libretro_id_for(
         "Castlevania - Symphony of the Night (USA).png"
     ) != libretro_id_for("Castlevania - Symphony of the Night (Europe).png")
+
+
+@pytest.mark.asyncio
+async def test_get_rom_matches_a_mame_shortname_by_its_full_title(
+    handler: LibretroHandler,
+):
+    entry = {
+        "description": "Marvel Vs. Capcom 2: New Age of Heroes (Export, Korea, Rev A)"
+    }
+    with (
+        patch.object(
+            handler.service, "fetch_listing", AsyncMock(return_value=NAOMI_LISTING)
+        ),
+        patch(
+            "handler.metadata.libretro_handler.get_preferred_media_types",
+            return_value=[],
+        ),
+        patch(
+            "handler.metadata.base_handler.async_cache.hget",
+            AsyncMock(return_value=json.dumps(entry)),
+        ) as mock_hget,
+    ):
+        result = await handler.get_rom("mvsc2.zip", "naomi")
+
+    mock_hget.assert_awaited_once_with(MAME_XML_KEY, "mvsc2")
+    assert result["libretro_id"] == libretro_id_for(NAOMI_LISTING[0])
+
+
+@pytest.mark.asyncio
+async def test_get_rom_skips_the_mame_lookup_off_arcade(handler: LibretroHandler):
+    with (
+        patch.object(
+            handler.service, "fetch_listing", AsyncMock(return_value=PSX_LISTING)
+        ),
+        patch(
+            "handler.metadata.libretro_handler.get_preferred_media_types",
+            return_value=[],
+        ),
+        patch(
+            "handler.metadata.base_handler.async_cache.hget", AsyncMock()
+        ) as mock_hget,
+    ):
+        await handler.get_rom("Final Fantasy VII (USA).bin", "psx")
+
+    mock_hget.assert_not_awaited()
 
 
 @pytest.mark.asyncio

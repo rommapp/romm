@@ -18,6 +18,7 @@ from config import (
 from handler.filesystem import fs_resource_handler
 from logger.logger import log
 from models.rom import Rom
+from utils.arcade_platforms import ARCADE_SET_PLATFORMS, arcade_fallbacks
 from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
@@ -516,6 +517,5 @@ RA_PLATFORM_LIST: dict[UPS, SlugToRAId] = {
     UPS.WONDERSWAN: {"id": 53, "name": "WonderSwan"},
     UPS.WONDERSWAN_COLOR: {"id": 53, "name": "WonderSwan Color"},
 }
-
-# Reverse lookup
-RA_ID_TO_SLUG = {v["id"]: k for k, v in RA_PLATFORM_LIST.items()}
+# RetroAchievements hashes only MAME and FinalBurn sets, by filename.
+RA_PLATFORM_LIST |= arcade_fallbacks(RA_PLATFORM_LIST, ARCADE_SET_PLATFORMS)

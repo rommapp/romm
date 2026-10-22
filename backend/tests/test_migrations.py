@@ -1123,6 +1123,43 @@ def test_the_sibling_platform_names_revision_renames_only_the_stale_name():
     }
 
 
+def test_the_retired_arcade_slugs_revision_moves_boards_to_arcade_and_back():
+    migration = _load_migration("0154_retired_arcade_slugs.py")
+    for slug, fs_slug in (
+        ("cps2", "cps2"),
+        ("CPS3", "CPS3"),
+        ("system16", "sega16"),
+        ("arcade", "arcade"),
+        ("snes", "snes"),
+    ):
+        make_platform(slug, fs_slug=fs_slug)
+
+    def slugs(connection: sa.Connection) -> set[tuple[str, str]]:
+        return set(connection.execute(sa.text("SELECT fs_slug, slug FROM platforms")))
+
+    with sync_engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+            upgraded = slugs(connection)
+            migration.downgrade()
+            downgraded = slugs(connection)
+
+    assert upgraded == {
+        ("cps2", "arcade"),
+        ("CPS3", "arcade"),
+        ("sega16", "arcade"),
+        ("arcade", "arcade"),
+        ("snes", "snes"),
+    }
+    assert downgraded == {
+        ("cps2", "cps2"),
+        ("CPS3", "cps3"),
+        ("sega16", "arcade"),
+        ("arcade", "arcade"),
+        ("snes", "snes"),
+    }
+
+
 _GROUPS = sa.table(
     "permission_groups",
     sa.column("id", sa.Integer),

@@ -1,6 +1,7 @@
 from typing import NotRequired, TypedDict
 
 from config import TGDB_API_ENABLED
+from utils.arcade_platforms import arcade_fallbacks
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import MetadataHandler
@@ -2265,3 +2266,4 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
         "url_logo": None,
     },
 }
+TGDB_PLATFORM_LIST |= arcade_fallbacks(TGDB_PLATFORM_LIST)

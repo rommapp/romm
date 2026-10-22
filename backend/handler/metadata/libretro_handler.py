@@ -9,11 +9,14 @@ from adapters.services.libretro_thumbnails_types import LibretroArtType
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from logger.logger import log
+from utils.arcade_platforms import MAME_SHORTNAME_PLATFORMS
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-from .base_handler import MetadataHandler
+from .base_handler import MetadataHandler, mame_title
 
 _PAREN_TAG_PATTERN = re.compile(r"\([^)]*\)")
+# Characters libretro replaces with `_` in its art filenames.
+_UNSAFE_NAME_CHARS = re.compile(r'[&*/:`<>?\\|"]')
 
 # Only fetched when the user has the corresponding MetadataMediaType in SCAN_MEDIA
 _GATED_ART_TYPES: list[tuple[LibretroArtType, MetadataMediaType]] = [
@@ -121,10 +124,8 @@ class LibretroHandler(MetadataHandler):
             return None
         return stripped_to_original[match]
 
-    def _find_matching_art(self, fs_name: str, listing: list[str]) -> str | None:
-        # Libretro's filename convention replaces '&' with '_'.
-        cleaned = fs_name.replace("&", "_")
-        target = _remove_file_extension(cleaned)
+    def _match_art_name(self, name: str, listing: list[str]) -> str | None:
+        target = _UNSAFE_NAME_CHARS.sub("_", name)
 
         exact = self._find_exact_match(target, listing)
         if exact:
@@ -159,7 +160,12 @@ class LibretroHandler(MetadataHandler):
         if not box_listing:
             return LibretroRom(libretro_id=None)
 
-        matched = self._find_matching_art(fs_name, box_listing)
+        art_name = _remove_file_extension(fs_name)
+        # Libretro names arcade art by MAME's full title, not the set's shortname.
+        if platform_slug in MAME_SHORTNAME_PLATFORMS:
+            art_name = await mame_title(art_name) or art_name
+
+        matched = self._match_art_name(art_name, box_listing)
         if not matched:
             return LibretroRom(libretro_id=None)
 
@@ -171,7 +177,7 @@ class LibretroHandler(MetadataHandler):
         for art_type, listing in zip(extra_art_types, listings[1:], strict=False):
             if not listing:
                 continue
-            extra = self._find_matching_art(fs_name, listing)
+            extra = self._match_art_name(art_name, listing)
             if extra:
                 url_screenshots.append(
                     LibretroThumbnailsService.build_art_url(
@@ -193,6 +199,7 @@ LIBRETRO_PLATFORM_LIST: Final[dict[UPS, str]] = {
     UPS.AMIGA: "Commodore - Amiga",
     UPS.AMIGA_CD32: "Commodore - Amiga",
     UPS.ACPC: "Amstrad - CPC",
+    UPS.ATOMISWAVE: "Atomiswave",
     UPS.ATARI2600: "Atari - 2600",
     UPS.ATARI5200: "Atari - 5200",
     UPS.ATARI7800: "Atari - 7800",
@@ -207,7 +214,10 @@ LIBRETRO_PLATFORM_LIST: Final[dict[UPS, str]] = {
     UPS.DOOM: "DOOM",
     UPS.DOS: "DOS",
     UPS.FAIRCHILD_CHANNEL_F: "Fairchild - Channel F",
+    UPS.FBNEO: "FBNeo - Arcade Games",
     UPS.VECTREX: "GCE - Vectrex",
+    UPS.MAME: "MAME",
+    UPS.MAME_ADVMAME: "MAME",
     UPS.ODYSSEY_2: "Magnavox - Odyssey2",
     UPS.INTELLIVISION: "Mattel - Intellivision",
     UPS.MSX: "Microsoft - MSX",
@@ -247,6 +257,8 @@ LIBRETRO_PLATFORM_LIST: Final[dict[UPS, str]] = {
     UPS.SEGACD: "Sega - Mega-CD - Sega CD",
     UPS.SMS: "Sega - Master System - Mark III",
     UPS.SG1000: "Sega - SG-1000",
+    UPS.NAOMI: "Sega - Naomi",
+    UPS.NAOMI2: "Sega - Naomi 2",
     UPS.SATURN: "Sega - Saturn",
     UPS.X1: "Sharp - X1",
     UPS.SHARP_X68000: "Sharp - X68000",

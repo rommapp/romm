@@ -4808,6 +4808,13 @@ def _igdb_family(slug: UPS) -> PlatformFamily:
     )
 
 
+# IGDB platform versions whose IGDB slug differs from RomM's.
+IGDB_PLATFORM_VERSIONS |= {
+    UPS.HIKARU: IGDB_PLATFORM_VERSIONS["sega-hikaru"],
+    UPS.NAOMI2: IGDB_PLATFORM_VERSIONS["naomi-2"],
+    UPS.STV: IGDB_PLATFORM_VERSIONS["sega-titan-video"],
+}
+
 # Platforms IGDB doesn't list, mapped to an IGDB platform they share a family
 # and category with.
 IGDB_SIBLING_PLATFORMS: dict[UPS, UPS] = {
@@ -4843,23 +4850,11 @@ IGDB_SIBLING_PLATFORMS: dict[UPS, UPS] = {
     UPS.WATCHOS: UPS.IOS,
     UPS.TELSTAR_ARCADE: UPS.COLECOVISION,
     UPS.CASIO_PV_1000: UPS.CASIO_LOOPY,
-    UPS.MODEL1: UPS.ARCADE,
-    UPS.MODEL2: UPS.ARCADE,
-    UPS.MODEL3: UPS.ARCADE,
-    UPS.SYSTEM16: UPS.ARCADE,
-    UPS.SYSTEM32: UPS.ARCADE,
-    UPS.STV: UPS.ARCADE,
-    UPS.HIKARU: UPS.ARCADE,
-    UPS.CPS1: UPS.ARCADE,
-    UPS.CPS2: UPS.ARCADE,
-    UPS.CPS3: UPS.ARCADE,
-    UPS.TYPE_X: UPS.ARCADE,
     UPS.TAITO_X_55: UPS.ARCADE,
 }
 
 
 # Families IGDB doesn't list, or that no IGDB platform of the same category has.
-_CAPCOM_FAMILY = PlatformFamily(family_name="Capcom", family_slug="capcom")
 _TAITO_FAMILY = PlatformFamily(family_name="Taito", family_slug="taito")
 _TEXAS_INSTRUMENTS_FAMILY = PlatformFamily(
     family_name="Texas Instruments", family_slug="texas-instruments"
@@ -4881,19 +4876,19 @@ _MOS_TECHNOLOGY_FAMILY = PlatformFamily(
     family_name="MOS Technology", family_slug="mos-technology"
 )
 
-# Platforms IGDB doesn't list, mapped to their family. Overrides a sibling's.
+# Platforms IGDB lists under no platform of their own, mapped to their family.
+# Overrides the family of a sibling or of the platform IGDB files them under.
 IGDB_PLATFORM_FAMILIES: dict[UPS, PlatformFamily] = {
-    UPS.MODEL1: _igdb_family(UPS.DC),
     UPS.MODEL2: _igdb_family(UPS.DC),
     UPS.MODEL3: _igdb_family(UPS.DC),
-    UPS.SYSTEM16: _igdb_family(UPS.DC),
-    UPS.SYSTEM32: _igdb_family(UPS.DC),
     UPS.STV: _igdb_family(UPS.DC),
     UPS.HIKARU: _igdb_family(UPS.DC),
+    UPS.NAOMI: _igdb_family(UPS.DC),
+    UPS.NAOMI2: _igdb_family(UPS.DC),
+    UPS.NAOMIGD: _igdb_family(UPS.DC),
+    UPS.CHIHIRO: _igdb_family(UPS.DC),
+    UPS.LINDBERGH: _igdb_family(UPS.DC),
     UPS.SC3000: _igdb_family(UPS.DC),
-    UPS.CPS1: _CAPCOM_FAMILY,
-    UPS.CPS2: _CAPCOM_FAMILY,
-    UPS.CPS3: _CAPCOM_FAMILY,
     UPS.TYPE_X: _TAITO_FAMILY,
     UPS.TAITO_X_55: _TAITO_FAMILY,
     UPS.ZUNE: _igdb_family(UPS.WIN),

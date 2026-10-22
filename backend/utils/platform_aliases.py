@@ -30,7 +30,6 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
     "atarilynx": UPS.LYNX,
     "atarist": UPS.ATARI_ST,
     "atarixe": UPS.ATARI_XEGS,
-    "atomiswave": UPS.ARCADE,
     "bbc": UPS.BBCMICRO,
     "c20": UPS.VIC_20,
     "camplynx": UPS.CAMPUTERS_LYNX,
@@ -42,13 +41,14 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
     "consolearcade": UPS.ARCADE,
     "cplus4": UPS.C_PLUS_4,
     "cps": UPS.ARCADE,
+    "cps1": UPS.ARCADE,
+    "cps2": UPS.ARCADE,
+    "cps3": UPS.ARCADE,
     "crvision": UPS.CREATIVISION,
     "dragon32": UPS.DRAGON_32_SLASH_64,
     "dreamcast": UPS.DC,
     "easyrpg": UPS.RPG_MAKER,
     "electron": UPS.ACORN_ELECTRON,
-    "fba": UPS.ARCADE,
-    "fbneo": UPS.ARCADE,
     "flash": UPS.BROWSER,
     "fm7": UPS.FM_7,
     "fmtowns": UPS.FM_TOWNS,
@@ -64,11 +64,9 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
     "gx4000": UPS.AMSTRAD_GX4000,
     "gzdoom": UPS.DOOM,
     "jaguarcd": UPS.ATARI_JAGUAR_CD,
+    "laserdisc": UPS.DAPHNE,
     "lcdgames": UPS.HANDHELD_ELECTRONIC_LCD,
-    "lindbergh": UPS.MODEL2,
     "macintosh": UPS.MAC,
-    "mame": UPS.ARCADE,
-    "mame-advmame": UPS.ARCADE,
     "mark3": UPS.SMS,
     "mastersystem": UPS.SMS,
     "megacd": UPS.SEGACD,
@@ -77,6 +75,7 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
     "megadrive-msu": UPS.GENESIS,
     "megadrivejp": UPS.GENESIS,
     "megaduck": UPS.MEGA_DUCK_SLASH_COUGAR_BOY,
+    "model1": UPS.ARCADE,
     "msu-md": UPS.GENESIS,
     "msx1": UPS.MSX,
     "msx2+": UPS.MSX2PLUS,
@@ -88,10 +87,6 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
     "n3ds": UPS.N3DS,
     "n64dd": UPS.N64DD,
     "namco22": UPS.ARCADE,
-    "namco2x6": UPS.ARCADE,
-    "naomi": UPS.ARCADE,
-    "naomi2": UPS.ARCADE,
-    "naomigd": UPS.ARCADE,
     "neogeo": UPS.NEOGEOAES,
     "neogeocd": UPS.NEO_GEO_CD,
     "ngp": UPS.NEO_GEO_POCKET,
@@ -125,12 +120,15 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
     "snes-msu1": UPS.SNES,
     "sufami": UPS.SUFAMI_TURBO,
     "supracan": UPS.SUPER_ACAN,
+    "system-32": UPS.ARCADE,
+    "system16": UPS.ARCADE,
+    "system32": UPS.ARCADE,
     "tg-cd": UPS.TURBOGRAFX_CD,
     "thomson": UPS.THOMSON_MO5,
     "ti99": UPS.TI_99,
     "tic80": UPS.TIC_80,
-    "triforce": UPS.ARCADE,
     "tutor": UPS.TOMY_TUTOR,
+    "typex": UPS.TYPE_X,
     "vc4000": UPS.VC_4000,
     "vic20": UPS.VIC_20,
     "videopac": UPS.VIDEOPAC_G7400,
@@ -167,16 +165,20 @@ def _unambiguous_folders() -> dict[str, str]:
 PLATFORM_SLUG_FOLDERS: Final[dict[str, str]] = _unambiguous_folders()
 
 
+def _to_slug(name: str) -> str:
+    key = name.lower()
+    if key in UPS:
+        return key
+    alias = PLATFORM_FS_ALIASES.get(key)
+    return alias.value if alias else name
+
+
 def resolve_platform_slug(fs_slug: str, config: Config) -> str:
     """Resolve a platform folder name to a RomM platform slug."""
     key = fs_slug.lower()
     bound = config.PLATFORMS_BINDING.get(key) or config.PLATFORMS_VERSIONS.get(key)
-    if bound:
-        return bound
-    if key in UPS:
-        return key
-    alias = PLATFORM_FS_ALIASES.get(key)
-    return alias.value if alias else fs_slug
+    # A bound name resolves like a folder name, so it may be an alias too.
+    return _to_slug(bound or fs_slug)
 
 
 def resolve_fs_slug(slug: str, config: Config) -> str | None:
@@ -188,7 +190,7 @@ def resolve_fs_slug(slug: str, config: Config) -> str | None:
     """
     for mapping in (config.PLATFORMS_BINDING, config.PLATFORMS_VERSIONS):
         for fs_slug, bound in mapping.items():
-            if bound == slug:
+            if _to_slug(bound) == slug:
                 return fs_slug
     return PLATFORM_SLUG_FOLDERS.get(slug)
 
