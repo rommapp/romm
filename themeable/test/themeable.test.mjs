@@ -841,3 +841,36 @@ test("every built-in wordmark has a color that reads on its dark and its light p
     }
   }
 });
+
+test("built-in packs keep their brand color readable under white button text", async () => {
+  const { findPacks } = await import("../lib/packfiles.mjs");
+  for (const found of findPacks(join(here, "../packs"))) {
+    const pack = JSON.parse(readFileSync(join(found.path, "theme.json"), "utf8"));
+    for (const scope of ["common", "dark", "light"]) {
+      const brand = pack.tokens?.[scope]?.["--r-color-brand-primary"];
+      if (!brand?.startsWith("#")) continue;
+      assert.ok(contrast(brand, "#ffffff") >= 3, `${pack.id}: white on ${scope} brand ${brand} is ${contrast(brand, "#ffffff").toFixed(1)}:1; buttons need 3:1`);
+    }
+  }
+});
+
+test("accessibility packs keep every text color at 7:1 on their page", async () => {
+  const { findPacks } = await import("../lib/packfiles.mjs");
+  const TEXT = ["fg", "fg-heading", "fg-secondary", "fg-muted", "fg-faint", "danger-fg", "warning-fg", "success", "danger", "warning", "info"];
+  const packs = findPacks(join(here, "../packs"))
+    .map((found) => JSON.parse(readFileSync(join(found.path, "theme.json"), "utf8")))
+    .filter((pack) => pack.description?.startsWith("Accessibility:"));
+  assert.ok(packs.length >= 3, "the accessibility packs are found");
+  for (const pack of packs) {
+    for (const mode of ["dark", "light"]) {
+      const t = { ...pack.tokens.common, ...pack.tokens[mode] };
+      for (const role of TEXT) {
+        const color = t[`--r-color-${role}`];
+        assert.ok(color, `${pack.id}: ${mode} sets --r-color-${role}`);
+        const ratio = contrast(color, t["--r-color-bg"]);
+        assert.ok(ratio >= 7, `${pack.id}: ${mode} --r-color-${role} ${color} is ${ratio.toFixed(1)}:1 on ${t["--r-color-bg"]}`);
+      }
+      assert.ok(contrast(t["--r-color-focus"], t["--r-color-bg"]) >= 3, `${pack.id}: ${mode} focus ring needs 3:1`);
+    }
+  }
+});

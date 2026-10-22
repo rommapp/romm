@@ -1,0 +1,139 @@
+{
+  "$schema": "../../schema/theme.schema.json",
+  "id": "contrast-dark",
+  "name": "High Contrast Dark",
+  "version": "1.0.0",
+  "author": "romm-themeable",
+  "description": "Accessibility: white on pure black with yellow focus rings, AAA contrast and no motion",
+  "tokens": {
+    "common": {
+      "--r-color-overlay-fg": "#ffffff",
+      "--r-color-overlay-fg-secondary": "#ebebeb",
+      "--r-color-overlay-fg-muted": "#cccccc",
+      "--r-color-overlay-border": "rgba(255, 255, 255, 0.45)",
+      "--r-color-overlay-border-strong": "#ffffff",
+      "--r-color-canvas-bg-deep": "#000000",
+      "--r-focus-ring-width": "3px",
+      "--r-focus-ring-offset": "3px"
+    },
+    "dark": {
+      "--r-color-bg": "#000000",
+      "--r-color-fg": "#ffffff",
+      "--r-color-fg-heading": "#ffffff",
+      "--r-color-fg-secondary": "#ebebeb",
+      "--r-color-fg-muted": "#d4d4d4",
+      "--r-color-fg-faint": "#b3b3b3",
+      "--r-color-border": "#8f8f8f",
+      "--r-color-border-strong": "#ffffff",
+      "--r-color-panel-border": "#8f8f8f",
+      "--r-color-tooltip-border": "#ffffff",
+      "--r-color-focus": "#ffd400",
+      "--r-color-brand-primary": "#1f5fe0",
+      "--r-color-brand-primary-hover": "#2f6ef0",
+      "--r-color-brand-primary-pressed": "#184bb8",
+      "--r-color-brand-secondary": "#a8c1ff",
+      "--r-color-brand-accent": "#ffd400",
+      "--r-color-success": "#4ade80",
+      "--r-color-danger": "#ff7a7a",
+      "--r-color-danger-fg": "#ff9e9e",
+      "--r-color-warning": "#ffd400",
+      "--r-color-warning-fg": "#ffe066",
+      "--r-color-info": "#8ec5ff",
+      "--r-color-bg-elevated": "#0d0d0d",
+      "--r-color-surface": "#161616",
+      "--r-color-surface-hover": "#2b2b2b",
+      "--r-color-panel": "#0a0a0a",
+      "--r-color-tooltip-bg": "#000000",
+      "--r-color-toast-bg": "#000000",
+      "--r-color-fg-faint-hard": "#333333",
+      "--r-color-cover-placeholder": "#1c1c1c",
+      "--r-color-cover-placeholder-bright": "#2a2a2a",
+      "--r-color-title-shadow": "rgba(0, 0, 0, 0.8)",
+      "--r-color-switch-knob-on": "#000000",
+      "--r-color-auth-glass": "rgba(0, 0, 0, 0.92)"
+    },
+    "light": {
+      "--r-color-bg": "#000000",
+      "--r-color-fg": "#ffffff",
+      "--r-color-fg-heading": "#ffffff",
+      "--r-color-fg-secondary": "#ebebeb",
+      "--r-color-fg-muted": "#d4d4d4",
+      "--r-color-fg-faint": "#b3b3b3",
+      "--r-color-border": "#8f8f8f",
+      "--r-color-border-strong": "#ffffff",
+      "--r-color-panel-border": "#8f8f8f",
+      "--r-color-tooltip-border": "#ffffff",
+      "--r-color-focus": "#ffd400",
+      "--r-color-brand-primary": "#1f5fe0",
+      "--r-color-brand-primary-hover": "#2f6ef0",
+      "--r-color-brand-primary-pressed": "#184bb8",
+      "--r-color-brand-secondary": "#a8c1ff",
+      "--r-color-brand-accent": "#ffd400",
+      "--r-color-success": "#4ade80",
+      "--r-color-danger": "#ff7a7a",
+      "--r-color-danger-fg": "#ff9e9e",
+      "--r-color-warning": "#ffd400",
+      "--r-color-warning-fg": "#ffe066",
+      "--r-color-info": "#8ec5ff",
+      "--r-color-bg-elevated": "#0d0d0d",
+      "--r-color-surface": "#161616",
+      "--r-color-surface-hover": "#2b2b2b",
+      "--r-color-panel": "#0a0a0a",
+      "--r-color-tooltip-bg": "#000000",
+      "--r-color-toast-bg": "#000000",
+      "--r-color-fg-faint-hard": "#333333",
+      "--r-color-cover-placeholder": "#1c1c1c",
+      "--r-color-cover-placeholder-bright": "#2a2a2a",
+      "--r-color-title-shadow": "rgba(0, 0, 0, 0.8)",
+      "--r-color-switch-knob-on": "#000000",
+      "--r-color-auth-glass": "rgba(0, 0, 0, 0.92)"
+    },
+    "input-key": {
+      "--r-focus-ring-width": "3.5px"
+    },
+    "input-pad": {
+      "--r-focus-ring-width": "4.5px"
+    }
+  },
+  "vuetify": {
+    "dark": {
+      "primary": "#1f5fe0",
+      "secondary": "#a8c1ff",
+      "background": "#000000",
+      "surface": "#121212",
+      "error": "#ff7a7a",
+      "success": "#4ade80",
+      "warning": "#ffd400",
+      "info": "#8ec5ff"
+    },
+    "light": {
+      "primary": "#1f5fe0",
+      "secondary": "#a8c1ff",
+      "background": "#000000",
+      "surface": "#121212",
+      "error": "#ff7a7a",
+      "success": "#4ade80",
+      "warning": "#ffd400",
+      "info": "#8ec5ff"
+    }
+  },
+  "assets": {
+    "/assets/isotipo.svg": "assets/isotipo.svg",
+    "/assets/logotipo.svg": "assets/logotipo.svg",
+    "/assets/logos/romm_logo_xbox_one_circle_grayscale.svg": "assets/isotipo.svg",
+    "/assets/auth_background.svg": "assets/auth_background.svg",
+    "/assets/auth_background_static.svg": "assets/auth_background.svg"
+  },
+  "rootFiles": {
+    "/favicon.ico": "root/favicon.ico",
+    "/favicon.svg": "root/favicon.svg",
+    "/favicon-16x16.png": "root/favicon-16x16.png",
+    "/favicon-32x32.png": "root/favicon-32x32.png",
+    "/apple-touch-icon.png": "root/apple-touch-icon.png",
+    "/android-chrome-192x192.png": "root/android-chrome-192x192.png",
+    "/android-chrome-512x512.png": "root/android-chrome-512x512.png"
+  },
+  "pwa": {
+    "themeColor": "#000000"
+  }
+}
