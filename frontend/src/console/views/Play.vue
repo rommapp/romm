@@ -35,14 +35,12 @@ import {
 import { firmwareExternalFiles } from "@/v2/utils/playerFirmware";
 import { leaveFullscreen } from "@/v2/utils/playerFullscreen";
 import {
-  buildStateFormData,
-  resolveScreenshot,
-} from "@/views/Player/EmulatorJS/utils";
-import {
   bootEmulatorJSSave,
+  buildStateFormData,
   installEJSDefaultOptionsTrap,
   invalidateEmulatorJSRomCacheIfRenamed,
-} from "@/views/Player/EmulatorJS/utils";
+  resolveScreenshot,
+} from "@/v2/views/Player/ejsRuntime";
 
 const { t } = useI18n();
 const createPlayerStorage = (romId: number, platformSlug: string) => ({

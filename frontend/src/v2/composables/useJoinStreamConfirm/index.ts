@@ -6,6 +6,7 @@
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { playerPath } from "@/v2/utils/playerPath";
 
 export interface JoinStreamTarget {
   romId: number;
@@ -40,7 +41,7 @@ export async function confirmJoinStream(
   if (!ok) return;
   const query = new URLSearchParams({ join: "1" });
   if (target.container) query.set("container", target.container);
-  void router.push(`/rom/${target.romId}/stream?${query}`);
+  void router.push(`${playerPath(target.romId, "stream")}?${query}`);
 }
 
 export function useJoinStreamConfirm() {

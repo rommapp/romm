@@ -114,6 +114,7 @@ from models.platform import Platform
 from models.rom import Rom, RomFile, SaveTargetLayout
 from models.user import Role, User
 from utils.memory_cards import content_hash_of_bytes
+from utils.uploads import apply_datetime_tag
 from utils.zip_cache import ensure_zipfile_writable
 
 # ── Fixtures / helpers ────────────────────────────────────────────────────────
@@ -6440,7 +6441,7 @@ def test_a_retroarch_exit_files_its_one_save_raw_and_its_state_apart(
     assert stored.slot == AUTOSAVE_SLOT
     assert re.fullmatch(
         re.escape(rom.fs_name_no_ext)
-        + r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]\.srm",
+        + r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-\d{3}\]\.srm",
         stored.file_name,
     )
     write.assert_awaited_once()
@@ -6519,7 +6520,7 @@ def test_a_raw_exit_save_prunes_only_its_own_cores_autosave_versions(
 
 def test_a_raw_exit_save_skips_a_version_name_already_taken(rom: Rom, admin_user: User):
     now = datetime(2026, 10, 7, 12, 0, 0)
-    taken = asset_store.apply_datetime_tag(f"{rom.fs_name_no_ext}.srm", now)
+    taken = apply_datetime_tag(f"{rom.fs_name_no_ext}.srm", now)
     saves_path = fs_asset_handler.build_saves_file_path(
         user=admin_user,
         platform_fs_slug=rom.platform.fs_slug,
@@ -6539,7 +6540,7 @@ def test_a_raw_exit_save_skips_a_version_name_already_taken(rom: Rom, admin_user
         write, _store_state = _pull_exit(rom, admin_user, content)
 
     written = write.call_args.kwargs["filename"]
-    assert written == asset_store.apply_datetime_tag(
+    assert written == apply_datetime_tag(
         f"{rom.fs_name_no_ext}.srm", now + timedelta(seconds=1)
     )
 

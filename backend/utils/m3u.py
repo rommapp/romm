@@ -83,6 +83,15 @@ def first_playlist_entry(m3u_path: Path) -> Path | None:
     return next((path for path in entries[0] if path.is_file()), None)
 
 
+def playlist_discs(m3u_path: Path) -> list[Path]:
+    """Every disc file a playlist lists, in its order, skipping entries not on disk."""
+    return [
+        disc
+        for candidates in _playlist_entries(m3u_path) or []
+        if (disc := next((path for path in candidates if path.is_file()), None))
+    ]
+
+
 def _path_key(path: Path) -> str:
     # Only the folders resolve: promotion moves a symlinked disc, not its target.
     return os.path.normcase(str(path.parent.resolve() / path.name)).casefold()

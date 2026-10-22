@@ -19,9 +19,12 @@ import storePlaying from "@/stores/playing";
 import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getSupportedEJSCores } from "@/utils";
+import Player from "@/v2/views/Player/EmulatorJSPlayer.vue";
+import {
+  exitEmulatorOnce,
+  installIOSFullscreenShim,
+} from "@/v2/views/Player/ejsRuntime";
 import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
-import Player from "@/views/Player/EmulatorJS/Player.vue";
-import { exitEmulatorOnce, installIOSFullscreenShim } from "./utils";
 
 const { t } = useI18n();
 const { xs, mdAndUp, smAndDown } = useDisplay();

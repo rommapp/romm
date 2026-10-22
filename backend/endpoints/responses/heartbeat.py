@@ -72,6 +72,13 @@ class ConvertoDict(TypedDict):
     ENABLED: bool
 
 
+class SaveSyncDict(TypedDict):
+    # True when the server speaks /api/snapshots and /api/channels.
+    SNAPSHOTS: bool
+    SNAPSHOT_RETENTION: int
+    SNAPSHOT_BRANCH_LIFETIME_DAYS: int
+
+
 class TasksDict(TypedDict):
     ENABLE_SCHEDULED_RESCAN: bool
     SCHEDULED_RESCAN_CRON: str
@@ -93,6 +100,7 @@ class HeartbeatResponse(TypedDict):
     NOTIFICATIONS: NotificationsDict
     DEVICE_INSTALL: DeviceInstallDict
     CONVERTO: ConvertoDict
+    SAVE_SYNC: SaveSyncDict
     TASKS: TasksDict
 
 
