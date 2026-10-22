@@ -33,6 +33,7 @@ export type ConfigResponse = {
     EJS_DEFAULT_CORES: Record<string, string>;
     EJS_SETTINGS: Record<string, Record<string, string>>;
     EJS_CONTROLS: Record<string, EjsControls>;
+    EJS_SHADERS: Record<string, string>;
     SCAN_METADATA_PRIORITY: Array<string>;
     SCAN_ARTWORK_PRIORITY: Array<string>;
     SCAN_ARTWORK_PRIORITY_OVERRIDES: Record<string, Array<string>>;

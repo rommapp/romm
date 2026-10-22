@@ -39,6 +39,10 @@ import {
   resolveScreenshot,
 } from "@/views/Player/EmulatorJS/utils";
 import {
+  clearEmulatorJSShaders,
+  setEmulatorJSShaders,
+} from "@/v2/utils/playerShaders";
+import {
   bootEmulatorJSSave,
   installEJSDefaultOptionsTrap,
   invalidateEmulatorJSRomCacheIfRenamed,
@@ -522,6 +526,7 @@ async function boot() {
   window.EJS_disableAutoUnload = EJS_DISABLE_AUTO_UNLOAD;
   window.EJS_disableBatchBootup = EJS_DISABLE_BATCH_BOOTUP;
   if (EJS_CACHE_LIMIT !== null) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
+  setEmulatorJSShaders(configStore.config.EJS_SHADERS);
 
   // Set a valid game name (affects per-game settings keys)
   window.EJS_gameName = rom.fs_name_no_tags
@@ -757,6 +762,7 @@ onBeforeRouteLeave(leaveFullscreen);
 
 onBeforeUnmount(() => {
   window.EJS_emulator?.callEvent?.("exit");
+  clearEmulatorJSShaders();
   detachKey?.();
   detachPad?.();
 });

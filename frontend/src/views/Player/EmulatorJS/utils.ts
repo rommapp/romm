@@ -20,6 +20,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import { type DetailedRom } from "@/stores/roms";
 import { buildFormInput } from "@/utils/formData";
 import { keepArcadeBiosWhole } from "@/v2/utils/playerFirmware";
+import { patchEmulatorJSShadersFs } from "@/v2/utils/playerShaders";
 import { bytesEqual, saveContentHash } from "@/v2/utils/saveSync/hash";
 
 /** Tears the emulator down once, however many owners ask. */
@@ -614,6 +615,7 @@ export function installEJSDefaultOptionsTrap() {
       keepArcadeBiosWhole(value);
       applyOnlyEnabledCheats(value);
       skipDiskSelectionBeforeStart(value);
+      patchEmulatorJSShadersFs(value);
     },
   });
 }
