@@ -4,7 +4,7 @@ Release versioning for this downstream fork should operate as follows:
 
 `<+1 for each RomM release>.<+1 for each feature update>.<+1 for any bugfix or optimization updates>-<RomM Version>`
 
-A theme and artwork module for [RomM](https://github.com/rommapp/romm). Theme packs restyle RomM's interface: colors for light and dark mode, fonts, spacing, corner radius, motion, the logo and wordmark, login backgrounds, placeholder art, platform and provider icons, browser tab icons, and any extra CSS a pack brings. Packs are `.zip` archives in a folder on the host, and admins choose the server's theme in **Administration → Branding**.
+A theme and artwork module for [RomM](https://github.com/rommapp/romm). Theme packs restyle RomM's interface: colors for light and dark mode, fonts, spacing, corner radius, motion, the logo and wordmark, login backgrounds, placeholder covers for games without one, platform and provider icons, browser tab icons, and any extra CSS a pack brings. Packs are `.zip` archives in a folder on the host, and admins choose the server's theme in **Administration → Branding**.
 
 The module sits beside RomM's code instead of inside it. Everything it owns lives in this `themeable/` folder, plus the `themeable*` workflows in `.github/workflows/`, the root `README.md`, which on this branch describes romm-themeable, the root `CLAUDE.md`, and the root `docker-compose.yml`, which on this branch deploys romm-themeable. Each stock RomM release is merged in, checked and rebuilt automatically, so adopting a new release needs an audit, not a code merge.
 
@@ -51,7 +51,7 @@ docker build -f themeable/docker/Dockerfile --build-arg ROMM_VERSION=5.4.0 -t ro
 
 ## Choosing a theme
 
-**Administration → Branding** (admins only) starts with **Upload a theme pack**, then lists every theme: **Random** first, then **RomM default**, then the built-in themes and the packs in the themes folder, ten per page. Each entry shows:
+**Administration → Branding** (admins only) starts with **Upload a theme pack**, then lists every theme: **Random** first, then **RomM default**, the accessibility themes, the other built-in themes and the packs in the themes folder, ten per page. Each entry shows:
 
 - its name, description, color swatch and source (RomM, built-in, or themes folder);
 - **Rename** and **Delete** for a pack in the themes folder, **Delete** for a built-in pack, and for a folder pack **Folder pack: convert to .zip** with a **Convert** button, all described below;
@@ -116,7 +116,7 @@ The image starts from the stock `rommapp/romm:<version>` image and adds four hoo
 
 1. **A loader in `index.html`.** One `<script src="/themeable/loader.js">` runs before the app renders. It picks the theme (a preview in the URL, then this browser's own choice, then the server's theme), draws a pack if that choice is Random, sets `data-romm-theme` on `<html>`, adds the pack's stylesheet and sets the `romm_theme` cookie that tells nginx which artwork to serve. A preview tab leaves that cookie alone and names its theme on each artwork URL instead, so other tabs are unaffected. RomM's service worker precaches `index.html` by MD5 revision, so the hook updates that revision in `sw.js` too.
 2. **nginx.** The `/assets` location tries `/themes/<theme>/<path>` before the stock file, where the theme comes from a `romm_theme` URL argument if present, otherwise from the cookie, and only valid ids are accepted. Browser tab icons come from the pack (or stock look) a `romm_theme` argument names, which is how Branding previews them, otherwise from the cookie, so they match the theme each visitor sees, and from the server's theme for a request with neither. Both rules are anchored rewrites of upstream's template that fail the build if it changes shape.
-3. **Branding inside RomM.** New files in `overlay/` (the Branding tab, its API client and text, and an admin-only backend router under `/api/themeable/`) are added to RomM's source, and the anchored edits in `patches/` register the tab in `Administration.vue` and the router in `main.py`. The image build rebuilds the frontend with them and patches the release image's backend. Upstream files in this repository are never edited; an overlay file that would replace one, or a patch whose anchor has moved, fails the build with a clear message.
+3. **Branding inside RomM.** New files in `overlay/` (the Branding tab, its API client and text, and an admin-only backend router under `/api/themeable/`) are added to RomM's source, and the anchored edits in `patches/` register the tab in `Administration.vue` and the router in `main.py`, and make RomM's placeholder-cover generator (`utils/covers.ts`) read the theme's cover colors and art. The image build rebuilds the frontend with them and patches the release image's backend. Upstream files in this repository are never edited; an overlay file that would replace one, or a patch whose anchor has moved, fails the build with a clear message.
 4. **A start-up compile.** The entrypoint runs `scripts/runtime.mjs` before RomM's own. It validates and compiles the built-in packs and the themes folder's packs into a new build under the runtime folder, then switches to it in one rename, so nginx never serves a half-written theme. Packs are read straight out of their archives by `lib/zip.mjs`, which checks the archive's size, entry count, compression ratio and paths before inflating anything; an archive whose size, modification time and inode are unchanged since the last compile is copied from the previous build instead of being read again. Saving in Branding runs the same script through the backend. A lock file keeps compiles from overlapping, and a save that takes too long is stopped and changes nothing.
 
 Each compiled `theme.css` scopes its rules under `:root[data-romm-theme="<id>"]`, which outranks RomM's own token rules whatever order the stylesheets load in, and wraps a pack's custom CSS the same way. Vite inlines small artwork referenced from CSS, such as the login background, into the app bundle as `data:` URIs that never reach nginx, so the catalog records every such rule and the compiler emits a matching rule pointing at the pack's file.
@@ -205,10 +205,10 @@ Known limits:
 | --- | --- | --- |
 | v2 changes quickly | Tokens are added and renamed between releases | Catalog diff, aliases and the compatibility check on every release |
 | Custom CSS targets component classes | It can stop matching after a release | Documented as unchecked; tokens are preferred wherever they reach |
-| Colors baked in JavaScript | Generated placeholder covers and the player canvas ignore themes | Accepted for now |
+| Colors baked in JavaScript | The player canvas ignores themes; placeholder covers are themed through the cover patch | Accepted for now |
 | Build-time platform list | Packs can replace platform icons but not add platforms RomM lacks | Replacement only |
 | Per-browser choice | A visitor's own pick doesn't follow them to other devices | The server's theme covers everyone who hasn't picked one |
-| Patched RomM files | A release that reshapes `Administration.vue` or the router list in `main.py` stops a patch applying | The compatibility check, source check and image build fail with the patch's name, and the adoption stays open |
+| Patched RomM files | A release that reshapes `Administration.vue`, the router list in `main.py` or the cover generator in `utils/covers.ts` stops a patch applying | The compatibility check, source check and image build fail with the patch's name, and the adoption stays open |
 | Frontend rebuilt from this branch | The image's interface is built from this branch's copy of RomM's source | Each release is merged before building, and the checks compare the two |
 | Preview of CSS-only artwork | In a preview tab, backgrounds from RomM's own stylesheets that the previewed pack doesn't replace follow the visitor's theme | Affects that tab only |
 | Visual check scope | It covers logged-out screens | The source check and unit tests cover the rest |
@@ -240,5 +240,5 @@ Ideas that would build naturally on what exists, roughly in order of value:
 - **Translations.** Carry the Branding tab's text into every RomM locale, ideally through a mechanism that doesn't edit upstream locale files.
 - **Themed app manifest.** Give installed web apps the theme's colors and icons through the web app manifest, not just the page.
 - **Pack metadata.** A minimum RomM version, a homepage and a license field per pack, shown in Branding, as groundwork for a shared gallery of community packs.
-- **Theming JavaScript-baked colors.** A small patch so generated placeholder covers and the player canvas read tokens instead of fixed values.
+- **Theming the player canvas.** A small patch so the player canvas reads tokens instead of fixed colors, as the placeholder covers now do.
 - **Release publishing.** Have the release workflow also create the matching GitHub release, with notes generated from the adoption report.

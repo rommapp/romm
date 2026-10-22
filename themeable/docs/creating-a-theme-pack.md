@@ -75,13 +75,15 @@ Zipping the files themselves, so `theme.json` is at the root of the archive, wor
 
 ## theme.json reference
 
-[`theme.example.json`](theme.example.json) sets every option below: each token at its stock value, the v1 palette, every replaceable file, every favicon, a font, the browser color and custom CSS. Copy the parts you want into your own `theme.json` and delete the rest; the file paths in it show where each replacement would go in your pack, but the files themselves aren't included. It is regenerated for every RomM release, so it always matches the current one.
+[`theme.example.json`](theme.example.json) sets every option below: each token at its stock value, the v1 palette, every replaceable file, every favicon, a font, tags, placeholder covers, the browser color and custom CSS. Copy the parts you want into your own `theme.json` and delete the rest; the file paths in it show where each replacement would go in your pack, but the files themselves aren't included. It is regenerated for every RomM release, so it always matches the current one.
 
 | Key | Required | What it does |
 | --- | --- | --- |
 | `id` | yes | Lowercase letters, digits and dashes, up to 64 characters, matching the archive's file name without `.zip`. `none`, `default`, `random`, `index` and `stock` are reserved. |
-| `name` | yes | Shown in Branding and the theme picker. |
+| `name` | yes | Shown in Branding and the theme picker; up to 80 characters. Administrators can change it later with **Rename** in Branding. |
 | `description`, `author`, `version` | no | Shown in Branding and the theme picker. |
+| `tags` | no | Up to 8 lowercase words, see [Tags and the Accessibility label](#tags-and-the-accessibility-label). |
+| `covers` | no | Placeholder covers for games without one, see [Placeholder covers](#placeholder-covers). |
 | `tokens` | no | Design-token overrides, see [Colors, spacing and fonts](#colors-spacing-and-fonts). |
 | `assets` | no | Replacement artwork, see [Artwork](#artwork). |
 | `rootFiles` | no | Favicons and app icons, see [Favicons](#favicons). |
@@ -149,6 +151,27 @@ Artwork follows each visitor's theme: two people using different themes see diff
 
 `rootFiles` replaces the browser-tab icons. Allowed keys are `/favicon.ico`, `/favicon.svg`, `/favicon-16x16.png`, `/favicon-32x32.png`, `/apple-touch-icon.png`, `/android-chrome-192x192.png`, `/android-chrome-512x512.png` and `/safari-pinned-tab.svg`. They follow each visitor's theme, like the rest of the artwork; a browser that hasn't loaded a RomM page yet gets the server's theme's icons. Browsers cache favicons aggressively, so a change can take a while to show.
 
+## Placeholder covers
+
+When a game has no cover, RomM draws one: a backdrop with two shapes placed by the game's name and an icon, a grid for an identified game ("missing") and a question mark for an unidentified one ("unmatched"). `covers` themes that art in either of two ways, or both:
+
+```json
+"covers": {
+  "colors": { "base": "#2a0845", "shade": "#0a0316", "warm": "#e0259f", "icon": "#3ce8ff" },
+  "missing": ["covers/missing-1.svg", "covers/missing-2.svg", "covers/missing-3.svg"],
+  "unmatched": ["covers/unmatched-1.svg", "covers/unmatched-2.svg"]
+}
+```
+
+- `colors` redraws RomM's art in your colors: `base` is the backdrop, `shade` and `warm` the two shapes, `icon` the icon. Leave any out to keep RomM's.
+- `missing` and `unmatched` replace the art with your own images, up to 8 of each (`.svg`, `.png`, `.webp` or `.jpg`; 600 by 800 pixels, or that shape, works best). Each game always gets the same one, picked from its name, so a library mixes them instead of repeating one tile. RomM paints the game's title over the middle, darkened slightly, so keep important detail away from the center.
+
+Branding previews the first `missing` image at the end of each pack's artwork, or a sketch in your `colors` when there is none. Every built-in pack ships its own covers, which make good starting points.
+
+## Tags and the Accessibility label
+
+`tags` is a list of up to 8 short lowercase words (letters, digits and dashes), such as `["accessibility", "retro"]`. Branding gives a pack tagged `accessibility` a colored **Accessibility** label, lists it with the accessibility themes near the top, and puts it in Random's accessibility group, which administrators can include in or leave out of Random's draw. Use the tag only for a pack built for accessibility, such as the built-in `contrast-dark`, `contrast-light` and `signal`; see [Readable colors](#readable-colors) for what they meet. Other tags are kept with the pack for now.
+
 ## Fonts
 
 ```json
@@ -210,7 +233,8 @@ When packs compile, each one is validated, and problems show in Branding with th
 - the `id` format, and that it matches the archive's file name;
 - every token name exists in this RomM release, and values contain no unsafe characters;
 - every replaced file exists in the pack, sits inside the pack and keeps the original's extension; files under `/assets/emulatorjs`, `/assets/ruffle` and other player or library folders can't be replaced;
-- fonts and the CSS file exist.
+- fonts and the CSS file exist;
+- `tags` are short lowercase words, and `covers` names colors as hex and images that exist inside the pack, with up to 8 of each kind.
 
 A pack with problems is skipped; RomM keeps running with the other packs, and with its default look if the broken pack was the selected one.
 
