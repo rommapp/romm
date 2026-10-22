@@ -141,7 +141,7 @@ RUN apk add --no-cache \
     musl-dev
 
 # Keep this pin in sync with the dev image's SIGIL_VERSION in ../Dockerfile.
-ARG SIGIL_VERSION=8a3b0089676e07f74da2d9ad08979dedf5cae7c0
+ARG SIGIL_VERSION=d556acbb3c28758129d1910ed4f8fd4fa2fc818e
 
 RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git && \
     cd ./argosy-sigil && \

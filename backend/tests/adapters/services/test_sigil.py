@@ -84,6 +84,32 @@ class TestSigilService:
         )
 
     @pytest.mark.asyncio
+    async def test_3ds_split_save_target_maps_from_cia_result(
+        self, service: SigilService, monkeypatch
+    ):
+        extract = Mock(
+            return_value=make_result(
+                title_id="0004000000055D00",
+                save_id="00040000/00055d00",
+                usage="folder-split",
+            )
+        )
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+
+        result = await service.extract_title_id(UPS.N3DS, "/roms/3ds/game.cia")
+
+        assert result == SigilExtractionResult(
+            title_id="0004000000055D00",
+            save_target="00040000/00055d00",
+            usage="folder-split",
+        )
+        extract.assert_called_once_with(
+            "/roms/3ds/game.cia",
+            platform="3ds",
+            filename_fallback=False,
+        )
+
+    @pytest.mark.asyncio
     # Version 0 is a real base-game version, not a missing one.
     @pytest.mark.parametrize(
         ("content_type", "version"), [("patch", 196608), ("application", 0)]
