@@ -7,6 +7,16 @@ import { packPath } from "./packfiles.mjs";
 import { SCOPES, isTokenName } from "./tokens.mjs";
 
 export const PACK_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
+export const PACK_NAME_MAX = 80;
+const CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
+
+/** Why a display name can't be used, or null. */
+export function badPackName(name) {
+  if (typeof name !== "string" || !name.trim()) return "name is required";
+  if (name.length > PACK_NAME_MAX) return `name must be at most ${PACK_NAME_MAX} characters`;
+  if (CONTROL_CHARS.test(name)) return "name must not contain control characters";
+  return null;
+}
 // The stock, follow-the-server and random ids mean something to the loader; "index" would collide with themes/index.json.
 export const RESERVED_IDS = new Set([STOCK_ID, FOLLOW_SERVER_ID, RANDOM_ID, "index", "stock"]);
 
@@ -82,7 +92,8 @@ export function validatePack({ files, pack }, catalog = {}) {
   } else if (RESERVED_IDS.has(pack.id)) {
     err(`id "${pack.id}" is reserved`);
   }
-  if (typeof pack.name !== "string" || !pack.name.trim()) err("name is required");
+  const nameProblem = badPackName(pack.name);
+  if (nameProblem) err(nameProblem);
 
   const section = (key) => {
     if (pack[key] === undefined) return {};

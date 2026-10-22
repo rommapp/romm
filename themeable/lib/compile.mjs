@@ -27,12 +27,17 @@ function copy(from, to) {
 
 /**
  * Finds the packs in each source folder in order, a later folder replacing a pack with the same id.
- * An archive carries a stamp (size, modification time, inode) so an unchanged one can be reused.
+ * A source can `exclude` ids and add `standIns` ({ id, format, path }) that replace or add a pack for
+ * one compile. An archive carries a stamp (size, modification time, inode) so an unchanged one can be
+ * reused; a stand-in never is.
  */
 export function collectPacks(sources) {
   const byName = new Map();
-  for (const { dir, source } of sources) {
-    for (const found of findPacks(dir)) {
+  for (const { dir, source, exclude = [], standIns = [] } of sources) {
+    for (const standIn of standIns) {
+      byName.set(standIn.id, { name: standIn.id, source, format: standIn.format, path: standIn.path, stamp: null, errors: [], warnings: [] });
+    }
+    for (const found of findPacks(dir).filter((p) => !exclude.includes(p.id) && !standIns.some((s) => s.id === p.id))) {
       const warnings = found.shadowed
         ? [`the folder ${basename(found.shadowed)}/ is ignored because ${found.id}${ZIP_EXT} is installed; remove one of them`]
         : [];
@@ -48,15 +53,20 @@ export function collectPacks(sources) {
   return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** Reads the saved selection; anything unreadable falls back to RomM's own look. */
+/**
+ * Reads themeable.json: the server's theme and the built-in packs hidden by Delete. Anything
+ * unreadable falls back to RomM's own look with nothing hidden.
+ */
 export function readSelection(settingsFile) {
-  if (!settingsFile || !existsSync(settingsFile)) return { theme: STOCK_ID, note: null };
+  if (!settingsFile || !existsSync(settingsFile)) return { theme: STOCK_ID, hidden: [], note: null };
   try {
-    const theme = JSON.parse(readFileSync(settingsFile, "utf8"))?.theme;
-    if (theme === STOCK_ID || (typeof theme === "string" && PACK_ID.test(theme))) return { theme, note: null };
-    return { theme: STOCK_ID, note: `${settingsFile} has no valid "theme"; using RomM's default look` };
+    const saved = JSON.parse(readFileSync(settingsFile, "utf8"));
+    const theme = saved?.theme;
+    const hidden = Array.isArray(saved?.hidden) ? saved.hidden.filter((id) => typeof id === "string" && PACK_ID.test(id)) : [];
+    if (theme === STOCK_ID || (typeof theme === "string" && PACK_ID.test(theme))) return { theme, hidden, note: null };
+    return { theme: STOCK_ID, hidden, note: `${settingsFile} has no valid "theme"; using RomM's default look` };
   } catch (e) {
-    return { theme: STOCK_ID, note: `${settingsFile} could not be read (${e.message}); using RomM's default look` };
+    return { theme: STOCK_ID, hidden: [], note: `${settingsFile} could not be read (${e.message}); using RomM's default look` };
   }
 }
 

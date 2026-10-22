@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Compiles the built-in packs and the themes folder's packs in the running container (at start-up,
-// on save and on --convert); builds go to <runtime>/builds/<n> and `current` swaps to one in a single rename.
+// Compiles the built-in packs and the themes folder's packs in the running container, at start-up and
+// for each change Branding makes (lib/manage.mjs); builds go to <runtime>/builds/<n> and `current`
+// swaps to one in a single rename.
 import { createHash } from "node:crypto";
 import {
   accessSync,
@@ -19,14 +20,14 @@ import {
   writeFileSync,
   writeSync,
 } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "../lib/args.mjs";
 import { loadCatalog } from "../lib/catalog.mjs";
-import { CLIENT, RANDOM_ID } from "../lib/client.mjs";
-import { collectPacks, compileAll, readSelection, STOCK_ID } from "../lib/compile.mjs";
-import { PACK_ID, RESERVED_IDS } from "../lib/pack.mjs";
-import { CONVERTED_DIR, findPacks, zipFolderPack, ZIP_EXT } from "../lib/packfiles.mjs";
+import { CLIENT } from "../lib/client.mjs";
+import { collectPacks, compileAll, readSelection } from "../lib/compile.mjs";
+import { planOperation, Refusal, validateArchive } from "../lib/manage.mjs";
+import { findPacks } from "../lib/packfiles.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const home = resolve(here, "..");
@@ -120,64 +121,46 @@ function acquireLock() {
   }
 }
 
-// A request that was turned down before anything changed; it isn't recorded in status.json.
-class Refusal extends Error {}
-
-// Hidden from the pack list by its leading dot; removed on exit unless it was installed.
-let stagedArchive = null;
-
-/**
- * Stages --convert <id>: the folder pack is zipped to a hidden file that stands in for it in this
- * compile. Returns the entries to compile and what to do once the build is live.
- */
-function stageConvert(id, entries) {
-  if (!PACK_ID.test(id) || RESERVED_IDS.has(id)) throw new Refusal(`"${id}" is not a valid pack id`);
-  const found = findPacks(packsDir).find((p) => p.id === id);
-  if (!found || found.format !== "folder") {
-    throw new Refusal(found ? `"${id}" is already a ${ZIP_EXT} archive` : `there is no folder pack "${id}" in the themes folder`);
+/** The one change this run makes, from the command line; with none it just recompiles. */
+function requestedOperation() {
+  if (args.select !== undefined) return { kind: "select", theme: String(args.select) };
+  if (args.convert !== undefined) return { kind: "convert", id: String(args.convert) };
+  if (args.install !== undefined) return { kind: "install", file: resolve(String(args.install)), replace: args.replace === true };
+  if (args.rename !== undefined) {
+    // Read verbatim, so a name starting with "--" isn't taken for an option.
+    const at = process.argv.indexOf("--name");
+    return { kind: "rename", id: String(args.rename), name: at > 0 ? (process.argv[at + 1] ?? "") : "" };
   }
-  stagedArchive = join(packsDir, `.${id}.${process.pid}${ZIP_EXT}.tmp`);
-  zipFolderPack(found.path, stagedArchive);
-  const staged = entries.map((e) => (e.name === id ? { ...e, format: "zip", path: stagedArchive, stamp: null, warnings: [] } : e));
-  const install = () => {
-    renameSync(stagedArchive, join(packsDir, `${id}${ZIP_EXT}`));
-    stagedArchive = null;
-    const parked = join(packsDir, CONVERTED_DIR);
-    mkdirSync(parked, { recursive: true });
-    const target = existsSync(join(parked, id)) ? join(parked, `${id}-${Date.now()}`) : join(parked, id);
-    renameSync(found.path, target);
-    return `"${id}" was converted to ${id}${ZIP_EXT}; its folder was moved to ${CONVERTED_DIR}/${basename(target)}/`;
-  };
-  return { entries: staged, install };
+  if (args.delete !== undefined) return { kind: "delete", id: String(args.delete) };
+  if (args["restore-built-ins"]) return { kind: "restore" };
+  return { kind: "recompile" };
 }
 
 function run() {
   mkdirSync(join(runtimeDir, "builds"), { recursive: true });
   const notes = [];
 
-  // A new selection is staged now (so an unwritable folder fails before any work) and
-  // only replaces themeable.json once its build is live, so a killed save changes nothing.
-  let selection;
+  const catalog = loadCatalog(join(home, "catalog"));
+  const builtInDir = join(home, "packs");
+  const saved = readSelection(settingsFile);
+  if (saved.note) notes.push(saved.note);
+  const operation = planOperation(requestedOperation(), { packsDir, builtInDir, pid: process.pid, catalog });
+  cleanups.push(operation.cleanup);
+  const settings = operation.settings({ theme: saved.theme, hidden: saved.hidden });
+
+  // Changed settings are staged now (so an unwritable folder fails before any work) and only
+  // replace themeable.json once their build is live, so a stopped compile changes nothing.
   let stagedSettings = null;
-  if (args.select !== undefined) {
-    const theme = String(args.select);
-    if (theme !== STOCK_ID && theme !== RANDOM_ID && (!PACK_ID.test(theme) || RESERVED_IDS.has(theme))) throw new Error(`"${theme}" is not a valid theme id`);
+  if (settings.theme !== saved.theme || settings.hidden.join() !== saved.hidden.join() || args.select !== undefined) {
     if (!existsSync(packsDir)) mkdirSync(packsDir, { recursive: true });
     stagedSettings = `${settingsFile}.${process.pid}.tmp`;
-    writeFileSync(stagedSettings, JSON.stringify({ theme, updated: new Date().toISOString() }, null, 2) + "\n");
-    selection = { theme, note: null };
-  } else {
-    selection = readSelection(settingsFile);
+    writeFileSync(stagedSettings, JSON.stringify({ ...settings, updated: new Date().toISOString() }, null, 2) + "\n");
   }
-  if (selection.note) notes.push(selection.note);
 
-  const catalog = loadCatalog(join(home, "catalog"));
-  let entries = collectPacks([
-    { dir: join(home, "packs"), source: "built-in" },
-    { dir: packsDir, source: "folder" },
+  const entries = collectPacks([
+    { dir: builtInDir, source: "built-in", exclude: settings.hidden },
+    { dir: packsDir, source: "folder", exclude: operation.exclude, standIns: operation.standIns },
   ]);
-  const convert = args.convert !== undefined ? stageConvert(String(args.convert), entries) : null;
-  if (convert) entries = convert.entries;
 
   const id = `${Date.now()}-${process.pid}`;
   const buildDir = join(runtimeDir, "builds", id);
@@ -186,18 +169,17 @@ function run() {
     entries,
     catalog,
     outDir: buildDir,
-    selected: selection.theme,
+    selected: settings.theme,
     loaderSource: readFileSync(join(home, "loader", "loader.js"), "utf8"),
     pickerFile: join(home, "picker", "index.html"),
     reuse: previousBuild(link),
   });
   if (result.reason) notes.push(result.reason);
-  if (convert) {
-    const converted = result.packs.find((p) => p.id === String(args.convert));
-    if (!converted?.valid) {
-      rmSync(buildDir, { recursive: true, force: true });
-      throw new Refusal(`"${args.convert}" can't be converted: ${converted?.errors.join("; ") || "it did not compile"}`);
-    }
+  try {
+    operation.verify(result);
+  } catch (e) {
+    rmSync(buildDir, { recursive: true, force: true });
+    throw e;
   }
   writeFileSync(join(buildDir, CACHE_FILE), JSON.stringify(result.cache));
 
@@ -206,7 +188,8 @@ function run() {
   symlinkSync(join("builds", id), tmpLink);
   renameSync(tmpLink, link);
   if (stagedSettings) renameSync(stagedSettings, settingsFile);
-  if (convert) notes.push(convert.install());
+  const done = operation.install();
+  if (done) notes.push(done);
   for (const old of readdirSync(join(runtimeDir, "builds"))) {
     if (old !== id) rmSync(join(runtimeDir, "builds", old), { recursive: true, force: true });
   }
@@ -218,6 +201,7 @@ function run() {
     effective: result.effective,
     client: CLIENT,
     notes,
+    hidden: settings.hidden.filter((id) => findPacks(builtInDir).some((p) => p.id === id)),
     folder: folderInfo(),
     packs: result.packs,
   };
@@ -225,6 +209,18 @@ function run() {
   return status;
 }
 
+// --validate-archive only reads: it reports on an uploaded archive and exits, without the lock.
+if (args["validate-archive"] !== undefined) {
+  const report = validateArchive(resolve(String(args["validate-archive"])), {
+    catalog: loadCatalog(join(home, "catalog")),
+    packsDir,
+    builtInDir: join(home, "packs"),
+  });
+  process.stdout.write(JSON.stringify({ ok: report.errors.length === 0, ...report }) + "\n");
+  process.exit(report.errors.length ? 1 : 0);
+}
+
+const cleanups = [];
 let status;
 try {
   mkdirSync(runtimeDir, { recursive: true });
@@ -233,7 +229,7 @@ try {
     status = run();
   } finally {
     rmSync(`${settingsFile}.${process.pid}.tmp`, { force: true });
-    if (stagedArchive) rmSync(stagedArchive, { force: true });
+    for (const cleanup of cleanups) cleanup();
     rmSync(lockFile, { force: true });
   }
 } catch (e) {

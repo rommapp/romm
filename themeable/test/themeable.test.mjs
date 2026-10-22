@@ -173,7 +173,7 @@ test("an unreadable or invalid selection falls back to RomM's default look", asy
   const { readSelection } = await import("../lib/compile.mjs");
   const dir = mkdtempSync(join(tmpdir(), "themeable-sel-"));
   const file = join(dir, "themeable.json");
-  assert.deepEqual(readSelection(file), { theme: "none", note: null });
+  assert.deepEqual(readSelection(file), { theme: "none", hidden: [], note: null });
   writeFileSync(file, "garbage");
   assert.equal(readSelection(file).theme, "none");
   writeFileSync(file, JSON.stringify({ theme: "../etc" }));
@@ -672,7 +672,7 @@ test("Convert zips a folder pack, parks the folder and recompiles, or changes no
   assert.equal(JSON.parse(readFileSync(join(rt, "status.json"), "utf8")).error, undefined, "and isn't recorded as a failure");
   const tooMany = await runtime(themes, rt, ["--convert", "mine"], { THEMEABLE_ZIP_MAX_ENTRIES: "1" });
   assert.match(tooMany.status.error, /entries; the limit is 1/);
-  for (const [args, reason] of [[["--convert", "ember"], /no folder pack "ember"/], [["--convert", "../x"], /not a valid pack id/]]) {
+  for (const [args, reason] of [[["--convert", "ember"], /no folder pack "ember"/], [["--convert", "../x"], /not a pack that can be changed/]]) {
     assert.match((await runtime(themes, rt, args)).status.error, reason);
   }
   assert.deepEqual(readdirSync(themes).sort(), ["broken", "mine"], "refused converts leave the folder as it was");
@@ -686,4 +686,123 @@ test("Convert zips a folder pack, parks the folder and recompiles, or changes no
   assert.deepEqual(readdirSync(themes).sort(), [".converted", "broken", "mine.zip"]);
   assert.ok(existsSync(join(themes, ".converted/mine/theme.json")));
   assert.match((await runtime(themes, rt, ["--convert", "mine"])).status.error, /already a .zip archive/);
+});
+
+// A pack archive built from a built-in pack under a new id and name, for upload tests.
+function packArchive(dir, id, name, from = "ember", extra = {}) {
+  const src = folderFiles(join(here, "../packs", from));
+  const file = join(dir, `${id}-upload.zip`);
+  zip.writeZip(
+    file,
+    src.list().map((n) => ({
+      name: n,
+      data: n === "theme.json" ? Buffer.from(JSON.stringify({ ...JSON.parse(src.read(n)), id, name, ...extra })) : src.read(n),
+    })),
+  );
+  return file;
+}
+
+function manageSetup() {
+  const root = mkdtempSync(join(tmpdir(), "themeable-manage-"));
+  const themes = join(root, "themes");
+  mkdirSync(themes);
+  return { root, themes, rt: join(root, "runtime"), uploads: mkdtempSync(join(tmpdir(), "themeable-uploads-")) };
+}
+
+test("--validate-archive reports on an upload without touching the themes folder", async () => {
+  const { themes, rt, uploads } = manageSetup();
+  const { spawnSync } = await import("node:child_process");
+  const validate = (file) => {
+    const r = spawnSync(process.execPath, [join(here, "../scripts/runtime.mjs"), "--validate-archive", file], {
+      encoding: "utf8",
+      env: { ...process.env, THEMEABLE_PACKS_PATH: themes, THEMEABLE_RUNTIME_DIR: rt },
+    });
+    return { code: r.status, report: JSON.parse(r.stdout) };
+  };
+  const good = validate(packArchive(uploads, "dusk", "Dusk"));
+  assert.deepEqual([good.code, good.report.ok, good.report.id, good.report.name, good.report.existing], [0, true, "dusk", "Dusk", null]);
+  assert.equal(validate(packArchive(uploads, "neon", "Neon 2")).report.existing, "built-in");
+  const bad = validate(packArchive(uploads, "bad", "Bad", "ember", { assets: { "/assets/isotipo.svg": "../x.svg" } }));
+  assert.equal(bad.code, 1);
+  assert.match(bad.report.errors.join(), /source must be a path inside the pack/);
+  writeFileSync(join(uploads, "junk.zip"), "not a zip");
+  assert.match(validate(join(uploads, "junk.zip")).report.errors.join(), /the archive could not be read: not a zip archive/);
+  assert.deepEqual(readdirSync(themes), []);
+});
+
+test("an upload installs as <id>.zip, replaces only with --replace and never a built-in", async () => {
+  const { themes, rt, uploads } = manageSetup();
+  const added = await runtime(themes, rt, ["--install", packArchive(uploads, "dusk", "Dusk")]);
+  assert.equal(added.code, 0, added.status.error);
+  assert.deepEqual(readdirSync(themes), ["dusk.zip"]);
+  const dusk = added.status.packs.find((p) => p.id === "dusk");
+  assert.deepEqual([dusk.valid, dusk.format, dusk.name], [true, "zip", "Dusk"]);
+  assert.match(added.status.notes.join(), /"Dusk" was added as "dusk"/);
+
+  const again = await runtime(themes, rt, ["--install", packArchive(uploads, "dusk", "Dusk 2")]);
+  assert.match(again.status.error, /already installed; confirm to replace it/);
+  const replaced = await runtime(themes, rt, ["--install", packArchive(uploads, "dusk", "Dusk 2"), "--replace"]);
+  assert.equal(replaced.status.packs.find((p) => p.id === "dusk").name, "Dusk 2");
+
+  assert.match((await runtime(themes, rt, ["--install", packArchive(uploads, "neon", "Mine")])).status.error, /built-in pack and can't be replaced/);
+  const broken = packArchive(uploads, "dusk", "Broken Dusk", "ember", { extraCss: "missing.css" });
+  assert.match((await runtime(themes, rt, ["--install", broken, "--replace"])).status.error, /can't be installed: extraCss/);
+  assert.equal((await runtime(themes, rt)).status.packs.find((p) => p.id === "dusk").name, "Dusk 2", "a refused replace keeps the old pack");
+  assert.deepEqual(readdirSync(themes), ["dusk.zip"], "and leaves nothing staged");
+});
+
+test("rename rewrites the archive's name and keeps the id; delete removes or hides", async () => {
+  const { themes, rt, uploads } = manageSetup();
+  await runtime(themes, rt, ["--install", packArchive(uploads, "dusk", "Dusk")]);
+  await runtime(themes, rt, ["--select", "dusk"]);
+
+  const renamed = await runtime(themes, rt, ["--rename", "dusk", "--name", "  Evening  "]);
+  assert.equal(renamed.code, 0, renamed.status.error);
+  assert.equal(renamed.status.packs.find((p) => p.id === "dusk").name, "Evening");
+  assert.equal(renamed.status.effective, "dusk", "the server theme keeps working");
+  for (const [args, reason] of [
+    [["--rename", "neon", "--name", "X"], /built-in pack and can't be renamed/],
+    [["--rename", "none", "--name", "X"], /not a pack that can be changed/],
+    [["--rename", "dusk", "--name", " "], /name is required/],
+    [["--rename", "dusk", "--name", "x".repeat(81)], /at most 80 characters/],
+    [["--delete", "none"], /not a pack that can be changed/],
+    [["--delete", "nothing-here"], /there is no pack "nothing-here"/],
+  ]) {
+    assert.match((await runtime(themes, rt, args)).status.error, reason, args.join(" "));
+  }
+
+  const deleted = await runtime(themes, rt, ["--delete", "dusk"]);
+  assert.equal(deleted.code, 0, deleted.status.error);
+  assert.deepEqual(readdirSync(themes), ["themeable.json"]);
+  assert.equal(deleted.status.selected, "none", "deleting the server theme falls back to RomM default");
+  assert.ok(!deleted.status.packs.some((p) => p.id === "dusk"));
+
+  await runtime(themes, rt, ["--select", "neon"]);
+  const hidden = await runtime(themes, rt, ["--delete", "neon"]);
+  assert.deepEqual(hidden.status.hidden, ["neon"]);
+  assert.equal(hidden.status.selected, "none");
+  assert.ok(!hidden.status.packs.some((p) => p.id === "neon"), "a hidden built-in is not compiled");
+  assert.deepEqual(JSON.parse(readFileSync(join(themes, "themeable.json"), "utf8")).hidden, ["neon"]);
+  assert.ok(!(await runtime(themes, rt)).status.packs.some((p) => p.id === "neon"), "and stays hidden across restarts");
+  const restored = await runtime(themes, rt, ["--restore-built-ins"]);
+  assert.deepEqual(restored.status.hidden, []);
+  assert.ok(restored.status.packs.find((p) => p.id === "neon").valid);
+});
+
+test("the schema and the validator share the pack name limit", async () => {
+  const { PACK_NAME_MAX } = await import("../lib/pack.mjs");
+  const schema = JSON.parse(readFileSync(join(here, "../schema/theme.schema.json"), "utf8"));
+  assert.equal(schema.properties.name.maxLength, PACK_NAME_MAX);
+});
+
+test("an upload can replace a folder pack, which is parked; Delete leaves folder packs alone", async () => {
+  const { themes, rt, uploads } = manageSetup();
+  mkdirSync(join(themes, "twilight"));
+  writeFileSync(join(themes, "twilight/theme.json"), JSON.stringify({ id: "twilight", name: "Old Twilight" }));
+  assert.match((await runtime(themes, rt, ["--delete", "twilight"])).status.error, /folder pack; convert it/);
+  assert.match((await runtime(themes, rt, ["--rename", "twilight", "--name", "X"])).status.error, /folder pack; convert it/);
+  const replaced = await runtime(themes, rt, ["--install", packArchive(uploads, "twilight", "Twilight"), "--replace"]);
+  assert.equal(replaced.code, 0, replaced.status.error);
+  assert.match(replaced.status.notes.join(), /replaced the folder pack "twilight", which was moved to .converted\/twilight\//);
+  assert.deepEqual(readdirSync(themes).sort(), [".converted", "twilight.zip"]);
 });
