@@ -12,14 +12,16 @@ describe("v2 route resolution", () => {
     const leaf = leafRouteFor("/settings/administration");
 
     expect(leaf.name).toBe(ROUTES.NOT_FOUND);
-    expect(leaf.components?.v2).toBe(notFoundComponent);
+    expect(leaf.components?.default).toBe(notFoundComponent);
   });
 
   it("still renders the registered component for a matched URL", () => {
     const leaf = leafRouteFor("/administration");
 
     expect(leaf.name).toBe(ROUTES.ADMINISTRATION);
-    expect(leaf.components?.v2).toBe(v2RouteComponents[ROUTES.ADMINISTRATION]);
+    expect(leaf.components?.default).toBe(
+      v2RouteComponents[ROUTES.ADMINISTRATION],
+    );
   });
 
   it("renders the v2 pair shell for /pair", () => {
@@ -27,6 +29,6 @@ describe("v2 route resolution", () => {
 
     expect(leaf.name).toBe(ROUTES.PAIR);
     expect(v2RouteComponents[ROUTES.PAIR]).toBeDefined();
-    expect(leaf.components?.v2).toBe(v2RouteComponents[ROUTES.PAIR]);
+    expect(leaf.components?.default).toBe(v2RouteComponents[ROUTES.PAIR]);
   });
 });

@@ -1,8 +1,7 @@
 <script setup lang="ts">
-// EmulatorJS: v2 shell around the v1 <Player> component. The emulator
-// integration (EJS_* globals, loader fallback, save/state sync, firmware
-// resolution) is ported verbatim from `src/views/Player/EmulatorJS/Base.vue`
-// so behaviour stays identical; only the chrome is v2.
+// EmulatorJS: shell around the <Player> component. The emulator integration
+// (EJS_* globals, loader fallback, save/state sync, firmware resolution) lives
+// in this view and in EmulatorJSPlayer.vue.
 //
 // Inside the RomM desktop shell the hero leads with the native launch, above
 // the in-browser one; a platform the shell alone can run opens this page with
@@ -14,9 +13,9 @@
 //      asset, and an <AssetStrip> below to swap between options inline.
 //   3. Setup: disc / core / firmware + fullscreen + clear-cache.
 //
-// The running state mounts the v1 <Player> component (600 lines of EJS
-// wiring, not worth rewriting). LoadSaveStateDialog + EmulatorJSCacheDialog
-// are mounted in GlobalDialogs so the emitter bridge works.
+// The running state mounts the <Player> component (the EJS wiring).
+// LoadSaveStateDialog + EmulatorJSCacheDialog are mounted in GlobalDialogs so
+// the emitter bridge works.
 import {
   RAlert,
   RBtn,
@@ -116,8 +115,8 @@ import {
   type SlotChoice,
 } from "@/v2/utils/saveSlots";
 import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
-import { exitEmulatorOnce } from "@/views/Player/EmulatorJS/utils";
 import { rememberCore, resolveRememberedCore } from "./coreStorage";
+import { exitEmulatorOnce } from "./emulatorJSRuntime";
 import {
   isLaunchIntent,
   launchIntentFor,
@@ -132,10 +131,10 @@ import {
   type ResumeSelection,
 } from "./resumeSelection";
 
-// Reuse v1's heavy emulator integration; do NOT rewrite this. Lazy so the
+// The heavy emulator integration. Lazy so the
 // bundle doesn't pull in the EJS shims until we actually mount the player.
 const Player = defineAsyncComponent(
-  () => import("@/views/Player/EmulatorJS/Player.vue"),
+  () => import("@/v2/components/Player/EmulatorJSPlayer.vue"),
 );
 
 const { t, locale } = useI18n();
@@ -192,8 +191,8 @@ const playerRef = ref<{ flushPendingSave: () => Promise<void> } | null>(null);
 const exit = usePlayerExit(
   () => runtimeInjected,
   async () => {
-    // The flush also uninstalls v1's auto-save sync, which is what keeps its
-    // own `beforeunload` handler from prompting on the way out.
+    // The flush also uninstalls the player's auto-save sync, which is what
+    // keeps its own `beforeunload` handler from prompting on the way out.
     await playerRef.value?.flushPendingSave();
     endSession();
   },

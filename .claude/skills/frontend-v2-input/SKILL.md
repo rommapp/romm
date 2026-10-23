@@ -18,7 +18,7 @@ description: Universal input (mouse, touch, keyboard, gamepad) and responsive/un
 | `useInputModality`                      | Sets `data-input` on `<html>`.                                                                                                                                                                                                                                                                         |
 | `useGlobalHotkeys`                      | `/` and `?`, `g h`, `g p`, `g c`.                                                                                                                                                                                                                                                                      |
 
-There are **no `/console/*` routes in v2**; `src/console/` (with its own input bus) is v1 only. Don't import from it.
+There are no `/console/*` routes: the universal input system replaced console mode.
 
 ## The claim rule
 

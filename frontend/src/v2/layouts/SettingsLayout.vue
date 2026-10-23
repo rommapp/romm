@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // SettingsLayout: sub-layout shared by every Settings route. Mounts
 // the sidebar + content column and renders the active settings view
-// via `<router-view name="v2" />`. Replaces the old
+// via `<router-view />`. Replaces the old
 // `SettingsShell` wrapper-from-the-view pattern: the route tree owns
 // the chrome now, the views just render their body.
 //
@@ -60,7 +60,7 @@ setBgArt(null);
         class="r-v2-settings__body"
         :class="{ 'r-v2-settings__body--bare': isBare }"
       >
-        <router-view name="v2" />
+        <router-view />
       </div>
     </div>
   </section>

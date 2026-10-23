@@ -3,7 +3,6 @@ import flagFontUrl from "country-flag-emoji-polyfill/dist/TwemojiCountryFlags.wo
 import { createApp, watch } from "vue";
 import App from "@/RomM.vue";
 import { setStorageUser } from "@/composables/useUserLocalStorage";
-import "@/console/index.css";
 import { localesReady } from "@/locales";
 import { registerPlugins } from "@/plugins";
 import router from "@/plugins/router";
@@ -13,6 +12,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import "@/styles/common.css";
 import "@/styles/fonts.css";
 import "@/styles/scrollbar.css";
+import "@/styles/tailwind.css";
 import { ChromeLabelsKey } from "@/v2/lib/a11y/chromeLabels";
 import "@/v2/styles/global.css";
 import { createChromeLabels } from "@/v2/utils/chromeLabels";

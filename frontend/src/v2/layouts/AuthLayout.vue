@@ -21,7 +21,7 @@ onMounted(installInputModality);
   <div class="r-v2-auth">
     <div class="r-v2-auth__bg" />
     <main class="r-v2-auth__stage">
-      <router-view name="v2" />
+      <router-view />
     </main>
     <!-- Absolute on desktop, in normal flow below the card on phones. -->
     <AuthFooter class="r-v2-auth__footer" />

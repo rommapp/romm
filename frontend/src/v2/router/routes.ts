@@ -1,15 +1,8 @@
-// v2 Route Registry
+// Route Registry
 //
-// As each wave migrates a view to v2, add its lazy-imported component here
-// under the matching route name. The main router (src/plugins/router.ts)
-// injects these into the v1 route config as Vue Router named views:
-//
-//   components: { default: v1Component, v2: v2RouteComponents[name] }
-//
-// When the user's uiVersion is "v2" the named <router-view name="v2"> in the
-// v2 AppLayout renders the v2 component. Routes without a v2 entry fall
-// through to `notFoundComponent`, which is correct now that every route the
-// v2 UI links to is migrated: an unregistered name leads nowhere in v2.
+// Lazy-imported view components keyed by route name. The main router
+// (src/plugins/router.ts) looks each route up here; a name without an entry
+// falls through to `notFoundComponent`.
 import type { Component } from "vue";
 import { ROUTES, type RouteName } from "@/plugins/routeNames";
 
@@ -69,13 +62,10 @@ export const v2RouteComponents: Partial<Record<RouteName, V2Route>> = {
     import("@/v2/views/Settings/Administration.vue"),
   [ROUTES.SERVER_STATS]: () => import("@/v2/views/Settings/ServerStats.vue"),
   [ROUTES.LOGS]: () => import("@/v2/views/Settings/Logs.vue"),
-  // V2-only index pages (no v1 equivalent: the v1 UI uses its drawer)
   [ROUTES.PLATFORMS_INDEX]: () => import("@/v2/views/PlatformsIndex.vue"),
   [ROUTES.COLLECTIONS_INDEX]: () => import("@/v2/views/CollectionsIndex.vue"),
-  // V2-only dev tool: live gamepad input inspector.
+  // Dev tool: live gamepad input inspector.
   [ROUTES.CONTROLLER_DEBUG]: () => import("@/v2/views/ControllerDebug.vue"),
-  // v1-only easter egg: no v2 component links here, so the URL is a dead end.
-  [ROUTES.APRIL_FOOLS]: notFoundComponent,
 };
 
 export const v2Layouts = {
@@ -83,11 +73,6 @@ export const v2Layouts = {
   auth: () => import("@/v2/layouts/AuthLayout.vue"),
   // Sub-layouts mounted inside AppLayout via grouping parent routes.
   // Each owns a section's chrome (sidebar / hero / etc.) and renders
-  // the active child via `<router-view name="v2" />`.
+  // the active child via `<router-view />`.
   settings: () => import("@/v2/layouts/SettingsLayout.vue"),
-  // Tiny `<router-view />` shim used as the `default` (v1) named-view
-  // target on those v2-only grouping parents: v1 doesn't share their
-  // chrome so it just forwards down to the child's v1 component.
-  // @deprecated v2: delete with v1 (see Passthrough.vue).
-  passthrough: () => import("@/v2/layouts/Passthrough.vue"),
 };

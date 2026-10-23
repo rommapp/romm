@@ -209,8 +209,7 @@ onBeforeUnmount(() => {
   removeOverlayRouteDismiss = null;
   removeQueryNavigationGuard?.();
   removeQueryNavigationGuard = null;
-  // Leaving v2 (e.g. switching back to the v1 UI): drop the root flag so
-  // the class doesn't linger on a non-v2 document.
+  // Drop the root flag so the class doesn't outlive the layout.
   document.documentElement.classList.remove("r-v2-reduced-motion");
 });
 </script>
@@ -226,7 +225,7 @@ onBeforeUnmount(() => {
     <div class="r-v2-app-shell__body">
       <AppNav v-if="!playingStore.stageActive" />
       <main id="r-v2-main" class="r-v2-app-shell__main" tabindex="-1">
-        <router-view name="v2" />
+        <router-view />
       </main>
       <BottomNav v-if="!playingStore.stageActive" />
     </div>

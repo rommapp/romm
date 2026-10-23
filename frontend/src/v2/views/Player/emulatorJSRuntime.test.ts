@@ -20,7 +20,7 @@ import {
   saveSave,
   saveSaveOnUnload,
   saveState,
-} from "./utils";
+} from "./emulatorJSRuntime";
 
 const saveApiMocks = vi.hoisted(() => ({
   uploadSaves: vi.fn(),

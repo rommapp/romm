@@ -11,16 +11,10 @@
 //   6. Gameplay          (launch-confirmation toggle)
 //   7. Desktop shell     (only inside it; opens its own settings)
 //   8. Virtual collections (RSelect prefix-label)
-//   9. UI version        (v2-only, beta, kept last)
-//
-// The v1 "Platforms drawer" section was removed (no equivalent in v2).
-// `useUISettings` still exposes `platformsGroupBy` for v1; we just
-// don't surface it here.
-import { RBtn, RIcon, RSelect, RSliderBtnGroup, RChip } from "@v2/lib";
+import { RBtn, RIcon, RSelect, RSliderBtnGroup } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUISettings } from "@/composables/useUISettings";
-import { useUiVersion } from "@/composables/useUiVersion";
 import { canOpenNativeSettings, openNativeSettings } from "@/services/native";
 import storeCollections from "@/stores/collections";
 import { useNativeStore } from "@/stores/native";
@@ -37,7 +31,6 @@ import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 const { t } = useI18n();
-const uiVersion = useUiVersion();
 const { enabled: debugEnabled } = useDebugMode();
 const collectionsStore = storeCollections();
 const nativeStore = useNativeStore();
@@ -126,27 +119,6 @@ function onCrtToggle(value: boolean) {
 // blur, cover blur-up, spins, transitions) for smoother rendering on low-power
 // devices. Per-device flag, defaults to the OS prefers-reduced-motion setting.
 const { enabled: reducedMotion } = useReducedMotion();
-
-function setVersion(value: "v1" | "v2") {
-  uiVersion.value = value;
-}
-
-const uiVersionCards = computed(() => [
-  {
-    value: "v1" as const,
-    title: t("settings.ui-version-classic"),
-    icon: "mdi-star-outline",
-    blurb: t("settings.ui-version-classic-blurb"),
-    beta: false,
-  },
-  {
-    value: "v2" as const,
-    title: t("settings.ui-version-new"),
-    icon: "mdi-star-four-points",
-    blurb: t("settings.ui-version-new-blurb"),
-    beta: true,
-  },
-]);
 
 // Selects --------------------------------------------------------------
 const boxartStyleItems = computed(() => [
@@ -376,11 +348,9 @@ function onVirtualCollectionTypeChange(value: unknown) {
           :title="t('settings.group-roms')"
           :description="t('settings.group-roms-desc')"
         />
-        <!-- `showSiblings` (v1) was dropped: v2 folds the sibling-count
-             chip into `groupRoms` itself. When the gallery groups, the
-             chip appears; when it doesn't, every version shows
-             separately so the chip would be noise. The shared
-             `useUISettings` key stays for v1 only; remove when v1 dies. -->
+        <!-- The sibling-count chip follows `groupRoms`: it appears when the
+             gallery groups, and is noise when every version shows
+             separately. -->
         <SettingsToggleRow
           v-model="showStatus"
           :title="t('settings.show-status')"
@@ -540,48 +510,7 @@ function onVirtualCollectionTypeChange(value: unknown) {
       </div>
     </SettingsSection>
 
-    <!-- UI version (v2-only, beta), kept last for parity. -->
-    <SettingsSection :title="t('settings.ui-version')" icon="mdi-new-box">
-      <div class="r-v2-ui__field">
-        <p class="r-v2-ui__desc">
-          {{ t("settings.ui-version-desc") }}
-        </p>
-        <div class="r-v2-ui__version-grid">
-          <button
-            v-for="card in uiVersionCards"
-            :key="card.value"
-            type="button"
-            class="r-v2-ui__version-card"
-            :class="{
-              'r-v2-ui__version-card--active': uiVersion === card.value,
-            }"
-            :aria-pressed="uiVersion === card.value"
-            @click="setVersion(card.value)"
-          >
-            <span class="r-v2-ui__version-icon">
-              <RIcon :icon="card.icon" size="22" />
-            </span>
-            <span class="r-v2-ui__version-body">
-              <span class="r-v2-ui__version-titles">
-                <span class="r-v2-ui__version-title">{{ card.title }}</span>
-                <RChip
-                  v-if="card.value === 'v2'"
-                  size="x-small"
-                  color="primary"
-                  >{{ t("common.beta") }}</RChip
-                >
-              </span>
-              <span class="r-v2-ui__version-blurb">{{ card.blurb }}</span>
-            </span>
-            <span v-if="uiVersion === card.value" class="r-v2-ui__version-dot">
-              <RIcon icon="mdi-check" size="12" />
-            </span>
-          </button>
-        </div>
-      </div>
-    </SettingsSection>
-
-    <!-- Developer: kept dead last, after UI version. Debug overlay is a
+    <!-- Developer: kept dead last. Debug overlay is a
          per-device localStorage toggle (useDebugMode), not synced to the
          account, so it never follows you across machines. -->
     <SettingsSection :title="t('settings.developer')" icon="mdi-bug-outline">
@@ -685,95 +614,5 @@ html[data-bp~="xs"] .r-v2-ui__toggle-grid {
 }
 html[data-bp~="xs"] .r-v2-ui__theme-row {
   flex-direction: column;
-}
-
-/* UI version cards (v2-only). */
-.r-v2-ui__version-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.r-v2-ui__version-card {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px 18px;
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border);
-  border-radius: 10px;
-  color: var(--r-color-fg-secondary);
-  cursor: pointer;
-  text-align: left;
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    border-color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-ui__version-card:hover {
-  background: var(--r-color-surface-hover);
-  border-color: var(--r-color-border-strong);
-}
-.r-v2-ui__version-card--active {
-  background: color-mix(in srgb, var(--r-color-brand-primary) 12%, transparent);
-  border-color: color-mix(
-    in srgb,
-    var(--r-color-brand-primary) 50%,
-    transparent
-  );
-  color: var(--r-color-fg);
-}
-
-.r-v2-ui__version-icon {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
-  color: var(--r-color-brand-primary);
-}
-
-.r-v2-ui__version-body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  flex: 1;
-}
-
-.r-v2-ui__version-titles {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.r-v2-ui__version-title {
-  font-size: 14px;
-  font-weight: var(--r-font-weight-semibold);
-  color: var(--r-color-fg);
-}
-.r-v2-ui__version-blurb {
-  font-size: 12px;
-  color: var(--r-color-fg-muted);
-  line-height: 1.4;
-}
-
-.r-v2-ui__version-dot {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--r-color-brand-primary);
-  color: var(--r-color-overlay-emphasis-fg);
-  display: grid;
-  place-items: center;
-  font-weight: var(--r-font-weight-bold);
-}
-
-html[data-bp~="xs"] .r-v2-ui__version-grid {
-  grid-template-columns: 1fr;
 }
 </style>

@@ -2,7 +2,7 @@
 
 Comprehensive documentation of the RomM frontend: a Vue 3 single-page application powering the retro gaming platform UI.
 
-> **Scope: this document describes the v1 UI** (`src/views/`, `src/components/`, `src/console/`, `src/layouts/`), which is frozen pending deletion. The v2 rewrite under `src/v2/` shares the Vue/Vite/Pinia/router/i18n/Socket.IO foundation described here, but has its own design system: **no Vuetify, and no Tailwind utility classes** (the Tailwind stylesheet is still loaded app-wide, see CSS Stack below). It styles with generated tokens plus per-component scoped CSS. For v2, read the `frontend-v2-components`, `frontend-v2-theming`, `frontend-v2-input`, and `frontend-v2-patterns` skills in `.claude/skills/`.
+> **Scope: this document still describes the removed v1 UI** (`src/views/`, `src/components/`, `src/console/`, `src/layouts/`), and its sections on directory layout, components, views and console mode no longer match the code. The Vue/Vite/Pinia/router/i18n/Socket.IO foundation it covers is shared with the current UI under `src/v2/`, which has its own design system: **no Vuetify, and no Tailwind utility classes** (a global Tailwind reset is still loaded, see `src/styles/tailwind.css`). It styles with generated tokens plus per-component scoped CSS. For the current UI, read the `frontend-v2-components`, `frontend-v2-theming`, `frontend-v2-input`, and `frontend-v2-patterns` skills in `.claude/skills/`.
 
 ---
 
@@ -17,15 +17,14 @@ Comprehensive documentation of the RomM frontend: a Vue 3 single-page applicatio
 7. [API & Data Layer](#7-api--data-layer)
 8. [Component Architecture](#8-component-architecture)
 9. [Views & Pages](#9-views--pages)
-10. [Console Mode](#10-console-mode)
-11. [Emulation Integration](#11-emulation-integration)
-12. [Theming & Styling](#12-theming--styling)
-13. [Internationalization (i18n)](#13-internationalization-i18n)
-14. [Real-Time Communication](#14-real-time-communication)
-15. [Caching Strategy](#15-caching-strategy)
-16. [Utilities & Composables](#16-utilities--composables)
-17. [Build & Tooling](#17-build--tooling)
-18. [Type System](#18-type-system)
+10. [Emulation Integration](#10-emulation-integration)
+11. [Theming & Styling](#11-theming--styling)
+12. [Internationalization (i18n)](#12-internationalization-i18n)
+13. [Real-Time Communication](#13-real-time-communication)
+14. [Caching Strategy](#14-caching-strategy)
+15. [Utilities & Composables](#15-utilities--composables)
+16. [Build & Tooling](#16-build--tooling)
+17. [Type System](#17-type-system)
 
 ---
 
@@ -389,7 +388,6 @@ Component Action
 │   ├── /rom/:rom                 → Game details (8 tabs)
 │   ├── /rom/:rom/ejs             → EmulatorJS player
 │   ├── /rom/:rom/ruffle          → Ruffle Flash player
-│   ├── /april-fools              → April Fools easter egg (toggleable)
 │   ├── /scan                     → Library scanner [platforms.write]
 │   ├── /patcher                  → ROM patcher
 │   ├── /user/:user               → User profile
@@ -401,14 +399,6 @@ Component Action
 │   ├── /server-stats             → Library statistics
 │   └── /*                        → 404
 │
-└── Console Layout (authenticated, TV/gamepad)
-    ├── /console                  → Console home
-    ├── /console/platform/:id     → Console game list
-    ├── /console/collection/:id   → Console collection
-    ├── /console/collection/smart/:id
-    ├── /console/collection/virtual/:id
-    ├── /console/rom/:rom         → Console game details
-    └── /console/rom/:rom/play    → Console emulator
 ```
 
 ### Route Guards
@@ -758,87 +748,7 @@ Supports: `.ips`, `.ups`, `.bps`, `.ppf`, `.rup`, `.aps`, `.bdf`, `.pmsr`, `.vcd
 
 ---
 
-## 10. Console Mode
-
-A complete TV/gamepad-optimized interface under `/console/`.
-
-### Architecture
-
-```text
-Console Layout
-├── Input Bus (keyboard + gamepad → actions)
-├── Theme System (CSS variables per theme)
-├── Spatial Navigation (grid-based focus)
-├── Sound Effects (Web Audio synthesis)
-│
-├── Home View
-│   ├── Platform cards (spatial nav)
-│   ├── Continue playing
-│   └── Collections grid
-│
-├── Games List View
-│   ├── Game cards with lazy loading
-│   └── Virtual scrolling
-│
-├── Game Detail View
-│   ├── Description, metadata, screenshots
-│   ├── Save state management
-│   └── Play button → Emulator
-│
-└── Play View
-    └── EmulatorJS with save/state/BIOS selection
-```
-
-### Input System
-
-```text
-Hardware Input (keyboard / gamepad)
-    │
-    ├── Keyboard Listener (keydown → action mapping)
-    │   └── Ignores when focused on INPUT/TEXTAREA
-    │
-    ├── Gamepad Poller (requestAnimationFrame loop)
-    │   ├── Button press detection (with repeat delay)
-    │   └── Analog stick threshold (0.2)
-    │
-    └── Input Bus (stack-based scope manager)
-        ├── Global shortcuts (always active)
-        ├── Scoped listeners (context-dependent)
-        └── Action dispatch with SFX feedback
-```
-
-**12 Input Actions:** `moveUp`, `moveDown`, `moveLeft`, `moveRight`, `confirm`, `back`, `menu`, `delete`, `tabNext`, `tabPrev`, `toggleFavorite`
-
-**Repeat Timing:** 350ms initial delay, 120ms repeat
-
-### Procedural Sound Effects (Web Audio API)
-
-| Sound      | Frequency       | Duration   | When               |
-| ---------- | --------------- | ---------- | ------------------ |
-| `move`     | 860Hz           | 20ms       | Navigation         |
-| `confirm`  | 680→880Hz sweep | 19ms       | Selection          |
-| `back`     | 300Hz           | 85ms       | Return             |
-| `error`    | 180Hz + 140Hz   | 180ms      | Failure            |
-| `delete`   | 260Hz + 180Hz   | 120ms      | Destructive action |
-| `favorite` | 600Hz + 950Hz   | Dual burst | Toggle             |
-
-All synthesized with sine/noise blend, exponential envelopes, low-pass filter, and waveshaper saturation.
-
-### Console Composables
-
-| Composable           | Purpose                                         |
-| -------------------- | ----------------------------------------------- |
-| `useSpatialNav`      | Grid navigation with boundary enforcement       |
-| `useConsoleTheme`    | Theme CSS variable injection                    |
-| `useThemeAssets`     | Format-aware asset resolution (SVG > PNG > JPG) |
-| `useBackgroundArt`   | Double-buffered background transitions          |
-| `useElementRegistry` | Focus element tracking per section              |
-| `useInputScope`      | Dependency-injected input subscription          |
-| `useRovingDom`       | ARIA roving tabindex with auto-scroll           |
-
----
-
-## 11. Emulation Integration
+## 10. Emulation Integration
 
 ### EmulatorJS
 
@@ -887,7 +797,7 @@ The dev server and `vite preview` have no nginx in front of them, so `scripts/pl
 
 ---
 
-## 12. Theming & Styling
+## 11. Theming & Styling
 
 ### Theme System
 
@@ -926,7 +836,7 @@ v2 opts out of this stack entirely: `src/v2/styles/tokens.css` (generated from `
 
 ---
 
-## 13. Internationalization (i18n)
+## 12. Internationalization (i18n)
 
 ### Setup
 
@@ -964,7 +874,7 @@ Each locale directory contains translation files per feature:
 
 ---
 
-## 14. Real-Time Communication
+## 13. Real-Time Communication
 
 ### Socket.IO Client
 
@@ -990,7 +900,7 @@ io({
 
 ---
 
-## 15. Caching Strategy
+## 14. Caching Strategy
 
 ### Experimental Browser Cache
 
@@ -1019,7 +929,7 @@ Request Flow with Cache:
 
 ---
 
-## 16. Utilities & Composables
+## 15. Utilities & Composables
 
 ### Global Composables
 
@@ -1077,7 +987,7 @@ Procedural SVG generation for:
 
 ---
 
-## 17. Build & Tooling
+## 16. Build & Tooling
 
 ### Vite Configuration
 
@@ -1130,7 +1040,7 @@ Generated types used throughout stores and API services for type-safe backend co
 
 ---
 
-## 18. Type System
+## 17. Type System
 
 ### Generated Types (`__generated__/models/`)
 
@@ -1179,18 +1089,15 @@ Used throughout: `import { ... } from "@/stores/roms"`. Vite and Vitest take the
 
 ## Appendix: Key Design Patterns
 
-| Pattern                    | Where                  | Purpose                                          |
-| -------------------------- | ---------------------- | ------------------------------------------------ |
-| **Composition API**        | All components         | `<script setup>` with reactive refs              |
-| **Pinia stores**           | `stores/`              | Centralized state with actions/getters           |
-| **Mitt event bus**         | Cross-component        | Loosely-coupled dialog/notification triggers     |
-| **Composables**            | `composables/`         | Reusable stateful logic (singleton where needed) |
-| **Stale-while-revalidate** | `services/cache/`      | Return cached, update in background              |
-| **Chunked upload**         | `services/api/rom.ts`  | 10MB chunks with retry                           |
-| **Spatial navigation**     | `console/`             | Grid-based focus for gamepad/keyboard            |
-| **Input scoping**          | `console/input/bus.ts` | Stack-based context for input handling           |
-| **Procedural audio**       | `console/utils/sfx.ts` | Web Audio API synthesis                          |
-| **Double buffering**       | `useBackgroundArt`     | Smooth background transitions                    |
-| **View Transitions**       | `plugins/transition/`  | CSS View Transitions API                         |
-| **OpenAPI codegen**        | `__generated__/`       | Type-safe API communication                      |
-| **Feature flags**          | `heartbeatStore`       | Server-driven UI feature toggling                |
+| Pattern                    | Where                 | Purpose                                          |
+| -------------------------- | --------------------- | ------------------------------------------------ |
+| **Composition API**        | All components        | `<script setup>` with reactive refs              |
+| **Pinia stores**           | `stores/`             | Centralized state with actions/getters           |
+| **Mitt event bus**         | Cross-component       | Loosely-coupled dialog/notification triggers     |
+| **Composables**            | `composables/`        | Reusable stateful logic (singleton where needed) |
+| **Stale-while-revalidate** | `services/cache/`     | Return cached, update in background              |
+| **Chunked upload**         | `services/api/rom.ts` | 10MB chunks with retry                           |
+| **Double buffering**       | `useBackgroundArt`    | Smooth background transitions                    |
+| **View Transitions**       | `plugins/transition/` | CSS View Transitions API                         |
+| **OpenAPI codegen**        | `__generated__/`      | Type-safe API communication                      |
+| **Feature flags**          | `heartbeatStore`      | Server-driven UI feature toggling                |

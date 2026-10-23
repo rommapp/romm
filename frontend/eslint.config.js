@@ -183,18 +183,8 @@ export default withVueTs(
     },
   },
   {
-    // Frozen v1: two cycles between the console theme helpers predate the
-    // rule and cannot be refactored under the freeze.
-    files: ["src/console/**"],
-    rules: { "import-x/no-cycle": "off" },
-  },
-  {
     files: ["src/**/*.ts", "src/**/*.vue"],
     ignores: [
-      "src/views/**",
-      "src/components/**",
-      "src/console/**",
-      "src/layouts/**",
       // The lazy-loaded md-editor modules, the editor's global config, and the
       // view that reaches md-editor only through an async chunk.
       "src/plugins/mdeditor*.ts",
@@ -301,14 +291,10 @@ export default withVueTs(
       "romm/no-safe-area-env": "error",
     },
   },
-  // Stored preferences follow the signed-in user; frozen v1 keeps its keys.
+  // Stored preferences follow the signed-in user.
   {
     files: ["src/**/*.ts", "src/**/*.vue"],
     ignores: [
-      "src/views/**",
-      "src/components/**",
-      "src/console/**",
-      "src/layouts/**",
       "**/*.stories.ts",
       "**/*.test.ts",
       "src/composables/useUserLocalStorage.ts",
@@ -338,12 +324,6 @@ export default withVueTs(
   },
   {
     files: ["src/**/*.test.ts"],
-    ignores: [
-      "src/views/**",
-      "src/components/**",
-      "src/console/**",
-      "src/layouts/**",
-    ],
     rules: {
       "no-restricted-syntax": [
         "error",
@@ -378,16 +358,24 @@ export default withVueTs(
     files: ["**/*.test.ts"],
     rules: { "@typescript-eslint/unbound-method": "off" },
   },
-  // Frozen v1 cannot take the type-aware fixes, so it skips typed linting.
+  // The EmulatorJS player and runtime moved here untouched from the removed v1
+  // UI. Their raw `localStorage` keys are what users' saved settings live
+  // under, so they stay until a migration moves them.
   {
     files: [
-      "src/views/**",
-      "src/components/**",
-      "src/console/**",
-      "src/layouts/**",
+      "src/v2/components/Player/EmulatorJSPlayer.vue",
+      "src/v2/views/Player/emulatorJSRuntime.ts",
+      "src/v2/views/Player/emulatorJSRuntime.test.ts",
     ],
-    extends: [vueTsConfigs.disableTypeChecked],
-    languageOptions: { parserOptions: { projectService: false } },
+    rules: {
+      "@typescript-eslint/no-base-to-string": "off",
+      "@typescript-eslint/no-misused-promises": "off",
+      "@typescript-eslint/require-await": "off",
+      "@typescript-eslint/restrict-template-expressions": "off",
+      "@typescript-eslint/unbound-method": "off",
+      "no-restricted-syntax": "off",
+      "romm/no-unscoped-local-storage": "off",
+    },
   },
   // After the base configs, so its exceptions win.
   ...e2eConfig,

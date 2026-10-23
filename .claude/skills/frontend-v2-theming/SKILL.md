@@ -16,7 +16,7 @@ description: Theming, design tokens, colors, and visual language in the RomM v2 
 - **`src/v2/styles/tokens.css`**: _generated_ by `scripts/build-tokens.ts` (`npm run build:tokens`, hooked into `predev`/`prebuild`). **Do not hand-edit.** This is how the vast majority of tokens are consumed: `var(--r-color-...)` in CSS.
 - **Direct JS/TS imports** of named exports (`colorCanvas`, `colorCoverArt`, `layout`, …) for the few cases needing a token value in JavaScript: baking colors into an SVG string (`utils/covers`), canvas/QR backgrounds (`Player/Ruffle.vue`, `ShowQRCodeDialog`), and the virtualiser's pixel math (`Gallery/listColumns` reading `layout`).
 
-v2 has **no Vuetify theme of its own**, and no Vuetify at all. `tokens.css` emits a palette block per theme under `.r-v2.r-v2-dark` / `.r-v2.r-v2-light`; `RomM.vue` toggles those classes on `<html>`. v2 surfaces never read Vuetify's runtime theme (`src/plugins/vuetify.ts` serves v1 only).
+v2 has **no Vuetify theme of its own**, and no Vuetify at all. `tokens.css` emits a palette block per theme under `.r-v2.r-v2-dark` / `.r-v2.r-v2-light`; `RomM.vue` toggles those classes on `<html>`. v2 surfaces never read Vuetify's runtime theme.
 
 ### Adding a new token
 

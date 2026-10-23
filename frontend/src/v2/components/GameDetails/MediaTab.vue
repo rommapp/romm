@@ -9,8 +9,6 @@
 //   * The panel doubles as a drag-and-drop target (same affordance as the
 //     Upload / Patcher views): drop files anywhere over it to upload
 //   * Upload goes through `useRomFileUpload`, into the soundtrack/ folder
-//
-// The soundtrack player is reused from v1 for now.
 import { RBtn, RDropzone, REmptyState } from "@v2/lib";
 import { computed, defineAsyncComponent, ref, useId, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -411,7 +409,7 @@ html[data-bp~="sm-and-down"] .r-v2-media {
   gap: 14px;
 }
 
-/* Soundtrack: the v1 player has its own internal styling; wrap in an
+/* Soundtrack: the player has its own internal styling; wrap in an
    elevated container so it blends with v2 tokens. */
 .r-v2-media__soundtrack {
   border: 1px solid var(--r-color-border);

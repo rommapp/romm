@@ -69,7 +69,7 @@ import {
   pollSaveFiles,
   saveSaveOnUnload,
   toArrayBuffer,
-} from "./utils";
+} from "@/v2/views/Player/emulatorJSRuntime";
 
 const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
 
@@ -815,7 +815,7 @@ async function loadState(state: StateSchema) {
   }
 }
 
-// v2 answers with its save/state picker, v1 with its states-only one.
+// Answers with the save/state picker.
 window.EJS_onLoadState = async function () {
   window.EJS_emulator.pause();
   window.EJS_emulator.toggleFullscreen(false);
