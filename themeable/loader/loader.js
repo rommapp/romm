@@ -115,10 +115,10 @@
 
   // A preview tab names its theme on each artwork URL instead, so the cookie other tabs share stays put.
   var ARTWORK_ATTRS = ["src", "srcset", "href", "xlink:href", "poster", "style"];
-  function tagUrl(url) {
+  function tagUrl(url, anyPath) {
     try {
       var u = new URL(url, location.href);
-      if (u.origin !== location.origin || u.pathname.indexOf("/assets/") !== 0 || u.searchParams.has(COOKIE)) return url;
+      if (u.origin !== location.origin || (!anyPath && u.pathname.indexOf("/assets/") !== 0) || u.searchParams.has(COOKIE)) return url;
       u.searchParams.set(COOKIE, current);
       return u.pathname + u.search + u.hash;
     } catch (e) {
@@ -145,6 +145,13 @@
   }
   function tagElement(el) {
     if (el.nodeType !== 1) return;
+    // Tab icons sit at the site root; nginx picks a preview's from the same argument.
+    if (/^link$/i.test(el.tagName)) {
+      var href = el.getAttribute("href");
+      var icon = href && /icon/i.test(el.getAttribute("rel") || "") ? tagUrl(href, true) : href;
+      if (icon !== href) el.setAttribute("href", icon);
+      return;
+    }
     for (var i = 0; i < ARTWORK_ATTRS.length; i++) {
       var name = ARTWORK_ATTRS[i];
       if (name !== "style" && name !== "poster" && !/^(img|source|image|video)$/i.test(el.tagName)) continue;
@@ -157,7 +164,7 @@
   function tagTree(node) {
     tagElement(node);
     if (node.querySelectorAll) {
-      var all = node.querySelectorAll("img, source, image, video, [style*='/assets/']");
+      var all = node.querySelectorAll("img, source, image, video, link[rel*='icon'], [style*='/assets/']");
       for (var i = 0; i < all.length; i++) tagElement(all[i]);
     }
   }

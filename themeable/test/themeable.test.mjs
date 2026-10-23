@@ -406,12 +406,12 @@ test("Branding's preview slots name real stock files, and every pack's favicons 
 });
 
 // Runs the real loader against a stub page; `seed` makes Math.random repeatable.
-function runLoader(manifest, { cookie = "", stored = null, search = "", seed = 1 } = {}) {
+function runLoader(manifest, { cookie = "", stored = null, search = "", seed = 1, elements = [] } = {}) {
   const storage = new Map(stored ? [[manifest.client.storage_key, stored]] : []);
   const attrs = {};
   const doc = {
     cookie,
-    documentElement: { setAttribute: (k, v) => (attrs[k] = v) },
+    documentElement: { setAttribute: (k, v) => (attrs[k] = v), querySelectorAll: () => elements },
     getElementById: () => null,
     createElement: () => ({ setAttribute() {} }),
     head: { appendChild() {} },
@@ -476,6 +476,25 @@ test("a browser can choose Random for itself, and a Random preview leaves the co
   const preview = runLoader(manifest, { search: `?${CLIENT.preview_param}=${RANDOM_ID}`, cookie: `${CLIENT.cookie}=aurora` });
   assert.equal(preview.theme, "ember");
   assert.equal(preview.cookie, "aurora", "a preview tab never changes the shared cookie");
+});
+
+test("a preview tab asks for the previewed theme's tab icons, leaving other links alone", async () => {
+  const { CLIENT } = await import("../lib/client.mjs");
+  const themes = ["aurora", "ember"].map((id) => ({ id, name: id, css: `/themes/${id}/theme.css` }));
+  const manifest = { default: "ember", client: CLIENT, themes, random: { ids: [] } };
+  const link = (rel, href) => {
+    const a = { rel, href };
+    return { nodeType: 1, tagName: "LINK", getAttribute: (k) => a[k] ?? null, setAttribute: (k, v) => (a[k] = v), a };
+  };
+  const elements = [link("icon", "/favicon-32x32.png"), link("apple-touch-icon", "/apple-touch-icon.png"), link("manifest", "/site.webmanifest")];
+  runLoader(manifest, { search: `?${CLIENT.preview_param}=aurora`, cookie: `${CLIENT.cookie}=ember`, elements });
+  assert.deepEqual(
+    elements.map((e) => e.a.href),
+    [`/favicon-32x32.png?${CLIENT.cookie}=aurora`, `/apple-touch-icon.png?${CLIENT.cookie}=aurora`, "/site.webmanifest"],
+  );
+  const normal = [link("icon", "/favicon-32x32.png")];
+  runLoader(manifest, { elements: normal });
+  assert.equal(normal[0].a.href, "/favicon-32x32.png", "a normal tab relies on the cookie");
 });
 
 test("Random as the server's theme compiles, and falls back to RomM's look with nothing to draw", async () => {
