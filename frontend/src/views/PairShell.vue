@@ -26,7 +26,7 @@ import Pair from "@/views/Pair.vue";
   overflow: hidden;
 
   /* The background and the Pair card are always dark, so pin text and
-     borders to the always-light overlay tokens for v2-light. */
+     borders to the always-light overlay tokens for the light theme. */
   --r-color-fg: var(--r-color-overlay-fg);
   --r-color-fg-secondary: var(--r-color-overlay-fg-secondary);
   --r-color-fg-muted: var(--r-color-overlay-fg-muted);

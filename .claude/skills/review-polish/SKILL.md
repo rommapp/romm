@@ -172,7 +172,7 @@ Run from `frontend/`:
 With `uiVersion = "v2"`:
 
 - **Golden path + edge cases:** empty, error, loading, no-permission, extreme data; plus nearby regressions.
-- **Both themes:** `v2-dark` and `v2-light`.
+- **Both themes:** `r-dark` and `r-light`.
 - **All four input modalities:** mouse, touch, keyboard, gamepad; focus ring only on `key`/`pad`.
 - **Responsive sweep:** 320px → 4K across the `useBreakpoint` tiers; overlays full-bleed on `xs`.
 - **Accessibility:** contrast, keyboard reachability with no traps, aria-labels on icon-only controls.

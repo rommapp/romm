@@ -5,7 +5,7 @@ description: Theming, design tokens, colors, and visual language in the RomM v2 
 
 # RomM v2: Tokens, Theming & Visual Language
 
-**Tokens are the only source of truth for theming. Zero hex/`rgba()` literals in v2 components.** If a value is missing, add a token. Every component must work in both `v2-dark` and `v2-light`.
+**Tokens are the only source of truth for theming. Zero hex/`rgba()` literals in v2 components.** If a value is missing, add a token. Every component must work in both `r-dark` and `r-light`.
 
 ---
 

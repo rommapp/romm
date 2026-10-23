@@ -48,7 +48,7 @@ const { modality } = useInputModality();
 
 // Theme ----------------------------------------------------------------
 const { isDark } = useThemeMode();
-const themeLabel = computed(() => (isDark.value ? "v2-dark" : "v2-light"));
+const themeLabel = computed(() => (isDark.value ? "dark" : "light"));
 
 // Route ----------------------------------------------------------------
 const route = useRoute();
