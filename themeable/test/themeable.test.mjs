@@ -8,7 +8,8 @@ import vm from "node:vm";
 import { diffCatalogs } from "../lib/catalog.mjs";
 import { findCssReferences, scopeSelectorList } from "../lib/cssrefs.mjs";
 import { injectLoader } from "../lib/html.mjs";
-import { patchNginx } from "../lib/nginx.mjs";
+import { patchNginx, SANDBOX_POLICY } from "../lib/nginx.mjs";
+import { PACK_ID_PATTERN } from "../lib/client.mjs";
 import { applyAliases, compilePack, hexToRgbTriplet, validatePack } from "../lib/pack.mjs";
 import { updatePrecacheRevisions, md5 } from "../lib/sw.mjs";
 import { folderFiles } from "../lib/packfiles.mjs";
@@ -120,6 +121,10 @@ test("patches the real nginx template's /assets block only", () => {
   assert.match(patched, /map "\$arg_romm_theme:\$cookie_romm_theme" \$themeable_theme \{\n {4}default "ember";/);
   assert.match(patched, /location \/assets \{\n\s+add_header Cache-Control "no-cache";\n\s+add_header Vary Cookie;[\s\S]*?try_files \/themes\/\$themeable_theme\$uri \$uri \$uri\/ =404;/);
   assert.ok(patched.includes("location /assets/romm/resources/ {"), "other /assets locations stay");
+  const sandboxed = (block) => assert.match(block, new RegExp(`Content-Security-Policy "${SANDBOX_POLICY}";\\n\\s+add_header X-Content-Type-Options nosniff;`));
+  sandboxed(patched.slice(patched.indexOf("location /themes/ {")));
+  sandboxed(patched.slice(patched.indexOf("location ~* \\.svg$ {")));
+  sandboxed(patched.slice(patched.indexOf('location ~ "^/(favicon')));
   assert.throws(() => patchNginx(patched), /already patched/);
   assert.throws(() => patchNginx(conf, "../x"), /bad default theme/);
 });
@@ -281,6 +286,27 @@ test("reserved ids are rejected by the validator and the schema alike", () => {
     const { errors } = validatePack({ files: folderFiles(tmpdir()), pack: { id, name: id } });
     assert.ok(errors.some((e) => e.includes("reserved")), `validator reserves ${id}`);
   }
+  assert.equal(schema.properties.id.pattern, `^${PACK_ID_PATTERN}$`, "the schema uses the shared id pattern");
+});
+
+test("packs can only publish images and fonts, and no SVG that runs code", () => {
+  const html = tempPack({ assets: { "/assets/payload.html": "payload.html" } }, { "payload.html": "<script>alert(1)</script>" });
+  assert.ok(validatePack(html).errors.some((e) => e.includes("only replace images, fonts and stylesheets")));
+  for (const svg of [
+    '<svg><script>alert(1)</script></svg>',
+    '<svg onload="alert(1)"></svg>',
+    '<svg><a href="javascript:alert(1)"><text>x</text></a></svg>',
+    '<svg><foreignObject><iframe src="x"/></foreignObject></svg>',
+  ]) {
+    const pack = tempPack(
+      { assets: { "/assets/logo.svg": "logo.svg" }, covers: { missing: ["cover.svg"] } },
+      { "logo.svg": svg, "cover.svg": svg },
+    );
+    const errors = validatePack(pack).errors.filter((e) => e.includes("scripts, event handlers"));
+    assert.equal(errors.length, 2, `refuses ${svg} as artwork and as a cover`);
+  }
+  const plain = tempPack({ assets: { "/assets/logo.svg": "logo.svg" } }, { "logo.svg": '<svg><rect width="4" height="4" opacity="0.5"/></svg>' });
+  assert.deepEqual(validatePack(plain).errors, []);
 });
 
 test("browser files read shared values from the manifest instead of declaring them", async () => {
@@ -376,7 +402,7 @@ test("Branding's preview slots name real stock files, and every pack's favicons 
   const conf = readFileSync(join(here, "../../docker/nginx/templates/default.conf.template"), "utf8");
   const patched = patchNginx(conf);
   assert.match(patched, new RegExp(`map "\\$arg_${COOKIE}:\\$cookie_${COOKIE}" \\$themeable_root \\{`));
-  assert.match(patched, /add_header Vary Cookie;\n\s+try_files \$themeable_root\$uri \$uri =404;/);
+  assert.match(patched, /add_header Vary Cookie;[^}]*try_files \$themeable_root\$uri \$uri =404;/);
 });
 
 // Runs the real loader against a stub page; `seed` makes Math.random repeatable.

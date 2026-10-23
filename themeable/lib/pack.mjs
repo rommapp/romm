@@ -1,12 +1,12 @@
 // Theme pack loading, validation and compilation.
 import { createHash } from "node:crypto";
 import { extname } from "node:path";
-import { COVER_VARS, FOLLOW_SERVER_ID, PACK_NAME_MAX, RANDOM_ID, STOCK_ID, THEME_ATTRIBUTE } from "./client.mjs";
+import { COVER_VARS, FOLLOW_SERVER_ID, PACK_ID_PATTERN, PACK_NAME_MAX, RANDOM_ID, STOCK_ID, THEME_ATTRIBUTE } from "./client.mjs";
 import { scopeSelectorList } from "./cssrefs.mjs";
 import { packPath } from "./packfiles.mjs";
 import { SCOPES, isTokenName } from "./tokens.mjs";
 
-export const PACK_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
+export const PACK_ID = new RegExp(`^${PACK_ID_PATTERN}$`);
 export { PACK_NAME_MAX } from "./client.mjs";
 export const PACK_TAG = /^[a-z][a-z0-9-]{0,31}$/;
 export const PACK_TAGS_MAX = 8;
@@ -16,6 +16,10 @@ export const COVER_COLORS = ["base", "shade", "warm", "icon"];
 export const COVER_VARIANTS_MAX = 8;
 const COVER_EXTENSIONS = [".svg", ".png", ".webp", ".jpg", ".jpeg"];
 const CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
+// Packs publish on RomM's origin, so only passive file types are allowed: images, fonts and stylesheets.
+export const ASSET_EXTENSIONS = [".css", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".ico", ".woff2", ".woff", ".ttf", ".otf"];
+// Anything that lets an SVG run code or embed a document when it is opened or inlined.
+const ACTIVE_SVG = /<script|<foreignObject|<iframe|<embed|<object|<handler|<listener|<!ENTITY|javascript:|data:\s*text\/html|\son[a-z]+\s*=/i;
 
 /** Why a display name can't be used, or null. */
 export function badPackName(name) {
@@ -154,6 +158,12 @@ export function validatePack({ files, pack }, catalog = {}) {
     }
   }
 
+  const checkSvg = (where, path) => {
+    if (extname(path).toLowerCase() === ".svg" && ACTIVE_SVG.test(files.read(path).toString("utf8"))) {
+      err(`${where}: ${path} contains scripts, event handlers or embedded documents, which packs can't use`);
+    }
+  };
+
   const checkFile = (where, key, rel) => {
     const path = packPath(rel);
     if (!path) return err(`${where}["${key}"]: source must be a path inside the pack`);
@@ -161,6 +171,7 @@ export function validatePack({ files, pack }, catalog = {}) {
     if (extname(path).toLowerCase() !== extname(key).toLowerCase()) {
       err(`${where}["${key}"]: source ${rel} must have the same extension as the file it replaces`);
     }
+    checkSvg(`${where}["${key}"]`, path);
   };
 
   for (const [key, rel] of Object.entries(section("assets"))) {
@@ -171,6 +182,10 @@ export function validatePack({ files, pack }, catalog = {}) {
     const top = key.split("/")[2];
     if (EXCLUDED_ASSET_DIRS.includes(top)) {
       err(`assets["${key}"]: /assets/${top}/ holds runtime code or library data and can't be themed`);
+      continue;
+    }
+    if (!ASSET_EXTENSIONS.includes(extname(key).toLowerCase())) {
+      err(`assets["${key}"]: packs can only replace images, fonts and stylesheets (${ASSET_EXTENSIONS.join(", ")})`);
       continue;
     }
     checkFile("assets", key, rel);
@@ -230,6 +245,7 @@ export function validatePack({ files, pack }, catalog = {}) {
       const path = packPath(rel);
       if (!path || !files.exists(path)) err(`covers.${kind}[${i}]: missing file inside the pack`);
       else if (!COVER_EXTENSIONS.includes(extname(path).toLowerCase())) err(`covers.${kind}[${i}]: use ${COVER_EXTENSIONS.join(", ")}`);
+      else checkSvg(`covers.${kind}[${i}]`, path);
     });
   }
 

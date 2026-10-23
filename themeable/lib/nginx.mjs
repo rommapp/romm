@@ -1,9 +1,11 @@
 // The one change to an upstream file: the nginx `location /assets` block learns to
 // look in /themes/<theme>/ first. Done by anchored rewrite so a mismatch fails loudly.
-import { COOKIE, STOCK_ID } from "./client.mjs";
+import { COOKIE, PACK_ID_PATTERN, STOCK_ID } from "./client.mjs";
 import { PACK_ID, ROOT_FILES } from "./pack.mjs";
 
 export const MARKER = "# themeable:";
+// Pack files are served on RomM's origin, so one opened on its own gets no scripts, forms or plugins.
+export const SANDBOX_POLICY = "default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; sandbox";
 
 /** Finds the single `location /assets { ... }` block (not /assets/romm/... or the regex location). */
 export function findAssetsBlock(conf) {
@@ -36,6 +38,8 @@ export function patchNginx(conf, defaultTheme = STOCK_ID) {
     `${indent}location ~ "^/(${rootFiles})$" {\n` +
     `${inner}add_header Cache-Control "no-cache";\n` +
     `${inner}add_header Vary Cookie;\n` +
+    `${inner}add_header Content-Security-Policy "${SANDBOX_POLICY}";\n` +
+    `${inner}add_header X-Content-Type-Options nosniff;\n` +
     `${inner}try_files $themeable_root$uri $uri =404;\n` +
     `${indent}}\n\n` +
     `${indent}${MARKER} artwork comes from the active theme pack when it has the file.\n` +
@@ -43,10 +47,26 @@ export function patchNginx(conf, defaultTheme = STOCK_ID) {
     `${indent}location /assets {\n` +
     `${inner}add_header Cache-Control "no-cache";\n` +
     `${inner}add_header Vary Cookie;\n` +
-    `${newBody}}`;
+    `${newBody.replace(/\s*$/, "\n")}` +
+    `${inner}${MARKER} a pack's SVG artwork opened on its own is sandboxed.\n` +
+    `${inner}location ~* \\.svg$ {\n` +
+    `${inner}    add_header Cache-Control "no-cache";\n` +
+    `${inner}    add_header Vary Cookie;\n` +
+    `${inner}    add_header Content-Security-Policy "${SANDBOX_POLICY}";\n` +
+    `${inner}    add_header X-Content-Type-Options nosniff;\n` +
+    `${inner}    try_files /themes/$themeable_theme$uri $uri =404;\n` +
+    `${inner}}\n` +
+    `${indent}}\n\n` +
+    `${indent}${MARKER} compiled themes: stylesheets, artwork and favicons, never documents that run code.\n` +
+    `${indent}location /themes/ {\n` +
+    `${inner}add_header Cache-Control "no-cache";\n` +
+    `${inner}add_header Content-Security-Policy "${SANDBOX_POLICY}";\n` +
+    `${inner}add_header X-Content-Type-Options nosniff;\n` +
+    `${inner}try_files $uri =404;\n` +
+    `${indent}}`;
 
   // The same-named query argument (set by preview tabs) wins over the cookie for that request only.
-  const id = "[a-z0-9][a-z0-9-]{0,63}";
+  const id = PACK_ID_PATTERN;
   const map =
     `${MARKER} theme id from the ${COOKIE} argument or cookie, limited to safe pack ids.\n` +
     `map "$arg_${COOKIE}:$cookie_${COOKIE}" $themeable_theme {\n` +

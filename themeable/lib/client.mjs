@@ -4,6 +4,8 @@ export const STOCK_ID = "none";
 export const FOLLOW_SERVER_ID = "default";
 // Resolved by the loader to a usable pack on every page load; never a pack's own id.
 export const RANDOM_ID = "random";
+// What a pack id looks like, without anchors so nginx and the backend can build their own checks from it.
+export const PACK_ID_PATTERN = "[a-z0-9][a-z0-9-]{0,63}";
 export const STORAGE_KEY = "romm-themeable.theme";
 export const COOKIE = "romm_theme";
 export const URL_PARAM = "romm-theme";
@@ -46,6 +48,7 @@ export const CLIENT = Object.freeze({
   stock_id: STOCK_ID,
   follow_server_id: FOLLOW_SERVER_ID,
   random_id: RANDOM_ID,
+  pack_id_pattern: PACK_ID_PATTERN,
   random_cycle_ms: RANDOM_CYCLE_MS,
   pack_name_max: PACK_NAME_MAX,
   guide_url: GUIDE_URL,
