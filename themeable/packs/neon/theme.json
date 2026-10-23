@@ -1,0 +1,122 @@
+{
+  "$schema": "../../schema/theme.schema.json",
+  "id": "neon",
+  "name": "Neon",
+  "version": "1.0.0",
+  "author": "romm-themeable",
+  "description": "Arcade: synthwave magenta and cyan over a neon grid",
+  "tokens": {
+    "common": {
+      "--r-color-brand-primary": "#d01b97",
+      "--r-color-brand-primary-hover": "#ff4fc4",
+      "--r-color-brand-primary-pressed": "#a8137a",
+      "--r-color-brand-secondary": "#1fb4d6",
+      "--r-color-brand-secondary-hover": "#7ae9ff",
+      "--r-color-brand-secondary-pressed": "#1590aa",
+      "--r-color-brand-accent": "#ffd23f",
+      "--r-color-brand-accent-hover": "#ffe58a",
+      "--r-color-avatar-gradient": "linear-gradient(135deg, #ff4fc4, #3ce8ff)",
+      "--r-color-canvas-bg-deep": "#14062c"
+    },
+    "dark": {
+      "--r-color-bg": "#0a0316",
+      "--r-color-bg-elevated": "rgba(214, 150, 255, 0.04)",
+      "--r-color-surface": "rgba(214, 150, 255, 0.07)",
+      "--r-color-surface-hover": "rgba(214, 150, 255, 0.13)",
+      "--r-color-border": "rgba(214, 150, 255, 0.12)",
+      "--r-color-border-strong": "rgba(214, 150, 255, 0.24)",
+      "--r-color-panel": "rgba(20, 6, 38, 0.97)",
+      "--r-color-panel-border": "rgba(214, 150, 255, 0.16)",
+      "--r-color-tooltip-bg": "rgba(10, 3, 22, 0.95)",
+      "--r-color-toast-bg": "rgba(14, 4, 30, 0.93)",
+      "--r-color-auth-glass": "rgba(10, 3, 22, 0.66)",
+      "--r-color-cover-placeholder": "#1d0b33",
+      "--r-color-cover-placeholder-bright": "#2a1048",
+      "--r-color-fg": "rgb(251, 234, 255)",
+      "--r-color-fg-heading": "rgb(251, 234, 255)",
+      "--r-color-fg-secondary": "rgba(251, 234, 255, 0.84)",
+      "--r-color-fg-muted": "rgba(251, 234, 255, 0.6)",
+      "--r-color-fg-faint": "rgba(251, 234, 255, 0.45)"
+    },
+    "light": {
+      "--r-color-bg": "#fdf3ff",
+      "--r-color-bg-elevated": "rgba(40, 8, 60, 0.03)",
+      "--r-color-surface": "rgba(40, 8, 60, 0.05)",
+      "--r-color-surface-hover": "rgba(40, 8, 60, 0.11)",
+      "--r-color-border": "rgba(40, 8, 60, 0.14)",
+      "--r-color-border-strong": "rgba(40, 8, 60, 0.28)",
+      "--r-color-panel": "rgba(250, 238, 255, 0.98)",
+      "--r-color-panel-border": "rgba(40, 8, 60, 0.14)",
+      "--r-color-tooltip-bg": "rgba(253, 243, 255, 0.96)",
+      "--r-color-toast-bg": "rgba(253, 243, 255, 0.95)",
+      "--r-color-auth-glass": "rgba(253, 243, 255, 0.86)",
+      "--r-color-cover-placeholder": "#efdcf7",
+      "--r-color-cover-placeholder-bright": "#f6e9fb",
+      "--r-color-fg": "rgb(40, 8, 60)",
+      "--r-color-fg-heading": "rgba(40, 8, 60, 0.9)",
+      "--r-color-fg-secondary": "rgba(40, 8, 60, 0.84)",
+      "--r-color-fg-muted": "rgba(40, 8, 60, 0.74)",
+      "--r-color-fg-faint": "rgba(40, 8, 60, 0.58)",
+      "--r-color-brand-primary": "#b0127f",
+      "--r-color-brand-primary-hover": "#8f0e67",
+      "--r-color-brand-primary-pressed": "#6e0a4f",
+      "--r-color-brand-secondary": "#0c7f99",
+      "--r-color-brand-accent": "#9a6a00"
+    }
+  },
+  "vuetify": {
+    "dark": {
+      "primary": "#d01b97",
+      "secondary": "#1fb4d6",
+      "accent": "#ffd23f",
+      "background": "#0a0316",
+      "surface": "#160830",
+      "toplayer": "#200c40"
+    },
+    "light": {
+      "primary": "#b0127f",
+      "secondary": "#0c7f99",
+      "accent": "#9a6a00",
+      "background": "#fdf3ff",
+      "surface": "#ffffff",
+      "toplayer": "#f1def8"
+    }
+  },
+  "assets": {
+    "/assets/isotipo.svg": "assets/isotipo.svg",
+    "/assets/logotipo.svg": "assets/logotipo.svg",
+    "/assets/logos/romm_logo_xbox_one_circle_grayscale.svg": "assets/isotipo.svg",
+    "/assets/auth_background.svg": "assets/auth_background.svg",
+    "/assets/auth_background_static.svg": "assets/auth_background_static.svg"
+  },
+  "rootFiles": {
+    "/favicon.ico": "root/favicon.ico",
+    "/favicon.svg": "root/favicon.svg",
+    "/favicon-16x16.png": "root/favicon-16x16.png",
+    "/favicon-32x32.png": "root/favicon-32x32.png",
+    "/apple-touch-icon.png": "root/apple-touch-icon.png",
+    "/android-chrome-192x192.png": "root/android-chrome-192x192.png",
+    "/android-chrome-512x512.png": "root/android-chrome-512x512.png"
+  },
+  "covers": {
+    "colors": {
+      "base": "#2a0845",
+      "shade": "#0a0316",
+      "warm": "#e0259f",
+      "icon": "#3ce8ff"
+    },
+    "missing": [
+      "covers/missing-1.svg",
+      "covers/missing-2.svg",
+      "covers/missing-3.svg"
+    ],
+    "unmatched": [
+      "covers/unmatched-1.svg",
+      "covers/unmatched-2.svg",
+      "covers/unmatched-3.svg"
+    ]
+  },
+  "pwa": {
+    "themeColor": "#0a0316"
+  }
+}

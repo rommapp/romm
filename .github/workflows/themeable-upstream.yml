@@ -1,0 +1,223 @@
+name: themeable upstream release
+
+# Keeps `upstream` a clean copy of RomM's latest stable release, then adopts that release into
+# `main` (the branch with this project's changes) through a checked, self-merging PR.
+# Needs the THEMEABLE_BOT_TOKEN secret; see themeable/README.md#staying-current-with-romm and #repository-setup.
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Upstream tag to adopt (defaults to the latest stable release)
+        required: false
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: themeable-upstream
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      skip: ${{ steps.rel.outputs.skip }}
+      tag: ${{ steps.rel.outputs.tag }}
+      branch: ${{ steps.rel.outputs.branch }}
+      check_ok: ${{ steps.check.outputs.ok }}
+    steps:
+      - name: Require the bot token
+        env:
+          BOT_TOKEN: ${{ secrets.THEMEABLE_BOT_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "$BOT_TOKEN" ]; then exit 0; fi
+          title="themeable: add the THEMEABLE_BOT_TOKEN secret"
+          if [ -z "$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "$title in:title" --json number --jq '.[].number')" ]; then
+            gh issue create -R "$GITHUB_REPOSITORY" --title "$title" --body "Upstream adoption is paused. Create a fine-grained personal access token limited to this repository with **Contents**, **Pull requests** and **Workflows** set to read and write, then save it as the repository secret \`THEMEABLE_BOT_TOKEN\`. The next scheduled run picks it up."
+          fi
+          echo "::error::THEMEABLE_BOT_TOKEN is not set"
+          exit 1
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.THEMEABLE_BOT_TOKEN }}
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Find the release to adopt
+        id: rel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest=$(gh api repos/rommapp/romm/releases/latest --jq .tag_name)
+          tag="${{ inputs.tag }}"
+          [ -n "$tag" ] || tag="$latest"
+          branch="themeable-upstream/$tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          if [ "$tag" = "$(cat themeable/ROMM_VERSION)" ] || git ls-remote --exit-code origin "refs/heads/$branch" >/dev/null; then
+            echo "Nothing to adopt ($tag is current or already in progress)"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The `upstream` branch always equals the latest stable RomM release commit, resetting away
+      # unreleased upstream commits; it holds none of its own. Manual runs with other tags leave it alone.
+      - name: Sync the upstream branch to the release
+        env:
+          TAG: ${{ steps.rel.outputs.tag }}
+          LATEST: ${{ steps.rel.outputs.latest }}
+        run: |
+          git remote add upstream https://github.com/rommapp/romm.git
+          git fetch --no-tags upstream master "refs/tags/$TAG:refs/tags/$TAG"
+          if [ "$TAG" != "$LATEST" ]; then
+            echo "$TAG is not the latest stable release ($LATEST); the upstream branch is unchanged"
+            exit 0
+          fi
+          git fetch origin upstream
+          release=$(git rev-parse "$TAG^{commit}")
+          current=$(git rev-parse origin/upstream)
+          if [ "$release" = "$current" ]; then
+            echo "the upstream branch is already at $TAG"
+          elif git merge-base --is-ancestor "$current" "$release"; then
+            git push origin "$release:refs/heads/upstream"
+            echo "the upstream branch moved to $TAG ($release)"
+          elif git merge-base --is-ancestor "$release" "$current" && git merge-base --is-ancestor "$current" upstream/master; then
+            git push --force-with-lease="upstream:$current" origin "$release:refs/heads/upstream"
+            echo "the upstream branch reset from unreleased upstream commit $current to $TAG ($release)"
+          else
+            echo "::warning::the upstream branch ($current) has commits that are not upstream's; left unchanged"
+          fi
+
+      - name: Merge upstream
+        if: steps.rel.outputs.skip != 'true'
+        id: merge
+        run: |
+          git config user.name "romm-themeable bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "${{ steps.rel.outputs.branch }}"
+          if ! git merge --no-edit -m "Merge RomM ${{ steps.rel.outputs.tag }} into main" "${{ steps.rel.outputs.tag }}"; then
+            # The root docker-compose.yml and README.md are the module's own on this branch
+            # (upstream's stay on the upstream branch), so keep ours.
+            for own in docker-compose.yml README.md; do
+              if git diff --name-only --diff-filter=U | grep -qx "$own"; then
+                git checkout --ours "$own"
+                git add "$own"
+              fi
+            done
+            if [ -z "$(git diff --name-only --diff-filter=U)" ]; then
+              git commit --no-edit
+            else
+              git diff --name-only --diff-filter=U > "$RUNNER_TEMP/conflicts.txt"
+              git merge --abort
+              echo "conflict=true" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Open an issue on merge conflict
+        if: steps.merge.outputs.conflict == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "Merging RomM ${{ steps.rel.outputs.tag }} into \`main\` hit conflicts in:"
+            echo
+            sed 's/^/- `/; s/$/`/' "$RUNNER_TEMP/conflicts.txt"
+            echo
+            echo "The module only adds files, plus its own root README.md and docker-compose.yml (both kept automatically), so resolve these by hand and run this workflow again."
+          } > "$RUNNER_TEMP/issue.md"
+          gh issue create -R "$GITHUB_REPOSITORY" --title "themeable: merging RomM ${{ steps.rel.outputs.tag }} conflicts" --body-file "$RUNNER_TEMP/issue.md"
+          exit 1
+
+      - name: Compatibility check, catalog refresh and tests
+        if: steps.rel.outputs.skip != 'true'
+        id: check
+        working-directory: themeable
+        run: |
+          if node scripts/check-upstream.mjs --report "$RUNNER_TEMP/check.md"; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
+          node scripts/catalog.mjs
+          node scripts/example.mjs
+          echo "${{ steps.rel.outputs.tag }}" > ROMM_VERSION
+          # Each adopted RomM release raises the module's major version (themeable/GUIDELINES.md).
+          node -e 'const fs = require("node:fs"); const p = JSON.parse(fs.readFileSync("package.json", "utf8")); p.version = `${Number(p.version.split(".")[0]) + 1}.0.0`; fs.writeFileSync("package.json", JSON.stringify(p, null, 2) + "\n");'
+          sed -i -E "s/(romm-themeable:|ROMM_VERSION: )[0-9]+\.[0-9]+\.[0-9]+[A-Za-z0-9.-]*/\1${{ steps.rel.outputs.tag }}/g" ../docker-compose.yml
+          npm test
+
+      - name: Push the adoption branch
+        if: steps.rel.outputs.skip != 'true'
+        run: |
+          git add -A themeable docker-compose.yml
+          git commit -m "chore(themeable): adopt RomM ${{ steps.rel.outputs.tag }}" -m "Catalog refreshed; ROMM_VERSION, the module's major version and the root docker-compose.yml's image tag bumped by the upstream release workflow."
+          git push origin "HEAD:refs/heads/${{ steps.rel.outputs.branch }}"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.rel.outputs.skip != 'true'
+        with:
+          name: themeable-check
+          path: ${{ runner.temp }}/check.md
+
+  visual:
+    needs: prepare
+    if: needs.prepare.outputs.skip != 'true'
+    uses: ./.github/workflows/themeable-visual.yml
+    with:
+      ref: ${{ needs.prepare.outputs.branch }}
+
+  source:
+    needs: prepare
+    if: needs.prepare.outputs.skip != 'true'
+    uses: ./.github/workflows/themeable-source.yml
+    with:
+      ref: ${{ needs.prepare.outputs.branch }}
+
+  finalize:
+    needs: [prepare, visual, source]
+    if: always() && needs.prepare.result == 'success' && needs.prepare.outputs.skip != 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: themeable-*
+          path: reports
+          merge-multiple: true
+
+      - name: Open the PR and merge it when every check passed
+        env:
+          GH_TOKEN: ${{ secrets.THEMEABLE_BOT_TOKEN }}
+          CHECK_OK: ${{ needs.prepare.outputs.check_ok }}
+          VISUAL: ${{ needs.visual.result }}
+          SOURCE: ${{ needs.source.result }}
+          AUTO_MERGE: ${{ vars.THEMEABLE_AUTO_MERGE }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          BRANCH: ${{ needs.prepare.outputs.branch }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          passed=false
+          [ "$CHECK_OK" = "true" ] && [ "$VISUAL" = "success" ] && [ "$SOURCE" = "success" ] && passed=true
+          {
+            echo "Adopts RomM [$TAG](https://github.com/rommapp/romm/releases/tag/$TAG). Generated by the upstream release workflow ([run]($RUN_URL); screenshots are in its \`themeable-visual\` artifact)."
+            echo
+            if [ "$passed" = "true" ]; then echo "**All checks passed.**"; else echo "**Needs attention:** compatibility check ok=$CHECK_OK, visual check $VISUAL, patched-source check $SOURCE."; fi
+            echo
+            cat reports/check.md 2>/dev/null || echo "_Compatibility report missing._"
+            echo
+            cat reports/report.md 2>/dev/null || echo "_Visual report missing._"
+          } > body.md
+          title="themeable: adopt RomM $TAG"
+          [ "$passed" = "true" ] || title="$title (needs attention)"
+          url=$(gh pr create -R "$GITHUB_REPOSITORY" --base main --head "$BRANCH" --title "$title" --body-file body.md)
+          echo "PR: $url"
+          if [ "$passed" = "true" ] && [ "$AUTO_MERGE" != "false" ]; then
+            gh pr merge "$url" --merge --delete-branch
+            echo "Merged; the push to main builds and publishes the $TAG image."
+          else
+            echo "::warning::Left open for review: $url"
+          fi

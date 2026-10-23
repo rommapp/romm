@@ -1,194 +1,49 @@
-<!-- trunk-ignore-all(markdownlint/MD033) -->
-<!-- trunk-ignore(markdownlint/MD041) -->
-<div align="center">
-  <img src=".github/resources/isotipo.png" height="180px" width="auto" alt="romm logo">
+# romm-themeable
 
-  <h3 style="font-size: 25px;">
-    A beautiful, powerful, self-hosted ROM manager and player.
-  </h3>
-</div>
+romm-themeable is a fork of [RomM](https://github.com/rommapp/romm), the self-hosted ROM manager and player, that adds themes. Theme packs restyle RomM's interface (colors for light and dark mode, fonts, spacing, logos and wordmarks, login backgrounds, browser tab icons and custom CSS), and administrators choose, upload and manage them from RomM itself.
 
-<div align="center">
-  <div dir="auto">
-    <a href="https://trendshift.io/repositories/14133?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-14133" target="_blank" rel="noopener noreferrer"><img src=".github/resources/trendshift-badge.svg" alt="Trendshift" width="250" height="58"/></a>
-    <a href="https://news.ycombinator.com/item?id=44247964" target="_blank" rel="noopener noreferrer"><img src=".github/resources/hackernews-badge.svg" width="250px" alt="hackernews badge"></a>
-    <br />
-    <a href="https://selfh.st/survey/2025-results/" target="_blank" rel="noopener noreferrer"><img src=".github/resources/selfhst-badge.svg" width="250px" alt="selfh.st badge"></a>
-    <a href="https://discord.gg/invite/romm" target="_blank" rel="noopener noreferrer"><img src=".github/resources/discord-badge.svg" alt="Discord" width="250" height="58"/></a>
-  </div>
-</div>
+## What it sets out to do
 
-# Overview
+- **Make RomM's look your own.** A server can wear one of ten built-in themes, a pack of your own, or a different pack on every page load, and each visitor can pick a theme for their own browser.
+- **Stay current with RomM.** Every stable RomM release is adopted automatically, checked and rebuilt, so running romm-themeable never means running an old RomM.
+- **Never leave the server worse off.** A broken or missing pack disables only itself, a change that fails to compile changes nothing, and RomM's own look is always one click or one URL away.
+- **Be usable by everyone.** Three of the built-in themes are designed for accessibility: High Contrast Dark, High Contrast Light, and Signal, which never relies on red against green.
 
-Scan, enrich, browse and play your ROM collection from one beautiful & free self-hosted app. Metadata from 10+ providers, save sync across your devices, and support for over 400 platforms. RomM is a must-have for anyone who plays on emulators.
+## How it does it
 
-<p align="center">
-  <a href="https://demo.romm.app/" target="_blank" rel="noopener noreferrer"><img src=".github/resources/screenshots/preview.gif" alt="Browsing a library and playing a game in RomM" width="1000" /></a>
-</p>
+**Packs.** A theme pack is a single `.zip` holding a `theme.json` and the artwork, fonts and CSS it uses. RomM's interface is built from design tokens, so a pack mostly sets token values and names replacement files. Packs live in a folder on the host. In **Administration → Branding**, administrators choose the server's theme, upload new packs, and rename or delete them. Every upload is checked before anything is installed, because packs come from users and the web.
 
-## Features
+**Hooks, not a code fork.** Everything the project adds lives in the [`themeable/`](themeable/) folder. RomM's own source in this repository is left unedited. At build time, new files are overlaid and a few anchored edits are applied, and the image is built on top of the stock `rommapp/romm` release image. Four hooks connect the two:
 
-- Play in your browser with [EmulatorJS][docs-emulatorjs] and [RuffleRS][docs-rufflers], no setup required
-- Keep [saves and states][docs-saves] in sync across your devices, with conflict resolution
-- Scan and enrich your library with metadata from [IGDB][igdb-api], [Screenscraper][screenscraper-api], [LaunchBox][launchbox-api] and [MobyGames][mobygames-api]
-- Fetch custom artwork from [SteamGridDB][steamgriddb-api] and track your achievements from [Retroachievements][retroachievements-api]
-- Metadata available for [400+ platforms][docs-supported-platforms], plus multi-disk games, DLCs, mods, hacks and manuals
-- Apply romhacks and translations on the fly with the built-in [ROM patcher][docs-rom-patcher]
-- Share your library with granular [per-user permissions][docs-users-and-roles] and [OIDC single sign-on][docs-oidc]
-- Official apps for [Playnite][playnite-app], [Android][argosy-launcher] and [CFWs][grout]
-- Free forever: AGPL-3.0, no tracking, no paid features, and total control of your data
+1. a loader in `index.html` that picks the theme before the page renders;
+2. an nginx rule that serves a pack's artwork and tab icons in place of RomM's;
+3. the Branding tab and its admin-only API;
+4. a compile at start-up and on every change, which switches to a new build in one atomic step.
 
-## Installation
+**Tracking upstream.** The `upstream` branch is a clean copy of RomM's release commits. An hourly workflow notices each stable RomM release and merges it into a branch. It then runs a compatibility check, unit tests, a check of the patched source, and a visual check of every theme in a real browser, and opens a pull request with the reports. If everything passes, the release is merged into `main` and the image is published; if not, the pull request stays open for a person to look at.
 
-The easiest way to start is with the [Quick Start Guide][docs-quick-start-guide] in the docs. If you're having trouble with setup, please review the page for [troubleshooting steps][docs-troubleshooting].
+## Versioning
 
-Prefer a hosted deploy over wiring up the stack yourself?
+Releases are numbered `<major>.<feature>.<fix>-<RomM version>`:
 
-<p align="center">
-  <a href="https://www.hostg.xyz/aff_c?offer_id=815&amp;aff_id=243561&amp;url_id=6779" target="_blank" rel="noopener noreferrer"><img src=".github/resources/hostinger-badge.svg" alt="Deploy on Hostinger" width="250" height="58" /></a>
-  <br />Starting at <b>$6.49/mo</b> · <a href="https://docs.romm.app/latest/install/hostinger/">Setup guide</a>
-</p>
+| Part | Goes up by one when |
+| --- | --- |
+| `major` | the fork adopts a new RomM release |
+| `feature` | a feature update ships |
+| `fix` | a bug-fix or optimization update ships |
+| `RomM version` | names the RomM release the fork is built on, as in [`themeable/ROMM_VERSION`](themeable/ROMM_VERSION) |
 
-<sub><i>Deployment and infrastructure support for this install is handled by Hostinger. Prices are indicative and may not reflect current offerings. Signups through the link above send a share of the revenue back to us, which helps fund the project.</i></sub>
+When a number goes up, the numbers to its right go back to 0. For example, `1.1.0-5.4.0` is the first feature update on top of RomM 5.4.0. A bug fix to it would be `1.1.1-5.4.0`, and adopting RomM 5.5.0 next would make it `2.0.0-5.5.0`.
 
-## Official apps
+The module's own version lives in [`themeable/package.json`](themeable/package.json). Container images are tagged with the RomM version they are built on (`ghcr.io/stealthx3/romm-themeable:5.4.1`), with the full release (`:2.0.1-5.4.1`), and `:latest` for the newest.
 
-### <a href="https://github.com/rommapp/playnite-plugin"><img src=".github/resources/screenshots/app-playnite.webp" width="420" align="left" alt="Playnite library" /></a><a href="https://github.com/rommapp/playnite-plugin"><img src=".github/resources/playnite-logo.svg" height="28" align="top" alt="Playnite logo" /></a> Playnite plugin
+## Getting started
 
-Effortlessly integrate your retro game collection into [Playnite](https://playnite.link/), the open-source game library manager that provides a unified interface for all of your games on PC.
+The root [`docker-compose.yml`](docker-compose.yml) deploys romm-themeable with MariaDB; fill in the values marked `REQUIRED` and run `docker compose up -d`. Switching from stock RomM only means changing the image and adding a themes folder.
 
-`Windows` `Desktop` `QR pairing`
+- [`themeable/README.md`](themeable/README.md): deploying, choosing and managing themes, the built-in themes, how it works, and developing the module.
+- [Creating a theme pack](themeable/docs/creating-a-theme-pack.md): a first pack, every `theme.json` key, zipping a pack, and readable colors.
 
-<a href="https://github.com/rommapp/playnite-plugin?tab=readme-ov-file#installation"><img src=".github/resources/playnite-install-button.svg" width="134" height="38" align="middle" alt="Install" /></a>&nbsp;&nbsp;<sub>by <a href="https://github.com/gantoine">@gantoine</a></sub>
+## Built on RomM
 
-<br clear="left" />
-
-### <a href="https://github.com/rommapp/argosy-launcher"><img src=".github/resources/screenshots/app-argosy.webp" width="420" align="left" alt="Argosy library" /></a><a href="https://github.com/rommapp/argosy-launcher"><img src=".github/resources/argosy-logo.svg" height="28" align="top" alt="Argosy logo" /></a> Argosy
-
-Sync your library, download games on demand and track your achievements, from a gamepad-first interface designed for Anbernic, Retroid Pocket, Odin, and similar devices.
-
-`Android` `Handhelds` `QR pairing` `Save sync`
-
-<a href="https://github.com/rommapp/argosy-launcher/releases/latest/"><img src=".github/resources/argosy-download-button.svg" width="134" height="38" align="middle" alt="Download" /></a>&nbsp;&nbsp;<sub>by <a href="https://github.com/tmgast">@tmgast</a></sub>
-
-<br clear="left" />
-
-### <a href="https://github.com/rommapp/grout"><img src=".github/resources/screenshots/app-grout.webp" width="420" align="left" alt="Grout multi-select" /></a><a href="https://github.com/rommapp/grout"><img src=".github/resources/grout-logo.svg" height="28" align="top" alt="Grout logo" /></a> Grout
-
-A lightweight client for your favorite handheld custom firmwares*. Download games, box art and BIOS files wirelessly, and sync your saves automatically as you play.
-
-`Linux` `Handhelds` `Save sync`
-
-<a href="https://grout.romm.app/getting-started/"><img src=".github/resources/grout-quick-start-button.svg" width="134" height="38" align="middle" alt="Quick start" /></a>&nbsp;&nbsp;<sub>by <a href="https://github.com/BrandonKowalski">@BrandonKowalski</a></sub>
-
-<sub><i>*Supports Allium, Batocera, Knulli, MinUI, muOS, NextUI, Onion, ROCKNIX, Spruce and TrimUI.</i></sub>
-
-## Community
-
-Here are some cool projects maintained by members of our community. Please note that our team does not regularly review their source code.
-
-### Mobile and TV
-
-- [romm-ios-app][romm-ios-app]: Native iOS app by [@ilyas-hallak](https://github.com/ilyas-hallak)
-- [RomMulus][rommulus]: Android TV app with built-in emulator cores and save sync by [@DEV-DUFORD](https://github.com/DEV-DUFORD)
-
-### Desktop
-
-- [Freegosy][freegosy]: Cross-platform game manager with save sync by [@abduznik](https://github.com/abduznik)
-- [RetroVault][retrovault]: Native macOS library and player by [@kennethreitz](https://github.com/kennethreitz)
-- [romm-client][romm-client]: Desktop client by [@chaun14](https://github.com/chaun14)
-- [RomMate][rommate]: Desktop app for browsing your collection by [@brenoprata10](https://github.com/brenoprata10)
-
-### Handhelds and Steam Deck
-
-- [Gameflow Deck][gameflow-deck]: Controller-first frontend for handhelds by [@simeonradivoev](https://github.com/simeonradivoev)
-- [RomMix][rommix]: Big Picture-style frontend for Linux and Steam Deck by [@leclercb](https://github.com/leclercb)
-- [Tender][romm-tender]: Decky Loader plugin with library and save sync for Steam Deck by [@danielcopper](https://github.com/danielcopper)
-- [Vita RomM][vita-romm]: PS Vita homebrew client for browsing and downloading games by [@denkacn](https://github.com/denkacn)
-
-### Sync
-
-- [RetroArch Sync][romm-retroarch-sync]: Sync RetroArch library with RomM by [@Covin90](https://github.com/Covin90)
-- [Syncthing sync][syncthing-sync]: Small tool to push a Syncthing library to RomM by [@amn-96](https://github.com/amn-96)
-
-### Integrations
-
-- [GGRequestz][ggrequestz]: Game discovery and request tool by [@XTREEMMAK](https://github.com/XTREEMMAK)
-- [romm-comm][romm-comm-discord-bot]: Discord bot by [@idio-sync](https://github.com/idio-sync)
-
-## Support the project
-
-Consider supporting this project on Open Collective. Funds cover hosting, development, and maintenance, and we pass some along to community projects to nurture a healthy ecosystem of apps.
-
-<div align="center">
-  <div dir="auto">
-    <a href="https://opencollective.com/romm" target="_blank" rel="noopener noreferrer"><img src=".github/resources/opencollective-badge.svg" alt="Open Collective" width="250" height="58"/></a>
-  </div>
-</div>
-
-## Corporate Sponsors
-
-These companies support us by providing their tools for free:
-
-<div align="center">
-  <div dir="auto">
-    <a href="https://www.greptile.com/?utm_source=oss_badge&amp;utm_medium=readme&amp;utm_campaign=greptile_for_open_source" target="_blank" rel="noopener noreferrer"><img src=".github/resources/greptile-badge.svg" alt="Greptile" width="250" height="58"/></a>
-    <a href="https://socket.dev/" target="_blank" rel="noopener noreferrer"><img src=".github/resources/socket-badge.svg" alt="Socket" width="250" height="58"/></a>
-  </div>
-</div>
-
-## Our Friends
-
-Here are a few projects that we think you might like:
-
-- [Lutris](https://lutris.net/): Open gaming platform for Linux
-- [Cocoon](https://cocoon-shell.com/): Controller-first Android frontend for retro handhelds
-- [muOS](https://muos.dev/): Custom firmware for Anbernic and other handhelds
-- [RetroDECK](https://retrodeck.net/): Retro gaming on SteamOS and Linux
-- [Steam ROM Manager](https://steamgriddb.github.io/steam-rom-manager/): An app for managing ROMs in Steam
-- [Hasheous](https://hasheous.org/): Hash lookup service that maps ROMs to game metadata
-- [Gaseous](https://github.com/gaseous-project/gaseous-server): Another ROM manager with web-based emulator
-- [Playmatch](https://github.com/RetroRealm/playmatch): Microservice for matching ROM hashes to games
-- [EmulatorJS](https://emulatorjs.org/): An embeddable, browser-based emulator
-- [PortMaster](https://portmaster.games/): Native game ports for Linux handhelds
-- [MelonLoader](https://melonloader.co/): Universal mod loader for Unity games
-- [NextUI](https://nextui.loveretro.games/): MinUI-based custom firmware for TrimUI handhelds
-- [RetroAchievements](https://retroachievements.org/): Achievements for retro games
-
-<!-- docs links -->
-
-[docs-quick-start-guide]: https://docs.romm.app/latest/Getting-Started/Quick-Start-Guide/
-[docs-supported-platforms]: https://docs.romm.app/latest/Platforms-and-Players/Supported-Platforms/
-[docs-emulatorjs]: https://docs.romm.app/latest/Platforms-and-Players/EmulatorJS-Player/
-[docs-rufflers]: https://docs.romm.app/latest/Platforms-and-Players/RuffleRS-Player/
-[docs-troubleshooting]: https://docs.romm.app/latest/Troubleshooting/Scanning-Issues/
-[docs-saves]: https://docs.romm.app/latest/using/saves-and-states/
-[docs-rom-patcher]: https://docs.romm.app/latest/using/rom-patcher/
-[docs-users-and-roles]: https://docs.romm.app/latest/administration/users-and-roles/
-[docs-oidc]: https://docs.romm.app/latest/administration/oidc/
-
-<!-- External links -->
-
-[igdb-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#igdb
-[screenscraper-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#screenscraper
-[mobygames-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#mobygames
-[launchbox-api]: https://docs.romm.app/latest/getting-started/metadata-providers/#launchbox
-[steamgriddb-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#steamgriddb
-[retroachievements-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#retroachievements
-[romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm
-[romm-tender]: https://github.com/danielcopper/romm-tender
-[playnite-app]: https://github.com/rommapp/playnite-plugin
-[ggrequestz]: https://github.com/XTREEMMAK/ggrequestz
-[syncthing-sync]: https://github.com/amn-96/romm_syncthing_sync
-[romm-client]: https://github.com/chaun14/romm-client
-[romm-retroarch-sync]: https://github.com/Covin90/romm-retroarch-sync
-[rommate]: https://github.com/brenoprata10/rommate
-[freegosy]: https://github.com/abduznik/freegosy
-[rommulus]: https://github.com/DEV-DUFORD/rommulus
-[retrovault]: https://github.com/kennethreitz/RetroVault
-[gameflow-deck]: https://github.com/simeonradivoev/gameflow-deck
-[rommix]: https://github.com/leclercb/rommix
-[vita-romm]: https://github.com/denkacn/vita-romm
-[grout]: https://github.com/rommapp/grout
-[romm-ios-app]: https://github.com/ilyas-hallak/romm-ios-app
-[argosy-launcher]: https://github.com/rommapp/argosy-launcher
+romm-themeable exists because of [RomM](https://github.com/rommapp/romm) and its contributors. For RomM itself (its features, documentation and community), see the [RomM project on GitHub](https://github.com/rommapp/romm). RomM's own README, unchanged, is on this repository's [`upstream`](https://github.com/Stealthx3/romm-themeable/tree/upstream) branch. Like RomM, romm-themeable is licensed under the AGPL-3.0.

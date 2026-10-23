@@ -1,0 +1,93 @@
+{
+  "$schema": "../../schema/theme.schema.json",
+  "id": "ember",
+  "name": "Ember",
+  "version": "1.0.0",
+  "author": "romm-themeable",
+  "description": "Warm charcoal and orange; example pack",
+  "tokens": {
+    "common": {
+      "--r-color-brand-primary": "#d86a2e",
+      "--r-color-brand-primary-hover": "#e0733a",
+      "--r-color-brand-primary-pressed": "#b9561f",
+      "--r-color-brand-secondary": "#e0a17a",
+      "--r-color-brand-secondary-hover": "#f6d2bb",
+      "--r-color-brand-secondary-pressed": "#b97a55",
+      "--r-color-brand-accent": "#ffd27a",
+      "--r-color-brand-accent-hover": "#ffe3a8",
+      "--r-color-avatar-gradient": "linear-gradient(135deg, #ffb36b, #d9481f)",
+      "--r-radius-card": "18px",
+      "--r-radius-md": "10px"
+    },
+    "dark": {
+      "--r-color-bg": "#120a07",
+      "--r-color-bg-elevated": "rgba(255, 214, 190, 0.05)",
+      "--r-color-surface": "rgba(255, 214, 190, 0.08)",
+      "--r-color-surface-hover": "rgba(255, 214, 190, 0.14)",
+      "--r-color-panel": "rgba(30, 16, 10, 0.97)",
+      "--r-color-tooltip-bg": "rgba(18, 10, 7, 0.94)",
+      "--r-color-cover-placeholder": "#2a1810",
+      "--r-color-cover-placeholder-bright": "#3a2216",
+      "--r-color-auth-glass": "rgba(18, 10, 7, 0.7)",
+      "--r-color-toast-bg": "rgba(18, 10, 7, 0.92)"
+    },
+    "light": {
+      "--r-color-bg": "#fbf5f1",
+      "--r-color-panel": "rgba(251, 243, 238, 0.98)",
+      "--r-color-brand-primary": "#b4521f",
+      "--r-color-brand-primary-hover": "#9a4318",
+      "--r-color-brand-primary-pressed": "#7d3512",
+      "--r-color-brand-accent": "#a0610a"
+    }
+  },
+  "vuetify": {
+    "dark": {
+      "primary": "#d86a2e",
+      "secondary": "#e0a17a",
+      "background": "#120a07",
+      "surface": "#1c110c"
+    },
+    "light": {
+      "primary": "#b4521f",
+      "secondary": "#8a5a3c",
+      "background": "#fbf5f1"
+    }
+  },
+  "assets": {
+    "/assets/isotipo.svg": "assets/isotipo.svg",
+    "/assets/logotipo.svg": "assets/logotipo.svg",
+    "/assets/logos/romm_logo_xbox_one_circle_grayscale.svg": "assets/isotipo.svg",
+    "/assets/auth_background.svg": "assets/auth_background.svg",
+    "/assets/auth_background_static.svg": "assets/auth_background_static.svg"
+  },
+  "covers": {
+    "colors": {
+      "base": "#2a130b",
+      "shade": "#120a07",
+      "warm": "#c8642a",
+      "icon": "#ffd27a"
+    },
+    "missing": [
+      "covers/missing-1.svg",
+      "covers/missing-2.svg",
+      "covers/missing-3.svg"
+    ],
+    "unmatched": [
+      "covers/unmatched-1.svg",
+      "covers/unmatched-2.svg",
+      "covers/unmatched-3.svg"
+    ]
+  },
+  "pwa": {
+    "themeColor": "#120a07"
+  },
+  "rootFiles": {
+    "/favicon.ico": "root/favicon.ico",
+    "/favicon.svg": "root/favicon.svg",
+    "/favicon-16x16.png": "root/favicon-16x16.png",
+    "/favicon-32x32.png": "root/favicon-32x32.png",
+    "/apple-touch-icon.png": "root/apple-touch-icon.png",
+    "/android-chrome-192x192.png": "root/android-chrome-192x192.png",
+    "/android-chrome-512x512.png": "root/android-chrome-512x512.png"
+  }
+}

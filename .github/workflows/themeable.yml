@@ -1,0 +1,164 @@
+name: themeable
+
+on:
+  push:
+    branches: [main, "release/**"]
+    paths: ["themeable/**", ".github/workflows/themeable*.yml", "frontend/**", "backend/main.py", "docker/nginx/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Unit tests
+        working-directory: themeable
+        run: npm test
+      - name: Upstream compatibility check
+        working-directory: themeable
+        run: node scripts/check-upstream.mjs --report "$RUNNER_TEMP/report.md"
+      - name: Report
+        if: always()
+        run: cat "$RUNNER_TEMP/report.md" >> "$GITHUB_STEP_SUMMARY" || true
+
+  source:
+    needs: test
+    uses: ./.github/workflows/themeable-source.yml
+    with:
+      ref: ${{ github.sha }}
+
+  visual:
+    needs: test
+    uses: ./.github/workflows/themeable-visual.yml
+    with:
+      ref: ${{ github.sha }}
+
+  image:
+    needs: [test, source, visual]
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+      release: ${{ steps.v.outputs.module }}-${{ steps.v.outputs.romm }}
+    # Release branches get the checks only; images are published from main alone.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Read pinned RomM version
+        id: v
+        run: |
+          echo "romm=$(cat themeable/ROMM_VERSION)" >> "$GITHUB_OUTPUT"
+          echo "module=$(node -p 'require("./themeable/package.json").version')" >> "$GITHUB_OUTPUT"
+          echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build for a smoke test
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: themeable/docker/Dockerfile
+          platforms: linux/amd64
+          load: true
+          build-args: |
+            ROMM_VERSION=${{ steps.v.outputs.romm }}
+          tags: romm-themeable:smoke
+      - name: Smoke test the image
+        run: |
+          docker run --rm --entrypoint sh romm-themeable:smoke -c '
+            set -e
+            node /themeable/scripts/runtime.mjs --select ember > /tmp/status.json
+            grep -q "\"effective\":\"ember\"" /tmp/status.json
+            test -f /var/www/html/themes/ember/theme.css
+            test -f /themeable/packs/ember.zip
+            test -f /var/www/html/themeable/loader.js
+            grep -q "/themeable/loader.js" /var/www/html/index.html
+            test -f /backend/endpoints/themeable.py
+            grep -q "themeable_router" /backend/main.py
+            export ROMM_PORT=8080 DEV_PORT=5000 IPV6_LISTEN= NGINX_ACCESS_LOG= ROMM_BASE_PATH=/romm ROMM_CACHE_BASE_PATH=/tmp/romm/cache
+            /docker-entrypoint.d/20-envsubst-on-templates.sh >/dev/null
+            nginx -t
+            echo "smoke test passed"
+          '
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: themeable/docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            ROMM_VERSION=${{ steps.v.outputs.romm }}
+            THEMEABLE_VERSION=${{ steps.v.outputs.module }}
+          tags: |
+            ghcr.io/${{ steps.v.outputs.owner }}/romm-themeable:${{ steps.v.outputs.romm }}
+            ghcr.io/${{ steps.v.outputs.owner }}/romm-themeable:${{ steps.v.outputs.module }}-${{ steps.v.outputs.romm }}
+            ghcr.io/${{ steps.v.outputs.owner }}/romm-themeable:latest
+
+  # Checks what was published, as an admin would get it: every tag points at this build, and the
+  # image deploys with the root docker-compose.yml. A failure opens an issue.
+  verify:
+    needs: image
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Every tag points at this build, for both platforms
+        env:
+          DIGEST: ${{ needs.image.outputs.digest }}
+          RELEASE: ${{ needs.image.outputs.release }}
+        run: |
+          repo="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/romm-themeable"
+          for tag in "$(cat themeable/ROMM_VERSION)" "$RELEASE" latest; do
+            digest=$(docker buildx imagetools inspect "$repo:$tag" --format '{{json .Manifest.Digest}}' | tr -d '"')
+            [ "$digest" = "$DIGEST" ] || { echo "::error::$repo:$tag is $digest, not this build's $DIGEST"; exit 1; }
+            platforms=$(docker buildx imagetools inspect "$repo:$tag" --format '{{range .Manifest.Manifests}}{{.Platform.OS}}/{{.Platform.Architecture}} {{end}}')
+            for want in linux/amd64 linux/arm64; do
+              case " $platforms " in *" $want "*) ;; *) echo "::error::$repo:$tag has no $want image"; exit 1 ;; esac
+            done
+            echo "$repo:$tag = $digest ($platforms)"
+          done
+      - name: Deploy with docker-compose.yml and check it runs
+        working-directory: themeable
+        run: node scripts/verify-deployment.mjs --image "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/romm-themeable@${{ needs.image.outputs.digest }}"
+      - name: Open an issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE: ${{ needs.image.outputs.release }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="themeable: the published $RELEASE image failed verification"
+          if [ -z "$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "$title in:title" --json number --jq '.[].number')" ]; then
+            gh issue create -R "$GITHUB_REPOSITORY" --title "$title" --body "The image for $RELEASE was published, but the follow-up verification failed. The [run]($RUN_URL) names each failed check and holds the container logs. Fix the module and push to \`main\`; the next build publishes over the same tags."
+          fi
