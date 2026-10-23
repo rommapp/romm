@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
@@ -813,6 +813,23 @@ test("rename rewrites the archive's name and keeps the id; delete removes or hid
   const restored = await runtime(themes, rt, ["--restore-built-ins"]);
   assert.deepEqual(restored.status.hidden, []);
   assert.ok(restored.status.packs.find((p) => p.id === "neon").valid);
+});
+
+test("a pack change that fails keeps the previous build live", { skip: process.getuid?.() === 0 && "root ignores folder permissions" }, async () => {
+  const { chmodSync, readlinkSync } = await import("node:fs");
+  const { themes, rt, uploads } = manageSetup();
+  await runtime(themes, rt, ["--install", packArchive(uploads, "dusk", "Dusk")]);
+  const live = readlinkSync(join(rt, "current"));
+  chmodSync(themes, 0o555);
+  try {
+    const failed = await runtime(themes, rt, ["--delete", "dusk"]);
+    assert.notEqual(failed.code, 0);
+    assert.equal(readlinkSync(join(rt, "current")), live, "the build that still has dusk keeps serving");
+    assert.deepEqual(readdirSync(join(rt, "builds")), [basename(live)], "and the failed build is removed");
+  } finally {
+    chmodSync(themes, 0o755);
+  }
+  assert.ok(existsSync(join(themes, "dusk.zip")));
 });
 
 test("the schema and the validator share the pack name limit", async () => {

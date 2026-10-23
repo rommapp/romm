@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-// Compiles the built-in packs and the themes folder's packs in the running container, at start-up and
-// for each change Branding makes (lib/manage.mjs); builds go to <runtime>/builds/<n> and `current`
-// swaps to one in a single rename.
+// Compiles every pack at container start-up and for each Branding change (lib/manage.mjs); builds go
+// to <runtime>/builds/<n> and `current` switches to one in a single rename.
 import { createHash } from "node:crypto";
 import {
   accessSync,
@@ -160,8 +159,7 @@ function run() {
   cleanups.push(operation.cleanup);
   const settings = operation.settings({ theme: saved.theme, hidden: saved.hidden, random: saved.random, names: saved.names });
 
-  // Changed settings are staged now (so an unwritable folder fails before any work) and only
-  // replace themeable.json once their build is live, so a stopped compile changes nothing.
+  // Changed settings are staged now, so an unwritable folder fails before any work.
   let stagedSettings = null;
   const changed =
     settings.theme !== saved.theme ||
@@ -172,6 +170,7 @@ function run() {
     if (!existsSync(packsDir)) mkdirSync(packsDir, { recursive: true });
     stagedSettings = `${settingsFile}.${process.pid}.tmp`;
     writeFileSync(stagedSettings, JSON.stringify({ ...settings, updated: new Date().toISOString() }, null, 2) + "\n");
+    cleanups.push(() => rmSync(stagedSettings, { force: true }));
   }
 
   const entries = collectPacks([
@@ -202,13 +201,26 @@ function run() {
   }
   writeFileSync(join(buildDir, CACHE_FILE), JSON.stringify(result.cache));
 
+  // Settings and the pack change land before the new build goes live; if either fails, both are
+  // undone and the previous build keeps serving.
+  const previousSettings = stagedSettings && existsSync(settingsFile) ? readFileSync(settingsFile) : null;
+  try {
+    if (stagedSettings) renameSync(stagedSettings, settingsFile);
+    const done = operation.install();
+    if (done) notes.push(done);
+  } catch (e) {
+    if (stagedSettings && !existsSync(stagedSettings)) {
+      if (previousSettings) writeFileSync(settingsFile, previousSettings);
+      else rmSync(settingsFile, { force: true });
+    }
+    rmSync(buildDir, { recursive: true, force: true });
+    throw e;
+  }
+
   const tmpLink = `${link}.${process.pid}`;
   rmSync(tmpLink, { force: true });
   symlinkSync(join("builds", id), tmpLink);
   renameSync(tmpLink, link);
-  if (stagedSettings) renameSync(stagedSettings, settingsFile);
-  const done = operation.install();
-  if (done) notes.push(done);
   for (const old of readdirSync(join(runtimeDir, "builds"))) {
     if (old !== id) rmSync(join(runtimeDir, "builds", old), { recursive: true, force: true });
   }
