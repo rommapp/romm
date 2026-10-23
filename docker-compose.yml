@@ -11,7 +11,8 @@ volumes:
 
 services:
   romm:
-    # Tagged with the RomM release it is built from; :latest also exists.
+    # Tagged with the RomM release it is built from. :<module>-<RomM> (e.g. 2.0.1-5.4.1) pins one
+    # module release, and :latest follows main.
     image: ghcr.io/stealthx3/romm-themeable:5.4.1
     # To build on this machine instead, uncomment this and run `docker compose up -d --build`:
     # build:
@@ -41,13 +42,14 @@ services:
       # Theme module. The image's defaults are shown; change them only if you need to.
       # - THEMEABLE_PACKS_PATH=/romm/themes # Where the container looks for theme packs
       # - THEMEABLE_RUNTIME_DIR=/tmp/themeable # Where compiled themes and status.json go
+      # - THEMEABLE_MAX_UPLOAD_MB=20 # Largest theme pack Branding accepts as an upload
     volumes:
       - romm_resources:/romm/resources # Covers, screenshots and other fetched metadata
       - romm_redis_data:/redis-data # Cache for background tasks
       - /path/to/library:/romm/library # Your game library: https://docs.romm.app/latest/Getting-Started/Folder-Structure/
       - /path/to/assets:/romm/assets # Uploaded saves, states, etc.
       - /path/to/config:/romm/config # Holds config.yml (optional)
-      - /path/to/themes:/romm/themes # Theme packs, one folder each. Must be writable: Branding saves the selected theme here as themeable.json
+      - /path/to/themes:/romm/themes # Theme packs as .zip files. Must be writable: Branding installs uploads and saves its settings (themeable.json) here
       # - /path/to/sync:/romm/sync # Required for ENABLE_SYNC_FOLDER_WATCHER; holds the SSH keys for ENABLE_SYNC_PUSH_PULL
     ports:
       - 80:8080

@@ -30,19 +30,19 @@ The parts that differ from stock RomM:
 ```yaml
 services:
   romm:
-    image: ghcr.io/stealthx3/romm-themeable:5.4.0 # or :latest
+    image: ghcr.io/stealthx3/romm-themeable:5.4.1 # or :2.0.1-5.4.1, or :latest
     volumes:
       - /path/to/themes:/romm/themes # theme packs, one .zip each, plus themeable.json
 ```
 
 **First start:** replace every `/path/to/...` with a folder on the host, fill in every `REQUIRED` value (`openssl rand -hex 32` makes a good secret), run `docker compose up -d` from the clone's root, and open `http://<host>/` to create the admin account. The themes folder must be writable, because Branding saves its choice there.
 
-**Upgrading:** back up the database, set the image tag to the new RomM release (images are tagged with the release they are built from), then run `docker compose pull && docker compose up -d`. The tag in the compose file always matches [`ROMM_VERSION`](ROMM_VERSION); the release workflow updates both.
+**Upgrading:** back up the database, set the image tag to the new RomM release, then run `docker compose pull && docker compose up -d`. The tag in the compose file always matches [`ROMM_VERSION`](ROMM_VERSION); the release workflow updates both. Each image is tagged three ways: with the RomM release it is built from (`:5.4.1`, which moves to each module release on that RomM release), with the full release (`:2.0.1-5.4.1`, which never moves), and `:latest`.
 
 **Building the image yourself:** uncomment the `build:` block in the compose file and run `docker compose up -d --build`, or build directly from the repository root:
 
 ```bash
-docker build -f themeable/docker/Dockerfile --build-arg ROMM_VERSION=5.4.0 -t romm-themeable:5.4.0 .
+docker build -f themeable/docker/Dockerfile --build-arg ROMM_VERSION=5.4.1 -t romm-themeable:5.4.1 .
 ```
 
 **Switching from stock RomM:** change the image and add the themes volume. The database, library and other volumes stay as they are, and RomM looks exactly as before until a theme is chosen.
@@ -132,7 +132,7 @@ Four workflows keep the module current and leave a pull request trail to audit:
 
 | Workflow | Runs | Does |
 | --- | --- | --- |
-| `themeable` | Every push to `main` or a `release/**` branch, and every pull request to `main` | Unit tests, compatibility check, then the source and visual checks; on a push to `main`, builds the image, smoke-tests it (start-up compile, theme links, patched files, nginx config) and publishes `ghcr.io/stealthx3/romm-themeable:<ROMM_VERSION>` and `:latest` |
+| `themeable` | Every push to `main` or a `release/**` branch, and every pull request to `main` | Unit tests, compatibility check, then the source and visual checks; on a push to `main`, builds the image, smoke-tests it (start-up compile, theme links, patched files, nginx config) and publishes `ghcr.io/stealthx3/romm-themeable:<ROMM_VERSION>`, `:<module version>-<ROMM_VERSION>` and `:latest`. A follow-up job then checks that every tag points at that build for amd64 and arm64, and deploys it with the root `docker-compose.yml` (`scripts/verify-deployment.mjs`); a failure opens an issue |
 | `themeable upstream release` | Hourly, or by hand with a tag | When RomM publishes a stable release: moves `upstream` to the release commit, merges the tag into a `themeable-upstream/<tag>` branch, runs the compatibility check, refreshes the catalog and the example pack, bumps `ROMM_VERSION`, the module's major version in `package.json` and the compose file's image tag, runs the visual and source checks against the new release, and opens a pull request with the reports. If everything passes it merges, which publishes the new image; otherwise it stays open as "needs attention" |
 | `themeable visual check` | Called by the other two | Builds the frontend with the overlay and patches, then loads the login screen for the stock look, every built-in pack (served from archives, as in the image) and one archive pack in the themes folder in dark and light mode, failing if a pack's tokens, artwork, inlined artwork or tab icons didn't apply or it looks identical to stock, and checks that Random deals a different pack on each of four loads with matching artwork and tab icons. Screenshots are kept for 90 days |
 | `themeable source check` | Called by the other two | Lints, type-checks and unit-tests the patched frontend, and runs the Branding API tests against MariaDB with the patched backend |
@@ -177,6 +177,7 @@ Everything runs from `themeable/` with Node 20 or later and no dependencies to i
 | `node scripts/zip-packs.mjs [--packs packs] --out <dir>` | Zips each folder pack into `<dir>/<id>.zip`, replacing `<dir>`; the Dockerfile and the preview run it on the built-in packs |
 | `node scripts/apply-hooks.mjs --webroot <dir> --nginx <template> --out <dir> [--root-overlay <dir>] [--default <id>\|none]` | Writes the hooked `index.html`, nginx template and `sw.js`; the Dockerfile runs it |
 | `node scripts/verify-image.mjs --css <image /assets dir> [--packs packs]` | Checks every pack token against a built image's CSS |
+| `node scripts/verify-deployment.mjs [--image <ref>] [--port 18080] [--expect-version <v>] [--keep]` | Deploys an image (by default the published `:<ROMM_VERSION>`) with the root `docker-compose.yml` on `127.0.0.1:<port>` and checks its health, versions, theme hooks, sandbox headers and start-up log, then removes it unless `--keep` |
 
 **Previewing without Docker:** build the frontend with the module applied, then serve it through the patched nginx (needs `nginx` on the PATH). Without a backend, a stub API is enough for the login screen and the picker. With `--api-port`, nginx proxies `/api` to a running RomM backend; start it with the `THEMEABLE_*` variables the preview prints so Branding can recompile. The preview zips the built-in packs as the image does. Other options are `--packs-folder <dir>` (a themes folder of `.zip` packs), `--default <id>|none|random`, `--port` (8099) and `--dist <frontend build>`.
 
