@@ -6,11 +6,10 @@ import time
 import zipfile
 from pathlib import Path
 
+import endpoints.themeable as themeable
 import pytest
 from fastapi import status
 from tests._zipfile_shim import reload_zipfile
-
-import endpoints.themeable as themeable
 
 # The module sits next to backend/ in the repository; tests run the real compiler.
 MODULE_HOME = Path(__file__).resolve().parents[3] / "themeable"
@@ -208,6 +207,8 @@ def test_rejects_unsafe_theme_ids(client, access_token):
         json={"theme": "../etc"},
         headers=_auth(access_token),
     )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    response = client.delete("/api/themeable/packs/Bad_Id", headers=_auth(access_token))
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 

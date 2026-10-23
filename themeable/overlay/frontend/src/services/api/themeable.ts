@@ -40,6 +40,7 @@ export interface ThemeableClient {
   stock_id: string;
   follow_server_id: string;
   random_id: string;
+  pack_id_pattern: string;
   random_cycle_ms: number;
   pack_name_max: number;
   /** The "Creating a theme pack" guide on GitHub. */

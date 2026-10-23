@@ -9,16 +9,15 @@ import uuid
 from pathlib import Path
 
 from anyio import Path as AsyncPath
-from fastapi import HTTPException, Request, status
-from starlette.requests import ClientDisconnect
-from streaming_form_data import StreamingFormDataParser
-from streaming_form_data.targets import FileTarget
-
 from decorators.auth import protected_route
 from endpoints.responses.base import BaseModel
+from fastapi import HTTPException, Request, status
 from handler.auth.constants import Scope
 from logger.logger import log
 from models.user import Role
+from starlette.requests import ClientDisconnect
+from streaming_form_data import StreamingFormDataParser
+from streaming_form_data.targets import FileTarget
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -29,9 +28,6 @@ router = APIRouter(
 THEMEABLE_HOME = Path(os.environ.get("THEMEABLE_HOME", "/themeable"))
 RUNTIME_DIR = Path(os.environ.get("THEMEABLE_RUNTIME_DIR", "/tmp/themeable"))
 PACKS_PATH = Path(os.environ.get("THEMEABLE_PACKS_PATH", "/romm/themes"))
-STOCK_THEME = "none"
-THEME_ID = re.compile(r"^(none|[a-z0-9][a-z0-9-]{0,63})$")
-PACK_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 COMPILE_TIMEOUT_SECONDS = 120
 MB = 1024 * 1024
 DEFAULT_MAX_UPLOAD_MB = 20
@@ -86,6 +82,7 @@ class ThemeableClientSchema(BaseModel):
     stock_id: str
     follow_server_id: str
     random_id: str
+    pack_id_pattern: str
     random_cycle_ms: int
     pack_name_max: int
     guide_url: str
@@ -119,8 +116,9 @@ class RandomPoolPayload(BaseModel):
 class BrandingStatusSchema(BaseModel):
     ok: bool
     generated: str
-    selected: str = STOCK_THEME
-    effective: str = STOCK_THEME
+    # A failed run's status names no theme; Branding then shows RomM default as chosen.
+    selected: str = ""
+    effective: str = ""
     notes: list[str] = []
     error: str | None = None
     client: ThemeableClientSchema | None = None
@@ -231,14 +229,41 @@ async def _run_compiler(options: list[str]) -> BrandingStatusSchema:
         ) from exc
 
 
-def _check_pack_id(pack_id: str) -> None:
+async def _current_status() -> BrandingStatusSchema:
+    """The last compile's status, or a new compile's when there is none."""
+    status_file = RUNTIME_DIR / "status.json"
+    try:
+        return BrandingStatusSchema.model_validate(
+            json.loads(await AsyncPath(status_file).read_text(encoding="utf-8"))
+        )
+    except OSError, ValueError:
+        return await _run_compiler([])
+
+
+async def _client_values() -> ThemeableClientSchema:
+    """The module's shared values (themeable/lib/client.mjs), as the compiler publishes them."""
+    client = (await _current_status()).client
+    if client is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="The theme compiler returned no status",
+        )
+    return client
+
+
+def _is_pack_id(value: str, client: ThemeableClientSchema) -> bool:
+    return re.fullmatch(client.pack_id_pattern, value) is not None
+
+
+async def _check_pack_id(pack_id: str) -> None:
     """Refuse ids that aren't packs; RomM default can never be renamed or deleted."""
-    if pack_id == STOCK_THEME:
+    client = await _client_values()
+    if pack_id == client.stock_id:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="RomM default can't be renamed or deleted",
         )
-    if not PACK_ID.match(pack_id):
+    if not _is_pack_id(pack_id, client):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Invalid pack id",
@@ -256,13 +281,7 @@ async def get_branding(request: Request) -> BrandingStatusSchema:
         BrandingStatusSchema: Packs with their validation status, and the selection.
     """
     _require_admin(request)
-    status_file = RUNTIME_DIR / "status.json"
-    try:
-        return BrandingStatusSchema.model_validate(
-            json.loads(status_file.read_text(encoding="utf-8"))
-        )
-    except OSError, ValueError:
-        return await _run_compiler([])
+    return await _current_status()
 
 
 @protected_route(router.post, "/branding/rescan", [Scope.ROMS_READ])
@@ -295,7 +314,8 @@ async def save_branding(
         BrandingStatusSchema: Status after recompiling.
     """
     _require_admin(request)
-    if not THEME_ID.match(payload.theme):
+    client = await _client_values()
+    if payload.theme != client.stock_id and not _is_pack_id(payload.theme, client):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Invalid theme id",
@@ -425,7 +445,7 @@ async def rename_pack(
         BrandingStatusSchema: Status after recompiling; on failure the pack is unchanged.
     """
     _require_admin(request)
-    _check_pack_id(pack_id)
+    await _check_pack_id(pack_id)
     options = (
         ["--reset-name", pack_id]
         if payload.name is None
@@ -450,7 +470,7 @@ async def delete_pack(request: Request, pack_id: str) -> BrandingStatusSchema:
             RomM default if it was this pack.
     """
     _require_admin(request)
-    _check_pack_id(pack_id)
+    await _check_pack_id(pack_id)
     result = await _run_compiler(["--delete", pack_id])
     if result.ok:
         log.info(f"themeable: {request.user.username} deleted the pack {pack_id}")
