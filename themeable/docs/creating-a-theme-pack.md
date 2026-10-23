@@ -133,6 +133,8 @@ Values are plain CSS: `#38bdf8`, `rgba(255, 255, 255, 0.08)`, `18px`, `linear-gr
 }
 ```
 
+Packs are served from RomM's own address, so they can only replace images (`.svg`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.avif`, `.ico`), fonts (`.woff2`, `.woff`, `.ttf`, `.otf`) and stylesheets (`.css`). An SVG anywhere in a pack, including covers and tab icons, is refused if it contains a `<script>`, an event handler such as `onload`, a `javascript:` link, a `<foreignObject>`, `<iframe>`, `<embed>` or `<object>`, or an `<!ENTITY>`. CSS and SMIL animation are fine.
+
 Every file you can replace is listed in [`catalog/assets.json`](../catalog/assets.json). The most visible:
 
 | File | Where it shows |
