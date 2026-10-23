@@ -358,9 +358,7 @@ export default withVueTs(
     files: ["**/*.test.ts"],
     rules: { "@typescript-eslint/unbound-method": "off" },
   },
-  // The EmulatorJS player and runtime moved here untouched from the removed v1
-  // UI. Their raw `localStorage` keys are what users' saved settings live
-  // under, so they stay until a migration moves them.
+  // These files read raw `localStorage` keys that hold users' saved settings.
   {
     files: [
       "src/v2/components/Player/EmulatorJSPlayer.vue",

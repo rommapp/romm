@@ -115,8 +115,8 @@ import {
   type SlotChoice,
 } from "@/v2/utils/saveSlots";
 import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
+import { exitEmulatorOnce } from "@/v2/views/Player/emulatorJSRuntime";
 import { rememberCore, resolveRememberedCore } from "./coreStorage";
-import { exitEmulatorOnce } from "./emulatorJSRuntime";
 import {
   isLaunchIntent,
   launchIntentFor,
