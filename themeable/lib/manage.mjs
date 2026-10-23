@@ -1,6 +1,5 @@
-// Changes to the themes folder made from Branding: select, install (upload), rename, reset a
-// built-in's name, delete and restore. Each one is staged as stand-in packs and new settings that one compile tries; the
-// themes folder only changes in install(), once that build is live, so a failure changes nothing.
+// Branding's changes to the themes folder. Each is tried as stand-in packs and settings in one compile;
+// the folder only changes in install(), after that compile succeeds and before its build goes live.
 import { copyFileSync, existsSync, mkdirSync, renameSync, rmSync, unlinkSync } from "node:fs";
 import { basename, join } from "node:path";
 import { RANDOM_ID, STOCK_ID } from "./client.mjs";
@@ -11,11 +10,7 @@ import { CONVERTED_DIR, findPacks, rewriteZipPack, zipFiles, zipFolderPack, ZIP_
 /** A request turned down before anything changed; it isn't recorded in status.json. */
 export class Refusal extends Error {}
 
-/**
- * Checks an uploaded archive exactly as a compile would, without touching the themes folder.
- * Returns { id, name, errors, warnings, existing } where `existing` is how the id is already
- * installed: "folder" (a pack in the themes folder), "built-in" or null.
- */
+// Checks an upload as a compile would. `existing` says how its id is installed: "folder", "built-in" or null.
 export function validateArchive(file, { catalog, packsDir, builtInDir }) {
   const result = { id: null, name: null, errors: [], warnings: [], existing: null };
   let files = null;
@@ -53,11 +48,7 @@ function parkFolder(packsDir, id, path) {
   return `${CONVERTED_DIR}/${basename(target)}/`;
 }
 
-/**
- * Packs in the themes folder are archives only: each folder pack is zipped to <id>.zip and the
- * folder moved to .converted/, keeping every file. A folder beside an archive of the same id is
- * moved aside too. Returns one note per pack, including any that couldn't be converted.
- */
+// Zips each folder pack to <id>.zip and moves the folder, or one shadowed by an archive, to .converted/.
 export function convertFolderPacks(packsDir, pid) {
   const notes = [];
   for (const found of findPacks(packsDir)) {
@@ -78,11 +69,7 @@ export function convertFolderPacks(packsDir, pid) {
   return notes;
 }
 
-/**
- * Plans one operation. Returns { standIns, exclude, settings(s), verify(result), install(), cleanup() }:
- * stand-ins and excludes for the themes-folder source, the settings to save, a check of the compile
- * result, and the change to make once that build is live.
- */
+// Returns { standIns, exclude, settings(s), verify(result), install(), cleanup() } for one operation.
 export function planOperation(op, { packsDir, builtInDir, pid, catalog }) {
   const inFolder = (id) => findPacks(packsDir).find((p) => p.id === id);
   const isBuiltIn = (id) => findPacks(builtInDir).some((p) => p.id === id);

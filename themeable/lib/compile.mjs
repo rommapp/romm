@@ -25,12 +25,8 @@ function copy(from, to) {
   copyFileSync(from, to);
 }
 
-/**
- * Finds the packs in each source folder in order, a later folder replacing a pack with the same id.
- * A source can `exclude` ids, add `standIns` ({ id, format, path }) that replace or add a pack for
- * one compile, and take `archivesOnly`, which skips folder packs. An archive carries a stamp (size, modification time, inode) so an unchanged one can be
- * reused; a stand-in never is.
- */
+// Later sources replace packs with the same id; `standIns` ({ id, format, path }) apply to one compile.
+// Archives carry a stamp (size, mtime, inode) so an unchanged one is reused; a stand-in never is.
 export function collectPacks(sources) {
   const byName = new Map();
   for (const { dir, source, exclude = [], standIns = [], archivesOnly = false } of sources) {
@@ -77,10 +73,7 @@ const packRank = (source, tags) => PACK_GROUPS.indexOf(packGroup(source, tags));
 // Random's switch for each group; packs in the themes folder are always in the draw.
 const GROUP_SWITCH = { accessibility: "accessibility", "built-in": "built_in", folder: null };
 
-/**
- * Reads themeable.json: the server's theme, the built-in packs hidden by Delete, Random's groups
- * and the names given to built-in packs. Anything unreadable falls back to RomM's own look with nothing hidden.
- */
+/** Reads themeable.json; anything unreadable falls back to RomM's own look with nothing hidden. */
 export function readSelection(settingsFile) {
   const fallback = { theme: STOCK_ID, hidden: [], random: readRandomPool(null), names: {} };
   if (!settingsFile || !existsSync(settingsFile)) return { ...fallback, note: null };
@@ -104,11 +97,8 @@ function remember(status, c) {
   return { status: structuredClone(status), compiled: c ? { meta: c.meta, swatch: c.swatch, rootFiles: c.rootFiles.map((f) => ({ to: f.to })) } : null };
 }
 
-/**
- * Validates and compiles packs into outDir, returning the status the Branding tab shows.
- * `reuse` ({ key, dir, packs }) is the previous build: an archive whose stamp and compiler key
- * match is copied from `dir` instead of being opened again. The result's `cache` is the next `reuse.packs`.
- */
+// `reuse` ({ key, dir, packs }) is the previous build: an archive whose stamp and compiler key match
+// is copied from it instead of being opened again. The result's `cache` is the next `reuse.packs`.
 export function compileAll({ entries, catalog, outDir, selected = STOCK_ID, randomPool = null, names = {}, loaderSource, pickerFile, reuse = null }) {
   const compiled = [];
   const packs = [];
