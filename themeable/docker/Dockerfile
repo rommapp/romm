@@ -39,8 +39,10 @@ RUN set -eu; \
 
 FROM romm
 ARG ROMM_VERSION
+ARG THEMEABLE_VERSION=dev
 LABEL org.opencontainers.image.source="https://github.com/Stealthx3/romm-themeable" \
-      org.opencontainers.image.description="RomM ${ROMM_VERSION} with the themeable theme module"
+      org.opencontainers.image.version="${THEMEABLE_VERSION}-${ROMM_VERSION}" \
+      org.opencontainers.image.description="RomM ${ROMM_VERSION} with the themeable theme module ${THEMEABLE_VERSION}"
 COPY --from=frontend /src/frontend/dist/ /var/www/html/
 COPY --from=module /out/hooks/index.html /out/hooks/sw.js /var/www/html/
 COPY --from=module /out/hooks/default.conf.template /etc/nginx/templates/default.conf.template
