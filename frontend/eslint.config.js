@@ -15,7 +15,7 @@ const heavyImports = [
     group: ["md-editor-v3", "md-editor-v3/**"],
     allowTypeImports: true,
     message:
-      "md-editor-v3 is heavy; render it through @/v2/components/shared/asyncMarkdown.",
+      "md-editor-v3 is heavy; render it through @/components/shared/asyncMarkdown.",
   },
   {
     group: [
@@ -130,14 +130,11 @@ export default withVueTs(
     },
   },
   {
-    files: [
-      "src/v2/utils/gmeAudioWorklet.js",
-      "src/v2/utils/pico8AudioWorklet.js",
-    ],
+    files: ["src/utils/gmeAudioWorklet.js", "src/utils/pico8AudioWorklet.js"],
     languageOptions: { globals: globals.audioWorklet },
   },
   // Import cycles. The resolver has to be the one that reads tsconfig `paths`,
-  // or `@/*` and `@v2/*` go unresolved and the rule silently passes.
+  // or `@/*` goes unresolved and the rule silently passes.
   {
     files: ["src/**/*.ts", "src/**/*.vue"],
     settings: {
@@ -188,8 +185,8 @@ export default withVueTs(
       // The lazy-loaded md-editor modules, the editor's global config, and the
       // view that reaches md-editor only through an async chunk.
       "src/plugins/mdeditor*.ts",
-      "src/v2/components/shared/markdown*.ts",
-      "src/v2/components/GameDetails/MarkdownViewer.vue",
+      "src/components/shared/markdown*.ts",
+      "src/components/GameDetails/MarkdownViewer.vue",
     ],
     rules: {
       "@typescript-eslint/no-restricted-imports": [
@@ -200,7 +197,7 @@ export default withVueTs(
   },
   // v2 primitives: no stores, services, i18n, emitter, or product domain.
   {
-    files: ["src/v2/lib/**/*.ts", "src/v2/lib/**/*.vue"],
+    files: ["src/lib/**/*.ts", "src/lib/**/*.vue"],
     ignores: ["**/*.stories.ts", "**/*.test.ts", "**/*.spec.ts"],
     rules: {
       "@typescript-eslint/no-restricted-imports": [
@@ -254,20 +251,20 @@ export default withVueTs(
             },
             {
               from: [
-                "./src/v2/components",
-                "./src/v2/composables/usePlatformIconCache",
+                "./src/components",
+                "./src/composables/usePlatformIconCache",
               ],
               message:
                 "Primitives cannot depend on composites or domain composables.",
             },
-          ].map((zone) => ({ target: "./src/v2/lib", ...zone })),
+          ].map((zone) => ({ target: "./src/lib", ...zone })),
         },
       ],
     },
   },
-  // v2 SFC shape, from the frontend-v2-components skill.
+  // v2 SFC shape, from the frontend-components skill.
   {
-    files: ["src/v2/**/*.vue"],
+    files: ["src/**/*.vue"],
     rules: {
       "vue/block-lang": ["error", { script: { lang: "ts" } }],
       "vue/component-api-style": ["error", ["script-setup"]],
@@ -283,7 +280,7 @@ export default withVueTs(
   },
   // Repo rules without a stock equivalent live in ./eslint-plugin-romm.
   {
-    files: ["src/v2/**/*.ts", "src/v2/**/*.vue"],
+    files: ["src/**/*.ts", "src/**/*.vue"],
     plugins: { romm },
     rules: {
       "romm/no-color-literal": "error",
@@ -303,21 +300,21 @@ export default withVueTs(
     rules: { "romm/no-unscoped-local-storage": "error" },
   },
   {
-    files: ["src/v2/**/*.ts", "src/v2/**/*.vue"],
-    ignores: ["**/*.stories.ts", "**/*.test.ts", "src/v2/utils/autofocus.ts"],
+    files: ["src/**/*.ts", "src/**/*.vue"],
+    ignores: ["**/*.stories.ts", "**/*.test.ts", "src/utils/autofocus.ts"],
     rules: {
       "no-restricted-syntax": [
         "error",
         {
           selector: "CallExpression[callee.property.name='focus']",
           message:
-            "Focus through focusFromInput from @/v2/utils/autofocus, so keyboard and gamepad moves show the focus ring.",
+            "Focus through focusFromInput from @/utils/autofocus, so keyboard and gamepad moves show the focus ring.",
         },
         {
           selector:
             "CallExpression[callee.object.name='emitter'][callee.property.name='on']",
           message:
-            "Subscribe with useEmitterEvent from @/v2/composables/useEmitterEvent, which unsubscribes when the component unmounts.",
+            "Subscribe with useEmitterEvent from @/composables/useEmitterEvent, which unsubscribes when the component unmounts.",
         },
       ],
     },
@@ -334,7 +331,7 @@ export default withVueTs(
     },
   },
   {
-    files: ["src/v2/**/*.stories.ts"],
+    files: ["src/**/*.stories.ts"],
     rules: {
       "no-restricted-syntax": [
         "error",
@@ -361,9 +358,9 @@ export default withVueTs(
   // These files read raw `localStorage` keys that hold users' saved settings.
   {
     files: [
-      "src/v2/components/Player/EmulatorJSPlayer.vue",
-      "src/v2/views/Player/emulatorJSRuntime.ts",
-      "src/v2/views/Player/emulatorJSRuntime.test.ts",
+      "src/components/Player/EmulatorJSPlayer.vue",
+      "src/views/Player/emulatorJSRuntime.ts",
+      "src/views/Player/emulatorJSRuntime.test.ts",
     ],
     rules: {
       "@typescript-eslint/no-base-to-string": "off",

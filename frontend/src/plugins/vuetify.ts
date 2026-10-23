@@ -8,7 +8,7 @@ import { dark, light } from "@/styles/themes";
 // Initial theme resolution only: runtime theme changes are owned by
 // RomM.vue, which keeps Vuetify's name in sync with user preference.
 // v2 surfaces don't read from Vuetify's runtime theme; they read tokens
-// off `.r-v2-dark` / `.r-v2-light` on <html>.
+// off `.r-dark` / `.r-light` on <html>.
 function getInitialTheme(): "dark" | "light" {
   const storedTheme = useUserLocalStorage("settings.theme", "auto");
   const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;

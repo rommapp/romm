@@ -16,7 +16,7 @@ import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 // static import would pull that graph into bootstrap and trip the
 // api-client ↔ router circular-import TDZ (see the theme notes below).
 const BackendStatusBanner = defineAsyncComponent(
-  () => import("@/v2/components/AppShell/BackendStatusBanner.vue"),
+  () => import("@/components/AppShell/BackendStatusBanner.vue"),
 );
 
 const vuetifyTheme = useTheme();
@@ -31,7 +31,7 @@ const themeSetting = useUserLocalStorage<"auto" | "dark" | "light">(
 );
 
 // Centralized theme resolution: Vuetify only knows the "dark" / "light"
-// pair. The app's own colour story is driven by tokens on the .r-v2-*
+// pair. The app's own colour story is driven by tokens on the .r-*
 // classes below, not by Vuetify's runtime theme.
 const mediaMatch = window.matchMedia("(prefers-color-scheme: dark)");
 const systemPrefersDark = ref(mediaMatch.matches);
@@ -70,16 +70,16 @@ watch(
 
 // Apply the token scope to <html>. Vuetify teleports overlays (VDialog,
 // VMenu) into `<body> > .v-overlay-container`, which sits OUTSIDE both the
-// AppLayout `.r-v2` wrapper AND <v-app>. Putting the classes on <html> means
+// AppLayout `.r-app` wrapper AND <v-app>. Putting the classes on <html> means
 // the entire document inherits the CSS custom properties so
 // `var(--r-color-...)` resolves inside any teleported dialog/menu.
 watch(
   prefersDark,
   (dark) => {
     const root = document.documentElement;
-    root.classList.add("r-v2");
-    root.classList.toggle("r-v2-dark", dark);
-    root.classList.toggle("r-v2-light", !dark);
+    root.classList.add("r-app");
+    root.classList.toggle("r-dark", dark);
+    root.classList.toggle("r-light", !dark);
   },
   { immediate: true },
 );

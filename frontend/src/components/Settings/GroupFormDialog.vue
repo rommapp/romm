@@ -1,0 +1,430 @@
+<script setup lang="ts">
+// GroupFormDialog: create/edit a permission group. Emitter-driven
+// (`showGroupFormDialog` with the group to edit, or null to create), mounted
+// alongside the groups table in Administration. On save it refetches the
+// shared permissionGroups store so every consumer (table, user dialogs)
+// reflects the change immediately.
+import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import type {
+  GrantSchemaIO,
+  PermAction,
+  PermEntity,
+  PermissionGroupSchema,
+} from "@/__generated__";
+import { useEmitterEvent } from "@/composables/useEmitterEvent";
+import { useSnackbar } from "@/composables/useSnackbar";
+import { RBtn, RIcon, RSwitch, RTextField } from "@/lib";
+import RDialog from "@/lib/overlays/RDialog/RDialog.vue";
+import permissionsApi from "@/services/api/permissions";
+import platformApi from "@/services/api/platform";
+import storePermissionGroups from "@/stores/permissionGroups";
+import type { Platform } from "@/stores/platforms";
+import { GROUP_COLOR_PALETTE } from "@/utils/groupColor";
+import AgeLimitFields from "./AgeLimitFields.vue";
+import HiddenGamesPicker from "./HiddenGamesPicker.vue";
+import HiddenPlatformsPicker from "./HiddenPlatformsPicker.vue";
+import PermissionsMatrix from "./PermissionsMatrix.vue";
+import { createAgeSettingsDraft } from "./ageSettingsDraft";
+
+defineOptions({ inheritAttrs: false });
+
+const { t } = useI18n();
+const snackbar = useSnackbar();
+const groupsStore = storePermissionGroups();
+
+const show = ref(false);
+const submitting = ref(false);
+const editingId = ref<number | null>(null);
+const isSystem = ref(false);
+
+const name = ref("");
+const description = ref("");
+const isDefault = ref(false);
+const color = ref<string>(GROUP_COLOR_PALETTE[0]);
+const palette = GROUP_COLOR_PALETTE;
+const grants = ref<GrantSchemaIO[]>([]);
+
+// Group-level hidden entities (members inherit these; per-user overrides on
+// top still apply). Diffed against the originals on save.
+const platforms = ref<Platform[]>([]);
+const hiddenPlatformIds = ref<number[]>([]);
+const originalHiddenPlatformIds = ref<number[]>([]);
+const hiddenRomIds = ref<number[]>([]);
+const originalHiddenRomIds = ref<number[]>([]);
+
+const {
+  draft: age,
+  load: loadAge,
+  changed: ageSettingsChanged,
+} = createAgeSettingsDraft();
+
+const sortedPlatforms = computed(() =>
+  [...platforms.value].sort((a, b) =>
+    a.display_name.localeCompare(b.display_name),
+  ),
+);
+
+const entities = ref<PermEntity[]>([]);
+const actions = ref<PermAction[]>([]);
+
+async function ensureCatalog() {
+  if (entities.value.length) return;
+  try {
+    const { data } = await permissionsApi.fetchCatalog();
+    entities.value = data.entities;
+    actions.value = data.actions;
+  } catch (err) {
+    console.error("Failed to load permission catalog", err);
+  }
+}
+
+async function ensurePlatforms() {
+  if (platforms.value.length) return;
+  try {
+    const { data } = await platformApi.getPlatforms();
+    platforms.value = data;
+  } catch (err) {
+    console.error("Failed to load platforms", err);
+  }
+}
+
+function diffHidden(
+  entity: PermEntity,
+  current: number[],
+  original: number[],
+  groupId: number,
+): Promise<unknown>[] {
+  const added = current.filter((id) => !original.includes(id));
+  const removed = original.filter((id) => !current.includes(id));
+  return [
+    ...added.map((id) =>
+      permissionsApi.addHiddenEntity({
+        entity,
+        entity_id: id,
+        group_id: groupId,
+      }),
+    ),
+    ...removed.map((id) =>
+      permissionsApi.removeHiddenEntity({
+        entity,
+        entity_id: id,
+        group_id: groupId,
+      }),
+    ),
+  ];
+}
+
+let openToken = 0;
+
+async function open(group: PermissionGroupSchema | null) {
+  ++openToken;
+  editingId.value = group?.id ?? null;
+  isSystem.value = group?.system_key != null;
+  name.value = group?.name ?? "";
+  description.value = group?.description ?? "";
+  isDefault.value = group?.is_default ?? false;
+  color.value = group?.color ?? GROUP_COLOR_PALETTE[0];
+  grants.value = group ? group.grants.map((g) => ({ ...g })) : [];
+  loadAge({
+    ageLimit: group?.age_limit ?? null,
+    hideUnrated: group?.hide_unrated_roms ?? false,
+  });
+
+  const hidden = group?.hidden ?? [];
+  const hiddenPlatforms = hidden
+    .filter((h) => h.entity === "platforms")
+    .map((h) => h.entity_id);
+  const hiddenRoms = hidden
+    .filter((h) => h.entity === "roms")
+    .map((h) => h.entity_id);
+  hiddenPlatformIds.value = [...hiddenPlatforms];
+  originalHiddenPlatformIds.value = [...hiddenPlatforms];
+  hiddenRomIds.value = [...hiddenRoms];
+  originalHiddenRomIds.value = [...hiddenRoms];
+
+  await Promise.all([ensureCatalog(), ensurePlatforms()]);
+  show.value = true;
+}
+
+useEmitterEvent("showGroupFormDialog", (group) => void open(group));
+
+async function save() {
+  if (!name.value.trim() || submitting.value) return;
+  submitting.value = true;
+  const token = openToken;
+  const body = {
+    name: name.value.trim(),
+    description: description.value,
+    is_default: isDefault.value,
+    color: color.value,
+    grants: grants.value,
+    age_limit: age.value.ageLimit,
+    hide_unrated_roms: age.value.hideUnrated ?? false,
+  };
+  // An update writes the age settings only when they changed, so a rename
+  // neither overwrites them nor records them in the audit log.
+  const ageChanged = ageSettingsChanged();
+  // Read before the save: reopening the dialog mid-save replaces these refs.
+  const hidden = {
+    platforms: [...hiddenPlatformIds.value],
+    originalPlatforms: [...originalHiddenPlatformIds.value],
+    roms: [...hiddenRomIds.value],
+    originalRoms: [...originalHiddenRomIds.value],
+  };
+  try {
+    const { data: saved } =
+      editingId.value !== null
+        ? await permissionsApi.updateGroup(editingId.value, {
+            ...body,
+            set_age_settings: ageChanged,
+          })
+        : await permissionsApi.createGroup(body);
+    // Apply hidden-entity diffs against the (now-known) group id.
+    await Promise.all([
+      ...diffHidden(
+        "platforms",
+        hidden.platforms,
+        hidden.originalPlatforms,
+        saved.id,
+      ),
+      ...diffHidden("roms", hidden.roms, hidden.originalRoms, saved.id),
+    ]);
+    snackbar.success(t("settings.group-saved", { name: body.name }), {
+      icon: "mdi-check-bold",
+    });
+    // Refetch (not upsert): toggling `is_default` reassigns it server-side,
+    // so the previous default's flag must be refreshed too.
+    await groupsStore.fetch();
+    // A dialog reopened mid-save stays open, locked until this save settles.
+    if (token === openToken) show.value = false;
+  } catch (err) {
+    const e = err as {
+      response?: { data?: { detail?: string }; statusText?: string };
+      message?: string;
+    };
+    snackbar.error(
+      t("settings.group-save-failed", {
+        detail:
+          e?.response?.data?.detail || e?.response?.statusText || e?.message,
+      }),
+      { icon: "mdi-close-circle" },
+    );
+  } finally {
+    submitting.value = false;
+  }
+}
+</script>
+
+<template>
+  <RDialog
+    v-model="show"
+    icon="mdi-shield-lock-outline"
+    :width="720"
+    scroll-content
+    cancelable
+  >
+    <template #header>
+      <span class="r-group-dialog__title">
+        {{
+          editingId !== null
+            ? t("settings.edit-group")
+            : t("settings.new-group")
+        }}
+      </span>
+    </template>
+    <template #content>
+      <!-- Edits made mid-save would be lost, since save() reads them up front. -->
+      <div class="r-group-dialog__form" :inert="submitting">
+        <p v-if="isSystem" class="r-group-dialog__sys-warn">
+          <RIcon icon="mdi-alert-outline" size="14" />
+          {{ t("settings.group-system-warning") }}
+        </p>
+
+        <RTextField v-model="name" prefix-label="stacked" required clearable>
+          <template #prefix-label>
+            <RIcon icon="mdi-label-outline" size="14" />
+            {{ t("common.name") }}
+          </template>
+        </RTextField>
+
+        <RTextField
+          v-model="description"
+          prefix-label="stacked"
+          multiline
+          :rows="2"
+        >
+          <template #prefix-label>
+            <RIcon icon="mdi-text" size="14" />
+            {{ t("settings.description") }}
+          </template>
+        </RTextField>
+
+        <div class="r-group-dialog__default">
+          <RSwitch
+            v-model="isDefault"
+            :label="t('settings.group-is-default')"
+          />
+          <span class="r-group-dialog__default-hint">
+            {{ t("settings.group-is-default-hint") }}
+          </span>
+        </div>
+
+        <div class="r-group-dialog__color">
+          <span class="r-group-dialog__color-label">
+            {{ t("settings.group-color") }}
+          </span>
+          <div class="r-group-dialog__swatches">
+            <RBtn
+              v-for="(swatch, i) in palette"
+              :key="swatch"
+              variant="text"
+              class="r-group-dialog__swatch"
+              :class="{
+                'r-group-dialog__swatch--active': color === swatch,
+              }"
+              :style="{ '--swatch': swatch }"
+              :aria-label="`${t('settings.group-color')} ${i + 1}`"
+              :aria-pressed="color === swatch"
+              @click="color = swatch"
+            >
+              <RIcon
+                v-if="color === swatch"
+                icon="mdi-check"
+                size="14"
+                class="r-group-dialog__swatch-check"
+              />
+            </RBtn>
+          </div>
+        </div>
+
+        <div class="r-group-dialog__matrix">
+          <span class="r-group-dialog__matrix-label">
+            {{ t("settings.group-grants") }}
+          </span>
+          <PermissionsMatrix
+            v-model="grants"
+            :entities="entities"
+            :actions="actions"
+          />
+        </div>
+
+        <div class="r-group-dialog__matrix">
+          <span class="r-group-dialog__matrix-label">
+            {{ t("settings.hidden-platforms") }}
+          </span>
+          <HiddenPlatformsPicker
+            v-model="hiddenPlatformIds"
+            :platforms="sortedPlatforms"
+          />
+        </div>
+
+        <div class="r-group-dialog__matrix">
+          <span class="r-group-dialog__matrix-label">
+            {{ t("settings.parental-controls") }}
+          </span>
+          <AgeLimitFields
+            v-model:age-limit="age.ageLimit"
+            v-model:hide-unrated="age.hideUnrated"
+          />
+        </div>
+
+        <div class="r-group-dialog__matrix">
+          <span class="r-group-dialog__matrix-label">
+            {{ t("settings.hidden-games") }}
+          </span>
+          <HiddenGamesPicker v-model="hiddenRomIds" />
+        </div>
+      </div>
+    </template>
+    <template #footer>
+      <RBtn
+        variant="flat"
+        color="primary"
+        :loading="submitting"
+        :disabled="!name.trim()"
+        @click="save"
+      >
+        {{ t("common.apply") }}
+      </RBtn>
+    </template>
+  </RDialog>
+</template>
+
+<style scoped>
+.r-group-dialog__title {
+  font-weight: var(--r-font-weight-semibold);
+}
+.r-group-dialog__form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.r-group-dialog__sys-warn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--r-color-warning, var(--r-color-fg-muted));
+}
+.r-group-dialog__default {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.r-group-dialog__default-hint {
+  font-size: 12px;
+  color: var(--r-color-fg-muted);
+}
+.r-group-dialog__color {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.r-group-dialog__color-label {
+  font-size: 11px;
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--r-color-fg-secondary);
+}
+.r-group-dialog__swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.r-group-dialog__swatch {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: var(--swatch) !important;
+  transition: transform var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-group-dialog__swatch:hover {
+  transform: scale(1.12);
+}
+.r-group-dialog__swatch--active {
+  border-color: var(--r-color-fg);
+}
+.r-group-dialog__swatch-check {
+  color: var(--r-color-overlay-fg);
+}
+.r-group-dialog__matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.r-group-dialog__matrix-label {
+  font-size: 11px;
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--r-color-fg-secondary);
+}
+</style>
