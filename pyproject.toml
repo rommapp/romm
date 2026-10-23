@@ -21,7 +21,7 @@ dependencies = [
   "apprise ~= 2.0",
   "authlib ~= 1.8.0",
   "bcrypt ~= 5.0",
-  "certifi >= 2024.7.4",
+  "certifi >= 2026.10.19",
   "colorama ~= 0.4",
   "croniter ~= 6.2",
   "cryptography>=49,<51",
@@ -39,7 +39,7 @@ dependencies = [
   "opentelemetry-instrumentation-httpx ~= 0.56",
   "opentelemetry-instrumentation-redis ~= 0.56",
   "opentelemetry-instrumentation-sqlalchemy ~= 0.56",
-  "pillow~=12.3",
+  "pillow~=13.0",
   "psycopg[c] ~= 3.2",
   "pydantic ~= 2.11",
   "pydash ~= 8.0",
@@ -141,8 +141,11 @@ DEP002 = [ # DEP002 rule: Project should not contain unused dependencies
 [tool.uv]
 package = false
 # A range, so Dependabot's bundled uv passes; docker/Dockerfile and ./Dockerfile pin the exact version.
-required-version = ">=0.12.15,<0.13"
+required-version = ">=0.13.4,<0.14"
 exclude-newer = "7 days"
+# Security fixes newer than the cooldown: certifi 2026.10.19 (eMudhra distrust), pillow 13.0.0
+# (GHSA-8g5g-8vmr-9782). Drop each once it ages past the cooldown.
+exclude-newer-package = { certifi = false, pillow = false }
 
 [tool.ty.environment]
 root = ["./backend"]
