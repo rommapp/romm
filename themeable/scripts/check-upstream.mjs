@@ -101,7 +101,7 @@ const report = [
   section("Asset slots added", diff.assetsAdded),
   section("Asset slots removed", diff.assetsRemoved),
   notes.length ? `### Notes\n\n${notes.map((n) => `- ${n}`).join("\n")}\n` : "",
-  "Run `npm run catalog` to accept the new catalog once the problems are fixed.",
+  problems.length ? "Fix the problems, then run `npm run catalog` to accept the new catalog." : "",
 ].filter(Boolean).join("\n\n");
 
 const reportFile = args.report ? resolve(args.report) : join(mkdtempSync(join(tmpdir(), "themeable-")), "report.md");
