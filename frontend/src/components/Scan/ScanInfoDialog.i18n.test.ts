@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 
 const LOCALES_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
-  "../../../locales",
+  "../../locales",
 );
 
 const SINGLE_PARAGRAPH = [

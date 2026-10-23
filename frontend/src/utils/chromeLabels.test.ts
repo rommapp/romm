@@ -18,10 +18,7 @@ const STRING_KEYS = (
   Object.keys(DEFAULT_CHROME_LABELS) as (keyof typeof DEFAULT_CHROME_LABELS)[]
 ).filter((key) => typeof DEFAULT_CHROME_LABELS[key] === "string");
 
-const LOCALES_DIR = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "../../locales",
-);
+const LOCALES_DIR = join(dirname(fileURLToPath(import.meta.url)), "../locales");
 
 const locales = readdirSync(LOCALES_DIR, { withFileTypes: true })
   .filter((entry) => entry.isDirectory() && entry.name !== "__pycache__")
