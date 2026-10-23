@@ -133,7 +133,7 @@ Four workflows keep the module current and leave a pull request trail to audit:
 | Workflow | Runs | Does |
 | --- | --- | --- |
 | `themeable` | Every push to `main` or a `release/**` branch, and every pull request to `main` | Unit tests, compatibility check, then the source and visual checks; on a push to `main`, builds the image, smoke-tests it (start-up compile, theme links, patched files, nginx config) and publishes `ghcr.io/stealthx3/romm-themeable:<ROMM_VERSION>` and `:latest` |
-| `themeable upstream release` | Hourly, or by hand with a tag | When RomM publishes a stable release: moves `upstream` to the release commit, merges the tag into a `themeable-upstream/<tag>` branch, runs the compatibility check, refreshes the catalog and the example pack, bumps `ROMM_VERSION` and the compose file's image tag, runs the visual and source checks against the new release, and opens a pull request with the reports. If everything passes it merges, which publishes the new image; otherwise it stays open as "needs attention" |
+| `themeable upstream release` | Hourly, or by hand with a tag | When RomM publishes a stable release: moves `upstream` to the release commit, merges the tag into a `themeable-upstream/<tag>` branch, runs the compatibility check, refreshes the catalog and the example pack, bumps `ROMM_VERSION`, the module's major version in `package.json` and the compose file's image tag, runs the visual and source checks against the new release, and opens a pull request with the reports. If everything passes it merges, which publishes the new image; otherwise it stays open as "needs attention" |
 | `themeable visual check` | Called by the other two | Builds the frontend with the overlay and patches, then loads the login screen for the stock look, every built-in pack (served from archives, as in the image) and one archive pack in the themes folder in dark and light mode, failing if a pack's tokens, artwork, inlined artwork or tab icons didn't apply or it looks identical to stock, and checks that Random deals a different pack on each of four loads with matching artwork and tab icons. Screenshots are kept for 90 days |
 | `themeable source check` | Called by the other two | Lints, type-checks and unit-tests the patched frontend, and runs the Branding API tests against MariaDB with the patched backend |
 
@@ -144,7 +144,7 @@ To adopt a release by hand:
 1. Merge the release tag into `main`, keeping its root `docker-compose.yml` and `README.md` if they conflict.
 2. Run `npm run check-upstream` for the report of added, removed and renamed tokens and artwork, and any pack, hook or patch that would break.
 3. Record token renames in `catalog/token-aliases.json` (`{"--r-old": "--r-new"}`); packs using an old name keep compiling, with a warning.
-4. Run `npm run catalog` and `npm run example`, set `ROMM_VERSION` and the compose file's image tag to the release, and push.
+4. Run `npm run catalog` and `npm run example`, set `ROMM_VERSION` and the compose file's image tag to the release, raise the major version in `package.json` (resetting the other two numbers to 0), and push.
 
 ## Developing the module
 
