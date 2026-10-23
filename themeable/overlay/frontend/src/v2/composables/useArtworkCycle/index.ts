@@ -56,7 +56,7 @@ export function useArtworkCycle(
     } finally {
       loading = false;
     }
-    if (cycling.value) current.value = next;
+    if (cycling.value && toValue(ids).includes(next)) current.value = next;
   }
 
   const timer = useIntervalFn(() => void step(), intervalMs, {

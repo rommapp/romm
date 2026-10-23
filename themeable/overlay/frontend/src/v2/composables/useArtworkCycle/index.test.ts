@@ -73,6 +73,25 @@ describe("useArtworkCycle", () => {
     expect(current.value).not.toBe(first);
   });
 
+  it("never shows a pack deleted while its images were loading", async () => {
+    let finish = () => {};
+    const preload = vi.fn(
+      () => new Promise<void>((resolve) => (finish = resolve)),
+    );
+    const { current, ids } = setup(ref(IDS), preload);
+    vi.advanceTimersByTime(2000);
+    await flush();
+    const loading = (preload.mock.calls[0] as unknown as [string])[0];
+    ids.value = IDS.filter((id) => id !== loading);
+    await nextTick();
+    const shown = current.value;
+
+    finish();
+    await flush();
+    expect(current.value).toBe(shown);
+    expect(ids.value).toContain(current.value);
+  });
+
   it("pauses while the tab is hidden and resumes when shown", async () => {
     const { current, cycling, preload } = setup();
     const first = current.value;
