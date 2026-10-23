@@ -32,7 +32,8 @@ export function usePackUpload(
     replace: boolean,
   ): Promise<BrandingStatus | null> {
     try {
-      return (await themeableApi.uploadPack(file, replace)).data;
+      const { data } = await themeableApi.uploadPack(file, replace);
+      return data.ok ? data : refuse(data.error ?? t("branding.upload-failed"));
     } catch (err) {
       const code = isAxiosError(err) ? err.response?.status : undefined;
       const detail = isAxiosError(err) ? err.response?.data?.detail : undefined;

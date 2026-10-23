@@ -54,6 +54,15 @@ describe("usePackUpload", () => {
     expect(error.value).toBeNull();
   });
 
+  it("treats a status that isn't ok as a refusal with its reason", async () => {
+    uploadPack.mockResolvedValue({
+      data: { ok: false, error: "dusk was installed meanwhile", packs: [] },
+    });
+    const { upload, error } = setup();
+    expect(await upload(file("dusk.zip"))).toBeNull();
+    expect(error.value).toBe("dusk was installed meanwhile");
+  });
+
   it("asks before replacing an installed pack and resends only when confirmed", async () => {
     const clash = { message: "installed", id: "dusk", name: "Dusk" };
     uploadPack
