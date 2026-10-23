@@ -147,6 +147,41 @@ def test_hidden_rom_is_dropped_from_a_smart_collection_and_its_count(
     assert body["rom_count"] == 1
 
 
+def test_hidden_rom_is_left_out_of_its_platforms_counts(
+    client, viewer_user, admin_user, platform
+):
+    make_rom(platform, "shown", fs_size_bytes=100)
+    hidden = make_rom(platform, "hidden", fs_size_bytes=50)
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    detail = client.get(
+        f"/api/platforms/{platform.id}", headers=_auth(viewer_user)
+    ).json()
+    listed = next(
+        p
+        for p in client.get("/api/platforms", headers=_auth(viewer_user)).json()
+        if p["id"] == platform.id
+    )
+    admin = client.get(
+        f"/api/platforms/{platform.id}", headers=_auth(admin_user)
+    ).json()
+
+    for body in (detail, listed):
+        assert (body["rom_count"], body["fs_size_bytes"]) == (1, 100)
+    assert (admin["rom_count"], admin["fs_size_bytes"]) == (2, 150)
+
+
+def test_platform_with_only_hidden_roms_counts_none(client, viewer_user, platform):
+    hidden = make_rom(platform, "hidden", fs_size_bytes=50)
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    body = client.get(
+        f"/api/platforms/{platform.id}", headers=_auth(viewer_user)
+    ).json()
+
+    assert (body["rom_count"], body["fs_size_bytes"]) == (0, 0)
+
+
 def test_hidden_platform_cascades_to_its_roms(client, viewer_user, rom, platform):
     _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
     listing = client.get("/api/roms", headers=_auth(viewer_user)).json()

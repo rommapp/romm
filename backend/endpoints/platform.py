@@ -15,8 +15,9 @@ from handler.auth.dependencies import (
     assert_can,
     assert_platform_visible,
     get_permissions,
+    get_rom_visibility_filter,
 )
-from handler.database import db_platform_handler
+from handler.database import db_platform_handler, db_stats_handler
 from handler.filesystem import fs_platform_handler
 from handler.scan_handler import scan_platform
 from logger.formatter import BLUE
@@ -35,6 +36,23 @@ router = APIRouter(
     prefix="/platforms",
     tags=["platforms"],
 )
+
+
+def _count_visible_roms(
+    schemas: list[PlatformSchema], request: Request
+) -> list[PlatformSchema]:
+    """Narrow each platform's `rom_count` and `fs_size_bytes` to the ROMs the caller sees."""
+    visibility = get_rom_visibility_filter(request)
+    if visibility.is_unrestricted or not schemas:
+        return schemas
+    hidden = db_stats_handler.get_hidden_rom_totals_by_platform(
+        [s.id for s in schemas], visibility
+    )
+    for s in schemas:
+        count, size = hidden.get(s.id, (0, 0))
+        s.rom_count -= count
+        s.fs_size_bytes -= size
+    return schemas
 
 
 @protected_route(
@@ -78,13 +96,16 @@ def get_platforms(
     """Retrieve platforms."""
 
     perms = get_permissions(request)
-    return [
-        PlatformSchema.model_validate(p)
-        for p in db_platform_handler.get_platforms(
-            updated_after=updated_after,
-            hidden_platform_ids=perms.hidden_platform_ids,
-        )
-    ]
+    return _count_visible_roms(
+        [
+            PlatformSchema.model_validate(p)
+            for p in db_platform_handler.get_platforms(
+                updated_after=updated_after,
+                hidden_platform_ids=perms.hidden_platform_ids,
+            )
+        ],
+        request,
+    )
 
 
 @protected_route(router.get, "/identifiers", [Scope.PLATFORMS_READ])
@@ -129,7 +150,7 @@ def get_platform(
     if not platform:
         raise PlatformNotFoundInDatabaseException(id)
     assert_platform_visible(request, platform)
-    return PlatformSchema.model_validate(platform)
+    return _count_visible_roms([PlatformSchema.model_validate(platform)], request)[0]
 
 
 @protected_route(
@@ -182,7 +203,7 @@ async def update_platform(
             {"changed": changed},
         )
 
-    return PlatformSchema.model_validate(platform_db)
+    return _count_visible_roms([PlatformSchema.model_validate(platform_db)], request)[0]
 
 
 @protected_route(

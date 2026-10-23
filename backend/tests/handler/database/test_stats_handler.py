@@ -143,3 +143,70 @@ class TestMetadataCoverage:
         )
 
         assert coverage[platform.id] == [{"source": "igdb", "matched": 1}]
+
+
+PEGI_18 = {"age_ratings": [{"category": "PEGI", "rating": "18"}]}
+
+
+class TestHiddenRomTotalsByPlatform:
+    def test_counts_and_sizes_hidden_roms_per_platform(self):
+        platform_a = make_platform("platform_a")
+        platform_b = make_platform("platform_b")
+        make_rom(platform_a, "a1", fs_size_bytes=10)
+        hidden_a = make_rom(platform_a, "a2", fs_size_bytes=5)
+        hidden_b = make_rom(platform_b, "b1", fs_size_bytes=7)
+
+        totals = db_stats_handler.get_hidden_rom_totals_by_platform(
+            [platform_a.id, platform_b.id],
+            RomVisibilityFilter(hidden_rom_ids=frozenset({hidden_a.id, hidden_b.id})),
+        )
+
+        assert totals == {platform_a.id: (1, 5), platform_b.id: (1, 7)}
+
+    def test_only_the_given_platforms_are_counted(self):
+        platform_a = make_platform("platform_a")
+        platform_b = make_platform("platform_b")
+        hidden_a = make_rom(platform_a, "a1", fs_size_bytes=10)
+        hidden_b = make_rom(platform_b, "b1", fs_size_bytes=7)
+
+        totals = db_stats_handler.get_hidden_rom_totals_by_platform(
+            [platform_a.id],
+            RomVisibilityFilter(hidden_rom_ids=frozenset({hidden_a.id, hidden_b.id})),
+        )
+
+        assert totals == {platform_a.id: (1, 10)}
+
+    def test_roms_above_the_age_limit_are_counted(self):
+        platform = make_platform("platform_a")
+        make_rom(platform, "a1", fs_size_bytes=10)
+        make_rom(platform, "a2", fs_size_bytes=5, igdb_metadata=PEGI_18)
+
+        totals = db_stats_handler.get_hidden_rom_totals_by_platform(
+            [platform.id], RomVisibilityFilter(age_limit=16)
+        )
+
+        assert totals == {platform.id: (1, 5)}
+
+    def test_a_rom_hidden_both_ways_is_counted_once(self):
+        platform = make_platform("platform_a")
+        hidden = make_rom(platform, "a1", fs_size_bytes=5, igdb_metadata=PEGI_18)
+
+        totals = db_stats_handler.get_hidden_rom_totals_by_platform(
+            [platform.id],
+            RomVisibilityFilter(hidden_rom_ids=frozenset({hidden.id}), age_limit=16),
+        )
+
+        assert totals == {platform.id: (1, 5)}
+
+    def test_nothing_is_counted_when_only_other_platforms_are_hidden(self):
+        platform_a = make_platform("platform_a")
+        platform_b = make_platform("platform_b")
+        make_rom(platform_a, "a1", fs_size_bytes=10)
+        make_rom(platform_b, "b1", fs_size_bytes=7)
+
+        totals = db_stats_handler.get_hidden_rom_totals_by_platform(
+            [platform_a.id],
+            RomVisibilityFilter(hidden_platform_ids=frozenset({platform_b.id})),
+        )
+
+        assert totals == {}
