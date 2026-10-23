@@ -13,7 +13,7 @@ import {
   type ActionKey,
   type Grant,
   type PermissionScope,
-} from "@/v2/composables/useCan/actions";
+} from "@/composables/useCan/actions";
 
 interface State {
   grants: Grant[];

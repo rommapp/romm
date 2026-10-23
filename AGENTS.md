@@ -17,7 +17,7 @@ The frontend talks to the backend over `/api/*` (REST) and `/ws` (Socket.IO). Ty
 
 ## Stack-specific guidance
 
-`frontend/AGENTS.md` (frontend layout and commands) and `backend/AGENTS.md` (backend commands) load when you work in those directories. The UI lives in `frontend/src/v2/`.
+`frontend/AGENTS.md` (frontend layout and commands) and `backend/AGENTS.md` (backend commands) load when you work in those directories. The UI lives in `frontend/src/`.
 
 ---
 

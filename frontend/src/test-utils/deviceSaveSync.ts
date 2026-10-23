@@ -1,6 +1,6 @@
 import { vi } from "vitest";
 
-// Stands in for `@/v2/utils/saveSync` via `vi.mock(path, () => import(...))`,
+// Stands in for `@/utils/saveSync` via `vi.mock(path, () => import(...))`,
 // for suites that drive a player; the sync logic has its own suite.
 export const PLAYER_SAVE_POLL_MS = 5000;
 

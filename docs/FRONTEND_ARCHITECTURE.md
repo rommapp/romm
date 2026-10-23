@@ -2,7 +2,7 @@
 
 Comprehensive documentation of the RomM frontend: a Vue 3 single-page application powering the retro gaming platform UI.
 
-> **Scope: this document still describes the removed v1 UI** (`src/views/`, `src/components/`, `src/console/`, `src/layouts/`), and its sections on directory layout, components, views and console mode no longer match the code. The Vue/Vite/Pinia/router/i18n/Socket.IO foundation it covers is shared with the current UI under `src/v2/`, which has its own design system: **no Vuetify, and no Tailwind utility classes** (a global Tailwind reset is still loaded, see `src/styles/tailwind.css`). It styles with generated tokens plus per-component scoped CSS. For the current UI, read the `frontend-v2-components`, `frontend-v2-theming`, `frontend-v2-input`, and `frontend-v2-patterns` skills in `.claude/skills/`.
+> **Scope: this document still describes the removed v1 UI** (`src/views/`, `src/components/`, `src/console/`, `src/layouts/`), and its sections on directory layout, components, views and console mode no longer match the code. The Vue/Vite/Pinia/router/i18n/Socket.IO foundation it covers is shared with the current UI under `src/`, which has its own design system: **no Vuetify, and no Tailwind utility classes** (a global Tailwind reset is still loaded, see `src/styles/tailwind.css`). It styles with generated tokens plus per-component scoped CSS. For the current UI, read the `frontend-components`, `frontend-theming`, `frontend-input`, and `frontend-patterns` skills in `.claude/skills/`.
 
 ---
 
@@ -822,7 +822,7 @@ Vuetify handles theme switching. Additional shared brand colors: `romm-red`, `ro
 | Scrollbar | `styles/scrollbar.css`             | Custom scrollbar                                                                                               |
 | Console   | `console/index.css`                | Console mode styles (plus the Tailwind import above)                                                           |
 
-v2 opts out of this stack entirely: `src/v2/styles/tokens.css` (generated from `src/v2/tokens/index.ts`) plus `global.css`, scoped under `.r-v2`, with per-component `<style scoped>`.
+v2 opts out of this stack entirely: `src/styles/tokens.css` (generated from `src/tokens/index.ts`) plus `global.css`, scoped under `.r-app`, with per-component `<style scoped>`.
 
 ### Procedural Cover Generation
 
@@ -1080,7 +1080,7 @@ Auto-generated from backend OpenAPI schema:
 
 ```json
 "@/*" → "./src/*"
-"@v2/*" → "./src/v2/*"
+"@/*" → "./src/*"
 ```
 
 Used throughout: `import { ... } from "@/stores/roms"`. Vite and Vitest take their aliases from `scripts/aliases.ts`, which also points a bare `md-editor-v3` import at `plugins/mdeditor.ts`; that module applies the raw-HTML and XSS config before re-exporting the package. `tsconfig.app.json` maps the same specifier, so editors and `vue-tsc` resolve it to that module too.

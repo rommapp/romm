@@ -6,6 +6,7 @@ import {
   type NavigationGuardWithThis,
   type RouteLocationNormalized,
 } from "vue-router";
+import { DEFAULT_TITLE } from "@/composables/usePageTitle";
 import i18n, { loadLocale } from "@/locales";
 import {
   isAuthExemptRoute,
@@ -14,24 +15,23 @@ import {
   type RouteName,
 } from "@/plugins/routeNames";
 import { startViewTransition } from "@/plugins/transition";
+import {
+  notFoundComponent,
+  routeLayouts,
+  routeComponents,
+} from "@/router/routes";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import type { User } from "@/stores/users";
-import { DEFAULT_TITLE } from "@/v2/composables/usePageTitle";
-import {
-  notFoundComponent,
-  v2Layouts,
-  v2RouteComponents,
-} from "@/v2/router/routes";
 
 export { isAuthExemptRoute, ROUTES };
 
 // Resolve the component for a given route name, falling back to the 404 view
 // so every route renders something.
-function v2For(routeName: RouteName) {
-  const component = v2RouteComponents[routeName];
+function routeComponent(routeName: RouteName) {
+  const component = routeComponents[routeName];
   if (!component && import.meta.env.DEV) {
     console.warn(`[v2] route "${routeName}" has no v2 component; showing 404`);
   }
@@ -41,7 +41,7 @@ function v2For(routeName: RouteName) {
 const routes = [
   {
     path: "/setup",
-    component: v2Layouts.auth,
+    component: routeLayouts.auth,
     children: [
       {
         path: "",
@@ -49,13 +49,13 @@ const routes = [
         meta: {
           title: "login.setup-wizard",
         },
-        component: v2For(ROUTES.SETUP),
+        component: routeComponent(ROUTES.SETUP),
       },
     ],
   },
   {
     path: "/login",
-    component: v2Layouts.auth,
+    component: routeLayouts.auth,
     children: [
       {
         path: "",
@@ -63,13 +63,13 @@ const routes = [
         meta: {
           title: "login.login",
         },
-        component: v2For(ROUTES.LOGIN),
+        component: routeComponent(ROUTES.LOGIN),
       },
     ],
   },
   {
     path: "/reset-password",
-    component: v2Layouts.auth,
+    component: routeLayouts.auth,
     children: [
       {
         path: "",
@@ -77,13 +77,13 @@ const routes = [
         meta: {
           title: "login.reset-password",
         },
-        component: v2For(ROUTES.RESET_PASSWORD),
+        component: routeComponent(ROUTES.RESET_PASSWORD),
       },
     ],
   },
   {
     path: "/register",
-    component: v2Layouts.auth,
+    component: routeLayouts.auth,
     children: [
       {
         path: "",
@@ -91,14 +91,14 @@ const routes = [
         meta: {
           title: "login.register",
         },
-        component: v2For(ROUTES.REGISTER),
+        component: routeComponent(ROUTES.REGISTER),
       },
     ],
   },
   {
     path: "/",
     name: ROUTES.MAIN,
-    component: v2Layouts.main,
+    component: routeLayouts.main,
     children: [
       {
         path: "",
@@ -106,7 +106,7 @@ const routes = [
         meta: {
           title: "settings.home",
         },
-        component: v2For(ROUTES.HOME),
+        component: routeComponent(ROUTES.HOME),
       },
       {
         path: "search",
@@ -114,38 +114,38 @@ const routes = [
         meta: {
           title: "common.search",
         },
-        component: v2For(ROUTES.SEARCH),
+        component: routeComponent(ROUTES.SEARCH),
       },
       {
         path: "music/:mode?",
         name: ROUTES.MUSIC,
         meta: { title: "common.jukebox" },
-        component: v2For(ROUTES.MUSIC),
+        component: routeComponent(ROUTES.MUSIC),
       },
       {
         path: "platform/:platform",
         name: ROUTES.PLATFORM,
-        component: v2For(ROUTES.PLATFORM),
+        component: routeComponent(ROUTES.PLATFORM),
       },
       {
         path: "collection/:collection",
         name: ROUTES.COLLECTION,
-        component: v2For(ROUTES.COLLECTION),
+        component: routeComponent(ROUTES.COLLECTION),
       },
       {
         path: "collection/virtual/:collection",
         name: ROUTES.VIRTUAL_COLLECTION,
-        component: v2For(ROUTES.VIRTUAL_COLLECTION),
+        component: routeComponent(ROUTES.VIRTUAL_COLLECTION),
       },
       {
         path: "collection/smart/:collection",
         name: ROUTES.SMART_COLLECTION,
-        component: v2For(ROUTES.SMART_COLLECTION),
+        component: routeComponent(ROUTES.SMART_COLLECTION),
       },
       {
         path: "rom/:rom",
         name: ROUTES.ROM,
-        component: v2For(ROUTES.ROM),
+        component: routeComponent(ROUTES.ROM),
         beforeEnter: (async (to, _from, next) => {
           const romsStore = storeRoms();
 
@@ -165,46 +165,46 @@ const routes = [
       {
         path: "rom/:rom/ejs",
         name: ROUTES.EMULATORJS,
-        component: v2For(ROUTES.EMULATORJS),
+        component: routeComponent(ROUTES.EMULATORJS),
       },
       {
         path: "rom/:rom/jsdos",
         name: ROUTES.JSDOS,
-        component: v2For(ROUTES.JSDOS),
+        component: routeComponent(ROUTES.JSDOS),
       },
       {
         path: "rom/:rom/pico8",
         name: ROUTES.PICO8,
-        component: v2For(ROUTES.PICO8),
+        component: routeComponent(ROUTES.PICO8),
       },
       {
         path: "rom/:rom/easyrpg",
         name: ROUTES.EASYRPG,
-        component: v2For(ROUTES.EASYRPG),
+        component: routeComponent(ROUTES.EASYRPG),
       },
       {
         path: "rom/:rom/ruffle",
         name: ROUTES.RUFFLE,
-        component: v2For(ROUTES.RUFFLE),
+        component: routeComponent(ROUTES.RUFFLE),
       },
       {
         path: "rom/:rom/stream",
         name: ROUTES.STREAM,
-        component: v2For(ROUTES.STREAM),
+        component: routeComponent(ROUTES.STREAM),
       },
       {
         // No :rom, unlike the player route: a desktop session runs no game.
         // The container is a query param because its key is a URL.
         path: "stream/desktop",
         name: ROUTES.STREAM_DESKTOP,
-        component: v2For(ROUTES.STREAM_DESKTOP),
+        component: routeComponent(ROUTES.STREAM_DESKTOP),
       },
       // Settings group: every settings route shares the same sub-layout
       // (sidebar + content panel). Library Tools (Scan / Upload / Patcher)
       // live here too so they share the settings sidebar shell.
       {
         path: "",
-        component: v2Layouts.settings,
+        component: routeLayouts.settings,
         children: [
           {
             path: "scan",
@@ -213,7 +213,7 @@ const routes = [
               title: "scan.scan",
               bare: true,
             },
-            component: v2For(ROUTES.SCAN),
+            component: routeComponent(ROUTES.SCAN),
           },
           {
             path: "upload",
@@ -222,7 +222,7 @@ const routes = [
               title: "common.upload-roms",
               fill: "desktop",
             },
-            component: v2For(ROUTES.UPLOAD),
+            component: routeComponent(ROUTES.UPLOAD),
           },
           {
             path: "activity",
@@ -231,7 +231,7 @@ const routes = [
               title: "activity.active-sessions",
               bare: true,
             },
-            component: v2For(ROUTES.ACTIVITY),
+            component: routeComponent(ROUTES.ACTIVITY),
           },
           {
             path: "notifications",
@@ -240,13 +240,13 @@ const routes = [
               title: "notifications.notifications",
               bare: true,
             },
-            component: v2For(ROUTES.NOTIFICATIONS),
+            component: routeComponent(ROUTES.NOTIFICATIONS),
           },
           {
             path: "user/:user",
             name: ROUTES.USER_PROFILE,
             meta: { bare: true },
-            component: v2For(ROUTES.USER_PROFILE),
+            component: routeComponent(ROUTES.USER_PROFILE),
           },
           {
             path: "user-interface",
@@ -255,7 +255,7 @@ const routes = [
               title: "common.user-interface",
               bare: true,
             },
-            component: v2For(ROUTES.USER_INTERFACE),
+            component: routeComponent(ROUTES.USER_INTERFACE),
           },
           {
             path: "library-management",
@@ -264,7 +264,7 @@ const routes = [
               title: "common.library-management",
               bare: true,
             },
-            component: v2For(ROUTES.LIBRARY_MANAGEMENT),
+            component: routeComponent(ROUTES.LIBRARY_MANAGEMENT),
           },
           {
             path: "scan-settings",
@@ -273,7 +273,7 @@ const routes = [
               title: "settings.scan-settings",
               bare: true,
             },
-            component: v2For(ROUTES.SCAN_SETTINGS),
+            component: routeComponent(ROUTES.SCAN_SETTINGS),
           },
           {
             path: "conversion-settings",
@@ -282,7 +282,7 @@ const routes = [
               title: "settings.conversion-settings",
               bare: true,
             },
-            component: v2For(ROUTES.CONVERSION_SETTINGS),
+            component: routeComponent(ROUTES.CONVERSION_SETTINGS),
           },
           {
             path: "metadata-sources",
@@ -291,7 +291,7 @@ const routes = [
               title: "scan.metadata-sources",
               bare: true,
             },
-            component: v2For(ROUTES.METADATA_SOURCES),
+            component: routeComponent(ROUTES.METADATA_SOURCES),
           },
           {
             path: "client-api-tokens",
@@ -300,7 +300,7 @@ const routes = [
               title: "settings.client-api-tokens",
               bare: true,
             },
-            component: v2For(ROUTES.CLIENT_API_TOKENS),
+            component: routeComponent(ROUTES.CLIENT_API_TOKENS),
           },
           {
             path: "devices",
@@ -309,7 +309,7 @@ const routes = [
               title: "settings.devices",
               bare: true,
             },
-            component: v2For(ROUTES.DEVICES),
+            component: routeComponent(ROUTES.DEVICES),
           },
           {
             path: "administration",
@@ -318,7 +318,7 @@ const routes = [
               title: "common.administration",
               bare: true,
             },
-            component: v2For(ROUTES.ADMINISTRATION),
+            component: routeComponent(ROUTES.ADMINISTRATION),
           },
           {
             path: "server-stats",
@@ -327,7 +327,7 @@ const routes = [
               title: "common.server-stats",
               bare: true,
             },
-            component: v2For(ROUTES.SERVER_STATS),
+            component: routeComponent(ROUTES.SERVER_STATS),
           },
           {
             path: "logs",
@@ -339,7 +339,7 @@ const routes = [
               // instead of growing the document: see SettingsLayout `fill`.
               fill: true,
             },
-            component: v2For(ROUTES.LOGS),
+            component: routeComponent(ROUTES.LOGS),
           },
           {
             // Controller-debug lives outside the Settings sidebar
@@ -349,7 +349,7 @@ const routes = [
             path: "controller-debug",
             name: ROUTES.CONTROLLER_DEBUG,
             meta: { title: "settings.controller-debug", bare: true },
-            component: v2For(ROUTES.CONTROLLER_DEBUG),
+            component: routeComponent(ROUTES.CONTROLLER_DEBUG),
           },
         ],
       },
@@ -357,13 +357,13 @@ const routes = [
         path: "platforms",
         name: ROUTES.PLATFORMS_INDEX,
         meta: { title: "common.platforms" },
-        component: v2For(ROUTES.PLATFORMS_INDEX),
+        component: routeComponent(ROUTES.PLATFORMS_INDEX),
       },
       {
         path: "collections",
         name: ROUTES.COLLECTIONS_INDEX,
         meta: { title: "common.collections" },
-        component: v2For(ROUTES.COLLECTIONS_INDEX),
+        component: routeComponent(ROUTES.COLLECTIONS_INDEX),
       },
       {
         path: ":pathMatch(.*)*",
@@ -375,12 +375,12 @@ const routes = [
   {
     path: "/pair/device",
     name: ROUTES.PAIR_DEVICE,
-    component: () => import("@/v2/views/DevicePairShell.vue"),
+    component: () => import("@/views/DevicePairShell.vue"),
   },
   {
     path: "/pair",
     name: ROUTES.PAIR,
-    component: v2For(ROUTES.PAIR),
+    component: routeComponent(ROUTES.PAIR),
   },
 ];
 

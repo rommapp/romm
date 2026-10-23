@@ -1,11 +1,11 @@
 /**
- * build-tokens: emits src/v2/styles/tokens.css from src/v2/tokens/index.ts.
+ * build-tokens: emits src/styles/tokens.css from src/tokens/index.ts.
  *
  * The TypeScript module is the single source of truth. This script declares
  * the JS-path → CSS-variable mapping and writes the CSS file. Run it via
  * `npm run build:tokens` (also wired into predev / prebuild).
  *
- * Adding a new token: add it to src/v2/tokens/index.ts, then add a mapping
+ * Adding a new token: add it to src/tokens/index.ts, then add a mapping
  * entry below if the default convention does not produce the desired CSS
  * variable name. Re-run `npm run build:tokens`.
  */
@@ -35,10 +35,10 @@ import {
   radius,
   space,
   zIndex,
-} from "../src/v2/tokens/index.js";
+} from "../src/tokens/index.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const OUTPUT = resolve(__dirname, "../src/v2/styles/tokens.css");
+const OUTPUT = resolve(__dirname, "../src/styles/tokens.css");
 
 function camelToKebab(s: string): string {
   return s.replace(/([A-Z])/g, "-$1").toLowerCase();
@@ -192,13 +192,13 @@ const LIGHT: Entry[] = [
 ];
 
 const HEADER = `/*
- * RomM v2 Design Tokens, CSS Custom Properties
+ * RomM Design Tokens, CSS Custom Properties
  *
- * GENERATED FILE, do not hand-edit. Source: src/v2/tokens/index.ts
+ * GENERATED FILE, do not hand-edit. Source: src/tokens/index.ts
  * Regenerate with: npm run build:tokens
  *
- * Scoped under .r-v2 so v1 styling is unaffected. Theme palettes live under
- * .r-v2.r-v2-dark and .r-v2.r-v2-light. The classes are toggled on <html>
+ * Scoped under .r-app. Theme palettes live under
+ * .r-app.r-dark and .r-app.r-light. The classes are toggled on <html>
  * by RomM.vue so teleported overlays (RDialog, RMenu, RTooltip), which
  * land in <body> outside the app root, still resolve var(--r-color-*).
  */
@@ -206,22 +206,22 @@ const HEADER = `/*
 
 const css = [
   HEADER,
-  block(".r-v2", SHARED),
+  block(".r-app", SHARED),
   "",
-  `html[data-input="key"] .r-v2 {`,
+  `html[data-input="key"] .r-app {`,
   `  --r-focus-ring-width: ${focus.ringWidthKey};`,
   `}`,
-  `html[data-input="pad"] .r-v2 {`,
+  `html[data-input="pad"] .r-app {`,
   `  --r-focus-ring-width: ${focus.ringWidthPad};`,
   `}`,
   "",
   block(
-    ".r-v2.r-v2-dark",
+    ".r-app.r-dark",
     DARK,
     "Dark surface palette: translucent white over the near-black base.",
   ),
   block(
-    ".r-v2.r-v2-light",
+    ".r-app.r-light",
     LIGHT,
     "Light surface palette: translucent black over the off-white base.",
   ),

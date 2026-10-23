@@ -40,13 +40,13 @@ const orderDirStorage = useUserLocalStorage("roms.orderDir", "asc");
 // Collection / Virtual / Smart, _allRoms, fetchOffset, fetchTotalRoms,
 // characterIndex, romIdIndex, fetchRoms / resetPagination / reset, plus
 // the order-by setters) has moved to the v2 store at
-// `src/v2/stores/galleryRoms.ts` (windowed sparse loading). v1 keeps the
+// `src/stores/galleryRoms.ts` (windowed sparse loading). v1 keeps the
 // originals for the frozen v1 UI; v2 imports the new store. Per-field
 // @deprecated tags annotate the migrated surface so v1 cleanup is
 // trivial when the time comes.
 const defaultRomsState = {
   /** @deprecated v2: use `useGalleryRoms().currentPlatform` from
-   * `@/v2/stores/galleryRoms`. */
+   * `@/stores/galleryRoms`. */
   currentPlatform: null as Platform | null,
   /** @deprecated v2: use `useGalleryRoms().currentCollection`. */
   currentCollection: null as Collection | null,

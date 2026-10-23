@@ -2,9 +2,9 @@
 
 ## Layout
 
-The UI lives under `frontend/src/v2/`. It has its own design system (tokens), primitive library (`R*` components in `src/v2/lib/`), universal input (mouse/touch/keyboard/gamepad), and responsive system. Shared stores, services, composables, utils, locales and the router live directly under `frontend/src/`.
+The UI lives under `frontend/src/`. It has its own design system (tokens), primitive library (`R*` components in `src/lib/`), universal input (mouse/touch/keyboard/gamepad), and responsive system. Shared stores, services, composables, utils, locales and the router live directly under `frontend/src/`.
 
-The `frontend-v2-*` skills in `.claude/skills/` hold the detailed rules. **Read the relevant skill before editing v2 code.**
+The `frontend-*` skills in `.claude/skills/` hold the detailed rules. **Read the relevant skill before editing v2 code.**
 
 ## Commands (`cd frontend`)
 

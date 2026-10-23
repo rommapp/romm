@@ -18,8 +18,8 @@ vi.mock("@/services/api/rom", () => ({
 
 // Navigating resolves the route's lazy views, which import most of the app and
 // outlast the test timeout when the whole suite transforms in parallel.
-vi.mock("@/v2/layouts/AppLayout.vue", stubView);
-vi.mock("@/v2/views/GameDetails.vue", stubView);
+vi.mock("@/layouts/AppLayout.vue", stubView);
+vi.mock("@/views/GameDetails.vue", stubView);
 
 describe("route titles", () => {
   beforeAll(async () => {
