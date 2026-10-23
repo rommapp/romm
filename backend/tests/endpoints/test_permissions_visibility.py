@@ -19,7 +19,7 @@ from handler.auth.base_handler import oauth_handler
 from handler.database import db_collection_handler, db_rom_handler, db_user_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler
-from models.collection import SmartCollection
+from models.collection import Collection, SmartCollection
 from models.permission import (
     HiddenEntity,
     PermAction,
@@ -145,6 +145,96 @@ def test_hidden_rom_is_dropped_from_a_smart_collection_and_its_count(
     body = resp.json()
     assert body["rom_ids"] == [second_rom.id]
     assert body["rom_count"] == 1
+
+
+def _rom_with_cover(platform, name):
+    return make_rom(
+        platform,
+        name,
+        path_cover_s=f"roms/{platform.id}/{name}/cover/small.png",
+        path_cover_l=f"roms/{platform.id}/{name}/cover/big.png",
+    )
+
+
+def _cover_paths(urls):
+    return [url.split("?", 1)[0].rsplit("/", 3)[1] for url in urls]
+
+
+def test_hidden_rom_is_dropped_from_a_collections_covers(
+    client, viewer_user, admin_user, platform
+):
+    shown = _rom_with_cover(platform, "shown")
+    hidden = _rom_with_cover(platform, "hidden")
+    collection = db_collection_handler.add_collection(
+        Collection(name="Mixed", description="", user_id=admin_user.id, is_public=True)
+    )
+    db_collection_handler.add_roms_to_collection(collection.id, [shown.id, hidden.id])
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    detail = client.get(
+        f"/api/collections/{collection.id}", headers=_auth(viewer_user)
+    ).json()
+    listed = next(
+        c
+        for c in client.get("/api/collections", headers=_auth(viewer_user)).json()
+        if c["id"] == collection.id
+    )
+
+    for body in (detail, listed):
+        assert _cover_paths(body["path_covers_small"]) == ["shown"]
+        assert _cover_paths(body["path_covers_large"]) == ["shown"]
+
+
+def test_hidden_rom_is_dropped_from_a_smart_collections_covers(
+    client, viewer_user, admin_user, platform
+):
+    _rom_with_cover(platform, "shown")
+    hidden = _rom_with_cover(platform, "hidden")
+    smart = db_collection_handler.add_smart_collection(
+        SmartCollection(
+            name="Everything",
+            description="",
+            user_id=admin_user.id,
+            is_public=True,
+            filter_criteria={"platform_ids": [platform.id]},
+        )
+    )
+    db_collection_handler.refresh_smart_collection(smart.id)
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    body = client.get(
+        f"/api/collections/smart/{smart.id}", headers=_auth(viewer_user)
+    ).json()
+
+    assert _cover_paths(body["path_covers_small"]) == ["shown"]
+    assert _cover_paths(body["path_covers_large"]) == ["shown"]
+
+
+def test_hidden_rom_is_dropped_from_a_virtual_collections_covers(
+    client, viewer_user, platform
+):
+    roms = [
+        make_rom(
+            platform,
+            name,
+            manual_metadata={"franchises": ["Grow"]},
+            path_cover_s=f"roms/{platform.id}/{name}/cover/small.png",
+            path_cover_l=f"roms/{platform.id}/{name}/cover/big.png",
+        )
+        for name in ("first", "second", "third")
+    ]
+    _hide(PermEntity.ROMS, roms[0].id, viewer_user.id)
+
+    body = next(
+        c
+        for c in client.get(
+            "/api/collections/virtual?type=franchise", headers=_auth(viewer_user)
+        ).json()
+        if c["name"] == "Grow"
+    )
+
+    assert sorted(_cover_paths(body["path_covers_small"])) == ["second", "third"]
+    assert sorted(_cover_paths(body["path_covers_large"])) == ["second", "third"]
 
 
 def test_hidden_platform_cascades_to_its_roms(client, viewer_user, rom, platform):
