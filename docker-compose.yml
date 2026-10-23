@@ -12,13 +12,13 @@ volumes:
 services:
   romm:
     # Tagged with the RomM release it is built from; :latest also exists.
-    image: ghcr.io/stealthx3/romm-themeable:5.4.0
+    image: ghcr.io/stealthx3/romm-themeable:5.4.1
     # To build on this machine instead, uncomment this and run `docker compose up -d --build`:
     # build:
     #   context: .
     #   dockerfile: themeable/docker/Dockerfile
     #   args:
-    #     ROMM_VERSION: 5.4.0
+    #     ROMM_VERSION: 5.4.1
     # pull_policy: build
     container_name: romm
     restart: unless-stopped
