@@ -13,8 +13,8 @@ import storeHeartbeat from "@/stores/heartbeat";
 import "@/styles/common.css";
 import "@/styles/fonts.css";
 import "@/styles/global.css";
+import "@/styles/reset.css";
 import "@/styles/scrollbar.css";
-import "@/styles/tailwind.css";
 import { createChromeLabels } from "@/utils/chromeLabels";
 
 // Recover from stale chunks after a redeploy: hashed asset names change, so

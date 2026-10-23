@@ -1,4 +1,3 @@
-import tailwindcss from "@tailwindcss/vite";
 import vue from "@vitejs/plugin-vue";
 import { defineConfig, loadEnv } from "vite";
 import mkcert from "vite-plugin-mkcert";
@@ -108,7 +107,6 @@ export default defineConfig(({ mode }) => {
         filePath.endsWith("pico8AudioWorklet.js") ? false : undefined,
     },
     plugins: [
-      tailwindcss(),
       vue({
         template: { transformAssetUrls },
       }),

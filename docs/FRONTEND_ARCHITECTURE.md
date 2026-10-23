@@ -2,7 +2,7 @@
 
 Comprehensive documentation of the RomM frontend: a Vue 3 single-page application powering the retro gaming platform UI.
 
-> **Scope: this document still describes the removed v1 UI** (`src/views/`, `src/components/`, `src/console/`, `src/layouts/`), and its sections on directory layout, components, views and console mode no longer match the code. The Vue/Vite/Pinia/router/i18n/Socket.IO foundation it covers is shared with the current UI under `src/`, which has its own design system: **no Vuetify, and no Tailwind utility classes** (a global Tailwind reset is still loaded, see `src/styles/tailwind.css`). It styles with generated tokens plus per-component scoped CSS. For the current UI, read the `frontend-components`, `frontend-theming`, `frontend-input`, and `frontend-patterns` skills in `.claude/skills/`.
+> **Scope: this document still describes the removed v1 UI** (`src/views/`, `src/components/`, `src/console/`, `src/layouts/`), and its sections on directory layout, components, views and console mode no longer match the code. The Vue/Vite/Pinia/router/i18n/Socket.IO foundation it covers is shared with the current UI under `src/`, which has its own design system: **no Vuetify and no utility-class framework** (a base reset lives in `src/styles/reset.css`). It styles with generated tokens plus per-component scoped CSS. For the current UI, read the `frontend-components`, `frontend-theming`, `frontend-input`, and `frontend-patterns` skills in `.claude/skills/`.
 
 ---
 
@@ -30,20 +30,20 @@ Comprehensive documentation of the RomM frontend: a Vue 3 single-page applicatio
 
 ## 1. Overview
 
-| Property             | Value                                        |
-| -------------------- | -------------------------------------------- |
-| **Framework**        | Vue 3.5 (Composition API, `<script setup>`)  |
-| **Build Tool**       | Vite 6.4.2                                   |
-| **Language**         | TypeScript 5.9.3 (`noImplicitAny: true`)     |
-| **UI Library**       | Vuetify 4.2.1 (Material Design), v1 only     |
-| **CSS**              | Tailwind CSS 4.3.1 + Vuetify themes, v1 only |
-| **State Management** | Pinia 3.0.1 (18 stores)                      |
-| **Routing**          | Vue Router 5.3.1                             |
-| **HTTP Client**      | Axios 1.15.0                                 |
-| **i18n**             | vue-i18n 11.1.10 (17 languages)              |
-| **Real-time**        | Socket.IO Client 4.7.5                       |
-| **Icons**            | Material Design Icons (MDI) 7.4.47           |
-| **Node**             | 24 (via `.nvmrc`)                            |
+| Property             | Value                                       |
+| -------------------- | ------------------------------------------- |
+| **Framework**        | Vue 3.5 (Composition API, `<script setup>`) |
+| **Build Tool**       | Vite 6.4.2                                  |
+| **Language**         | TypeScript 5.9.3 (`noImplicitAny: true`)    |
+| **UI Library**       | Vuetify 4.2.1 (Material Design), v1 only    |
+| **CSS**              | Vuetify themes, v1 only                     |
+| **State Management** | Pinia 3.0.1 (18 stores)                     |
+| **Routing**          | Vue Router 5.3.1                            |
+| **HTTP Client**      | Axios 1.15.0                                |
+| **i18n**             | vue-i18n 11.1.10 (17 languages)             |
+| **Real-time**        | Socket.IO Client 4.7.5                      |
+| **Icons**            | Material Design Icons (MDI) 7.4.47          |
+| **Node**             | 24 (via `.nvmrc`)                           |
 
 **Total:** ~216 Vue components (168 under `components/`, rest in views/console/layouts), 18 Pinia stores, 17 API service modules, 36 named routes across 3 layouts.
 
@@ -814,13 +814,11 @@ Vuetify handles theme switching. Additional shared brand colors: `romm-red`, `ro
 
 ### CSS Stack
 
-| Layer     | Technology                         | Scope                                                                                                          |
-| --------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Component | Vuetify classes + scoped `<style>` | Per-component                                                                                                  |
-| Utility   | Tailwind CSS 4.3                   | Inline utility classes; `@import "tailwindcss"` lives in `console/index.css`, which `main.ts` imports app-wide |
-| Global    | `styles/common.css`                | App-wide utilities                                                                                             |
-| Scrollbar | `styles/scrollbar.css`             | Custom scrollbar                                                                                               |
-| Console   | `console/index.css`                | Console mode styles (plus the Tailwind import above)                                                           |
+| Layer     | Technology                         | Scope              |
+| --------- | ---------------------------------- | ------------------ |
+| Component | Vuetify classes + scoped `<style>` | Per-component      |
+| Global    | `styles/common.css`                | App-wide utilities |
+| Scrollbar | `styles/scrollbar.css`             | Custom scrollbar   |
 
 v2 opts out of this stack entirely: `src/styles/tokens.css` (generated from `src/tokens/index.ts`) plus `global.css`, scoped under `.r-app`, with per-component `<style scoped>`.
 
@@ -1001,12 +999,11 @@ Procedural SVG generation for:
 
 **Plugins:**
 
-1. Tailwind CSS (`@tailwindcss/vite`)
-2. Vue 3 (`@vitejs/plugin-vue`)
-3. Vuetify auto-import (`vite-plugin-vuetify`, 57 pre-optimized components)
-4. PWA (`vite-plugin-pwa`, service worker, installable)
-5. HTTPS (`vite-plugin-mkcert`, optional dev HTTPS)
-6. Static copy (ROM patcher JS assets)
+1. Vue 3 (`@vitejs/plugin-vue`)
+2. Vuetify auto-import (`vite-plugin-vuetify`, 57 pre-optimized components)
+3. PWA (`vite-plugin-pwa`, service worker, installable)
+4. HTTPS (`vite-plugin-mkcert`, optional dev HTTPS)
+5. Static copy (ROM patcher JS assets)
 
 ### Scripts
 

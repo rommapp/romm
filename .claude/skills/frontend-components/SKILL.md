@@ -127,6 +127,6 @@ import storeAuth from "@/stores/auth";
 
 ## Known debt (focused follow-ups)
 
-- **Left over from v1**: drop `.r-*` scope classes (tokens move to `:root`); simplify `useUISettings` sync; drop the color-string→tone collapser in `NotificationHost`; remove the Vuetify rule arrays in `stores/users.ts`; remove the `@deprecated` gallery-list state in `stores/roms.ts` once its remaining v2 callers move to `useGalleryRoms`; drop Vuetify and the global Tailwind reset (`src/styles/tailwind.css`) once nothing needs them.
+- **Left over from v1**: drop `.r-*` scope classes (tokens move to `:root`); simplify `useUISettings` sync; drop the color-string→tone collapser in `NotificationHost`; remove the Vuetify rule arrays in `stores/users.ts`; remove the `@deprecated` gallery-list state in `stores/roms.ts` once its remaining v2 callers move to `useGalleryRoms`; drop Vuetify once nothing needs it.
 
 Full reference: `docs/FRONTEND_ARCHITECTURE.md`.
