@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Collection
-
-from sqlalchemy import case, distinct, func, or_, select
+from sqlalchemy import case, distinct, func, select
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -53,39 +51,6 @@ class DBStatsHandler(DBBaseHandler):
     ) -> int:
         query = select(func.count()).select_from(Rom).where(*visibility.clauses())
         return session.scalar(query) or 0
-
-    @begin_session
-    def get_hidden_rom_totals_by_platform(
-        self,
-        platform_ids: Collection[int],
-        visibility: RomVisibilityFilter,
-        session: Session = INJECTED_SESSION,
-    ) -> dict[int, tuple[int, int]]:
-        """Per platform, the count and total `fs_size_bytes` of the ROMs `visibility` hides.
-
-        Returns:
-            (rom count, size in bytes) by platform id, leaving out platforms with none.
-        """
-        # Direct hides match by primary key, so a few of them cost a few lookups.
-        hidden: list[ColumnElement[bool]] = []
-        if visibility.hidden_rom_ids:
-            hidden.append(Rom.id.in_(visibility.hidden_rom_ids))
-        row_hidden = visibility.row_hidden_clause()
-        if row_hidden is not None:
-            hidden.append(row_hidden)
-        if not hidden:
-            return {}
-        rows = session.execute(
-            select(
-                Rom.platform_id,
-                func.count(Rom.id),
-                func.coalesce(func.sum(Rom.fs_size_bytes), 0),
-            )
-            .where(Rom.platform_id.in_(platform_ids), or_(*hidden))
-            .group_by(Rom.platform_id)
-        ).all()
-        # SUM comes back as a Decimal on MariaDB.
-        return {platform_id: (count, int(size)) for platform_id, count, size in rows}
 
     @begin_session
     def get_saves_count(
