@@ -89,8 +89,8 @@ import { RBtn, RDialog } from "@/lib";
 import storeAuth from "@/stores/auth";
 ```
 
-- `@/lib`: primitives barrel. `@/...`: anything else under v2. `@/...`: canonical shared resources. Never relative paths (`../../foo`) when an alias exists.
-- Shared v2 types live in `src/types/`; backend types come from `src/__generated__/`; not `src/types/` (legacy).
+- `@/lib`: primitives barrel. `@/...`: anything else under `src/`. Never relative paths (`../../foo`) when an alias exists.
+- Shared types live in `src/types/`; backend types come from `src/__generated__/`.
 
 ### Composables
 
