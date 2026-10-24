@@ -4,16 +4,12 @@ import { setup, type Preview } from "@storybook/vue3-vite";
 import mitt from "mitt";
 import { createPinia } from "pinia";
 import { createMemoryHistory, createRouter } from "vue-router";
-import { createVuetify } from "vuetify";
-import "vuetify/styles";
 import { installBreakpointAttribute } from "../src/composables/useBreakpoint";
 import { ChromeLabelsKey } from "../src/lib/a11y/chromeLabels";
 import i18n from "../src/locales";
 import storePermissions from "../src/stores/permissions";
-import "../src/styles/common.css";
 import "../src/styles/fonts.css";
 import "../src/styles/global.css";
-import { dark, light } from "../src/styles/themes";
 import type { Events } from "../src/types/emitter";
 import { createChromeLabels } from "../src/utils/chromeLabels";
 import "./preview.css";
@@ -28,11 +24,9 @@ import {
 // Mirror AppLayout/AuthLayout so html[data-bp] CSS matches useBreakpoint() in the iframe.
 installBreakpointAttribute();
 
-// Each story runs inside a Vue app with Pinia + i18n + Vuetify registered.
-// v2 primitives are Vuetify-free at runtime: Vuetify stays registered only
-// because some shared dependencies still pull it in. The visible theme for
-// v2 stories comes from the `.r-dark` / `.r-light` class toggled on
-// <html> by the theme switcher decorator below.
+// Each story runs inside a Vue app with Pinia + i18n registered. The visible
+// theme comes from the `.r-dark` / `.r-light` class toggled on <html> by the
+// theme switcher decorator below.
 //
 // permissionsStore is hydrated with admin grants so any primitive that
 // consumes `useCan(...)` renders its enabled state. Stories that need to
@@ -53,14 +47,6 @@ setup((app) => {
     createRouter({
       history: createMemoryHistory(),
       routes: [{ path: "/:pathMatch(.*)*", component: { render: () => null } }],
-    }),
-  );
-  app.use(
-    createVuetify({
-      theme: {
-        defaultTheme: "dark",
-        themes: { dark, light },
-      },
     }),
   );
 
@@ -121,8 +107,8 @@ const preview: Preview = {
     withInputModality,
     withThemeByClassName({
       themes: {
-        dark: "r-app r-dark v-theme--dark",
-        light: "r-app r-light v-theme--light",
+        dark: "r-app r-dark",
+        light: "r-app r-light",
       },
       defaultTheme: "dark",
       parentSelector: "html",

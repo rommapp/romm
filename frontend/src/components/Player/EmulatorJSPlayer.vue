@@ -11,7 +11,6 @@ import {
 } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, useRouter } from "vue-router";
-import { useTheme } from "vuetify";
 import type {
   FirmwareSchema,
   SaveSchema,
@@ -276,7 +275,6 @@ function stateApplied() {
   restoreVolume?.();
   restoreVolume = null;
 }
-const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
 const { playing, fullScreen } = storeToRefs(playingStore);
 const { selectedLanguage } = storeToRefs(languageStore);
@@ -377,7 +375,9 @@ window.EJS_color = "#A453FF";
 window.EJS_alignStartButton = "center";
 window.EJS_startOnLoaded = true;
 window.EJS_backgroundImage = `${window.location.origin}/assets/logos/romm_logo_xbox_one_circle_boot.svg`;
-window.EJS_backgroundColor = String(theme.current.value.colors.background);
+window.EJS_backgroundColor = getComputedStyle(
+  document.documentElement,
+).backgroundColor;
 // Labels come from RomM's locales, which cover languages EmulatorJS does not.
 window.EJS_Buttons = {
   // Disable the standard exit button to implement our own

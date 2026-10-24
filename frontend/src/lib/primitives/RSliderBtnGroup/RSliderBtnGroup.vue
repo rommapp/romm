@@ -438,7 +438,7 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
 
 /* Tab sizing + colors. Min-height is set explicitly (and !important)
    so that RBtn-rendered items (no `to`) match the height of router-
-   link items. Otherwise Vuetify's RBtn density="compact" + size=
+   link items. Otherwise RBtn density="compact" + size=
    "x-small" computes a shorter button than the router-link, leading
    to a thin/short hover band on tabs that aren't router-links. */
 .r-slider-btn-group--tab .r-slider-btn-group__btn {
