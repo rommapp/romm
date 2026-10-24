@@ -503,4 +503,23 @@ describe("RSelect combobox semantics", () => {
     ).toContain("Apple");
     wrapper.unmount();
   });
+
+  it("reaches the All row with the keyboard and toggles it", async () => {
+    const { wrapper, field } = await openWith({
+      multiple: true,
+      showAllOption: true,
+      modelValue: ["banana"],
+    });
+
+    await field.trigger("keydown", { key: "ArrowUp" });
+    await field.trigger("keydown", { key: "ArrowUp" });
+    expect(activeTitle(field)).toBe("All");
+
+    await field.trigger("keydown", { key: "Enter" });
+    expect(wrapper.emitted("update:modelValue")?.at(-1)).toEqual([[]]);
+
+    await field.trigger("keydown", { key: "ArrowDown" });
+    expect(activeTitle(field)).toBe("Apple");
+    wrapper.unmount();
+  });
 });

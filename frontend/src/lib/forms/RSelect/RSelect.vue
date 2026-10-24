@@ -786,25 +786,43 @@ const activeOptionId = computed(() => {
     : undefined;
 });
 
+// The "All" row sits above the items at index -1.
+const firstIndex = computed(() => (showAllRow.value ? -1 : 0));
+
 function moveActive(delta: number) {
   const list = filteredItems.value;
-  if (!list.length) return;
+  const lo = firstIndex.value;
+  if (!list.length && lo === 0) return;
   let i = activeIndex.value + delta;
   // Wrap + skip disabled.
-  for (let n = 0; n < list.length; n++) {
-    if (i < 0) i = list.length - 1;
-    if (i >= list.length) i = 0;
-    if (!list[i]!.disabled) break;
+  for (let n = 0; n < list.length - lo; n++) {
+    if (i < lo) i = list.length - 1;
+    if (i >= list.length) i = lo;
+    if (i === -1 || !list[i]!.disabled) break;
     i += delta || 1;
   }
   activeIndex.value = i;
   scrollActiveIntoView();
+}
+
+function activateActive() {
+  if (activeIndex.value === -1) {
+    if (showAllRow.value) toggleAllItems();
+    return;
+  }
+  const item = filteredItems.value[activeIndex.value];
+  if (item) selectItem(item);
 }
 const PAGE_STEP = 10;
 
 // Jump to the first or last enabled row.
 function moveActiveTo(edge: "first" | "last") {
   const list = filteredItems.value;
+  if (edge === "first" && showAllRow.value) {
+    activeIndex.value = -1;
+    scrollActiveIntoView();
+    return;
+  }
   const order = list.map((_, i) => i);
   if (edge === "last") order.reverse();
   const i = order.find((n) => !list[n]!.disabled);
@@ -816,12 +834,13 @@ function moveActiveTo(edge: "first" | "last") {
 // Move a page of rows, stopping at the ends instead of wrapping.
 function movePage(dir: 1 | -1) {
   const list = filteredItems.value;
+  const lo = firstIndex.value;
   let i = Math.min(
     list.length - 1,
-    Math.max(0, activeIndex.value + dir * PAGE_STEP),
+    Math.max(lo, activeIndex.value + dir * PAGE_STEP),
   );
-  while (list[i]?.disabled && i + dir >= 0 && i + dir < list.length) i += dir;
-  if (!list[i] || list[i]!.disabled) return;
+  while (list[i]?.disabled && i + dir >= lo && i + dir < list.length) i += dir;
+  if (i !== -1 && (!list[i] || list[i]!.disabled)) return;
   activeIndex.value = i;
   scrollActiveIntoView();
 }
@@ -881,8 +900,7 @@ function onActivatorKey(evt: KeyboardEvent) {
         openMenu();
       } else {
         evt.preventDefault();
-        const item = filteredItems.value[activeIndex.value];
-        if (item) selectItem(item);
+        activateActive();
       }
       break;
     case "Tab":
@@ -926,8 +944,7 @@ function onSearchKey(evt: KeyboardEvent) {
       break;
     case "Enter": {
       evt.preventDefault();
-      const item = filteredItems.value[activeIndex.value];
-      if (item) selectItem(item);
+      activateActive();
       break;
     }
   }
@@ -1322,7 +1339,11 @@ const describedBy = computed(() => {
               <li
                 :id="allOptionId"
                 class="r-select__item r-select__item--all"
-                :class="{ 'r-select__item--selected': isAllSelected }"
+                :class="{
+                  'r-select__item--active': activeIndex === -1,
+                  'r-select__item--selected': isAllSelected,
+                }"
+                data-r-select-index="-1"
                 role="option"
                 :aria-selected="isAllSelected"
                 tabindex="-1"
