@@ -89,6 +89,7 @@
   "console-test-ok": "Conectado. Elige abajo el perfil de usuario que se sincronizará.",
   "console-test-unreachable": "Nada respondió en esta dirección",
   "console-user": "Perfil de usuario",
+  "console-user-fixed": "Para sincronizar otro perfil, vuelve a añadir la consola",
   "console-user-hint": "Prueba la conexión para ver los perfiles de usuario de la consola",
   "continue-playing-as-grid": "Continuar jugando como cuadrícula",
   "continue-playing-as-grid-desc": "Ver tarjetas de continuar jugando como cuadrícula en la página principal",

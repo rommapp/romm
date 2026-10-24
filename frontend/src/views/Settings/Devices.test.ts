@@ -355,13 +355,18 @@ describe("Devices", () => {
         .trigger("click");
       const dialog = wrapper.findComponent(ConsoleDialog);
       expect(dialog.props("device")).toMatchObject({ id: "ps3" });
-      dialog.vm.$emit("submit", { name: "PS3", ip_address: "192.168.1.20" });
+      dialog.vm.$emit("submit", {
+        console: "ps3",
+        name: "PS3",
+        ip_address: "192.168.1.20",
+        ps3_user: "00000001",
+      });
       await flushPromises();
 
-      expect(deviceApi.updateConsole).toHaveBeenCalledWith(
-        "ps3",
-        expect.objectContaining({ ip_address: "192.168.1.20" }),
-      );
+      expect(deviceApi.updateConsole).toHaveBeenCalledWith("ps3", {
+        name: "PS3",
+        ip_address: "192.168.1.20",
+      });
       expect(row(wrapper, "ps3").text()).toContain("192.168.1.20");
     });
 

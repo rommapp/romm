@@ -90,6 +90,7 @@ class TestPollPS3Consoles:
         [
             {"sync_enabled": False},
             {"ip_address": None},
+            {"ip_address": "127.0.0.1"},
             {"client": "argosy-launcher"},
             {"sync_config": {"ftp_port": "nope"}},
         ],

@@ -89,6 +89,7 @@
   "console-test-ok": "Csatlakozva. Lent válaszd ki a szinkronizálandó felhasználói profilt.",
   "console-test-unreachable": "Ezen a címen semmi nem válaszolt",
   "console-user": "Felhasználói profil",
+  "console-user-fixed": "Másik profil szinkronizálásához add hozzá újra a konzolt",
   "console-user-hint": "Teszteld a kapcsolatot a konzol felhasználói profiljainak listázásához",
   "continue-playing-as-grid": "Folytatás rácsnézetben",
   "continue-playing-as-grid-desc": "A Rom kártyák továbbjátszását rácsnézetben megtekintheted a kezdőlapon",

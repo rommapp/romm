@@ -64,7 +64,7 @@ class TestDiscoverTitleIds:
             build_sfo(TITLE_ID="BCES00006"),
         )
 
-        title_ids = await discover_title_ids(console.ftp, "device-1")
+        title_ids = await discover_title_ids(console, "device-1")
 
         assert title_ids == {"BLES00801", "BLES00333", "BCUS98281", "BCES00006"}
         assert "/dev_usb000/PS3ISO/Jak [BCUS98281].iso" not in console.reads
@@ -75,17 +75,17 @@ class TestDiscoverTitleIds:
             "/dev_hdd0/PS3ISO/Game.iso",
             build_ps3_iso(build_sfo(TITLE_ID="BLES00333")),
         )
-        await discover_title_ids(console.ftp, "device-1")
+        await discover_title_ids(console, "device-1")
         console.reads.clear()
 
-        assert await discover_title_ids(console.ftp, "device-1") == {"BLES00333"}
+        assert await discover_title_ids(console, "device-1") == {"BLES00333"}
         assert console.reads == []
 
     async def test_skips_an_image_it_cannot_read(self):
         console = FakeConsole()
         console.add_file("/dev_hdd0/PS3ISO/Broken.iso", b"not an image")
 
-        assert await discover_title_ids(console.ftp, "device-1") == set()
+        assert await discover_title_ids(console, "device-1") == set()
 
 
 class TestProbePS3:
@@ -105,7 +105,7 @@ class TestProbePS3:
             patch.object(
                 AsyncPS3Ftp,
                 "connect",
-                AsyncMock(return_value=console.ftp),
+                AsyncMock(return_value=console),
             ),
         ):
             result = await probe_ps3("192.168.1.2", 21)

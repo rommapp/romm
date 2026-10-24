@@ -194,6 +194,9 @@ describe("ConsoleDialog", () => {
     expect(field(wrapper, "settings.console-kind").attributes()).toHaveProperty(
       "disabled",
     );
+    expect(field(wrapper, "settings.console-user").attributes()).toHaveProperty(
+      "disabled",
+    );
   });
 
   it("warns when nothing answers", async () => {
@@ -206,5 +209,60 @@ describe("ConsoleDialog", () => {
     expect(wrapper.get(".alert[role='status']").text()).toBe(
       "settings.console-test-unreachable",
     );
+  });
+
+  it("forgets a result once the address changes", async () => {
+    answer({
+      reachable: true,
+      is_ftp: true,
+      users: [{ id: "00000001", name: "FIL2K" }],
+    });
+    const wrapper = mountDialog();
+    await field(wrapper, "settings.console-ip-address").setValue(
+      "192.168.1.115",
+    );
+    await testConnection(wrapper);
+
+    await field(wrapper, "settings.console-ip-address").setValue(
+      "192.168.1.116",
+    );
+
+    expect(wrapper.find(".alert[role='status']").exists()).toBe(false);
+    expect(
+      field(wrapper, "settings.console-user").findAll("option"),
+    ).toHaveLength(0);
+    await wrapper.get("[data-icon='mdi-check']").trigger("click");
+    expect(wrapper.emitted("submit")).toBeUndefined();
+  });
+
+  it("ignores a test that answers after the address changed", async () => {
+    let answerLate: (value: unknown) => void = () => {};
+    vi.mocked(deviceApi.probeConsole).mockReturnValue(
+      new Promise((resolve) => {
+        answerLate = resolve;
+      }) as never,
+    );
+    const wrapper = mountDialog();
+    await field(wrapper, "settings.console-ip-address").setValue(
+      "192.168.1.115",
+    );
+    await wrapper.get("[data-icon='mdi-lan-connect']").trigger("click");
+
+    await field(wrapper, "settings.console-ip-address").setValue(
+      "192.168.1.116",
+    );
+    answerLate({
+      data: {
+        reachable: true,
+        is_ftp: true,
+        users: [{ id: "00000001", name: "A" }],
+      },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".alert[role='status']").exists()).toBe(false);
+    expect(
+      field(wrapper, "settings.console-user").findAll("option"),
+    ).toHaveLength(0);
   });
 });

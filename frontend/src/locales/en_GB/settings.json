@@ -89,6 +89,7 @@
   "console-test-ok": "Connected. Pick the user profile to sync below.",
   "console-test-unreachable": "Nothing answered at this address",
   "console-user": "User profile",
+  "console-user-fixed": "To sync another profile, add the console again",
   "console-user-hint": "Test the connection to list the console's user profiles",
   "continue-playing-as-grid": "Continue playing as grid",
   "continue-playing-as-grid-desc": "View continue playing ROM cards as a grid at the home page",

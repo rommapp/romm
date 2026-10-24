@@ -3,12 +3,12 @@
 import ftplib
 from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Any, cast
+from typing import TypeVar
 
 from tests.handler.sync.retroarch.test_psp import _build_fake_sfo
 from tests.utils.test_psp_hasher import ISO_SECTOR_SIZE, _dir_record, _extent
 
-from handler.sync.ps3.ftp import AsyncPS3Ftp, FtpEntry
+from handler.sync.ps3.ftp import AsyncPS3Ftp, FtpEntry, FtpFileTooLarge, PS3Ftp
 
 SAVEDATA = "/dev_hdd0/home/00000001/savedata"
 WRITTEN_AT = datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc)
@@ -45,18 +45,33 @@ def build_ps3_iso(param_sfo: bytes) -> bytes:
     return bytes(iso)
 
 
-class FakeConsole:
-    """A console filesystem; `ftp` is the session the code under test uses."""
+T = TypeVar("T")
+
+
+class _BlockingSession(PS3Ftp):
+    """The blocking session `FakeConsole.run` hands out, over the same files."""
+
+    def __init__(self, console: "FakeConsole") -> None:
+        self._console = console
+
+    def read_range(self, path: str, offset: int, length: int) -> bytes:
+        self._console.reads.append(path)
+        return self._console.files[path][0][offset : offset + length]
+
+
+class FakeConsole(AsyncPS3Ftp):
+    """A console filesystem behind the session the code under test receives."""
 
     def __init__(self) -> None:
         self.files: dict[str, tuple[bytes, datetime]] = {}
         self.dirs: set[str] = {"/"}
         self.reads: list[str] = []
         self.writes: list[str] = []
-
-    @property
-    def ftp(self) -> AsyncPS3Ftp:
-        return cast(AsyncPS3Ftp, self)
+        # What a test does when the code reads or writes a path, as a game saving.
+        self.on_read: Callable[[str], None] | None = None
+        self.on_write: Callable[[str], None] | None = None
+        # Sizes listed instead of the real ones, as a hostile server would.
+        self.listed_sizes: dict[str, int] = {}
 
     def add_dir(self, path: str) -> None:
         while path not in self.dirs:
@@ -98,7 +113,8 @@ class FakeConsole:
             child = f"{path.rstrip('/')}/{name}"
             if child in self.files:
                 data, modified = self.files[child]
-                entries.append(FtpEntry(name, False, len(data), modified))
+                size = self.listed_sizes.get(child, len(data))
+                entries.append(FtpEntry(name, False, size, modified))
             else:
                 entries.append(FtpEntry(name, True, 0, WRITTEN_AT))
         return entries
@@ -110,20 +126,23 @@ class FakeConsole:
         self.reads.append(path)
         if path not in self.files:
             raise ftplib.error_perm(f"550 {path} not found")
-        return self.files[path][0]
+        data = self.files[path][0]
+        if self.on_read:
+            self.on_read(path)
+        if len(data) > max_bytes:
+            raise FtpFileTooLarge(path)
+        return data
 
-    def read_range(self, path: str, offset: int, length: int) -> bytes:
-        self.reads.append(path)
-        return self.files[path][0][offset : offset + length]
-
-    async def run(self, func: Callable[[Any], Any]) -> Any:
-        return func(self)
+    async def run(self, func: Callable[[PS3Ftp], T]) -> T:
+        return func(_BlockingSession(self))
 
     async def write(self, path: str, data: bytes) -> None:
         if path.rsplit("/", 1)[0] not in self.dirs:
             raise ftplib.error_perm(f"550 no folder for {path}")
         self.writes.append(path)
         self.files[path] = (data, datetime.now(timezone.utc))
+        if self.on_write:
+            self.on_write(path)
 
     async def mkdir(self, path: str) -> None:
         self.dirs.add(path)

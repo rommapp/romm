@@ -22,14 +22,14 @@ from handler.sync.ps3.console import (
     KeepVersions,
     PollIntervalMinutes,
     PS3SyncConfig,
-    PS3User,
     is_ps3,
     probe_ps3,
 )
 from handler.sync.ps3.sync_handler import enqueue_ps3_sync
 from logger.logger import log
-from models.device import Device
+from models.device import DEVICE_NAME_MAX_LENGTH, Device
 from utils.router import APIRouter
+from utils.ssrf import is_lan_ip
 
 router = APIRouter(prefix="/consoles")
 
@@ -38,7 +38,7 @@ def _local_address(
     address: IPv4Address | IPv6Address,
 ) -> IPv4Address | IPv6Address:
     # Consoles sit on the LAN; this keeps users from pointing the server elsewhere.
-    if not (address.is_private or address.is_link_local) or address.is_loopback:
+    if not is_lan_ip(address):
         raise ValueError("Must be an address on the local network")
     return address
 
@@ -47,7 +47,10 @@ LocalAddress = Annotated[IPvAnyAddress, AfterValidator(_local_address)]
 # Each kind of console has its own sync handler; the PS3 is the only one yet.
 ConsoleKind = Literal["ps3"]
 ConsoleName = Annotated[
-    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
+    str,
+    StringConstraints(
+        strip_whitespace=True, min_length=1, max_length=DEVICE_NAME_MAX_LENGTH
+    ),
 ]
 
 
@@ -57,11 +60,11 @@ class ConsoleCreatePayload(PS3SyncConfig):
     ip_address: LocalAddress
 
 
+# No profile: its saves are signed for it, so another profile is another console.
 class ConsoleUpdatePayload(BaseModel):
     name: ConsoleName | None = None
     ip_address: LocalAddress | None = None
     ftp_port: FtpPort | None = None
-    ps3_user: PS3User | None = None
     poll_interval_minutes: PollIntervalMinutes | None = None
     keep_versions: KeepVersions | None = None
 

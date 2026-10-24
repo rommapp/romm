@@ -89,6 +89,7 @@
   "console-test-ok": "已连接。请在下方选择要同步的用户配置文件。",
   "console-test-unreachable": "此地址没有响应",
   "console-user": "用户配置文件",
+  "console-user-fixed": "要同步其他配置文件，请重新添加主机",
   "console-user-hint": "测试连接以列出主机的用户配置文件",
   "continue-playing-as-grid": "继续游玩（网格）",
   "continue-playing-as-grid-desc": "以网格形式在主页上显示继续游玩（卡片）部分",

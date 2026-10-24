@@ -35,6 +35,7 @@ from handler.sync.ps3.console import (
     SAVE_FOLDER_PATTERN,
     PS3SyncConfig,
     discover_title_ids,
+    is_lan_address,
     normalize_title_id,
     title_id_of,
 )
@@ -305,15 +306,27 @@ class _PS3Sync:
             raise PS3SaveInvalid(f"{folder} exceeds the save folder limits")
         return files
 
-    async def _download(self, folder: str, files: list[FtpEntry]) -> bytes:
+    async def _download(self, folder: str, files: list[FtpEntry]) -> bytes | None:
+        """The folder zipped, or None when the console rewrote it meanwhile."""
         members = {}
+        budget = _FOLDER_MAX_BYTES
         for file in files:
             if not _is_member_name(file.name):
                 raise PS3SaveInvalid(f"{folder} holds {file.display_name}")
-            members[file.name] = await self.ftp.read(
-                f"{self.savedata}/{folder}/{file.name}", _FOLDER_MAX_BYTES
-            )
+            data = await self.ftp.read(f"{self.savedata}/{folder}/{file.name}", budget)
+            budget -= len(data)
+            members[file.name] = data
+        # Files read across a save are from two moments, PARAM.PFD included.
+        if await self._fingerprint_now(folder) != _fingerprint(files):
+            log.info(f"PS3 sync: {hl(folder)} changed while read, left for next sync")
+            return None
         return await asyncio.to_thread(_zip_folder, folder, members)
+
+    async def _fingerprint_now(self, folder: str) -> str | None:
+        """The folder's fingerprint as it stands, or None when it is gone."""
+        if not await self.ftp.exists(f"{self.savedata}/{folder}"):
+            return None
+        return _fingerprint(await self._list_files(folder))
 
     async def _sfo_title(self, folder: str, files: list[FtpEntry]) -> str | None:
         if not any(f.name == "PARAM.SFO" for f in files):
@@ -347,6 +360,8 @@ class _PS3Sync:
         console_hash = await self._known_hash(name, fingerprint)
         if console_hash is None:
             zip_bytes = await self._download(name, files)
+            if zip_bytes is None:
+                return
             console_hash = content_hash_of_bytes(zip_bytes)
             if console_hash is None:
                 raise PS3SaveInvalid(f"Could not hash {name}")
@@ -407,7 +422,7 @@ class _PS3Sync:
         elif result.action == "upload":
             await self._pull(rom, name, files, zip_bytes, console_hash)
         elif result.action == "download":
-            if await self._push(head, name):
+            if await self._push(head, name, expected=fingerprint):
                 self.counts.pushed += 1
             else:
                 self.counts.unchanged += 1
@@ -425,6 +440,8 @@ class _PS3Sync:
         """File the console's folder as the slot's newest version."""
         if zip_bytes is None:
             zip_bytes = await self._download(folder, files)
+            if zip_bytes is None:
+                return
         user = self._user
         saves_path = fs_asset_handler.build_saves_file_path(
             user=user,
@@ -480,8 +497,13 @@ class _PS3Sync:
         self.version_ids.setdefault((rom.id, folder), []).append(save.id)
         self.counts.pulled += 1
 
-    async def _push(self, save: Save, folder: str) -> bool:
-        """Write a stored version over the console's folder; False when it may not."""
+    async def _push(self, save: Save, folder: str, expected: str | None) -> bool:
+        """Write a stored version over the folder last seen as `expected`.
+
+        Returns:
+            False when the version may not go to this console, or the console
+            wrote the folder since it was compared.
+        """
         # PARAM.PFD is signed for one console and user, so a save from anywhere
         # else would read as corrupted on this one.
         if save.origin_device_id != self.device.id:
@@ -503,7 +525,14 @@ class _PS3Sync:
         await self.ftp.mkdir(staging)
         for name, data in members.items():
             await self.ftp.write(f"{staging}/{name}", data)
-        replacing = await self.ftp.exists(target)
+        current = await self._fingerprint_now(folder)
+        if current != expected:
+            await self.ftp.remove_tree(staging)
+            log.info(
+                f"PS3 sync: {hl(folder)} changed while pushing, left for next sync"
+            )
+            return False
+        replacing = current is not None
         if replacing:
             await self.ftp.rename(target, retired)
         await self.ftp.rename(staging, target)
@@ -535,7 +564,7 @@ class _PS3Sync:
             if self._baseline(key):
                 continue
             try:
-                if await self._push(head, folder):
+                if await self._push(head, folder, expected=None):
                     self.counts.pushed += 1
             except Exception:
                 log.error(
@@ -562,8 +591,9 @@ class _PS3Sync:
         self.counts.conflicts += 1
 
 
-def _lock_key(device_id: str) -> str:
-    return f"romm:ps3_sync:{device_id}:lock"
+def _lock_key(address: str, config: PS3SyncConfig) -> str:
+    """One key per save directory, however many devices point at it."""
+    return f"romm:ps3_sync:lock:{address}:{config.ftp_port}:{config.ps3_user}"
 
 
 def enqueue_ps3_sync(device: Device) -> SyncSession:
@@ -614,8 +644,8 @@ async def sync_ps3_device(
         )
         return {"device_id": device.id, "status": status, "error": message}
 
-    if not device.ip_address:
-        return await fail("No IP address configured", "error")
+    if not device.ip_address or not is_lan_address(device.ip_address):
+        return await fail("No address on the local network configured", "error")
     try:
         config = PS3SyncConfig.of(device.sync_config)
     except ValidationError as exc:
@@ -623,8 +653,9 @@ async def sync_ps3_device(
     platform = db_platform_handler.get_platform_by_slug(UPS.PS3)
     if not platform:
         return await fail("The library has no PlayStation 3 platform", "error")
+    lock_key = _lock_key(device.ip_address, config)
     if not await async_cache.set(
-        _lock_key(device.id), sync_session.id, nx=True, ex=_LOCK_TTL_SECONDS
+        lock_key, sync_session.id, nx=True, ex=_LOCK_TTL_SECONDS
     ):
         return await fail("Another sync of this console is running", "busy")
 
@@ -651,7 +682,7 @@ async def sync_ps3_device(
         finally:
             await ftp.close()
     finally:
-        await async_cache.delete(_lock_key(device.id))
+        await async_cache.delete(lock_key)
 
     db_sync_session_handler.complete_session(
         session_id=sync_session.id,

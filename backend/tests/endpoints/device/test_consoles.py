@@ -111,6 +111,16 @@ class TestUpdateConsole:
         assert data["sync_config"]["keep_versions"] == 3
         assert data["sync_config"]["poll_interval_minutes"] == 30
 
+    def test_keeps_the_profile(self, client, access_token: str, ps3_device: Device):
+        response = client.put(
+            f"/api/devices/consoles/{ps3_device.id}",
+            json={"ps3_user": "00000002"},
+            headers=auth(access_token),
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["sync_config"] == ps3_device.sync_config
+
     def test_not_found_for_another_kind_of_device(
         self, client, access_token: str, admin_user: User
     ):
@@ -141,6 +151,48 @@ class TestUpdateConsole:
             headers=auth(token),
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+class TestGenericDeviceRoutes:
+    def test_cannot_register_a_console(self, client, access_token: str):
+        response = client.post(
+            "/api/devices",
+            json={"client": "ps3", "sync_mode": "push_pull", "ip_address": "127.0.0.1"},
+            headers=auth(access_token),
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    @pytest.mark.parametrize(
+        "change",
+        [{"ip_address": "127.0.0.1"}, {"sync_config": {"ps3_user": "00000002"}}],
+    )
+    def test_cannot_retarget_a_console(
+        self, client, access_token: str, ps3_device: Device, change: dict[str, object]
+    ):
+        response = client.put(
+            f"/api/devices/{ps3_device.id}", json=change, headers=auth(access_token)
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_still_toggle_and_rename_a_console(
+        self, client, access_token: str, ps3_device: Device
+    ):
+        response = client.put(
+            f"/api/devices/{ps3_device.id}",
+            json={"sync_enabled": False, "name": "Upstairs"},
+            headers=auth(access_token),
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["sync_enabled"] is False
+
+    def test_cannot_turn_a_device_into_a_console(
+        self, client, access_token: str, admin_user: User
+    ):
+        db_device_handler.add_device(Device(id="phone", user_id=admin_user.id))
+        response = client.put(
+            "/api/devices/phone", json={"client": "ps3"}, headers=auth(access_token)
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
 class TestProbeConsole:

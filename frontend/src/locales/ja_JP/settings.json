@@ -89,6 +89,7 @@
   "console-test-ok": "接続しました。同期するユーザープロファイルを下で選択してください。",
   "console-test-unreachable": "このアドレスから応答がありません",
   "console-user": "ユーザープロファイル",
+  "console-user-fixed": "別のプロファイルを同期するには、コンソールをもう一度追加してください",
   "console-user-hint": "接続をテストすると、コンソールのユーザープロファイルが一覧表示されます",
   "continue-playing-as-grid": "プレイを継続をグリッドで表示",
   "continue-playing-as-grid-desc": "ホームのプレイを継続をグリッドで表示",

@@ -89,6 +89,7 @@
   "console-test-ok": "Conectat. Alege mai jos profilul de utilizator de sincronizat.",
   "console-test-unreachable": "Nimic nu a răspuns la această adresă",
   "console-user": "Profil de utilizator",
+  "console-user-fixed": "Pentru a sincroniza alt profil, adaugă din nou consola",
   "console-user-hint": "Testează conexiunea pentru a lista profilurile de utilizator ale consolei",
   "continue-playing-as-grid": "Continuă jocul în grilă",
   "continue-playing-as-grid-desc": "Vezi cardurile „Continuă jocul” în grilă pe pagina principală",

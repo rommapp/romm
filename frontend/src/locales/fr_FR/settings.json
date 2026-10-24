@@ -89,6 +89,7 @@
   "console-test-ok": "Connecté. Choisissez ci-dessous le profil utilisateur à synchroniser.",
   "console-test-unreachable": "Rien n'a répondu à cette adresse",
   "console-user": "Profil utilisateur",
+  "console-user-fixed": "Pour synchroniser un autre profil, ajoutez à nouveau la console",
   "console-user-hint": "Testez la connexion pour lister les profils utilisateur de la console",
   "continue-playing-as-grid": "Continuer à jouer en grille",
   "continue-playing-as-grid-desc": "Voir les cartes de continuer à jouer en grille sur la page d'accueil",

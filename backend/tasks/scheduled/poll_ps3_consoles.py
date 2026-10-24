@@ -2,7 +2,7 @@ from pydantic import ValidationError
 
 from handler.database import db_device_handler
 from handler.redis_handler import async_cache
-from handler.sync.ps3.console import PS3SyncConfig, is_ps3
+from handler.sync.ps3.console import PS3SyncConfig, is_lan_address, is_ps3
 from handler.sync.ps3.ftp import probe
 from handler.sync.ps3.sync_handler import enqueue_ps3_sync
 from logger.logger import log
@@ -24,7 +24,13 @@ class PollPS3ConsolesTask(PeriodicTask):
 
         devices = db_device_handler.get_all_devices_by_sync_mode(SyncMode.PUSH_PULL)
         for device in devices:
-            if not is_ps3(device) or not device.sync_enabled or not device.ip_address:
+            address = device.ip_address
+            if not is_ps3(device) or not device.sync_enabled or not address:
+                continue
+            if not is_lan_address(address):
+                log.warning(
+                    f"PS3 device {device.id} has no address on the local network"
+                )
                 continue
             try:
                 config = PS3SyncConfig.of(device.sync_config)
@@ -39,7 +45,7 @@ class PollPS3ConsolesTask(PeriodicTask):
             ):
                 continue
 
-            if await probe(device.ip_address, config.ftp_port) is None:
+            if await probe(address, config.ftp_port) is None:
                 log.debug(f"PS3 device {device.id} is not on the network")
                 continue
 

@@ -89,6 +89,7 @@
   "console-test-ok": "Verbunden. Wähle unten das zu synchronisierende Benutzerprofil.",
   "console-test-unreachable": "Unter dieser Adresse hat nichts geantwortet",
   "console-user": "Benutzerprofil",
+  "console-user-fixed": "Um ein anderes Profil zu synchronisieren, füge die Konsole erneut hinzu",
   "console-user-hint": "Teste die Verbindung, um die Benutzerprofile der Konsole aufzulisten",
   "continue-playing-as-grid": "Weiterspielen als Raster",
   "continue-playing-as-grid-desc": "Zeige die Weiterspielen-Karten als Raster auf der Startseite",

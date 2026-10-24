@@ -90,7 +90,7 @@ async def run_sync(
     )
     device = db_device_handler.get_device_by_id(device.id) or device
     return await _PS3Sync(
-        device, console.ftp, PS3SyncConfig.of(device.sync_config), ps3, session.id
+        device, console, PS3SyncConfig.of(device.sync_config), ps3, session.id
     ).run()
 
 
@@ -346,7 +346,7 @@ class TestSyncPS3Device:
     @pytest.fixture
     def connect(self, console: FakeConsole):
         with patch.object(
-            AsyncPS3Ftp, "connect", AsyncMock(return_value=console.ftp)
+            AsyncPS3Ftp, "connect", AsyncMock(return_value=console)
         ) as connect:
             yield connect
 
@@ -380,11 +380,32 @@ class TestSyncPS3Device:
     async def test_refuses_a_second_sync_of_the_same_console(
         self, device, connect, ps3
     ):
-        await async_cache.set(sync_handler._lock_key(device.id), "1")
+        # Another record of the console, even another user's, holds the same key.
+        await async_cache.set(
+            sync_handler._lock_key("192.168.1.115", PS3SyncConfig()), "1"
+        )
 
         result = await sync_ps3_device(device)
 
         assert result["status"] == "busy"
+        connect.assert_not_called()
+
+    @pytest.mark.parametrize("address", ["127.0.0.1", "8.8.8.8", "console.local"])
+    async def test_refuses_an_address_off_the_local_network(
+        self, device, connect, ps3, address: str
+    ):
+        db_device_handler.update_device(
+            device_id=device.id,
+            user_id=device.user_id,
+            data={"ip_address": address},
+        )
+
+        moved = db_device_handler.get_device_by_id(device.id)
+        assert moved is not None
+
+        result = await sync_ps3_device(moved)
+
+        assert result["status"] == "error"
         connect.assert_not_called()
 
     async def test_needs_a_ps3_platform(self, device, connect):
@@ -392,3 +413,65 @@ class TestSyncPS3Device:
 
         assert result["status"] == "error"
         connect.assert_not_called()
+
+
+class TestConsoleWritesDuringSync:
+    async def test_skips_a_folder_the_game_saved_while_read(
+        self, device, console, ps3, far_cry, admin_user
+    ):
+        console.add_save(FOLDER, {"PARAM.SFO": SFO, "SAVEDATA.000": b"before"})
+
+        def game_saves(path: str) -> None:
+            console.on_read = None
+            console.add_save(
+                FOLDER, {"SAVEDATA.000": b"after!"}, WRITTEN_AT + timedelta(hours=1)
+            )
+
+        console.on_read = game_saves
+
+        counts = await run_sync(device, console, ps3)
+
+        assert counts.pulled == 0
+        assert slot_versions(admin_user, far_cry) == []
+        assert (await run_sync(device, console, ps3)).pulled == 1
+
+    async def test_abandons_a_push_when_the_game_saves_meanwhile(
+        self, device, console, ps3, far_cry, admin_user
+    ):
+        console.add_save(FOLDER, {"PARAM.SFO": SFO, "SAVEDATA.000": b"old"})
+        await run_sync(device, console, ps3)
+        await store_server_version(
+            admin_user,
+            far_cry,
+            {"PARAM.SFO": SFO, "SAVEDATA.000": b"restored"},
+            origin=device.id,
+            updated_at=datetime.now(timezone.utc) + timedelta(minutes=1),
+        )
+
+        def game_saves(path: str) -> None:
+            console.on_write = None
+            console.add_save(FOLDER, {"SAVEDATA.000": b"played"})
+
+        console.on_write = game_saves
+
+        counts = await run_sync(device, console, ps3)
+
+        assert counts.pushed == 0
+        assert console.folder(f"{SAVEDATA}/{FOLDER}")["SAVEDATA.000"] == b"played"
+        assert {e.name for e in await console.list(SAVEDATA)} == {FOLDER}
+
+
+class TestLimits:
+    async def test_stops_reading_past_the_folder_budget(
+        self, device, console, ps3, far_cry, admin_user, monkeypatch
+    ):
+        monkeypatch.setattr(sync_handler, "_FOLDER_MAX_BYTES", 10)
+        console.add_save(FOLDER, {"PARAM.SFO": b"x" * 6, "SAVEDATA.000": b"y" * 6})
+        # Listed small enough to pass, then each read returns more.
+        for name in ("PARAM.SFO", "SAVEDATA.000"):
+            console.listed_sizes[f"{SAVEDATA}/{FOLDER}/{name}"] = 1
+
+        counts = await run_sync(device, console, ps3)
+
+        assert counts.failed == 1
+        assert slot_versions(admin_user, far_cry) == []

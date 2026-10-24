@@ -89,6 +89,7 @@
   "console-test-ok": "Připojeno. Níže vyberte uživatelský profil k synchronizaci.",
   "console-test-unreachable": "Na této adrese nic neodpovědělo",
   "console-user": "Uživatelský profil",
+  "console-user-fixed": "Chcete-li synchronizovat jiný profil, přidejte konzoli znovu",
   "console-user-hint": "Otestujte připojení a zobrazí se uživatelské profily konzole",
   "continue-playing-as-grid": "Pokračovat ve hraní jako mřížka",
   "continue-playing-as-grid-desc": "Zobrazit karty pokračovaného hraní na hlavní stránce jako mřížku",

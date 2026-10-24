@@ -89,6 +89,7 @@
   "console-test-ok": "Bağlandı. Eşitlenecek kullanıcı profilini aşağıdan seçin.",
   "console-test-unreachable": "Bu adreste hiçbir şey yanıt vermedi",
   "console-user": "Kullanıcı profili",
+  "console-user-fixed": "Başka bir profili eşitlemek için konsolu yeniden ekleyin",
   "console-user-hint": "Konsolun kullanıcı profillerini listelemek için bağlantıyı test edin",
   "continue-playing-as-grid": "Devam edilen oyunları ızgara olarak göster",
   "continue-playing-as-grid-desc": "Ana sayfada devam edilen oyunları ızgara görünümünde göster",

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 # The PS3 serves its files over plain FTP only, and only on the LAN.
 import ftplib  # nosec B402
+import ipaddress
 import re
 import struct
 from collections.abc import Awaitable, Callable
@@ -29,6 +30,7 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.device import KNOWN_DEVICES, Device
 from utils.iso9660 import Iso9660
+from utils.ssrf import is_lan_ip
 
 PS3_DEVICE_TYPE = KNOWN_DEVICES["ps3"]
 
@@ -80,8 +82,21 @@ class PS3SyncConfig(BaseModel):
         return f"/dev_hdd0/home/{self.ps3_user}/savedata"
 
 
+def is_console_client(client: str | None) -> bool:
+    """Whether a device client is a console, which only the console routes manage."""
+    return client == PS3_DEVICE_TYPE.client
+
+
 def is_ps3(device: Device) -> bool:
-    return device.client == PS3_DEVICE_TYPE.client
+    return is_console_client(device.client)
+
+
+def is_lan_address(address: str | None) -> bool:
+    """Whether a stored console address is one the server may connect to."""
+    try:
+        return address is not None and is_lan_ip(ipaddress.ip_address(address))
+    except ValueError:
+        return False
 
 
 def title_id_of(name: str) -> str | None:

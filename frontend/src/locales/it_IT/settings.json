@@ -89,6 +89,7 @@
   "console-test-ok": "Connesso. Scegli qui sotto il profilo utente da sincronizzare.",
   "console-test-unreachable": "Nessuna risposta a questo indirizzo",
   "console-user": "Profilo utente",
+  "console-user-fixed": "Per sincronizzare un altro profilo, aggiungi di nuovo la console",
   "console-user-hint": "Prova la connessione per elencare i profili utente della console",
   "continue-playing-as-grid": "\"Continua a giocare\" come griglia",
   "continue-playing-as-grid-desc": "Visualizza le ROM di \"Continua a giocare\" come una griglia nella home",

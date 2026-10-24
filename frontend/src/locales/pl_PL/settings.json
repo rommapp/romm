@@ -89,6 +89,7 @@
   "console-test-ok": "Połączono. Wybierz poniżej profil użytkownika do synchronizacji.",
   "console-test-unreachable": "Pod tym adresem nic nie odpowiedziało",
   "console-user": "Profil użytkownika",
+  "console-user-fixed": "Aby synchronizować inny profil, dodaj konsolę ponownie",
   "console-user-hint": "Przetestuj połączenie, aby wyświetlić profile użytkowników konsoli",
   "continue-playing-as-grid": "Kontynuuj grę w widoku siatki",
   "continue-playing-as-grid-desc": "Wyświetl karty „kontynuuj grę” w formie siatki na stronie głównej",

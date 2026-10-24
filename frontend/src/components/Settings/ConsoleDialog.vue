@@ -128,8 +128,20 @@ const probeAlert = computed(() => {
   return { type: "success" as const, text: t("settings.console-test-ok") };
 });
 
+const destination = computed(
+  () => `${draft.value.ip_address.trim()}:${draft.value.ftp_port}`,
+);
+
+// A result describes one address, so it goes when the address changes.
+watch(destination, () => {
+  probe.value = null;
+  probeError.value = null;
+  if (!props.device) draft.value.ps3_user = null;
+});
+
 async function testConnection(): Promise<void> {
   if (!canProbe.value) return;
+  const tested = destination.value;
   probing.value = true;
   probe.value = null;
   probeError.value = null;
@@ -139,17 +151,27 @@ async function testConnection(): Promise<void> {
       ip_address: draft.value.ip_address.trim(),
       ftp_port: Number(draft.value.ftp_port) || DEFAULTS.ftp_port,
     });
+    if (tested !== destination.value) return;
     probe.value = data;
     const [first] = data.users;
-    if (first && !data.users.some((u) => u.id === draft.value.ps3_user)) {
+    if (
+      !props.device &&
+      first &&
+      !data.users.some((u) => u.id === draft.value.ps3_user)
+    ) {
       draft.value.ps3_user = first.id;
     }
   } catch (error) {
-    probeError.value = errorMessage(error);
+    if (tested === destination.value) probeError.value = errorMessage(error);
   } finally {
     probing.value = false;
   }
 }
+
+const userHint = computed(() => {
+  if (props.device) return t("settings.console-user-fixed");
+  return users.value.length ? undefined : t("settings.console-user-hint");
+});
 
 // Reopening resets the form, so a cancelled edit does not carry over. An
 // edited console is tested right away, so its profiles show with their names.
@@ -282,9 +304,9 @@ function submit(): void {
           v-model="draft.ps3_user"
           :items="users"
           :label="t('settings.console-user')"
-          :hint="users.length ? undefined : t('settings.console-user-hint')"
+          :hint="userHint"
           prefix-label="stacked"
-          :disabled="!users.length"
+          :disabled="!!device || !users.length"
           :rules="rules.user"
           required
         />

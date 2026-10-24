@@ -89,6 +89,7 @@
   "console-test-ok": "Conectado. Escolha abaixo o perfil de usuário a sincronizar.",
   "console-test-unreachable": "Nada respondeu neste endereço",
   "console-user": "Perfil de usuário",
+  "console-user-fixed": "Para sincronizar outro perfil, adicione o console novamente",
   "console-user-hint": "Teste a conexão para listar os perfis de usuário do console",
   "continue-playing-as-grid": "Continuar jogando como grade",
   "continue-playing-as-grid-desc": "Ver cartões de continuar jogando como uma grade na página inicial",

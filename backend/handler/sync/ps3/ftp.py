@@ -219,9 +219,6 @@ class AsyncPS3Ftp:
     async def read(self, path: str, max_bytes: int) -> bytes:
         return await self._run(lambda: self._ftp.read(path, max_bytes))
 
-    async def read_range(self, path: str, offset: int, length: int) -> bytes:
-        return await self._run(lambda: self._ftp.read_range(path, offset, length))
-
     async def write(self, path: str, data: bytes) -> None:
         await self._run(lambda: self._ftp.write(path, data))
 

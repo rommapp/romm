@@ -89,6 +89,7 @@
   "console-test-ok": "已連線。請在下方選擇要同步的使用者設定檔。",
   "console-test-unreachable": "此位址沒有回應",
   "console-user": "使用者設定檔",
+  "console-user-fixed": "若要同步其他設定檔，請重新新增主機",
   "console-user-hint": "測試連線以列出主機的使用者設定檔",
   "continue-playing-as-grid": "顯示繼續遊玩卡片",
   "continue-playing-as-grid-desc": "在首頁上以卡片方式顯示繼續遊玩",

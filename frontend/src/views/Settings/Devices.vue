@@ -160,7 +160,8 @@ async function saveConsole(payload: ConsoleCreatePayload) {
   consoleBusy.value = true;
   try {
     if (editing) {
-      const { data } = await deviceApi.updateConsole(editing.id, payload);
+      const { console: _kind, ps3_user: _profile, ...changes } = payload;
+      const { data } = await deviceApi.updateConsole(editing.id, changes);
       replace(data);
     } else {
       const { data } = await deviceApi.addConsole(payload);

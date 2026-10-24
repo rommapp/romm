@@ -5,6 +5,8 @@ from typing import Protocol
 
 ISO_SECTOR_SIZE = 2048
 _PVD_SECTOR = 16  # ISO9660 primary volume descriptor lives at sector 16
+# Directories on a game's path span a few sectors; the size is the image's word.
+_MAX_DIRECTORY_BYTES = 256 * 1024
 
 
 class Iso9660Error(ValueError):
@@ -49,6 +51,8 @@ class Iso9660:
     def _find_in_dir(
         self, dir_lba: int, dir_size: int, name: str, want_dir: bool
     ) -> tuple[int, int] | None:
+        if dir_size > _MAX_DIRECTORY_BYTES:
+            raise Iso9660Error(f"directory of {dir_size} bytes is too large")
         target = name.upper()
         data = self._image.read_at(dir_lba * ISO_SECTOR_SIZE, dir_size)
         # Directory records never cross a sector boundary; a zero length byte

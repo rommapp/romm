@@ -43,6 +43,9 @@ KNOWN_DEVICES: dict[str, DeviceType] = {
 }
 
 
+DEVICE_NAME_MAX_LENGTH = 255
+
+
 class Device(BaseModel):
     __tablename__ = "devices"
     __table_args__ = (
@@ -58,7 +61,7 @@ class Device(BaseModel):
     id: Mapped[str] = mapped_column(String(255), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
 
-    name: Mapped[str | None] = mapped_column(String(255))
+    name: Mapped[str | None] = mapped_column(String(DEVICE_NAME_MAX_LENGTH))
     platform: Mapped[str | None] = mapped_column(String(50))
     client: Mapped[str | None] = mapped_column(String(50))
     client_version: Mapped[str | None] = mapped_column(String(50))
