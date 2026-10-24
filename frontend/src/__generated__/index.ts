@@ -217,6 +217,10 @@ export type { PlaySessionIngestResponse } from './models/PlaySessionIngestRespon
 export type { PlaySessionIngestResult } from './models/PlaySessionIngestResult';
 export type { PlaySessionSchema } from './models/PlaySessionSchema';
 export type { PouetCredit } from './models/PouetCredit';
+export type { PS3ConsoleCreatePayload } from './models/PS3ConsoleCreatePayload';
+export type { PS3ConsoleUpdatePayload } from './models/PS3ConsoleUpdatePayload';
+export type { PS3ProbePayload } from './models/PS3ProbePayload';
+export type { PS3ProbeResponse } from './models/PS3ProbeResponse';
 export type { RAGameRomAchievement } from './models/RAGameRomAchievement';
 export type { RAProgression } from './models/RAProgression';
 export type { RAUserGameProgression } from './models/RAUserGameProgression';

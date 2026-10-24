@@ -55,3 +55,9 @@ class DeviceCreateResponse(BaseModel):
     device_id: str
     name: str | None
     created_at: UTCDatetime
+
+
+class PS3ProbeResponse(BaseModel):
+    reachable: bool
+    is_ftp: bool
+    users: list[str]

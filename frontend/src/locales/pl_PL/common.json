@@ -78,6 +78,7 @@
   "hide-password": "Ukryj hasło",
   "home": "Strona główna",
   "in-library": "W bibliotece",
+  "integer-range": "Wpisz liczbę całkowitą od {min} do {max}",
   "invalid-email": "Nieprawidłowy email",
   "invalid-json": "Nieprawidłowy format JSON",
   "invalid-name": "Nieprawidłowa nazwa",

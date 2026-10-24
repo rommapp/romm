@@ -26,6 +26,7 @@ from logger.logger import log
 from models.device import Device, SyncMode
 from utils.router import APIRouter
 
+from .consoles import router as consoles_router
 from .install import router as install_router
 
 router = APIRouter(
@@ -33,6 +34,7 @@ router = APIRouter(
     tags=["devices"],
 )
 
+router.include_router(consoles_router)
 router.include_router(install_router)
 
 # Flags a device reports about itself, such as {"remote_install": true}.

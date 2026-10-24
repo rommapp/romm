@@ -78,6 +78,7 @@
   "hide-password": "Skrýt heslo",
   "home": "Domů",
   "in-library": "V knihovně",
+  "integer-range": "Zadejte celé číslo od {min} do {max}",
   "invalid-email": "Neplatný e-mail",
   "invalid-json": "Neplatný formát JSON",
   "invalid-name": "Neplatný název",

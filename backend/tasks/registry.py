@@ -21,6 +21,7 @@ from config import (
     ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
     ENABLE_SYNC_FOLDER_WATCHER,
+    ENABLE_SYNC_PS3,
     ENABLE_SYNC_PUSH_PULL,
     LAUNCHBOX_API_ENABLED,
     ROM_CONVERTO_ENABLED,
@@ -210,6 +211,17 @@ SYNC_PUSH_PULL_SPEC: Final = TaskSpec(
     cron_string=SYNC_PUSH_PULL_CRON,
 )
 
+POLL_PS3_CONSOLES_SPEC: Final = TaskSpec(
+    implementation="tasks.scheduled.poll_ps3_consoles.poll_ps3_consoles_task",
+    title="PS3 save sync",
+    description="Syncs saves with each PS3 set up in Settings that is on the network",
+    task_type=TaskType.SYNC,
+    enabled=ENABLE_SYNC_PS3,
+    # Each console keeps its own interval; this only finds the ones due.
+    cron_string="* * * * *",
+    result_ttl=0,
+)
+
 CLEANUP_MISSING_ROMS_SPEC: Final = TaskSpec(
     implementation="tasks.manual.cleanup_missing_roms.cleanup_missing_roms_task",
     title="Cleanup missing ROMs",
@@ -286,6 +298,7 @@ SCHEDULED_TASKS: Final[dict[str, TaskSpec]] = {
     "cleanup_audit_log": CLEANUP_AUDIT_LOG_SPEC,
     "sync_retroachievements_progress": SYNC_RETROACHIEVEMENTS_PROGRESS_SPEC,
     "sync_push_pull": SYNC_PUSH_PULL_SPEC,
+    "poll_ps3_consoles": POLL_PS3_CONSOLES_SPEC,
 }
 
 MANUAL_TASKS: Final[dict[str, TaskSpec]] = {

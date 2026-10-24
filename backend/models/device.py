@@ -39,6 +39,7 @@ KNOWN_DEVICES: dict[str, DeviceType] = {
     "retroarch": DeviceType(
         platform="RetroArch", client="retroarch", sync_mode=SyncMode.API
     ),
+    "ps3": DeviceType(platform="PS3", client="ps3", sync_mode=SyncMode.PUSH_PULL),
 }
 
 

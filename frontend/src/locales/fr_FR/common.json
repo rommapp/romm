@@ -78,6 +78,7 @@
   "hide-password": "Masquer le mot de passe",
   "home": "Accueil",
   "in-library": "Dans la bibliothèque",
+  "integer-range": "Saisissez un nombre entier entre {min} et {max}",
   "invalid-email": "E-mail invalide",
   "invalid-json": "Format JSON invalide",
   "invalid-name": "Nom invalide",
