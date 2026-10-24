@@ -119,6 +119,8 @@ interface Props {
         controls?: string | undefined;
         expanded: boolean;
         kind: "dialog" | "listbox" | "grid";
+        /** `id` of the option the popup's keyboard navigation is on. */
+        activedescendant?: string | undefined;
       }
     | undefined;
 }
@@ -526,6 +528,7 @@ function onAppendInnerClick(evt: MouseEvent) {
         :aria-haspopup="popup?.kind"
         :aria-expanded="popup ? popup.expanded : undefined"
         :aria-controls="popup?.controls"
+        :aria-activedescendant="popup?.activedescendant"
         @input="onInput"
         @focus="onFocus"
         @blur="onBlur"

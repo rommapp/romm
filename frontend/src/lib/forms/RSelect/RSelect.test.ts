@@ -370,3 +370,170 @@ describe("RSelect stacked label", () => {
     expect(fieldId).toBe(field.attributes("id"));
   });
 });
+
+describe("RSelect combobox semantics", () => {
+  const items = [
+    { title: "Apple", value: "apple" },
+    { title: "Apricot", value: "apricot", disabled: true },
+    { title: "Banana", value: "banana" },
+    { title: "Blueberry", value: "blueberry" },
+    { title: "Cherry", value: "cherry" },
+  ];
+
+  async function openWith(props: Record<string, unknown> = {}) {
+    const wrapper = mount(RSelect, {
+      props: { items, modelValue: null, ...props },
+      attachTo: document.body,
+    });
+    const field = wrapper.get(".r-select__field");
+    await field.trigger("click");
+    await nextTick();
+    return { wrapper, field };
+  }
+
+  const activeTitle = (field: {
+    attributes: (n: string) => string | undefined;
+  }) =>
+    document
+      .getElementById(field.attributes("aria-activedescendant") ?? "")
+      ?.textContent?.trim();
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("makes the activator a combobox that controls the open listbox", async () => {
+    const { wrapper, field } = await openWith();
+    const listbox = document.querySelector('[role="listbox"]');
+
+    expect(field.attributes("role")).toBe("combobox");
+    expect(field.attributes("aria-expanded")).toBe("true");
+    expect(field.attributes("aria-controls")).toBe(listbox?.id);
+    wrapper.unmount();
+  });
+
+  it("only points aria-controls at the listbox while it is mounted", () => {
+    const wrapper = mount(RSelect, { props: { items, modelValue: null } });
+
+    expect(wrapper.get(".r-select__field").attributes("aria-controls")).toBe(
+      undefined,
+    );
+  });
+
+  it("announces the active option and follows the arrow keys", async () => {
+    const { wrapper, field } = await openWith();
+
+    expect(activeTitle(field)).toBe("Apple");
+    await field.trigger("keydown", { key: "ArrowDown" });
+    expect(activeTitle(field)).toBe("Banana");
+    wrapper.unmount();
+  });
+
+  it("jumps to the first and last enabled option with Home and End", async () => {
+    const { wrapper, field } = await openWith();
+
+    await field.trigger("keydown", { key: "End" });
+    expect(activeTitle(field)).toBe("Cherry");
+    await field.trigger("keydown", { key: "Home" });
+    expect(activeTitle(field)).toBe("Apple");
+    wrapper.unmount();
+  });
+
+  it("moves a page at a time and stops at the ends", async () => {
+    const { wrapper, field } = await openWith();
+
+    await field.trigger("keydown", { key: "PageDown" });
+    expect(activeTitle(field)).toBe("Cherry");
+    await field.trigger("keydown", { key: "PageUp" });
+    expect(activeTitle(field)).toBe("Apple");
+    wrapper.unmount();
+  });
+
+  it("selects a row by typing its first letters, skipping disabled rows", async () => {
+    const { wrapper, field } = await openWith();
+
+    await field.trigger("keydown", { key: "a" });
+    await field.trigger("keydown", { key: "p" });
+    expect(activeTitle(field)).toBe("Apple");
+    await field.trigger("keydown", { key: "r" });
+    expect(activeTitle(field)).toBe("Apple");
+    wrapper.unmount();
+  });
+
+  it("cycles through rows sharing a first letter when it repeats", async () => {
+    const { wrapper, field } = await openWith();
+
+    await field.trigger("keydown", { key: "b" });
+    expect(activeTitle(field)).toBe("Banana");
+    await field.trigger("keydown", { key: "b" });
+    expect(activeTitle(field)).toBe("Blueberry");
+    wrapper.unmount();
+  });
+
+  it("opens the menu when typing on a closed field", async () => {
+    const wrapper = mount(RSelect, {
+      props: { items, modelValue: null },
+      attachTo: document.body,
+    });
+    const field = wrapper.get(".r-select__field");
+
+    await field.trigger("keydown", { key: "c" });
+    await nextTick();
+
+    expect(field.attributes("aria-expanded")).toBe("true");
+    expect(activeTitle(field)).toBe("Cherry");
+    wrapper.unmount();
+  });
+
+  it("leaves typing to the search input when searchable", async () => {
+    const { wrapper, field } = await openWith({ searchable: true });
+    const search = document.querySelector<HTMLInputElement>(
+      ".r-select__search input",
+    );
+
+    expect(field.attributes("aria-activedescendant")).toBeUndefined();
+    expect(search?.getAttribute("role")).toBe("combobox");
+    expect(search?.getAttribute("aria-controls")).toBe(
+      document.querySelector('[role="listbox"]')?.id,
+    );
+    expect(
+      document.getElementById(
+        search?.getAttribute("aria-activedescendant") ?? "",
+      )?.textContent,
+    ).toContain("Apple");
+    wrapper.unmount();
+  });
+
+  it("reaches the All row with the keyboard and toggles it", async () => {
+    const { wrapper, field } = await openWith({
+      multiple: true,
+      showAllOption: true,
+      modelValue: ["banana"],
+    });
+
+    await field.trigger("keydown", { key: "ArrowUp" });
+    await field.trigger("keydown", { key: "ArrowUp" });
+    expect(activeTitle(field)).toBe("All");
+
+    await field.trigger("keydown", { key: "Enter" });
+    expect(wrapper.emitted("update:modelValue")?.at(-1)).toEqual([[]]);
+
+    await field.trigger("keydown", { key: "ArrowDown" });
+    expect(activeTitle(field)).toBe("Apple");
+    wrapper.unmount();
+  });
+});
+
+describe("RSelect aria-label attribute", () => {
+  it("names the activator and keeps it off the wrapper", () => {
+    const wrapper = mount(RSelect, {
+      props: { items: ["a"], modelValue: "a" },
+      attrs: { "aria-label": "Filter by user" },
+    });
+
+    expect(wrapper.get(".r-select__field").attributes("aria-label")).toBe(
+      "Filter by user",
+    );
+    expect(wrapper.attributes("aria-label")).toBeUndefined();
+  });
+});

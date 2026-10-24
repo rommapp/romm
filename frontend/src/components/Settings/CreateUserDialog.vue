@@ -207,6 +207,7 @@ function close() {
         </span>
         <RSelect
           v-model="groupId"
+          :aria-label="t('settings.permission-group')"
           variant="outlined"
           :items="groupItems"
           item-title="title"

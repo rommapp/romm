@@ -226,7 +226,9 @@ export const SortAndRowActivation: Story = {
     // Toggle rules and aria-sort belong to RSortHeader; this checks the
     // header's event reaches `update:sort` with its column's key.
     await step("clicking a header sorts by that column", async () => {
-      await userEvent.click(canvas.getByRole("button", { name: "Size" }));
+      await userEvent.click(
+        await canvas.findByRole("button", { name: "Size" }),
+      );
       await expect(header("Size")).toHaveAttribute("aria-sort", "ascending");
       await expect(header("Title")).toHaveAttribute("aria-sort", "none");
     });
