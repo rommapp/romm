@@ -30,6 +30,7 @@ import {
   computed,
   getCurrentInstance,
   nextTick,
+  onBeforeUnmount,
   ref,
   useAttrs,
   useSlots,
@@ -229,6 +230,9 @@ const attrs = useAttrs();
 const autofocusSearch = computed(() => shouldAutofocusSearch());
 
 const fieldId = `r-sel-${getCurrentInstance()?.uid ?? Math.random().toString(36).slice(2)}`;
+const listboxId = `${fieldId}-listbox`;
+const allOptionId = `${fieldId}-opt-all`;
+const optionId = (i: number) => `${fieldId}-opt-${i}`;
 
 // ── Tone resolver: same vocabulary as the rest of the lib ─────
 const TONE_MAP: Record<string, string> = {
@@ -771,6 +775,17 @@ watch(filteredItems, () => {
 // ── Keyboard nav ────────────────────────────────────────────────
 const activeIndex = ref(0);
 
+// The option keyboard navigation is on, for `aria-activedescendant`.
+// Index -1 is the synthetic "All" row.
+const activeOptionId = computed(() => {
+  if (!isOpen.value) return undefined;
+  if (activeIndex.value === -1)
+    return showAllRow.value ? allOptionId : undefined;
+  return filteredItems.value[activeIndex.value]
+    ? optionId(activeIndex.value)
+    : undefined;
+});
+
 function moveActive(delta: number) {
   const list = filteredItems.value;
   if (!list.length) return;
@@ -785,6 +800,58 @@ function moveActive(delta: number) {
   activeIndex.value = i;
   scrollActiveIntoView();
 }
+const PAGE_STEP = 10;
+
+// Jump to the first or last enabled row.
+function moveActiveTo(edge: "first" | "last") {
+  const list = filteredItems.value;
+  const order = list.map((_, i) => i);
+  if (edge === "last") order.reverse();
+  const i = order.find((n) => !list[n]!.disabled);
+  if (i === undefined) return;
+  activeIndex.value = i;
+  scrollActiveIntoView();
+}
+
+// Move a page of rows, stopping at the ends instead of wrapping.
+function movePage(dir: 1 | -1) {
+  const list = filteredItems.value;
+  let i = Math.min(
+    list.length - 1,
+    Math.max(0, activeIndex.value + dir * PAGE_STEP),
+  );
+  while (list[i]?.disabled && i + dir >= 0 && i + dir < list.length) i += dir;
+  if (!list[i] || list[i]!.disabled) return;
+  activeIndex.value = i;
+  scrollActiveIntoView();
+}
+
+// Type-to-select: a burst of characters matches a title prefix, and
+// repeating one character cycles through the rows that start with it.
+const TYPEAHEAD_RESET_MS = 500;
+let typeBuffer = "";
+let typeTimer: ReturnType<typeof setTimeout> | undefined;
+function typeahead(char: string) {
+  const list = filteredItems.value;
+  if (!list.length) return;
+  clearTimeout(typeTimer);
+  typeBuffer += char.toLowerCase();
+  typeTimer = setTimeout(() => (typeBuffer = ""), TYPEAHEAD_RESET_MS);
+  const cycling = [...typeBuffer].every((c) => c === typeBuffer[0]);
+  const query = cycling ? typeBuffer[0]! : typeBuffer;
+  const from = activeIndex.value + (cycling || typeBuffer.length === 1 ? 1 : 0);
+  for (let n = 0; n < list.length; n++) {
+    const i = (from + n + list.length) % list.length;
+    const item = list[i]!;
+    if (!item.disabled && item.title.toLowerCase().startsWith(query)) {
+      activeIndex.value = i;
+      scrollActiveIntoView();
+      return;
+    }
+  }
+}
+onBeforeUnmount(() => clearTimeout(typeTimer));
+
 function scrollActiveIntoView() {
   void nextTick(() => {
     const el = panelRef.value?.querySelector<HTMLElement>(
@@ -821,6 +888,29 @@ function onActivatorKey(evt: KeyboardEvent) {
     case "Tab":
       if (isOpen.value) closeMenu();
       break;
+    default:
+      // A searchable field sends typing to its search input instead.
+      if (props.searchable) break;
+      if (isOpen.value && (evt.key === "Home" || evt.key === "End")) {
+        evt.preventDefault();
+        moveActiveTo(evt.key === "Home" ? "first" : "last");
+      } else if (
+        isOpen.value &&
+        (evt.key === "PageUp" || evt.key === "PageDown")
+      ) {
+        evt.preventDefault();
+        movePage(evt.key === "PageUp" ? -1 : 1);
+      } else if (
+        evt.key.length === 1 &&
+        evt.key !== " " &&
+        !evt.ctrlKey &&
+        !evt.metaKey &&
+        !evt.altKey
+      ) {
+        evt.preventDefault();
+        if (!isOpen.value) openMenu();
+        typeahead(evt.key);
+      }
   }
 }
 
@@ -869,8 +959,9 @@ function onActivatorBlur(evt: FocusEvent) {
 const effectivePlaceholder = computed(
   () => props.placeholder ?? (!props.prefixLabel ? props.label : undefined),
 );
+// A combobox takes its name from a label, never from its contents.
 const effectiveAriaLabel = computed(() =>
-  !props.prefixLabel ? props.label : undefined,
+  !props.prefixLabel ? (props.label ?? props.placeholder) : undefined,
 );
 
 const inlineLabelOn = computed(() => props.prefixLabel === "inline");
@@ -929,11 +1020,18 @@ const describedBy = computed(() => {
       type="button"
       class="r-select__field"
       :disabled="disabled"
+      role="combobox"
       :aria-haspopup="'listbox'"
       :aria-expanded="isOpen"
+      :aria-controls="isOpen ? listboxId : undefined"
+      :aria-activedescendant="searchable ? undefined : activeOptionId"
       :aria-label="effectiveAriaLabel"
       :aria-labelledby="
-        stackedLabelOn ? `${fieldId}-label ${fieldId}-field` : undefined
+        stackedLabelOn
+          ? `${fieldId}-label ${fieldId}-field`
+          : inlineLabelOn
+            ? `${fieldId}-label`
+            : undefined
       "
       :aria-invalid="hasError || undefined"
       :aria-describedby="describedBy"
@@ -944,6 +1042,7 @@ const describedBy = computed(() => {
     >
       <span
         v-if="inlineLabelOn"
+        :id="`${fieldId}-label`"
         class="r-select__label r-select__label--inline"
       >
         <slot name="prefix-label">{{ label }}</slot>
@@ -1188,6 +1287,12 @@ const describedBy = computed(() => {
               hide-details
               density="compact"
               autocomplete="off"
+              :popup="{
+                kind: 'listbox',
+                expanded: true,
+                controls: listboxId,
+                activedescendant: activeOptionId,
+              }"
               :autofocus="autofocusSearch"
               @update:model-value="(v) => setSearch(String(v ?? ''))"
             >
@@ -1200,6 +1305,7 @@ const describedBy = computed(() => {
           </div>
 
           <ul
+            :id="listboxId"
             class="r-select__list"
             role="listbox"
             :aria-multiselectable="multiple"
@@ -1214,6 +1320,7 @@ const describedBy = computed(() => {
             <template v-if="showAllRow">
               <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events, vuejs-accessibility/mouse-events-have-key-events -- option rows are pointer targets; keyboard navigation is handled by the listbox-level keydown (Up/Down/Enter/Esc) -->
               <li
+                :id="allOptionId"
                 class="r-select__item r-select__item--all"
                 :class="{ 'r-select__item--selected': isAllSelected }"
                 role="option"
@@ -1258,6 +1365,7 @@ const describedBy = computed(() => {
                       'r-select__item--disabled': item.disabled,
                     },
                   ],
+                  id: optionId(i),
                   role: 'option',
                   'aria-selected': isSelected(item.value),
                   'aria-disabled': item.disabled || undefined,
@@ -1269,6 +1377,7 @@ const describedBy = computed(() => {
               >
                 <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events, vuejs-accessibility/interactive-supports-focus, vuejs-accessibility/mouse-events-have-key-events -- option rows are pointer targets; the listbox-level keydown (Up/Down/Enter/Esc) drives keyboard selection and roving activeIndex -->
                 <li
+                  :id="optionId(i)"
                   role="option"
                   class="r-select__item"
                   :class="{

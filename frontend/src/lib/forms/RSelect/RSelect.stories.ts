@@ -584,3 +584,54 @@ export const NestedMenu: Story = {
     });
   },
 };
+
+export const KeyboardNavigation: Story = {
+  name: "Keyboard navigation (play)",
+  render: () => ({
+    components: { RSelect },
+    setup: () => ({ value: ref<string | null>(null), items: PLATFORMS }),
+    template: `<div style="width:340px"><RSelect v-model="value" :items="items" label="Platform" /></div>`,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const field = await within(canvasElement).findByRole("combobox", {
+      name: "Platform",
+    });
+    const activeOption = () =>
+      document.getElementById(
+        field.getAttribute("aria-activedescendant") ?? "",
+      );
+
+    await step("Arrow Down opens the list on the first option", async () => {
+      field.focus();
+      await userEvent.keyboard("{ArrowDown}");
+      await waitFor(() =>
+        expect(field).toHaveAttribute("aria-expanded", "true"),
+      );
+      await expect(activeOption()).toHaveTextContent("Nintendo 64");
+      await expect(field).toHaveAttribute(
+        "aria-controls",
+        document.querySelector('[role="listbox"]')!.id,
+      );
+    });
+
+    await step("End, Home and typing move the active option", async () => {
+      await userEvent.keyboard("{End}");
+      await expect(activeOption()).toHaveTextContent("PC");
+      await userEvent.keyboard("{Home}");
+      await expect(activeOption()).toHaveTextContent("Nintendo 64");
+      await userEvent.keyboard("sega");
+      await expect(activeOption()).toHaveTextContent("Sega Genesis");
+    });
+
+    await step("Enter picks the active option and closes", async () => {
+      await userEvent.keyboard("{Enter}");
+      await waitFor(() =>
+        expect(field).toHaveAttribute("aria-expanded", "false"),
+      );
+      await expect(field).toHaveTextContent("Sega Genesis");
+      await waitFor(() =>
+        expect(document.querySelector(".r-select__panel")).toBeNull(),
+      );
+    });
+  },
+};

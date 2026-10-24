@@ -116,7 +116,7 @@ function promoteFilledRender() {
 
 async function openMenu(canvasElement: HTMLElement) {
   await userEvent.click(
-    within(canvasElement).getByRole("button", { name: "Platforms" }),
+    within(canvasElement).getByRole("combobox", { name: "Platforms" }),
   );
   await waitFor(async () => {
     await expect(document.querySelector(".r-select__panel")).not.toBeNull();
