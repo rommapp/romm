@@ -8,7 +8,7 @@ from endpoints.device import consoles as consoles_endpoints
 from handler.auth.base_handler import oauth_handler
 from handler.database import db_device_handler
 from handler.sync.ps3 import sync_handler
-from handler.sync.ps3.console import PS3_DEVICE_TYPE, PS3ProbeResult
+from handler.sync.ps3.console import PS3_DEVICE_TYPE, PS3ProbeResult, PS3UserProfile
 from models.device import Device, SyncMode
 from models.user import User
 
@@ -38,11 +38,23 @@ def enqueue():
         yield queue.enqueue
 
 
-class TestAddPS3Console:
+class TestAddConsole:
+    def test_rejects_a_console_it_cannot_sync(self, client, access_token: str):
+        response = client.post(
+            "/api/devices/consoles",
+            json={"console": "xbox", "name": "X", "ip_address": "192.168.1.9"},
+            headers=auth(access_token),
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
     def test_adds_a_push_pull_ps3(self, client, access_token: str):
         response = client.post(
-            "/api/devices/consoles/ps3",
-            json={"name": "Living room", "ip_address": "192.168.1.115"},
+            "/api/devices/consoles",
+            json={
+                "console": "ps3",
+                "name": "Living room",
+                "ip_address": "192.168.1.115",
+            },
             headers=auth(access_token),
         )
 
@@ -63,27 +75,32 @@ class TestAddPS3Console:
         self, client, access_token: str, address: str
     ):
         response = client.post(
-            "/api/devices/consoles/ps3",
-            json={"name": "PS3", "ip_address": address},
+            "/api/devices/consoles",
+            json={"console": "ps3", "name": "PS3", "ip_address": address},
             headers=auth(access_token),
         )
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_rejects_an_invalid_user_profile(self, client, access_token: str):
         response = client.post(
-            "/api/devices/consoles/ps3",
-            json={"name": "PS3", "ip_address": "10.0.0.2", "ps3_user": "1"},
+            "/api/devices/consoles",
+            json={
+                "console": "ps3",
+                "name": "PS3",
+                "ip_address": "10.0.0.2",
+                "ps3_user": "1",
+            },
             headers=auth(access_token),
         )
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
-class TestUpdatePS3Console:
+class TestUpdateConsole:
     def test_updates_only_what_is_sent(
         self, client, access_token: str, ps3_device: Device
     ):
         response = client.put(
-            f"/api/devices/consoles/ps3/{ps3_device.id}",
+            f"/api/devices/consoles/{ps3_device.id}",
             json={"keep_versions": 3, "ip_address": "192.168.1.20"},
             headers=auth(access_token),
         )
@@ -101,7 +118,7 @@ class TestUpdatePS3Console:
             Device(id="phone", user_id=admin_user.id, client="argosy-launcher")
         )
         response = client.put(
-            "/api/devices/consoles/ps3/phone",
+            "/api/devices/consoles/phone",
             json={"name": "x"},
             headers=auth(access_token),
         )
@@ -119,22 +136,26 @@ class TestUpdatePS3Console:
             expires_delta=timedelta(minutes=5),
         )
         response = client.put(
-            f"/api/devices/consoles/ps3/{ps3_device.id}",
+            f"/api/devices/consoles/{ps3_device.id}",
             json={"name": "mine now"},
             headers=auth(token),
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
-class TestProbePS3Console:
+class TestProbeConsole:
     def test_reports_the_console(self, client, access_token: str):
-        result = PS3ProbeResult(reachable=True, is_ftp=True, users=["00000001"])
+        result = PS3ProbeResult(
+            reachable=True,
+            is_ftp=True,
+            users=[PS3UserProfile(id="00000001", name="FIL2K")],
+        )
         with patch.object(
             consoles_endpoints, "probe_ps3", AsyncMock(return_value=result)
         ) as probe:
             response = client.post(
-                "/api/devices/consoles/ps3/probe",
-                json={"ip_address": "192.168.1.115"},
+                "/api/devices/consoles/probe",
+                json={"console": "ps3", "ip_address": "192.168.1.115"},
                 headers=auth(access_token),
             )
 
@@ -142,25 +163,25 @@ class TestProbePS3Console:
         assert response.json() == {
             "reachable": True,
             "is_ftp": True,
-            "users": ["00000001"],
+            "users": [{"id": "00000001", "name": "FIL2K"}],
         }
         probe.assert_awaited_once_with("192.168.1.115", 21)
 
     def test_rejects_a_public_address(self, client, access_token: str):
         response = client.post(
-            "/api/devices/consoles/ps3/probe",
-            json={"ip_address": "1.1.1.1"},
+            "/api/devices/consoles/probe",
+            json={"console": "ps3", "ip_address": "1.1.1.1"},
             headers=auth(access_token),
         )
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
-class TestSyncPS3Console:
+class TestSyncConsole:
     def test_queues_a_sync(
         self, client, access_token: str, ps3_device: Device, enqueue
     ):
         response = client.post(
-            f"/api/devices/consoles/ps3/{ps3_device.id}/sync",
+            f"/api/devices/consoles/{ps3_device.id}/sync",
             headers=auth(access_token),
         )
 
@@ -179,7 +200,7 @@ class TestSyncPS3Console:
             data={"sync_enabled": False},
         )
         response = client.post(
-            f"/api/devices/consoles/ps3/{ps3_device.id}/sync",
+            f"/api/devices/consoles/{ps3_device.id}/sync",
             headers=auth(access_token),
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST

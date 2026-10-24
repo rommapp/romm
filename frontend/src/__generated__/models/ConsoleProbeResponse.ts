@@ -2,9 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type PS3ProbeResponse = {
+import type { ConsoleUserSchema } from './ConsoleUserSchema';
+export type ConsoleProbeResponse = {
     reachable: boolean;
     is_ftp: boolean;
-    users: Array<string>;
+    users: Array<ConsoleUserSchema>;
 };
 

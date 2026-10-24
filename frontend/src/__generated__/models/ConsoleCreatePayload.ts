@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type PS3ConsoleCreatePayload = {
+export type ConsoleCreatePayload = {
     ftp_port?: number;
     /**
      * The PS3 user profile whose saves are synced.
@@ -10,6 +10,7 @@ export type PS3ConsoleCreatePayload = {
     ps3_user?: string;
     poll_interval_minutes?: number;
     keep_versions?: number;
+    console: string;
     name: string;
     ip_address: string;
 };

@@ -108,6 +108,8 @@ class FakeConsole:
 
     async def read(self, path: str, max_bytes: int) -> bytes:
         self.reads.append(path)
+        if path not in self.files:
+            raise ftplib.error_perm(f"550 {path} not found")
         return self.files[path][0]
 
     def read_range(self, path: str, offset: int, length: int) -> bytes:

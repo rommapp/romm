@@ -19,9 +19,9 @@ vi.mock("@/services/api/device", () => ({
     fetchDevices: vi.fn(),
     updateDevice: vi.fn(),
     deleteDevice: vi.fn(),
-    addPS3: vi.fn(),
-    updatePS3: vi.fn(),
-    syncPS3: vi.fn(),
+    addConsole: vi.fn(),
+    updateConsole: vi.fn(),
+    syncConsole: vi.fn(),
   },
 }));
 vi.mock("@/composables/useSocketEvent", () => ({
@@ -105,8 +105,8 @@ const RenameDeviceDialog = {
   template: `<div class="rename" :data-open="modelValue" :data-name="name" />`,
 };
 
-const PS3ConsoleDialog = {
-  name: "PS3ConsoleDialog",
+const ConsoleDialog = {
+  name: "ConsoleDialog",
   props: {
     modelValue: { type: Boolean, default: false },
     device: { type: Object, default: null },
@@ -140,7 +140,7 @@ function mountDevices() {
         RBtn,
         RChip: { template: "<span class='chip'><slot /></span>" },
         RenameDeviceDialog,
-        PS3ConsoleDialog,
+        ConsoleDialog,
       },
     },
   });
@@ -286,7 +286,7 @@ describe("Devices", () => {
     expect(row(wrapper, "dev-a").find("[data-icon]").exists()).toBe(false);
   });
 
-  describe("PS3 consoles", () => {
+  describe("consoles", () => {
     beforeEach(() => {
       vi.mocked(deviceApi.fetchDevices).mockResolvedValue({
         data: [ps3()],
@@ -298,7 +298,7 @@ describe("Devices", () => {
       await flushPromises();
 
       expect(row(wrapper, "ps3").text()).toContain(
-        "PS3 · 192.168.1.115 · settings.ps3-every-minutes",
+        "PS3 · 192.168.1.115 · settings.console-every-minutes",
       );
       expect(
         row(wrapper, "ps3").find("[data-icon='mdi-pencil-outline']").exists(),
@@ -306,14 +306,14 @@ describe("Devices", () => {
     });
 
     it("syncs a console on request", async () => {
-      vi.mocked(deviceApi.syncPS3).mockResolvedValue({} as never);
+      vi.mocked(deviceApi.syncConsole).mockResolvedValue({} as never);
       const wrapper = mountDevices();
       await flushPromises();
 
       await row(wrapper, "ps3").get("[data-icon='mdi-sync']").trigger("click");
       await flushPromises();
 
-      expect(deviceApi.syncPS3).toHaveBeenCalledWith("ps3");
+      expect(deviceApi.syncConsole).toHaveBeenCalledWith("ps3");
       expect(mocks.snackbarSuccess).toHaveBeenCalled();
     });
 
@@ -321,24 +321,30 @@ describe("Devices", () => {
       vi.mocked(deviceApi.fetchDevices).mockResolvedValue({
         data: [],
       } as never);
-      vi.mocked(deviceApi.addPS3).mockResolvedValue({ data: ps3() } as never);
+      vi.mocked(deviceApi.addConsole).mockResolvedValue({
+        data: ps3(),
+      } as never);
       const wrapper = mountDevices();
       await flushPromises();
 
       await wrapper.get("button").trigger("click");
-      const dialog = wrapper.findComponent(PS3ConsoleDialog);
+      const dialog = wrapper.findComponent(ConsoleDialog);
       expect(dialog.props()).toMatchObject({ modelValue: true, device: null });
-      const payload = { name: "PS3", ip_address: "192.168.1.115" };
+      const payload = {
+        console: "ps3",
+        name: "PS3",
+        ip_address: "192.168.1.115",
+      };
       dialog.vm.$emit("submit", payload);
       await flushPromises();
 
-      expect(deviceApi.addPS3).toHaveBeenCalledWith(payload);
+      expect(deviceApi.addConsole).toHaveBeenCalledWith(payload);
       expect(wrapper.find(".row[data-id='ps3']").exists()).toBe(true);
       expect(dialog.props("modelValue")).toBe(false);
     });
 
     it("edits a console's settings", async () => {
-      vi.mocked(deviceApi.updatePS3).mockResolvedValue({
+      vi.mocked(deviceApi.updateConsole).mockResolvedValue({
         data: ps3({ ip_address: "192.168.1.20" }),
       } as never);
       const wrapper = mountDevices();
@@ -347,12 +353,12 @@ describe("Devices", () => {
       await row(wrapper, "ps3")
         .get("[data-icon='mdi-cog-outline']")
         .trigger("click");
-      const dialog = wrapper.findComponent(PS3ConsoleDialog);
+      const dialog = wrapper.findComponent(ConsoleDialog);
       expect(dialog.props("device")).toMatchObject({ id: "ps3" });
       dialog.vm.$emit("submit", { name: "PS3", ip_address: "192.168.1.20" });
       await flushPromises();
 
-      expect(deviceApi.updatePS3).toHaveBeenCalledWith(
+      expect(deviceApi.updateConsole).toHaveBeenCalledWith(
         "ps3",
         expect.objectContaining({ ip_address: "192.168.1.20" }),
       );
@@ -382,7 +388,7 @@ describe("Devices", () => {
       const wrapper = mountDevices();
       await flushPromises();
 
-      expect(wrapper.text()).not.toContain("settings.ps3-add");
+      expect(wrapper.text()).not.toContain("settings.console-add");
     });
   });
 });

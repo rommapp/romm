@@ -2,13 +2,17 @@
 
 import uuid
 from ipaddress import IPv4Address, IPv6Address
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import HTTPException, Request, status
 from pydantic import AfterValidator, BaseModel, IPvAnyAddress, StringConstraints
 
 from decorators.auth import protected_route
-from endpoints.responses.device import DeviceSchema, PS3ProbeResponse
+from endpoints.responses.device import (
+    ConsoleProbeResponse,
+    ConsoleUserSchema,
+    DeviceSchema,
+)
 from endpoints.responses.sync import SyncSessionSchema
 from handler.auth.constants import Scope
 from handler.database import db_device_handler
@@ -41,17 +45,20 @@ def _local_address(
 
 
 LocalAddress = Annotated[IPvAnyAddress, AfterValidator(_local_address)]
+# Each kind of console has its own sync handler; the PS3 is the only one yet.
+ConsoleKind = Literal["ps3"]
 ConsoleName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
 ]
 
 
-class PS3ConsoleCreatePayload(PS3SyncConfig):
+class ConsoleCreatePayload(PS3SyncConfig):
+    console: ConsoleKind
     name: ConsoleName
     ip_address: LocalAddress
 
 
-class PS3ConsoleUpdatePayload(BaseModel):
+class ConsoleUpdatePayload(BaseModel):
     name: ConsoleName | None = None
     ip_address: LocalAddress | None = None
     ftp_port: FtpPort | None = None
@@ -60,26 +67,27 @@ class PS3ConsoleUpdatePayload(BaseModel):
     keep_versions: KeepVersions | None = None
 
 
-class PS3ProbePayload(BaseModel):
+class ConsoleProbePayload(BaseModel):
+    console: ConsoleKind
     ip_address: LocalAddress
     ftp_port: FtpPort = 21
 
 
-def _owned_ps3_or_404(request: Request, device_id: str) -> Device:
+def _owned_console_or_404(request: Request, device_id: str) -> Device:
     device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
     if not device or not is_ps3(device):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"PS3 console with ID {device_id} not found",
+            detail=f"Console with ID {device_id} not found",
         )
     return device
 
 
 @protected_route(
-    router.post, "/ps3", [Scope.DEVICES_WRITE], status_code=status.HTTP_201_CREATED
+    router.post, "", [Scope.DEVICES_WRITE], status_code=status.HTTP_201_CREATED
 )
-def add_ps3_console(request: Request, payload: PS3ConsoleCreatePayload) -> DeviceSchema:
-    """Set up a PS3 to sync saves with over FTP."""
+def add_console(request: Request, payload: ConsoleCreatePayload) -> DeviceSchema:
+    """Set up a console to sync saves with over FTP."""
     config = PS3SyncConfig.model_validate(
         payload.model_dump(include=set(PS3SyncConfig.model_fields))
     )
@@ -97,16 +105,16 @@ def add_ps3_console(request: Request, payload: PS3ConsoleCreatePayload) -> Devic
             last_seen=None,
         )
     )
-    log.info(f"Added PS3 console {device.id} for user {request.user.username}")
+    log.info(f"Added {payload.console} console {device.id} for {request.user.username}")
     return DeviceSchema.model_validate(device)
 
 
-@protected_route(router.put, "/ps3/{device_id}", [Scope.DEVICES_WRITE])
-def update_ps3_console(
-    request: Request, device_id: str, payload: PS3ConsoleUpdatePayload
+@protected_route(router.put, "/{device_id}", [Scope.DEVICES_WRITE])
+def update_console(
+    request: Request, device_id: str, payload: ConsoleUpdatePayload
 ) -> DeviceSchema:
-    """Change a PS3's address or sync settings."""
-    device = _owned_ps3_or_404(request, device_id)
+    """Change a console's address or sync settings."""
+    device = _owned_console_or_404(request, device_id)
     changes = payload.model_dump(exclude_unset=True, exclude_none=True)
 
     data: dict[str, object] = {}
@@ -126,26 +134,28 @@ def update_ps3_console(
     return DeviceSchema.model_validate(device)
 
 
-@protected_route(router.post, "/ps3/probe", [Scope.DEVICES_WRITE])
-async def probe_ps3_console(
-    request: Request, payload: PS3ProbePayload
-) -> PS3ProbeResponse:
-    """Check that a PS3's FTP server answers, and list its user profiles."""
+@protected_route(router.post, "/probe", [Scope.DEVICES_WRITE])
+async def probe_console(
+    request: Request, payload: ConsoleProbePayload
+) -> ConsoleProbeResponse:
+    """Check that a console's FTP server answers, and list its user profiles."""
     result = await probe_ps3(str(payload.ip_address), payload.ftp_port)
-    return PS3ProbeResponse(
-        reachable=result.reachable, is_ftp=result.is_ftp, users=result.users
+    return ConsoleProbeResponse(
+        reachable=result.reachable,
+        is_ftp=result.is_ftp,
+        users=[ConsoleUserSchema(id=u.id, name=u.name) for u in result.users],
     )
 
 
-@protected_route(router.post, "/ps3/{device_id}/sync", [Scope.DEVICES_WRITE])
-def sync_ps3_console(request: Request, device_id: str) -> SyncSessionSchema:
-    """Sync a PS3 now, whatever its interval."""
-    device = _owned_ps3_or_404(request, device_id)
+@protected_route(router.post, "/{device_id}/sync", [Scope.DEVICES_WRITE])
+def sync_console(request: Request, device_id: str) -> SyncSessionSchema:
+    """Sync a console now, whatever its interval."""
+    device = _owned_console_or_404(request, device_id)
     if not device.sync_enabled:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Sync is disabled for this console",
         )
     sync_session = enqueue_ps3_sync(device)
-    log.info(f"Queued PS3 sync session {sync_session.id} for device {device.id}")
+    log.info(f"Queued sync session {sync_session.id} for console {device.id}")
     return SyncSessionSchema.model_validate(sync_session)

@@ -7,6 +7,7 @@ from tests.handler.sync.ps3.fakes import FakeConsole, build_ps3_iso, build_sfo
 from handler.sync.ps3 import console as console_module
 from handler.sync.ps3.console import (
     PS3SyncConfig,
+    PS3UserProfile,
     discover_title_ids,
     normalize_title_id,
     probe_ps3,
@@ -96,7 +97,7 @@ class TestProbePS3:
 
     async def test_lists_user_profiles(self):
         console = FakeConsole()
-        console.add_dir("/dev_hdd0/home/00000001")
+        console.add_file("/dev_hdd0/home/00000001/localusername", b"FIL2K\x00")
         console.add_dir("/dev_hdd0/home/00000002")
         console.add_dir("/dev_hdd0/home/notauser")
         with (
@@ -109,7 +110,10 @@ class TestProbePS3:
         ):
             result = await probe_ps3("192.168.1.2", 21)
         assert result.reachable and result.is_ftp
-        assert result.users == ["00000001", "00000002"]
+        assert result.users == [
+            PS3UserProfile(id="00000001", name="FIL2K"),
+            PS3UserProfile(id="00000002", name=None),
+        ]
 
     async def test_not_ftp(self):
         with (

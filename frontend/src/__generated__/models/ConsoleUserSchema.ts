@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type PS3ProbePayload = {
-    ip_address: string;
-    ftp_port?: number;
+export type ConsoleUserSchema = {
+    id: string;
+    name: (string | null);
 };
 

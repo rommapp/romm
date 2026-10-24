@@ -57,7 +57,12 @@ class DeviceCreateResponse(BaseModel):
     created_at: UTCDatetime
 
 
-class PS3ProbeResponse(BaseModel):
+class ConsoleUserSchema(BaseModel):
+    id: str
+    name: str | None
+
+
+class ConsoleProbeResponse(BaseModel):
     reachable: bool
     is_ftp: bool
-    users: list[str]
+    users: list[ConsoleUserSchema]

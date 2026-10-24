@@ -1,10 +1,10 @@
 import type {
   DeviceSchema,
   DeviceUpdatePayload,
-  PS3ConsoleCreatePayload,
-  PS3ConsoleUpdatePayload,
-  PS3ProbePayload,
-  PS3ProbeResponse,
+  ConsoleCreatePayload,
+  ConsoleProbePayload,
+  ConsoleProbeResponse,
+  ConsoleUpdatePayload,
   SyncSessionSchema,
 } from "@/__generated__";
 import api from "@/services/api";
@@ -25,24 +25,24 @@ async function deleteDevice(id: string) {
   return api.delete(`/devices/${encodeURIComponent(id)}`);
 }
 
-async function addPS3(payload: PS3ConsoleCreatePayload) {
-  return api.post<DeviceSchema>("/devices/consoles/ps3", payload);
+async function addConsole(payload: ConsoleCreatePayload) {
+  return api.post<DeviceSchema>("/devices/consoles", payload);
 }
 
-async function updatePS3(id: string, payload: PS3ConsoleUpdatePayload) {
+async function updateConsole(id: string, payload: ConsoleUpdatePayload) {
   return api.put<DeviceSchema>(
-    `/devices/consoles/ps3/${encodeURIComponent(id)}`,
+    `/devices/consoles/${encodeURIComponent(id)}`,
     payload,
   );
 }
 
-async function probePS3(payload: PS3ProbePayload) {
-  return api.post<PS3ProbeResponse>("/devices/consoles/ps3/probe", payload);
+async function probeConsole(payload: ConsoleProbePayload) {
+  return api.post<ConsoleProbeResponse>("/devices/consoles/probe", payload);
 }
 
-async function syncPS3(id: string) {
+async function syncConsole(id: string) {
   return api.post<SyncSessionSchema>(
-    `/devices/consoles/ps3/${encodeURIComponent(id)}/sync`,
+    `/devices/consoles/${encodeURIComponent(id)}/sync`,
   );
 }
 
@@ -51,8 +51,8 @@ export default {
   fetchOnlineDeviceIds,
   updateDevice,
   deleteDevice,
-  addPS3,
-  updatePS3,
-  probePS3,
-  syncPS3,
+  addConsole,
+  updateConsole,
+  probeConsole,
+  syncConsole,
 };

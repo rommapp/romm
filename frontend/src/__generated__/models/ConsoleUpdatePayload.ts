@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type PS3ConsoleUpdatePayload = {
+export type ConsoleUpdatePayload = {
     name?: (string | null);
     ip_address?: (string | null);
     ftp_port?: (number | null);

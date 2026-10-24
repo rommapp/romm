@@ -43,12 +43,12 @@ _GAME_ROOTS = ("/dev_hdd0", *(f"/dev_usb{port:03d}" for port in range(8)))
 _PARAM_SFO_MAX_BYTES = 64 * 1024
 # A game's identity never changes, so the key carries what would show a swap.
 _TITLE_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60
+_READ_ERRORS: Final[tuple[type[Exception], ...]] = (FtpFileTooLarge, *FTP_ERRORS)
 # A malformed image raises struct.error, or ValueError as Iso9660Error does.
 _TITLE_READ_ERRORS: Final[tuple[type[Exception], ...]] = (
     ValueError,
     struct.error,
-    FtpFileTooLarge,
-    *FTP_ERRORS,
+    *_READ_ERRORS,
 )
 
 
@@ -179,11 +179,31 @@ class _TitleReader:
 _USER_FOLDER = re.compile(r"^\d{8}$")
 
 
+# The name the console shows for a profile, a few bytes of UTF-8.
+_USER_NAME_MAX_BYTES = 256
+
+
+@dataclass(frozen=True)
+class PS3UserProfile:
+    id: str
+    name: str | None
+
+
 @dataclass(frozen=True)
 class PS3ProbeResult:
     reachable: bool
     is_ftp: bool
-    users: list[str]
+    users: list[PS3UserProfile]
+
+
+async def _user_name(ftp: AsyncPS3Ftp, user_id: str) -> str | None:
+    try:
+        raw = await ftp.read(
+            f"/dev_hdd0/home/{user_id}/localusername", _USER_NAME_MAX_BYTES
+        )
+    except _READ_ERRORS:
+        return None
+    return raw.decode("utf-8", errors="replace").strip("\x00 \r\n") or None
 
 
 async def probe_ps3(host: str, port: int) -> PS3ProbeResult:
@@ -197,11 +217,12 @@ async def probe_ps3(host: str, port: int) -> PS3ProbeResult:
         return PS3ProbeResult(reachable=True, is_ftp=False, users=[])
     try:
         homes = await _list_or_empty(ftp, "/dev_hdd0/home")
+        ids = sorted(e.name for e in homes if e.is_dir and _USER_FOLDER.match(e.name))
+        users = [PS3UserProfile(id=i, name=await _user_name(ftp, i)) for i in ids]
     except FTP_ERRORS:
-        homes = []
+        users = []
     finally:
         await ftp.close()
-    users = sorted(e.name for e in homes if e.is_dir and _USER_FOLDER.match(e.name))
     return PS3ProbeResult(reachable=True, is_ftp=True, users=users)
 
 

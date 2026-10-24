@@ -1077,10 +1077,10 @@ World`), so a name shared across platforms resolves to the lowest visible ROM id
 | POST   | `/{id}/installs/claim`    | DEVICES_WRITE, ROMS_READ | Device-bound token takes every pending one, returns all taken |
 | PUT    | `/{id}/installs/{req_id}` | DEVICES_WRITE            | Device-bound token reports a taken outcome                    |
 | DELETE | `/{id}/installs/{req_id}` | DEVICES_WRITE            | Cancel a pending or taken request                             |
-| POST   | `/consoles/ps3`           | DEVICES_WRITE            | Set up a PS3 to sync saves with over FTP                      |
-| PUT    | `/consoles/ps3/{id}`      | DEVICES_WRITE            | Change a PS3's address or sync settings                       |
-| POST   | `/consoles/ps3/probe`     | DEVICES_WRITE            | Check a PS3's FTP server answers; list its user profiles      |
-| POST   | `/consoles/ps3/{id}/sync` | DEVICES_WRITE            | Sync a PS3 now, whatever its interval                         |
+| POST   | `/consoles`               | DEVICES_WRITE            | Set up a console (`console: "ps3"`) to sync saves with by FTP |
+| PUT    | `/consoles/{id}`          | DEVICES_WRITE            | Change a console's address or sync settings                   |
+| POST   | `/consoles/probe`         | DEVICES_WRITE            | Check a console's FTP server answers; list its user profiles  |
+| POST   | `/consoles/{id}/sync`     | DEVICES_WRITE            | Sync a console now, whatever its interval                     |
 
 Register and update take `capabilities`, boolean flags such as `{"remote_install": true}`, stored on `devices.capabilities`. A register or update that omits the field leaves the stored flags as they are.
 

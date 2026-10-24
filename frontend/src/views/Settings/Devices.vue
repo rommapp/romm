@@ -2,8 +2,8 @@
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import type { DeviceSchema, PS3ConsoleCreatePayload } from "@/__generated__";
-import PS3ConsoleDialog from "@/components/Settings/PS3ConsoleDialog.vue";
+import type { ConsoleCreatePayload, DeviceSchema } from "@/__generated__";
+import ConsoleDialog from "@/components/Settings/ConsoleDialog.vue";
 import RenameDeviceDialog from "@/components/Settings/RenameDeviceDialog.vue";
 import { useConfirm } from "@/composables/useConfirm";
 import { useFetchState } from "@/composables/useFetchState";
@@ -78,17 +78,20 @@ function displayName(device: DeviceSchema): string {
   );
 }
 
-function isPS3(device: DeviceSchema): boolean {
-  return device.client === "ps3";
+// Consoles RomM reaches over FTP, by the client their kind registers as.
+const CONSOLE_CLIENTS = new Set(["ps3"]);
+
+function isConsole(device: DeviceSchema): boolean {
+  return CONSOLE_CLIENTS.has(device.client ?? "");
 }
 
 function detailLine(device: DeviceSchema): string {
-  if (isPS3(device)) {
+  if (isConsole(device)) {
     const minutes = device.sync_config?.poll_interval_minutes;
     return [
       device.platform,
       device.ip_address,
-      minutes ? t("settings.ps3-every-minutes", { minutes }) : null,
+      minutes ? t("settings.console-every-minutes", { minutes }) : null,
     ]
       .filter(Boolean)
       .join(" · ");
@@ -152,22 +155,22 @@ function openConsole(device: DeviceSchema | null) {
   consoleOpen.value = true;
 }
 
-async function saveConsole(payload: PS3ConsoleCreatePayload) {
+async function saveConsole(payload: ConsoleCreatePayload) {
   const editing = consoleEditing.value;
   consoleBusy.value = true;
   try {
     if (editing) {
-      const { data } = await deviceApi.updatePS3(editing.id, payload);
+      const { data } = await deviceApi.updateConsole(editing.id, payload);
       replace(data);
     } else {
-      const { data } = await deviceApi.addPS3(payload);
+      const { data } = await deviceApi.addConsole(payload);
       devices.value = [...devices.value, data];
-      snackbar.success(t("settings.ps3-added"), { icon: "mdi-check-bold" });
+      snackbar.success(t("settings.console-added"), { icon: "mdi-check-bold" });
     }
     consoleOpen.value = false;
   } catch (error) {
     snackbar.error(
-      t("settings.ps3-save-failed", { detail: errorMessage(error) }),
+      t("settings.console-save-failed", { detail: errorMessage(error) }),
     );
   } finally {
     consoleBusy.value = false;
@@ -179,11 +182,11 @@ const syncing = ref(new Set<string>());
 async function syncNow(device: DeviceSchema) {
   syncing.value = new Set(syncing.value).add(device.id);
   try {
-    await deviceApi.syncPS3(device.id);
-    snackbar.success(t("settings.ps3-sync-queued"), { icon: "mdi-sync" });
+    await deviceApi.syncConsole(device.id);
+    snackbar.success(t("settings.console-sync-queued"), { icon: "mdi-sync" });
   } catch (error) {
     snackbar.error(
-      t("settings.ps3-sync-failed", { detail: errorMessage(error) }),
+      t("settings.console-sync-failed", { detail: errorMessage(error) }),
     );
   } finally {
     const next = new Set(syncing.value);
@@ -198,19 +201,19 @@ interface SyncFinishedPayload {
   error?: string;
 }
 
-function isListedPS3(deviceId: string): DeviceSchema | undefined {
-  return devices.value.find((d) => d.id === deviceId && isPS3(d));
+function isListedConsole(deviceId: string): DeviceSchema | undefined {
+  return devices.value.find((d) => d.id === deviceId && isConsole(d));
 }
 
 // A console sync runs in a worker, so its outcome only arrives over the socket.
 useSocketEvent<SyncFinishedPayload>("sync:completed", (payload) => {
-  if (isListedPS3(payload.device_id)) void refetch();
+  if (isListedConsole(payload.device_id)) void refetch();
 });
 useSocketEvent<SyncFinishedPayload>("sync:error", (payload) => {
-  const device = isListedPS3(payload.device_id);
+  const device = isListedConsole(payload.device_id);
   if (!device) return;
   snackbar.error(
-    t("settings.ps3-sync-error", {
+    t("settings.console-sync-error", {
       name: displayName(device),
       detail: payload.error ?? "",
     }),
@@ -245,10 +248,10 @@ async function remove(device: DeviceSchema) {
         v-if="canWrite"
         variant="translucent"
         size="small"
-        prepend-icon="mdi-sony-playstation"
+        prepend-icon="mdi-gamepad-variant-outline"
         @click="openConsole(null)"
       >
-        {{ t("settings.ps3-add") }}
+        {{ t("settings.console-add") }}
       </RBtn>
     </div>
 
@@ -299,23 +302,23 @@ async function remove(device: DeviceSchema) {
       </template>
       <template #cell.actions="{ row }">
         <div v-if="canWrite" class="r-devices__actions">
-          <template v-if="isPS3(row as DeviceSchema)">
+          <template v-if="isConsole(row as DeviceSchema)">
             <RBtn
               variant="text"
               size="small"
               icon="mdi-sync"
               :loading="syncing.has((row as DeviceSchema).id)"
               :disabled="!(row as DeviceSchema).sync_enabled"
-              :aria-label="t('settings.ps3-sync-now')"
-              :title="t('settings.ps3-sync-now')"
+              :aria-label="t('settings.console-sync-now')"
+              :title="t('settings.console-sync-now')"
               @click="syncNow(row as DeviceSchema)"
             />
             <RBtn
               variant="text"
               size="small"
               icon="mdi-cog-outline"
-              :aria-label="t('settings.ps3-edit')"
-              :title="t('settings.ps3-edit')"
+              :aria-label="t('settings.console-edit')"
+              :title="t('settings.console-edit')"
               @click="openConsole(row as DeviceSchema)"
             />
           </template>
@@ -349,7 +352,7 @@ async function remove(device: DeviceSchema) {
       @submit="rename"
     />
 
-    <PS3ConsoleDialog
+    <ConsoleDialog
       v-model="consoleOpen"
       :device="consoleEditing"
       :busy="consoleBusy"
