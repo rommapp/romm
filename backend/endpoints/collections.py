@@ -8,6 +8,7 @@ from fastapi import Path as PathVar
 from fastapi import Query, Request, UploadFile, status
 from pydantic import BaseModel as PydanticBaseModel
 
+from config import FRONTEND_RESOURCES_PATH
 from decorators.auth import protected_route
 from endpoints.responses.collection import (
     CollectionSchema,
@@ -62,10 +63,10 @@ CollectionSchemaT = TypeVar(
 def _hide_collection_roms(
     schemas: list[CollectionSchemaT], request: Request
 ) -> list[CollectionSchemaT]:
-    """Drop hidden roms from each collection's `rom_ids` for the caller.
+    """Drop hidden roms from each collection's `rom_ids` and covers for the caller.
 
-    Without this a collection leaks the ids (and inflated count) of roms hidden
-    from the user via the opt-out visibility model.
+    Without this a collection leaks the ids (and inflated count) and the cover
+    art of roms hidden from the user via the opt-out visibility model.
     """
     if not schemas:
         return schemas
@@ -77,9 +78,17 @@ def _hide_collection_roms(
     hidden = db_rom_handler.get_hidden_rom_ids_among(list(all_ids), visibility)
     if not hidden:
         return schemas
+    hidden_covers = db_rom_handler.get_cover_paths(hidden)
     for s in schemas:
         s.rom_ids = set(s.rom_ids) - hidden
+        s.path_covers_small = _without_covers(s.path_covers_small, hidden_covers)
+        s.path_covers_large = _without_covers(s.path_covers_large, hidden_covers)
     return schemas
+
+
+def _without_covers(urls: list[str], paths: set[str]) -> list[str]:
+    prefix = f"{FRONTEND_RESOURCES_PATH}/"
+    return [u for u in urls if u.split("?", 1)[0].removeprefix(prefix) not in paths]
 
 
 def _record_collection(
