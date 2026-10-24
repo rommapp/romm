@@ -92,6 +92,22 @@ def test_init_script_records_the_rq_worker_pid_at_launch() -> None:
     assert 'echo "$!" >"/tmp/${name}.pid"' in INIT_SCRIPT.read_text()
 
 
+def test_init_script_records_the_gunicorn_pid_at_launch() -> None:
+    """A slow start must not let the watchdog spawn a second gunicorn."""
+    assert re.search(
+        r'main:app &\n(?:\s*#.*\n)*\s*echo "\$!" >/tmp/gunicorn\.pid',
+        INIT_SCRIPT.read_text(),
+    )
+
+
+def test_image_ships_compiled_bytecode() -> None:
+    """Runtime caching is off, so uncompiled modules recompile on every start."""
+    dockerfile = DOCKERFILE.read_text()
+    assert re.search(r"^ENV PYTHONDONTWRITEBYTECODE=1", dockerfile, re.M)
+    assert re.search(r"^ENV UV_COMPILE_BYTECODE=1", dockerfile, re.M)
+    assert re.search(r"^RUN python3 -m compileall -q /backend$", dockerfile, re.M)
+
+
 def _init_script_trusted_proxies() -> str:
     match = re.search(
         r'--forwarded-allow-ips="\$\{FORWARDED_ALLOW_IPS:-([^}]+)\}"',
