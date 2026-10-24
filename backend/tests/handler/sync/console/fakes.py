@@ -1,16 +1,24 @@
-"""An in-memory PS3 behind `AsyncPS3Ftp`'s interface, and the files it holds."""
+"""An in-memory console behind `AsyncConsoleFtp`'s interface, and the files it holds."""
 
 import ftplib
 from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import TypeVar
+from typing import IO, TypeVar
 
 from tests.handler.sync.retroarch.test_psp import _build_fake_sfo
 from tests.utils.test_psp_hasher import ISO_SECTOR_SIZE, _dir_record, _extent
 
-from handler.sync.ps3.ftp import AsyncPS3Ftp, FtpEntry, FtpFileTooLarge, PS3Ftp
+from handler.sync.console.ftp import (
+    AsyncConsoleFtp,
+    ConsoleFtp,
+    FtpEntry,
+    FtpFileTooLarge,
+)
 
-SAVEDATA = "/dev_hdd0/home/00000001/savedata"
+PS3_USER = "00000001"
+PS3_SAVEDATA = f"/dev_hdd0/home/{PS3_USER}/savedata"
+PS4_USER = "1cabafc9"
+PS4_SAVEDATA = f"/user/home/{PS4_USER}/savedata"
 WRITTEN_AT = datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc)
 
 
@@ -48,7 +56,7 @@ def build_ps3_iso(param_sfo: bytes) -> bytes:
 T = TypeVar("T")
 
 
-class _BlockingSession(PS3Ftp):
+class _BlockingSession(ConsoleFtp):
     """The blocking session `FakeConsole.run` hands out, over the same files."""
 
     def __init__(self, console: "FakeConsole") -> None:
@@ -59,10 +67,11 @@ class _BlockingSession(PS3Ftp):
         return self._console.files[path][0][offset : offset + length]
 
 
-class FakeConsole(AsyncPS3Ftp):
+class FakeConsole(AsyncConsoleFtp):
     """A console filesystem behind the session the code under test receives."""
 
-    def __init__(self) -> None:
+    def __init__(self, savedata: str = PS3_SAVEDATA) -> None:
+        self.savedata = savedata
         self.files: dict[str, tuple[bytes, datetime]] = {}
         self.dirs: set[str] = {"/"}
         self.reads: list[str] = []
@@ -86,7 +95,7 @@ class FakeConsole(AsyncPS3Ftp):
         self, folder: str, files: dict[str, bytes], modified: datetime = WRITTEN_AT
     ) -> None:
         for name, data in files.items():
-            self.add_file(f"{SAVEDATA}/{folder}/{name}", data, modified)
+            self.add_file(f"{self.savedata}/{folder}/{name}", data, modified)
 
     def folder(self, path: str) -> dict[str, bytes]:
         prefix = f"{path}/"
@@ -122,6 +131,13 @@ class FakeConsole(AsyncPS3Ftp):
     async def exists(self, path: str) -> bool:
         return path in self.dirs or path in self.files
 
+    async def download(
+        self, path: str, write: Callable[[bytes], object], max_bytes: int
+    ) -> int:
+        data = await self.read(path, max_bytes)
+        write(data)
+        return len(data)
+
     async def read(self, path: str, max_bytes: int) -> bytes:
         self.reads.append(path)
         if path not in self.files:
@@ -133,14 +149,14 @@ class FakeConsole(AsyncPS3Ftp):
             raise FtpFileTooLarge(path)
         return data
 
-    async def run(self, func: Callable[[PS3Ftp], T]) -> T:
+    async def run(self, func: Callable[[ConsoleFtp], T]) -> T:
         return func(_BlockingSession(self))
 
-    async def write(self, path: str, data: bytes) -> None:
+    async def upload(self, path: str, source: IO[bytes]) -> None:
         if path.rsplit("/", 1)[0] not in self.dirs:
             raise ftplib.error_perm(f"550 no folder for {path}")
         self.writes.append(path)
-        self.files[path] = (data, datetime.now(timezone.utc))
+        self.files[path] = (source.read(), datetime.now(timezone.utc))
         if self.on_write:
             self.on_write(path)
 

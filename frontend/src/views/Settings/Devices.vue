@@ -79,7 +79,7 @@ function displayName(device: DeviceSchema): string {
 }
 
 // Consoles synced over FTP, by the client each kind registers as.
-const CONSOLE_CLIENTS = new Set(["ps3"]);
+const CONSOLE_CLIENTS = new Set(["ps3", "ps4"]);
 
 function isConsole(device: DeviceSchema): boolean {
   return CONSOLE_CLIENTS.has(device.client ?? "");
@@ -160,7 +160,7 @@ async function saveConsole(payload: ConsoleCreatePayload) {
   consoleBusy.value = true;
   try {
     if (editing) {
-      const { console: _kind, ps3_user: _profile, ...changes } = payload;
+      const { console: _kind, user_id: _profile, ...changes } = payload;
       const { data } = await deviceApi.updateConsole(editing.id, changes);
       replace(data);
     } else {

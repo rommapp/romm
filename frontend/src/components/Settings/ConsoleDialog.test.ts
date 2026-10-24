@@ -148,7 +148,7 @@ describe("ConsoleDialog", () => {
       name: "settings.console-ps3",
       ip_address: "192.168.1.115",
       ftp_port: 21,
-      ps3_user: "00000001",
+      user_id: "00000001",
       poll_interval_minutes: 5,
       keep_versions: 10,
     });
@@ -176,7 +176,7 @@ describe("ConsoleDialog", () => {
       client_device_identifier: null,
       sync_mode: "push_pull",
       sync_enabled: true,
-      sync_config: { ftp_port: 2121, ps3_user: "00000002" },
+      sync_config: { ftp_port: 2121, user_id: "00000002" },
       capabilities: null,
       last_seen: null,
       created_at: "2026-10-24T00:00:00Z",
@@ -197,6 +197,79 @@ describe("ConsoleDialog", () => {
     expect(field(wrapper, "settings.console-user").attributes()).toHaveProperty(
       "disabled",
     );
+  });
+
+  it("takes a PS4's defaults when the kind changes", async () => {
+    answer({
+      reachable: true,
+      is_ftp: true,
+      users: [{ id: "1cabafc9", name: "Fil2k" }],
+    });
+    const wrapper = mountDialog();
+    await field(wrapper, "settings.console-kind").setValue("ps4");
+    await field(wrapper, "settings.console-ip-address").setValue(
+      "192.168.1.177",
+    );
+
+    expect(value(wrapper, "settings.console-ftp-port")).toBe("2121");
+    expect(value(wrapper, "common.name")).toBe("settings.console-ps4");
+
+    await testConnection(wrapper);
+    await wrapper.get("[data-icon='mdi-check']").trigger("click");
+
+    expect(deviceApi.probeConsole).toHaveBeenCalledWith({
+      console: "ps4",
+      ip_address: "192.168.1.177",
+      ftp_port: 2121,
+    });
+    expect(wrapper.emitted("submit")?.[0]?.[0]).toMatchObject({
+      console: "ps4",
+      ftp_port: 2121,
+      user_id: "1cabafc9",
+    });
+  });
+
+  it("keeps a port and name the user typed when the kind changes", async () => {
+    const wrapper = mountDialog();
+    await field(wrapper, "settings.console-ftp-port").setValue("2222");
+    await field(wrapper, "common.name").setValue("Den");
+
+    await field(wrapper, "settings.console-kind").setValue("ps4");
+
+    expect(value(wrapper, "settings.console-ftp-port")).toBe("2222");
+    expect(value(wrapper, "common.name")).toBe("Den");
+  });
+
+  it("opens an edited PS4 as a PS4", async () => {
+    answer({ reachable: true, is_ftp: true, users: [] });
+    const wrapper = mountDialog({
+      id: "ps4",
+      user_id: 1,
+      name: "Bedroom",
+      platform: "PS4",
+      client: "ps4",
+      client_version: null,
+      ip_address: "192.168.1.177",
+      mac_address: null,
+      hostname: null,
+      client_device_identifier: null,
+      sync_mode: "push_pull",
+      sync_enabled: true,
+      sync_config: { user_id: "1cabafc9" },
+      capabilities: null,
+      last_seen: null,
+      created_at: "2026-10-24T00:00:00Z",
+      updated_at: "2026-10-24T00:00:00Z",
+    });
+    await flushPromises();
+
+    expect(value(wrapper, "settings.console-kind")).toBe("ps4");
+    expect(value(wrapper, "settings.console-user")).toBe("1cabafc9");
+    expect(deviceApi.probeConsole).toHaveBeenCalledWith({
+      console: "ps4",
+      ip_address: "192.168.1.177",
+      ftp_port: 2121,
+    });
   });
 
   it("warns when nothing answers", async () => {

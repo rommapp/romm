@@ -1,10 +1,20 @@
+import io
 import zipfile
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from tests.factories import make_platform, make_rom, make_save
-from tests.handler.sync.ps3.fakes import SAVEDATA, WRITTEN_AT, FakeConsole, build_sfo
+from tests.handler.sync.console.fakes import (
+    PS3_SAVEDATA,
+    PS3_USER,
+    PS4_SAVEDATA,
+    PS4_USER,
+    WRITTEN_AT,
+    FakeConsole,
+    build_sfo,
+)
 
 from endpoints.sockets import sync as sync_sockets
 from handler.database import (
@@ -15,15 +25,15 @@ from handler.database import (
 )
 from handler.filesystem import fs_asset_handler
 from handler.redis_handler import async_cache
-from handler.sync.ps3 import sync_handler
-from handler.sync.ps3.console import PS3_DEVICE_TYPE, PS3SyncConfig
-from handler.sync.ps3.ftp import AsyncPS3Ftp
-from handler.sync.ps3.sync_handler import (
-    PS3_SAVE_EMULATOR,
-    PS3SyncCounts,
-    _PS3Sync,
-    _zip_folder,
-    sync_ps3_device,
+from handler.sync.console import sync_handler
+from handler.sync.console.common import ConsoleProfile, ConsoleSyncConfig
+from handler.sync.console.ftp import AsyncConsoleFtp
+from handler.sync.console.ps3 import PS3
+from handler.sync.console.ps4 import PS4
+from handler.sync.console.sync_handler import (
+    ConsoleSyncCounts,
+    _ConsoleSync,
+    sync_console_device,
 )
 from models.assets import Save
 from models.device import Device
@@ -35,6 +45,15 @@ from utils.memory_cards import content_hash_of_bytes
 
 FOLDER = "BLES01138SAVAUTOSAVE_SLOT1_SAV"
 SFO = build_sfo(TITLE_ID="BLES01138", TITLE=" Far Cry® 3")
+PS3_SAVE_EMULATOR = PS3.kind
+
+
+def _zip_folder(folder: str, members: dict[str, bytes]) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name in sorted(members):
+            zf.writestr(f"{folder}/{name}", members[name])
+    return buffer.getvalue()
 
 
 @pytest.fixture(autouse=True)
@@ -66,11 +85,11 @@ def device(admin_user: User) -> Device:
             id="ps3-device",
             user_id=admin_user.id,
             name="Living room PS3",
-            platform=PS3_DEVICE_TYPE.platform,
-            client=PS3_DEVICE_TYPE.client,
-            sync_mode=PS3_DEVICE_TYPE.sync_mode,
+            platform=PS3.device_type.platform,
+            client=PS3.device_type.client,
+            sync_mode=PS3.device_type.sync_mode,
             ip_address="192.168.1.115",
-            sync_config={},
+            sync_config={"user_id": PS3_USER},
         )
     )
 
@@ -78,19 +97,23 @@ def device(admin_user: User) -> Device:
 @pytest.fixture
 def console() -> FakeConsole:
     console = FakeConsole()
-    console.add_dir(SAVEDATA)
+    console.add_dir(PS3_SAVEDATA)
     return console
 
 
 async def run_sync(
-    device: Device, console: FakeConsole, ps3: Platform
-) -> PS3SyncCounts:
+    device: Device,
+    console: FakeConsole,
+    platform: Platform,
+    profile: ConsoleProfile = PS3,
+) -> ConsoleSyncCounts:
     session = db_sync_session_handler.create_session(
         device_id=device.id, user_id=device.user_id
     )
     device = db_device_handler.get_device_by_id(device.id) or device
-    return await _PS3Sync(
-        device, console, PS3SyncConfig.of(device.sync_config), ps3, session.id
+    config = ConsoleSyncConfig.of(profile, device.sync_config)
+    return await _ConsoleSync(
+        device, profile, console, config, platform, session.id
     ).run()
 
 
@@ -110,6 +133,7 @@ async def store_server_version(
     origin: str | None,
     updated_at: datetime,
     slot: str = FOLDER,
+    emulator: str = PS3_SAVE_EMULATOR,
 ) -> Save:
     """A server version as another sync would have filed it."""
     zip_bytes = _zip_folder(slot, files)
@@ -117,7 +141,7 @@ async def store_server_version(
         user=user,
         platform_fs_slug=rom.platform.fs_slug,
         rom_id=rom.id,
-        emulator=PS3_SAVE_EMULATOR,
+        emulator=emulator,
     )
     name = f"{slot} [{updated_at:%Y-%m-%d_%H-%M-%S}].zip"
     await fs_asset_handler.write_file(file=zip_bytes, path=path, filename=name)
@@ -127,7 +151,7 @@ async def store_server_version(
         name,
         file_path=path,
         slot=slot,
-        emulator=PS3_SAVE_EMULATOR,
+        emulator=emulator,
         content_hash=content_hash_of_bytes(zip_bytes),
         origin_device_id=origin,
     )
@@ -137,7 +161,7 @@ async def store_server_version(
 @pytest.fixture(autouse=True)
 async def clear_cache(device: Device):
     yield
-    async for key in async_cache.scan_iter(f"romm:ps3_sync:{device.id}:*"):
+    async for key in async_cache.scan_iter(f"romm:console_sync:{device.id}:*"):
         await async_cache.delete(key)
 
 
@@ -154,7 +178,10 @@ class TestPull:
         assert save.emulator == PS3_SAVE_EMULATOR
         assert save.origin_device_id == device.id
         assert save.file_name.startswith(f"{FOLDER} [")
-        with zipfile.ZipFile(fs_asset_handler.validate_path(save.full_path)) as zf:
+        stored = fs_asset_handler.validate_path(save.full_path)
+        assert save.content_hash == content_hash_of_bytes(stored.read_bytes())
+        assert save.file_size_bytes == stored.stat().st_size
+        with zipfile.ZipFile(stored) as zf:
             assert sorted(zf.namelist()) == [
                 f"{FOLDER}/PARAM.SFO",
                 f"{FOLDER}/SAVEDATA.000",
@@ -200,7 +227,7 @@ class TestPull:
         db_device_handler.update_device(
             device_id=device.id,
             user_id=admin_user.id,
-            data={"sync_config": {"keep_versions": 1}},
+            data={"sync_config": {"user_id": PS3_USER, "keep_versions": 1}},
         )
         console.add_save(FOLDER, {"PARAM.SFO": SFO, "SAVEDATA.000": b"one"})
         await run_sync(device, console, ps3)
@@ -234,7 +261,7 @@ class TestPull:
 
         counts = await run_sync(device, console, ps3)
 
-        assert counts == PS3SyncCounts()
+        assert counts == ConsoleSyncCounts()
 
 
 class TestPush:
@@ -254,11 +281,11 @@ class TestPush:
         counts = await run_sync(device, console, ps3)
 
         assert counts.pushed == 1
-        assert console.folder(f"{SAVEDATA}/{FOLDER}") == {
+        assert console.folder(f"{PS3_SAVEDATA}/{FOLDER}") == {
             "PARAM.SFO": SFO,
             "SAVEDATA.000": b"restored",
         }
-        assert {e.name for e in await console.list(SAVEDATA)} == {FOLDER}
+        assert {e.name for e in await console.list(PS3_SAVEDATA)} == {FOLDER}
 
     async def test_does_not_push_a_version_from_another_device(
         self, device, console, ps3, far_cry, admin_user
@@ -276,7 +303,7 @@ class TestPush:
         counts = await run_sync(device, console, ps3)
 
         assert counts.pushed == 0
-        assert console.folder(f"{SAVEDATA}/{FOLDER}")["SAVEDATA.000"] == b"old"
+        assert console.folder(f"{PS3_SAVEDATA}/{FOLDER}")["SAVEDATA.000"] == b"old"
 
     async def test_pushes_a_missing_slot_only_for_games_on_the_console(
         self, device, console, ps3, far_cry, admin_user
@@ -296,20 +323,20 @@ class TestPush:
         counts = await run_sync(device, console, ps3)
 
         assert counts.pushed == 1
-        assert await console.exists(f"{SAVEDATA}/{FOLDER}")
-        assert not await console.exists(f"{SAVEDATA}/BLES99999SAVE")
+        assert await console.exists(f"{PS3_SAVEDATA}/{FOLDER}")
+        assert not await console.exists(f"{PS3_SAVEDATA}/BLES99999SAVE")
 
     async def test_does_not_restore_a_slot_deleted_on_the_console(
         self, device, console, ps3, far_cry
     ):
         console.add_save(FOLDER, {"PARAM.SFO": SFO})
         await run_sync(device, console, ps3)
-        await console.remove_tree(f"{SAVEDATA}/{FOLDER}")
+        await console.remove_tree(f"{PS3_SAVEDATA}/{FOLDER}")
 
         counts = await run_sync(device, console, ps3)
 
         assert counts.pushed == 0
-        assert not await console.exists(f"{SAVEDATA}/{FOLDER}")
+        assert not await console.exists(f"{PS3_SAVEDATA}/{FOLDER}")
 
     async def test_finishes_an_interrupted_push(self, device, console, ps3):
         console.add_save(f"{FOLDER}.ROMMOLD", {"PARAM.SFO": SFO})
@@ -317,7 +344,7 @@ class TestPush:
 
         await run_sync(device, console, ps3)
 
-        assert {e.name for e in await console.list(SAVEDATA)} == {FOLDER}
+        assert {e.name for e in await console.list(PS3_SAVEDATA)} == {FOLDER}
 
 
 class TestConflict:
@@ -338,22 +365,22 @@ class TestConflict:
         counts = await run_sync(device, console, ps3)
 
         assert counts.conflicts == 1
-        assert console.folder(f"{SAVEDATA}/{FOLDER}")["SAVEDATA.000"] == b"console"
+        assert console.folder(f"{PS3_SAVEDATA}/{FOLDER}")["SAVEDATA.000"] == b"console"
         assert len(slot_versions(admin_user, far_cry)) == 2
 
 
-class TestSyncPS3Device:
+class TestSyncConsoleDevice:
     @pytest.fixture
     def connect(self, console: FakeConsole):
         with patch.object(
-            AsyncPS3Ftp, "connect", AsyncMock(return_value=console)
+            AsyncConsoleFtp, "connect", AsyncMock(return_value=console)
         ) as connect:
             yield connect
 
     async def test_completes_the_session(self, device, connect, ps3, far_cry, console):
         console.add_save(FOLDER, {"PARAM.SFO": SFO})
 
-        result = await sync_ps3_device(device)
+        result = await sync_console_device(device)
 
         assert result["status"] == "completed" and result["pulled"] == 1
         [session] = db_sync_session_handler.get_sessions(
@@ -365,11 +392,11 @@ class TestSyncPS3Device:
 
     async def test_fails_the_session_when_the_console_is_unreachable(self, device, ps3):
         with patch.object(
-            AsyncPS3Ftp,
+            AsyncConsoleFtp,
             "connect",
             AsyncMock(side_effect=ConnectionRefusedError()),
         ):
-            result = await sync_ps3_device(device)
+            result = await sync_console_device(device)
 
         assert result["status"] == "connection_failed"
         [session] = db_sync_session_handler.get_sessions(
@@ -382,10 +409,13 @@ class TestSyncPS3Device:
     ):
         # Another record of the console, even another user's, holds the same key.
         await async_cache.set(
-            sync_handler._lock_key("192.168.1.115", PS3SyncConfig()), "1"
+            sync_handler._lock_key(
+                "192.168.1.115", ConsoleSyncConfig.of(PS3, {"user_id": PS3_USER})
+            ),
+            "1",
         )
 
-        result = await sync_ps3_device(device)
+        result = await sync_console_device(device)
 
         assert result["status"] == "busy"
         connect.assert_not_called()
@@ -403,13 +433,13 @@ class TestSyncPS3Device:
         moved = db_device_handler.get_device_by_id(device.id)
         assert moved is not None
 
-        result = await sync_ps3_device(moved)
+        result = await sync_console_device(moved)
 
         assert result["status"] == "error"
         connect.assert_not_called()
 
     async def test_needs_a_ps3_platform(self, device, connect):
-        result = await sync_ps3_device(device)
+        result = await sync_console_device(device)
 
         assert result["status"] == "error"
         connect.assert_not_called()
@@ -457,21 +487,173 @@ class TestConsoleWritesDuringSync:
         counts = await run_sync(device, console, ps3)
 
         assert counts.pushed == 0
-        assert console.folder(f"{SAVEDATA}/{FOLDER}")["SAVEDATA.000"] == b"played"
-        assert {e.name for e in await console.list(SAVEDATA)} == {FOLDER}
+        assert console.folder(f"{PS3_SAVEDATA}/{FOLDER}")["SAVEDATA.000"] == b"played"
+        assert {e.name for e in await console.list(PS3_SAVEDATA)} == {FOLDER}
 
 
 class TestLimits:
     async def test_stops_reading_past_the_folder_budget(
-        self, device, console, ps3, far_cry, admin_user, monkeypatch
+        self, device, console, ps3, far_cry, admin_user
     ):
-        monkeypatch.setattr(sync_handler, "_FOLDER_MAX_BYTES", 10)
         console.add_save(FOLDER, {"PARAM.SFO": b"x" * 6, "SAVEDATA.000": b"y" * 6})
         # Listed small enough to pass, then each read returns more.
         for name in ("PARAM.SFO", "SAVEDATA.000"):
-            console.listed_sizes[f"{SAVEDATA}/{FOLDER}/{name}"] = 1
+            console.listed_sizes[f"{PS3_SAVEDATA}/{FOLDER}/{name}"] = 1
 
-        counts = await run_sync(device, console, ps3)
+        counts = await run_sync(device, console, ps3, replace(PS3, folder_max_bytes=10))
 
         assert counts.failed == 1
         assert slot_versions(admin_user, far_cry) == []
+
+
+PS4_FOLDER = "CUSA18886"
+PS4_SAVE = {"sdimg_SaveGame": b"encrypted image", "SaveGame.bin": b"sealed key"}
+
+
+@pytest.fixture
+def ps4() -> Platform:
+    return make_platform("ps4", name="PlayStation 4")
+
+
+@pytest.fixture
+def sackboy(ps4: Platform) -> Rom:
+    return make_rom(
+        ps4, "Sackboy A Big Adventure", fs_extension="pkg", title_id="CUSA18886"
+    )
+
+
+@pytest.fixture
+def ps4_device(admin_user: User) -> Device:
+    return db_device_handler.add_device(
+        Device(
+            id="ps4-device",
+            user_id=admin_user.id,
+            name="Living room PS4",
+            platform=PS4.device_type.platform,
+            client=PS4.device_type.client,
+            sync_mode=PS4.device_type.sync_mode,
+            ip_address="192.168.1.177",
+            sync_config={"user_id": PS4_USER},
+        )
+    )
+
+
+@pytest.fixture
+def ps4_console() -> FakeConsole:
+    console = FakeConsole(PS4_SAVEDATA)
+    console.add_dir(PS4_SAVEDATA)
+    console.add_dir(f"/user/app/{PS4_FOLDER}")
+    return console
+
+
+@pytest.fixture
+async def clear_ps4_cache(ps4_device: Device):
+    yield
+    async for key in async_cache.scan_iter(f"romm:console_sync:{ps4_device.id}:*"):
+        await async_cache.delete(key)
+
+
+@pytest.mark.usefixtures("clear_ps4_cache")
+class TestPS4:
+    async def test_pulls_a_title_folder_as_one_slot(
+        self, ps4_device, ps4_console, ps4, sackboy, admin_user
+    ):
+        ps4_console.add_save(PS4_FOLDER, PS4_SAVE)
+
+        counts = await run_sync(ps4_device, ps4_console, ps4, PS4)
+
+        assert counts.pulled == 1
+        [save] = slot_versions(admin_user, sackboy, PS4_FOLDER)
+        assert save.emulator == PS4.kind
+        stored = fs_asset_handler.validate_path(save.full_path)
+        assert save.content_hash == content_hash_of_bytes(stored.read_bytes())
+        with zipfile.ZipFile(stored) as zf:
+            assert sorted(zf.namelist()) == [
+                f"{PS4_FOLDER}/SaveGame.bin",
+                f"{PS4_FOLDER}/sdimg_SaveGame",
+            ]
+
+    async def test_matches_a_rom_by_the_installed_game_title(
+        self, ps4_device, ps4_console, ps4, admin_user
+    ):
+        rom = make_rom(ps4, "Sackboy A Big Adventure", fs_extension="pkg")
+        ps4_console.add_file(
+            f"/system_data/priv/appmeta/{PS4_FOLDER}/param.sfo",
+            build_sfo(TITLE="Sackboy™: A Big Adventure"),
+        )
+        ps4_console.add_save(PS4_FOLDER, PS4_SAVE)
+
+        counts = await run_sync(ps4_device, ps4_console, ps4, PS4)
+
+        assert counts.pulled == 1
+        assert len(slot_versions(admin_user, rom, PS4_FOLDER)) == 1
+
+    async def test_skips_the_system_backup_folders(self, ps4_device, ps4_console, ps4):
+        ps4_console.add_save("sce_backup", PS4_SAVE)
+
+        counts = await run_sync(ps4_device, ps4_console, ps4, PS4)
+
+        assert counts == ConsoleSyncCounts()
+
+    async def test_pushes_a_newer_server_version(
+        self, ps4_device, ps4_console, ps4, sackboy, admin_user
+    ):
+        ps4_console.add_save(PS4_FOLDER, PS4_SAVE)
+        await run_sync(ps4_device, ps4_console, ps4, PS4)
+        restored = {"sdimg_SaveGame": b"restored image", "SaveGame.bin": b"key"}
+        await store_server_version(
+            admin_user,
+            sackboy,
+            restored,
+            origin=ps4_device.id,
+            updated_at=datetime.now(timezone.utc) + timedelta(minutes=1),
+            slot=PS4_FOLDER,
+            emulator=PS4.kind,
+        )
+
+        counts = await run_sync(ps4_device, ps4_console, ps4, PS4)
+
+        assert counts.pushed == 1
+        assert ps4_console.folder(f"{PS4_SAVEDATA}/{PS4_FOLDER}") == restored
+
+    async def test_does_not_push_a_version_that_is_not_a_ps4_save(
+        self, ps4_device, ps4_console, ps4, sackboy, admin_user
+    ):
+        ps4_console.add_save(PS4_FOLDER, PS4_SAVE)
+        await run_sync(ps4_device, ps4_console, ps4, PS4)
+        await store_server_version(
+            admin_user,
+            sackboy,
+            {"sdimg_SaveGame": b"image without its key"},
+            origin=ps4_device.id,
+            updated_at=datetime.now(timezone.utc) + timedelta(minutes=1),
+            slot=PS4_FOLDER,
+            emulator=PS4.kind,
+        )
+
+        counts = await run_sync(ps4_device, ps4_console, ps4, PS4)
+
+        assert counts.failed == 1
+        assert ps4_console.folder(f"{PS4_SAVEDATA}/{PS4_FOLDER}") == PS4_SAVE
+
+    async def test_syncs_the_device_on_its_own_platform(
+        self, ps4_device, ps4_console, ps4, sackboy
+    ):
+        ps4_console.add_save(PS4_FOLDER, PS4_SAVE)
+        with patch.object(
+            AsyncConsoleFtp, "connect", AsyncMock(return_value=ps4_console)
+        ) as connect:
+            result = await sync_console_device(ps4_device)
+
+        assert result["status"] == "completed" and result["pulled"] == 1
+        connect.assert_awaited_once_with("192.168.1.177", 2121)
+
+    async def test_needs_a_ps4_platform(self, ps4_device, ps4_console, ps3):
+        with patch.object(
+            AsyncConsoleFtp, "connect", AsyncMock(return_value=ps4_console)
+        ) as connect:
+            result = await sync_console_device(ps4_device)
+
+        assert result["status"] == "error"
+        assert "PlayStation 4" in result["error"]
+        connect.assert_not_called()

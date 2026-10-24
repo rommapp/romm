@@ -7,8 +7,10 @@ from fastapi import status
 from endpoints.device import consoles as consoles_endpoints
 from handler.auth.base_handler import oauth_handler
 from handler.database import db_device_handler
-from handler.sync.ps3 import sync_handler
-from handler.sync.ps3.console import PS3_DEVICE_TYPE, PS3ProbeResult, PS3UserProfile
+from handler.sync.console import sync_handler
+from handler.sync.console.common import ConsoleProbeResult, ConsoleUserProfile
+from handler.sync.console.ps3 import PS3
+from handler.sync.console.ps4 import PS4
 from models.device import Device, SyncMode
 from models.user import User
 
@@ -24,10 +26,10 @@ def ps3_device(admin_user: User) -> Device:
             id="ps3-device",
             user_id=admin_user.id,
             name="PS3",
-            client=PS3_DEVICE_TYPE.client,
+            client=PS3.device_type.client,
             sync_mode=SyncMode.PUSH_PULL,
             ip_address="192.168.1.115",
-            sync_config={"poll_interval_minutes": 30},
+            sync_config={"user_id": "00000001", "poll_interval_minutes": 30},
         )
     )
 
@@ -47,25 +49,39 @@ class TestAddConsole:
         )
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
-    def test_adds_a_push_pull_ps3(self, client, access_token: str):
+    @pytest.mark.parametrize(
+        ("console", "user_id", "platform", "ftp_port"),
+        [("ps3", "00000001", "PS3", 21), ("ps4", "1cabafc9", "PS4", 2121)],
+    )
+    def test_adds_a_push_pull_console(
+        self,
+        client,
+        access_token: str,
+        console: str,
+        user_id: str,
+        platform: str,
+        ftp_port: int,
+    ):
         response = client.post(
             "/api/devices/consoles",
             json={
-                "console": "ps3",
+                "console": console,
                 "name": "Living room",
                 "ip_address": "192.168.1.115",
+                "user_id": user_id,
             },
             headers=auth(access_token),
         )
 
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
-        assert data["client"] == "ps3"
+        assert data["client"] == console
+        assert data["platform"] == platform
         assert data["sync_mode"] == "push_pull"
         assert data["ip_address"] == "192.168.1.115"
         assert data["sync_config"] == {
-            "ftp_port": 21,
-            "ps3_user": "00000001",
+            "ftp_port": ftp_port,
+            "user_id": user_id,
             "poll_interval_minutes": 15,
             "keep_versions": 10,
         }
@@ -76,19 +92,30 @@ class TestAddConsole:
     ):
         response = client.post(
             "/api/devices/consoles",
-            json={"console": "ps3", "name": "PS3", "ip_address": address},
+            json={
+                "console": "ps3",
+                "name": "PS3",
+                "ip_address": address,
+                "user_id": "00000001",
+            },
             headers=auth(access_token),
         )
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
-    def test_rejects_an_invalid_user_profile(self, client, access_token: str):
+    @pytest.mark.parametrize(
+        ("console", "user_id"),
+        [("ps3", "1"), ("ps3", "1cabafc9"), ("ps4", "1CABAFC9"), ("ps4", None)],
+    )
+    def test_rejects_an_invalid_user_profile(
+        self, client, access_token: str, console: str, user_id: str | None
+    ):
         response = client.post(
             "/api/devices/consoles",
             json={
-                "console": "ps3",
-                "name": "PS3",
+                "console": console,
+                "name": "Console",
                 "ip_address": "10.0.0.2",
-                "ps3_user": "1",
+                "user_id": user_id,
             },
             headers=auth(access_token),
         )
@@ -114,7 +141,7 @@ class TestUpdateConsole:
     def test_keeps_the_profile(self, client, access_token: str, ps3_device: Device):
         response = client.put(
             f"/api/devices/consoles/{ps3_device.id}",
-            json={"ps3_user": "00000002"},
+            json={"user_id": "00000002"},
             headers=auth(access_token),
         )
 
@@ -164,7 +191,7 @@ class TestGenericDeviceRoutes:
 
     @pytest.mark.parametrize(
         "change",
-        [{"ip_address": "127.0.0.1"}, {"sync_config": {"ps3_user": "00000002"}}],
+        [{"ip_address": "127.0.0.1"}, {"sync_config": {"user_id": "00000002"}}],
     )
     def test_cannot_retarget_a_console(
         self, client, access_token: str, ps3_device: Device, change: dict[str, object]
@@ -197,13 +224,13 @@ class TestGenericDeviceRoutes:
 
 class TestProbeConsole:
     def test_reports_the_console(self, client, access_token: str):
-        result = PS3ProbeResult(
+        result = ConsoleProbeResult(
             reachable=True,
             is_ftp=True,
-            users=[PS3UserProfile(id="00000001", name="FIL2K")],
+            users=[ConsoleUserProfile(id="00000001", name="FIL2K")],
         )
         with patch.object(
-            consoles_endpoints, "probe_ps3", AsyncMock(return_value=result)
+            consoles_endpoints, "probe_console_ftp", AsyncMock(return_value=result)
         ) as probe:
             response = client.post(
                 "/api/devices/consoles/probe",
@@ -217,7 +244,21 @@ class TestProbeConsole:
             "is_ftp": True,
             "users": [{"id": "00000001", "name": "FIL2K"}],
         }
-        probe.assert_awaited_once_with("192.168.1.115", 21)
+        probe.assert_awaited_once_with(PS3, "192.168.1.115", 21)
+
+    def test_probes_a_ps4_on_its_ftp_port(self, client, access_token: str):
+        result = ConsoleProbeResult(reachable=True, is_ftp=True, users=[])
+        with patch.object(
+            consoles_endpoints, "probe_console_ftp", AsyncMock(return_value=result)
+        ) as probe:
+            response = client.post(
+                "/api/devices/consoles/probe",
+                json={"console": "ps4", "ip_address": "192.168.1.177"},
+                headers=auth(access_token),
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        probe.assert_awaited_once_with(PS4, "192.168.1.177", 2121)
 
     def test_rejects_a_public_address(self, client, access_token: str):
         response = client.post(

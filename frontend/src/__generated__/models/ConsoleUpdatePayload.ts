@@ -6,7 +6,6 @@ export type ConsoleUpdatePayload = {
     name?: (string | null);
     ip_address?: (string | null);
     ftp_port?: (number | null);
-    ps3_user?: (string | null);
     poll_interval_minutes?: (number | null);
     keep_versions?: (number | null);
 };

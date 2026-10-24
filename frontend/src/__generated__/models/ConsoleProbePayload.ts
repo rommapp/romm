@@ -3,8 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type ConsoleProbePayload = {
-    console: string;
+    console: 'ps3' | 'ps4';
     ip_address: string;
-    ftp_port?: number;
+    ftp_port?: (number | null);
 };
 

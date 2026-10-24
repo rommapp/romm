@@ -1,5 +1,5 @@
 import pytest
-from tests.handler.sync.ps3.fakes import build_ps3_iso
+from tests.handler.sync.console.fakes import build_ps3_iso
 
 from utils.iso9660 import Iso9660, Iso9660Error
 

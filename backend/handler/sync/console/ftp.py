@@ -1,16 +1,16 @@
-"""FTP access to a PS3 running a homebrew FTP server, such as webMAN MOD's."""
+"""FTP access to a console running a homebrew FTP server, such as webMAN MOD's or GoldHEN's."""
 
 from __future__ import annotations
 
 import asyncio
 
-# The PS3 serves its files over plain FTP only, and only on the LAN.
+# Consoles serve their files over plain FTP only, and only on the LAN.
 import ftplib  # nosec B402
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from io import BytesIO
-from typing import Final, TypeVar
+from typing import IO, Final, TypeVar
 
 FTP_TIMEOUT_SECONDS = 15
 PROBE_TIMEOUT_SECONDS = 3
@@ -63,14 +63,14 @@ def _parse_size(facts: dict[str, str]) -> int:
         return 0
 
 
-class PS3Ftp:
-    """A blocking FTP session; `AsyncPS3Ftp` runs it off the event loop."""
+class ConsoleFtp:
+    """A blocking FTP session; `AsyncConsoleFtp` runs it off the event loop."""
 
     def __init__(self, ftp: ftplib.FTP) -> None:
         self._ftp = ftp
 
     @classmethod
-    def connect(cls, host: str, port: int) -> PS3Ftp:
+    def connect(cls, host: str, port: int) -> ConsoleFtp:
         ftp = ftplib.FTP(
             encoding=_WIRE_ENCODING, timeout=FTP_TIMEOUT_SECONDS
         )  # nosec B321
@@ -133,6 +133,30 @@ class PS3Ftp:
             raise
         return buffer.getvalue()
 
+    def download(
+        self, path: str, write: Callable[[bytes], object], max_bytes: int
+    ) -> int:
+        """Stream the file to `write` chunk by chunk, returning its size.
+
+        Raises:
+            FtpFileTooLarge: The file is larger than `max_bytes`.
+        """
+        written = 0
+
+        def _forward(chunk: bytes) -> None:
+            nonlocal written
+            written += len(chunk)
+            if written > max_bytes:
+                raise FtpFileTooLarge(path)
+            write(chunk)
+
+        try:
+            self._ftp.retrbinary(f"RETR {path}", _forward, blocksize=_CHUNK_BYTES)
+        except FtpFileTooLarge:
+            self._abort_transfer()
+            raise
+        return written
+
     def read_range(self, path: str, offset: int, length: int) -> bytes:
         """`length` bytes from `offset`, fewer when the file ends first."""
         conn = self._ftp.transfercmd(f"RETR {path}", rest=offset)
@@ -152,8 +176,8 @@ class PS3Ftp:
             pass
         return bytes(buffer)
 
-    def write(self, path: str, data: bytes) -> None:
-        self._ftp.storbinary(f"STOR {path}", BytesIO(data), blocksize=_CHUNK_BYTES)
+    def upload(self, path: str, source: IO[bytes]) -> None:
+        self._ftp.storbinary(f"STOR {path}", source, blocksize=_CHUNK_BYTES)
 
     def mkdir(self, path: str) -> None:
         self._ftp.mkd(path)
@@ -180,7 +204,7 @@ class PS3Ftp:
 class FtpFileReader:
     """Random access to one file on the server, for `utils.iso9660.Iso9660`."""
 
-    def __init__(self, ftp: PS3Ftp, path: str) -> None:
+    def __init__(self, ftp: ConsoleFtp, path: str) -> None:
         self._ftp = ftp
         self._path = path
 
@@ -188,22 +212,22 @@ class FtpFileReader:
         return self._ftp.read_range(self._path, offset, length)
 
 
-class AsyncPS3Ftp:
-    """`PS3Ftp` with each call in a worker thread, one call at a time."""
+class AsyncConsoleFtp:
+    """`ConsoleFtp` with each call in a worker thread, one call at a time."""
 
-    def __init__(self, ftp: PS3Ftp) -> None:
+    def __init__(self, ftp: ConsoleFtp) -> None:
         self._ftp = ftp
         self._lock = asyncio.Lock()
 
     @classmethod
-    async def connect(cls, host: str, port: int) -> AsyncPS3Ftp:
-        return cls(await asyncio.to_thread(PS3Ftp.connect, host, port))
+    async def connect(cls, host: str, port: int) -> AsyncConsoleFtp:
+        return cls(await asyncio.to_thread(ConsoleFtp.connect, host, port))
 
     async def _run(self, func: Callable[[], T]) -> T:
         async with self._lock:
             return await asyncio.to_thread(func)
 
-    async def run(self, func: Callable[[PS3Ftp], T]) -> T:
+    async def run(self, func: Callable[[ConsoleFtp], T]) -> T:
         """`func` given the blocking session, for work spanning several calls."""
         return await self._run(lambda: func(self._ftp))
 
@@ -219,8 +243,13 @@ class AsyncPS3Ftp:
     async def read(self, path: str, max_bytes: int) -> bytes:
         return await self._run(lambda: self._ftp.read(path, max_bytes))
 
-    async def write(self, path: str, data: bytes) -> None:
-        await self._run(lambda: self._ftp.write(path, data))
+    async def download(
+        self, path: str, write: Callable[[bytes], object], max_bytes: int
+    ) -> int:
+        return await self._run(lambda: self._ftp.download(path, write, max_bytes))
+
+    async def upload(self, path: str, source: IO[bytes]) -> None:
+        await self._run(lambda: self._ftp.upload(path, source))
 
     async def mkdir(self, path: str) -> None:
         await self._run(lambda: self._ftp.mkdir(path))

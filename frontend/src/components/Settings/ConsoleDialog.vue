@@ -31,13 +31,21 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 
-const consoles = computed<{ title: string; value: ConsoleKind }[]>(() => [
-  { title: t("settings.console-ps3"), value: "ps3" },
-]);
+const CONSOLE_TITLES: Record<ConsoleKind, string> = {
+  ps3: "settings.console-ps3",
+  ps4: "settings.console-ps4",
+};
+
+const consoles = computed<{ title: string; value: ConsoleKind }[]>(() =>
+  (Object.keys(CONSOLE_TITLES) as ConsoleKind[]).map((kind) => ({
+    title: t(CONSOLE_TITLES[kind]),
+    value: kind,
+  })),
+);
 
 // What a new console starts with; the server applies the same when omitted.
+const FTP_PORTS: Record<ConsoleKind, number> = { ps3: 21, ps4: 2121 };
 const DEFAULTS = {
-  ftp_port: 21,
   poll_interval_minutes: 15,
   keep_versions: 10,
 };
@@ -47,21 +55,31 @@ interface Draft {
   name: string;
   ip_address: string;
   ftp_port: string;
-  ps3_user: string | null;
+  user_id: string | null;
   poll_interval_minutes: string;
   keep_versions: string;
 }
 
+function kindOf(device: DeviceSchema | null): ConsoleKind {
+  const client = device?.client;
+  return client && client in CONSOLE_TITLES ? (client as ConsoleKind) : "ps3";
+}
+
 function draftOf(device: DeviceSchema | null): Draft {
-  const config = { ...DEFAULTS, ...(device?.sync_config ?? {}) };
+  const kind = kindOf(device);
+  const config = {
+    ...DEFAULTS,
+    ftp_port: FTP_PORTS[kind],
+    ...(device?.sync_config ?? {}),
+  };
   return {
-    console: "ps3",
-    name: device?.name ?? t("settings.console-ps3"),
+    console: kind,
+    name: device?.name ?? t(CONSOLE_TITLES[kind]),
     ip_address: device?.ip_address ?? "",
     ftp_port: String(config.ftp_port),
-    ps3_user:
-      typeof device?.sync_config?.ps3_user === "string"
-        ? device.sync_config.ps3_user
+    user_id:
+      typeof device?.sync_config?.user_id === "string"
+        ? device.sync_config.user_id
         : null,
     poll_interval_minutes: String(config.poll_interval_minutes),
     keep_versions: String(config.keep_versions),
@@ -89,7 +107,7 @@ function userTitle(user: ConsoleUserSchema): string {
 // Until a test lists the profiles, an edited console still shows its own.
 const users = computed(() => {
   const listed = probe.value?.is_ftp ? probe.value.users : [];
-  const current = draft.value.ps3_user;
+  const current = draft.value.user_id;
   const known =
     current && !listed.some((u) => u.id === current)
       ? [{ id: current, name: null }, ...listed]
@@ -136,8 +154,25 @@ const destination = computed(
 watch(destination, () => {
   probe.value = null;
   probeError.value = null;
-  if (!props.device) draft.value.ps3_user = null;
+  if (!props.device) draft.value.user_id = null;
 });
+
+// A new console of another kind takes that kind's defaults, unless edited.
+watch(
+  () => draft.value.console,
+  (kind, previous) => {
+    const d = draft.value;
+    if (props.device || kind === previous) return;
+    if (d.ftp_port === String(FTP_PORTS[previous])) {
+      d.ftp_port = String(FTP_PORTS[kind]);
+    }
+    if (d.name === t(CONSOLE_TITLES[previous]))
+      d.name = t(CONSOLE_TITLES[kind]);
+    probe.value = null;
+    probeError.value = null;
+    d.user_id = null;
+  },
+);
 
 async function testConnection(): Promise<void> {
   if (!canProbe.value) return;
@@ -149,7 +184,7 @@ async function testConnection(): Promise<void> {
     const { data } = await deviceApi.probeConsole({
       console: draft.value.console,
       ip_address: draft.value.ip_address.trim(),
-      ftp_port: Number(draft.value.ftp_port) || DEFAULTS.ftp_port,
+      ftp_port: Number(draft.value.ftp_port) || FTP_PORTS[draft.value.console],
     });
     if (tested !== destination.value) return;
     probe.value = data;
@@ -157,9 +192,9 @@ async function testConnection(): Promise<void> {
     if (
       !props.device &&
       first &&
-      !data.users.some((u) => u.id === draft.value.ps3_user)
+      !data.users.some((u) => u.id === draft.value.user_id)
     ) {
-      draft.value.ps3_user = first.id;
+      draft.value.user_id = first.id;
     }
   } catch (error) {
     if (tested === destination.value) probeError.value = errorMessage(error);
@@ -193,13 +228,13 @@ function close(): void {
 
 function submit(): void {
   const d = draft.value;
-  if (!canSubmit.value || !d.ps3_user) return;
+  if (!canSubmit.value || !d.user_id) return;
   emit("submit", {
     console: d.console,
     name: d.name.trim(),
     ip_address: d.ip_address.trim(),
     ftp_port: Number(d.ftp_port),
-    ps3_user: d.ps3_user,
+    user_id: d.user_id,
     poll_interval_minutes: Number(d.poll_interval_minutes),
     keep_versions: Number(d.keep_versions),
   });
@@ -301,7 +336,7 @@ function submit(): void {
         </div>
 
         <RSelect
-          v-model="draft.ps3_user"
+          v-model="draft.user_id"
           :items="users"
           :label="t('settings.console-user')"
           :hint="userHint"

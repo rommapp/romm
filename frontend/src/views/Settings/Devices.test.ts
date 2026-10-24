@@ -359,7 +359,7 @@ describe("Devices", () => {
         console: "ps3",
         name: "PS3",
         ip_address: "192.168.1.20",
-        ps3_user: "00000001",
+        user_id: "00000001",
       });
       await flushPromises();
 

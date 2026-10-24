@@ -22,7 +22,7 @@ from handler.database import (
 from handler.device_install import device_install_handler
 from handler.filesystem import get_fs_sync_handler
 from handler.socket_handler import close_client_token_sockets
-from handler.sync.ps3.console import is_console_client, is_ps3
+from handler.sync.console.profiles import is_console, is_console_client
 from logger.logger import log
 from models.device import Device, SyncMode
 from utils.router import APIRouter
@@ -213,7 +213,7 @@ def update_device(
         )
 
     update_data = payload.model_dump(exclude_unset=True)
-    if (is_ps3(device) and _CONSOLE_FIELDS & update_data.keys()) or (
+    if (is_console(device) and _CONSOLE_FIELDS & update_data.keys()) or (
         is_console_client(update_data.get("client"))
     ):
         raise _console_route_required()

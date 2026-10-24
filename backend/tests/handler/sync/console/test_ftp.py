@@ -5,10 +5,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from handler.sync.ps3.ftp import FtpEntry, FtpFileTooLarge, PS3Ftp, probe
+from handler.sync.console.ftp import ConsoleFtp, FtpEntry, FtpFileTooLarge, probe
 
 
-class TestPS3Ftp:
+class TestConsoleFtp:
     def test_lists_entries_from_mlsd(self):
         ftp = MagicMock()
         ftp.mlsd.return_value = iter(
@@ -23,7 +23,7 @@ class TestPS3Ftp:
             ]
         )
 
-        entries = PS3Ftp(ftp).list("/dev_hdd0")
+        entries = ConsoleFtp(ftp).list("/dev_hdd0")
 
         assert entries == [
             FtpEntry(
@@ -42,7 +42,30 @@ class TestPS3Ftp:
         )
 
         with pytest.raises(FtpFileTooLarge):
-            PS3Ftp(ftp).read("/big", max_bytes=10)
+            ConsoleFtp(ftp).read("/big", max_bytes=10)
+        ftp.abort.assert_called_once()
+
+    def test_download_streams_each_chunk(self):
+        ftp = MagicMock()
+
+        def send(_cmd, callback, blocksize):
+            callback(b"ab")
+            callback(b"cd")
+
+        ftp.retrbinary.side_effect = send
+        chunks: list[bytes] = []
+
+        assert ConsoleFtp(ftp).download("/save", chunks.append, max_bytes=4) == 4
+        assert chunks == [b"ab", b"cd"]
+
+    def test_download_stops_past_the_limit(self):
+        ftp = MagicMock()
+        ftp.retrbinary.side_effect = lambda _cmd, callback, blocksize: callback(
+            b"x" * 11
+        )
+
+        with pytest.raises(FtpFileTooLarge):
+            ConsoleFtp(ftp).download("/big", lambda _: None, max_bytes=10)
         ftp.abort.assert_called_once()
 
     def test_display_name_decodes_utf8_sent_as_raw_bytes(self):

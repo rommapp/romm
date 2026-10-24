@@ -3,15 +3,15 @@
 /* tslint:disable */
 /* eslint-disable */
 export type ConsoleCreatePayload = {
-    ftp_port?: number;
-    /**
-     * The PS3 user profile whose saves are synced.
-     */
-    ps3_user?: string;
-    poll_interval_minutes?: number;
-    keep_versions?: number;
-    console: string;
+    console: 'ps3' | 'ps4';
     name: string;
     ip_address: string;
+    ftp_port?: (number | null);
+    /**
+     * The console user profile whose saves are synced.
+     */
+    user_id: string;
+    poll_interval_minutes?: (number | null);
+    keep_versions?: (number | null);
 };
 
