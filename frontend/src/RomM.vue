@@ -51,9 +51,8 @@ const prefersDark = computed(
     (themeSetting.value === "auto" && systemPrefersDark.value),
 );
 
-// Apply the token scope to <html>. Overlays (RDialog, RMenu, RTooltip) teleport
-// into <body>, outside the app root, so the classes live on <html> for
-// `var(--r-color-...)` to resolve inside them.
+// Overlays (RDialog, RMenu, RTooltip) teleport outside the app root, so the
+// theme classes live on <html> for `var(--r-color-...)` to resolve there.
 watch(
   prefersDark,
   (dark) => {

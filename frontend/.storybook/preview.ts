@@ -24,9 +24,8 @@ import {
 // Mirror AppLayout/AuthLayout so html[data-bp] CSS matches useBreakpoint() in the iframe.
 installBreakpointAttribute();
 
-// Each story runs inside a Vue app with Pinia + i18n registered. The visible
-// theme comes from the `.r-dark` / `.r-light` class toggled on <html> by the
-// theme switcher decorator below.
+// Each story runs in a Vue app with Pinia + i18n. The `.r-dark` / `.r-light`
+// class on <html> (set by the decorator below) picks the theme.
 //
 // permissionsStore is hydrated with admin grants so any primitive that
 // consumes `useCan(...)` renders its enabled state. Stories that need to

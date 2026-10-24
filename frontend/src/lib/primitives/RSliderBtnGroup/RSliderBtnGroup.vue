@@ -436,11 +436,8 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
   font-size: 12px !important;
 }
 
-/* Tab sizing + colors. Min-height is set explicitly (and !important)
-   so that RBtn-rendered items (no `to`) match the height of router-
-   link items. Otherwise RBtn density="compact" + size=
-   "x-small" computes a shorter button than the router-link, leading
-   to a thin/short hover band on tabs that aren't router-links. */
+/* Tab sizing + colors. Min-height is explicit (and !important) so RBtn items
+   (no `to`) match the height of router-link items. */
 .r-slider-btn-group--tab .r-slider-btn-group__btn {
   padding: 7px 22px !important;
   min-height: 34px !important;
