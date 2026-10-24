@@ -976,10 +976,17 @@ function onActivatorBlur(evt: FocusEvent) {
 const effectivePlaceholder = computed(
   () => props.placeholder ?? (!props.prefixLabel ? props.label : undefined),
 );
-// A combobox takes its name from a label, never from its contents.
-const effectiveAriaLabel = computed(() =>
-  !props.prefixLabel ? (props.label ?? props.placeholder) : undefined,
+// A combobox takes its name from a label, never from its contents. An
+// `aria-label` attribute names the activator, not the wrapper it lands on.
+const effectiveAriaLabel = computed(
+  () =>
+    (attrs["aria-label"] as string | undefined) ??
+    (!props.prefixLabel ? (props.label ?? props.placeholder) : undefined),
 );
+const rootAttrs = computed(() => {
+  const { "aria-label": _ariaLabel, ...rest } = attrs;
+  return rest;
+});
 
 const inlineLabelOn = computed(() => props.prefixLabel === "inline");
 const stackedLabelOn = computed(() => props.prefixLabel === "stacked");
@@ -1001,7 +1008,7 @@ const describedBy = computed(() => {
 <template>
   <component
     :is="prefixLabel ? 'label' : 'div'"
-    v-bind="attrs"
+    v-bind="rootAttrs"
     class="r-select"
     :class="[
       `r-select--variant-${variant}`,

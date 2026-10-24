@@ -523,3 +523,17 @@ describe("RSelect combobox semantics", () => {
     wrapper.unmount();
   });
 });
+
+describe("RSelect aria-label attribute", () => {
+  it("names the activator and keeps it off the wrapper", () => {
+    const wrapper = mount(RSelect, {
+      props: { items: ["a"], modelValue: "a" },
+      attrs: { "aria-label": "Filter by user" },
+    });
+
+    expect(wrapper.get(".r-select__field").attributes("aria-label")).toBe(
+      "Filter by user",
+    );
+    expect(wrapper.attributes("aria-label")).toBeUndefined();
+  });
+});

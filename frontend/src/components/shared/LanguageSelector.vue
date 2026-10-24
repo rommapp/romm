@@ -69,6 +69,7 @@ const currentValue = computed({
     v-else
     v-model="currentValue"
     :items="items"
+    :aria-label="t('settings.language')"
     density="compact"
     variant="outlined"
     hide-details
