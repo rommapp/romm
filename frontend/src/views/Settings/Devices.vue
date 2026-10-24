@@ -2,11 +2,13 @@
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import type { DeviceSchema } from "@/__generated__";
+import type { ConsoleCreatePayload, DeviceSchema } from "@/__generated__";
+import ConsoleDialog from "@/components/Settings/ConsoleDialog.vue";
 import RenameDeviceDialog from "@/components/Settings/RenameDeviceDialog.vue";
 import { useConfirm } from "@/composables/useConfirm";
 import { useFetchState } from "@/composables/useFetchState";
 import { useSnackbar } from "@/composables/useSnackbar";
+import { useSocketEvent } from "@/composables/useSocketEvent";
 import { RBtn, RChip, RSwitch, RTable, type RTableColumn } from "@/lib";
 import deviceApi from "@/services/api/device";
 import storeAuth from "@/stores/auth";
@@ -20,11 +22,13 @@ const confirm = useConfirm();
 const { user, scopes } = storeToRefs(storeAuth());
 const canWrite = computed(() => scopes.value.includes("devices.write"));
 
-const { state: devices, isLoading: loading } = useFetchState(
-  () => deviceApi.fetchDevices().then(({ data }) => data),
-  [],
-  { onError: (error) => console.error(error) },
-);
+const {
+  state: devices,
+  isLoading: loading,
+  execute: refetch,
+} = useFetchState(() => deviceApi.fetchDevices().then(({ data }) => data), [], {
+  onError: (error) => console.error(error),
+});
 
 const thisBrowser = computed(() =>
   user.value ? cachedBrowserDeviceId(user.value.id) : null,
@@ -59,7 +63,7 @@ const columns = computed<RTableColumn[]>(() => [
   {
     key: "actions",
     label: "",
-    width: "96px",
+    width: "136px",
     align: "end",
     skeletonWidth: 0,
   },
@@ -74,7 +78,24 @@ function displayName(device: DeviceSchema): string {
   );
 }
 
+// Consoles synced over FTP, by the client each kind registers as.
+const CONSOLE_CLIENTS = new Set(["ps3"]);
+
+function isConsole(device: DeviceSchema): boolean {
+  return CONSOLE_CLIENTS.has(device.client ?? "");
+}
+
 function detailLine(device: DeviceSchema): string {
+  if (isConsole(device)) {
+    const minutes = device.sync_config?.poll_interval_minutes;
+    return [
+      device.platform,
+      device.ip_address,
+      minutes ? t("settings.console-every-minutes", { minutes }) : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
   return [device.platform, device.client, device.client_version]
     .filter(Boolean)
     .join(" · ");
@@ -125,6 +146,81 @@ async function rename(name: string) {
   }
 }
 
+const consoleEditing = ref<DeviceSchema | null>(null);
+const consoleOpen = ref(false);
+const consoleBusy = ref(false);
+
+function openConsole(device: DeviceSchema | null) {
+  consoleEditing.value = device;
+  consoleOpen.value = true;
+}
+
+async function saveConsole(payload: ConsoleCreatePayload) {
+  const editing = consoleEditing.value;
+  consoleBusy.value = true;
+  try {
+    if (editing) {
+      const { console: _kind, ps3_user: _profile, ...changes } = payload;
+      const { data } = await deviceApi.updateConsole(editing.id, changes);
+      replace(data);
+    } else {
+      const { data } = await deviceApi.addConsole(payload);
+      devices.value = [...devices.value, data];
+      snackbar.success(t("settings.console-added"), { icon: "mdi-check-bold" });
+    }
+    consoleOpen.value = false;
+  } catch (error) {
+    snackbar.error(
+      t("settings.console-save-failed", { detail: errorMessage(error) }),
+    );
+  } finally {
+    consoleBusy.value = false;
+  }
+}
+
+const syncing = ref(new Set<string>());
+
+async function syncNow(device: DeviceSchema) {
+  syncing.value = new Set(syncing.value).add(device.id);
+  try {
+    await deviceApi.syncConsole(device.id);
+    snackbar.success(t("settings.console-sync-queued"), { icon: "mdi-sync" });
+  } catch (error) {
+    snackbar.error(
+      t("settings.console-sync-failed", { detail: errorMessage(error) }),
+    );
+  } finally {
+    const next = new Set(syncing.value);
+    next.delete(device.id);
+    syncing.value = next;
+  }
+}
+
+/** The backend's `sync:completed` / `sync:error` payloads, which have no generated type. */
+interface SyncFinishedPayload {
+  device_id: string;
+  error?: string;
+}
+
+function isListedConsole(deviceId: string): DeviceSchema | undefined {
+  return devices.value.find((d) => d.id === deviceId && isConsole(d));
+}
+
+// A console sync runs in a worker, so its outcome only arrives over the socket.
+useSocketEvent<SyncFinishedPayload>("sync:completed", (payload) => {
+  if (isListedConsole(payload.device_id)) void refetch();
+});
+useSocketEvent<SyncFinishedPayload>("sync:error", (payload) => {
+  const device = isListedConsole(payload.device_id);
+  if (!device) return;
+  snackbar.error(
+    t("settings.console-sync-error", {
+      name: displayName(device),
+      detail: payload.error ?? "",
+    }),
+  );
+});
+
 async function remove(device: DeviceSchema) {
   const ok = await confirm({
     title: t("common.confirm-deletion"),
@@ -147,7 +243,18 @@ async function remove(device: DeviceSchema) {
 
 <template>
   <div class="r-section-stack">
-    <p class="r-devices__intro">{{ t("settings.devices-description") }}</p>
+    <div class="r-devices__header">
+      <p class="r-devices__intro">{{ t("settings.devices-description") }}</p>
+      <RBtn
+        v-if="canWrite"
+        variant="translucent"
+        size="small"
+        prepend-icon="mdi-gamepad-variant-outline"
+        @click="openConsole(null)"
+      >
+        {{ t("settings.console-add") }}
+      </RBtn>
+    </div>
 
     <RTable
       :columns="columns"
@@ -196,7 +303,28 @@ async function remove(device: DeviceSchema) {
       </template>
       <template #cell.actions="{ row }">
         <div v-if="canWrite" class="r-devices__actions">
+          <template v-if="isConsole(row as DeviceSchema)">
+            <RBtn
+              variant="text"
+              size="small"
+              icon="mdi-sync"
+              :loading="syncing.has((row as DeviceSchema).id)"
+              :disabled="!(row as DeviceSchema).sync_enabled"
+              :aria-label="t('settings.console-sync-now')"
+              :title="t('settings.console-sync-now')"
+              @click="syncNow(row as DeviceSchema)"
+            />
+            <RBtn
+              variant="text"
+              size="small"
+              icon="mdi-cog-outline"
+              :aria-label="t('settings.console-edit')"
+              :title="t('settings.console-edit')"
+              @click="openConsole(row as DeviceSchema)"
+            />
+          </template>
           <RBtn
+            v-else
             variant="text"
             size="small"
             icon="mdi-pencil-outline"
@@ -224,10 +352,25 @@ async function remove(device: DeviceSchema) {
       :busy="renameBusy"
       @submit="rename"
     />
+
+    <ConsoleDialog
+      v-model="consoleOpen"
+      :device="consoleEditing"
+      :busy="consoleBusy"
+      @submit="saveConsole"
+    />
   </div>
 </template>
 
 <style scoped>
+.r-devices__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r-space-3);
+  flex-wrap: wrap;
+}
+
 .r-devices__intro {
   margin: 0;
   color: var(--r-color-fg-muted);

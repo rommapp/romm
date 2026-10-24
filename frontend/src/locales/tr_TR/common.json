@@ -78,6 +78,7 @@
   "hide-password": "Şifreyi gizle",
   "home": "Ana sayfa",
   "in-library": "Kütüphanede",
+  "integer-range": "{min} ile {max} arasında bir tam sayı girin",
   "invalid-email": "Geçersiz e-posta",
   "invalid-json": "Geçersiz JSON biçimi",
   "invalid-name": "Geçersiz isim",

@@ -78,6 +78,7 @@
   "hide-password": "Ocultar senha",
   "home": "Início",
   "in-library": "Na biblioteca",
+  "integer-range": "Digite um número inteiro de {min} a {max}",
   "invalid-email": "Email inválido",
   "invalid-json": "Formato JSON inválido",
   "invalid-name": "Nome inválido",

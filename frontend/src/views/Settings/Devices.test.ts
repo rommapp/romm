@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
   snackbarError: vi.fn(),
   snackbarSuccess: vi.fn(),
+  socketHandlers: new Map<string, (payload: unknown) => void>(),
 }));
 
 vi.mock("vue-i18n");
@@ -18,6 +19,15 @@ vi.mock("@/services/api/device", () => ({
     fetchDevices: vi.fn(),
     updateDevice: vi.fn(),
     deleteDevice: vi.fn(),
+    addConsole: vi.fn(),
+    updateConsole: vi.fn(),
+    syncConsole: vi.fn(),
+  },
+}));
+vi.mock("@/composables/useSocketEvent", () => ({
+  useSocketEvent: (event: string, handler: (payload: unknown) => void) => {
+    mocks.socketHandlers.set(event, handler);
+    return { off: vi.fn() };
   },
 }));
 vi.mock("@/composables/useConfirm", () => ({
@@ -95,6 +105,28 @@ const RenameDeviceDialog = {
   template: `<div class="rename" :data-open="modelValue" :data-name="name" />`,
 };
 
+const ConsoleDialog = {
+  name: "ConsoleDialog",
+  props: {
+    modelValue: { type: Boolean, default: false },
+    device: { type: Object, default: null },
+  },
+  emits: ["update:modelValue", "submit"],
+  template: `<div class="ps3-dialog" :data-open="modelValue" />`,
+};
+
+const ps3 = (overrides: Partial<DeviceSchema> = {}) =>
+  device({
+    id: "ps3",
+    name: "PS3",
+    platform: "PS3",
+    client: "ps3",
+    ip_address: "192.168.1.115",
+    sync_mode: "push_pull",
+    sync_config: { poll_interval_minutes: 15 },
+    ...overrides,
+  });
+
 function signIn(scopes: string[]) {
   storeAuth().setCurrentUser(userFixture({ id: 1, oauth_scopes: scopes }));
 }
@@ -108,6 +140,7 @@ function mountDevices() {
         RBtn,
         RChip: { template: "<span class='chip'><slot /></span>" },
         RenameDeviceDialog,
+        ConsoleDialog,
       },
     },
   });
@@ -119,6 +152,7 @@ function row(wrapper: ReturnType<typeof mountDevices>, id: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.socketHandlers.clear();
   localStorage.clear();
   signIn(["devices.read", "devices.write"]);
   vi.mocked(deviceApi.fetchDevices).mockResolvedValue({
@@ -250,5 +284,116 @@ describe("Devices", () => {
       row(wrapper, "dev-a").get(".switch").attributes("disabled"),
     ).toBeDefined();
     expect(row(wrapper, "dev-a").find("[data-icon]").exists()).toBe(false);
+  });
+
+  describe("consoles", () => {
+    beforeEach(() => {
+      vi.mocked(deviceApi.fetchDevices).mockResolvedValue({
+        data: [ps3()],
+      } as never);
+    });
+
+    it("shows the address and check interval", async () => {
+      const wrapper = mountDevices();
+      await flushPromises();
+
+      expect(row(wrapper, "ps3").text()).toContain(
+        "PS3 · 192.168.1.115 · settings.console-every-minutes",
+      );
+      expect(
+        row(wrapper, "ps3").find("[data-icon='mdi-pencil-outline']").exists(),
+      ).toBe(false);
+    });
+
+    it("syncs a console on request", async () => {
+      vi.mocked(deviceApi.syncConsole).mockResolvedValue({} as never);
+      const wrapper = mountDevices();
+      await flushPromises();
+
+      await row(wrapper, "ps3").get("[data-icon='mdi-sync']").trigger("click");
+      await flushPromises();
+
+      expect(deviceApi.syncConsole).toHaveBeenCalledWith("ps3");
+      expect(mocks.snackbarSuccess).toHaveBeenCalled();
+    });
+
+    it("adds a console from the dialog", async () => {
+      vi.mocked(deviceApi.fetchDevices).mockResolvedValue({
+        data: [],
+      } as never);
+      vi.mocked(deviceApi.addConsole).mockResolvedValue({
+        data: ps3(),
+      } as never);
+      const wrapper = mountDevices();
+      await flushPromises();
+
+      await wrapper.get("button").trigger("click");
+      const dialog = wrapper.findComponent(ConsoleDialog);
+      expect(dialog.props()).toMatchObject({ modelValue: true, device: null });
+      const payload = {
+        console: "ps3",
+        name: "PS3",
+        ip_address: "192.168.1.115",
+      };
+      dialog.vm.$emit("submit", payload);
+      await flushPromises();
+
+      expect(deviceApi.addConsole).toHaveBeenCalledWith(payload);
+      expect(wrapper.find(".row[data-id='ps3']").exists()).toBe(true);
+      expect(dialog.props("modelValue")).toBe(false);
+    });
+
+    it("edits a console's settings", async () => {
+      vi.mocked(deviceApi.updateConsole).mockResolvedValue({
+        data: ps3({ ip_address: "192.168.1.20" }),
+      } as never);
+      const wrapper = mountDevices();
+      await flushPromises();
+
+      await row(wrapper, "ps3")
+        .get("[data-icon='mdi-cog-outline']")
+        .trigger("click");
+      const dialog = wrapper.findComponent(ConsoleDialog);
+      expect(dialog.props("device")).toMatchObject({ id: "ps3" });
+      dialog.vm.$emit("submit", {
+        console: "ps3",
+        name: "PS3",
+        ip_address: "192.168.1.20",
+        ps3_user: "00000001",
+      });
+      await flushPromises();
+
+      expect(deviceApi.updateConsole).toHaveBeenCalledWith("ps3", {
+        name: "PS3",
+        ip_address: "192.168.1.20",
+      });
+      expect(row(wrapper, "ps3").text()).toContain("192.168.1.20");
+    });
+
+    it("refreshes when a console sync finishes and reports a failure", async () => {
+      const wrapper = mountDevices();
+      await flushPromises();
+      expect(deviceApi.fetchDevices).toHaveBeenCalledTimes(1);
+
+      mocks.socketHandlers.get("sync:completed")?.({ device_id: "ps3" });
+      mocks.socketHandlers.get("sync:completed")?.({ device_id: "dev-a" });
+      mocks.socketHandlers.get("sync:error")?.({
+        device_id: "ps3",
+        error: "Could not connect",
+      });
+      await flushPromises();
+
+      expect(deviceApi.fetchDevices).toHaveBeenCalledTimes(2);
+      expect(mocks.snackbarError).toHaveBeenCalledOnce();
+      wrapper.unmount();
+    });
+
+    it("hides adding a console without devices.write", async () => {
+      signIn(["devices.read"]);
+      const wrapper = mountDevices();
+      await flushPromises();
+
+      expect(wrapper.text()).not.toContain("settings.console-add");
+    });
   });
 });

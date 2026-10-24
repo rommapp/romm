@@ -1077,6 +1077,10 @@ World`), so a name shared across platforms resolves to the lowest visible ROM id
 | POST   | `/{id}/installs/claim`    | DEVICES_WRITE, ROMS_READ | Device-bound token takes every pending one, returns all taken |
 | PUT    | `/{id}/installs/{req_id}` | DEVICES_WRITE            | Device-bound token reports a taken outcome                    |
 | DELETE | `/{id}/installs/{req_id}` | DEVICES_WRITE            | Cancel a pending or taken request                             |
+| POST   | `/consoles`               | DEVICES_WRITE            | Set up a console (`console: "ps3"`) to sync saves with by FTP |
+| PUT    | `/consoles/{id}`          | DEVICES_WRITE            | Change a console's address or sync settings                   |
+| POST   | `/consoles/probe`         | DEVICES_WRITE            | Check a console's FTP server answers; list its user profiles  |
+| POST   | `/consoles/{id}/sync`     | DEVICES_WRITE            | Sync a console now, whatever its interval                     |
 
 Register and update take `capabilities`, boolean flags such as `{"remote_install": true}`, stored on `devices.capabilities`. A register or update that omits the field leaves the stored flags as they are.
 
@@ -1452,6 +1456,8 @@ Tracks per-user playtime events ingested from clients (web player, console mode,
 
 Coordinates save/state synchronization between devices using three sync modes (`API`, `FILE_TRANSFER`, `PUSH_PULL`). `SyncSession` tracks the lifecycle of a push/pull operation (including optional SSH-based file transfer; see `SYNC_SSH_*` env vars). Endpoints live in `endpoints/sync/__init__.py`; state is stored in the `sync_sessions` table.
 
+**PS3 consoles** (`handler/sync/ps3/`) are `PUSH_PULL` devices with `client="ps3"`, reached over the FTP server webMAN MOD (or multiMAN) runs, at `Device.ip_address` with `PS3SyncConfig` in `sync_config`. `poll_ps3_consoles` runs every minute, and for each console whose interval has passed and whose FTP port answers, queues `run_push_pull_sync` for it, which hands the console to `sync_ps3_device`. Each folder of `savedata/` is a slot, named after the folder, of the PS3 ROM whose `title_id` its name starts with (or whose name its `PARAM.SFO` title matches), and each version is stored as a zip of the folder. A folder is downloaded only when its listing changed since the last sync. A newer server version is pushed only if this console filed it, since `PARAM.PFD` is signed per console, and a slot the console lacks only for games it holds (ISOs, game folders and installs under `/dev_hdd0` and `/dev_usb00*`). Pushes write beside the folder and swap it in by rename.
+
 ### 8.8 Socket Handler (`handler/socket_handler.py`)
 
 Manages two Socket.IO servers:
@@ -1734,6 +1740,7 @@ Toggled via environment variables:
 | `cleanup_sync_sessions`           | `ENABLE_SCHEDULED_CLEANUP_SYNC_SESSIONS` (default on) | `23 * * * *`       | Fail abandoned syncs           |
 | `reap_streaming_sessions`         | `streaming.enabled` in config, read at startup        | `* * * * *`        | Stop abandoned streams         |
 | `cleanup_audit_log`               | `AUDIT_LOG_RETENTION_DAYS` above 0 (default 90)       | `30 4 * * *`       | Prune old audit events         |
+| `poll_ps3_consoles`               | `ENABLE_SYNC_PS3` (default on)                        | `* * * * *`        | Sync PS3s that are due         |
 
 ### Manual Tasks
 
@@ -1993,6 +2000,7 @@ Falls back to `FakeRedis` in test mode.
 | `SYNC_FOLDER_SCAN_DELAY`        |         | Debounce for sync folder scans          |
 | `ENABLE_SYNC_PUSH_PULL`         | `false` | Enable scheduled push/pull sync         |
 | `SYNC_PUSH_PULL_CRON`           |         | Cron schedule for push/pull             |
+| `ENABLE_SYNC_PS3`               | `true`  | Poll PS3 consoles set up in Settings    |
 | `SYNC_SSH_KEYS_PATH`            |         | SSH keys path                           |
 | `SYNC_SSH_KNOWN_HOSTS_PATH`     |         | SSH known hosts path                    |
 | `SYNC_RETROARCH_PSP_SERIAL_MAP` | `{}`    | JSON map of PSP serial to ROM file name |

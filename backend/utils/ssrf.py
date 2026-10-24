@@ -79,6 +79,13 @@ def is_forbidden_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     )
 
 
+def is_lan_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Whether the IP is on a local network, as a console the server syncs with is."""
+    return (ip.is_private or ip.is_link_local) and not (
+        ip.is_loopback or ip.is_unspecified or ip.is_multicast
+    )
+
+
 def parse_ip_literal(
     host: str,
 ) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:

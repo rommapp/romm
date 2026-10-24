@@ -23,6 +23,7 @@ from typing import BinaryIO
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.iso9660 import Iso9660
 
 # Container extensions RAHasher can't read but which we can hash natively. The
 # real container is still detected by magic; the extension only gates whether we
@@ -36,9 +37,6 @@ _EBOOT_BIN_PATH = "PSP_GAME/SYSDIR/EBOOT.BIN"
 # rcheevos caps each hashed file at MAX_BUFFER_SIZE (64 MiB). We mirror that so
 # our hash matches RA's database byte-for-byte even for oversized EBOOT.BIN.
 _MAX_HASH_BYTES = 64 * 1024 * 1024
-
-_ISO_SECTOR_SIZE = 2048
-_PVD_SECTOR = 16  # ISO9660 primary volume descriptor lives at sector 16
 
 # Top bit of a CISO/ZISO index entry marks an uncompressed (plain) block.
 _CISO_PLAIN_FLAG = 0x80000000
@@ -242,70 +240,6 @@ class _DaxDiscImage(_BlockDiscImage):
         return _inflate(raw)
 
 
-class _Iso9660:
-    """Minimal ISO9660 reader: locates a file by path from the root directory.
-
-    Only what's needed to find ``PSP_GAME/PARAM.SFO`` and
-    ``PSP_GAME/SYSDIR/EBOOT.BIN``: it follows directory records from the primary
-    volume descriptor's root entry and ignores path tables, Joliet and UDF.
-    """
-
-    def __init__(self, image: _BlockDiscImage) -> None:
-        self._image = image
-        pvd = image.read_at(_PVD_SECTOR * _ISO_SECTOR_SIZE, _ISO_SECTOR_SIZE)
-        if len(pvd) < _ISO_SECTOR_SIZE or pvd[0] != 1 or pvd[1:6] != b"CD001":
-            raise PspHashError("not a valid ISO9660 image")
-
-        root_record = pvd[156:190]
-        self._root_lba = struct.unpack_from("<I", root_record, 2)[0]
-        self._root_size = struct.unpack_from("<I", root_record, 10)[0]
-
-    def find_file(self, path: str) -> tuple[int, int] | None:
-        """Return ``(lba, size)`` for a file path, or ``None`` if not found."""
-        components = [c for c in path.replace("\\", "/").split("/") if c]
-        lba, size = self._root_lba, self._root_size
-        for depth, component in enumerate(components):
-            want_dir = depth < len(components) - 1
-            located = self._find_in_dir(lba, size, component, want_dir)
-            if located is None:
-                return None
-            lba, size = located
-        return lba, size
-
-    def _find_in_dir(
-        self, dir_lba: int, dir_size: int, name: str, want_dir: bool
-    ) -> tuple[int, int] | None:
-        target = name.upper()
-        data = self._image.read_at(dir_lba * _ISO_SECTOR_SIZE, dir_size)
-        # Directory records never cross a sector boundary; a zero length byte
-        # means "skip to the next sector".
-        for sector_start in range(0, len(data), _ISO_SECTOR_SIZE):
-            sector = data[sector_start : sector_start + _ISO_SECTOR_SIZE]
-            pos = 0
-            while pos < len(sector):
-                record_len = sector[pos]
-                if record_len == 0:
-                    break
-                record = sector[pos : pos + record_len]
-                pos += record_len
-                if len(record) < 33:
-                    break
-
-                name_len = record[32]
-                identifier = record[33 : 33 + name_len]
-                # 0x00 / 0x01 are the "." and ".." self/parent entries.
-                if name_len == 1 and identifier in (b"\x00", b"\x01"):
-                    continue
-
-                is_dir = bool(record[25] & 0x02)
-                entry_name = identifier.split(b";", 1)[0].decode("ascii", "ignore")
-                if entry_name.upper() == target and is_dir == want_dir:
-                    lba = struct.unpack_from("<I", record, 2)[0]
-                    size = struct.unpack_from("<I", record, 10)[0]
-                    return lba, size
-        return None
-
-
 def _open_disc_image(file_path: str) -> _BlockDiscImage:
     """Open a PSP compressed-ISO container, dispatching on its magic bytes."""
     fh = open(file_path, "rb")  # noqa: SIM115 - ownership passes to the image
@@ -320,14 +254,6 @@ def _open_disc_image(file_path: str) -> _BlockDiscImage:
     except BaseException:
         fh.close()
         raise
-
-
-def _read_iso_file(iso: _Iso9660, image: _BlockDiscImage, path: str) -> bytes | None:
-    located = iso.find_file(path)
-    if located is None:
-        return None
-    lba, size = located
-    return image.read_at(lba * _ISO_SECTOR_SIZE, min(size, _MAX_HASH_BYTES))
 
 
 def calculate_psp_ra_hash(file_path: str) -> str:
@@ -347,9 +273,9 @@ def calculate_psp_ra_hash(file_path: str) -> str:
         return ""
 
     try:
-        iso = _Iso9660(image)
-        param_sfo = _read_iso_file(iso, image, _PARAM_SFO_PATH)
-        eboot_bin = _read_iso_file(iso, image, _EBOOT_BIN_PATH)
+        iso = Iso9660(image)
+        param_sfo = iso.read_file(_PARAM_SFO_PATH, _MAX_HASH_BYTES)
+        eboot_bin = iso.read_file(_EBOOT_BIN_PATH, _MAX_HASH_BYTES)
     except (
         OSError,
         PspHashError,

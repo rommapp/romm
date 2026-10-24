@@ -78,6 +78,7 @@
   "hide-password": "비밀번호 숨기기",
   "home": "홈",
   "in-library": "라이브러리에 있음",
+  "integer-range": "{min}에서 {max} 사이의 정수를 입력하세요",
   "invalid-email": "유효하지 않은 이메일",
   "invalid-json": "잘못된 JSON 형식",
   "invalid-name": "유효하지 않은 이름",

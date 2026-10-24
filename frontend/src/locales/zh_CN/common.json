@@ -78,6 +78,7 @@
   "hide-password": "隐藏密码",
   "home": "首页",
   "in-library": "在游戏库中",
+  "integer-range": "请输入 {min} 到 {max} 之间的整数",
   "invalid-email": "无效的电子邮件",
   "invalid-json": "JSON 格式无效",
   "invalid-name": "无效的名称",
