@@ -192,6 +192,36 @@ def test_with_files_query_count_does_not_scale_with_file_count(
     assert len(track_meta_queries) <= 1
 
 
+def test_with_media_query_count_does_not_scale_with_file_count(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    executed_statements: list[str],
+) -> None:
+    """Library media reads each file's rom from the page, not one query per file."""
+    rom = _add_rom(admin_user, platform, "art_rom", fs_extension="")
+    folder = f"{rom.fs_path}/art_rom"
+    _add_file(rom, "00.png", file_path=folder)
+
+    def fetch_media_query_count(expected_media: int) -> int:
+        executed_statements.clear()
+        response = client.get(
+            "/api/roms",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={"platform_ids": platform.id, "with_media": True},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.json()["items"][0]["media"]) == expected_media
+        return len(executed_statements)
+
+    one_file = fetch_media_query_count(1)
+    for index in range(1, 25):
+        _add_file(rom, f"{index:02d}.png", file_path=folder)
+
+    assert fetch_media_query_count(25) == one_file
+
+
 def test_identifiers_does_not_load_the_roms_it_lists(
     client: TestClient,
     access_token: str,

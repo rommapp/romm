@@ -238,6 +238,7 @@ export type { RomHLTBMetadata } from './models/RomHLTBMetadata';
 export type { RomIdentityData } from './models/RomIdentityData';
 export type { RomIGDBMetadata } from './models/RomIGDBMetadata';
 export type { RomLaunchboxMetadata } from './models/RomLaunchboxMetadata';
+export type { RomMediaSchema } from './models/RomMediaSchema';
 export type { RomMetadataSchema } from './models/RomMetadataSchema';
 export type { RomMobyMetadata } from './models/RomMobyMetadata';
 export type { RomPouetMetadata } from './models/RomPouetMetadata';
