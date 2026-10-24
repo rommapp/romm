@@ -1,0 +1,321 @@
+<script setup lang="ts">
+// SettingsSidebar: vertical grouped nav rendered alongside every Settings
+// view via <SettingsShell>. Replaces the previous horizontal pill nav.
+//
+// Groups mirror the v2 user-menu IA so the dropdown and the in-page
+// navigator share the same mental model:
+//   • Account: profile, UI prefs, notifications
+//   • Library: folder mappings, providers, paired devices
+//   • System: admin + server stats
+//   • Tools: jukebox, controller debug (developer-leaning, kept here so
+//            it inherits the same chrome as everything else)
+//
+// Each entry is a <router-link>; the active state is driven by Vue
+// Router's `router-link-active` (we add `--active` via active-class). Items
+// that the user can't reach (insufficient scopes/role) are filtered out.
+//
+// Responsive: this sidebar is mount-gated to `md-and-up` by SettingsLayout.
+// On phones / small tablets it isn't rendered at all: the navbar UserMenu
+// mirrors the same section IA, so an in-page strip would only duplicate it.
+import { storeToRefs } from "pinia";
+import { computed } from "vue";
+import { useI18n } from "vue-i18n";
+import { useCan } from "@/composables/useCan";
+import { RBadge, RChip, RIcon } from "@/lib";
+import { ROUTES } from "@/plugins/router";
+import storeAuth from "@/stores/auth";
+import storeHeartbeat from "@/stores/heartbeat";
+import storeNotificationInbox from "@/stores/notificationInbox";
+
+defineOptions({ inheritAttrs: false });
+
+const { t } = useI18n();
+const auth = storeAuth();
+const { user, scopes } = storeToRefs(auth);
+const isAdmin = useCan("app.admin");
+const heartbeat = storeHeartbeat();
+const { unreadCount } = storeToRefs(storeNotificationInbox());
+interface Entry {
+  icon: string;
+  label: string;
+  to: { name: string; params?: Record<string, string | number> };
+  visible: boolean;
+  /** Optional trailing badge text (e.g. "Beta") shown after the label. */
+  badge?: string;
+  /** Optional trailing counter, hidden at zero. */
+  count?: number;
+}
+
+interface Group {
+  key: "account" | "library" | "system" | "tools";
+  label: string;
+  entries: Entry[];
+}
+
+const groups = computed<Group[]>(() => {
+  const all: Group[] = [
+    {
+      key: "account",
+      label: t("settings.group-account"),
+      entries: [
+        {
+          icon: "mdi-account-outline",
+          label: t("common.profile"),
+          to: {
+            name: ROUTES.USER_PROFILE,
+            params: { user: user.value?.id ?? "" },
+          },
+          visible: scopes.value.includes("me.write"),
+        },
+        {
+          icon: "mdi-palette-outline",
+          label: t("common.user-interface"),
+          to: { name: ROUTES.USER_INTERFACE },
+          visible: true,
+        },
+        {
+          icon: "mdi-bell-outline",
+          label: t("notifications.notifications"),
+          to: { name: ROUTES.NOTIFICATIONS },
+          visible: true,
+          count: unreadCount.value,
+        },
+      ],
+    },
+    {
+      key: "library",
+      label: t("settings.group-library"),
+      entries: [
+        {
+          icon: "mdi-radar",
+          label: t("scan.scan"),
+          to: { name: ROUTES.SCAN },
+          visible: scopes.value.includes("platforms.write"),
+        },
+        {
+          icon: "mdi-cloud-upload-outline",
+          label: t("common.upload-roms"),
+          to: { name: ROUTES.UPLOAD },
+          visible: scopes.value.includes("roms.write"),
+        },
+        {
+          icon: "mdi-table-cog",
+          label: t("common.library-management"),
+          to: { name: ROUTES.LIBRARY_MANAGEMENT },
+          visible: scopes.value.includes("platforms.write"),
+        },
+        {
+          icon: "mdi-magnify-scan",
+          label: t("settings.scan-settings"),
+          to: { name: ROUTES.SCAN_SETTINGS },
+          visible: scopes.value.includes("platforms.write"),
+        },
+        {
+          icon: "mdi-swap-horizontal",
+          label: t("settings.conversion-settings"),
+          to: { name: ROUTES.CONVERSION_SETTINGS },
+          visible:
+            scopes.value.includes("platforms.write") &&
+            heartbeat.value.CONVERTO.ENABLED,
+        },
+        {
+          icon: "mdi-database-cog-outline",
+          label: t("scan.metadata-sources"),
+          to: { name: ROUTES.METADATA_SOURCES },
+          visible: isAdmin.value,
+        },
+        {
+          icon: "mdi-key-variant",
+          label: t("settings.client-api-tokens"),
+          to: { name: ROUTES.CLIENT_API_TOKENS },
+          visible: scopes.value.includes("me.write"),
+        },
+        {
+          icon: "mdi-devices",
+          label: t("settings.devices"),
+          to: { name: ROUTES.DEVICES },
+          visible: scopes.value.includes("devices.read"),
+        },
+      ],
+    },
+    {
+      key: "system",
+      label: t("settings.group-system"),
+      entries: [
+        {
+          icon: "mdi-shield-account-outline",
+          label: t("common.administration"),
+          to: { name: ROUTES.ADMINISTRATION },
+          visible: scopes.value.includes("users.write"),
+        },
+        {
+          icon: "mdi-access-point",
+          label: t("activity.active-sessions"),
+          to: { name: ROUTES.ACTIVITY },
+          visible: true,
+        },
+        {
+          icon: "mdi-server",
+          label: t("common.server-stats"),
+          to: { name: ROUTES.SERVER_STATS },
+          visible: isAdmin.value,
+        },
+        {
+          icon: "mdi-text-box-search-outline",
+          label: t("common.logs"),
+          to: { name: ROUTES.LOGS },
+          visible: isAdmin.value,
+        },
+      ],
+    },
+    {
+      key: "tools",
+      label: t("settings.group-tools"),
+      entries: [
+        {
+          icon: "mdi-music-box-multiple-outline",
+          label: t("common.jukebox"),
+          to: { name: ROUTES.MUSIC },
+          visible: true,
+          badge: t("common.beta"),
+        },
+        {
+          icon: "mdi-controller",
+          label: t("settings.controller-debug"),
+          to: { name: ROUTES.CONTROLLER_DEBUG },
+          visible: true,
+          badge: t("common.beta"),
+        },
+      ],
+    },
+  ];
+
+  return all
+    .map((g) => ({ ...g, entries: g.entries.filter((e) => e.visible) }))
+    .filter((g) => g.entries.length > 0);
+});
+</script>
+
+<template>
+  <nav class="r-settings-sidebar" :aria-label="t('settings.settings-sections')">
+    <div
+      v-for="group in groups"
+      :key="group.key"
+      class="r-settings-sidebar__group"
+    >
+      <div class="r-settings-sidebar__group-label">
+        {{ group.label }}
+      </div>
+      <ul class="r-settings-sidebar__list">
+        <li v-for="entry in group.entries" :key="entry.to.name">
+          <router-link
+            :to="entry.to"
+            class="r-settings-sidebar__item"
+            active-class="r-settings-sidebar__item--active"
+          >
+            <RIcon
+              :icon="entry.icon"
+              size="16"
+              class="r-settings-sidebar__icon"
+            />
+            <span class="r-settings-sidebar__label">{{ entry.label }}</span>
+            <RChip
+              v-if="entry.badge"
+              size="x-small"
+              color="primary"
+              class="r-settings-sidebar__badge"
+            >
+              {{ entry.badge }}
+            </RChip>
+            <RBadge
+              v-if="entry.count !== undefined"
+              inline
+              :model-value="entry.count > 0"
+              :content="entry.count"
+            />
+          </router-link>
+        </li>
+      </ul>
+    </div>
+  </nav>
+</template>
+
+<style scoped>
+/* Mock-faithful: flush column with a hairline right border, NO card
+   chrome. Items run edge-to-edge so the bg-tint reads as "row selected"
+   rather than "pill selected". Group labels are inline at the top of
+   each group, small uppercase, very muted. */
+/* Sticky column with a hairline right border. The sidebar is glued to
+   the top of the viewport (under the navbar) and always fills the full
+   visible height so the divider reaches the bottom of the screen. The
+   document is the only scrolling container: only the content column
+   moves when the user scrolls. */
+.r-settings-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 24px 0;
+  border-right: 1px solid var(--r-color-border);
+  position: sticky;
+  top: var(--r-nav-h);
+  height: calc(100vh - var(--r-nav-h));
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.r-settings-sidebar__group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.r-settings-sidebar__group + .r-settings-sidebar__group {
+  margin-top: 8px;
+}
+
+.r-settings-sidebar__group-label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 10px;
+  font-weight: var(--r-font-weight-bold);
+  color: var(--r-color-fg-faint);
+  padding: 10px 20px 6px;
+}
+
+.r-settings-sidebar__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.r-settings-sidebar__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 20px;
+  text-decoration: none;
+  color: var(--r-color-fg-muted);
+  font-size: 13px;
+  font-weight: var(--r-font-weight-medium);
+  transition:
+    background var(--r-motion-fast) var(--r-motion-ease-out),
+    color var(--r-motion-fast) var(--r-motion-ease-out);
+  white-space: nowrap;
+}
+
+.r-settings-sidebar__icon {
+  flex-shrink: 0;
+}
+
+.r-settings-sidebar__item:hover {
+  color: var(--r-color-fg);
+  background: var(--r-color-surface);
+}
+
+.r-settings-sidebar__item--active,
+.r-settings-sidebar__item--active:hover {
+  color: var(--r-color-fg);
+  background: var(--r-color-surface-hover);
+}
+</style>

@@ -181,7 +181,7 @@ npm run dev
 
 #### - Storybook (v2 components)
 
-Component docs and visual QA for `frontend/src/v2/` (port 6006):
+Component docs and visual QA for `frontend/src/` (port 6006):
 
 ```sh
 npm run storybook

@@ -10,7 +10,7 @@ import type {
   StreamingConfig,
   StreamingContainer,
 } from "@/services/api/streaming";
-import { emulatorLabelFrom } from "@/v2/utils/assets";
+import { emulatorLabelFrom } from "@/utils/assets";
 
 export type {
   LaunchingSession,

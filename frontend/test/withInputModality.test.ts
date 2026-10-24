@@ -2,7 +2,7 @@ import type { StoryContext } from "@storybook/vue3-vite";
 import { mount } from "@vue/test-utils";
 import { expect, it } from "vitest";
 import { defineComponent, nextTick, reactive } from "vue";
-import { useInputModality } from "@/v2/composables/useInputModality";
+import { useInputModality } from "@/composables/useInputModality";
 import { withInputModality } from "../.storybook/withInputModality";
 
 it("pins the toolbar's mode over live input and follows a toolbar change", async () => {
