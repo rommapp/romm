@@ -1,6 +1,10 @@
-/* Base reset, adapted from Tailwind CSS Preflight (MIT, Tailwind Labs, Inc.). */
+/*
+ * Base reset. Selectors that mix vendor pseudo-elements stay in separate
+ * rules: one unknown selector invalidates a whole comma list.
+ */
 
 @layer base {
+  /* Box model and spacing */
   *,
   :after,
   :before,
@@ -16,6 +20,8 @@
     margin: 0;
     padding: 0;
   }
+
+  /* Document defaults */
   html,
   :host {
     -webkit-text-size-adjust: 100%;
@@ -40,14 +46,8 @@
     font-variation-settings: var(--default-font-variation-settings, normal);
     -webkit-tap-highlight-color: transparent;
   }
-  hr {
-    height: 0;
-    color: inherit;
-    border-top-width: 1px;
-  }
-  abbr:where([title]) {
-    text-decoration: underline dotted;
-  }
+
+  /* Text */
   h1,
   h2,
   h3,
@@ -65,6 +65,27 @@
   strong {
     font-weight: bolder;
   }
+  small {
+    font-size: 80%;
+  }
+  abbr:where([title]) {
+    text-decoration: underline dotted;
+  }
+  sub,
+  sup {
+    vertical-align: baseline;
+    font-size: 75%;
+    line-height: 0;
+    position: relative;
+  }
+  sub {
+    bottom: -0.25em;
+  }
+  sup {
+    top: -0.5em;
+  }
+
+  /* Monospace elements get the mono stack and a sane size */
   code,
   kbd,
   samp,
@@ -87,41 +108,31 @@
     );
     font-size: 1em;
   }
-  small {
-    font-size: 80%;
+
+  /* Lists, rules and tables */
+  ol,
+  ul,
+  menu {
+    list-style: none;
   }
-  sub,
-  sup {
-    vertical-align: baseline;
-    font-size: 75%;
-    line-height: 0;
-    position: relative;
-  }
-  sub {
-    bottom: -0.25em;
-  }
-  sup {
-    top: -0.5em;
+  hr {
+    height: 0;
+    color: inherit;
+    border-top-width: 1px;
   }
   table {
     text-indent: 0;
     border-color: inherit;
     border-collapse: collapse;
   }
-  :-moz-focusring:where(:not(iframe)) {
-    outline: auto;
+  summary {
+    display: list-item;
   }
   progress {
     vertical-align: baseline;
   }
-  summary {
-    display: list-item;
-  }
-  ol,
-  ul,
-  menu {
-    list-style: none;
-  }
+
+  /* Replaced elements are blocks, and media never overflows */
   img,
   svg,
   video,
@@ -138,6 +149,8 @@
     max-width: 100%;
     height: auto;
   }
+
+  /* Form controls inherit type and lose their native chrome */
   button,
   input,
   select,
@@ -161,6 +174,17 @@
     opacity: 1;
     background-color: #0000;
     border-radius: 0;
+    margin-inline-end: 4px;
+  }
+  button,
+  input:where([type="button"], [type="reset"], [type="submit"]) {
+    appearance: button;
+  }
+  ::file-selector-button {
+    appearance: button;
+  }
+  textarea {
+    resize: vertical;
   }
   :where(select:is([multiple], [size])) optgroup {
     font-weight: bolder;
@@ -168,9 +192,8 @@
   :where(select:is([multiple], [size])) optgroup option {
     padding-inline-start: 20px;
   }
-  ::file-selector-button {
-    margin-inline-end: 4px;
-  }
+
+  /* Placeholders are the current colour at half strength */
   ::placeholder {
     opacity: 1;
   }
@@ -185,11 +208,25 @@
       }
     }
   }
-  textarea {
-    resize: vertical;
+
+  /* Browser-specific control internals */
+  :-moz-focusring:where(:not(iframe)) {
+    outline: auto;
+  }
+  :-moz-ui-invalid {
+    box-shadow: none;
   }
   ::-webkit-search-decoration {
     -webkit-appearance: none;
+  }
+  ::-webkit-inner-spin-button {
+    height: auto;
+  }
+  ::-webkit-outer-spin-button {
+    height: auto;
+  }
+  ::-webkit-calendar-picker-indicator {
+    line-height: 1;
   }
   ::-webkit-date-and-time-value {
     min-height: 1lh;
@@ -197,12 +234,10 @@
   }
   ::-webkit-datetime-edit {
     display: inline-flex;
+    padding-block: 0;
   }
   ::-webkit-datetime-edit-fields-wrapper {
     padding: 0;
-  }
-  ::-webkit-datetime-edit {
-    padding-block: 0;
   }
   ::-webkit-datetime-edit-year-field {
     padding-block: 0;
@@ -228,30 +263,14 @@
   ::-webkit-datetime-edit-meridiem-field {
     padding-block: 0;
   }
-  ::-webkit-calendar-picker-indicator {
-    line-height: 1;
-  }
-  :-moz-ui-invalid {
-    box-shadow: none;
-  }
-  button,
-  input:where([type="button"], [type="reset"], [type="submit"]) {
-    appearance: button;
-  }
-  ::file-selector-button {
-    appearance: button;
-  }
-  ::-webkit-inner-spin-button {
-    height: auto;
-  }
-  ::-webkit-outer-spin-button {
-    height: auto;
-  }
+
+  /* The author stylesheet's `display` must not reveal [hidden] */
   [hidden]:where(:not([hidden="until-found"])) {
     display: none !important;
   }
 }
 
+/* Unlayered so they beat any layered rule: full-height app shell */
 html,
 body,
 #app {
