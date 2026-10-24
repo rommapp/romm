@@ -15,6 +15,7 @@ from handler.auth.dependencies import (
     assert_can,
     assert_platform_visible,
     get_permissions,
+    get_rom_visibility_filter,
 )
 from handler.database import db_platform_handler
 from handler.filesystem import fs_platform_handler
@@ -83,6 +84,7 @@ def get_platforms(
         for p in db_platform_handler.get_platforms(
             updated_after=updated_after,
             hidden_platform_ids=perms.hidden_platform_ids,
+            visibility=get_rom_visibility_filter(request),
         )
     ]
 
@@ -125,7 +127,9 @@ def get_platform(
 ) -> PlatformSchema:
     """Retrieve a platform by ID."""
 
-    platform = db_platform_handler.get_platform(id)
+    platform = db_platform_handler.get_platform(
+        id, visibility=get_rom_visibility_filter(request)
+    )
     if not platform:
         raise PlatformNotFoundInDatabaseException(id)
     assert_platform_visible(request, platform)
@@ -182,7 +186,11 @@ async def update_platform(
             {"changed": changed},
         )
 
-    return PlatformSchema.model_validate(platform_db)
+    # Re-read for the caller's totals; the saved row carries everyone's.
+    visible = db_platform_handler.get_platform(
+        id, visibility=get_rom_visibility_filter(request)
+    )
+    return PlatformSchema.model_validate(visible or platform_db)
 
 
 @protected_route(

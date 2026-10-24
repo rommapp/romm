@@ -1,5 +1,6 @@
-from tests.factories import make_platform
+from tests.factories import make_platform, make_rom
 
+from handler.auth.rom_visibility import RomVisibilityFilter
 from handler.database import db_platform_handler
 from models.platform import Platform
 
@@ -55,3 +56,66 @@ def test_rescan_preserves_user_authored_fields(platform):
 
     assert merged.custom_name == "Sega - Genesis/ Mega Drive (Unofficial)"
     assert merged.description == "Aftermarket only"
+
+
+PEGI_18 = {"age_ratings": [{"category": "PEGI", "rating": "18"}]}
+
+
+def _totals(platform):
+    return platform.rom_count, platform.fs_size_bytes
+
+
+def test_totals_count_only_the_roms_the_visibility_shows():
+    platform_a = make_platform("platform_a")
+    platform_b = make_platform("platform_b")
+    make_rom(platform_a, "a1", fs_size_bytes=10)
+    hidden = make_rom(platform_a, "a2", fs_size_bytes=5)
+    make_rom(platform_b, "b1", fs_size_bytes=7)
+    visibility = RomVisibilityFilter(hidden_rom_ids=frozenset({hidden.id}))
+
+    listed = {
+        p.id: _totals(p)
+        for p in db_platform_handler.get_platforms(visibility=visibility)
+    }
+    detail = db_platform_handler.get_platform(platform_a.id, visibility=visibility)
+
+    assert listed[platform_a.id] == (1, 10)
+    assert listed[platform_b.id] == (1, 7)
+    assert detail is not None and _totals(detail) == (1, 10)
+
+
+def test_totals_leave_out_roms_above_the_age_limit():
+    platform = make_platform("platform_a")
+    make_rom(platform, "a1", fs_size_bytes=10)
+    make_rom(platform, "a2", fs_size_bytes=5, igdb_metadata=PEGI_18)
+
+    found = db_platform_handler.get_platform(
+        platform.id, visibility=RomVisibilityFilter(age_limit=16)
+    )
+
+    assert found is not None and _totals(found) == (1, 10)
+
+
+def test_a_rom_hidden_both_ways_is_left_out_once():
+    platform = make_platform("platform_a")
+    make_rom(platform, "a1", fs_size_bytes=10)
+    hidden = make_rom(platform, "a2", fs_size_bytes=5, igdb_metadata=PEGI_18)
+
+    found = db_platform_handler.get_platform(
+        platform.id,
+        visibility=RomVisibilityFilter(
+            hidden_rom_ids=frozenset({hidden.id}), age_limit=16
+        ),
+    )
+
+    assert found is not None and _totals(found) == (1, 10)
+
+
+def test_totals_are_whole_without_a_visibility():
+    platform = make_platform("platform_a")
+    make_rom(platform, "a1", fs_size_bytes=10)
+    make_rom(platform, "a2", fs_size_bytes=5)
+
+    found = db_platform_handler.get_platform(platform.id)
+
+    assert found is not None and _totals(found) == (2, 15)
