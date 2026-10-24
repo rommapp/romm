@@ -10,6 +10,7 @@ import i18n from "../src/locales";
 import storePermissions from "../src/stores/permissions";
 import "../src/styles/fonts.css";
 import "../src/styles/global.css";
+import "../src/styles/reset.css";
 import type { Events } from "../src/types/emitter";
 import { createChromeLabels } from "../src/utils/chromeLabels";
 import "./preview.css";
