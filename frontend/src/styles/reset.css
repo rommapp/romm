@@ -25,25 +25,11 @@
   html,
   :host {
     -webkit-text-size-adjust: 100%;
-    tab-size: 4;
     line-height: 1.5;
-    font-family: var(
-      --default-font-family,
-      -apple-system,
-      BlinkMacSystemFont,
-      "Segoe UI",
-      Roboto,
-      "Helvetica Neue",
-      "Noto Sans",
-      Arial,
-      sans-serif,
-      "Apple Color Emoji",
-      "Segoe UI Emoji",
-      "Segoe UI Symbol",
-      "Noto Color Emoji"
-    );
-    font-feature-settings: var(--default-font-feature-settings, normal);
-    font-variation-settings: var(--default-font-variation-settings, normal);
+    font-family:
+      -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+      "Noto Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+      "Segoe UI Symbol", "Noto Color Emoji";
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -65,12 +51,6 @@
   strong {
     font-weight: bolder;
   }
-  small {
-    font-size: 80%;
-  }
-  abbr:where([title]) {
-    text-decoration: underline dotted;
-  }
   sub,
   sup {
     vertical-align: baseline;
@@ -90,29 +70,15 @@
   kbd,
   samp,
   pre {
-    font-family: var(
-      --default-mono-font-family,
-      ui-monospace,
-      SFMono-Regular,
-      Menlo,
-      Monaco,
-      Consolas,
-      "Liberation Mono",
-      "Courier New",
-      monospace
-    );
-    font-feature-settings: var(--default-mono-font-feature-settings, normal);
-    font-variation-settings: var(
-      --default-mono-font-variation-settings,
-      normal
-    );
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      "Courier New", monospace;
     font-size: 1em;
   }
 
   /* Lists, rules and tables */
   ol,
-  ul,
-  menu {
+  ul {
     list-style: none;
   }
   hr {
@@ -125,12 +91,6 @@
     border-color: inherit;
     border-collapse: collapse;
   }
-  summary {
-    display: list-item;
-  }
-  progress {
-    vertical-align: baseline;
-  }
 
   /* Replaced elements are blocks, and media never overflows */
   img,
@@ -138,9 +98,7 @@
   video,
   canvas,
   audio,
-  iframe,
-  embed,
-  object {
+  iframe {
     vertical-align: middle;
     display: block;
   }
@@ -186,13 +144,6 @@
   textarea {
     resize: vertical;
   }
-  :where(select:is([multiple], [size])) optgroup {
-    font-weight: bolder;
-  }
-  :where(select:is([multiple], [size])) optgroup option {
-    padding-inline-start: 20px;
-  }
-
   /* Placeholders are the current colour at half strength */
   ::placeholder {
     opacity: 1;
@@ -216,54 +167,12 @@
   :-moz-ui-invalid {
     box-shadow: none;
   }
-  ::-webkit-search-decoration {
-    -webkit-appearance: none;
-  }
   ::-webkit-inner-spin-button {
     height: auto;
   }
   ::-webkit-outer-spin-button {
     height: auto;
   }
-  ::-webkit-calendar-picker-indicator {
-    line-height: 1;
-  }
-  ::-webkit-date-and-time-value {
-    min-height: 1lh;
-    text-align: inherit;
-  }
-  ::-webkit-datetime-edit {
-    display: inline-flex;
-    padding-block: 0;
-  }
-  ::-webkit-datetime-edit-fields-wrapper {
-    padding: 0;
-  }
-  ::-webkit-datetime-edit-year-field {
-    padding-block: 0;
-  }
-  ::-webkit-datetime-edit-month-field {
-    padding-block: 0;
-  }
-  ::-webkit-datetime-edit-day-field {
-    padding-block: 0;
-  }
-  ::-webkit-datetime-edit-hour-field {
-    padding-block: 0;
-  }
-  ::-webkit-datetime-edit-minute-field {
-    padding-block: 0;
-  }
-  ::-webkit-datetime-edit-second-field {
-    padding-block: 0;
-  }
-  ::-webkit-datetime-edit-millisecond-field {
-    padding-block: 0;
-  }
-  ::-webkit-datetime-edit-meridiem-field {
-    padding-block: 0;
-  }
-
   /* The author stylesheet's `display` must not reveal [hidden] */
   [hidden]:where(:not([hidden="until-found"])) {
     display: none !important;
