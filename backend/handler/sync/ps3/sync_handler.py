@@ -1,9 +1,4 @@
-"""Two-way save sync with a PS3 over FTP.
-
-Each folder under ``savedata/`` is one slot, named after the folder, of the ROM
-whose title id the folder name starts with. Every version of it is stored as a
-zip of the folder, so a PS3 save keeps a history like any other synced save.
-"""
+"""Two-way save sync with a PS3 over FTP, one slot per ``savedata/`` folder."""
 
 from __future__ import annotations
 
@@ -36,6 +31,7 @@ from handler.filesystem import fs_asset_handler
 from handler.redis_handler import async_cache, high_prio_queue
 from handler.sync.comparison import compare_save_state
 from handler.sync.ps3.console import (
+    PARAM_SFO_MAX_BYTES,
     SAVE_FOLDER_PATTERN,
     PS3SyncConfig,
     discover_title_ids,
@@ -43,7 +39,7 @@ from handler.sync.ps3.console import (
     title_id_of,
 )
 from handler.sync.ps3.ftp import FTP_ERRORS, AsyncPS3Ftp, FtpEntry
-from handler.sync.retroarch.psp import _normalize_title, parse_sfo
+from handler.sync.retroarch.psp import normalize_title, parse_sfo
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.assets import Save, SaveLineage
@@ -154,14 +150,14 @@ class _RomIndex:
             if rom.title_id:
                 self._by_title_id.setdefault(normalize_title_id(rom.title_id), rom)
             for name in (rom.name, rom.fs_name_no_tags):
-                if name and (key := _normalize_title(name)):
+                if name and (key := normalize_title(name)):
                     self._by_title.setdefault(key, rom)
 
     def by_title_id(self, title_id: str | None) -> Rom | None:
         return self._by_title_id.get(title_id) if title_id else None
 
     def by_title(self, title: str | None) -> Rom | None:
-        return self._by_title.get(_normalize_title(title)) if title else None
+        return self._by_title.get(normalize_title(title)) if title else None
 
 
 class _PS3Sync:
@@ -253,11 +249,7 @@ class _PS3Sync:
                 )
 
     def _baseline(self, key: tuple[int, str]) -> DeviceSaveSync | None:
-        """The console's latest sync of any version of the slot.
-
-        Any version, not just the newest: one filed since that sync must count
-        as a server change, never as a slot the console has no history with.
-        """
+        """The latest sync of any version, so a newer one reads as a server change."""
         syncs = db_device_save_sync_handler.get_syncs_for_device_and_saves(
             device_id=self.device.id, save_ids=self.version_ids.get(key, [])
         )
@@ -326,7 +318,9 @@ class _PS3Sync:
     async def _sfo_title(self, folder: str, files: list[FtpEntry]) -> str | None:
         if not any(f.name == "PARAM.SFO" for f in files):
             return None
-        data = await self.ftp.read(f"{self.savedata}/{folder}/PARAM.SFO", 64 * 1024)
+        data = await self.ftp.read(
+            f"{self.savedata}/{folder}/PARAM.SFO", PARAM_SFO_MAX_BYTES
+        )
         try:
             title = parse_sfo(data).get("TITLE")
         except ValueError:

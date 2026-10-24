@@ -1,9 +1,4 @@
-"""Finding a file in an ISO 9660 image through any random-access reader.
-
-Only what locating a game's own files needs: it follows directory records from
-the primary volume descriptor's root entry and ignores path tables, Joliet and
-UDF, so a reader only fetches the few sectors on the way to the file.
-"""
+"""Finding a file in an ISO 9660 image through any random-access reader."""
 
 import struct
 from typing import Protocol

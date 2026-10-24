@@ -282,7 +282,7 @@ function submit(): void {
           v-model="draft.ps3_user"
           :items="users"
           :label="t('settings.console-user')"
-          :hint="t('settings.console-user-hint')"
+          :hint="users.length ? undefined : t('settings.console-user-hint')"
           prefix-label="stacked"
           :disabled="!users.length"
           :rules="rules.user"

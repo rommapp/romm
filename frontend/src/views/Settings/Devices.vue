@@ -78,7 +78,7 @@ function displayName(device: DeviceSchema): string {
   );
 }
 
-// Consoles RomM reaches over FTP, by the client their kind registers as.
+// Consoles synced over FTP, by the client each kind registers as.
 const CONSOLE_CLIENTS = new Set(["ps3"]);
 
 function isConsole(device: DeviceSchema): boolean {

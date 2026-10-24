@@ -672,7 +672,7 @@ async def cached_hashes(
 async def _blob_md5(disk_path: str) -> str | None:
     try:
         return await fs_retroarch_sync_handler.compute_file_md5(disk_path)
-    except (ValueError, OSError):
+    except ValueError, OSError:
         return None
 
 

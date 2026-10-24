@@ -144,7 +144,7 @@ def _derive_serial(save_folder: str) -> str:
     return re.sub(r"DATA\d+$", "", save_folder, flags=re.IGNORECASE)
 
 
-def _normalize_title(s: str) -> str:
+def normalize_title(s: str) -> str:
     """A title reduced to lowercase alphanumeric words, so a PARAM.SFO TITLE
     matches RomM's filename-derived one despite punctuation and casing."""
     return re.sub(r"[^a-z0-9]+", " ", s.lower()).strip()
@@ -203,7 +203,7 @@ def _match_by_normalized_title(
 ) -> Rom | None:
     # Searching on the raw title would hand punctuation-glued words like
     # "-FINAL" to the ILIKE fallback, which then never matches.
-    target = _normalize_title(title)
+    target = normalize_title(title)
     if not target:
         return None
 
@@ -220,7 +220,7 @@ def _match_by_normalized_title(
     for attr in ("fs_name_no_tags", "name", "fs_name_no_ext"):
         for rom in candidates:
             value = getattr(rom, attr, None)
-            if value and _normalize_title(value) == target:
+            if value and normalize_title(value) == target:
                 return rom
 
     return None

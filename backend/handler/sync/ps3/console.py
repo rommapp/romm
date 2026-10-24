@@ -40,7 +40,7 @@ _ISO_NAME = re.compile(r"\.iso(\.0)?$", re.IGNORECASE)
 
 # Where webMAN and multiMAN look for games: the internal drive and USB ports.
 _GAME_ROOTS = ("/dev_hdd0", *(f"/dev_usb{port:03d}" for port in range(8)))
-_PARAM_SFO_MAX_BYTES = 64 * 1024
+PARAM_SFO_MAX_BYTES = 64 * 1024
 # A game's identity never changes, so the key carries what would show a swap.
 _TITLE_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60
 _READ_ERRORS: Final[tuple[type[Exception], ...]] = (FtpFileTooLarge, *FTP_ERRORS)
@@ -146,7 +146,7 @@ class _TitleReader:
 
         def read_sfo(ftp: PS3Ftp) -> bytes | None:
             return Iso9660(FtpFileReader(ftp, path)).read_file(
-                "PS3_GAME/PARAM.SFO", _PARAM_SFO_MAX_BYTES
+                "PS3_GAME/PARAM.SFO", PARAM_SFO_MAX_BYTES
             )
 
         async def read() -> str | None:
@@ -166,7 +166,7 @@ class _TitleReader:
         async def read() -> str | None:
             try:
                 data = await self.ftp.read(
-                    f"{path}/PS3_GAME/PARAM.SFO", _PARAM_SFO_MAX_BYTES
+                    f"{path}/PS3_GAME/PARAM.SFO", PARAM_SFO_MAX_BYTES
                 )
             except _TITLE_READ_ERRORS as exc:
                 log.debug(f"No PS3 title id in {hl(entry.display_name)}: {exc}")

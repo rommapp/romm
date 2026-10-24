@@ -37,8 +37,7 @@ router = APIRouter(prefix="/consoles")
 def _local_address(
     address: IPv4Address | IPv6Address,
 ) -> IPv4Address | IPv6Address:
-    # A console sits on the local network; anything else would turn RomM into
-    # a client for hosts its users could not otherwise reach.
+    # Consoles sit on the LAN; this keeps users from pointing the server elsewhere.
     if not (address.is_private or address.is_link_local) or address.is_loopback:
         raise ValueError("Must be an address on the local network")
     return address
