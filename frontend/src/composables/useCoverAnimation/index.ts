@@ -1,8 +1,7 @@
 // useCoverAnimation: the "juicy" motion layer for alt-art game covers.
 //
-// v2 port of v1's `useGameAnimation` (which drove a Vuetify VImg; v2 drives a
-// raw <img>). Three behaviours, all gated by the card's hover/focus `active`
-// signal and the flags `useCoverArt` resolves:
+// Drives a raw <img>. Three behaviours, all gated by the card's hover/focus
+// `active` signal and the flags `useCoverArt` resolves:
 //   * CD spin     - physical art on a CD platform spins up on hover
 //                   (accelerate) and coasts down on leave. The launch
 //                   flourish spins it at max while it slides down into the
