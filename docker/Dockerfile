@@ -48,8 +48,7 @@ RUN pip install --no-cache-dir --upgrade pip==${PIP_VERSION}
 # need the same patches, or the stale ones land in the final image. Kept apart
 # from python-alias so that busting this layer's cache (see `no-cache-filters`
 # in build.yml) does not also rebuild the venv and the sigil bindings.
-# pip is dropped because the app runs from the uv venv, and scanners flag the
-# libraries pip vendors (urllib3, msgpack) even though nothing imports them.
+# The app uses a separate virtual environment at /src/.venv.
 FROM python-alias AS python-runtime
 ARG PYTHON_VERSION
 RUN apk upgrade --no-cache && \
