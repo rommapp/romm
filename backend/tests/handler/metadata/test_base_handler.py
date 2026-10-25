@@ -543,7 +543,9 @@ class TestResolveIndexedTitle:
         assert term == "Pac-Man"
         assert fallback_rom == BaseRom(name="Pac-Man")
 
-    @pytest.mark.parametrize("slug", ["daphne", "singe", "type-x", "lindbergh"])
+    @pytest.mark.parametrize(
+        "slug", ["daphne", "singe", "type-x", "lindbergh", "teknoparrot"]
+    )
     @pytest.mark.asyncio
     async def test_an_arcade_platform_with_its_own_set_names_is_left_alone(
         self, handler: MetadataHandler, slug: str

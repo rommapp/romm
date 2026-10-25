@@ -1308,6 +1308,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
         "name": "Singe",
         "alternative_names": ["American Laser Games"],
     },
+    UPS.TEKNOPARROT: {"id": ARCADE_SS_ID, "name": "TeknoParrot"},
     UPS.TRIFORCE: {"id": ARCADE_SS_ID, "name": "Triforce"},
     UPS.ARCADIA_2001: {
         "id": 94,

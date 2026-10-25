@@ -971,6 +971,7 @@ export const ARCADE_SYSTEMS = new Set([
   "neogeomvs",
   "singe",
   "stv",
+  "teknoparrot",
   "triforce",
   "type-x",
 ]);

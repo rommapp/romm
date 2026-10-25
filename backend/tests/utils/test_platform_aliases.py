@@ -71,6 +71,7 @@ def test_resolves_easyrpg_to_rpg_maker():
         ("namco22", UPS.ARCADE),
         ("system-32", UPS.ARCADE),
         ("typex", UPS.TYPE_X),
+        ("teknoparrot", UPS.TEKNOPARROT),
     ],
 )
 def test_arcade_folders_resolve_by_emulator(folder: str, slug: UPS):

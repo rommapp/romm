@@ -400,6 +400,7 @@ class UniversalPlatformSlug(enum.StrEnum):
     TAITO_X_55 = "taito-x-55"
     TANDY_VIS = "tandy-vis"
     TATUNG_EINSTEIN = "tatung-einstein"
+    TEKNOPARROT = "teknoparrot"
     TEKTRONIX_4050 = "tektronix-4050"
     TELE_SPIEL = "tele-spiel"
     TELSTAR_ARCADE = "telstar-arcade"
