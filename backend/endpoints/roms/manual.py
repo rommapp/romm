@@ -127,6 +127,7 @@ async def add_rom_manuals(
             "locked_fields": rom.locked_fields_with("url_manual"),
         },
     )
+    db_rom_handler.refresh_metadata_lock_snapshot(id, "manual")
 
     return Response(status_code=status.HTTP_201_CREATED)
 
@@ -172,6 +173,7 @@ async def redownload_rom_manual(
                 "locked_fields": rom.locked_fields_without("url_manual"),
             },
         )
+        db_rom_handler.refresh_metadata_lock_snapshot(id, "manual")
         log.info(
             f"Re-downloaded manual for {hl(rom.name or 'ROM', color=BLUE)} "
             f"[{hl(rom.fs_name)}]"
@@ -258,8 +260,7 @@ async def delete_rom_manual_file(
         await fs_rom_handler.remove_file(file_rel_path)
     except FileNotFoundError:
         log.warning(
-            f"Manual file {hl(file_rel_path)} not found on disk; "
-            f"removing DB row anyway"
+            f"Manual file {hl(file_rel_path)} not found on disk; removing DB row anyway"
         )
     except Exception as exc:
         log.error(f"Error deleting manual file {hl(file_rel_path)}", exc_info=exc)
@@ -331,4 +332,5 @@ async def delete_rom_manuals(
             detail="There was an error deleting the manual",
         ) from exc
 
+    db_rom_handler.refresh_metadata_lock_snapshot(id, "manual")
     return Response()

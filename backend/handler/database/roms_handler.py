@@ -39,6 +39,7 @@ from sqlalchemy.orm import (
     QueryableAttribute,
     Session,
     joinedload,
+    lazyload,
     load_only,
     raiseload,
     selectinload,
@@ -106,6 +107,11 @@ from utils.database import (
     is_postgresql,
     release_day_ranges,
     rom_unset_flag_column,
+)
+from utils.metadata_locks import (
+    METADATA_LOCKABLE_FIELDS,
+    apply_metadata_lock_snapshots,
+    effective_metadata_value,
 )
 from utils.fulltext import (
     FULLTEXT_TOKEN_REGEX,
@@ -854,6 +860,56 @@ def _track_text_match(search: str) -> ColumnElement[bool]:
     )
 
 
+def _rom_for_update(session: Session, rom_id: int) -> Rom | None:
+    statement = (
+        select(Rom)
+        .options(lazyload(Rom.metadatum), lazyload(Rom.platform))
+        .where(Rom.id == rom_id)
+        .with_for_update()
+    )
+    return session.execute(statement).scalar_one_or_none()
+
+
+def _changed_metadata_locks(
+    rom: Rom, fields: Sequence[str], locked: bool
+) -> dict[str, Any]:
+    locks = dict(rom.metadata_locks or {})
+    for field in fields:
+        if locked:
+            if field not in locks:
+                locks[field] = effective_metadata_value(rom, field)
+        else:
+            locks.pop(field, None)
+    return locks
+
+
+def _sync_metadata_lock_facets(
+    session: Session, rom_ids: Sequence[int], fields: Iterable[str]
+) -> None:
+    """Keep filter facets aligned with the effective metadata view."""
+    facet_fields = set(fields) & {
+        "genres",
+        "franchises",
+        "collections",
+        "companies",
+        "game_modes",
+        "age_ratings",
+        "player_count",
+    }
+    if not rom_ids or not facet_fields:
+        return
+
+    values = {
+        field: select(getattr(RomMetadata, field))
+        .where(RomMetadata.rom_id == RomFacets.rom_id)
+        .scalar_subquery()
+        for field in facet_fields
+    }
+    session.execute(
+        update(RomFacets).where(RomFacets.rom_id.in_(rom_ids)).values(**values)
+    )
+
+
 class DBRomsHandler(DBBaseHandler):
     @begin_session
     @with_details
@@ -865,6 +921,8 @@ class DBRomsHandler(DBBaseHandler):
     ) -> Rom:
         rom = session.merge(rom)
         session.flush()
+        if rom.metadata_locks:
+            _sync_metadata_lock_facets(session, [rom.id], rom.metadata_locks)
 
         return session.scalars(query.filter_by(id=rom.id).limit(1)).one()
 
@@ -878,6 +936,160 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = INJECTED_SESSION,
     ) -> Rom | None:
         return session.scalar(query.filter_by(id=id).limit(1))
+
+    @begin_session
+    def get_rom_resource_locks(
+        self, rom_id: int, *, session: Session = INJECTED_SESSION
+    ) -> tuple[dict[str, Any], set[str]]:
+        row = session.execute(
+            select(Rom.metadata_locks, Rom.locked_fields).where(Rom.id == rom_id)
+        ).one_or_none()
+        if row is None:
+            return {}, set()
+        return dict(row.metadata_locks or {}), set(row.locked_fields or [])
+
+    @begin_session
+    def refresh_metadata_lock_snapshot(
+        self,
+        rom_id: int,
+        field: str,
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> None:
+        if field not in METADATA_LOCKABLE_FIELDS:
+            raise ValueError(f"Unsupported metadata lock field: {field}")
+        rom = _rom_for_update(session, rom_id)
+        if rom is None:
+            return
+        locks = dict(rom.metadata_locks or {})
+        if field not in locks:
+            return
+        locks.pop(field)
+        rom.metadata_locks = locks
+        session.flush()
+        rom.metadata_locks = {
+            **locks,
+            field: effective_metadata_value(rom, field),
+        }
+        session.flush()
+        _sync_metadata_lock_facets(session, [rom_id], [field])
+
+    @begin_session
+    def set_metadata_locks(
+        self,
+        rom_id: int,
+        fields: Sequence[str],
+        locked: bool,
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> list[str] | None:
+        if unknown := set(fields) - METADATA_LOCKABLE_FIELDS:
+            raise ValueError(f"Unsupported metadata lock fields: {sorted(unknown)}")
+        rom = _rom_for_update(session, rom_id)
+        if rom is None:
+            return None
+
+        locks = _changed_metadata_locks(rom, fields, locked)
+        rom.metadata_locks = locks
+        session.flush()
+        _sync_metadata_lock_facets(session, [rom.id], fields)
+        return sorted(locks)
+
+    @begin_session
+    def get_metadata_lock_batch(
+        self,
+        *,
+        platform_id: int | None,
+        after_id: int,
+        limit: int,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
+        session: Session = INJECTED_SESSION,
+    ) -> list[int]:
+        filters = [Rom.id > after_id, *visibility.clauses()]
+        if platform_id is not None:
+            filters.append(Rom.platform_id == platform_id)
+        statement = select(Rom.id).where(and_(*filters))
+        return list(
+            session.execute(statement.order_by(Rom.id).limit(limit)).scalars()
+        )
+
+    @begin_session
+    def set_bulk_metadata_locks(
+        self,
+        rom_ids: Sequence[int],
+        fields: Sequence[str],
+        locked: bool,
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> tuple[int, int]:
+        if unknown := set(fields) - METADATA_LOCKABLE_FIELDS:
+            raise ValueError(f"Unsupported metadata lock fields: {sorted(unknown)}")
+        if not rom_ids:
+            return 0, 0
+
+        roms = session.scalars(
+            select(Rom)
+            .options(
+                selectinload(Rom.metadatum).options(raiseload(RomMetadata.rom)),
+                lazyload(Rom.platform),
+            )
+            .where(Rom.id.in_(rom_ids))
+            .order_by(Rom.id)
+            .with_for_update()
+        ).all()
+        updated = 0
+        for rom in roms:
+            rom.metadata_locks = _changed_metadata_locks(rom, fields, locked)
+            updated += 1
+        session.flush()
+        _sync_metadata_lock_facets(session, [rom.id for rom in roms], fields)
+        return updated, len(rom_ids) - updated
+
+    @begin_session
+    @with_details
+    def persist_scan_result(
+        self,
+        rom_id: int,
+        scanned_rom: Rom,
+        query: RomSelect = INJECTED_ROM_QUERY,
+        session: Session = INJECTED_SESSION,
+    ) -> Rom:
+        current = _rom_for_update(session, rom_id)
+        if current is None:
+            raise ValueError(f"ROM {rom_id} disappeared while its scan was running")
+
+        attrs = {
+            "name": scanned_rom.name,
+            "summary": scanned_rom.summary,
+            "url_cover": scanned_rom.url_cover,
+            "path_cover_s": scanned_rom.path_cover_s,
+            "path_cover_l": scanned_rom.path_cover_l,
+            "url_screenshots": scanned_rom.url_screenshots,
+            "path_screenshots": scanned_rom.path_screenshots,
+            "url_manual": scanned_rom.url_manual,
+            "path_manual": scanned_rom.path_manual,
+        }
+        attrs.update(getattr(scanned_rom, "_scan_unlocked_attrs", {}))
+        if current.is_field_locked("url_cover"):
+            attrs.update(
+                url_cover=current.url_cover,
+                path_cover_s=current.path_cover_s,
+                path_cover_l=current.path_cover_l,
+            )
+        if current.is_field_locked("url_manual"):
+            attrs.update(url_manual=current.url_manual, path_manual=current.path_manual)
+        apply_metadata_lock_snapshots(attrs, current.metadata_locks)
+        for field, value in attrs.items():
+            setattr(scanned_rom, field, value)
+        scanned_rom.locked_fields = current.locked_fields
+        scanned_rom.metadata_locks = current.metadata_locks
+
+        session.merge(scanned_rom)
+        session.flush()
+        _sync_metadata_lock_facets(
+            session, [rom_id], (current.metadata_locks or {}).keys()
+        )
+        return session.scalars(query.filter_by(id=rom_id).limit(1)).one()
 
     @begin_session
     def get_rom_visibility(
@@ -2379,6 +2591,9 @@ class DBRomsHandler(DBBaseHandler):
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
+        if any(key.endswith("_metadata") for key in data):
+            locks = session.scalar(select(Rom.metadata_locks).where(Rom.id == id)) or {}
+            _sync_metadata_lock_facets(session, [id], locks.keys())
         return session.scalars(select(Rom).filter_by(id=id)).one()
 
     @begin_session

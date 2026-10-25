@@ -849,6 +849,8 @@ class TestIdentifyRomTagReparse:
             url_manual="",
             url_screenshots=[],
         )
+        db.persist_scan_result.return_value = db.add_rom.return_value
+        db.get_rom_resource_locks.return_value = ({}, set())
         db.sync_rom_files.return_value = SyncedRomFiles(
             files=[], orphaned_cover_paths=[]
         )
@@ -901,8 +903,7 @@ class TestIdentifyRomTagReparse:
 
         await self._run(rom, ScanType.COMPLETE, [])
 
-        # scan_rom carries these columns forward from the rom it is handed, and
-        # merging its result is what persists them.
+        # scan_rom carries these columns forward and scan persistence writes them.
         assert rom.regions == ["USA"]
         assert rom.languages == ["English"]
         assert rom.tags == ["Proto"]
@@ -1040,6 +1041,7 @@ def patch_identify_rom(
 
     db = mocker.patch.object(scan_module, "db_rom_handler")
     db.add_rom.return_value = MagicMock(is_identified=False, id=99)
+    db.persist_scan_result.return_value = MagicMock(is_identified=False, id=99)
 
     platform = Platform(name=platform_slug, slug=platform_slug, fs_slug=platform_slug)
     platform.id = 1
@@ -1120,8 +1122,9 @@ class TestIdentifyRomReassociation:
         assert rom_id == 42
         assert data["missing_from_fs"] is False
         assert data["fs_name"] == "New Name.zip"
-        # No brand-new row is inserted; add_rom only persists the scan result.
-        assert db.add_rom.call_count == 1
+        # No brand-new row is inserted; the existing row is persisted in place.
+        db.add_rom.assert_not_called()
+        db.persist_scan_result.assert_called_once()
 
     async def test_a_file_that_moved_folders_is_relocated_in_place(self, patched):
         """Enabling a custom structure (or dropping one) moves every rom. The
@@ -1138,7 +1141,8 @@ class TestIdentifyRomReassociation:
         assert rom_id == 42
         assert data["fs_path"] == "test/roms/Hacks"
         assert data["missing_from_fs"] is False
-        assert db.add_rom.call_count == 1
+        db.add_rom.assert_not_called()
+        db.persist_scan_result.assert_called_once()
 
     async def test_title_id_is_offered_when_the_platform_is_not_hashed(
         self, patched, mocker
@@ -1208,8 +1212,9 @@ class TestIdentifyRomReassociation:
         db.get_matching_missing_rom.assert_called_once()
         # No reassociation update happens on the create path.
         db.update_rom.assert_not_called()
-        # A new row is inserted, then the scan result is persisted (two calls).
-        assert db.add_rom.call_count == 2
+        # The new row is inserted once, then its scan result is persisted separately.
+        assert db.add_rom.call_count == 1
+        db.persist_scan_result.assert_called_once()
         created = db.add_rom.call_args_list[0].args[0]
         assert isinstance(created, Rom)
         assert created.fs_name == "New Name.zip"
@@ -3033,6 +3038,8 @@ def identify_harness(mocker):
     db.add_rom.return_value = MagicMock(
         is_identified=False, id=1, url_cover="", url_manual="", url_screenshots=[]
     )
+    db.persist_scan_result.return_value = db.add_rom.return_value
+    db.get_rom_resource_locks.return_value = ({}, set())
     db.get_matching_missing_rom.return_value = None
     db.sync_rom_files.return_value = SyncedRomFiles(files=[], orphaned_cover_paths=[])
 
@@ -3169,7 +3176,7 @@ class TestIdentifyRomEmitsNewFlag:
             Mock(from_orm_with_factory=Mock(return_value=dumped)),
         )
         # Identified, so both the post-scan and the post-download emits fire.
-        identify_harness.db.add_rom.return_value.is_identified = True
+        identify_harness.db.persist_scan_result.return_value.is_identified = True
         if case == "reassociated":
             missing = identify_harness.existing_rom()
             identify_harness.db.get_matching_missing_rom.return_value = missing

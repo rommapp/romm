@@ -9,12 +9,18 @@
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { RComboboxField, RDateField, RTextField } from "@/lib";
-import type { UpdateRom } from "@/services/api/rom";
+import MetadataLockControl from "@/components/EditRom/MetadataLockControl.vue";
+import type { MetadataLockField, UpdateRom } from "@/services/api/rom";
 
-const props = defineProps<{ rom: UpdateRom }>();
+const props = defineProps<{
+  rom: UpdateRom;
+  metadataLockedFields: string[];
+  metadataLockDisabled: boolean;
+}>();
 
 const emit = defineEmits<{
   "update:rom": [rom: UpdateRom];
+  "toggle-metadata-lock": [field: MetadataLockField];
 }>();
 
 const { t } = useI18n();
@@ -84,15 +90,24 @@ function updateManualMetadata(
       clearable
       @update:model-value="(v) => updateManualMetadata('alternative_names', v)"
     />
-    <RComboboxField
-      :model-value="manual.companies ?? []"
-      :label="t('rom.companies')"
-      prefix-label="stacked"
-      variant="outlined"
-      density="comfortable"
-      clearable
-      @update:model-value="(v) => updateManualMetadata('companies', v)"
-    />
+    <div class="r-additional__lockable">
+      <RComboboxField
+        :model-value="manual.companies ?? []"
+        :label="t('rom.companies')"
+        prefix-label="stacked"
+        variant="outlined"
+        density="comfortable"
+        clearable
+        @update:model-value="(v) => updateManualMetadata('companies', v)"
+      />
+      <MetadataLockControl
+        field="companies"
+        :label="t('rom.companies')"
+        :locked="metadataLockedFields.includes('companies')"
+        :disabled="metadataLockDisabled"
+        @toggle="emit('toggle-metadata-lock', $event)"
+      />
+    </div>
     <RComboboxField
       :model-value="manual.publishers ?? []"
       :label="t('rom.publishers')"
@@ -111,46 +126,118 @@ function updateManualMetadata(
       clearable
       @update:model-value="(v) => updateManualMetadata('developers', v)"
     />
-    <RComboboxField
-      :model-value="manual.genres ?? []"
-      :label="t('rom.genres')"
-      prefix-label="stacked"
-      variant="outlined"
-      density="comfortable"
-      clearable
-      @update:model-value="(v) => updateManualMetadata('genres', v)"
-    />
-    <RComboboxField
-      :model-value="manual.franchises ?? []"
-      :label="t('rom.franchises')"
-      prefix-label="stacked"
-      variant="outlined"
-      density="comfortable"
-      clearable
-      @update:model-value="(v) => updateManualMetadata('franchises', v)"
-    />
-    <RDateField
-      :model-value="manual.first_release_date ?? null"
-      :label="t('rom.released-at')"
-      prefix-label="stacked"
-      variant="outlined"
-      density="comfortable"
-      clearable
-      @update:model-value="
-        (d) =>
-          updateManualMetadata('first_release_date', d ? d.getTime() : null)
-      "
-    />
-    <RComboboxField
-      :model-value="manual.game_modes ?? []"
-      :items="GAME_MODE_ITEMS"
-      :label="t('rom.game-modes')"
-      prefix-label="stacked"
-      variant="outlined"
-      density="comfortable"
-      clearable
-      @update:model-value="(v) => updateManualMetadata('game_modes', v)"
-    />
+    <div class="r-additional__lockable">
+      <RComboboxField
+        :model-value="manual.genres ?? []"
+        :label="t('rom.genres')"
+        prefix-label="stacked"
+        variant="outlined"
+        density="comfortable"
+        clearable
+        @update:model-value="(v) => updateManualMetadata('genres', v)"
+      />
+      <MetadataLockControl
+        field="genres"
+        :label="t('rom.genres')"
+        :locked="metadataLockedFields.includes('genres')"
+        :disabled="metadataLockDisabled"
+        @toggle="emit('toggle-metadata-lock', $event)"
+      />
+    </div>
+    <div class="r-additional__lockable">
+      <RTextField
+        :model-value="(rom.metadatum.collections ?? []).join(', ')"
+        :label="t('rom.collections')"
+        prefix-label="stacked"
+        variant="outlined"
+        density="comfortable"
+        hide-details
+        readonly
+      />
+      <MetadataLockControl
+        field="collections"
+        :label="t('rom.collections')"
+        :locked="metadataLockedFields.includes('collections')"
+        :disabled="metadataLockDisabled"
+        @toggle="emit('toggle-metadata-lock', $event)"
+      />
+    </div>
+    <div class="r-additional__lockable">
+      <RComboboxField
+        :model-value="manual.franchises ?? []"
+        :label="t('rom.franchises')"
+        prefix-label="stacked"
+        variant="outlined"
+        density="comfortable"
+        clearable
+        @update:model-value="(v) => updateManualMetadata('franchises', v)"
+      />
+      <MetadataLockControl
+        field="franchises"
+        :label="t('rom.franchises')"
+        :locked="metadataLockedFields.includes('franchises')"
+        :disabled="metadataLockDisabled"
+        @toggle="emit('toggle-metadata-lock', $event)"
+      />
+    </div>
+    <div class="r-additional__lockable">
+      <RDateField
+        :model-value="manual.first_release_date ?? null"
+        :label="t('rom.released-at')"
+        prefix-label="stacked"
+        variant="outlined"
+        density="comfortable"
+        clearable
+        @update:model-value="
+          (d) =>
+            updateManualMetadata('first_release_date', d ? d.getTime() : null)
+        "
+      />
+      <MetadataLockControl
+        field="first_release_date"
+        :label="t('rom.released-at')"
+        :locked="metadataLockedFields.includes('first_release_date')"
+        :disabled="metadataLockDisabled"
+        @toggle="emit('toggle-metadata-lock', $event)"
+      />
+    </div>
+    <div class="r-additional__lockable">
+      <RComboboxField
+        :model-value="manual.game_modes ?? []"
+        :items="GAME_MODE_ITEMS"
+        :label="t('rom.game-modes')"
+        prefix-label="stacked"
+        variant="outlined"
+        density="comfortable"
+        clearable
+        @update:model-value="(v) => updateManualMetadata('game_modes', v)"
+      />
+      <MetadataLockControl
+        field="game_modes"
+        :label="t('rom.game-modes')"
+        :locked="metadataLockedFields.includes('game_modes')"
+        :disabled="metadataLockDisabled"
+        @toggle="emit('toggle-metadata-lock', $event)"
+      />
+    </div>
+    <div class="r-additional__lockable">
+      <RTextField
+        :model-value="rom.metadatum.player_count ?? ''"
+        :label="t('rom.player-count')"
+        prefix-label="stacked"
+        variant="outlined"
+        density="comfortable"
+        hide-details
+        readonly
+      />
+      <MetadataLockControl
+        field="player_count"
+        :label="t('rom.player-count')"
+        :locked="metadataLockedFields.includes('player_count')"
+        :disabled="metadataLockDisabled"
+        @toggle="emit('toggle-metadata-lock', $event)"
+      />
+    </div>
     <RTextField
       :model-value="manual.youtube_video_id ?? ''"
       :label="t('rom.youtube-video-id')"
@@ -167,22 +254,31 @@ function updateManualMetadata(
           )
       "
     />
-    <RComboboxField
-      :model-value="ageRatingsView"
-      :items="AGE_RATING_ITEMS"
-      :label="t('rom.age-ratings')"
-      prefix-label="stacked"
-      variant="outlined"
-      density="comfortable"
-      clearable
-      @update:model-value="
-        (v) =>
-          updateManualMetadata(
-            'age_ratings',
-            v.map((r) => r.split(' - ').join(':')),
-          )
-      "
-    />
+    <div class="r-additional__lockable">
+      <RComboboxField
+        :model-value="ageRatingsView"
+        :items="AGE_RATING_ITEMS"
+        :label="t('rom.age-ratings')"
+        prefix-label="stacked"
+        variant="outlined"
+        density="comfortable"
+        clearable
+        @update:model-value="
+          (v) =>
+            updateManualMetadata(
+              'age_ratings',
+              v.map((r) => r.split(' - ').join(':')),
+            )
+        "
+      />
+      <MetadataLockControl
+        field="age_ratings"
+        :label="t('rom.age-ratings')"
+        :locked="metadataLockedFields.includes('age_ratings')"
+        :disabled="metadataLockDisabled"
+        @toggle="emit('toggle-metadata-lock', $event)"
+      />
+    </div>
   </div>
 </template>
 
@@ -191,5 +287,11 @@ function updateManualMetadata(
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 12px;
+}
+
+.r-additional__lockable {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
 }
 </style>

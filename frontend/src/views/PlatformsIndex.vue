@@ -22,6 +22,7 @@ import GalleryToolbar, {
   type SegmentFilter,
 } from "@/components/Gallery/GalleryToolbar.vue";
 import PlatformListHeader from "@/components/Platforms/PlatformListHeader.vue";
+import MetadataLocksDialog from "@/components/Platforms/MetadataLocksDialog.vue";
 import PlatformListRow from "@/components/Platforms/PlatformListRow.vue";
 import PlatformTile from "@/components/Platforms/PlatformTile.vue";
 import {
@@ -31,6 +32,7 @@ import {
 } from "@/components/Platforms/platformListColumns";
 import IndexShell from "@/components/shared/IndexShell.vue";
 import PageHeader from "@/components/shared/PageHeader.vue";
+import { useCan } from "@/composables/useCan";
 import { useGalleryMode } from "@/composables/useGalleryMode";
 import { useGalleryViewModeUrl } from "@/composables/useGalleryViewModeUrl";
 import { useGridNav } from "@/composables/useGridNav";
@@ -38,11 +40,19 @@ import { useLoadingPhase } from "@/composables/useLoadingPhase";
 import { usePlatformPlayableChecker } from "@/composables/usePlatformPlayable";
 import { useRouteQueryParam } from "@/composables/useRouteQueryParam";
 import { useTileSearchUrl } from "@/composables/useTileSearchUrl";
-import { RDivider, REmptyState, RLetterHeading, RSkeletonBlock } from "@/lib";
+import {
+  RBtn,
+  RDivider,
+  REmptyState,
+  RLetterHeading,
+  RSkeletonBlock,
+} from "@/lib";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import { platformMatchesSearch } from "@/utils/platformSearch";
 
 const { t } = useI18n();
+const canEdit = useCan("rom.edit");
+const showMetadataLocks = ref(false);
 const platformsStore = storePlatforms();
 const { allPlatforms, fetchingPlatforms } = storeToRefs(platformsStore);
 const phase = useLoadingPhase(
@@ -455,7 +465,17 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
     :list-label="t('common.platforms')"
   >
     <template #header>
-      <PageHeader :title="t('common.platforms')" :count="totalCount" />
+      <div class="r-pidx__heading">
+        <PageHeader :title="t('common.platforms')" :count="totalCount" />
+        <RBtn
+          v-if="canEdit"
+          variant="outlined"
+          prepend-icon="mdi-lock-outline"
+          @click="showMetadataLocks = true"
+        >
+          {{ t("rom.bulk-metadata-lock") }}
+        </RBtn>
+      </div>
       <RDivider class="r-pidx__header-divider" />
     </template>
 
@@ -568,10 +588,21 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
         />
       </div>
     </div>
+    <MetadataLocksDialog
+      v-if="showMetadataLocks"
+      v-model="showMetadataLocks"
+      :platforms="allPlatforms"
+    />
   </IndexShell>
 </template>
 
 <style scoped>
+.r-pidx__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r-space-3);
+}
 /* Mirror the gallery shell's header→toolbar separator so the visual
    rhythm matches Search / Platform / Collection ROM views. */
 .r-pidx__header-divider {

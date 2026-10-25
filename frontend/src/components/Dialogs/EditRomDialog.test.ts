@@ -1,15 +1,19 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import MetadataLockControl from "@/components/EditRom/MetadataLockControl.vue";
 import type { Events } from "@/types/emitter";
 import { romFixture } from "@/utils/rom.fixtures";
 import EditRomDialog from "./EditRomDialog.vue";
 
-const { getRom } = vi.hoisted(() => ({ getRom: vi.fn() }));
+const { getRom, updateRomMetadataLocks } = vi.hoisted(() => ({
+  getRom: vi.fn(),
+  updateRomMetadataLocks: vi.fn(),
+}));
 
 vi.mock("vue-i18n");
 vi.mock("@/services/api/rom", () => ({
-  default: { getRom, updateRom: vi.fn() },
+  default: { getRom, updateRom: vi.fn(), updateRomMetadataLocks },
 }));
 vi.mock("@/composables/useSnackbar", () => ({
   useSnackbar: () => ({ success: vi.fn(), error: vi.fn() }),
@@ -32,7 +36,7 @@ const RBtn = {
   template: `<button type="button" :data-icon="icon" @click="$emit('click')" />`,
 };
 
-const rom = romFixture({ id: 3, name: "Blur", fs_name: "blur.zip" });
+let rom = romFixture({ id: 3, name: "Blur", fs_name: "blur.zip" });
 
 async function mountDialog() {
   const emitter: Emitter<Events> = mitt<Events>();
@@ -74,7 +78,12 @@ describe("EditRomDialog cover preview", () => {
 
   beforeEach(() => {
     urls = 0;
+    rom = romFixture({ id: 3, name: "Blur", fs_name: "blur.zip" });
     getRom.mockResolvedValue({ data: rom });
+    updateRomMetadataLocks.mockClear();
+    updateRomMetadataLocks.mockResolvedValue({
+      data: { locked_fields: ["cover"] },
+    });
     vi.spyOn(URL, "createObjectURL").mockImplementation(() => `blob:${++urls}`);
     vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
   });
@@ -105,5 +114,34 @@ describe("EditRomDialog cover preview", () => {
     wrapper.unmount();
 
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:1");
+  });
+
+  it("asks users to save edits before changing scan locks", async () => {
+    const { wrapper } = await mountDialog();
+    await pick(wrapper);
+
+    const control = wrapper
+      .findAllComponents(MetadataLockControl)
+      .find((component) => component.props("field") === "cover");
+    expect(control?.props("disabled")).toBe(true);
+    expect(wrapper.text()).toContain("rom.lock-save-first");
+  });
+
+  it("locks the persisted cover value", async () => {
+    const { wrapper } = await mountDialog();
+    const control = wrapper
+      .findAllComponents(MetadataLockControl)
+      .find((component) => component.props("field") === "cover");
+
+    expect(control).toBeDefined();
+    expect(control!.props("disabled")).toBe(false);
+    await control!.vm.$emit("toggle", "cover");
+    await flushPromises();
+
+    expect(updateRomMetadataLocks).toHaveBeenCalledWith({
+      romId: rom.id,
+      fields: ["cover"],
+      locked: true,
+    });
   });
 });

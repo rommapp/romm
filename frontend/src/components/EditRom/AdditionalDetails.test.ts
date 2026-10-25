@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { UpdateRom } from "@/services/api/rom";
 import { romFixture } from "@/utils/rom.fixtures";
 import AdditionalDetails from "./AdditionalDetails.vue";
+import MetadataLockControl from "./MetadataLockControl.vue";
 
 vi.mock("vue-i18n");
 
@@ -25,7 +26,11 @@ function titlesField(wrapper: ReturnType<typeof mountDetails>) {
 
 function mountDetails(rom: UpdateRom) {
   return mount(AdditionalDetails, {
-    props: { rom },
+    props: {
+      rom,
+      metadataLockedFields: [],
+      metadataLockDisabled: false,
+    },
     global: {
       stubs: { RComboboxField, RDateField: true, RTextField: true },
     },
@@ -61,5 +66,17 @@ describe("AdditionalDetails alternative titles", () => {
     expect(wrapper.emitted("update:rom")?.[0]?.[0]).toMatchObject({
       manual_metadata: { alternative_names: [] },
     });
+  });
+
+  it("emits lock toggles for projected metadata", async () => {
+    const wrapper = mountDetails(romFixture({}));
+    const control = wrapper
+      .findAllComponents(MetadataLockControl)
+      .find((component) => component.props("field") === "genres");
+    expect(control).toBeDefined();
+
+    await control!.vm.$emit("toggle", "genres");
+
+    expect(wrapper.emitted("toggle-metadata-lock")?.[0]).toEqual(["genres"]);
   });
 });

@@ -3,9 +3,13 @@ import Bowser from "bowser";
 import type {
   Body_delete_roms_api_roms_delete_post as DeleteRomsInput,
   Body_update_rom_api_roms__id__put as UpdateRomInput,
+  BulkMetadataLockResponse,
+  BulkMetadataLockUpdateForm,
   BulkOperationResponse,
   DetailedRomSchema,
   ManualMetadata,
+  MetadataLockResponse,
+  MetadataLockUpdateForm,
   PhysicalRomCreateForm,
   RecommendedRomSchema,
   RomUserData,
@@ -1089,6 +1093,35 @@ async function getRomFilters() {
   return api.get<RomFiltersDict>("/roms/filters");
 }
 
+export type MetadataLockField = MetadataLockUpdateForm["fields"][number];
+
+async function putMetadataLocks<T>(path: string, body: MetadataLockUpdateForm) {
+  return api.put<T>(path, body);
+}
+
+async function updateRomMetadataLocks({
+  romId,
+  fields,
+  locked,
+}: {
+  romId: number;
+  fields: MetadataLockField[];
+  locked: boolean;
+}) {
+  const body: MetadataLockUpdateForm = { fields, locked };
+  return putMetadataLocks<MetadataLockResponse>(
+    `/roms/${romId}/metadata-locks`,
+    body,
+  );
+}
+
+async function updateBulkMetadataLocks(body: BulkMetadataLockUpdateForm) {
+  return putMetadataLocks<BulkMetadataLockResponse>(
+    "/roms/metadata-locks",
+    body,
+  );
+}
+
 export default {
   uploadRoms,
   getRoms,
@@ -1127,4 +1160,6 @@ export default {
   deleteRomNote,
   getRomNotes,
   getRomFilters,
+  updateRomMetadataLocks,
+  updateBulkMetadataLocks,
 };
