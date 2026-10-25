@@ -34,6 +34,30 @@ def test_update_metadata_locks_snapshots_and_exposes_only_names(
     assert payload["metadatum"]["genres"] == ["Action"]
 
 
+def test_metadata_locks_survive_editing_rom(
+    client: TestClient, access_token: str, rom: Rom
+):
+    fields = ["name", "summary", "genres"]
+    locked = client.put(
+        f"/api/roms/{rom.id}/metadata-locks",
+        headers=_auth(access_token),
+        json={"fields": fields, "locked": True},
+    )
+    assert locked.status_code == status.HTTP_200_OK
+
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers=_auth(access_token),
+        data={"summary": "hello world", "raw_manual_metadata": "{}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert set(response.json()["metadata_locked_fields"]) == set(fields)
+    stored = db_rom_handler.get_rom(rom.id)
+    assert stored is not None
+    assert stored.metadata_locks["summary"] == "hello world"
+
+
 def test_metadata_locks_require_roms_write(
     client: TestClient, viewer_access_token: str, rom: Rom
 ):

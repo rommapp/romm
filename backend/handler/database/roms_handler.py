@@ -967,8 +967,10 @@ class DBRomsHandler(DBBaseHandler):
         locks.pop(field)
         rom.metadata_locks = locks
         session.flush()
-        locks[field] = effective_metadata_value(rom, field)
-        rom.metadata_locks = locks
+        rom.metadata_locks = {
+            **locks,
+            field: effective_metadata_value(rom, field),
+        }
         session.flush()
         _sync_metadata_lock_facets(session, [rom_id], [field])
 
