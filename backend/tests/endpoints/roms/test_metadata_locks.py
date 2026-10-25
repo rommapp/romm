@@ -1,7 +1,10 @@
+import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
 from handler.database import db_rom_handler
+from handler.database.base_handler import sync_session
+from models.permission import HiddenEntity, PermEntity
 from models.rom import Rom
 
 
@@ -80,6 +83,43 @@ def test_metadata_locks_reject_unknown_fields(
     )
 
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.parametrize("target", ["platform", "all"])
+def test_bulk_metadata_locks_skip_roms_hidden_from_editor(
+    client: TestClient,
+    editor_access_token: str,
+    editor_user,
+    rom: Rom,
+    second_rom: Rom,
+    target: str,
+):
+    with sync_session.begin() as session:
+        session.add(
+            HiddenEntity(
+                entity=PermEntity.ROMS,
+                entity_id=rom.id,
+                user_id=editor_user.id,
+            )
+        )
+
+    target_body = (
+        {"platform_id": rom.platform_id} if target == "platform" else {"all": True}
+    )
+    response = client.put(
+        "/api/roms/metadata-locks",
+        headers=_auth(editor_access_token),
+        json={"fields": ["summary"], "locked": True, **target_body},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {"updated": 1, "failed": 0}
+    hidden_rom = db_rom_handler.get_rom(rom.id)
+    visible_rom = db_rom_handler.get_rom(second_rom.id)
+    assert hidden_rom is not None
+    assert visible_rom is not None
+    assert "summary" not in (hidden_rom.metadata_locks or {})
+    assert "summary" in (visible_rom.metadata_locks or {})
 
 
 def test_bulk_metadata_locks_can_target_platform_or_library(

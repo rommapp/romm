@@ -1352,6 +1352,7 @@ def update_bulk_metadata_locks(
             raise PlatformNotFoundInDatabaseException(platform_id)
         assert_platform_visible(request, platform)
 
+    visibility = get_permissions(request).rom_visibility
     updated = 0
     failed = 0
     after_id = 0
@@ -1360,6 +1361,7 @@ def update_bulk_metadata_locks(
             platform_id=platform_id,
             after_id=after_id,
             limit=500,
+            visibility=visibility,
         )
         if not rom_ids:
             break

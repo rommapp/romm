@@ -1002,9 +1002,10 @@ class DBRomsHandler(DBBaseHandler):
         platform_id: int | None,
         after_id: int,
         limit: int,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
         session: Session = INJECTED_SESSION,
     ) -> list[int]:
-        filters = [Rom.id > after_id]
+        filters = [Rom.id > after_id, *visibility.clauses()]
         if platform_id is not None:
             filters.append(Rom.platform_id == platform_id)
         statement = select(Rom.id).where(and_(*filters))
