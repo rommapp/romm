@@ -18,7 +18,6 @@
 
 
 # ARGUMENT DECLARATIONS
-# The dev image (../Dockerfile) builds on the same bases; keep its copies in sync.
 ARG ALPINE_VERSION=3.24
 ARG ALPINE_SHA256=294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 # Pins the base image tag, so it cannot read ../.python-version; keep the two in sync.
