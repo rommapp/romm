@@ -98,7 +98,7 @@
     "eslint-plugin-vuejs-accessibility": "^2.5.0",
     "fake-indexeddb": "^6.2.5",
     "globals": "^17.0.0",
-    "happy-dom": "^20.9.0",
+    "happy-dom": "^21.0.0",
     "openapi-typescript-codegen": "^0.29.0",
     "postcss": "^8.5.23",
     "sirv": "^3.0.2",
