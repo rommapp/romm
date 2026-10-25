@@ -423,3 +423,31 @@ describe("RSelect aria-label attribute", () => {
     expect(wrapper.attributes("aria-label")).toBeUndefined();
   });
 });
+
+describe("RSelect searchable without search autofocus", () => {
+  const original = window.matchMedia;
+
+  afterEach(() => {
+    window.matchMedia = original;
+    document.body.innerHTML = "";
+  });
+
+  it("keeps the active option on the activator while focus stays there", async () => {
+    window.matchMedia = vi.fn(() => ({ matches: false })) as never;
+    const wrapper = mount(RSelect, {
+      props: { items: ["Apple", "Banana"], modelValue: null, searchable: true },
+      attachTo: document.body,
+    });
+    const field = wrapper.get(".r-select__field");
+
+    await field.trigger("click");
+    await field.trigger("keydown", { key: "ArrowDown" });
+
+    expect(
+      document
+        .getElementById(field.attributes("aria-activedescendant") ?? "")
+        ?.textContent?.trim(),
+    ).toBe("Banana");
+    wrapper.unmount();
+  });
+});

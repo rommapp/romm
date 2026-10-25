@@ -34,6 +34,8 @@ export function useGlobalHotkeys() {
 
     function onKey(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      // A widget that handled the key (a select's type-to-select) owns it.
+      if (e.defaultPrevented) return;
       if (isEditable(e.target)) return;
       // While a game is running the emulator owns the keyboard. "g" and
       // "h" are common game keys; without this gate a two-key sequence

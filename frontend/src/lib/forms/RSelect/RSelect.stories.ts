@@ -623,12 +623,23 @@ export const KeyboardNavigation: Story = {
       await expect(activeOption()).toHaveTextContent("Sega Genesis");
     });
 
+    await step(
+      "A space continues a typed query instead of picking",
+      async () => {
+        // Let the previous query lapse.
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        await userEvent.keyboard("game boy a");
+        await expect(activeOption()).toHaveTextContent("Game Boy Advance");
+        await expect(field).toHaveAttribute("aria-expanded", "true");
+      },
+    );
+
     await step("Enter picks the active option and closes", async () => {
       await userEvent.keyboard("{Enter}");
       await waitFor(() =>
         expect(field).toHaveAttribute("aria-expanded", "false"),
       );
-      await expect(field).toHaveTextContent("Sega Genesis");
+      await expect(field).toHaveTextContent("Game Boy Advance");
       await waitFor(() =>
         expect(document.querySelector(".r-select__panel")).toBeNull(),
       );

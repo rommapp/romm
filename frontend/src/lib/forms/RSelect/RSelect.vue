@@ -888,6 +888,12 @@ function scrollActiveIntoView() {
 
 function onActivatorKey(evt: KeyboardEvent) {
   if (props.disabled || props.readonly) return;
+  // Within a typing burst a space continues the query ("game boy").
+  if (evt.key === " " && typeBuffer && !props.searchable) {
+    evt.preventDefault();
+    typeahead(" ");
+    return;
+  }
   switch (evt.key) {
     case "ArrowDown":
       evt.preventDefault();
