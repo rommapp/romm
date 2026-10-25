@@ -78,6 +78,7 @@
   "hide-password": "Nascondi password",
   "home": "Home",
   "in-library": "In libreria",
+  "integer-range": "Inserisci un numero intero da {min} a {max}",
   "invalid-email": "Email non valida",
   "invalid-json": "Formato JSON non valido",
   "invalid-name": "Nome non valido",

@@ -78,6 +78,7 @@
   "hide-password": "Jelszó elrejtése",
   "home": "Kezdőlap",
   "in-library": "A könyvtárban",
+  "integer-range": "Adj meg egy egész számot {min} és {max} között",
   "invalid-email": "Érvénytelen e-mail",
   "invalid-json": "Érvénytelen JSON formátum",
   "invalid-name": "Érvénytelen név",

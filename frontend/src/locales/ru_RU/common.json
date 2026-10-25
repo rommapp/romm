@@ -78,6 +78,7 @@
   "hide-password": "Скрыть пароль",
   "home": "Главная",
   "in-library": "В библиотеке",
+  "integer-range": "Введите целое число от {min} до {max}",
   "invalid-email": "Недопустимый адрес электронной почты",
   "invalid-json": "Неверный формат JSON",
   "invalid-name": "Недопустимое имя",

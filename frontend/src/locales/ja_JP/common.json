@@ -78,6 +78,7 @@
   "hide-password": "パスワードを隠す",
   "home": "ホーム",
   "in-library": "ライブラリ内",
+  "integer-range": "{min}から{max}までの整数を入力してください",
   "invalid-email": "無効なメールアドレス",
   "invalid-json": "JSON形式が無効です",
   "invalid-name": "無効な名前",

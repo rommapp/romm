@@ -387,6 +387,10 @@ SYNC_PUSH_PULL_CRON: Final[str] = _get_env(
     "SYNC_PUSH_PULL_CRON",
     "*/30 * * * *",  # Every 30 minutes
 )
+# On by default: it only checks consoles a user set up in Settings > Devices.
+ENABLE_SYNC_CONSOLES: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SYNC_CONSOLES", "true")
+)
 SYNC_SSH_KEYS_PATH: Final[str] = _get_env(
     "SYNC_SSH_KEYS_PATH", f"{SYNC_BASE_PATH}/keys"
 )

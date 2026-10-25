@@ -21,6 +21,8 @@ from handler.database import (
 )
 from handler.filesystem import fs_asset_handler
 from handler.sync.comparison import compare_save_state
+from handler.sync.console.profiles import is_console
+from handler.sync.console.sync_handler import sync_console_device
 from handler.sync.ssh_handler import RemoteSaveInfo, get_ssh_sync_handler
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -57,6 +59,11 @@ async def run_push_pull_sync(
     results = []
     for device in devices:
         if not device.sync_enabled:
+            continue
+        if is_console(device):
+            # Consoles keep their own schedule, so only a direct request syncs one here.
+            if device_id:
+                results.append(await sync_console_device(device, session_id=session_id))
             continue
         result = await _sync_device(device, session_id=session_id)
         results.append(result)

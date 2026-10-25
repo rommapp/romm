@@ -78,6 +78,7 @@
   "hide-password": "隱藏密碼",
   "home": "首頁",
   "in-library": "已在遊戲庫",
+  "integer-range": "請輸入 {min} 到 {max} 之間的整數",
   "invalid-email": "無效的電子郵件",
   "invalid-json": "JSON 格式無效",
   "invalid-name": "無效的名稱",
