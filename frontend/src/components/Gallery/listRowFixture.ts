@@ -86,6 +86,7 @@ export const ROM_DEFAULTS: SimpleRom = {
   steam_metadata: null,
   gamelist_metadata: null,
   manual_metadata: null,
+  metadata_locked_fields: [],
   path_cover_small: null,
   path_cover_large: null,
   url_cover: null,

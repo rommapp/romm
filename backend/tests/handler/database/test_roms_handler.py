@@ -183,6 +183,30 @@ class TestAddRomMergesScannedTags:
         assert stored.slug == "kept-slug"
 
 
+class TestPersistScanResultLockBoundary:
+    @pytest.mark.parametrize(
+        ("current_locks", "expected_name"),
+        [({}, "Provider title"), ({"name": "Latest lock"}, "Latest lock")],
+    )
+    def test_uses_current_lock_state_not_the_scan_snapshot(
+        self, rom: Rom, current_locks: dict[str, str], expected_name: str
+    ):
+        db_rom_handler.update_rom(rom.id, {"metadata_locks": current_locks})
+        scanned = Rom(
+            id=rom.id,
+            platform_id=rom.platform_id,
+            fs_name=rom.fs_name,
+            fs_path=rom.fs_path,
+            name="Stale lock snapshot",
+        )
+        setattr(scanned, "_scan_unlocked_attrs", {"name": "Provider title"})
+
+        persisted = db_rom_handler.persist_scan_result(rom.id, scanned)
+
+        assert persisted.name == expected_name
+        assert persisted.metadata_locks == current_locks
+
+
 class TestUniquePlatformFullPath:
     """A folder can't hold two entries with the same name, so the DB rejects a
     second ROM at the same full path (via its `full_path_hash`). This is what

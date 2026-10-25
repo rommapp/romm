@@ -78,6 +78,7 @@ export type DetailedRomSchema = {
     steam_metadata: (RomSteamMetadata | null);
     gamelist_metadata: (RomGamelistMetadata | null);
     manual_metadata: (ManualMetadata | null);
+    metadata_locked_fields: Array<string>;
     path_cover_small: (string | null);
     path_cover_large: (string | null);
     url_cover: (string | null);

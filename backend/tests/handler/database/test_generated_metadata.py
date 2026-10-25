@@ -8,9 +8,12 @@ date that the old view silently truncated to ``0``.
 """
 
 import pytest
+from sqlalchemy import select
+from tests.conftest import session as session_factory
 
 from handler.database import db_rom_handler
-from models.rom import Rom
+from models.collection import VirtualCollectionRom
+from models.rom import Rom, RomFacets
 
 
 def _reload(rom: Rom) -> Rom:
@@ -179,3 +182,98 @@ class TestGeneratedMetadata:
         assert meta.player_count == "1"
         assert meta.first_release_date is None
         assert meta.average_rating is None
+
+
+class TestMetadataLocks:
+    def test_locked_facets_survive_provider_refresh_and_update_filters(self, rom: Rom):
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "igdb_metadata": {
+                    "genres": ["Action"],
+                    "first_release_date": 100,
+                    "player_count": "4",
+                }
+            },
+        )
+        fields = ["genres", "first_release_date", "player_count"]
+        db_rom_handler.set_metadata_locks(rom.id, fields, True)
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "igdb_metadata": {
+                    "genres": ["Puzzle"],
+                    "first_release_date": 200,
+                    "player_count": "2",
+                }
+            },
+        )
+
+        refreshed = _reload(rom)
+        assert refreshed.metadatum.genres == ["Action"]
+        assert refreshed.metadatum.first_release_date == 100000
+        assert refreshed.metadatum.player_count == "4"
+        with session_factory.begin() as session:
+            assert session.scalar(
+                select(RomFacets.genres).where(RomFacets.rom_id == rom.id)
+            ) == ["Action"]
+            assert (
+                session.scalar(
+                    select(RomFacets.player_count).where(RomFacets.rom_id == rom.id)
+                )
+                == "4"
+            )
+
+        db_rom_handler.set_metadata_locks(rom.id, fields, False)
+        refreshed = _reload(rom)
+        assert refreshed.metadatum.genres == ["Puzzle"]
+        assert refreshed.metadatum.first_release_date == 200000
+        assert refreshed.metadatum.player_count == "2"
+
+    def test_locked_empty_and_null_values_do_not_fall_through(self, rom: Rom):
+        db_rom_handler.set_metadata_locks(
+            rom.id, ["genres", "first_release_date"], True
+        )
+        db_rom_handler.update_rom(
+            rom.id,
+            {"igdb_metadata": {"genres": ["Action"], "first_release_date": 100}},
+        )
+
+        metadata = _reload(rom).metadatum
+        assert metadata.genres == []
+        assert metadata.first_release_date is None
+
+        db_rom_handler.set_metadata_locks(
+            rom.id, ["genres", "first_release_date"], False
+        )
+        metadata = _reload(rom).metadatum
+        assert metadata.genres == ["Action"]
+        assert metadata.first_release_date == 100000
+
+    def test_locked_genre_keeps_virtual_collection_membership_current(self, rom: Rom):
+        db_rom_handler.update_rom(rom.id, {"igdb_metadata": {"genres": ["Action"]}})
+        db_rom_handler.set_metadata_locks(rom.id, ["genres"], True)
+        db_rom_handler.update_rom(rom.id, {"igdb_metadata": {"genres": ["Puzzle"]}})
+
+        with session_factory.begin() as session:
+            names = set(
+                session.scalars(
+                    select(VirtualCollectionRom.name).where(
+                        VirtualCollectionRom.rom_id == rom.id,
+                        VirtualCollectionRom.type == "genre",
+                    )
+                )
+            )
+        assert names == {"Action"}
+
+        db_rom_handler.set_metadata_locks(rom.id, ["genres"], False)
+        with session_factory.begin() as session:
+            names = set(
+                session.scalars(
+                    select(VirtualCollectionRom.name).where(
+                        VirtualCollectionRom.rom_id == rom.id,
+                        VirtualCollectionRom.type == "genre",
+                    )
+                )
+            )
+        assert names == {"Puzzle"}

@@ -194,6 +194,62 @@ async def test_scan_rom_complete_clears_unselected_metadata(
     assert result.hasheous_id == 999
 
 
+async def test_unmatched_scan_applies_direct_metadata_lock_snapshots():
+    platform = make_platform("n64", id=1, name="Nintendo 64")
+    rom = make_rom(
+        platform,
+        "Provider Name",
+        summary="Provider summary",
+        metadata_locks={
+            "name": "Pinned name",
+            "summary": None,
+            "cover": {
+                "url": "cover-url",
+                "small": "cover-small",
+                "large": "cover-large",
+            },
+            "screenshots": {"urls": [], "paths": []},
+            "manual": {"url": "manual-url", "path": "manual-path"},
+        },
+        url_cover="provider-cover",
+        path_cover_s="provider-small",
+        path_cover_l="provider-large",
+        url_screenshots=["provider-shot"],
+        path_screenshots=["provider-shot-path"],
+        url_manual="provider-manual",
+        path_manual="provider-manual-path",
+    )
+
+    async with initialize_context():
+        scanned = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.UNMATCHED,
+            rom=rom,
+            fs_rom={
+                "fs_name": rom.fs_name,
+                "fs_path": rom.fs_path,
+                "flat": True,
+                "files": [],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            },
+            metadata_sources=[],
+            newly_added=False,
+        )
+
+    assert scanned.name == "Pinned name"
+    assert scanned.summary is None
+    assert scanned.url_cover == "cover-url"
+    assert scanned.path_cover_s == "cover-small"
+    assert scanned.path_cover_l == "cover-large"
+    assert scanned.url_screenshots == []
+    assert scanned.path_screenshots == []
+    assert scanned.url_manual == "manual-url"
+    assert scanned.path_manual == "manual-path"
+
+
 @pytest.mark.parametrize(
     ("stored_title_id", "extracted_title_id"),
     [

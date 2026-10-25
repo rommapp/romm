@@ -63,6 +63,8 @@ export type { Body_update_state_favorite_api_states__id__favorite_put } from './
 export type { Body_update_state_labels_api_states__id__labels_put } from './models/Body_update_state_labels_api_states__id__labels_put';
 export type { Body_update_state_visibility_api_states__id__visibility_put } from './models/Body_update_state_visibility_api_states__id__visibility_put';
 export type { Body_upload_memory_card_version_api_memory_cards__id__versions_post } from './models/Body_upload_memory_card_version_api_memory_cards__id__versions_post';
+export type { BulkMetadataLockResponse } from './models/BulkMetadataLockResponse';
+export type { BulkMetadataLockUpdateForm } from './models/BulkMetadataLockUpdateForm';
 export type { BulkOperationResponse } from './models/BulkOperationResponse';
 export type { ClaimStreamingSessionRequest } from './models/ClaimStreamingSessionRequest';
 export type { CleanupTaskMeta } from './models/CleanupTaskMeta';
@@ -161,6 +163,8 @@ export type { MemoryCardSchema } from './models/MemoryCardSchema';
 export type { MemoryCardSummarySchema } from './models/MemoryCardSummarySchema';
 export type { MemoryCardVersionSchema } from './models/MemoryCardVersionSchema';
 export type { MetadataCoverageItem } from './models/MetadataCoverageItem';
+export type { MetadataLockResponse } from './models/MetadataLockResponse';
+export type { MetadataLockUpdateForm } from './models/MetadataLockUpdateForm';
 export type { MetadataMediaType } from './models/MetadataMediaType';
 export type { MetadataSource } from './models/MetadataSource';
 export type { MetadataSourcesDict } from './models/MetadataSourcesDict';

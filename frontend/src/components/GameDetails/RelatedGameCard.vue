@@ -135,6 +135,7 @@ const syntheticRom = computed<SimpleRom>(() => ({
   steam_metadata: null,
   gamelist_metadata: null,
   manual_metadata: null,
+  metadata_locked_fields: [],
   path_cover_small: null,
   path_cover_large: null,
   url_cover: props.game.cover_url ?? null,

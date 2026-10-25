@@ -89,6 +89,42 @@ async def test_downloads_every_file_of_a_rom_together(resources: SimpleNamespace
 
 
 @pytest.mark.asyncio
+async def test_locked_assets_are_not_downloaded(resources: SimpleNamespace):
+    rom = _rom()
+    rom.url_cover = "locked-cover-url"
+    rom.path_cover_s = "cover-small"
+    rom.path_cover_l = "cover-large"
+    rom.url_manual = "locked-manual-url"
+    rom.path_manual = "manual.pdf"
+    rom.url_screenshots = ["locked-screenshot-url"]
+    rom.path_screenshots = ["screenshot.jpg"]
+    rom.metadata_locks = {
+        "cover": {
+            "url": rom.url_cover,
+            "small": rom.path_cover_s,
+            "large": rom.path_cover_l,
+        },
+        "manual": {"url": rom.url_manual, "path": rom.path_manual},
+        "screenshots": {
+            "urls": rom.url_screenshots,
+            "paths": rom.path_screenshots,
+        },
+    }
+
+    await _download(rom, [])
+
+    resources.get_cover.assert_not_awaited()
+    resources.get_manual.assert_not_awaited()
+    resources.get_rom_screenshots.assert_not_awaited()
+    assert resources.update_rom.call_args.args[1] == {
+        "path_cover_s": "cover-small",
+        "path_cover_l": "cover-large",
+        "path_screenshots": ["screenshot.jpg"],
+        "path_manual": "manual.pdf",
+    }
+
+
+@pytest.mark.asyncio
 async def test_provider_media_dicts_take_turns_in_priority_order(
     resources: SimpleNamespace,
 ):
