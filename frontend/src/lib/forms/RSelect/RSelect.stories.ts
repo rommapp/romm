@@ -735,3 +735,65 @@ export const MultipleKeyboard: Story = {
     );
   },
 };
+
+export const KeyboardDisabledRows: Story = {
+  name: "Keyboard · disabled rows (play)",
+  render: () => ({
+    components: { RSelect },
+    setup: () => ({
+      value: ref<string | null>(null),
+      items: [
+        { title: "Apple", value: "apple" },
+        { title: "Apricot", value: "apricot", disabled: true },
+        { title: "Banana", value: "banana" },
+        { title: "Blueberry", value: "blueberry" },
+        { title: "Cherry", value: "cherry", disabled: true },
+      ],
+    }),
+    template: `<div style="width:340px"><RSelect v-model="value" :items="items" label="Fruit" /></div>`,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const field = await within(canvasElement).findByRole("combobox", {
+      name: "Fruit",
+    });
+    const activeOption = () =>
+      document.getElementById(
+        field.getAttribute("aria-activedescendant") ?? "",
+      );
+
+    await step("Paging backs off a disabled last row", async () => {
+      field.focus();
+      await userEvent.keyboard("{ArrowDown}");
+      await waitFor(() =>
+        expect(field).toHaveAttribute("aria-expanded", "true"),
+      );
+      await userEvent.keyboard("{PageDown}");
+      await expect(activeOption()).toHaveTextContent("Blueberry");
+      await userEvent.keyboard("{PageUp}");
+      await expect(activeOption()).toHaveTextContent("Apple");
+    });
+
+    await step("Repeating a letter cycles through its matches", async () => {
+      await userEvent.keyboard("b");
+      await expect(activeOption()).toHaveTextContent("Banana");
+      await userEvent.keyboard("b");
+      await expect(activeOption()).toHaveTextContent("Blueberry");
+    });
+
+    await step("Typing a disabled row's letter leaves it alone", async () => {
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() =>
+        expect(document.querySelector(".r-select__panel")).toBeNull(),
+      );
+      await userEvent.keyboard("c");
+      await waitFor(() =>
+        expect(field).toHaveAttribute("aria-expanded", "true"),
+      );
+      await expect(activeOption()).toHaveTextContent("Apple");
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() =>
+        expect(document.querySelector(".r-select__panel")).toBeNull(),
+      );
+    });
+  },
+};

@@ -743,6 +743,7 @@ function closeMenu() {
   if (!isOpen.value) return;
   isOpen.value = false;
   emit("close");
+  resetTypeahead();
   // Closing acts as a "blur" for the field.
   dirty.value = true;
   // Clear the search buffer so the next open starts fresh, matches
@@ -831,7 +832,8 @@ function moveActiveTo(edge: "first" | "last") {
   scrollActiveIntoView();
 }
 
-// Move a page of rows, stopping at the ends instead of wrapping.
+// Move a page of rows, stopping at the ends instead of wrapping. A disabled
+// target backs off toward the current row.
 function movePage(dir: 1 | -1) {
   const list = filteredItems.value;
   const lo = firstIndex.value;
@@ -839,8 +841,8 @@ function movePage(dir: 1 | -1) {
     list.length - 1,
     Math.max(lo, activeIndex.value + dir * PAGE_STEP),
   );
-  while (list[i]?.disabled && i + dir >= lo && i + dir < list.length) i += dir;
-  if (i !== -1 && (!list[i] || list[i]!.disabled)) return;
+  while (i !== -1 && list[i]?.disabled) i -= dir;
+  if (i < lo || i >= list.length) return;
   activeIndex.value = i;
   scrollActiveIntoView();
 }
@@ -869,7 +871,11 @@ function typeahead(char: string) {
     }
   }
 }
-onBeforeUnmount(() => clearTimeout(typeTimer));
+function resetTypeahead() {
+  clearTimeout(typeTimer);
+  typeBuffer = "";
+}
+onBeforeUnmount(resetTypeahead);
 
 function scrollActiveIntoView() {
   void nextTick(() => {
@@ -1048,7 +1054,9 @@ const describedBy = computed(() => {
       :aria-haspopup="'listbox'"
       :aria-expanded="isOpen"
       :aria-controls="isOpen ? listboxId : undefined"
-      :aria-activedescendant="searchable ? undefined : activeOptionId"
+      :aria-activedescendant="
+        searchable && autofocusSearch ? undefined : activeOptionId
+      "
       :aria-label="effectiveAriaLabel"
       :aria-labelledby="
         stackedLabelOn
