@@ -97,6 +97,23 @@ describe("useGlobalHotkeys", () => {
     host.unmount();
   });
 
+  it("ignores keys a widget already claimed", async () => {
+    const host = await install();
+    const button = document.createElement("button");
+    button.addEventListener("keydown", (e) => e.preventDefault());
+    document.body.appendChild(button);
+
+    press("g", button);
+    press("p", button);
+    press("/", button);
+    expect(push).not.toHaveBeenCalled();
+
+    press("g");
+    press("h");
+    expect(push).toHaveBeenCalledWith({ name: "home" });
+    host.unmount();
+  });
+
   it("still routes 'g h' outside a session", async () => {
     const host = await install();
     press("g");

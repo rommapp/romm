@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 import { ref } from "vue";
 import RDateField from "./RDateField.vue";
 
@@ -153,4 +154,44 @@ export const Disabled: Story = {
       </div>
     `,
   }),
+};
+
+export const KeyboardSelection: Story = {
+  name: "Keyboard selection (play)",
+  render: () => ({
+    components: { RDateField },
+    setup: () => ({ value: ref<Date | null>(null) }),
+    template: `
+      <div style="width:280px;padding:24px">
+        <RDateField v-model="value" label="Released at" variant="outlined" />
+      </div>
+    `,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const field = await within(canvasElement).findByRole("combobox", {
+      name: "Released at",
+    });
+    // The picker teleports to <body>, outside the story canvas.
+    const panel = () => document.querySelector('[role="dialog"]');
+
+    await step("Enter opens the picker on a day", async () => {
+      field.focus();
+      await userEvent.keyboard("{Enter}");
+      await waitFor(() => expect(panel()).not.toBeNull());
+      await expect(field).toHaveAttribute("aria-expanded", "true");
+      await waitFor(() =>
+        expect(document.activeElement).toHaveClass("r-date-cal__day"),
+      );
+    });
+
+    await step("Arrow keys move between days and Enter picks one", async () => {
+      const start = document.activeElement;
+      await userEvent.keyboard("{ArrowRight}");
+      await expect(document.activeElement).not.toBe(start);
+      await userEvent.keyboard("{Enter}");
+      await waitFor(() => expect(panel()).toBeNull());
+      await expect(field).not.toHaveValue("");
+      await expect(field).toHaveAttribute("aria-expanded", "false");
+    });
+  },
 };

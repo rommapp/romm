@@ -370,3 +370,84 @@ describe("RSelect stacked label", () => {
     expect(fieldId).toBe(field.attributes("id"));
   });
 });
+
+describe("RSelect combobox semantics", () => {
+  it("only points aria-controls at the listbox while it is mounted", async () => {
+    const wrapper = mount(RSelect, {
+      props: { items: ["a"], modelValue: null },
+      attachTo: document.body,
+    });
+    const field = wrapper.get(".r-select__field");
+
+    expect(field.attributes("aria-controls")).toBeUndefined();
+    await field.trigger("click");
+    expect(field.attributes("aria-controls")).toBe(
+      document.querySelector('[role="listbox"]')?.id,
+    );
+    wrapper.unmount();
+    document.body.innerHTML = "";
+  });
+
+  it("starts a fresh type-to-select query after the menu closes", async () => {
+    const wrapper = mount(RSelect, {
+      props: { items: ["Banana", "Bc", "Cherry"], modelValue: null },
+      attachTo: document.body,
+    });
+    const field = wrapper.get(".r-select__field");
+    const active = () =>
+      document
+        .getElementById(field.attributes("aria-activedescendant") ?? "")
+        ?.textContent?.trim();
+
+    await field.trigger("keydown", { key: "b" });
+    await field.trigger("keydown", { key: "Escape" });
+    await field.trigger("click");
+    await field.trigger("keydown", { key: "c" });
+
+    expect(active()).toBe("Cherry");
+    wrapper.unmount();
+    document.body.innerHTML = "";
+  });
+});
+
+describe("RSelect aria-label attribute", () => {
+  it("names the activator and keeps it off the wrapper", () => {
+    const wrapper = mount(RSelect, {
+      props: { items: ["a"], modelValue: "a" },
+      attrs: { "aria-label": "Filter by user" },
+    });
+
+    expect(wrapper.get(".r-select__field").attributes("aria-label")).toBe(
+      "Filter by user",
+    );
+    expect(wrapper.attributes("aria-label")).toBeUndefined();
+  });
+});
+
+describe("RSelect searchable without search autofocus", () => {
+  const original = window.matchMedia;
+
+  afterEach(() => {
+    window.matchMedia = original;
+    document.body.innerHTML = "";
+  });
+
+  it("keeps the active option on the activator while focus stays there", async () => {
+    window.matchMedia = vi.fn(() => ({ matches: false })) as never;
+    const wrapper = mount(RSelect, {
+      props: { items: ["Apple", "Banana"], modelValue: null, searchable: true },
+      attachTo: document.body,
+    });
+    const field = wrapper.get(".r-select__field");
+
+    await field.trigger("click");
+    await field.trigger("keydown", { key: "ArrowDown" });
+
+    expect(
+      document
+        .getElementById(field.attributes("aria-activedescendant") ?? "")
+        ?.textContent?.trim(),
+    ).toBe("Banana");
+    wrapper.unmount();
+  });
+});

@@ -584,3 +584,227 @@ export const NestedMenu: Story = {
     });
   },
 };
+
+export const KeyboardNavigation: Story = {
+  name: "Keyboard navigation (play)",
+  render: () => ({
+    components: { RSelect },
+    setup: () => ({ value: ref<string | null>(null), items: PLATFORMS }),
+    template: `<div style="width:340px"><RSelect v-model="value" :items="items" label="Platform" /></div>`,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const field = await within(canvasElement).findByRole("combobox", {
+      name: "Platform",
+    });
+    const activeOption = () =>
+      document.getElementById(
+        field.getAttribute("aria-activedescendant") ?? "",
+      );
+
+    await step("Arrow Down opens the list on the first option", async () => {
+      field.focus();
+      await userEvent.keyboard("{ArrowDown}");
+      await waitFor(() =>
+        expect(field).toHaveAttribute("aria-expanded", "true"),
+      );
+      await expect(activeOption()).toHaveTextContent("Nintendo 64");
+      await expect(field).toHaveAttribute(
+        "aria-controls",
+        document.querySelector('[role="listbox"]')!.id,
+      );
+    });
+
+    await step("End, Home and typing move the active option", async () => {
+      await userEvent.keyboard("{End}");
+      await expect(activeOption()).toHaveTextContent("PC");
+      await userEvent.keyboard("{Home}");
+      await expect(activeOption()).toHaveTextContent("Nintendo 64");
+      await userEvent.keyboard("sega");
+      await expect(activeOption()).toHaveTextContent("Sega Genesis");
+    });
+
+    await step(
+      "A space continues a typed query instead of picking",
+      async () => {
+        // Let the previous query lapse.
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        await userEvent.keyboard("game boy a");
+        await expect(activeOption()).toHaveTextContent("Game Boy Advance");
+        await expect(field).toHaveAttribute("aria-expanded", "true");
+      },
+    );
+
+    await step("Enter picks the active option and closes", async () => {
+      await userEvent.keyboard("{Enter}");
+      await waitFor(() =>
+        expect(field).toHaveAttribute("aria-expanded", "false"),
+      );
+      await expect(field).toHaveTextContent("Game Boy Advance");
+      await waitFor(() =>
+        expect(document.querySelector(".r-select__panel")).toBeNull(),
+      );
+    });
+  },
+};
+
+export const SearchableKeyboard: Story = {
+  name: "Searchable · keyboard (play)",
+  render: () => ({
+    components: { RSelect },
+    setup: () => ({ value: ref<string | null>(null), items: PLATFORMS }),
+    template: `<div style="width:340px"><RSelect v-model="value" :items="items" searchable placeholder="Pick a platform" /></div>`,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const field = await within(canvasElement).findByRole("combobox", {
+      name: "Pick a platform",
+    });
+    // The panel teleports to <body>, outside the story canvas.
+    const search = () =>
+      document.querySelector<HTMLInputElement>(".r-select__search input");
+    const activeOption = () =>
+      document.getElementById(
+        search()?.getAttribute("aria-activedescendant") ?? "",
+      );
+
+    await step("Filtering keeps the active option on the input", async () => {
+      await userEvent.click(field);
+      await waitFor(() => expect(search()).not.toBeNull());
+      await userEvent.click(search()!);
+      await userEvent.keyboard("play");
+      await expect(search()).toHaveAttribute("role", "combobox");
+      await waitFor(() =>
+        expect(activeOption()).toHaveTextContent("PlayStation 1"),
+      );
+      await expect(field).not.toHaveAttribute("aria-activedescendant");
+    });
+
+    await step("Arrow Down then Enter picks the next match", async () => {
+      await userEvent.keyboard("{ArrowDown}");
+      await expect(activeOption()).toHaveTextContent("PlayStation 2");
+      await userEvent.keyboard("{Enter}");
+      await waitFor(() =>
+        expect(document.querySelector(".r-select__panel")).toBeNull(),
+      );
+      await expect(field).toHaveTextContent("PlayStation 2");
+    });
+  },
+};
+
+export const MultipleKeyboard: Story = {
+  name: "Multiple · All row keyboard (play)",
+  render: () => ({
+    components: { RSelect },
+    setup: () => ({ value: ref<string[]>([]), items: PLATFORMS }),
+    template: `<div style="width:480px"><RSelect v-model="value" :items="items" multiple show-all-option placeholder="Pick platforms" /></div>`,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const field = await within(canvasElement).findByRole("combobox", {
+      name: "Pick platforms",
+    });
+    const activeOption = () =>
+      document.getElementById(
+        field.getAttribute("aria-activedescendant") ?? "",
+      );
+
+    await step("Arrow Up from the first option reaches All", async () => {
+      field.focus();
+      await userEvent.keyboard("{ArrowDown}");
+      await waitFor(() =>
+        expect(field).toHaveAttribute("aria-expanded", "true"),
+      );
+      await expect(activeOption()).toHaveTextContent("Nintendo 64");
+      await userEvent.keyboard("{ArrowUp}");
+      await expect(activeOption()).toHaveClass("r-select__item--all");
+    });
+
+    await step("Enter toggles All without leaving the list", async () => {
+      // An empty model starts in All mode.
+      await expect(activeOption()).toHaveAttribute("aria-selected", "true");
+      await userEvent.keyboard("{Enter}");
+      await waitFor(() =>
+        expect(activeOption()).toHaveAttribute("aria-selected", "false"),
+      );
+      await userEvent.keyboard("{Enter}");
+      await waitFor(() =>
+        expect(activeOption()).toHaveAttribute("aria-selected", "true"),
+      );
+      await expect(field).toHaveAttribute("aria-expanded", "true");
+    });
+
+    await step(
+      "Home returns to All and End goes to the last item",
+      async () => {
+        await userEvent.keyboard("{End}");
+        await expect(activeOption()).toHaveTextContent("PC");
+        await userEvent.keyboard("{Home}");
+        await expect(activeOption()).toHaveClass("r-select__item--all");
+        await userEvent.keyboard("{Escape}");
+        await waitFor(() =>
+          expect(document.querySelector(".r-select__panel")).toBeNull(),
+        );
+      },
+    );
+  },
+};
+
+export const KeyboardDisabledRows: Story = {
+  name: "Keyboard · disabled rows (play)",
+  render: () => ({
+    components: { RSelect },
+    setup: () => ({
+      value: ref<string | null>(null),
+      items: [
+        { title: "Apple", value: "apple" },
+        { title: "Apricot", value: "apricot", disabled: true },
+        { title: "Banana", value: "banana" },
+        { title: "Blueberry", value: "blueberry" },
+        { title: "Cherry", value: "cherry", disabled: true },
+      ],
+    }),
+    template: `<div style="width:340px"><RSelect v-model="value" :items="items" label="Fruit" /></div>`,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const field = await within(canvasElement).findByRole("combobox", {
+      name: "Fruit",
+    });
+    const activeOption = () =>
+      document.getElementById(
+        field.getAttribute("aria-activedescendant") ?? "",
+      );
+
+    await step("Paging backs off a disabled last row", async () => {
+      field.focus();
+      await userEvent.keyboard("{ArrowDown}");
+      await waitFor(() =>
+        expect(field).toHaveAttribute("aria-expanded", "true"),
+      );
+      await userEvent.keyboard("{PageDown}");
+      await expect(activeOption()).toHaveTextContent("Blueberry");
+      await userEvent.keyboard("{PageUp}");
+      await expect(activeOption()).toHaveTextContent("Apple");
+    });
+
+    await step("Repeating a letter cycles through its matches", async () => {
+      await userEvent.keyboard("b");
+      await expect(activeOption()).toHaveTextContent("Banana");
+      await userEvent.keyboard("b");
+      await expect(activeOption()).toHaveTextContent("Blueberry");
+    });
+
+    await step("Typing a disabled row's letter leaves it alone", async () => {
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() =>
+        expect(document.querySelector(".r-select__panel")).toBeNull(),
+      );
+      await userEvent.keyboard("c");
+      await waitFor(() =>
+        expect(field).toHaveAttribute("aria-expanded", "true"),
+      );
+      await expect(activeOption()).toHaveTextContent("Apple");
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() =>
+        expect(document.querySelector(".r-select__panel")).toBeNull(),
+      );
+    });
+  },
+};
