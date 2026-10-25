@@ -11,7 +11,6 @@ import {
 } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, useRouter } from "vue-router";
-import { useTheme } from "vuetify";
 import type {
   FirmwareSchema,
   SaveSchema,
@@ -276,7 +275,6 @@ function stateApplied() {
   restoreVolume?.();
   restoreVolume = null;
 }
-const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
 const { playing, fullScreen } = storeToRefs(playingStore);
 const { selectedLanguage } = storeToRefs(languageStore);
@@ -377,7 +375,9 @@ window.EJS_color = "#A453FF";
 window.EJS_alignStartButton = "center";
 window.EJS_startOnLoaded = true;
 window.EJS_backgroundImage = `${window.location.origin}/assets/logos/romm_logo_xbox_one_circle_boot.svg`;
-window.EJS_backgroundColor = String(theme.current.value.colors.background);
+window.EJS_backgroundColor = getComputedStyle(
+  document.documentElement,
+).backgroundColor;
 // Labels come from RomM's locales, which cover languages EmulatorJS does not.
 window.EJS_Buttons = {
   // Disable the standard exit button to implement our own
@@ -1009,15 +1009,11 @@ onUnmounted(() => {
 <template>
   <div id="game" />
   <div v-if="applyingState" class="ejs-state-cover" aria-hidden="true" />
-  <div
-    v-if="rom.ss_metadata?.bezel_path"
-    class="pointer-events-none fixed inset-0 flex items-center justify-center z-20 overflow-hidden"
-    aria-hidden="true"
-  >
+  <div v-if="rom.ss_metadata?.bezel_path" class="ejs-bezel" aria-hidden="true">
     <img
       :src="rom.ss_metadata.bezel_path"
       alt=""
-      class="select-none"
+      class="ejs-bezel__img"
       draggable="false"
       style="height: 100vh; max-height: 100%; width: auto; object-fit: cover"
     />
@@ -1025,6 +1021,21 @@ onUnmounted(() => {
 </template>
 
 <style>
+.ejs-bezel {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ejs-bezel__img {
+  user-select: none;
+}
+
 /* Up until a state has been applied: the core has to render frames for the
    load to take, and they picture a scene the player did not ask for. */
 .ejs-state-cover {

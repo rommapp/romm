@@ -1,3 +1,4 @@
+import "@mdi/font/css/materialdesignicons.css";
 import { polyfillCountryFlagEmojis } from "country-flag-emoji-polyfill";
 import flagFontUrl from "country-flag-emoji-polyfill/dist/TwemojiCountryFlags.woff2?url";
 import { createApp, watch } from "vue";
@@ -10,11 +11,10 @@ import router from "@/plugins/router";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
-import "@/styles/common.css";
 import "@/styles/fonts.css";
 import "@/styles/global.css";
+import "@/styles/reset.css";
 import "@/styles/scrollbar.css";
-import "@/styles/tailwind.css";
 import { createChromeLabels } from "@/utils/chromeLabels";
 
 // Recover from stale chunks after a redeploy: hashed asset names change, so
@@ -70,7 +70,7 @@ async function initializeData() {
 async function initializeApp() {
   const app = createApp(App);
 
-  // Registrar vuetify + pinia + i18n + emitter
+  // Register pinia + i18n + emitter
   registerPlugins(app);
 
   // Sync, so stored preferences switch user before anything renders.

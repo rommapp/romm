@@ -704,8 +704,6 @@ export function installNetplayHostAudioTap(): PatchNetplayHostAudio {
   return patch;
 }
 
-const IOS_FULLSCREEN_NAV_SELECTOR =
-  ".v-app-bar, .v-bottom-navigation, .v-navigation-drawer";
 const IOS_FULLSCREEN_STYLE = `
   [data-ios-fullscreen-active] {
     position: fixed !important;
@@ -715,7 +713,6 @@ const IOS_FULLSCREEN_STYLE = `
     z-index: 99999 !important;
     background: #000 !important;
   }
-  [data-ios-fullscreen-hidden] { display: none !important; }
 `;
 
 function isIOSFullscreenShimRequired() {
@@ -767,9 +764,6 @@ export function installIOSFullscreenShim() {
     if (fullscreenElement) void exit();
 
     el.setAttribute("data-ios-fullscreen-active", "");
-    document
-      .querySelectorAll<HTMLElement>(IOS_FULLSCREEN_NAV_SELECTOR)
-      .forEach((nav) => nav.setAttribute("data-ios-fullscreen-hidden", ""));
     fullscreenElement = el;
     dispatchChange(el);
     return Promise.resolve();
@@ -779,9 +773,6 @@ export function installIOSFullscreenShim() {
     const el = fullscreenElement;
     if (!el) return Promise.resolve();
     el.removeAttribute("data-ios-fullscreen-active");
-    document
-      .querySelectorAll<HTMLElement>("[data-ios-fullscreen-hidden]")
-      .forEach((nav) => nav.removeAttribute("data-ios-fullscreen-hidden"));
     fullscreenElement = null;
     dispatchChange(el);
     return Promise.resolve();

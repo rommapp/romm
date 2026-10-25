@@ -1,4 +1,4 @@
-// Validation helpers for v2 forms. Each export returns a Vuetify-compatible
+// Validation helpers for v2 forms. Each export returns a
 // rule function: (value) => true | string. Error messages come from i18n
 // utility code is allowed to call i18n.global directly (the
 // "primitives must not call $t" rule applies to lib components, not utils).
