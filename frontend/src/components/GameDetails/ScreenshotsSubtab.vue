@@ -18,6 +18,7 @@ import { storeToRefs } from "pinia";
 import { computed, defineAsyncComponent, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import ScreenshotEditDialog from "@/components/GameDetails/ScreenshotEditDialog.vue";
+import MetadataLockControl from "@/components/EditRom/MetadataLockControl.vue";
 import type { ScreenshotItem } from "@/components/GameDetails/ScreenshotsTab.vue";
 import { useCan } from "@/composables/useCan";
 import { useConfirm } from "@/composables/useConfirm";
@@ -201,6 +202,28 @@ async function deleteMyScreenshot(id: number) {
 // ---------- Edit ----------
 const editTarget = ref<ScreenshotItem | null>(null);
 const savingEdit = ref(false);
+const lockingScreenshots = ref(false);
+
+async function toggleScreenshotsLock() {
+  if (!canEditRom.value || lockingScreenshots.value) return;
+  lockingScreenshots.value = true;
+  const locked = props.rom.metadata_locked_fields.includes("screenshots");
+  try {
+    await romApi.updateRomMetadataLocks({
+      romId: props.rom.id,
+      fields: ["screenshots"],
+      locked: !locked,
+    });
+    await refreshRom();
+    snackbar.success(t("rom.updated"), {
+      icon: "mdi-check-bold",
+    });
+  } catch {
+    snackbar.error(t("rom.update-failed"), { icon: "mdi-close-circle" });
+  } finally {
+    lockingScreenshots.value = false;
+  }
+}
 
 async function submitEdit(isPublic: boolean) {
   const target = editTarget.value;
@@ -224,6 +247,16 @@ async function submitEdit(isPublic: boolean) {
 
 <template>
   <div class="r-shots">
+    <header v-if="canEditRom" class="r-shots__lockbar">
+      <p>{{ t("rom.screenshots-lock-hint") }}</p>
+      <MetadataLockControl
+        field="screenshots"
+        :label="t('rom.screenshots')"
+        :locked="rom.metadata_locked_fields.includes('screenshots')"
+        :disabled="lockingScreenshots"
+        @toggle="toggleScreenshotsLock"
+      />
+    </header>
     <section v-if="scrapedScreenshots.length > 0" class="r-shots__section">
       <header class="r-shots__head">
         <div class="r-shots__head-text">
@@ -378,6 +411,18 @@ async function submitEdit(isPublic: boolean) {
 </template>
 
 <style scoped>
+.r-shots__lockbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r-space-3);
+  color: var(--r-color-fg-secondary);
+  font-size: var(--r-font-size-sm);
+}
+
+.r-shots__lockbar p {
+  margin: 0;
+}
 .r-shots {
   display: flex;
   flex-direction: column;

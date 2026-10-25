@@ -10,6 +10,7 @@
 import type { Emitter } from "mitt";
 import { computed, defineAsyncComponent, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import MetadataLockControl from "@/components/EditRom/MetadataLockControl.vue";
 import { useCan } from "@/composables/useCan";
 import { useRomSync } from "@/composables/useRomSync";
 import { useSnackbar } from "@/composables/useSnackbar";
@@ -140,6 +141,28 @@ function openUpload() {
 
 defineExpose({ canUpload: canUploadMore, openUpload });
 const redownloadingManual = ref(false);
+const lockingManual = ref(false);
+
+async function toggleManualLock() {
+  if (!canEdit.value || lockingManual.value) return;
+  lockingManual.value = true;
+  const locked = props.rom.metadata_locked_fields.includes("manual");
+  try {
+    await romApi.updateRomMetadataLocks({
+      romId: props.rom.id,
+      fields: ["manual"],
+      locked: !locked,
+    });
+    await refetchRom(props.rom.id);
+    snackbar.success(t("rom.updated"), {
+      icon: "mdi-check-bold",
+    });
+  } catch {
+    snackbar.error(t("rom.update-failed"), { icon: "mdi-close-circle" });
+  } finally {
+    lockingManual.value = false;
+  }
+}
 
 function handleManualFiles(files: File[]) {
   if (files.length === 0) return;
@@ -183,7 +206,9 @@ function requestDeleteManual() {
     <!-- The subtab label in the sidebar already names the section, so the
          header skips a redundant title. -->
     <header
-      v-if="manualEntries.length > 1 || (canUploadMore && !hideUpload)"
+      v-if="
+        manualEntries.length > 1 || (canUploadMore && !hideUpload) || canEdit
+      "
       class="r-manual__head"
     >
       <RSelect
@@ -194,6 +219,14 @@ function requestDeleteManual() {
         variant="outlined"
         hide-details
         class="r-manual__select"
+      />
+      <MetadataLockControl
+        v-if="canEdit"
+        field="manual"
+        :label="t('rom.manual')"
+        :locked="rom.metadata_locked_fields.includes('manual')"
+        :disabled="lockingManual"
+        @toggle="toggleManualLock"
       />
       <RBtn
         v-if="canUploadMore && !hideUpload"

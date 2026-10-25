@@ -78,6 +78,40 @@ describe("updateRom", () => {
   });
 });
 
+describe("metadata locks", () => {
+  beforeEach(() => {
+    put.mockReset();
+    put.mockResolvedValue({ data: {} });
+  });
+
+  it("updates per-rom lock fields", async () => {
+    await romApi.updateRomMetadataLocks({
+      romId: 42,
+      fields: ["genres", "cover"],
+      locked: true,
+    });
+
+    expect(put).toHaveBeenCalledWith("/roms/42/metadata-locks", {
+      fields: ["genres", "cover"],
+      locked: true,
+    });
+  });
+
+  it("updates bulk locks for a platform", async () => {
+    await romApi.updateBulkMetadataLocks({
+      platform_id: 3,
+      fields: ["name"],
+      locked: false,
+    });
+
+    expect(put).toHaveBeenCalledWith("/roms/metadata-locks", {
+      platform_id: 3,
+      fields: ["name"],
+      locked: false,
+    });
+  });
+});
+
 describe("romApi.uploadRoms", () => {
   beforeEach(() => {
     post.mockReset();

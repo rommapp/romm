@@ -21,6 +21,7 @@ import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import AdditionalDetails from "@/components/EditRom/AdditionalDetails.vue";
 import MetadataIdSection from "@/components/EditRom/MetadataIdSection.vue";
+import MetadataLockControl from "@/components/EditRom/MetadataLockControl.vue";
 import RawMetadataPanel from "@/components/EditRom/RawMetadataPanel.vue";
 import GameCard from "@/components/GameCard/GameCard.vue";
 import DangerZone from "@/components/shared/DangerZone.vue";
@@ -31,7 +32,10 @@ import { useRomSync } from "@/composables/useRomSync";
 import { useSnackbar } from "@/composables/useSnackbar";
 import { RBtn, RDialog, RIcon, RTabNav, RTextField } from "@/lib";
 import type { RTabNavItem } from "@/lib/primitives/RTabNav/types";
-import romApi, { type UpdateRom } from "@/services/api/rom";
+import romApi, {
+  type MetadataLockField,
+  type UpdateRom,
+} from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -64,10 +68,20 @@ const coverFileInput = ref<HTMLInputElement | null>(null);
 // no-op and the dialog appeared frozen during slow uploads / SGDB
 // fetches.
 const saving = ref(false);
+const metadataDirty = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const { applyRomWrite } = useRomSync();
+
+const lockDisabled = computed(
+  () =>
+    saving.value ||
+    !rom.value ||
+    metadataDirty.value ||
+    !!rom.value.artwork ||
+    removeCover.value,
+);
 
 const openHandler = async (romToEdit: SimpleRom) => {
   show.value = true;
@@ -77,6 +91,7 @@ const openHandler = async (romToEdit: SimpleRom) => {
   rom.value = romToEdit as EditableRom;
   removeCover.value = false;
   coverOverride.value = "";
+  metadataDirty.value = false;
   activeTab.value = "details";
   try {
     const { data } = await romApi.getRom({ romId: romToEdit.id });
@@ -224,6 +239,7 @@ function previewImage(event: Event) {
   if (!input.files || !input.files[0]) return;
 
   rom.value.artwork = input.files[0];
+  metadataDirty.value = true;
   coverOverride.value = "";
   removeCover.value = false;
 }
@@ -231,13 +247,32 @@ function previewImage(event: Event) {
 function setUrlCover(coverUrl: string) {
   if (!coverUrl || !rom.value) return;
   rom.value.url_cover = coverUrl;
+  metadataDirty.value = true;
   coverOverride.value = coverUrl;
   removeCover.value = false;
 }
 
 function removeArtwork() {
+  metadataDirty.value = true;
   coverOverride.value = missingCoverImage.value;
   removeCover.value = true;
+}
+
+async function toggleMetadataLock(field: MetadataLockField) {
+  if (!rom.value || lockDisabled.value) return;
+  const locked = rom.value.metadata_locked_fields.includes(field);
+  try {
+    const { data } = await romApi.updateRomMetadataLocks({
+      romId: rom.value.id,
+      fields: [field],
+      locked: !locked,
+    });
+    rom.value.metadata_locked_fields = data.locked_fields;
+    applyRomWrite(rom.value);
+  } catch (error: unknown) {
+    console.error(error);
+    snackbar.error(t("rom.update-failed"), { icon: "mdi-close-circle" });
+  }
 }
 
 async function handleRomUpdate(
@@ -295,6 +330,7 @@ function closeDialog() {
 }
 
 function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
+  metadataDirty.value = true;
   rom.value = updatedRom as EditableRom;
 }
 </script>
@@ -316,6 +352,9 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
     </template>
 
     <template #content>
+      <p v-if="metadataDirty" class="r-edit__lock-hint">
+        {{ t("rom.lock-save-first") }}
+      </p>
       <!-- Hero row: cover + identity fields. Everything else hangs
            off the accordion below. -->
       <div class="r-edit__hero">
@@ -329,6 +368,13 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
             no-hover
           />
           <div class="r-edit__cover-actions">
+            <MetadataLockControl
+              field="cover"
+              :label="t('rom.media-cover')"
+              :locked="rom.metadata_locked_fields.includes('cover')"
+              :disabled="lockDisabled"
+              @toggle="toggleMetadataLock"
+            />
             <RBtn
               icon="mdi-image-search-outline"
               variant="outlined"
@@ -373,17 +419,27 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
         </div>
 
         <div class="r-edit__fields">
-          <RTextField
-            v-model="rom.name"
-            prefix-label="stacked"
-            hide-details
-            :rules="[(v: string) => !!v || t('common.required')]"
-          >
-            <template #prefix-label>
-              <RIcon icon="mdi-format-title" size="14" />
-              {{ t("common.name") }}
-            </template>
-          </RTextField>
+          <div class="r-edit__field-row">
+            <RTextField
+              v-model="rom.name"
+              prefix-label="stacked"
+              hide-details
+              :rules="[(v: string) => !!v || t('common.required')]"
+              @update:model-value="metadataDirty = true"
+            >
+              <template #prefix-label>
+                <RIcon icon="mdi-format-title" size="14" />
+                {{ t("common.name") }}
+              </template>
+            </RTextField>
+            <MetadataLockControl
+              field="name"
+              :label="t('common.name')"
+              :locked="rom.metadata_locked_fields.includes('name')"
+              :disabled="lockDisabled"
+              @toggle="toggleMetadataLock"
+            />
+          </div>
 
           <RTextField
             v-model="rom.name_sort_key"
@@ -415,18 +471,28 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
             </template>
           </RTextField>
 
-          <RTextField
-            v-model="rom.summary"
-            prefix-label="stacked"
-            hide-details
-            multiline
-            :rows="3"
-          >
-            <template #prefix-label>
-              <RIcon icon="mdi-text" size="14" />
-              {{ t("rom.summary") }}
-            </template>
-          </RTextField>
+          <div class="r-edit__field-row">
+            <RTextField
+              v-model="rom.summary"
+              prefix-label="stacked"
+              hide-details
+              multiline
+              :rows="3"
+              @update:model-value="metadataDirty = true"
+            >
+              <template #prefix-label>
+                <RIcon icon="mdi-text" size="14" />
+                {{ t("rom.summary") }}
+              </template>
+            </RTextField>
+            <MetadataLockControl
+              field="summary"
+              :label="t('rom.summary')"
+              :locked="rom.metadata_locked_fields.includes('summary')"
+              :disabled="lockDisabled"
+              @toggle="toggleMetadataLock"
+            />
+          </div>
         </div>
       </div>
 
@@ -446,6 +512,9 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
           <AdditionalDetails
             v-if="activeTab === 'details'"
             :rom="rom"
+            :metadata-locked-fields="rom.metadata_locked_fields"
+            :metadata-lock-disabled="lockDisabled"
+            @toggle-metadata-lock="toggleMetadataLock"
             @update:rom="handleRomUpdateFromMetadata"
           />
           <MetadataIdSection
@@ -498,6 +567,12 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
 </template>
 
 <style scoped>
+.r-edit__lock-hint {
+  margin: 0 0 var(--r-space-3);
+  color: var(--r-color-fg-secondary);
+  font-size: var(--r-font-size-sm);
+}
+
 /* ── Hero ──────────────────────────────────────────────────────────
    Cover column sizes to the cover's natural width (`auto`) so the gap to
    the fields is exactly the grid `gap`, consistent for any cover shape:
@@ -522,6 +597,12 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
 .r-edit__cover-actions {
   display: flex;
   gap: 4px;
+}
+
+.r-edit__field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
 }
 
 .r-edit__fields {
