@@ -181,9 +181,8 @@ RUN mkdir /emulators/easyrpg/rtp && \
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256}
 
-# The runtime packages match production-stage in docker/Dockerfile; the rest
-# build the Python dependencies (psycopg-c, mariadb, psutil, and memray, which
-# has no arm64 musl wheel).
+# Runtime packages match production-stage in docker/Dockerfile; the rest build
+# Python dependencies from source (memray has no arm64 musl wheel).
 RUN apk upgrade --no-cache && apk add --no-cache \
     bash \
     libarchive-tools \
