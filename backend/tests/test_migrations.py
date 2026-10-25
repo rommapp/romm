@@ -895,6 +895,26 @@ def test_the_first_roms_columns_revision_downgrades_to_the_schema_it_found():
     assert after == before
 
 
+def test_metadata_locks_migration_downgrades_and_reapplies():
+    alembic.config.main(argv=["downgrade", "0153_play_permissions"])
+    try:
+        with sync_engine.connect() as connection:
+            columns = {
+                column["name"] for column in sa.inspect(connection).get_columns("roms")
+            }
+            assert "metadata_locks" not in columns
+            assert sa.inspect(connection).has_table("roms_metadata")
+    finally:
+        alembic.config.main(argv=["upgrade", "head"])
+
+    with sync_engine.connect() as connection:
+        columns = {
+            column["name"] for column in sa.inspect(connection).get_columns("roms")
+        }
+        assert "metadata_locks" in columns
+        assert sa.inspect(connection).has_table("roms_metadata")
+
+
 def test_the_roms_columns_helper_puts_back_a_view_a_run_lost():
     """A run that died between the ALTER and the CREATE VIEW replays to the view."""
     with sync_engine.begin() as connection:
