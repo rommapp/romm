@@ -438,7 +438,7 @@ def test_a_parent_retention_removed_is_named_in_the_refusal(
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
-    # The v2 player matches this detail to retry without the parent.
+    # The web player matches this detail to retry without the parent.
     assert response.json()["detail"] == "Parent snapshot not found"
 
 

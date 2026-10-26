@@ -235,7 +235,7 @@ backend/
 │   ├── device_install/        # Push-to-device install requests
 │   │   ├── __init__.py        # Redis-backed install queue
 │   │   └── policy.py          # Which roms and files may be pushed
-│   ├── snapshots/             # Save channels (v2 save sync)
+│   ├── snapshots/             # Save channels and snapshots
 │   │   ├── manifest.py        # Manifest, carry rules, snapshot_digest
 │   │   ├── file_key.py        # The ROM file a channel belongs to
 │   │   ├── write.py           # write_snapshot, the one channel write path
@@ -767,7 +767,7 @@ All three share a similar structure:
 
 Common columns: `id`, `rom_id` (FK), `user_id` (FK), `file_name`, `file_path`, `file_size_bytes`, `missing_from_fs`
 
-Saves additionally link to `device_save_sync` for cross-device tracking. On saves and states, `rom_id` is `SET NULL`: deleting a ROM detaches its rows, the legacy queries skip them, and a scan that finds the file again reattaches them. `channel_id` files a client's save under its channel, set by a slotted upload or a v2 push; null marks a backup.
+Saves additionally link to `device_save_sync` for cross-device tracking. On saves and states, `rom_id` is `SET NULL`: deleting a ROM detaches its rows, the legacy queries skip them, and a scan that finds the file again reattaches them. `channel_id` files a client's save under its channel, set by a slotted upload or a snapshot push; null marks a backup.
 
 #### Save channels and snapshots
 
