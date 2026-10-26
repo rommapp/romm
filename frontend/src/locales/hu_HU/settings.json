@@ -104,7 +104,7 @@
   "create-user": "Felhasználó létrehozása",
   "crt-mode-desc": "Give the interface a retro cathode-ray-tube look with scanlines, glow and flicker",
   "current-password": "Jelenlegi jelszó",
-  "current-password-hint": "Add meg a jelenlegi jelszavad az új jelszó vagy e-mail mentéséhez",
+  "current-password-hint": "Add meg a jelenlegi jelszavad az új felhasználónév, jelszó vagy e-mail mentéséhez",
   "debug-overlay": "Debug overlay",
   "debug-overlay-desc": "Show a developer overlay (bottom-right) with live breakpoint, viewport, input modality, theme, route, gamepad and performance info.",
   "deferred": "Hivatkozás megszüntetve",

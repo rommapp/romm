@@ -104,7 +104,7 @@
   "create-user": "Kullanıcı oluştur",
   "crt-mode-desc": "Arayüze tarama çizgileri, parlaklık ve titreme ile retro katot ışınlı tüp görünümü ver",
   "current-password": "Mevcut şifre",
-  "current-password-hint": "Yeni bir şifre veya e-posta kaydetmek için mevcut şifrenizi girin",
+  "current-password-hint": "Yeni bir kullanıcı adı, şifre veya e-posta kaydetmek için mevcut şifrenizi girin",
   "debug-overlay": "Hata ayıklama katmanı",
   "debug-overlay-desc": "Canlı kesme noktası, görünüm alanı, giriş modalitesi, tema, rota, oyun kumandası ve performans bilgisi içeren geliştirici katmanını (sağ alt) göster.",
   "deferred": "Ertelendi",

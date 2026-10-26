@@ -90,7 +90,7 @@ async def _verify_account_holder(
         if not current_password:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Your current password is required to change your password or email",
+                detail="Your current password is required to change your username, password or email",
             )
         # bcrypt takes ~250ms, which would stall the event loop.
         if not await asyncio.to_thread(
@@ -107,7 +107,7 @@ async def _verify_account_holder(
     if not auth_handler.is_session_authenticated(request, db_user.username):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sign in to the web interface to set a password or email for this account",
+            detail="Sign in to the web interface to change the username, password or email of this account",
         )
 
 
@@ -459,7 +459,12 @@ async def update_user(
     if db_user.id != request.user.id and request.user.role != Role.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
-    # Emails match case-insensitively, so a case-only edit is no change.
+    # Usernames and emails match case-insensitively, so a case-only edit is no change.
+    new_username = (
+        form_data.username
+        if form_data.username and form_data.username.lower() != db_user.username.lower()
+        else None
+    )
     new_email = (
         form_data.email
         if form_data.email is not None
@@ -467,29 +472,32 @@ async def update_user(
         else None
     )
 
-    if db_user.id == request.user.id and (form_data.password or new_email is not None):
+    # Login is by username, so renaming locks the owner out as surely as a new password.
+    if db_user.id == request.user.id and (
+        new_username or form_data.password or new_email is not None
+    ):
         await _verify_account_holder(request, db_user, form_data.current_password)
 
     cleaned_data: dict[str, Any] = {}
 
-    if form_data.username and form_data.username != db_user.username:
+    if new_username:
         try:
-            validate_username(form_data.username)
+            validate_username(new_username)
         except ValidationError as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=exc.message,
             ) from exc
 
-        if db_user_handler.get_user_by_username(form_data.username):
-            msg = f"Username {form_data.username} already exists"
+        if db_user_handler.get_user_by_username(new_username):
+            msg = f"Username {new_username} already exists"
             log.error(msg)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=msg,
             )
 
-        cleaned_data["username"] = form_data.username.lower()
+        cleaned_data["username"] = new_username.lower()
 
     if form_data.password:
         try:

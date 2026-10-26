@@ -53,7 +53,10 @@ const requiresCurrentPassword = computed(
   () =>
     !!user.value &&
     !!userToEdit.value &&
-    needsCurrentPassword(user.value, { email: userToEdit.value.email }),
+    needsCurrentPassword(user.value, {
+      username: userToEdit.value.username,
+      email: userToEdit.value.email,
+    }),
 );
 
 type RoleTone = "brand" | "warning" | "info";

@@ -104,7 +104,7 @@
   "create-user": "创建用户",
   "crt-mode-desc": "为界面加上扫描线、辉光和闪烁，营造复古阴极射线管的外观",
   "current-password": "当前密码",
-  "current-password-hint": "请输入当前密码以保存新密码或电子邮件",
+  "current-password-hint": "请输入当前密码以保存新用户名、密码或电子邮件",
   "debug-overlay": "调试浮层",
   "debug-overlay-desc": "在右下角显示开发者浮层，实时提供断点、视口、输入方式、主题、路由、手柄和性能信息。",
   "deferred": "已延期",

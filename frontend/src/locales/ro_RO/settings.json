@@ -104,7 +104,7 @@
   "create-user": "Creează utilizator",
   "crt-mode-desc": "Give the interface a retro cathode-ray-tube look with scanlines, glow and flicker",
   "current-password": "Parola curentă",
-  "current-password-hint": "Introdu parola curentă pentru a salva o parolă sau un email nou",
+  "current-password-hint": "Introdu parola curentă pentru a salva un nume de utilizator, o parolă sau un email nou",
   "debug-overlay": "Debug overlay",
   "debug-overlay-desc": "Show a developer overlay (bottom-right) with live breakpoint, viewport, input modality, theme, route, gamepad and performance info.",
   "deferred": "Amânat",

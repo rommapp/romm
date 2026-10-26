@@ -104,7 +104,7 @@
   "create-user": "사용자 생성",
   "crt-mode-desc": "Give the interface a retro cathode-ray-tube look with scanlines, glow and flicker",
   "current-password": "현재 비밀번호",
-  "current-password-hint": "새 패스워드 또는 이메일을 저장하려면 현재 비밀번호를 입력하세요",
+  "current-password-hint": "새 사용자 이름, 패스워드 또는 이메일을 저장하려면 현재 비밀번호를 입력하세요",
   "debug-overlay": "Debug overlay",
   "debug-overlay-desc": "Show a developer overlay (bottom-right) with live breakpoint, viewport, input modality, theme, route, gamepad and performance info.",
   "deferred": "연기됨",

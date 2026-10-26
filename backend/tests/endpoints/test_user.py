@@ -340,12 +340,62 @@ def test_resending_the_unchanged_email_needs_no_current_password(
 
     response = client.put(
         f"/api/users/{viewer_user.id}",
-        data={"email": "viewer@example.com", "username": "renamed_viewer"},
+        data={"email": "viewer@example.com", "ra_username": "retro_viewer"},
         headers=_bearer(viewer_access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
+    assert response.json()["ra_username"] == "retro_viewer"
+
+
+def test_own_username_change_needs_the_current_password(
+    client, viewer_access_token: str, viewer_user: User
+):
+    refused = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"username": "renamed_viewer"},
+        headers=_bearer(viewer_access_token),
+    )
+    assert refused.status_code == status.HTTP_400_BAD_REQUEST
+    unchanged = db_user_handler.get_user(viewer_user.id)
+    assert unchanged and unchanged.username == viewer_user.username
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={
+            "username": "renamed_viewer",
+            "current_password": "test_viewer_password",
+        },
+        headers=_bearer(viewer_access_token),
+    )
+    assert response.status_code == status.HTTP_200_OK
     assert response.json()["username"] == "renamed_viewer"
+
+
+def test_a_case_only_username_edit_is_no_change(
+    client, viewer_access_token: str, viewer_user: User
+):
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"username": viewer_user.username.upper()},
+        headers=_bearer(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["username"] == viewer_user.username
+
+
+def test_admin_renames_another_user_without_their_password(
+    client, access_token: str, viewer_user: User
+):
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"username": "renamed_by_admin"},
+        headers=_bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["username"] == "renamed_by_admin"
 
 
 def test_a_case_only_email_edit_is_no_change(

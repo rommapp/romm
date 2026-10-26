@@ -104,7 +104,7 @@
   "create-user": "Create user",
   "crt-mode-desc": "Give the interface a retro cathode-ray-tube look with scanlines, glow and flicker",
   "current-password": "Current password",
-  "current-password-hint": "Enter your current password to save a new password or email",
+  "current-password-hint": "Enter your current password to save a new username, password or email",
   "debug-overlay": "Debug overlay",
   "debug-overlay-desc": "Show a developer overlay (bottom-right) with live breakpoint, viewport, input modality, theme, route, gamepad and performance info.",
   "deferred": "Deferred",

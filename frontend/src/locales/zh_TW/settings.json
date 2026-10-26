@@ -104,7 +104,7 @@
   "create-user": "建立使用者",
   "crt-mode-desc": "Give the interface a retro cathode-ray-tube look with scanlines, glow and flicker",
   "current-password": "目前的密碼",
-  "current-password-hint": "請輸入目前的密碼以儲存新密碼或電子郵件",
+  "current-password-hint": "請輸入目前的密碼以儲存新使用者名稱、密碼或電子郵件",
   "debug-overlay": "Debug overlay",
   "debug-overlay-desc": "Show a developer overlay (bottom-right) with live breakpoint, viewport, input modality, theme, route, gamepad and performance info.",
   "deferred": "已延期",

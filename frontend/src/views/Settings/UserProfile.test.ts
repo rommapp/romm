@@ -125,6 +125,21 @@ describe("UserProfile email change", () => {
     );
   });
 
+  it("asks for the current password before saving a new username", async () => {
+    storeAuth().setCurrentUser(saved);
+    const wrapper = mountProfile();
+    await flushPromises();
+
+    wrapper
+      .findAllComponents(RTextField)
+      .find((f) => f.attributes("type") !== "email")
+      ?.vm.$emit("update:modelValue", "renamed");
+    await flushPromises();
+
+    expect(wrapper.findComponent(PasswordField).exists()).toBe(true);
+    expect(apply(wrapper).attributes()).toHaveProperty("disabled");
+  });
+
   it("saves a new email without it on an account with no password", async () => {
     storeAuth().setCurrentUser({ ...saved, has_password: false });
     const wrapper = mountProfile();

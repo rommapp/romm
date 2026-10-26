@@ -104,7 +104,7 @@
   "create-user": "Vytvořit uživatele",
   "crt-mode-desc": "Give the interface a retro cathode-ray-tube look with scanlines, glow and flicker",
   "current-password": "Aktuální heslo",
-  "current-password-hint": "Pro uložení nového hesla nebo e-mailu zadejte aktuální heslo",
+  "current-password-hint": "Pro uložení nového uživatelského jména, hesla nebo e-mailu zadejte aktuální heslo",
   "debug-overlay": "Debug overlay",
   "debug-overlay-desc": "Show a developer overlay (bottom-right) with live breakpoint, viewport, input modality, theme, route, gamepad and performance info.",
   "deferred": "Odloženo",

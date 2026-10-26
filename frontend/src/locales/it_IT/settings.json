@@ -104,7 +104,7 @@
   "create-user": "Crea utente",
   "crt-mode-desc": "Dà all'interfaccia un look retrò in stile tubo catodico con linee di scansione, luce e sfarfallio",
   "current-password": "Password attuale",
-  "current-password-hint": "Inserisci la password attuale per salvare una nuova password o email",
+  "current-password-hint": "Inserisci la password attuale per salvare un nuovo nome utente, password o email",
   "debug-overlay": "Debug overlay",
   "debug-overlay-desc": "Mostra overlay sviluppatore (in basso a destra) con breakpoint live, viewport, modalità input, tema, route, gamepad e informazioni sulle performance.",
   "deferred": "Rimandato",

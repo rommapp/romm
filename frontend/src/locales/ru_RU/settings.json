@@ -104,7 +104,7 @@
   "create-user": "Создать пользователя",
   "crt-mode-desc": "Give the interface a retro cathode-ray-tube look with scanlines, glow and flicker",
   "current-password": "Текущий пароль",
-  "current-password-hint": "Введите текущий пароль, чтобы сохранить новый пароль или адрес электронной почты",
+  "current-password-hint": "Введите текущий пароль, чтобы сохранить новое имя пользователя, пароль или адрес электронной почты",
   "debug-overlay": "Debug overlay",
   "debug-overlay-desc": "Show a developer overlay (bottom-right) with live breakpoint, viewport, input modality, theme, route, gamepad and performance info.",
   "deferred": "Отложено",
