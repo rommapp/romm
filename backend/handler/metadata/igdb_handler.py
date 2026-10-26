@@ -779,7 +779,7 @@ class IGDBHandler(MetadataHandler):
     def get_platform(self, slug: str) -> IGDBPlatform:
         if slug in IGDB_PLATFORM_LIST:
             platform = IGDB_PLATFORM_LIST[UPS(slug)]
-            # A duplicate of a family-less IGDB platform can carry RomM's own family.
+            # A duplicate of a family-less IGDB platform takes its family from IGDB_PLATFORM_FAMILIES.
             family = IGDB_PLATFORM_FAMILIES.get(UPS(slug), platform)
 
             return IGDBPlatform(

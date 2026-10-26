@@ -151,7 +151,7 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
 }
 
 
-# Slugs RomM has renamed, so folders and bindings using the old one still resolve.
+# Old slugs of renamed platforms, so folders and bindings using them still resolve.
 RENAMED_PLATFORM_SLUGS: Final[dict[str, UPS]] = {
     "system-32": UPS.NAMCO_SYSTEM_22,
 }
