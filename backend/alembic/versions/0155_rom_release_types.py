@@ -32,6 +32,7 @@ ROMS = sa.table(
     sa.column("id", sa.Integer()),
     sa.column("tags", CustomJSON()),
     sa.column("regions", CustomJSON()),
+    sa.column("manual_metadata", CustomJSON()),
     sa.column(COLUMN, CustomJSON()),
 )
 
@@ -110,18 +111,26 @@ END $$
 
 
 def _fill_release_types(conn: sa.Connection) -> None:
-    """Store every ROM's derived list, `[]` included, for the triggers to mirror."""
+    """Store every ROM's computed list, `[]` included, for the triggers to mirror."""
     last_id = 0
     while rows := conn.execute(
-        sa.select(ROMS.c.id, ROMS.c.tags, ROMS.c.regions)
+        # A JSON path keeps the rest of the manual metadata blob out of the read.
+        sa.select(
+            ROMS.c.id,
+            ROMS.c.tags,
+            ROMS.c.regions,
+            ROMS.c.manual_metadata[COLUMN],
+        )
         .where(ROMS.c.id > last_id)
         .order_by(ROMS.c.id)
         .limit(BATCH_SIZE)
     ).all():
         # One statement per distinct value, since a round trip per row dominates.
         ids_by_types: defaultdict[tuple[str, ...], list[int]] = defaultdict(list)
-        for rom_id, tags, regions in rows:
-            types = compute_release_types({"tags": tags, "regions": regions})
+        for rom_id, tags, regions, manual in rows:
+            types = compute_release_types(
+                {"tags": tags, "regions": regions, "manual_metadata": {COLUMN: manual}}
+            )
             ids_by_types[tuple(types)].append(rom_id)
         for types, ids in ids_by_types.items():
             conn.execute(

@@ -556,13 +556,20 @@ def test_the_release_types_revision_reverses_replays_and_fills(platform: Platfor
     migration = _load_migration(FACET_TRIGGERS_REVISION)
     hack = make_rom(platform, "Hack", tags=["Hack"], regions=["Unlicensed"])
     retail = make_rom(platform, "Retail", tags=["Rev 1"])
+    # A manual list outlives the downgrade, and the replay has to keep honoring it.
+    overridden = make_rom(
+        platform,
+        "Overridden",
+        tags=["Hack"],
+        manual_metadata={"release_types": ["randomizer"]},
+    )
 
     def types(connection: sa.Connection, table: str, key: str) -> dict[int, Any]:
         rows = connection.execute(
             sa.text(
-                f"SELECT {key}, release_types FROM {table} WHERE {key} IN (:a, :b)"
+                f"SELECT {key}, release_types FROM {table} WHERE {key} IN (:a, :b, :c)"
             ),  # nosec B608
-            {"a": hack.id, "b": retail.id},
+            {"a": hack.id, "b": retail.id, "c": overridden.id},
         )
         # PostgreSQL's driver decodes JSON itself; MariaDB's hands back text.
         return {
@@ -582,7 +589,11 @@ def test_the_release_types_revision_reverses_replays_and_fills(platform: Platfor
             migration.upgrade()
             migration.upgrade()
 
-        expected = {hack.id: ["hack", "unlicensed"], retail.id: []}
+        expected = {
+            hack.id: ["hack", "unlicensed"],
+            retail.id: [],
+            overridden.id: ["randomizer"],
+        }
         assert types(connection, "roms", "id") == expected
         assert types(connection, "roms_facets", "rom_id") == expected
         assert {table: _schema_of(connection, table) for table in tables} == before
