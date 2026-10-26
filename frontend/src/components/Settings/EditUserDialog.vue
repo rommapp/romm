@@ -95,6 +95,10 @@ async function ensureCatalog() {
 
 const editingSelf = computed(() => user.value?.id === auth.user?.id);
 
+const emailLocked = computed(
+  () => editingSelf.value && !!auth.user?.email_managed_by_oidc,
+);
+
 const requiresCurrentPassword = computed(
   () =>
     editingSelf.value &&
@@ -404,6 +408,10 @@ function close() {
             prefix-label="stacked"
             :rules="usersStore.emailRules"
             type="email"
+            :readonly="emailLocked"
+            :hint="
+              emailLocked ? t('settings.email-managed-by-oidc') : undefined
+            "
             required
             clearable
           >

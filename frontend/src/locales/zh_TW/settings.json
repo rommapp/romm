@@ -154,6 +154,7 @@
   "edit-group": "Edit group",
   "edit-user": "編輯用戶",
   "email": "電子郵件",
+  "email-managed-by-oidc": "由您的身分提供者管理",
   "enable-experimental-cache": "啟用實驗性請求快取",
   "enable-experimental-cache-desc": "啟用實驗性請求快取以提升效能（可能會引起問題）",
   "enable-user": "啟用 {username}",

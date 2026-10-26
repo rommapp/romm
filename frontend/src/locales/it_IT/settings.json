@@ -154,6 +154,7 @@
   "edit-group": "Modifica gruppo",
   "edit-user": "Modifica utente",
   "email": "Email",
+  "email-managed-by-oidc": "Gestito dal tuo provider di identità",
   "enable-experimental-cache": "Abilita cache sperimentale delle richieste",
   "enable-experimental-cache-desc": "Abilita la cache sperimentale delle richieste per migliorare le prestazioni (può causare problemi)",
   "enable-user": "Abilita {username}",

@@ -154,6 +154,7 @@
   "edit-group": "Edit group",
   "edit-user": "ユーザーを編集",
   "email": "メール",
+  "email-managed-by-oidc": "IDプロバイダーによって管理されています",
   "enable-experimental-cache": "実験的リクエストキャッシュを有効化",
   "enable-experimental-cache-desc": "パフォーマンス向上のための実験的リクエストキャッシュを有効化（問題を引き起こす可能性があります）",
   "enable-user": "{username}を有効化",

@@ -154,6 +154,7 @@
   "edit-group": "编辑分组",
   "edit-user": "编辑用户",
   "email": "电子邮件",
+  "email-managed-by-oidc": "由您的身份提供商管理",
   "enable-experimental-cache": "启用实验性请求缓存",
   "enable-experimental-cache-desc": "启用实验性请求缓存以提高性能（可能会引起问题）",
   "enable-user": "启用 {username}",

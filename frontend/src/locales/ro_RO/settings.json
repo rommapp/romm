@@ -154,6 +154,7 @@
   "edit-group": "Edit group",
   "edit-user": "Editează utilizatorul",
   "email": "Email",
+  "email-managed-by-oidc": "Gestionat de furnizorul tău de identitate",
   "enable-experimental-cache": "Activează cache-ul experimental de cereri",
   "enable-experimental-cache-desc": "Activează cache-ul experimental de cereri pentru a îmbunătăți performanța (poate cauza probleme)",
   "enable-user": "Activează {username}",

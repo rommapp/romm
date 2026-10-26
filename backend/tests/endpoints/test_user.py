@@ -413,6 +413,49 @@ def test_a_case_only_email_edit_is_no_change(
     assert response.json()["email"] == "Viewer@Example.com"
 
 
+def test_an_oidc_linked_account_cannot_change_its_own_email(
+    client, viewer_access_token: str, viewer_user: User, mocker
+):
+    mocker.patch("models.user.OIDC_ENABLED", True)
+    db_user_handler.update_user(
+        viewer_user.id, {"oidc_issuer": "https://idp", "oidc_sub": "viewer-sub"}
+    )
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={
+            "email": "new@example.com",
+            "current_password": "test_viewer_password",
+        },
+        headers=_bearer(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert (
+        response.json()["detail"] == "Your email is managed by your identity provider"
+    )
+    unchanged = db_user_handler.get_user(viewer_user.id)
+    assert unchanged and unchanged.email is None
+
+
+def test_admin_changes_an_oidc_linked_users_email(
+    client, access_token: str, viewer_user: User, mocker
+):
+    mocker.patch("models.user.OIDC_ENABLED", True)
+    db_user_handler.update_user(
+        viewer_user.id, {"oidc_issuer": "https://idp", "oidc_sub": "viewer-sub"}
+    )
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"email": "fixed@example.com"},
+        headers=_bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["email"] == "fixed@example.com"
+
+
 def test_a_password_less_account_cannot_set_a_password_with_a_token(
     client, viewer_access_token: str, viewer_user: User
 ):

@@ -11,6 +11,7 @@ export function userFixture(overrides: Partial<UserSchema> = {}): UserSchema {
     role: "admin",
     oauth_scopes: [],
     has_password: true,
+    email_managed_by_oidc: false,
     avatar_path: "",
     last_login: null,
     last_active: null,

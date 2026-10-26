@@ -154,6 +154,7 @@
   "edit-group": "Edit group",
   "edit-user": "사용자 편집",
   "email": "이메일",
+  "email-managed-by-oidc": "ID 공급자가 관리합니다",
   "enable-experimental-cache": "실험적 요청 캐시 활성화",
   "enable-experimental-cache-desc": "성능 향상을 위한 실험적 요청 캐시를 활성화합니다 (문제를 일으킬 수 있음)",
   "enable-user": "{username} 활성화",

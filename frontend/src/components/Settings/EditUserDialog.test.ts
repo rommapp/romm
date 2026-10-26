@@ -369,3 +369,28 @@ describe("EditUserDialog current password", () => {
     expect(field(wrapper, "current-password")).toBeUndefined();
   });
 });
+
+describe("EditUserDialog OIDC email", () => {
+  const emailField = (wrapper: VueWrapper) =>
+    wrapper
+      .findAllComponents(RTextField)
+      .find((f) => f.props("type") === "email");
+
+  it("locks your own email when the identity provider manages it", async () => {
+    storeAuth().setCurrentUser(
+      userFixture({ id: 4, email_managed_by_oidc: true }),
+    );
+    const { wrapper } = await mountDialog();
+
+    expect(emailField(wrapper)?.props("readonly")).toBe(true);
+  });
+
+  it("leaves another user's email editable", async () => {
+    storeAuth().setCurrentUser(
+      userFixture({ id: 1, email_managed_by_oidc: true }),
+    );
+    const { wrapper } = await mountDialog();
+
+    expect(emailField(wrapper)?.props("readonly")).toBe(false);
+  });
+});

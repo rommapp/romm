@@ -154,6 +154,7 @@
   "edit-group": "Edit group",
   "edit-user": "Upravit uživatele",
   "email": "E-mail",
+  "email-managed-by-oidc": "Spravováno vaším poskytovatelem identity",
   "enable-experimental-cache": "Povolit experimentální cache požadavků",
   "enable-experimental-cache-desc": "Povolit experimentální ukládání požadavků pro zlepšení výkonu (může způsobovat problémy)",
   "enable-user": "Povolit {username}",

@@ -154,6 +154,7 @@
   "edit-group": "Edit group",
   "edit-user": "Редактирай потребител",
   "email": "Имейл",
+  "email-managed-by-oidc": "Управлява се от вашия доставчик на самоличност",
   "enable-experimental-cache": "Активирай експериментален кеш",
   "enable-experimental-cache-desc": "Активирай експериментално кеширане на заявки за подобряване на производителността (може да причини проблеми)",
   "enable-user": "Активирай {username}",

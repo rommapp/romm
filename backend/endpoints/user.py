@@ -472,6 +472,16 @@ async def update_user(
         else None
     )
 
+    if (
+        db_user.id == request.user.id
+        and new_email is not None
+        and db_user.email_managed_by_oidc
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your email is managed by your identity provider",
+        )
+
     # Login is by username, so renaming locks the owner out as surely as a new password.
     if db_user.id == request.user.id and (
         new_username or form_data.password or new_email is not None

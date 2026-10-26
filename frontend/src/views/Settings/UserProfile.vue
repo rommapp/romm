@@ -49,6 +49,8 @@ const submitting = ref(false);
 const passwordDialogOpen = ref(false);
 const currentPassword = ref("");
 
+const emailLocked = computed(() => !!user.value?.email_managed_by_oidc);
+
 const requiresCurrentPassword = computed(
   () =>
     !!user.value &&
@@ -265,6 +267,10 @@ onMounted(reset);
             prefix-label="stacked"
             :rules="usersStore.emailRules"
             type="email"
+            :readonly="emailLocked"
+            :hint="
+              emailLocked ? t('settings.email-managed-by-oidc') : undefined
+            "
             required
             clearable
           >

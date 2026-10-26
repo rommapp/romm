@@ -140,6 +140,17 @@ describe("UserProfile email change", () => {
     expect(apply(wrapper).attributes()).toHaveProperty("disabled");
   });
 
+  it("locks the email when the identity provider manages it", async () => {
+    storeAuth().setCurrentUser({ ...saved, email_managed_by_oidc: true });
+    const wrapper = mountProfile();
+    await flushPromises();
+
+    const email = wrapper
+      .findAllComponents(RTextField)
+      .find((f) => f.attributes("type") === "email");
+    expect(email?.props("readonly")).toBe(true);
+  });
+
   it("saves a new email without it on an account with no password", async () => {
     storeAuth().setCurrentUser({ ...saved, has_password: false });
     const wrapper = mountProfile();

@@ -154,6 +154,7 @@
   "edit-group": "Edit group",
   "edit-user": "Edytuj użytkownika",
   "email": "E-mail",
+  "email-managed-by-oidc": "Zarządzany przez Twojego dostawcę tożsamości",
   "enable-experimental-cache": "Włącz eksperymentalne buforowanie żądań",
   "enable-experimental-cache-desc": "Włącz eksperymentalne buforowanie żądań w celu poprawy wydajności (może powodować problemy)",
   "enable-user": "Włącz {username}",

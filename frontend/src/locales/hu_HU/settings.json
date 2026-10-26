@@ -154,6 +154,7 @@
   "edit-group": "Edit group",
   "edit-user": "Felhasználó szerkesztése",
   "email": "E-mail",
+  "email-managed-by-oidc": "Az identitásszolgáltatód kezeli",
   "enable-experimental-cache": "Kísérleti gyorsítótár engedélyezése",
   "enable-experimental-cache-desc": "Kísérleti gyorsítótár engedélyezése (problémákat okozhat)",
   "enable-user": "{username} engedélyezése",

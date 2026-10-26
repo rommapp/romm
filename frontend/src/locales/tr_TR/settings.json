@@ -154,6 +154,7 @@
   "edit-group": "Edit group",
   "edit-user": "Kullanıcıyı düzenle",
   "email": "E-posta",
+  "email-managed-by-oidc": "Kimlik sağlayıcınız tarafından yönetiliyor",
   "enable-experimental-cache": "Deneysel istek önbelleğini etkinleştir",
   "enable-experimental-cache-desc": "Performansı artırmak için deneysel istek önbelleğini etkinleştir (sorunlara yol açabilir)",
   "enable-user": "{username} kullanıcısını etkinleştir",
