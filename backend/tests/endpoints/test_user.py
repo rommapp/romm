@@ -348,6 +348,21 @@ def test_resending_the_unchanged_email_needs_no_current_password(
     assert response.json()["username"] == "renamed_viewer"
 
 
+def test_a_case_only_email_edit_is_no_change(
+    client, viewer_access_token: str, viewer_user: User
+):
+    db_user_handler.update_user(viewer_user.id, {"email": "Viewer@Example.com"})
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"email": "viewer@example.com"},
+        headers=_bearer(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["email"] == "Viewer@Example.com"
+
+
 def test_a_password_less_account_cannot_set_a_password_with_a_token(
     client, viewer_user: User
 ):

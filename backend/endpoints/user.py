@@ -459,13 +459,15 @@ async def update_user(
     if db_user.id != request.user.id and request.user.role != Role.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
-    if db_user.id == request.user.id and (
-        form_data.password
-        or (
-            form_data.email is not None
-            and form_data.email.lower() != (db_user.email or "").lower()
-        )
-    ):
+    # Emails match case-insensitively, so a case-only edit is no change.
+    new_email = (
+        form_data.email
+        if form_data.email is not None
+        and form_data.email.lower() != (db_user.email or "").lower()
+        else None
+    )
+
+    if db_user.id == request.user.id and (form_data.password or new_email is not None):
         await _verify_account_holder(request, db_user, form_data.current_password)
 
     cleaned_data: dict[str, Any] = {}
@@ -501,24 +503,24 @@ async def update_user(
             form_data.password
         )
 
-    if form_data.email is not None and form_data.email != db_user.email:
+    if new_email is not None:
         try:
-            validate_email(form_data.email)
+            validate_email(new_email)
         except ValidationError as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=exc.message,
             ) from exc
 
-        if form_data.email and db_user_handler.get_user_by_email(form_data.email):
-            msg = f"User with email {form_data.email} already exists"
+        if new_email and db_user_handler.get_user_by_email(new_email):
+            msg = f"User with email {new_email} already exists"
             log.error(msg)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=msg,
             )
 
-        cleaned_data["email"] = form_data.email.lower() or None
+        cleaned_data["email"] = new_email.lower() or None
 
     # You can't change your own role
     if form_data.role and request.user.id != id:
