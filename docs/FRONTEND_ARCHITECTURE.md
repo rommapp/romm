@@ -131,7 +131,7 @@ Logout calls `reset()` on every store that defines one. Per-user preferences are
 
 **Types.** Request and response shapes come from `__generated__/`, regenerated from the backend OpenAPI schema (`npm run generate`). The backend is the source of truth for the API contract.
 
-**Response cache.** `services/cache/` is an optional stale-while-revalidate cache on top of the browser Cache API, behind the user setting `settings.enableExperimentalCache`. Home's recent and continue-playing requests use it and clear it on writes.
+**Response cache.** `services/cache/` is an optional stale-while-revalidate cache on top of the browser Cache API, behind the user setting `settings.enableExperimentalCache`. Home's recent and continue-playing requests use it. The `roms` store's add and remove helpers for those rows clear the matching cached responses; other writes, such as metadata edits through `applyRomWrite`, do not.
 
 **Socket.IO.** `services/socket.ts` exports one client (`autoConnect: false`). It connects on demand (scanning, uploads and activity presence call `socket.connect()` when they need it), and `AppLayout` reconnects it on mount. Views and composables subscribe through `useSocketEvent` or `socket.on` and emit directly. Events in use:
 
