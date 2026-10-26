@@ -173,13 +173,17 @@ def _unambiguous_folders() -> dict[str, str]:
 PLATFORM_SLUG_FOLDERS: Final[dict[str, str]] = _unambiguous_folders()
 
 
+def _current_slug(slug: str) -> str:
+    renamed = RENAMED_PLATFORM_SLUGS.get(slug)
+    return renamed.value if renamed else slug
+
+
 def resolve_platform_slug(fs_slug: str, config: Config) -> str:
     """Resolve a platform folder name to a RomM platform slug."""
     key = fs_slug.lower()
     bound = config.PLATFORMS_BINDING.get(key) or config.PLATFORMS_VERSIONS.get(key)
     if bound:
-        renamed = RENAMED_PLATFORM_SLUGS.get(bound)
-        return renamed.value if renamed else bound
+        return _current_slug(bound)
     if key in UPS:
         return key
     alias = PLATFORM_FS_ALIASES.get(key) or RENAMED_PLATFORM_SLUGS.get(key)
@@ -195,7 +199,7 @@ def resolve_fs_slug(slug: str, config: Config) -> str | None:
     """
     for mapping in (config.PLATFORMS_BINDING, config.PLATFORMS_VERSIONS):
         for fs_slug, bound in mapping.items():
-            if bound == slug:
+            if _current_slug(bound) == slug:
                 return fs_slug
     return PLATFORM_SLUG_FOLDERS.get(slug)
 

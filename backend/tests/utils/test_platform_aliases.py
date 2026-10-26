@@ -79,6 +79,14 @@ def test_renamed_slug_is_not_a_folder_for_its_new_slug():
     assert resolve_fs_slug("namco-system-22", _config()) is None
 
 
+def test_binding_to_a_renamed_slug_resolves_back_to_its_folder():
+    bound = _config(bindings={"namco": "system-32"})
+    assert resolve_fs_slug("namco-system-22", bound) == "namco"
+
+    versioned = _config(versions={"namco": "system-32"})
+    assert resolve_fs_slug("namco-system-22", versioned) == "namco"
+
+
 def test_resolution_is_case_insensitive():
     config = _config(bindings={"gamecube": "arcade"})
     assert resolve_platform_slug("GameCube", config) == "arcade"
