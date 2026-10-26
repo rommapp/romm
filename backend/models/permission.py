@@ -45,7 +45,7 @@ class PermEntity(enum.StrEnum):
 
 
 # Entities whose rows belong to a user, so an own_only grant has something to
-# narrow to. On any other entity "own" would silently mean "all".
+# narrow to. Elsewhere "own" means "all" for read/write and nothing for delete.
 OWNABLE_PERM_ENTITIES: Final = frozenset(
     {
         PermEntity.COLLECTIONS,

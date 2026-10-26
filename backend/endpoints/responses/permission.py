@@ -176,7 +176,7 @@ class GrantSchemaIO(BaseModel):
 def _reject_ownerless_own_only[T: GrantSchemaIO | OverrideSchemaIO](
     items: list[T] | None,
 ) -> list[T] | None:
-    """Reject ``own_only`` on entities with no owner, where it would grant everything."""
+    """Reject ``own_only`` on entities with no owner, which have nothing to narrow it to."""
     for item in items or ():
         if item.own_only and item.entity not in OWNABLE_PERM_ENTITIES:
             raise ValueError(f"own_only is not supported for {item.entity}")

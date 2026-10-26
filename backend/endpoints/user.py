@@ -81,6 +81,14 @@ def _record_user_edit(
     record(AuditAction.USER_EDIT, request, AuditTarget.of_user(after), data)
 
 
+def _assert_can_act_on_user(request: Request, user_id: int) -> None:
+    """Allow acting on yourself, or on anyone through an admin credential holding USERS_WRITE."""
+    if user_id != request.user.id and (
+        request.user.role != Role.ADMIN or Scope.USERS_WRITE not in request.auth.scopes
+    ):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+
 @protected_route(
     router.post,
     "",
@@ -425,11 +433,7 @@ async def update_user(
         log.error(msg)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
 
-    # Admin users can edit any user, while other users can only edit self
-    if db_user.id != request.user.id and (
-        request.user.role != Role.ADMIN or Scope.USERS_WRITE not in request.auth.scopes
-    ):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    _assert_can_act_on_user(request, db_user.id)
 
     cleaned_data: dict[str, Any] = {}
 
@@ -659,9 +663,7 @@ async def refresh_retro_achievements(
     ] = False,
 ) -> None:
     """Refresh RetroAchievements progression data for a user."""
-    # Admin users can refresh any user, while other users can only refresh self
-    if id != request.user.id and request.user.role != Role.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    _assert_can_act_on_user(request, id)
 
     user = db_user_handler.get_user(id)
     if not user or not user.ra_username:

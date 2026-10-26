@@ -247,6 +247,21 @@ def test_an_admin_token_without_users_write_cannot_edit_another_user(
     assert unchanged and unchanged.hashed_password == viewer_user.hashed_password
 
 
+def test_an_admin_token_without_users_write_cannot_refresh_another_users_ra(
+    client, admin_user: User, viewer_user: User
+):
+    token = oauth_handler.create_access_token(
+        data={"sub": admin_user.username, "iss": "romm:oauth", "scopes": "me.write"},
+        expires_delta=timedelta(minutes=5),
+    )
+
+    response = client.post(
+        f"/api/users/{viewer_user.id}/ra/refresh", headers=_bearer(token)
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
 def test_a_demotion_that_would_leave_no_admin_is_refused(
     client, access_token: str, admin_user: User, mocker
 ):
