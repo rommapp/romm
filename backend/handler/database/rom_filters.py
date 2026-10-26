@@ -176,6 +176,10 @@ class RomFilterParams(BaseModel):
         bool | None,
         Field(description="Whether the rom is a store-only game with no file."),
     ] = None
+    owned_on_steam: Annotated[
+        bool | None,
+        Field(description="Whether the current user owns the rom on Steam."),
+    ] = None
     has_ra: Annotated[
         bool | None,
         Field(description="Whether the rom has RetroAchievements data."),

@@ -10,6 +10,7 @@ import { TONE_ICONS } from "@/composables/useSnackbar";
 import i18n from "@/locales";
 import { ROUTES } from "@/plugins/routeNames";
 import { count, text } from "@/utils/eventData";
+import { STEAM_LIBRARY_SYNC_TASK } from "@/utils/tasks";
 
 interface NotificationView {
   icon: string;
@@ -85,7 +86,13 @@ function taskView(
     icon: "mdi-pulse",
     title: t(key, { task: text(data.title) ?? "" }),
     body,
-    to: { name: ROUTES.ADMINISTRATION },
+    // Any user can sync their own Steam library, so it opens their profile.
+    to: {
+      name:
+        data.task === STEAM_LIBRARY_SYNC_TASK
+          ? ROUTES.USER_PROFILE
+          : ROUTES.ADMINISTRATION,
+    },
     toast: true,
   };
 }

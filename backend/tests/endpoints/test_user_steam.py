@@ -7,8 +7,13 @@ from fastapi.testclient import TestClient
 from rq.job import JobStatus
 from tests.factories import make_platform, make_rom
 
-from handler.database import db_steam_library_handler, db_user_handler
+from handler.database import (
+    db_collection_handler,
+    db_steam_library_handler,
+    db_user_handler,
+)
 from handler.steam_library_handler import SteamLibraryError
+from models.collection import SmartCollection
 from models.steam_library import SteamLibraryEntry
 from models.user import User
 from tasks.registry import SYNC_STEAM_LIBRARIES_TASK
@@ -141,10 +146,57 @@ def test_unlinking_clears_the_account_and_its_library(
     assert db_steam_library_handler.get_entries(admin_user.id) == []
 
 
+def test_unlinking_empties_an_owned_on_steam_smart_collection(
+    client: TestClient, access_token: str, admin_user: User
+):
+    db_user_handler.update_user(admin_user.id, {"steam_id": STEAM_ID})
+    _own_one_game(admin_user)
+    smart_collection = db_collection_handler.add_smart_collection(
+        SmartCollection(
+            name="Owned on Steam",
+            description="",
+            user_id=admin_user.id,
+            filter_criteria={"owned_on_steam": True},
+        )
+    )
+    db_collection_handler.refresh_smart_collections()
+    seeded = db_collection_handler.get_smart_collection(smart_collection.id)
+    assert seeded is not None and seeded.rom_count == 1
+
+    client.delete(f"/api/users/{admin_user.id}/steam", headers=_bearer(access_token))
+
+    after = db_collection_handler.get_smart_collection(smart_collection.id)
+    assert after is not None and after.rom_count == 0
+
+
+def test_lists_the_owned_app_ids(
+    client: TestClient, access_token: str, admin_user: User
+):
+    _own_one_game(admin_user)
+
+    response = client.get(
+        f"/api/users/{admin_user.id}/steam/library", headers=_bearer(access_token)
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == [220]
+
+
+def test_a_user_cannot_list_someone_elses_library(
+    client: TestClient, viewer_access_token: str, admin_user: User
+):
+    response = client.get(
+        f"/api/users/{admin_user.id}/steam/library",
+        headers=_bearer(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
 def _job() -> SimpleNamespace:
     return SimpleNamespace(
         id="job-1",
-        meta={"task_name": "Scheduled Steam library sync"},
+        meta={"task_name": "Steam library sync"},
         created_at=None,
         enqueued_at=None,
         get_status=lambda refresh: JobStatus.QUEUED,

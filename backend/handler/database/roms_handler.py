@@ -97,6 +97,7 @@ from models.rom import (
     fold_search_title,
     rom_without_file,
 )
+from models.steam_library import SteamLibraryEntry
 from utils import get_version
 from utils.age_ratings import MIN_AGE_SOURCE_COLUMNS, compute_min_age
 from utils.database import (
@@ -1389,6 +1390,25 @@ class DBRomsHandler(DBBaseHandler):
             predicate = not_(predicate)
         return query.filter(predicate)
 
+    def _filter_by_owned_on_steam[S: Select[*tuple[Any, ...]]](
+        self, query: S, value: bool, user_id: int | None = None
+    ) -> S:
+        """Filter based on whether the current user's Steam account owns the
+        rom's Steam app."""
+        if not user_id:
+            return query
+        predicate: ColumnElement[bool] = (
+            select(SteamLibraryEntry.id)
+            .where(
+                SteamLibraryEntry.user_id == user_id,
+                SteamLibraryEntry.steam_app_id == Rom.steam_id,
+            )
+            .exists()
+        )
+        if not value:
+            predicate = not_(predicate)
+        return query.filter(predicate)
+
     def _filter_by_has_states[S: Select[*tuple[Any, ...]]](
         self, query: S, value: bool, user_id: int | None = None
     ) -> S:
@@ -1667,6 +1687,11 @@ class DBRomsHandler(DBBaseHandler):
         if filters.has_saves is not None:
             query = self._filter_by_has_saves(
                 query, value=filters.has_saves, user_id=user_id
+            )
+
+        if filters.owned_on_steam is not None:
+            query = self._filter_by_owned_on_steam(
+                query, value=filters.owned_on_steam, user_id=user_id
             )
 
         if filters.has_states is not None:

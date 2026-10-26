@@ -25,6 +25,7 @@ function emptySnapshot(): GalleryFilterSnapshot {
     filterSoundtrack: null,
     filterMissing: null,
     filterPhysical: null,
+    filterOwnedOnSteam: null,
     filterVerified: null,
     selectedPlatforms: [],
     selectedGenres: [],
@@ -202,6 +203,20 @@ describe("buildSmartFilterCriteria — saves and states", () => {
 
     expect(rows).toContainEqual(expect.objectContaining({ key: "has_saves" }));
     expect(rows).toContainEqual(expect.objectContaining({ key: "has_states" }));
+  });
+});
+
+describe("buildSmartFilterCriteria: owned on Steam", () => {
+  it("serializes the filter and summarizes it", () => {
+    const out = buildSmartFilterCriteria({
+      ...emptySnapshot(),
+      filterOwnedOnSteam: true,
+    });
+
+    expect(out.owned_on_steam).toBe(true);
+    expect(summarizeSmartFilterCriteria(out, tStub)).toContainEqual(
+      expect.objectContaining({ key: "owned_on_steam" }),
+    );
   });
 });
 

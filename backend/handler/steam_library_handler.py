@@ -51,6 +51,8 @@ class SteamSyncResult:
     removed: int = 0
     # Store-only roms no metadata source matched yet, new ones included.
     unmatched_rom_ids: list[int] = field(default_factory=list)
+    # Apps gained or lost, which moves smart collections filtering on ownership.
+    changed_app_ids: list[int] = field(default_factory=list)
 
 
 def steam_web_api() -> SteamWebAPIService:
@@ -205,7 +207,9 @@ async def sync_steam_library(user: User) -> SteamSyncResult:
             )
         )
 
-    result.removed = db_steam_library_handler.replace_entries(user.id, entries)
+    changes = db_steam_library_handler.replace_entries(user.id, entries)
+    result.removed = len(changes.removed)
+    result.changed_app_ids = [*changes.added, *changes.removed]
     result.unmatched_rom_ids = (
         db_steam_library_handler.get_unmatched_store_only_rom_ids(
             [entry.rom_id for entry in entries]

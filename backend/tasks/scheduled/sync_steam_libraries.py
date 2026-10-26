@@ -1,9 +1,10 @@
 from typing import Any
 
 from config import STEAM_API_KEY
+from endpoints.roms import refresh_affected_smart_collections
 from endpoints.sockets.scan import ScanPayload, queue_scan
 from exceptions.socket_exceptions import NoScanWorkerException
-from handler.database import db_user_handler
+from handler.database import db_steam_library_handler, db_user_handler
 from handler.steam_library_handler import SteamLibraryError, sync_steam_library
 from logger.logger import log
 from models.user import User
@@ -65,6 +66,12 @@ class SyncSteamLibrariesTask(PeriodicTask):
                     f"added, {result.removed} no longer owned"
                 )
                 unmatched_rom_ids.extend(result.unmatched_rom_ids)
+                refresh_affected_smart_collections(
+                    db_steam_library_handler.get_rom_ids_by_app_ids(
+                        result.changed_app_ids
+                    ),
+                    membership_only=True,
+                )
             update_stats.update(processed=processed)
 
         if unmatched_rom_ids:

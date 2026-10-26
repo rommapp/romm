@@ -13,6 +13,7 @@ from endpoints.forms.identity import UserForm
 from endpoints.permissions import emit_permissions_changed
 from endpoints.responses import TaskExecutionResponse
 from endpoints.responses.identity import InviteLinkSchema, UserSchema
+from endpoints.roms import refresh_affected_smart_collections
 from endpoints.tasks import build_task_execution_response
 from exceptions.database_exceptions import LastAdminError
 from handler.audit_handler import (
@@ -746,7 +747,7 @@ async def refresh_retro_achievements(
 
 
 def _get_steam_user(request: Request, id: int) -> User:
-    """The user whose Steam account is changed, if the caller may manage them."""
+    """The user whose Steam account is used, if the caller may manage them."""
     user = db_user_handler.get_user(id)
     if not user:
         raise HTTPException(
@@ -754,6 +755,14 @@ def _get_steam_user(request: Request, id: int) -> User:
         )
     _assert_can_manage_user(request, user)
     return user
+
+
+def _forget_steam_library(user_id: int) -> None:
+    owned_app_ids = db_steam_library_handler.delete_entries(user_id)
+    refresh_affected_smart_collections(
+        db_steam_library_handler.get_rom_ids_by_app_ids(owned_app_ids),
+        membership_only=True,
+    )
 
 
 @protected_route(
@@ -790,7 +799,7 @@ async def link_steam_account(
 
     # The library came from the previous account, so it no longer applies.
     if user.steam_id and user.steam_id != summary["steamid"]:
-        db_steam_library_handler.delete_entries(user.id)
+        _forget_steam_library(user.id)
 
     db_user_handler.update_user(
         user.id,
@@ -812,9 +821,25 @@ async def unlink_steam_account(
 ) -> UserSchema:
     """Unlink a user's Steam account and forget which games it owns."""
     user = _get_steam_user(request, id)
-    db_steam_library_handler.delete_entries(user.id)
+    _forget_steam_library(user.id)
     db_user_handler.update_user(user.id, {"steam_id": None, "steam_persona_name": None})
     return UserSchema.model_validate(db_user_handler.get_user(user.id))
+
+
+@protected_route(
+    router.get,
+    "/{id}/steam/library",
+    [Scope.ME_READ],
+    summary="List owned Steam apps",
+    responses={status.HTTP_403_FORBIDDEN: {}, status.HTTP_404_NOT_FOUND: {}},
+)
+def get_steam_library(
+    request: Request,
+    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+) -> list[int]:
+    """List the Steam app ids a user's linked account owned at its last sync."""
+    user = _get_steam_user(request, id)
+    return db_steam_library_handler.get_owned_app_ids(user.id)
 
 
 @protected_route(

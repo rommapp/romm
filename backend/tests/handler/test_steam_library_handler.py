@@ -218,6 +218,7 @@ async def test_forgets_games_no_longer_owned(
     result = await sync_steam_library(steam_user)
 
     assert result.removed == 1
+    assert result.changed_app_ids == [220]
     [entry] = db_steam_library_handler.get_entries(steam_user.id)
     assert (entry.steam_app_id, entry.playtime_minutes) == (400, 30)
 

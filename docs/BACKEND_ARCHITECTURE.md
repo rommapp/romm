@@ -875,21 +875,22 @@ A reset link is emailed when SMTP is set up, the user has an address and `ROMM_B
 
 ### 6.2 Users (`/api/users`)
 
-| Method | Path               | Scope                  | Description                      |
-| ------ | ------------------ | ---------------------- | -------------------------------- |
-| POST   | `/`                | ME_WRITE / USERS_WRITE | Create user (first user = admin) |
-| POST   | `/invite-link`     | USERS_WRITE            | Generate invite token            |
-| POST   | `/register`        | None                   | Register with invite token       |
-| GET    | `/`                | USERS_READ             | List all users                   |
-| GET    | `/identifiers`     | USERS_READ             | Get user IDs                     |
-| GET    | `/me`              | ME_READ                | Current user profile             |
-| GET    | `/{id}`            | USERS_READ             | Get user by ID                   |
-| PUT    | `/{id}`            | ME_WRITE               | Update user                      |
-| DELETE | `/{id}`            | USERS_WRITE            | Delete user                      |
-| POST   | `/{id}/ra/refresh` | ME_WRITE               | Refresh RetroAchievements data   |
-| PUT    | `/{id}/steam`      | ME_WRITE               | Link a Steam account             |
-| DELETE | `/{id}/steam`      | ME_WRITE               | Unlink a Steam account           |
-| POST   | `/{id}/steam/sync` | ME_WRITE               | Queue a Steam library sync       |
+| Method | Path                  | Scope                  | Description                      |
+| ------ | --------------------- | ---------------------- | -------------------------------- |
+| POST   | `/`                   | ME_WRITE / USERS_WRITE | Create user (first user = admin) |
+| POST   | `/invite-link`        | USERS_WRITE            | Generate invite token            |
+| POST   | `/register`           | None                   | Register with invite token       |
+| GET    | `/`                   | USERS_READ             | List all users                   |
+| GET    | `/identifiers`        | USERS_READ             | Get user IDs                     |
+| GET    | `/me`                 | ME_READ                | Current user profile             |
+| GET    | `/{id}`               | USERS_READ             | Get user by ID                   |
+| PUT    | `/{id}`               | ME_WRITE               | Update user                      |
+| DELETE | `/{id}`               | USERS_WRITE            | Delete user                      |
+| POST   | `/{id}/ra/refresh`    | ME_WRITE               | Refresh RetroAchievements data   |
+| PUT    | `/{id}/steam`         | ME_WRITE               | Link a Steam account             |
+| DELETE | `/{id}/steam`         | ME_WRITE               | Unlink a Steam account           |
+| GET    | `/{id}/steam/library` | ME_READ                | List owned Steam app ids         |
+| POST   | `/{id}/steam/sync`    | ME_WRITE               | Queue a Steam library sync       |
 
 ### 6.3 Client Tokens (`/api/client-tokens`)
 

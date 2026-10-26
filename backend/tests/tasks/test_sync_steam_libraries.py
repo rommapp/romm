@@ -1,6 +1,7 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from tests.factories import make_platform, make_rom
 
 from endpoints.sockets.scan import ScanPayload
 from exceptions.socket_exceptions import NoScanWorkerException
@@ -51,6 +52,23 @@ async def test_syncs_every_linked_user(
     queue_scan.assert_awaited_once_with(
         ScanPayload(roms_ids=[7]), started_by_user_id=None
     )
+
+
+async def test_refreshes_the_smart_collections_an_ownership_change_moves(
+    task: SyncSteamLibrariesTask, linked_user: User, queue_scan
+):
+    rom = make_rom(make_platform("win"), "Half-Life 2", steam_id=220)
+    with (
+        patch(
+            f"{MODULE}.sync_steam_library",
+            new_callable=AsyncMock,
+            return_value=SteamSyncResult(changed_app_ids=[220]),
+        ),
+        patch(f"{MODULE}.refresh_affected_smart_collections") as refresh,
+    ):
+        await task.run(user_id=linked_user.id)
+
+    refresh.assert_called_once_with([rom.id], membership_only=True)
 
 
 async def test_one_users_failure_does_not_stop_the_rest(

@@ -72,6 +72,15 @@ vi.mock("@/stores/auth", () => ({
 vi.mock("@/stores/heartbeat", () => ({
   default: () => ({ value: { DEVICE_INSTALL: deviceInstall } }),
 }));
+const steamLibrary = { isLoaded: false, owned: new Set<number>() };
+vi.mock("@/stores/steamLibrary", () => ({
+  default: () => ({
+    get isLoaded() {
+      return steamLibrary.isLoaded;
+    },
+    owns: (appId: number) => steamLibrary.owned.has(appId),
+  }),
+}));
 vi.mock("@/stores/roms", () => ({
   default: () => ({ update: vi.fn(), removeFromContinuePlaying: vi.fn() }),
 }));
@@ -256,6 +265,24 @@ describe("useGameActions: Open in Steam", () => {
     expect(actions.canOpenInSteam.value).toBe(true);
     actions.openInSteam();
     expect(opened).toEqual(["steam://run/220"]);
+  });
+
+  it("offers only owned games once a linked library has loaded", () => {
+    steamLibrary.isLoaded = true;
+    steamLibrary.owned = new Set([220]);
+    try {
+      expect(
+        useGameActions(() => romFixture({ steam_id: 220 })).canOpenInSteam
+          .value,
+      ).toBe(true);
+      expect(
+        useGameActions(() => romFixture({ steam_id: 400 })).canOpenInSteam
+          .value,
+      ).toBe(false);
+    } finally {
+      steamLibrary.isLoaded = false;
+      steamLibrary.owned = new Set();
+    }
   });
 
   it.each([null, 0, -5, 1.5])("offers nothing for steam_id %s", (steamId) => {

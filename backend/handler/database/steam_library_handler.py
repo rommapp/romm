@@ -1,4 +1,5 @@
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
+from typing import NamedTuple
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -9,10 +10,15 @@ from models.rom import Rom
 from models.steam_library import SteamLibraryEntry
 from utils.database import is_non_blank
 
-from .base_handler import DBBaseHandler, affected_rows
+from .base_handler import DBBaseHandler
 
 # Keeps each IN list well under every database's bound-parameter limit.
 STEAM_ID_CHUNK_SIZE = 1000
+
+
+class SteamLibraryChanges(NamedTuple):
+    added: list[int]
+    removed: list[int]
 
 
 class DBSteamLibraryHandler(DBBaseHandler):
@@ -71,6 +77,18 @@ class DBSteamLibraryHandler(DBBaseHandler):
         return unmatched
 
     @begin_session
+    def get_owned_app_ids(
+        self, user_id: int, session: Session = INJECTED_SESSION
+    ) -> list[int]:
+        return list(
+            session.scalars(
+                select(SteamLibraryEntry.steam_app_id)
+                .where(SteamLibraryEntry.user_id == user_id)
+                .order_by(SteamLibraryEntry.steam_app_id)
+            ).all()
+        )
+
+    @begin_session
     def get_entries(
         self, user_id: int, session: Session = INJECTED_SESSION
     ) -> Sequence[SteamLibraryEntry]:
@@ -84,11 +102,11 @@ class DBSteamLibraryHandler(DBBaseHandler):
         user_id: int,
         entries: Sequence[SteamLibraryEntry],
         session: Session = INJECTED_SESSION,
-    ) -> int:
+    ) -> SteamLibraryChanges:
         """Make `entries` the user's whole Steam library.
 
         Returns:
-            How many entries were removed because the game is no longer owned.
+            The app ids newly owned and the ones no longer owned.
         """
         existing = {
             entry.steam_app_id: entry
@@ -109,22 +127,54 @@ class DBSteamLibraryHandler(DBBaseHandler):
                 )
             )
 
+        added: list[int] = []
         for entry in entries:
             current = existing.get(entry.steam_app_id)
             if current is None:
                 entry.user_id = user_id
                 session.add(entry)
+                added.append(entry.steam_app_id)
                 continue
             current.rom_id = entry.rom_id
             current.playtime_minutes = entry.playtime_minutes
             current.last_played_at = entry.last_played_at
 
-        return len(dropped)
+        return SteamLibraryChanges(added=added, removed=dropped)
 
     @begin_session
-    def delete_entries(self, user_id: int, session: Session = INJECTED_SESSION) -> int:
-        return affected_rows(
-            session.execute(
-                delete(SteamLibraryEntry).where(SteamLibraryEntry.user_id == user_id)
-            )
+    def delete_entries(
+        self, user_id: int, session: Session = INJECTED_SESSION
+    ) -> list[int]:
+        """Forget the user's Steam library.
+
+        Returns:
+            The app ids it owned.
+        """
+        app_ids = list(
+            session.scalars(
+                select(SteamLibraryEntry.steam_app_id).where(
+                    SteamLibraryEntry.user_id == user_id
+                )
+            ).all()
         )
+        session.execute(
+            delete(SteamLibraryEntry).where(SteamLibraryEntry.user_id == user_id)
+        )
+        return app_ids
+
+    @begin_session
+    def get_rom_ids_by_app_ids(
+        self, steam_app_ids: Collection[int], session: Session = INJECTED_SESSION
+    ) -> list[int]:
+        """Every rom with one of the Steam app ids, on any platform."""
+        app_ids = sorted(steam_app_ids)
+        rom_ids: list[int] = []
+        for start in range(0, len(app_ids), STEAM_ID_CHUNK_SIZE):
+            rom_ids.extend(
+                session.scalars(
+                    select(Rom.id).where(
+                        Rom.steam_id.in_(app_ids[start : start + STEAM_ID_CHUNK_SIZE])
+                    )
+                ).all()
+            )
+        return rom_ids
