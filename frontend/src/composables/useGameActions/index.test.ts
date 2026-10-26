@@ -238,7 +238,7 @@ describe("useGameActions.canInstallOnDevice", () => {
   });
 });
 
-describe("useGameActions — Open in Steam", () => {
+describe("useGameActions: Open in Steam", () => {
   let opened: string[];
 
   beforeEach(() => {
