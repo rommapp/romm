@@ -16,19 +16,19 @@ description: Theming, design tokens, colors, and visual language in the RomM v2 
 - **`src/styles/tokens.css`**: _generated_ by `scripts/build-tokens.ts` (`npm run build:tokens`, hooked into `predev`/`prebuild`). **Do not hand-edit.** This is how the vast majority of tokens are consumed: `var(--r-color-...)` in CSS.
 - **Direct JS/TS imports** of named exports (`colorCanvas`, `colorCoverArt`, `layout`, …) for the few cases needing a token value in JavaScript: baking colors into an SVG string (`utils/covers`), canvas/QR backgrounds (`Player/Ruffle.vue`, `ShowQRCodeDialog`), and the virtualiser's pixel math (`Gallery/listColumns` reading `layout`).
 
-There is no Vuetify. `tokens.css` emits a palette block per theme under `.r-app.r-dark` / `.r-app.r-light`; `RomM.vue` toggles those classes on `<html>`.
+There is no Vuetify. A themed token is one declaration, `light-dark(<light>, <dark>)`, in `tokens.css`, resolved by the `color-scheme` where it is used. `.r-app` sets `color-scheme: light dark`; `.r-app.r-dark` and `.r-app.r-light` pin it, and `RomM.vue` toggles those classes on `<html>`. The generator pairs the light and dark values by CSS name and fails the build when a token exists in only one palette.
 
 ### Adding a new token
 
 1. Add it to `src/tokens/index.ts` with a **semantic, role-based** name (`--r-color-danger`, not `--r-color-red`).
-2. Provide **both** dark and light values.
+2. Provide **both** dark and light values (a themed token needs both, or the generator throws).
 3. Consume via `var(--r-...)` (CSS) or the named export (JS).
 4. Run `npm run build:tokens` to regenerate `tokens.css`.
 5. If the JS→CSS variable name needs an exception (e.g. `--r-nav-h`), add an entry to `NAME_OVERRIDES` in the generator.
 
 ### Where the scope classes live, and why `<html>`
 
-`.r-app`, `.r-dark`, `.r-light` go on `<html>` (`RomM.vue` toggles them whenever `uiVersion` or the active theme changes). The overlay primitives (`RDialog`, `RMenu`, `RTooltip`) `<Teleport to="body">`, landing **outside** the app root. Only `<html>` covers both the regular tree and the teleports; without it, overlays lose their tokens.
+`.r-app`, `.r-dark`, `.r-light` go on `<html>` (`RomM.vue` toggles them whenever the active theme changes). The overlay primitives (`RDialog`, `RMenu`, `RTooltip`) `<Teleport to="body">`, landing **outside** the app root. Only `<html>` covers both the regular tree and the teleports; without it, overlays lose their tokens.
 
 ### Diagnostics: when `var(--r-color-...)` resolves to nothing on an overlay
 

@@ -40,7 +40,7 @@ export const colorBrand = {
 // the salmon accent and light-purple links worse), so light mode deepens
 // primary, secondary and accent to clear AA for brand-coloured text, links,
 // active-nav and chips. These keys share the brand CSS names, so the build
-// emits them inside .r-light and they override the shared values there.
+// pairs each with its dark value above as one `light-dark()` declaration.
 // Hover/pressed deepen further (a light page gains emphasis by going darker,
 // the inverse of dark mode where hover goes lighter).
 export const colorBrandLight = {
@@ -87,8 +87,7 @@ export const colorStatusBase = {
 // yellow and pale blue wash out (a green play-badge or a yellow rating
 // star barely registers). Light mode drops them ~one Tailwind tier deeper
 // so each still reads as its hue (icons, badges, solid buttons) on white.
-// Emitted into .r-light with the same CSS names, so they override the
-// shared values there.
+// Paired with the canonical values above, by CSS name, in `light-dark()`.
 export const colorStatusLight = {
   success: "#15A34A",
   // One tier brighter than a naive deepening (yellow-600, not -700) so the
