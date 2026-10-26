@@ -9,6 +9,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { OverrideSchemaIO, PermAction, PermEntity } from "@/__generated__";
 import { RCheckbox, type RCheckboxState, RTooltip } from "@/lib";
+import { type GrantEffect, grantEffect } from "@/utils/permissionGrants";
 
 defineOptions({ inheritAttrs: false });
 
@@ -35,9 +36,14 @@ function stateOf(entity: PermEntity, action: PermAction): CellState {
   );
   if (!o) return "inherit";
   if (!o.granted) return "revoke";
-  // Without an owner the server treats an own-only grant as library-wide.
-  return o.own_only && canOwn(entity) ? "grant_own" : "grant";
+  return OVERRIDE_STATE_OF_EFFECT[grantEffect(o, props.ownableEntities)];
 }
+
+const OVERRIDE_STATE_OF_EFFECT: Record<GrantEffect, CellState> = {
+  none: "revoke",
+  full: "grant",
+  own: "grant_own",
+};
 
 function canOwn(entity: PermEntity): boolean {
   return props.ownableEntities.includes(entity);

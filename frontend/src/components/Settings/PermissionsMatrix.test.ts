@@ -21,16 +21,21 @@ describe("PermissionsMatrix", () => {
   it("offers own only on entities with an owner", () => {
     const wrapper = mount(PermissionsMatrix, {
       props: {
-        modelValue: [{ entity: "users", action: "write", own_only: true }],
+        modelValue: [
+          { entity: "users", action: "write", own_only: true },
+          { entity: "users", action: "delete", own_only: true },
+        ],
         entities: ["users", "collections"],
         ownableEntities: ["collections"],
-        actions: ["write"],
+        actions: ["write", "delete"],
       },
     });
 
-    // A stored own-only grant without an owner reads as the full grant it is.
+    // Without an owner, own-only reads as its coarse scope; delete has none.
     expect(cellStates(wrapper)).toEqual([
       { values: ["none", "full"], current: "full" },
+      { values: ["none", "full"], current: "none" },
+      { values: ["none", "full", "own"], current: "none" },
       { values: ["none", "full", "own"], current: "none" },
     ]);
   });

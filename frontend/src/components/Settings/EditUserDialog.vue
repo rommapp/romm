@@ -22,7 +22,7 @@ import type { Platform } from "@/stores/platforms";
 import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
-import { clearOwnerlessOwnOnly } from "@/utils/permissionGrants";
+import { normalizeOwnerlessOverrides } from "@/utils/permissionGrants";
 import { userAvatarUrl } from "@/utils/userAvatar";
 import AgeLimitFields from "./AgeLimitFields.vue";
 import HiddenGamesPicker from "./HiddenGamesPicker.vue";
@@ -253,7 +253,10 @@ function accessEdits(userId: number) {
           set_group: groupChanged,
           permission_group_id: groupId.value,
           overrides: overridesChanged
-            ? clearOwnerlessOwnOnly(overrides.value, ownableEntities.value)
+            ? normalizeOwnerlessOverrides(
+                overrides.value,
+                ownableEntities.value,
+              )
             : null,
           set_age_settings: ageChanged,
           age_limit: age.value.ageLimit,

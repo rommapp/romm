@@ -9,6 +9,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { GrantSchemaIO, PermAction, PermEntity } from "@/__generated__";
 import { RCheckbox, type RCheckboxState, RTooltip } from "@/lib";
+import { grantEffect } from "@/utils/permissionGrants";
 
 defineOptions({ inheritAttrs: false });
 
@@ -41,9 +42,7 @@ function grantOf(
 
 function stateOf(entity: PermEntity, action: PermAction): CellState {
   const g = grantOf(entity, action);
-  if (!g) return "none";
-  // Without an owner the server treats an own-only grant as library-wide.
-  return g.own_only && canOwn(entity) ? "own" : "full";
+  return g ? grantEffect(g, props.ownableEntities) : "none";
 }
 
 function canOwn(entity: PermEntity): boolean {
