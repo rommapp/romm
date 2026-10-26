@@ -113,6 +113,13 @@ useGridNav(rootEl, {
       variant="surface"
     />
     <GameActionBtn
+      v-if="actions.canOpenInSteam.value"
+      :rom="rom"
+      action="steam"
+      :size="btnSize"
+      variant="surface"
+    />
+    <GameActionBtn
       :rom="rom"
       action="favorite"
       :size="btnSize"
