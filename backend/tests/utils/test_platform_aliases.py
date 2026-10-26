@@ -68,25 +68,6 @@ def test_binding_and_version_win_over_alias():
     assert resolve_platform_slug("gamecube", both) == "arcade"
 
 
-def test_renamed_slug_still_resolves():
-    assert resolve_platform_slug("system-32", _config()) == "namco-system-22"
-    assert resolve_platform_slug("System-32", _config()) == "namco-system-22"
-    bound = _config(bindings={"namco": "system-32"})
-    assert resolve_platform_slug("namco", bound) == "namco-system-22"
-
-
-def test_renamed_slug_is_not_a_folder_for_its_new_slug():
-    assert resolve_fs_slug("namco-system-22", _config()) is None
-
-
-def test_binding_to_a_renamed_slug_resolves_back_to_its_folder():
-    bound = _config(bindings={"namco": "system-32"})
-    assert resolve_fs_slug("namco-system-22", bound) == "namco"
-
-    versioned = _config(versions={"namco": "system-32"})
-    assert resolve_fs_slug("namco-system-22", versioned) == "namco"
-
-
 def test_resolution_is_case_insensitive():
     config = _config(bindings={"gamecube": "arcade"})
     assert resolve_platform_slug("GameCube", config) == "arcade"

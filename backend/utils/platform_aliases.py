@@ -151,12 +151,6 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
 }
 
 
-# Old slugs of renamed platforms, so folders and bindings using them still resolve.
-RENAMED_PLATFORM_SLUGS: Final[dict[str, UPS]] = {
-    "system-32": UPS.NAMCO_SYSTEM_22,
-}
-
-
 def _unambiguous_folders() -> dict[str, str]:
     folders_by_slug: dict[UPS, list[str]] = {}
     for fs_slug, slug in PLATFORM_FS_ALIASES.items():
@@ -173,20 +167,15 @@ def _unambiguous_folders() -> dict[str, str]:
 PLATFORM_SLUG_FOLDERS: Final[dict[str, str]] = _unambiguous_folders()
 
 
-def _current_slug(slug: str) -> str:
-    renamed = RENAMED_PLATFORM_SLUGS.get(slug)
-    return renamed.value if renamed else slug
-
-
 def resolve_platform_slug(fs_slug: str, config: Config) -> str:
     """Resolve a platform folder name to a RomM platform slug."""
     key = fs_slug.lower()
     bound = config.PLATFORMS_BINDING.get(key) or config.PLATFORMS_VERSIONS.get(key)
     if bound:
-        return _current_slug(bound)
+        return bound
     if key in UPS:
         return key
-    alias = PLATFORM_FS_ALIASES.get(key) or RENAMED_PLATFORM_SLUGS.get(key)
+    alias = PLATFORM_FS_ALIASES.get(key)
     return alias.value if alias else fs_slug
 
 
@@ -199,7 +188,7 @@ def resolve_fs_slug(slug: str, config: Config) -> str | None:
     """
     for mapping in (config.PLATFORMS_BINDING, config.PLATFORMS_VERSIONS):
         for fs_slug, bound in mapping.items():
-            if _current_slug(bound) == slug:
+            if bound == slug:
                 return fs_slug
     return PLATFORM_SLUG_FOLDERS.get(slug)
 

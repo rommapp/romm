@@ -1783,11 +1783,6 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
         "name": "Nintendo 64DD",
         "alternative_names": ["Nintendo 64 DD", "N64 DD", "64 DD"],
     },
-    UPS.NAMCO_SYSTEM_22: {
-        "id": 156,
-        "name": "Namco System 22",
-        "alternative_names": ["System 22"],
-    },
     UPS.NDS: {"id": 15, "name": "Nintendo DS"},
     UPS.NINTENDO_DSI: {"id": 15, "name": "Nintendo DS"},
     UPS.SWITCH: {"id": SWITCH_SS_ID, "name": "Switch"},
@@ -1995,6 +1990,11 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
         "id": 296,
         "name": "Nintendo Switch 2",
         "alternative_names": ["Switch 2"],
+    },
+    UPS.SYSTEM_32: {
+        "id": 156,
+        "name": "Namco System 22",
+        "alternative_names": ["System 22"],
     },
     UPS.TI_994A: {"id": 205, "name": "TI-99/4A"},
     UPS.TI_99: {"id": 205, "name": "TI-99"},
