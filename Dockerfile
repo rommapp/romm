@@ -2,28 +2,114 @@
 # trunk-ignore-all(trivy)
 # trunk-ignore-all(checkov)
 # trunk-ignore-all(hadolint/DL4006)
+# The stages mirror docker/Dockerfile, which pins Alpine rather than each apk package.
+# trunk-ignore-all(hadolint/DL3003,hadolint/DL3013,hadolint/DL3018)
 
-# Keep the pins in sync with the gme-build stage of docker/Dockerfile.
-# trunk-ignore(hadolint/DL3029)
-FROM --platform=linux/amd64 emscripten/emsdk:4.0.12@sha256:744fb6a68941970951bacf9d6632041a0398260492232691ef22bbf54b0585c6 AS emsdk-amd64
-# trunk-ignore(hadolint/DL3029)
-FROM --platform=linux/arm64 emscripten/emsdk:4.0.12-arm64@sha256:369a4cb655aa1066e6e450dde774243c502d999b1d93fb4890a9d1428daa9280 AS emsdk-arm64
-# trunk-ignore(hadolint/DL3006)
-FROM emsdk-${BUILDARCH} AS gme-build
+# Same bases as docker/Dockerfile, so system tools (7zip, libmagic, libarchive)
+# match production. Keep these pins in sync with its ARGUMENT DECLARATIONS.
+ARG ALPINE_VERSION=3.24
+ARG ALPINE_SHA256=294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+# Pins the base image tag, so it cannot read .python-version; keep the two in sync.
+ARG PYTHON_VERSION=3.14
+ARG PYTHON_ALPINE_SHA256=9e9fde4d32eedce0b661d9ab91e826b62dddf28e928c230ec55f1866cac66b01
+ARG NODE_VERSION=24.22
+ARG NODE_ALPINE_SHA256=6a1c190e17215d844926b0677f4bf87273ff7d5e54db06d3b5b5863ab0b09a3d
+ARG UV_VERSION=0.13.4
+ARG UV_SHA256=0cb69bb18ffcd57db04f045010b0234132a111da70dde5a393d26ad288d38e13
+ARG EMSDK_VERSION=4.0.12
+ARG EMSDK_AMD64_SHA256=744fb6a68941970951bacf9d6632041a0398260492232691ef22bbf54b0585c6
+ARG EMSDK_ARM64_SHA256=369a4cb655aa1066e6e450dde774243c502d999b1d93fb4890a9d1428daa9280
 ARG GME_VERSION=0.6.5
 ARG GME_COMMIT=9e23d10f9fd2a6a2f33b10912dd8dc7153258995
+
+
+# trunk-ignore(hadolint/DL3029)
+FROM --platform=linux/amd64 emscripten/emsdk:${EMSDK_VERSION}@sha256:${EMSDK_AMD64_SHA256} AS emsdk-amd64
+# trunk-ignore(hadolint/DL3029)
+FROM --platform=linux/arm64 emscripten/emsdk:${EMSDK_VERSION}-arm64@sha256:${EMSDK_ARM64_SHA256} AS emsdk-arm64
+# trunk-ignore(hadolint/DL3006)
+FROM emsdk-${BUILDARCH} AS gme-build
+ARG GME_VERSION
+ARG GME_COMMIT
 ADD --checksum=${GME_COMMIT} "https://github.com/libgme/game-music-emu.git#${GME_VERSION}" /libgme
 COPY docker/gme /romm-gme
 RUN /romm-gme/build.sh /libgme /gme
 
-# Browser player runtimes. Keep the pins in sync with the emulator stage of docker/Dockerfile.
-FROM ubuntu:22.04 AS emulator-download
 
-# trunk-ignore(hadolint/DL3008)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    7zip \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_SHA256} AS node-stage
+
+
+# https://github.com/astral-sh/uv/pkgs/container/uv
+FROM ghcr.io/astral-sh/uv:${UV_VERSION}-python${PYTHON_VERSION}-alpine@sha256:${UV_SHA256} AS uv-stage
+
+
+# Tag 1.8.3. Keep the pin and the musl patches in sync with docker/Dockerfile.
+FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rahasher-build
+RUN apk add --no-cache \
+    g++ \
+    git \
+    linux-headers \
+    make \
+    zlib-dev \
+    bash
+
+ARG RALIBRETRO_COMMIT=8ab61f745ab753a70b5482f2a0ccb6a4ced5193f
+RUN git clone --filter=blob:none https://github.com/RetroAchievements/RALibretro.git && \
+    cd ./RALibretro && \
+    git checkout "${RALIBRETRO_COMMIT}" && \
+    git submodule update --init --recursive && \
+    sed -i '22a #include <ctime>' ./src/Util.h && \
+    sed -i '6a #include <unistd.h>' \
+        ./src/libchdr/deps/zlib-1.3.1/gzlib.c \
+        ./src/libchdr/deps/zlib-1.3.1/gzread.c \
+        ./src/libchdr/deps/zlib-1.3.1/gzwrite.c && \
+    make HAVE_CHD=1 -f ./Makefile.RAHasher
+
+
+# Built on the Python image so the cffi extension matches the venv's CPython ABI.
+# Keep the pin in sync with docker/Dockerfile.
+FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS sigil-build
+RUN apk add --no-cache \
+    cmake \
+    g++ \
+    git \
+    make \
+    musl-dev
+
+ARG SIGIL_VERSION=5d4ddb41cc22cc017e32cccf4ca08dea270cbe40
+RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git && \
+    cd ./argosy-sigil && \
+    git checkout "${SIGIL_VERSION}" && \
+    git submodule update --init --recursive && \
+    cmake -B ./build-python -S . -DSIGIL_BUILD_CLI=OFF -DSIGIL_BUILD_TESTS=OFF && \
+    cmake --build ./build-python --target sigil && \
+    pip install --no-cache-dir cffi setuptools && \
+    cd ./bindings/python && \
+    python build_sigil.py && \
+    mkdir /sigil-pkg && \
+    cp ./sigil/*.py ./sigil/_sigil.*.so /sigil-pkg/
+
+
+# Keep the version and both sums in sync with docker/Dockerfile.
+FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rom-converto-fetch
+ARG TARGETARCH
+ARG ROM_CONVERTO_VERSION=v0.23.2
+RUN case "${TARGETARCH}" in \
+        amd64) rc="linux-x64-musl"; sum="734ecccfa77d425c01dc3ba621261389c1c23d23f0e5d6b8e3346fda1879d687" ;; \
+        arm64) rc="linux-arm64-musl"; sum="e90cca392b08b859b79bab13fcd47300ffc613d5dca7da1b4d1e38e3a4bbc297" ;; \
+        *) echo "unsupported TARGETARCH: ${TARGETARCH}" && exit 1 ;; \
+    esac && \
+    wget -qO /rom-converto \
+        "https://github.com/DevYukine/rom-converto/releases/download/${ROM_CONVERTO_VERSION}/rom-converto-cli-${rc}" && \
+    echo "${sum}  /rom-converto" | sha256sum -c - && \
+    chmod 0755 /rom-converto
+
+
+# Browser player runtimes. Keep the pins in sync with the emulator stage of docker/Dockerfile.
+FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS emulator-download
+
+RUN apk add --no-cache \
+    7zip
 
 ARG EMULATORJS_VERSION=4.2.3
 ARG EMULATORJS_SHA256=07d451bc06fa3ad04ab30d9b94eb63ac34ad0babee52d60357b002bde8f3850b
@@ -93,122 +179,66 @@ RUN mkdir /emulators/easyrpg/rtp && \
     find /emulators/easyrpg/rtp \( -name '.git*' -o -name Makefile \) -exec rm -f {} +
 
 
-FROM ubuntu:22.04
+FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256}
 
-# Prevent interactive prompts during installation
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Install system dependencies
-# trunk-ignore(hadolint/DL3008)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    make \
-    cmake \
-    gcc \
-    g++ \
-    libmariadb3 \
-    libmariadb-dev \
-    libpq-dev \
-    libffi-dev \
-    musl-dev \
-    curl \
-    ca-certificates \
-    libmagic-dev \
-    7zip \
+# Runtime packages match production-stage in docker/Dockerfile; the rest build
+# Python dependencies from source (memray has no arm64 musl wheel).
+RUN apk upgrade --no-cache && apk add --no-cache \
+    bash \
     libarchive-tools \
+    libmagic \
+    mariadb-connector-c \
+    libpq \
+    7zip \
     tzdata \
-    libbz2-dev \
-    libssl-dev \
-    libreadline-dev \
-    libsqlite3-dev \
-    zlib1g-dev \
-    liblzma-dev \
-    libncurses5-dev \
-    libncursesw5-dev \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    curl \
+    cmake \
+    elfutils-dev \
+    g++ \
+    gcc \
+    git \
+    libpq-dev \
+    libstdc++ \
+    libunwind-dev \
+    linux-headers \
+    lz4-dev \
+    make \
+    mariadb-connector-c-dev \
+    musl-dev
 
-# Install nvm
-ENV NVM_DIR="/root/.nvm"
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash \
-    && . "$NVM_DIR/nvm.sh" \
-    && nvm install 24.16.0 \
-    && nvm use 24.16.0 \
-    && nvm alias default 24.16.0
-ENV PATH="$NVM_DIR/versions/node/v24.16.0/bin:$PATH"
+COPY --from=node-stage /usr/local/bin/node /usr/local/bin/
+COPY --from=node-stage /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
-# Build and install RAHasher (optional for RA hashes)
-# Tag 1.8.3. Keep the pin in sync with docker/Dockerfile.
-ARG RALIBRETRO_COMMIT=8ab61f745ab753a70b5482f2a0ccb6a4ced5193f
-RUN git clone --filter=blob:none https://github.com/RetroAchievements/RALibretro.git /tmp/RALibretro \
-    && git -C /tmp/RALibretro checkout "${RALIBRETRO_COMMIT}" \
-    && git -C /tmp/RALibretro submodule update --init --recursive
-WORKDIR /tmp/RALibretro
-RUN make HAVE_CHD=1 -f ./Makefile.RAHasher \
-    && cp ./bin64/RAHasher /usr/bin/RAHasher
-RUN rm -rf /tmp/RALibretro
-
-# Install rom-converto (optional); its static musl build runs on this glibc image.
-# Keep the version and both sums in sync with docker/Dockerfile.
-ARG TARGETARCH
-RUN ROM_CONVERTO_VERSION=v0.23.2 \
-    && arch="${TARGETARCH:-$(dpkg --print-architecture)}" \
-    && case "${arch}" in \
-        amd64) rc="linux-x64-musl"; sum="734ecccfa77d425c01dc3ba621261389c1c23d23f0e5d6b8e3346fda1879d687" ;; \
-        arm64) rc="linux-arm64-musl"; sum="e90cca392b08b859b79bab13fcd47300ffc613d5dca7da1b4d1e38e3a4bbc297" ;; \
-        *) echo "unsupported architecture: ${arch}" && exit 1 ;; \
-    esac \
-    && curl -fsSL -o "/tmp/rom-converto-cli-${rc}" \
-        "https://github.com/DevYukine/rom-converto/releases/download/${ROM_CONVERTO_VERSION}/rom-converto-cli-${rc}" \
-    && echo "${sum}  /tmp/rom-converto-cli-${rc}" | sha256sum -c --status \
-    && install -m 0755 "/tmp/rom-converto-cli-${rc}" /usr/bin/rom-converto \
-    && rm -f "/tmp/rom-converto-cli-${rc}"
+COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
+COPY --from=rom-converto-fetch /rom-converto /usr/bin/rom-converto
 
 # Install frontend dependencies
-COPY frontend/package.json /app/frontend/
+COPY frontend/package*.json /app/frontend/
 WORKDIR /app/frontend
-RUN npm install
+RUN npm ci --no-audit --no-fund
 
 # Install backend Node helpers (server-side ROM patching)
-COPY backend/utils/rom_patcher/package.json /app/backend/utils/rom_patcher/
+COPY backend/utils/rom_patcher/package*.json /app/backend/utils/rom_patcher/
 WORKDIR /app/backend/utils/rom_patcher
-RUN npm install
+RUN npm ci --no-audit --no-fund
 
-# Set working directory
 WORKDIR /app
 
-# Install uv for the non-root user
-COPY --from=ghcr.io/astral-sh/uv:0.12.19 /uv /uvx /usr/local/bin/
+COPY --from=uv-stage /usr/local/bin/uv /usr/local/bin/uvx /usr/local/bin/
 
-# Copy project files (including pyproject.toml and uv.lock)
+# Use the image's Python, as production does, rather than a uv-managed one.
+ENV UV_PYTHON_DOWNLOADS=never
+
 COPY pyproject.toml uv.lock* .python-version /app/
-
-# Install Python (pinned by .python-version) and the project dependencies
-RUN uv python install \
-    && uv sync --all-extras
+RUN uv sync --all-extras
 
 ENV PATH="/app/.venv/bin:${PATH}"
 
-# Build and install sigil (optional, for title ID extraction)
-# Placed after `uv sync` because the extension is compiled with the venv's
-# Python so the ABI matches. Keep the pin in sync with docker/Dockerfile.
-ARG SIGIL_VERSION=5d4ddb41cc22cc017e32cccf4ca08dea270cbe40
-# One layer, so the clone and the cmake tree never reach the image.
-# trunk-ignore(hadolint/DL3003)
-RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git /tmp/argosy-sigil \
-    && cd /tmp/argosy-sigil \
-    && git checkout "${SIGIL_VERSION}" \
-    && git submodule update --init --recursive \
-    && cmake -B ./build-python -S . -DSIGIL_BUILD_CLI=OFF -DSIGIL_BUILD_TESTS=OFF \
-    && cmake --build ./build-python --target sigil \
-    && uv pip install --python /app/.venv/bin/python cffi setuptools \
-    && cd ./bindings/python \
-    && /app/.venv/bin/python build_sigil.py \
-    && SITE_PACKAGES="$(/app/.venv/bin/python -c 'import site; print(site.getsitepackages()[0])')" \
-    && mkdir -p "${SITE_PACKAGES}/sigil" \
-    && cp ./sigil/*.py ./sigil/_sigil.*.so "${SITE_PACKAGES}/sigil/" \
-    && rm -rf /tmp/argosy-sigil
-WORKDIR /app
+# Optional sigil bindings for title ID extraction
+ARG PYTHON_VERSION
+COPY --from=sigil-build /sigil-pkg /app/.venv/lib/python${PYTHON_VERSION}/site-packages/sigil
 
 # Kept outside /app/frontend because the ./frontend bind mount hides it;
 # entrypoint.sh links the runtimes into the assets tree at startup.
@@ -216,7 +246,6 @@ ENV EMULATOR_ASSETS_DIR="/opt/romm/emulators"
 COPY --from=emulator-download /emulators "${EMULATOR_ASSETS_DIR}"
 COPY --from=gme-build /gme "${EMULATOR_ASSETS_DIR}/gme"
 
-# Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

@@ -104,6 +104,9 @@ BUILD_RECOMMENDATIONS_SPEC: Final = TaskSpec(
     enabled=ENABLE_SCHEDULED_BUILD_RECOMMENDATIONS,
     manual_run=True,
     cron_string=SCHEDULED_BUILD_RECOMMENDATIONS_CRON,
+    # The sweep costs several ms per ROM, so a library of tens of thousands
+    # overruns the default timeout.
+    timeout=max(TASK_TIMEOUT, 60 * 60),
 )
 
 CONVERT_IMAGES_TO_WEBP_SPEC: Final = TaskSpec(

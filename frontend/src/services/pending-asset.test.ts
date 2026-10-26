@@ -6,10 +6,7 @@ import pendingAssetStore, {
   syncPendingAssets,
   type PendingAsset,
 } from "@/services/pending-asset";
-import {
-  bankStateFixture,
-  snapshotFixture,
-} from "@/v2/utils/snapshots.fixtures";
+import { bankStateFixture, snapshotFixture } from "@/utils/snapshots.fixtures";
 
 const auth = vi.hoisted(() => ({ userId: 1 as number | null }));
 vi.mock("@/stores/auth", () => ({

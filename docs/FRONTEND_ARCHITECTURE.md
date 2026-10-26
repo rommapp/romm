@@ -1,1202 +1,219 @@
 # RomM Frontend Architecture
 
-Comprehensive documentation of the RomM frontend: a Vue 3 single-page application powering the retro gaming platform UI.
+A map of the RomM frontend (`frontend/`): a Vue 3 single-page app that talks to the backend over `/api/*` (REST) and `/ws` (Socket.IO). This document says where things live and how they fit together. The detailed rules for writing UI code live in the skills under `.claude/skills/` (`frontend-components`, `frontend-theming`, `frontend-input`, `frontend-patterns`, `frontend-i18n`), and commands are in `frontend/AGENTS.md`.
 
-> **Scope: this document describes the v1 UI** (`src/views/`, `src/components/`, `src/console/`, `src/layouts/`), which is frozen pending deletion. The v2 rewrite under `src/v2/` shares the Vue/Vite/Pinia/router/i18n/Socket.IO foundation described here, but has its own design system: **no Vuetify, and no Tailwind utility classes** (the Tailwind stylesheet is still loaded app-wide, see CSS Stack below). It styles with generated tokens plus per-component scoped CSS. For v2, read the `frontend-v2-components`, `frontend-v2-theming`, `frontend-v2-input`, and `frontend-v2-patterns` skills in `.claude/skills/`.
+## Contents
 
----
-
-## Table of Contents
-
-1. [Overview](#1-overview)
-2. [High-Level Architecture](#2-high-level-architecture)
-3. [Directory Structure](#3-directory-structure)
-4. [Application Lifecycle](#4-application-lifecycle)
-5. [Routing & Navigation](#5-routing--navigation)
-6. [State Management (Pinia Stores)](#6-state-management-pinia-stores)
-7. [API & Data Layer](#7-api--data-layer)
-8. [Component Architecture](#8-component-architecture)
-9. [Views & Pages](#9-views--pages)
-10. [Console Mode](#10-console-mode)
-11. [Emulation Integration](#11-emulation-integration)
-12. [Theming & Styling](#12-theming--styling)
-13. [Internationalization (i18n)](#13-internationalization-i18n)
-14. [Real-Time Communication](#14-real-time-communication)
-15. [Caching Strategy](#15-caching-strategy)
-16. [Utilities & Composables](#16-utilities--composables)
-17. [Build & Tooling](#17-build--tooling)
-18. [Type System](#18-type-system)
+1. [Stack](#1-stack)
+2. [Layers and directories](#2-layers-and-directories)
+3. [Startup](#3-startup)
+4. [Routing](#4-routing)
+5. [State: Pinia stores](#5-state-pinia-stores)
+6. [API, caching and real time](#6-api-caching-and-real-time)
+7. [Components](#7-components)
+8. [Styling and theming](#8-styling-and-theming)
+9. [Input and responsive layout](#9-input-and-responsive-layout)
+10. [Players](#10-players)
+11. [Internationalization](#11-internationalization)
+12. [Types](#12-types)
+13. [Build, test and tooling](#13-build-test-and-tooling)
 
 ---
 
-## 1. Overview
+## 1. Stack
 
-| Property             | Value                                        |
-| -------------------- | -------------------------------------------- |
-| **Framework**        | Vue 3.5 (Composition API, `<script setup>`)  |
-| **Build Tool**       | Vite 6.4.2                                   |
-| **Language**         | TypeScript 5.9.3 (`noImplicitAny: true`)     |
-| **UI Library**       | Vuetify 4.2.1 (Material Design), v1 only     |
-| **CSS**              | Tailwind CSS 4.3.1 + Vuetify themes, v1 only |
-| **State Management** | Pinia 3.0.1 (18 stores)                      |
-| **Routing**          | Vue Router 5.3.1                             |
-| **HTTP Client**      | Axios 1.15.0                                 |
-| **i18n**             | vue-i18n 11.1.10 (17 languages)              |
-| **Real-time**        | Socket.IO Client 4.7.5                       |
-| **Icons**            | Material Design Icons (MDI) 7.4.47           |
-| **Node**             | 24 (via `.nvmrc`)                            |
+| Concern   | Choice                                                                                            |
+| --------- | ------------------------------------------------------------------------------------------------- |
+| Framework | Vue 3 (`<script setup>`, TypeScript)                                                              |
+| Build     | Vite, with Lightning CSS as the CSS transformer                                                   |
+| State     | Pinia                                                                                             |
+| Routing   | Vue Router (history mode, lazy route components)                                                  |
+| HTTP      | Axios against `/api`, CSRF header on every request                                                |
+| Real time | `socket.io-client` at `/ws/socket.io/`                                                            |
+| i18n      | `vue-i18n`, one lazy-loaded JSON file per locale and namespace                                    |
+| Styling   | Generated design tokens plus per-component scoped CSS. No component library, no utility framework |
+| Icons     | `@mdi/font`, trimmed at build time to the icons the source uses                                   |
+| Tests     | Vitest (happy-dom unit tests, plus Storybook `play()` tests in Chromium), Playwright for e2e      |
 
-**Total:** ~216 Vue components (168 under `components/`, rest in views/console/layouts), 18 Pinia stores, 17 API service modules, 36 named routes across 3 layouts.
+There is no Vuetify and no Tailwind. A small hand-written base reset lives in `src/styles/reset.css`.
 
----
+## 2. Layers and directories
 
-## 2. High-Level Architecture
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                        Browser / PWA                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   ┌─────────────┐   ┌──────────────┐   ┌───────────────────┐   │
-│   │  Vue Router  │   │  Pinia Stores │   │   Mitt Emitter    │   │
-│   │  (36 routes) │   │  (18 stores)  │   │  (80+ events)     │   │
-│   └──────┬──────┘   └──────┬───────┘   └────────┬──────────┘   │
-│          │                  │                     │              │
-│   ┌──────v──────────────────v─────────────────────v──────────┐  │
-│   │                    Components (~216)                       │  │
-│   │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐ │  │
-│   │  │  Gallery  │  │ Details  │  │ Settings │  │ Console  │ │  │
-│   │  │  Mode     │  │  Page    │  │  Pages   │  │  Mode    │ │  │
-│   │  └──────────┘  └──────────┘  └──────────┘  └──────────┘ │  │
-│   └──────────────────────┬───────────────────────────────────┘  │
-│                          │                                       │
-│   ┌──────────────────────v───────────────────────────────────┐  │
-│   │                   Service Layer                           │  │
-│   │  ┌─────────┐  ┌───────────┐  ┌──────────┐  ┌─────────┐ │  │
-│   │  │  Axios   │  │ Socket.IO │  │  Cache   │  │ Compose │ │  │
-│   │  │  API     │  │  Client   │  │ Service  │  │ -ables  │ │  │
-│   │  └────┬────┘  └─────┬─────┘  └────┬─────┘  └─────────┘ │  │
-│   └───────┼──────────────┼─────────────┼─────────────────────┘  │
-│           │              │             │                         │
-├───────────┼──────────────┼─────────────┼─────────────────────────┤
-│           v              v             v                         │
-│     Backend API    WebSocket /ws   Browser Cache API             │
-│     (/api/*)       (/ws/socket.io)  (IndexedDB)                 │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+  Views["views/ + layouts/<br/>(route-level pages)"] --> Components["components/<br/>(feature composites)"]
+  Components --> Lib["lib/<br/>(R* primitives)"]
+  Views --> Composables["composables/"]
+  Components --> Composables
+  Composables --> Stores["stores/ (Pinia)"]
+  Stores --> Services["services/<br/>(api, cache, socket)"]
+  Services --> Backend[("backend<br/>/api and /ws")]
+  Lib --> Tokens["tokens/ → styles/tokens.css"]
 ```
 
-### Layered Architecture
-
-```text
-┌─────────────────────────────────────────────────────────┐
-│                    PRESENTATION LAYER                     │
-│  views/          Page-level route components              │
-│  layouts/        Auth, Main, Console layouts              │
-│  components/     Feature & common components              │
-│  console/        TV/gamepad-optimized UI                  │
-├─────────────────────────────────────────────────────────┤
-│                    STATE LAYER                            │
-│  stores/         18 Pinia stores (auth, roms, config...) │
-│  composables/    Reusable stateful logic                  │
-├─────────────────────────────────────────────────────────┤
-│                    DATA LAYER                             │
-│  services/api/   17 Axios-based API modules               │
-│  services/cache/ Browser Cache API wrapper                │
-│  services/socket Socket.IO client                         │
-├─────────────────────────────────────────────────────────┤
-│                    INFRASTRUCTURE LAYER                   │
-│  plugins/        Vuetify, Pinia, i18n, Router             │
-│  styles/         Themes, global CSS                       │
-│  locales/        17 language packs                        │
-│  types/          TypeScript definitions                   │
-│  utils/          Helpers (formatting, emulation, covers)  │
-│  __generated__/  OpenAPI-generated types                  │
-└─────────────────────────────────────────────────────────┘
-```
-
----
-
-## 3. Directory Structure
-
-```text
-frontend/
-├── index.html                     # HTML entry point (<div id="app">)
-├── package.json                   # Dependencies & scripts
-├── vite.config.js                 # Vite build config with plugins
-├── tsconfig.json                  # References app + node (vue-tsc --build)
-├── tsconfig.app.json              # Vue app TypeScript
-├── tsconfig.node.json             # Node tooling and tool configs TypeScript
-├── eslint.config.js               # ESLint flat config
-├── .nvmrc                         # Node 24
-│
-├── assets/                        # Static assets (logos, platform icons)
-├── public/                        # Public static files
-│
-└── src/
-    ├── main.ts                    # Entry point: app creation & plugin init
-    ├── RomM.vue                   # Root component
-    │
-    ├── plugins/                   # Vue plugin setup
-    │   ├── index.ts               # Plugin registration (Vuetify, Pinia, i18n, Mitt)
-    │   ├── router.ts              # Vue Router (36 routes, guards, permissions)
-    │   ├── vuetify.ts             # Vuetify instance (themes, icons)
-    │   ├── pinia.ts               # Pinia store with router injection (and its $router type)
-    │   ├── mdeditor.ts            # Markdown editor with XSS plugin
-    │   └── transition/            # View Transitions API polyfill
-    │
-    ├── layouts/                   # Layout wrappers
-    │   ├── Auth.vue               # Authentication pages layout
-    │   └── Main.vue               # Authenticated pages layout (+ all dialogs)
-    │
-    ├── views/                     # Page-level components (routes)
-    │   ├── Auth/                  # Setup, Login, ResetPassword, Register
-    │   ├── Gallery/               # Platform, Search, Collection variants
-    │   ├── Player/                # EmulatorJS, RuffleRS
-    │   ├── Settings/              # Profile, UI, Library, Metadata, Admin, Stats
-    │   ├── Home.vue               # Dashboard
-    │   ├── GameDetails.vue        # ROM detail page (8 tabs)
-    │   ├── Scan.vue               # Library scan
-    │   ├── Patcher.vue            # ROM patcher
-    │   ├── Pair.vue               # Device pairing
-    │   └── 404.vue                # Not found
-    │
-    ├── components/                # ~168 Vue components
-    │   ├── common/                # Shared, reusable
-    │   │   ├── Collection/        # Collection cards, dialogs (9 components)
-    │   │   ├── Dialog/            # LoadingDialog, SearchCover
-    │   │   ├── EmptyStates/       # 8 empty state variants
-    │   │   ├── Game/              # Game cards, dialogs, controls (48+ components)
-    │   │   ├── Navigation/        # AppBar, drawers, nav buttons (13 components)
-    │   │   ├── Notifications/     # Snackbar, upload progress
-    │   │   └── Platform/          # Platform cards, dialogs (8 components)
-    │   ├── Details/               # Game detail sub-components (14+)
-    │   ├── Gallery/               # Gallery app bar, filters, skeleton
-    │   ├── Home/                  # Dashboard sections (8 components)
-    │   ├── Scan/                  # Scan platform component
-    │   └── Settings/              # Settings sub-components (25+)
-    │       ├── Administration/    # Users, tokens, tasks
-    │       ├── ClientApiTokens/   # API token list, create, pair
-    │       ├── LibraryManagement/ # Platform bindings, exclusions
-    │       ├── MetadataSources/   # Provider config & priority
-    │       ├── ServerStats/       # Library stats widgets
-    │       ├── UserInterface/     # Theme, view, locale
-    │       └── UserProfile/       # Profile, password, avatar
-    │
-    ├── console/                   # Console mode (TV/gamepad UI)
-    │   ├── Layout.vue             # Console layout with input bus
-    │   ├── index.css              # Console-specific styles
-    │   ├── views/                 # Console pages
-    │   │   ├── Home.vue           # Platform grid, collections
-    │   │   ├── GamesList.vue      # ROM grid for platform/collection
-    │   │   ├── Game.vue           # Game details with spatial nav
-    │   │   └── Play.vue           # Emulator in console mode
-    │   ├── components/            # Console-specific components (12)
-    │   │   ├── GameCard.vue, SystemCard.vue, CollectionCard.vue
-    │   │   ├── BackButton.vue, NavigationHint.vue
-    │   │   ├── ScreenshotLightbox.vue, SettingsModal.vue
-    │   │   └── ArrowKeysIcon.vue, DPadIcon.vue, FaceButtons.vue
-    │   ├── composables/           # Console-specific composables
-    │   │   ├── useConsoleTheme.ts # Theme management
-    │   │   ├── useThemeAssets.ts  # Asset path resolution
-    │   │   ├── useBackgroundArt.ts # Double-buffered backgrounds
-    │   │   ├── useSpatialNav.ts   # Grid navigation
-    │   │   ├── useElementRegistry.ts # Focus management
-    │   │   ├── useInputScope.ts   # Scoped input handling
-    │   │   └── useRovingDom.ts    # ARIA roving tabindex
-    │   ├── input/                 # Input system
-    │   │   ├── bus.ts             # Stack-based input scope manager
-    │   │   ├── actions.ts         # 12 input actions
-    │   │   ├── config.ts          # Keyboard + gamepad mappings
-    │   │   ├── keyboard.ts        # Keyboard listener
-    │   │   └── gamepad.ts         # Gamepad polling (rAF)
-    │   ├── constants/             # Console constants (sizes, timings, themes)
-    │   └── utils/                 # Console helpers
-    │       ├── sfx.ts             # Procedural Web Audio SFX
-    │       └── assetResolver.ts   # Theme-aware asset loading
-    │
-    ├── stores/                    # 18 Pinia stores
-    │   ├── auth.ts                # Current user & scopes
-    │   ├── roms.ts                # ROM library (largest store, 400+ lines)
-    │   ├── platforms.ts           # Platform catalog
-    │   ├── collections.ts         # Regular, virtual, smart collections
-    │   ├── config.ts              # Server configuration
-    │   ├── heartbeat.ts           # Server status & feature flags
-    │   ├── galleryFilter.ts       # 13+ filter types
-    │   ├── galleryView.ts         # View mode, aspect ratio
-    │   ├── navigation.ts          # Drawer & nav state
-    │   ├── console.ts             # Console mode navigation indices
-    │   ├── scanning.ts            # Scan progress
-    │   ├── tasks.ts               # Background task status
-    │   ├── upload.ts              # Upload progress tracking
-    │   ├── download.ts            # Download queue
-    │   ├── playing.ts             # Emulator state
-    │   ├── language.ts            # Locale selection
-    │   ├── notifications.ts       # Toast queue
-    │   └── users.ts               # User list (admin)
-    │
-    ├── services/                  # Data fetching & communication
-    │   ├── api/                   # 16 Axios API modules (+ index.ts client)
-    │   │   ├── index.ts           # Axios instance (CSRF, interceptors)
-    │   │   ├── rom.ts             # ROM CRUD, upload, download
-    │   │   ├── platform.ts        # Platform CRUD
-    │   │   ├── collection.ts      # Collection operations
-    │   │   ├── user.ts            # User management
-    │   │   ├── identity.ts        # Login, logout, password reset
-    │   │   ├── config.ts          # Backend configuration
-    │   │   ├── task.ts            # Task monitoring
-    │   │   ├── firmware.ts        # Firmware uploads
-    │   │   ├── save.ts            # Game saves
-    │   │   ├── state.ts           # Save states
-    │   │   ├── screenshot.ts      # Screenshots
-    │   │   ├── setup.ts           # Setup wizard
-    │   │   ├── sgdb.ts            # SteamGridDB covers
-    │   │   ├── export.ts          # Gamelist.xml + Pegasus exports
-    │   │   ├── play-session.ts    # Play session tracking
-    │   │   └── client-token.ts    # API token management
-    │   ├── cache/                 # Experimental response cache
-    │   │   ├── index.ts           # Browser Cache API wrapper
-    │   │   └── api.ts             # Cached API service
-    │   └── socket.ts              # Socket.IO client
-    │
-    ├── composables/               # Vue 3 composition utilities
-    │   ├── useUISettings.ts       # Settings sync (localStorage ↔ backend)
-    │   ├── useFavoriteToggle.ts   # Favorites collection management
-    │   ├── useGameAnimation.ts    # CD spin, cartridge load, video hover
-    │   └── useAutoScroll.ts       # Auto-scroll on content change
-    │
-    ├── styles/                    # Global styles
-    │   ├── themes.ts              # Dark/light theme definitions
-    │   ├── common.css             # Utility classes
-    │   ├── fonts.css              # Font definitions
-    │   └── scrollbar.css          # Custom scrollbar
-    │
-    ├── locales/                   # i18n translations
-    │   ├── index.ts               # Loader with dynamic imports
-    │   ├── en_US/                 # English (default)
-    │   ├── en_GB/, fr_FR/, de_DE/, es_ES/, it_IT/, ja_JP/
-    │   ├── ko_KR/, pt_BR/, pl_PL/, ro_RO/, ru_RU/
-    │   ├── zh_CN/, zh_TW/, cs_CZ/, hu_HU/, bg_BG/
-    │   └── (each has: collection, common, console, detail,
-    │         emulator, gallery, home, library, login,
-    │         navigation, patcher, platform, scan, settings, task)
-    │
-    ├── types/                     # TypeScript definitions
-    │   ├── emitter.d.ts           # 80+ event types
-    │   ├── main.d.ts              # Global augmentations
-    │   ├── rom.d.ts               # ROM selection types
-    │   ├── user.d.ts              # User form types
-    │   ├── ruffle.d.ts            # Flash emulator types
-    │   ├── rompatcher.d.ts        # ROM patcher types
-    │   └── index.ts               # Utility types
-    │
-    ├── utils/                     # Helper functions
-    │   ├── index.ts               # ~825 lines of utilities
-    │   ├── covers.ts              # Procedural SVG cover generation
-    │   ├── formData.ts            # FormData builder
-    │   └── tasks.ts               # Task status maps
-    │
-    └── __generated__/             # OpenAPI codegen output
-        └── models/                # Generated TypeScript interfaces
-```
-
----
-
-## 4. Application Lifecycle
-
-### Startup Sequence
-
-```text
-index.html
-  └── <script type="module" src="src/main.ts">
-        │
-        ├── Create Vue app with RomM.vue as root
-        ├── Register plugins (Vuetify, Pinia, i18n, Mitt, MD Editor)
-        ├── Install Vue Router
-        │
-        ├── Initialize critical stores (before mount):
-        │   ├── authStore.fetchCurrentUser()
-        │   ├── configStore.fetchConfig()
-        │   ├── heartbeatStore.fetchHeartbeat()
-        │   └── tasksStore.fetchTasks()
-        │
-        └── app.mount("#app")
-```
-
-### Plugin Registration Order
-
-```text
-1. Vuetify     : Material Design components, themes, icons
-2. Pinia       : State management (with router injection)
-3. vue-i18n    : Internationalization (17 locales)
-4. Mitt        : Event emitter (provided as 'emitter')
-5. MD Editor   : Markdown editor with XSS plugin
-6. Vue Router  : Navigation with guards
-```
-
-### Request Lifecycle
-
-```text
-Component Action
-    │
-    ├─ Store Action (e.g., romsStore.fetchRoms())
-    │   │
-    │   ├─ Cache check (if experimental cache enabled)
-    │   │   ├─ Cache hit → return cached, fire background update
-    │   │   └─ Cache miss → continue to API
-    │   │
-    │   ├─ API Service call (e.g., romApi.getRoms(params))
-    │   │   │
-    │   │   ├─ Axios request interceptor:
-    │   │   │   ├─ Add CSRF token (x-csrftoken from cookie)
-    │   │   │   └─ Track in inflight set
-    │   │   │
-    │   │   ├─ HTTP request to /api/*
-    │   │   │
-    │   │   └─ Axios response interceptor:
-    │   │       ├─ Remove from inflight set
-    │   │       ├─ 403 → clear session, redirect to login
-    │   │       └─ Emit 'network-quiesced' when all requests complete
-    │   │
-    │   └─ Store mutation (update reactive state)
-    │
-    └─ Component reacts via reactive refs/getters
-```
-
----
-
-## 5. Routing & Navigation
-
-### Route Map
-
-```text
-/ (root)
-│
-├── Auth Layout (public)
-│   ├── /setup                    → Setup wizard (3 steps)
-│   ├── /login                    → Login (password + OIDC)
-│   ├── /reset-password           → Password reset
-│   └── /register                 → Invite-based registration
-│
-├── /pair                         → Device pairing (standalone, no layout)
-│
-├── Main Layout (authenticated)
-│   ├── /                         → Home dashboard
-│   ├── /search                   → Global ROM search
-│   ├── /platform/:platform       → Platform gallery
-│   ├── /collection/:collection   → Regular collection
-│   ├── /collection/virtual/:id   → Virtual collection
-│   ├── /collection/smart/:id     → Smart collection
-│   ├── /rom/:rom                 → Game details (8 tabs)
-│   ├── /rom/:rom/ejs             → EmulatorJS player
-│   ├── /rom/:rom/ruffle          → Ruffle Flash player
-│   ├── /april-fools              → April Fools easter egg (toggleable)
-│   ├── /scan                     → Library scanner [platforms.write]
-│   ├── /patcher                  → ROM patcher
-│   ├── /user/:user               → User profile
-│   ├── /user-interface           → UI settings
-│   ├── /library-management       → Library config [platforms.write]
-│   ├── /metadata-sources         → Metadata provider status
-│   ├── /client-api-tokens        → API token management [me.write]
-│   ├── /administration           → User & task admin [users.write]
-│   ├── /server-stats             → Library statistics
-│   └── /*                        → 404
-│
-└── Console Layout (authenticated, TV/gamepad)
-    ├── /console                  → Console home
-    ├── /console/platform/:id     → Console game list
-    ├── /console/collection/:id   → Console collection
-    ├── /console/collection/smart/:id
-    ├── /console/collection/virtual/:id
-    ├── /console/rom/:rom         → Console game details
-    └── /console/rom/:rom/play    → Console emulator
-```
-
-### Route Guards
-
-| Guard                  | Type          | Behavior                                            |
-| ---------------------- | ------------- | --------------------------------------------------- |
-| Global `beforeEach`    | Navigation    | Setup wizard redirect, auth check, scope validation |
-| ROM `beforeEnter`      | Per-route     | Pre-fetches ROM data before rendering               |
-| Global `beforeResolve` | Navigation    | View Transitions API animation                      |
-| Scroll behavior        | Router config | Restores saved scroll position on back/forward      |
-
-### Permission-Protected Routes
-
-| Route                 | Required Scope    |
-| --------------------- | ----------------- |
-| `/scan`               | `platforms.write` |
-| `/library-management` | `platforms.write` |
-| `/client-api-tokens`  | `me.write`        |
-| `/administration`     | `users.write`     |
-
----
-
-## 6. State Management (Pinia Stores)
-
-### Store Overview
-
-```text
-┌─────────────────────────────────────────────────────┐
-│                   PINIA STORES                       │
-├──────────────┬──────────────────────────────────────┤
-│ Core Data    │ roms, platforms, collections, users   │
-├──────────────┼──────────────────────────────────────┤
-│ Auth & Config│ auth, config, heartbeat               │
-├──────────────┼──────────────────────────────────────┤
-│ UI State     │ navigation, galleryFilter, galleryView│
-│              │ language, notifications, console       │
-├──────────────┼──────────────────────────────────────┤
-│ Operations   │ scanning, tasks, upload, download,    │
-│              │ playing                                │
-└──────────────┴──────────────────────────────────────┘
-```
-
-### Key Stores in Detail
-
-#### `roms` (largest store, ~400 lines)
-
-| State                            | Type                     | Description                      |
-| -------------------------------- | ------------------------ | -------------------------------- |
-| `_allRoms`                       | `SimpleRom[]`            | Current page of ROMs             |
-| `currentPlatform`                | `Platform \| null`       | Active platform filter           |
-| `currentCollection`              | `Collection \| null`     | Active collection filter         |
-| `currentRom`                     | `DetailedRom \| null`    | Selected ROM details             |
-| `recentRoms`                     | `SimpleRom[]`            | Recently added                   |
-| `continuePlayingRoms`            | `SimpleRom[]`            | Recently played                  |
-| `selectedIDs`                    | `Set<number>`            | Multi-select state               |
-| `fetchOffset` / `fetchTotalRoms` | `number`                 | Pagination cursor                |
-| `orderBy` / `orderDir`           | `string`                 | Sort (persisted to localStorage) |
-| `characterIndex`                 | `Record<string, number>` | A-Z jump index                   |
-
-Key actions: `fetchRoms()`, `fetchRecentRoms()`, `fetchContinuePlayingRoms()`, `add()`, `update()`, `remove()`, `resetPagination()`
-
-#### `galleryFilter`
-
-Manages 13+ filter dimensions with logic operators:
-
-| Filter            | Type              | Logic            |
-| ----------------- | ----------------- | ---------------- |
-| Genres            | `string[]`        | any / all / none |
-| Franchises        | `string[]`        | any / all / none |
-| Collections       | `string[]`        | any / all / none |
-| Companies         | `string[]`        | any / all / none |
-| Age Ratings       | `string[]`        | any / all / none |
-| Regions           | `string[]`        | any / all / none |
-| Languages         | `string[]`        | any / all / none |
-| Player Counts     | `string[]`        | any / all / none |
-| Statuses          | `string[]`        | any / all / none |
-| Matched           | `boolean \| null` | toggle           |
-| Favorites         | `boolean \| null` | toggle           |
-| Duplicates        | `boolean \| null` | toggle           |
-| Playable          | `boolean \| null` | toggle           |
-| RetroAchievements | `boolean \| null` | toggle           |
-| Missing           | `boolean \| null` | toggle           |
-| Verified          | `boolean \| null` | toggle           |
-
-#### `collections`
-
-Manages three collection types:
-
-| Type     | State                | Description                      |
-| -------- | -------------------- | -------------------------------- |
-| Regular  | `allCollections`     | User-created collections         |
-| Virtual  | `virtualCollections` | Auto-generated by platform/genre |
-| Smart    | `smartCollections`   | Filter-criteria based            |
-| Favorite | `favoriteCollection` | Special favorite collection      |
-
-#### `heartbeat`
-
-Server capability flags used throughout the UI:
-
-```typescript
-METADATA_SOURCES: { IGDB, SS, MOBY, RA, STEAMGRIDDB, LAUNCHBOX, ... }
-EMULATION: { DISABLE_EMULATOR_JS, DISABLE_RUFFLE_RS, DISABLE_JSDOS, DISABLE_PICO8, DISABLE_EASYRPG }
-FRONTEND: { DISABLE_USERPASS_LOGIN, DISABLE_LOGS_VIEWER, YOUTUBE_BASE_URL }
-OIDC: { ENABLED, AUTOLOGIN, PROVIDER, RP_INITIATED_LOGOUT }
-TASKS: { scheduled task configurations }
-```
-
-### Persistence Strategy
-
-| Storage                        | What               | Examples                                                    |
-| ------------------------------ | ------------------ | ----------------------------------------------------------- |
-| **localStorage**               | UI preferences     | View mode, sort order, theme, drawer state, boxart style    |
-| **Backend (user.ui_settings)** | Synced preferences | Same as localStorage, synced via `useUISettings` composable |
-| **In-memory (Pinia)**          | Session data       | ROMs, platforms, collections, auth state                    |
-| **Browser Cache API**          | API responses      | Optional experimental cache with background updates         |
-
----
-
-## 7. API & Data Layer
-
-### Axios Client Setup
-
-**Location:** `services/api/index.ts`
-
-```typescript
-const api = axios.create({
-  baseURL: "/api",
-  timeout: 120000, // 2 minutes
-});
-```
-
-**Request Interceptor:**
-
-- Injects CSRF token from `romm_csrftoken` cookie as `x-csrftoken` header
-- Tracks inflight requests in a Set
-
-**Response Interceptor:**
-
-- On 403: clears session cookie, refetches CSRF, redirects to `/login`
-- Fires `network-quiesced` custom event when all requests complete (250ms debounce)
-
-### API Service Modules
-
-| Module            | Key Endpoints                                    |
-| ----------------- | ------------------------------------------------ |
-| `rom.ts`          | CRUD, chunked upload, download, search, notes    |
-| `collection.ts`   | CRUD for regular/smart/virtual + ROM association |
-| `platform.ts`     | CRUD, supported list                             |
-| `user.ts`         | CRUD, profile, RA refresh, invite links          |
-| `identity.ts`     | Login, logout, forgot/reset password             |
-| `config.ts`       | Platform bindings, versions, exclusions          |
-| `task.ts`         | List, status, run                                |
-| `firmware.ts`     | Upload, list, delete                             |
-| `save.ts`         | Upload, update, delete                           |
-| `state.ts`        | Upload, update, delete                           |
-| `screenshot.ts`   | Upload, update                                   |
-| `setup.ts`        | Library structure, platform creation             |
-| `sgdb.ts`         | Cover art search                                 |
-| `export.ts`       | Gamelist.xml export, Pegasus export              |
-| `play-session.ts` | Play session ingestion & listing                 |
-| `client-token.ts` | Token CRUD, pair, exchange                       |
-
-### Chunked Upload System (`rom.ts`)
-
-```text
-1. POST /roms/upload/start
-   Headers: X-Upload-Platform, X-Upload-Filename, X-Upload-Total-Size, X-Upload-Total-Chunks
-   Optional JSON body: rom_id + folder to upload into a ROM's folder
-   → Returns upload_id
-
-2. PUT /roms/upload/{upload_id}  (per 10MB chunk, raw bytes)
-   Header: X-Chunk-Index
-   → Retry: 3 attempts with exponential backoff
-
-3. POST /roms/upload/{upload_id}/complete
-   → 10-minute timeout for assembly
-
-On failure: POST /roms/upload/{upload_id}/cancel
-```
-
-### Key Data Flows
-
-**ROM Gallery Loading:**
-
-```text
-Component mount → romsStore.fetchRoms()
-  → cachedApiService.getRoms(params, onBackgroundUpdate)
-    → Cache hit? Return cached + background refresh
-    → API call: GET /api/roms?platform_id=...&limit=72&offset=0&...
-  → _postFetchRoms(): update ROMs, pagination, character index, filter values
-  → Components react via reactive getters
-```
-
-**Filter & Search:**
-
-```text
-User sets filter → galleryFilterStore.setSelected*()
-  → Component detects change → romsStore.fetchRoms()
-    → _buildRequestParams() merges all 13+ filter dimensions
-    → API returns filtered paginated results
-    → _postFetchRoms() updates available filter values from response
-```
-
-**Settings Sync:**
-
-```text
-User changes setting → localStorage updated
-  → useUISettings watcher fires
-    → PUT /api/users/{id} with ui_settings JSON
-      → Backend returns updated user
-        → authStore.setCurrentUser(data)
-          → On next login: user.ui_settings hydrates localStorage
-```
-
----
-
-## 8. Component Architecture
-
-### Organization Pattern
-
-**Feature-based hybrid** with three tiers:
-
-```text
-Tier 1: Common (shared, reusable)
-├── Collection/     Cards, list items, 6 dialogs
-├── Dialog/         Loading, SearchCover
-├── EmptyStates/    8 variants (game, platform, collection, firmware, saves...)
-├── Game/           Cards, 14 dialogs, PlayBtn, FavBtn, VirtualTable (48+)
-├── Navigation/     AppBar, 3 drawers, 10 nav buttons
-├── Platform/       Cards, PlatformIcon, 3 dialogs
-└── Notifications/  Snackbar, upload progress
-
-Tier 2: Feature-specific
-├── Details/        Game detail tabs (14+ sub-components)
-├── Gallery/        AppBar variants, filters, skeleton
-├── Home/           Dashboard sections (8 components)
-├── Scan/           Scan platform component
-└── Settings/       25+ settings sub-components
-
-Tier 3: Console Mode
-└── console/        12 components + 7 composables + input system
-```
-
-### Component Communication
-
-```text
-┌─────────────────┐     props/emit     ┌─────────────────┐
-│  Parent          │ ←───────────────→ │  Child           │
-│  Component       │                    │  Component       │
-└────────┬────────┘                    └────────┬────────┘
-         │                                       │
-    store refs                              store refs
-         │                                       │
-         v                                       v
-┌─────────────────────────────────────────────────────────┐
-│                    Pinia Stores                          │
-└─────────────────────────────────────────────────────────┘
-         │
-    mitt events (80+ types)
-         │
-         v
-┌─────────────────────────────────────────────────────────┐
-│              Cross-Component Events                      │
-│  showEditRomDialog, snackbarShow, playGame, etc.        │
-└─────────────────────────────────────────────────────────┘
-```
-
-**Patterns used:**
-
-- **Props/emit** for parent-child communication
-- **Pinia stores** for shared state across components
-- **Mitt emitter** for loosely-coupled cross-component events (dialog triggers, notifications)
-- **Provide/inject** for console input scoping
-
-### Dialog System
-
-All dialogs use Vuetify's `v-dialog` wrapped in a custom `RDialog` component:
-
-```text
-RDialog (wrapper)
-├── Header slot (title + close button)
-├── Toolbar slot (optional)
-├── Prepend slot
-├── Content slot (scrollable)
-├── Append slot
-└── Footer slot (actions)
-```
-
-**15 game dialogs:** EditRom (with 4 sub-components), UploadRom, DeleteRom, MatchRom, NoteDialog, ShowQRCode, CopyDownloadLink, SelectSave, UploadSaves, DeleteSaves, SelectState, UploadStates, DeleteStates
-
-All triggered via Mitt events, rendered in `Main.vue` layout.
-
----
-
-## 9. Views & Pages
-
-### Home Dashboard (`/`)
-
-| Section             | Data Source                            | Toggleable         |
-| ------------------- | -------------------------------------- | ------------------ |
-| Stats cards         | `GET /api/stats`                       | Yes (localStorage) |
-| Recently added      | `romsStore.fetchRecentRoms()`          | Yes                |
-| Continue playing    | `romsStore.fetchContinuePlayingRoms()` | Yes                |
-| Platforms grid      | `platformsStore`                       | Yes                |
-| Collections         | `collectionsStore`                     | Yes                |
-| Smart collections   | `collectionsStore`                     | Yes                |
-| Virtual collections | `collectionsStore`                     | Yes                |
-
-### Platform Gallery (`/platform/:platform`)
-
-- Grid or table view (3 sizes + list)
-- Infinite scroll pagination (72 per page)
-- Multi-select for bulk operations
-- 3D tilt effect on cards (vanilla-tilt)
-- Virtual table for list mode performance
-
-### Game Details (`/rom/:rom`)
-
-8-tab interface:
-
-| Tab                | Content                           |
-| ------------------ | --------------------------------- |
-| Details            | File info + game metadata         |
-| Manual             | PDF viewer (if available)         |
-| Save Data          | Save file management              |
-| Personal           | Notes, rating, play time, status  |
-| How Long To Beat   | Playtime estimates (if HLTB data) |
-| Additional Content | DLC/expansions (mobile)           |
-| Related Games      | Remakes/remasters (mobile)        |
-| Screenshots        | Screenshot gallery                |
-
-### Scan (`/scan`)
-
-- Platform multi-select
-- Metadata source selection with priority ordering
-- Real-time progress via Socket.IO
-- Log auto-scroll
-- Hash calculation toggle
-
-### ROM Patcher (`/patcher`)
-
-Supports: `.ips`, `.ups`, `.bps`, `.ppf`, `.rup`, `.aps`, `.bdf`, `.pmsr`, `.vcdiff`
-
-- Drag-and-drop ROM + patch files
-- Platform selection for output
-- Save locally or upload to RomM
-
----
-
-## 10. Console Mode
-
-A complete TV/gamepad-optimized interface under `/console/`.
-
-### Architecture
-
-```text
-Console Layout
-├── Input Bus (keyboard + gamepad → actions)
-├── Theme System (CSS variables per theme)
-├── Spatial Navigation (grid-based focus)
-├── Sound Effects (Web Audio synthesis)
-│
-├── Home View
-│   ├── Platform cards (spatial nav)
-│   ├── Continue playing
-│   └── Collections grid
-│
-├── Games List View
-│   ├── Game cards with lazy loading
-│   └── Virtual scrolling
-│
-├── Game Detail View
-│   ├── Description, metadata, screenshots
-│   ├── Save state management
-│   └── Play button → Emulator
-│
-└── Play View
-    └── EmulatorJS with save/state/BIOS selection
-```
-
-### Input System
-
-```text
-Hardware Input (keyboard / gamepad)
-    │
-    ├── Keyboard Listener (keydown → action mapping)
-    │   └── Ignores when focused on INPUT/TEXTAREA
-    │
-    ├── Gamepad Poller (requestAnimationFrame loop)
-    │   ├── Button press detection (with repeat delay)
-    │   └── Analog stick threshold (0.2)
-    │
-    └── Input Bus (stack-based scope manager)
-        ├── Global shortcuts (always active)
-        ├── Scoped listeners (context-dependent)
-        └── Action dispatch with SFX feedback
-```
-
-**12 Input Actions:** `moveUp`, `moveDown`, `moveLeft`, `moveRight`, `confirm`, `back`, `menu`, `delete`, `tabNext`, `tabPrev`, `toggleFavorite`
-
-**Repeat Timing:** 350ms initial delay, 120ms repeat
-
-### Procedural Sound Effects (Web Audio API)
-
-| Sound      | Frequency       | Duration   | When               |
-| ---------- | --------------- | ---------- | ------------------ |
-| `move`     | 860Hz           | 20ms       | Navigation         |
-| `confirm`  | 680→880Hz sweep | 19ms       | Selection          |
-| `back`     | 300Hz           | 85ms       | Return             |
-| `error`    | 180Hz + 140Hz   | 180ms      | Failure            |
-| `delete`   | 260Hz + 180Hz   | 120ms      | Destructive action |
-| `favorite` | 600Hz + 950Hz   | Dual burst | Toggle             |
-
-All synthesized with sine/noise blend, exponential envelopes, low-pass filter, and waveshaper saturation.
-
-### Console Composables
-
-| Composable           | Purpose                                         |
-| -------------------- | ----------------------------------------------- |
-| `useSpatialNav`      | Grid navigation with boundary enforcement       |
-| `useConsoleTheme`    | Theme CSS variable injection                    |
-| `useThemeAssets`     | Format-aware asset resolution (SVG > PNG > JPG) |
-| `useBackgroundArt`   | Double-buffered background transitions          |
-| `useElementRegistry` | Focus element tracking per section              |
-| `useInputScope`      | Dependency-injected input subscription          |
-| `useRovingDom`       | ARIA roving tabindex with auto-scroll           |
-
----
-
-## 11. Emulation Integration
-
-### EmulatorJS
-
-**Location:** `v2/views/Player/EmulatorJS.vue` (launch screen), `v2/views/Player/EmulatorJSPlayer.vue` and `ejsRuntime.ts` (the running emulator). The v1 player page mounts the same `EmulatorJSPlayer.vue`, so every EmulatorJS session writes snapshots.
-
-| Feature         | Details                                                     |
-| --------------- | ----------------------------------------------------------- |
-| Core selection  | Platform-specific core mapping (40+ platforms)              |
-| BIOS/firmware   | Selectable from uploaded firmware                           |
-| Save management | Snapshot pushes into the session's save channel (see below) |
-| Multi-disc      | Disc selection for multi-file games                         |
-| Cache           | IndexedDB cache for game data                               |
-| Fullscreen      | With keyboard lock                                          |
-| Netplay         | Socket.IO-based multiplayer                                 |
-| Controls        | Per-core configurable via config.yml                        |
-
-The player is a snapshot client (`v2/utils/saveSync/snapshotSession.ts`). `sessionTarget` picks the channel: the booted snapshot's, else the booted save's, else the one the slot names (`autosave` files into `default`), created by the first push. Every SRAM write and state capture is a push onto the snapshot the last one made: a manual Save State fills slot `0` of the session's core, Save and Quit fills `auto` with the SRAM beside it. A session that booted an older snapshot rewinds the channel on its first push. Once another device moves the channel on, the server keeps the session's pushes as a branch and the player says so. A push the server cannot take yet waits in `pendingAssetStore` as the push it was, and replays as recorded. When retention removed its parent or a carried bank slot, `sendPush` retries it with `fallbackPush`.
-
-Under v2 the v1 `/console` routes redirect to their main-UI pages (`v2/router/consoleRedirect.ts`), so a console play link opens the v2 player.
-
-"Play from here" in the snapshot drawer opens `/rom/:id/ejs?snapshot=<id>[&state=<id>]`. The launch screen boots the snapshot's `auto` state for a core it runs (the selected core first), else its save; `snapshotId` rides the launch intent across the isolation reload.
-
-### Ruffle (Flash)
-
-**Location:** `views/Player/RuffleRS/`
-
-- SWF/Flash game emulation via Ruffle 0.2.0-nightly
-- Fullscreen support
-- Background color customization
-
-### Cross-origin isolation (v2 players)
-
-Threaded EmulatorJS cores need `SharedArrayBuffer`, which browsers expose only in a cross-origin isolated document. Nginx attaches `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` to the player URLs alone (`docker/nginx/templates/default.conf.template`), because under that policy the rest of the app cannot embed third-party images (provider covers in Match ROM).
-
-A v2 player view is reached by SPA navigation, so it is not isolated on arrival. Two composables cover that:
-
-- `useIsolatedLaunch(player, romId, isIntent)` reloads the view into an isolated document when a launch needs it. The view defines the `Intent` the reload cannot carry in the URL, calls `relaunch(intent)` when `hasSharedArrayBuffer()` is false, and boots from `intent` on mount. `relaunch()` returns false, and the view reports the context instead, when the reload would not help: outside a secure context (the headers alone never expose `SharedArrayBuffer`), where storage refused to keep the selection, or from a view that already came from such a reload.
-- `usePlayerExit(runtimeBound, settle)` leaves the view by a full navigation when the document is isolated, or when the player's runtime cannot be injected twice (EmulatorJS declares top-level classes), so the app resumes in a fresh document. Otherwise leaving is an SPA navigation. `guard` is the `onBeforeRouteLeave` form, `leave(path)` the programmatic one, and `departing` tells an unload prompt that this exit is the view's own. A full navigation aborts the route change, so the leave guards of the components below never run: `settle` is where their work goes (EmulatorJS awaits `EmulatorJSPlayer`'s save flush there).
-
-To add an EmulatorJS core that needs threads, add it to `areThreadsRequiredForEJSCore` in `utils/index.ts`; nothing else changes. To add a player that needs isolation, use both composables the way `v2/views/Player/EmulatorJS.vue` does, and track `runtimeBound` from the moment the runtime is injected rather than from the global it eventually defines. js-dos needs isolation unconditionally (the DOSBox-X backend is a threaded build), so `JsDos.vue` relaunches on every launch that did not arrive isolated and carries no intent beyond a marker.
-
-The dev server and `vite preview` have no nginx in front of them, so `scripts/playerIsolationHeaders.ts` answers the same URLs with the same headers. It restates the template's patterns, since the production build runs from `frontend/` alone and cannot read that file, and its test fails when the two drift.
-
-### Platform Detection
-
-`utils/index.ts` provides:
-
-- `getSupportedEJSCores(platform)`: maps platforms to EmulatorJS cores
-- `isEJSEmulationSupported(rom)`: checks WebGL + server config
-- `isRuffleEmulationSupported(rom)`: checks Flash platform
-- `isCDBasedSystem(platform)`: 31 CD-based platforms for animation logic
-
----
-
-## 12. Theming & Styling
-
-### Theme System
-
-**Location:** `styles/themes.ts`
-
-| Theme | Background | Primary   | Accent    |
-| ----- | ---------- | --------- | --------- |
-| Dark  | `#0D1117`  | `#8B74E8` | `#E1A38D` |
-| Light | `#F2F4F8`  | `#371f69` | `#E1A38D` |
-
-**Detection priority:** `settings.theme` localStorage → `prefers-color-scheme` media query → dark default
-
-Vuetify handles theme switching. Additional shared brand colors: `romm-red`, `romm-green`, `romm-blue`, `romm-gold`.
-
-### CSS Stack
-
-| Layer     | Technology                         | Scope                                                                                                          |
-| --------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Component | Vuetify classes + scoped `<style>` | Per-component                                                                                                  |
-| Utility   | Tailwind CSS 4.3                   | Inline utility classes; `@import "tailwindcss"` lives in `console/index.css`, which `main.ts` imports app-wide |
-| Global    | `styles/common.css`                | App-wide utilities                                                                                             |
-| Scrollbar | `styles/scrollbar.css`             | Custom scrollbar                                                                                               |
-| Console   | `console/index.css`                | Console mode styles (plus the Tailwind import above)                                                           |
-
-v2 opts out of this stack entirely: `src/v2/styles/tokens.css` (generated from `src/v2/tokens/index.ts`) plus `global.css`, scoped under `.r-v2`, with per-component `<style scoped>`.
-
-### Procedural Cover Generation
-
-`utils/covers.ts` generates SVG covers with:
-
-- Hash-based deterministic gradients (consistent per game)
-- Collection covers with multi-image grid
-- Favorite covers with star icon
-- Missing/unmatched covers with icons
-- Aspect-ratio-aware empty placeholders
-
----
-
-## 13. Internationalization (i18n)
-
-### Setup
-
-- **Library:** vue-i18n 11.1.10 (Composition API mode)
-- **Locale loading:** Dynamic glob import from `locales/{lang}/*.json`
-- **Default:** `en_US`
-- **Fallback:** `en_US`
-
-### Supported Languages (17)
-
-| Code    | Language                    |
-| ------- | --------------------------- |
-| `en_US` | English (US, default)       |
-| `en_GB` | English (UK)                |
-| `fr_FR` | French                      |
-| `de_DE` | German                      |
-| `es_ES` | Spanish                     |
-| `it_IT` | Italian                     |
-| `ja_JP` | Japanese                    |
-| `ko_KR` | Korean                      |
-| `pt_BR` | Portuguese (Brazil)         |
-| `pl_PL` | Polish                      |
-| `ro_RO` | Romanian                    |
-| `ru_RU` | Russian                     |
-| `zh_CN` | Chinese (Simplified)        |
-| `zh_TW` | Chinese (Traditional)       |
-| `cs_CZ` | Czech (custom plural rules) |
-| `hu_HU` | Hungarian                   |
-| `bg_BG` | Bulgarian                   |
-
-### Namespace Organization
-
-Each locale directory contains translation files per feature:
-`collection`, `common`, `console`, `detail`, `emulator`, `gallery`, `home`, `library`, `login`, `navigation`, `patcher`, `platform`, `scan`, `settings`, `task`
-
----
-
-## 14. Real-Time Communication
-
-### Socket.IO Client
-
-**Location:** `services/socket.ts`
-
-```typescript
-io({
-  path: "/ws/socket.io/",
-  transports: ["websocket", "polling"],
-  autoConnect: false,
-});
-```
-
-**Usage:** Manually connected during upload and scan operations.
-
-**Events consumed:**
-
-- `scan:update_stats`: live scan progress (platform/ROM counts)
-- `scan:log`: scan log messages
-- `scan:stop`: scan completion
-
-**Dev proxy:** Vite proxies `/ws` to backend with WebSocket upgrade support.
-
----
-
-## 15. Caching Strategy
-
-### Experimental Browser Cache
-
-**Location:** `services/cache/`
-
-**Opt-in:** `localStorage.settings.enableExperimentalCache`
-
-```text
-Request Flow with Cache:
-┌──────────┐    cache hit    ┌──────────┐
-│  Component├───────────────→│  Cached   │ → Immediate render
-│           │                │  Response │
-│           │    meanwhile   │          │
-│           │◄───────────────│  Background│ → API fetch
-│           │  onBackgroundUpdate       │ → Update if different
-└──────────┘                └──────────┘
-```
-
-**Features:**
-
-- Browser Cache API (requires HTTPS)
-- Request deduplication (concurrent identical requests share promise)
-- Background update callbacks (stale-while-revalidate pattern)
-- Pattern-based cache clearing
-- Used for ROM lists and recent/continue playing data
-
----
-
-## 16. Utilities & Composables
-
-### Global Composables
-
-| Composable          | Purpose              | Key Features                                                       |
-| ------------------- | -------------------- | ------------------------------------------------------------------ |
-| `useUISettings`     | Settings persistence | Singleton, localStorage ↔ backend bidirectional sync, 25+ settings |
-| `useFavoriteToggle` | Favorites management | Auto-creates Favorites collection, toggle with notifications       |
-| `useGameAnimation`  | Card animations      | CD spin (5000 deg/s), cartridge load, video hover (1.5s delay)     |
-| `useAutoScroll`     | Scroll management    | Throttled (50ms), mutation observer, respects user scroll          |
-
-### Utility Functions (`utils/index.ts`, ~825 lines)
-
-**Display:**
-
-- `formatBytes()`: human-readable sizes (B through PB)
-- `formatTimestamp()`: locale-aware dates
-- `formatRelativeDate()`: relative time strings
-
-**Emojis & Localization:**
-
-- `regionToEmoji()`: 50+ region codes → country flags
-- `languageToEmoji()`: 40+ language codes → country flags
-
-**Emulation Support:**
-
-- `getSupportedEJSCores()`: platform → EmulatorJS core mapping
-- `isEJSEmulationSupported()`: WebGL + config check
-- `isCDBasedSystem()`: 31 CD-based platforms
-- `isArcadeSystem()`: 3 arcade platforms
-
-**Game Status:**
-
-- `romStatusMap`: 8 statuses with emoji, text, i18n keys
-- Status enum: `unplayed`, `now_playing`, `backlogged`, `paused`, `completed`, `100%`, `retired`, `never_playing`
-
-**Layout:**
-
-- `views`: 3 view modes with responsive grid configurations
-- `calculateMainLayoutWidth()`: dynamic width based on drawer state
-
-**Task Display:**
-
-- `convertCronExpression()`: human-readable cron (via cronstrue)
-- Task status/type maps with colors and icons
-
-### Cover Generation (`utils/covers.ts`)
-
-Procedural SVG generation for:
-
-- Collection covers (multi-image grid with deterministic gradients)
-- Favorite covers (star icon themed)
-- Missing covers (question mark icon)
-- Unmatched covers (warning icon)
-- Empty placeholders (aspect-ratio-aware)
-
----
-
-## 17. Build & Tooling
-
-### Vite Configuration
-
-| Feature             | Config                                   |
-| ------------------- | ---------------------------------------- |
-| **Target**          | ESNext                                   |
-| **Dev port**        | 3000 (8443 with HTTPS)                   |
-| **Backend proxy**   | `/api/*` → `http://127.0.0.1:5000`       |
-| **WebSocket proxy** | `/ws`, `/netplay` → backend with upgrade |
-| **Allowed hosts**   | `localhost`, `127.0.0.1`, `romm.dev`     |
-
-**Plugins:**
-
-1. Tailwind CSS (`@tailwindcss/vite`)
-2. Vue 3 (`@vitejs/plugin-vue`)
-3. Vuetify auto-import (`vite-plugin-vuetify`, 57 pre-optimized components)
-4. PWA (`vite-plugin-pwa`, service worker, installable)
-5. HTTPS (`vite-plugin-mkcert`, optional dev HTTPS)
-6. Static copy (ROM patcher JS assets)
-
-### Scripts
-
-| Script              | Command                          | Purpose                                                |
-| ------------------- | -------------------------------- | ------------------------------------------------------ |
-| `dev`               | `vite --host`                    | Development server                                     |
-| `build`             | `vite build`                     | Production build                                       |
-| `preview`           | `vite preview`                   | Preview production build                               |
-| `typecheck`         | `vue-tsc --build`                | App and Node tooling (both `tsconfig.json` references) |
-| `typecheck:scripts` | `tsc --build tsconfig.node.json` | Node tooling, `eslint-plugin-romm/` and tool configs   |
-| `generate`          | `openapi-typescript-codegen`     | Generate types from backend OpenAPI                    |
-
-### OpenAPI Code Generation
-
-```bash
-npm run generate
-# Fetches http://127.0.0.1:3000/openapi.json
-# Generates TypeScript interfaces in __generated__/models/
-```
-
-Generated types used throughout stores and API services for type-safe backend communication.
-
-### ESLint Configuration
-
-- Flat config (`eslint.config.js`)
-- Vue plugin with recommended rules
-- TypeScript-ESLint via `@vue/eslint-config-typescript` (`withVueTs`, `vueTsConfigs`)
-- Vue accessibility plugin (`eslint-plugin-vuejs-accessibility`)
-- Repo rules in `eslint-plugin-romm/`, tested by the `eslint-plugin-romm` Vitest project
-- Run through `trunk check`
-
----
-
-## 18. Type System
-
-### Generated Types (`__generated__/models/`)
-
-Auto-generated from backend OpenAPI schema:
-
-| Type                                              | Description                                        |
-| ------------------------------------------------- | -------------------------------------------------- |
-| `SimpleRomSchema`                                 | ROM in list view (covers, metadata IDs, user data) |
-| `DetailedRomSchema`                               | Full ROM with all relationships                    |
-| `SearchRomSchema`                                 | Minimal search result                              |
-| `PlatformSchema`                                  | Platform with ROM count                            |
-| `UserSchema`                                      | User with role and settings                        |
-| `CollectionSchema`                                | Collection with ROM IDs                            |
-| `VirtualCollectionSchema`                         | Auto-generated collection                          |
-| `SmartCollectionSchema`                           | Filter-based collection                            |
-| `SaveSchema` / `StateSchema` / `ScreenshotSchema` | Asset types                                        |
-| `FirmwareSchema`                                  | BIOS file info                                     |
-| `HeartbeatResponse`                               | Server status and capabilities                     |
-| `ConfigResponse`                                  | Full server configuration                          |
-| `ScanStats`                                       | Scan progress counters                             |
-| `TaskInfo` / `TaskStatusResponse`                 | Background task data                               |
-| `GetRomsResponse`                                 | Paginated ROM list with filter values              |
-
-### Custom Types
-
-| File              | Types                                                  |
-| ----------------- | ------------------------------------------------------ |
-| `emitter.d.ts`    | `SnackbarStatus`, `Events` (80+ event signatures)      |
-| `rom.d.ts`        | `RomSelectEvent`                                       |
-| `user.d.ts`       | `UserItem` (extends User with password + avatar)       |
-| `ruffle.d.ts`     | `RufflePlayerElement`, `RuffleSourceAPI`               |
-| `rompatcher.d.ts` | ROM patching library interfaces                        |
-| `main.d.ts`       | Global augmentations                                   |
-| `index.ts`        | `isKeyof<T>`, `ExtractPiniaStoreType<D>`, `ValueOf<T>` |
-
-### Path Alias
-
-```json
-"@/*" → "./src/*"
-"@v2/*" → "./src/v2/*"
-```
-
-Used throughout: `import { ... } from "@/stores/roms"`. Vite and Vitest take their aliases from `scripts/aliases.ts`, which also points a bare `md-editor-v3` import at `plugins/mdeditor.ts`; that module applies the raw-HTML and XSS config before re-exporting the package. `tsconfig.app.json` maps the same specifier, so editors and `vue-tsc` resolve it to that module too.
-
----
-
-## Appendix: Key Design Patterns
-
-| Pattern                    | Where                  | Purpose                                          |
-| -------------------------- | ---------------------- | ------------------------------------------------ |
-| **Composition API**        | All components         | `<script setup>` with reactive refs              |
-| **Pinia stores**           | `stores/`              | Centralized state with actions/getters           |
-| **Mitt event bus**         | Cross-component        | Loosely-coupled dialog/notification triggers     |
-| **Composables**            | `composables/`         | Reusable stateful logic (singleton where needed) |
-| **Stale-while-revalidate** | `services/cache/`      | Return cached, update in background              |
-| **Chunked upload**         | `services/api/rom.ts`  | 10MB chunks with retry                           |
-| **Spatial navigation**     | `console/`             | Grid-based focus for gamepad/keyboard            |
-| **Input scoping**          | `console/input/bus.ts` | Stack-based context for input handling           |
-| **Procedural audio**       | `console/utils/sfx.ts` | Web Audio API synthesis                          |
-| **Double buffering**       | `useBackgroundArt`     | Smooth background transitions                    |
-| **View Transitions**       | `plugins/transition/`  | CSS View Transitions API                         |
-| **OpenAPI codegen**        | `__generated__/`       | Type-safe API communication                      |
-| **Feature flags**          | `heartbeatStore`       | Server-driven UI feature toggling                |
+Everything lives under `frontend/src/` and is imported through the `@/` alias (`scripts/aliases.ts`, shared by the app build, Vitest and Storybook).
+
+| Directory             | What it holds                                                                                                                                             |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RomM.vue`, `main.ts` | Root component (theme classes, backend status banner, `<router-view>`) and the bootstrap.                                                                 |
+| `views/`              | One component per route: `Home`, `Gallery/{Platform,Collection,Search}`, `GameDetails`, `Jukebox/`, `Player/*`, `Auth/*`, `Settings` pages, pairing.      |
+| `layouts/`            | `AppLayout` (main shell: nav, mini player, global composables), `AuthLayout`, `SettingsLayout`.                                                           |
+| `components/`         | Feature composites, grouped by feature (`Gallery`, `GameDetails`, `Settings`, `Player`, `Scan`, `Dialogs`, ...) plus `shared/` for cross-feature ones.    |
+| `lib/`                | The design-system primitives, `R*` components, in tiers: `primitives`, `structural`, `forms`, `menus`, `overlays`, `data`, `media`, plus `a11y`.          |
+| `composables/`        | Reusable logic: input (`useGamepad`, `useSpatialNav`, `useGridNav`, `useInputModality`), responsive (`useBreakpoint`), gallery URL state, player, socket. |
+| `stores/`             | Pinia stores (section 5).                                                                                                                                 |
+| `services/`           | `api/` (one module per backend area), `cache/` (response cache), `socket.ts`, plus native-app helpers.                                                    |
+| `plugins/`            | `index.ts` (Pinia, i18n and the event emitter), `router.ts` (routes and guards), `routeNames.ts`, view-transition helpers, md-editor wrapper.             |
+| `router/routes.ts`    | Lazy route-component registry and the layout loaders.                                                                                                     |
+| `tokens/`, `styles/`  | Design tokens in TypeScript and the generated `styles/tokens.css`, plus `fonts.css`, `global.css`, `reset.css`, `scrollbar.css`.                          |
+| `locales/`            | One folder per locale, one JSON file per namespace, plus the loader and two CI check scripts.                                                             |
+| `types/`              | Hand-written shared types, including the typed event map (`emitter.d.ts`).                                                                                |
+| `__generated__/`      | Types generated from the backend's OpenAPI schema. Never edited by hand.                                                                                  |
+| `utils/`              | Pure helpers (covers, formatting, player runtimes, storage, validation).                                                                                  |
+
+Outside `src/`: `e2e/` (Playwright), `.storybook/`, `scripts/` (build plugins and the token generator), `eslint-plugin-romm/` (repo-specific lint rules), `public/` and `assets/` (static files and emulator payloads).
+
+## 3. Startup
+
+`main.ts` does the following, in order:
+
+1. Imports the icon font and the global stylesheets (`fonts`, `global`, `reset`, `scrollbar`).
+2. Creates the app and registers plugins: Pinia, i18n, and a typed `mitt` event emitter provided as `emitter`.
+3. Starts syncing the per-user localStorage namespace with the signed-in user (`setStorageUser`), synchronously, so stored preferences switch user before anything renders.
+4. Provides the accessible-name labels the `R*` primitives use for their own controls (`ChromeLabelsKey`).
+5. Awaits, together, the initial data (`heartbeat`, current user, config) and the locale messages. The router waits for both because the first guard resolves the page title.
+6. Installs the router and mounts `#app`.
+
+Stale chunks after a redeploy are handled once, by a guarded reload on `vite:preloadError` and on router import errors.
+
+`RomM.vue` puts `r-app` and `r-dark` or `r-light` on `<html>`, driven by the `settings.theme` preference (`auto`, `dark`, `light`) and `prefers-color-scheme`. The classes live on `<html>` so overlays that teleport to `<body>` resolve the same tokens.
+
+## 4. Routing
+
+Routes are declared in `plugins/router.ts`, named in `plugins/routeNames.ts` (`ROUTES`), and bound to lazy components in `router/routes.ts`. Three layouts:
+
+- `auth`: `/setup`, `/login`, `/register`, `/reset-password`.
+- `main` (`AppLayout`): home, `/search`, `/music/:mode?`, `/platform/:platform`, the three collection kinds (`/collection/:collection`, `/collection/virtual/:collection`, `/collection/smart/:collection`), `/platforms`, `/collections`, and the ROM routes: `/rom/:rom` plus one player route per engine (`ejs`, `jsdos`, `pico8`, `easyrpg`, `ruffle`, `stream`) and `/stream/desktop`.
+- `settings` (`SettingsLayout`, nested in `main`, the sidebar and content-panel shell): `/scan`, `/upload`, `/activity`, `/notifications`, `/user/:user`, `/controller-debug`, and the settings pages `user-interface`, `library-management`, `scan-settings`, `conversion-settings`, `metadata-sources`, `client-api-tokens`, `devices`, `administration`, `server-stats`, `logs`.
+- `/pair` and `/pair/device` for device pairing.
+
+The global `beforeEach` guard:
+
+1. If the backend is unreachable, lets navigation through on cached state (a banner explains it and re-routes once the backend answers).
+2. Sends everyone to `/setup` while the setup wizard is pending, and away from it afterwards.
+3. Sends unauthenticated users to `/login?next=...` unless the route is auth-exempt (`login`, `setup`, `reset-password`, `register`, `pair`).
+4. Checks `ROUTE_SCOPES` (for example `scan` needs `platforms.write`, `administration` needs `users.write`) against the user's OAuth scopes and sends a user without them to the 404 view.
+5. Applies the route title (`meta.title` is a locale key; views that own their title call `usePageTitle`).
+
+`beforeResolve` runs a View Transition for real view changes (not for query-only changes). Scroll and focus restoration across navigations live in `stores/scrollRestoration` and `stores/focusRestoration`.
+
+## 5. State: Pinia stores
+
+| Area               | Stores                                                                                                                        |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Session and server | `auth`, `users`, `heartbeat` (server state, setup and feature flags), `config`, `permissions`, `permissionGroups`, `language` |
+| Library            | `platforms`, `collections`, `galleryRoms`, `galleryFilter`, `gallerySelection`, `roms`, `formatConversions`                   |
+| Playing            | `playing` (a game is running), `streaming`, `soundtrackPlayer`, `musicFavorites`, `native`                                    |
+| Background work    | `scanning`, `upload`, `tasks`, `activity`                                                                                     |
+| Notifications      | `notifications` (snackbars), `notificationInbox`                                                                              |
+| Navigation         | `navigation` (drawers, collapsed main bar), `scrollRestoration`, `focusRestoration`                                           |
+
+Two worth knowing:
+
+- **`galleryRoms`** is the gallery list. It is windowed: a sparse `byPosition` map filled by random-access window fetches as rows enter the virtualiser's viewport, plus a total count and a per-letter offset table from the backend. The gallery context (current platform or collection) lives here. `galleryFilter` holds filters; `gallerySelection` holds multi-select.
+- **`roms`** holds what the gallery doesn't: a small LRU cache of detailed ROM records (`detailedRoms`, read through `getDetailedRom` and `useRouteRom`), `currentRom`, and Home's recent and continue-playing rows.
+
+Logout calls `reset()` on every store that defines one. Per-user preferences are not in Pinia: they are `useUserLocalStorage` keys, namespaced by user id (an ESLint rule forbids unscoped `localStorage` access).
+
+## 6. API, caching and real time
+
+**REST.** `services/api/index.ts` creates the Axios instance (`baseURL: "/api"`, repeated-key array params, 120 s timeout) and interceptors: the `x-csrftoken` header from the `romm_csrftoken` cookie, in-flight tracking that emits a `network-quiesced` DOM event, reachability events (`backend-online`, `backend-offline`, `backend-suspect`) that `useServerConnection` turns into the status banner, a CSRF-token refetch when the backend rejects the token, and 401 handling that clears the session cookie and sends the user to the login page. Each backend area has its own module (`rom.ts`, `platform.ts`, `collection.ts`, `save.ts`, `state.ts`, `sync.ts`, ...) returning typed responses. Large uploads go through chunked upload helpers in `rom.ts`.
+
+**Types.** Request and response shapes come from `__generated__/`, regenerated from the backend OpenAPI schema (`npm run generate`). The backend is the source of truth for the API contract.
+
+**Response cache.** `services/cache/` is an optional stale-while-revalidate cache on top of the browser Cache API, behind the user setting `settings.enableExperimentalCache`. Home's recent and continue-playing requests use it. The `roms` store's add and remove helpers for those rows clear the matching cached responses; other writes, such as metadata edits through `applyRomWrite`, do not.
+
+**Socket.IO.** `services/socket.ts` exports one client (`autoConnect: false`). It connects on demand (scanning, uploads and activity presence call `socket.connect()` when they need it), and `AppLayout` reconnects it on mount. Views and composables subscribe through `useSocketEvent` or `socket.on` and emit directly. Events in use:
+
+- scanning: emit `scan` and `scan:stop`; receive `scan:scanning_platform`, `scan:scanning_rom`, `scan:update_stats`, `scan:done`, `scan:done_ko` (consumed by `useScanLifecycle`, which batches per-ROM updates);
+- presence and play activity: `activity:heartbeat`, `activity:start`, `activity:stop`, and `activity:update` / `activity:refresh` / `activity:clear`;
+- `permissions:changed`: `installPermissionsHydration()` (in `useCan`, called from each layout) re-fetches `/permissions/me` into the permissions store, and the activity store re-lists the sessions the user may see. Route-guard scopes (`auth.user.oauth_scopes`) come with the user record, not from this event.
+
+`useSocketTransportHealth` and `useServerConnection` feed the backend-status banner.
+
+**Cross-store consistency.** The same ROM can sit in the gallery window map, Home's rows and the detail cache. `useRomSync` is the single place that writes a changed ROM into all of them, so callers don't update each store by hand.
+
+## 7. Components
+
+Three tiers, each importing only from the tiers below it:
+
+1. **`lib/` primitives** (`RBtn`, `RTextField`, `RSelect`, `RDialog`, `RTable`, ...). Presentation plus accessible behaviour only: no stores, no API calls. Each has a Storybook story, and an interactive one has a `play()` test that runs axe.
+2. **`components/shared/` composites**: reusable combinations of primitives that know about app concepts (a platform picker, a language selector).
+3. **Feature composites** under `components/<feature>/` and the `views/` that compose them. These own data fetching and store access.
+
+Conventions that matter day to day: the `lib/` barrel (`@/lib`) exports the primitives; dialogs mount once, in `GlobalDialogs` inside `AppLayout`, and open through emitter events (`emitter.emit("showXDialog", ...)`, typed in `types/emitter.d.ts`); overlays push themselves on the escape stack (`lib/overlays/RDialog/escapeStack`). See the `frontend-components` and `frontend-patterns` skills for the SFC structure, import order, loading and error patterns, and the "no duplicated coverage between Vitest and Storybook" testing rule.
+
+## 8. Styling and theming
+
+- **Tokens** are defined once in `src/tokens/index.ts` and compiled to `src/styles/tokens.css` by `scripts/build-tokens.ts` (`npm run build:tokens`, run automatically before `dev` and `build`). Components read `var(--r-...)`; hex colour literals are lint errors (`romm/no-color-literal`).
+- **Themes** are the `r-dark` and `r-light` classes on `<html>` (section 3). Each themed colour is one `light-dark(<light>, <dark>)` declaration resolved by `color-scheme`: `html.r-app` sets `light dark` (the OS preference), and the two classes pin it. The generator pairs the palettes by name and fails the build if a token exists in only one.
+- **Stylesheets** loaded globally: `fonts.css` (self-hosted fonts), `global.css` (the `.r-app` base, backdrop layers), `reset.css` (the base reset, in `@layer base`, plus the full-height app shell), `scrollbar.css`.
+- **Component styles** are scoped SFC `<style>` blocks. Layout switches use the `html[data-bp~="..."]` attribute selectors rather than `@media` (section 9).
+- **Boot splash.** `index.html` carries a tiny inline style so the first paint matches the theme before the app mounts.
+- **Icons.** `@mdi/font` is imported once in `main.ts`; the `trimMdiIcons` build plugin drops every icon the source never names.
+
+The `frontend-theming` skill covers the token vocabulary, state colours and the zero-literal policy.
+
+## 9. Input and responsive layout
+
+Every interactive surface works with mouse, touch, keyboard and gamepad. There is one model: the gamepad is translated into keyboard events, so components handle keys and a pad works for free.
+
+- `useGamepad` polls the pad and emits synthetic arrow, Escape and click events. `useSpatialNav` moves focus to the nearest control for arrows nobody claimed. `useGridNav` adds per-view 2D grid behaviour. `useGlobalHotkeys` handles `/`, `?` and the `g h` / `g p` / `g c` sequences, and ignores keys a widget already claimed with `preventDefault`.
+- **The claim rule:** a handler that uses a key calls `preventDefault`; one that doesn't leaves the key alone. Escape closes the topmost entry on the escape stack, and an unclaimed pad B navigates back.
+- `useInputModality` sets `data-input="mouse|touch|key|pad"` on `<html>`; focus rings show only for `key` and `pad`.
+- **Breakpoints** come from one place, `useBreakpoint`, using the Material thresholds (`xs` under 600 px up to `xl` from 1920 px). `installBreakpointAttribute()` mirrors the active set onto `<html data-bp="...">`, and CSS selects on it. Conditional mounting uses the composable's refs.
+
+While a game runs (`playing` store), the pad and keyboard belong to the emulator and the above is suspended. The `frontend-input` skill has the details.
+
+## 10. Players
+
+Each engine has a view under `views/Player/` and its own route:
+
+| Route suffix | Engine / view                           | Notes                                                                                                                                                      |
+| ------------ | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ejs`        | EmulatorJS (`EmulatorJS.vue`)           | Most consoles, and plain DOS through the `dosbox_pure` core. Cores are served from `frontend/assets/emulatorjs` under `/assets/emulatorjs`.                |
+| `jsdos`      | js-dos (`JsDos.vue`)                    | Windows 3.x and 9x (`win3x`, `win9x`), and only `.jsdos` bundles.                                                                                          |
+| `pico8`      | PICO-8 (`Pico8.vue`)                    | Own runtime and audio worklet under `utils/`.                                                                                                              |
+| `easyrpg`    | EasyRPG (`EasyRpg.vue`)                 | Game files are fetched per ROM; nginx (and the Vite dev proxy) rewrite `/assets/easyrpg/games/<rom id>-<user id>/...` to `/api/roms/<rom id>/easyrpg/...`. |
+| `ruffle`     | Ruffle (`Ruffle.vue`)                   | Flash.                                                                                                                                                     |
+| `stream`     | Streaming (`Stream.vue`, `Desktop.vue`) | Remote play.                                                                                                                                               |
+
+`useCanPlay` decides whether a ROM is playable in this browser (admin toggles, platform support, a file to boot, a streaming container, or a local emulator in the desktop shell); `usePlatformPlayable` answers the same for a whole platform. `ejs` and `jsdos` run cross-origin isolated (COOP and COEP headers, set by nginx in production and by `scripts/playerIsolationHeaders.ts` in dev and preview; a test fails if the two drift). Headers apply only to a document load, so a route change into a player is not enough when the engine needs `SharedArrayBuffer` (js-dos always does; EmulatorJS only for threaded cores): the view relaunches into an isolated document with `useIsolatedLaunch` (the pre-play selection crosses as a per-tab intent). On the way out, `usePlayerExit` replaces the document instead of navigating, because isolation outlives SPA navigations and blocks the third-party images the rest of the app embeds. Save states, saves and play sessions go through `services/api/{state,save,play-session}.ts`, with `useDeviceSaveSync` and `usePendingAssetSync` reconciling device saves.
+
+EmulatorJS is a snapshot client (`utils/saveSync/snapshotSession.ts`). `sessionTarget` picks the channel: the booted snapshot's, else the booted save's, else the one the slot names (`autosave` files into `default`), created by the first push. Every SRAM write and state capture pushes onto the snapshot the last push made. A session that booted an older snapshot rewinds the channel on its first push, and once another device moves the channel on, the server keeps the session's pushes as a branch. A push the server can't take yet waits in `pendingAssetStore` and replays as recorded. "Play from here" in the snapshot drawer opens `/rom/:id/ejs?snapshot=<id>[&state=<id>]`, and `snapshotId` rides the launch intent across the isolation reload.
+
+## 11. Internationalization
+
+All user-visible text is a message key, written `t("namespace.key")`. Locale files are `src/locales/<locale>/<namespace>.json` (namespaces: `activity`, `audit`, `collection`, `common`, `emptyStates`, `gallery`, `home`, `login`, `logs`, `notifications`, `patcher`, `platform`, `play`, `recommendations`, `rom`, `scan`, `settings`, `setup`). `en_US` is the source and the fallback; every key must exist in every locale in the same change, and keys stay sorted. `src/locales/index.ts` loads one locale's namespaces lazily with `import.meta.glob`, and the browser language picks the default (exact region first, then language). Two CI scripts enforce parity and ordering: `check_i18n_locales.py` and `check_i18n_sorted.py`. See the `frontend-i18n` skill.
+
+## 12. Types
+
+- `__generated__/`: OpenAPI-derived models. Regenerate, never edit.
+- Store files re-export the domain aliases the app uses (`SimpleRom`, `DetailedRom` in `stores/roms.ts`).
+- `types/`: shared hand-written types, the typed emitter event map, and ambient declarations for the player libraries.
+
+## 13. Build, test and tooling
+
+**Scripts** (`frontend/package.json`): `dev`, `build`, `preview`, `typecheck` (`vue-tsc --build`, which covers the app, the Node tooling and the e2e suite), `generate`, `build:tokens`, `test`, `storybook`, `storybook:test`, `test:e2e`.
+
+**Vite** (`vite.config.js`): the Vue plugin, PWA, and project plugins from `scripts/` (`precompress` for static assets, `playerIsolationHeaders`, `previewAssets`, `platformIconManifest`, `trimMdiIcons`). The dev server proxies `/api`, `/ws`, `/netplay` and `/openapi.json` to the backend (`DEV_PORT` or `DEV_PROXY_TARGET`).
+
+**Tests** (`vitest.config.ts`, three projects):
+
+- `app`: unit and component tests (`src/**/*.test.ts`).
+- `storybook`: every story in headless Chromium, with `play()` interactions and an axe pass (layout enabled, so colour contrast is checked) on each.
+- `eslint-plugin-romm`: the custom lint rules (`no-color-literal`, `no-layout-media-query`, `no-safe-area-env`, `no-unscoped-local-storage`).
+
+`e2e/` holds the Playwright suite (smoke loads, auth, ROM actions, an axe check per page); see `e2e/README.md`.
+
+**Lint and format** run through Trunk (`trunk fmt && trunk check`), which wraps ESLint, Prettier and the rest. CI (`.github/workflows/`) runs typecheck, tests, build, the boot check, e2e, i18n parity, and the API-types check that fails when the committed `__generated__/` drifts from the backend schema.

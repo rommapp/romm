@@ -7,7 +7,6 @@
   "login-failed": "Giriş başarısız",
   "login-oidc": "{oidc} ile giriş yap",
   "new-password": "Yeni şifre",
-  "or": "veya",
   "password": "Şifre",
   "passwords-do-not-match": "Şifreler eşleşmiyor",
   "register": "Kayıt ol",

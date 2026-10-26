@@ -3,7 +3,7 @@ import { computed, defineAsyncComponent, defineComponent, watch } from "vue";
 import {
   useInputModality,
   type InputModality,
-} from "../src/v2/composables/useInputModality";
+} from "../src/composables/useInputModality";
 
 export const INPUT_GLOBAL = "input";
 
@@ -42,7 +42,7 @@ function applyMode(mode: StoryInputMode) {
 // Unmounting stops useGamepad's poll loop, so the pad only drives stories that asked for it.
 // Lazy so vitest.setup.ts doesn't cache useGamepad ahead of its tests' vue-router mock.
 const GamepadLayer = defineAsyncComponent(async () => {
-  const { useGamepad } = await import("../src/v2/composables/useGamepad");
+  const { useGamepad } = await import("../src/composables/useGamepad");
   return defineComponent({
     setup() {
       useGamepad().install();

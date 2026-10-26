@@ -73,6 +73,13 @@
       "schedule": ["before 6am on monday"]
     },
     {
+      "description": "Storybook packages require matching versions, so a major moves them in one PR. Security PRs ignore groupName and must be widened by hand.",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["storybook", "@storybook/**"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "storybook"
+    },
+    {
       "description": "Major updates usually need code changes, so they wait for approval on the Dependency Dashboard.",
       "matchManagers": ["npm", "pep621"],
       "matchUpdateTypes": ["major"],
