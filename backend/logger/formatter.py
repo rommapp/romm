@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 import re
@@ -67,6 +68,32 @@ _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 def strip_ansi(text: str) -> str:
     """Remove ANSI SGR (color) escape sequences from a string."""
     return _ANSI_RE.sub("", text)
+
+
+_LINE_BREAKS: Final = str.maketrans({"\r": "\\r", "\n": "\\n"})
+# C0/C1 controls except tab, plus any ESC that doesn't open an SGR colour
+# sequence, so `highlight()` colours survive but cursor moves and OSC don't.
+_UNSAFE_CONTROL_RE: Final = re.compile(
+    r"\x1b(?!\[[0-9;]*m)|[\x00-\x08\x0b\x0c\x0e-\x1a\x1c-\x1f\x7f-\x9f]"
+)
+
+
+def escape_control_chars(text: str) -> str:
+    r"""Make a log message safe to print as a single line.
+
+    Line breaks become a literal ``\r`` / ``\n`` so a value interpolated
+    into the message can't forge a log line, and other control characters
+    are dropped.
+    """
+    return _UNSAFE_CONTROL_RE.sub("", text.translate(_LINE_BREAKS))
+
+
+def _with_escaped_message(record: logging.LogRecord) -> logging.LogRecord:
+    # A copy, so other handlers still see the record as logged.
+    escaped = copy.copy(record)
+    escaped.msg = escape_control_chars(record.getMessage())
+    escaped.args = None
+    return escaped
 
 
 SENSITIVE_KEYS: Final = {
@@ -166,7 +193,9 @@ class Formatter(logging.Formatter):
         }
         log_fmt = formats.get(record.levelno)
         formatter = logging.Formatter(fmt=log_fmt, datefmt="%Y-%m-%d %H:%M:%S")
-        output = formatter.format(record)
+        # Only the message is escaped: tracebacks and stack info are appended
+        # after it by the base formatter and stay multi-line.
+        output = formatter.format(_with_escaped_message(record))
         return redact_sensitive(output)
 
 
