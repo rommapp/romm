@@ -40,6 +40,7 @@ from handler.email_handler import EmailError, send_email
 from handler.redis_handler import redis_client
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
+from logger.log_stream_handler import STDOUT_ONLY
 from logger.logger import log
 from utils.urls import get_public_base_url
 
@@ -257,7 +258,8 @@ class AuthHandler:
 
     def _log_password_reset_link(self, user: Any, token: str) -> None:
         log.info(
-            f"Reset password link requested for {hl(user.username, color=CYAN)}. Reset link: {hl(f'{ROMM_BASE_URL}/reset-password?token={token}')}"
+            f"Reset password link requested for {hl(user.username, color=CYAN)}. Reset link: {hl(f'{ROMM_BASE_URL}/reset-password?token={token}')}",
+            extra=STDOUT_ONLY,
         )
 
     def verify_password_reset_token(self, token: str) -> Any:

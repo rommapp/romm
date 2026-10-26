@@ -1,6 +1,5 @@
-// galleryRoms (v2): windowed/sparse store for the active gallery list.
+// galleryRoms: windowed/sparse store for the active gallery list.
 //
-// Replaces v1's `stores/roms.ts` for the gallery-list responsibility.
 // What lives here:
 //   - the gallery context (currentPlatform / Collection / Virtual / Smart),
 //   - the total ROM count + per-letter offset table from the backend,
@@ -8,20 +7,12 @@
 //     fetched so far,
 //   - book-keeping for in-flight / loaded / failed windows.
 //
-// Why a NEW store rather than extending v1:
-//   v1 collapses pagination into `fetchRoms()` advancing a single
-//   `fetchOffset`. v2 needs random-access window loads (driven by which
-//   rows enter the virtualiser's viewport, including skeleton rows for
-//   positions we've never touched). Forking lets v2 model that cleanly
-//   while v1 stays frozen. Per the constitution, the v1 gallery-list
-//   surface is annotated `@deprecated` with a pointer here.
+// Visible rows drive random-access window loads, including rows whose
+// positions have not been fetched yet.
 //
 // What does NOT live here:
-//   - detailedRoms (lives in `stores/roms`, GameDetails reads it),
-//   - recentRoms / continuePlayingRoms (Home consumers stay on v1),
-//   - selection state, order-by/order-dir,
-//   These are still served by the v1 store; the v2 gallery view doesn't
-//   need them.
+//   - detailedRoms, recentRoms and continuePlayingRoms (`stores/roms`),
+//   - selection state (`stores/gallerySelection`).
 import axios from "axios";
 import { defineStore } from "pinia";
 import type { SimpleRomSchema } from "@/__generated__/";
@@ -254,9 +245,8 @@ interface State {
   // Whether the last answer to an unset sort came back in relevance order,
   // which the backend signals with no letter positions. Kept across refetches.
   relevanceLed: boolean;
-  // Order params: gallery-list scoped (separate from v1's localStorage
-  // keys so v1/v2 don't fight over the same value). `null` leaves the
-  // order to the backend, which ranks a search by relevance.
+  // Order params: gallery-list scoped. `null` leaves the order to the
+  // backend, which ranks a search by relevance.
   orderBy: GalleryOrderKey | null;
   orderDir: GalleryOrderDir;
 }

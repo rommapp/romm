@@ -1,5 +1,4 @@
 {
-  "all-loaded": "Tüm oyunlar yüklendi",
   "back-to-top": "Başa dön",
   "column-actions": "İşlemler",
   "column-cover": "Kapak",
@@ -8,7 +7,6 @@
   "firmware-selected-count": "{count} seçildi",
   "jump-to": "{letter} harfine git",
   "jump-to-letter": "Harfe git",
-  "load-more": "Daha fazla yükle",
   "selection-clear": "Seçimi temizle",
   "selection-collections": "Koleksiyonları yönet",
   "selection-delete": "Sil",
