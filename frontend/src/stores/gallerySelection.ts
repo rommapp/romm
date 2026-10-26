@@ -1,8 +1,5 @@
-// v2GallerySelection: multi-select state for the gallery views
-// (Platform / Search / Collection). v2-only; v1's `stores/roms.ts`
-// still owns the legacy selection fields and is the canonical store
-// for v1: v2 starts fresh so the existing surface can be improved
-// without bending the v1 contract.
+// gallerySelection: multi-select state for the gallery views
+// (Platform / Search / Collection).
 //
 // Selection model:
 //   - `selected: Map<number, SimpleRom>`, the source of truth, keyed
@@ -20,8 +17,7 @@
 //     array, because v2's gallery is virtualised + sparse.
 //   - `enabled` getter: true when at least one ROM is selected. The
 //     "selection mode" is implicit (no separate flag): first toggle
-//     enters it, `clear()` exits it. Simpler than v1's
-//     `selectingRoms: boolean` toggle, and matches the user-facing
+//     enters it, `clear()` exits it. That matches the user-facing
 //     expectation: "I am selecting iff I have selections."
 //
 // Scope:

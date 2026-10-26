@@ -84,7 +84,6 @@ export function useRomSync() {
    * the caller that means it. */
   function removeCachedRoms(roms: SimpleRom[]) {
     gallerySelection.removeIds(roms.map((rom) => rom.id));
-    romsStore.remove(roms);
     galleryRomsStore.remove(roms);
   }
 

@@ -140,7 +140,6 @@ async function deleteRoms() {
         });
       }
     }
-    romsStore.resetSelection();
     removeCachedRoms(deletedRoms);
     // Deletion is permanent, so unlike the other `removeCachedRoms` callers
     // this one also takes the ROMs out of Home's rows.
