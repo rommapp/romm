@@ -72,12 +72,8 @@ export function useRomSync() {
     }
   }
 
-  /** Drop ROMs that have left the current view from the gallery's windowed
-   * cache and the selection; missing either leaves the cards on screen.
-   *
-   * Says nothing about *why* they left: only a caller that deletes a ROM
-   * outright also prunes Home's recent / continue-playing rows, since a game
-   * taken out of a collection still belongs in Continue Playing. */
+  /** Drop ROMs that have left the current view from the gallery cache and the
+   * selection. Callers that delete a ROM outright must also prune Home's rows. */
   function removeCachedRoms(roms: SimpleRom[]) {
     gallerySelection.removeIds(roms.map((rom) => rom.id));
     galleryRomsStore.remove(roms);
