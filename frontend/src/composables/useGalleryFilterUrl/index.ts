@@ -81,10 +81,12 @@ function qList(v: QueryValue): string[] {
   return s.split(",").filter((p) => p.trim());
 }
 
-function qLogic(v: QueryValue): FilterLogicOperator | null {
+// Values without an operator mean "any", so a link naming only values gets
+// the default match; with no values the store's pending operator stays put.
+function qLogic(v: QueryValue, values: QueryValue): FilterLogicOperator | null {
   const s = qStr(v);
   if (s === "any" || s === "all" || s === "none") return s;
-  return null;
+  return qList(values).length > 0 ? "any" : null;
 }
 
 function qHours(v: QueryValue): number | null {
@@ -176,33 +178,36 @@ export function useGalleryFilterUrl() {
         .map((s) => Number(s))
         .filter((n) => !Number.isNaN(n)),
       genres: qList(q.genres),
-      genresLogic: qLogic(q.genresLogic),
+      genresLogic: qLogic(q.genresLogic, q.genres),
       franchises: qList(q.franchises),
-      franchisesLogic: qLogic(q.franchisesLogic),
+      franchisesLogic: qLogic(q.franchisesLogic, q.franchises),
       collections: qList(q.collections),
-      collectionsLogic: qLogic(q.collectionsLogic),
+      collectionsLogic: qLogic(q.collectionsLogic, q.collections),
       companies: qList(q.companies),
-      companiesLogic: qLogic(q.companiesLogic),
+      companiesLogic: qLogic(q.companiesLogic, q.companies),
       publishers: qList(q.publishers),
-      publishersLogic: qLogic(q.publishersLogic),
+      publishersLogic: qLogic(q.publishersLogic, q.publishers),
       developers: qList(q.developers),
-      developersLogic: qLogic(q.developersLogic),
+      developersLogic: qLogic(q.developersLogic, q.developers),
       ageRatings: qList(q.ageRatings),
-      ageRatingsLogic: qLogic(q.ageRatingsLogic),
+      ageRatingsLogic: qLogic(q.ageRatingsLogic, q.ageRatings),
       regions: qList(q.regions),
-      regionsLogic: qLogic(q.regionsLogic),
+      regionsLogic: qLogic(q.regionsLogic, q.regions),
       languages: qList(q.languages),
-      languagesLogic: qLogic(q.languagesLogic),
+      languagesLogic: qLogic(q.languagesLogic, q.languages),
       playerCounts: qList(q.playerCounts),
-      playerCountsLogic: qLogic(q.playerCountsLogic),
+      playerCountsLogic: qLogic(q.playerCountsLogic, q.playerCounts),
       metadataProviders: qList(q.metadataProviders),
-      metadataProvidersLogic: qLogic(q.metadataProvidersLogic),
+      metadataProvidersLogic: qLogic(
+        q.metadataProvidersLogic,
+        q.metadataProviders,
+      ),
       tags: qList(q.tags),
-      tagsLogic: qLogic(q.tagsLogic),
+      tagsLogic: qLogic(q.tagsLogic, q.tags),
       releaseTypes: qList(q.releaseTypes),
-      releaseTypesLogic: qLogic(q.releaseTypesLogic),
+      releaseTypesLogic: qLogic(q.releaseTypesLogic, q.releaseTypes),
       statuses: qList(q.statuses),
-      statusesLogic: qLogic(q.statusesLogic),
+      statusesLogic: qLogic(q.statusesLogic, q.statuses),
       lengthMin: qHours(q.lengthMin),
       lengthMax: qHours(q.lengthMax),
     };
