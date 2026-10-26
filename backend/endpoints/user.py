@@ -85,13 +85,7 @@ def _record_user_edit(
 async def _verify_account_holder(
     request: Request, db_user: User, current_password: str | None
 ) -> None:
-    """Prove a change to the caller's own password or email comes from the
-    account holder, not just from whatever holds a `me.write` credential.
-
-    Raises:
-        HTTPException: The current password is missing or wrong, or a
-            password-less account is not on an interactive session
-    """
+    """Require password or session proof for sensitive self-edits."""
     if db_user.has_password:
         if not current_password:
             raise HTTPException(
