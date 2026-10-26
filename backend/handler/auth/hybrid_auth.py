@@ -82,7 +82,7 @@ class HybridAuthBackend(AuthenticationBackend):
             # Check if basic auth header is valid
             if scheme.lower() == "basic":
                 try:
-                    credentials = await HTTPBasic().__call__(conn)  # type: ignore[arg-type]
+                    credentials = await HTTPBasic().__call__(conn)
                 except HTTPException:
                     return None
                 if not credentials:
