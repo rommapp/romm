@@ -707,7 +707,10 @@ function onAppendInnerClick(evt: MouseEvent) {
   border-color: transparent;
   background: var(--r-color-surface);
 }
-.r-text-field--variant-outlined:not(.r-text-field--disabled):hover
+.r-text-field--variant-outlined:not(
+    .r-text-field--disabled,
+    .r-text-field--readonly
+  ):hover
   .r-text-field__field {
   border-color: var(--r-color-border-strong);
   /* Whisper-thin currentColor halo on hover, felt more than seen.
@@ -716,7 +719,10 @@ function onAppendInnerClick(evt: MouseEvent) {
 }
 /* Filled hover: borderless, the whole pill lights up via a brand-tinted
    fill instead. Keeps the variant reading as a single solid element. */
-.r-text-field--variant-filled:not(.r-text-field--disabled):hover
+.r-text-field--variant-filled:not(
+    .r-text-field--disabled,
+    .r-text-field--readonly
+  ):hover
   .r-text-field__field {
   background: color-mix(
     in srgb,
@@ -729,15 +735,22 @@ function onAppendInnerClick(evt: MouseEvent) {
    chain bumps specificity above the hover rule so brand wins when the
    user hovers a focused field. */
 .r-text-field--variant-outlined.r-text-field--focused:not(
-    .r-text-field--disabled
+    .r-text-field--disabled,
+    .r-text-field--readonly
   )
   .r-text-field__field,
-.r-text-field--variant-filled.r-text-field--focused:not(.r-text-field--disabled)
+.r-text-field--variant-filled.r-text-field--focused:not(
+    .r-text-field--disabled,
+    .r-text-field--readonly
+  )
   .r-text-field__field {
   border-color: var(--r-tf-color);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--r-tf-color) 22%, transparent);
 }
-.r-text-field--variant-filled.r-text-field--focused:not(.r-text-field--disabled)
+.r-text-field--variant-filled.r-text-field--focused:not(
+    .r-text-field--disabled,
+    .r-text-field--readonly
+  )
   .r-text-field__field {
   /* Slightly stronger brand tint than hover so the transition into
      focus reads as "deeper" rather than a step back. */
@@ -754,7 +767,10 @@ function onAppendInnerClick(evt: MouseEvent) {
   background: transparent;
   border-bottom: 1px solid var(--r-color-border);
 }
-.r-text-field--variant-underlined:not(.r-text-field--disabled):hover
+.r-text-field--variant-underlined:not(
+    .r-text-field--disabled,
+    .r-text-field--readonly
+  ):hover
   .r-text-field__field {
   border-bottom-color: var(--r-color-border-strong);
 }
@@ -769,7 +785,9 @@ function onAppendInnerClick(evt: MouseEvent) {
   transition: width var(--r-motion-med) cubic-bezier(0.34, 1.56, 0.64, 1);
   pointer-events: none;
 }
-.r-text-field--variant-underlined.r-text-field--focused
+.r-text-field--variant-underlined.r-text-field--focused:not(
+    .r-text-field--readonly
+  )
   .r-text-field__underline {
   width: 100%;
 }
@@ -814,6 +832,22 @@ function onAppendInnerClick(evt: MouseEvent) {
 }
 .r-text-field--disabled .r-text-field__input {
   cursor: not-allowed;
+}
+/* Read-only: flat dashed chrome and muted text that ignore hover and pointer
+   focus, so the value reads as shown rather than editable. Keyboard and
+   gamepad focus keep the modality-gated outline below. */
+.r-text-field--variant-outlined.r-text-field--readonly .r-text-field__field,
+.r-text-field--variant-filled.r-text-field--readonly .r-text-field__field {
+  border-style: dashed;
+  border-color: var(--r-color-border);
+  background: transparent;
+}
+.r-text-field--variant-underlined.r-text-field--readonly .r-text-field__field {
+  border-bottom-style: dashed;
+}
+.r-text-field--readonly .r-text-field__input {
+  color: var(--r-color-fg-muted);
+  -webkit-text-fill-color: var(--r-color-fg-muted);
 }
 
 /* ── Multiline ─────────────────────────────────────────────────── */
@@ -892,7 +926,7 @@ function onAppendInnerClick(evt: MouseEvent) {
   padding-inline-start: 0;
   padding-inline-end: var(--r-tf-pad-x);
 }
-.r-text-field--focused .r-text-field__adornment {
+.r-text-field--focused:not(.r-text-field--readonly) .r-text-field__adornment {
   color: var(--r-color-fg-secondary);
 }
 
@@ -993,7 +1027,7 @@ function onAppendInnerClick(evt: MouseEvent) {
   color: var(--r-color-fg-muted);
   transition: color var(--r-motion-fast) var(--r-motion-ease-out);
 }
-.r-text-field--focused .r-text-field__label {
+.r-text-field--focused:not(.r-text-field--readonly) .r-text-field__label {
   color: var(--r-tf-color);
 }
 .r-text-field--error .r-text-field__label {
@@ -1036,7 +1070,8 @@ function onAppendInnerClick(evt: MouseEvent) {
     border-right-color var(--r-motion-fast) var(--r-motion-ease-out),
     color var(--r-motion-fast) var(--r-motion-ease-out);
 }
-.r-text-field--inline.r-text-field--focused .r-text-field__label--inline {
+.r-text-field--inline.r-text-field--focused:not(.r-text-field--readonly)
+  .r-text-field__label--inline {
   border-right-color: var(--r-tf-color);
 }
 .r-text-field--inline.r-text-field--error .r-text-field__label--inline {

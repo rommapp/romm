@@ -1,9 +1,10 @@
+import base64
 from datetime import timedelta
 
 from fastapi import status
 
 from exceptions.database_exceptions import LastAdminError
-from handler.auth.base_handler import oauth_handler
+from handler.auth.base_handler import auth_handler, oauth_handler
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.database import db_permission_handler, db_user_handler
 from models.permission import PermAction, PermEntity
@@ -41,7 +42,10 @@ def test_non_admin_can_edit_themselves(
 ):
     response = client.put(
         f"/api/users/{viewer_user.id}",
-        data={"email": "Viewer@Example.com"},
+        data={
+            "email": "Viewer@Example.com",
+            "current_password": "test_viewer_password",
+        },
         headers=_bearer(viewer_access_token),
     )
 
@@ -355,3 +359,255 @@ def test_a_refused_demotion_does_not_log_the_admin_out(
     clear_sessions.assert_not_awaited()
     unchanged = db_user_handler.get_user(other.id)
     assert unchanged and unchanged.hashed_password == "x"
+
+
+def _password_matches(user_id: int, password: str) -> bool:
+    user = db_user_handler.get_user(user_id)
+    assert user
+    return auth_handler.verify_password(password, user.hashed_password)
+
+
+def test_own_password_change_with_the_current_password(
+    client, viewer_access_token: str, viewer_user: User
+):
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={
+            "password": "a_new_password",
+            "current_password": "test_viewer_password",
+        },
+        headers=_bearer(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert _password_matches(viewer_user.id, "a_new_password")
+
+
+def test_own_password_change_with_a_wrong_current_password_is_refused(
+    client, viewer_access_token: str, viewer_user: User
+):
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"password": "a_new_password", "current_password": "not_my_password"},
+        headers=_bearer(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.json()["detail"] == "Current password is incorrect"
+    assert _password_matches(viewer_user.id, "test_viewer_password")
+
+
+def test_own_password_change_without_the_current_password_is_refused(
+    client, viewer_access_token: str, viewer_user: User
+):
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"password": "a_new_password"},
+        headers=_bearer(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert _password_matches(viewer_user.id, "test_viewer_password")
+
+
+def test_admin_changes_their_own_password_only_with_the_current_one(
+    client, access_token: str, admin_user: User
+):
+    response = client.put(
+        f"/api/users/{admin_user.id}",
+        data={"password": "a_new_password"},
+        headers=_bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert _password_matches(admin_user.id, "test_admin_password")
+
+
+def test_admin_resets_another_users_password_without_theirs(
+    client, access_token: str, viewer_user: User
+):
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"password": "reset_by_admin"},
+        headers=_bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert _password_matches(viewer_user.id, "reset_by_admin")
+
+
+def test_own_email_change_without_the_current_password_is_refused(
+    client, viewer_access_token: str, viewer_user: User
+):
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"email": "attacker@example.com"},
+        headers=_bearer(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    unchanged = db_user_handler.get_user(viewer_user.id)
+    assert unchanged and unchanged.email is None
+
+
+def test_resending_the_unchanged_email_needs_no_current_password(
+    client, viewer_access_token: str, viewer_user: User
+):
+    db_user_handler.update_user(viewer_user.id, {"email": "viewer@example.com"})
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"email": "viewer@example.com", "ra_username": "retro_viewer"},
+        headers=_bearer(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["ra_username"] == "retro_viewer"
+
+
+def test_own_username_change_needs_the_current_password(
+    client, viewer_access_token: str, viewer_user: User
+):
+    refused = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"username": "renamed_viewer"},
+        headers=_bearer(viewer_access_token),
+    )
+    assert refused.status_code == status.HTTP_400_BAD_REQUEST
+    unchanged = db_user_handler.get_user(viewer_user.id)
+    assert unchanged and unchanged.username == viewer_user.username
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={
+            "username": "renamed_viewer",
+            "current_password": "test_viewer_password",
+        },
+        headers=_bearer(viewer_access_token),
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["username"] == "renamed_viewer"
+
+
+def test_a_case_only_username_edit_is_no_change(
+    client, viewer_access_token: str, viewer_user: User
+):
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"username": viewer_user.username.upper()},
+        headers=_bearer(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["username"] == viewer_user.username
+
+
+def test_admin_renames_another_user_without_their_password(
+    client, access_token: str, viewer_user: User
+):
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"username": "renamed_by_admin"},
+        headers=_bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["username"] == "renamed_by_admin"
+
+
+def test_a_case_only_email_edit_is_no_change(
+    client, viewer_access_token: str, viewer_user: User
+):
+    db_user_handler.update_user(viewer_user.id, {"email": "Viewer@Example.com"})
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"email": "viewer@example.com"},
+        headers=_bearer(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["email"] == "Viewer@Example.com"
+
+
+def test_an_oidc_linked_account_cannot_change_its_own_email(
+    client, viewer_access_token: str, viewer_user: User, mocker
+):
+    mocker.patch("models.user.OIDC_ENABLED", True)
+    db_user_handler.update_user(
+        viewer_user.id, {"oidc_issuer": "https://idp", "oidc_sub": "viewer-sub"}
+    )
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={
+            "email": "new@example.com",
+            "current_password": "test_viewer_password",
+        },
+        headers=_bearer(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert (
+        response.json()["detail"] == "Your email is managed by your identity provider"
+    )
+    unchanged = db_user_handler.get_user(viewer_user.id)
+    assert unchanged and unchanged.email is None
+
+
+def test_admin_changes_an_oidc_linked_users_email(
+    client, access_token: str, viewer_user: User, mocker
+):
+    mocker.patch("models.user.OIDC_ENABLED", True)
+    db_user_handler.update_user(
+        viewer_user.id, {"oidc_issuer": "https://idp", "oidc_sub": "viewer-sub"}
+    )
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"email": "fixed@example.com"},
+        headers=_bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["email"] == "fixed@example.com"
+
+
+def test_a_password_less_account_cannot_set_a_password_with_a_token(
+    client, viewer_access_token: str, viewer_user: User
+):
+    db_user_handler.update_user(viewer_user.id, {"hashed_password": "placeholder"})
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"password": "a_first_password"},
+        headers=_bearer(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert not _password_matches(viewer_user.id, "a_first_password")
+
+
+async def test_a_password_less_account_sets_a_first_password_from_its_session(
+    client, viewer_user: User
+):
+    basic_auth = base64.b64encode(b"test_viewer:test_viewer_password").decode()
+    login = client.post("/api/login", headers={"Authorization": f"Basic {basic_auth}"})
+    assert login.status_code == status.HTTP_200_OK
+    session = {"Cookie": f"romm_session={login.cookies['romm_session']}"}
+    # What an OIDC-provisioned account holds instead of a bcrypt hash.
+    db_user_handler.update_user(viewer_user.id, {"hashed_password": "placeholder"})
+
+    me = client.get("/api/users/me", headers=session)
+    assert me.json()["has_password"] is False
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"password": "a_first_password"},
+        headers=session,
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["has_password"] is True
+    assert _password_matches(viewer_user.id, "a_first_password")
+    await RedisSessionMiddleware.clear_user_sessions(viewer_user.username)
