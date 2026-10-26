@@ -137,7 +137,7 @@ Logout calls `reset()` on every store that defines one. Per-user preferences are
 
 - scanning: emit `scan` and `scan:stop`; receive `scan:scanning_platform`, `scan:scanning_rom`, `scan:update_stats`, `scan:done`, `scan:done_ko` (consumed by `useScanLifecycle`, which batches per-ROM updates);
 - presence and play activity: `activity:heartbeat`, `activity:start`, `activity:stop`, and `activity:update` / `activity:refresh` / `activity:clear`;
-- `permissions:changed`, which refreshes the current user's scopes.
+- `permissions:changed`: `installPermissionsHydration()` (in `useCan`, called from each layout) re-fetches `/permissions/me` into the permissions store, and the activity store re-lists the sessions the user may see. Route-guard scopes (`auth.user.oauth_scopes`) come with the user record, not from this event.
 
 `useSocketTransportHealth` and `useServerConnection` feed the backend-status banner.
 
@@ -181,14 +181,14 @@ Each engine has a view under `views/Player/` and its own route:
 
 | Route suffix | Engine / view                           | Notes                                                                                                                                                      |
 | ------------ | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ejs`        | EmulatorJS (`EmulatorJS.vue`)           | Most consoles. Cores are served from `frontend/assets/emulatorjs` under `/assets/emulatorjs`.                                                              |
-| `jsdos`      | js-dos (`JsDos.vue`)                    | DOS.                                                                                                                                                       |
+| `ejs`        | EmulatorJS (`EmulatorJS.vue`)           | Most consoles, and plain DOS through the `dosbox_pure` core. Cores are served from `frontend/assets/emulatorjs` under `/assets/emulatorjs`.                |
+| `jsdos`      | js-dos (`JsDos.vue`)                    | Windows 3.x and 9x (`win3x`, `win9x`), and only `.jsdos` bundles.                                                                                          |
 | `pico8`      | PICO-8 (`Pico8.vue`)                    | Own runtime and audio worklet under `utils/`.                                                                                                              |
 | `easyrpg`    | EasyRPG (`EasyRpg.vue`)                 | Game files are fetched per ROM; nginx (and the Vite dev proxy) rewrite `/assets/easyrpg/games/<rom id>-<user id>/...` to `/api/roms/<rom id>/easyrpg/...`. |
 | `ruffle`     | Ruffle (`Ruffle.vue`)                   | Flash.                                                                                                                                                     |
 | `stream`     | Streaming (`Stream.vue`, `Desktop.vue`) | Remote play.                                                                                                                                               |
 
-`useCanPlay` decides whether a ROM is playable in this browser (admin toggles, platform support, a file to boot, a streaming container, or a local emulator in the desktop shell); `usePlatformPlayable` answers the same for a whole platform. `ejs` and `jsdos` run cross-origin isolated (COOP and COEP headers, set by nginx in production and by `scripts/playerIsolationHeaders.ts` in dev and preview; a test fails if the two drift). Headers apply only to a document load, so a route change into a player is not enough for a core that needs `SharedArrayBuffer`: the view relaunches into an isolated document with `useIsolatedLaunch` (the pre-play selection crosses as a per-tab intent). On the way out, `usePlayerExit` replaces the document instead of navigating, because isolation outlives SPA navigations and blocks the third-party images the rest of the app embeds. Save states, saves and play sessions go through `services/api/{state,save,play-session}.ts`, with `useDeviceSaveSync` and `usePendingAssetSync` reconciling device saves.
+`useCanPlay` decides whether a ROM is playable in this browser (admin toggles, platform support, a file to boot, a streaming container, or a local emulator in the desktop shell); `usePlatformPlayable` answers the same for a whole platform. `ejs` and `jsdos` run cross-origin isolated (COOP and COEP headers, set by nginx in production and by `scripts/playerIsolationHeaders.ts` in dev and preview; a test fails if the two drift). Headers apply only to a document load, so a route change into a player is not enough when the engine needs `SharedArrayBuffer` (js-dos always does; EmulatorJS only for threaded cores): the view relaunches into an isolated document with `useIsolatedLaunch` (the pre-play selection crosses as a per-tab intent). On the way out, `usePlayerExit` replaces the document instead of navigating, because isolation outlives SPA navigations and blocks the third-party images the rest of the app embeds. Save states, saves and play sessions go through `services/api/{state,save,play-session}.ts`, with `useDeviceSaveSync` and `usePendingAssetSync` reconciling device saves.
 
 ## 11. Internationalization
 
