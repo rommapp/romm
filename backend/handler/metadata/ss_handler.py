@@ -43,6 +43,7 @@ from models.rom import LookupHashes, Rom, RomFile
 from utils.database import safe_int
 from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.platform_slugs import fill_duplicate_slugs
 
 from .base_handler import (
     BaseRom,
@@ -2108,6 +2109,8 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
         "alternative_names": ["Sinclair ZX-81", "ZX-81"],
     },
 }
+
+fill_duplicate_slugs(SCREENSAVER_PLATFORM_LIST)
 
 SS_INDEXED_FORMAT_PLATFORMS: Final = IndexedFormatPlatforms(
     ps1=PS1_SS_ID,
