@@ -364,22 +364,14 @@ def test_a_case_only_email_edit_is_no_change(
 
 
 def test_a_password_less_account_cannot_set_a_password_with_a_token(
-    client, viewer_user: User
+    client, viewer_access_token: str, viewer_user: User
 ):
     db_user_handler.update_user(viewer_user.id, {"hashed_password": "placeholder"})
-    token = oauth_handler.create_access_token(
-        data={
-            "sub": viewer_user.username,
-            "iss": "romm:oauth",
-            "scopes": " ".join(viewer_user.oauth_scopes),
-        },
-        expires_delta=timedelta(minutes=5),
-    )
 
     response = client.put(
         f"/api/users/{viewer_user.id}",
         data={"password": "a_first_password"},
-        headers=_bearer(token),
+        headers=_bearer(viewer_access_token),
     )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN

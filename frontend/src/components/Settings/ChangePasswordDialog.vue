@@ -12,6 +12,7 @@ import { RBtn, RIcon } from "@/lib";
 import RDialog from "@/lib/overlays/RDialog/RDialog.vue";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
+import { errorMessage } from "@/utils/errorMessage";
 
 defineOptions({ inheritAttrs: false });
 
@@ -47,7 +48,7 @@ watch(
 );
 
 // An account without a password (OIDC-provisioned) sets its first one.
-const requiresCurrent = computed(
+const requiresCurrentPassword = computed(
   () => props.userId === auth.user?.id && !!auth.user?.has_password,
 );
 
@@ -64,16 +65,18 @@ const passwordValid = computed(
 const canSubmit = computed(
   () =>
     passwordValid.value &&
-    (!requiresCurrent.value || currentPassword.value.length > 0) &&
+    (!requiresCurrentPassword.value || currentPassword.value.length > 0) &&
     confirmPassword.value.length > 0 &&
     passwordsMatch.value &&
     !submitting.value,
 );
 
-const currentPasswordRules = [(v: string) => !!v || t("common.required")];
+const required = (v: string) => !!v || t("common.required");
+
+const currentPasswordRules = [required];
 
 const newPasswordRules = [
-  (v: string) => !!v || t("common.required"),
+  required,
   (v: string) =>
     (v.length >= 6 && v.length <= 255) || t("common.password-length"),
 ];
@@ -94,7 +97,7 @@ async function submit() {
     const { data } = await userApi.updateUser({
       id: props.userId,
       password: newPassword.value,
-      current_password: requiresCurrent.value
+      current_password: requiresCurrentPassword.value
         ? currentPassword.value
         : undefined,
     });
@@ -104,15 +107,8 @@ async function submit() {
     });
     close();
   } catch (err) {
-    const e = err as {
-      response?: { data?: { detail?: string }; statusText?: string };
-      message?: string;
-    };
     snackbar.error(
-      t("settings.unable-to-update-password", {
-        detail:
-          e?.response?.data?.detail || e?.response?.statusText || e?.message,
-      }),
+      t("settings.unable-to-update-password", { detail: errorMessage(err) }),
       { icon: "mdi-close-circle" },
     );
   } finally {
@@ -137,7 +133,7 @@ async function submit() {
     </template>
     <template #content>
       <PasswordField
-        v-if="requiresCurrent"
+        v-if="requiresCurrentPassword"
         v-model="currentPassword"
         prefix-label="stacked"
         :rules="currentPasswordRules"

@@ -499,8 +499,8 @@ async def update_user(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=exc.message,
             ) from exc
-        cleaned_data["hashed_password"] = auth_handler.get_password_hash(
-            form_data.password
+        cleaned_data["hashed_password"] = await asyncio.to_thread(
+            auth_handler.get_password_hash, form_data.password
         )
 
     if new_email is not None:
