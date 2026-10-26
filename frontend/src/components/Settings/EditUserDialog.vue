@@ -22,6 +22,7 @@ import type { Platform } from "@/stores/platforms";
 import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
+import { needsCurrentPassword } from "@/utils/currentPassword";
 import { userAvatarUrl } from "@/utils/userAvatar";
 import AgeLimitFields from "./AgeLimitFields.vue";
 import HiddenGamesPicker from "./HiddenGamesPicker.vue";
@@ -42,6 +43,7 @@ const show = ref(false);
 const submitting = ref(false);
 const user = ref<UserItem | null>(null);
 const confirmPassword = ref("");
+const currentPassword = ref("");
 const imagePreviewUrl = useObjectUrl(() => user.value?.avatar);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
@@ -93,6 +95,14 @@ async function ensureCatalog() {
 
 const editingSelf = computed(() => user.value?.id === auth.user?.id);
 
+const requiresCurrentPassword = computed(
+  () =>
+    editingSelf.value &&
+    !!auth.user &&
+    !!user.value &&
+    needsCurrentPassword(auth.user, user.value),
+);
+
 const inheritedAgeSettings = computed(() => {
   const group = groupsStore.groups.find((g) => g.id === groupId.value);
   return {
@@ -117,6 +127,7 @@ async function open(toEdit: Events["showEditUserDialog"]) {
   const token = ++openToken;
   user.value = { ...toEdit, password: "", avatar: undefined };
   confirmPassword.value = "";
+  currentPassword.value = "";
   isAdmin.value = toEdit.role === "admin";
   showAdvanced.value = false;
   accessLoaded.value = false;
@@ -283,7 +294,12 @@ async function save() {
     if (!editingSelf.value) {
       user.value.role = isAdmin.value ? "admin" : "user";
     }
-    const { data } = await userApi.updateUser(user.value);
+    const { data } = await userApi.updateUser({
+      ...user.value,
+      current_password: requiresCurrentPassword.value
+        ? currentPassword.value
+        : undefined,
+    });
 
     let nextUser = data;
     if (access) {
@@ -394,6 +410,21 @@ function close() {
             <template #prefix-label>
               <RIcon icon="mdi-email-outline" size="14" />
               {{ t("settings.email") }}
+            </template>
+          </RTextField>
+          <RTextField
+            v-if="requiresCurrentPassword"
+            v-model="currentPassword"
+            prefix-label="stacked"
+            :hint="t('settings.current-password-hint')"
+            type="password"
+            autocomplete="current-password"
+            required
+            clearable
+          >
+            <template #prefix-label>
+              <RIcon icon="mdi-lock-outline" size="14" />
+              {{ t("settings.current-password") }}
             </template>
           </RTextField>
         </div>
@@ -524,7 +555,11 @@ function close() {
         variant="flat"
         color="primary"
         :loading="submitting"
-        :disabled="!user.username || !passwordChangeValid"
+        :disabled="
+          !user.username ||
+          !passwordChangeValid ||
+          (requiresCurrentPassword && !currentPassword)
+        "
         @click="save"
       >
         {{ t("common.apply") }}

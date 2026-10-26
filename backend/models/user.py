@@ -167,6 +167,12 @@ class User(BaseModel, SimpleUser):
         return compute_oauth_scopes(self)
 
     @property
+    def has_password(self) -> bool:
+        """Whether the account can sign in with a password: OIDC-provisioned
+        accounts hold a random placeholder instead of a bcrypt hash."""
+        return bool(self.hashed_password and self.hashed_password.startswith("$2"))
+
+    @property
     def fs_safe_folder_name(self) -> str:
         # Uses the ID to avoid issues with username changes
         return f"User:{self.id}".encode().hex()

@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Annotated, Any, Final, cast
 
@@ -79,6 +80,41 @@ def _record_user_edit(
         if field in changed:
             data[field] = change(before, after, field)
     record(AuditAction.USER_EDIT, request, AuditTarget.of_user(after), data)
+
+
+async def _verify_account_holder(
+    request: Request, db_user: User, current_password: str | None
+) -> None:
+    """Prove a change to the caller's own password or email comes from the
+    account holder, not just from whatever holds a `me.write` credential.
+
+    Raises:
+        HTTPException: The current password is missing or wrong, or a
+            password-less account is not on an interactive session
+    """
+    if db_user.has_password:
+        if not current_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Your current password is required to change your password or email",
+            )
+        # bcrypt takes ~250ms, which would stall the event loop.
+        if not await asyncio.to_thread(
+            auth_handler.verify_password, current_password, db_user.hashed_password
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Current password is incorrect",
+            )
+        return
+
+    # With no password to check, only a sign-in session (OIDC, for these
+    # accounts) proves the holder; long-lived tokens are refused.
+    if not auth_handler.is_session_authenticated(request, db_user.username):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Sign in to the web interface to set a password or email for this account",
+        )
 
 
 @protected_route(
@@ -428,6 +464,15 @@ async def update_user(
     # Admin users can edit any user, while other users can only edit self
     if db_user.id != request.user.id and request.user.role != Role.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    if db_user.id == request.user.id and (
+        form_data.password
+        or (
+            form_data.email is not None
+            and form_data.email.lower() != (db_user.email or "").lower()
+        )
+    ):
+        await _verify_account_holder(request, db_user, form_data.current_password)
 
     cleaned_data: dict[str, Any] = {}
 

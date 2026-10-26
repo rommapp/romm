@@ -179,6 +179,15 @@ class AuthHandler:
 
         return user
 
+    @staticmethod
+    def is_session_authenticated(conn: HTTPConnection, username: str) -> bool:
+        """Whether the request runs on the user's sign-in session rather than
+        a basic, bearer or client-token credential."""
+        return (
+            conn.session.get("iss") == "romm:auth"
+            and conn.session.get("sub") == username
+        )
+
     def generate_password_reset_token(self, user: Any) -> str:
         """A single-use reset token for the user, valid for a few minutes."""
         now = datetime.now(timezone.utc)

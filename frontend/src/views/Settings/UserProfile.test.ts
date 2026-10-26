@@ -1,5 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import PasswordField from "@/components/shared/PasswordField.vue";
+import { RTextField } from "@/lib";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 import { userFixture } from "@/utils/user.fixtures";
@@ -84,5 +86,52 @@ describe("UserProfile avatar preview", () => {
     wrapper.unmount();
 
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:1");
+  });
+});
+
+describe("UserProfile email change", () => {
+  async function changeEmail(wrapper: ReturnType<typeof mountProfile>) {
+    await flushPromises();
+    const email = wrapper
+      .findAllComponents(RTextField)
+      .find((f) => f.attributes("type") === "email");
+    email?.vm.$emit("update:modelValue", "new@example.com");
+    await flushPromises();
+  }
+
+  const apply = (wrapper: ReturnType<typeof mountProfile>) =>
+    wrapper.get("[data-icon='mdi-check']");
+
+  it("asks for the current password before saving a new email", async () => {
+    storeAuth().setCurrentUser(saved);
+    vi.mocked(userApi.updateUser).mockResolvedValue({ data: saved } as never);
+    const wrapper = mountProfile();
+
+    await changeEmail(wrapper);
+    expect(apply(wrapper).attributes()).toHaveProperty("disabled");
+
+    wrapper
+      .getComponent(PasswordField)
+      .vm.$emit("update:modelValue", "test_admin_password");
+    await flushPromises();
+    await apply(wrapper).trigger("click");
+    await flushPromises();
+
+    expect(userApi.updateUser).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        email: "new@example.com",
+        current_password: "test_admin_password",
+      }),
+    );
+  });
+
+  it("saves a new email without it on an account with no password", async () => {
+    storeAuth().setCurrentUser({ ...saved, has_password: false });
+    const wrapper = mountProfile();
+
+    await changeEmail(wrapper);
+
+    expect(wrapper.findComponent(PasswordField).exists()).toBe(false);
+    expect(apply(wrapper).attributes()).not.toHaveProperty("disabled");
   });
 });

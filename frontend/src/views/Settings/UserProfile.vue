@@ -22,6 +22,7 @@ import { useI18n } from "vue-i18n";
 import ChangePasswordDialog from "@/components/Settings/ChangePasswordDialog.vue";
 import RetroAchievementsSection from "@/components/Settings/RetroAchievementsSection.vue";
 import SettingsSection from "@/components/Settings/SettingsSection.vue";
+import PasswordField from "@/components/shared/PasswordField.vue";
 import { usePageTitle } from "@/composables/usePageTitle";
 import { useSnackbar } from "@/composables/useSnackbar";
 import { RBtn, RIcon, RSkeletonBlock, RTag, RTextField } from "@/lib";
@@ -31,6 +32,7 @@ import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
 import { formatTimestamp, getRoleIcon } from "@/utils";
+import { needsCurrentPassword } from "@/utils/currentPassword";
 import { userAvatarUrl } from "@/utils/userAvatar";
 
 const { t, locale } = useI18n();
@@ -45,6 +47,14 @@ const snackbar = useSnackbar();
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const submitting = ref(false);
 const passwordDialogOpen = ref(false);
+const currentPassword = ref("");
+
+const requiresCurrentPassword = computed(
+  () =>
+    !!user.value &&
+    !!userToEdit.value &&
+    needsCurrentPassword(user.value, { email: userToEdit.value.email }),
+);
 
 type RoleTone = "brand" | "warning" | "info";
 const ROLE_TONE: Record<string, RoleTone> = {
@@ -87,6 +97,7 @@ function snapshot(item: UserItem) {
 function reset() {
   if (!user.value) return;
   userToEdit.value = { ...user.value, password: "", avatar: undefined };
+  currentPassword.value = "";
   if (userToEdit.value) snapshot(userToEdit.value);
 }
 
@@ -104,7 +115,13 @@ async function applyChanges() {
   if (!userToEdit.value || !isDirty.value) return;
   submitting.value = true;
   try {
-    const { data } = await userApi.updateUser(userToEdit.value);
+    const { data } = await userApi.updateUser({
+      ...userToEdit.value,
+      current_password: requiresCurrentPassword.value
+        ? currentPassword.value
+        : undefined,
+    });
+    currentPassword.value = "";
     snackbar.success(
       t("settings.user-updated-successfully", { username: data.username }),
       { icon: "mdi-check-bold" },
@@ -254,6 +271,21 @@ onMounted(reset);
             </template>
           </RTextField>
         </div>
+        <div v-if="requiresCurrentPassword" class="r-profile__field">
+          <PasswordField
+            v-model="currentPassword"
+            prefix-label="stacked"
+            :prepend-inner-icon="undefined"
+            variant="outlined"
+            :hint="t('settings.current-password-hint')"
+            required
+          >
+            <template #prefix-label>
+              <RIcon icon="mdi-lock-outline" size="14" />
+              {{ t("settings.current-password") }}
+            </template>
+          </PasswordField>
+        </div>
 
         <!-- Password: visually identical to the other prefix-label
              rows, but the value is a fixed mask and the change flow is
@@ -292,7 +324,11 @@ onMounted(reset);
             variant="flat"
             color="primary"
             :loading="submitting"
-            :disabled="!isDirty || !userToEdit.username"
+            :disabled="
+              !isDirty ||
+              !userToEdit.username ||
+              (requiresCurrentPassword && !currentPassword)
+            "
             prepend-icon="mdi-check"
             @click="applyChanges"
           >
