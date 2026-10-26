@@ -156,7 +156,7 @@ Conventions that matter day to day: the `lib/` barrel (`@/lib`) exports the prim
 ## 8. Styling and theming
 
 - **Tokens** are defined once in `src/tokens/index.ts` and compiled to `src/styles/tokens.css` by `scripts/build-tokens.ts` (`npm run build:tokens`, run automatically before `dev` and `build`). Components read `var(--r-...)`; hex colour literals are lint errors (`romm/no-color-literal`).
-- **Themes** are the `r-dark` and `r-light` classes on `<html>` (section 3). The dark values are the base; the light theme overrides them under `.r-light`.
+- **Themes** are the `r-dark` and `r-light` classes on `<html>` (section 3). Each themed colour is one `light-dark(<light>, <dark>)` declaration resolved by `color-scheme`: `html.r-app` sets `light dark` (the OS preference), and the two classes pin it. The generator pairs the palettes by name and fails the build if a token exists in only one.
 - **Stylesheets** loaded globally: `fonts.css` (self-hosted fonts), `global.css` (the `.r-app` base, backdrop layers), `reset.css` (the base reset, in `@layer base`, plus the full-height app shell), `scrollbar.css`.
 - **Component styles** are scoped SFC `<style>` blocks. Layout switches use the `html[data-bp~="..."]` attribute selectors rather than `@media` (section 9).
 - **Boot splash.** `index.html` carries a tiny inline style so the first paint matches the theme before the app mounts.
