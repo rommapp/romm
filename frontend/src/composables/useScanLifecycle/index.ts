@@ -139,11 +139,6 @@ export function installScanLifecycle() {
       if (galleryRomsStore.currentPlatform?.id === rom.platform_id) {
         refreshGallery();
       }
-      if (romsStore.currentPlatform?.id === rom.platform_id) {
-        const existing = romsStore.filteredRoms.find((r) => r.id === rom.id);
-        if (existing) romsStore.update(rom);
-        else romsStore.add([rom]);
-      }
 
       let scannedPlatform = scanningStore.scanningPlatforms.find(
         (p) => p.fs_slug === rom.platform_fs_slug,
