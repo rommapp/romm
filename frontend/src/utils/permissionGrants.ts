@@ -7,6 +7,13 @@ import type {
 
 export type GrantEffect = "none" | "full" | "own";
 
+export function canOwn(
+  entity: PermEntity,
+  ownableEntities: readonly PermEntity[],
+): boolean {
+  return ownableEntities.includes(entity);
+}
+
 /**
  * What a granted row allows. The server reads `own_only` on an entity with no
  * owner through the coarse scope alone: full for read/write, nothing for
@@ -17,7 +24,7 @@ export function grantEffect(
   ownableEntities: readonly PermEntity[],
 ): GrantEffect {
   if (!grant.own_only) return "full";
-  if (ownableEntities.includes(grant.entity)) return "own";
+  if (canOwn(grant.entity, ownableEntities)) return "own";
   return grant.action === "delete" ? "none" : "full";
 }
 
@@ -30,10 +37,8 @@ export function normalizeOwnerlessGrants(
   ownableEntities: readonly PermEntity[],
 ): GrantSchemaIO[] {
   return grants.flatMap((g) => {
-    if (!g.own_only || ownableEntities.includes(g.entity)) return [g];
-    return grantEffect(g, ownableEntities) === "none"
-      ? []
-      : [{ ...g, own_only: false }];
+    const effect = grantEffect(g, ownableEntities);
+    return effect === "none" ? [] : [{ ...g, own_only: effect === "own" }];
   });
 }
 
@@ -46,7 +51,7 @@ export function normalizeOwnerlessOverrides(
   ownableEntities: readonly PermEntity[],
 ): OverrideSchemaIO[] {
   return overrides.map((o) => {
-    if (!o.own_only || ownableEntities.includes(o.entity)) return o;
+    if (!o.own_only || canOwn(o.entity, ownableEntities)) return o;
     const allowsNothing =
       !o.granted || grantEffect(o, ownableEntities) === "none";
     return { ...o, granted: !allowsNothing, own_only: false };

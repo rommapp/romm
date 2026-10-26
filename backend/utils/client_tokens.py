@@ -64,8 +64,7 @@ def validate_scopes(requested: Iterable[str], caller_scopes: Iterable[str]) -> N
 
 def validate_token_within_caller(request: Request, token: ClientToken) -> None:
     """Reject handing out a token's secret to a caller holding fewer scopes than it grants."""
-    effective = set(token.scopes.split()) & {str(s) for s in request.user.oauth_scopes}
-    validate_scopes(effective, request.auth.scopes)
+    validate_scopes(token.effective_scopes(request.user), request.auth.scopes)
 
 
 def check_rate_limit(request: Request) -> None:
