@@ -1,6 +1,7 @@
 from typing import TypedDict
 
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.platform_slugs import fill_duplicate_slugs
 
 from .types import LaunchboxPlatform
 
@@ -113,6 +114,7 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
     UPS.MUGEN: {"id": 138, "name": "MUGEN"},
     UPS.MULTIVISION: {"id": 197, "name": "Othello Multivision"},
     UPS.N64: {"id": 25, "name": "Nintendo 64"},
+    UPS.NAMCO_SYSTEM_22: {"id": 93, "name": "Namco System 22"},
     UPS.NDS: {"id": 26, "name": "Nintendo DS"},
     UPS.NEO_GEO_CD: {"id": 167, "name": "SNK Neo Geo CD"},
     UPS.NEO_GEO_POCKET: {"id": 21, "name": "SNK Neo Geo Pocket"},
@@ -182,7 +184,6 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
     UPS.SUPERGRAFX: {"id": 162, "name": "PC Engine SuperGrafx"},
     UPS.SWITCH: {"id": 211, "name": "Nintendo Switch"},
     UPS.SWITCH_2: {"id": 224, "name": "Nintendo Switch 2"},
-    UPS.SYSTEM_32: {"id": 93, "name": "Namco System 22"},
     UPS.SYSTEM16: {"id": 97, "name": "Sega System 16"},
     UPS.SYSTEM32: {"id": 96, "name": "Sega System 32"},
     UPS.TG16: {"id": 54, "name": "NEC TurboGrafx-16"},
@@ -219,6 +220,8 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
     UPS.ZX81: {"id": 147, "name": "Sinclair ZX-81"},
     UPS.ZXS: {"id": 46, "name": "Sinclair ZX Spectrum"},
 }
+
+fill_duplicate_slugs(LAUNCHBOX_PLATFORM_LIST)
 
 # Reverse lookup: LaunchBox platform ID → UPS slug
 LAUNCHBOX_PLATFORM_NAME_TO_SLUG = {

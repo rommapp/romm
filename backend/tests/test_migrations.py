@@ -1219,3 +1219,33 @@ def test_the_play_permissions_revision_backfills_reverses_and_replays(
             for action in ("read", "write")
         }
         connection.execute(_GROUPS.delete().where(_GROUPS.c.name == "Locked down"))
+
+
+def test_the_namco_system_22_revision_renames_only_that_slug():
+    """0154 moves system-32 platforms to namco-system-22 and back."""
+    migration = _load_migration("0154_namco_system_22_slug.py")
+    renamed = make_platform("system-32")
+    untouched = make_platform("system32")
+
+    def slugs(connection: sa.Connection) -> dict[int, str]:
+        rows = connection.execute(
+            sa.text("SELECT id, slug FROM platforms WHERE id IN (:a, :b)"),
+            {"a": renamed.id, "b": untouched.id},
+        )
+        return dict(rows.all())
+
+    with sync_engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+            assert slugs(connection) == {
+                renamed.id: "namco-system-22",
+                untouched.id: "system32",
+            }
+            migration.upgrade()
+            assert slugs(connection)[renamed.id] == "namco-system-22"
+
+            migration.downgrade()
+            assert slugs(connection) == {
+                renamed.id: "system-32",
+                untouched.id: "system32",
+            }

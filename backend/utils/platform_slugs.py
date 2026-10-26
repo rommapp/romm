@@ -5,6 +5,7 @@ stack, which imports the filesystem handlers that in turn read title ids.
 """
 
 import enum
+from typing import Final
 
 
 class UniversalPlatformSlug(enum.StrEnum):
@@ -248,6 +249,7 @@ class UniversalPlatformSlug(enum.StrEnum):
     N3DS = "3ds"
     N64 = "n64"
     N64DD = "64dd"
+    NAMCO_SYSTEM_22 = "namco-system-22"
     NASCOM = "nascom"
     NDS = "nds"
     NEC_PC_6000_SERIES = "nec-pc-6000-series"
@@ -384,7 +386,6 @@ class UniversalPlatformSlug(enum.StrEnum):
     SWITCH_2 = "switch-2"
     SWTPC_6800 = "swtpc-6800"
     SYMBIAN = "symbian"
-    SYSTEM_32 = "system-32"
     SYSTEM16 = "system16"
     SYSTEM32 = "system32"
     TADS = "tads"
@@ -476,3 +477,22 @@ class UniversalPlatformSlug(enum.StrEnum):
     ZX80 = "zx80"
     ZX81 = "zx81"
     ZXS = "zxs"
+
+
+# Slugs for the same hardware, each used by different providers.
+DUPLICATE_PLATFORM_SLUGS: Final[
+    tuple[tuple[UniversalPlatformSlug, UniversalPlatformSlug], ...]
+] = (
+    (UniversalPlatformSlug.VC_4000, UniversalPlatformSlug.INTERTON_VC_4000),
+    (UniversalPlatformSlug.APPLE_PIPPIN, UniversalPlatformSlug.PIPPIN),
+    (UniversalPlatformSlug.TANDY_VIS, UniversalPlatformSlug.VIS),
+)
+
+
+def fill_duplicate_slugs[T](platforms: dict[UniversalPlatformSlug, T]) -> None:
+    """Give each duplicate slug the entry of the other when only one is listed."""
+    for slug, duplicate in DUPLICATE_PLATFORM_SLUGS:
+        if slug in platforms:
+            platforms.setdefault(duplicate, platforms[slug])
+        elif duplicate in platforms:
+            platforms[slug] = platforms[duplicate]

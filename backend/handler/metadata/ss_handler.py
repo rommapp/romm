@@ -43,6 +43,7 @@ from models.rom import LookupHashes, Rom, RomFile
 from utils.database import safe_int
 from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.platform_slugs import fill_duplicate_slugs
 
 from .base_handler import (
     BaseRom,
@@ -1782,6 +1783,11 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
         "name": "Nintendo 64DD",
         "alternative_names": ["Nintendo 64 DD", "N64 DD", "64 DD"],
     },
+    UPS.NAMCO_SYSTEM_22: {
+        "id": 156,
+        "name": "Namco System 22",
+        "alternative_names": ["System 22"],
+    },
     UPS.NDS: {"id": 15, "name": "Nintendo DS"},
     UPS.NINTENDO_DSI: {"id": 15, "name": "Nintendo DS"},
     UPS.SWITCH: {"id": SWITCH_SS_ID, "name": "Switch"},
@@ -1990,11 +1996,6 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
         "name": "Nintendo Switch 2",
         "alternative_names": ["Switch 2"],
     },
-    UPS.SYSTEM_32: {
-        "id": 156,
-        "name": "Namco System 22",
-        "alternative_names": ["System 22"],
-    },
     UPS.TI_994A: {"id": 205, "name": "TI-99/4A"},
     UPS.TI_99: {"id": 205, "name": "TI-99"},
     UPS.TIC_80: {"id": 222, "name": "TIC-80"},
@@ -2108,6 +2109,8 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
         "alternative_names": ["Sinclair ZX-81", "ZX-81"],
     },
 }
+
+fill_duplicate_slugs(SCREENSAVER_PLATFORM_LIST)
 
 SS_INDEXED_FORMAT_PLATFORMS: Final = IndexedFormatPlatforms(
     ps1=PS1_SS_ID,
