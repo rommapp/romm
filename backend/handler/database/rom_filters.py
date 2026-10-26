@@ -172,6 +172,10 @@ class RomFilterParams(BaseModel):
         bool | None,
         Field(description="Whether the rom is a physical copy with no file."),
     ] = None
+    store_only: Annotated[
+        bool | None,
+        Field(description="Whether the rom is a store-only game with no file."),
+    ] = None
     has_ra: Annotated[
         bool | None,
         Field(description="Whether the rom has RetroAchievements data."),

@@ -314,6 +314,7 @@ backend/
 │   ├── scheduled/             # Cron-scheduled tasks
 │   │   ├── scan_library.py                    # Nightly library rescan
 │   │   ├── sync_retroachievements_progress.py # Pull RA user progress
+│   │   ├── sync_steam_libraries.py            # Import linked Steam libraries
 │   │   ├── update_switch_titledb.py           # Refresh Switch TitleDB
 │   │   ├── update_launchbox_metadata.py       # Refresh LaunchBox data
 │   │   ├── convert_images_to_webp.py          # Artwork WebP conversion
@@ -654,6 +655,22 @@ Audio metadata for a `SOUNDTRACK` rom_file (1:1), indexed for the music API. Wri
 
 ---
 
+#### Steam Library
+
+**Table:** `steam_library_entries` (games a user owns on Steam)
+
+| Column                     | Type         | Notes                         |
+| -------------------------- | ------------ | ----------------------------- |
+| `user_id` + `steam_app_id` | FK + Integer | Unique constraint             |
+| `rom_id`                   | FK           | The rom standing for the game |
+| `playtime_minutes`         | Integer      | Steam's total playtime        |
+| `last_played_at`           | Timestamp    | Null when never played        |
+
+A game not already in the library gets a store-only rom on `win`: `storefront`
+is `steam`, and it has no file, like a physical game.
+
+---
+
 #### ROM User Data
 
 **Table:** `rom_user` (per-user, per-ROM tracking)
@@ -870,6 +887,9 @@ A reset link is emailed when SMTP is set up, the user has an address and `ROMM_B
 | PUT    | `/{id}`            | ME_WRITE               | Update user                      |
 | DELETE | `/{id}`            | USERS_WRITE            | Delete user                      |
 | POST   | `/{id}/ra/refresh` | ME_WRITE               | Refresh RetroAchievements data   |
+| PUT    | `/{id}/steam`      | ME_WRITE               | Link a Steam account             |
+| DELETE | `/{id}/steam`      | ME_WRITE               | Unlink a Steam account           |
+| POST   | `/{id}/steam/sync` | ME_WRITE               | Queue a Steam library sync       |
 
 ### 6.3 Client Tokens (`/api/client-tokens`)
 
@@ -1726,6 +1746,7 @@ Toggled via environment variables:
 | `update_launchbox_metadata`       | `ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA`          | `0 4 * * *`        | Refresh LaunchBox data         |
 | `convert_images_to_webp`          | `ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP`             | `0 4 * * *`        | Image optimization             |
 | `sync_retroachievements_progress` | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC`    | `0 4 * * *`        | Sync RA user progress          |
+| `sync_steam_libraries`            | `ENABLE_SCHEDULED_STEAM_LIBRARY_SYNC`                 | `30 4 * * *`       | Import linked Steam libraries  |
 | `cleanup_orphaned_resources`      | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`         | `0 5 * * *`        | Remove unused artwork          |
 | `cleanup_netplay`                 | `ENABLE_SCHEDULED_CLEANUP_NETPLAY` (default on)       | `*/30 * * * *`     | Clean empty rooms              |
 | `cleanup_upload_tmp`              | `ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP` (default on)    | `0 * * * *`        | Drop stale uploads             |
@@ -1964,6 +1985,7 @@ Falls back to `FakeRedis` in test mode.
 | `FLASHPOINT_API_ENABLED` | `false` | Flashpoint archive       |
 | `HLTB_API_ENABLED`       | `false` | HowLongToBeat            |
 | `STEAM_API_ENABLED`      | `false` | Steam storefront         |
+| `STEAM_API_KEY`          | -       | Steam library import     |
 | `DISABLE_EMULATOR_JS`    | `false` | Hide EmulatorJS player   |
 | `DISABLE_RUFFLE_RS`      | `false` | Hide Ruffle Flash player |
 | `DISABLE_JSDOS`          | `false` | Hide js-dos player       |

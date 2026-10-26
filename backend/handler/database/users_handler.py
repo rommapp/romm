@@ -21,6 +21,7 @@ class DBUsersHandler(DBBaseHandler):
         emails: Sequence[str] = (),
         roles: Sequence[Role] = (),
         has_ra_username: bool | None = None,
+        has_steam_id: bool | None = None,
     ) -> QueryT:
         if usernames:
             query = query.filter(
@@ -37,6 +38,10 @@ class DBUsersHandler(DBBaseHandler):
             if not has_ra_username:
                 predicate = not_(predicate)
             query = query.filter(predicate)
+        if has_steam_id is not None:
+            query = query.filter(
+                User.steam_id.isnot(None) if has_steam_id else User.steam_id.is_(None)
+            )
         return query
 
     @begin_session
@@ -131,6 +136,7 @@ class DBUsersHandler(DBBaseHandler):
         emails: Sequence[str] = (),
         roles: Sequence[Role] = (),
         has_ra_username: bool | None = None,
+        has_steam_id: bool | None = None,
         only_fields: Sequence[QueryableAttribute[Any]] | None = None,
         session: Session = INJECTED_SESSION,
     ) -> Sequence[User]:
@@ -140,6 +146,7 @@ class DBUsersHandler(DBBaseHandler):
             emails=emails,
             roles=roles,
             has_ra_username=has_ra_username,
+            has_steam_id=has_steam_id,
         )
 
         if only_fields:

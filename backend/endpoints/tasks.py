@@ -118,7 +118,7 @@ def _fill_cleanup_stats(stats: Mapping[str, Any] | None) -> CleanupStats | None:
     return cast(CleanupStats, legacy)
 
 
-def _build_task_execution_response(
+def build_task_execution_response(
     job: Job, task_key: str | None, task_name: str
 ) -> TaskExecutionResponse:
     """Describe a job that was just queued."""
@@ -391,7 +391,7 @@ async def run_single_task(
         {"job_id": job.id, "kwargs": task_kwargs or {}},
     )
 
-    return _build_task_execution_response(job, task_name, task_instance.title)
+    return build_task_execution_response(job, task_name, task_instance.title)
 
 
 SCAN_PAYLOAD = Body(default_factory=ScanPayload)
@@ -424,4 +424,4 @@ async def start_scan(
     except ScanInFlightException as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
 
-    return _build_task_execution_response(job, None, job.meta["task_name"])
+    return build_task_execution_response(job, None, job.meta["task_name"])

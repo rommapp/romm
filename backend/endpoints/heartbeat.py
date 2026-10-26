@@ -33,6 +33,7 @@ from config import (
     SCHEDULED_RESCAN_CRON,
     SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
+    STEAM_API_KEY,
     YOUTUBE_BASE_URL,
 )
 from config.config_manager import config_manager as cm
@@ -161,6 +162,7 @@ async def heartbeat() -> HeartbeatResponse:
             "POUET_API_ENABLED": pouet_enabled,
             "CSDB_API_ENABLED": csdb_enabled,
             "STEAM_API_ENABLED": steam_enabled,
+            "STEAM_LIBRARY_ENABLED": bool(STEAM_API_KEY),
             "LIBRETRO_API_ENABLED": libretro_enabled,
         },
         "FILESYSTEM": {

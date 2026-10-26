@@ -71,3 +71,48 @@ class SteamAppDetails(TypedDict):
 class SteamAppDetailsEnvelope(TypedDict):
     success: bool
     data: NotRequired[SteamAppDetails]
+
+
+class SteamVanityResult(TypedDict):
+    # 1 when the name resolved, 42 when no profile uses it.
+    success: int
+    steamid: NotRequired[str]
+    message: NotRequired[str]
+
+
+class SteamVanityResponse(TypedDict):
+    response: SteamVanityResult
+
+
+class SteamPlayerSummary(TypedDict):
+    steamid: str
+    personaname: str
+    profileurl: str
+    avatarfull: NotRequired[str]
+    # 3 is public; anything else hides the owned-games list.
+    communityvisibilitystate: int
+
+
+class SteamPlayerSummariesResult(TypedDict):
+    players: list[SteamPlayerSummary]
+
+
+class SteamPlayerSummariesResponse(TypedDict):
+    response: SteamPlayerSummariesResult
+
+
+class SteamOwnedGame(TypedDict):
+    appid: int
+    name: NotRequired[str]
+    playtime_forever: int
+    rtime_last_played: NotRequired[int]
+
+
+class SteamOwnedGamesResult(TypedDict):
+    # Both are missing when the profile's game details are private.
+    game_count: NotRequired[int]
+    games: NotRequired[list[SteamOwnedGame]]
+
+
+class SteamOwnedGamesResponse(TypedDict):
+    response: SteamOwnedGamesResult

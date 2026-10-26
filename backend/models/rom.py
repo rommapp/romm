@@ -197,6 +197,10 @@ if TYPE_CHECKING:
     from models.user import User
 
 
+class RomStorefront(enum.StrEnum):
+    STEAM = "steam"
+
+
 class RomFileCategory(enum.StrEnum):
     GAME = "game"
     DLC = "dlc"
@@ -1043,6 +1047,8 @@ class Rom(BaseModel):
     # same metadata as digital ROMs but must never be flagged missing or cleaned up.
     is_physical: Mapped[bool] = mapped_column(default=False, nullable=False)
     upc: Mapped[str | None] = mapped_column(String(length=64), default=None)
+    # Set on a game imported from a store library with no file behind it.
+    storefront: Mapped[str | None] = mapped_column(String(length=32), default=None)
 
     platform_id: Mapped[int] = mapped_column(
         ForeignKey("platforms.id", ondelete="CASCADE")
@@ -1242,15 +1248,20 @@ class Rom(BaseModel):
         )
 
     @property
+    def never_has_file(self) -> bool:
+        """Whether this row stands for a game with no file at all."""
+        return self.is_physical or self.storefront is not None
+
+    @property
     def has_file_on_disk(self) -> bool:
         """Whether a readable file backs this rom.
 
         False for two different reasons that every file-dependent surface
         (download, playback, the ES-DE and Pegasus exporters, the device feeds)
-        needs to treat alike: a physical game never had a file, and a missing
-        one no longer does.
+        needs to treat alike: a physical or store-only game never had a file,
+        and a missing one no longer does.
         """
-        return not self.is_physical and not self.missing_from_fs
+        return not self.never_has_file and not self.missing_from_fs
 
     def has_m3u_file(self) -> bool:
         """
@@ -1374,6 +1385,11 @@ Rom.is_easyrpg_game = column_property(
 )
 
 
+def rom_without_file() -> ColumnElement[bool]:
+    """Matches rows that never had a file: physical games and store-only ones."""
+    return or_(Rom.is_physical.is_(True), Rom.storefront.is_not(None))
+
+
 def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
     """Fill the deferred file-stat columns from an already-loaded file list."""
     set_committed_value(
@@ -1458,6 +1474,7 @@ def _refresh_min_age(_mapper: Any, _connection: Any, rom: Rom) -> None:
 
 class HasFileOnDiskFilters(TypedDict):
     physical: bool
+    store_only: bool
     missing: bool
 
 
@@ -1465,6 +1482,7 @@ class HasFileOnDiskFilters(TypedDict):
 # want the file-less ones dropped by the database rather than after loading.
 HAS_FILE_ON_DISK_FILTERS: Final[HasFileOnDiskFilters] = {
     "physical": False,
+    "store_only": False,
     "missing": False,
 }
 

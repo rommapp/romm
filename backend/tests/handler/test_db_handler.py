@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -25,7 +26,7 @@ from handler.database import (
 from handler.database.base_handler import sync_session
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import HAS_FILE_ON_DISK_FILTERS, Rom
 from models.user import Role, User
 
 
@@ -44,19 +45,36 @@ def test_platforms():
     assert len(platforms) == 1
 
 
-def _add_physical_rom(platform: Platform, name: str = "Physical Game") -> Rom:
+FILELESS_KINDS = pytest.mark.parametrize(
+    "fileless",
+    [
+        {"is_physical": True, "fs_path": ".physical"},
+        {"storefront": "steam", "fs_path": ".steam"},
+    ],
+    ids=["physical", "store_only"],
+)
+
+
+def _add_physical_rom(
+    platform: Platform,
+    name: str = "Physical Game",
+    fileless: dict[str, Any] | None = None,
+) -> Rom:
+    kind = fileless or {"is_physical": True, "fs_path": ".physical"}
     return make_rom(
         platform,
         name,
         fs_extension="",
-        fs_path=f"{platform.slug}/roms/.physical",
         fs_size_bytes=0,
-        is_physical=True,
+        **(kind | {"fs_path": f"{platform.slug}/roms/{kind['fs_path']}"}),
     )
 
 
-def test_mark_missing_roms_skips_physical(rom: Rom, platform: Platform):
-    physical = _add_physical_rom(platform)
+@FILELESS_KINDS
+def test_mark_missing_roms_skips_physical(
+    rom: Rom, platform: Platform, fileless: dict[str, Any]
+):
+    physical = _add_physical_rom(platform, fileless=fileless)
 
     # An empty keep-list would normally flag every rom on the platform as missing.
     still_missing = db_rom_handler.mark_missing_roms(platform.id, [])
@@ -70,8 +88,11 @@ def test_mark_missing_roms_skips_physical(rom: Rom, platform: Platform):
     assert refreshed.missing_from_fs is False
 
 
-def test_get_roms_scalar_missing_excludes_physical(platform: Platform):
-    physical = _add_physical_rom(platform)
+@FILELESS_KINDS
+def test_get_roms_scalar_missing_excludes_physical(
+    platform: Platform, fileless: dict[str, Any]
+):
+    physical = _add_physical_rom(platform, fileless=fileless)
     # Even if a physical rom is erroneously flagged, it must not be returned as
     # missing (the cleanup task hard-deletes whatever this query returns).
     db_rom_handler.update_rom(physical.id, {"missing_from_fs": True})
@@ -1313,3 +1334,33 @@ def test_get_rom_filters_includes_tags(rom: Rom, platform: Platform):
 
     filters = db_rom_handler.get_rom_filters()
     assert filters["tags"] == ["Beta", "Demo", "Proto"]
+
+
+def test_get_users_filters_by_a_linked_steam_account(
+    admin_user: User, viewer_user: User
+):
+    db_user_handler.update_user(admin_user.id, {"steam_id": "76561197960287930"})
+
+    linked = db_user_handler.get_users(has_steam_id=True)
+    unlinked = db_user_handler.get_users(has_steam_id=False)
+
+    assert [user.id for user in linked] == [admin_user.id]
+    assert viewer_user.id in {user.id for user in unlinked}
+    assert admin_user.id not in {user.id for user in unlinked}
+
+
+@FILELESS_KINDS
+def test_has_file_on_disk_filters_drop_roms_without_a_file(
+    rom: Rom, platform: Platform, fileless: dict[str, Any]
+):
+    without_file = _add_physical_rom(platform, fileless=fileless)
+
+    ids = {
+        r.id
+        for r in db_rom_handler.get_roms_scalar(
+            platform_ids=[platform.id], **HAS_FILE_ON_DISK_FILTERS
+        )
+    }
+
+    assert rom.id in ids
+    assert without_file.id not in ids
