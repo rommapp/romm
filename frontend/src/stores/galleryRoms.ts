@@ -7,9 +7,8 @@
 //     fetched so far,
 //   - book-keeping for in-flight / loaded / failed windows.
 //
-// Loads are random-access windows, driven by which rows enter the
-// virtualiser's viewport (including skeleton rows for positions we've never
-// touched), not page by page.
+// Visible rows drive random-access window loads, including rows whose
+// positions have not been fetched yet.
 //
 // What does NOT live here:
 //   - detailedRoms, recentRoms and continuePlayingRoms (`stores/roms`),

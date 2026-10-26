@@ -72,16 +72,12 @@ export function useRomSync() {
     }
   }
 
-  /** Drop ROMs that have left the current view from every cache holding
-   * them: the gallery's windowed cache, the v1 store, and the selection.
-   * Missing any one of the three leaves the cards on screen.
+  /** Drop ROMs that have left the current view from the gallery's windowed
+   * cache and the selection; missing either leaves the cards on screen.
    *
-   * Says nothing about *why* they left. Callers that remove a ROM from a
-   * view (a bulk unfavourite, a collection removal) and callers that delete
-   * it outright both need these three, but only the latter should also
-   * prune Home's recent / continue-playing rows: a game taken out of a
-   * collection still belongs in Continue Playing. That pruning stays with
-   * the caller that means it. */
+   * Says nothing about *why* they left: only a caller that deletes a ROM
+   * outright also prunes Home's recent / continue-playing rows, since a game
+   * taken out of a collection still belongs in Continue Playing. */
   function removeCachedRoms(roms: SimpleRom[]) {
     gallerySelection.removeIds(roms.map((rom) => rom.id));
     galleryRomsStore.remove(roms);
