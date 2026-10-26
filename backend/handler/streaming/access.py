@@ -4,11 +4,13 @@ from typing import Any
 
 from fastapi import HTTPException, Request
 
+from handler.auth.constants import Scope
 from handler.auth.dependencies import (
     assert_can,
     can_access,
     get_permissions,
     get_rom_visibility_filter,
+    is_scoped_admin,
 )
 from handler.database import db_platform_handler, db_rom_handler
 from handler.streaming.config import (
@@ -26,7 +28,6 @@ from handler.streaming.session_store import (
 from logger.logger import log
 from models.permission import PermAction, PermEntity
 from models.rom import Rom
-from models.user import Role
 
 
 def session_owner_id(session: dict[str, Any], request: Request) -> int:
@@ -44,7 +45,7 @@ def assert_session_owner(session: dict[str, Any], request: Request) -> None:
     """Only the user who claimed a session (or an admin) may control it."""
     if session.get("user_id") == request.user.id:
         return
-    if request.user.role == Role.ADMIN:
+    if is_scoped_admin(request, Scope.USERS_WRITE):
         return
     raise HTTPException(status_code=403, detail="Session is claimed by another user")
 
@@ -245,7 +246,7 @@ async def resolve_owned_session(
     # An admin may control a session they do not own, but the scan found none of
     # theirs, so fall back to the platform's active session. A pool can hold
     # several and the path does not say which, so the caller has to name one.
-    if request.user.role != Role.ADMIN:
+    if not is_scoped_admin(request, Scope.USERS_WRITE):
         raise HTTPException(
             status_code=403, detail="Session is claimed by another user"
         )

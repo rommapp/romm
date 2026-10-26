@@ -144,7 +144,9 @@ describe("EditUserDialog avatar preview", () => {
 describe("EditUserDialog age settings", () => {
   beforeEach(() => {
     fetchUserPermissions.mockResolvedValue(permissions());
-    fetchCatalog.mockResolvedValue({ data: { entities: [], actions: [] } });
+    fetchCatalog.mockResolvedValue({
+      data: { entities: [], actions: [], ownable_entities: [] },
+    });
     getPlatforms.mockResolvedValue({ data: [] });
     updateUser.mockResolvedValue({
       data: userFixture({ id: 4, role: "user" }),

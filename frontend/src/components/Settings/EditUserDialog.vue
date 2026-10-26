@@ -66,6 +66,7 @@ const accessError = ref(false);
 // Advanced: per-user overrides + per-game hiding.
 const showAdvanced = ref(false);
 const entities = ref<PermEntity[]>([]);
+const ownableEntities = ref<PermEntity[]>([]);
 const actions = ref<PermAction[]>([]);
 const overrides = ref<OverrideSchemaIO[]>([]);
 const originalOverrides = ref<OverrideSchemaIO[]>([]);
@@ -85,6 +86,7 @@ async function ensureCatalog() {
   try {
     const { data } = await permissionsApi.fetchCatalog();
     entities.value = data.entities;
+    ownableEntities.value = data.ownable_entities;
     actions.value = data.actions;
   } catch (err) {
     console.error("Failed to load permission catalog", err);
@@ -506,6 +508,7 @@ function close() {
               <OverridesMatrix
                 v-model="overrides"
                 :entities="entities"
+                :ownable-entities="ownableEntities"
                 :actions="actions"
               />
             </div>
