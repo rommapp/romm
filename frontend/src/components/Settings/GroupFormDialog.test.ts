@@ -184,39 +184,3 @@ describe("GroupFormDialog age settings", () => {
     expect(form().attributes("inert")).toBeUndefined();
   });
 });
-
-describe("GroupFormDialog grants", () => {
-  it("saves owner-less own_only grants as the access they already give", async () => {
-    const wrapper = await openDialog({
-      ...group,
-      grants: [
-        { entity: "roms", action: "write", own_only: true },
-        { entity: "roms", action: "delete", own_only: true },
-        { entity: "collections", action: "delete", own_only: true },
-      ],
-    });
-    await apply(wrapper);
-
-    expect(updateGroup).toHaveBeenCalledExactlyOnceWith(
-      7,
-      expect.objectContaining({
-        grants: [
-          { entity: "roms", action: "write", own_only: false },
-          { entity: "collections", action: "delete", own_only: true },
-        ],
-      }),
-    );
-  });
-
-  it("refuses to save when the catalog failed to load", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
-    fetchCatalog.mockRejectedValueOnce(new Error("offline"));
-    const wrapper = await openDialog({
-      ...group,
-      grants: [{ entity: "collections", action: "write", own_only: true }],
-    });
-    await apply(wrapper);
-
-    expect(updateGroup).not.toHaveBeenCalled();
-  });
-});

@@ -13,6 +13,7 @@ from endpoints.responses.client_token import (
 from handler.audit_handler import AuditTarget, record
 from handler.auth.base_handler import auth_handler
 from handler.auth.constants import Scope
+from handler.auth.dependencies import assert_admin_for_admin
 from handler.database import db_client_token_handler
 from handler.redis_handler import sync_cache
 from handler.socket_handler import close_client_token_sockets
@@ -27,6 +28,7 @@ from utils.client_tokens import (
     generate_pair_code,
     parse_expiry,
     validate_scopes,
+    validate_token_reissue,
     validate_token_within_caller,
 )
 from utils.router import APIRouter
@@ -100,6 +102,8 @@ async def delete_token(request: Request, token_id: int) -> None:
     token = db_client_token_handler.get_token(
         token_id=token_id, user_id=request.user.id
     )
+    if token is not None:
+        validate_token_within_caller(request, token)
     rows = db_client_token_handler.delete_token(
         token_id=token_id, user_id=request.user.id
     )
@@ -122,7 +126,7 @@ async def regenerate_token(request: Request, token_id: int) -> ClientTokenCreate
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Token not found",
         )
-    validate_token_within_caller(request, existing)
+    validate_token_reissue(request, existing)
 
     raw_token = auth_handler.generate_client_token()
     new_hash = auth_handler.hash_client_token(raw_token)
@@ -152,7 +156,7 @@ def pair_token(request: Request, token_id: int) -> ClientTokenPairSchema:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Token not found",
         )
-    validate_token_within_caller(request, token)
+    validate_token_reissue(request, token)
 
     code = generate_pair_code()
     redis_key = f"pair:{code}"
@@ -194,6 +198,10 @@ def list_all_tokens(request: Request) -> list[ClientTokenAdminSchema]:
 @protected_route(router.delete, "/{token_id}/admin", [Scope.USERS_WRITE])
 async def admin_delete_token(request: Request, token_id: int) -> None:
     token = db_client_token_handler.get_token(token_id=token_id)
+    if token is not None:
+        assert_admin_for_admin(
+            request, token.user.role, "Only an administrator can revoke admin tokens"
+        )
     rows = db_client_token_handler.delete_token(token_id=token_id)
     if rows == 0 or token is None:
         raise HTTPException(

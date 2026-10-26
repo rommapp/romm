@@ -63,8 +63,16 @@ def validate_scopes(requested: Iterable[str], caller_scopes: Iterable[str]) -> N
 
 
 def validate_token_within_caller(request: Request, token: ClientToken) -> None:
-    """Reject handing out a token's secret to a caller holding fewer scopes than it grants."""
+    """Reject acting on a token that grants scopes the caller doesn't hold."""
     validate_scopes(token.effective_scopes(request.user), request.auth.scopes)
+
+
+def validate_token_reissue(request: Request, token: ClientToken) -> None:
+    """Reject re-issuing a token's secret unless the caller holds every scope it stores.
+
+    A stored scope the account has lost comes back if the account regains it.
+    """
+    validate_scopes(token.scopes.split(), request.auth.scopes)
 
 
 def check_rate_limit(request: Request) -> None:

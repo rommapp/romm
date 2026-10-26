@@ -208,6 +208,51 @@ def test_a_delegated_user_manager_can_delete_a_non_admin(
     assert db_user_handler.get_user(editor_user.id) is None
 
 
+def test_a_delegated_user_manager_can_edit_a_non_admin(
+    client, admin_user: User, viewer_user: User, editor_user: User
+):
+    token = _delegated_user_manager_token(viewer_user)
+
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"email": "editor@example.com"},
+        headers=_bearer(token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["email"] == "editor@example.com"
+
+
+def test_a_delegated_user_manager_cannot_edit_an_admin(
+    client, admin_user: User, viewer_user: User
+):
+    token = _delegated_user_manager_token(viewer_user)
+
+    response = client.put(
+        f"/api/users/{admin_user.id}",
+        data={"password": "hijacked_password"},
+        headers=_bearer(token),
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    unchanged = db_user_handler.get_user(admin_user.id)
+    assert unchanged and unchanged.hashed_password == admin_user.hashed_password
+
+
+def test_a_delegated_user_manager_cannot_promote_to_admin(
+    client, admin_user: User, viewer_user: User, editor_user: User
+):
+    token = _delegated_user_manager_token(viewer_user)
+
+    response = client.put(
+        f"/api/users/{editor_user.id}", data={"role": "admin"}, headers=_bearer(token)
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    unchanged = db_user_handler.get_user(editor_user.id)
+    assert unchanged and unchanged.role == editor_user.role
+
+
 def test_deleting_the_last_admin_is_refused(
     client, access_token: str, admin_user: User, mocker
 ):

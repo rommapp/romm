@@ -22,7 +22,6 @@ import type { Platform } from "@/stores/platforms";
 import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
-import { normalizeOwnerlessOverrides } from "@/utils/permissionGrants";
 import { userAvatarUrl } from "@/utils/userAvatar";
 import AgeLimitFields from "./AgeLimitFields.vue";
 import HiddenGamesPicker from "./HiddenGamesPicker.vue";
@@ -252,12 +251,7 @@ function accessEdits(userId: number) {
       ? {
           set_group: groupChanged,
           permission_group_id: groupId.value,
-          overrides: overridesChanged
-            ? normalizeOwnerlessOverrides(
-                overrides.value,
-                ownableEntities.value,
-              )
-            : null,
+          overrides: overridesChanged ? [...overrides.value] : null,
           set_age_settings: ageChanged,
           age_limit: age.value.ageLimit,
           hide_unrated_roms: age.value.hideUnrated,

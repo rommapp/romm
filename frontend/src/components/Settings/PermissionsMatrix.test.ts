@@ -22,8 +22,8 @@ describe("PermissionsMatrix", () => {
     const wrapper = mount(PermissionsMatrix, {
       props: {
         modelValue: [
-          { entity: "users", action: "write", own_only: true },
-          { entity: "users", action: "delete", own_only: true },
+          { entity: "users", action: "write", own_only: false },
+          { entity: "collections", action: "delete", own_only: true },
         ],
         entities: ["users", "collections"],
         ownableEntities: ["collections"],
@@ -31,12 +31,11 @@ describe("PermissionsMatrix", () => {
       },
     });
 
-    // Without an owner, own-only reads as its coarse scope; delete has none.
     expect(cellStates(wrapper)).toEqual([
       { values: ["none", "full"], current: "full" },
       { values: ["none", "full"], current: "none" },
       { values: ["none", "full", "own"], current: "none" },
-      { values: ["none", "full", "own"], current: "none" },
+      { values: ["none", "full", "own"], current: "own" },
     ]);
   });
 });

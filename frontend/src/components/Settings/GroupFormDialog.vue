@@ -21,7 +21,6 @@ import platformApi from "@/services/api/platform";
 import storePermissionGroups from "@/stores/permissionGroups";
 import type { Platform } from "@/stores/platforms";
 import { GROUP_COLOR_PALETTE } from "@/utils/groupColor";
-import { normalizeOwnerlessGrants } from "@/utils/permissionGrants";
 import AgeLimitFields from "./AgeLimitFields.vue";
 import HiddenGamesPicker from "./HiddenGamesPicker.vue";
 import HiddenPlatformsPicker from "./HiddenPlatformsPicker.vue";
@@ -152,13 +151,8 @@ async function open(group: PermissionGroupSchema | null) {
 
 useEmitterEvent("showGroupFormDialog", (group) => void open(group));
 
-// Saving without the catalog would strip every own_only grant.
-const canSave = computed(
-  () => !!name.value.trim() && entities.value.length > 0,
-);
-
 async function save() {
-  if (!canSave.value || submitting.value) return;
+  if (!name.value.trim() || submitting.value) return;
   submitting.value = true;
   const token = openToken;
   const body = {
@@ -166,7 +160,7 @@ async function save() {
     description: description.value,
     is_default: isDefault.value,
     color: color.value,
-    grants: normalizeOwnerlessGrants(grants.value, ownableEntities.value),
+    grants: grants.value,
     age_limit: age.value.ageLimit,
     hide_unrated_roms: age.value.hideUnrated ?? false,
   };
@@ -351,7 +345,7 @@ async function save() {
         variant="flat"
         color="primary"
         :loading="submitting"
-        :disabled="!canSave"
+        :disabled="!name.trim()"
         @click="save"
       >
         {{ t("common.apply") }}

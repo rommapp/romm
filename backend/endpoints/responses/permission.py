@@ -178,6 +178,9 @@ def _reject_ownerless_own_only[T: GrantSchemaIO | OverrideSchemaIO](
 ) -> list[T] | None:
     """Reject ``own_only`` on entities with no owner, which have nothing to narrow it to."""
     for item in items or ():
+        # A revoke override ignores own_only.
+        if isinstance(item, OverrideSchemaIO) and not item.granted:
+            continue
         if item.own_only and item.entity not in OWNABLE_PERM_ENTITIES:
             raise ValueError(f"own_only is not supported for {item.entity}")
     return items

@@ -21,6 +21,7 @@ from handler.audit_handler import (
 )
 from handler.auth.base_handler import auth_handler
 from handler.auth.constants import Scope
+from handler.auth.dependencies import assert_admin_for_admin
 from handler.database import (
     db_client_token_handler,
     db_device_handler,
@@ -81,12 +82,15 @@ def _record_user_edit(
     record(AuditAction.USER_EDIT, request, AuditTarget.of_user(after), data)
 
 
-def _assert_can_act_on_user(request: Request, user_id: int) -> None:
-    """Allow acting on yourself, or on anyone through an admin credential holding USERS_WRITE."""
-    if user_id != request.user.id and (
-        request.user.role != Role.ADMIN or Scope.USERS_WRITE not in request.auth.scopes
-    ):
+def _assert_can_manage_user(request: Request, target: User) -> None:
+    """Allow acting on yourself, or on another user with USERS_WRITE in the credential."""
+    if target.id == request.user.id:
+        return
+    if Scope.USERS_WRITE not in request.auth.scopes:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    assert_admin_for_admin(
+        request, target.role, "Only an administrator can manage admin users"
+    )
 
 
 @protected_route(
@@ -125,16 +129,9 @@ def add_user(
         )
 
     coerced_role = Role.coerce(role)
-    # USERS_WRITE is delegable to non-admins via permission groups, but creating
-    # an admin must stay admin-only or it becomes a privilege-escalation path.
-    if (
-        admins_exist
-        and coerced_role == Role.ADMIN
-        and getattr(request.user, "role", None) != Role.ADMIN
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only an administrator can create admin users",
+    if admins_exist:
+        assert_admin_for_admin(
+            request, coerced_role, "Only an administrator can create admin users"
         )
 
     try:
@@ -218,15 +215,11 @@ def create_invite_link(
             detail=msg,
         )
 
-    # Mirrors add_user: only a real admin can mint admin invite links.
-    if (
-        admins_exist
-        and Role.coerce(role) == Role.ADMIN
-        and getattr(request.user, "role", None) != Role.ADMIN
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only an administrator can create admin invite links",
+    if admins_exist:
+        assert_admin_for_admin(
+            request,
+            Role.coerce(role),
+            "Only an administrator can create admin invite links",
         )
 
     if expiration is not None and expiration <= 0:
@@ -433,7 +426,7 @@ async def update_user(
         log.error(msg)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
 
-    _assert_can_act_on_user(request, db_user.id)
+    _assert_can_manage_user(request, db_user)
 
     cleaned_data: dict[str, Any] = {}
 
@@ -490,6 +483,11 @@ async def update_user(
     # You can't change your own role
     if form_data.role and request.user.id != id:
         cleaned_data["role"] = Role.coerce(form_data.role)
+        assert_admin_for_admin(
+            request,
+            cleaned_data["role"],
+            "Only an administrator can grant the admin role",
+        )
 
     # You can't disable yourself
     if form_data.enabled is not None and request.user.id != id:
@@ -610,12 +608,7 @@ async def delete_user(
     if request.user.id == id:
         raise HTTPException(status_code=400, detail="You cannot delete yourself")
 
-    # Mirrors add_user: USERS_WRITE is delegable, removing an admin is not.
-    if user.role == Role.ADMIN and request.user.role != Role.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only an administrator can delete admin users",
-        )
+    _assert_can_manage_user(request, user)
 
     token_ids = db_client_token_handler.get_token_ids_by_users([id])
     device_ids = [device.id for device in db_device_handler.get_devices(user_id=id)]
@@ -663,9 +656,9 @@ async def refresh_retro_achievements(
     ] = False,
 ) -> None:
     """Refresh RetroAchievements progression data for a user."""
-    _assert_can_act_on_user(request, id)
-
     user = db_user_handler.get_user(id)
+    if user:
+        _assert_can_manage_user(request, user)
     if not user or not user.ra_username:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

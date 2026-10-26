@@ -9,11 +9,6 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { OverrideSchemaIO, PermAction, PermEntity } from "@/__generated__";
 import { RCheckbox, type RCheckboxState, RTooltip } from "@/lib";
-import {
-  canOwn,
-  type GrantEffect,
-  grantEffect,
-} from "@/utils/permissionGrants";
 
 defineOptions({ inheritAttrs: false });
 
@@ -40,14 +35,8 @@ function stateOf(entity: PermEntity, action: PermAction): CellState {
   );
   if (!o) return "inherit";
   if (!o.granted) return "revoke";
-  return OVERRIDE_STATE_OF_EFFECT[grantEffect(o, props.ownableEntities)];
+  return o.own_only ? "grant_own" : "grant";
 }
-
-const OVERRIDE_STATE_OF_EFFECT: Record<GrantEffect, CellState> = {
-  none: "revoke",
-  full: "grant",
-  own: "grant_own",
-};
 
 // Cycle: inherit (empty) -> grant (primary check) -> grant-own (accent
 // person) -> revoke (danger cross).
@@ -157,7 +146,7 @@ function toggleColumn(a: PermAction, value: boolean) {
           bare
           size="sm"
           :states="
-            canOwn(e, ownableEntities) ? OVR_STATES : OWNERLESS_OVR_STATES
+            ownableEntities.includes(e) ? OVR_STATES : OWNERLESS_OVR_STATES
           "
           :state-value="stateOf(e, a)"
           :aria-label="`${entityLabel(e)} ${actionLabel(a)} ${stateLabel(stateOf(e, a))}`"

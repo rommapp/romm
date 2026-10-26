@@ -120,6 +120,26 @@ def test_own_only_override_is_rejected_on_an_entity_without_owners(
     assert response.status_code == 422
 
 
+def test_own_only_revoke_override_is_accepted_on_an_entity_without_owners(
+    client, access_token, viewer_user
+):
+    response = client.put(
+        f"/api/permissions/users/{viewer_user.id}",
+        headers=_bearer(access_token),
+        json={
+            "overrides": [
+                {
+                    "entity": "tasks",
+                    "action": "write",
+                    "granted": False,
+                    "own_only": True,
+                }
+            ]
+        },
+    )
+    assert response.status_code == 200
+
+
 def test_groups_expose_the_system_key(client, access_token):
     groups = client.get("/api/permissions/groups", headers=_bearer(access_token)).json()
     keys = {g["name"]: g["system_key"] for g in groups}

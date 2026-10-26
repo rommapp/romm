@@ -9,7 +9,6 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { GrantSchemaIO, PermAction, PermEntity } from "@/__generated__";
 import { RCheckbox, type RCheckboxState, RTooltip } from "@/lib";
-import { canOwn, grantEffect } from "@/utils/permissionGrants";
 
 defineOptions({ inheritAttrs: false });
 
@@ -42,7 +41,8 @@ function grantOf(
 
 function stateOf(entity: PermEntity, action: PermAction): CellState {
   const g = grantOf(entity, action);
-  return g ? grantEffect(g, props.ownableEntities) : "none";
+  if (!g) return "none";
+  return g.own_only ? "own" : "full";
 }
 
 // Cycle: none (empty) -> full (primary check) -> own (accent person).
@@ -146,7 +146,7 @@ function toggleColumn(a: PermAction, value: boolean) {
           bare
           size="sm"
           :states="
-            canOwn(e, ownableEntities) ? PERM_STATES : OWNERLESS_PERM_STATES
+            ownableEntities.includes(e) ? PERM_STATES : OWNERLESS_PERM_STATES
           "
           :state-value="stateOf(e, a)"
           :disabled="readonly"
