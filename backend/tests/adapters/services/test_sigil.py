@@ -531,3 +531,54 @@ class TestStoredGameAgainstTheBinding:
 
         assert result is None
         log_error.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_a_gdi_sheet_reads_its_high_density_track(self, tmp_path: Path):
+        pytest.importorskip("sigil")
+        sheet = write_gdi_disc(tmp_path, "Game", "T-0001N", "T-8111N")
+
+        result = await SigilService().extract_title_id(UPS.DC, str(sheet))
+
+        assert result is not None
+        assert result.title_id == "T-8111N"
+
+    @pytest.mark.asyncio
+    async def test_a_playlist_of_sheets_lists_every_discs_id(self, tmp_path: Path):
+        pytest.importorskip("sigil")
+        write_gdi_disc(tmp_path, "Game (Disc 1)", "T-0001N", "T-9701N")
+        write_gdi_disc(tmp_path, "Game (Disc 2)", "T-0001N", "T-9702N")
+        playlist = tmp_path / "Game.m3u"
+        playlist.write_text("Game (Disc 1).gdi\nGame (Disc 2).gdi\n")
+
+        result = await SigilService().extract_title_id(UPS.DC, str(playlist))
+
+        assert result is not None
+        assert result.title_id == "T-9701N"
+        assert result.playlist_title_ids == ("T-9701N", "T-9702N")
+
+
+def write_dc_track(path: Path, product: str | None) -> None:
+    """A Dreamcast data track, with IP.BIN naming `product` at its start when given."""
+    data = bytearray(20 * 2048)
+    if product:
+        data[0:32] = b"SEGA SEGAKATANA SEGA ENTERPRISES"
+        data[0x40 : 0x40 + 10] = product.ljust(10).encode()
+    path.write_bytes(bytes(data))
+
+
+def write_gdi_disc(
+    folder: Path, name: str, low_density: str, high_density: str
+) -> Path:
+    """A GD-ROM dump as a .gdi sheet and its tracks, returning the sheet."""
+    tracks = [f"{name} (Track {n}).bin" for n in (1, 2, 3)]
+    write_dc_track(folder / tracks[0], low_density)
+    write_dc_track(folder / tracks[1], None)
+    write_dc_track(folder / tracks[2], high_density)
+    sheet = folder / f"{name}.gdi"
+    sheet.write_text(
+        "3\n"
+        f'1 0 4 2352 "{tracks[0]}" 0\n'
+        f'2 450 0 2352 "{tracks[1]}" 0\n'
+        f'3 45000 4 2352 "{tracks[2]}" 0\n'
+    )
+    return sheet

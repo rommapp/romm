@@ -192,7 +192,7 @@ ENV PATH="/app/.venv/bin:${PATH}"
 # Build and install sigil (optional, for title ID extraction)
 # Placed after `uv sync` because the extension is compiled with the venv's
 # Python so the ABI matches. Keep the pin in sync with docker/Dockerfile.
-ARG SIGIL_VERSION=2071dff7705d493ce6052508e7115545c197f575
+ARG SIGIL_VERSION=5d4ddb41cc22cc017e32cccf4ca08dea270cbe40
 # One layer, so the clone and the cmake tree never reach the image.
 # trunk-ignore(hadolint/DL3003)
 RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git /tmp/argosy-sigil \
