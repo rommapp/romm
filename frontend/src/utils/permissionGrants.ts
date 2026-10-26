@@ -15,9 +15,8 @@ export function canOwn(
 }
 
 /**
- * What a granted row allows. The server reads `own_only` on an entity with no
- * owner through the coarse scope alone: full for read/write, nothing for
- * delete, which has no scope.
+ * What a granted row allows. Owner-less `own_only` falls back to the coarse
+ * scope: full for read/write, nothing for delete, which has no scope.
  */
 export function grantEffect(
   grant: { entity: PermEntity; action: PermAction; own_only?: boolean },

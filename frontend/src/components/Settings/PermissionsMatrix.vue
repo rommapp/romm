@@ -3,8 +3,8 @@
 // checkboxes for the group editor. Each cell cycles none -> full -> own ->
 // none: "none" is no grant, "full" is library-wide (primary), "own" limits
 // the grant to the user's own items (accent, own_only), offered only on
-// entities whose rows have an owner. The model is the list
-// of granted (entity, action) pairs; cycling rewrites the touched cell only.
+// entities whose rows have an owner. The model is the list of granted
+// (entity, action) pairs; cycling rewrites the touched cell only.
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { GrantSchemaIO, PermAction, PermEntity } from "@/__generated__";
