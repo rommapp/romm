@@ -10,8 +10,11 @@
  * outside the app root, still resolve var(--r-color-*).
  */
 
-.r-app {
+html.r-app {
   color-scheme: light dark;
+}
+
+.r-app {
   --r-color-brand-secondary-hover: #ebe7fa;
   --r-color-brand-secondary-pressed: #7a6bb4;
   --r-color-brand-accent-hover: #f0c8b8;

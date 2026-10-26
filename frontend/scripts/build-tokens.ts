@@ -176,10 +176,7 @@ const SHARED: Entry[] = [
   ...entriesFor(zIndex, "zIndex", "--r-z-index"),
 ];
 
-// Each themed token is one declaration, `light-dark(<light>, <dark>)`, resolved
-// by the `color-scheme` in effect where the token is used. The palettes pair up
-// by CSS name: a token the light theme overrides takes its dark value from the
-// dark palette, or from the shared base for brand and status colours.
+// light-dark() resolves using the color-scheme where the token is consumed.
 const DARK: Entry[] = entriesFor(colorDark, "colorDark", "--r-color");
 const LIGHT: Entry[] = [
   ...entriesFor(colorLight, "colorLight", "--r-color"),
@@ -223,11 +220,10 @@ const HEADER = `/*
 
 const css = [
   HEADER,
-  block(".r-app", [
-    ["color-scheme", "light dark"],
-    ...SHARED_UNTHEMED,
-    ...LIGHT.map(themed),
-  ]),
+  // Root only: a nested .r-app (RCarousel) must inherit the pinned scheme.
+  "html.r-app {\n  color-scheme: light dark;\n}",
+  "",
+  block(".r-app", [...SHARED_UNTHEMED, ...LIGHT.map(themed)]),
   "",
   `html[data-input="key"] .r-app {`,
   `  --r-focus-ring-width: ${focus.ringWidthKey};`,
