@@ -176,20 +176,34 @@ const SHARED: Entry[] = [
   ...entriesFor(zIndex, "zIndex", "--r-z-index"),
 ];
 
-// Native `color-scheme` rides with the palette so UA-drawn chrome (scrollbars,
-// form controls, embedded viewers) follows the theme instead of staying light.
-const DARK: Entry[] = [
-  ["color-scheme", "dark"],
-  ...entriesFor(colorDark, "colorDark", "--r-color"),
-];
-// Light theme: the surface palette, then the brand overrides that re-tune
-// primary/secondary/accent for the off-white page (deeper for contrast).
+// light-dark() resolves using the color-scheme where the token is consumed.
+const DARK: Entry[] = entriesFor(colorDark, "colorDark", "--r-color");
 const LIGHT: Entry[] = [
-  ["color-scheme", "light"],
   ...entriesFor(colorLight, "colorLight", "--r-color"),
   ...entriesFor(colorStatusLight, "colorStatusLight", "--r-color"),
   ...entriesFor(colorBrandLight, "colorBrandLight", "--r-color-brand"),
 ];
+
+const sharedByName = new Map(SHARED);
+const darkByName = new Map(DARK);
+const lightByName = new Map(LIGHT);
+
+for (const [n] of DARK) {
+  if (!lightByName.has(n)) {
+    throw new Error(`${n} has a dark value but no light value`);
+  }
+}
+
+function themed([n, light]: Entry): Entry {
+  const dark = darkByName.get(n) ?? sharedByName.get(n);
+  if (dark === undefined) {
+    throw new Error(`${n} has a light value but no dark value`);
+  }
+  return [n, `light-dark(${light}, ${dark})`];
+}
+
+const THEMED = new Set(LIGHT.map(([n]) => n));
+const SHARED_UNTHEMED = SHARED.filter(([n]) => !THEMED.has(n));
 
 const HEADER = `/*
  * RomM Design Tokens, CSS Custom Properties
@@ -197,16 +211,19 @@ const HEADER = `/*
  * GENERATED FILE, do not hand-edit. Source: src/tokens/index.ts
  * Regenerate with: npm run build:tokens
  *
- * Scoped under .r-app. Theme palettes live under
- * .r-app.r-dark and .r-app.r-light. The classes are toggled on <html>
- * by RomM.vue so teleported overlays (RDialog, RMenu, RTooltip), which
- * land in <body> outside the app root, still resolve var(--r-color-*).
+ * Scoped under .r-app. Themed colours are light-dark() pairs; the scheme is
+ * the OS preference unless RomM.vue sets .r-dark or .r-light on <html>, so
+ * teleported overlays (RDialog, RMenu, RTooltip), which land in <body>
+ * outside the app root, still resolve var(--r-color-*).
  */
 `;
 
 const css = [
   HEADER,
-  block(".r-app", SHARED),
+  // Root only: a nested .r-app (RCarousel) must inherit the pinned scheme.
+  "html.r-app {\n  color-scheme: light dark;\n}",
+  "",
+  block(".r-app", [...SHARED_UNTHEMED, ...LIGHT.map(themed)]),
   "",
   `html[data-input="key"] .r-app {`,
   `  --r-focus-ring-width: ${focus.ringWidthKey};`,
@@ -215,16 +232,9 @@ const css = [
   `  --r-focus-ring-width: ${focus.ringWidthPad};`,
   `}`,
   "",
-  block(
-    ".r-app.r-dark",
-    DARK,
-    "Dark surface palette: translucent white over the near-black base.",
-  ),
-  block(
-    ".r-app.r-light",
-    LIGHT,
-    "Light surface palette: translucent black over the off-white base.",
-  ),
+  ".r-app.r-dark {\n  color-scheme: dark;\n}",
+  ".r-app.r-light {\n  color-scheme: light;\n}",
+  "",
 ].join("\n");
 
 async function main() {
