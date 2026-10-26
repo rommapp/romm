@@ -110,11 +110,7 @@ END $$
 
 
 def _fill_release_types(conn: sa.Connection) -> None:
-    """Type every ROM from its tags; the triggers mirror each row as it goes.
-
-    Every row gets a list, empty or not, so the filter's "none" operator never
-    meets a NULL. No manual list exists yet, so tags and regions are the sources.
-    """
+    """Store every ROM's derived list, `[]` included, for the triggers to mirror."""
     last_id = 0
     while rows := conn.execute(
         sa.select(ROMS.c.id, ROMS.c.tags, ROMS.c.regions)
