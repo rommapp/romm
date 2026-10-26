@@ -149,6 +149,7 @@ const syntheticRom = computed<SimpleRom>(() => ({
   regions: [],
   languages: [],
   tags: [],
+  release_types: [],
   crc_hash: null,
   md5_hash: null,
   sha1_hash: null,

@@ -35,6 +35,7 @@
 //   ?playerCounts=…&playerCountsLogic=…
 //   ?metadataProviders=…&metadataProvidersLogic=…
 //   ?tags=…&tagsLogic=…
+//   ?releaseTypes=…&releaseTypesLogic=…
 //   ?lengthMin=…&lengthMax=…   (HowLongToBeat main story, in hours)
 //
 // Direction notes:
@@ -131,6 +132,7 @@ export function useGalleryFilterUrl() {
     selectedPlayerCounts,
     selectedMetadataProviders,
     selectedTags,
+    selectedReleaseTypes,
     selectedStatuses,
     selectedLengthMinHours,
     selectedLengthMaxHours,
@@ -146,6 +148,7 @@ export function useGalleryFilterUrl() {
     playerCountsLogic,
     metadataProvidersLogic,
     tagsLogic,
+    releaseTypesLogic,
     statusesLogic,
   } = storeToRefs(filter);
 
@@ -196,6 +199,8 @@ export function useGalleryFilterUrl() {
       metadataProvidersLogic: qLogic(q.metadataProvidersLogic),
       tags: qList(q.tags),
       tagsLogic: qLogic(q.tagsLogic),
+      releaseTypes: qList(q.releaseTypes),
+      releaseTypesLogic: qLogic(q.releaseTypesLogic),
       statuses: qList(q.statuses),
       statusesLogic: qLogic(q.statusesLogic),
       lengthMin: qHours(q.lengthMin),
@@ -309,6 +314,14 @@ export function useGalleryFilterUrl() {
       filter.setSelectedFilterTags(url.tags);
     if (url.tagsLogic && url.tagsLogic !== tagsLogic.value)
       filter.setTagsLogic(url.tagsLogic);
+
+    if (!eqStrArr(url.releaseTypes, selectedReleaseTypes.value))
+      filter.setSelectedFilterReleaseTypes(url.releaseTypes);
+    if (
+      url.releaseTypesLogic &&
+      url.releaseTypesLogic !== releaseTypesLogic.value
+    )
+      filter.setReleaseTypesLogic(url.releaseTypesLogic);
 
     if (!eqStrArr(url.statuses, selectedStatuses.value))
       filter.setSelectedFilterStatuses(url.statuses);
@@ -440,6 +453,11 @@ export function useGalleryFilterUrl() {
       "tagsLogic",
       selectedTags.value.length > 0 ? tagsLogic.value : null,
     );
+    setList("releaseTypes", selectedReleaseTypes.value);
+    setOrDelete(
+      "releaseTypesLogic",
+      selectedReleaseTypes.value.length > 0 ? releaseTypesLogic.value : null,
+    );
     setList("statuses", selectedStatuses.value);
     setOrDelete(
       "statusesLogic",
@@ -511,6 +529,8 @@ export function useGalleryFilterUrl() {
       metadataProvidersLogic,
       selectedTags,
       tagsLogic,
+      selectedReleaseTypes,
+      releaseTypesLogic,
       selectedStatuses,
       statusesLogic,
       selectedLengthMinHours,
