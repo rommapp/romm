@@ -21,6 +21,7 @@ import platformApi from "@/services/api/platform";
 import storePermissionGroups from "@/stores/permissionGroups";
 import type { Platform } from "@/stores/platforms";
 import { GROUP_COLOR_PALETTE } from "@/utils/groupColor";
+import { clearOwnerlessOwnOnly } from "@/utils/permissionGrants";
 import AgeLimitFields from "./AgeLimitFields.vue";
 import HiddenGamesPicker from "./HiddenGamesPicker.vue";
 import HiddenPlatformsPicker from "./HiddenPlatformsPicker.vue";
@@ -66,6 +67,7 @@ const sortedPlatforms = computed(() =>
 );
 
 const entities = ref<PermEntity[]>([]);
+const ownableEntities = ref<PermEntity[]>([]);
 const actions = ref<PermAction[]>([]);
 
 async function ensureCatalog() {
@@ -73,6 +75,7 @@ async function ensureCatalog() {
   try {
     const { data } = await permissionsApi.fetchCatalog();
     entities.value = data.entities;
+    ownableEntities.value = data.ownable_entities;
     actions.value = data.actions;
   } catch (err) {
     console.error("Failed to load permission catalog", err);
@@ -158,7 +161,7 @@ async function save() {
     description: description.value,
     is_default: isDefault.value,
     color: color.value,
-    grants: grants.value,
+    grants: clearOwnerlessOwnOnly(grants.value, ownableEntities.value),
     age_limit: age.value.ageLimit,
     hide_unrated_roms: age.value.hideUnrated ?? false,
   };
@@ -305,6 +308,7 @@ async function save() {
           <PermissionsMatrix
             v-model="grants"
             :entities="entities"
+            :ownable-entities="ownableEntities"
             :actions="actions"
           />
         </div>

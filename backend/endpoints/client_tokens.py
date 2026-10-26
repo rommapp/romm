@@ -27,6 +27,7 @@ from utils.client_tokens import (
     generate_pair_code,
     parse_expiry,
     validate_scopes,
+    validate_token_within_caller,
 )
 from utils.router import APIRouter
 
@@ -63,7 +64,7 @@ def create_token(
     payload: ClientTokenCreatePayload,
 ) -> ClientTokenCreateSchema:
     user = request.user
-    validate_scopes(payload.scopes, user.oauth_scopes)
+    validate_scopes(payload.scopes, request.auth.scopes)
 
     count = db_client_token_handler.count_tokens_by_user(user.id)
     if count >= MAX_TOKENS_PER_USER:
@@ -113,6 +114,16 @@ async def delete_token(request: Request, token_id: int) -> None:
 
 @protected_route(router.put, "/{token_id}/regenerate", [Scope.ME_WRITE])
 async def regenerate_token(request: Request, token_id: int) -> ClientTokenCreateSchema:
+    existing = db_client_token_handler.get_token(
+        token_id=token_id, user_id=request.user.id
+    )
+    if existing is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Token not found",
+        )
+    validate_token_within_caller(request, existing)
+
     raw_token = auth_handler.generate_client_token()
     new_hash = auth_handler.hash_client_token(raw_token)
 
@@ -141,6 +152,7 @@ def pair_token(request: Request, token_id: int) -> ClientTokenPairSchema:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Token not found",
         )
+    validate_token_within_caller(request, token)
 
     code = generate_pair_code()
     redis_key = f"pair:{code}"

@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import status
+from tests.factories import make_device_token
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import client_tokens as client_tokens_endpoints
@@ -312,6 +313,62 @@ class TestClientTokenAuth:
             headers={"Authorization": f"Bearer {viewer_access_token}"},
         )
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+class TestClientTokenScopeCeiling:
+    @pytest.fixture
+    def narrow_headers(self, admin_user) -> dict[str, str]:
+        _, raw = make_device_token(admin_user, None, scopes="me.read me.write")
+        return {"Authorization": f"Bearer {raw}"}
+
+    @pytest.fixture
+    def broad_token_id(self, admin_user) -> int:
+        token, _ = make_device_token(
+            admin_user, None, scopes="me.read me.write users.write roms.read"
+        )
+        return token.id
+
+    def test_cannot_create_a_broader_token(self, client, narrow_headers):
+        response = client.post(
+            "/api/client-tokens",
+            json={"name": "Escalated", "scopes": ["users.write", "me.write"]},
+            headers=narrow_headers,
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "users.write" in response.json()["detail"]
+
+    def test_can_create_a_token_within_its_scopes(self, client, narrow_headers):
+        response = client.post(
+            "/api/client-tokens",
+            json={"name": "Narrower", "scopes": ["me.read"]},
+            headers=narrow_headers,
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+
+    def test_cannot_regenerate_a_broader_token(
+        self, client, narrow_headers, broad_token_id
+    ):
+        response = client.put(
+            f"/api/client-tokens/{broad_token_id}/regenerate",
+            headers=narrow_headers,
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_cannot_pair_a_broader_token(self, client, narrow_headers, broad_token_id):
+        response = client.post(
+            f"/api/client-tokens/{broad_token_id}/pair",
+            headers=narrow_headers,
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_full_scope_caller_can_regenerate_a_broad_token(
+        self, client, access_token, broad_token_id
+    ):
+        response = client.put(
+            f"/api/client-tokens/{broad_token_id}/regenerate",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
 
 
 class TestClientTokenUserIsolation:

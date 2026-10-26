@@ -166,15 +166,13 @@ def test_update_to_a_short_password_is_rejected(
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
-def test_a_delegated_user_manager_cannot_delete_the_last_admin(
-    client, admin_user: User, viewer_user: User
-):
+def _delegated_user_manager_token(user: User) -> str:
     db_permission_handler.replace_user_overrides(
-        viewer_user.id, [(PermEntity.USERS, PermAction.WRITE, True, False)]
+        user.id, [(PermEntity.USERS, PermAction.WRITE, True, False)]
     )
-    manager = db_user_handler.get_user(viewer_user.id)
+    manager = db_user_handler.get_user(user.id)
     assert manager
-    token = oauth_handler.create_access_token(
+    return oauth_handler.create_access_token(
         data={
             "sub": manager.username,
             "iss": "romm:oauth",
@@ -183,11 +181,70 @@ def test_a_delegated_user_manager_cannot_delete_the_last_admin(
         expires_delta=timedelta(minutes=5),
     )
 
-    response = client.delete(f"/api/users/{admin_user.id}", headers=_bearer(token))
+
+def test_a_delegated_user_manager_cannot_delete_an_admin(
+    client, admin_user: User, viewer_user: User
+):
+    other = db_user_handler.add_user(
+        User(username="other_admin", hashed_password="x", role=Role.ADMIN)
+    )
+    token = _delegated_user_manager_token(viewer_user)
+
+    for target in (admin_user, other):
+        response = client.delete(f"/api/users/{target.id}", headers=_bearer(token))
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert db_user_handler.get_user(target.id) is not None
+
+
+def test_a_delegated_user_manager_can_delete_a_non_admin(
+    client, admin_user: User, viewer_user: User, editor_user: User
+):
+    token = _delegated_user_manager_token(viewer_user)
+
+    response = client.delete(f"/api/users/{editor_user.id}", headers=_bearer(token))
+
+    assert response.status_code == status.HTTP_200_OK
+    assert db_user_handler.get_user(editor_user.id) is None
+
+
+def test_deleting_the_last_admin_is_refused(
+    client, access_token: str, admin_user: User, mocker
+):
+    other = db_user_handler.add_user(
+        User(username="other_admin", hashed_password="x", role=Role.ADMIN)
+    )
+    # Only reachable when another request removes this admin at the same time.
+    mocker.patch.object(
+        db_user_handler,
+        "refuse_removing_the_last_admin",
+        side_effect=LastAdminError(other.id),
+    )
+
+    response = client.delete(f"/api/users/{other.id}", headers=_bearer(access_token))
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert response.json()["detail"] == "You cannot delete the last admin user"
-    assert db_user_handler.get_user(admin_user.id) is not None
+    assert db_user_handler.get_user(other.id) is not None
+
+
+def test_an_admin_token_without_users_write_cannot_edit_another_user(
+    client, admin_user: User, viewer_user: User
+):
+    token = oauth_handler.create_access_token(
+        data={"sub": admin_user.username, "iss": "romm:oauth", "scopes": "me.write"},
+        expires_delta=timedelta(minutes=5),
+    )
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"password": "hijacked_password"},
+        headers=_bearer(token),
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    unchanged = db_user_handler.get_user(viewer_user.id)
+    assert unchanged and unchanged.hashed_password == viewer_user.hashed_password
 
 
 def test_a_demotion_that_would_leave_no_admin_is_refused(

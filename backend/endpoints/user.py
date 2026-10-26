@@ -426,7 +426,9 @@ async def update_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
 
     # Admin users can edit any user, while other users can only edit self
-    if db_user.id != request.user.id and request.user.role != Role.ADMIN:
+    if db_user.id != request.user.id and (
+        request.user.role != Role.ADMIN or Scope.USERS_WRITE not in request.auth.scopes
+    ):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
     cleaned_data: dict[str, Any] = {}
@@ -603,6 +605,13 @@ async def delete_user(
     # You can't delete the user you're logged in as
     if request.user.id == id:
         raise HTTPException(status_code=400, detail="You cannot delete yourself")
+
+    # Mirrors add_user: USERS_WRITE is delegable, removing an admin is not.
+    if user.role == Role.ADMIN and request.user.role != Role.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only an administrator can delete admin users",
+        )
 
     token_ids = db_client_token_handler.get_token_ids_by_users([id])
     device_ids = [device.id for device in db_device_handler.get_devices(user_id=id)]

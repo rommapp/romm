@@ -44,6 +44,20 @@ class PermEntity(enum.StrEnum):
     EMULATION = "emulation"
 
 
+# Entities whose rows belong to a user, so an own_only grant has something to
+# narrow to. On any other entity "own" would silently mean "all".
+OWNABLE_PERM_ENTITIES: Final = frozenset(
+    {
+        PermEntity.COLLECTIONS,
+        PermEntity.PLAYLISTS,
+        PermEntity.ASSETS,
+        PermEntity.DEVICES,
+        PermEntity.STREAMING,
+        PermEntity.EMULATION,
+    }
+)
+
+
 class PermAction(enum.StrEnum):
     READ = "read"
     WRITE = "write"

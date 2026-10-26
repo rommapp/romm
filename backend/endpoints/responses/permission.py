@@ -14,10 +14,16 @@ from __future__ import annotations
 import enum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from handler.auth.permissions import ResolvedPermissions
-from models.permission import MAX_AGE_LIMIT, PermAction, PermEntity, SystemGroupKey
+from models.permission import (
+    MAX_AGE_LIMIT,
+    OWNABLE_PERM_ENTITIES,
+    PermAction,
+    PermEntity,
+    SystemGroupKey,
+)
 
 AgeLimit = Annotated[int, Field(ge=0, le=MAX_AGE_LIMIT)]
 
@@ -167,6 +173,16 @@ class GrantSchemaIO(BaseModel):
     own_only: bool = False
 
 
+def _reject_ownerless_own_only[T: GrantSchemaIO | OverrideSchemaIO](
+    items: list[T] | None,
+) -> list[T] | None:
+    """Reject ``own_only`` on entities with no owner, where it would grant everything."""
+    for item in items or ():
+        if item.own_only and item.entity not in OWNABLE_PERM_ENTITIES:
+            raise ValueError(f"own_only is not supported for {item.entity}")
+    return items
+
+
 class PermissionGroupSchema(BaseModel):
     id: int
     name: str
@@ -195,6 +211,8 @@ class PermissionGroupCreate(BaseModel):
     age_limit: AgeLimit | None = None
     hide_unrated_roms: bool = False
 
+    _check_grants = field_validator("grants")(_reject_ownerless_own_only)
+
 
 class PermissionGroupUpdate(BaseModel):
     name: str | None = None
@@ -206,6 +224,8 @@ class PermissionGroupUpdate(BaseModel):
     age_limit: AgeLimit | None = None
     hide_unrated_roms: bool = False
     set_age_settings: bool = False
+
+    _check_grants = field_validator("grants")(_reject_ownerless_own_only)
 
 
 class OverrideSchemaIO(BaseModel):
@@ -251,9 +271,13 @@ class UserPermissionsUpdate(BaseModel):
     hide_unrated_roms: bool | None = None
     set_age_settings: bool = False
 
+    _check_overrides = field_validator("overrides")(_reject_ownerless_own_only)
+
 
 class PermissionCatalogSchema(BaseModel):
     """The vocabulary the admin UI renders the group/override matrix from."""
 
     entities: list[PermEntity]
     actions: list[PermAction]
+    # Entities that accept own_only; the matrix offers "own" only on these.
+    ownable_entities: list[PermEntity]

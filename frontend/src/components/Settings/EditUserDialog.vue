@@ -22,6 +22,7 @@ import type { Platform } from "@/stores/platforms";
 import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
+import { clearOwnerlessOwnOnly } from "@/utils/permissionGrants";
 import { userAvatarUrl } from "@/utils/userAvatar";
 import AgeLimitFields from "./AgeLimitFields.vue";
 import HiddenGamesPicker from "./HiddenGamesPicker.vue";
@@ -66,6 +67,7 @@ const accessError = ref(false);
 // Advanced: per-user overrides + per-game hiding.
 const showAdvanced = ref(false);
 const entities = ref<PermEntity[]>([]);
+const ownableEntities = ref<PermEntity[]>([]);
 const actions = ref<PermAction[]>([]);
 const overrides = ref<OverrideSchemaIO[]>([]);
 const originalOverrides = ref<OverrideSchemaIO[]>([]);
@@ -85,6 +87,7 @@ async function ensureCatalog() {
   try {
     const { data } = await permissionsApi.fetchCatalog();
     entities.value = data.entities;
+    ownableEntities.value = data.ownable_entities;
     actions.value = data.actions;
   } catch (err) {
     console.error("Failed to load permission catalog", err);
@@ -249,7 +252,9 @@ function accessEdits(userId: number) {
       ? {
           set_group: groupChanged,
           permission_group_id: groupId.value,
-          overrides: overridesChanged ? [...overrides.value] : null,
+          overrides: overridesChanged
+            ? clearOwnerlessOwnOnly(overrides.value, ownableEntities.value)
+            : null,
           set_age_settings: ageChanged,
           age_limit: age.value.ageLimit,
           hide_unrated_roms: age.value.hideUnrated,
@@ -506,6 +511,7 @@ function close() {
               <OverridesMatrix
                 v-model="overrides"
                 :entities="entities"
+                :ownable-entities="ownableEntities"
                 :actions="actions"
               />
             </div>

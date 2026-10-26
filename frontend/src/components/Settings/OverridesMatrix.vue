@@ -2,8 +2,9 @@
 // OverridesMatrix: per-user permission overrides on top of the user's
 // group. Each (entity, action) cell is a multi-state checkbox cycling
 // inherit (defer to group) -> grant (force-allow, primary) -> grant-own
-// (force-allow own items, accent) -> revoke (force-deny, danger). The
-// model is the list of explicit overrides (absence of a cell = inherit).
+// (force-allow own items, accent) -> revoke (force-deny, danger). Grant-own
+// is offered only on entities whose rows have an owner. The model is the
+// list of explicit overrides (absence of a cell = inherit).
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { OverrideSchemaIO, PermAction, PermEntity } from "@/__generated__";
@@ -14,6 +15,7 @@ defineOptions({ inheritAttrs: false });
 const props = defineProps<{
   modelValue: OverrideSchemaIO[];
   entities: PermEntity[];
+  ownableEntities: PermEntity[];
   actions: PermAction[];
 }>();
 
@@ -33,7 +35,12 @@ function stateOf(entity: PermEntity, action: PermAction): CellState {
   );
   if (!o) return "inherit";
   if (!o.granted) return "revoke";
-  return o.own_only ? "grant_own" : "grant";
+  // Without an owner the server treats an own-only grant as library-wide.
+  return o.own_only && canOwn(entity) ? "grant_own" : "grant";
+}
+
+function canOwn(entity: PermEntity): boolean {
+  return props.ownableEntities.includes(entity);
 }
 
 // Cycle: inherit (empty) -> grant (primary check) -> grant-own (accent
@@ -44,6 +51,7 @@ const OVR_STATES: RCheckboxState[] = [
   { value: "grant_own", color: "accent", icon: "mdi-account" },
   { value: "revoke", color: "danger", icon: "mdi-close" },
 ];
+const OWNERLESS_OVR_STATES = OVR_STATES.filter((s) => s.value !== "grant_own");
 
 function onState(entity: PermEntity, action: PermAction, value: string) {
   const without = props.modelValue.filter(
@@ -142,7 +150,7 @@ function toggleColumn(a: PermAction, value: boolean) {
         <RCheckbox
           bare
           size="sm"
-          :states="OVR_STATES"
+          :states="canOwn(e) ? OVR_STATES : OWNERLESS_OVR_STATES"
           :state-value="stateOf(e, a)"
           :aria-label="`${entityLabel(e)} ${actionLabel(a)} ${stateLabel(stateOf(e, a))}`"
           @update:state-value="(v) => onState(e, a, v)"

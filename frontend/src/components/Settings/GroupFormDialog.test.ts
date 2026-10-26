@@ -16,7 +16,9 @@ vi.mock("vue-i18n");
 vi.mock("@/services/api/permissions", () => ({
   default: {
     fetchCatalog: () =>
-      Promise.resolve({ data: { entities: [], actions: [] } }),
+      Promise.resolve({
+        data: { entities: [], actions: [], ownable_entities: [] },
+      }),
     createGroup,
     updateGroup,
   },

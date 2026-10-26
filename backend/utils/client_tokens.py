@@ -1,5 +1,6 @@
 import json
 import secrets
+from collections.abc import Iterable
 from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, Request, status
@@ -10,7 +11,6 @@ from endpoints.responses.client_token import (
     ClientTokenSchema,
 )
 from handler.auth.base_handler import auth_handler
-from handler.auth.constants import Scope
 from handler.database import db_client_token_handler, db_user_handler
 from handler.redis_handler import sync_cache
 from models.client_token import ClientToken
@@ -46,15 +46,26 @@ def parse_expiry(expires_in: str | None) -> datetime | None:
     return datetime.now(timezone.utc) + delta
 
 
-def validate_scopes(requested: list[str], user_scopes: list[Scope]) -> None:
-    user_scope_values = {str(s) for s in user_scopes}
-    invalid = set(requested) - user_scope_values
+def validate_scopes(requested: Iterable[str], caller_scopes: Iterable[str]) -> None:
+    """Reject scopes the caller doesn't hold, so a token can't mint a broader one.
+
+    Args:
+        caller_scopes: ``request.auth.scopes``, which for a client or OAuth token
+            is the token's scopes rather than the whole account's.
+    """
+    invalid = set(requested) - {str(s) for s in caller_scopes}
     if invalid:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Requested scopes exceed your permissions: "
             f"{', '.join(sorted(invalid))}",
         )
+
+
+def validate_token_within_caller(request: Request, token: ClientToken) -> None:
+    """Reject handing out a token's secret to a caller holding fewer scopes than it grants."""
+    effective = set(token.scopes.split()) & {str(s) for s in request.user.oauth_scopes}
+    validate_scopes(effective, request.auth.scopes)
 
 
 def check_rate_limit(request: Request) -> None:
