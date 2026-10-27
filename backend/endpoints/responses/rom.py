@@ -402,6 +402,7 @@ class RomSchema(BaseModel):
     steam_metadata: RomSteamMetadata | None
     gamelist_metadata: RomGamelistMetadata | None
     manual_metadata: ManualMetadata | None
+    metadata_locked_fields: list[str]
 
     path_cover_small: str | None
     path_cover_large: str | None

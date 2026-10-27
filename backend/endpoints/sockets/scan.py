@@ -765,22 +765,26 @@ async def _identify_rom(
     # post-scan download steps below skip downloads when a file already exists or
     # when the source URL is unchanged, so the on-disk files must be removed here.
     if not newly_added and scan_type == ScanType.COMPLETE:
-        try:
-            await fs_resource_handler.remove_cover(rom)
-        except FileNotFoundError:
-            pass
+        metadata_locks, legacy_locks = db_rom_handler.get_rom_resource_locks(rom.id)
+        if "cover" not in metadata_locks and "url_cover" not in legacy_locks:
+            try:
+                await fs_resource_handler.remove_cover(rom)
+            except FileNotFoundError:
+                pass
 
-        try:
-            await fs_resource_handler.remove_manual(rom)
-        except FileNotFoundError:
-            pass
+        if "manual" not in metadata_locks and "url_manual" not in legacy_locks:
+            try:
+                await fs_resource_handler.remove_manual(rom)
+            except FileNotFoundError:
+                pass
 
-        try:
-            await fs_resource_handler.remove_directory(
-                f"{rom.fs_resources_path}/screenshots"
-            )
-        except FileNotFoundError:
-            pass
+        if "screenshots" not in metadata_locks:
+            try:
+                await fs_resource_handler.remove_directory(
+                    f"{rom.fs_resources_path}/screenshots"
+                )
+            except FileNotFoundError:
+                pass
 
         for media_type in MetadataMediaType:
             try:
@@ -809,7 +813,7 @@ async def _identify_rom(
         identified_roms=1 if scanned_rom.is_identified else 0,
     )
 
-    _added_rom = db_rom_handler.add_rom(scanned_rom)
+    _added_rom = db_rom_handler.persist_scan_result(rom.id, scanned_rom)
     scanned_rom_ids.add(_added_rom.id)
 
     if _added_rom.is_identified:

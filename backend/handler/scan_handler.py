@@ -89,6 +89,7 @@ from utils import emoji
 from utils.audio_tags import persist_embedded_cover, remove_persisted_cover
 from utils.concurrency import gather_all
 from utils.filesystem import sanitize_filename
+from utils.metadata_locks import apply_metadata_lock_snapshots
 from utils.platform_aliases import (
     resolve_fs_folder,
     resolve_fs_slug,
@@ -588,6 +589,37 @@ async def emit_scanning_rom(
     )
     payload["is_new"] = is_new
     await socket_manager.emit("scan:scanning_rom", payload)
+
+
+def _build_scan_result(rom_attrs: dict[str, Any], rom: Rom) -> Rom:
+    """Return merged scan values with the source values for boundary-time locks."""
+    unlocked_attrs = {
+        field: rom_attrs[field]
+        for field in (
+            "name",
+            "summary",
+            "url_cover",
+            "path_cover_s",
+            "path_cover_l",
+            "url_screenshots",
+            "path_screenshots",
+            "url_manual",
+            "path_manual",
+        )
+        if field in rom_attrs
+    }
+    apply_metadata_lock_snapshots(rom_attrs, rom.metadata_locks)
+    if rom.is_field_locked("url_cover"):
+        rom_attrs.update(
+            url_cover=rom.url_cover,
+            path_cover_s=rom.path_cover_s,
+            path_cover_l=rom.path_cover_l,
+        )
+    if rom.is_field_locked("url_manual"):
+        rom_attrs.update(url_manual=rom.url_manual, path_manual=rom.path_manual)
+    result = Rom(**rom_attrs)
+    setattr(result, "_scan_unlocked_attrs", unlocked_attrs)
+    return result
 
 
 async def scan_rom(
@@ -1434,7 +1466,7 @@ async def scan_rom(
                 "path_cover_l": "",
                 "path_screenshots": [],
                 "path_manual": "",
-                "locked_fields": [],
+                "locked_fields": rom.locked_fields,
             }
         )
 
@@ -1645,7 +1677,7 @@ async def scan_rom(
                 f"{hl(rom_attrs['fs_name'])} not identified {emoji.EMOJI_CROSS_MARK}",
                 extra=LOGGER_MODULE_NAME,
             )
-        return Rom(**rom_attrs)
+        return _build_scan_result(rom_attrs, rom)
 
     async def fetch_sgdb_details(playmatch_rom: PlaymatchRomMatch) -> SGDBRom:
         """Fetch SteamGridDB details for the ROM."""
@@ -1734,7 +1766,7 @@ async def scan_rom(
             )
 
     rom_attrs["missing_from_fs"] = False
-    return Rom(**rom_attrs)
+    return _build_scan_result(rom_attrs, rom)
 
 
 # The provider columns that store media, highest priority first: the order
@@ -1744,6 +1776,46 @@ MEDIA_PROVIDERS: Final[tuple[tuple[str, str, Callable[[str], str] | None], ...]]
     ("gamelist_metadata", MetadataSource.GAMELIST, None),
     ("launchbox_metadata", MetadataSource.LAUNCHBOX, None),
 )
+
+
+async def _get_cover_resource(
+    rom: Rom, previous_url: str | None, *, locked: bool
+) -> tuple[str | None, str | None]:
+    if locked:
+        return rom.path_cover_s, rom.path_cover_l
+    return await fs_resource_handler.get_cover(
+        entity=rom,
+        overwrite=rom.url_cover != previous_url,
+        url_cover=add_ss_auth_to_url(rom.url_cover),
+    )
+
+
+async def _get_manual_resource(
+    rom: Rom, previous_url: str | None, *, locked: bool
+) -> str | None:
+    if locked:
+        return rom.path_manual
+    return await fs_resource_handler.get_manual(
+        rom=rom,
+        overwrite=rom.url_manual != previous_url,
+        url_manual=add_ss_auth_to_url(rom.url_manual),
+    )
+
+
+async def _get_screenshot_resources(
+    rom: Rom,
+    previous_urls: list[str] | None,
+    urls: list[str],
+    *,
+    locked: bool,
+) -> list[str]:
+    if locked:
+        return rom.path_screenshots or []
+    return await fs_resource_handler.get_rom_screenshots(
+        rom=rom,
+        overwrite=urls != (previous_urls or []),
+        url_screenshots=[add_ss_auth_to_url(url) for url in urls],
+    )
 
 
 async def download_rom_resources(
@@ -1764,9 +1836,11 @@ async def download_rom_resources(
             like ``ss_metadata``, so media whose source changed is fetched again.
     """
     url_screenshots = added_rom.url_screenshots or []
-    # Files are named by position, so a reorder is a change too.
-    screenshots_changed = url_screenshots != (previous_url_screenshots or [])
-
+    locked_fields = set(added_rom.metadata_locked_fields)
+    if added_rom.is_field_locked("url_cover"):
+        locked_fields.add("cover")
+    if added_rom.is_field_locked("url_manual"):
+        locked_fields.add("manual")
     preferred_media_types = get_preferred_media_types()
     providers = MEDIA_PROVIDERS
     provider_media: list[tuple[str, dict[str, Any], Callable[[str], str] | None]] = [
@@ -1806,20 +1880,17 @@ async def download_rom_resources(
     # landed is saved even when another download failed, then that failure raised.
     outcomes: tuple[Any, ...] = await asyncio.gather(
         gather_all(
-            fs_resource_handler.get_cover(
-                entity=added_rom,
-                overwrite=added_rom.url_cover != previous_url_cover,
-                url_cover=add_ss_auth_to_url(added_rom.url_cover),
+            _get_cover_resource(
+                added_rom, previous_url_cover, locked="cover" in locked_fields
             ),
-            fs_resource_handler.get_manual(
-                rom=added_rom,
-                overwrite=added_rom.url_manual != previous_url_manual,
-                url_manual=add_ss_auth_to_url(added_rom.url_manual),
+            _get_manual_resource(
+                added_rom, previous_url_manual, locked="manual" in locked_fields
             ),
-            fs_resource_handler.get_rom_screenshots(
-                rom=added_rom,
-                overwrite=screenshots_changed,
-                url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
+            _get_screenshot_resources(
+                added_rom,
+                previous_url_screenshots,
+                url_screenshots,
+                locked="screenshots" in locked_fields,
             ),
         ),
         store_provider_media(),

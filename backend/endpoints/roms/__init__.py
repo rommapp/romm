@@ -48,7 +48,10 @@ from endpoints.responses.rom import (
     RomUserSchema,
     SimpleRomSchema,
 )
-from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
+from exceptions.endpoint_exceptions import (
+    PlatformNotFoundInDatabaseException,
+    RomNotFoundInDatabaseException,
+)
 from exceptions.fs_exceptions import (
     RomAlreadyExistsException,
     RomListedByPlaylistException,
@@ -141,6 +144,7 @@ from models.rom import (
     compute_name_sort_key,
 )
 from utils import switch
+from utils.metadata_locks import METADATA_LOCKABLE_FIELDS, MetadataLockField
 from utils.background_tasks import fire_and_forget
 from utils.conversion_cache import (
     RETRY_AFTER_SECONDS,
@@ -270,6 +274,25 @@ def build_unscoped_filter_values_cache_key(
     """Filter values ignore ordering and grouping (their query strips both),
     so one per-user entry serves every sort."""
     return f"all:u{user_id}" if is_unscoped else None
+
+
+class MetadataLockUpdateForm(BaseModel):
+    fields: list[MetadataLockField] = Field(min_length=1)
+    locked: bool
+
+
+class BulkMetadataLockUpdateForm(MetadataLockUpdateForm):
+    platform_id: int | None = Field(default=None, ge=1)
+    all: bool = False
+
+
+class MetadataLockResponse(BaseModel):
+    locked_fields: list[str]
+
+
+class BulkMetadataLockResponse(BaseModel):
+    updated: int
+    failed: int
 
 
 class RomUpdateForm(BaseModel):
@@ -1268,6 +1291,90 @@ def get_rom_simple(
     assert_rom_visible(request, rom)
 
     return SimpleRomSchema.from_orm_with_request(rom, request)
+
+
+@protected_route(
+    router.put,
+    "/{id}/metadata-locks",
+    [Scope.ROMS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+def update_rom_metadata_locks(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    form_data: MetadataLockUpdateForm,
+) -> MetadataLockResponse:
+    rom = db_rom_handler.get_rom(id)
+    if rom is None:
+        raise RomNotFoundInDatabaseException(id)
+    assert_rom_visible(request, rom)
+
+    fields = set(form_data.fields)
+    if unknown := fields - METADATA_LOCKABLE_FIELDS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Unsupported metadata lock fields: {sorted(unknown)}",
+        )
+    locked_fields = db_rom_handler.set_metadata_locks(
+        id, sorted(fields), form_data.locked
+    )
+    if locked_fields is None:
+        raise RomNotFoundInDatabaseException(id)
+    db_rom_handler.invalidate_filter_values_cache()
+    refresh_affected_smart_collections([id])
+    return MetadataLockResponse(locked_fields=locked_fields)
+
+
+@protected_route(
+    router.put,
+    "/metadata-locks",
+    [Scope.ROMS_WRITE],
+)
+def update_bulk_metadata_locks(
+    request: Request,
+    form_data: BulkMetadataLockUpdateForm,
+) -> BulkMetadataLockResponse:
+    if (form_data.platform_id is None) == (not form_data.all):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Provide either platform_id or all=true",
+        )
+    fields = set(form_data.fields)
+    if unknown := fields - METADATA_LOCKABLE_FIELDS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Unsupported metadata lock fields: {sorted(unknown)}",
+        )
+    platform_id = form_data.platform_id
+    if platform_id is not None:
+        platform = db_platform_handler.get_platform(platform_id)
+        if platform is None:
+            raise PlatformNotFoundInDatabaseException(platform_id)
+        assert_platform_visible(request, platform)
+
+    visibility = get_permissions(request).rom_visibility
+    updated = 0
+    failed = 0
+    after_id = 0
+    while True:
+        rom_ids = db_rom_handler.get_metadata_lock_batch(
+            platform_id=platform_id,
+            after_id=after_id,
+            limit=500,
+            visibility=visibility,
+        )
+        if not rom_ids:
+            break
+        batch_updated, batch_failed = db_rom_handler.set_bulk_metadata_locks(
+            rom_ids, sorted(fields), form_data.locked
+        )
+        updated += batch_updated
+        failed += batch_failed
+        refresh_affected_smart_collections(rom_ids)
+        after_id = rom_ids[-1]
+
+    db_rom_handler.invalidate_filter_values_cache()
+    return BulkMetadataLockResponse(updated=updated, failed=failed)
 
 
 @protected_route(
@@ -2400,6 +2507,41 @@ async def update_rom(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update ROM {id}: {exc}",
         ) from exc
+
+    metadata_locks = set((rom.metadata_locks or {}).keys())
+    refreshed_locks: set[str] = {
+        field
+        for field in ("name", "summary")
+        if field in metadata_locks and field in provided_fields
+    }
+    if "cover" in metadata_locks and (
+        remove_cover
+        or (artwork is not None and artwork.filename is not None)
+        or ("url_cover" in provided_fields and form_data.url_cover != rom.url_cover)
+    ):
+        refreshed_locks.add("cover")
+    if (
+        "manual" in metadata_locks
+        and "url_manual" in provided_fields
+        and form_data.url_manual != rom.url_manual
+    ):
+        refreshed_locks.add("manual")
+    if "manual_metadata" in cleaned_data:
+        refreshed_locks.update(
+            metadata_locks
+            & {
+                "genres",
+                "franchises",
+                "collections",
+                "companies",
+                "game_modes",
+                "age_ratings",
+                "first_release_date",
+                "player_count",
+            }
+        )
+    for field in refreshed_locks:
+        db_rom_handler.refresh_metadata_lock_snapshot(id, field)
 
     if should_update_fs:
         for file in rom.files:
