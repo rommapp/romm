@@ -204,7 +204,7 @@ export const IconSlotCustom: Story = {
         <RBtn icon variant="text" aria-label="Emoji button" style="width:auto;min-width:0;padding:3px">
           <span style="font-size:18px;line-height:1">🎮</span>
         </RBtn>
-        <RBtn icon variant="outlined" aria-label="Mixed content" style="width:auto;min-width:0;padding:3px 8px">
+        <RBtn icon variant="outlined" aria-label="Rating 9" style="width:auto;min-width:0;padding:3px 8px">
           <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px">⭐ <span>9</span></span>
         </RBtn>
       </div>

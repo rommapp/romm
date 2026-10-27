@@ -2,6 +2,8 @@ import { type VueWrapper, flushPromises, mount } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { UserPermissionsSchema } from "@/__generated__";
+import { RTextField } from "@/lib";
+import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
 import { userFixture } from "@/utils/user.fixtures";
 import AgeLimitFields from "./AgeLimitFields.vue";
@@ -144,7 +146,9 @@ describe("EditUserDialog avatar preview", () => {
 describe("EditUserDialog age settings", () => {
   beforeEach(() => {
     fetchUserPermissions.mockResolvedValue(permissions());
-    fetchCatalog.mockResolvedValue({ data: { entities: [], actions: [] } });
+    fetchCatalog.mockResolvedValue({
+      data: { entities: [], actions: [], ownable_entities: [] },
+    });
     getPlatforms.mockResolvedValue({ data: [] });
     updateUser.mockResolvedValue({
       data: userFixture({ id: 4, role: "user" }),
@@ -288,5 +292,107 @@ describe("EditUserDialog age settings", () => {
 
     expect(updateUser).toHaveBeenCalledOnce();
     expect(updateUserPermissions).not.toHaveBeenCalled();
+  });
+});
+
+describe("EditUserDialog current password", () => {
+  beforeEach(() => {
+    updateUser.mockResolvedValue({
+      data: userFixture({ id: 4, role: "admin" }),
+    });
+  });
+
+  function field(wrapper: VueWrapper, autocomplete: string, index = 0) {
+    return wrapper
+      .findAllComponents(RTextField)
+      .filter((f) => f.props("autocomplete") === autocomplete)[index];
+  }
+
+  async function setNewPassword(wrapper: VueWrapper) {
+    field(wrapper, "new-password")?.vm.$emit("update:modelValue", "new_pass");
+    await flushPromises();
+    field(wrapper, "new-password", 1)?.vm.$emit(
+      "update:modelValue",
+      "new_pass",
+    );
+    await flushPromises();
+  }
+
+  function apply(wrapper: VueWrapper) {
+    return wrapper.findAll("button").find((b) => b.text() === "common.apply");
+  }
+
+  it("asks for it when changing your own password", async () => {
+    storeAuth().setCurrentUser(userFixture({ id: 4 }));
+    const { wrapper } = await mountDialog();
+
+    await setNewPassword(wrapper);
+    expect(apply(wrapper)?.attributes()).toHaveProperty("disabled");
+
+    field(wrapper, "current-password")?.vm.$emit(
+      "update:modelValue",
+      "old_pass",
+    );
+    await flushPromises();
+    await apply(wrapper)?.trigger("click");
+    await flushPromises();
+
+    expect(updateUser).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        password: "new_pass",
+        current_password: "old_pass",
+      }),
+    );
+  });
+
+  it("does not ask for it when resetting another user's password", async () => {
+    storeAuth().setCurrentUser(userFixture({ id: 1 }));
+    const { wrapper } = await mountDialog();
+
+    await setNewPassword(wrapper);
+    expect(field(wrapper, "current-password")).toBeUndefined();
+    await apply(wrapper)?.trigger("click");
+    await flushPromises();
+
+    expect(updateUser).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        password: "new_pass",
+        current_password: undefined,
+      }),
+    );
+  });
+
+  it("does not ask for it on an account without a password", async () => {
+    storeAuth().setCurrentUser(userFixture({ id: 4, has_password: false }));
+    const { wrapper } = await mountDialog();
+
+    await setNewPassword(wrapper);
+
+    expect(field(wrapper, "current-password")).toBeUndefined();
+  });
+});
+
+describe("EditUserDialog OIDC email", () => {
+  const emailField = (wrapper: VueWrapper) =>
+    wrapper
+      .findAllComponents(RTextField)
+      .find((f) => f.props("type") === "email");
+
+  it("locks your own email when the identity provider manages it", async () => {
+    storeAuth().setCurrentUser(
+      userFixture({ id: 4, email_managed_by_oidc: true }),
+    );
+    const { wrapper } = await mountDialog();
+
+    expect(emailField(wrapper)?.props("readonly")).toBe(true);
+  });
+
+  it("leaves another user's email editable", async () => {
+    storeAuth().setCurrentUser(
+      userFixture({ id: 1, email_managed_by_oidc: true }),
+    );
+    const { wrapper } = await mountDialog();
+
+    expect(emailField(wrapper)?.props("readonly")).toBe(false);
   });
 });

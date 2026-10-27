@@ -8,6 +8,7 @@ from sqlalchemy import TIMESTAMP, Boolean, Enum, ForeignKey, Index, Integer, Str
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from starlette.authentication import SimpleUser
 
+from config import OIDC_ENABLED
 from handler.auth.constants import Scope
 from models.base import BaseModel
 from models.permission import PermissionGroup
@@ -165,6 +166,18 @@ class User(BaseModel, SimpleUser):
         from handler.auth.permissions import compute_oauth_scopes
 
         return compute_oauth_scopes(self)
+
+    @property
+    def has_password(self) -> bool:
+        """Whether the account can sign in with a password: OIDC-provisioned
+        accounts hold a random placeholder instead of a bcrypt hash."""
+        return bool(self.hashed_password and self.hashed_password.startswith("$2"))
+
+    @property
+    def email_managed_by_oidc(self) -> bool:
+        """Whether the provider owns the email: it overwrites a linked account's
+        at every sign-in, and finds an unlinked password-less account by it."""
+        return OIDC_ENABLED and (self.oidc_sub is not None or not self.has_password)
 
     @property
     def fs_safe_folder_name(self) -> str:

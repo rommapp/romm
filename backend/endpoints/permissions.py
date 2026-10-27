@@ -30,7 +30,12 @@ from handler.database import (
 from handler.socket_handler import close_client_token_sockets, socket_handler
 from logger.logger import log
 from models.audit_event import AuditAction, AuditTargetType
-from models.permission import PermAction, PermEntity, PermissionGroup
+from models.permission import (
+    OWNABLE_PERM_ENTITIES,
+    PermAction,
+    PermEntity,
+    PermissionGroup,
+)
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -86,7 +91,11 @@ def get_my_permissions(request: Request) -> PermissionsResponse:
 def get_permission_catalog(request: Request) -> PermissionCatalogSchema:
     """The entity/action vocabulary the admin UI renders its matrix from."""
     assert_admin(request)
-    return PermissionCatalogSchema(entities=list(PermEntity), actions=list(PermAction))
+    return PermissionCatalogSchema(
+        entities=list(PermEntity),
+        actions=list(PermAction),
+        ownable_entities=[e for e in PermEntity if e in OWNABLE_PERM_ENTITIES],
+    )
 
 
 # --- Admin: permission groups -------------------------------------------------

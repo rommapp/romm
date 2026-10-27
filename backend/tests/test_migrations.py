@@ -1328,3 +1328,78 @@ def test_the_play_permissions_revision_backfills_reverses_and_replays(
             for action in ("read", "write")
         }
         connection.execute(_GROUPS.delete().where(_GROUPS.c.name == "Locked down"))
+
+
+def test_the_ownerless_own_only_revision_keeps_each_rows_access(admin_user: User):
+    """0154 rewrites own_only on owner-less entities to the access it gave."""
+    migration = _load_migration("0154_ownerless_own_only.py")
+
+    with sync_engine.begin() as connection:
+        connection.execute(
+            _GROUPS.insert().values(
+                name="Legacy own",
+                description="",
+                is_default=False,
+                hide_unrated_roms=False,
+            )
+        )
+        group_id: int = connection.execute(
+            sa.select(_GROUPS.c.id).where(_GROUPS.c.name == "Legacy own")
+        ).scalar_one()
+        connection.execute(
+            _GRANTS.insert(),
+            [
+                {"group_id": group_id, "entity": e, "action": a, "own_only": True}
+                for e, a in (
+                    ("users", "write"),
+                    ("users", "delete"),
+                    ("collections", "delete"),
+                )
+            ],
+        )
+        connection.execute(
+            _OVERRIDES.insert(),
+            [
+                {
+                    "user_id": admin_user.id,
+                    "entity": e,
+                    "action": a,
+                    "granted": granted,
+                    "own_only": True,
+                }
+                for e, a, granted in (
+                    ("tasks", "write", True),
+                    ("tasks", "delete", True),
+                    ("logs", "read", False),
+                    ("devices", "write", True),
+                )
+            ],
+        )
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+            migration.upgrade()
+
+        grants = {
+            (row.entity, row.action, bool(row.own_only))
+            for row in connection.execute(
+                sa.select(_GRANTS).where(_GRANTS.c.group_id == group_id)
+            )
+        }
+        overrides = {
+            (row.entity, row.action, bool(row.granted), bool(row.own_only))
+            for row in connection.execute(
+                sa.select(_OVERRIDES).where(_OVERRIDES.c.user_id == admin_user.id)
+            )
+        }
+        connection.execute(_GROUPS.delete().where(_GROUPS.c.id == group_id))
+        connection.execute(
+            _OVERRIDES.delete().where(_OVERRIDES.c.user_id == admin_user.id)
+        )
+
+    assert grants == {("users", "write", False), ("collections", "delete", True)}
+    assert overrides == {
+        ("tasks", "write", True, False),
+        ("tasks", "delete", False, False),
+        ("logs", "read", False, False),
+        ("devices", "write", True, True),
+    }

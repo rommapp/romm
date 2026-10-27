@@ -2135,6 +2135,31 @@ def test_an_admin_controls_the_pools_one_active_session(
     assert volume.call_args[0][0].host == "http://192.168.1.10:3000"
 
 
+def _scoped_admin_token(admin_user: User, scopes: str) -> str:
+    return oauth_handler.create_access_token(
+        data={"sub": admin_user.username, "iss": "romm:oauth", "scopes": scopes},
+        expires_delta=timedelta(minutes=5),
+    )
+
+
+def test_an_admin_token_without_users_write_cannot_control_another_session(
+    client, admin_user: User, viewer_access_token, rom: Rom
+):
+    token = _scoped_admin_token(admin_user, "roms.read roms.user.write")
+    with _streaming(_pool_member(rom, 0)):
+        _claim_ok(client, viewer_access_token, rom.id)
+        r = _volume(client, token, rom.platform_slug)
+    assert r.status_code == 403
+
+
+def test_an_admin_token_without_users_read_cannot_list_containers(
+    client, admin_user: User
+):
+    token = _scoped_admin_token(admin_user, "roms.read")
+    with _streaming(_webstation()):
+        assert _containers(client, token).status_code == 403
+
+
 def test_an_admin_cannot_guess_which_of_two_sessions_to_control(
     client, access_token, viewer_access_token, editor_access_token, rom: Rom
 ):

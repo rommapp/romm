@@ -44,9 +44,8 @@ def resolve_client_token(raw_token: str) -> ClientTokenIdentity | None:
     if user is None or not user.enabled:
         return None
 
-    token_scopes = set(client_token.scopes.split())
     return ClientTokenIdentity(
-        client_token, user, list(token_scopes & set(user.oauth_scopes))
+        client_token, user, list(client_token.effective_scopes(user))
     )
 
 
@@ -82,7 +81,7 @@ class HybridAuthBackend(AuthenticationBackend):
             # Check if basic auth header is valid
             if scheme.lower() == "basic":
                 try:
-                    credentials = await HTTPBasic().__call__(conn)  # type: ignore[arg-type]
+                    credentials = await HTTPBasic().__call__(conn)
                 except HTTPException:
                     return None
                 if not credentials:

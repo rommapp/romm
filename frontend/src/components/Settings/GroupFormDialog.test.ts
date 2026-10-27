@@ -7,7 +7,8 @@ import type { Events } from "@/types/emitter";
 import AgeLimitFields from "./AgeLimitFields.vue";
 import GroupFormDialog from "./GroupFormDialog.vue";
 
-const { createGroup, updateGroup } = vi.hoisted(() => ({
+const { fetchCatalog, createGroup, updateGroup } = vi.hoisted(() => ({
+  fetchCatalog: vi.fn(),
   createGroup: vi.fn(),
   updateGroup: vi.fn(),
 }));
@@ -15,8 +16,7 @@ const { createGroup, updateGroup } = vi.hoisted(() => ({
 vi.mock("vue-i18n");
 vi.mock("@/services/api/permissions", () => ({
   default: {
-    fetchCatalog: () =>
-      Promise.resolve({ data: { entities: [], actions: [] } }),
+    fetchCatalog,
     createGroup,
     updateGroup,
   },
@@ -50,6 +50,13 @@ const group: PermissionGroupSchema = {
 };
 
 beforeEach(() => {
+  fetchCatalog.mockResolvedValue({
+    data: {
+      entities: ["roms", "collections"],
+      actions: ["read", "write", "delete"],
+      ownable_entities: ["collections"],
+    },
+  });
   createGroup.mockResolvedValue({ data: { ...group, id: 8 } });
   updateGroup.mockResolvedValue({ data: group });
 });
