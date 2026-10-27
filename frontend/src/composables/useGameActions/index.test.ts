@@ -238,35 +238,6 @@ describe("useGameActions.canInstallOnDevice", () => {
   });
 });
 
-describe("useGameActions: Open in Steam", () => {
-  let opened: string[];
-
-  beforeEach(() => {
-    opened = [];
-    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
-      this: HTMLAnchorElement,
-    ) {
-      opened.push(this.href);
-    });
-  });
-
-  it("launches the matched app through the Steam client", () => {
-    const actions = useGameActions(() => romFixture({ steam_id: 220 }));
-
-    expect(actions.canOpenInSteam.value).toBe(true);
-    actions.openInSteam();
-    expect(opened).toEqual(["steam://run/220"]);
-  });
-
-  it.each([null, 0, -5, 1.5])("offers nothing for steam_id %s", (steamId) => {
-    const actions = useGameActions(() => romFixture({ steam_id: steamId }));
-
-    expect(actions.canOpenInSteam.value).toBe(false);
-    actions.openInSteam();
-    expect(opened).toEqual([]);
-  });
-});
-
 describe("useGameActions.joinStream", () => {
   beforeEach(() => {
     streamContainer.value = { host: "http://stream" };
