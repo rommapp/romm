@@ -72,7 +72,6 @@ export type GameAction =
   | "copy-link"
   | "qr"
   | "flashpoint"
-  | "steam"
   | "favorite"
   | "collection"
   | "status"
@@ -231,16 +230,6 @@ const preset = computed<Preset>(() => {
       label: t("rom.open-in-flashpoint"),
       activeIcon: null,
       onClick: actions.openInFlashpoint,
-      active: false,
-    };
-  }
-  if (props.action === "steam") {
-    return {
-      icon: "mdi-steam",
-      image: "/assets/scrappers/steam.png",
-      label: t("rom.open-in-steam"),
-      activeIcon: null,
-      onClick: actions.openInSteam,
       active: false,
     };
   }

@@ -100,7 +100,6 @@ export const ROM_DEFAULTS: SimpleRom = {
   regions: ["USA"],
   languages: ["en"],
   tags: [],
-  release_types: [],
   crc_hash: null,
   md5_hash: null,
   sha1_hash: null,

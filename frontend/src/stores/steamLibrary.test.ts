@@ -43,7 +43,7 @@ describe("steamLibrary", () => {
     await flushPromises();
 
     expect(library.isLoaded).toBe(true);
-    expect(library.owns(220)).toBe(true);
+    expect(library.ownedAppIds.has(220)).toBe(true);
 
     vi.mocked(userApi.fetchSteamLibrary).mockResolvedValue({
       data: [400],
@@ -52,8 +52,8 @@ describe("steamLibrary", () => {
     setVisibility("visible");
     await flushPromises();
 
-    expect(library.owns(220)).toBe(false);
-    expect(library.owns(400)).toBe(true);
+    expect(library.ownedAppIds.has(220)).toBe(false);
+    expect(library.ownedAppIds.has(400)).toBe(true);
   });
 
   it("keeps the newest reply when an older one arrives late", async () => {
@@ -75,8 +75,8 @@ describe("steamLibrary", () => {
     answerFirst({ data: [220] });
     await flushPromises();
 
-    expect(library.owns(400)).toBe(true);
-    expect(library.owns(220)).toBe(false);
+    expect(library.ownedAppIds.has(400)).toBe(true);
+    expect(library.ownedAppIds.has(220)).toBe(false);
   });
 
   it("loads nothing without a linked account", async () => {

@@ -224,7 +224,6 @@ export type { RAUserGameProgression } from './models/RAUserGameProgression';
 export type { RecommendedRomSchema } from './models/RecommendedRomSchema';
 export type { RegionBreakdownItem } from './models/RegionBreakdownItem';
 export type { ReleaseSessionResponse } from './models/ReleaseSessionResponse';
-export type { ReleaseType } from './models/ReleaseType';
 export type { Role } from './models/Role';
 export type { RomArchiveMember } from './models/RomArchiveMember';
 export type { RomCsdbMetadata } from './models/RomCsdbMetadata';

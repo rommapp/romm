@@ -10,7 +10,6 @@ type Flags = {
   canPlayStream: boolean;
   canShareQR: boolean;
   canOpenInFlashpoint: boolean;
-  canOpenInSteam: boolean;
   canManageCollections: boolean;
   canRemoveFromContinuePlaying: boolean;
   canMatch: boolean;
@@ -34,7 +33,6 @@ const flags: Flags = {
   canDownload: true,
   canShareQR: false,
   canOpenInFlashpoint: false,
-  canOpenInSteam: false,
   canManageCollections: true,
   canRemoveFromContinuePlaying: false,
   canMatch: true,
@@ -187,18 +185,6 @@ describe("GameActionsList: installing on a device", () => {
   it("hides it otherwise", () => {
     const shown = labels(mountList({ canInstallOnDevice: false }));
     expect(shown).not.toContain("rom.install-on-device");
-  });
-});
-
-describe("GameActionsList: opening in Steam", () => {
-  it("offers it for a rom matched to a Steam app", () => {
-    const shown = labels(mountList({ canOpenInSteam: true }));
-    expect(shown).toContain("rom.open-in-steam");
-  });
-
-  it("hides it otherwise", () => {
-    const shown = labels(mountList({ canOpenInSteam: false }));
-    expect(shown).not.toContain("rom.open-in-steam");
   });
 });
 

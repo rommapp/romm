@@ -36,7 +36,6 @@
 //   ?playerCounts=…&playerCountsLogic=…
 //   ?metadataProviders=…&metadataProvidersLogic=…
 //   ?tags=…&tagsLogic=…
-//   ?releaseTypes=…&releaseTypesLogic=…
 //   ?lengthMin=…&lengthMax=…   (HowLongToBeat main story, in hours)
 //
 // Direction notes:
@@ -82,12 +81,10 @@ function qList(v: QueryValue): string[] {
   return s.split(",").filter((p) => p.trim());
 }
 
-// Values without an operator mean "any", so a link naming only values gets
-// the default match; with no values the store's pending operator stays put.
-function qLogic(v: QueryValue, values: QueryValue): FilterLogicOperator | null {
+function qLogic(v: QueryValue): FilterLogicOperator | null {
   const s = qStr(v);
   if (s === "any" || s === "all" || s === "none") return s;
-  return qList(values).length > 0 ? "any" : null;
+  return null;
 }
 
 function qHours(v: QueryValue): number | null {
@@ -136,7 +133,6 @@ export function useGalleryFilterUrl() {
     selectedPlayerCounts,
     selectedMetadataProviders,
     selectedTags,
-    selectedReleaseTypes,
     selectedStatuses,
     selectedLengthMinHours,
     selectedLengthMaxHours,
@@ -152,7 +148,6 @@ export function useGalleryFilterUrl() {
     playerCountsLogic,
     metadataProvidersLogic,
     tagsLogic,
-    releaseTypesLogic,
     statusesLogic,
   } = storeToRefs(filter);
 
@@ -181,36 +176,31 @@ export function useGalleryFilterUrl() {
         .map((s) => Number(s))
         .filter((n) => !Number.isNaN(n)),
       genres: qList(q.genres),
-      genresLogic: qLogic(q.genresLogic, q.genres),
+      genresLogic: qLogic(q.genresLogic),
       franchises: qList(q.franchises),
-      franchisesLogic: qLogic(q.franchisesLogic, q.franchises),
+      franchisesLogic: qLogic(q.franchisesLogic),
       collections: qList(q.collections),
-      collectionsLogic: qLogic(q.collectionsLogic, q.collections),
+      collectionsLogic: qLogic(q.collectionsLogic),
       companies: qList(q.companies),
-      companiesLogic: qLogic(q.companiesLogic, q.companies),
+      companiesLogic: qLogic(q.companiesLogic),
       publishers: qList(q.publishers),
-      publishersLogic: qLogic(q.publishersLogic, q.publishers),
+      publishersLogic: qLogic(q.publishersLogic),
       developers: qList(q.developers),
-      developersLogic: qLogic(q.developersLogic, q.developers),
+      developersLogic: qLogic(q.developersLogic),
       ageRatings: qList(q.ageRatings),
-      ageRatingsLogic: qLogic(q.ageRatingsLogic, q.ageRatings),
+      ageRatingsLogic: qLogic(q.ageRatingsLogic),
       regions: qList(q.regions),
-      regionsLogic: qLogic(q.regionsLogic, q.regions),
+      regionsLogic: qLogic(q.regionsLogic),
       languages: qList(q.languages),
-      languagesLogic: qLogic(q.languagesLogic, q.languages),
+      languagesLogic: qLogic(q.languagesLogic),
       playerCounts: qList(q.playerCounts),
-      playerCountsLogic: qLogic(q.playerCountsLogic, q.playerCounts),
+      playerCountsLogic: qLogic(q.playerCountsLogic),
       metadataProviders: qList(q.metadataProviders),
-      metadataProvidersLogic: qLogic(
-        q.metadataProvidersLogic,
-        q.metadataProviders,
-      ),
+      metadataProvidersLogic: qLogic(q.metadataProvidersLogic),
       tags: qList(q.tags),
-      tagsLogic: qLogic(q.tagsLogic, q.tags),
-      releaseTypes: qList(q.releaseTypes),
-      releaseTypesLogic: qLogic(q.releaseTypesLogic, q.releaseTypes),
+      tagsLogic: qLogic(q.tagsLogic),
       statuses: qList(q.statuses),
-      statusesLogic: qLogic(q.statusesLogic, q.statuses),
+      statusesLogic: qLogic(q.statusesLogic),
       lengthMin: qHours(q.lengthMin),
       lengthMax: qHours(q.lengthMax),
     };
@@ -324,14 +314,6 @@ export function useGalleryFilterUrl() {
       filter.setSelectedFilterTags(url.tags);
     if (url.tagsLogic && url.tagsLogic !== tagsLogic.value)
       filter.setTagsLogic(url.tagsLogic);
-
-    if (!eqStrArr(url.releaseTypes, selectedReleaseTypes.value))
-      filter.setSelectedFilterReleaseTypes(url.releaseTypes);
-    if (
-      url.releaseTypesLogic &&
-      url.releaseTypesLogic !== releaseTypesLogic.value
-    )
-      filter.setReleaseTypesLogic(url.releaseTypesLogic);
 
     if (!eqStrArr(url.statuses, selectedStatuses.value))
       filter.setSelectedFilterStatuses(url.statuses);
@@ -464,11 +446,6 @@ export function useGalleryFilterUrl() {
       "tagsLogic",
       selectedTags.value.length > 0 ? tagsLogic.value : null,
     );
-    setList("releaseTypes", selectedReleaseTypes.value);
-    setOrDelete(
-      "releaseTypesLogic",
-      selectedReleaseTypes.value.length > 0 ? releaseTypesLogic.value : null,
-    );
     setList("statuses", selectedStatuses.value);
     setOrDelete(
       "statusesLogic",
@@ -541,8 +518,6 @@ export function useGalleryFilterUrl() {
       metadataProvidersLogic,
       selectedTags,
       tagsLogic,
-      selectedReleaseTypes,
-      releaseTypesLogic,
       selectedStatuses,
       statusesLogic,
       selectedLengthMinHours,

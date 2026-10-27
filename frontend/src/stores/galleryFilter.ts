@@ -15,8 +15,7 @@ export type FilterType =
   | "languages"
   | "playerCounts"
   | "metadataProviders"
-  | "tags"
-  | "releaseTypes";
+  | "tags";
 
 export type FilterLogicOperator = "any" | "all" | "none";
 
@@ -40,7 +39,6 @@ const buildDefaultFilterState = () => ({
   filterLanguages: [] as string[],
   filterPlayerCounts: [] as string[],
   filterTags: [] as string[],
-  filterReleaseTypes: [] as string[],
   filterStatuses: Object.keys(romStatusMap),
   filterMatched: null as boolean | null, // null = all, true = matched, false = unmatched
   filterFavorites: null as boolean | null, // null = all, true = favorites, false = not favorites
@@ -68,7 +66,6 @@ const buildDefaultFilterState = () => ({
   selectedPlayerCounts: [] as string[],
   selectedMetadataProviders: [] as string[],
   selectedTags: [] as string[],
-  selectedReleaseTypes: [] as string[],
   selectedStatuses: [] as string[],
   // HowLongToBeat main-story bounds in hours; null leaves that end open. Games
   // with no HowLongToBeat time are excluded whenever either bound is set.
@@ -88,7 +85,6 @@ const buildDefaultFilterState = () => ({
   playerCountsLogic: "any" as FilterLogicOperator,
   metadataProvidersLogic: "any" as FilterLogicOperator,
   tagsLogic: "any" as FilterLogicOperator,
-  releaseTypesLogic: "any" as FilterLogicOperator,
 });
 
 export default defineStore("galleryFilter", {
@@ -133,9 +129,6 @@ export default defineStore("galleryFilter", {
     },
     setFilterTags(tags: string[] | null | undefined) {
       this.filterTags = tags ?? [];
-    },
-    setFilterReleaseTypes(releaseTypes: string[] | null | undefined) {
-      this.filterReleaseTypes = releaseTypes ?? [];
     },
     setSelectedFilterPlatform(platform: Platform) {
       this.selectedPlatform = platform
@@ -218,12 +211,6 @@ export default defineStore("galleryFilter", {
     },
     setTagsLogic(logic: FilterLogicOperator) {
       this.tagsLogic = logic;
-    },
-    setSelectedFilterReleaseTypes(releaseTypes: string[]) {
-      this.selectedReleaseTypes = releaseTypes;
-    },
-    setReleaseTypesLogic(logic: FilterLogicOperator) {
-      this.releaseTypesLogic = logic;
     },
     setSelectedFilterStatuses(statuses: string[]) {
       this.selectedStatuses = statuses;
@@ -491,7 +478,6 @@ export default defineStore("galleryFilter", {
         this.selectedPlayerCounts.length > 0 ||
         this.selectedMetadataProviders.length > 0 ||
         this.selectedTags.length > 0 ||
-        this.selectedReleaseTypes.length > 0 ||
         this.selectedStatuses.length > 0 ||
         this.selectedLengthMinHours !== null ||
         this.selectedLengthMaxHours !== null,
@@ -515,7 +501,6 @@ export default defineStore("galleryFilter", {
       this.selectedPlayerCounts = [];
       this.selectedMetadataProviders = [];
       this.selectedTags = [];
-      this.selectedReleaseTypes = [];
       this.selectedStatuses = [];
       this.selectedLengthMinHours = null;
       this.selectedLengthMaxHours = null;
@@ -545,7 +530,6 @@ export default defineStore("galleryFilter", {
       this.playerCountsLogic = "any";
       this.metadataProvidersLogic = "any";
       this.tagsLogic = "any";
-      this.releaseTypesLogic = "any";
     },
   },
 });

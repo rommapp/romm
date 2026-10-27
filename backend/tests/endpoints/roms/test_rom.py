@@ -640,35 +640,6 @@ def test_get_roms_filter_by_tags(
     assert {item["id"] for item in body["items"]} == {rom.id}
 
 
-def test_get_roms_filter_by_release_types(
-    client: TestClient, access_token: str, rom: Rom, platform: Platform
-):
-    hack = make_rom(platform, "rom_hack", tags=["Hack"])
-
-    response = client.get(
-        "/api/roms",
-        headers={"Authorization": f"Bearer {access_token}"},
-        params={"platform_id": platform.id, "release_types": ["hack"]},
-    )
-    assert response.status_code == status.HTTP_200_OK
-
-    body = response.json()
-    assert {item["id"] for item in body["items"]} == {hack.id}
-    assert body["filter_values"]["release_types"] == ["hack"]
-
-    response = client.get(
-        "/api/roms",
-        headers={"Authorization": f"Bearer {access_token}"},
-        params={
-            "platform_id": platform.id,
-            "release_types": ["hack"],
-            "release_types_logic": "none",
-        },
-    )
-    assert response.status_code == status.HTTP_200_OK
-    assert {item["id"] for item in response.json()["items"]} == {rom.id}
-
-
 def assert_filter_values_are_lists(filter_values: dict[str, object]) -> None:
     assert filter_values.keys() == RomFiltersDict.__annotations__.keys()
     assert all(isinstance(value, list) for value in filter_values.values())
@@ -1000,37 +971,9 @@ def test_update_rom_manual_alternative_names_are_searchable(
     assert [item["id"] for item in response.json()["items"]] == [rom.id]
 
 
-@patch.object(FSRomsHandler, "rename_fs_rom")
-@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
-def test_update_rom_manual_release_types_replace_the_tagged_ones(
-    _get_rom_by_id_mock: AsyncMock,
-    _rename_fs_rom_mock: AsyncMock,
-    client: TestClient,
-    access_token: str,
-    platform: Platform,
-):
-    rom = make_rom(platform, "rom_hack", tags=["Hack"])
-    manual = {"release_types": ["color_patch", "hack"]}
-
-    response = client.put(
-        f"/api/roms/{rom.id}",
-        headers={"Authorization": f"Bearer {access_token}"},
-        data={"raw_manual_metadata": json.dumps(manual)},
-    )
-    assert response.status_code == status.HTTP_200_OK
-    body = response.json()
-    assert body["manual_metadata"]["release_types"] == ["color_patch", "hack"]
-    assert body["release_types"] == ["hack", "color_patch"]
-
-
 @pytest.mark.parametrize(
     "manual_metadata",
-    [
-        {"alternative_names": "ACNH"},
-        {"alternative_names": [5]},
-        {"genres": "Racing"},
-        {"release_types": ["bogus"]},
-    ],
+    [{"alternative_names": "ACNH"}, {"alternative_names": [5]}, {"genres": "Racing"}],
 )
 @patch.object(FSRomsHandler, "rename_fs_rom")
 @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))

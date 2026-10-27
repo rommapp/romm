@@ -76,8 +76,6 @@
   "random-rom-empty": "Niciun ROM pe această platformă",
   "random-rom-error": "Nu s-a putut alege un ROM aleatoriu",
   "region": "Regiune",
-  "release-type": "Tip de lansare",
-  "release-types": "Tipuri de lansare",
   "removing-firmware": "Eliminarea a {n} firmware din RomM | Eliminarea a {n} firmware-uri din RomM",
   "reset-filters": "Resetează filtrele",
   "rom-count": "{n} ROM | {n} ROM-uri",

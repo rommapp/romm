@@ -38,7 +38,6 @@ import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
 import { useStreamingStore } from "@/stores/streaming";
 import { toBrowserLocale } from "@/utils";
-import { releaseTypeLabelKey } from "@/utils/releaseTypes";
 import { isRomVerified } from "@/utils/romVerification";
 import { patchQuery } from "@/utils/routeQuery";
 import { formatReleaseDate } from "@/utils/time";
@@ -165,7 +164,6 @@ const collections = computed(
 const regions = computed(() => currentRom.value?.regions ?? []);
 const languages = computed(() => currentRom.value?.languages ?? []);
 const tags = computed(() => currentRom.value?.tags ?? []);
-const releaseTypes = computed(() => currentRom.value?.release_types ?? []);
 
 const verified = computed(() =>
   currentRom.value ? isRomVerified(currentRom.value) : false,
@@ -215,12 +213,6 @@ const showMergedCompanies = computed(
 );
 const overviewSections = computed<InfoGridSection[]>(() => [
   { label: t("rom.genres"), items: genres.value, filter: "genres" },
-  {
-    label: t("rom.release-types"),
-    items: releaseTypes.value,
-    filter: "releaseTypes",
-    itemTitle: (item) => t(releaseTypeLabelKey(item), item),
-  },
   {
     label: t("rom.developers"),
     items: developers.value,

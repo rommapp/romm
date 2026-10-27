@@ -76,8 +76,6 @@
   "random-rom-empty": "Bu platformda ROM yok",
   "random-rom-error": "Rastgele ROM seçilemedi",
   "region": "Bölge",
-  "release-type": "Yayın türü",
-  "release-types": "Yayın türleri",
   "removing-firmware": "RomM'den {n} firmware dosyası kaldırılıyor | RomM'den {n} firmware dosyası kaldırılıyor",
   "reset-filters": "Filtreleri sıfırla",
   "rom-count": "{n} ROM | {n} ROM",
