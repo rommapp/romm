@@ -66,7 +66,7 @@ ASSET_ROOTS: tuple[AssetKind, ...] = ("saves", "states")
 # RetroArch's config/thumbnails/system sync categories belong to no ROM, so
 # they're kept as opaque per-user blobs.
 BLOB_CATEGORIES = ("config", "thumbnails", "system")
-MANIFEST_BLOB_CATEGORIES = (*BLOB_CATEGORIES, "saves")
+MANIFEST_BLOB_CATEGORIES = BLOB_CATEGORIES
 
 # `<game>.state`, `<game>.state3`, `<game>.state.auto`: the auto suffix makes
 # this a two-segment extension, which splitext alone gets wrong.
@@ -629,16 +629,41 @@ def parse_retroarch_sync_blob_path(path: str) -> str | None:
     return "/".join(segments)
 
 
-def parse_retroarch_unmatched_save_path(path: str) -> str | None:
-    """A safe, relative ``saves/...`` path for data that belongs to no ROM."""
+def parse_retroarch_unmatched_asset_path(path: str) -> str | None:
+    """A safe client path under ``saves/`` or ``states/`` for an unmatched asset."""
     segments = split_segments(path)
-    if segments is None or len(segments) < 2 or segments[0] != "saves":
+    if (
+        segments is None
+        or len(segments) < 2
+        or segments[0] not in ASSET_ROOTS
+        or segments[1] == "_unmatched"
+    ):
         return None
     return "/".join(segments)
 
 
+def unmatched_asset_root_path(user: User, kind: AssetKind) -> str:
+    """Physical root for unmatched files, alongside this user's matched assets."""
+    return f"{fs_asset_handler.user_folder_path(user)}/{kind}/_unmatched"
+
+
+def unmatched_asset_path(user: User, client_path: str) -> str:
+    """Map a RetroArch client path to its private unmatched-asset storage path."""
+    segments = split_segments(client_path)
+    if (
+        segments is None
+        or len(segments) < 2
+        or segments[0] not in ASSET_ROOTS
+        or segments[1] == "_unmatched"
+    ):
+        raise ValueError("Invalid unmatched RetroArch asset path")
+    root = unmatched_asset_root_path(user, segments[0])
+    relative_path = "/".join(segments[1:])
+    return f"{root}/{relative_path}"
+
+
 def user_blob_path(user: User, blob_path: str) -> str:
-    """Where a parsed blob path lives under the assets root, namespaced by user."""
+    """Where a non-asset RetroArch blob lives under this user's assets root."""
     return f"{fs_asset_handler.user_folder_path(user)}/retroarch/{blob_path}"
 
 
@@ -696,6 +721,18 @@ async def build_blob_manifest_entries(user: User) -> list[dict[str, str]]:
             jobs.append(
                 (
                     f"romm:retroarch_sync:blob_md5:{user.id}:{blob_path}:{blob.size}:{blob.mtime}",
+                    partial(_blob_md5, f"{prefix}/{blob.relative_path}"),
+                )
+            )
+
+    for kind in ASSET_ROOTS:
+        prefix = unmatched_asset_root_path(user, kind)
+        for blob in await fs_retroarch_sync_handler.list_blob_files(prefix):
+            blob_path = f"{kind}/{blob.relative_path}"
+            blob_paths.append(blob_path)
+            jobs.append(
+                (
+                    f"romm:retroarch_sync:unmatched_md5:{user.id}:{blob_path}:{blob.size}:{blob.mtime}",
                     partial(_blob_md5, f"{prefix}/{blob.relative_path}"),
                 )
             )
@@ -874,7 +911,14 @@ async def list_manifest_paths(
     assets, saves = await asyncio.to_thread(_manifest_assets, user, can_see, tree)
     paths = [entry.path for entry in assets]
     paths += await psp.list_psp_member_paths(saves, can_see)
-    return sorted(paths)
+    blob_root = unmatched_asset_root_path(user, tree)
+    paths.extend(
+        f"{tree}/{blob.relative_path}"
+        for blob in await fs_retroarch_sync_handler.list_blob_files(blob_root)
+    )
+    # A blob can remain from before its ROM entered the library. Keep the
+    # matched asset as the single WebDAV path when both stores contain it.
+    return sorted(set(paths))
 
 
 async def build_manifest(
@@ -904,5 +948,6 @@ async def build_manifest(
     entries += await build_blob_manifest_entries(user)
     entries += await psp.build_psp_manifest_entries(saves, can_see)
 
-    entries.sort(key=lambda entry: entry["path"])
-    return entries
+    # Prefer database-backed assets if an old unmatched blob has the same path.
+    by_path = {entry["path"]: entry for entry in reversed(entries)}
+    return [by_path[path] for path in sorted(by_path)]

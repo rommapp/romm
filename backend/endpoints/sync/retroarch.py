@@ -175,6 +175,24 @@ def _serve(handler: FSHandler, path: str, filename: str) -> Response:
     return build_asset_file_response(resolved_path, filename=filename)
 
 
+def _serve_unmatched_asset(request: Request, file_path: str) -> Response | None:
+    """Serve an unmatched save or state when no matched asset is available."""
+    relative_path = sync_handler.parse_retroarch_unmatched_asset_path(file_path)
+    if not relative_path:
+        return None
+    try:
+        disk_path = sync_handler.unmatched_asset_path(
+            request.user, relative_path
+        )
+    except ValueError:
+        return None
+    return _serve(
+        fs_retroarch_sync_handler,
+        disk_path,
+        os.path.basename(relative_path),
+    )
+
+
 @router.api_route("/{file_path:path}", methods=["OPTIONS"], include_in_schema=False)
 def retroarch_sync_options(request: Request, file_path: str) -> Response:
     """Advertise DAV support. RetroArch stats the base URL before syncing."""
@@ -437,29 +455,13 @@ async def retroarch_sync_get(request: Request, file_path: str) -> Response:
 
     parsed = sync_handler.parse_retroarch_sync_path(file_path)
     if not parsed:
-        unmatched_save_path = sync_handler.parse_retroarch_unmatched_save_path(
-            file_path
-        )
-        if unmatched_save_path:
-            return _serve(
-                fs_retroarch_sync_handler,
-                sync_handler.user_blob_path(request.user, unmatched_save_path),
-                os.path.basename(unmatched_save_path),
-            )
-        return _empty(status.HTTP_404_NOT_FOUND)
+        response = _serve_unmatched_asset(request, file_path)
+        return response or _empty(status.HTTP_404_NOT_FOUND)
 
     rom = await _resolve_rom(request, parsed.kind, parsed.file_name)
     if not rom:
-        unmatched_save_path = sync_handler.parse_retroarch_unmatched_save_path(
-            file_path
-        )
-        if unmatched_save_path:
-            return _serve(
-                fs_retroarch_sync_handler,
-                sync_handler.user_blob_path(request.user, unmatched_save_path),
-                os.path.basename(unmatched_save_path),
-            )
-        return _empty(status.HTTP_404_NOT_FOUND)
+        response = _serve_unmatched_asset(request, file_path)
+        return response or _empty(status.HTTP_404_NOT_FOUND)
 
     asset = await _get_asset(request.user, rom, parsed)
     # A file deleted outside RomM hides any older asset at this path until flagged.
@@ -470,7 +472,8 @@ async def retroarch_sync_get(request: Request, file_path: str) -> Response:
     ):
         asset = await _get_asset(request.user, rom, parsed)
     if not asset:
-        return _empty(status.HTTP_404_NOT_FOUND)
+        response = _serve_unmatched_asset(request, file_path)
+        return response or _empty(status.HTTP_404_NOT_FOUND)
 
     return _serve(fs_asset_handler, asset.full_path, asset.file_name)
 
@@ -527,13 +530,13 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
             return _empty(status.HTTP_409_CONFLICT)
         return _empty(status.HTTP_201_CREATED)
 
+    unmatched_asset_client_path = (
+        sync_handler.parse_retroarch_unmatched_asset_path(file_path)
+    )
     parsed = sync_handler.parse_retroarch_sync_path(file_path)
     if not parsed:
-        unmatched_save_path = sync_handler.parse_retroarch_unmatched_save_path(
-            file_path
-        )
-        if unmatched_save_path:
-            return await _put_unmatched_save(request, unmatched_save_path)
+        if unmatched_asset_client_path:
+            return await _put_unmatched_asset(request, unmatched_asset_client_path)
         return _empty(status.HTTP_409_CONFLICT)
 
     # Stored under the client's exact name, or the manifest would advertise a
@@ -548,12 +551,8 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
 
     rom = await _resolve_rom(request, parsed.kind, file_name)
     if not rom:
-        if parsed.kind == "saves":
-            unmatched_save_path = sync_handler.parse_retroarch_unmatched_save_path(
-                file_path
-            )
-            if unmatched_save_path:
-                return await _put_unmatched_save(request, unmatched_save_path)
+        if unmatched_asset_client_path:
+            return await _put_unmatched_asset(request, unmatched_asset_client_path)
         log.warning(f"Cloud sync upload {hl(file_path)} matches no ROM in the library")
         return _empty(status.HTTP_409_CONFLICT)
 
@@ -579,6 +578,9 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
         )
         async with _request_body(request) as body:
             if served and await sync_handler.screenshot_sent_back(served, body):
+                await _remove_unmatched_asset_if_present(
+                    request, unmatched_asset_client_path
+                )
                 return _empty(status.HTTP_204_NO_CONTENT)
             await fs_asset_handler.write_file(
                 file=body, path=screenshot_path, filename=screenshot_file_name
@@ -599,12 +601,23 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
             screenshot_file_name,
             screenshot_path,
         )
+        await _remove_unmatched_asset_if_present(
+            request, unmatched_asset_client_path
+        )
         return _empty(
             status.HTTP_201_CREATED if created else status.HTTP_204_NO_CONTENT
         )
 
     if parsed.kind == "saves":
-        return await _put_save(request, rom, parsed)
+        response = await _put_save(request, rom, parsed)
+        if response.status_code in (
+            status.HTTP_201_CREATED,
+            status.HTTP_204_NO_CONTENT,
+        ):
+            await _remove_unmatched_asset_if_present(
+                request, unmatched_asset_client_path
+            )
+        return response
 
     # A state resolved by slot may have its own file name and emulator; writing
     # to them keeps the row pointing at the fresh bytes instead of orphaning them.
@@ -625,6 +638,9 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
     async with _request_body(request) as body:
         content_hash, is_copy = await sync_handler.check_against_capture(slot, body)
         if is_copy:
+            await _remove_unmatched_asset_if_present(
+                request, unmatched_asset_client_path
+            )
             return _empty(status.HTTP_204_NO_CONTENT)
         await fs_asset_handler.write_file(
             file=body, path=asset_path, filename=write_file_name
@@ -644,6 +660,7 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
     if existing and existing.file_path != scanned.file_path:
         with suppress(FileNotFoundError):
             await fs_asset_handler.remove_file(file_path=existing.full_path)
+    await _remove_unmatched_asset_if_present(request, unmatched_asset_client_path)
 
     # `last_played` is left alone on purpose: a first sync uploads the whole
     # backlog at once, which would stamp every game as just-played.
@@ -703,15 +720,17 @@ def _record_state(
     db_state_handler.add_state(state=scanned)
 
 
-async def _put_unmatched_save(request: Request, relative_path: str) -> Response:
-    """Store a save with no matching ROM in the user's RetroArch tree."""
+async def _put_unmatched_asset(request: Request, relative_path: str) -> Response:
+    """Store a save or state with no matching ROM in the user's asset tree."""
     segments = relative_path.split("/")
     try:
         for segment in segments:
             if sanitize_filename(segment) != segment:
                 return _empty(status.HTTP_409_CONFLICT)
             check_filename_length(segment)
-        disk_path = sync_handler.user_blob_path(request.user, relative_path)
+        disk_path = sync_handler.unmatched_asset_path(
+            request.user, relative_path
+        )
         async with _request_body(request) as body:
             existed = await fs_retroarch_sync_handler.file_exists(disk_path)
             await fs_retroarch_sync_handler.write_file(
@@ -722,21 +741,37 @@ async def _put_unmatched_save(request: Request, relative_path: str) -> Response:
     except ValueError:
         return _empty(status.HTTP_409_CONFLICT)
 
-    log.info(f"Cloud sync stored unmatched save {hl(relative_path)}")
+    log.info(f"Cloud sync stored unmatched asset {hl(relative_path)}")
     return _empty(
         status.HTTP_204_NO_CONTENT if existed else status.HTTP_201_CREATED
     )
 
 
-async def _delete_unmatched_save(request: Request, relative_path: str) -> Response:
-    """Delete an unmatched save from the user's RetroArch tree."""
+async def _delete_unmatched_asset(request: Request, relative_path: str) -> Response:
+    """Delete an unmatched save or state from the user's asset tree."""
     try:
         await fs_retroarch_sync_handler.remove_file(
-            file_path=sync_handler.user_blob_path(request.user, relative_path)
+            file_path=sync_handler.unmatched_asset_path(
+            request.user, relative_path
+        )
         )
     except (FileNotFoundError, ValueError):
         return _empty(status.HTTP_404_NOT_FOUND)
     return _empty(status.HTTP_204_NO_CONTENT)
+
+
+async def _remove_unmatched_asset_if_present(
+    request: Request, relative_path: str | None
+) -> None:
+    """Remove an unmatched file after the same path becomes a matched asset."""
+    if not relative_path:
+        return
+    with suppress(FileNotFoundError):
+        await fs_retroarch_sync_handler.remove_file(
+            file_path=sync_handler.unmatched_asset_path(
+            request.user, relative_path
+        )
+        )
 
 
 async def _put_save(request: Request, rom: Rom, parsed: RetroArchSyncPath) -> Response:
@@ -781,22 +816,19 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
             await psp.delete_psp_file(request.user, psp_path, _rom_visibility(request))
         return _empty(status.HTTP_204_NO_CONTENT)
 
+    unmatched_asset_client_path = (
+        sync_handler.parse_retroarch_unmatched_asset_path(file_path)
+    )
     parsed = sync_handler.parse_retroarch_sync_path(file_path)
     if not parsed:
-        unmatched_save_path = sync_handler.parse_retroarch_unmatched_save_path(
-            file_path
-        )
-        if unmatched_save_path:
-            return await _delete_unmatched_save(request, unmatched_save_path)
+        if unmatched_asset_client_path:
+            return await _delete_unmatched_asset(request, unmatched_asset_client_path)
         return _empty(status.HTTP_404_NOT_FOUND)
 
     rom = await _resolve_rom(request, parsed.kind, parsed.file_name)
     if not rom:
-        unmatched_save_path = sync_handler.parse_retroarch_unmatched_save_path(
-            file_path
-        )
-        if unmatched_save_path:
-            return await _delete_unmatched_save(request, unmatched_save_path)
+        if unmatched_asset_client_path:
+            return await _delete_unmatched_asset(request, unmatched_asset_client_path)
         return _empty(status.HTTP_404_NOT_FOUND)
 
     if parsed.kind == "saves":
@@ -808,11 +840,16 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
             parsed.file_name,
         )
         if not saves:
+            if unmatched_asset_client_path:
+                return await _delete_unmatched_asset(request, unmatched_asset_client_path)
             return _empty(status.HTTP_404_NOT_FOUND)
 
         log.info(f"Cloud sync delete {hl(parsed.file_name)} [{rom.platform_slug}]")
         for save in saves:
             await remove_save(save)
+        await _remove_unmatched_asset_if_present(
+            request, unmatched_asset_client_path
+        )
         return _empty(status.HTTP_204_NO_CONTENT)
 
     if parsed.is_state_screenshot:
@@ -824,17 +861,24 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
             parsed.file_name,
         )
         if owning_state is None:
+            if unmatched_asset_client_path:
+                return await _delete_unmatched_asset(request, unmatched_asset_client_path)
             return _empty(status.HTTP_404_NOT_FOUND)
         if owning_state.is_stream_capture:
             # A capture is never deleted here, so its screenshot stays too.
             return _empty(status.HTTP_204_NO_CONTENT)
         if not screenshot:
+            if unmatched_asset_client_path:
+                return await _delete_unmatched_asset(request, unmatched_asset_client_path)
             return _empty(status.HTTP_404_NOT_FOUND)
 
         log.info(f"Cloud sync delete {hl(screenshot.file_name)} [{rom.platform_slug}]")
         await asyncio.to_thread(db_screenshot_handler.delete_screenshot, screenshot.id)
         with suppress(FileNotFoundError):
             await fs_asset_handler.remove_file(file_path=screenshot.full_path)
+        await _remove_unmatched_asset_if_present(
+            request, unmatched_asset_client_path
+        )
         return _empty(status.HTTP_204_NO_CONTENT)
 
     # Every alias in the slot goes, or an older one would resurface at this path.
@@ -847,6 +891,8 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
         parsed.file_name,
     )
     if slot.served is None:
+        if unmatched_asset_client_path:
+            return await _delete_unmatched_asset(request, unmatched_asset_client_path)
         return _empty(status.HTTP_404_NOT_FOUND)
 
     log.info(f"Cloud sync delete {hl(parsed.file_name)} [{rom.platform_slug}]")
@@ -854,6 +900,7 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
         await asyncio.to_thread(db_state_handler.delete_state, state.id)
         with suppress(FileNotFoundError):
             await fs_asset_handler.remove_file(file_path=state.full_path)
+    await _remove_unmatched_asset_if_present(request, unmatched_asset_client_path)
 
     return _empty(status.HTTP_204_NO_CONTENT)
 
