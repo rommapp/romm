@@ -127,29 +127,6 @@ class TestUpdateRomDerivedColumns:
             stored.igdb_metadata = {"age_ratings": []}
         assert db_rom_handler.get_rom(rom.id).min_age is None  # type: ignore[union-attr]
 
-    def test_update_resyncs_release_types(self, rom: Rom):
-        tagged = db_rom_handler.update_rom(
-            rom.id, {"tags": ["Hack"], "regions": ["Unlicensed"]}
-        )
-        assert tagged.release_types == ["hack", "unlicensed"]
-
-        # The tags the caller left out come from the stored row.
-        overridden = db_rom_handler.update_rom(
-            rom.id, {"manual_metadata": {"release_types": ["randomizer"]}}
-        )
-        assert overridden.release_types == ["randomizer"]
-
-    def test_release_types_are_set_on_insert_and_on_orm_update(
-        self, platform: Platform
-    ):
-        rom = make_rom(platform, "Tagged", tags=["Proto"])
-        assert rom.release_types == ["prototype"]
-
-        with sync_session.begin() as session:
-            stored = session.get_one(Rom, rom.id)
-            stored.tags = []
-        assert db_rom_handler.get_rom(rom.id).release_types == []  # type: ignore[union-attr]
-
 
 class TestAddRomMergesScannedTags:
     """`add_rom` merges the partially-populated Rom that `scan_rom` returns.

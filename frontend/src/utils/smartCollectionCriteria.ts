@@ -15,7 +15,6 @@
 // smart collections continue to load.
 import type { Composer } from "vue-i18n";
 import type { Platform } from "@/stores/platforms";
-import { releaseTypeLabelKey } from "@/utils/releaseTypes";
 import { formatPlaytimeBound, playtimeHoursToSeconds } from "@/utils/time";
 
 export type FilterLogic = "any" | "all" | "none";
@@ -64,8 +63,6 @@ export interface SmartFilterCriteria {
   metadata_providers_logic?: FilterLogic;
   tags?: string[];
   tags_logic?: FilterLogic;
-  release_types?: string[];
-  release_types_logic?: FilterLogic;
   selected_status?: string[];
   statuses_logic?: FilterLogic;
   /** HowLongToBeat main-story bounds in seconds, the unit `filter_roms` takes. */
@@ -114,8 +111,6 @@ export interface GalleryFilterSnapshot {
   metadataProvidersLogic: FilterLogic;
   selectedTags: string[];
   tagsLogic: FilterLogic;
-  selectedReleaseTypes: string[];
-  releaseTypesLogic: FilterLogic;
   selectedStatuses: string[];
   statusesLogic: FilterLogic;
   selectedLengthMinHours: number | null;
@@ -230,10 +225,6 @@ export function buildSmartFilterCriteria(
     out.tags = snap.selectedTags;
     out.tags_logic = snap.tagsLogic;
   }
-  if (snap.selectedReleaseTypes.length > 0) {
-    out.release_types = snap.selectedReleaseTypes;
-    out.release_types_logic = snap.releaseTypesLogic;
-  }
   if (snap.selectedStatuses.length > 0) {
     out.selected_status = snap.selectedStatuses;
     out.statuses_logic = snap.statusesLogic;
@@ -289,8 +280,6 @@ interface FieldSpec {
   negLabelKey?: string;
   negDefaultLabel?: string;
   kind: FieldKind;
-  /** "list" fields only: i18n key for a stored value, when it is a slug. */
-  valueLabelKey?: (value: string) => string;
 }
 
 // Order = visual order of the summary. Stable across renders.
@@ -526,15 +515,6 @@ const FIELDS: FieldSpec[] = [
     kind: "list",
   },
   {
-    storage: "release_types",
-    logicStorage: "release_types_logic",
-    icon: "mdi-shape-plus-outline",
-    labelKey: "platform.release-type",
-    defaultLabel: "Release types",
-    kind: "list",
-    valueLabelKey: releaseTypeLabelKey,
-  },
-  {
     storage: "selected_status",
     logicStorage: "statuses_logic",
     icon: "mdi-flag-outline",
@@ -662,9 +642,7 @@ export function summarizeSmartFilterCriteria(
           key: f.storage,
           icon: f.icon,
           label,
-          values: (raw as string[]).map((value) =>
-            f.valueLabelKey ? t(f.valueLabelKey(value), value) : value,
-          ),
+          values: raw as string[],
           logic,
         });
       }

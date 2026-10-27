@@ -434,7 +434,6 @@ export default defineStore("v2GalleryRoms", {
         selectedPlayerCounts: galleryFilter.selectedPlayerCounts,
         selectedMetadataProviders: galleryFilter.selectedMetadataProviders,
         selectedTags: galleryFilter.selectedTags,
-        selectedReleaseTypes: galleryFilter.selectedReleaseTypes,
         selectedStatuses: galleryFilter.selectedStatuses,
         genresLogic: galleryFilter.genresLogic,
         franchisesLogic: galleryFilter.franchisesLogic,
@@ -449,7 +448,6 @@ export default defineStore("v2GalleryRoms", {
         playerCountsLogic: galleryFilter.playerCountsLogic,
         metadataProvidersLogic: galleryFilter.metadataProvidersLogic,
         tagsLogic: galleryFilter.tagsLogic,
-        releaseTypesLogic: galleryFilter.releaseTypesLogic,
         hltbMainStoryMin: playtimeHoursToSeconds(
           galleryFilter.selectedLengthMinHours,
         ),
@@ -505,7 +503,6 @@ export default defineStore("v2GalleryRoms", {
         galleryFilter.setFilterLanguages(data.filter_values.languages);
         galleryFilter.setFilterPlayerCounts(data.filter_values.player_counts);
         galleryFilter.setFilterTags(data.filter_values.tags);
-        galleryFilter.setFilterReleaseTypes(data.filter_values.release_types);
       }
       this.metadataLoaded = true;
     },
