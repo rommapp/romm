@@ -8,8 +8,9 @@
 // commit (Save button on EditRomDialog).
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { RComboboxField, RDateField, RTextField } from "@/lib";
+import { RComboboxField, RDateField, RSelect, RTextField } from "@/lib";
 import type { UpdateRom } from "@/services/api/rom";
+import { RELEASE_TYPES, releaseTypeLabelKey } from "@/utils/releaseTypes";
 
 const props = defineProps<{ rom: UpdateRom }>();
 
@@ -49,6 +50,13 @@ const GAME_MODE_ITEMS = computed(() => [
   t("rom.game-mode-co-operative"),
   t("rom.game-mode-split-screen"),
 ]);
+
+const RELEASE_TYPE_ITEMS = computed(() =>
+  RELEASE_TYPES.map((value) => ({
+    title: t(releaseTypeLabelKey(value)),
+    value,
+  })),
+);
 
 const manual = computed(() => props.rom.manual_metadata || {});
 
@@ -150,6 +158,21 @@ function updateManualMetadata(
       density="comfortable"
       clearable
       @update:model-value="(v) => updateManualMetadata('game_modes', v)"
+    />
+    <RSelect
+      :model-value="manual.release_types ?? []"
+      :items="RELEASE_TYPE_ITEMS"
+      :label="t('rom.release-types')"
+      :info="t('rom.release-types-hint')"
+      prefix-label="stacked"
+      variant="outlined"
+      density="comfortable"
+      multiple
+      chips
+      closable-chips
+      clearable
+      hide-details
+      @update:model-value="(v) => updateManualMetadata('release_types', v)"
     />
     <RTextField
       :model-value="manual.youtube_video_id ?? ''"

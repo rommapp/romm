@@ -76,6 +76,8 @@
   "random-rom-empty": "Nincs ROM ezen a platformon",
   "random-rom-error": "Nem sikerült véletlenszerű ROM-ot választani",
   "region": "Régió",
+  "release-type": "Kiadástípus",
+  "release-types": "Kiadástípusok",
   "removing-firmware": "Eltávolítottál {n} firmware fájlt a RomM-ból | Eltávolítottál {n} firmware fájlokat a RomM-ból",
   "reset-filters": "Szűrők visszaállítása",
   "rom-count": "{n} ROM | {n} ROM",

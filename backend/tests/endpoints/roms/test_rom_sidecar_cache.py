@@ -64,6 +64,7 @@ SENTINEL_FILTER_VALUES: dict[str, Any] = {
     "regions": [],
     "languages": [],
     "tags": [],
+    "release_types": [],
     "platforms": [],
 }
 
