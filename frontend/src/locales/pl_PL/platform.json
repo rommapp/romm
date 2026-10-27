@@ -76,6 +76,8 @@
   "random-rom-empty": "Brak ROM-ów na tej platformie",
   "random-rom-error": "Nie udało się wybrać losowego ROM-u",
   "region": "Region",
+  "release-type": "Typ wydania",
+  "release-types": "Typy wydania",
   "removing-firmware": "Usuwanie {n} firmware z RomM | Usuwanie {n} firmware'ów z RomM",
   "reset-filters": "Zresetuj filtry",
   "rom-count": "{n} ROM | {n} ROM-y | {n} ROM-ów",
