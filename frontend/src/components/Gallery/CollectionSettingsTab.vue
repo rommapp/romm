@@ -1,0 +1,632 @@
+<script setup lang="ts">
+// CollectionSettingsTab: collection-scoped settings rendered as the
+// `Settings` tab inside Collection.vue. Same content surface as the
+// previous `CollectionSettingsDrawer`, now lives inline in the
+// collection view. One component, two branches (drawer-era split):
+//
+//   * regular → name / description / public, cover artwork
+//     (SteamGridDB search · file upload · remove), filter_criteria
+//     not applicable.
+//   * smart   → name / description / public, filter_criteria displayed
+//     read-only (editing the criteria isn't surfaced here: happens
+//     via the create-smart-collection flow).
+//
+// Delete moved into this tab's danger zone (was a kebab menu item in
+// the pre-tabs design). The destructive flow is still owned by the
+// parent view: `@delete` emit triggers the confirm + router
+// navigation in `Collection.vue`.
+//
+// Cover artwork flow:
+//   • Search → emits `showSearchCoverDialog` (global SearchCoverDialog
+//     handles it). On selection it emits `updateUrlCover` which we
+//     stash as the pending `url_cover` (the preview swaps to the SGDB
+//     grid URL).
+//   • Upload → native file picker, sets `pendingArtwork` (File),
+//     previewed through an object URL.
+//   • Remove → marks `removeCover = true`, preview drops to the
+//     placeholder mosaic.
+//   • Save → PUT /collections/:id with `artwork` and/or `url_cover` and
+//     `remove_cover` flag; on success patches the local store.
+import { useObjectUrl } from "@vueuse/core";
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { computed, inject, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import CollectionMosaic from "@/components/Collections/CollectionMosaic.vue";
+import type { Kind as CollectionKind } from "@/components/Collections/CollectionTile.vue";
+import DangerZone from "@/components/shared/DangerZone.vue";
+import VisibilitySwitch from "@/components/shared/VisibilitySwitch.vue";
+import { useEmitterEvent } from "@/composables/useEmitterEvent";
+import { useSnackbar } from "@/composables/useSnackbar";
+import { useWebpSupport } from "@/composables/useWebpSupport";
+import { RBtn, RChip, RIcon, RTag, RTextField } from "@/lib";
+import collectionApi, {
+  type UpdatedCollection,
+} from "@/services/api/collection";
+import storeAuth from "@/stores/auth";
+import storeCollections, {
+  type Collection,
+  type SmartCollection,
+} from "@/stores/collections";
+import storeGalleryRoms from "@/stores/galleryRoms";
+import storePlatforms from "@/stores/platforms";
+import type { Events } from "@/types/emitter";
+import { toBrowserLocale } from "@/utils";
+import { errorMessage } from "@/utils/errorMessage";
+import {
+  summarizeSmartFilterCriteria,
+  type SmartFilterCriteria,
+} from "@/utils/smartCollectionCriteria";
+
+defineOptions({ inheritAttrs: false });
+
+const props = defineProps<{
+  kind: CollectionKind;
+  collection: Collection | SmartCollection;
+  deleting?: boolean;
+}>();
+
+const emit = defineEmits<{
+  (e: "saved", c: Collection | SmartCollection): void;
+  (e: "delete"): void;
+}>();
+
+const { t, locale } = useI18n();
+const emitter = inject<Emitter<Events>>("emitter");
+const snackbar = useSnackbar();
+const auth = storeAuth();
+const collectionsStore = storeCollections();
+const galleryRoms = storeGalleryRoms();
+const platformsStore = storePlatforms();
+const { allPlatforms } = storeToRefs(platformsStore);
+const { toWebp } = useWebpSupport();
+
+// ── Edit form state ─────────────────────────────────────────────
+// Mirror v1: name and description are editable. Pending cover
+// changes live in `pendingArtwork` (uploaded file) + `pendingUrlCover`
+// (SteamGridDB URL) + `removeCover` (flag). Only one of artwork /
+// pendingUrlCover applies on save. Visibility saves as soon as it is
+// switched, outside the form.
+const form = ref({
+  name: "",
+  description: "",
+});
+const isPublic = ref(false);
+const savingVisibility = ref(false);
+const pendingArtwork = ref<File | null>(null);
+const pendingUrlCover = ref<string | null>(null);
+const artworkUrl = useObjectUrl(pendingArtwork);
+const removeCover = ref(false);
+const saving = ref(false);
+
+const fileInputRef = ref<HTMLInputElement | null>(null);
+
+// Ownership / permission gate. Both v1 drawers gate edit / delete on
+// `user_id === auth.user.id && scopes.includes("collections.write")`.
+// v2 uses the same heuristic since `useCan('collection.edit')` isn't
+// yet scoped per-collection.
+const isOwner = computed(() => {
+  const c = props.collection as { user_id?: number | null };
+  return c.user_id != null && c.user_id === auth.user?.id;
+});
+const canEdit = computed(
+  () => isOwner.value && auth.scopes.includes("collections.write"),
+);
+const canDelete = canEdit;
+
+const dirty = computed(() => {
+  const c = props.collection;
+  return (
+    form.value.name !== c.name ||
+    (form.value.description ?? "") !== (c.description ?? "") ||
+    !!pendingArtwork.value ||
+    !!pendingUrlCover.value ||
+    removeCover.value
+  );
+});
+
+// Snapshot on mount AND whenever the underlying collection identity
+// changes (route swap, socket-driven backend update). Keeps the form
+// in sync with the canonical record without trampling in-flight edits
+// while a save is running. Accepts an explicit source so `save()` can
+// re-sync from the update response: `props.collection` only receives
+// the fresh value asynchronously (store swap + parent reassign), so it
+// still holds the pre-save object at the moment `save()` snapshots.
+function snapshot(source: Collection | SmartCollection = props.collection) {
+  const c = source;
+  form.value = {
+    name: c.name,
+    description: c.description ?? "",
+  };
+  isPublic.value = c.is_public ?? false;
+  pendingArtwork.value = null;
+  pendingUrlCover.value = null;
+  removeCover.value = false;
+}
+
+watch(
+  () => props.collection.id,
+  () => {
+    if (!saving.value) snapshot();
+  },
+);
+
+// External listener: SearchCoverDialog emits `updateUrlCover` with the
+// chosen URL. Active only while this tab is mounted.
+const onUrlCover = (url: string) => {
+  pendingUrlCover.value = url;
+  pendingArtwork.value = null;
+  removeCover.value = false;
+};
+
+onMounted(() => snapshot());
+useEmitterEvent("updateUrlCover", onUrlCover);
+
+// ── Cover preview ───────────────────────────────────────────────
+const coverSrc = computed<string | null>(() => {
+  if (removeCover.value) return null;
+  if (artworkUrl.value) return artworkUrl.value;
+  if (pendingUrlCover.value) return pendingUrlCover.value;
+  const c = props.collection as { path_cover_small?: string | null };
+  return c.path_cover_small ? toWebp(c.path_cover_small) : null;
+});
+const mosaicFallback = computed<string[]>(() => {
+  const c = props.collection as { path_covers_small?: string[] };
+  return (c.path_covers_small ?? []).slice(0, 4).map(toWebp);
+});
+
+// Smart-collection filter criteria: read-only display. The summary
+// helper translates the raw JSON into a structured list of rows.
+function platformLookup(id: number): string | null {
+  return allPlatforms.value.find((p) => p.id === id)?.display_name ?? null;
+}
+function collectionLookup(id: number): string | null {
+  return collectionsStore.getCollection(id)?.name ?? null;
+}
+function virtualCollectionLookup(id: string): string | null {
+  return collectionsStore.getVirtualCollection(id)?.name ?? null;
+}
+function smartCollectionLookup(id: number): string | null {
+  return collectionsStore.getSmartCollection(id)?.name ?? null;
+}
+const filterSummary = computed(() => {
+  if (props.kind !== "smart") return [];
+  const c = props.collection as SmartCollection;
+  const fc = (c.filter_criteria ?? {}) as SmartFilterCriteria;
+  return summarizeSmartFilterCriteria(
+    fc,
+    t,
+    {
+      platform: platformLookup,
+      collection: collectionLookup,
+      virtualCollection: virtualCollectionLookup,
+      smartCollection: smartCollectionLookup,
+    },
+    toBrowserLocale(locale.value),
+  );
+});
+
+// ── Cover actions ───────────────────────────────────────────────
+function openSearchCover() {
+  emitter?.emit("showSearchCoverDialog", {
+    term: props.collection.name,
+  });
+}
+
+function triggerFileInput() {
+  fileInputRef.value?.click();
+}
+
+function onFilePicked(evt: Event) {
+  const input = evt.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  pendingArtwork.value = file;
+  pendingUrlCover.value = null;
+  removeCover.value = false;
+
+  // Reset the input so re-picking the same file fires `change` again.
+  input.value = "";
+}
+
+function clearArtwork() {
+  pendingArtwork.value = null;
+  pendingUrlCover.value = null;
+  removeCover.value = true;
+}
+
+// ── Save ────────────────────────────────────────────────────────
+async function save() {
+  if (!dirty.value || saving.value || !canEdit.value) return;
+  const target = { kind: props.kind, id: props.collection.id };
+  saving.value = true;
+  try {
+    let saved: Collection | SmartCollection;
+    if (target.kind === "smart") {
+      const payload: SmartCollection = {
+        ...(props.collection as SmartCollection),
+        name: form.value.name.trim(),
+        description: form.value.description,
+        is_public: isPublic.value,
+      };
+      const { data } = await collectionApi.updateSmartCollection({
+        smartCollection: payload,
+      });
+      saved = data;
+    } else {
+      const payload: UpdatedCollection = {
+        ...(props.collection as Collection),
+        name: form.value.name.trim(),
+        description: form.value.description,
+        is_public: isPublic.value,
+        artwork: pendingArtwork.value ?? undefined,
+        url_cover: pendingUrlCover.value,
+      };
+      const { data } = await collectionApi.updateCollection({
+        collection: payload,
+        removeCover: removeCover.value,
+      });
+      saved = data;
+    }
+    snackbar.success(t("collection.updated", "Collection updated"), {
+      icon: "mdi-check-bold",
+    });
+    // Re-sync from the response, not the prop: the prop hasn't been
+    // updated yet (see `snapshot` note), so snapshotting it would revert
+    // the form to the pre-save values and keep `dirty` true.
+    if (syncSaved(saved, target)) snapshot(saved);
+  } catch (err) {
+    const e = err as {
+      response?: { data?: { msg?: string; detail?: string } };
+      message?: string;
+    };
+    snackbar.error(
+      `Failed to update collection: ${
+        e?.response?.data?.msg ||
+        e?.response?.data?.detail ||
+        e?.message ||
+        "unknown error"
+      }`,
+      { icon: "mdi-close-circle" },
+    );
+  } finally {
+    saving.value = false;
+  }
+}
+
+function discard() {
+  snapshot();
+}
+
+function isShowing(target: { kind: CollectionKind; id: number }): boolean {
+  return props.kind === target.kind && props.collection.id === target.id;
+}
+
+/** Puts a saved collection in the stores, and hands it to the parent while it
+ *  is still the one on screen.
+ *
+ * Returns:
+ *   Whether it still is.
+ */
+function syncSaved(
+  saved: Collection | SmartCollection,
+  target: { kind: CollectionKind; id: number },
+): boolean {
+  if (target.kind === "smart") {
+    const data = saved as SmartCollection;
+    collectionsStore.updateSmartCollection(data);
+    if (galleryRoms.currentSmartCollection?.id === data.id) {
+      galleryRoms.setCurrentSmartCollection(data);
+    }
+  } else {
+    const data = saved as Collection;
+    collectionsStore.updateCollection(data);
+    if (galleryRoms.currentCollection?.id === data.id) {
+      galleryRoms.setCurrentCollection(data);
+    }
+  }
+  if (!isShowing(target)) return false;
+  emit("saved", saved);
+  return true;
+}
+
+// Its own route, so an unapplied name or description edit stays a draft.
+async function setVisibility(next: boolean) {
+  if (!canEdit.value || savingVisibility.value) return;
+  const target = { kind: props.kind, id: props.collection.id };
+  const previous = isPublic.value;
+  isPublic.value = next;
+  savingVisibility.value = true;
+  try {
+    const { data } =
+      target.kind === "smart"
+        ? await collectionApi.setSmartCollectionVisibility({
+            id: target.id,
+            isPublic: next,
+          })
+        : await collectionApi.setCollectionVisibility({
+            id: target.id,
+            isPublic: next,
+          });
+    syncSaved(data, target);
+  } catch (error) {
+    if (isShowing(target)) isPublic.value = previous;
+    snackbar.error(
+      t("common.cant-update-visibility", { error: errorMessage(error) }),
+      { icon: "mdi-close-circle" },
+    );
+  } finally {
+    savingVisibility.value = false;
+  }
+}
+</script>
+
+<template>
+  <div class="r-settings-column">
+    <!-- Cover artwork: regular collections only. Smart collections
+         derive their cover from the contained ROMs at runtime, so an
+         upload UI here would be misleading. -->
+    <section v-if="kind === 'regular'" class="r-coll-set__section">
+      <header class="r-section-head">
+        <RIcon icon="mdi-image-outline" size="14" />
+        <span>{{ t("collection.cover", "Cover artwork") }}</span>
+      </header>
+      <div class="r-coll-set__cover">
+        <div class="r-coll-set__cover-preview">
+          <img
+            v-if="coverSrc"
+            :src="coverSrc"
+            :alt="collection.name"
+            class="r-coll-set__cover-img"
+          />
+          <CollectionMosaic
+            v-else
+            :covers="mosaicFallback"
+            aspect-ratio="140 / 188"
+          />
+        </div>
+        <div v-if="canEdit" class="r-coll-set__cover-actions">
+          <RBtn
+            icon="mdi-image-search-outline"
+            variant="outlined"
+            density="compact"
+            :tooltip="t('rom.search-cover', 'Search cover')"
+            @click="openSearchCover"
+          />
+          <RBtn
+            icon="mdi-pencil"
+            variant="outlined"
+            density="compact"
+            :tooltip="t('rom.upload-cover', 'Upload cover')"
+            @click="triggerFileInput"
+          />
+          <RBtn
+            icon="mdi-delete"
+            variant="outlined"
+            density="compact"
+            color="danger"
+            :tooltip="t('common.remove', 'Remove')"
+            @click="clearArtwork"
+          />
+          <input
+            ref="fileInputRef"
+            type="file"
+            accept="image/*"
+            class="r-coll-set__file"
+            :aria-label="t('rom.upload-cover', 'Upload cover')"
+            @change="onFilePicked"
+          />
+        </div>
+      </div>
+    </section>
+
+    <!-- Details (edit form): both kinds. -->
+    <section class="r-coll-set__section">
+      <header class="r-section-head">
+        <RIcon icon="mdi-information-outline" size="14" />
+        <span>{{ t("common.details", "Details") }}</span>
+      </header>
+      <div class="r-coll-set__form">
+        <RTextField
+          v-model="form.name"
+          :placeholder="t('collection.name', 'Name')"
+          prefix-label="stacked"
+          :disabled="!canEdit"
+          required
+          hide-details
+        >
+          <template #prefix-label>{{ t("collection.name", "Name") }}</template>
+        </RTextField>
+        <RTextField
+          v-model="form.description"
+          :placeholder="t('collection.description', 'Description')"
+          prefix-label="stacked"
+          :disabled="!canEdit"
+          multiline
+          :rows="3"
+          hide-details
+        >
+          <template #prefix-label>
+            {{ t("collection.description", "Description") }}
+          </template>
+        </RTextField>
+        <div class="r-coll-set__row">
+          <VisibilitySwitch
+            :model-value="isPublic"
+            :disabled="!canEdit || savingVisibility || saving"
+            @update:model-value="setVisibility"
+          />
+        </div>
+        <div v-if="canEdit && dirty" class="r-coll-set__form-actions">
+          <RBtn variant="text" :disabled="saving" @click="discard">
+            {{ t("common.discard", "Discard") }}
+          </RBtn>
+          <RBtn
+            variant="flat"
+            color="primary"
+            prepend-icon="mdi-check"
+            :disabled="!form.name.trim() || savingVisibility"
+            :loading="saving"
+            @click="save"
+          >
+            {{ t("common.apply", "Apply") }}
+          </RBtn>
+        </div>
+      </div>
+    </section>
+
+    <!-- Smart collection: filter criteria (read-only). -->
+    <section
+      v-if="kind === 'smart' && filterSummary.length > 0"
+      class="r-coll-set__section"
+    >
+      <header class="r-section-head">
+        <RIcon icon="mdi-filter-variant" size="14" />
+        <span>{{ t("collection.filters", "Filters") }}</span>
+      </header>
+      <ul class="r-coll-set__filters">
+        <li
+          v-for="row in filterSummary"
+          :key="row.key"
+          class="r-coll-set__filter-row"
+        >
+          <span class="r-coll-set__filter-label">
+            <RIcon :icon="row.icon" size="14" />
+            <span>{{ row.label }}</span>
+            <RTag
+              v-if="row.logic"
+              tone="brand"
+              size="x-small"
+              class="r-coll-set__filter-logic"
+            >
+              {{ row.logic }}
+            </RTag>
+          </span>
+          <div v-if="row.values?.length" class="r-coll-set__filter-values">
+            <RChip
+              v-for="(v, i) in row.values"
+              :key="`${row.key}-${i}`"
+              size="x-small"
+              variant="translucent"
+            >
+              {{ v }}
+            </RChip>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Delete routes through the parent (confirm dialog + navigation
+         lives in Collection.vue). -->
+    <DangerZone
+      v-if="canDelete"
+      :title="t('collection.delete-collection', 'Delete collection')"
+      :hint="
+        t(
+          'collection.delete-collection-hint',
+          'Removes the collection from RomM. The ROM files themselves are not deleted.',
+        )
+      "
+    >
+      <RBtn
+        variant="outlined"
+        color="danger"
+        prepend-icon="mdi-delete-outline"
+        :loading="deleting"
+        :disabled="deleting"
+        @click="emit('delete')"
+      >
+        {{ t("common.delete", "Delete") }}
+      </RBtn>
+    </DangerZone>
+  </div>
+</template>
+
+<style scoped>
+/* ── Cover ──────────────────────────────────────────────────────── */
+.r-coll-set__cover {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px;
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
+  border-radius: var(--r-radius-md);
+}
+.r-coll-set__cover-preview {
+  width: 140px;
+  height: 188px;
+  flex-shrink: 0;
+  border-radius: var(--r-radius-md);
+  border: 1px solid var(--r-color-border-strong);
+  overflow: hidden;
+  background: var(--r-color-surface);
+}
+.r-coll-set__cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.r-coll-set__cover-actions {
+  display: flex;
+  gap: 4px;
+}
+.r-coll-set__file {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Form ───────────────────────────────────────────────────────── */
+.r-coll-set__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.r-coll-set__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.r-coll-set__form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ── Filters (smart) ────────────────────────────────────────────── */
+.r-coll-set__filters {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.r-coll-set__filter-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.r-coll-set__filter-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--r-color-fg-secondary);
+  font-size: var(--r-font-size-sm);
+  font-weight: var(--r-font-weight-semibold);
+}
+.r-coll-set__filter-logic {
+  margin-left: 4px;
+  text-transform: uppercase;
+}
+.r-coll-set__filter-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-left: 20px;
+}
+</style>

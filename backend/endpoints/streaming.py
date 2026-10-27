@@ -57,7 +57,7 @@ from endpoints.responses.streaming import (
     VolumeResponse,
 )
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
+from handler.auth.dependencies import assert_rom_visible, is_scoped_admin
 from handler.database import (
     db_container_adoption_handler,
     db_rom_handler,
@@ -126,7 +126,6 @@ from handler.streaming.session_store import (
 from logger.logger import log
 from models.assets import MemoryCard, MemoryCardVersion, Save, State
 from models.rom import Rom
-from models.user import Role
 from utils.m3u import playlist_files
 from utils.router import APIRouter
 
@@ -1605,7 +1604,7 @@ async def list_containers(request: Request) -> AdminContainersResponse:
     platforms but hosts one session, so the platform rows the frontend gets
     from `/streaming/config` are the wrong unit for operating the fleet.
     """
-    if request.user.role != Role.ADMIN:
+    if not is_scoped_admin(request, Scope.USERS_READ):
         raise HTTPException(status_code=403, detail="Forbidden")
 
     containers: list[AdminContainerSchema] = []
@@ -1668,7 +1667,7 @@ async def claim_desktop_session(
     Returns 404 for an unknown container, 409 when it is occupied, 502/503 when
     the broker rejects the activation or is unreachable.
     """
-    if request.user.role != Role.ADMIN:
+    if not is_scoped_admin(request, Scope.USERS_WRITE):
         raise HTTPException(status_code=403, detail="Forbidden")
 
     container, platform = access.container_by_name(req.container)
@@ -1798,7 +1797,7 @@ async def list_sessions(request: Request) -> AdminSessionsResponse:
     Entries carry the platform the session was claimed under so an admin
     client can release one through `DELETE /sessions/{platform}`.
     """
-    if request.user.role != Role.ADMIN:
+    if not is_scoped_admin(request, Scope.USERS_READ):
         raise HTTPException(status_code=403, detail="Forbidden")
 
     grouped = containers_by_key()
@@ -1832,7 +1831,7 @@ async def force_release_all(
 
     `reason` is surfaced to every displaced player alongside the admin's name.
     """
-    if request.user.role != Role.ADMIN:
+    if not is_scoped_admin(request, Scope.USERS_WRITE):
         raise HTTPException(status_code=403, detail="Forbidden")
 
     # Map container keys back to configs so each broker can be told to stop -

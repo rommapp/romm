@@ -5,6 +5,7 @@ stack, which imports the filesystem handlers that in turn read title ids.
 """
 
 import enum
+from typing import Final
 
 
 class UniversalPlatformSlug(enum.StrEnum):
@@ -467,6 +468,7 @@ class UniversalPlatformSlug(enum.StrEnum):
     Z80 = "z80"
     Z88 = "z88"
     ZEEBO = "zeebo"
+    ZELDA_CLASSIC = "zelda-classic"
     ZILOG_Z8000 = "zilog-z8000"
     ZINC = "zinc"
     ZOD = "zod"
@@ -476,3 +478,22 @@ class UniversalPlatformSlug(enum.StrEnum):
     ZX80 = "zx80"
     ZX81 = "zx81"
     ZXS = "zxs"
+
+
+# Slugs for the same hardware, each used by different providers.
+DUPLICATE_PLATFORM_SLUGS: Final[
+    tuple[tuple[UniversalPlatformSlug, UniversalPlatformSlug], ...]
+] = (
+    (UniversalPlatformSlug.VC_4000, UniversalPlatformSlug.INTERTON_VC_4000),
+    (UniversalPlatformSlug.APPLE_PIPPIN, UniversalPlatformSlug.PIPPIN),
+    (UniversalPlatformSlug.TANDY_VIS, UniversalPlatformSlug.VIS),
+)
+
+
+def fill_duplicate_slugs[T](platforms: dict[UniversalPlatformSlug, T]) -> None:
+    """Give each duplicate slug the entry of the other when only one is listed."""
+    for slug, duplicate in DUPLICATE_PLATFORM_SLUGS:
+        if slug in platforms:
+            platforms.setdefault(duplicate, platforms[slug])
+        elif duplicate in platforms:
+            platforms[slug] = platforms[duplicate]
