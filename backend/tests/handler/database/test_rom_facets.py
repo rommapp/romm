@@ -43,6 +43,13 @@ class TestRomFacets:
         assert facets is not None
         assert facets.min_age == 15
 
+    def test_release_types_mirror_the_rom(self, rom: Rom):
+        db_rom_handler.update_rom(rom.id, {"tags": ["Translation"]})
+
+        facets = _facets(rom.id)
+        assert facets is not None
+        assert facets.release_types == ["translation"]
+
     def test_update_mirrors_derived_and_raw_values(self, rom: Rom):
         db_rom_handler.update_rom(
             rom.id,

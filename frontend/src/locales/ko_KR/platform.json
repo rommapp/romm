@@ -76,6 +76,8 @@
   "random-rom-empty": "이 플랫폼에 ROM이 없습니다",
   "random-rom-error": "무작위 ROM을 선택할 수 없습니다",
   "region": "지역",
+  "release-type": "출시 유형",
+  "release-types": "출시 유형",
   "removing-firmware": "{n} 개 펌웨어를 RomM에서 제거 중",
   "reset-filters": "필터 초기화",
   "rom-count": "{n}개 ROM | {n}개 ROM",

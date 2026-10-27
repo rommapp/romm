@@ -76,6 +76,8 @@
   "random-rom-empty": "このプラットフォームにROMがありません",
   "random-rom-error": "ランダムなROMを選択できませんでした",
   "region": "地域",
+  "release-type": "リリース種別",
+  "release-types": "リリース種別",
   "removing-firmware": "{n} 個のファームウェアをRomMから削除中",
   "reset-filters": "フィルタをリセット",
   "rom-count": "{n}件のROM | {n}件のROM",

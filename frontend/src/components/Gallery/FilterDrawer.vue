@@ -45,6 +45,7 @@ import storePlatforms, { type Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import { romStatusMap, type PlayingStatus } from "@/utils";
 import { METADATA_PROVIDER_FILTER_OPTIONS } from "@/utils/metadataProviders";
+import { releaseTypeLabelKey } from "@/utils/releaseTypes";
 
 defineOptions({ inheritAttrs: false });
 
@@ -116,6 +117,9 @@ const {
   filterTags,
   selectedTags,
   tagsLogic,
+  filterReleaseTypes,
+  selectedReleaseTypes,
+  releaseTypesLogic,
   filterStatuses,
   selectedStatuses,
   statusesLogic,
@@ -407,6 +411,15 @@ const multiSections = computed<MultiConfig[]>(() => [
     selected: selectedTags,
     logic: tagsLogic,
     setLogic: (l) => filter.setTagsLogic(l),
+  },
+  {
+    label: t("platform.release-type"),
+    icon: "mdi-shape-plus-outline",
+    items: filterReleaseTypes,
+    selected: selectedReleaseTypes,
+    logic: releaseTypesLogic,
+    setLogic: (l) => filter.setReleaseTypesLogic(l),
+    toTitle: (raw) => t(releaseTypeLabelKey(raw), raw),
   },
   {
     label: t("platform.player-count"),

@@ -523,6 +523,7 @@ PLAIN_COLUMNS: list[sa.Column[Any]] = [
     ),
     sa.Column(SEARCH_TITLES_COLUMN, sa.Text()),
     sa.Column(MIN_AGE_COLUMN, sa.Integer()),
+    sa.Column("release_types", CustomJSON()),
 ]
 
 
