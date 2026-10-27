@@ -2467,6 +2467,25 @@ class TestRetroArchSyncBlobPathParsing:
     def test_rejects_non_blob_paths(self, path):
         assert sync_handler.parse_retroarch_sync_blob_path(path) is None
 
+    @pytest.mark.parametrize(
+        ("path", "expected"),
+        [
+            ("saves/Snes9x/unknown_game.srm", "saves/Snes9x/unknown_game.srm"),
+            (
+                "saves/Beetle Saturn/shared/memory-card.bin",
+                "saves/Beetle Saturn/shared/memory-card.bin",
+            ),
+        ],
+    )
+    def test_parses_unmatched_save_paths(self, path, expected):
+        assert sync_handler.parse_retroarch_unmatched_save_path(path) == expected
+
+    @pytest.mark.parametrize(
+        "path", ["config/a.cfg", "saves", "saves/../secret", "states/core/state"]
+    )
+    def test_rejects_non_unmatched_save_paths(self, path):
+        assert sync_handler.parse_retroarch_unmatched_save_path(path) is None
+
 
 class TestRetroArchSyncBlobs:
     def test_creates_and_downloads_config_blob(self, client, admin_user: User):
@@ -2560,6 +2579,29 @@ class TestRetroArchSyncBlobs:
             "/api/sync/retroarch/config/retroarch.cfg", auth=ADMIN_AUTH
         )
         assert get_response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_unmatched_save_is_stored_served_and_in_manifest(
+        self, client, admin_user: User
+    ):
+        path = "/api/sync/retroarch/saves/Beetle Saturn/shared/memory-card.bin"
+        put_response = client.put(path, content=b"memory-card-data", auth=ADMIN_AUTH)
+        assert put_response.status_code == status.HTTP_201_CREATED
+
+        get_response = client.get(path, auth=ADMIN_AUTH)
+        assert get_response.status_code == status.HTTP_200_OK
+        assert get_response.content == b"memory-card-data"
+
+        manifest = client.get(
+            "/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH
+        ).json()
+        assert {
+            "path": "saves/Beetle Saturn/shared/memory-card.bin",
+            "hash": "4e1fec64617b57d580100ae80eb3a67c",
+        } in manifest
+
+        delete_response = client.request("DELETE", path, auth=ADMIN_AUTH)
+        assert delete_response.status_code == status.HTTP_204_NO_CONTENT
+        assert client.get(path, auth=ADMIN_AUTH).status_code == status.HTTP_404_NOT_FOUND
 
     def test_manifest_includes_blobs_alongside_assets(self, client, admin_user: User):
         client.put(

@@ -437,10 +437,28 @@ async def retroarch_sync_get(request: Request, file_path: str) -> Response:
 
     parsed = sync_handler.parse_retroarch_sync_path(file_path)
     if not parsed:
+        unmatched_save_path = sync_handler.parse_retroarch_unmatched_save_path(
+            file_path
+        )
+        if unmatched_save_path:
+            return _serve(
+                fs_retroarch_sync_handler,
+                sync_handler.user_blob_path(request.user, unmatched_save_path),
+                os.path.basename(unmatched_save_path),
+            )
         return _empty(status.HTTP_404_NOT_FOUND)
 
     rom = await _resolve_rom(request, parsed.kind, parsed.file_name)
     if not rom:
+        unmatched_save_path = sync_handler.parse_retroarch_unmatched_save_path(
+            file_path
+        )
+        if unmatched_save_path:
+            return _serve(
+                fs_retroarch_sync_handler,
+                sync_handler.user_blob_path(request.user, unmatched_save_path),
+                os.path.basename(unmatched_save_path),
+            )
         return _empty(status.HTTP_404_NOT_FOUND)
 
     asset = await _get_asset(request.user, rom, parsed)
@@ -511,6 +529,11 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
 
     parsed = sync_handler.parse_retroarch_sync_path(file_path)
     if not parsed:
+        unmatched_save_path = sync_handler.parse_retroarch_unmatched_save_path(
+            file_path
+        )
+        if unmatched_save_path:
+            return await _put_unmatched_save(request, unmatched_save_path)
         return _empty(status.HTTP_409_CONFLICT)
 
     # Stored under the client's exact name, or the manifest would advertise a
@@ -525,6 +548,12 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
 
     rom = await _resolve_rom(request, parsed.kind, file_name)
     if not rom:
+        if parsed.kind == "saves":
+            unmatched_save_path = sync_handler.parse_retroarch_unmatched_save_path(
+                file_path
+            )
+            if unmatched_save_path:
+                return await _put_unmatched_save(request, unmatched_save_path)
         log.warning(f"Cloud sync upload {hl(file_path)} matches no ROM in the library")
         return _empty(status.HTTP_409_CONFLICT)
 
@@ -674,6 +703,42 @@ def _record_state(
     db_state_handler.add_state(state=scanned)
 
 
+async def _put_unmatched_save(request: Request, relative_path: str) -> Response:
+    """Store a save with no matching ROM in the user's RetroArch tree."""
+    segments = relative_path.split("/")
+    try:
+        for segment in segments:
+            if sanitize_filename(segment) != segment:
+                return _empty(status.HTTP_409_CONFLICT)
+            check_filename_length(segment)
+        disk_path = sync_handler.user_blob_path(request.user, relative_path)
+        async with _request_body(request) as body:
+            existed = await fs_retroarch_sync_handler.file_exists(disk_path)
+            await fs_retroarch_sync_handler.write_file(
+                file=body,
+                path=os.path.dirname(disk_path),
+                filename=os.path.basename(disk_path),
+            )
+    except ValueError:
+        return _empty(status.HTTP_409_CONFLICT)
+
+    log.info(f"Cloud sync stored unmatched save {hl(relative_path)}")
+    return _empty(
+        status.HTTP_204_NO_CONTENT if existed else status.HTTP_201_CREATED
+    )
+
+
+async def _delete_unmatched_save(request: Request, relative_path: str) -> Response:
+    """Delete an unmatched save from the user's RetroArch tree."""
+    try:
+        await fs_retroarch_sync_handler.remove_file(
+            file_path=sync_handler.user_blob_path(request.user, relative_path)
+        )
+    except (FileNotFoundError, ValueError):
+        return _empty(status.HTTP_404_NOT_FOUND)
+    return _empty(status.HTTP_204_NO_CONTENT)
+
+
 async def _put_save(request: Request, rom: Rom, parsed: RetroArchSyncPath) -> Response:
     async with _request_body(request) as body:
         try:
@@ -718,10 +783,20 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
 
     parsed = sync_handler.parse_retroarch_sync_path(file_path)
     if not parsed:
+        unmatched_save_path = sync_handler.parse_retroarch_unmatched_save_path(
+            file_path
+        )
+        if unmatched_save_path:
+            return await _delete_unmatched_save(request, unmatched_save_path)
         return _empty(status.HTTP_404_NOT_FOUND)
 
     rom = await _resolve_rom(request, parsed.kind, parsed.file_name)
     if not rom:
+        unmatched_save_path = sync_handler.parse_retroarch_unmatched_save_path(
+            file_path
+        )
+        if unmatched_save_path:
+            return await _delete_unmatched_save(request, unmatched_save_path)
         return _empty(status.HTTP_404_NOT_FOUND)
 
     if parsed.kind == "saves":

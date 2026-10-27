@@ -66,6 +66,7 @@ ASSET_ROOTS: tuple[AssetKind, ...] = ("saves", "states")
 # RetroArch's config/thumbnails/system sync categories belong to no ROM, so
 # they're kept as opaque per-user blobs.
 BLOB_CATEGORIES = ("config", "thumbnails", "system")
+MANIFEST_BLOB_CATEGORIES = (*BLOB_CATEGORIES, "saves")
 
 # `<game>.state`, `<game>.state3`, `<game>.state.auto`: the auto suffix makes
 # this a two-segment extension, which splitext alone gets wrong.
@@ -617,7 +618,7 @@ def build_asset_file_path(
 
 
 def parse_retroarch_sync_blob_path(path: str) -> str | None:
-    """A blob-category client path as ``category/...``, or None if it isn't one."""
+    """A non-save blob-category client path as ``category/...``."""
     segments = split_segments(path)
     if segments is None or len(segments) < 2:
         return None
@@ -625,6 +626,14 @@ def parse_retroarch_sync_blob_path(path: str) -> str | None:
     if segments[0] not in BLOB_CATEGORIES:
         return None
 
+    return "/".join(segments)
+
+
+def parse_retroarch_unmatched_save_path(path: str) -> str | None:
+    """A safe, relative ``saves/...`` path for data that belongs to no ROM."""
+    segments = split_segments(path)
+    if segments is None or len(segments) < 2 or segments[0] != "saves":
+        return None
     return "/".join(segments)
 
 
@@ -679,7 +688,7 @@ async def _blob_md5(disk_path: str) -> str | None:
 async def build_blob_manifest_entries(user: User) -> list[dict[str, str]]:
     blob_paths: list[str] = []
     jobs: list[tuple[str, Callable[[], Awaitable[str | None]]]] = []
-    for category in BLOB_CATEGORIES:
+    for category in MANIFEST_BLOB_CATEGORIES:
         prefix = user_blob_path(user, category)
         for blob in await fs_retroarch_sync_handler.list_blob_files(prefix):
             blob_path = f"{category}/{blob.relative_path}"
