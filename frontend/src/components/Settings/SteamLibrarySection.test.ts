@@ -28,13 +28,13 @@ function mountSection() {
     global: {
       stubs: {
         RBtn: {
-          props: ["disabled"],
+          props: { disabled: { type: Boolean, default: false } },
           emits: ["click"],
           template: `<button :disabled="disabled" @click="$emit('click')"><slot /></button>`,
         },
         RTag: { template: `<span class="tag"><slot /></span>` },
         RTextField: {
-          props: ["modelValue"],
+          props: { modelValue: { type: String, default: "" } },
           emits: ["update:modelValue"],
           template: `<input :value="modelValue" @input="$emit('update:modelValue', $event.target.value)" />`,
         },

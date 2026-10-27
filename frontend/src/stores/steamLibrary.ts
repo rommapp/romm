@@ -1,3 +1,4 @@
+import { useDocumentVisibility } from "@vueuse/core";
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
 import type { NotificationSchema } from "@/__generated__";
@@ -53,6 +54,12 @@ const useSteamLibrary = defineStore("steamLibrary", () => {
     },
     { immediate: true },
   );
+
+  // A scheduled sync notifies nobody, so a tab coming back refetches.
+  const visibility = useDocumentVisibility();
+  watch(visibility, (state) => {
+    if (state === "visible" && account.value) void load();
+  });
 
   // The notification inbox owns the connection; this only listens on it.
   useSocketEvent<NotificationSchema>(

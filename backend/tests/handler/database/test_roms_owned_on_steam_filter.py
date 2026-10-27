@@ -3,11 +3,17 @@
 import pytest
 from tests.factories import make_platform, make_rom
 
-from handler.database import db_rom_handler, db_steam_library_handler
+from handler.database import (
+    db_rom_handler,
+    db_steam_library_handler,
+    db_user_handler,
+)
 from models.platform import Platform
 from models.rom import Rom
 from models.steam_library import SteamLibraryEntry
 from models.user import User
+
+STEAM_ID = "76561197960287930"
 
 
 @pytest.fixture
@@ -17,8 +23,9 @@ def win() -> Platform:
 
 def _own(user: User, rom: Rom) -> None:
     assert rom.steam_id is not None
+    db_user_handler.update_user(user.id, {"steam_id": STEAM_ID})
     db_steam_library_handler.replace_entries(
-        user.id, [SteamLibraryEntry(rom_id=rom.id, steam_app_id=rom.steam_id)]
+        user.id, STEAM_ID, [SteamLibraryEntry(rom_id=rom.id, steam_app_id=rom.steam_id)]
     )
 
 

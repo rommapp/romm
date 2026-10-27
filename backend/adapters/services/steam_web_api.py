@@ -1,8 +1,10 @@
+import json
 from typing import Final
 
 import aiohttp
 import yarl
 from aiohttp.client import ClientTimeout
+from fastapi import HTTPException
 
 from adapters.services.provider_http import send_with_retries
 from adapters.services.response_validation import parse_response
@@ -54,6 +56,10 @@ class SteamWebAPIService:
             response = await send_with_retries(send, provider="Steam", url=path)
         except TimeoutError as exc:
             raise SteamWebAPIError("Steam did not answer in time") from exc
+        except HTTPException as exc:
+            raise SteamWebAPIError("Can't connect to Steam") from exc
+        except json.JSONDecodeError as exc:
+            raise SteamWebAPIError("Steam sent a reply that could not be read") from exc
         except aiohttp.ClientResponseError as exc:
             if exc.status in (401, 403):
                 raise SteamWebAPIError("Steam rejected the API key") from exc

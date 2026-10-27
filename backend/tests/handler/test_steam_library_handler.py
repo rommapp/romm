@@ -7,6 +7,7 @@ from tests.factories import make_platform, make_rom
 from adapters.services.steam_types import SteamOwnedGame
 from adapters.services.steam_web_api import SteamWebAPIError
 from handler.database import (
+    db_collection_handler,
     db_platform_handler,
     db_rom_handler,
     db_steam_library_handler,
@@ -20,7 +21,9 @@ from handler.steam_library_handler import (
     steam_library_platform,
     steam_web_api,
     sync_steam_library,
+    unlink_steam_profile,
 )
+from models.collection import SmartCollection
 from models.platform import Platform
 from models.rom import RomStorefront
 from models.user import User
@@ -218,7 +221,6 @@ async def test_forgets_games_no_longer_owned(
     result = await sync_steam_library(steam_user)
 
     assert result.removed == 1
-    assert result.changed_app_ids == [220]
     [entry] = db_steam_library_handler.get_entries(steam_user.id)
     assert (entry.steam_app_id, entry.playtime_minutes) == (400, 30)
 
@@ -233,6 +235,40 @@ async def test_a_matched_store_only_rom_is_not_scanned_again(
     result = await sync_steam_library(steam_user)
 
     assert result.unmatched_rom_ids == []
+
+
+async def test_a_sync_moves_an_owned_on_steam_smart_collection(
+    steam_api: MagicMock, steam_user: User, win: Platform
+):
+    rom = make_rom(win, "Portal", steam_id=400)
+    smart_collection = db_collection_handler.add_smart_collection(
+        SmartCollection(
+            name="Owned on Steam",
+            description="",
+            user_id=steam_user.id,
+            filter_criteria={"owned_on_steam": True},
+        )
+    )
+    steam_api.get_owned_games.return_value = [_game(400, "Portal")]
+
+    await sync_steam_library(steam_user)
+
+    after = db_collection_handler.get_smart_collection(smart_collection.id)
+    assert after is not None and after.rom_ids == [rom.id]
+
+
+async def test_an_account_unlinked_mid_sync_keeps_its_games_forgotten(
+    steam_api: MagicMock, steam_user: User, win: Platform
+):
+    async def unlink_while_fetching(steam_id: str) -> list[SteamOwnedGame]:
+        unlink_steam_profile(steam_user)
+        return [_game(220, "Half-Life 2")]
+
+    steam_api.get_owned_games.side_effect = unlink_while_fetching
+
+    with pytest.raises(SteamLibraryError, match="changed during the sync"):
+        await sync_steam_library(steam_user)
+    assert db_steam_library_handler.get_entries(steam_user.id) == []
 
 
 async def test_a_private_library_is_an_error(

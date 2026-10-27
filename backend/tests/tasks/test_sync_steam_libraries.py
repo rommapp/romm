@@ -1,11 +1,11 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from tests.factories import make_platform, make_rom
 
 from endpoints.sockets.scan import ScanPayload
 from exceptions.socket_exceptions import NoScanWorkerException
 from handler.database import db_user_handler
+from handler.scan_handler import ScanType
 from handler.steam_library_handler import SteamLibraryError, SteamSyncResult
 from models.user import User
 from tasks.scheduled.sync_steam_libraries import SyncSteamLibrariesTask
@@ -50,25 +50,8 @@ async def test_syncs_every_linked_user(
     assert call.args[0].id == linked_user.id
     assert stats == {"processed": 1, "total": 1}
     queue_scan.assert_awaited_once_with(
-        ScanPayload(roms_ids=[7]), started_by_user_id=None
+        ScanPayload(type=ScanType.UNMATCHED, roms_ids=[7]), started_by_user_id=None
     )
-
-
-async def test_refreshes_the_smart_collections_an_ownership_change_moves(
-    task: SyncSteamLibrariesTask, linked_user: User, queue_scan
-):
-    rom = make_rom(make_platform("win"), "Half-Life 2", steam_id=220)
-    with (
-        patch(
-            f"{MODULE}.sync_steam_library",
-            new_callable=AsyncMock,
-            return_value=SteamSyncResult(changed_app_ids=[220]),
-        ),
-        patch(f"{MODULE}.refresh_affected_smart_collections") as refresh,
-    ):
-        await task.run(user_id=linked_user.id)
-
-    refresh.assert_called_once_with([rom.id], membership_only=True)
 
 
 async def test_one_users_failure_does_not_stop_the_rest(
@@ -110,7 +93,8 @@ async def test_a_requested_sync_scans_for_that_user(
         await task.run(user_id=linked_user.id)
 
     queue_scan.assert_awaited_once_with(
-        ScanPayload(roms_ids=[1, 3]), started_by_user_id=linked_user.id
+        ScanPayload(type=ScanType.UNMATCHED, roms_ids=[1, 3]),
+        started_by_user_id=linked_user.id,
     )
 
 

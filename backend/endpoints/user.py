@@ -13,7 +13,6 @@ from endpoints.forms.identity import UserForm
 from endpoints.permissions import emit_permissions_changed
 from endpoints.responses import TaskExecutionResponse
 from endpoints.responses.identity import InviteLinkSchema, UserSchema
-from endpoints.roms import refresh_affected_smart_collections
 from endpoints.tasks import build_task_execution_response
 from exceptions.database_exceptions import LastAdminError
 from handler.audit_handler import (
@@ -43,7 +42,12 @@ from handler.metadata import meta_ra_handler
 from handler.metadata.ra_handler import RAUserProgression
 from handler.notification_handler import notify
 from handler.socket_handler import close_client_token_sockets
-from handler.steam_library_handler import SteamLibraryError, resolve_steam_profile
+from handler.steam_library_handler import (
+    SteamLibraryError,
+    link_steam_profile,
+    resolve_steam_profile,
+    unlink_steam_profile,
+)
 from logger.logger import log
 from models.audit_event import AuditAction
 from models.notification import NotificationKind, NotificationLevel
@@ -757,14 +761,6 @@ def _get_steam_user(request: Request, id: int) -> User:
     return user
 
 
-def _forget_steam_library(user_id: int) -> None:
-    owned_app_ids = db_steam_library_handler.delete_entries(user_id)
-    refresh_affected_smart_collections(
-        db_steam_library_handler.get_rom_ids_by_app_ids(owned_app_ids),
-        membership_only=True,
-    )
-
-
 @protected_route(
     router.put,
     "/{id}/steam",
@@ -797,14 +793,7 @@ async def link_steam_account(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
 
-    # The library came from the previous account, so it no longer applies.
-    if user.steam_id and user.steam_id != summary["steamid"]:
-        _forget_steam_library(user.id)
-
-    db_user_handler.update_user(
-        user.id,
-        {"steam_id": summary["steamid"], "steam_persona_name": summary["personaname"]},
-    )
+    link_steam_profile(user, summary)
     return UserSchema.model_validate(db_user_handler.get_user(user.id))
 
 
@@ -821,8 +810,7 @@ async def unlink_steam_account(
 ) -> UserSchema:
     """Unlink a user's Steam account and forget which games it owns."""
     user = _get_steam_user(request, id)
-    _forget_steam_library(user.id)
-    db_user_handler.update_user(user.id, {"steam_id": None, "steam_persona_name": None})
+    unlink_steam_profile(user)
     return UserSchema.model_validate(db_user_handler.get_user(user.id))
 
 

@@ -1,10 +1,10 @@
 from typing import Any
 
 from config import STEAM_API_KEY
-from endpoints.roms import refresh_affected_smart_collections
 from endpoints.sockets.scan import ScanPayload, queue_scan
 from exceptions.socket_exceptions import NoScanWorkerException
-from handler.database import db_steam_library_handler, db_user_handler
+from handler.database import db_user_handler
+from handler.scan_handler import ScanType
 from handler.steam_library_handler import SteamLibraryError, sync_steam_library
 from logger.logger import log
 from models.user import User
@@ -17,7 +17,11 @@ from . import UpdateStats
 
 async def _scan_unmatched_roms(rom_ids: list[int], user_id: int | None) -> None:
     try:
-        await queue_scan(ScanPayload(roms_ids=rom_ids), started_by_user_id=user_id)
+        # A quick scan only reconciles files, so these never get metadata from it.
+        await queue_scan(
+            ScanPayload(type=ScanType.UNMATCHED, roms_ids=rom_ids),
+            started_by_user_id=user_id,
+        )
     except NoScanWorkerException:
         log.warning(
             f"No scan worker is running, so {len(rom_ids)} Steam games wait for "
@@ -66,12 +70,6 @@ class SyncSteamLibrariesTask(PeriodicTask):
                     f"added, {result.removed} no longer owned"
                 )
                 unmatched_rom_ids.extend(result.unmatched_rom_ids)
-                refresh_affected_smart_collections(
-                    db_steam_library_handler.get_rom_ids_by_app_ids(
-                        result.changed_app_ids
-                    ),
-                    membership_only=True,
-                )
             update_stats.update(processed=processed)
 
         if unmatched_rom_ids:

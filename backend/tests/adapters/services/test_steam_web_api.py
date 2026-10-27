@@ -126,3 +126,19 @@ async def test_a_timeout_on_every_attempt_is_an_error(session):
 
     with pytest.raises(SteamWebAPIError, match="in time"):
         await _service().get_owned_games(STEAM_ID)
+
+
+async def test_an_unreachable_steam_is_an_error(session):
+    session.get.side_effect = aiohttp.ClientConnectionError
+
+    with pytest.raises(SteamWebAPIError, match="connect to Steam"):
+        await _service().get_owned_games(STEAM_ID)
+
+
+async def test_a_reply_that_is_not_json_is_an_error(session):
+    response = _response({})
+    response.read = AsyncMock(return_value=b"<html>busy</html>")
+    session.get.return_value = response
+
+    with pytest.raises(SteamWebAPIError, match="could not be read"):
+        await _service().get_owned_games(STEAM_ID)

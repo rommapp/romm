@@ -8,6 +8,7 @@ from decorators.database import INJECTED_SESSION, begin_session
 from models.platform import Platform
 from models.rom import Rom
 from models.steam_library import SteamLibraryEntry
+from models.user import User
 from utils.database import is_non_blank
 
 from .base_handler import DBBaseHandler
@@ -100,14 +101,23 @@ class DBSteamLibraryHandler(DBBaseHandler):
     def replace_entries(
         self,
         user_id: int,
+        steam_id: str,
         entries: Sequence[SteamLibraryEntry],
         session: Session = INJECTED_SESSION,
-    ) -> SteamLibraryChanges:
-        """Make `entries` the user's whole Steam library.
+    ) -> SteamLibraryChanges | None:
+        """Make `entries` the user's whole Steam library, if still linked to `steam_id`.
 
         Returns:
-            The app ids newly owned and the ones no longer owned.
+            The app ids newly owned and the ones no longer owned, or None when
+            the user's linked account changed since `entries` were fetched.
         """
+        # Locked so an unlink or relink can't commit between the check and the write.
+        linked = session.scalar(
+            select(User.steam_id).where(User.id == user_id).with_for_update()
+        )
+        if linked != steam_id:
+            return None
+
         existing = {
             entry.steam_app_id: entry
             for entry in session.scalars(

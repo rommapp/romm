@@ -1,8 +1,5 @@
 """Add Steam library import: linked accounts, store-only roms, owned games
 
-`storefront` is declared in `utils.roms_columns`, which adds it in one copy of
-`roms` alongside any other catalog column the table lacks.
-
 Revision ID: 0156_steam_library
 Revises: 0155_rom_release_types
 Create Date: 2026-10-26 00:00:00.000000

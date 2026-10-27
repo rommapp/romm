@@ -37,8 +37,10 @@ def _summary(steam_id: str = STEAM_ID, name: str = "Gabe") -> dict[str, object]:
 
 def _own_one_game(user: User) -> None:
     rom = make_rom(make_platform("win"), "Half-Life 2", steam_id=220)
+    db_user_handler.update_user(user.id, {"steam_id": STEAM_ID})
     db_steam_library_handler.replace_entries(
         user.id,
+        STEAM_ID,
         [SteamLibraryEntry(rom_id=rom.id, steam_app_id=220, playtime_minutes=5)],
     )
 

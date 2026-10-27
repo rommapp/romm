@@ -1,6 +1,7 @@
 """Linking a user's Steam account and importing the games it owns."""
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Final
@@ -12,9 +13,11 @@ from adapters.services.steam_web_api import SteamWebAPIError, SteamWebAPIService
 from config import STEAM_API_KEY
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.database import (
+    db_collection_handler,
     db_platform_handler,
     db_rom_handler,
     db_steam_library_handler,
+    db_user_handler,
 )
 from handler.filesystem import fs_platform_handler, fs_rom_handler
 from handler.metadata.steam_handler import STEAM_PLATFORMS
@@ -51,8 +54,6 @@ class SteamSyncResult:
     removed: int = 0
     # Store-only roms no metadata source matched yet, new ones included.
     unmatched_rom_ids: list[int] = field(default_factory=list)
-    # Apps gained or lost, which moves smart collections filtering on ownership.
-    changed_app_ids: list[int] = field(default_factory=list)
 
 
 def steam_web_api() -> SteamWebAPIService:
@@ -106,6 +107,40 @@ async def resolve_steam_profile(profile: str) -> SteamPlayerSummary:
     if summary is None:
         raise SteamLibraryError(f"No Steam account has the ID {steam_id}")
     return summary
+
+
+def _refresh_ownership_collections(app_ids: Sequence[int]) -> None:
+    """Follow a change in what a user owns into the smart collections filtering on it."""
+    try:
+        db_collection_handler.refresh_smart_collections_for_roms(
+            db_steam_library_handler.get_rom_ids_by_app_ids(app_ids),
+            membership_only=True,
+        )
+    except Exception as e:
+        # The ownership change is committed, so a stale count is the worst this costs.
+        log.error(f"Couldn't refresh smart collections for Steam apps {app_ids}: {e}")
+
+
+def _forget_library(user_id: int) -> None:
+    _refresh_ownership_collections(db_steam_library_handler.delete_entries(user_id))
+
+
+def link_steam_profile(user: User, summary: SteamPlayerSummary) -> None:
+    """Link the Steam account `summary` describes, forgetting another one's games."""
+    previous = user.steam_id
+    # The account changes first, so a sync of the previous one discards its result.
+    db_user_handler.update_user(
+        user.id,
+        {"steam_id": summary["steamid"], "steam_persona_name": summary["personaname"]},
+    )
+    if previous and previous != summary["steamid"]:
+        _forget_library(user.id)
+
+
+def unlink_steam_profile(user: User) -> None:
+    """Unlink a user's Steam account and forget which games it owns."""
+    db_user_handler.update_user(user.id, {"steam_id": None, "steam_persona_name": None})
+    _forget_library(user.id)
 
 
 async def steam_library_platform() -> Platform:
@@ -162,13 +197,15 @@ async def sync_steam_library(user: User) -> SteamSyncResult:
     scan, since a library scan never reaches a game without a file.
 
     Raises:
-        SteamLibraryError: The account isn't linked, or Steam can't list its games.
+        SteamLibraryError: The account isn't linked, Steam can't list its games,
+            or the account changed during the sync.
     """
-    if not user.steam_id:
+    steam_id = user.steam_id
+    if not steam_id:
         raise SteamLibraryError(f"{user.username} has no linked Steam account")
 
     try:
-        games = await steam_web_api().get_owned_games(user.steam_id)
+        games = await steam_web_api().get_owned_games(steam_id)
     except SteamWebAPIError as exc:
         raise SteamLibraryError(str(exc)) from exc
     if games is None:
@@ -207,9 +244,13 @@ async def sync_steam_library(user: User) -> SteamSyncResult:
             )
         )
 
-    changes = db_steam_library_handler.replace_entries(user.id, entries)
+    changes = db_steam_library_handler.replace_entries(user.id, steam_id, entries)
+    if changes is None:
+        raise SteamLibraryError(
+            f"{user.username}'s Steam account changed during the sync"
+        )
     result.removed = len(changes.removed)
-    result.changed_app_ids = [*changes.added, *changes.removed]
+    _refresh_ownership_collections([*changes.added, *changes.removed])
     result.unmatched_rom_ids = (
         db_steam_library_handler.get_unmatched_store_only_rom_ids(
             [entry.rom_id for entry in entries]
