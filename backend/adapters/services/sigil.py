@@ -92,12 +92,14 @@ def sigil_binding() -> Any:
 
 def _is_routine_error(exc: Exception) -> bool:
     """Whether the error is expected for an arbitrary library file: no title id,
-    a format sigil can't parse, or missing decryption keys."""
+    a format sigil can't parse, a file shorter than its format claims, or
+    missing decryption keys."""
     return sigil is not None and isinstance(
         exc,
         (
             sigil.SigilNotFoundError,
             sigil.SigilUnsupportedFormatError,
+            sigil.SigilIOError,
             sigil.SigilNeedsKeyError,
         ),
     )

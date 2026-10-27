@@ -23,6 +23,9 @@ class FakeNotFoundError(FakeSigilError): ...
 class FakeUnsupportedFormatError(FakeSigilError): ...
 
 
+class FakeIOError(FakeSigilError): ...
+
+
 class FakeNeedsKeyError(FakeSigilError): ...
 
 
@@ -31,6 +34,7 @@ def make_fake_sigil(extract: Mock) -> types.SimpleNamespace:
         extract=extract,
         SigilNotFoundError=FakeNotFoundError,
         SigilUnsupportedFormatError=FakeUnsupportedFormatError,
+        SigilIOError=FakeIOError,
         SigilNeedsKeyError=FakeNeedsKeyError,
     )
 
@@ -200,7 +204,12 @@ class TestSigilService:
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "error",
-        [FakeNotFoundError(-5), FakeUnsupportedFormatError(-4), FakeNeedsKeyError(-6)],
+        [
+            FakeNotFoundError(-5),
+            FakeUnsupportedFormatError(-4),
+            FakeIOError(-2),
+            FakeNeedsKeyError(-6),
+        ],
     )
     async def test_routine_sigil_error_returns_none_quietly(
         self, service: SigilService, monkeypatch, error: FakeSigilError
@@ -216,7 +225,7 @@ class TestSigilService:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        "error", [OSError("native crash"), FakeSigilError(-2)], ids=["os", "io"]
+        "error", [OSError("native crash"), FakeSigilError(-7)], ids=["os", "crypto"]
     )
     async def test_unexpected_error_returns_none_and_is_logged(
         self, service: SigilService, monkeypatch, error: Exception
@@ -528,6 +537,18 @@ class TestStoredGameAgainstTheBinding:
         log_error = patch_log_error(monkeypatch)
 
         result = await SigilService().extract_title_id(UPS.PS2, str(game))
+
+        assert result is None
+        log_error.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_a_stub_file_is_routine(self, tmp_path: Path, monkeypatch):
+        pytest.importorskip("sigil")
+        game = tmp_path / "game.iso"
+        game.write_bytes(b"\0" * 19)
+        log_error = patch_log_error(monkeypatch)
+
+        result = await SigilService().extract_title_id(UPS.PSP, str(game))
 
         assert result is None
         log_error.assert_not_called()
