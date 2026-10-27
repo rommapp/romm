@@ -55,10 +55,6 @@ const pendingFormatDownloads = new Set<string>();
 const FLASHPOINT_ID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function isSteamAppId(id: number | null | undefined): id is number {
-  return Number.isSafeInteger(id) && (id as number) > 0;
-}
-
 export function useGameActions(
   getRom: () => SimpleRom | null | undefined,
   options: GameActionsOptions = {},
@@ -326,8 +322,6 @@ export function useGameActions(
     );
   });
 
-  const canOpenInSteam = computed(() => isSteamAppId(getRom()?.steam_id));
-
   // Launching a game the user deliberately shelved asks first. `retired` /
   // `never_playing` encode an opt-in "don't play" intent; the prompt is
   // gated by a per-user preference (on by default).
@@ -523,26 +517,16 @@ export function useGameActions(
     emitter?.emit("showQRCodeDialog", rom);
   }
 
-  function openAppLink(href: string) {
-    const a = document.createElement("a");
-    a.href = href;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  }
-
   // Launch the game in installed Flashpoint
   function openInFlashpoint() {
     const rom = getRom();
     if (!rom?.flashpoint_id || !FLASHPOINT_ID_RE.test(rom.flashpoint_id))
       return;
-    openAppLink(`flashpoint://${rom.flashpoint_id}`);
-  }
-
-  function openInSteam() {
-    const steamId = getRom()?.steam_id;
-    if (!isSteamAppId(steamId)) return;
-    openAppLink(`steam://run/${steamId}`);
+    const a = document.createElement("a");
+    a.href = `flashpoint://${rom.flashpoint_id}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   }
 
   // Copies the API download URL (origin + /api/roms/.../content/...) so
@@ -655,7 +639,6 @@ export function useGameActions(
     canShareQR,
     canInstallOnDevice,
     canOpenInFlashpoint,
-    canOpenInSteam,
     canDownload,
     downloadFormats,
     canPlay,
@@ -688,7 +671,6 @@ export function useGameActions(
     shareQR,
     installOnDevice,
     openInFlashpoint,
-    openInSteam,
     copyDownloadLink,
     manageCollections,
     refreshMetadata,
