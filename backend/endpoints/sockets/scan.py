@@ -612,6 +612,9 @@ async def _identify_rom(
     # A quick scan only reconciles an existing entry's files with disk, so it
     # needs none of the metadata prelude below.
     if rom is not None and scan_type == ScanType.QUICK:
+        if rom.never_has_file:
+            await scan_stats.increment(socket_manager=socket_manager, scanned_roms=1)
+            return
         refreshed = await refresh_rom_files(rom)
         await scan_stats.increment(
             socket_manager=socket_manager,
@@ -657,6 +660,8 @@ async def _identify_rom(
     embed_title_ids = cnfg.EMBED_SWITCH_TITLE_IDS
 
     newly_added: bool = rom is None
+    # Only an existing entry can lack a file by design; a new one came off disk.
+    has_no_file = rom is not None and rom.never_has_file
     reassociated: bool = False
     files_built: bool = False
 
@@ -733,11 +738,14 @@ async def _identify_rom(
 
     # Build rom files object before scanning. A reassociated ROM always rebuilds
     # its files so the stale paths from the old filename are replaced.
-    should_update_files = reassociated or _should_get_rom_files(
-        scan_type=scan_type,
-        rom=rom,
-        newly_added=newly_added,
-        roms_ids=roms_ids,
+    should_update_files = not has_no_file and (
+        reassociated
+        or _should_get_rom_files(
+            scan_type=scan_type,
+            rom=rom,
+            newly_added=newly_added,
+            roms_ids=roms_ids,
+        )
     )
     if should_update_files and not files_built:
         # Get hash calculation setting from config
