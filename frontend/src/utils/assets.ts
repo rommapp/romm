@@ -24,12 +24,21 @@ export function screenshotOf(asset: Asset): string | null {
   return asset.screenshot?.download_path ?? null;
 }
 
+/** The core that wrote an asset; older uploads name it in `emulator`. */
+export function coreOf(asset: {
+  emulator?: string | null;
+  core?: string | null;
+}): string | null {
+  return asset.core || asset.emulator || null;
+}
+
 /** A state loads only in the core that wrote it; one naming no core is anyone's. */
 export function isCoreCompatible(
-  asset: { emulator?: string | null },
+  asset: { emulator?: string | null; core?: string | null },
   core: string | null | undefined,
 ): boolean {
-  return !asset.emulator || emulatorKey(asset.emulator) === emulatorKey(core);
+  const wrote = coreOf(asset);
+  return !wrote || emulatorKey(wrote) === emulatorKey(core);
 }
 
 /** ISO timestamps sort lexically. */

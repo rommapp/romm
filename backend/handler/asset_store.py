@@ -7,7 +7,6 @@ renaming a save or state, which takes its thumbnail along.
 
 import asyncio
 import os
-import re
 from collections.abc import Sequence
 from datetime import datetime, timedelta
 from io import BytesIO
@@ -19,6 +18,7 @@ from fastapi import HTTPException, UploadFile, status
 from handler.database import (
     db_save_handler,
     db_screenshot_handler,
+    db_snapshot_handler,
     db_state_handler,
 )
 from handler.database.base_handler import sync_session
@@ -33,26 +33,13 @@ from models.base import compute_file_name_no_ext
 from models.rom import Rom
 from models.user import User
 from utils.filesystem import check_filename_length, sanitize_filename
+from utils.uploads import apply_datetime_tag
 
 # What `fs_asset_handler.write_file` accepts: an upload straight off a request,
 # or bytes a sync already holds.
 AssetContent: TypeAlias = (
     UploadFile | BinaryIO | BytesIO | bytes | SpooledTemporaryFile[bytes]
 )
-
-
-DATETIME_TAG_PATTERN = re.compile(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]")
-
-
-def strip_datetime_tag(filename: str) -> str:
-    return DATETIME_TAG_PATTERN.sub("", filename)
-
-
-def apply_datetime_tag(filename: str, at: datetime | None = None) -> str:
-    """The name a slot version written at ``at`` (now by default) is stored under, replacing any earlier tag."""
-    name, ext = os.path.splitext(strip_datetime_tag(filename))
-    timestamp = (at or datetime.now()).strftime("%Y-%m-%d_%H-%M-%S")
-    return f"{name} [{timestamp}]{ext}"
 
 
 # Long enough to cover the write that follows, after which the file holds it.
@@ -107,6 +94,11 @@ async def store_state_file(
     the file left at the old location goes. `fields` carries columns only one
     caller owns, so a caller that does not set them never clears them.
     """
+    existing = db_state_handler.get_state_by_filename(
+        user_id=user.id, rom_id=rom.id, file_name=filename
+    )
+    if existing is not None:
+        assert_backup(existing)
     states_path = fs_asset_handler.build_states_file_path(
         user=user,
         platform_fs_slug=rom.platform.fs_slug,
@@ -121,9 +113,6 @@ async def store_state_file(
         platform_fs_slug=rom.platform.fs_slug,
         rom_id=rom.id,
         emulator=emulator,
-    )
-    existing = db_state_handler.get_state_by_filename(
-        user_id=user.id, rom_id=rom.id, file_name=filename
     )
     if existing is None:
         scanned.rom_id = rom.id
@@ -153,12 +142,20 @@ async def store_state_file(
 
 
 async def store_screenshot(
-    user: User, rom: Rom, content: AssetContent, filename: str
+    user: User,
+    rom: Rom,
+    content: AssetContent,
+    filename: str,
+    is_public: bool = False,
 ) -> Screenshot:
     """Write a screenshot and file its row, updating one already at that name.
 
     `State.screenshot` matches by filename stem, so a state thumbnail binds
     itself by reusing the state's stem with a .png extension.
+
+    Args:
+        is_public: the visibility of the save or state it pictures, which the
+            screenshot route checks on its own row.
     """
     screenshots_path = fs_asset_handler.build_screenshots_file_path(
         user=user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
@@ -179,10 +176,12 @@ async def store_screenshot(
     if existing is None:
         scanned.rom_id = rom.id
         scanned.user_id = user.id
+        scanned.is_public = is_public
         return db_screenshot_handler.add_screenshot(screenshot=scanned)
 
     return db_screenshot_handler.update_screenshot(
-        existing.id, {"file_size_bytes": scanned.file_size_bytes}
+        existing.id,
+        {"file_size_bytes": scanned.file_size_bytes, "is_public": is_public},
     )
 
 
@@ -213,13 +212,28 @@ async def release_thumbnail(screenshot: Screenshot | None) -> None:
     await remove_asset_file(path, "Screenshot file")
 
 
+def assert_backup(asset: Save | State) -> None:
+    """409 when sync manages the row: only a new snapshot changes or drops it."""
+    if db_snapshot_handler.is_asset_frozen(asset):
+        raise frozen_conflict(asset)
+
+
+def frozen_conflict(asset: Save | State) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=f"{asset.file_name} belongs to a sync channel and can't be changed directly",
+    )
+
+
 async def remove_save(save: Save) -> None:
     """Drop a save row with its file and screenshot."""
+    # Read first: a screenshot linked by `save_id` goes with the row.
+    screenshot = save.screenshot
     db_save_handler.delete_save(
         save.id, content_hash=await fs_asset_handler.unrecorded_hash(save)
     )
     await remove_asset_file(save.full_path, "Save file")
-    await release_thumbnail(save.screenshot)
+    await release_thumbnail(screenshot)
 
 
 async def prune_save_slot(
@@ -357,11 +371,17 @@ async def rename_asset[AssetT: (Save, State)](asset: AssetT, file_name: str) -> 
             detail="Invalid filename: it needs a name before the extension",
         )
 
+    rom_id = asset.rom_id
+    if rom_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"{asset.file_name} has no ROM to rename it under",
+        )
     saves: Sequence[Save] = db_save_handler.get_saves(
-        user_id=asset.user_id, rom_ids=[asset.rom_id]
+        user_id=asset.user_id, rom_ids=[rom_id]
     )
     states: Sequence[State] = db_state_handler.get_states(
-        user_id=asset.user_id, rom_ids=[asset.rom_id]
+        user_id=asset.user_id, rom_ids=[rom_id]
     )
     everything: list[Save | State] = [*saves, *states]
     others = [a for a in everything if not _is_same(a, asset)]
@@ -377,7 +397,7 @@ async def rename_asset[AssetT: (Save, State)](asset: AssetT, file_name: str) -> 
     # show that one, and delete it along with the asset.
     thumbnail = asset.screenshot
     bound = db_screenshot_handler.get_screenshot(
-        rom_id=asset.rom_id,
+        rom_id=rom_id,
         user_id=asset.user_id,
         file_name=new_name,
         file_name_no_ext=new_stem,
@@ -436,7 +456,7 @@ async def rename_asset[AssetT: (Save, State)](asset: AssetT, file_name: str) -> 
             if thumbnail and copy_thumbnail:
                 db_screenshot_handler.add_screenshot(
                     Screenshot(
-                        rom_id=asset.rom_id,
+                        rom_id=rom_id,
                         user_id=asset.user_id,
                         file_name=thumbnail_name,
                         file_path=thumbnail.file_path,

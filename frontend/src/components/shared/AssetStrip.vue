@@ -15,6 +15,7 @@ import { RCheckbox, REmptyState, RExpandTransition, RIcon, RTag } from "@/lib";
 import { useStreamingStore } from "@/stores/streaming";
 import {
   byFavoriteFirst,
+  coreOf,
   emulatorKey,
   ownerOf,
   screenshotOf,
@@ -110,12 +111,13 @@ const groups = computed<AssetGroup[]>(() => {
   }
   const byKey = new Map<string, AssetGroup>();
   for (const asset of props.assets) {
-    const key = emulatorKey(asset.emulator);
+    const core = coreOf(asset);
+    const key = emulatorKey(core);
     let group = byKey.get(key);
     if (!group) {
       group = {
         key,
-        label: emulatorLabel(asset.emulator) || t("play.any-core"),
+        label: emulatorLabel(core) || t("play.any-core"),
         assets: [],
         disabled: true,
         newest: "",

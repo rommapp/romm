@@ -1,26 +1,9 @@
 import Bowser from "bowser";
-import {
-  type Body_add_state_api_states_post as AddStateInput,
-  type SaveSchema,
-  type StateSchema,
-} from "@/__generated__";
-import saveApi, {
-  AUTOSAVE_SLOT,
-  sessionSaveFile,
-  sessionScreenshotFile,
-} from "@/services/api/save";
-import stateApi, { sessionStateFiles } from "@/services/api/state";
-import pendingAssetStore, {
-  isSlotConflict,
-  pendingAssetId,
-  uploadArchivedSave,
-  type PendingAsset,
-} from "@/services/pending-asset";
-import storeHeartbeat from "@/stores/heartbeat";
-import { type DetailedRom } from "@/stores/roms";
+import { type Body_add_state_api_states_post as AddStateInput } from "@/__generated__";
+import { type PendingAsset } from "@/services/pending-asset";
 import { buildFormInput } from "@/utils/formData";
 import { keepArcadeBiosWhole } from "@/utils/playerFirmware";
-import { bytesEqual, saveContentHash } from "@/utils/saveSync/hash";
+import { bytesEqual } from "@/utils/saveSync/hash";
 
 /** Tears the emulator down once, however many owners ask. */
 export function exitEmulatorOnce() {
@@ -128,189 +111,6 @@ export function buildStateFormData(
       "screenshot.png",
     ],
   ]);
-}
-
-/** A state upload's outcome: taken, or held in this browser for later, or neither. */
-export interface StateUpload {
-  state: StateSchema | null;
-  kept: boolean;
-}
-
-export async function saveState({
-  rom,
-  stateFile,
-  screenshotFile,
-}: {
-  rom: DetailedRom;
-  stateFile: ArrayBuffer;
-  screenshotFile?: ArrayBuffer | undefined;
-}): Promise<StateUpload> {
-  // A zero-length buffer means the core failed to serialize its state (a torn
-  // read from a running threaded core). Refuse to upload it so a broken
-  // capture can't overwrite the user's good states on the server.
-  if (stateFile.byteLength === 0) {
-    console.error("Refusing to upload empty state file");
-    return { state: null, kept: false };
-  }
-
-  const capturedAt = new Date();
-  // Held in the browser until the server takes it, so a state captured offline
-  // reaches it on a later pass.
-  const pendingId = pendingAssetId(rom.id);
-  const kept = await pendingAssetStore.write({
-    id: pendingId,
-    kind: "state",
-    romId: rom.id,
-    romName: rom.name ?? rom.fs_name_no_ext,
-    fsNameNoExt: rom.fs_name_no_ext,
-    cover: rom.path_cover_small,
-    bytes: stateFile,
-    screenshotBytes: screenshotFile,
-    emulator: window.EJS_core,
-    capturedAt: capturedAt.getTime(),
-  });
-  // Nothing gets through while the server is down; the held state goes once
-  // it is back.
-  if (!storeHeartbeat().connected) return { state: null, kept };
-
-  try {
-    const uploadedStates = await stateApi.uploadStates({
-      rom: rom,
-      emulator: window.EJS_core,
-      statesToUpload: [
-        sessionStateFiles(rom, capturedAt, stateFile, screenshotFile),
-      ],
-    });
-
-    const uploadedState = uploadedStates[0]!;
-    if (uploadedState.status == "fulfilled") {
-      await pendingAssetStore.clear(pendingId);
-      if (rom) rom.user_states.unshift(uploadedState.value);
-      return { state: uploadedState.value, kept: false };
-    }
-  } catch (error) {
-    console.error("Failed to upload state", error);
-  }
-
-  return { state: null, kept };
-}
-
-// A non-null `save` is updated in place; otherwise a version opens in `slot`,
-// archived instead when `guarded` and another device moved the slot on.
-export async function saveSave({
-  rom,
-  save,
-  saveFile,
-  screenshotFile,
-  deviceId,
-  slot = AUTOSAVE_SLOT,
-  guarded = false,
-}: {
-  rom: DetailedRom;
-  save: SaveSchema | null;
-  saveFile: ArrayBuffer;
-  screenshotFile?: ArrayBuffer | undefined;
-  deviceId?: string | undefined;
-  slot?: string | undefined;
-  guarded?: boolean;
-}): Promise<SaveSchema | null> {
-  if (save) {
-    try {
-      const { data: updatedSave } = await saveApi.updateSave({
-        save: save,
-        saveFile: sessionSaveFile(rom, save, saveFile),
-        screenshotFile: screenshotFile
-          ? sessionScreenshotFile(rom, save, screenshotFile)
-          : undefined,
-        deviceId,
-        contentHash: saveContentHash(new Uint8Array(saveFile)),
-      });
-
-      const index = rom.user_saves.findIndex((s) => s.id === updatedSave.id);
-      if (index === -1) rom.user_saves.unshift(updatedSave);
-      else rom.user_saves[index] = updatedSave;
-
-      return updatedSave;
-    } catch (error) {
-      console.error("Failed to update save", error);
-      return null;
-    }
-  }
-
-  // The backend timestamps slotted uploads, tagging save and screenshot alike.
-  try {
-    const uploadedSaves = await saveApi.uploadSaves({
-      rom: rom,
-      emulator: window.EJS_core,
-      deviceId,
-      slot,
-      // Like Argosy: the autosave slot keeps a capped history, named slots
-      // keep every version.
-      autocleanup: slot === AUTOSAVE_SLOT,
-      // Booting anything but the slot's current version is an explicit choice
-      // on the launch screen, which neither the guard nor the dedupe second-guess.
-      overwrite: !guarded,
-      contentHash: saveContentHash(new Uint8Array(saveFile)),
-      savesToUpload: [
-        {
-          saveFile: sessionSaveFile(rom, null, saveFile),
-          screenshotFile: screenshotFile
-            ? sessionScreenshotFile(rom, null, screenshotFile)
-            : undefined,
-        },
-      ],
-    });
-
-    let uploadedSave = uploadedSaves[0]!;
-    if (isSlotConflict(uploadedSave)) {
-      // Later writes update the archive in place, leaving the slot to the
-      // other device's newer version.
-      uploadedSave =
-        (await uploadArchivedSave({
-          rom,
-          emulator: window.EJS_core,
-          deviceId,
-          capturedAt: new Date(),
-          bytes: saveFile,
-          screenshotBytes: screenshotFile,
-        })) ?? uploadedSave;
-    }
-    if (uploadedSave.status == "fulfilled") {
-      if (rom) rom.user_saves.unshift(uploadedSave.value);
-      return uploadedSave.value;
-    }
-  } catch (error) {
-    console.error("Failed to upload save", error);
-  }
-
-  return null;
-}
-
-// The unload counterpart of saveSave: nothing awaits it, so the rom's list is
-// left alone. False when the save is too big for a keepalive body.
-export function saveSaveOnUnload({
-  rom,
-  save,
-  saveFile,
-  deviceId,
-  slot = AUTOSAVE_SLOT,
-}: {
-  rom: DetailedRom;
-  save: SaveSchema | null;
-  saveFile: ArrayBuffer;
-  deviceId?: string | undefined;
-  slot?: string | undefined;
-}): boolean {
-  return saveApi.sendSaveOnUnload({
-    rom,
-    save,
-    saveFile: sessionSaveFile(rom, save, saveFile),
-    emulator: window.EJS_core,
-    deviceId,
-    slot,
-    autocleanup: slot === AUTOSAVE_SLOT,
-    contentHash: saveContentHash(new Uint8Array(saveFile)),
-  });
 }
 
 // Per EmulatorJS "saveSaveFiles" tick, whether the SRAM is worth uploading
@@ -485,8 +285,7 @@ function installDefaultOptionsFallback(emulator: any) {
     const merged = { ...defaults, ...saved };
     let output = "";
     for (const key in merged) {
-      const value = merged[key];
-      // Match upstream formatting: numeric values unquoted, strings quoted.
+      const value = String(merged[key]);
       const formatted = Number.isNaN(Number(value)) ? `"${value}"` : value;
       output += `${key} = ${formatted}\n`;
     }

@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { ChannelSchema } from './ChannelSchema';
 import type { ManualMetadata } from './ManualMetadata';
 import type { ReleaseType } from './ReleaseType';
 import type { RomCsdbMetadata } from './RomCsdbMetadata';
@@ -123,6 +124,9 @@ export type DetailedRomSchema = {
     user_states: Array<StateSchema>;
     all_user_saves: Array<UserSaveSchema>;
     all_user_states: Array<UserStateSchema>;
+    user_channels: Array<ChannelSchema>;
+    channel_file_id: (number | null);
+    snapshot_save_ids: Array<number>;
     user_screenshots: Array<ScreenshotSchema>;
     all_user_screenshots: Array<UserScreenshotSchema>;
     user_collections: Array<UserCollectionSchema>;

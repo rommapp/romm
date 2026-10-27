@@ -3,7 +3,7 @@ import { useI18n } from "vue-i18n";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import type { SliderBtnGroupItem } from "@/lib/primitives/RSliderBtnGroup/types";
 import { useStreamingStore } from "@/stores/streaming";
-import { isCoreCompatible, type AssetType } from "@/utils/assets";
+import { coreOf, isCoreCompatible, type AssetType } from "@/utils/assets";
 
 /**
  * The Saves / States tabs of an EmulatorJS picker, with states counted and
@@ -43,10 +43,13 @@ export function useSaveStateTabs(
   ]);
 
   // Other emulators' states stay listed, disabled, so the count adds up.
-  function stateDisabledReason(asset: { emulator?: string | null }) {
+  function stateDisabledReason(asset: {
+    emulator?: string | null;
+    core?: string | null;
+  }) {
     if (isCoreCompatible(asset, toValue(core))) return null;
     return t("play.state-incompatible-core", {
-      emulator: emulatorLabel(asset.emulator),
+      emulator: emulatorLabel(coreOf(asset)),
     });
   }
 

@@ -76,7 +76,7 @@ RUN apk add --no-cache \
     make \
     musl-dev
 
-ARG SIGIL_VERSION=8a3b0089676e07f74da2d9ad08979dedf5cae7c0
+ARG SIGIL_VERSION=0190443fe39dd72d0534db3d07bfabc5f35997a5
 RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git && \
     cd ./argosy-sigil && \
     git checkout "${SIGIL_VERSION}" && \

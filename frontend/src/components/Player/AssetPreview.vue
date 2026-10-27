@@ -11,7 +11,7 @@ import AssetTimestamp from "@/components/shared/AssetTimestamp.vue";
 import { RIcon, RTag } from "@/lib";
 import { useStreamingStore } from "@/stores/streaming";
 import { formatBytes } from "@/utils";
-import { dateOf, type AssetDateField } from "@/utils/assets";
+import { coreOf, dateOf, type AssetDateField } from "@/utils/assets";
 import { toCssUrl } from "@/utils/css";
 
 defineOptions({ inheritAttrs: false });
@@ -176,10 +176,10 @@ const emptyText = computed(() =>
             :text="asset.slot"
           />
           <RTag
-            v-if="type === 'state' && asset.emulator"
+            v-if="type === 'state' && coreOf(asset)"
             tone="warning"
             size="x-small"
-            :text="emulatorLabel(asset.emulator)"
+            :text="emulatorLabel(coreOf(asset))"
           />
           <span class="r-asset-preview__chip">
             {{ formatBytes(asset.file_size_bytes) }}

@@ -71,6 +71,11 @@ const defaultHeartbeat: Heartbeat = {
   CONVERTO: {
     ENABLED: false,
   },
+  SAVE_SYNC: {
+    SNAPSHOTS: false,
+    SNAPSHOT_RETENTION: 10,
+    SNAPSHOT_BRANCH_LIFETIME_DAYS: 30,
+  },
   TASKS: {
     ENABLE_SCHEDULED_RESCAN: false,
     SCHEDULED_RESCAN_CRON: "",

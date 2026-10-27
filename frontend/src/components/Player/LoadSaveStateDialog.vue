@@ -15,6 +15,7 @@ import { RDialog, RSliderBtnGroup } from "@/lib";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Asset, AssetType } from "@/utils/assets";
+import { ownChannelLabels } from "@/utils/snapshots";
 
 defineOptions({ inheritAttrs: false });
 
@@ -103,6 +104,7 @@ function closeDialog() {
         :assets="saves"
         type="save"
         :scrollable="false"
+        :channel-labels="ownChannelLabels(rom?.user_channels ?? [])"
         @select="onSelect"
       />
       <AssetStrip

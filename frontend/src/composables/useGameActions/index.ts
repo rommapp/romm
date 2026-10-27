@@ -29,6 +29,7 @@ import {
   getSoleRomFile,
   isNintendoDSRom,
 } from "@/utils";
+import { playerPath, type PlayerSlug } from "@/utils/playerPath";
 
 export interface GameActionsOptions {
   /** Resolver for the cover element to morph from when `play()` navigates to
@@ -42,8 +43,6 @@ export interface GameActionsOptions {
 
 /** Which player a launch is asking for. "auto" lets availability decide. */
 export type PlayTarget = "auto" | "local" | "stream";
-
-type PlayerSlug = "stream" | "jsdos" | "ejs" | "pico8" | "easyrpg" | "ruffle";
 
 // A conversion can take a while on large discs; stop polling after about an hour.
 const FORMAT_POLL_SECONDS = 30;
@@ -403,7 +402,7 @@ export function useGameActions(
     // Last, because the play page offers the native launch beside whichever
     // in-browser core the branches above would have picked.
     else if (canPlayNative.value) slug = "ejs";
-    return slug ? `/rom/${rom.id}/${slug}` : null;
+    return slug ? playerPath(rom.id, slug) : null;
   }
 
   // Joining is its own navigation: the stream view claims a container when it
