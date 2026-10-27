@@ -258,15 +258,15 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0148_rom_age_limits.py", "permission_groups"),
         ("0148_rom_age_limits.py", "users"),
         ("0151_state_content_hash.py", "states"),
-        ("0154_save_channels.py", "channels"),
-        ("0154_save_channels.py", "snapshots"),
-        ("0154_save_channels.py", "snapshot_states"),
-        ("0154_save_channels.py", "snapshot_pins"),
-        ("0154_save_channels.py", "device_channel_sync"),
-        ("0154_save_channels.py", "saves"),
-        ("0154_save_channels.py", "states"),
-        ("0154_save_channels.py", "screenshots"),
-        ("0156_rom_file_sigil_identity.py", "rom_files"),
+        ("0155_save_channels.py", "channels"),
+        ("0155_save_channels.py", "snapshots"),
+        ("0155_save_channels.py", "snapshot_states"),
+        ("0155_save_channels.py", "snapshot_pins"),
+        ("0155_save_channels.py", "device_channel_sync"),
+        ("0155_save_channels.py", "saves"),
+        ("0155_save_channels.py", "states"),
+        ("0155_save_channels.py", "screenshots"),
+        ("0157_rom_file_sigil_identity.py", "rom_files"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -504,7 +504,7 @@ def test_the_rom_file_title_ids_revision_reverses_and_replays():
 
 
 def test_the_save_channels_revision_reverses_and_replays():
-    migration = _load_migration("0154_save_channels.py")
+    migration = _load_migration("0155_save_channels.py")
     tables = ("saves", "states", "screenshots")
     created = (
         "channels",
@@ -536,7 +536,7 @@ def test_the_save_channels_revision_reverses_and_replays():
 def test_the_slot_link_revision_files_slotted_saves_under_channels(
     rom: Rom, admin_user: User
 ):
-    migration = _load_migration("0155_link_slots_to_channels.py")
+    migration = _load_migration("0156_link_slots_to_channels.py")
     db_rom_handler.add_rom_file(
         RomFile(rom_id=rom.id, file_name="game.sfc", file_path="p", file_size_bytes=8)
     )
@@ -580,7 +580,7 @@ def test_the_slot_link_revision_files_slotted_saves_under_channels(
 
 
 def test_the_rom_file_sigil_identity_revision_reverses_and_replays():
-    migration = _load_migration("0156_rom_file_sigil_identity.py")
+    migration = _load_migration("0157_rom_file_sigil_identity.py")
 
     with sync_engine.begin() as connection:
         before = _schema_of(connection, "rom_files")

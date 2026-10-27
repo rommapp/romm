@@ -1,7 +1,7 @@
 """File every slotted save under a channel named after its slot.
 
-Revision ID: 0155_link_slots_to_channels
-Revises: 0154_save_channels
+Revision ID: 0156_link_slots_to_channels
+Revises: 0155_save_channels
 Create Date: 2026-10-05 00:00:00.000000
 
 """
@@ -16,8 +16,8 @@ from handler.snapshots.legacy import channel_label, sync_file
 from models.rom import RomFile, RomFileCategory
 
 # revision identifiers, used by Alembic.
-revision = "0155_link_slots_to_channels"
-down_revision = "0154_save_channels"
+revision = "0156_link_slots_to_channels"
+down_revision = "0155_save_channels"
 branch_labels = None
 depends_on = None
 
