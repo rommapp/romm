@@ -15,6 +15,7 @@ export type RomFiltersDict = {
     regions: Array<string>;
     languages: Array<string>;
     tags: Array<string>;
+    release_types: Array<string>;
     platforms: Array<number>;
 };
 

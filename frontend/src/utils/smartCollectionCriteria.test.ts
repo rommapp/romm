@@ -51,6 +51,8 @@ function emptySnapshot(): GalleryFilterSnapshot {
     metadataProvidersLogic: "any",
     selectedTags: [],
     tagsLogic: "any",
+    selectedReleaseTypes: [],
+    releaseTypesLogic: "any",
     selectedStatuses: [],
     statusesLogic: "any",
     selectedLengthMinHours: null,
@@ -160,6 +162,29 @@ describe("buildSmartFilterCriteria — tags", () => {
     expect(row).toBeDefined();
     expect(row?.values).toEqual(["Proto"]);
     expect(row?.logic).toBe("any");
+  });
+});
+
+describe("buildSmartFilterCriteria: release types", () => {
+  it("serializes selected release types with their logic operator", () => {
+    const out = buildSmartFilterCriteria({
+      ...emptySnapshot(),
+      selectedReleaseTypes: ["hack", "translation"],
+      releaseTypesLogic: "none",
+    });
+
+    expect(out.release_types).toEqual(["hack", "translation"]);
+    expect(out.release_types_logic).toBe("none");
+  });
+
+  it("labels each release type through its locale key", () => {
+    const rows = summarizeSmartFilterCriteria(
+      { release_types: ["color_patch"], release_types_logic: "any" },
+      ((key: string) => key) as unknown as Composer["t"],
+    );
+
+    const row = rows.find((r) => r.key === "release_types");
+    expect(row?.values).toEqual(["rom.release-type-color-patch"]);
   });
 });
 

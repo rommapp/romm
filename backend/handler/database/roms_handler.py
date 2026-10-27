@@ -114,6 +114,7 @@ from utils.fulltext import (
     split_fulltext_words,
 )
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.release_types import RELEASE_TYPE_SOURCE_COLUMNS, compute_release_types
 from utils.sql_dialect import (
     Analyze,
     DialectCase,
@@ -315,6 +316,15 @@ def _search_relevance(phrases: Sequence[str]) -> ColumnElement[Any]:
     )
 
 
+# (column, the columns it is computed from, how) for the `roms` columns a
+# mapper event keeps in sync, which `update_rom` has to recompute itself.
+_DERIVED_ROM_COLUMNS: tuple[
+    tuple[str, tuple[str, ...], Callable[[Mapping[str, Any]], Any]], ...
+] = (
+    ("min_age", MIN_AGE_SOURCE_COLUMNS, compute_min_age),
+    ("release_types", RELEASE_TYPE_SOURCE_COLUMNS, compute_release_types),
+)
+
 # Filter dropdowns read the narrow `roms_facets` mirror instead of `roms`,
 # whose rows carry the raw metadata blobs. Keys are `RomFiltersDict` fields.
 _FILTER_JSON_COLUMNS = {
@@ -329,6 +339,7 @@ _FILTER_JSON_COLUMNS = {
     "regions": RomFacets.regions,
     "languages": RomFacets.languages,
     "tags": RomFacets.tags,
+    "release_types": RomFacets.release_types,
 }
 # Cast to text in SQL: PostgreSQL's driver would otherwise decode JSONB itself.
 _FILTER_VALUES_SELECT = select(
@@ -2339,12 +2350,12 @@ class DBRomsHandler(DBBaseHandler):
                 ),
             }
 
-        if data.keys() & MIN_AGE_SOURCE_COLUMNS:
+        for target, source_columns, compute in _DERIVED_ROM_COLUMNS:
+            if not data.keys() & source_columns:
+                continue
             # The bulk update() skips the mapper event that keeps this in sync.
-            missing = [c for c in MIN_AGE_SOURCE_COLUMNS if c not in data]
-            sources: dict[str, Any] = {
-                c: data[c] for c in MIN_AGE_SOURCE_COLUMNS if c in data
-            }
+            missing = [c for c in source_columns if c not in data]
+            sources: dict[str, Any] = {c: data[c] for c in source_columns if c in data}
             if missing:
                 sources |= (
                     session.execute(
@@ -2353,7 +2364,7 @@ class DBRomsHandler(DBBaseHandler):
                     .one()
                     ._asdict()
                 )
-            data = {**data, "min_age": compute_min_age(sources)}
+            data = {**data, target: compute(sources)}
 
         if "fs_name" in data:
             parts = compute_file_name_parts(data["fs_name"])

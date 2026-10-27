@@ -1,7 +1,7 @@
 """Add the per-file identity sigil reads, which a restore needs.
 
-Revision ID: 0157_rom_file_sigil_identity
-Revises: 0156_link_slots_to_channels
+Revision ID: 0158_rom_file_sigil_identity
+Revises: 0157_link_slots_to_channels
 Create Date: 2026-10-07 00:00:00.000000
 
 """
@@ -12,8 +12,8 @@ from alembic import op  # type: ignore[attr-defined]
 from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
-revision = "0157_rom_file_sigil_identity"
-down_revision = "0156_link_slots_to_channels"
+revision = "0158_rom_file_sigil_identity"
+down_revision = "0157_link_slots_to_channels"
 branch_labels = None
 depends_on = None
 

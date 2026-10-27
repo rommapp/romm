@@ -5,6 +5,7 @@ not the other goes unnoticed until autogenerate proposes dropping it.
 """
 
 import importlib.util
+import json
 import re
 from pathlib import Path
 from types import ModuleType
@@ -228,6 +229,11 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         _load_migration(filename).upgrade()
 
 
+# The latest revision to rebuild the roms_facets triggers. Replaying an earlier
+# one narrows them to its own column list, so a test that does replays this one.
+FACET_TRIGGERS_REVISION = "0155_rom_release_types.py"
+
+
 # None of these is touched by a later revision, so replaying one over the
 # migrated schema has to leave that schema exactly as it found it.
 @pytest.mark.parametrize(
@@ -258,15 +264,17 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0148_rom_age_limits.py", "permission_groups"),
         ("0148_rom_age_limits.py", "users"),
         ("0151_state_content_hash.py", "states"),
-        ("0155_save_channels.py", "channels"),
-        ("0155_save_channels.py", "snapshots"),
-        ("0155_save_channels.py", "snapshot_states"),
-        ("0155_save_channels.py", "snapshot_pins"),
-        ("0155_save_channels.py", "device_channel_sync"),
-        ("0155_save_channels.py", "saves"),
-        ("0155_save_channels.py", "states"),
-        ("0155_save_channels.py", "screenshots"),
-        ("0157_rom_file_sigil_identity.py", "rom_files"),
+        ("0155_rom_release_types.py", "roms"),
+        ("0155_rom_release_types.py", "roms_facets"),
+        ("0156_save_channels.py", "channels"),
+        ("0156_save_channels.py", "snapshots"),
+        ("0156_save_channels.py", "snapshot_states"),
+        ("0156_save_channels.py", "snapshot_pins"),
+        ("0156_save_channels.py", "device_channel_sync"),
+        ("0156_save_channels.py", "saves"),
+        ("0156_save_channels.py", "states"),
+        ("0156_save_channels.py", "screenshots"),
+        ("0158_rom_file_sigil_identity.py", "rom_files"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -277,6 +285,7 @@ def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
         _replay(connection, filename)
 
         assert _schema_of(connection, table) == before
+        _replay(connection, FACET_TRIGGERS_REVISION)
 
 
 def test_the_play_session_sync_link_revision_reverses_and_replays():
@@ -504,7 +513,7 @@ def test_the_rom_file_title_ids_revision_reverses_and_replays():
 
 
 def test_the_save_channels_revision_reverses_and_replays():
-    migration = _load_migration("0155_save_channels.py")
+    migration = _load_migration("0156_save_channels.py")
     tables = ("saves", "states", "screenshots")
     created = (
         "channels",
@@ -536,7 +545,7 @@ def test_the_save_channels_revision_reverses_and_replays():
 def test_the_slot_link_revision_files_slotted_saves_under_channels(
     rom: Rom, admin_user: User
 ):
-    migration = _load_migration("0156_link_slots_to_channels.py")
+    migration = _load_migration("0157_link_slots_to_channels.py")
     db_rom_handler.add_rom_file(
         RomFile(rom_id=rom.id, file_name="game.sfc", file_path="p", file_size_bytes=8)
     )
@@ -580,7 +589,7 @@ def test_the_slot_link_revision_files_slotted_saves_under_channels(
 
 
 def test_the_rom_file_sigil_identity_revision_reverses_and_replays():
-    migration = _load_migration("0157_rom_file_sigil_identity.py")
+    migration = _load_migration("0158_rom_file_sigil_identity.py")
 
     with sync_engine.begin() as connection:
         before = _schema_of(connection, "rom_files")
@@ -633,6 +642,7 @@ def test_the_age_limits_revision_reverses_replays_and_fills(platform: Platform):
 
             migration.upgrade()
             migration.upgrade()
+            _load_migration(FACET_TRIGGERS_REVISION).upgrade()
 
         assert ages(connection, "roms", "id") == {rated.id: 16, unrated.id: None}
         assert ages(connection, "roms_facets", "rom_id") == {
@@ -648,6 +658,59 @@ def test_the_age_limits_revision_reverses_replays_and_fills(platform: Platform):
     )
     with sync_engine.connect() as connection:
         assert ages(connection, "roms_facets", "rom_id")[unrated.id] == 7
+
+
+def test_the_release_types_revision_reverses_replays_and_fills(platform: Platform):
+    """0155 types existing ROMs from their tags and mirrors them into roms_facets."""
+    migration = _load_migration(FACET_TRIGGERS_REVISION)
+    hack = make_rom(platform, "Hack", tags=["Hack"], regions=["Unlicensed"])
+    retail = make_rom(platform, "Retail", tags=["Rev 1"])
+    # A manual list outlives the downgrade, and the replay has to keep honoring it.
+    overridden = make_rom(
+        platform,
+        "Overridden",
+        tags=["Hack"],
+        manual_metadata={"release_types": ["randomizer"]},
+    )
+
+    def types(connection: sa.Connection, table: str, key: str) -> dict[int, Any]:
+        rows = connection.execute(
+            sa.text(
+                f"SELECT {key}, release_types FROM {table} WHERE {key} IN (:a, :b, :c)"
+            ),  # nosec B608
+            {"a": hack.id, "b": retail.id, "c": overridden.id},
+        )
+        # PostgreSQL's driver decodes JSON itself; MariaDB's hands back text.
+        return {
+            rom_id: value if isinstance(value, list) else json.loads(value)
+            for rom_id, value in rows
+        }
+
+    tables = ("roms", "roms_facets")
+    with sync_engine.begin() as connection:
+        before = {table: _schema_of(connection, table) for table in tables}
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert not has_column(connection, "roms", "release_types")
+            assert not has_column(connection, "roms_facets", "release_types")
+            migration.downgrade()
+
+            migration.upgrade()
+            migration.upgrade()
+
+        expected = {
+            hack.id: ["hack", "unlicensed"],
+            retail.id: [],
+            overridden.id: ["randomizer"],
+        }
+        assert types(connection, "roms", "id") == expected
+        assert types(connection, "roms_facets", "rom_id") == expected
+        assert {table: _schema_of(connection, table) for table in tables} == before
+
+    # The rebuilt triggers still mirror a later write.
+    db_rom_handler.update_rom(retail.id, {"tags": ["Proto"]})
+    with sync_engine.connect() as connection:
+        assert types(connection, "roms_facets", "rom_id")[retail.id] == ["prototype"]
 
 
 def _slot_collations(connection: sa.Connection) -> dict[str, str | None]:

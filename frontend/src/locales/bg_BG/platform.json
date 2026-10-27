@@ -76,6 +76,8 @@
   "random-rom-empty": "Няма ROM в тази платформа",
   "random-rom-error": "Неуспешно избиране на случаен ROM",
   "region": "Регион",
+  "release-type": "Тип издание",
+  "release-types": "Типове издания",
   "removing-firmware": "Премахване на {n} фърмуер файл от RomM | Премахване на {n} фърмуер файла от RomM",
   "reset-filters": "Нулирай филтрите",
   "rom-count": "{n} ROM | {n} ROM-а",

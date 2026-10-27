@@ -58,6 +58,7 @@ ROM_FILTER_SPECS: tuple[RomFilterSpec, ...] = (
     RomFilterSpec("player_counts", FilterKind.SCALAR_IN, RomFacets.player_count),
     RomFilterSpec("metadata_providers", FilterKind.PROVIDER_IDS),
     RomFilterSpec("tags", FilterKind.JSON_ARRAY, RomFacets.tags),
+    RomFilterSpec("release_types", FilterKind.JSON_ARRAY, RomFacets.release_types),
 )
 
 # `statuses` is absent above on purpose: it matches against RomUser, after the
@@ -78,6 +79,7 @@ class RomFiltersDict(TypedDict):
     regions: list[str]
     languages: list[str]
     tags: list[str]
+    release_types: list[str]
     platforms: list[int]
 
 
@@ -278,6 +280,12 @@ class RomFilterParams(BaseModel):
             description="Associated custom tag (parsed from the filename, e.g. Proto, Beta, Demo). Multiple values are allowed by repeating the parameter, and results that match any of the values will be returned."
         ),
     ] = None
+    release_types: Annotated[
+        list[str] | None,
+        Field(
+            description="Release type (homebrew, hack, translation, prototype, ...). Multiple values are allowed by repeating the parameter, and results that match any of the values will be returned."
+        ),
+    ] = None
     genres_logic: Annotated[
         str,
         Field(
@@ -354,6 +362,12 @@ class RomFilterParams(BaseModel):
         str,
         Field(
             description="Logic operator for tags filter: 'any' (OR), 'all' (AND) or 'none' (NOT)."
+        ),
+    ] = "any"
+    release_types_logic: Annotated[
+        str,
+        Field(
+            description="Logic operator for release types filter: 'any' (OR), 'all' (AND) or 'none' (NOT)."
         ),
     ] = "any"
     hltb_main_story_min: Annotated[

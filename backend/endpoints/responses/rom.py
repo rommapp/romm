@@ -44,6 +44,7 @@ from models.rom import (
     SaveTargetLayout,
 )
 from utils.conversion_cache import offered_download_formats
+from utils.release_types import ReleaseType
 
 from .base import BaseModel, UTCDatetime
 
@@ -162,6 +163,7 @@ ManualMetadata = TypedDict(
         "first_release_date": int | None,
         "youtube_video_id": str | None,
         "alternative_names": list[str] | None,
+        "release_types": list[ReleaseType] | None,
     },
     total=False,
 )
@@ -424,6 +426,7 @@ class RomSchema(BaseModel):
     regions: list[str]
     languages: list[str]
     tags: list[str]
+    release_types: list[ReleaseType]
 
     crc_hash: str | None
     md5_hash: str | None
