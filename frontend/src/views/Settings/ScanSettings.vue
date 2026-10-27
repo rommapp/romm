@@ -1,0 +1,597 @@
+<script setup lang="ts">
+// ScanSettings: v2-native editor for the scan.* section of config.yml
+// (metadata/artwork priority, region & language priority, media types,
+// gamelist/pegasus export). Persists via PUT /config/scan.
+//
+// Provider / region / language identifiers are proper nouns or codes, so
+// they stay as data constants; only descriptive prose goes through i18n.
+import { storeToRefs } from "pinia";
+import { computed, reactive, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { onBeforeRouteLeave } from "vue-router";
+import type { MetadataMediaType, ScanSettingsPayload } from "@/__generated__";
+import ConfigFileAlerts from "@/components/Settings/ConfigFileAlerts.vue";
+import ScanPriorityList from "@/components/Settings/ScanPriorityList.vue";
+import SettingsSaveBar from "@/components/Settings/SettingsSaveBar.vue";
+import SettingsSection from "@/components/Settings/SettingsSection.vue";
+import SettingsSubsection from "@/components/Settings/SettingsSubsection.vue";
+import SettingsToggleRow from "@/components/Settings/SettingsToggleRow.vue";
+import { useConfirm } from "@/composables/useConfirm";
+import { useFetchState } from "@/composables/useFetchState";
+import { useSnackbar } from "@/composables/useSnackbar";
+import { useUnloadGuard } from "@/composables/useUnloadGuard";
+import { RAlert, RSelect, RBtn, RSpinner } from "@/lib";
+import configApi from "@/services/api/config";
+import storeAuth from "@/stores/auth";
+import storeConfig, { type Config } from "@/stores/config";
+
+const { t } = useI18n();
+const confirm = useConfirm();
+const configStore = storeConfig();
+const { config } = storeToRefs(configStore);
+const authStore = storeAuth();
+const snackbar = useSnackbar();
+
+// Provider brand names: identical across every locale, so not i18n'd.
+const PROVIDER_LABELS = {
+  igdb: "IGDB",
+  moby: "MobyGames",
+  ss: "ScreenScraper",
+  ra: "RetroAchievements",
+  launchbox: "LaunchBox",
+  hasheous: "Hasheous",
+  tgdb: "TheGamesDB",
+  sgdb: "SteamGridDB",
+  flashpoint: "Flashpoint",
+  hltb: "HowLongToBeat",
+  demozoo: "Demozoo",
+  pouet: "Pouët",
+  csdb: "CSDb",
+  steam: "Steam",
+  gamelist: "ES-DE gamelist",
+  libretro: "Libretro",
+  playmatch: "Playmatch",
+};
+const toSources = (keys: (keyof typeof PROVIDER_LABELS)[]) =>
+  keys.map((value) => ({ value, label: PROVIDER_LABELS[value] }));
+const METADATA_SOURCES = toSources([
+  "igdb",
+  "moby",
+  "ss",
+  "ra",
+  "launchbox",
+  "gamelist",
+  "hasheous",
+  "tgdb",
+  "flashpoint",
+  "steam",
+  "hltb",
+  "demozoo",
+  "pouet",
+  "csdb",
+  "sgdb",
+  "libretro",
+  "playmatch",
+]);
+const ARTWORK_SOURCES = toSources([
+  "sgdb",
+  "igdb",
+  "moby",
+  "ss",
+  "libretro",
+  "ra",
+  "launchbox",
+  "gamelist",
+  "hasheous",
+  "tgdb",
+  "flashpoint",
+  "steam",
+  "hltb",
+  "demozoo",
+  "pouet",
+  "csdb",
+  "playmatch",
+]);
+
+// Common provider region / language codes, offered as one-click
+// suggestions. Users may still type any provider-defined code.
+const REGION_SUGGESTIONS = [
+  "us",
+  "wor",
+  "ss",
+  "eu",
+  "jp",
+  "uk",
+  "fr",
+  "de",
+  "it",
+  "sp",
+  "br",
+  "ca",
+  "au",
+  "kr",
+  "cn",
+  "tw",
+  "hk",
+  "ru",
+  "nl",
+  "se",
+  "no",
+  "fi",
+].map((value) => ({ value, label: value }));
+const LANGUAGE_SUGGESTIONS = [
+  "en",
+  "fr",
+  "de",
+  "es",
+  "it",
+  "pt",
+  "nl",
+  "ja",
+  "ko",
+  "zh",
+  "ru",
+  "pl",
+  "sv",
+  "da",
+  "no",
+  "fi",
+  "ar",
+  "el",
+].map((value) => ({ value, label: value }));
+
+const MEDIA_TYPES: MetadataMediaType[] = [
+  "box2d",
+  "box3d",
+  "box2d_back",
+  "box2d_side",
+  "miximage",
+  "miximage_v2",
+  "physical",
+  "screenshot",
+  "title_screen",
+  "fanart",
+  "marquee",
+  "logo",
+  "bezel",
+  "manual",
+  "video",
+  "video_normalized",
+];
+const THUMBNAIL_TYPES: MetadataMediaType[] = [
+  "box2d",
+  "box3d",
+  "miximage",
+  "miximage_v2",
+  "physical",
+];
+const IMAGE_TYPES: MetadataMediaType[] = [
+  "title_screen",
+  "miximage",
+  "miximage_v2",
+  "box2d",
+  "screenshot",
+];
+
+const mediaLabel = (value: string) =>
+  t(`settings.media-${value.replaceAll("_", "-")}`);
+
+const mediaItems = computed(() =>
+  MEDIA_TYPES.map((value) => ({ title: mediaLabel(value), value })),
+);
+const thumbnailItems = computed(() =>
+  THUMBNAIL_TYPES.map((value) => ({ title: mediaLabel(value), value })),
+);
+const imageItems = computed(() =>
+  IMAGE_TYPES.map((value) => ({ title: mediaLabel(value), value })),
+);
+
+// ── Editable form model ────────────────────────────────────────────
+interface ScanForm {
+  metadata: string[];
+  artwork: string[];
+  coverEnabled: boolean;
+  cover: string[];
+  screenshotEnabled: boolean;
+  screenshot: string[];
+  manualEnabled: boolean;
+  manual: string[];
+  region: string[];
+  language: string[];
+  media: string[];
+  gamelistExport: boolean;
+  gamelistThumbnail: MetadataMediaType;
+  gamelistImage: MetadataMediaType;
+  pegasusExport: boolean;
+}
+
+function configToForm(cfg: Config): ScanForm {
+  const overrides = cfg.SCAN_ARTWORK_PRIORITY_OVERRIDES ?? {};
+  return {
+    metadata: [...(cfg.SCAN_METADATA_PRIORITY ?? [])],
+    artwork: [...(cfg.SCAN_ARTWORK_PRIORITY ?? [])],
+    coverEnabled: "url_cover" in overrides,
+    cover: [...(overrides.url_cover ?? cfg.SCAN_ARTWORK_PRIORITY ?? [])],
+    screenshotEnabled: "url_screenshots" in overrides,
+    screenshot: [
+      ...(overrides.url_screenshots ?? cfg.SCAN_ARTWORK_PRIORITY ?? []),
+    ],
+    manualEnabled: "url_manual" in overrides,
+    manual: [...(overrides.url_manual ?? cfg.SCAN_ARTWORK_PRIORITY ?? [])],
+    region: [...(cfg.SCAN_REGION_PRIORITY ?? [])],
+    language: [...(cfg.SCAN_LANGUAGE_PRIORITY ?? [])],
+    media: [...(cfg.SCAN_MEDIA ?? [])],
+    gamelistExport: cfg.GAMELIST_AUTO_EXPORT_ON_SCAN ?? false,
+    gamelistThumbnail: (cfg.GAMELIST_MEDIA_THUMBNAIL ??
+      "box2d") as MetadataMediaType,
+    gamelistImage: (cfg.GAMELIST_MEDIA_IMAGE ??
+      "screenshot") as MetadataMediaType,
+    pegasusExport: cfg.PEGASUS_AUTO_EXPORT_ON_SCAN ?? false,
+  };
+}
+
+function formToPayload(f: ScanForm): ScanSettingsPayload {
+  return {
+    metadata_priority: f.metadata,
+    artwork_priority: f.artwork,
+    cover_priority: f.coverEnabled ? f.cover : null,
+    screenshot_priority: f.screenshotEnabled ? f.screenshot : null,
+    manual_priority: f.manualEnabled ? f.manual : null,
+    region_priority: f.region,
+    language_priority: f.language,
+    media: f.media as MetadataMediaType[],
+    gamelist_export: f.gamelistExport,
+    gamelist_thumbnail: f.gamelistThumbnail,
+    gamelist_image: f.gamelistImage,
+    pegasus_export: f.pegasusExport,
+  };
+}
+
+const form = reactive<ScanForm>(configToForm(config.value));
+// Snapshot of the last-saved payload, for dirty detection.
+const savedSnapshot = ref(JSON.stringify(formToPayload(form)));
+
+function resetForm(cfg: Config) {
+  Object.assign(form, configToForm(cfg));
+  savedSnapshot.value = JSON.stringify(formToPayload(form));
+}
+
+const dirty = computed(
+  () => JSON.stringify(formToPayload(form)) !== savedSnapshot.value,
+);
+
+const canEdit = computed(
+  () =>
+    authStore.scopes.includes("platforms.write") &&
+    config.value.CONFIG_FILE_WRITABLE,
+);
+
+const saving = ref(false);
+
+const {
+  isLoading: loading,
+  error,
+  execute: loadConfig,
+} = useFetchState(
+  () => configStore.fetchConfig({ rethrow: true }),
+  config.value,
+  { onSuccess: resetForm },
+);
+const loadError = computed(() => error.value !== undefined);
+
+function onReset() {
+  resetForm(config.value);
+}
+
+async function onSave() {
+  saving.value = true;
+  try {
+    const payload = formToPayload(form);
+    await configApi.updateScanSettings(payload);
+    savedSnapshot.value = JSON.stringify(payload);
+    await configStore.fetchConfig();
+    snackbar.success(t("settings.scan-settings-saved"));
+  } catch (err) {
+    const e = err as {
+      response?: { data?: { detail?: string }; statusText?: string };
+      message?: string;
+    };
+    const detail =
+      e?.response?.data?.detail || e?.response?.statusText || e?.message;
+    snackbar.error(t("settings.scan-settings-save-error", { detail }));
+  } finally {
+    saving.value = false;
+  }
+}
+
+function setMedia(value: unknown) {
+  form.media = (value as string[]) ?? [];
+}
+
+// ── Unsaved-changes guard ───────────────────────────────────────────
+// Block navigating away with pending edits until the user saves,
+// discards, or explicitly confirms leaving. Two layers: an in-app route
+// guard for SPA navigation, and `beforeunload` for tab close / reload /
+// external links.
+const hasPendingEdits = () => dirty.value && canEdit.value;
+
+onBeforeRouteLeave(async () => {
+  if (!hasPendingEdits()) return true;
+  return confirm({
+    title: t("settings.scan-leave-title"),
+    body: t("settings.scan-leave-body"),
+    confirmText: t("settings.scan-leave-confirm"),
+    tone: "warning",
+  });
+});
+
+useUnloadGuard(hasPendingEdits);
+</script>
+
+<template>
+  <div v-if="loading" class="r-scan-settings__loading">
+    <RSpinner />
+  </div>
+  <div v-else-if="loadError" class="r-section-stack r-scan-settings">
+    <RAlert type="error">
+      <template #title>
+        {{ t("settings.scan-settings-load-error-title") }}
+      </template>
+      {{ t("settings.scan-settings-load-error-desc") }}
+      <template #actions>
+        <RBtn variant="text" :loading="loading" @click="loadConfig">
+          {{ t("common.try-again") }}
+        </RBtn>
+      </template>
+    </RAlert>
+  </div>
+  <div v-else class="r-section-stack r-scan-settings">
+    <ConfigFileAlerts />
+
+    <!-- Metadata priority -->
+    <SettingsSection
+      :title="t('settings.scan-metadata-priority')"
+      icon="mdi-database-cog-outline"
+    >
+      <p class="r-scan-settings__desc">
+        {{ t("settings.scan-metadata-priority-desc") }}
+      </p>
+      <ScanPriorityList
+        v-model="form.metadata"
+        :sources="METADATA_SOURCES"
+        :disabled="!canEdit"
+      />
+    </SettingsSection>
+
+    <!-- Artwork priority + per-field overrides -->
+    <SettingsSection
+      :title="t('settings.scan-artwork-priority')"
+      icon="mdi-image-multiple-outline"
+    >
+      <p class="r-scan-settings__desc">
+        {{ t("settings.scan-artwork-priority-desc") }}
+      </p>
+      <ScanPriorityList
+        v-model="form.artwork"
+        :sources="ARTWORK_SOURCES"
+        :disabled="!canEdit"
+      />
+
+      <SettingsSubsection
+        :title="t('settings.scan-artwork-overrides')"
+        icon="mdi-tune-variant"
+      >
+        <p class="r-scan-settings__desc r-scan-settings__desc--spaced">
+          {{ t("settings.scan-artwork-overrides-desc") }}
+        </p>
+        <SettingsToggleRow
+          v-model="form.coverEnabled"
+          :title="t('settings.scan-override-cover')"
+          :disabled="!canEdit"
+        />
+        <ScanPriorityList
+          v-if="form.coverEnabled"
+          v-model="form.cover"
+          :sources="ARTWORK_SOURCES"
+          :disabled="!canEdit"
+        />
+        <SettingsToggleRow
+          v-model="form.screenshotEnabled"
+          :title="t('settings.scan-override-screenshot')"
+          :disabled="!canEdit"
+        />
+        <ScanPriorityList
+          v-if="form.screenshotEnabled"
+          v-model="form.screenshot"
+          :sources="ARTWORK_SOURCES"
+          :disabled="!canEdit"
+        />
+        <SettingsToggleRow
+          v-model="form.manualEnabled"
+          :title="t('settings.scan-override-manual')"
+          :disabled="!canEdit"
+        />
+        <ScanPriorityList
+          v-if="form.manualEnabled"
+          v-model="form.manual"
+          :sources="ARTWORK_SOURCES"
+          :disabled="!canEdit"
+        />
+      </SettingsSubsection>
+    </SettingsSection>
+
+    <!-- Region priority -->
+    <SettingsSection
+      :title="t('settings.scan-region-priority')"
+      icon="mdi-earth"
+    >
+      <p class="r-scan-settings__desc">
+        {{ t("settings.scan-region-priority-desc") }}
+      </p>
+      <ScanPriorityList
+        v-model="form.region"
+        :sources="REGION_SUGGESTIONS"
+        :input-placeholder="t('settings.scan-region-placeholder')"
+        allow-custom
+        :disabled="!canEdit"
+      />
+    </SettingsSection>
+
+    <!-- Language priority -->
+    <SettingsSection
+      :title="t('settings.scan-language-priority')"
+      icon="mdi-translate"
+    >
+      <p class="r-scan-settings__desc">
+        {{ t("settings.scan-language-priority-desc") }}
+      </p>
+      <ScanPriorityList
+        v-model="form.language"
+        :sources="LANGUAGE_SUGGESTIONS"
+        :input-placeholder="t('settings.scan-language-placeholder')"
+        allow-custom
+        :disabled="!canEdit"
+      />
+    </SettingsSection>
+
+    <!-- Media types -->
+    <SettingsSection :title="t('settings.scan-media')" icon="mdi-multimedia">
+      <div class="r-scan-settings__field">
+        <p class="r-scan-settings__desc">
+          {{ t("settings.scan-media-desc") }}
+        </p>
+        <RSelect
+          :model-value="form.media"
+          :items="mediaItems"
+          multiple
+          searchable
+          :disabled="!canEdit"
+          :placeholder="t('settings.scan-media-placeholder')"
+          :info="t('settings.scan-media-note')"
+          hide-details
+          @update:model-value="setMedia"
+        />
+      </div>
+    </SettingsSection>
+
+    <!-- Gamelist export -->
+    <SettingsSection
+      :title="t('settings.scan-gamelist')"
+      icon="mdi-file-export-outline"
+    >
+      <div
+        class="r-scan-settings__toggle-grid r-scan-settings__toggle-grid--single"
+      >
+        <SettingsToggleRow
+          v-model="form.gamelistExport"
+          :title="t('settings.scan-gamelist-export')"
+          :description="t('settings.scan-gamelist-export-desc')"
+          :disabled="!canEdit"
+        />
+      </div>
+      <div class="r-scan-settings__field r-scan-settings__field--bordered">
+        <RSelect
+          v-model="form.gamelistThumbnail"
+          :items="thumbnailItems"
+          prefix-label="stacked"
+          :disabled="!canEdit || !form.gamelistExport"
+          hide-details
+        >
+          <template #prefix-label>
+            {{ t("settings.scan-gamelist-thumbnail") }}
+          </template>
+        </RSelect>
+        <RSelect
+          v-model="form.gamelistImage"
+          :items="imageItems"
+          prefix-label="stacked"
+          :disabled="!canEdit || !form.gamelistExport"
+          hide-details
+        >
+          <template #prefix-label>
+            {{ t("settings.scan-gamelist-image") }}
+          </template>
+        </RSelect>
+      </div>
+    </SettingsSection>
+
+    <!-- Pegasus export -->
+    <SettingsSection
+      :title="t('settings.scan-pegasus')"
+      icon="mdi-file-export-outline"
+    >
+      <div
+        class="r-scan-settings__toggle-grid r-scan-settings__toggle-grid--single"
+      >
+        <SettingsToggleRow
+          v-model="form.pegasusExport"
+          :title="t('settings.scan-pegasus-export')"
+          :description="t('settings.scan-pegasus-export-desc')"
+          :disabled="!canEdit"
+        />
+      </div>
+    </SettingsSection>
+
+    <SettingsSaveBar
+      :visible="dirty && canEdit"
+      :label="t('settings.scan-unsaved-changes')"
+      :saving="saving"
+      @save="onSave"
+      @discard="onReset"
+    />
+  </div>
+</template>
+
+<style scoped>
+.r-scan-settings__loading {
+  display: grid;
+  place-items: center;
+  min-height: 240px;
+}
+
+/* Extra bottom padding so the sticky save bar never covers the last
+   section's controls. */
+.r-scan-settings {
+  padding-bottom: 72px;
+}
+
+.r-scan-settings__desc {
+  margin: 0;
+  padding: 16px 16px 0;
+  color: var(--r-color-fg-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+/* When a description sits directly above a field block, drop its bottom
+   padding so the field's own padding provides the gap. */
+.r-scan-settings__field .r-scan-settings__desc {
+  padding: 0;
+}
+
+.r-scan-settings__desc--spaced {
+  margin-bottom: 16px;
+}
+
+.r-scan-settings__field {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.r-scan-settings__field--bordered {
+  border-top: 1px solid var(--r-color-border);
+}
+
+.r-scan-settings__toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--r-color-border);
+}
+.r-scan-settings__toggle-grid--single {
+  grid-template-columns: 1fr;
+}
+html[data-bp~="xs"] .r-scan-settings__toggle-grid {
+  grid-template-columns: 1fr;
+}
+</style>

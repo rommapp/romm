@@ -1,5 +1,4 @@
 {
-  "all-loaded": "Все игры загружены",
   "back-to-top": "Наверх",
   "column-actions": "Действия",
   "column-cover": "Обложка",
@@ -8,7 +7,6 @@
   "firmware-selected-count": "{count} выбрано",
   "jump-to": "Перейти к {letter}",
   "jump-to-letter": "Перейти к букве",
-  "load-more": "Загрузить еще",
   "selection-clear": "Очистить выбор",
   "selection-collections": "Управление коллекциями",
   "selection-delete": "Удалить",

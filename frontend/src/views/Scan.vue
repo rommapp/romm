@@ -1,686 +1,974 @@
 <script setup lang="ts">
-import { useLocalStorage } from "@vueuse/core";
+// Scan: library scan control + live log. Two-column master/detail
+// layout (mirrors MatchRomBodyList):
+//
+//   Left:  Config card, a glass panel with the four scan inputs
+//           (platforms, providers, hash-matcher pills, scan type) plus
+//           a prominent "Start scan" CTA. Inline warnings sit under
+//           the CTA. While a scan runs, the inputs and button stay
+//           visible but locked (disabled); the user reads them as
+//           the "what we're doing" summary. Sticks to the top of the
+//           viewport when the page scrolls past it.
+//
+//   Right: Live area, a tall surface that fills the viewport down to
+//           the layout's bottom padding. Its header doubles as the
+//           live status bar (pulse + label + per-class counter chips
+//           + abort button + indeterminate/determinate progress bar
+//           pinned to the bottom edge). The body shows either a
+//           welcoming empty state (no scan started) or the streaming
+//           platform / ROM list. Auto-expands panels as ROMs arrive
+//           and auto-scrolls (within its own scroll container) unless
+//           the user scrolled up.
+//
+// Scan socket lifecycle (`scan:scanning_platform`, `scan:scanning_rom`,
+// `scan:update_stats`, `scan:done`, `scan:done_ko`) is wired globally
+// by `installScanLifecycle` in AppLayout; this view is pure UI.
+//
+// The provider selects and the hash-matcher pills are driven by
+// `useScanProviders`, shared with the two scan dialogs.
 import { storeToRefs } from "pinia";
-import { computed, ref, useTemplateRef, watch } from "vue";
+import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { useDisplay } from "vuetify";
+import ScanHashMatcherSwitches from "@/components/Scan/ScanHashMatcherSwitches.vue";
+import ScanInfoDialog from "@/components/Scan/ScanInfoDialog.vue";
 import ScanPlatform from "@/components/Scan/ScanPlatform.vue";
-import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
-import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
-import { useAutoScroll } from "@/composables/useAutoScroll";
+import ScanProviderSelect from "@/components/Scan/ScanProviderSelect.vue";
+import ScanTypeSelect from "@/components/Scan/ScanTypeSelect.vue";
+import PlatformSelect from "@/components/shared/PlatformSelect.vue";
+import { useScanProviders } from "@/composables/useScanProviders";
+import { useScanTrigger } from "@/composables/useScanTrigger";
+import { useScanTypeOptions } from "@/composables/useScanTypeOptions";
+import { RAlert, RBtn, RIcon, RProgressLinear, RTooltip } from "@/lib";
 import { ROUTES } from "@/plugins/router";
 import socket from "@/services/socket";
-import storeConfig from "@/stores/config";
-import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
-import { platformCategoryToIcon } from "@/utils";
+import { scanNeedsMetadataSource, type ScanType } from "@/types/scan";
 
-const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
-const LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY =
-  "scan.launchboxRemoteEnabled";
 const { t } = useI18n();
-const { xs, smAndDown } = useDisplay();
+
+// The tooltip's paragraph breaks arrive as `<br>` in every locale, and that is
+// the only markup in it, so split on them rather than render the string as
+// HTML.
+const hashesDisabledTooltip = computed(() =>
+  t("scan.hashes-disabled-tooltip")
+    .split(/(?:<br\s*\/?>\s*)+/i)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean),
+);
+const { startScan } = useScanTrigger();
 const scanningStore = storeScanning();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platformsStore = storePlatforms();
-const { filteredPlatforms } = storeToRefs(platformsStore);
-const configStore = storeConfig();
-const { config } = storeToRefs(configStore);
-const heartbeat = storeHeartbeat();
-const platformsToScan = ref<number[]>([]);
-const panels = ref<number[]>([]);
-const scanLog = useTemplateRef<HTMLDivElement>("scan-log-ref");
-const expansionPanels = useTemplateRef<HTMLDivElement>("expansion-panels-ref");
+const { scannablePlatforms } = storeToRefs(platformsStore);
+const platformsToScan = ref<string[]>([]);
 
-useAutoScroll(scanLog, expansionPanels);
+// Never-scanned folders are fetched on demand.
+onMounted(() => {
+  void platformsStore.fetchFilesystemPlatforms();
+});
+// IDs of platforms whose ScanPlatform panel is currently open.
+const openPlatforms = ref<Set<number>>(new Set());
 
-const sortedPlatforms = computed(() => {
-  return filteredPlatforms.value.sort((a, b) =>
+function setOpen(platformId: number, open: boolean) {
+  const next = new Set(openPlatforms.value);
+  if (open) next.add(platformId);
+  else next.delete(platformId);
+  openPlatforms.value = next;
+}
+const scanLog = useTemplateRef<HTMLDivElement>("scan-log");
+
+const infoDialogOpen = ref(false);
+
+const sortedPlatforms = computed(() =>
+  [...scannablePlatforms.value].sort((a, b) =>
     a.display_name.localeCompare(b.display_name),
-  );
-});
-const calculateHashes = computed(
-  () => !config.value.SKIP_HASH_CALCULATION || false,
-);
-const metadataOptions = computed(() => {
-  return heartbeat.getMetadataOptionsByPriority().map((option) => {
-    // Check if option requires hashes but hash calculation is disabled
-    const requiresHashes =
-      option.value === "hasheous" ||
-      option.value === "ra" ||
-      option.value === "playmatch";
-    const hashingDisabled = !calculateHashes.value;
-    const disabled =
-      hashingDisabled && requiresHashes
-        ? t("scan.requires-hashes", { source: option.name })
-        : option.disabled;
-
-    return {
-      ...option,
-      disabled,
-    };
-  });
-});
-const storedMetadataSources = useLocalStorage(
-  LOCAL_STORAGE_METADATA_SOURCES_KEY,
-  [] as string[],
-);
-const launchboxRemoteEnabled = useLocalStorage(
-  LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY,
-  true,
-);
-const metadataSources = ref<MetadataOption[]>(
-  metadataOptions.value.filter(
-    (m) => storedMetadataSources.value.includes(m.value) && !m.disabled,
-  ) || heartbeat.getEnabledMetadataOptions(),
+  ),
 );
 
-const isLaunchboxSelected = computed(() =>
-  metadataSources.value.some((s) => s.value === "launchbox"),
-);
+const {
+  calculateHashes,
+  generalProviders,
+  specificProviders,
+  metadataSources,
+  effectiveMetadataSources,
+  generalAllSelected,
+  specificAllSelected,
+  isLaunchboxSelected,
+  launchboxRemoteEnabled,
+  hashMatchers,
+  setHashMatcher,
+  isHashMatcherOn,
+  buildScanSourceOptions,
+  persistSelection,
+} = useScanProviders();
 
-watch(metadataOptions, (newOptions) => {
-  // Remove any sources that are now disabled
-  metadataSources.value = metadataSources.value.filter((s) =>
-    newOptions.some((opt) => opt.value === s.value && !opt.disabled),
-  );
-});
-
-// Track which platforms have ROMs without a deep watch on the entire array.
-// The computed returns a stable string that only changes when a platform
-// transitions from 0→1+ ROMs (or back), so the watch fires O(n_platforms)
-// times rather than O(n_roms) times.
+// Auto-expand a platform's panel the moment it starts reporting roms. The
+// panel body only lists ROMs, so firmware alone leaves nothing to show. We
+// track by `id:hasRoms` so the watch fires only on the 0 → 1 transition,
+// not per-ROM.
 const platformsWithRomsKey = computed(() =>
-  scanningPlatforms.value.map((p) => (p.roms.length > 0 ? 1 : 0)).join(""),
+  scanningPlatforms.value
+    .map((p) => `${p.id}:${p.roms.length > 0 ? 1 : 0}`)
+    .join(","),
 );
 watch(platformsWithRomsKey, () => {
-  panels.value = scanningPlatforms.value
-    .map((p, index) => (p.roms.length > 0 ? index : -1))
-    .filter((index) => index !== -1);
+  openPlatforms.value = new Set(
+    scanningPlatforms.value.filter((p) => p.roms.length > 0).map((p) => p.id),
+  );
 });
 
-const scanOptions = [
-  {
-    title: t("scan.new-platforms"),
-    subtitle: t("scan.new-platforms-desc"),
-    value: "new_platforms",
+// Auto-scroll the live log as new platforms arrive, unless the user
+// scrolled down to read an earlier panel. Newest platforms are prepended,
+// so we keep the view pinned to the top.
+let userScrolledDown = false;
+watch(
+  () => scanningPlatforms.value.length,
+  async () => {
+    if (userScrolledDown) return;
+    await nextTick();
+    scanLog.value?.scrollTo({ top: 0 });
   },
-  {
-    title: t("scan.quick-scan"),
-    subtitle: t("scan.quick-scan-desc"),
-    value: "quick",
-  },
-  {
-    title: t("scan.unmatched-games"),
-    subtitle: t("scan.unmatched-games-desc"),
-    value: "unmatched",
-  },
-  {
-    title: t("scan.update-metadata"),
-    subtitle: t("scan.update-metadata-desc"),
-    value: "update",
-  },
-  {
-    title: t("scan.hashes"),
-    subtitle: t("scan.hashes-desc"),
-    value: "hashes",
-  },
-  {
-    title: t("scan.complete-rescan"),
-    subtitle: t("scan.complete-rescan-desc"),
-    value: "complete",
-  },
-];
-const scanType = ref("quick");
-
-async function scan() {
-  scanningStore.setScanning(true);
-  scanningPlatforms.value = [];
-
-  if (!socket.connected) socket.connect();
-
-  // Store selected meta sources in storage
-  storedMetadataSources.value = metadataSources.value.map((s) => s.value);
-
-  socket.emit("scan", {
-    platforms: platformsToScan.value,
-    type: scanType.value,
-    apis: metadataSources.value.map((s) => s.value),
-    launchbox_remote_enabled: launchboxRemoteEnabled.value,
-  });
+);
+function onScroll(e: Event) {
+  const el = e.target as HTMLDivElement;
+  userScrolledDown = el.scrollTop > 1;
 }
 
-socket.on("scan:done", (stats) => {
-  scanStats.value = stats;
+const scanOptions = useScanTypeOptions();
+const scanType = ref<ScanType>("quick");
+
+const needsMetadataSource = computed(() =>
+  scanNeedsMetadataSource(scanType.value),
+);
+const canStartScan = computed(
+  () =>
+    !scanning.value &&
+    (!needsMetadataSource.value || effectiveMetadataSources.value.length > 0),
+);
+
+// Live status header: pulled in from the (now retired) floating
+// ScanStatsBar. Counters live in the scanning store; `total` lags
+// `scanned` during platform discovery, so we clamp to avoid showing
+// a >100% bar or counters that visually go backwards.
+const liveStats = computed(() => {
+  const platformsScanned = scanStats.value.scanned_platforms ?? 0;
+  const platformsTotal = scanStats.value.total_platforms ?? 0;
+  const platformsNew = scanStats.value.new_platforms ?? 0;
+  const platformsIdentified = Math.min(
+    scanStats.value.identified_platforms ?? 0,
+    platformsScanned,
+  );
+  const romsScanned = scanStats.value.scanned_roms ?? 0;
+  const romsTotal = scanStats.value.total_roms ?? 0;
+  const romsNew = scanStats.value.new_roms ?? 0;
+  const romsIdentified = Math.min(
+    scanStats.value.identified_roms ?? 0,
+    romsScanned,
+  );
+  const firmwareScanned = scanStats.value.scanned_firmware ?? 0;
+  const firmwareNew = scanStats.value.new_firmware ?? 0;
+  const romsUpdated = scanStats.value.updated_roms ?? 0;
+  const filesNew = scanStats.value.new_files ?? 0;
+  return {
+    platforms: {
+      scanned: platformsScanned,
+      total: platformsTotal,
+      new: platformsNew,
+      identified: platformsIdentified,
+    },
+    roms: {
+      scanned: romsScanned,
+      total: romsTotal,
+      new: romsNew,
+      identified: romsIdentified,
+    },
+    firmware: { scanned: firmwareScanned, new: firmwareNew },
+    files: { new: filesNew, updatedRoms: romsUpdated },
+  };
 });
 
-async function stopScan() {
+const hasResults = computed(
+  () => scanning.value || scanningPlatforms.value.length > 0,
+);
+
+const liveStatusLabel = computed(() => {
+  if (scanning.value) return t("scan.scanning");
+  if (scanningPlatforms.value.length > 0) return t("scan.scan-complete");
+  return t("scan.live-progress");
+});
+
+// Progress bar: determinate once totals are known, indeterminate
+// during initial platform discovery. Clamps to 100% so the bar never
+// goes past full.
+const progressTotal = computed(() =>
+  Math.max(liveStats.value.roms.total, liveStats.value.roms.scanned),
+);
+const hasProgressTotal = computed(() => progressTotal.value > 0);
+const progressValue = computed(() =>
+  hasProgressTotal.value
+    ? Math.min(100, (liveStats.value.roms.scanned / progressTotal.value) * 100)
+    : 0,
+);
+
+function scan() {
+  // Reset stats + platform list so the navbar indicator and the stats
+  // bar start at 0 instead of inheriting the previous scan's final
+  // counters.
+  scanningStore.reset();
+  scanningPlatforms.value = [];
+  userScrolledDown = false;
+
+  const started = startScan([
+    {
+      platform_fs_slugs: platformsToScan.value,
+      type: scanType.value,
+      ...buildScanSourceOptions(),
+    },
+  ]);
+  if (!started) return;
+
+  persistSelection();
+}
+
+function stopScan() {
   socket.emit("scan:stop");
 }
 </script>
 
 <template>
-  <div class="d-flex flex-column h-screen">
-    <div>
-      <v-row class="align-center pt-4 px-4" no-gutters>
-        <!-- Platform selector -->
-        <v-col cols="12" md="5" lg="6" class="px-1">
-          <v-select
+  <div class="r-scan">
+    <ScanInfoDialog v-model="infoDialogOpen" />
+
+    <!-- Config card. Locked (visually dimmed via .r-scan-card--locked)
+         while a scan runs so the user can read the running config without
+         being tempted to edit it. The info button is anchored top-right;
+         the form fields stack vertically; the CTA + library management
+         buttons sit in the footer below the form. -->
+    <section
+      class="r-scan-card"
+      :class="{ 'r-scan-card--locked': scanning }"
+      :aria-label="t('scan.title')"
+    >
+      <div class="r-scan-card__head">
+        <RBtn
+          icon="mdi-information-outline"
+          variant="text"
+          size="small"
+          :aria-label="t('scan.info-dialog-title')"
+          @click="infoDialogOpen = true"
+        />
+      </div>
+
+      <div class="r-scan-card__fields">
+        <!-- 1. Platform controls -->
+        <section class="r-scan-card__section">
+          <h3 class="r-scan-card__section-title">
+            {{ t("scan.section-platforms") }}
+          </h3>
+          <PlatformSelect
             v-model="platformsToScan"
             :items="sortedPlatforms"
-            :menu-props="{ maxHeight: 650 }"
+            item-key="fs_slug"
             :label="t('common.platforms')"
-            item-title="display_name"
-            item-value="id"
             prepend-inner-icon="mdi-controller"
-            variant="outlined"
-            density="comfortable"
+            :icon-size="32"
             multiple
             clearable
             hide-details
             chips
-          >
-            <template #item="{ props, item }">
-              <v-list-item v-bind="props" class="py-4">
-                <template #prepend>
-                  <PlatformIcon
-                    :key="item.slug"
-                    :size="35"
-                    :slug="item.slug"
-                    :name="item.name"
-                    :fs-slug="item.fs_slug"
-                  />
-                </template>
-                <v-row no-gutters>
-                  <v-col>
-                    <v-chip size="x-small" label class="text-grey">{{
-                      item.fs_slug
-                    }}</v-chip>
-                    <v-icon
-                      :icon="platformCategoryToIcon(item.category || '')"
-                      class="ml-2 text-caption text-grey"
-                      :title="item.category"
-                    />
-                    <span
-                      v-if="item.family_name"
-                      class="ml-1 text-caption text-grey"
-                      >{{ item.family_name }}</span
-                    >
-                  </v-col>
-                </v-row>
-                <template #append>
-                  <MissingFromFSIcon
-                    v-if="item.missing_from_fs"
-                    text="Missing platform from filesystem"
-                    chip
-                    chip-label
-                    chip-density="compact"
-                    class="ml-2"
-                  />
-                  <v-row
-                    v-if="item.is_identified"
-                    class="text-center"
-                    no-gutters
-                  >
-                    <v-col cols="12">
-                      <v-avatar
-                        v-if="item.igdb_id"
-                        variant="text"
-                        size="25"
-                        rounded
-                        class="mr-1"
-                      >
-                        <v-img src="/assets/scrappers/igdb.png" />
-                      </v-avatar>
+            show-meta
+            mark-unscanned
+            :unscanned-label="t('scan.folder-not-scanned')"
+            show-all-option
+            promote-filled
+          />
+        </section>
 
-                      <v-avatar
-                        v-if="item.ss_id"
-                        variant="text"
-                        size="25"
-                        rounded
-                        class="mr-1"
-                      >
-                        <v-img src="/assets/scrappers/ss.png" />
-                      </v-avatar>
+        <!-- 2. Metadata controls: providers (2.1) + proxies (2.2)
+             share one section so it reads as "data we pull from
+             external sources". -->
+        <section class="r-scan-card__section">
+          <h3 class="r-scan-card__section-title">
+            {{ t("scan.section-metadata") }}
+          </h3>
 
-                      <v-avatar
-                        v-if="item.moby_slug"
-                        variant="text"
-                        size="25"
-                        rounded
-                        class="mr-1"
-                      >
-                        <v-img src="/assets/scrappers/moby.png" />
-                      </v-avatar>
+          <!-- 2.1 providers: two RSelects sharing the same
+               `metadataSources` model, one per category. The
+               primitive's `show-all-option` is subset-safe so the
+               "All" toggle in one group only affects that group's
+               items. -->
+          <div class="r-scan-card__subsection">
+            <span class="r-scan-card__subsection-label">
+              {{ t("scan.section-providers") }}
+            </span>
 
-                      <v-avatar
-                        v-if="item.ra_id"
-                        variant="text"
-                        size="25"
-                        rounded
-                        class="mr-1"
-                      >
-                        <v-img src="/assets/scrappers/ra.png" />
-                      </v-avatar>
-
-                      <v-avatar
-                        v-if="item.launchbox_id"
-                        variant="text"
-                        size="25"
-                        rounded
-                        class="mr-1"
-                        style="background: #185a7c"
-                      >
-                        <v-img src="/assets/scrappers/launchbox.png" />
-                      </v-avatar>
-
-                      <v-avatar
-                        v-if="item.hasheous_id"
-                        variant="text"
-                        size="25"
-                        rounded
-                        class="mr-1"
-                      >
-                        <v-img src="/assets/scrappers/hasheous.png" />
-                      </v-avatar>
-
-                      <v-avatar
-                        v-if="item.flashpoint_id"
-                        variant="text"
-                        size="25"
-                        rounded
-                        class="mr-1"
-                      >
-                        <v-img src="/assets/scrappers/flashpoint.png" />
-                      </v-avatar>
-
-                      <v-avatar
-                        v-if="item.hltb_slug"
-                        class="bg-surface mr-1"
-                        variant="text"
-                        size="25"
-                        rounded
-                      >
-                        <v-img src="/assets/scrappers/hltb.png" />
-                      </v-avatar>
-
-                      <v-avatar
-                        v-if="item.libretro_slug"
-                        class="bg-surface"
-                        variant="text"
-                        size="25"
-                        rounded
-                      >
-                        <v-img src="/assets/scrappers/libretro.png" />
-                      </v-avatar>
-                    </v-col>
-                  </v-row>
-                  <v-row v-else class="text-center" no-gutters>
-                    <v-chip color="red" size="small" label>
-                      <v-icon class="mr-1"> mdi-close </v-icon>
-                      {{ t("scan.not-identified").toUpperCase() }}
-                    </v-chip>
-                  </v-row>
-                  <v-chip class="ml-1" size="small" label>
-                    {{ item.rom_count }}
-                  </v-chip>
-                </template>
-              </v-list-item>
-            </template>
-            <template #chip="{ item }">
-              <v-chip>
-                <PlatformIcon
-                  :key="item.slug"
-                  :slug="item.slug"
-                  :name="item.name"
-                  :fs-slug="item.fs_slug"
-                  :size="20"
-                />
-                <div class="ml-1">
-                  {{ item.display_name }}
-                </div>
-              </v-chip>
-            </template>
-          </v-select>
-        </v-col>
-
-        <!-- Source options -->
-        <v-col
-          cols="12"
-          md="5"
-          lg="4"
-          class="px-1"
-          :class="{ 'mt-3': smAndDown }"
-        >
-          <v-select
-            v-model="metadataSources"
-            :items="metadataOptions"
-            :label="t('scan.metadata-sources')"
-            item-title="name"
-            prepend-inner-icon="mdi-database-search"
-            variant="outlined"
-            density="comfortable"
-            multiple
-            return-object
-            clearable
-            hide-details
-            chips
-          >
-            <template #item="{ props, item }">
-              <v-list-item
-                v-bind="props"
-                :title="item.name"
-                :subtitle="item.disabled"
-                :disabled="Boolean(item.disabled)"
-              >
-                <template #prepend>
-                  <v-avatar size="25" rounded="1">
-                    <v-img :src="item.logo_path" />
-                  </v-avatar>
-                </template>
-
-                <template #append v-if="item.value === 'launchbox'">
-                  <div class="d-flex align-center">
-                    <span
-                      class="text-caption text-primary text-medium-emphasis mr-4"
-                      :class="{ 'text-romm-gray': launchboxRemoteEnabled }"
-                    >
-                      Local
-                    </span>
-                    <v-switch
-                      :model-value="launchboxRemoteEnabled"
-                      @update:model-value="launchboxRemoteEnabled = !!$event"
-                      color="primary"
-                      density="compact"
-                      hide-details
-                      :disabled="!isLaunchboxSelected"
-                      @click.stop
-                      @mousedown.stop
-                    />
-                    <span
-                      class="text-caption text-primary text-medium-emphasis ml-4"
-                      :class="{ 'text-romm-gray': !launchboxRemoteEnabled }"
-                    >
-                      Cloud
-                    </span>
-                  </div>
-                </template>
-              </v-list-item>
-            </template>
-            <template #chip="{ item }">
-              <v-avatar class="mx-1" size="24" rounded="1">
-                <v-img :src="item.logo_path" />
-              </v-avatar>
-            </template>
-          </v-select>
-        </v-col>
-
-        <!-- Scan options -->
-        <v-col
-          cols="12"
-          md="2"
-          class="px-1 d-flex align-center"
-          :class="{ 'mt-3': smAndDown }"
-        >
-          <v-select
-            v-model="scanType"
-            :items="scanOptions"
-            :label="t('scan.scan-options')"
-            prepend-inner-icon="mdi-magnify-scan"
-            hide-details
-            density="comfortable"
-            variant="outlined"
-          >
-            <template #item="{ props, item }">
-              <v-list-item v-bind="props" :subtitle="item.subtitle" />
-            </template>
-            <template #append-inner>
-              <v-menu open-on-hover location="bottom start">
-                <template #activator="{ props }">
-                  <v-icon
-                    v-bind="props"
-                    @click.stop
-                    icon="mdi-information-outline"
-                    size="small"
-                    class="ml-2"
-                  />
-                </template>
-                <v-card max-width="600">
-                  <v-card-text>
-                    <div v-html="t('scan.scan-types-info')"></div>
-                    <div class="mt-3 text-right">
-                      <a
-                        href="https://docs.romm.app/latest/Usage/LibraryManagement/#scan"
-                        target="_blank"
-                        rel="noopener"
-                        style="font-style: italic; text-decoration: underline"
-                      >
-                        {{ t("scan.scan-types-more-info") }}
-                      </a>
-                    </div>
-                  </v-card-text>
-                </v-card>
-              </v-menu>
-            </template>
-          </v-select>
-        </v-col>
-      </v-row>
-
-      <!-- Scan buttons -->
-      <v-row
-        class="px-4 mt-1 ml-1 align-center"
-        :class="{ 'justify-center': smAndDown }"
-        no-gutters
-      >
-        <v-btn
-          :disabled="scanning"
-          :loading="scanning"
-          rounded="4"
-          height="40"
-          @click="scan"
-          class="ma-1"
-        >
-          <template #prepend>
-            <v-icon :color="scanning ? '' : 'primary'">
-              mdi-magnify-scan
-            </v-icon>
-          </template>
-          {{ t("scan.scan") }}
-          <template #loader>
-            <v-progress-circular
-              color="primary"
-              :width="2"
-              :size="20"
-              indeterminate
+            <ScanProviderSelect
+              v-model="metadataSources"
+              v-model:launchbox-remote="launchboxRemoteEnabled"
+              :items="generalProviders"
+              :label="t('scan.section-providers-general')"
+              icon="mdi-database-search"
+              :launchbox-selected="isLaunchboxSelected"
+              @update:all-selected="generalAllSelected = $event"
             />
-          </template>
-        </v-btn>
-        <v-btn
-          :disabled="!scanning"
-          class="ma-1"
-          rounded="4"
-          height="40"
-          @click="stopScan"
-        >
-          <template #prepend>
-            <v-icon :color="scanning ? 'red' : ''"> mdi-alert-octagon </v-icon>
-          </template>
-          {{ t("scan.abort") }}
-        </v-btn>
-        <v-btn
-          prepend-icon="mdi-table-cog"
-          rounded="4"
-          height="40"
-          class="ma-1"
-          :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
-        >
-          {{ t("scan.manage-library") }}
-        </v-btn>
-        <div class="d-flex align-center">
-          <v-alert
-            v-if="metadataSources.length == 0"
+            <ScanProviderSelect
+              v-if="specificProviders.length"
+              v-model="metadataSources"
+              :items="specificProviders"
+              :label="t('scan.section-providers-specific')"
+              icon="mdi-trophy-outline"
+              @update:all-selected="specificAllSelected = $event"
+            />
+          </div>
+
+          <!-- 2.2 proxies (hash matchers) -->
+          <div class="r-scan-card__subsection">
+            <span class="r-scan-card__subsection-label">
+              {{ t("scan.section-proxies") }}
+            </span>
+            <ScanHashMatcherSwitches
+              :matchers="hashMatchers"
+              :is-on="isHashMatcherOn"
+              @toggle="setHashMatcher"
+            />
+          </div>
+        </section>
+
+        <!-- 3. Scan type controls -->
+        <section class="r-scan-card__section">
+          <h3 class="r-scan-card__section-title">
+            {{ t("scan.section-scan-type") }}
+          </h3>
+          <ScanTypeSelect v-model="scanType" :items="scanOptions" />
+        </section>
+      </div>
+
+      <!-- 4. Action buttons: untitled; the divider above marks the
+           boundary between "config" and "actions" without a label. -->
+      <footer class="r-scan-card__section r-scan-card__cta">
+        <div class="r-scan-card__hints">
+          <RAlert
+            v-if="needsMetadataSource && effectiveMetadataSources.length === 0"
             type="warning"
-            icon="mdi-alert"
-            variant="tonal"
-            class="ma-1"
             density="compact"
+            :icon="false"
           >
-            <span>{{ t("scan.select-one-source") }}</span>
-          </v-alert>
-        </div>
-        <div class="d-flex align-center">
-          <v-alert
+            {{ t("scan.select-one-source") }}
+          </RAlert>
+          <RAlert
             v-if="!calculateHashes"
             type="warning"
-            icon="mdi-alert"
-            variant="tonal"
-            class="ma-1"
             density="compact"
+            :icon="false"
           >
-            <span>{{ t("scan.hash-calculation-disabled") }}</span>
-            <v-menu open-on-hover location="bottom start">
-              <template #activator="{ props }">
-                <v-icon
-                  v-bind="props"
-                  icon="mdi-information-outline"
-                  size="small"
-                  class="ml-2"
-                />
-              </template>
-              <v-card max-width="400">
-                <v-card-text>
-                  <div
-                    v-html="
-                      calculateHashes
-                        ? t('scan.hashes-enabled-tooltip')
-                        : t('scan.hashes-disabled-tooltip')
-                    "
-                  ></div>
-                </v-card-text>
-              </v-card>
-            </v-menu>
-          </v-alert>
+            <span class="r-scan-card__hash-alert">
+              {{ t("scan.hash-calculation-disabled") }}
+              <RTooltip location="bottom">
+                <template #activator="{ props: tipProps }">
+                  <RIcon
+                    v-bind="tipProps"
+                    icon="mdi-information-outline"
+                    size="14"
+                    class="r-scan-card__hash-info"
+                  />
+                </template>
+                <span class="r-scan-card__hash-info-text">
+                  <span
+                    v-for="(paragraph, i) in hashesDisabledTooltip"
+                    :key="i"
+                    >{{ paragraph }}</span
+                  >
+                </span>
+              </RTooltip>
+            </span>
+          </RAlert>
         </div>
-      </v-row>
-      <v-divider
-        class="border-opacity-100 mt-2"
-        :class="{ 'mx-4': !smAndDown }"
-        color="primary"
-      />
-    </div>
 
-    <!-- Scan log -->
-    <v-row
-      ref="scan-log-ref"
-      no-gutters
-      class="scan-log overflow-y-scroll mb-4"
-    >
-      <v-col>
-        <v-card elevation="0" class="bg-surface mx-auto mt-2" max-width="800">
-          <v-card-text class="pa-0">
-            <v-expansion-panels
-              ref="expansion-panels-ref"
-              v-model="panels"
-              multiple
-              flat
-              variant="accordion"
-            >
-              <v-expansion-panel
-                v-for="platform in scanningPlatforms"
-                :key="platform.id"
+        <RBtn
+          class="r-scan-card__start"
+          size="large"
+          variant="flat"
+          color="primary"
+          prepend-icon="mdi-magnify-scan"
+          :loading="scanning"
+          :disabled="!canStartScan"
+          @click="scan"
+        >
+          {{ scanning ? t("scan.scanning") : t("scan.scan") }}
+        </RBtn>
+
+        <RBtn
+          class="r-scan-card__library"
+          variant="outlined"
+          prepend-icon="mdi-table-cog"
+          :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
+        >
+          {{ t("common.library-management") }}
+        </RBtn>
+      </footer>
+    </section>
+
+    <!-- Live progress area. When nothing has scanned yet we paint a
+         calm welcoming state; once platforms start arriving we render
+         a vertical stack of expansion panels with a transition group
+         so each card animates in. Owns its own scroll so logs never
+         push the controls off-screen. -->
+    <section class="r-scan-live" aria-live="polite">
+      <header class="r-scan-live__head">
+        <div class="r-scan-live__status">
+          <span v-if="scanning" class="r-scan-live__pulse" />
+          <span class="r-scan-live__status-label">
+            {{ liveStatusLabel }}
+          </span>
+        </div>
+
+        <div v-if="hasResults" class="r-scan-live__counters">
+          <RTooltip
+            :text="
+              t('scan.platforms-scanned-with-details', {
+                n_scanned_platforms: liveStats.platforms.scanned,
+                n_total_platforms: liveStats.platforms.total,
+                n_new_platforms: liveStats.platforms.new,
+                n_identified_platforms: liveStats.platforms.identified,
+              })
+            "
+            location="bottom"
+          >
+            <template #activator="{ props: tipProps }">
+              <span v-bind="tipProps" class="r-scan-live__chip">
+                <RIcon icon="mdi-controller" size="14" />
+                <span class="r-scan-live__chip-num">
+                  {{ liveStats.platforms.scanned }}
+                </span>
+                <span
+                  v-if="liveStats.platforms.total"
+                  class="r-scan-live__chip-den"
+                >
+                  /{{ liveStats.platforms.total }}
+                </span>
+              </span>
+            </template>
+          </RTooltip>
+
+          <RTooltip
+            :text="
+              t('scan.roms-scanned-with-details', {
+                n_scanned_roms: liveStats.roms.scanned,
+                n_total_roms: liveStats.roms.total,
+                n_new_roms: liveStats.roms.new,
+                n_identified_roms: liveStats.roms.identified,
+              })
+            "
+            location="bottom"
+          >
+            <template #activator="{ props: tipProps }">
+              <span v-bind="tipProps" class="r-scan-live__chip">
+                <RIcon icon="mdi-disc" size="14" />
+                <span class="r-scan-live__chip-num">
+                  {{ liveStats.roms.scanned }}
+                </span>
+                <span v-if="liveStats.roms.total" class="r-scan-live__chip-den">
+                  /{{ liveStats.roms.total }}
+                </span>
+              </span>
+            </template>
+          </RTooltip>
+
+          <RTooltip
+            v-if="liveStats.firmware.scanned > 0"
+            :text="
+              t('scan.firmware-scanned-with-details', {
+                n_scanned_firmware: liveStats.firmware.scanned,
+                n_new_firmware: liveStats.firmware.new,
+              })
+            "
+            location="bottom"
+          >
+            <template #activator="{ props: tipProps }">
+              <span
+                v-bind="tipProps"
+                class="r-scan-live__chip r-scan-live__chip--alt"
               >
-                <ScanPlatform :key="platform.id" :platform="platform" />
-              </v-expansion-panel>
-            </v-expansion-panels>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
+                <RIcon icon="mdi-memory" size="14" />
+                <span class="r-scan-live__chip-num">
+                  {{ liveStats.firmware.scanned }}
+                </span>
+              </span>
+            </template>
+          </RTooltip>
+          <RTooltip
+            v-if="liveStats.files.new > 0 || liveStats.files.updatedRoms > 0"
+            :text="
+              t('scan.files-scanned-with-details', {
+                n_new_files: liveStats.files.new,
+                n_updated_roms: liveStats.files.updatedRoms,
+              })
+            "
+            location="bottom"
+          >
+            <template #activator="{ props: tipProps }">
+              <span
+                v-bind="tipProps"
+                class="r-scan-live__chip r-scan-live__chip--alt"
+              >
+                <RIcon icon="mdi-file-plus-outline" size="14" />
+                <span class="r-scan-live__chip-num">
+                  {{ liveStats.files.new }}
+                </span>
+              </span>
+            </template>
+          </RTooltip>
+        </div>
 
-    <!-- Scan stats -->
-    <div
-      v-if="scanningPlatforms.length > 0"
-      class="text-caption position-sticky d-flex w-100 m-1 justify-center"
-      style="bottom: 0.5rem"
-    >
-      <v-chip
-        variant="outlined"
-        color="toplayer"
-        class="px-2 py-5 bg-background"
-      >
-        <v-chip
+        <div v-if="scanning" class="r-scan-live__actions">
+          <RTooltip :text="t('scan.abort-scan')" location="bottom">
+            <template #activator="{ props: tipProps }">
+              <RBtn
+                v-bind="tipProps"
+                icon="mdi-stop-circle-outline"
+                variant="text"
+                color="danger"
+                size="small"
+                :aria-label="t('scan.abort-scan')"
+                @click="stopScan"
+              />
+            </template>
+          </RTooltip>
+        </div>
+
+        <RProgressLinear
+          v-if="scanning"
+          class="r-scan-live__progress"
+          :indeterminate="!hasProgressTotal"
+          :model-value="progressValue"
+          :height="2"
           color="primary"
-          text-color="white"
-          size="small"
-          class="mr-1 my-1"
+          :rounded="false"
+        />
+      </header>
+
+      <div ref="scan-log" class="r-scan-live__log" @scroll="onScroll">
+        <div v-if="scanningPlatforms.length === 0" class="r-scan-live__empty">
+          <div class="r-scan-live__empty-orb">
+            <RIcon icon="mdi-radar" size="56" />
+          </div>
+          <p class="r-scan-live__empty-hint">
+            {{
+              scanning ? t("scan.empty-hint-scanning") : t("scan.empty-hint")
+            }}
+          </p>
+        </div>
+
+        <TransitionGroup
+          v-else
+          name="r-scan-panel"
+          tag="div"
+          class="r-scan-live__panels"
         >
-          <v-icon left> mdi-controller </v-icon>
-          <span v-if="xs" class="ml-2">{{
-            t("scan.platforms-scanned-n", scanStats.scanned_platforms)
-          }}</span>
-          <span v-else class="ml-2">{{
-            t("scan.platforms-scanned-with-details", {
-              n_scanned_platforms: scanStats.scanned_platforms,
-              n_total_platforms: scanStats.total_platforms,
-              n_new_platforms: scanStats.new_platforms,
-              n_identified_platforms: Math.min(
-                scanStats.identified_platforms,
-                scanStats.scanned_platforms,
-              ),
-            })
-          }}</span>
-        </v-chip>
-        <v-chip
-          color="primary"
-          size="small"
-          text-color="white"
-          class="ml-1 my-1"
-        >
-          <v-icon left> mdi-disc </v-icon>
-          <span v-if="xs" class="ml-2">{{
-            t("scan.roms-scanned-n", scanStats.scanned_roms)
-          }}</span>
-          <span v-else class="ml-2">{{
-            t("scan.roms-scanned-with-details", {
-              n_scanned_roms: scanStats.scanned_roms,
-              n_total_roms: scanStats.total_roms,
-              n_new_roms: scanStats.new_roms,
-              n_identified_roms: Math.min(
-                scanStats.identified_roms,
-                scanStats.scanned_roms,
-              ),
-            })
-          }}</span>
-        </v-chip>
-        <v-chip
-          color="secondary"
-          size="small"
-          text-color="white"
-          class="ml-1 my-1"
-        >
-          <v-icon left> mdi-memory </v-icon>
-          <span v-if="xs" class="ml-2">{{
-            t("scan.firmware-scanned-n", scanStats.scanned_firmware)
-          }}</span>
-          <span v-else class="ml-2">{{
-            t("scan.firmware-scanned-with-details", {
-              n_scanned_firmware: scanStats.scanned_firmware,
-              n_new_firmware: scanStats.new_firmware,
-            })
-          }}</span>
-        </v-chip>
-      </v-chip>
-    </div>
+          <ScanPlatform
+            v-for="platform in scanningPlatforms"
+            :key="platform.id"
+            :platform="platform"
+            :open="openPlatforms.has(platform.id)"
+            class="r-scan-live__panel"
+            @update:open="(v) => setOpen(platform.id, v)"
+          />
+        </TransitionGroup>
+      </div>
+    </section>
   </div>
 </template>
-<style lang="css">
-.scan-log {
-  scroll-behavior: smooth;
-  /* margin-top: 10rem !important; */
+
+<style scoped>
+.r-scan {
+  /* Master/detail: controls left, live log right. `align-items: start`
+     keeps the sticky behaviour intact; the left card sticks within
+     its grid cell once the page scrolls past the layout's top padding. */
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) minmax(0, 1.6fr);
+  gap: 18px;
+  align-items: stretch;
 }
 
-.v-expansion-panel-text__wrapper {
-  padding: 0px;
+/* === Config card (left column) ================================
+   Surface vocabulary matches the SettingsSection body used across
+   Profile / Settings: solid `--r-color-bg-elevated`, plain border,
+   no blur / no shadow / no gradient overlay. */
+.r-scan-card {
+  position: sticky;
+  /* Stick just below the fixed AppNav once the page scrolls. The 14px
+     gap matches the breathing room above the card in the layout. */
+  top: calc(var(--r-nav-h) + 14px);
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 16px 18px 18px;
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
+  border-radius: var(--r-radius-lg);
+  transition: opacity var(--r-motion-med) var(--r-motion-ease-out);
+}
+.r-scan-card--locked {
+  /* Slight dim + pointer hold so the running scan reads as "in-flight,
+     don't touch" without hiding the config. */
+  opacity: 0.78;
+}
+
+/* Top row: info button anchored top-right above the platform select. */
+.r-scan-card__head {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 0;
+  margin-bottom: -8px;
+}
+
+.r-scan-card__fields {
+  display: flex;
+  flex-direction: column;
+  /* Matches the parent card's 18px gap so every divider, between
+     fields-internal sections AND between __fields/__cta, has the
+     same breathing room above and below. */
+  gap: 18px;
+}
+
+/* Each numbered section in the config card: small uppercase label
+   above its content, divided from the next section by a hairline
+   border-top. The first section inside `__fields` drops the border
+   so the head row doesn't sit under a stray line; the `__cta` footer
+   keeps its border because it sits below `__fields` and the divider
+   separates "configuration" from "actions". */
+.r-scan-card__section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--r-color-border);
+}
+.r-scan-card__section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.r-scan-card__section-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: var(--r-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--r-color-fg-muted);
+}
+
+/* Sub-section inside Metadata (providers / proxies). Tightly spaced
+   so they read as siblings of the same section, separated by a small
+   muted label rather than a divider. */
+.r-scan-card__subsection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.r-scan-card__subsection-label {
+  font-size: 10.5px;
+  font-weight: var(--r-font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--r-color-fg-faint);
+}
+
+.r-scan-card__cta {
+  align-items: stretch;
+  gap: 8px;
+}
+.r-scan-card__start {
+  width: 100%;
+}
+.r-scan-card__library {
+  width: 100%;
+}
+.r-scan-card__hints {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+.r-scan-card__hints:empty {
+  display: none;
+}
+.r-scan-card__hash-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.r-scan-card__hash-info {
+  cursor: help;
+  color: var(--r-color-warning);
+  opacity: 0.85;
+  transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-scan-card__hash-info:hover {
+  opacity: 1;
+}
+/* One paragraph per line, the blank line the copy used to carry as `<br><br>`. */
+.r-scan-card__hash-info-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--r-space-2);
+}
+
+/* === Live area (right column) ================================
+   Same flat surface vocabulary as the config card (Profile-style).
+   Header doubles as the live status panel (pulse + label + counters
+   + abort + progress bar). The card fills from `nav-h + top gap`
+   down to the SettingsLayout's bottom padding. */
+.r-scan-live {
+  position: sticky;
+  top: calc(var(--r-nav-h) + 14px);
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
+  border-radius: var(--r-radius-lg);
+  overflow: hidden;
+  /* SettingsLayout's content column adds 32px top + 60px bottom padding
+     around the grid; AppLayout main reserves --r-nav-h for the fixed
+     navbar. Subtracting (nav + 92) keeps the column flush with the
+     available viewport so the page itself never scrolls. */
+  height: calc(100vh - var(--r-nav-h) - 92px);
+  min-height: 540px;
+}
+
+/* Header: three columns (status / counters / actions) with a
+   progress bar pinned to the bottom edge. Layout is grid-based so
+   the status label / counter chip widths can fluctuate without the
+   actions slot drifting. */
+.r-scan-live__head {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  column-gap: 14px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--r-color-border);
+  flex-shrink: 0;
+  min-height: 56px;
+}
+
+.r-scan-live__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: var(--r-font-weight-semibold);
+  color: var(--r-color-brand-primary);
+  white-space: nowrap;
+  min-width: 132px;
+}
+.r-scan-live__status-label {
+  letter-spacing: 0.02em;
+}
+
+/* Pulse: shown only while actively scanning. */
+.r-scan-live__pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--r-color-brand-primary);
+  box-shadow: 0 0 0 0
+    color-mix(in srgb, var(--r-color-brand-primary) 65%, transparent);
+  animation: r-scan-live-pulse 1.6s ease-out infinite;
+}
+@keyframes r-scan-live-pulse {
+  0% {
+    box-shadow: 0 0 0 0
+      color-mix(in srgb, var(--r-color-brand-primary) 65%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 12px
+      color-mix(in srgb, var(--r-color-brand-primary) 0%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .r-scan-live__pulse {
+    animation: none;
+  }
+}
+
+/* Counter chips: sit in the middle grid track, right-aligned against
+   the actions. Each chip has a min-width so 1 → 2 → 3-digit transitions
+   don't reflow neighbouring chips. */
+.r-scan-live__counters {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+.r-scan-live__chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--r-radius-pill);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 18%, transparent);
+  color: var(--r-color-brand-primary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  min-width: 64px;
+}
+.r-scan-live__chip--alt {
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-success) 18%,
+    transparent
+  );
+  color: var(--r-color-success);
+}
+.r-scan-live__chip-num {
+  font-weight: var(--r-font-weight-semibold);
+}
+.r-scan-live__chip-den {
+  opacity: 0.7;
+}
+
+.r-scan-live__actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+}
+
+/* Progress bar: pinned to the bottom edge of the header so it reads
+   as the boundary between "what's happening" and "what's been done". */
+.r-scan-live__progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.r-scan-live__log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  padding: 12px;
+}
+
+/* Empty state: calm, centred, brand-orbed icon. The orb provides the
+   focal point so the panel doesn't read as a featureless rectangle. */
+.r-scan-live__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 56px 24px 64px;
+  color: var(--r-color-fg-muted);
+  text-align: center;
+  min-height: 280px;
+}
+.r-scan-live__empty-orb {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 30% 30%,
+    color-mix(in srgb, var(--r-color-brand-primary) 28%, transparent) 0%,
+    color-mix(in srgb, var(--r-color-brand-primary) 8%, transparent) 60%,
+    transparent 100%
+  );
+  color: var(--r-color-brand-primary);
+  margin-bottom: 4px;
+}
+.r-scan-live__empty-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: var(--r-font-weight-semibold);
+  color: var(--r-color-fg);
+}
+.r-scan-live__empty-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  max-width: 600px;
+}
+
+.r-scan-live__panels {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.r-scan-live__panel {
+  background: transparent;
+}
+
+/* TransitionGroup entrance: slide-in from below + fade. Cards that
+   are already on screen stay put; only new arrivals animate. */
+.r-scan-panel-enter-active {
+  transition:
+    opacity var(--r-motion-med) var(--r-motion-ease-out),
+    transform var(--r-motion-med) var(--r-motion-ease-back);
+}
+.r-scan-panel-enter-from {
+  opacity: 0;
+  transform: translateY(12px);
+}
+.r-scan-panel-leave-active {
+  transition:
+    opacity var(--r-motion-fast) var(--r-motion-ease-out),
+    transform var(--r-motion-fast) var(--r-motion-ease-out);
+  position: absolute;
+}
+.r-scan-panel-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .r-scan-panel-enter-active,
+  .r-scan-panel-leave-active {
+    transition: none;
+  }
+  .r-scan-panel-enter-from,
+  .r-scan-panel-leave-to {
+    transform: none;
+  }
+}
+
+/* === Responsive ============================================== */
+/* Below `md` the two columns stack: controls on top, log below. Drop
+   sticky positioning so the cards flow naturally with the page. The
+   log keeps an internal scroll but with a shorter min-height so it
+   doesn't dominate small viewports. */
+html[data-bp~="md-and-down"] .r-scan {
+  grid-template-columns: 1fr;
+}
+html[data-bp~="md-and-down"] .r-scan-card,
+html[data-bp~="md-and-down"] .r-scan-live {
+  position: static;
+}
+html[data-bp~="md-and-down"] .r-scan-live {
+  height: auto;
+  min-height: 420px;
+  max-height: calc(100vh - var(--r-nav-h) - 160px);
+}
+
+html[data-bp~="sm-and-down"] .r-scan-card {
+  padding: 14px;
+  gap: 14px;
+}
+
+/* On xs, the status label takes too much width; collapse it and let
+   the counter chips claim the row. */
+html[data-bp~="xs"] .r-scan-live__status {
+  min-width: 0;
+}
+html[data-bp~="xs"] .r-scan-live__status-label {
+  display: none;
 }
 </style>
