@@ -12,6 +12,7 @@ import {
   RTextField,
 } from "@v2/lib";
 import { watchDebounced } from "@vueuse/core";
+import { isEqual } from "lodash";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
@@ -152,12 +153,16 @@ async function loadServices() {
   }
 }
 
+// What the last URL read put in the form, to tell it from what was typed since.
+let lastRead: Record<string, AppriseFieldValue> = {};
+
 // A service's fields start from its defaults, or from the channel being edited.
 function resetAppriseValues() {
   appriseValues.value = service.value
     ? initialAppriseValues(service.value, props.channel?.fields ?? null)
     : {};
   removedSecrets.value = [];
+  lastRead = {};
 }
 
 // A pasted URL, the service's own (a Discord webhook's) or an Apprise one, fills
@@ -166,17 +171,13 @@ let pasteRequest = 0;
 // The read in flight, which the field and a save share rather than race.
 let reading: { url: string; done: Promise<void> } | null = null;
 const parsedUrl = ref("");
-// What the last URL read put in the form, to tell it from what was typed since.
-let lastRead: Record<string, AppriseFieldValue> = {};
 const URL_LIKE = /^[a-z][\w+.-]*:\/\/\S+$/i;
 
-// Emptying the field leaves the form's values, so `keepRead` keeps what they were.
-function clearPaste(keepRead = false) {
+function clearPaste() {
   pasteRequest++;
   reading = null;
   pastedUrl.value = "";
   parsedUrl.value = "";
-  if (!keepRead) lastRead = {};
   pasteError.value = null;
   filling.value = false;
   filledFields.value = [];
@@ -275,10 +276,7 @@ async function readUrl(url: string) {
             Object.entries(appriseValues.value).filter(
               ([key, value]) =>
                 !found.url_fields.includes(key) &&
-                !(
-                  key in lastRead &&
-                  JSON.stringify(lastRead[key]) === JSON.stringify(value)
-                ),
+                !isEqual(lastRead[key], value),
             ),
           )
         : {};
@@ -310,7 +308,7 @@ watchDebounced(
   pastedUrl,
   (url) => {
     const pasted = url.trim();
-    if (!pasted) clearPaste(true);
+    if (!pasted) clearPaste();
     else if (URL_LIKE.test(pasted) && pasted !== parsedUrl.value) {
       void fillFromUrl(pasted);
     }

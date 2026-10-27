@@ -5,11 +5,11 @@ import { defineComponent, nextTick } from "vue";
 import type { NotificationChannelSchema } from "@/__generated__";
 import storePermissions from "@/stores/permissions";
 import { propOf } from "@/test-utils/propOf";
+import AppriseServiceFields from "@/v2/components/Notifications/AppriseServiceFields.vue";
 import {
   makeAppriseService,
   makeChannel,
 } from "@/v2/utils/notificationChannels.fixtures";
-import AppriseServiceFields from "@/v2/components/Notifications/AppriseServiceFields.vue";
 import NotificationChannelDialog from "./NotificationChannelDialog.vue";
 
 const api = vi.hoisted(() => ({
