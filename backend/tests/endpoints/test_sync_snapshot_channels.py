@@ -3,6 +3,7 @@
 import io
 import uuid
 import zipfile
+from datetime import datetime
 from typing import Any
 
 import pytest
@@ -34,6 +35,7 @@ from models.device import Device
 from models.rom import Rom, RomFile
 from models.snapshot import SnapshotKind
 from models.user import User
+from utils.datetime import to_utc
 
 KEPT = b"kept-by-snapshots"
 LEGACY = b"legacy-upload"
@@ -287,6 +289,195 @@ async def test_a_fresh_legacy_device_matches_a_channel_only_snapshots_wrote(
     assert op["save_id"] == pushed.snapshot.save_id
 
 
+LATER = b"later-progress"
+
+
+async def push_on(
+    user: User,
+    rom: Rom,
+    rom_file: RomFile,
+    current: WriteResult,
+    data: bytes,
+    parent_snapshot_id: int | None = None,
+) -> WriteResult:
+    """Push `data` as a snapshot client would, onto `current`'s channel."""
+    fields: dict[str, Any] = (
+        {} if parent_snapshot_id is None else {"parent_snapshot_id": parent_snapshot_id}
+    )
+    return await write_snapshot(
+        push(
+            user,
+            rom,
+            rom_file,
+            Manifest(save=save_entry(data, SaveFormat.NATIVE), emulator="snes9x"),
+            expected=current.snapshot.id,
+            channel_id=current.snapshot.channel_id,
+            parts={SAVE_PART: part(data)},
+            **fields,
+        )
+    )
+
+
+def download(client: TestClient, access_token: str, device: Device, save_id: int):
+    response = client.get(
+        f"/api/saves/{save_id}/content",
+        params={"device_id": device.id},
+        headers=auth(access_token),
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+
+async def test_a_restore_reaches_a_legacy_device_that_moved_on(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    rom: Rom,
+    game_file: RomFile,
+    legacy_device: Device,
+):
+    first = await snapshot_push(admin_user, rom, game_file)
+    # Written long before the restore, so its age and the restore's can't coincide.
+    db_save_handler.update_save(
+        held_save(first).id, {"updated_at": datetime(2026, 1, 1)}
+    )
+    [held] = negotiate(client, access_token, legacy_device, [client_save(rom, KEPT)])
+    assert held["action"] == "no_op"
+    later = await push_on(admin_user, rom, game_file, first, LATER)
+    assert later.snapshot.save_id is not None
+    download(client, access_token, legacy_device, later.snapshot.save_id)
+    restored = await push_on(
+        admin_user, rom, game_file, later, KEPT, parent_snapshot_id=first.snapshot.id
+    )
+
+    [op] = negotiate(client, access_token, legacy_device, [client_save(rom, LATER)])
+    stale = upload(client, access_token, rom, legacy_device, LATER)
+
+    assert op["action"] == "download"
+    assert op["save_id"] == restored.snapshot.save_id
+    assert op["server_content_hash"] == md5(KEPT)
+    stored = db_snapshot_handler.get_snapshot(restored.snapshot.id)
+    assert stored is not None
+    assert to_utc(datetime.fromisoformat(op["server_updated_at"])) == to_utc(
+        stored.created_at
+    )
+    assert stale.status_code == status.HTTP_409_CONFLICT
+    assert channel_of(restored).current_snapshot_id == restored.snapshot.id
+
+
+async def test_a_device_that_changed_a_version_the_channel_moved_past_conflicts(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    rom: Rom,
+    game_file: RomFile,
+    legacy_device: Device,
+):
+    first = await snapshot_push(admin_user, rom, game_file)
+    negotiate(client, access_token, legacy_device, [client_save(rom, KEPT)])
+    await push_on(admin_user, rom, game_file, first, LATER)
+
+    [op] = negotiate(
+        client, access_token, legacy_device, [client_save(rom, b"played-offline")]
+    )
+
+    assert op["action"] == "conflict"
+
+
+async def test_a_device_that_downloaded_the_current_can_upload_onto_it(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    rom: Rom,
+    game_file: RomFile,
+    legacy_device: Device,
+):
+    first = await snapshot_push(admin_user, rom, game_file)
+    negotiate(client, access_token, legacy_device, [client_save(rom, KEPT)])
+    later = await push_on(admin_user, rom, game_file, first, LATER)
+    assert later.snapshot.save_id is not None
+    download(client, access_token, legacy_device, later.snapshot.save_id)
+
+    response = upload(client, access_token, rom, legacy_device, b"played-on")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert channel_of(later).current_snapshot_id != later.snapshot.id
+
+
+async def test_a_fresh_legacy_device_finds_a_channel_only_snapshots_wrote(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    rom: Rom,
+    game_file: RomFile,
+    legacy_device: Device,
+):
+    pushed = await snapshot_push(admin_user, rom, game_file)
+    db_save_handler.update_save(
+        held_save(pushed).id, {"updated_at": datetime(2026, 1, 1)}
+    )
+
+    [op] = negotiate(client, access_token, legacy_device, [])
+
+    assert op["action"] == "download"
+    assert op["save_id"] == pushed.snapshot.save_id
+    assert op["slot"] == "autosave"
+    stored = db_snapshot_handler.get_snapshot(pushed.snapshot.id)
+    assert stored is not None
+    assert to_utc(datetime.fromisoformat(op["server_updated_at"])) == to_utc(
+        stored.created_at
+    )
+
+
+async def test_a_channel_outside_the_rom_scope_is_not_offered(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    rom: Rom,
+    game_file: RomFile,
+    legacy_device: Device,
+):
+    await snapshot_push(admin_user, rom, game_file)
+
+    response = client.post(
+        "/api/sync/negotiate",
+        json={"device_id": legacy_device.id, "saves": [], "rom_ids": [rom.id + 1]},
+        headers=auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["operations"] == []
+
+
+@pytest.mark.parametrize("restore_unlisted,offered", [(False, False), (True, True)])
+async def test_a_current_the_device_held_and_dropped_stays_deleted(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    rom: Rom,
+    game_file: RomFile,
+    legacy_device: Device,
+    restore_unlisted: bool,
+    offered: bool,
+):
+    pushed = await snapshot_push(admin_user, rom, game_file)
+    negotiate(client, access_token, legacy_device, [client_save(rom, KEPT)])
+
+    response = client.post(
+        "/api/sync/negotiate",
+        json={
+            "device_id": legacy_device.id,
+            "saves": [],
+            "restore_unlisted": restore_unlisted,
+        },
+        headers=auth(access_token),
+    )
+
+    operations = response.json()["operations"]
+    assert [op["save_id"] for op in operations] == (
+        [pushed.snapshot.save_id] if offered else []
+    )
+
+
 async def test_a_neutral_current_is_never_offered_to_a_legacy_device(
     client: TestClient,
     access_token: str,
@@ -482,6 +673,8 @@ async def test_a_legacy_upload_that_loses_a_race_is_kept_as_a_branch(
         if s.save_id == response.json()["id"]
     ]
     assert branch.kind == SnapshotKind.BRANCH
+    [op] = negotiate(client, access_token, legacy_device, [client_save(rom, LEGACY)])
+    assert op["action"] == "conflict"
 
 
 async def test_a_zipped_legacy_upload_is_held_as_a_multi_file_save(

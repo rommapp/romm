@@ -1072,6 +1072,15 @@ Once a channel has a current snapshot, legacy clients join it
 snapshot's save, and a slotted upload becomes a new current that carries the
 parent's states. Hardcore channels and neutral current saves stay out.
 
+Negotiate decides such a slot from the channel's history
+(`compare_on_channel`) and the snapshot the device holds there, which a legacy
+upload, download or identical match records. A client save matching an earlier
+current is behind, and one matching a branch conflicts. An unknown one uploads
+from a device holding the current and conflicts from a device holding an older
+snapshot. Unlisted channel currents are offered under their linked slot, or
+`autosave` for the default channel. A device with no record there, and a slot
+without a current, keep the timestamp comparison (`compare_save_state`).
+
 | Method | Path                                  | Scope        | Description                                                                                                                             |
 | ------ | ------------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
 | GET    | `/snapshots`                          | ASSETS_READ  | Each channel's current on `rom_file_id`s, or a channel history                                                                          |

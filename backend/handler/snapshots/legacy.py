@@ -4,13 +4,13 @@ from collections.abc import Iterable
 from typing import Final
 
 from handler.snapshots.file_key import FileKey
-from models.assets import Save
+from models.assets import AUTOSAVE_SLOT, Save
 from models.channel import DEFAULT_CHANNEL_LABEL
 from models.rom import RomFile, RomFileCategory
 from utils.uploads import DATETIME_TAG_PATTERN
 
 # The slot names clients have used for the save a game makes on its own.
-DEFAULT_SLOTS: Final = frozenset({"autosave", "default"})
+DEFAULT_SLOTS: Final = frozenset({AUTOSAVE_SLOT, "default"})
 # The file an emulator loads from a multi-file disc set, ahead of its tracks.
 LOADER_EXTENSIONS: Final = frozenset({"cue", "gdi", "ccd", "mds", "toc"})
 # Slots some clients used to file states as saves; they map to no channel.
@@ -25,6 +25,11 @@ def channel_label(slot: str) -> str | None:
     if label.lower() in DEFAULT_SLOTS:
         return DEFAULT_CHANNEL_LABEL
     return label
+
+
+def slot_for_label(label: str) -> str:
+    """The slot a legacy client finds a channel under when no save links one."""
+    return AUTOSAVE_SLOT if label.lower() == DEFAULT_CHANNEL_LABEL else label
 
 
 def may_load(

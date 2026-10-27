@@ -343,12 +343,12 @@ def lineage_head(user: User, rom: Rom, lineage: SaveLineage) -> Save | None:
 def _channel_currents(user: User, rom_ids: Collection[int]) -> dict[int, Save]:
     """The native current save of each ROM's non-hardcore `autosave` channel, by ROM id."""
     # The bridge keeps RetroArch uploads out of a hardcore channel, so serving its current would undo them.
-    currents = db_snapshot_handler.current_saves_for_slots(
+    heads = db_snapshot_handler.slot_heads(
         user.id,
         {(rom_id, AUTOSAVE_SLOT) for rom_id in rom_ids},
         include_hardcore=False,
     )
-    return {rom_id: save for (rom_id, _slot), save in currents.items()}
+    return {rom_id: head.save for (rom_id, _slot), head in heads.items()}
 
 
 def _served_version(head: Save, current: Save | None) -> Save:

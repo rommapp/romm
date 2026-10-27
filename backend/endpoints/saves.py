@@ -211,6 +211,35 @@ def _record_device_sync(
     db_device_handler.update_last_seen(device_id=device_id, user_id=user_id)
 
 
+def _slot_moved_on(
+    device_id: str,
+    user_id: int,
+    rom_id: int,
+    slot: str,
+    emulator: str | None,
+    core: str | None,
+) -> bool:
+    """Whether the slot moved on since the device last synced it, so an upload
+    would overwrite progress the device never saw."""
+    head = db_snapshot_handler.slot_heads(
+        user_id, {(rom_id, slot)}, [emulator], [core]
+    ).get((rom_id, slot))
+    if head:
+        base = db_snapshot_handler.device_bases(device_id, [head.channel_id]).get(
+            head.channel_id
+        )
+        if base is not None:
+            return base != head.snapshot_id
+    slot_saves = db_save_handler.get_saves(
+        user_id=user_id, rom_ids=[rom_id], slot=slot, order_by="updated_at"
+    )
+    latest = head.save if head else (slot_saves[0] if slot_saves else None)
+    if latest is None:
+        return False
+    sync = db_device_save_sync_handler.get_sync(device_id=device_id, save_id=latest.id)
+    return not sync or to_utc(sync.last_synced_at) < to_utc(latest.updated_at)
+
+
 def _increment_session_counter(session_id: int, user_id: int) -> None:
     try:
         db_sync_session_handler.increment_operations_completed(
@@ -345,26 +374,11 @@ async def add_save(
     )
 
     if device and slot and not overwrite:
-        slot_saves = db_save_handler.get_saves(
-            user_id=request.user.id,
-            rom_ids=[rom.id],
-            slot=slot,
-            order_by="updated_at",
-        )
-        latest_in_slot = db_snapshot_handler.current_saves_for_slots(
-            request.user.id, {(rom.id, slot)}, [emulator], [core]
-        ).get((rom.id, slot)) or (slot_saves[0] if slot_saves else None)
-        if latest_in_slot:
-            sync = db_device_save_sync_handler.get_sync(
-                device_id=device.id, save_id=latest_in_slot.id
+        if _slot_moved_on(device.id, request.user.id, rom.id, slot, emulator, core):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Slot has a newer save since your last sync",
             )
-            if not sync or to_utc(sync.last_synced_at) < to_utc(
-                latest_in_slot.updated_at
-            ):
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Slot has a newer save since your last sync",
-                )
     elif device and db_save and not overwrite:
         sync = db_device_save_sync_handler.get_sync(
             device_id=device.id, save_id=db_save.id
@@ -693,6 +707,7 @@ def _record_download(
     if device and optimistic and save.user_id == request.user.id:
         # The device has no bytes yet, so only the server half is known.
         _record_device_sync(device.id, save, request.user.id)
+        db_snapshot_handler.record_device_holds_save(device.id, save)
 
     if session_id:
         _increment_session_counter(session_id, request.user.id)

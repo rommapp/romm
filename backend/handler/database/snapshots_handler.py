@@ -19,7 +19,12 @@ from sqlalchemy.orm import Session
 
 from decorators.database import INJECTED_SESSION, begin_session
 from handler.snapshots.file_key import FileKey
-from handler.snapshots.legacy import channel_label, may_load, sync_key
+from handler.snapshots.legacy import (
+    channel_label,
+    may_load,
+    slot_for_label,
+    sync_key,
+)
 from handler.snapshots.manifest import Resolved, SaveEntry
 from models.assets import Save, SaveFormat, Screenshot, State
 from models.channel import Channel
@@ -39,6 +44,24 @@ class ReleasedContent:
     saves: list[Save] = field(default_factory=list)
     states: list[State] = field(default_factory=list)
     screenshots: list[Screenshot] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class SlotHead:
+    """A legacy slot's channel current: the save it serves, and since when."""
+
+    save: Save
+    channel_id: uuid.UUID
+    snapshot_id: int
+    current_since: datetime
+
+
+@dataclass
+class ChannelVersions:
+    """The save hashes a channel has held as its current, and those its branches hold."""
+
+    currents: set[str] = field(default_factory=set)
+    branches: set[str] = field(default_factory=set)
 
 
 @dataclass
@@ -256,7 +279,7 @@ def _held_by_hash[ContentT: (Save, State)](
 
 class DBSnapshotsHandler(DBBaseHandler):
     @begin_session
-    def current_saves_for_slots(
+    def slot_heads(
         self,
         user_id: int,
         slots: Collection[tuple[int, str]],
@@ -264,9 +287,9 @@ class DBSnapshotsHandler(DBBaseHandler):
         cores: Collection[str | None] | None = None,
         include_hardcore: bool = True,
         session: Session = INJECTED_SESSION,
-    ) -> dict[tuple[int, str], Save]:
-        """The current save of each legacy slot's channel by (rom_id, slot),
-        leaving out neutral saves and any `may_load` rules out for the client."""
+    ) -> dict[tuple[int, str], SlotHead]:
+        """The current of each legacy slot's channel by (rom_id, slot), leaving
+        out neutral saves and any `may_load` rules out for the client."""
         rom_ids = {rom_id for rom_id, _ in slots}
         if not rom_ids:
             return {}
@@ -279,7 +302,7 @@ class DBSnapshotsHandler(DBBaseHandler):
                 )
             ).all()
         )
-        heads: dict[tuple[int, str], Save] = {}
+        heads: dict[tuple[int, str], SlotHead] = {}
         for rom_id, slot in slots:
             if rom_id not in kept:
                 continue
@@ -287,7 +310,7 @@ class DBSnapshotsHandler(DBBaseHandler):
             if channel_id is None:
                 continue
             query = (
-                select(Save)
+                select(Save, Snapshot.id, Snapshot.created_at)
                 .join(Snapshot, Snapshot.save_id == Save.id)
                 .join(Channel, Channel.current_snapshot_id == Snapshot.id)
                 .where(
@@ -297,11 +320,119 @@ class DBSnapshotsHandler(DBBaseHandler):
             )
             if not include_hardcore:
                 query = query.where(Channel.is_hardcore.is_(False))
-            save = session.scalar(query)
-            if save is None or not may_load(save, emulators, cores):
+            row = session.execute(query).first()
+            if row is None or not may_load(row[0], emulators, cores):
                 continue
-            heads[(rom_id, slot)] = save
+            save, snapshot_id, current_since = row
+            heads[(rom_id, slot)] = SlotHead(
+                save, channel_id, snapshot_id, current_since
+            )
         return heads
+
+    @begin_session
+    def channel_slots(
+        self,
+        user_id: int,
+        rom_ids: Collection[int] | None,
+        session: Session = INJECTED_SESSION,
+    ) -> set[tuple[int, str]]:
+        """The (rom_id, slot) each of the user's channels with a current answers
+        to, on `rom_ids` or every ROM: its newest linked slot, else its label's."""
+        query = select(Channel.id, Channel.rom_id, Channel.label).where(
+            Channel.user_id == user_id,
+            Channel.rom_id.is_not(None),
+            Channel.current_snapshot_id.is_not(None),
+        )
+        if rom_ids is not None:
+            query = query.where(Channel.rom_id.in_(rom_ids))
+        channels = session.execute(query).all()
+        if not channels:
+            return set()
+        linked: dict[uuid.UUID, str] = {}
+        for channel_id, slot in session.execute(
+            select(Save.channel_id, Save.slot)
+            .where(
+                Save.channel_id.in_([channel_id for channel_id, _, _ in channels]),
+                Save.slot.is_not(None),
+            )
+            .order_by(Save.updated_at.desc())
+        ).all():
+            if channel_id is not None and slot:
+                linked.setdefault(channel_id, slot)
+        return {
+            (rom_id, linked.get(channel_id) or slot_for_label(label))
+            for channel_id, rom_id, label in channels
+            if rom_id is not None
+        }
+
+    @begin_session
+    def channel_versions(
+        self,
+        channel_ids: Collection[uuid.UUID],
+        session: Session = INJECTED_SESSION,
+    ) -> dict[uuid.UUID, ChannelVersions]:
+        """The save hashes each channel has held as its current, and its branches'."""
+        versions: dict[uuid.UUID, ChannelVersions] = {
+            channel_id: ChannelVersions() for channel_id in channel_ids
+        }
+        if not versions:
+            return versions
+        rows = session.execute(
+            select(Snapshot.channel_id, Snapshot.kind, Save.content_hash)
+            .join(Save, Save.id == Snapshot.save_id)
+            .where(
+                Snapshot.channel_id.in_(versions),
+                Snapshot.kind.in_(_FREEZING_KINDS),
+                Save.content_hash.is_not(None),
+            )
+        ).all()
+        for channel_id, kind, content_hash in rows:
+            if channel_id is None or content_hash is None:
+                continue
+            held = versions[channel_id]
+            target = held.branches if kind == SnapshotKind.BRANCH else held.currents
+            target.add(content_hash)
+        return versions
+
+    @begin_session
+    def device_bases(
+        self,
+        device_id: str,
+        channel_ids: Collection[uuid.UUID],
+        session: Session = INJECTED_SESSION,
+    ) -> dict[uuid.UUID, int]:
+        """The snapshot the device holds in each channel it has a record of."""
+        if not channel_ids:
+            return {}
+        rows = session.execute(
+            select(
+                DeviceChannelSync.channel_id, DeviceChannelSync.base_snapshot_id
+            ).where(
+                DeviceChannelSync.device_id == device_id,
+                DeviceChannelSync.channel_id.in_(channel_ids),
+                DeviceChannelSync.base_snapshot_id.is_not(None),
+            )
+        ).all()
+        return {
+            channel_id: base_id for channel_id, base_id in rows if base_id is not None
+        }
+
+    @begin_session
+    def record_device_holds_save(
+        self, device_id: str, save: Save, session: Session = INJECTED_SESSION
+    ) -> None:
+        """Record the device as holding its channel's current, when `save` is it."""
+        if save.channel_id is None:
+            return
+        current_id = session.scalar(
+            select(Channel.current_snapshot_id)
+            .join(Snapshot, Snapshot.id == Channel.current_snapshot_id)
+            .where(Channel.id == save.channel_id, Snapshot.save_id == save.id)
+        )
+        if current_id is not None:
+            self.record_device_base(
+                device_id, save.channel_id, current_id, session=session
+            )
 
     @begin_session
     def get_snapshot(

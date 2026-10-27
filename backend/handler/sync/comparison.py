@@ -110,6 +110,55 @@ def compare_save_state(
     return SyncComparisonResult("no_op", "Saves appear identical")
 
 
+class ChannelPosition(NamedTuple):
+    """A slot's channel as one device sees it."""
+
+    current_id: int
+    current_hash: str | None
+    # Save hashes the channel has held as its current, and those its branches hold.
+    current_hashes: frozenset[str]
+    branch_hashes: frozenset[str]
+    # The snapshot the device holds in the channel, None without a record.
+    device_base_id: int | None
+
+    @property
+    def device_holds_current(self) -> bool:
+        return self.device_base_id == self.current_id
+
+
+def compare_on_channel(
+    *,
+    client_hash: str | None,
+    client_updated_at: datetime,
+    position: ChannelPosition,
+    removed_at: Mapping[str, datetime] | None = None,
+) -> SyncComparisonResult | None:
+    """Decide a client save from its slot's channel history, or None when the
+    history can't: no client hash, or a version the channel never held from a
+    device with no record in it."""
+    if not client_hash:
+        return None
+    if client_hash == position.current_hash:
+        return SyncComparisonResult("no_op", "Content is identical")
+    if _held_since_removal(client_hash, to_utc(client_updated_at), removed_at):
+        return SyncComparisonResult(
+            "download", "Client holds a version removed on the server"
+        )
+    if client_hash in position.current_hashes:
+        return SyncComparisonResult(
+            "download", "The channel moved on from the client's version"
+        )
+    if client_hash in position.branch_hashes:
+        return SyncComparisonResult(
+            "conflict", "The client's version was kept as a branch"
+        )
+    if position.device_base_id is None:
+        return None
+    if position.device_holds_current:
+        return SyncComparisonResult("upload", "Client save changed since last sync")
+    return SyncComparisonResult("conflict", "Both sides changed since last sync")
+
+
 def compare_missing_server_save(
     client_hash: str | None,
     client_updated_at: datetime,

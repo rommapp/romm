@@ -30,10 +30,13 @@ from handler.database import (
     db_snapshot_handler,
     db_sync_session_handler,
 )
+from handler.database.snapshots_handler import SlotHead
 from handler.play_session_handler import ingest_play_sessions
 from handler.redis_handler import high_prio_queue
 from handler.sync.comparison import (
+    ChannelPosition,
     compare_missing_server_save,
+    compare_on_channel,
     compare_save_state,
     roms_to_check_for_removals,
 )
@@ -175,6 +178,25 @@ async def _notify_conflicts(
         )
 
 
+def _channel_positions(
+    device_id: str, heads: dict[tuple[int, str | None], SlotHead]
+) -> dict[tuple[int, str | None], ChannelPosition]:
+    """Each channel-backed slot's history and what this device holds in it."""
+    channel_ids = {head.channel_id for head in heads.values()}
+    versions = db_snapshot_handler.channel_versions(channel_ids)
+    bases = db_snapshot_handler.device_bases(device_id, channel_ids)
+    return {
+        key: ChannelPosition(
+            current_id=head.snapshot_id,
+            current_hash=head.save.content_hash,
+            current_hashes=frozenset(versions[head.channel_id].currents),
+            branch_hashes=frozenset(versions[head.channel_id].branches),
+            device_base_id=bases.get(head.channel_id),
+        )
+        for key, head in heads.items()
+    }
+
+
 @protected_route(router.post, "/negotiate", [Scope.ASSETS_READ, Scope.DEVICES_READ])
 def negotiate_sync(
     request: Request,
@@ -252,14 +274,17 @@ def negotiate_sync(
         current = server_save_map.get(key)
         if current is None or to_utc(save.updated_at) > to_utc(current.updated_at):
             server_save_map[key] = save
-    # Once a snapshot client keeps a slot's channel, its current save is the slot's save.
+    # Once a channel has a current, it is the slot's save, and its history decides.
     slot_keys = {(rom_id, slot) for rom_id, slot in server_save_map if slot}
     slot_keys |= {(s.rom_id, s.slot) for s in payload.saves if s.slot}
-    heads = db_snapshot_handler.current_saves_for_slots(
-        request.user.id, slot_keys, payload.emulators, payload.cores
+    slot_keys |= db_snapshot_handler.channel_slots(request.user.id, rom_id_scope)
+    heads: dict[tuple[int, str | None], SlotHead] = dict(
+        db_snapshot_handler.slot_heads(
+            request.user.id, slot_keys, payload.emulators, payload.cores
+        ).items()
     )
-    for key, head in heads.items():
-        server_save_map[key] = head
+    server_save_map.update({key: slot_head.save for key, slot_head in heads.items()})
+    positions = _channel_positions(device.id, heads)
 
     deleted_map: dict[tuple[int, str | None], DeletedAsset] = {
         (record.rom_id, record.slot): record
@@ -323,7 +348,19 @@ def negotiate_sync(
             )
             continue
 
-        result = compare_save_state(
+        head = heads.get(key)
+        position = positions.get(key)
+        server_updated_at = head.current_since if head else server_save.updated_at
+        result = (
+            compare_on_channel(
+                client_hash=client_save.content_hash,
+                client_updated_at=client_save.updated_at,
+                position=position,
+                removed_at=removed_at,
+            )
+            if position
+            else None
+        ) or compare_save_state(
             client_hash=client_save.content_hash,
             client_updated_at=client_save.updated_at,
             server_hash=server_save.content_hash,
@@ -345,6 +382,10 @@ def negotiate_sync(
                 server_save.content_hash,
                 synced_at=server_save.updated_at,
             )
+            if head:
+                db_snapshot_handler.record_device_base(
+                    device.id, head.channel_id, head.snapshot_id
+                )
 
         operations.append(
             SyncOperationSchema(
@@ -355,13 +396,13 @@ def negotiate_sync(
                 slot=client_save.slot,
                 emulator=server_save.emulator,
                 reason=result.reason,
-                server_updated_at=server_save.updated_at,
+                server_updated_at=server_updated_at,
                 server_content_hash=server_save.content_hash,
             )
         )
 
     # Check for current saves the client didn't mention (superseded older rows per slot are history, not downloads)
-    for (_, slot), save in server_save_map.items():
+    for key, save in server_save_map.items():
         if save.id in matched_server_save_ids:
             continue
 
@@ -371,44 +412,42 @@ def negotiate_sync(
         if device_sync and device_sync.is_untracked:
             continue
 
-        # If device has synced this save before and the save hasn't changed,
-        # the client intentionally deleted it - treat as no_op
-        if device_sync:
-            synced_ts = to_utc(device_sync.last_synced_at)
-            save_ts = to_utc(save.updated_at)
-            if save_ts <= synced_ts and not payload.restore_unlisted:
-                # Save hasn't changed since device last synced - client deleted it
+        head = heads.get(key)
+        position = positions.get(key)
+        if position and position.device_base_id is not None:
+            # The device held this current and no longer lists it: it deleted it.
+            if position.device_holds_current and not payload.restore_unlisted:
                 continue
-
-            # Save changed after device last synced - device should download
-            operations.append(
-                SyncOperationSchema(
-                    action="download",
-                    rom_id=save.attached_rom_id,
-                    save_id=save.id,
-                    file_name=save.file_name,
-                    slot=slot,
-                    emulator=save.emulator,
-                    reason="Server save updated since last sync, not present on client",
-                    server_updated_at=save.updated_at,
-                    server_content_hash=save.content_hash,
-                )
+            reason = (
+                "Server save updated since last sync, not present on client"
+                if not position.device_holds_current
+                else "Save exists on server but not on client"
             )
+        elif device_sync:
+            # If device has synced this save before and the save hasn't changed,
+            # the client intentionally deleted it - treat as no_op
+            if (
+                to_utc(save.updated_at) <= to_utc(device_sync.last_synced_at)
+                and not payload.restore_unlisted
+            ):
+                continue
+            reason = "Server save updated since last sync, not present on client"
         else:
-            # Device has never synced this save - download it
-            operations.append(
-                SyncOperationSchema(
-                    action="download",
-                    rom_id=save.attached_rom_id,
-                    save_id=save.id,
-                    file_name=save.file_name,
-                    slot=slot,
-                    emulator=save.emulator,
-                    reason="Save exists on server but not on client",
-                    server_updated_at=save.updated_at,
-                    server_content_hash=save.content_hash,
-                )
+            reason = "Save exists on server but not on client"
+
+        operations.append(
+            SyncOperationSchema(
+                action="download",
+                rom_id=save.attached_rom_id,
+                save_id=save.id,
+                file_name=save.file_name,
+                slot=key[1],
+                emulator=save.emulator,
+                reason=reason,
+                server_updated_at=head.current_since if head else save.updated_at,
+                server_content_hash=save.content_hash,
             )
+        )
 
     # Update session with operation counts
     counts = Counter(op.action for op in operations)
