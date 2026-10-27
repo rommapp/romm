@@ -5,6 +5,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOCAL_BIN="${HOME}/.local/bin"
+mkdir -p "${LOCAL_BIN}"
 export PATH="${LOCAL_BIN}:${PATH}:/usr/sbin:/sbin"
 
 with_db=false
@@ -34,10 +35,13 @@ sha256_of() {
 
 fetch_verified() {
 	local url="$1" want="$2" dest="$3" have
+	if [[ -z ${want} ]]; then
+		echo "No published checksum for ${url}" >&2
+		exit 1
+	fi
 	curl -fsSL "${url}" -o "${dest}"
 	have="$(sha256_of "${dest}")"
 	if [[ ${have} != "${want}" ]]; then
-		rm -f "${dest}"
 		echo "Checksum mismatch for ${url}: expected '${want}', got '${have}'" >&2
 		exit 1
 	fi
@@ -64,18 +68,16 @@ apt_install() {
 }
 
 setup_uv() {
-	local want have platform libc=gnu target url sum
+	local want have platform target url sum
 	want="$(sed -n 's/^ARG UV_VERSION=//p' "${ROOT}/docker/Dockerfile")"
 	have="$(uv --version 2>/dev/null || true)"
 	have="${have#uv }"
 	have="${have%% *}"
 	if [[ ${have} == "${want}" ]]; then return 0; fi
 	platform="$(uname -sm)"
-	# The gnu build has no loader on musl hosts such as Alpine.
-	if [[ "$(ldd --version 2>&1 || true)" == *musl* ]]; then libc=musl; fi
 	case "${platform}" in
-	"Linux x86_64") target="x86_64-unknown-linux-${libc}" ;;
-	"Linux aarch64" | "Linux arm64") target="aarch64-unknown-linux-${libc}" ;;
+	"Linux x86_64") target=x86_64-unknown-linux-gnu ;;
+	"Linux aarch64") target=aarch64-unknown-linux-gnu ;;
 	"Darwin x86_64") target=x86_64-apple-darwin ;;
 	"Darwin arm64") target=aarch64-apple-darwin ;;
 	*)
@@ -88,7 +90,6 @@ setup_uv() {
 	sum="$(curl -fsSL "${url}.sha256")"
 	fetch_verified "${url}" "${sum%% *}" "${DOWNLOAD_DIR}/uv.tar.gz"
 	tar -xzf "${DOWNLOAD_DIR}/uv.tar.gz" -C "${DOWNLOAD_DIR}" --strip-components=1
-	mkdir -p "${LOCAL_BIN}"
 	install -m 755 "${DOWNLOAD_DIR}/uv" "${DOWNLOAD_DIR}/uvx" "${LOCAL_BIN}/"
 	hash -r
 }
@@ -115,7 +116,7 @@ setup_node() {
 	esac
 	dest="${HOME}/.local/share/node/${full}"
 	log "Installing Node ${full} (found ${have:-none})"
-	mkdir -p "${dest}" "${LOCAL_BIN}"
+	mkdir -p "${dest}"
 	file="node-${full}-${os}-${arch}.tar.xz"
 	sum="$(curl -fsSL "https://nodejs.org/dist/${full}/SHASUMS256.txt" | awk -v f="${file}" '$2 == f { print $1 }')"
 	fetch_verified "https://nodejs.org/dist/${full}/${file}" "${sum}" "${DOWNLOAD_DIR}/${file}"
@@ -137,7 +138,6 @@ setup_frontend() {
 setup_trunk() {
 	command -v trunk >/dev/null && return 0
 	log "Installing Trunk and its linters"
-	mkdir -p "${LOCAL_BIN}"
 	fetch_verified "https://trunk.io/releases/launcher/${TRUNK_LAUNCHER_VERSION}/trunk" \
 		"${TRUNK_LAUNCHER_SHA256}" "${DOWNLOAD_DIR}/trunk"
 	install -m 755 "${DOWNLOAD_DIR}/trunk" "${LOCAL_BIN}/trunk"
