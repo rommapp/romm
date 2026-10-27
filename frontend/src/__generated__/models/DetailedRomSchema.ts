@@ -3,7 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { ManualMetadata } from './ManualMetadata';
-import type { ReleaseType } from './ReleaseType';
 import type { RomCsdbMetadata } from './RomCsdbMetadata';
 import type { RomDemozooMetadata } from './RomDemozooMetadata';
 import type { RomFileSchema } from './RomFileSchema';
@@ -94,7 +93,6 @@ export type DetailedRomSchema = {
     regions: Array<string>;
     languages: Array<string>;
     tags: Array<string>;
-    release_types: Array<ReleaseType>;
     crc_hash: (string | null);
     md5_hash: (string | null);
     sha1_hash: (string | null);

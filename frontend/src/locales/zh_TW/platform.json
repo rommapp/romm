@@ -76,8 +76,6 @@
   "random-rom-empty": "此平台沒有 ROM",
   "random-rom-error": "無法選擇隨機 ROM",
   "region": "地區",
-  "release-type": "發行類型",
-  "release-types": "發行類型",
   "removing-firmware": "正在從RomM移除 {n} 個韌體從RomM移除",
   "reset-filters": "重置篩選器",
   "rom-count": "{n} 個 ROM | {n} 個 ROM",

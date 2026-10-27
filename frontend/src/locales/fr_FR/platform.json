@@ -76,8 +76,6 @@
   "random-rom-empty": "Aucune ROM sur cette plateforme",
   "random-rom-error": "Impossible de choisir une ROM aléatoire",
   "region": "Région",
-  "release-type": "Type de version",
-  "release-types": "Types de version",
   "removing-firmware": "Suppression de {n} firmware de RomM | Suppression de {n} firmwares de RomM",
   "reset-filters": "Réinitialiser les filtres",
   "rom-count": "{n} ROM | {n} ROMs",

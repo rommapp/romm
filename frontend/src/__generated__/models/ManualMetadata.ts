@@ -2,7 +2,6 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { ReleaseType } from './ReleaseType';
 export type ManualMetadata = {
     genres?: (Array<string> | null);
     franchises?: (Array<string> | null);
@@ -14,6 +13,5 @@ export type ManualMetadata = {
     first_release_date?: (number | null);
     youtube_video_id?: (string | null);
     alternative_names?: (Array<string> | null);
-    release_types?: (Array<ReleaseType> | null);
 };
 
