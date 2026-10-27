@@ -165,7 +165,7 @@ describe("buildSmartFilterCriteria — tags", () => {
   });
 });
 
-describe("buildSmartFilterCriteria — release types", () => {
+describe("buildSmartFilterCriteria: release types", () => {
   it("serializes selected release types with their logic operator", () => {
     const out = buildSmartFilterCriteria({
       ...emptySnapshot(),
