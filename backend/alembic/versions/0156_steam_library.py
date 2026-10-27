@@ -3,8 +3,8 @@
 `storefront` is declared in `utils.roms_columns`, which adds it in one copy of
 `roms` alongside any other catalog column the table lacks.
 
-Revision ID: 0155_steam_library
-Revises: 0154_ownerless_own_only
+Revision ID: 0156_steam_library
+Revises: 0155_rom_release_types
 Create Date: 2026-10-26 00:00:00.000000
 
 """
@@ -16,8 +16,8 @@ from utils.database import column_names
 from utils.roms_columns import ensure_roms_columns
 
 # revision identifiers, used by Alembic.
-revision = "0155_steam_library"
-down_revision = "0154_ownerless_own_only"
+revision = "0156_steam_library"
+down_revision = "0155_rom_release_types"
 branch_labels = None
 depends_on = None
 
