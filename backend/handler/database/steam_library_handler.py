@@ -30,10 +30,7 @@ class DBSteamLibraryHandler(DBBaseHandler):
         steam_app_ids: Sequence[int],
         session: Session = INJECTED_SESSION,
     ) -> dict[int, int]:
-        """The rom that stands for each Steam app on the given platforms.
-
-        A rom with a file wins over a store-only one, then the oldest row.
-        """
+        """Each Steam app's rom on the given platforms, preferring one with a file."""
         rows: list[tuple[int | None, int, str | None]] = []
         ids = list(steam_app_ids)
         for start in range(0, len(ids), STEAM_ID_CHUNK_SIZE):

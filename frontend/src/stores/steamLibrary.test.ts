@@ -56,6 +56,29 @@ describe("steamLibrary", () => {
     expect(library.owns(400)).toBe(true);
   });
 
+  it("keeps the newest reply when an older one arrives late", async () => {
+    let answerFirst: (value: unknown) => void = () => {};
+    vi.mocked(userApi.fetchSteamLibrary)
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          answerFirst = resolve;
+        }) as never,
+      )
+      .mockResolvedValueOnce({ data: [400] } as never);
+    storeAuth().setCurrentUser(
+      userFixture({ id: 1, steam_id: "76561197960287930" }),
+    );
+    library = useSteamLibrary();
+    void library.load();
+    await flushPromises();
+
+    answerFirst({ data: [220] });
+    await flushPromises();
+
+    expect(library.owns(400)).toBe(true);
+    expect(library.owns(220)).toBe(false);
+  });
+
   it("loads nothing without a linked account", async () => {
     storeAuth().setCurrentUser(userFixture({ id: 1 }));
     library = useSteamLibrary();

@@ -192,10 +192,6 @@ def _last_played(game: SteamOwnedGame) -> datetime | None:
 async def sync_steam_library(user: User) -> SteamSyncResult:
     """Make the user's Steam library entries match what their account owns.
 
-    Owned games already in the library are linked to their rom; the rest get a
-    store-only rom. Store-only roms still unmatched are listed for a metadata
-    scan, since a library scan never reaches a game without a file.
-
     Raises:
         SteamLibraryError: The account isn't linked, Steam can't list its games,
             or the account changed during the sync.

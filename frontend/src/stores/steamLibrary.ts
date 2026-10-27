@@ -27,13 +27,17 @@ const useSteamLibrary = defineStore("steamLibrary", () => {
     return ownedAppIds.value.has(appId);
   }
 
+  // Only the newest request may write, so a slow earlier reply can't win.
+  let latestRequest = 0;
+
   async function load() {
     const user = auth.user;
     const requested = account.value;
     if (!user || !requested) return;
+    const request = ++latestRequest;
     try {
       const { data } = await userApi.fetchSteamLibrary({ id: user.id });
-      if (account.value !== requested) return;
+      if (request !== latestRequest || account.value !== requested) return;
       ownedAppIds.value = new Set(data);
       loadedFor.value = requested;
     } catch (error) {
