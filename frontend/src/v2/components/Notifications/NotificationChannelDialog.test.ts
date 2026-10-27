@@ -1,6 +1,6 @@
 import { RCheckbox, RComboboxField, RSelect } from "@v2/lib";
 import { flushPromises, mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick } from "vue";
 import type { NotificationChannelSchema } from "@/__generated__";
 import storePermissions from "@/stores/permissions";
@@ -95,8 +95,11 @@ async function save(wrapper: Wrapper) {
 describe("NotificationChannelDialog", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    // Only the timers, so flushPromises still settles.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     api.getAppriseServices.mockResolvedValue({ data: [makeAppriseService()] });
   });
+  afterEach(() => vi.useRealTimers());
 
   it("creates a webhook that forwards every topic", async () => {
     api.create.mockResolvedValue({ data: channel() });
@@ -241,7 +244,7 @@ describe("NotificationChannelDialog", () => {
   ) {
     await textField(wrapper, label)?.setValue(url);
     // Past the field's debounce.
-    await new Promise((resolve) => setTimeout(resolve, 450));
+    await vi.advanceTimersByTimeAsync(450);
     await flushPromises();
   }
 
@@ -316,31 +319,26 @@ describe("NotificationChannelDialog", () => {
       return wrapper;
     }
 
+    const pasteUrl = (wrapper: Wrapper, url: string) =>
+      paste(wrapper, url, label);
     const saved = () => api.create.mock.calls[0]![0].fields;
 
-    it("drops what the earlier URL set when the new one leaves it out", async () => {
-      api.parseAppriseUrl
-        .mockResolvedValueOnce({ data: cloud })
-        .mockResolvedValueOnce({ data: privateServer });
+    it.each([
+      ["when the new one leaves it out", null],
+      ["when the field was emptied in between", ""],
+      ["when a read in between failed", "ntfy://user:pass@10.0.0.5"],
+    ])("drops what the earlier URL set %s", async (_, between) => {
+      api.parseAppriseUrl.mockResolvedValueOnce({ data: cloud });
+      if (between)
+        api.parseAppriseUrl.mockRejectedValueOnce({
+          response: { data: { detail: "no topic" } },
+        });
+      api.parseAppriseUrl.mockResolvedValueOnce({ data: privateServer });
       const wrapper = await openNtfy();
 
-      await paste(wrapper, "ntfy://romm", label);
-      await paste(wrapper, "ntfy://10.0.0.5/romm", label);
-      await save(wrapper);
-
-      expect(saved()).toMatchObject({ host: "10.0.0.5", mode: "private" });
-      wrapper.unmount();
-    });
-
-    it("still drops it when the field was emptied in between", async () => {
-      api.parseAppriseUrl
-        .mockResolvedValueOnce({ data: cloud })
-        .mockResolvedValueOnce({ data: privateServer });
-      const wrapper = await openNtfy();
-
-      await paste(wrapper, "ntfy://romm", label);
-      await paste(wrapper, "", label);
-      await paste(wrapper, "ntfy://10.0.0.5/romm", label);
+      await pasteUrl(wrapper, "ntfy://romm");
+      if (between !== null) await pasteUrl(wrapper, between);
+      await pasteUrl(wrapper, "ntfy://10.0.0.5/romm");
       await save(wrapper);
 
       expect(saved()).toMatchObject({ host: "10.0.0.5", mode: "private" });
@@ -355,33 +353,17 @@ describe("NotificationChannelDialog", () => {
         .mockResolvedValueOnce({ data: privateServer });
       const wrapper = await openNtfy();
 
-      await paste(wrapper, "ntfy://romm?priority=low", label);
+      await pasteUrl(wrapper, "ntfy://romm?priority=low");
       const fields = wrapper.findComponent(AppriseServiceFields);
       fields.vm.$emit("update:modelValue", {
         ...(propOf(fields, "modelValue") as Record<string, unknown>),
         priority: "high",
       });
       await nextTick();
-      await paste(wrapper, "ntfy://10.0.0.5/romm", label);
+      await pasteUrl(wrapper, "ntfy://10.0.0.5/romm");
       await save(wrapper);
 
       expect(saved()).toMatchObject({ mode: "private", priority: "high" });
-      wrapper.unmount();
-    });
-
-    it("still drops it when a read in between failed", async () => {
-      api.parseAppriseUrl
-        .mockResolvedValueOnce({ data: cloud })
-        .mockRejectedValueOnce({ response: { data: { detail: "no topic" } } })
-        .mockResolvedValueOnce({ data: privateServer });
-      const wrapper = await openNtfy();
-
-      await paste(wrapper, "ntfy://romm", label);
-      await paste(wrapper, "ntfy://user:pass@10.0.0.5", label);
-      await paste(wrapper, "ntfy://10.0.0.5/romm", label);
-      await save(wrapper);
-
-      expect(saved()).toMatchObject({ host: "10.0.0.5", mode: "private" });
       wrapper.unmount();
     });
 
@@ -393,17 +375,13 @@ describe("NotificationChannelDialog", () => {
         .mockResolvedValueOnce({ data: privateServer });
       const wrapper = await openNtfy();
 
-      await paste(wrapper, "ntfy://romm", label);
-      await paste(wrapper, "ntfy://user:pass@10.0.0.5/romm", label);
-      await paste(wrapper, "ntfy://10.0.0.5/romm", label);
+      await pasteUrl(wrapper, "ntfy://romm");
+      await pasteUrl(wrapper, "ntfy://user:pass@10.0.0.5/romm");
+      await pasteUrl(wrapper, "ntfy://10.0.0.5/romm");
       answerOlder({
         data: {
-          service: "ntfy",
-          fields: {
-            schema: "ntfy",
-            host: "older.example.com",
-            targets: ["romm"],
-          },
+          ...privateServer,
+          fields: { ...privateServer.fields, host: "older.example.com" },
         },
       });
       await flushPromises();
@@ -551,7 +529,7 @@ describe("NotificationChannelDialog", () => {
     );
     await save(wrapper);
     // The field's own read comes due while the save waits on its read.
-    await new Promise((resolve) => setTimeout(resolve, 450));
+    await vi.advanceTimersByTimeAsync(450);
     answer({
       data: {
         service: "discord",
