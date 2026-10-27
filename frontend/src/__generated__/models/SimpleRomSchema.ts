@@ -12,6 +12,7 @@ import type { RomHasheousMetadata } from './RomHasheousMetadata';
 import type { RomHLTBMetadata } from './RomHLTBMetadata';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
 import type { RomLaunchboxMetadata } from './RomLaunchboxMetadata';
+import type { RomMediaSchema } from './RomMediaSchema';
 import type { RomMetadataSchema } from './RomMetadataSchema';
 import type { RomMobyMetadata } from './RomMobyMetadata';
 import type { RomPouetMetadata } from './RomPouetMetadata';
@@ -110,5 +111,6 @@ export type SimpleRomSchema = {
     files: Array<RomFileSchema>;
     sibling_roms: Array<SiblingRomSchema>;
     screenshot_path?: (string | null);
+    media?: (Array<RomMediaSchema> | null);
 };
 

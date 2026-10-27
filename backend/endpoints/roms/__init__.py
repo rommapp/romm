@@ -45,6 +45,7 @@ from endpoints.responses.recommendation import SimilarRomSchema
 from endpoints.responses.rom import (
     DetailedRomSchema,
     ManualMetadata,
+    RomMediaSchema,
     RomUserSchema,
     SimpleRomSchema,
 )
@@ -109,6 +110,7 @@ from handler.metadata.ss_handler import (
 )
 from handler.recommendation import similar_roms
 from handler.rom_conversion import promote_single_file_to_folder
+from handler.rom_media import describe_rom_media
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
@@ -644,6 +646,15 @@ def get_roms(
         bool,
         Query(description="Whether to include each rom's file entries."),
     ] = False,
+    with_media: Annotated[
+        bool,
+        Query(
+            description=(
+                "Whether to include each rom's stored media files, with their "
+                "size and format."
+            )
+        ),
+    ] = False,
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve roms."""
     perms = get_permissions(request)
@@ -652,6 +663,7 @@ def get_roms(
     # Normalised once so the query layer and every cache key agree on case.
     order_by = order_by.lower()
     order_dir = order_dir.lower()
+    load_files = with_files or with_media
 
     unfiltered_query, sort_key = db_rom_handler.get_roms_query(
         user_id=request.user.id,
@@ -673,7 +685,7 @@ def get_roms(
         released_days=parsed_released_days,
         released_before_year=released_before_year,
         # The page's files answer all three flags without the subqueries.
-        include_file_stats=not with_files,
+        include_file_stats=not load_files,
         # Siblings and the notes indicator are resolved per page below.
         include_siblings=False,
         include_notes=False,
@@ -762,7 +774,7 @@ def get_roms(
             rom_ids = [i.id for i in items]
             files_by_rom = (
                 db_rom_handler.get_files_for_roms(rom_ids, session=session)
-                if with_files
+                if load_files
                 else {}
             )
             siblings_by_rom = db_rom_handler.get_siblings_for_roms(
@@ -774,9 +786,18 @@ def get_roms(
             rom_ids_with_notes = db_rom_handler.get_rom_ids_with_notes(
                 rom_ids, user_id=request.user.id, session=session
             )
-            if with_files:
+            if load_files:
                 for item in items:
                     apply_file_stats(item, files_by_rom.get(item.id, []))
+            media_by_rom: dict[int, list[RomMediaSchema]] = {}
+            if with_media:
+                resolve_media = fs_resource_handler.lexical_path_validator()
+                media_by_rom = {
+                    item.id: describe_rom_media(
+                        item, files_by_rom.get(item.id, []), resolve_media
+                    )
+                    for item in items
+                }
 
             # Continue-playing rail
             screenshot_by_rom: dict[int, str | None] = {}
@@ -793,10 +814,11 @@ def get_roms(
                 SimpleRomSchema.from_orm_with_request(
                     db_rom=item,
                     request=request,
-                    files=files_by_rom.get(item.id, []),
+                    files=files_by_rom.get(item.id, []) if with_files else [],
                     siblings=siblings_by_rom.get(item.id, []),
                     screenshot_path=screenshot_by_rom.get(item.id),
                     has_notes=item.id in rom_ids_with_notes,
+                    media=media_by_rom.get(item.id),
                 )
                 for item in items
             ]

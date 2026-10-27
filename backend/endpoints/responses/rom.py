@@ -533,8 +533,42 @@ def _visible_siblings(db_rom: Rom, request: Request) -> list[Rom]:
     return [s for s in siblings if perms.can_see_rom(s)]
 
 
+class RomMediaSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    type: str = Field(
+        description=(
+            "Media kind: a MetadataMediaType value, 'cover_large' or "
+            "'cover_small', or 'image'/'video' for a library file."
+        )
+    )
+    source: str = Field(
+        description=(
+            "Where the file came from: a metadata source ('ss', 'gamelist', "
+            "'launchbox'), 'romm' for the rom's own cover, manual and "
+            "screenshots, or 'library' for a file next to the rom."
+        )
+    )
+    path: str = Field(description="Server path the file is served from.")
+    size_bytes: int = Field(json_schema_extra={"format": "int64"})
+    format: str | None = Field(description="Lowercase file extension.")
+    disc: int | None = Field(description="The disc a per-disc file shows.")
+    index: int | None = Field(description="Position among the rom's screenshots.")
+    file_id: int | None = Field(description="The rom file a library entry is.")
+    md5: str | None = Field(description="MD5 of a library file, when hashed.")
+    shadowed: bool = Field(
+        description=(
+            "A higher-priority source holds the same kind and disc, so RomM "
+            "shows that copy instead."
+        )
+    )
+
+
 class SimpleRomSchema(RomSchema):
     screenshot_path: str | None = None
+    media: list[RomMediaSchema] | None = Field(
+        default=None, validation_alias="included_media"
+    )
 
     @classmethod
     def from_orm_with_request(
@@ -545,9 +579,11 @@ class SimpleRomSchema(RomSchema):
         siblings: Sequence[tuple[Rom, bool]] | None = None,
         screenshot_path: str | None = None,
         has_notes: bool | None = None,
+        media: Sequence[RomMediaSchema] | None = None,
     ) -> SimpleRomSchema:
         db_rom = cls.populate_properties(db_rom, request, has_notes=has_notes)
         db_rom.screenshot_path = screenshot_path  # type: ignore[attr-defined]
+        db_rom.included_media = media  # type: ignore[attr-defined]
 
         # The list endpoint passes pre-fetched `files`/`siblings` (batched via
         # get_files_for_roms / get_siblings_for_roms, no per-row hydration).
