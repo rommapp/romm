@@ -331,6 +331,7 @@ async def _plan(write: SnapshotWrite, match_current: bool = True) -> _Plan:
     if (
         match_current
         and current is not None
+        and current.is_hardcore == write.manifest.is_hardcore
         and (
             current.digest == resolved.digest or await _clock_only(write, plan, current)
         )
@@ -735,6 +736,7 @@ def _commit(
     if (
         channel is not None
         and current is not None
+        and current.is_hardcore == write.manifest.is_hardcore
         and (plan.unchanged or current.digest == digest)
     ):
         if write.device_id:

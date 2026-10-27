@@ -346,6 +346,56 @@ async def test_a_softcore_save_over_a_hardcore_current_needs_approval(
     assert older is not None and older.is_hardcore
 
 
+@pytest.mark.parametrize(
+    "was_hardcore,is_hardcore,outcome",
+    [
+        (False, True, Outcome.CREATED),
+        (True, False, Outcome.CREATED),
+        (False, False, Outcome.UNCHANGED),
+    ],
+    ids=["to-hardcore", "to-softcore", "same"],
+)
+async def test_unchanged_content_still_moves_the_hardcore_flag(
+    admin_user: User,
+    rom: Rom,
+    hashed_file: RomFile,
+    was_hardcore: bool,
+    is_hardcore: bool,
+    outcome: Outcome,
+):
+    first = await write_snapshot(
+        push(
+            admin_user,
+            rom,
+            hashed_file,
+            Manifest(save=save_entry(), is_hardcore=was_hardcore),
+            expected=None,
+            parts={SAVE_PART: part(SRAM)},
+        )
+    )
+
+    result = await write_snapshot(
+        push(
+            admin_user,
+            rom,
+            hashed_file,
+            Manifest(
+                save=save_entry(),
+                is_hardcore=is_hardcore,
+                approve_hardcore_downgrade=True,
+            ),
+            expected=first.snapshot.id,
+            channel_id=first.snapshot.channel_id,
+            parts={SAVE_PART: part(SRAM)},
+        )
+    )
+
+    assert result.outcome == outcome
+    assert first.snapshot.channel_id is not None
+    channel = db_snapshot_handler.get_channel(first.snapshot.channel_id)
+    assert channel is not None and channel.is_hardcore is is_hardcore
+
+
 async def test_a_stale_softcore_push_over_a_hardcore_current_lands_as_a_branch(
     admin_user: User, rom: Rom, hashed_file: RomFile
 ):
