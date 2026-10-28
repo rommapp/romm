@@ -3,10 +3,11 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
- * The service a pasted URL is for, and the fields it fills in.
+ * The service a pasted URL is for, its fields, and every key it decides.
  */
 export type AppriseUrlFieldsSchema = {
     service: string;
     fields: Record<string, (boolean | number | string | Array<string>)>;
+    decided: Array<string>;
 };
 

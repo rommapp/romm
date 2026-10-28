@@ -12,7 +12,6 @@ import {
   RTextField,
 } from "@v2/lib";
 import { watchDebounced } from "@vueuse/core";
-import { isEqual } from "lodash";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
@@ -153,16 +152,12 @@ async function loadServices() {
   }
 }
 
-// What the last URL read put in the form, to tell it from what was typed since.
-let lastRead: Record<string, AppriseFieldValue> = {};
-
 // A service's fields start from its defaults, or from the channel being edited.
 function resetAppriseValues() {
   appriseValues.value = service.value
     ? initialAppriseValues(service.value, props.channel?.fields ?? null)
     : {};
   removedSecrets.value = [];
-  lastRead = {};
 }
 
 // A pasted URL, the service's own (a Discord webhook's) or an Apprise one, fills
@@ -268,15 +263,14 @@ async function readUrl(url: string) {
       });
       return;
     }
-    // Keep hand edits, but drop unchanged values from an earlier read: the
-    // full URL omits a default (ntfy's mode) that a half-typed read set.
+    // What's typed beside a service's own URL (a Discord bot name) stays, but
+    // not what the URL decides, even at a default it leaves out (ntfy's mode).
     const typed =
       found.id === service.value?.id && found.url_fields.length > 0
         ? Object.fromEntries(
             Object.entries(appriseValues.value).filter(
-              ([key, value]) =>
-                !found.url_fields.includes(key) &&
-                !isEqual(lastRead[key], value),
+              ([key]) =>
+                !found.url_fields.includes(key) && !data.decided.includes(key),
             ),
           )
         : {};
@@ -287,9 +281,6 @@ async function readUrl(url: string) {
     });
     removedSecrets.value = [];
     filledFields.value = Object.keys(data.fields);
-    lastRead = Object.fromEntries(
-      filledFields.value.map((key) => [key, appriseValues.value[key]!]),
-    );
     parsedUrl.value = url;
   } catch (err) {
     if (request !== pasteRequest) return;

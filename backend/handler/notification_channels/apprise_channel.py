@@ -602,9 +602,11 @@ def _read(field: AppriseField, text: str, quoted: bool) -> FieldValue | None:
     return text
 
 
-def fields_from_url(url: str) -> tuple[AppriseService, dict[str, FieldValue]]:
+def fields_from_url(
+    url: str,
+) -> tuple[AppriseService, dict[str, FieldValue], list[str]]:
     """The service and fields behind an Apprise URL or a service's own, such as
-    a Discord webhook's.
+    a Discord webhook's, and every key the URL decides, defaults included.
 
     Raises:
         ValueError: With a reason fit to show the user.
@@ -644,21 +646,27 @@ def fields_from_url(url: str) -> tuple[AppriseService, dict[str, FieldValue]]:
             continue
         if (value := _read(field, text, quoted=True)) is not None:
             fields[field.key] = value
+    decided = set(fields)
+    # Apprise writes every option back, but a service's own URL can't carry them.
+    apprise_form = pasted.scheme.lower() in service.schemas
     for key, text in parse_qsl(parts.query, keep_blank_values=True):
         field = service.field(key)
         if field is None or not field.advanced:
             continue
         if (value := _read(field, text, quoted=False)) is not None:
             fields[key] = value
+            if apprise_form:
+                decided.add(key)
     if len(service.schemas) > 1:
         fields["schema"] = parts.scheme
+        decided.add("schema")
     fields = known_fields(service, fields)
     # The fields must make the same URL again, or a token was misread.
     if _address(_plugin(service, fields).url(privacy=False)) != _address(
         plugin.url(privacy=False)
     ):
         raise ValueError(f"RomM can't read the {service.name} fields from this URL")
-    return service, fields
+    return service, fields, sorted(k for k in decided if service.field(k))
 
 
 def _address(url: str) -> tuple[str, str, str]:

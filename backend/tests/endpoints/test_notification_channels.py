@@ -190,7 +190,11 @@ class TestAppriseServices:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.json() == {"service": "discord", "fields": _DISCORD}
+        assert response.json() == {
+            "service": "discord",
+            "fields": _DISCORD,
+            "decided": ["webhook_id", "webhook_token"],
+        }
 
     def test_a_url_it_cant_read_is_refused(self, client, access_token):
         response = client.post(
