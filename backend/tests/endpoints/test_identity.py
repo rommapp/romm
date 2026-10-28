@@ -718,7 +718,10 @@ async def test_password_change_invalidates_sessions(client, admin_user: User):
     # Update the user's password
     response = client.put(
         f"/api/users/{admin_user.id}",
-        data={"password": "new_admin_password"},
+        data={
+            "password": "new_admin_password",
+            "current_password": "test_admin_password",
+        },
         headers={"Authorization": f"Basic {basic_auth}"},
     )
     assert response.status_code == HTTPStatus.OK

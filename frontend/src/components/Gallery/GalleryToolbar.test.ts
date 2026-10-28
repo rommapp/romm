@@ -1,0 +1,229 @@
+import { mount } from "@vue/test-utils";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ref } from "vue";
+import GalleryToolbar from "./GalleryToolbar.vue";
+
+vi.mock("vue-i18n");
+
+const smAndUp = ref(true);
+vi.mock("@/composables/useBreakpoint", () => ({
+  useBreakpoint: () => ({ smAndUp }),
+}));
+
+const modality = ref<"mouse" | "pad">("mouse");
+vi.mock("@/composables/useInputModality", () => ({
+  useInputModality: () => ({ modality }),
+}));
+
+// The sort-axis control lives inside an RMenu, so its entries only exist
+// once the menu renders its slots.
+const RMenuPassthrough = {
+  name: "RMenuPassthrough",
+  template: `<div><slot name="activator" :props="{}" /><slot /></div>`,
+};
+
+function mountToolbar(
+  props: Record<string, unknown> = {},
+  menuStub: boolean | typeof RMenuPassthrough = true,
+) {
+  return mount(GalleryToolbar, {
+    attachTo: document.body,
+    props: { groupBy: "none", layout: "grid", showSearch: true, ...props },
+    global: {
+      stubs: {
+        RBadge: true,
+        RBtn: true,
+        RIcon: true,
+        RMenu: menuStub,
+        RSliderBtnGroup: true,
+      },
+    },
+  });
+}
+
+const SORT_OPTIONS = [
+  { key: "name", label: "Title" },
+  { key: "fs_size_bytes", label: "Size" },
+] as const;
+
+function mountWithSortOptions(props: Record<string, unknown> = {}) {
+  return mountToolbar(
+    { sortKey: "name", sortKeyItems: SORT_OPTIONS, ...props },
+    RMenuPassthrough,
+  );
+}
+
+function sortItems(wrapper: ReturnType<typeof mountWithSortOptions>) {
+  return wrapper
+    .findAllComponents({ name: "RMenuItem" })
+    .filter((item) =>
+      SORT_OPTIONS.some((option) => option.label === item.props("label")),
+    );
+}
+
+describe("GalleryToolbar search autofocus", () => {
+  it("leaves the search field unfocused by default", () => {
+    const wrapper = mountToolbar();
+
+    expect(document.activeElement).not.toBe(wrapper.find("input").element);
+    wrapper.unmount();
+  });
+
+  it("focuses the search field when the view asks for it", () => {
+    const wrapper = mountToolbar({ autofocusSearch: true });
+
+    expect(document.activeElement).toBe(wrapper.find("input").element);
+    wrapper.unmount();
+  });
+
+  it("skips autofocus on a gamepad, which would swallow d-pad navigation", () => {
+    modality.value = "pad";
+    const wrapper = mountToolbar({ autofocusSearch: true });
+
+    expect(document.activeElement).not.toBe(wrapper.find("input").element);
+    modality.value = "mouse";
+    wrapper.unmount();
+  });
+});
+
+describe("GalleryToolbar sort axis", () => {
+  afterEach(() => {
+    smAndUp.value = true;
+  });
+
+  it("emits the picked axis so grid mode can change the sort key", async () => {
+    const wrapper = mountWithSortOptions();
+
+    const size = sortItems(wrapper).find(
+      (item) => item.props("label") === "Size",
+    );
+    expect(size).toBeTruthy();
+    await size!.trigger("click");
+
+    expect(wrapper.emitted("update:sortKey")).toEqual([["fs_size_bytes"]]);
+    wrapper.unmount();
+  });
+
+  it.each([
+    ["the toolbar menu", true],
+    ["the phone-width menu", false],
+  ])("marks the active axis with a check in %s", (_, wide) => {
+    smAndUp.value = wide;
+    const wrapper = mountWithSortOptions({ sortKey: "fs_size_bytes" });
+
+    const marks = Object.fromEntries(
+      sortItems(wrapper).map((item) => [
+        item.props("label"),
+        [item.props("variant"), item.props("icon")],
+      ]),
+    );
+
+    expect(marks).toEqual({
+      Size: ["active", "mdi-check"],
+      Title: ["default", undefined],
+    });
+    wrapper.unmount();
+  });
+
+  // Index views (Platforms / Collections) sort their own tiles and pass
+  // no axes; the control must not paint an empty menu for them.
+  it("hides the control when no axes are offered", () => {
+    const withAxes = mountWithSortOptions();
+    const menusWithAxes = withAxes.findAllComponents(RMenuPassthrough).length;
+    withAxes.unmount();
+
+    const wrapper = mountWithSortOptions({ sortKeyItems: [] });
+
+    expect(wrapper.findAllComponents(RMenuPassthrough)).toHaveLength(
+      menusWithAxes - 1,
+    );
+    expect(sortItems(wrapper)).toHaveLength(0);
+    wrapper.unmount();
+  });
+
+  it("offers the unsorted order and emits a null key for it", async () => {
+    const wrapper = mountWithSortOptions({ unsortedLabel: "Relevance" });
+
+    const relevance = wrapper
+      .findAllComponents({ name: "RMenuItem" })
+      .find((item) => item.props("label") === "Relevance");
+    expect(relevance?.props("variant")).toBe("default");
+    await relevance!.trigger("click");
+
+    expect(wrapper.emitted("update:sortKey")).toEqual([[null]]);
+    wrapper.unmount();
+  });
+
+  // Relevance has no direction, so the toggle would claim one it can't apply.
+  it("hides the direction toggle while the unsorted order is active", () => {
+    const sorted = mountWithSortOptions({ unsortedLabel: "Relevance" });
+    const togglesWhenSorted = sorted.findAllComponents({
+      name: "RSliderBtnGroup",
+    }).length;
+    sorted.unmount();
+
+    const wrapper = mountWithSortOptions({
+      unsortedLabel: "Relevance",
+      sortKey: null,
+      unsorted: true,
+    });
+
+    expect(wrapper.findAllComponents({ name: "RSliderBtnGroup" })).toHaveLength(
+      togglesWhenSorted - 1,
+    );
+    const relevance = wrapper
+      .findAllComponents({ name: "RMenuItem" })
+      .find((item) => item.props("label") === "Relevance");
+    expect(relevance?.props("variant")).toBe("active");
+    expect(relevance?.props("icon")).toBe("mdi-check");
+    wrapper.unmount();
+  });
+
+  // A sort the selector doesn't offer (`last_played`) leaves no axis key, but
+  // it is still a sort.
+  it("ticks nothing and keeps the toggle for a sort it doesn't offer", () => {
+    const sorted = mountWithSortOptions({ unsortedLabel: "Relevance" });
+    const togglesWhenSorted = sorted.findAllComponents({
+      name: "RSliderBtnGroup",
+    }).length;
+    sorted.unmount();
+
+    const wrapper = mountWithSortOptions({
+      unsortedLabel: "Relevance",
+      sortKey: null,
+      unsorted: false,
+    });
+
+    expect(wrapper.findAllComponents({ name: "RSliderBtnGroup" })).toHaveLength(
+      togglesWhenSorted,
+    );
+    const ticked = wrapper
+      .findAllComponents({ name: "RMenuItem" })
+      .filter(
+        (item) =>
+          item.props("variant") === "active" &&
+          (item.props("label") === "Relevance" ||
+            SORT_OPTIONS.some(
+              (option) => option.label === item.props("label"),
+            )),
+      );
+    expect(ticked).toHaveLength(0);
+    wrapper.unmount();
+  });
+
+  // List mode sorts through the column headers, so the toolbar's axis
+  // control steps aside rather than offer a second, competing one.
+  it("drops the control in list mode only", () => {
+    const grid = mountWithSortOptions({ layout: "grid" });
+    const menusInGrid = grid.findAllComponents(RMenuPassthrough).length;
+    grid.unmount();
+
+    const wrapper = mountWithSortOptions({ layout: "list" });
+
+    expect(wrapper.findAllComponents(RMenuPassthrough)).toHaveLength(
+      menusInGrid - 1,
+    );
+    expect(sortItems(wrapper)).toHaveLength(0);
+    wrapper.unmount();
+  });
+});

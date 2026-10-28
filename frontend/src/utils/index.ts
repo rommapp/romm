@@ -1,12 +1,8 @@
 import cronstrue from "cronstrue";
 import { formatDistanceToNow } from "date-fns";
-import { storeToRefs } from "pinia";
-import { computed } from "vue";
-import { useDisplay } from "vuetify";
 import type { RomFileSchema, RomUserStatus } from "@/__generated__";
 import type { Config } from "@/stores/config";
 import type { Heartbeat } from "@/stores/heartbeat";
-import storeNavigation from "@/stores/navigation";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
 
 export {
@@ -857,25 +853,6 @@ export function isNintendoDSRom(rom: DetailedRom | SimpleRom): boolean {
   const hasValidFile = getNintendoDSFiles(rom).length > 0;
 
   return hasValidExtension || hasValidFile;
-}
-
-export function calculateMainLayoutWidth() {
-  const { smAndDown } = useDisplay();
-  const navigationStore = storeNavigation();
-  const { mainBarCollapsed } = storeToRefs(navigationStore);
-  // The side safe-area insets sit outside the layout as RomM.vue's spacers.
-  const insetX =
-    "env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)";
-  const calculatedWidth = computed(() => {
-    const chrome = smAndDown.value
-      ? "16px"
-      : mainBarCollapsed.value
-        ? "76px"
-        : "106px";
-    return `calc(100% - ${chrome} - ${insetX}) !important`;
-  });
-
-  return { calculatedWidth };
 }
 
 /**

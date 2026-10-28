@@ -1,0 +1,2345 @@
+<script setup lang="ts">
+// Stream: v2 player for containerized emulator streaming. A native
+// emulator runs in a separate container with a Selkies WebRTC stream;
+// RomM claims a session through the `/api/streaming` endpoints and
+// shows the stream in an iframe pointed at the container's web UI.
+//
+// Layout mirrors the EmulatorJS view, three columns pre-game:
+//   1. Hero: cover + title + "Play on <emulator>" CTA + back links.
+//   2. Resume: the state picker and the save-data report, tabbed where
+//      the emulator carries both.
+//   3. Session: where the game runs and any claim errors (occupied /
+//      not configured / server).
+//   4. Aside: memory card picker + fullscreen-on-play.
+//
+// The running state is a fixed stage hosting the Selkies iframe with an
+// auto-hiding control bar (volume, save/load state, fullscreen, exit).
+import { useDebounceFn, useEventListener, useIntervalFn } from "@vueuse/core";
+import { isAxiosError } from "axios";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  shallowRef,
+  watch,
+} from "vue";
+import { useI18n } from "vue-i18n";
+import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
+import type { SaveSchema, UserStateSchema } from "@/__generated__";
+import AssetPreview from "@/components/Player/AssetPreview.vue";
+import MemoryCardImportDialog from "@/components/Player/MemoryCardImportDialog.vue";
+import MemoryCardPicker from "@/components/Player/MemoryCardPicker.vue";
+import SaveDataPanel from "@/components/Player/SaveDataPanel.vue";
+import SessionEndedReason from "@/components/Player/SessionEndedReason.vue";
+import StreamStage from "@/components/Player/StreamStage.vue";
+import AssetList from "@/components/shared/AssetList.vue";
+import AssetStrip, {
+  type AssetLayout,
+} from "@/components/shared/AssetStrip.vue";
+import GameCover from "@/components/shared/GameCover.vue";
+import { useActivityPresence } from "@/composables/useActivityPresence";
+import { useBackgroundArt } from "@/composables/useBackgroundArt";
+import { useCoverArt } from "@/composables/useCoverArt";
+import { useFullscreenPref } from "@/composables/useFullscreenPref";
+import { useInputModality } from "@/composables/useInputModality";
+import { useIsAlive } from "@/composables/useIsAlive";
+import { useMultiplayerPref } from "@/composables/useMultiplayerPref";
+import { usePageTitle } from "@/composables/usePageTitle";
+import { usePlayFocus } from "@/composables/usePlayFocus";
+import { usePlaySession } from "@/composables/usePlaySession";
+import { usePlayerNav } from "@/composables/usePlayerNav";
+import { romIdFromRoute } from "@/composables/useRouteRom";
+import { useSnackbar } from "@/composables/useSnackbar";
+import { useSocketEvent } from "@/composables/useSocketEvent";
+import { usePlayingWhile, useStageActive } from "@/composables/useStageActive";
+import { useUnloadGuard } from "@/composables/useUnloadGuard";
+import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
+import {
+  RAlert,
+  RBtn,
+  RCard,
+  RDialog,
+  RIcon,
+  RSelect,
+  RSlider,
+  RSliderBtnGroup,
+  RSpinner,
+  RSwitch,
+  RTooltip,
+} from "@/lib";
+import type { SliderBtnGroupItem } from "@/lib/primitives/RSliderBtnGroup/types";
+import romApi from "@/services/api/rom";
+import streamingApi, {
+  type ContainerBusyDetail,
+  isMemoryCardImportDetail,
+  type LaunchFailed,
+  type LaunchPhase,
+  type LaunchReady,
+  type MemoryCardImport,
+  type MemoryCardImportDetail,
+  type StreamStatePicks,
+  type StreamingContainer,
+} from "@/services/api/streaming";
+import storeAuth from "@/stores/auth";
+import storeGalleryRoms from "@/stores/galleryRoms";
+import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
+import {
+  type SessionStatus,
+  type SessionTermination,
+  useStreamingStore,
+} from "@/stores/streaming";
+import { emulatorKey } from "@/utils/assets";
+import { bootableFiles } from "@/utils/playerDisc";
+
+type PlayerState = "idle" | "loading" | "playing" | "error" | "exited";
+type ErrorType =
+  "occupied" | "not_configured" | "rom_not_found" | "server" | null;
+
+const { t } = useI18n();
+const route = useRoute();
+const router = useRouter();
+const auth = storeAuth();
+const streamingStore = useStreamingStore();
+const alive = useIsAlive();
+const snackbar = useSnackbar();
+const { fullscreenOnPlay } = useFullscreenPref();
+const { multiplayerOnPlay } = useMultiplayerPref();
+const { modality } = useInputModality();
+const playSession = usePlaySession();
+
+const rom = ref<DetailedRom | null>(null);
+const playerState = ref<PlayerState>("idle");
+const errorType = ref<ErrorType>(null);
+const errorMessage = ref<string>("");
+const errorHint = ref<string>("");
+const occupiedBy = ref<{ rom_name: string; claimed_at: string } | null>(null);
+const launchPhase = ref<string | null>(null);
+const draining = ref(false);
+const containerHost = ref<string>("");
+const isSavingAndExiting = ref(false);
+const isSavingState = ref(false);
+const isLoadingState = ref(false);
+// Matches the room's first-visit level: retro games mix far louder than a
+// webcam mic. Never sent on its own, so the room's saved level still wins.
+const volume = ref(60);
+const isMuted = ref(false);
+// Set from a 428 on claim: the container holds a memory card nobody has
+// decided about yet. The claim is not held open, the answer is replayed on a
+// fresh one.
+const cardImportDetail = ref<MemoryCardImportDetail | null>(null);
+const showCardImport = ref(false);
+const showDiscSwap = ref(false);
+const selectedDisc = ref<number | null>(null);
+const isSwappingDisc = ref(false);
+
+const gameRunning = computed(() => playerState.value === "playing");
+useStageActive(gameRunning);
+
+// Set by the Join action on the game page. A join attaches to a session
+// someone else is hosting instead of claiming a container, so none of the
+// claim's setup (state resume, memory card, card import) applies, and none
+// of the owner-only controls do either.
+//
+// Read once rather than kept reactive: useRoute() has already advanced to the
+// destination by the time the teardown guards below run, so a live computed
+// reports false on the way out and a joiner's unmount would release the
+// host's session out from under them.
+const isJoining = route.query.join === "1";
+
+// Named by the row that offered the join: a pool holds a session per container,
+// and an unnamed join takes whichever one the backend walks to first.
+const joinContainer =
+  typeof route.query.container === "string" ? route.query.container : undefined;
+
+// True only while this tab's own claim is held. The teardown paths key off
+// this rather than the player state, because a joiner reaches "playing" too.
+const holdsClaim = ref(false);
+
+// While a session is active (launching or playing) the emulator owns the
+// controller: the global playing flag mutes useGamepad's UI translation,
+// which would otherwise treat B as history-back (ending the session) and
+// Start as the user menu. The exit dialog is the sanctioned way out.
+const sessionActive = computed(
+  () => playerState.value === "playing" || playerState.value === "loading",
+);
+usePlayingWhile(sessionActive);
+watch(sessionActive, (active) => {
+  if (active) startSessionPoll();
+  else stopSessionPoll();
+});
+
+// A reload tears the stream down without the save-and-exit handshake, so a
+// claimed session is worth a confirmation prompt too.
+useUnloadGuard(sessionActive);
+
+// What the play button says while the claim is in flight. The phase only
+// arrives once the broker has started unpacking, so the generic line covers
+// both the wait before that and every launch with no extraction step.
+const launchStatusText = computed(() => {
+  if (launchPhase.value === "extracting_archive") {
+    return t("play.launch-extracting-archive");
+  }
+  if (launchPhase.value === "extracting_pkg") {
+    return t("play.launch-extracting-pkg");
+  }
+  return t("play.launch-starting");
+});
+
+// Rom id straight from the route param (available before `rom` resolves),
+// so the hero cover paints its `view-transition-name` immediately and the
+// shared-element morph from the gallery / details cover pairs on entry.
+const morphRomId = computed(() => {
+  const r = route.params.rom;
+  return typeof r === "string" ? r : null;
+});
+
+// Seed synchronously so the hero cover is already in the DOM when the view
+// transition captures this view (same pattern as the EmulatorJS view).
+const seedId = romIdFromRoute(route);
+const seededRom = seedId === null ? null : storeRoms().getDetailedRom(seedId);
+if (seededRom) rom.value = seededRom;
+const heroSeed = ref<SimpleRom | null>(null);
+if (!rom.value && seedId !== null) {
+  heroSeed.value = storeGalleryRoms().getRomById(seedId);
+}
+const heroRom = computed<DetailedRom | SimpleRom | null>(
+  () => rom.value ?? heroSeed.value,
+);
+
+const setBgArt = useBackgroundArt();
+
+// Alt-art detection only drives the purple glow: a floating disc /
+// cartridge reads better without a frame (same rule as EmulatorJS).
+const art = useCoverArt(() => heroRom.value);
+const heroIsAlt = computed(
+  () =>
+    art.style.value !== "cover_path" &&
+    !!(art.coverUrl.value ?? art.fallbackUrl.value),
+);
+const coverRef = ref<InstanceType<typeof GameCover> | null>(null);
+
+const bgCoverUrl = computed(() => {
+  const r = rom.value;
+  if (!r) return null;
+  return r.path_cover_large ?? r.path_cover_small ?? r.url_cover ?? null;
+});
+
+// Background art keeps the plain 2D cover while the launch screen is up;
+// clear it once the player goes full-bleed so the stream isn't fought
+// by a blurred backdrop behind the iframe.
+watch(
+  bgCoverUrl,
+  (url) => setBgArt(playerState.value === "playing" ? null : url),
+  { immediate: true },
+);
+
+watch(playerState, (state) =>
+  setBgArt(state === "playing" ? null : bgCoverUrl.value),
+);
+
+// Pinned at claim, so a permission refresh that turns streaming off mid-game
+// leaves the session its controls until it ends.
+const heldContainer = shallowRef<StreamingContainer | null>(null);
+const container = computed(
+  () =>
+    heldContainer.value ??
+    (rom.value
+      ? streamingStore.containerForPlatform(rom.value.platform_slug)
+      : null),
+);
+
+const capabilities = computed(() =>
+  streamingStore.containerCapabilities(container.value),
+);
+
+// Emulators that keep saves in the emulated filesystem rather than in
+// snapshots get no slots from the backend. There is nothing to pick from
+// and never will be, so the picker gives way to a report of the save
+// archive instead of an empty grid.
+const supportsStates = computed(
+  () => capabilities.value.maxSlots > 0 || capabilities.value.hasAutosave,
+);
+
+function fileExtension(name: string): string {
+  return name.split(".").pop()?.toLowerCase() ?? "";
+}
+
+// Mirrors the backend's Rom.has_m3u_file(): the emulator's disc-swap menu
+// only exists for multi-disc sets that ship a playlist.
+const hasM3uFile = computed(() =>
+  (rom.value?.files ?? []).some((f) => fileExtension(f.file_name) === "m3u"),
+);
+
+const bootableRomFiles = computed(() => bootableFiles(rom.value?.files ?? []));
+
+// Mirrors the download endpoint's playlist filtering: when .cue files are
+// present only those are valid swap targets (raw .bin tracks are not), and
+// the .m3u itself is never something to swap to.
+const discOptions = computed(() => {
+  const files = bootableRomFiles.value.filter(
+    (f) => fileExtension(f.file_name) !== "m3u",
+  );
+  const cueFiles = files.filter((f) => fileExtension(f.file_name) === "cue");
+  const listed = cueFiles.length > 0 ? cueFiles : files;
+  return listed.map((f) => ({ title: f.file_name, value: f.id }));
+});
+
+// A rom with a single swappable disc has nothing to swap to, whatever the
+// platform can do.
+const canSwapDisc = computed(
+  () =>
+    capabilities.value.supportsDiscSwap &&
+    discOptions.value.length > 1 &&
+    hasM3uFile.value &&
+    !isJoining,
+);
+
+// Platforms whose emulator changes discs from its own menu get a note
+// instead of a control.
+const showManualDiscHint = computed(
+  () =>
+    capabilities.value.hasManualDiscSwap &&
+    bootableRomFiles.value.length > 1 &&
+    !isJoining,
+);
+
+// ── Resume-from-state picker ────────────────────────────────────────
+// The user's own states plus other users' public ones (that is what
+// all_user_states carries), newest-first from the backend.
+const selectedState = ref<UserStateSchema | null>(null);
+
+// Every save, whichever emulator wrote it, newest write first: updated_at,
+// since the web player writes into its existing row.
+const allSaves = computed<SaveSchema[]>(() => {
+  if (!rom.value) return [];
+  return [...(rom.value.user_saves ?? [])].sort(
+    (a, b) =>
+      new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime() ||
+      b.id - a.id,
+  );
+});
+
+// Only an archive this emulator wrote carries a layout it restores natively.
+const nativeRestorableSaves = computed<SaveSchema[]>(() => {
+  const emulator = emulatorKey(container.value?.emulator);
+  if (!emulator) return [];
+  return allSaves.value.filter(
+    (s) =>
+      emulatorKey(s.emulator) === emulator &&
+      s.file_name.toLowerCase().endsWith(".zip"),
+  );
+});
+
+// A foreign save is only on offer where the broker declares it can import one.
+const pickableSaves = computed<SaveSchema[]>(() =>
+  container.value?.import_kinds.includes("save")
+    ? allSaves.value
+    : nativeRestorableSaves.value,
+);
+
+// The one the claim restores when it names none: this emulator's own newest,
+// unless RetroArch can import a newer bare .srm, as the backend picks too.
+const newestSave = computed<SaveSchema | null>(() => {
+  // A row whose file vanished can't boot, however recently sync touched it.
+  const native =
+    nativeRestorableSaves.value.find((s) => !s.missing_from_fs) ?? null;
+  if (
+    emulatorKey(container.value?.emulator) !== "retroarch" ||
+    !container.value?.import_kinds.includes("save")
+  )
+    return native;
+  // allSaves is newest first, so the first match is the newer of the two.
+  return (
+    allSaves.value.find(
+      (s) =>
+        s === native ||
+        (!s.missing_from_fs && s.file_name.toLowerCase().endsWith(".srm")),
+    ) ?? null
+  );
+});
+
+// A pick only lands where the broker empties the save tree first; elsewhere
+// the container's newer files survive the restore and the pick does nothing.
+const showSavePicker = computed(
+  () =>
+    (container.value?.supports_save_picker ?? false) &&
+    pickableSaves.value.length > 0,
+);
+
+// The id rather than the row, so a pick that is no longer on offer falls back
+// to the newest on its own. A save has no "none": the claim restores one either way.
+const savePickId = ref<number | null>(null);
+
+const selectedSave = computed<SaveSchema | null>(
+  () =>
+    pickableSaves.value.find((s) => s.id === savePickId.value) ??
+    newestSave.value,
+);
+
+// The backend picks the offered states by the claim's rules: native ones resume
+// as they are, the rest only through an import the broker declares.
+const statePicks = ref<StreamStatePicks | null>(null);
+// The rom whose picks have answered, which Play waits for.
+const statePicksRomId = ref<number | null>(null);
+let statePicksRequest = 0;
+// Keyed on what changes the answer, a rename included, so a config or rom
+// refresh that changes nothing asks nothing.
+const statePicksKey = computed(() => {
+  const current = container.value;
+  if (!rom.value || !current) return null;
+  const ids = (rom.value.all_user_states ?? [])
+    .map((s) => `${s.id}:${s.file_name}`)
+    .join(",");
+  const kinds = current.import_kinds.join(",");
+  return `${rom.value.id}|${current.emulator}|${kinds}|${ids}`;
+});
+watch(
+  statePicksKey,
+  async (key) => {
+    const romId = rom.value?.id;
+    if (key === null || romId === undefined || isJoining) return;
+    const request = ++statePicksRequest;
+    let picks: StreamStatePicks | null = null;
+    try {
+      ({ data: picks } = await streamingApi.fetchStatePicks(romId));
+    } catch {
+      // A failed refresh keeps the last answer, so the user's pick survives;
+      // with none yet, nothing is offered and Play boots fresh.
+    }
+    if (!alive.value || request !== statePicksRequest) return;
+    if (picks) statePicks.value = picks;
+    statePicksRomId.value = romId;
+  },
+  { immediate: true },
+);
+
+// In the order all_user_states carries them, newest first.
+function statesById(ids: number[] | undefined): UserStateSchema[] {
+  const wanted = new Set(ids);
+  return (rom.value?.all_user_states ?? []).filter((s) => wanted.has(s.id));
+}
+
+const nativeStreamStates = computed(() => statesById(statePicks.value?.native));
+const pickableStates = computed(() => statesById(statePicks.value?.pickable));
+
+// Every capture is kept, so a heavy save-stater ends up with a history the
+// horizontal strip buries. Grid and list trade thumbnail size for how many
+// entries fit at once; the choice sticks across sessions.
+const STATE_LAYOUTS = [
+  { value: "strip", icon: "mdi-view-carousel-outline" },
+  { value: "grid", icon: "mdi-view-grid-outline" },
+  { value: "list", icon: "mdi-view-list" },
+] as const satisfies readonly { value: AssetLayout; icon: string }[];
+
+const stateLayout = useUserLocalStorage<AssetLayout>(
+  "romm:v2:stream:states-layout",
+  "strip",
+);
+
+// Preselect the newest state once so Play resumes where the user left off.
+// A deliberate clear (deselect or the preview's clear button) sticks: the
+// list recomputes on every rom/config refresh and must not re-pick.
+const statePreselected = ref(false);
+watch(
+  [pickableStates, nativeStreamStates],
+  ([states, native]) => {
+    const current = selectedState.value;
+    if (current && !states.some((s) => s.id === current.id)) {
+      selectedState.value = null;
+    }
+    if (!statePreselected.value && native.length > 0) {
+      statePreselected.value = true;
+      if (!selectedState.value) selectedState.value = native[0]!;
+    }
+  },
+  { immediate: true },
+);
+
+// Clicking the selected tile deselects it, which is how a fresh boot is
+// chosen when a state exists.
+function pickState(state: UserStateSchema): void {
+  selectedState.value = selectedState.value?.id === state.id ? null : state;
+}
+
+function clearState(): void {
+  selectedState.value = null;
+}
+
+// ── Resume tabs ─────────────────────────────────────────────────────
+// A container can carry both a state library and a save archive, and
+// they resume different things: a snapshot picks up mid-frame, the
+// archive only puts the game's own save file back on disk. Where both
+// exist the panel tabs between them.
+type ResumeTab = "state" | "save";
+
+const resumeTab = ref<ResumeTab>("state");
+
+// The app-load config can predate the broker's import answer, so the picker
+// waits for the page's own refetch.
+const configFresh = ref(false);
+
+const showResumeTabs = computed(
+  () =>
+    configFresh.value && supportsStates.value && pickableSaves.value.length > 0,
+);
+
+// The pick only counts when there is something to pick between.
+const activeResumeTab = computed<ResumeTab>(() => {
+  if (!supportsStates.value) return "save";
+  return showResumeTabs.value ? resumeTab.value : "state";
+});
+
+function setResumeTab(id: ResumeTab): void {
+  resumeTab.value = id;
+}
+
+const resumeTabs = computed<SliderBtnGroupItem<ResumeTab>[]>(() => [
+  {
+    id: "state",
+    label: t("common.states"),
+    badge: pickableStates.value.length,
+    icon: "mdi-file",
+  },
+  {
+    id: "save",
+    label: t("common.saves"),
+    badge: pickableSaves.value.length,
+    icon: "mdi-content-save",
+  },
+]);
+
+// ── Memory card picker (whole-card sync) ────────────────────────────
+// Which card to hydrate onto the container at claim. Only shown for
+// containers that sync whole cards (PCSX2). Null means "let the backend
+// pick the newest / auto-create a blank one". MemoryCardPicker owns the
+// fetch + default-newest selection; we just carry the id to claim.
+const selectedMemoryCardId = ref<number | null>(null);
+
+// RomM keeps every capture, so slots are no longer a user-facing concept:
+// they are just the register the emulator writes through. Everything rides
+// the autosave slot, which is also what hydration pushes into and what
+// save-and-exit already uses, so quick-load in game lands on the same file
+// the picker last sent down.
+const streamSlot = computed(() => capabilities.value.autosaveSlot);
+
+const title = computed(
+  () => heroRom.value?.name || heroRom.value?.fs_name_no_ext || "",
+);
+
+usePageTitle(() =>
+  title.value ? t("play.page-title", { name: title.value }) : null,
+);
+
+const platformLabel = computed(
+  () =>
+    heroRom.value?.platform_custom_name ||
+    heroRom.value?.platform_display_name ||
+    rom.value?.platform_slug?.toUpperCase() ||
+    "",
+);
+
+const emulatorLabel = computed(
+  () => container.value?.label ?? platformLabel.value,
+);
+
+// Held with the resume picker and its picks, so Play never sends a pick the
+// player can't see or skips the state about to be preselected.
+const playReady = computed(
+  () =>
+    !!rom.value &&
+    configFresh.value &&
+    playerState.value !== "loading" &&
+    (isJoining ||
+      statePicksKey.value === null ||
+      statePicksRomId.value === rom.value.id),
+);
+usePlayFocus(".r-stream__play", playReady, gameRunning);
+
+// ── Live activity ("now playing") ──────────────────────────────────
+// Each beat also refreshes the backend claim's liveness stamp: a session whose
+// heartbeat stops long enough counts as abandoned and can be taken over. The
+// same reply reports whether the claim is still ours, which is how an admin
+// force-release reaches this tab.
+let heartbeatInFlight = false;
+
+const presence = useActivityPresence(
+  () => rom.value?.id,
+  async () => {
+    // A joiner holds no claim, so the stamp is not theirs to refresh and the
+    // route would 403 on every tick. A slow round-trip must not let the next
+    // tick stack a second request.
+    if (!rom.value || !sessionActive.value || isJoining || heartbeatInFlight)
+      return;
+    heartbeatInFlight = true;
+    try {
+      await handleSessionStatus(
+        await streamingStore.heartbeatSession(
+          rom.value.platform_slug,
+          claimedContainer.value,
+          claimedAt.value,
+        ),
+      );
+    } finally {
+      heartbeatInFlight = false;
+    }
+  },
+);
+
+// ── Force-release handling ─────────────────────────────────────────
+// An admin can end this session from the activity panel. Nothing about the
+// stream itself changes when that happens (the picture just stops), so the
+// poll reply is what drives the player out, naming who ended it and why.
+// The notice is a dialog rather than a snackbar: the player has just lost a
+// running game and must acknowledge that before being sent back.
+const endedDialogOpen = ref(false);
+const endedNotice = ref<SessionTermination | null>(null);
+
+// Headline: who ended it, said plainly enough that the player knows this was
+// an admin action and not a crash. The reason, when one was given, is a
+// separate line in the dialog rather than part of this sentence.
+const endedMessage = computed(() => {
+  const endedBy = endedNotice.value?.ended_by;
+  if (endedBy) return t("play.session-ended-by", { user: endedBy });
+  // No notice recorded: the claim expired or was released elsewhere.
+  return t("play.session-ended");
+});
+
+const endedReason = computed(() => endedNotice.value?.reason ?? "");
+
+async function handleSessionStatus(
+  status: SessionStatus | null,
+): Promise<void> {
+  // Null means the poll failed, not that the session is gone. A transient
+  // network error must never tear down a live game.
+  if (!status) return;
+  // Already leaving under our own power (stop, save-and-exit, unload).
+  if (!sessionActive.value) return;
+  // The socket push arrives per-user, not per-platform (one room for every
+  // stream the account touches), so a stale event for a different platform
+  // must not tear down the one actually on screen.
+  if (rom.value && status.platform !== rom.value.platform_slug) return;
+
+  if (status.status === "active") {
+    await enterRunningSession(status);
+    return;
+  }
+
+  // Leave fullscreen before anything else. RDialog teleports to <body>,
+  // outside the stage, so the notice would otherwise be painted under a
+  // fullscreened stage; and tearing the stage down first would unmount the
+  // fullscreen element out from under the in-flight exit request, leaving the
+  // browser fullscreen over a dead stream.
+  await stage.value?.leaveFullscreen();
+
+  // "exited" both stops the route guard prompting and suppresses the unmount
+  // release path, since the claim is already gone server-side.
+  playerState.value = "exited";
+  containerHost.value = "";
+  presence.stopHeartbeat();
+  // Left standing, the claim would have the unload and unmount paths release
+  // whoever holds the container next.
+  forgetClaim();
+
+  endedNotice.value = status.termination ?? null;
+  endedDialogOpen.value = true;
+}
+
+async function enterStream(host: string): Promise<void> {
+  containerHost.value = host;
+  playerState.value = "playing";
+  if (fullscreenOnPlay.value) {
+    await nextTick();
+    await stage.value?.enterFullscreen();
+  }
+}
+
+// launch-ready is pushed once, so a tab that missed it sits loading over a
+// running session; the room the poll reports is its way back in.
+async function enterRunningSession(status: SessionStatus): Promise<void> {
+  if (playerState.value !== "loading" || !status.host) return;
+  launchPhase.value = null;
+  warnOfCore(status.core, status.core_tier);
+  await enterStream(status.host);
+}
+
+// The broker boots an untested or opted-in broken core rather than refuse
+// it, so this is where the player learns it may misbehave.
+function warnOfCore(core?: string | null, tier?: string | null): void {
+  if (tier === "untested") snackbar.warning(t("play.core-untested", { core }));
+  else if (tier === "blocked")
+    snackbar.warning(t("play.core-blocked", { core }));
+}
+
+function dismissEndedDialog(): void {
+  endedDialogOpen.value = false;
+  backToRom();
+}
+
+// The socket push below is what actually drives an admin release out in
+// close to real time. This poll is the fallback for a dropped/missed push
+// (socket reconnecting, event lost) and for a background tab's throttled
+// timers, so it runs far less often than the push needs to react.
+const SESSION_POLL_MS = 30_000;
+
+// Pushed by the backend the instant an admin force-releases this user's
+// session (`_record_termination` in streaming.py), to the caller's own
+// `user:{id}` room. Near-instant, unlike the poll above.
+useSocketEvent<SessionTermination>("streaming:session-ended", (notice) => {
+  // The room carries every claim the account holds, and an admin's desktop is
+  // never the game on screen.
+  if (notice.desktop) return;
+  if (!claimedAt.value) {
+    if (playerState.value === "loading") earlyNotices.push(notice);
+    return;
+  }
+  if (isOurClaim(notice)) void endFromNotice(notice);
+});
+
+// Notices that beat the 202, held until it says which claim is ours.
+const earlyNotices: SessionTermination[] = [];
+
+async function endFromNotice(notice: SessionTermination): Promise<void> {
+  await handleSessionStatus({
+    status: "ended",
+    platform: notice.platform ?? "",
+    termination: notice,
+  });
+}
+let sessionPollInFlight = false;
+
+async function pollSessionStatus(): Promise<void> {
+  // Skip rather than queue: a slow reply must not stack up requests.
+  if (sessionPollInFlight || !sessionActive.value || !rom.value) return;
+  // Unstamped, the answer can be another tab's claim on the platform.
+  const stamp = claimedAt.value;
+  if (!stamp) return;
+  sessionPollInFlight = true;
+  try {
+    const status = await streamingStore.fetchSessionStatus(
+      rom.value.platform_slug,
+      stamp,
+    );
+    if (stamp !== claimedAt.value) return;
+    await handleSessionStatus(status);
+  } finally {
+    sessionPollInFlight = false;
+  }
+}
+
+const sessionPoll = useIntervalFn(
+  () => void pollSessionStatus(),
+  SESSION_POLL_MS,
+  {
+    immediate: false,
+  },
+);
+
+function startSessionPoll() {
+  // The status route belongs to the claim holder; a joiner would only
+  // collect 403s and then be thrown out of a session that is still running.
+  if (!isJoining) sessionPoll.resume();
+}
+
+const stopSessionPoll = sessionPoll.pause;
+
+// ── Launch ─────────────────────────────────────────────────────────
+// The claim only reserves the container; the backend runs the launch detached
+// and pushes what happened. A launch can take minutes on a title the broker
+// has to unpack, and these are the only progress the player sees.
+
+// Which container the claim won, so a launch push can be told from another
+// tab's. Null until the 202 lands, which is before any push can arrive.
+const claimedContainer = ref<string | null>(null);
+// The stamp the 202 answered with. Every request and push about the claim
+// carries it, since a re-claim of the same container shares its key.
+const claimedAt = ref<string | null>(null);
+
+function forgetClaim(): void {
+  holdsClaim.value = false;
+  heldContainer.value = null;
+  claimedContainer.value = null;
+  claimedAt.value = null;
+}
+
+// The room is per-user, so a second tab hears about this tab's claim too.
+function isOurClaim(payload: {
+  container?: string | null;
+  claimed_at?: string | null;
+}): boolean {
+  return (
+    payload.container === claimedContainer.value &&
+    payload.claimed_at === claimedAt.value
+  );
+}
+
+// For a claim the player walked away from while it came up. Only a release the
+// backend took clears it, and the unmount path retries one that failed.
+async function handBackClaim(platform: string): Promise<void> {
+  const released = await streamingStore.releaseSession(
+    platform,
+    false,
+    claimedContainer.value,
+    claimedAt.value,
+  );
+  if (released) forgetClaim();
+  else holdsClaim.value = true;
+}
+
+useSocketEvent<LaunchPhase>("streaming:launch-phase", (payload) => {
+  if (!isOurClaim(payload) || playerState.value !== "loading") return;
+  launchPhase.value = payload.phase ?? null;
+});
+
+async function onLaunchReady(payload: LaunchReady): Promise<void> {
+  if (!isOurClaim(payload)) return;
+  launchPhase.value = null;
+  if (playerState.value === "exited") {
+    await handBackClaim(payload.platform);
+    return;
+  }
+  if (payload.resume === false) snackbar.warning(t("play.resume-failed"));
+  // A status poll can land between the launch stamp and this push and enter
+  // first, core warning included; entering again would force fullscreen back on.
+  if (playerState.value === "playing") return;
+  warnOfCore(payload.core, payload.core_tier);
+  await enterStream(payload.host);
+}
+
+useSocketEvent<LaunchReady>(
+  "streaming:launch-ready",
+  (payload) => void onLaunchReady(payload),
+);
+
+useSocketEvent<LaunchFailed>("streaming:launch-failed", (payload) => {
+  if (!isOurClaim(payload)) return;
+  // The backend already released the claim, so there is nothing to hand back.
+  forgetClaim();
+  launchPhase.value = null;
+  if (playerState.value === "exited") return;
+  errorType.value = "server";
+  if (payload.refusals?.length) {
+    errorMessage.value = t("play.stream-error-import-refused");
+    // One refusal per rejected member, so a large archive repeats each reason.
+    const hints = [
+      ...new Set(
+        payload.refusals.map((r) =>
+          r.suggest_emulator
+            ? streamingStore.emulatorLabel(r.suggest_emulator)
+            : r.reason,
+        ),
+      ),
+    ].join(", ");
+    const truncated = payload.refusals_truncated;
+    errorHint.value = truncated
+      ? `${hints} (${t("play.import-refusals-truncated", truncated)})`
+      : hints;
+  } else {
+    errorMessage.value = t("play.stream-error-generic");
+    errorHint.value = payload.detail;
+  }
+  playerState.value = "error";
+});
+
+// A background tab's timers are throttled, so the poll may not have run for
+// minutes. Re-check on the way back rather than leaving a dead stream on
+// screen.
+async function onVisibilityChange(): Promise<void> {
+  if (document.hidden) return;
+  await pollSessionStatus();
+}
+
+// The backend records the claim holder's session on release, so only a
+// joiner's playtime is timed here.
+watch(gameRunning, (running, prev) => {
+  if (running && !prev) {
+    presence.start();
+    if (rom.value && isJoining) playSession.start(rom.value);
+    void nextTick(focusStream);
+  }
+  if (prev && !running) {
+    presence.stop();
+    playSession.flush();
+  }
+});
+
+// ── Stage ──────────────────────────────────────────────────────────
+// The iframe, the auto-hiding bar and the focus handling all live in
+// StreamStage; this view only supplies the bar's buttons.
+const stage = ref<InstanceType<typeof StreamStage> | null>(null);
+
+function focusStream(): void {
+  stage.value?.focusStream();
+}
+
+// ── Volume / mute ───────────────────────────────────────────────────
+// A same-origin container takes both straight from the browser, moving this
+// viewer's own output rather than the mixer every viewer shares. The broker
+// path is what is left for cross-origin containers, and it stays debounced so
+// the broker only hears the value once it settles.
+const sendVolumeToBroker = useDebounceFn((level: number) => {
+  const platform = rom.value?.platform_slug;
+  if (platform)
+    streamingApi
+      .setVolume(platform, level, claimedContainer.value, claimedAt.value)
+      .catch((err) => console.error("[streaming] Could not set volume:", err));
+}, 150);
+
+watch(volume, (val) => {
+  const level = Math.round(val);
+  if (stage.value?.postToStream({ type: "setVolume", value: level / 100 }))
+    return;
+  void sendVolumeToBroker(level);
+});
+
+function toggleMute(): void {
+  isMuted.value = !isMuted.value;
+  if (stage.value?.postToStream({ type: "setMute", value: isMuted.value }))
+    return;
+  const platform = rom.value?.platform_slug;
+  if (platform)
+    streamingApi
+      .setMute(platform, isMuted.value, claimedContainer.value, claimedAt.value)
+      .catch((err) => console.error("[streaming] Could not set mute:", err));
+}
+
+// ── Session lifecycle ──────────────────────────────────────────────
+
+// Plain-language "what could be wrong" hint for the claim error alert.
+// Statuses mirror the backend contract: 502 broker rejected the launch,
+// 503 broker unreachable, 401/403 auth, no status = RomM unreachable.
+function hintForStatus(status?: number): string {
+  const label = emulatorLabel.value;
+  if (status === 503) return t("play.error-hint-unreachable", { label });
+  if (status === 502) return t("play.error-hint-broker", { label });
+  if (status === 401 || status === 403) return t("play.error-hint-auth");
+  if (status === undefined) return t("play.error-hint-network");
+  return t("play.error-hint-server");
+}
+
+// `cardImport` is only set when this run is the retry after the memory card
+// import prompt; the backend rejects the claim again without it.
+async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
+  if (!rom.value) return;
+  if (!container.value) {
+    playerState.value = "error";
+    errorType.value = "not_configured";
+    errorMessage.value = t("play.stream-error-not-configured", {
+      platform: rom.value.platform_slug,
+    });
+    errorHint.value = t("play.error-hint-not-configured");
+    return;
+  }
+
+  playerState.value = "loading";
+  errorType.value = null;
+  errorHint.value = "";
+  occupiedBy.value = null;
+
+  // Launch flourish on the cover (disc drop / cartridge slot-in) while
+  // the session claim is in flight.
+  const insertMs = coverRef.value?.playLoad() ?? 0;
+  const flourish =
+    insertMs > 0
+      ? new Promise((resolve) => setTimeout(resolve, insertMs))
+      : Promise.resolve();
+
+  if (auth.scopes.includes("roms.user.write")) {
+    // Best-effort metadata update; a failure must not surface as an
+    // unhandled rejection or block the launch.
+    romApi
+      .updateUserRomProps({
+        romId: rom.value.id,
+        data: {},
+        updateLastPlayed: true,
+      })
+      .catch((err) => {
+        console.error("[stream] Could not update last-played:", err);
+      });
+  }
+
+  try {
+    if (isJoining) {
+      const joined = await streamingStore.joinSession(
+        rom.value.platform_slug,
+        joinContainer,
+      );
+      await flourish;
+      if ((playerState.value as PlayerState) === "exited") return;
+      await enterStream(joined.host);
+    } else {
+      // The backend derives the ROM's filesystem path and platform from the id.
+      // It answers as soon as the container is reserved; the room URL follows
+      // on the socket, so the state stays "loading" until launch-ready lands.
+      const launching = await streamingStore.claimSession(
+        rom.value.id,
+        selectedState.value?.id,
+        // Only a pick the player made. Left off, the backend boots its own
+        // default and can fall back to the archive if an import is refused.
+        showSavePicker.value && selectedSave.value?.id === savePickId.value
+          ? (savePickId.value ?? undefined)
+          : undefined,
+        container.value?.supports_memory_cards
+          ? (selectedMemoryCardId.value ?? undefined)
+          : undefined,
+        cardImport,
+        multiplayerOnPlay.value,
+      );
+      claimedContainer.value = launching.container;
+      heldContainer.value = container.value;
+      claimedAt.value = launching.claimed_at;
+      holdsClaim.value = true;
+      // Every exit path ran before there was a claim to hand back.
+      if ((playerState.value as PlayerState) === "exited") {
+        await handBackClaim(rom.value.platform_slug);
+        return;
+      }
+      const endedEarly = earlyNotices.splice(0).find(isOurClaim);
+      if (endedEarly) await endFromNotice(endedEarly);
+      await flourish;
+    }
+  } catch (err: unknown) {
+    // Same race the success path guards: the user can leave via the exit
+    // dialog while the claim is in flight. Nothing was claimed here, so
+    // just stay exited rather than resurrecting the launch screen.
+    if ((playerState.value as PlayerState) === "exited") {
+      return;
+    }
+
+    // The store propagates the raw axios error; the status and the
+    // backend's detail payload live on its response.
+    const status = isAxiosError(err) ? err.response?.status : undefined;
+    const detail: unknown = isAxiosError(err)
+      ? err.response?.data?.detail
+      : undefined;
+
+    // Nothing was claimed and nothing is broken, the launch is just waiting
+    // on the user's answer, so this is a prompt rather than an error state.
+    if (status === 428 && isMemoryCardImportDetail(detail)) {
+      playerState.value = "idle";
+      cardImportDetail.value = detail;
+      showCardImport.value = true;
+      return;
+    }
+
+    // A join races the host: they can close the session or end it between
+    // the game page listing it and this request landing.
+    if (isJoining && (status === 403 || status === 404)) {
+      // The list that offered this Join is now known to be wrong, so drop the
+      // entry rather than leaving the affordance up on the page behind.
+      if (rom.value) streamingStore.forgetJoinableSession(rom.value.id);
+      playerState.value = "error";
+      errorType.value = "server";
+      errorMessage.value = t(
+        status === 403 ? "play.join-closed" : "play.join-ended",
+      );
+      errorHint.value = "";
+      return;
+    }
+
+    playerState.value = "error";
+
+    if (status === 409) {
+      errorType.value = "occupied";
+      const busy =
+        detail && typeof detail === "object"
+          ? (detail as ContainerBusyDetail)
+          : null;
+      // A draining container is nobody's: the previous session is over and the
+      // container is still shutting it down, so there is no holder to name.
+      draining.value = busy?.draining === true;
+      occupiedBy.value =
+        busy && busy.rom_name && busy.claimed_at
+          ? { rom_name: busy.rom_name, claimed_at: busy.claimed_at }
+          : null;
+    } else if (status === 404) {
+      // 404 covers two cases: no container configured for the platform,
+      // and the ROM itself missing (deleted between fetch and claim). The
+      // config the view already holds says which, rather than the wording of
+      // the backend's detail string.
+      if (container.value) {
+        errorType.value = "rom_not_found";
+        errorMessage.value = t("play.stream-error-rom-not-found");
+        errorHint.value = "";
+      } else {
+        errorType.value = "not_configured";
+        errorMessage.value = t("play.stream-error-not-configured", {
+          platform: rom.value?.platform_slug ?? "",
+        });
+        errorHint.value = t("play.error-hint-not-configured");
+      }
+    } else {
+      errorType.value = "server";
+      // The axios message ("Request failed with status code 502") is English
+      // and says nothing the hint does not, so the title stays translated and
+      // the status carries the detail.
+      errorMessage.value = t("play.stream-error-generic");
+      // A refused save/state pick carries a reason worth more than the generic hint.
+      errorHint.value =
+        status === 400 && typeof detail === "string"
+          ? detail
+          : hintForStatus(status);
+    }
+  }
+}
+
+function onCardImportAnswer(answer: MemoryCardImport): void {
+  cardImportDetail.value = null;
+  void onPlay(answer);
+}
+
+// Cancelling leaves the container untouched and unclaimed, so there is
+// nothing to release; just go back where the user came from.
+function onCardImportCancel(): void {
+  cardImportDetail.value = null;
+  backToRom();
+}
+
+async function performStop(): Promise<void> {
+  // Both the control bar and the exit dialog land here, and the release takes
+  // long enough for a second press to arrive mid-flight; the second DELETE
+  // would hit a key the first one already freed, or one a new claim now owns.
+  if (isStopping.value) return;
+  isStopping.value = true;
+  try {
+    // Leaving as a joiner ends nothing: the host keeps the container, so the
+    // only thing to do is drop this tab out of the room.
+    if (holdsClaim.value) {
+      // This is the deliberate way out without saving, so no state is written.
+      // The in-game save data still travels back either way.
+      const released = await streamingStore.releaseSession(
+        rom.value?.platform_slug ?? "",
+        false,
+        claimedContainer.value,
+        claimedAt.value,
+      );
+      // The claim only goes when the backend says it went. Left standing, it
+      // tells the user why the container is still busy and gives the unmount
+      // release something to retry.
+      holdsClaim.value = !released;
+      if (!released) {
+        snackbar.error(t("play.stream-release-failed"), { timeout: 6000 });
+      }
+    }
+    playerState.value = "exited";
+    containerHost.value = "";
+  } finally {
+    isStopping.value = false;
+  }
+}
+
+async function handleStop(): Promise<void> {
+  await performStop();
+  backToRom();
+}
+
+async function performSaveAndExit(): Promise<void> {
+  if (!rom.value || playerState.value !== "playing") return;
+  // The broker's save+kill runs for seconds with the player still on screen,
+  // so the guard is on the flag rather than on the state it eventually sets.
+  if (isSavingAndExiting.value || isStopping.value) return;
+  // A joiner has no claim to save or release, and the host's game keeps
+  // running after they leave.
+  if (!holdsClaim.value) {
+    playerState.value = "exited";
+    containerHost.value = "";
+    return;
+  }
+  isSavingAndExiting.value = true;
+  let saved: boolean | undefined;
+  let released = false;
+  try {
+    const result = await streamingStore.saveAndExit(
+      rom.value.platform_slug,
+      capabilities.value.autosaveSlot,
+      true,
+      claimedContainer.value,
+      claimedAt.value,
+    );
+    saved = result.saved;
+    released = result.released;
+    if (!released) {
+      // The save-and-exit request failed, so the claim may still be held;
+      // fall back to a plain release so the container is freed before the
+      // player is marked exited.
+      released = await streamingStore.releaseSession(
+        rom.value.platform_slug,
+        true,
+        claimedContainer.value,
+        claimedAt.value,
+      );
+    }
+  } finally {
+    isSavingAndExiting.value = false;
+    holdsClaim.value = !released;
+    playerState.value = "exited";
+    containerHost.value = "";
+  }
+  if (!released) {
+    snackbar.error(t("play.stream-release-failed"), { timeout: 6000 });
+  }
+  // Without states there is no save to confirm: the exit dumps the in-game
+  // save archive instead, so an unconfirmed state is the expected answer.
+  if (!saved && supportsStates.value) {
+    snackbar.warning(t("play.stream-save-unconfirmed"), {
+      timeout: 6000,
+      icon: "mdi-alert",
+    });
+  }
+}
+
+async function handleSaveAndExit(): Promise<void> {
+  await performSaveAndExit();
+  backToRom();
+}
+
+async function handleSaveState(): Promise<void> {
+  if (!rom.value || playerState.value !== "playing" || isJoining) return;
+  if (isSavingState.value) return;
+  isSavingState.value = true;
+  try {
+    await streamingApi.saveState(
+      rom.value.platform_slug,
+      streamSlot.value,
+      claimedContainer.value,
+      claimedAt.value,
+    );
+  } catch (err) {
+    console.error("[streaming] Could not save state:", err);
+    snackbar.error(t("play.stream-save-state-failed"), { timeout: 6000 });
+  } finally {
+    isSavingState.value = false;
+  }
+}
+
+async function handleLoadState(): Promise<void> {
+  if (!rom.value || playerState.value !== "playing" || isJoining) return;
+  if (isLoadingState.value) return;
+  isLoadingState.value = true;
+  try {
+    await streamingApi.loadState(
+      rom.value.platform_slug,
+      streamSlot.value,
+      claimedContainer.value,
+      claimedAt.value,
+    );
+  } catch (err) {
+    console.error("[streaming] Could not load state:", err);
+    snackbar.error(t("play.stream-load-state-failed"), { timeout: 6000 });
+  } finally {
+    isLoadingState.value = false;
+  }
+}
+
+function openDiscSwap(): void {
+  selectedDisc.value = null;
+  showDiscSwap.value = true;
+}
+
+async function handleSwapDisc(): Promise<void> {
+  if (!rom.value || selectedDisc.value === null || isSwappingDisc.value) return;
+  isSwappingDisc.value = true;
+  try {
+    await streamingApi.swapDisc(
+      rom.value.platform_slug,
+      selectedDisc.value,
+      claimedContainer.value,
+      claimedAt.value,
+    );
+    showDiscSwap.value = false;
+  } catch (err) {
+    console.error("[streaming] Could not swap disc:", err);
+    snackbar.error(t("play.swap-disc-failed"), { timeout: 6000 });
+  } finally {
+    isSwappingDisc.value = false;
+  }
+}
+
+const stateActionBusy = computed(
+  () =>
+    isSavingState.value ||
+    isLoadingState.value ||
+    isSavingAndExiting.value ||
+    isSwappingDisc.value,
+);
+
+// ── Navigation ─────────────────────────────────────────────────────
+const { romRoute, platformRoute } = usePlayerNav(
+  Number(morphRomId.value),
+  () => heroRom.value?.platform_id,
+);
+function backToRom() {
+  void router.push(romRoute);
+}
+
+// ── Exit guard (big-picture safety) ────────────────────────────────
+// While a session is active every way out funnels through one dialog:
+// route-leave (B press, browser back, any link) is intercepted, and
+// holding Select+Start on the pad opens it directly. A single stray
+// button press can no longer kill the game.
+const exitDialogOpen = ref(false);
+const isStopping = ref(false);
+// Set by the route-leave guard so a confirmed exit resumes the original
+// navigation instead of forcing the ROM details page.
+let pendingLeave: (() => void) | null = null;
+
+async function openExitDialog(): Promise<void> {
+  if (exitDialogOpen.value) return;
+  await stage.value?.leaveFullscreen();
+  exitDialogOpen.value = true;
+}
+
+watch(exitDialogOpen, (open) => {
+  if (!open) {
+    pendingLeave = null;
+    if (gameRunning.value) void nextTick(focusStream);
+  }
+});
+
+onBeforeRouteLeave((to) => {
+  if (!sessionActive.value) return true;
+  pendingLeave = () => void router.push(to.fullPath);
+  void openExitDialog();
+  return false;
+});
+
+function exitKeepPlaying(): void {
+  exitDialogOpen.value = false;
+}
+
+// Both actions resolve before the dialog closes so their buttons can
+// show a busy spinner (save-and-exit blocks on the broker's save+kill).
+async function exitSaveAndQuit(): Promise<void> {
+  const leave = pendingLeave;
+  await performSaveAndExit();
+  exitDialogOpen.value = false;
+  (leave ?? backToRom)();
+}
+
+async function exitWithoutSaving(): Promise<void> {
+  const leave = pendingLeave;
+  await performStop();
+  exitDialogOpen.value = false;
+  (leave ?? backToRom)();
+}
+
+// useGamepad is muted for the whole session (launch included), so its
+// Select+Start hold is the pad's only way to the exit dialog.
+useEventListener(window, "gamepad:exitchord", () => void openExitDialog());
+
+function formatTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString();
+  } catch {
+    return iso;
+  }
+}
+
+// ── Unload teardown ─────────────────────────────────────────────────
+// Vue teardown never runs when the tab closes or the browser quits, so
+// pagehide is the only signal. The keepalive requests outlive the page;
+// the broker-side save+kill then runs to completion server-side.
+function onPageHide(): void {
+  // The claim, not the player state, says whether anything is still held: an
+  // exit whose release failed is "exited" and still holding the container.
+  // Nothing of the host's to tear down either way, and the keepalive routes
+  // are owner-only.
+  if (!holdsClaim.value) {
+    playerState.value = "exited";
+    return;
+  }
+  const platform = rom.value?.platform_slug ?? "";
+  if (playerState.value === "playing") {
+    streamingStore.saveAndExitKeepalive(
+      platform,
+      capabilities.value.autosaveSlot,
+      claimedContainer.value,
+      claimedAt.value,
+    );
+  } else {
+    // Still loading, or exited with a release that failed: nothing to save,
+    // and this is the last chance to hand the container back.
+    streamingStore.releaseSessionKeepalive(
+      platform,
+      claimedContainer.value,
+      claimedAt.value,
+    );
+  }
+  // Guards the in-app unmount path from double-releasing if the page
+  // comes back from the bfcache and is then navigated normally.
+  holdsClaim.value = false;
+  playerState.value = "exited";
+}
+
+useEventListener(document, "visibilitychange", () => void onVisibilityChange());
+useEventListener(window, "pagehide", onPageHide);
+
+onMounted(async () => {
+  // The app-load copy can predate a broker that hadn't answered yet, and what
+  // it imports decides which saves the picker offers, so ask again here.
+  const freshConfig = streamingStore.fetchConfig().finally(() => {
+    if (alive.value) configFresh.value = true;
+  });
+  try {
+    const { data } = await romApi.getRom({
+      romId: parseInt(route.params.rom as string),
+    });
+    rom.value = data;
+  } catch {
+    playerState.value = "error";
+    errorType.value = "server";
+    errorMessage.value = t("play.stream-error-load-rom");
+    return;
+  }
+
+  // A join is confirmed on the game page, so there is no start page left to
+  // show: the settings on it (resume state, memory card, multiplayer) all
+  // belong to the claim, and a joiner makes none of those choices.
+  if (isJoining) {
+    // Reaching this URL directly can beat the app-level config fetch, and
+    // onPlay reads the container out of it.
+    if (!container.value) await freshConfig;
+    void onPlay();
+    return;
+  }
+});
+
+onBeforeUnmount(() => {
+  // Every exit path (Stop, Save & Exit, back nav) unmounts the view, so this
+  // is the single choke point for recording the session.
+  playSession.flush();
+  sendVolumeToBroker.cancel();
+  // The polls clear themselves with the scope; the presence board does not
+  // know the player has gone until it is told.
+  presence.emitStop();
+  // The claim, not the player state, says whether anything is still held:
+  // an exit whose release failed leaves it standing, and this is its retry.
+  if (!holdsClaim.value) return;
+  if (playerState.value === "playing") {
+    // Navigation away while a game is active: fire save+kill in the
+    // broker background so navigation is never held up.
+    void streamingStore.saveAndExit(
+      rom.value?.platform_slug ?? "",
+      capabilities.value.autosaveSlot,
+      false,
+      claimedContainer.value,
+      claimedAt.value,
+    );
+  } else {
+    // Nothing is running, so there is nothing worth a state: asking for one
+    // here would only file whatever the last session left in the slot.
+    void streamingStore.releaseSession(
+      rom.value?.platform_slug ?? "",
+      false,
+      claimedContainer.value,
+      claimedAt.value,
+    );
+  }
+});
+</script>
+
+<template>
+  <section v-if="rom || heroSeed" class="r-stream">
+    <!-- Pre-game configuration -->
+    <div v-if="!gameRunning" class="r-stream__config">
+      <!-- Hero: cover + title + Play CTA -->
+      <RCard class="r-stream__panel r-stream__hero" variant="flat">
+        <div
+          class="r-stream__cover"
+          :class="{ 'r-stream__cover--alt-art': heroIsAlt }"
+        >
+          <GameCover
+            ref="coverRef"
+            class="r-stream__cover-box"
+            :rom="heroRom"
+            :title="title"
+            :identified="heroRom?.is_identified ?? true"
+            :morph-id="morphRomId"
+            style-context="player"
+            morph-static
+            hover-motion
+          />
+          <div class="r-stream__cover-glow" aria-hidden="true" />
+        </div>
+        <div class="r-stream__title-block">
+          <h1 class="r-stream__title">{{ title }}</h1>
+          <p class="r-stream__subtitle">
+            {{ platformLabel }} · {{ t("play.stream-subtitle") }}
+          </p>
+        </div>
+        <RBtn
+          size="x-large"
+          variant="flat"
+          color="primary"
+          block
+          :prepend-icon="
+            playerState === 'loading' ? 'mdi-loading mdi-spin' : 'mdi-play'
+          "
+          class="r-stream__play"
+          :disabled="!playReady"
+          @click="onPlay()"
+        >
+          {{
+            playerState === "loading"
+              ? launchStatusText
+              : errorType === "occupied"
+                ? t("play.stream-try-again")
+                : t("play.play-on", { label: emulatorLabel })
+          }}
+        </RBtn>
+        <div class="r-stream__hero-links">
+          <RBtn
+            variant="text"
+            size="small"
+            prepend-icon="mdi-arrow-left"
+            :to="romRoute"
+          >
+            {{ t("play.back-to-game-details") }}
+          </RBtn>
+          <RBtn
+            variant="text"
+            size="small"
+            prepend-icon="mdi-view-grid-outline"
+            :to="platformRoute"
+            :disabled="!platformRoute"
+          >
+            {{ t("play.back-to-gallery") }}
+          </RBtn>
+        </div>
+      </RCard>
+
+      <!-- Resume: preview + strip of own and shared states. Always present
+           so a first run and a long history read as the same screen; the
+           strip carries its own empty state. Owner chips distinguish states
+           shared by other users. The save archive shares the cell, tabbed
+           where the emulator has both. -->
+      <RCard class="r-stream__panel r-stream__resume" variant="flat">
+        <div
+          class="r-stream__panel-head"
+          :class="{ 'r-stream__panel-head--label': !showResumeTabs }"
+        >
+          <RSliderBtnGroup
+            v-if="showResumeTabs"
+            variant="tab"
+            :model-value="activeResumeTab"
+            :items="resumeTabs"
+            :aria-label="t('rom.load-save-or-state')"
+            @update:model-value="setResumeTab"
+          />
+          <template v-else>
+            <RIcon icon="mdi-content-save-outline" size="14" />
+            <span>{{
+              activeResumeTab === "state"
+                ? t("play.resume-from-state")
+                : t("play.save-data")
+            }}</span>
+          </template>
+        </div>
+        <div class="r-stream__resume-body">
+          <div v-if="!configFresh" class="r-stream__resume-loading">
+            <RSpinner :size="24" :aria-label="t('common.loading')" />
+          </div>
+
+          <template v-else-if="activeResumeTab === 'state'">
+            <AssetPreview
+              :asset="selectedState"
+              type="state"
+              :show-heading="false"
+              @clear="clearState"
+            />
+            <div class="r-stream__strip-label">
+              <span aria-hidden="true">{{ t("play.all-states") }}</span>
+              <span class="r-stream__strip-count" aria-hidden="true">{{
+                pickableStates.length
+              }}</span>
+              <div
+                class="r-stream__strip-views"
+                role="group"
+                :aria-label="t('play.states-view')"
+              >
+                <RBtn
+                  v-for="view in STATE_LAYOUTS"
+                  :key="view.value"
+                  variant="text"
+                  size="x-small"
+                  :icon="view.icon"
+                  :active="stateLayout === view.value"
+                  :aria-label="t(`play.states-view-${view.value}`)"
+                  @click="stateLayout = view.value"
+                />
+              </div>
+            </div>
+            <AssetStrip
+              :assets="pickableStates"
+              type="state"
+              :selected-id="selectedState?.id ?? null"
+              :layout="stateLayout"
+              show-owner
+              @select="pickState($event as UserStateSchema)"
+            />
+          </template>
+
+          <template v-else-if="showSavePicker">
+            <AssetPreview
+              :asset="selectedSave"
+              type="save"
+              :show-heading="false"
+              :clearable="false"
+            />
+            <div class="r-stream__strip-label">
+              <span aria-hidden="true">{{ t("play.all-saves") }}</span>
+              <span class="r-stream__strip-count" aria-hidden="true">{{
+                pickableSaves.length
+              }}</span>
+            </div>
+            <AssetList
+              :assets="pickableSaves"
+              type="save"
+              :selected-id="selectedSave?.id ?? null"
+              :group-by-slot="false"
+              @select="savePickId = ($event as SaveSchema).id"
+            />
+          </template>
+
+          <!-- Nothing to choose between: this emulator keeps whatever the
+               container already holds, so the archive is reported not offered. -->
+          <SaveDataPanel v-else :save="newestSave" :platform="platformLabel" />
+        </div>
+      </RCard>
+
+      <!-- Session: container info + claim errors -->
+      <RCard class="r-stream__panel r-stream__session" variant="flat">
+        <div class="r-stream__panel-head r-stream__panel-head--label">
+          <RIcon icon="mdi-cast" size="14" />
+          <span>{{ t("play.stream-subtitle") }}</span>
+        </div>
+        <div class="r-stream__session-body">
+          <RAlert
+            v-if="playerState === 'error' && errorType === 'occupied'"
+            type="warning"
+            variant="translucent"
+            :title="t('play.stream-occupied-title')"
+            :text="
+              draining
+                ? t('play.stream-occupied-draining')
+                : occupiedBy
+                  ? t('play.stream-occupied-body', {
+                      rom: occupiedBy.rom_name,
+                      time: formatTime(occupiedBy.claimed_at),
+                    })
+                  : t('play.stream-occupied-fallback')
+            "
+          />
+          <RAlert
+            v-else-if="playerState === 'error'"
+            type="error"
+            variant="translucent"
+            :title="errorHint ? errorMessage : undefined"
+            :text="errorHint || errorMessage"
+          />
+
+          <p class="r-stream__session-hint">
+            {{ t("play.streaming-description", { label: emulatorLabel }) }}
+          </p>
+
+          <p v-if="modality === 'pad'" class="r-stream__session-hint">
+            {{ t("play.exit-chord-hint") }}
+          </p>
+
+          <div class="r-stream__session-facts">
+            <div class="r-stream__fact">
+              <RIcon icon="mdi-gamepad-variant-outline" size="16" />
+              <span class="r-stream__fact-label">{{ t("play.emulator") }}</span>
+              <span class="r-stream__fact-value">{{ emulatorLabel }}</span>
+            </div>
+          </div>
+        </div>
+      </RCard>
+
+      <!-- Aside: the panels stack as one grid cell, so the memory card
+           section can come and go without leaving a hole in the layout. -->
+      <div class="r-stream__aside">
+        <!-- Memory cards: their own section, since a card is picked per run
+             and has nothing to do with the client-side preferences below. -->
+        <RCard
+          v-if="container?.supports_memory_cards && container.emulator"
+          class="r-stream__panel r-stream__cards"
+          variant="flat"
+        >
+          <div class="r-stream__panel-head r-stream__panel-head--label">
+            <RIcon icon="mdi-sd" size="14" />
+            <span>{{ t("play.memory-card") }}</span>
+          </div>
+          <div class="r-stream__cards-body">
+            <MemoryCardPicker
+              v-model="selectedMemoryCardId"
+              :emulator="container.emulator"
+              :platform-id="rom?.platform_id ?? null"
+            />
+          </div>
+        </RCard>
+
+        <!-- Setup: client-side play preferences -->
+        <RCard class="r-stream__panel r-stream__setup" variant="flat">
+          <div class="r-stream__panel-head r-stream__panel-head--label">
+            <RIcon icon="mdi-cog-outline" size="14" />
+            <span>{{ t("common.settings") }}</span>
+          </div>
+          <div class="r-stream__setup-body">
+            <RSwitch
+              v-model="fullscreenOnPlay"
+              :label="t('play.full-screen')"
+            />
+            <!-- Fixed for the session: the backend reads it at claim time. -->
+            <div class="r-stream__setup-item">
+              <RSwitch
+                v-model="multiplayerOnPlay"
+                :label="t('play.multiplayer')"
+              />
+              <span class="r-stream__setup-hint">
+                {{ t("play.multiplayer-hint") }}
+              </span>
+            </div>
+          </div>
+        </RCard>
+      </div>
+    </div>
+
+    <!-- Running state -->
+    <StreamStage
+      v-else
+      ref="stage"
+      :src="containerHost"
+      :frame-title="t('play.stream-frame-title')"
+      :active="gameRunning"
+    >
+      <template #bar="{ isFullscreen, toggleFullscreen }">
+        <span class="r-stream__bar-title">{{ rom?.name }}</span>
+        <span class="r-stream__bar-platform">{{ emulatorLabel }}</span>
+
+        <span class="r-stream__bar-spacer" />
+
+        <RBtn
+          :icon="isMuted ? 'mdi-volume-off' : 'mdi-volume-high'"
+          variant="text"
+          density="compact"
+          :tooltip="isMuted ? t('play.stream-unmute') : t('play.stream-mute')"
+          @click="toggleMute"
+        />
+        <RSlider
+          v-model="volume"
+          class="r-stream__volume"
+          :min="0"
+          :max="100"
+          :step="1"
+          :disabled="isMuted"
+          :aria-label="t('play.stream-volume')"
+        />
+
+        <!-- States and the save-and-exit belong to the claim holder. An
+             exit-state emulator has an autosave slot but refuses both. -->
+        <template v-if="container?.supports_live_states && !isJoining">
+          <RBtn
+            icon="mdi-content-save-outline"
+            variant="text"
+            density="compact"
+            :tooltip="t('play.stream-save-state')"
+            :loading="isSavingState"
+            :disabled="stateActionBusy"
+            @click="handleSaveState"
+          />
+          <RBtn
+            icon="mdi-restore"
+            variant="text"
+            density="compact"
+            :tooltip="t('play.stream-load-state')"
+            :loading="isLoadingState"
+            :disabled="stateActionBusy"
+            @click="handleLoadState"
+          />
+        </template>
+
+        <RBtn
+          v-if="canSwapDisc"
+          icon="mdi-disc"
+          variant="text"
+          density="compact"
+          :tooltip="t('play.stream-swap-disc')"
+          :loading="isSwappingDisc"
+          :disabled="stateActionBusy"
+          @click="openDiscSwap"
+        />
+        <span
+          v-else-if="showManualDiscHint"
+          class="r-stream__disc-hint"
+          role="img"
+          :aria-label="t('play.manual-disc-swap-hint')"
+        >
+          <RIcon icon="mdi-disc-alert" size="small" />
+          <RTooltip
+            activator="parent"
+            :text="t('play.manual-disc-swap-hint')"
+          />
+        </span>
+
+        <RBtn
+          :icon="isFullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'"
+          variant="text"
+          density="compact"
+          :tooltip="
+            isFullscreen
+              ? t('play.stream-exit-fullscreen')
+              : t('play.stream-fullscreen')
+          "
+          @click="toggleFullscreen"
+        />
+        <RBtn
+          v-if="!isJoining"
+          icon="mdi-content-save-move-outline"
+          variant="text"
+          density="compact"
+          :tooltip="t('play.stream-save-and-exit')"
+          :loading="isSavingAndExiting"
+          :disabled="isSavingAndExiting"
+          @click="handleSaveAndExit"
+        />
+        <RBtn
+          :icon="isJoining ? 'mdi-exit-to-app' : 'mdi-stop'"
+          variant="text"
+          density="compact"
+          color="error"
+          :tooltip="isJoining ? t('play.leave-session') : t('play.stream-stop')"
+          :disabled="isSavingAndExiting"
+          @click="handleStop"
+        />
+      </template>
+    </StreamStage>
+
+    <!-- One-time prompt for the card the container was already holding.
+         Answering it retries the claim; cancelling goes back. -->
+    <MemoryCardImportDialog
+      v-model="showCardImport"
+      :detail="cardImportDetail"
+      @adopt="onCardImportAnswer('adopt')"
+      @discard="onCardImportAnswer('discard')"
+      @cancel="onCardImportCancel"
+    />
+
+    <!-- Exit dialog: the single confirmed way out of an active session.
+         Opened by the route-leave guard (B, browser back, any link) and
+         by holding Select+Start on the pad. Closing it resumes play. -->
+    <RDialog
+      :model-value="endedDialogOpen"
+      icon="mdi-account-cancel"
+      width="440"
+      persistent
+      @close="dismissEndedDialog"
+      @update:model-value="dismissEndedDialog"
+    >
+      <template #header>
+        <span>{{ t("play.session-ended-title") }}</span>
+      </template>
+      <template #content>
+        <p class="r-stream__exit-text">{{ endedMessage }}</p>
+        <SessionEndedReason
+          v-if="endedReason"
+          :reason="endedReason"
+          class="r-stream__ended-reason"
+        />
+      </template>
+      <template #footer>
+        <!-- eslint-disable vuejs-accessibility/no-autofocus -- RDialog reads [autofocus] to place initial focus, and focusing the dialog's action on open is intentional modal UX -->
+        <RBtn
+          autofocus
+          color="primary"
+          variant="flat"
+          @click="dismissEndedDialog"
+        >
+          {{ t("play.back-to-game-details") }}
+        </RBtn>
+        <!-- eslint-enable vuejs-accessibility/no-autofocus -->
+      </template>
+    </RDialog>
+
+    <RDialog v-model="exitDialogOpen" width="480">
+      <template #header>
+        <span>{{
+          isJoining ? t("play.leave-dialog-title") : t("play.exit-dialog-title")
+        }}</span>
+      </template>
+      <template #content>
+        <p class="r-stream__exit-text">
+          {{
+            isJoining
+              ? t("play.leave-dialog-text")
+              : playerState === "loading"
+                ? t("play.exit-dialog-text-loading")
+                : t("play.exit-dialog-text")
+          }}
+        </p>
+      </template>
+      <template #footer>
+        <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -- arrow keys rove focus between this container's real buttons, which stay the interactive elements; the listener sits here to catch keydowns bubbling from either of them -->
+        <div class="r-stream__exit-actions">
+          <!-- eslint-disable vuejs-accessibility/no-autofocus -- RDialog reads [autofocus] to place initial focus, and the least destructive action is the intended target -->
+          <RBtn
+            autofocus
+            variant="text"
+            :disabled="isSavingAndExiting || isStopping"
+            @click="exitKeepPlaying"
+          >
+            {{ t("play.keep-playing") }}
+          </RBtn>
+          <!-- eslint-enable vuejs-accessibility/no-autofocus -->
+          <RBtn
+            v-if="isJoining"
+            color="error"
+            variant="text"
+            :loading="isStopping"
+            @click="exitWithoutSaving"
+          >
+            {{ t("play.leave-session") }}
+          </RBtn>
+          <RBtn
+            v-else-if="playerState === 'loading'"
+            color="error"
+            variant="text"
+            :loading="isStopping"
+            @click="exitWithoutSaving"
+          >
+            {{ t("play.cancel-launch") }}
+          </RBtn>
+          <template v-else>
+            <RBtn
+              color="error"
+              variant="text"
+              :loading="isStopping"
+              :disabled="isSavingAndExiting"
+              @click="exitWithoutSaving"
+            >
+              {{ t("play.exit-without-saving") }}
+            </RBtn>
+            <RBtn
+              color="primary"
+              variant="flat"
+              :loading="isSavingAndExiting"
+              :disabled="isStopping"
+              @click="exitSaveAndQuit"
+            >
+              {{ t("play.stream-save-and-exit") }}
+            </RBtn>
+          </template>
+        </div>
+      </template>
+    </RDialog>
+
+    <RDialog
+      v-model="showDiscSwap"
+      width="440"
+      cancelable
+      :cancel-disabled="isSwappingDisc"
+    >
+      <template #header>
+        <span>{{ t("play.swap-disc-title") }}</span>
+      </template>
+      <template #content>
+        <p class="r-stream__exit-text">{{ t("play.swap-disc-text") }}</p>
+        <RSelect
+          v-model="selectedDisc"
+          variant="outlined"
+          density="comfortable"
+          prepend-inner-icon="mdi-disc"
+          hide-details
+          :label="t('rom.file')"
+          :items="discOptions"
+        />
+      </template>
+      <template #footer>
+        <RBtn
+          color="primary"
+          variant="flat"
+          :loading="isSwappingDisc"
+          :disabled="selectedDisc === null"
+          @click="handleSwapDisc"
+        >
+          {{ t("play.swap-disc-confirm") }}
+        </RBtn>
+      </template>
+    </RDialog>
+  </section>
+
+  <section v-else class="r-stream__loading">
+    <RSpinner :size="40" :aria-label="t('common.loading')" />
+  </section>
+</template>
+
+<style scoped>
+.r-stream {
+  position: relative;
+  min-height: calc(100vh - var(--r-nav-h));
+  padding: 32px var(--r-row-pad) 48px;
+}
+
+/* Pre-game layout: hero | resume | session over aside. Mirrors the
+   EmulatorJS grid so the two players read as siblings. */
+.r-stream__config {
+  display: grid;
+  grid-template-columns: minmax(240px, 280px) minmax(0, 1.4fr) minmax(
+      220px,
+      260px
+    );
+  grid-template-rows: 1fr auto;
+  grid-template-areas:
+    "hero resume session"
+    "hero resume aside";
+  gap: 20px;
+  max-width: 1280px;
+  margin: 0 auto;
+  align-items: stretch;
+}
+/* Shared glass-panel skin: single visual vocabulary across panels. */
+.r-stream__panel {
+  background: var(--r-color-bg-elevated) !important;
+  border: 1px solid var(--r-color-border) !important;
+  border-radius: var(--r-radius-lg) !important;
+  backdrop-filter: blur(18px);
+  display: flex !important;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.r-stream__panel-head {
+  padding: 14px 14px 0;
+  display: flex;
+  justify-content: center;
+}
+.r-stream__panel-head--label {
+  justify-content: flex-start;
+  gap: 8px;
+  align-items: center;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 11px;
+  font-weight: var(--r-font-weight-semibold);
+  color: var(--r-color-fg-secondary);
+}
+
+/* ── Hero column ─────────────────────────────────────────── */
+.r-stream__hero {
+  grid-area: hero;
+  padding: 16px;
+  gap: 12px;
+  text-align: center;
+}
+
+.r-stream__cover {
+  position: relative;
+  width: 100%;
+  max-width: 220px;
+  margin: 0 auto;
+}
+.r-stream__cover-box {
+  --r-cover-radius: var(--r-radius-md);
+}
+.r-stream__cover:not(.r-stream__cover--alt-art) .r-stream__cover-box {
+  box-shadow:
+    0 18px 36px color-mix(in srgb, black 55%, transparent),
+    0 0 0 1px var(--r-color-border);
+}
+.r-stream__cover-glow {
+  position: absolute;
+  inset: 12px;
+  background: radial-gradient(
+    120% 120% at 50% 60%,
+    color-mix(in srgb, var(--r-color-brand-primary) 35%, transparent),
+    transparent 70%
+  );
+  filter: blur(30px);
+  z-index: -1;
+  pointer-events: none;
+}
+.r-stream__cover--alt-art .r-stream__cover-glow {
+  display: none;
+}
+
+.r-stream__title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 4px 0;
+}
+.r-stream__title {
+  margin: 0;
+  font-size: var(--r-font-size-lg);
+  font-weight: var(--r-font-weight-bold);
+  line-height: 1.2;
+}
+.r-stream__subtitle {
+  margin: 0;
+  font-size: var(--r-font-size-sm);
+  color: var(--r-color-fg-muted);
+}
+
+.r-stream__play {
+  margin-top: 4px;
+  font-weight: var(--r-font-weight-semibold) !important;
+  letter-spacing: 0.02em;
+  white-space: normal;
+  text-wrap: balance;
+  line-height: 1.25;
+  min-height: 3.25em;
+  height: auto;
+  box-shadow: 0 10px 24px
+    color-mix(in srgb, var(--r-color-brand-primary) 35%, transparent);
+}
+.r-stream__hero-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: auto;
+  padding-top: 6px;
+  border-top: 1px solid var(--r-color-border);
+}
+
+.r-stream__aside {
+  grid-area: aside;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+/* ── Resume column ───────────────────────────────────────── */
+.r-stream__resume {
+  grid-area: resume;
+  min-height: 420px;
+}
+.r-stream__resume-body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+}
+.r-stream__resume-loading {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+}
+.r-stream__strip-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: var(--r-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--r-color-fg-secondary);
+  margin-top: 4px;
+}
+.r-stream__strip-views {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.r-stream__strip-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: var(--r-color-surface);
+  border-radius: var(--r-radius-pill);
+  font-size: 10px;
+  font-weight: var(--r-font-weight-semibold);
+}
+
+/* ── Session column ──────────────────────────────────────── */
+.r-stream__session {
+  grid-area: session;
+  min-height: 0;
+}
+.r-stream__session-body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+}
+.r-stream__session-hint {
+  margin: 0;
+  font-size: var(--r-font-size-sm);
+  color: var(--r-color-fg-muted);
+  line-height: 1.5;
+}
+.r-stream__session-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--r-color-border);
+  border-radius: var(--r-radius-md);
+  overflow: hidden;
+}
+.r-stream__fact {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  font-size: var(--r-font-size-sm);
+  color: var(--r-color-fg-secondary);
+}
+.r-stream__fact + .r-stream__fact {
+  border-top: 1px solid var(--r-color-border);
+}
+.r-stream__fact-label {
+  flex: 1;
+}
+.r-stream__fact-value {
+  font-weight: var(--r-font-weight-semibold);
+  color: var(--r-color-fg);
+}
+
+/* ── Setup column ────────────────────────────────────────── */
+.r-stream__cards-body,
+.r-stream__setup-body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+.r-stream__setup-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.r-stream__setup-hint {
+  font-size: var(--r-font-size-xs);
+  color: var(--r-color-fg-muted);
+  line-height: 1.35;
+}
+
+/* ── Running stage ───────────────────────────────────────── */
+/* The stage itself lives in StreamStage; these style the bar's contents,
+   which are slotted in from here and so carry this scope. */
+.r-stream__bar-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+  font-size: var(--r-font-size-sm);
+  font-weight: var(--r-font-weight-semibold);
+}
+.r-stream__bar-platform {
+  font-size: var(--r-font-size-xs);
+  color: var(--r-color-fg-muted);
+}
+.r-stream__bar-spacer {
+  flex: 1;
+}
+.r-stream__volume {
+  width: 90px;
+}
+.r-stream__disc-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: var(--r-color-fg-muted);
+  flex-shrink: 0;
+}
+
+/* ── Exit dialog ─────────────────────────────────────────── */
+.r-stream__exit-text {
+  margin: 0;
+  font-size: var(--r-font-size-sm);
+  color: var(--r-color-fg-secondary);
+  line-height: 1.5;
+}
+.r-stream__ended-reason {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--r-radius-md);
+  border-left: 3px solid var(--r-color-warning);
+  background: var(--r-color-surface);
+  font-size: var(--r-font-size-sm);
+  color: var(--r-color-fg);
+  line-height: 1.5;
+}
+
+.r-stream__exit-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
+
+/* ── Initial ROM fetch ───────────────────────────────────── */
+.r-stream__loading {
+  min-height: calc(100vh - var(--r-nav-h));
+  display: grid;
+  place-items: center;
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+html[data-bp~="md-and-down"] .r-stream__config {
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  grid-template-rows: auto;
+  grid-template-areas:
+    "hero resume"
+    "session session"
+    "aside aside";
+}
+html[data-bp~="md-and-down"] .r-stream__aside {
+  grid-column: 1 / -1;
+}
+html[data-bp~="md-and-down"] .r-stream__setup-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+html[data-bp~="md-and-down"] .r-stream__resume {
+  min-height: 0;
+}
+
+html[data-bp~="sm-and-down"] .r-stream__config {
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "hero"
+    "resume"
+    "session"
+    "aside";
+}
+html[data-bp~="sm-and-down"] .r-stream__hero {
+  flex-direction: row;
+  flex-wrap: wrap;
+  text-align: left;
+  align-items: center;
+}
+html[data-bp~="sm-and-down"] .r-stream__cover {
+  max-width: 130px;
+  flex-shrink: 0;
+}
+html[data-bp~="sm-and-down"] .r-stream__title-block {
+  flex: 1;
+}
+html[data-bp~="sm-and-down"] .r-stream__play {
+  flex: 1 1 100%;
+}
+html[data-bp~="sm-and-down"] .r-stream__hero-links {
+  flex: 1 1 100%;
+  flex-direction: row;
+  border-top: 1px solid var(--r-color-border);
+  padding-top: 4px;
+}
+html[data-bp~="sm-and-down"] .r-stream__bar-title,
+html[data-bp~="sm-and-down"] .r-stream__bar-platform {
+  display: none;
+}
+</style>

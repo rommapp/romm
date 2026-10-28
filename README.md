@@ -89,7 +89,9 @@ Here are some cool projects maintained by members of our community. Please note 
 
 ### Mobile and TV
 
+- [R-Shop][r-shop]: Controller-first game manager for Android handhelds and TVs by [@AverageConsumer](https://github.com/AverageConsumer)
 - [romm-ios-app][romm-ios-app]: Native iOS app by [@ilyas-hallak](https://github.com/ilyas-hallak)
+- [RomMMobile][rommmobile]: Android app that downloads games into your existing frontend's folders by [@pippopapera](https://github.com/pippopapera)
 - [RomMulus][rommulus]: Android TV app with built-in emulator cores and save sync by [@DEV-DUFORD](https://github.com/DEV-DUFORD)
 
 ### Desktop
@@ -102,6 +104,7 @@ Here are some cool projects maintained by members of our community. Please note 
 ### Handhelds and Steam Deck
 
 - [Gameflow Deck][gameflow-deck]: Controller-first frontend for handhelds by [@simeonradivoev](https://github.com/simeonradivoev)
+- [KONSORU][konsoru]: Home screen launcher for the AYN Thor with a themed UI per console by [@FabianZettl](https://github.com/FabianZettl)
 - [RomMix][rommix]: Big Picture-style frontend for Linux and Steam Deck by [@leclercb](https://github.com/leclercb)
 - [Tender][romm-tender]: Decky Loader plugin with library and save sync for Steam Deck by [@danielcopper](https://github.com/danielcopper)
 - [Vita RomM][vita-romm]: PS Vita homebrew client for browsing and downloading games by [@denkacn](https://github.com/denkacn)
@@ -189,6 +192,9 @@ Here are a few projects that we think you might like:
 [gameflow-deck]: https://github.com/simeonradivoev/gameflow-deck
 [rommix]: https://github.com/leclercb/rommix
 [vita-romm]: https://github.com/denkacn/vita-romm
+[r-shop]: https://github.com/AverageConsumer/R-Shop
+[rommmobile]: https://github.com/pippopapera/RomMMobile
+[konsoru]: https://github.com/FabianZettl/konsoru-launcher-releases
 [grout]: https://github.com/rommapp/grout
 [romm-ios-app]: https://github.com/ilyas-hallak/romm-ios-app
 [argosy-launcher]: https://github.com/rommapp/argosy-launcher

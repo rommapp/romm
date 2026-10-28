@@ -7,7 +7,6 @@
   "login-failed": "Échec de la connexion",
   "login-oidc": "Se connecter avec {oidc}",
   "new-password": "Nouveau mot de passe",
-  "or": "ou",
   "password": "Mot de passe",
   "passwords-do-not-match": "Les mots de passe ne correspondent pas",
   "register": "S'inscrire",
