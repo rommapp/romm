@@ -23,6 +23,7 @@ from utils.arcade_platforms import (
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 BOARD_PLATFORMS = sorted(ARCADE_PLATFORMS - ARCADE_SET_PLATFORMS)
+PLAYABLE_SETS = {UPS.ARCADE, UPS.MAME, UPS.FBNEO, UPS.FBA}
 
 
 def test_fallbacks_keep_a_providers_own_entry():
@@ -59,13 +60,11 @@ def test_a_board_gets_no_retroachievements_console(slug: UPS):
 
 
 def test_only_sets_an_emulatorjs_core_runs_are_playable():
-    assert {UPS.ARCADE, UPS.MAME, UPS.FBNEO, UPS.FBA} <= set(EJS_SUPPORTED_PLATFORMS)
-    assert not (ARCADE_PLATFORMS - {UPS.ARCADE, UPS.MAME, UPS.FBNEO, UPS.FBA}) & set(
-        EJS_SUPPORTED_PLATFORMS
-    )
+    assert PLAYABLE_SETS <= set(EJS_SUPPORTED_PLATFORMS)
+    assert not (ARCADE_PLATFORMS - PLAYABLE_SETS) & set(EJS_SUPPORTED_PLATFORMS)
 
 
-@pytest.mark.parametrize("slug", [UPS.ARCADE, UPS.MAME, UPS.FBNEO, UPS.FBA])
+@pytest.mark.parametrize("slug", sorted(PLAYABLE_SETS))
 def test_set_platforms_feed_webrcade_as_arcade(slug: UPS):
     assert slug in WEBRCADE_SUPPORTED_PLATFORM_SLUGS
     assert WEBRCADE_SLUG_TO_TYPE_MAP[slug] == "arcade"

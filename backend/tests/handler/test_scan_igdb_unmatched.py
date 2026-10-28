@@ -14,8 +14,8 @@ from utils.platform_slugs import UniversalPlatformSlug as UPS
 ARCADE_IGDB_ID = IGDB_PLATFORM_LIST[UPS.ARCADE]["id"]
 
 
-async def _unmatched_scan(slug: str, igdb_id: int) -> AsyncMock:
-    platform = make_platform(slug, id=1, igdb_id=igdb_id)
+async def _unmatched_scan(slug: str) -> AsyncMock:
+    platform = make_platform(slug, id=1, igdb_id=ARCADE_IGDB_ID)
     rom = add_rom(platform, "mvsc2.zip", "mvsc2")
     lookup = AsyncMock(return_value=IGDBRom(igdb_id=None))
 
@@ -31,12 +31,12 @@ async def _unmatched_scan(slug: str, igdb_id: int) -> AsyncMock:
 
 @pytest.mark.parametrize("slug", [UPS.ARCADE, UPS.MAME, UPS.NAOMI, UPS.MODEL2])
 async def test_an_arcade_platform_is_retried_under_arcade(slug: UPS):
-    lookup = await _unmatched_scan(slug, ARCADE_IGDB_ID)
+    lookup = await _unmatched_scan(slug)
 
     lookup.assert_awaited_once()
 
 
 async def test_a_platform_igdb_does_not_list_is_skipped():
-    lookup = await _unmatched_scan(UPS.TAITO_X_55, ARCADE_IGDB_ID)
+    lookup = await _unmatched_scan(UPS.TAITO_X_55)
 
     lookup.assert_not_awaited()
