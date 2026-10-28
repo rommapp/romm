@@ -3,12 +3,13 @@ import json
 import os
 import re
 import sys
+from typing import Any
 
 PLACEHOLDER = re.compile(r"\{\s*([\w-]+)\s*\}")
 
 
-def flatten(data, prefix=""):
-    flat = {}
+def flatten(data: dict[str, Any], prefix: str = "") -> dict[str, str]:
+    flat: dict[str, str] = {}
     for key, value in data.items():
         if isinstance(value, dict):
             flat.update(flatten(value, f"{prefix}{key}."))
@@ -17,7 +18,9 @@ def flatten(data, prefix=""):
     return flat
 
 
-def placeholder_mismatches(en_data, lang_data):
+def placeholder_mismatches(
+    en_data: dict[str, Any], lang_data: dict[str, Any]
+) -> list[tuple[str, list[str], list[str]]]:
     """Keys whose translation would render a placeholder empty or drop one.
 
     Returns:
@@ -25,7 +28,7 @@ def placeholder_mismatches(en_data, lang_data):
     """
     en_flat = flatten(en_data)
     lang_flat = flatten(lang_data)
-    mismatches = []
+    mismatches: list[tuple[str, list[str], list[str]]] = []
     for key, en_value in en_flat.items():
         if key not in lang_flat:
             continue
@@ -38,7 +41,7 @@ def placeholder_mismatches(en_data, lang_data):
     return mismatches
 
 
-def main():
+def main() -> None:
     locales_dir = os.path.dirname(os.path.abspath(__file__))
 
     # Base directory with English files (reference)

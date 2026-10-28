@@ -4,26 +4,26 @@ from check_i18n_locales import placeholder_mismatches
 
 
 class PlaceholderMismatchesTest(unittest.TestCase):
-    def test_matching_placeholders_pass(self):
+    def test_matching_placeholders_pass(self) -> None:
         en = {"greeting": "Hello {name}, {count} new"}
         lang = {"greeting": "{count} nuevos, hola { name }"}
         self.assertEqual(placeholder_mismatches(en, lang), [])
 
-    def test_reports_missing_and_extra(self):
+    def test_reports_missing_and_extra(self) -> None:
         en = {"failed": "Unable to edit user: {detail}"}
         lang = {"failed": "No se pudo editar el usuario: {error}"}
         self.assertEqual(
             placeholder_mismatches(en, lang), [("failed", ["detail"], ["error"])]
         )
 
-    def test_checks_nested_keys(self):
+    def test_checks_nested_keys(self) -> None:
         en = {"user": {"created": "User {username} created"}}
         lang = {"user": {"created": "Usuario creado"}}
         self.assertEqual(
             placeholder_mismatches(en, lang), [("user.created", ["username"], [])]
         )
 
-    def test_skips_keys_missing_from_translation(self):
+    def test_skips_keys_missing_from_translation(self) -> None:
         self.assertEqual(placeholder_mismatches({"a": "{x}"}, {}), [])
 
 
