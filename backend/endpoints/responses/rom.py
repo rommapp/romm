@@ -534,9 +534,10 @@ def _visible_siblings(db_rom: Rom, request: Request) -> list[Rom]:
     return [s for s in siblings if perms.can_see_rom(s)]
 
 
-# The schema serves RetroAchievements merged with the user's progress.
-PROVIDER_METADATA_FIELDS: Final = tuple(
-    "merged_ra_metadata" if c == "ra_metadata" else c for c in PROVIDER_METADATA_COLUMNS
+# The schema serves `ra_metadata` as `merged_ra_metadata`, with absolute badge paths.
+PROVIDER_METADATA_FIELDS: Final = (
+    *(c for c in PROVIDER_METADATA_COLUMNS if c != "ra_metadata"),
+    "merged_ra_metadata",
 )
 
 
@@ -585,10 +586,10 @@ class SimpleRomSchema(RomSchema):
             for s, is_main in siblings
         ]
         schema = cls.model_validate(db_rom)
-        if with_provider_metadata:
-            return schema
-        # Copied, since the row lives in the caller's session and a write would be flushed.
-        return schema.model_copy(update=dict.fromkeys(PROVIDER_METADATA_FIELDS))
+        if not with_provider_metadata:
+            # Nulled on the schema, as `db_rom` is session-bound and would be flushed.
+            schema = schema.model_copy(update=dict.fromkeys(PROVIDER_METADATA_FIELDS))
+        return schema
 
     @classmethod
     def from_orm_with_factory(cls, db_rom: Rom) -> SimpleRomSchema:
