@@ -89,7 +89,9 @@ Here are some cool projects maintained by members of our community. Please note 
 
 ### Mobile and TV
 
+- [R-Shop][r-shop]: Controller-first game manager for Android handhelds and TVs by [@AverageConsumer](https://github.com/AverageConsumer)
 - [romm-ios-app][romm-ios-app]: Native iOS app by [@ilyas-hallak](https://github.com/ilyas-hallak)
+- [RomMMobile][rommmobile]: Android app that downloads games into your existing frontend's folders by [@pippopapera](https://github.com/pippopapera)
 - [RomMulus][rommulus]: Android TV app with built-in emulator cores and save sync by [@DEV-DUFORD](https://github.com/DEV-DUFORD)
 
 ### Desktop
@@ -102,6 +104,7 @@ Here are some cool projects maintained by members of our community. Please note 
 ### Handhelds and Steam Deck
 
 - [Gameflow Deck][gameflow-deck]: Controller-first frontend for handhelds by [@simeonradivoev](https://github.com/simeonradivoev)
+- [KONSORU][konsoru]: Home screen launcher for the AYN Thor with a themed UI per console by [@FabianZettl](https://github.com/FabianZettl)
 - [RomMix][rommix]: Big Picture-style frontend for Linux and Steam Deck by [@leclercb](https://github.com/leclercb)
 - [Tender][romm-tender]: Decky Loader plugin with library and save sync for Steam Deck by [@danielcopper](https://github.com/danielcopper)
 - [Vita RomM][vita-romm]: PS Vita homebrew client for browsing and downloading games by [@denkacn](https://github.com/denkacn)
@@ -126,6 +129,17 @@ Consider supporting this project on Open Collective. Funds cover hosting, develo
   </div>
 </div>
 
+## Corporate Sponsors
+
+These companies support us by providing their tools for free:
+
+<div align="center">
+  <div dir="auto">
+    <a href="https://www.greptile.com/?utm_source=oss_badge&amp;utm_medium=readme&amp;utm_campaign=greptile_for_open_source" target="_blank" rel="noopener noreferrer"><img src=".github/resources/greptile-badge.svg" alt="Greptile" width="250" height="58"/></a>
+    <a href="https://socket.dev/" target="_blank" rel="noopener noreferrer"><img src=".github/resources/socket-badge.svg" alt="Socket" width="250" height="58"/></a>
+  </div>
+</div>
+
 ## Our Friends
 
 Here are a few projects that we think you might like:
@@ -143,17 +157,6 @@ Here are a few projects that we think you might like:
 - [MelonLoader](https://melonloader.co/): Universal mod loader for Unity games
 - [NextUI](https://nextui.loveretro.games/): MinUI-based custom firmware for TrimUI handhelds
 - [RetroAchievements](https://retroachievements.org/): Achievements for retro games
-
-## Supported By
-
-These companies support us by providing their tools for free:
-
-<div align="center">
-  <div dir="auto">
-    <a href="https://www.greptile.com/?utm_source=oss_badge&amp;utm_medium=readme&amp;utm_campaign=greptile_for_open_source" target="_blank" rel="noopener noreferrer"><img src=".github/resources/greptile-badge.svg" alt="Greptile" width="250" height="58"/></a>
-    <a href="https://socket.dev/" target="_blank" rel="noopener noreferrer"><img src=".github/resources/socket-badge.svg" alt="Socket" width="250" height="58"/></a>
-  </div>
-</div>
 
 <!-- docs links -->
 
@@ -189,6 +192,9 @@ These companies support us by providing their tools for free:
 [gameflow-deck]: https://github.com/simeonradivoev/gameflow-deck
 [rommix]: https://github.com/leclercb/rommix
 [vita-romm]: https://github.com/denkacn/vita-romm
+[r-shop]: https://github.com/AverageConsumer/R-Shop
+[rommmobile]: https://github.com/pippopapera/RomMMobile
+[konsoru]: https://github.com/FabianZettl/konsoru-launcher-releases
 [grout]: https://github.com/rommapp/grout
 [romm-ios-app]: https://github.com/ilyas-hallak/romm-ios-app
 [argosy-launcher]: https://github.com/rommapp/argosy-launcher

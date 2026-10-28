@@ -1,0 +1,86 @@
+// useGlobalHotkeys: app-wide keyboard shortcuts. Kept intentionally
+// narrow so it doesn't fight with input fields or rich-text editors.
+//
+// Current bindings:
+//   /   → navigate to /search (convention borrowed from Reddit / GitHub)
+//   ?   → navigate to /search (shift-/, same behaviour)
+//   g h → home
+//   g p → platforms index
+//   g c → collections index
+//
+// Two-key sequences (Gmail-style) have a 1.2s idle timeout. Everything is
+// guarded against input fields, contenteditable, and a running game
+// (the playing store flag), so hotkeys never fire mid-session.
+import { useEventListener } from "@vueuse/core";
+import { onBeforeUnmount } from "vue";
+import { useRouter } from "vue-router";
+import { ROUTES } from "@/plugins/router";
+import storePlaying from "@/stores/playing";
+import { isEditable } from "@/utils/editable";
+
+let installed = false;
+
+export function useGlobalHotkeys() {
+  function install() {
+    if (installed) return;
+    if (typeof window === "undefined") return;
+    installed = true;
+
+    const router = useRouter();
+    const playingStore = storePlaying();
+    let pendingPrefix: string | null = null;
+    let pendingAt = 0;
+    const PREFIX_IDLE_MS = 1200;
+
+    function onKey(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      // A widget that handled the key (a select's type-to-select) owns it.
+      if (e.defaultPrevented) return;
+      if (isEditable(e.target)) return;
+      // While a game is running the emulator owns the keyboard. "g" and
+      // "h" are common game keys; without this gate a two-key sequence
+      // (or "/") would navigate away and kill the session.
+      if (playingStore.playing) return;
+
+      const now = performance.now();
+      if (pendingPrefix && now - pendingAt > PREFIX_IDLE_MS) {
+        pendingPrefix = null;
+      }
+
+      // Slash / ?: jump to search.
+      if ((e.key === "/" || e.key === "?") && !pendingPrefix) {
+        void router.push({ name: ROUTES.SEARCH });
+        e.preventDefault();
+        return;
+      }
+
+      // Two-key "g" prefix sequences.
+      if (e.key === "g" && !pendingPrefix) {
+        pendingPrefix = "g";
+        pendingAt = now;
+        return;
+      }
+      if (pendingPrefix === "g") {
+        pendingPrefix = null;
+        if (e.key === "h") {
+          void router.push({ name: ROUTES.HOME });
+          e.preventDefault();
+        } else if (e.key === "p") {
+          void router.push({ name: ROUTES.PLATFORMS_INDEX });
+          e.preventDefault();
+        } else if (e.key === "c") {
+          void router.push({ name: ROUTES.COLLECTIONS_INDEX });
+          e.preventDefault();
+        }
+      }
+    }
+
+    useEventListener(window, "keydown", onKey);
+
+    onBeforeUnmount(() => {
+      installed = false;
+    });
+  }
+
+  return { install };
+}

@@ -182,7 +182,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
 @protected_route(
     router.get,
     "/tinfoil",
-    [],
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
 async def tinfoil_index_feed(
     request: Request, slug: str = "switch"

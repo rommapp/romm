@@ -25,7 +25,7 @@ def _adapter(tp: object) -> TypeAdapter[tuple[Any]]:
     # TypeAdapter refuses `config` for a bare TypedDict; inside a tuple the
     # config applies to it and to every TypedDict nested in it.
     if tp not in _adapters:
-        _adapters[tp] = TypeAdapter(tuple[tp], config=_CONFIG)  # type: ignore[valid-type]
+        _adapters[tp] = TypeAdapter(tuple[tp], config=_CONFIG)  # type: ignore[valid-type, arg-type]
     return _adapters[tp]
 
 

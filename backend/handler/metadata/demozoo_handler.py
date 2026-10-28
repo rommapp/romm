@@ -18,6 +18,7 @@ from logger.logger import log
 from utils import int_or_none, valid_youtube_id
 from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.platform_slugs import fill_duplicate_slugs
 from utils.rate_limiter import RateLimiter
 
 from .base_handler import (
@@ -635,3 +636,5 @@ DEMOZOO_PLATFORM_LIST: dict[UPS, _DemozooPlatform] = {
     UPS.SNES: {"id": 34, "name": "Nintendo SNES/Super FamiCom"},
     UPS.GENESIS: {"id": 22, "name": "Sega Megadrive/Genesis"},
 }
+
+fill_duplicate_slugs(DEMOZOO_PLATFORM_LIST)

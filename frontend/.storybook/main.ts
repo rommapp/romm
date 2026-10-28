@@ -1,8 +1,7 @@
 import type { StorybookConfig } from "@storybook/vue3-vite";
 
 const config: StorybookConfig = {
-  // Only pick up v2 stories: the v1 UI is frozen and does not ship stories.
-  stories: ["../src/v2/**/*.stories.@(js|jsx|ts|tsx)", "../src/v2/**/*.mdx"],
+  stories: ["../src/**/*.stories.@(js|jsx|ts|tsx)", "../src/**/*.mdx"],
   addons: [
     "@storybook/addon-docs",
     "@storybook/addon-a11y",
@@ -18,7 +17,7 @@ const config: StorybookConfig = {
     },
   },
   viteFinal(cfg) {
-    // Path aliases (@, @v2, md-editor-v3) come with the app's vite.config.js,
+    // Path aliases (@, md-editor-v3) come with the app's vite.config.js,
     // which the builder merges in before this hook.
     // The main app's Vite config registers VitePWA; this is an
     // app-build concern (service worker, ROM patcher assets) and has
