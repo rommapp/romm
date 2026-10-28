@@ -1725,7 +1725,7 @@ async def scan_rom(
     # one its caller created it with, which for a physical game the user typed.
     if not rom_attrs.get("name"):
         rom_attrs["name"] = (
-            rom.name if newly_added else None
+            newly_added and rom.name
         ) or fs_rom_handler.get_file_name_with_no_tags(rom_attrs["fs_name"])
 
     log.info(
