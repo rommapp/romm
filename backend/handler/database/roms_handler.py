@@ -107,6 +107,7 @@ from utils.database import (
     release_day_ranges,
     rom_unset_flag_column,
 )
+from utils.facets import facet_names
 from utils.fulltext import (
     FULLTEXT_TOKEN_REGEX,
     fulltext_settings,
@@ -3960,8 +3961,8 @@ class DBRomsHandler(DBBaseHandler):
         for name, column_texts in zip(_FILTER_JSON_COLUMNS, texts, strict=True):
             items: set[str] = set()
             for text in column_texts:
-                if text and (value := json.loads(text)):
-                    items.update(value)
+                if text:
+                    items.update(facet_names(json.loads(text)))
             filters[name] = sorted(items)
         return typing_cast(RomFiltersDict, filters)
 

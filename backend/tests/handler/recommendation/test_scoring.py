@@ -215,7 +215,7 @@ def test_extract_tokens_skips_invalid_metadata_values(value):
     )
 
 
-@pytest.mark.parametrize("column", [42, True, "Action", {"id": 1, "name": "Action"}])
+@pytest.mark.parametrize("column", [42, True, {"id": 1, "name": "Action"}])
 def test_extract_tokens_skips_a_column_that_is_not_a_list(column):
     assert extract_tokens(platform_id=1, genres=column) == (
         make_token(Facet.PLATFORM, "1"),

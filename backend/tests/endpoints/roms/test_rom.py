@@ -667,6 +667,27 @@ def test_get_roms_filter_values_are_never_null(
     assert filter_values["platforms"] == ([platform.id] if with_filter_values else [])
 
 
+def test_get_roms_reads_names_from_metadata_objects(
+    client: TestClient, access_token: str, rom: Rom, platform: Platform
+) -> None:
+    db_rom_handler.update_rom(
+        rom.id,
+        {"igdb_metadata": {"genres": [{"id": 12, "name": "RPG"}, " Action "]}},
+    )
+
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "with_filter_values": True},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["items"][0]["igdb_metadata"]["genres"] == ["RPG", "Action"]
+    assert body["items"][0]["metadatum"]["genres"] == ["Action", "RPG"]
+    assert body["filter_values"]["genres"] == ["Action", "RPG"]
+
+
 def test_get_rom_filters_are_never_null(
     client: TestClient, access_token: str, rom: Rom
 ) -> None:

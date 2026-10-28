@@ -14,6 +14,8 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final
 
+from utils.facets import facet_names
+
 
 class Facet(enum.StrEnum):
     """Every axis a recommendation can be explained by.
@@ -144,20 +146,6 @@ class RomFeatures:
     title_key: str | None = None
 
 
-def _facet_names(values: object) -> list[str]:
-    """Clean names from a facet column, skipping entries that carry none."""
-    # The raw-metadata form stores JSON unvalidated, so a column can hold
-    # {id, name} objects, bare ids, or no list at all.
-    if not isinstance(values, (list, tuple)):
-        return []
-    names: list[str] = []
-    for value in values:
-        name = value.get("name") if isinstance(value, Mapping) else value
-        if isinstance(name, str) and (cleaned := name.strip()):
-            names.append(cleaned)
-    return names
-
-
 def extract_tokens(
     *,
     platform_id: int,
@@ -179,23 +167,23 @@ def extract_tokens(
     # Prefer the role-split lists where a provider reported them, and fall back
     # to the merged one otherwise. Emitting both would count an IGDB-matched
     # game's studio twice while a game matched elsewhere counted once.
-    developer_names = _facet_names(developers)
-    publisher_names = _facet_names(publishers)
+    developer_names = facet_names(developers)
+    publisher_names = facet_names(publishers)
     company_facets: tuple[tuple[Facet, list[str]], ...] = (
         ((Facet.DEVELOPER, developer_names), (Facet.PUBLISHER, publisher_names))
         if developer_names or publisher_names
-        else ((Facet.COMPANY, _facet_names(companies)),)
+        else ((Facet.COMPANY, facet_names(companies)),)
     )
 
     for facet, names in (
-        (Facet.GENRE, _facet_names(genres)),
-        (Facet.FRANCHISE, _facet_names(franchises)),
-        (Facet.COLLECTION, _facet_names(collections)),
+        (Facet.GENRE, facet_names(genres)),
+        (Facet.FRANCHISE, facet_names(franchises)),
+        (Facet.COLLECTION, facet_names(collections)),
         *company_facets,
-        (Facet.GAME_MODE, _facet_names(game_modes)),
-        (Facet.KEYWORD, _facet_names(keywords)),
-        (Facet.THEME, _facet_names(themes)),
-        (Facet.PERSPECTIVE, _facet_names(player_perspectives)),
+        (Facet.GAME_MODE, facet_names(game_modes)),
+        (Facet.KEYWORD, facet_names(keywords)),
+        (Facet.THEME, facet_names(themes)),
+        (Facet.PERSPECTIVE, facet_names(player_perspectives)),
     ):
         tokens.extend(make_token(facet, name) for name in names)
 

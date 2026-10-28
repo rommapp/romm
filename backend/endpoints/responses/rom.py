@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
-from typing import NotRequired, TypedDict, get_type_hints
+from typing import Final, NotRequired, TypedDict, get_type_hints
 
 from fastapi import Request
-from pydantic import ConfigDict, Field, computed_field, field_validator, model_validator
+from pydantic import (
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 
 from endpoints.responses.assets import (
     HIDDEN_ASSET_ANNOTATIONS,
@@ -42,6 +49,7 @@ from models.rom import (
     SaveTargetLayout,
 )
 from utils.conversion_cache import offered_download_formats
+from utils.facets import facet_names
 
 from .base import BaseModel, UTCDatetime
 
@@ -163,6 +171,32 @@ ManualMetadata = TypedDict(
     },
     total=False,
 )
+
+
+def _name_list_keys(metadata: type) -> frozenset[str]:
+    return frozenset(
+        key
+        for key, hint in get_type_hints(metadata).items()
+        if hint in (list[str], list[str] | None)
+    )
+
+
+_METADATA_NAME_LIST_KEYS: Final = {
+    "igdb_metadata": _name_list_keys(RomIGDBMetadata),
+    "moby_metadata": _name_list_keys(RomMobyMetadata),
+    "ss_metadata": _name_list_keys(RomSSMetadata),
+    "launchbox_metadata": _name_list_keys(RomLaunchboxMetadata),
+    "hasheous_metadata": _name_list_keys(RomHasheousMetadata),
+    "flashpoint_metadata": _name_list_keys(RomFlashpointMetadata),
+    "hltb_metadata": _name_list_keys(RomHLTBMetadata),
+    "demozoo_metadata": _name_list_keys(RomDemozooMetadata),
+    "pouet_metadata": _name_list_keys(RomPouetMetadata),
+    "csdb_metadata": _name_list_keys(RomCsdbMetadata),
+    "steam_metadata": _name_list_keys(RomSteamMetadata),
+    "gamelist_metadata": _name_list_keys(RomGamelistMetadata),
+    "manual_metadata": _name_list_keys(ManualMetadata),
+    "merged_ra_metadata": _name_list_keys(RomRAMetadata),
+}
 
 
 def rom_user_schema_factory() -> RomUserSchema:
@@ -305,33 +339,18 @@ class RomMetadataSchema(BaseModel):
     first_release_date: int | None
     average_rating: float | None
 
-    @field_validator("genres")
-    def sort_genres(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("franchises")
-    def sort_franchises(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("collections")
-    def sort_collections(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("companies")
-    def sort_companies(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("publishers")
-    def sort_publishers(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("developers")
-    def sort_developers(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("game_modes")
-    def sort_game_modes(cls, v: list[str]) -> list[str]:
-        return sorted(v)
+    @field_validator(
+        "genres",
+        "franchises",
+        "collections",
+        "companies",
+        "publishers",
+        "developers",
+        "game_modes",
+        mode="before",
+    )
+    def sort_names(cls, v: object) -> list[str]:
+        return sorted(facet_names(v))
 
     @field_validator("age_ratings", mode="before")
     def normalize_age_ratings(cls, v: str | list[str] | None) -> list[str]:
@@ -452,6 +471,17 @@ class RomSchema(BaseModel):
     sibling_roms: list[SiblingRomSchema] = Field(
         validation_alias="included_sibling_roms"
     )
+
+    @field_validator(*_METADATA_NAME_LIST_KEYS, mode="before")
+    def clean_name_lists(cls, v: object, info: ValidationInfo) -> object:
+        # Raw-metadata edits can store {id, name} objects where a list of names belongs.
+        if not isinstance(v, Mapping):
+            return v
+        keys = _METADATA_NAME_LIST_KEYS.get(info.field_name or "", frozenset())
+        return {
+            key: facet_names(value) if key in keys and value is not None else value
+            for key, value in v.items()
+        }
 
     @field_validator("files")
     def sort_files(cls, v: list[RomFileSchema]) -> list[RomFileSchema]:
