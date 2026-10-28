@@ -13,6 +13,7 @@ const defaultLanguageState = {
     { value: "pt_BR", name: "Português (Brasil)" },
     { value: "ro_RO", name: "Română" },
     { value: "es_ES", name: "Español (España)" },
+    { value: "sv_SE", name: "Svenska" },
     { value: "zh_CN", name: "简体中文 (中国)" },
     { value: "zh_TW", name: "繁體中文 (台灣)" },
     { value: "ko_KR", name: "한국어 (대한민국)" },
