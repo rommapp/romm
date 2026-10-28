@@ -1,5 +1,6 @@
 from typing import TypedDict
 
+from utils.arcade_platforms import arcade_fallbacks
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.platform_slugs import fill_duplicate_slugs
 
@@ -33,6 +34,10 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
     UPS.APPLE_IIGS: {"id": 112, "name": "Apple IIGS"},
     UPS.APPLEII: {"id": 110, "name": "Apple II"},
     UPS.ARCADE: {"id": 5, "name": "Arcade"},
+    UPS.ATOMISWAVE: {"id": 98, "name": "Sammy Atomiswave"},
+    UPS.NAOMI: {"id": 99, "name": "Sega Naomi"},
+    UPS.NAOMI2: {"id": 100, "name": "Sega Naomi 2"},
+    UPS.TRIFORCE: {"id": 207, "name": "Sega Triforce"},
     UPS.ARCADIA_2001: {"id": 79, "name": "Emerson Arcadia 2001"},
     UPS.ASTROCADE: {"id": 77, "name": "Bally Astrocade"},
     UPS.ATARI_JAGUAR_CD: {"id": 10, "name": "Atari Jaguar CD"},
@@ -104,7 +109,6 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
     UPS.MAC: {"id": 17, "name": "Apple Mac OS"},
     UPS.AQUARIUS: {"id": 69, "name": "Mattel Aquarius"},
     UPS.MEGA_DUCK_SLASH_COUGAR_BOY: {"id": 127, "name": "Mega Duck"},
-    UPS.MODEL1: {"id": 104, "name": "Sega Model 1"},
     UPS.MODEL2: {"id": 88, "name": "Sega Model 2"},
     UPS.MODEL3: {"id": 94, "name": "Sega Model 3"},
     UPS.MSX: {"id": 82, "name": "Microsoft MSX"},
@@ -183,9 +187,6 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
     UPS.SUPERGRAFX: {"id": 162, "name": "PC Engine SuperGrafx"},
     UPS.SWITCH: {"id": 211, "name": "Nintendo Switch"},
     UPS.SWITCH_2: {"id": 224, "name": "Nintendo Switch 2"},
-    UPS.SYSTEM_32: {"id": 93, "name": "Namco System 22"},
-    UPS.SYSTEM16: {"id": 97, "name": "Sega System 16"},
-    UPS.SYSTEM32: {"id": 96, "name": "Sega System 32"},
     UPS.TG16: {"id": 54, "name": "NEC TurboGrafx-16"},
     UPS.TI_994A: {"id": 149, "name": "Texas Instruments TI 99/4A"},
     UPS.TOMY_TUTOR: {"id": 200, "name": "Tomy Tutor"},
@@ -220,13 +221,9 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
     UPS.ZX81: {"id": 147, "name": "Sinclair ZX-81"},
     UPS.ZXS: {"id": 46, "name": "Sinclair ZX Spectrum"},
 }
+LAUNCHBOX_PLATFORM_LIST |= arcade_fallbacks(LAUNCHBOX_PLATFORM_LIST)
 
 fill_duplicate_slugs(LAUNCHBOX_PLATFORM_LIST)
-
-# Reverse lookup: LaunchBox platform ID → UPS slug
-LAUNCHBOX_PLATFORM_NAME_TO_SLUG = {
-    v["id"]: k for k, v in LAUNCHBOX_PLATFORM_LIST.items()
-}
 
 
 def get_platform(slug: str) -> LaunchboxPlatform:

@@ -232,10 +232,6 @@ PS2_SS_ID: Final = 58
 PSP_SS_ID: Final = 61
 SWITCH_SS_ID: Final = 225
 ARCADE_SS_ID: Final = 75
-CPS1_SS_ID: Final = 6
-CPS2_SS_ID: Final = 7
-CPS3_SS_ID: Final = 8
-ARCADES_SS_IDS: Final = [ARCADE_SS_ID, CPS1_SS_ID, CPS2_SS_ID, CPS3_SS_ID]
 
 # Regex to detect ScreenScraper ID tags in filenames like (ssfr-12345)
 SS_TAG_REGEX = provider_tag_regex("ssfr")
@@ -1284,22 +1280,37 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.APPLEIII: {"id": 86, "name": "Apple III"},
     UPS.APPLEII: {"id": 86, "name": "Apple II"},
     UPS.APPLE_IIGS: {"id": 51, "name": "Apple IIGS"},
-    UPS.ARCADE: {
-        "id": ARCADE_SS_ID,
-        "name": "Arcade",
-        "alternative_names": [
-            "Mame",
-            "FBA",
-            "MESS",
-            "MAME4ALL",
-            "AdvanceMAME",
-            "AdvMAME",
-            "MAME-LibRetro",
-            "MAME-MAME4ALL",
-            "MAME-ADVMAME",
-            "FBA-LibRetro",
-        ],
+    UPS.ARCADE: {"id": ARCADE_SS_ID, "name": "Arcade"},
+    UPS.MAME: {"id": ARCADE_SS_ID, "name": "MAME"},
+    UPS.MAME_ADVMAME: {"id": ARCADE_SS_ID, "name": "AdvanceMAME"},
+    UPS.FBNEO: {"id": ARCADE_SS_ID, "name": "FinalBurn Neo"},
+    UPS.FBA: {"id": ARCADE_SS_ID, "name": "FinalBurn Alpha"},
+    UPS.ATOMISWAVE: {
+        "id": 53,
+        "name": "Atomiswave",
+        "alternative_names": ["Sammy Atomiswave"],
     },
+    UPS.CHIHIRO: {"id": ARCADE_SS_ID, "name": "Sega Chihiro"},
+    UPS.DAPHNE: {"id": 49, "name": "Daphne"},
+    UPS.DICE: {"id": ARCADE_SS_ID, "name": "DICE"},
+    UPS.GAELCO: {"id": 194, "name": "Gaelco"},
+    UPS.LINDBERGH: {"id": ARCADE_SS_ID, "name": "Sega Lindbergh"},
+    UPS.NAMCO2X6: {"id": ARCADE_SS_ID, "name": "Namco System 246/256"},
+    UPS.NAMCO3XX: {"id": ARCADE_SS_ID, "name": "Namco System 357/369"},
+    UPS.NAOMI: {"id": 56, "name": "Sega Naomi", "alternative_names": ["Naomi"]},
+    UPS.NAOMI2: {"id": 230, "name": "Sega Naomi 2", "alternative_names": ["Naomi 2"]},
+    UPS.NAOMIGD: {
+        "id": 227,
+        "name": "Sega Naomi GD-ROM",
+        "alternative_names": ["Sega Naomi-GD", "Naomi GD"],
+    },
+    UPS.SINGE: {
+        "id": 170,
+        "name": "Singe",
+        "alternative_names": ["American Laser Games"],
+    },
+    UPS.TEKNOPARROT: {"id": ARCADE_SS_ID, "name": "TeknoParrot"},
+    UPS.TRIFORCE: {"id": ARCADE_SS_ID, "name": "Triforce"},
     UPS.ARCADIA_2001: {
         "id": 94,
         "name": "Arcadia 2001",
@@ -1472,26 +1483,6 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.C_PLUS_4: {"id": 99, "name": "Plus/4"},
     UPS.C16: {"id": 99, "name": "Plus/4"},
     UPS.C64: {"id": 66, "name": "Commodore 64"},
-    UPS.CPS1: {
-        "id": CPS1_SS_ID,
-        "name": "Capcom Play System",
-        "alternative_names": [
-            "Capcom Play System 1",
-            "Capcom Play System I",
-            "CPS 1",
-            "CPS I",
-        ],
-    },
-    UPS.CPS2: {
-        "id": CPS2_SS_ID,
-        "name": "Capcom Play System 2",
-        "alternative_names": ["Capcom Play System II", "CPS 2", "CPS II"],
-    },
-    UPS.CPS3: {
-        "id": CPS3_SS_ID,
-        "name": "Capcom Play System 3",
-        "alternative_names": ["Capcom Play System III", "CPS 3", "CPS III"],
-    },
     UPS.CPET: {"id": 240, "name": "PET"},
     UPS.CREATIVISION: {"id": 241, "name": "CreatiVision"},
     UPS.DOOM: {"id": 290, "name": "Doom", "alternative_names": ["PrBoom"]},
@@ -1991,11 +1982,6 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
         "name": "Nintendo Switch 2",
         "alternative_names": ["Switch 2"],
     },
-    UPS.SYSTEM_32: {
-        "id": 156,
-        "name": "Namco System 22",
-        "alternative_names": ["System 22"],
-    },
     UPS.TI_994A: {"id": 205, "name": "TI-99/4A"},
     UPS.TI_99: {"id": 205, "name": "TI-99"},
     UPS.TIC_80: {"id": 222, "name": "TIC-80"},
@@ -2117,9 +2103,5 @@ SS_INDEXED_FORMAT_PLATFORMS: Final = IndexedFormatPlatforms(
     ps2=PS2_SS_ID,
     psp=PSP_SS_ID,
     switch=SWITCH_SS_ID,
-    arcade=ARCADES_SS_IDS,
     scummvm=SCREENSAVER_PLATFORM_LIST[UPS.SCUMMVM]["id"],
 )
-
-# Reverse lookup
-SS_ID_TO_SLUG = {v["id"]: k for k, v in SCREENSAVER_PLATFORM_LIST.items()}

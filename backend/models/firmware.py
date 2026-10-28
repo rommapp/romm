@@ -16,12 +16,17 @@ from models.base import (
     BaseModel,
     FileNamePartsMixin,
 )
+from utils.arcade_platforms import ARCADE_PLATFORMS
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 if TYPE_CHECKING:
     from models.platform import Platform
 
 FIRMWARE_FIXTURES_DIR: Final = Path(__file__).parent / "fixtures"
 KNOWN_BIOS_KEY = "romm:known_bios_files"
+
+# The known BIOS list files every arcade BIOS, Neo Geo's included, under Arcade.
+ARCADE_BIOS_PLATFORMS: Final = ARCADE_PLATFORMS | {UPS.NEOGEOAES, UPS.NEOGEOMVS}
 
 
 class Firmware(FileNamePartsMixin, BaseModel):
@@ -64,7 +69,10 @@ class Firmware(FileNamePartsMixin, BaseModel):
         sha1_hash: str,
         crc_hash: str,
     ) -> bool:
-        cache_entry = sync_cache.hget(KNOWN_BIOS_KEY, f"{platform_slug}:{file_name}")
+        bios_slug = (
+            UPS.ARCADE if platform_slug in ARCADE_BIOS_PLATFORMS else platform_slug
+        )
+        cache_entry = sync_cache.hget(KNOWN_BIOS_KEY, f"{bios_slug}:{file_name}")
         if cache_entry:
             cache_json = json.loads(cache_entry)
             return file_size_bytes == int(cache_json.get("size", 0)) and (

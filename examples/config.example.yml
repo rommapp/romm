@@ -69,7 +69,7 @@
 
 #   # Asociate one platform to it's main version (IGDB only)
 #   versions:
-#     naomi: arcade
+#     playchoice10: arcade
 
 # filesystem:
 #   # Skip file hash calculations on low power devices (eg. Raspberry PI)

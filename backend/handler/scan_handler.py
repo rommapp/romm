@@ -6,7 +6,6 @@ from typing import Any, Final, NotRequired, TypedDict
 
 import socketio
 
-from adapters.services.igdb import IGDB_PLATFORM_LIST
 from adapters.services.screenscraper import ScreenScraperRateLimitError
 from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
@@ -790,7 +789,7 @@ async def scan_rom(
                 or (
                     scan_type == ScanType.UNMATCHED
                     and (not rom.igdb_id or not rom.igdb_metadata)
-                    and rom.platform_slug in IGDB_PLATFORM_LIST
+                    and meta_igdb_handler.get_platform(rom.platform_slug)["igdb_id"]
                 )
             )
         ):
