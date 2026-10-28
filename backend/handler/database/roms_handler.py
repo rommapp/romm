@@ -564,7 +564,7 @@ def _region_rank() -> ColumnElement[Any]:
 
 
 # "(" then any tag, so "(Demo)", "(Beta 2)" and "(Prototype)" match and a title that
-# merely contains "demo" does not. The group keeps the alternation after the "(".
+# merely contains "demo" does not.
 _PRERELEASE_PATTERN = (
     rf"\(({'|'.join(re.escape(tag) for tag in PRERELEASE_FILENAME_TAGS)})"
 )
