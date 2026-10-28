@@ -22,7 +22,7 @@ User-visible strings are **never hard-coded** in components; they come from loca
 - Reuse each locale's established terms: grep a sibling key for how it renders "metadata", "provider", etc.
 - Copying the English value is a last-resort placeholder, only when no translation is available, and must be flagged to revisit.
 - Removing or renaming a key means doing it across **every** locale.
-- **Keep the `{placeholders}` of the `en_US` string.** Same names, none dropped, none added: the code passes exactly the English set.
+- **Keep the `{placeholders}` of the `en_US` string.** The code passes exactly the English set, so use the same names and don't drop or add any.
 
 ## Verify before handoff
 
@@ -31,7 +31,7 @@ python3 frontend/src/locales/check_i18n_locales.py
 python3 frontend/src/locales/check_i18n_sorted.py   # add --fix to auto-sort
 ```
 
-`check_i18n_locales.py` compares every non-English locale against `en_US` and **fails on any missing file, missing key, extra key, or placeholder that differs from `en_US`**. `check_i18n_sorted.py` **fails if any locale JSON file's keys aren't sorted alphabetically** (run with `--fix` to sort them in place). CI runs both scripts (`.github/workflows/i18n.yml`) on any change under `frontend/src/locales/**`; both must pass.
+`check_i18n_locales.py` compares every non-English locale against `en_US` and **fails on any missing file, missing key, extra key, or placeholder that differs from `en_US`**. `check_i18n_sorted.py` **fails if any locale JSON file's keys aren't sorted alphabetically** (run with `--fix` to sort them in place). CI runs both scripts and their unit tests (`.github/workflows/i18n.yml`) on any change under `frontend/src/locales/**`; all must pass.
 
 ## Adding a new language
 
