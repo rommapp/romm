@@ -6,7 +6,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from io import BytesIO
 from stat import S_IFREG
-from typing import Annotated, Any, Final, Literal, Sequence, cast
+from typing import Annotated, Any, Final, Literal, Sequence
 from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
@@ -47,6 +47,7 @@ from endpoints.responses.rom import (
     ManualMetadata,
     RomUserSchema,
     SimpleRomSchema,
+    clean_metadata_name_lists,
 )
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import (
@@ -516,10 +517,20 @@ def parse_raw_metadata(
         return None
 
     try:
-        return cast(dict[str, Any] | None, json.loads(str(raw_json)))
+        metadata = json.loads(str(raw_json))
     except json.JSONDecodeError as e:
         log.warning(f"Invalid JSON for {form_key}: {e}")
         return None
+
+    if not isinstance(metadata, dict):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Invalid {form_key}: expected a JSON object",
+        )
+    # Manual metadata is checked strictly by its adapter instead.
+    if form_key == "raw_manual_metadata":
+        return metadata
+    return clean_metadata_name_lists(form_key.removeprefix("raw_"), metadata)
 
 
 class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):

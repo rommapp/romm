@@ -1022,6 +1022,56 @@ def test_update_rom_rejects_malformed_manual_metadata(
 
 @patch.object(FSRomsHandler, "rename_fs_rom")
 @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_stores_names_from_raw_metadata_objects(
+    _get_rom_by_id_mock: AsyncMock,
+    _rename_fs_rom_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    raw_igdb_metadata = {
+        "genres": [{"id": 12, "name": "RPG"}, " Action "],
+        "youtube_video_id": "dQw4w9WgXcQ",
+    }
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={
+            "igdb_id": str(MOCK_IGDB_ID),
+            "raw_igdb_metadata": json.dumps(raw_igdb_metadata),
+        },
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    stored = db_rom_handler.get_rom(rom.id)
+    assert stored is not None
+    assert stored.igdb_metadata == {
+        "genres": ["RPG", "Action"],
+        "youtube_video_id": "dQw4w9WgXcQ",
+    }
+
+
+@pytest.mark.parametrize("form_key", ["raw_igdb_metadata", "raw_manual_metadata"])
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_rejects_raw_metadata_that_is_not_an_object(
+    _get_rom_by_id_mock: AsyncMock,
+    _rename_fs_rom_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    form_key: str,
+):
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"igdb_id": str(MOCK_IGDB_ID), form_key: '["RPG"]'},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
 def test_update_rom_rejects_fs_name_over_255_bytes(
     _get_rom_by_id_mock: AsyncMock,
     rename_fs_rom_mock: AsyncMock,

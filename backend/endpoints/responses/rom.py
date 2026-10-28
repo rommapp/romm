@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
-from typing import Final, NotRequired, TypedDict, get_type_hints
+from typing import Any, Final, NotRequired, TypedDict, get_type_hints
 
 from fastapi import Request
 from pydantic import (
@@ -197,6 +197,17 @@ _METADATA_NAME_LIST_KEYS: Final = {
     "manual_metadata": _name_list_keys(ManualMetadata),
     "merged_ra_metadata": _name_list_keys(RomRAMetadata),
 }
+
+
+def clean_metadata_name_lists(
+    field: str, metadata: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Run `facet_names` over the keys of a ROM `field`'s blob typed as a list of names."""
+    keys = _METADATA_NAME_LIST_KEYS.get(field, frozenset())
+    return {
+        key: facet_names(value) if key in keys and value is not None else value
+        for key, value in metadata.items()
+    }
 
 
 def rom_user_schema_factory() -> RomUserSchema:
@@ -474,14 +485,10 @@ class RomSchema(BaseModel):
 
     @field_validator(*_METADATA_NAME_LIST_KEYS, mode="before")
     def clean_name_lists(cls, v: object, info: ValidationInfo) -> object:
-        # Raw-metadata edits can store {id, name} objects where a list of names belongs.
+        # A stored blob can hold {id, name} objects where a list of names belongs.
         if not isinstance(v, Mapping):
             return v
-        keys = _METADATA_NAME_LIST_KEYS.get(info.field_name or "", frozenset())
-        return {
-            key: facet_names(value) if key in keys and value is not None else value
-            for key, value in v.items()
-        }
+        return clean_metadata_name_lists(info.field_name or "", v)
 
     @field_validator("files")
     def sort_files(cls, v: list[RomFileSchema]) -> list[RomFileSchema]:
