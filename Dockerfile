@@ -72,16 +72,13 @@ FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA
 RUN apk add --no-cache \
     cmake \
     g++ \
-    git \
     make \
     musl-dev
 
 ARG SIGIL_VERSION=8a3b0089676e07f74da2d9ad08979dedf5cae7c0
-RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git && \
-    cd ./argosy-sigil && \
-    git checkout "${SIGIL_VERSION}" && \
-    git submodule update --init --recursive && \
-    cmake -B ./build-python -S . -DSIGIL_BUILD_CLI=OFF -DSIGIL_BUILD_TESTS=OFF && \
+ADD "https://github.com/rommapp/argosy-sigil.git#${SIGIL_VERSION}" /argosy-sigil
+WORKDIR /argosy-sigil
+RUN cmake -B ./build-python -S . -DSIGIL_BUILD_CLI=OFF -DSIGIL_BUILD_TESTS=OFF && \
     cmake --build ./build-python --target sigil && \
     pip install --no-cache-dir cffi setuptools && \
     cd ./bindings/python && \
