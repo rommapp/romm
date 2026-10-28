@@ -64,6 +64,23 @@ AUDIO_TAG_MAX_LENGTH = 512
 # Max length for the binary identity columns (title id and save target).
 TITLE_ID_MAX_LENGTH = 100
 
+# Every provider's metadata column; `manual_metadata` holds the user's own overrides.
+PROVIDER_METADATA_COLUMNS: Final = (
+    "igdb_metadata",
+    "moby_metadata",
+    "ss_metadata",
+    "ra_metadata",
+    "launchbox_metadata",
+    "hasheous_metadata",
+    "flashpoint_metadata",
+    "hltb_metadata",
+    "demozoo_metadata",
+    "pouet_metadata",
+    "csdb_metadata",
+    "steam_metadata",
+    "gamelist_metadata",
+)
+
 # (metadata column, key) of each provider's alternative titles.
 PROVIDER_ALTERNATIVE_NAME_SOURCES = (
     ("igdb_metadata", "alternative_names"),

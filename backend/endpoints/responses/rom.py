@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import NotRequired, TypedDict, get_type_hints
+from typing import Final, NotRequired, TypedDict, get_type_hints
 
 from fastapi import Request
 from pydantic import ConfigDict, Field, computed_field, field_validator, model_validator
@@ -32,6 +32,7 @@ from handler.metadata.ss_handler import SSMetadata
 from handler.metadata.steam_handler import SteamMetadata
 from models.collection import Collection, SmartCollection
 from models.rom import (
+    PROVIDER_METADATA_COLUMNS,
     DocSource,
     Rom,
     RomArchiveMember,
@@ -533,10 +534,10 @@ def _visible_siblings(db_rom: Rom, request: Request) -> list[Rom]:
     return [s for s in siblings if perms.can_see_rom(s)]
 
 
-# `manual_metadata` holds the user's own overrides, not a provider's.
-PROVIDER_METADATA_FIELDS = frozenset(
-    name for name in RomSchema.model_fields if name.endswith("_metadata")
-) - {"manual_metadata"}
+# The schema serves RetroAchievements merged with the user's progress.
+PROVIDER_METADATA_FIELDS: Final = tuple(
+    "merged_ra_metadata" if c == "ra_metadata" else c for c in PROVIDER_METADATA_COLUMNS
+)
 
 
 class SimpleRomSchema(RomSchema):

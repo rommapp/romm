@@ -79,6 +79,7 @@ from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import (
     METADATA_SOURCE_COLUMNS,
+    PROVIDER_METADATA_COLUMNS,
     Rom,
     RomFile,
     RomFileCategory,
@@ -659,19 +660,7 @@ async def scan_rom(
                 "csdb_id": rom.csdb_id,
                 "steam_id": rom.steam_id,
                 "libretro_id": rom.libretro_id,
-                "igdb_metadata": rom.igdb_metadata,
-                "moby_metadata": rom.moby_metadata,
-                "ss_metadata": rom.ss_metadata,
-                "ra_metadata": rom.ra_metadata,
-                "launchbox_metadata": rom.launchbox_metadata,
-                "hasheous_metadata": rom.hasheous_metadata,
-                "gamelist_metadata": rom.gamelist_metadata,
-                "flashpoint_metadata": rom.flashpoint_metadata,
-                "hltb_metadata": rom.hltb_metadata,
-                "demozoo_metadata": rom.demozoo_metadata,
-                "pouet_metadata": rom.pouet_metadata,
-                "csdb_metadata": rom.csdb_metadata,
-                "steam_metadata": rom.steam_metadata,
+                **{c: getattr(rom, c) for c in PROVIDER_METADATA_COLUMNS},
             }
         )
 
