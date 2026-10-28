@@ -227,11 +227,10 @@ class AppriseUrlPayload(BaseModel):
 
 
 class AppriseUrlFieldsSchema(BaseModel):
-    """The service a pasted URL is for, its fields, and every key it decides."""
+    """The service a pasted URL is for, and the fields it fills in."""
 
     service: str
     fields: dict[str, AppriseFieldValue]
-    decided: list[str]
 
 
 class NotificationChannelTestResult(BaseModel):

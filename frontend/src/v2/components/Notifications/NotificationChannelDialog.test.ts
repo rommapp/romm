@@ -5,7 +5,6 @@ import { defineComponent, nextTick } from "vue";
 import type { NotificationChannelSchema } from "@/__generated__";
 import storePermissions from "@/stores/permissions";
 import { propOf } from "@/test-utils/propOf";
-import AppriseServiceFields from "@/v2/components/Notifications/AppriseServiceFields.vue";
 import {
   makeAppriseService,
   makeChannel,
@@ -254,7 +253,6 @@ describe("NotificationChannelDialog", () => {
       data: {
         service: "ntfy",
         fields: { host: "ntfy.example.com", port: 8080, targets: ["romm"] },
-        decided: ["host", "port", "targets"],
       },
     });
     const wrapper = await open(null, { admin: true });
@@ -280,18 +278,15 @@ describe("NotificationChannelDialog", () => {
     wrapper.unmount();
   });
 
-  describe("a URL read over values already in the form", () => {
+  describe("an Apprise URL read over values already in the form", () => {
     const label = "notifications.channel-service-url";
-    const options = ["image", "mode", "priority"];
     const cloud = {
       service: "ntfy",
       fields: { targets: ["romm"], mode: "cloud" },
-      decided: ["schema", "targets", ...options],
     };
     const privateServer = {
       service: "ntfy",
       fields: { schema: "ntfy", host: "10.0.0.5", targets: ["romm"] },
-      decided: ["host", "schema", "targets", ...options],
     };
 
     async function openNtfy(editing?: NotificationChannelSchema) {
@@ -329,21 +324,13 @@ describe("NotificationChannelDialog", () => {
       paste(wrapper, url, label);
     const saved = () => api.create.mock.calls[0]![0].fields;
 
-    it.each([
-      ["when the new one leaves it out", null],
-      ["when the field was emptied in between", ""],
-      ["when a read in between failed", "ntfy://user:pass@10.0.0.5"],
-    ])("drops what the earlier URL set %s", async (_, between) => {
-      api.parseAppriseUrl.mockResolvedValueOnce({ data: cloud });
-      if (between)
-        api.parseAppriseUrl.mockRejectedValueOnce({
-          response: { data: { detail: "no topic" } },
-        });
-      api.parseAppriseUrl.mockResolvedValueOnce({ data: privateServer });
+    it("drops what an earlier URL set and the new one leaves out", async () => {
+      api.parseAppriseUrl
+        .mockResolvedValueOnce({ data: cloud })
+        .mockResolvedValueOnce({ data: privateServer });
       const wrapper = await openNtfy();
 
       await pasteUrl(wrapper, "ntfy://romm");
-      if (between !== null) await pasteUrl(wrapper, between);
       await pasteUrl(wrapper, "ntfy://10.0.0.5/romm");
       await save(wrapper);
 
@@ -351,7 +338,7 @@ describe("NotificationChannelDialog", () => {
       wrapper.unmount();
     });
 
-    it("drops a stored value the URL decides when editing", async () => {
+    it("drops a stored value the URL leaves out when editing", async () => {
       api.parseAppriseUrl.mockResolvedValueOnce({ data: privateServer });
       const wrapper = await openNtfy(
         channel({
@@ -369,25 +356,6 @@ describe("NotificationChannelDialog", () => {
         host: "10.0.0.5",
         mode: "private",
       });
-      wrapper.unmount();
-    });
-
-    it("keeps what was typed that the URL leaves undecided", async () => {
-      api.parseAppriseUrl.mockResolvedValueOnce({
-        data: { ...privateServer, decided: ["host", "schema", "targets"] },
-      });
-      const wrapper = await openNtfy();
-
-      const fields = wrapper.findComponent(AppriseServiceFields);
-      fields.vm.$emit("update:modelValue", {
-        ...(propOf(fields, "modelValue") as Record<string, unknown>),
-        priority: "high",
-      });
-      await nextTick();
-      await pasteUrl(wrapper, "ntfy://10.0.0.5/romm");
-      await save(wrapper);
-
-      expect(saved()).toMatchObject({ host: "10.0.0.5", priority: "high" });
       wrapper.unmount();
     });
 
@@ -440,7 +408,7 @@ describe("NotificationChannelDialog", () => {
       data: [makeAppriseService(), discord],
     });
     api.parseAppriseUrl.mockResolvedValue({
-      data: { service: "discord", fields: {}, decided: [] },
+      data: { service: "discord", fields: {} },
     });
     const wrapper = await open(null, { admin: true });
 
@@ -455,7 +423,7 @@ describe("NotificationChannelDialog", () => {
 
   it("keeps an edited channel on its service whatever URL is pasted", async () => {
     api.parseAppriseUrl.mockResolvedValue({
-      data: { service: "discord", fields: {}, decided: [] },
+      data: { service: "discord", fields: {} },
     });
     api.getAppriseServices.mockResolvedValue({
       data: [
@@ -510,7 +478,6 @@ describe("NotificationChannelDialog", () => {
       data: {
         service: "discord",
         fields: { webhook_id: "1", webhook_token: "t" },
-        decided: ["webhook_id", "webhook_token"],
       },
     });
     api.create.mockResolvedValue({ data: channel({ type: "apprise" }) });
@@ -559,7 +526,6 @@ describe("NotificationChannelDialog", () => {
       data: {
         service: "discord",
         fields: { webhook_id: "1", webhook_token: "t" },
-        decided: ["webhook_id", "webhook_token"],
       },
     });
     await flushPromises();

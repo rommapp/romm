@@ -295,7 +295,7 @@ class TestFieldsFromUrl:
         ],
     )
     def test_reads_a_url_back_into_its_service_and_fields(self, url, service, fields):
-        found, read, _ = fields_from_url(url)
+        found, read = fields_from_url(url)
 
         assert (found.id, read) == (service, fields)
         checked_fields(service, read)
@@ -341,37 +341,9 @@ class TestFieldsFromUrl:
         ],
     )
     def test_reads_back_the_url_an_email_field_makes(self, service, fields):
-        found, read, _ = fields_from_url(build_url(find_service(service), fields))
+        found, read = fields_from_url(build_url(find_service(service), fields))
 
         assert (found.id, read) == (service, checked_fields(service, fields))
-
-    @pytest.mark.parametrize(
-        "url,decided",
-        [
-            # The options Apprise writes back count, mode among them, at defaults too.
-            (
-                "ntfy://user:pass@10.0.0.5/romm",
-                [
-                    "auth",
-                    "host",
-                    "image",
-                    "mode",
-                    "password",
-                    "priority",
-                    "schema",
-                    "targets",
-                    "user",
-                ],
-            ),
-            # A service's own URL decides only what it carries.
-            (
-                "https://discord.com/api/webhooks/1234567890/abcdefghijklmnop",
-                ["webhook_id", "webhook_token"],
-            ),
-        ],
-    )
-    def test_names_every_key_the_url_decides(self, url, decided):
-        assert fields_from_url(url)[2] == decided
 
     @pytest.mark.parametrize(
         "url,reason",
