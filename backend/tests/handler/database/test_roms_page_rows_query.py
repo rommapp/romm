@@ -18,7 +18,7 @@ def _sql(statement: Select[Any]) -> str:
 
 
 def test_the_grouped_query_does_rank_the_library():
-    """The yardstick: grouping puts a window over every rom, so the next tests mean something."""
+    """Grouping puts a window over every rom, which the page-row tests below must not."""
     query, sort_key = db_rom_handler.get_roms_query(order_by="name", user_id=1)
     grouped = db_rom_handler.filter_roms(
         query=query,
