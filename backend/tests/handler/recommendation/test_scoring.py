@@ -222,7 +222,7 @@ def test_extract_tokens_skips_a_column_that_is_not_a_list(column):
     )
 
 
-def test_roles_without_a_usable_name_fall_back_to_the_merged_list():
+def test_extract_tokens_falls_back_to_companies_when_roles_have_no_names():
     tokens = extract_tokens(
         platform_id=1,
         companies=["Nintendo"],
