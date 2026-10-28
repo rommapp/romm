@@ -23,6 +23,7 @@ import useSoundtrackPlayer, {
   type SoundtrackSink,
 } from "@/stores/soundtrackPlayer";
 import { ChiptunePlayer } from "@/utils/chiptunePlayer";
+import { releaseMedia } from "@/utils/releaseMedia";
 import { isChiptuneFile } from "@/utils/soundtrackTracks";
 
 defineOptions({ inheritAttrs: false });
@@ -75,16 +76,6 @@ function getChiptune(): ChiptunePlayer {
 function activate(sink: HTMLAudioElement | ChiptunePlayer) {
   active = sink;
   store.setAudioRef(sink);
-}
-
-function unloadAudio(el: HTMLAudioElement) {
-  el.pause();
-  el.removeAttribute("src");
-  try {
-    el.load();
-  } catch {
-    // ignore
-  }
 }
 
 onMounted(() => {
@@ -157,7 +148,7 @@ watch(track, async (t) => {
   const resume = store.pendingResume;
   if (!t) {
     setBuffered();
-    unloadAudio(el);
+    releaseMedia(el);
     chiptune.value?.unload();
     return;
   }
@@ -169,7 +160,7 @@ watch(track, async (t) => {
   const sink = isChiptuneFile(t.fileName) ? getChiptune() : el;
   activate(sink);
   if (sink instanceof ChiptunePlayer) {
-    unloadAudio(el);
+    releaseMedia(el);
     void sink.load(t.url);
     // `load` resets the position before its first await; the player seeks
     // to this one once the file is in.
