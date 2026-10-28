@@ -3,6 +3,7 @@ from typing import Any
 import pytest
 from tests.factories import make_rom
 
+from config import FRONTEND_RESOURCES_PATH
 from handler.database import db_rom_handler
 from handler.database.base_handler import sync_session
 from models.platform import Platform
@@ -346,6 +347,12 @@ class TestMergedRAMetadata:
         assert merged is not None
         assert [a["ra_id"] for a in stored["achievements"]] == [2, 1]
         assert stored["achievements"][0]["badge_path"] == "2.png"
+        assert merged["achievements"][0]["badge_path"] == (
+            f"{FRONTEND_RESOURCES_PATH}/1.png"
+        )
+        assert merged["achievements"][0]["badge_path_lock"] == (
+            f"{FRONTEND_RESOURCES_PATH}/1_lock.png"
+        )
 
 
 def test_search_titles_fold_the_name_then_each_alias():
