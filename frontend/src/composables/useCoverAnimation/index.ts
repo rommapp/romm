@@ -253,10 +253,12 @@ export function useCoverAnimation(
     { immediate: false },
   );
 
+  function releaseVideo() {
+    if (opts.videoEl.value) releaseMedia(opts.videoEl.value);
+  }
+
   const { start: scheduleRelease, stop: cancelRelease } = useTimeoutFn(
-    () => {
-      if (opts.videoEl.value) releaseMedia(opts.videoEl.value);
-    },
+    releaseVideo,
     VIDEO_RELEASE_DELAY_MS,
     { immediate: false },
   );
@@ -275,7 +277,7 @@ export function useCoverAnimation(
     cancelVideo();
     cancelRelease();
     isVideoPlaying.value = false;
-    if (opts.videoEl.value) releaseMedia(opts.videoEl.value);
+    releaseVideo();
   }
 
   watch(wantsVideo, (on) => {
@@ -289,7 +291,7 @@ export function useCoverAnimation(
 
   // A clip removed with the cover still mounted (a style change) would keep
   // its download.
-  watch(opts.videoEl, (el, old) => {
+  watch(opts.videoEl, (_el, old) => {
     if (old) releaseMedia(old);
   });
 
@@ -302,9 +304,7 @@ export function useCoverAnimation(
     }
   });
 
-  onBeforeUnmount(() => {
-    if (opts.videoEl.value) releaseMedia(opts.videoEl.value);
-  });
+  onBeforeUnmount(releaseVideo);
 
   return { isVideoPlaying, playLoad };
 }

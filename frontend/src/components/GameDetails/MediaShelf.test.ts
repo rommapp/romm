@@ -26,6 +26,13 @@ function mountShelf(items: MediaShelfItem[]) {
   });
 }
 
+// jsdom's load() is unimplemented and logs an error.
+function stubLoad() {
+  return vi
+    .spyOn(HTMLMediaElement.prototype, "load")
+    .mockImplementation(() => undefined);
+}
+
 describe("MediaShelf", () => {
   it("does not start loading a clip until it is played", () => {
     const wrapper = mountShelf([clip]);
@@ -34,9 +41,7 @@ describe("MediaShelf", () => {
   });
 
   it("drops the clip source when the shelf unmounts", () => {
-    const load = vi
-      .spyOn(HTMLMediaElement.prototype, "load")
-      .mockImplementation(() => undefined);
+    const load = stubLoad();
     const wrapper = mountShelf([clip]);
     const video = wrapper.get("video").element;
     expect(video.getAttribute("src")).toBe(clip.url);
@@ -48,9 +53,7 @@ describe("MediaShelf", () => {
   });
 
   it("drops the clip source when the clip leaves the shelf", async () => {
-    const load = vi
-      .spyOn(HTMLMediaElement.prototype, "load")
-      .mockImplementation(() => undefined);
+    const load = stubLoad();
     const wrapper = mountShelf([shot, clip]);
     const video = wrapper.get("video").element;
 
