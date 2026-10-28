@@ -225,6 +225,8 @@ export function useCoverAnimation(
 
   // ── Hover video ───────────────────────────────────────────────────
   const isVideoPlaying = ref(false);
+  // Set once the clip has been played and holds its src, until released.
+  let holdsVideo = false;
 
   const wantsVideo = computed(
     () => opts.active.value && !!opts.videoUrl.value && motionOk.value,
@@ -237,7 +239,9 @@ export function useCoverAnimation(
       if (!v || !url) return;
       // The src is dropped on release, so put it back before playing.
       if (!v.getAttribute("src")) v.src = url;
+      holdsVideo = true;
       claimPreview(v, () => {
+        holdsVideo = false;
         isVideoPlaying.value = false;
       });
       v.play()
@@ -254,6 +258,7 @@ export function useCoverAnimation(
   );
 
   function releaseVideo() {
+    holdsVideo = false;
     if (opts.videoEl.value) releaseMedia(opts.videoEl.value);
   }
 
@@ -267,7 +272,7 @@ export function useCoverAnimation(
     cancelVideo();
     isVideoPlaying.value = false;
     const v = opts.videoEl.value;
-    if (!v) return;
+    if (!v || !holdsVideo) return;
     v.pause();
     v.currentTime = 0;
     scheduleRelease();

@@ -125,6 +125,22 @@ describe("useCoverAnimation", () => {
     expect(play).toHaveBeenCalledTimes(1);
   });
 
+  it("leaves a clip alone when the hover ends before it plays", async () => {
+    vi.useFakeTimers();
+    const { active, load, videoEl } = setup({ cd: false, video: true });
+    const pause = vi.mocked(videoEl.pause);
+
+    active.value = true;
+    await nextTick();
+    vi.advanceTimersByTime(500);
+    active.value = false;
+    await nextTick();
+    vi.advanceTimersByTime(10000);
+
+    expect(pause).not.toHaveBeenCalled();
+    expect(load).not.toHaveBeenCalled();
+  });
+
   it("keeps a left hover clip's download for a few seconds, then drops it", async () => {
     vi.useFakeTimers();
     const { active, load, videoEl } = setup({ cd: false, video: true });
