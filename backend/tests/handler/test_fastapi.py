@@ -1725,27 +1725,32 @@ async def test_scan_rom_flags_new_roms_and_writes_existing_ones(
 
 
 @pytest.mark.parametrize(
-    ("scan_type", "newly_added"),
+    ("scan_type", "newly_added", "expected_name"),
     [
-        (ScanType.COMPLETE, False),
-        (ScanType.QUICK, True),
+        # A complete rescan derives the name from the tag-stripped filename.
+        (ScanType.COMPLETE, False, "Mario Kart Wii"),
+        # A new rom keeps the name its caller created it with.
+        (ScanType.QUICK, True, "Mario Kart Wii (USA)"),
     ],
 )
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
 @patch.object(meta_libretro_handler, "get_rom", new_callable=AsyncMock)
-async def test_scan_rom_libretro_only_match_falls_back_to_filename_name(
-    mock_get_rom, mock_playmatch_enabled, scan_type: ScanType, newly_added: bool
+async def test_scan_rom_libretro_only_match_still_names_the_rom(
+    mock_get_rom,
+    mock_playmatch_enabled,
+    scan_type: ScanType,
+    newly_added: bool,
+    expected_name: str,
 ):
-    """Libretro matches by filename and supplies no name, so a scan that no other
-    provider identifies must still name the ROM instead of raising KeyError."""
+    """Libretro matches by filename and supplies no name, so a ROM it alone
+    identifies takes its name from the row or the filename."""
     mock_get_rom.return_value = LibretroRom(
         libretro_id="Mario Kart Wii (USA).wbfs",
         url_cover="https://thumbnails.libretro.com/mario-kart-wii.png",
     )
 
     platform = make_platform("wii", id=1, name="Wii")
-    # rom.name keeps the tags, so a passing assert proves the name came from the
-    # tag-stripped filename fallback rather than the existing row.
+    # The row's name keeps the tags, so it can't pass for the filename fallback.
     rom = make_rom(
         platform,
         "Mario Kart Wii (USA)",
@@ -1767,4 +1772,4 @@ async def test_scan_rom_libretro_only_match_falls_back_to_filename_name(
 
     mock_get_rom.assert_awaited_once()
     assert result.libretro_id == "Mario Kart Wii (USA).wbfs"
-    assert result.name == "Mario Kart Wii"
+    assert result.name == expected_name
