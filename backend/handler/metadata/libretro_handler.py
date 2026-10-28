@@ -10,6 +10,7 @@ from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from logger.logger import log
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.platform_slugs import fill_duplicate_slugs
 
 from .base_handler import MetadataHandler
 
@@ -261,6 +262,9 @@ LIBRETRO_PLATFORM_LIST: Final[dict[UPS, str]] = {
     UPS.PS2: "Sony - PlayStation 2",
     UPS.PSP: "Sony - PlayStation Portable",
     UPS.TIC_80: "TIC-80",
+    UPS.ZELDA_CLASSIC: "Zelda Classic",
     UPS.TOMY_TUTOR: "Tomy - Tutor",
     UPS.SUPERVISION: "Watara - Supervision",
 }
+
+fill_duplicate_slugs(LIBRETRO_PLATFORM_LIST)

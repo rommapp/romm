@@ -23,12 +23,14 @@ ARG ALPINE_SHA256=294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77
 # Pins the base image tag, so it cannot read ../.python-version; keep the two in sync.
 ARG PYTHON_VERSION=3.14
 ARG PYTHON_ALPINE_SHA256=9e9fde4d32eedce0b661d9ab91e826b62dddf28e928c230ec55f1866cac66b01
-ARG NODE_VERSION=24.16
-ARG NODE_ALPINE_SHA256=21f403ab171f2dc89bad4dd69d7721bfd15f084ccb46cdd225f31f2bc59b5c9a
-ARG NGINX_VERSION=1.30.5
-ARG NGINX_SHA256=a5f2157a0302eb0c5e300415effb63a9e70ed1eb9c107283819bf6d149ab607c
-ARG UV_VERSION=0.12.19
-ARG UV_SHA256=b165481b747c340b4b3b820f6e453c3aea939c8b583cbfc01c4e99ec61181bc2
+# Build stages get pip from CPython's bundled ensurepip, which lags pip's security releases.
+ARG PIP_VERSION=26.2.2
+ARG NODE_VERSION=24.22
+ARG NODE_ALPINE_SHA256=6a1c190e17215d844926b0677f4bf87273ff7d5e54db06d3b5b5863ab0b09a3d
+ARG NGINX_VERSION=1.30.6
+ARG NGINX_SHA256=47928bf67eb62a1863cb08d9ecb52d3e704304ba614eaee17884204677702951
+ARG UV_VERSION=0.13.4
+ARG UV_SHA256=0cb69bb18ffcd57db04f045010b0234132a111da70dde5a393d26ad288d38e13
 ARG EMSDK_VERSION=4.0.12
 ARG EMSDK_AMD64_SHA256=744fb6a68941970951bacf9d6632041a0398260492232691ef22bbf54b0585c6
 ARG EMSDK_ARM64_SHA256=369a4cb655aa1066e6e450dde774243c502d999b1d93fb4890a9d1428daa9280
@@ -37,6 +39,8 @@ ARG GME_COMMIT=9e23d10f9fd2a6a2f33b10912dd8dc7153258995
 
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
+ARG PIP_VERSION
+RUN pip install --no-cache-dir --upgrade pip==${PIP_VERSION}
 
 
 # PATCHED PYTHON RUNTIME
@@ -44,8 +48,11 @@ FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA
 # need the same patches, or the stale ones land in the final image. Kept apart
 # from python-alias so that busting this layer's cache (see `no-cache-filters`
 # in build.yml) does not also rebuild the venv and the sigil bindings.
+# The app uses a separate virtual environment at /src/.venv.
 FROM python-alias AS python-runtime
-RUN apk upgrade --no-cache
+ARG PYTHON_VERSION
+RUN apk upgrade --no-cache && \
+    rm -rf /usr/local/bin/pip* /usr/local/lib/python${PYTHON_VERSION}/site-packages/pip*
 
 
 # FRONTEND BUILD
@@ -88,6 +95,8 @@ COPY --from=uv-stage /usr/local/bin/uv /usr/local/bin/uvx /bin/
 WORKDIR /src
 
 COPY ./pyproject.toml ./uv.lock /src/
+# PYTHONDONTWRITEBYTECODE blocks caching at runtime, so ship compiled bytecode.
+ENV UV_COMPILE_BYTECODE=1
 RUN uv sync --frozen --no-cache
 
 FROM backend-build AS backend-dev-build
@@ -178,10 +187,10 @@ RUN /romm-gme/build.sh /libgme /gme
 # Keep the version and both sums in sync with the dev image's copy in ../Dockerfile.
 FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rom-converto-fetch
 ARG TARGETARCH
-ARG ROM_CONVERTO_VERSION=v0.23.2
+ARG ROM_CONVERTO_VERSION=v0.24.0
 RUN case "${TARGETARCH}" in \
-        amd64) rc="linux-x64-musl"; sum="734ecccfa77d425c01dc3ba621261389c1c23d23f0e5d6b8e3346fda1879d687" ;; \
-        arm64) rc="linux-arm64-musl"; sum="e90cca392b08b859b79bab13fcd47300ffc613d5dca7da1b4d1e38e3a4bbc297" ;; \
+        amd64) rc="linux-x64-musl"; sum="67964054931f7e74848bfe7b54ff1f0cacdc25596c29e3a79876f76e0f2407a8" ;; \
+        arm64) rc="linux-arm64-musl"; sum="60f9dc0fe7c3e3355c840c5e21c2b65b770b74ba78567aec7a2e5f846b8087ce" ;; \
         *) echo "unsupported TARGETARCH: ${TARGETARCH}" && exit 1 ;; \
     esac && \
     wget -qO /rom-converto \
@@ -336,6 +345,7 @@ COPY --from=gme-build /gme ${WEBSERVER_FOLDER}/assets/gme
 RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
     ln -sf /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources
 COPY ./backend /backend
+RUN python3 -m compileall -q /backend
 
 # Setup init script and config files
 COPY ./docker/init_scripts/* /

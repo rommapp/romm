@@ -1,5 +1,4 @@
 {
-  "all-loaded": "すべてのゲームが読み込まれました",
   "back-to-top": "トップへ戻る",
   "column-actions": "操作",
   "column-cover": "カバー",
@@ -8,7 +7,6 @@
   "firmware-selected-count": "{count}件選択中",
   "jump-to": "{letter}へジャンプ",
   "jump-to-letter": "文字へジャンプ",
-  "load-more": "もっと読み込む",
   "selection-clear": "選択をクリア",
   "selection-collections": "コレクションを管理",
   "selection-delete": "削除",

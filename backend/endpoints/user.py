@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Annotated, Any, Final, cast
 
@@ -21,6 +22,7 @@ from handler.audit_handler import (
 )
 from handler.auth.base_handler import auth_handler
 from handler.auth.constants import Scope
+from handler.auth.dependencies import assert_admin_for_admin
 from handler.database import (
     db_client_token_handler,
     db_device_handler,
@@ -81,6 +83,46 @@ def _record_user_edit(
     record(AuditAction.USER_EDIT, request, AuditTarget.of_user(after), data)
 
 
+async def _verify_account_holder(
+    request: Request, db_user: User, current_password: str | None
+) -> None:
+    """Require password or session proof for sensitive self-edits."""
+    if db_user.has_password:
+        if not current_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Your current password is required to change your username, password or email",
+            )
+        # bcrypt takes ~250ms, which would stall the event loop.
+        if not await asyncio.to_thread(
+            auth_handler.verify_password, current_password, db_user.hashed_password
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Current password is incorrect",
+            )
+        return
+
+    # With no password to check, only a sign-in session (OIDC, for these
+    # accounts) proves the holder; long-lived tokens are refused.
+    if not auth_handler.is_session_authenticated(request, db_user.username):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Sign in to the web interface to change the username, password or email of this account",
+        )
+
+
+def _assert_can_manage_user(request: Request, target: User) -> None:
+    """Allow acting on yourself, or on another user with USERS_WRITE in the credential."""
+    if target.id == request.user.id:
+        return
+    if Scope.USERS_WRITE not in request.auth.scopes:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    assert_admin_for_admin(
+        request, target.role, "Only an administrator can manage admin users"
+    )
+
+
 @protected_route(
     router.post,
     "",
@@ -117,16 +159,9 @@ def add_user(
         )
 
     coerced_role = Role.coerce(role)
-    # USERS_WRITE is delegable to non-admins via permission groups, but creating
-    # an admin must stay admin-only or it becomes a privilege-escalation path.
-    if (
-        admins_exist
-        and coerced_role == Role.ADMIN
-        and getattr(request.user, "role", None) != Role.ADMIN
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only an administrator can create admin users",
+    if admins_exist:
+        assert_admin_for_admin(
+            request, coerced_role, "Only an administrator can create admin users"
         )
 
     try:
@@ -210,15 +245,11 @@ def create_invite_link(
             detail=msg,
         )
 
-    # Mirrors add_user: only a real admin can mint admin invite links.
-    if (
-        admins_exist
-        and Role.coerce(role) == Role.ADMIN
-        and getattr(request.user, "role", None) != Role.ADMIN
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only an administrator can create admin invite links",
+    if admins_exist:
+        assert_admin_for_admin(
+            request,
+            Role.coerce(role),
+            "Only an administrator can create admin invite links",
         )
 
     if expiration is not None and expiration <= 0:
@@ -425,30 +456,57 @@ async def update_user(
         log.error(msg)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
 
-    # Admin users can edit any user, while other users can only edit self
-    if db_user.id != request.user.id and request.user.role != Role.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    _assert_can_manage_user(request, db_user)
+
+    # Usernames and emails match case-insensitively, so a case-only edit is no change.
+    new_username = (
+        form_data.username
+        if form_data.username and form_data.username.lower() != db_user.username.lower()
+        else None
+    )
+    new_email = (
+        form_data.email
+        if form_data.email is not None
+        and form_data.email.lower() != (db_user.email or "").lower()
+        else None
+    )
+
+    if (
+        db_user.id == request.user.id
+        and new_email is not None
+        and db_user.email_managed_by_oidc
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your email is managed by your identity provider",
+        )
+
+    # Login is by username, so renaming locks the owner out as surely as a new password.
+    if db_user.id == request.user.id and (
+        new_username or form_data.password or new_email is not None
+    ):
+        await _verify_account_holder(request, db_user, form_data.current_password)
 
     cleaned_data: dict[str, Any] = {}
 
-    if form_data.username and form_data.username != db_user.username:
+    if new_username:
         try:
-            validate_username(form_data.username)
+            validate_username(new_username)
         except ValidationError as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=exc.message,
             ) from exc
 
-        if db_user_handler.get_user_by_username(form_data.username):
-            msg = f"Username {form_data.username} already exists"
+        if db_user_handler.get_user_by_username(new_username):
+            msg = f"Username {new_username} already exists"
             log.error(msg)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=msg,
             )
 
-        cleaned_data["username"] = form_data.username.lower()
+        cleaned_data["username"] = new_username.lower()
 
     if form_data.password:
         try:
@@ -458,32 +516,37 @@ async def update_user(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=exc.message,
             ) from exc
-        cleaned_data["hashed_password"] = auth_handler.get_password_hash(
-            form_data.password
+        cleaned_data["hashed_password"] = await asyncio.to_thread(
+            auth_handler.get_password_hash, form_data.password
         )
 
-    if form_data.email is not None and form_data.email != db_user.email:
+    if new_email is not None:
         try:
-            validate_email(form_data.email)
+            validate_email(new_email)
         except ValidationError as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=exc.message,
             ) from exc
 
-        if form_data.email and db_user_handler.get_user_by_email(form_data.email):
-            msg = f"User with email {form_data.email} already exists"
+        if new_email and db_user_handler.get_user_by_email(new_email):
+            msg = f"User with email {new_email} already exists"
             log.error(msg)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=msg,
             )
 
-        cleaned_data["email"] = form_data.email.lower() or None
+        cleaned_data["email"] = new_email.lower() or None
 
     # You can't change your own role
     if form_data.role and request.user.id != id:
         cleaned_data["role"] = Role.coerce(form_data.role)
+        assert_admin_for_admin(
+            request,
+            cleaned_data["role"],
+            "Only an administrator can grant the admin role",
+        )
 
     # You can't disable yourself
     if form_data.enabled is not None and request.user.id != id:
@@ -604,6 +667,8 @@ async def delete_user(
     if request.user.id == id:
         raise HTTPException(status_code=400, detail="You cannot delete yourself")
 
+    _assert_can_manage_user(request, user)
+
     token_ids = db_client_token_handler.get_token_ids_by_users([id])
     device_ids = [device.id for device in db_device_handler.get_devices(user_id=id)]
     try:
@@ -650,11 +715,9 @@ async def refresh_retro_achievements(
     ] = False,
 ) -> None:
     """Refresh RetroAchievements progression data for a user."""
-    # Admin users can refresh any user, while other users can only refresh self
-    if id != request.user.id and request.user.role != Role.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-
     user = db_user_handler.get_user(id)
+    if user:
+        _assert_can_manage_user(request, user)
     if not user or not user.ra_username:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

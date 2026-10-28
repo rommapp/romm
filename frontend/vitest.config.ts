@@ -1,20 +1,19 @@
 import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
 import vue from "@vitejs/plugin-vue";
 import { playwright } from "@vitest/browser-playwright";
-import vuetify from "vite-plugin-vuetify";
 import { defineConfig } from "vitest/config";
 import { appAliases } from "./scripts/aliases";
 import { platformIconManifest } from "./scripts/platformIconManifest";
 
 export default defineConfig({
-  plugins: [vue(), vuetify({ autoImport: true }), platformIconManifest()],
+  plugins: [vue(), platformIconManifest()],
   resolve: {
     alias: appAliases,
   },
   test: {
     server: {
       deps: {
-        inline: ["vuetify", "@vueuse/integrations"],
+        inline: ["@vueuse/integrations"],
       },
     },
     projects: [
@@ -42,7 +41,7 @@ export default defineConfig({
         // A dependency found mid-run reloads the page and silently drops the
         // tests in flight, so pre-bundle everything stories reach up front.
         optimizeDeps: {
-          include: ["vuetify/components/*", "country-flag-emoji-polyfill"],
+          include: ["country-flag-emoji-polyfill"],
         },
         // Mirrors vite.config.js, which the router's `process.env.BASE_URL` needs.
         define: { "process.env": {} },

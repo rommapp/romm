@@ -102,7 +102,7 @@ the user about that finding before acting on it, and keep going with the rest.
 
 ## 4. Fix
 
-Apply the fixes with the skill that owns the area: `frontend-v2-*` for v2 UI,
+Apply the fixes with the skill that owns the area: `frontend-*` for v2 UI,
 `frontend-i18n` for any locale key (every locale, sorted), `backend-development`
 for `backend/`. Keep comments within the `review-polish` rules.
 

@@ -39,6 +39,7 @@ from handler.metadata.ss_handler import SSMetadata
 from handler.metadata.steam_handler import SteamMetadata
 from models.collection import Collection, SmartCollection
 from models.rom import (
+    PROVIDER_METADATA_COLUMNS,
     DocSource,
     Rom,
     RomArchiveMember,
@@ -570,6 +571,13 @@ def _visible_siblings(db_rom: Rom, request: Request) -> list[Rom]:
     return [s for s in siblings if perms.can_see_rom(s)]
 
 
+# The schema serves `ra_metadata` as `merged_ra_metadata`, with absolute badge paths.
+PROVIDER_METADATA_FIELDS: Final = (
+    *(c for c in PROVIDER_METADATA_COLUMNS if c != "ra_metadata"),
+    "merged_ra_metadata",
+)
+
+
 class SimpleRomSchema(RomSchema):
     screenshot_path: str | None = None
 
@@ -582,6 +590,7 @@ class SimpleRomSchema(RomSchema):
         siblings: Sequence[tuple[Rom, bool]] | None = None,
         screenshot_path: str | None = None,
         has_notes: bool | None = None,
+        with_provider_metadata: bool = True,
     ) -> SimpleRomSchema:
         db_rom = cls.populate_properties(db_rom, request, has_notes=has_notes)
         db_rom.screenshot_path = screenshot_path  # type: ignore[attr-defined]
@@ -613,7 +622,11 @@ class SimpleRomSchema(RomSchema):
             SiblingRomSchema.from_rom(s, is_main_sibling=is_main)
             for s, is_main in siblings
         ]
-        return cls.model_validate(db_rom)
+        schema = cls.model_validate(db_rom)
+        if not with_provider_metadata:
+            # Nulled on the schema, as `db_rom` is session-bound and would be flushed.
+            schema = schema.model_copy(update=dict.fromkeys(PROVIDER_METADATA_FIELDS))
+        return schema
 
     @classmethod
     def from_orm_with_factory(cls, db_rom: Rom) -> SimpleRomSchema:

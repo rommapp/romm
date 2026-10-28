@@ -132,6 +132,7 @@ from models.rom import (
     PINNED_MEDIA_KEY_MAX_LENGTH,
     PINNED_MEDIA_KEY_PATTERN,
     PINNED_MEDIA_MAX_ITEMS,
+    PROVIDER_METADATA_COLUMNS,
     TITLE_ID_MAX_LENGTH,
     Rom,
     RomFile,
@@ -610,6 +611,16 @@ def get_roms(
             )
         ),
     ] = True,
+    with_provider_metadata: Annotated[
+        bool,
+        Query(
+            description=(
+                "Whether to include each rom's provider metadata. When false, every"
+                " `*_metadata` object but `manual_metadata` comes back null, meaning"
+                " not requested rather than no match; `metadatum` is unaffected."
+            )
+        ),
+    ] = True,
     order_by: Annotated[
         str,
         Query(
@@ -808,6 +819,7 @@ def get_roms(
                     siblings=siblings_by_rom.get(item.id, []),
                     screenshot_path=screenshot_by_rom.get(item.id),
                     has_notes=item.id in rom_ids_with_notes,
+                    with_provider_metadata=with_provider_metadata,
                 )
                 for item in items
             ]
@@ -1930,20 +1942,8 @@ async def update_rom(
                     else rom.path_manual
                 ),
                 "slug": "",
-                "igdb_metadata": {},
-                "moby_metadata": {},
-                "ss_metadata": {},
-                "ra_metadata": {},
-                "launchbox_metadata": {},
-                "hasheous_metadata": {},
-                "flashpoint_metadata": {},
-                "hltb_metadata": {},
-                "demozoo_metadata": {},
-                "pouet_metadata": {},
-                "csdb_metadata": {},
-                "steam_metadata": {},
+                **{c: {} for c in PROVIDER_METADATA_COLUMNS},
                 "revision": "",
-                "gamelist_metadata": {},
             },
         )
 

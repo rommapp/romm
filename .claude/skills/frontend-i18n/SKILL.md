@@ -1,6 +1,6 @@
 ---
 name: frontend-i18n
-description: Internationalization for the RomM frontend (both v1 and v2). Use whenever adding, renaming, or removing any user-visible string / translation key under frontend/src/locales/. Covers the en_US-is-source rule, the requirement to add every new key to ALL locale directories in the same change, namespace layout, and the check_i18n_locales.py validator enforced in CI. Trigger on any change to frontend/src/locales/**.
+description: Internationalization for the RomM frontend. Use whenever adding, renaming, or removing any user-visible string / translation key under frontend/src/locales/. Covers the en_US-is-source rule, the requirement to add every new key to ALL locale directories in the same change, namespace layout, and the check_i18n_locales.py validator enforced in CI. Trigger on any change to frontend/src/locales/**.
 ---
 
 # RomM Frontend: i18n / Localization
@@ -10,8 +10,8 @@ User-visible strings are **never hard-coded** in components; they come from loca
 ## Structure
 
 - Locales live in `frontend/src/locales/<locale>/<namespace>.json`, loaded by dynamic glob import in `src/locales/index.ts`.
-- **18 locales**: `en_US` (default + fallback), `en_GB`, `bg_BG`, `cs_CZ`, `de_DE`, `es_ES`, `fr_FR`, `hu_HU`, `it_IT`, `ja_JP`, `ko_KR`, `pl_PL`, `pt_BR`, `ro_RO`, `ru_RU`, `tr_TR`, `zh_CN`, `zh_TW`.
-- Namespaces are per-feature files (e.g. `collection`, `common`, `console`, `detail`, `emulator`, `gallery`, `home`, `library`, `login`, `navigation`, `patcher`, `platform`, `scan`, `settings`, `task`).
+- **19 locales**: `en_US` (default + fallback), `en_GB`, `bg_BG`, `cs_CZ`, `de_DE`, `es_ES`, `fr_FR`, `hu_HU`, `it_IT`, `ja_JP`, `ko_KR`, `pl_PL`, `pt_BR`, `ro_RO`, `ru_RU`, `sv_SE`, `tr_TR`, `zh_CN`, `zh_TW`.
+- Namespaces are per-feature files (e.g. `collection`, `common`, `detail`, `emulator`, `gallery`, `home`, `library`, `login`, `navigation`, `patcher`, `platform`, `scan`, `settings`, `task`).
 
 ## The rule (enforced in CI)
 
@@ -22,6 +22,7 @@ User-visible strings are **never hard-coded** in components; they come from loca
 - Reuse each locale's established terms: grep a sibling key for how it renders "metadata", "provider", etc.
 - Copying the English value is a last-resort placeholder, only when no translation is available, and must be flagged to revisit.
 - Removing or renaming a key means doing it across **every** locale.
+- **Keep the `{placeholders}` of the `en_US` string.** The code passes exactly the English set, so use the same names and don't drop or add any.
 
 ## Verify before handoff
 
@@ -30,8 +31,8 @@ python3 frontend/src/locales/check_i18n_locales.py
 python3 frontend/src/locales/check_i18n_sorted.py   # add --fix to auto-sort
 ```
 
-`check_i18n_locales.py` compares every non-English locale against `en_US` and **fails on any missing file, missing key, or extra key**. `check_i18n_sorted.py` **fails if any locale JSON file's keys aren't sorted alphabetically** (run with `--fix` to sort them in place). CI runs both scripts (`.github/workflows/i18n.yml`) on any change under `frontend/src/locales/**`; both must pass.
+`check_i18n_locales.py` compares every non-English locale against `en_US` and **fails on any missing file, missing key, extra key, or placeholder that differs from `en_US`**. `check_i18n_sorted.py` **fails if any locale JSON file's keys aren't sorted alphabetically** (run with `--fix` to sort them in place). CI runs both scripts and their unit tests (`.github/workflows/i18n.yml`) on any change under `frontend/src/locales/**`; all must pass.
 
 ## Adding a new language
 
-Create a new folder under `frontend/src/locales/` mirroring `en_US/`'s files, then translate. Open the PR against `master` (see the docs/Contributing flow). This is the one i18n change where a new locale directory is expected.
+Create a new folder under `frontend/src/locales/` mirroring `en_US/`'s files, then translate. Add its name, written in that language, to `LOCALE_NAMES` in `src/stores/language.ts`; the language selector lists every locale folder, and a unit test fails on a folder without a name. Open the PR against `master` (see the docs/Contributing flow). This is the one i18n change where a new locale directory is expected.
