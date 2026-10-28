@@ -831,15 +831,9 @@ def get_roms(
             # rows load without re-running either.
             page_rows = session.scalars(
                 db_rom_handler.get_page_rows_query(
-                    unfiltered_query,
                     page_ids,
-                    sort_key=sort_key,
-                    order_by=order_by,
-                    order_dir=order_dir,
-                    user_id=request.user.id,
                     visibility=perms.rom_visibility,
                     include_file_stats=not with_files,
-                    filters=filters,
                 )
             ).all()
             rows_by_id = {rom.id: rom for rom in page_rows}

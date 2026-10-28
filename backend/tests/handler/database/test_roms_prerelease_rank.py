@@ -4,9 +4,9 @@ import re
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.dialects import mysql, postgresql
 from tests.conftest import engine  # noqa: F401  (loads the test database setup)
 from tests.factories import make_rom
+from tests.sql_dialects import MARIADB_DIALECT, POSTGRESQL_DIALECT, compile_sql
 
 from handler.database.base_handler import sync_session
 from handler.database.roms_handler import _PRERELEASE_PATTERN, _prerelease_rank
@@ -46,18 +46,18 @@ def test_the_regex_agrees_with_the_old_like_rule(name: str):
     assert bool(re.search(_PRERELEASE_PATTERN, name, re.IGNORECASE)) == _old_rule(name)
 
 
-def test_the_regex_is_one_match_per_row_not_one_per_tag():
-    sql = str(select(_prerelease_rank()).compile(dialect=postgresql.dialect())).lower()
+def test_mariadb_matches_one_regex_per_row():
+    sql = compile_sql(select(_prerelease_rank()), MARIADB_DIALECT).lower()
 
-    assert "ilike" not in sql
-    assert sql.count("~*") == 1
+    assert sql.count("regexp") == 1
+    assert "like" not in sql
 
 
-def test_the_regex_compiles_for_mariadb_too():
-    sql = str(select(_prerelease_rank()).compile(dialect=mysql.dialect())).lower()
+def test_postgresql_keeps_one_ilike_per_tag():
+    sql = compile_sql(select(_prerelease_rank()), POSTGRESQL_DIALECT).lower()
 
-    assert "regexp" in sql
-    assert "like" not in sql.replace("regexp_like", "")
+    assert sql.count("ilike") == len(PRERELEASE_FILENAME_TAGS)
+    assert "~*" not in sql
 
 
 @pytest.mark.parametrize(

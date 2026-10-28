@@ -3,6 +3,7 @@
 from sqlalchemy.dialects import postgresql
 from tests.conftest import engine  # noqa: F401  (loads the test database setup)
 
+from handler.auth.rom_visibility import RomVisibilityFilter
 from handler.database import db_rom_handler
 from handler.database.rom_filters import RomFilterParams
 
@@ -15,21 +16,6 @@ def _sql(statement) -> str:
             dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
         )
     ).lower()
-
-
-def _page_rows_sql(user_id: int | None = 1, include_file_stats: bool = True) -> str:
-    query, sort_key = db_rom_handler.get_roms_query(order_by="name", user_id=user_id)
-    return _sql(
-        db_rom_handler.get_page_rows_query(
-            query,
-            PAGE_IDS,
-            sort_key=sort_key,
-            order_by="name",
-            order_dir="asc",
-            user_id=user_id,
-            include_file_stats=include_file_stats,
-        )
-    )
 
 
 def test_the_grouped_query_does_rank_the_library():
@@ -47,34 +33,27 @@ def test_the_grouped_query_does_rank_the_library():
 
 
 def test_loading_a_page_does_not_rank_the_library():
-    assert "row_number()" not in _page_rows_sql()
+    assert "row_number()" not in _sql(db_rom_handler.get_page_rows_query(PAGE_IDS))
 
 
 def test_loading_a_page_is_limited_to_its_ids():
-    assert "roms.id in (11, 22, 33)" in _page_rows_sql()
-
-
-def test_loading_a_page_keeps_the_hidden_roms_filter():
-    assert "rom_user.hidden" in _page_rows_sql(user_id=1)
-
-
-def test_loading_a_page_keeps_the_status_the_ids_were_picked_with():
-    query, sort_key = db_rom_handler.get_roms_query(order_by="name", user_id=1)
-    sql = _sql(
-        db_rom_handler.get_page_rows_query(
-            query,
-            PAGE_IDS,
-            sort_key=sort_key,
-            order_by="name",
-            order_dir="asc",
-            user_id=1,
-            filters=RomFilterParams(statuses=["hidden"]),
-        )
+    assert "roms.id in (11, 22, 33)" in _sql(
+        db_rom_handler.get_page_rows_query(PAGE_IDS)
     )
 
-    assert "rom_user.hidden is true" in sql
-    assert "rom_user.hidden is false" not in sql
+
+def test_loading_a_page_does_not_refilter_on_rom_user():
+    assert "rom_user" not in _sql(db_rom_handler.get_page_rows_query(PAGE_IDS))
+
+
+def test_loading_a_page_keeps_the_visibility_filter():
+    visibility = RomVisibilityFilter(hidden_platform_ids=frozenset({7}))
+    sql = _sql(db_rom_handler.get_page_rows_query(PAGE_IDS, visibility=visibility))
+
+    assert "roms.platform_id not in (7)" in sql
 
 
 def test_loading_a_page_keeps_the_file_stats_the_serializer_reads():
-    assert "rom_files" in _page_rows_sql(include_file_stats=True)
+    assert "rom_files" in _sql(
+        db_rom_handler.get_page_rows_query(PAGE_IDS, include_file_stats=True)
+    )

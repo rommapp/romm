@@ -571,11 +571,18 @@ _PRERELEASE_PATTERN = (
 
 
 def _prerelease_rank() -> ColumnElement[Any]:
-    """Rank pre-release dumps after full releases within a sibling group, by filename."""
-    return case(
-        (Rom.fs_name_no_ext.regexp_match(_PRERELEASE_PATTERN, flags="i"), 1),
-        else_=0,
+    """Rank pre-release dumps after full releases within a sibling group."""
+    # The filename, not the parsed `tags` column: tags keep the dumper's casing,
+    # and the dedup window's covering index does not carry them.
+    # MariaDB lowercases the name once per ILIKE, so one regex wins there; on
+    # PostgreSQL the ILIKEs measure faster over a whole library.
+    is_prerelease = DialectCase(
+        postgresql=or_(
+            *[Rom.fs_name_no_ext.ilike(f"%({tag}%") for tag in PRERELEASE_FILENAME_TAGS]
+        ),
+        mysql=Rom.fs_name_no_ext.regexp_match(_PRERELEASE_PATTERN, flags="i"),
     )
+    return case((is_prerelease, 1), else_=0)
 
 
 # The RomUser column types whose MIN/MAX matches ORDER BY semantics on every
@@ -1528,37 +1535,17 @@ class DBRomsHandler(DBBaseHandler):
             return query.filter(and_(*predicates))
         return query.filter(or_(*predicates))
 
-    @begin_session
-    def filter_roms[S: Select[*tuple[Any, ...]]](
+    def _with_rom_loaders[S: Select[*tuple[Any, ...]]](
         self,
         query: S,
-        filters: RomFilterParams | None = None,
         *,
-        # The grouped dedup aggregates the active sort key over each group;
-        # get_roms_query callers pass the key they resolved for the query.
-        sort_key: _GallerySortKey | None = None,
-        order_by: str = "",
-        order_dir: str = "asc",
-        user_id: int | None = None,
-        # Whose access a `collection_id` filter is checked against, when not
-        # `user_id`: a smart collection's criteria answer for its owner.
-        collection_user_id: int | None = None,
-        updated_after: datetime | None = None,
-        released_days: Sequence[tuple[int, int]] | None = None,
-        released_before_year: int | None = None,
         include_file_stats: bool = False,
         include_files: bool = False,
         include_related: bool = True,
         include_siblings: bool = True,
         include_notes: bool = True,
-        visibility: RomVisibilityFilter = UNRESTRICTED,
-        session: Session = INJECTED_SESSION,
     ) -> S:
-        from handler.scan_handler import MetadataSource
-
-        filters = filters or RomFilterParams()
-        order_dir = order_dir.lower()
-
+        """The loader options a serialized rom needs, with no filtering."""
         # Callers that select bare columns (a membership subquery) pass
         # include_related=False: loader options can't apply without an entity.
         if include_related:
@@ -1610,6 +1597,48 @@ class DBRomsHandler(DBBaseHandler):
                 undefer(Rom.has_soundtrack),
                 undefer(Rom.is_easyrpg_game),
             )
+
+        return query
+
+    @begin_session
+    def filter_roms[S: Select[*tuple[Any, ...]]](
+        self,
+        query: S,
+        filters: RomFilterParams | None = None,
+        *,
+        # The grouped dedup aggregates the active sort key over each group;
+        # get_roms_query callers pass the key they resolved for the query.
+        sort_key: _GallerySortKey | None = None,
+        order_by: str = "",
+        order_dir: str = "asc",
+        user_id: int | None = None,
+        # Whose access a `collection_id` filter is checked against, when not
+        # `user_id`: a smart collection's criteria answer for its owner.
+        collection_user_id: int | None = None,
+        updated_after: datetime | None = None,
+        released_days: Sequence[tuple[int, int]] | None = None,
+        released_before_year: int | None = None,
+        include_file_stats: bool = False,
+        include_files: bool = False,
+        include_related: bool = True,
+        include_siblings: bool = True,
+        include_notes: bool = True,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
+        session: Session = INJECTED_SESSION,
+    ) -> S:
+        from handler.scan_handler import MetadataSource
+
+        filters = filters or RomFilterParams()
+        order_dir = order_dir.lower()
+
+        query = self._with_rom_loaders(
+            query,
+            include_file_stats=include_file_stats,
+            include_files=include_files,
+            include_related=include_related,
+            include_siblings=include_siblings,
+            include_notes=include_notes,
+        )
 
         # Handle platform filtering - platform filtering always uses OR logic since ROMs belong to only one platform
         if filters.platform_ids:
@@ -1995,38 +2024,22 @@ class DBRomsHandler(DBBaseHandler):
 
     def get_page_rows_query(
         self,
-        unfiltered_query: RomSelect,
         page_ids: Sequence[int],
         *,
-        sort_key: _GallerySortKey,
-        order_by: str,
-        order_dir: str,
-        user_id: int | None,
         visibility: RomVisibilityFilter = UNRESTRICTED,
         include_file_stats: bool = False,
-        filters: RomFilterParams | None = None,
     ) -> RomSelect:
-        """The rows of one page, loaded by id without the filters or sibling grouping.
+        """The rows of one page, loaded by id with none of the filters re-run.
 
-        Only the status predicate is kept, so a page picked with `statuses=hidden`
-        is not emptied by the default hiding of hidden roms.
+        Visibility is kept: the cached id index's key does not carry it.
         """
-        filters = filters or RomFilterParams()
-        query = self.filter_roms(
-            query=unfiltered_query,
-            filters=RomFilterParams(
-                statuses=filters.statuses, statuses_logic=filters.statuses_logic
-            ),
-            sort_key=sort_key,
-            order_by=order_by,
-            order_dir=order_dir,
-            user_id=user_id,
-            visibility=visibility,
+        query = select(Rom).where(Rom.id.in_(page_ids), *visibility.clauses())
+        return self._with_rom_loaders(
+            query,
             include_file_stats=include_file_stats,
             include_siblings=False,
             include_notes=False,
         )
-        return query.where(Rom.id.in_(page_ids)).order_by(None)
 
     def _scoped_roms_query(
         self,
