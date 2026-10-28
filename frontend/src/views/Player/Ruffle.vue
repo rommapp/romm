@@ -1,0 +1,400 @@
+<script setup lang="ts">
+// Ruffle: v2 shell for Flash ROMs. The Ruffle injection (script loader,
+// createPlayer, fullscreen) is ported verbatim from
+// `src/views/Player/RuffleRS/Base.vue` so playback stays identical; only the
+// chrome is v2. No shared state with EJS: Flash has its own config.
+import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
+import { useI18n } from "vue-i18n";
+import { onBeforeRouteLeave } from "vue-router";
+import PlayerShell from "@/components/Player/PlayerShell.vue";
+import { useDeviceSaveSync } from "@/composables/useDeviceSaveSync";
+import { useFullscreenFallback } from "@/composables/useFullscreenFallback";
+import { useFullscreenPref } from "@/composables/useFullscreenPref";
+import { useIsAlive } from "@/composables/useIsAlive";
+import { usePlaySession } from "@/composables/usePlaySession";
+import { usePlayerExit } from "@/composables/usePlayerExit";
+import { usePlayerHero } from "@/composables/usePlayerHero";
+import { usePlayingWhile } from "@/composables/useStageActive";
+import { useUnloadGuard } from "@/composables/useUnloadGuard";
+import { userStorage } from "@/composables/useUserLocalStorage";
+import { RIcon, RSwitch } from "@/lib";
+import romApi from "@/services/api/rom";
+import { AUTOSAVE_SLOT } from "@/services/api/save";
+import type { DetailedRom } from "@/stores/roms";
+import { colorCanvas } from "@/tokens";
+import type { RuffleSourceAPI } from "@/types/ruffle";
+import { getDownloadPath } from "@/utils";
+import {
+  readRuffleSaves,
+  decodeRuffleStorage,
+  readRuffleStorage,
+  removeRuffleSaves,
+  sameRuffleStorage,
+  swfStoragePath,
+  unzipRuffleSaves,
+  writeRuffleSaves,
+  zipRuffleSaves,
+  type RuffleSaves,
+  type RuffleStorage,
+} from "@/utils/ruffleSaves";
+import type { PlayerSaveFile } from "@/utils/saveSync";
+
+const RUFFLE_VERSION = "0.2.0-nightly.2025.8.14";
+const DEFAULT_BACKGROUND_COLOR = colorCanvas.bgDeep;
+
+type RufflePlayer = ReturnType<RuffleSourceAPI["createPlayer"]>;
+
+const { t } = useI18n();
+const { fullscreenOnPlay } = useFullscreenPref();
+useFullscreenFallback();
+const playSession = usePlaySession();
+const exit = usePlayerExit();
+const alive = useIsAlive();
+
+const rom = shallowRef<DetailedRom | null>(null);
+const gameRunning = ref(false);
+const quitting = ref(false);
+// Flash games are keyboard-driven, so hotkeys and pad navigation stay muted.
+usePlayingWhile(gameRunning);
+const backgroundColor = ref<string>(DEFAULT_BACKGROUND_COLOR);
+
+useUnloadGuard(gameRunning);
+
+declare global {
+  interface Window {
+    RufflePlayer: {
+      version: string;
+      newestSourceName: () => string | null;
+      init: () => void;
+      newest: () => RuffleSourceAPI | null;
+      satisfying: (requirementString: string) => RuffleSourceAPI | null;
+      localCompatible: () => RuffleSourceAPI | null;
+      local: () => RuffleSourceAPI | null;
+      superseded: () => void;
+    };
+  }
+}
+
+window.RufflePlayer = window.RufflePlayer || {};
+
+const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
+
+let player: RufflePlayer | null = null;
+let swfUrl = "";
+const host = window.location.hostname;
+
+// Nothing is running, so drop the guard and the input mute the launch armed.
+function abortPlay() {
+  gameRunning.value = false;
+}
+
+function storedSaves(): RuffleSaves {
+  return readRuffleSaves(host, swfStoragePath(swfUrl));
+}
+
+// Every SharedObject a game wrote travels as one zip in the autosave slot.
+function saveFilesOf(
+  target: DetailedRom,
+  saves = storedSaves(),
+): PlayerSaveFile[] {
+  if (Object.keys(saves).length === 0) return [];
+  return [
+    {
+      slot: AUTOSAVE_SLOT,
+      fileName: `${target.fs_name_no_ext}.sol.zip`,
+      bytes: zipRuffleSaves(saves),
+      updatedAt: Date.now(),
+    },
+  ];
+}
+
+// Storage as the last poll read it, and as last handed to sync; comparing the
+// raw strings keeps an idle poll from decoding, zipping or hashing anything.
+let lastRead: RuffleStorage | null = null;
+let lastCaptured: RuffleStorage | null = null;
+
+// As EmulatorJS does, a change is taken once two polls agree on it, so a game
+// mid-flush is not uploaded; leaving cannot wait for a second poll.
+function changedSaveFiles(leaving: boolean): PlayerSaveFile[] {
+  const target = rom.value;
+  if (!target) return [];
+  const stored = readRuffleStorage(host, swfStoragePath(swfUrl));
+  const settled = lastRead !== null && sameRuffleStorage(lastRead, stored);
+  lastRead = stored;
+  if (!settled && !leaving) return [];
+  if (lastCaptured && sameRuffleStorage(lastCaptured, stored)) return [];
+  lastCaptured = stored;
+  return saveFilesOf(target, decodeRuffleStorage(stored));
+}
+
+// A game writes a SharedObject whenever it flushes one, so storage is polled
+// every second, as EmulatorJS polls its SRAM.
+const saveSync = useDeviceSaveSync({
+  emulator: "ruffle",
+  read: (leaving) =>
+    new Promise((resolve) => resolve(changedSaveFiles(leaving))),
+  readOnUnload: () => changedSaveFiles(true),
+  pollMs: 1000,
+});
+
+// Storage is shared by every RomM account in the browser, so a game's saves
+// live there only while it runs: synced in before, and taken back out after.
+async function prepareSaves(target: DetailedRom) {
+  // Left behind by a page that went away mid-game, or from before sync.
+  const leftover = storedSaves();
+  try {
+    const saves = await saveSync.prepare(target, saveFilesOf(target, leftover));
+    if (!saves) return;
+    removeRuffleSaves(host, Object.keys(leftover));
+    const synced = saves.find((save) => save.slot === AUTOSAVE_SLOT);
+    if (synced) {
+      writeRuffleSaves(
+        host,
+        unzipRuffleSaves(synced.bytes, swfStoragePath(swfUrl)),
+      );
+    }
+    // What sync just restored needs no capture of its own.
+    lastRead = lastCaptured = readRuffleStorage(host, swfStoragePath(swfUrl));
+    saveSync.start();
+  } catch (error) {
+    console.error("[Ruffle] Saves are unavailable", error);
+  }
+}
+
+function mountPlayer(): boolean {
+  const ruffle = window.RufflePlayer.newest();
+  const container = document.getElementById("r-ruffle-stage");
+  if (!ruffle || !container) return false;
+
+  const created = ruffle.createPlayer();
+  container.appendChild(created);
+  void created.load({
+    allowFullScreen: true,
+    autoplay: "on",
+    backgroundColor: backgroundColor.value,
+    forceAlign: true,
+    forceScale: true,
+    letterbox: "on",
+    openUrlMode: "confirm",
+    publicPath: "/assets/ruffle/",
+    url: swfUrl,
+  });
+  created.style.width = "100%";
+  created.style.height = "100%";
+  player = created;
+  saveSync.resume();
+  return true;
+}
+
+// Ruffle writes every SharedObject as its instance goes.
+function destroyPlayer() {
+  saveSync.pause();
+  player?.remove();
+  player = null;
+}
+
+async function onPlay() {
+  const target = rom.value;
+  if (!target || gameRunning.value) return;
+  gameRunning.value = true;
+  swfUrl = getDownloadPath({ rom: target, purpose: "play" });
+
+  await prepareSaves(target);
+  if (!alive.value || !gameRunning.value) return;
+  await nextTick();
+
+  if (!mountPlayer()) {
+    abortPlay();
+    return;
+  }
+
+  // Start timing the session only once playback is actually under way, so a
+  // failed player creation / load records nothing. The session is ingested
+  // on unmount, which is what updates last_played / now_playing / status.
+  playSession.start(target);
+
+  if (player?.fullscreenEnabled && fullscreenOnPlay.value) {
+    player.enterFullscreen();
+  }
+}
+
+async function leavePlayer(leave: () => void) {
+  const target = rom.value;
+  if (quitting.value || !target) return;
+  quitting.value = true;
+
+  destroyPlayer();
+  if (!(await saveSync.flush())) {
+    if (!(await saveSync.confirmDiscard())) {
+      // The player is gone, so staying restarts the game on its saves.
+      mountPlayer();
+      quitting.value = false;
+      return;
+    }
+  }
+
+  if (saveSync.isActive()) removeRuffleSaves(host, Object.keys(storedSaves()));
+  saveSync.stop();
+  gameRunning.value = false;
+  quitting.value = false;
+  leave();
+}
+
+function onBackgroundColorChange() {
+  if (rom.value) {
+    userStorage.setItem(
+      `player:ruffle:${rom.value.id}:backgroundColor`,
+      backgroundColor.value,
+    );
+  }
+}
+
+function onlyQuit() {
+  if (!player) {
+    window.history.back();
+    return;
+  }
+  void leavePlayer(() => window.history.back());
+}
+
+onBeforeRouteLeave((to) => {
+  if (!player) return exit.guard(to);
+  void leavePlayer(() => exit.leave(to.fullPath));
+  return false;
+});
+
+onMounted(async () => {
+  const romResponse = await romApi.getRom({ romId });
+  rom.value = romResponse.data;
+
+  if (rom.value) {
+    const storedColor = userStorage.getItem(
+      `player:ruffle:${rom.value.id}:backgroundColor`,
+    );
+    if (storedColor) backgroundColor.value = storedColor;
+  }
+
+  const script = document.createElement("script");
+  script.src = "/assets/ruffle/ruffle.js";
+  script.onerror = () => {
+    const fallback = document.createElement("script");
+    fallback.src = `https://unpkg.com/@ruffle-rs/ruffle@${RUFFLE_VERSION}/ruffle.js`;
+    document.body.appendChild(fallback);
+  };
+  document.body.appendChild(script);
+});
+
+onBeforeUnmount(() => {
+  // Every exit path (Quit, back links, route change) unmounts the view, so
+  // this is the single choke point for recording the session.
+  saveSync.stop();
+  playSession.flush();
+});
+</script>
+
+<template>
+  <PlayerShell
+    :hero-rom="heroRom"
+    :title="title"
+    :platform-label="platformLabel"
+    :rom-id="romId"
+    :ready="!!rom"
+    :running="gameRunning"
+    @play="onPlay"
+    @quit="onlyQuit"
+  >
+    <template #settings>
+      <div class="r-ruffle__section-label">
+        <RIcon icon="mdi-palette" size="16" />
+        <span>{{ t("play.select-background-color") }}</span>
+      </div>
+      <div class="r-ruffle__color-row">
+        <input
+          v-model="backgroundColor"
+          type="color"
+          class="r-ruffle__color-input"
+          :aria-label="t('play.select-background-color')"
+          :title="t('play.select-background-color')"
+          @change="onBackgroundColorChange"
+        />
+        <code class="r-ruffle__color-code">
+          {{ backgroundColor.toUpperCase() }}
+        </code>
+      </div>
+
+      <RSwitch v-model="fullscreenOnPlay" :label="t('play.full-screen')" />
+    </template>
+
+    <template #brand>
+      <div class="r-ruffle__brand">
+        <span>{{ t("play.powered-by") }}</span>
+        <img src="/assets/ruffle/ruffle.svg" alt="Ruffle" />
+      </div>
+    </template>
+
+    <template #stage>
+      <div id="r-ruffle-stage" class="r-ruffle__stage" />
+    </template>
+  </PlayerShell>
+</template>
+
+<style scoped>
+.r-ruffle__section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--r-font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--r-color-fg-secondary);
+}
+
+.r-ruffle__color-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.r-ruffle__color-input {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid var(--r-color-border-strong);
+  border-radius: var(--r-radius-sm);
+  width: 48px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.r-ruffle__color-input::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+.r-ruffle__color-input::-webkit-color-swatch {
+  border: 0;
+  border-radius: 3px;
+}
+.r-ruffle__color-code {
+  font-family: var(--r-font-family-mono, monospace);
+  font-size: 13px;
+  color: var(--r-color-fg-secondary);
+  letter-spacing: 0.04em;
+}
+
+.r-ruffle__brand {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  font-size: var(--r-font-size-xs);
+  color: var(--r-color-fg-faint);
+  font-style: italic;
+}
+.r-ruffle__brand img {
+  height: 22px;
+}
+
+.r-ruffle__stage {
+  width: 100%;
+  height: 100%;
+  --splash-screen-background: none;
+}
+</style>

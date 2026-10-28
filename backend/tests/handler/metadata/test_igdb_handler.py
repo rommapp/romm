@@ -143,6 +143,22 @@ class TestGetPlatformAliases:
             assert IGDBHandler().get_platform_aliases(UPS.ATARI_ST) == ("", [])
 
 
+class TestGetPlatformDuplicateSlugs:
+    def test_both_slugs_resolve_to_the_igdb_platform(self) -> None:
+        handler = IGDBHandler()
+        assert handler.get_platform(UPS.PIPPIN)["igdb_id"] == (
+            handler.get_platform(UPS.APPLE_PIPPIN)["igdb_id"]
+        )
+        assert handler.get_platform(UPS.INTERTON_VC_4000)["igdb_id"] == (
+            handler.get_platform(UPS.VC_4000)["igdb_id"]
+        )
+
+    def test_both_slugs_keep_romms_family(self) -> None:
+        handler = IGDBHandler()
+        for slug in (UPS.VC_4000, UPS.INTERTON_VC_4000):
+            assert handler.get_platform(slug)["family_slug"] == "interton"
+
+
 class TestGetIGDBPreferredLocale:
     def test_multi_region_rom_respects_user_priority(self):
         """The configured priority wins over filename tag order."""
@@ -1325,6 +1341,9 @@ class TestGetPlatform:
             "family_slug": "texas-instruments",
         }
 
+    def test_siblings_are_only_for_unlisted_platforms(self):
+        assert not IGDB_SIBLING_PLATFORMS.keys() & IGDB_PLATFORM_LIST.keys()
+
     @pytest.mark.parametrize(
         "slug",
         sorted(
@@ -1332,14 +1351,13 @@ class TestGetPlatform:
             - ARCADE_PLATFORMS
         ),
     )
-    def test_every_unlisted_platform_gets_a_family(
+    def test_every_platform_with_a_family_entry_gets_a_family(
         self, handler: IGDBHandler, slug: UPS
     ):
-        assert slug not in IGDB_PLATFORM_LIST
-
         platform = handler.get_platform(slug)
 
-        assert (platform["igdb_id"], platform["slug"]) == (None, slug)
+        assert platform["slug"] == slug
+        assert (platform["igdb_id"] is None) == (slug not in IGDB_PLATFORM_LIST)
         assert platform.get("family_name")
         assert platform.get("family_slug")
 

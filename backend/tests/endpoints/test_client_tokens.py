@@ -3,13 +3,19 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import status
+from tests.factories import make_device_token
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import client_tokens as client_tokens_endpoints
 from handler.auth.base_handler import auth_handler, oauth_handler
-from handler.database import db_client_token_handler, db_user_handler
+from handler.database import (
+    db_client_token_handler,
+    db_permission_handler,
+    db_user_handler,
+)
 from handler.redis_handler import sync_cache
 from models.client_token import ClientToken
+from models.permission import PermAction, PermEntity
 from models.user import Role
 
 
@@ -312,6 +318,96 @@ class TestClientTokenAuth:
             headers={"Authorization": f"Bearer {viewer_access_token}"},
         )
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+class TestClientTokenScopeCeiling:
+    @pytest.fixture
+    def narrow_headers(self, admin_user) -> dict[str, str]:
+        _, raw = make_device_token(admin_user, None, scopes="me.read me.write")
+        return {"Authorization": f"Bearer {raw}"}
+
+    @pytest.fixture
+    def broad_token_id(self, admin_user) -> int:
+        token, _ = make_device_token(
+            admin_user, None, scopes="me.read me.write users.write roms.read"
+        )
+        return token.id
+
+    def test_cannot_create_a_broader_token(self, client, narrow_headers):
+        response = client.post(
+            "/api/client-tokens",
+            json={"name": "Escalated", "scopes": ["users.write", "me.write"]},
+            headers=narrow_headers,
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "users.write" in response.json()["detail"]
+
+    def test_can_create_a_token_within_its_scopes(self, client, narrow_headers):
+        response = client.post(
+            "/api/client-tokens",
+            json={"name": "Narrower", "scopes": ["me.read"]},
+            headers=narrow_headers,
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+
+    def test_cannot_regenerate_a_broader_token(
+        self, client, narrow_headers, broad_token_id
+    ):
+        response = client.put(
+            f"/api/client-tokens/{broad_token_id}/regenerate",
+            headers=narrow_headers,
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_cannot_pair_a_broader_token(self, client, narrow_headers, broad_token_id):
+        response = client.post(
+            f"/api/client-tokens/{broad_token_id}/pair",
+            headers=narrow_headers,
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_full_scope_caller_can_regenerate_a_broad_token(
+        self, client, access_token, broad_token_id
+    ):
+        response = client.put(
+            f"/api/client-tokens/{broad_token_id}/regenerate",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_cannot_delete_a_broader_token(
+        self, client, narrow_headers, broad_token_id
+    ):
+        response = client.delete(
+            f"/api/client-tokens/{broad_token_id}", headers=narrow_headers
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert db_client_token_handler.get_token(token_id=broad_token_id)
+
+    def test_cannot_reissue_a_token_storing_a_lapsed_scope(
+        self, client, viewer_access_token, viewer_user
+    ):
+        token, _ = make_device_token(viewer_user, None, scopes="me.read users.write")
+        headers = {"Authorization": f"Bearer {viewer_access_token}"}
+
+        regenerate = client.put(
+            f"/api/client-tokens/{token.id}/regenerate", headers=headers
+        )
+        pair = client.post(f"/api/client-tokens/{token.id}/pair", headers=headers)
+
+        assert regenerate.status_code == status.HTTP_403_FORBIDDEN
+        assert pair.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_owner_can_delete_a_token_storing_a_lapsed_scope(
+        self, client, viewer_access_token, viewer_user
+    ):
+        token, _ = make_device_token(viewer_user, None, scopes="me.read users.write")
+
+        response = client.delete(
+            f"/api/client-tokens/{token.id}",
+            headers={"Authorization": f"Bearer {viewer_access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
 
 
 class TestClientTokenUserIsolation:
@@ -692,6 +788,28 @@ class TestClientTokenAdmin:
             headers={"Authorization": f"Bearer {editor_access_token}"},
         )
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_a_delegated_user_manager_revokes_only_non_admin_tokens(
+        self, client, admin_user, editor_user, viewer_user
+    ):
+        db_permission_handler.replace_user_overrides(
+            viewer_user.id, [(PermEntity.USERS, PermAction.WRITE, True, False)]
+        )
+        _, raw = make_device_token(viewer_user, None, scopes="users.write")
+        headers = {"Authorization": f"Bearer {raw}"}
+        admin_token, _ = make_device_token(admin_user, None)
+        editor_token, _ = make_device_token(editor_user, None)
+
+        admin_resp = client.delete(
+            f"/api/client-tokens/{admin_token.id}/admin", headers=headers
+        )
+        editor_resp = client.delete(
+            f"/api/client-tokens/{editor_token.id}/admin", headers=headers
+        )
+
+        assert admin_resp.status_code == status.HTTP_403_FORBIDDEN
+        assert db_client_token_handler.get_token(token_id=admin_token.id)
+        assert editor_resp.status_code == status.HTTP_200_OK
 
 
 class TestRevocationClosesDeviceSockets:

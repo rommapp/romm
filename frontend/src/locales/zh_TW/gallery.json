@@ -1,5 +1,4 @@
 {
-  "all-loaded": "所有遊戲已載入",
   "back-to-top": "回到頂端",
   "column-actions": "操作",
   "column-cover": "封面",
@@ -8,7 +7,6 @@
   "firmware-selected-count": "已選擇 {count} 個",
   "jump-to": "跳至 {letter}",
   "jump-to-letter": "跳至字母",
-  "load-more": "載入更多",
   "selection-clear": "清除選擇",
   "selection-collections": "管理收藏庫",
   "selection-delete": "刪除",

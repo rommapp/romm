@@ -1,130 +1,70 @@
 <script setup lang="ts">
-import { storeToRefs } from "pinia";
-import { ref, watch } from "vue";
+// LibraryManagement: v2-native rewrite. Uses the shared `RTabNav`
+// primitive for the underline tabs (same component Game Details uses)
+// and keeps the `?tab=` query param so deep links still work.
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRoute, useRouter } from "vue-router";
-import Excluded from "@/components/Settings/LibraryManagement/Config/Excluded.vue";
-import FolderMappings from "@/components/Settings/LibraryManagement/Config/FolderMappings.vue";
-import MissingGames from "@/components/Settings/LibraryManagement/Config/MissingGames.vue";
-import storeConfig from "@/stores/config";
+import ConfigFileAlerts from "@/components/Settings/ConfigFileAlerts.vue";
+import ExcludedSection from "@/components/Settings/ExcludedSection.vue";
+import FolderMappingsSection from "@/components/Settings/FolderMappingsSection.vue";
+import MissingFirmwareSection from "@/components/Settings/MissingFirmwareSection.vue";
+import MissingGamesSection from "@/components/Settings/MissingGamesSection.vue";
+import { useRouteQueryParam } from "@/composables/useRouteQueryParam";
+import { RTabNav, type RTabNavItem } from "@/lib";
 
 const { t } = useI18n();
-const route = useRoute();
-const router = useRouter();
 
-// Valid tab values
-const validTabs = ["mapping", "excluded", "missing"] as const;
+type Tab = "mapping" | "excluded" | "missing" | "missing-firmware";
+const validTabs: readonly Tab[] = [
+  "mapping",
+  "excluded",
+  "missing",
+  "missing-firmware",
+];
 
-// Initialize tab from query parameter or default to "config"
-const tab = ref<"mapping" | "excluded" | "missing">(
-  validTabs.includes(route.query.tab as any)
-    ? (route.query.tab as "mapping" | "excluded" | "missing")
-    : "mapping",
-);
-const configStore = storeConfig();
-const { config } = storeToRefs(configStore);
-// Watch for tab changes and update URL
-watch(tab, (newTab) => {
-  router.replace({
-    path: route.path,
-    query: {
-      ...route.query,
-      tab: newTab,
-    },
-  });
-});
+const tab = useRouteQueryParam("tab", "mapping", validTabs);
 
-// Watch for URL changes and update tab
-watch(
-  () => route.query.tab,
-  (newTab) => {
-    if (newTab && validTabs.includes(newTab as any) && tab.value !== newTab) {
-      tab.value = newTab as "mapping" | "excluded" | "missing";
-    }
+const tabs = computed<RTabNavItem[]>(() => [
+  {
+    id: "mapping",
+    label: t("settings.folder-mappings"),
+    icon: "mdi-folder-multiple-outline",
   },
-  { immediate: true },
-);
+  {
+    id: "excluded",
+    label: t("settings.excluded"),
+    icon: "mdi-eye-off-outline",
+  },
+  {
+    id: "missing",
+    label: t("settings.missing-games-tab"),
+    icon: "mdi-folder-question-outline",
+  },
+  {
+    id: "missing-firmware",
+    label: t("settings.missing-firmware-tab"),
+    icon: "mdi-memory",
+  },
+]);
+
+// Bridge between RTabNav's string modelValue and our Tab union.
+const tabModel = computed<string>({
+  get: () => tab.value,
+  set: (v) => {
+    if ((validTabs as readonly string[]).includes(v)) tab.value = v as Tab;
+  },
+});
 </script>
 
 <template>
-  <v-row no-gutters class="pa-2">
-    <v-col cols="12">
-      <v-tabs
-        v-model="tab"
-        align-tabs="start"
-        slider-color="secondary"
-        selected-class="bg-toplayer"
-      >
-        <v-tab prepend-icon="mdi-folder-cog" class="rounded" value="mapping">
-          {{ t("settings.folder-mappings") }}
-        </v-tab>
-        <v-tab prepend-icon="mdi-cancel" class="rounded" value="excluded">
-          {{ t("settings.excluded") }}
-        </v-tab>
-        <v-tab
-          prepend-icon="mdi-folder-question"
-          class="rounded"
-          value="missing"
-        >
-          {{ t("settings.missing-games-tab") }}
-        </v-tab>
-      </v-tabs>
-    </v-col>
-    <v-col>
-      <v-alert
-        v-if="!config.CONFIG_FILE_MOUNTED"
-        type="error"
-        variant="tonal"
-        class="my-2"
-      >
-        <template #title>{{
-          t("settings.config-file-not-mounted-title")
-        }}</template>
-        <template #text>
-          {{ t("settings.config-file-not-mounted-desc") }}
-        </template>
-      </v-alert>
-      <v-alert
-        v-if="config.CONFIG_FILE_MOUNTED && config.CONFIG_FILE_PARSE_ERROR"
-        type="error"
-        variant="tonal"
-        class="my-2"
-      >
-        <template #title>{{
-          t("settings.config-file-parse-error-title")
-        }}</template>
-        <template #text>
-          {{
-            t("settings.config-file-parse-error-desc", {
-              error: config.CONFIG_FILE_PARSE_ERROR,
-            })
-          }}
-        </template>
-      </v-alert>
-      <v-alert
-        v-if="config.CONFIG_FILE_MOUNTED && !config.CONFIG_FILE_WRITABLE"
-        type="warning"
-        variant="tonal"
-        class="my-2"
-      >
-        <template #title>{{
-          t("settings.config-file-not-writable-title")
-        }}</template>
-        <template #text>
-          {{ t("settings.config-file-not-writable-desc") }}
-        </template>
-      </v-alert>
-      <v-tabs-window v-model="tab">
-        <v-tabs-window-item value="mapping">
-          <FolderMappings />
-        </v-tabs-window-item>
-        <v-tabs-window-item value="excluded">
-          <Excluded />
-        </v-tabs-window-item>
-        <v-tabs-window-item value="missing">
-          <MissingGames />
-        </v-tabs-window-item>
-      </v-tabs-window>
-    </v-col>
-  </v-row>
+  <div class="r-section-stack">
+    <ConfigFileAlerts />
+
+    <RTabNav v-model="tabModel" :items="tabs" />
+
+    <FolderMappingsSection v-if="tab === 'mapping'" />
+    <ExcludedSection v-else-if="tab === 'excluded'" />
+    <MissingGamesSection v-else-if="tab === 'missing'" />
+    <MissingFirmwareSection v-else-if="tab === 'missing-firmware'" />
+  </div>
 </template>

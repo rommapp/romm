@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from tests.factories import make_rom
 
 from config.config_manager import MetadataMediaType
+from endpoints.responses.rom import PROVIDER_METADATA_FIELDS
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.database import db_collection_handler, db_rom_handler
 from handler.database.base_handler import sync_session
@@ -443,6 +444,30 @@ def test_get_roms_keeps_total_from_the_rom_id_index(
     assert body["rom_id_index"] == [rom.id]
 
 
+def test_get_roms_without_provider_metadata(
+    client: TestClient, access_token: str, platform: Platform
+) -> None:
+    make_rom(
+        platform,
+        "test_rom",
+        igdb_metadata={"alternative_names": ["Test Rom Alt"]},
+        ra_metadata={"achievements": [], "hash_match": True},
+        manual_metadata={"genres": ["Puzzle"]},
+    )
+    headers = {"Authorization": f"Bearer {access_token}"}
+    params = {"platform_id": platform.id}
+
+    (item,) = client.get(
+        "/api/roms", headers=headers, params={**params, "with_provider_metadata": False}
+    ).json()["items"]
+    assert all(item[field] is None for field in PROVIDER_METADATA_FIELDS)
+    assert item["manual_metadata"] == {"genres": ["Puzzle"]}
+    assert item["alternative_names"] == ["Test Rom Alt"]
+
+    (default,) = client.get("/api/roms", headers=headers, params=params).json()["items"]
+    assert default["igdb_metadata"] and default["merged_ra_metadata"]
+
+
 def test_get_roms_sorted_by_user_field_keeps_all_roms(
     client: TestClient,
     access_token: str,
@@ -665,6 +690,27 @@ def test_get_roms_filter_values_are_never_null(
     assert_filter_values_are_lists(filter_values)
     assert filter_values["genres"] == []
     assert filter_values["platforms"] == ([platform.id] if with_filter_values else [])
+
+
+def test_get_roms_reads_names_from_metadata_objects(
+    client: TestClient, access_token: str, rom: Rom, platform: Platform
+) -> None:
+    db_rom_handler.update_rom(
+        rom.id,
+        {"igdb_metadata": {"genres": [{"id": 12, "name": "RPG"}, " Action "]}},
+    )
+
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "with_filter_values": True},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["items"][0]["igdb_metadata"]["genres"] == ["RPG", "Action"]
+    assert body["items"][0]["metadatum"]["genres"] == ["Action", "RPG"]
+    assert body["filter_values"]["genres"] == ["Action", "RPG"]
 
 
 def test_get_rom_filters_are_never_null(
@@ -997,6 +1043,56 @@ def test_update_rom_rejects_malformed_manual_metadata(
     )
     assert response.status_code == status.HTTP_200_OK
     assert not response.json()["manual_metadata"]
+
+
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_stores_names_from_raw_metadata_objects(
+    _get_rom_by_id_mock: AsyncMock,
+    _rename_fs_rom_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    raw_igdb_metadata = {
+        "genres": [{"id": 12, "name": "RPG"}, " Action "],
+        "youtube_video_id": "dQw4w9WgXcQ",
+    }
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={
+            "igdb_id": str(MOCK_IGDB_ID),
+            "raw_igdb_metadata": json.dumps(raw_igdb_metadata),
+        },
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    stored = db_rom_handler.get_rom(rom.id)
+    assert stored is not None
+    assert stored.igdb_metadata == {
+        "genres": ["RPG", "Action"],
+        "youtube_video_id": "dQw4w9WgXcQ",
+    }
+
+
+@pytest.mark.parametrize("form_key", ["raw_igdb_metadata", "raw_manual_metadata"])
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_rejects_raw_metadata_that_is_not_an_object(
+    _get_rom_by_id_mock: AsyncMock,
+    _rename_fs_rom_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    form_key: str,
+):
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"igdb_id": str(MOCK_IGDB_ID), form_key: '["RPG"]'},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 @patch.object(FSRomsHandler, "rename_fs_rom")

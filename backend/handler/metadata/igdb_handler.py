@@ -782,6 +782,8 @@ class IGDBHandler(MetadataHandler):
     def _base_platform(self, slug: str) -> IGDBPlatform:
         if slug in IGDB_PLATFORM_LIST:
             platform = IGDB_PLATFORM_LIST[UPS(slug)]
+            # A duplicate of a family-less IGDB platform takes its family from IGDB_PLATFORM_FAMILIES.
+            family = IGDB_PLATFORM_FAMILIES.get(UPS(slug), platform)
 
             return IGDBPlatform(
                 igdb_id=platform["id"],
@@ -790,8 +792,8 @@ class IGDBHandler(MetadataHandler):
                 name=platform["name"],
                 category=platform["category"],
                 generation=platform["generation"],
-                family_name=platform["family_name"],
-                family_slug=platform["family_slug"],
+                family_name=family["family_name"],
+                family_slug=family["family_slug"],
                 url=platform["url"],
                 url_logo=self.normalize_cover_url(platform["url_logo"]),
             )

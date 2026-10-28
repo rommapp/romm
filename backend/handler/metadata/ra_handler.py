@@ -21,6 +21,7 @@ from models.rom import Rom
 from utils.arcade_platforms import ARCADE_SET_PLATFORMS, arcade_fallbacks
 from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.platform_slugs import fill_duplicate_slugs
 
 from .base_handler import (
     BaseRom,
@@ -519,3 +520,5 @@ RA_PLATFORM_LIST: dict[UPS, SlugToRAId] = {
 }
 # RetroAchievements hashes only MAME and FinalBurn sets, by filename.
 RA_PLATFORM_LIST |= arcade_fallbacks(RA_PLATFORM_LIST, ARCADE_SET_PLATFORMS)
+
+fill_duplicate_slugs(RA_PLATFORM_LIST)

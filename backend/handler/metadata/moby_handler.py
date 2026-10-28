@@ -11,6 +11,7 @@ from logger.logger import log
 from models.rom import Rom
 from utils.arcade_platforms import arcade_fallbacks
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.platform_slugs import fill_duplicate_slugs
 
 from .base_handler import (
     BaseRom,
@@ -1330,6 +1331,8 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
     UPS.ZX81: {"id": 119, "name": "ZX81", "slug": "zx81"},
 }
 MOBYGAMES_PLATFORM_LIST |= arcade_fallbacks(MOBYGAMES_PLATFORM_LIST)
+
+fill_duplicate_slugs(MOBYGAMES_PLATFORM_LIST)
 
 
 # These platforms are ignored due to lack of data:

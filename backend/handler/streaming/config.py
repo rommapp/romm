@@ -439,7 +439,7 @@ def _resolve_one(
         container_label=container_label if isinstance(container_label, str) else None,
         memory_card_sync=card_sync,
         clears_stale_saves=clears_stale_saves,
-        broker_secret=STREAMING_BROKER_SECRET or str(entry.get("broker_secret", "")),
+        broker_secret=str(entry.get("broker_secret") or STREAMING_BROKER_SECRET),
         library_path=str(entry.get("library_path") or LIBRARY_BASE_PATH).rstrip("/"),
         capabilities=capabilities,
         state_transfer=state_transfer_limits(emulator),

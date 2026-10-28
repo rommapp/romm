@@ -18,6 +18,7 @@ from logger.logger import log
 from utils import get_version
 from utils.context import ctx_aiohttp_session
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.platform_slugs import fill_duplicate_slugs
 from utils.rate_limiter import RateLimiter
 
 if TYPE_CHECKING:
@@ -2862,6 +2863,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
     },
 }
 
+fill_duplicate_slugs(IGDB_PLATFORM_LIST)
+
 
 class SlugToIGDBVersion(TypedDict):
     id: int
@@ -4825,7 +4828,6 @@ IGDB_SIBLING_PLATFORMS: dict[UPS, UPS] = {
     UPS.WINDOWS_APPS: UPS.WIN,
     UPS.BEENA: UPS.ADVANCED_PICO_BEENA,
     UPS.VMU: UPS.VISUAL_MEMORY_UNIT_SLASH_VISUAL_MEMORY_SYSTEM,
-    UPS.PIPPIN: UPS.APPLE_PIPPIN,
     UPS.ATARI800: UPS.ATARI8BIT,
     UPS.ATARI_XEGS: UPS.ATARI8BIT,
     UPS.ATARI_VCS: UPS.ATARI2600,
@@ -4876,8 +4878,8 @@ _MOS_TECHNOLOGY_FAMILY = PlatformFamily(
     family_name="MOS Technology", family_slug="mos-technology"
 )
 
-# Platforms IGDB lists under no platform of their own, mapped to their family.
-# Overrides the family of a sibling or of the platform IGDB files them under.
+# Platforms IGDB doesn't list, lists without a family, or files under
+# another platform, mapped to their family. Overrides a sibling's.
 IGDB_PLATFORM_FAMILIES: dict[UPS, PlatformFamily] = {
     UPS.MODEL2: _igdb_family(UPS.DC),
     UPS.MODEL3: _igdb_family(UPS.DC),
@@ -4955,3 +4957,5 @@ IGDB_PLATFORM_FAMILIES: dict[UPS, PlatformFamily] = {
     UPS.KIM_1: _MOS_TECHNOLOGY_FAMILY,
     UPS.MOS_TECHNOLOGY_6502: _MOS_TECHNOLOGY_FAMILY,
 }
+
+fill_duplicate_slugs(IGDB_PLATFORM_FAMILIES)
