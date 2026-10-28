@@ -93,7 +93,7 @@
   "memory-card-erase-keyword": "RADERA",
   "memory-card-hint": "Det nyaste kortet läses in som standard. Framsteg synkroniseras när du avslutar.",
   "memory-card-import-adopt": "Importera det här kortet",
-  "memory-card-import-body": "Den här containern har redan ett minneskort med {count} sparfiler. Vill du importera det till biblioteket eller börja med ett nytt kort?",
+  "memory-card-import-body": "Den här containern har redan ett minneskort med {count} sparfil. Vill du importera det till biblioteket eller börja med ett nytt kort? | Den här containern har redan ett minneskort med {count} sparfiler. Vill du importera det till biblioteket eller börja med ett nytt kort?",
   "memory-card-import-discard": "Börja med ett nytt kort",
   "memory-card-import-discard-body": "Minneskortet i containern raderas. Sparade data kan inte återställas.",
   "memory-card-import-discard-confirm": "Radera och börja med nytt kort",

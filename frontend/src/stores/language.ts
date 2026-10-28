@@ -1,30 +1,39 @@
 import { defineStore } from "pinia";
-import { matchPreferredLocale } from "@/locales";
+import { availableLocales, matchPreferredLocale } from "@/locales";
+
+// Display names for the locale folders under src/locales, in their own language.
+export const LOCALE_NAMES: Record<string, string> = {
+  en_US: "English (USA)",
+  en_GB: "English (United Kingdom)",
+  fr_FR: "Français",
+  de_DE: "Deutsch",
+  ru_RU: "Русский",
+  pt_BR: "Português (Brasil)",
+  ro_RO: "Română",
+  es_ES: "Español (España)",
+  sv_SE: "Svenska",
+  zh_CN: "简体中文 (中国)",
+  zh_TW: "繁體中文 (台灣)",
+  ko_KR: "한국어 (대한민국)",
+  ja_JP: "日本語 (日本)",
+  it_IT: "Italiano",
+  pl_PL: "Polski",
+  cs_CZ: "Česky",
+  hu_HU: "Magyar",
+  bg_BG: "Български",
+  tr_TR: "Türkçe",
+};
+
+function languageOf(value: string) {
+  return { value, name: LOCALE_NAMES[value] ?? value };
+}
 
 const defaultLanguageState = {
-  defaultLanguage: { value: "en_US", name: "English (USA)" },
-  selectedLanguage: { value: "en_US", name: "English (USA)" },
-  languages: [
-    { value: "en_US", name: "English (USA)" },
-    { value: "en_GB", name: "English (United Kingdom)" },
-    { value: "fr_FR", name: "Français" },
-    { value: "de_DE", name: "Deutsch" },
-    { value: "ru_RU", name: "Русский" },
-    { value: "pt_BR", name: "Português (Brasil)" },
-    { value: "ro_RO", name: "Română" },
-    { value: "es_ES", name: "Español (España)" },
-    { value: "sv_SE", name: "Svenska" },
-    { value: "zh_CN", name: "简体中文 (中国)" },
-    { value: "zh_TW", name: "繁體中文 (台灣)" },
-    { value: "ko_KR", name: "한국어 (대한민국)" },
-    { value: "ja_JP", name: "日本語 (日本)" },
-    { value: "it_IT", name: "Italiano" },
-    { value: "pl_PL", name: "Polski" },
-    { value: "cs_CZ", name: "Česky" },
-    { value: "hu_HU", name: "Magyar" },
-    { value: "bg_BG", name: "Български" },
-    { value: "tr_TR", name: "Türkçe" },
-  ].sort((a, b) => a.name.localeCompare(b.name)),
+  defaultLanguage: languageOf("en_US"),
+  selectedLanguage: languageOf("en_US"),
+  languages: availableLocales
+    .map(languageOf)
+    .sort((a, b) => a.name.localeCompare(b.name)),
 };
 
 export default defineStore("language", {

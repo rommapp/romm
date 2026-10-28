@@ -93,7 +93,7 @@
   "memory-card-erase-keyword": "ERASE",
   "memory-card-hint": "The newest card loads by default. Progress syncs back when you exit.",
   "memory-card-import-adopt": "Import this card",
-  "memory-card-import-body": "This container already has a memory card holding {count} save file(s). Import it into your library, or start with a fresh card?",
+  "memory-card-import-body": "This container already has a memory card holding {count} save file. Import it into your library, or start with a fresh card? | This container already has a memory card holding {count} save files. Import it into your library, or start with a fresh card?",
   "memory-card-import-discard": "Start fresh",
   "memory-card-import-discard-body": "The memory card on this container will be erased. Anything saved on it cannot be recovered.",
   "memory-card-import-discard-confirm": "Erase and start fresh",
