@@ -672,11 +672,9 @@ def get_roms(
         updated_after=updated_after,
         released_days=parsed_released_days,
         released_before_year=released_before_year,
-        # The page's files answer all three flags without the subqueries.
-        include_file_stats=not with_files,
-        # Siblings and the notes indicator are resolved per page below.
-        include_siblings=False,
-        include_notes=False,
+        # Only ids, letters and counts are selected from it; the page's rows load
+        # through get_page_rows_query below.
+        include_related=False,
     )
 
     # Cache only the fully unscoped library scan: the sidecar cache key encodes

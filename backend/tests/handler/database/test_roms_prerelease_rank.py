@@ -15,8 +15,8 @@ from models.platform import Platform
 from models.rom import Rom
 
 
-def _old_rule(name: str) -> bool:
-    """What the six LIKEs said: the lowercase name contains "(" plus a tag."""
+def _ilike_rule(name: str) -> bool:
+    """What the PostgreSQL ILIKEs match: the lowercase name contains "(" plus a tag."""
     return any(f"({tag}" in name.lower() for tag in PRERELEASE_FILENAME_TAGS)
 
 
@@ -42,8 +42,10 @@ NAMES = [
 
 
 @pytest.mark.parametrize("name", NAMES)
-def test_the_regex_agrees_with_the_old_like_rule(name: str):
-    assert bool(re.search(_PRERELEASE_PATTERN, name, re.IGNORECASE)) == _old_rule(name)
+def test_the_regex_agrees_with_the_ilike_rule(name: str):
+    matches = bool(re.search(_PRERELEASE_PATTERN, name, re.IGNORECASE))
+
+    assert matches == _ilike_rule(name)
 
 
 def test_mariadb_matches_one_regex_per_row():

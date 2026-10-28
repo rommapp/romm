@@ -6,14 +6,13 @@ from tests.factories import make_rom
 
 from handler.database import db_rom_handler
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import RomUser
 from models.user import User
 
 
-def _add_rom(admin_user: User, platform: Platform, name: str) -> Rom:
+def _add_rom(admin_user: User, platform: Platform, name: str) -> RomUser:
     rom = make_rom(platform, name)
-    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
-    return rom
+    return db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
 
 
 def _list(client: TestClient, access_token: str, **params: str) -> dict[str, Any]:
@@ -31,12 +30,11 @@ def test_a_page_picked_with_the_hidden_status_is_not_emptied_on_reload(
 ) -> None:
     shown = _add_rom(admin_user, platform, "shown_rom")
     hidden = _add_rom(admin_user, platform, "hidden_rom")
-    rom_user = db_rom_handler.add_rom_user(rom_id=hidden.id, user_id=admin_user.id)
-    db_rom_handler.update_rom_user(rom_user.id, {"hidden": True})
+    db_rom_handler.update_rom_user(hidden.id, {"hidden": True})
 
     page = _list(client, access_token, statuses="hidden")
 
     assert page["total"] == 1
-    assert [item["id"] for item in page["items"]] == [hidden.id]
+    assert [item["id"] for item in page["items"]] == [hidden.rom_id]
     default_ids = [item["id"] for item in _list(client, access_token)["items"]]
-    assert default_ids == [shown.id]
+    assert default_ids == [shown.rom_id]

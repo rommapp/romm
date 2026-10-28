@@ -86,6 +86,13 @@ def _report(name: str, plans: list[dict[str, Any]], show_plan: bool) -> float:
     return float(statistics.median(times))
 
 
+def _positive_int(value: str) -> int:
+    number = int(value)
+    if number < 1:
+        raise argparse.ArgumentTypeError(f"must be at least 1, got {number}")
+    return number
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--user-id", type=int, default=1)
@@ -105,7 +112,7 @@ def main() -> int:
         default="{}",
         help='RomFilterParams as JSON, e.g. \'{"search_term": "astral"}\' or \'{"genres": ["Sport"]}\'.',
     )
-    parser.add_argument("--repeat", type=int, default=3)
+    parser.add_argument("--repeat", type=_positive_int, default=3)
     parser.add_argument(
         "--work-mem", help="Session work_mem for the run, e.g. 32MB (an experiment)."
     )
@@ -117,23 +124,23 @@ def main() -> int:
     if args.ungrouped:
         params["group_by_meta_id"] = False
     filters = RomFilterParams(**params)
+    # The endpoint lowercases both before building the query.
+    order_by = args.order_by.lower()
+    order_dir = args.order_dir.lower()
     unfiltered_query, sort_key = db_rom_handler.get_roms_query(
         user_id=args.user_id,
-        order_by=args.order_by,
-        order_dir=args.order_dir,
+        order_by=order_by,
+        order_dir=order_dir,
         search_term=filters.search_term,
     )
-    # The same flags the endpoint passes for a window without `with_files`.
     query = db_rom_handler.filter_roms(
         query=unfiltered_query,
         filters=filters,
         sort_key=sort_key,
-        order_by=args.order_by,
-        order_dir=args.order_dir,
+        order_by=order_by,
+        order_dir=order_dir,
         user_id=args.user_id,
-        include_file_stats=True,
-        include_siblings=False,
-        include_notes=False,
+        include_related=False,
     )
 
     with sync_session.begin() as session:
@@ -148,8 +155,8 @@ def main() -> int:
         database: str = session.execute(text("SELECT current_database()")).scalar_one()
         print(
             f"database {database}, user {args.user_id}, "
-            f"order {args.order_by or 'default'} "
-            f"{args.order_dir}, window {args.offset}+{args.limit}, "
+            f"order {order_by or 'default'} "
+            f"{order_dir}, window {args.offset}+{args.limit}, "
             f"grouping {'off' if args.ungrouped else 'on'}, filters {args.filters}"
         )
 

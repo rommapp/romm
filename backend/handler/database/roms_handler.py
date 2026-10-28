@@ -572,10 +572,8 @@ _PRERELEASE_PATTERN = (
 
 def _prerelease_rank() -> ColumnElement[Any]:
     """Rank pre-release dumps after full releases within a sibling group."""
-    # The filename, not the parsed `tags` column: tags keep the dumper's casing,
-    # and the dedup window's covering index does not carry them.
-    # MariaDB lowercases the name once per ILIKE, so one regex wins there; on
-    # PostgreSQL the ILIKEs measure faster over a whole library.
+    # The filename: `tags` keeps the dumper's casing and the covering index lacks it.
+    # One regex beats a LOWER() per ILIKE on MariaDB; PostgreSQL's ILIKEs are faster.
     is_prerelease = DialectCase(
         postgresql=or_(
             *[Rom.fs_name_no_ext.ilike(f"%({tag}%") for tag in PRERELEASE_FILENAME_TAGS]
@@ -2029,10 +2027,8 @@ class DBRomsHandler(DBBaseHandler):
         visibility: RomVisibilityFilter = UNRESTRICTED,
         include_file_stats: bool = False,
     ) -> RomSelect:
-        """The rows of one page, loaded by id with none of the filters re-run.
-
-        Visibility is kept: the cached id index's key does not carry it.
-        """
+        """The rows of one page, loaded by id with none of the filters re-run."""
+        # Visibility is re-checked in case a cached id index predates a rule change.
         query = select(Rom).where(Rom.id.in_(page_ids), *visibility.clauses())
         return self._with_rom_loaders(
             query,
