@@ -25,6 +25,9 @@ if TYPE_CHECKING:
 FIRMWARE_FIXTURES_DIR: Final = Path(__file__).parent / "fixtures"
 KNOWN_BIOS_KEY = "romm:known_bios_files"
 
+# The known BIOS list files every arcade BIOS, Neo Geo's included, under Arcade.
+ARCADE_BIOS_PLATFORMS: Final = ARCADE_PLATFORMS | {UPS.NEOGEOAES, UPS.NEOGEOMVS}
+
 
 class Firmware(FileNamePartsMixin, BaseModel):
     __tablename__ = "firmware"
@@ -66,8 +69,9 @@ class Firmware(FileNamePartsMixin, BaseModel):
         sha1_hash: str,
         crc_hash: str,
     ) -> bool:
-        # The known BIOS list files every arcade BIOS under Arcade.
-        bios_slug = UPS.ARCADE if platform_slug in ARCADE_PLATFORMS else platform_slug
+        bios_slug = (
+            UPS.ARCADE if platform_slug in ARCADE_BIOS_PLATFORMS else platform_slug
+        )
         cache_entry = sync_cache.hget(KNOWN_BIOS_KEY, f"{bios_slug}:{file_name}")
         if cache_entry:
             cache_json = json.loads(cache_entry)

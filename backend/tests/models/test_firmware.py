@@ -24,7 +24,9 @@ def _known_bios(key: str, field: str) -> str | None:
     return json.dumps(NAOMI_BIOS) if field == "arcade:naomi.zip" else None
 
 
-@pytest.mark.parametrize("platform_slug", ["arcade", "mame", "naomi", "atomiswave"])
+@pytest.mark.parametrize(
+    "platform_slug", ["arcade", "mame", "naomi", "atomiswave", "neogeoaes", "neogeomvs"]
+)
 def test_an_arcade_platform_verifies_against_the_arcade_bios_list(
     platform_slug: str,
 ):
