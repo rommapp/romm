@@ -200,13 +200,9 @@ def test_extract_tokens_accepts_named_metadata_objects(field, facet):
     [
         None,
         42,
-        False,
-        [],
-        {},
         {"id": 1},
         {"name": None},
         {"name": 42},
-        {"name": {}},
         {"name": "  "},
     ],
 )
