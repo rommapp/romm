@@ -26,18 +26,21 @@ for (const [path, load] of Object.entries(localeModules)) {
 
 export const availableLocales: readonly string[] = [...modulesByLocale.keys()];
 
+// Czech strings carry either "zero | one | 2-4 | 5+" forms or just
+// "one | other"; vue-i18n indexes the segments without bounds checks.
+export function czechPluralIndex(choice: number, choicesLength: number) {
+  if (choicesLength === 2) return choice === 1 ? 0 : 1;
+  if (choice === 0) return 0;
+  if (choice === 1) return 1;
+  return choice >= 2 && choice <= 4 ? 2 : 3;
+}
+
 const i18n = createI18n({
   legacy: false,
   locale: FALLBACK_LOCALE,
   fallbackLocale: FALLBACK_LOCALE,
   messages: {},
-  pluralRules: {
-    cs_CZ(choice: number) {
-      if (choice === 0) return 0;
-      if (choice === 1) return 1;
-      return choice >= 2 && choice <= 4 ? 2 : 3;
-    },
-  },
+  pluralRules: { cs_CZ: czechPluralIndex },
 });
 
 // Picks the first available locale matching the browser's preferences, exact

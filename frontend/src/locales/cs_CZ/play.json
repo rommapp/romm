@@ -93,7 +93,7 @@
   "memory-card-erase-keyword": "ERASE",
   "memory-card-hint": "Ve výchozím nastavení se načte nejnovější karta. Postup se synchronizuje při ukončení.",
   "memory-card-import-adopt": "Importovat tuto kartu",
-  "memory-card-import-body": "Tento kontejner už má paměťovou kartu s {count} soubory uložených pozic. Chcete ji importovat do své knihovny, nebo začít s novou kartou? | Tento kontejner už má paměťovou kartu s {count} souborem uložených pozic. Chcete ji importovat do své knihovny, nebo začít s novou kartou? | Tento kontejner už má paměťovou kartu s {count} soubory uložených pozic. Chcete ji importovat do své knihovny, nebo začít s novou kartou? | Tento kontejner už má paměťovou kartu s {count} soubory uložených pozic. Chcete ji importovat do své knihovny, nebo začít s novou kartou?",
+  "memory-card-import-body": "Tento kontejner už má paměťovou kartu s {count} souborem uložených pozic. Chcete ji importovat do své knihovny, nebo začít s novou kartou? | Tento kontejner už má paměťovou kartu s {count} soubory uložených pozic. Chcete ji importovat do své knihovny, nebo začít s novou kartou?",
   "memory-card-import-discard": "Začít znovu",
   "memory-card-import-discard-body": "Paměťová karta v tomto kontejneru bude vymazána. Nic, co je na ní uloženo, nepůjde obnovit.",
   "memory-card-import-discard-confirm": "Vymazat a začít znovu",
