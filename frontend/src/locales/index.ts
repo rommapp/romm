@@ -24,6 +24,8 @@ for (const [path, load] of Object.entries(localeModules)) {
   modulesByLocale.get(locale)?.set(namespace, load);
 }
 
+export const availableLocales: readonly string[] = [...modulesByLocale.keys()];
+
 const i18n = createI18n({
   legacy: false,
   locale: FALLBACK_LOCALE,
@@ -106,7 +108,7 @@ export const localesReady = Promise.all([
     // Read at module load, before anyone is signed in.
     // eslint-disable-next-line romm/no-unscoped-local-storage
     localStorage.getItem(STORED_LOCALE_KEY) ||
-      matchPreferredLocale(navigator.languages, [...modulesByLocale.keys()]) ||
+      matchPreferredLocale(navigator.languages, availableLocales) ||
       FALLBACK_LOCALE,
   ),
 ]);
