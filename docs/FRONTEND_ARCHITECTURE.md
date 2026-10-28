@@ -276,6 +276,7 @@ frontend/
     │   ├── en_GB/, fr_FR/, de_DE/, es_ES/, it_IT/, ja_JP/
     │   ├── ko_KR/, pt_BR/, pl_PL/, ro_RO/, ru_RU/
     │   ├── zh_CN/, zh_TW/, cs_CZ/, hu_HU/, bg_BG/
+    │   ├── sv_SE/, tr_TR/
     │   └── (each has: collection, common, console, detail,
     │         emulator, gallery, home, library, login,
     │         navigation, patcher, platform, scan, settings, task)
@@ -935,7 +936,7 @@ v2 opts out of this stack entirely: `src/v2/styles/tokens.css` (generated from `
 - **Default:** `en_US`
 - **Fallback:** `en_US`
 
-### Supported Languages (17)
+### Supported Languages (19)
 
 | Code    | Language                    |
 | ------- | --------------------------- |
@@ -956,6 +957,8 @@ v2 opts out of this stack entirely: `src/v2/styles/tokens.css` (generated from `
 | `cs_CZ` | Czech (custom plural rules) |
 | `hu_HU` | Hungarian                   |
 | `bg_BG` | Bulgarian                   |
+| `sv_SE` | Swedish                     |
+| `tr_TR` | Turkish                     |
 
 ### Namespace Organization
 

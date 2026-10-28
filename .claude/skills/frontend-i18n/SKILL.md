@@ -10,7 +10,7 @@ User-visible strings are **never hard-coded** in components; they come from loca
 ## Structure
 
 - Locales live in `frontend/src/locales/<locale>/<namespace>.json`, loaded by dynamic glob import in `src/locales/index.ts`.
-- **18 locales**: `en_US` (default + fallback), `en_GB`, `bg_BG`, `cs_CZ`, `de_DE`, `es_ES`, `fr_FR`, `hu_HU`, `it_IT`, `ja_JP`, `ko_KR`, `pl_PL`, `pt_BR`, `ro_RO`, `ru_RU`, `tr_TR`, `zh_CN`, `zh_TW`.
+- **19 locales**: `en_US` (default + fallback), `en_GB`, `bg_BG`, `cs_CZ`, `de_DE`, `es_ES`, `fr_FR`, `hu_HU`, `it_IT`, `ja_JP`, `ko_KR`, `pl_PL`, `pt_BR`, `ro_RO`, `ru_RU`, `sv_SE`, `tr_TR`, `zh_CN`, `zh_TW`.
 - Namespaces are per-feature files (e.g. `collection`, `common`, `console`, `detail`, `emulator`, `gallery`, `home`, `library`, `login`, `navigation`, `patcher`, `platform`, `scan`, `settings`, `task`).
 
 ## The rule (enforced in CI)

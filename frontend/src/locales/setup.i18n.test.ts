@@ -6,12 +6,11 @@ const locale = i18n.global.locale;
 async function translatePlatformConfirmation(language: string, count: number) {
   await loadLocale(language);
   locale.value = language;
-  return i18n.global.t("setup.confirm-create-platforms", count, {
-    named: {
-      pattern: "/roms/{platform}",
-      count,
-      plural: count > 1 ? "s" : "",
-    },
+  // Same call shape as Setup.vue: vue-i18n picks the plural form from `count`.
+  return i18n.global.t("setup.confirm-create-platforms", {
+    pattern: "/roms/{platform}",
+    count,
+    plural: count > 1 ? "s" : "",
   });
 }
 

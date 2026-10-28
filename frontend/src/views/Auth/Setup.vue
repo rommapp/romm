@@ -317,12 +317,10 @@ function handleNext(nextCallback: () => void) {
 
   // Case 1: No structure detected and user is creating platforms
   if (!hasStructure && platformsToCreate.length > 0) {
-    confirmDialogMessage.value = t("setup.confirm-no-structure", platformsToCreate.length, {
-      named: {
-        pattern: libraryInfo.value?.library_structure ?? "",
-        count: platformsToCreate.length,
-        plural: platformsToCreate.length > 1 ? "s" : "",
-      },
+    confirmDialogMessage.value = t("setup.confirm-no-structure", {
+      pattern: libraryInfo.value?.library_structure ?? "",
+      count: platformsToCreate.length,
+      plural: platformsToCreate.length > 1 ? "s" : "",
     });
     confirmDialogAction.value = nextCallback;
     showConfirmDialog.value = true;
@@ -339,12 +337,10 @@ function handleNext(nextCallback: () => void) {
 
   // Case 3: Structure is detected and user selected at least one platform to create
   if (hasStructure && platformsToCreate.length > 0 && libraryInfo.value) {
-    confirmDialogMessage.value = t("setup.confirm-create-platforms", platformsToCreate.length, {
-      named: {
-        pattern: libraryInfo.value.library_structure,
-        count: platformsToCreate.length,
-        plural: platformsToCreate.length > 1 ? "s" : "",
-      },
+    confirmDialogMessage.value = t("setup.confirm-create-platforms", {
+      pattern: libraryInfo.value.library_structure,
+      count: platformsToCreate.length,
+      plural: platformsToCreate.length > 1 ? "s" : "",
     });
     confirmDialogAction.value = nextCallback;
     showConfirmDialog.value = true;
