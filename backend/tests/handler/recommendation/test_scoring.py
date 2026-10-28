@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 
 from handler.recommendation.scoring import (
@@ -181,10 +183,10 @@ def test_extract_tokens_skips_blanks_and_deduplicates():
     ],
 )
 def test_extract_tokens_accepts_named_metadata_objects(field, facet):
-    tokens = extract_tokens(
-        platform_id=1,
-        **{field: ["Action", {"id": 1, "name": " Action "}, {"name": "Adventure"}]},
-    )
+    metadata: dict[str, Any] = {
+        field: ["Action", {"id": 1, "name": " Action "}, {"name": "Adventure"}]
+    }
+    tokens = extract_tokens(platform_id=1, **metadata)
 
     assert tokens == (
         make_token(facet, "Action"),
@@ -215,6 +217,24 @@ def test_extract_tokens_skips_invalid_metadata_values(value):
         make_token(Facet.GENRE, "Action"),
         make_token(Facet.PLATFORM, "1"),
     )
+
+
+@pytest.mark.parametrize("column", [42, True, "Action", {"id": 1, "name": "Action"}])
+def test_extract_tokens_skips_a_column_that_is_not_a_list(column):
+    assert extract_tokens(platform_id=1, genres=column) == (
+        make_token(Facet.PLATFORM, "1"),
+    )
+
+
+def test_roles_without_a_usable_name_fall_back_to_the_merged_list():
+    tokens = extract_tokens(
+        platform_id=1,
+        companies=["Nintendo"],
+        developers=[{"id": 5}, 1234],
+        publishers=["  "],
+    )
+
+    assert make_token(Facet.COMPANY, "Nintendo") in tokens
 
 
 def test_release_year_handles_seconds_and_millisecond_epochs():

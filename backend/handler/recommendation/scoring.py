@@ -144,6 +144,20 @@ class RomFeatures:
     title_key: str | None = None
 
 
+def _facet_names(values: object) -> list[str]:
+    """Clean names from a facet column, skipping entries that carry none."""
+    # The raw-metadata form stores JSON unvalidated, so a column can hold
+    # {id, name} objects, bare ids, or no list at all.
+    if not isinstance(values, (list, tuple)):
+        return []
+    names: list[str] = []
+    for value in values:
+        name = value.get("name") if isinstance(value, Mapping) else value
+        if isinstance(name, str) and (cleaned := name.strip()):
+            names.append(cleaned)
+    return names
+
+
 def extract_tokens(
     *,
     platform_id: int,
@@ -165,31 +179,25 @@ def extract_tokens(
     # Prefer the role-split lists where a provider reported them, and fall back
     # to the merged one otherwise. Emitting both would count an IGDB-matched
     # game's studio twice while a game matched elsewhere counted once.
-    has_roles = bool(developers) or bool(publishers)
-    company_facets: tuple[tuple[Facet, Sequence[object] | None], ...] = (
-        ((Facet.DEVELOPER, developers), (Facet.PUBLISHER, publishers))
-        if has_roles
-        else ((Facet.COMPANY, companies),)
+    developer_names = _facet_names(developers)
+    publisher_names = _facet_names(publishers)
+    company_facets: tuple[tuple[Facet, list[str]], ...] = (
+        ((Facet.DEVELOPER, developer_names), (Facet.PUBLISHER, publisher_names))
+        if developer_names or publisher_names
+        else ((Facet.COMPANY, _facet_names(companies)),)
     )
 
-    for facet, values in (
-        (Facet.GENRE, genres),
-        (Facet.FRANCHISE, franchises),
-        (Facet.COLLECTION, collections),
+    for facet, names in (
+        (Facet.GENRE, _facet_names(genres)),
+        (Facet.FRANCHISE, _facet_names(franchises)),
+        (Facet.COLLECTION, _facet_names(collections)),
         *company_facets,
-        (Facet.GAME_MODE, game_modes),
-        (Facet.KEYWORD, keywords),
-        (Facet.THEME, themes),
-        (Facet.PERSPECTIVE, player_perspectives),
+        (Facet.GAME_MODE, _facet_names(game_modes)),
+        (Facet.KEYWORD, _facet_names(keywords)),
+        (Facet.THEME, _facet_names(themes)),
+        (Facet.PERSPECTIVE, _facet_names(player_perspectives)),
     ):
-        for value in values or ():
-            # Older provider metadata can retain expanded {id, name} objects.
-            name = value.get("name") if isinstance(value, Mapping) else value
-            if not isinstance(name, str):
-                continue
-            cleaned = name.strip()
-            if cleaned:
-                tokens.append(make_token(facet, cleaned))
+        tokens.extend(make_token(facet, name) for name in names)
 
     tokens.append(make_token(Facet.PLATFORM, str(platform_id)))
 
