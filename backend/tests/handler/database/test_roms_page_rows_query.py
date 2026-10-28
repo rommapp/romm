@@ -1,7 +1,10 @@
 """Loading a page's rows by id, without the filters or the sibling grouping."""
 
-from sqlalchemy.dialects import postgresql
+from typing import Any
+
+from sqlalchemy import Select
 from tests.conftest import engine  # noqa: F401  (loads the test database setup)
+from tests.sql_dialects import POSTGRESQL_DIALECT, compile_sql
 
 from handler.auth.rom_visibility import RomVisibilityFilter
 from handler.database import db_rom_handler
@@ -10,12 +13,8 @@ from handler.database.rom_filters import RomFilterParams
 PAGE_IDS = [11, 22, 33]
 
 
-def _sql(statement) -> str:
-    return str(
-        statement.compile(
-            dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
-        )
-    ).lower()
+def _sql(statement: Select[Any]) -> str:
+    return compile_sql(statement, POSTGRESQL_DIALECT, literal_binds=True).lower()
 
 
 def test_the_grouped_query_does_rank_the_library():

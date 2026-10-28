@@ -1616,11 +1616,8 @@ class DBRomsHandler(DBBaseHandler):
         updated_after: datetime | None = None,
         released_days: Sequence[tuple[int, int]] | None = None,
         released_before_year: int | None = None,
-        include_file_stats: bool = False,
         include_files: bool = False,
         include_related: bool = True,
-        include_siblings: bool = True,
-        include_notes: bool = True,
         visibility: RomVisibilityFilter = UNRESTRICTED,
         session: Session = INJECTED_SESSION,
     ) -> S:
@@ -1630,12 +1627,7 @@ class DBRomsHandler(DBBaseHandler):
         order_dir = order_dir.lower()
 
         query = self._with_rom_loaders(
-            query,
-            include_file_stats=include_file_stats,
-            include_files=include_files,
-            include_related=include_related,
-            include_siblings=include_siblings,
-            include_notes=include_notes,
+            query, include_files=include_files, include_related=include_related
         )
 
         # Handle platform filtering - platform filtering always uses OR logic since ROMs belong to only one platform
