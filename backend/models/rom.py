@@ -53,6 +53,7 @@ from models.base import (
 from utils import valid_youtube_id
 from utils.age_ratings import MIN_AGE_SOURCE_COLUMNS, compute_min_age
 from utils.database import CustomJSON, is_non_blank
+from utils.release_types import RELEASE_TYPE_SOURCE_COLUMNS, compute_release_types
 
 # Max length of the precomputed natural-sort key column.
 NAME_SORT_KEY_MAX_LENGTH = 500
@@ -685,6 +686,7 @@ class RomFacets(BaseModel):
     regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    release_types: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
 
     # Provider match ids, mirrored so the Server Stats coverage breakdown counts
     # them here instead of scanning `roms`. A populated column means a match.
@@ -1019,6 +1021,8 @@ class Rom(BaseModel):
     regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    # `ReleaseType` values, kept by `compute_release_types` on every write.
+    release_types: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
 
     # STORED generated column over regions[0], carried by idx_roms_sibling_cover
     # so the dedup window can rank regions without reading the JSON.
@@ -1465,6 +1469,28 @@ def _refresh_min_age(_mapper: Any, _connection: Any, rom: Rom) -> None:
         state.attrs[column].history.has_changes() for column in MIN_AGE_SOURCE_COLUMNS
     ):
         rom.min_age = rom_min_age(rom)
+
+
+def rom_release_types(rom: Rom) -> list[str]:
+    """`compute_release_types` over the ROM's manual metadata, tags and regions."""
+    return compute_release_types(
+        {column: getattr(rom, column) for column in RELEASE_TYPE_SOURCE_COLUMNS}
+    )
+
+
+@event.listens_for(Rom, "before_insert")
+def _set_release_types(_mapper: Any, _connection: Any, rom: Rom) -> None:
+    rom.release_types = rom_release_types(rom)
+
+
+@event.listens_for(Rom, "before_update")
+def _refresh_release_types(_mapper: Any, _connection: Any, rom: Rom) -> None:
+    state = inspect(rom)
+    if any(
+        state.attrs[column].history.has_changes()
+        for column in RELEASE_TYPE_SOURCE_COLUMNS
+    ):
+        rom.release_types = rom_release_types(rom)
 
 
 class HasFileOnDiskFilters(TypedDict):
