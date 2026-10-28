@@ -79,6 +79,11 @@ lint:
         - frontend/src/components/**/*.vue
         - frontend/src/console/**/*.vue
         - frontend/src/layouts/**/*.vue
+    # Translated strings trip checkov's entropy secret check ("Klient-API-token");
+    # trufflehog still scans these files for real secrets.
+    - linters: [checkov]
+      paths:
+        - frontend/src/locales/**/*.json
   files:
     - name: vue
       extensions: [vue]
