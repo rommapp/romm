@@ -287,9 +287,7 @@ def test_the_rom_file_category_revision_adds_game_to_an_enum_made_without_it():
                 " 'PATCH', 'UPDATE', 'MOD', 'DEMO', 'TRANSLATION', 'PROTOTYPE')"
             )
         )
-        connection.execute(
-            sa.text("CREATE TABLE rom_files (category romfilecategory)")
-        )
+        connection.execute(sa.text("CREATE TABLE rom_files (category romfilecategory)"))
         connection.execute(sa.text("INSERT INTO rom_files VALUES ('DLC')"))
         connection.commit()
         try:
@@ -297,10 +295,10 @@ def test_the_rom_file_category_revision_adds_game_to_an_enum_made_without_it():
             with Operations.context(context), context.begin_transaction():
                 migration.upgrade()
 
-            labels = connection.execute(
+            labels: str = connection.execute(
                 sa.text("SELECT enum_range(NULL::romfilecategory)::text")
             ).scalar_one()
-            category = connection.execute(
+            category: str = connection.execute(
                 sa.text("SELECT category::text FROM rom_files")
             ).scalar_one()
         finally:
