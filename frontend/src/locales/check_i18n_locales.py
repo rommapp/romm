@@ -17,85 +17,103 @@ def flatten(data, prefix=""):
     return flat
 
 
-locales_dir = os.path.dirname(os.path.abspath(__file__))
+def placeholder_mismatches(en_data, lang_data):
+    """Keys whose translation would render a placeholder empty or drop one.
 
-# Base directory with English files (reference)
-en_dir = os.path.join(locales_dir, "en_US")
+    Returns:
+        (key, missing, extra) tuples, with sorted placeholder names.
+    """
+    en_flat = flatten(en_data)
+    lang_flat = flatten(lang_data)
+    mismatches = []
+    for key, en_value in en_flat.items():
+        if key not in lang_flat:
+            continue
+        expected = set(PLACEHOLDER.findall(en_value))
+        actual = set(PLACEHOLDER.findall(lang_flat[key]))
+        if expected != actual:
+            mismatches.append(
+                (key, sorted(expected - actual), sorted(actual - expected))
+            )
+    return mismatches
 
-# Get all language directories (excluding the English one)
-lang_dirs = [
-    os.path.join(locales_dir, d)
-    for d in os.listdir(locales_dir)
-    if os.path.isdir(os.path.join(locales_dir, d)) and d != "en_US"
-]
 
-# Get all JSON files in English directory
-en_files = glob.glob(os.path.join(en_dir, "*.json"))
-en_filenames = [os.path.basename(f) for f in en_files]
+def main():
+    locales_dir = os.path.dirname(os.path.abspath(__file__))
 
-print(f"Comparing {len(lang_dirs)} language directories against {en_dir}...")
+    # Base directory with English files (reference)
+    en_dir = os.path.join(locales_dir, "en_US")
 
-has_errors = False
+    # Get all language directories (excluding the English one)
+    lang_dirs = [
+        os.path.join(locales_dir, d)
+        for d in os.listdir(locales_dir)
+        if os.path.isdir(os.path.join(locales_dir, d))
+        and d != "en_US"
+        and d != "__pycache__"
+    ]
 
-for lang_dir in lang_dirs:
-    print(f"\nChecking {os.path.basename(lang_dir)}...")
+    # Get all JSON files in English directory
+    en_files = glob.glob(os.path.join(en_dir, "*.json"))
+    en_filenames = [os.path.basename(f) for f in en_files]
 
-    # Check for missing files
-    lang_files = glob.glob(os.path.join(lang_dir, "*.json"))
-    lang_filenames = [os.path.basename(f) for f in lang_files]
+    print(f"Comparing {len(lang_dirs)} language directories against {en_dir}...")
 
-    missing_files = set(en_filenames) - set(lang_filenames)
-    if missing_files:
-        print(f"  Missing files in {lang_dir}: {', '.join(missing_files)}")
+    has_errors = False
 
-    # Check for missing keys in existing files
-    for filename in set(en_filenames).intersection(set(lang_filenames)):
-        en_file_path = os.path.join(en_dir, filename)
-        lang_file_path = os.path.join(lang_dir, filename)
+    for lang_dir in lang_dirs:
+        print(f"\nChecking {os.path.basename(lang_dir)}...")
 
-        with open(en_file_path, encoding="utf-8") as f:
-            en_data = json.load(f)
+        # Check for missing files
+        lang_files = glob.glob(os.path.join(lang_dir, "*.json"))
+        lang_filenames = [os.path.basename(f) for f in lang_files]
 
-        with open(lang_file_path, encoding="utf-8") as f:
-            lang_data = json.load(f)
+        missing_files = set(en_filenames) - set(lang_filenames)
+        if missing_files:
+            print(f"  Missing files in {lang_dir}: {', '.join(missing_files)}")
 
-        missing_keys = []
-        for key in en_data:
-            if key not in lang_data:
-                missing_keys.append(key)
+        # Check for missing keys in existing files
+        for filename in set(en_filenames).intersection(set(lang_filenames)):
+            en_file_path = os.path.join(en_dir, filename)
+            lang_file_path = os.path.join(lang_dir, filename)
 
-        if missing_keys:
-            print(f"  In {filename}, missing keys: {', '.join(missing_keys)}")
-            has_errors = True
+            with open(en_file_path, encoding="utf-8") as f:
+                en_data = json.load(f)
 
-        extra_keys = []
-        for key in lang_data:
-            if key not in en_data:
-                extra_keys.append(key)
+            with open(lang_file_path, encoding="utf-8") as f:
+                lang_data = json.load(f)
 
-        if extra_keys:
-            print(f"  In {filename}, extra keys: {', '.join(extra_keys)}")
-            has_errors = True
+            missing_keys = []
+            for key in en_data:
+                if key not in lang_data:
+                    missing_keys.append(key)
 
-        # A placeholder the code doesn't pass renders empty, and a dropped one
-        # loses the value, so each translation must use the same set.
-        en_flat = flatten(en_data)
-        lang_flat = flatten(lang_data)
-        for key, en_value in en_flat.items():
-            if key not in lang_flat:
-                continue
-            expected = set(PLACEHOLDER.findall(en_value))
-            actual = set(PLACEHOLDER.findall(lang_flat[key]))
-            if expected != actual:
+            if missing_keys:
+                print(f"  In {filename}, missing keys: {', '.join(missing_keys)}")
+                has_errors = True
+
+            extra_keys = []
+            for key in lang_data:
+                if key not in en_data:
+                    extra_keys.append(key)
+
+            if extra_keys:
+                print(f"  In {filename}, extra keys: {', '.join(extra_keys)}")
+                has_errors = True
+
+            for key, missing, extra in placeholder_mismatches(en_data, lang_data):
                 print(
                     f"  In {filename}, {key} placeholders differ:"
-                    f" missing {sorted(expected - actual)},"
-                    f" extra {sorted(actual - expected)}"
+                    f" missing {missing}, extra {extra}"
                 )
                 has_errors = True
 
-if has_errors:
-    print("\n❌ Translation check failed!")
-    sys.exit(1)
-else:
-    print("\n✅ All translations are complete!")
+    if has_errors:
+        print("\n❌ Translation check failed!")
+        sys.exit(1)
+    else:
+        print("\n✅ All translations are complete!")
+
+
+if __name__ == "__main__":
+    main()

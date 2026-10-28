@@ -93,7 +93,7 @@
   "memory-card-erase-keyword": "ERASE",
   "memory-card-hint": "Die neueste Karte wird standardmäßig geladen. Der Fortschritt wird beim Beenden zurücksynchronisiert.",
   "memory-card-import-adopt": "Diese Karte importieren",
-  "memory-card-import-body": "Dieser Container hat bereits eine Speicherkarte mit {count} Speicherdatei(en). Möchtest du sie in deine Bibliothek importieren oder mit einer neuen Karte starten?",
+  "memory-card-import-body": "Dieser Container hat bereits eine Speicherkarte mit {count} Speicherdatei. Möchtest du sie in deine Bibliothek importieren oder mit einer neuen Karte starten? | Dieser Container hat bereits eine Speicherkarte mit {count} Speicherdateien. Möchtest du sie in deine Bibliothek importieren oder mit einer neuen Karte starten?",
   "memory-card-import-discard": "Neu anfangen",
   "memory-card-import-discard-body": "Die Speicherkarte auf diesem Container wird gelöscht. Alles, was darauf gespeichert ist, kann nicht wiederhergestellt werden.",
   "memory-card-import-discard-confirm": "Löschen und neu anfangen",
