@@ -1,5 +1,7 @@
+import importlib
+
 import pytest
-from fastapi import status
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from tests.factories import make_rom
 from tests.timezones import local_timezone
@@ -8,6 +10,7 @@ from endpoints.feeds import format_release_date
 from handler.database import db_platform_handler, db_rom_handler
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
+from models.user import User
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 
@@ -75,8 +78,7 @@ def test_webrcade_feed_skips_roms_without_a_file(
     assert [item["title"] for item in items] == [rom.name]
 
 
-@pytest.mark.parametrize("file_name", ["Test Switch.nsp", "Test Switch.NSP"])
-def test_tinfoil_feed(client: TestClient, platform: Platform, rom: Rom, file_name: str):
+def _make_switch_rom(platform: Platform, rom: Rom, file_name: str) -> None:
     platform = db_platform_handler.update_platform(
         platform.id,
         {"name": "Nintendo Switch", "slug": UPS.SWITCH, "fs_slug": UPS.SWITCH},
@@ -106,12 +108,77 @@ def test_tinfoil_feed(client: TestClient, platform: Platform, rom: Rom, file_nam
         )
     )
 
-    response = client.get("/api/feeds/tinfoil?slug=switch")
+
+@pytest.mark.parametrize("file_name", ["Test Switch.nsp", "Test Switch.NSP"])
+def test_tinfoil_feed(
+    client: TestClient, access_token: str, platform: Platform, rom: Rom, file_name: str
+):
+    _make_switch_rom(platform, rom, file_name)
+
+    response = client.get(
+        "/api/feeds/tinfoil?slug=switch",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
     assert response.status_code == status.HTTP_200_OK
 
     body = response.json()
     assert len(body["files"]) == 1
     assert body["files"][0]["size"] > 0
+
+
+def test_tinfoil_feed_accepts_basic_auth(
+    client: TestClient, viewer_user: User, platform: Platform, rom: Rom
+):
+    _make_switch_rom(platform, rom, "Test Switch.nsp")
+
+    # Tinfoil sends the shop's username and password as HTTP Basic credentials.
+    response = client.get(
+        "/api/feeds/tinfoil?slug=switch",
+        auth=(viewer_user.username, "test_viewer_password"),
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert len(response.json()["files"]) == 1
+
+
+def test_tinfoil_feed_requires_auth(client: TestClient, platform: Platform, rom: Rom):
+    _make_switch_rom(platform, rom, "Test Switch.nsp")
+
+    response = client.get("/api/feeds/tinfoil?slug=switch")
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.fixture
+def feeds_without_download_auth(monkeypatch: pytest.MonkeyPatch):
+    """A client on a copy of the app whose feeds were registered with download auth disabled."""
+    from main import app, lifespan
+
+    import config
+    import endpoints.feeds
+
+    # The flag picks each route's scopes at import, so the router is rebuilt.
+    monkeypatch.setattr(config, "DISABLE_DOWNLOAD_ENDPOINT_AUTH", True)
+    feeds = importlib.reload(endpoints.feeds)
+    open_app = FastAPI(lifespan=lifespan)
+    open_app.user_middleware = list(app.user_middleware)
+    open_app.include_router(feeds.router, prefix="/api")
+    # The rebuilt feeds match first; the rest serve the download URLs they build.
+    open_app.router.routes.extend(app.routes)
+    try:
+        with TestClient(open_app) as client:
+            yield client
+    finally:
+        monkeypatch.undo()
+        importlib.reload(endpoints.feeds)
+
+
+def test_tinfoil_feed_is_open_when_download_auth_is_disabled(
+    feeds_without_download_auth: TestClient, platform: Platform, rom: Rom
+):
+    _make_switch_rom(platform, rom, "Test Switch.nsp")
+
+    response = feeds_without_download_auth.get("/api/feeds/tinfoil?slug=switch")
+    assert response.status_code == status.HTTP_200_OK
+    assert len(response.json()["files"]) == 1
 
 
 def test_pkgi_ps3_feed(

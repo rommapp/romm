@@ -26,6 +26,7 @@ from utils.hltb_search import (
     search_headers,
 )
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.platform_slugs import fill_duplicate_slugs
 from utils.rate_limiter import RateLimiter
 from utils.update_hltb_api_url import discover_hltb_endpoint
 
@@ -879,3 +880,5 @@ HLTB_PLATFORM_LIST: dict[UPS, SlugToHLTBPlatform] = {
     UPS.ZX81: {"name": "ZX81", "slug": "zx81", "count": 41},
     UPS.ZEEBO: {"name": "Zeebo", "slug": "zeebo", "count": 9},
 }
+
+fill_duplicate_slugs(HLTB_PLATFORM_LIST)

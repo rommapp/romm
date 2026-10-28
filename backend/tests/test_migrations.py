@@ -270,6 +270,48 @@ def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
         assert _schema_of(connection, table) == before
 
 
+def test_the_rom_file_category_revision_adds_game_to_an_enum_made_without_it():
+    """0062 upgrades a romfilecategory enum that has no GAME value."""
+    migration = _load_migration("0062_rom_file_category_enum.py")
+
+    with sync_engine.connect() as connection:
+        if not is_postgresql(connection):
+            pytest.skip("only PostgreSQL keeps the enum as a type of its own")
+
+        # A schema of its own, so the shared enum and table stay as migrated.
+        connection.execute(sa.text("CREATE SCHEMA pre_game_category"))
+        connection.execute(sa.text("SET search_path TO pre_game_category"))
+        connection.execute(
+            sa.text(
+                "CREATE TYPE romfilecategory AS ENUM ('DLC', 'HACK', 'MANUAL',"
+                " 'PATCH', 'UPDATE', 'MOD', 'DEMO', 'TRANSLATION', 'PROTOTYPE')"
+            )
+        )
+        connection.execute(sa.text("CREATE TABLE rom_files (category romfilecategory)"))
+        connection.execute(sa.text("INSERT INTO rom_files VALUES ('DLC')"))
+        connection.commit()
+        try:
+            context = MigrationContext.configure(connection)
+            with Operations.context(context), context.begin_transaction():
+                migration.upgrade()
+
+            labels: str = connection.execute(
+                sa.text("SELECT enum_range(NULL::romfilecategory)::text")
+            ).scalar_one()
+            category: str = connection.execute(
+                sa.text("SELECT category::text FROM rom_files")
+            ).scalar_one()
+        finally:
+            connection.rollback()
+            connection.execute(sa.text("RESET search_path"))
+            connection.execute(sa.text("DROP SCHEMA pre_game_category CASCADE"))
+            connection.commit()
+
+    # GAME lands ahead of DLC, where a fresh install has it.
+    assert labels.startswith("{GAME,DLC,")
+    assert category == "DLC"
+
+
 def test_the_play_session_sync_link_revision_reverses_and_replays():
     """0135 drops a column whose constraint each dialect handles differently.
 
@@ -1219,3 +1261,78 @@ def test_the_play_permissions_revision_backfills_reverses_and_replays(
             for action in ("read", "write")
         }
         connection.execute(_GROUPS.delete().where(_GROUPS.c.name == "Locked down"))
+
+
+def test_the_ownerless_own_only_revision_keeps_each_rows_access(admin_user: User):
+    """0154 rewrites own_only on owner-less entities to the access it gave."""
+    migration = _load_migration("0154_ownerless_own_only.py")
+
+    with sync_engine.begin() as connection:
+        connection.execute(
+            _GROUPS.insert().values(
+                name="Legacy own",
+                description="",
+                is_default=False,
+                hide_unrated_roms=False,
+            )
+        )
+        group_id: int = connection.execute(
+            sa.select(_GROUPS.c.id).where(_GROUPS.c.name == "Legacy own")
+        ).scalar_one()
+        connection.execute(
+            _GRANTS.insert(),
+            [
+                {"group_id": group_id, "entity": e, "action": a, "own_only": True}
+                for e, a in (
+                    ("users", "write"),
+                    ("users", "delete"),
+                    ("collections", "delete"),
+                )
+            ],
+        )
+        connection.execute(
+            _OVERRIDES.insert(),
+            [
+                {
+                    "user_id": admin_user.id,
+                    "entity": e,
+                    "action": a,
+                    "granted": granted,
+                    "own_only": True,
+                }
+                for e, a, granted in (
+                    ("tasks", "write", True),
+                    ("tasks", "delete", True),
+                    ("logs", "read", False),
+                    ("devices", "write", True),
+                )
+            ],
+        )
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+            migration.upgrade()
+
+        grants = {
+            (row.entity, row.action, bool(row.own_only))
+            for row in connection.execute(
+                sa.select(_GRANTS).where(_GRANTS.c.group_id == group_id)
+            )
+        }
+        overrides = {
+            (row.entity, row.action, bool(row.granted), bool(row.own_only))
+            for row in connection.execute(
+                sa.select(_OVERRIDES).where(_OVERRIDES.c.user_id == admin_user.id)
+            )
+        }
+        connection.execute(_GROUPS.delete().where(_GROUPS.c.id == group_id))
+        connection.execute(
+            _OVERRIDES.delete().where(_OVERRIDES.c.user_id == admin_user.id)
+        )
+
+    assert grants == {("users", "write", False), ("collections", "delete", True)}
+    assert overrides == {
+        ("tasks", "write", True, False),
+        ("tasks", "delete", False, False),
+        ("logs", "read", False, False),
+        ("devices", "write", True, True),
+    }

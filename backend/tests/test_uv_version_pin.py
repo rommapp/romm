@@ -9,11 +9,9 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PYPROJECT = REPO_ROOT / "pyproject.toml"
 
-# Each image pins uv its own way: the release build through a build arg, the
-# devcontainer through the tag it copies the binary from.
 IMAGE_PINS = {
     "docker/Dockerfile": r"^ARG UV_VERSION=(\S+)",
-    "Dockerfile": r"^COPY --from=ghcr\.io/astral-sh/uv:(\S+?)\s",
+    "Dockerfile": r"^ARG UV_VERSION=(\S+)",
 }
 
 # Lower bound admits Dependabot's bundled uv; upper bound caps the minor so a

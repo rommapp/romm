@@ -22,12 +22,10 @@ map $http_x_forwarded_proto $forwardscheme {
 map $request_uri $coep_header {
     default        "";
     ~^/rom/.*/(ejs|jsdos)(\?|$) "require-corp";
-    ~^/console/rom/[0-9]+/play "require-corp";
 }
 map $request_uri $coop_header {
     default        "";
     ~^/rom/.*/(ejs|jsdos)(\?|$) "same-origin";
-    ~^/console/rom/[0-9]+/play "same-origin";
 }
 
 # The EasyRPG web player fetches each file of a game from games/<rom id>-<user id>/

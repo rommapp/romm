@@ -7,7 +7,6 @@
   "login-failed": "Přihlášení selhalo",
   "login-oidc": "Přihlásit se pomocí {oidc}",
   "new-password": "Nové heslo",
-  "or": "nebo",
   "password": "Heslo",
   "passwords-do-not-match": "Hesla se neshodují",
   "register": "Registrovat se",

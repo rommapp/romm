@@ -10,6 +10,7 @@ from config import MOBYGAMES_API_KEY
 from logger.logger import log
 from models.rom import Rom
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.platform_slugs import fill_duplicate_slugs
 
 from .base_handler import (
     BaseRom,
@@ -1330,6 +1331,8 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
     UPS.ZX80: {"id": 118, "name": "ZX80", "slug": "zx80"},
     UPS.ZX81: {"id": 119, "name": "ZX81", "slug": "zx81"},
 }
+
+fill_duplicate_slugs(MOBYGAMES_PLATFORM_LIST)
 
 # Reverse lookup
 MOBY_ID_TO_SLUG = {v["id"]: k for k, v in MOBYGAMES_PLATFORM_LIST.items()}

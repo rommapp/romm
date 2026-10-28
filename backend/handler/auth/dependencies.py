@@ -23,9 +23,11 @@ from exceptions.endpoint_exceptions import (
     PlatformNotFoundInDatabaseException,
     RomNotFoundInDatabaseException,
 )
+from handler.auth.constants import Scope
 from handler.auth.permissions import ResolvedPermissions, resolve_permissions
 from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
 from models.permission import PermAction, PermEntity
+from models.user import Role
 
 if TYPE_CHECKING:
     from models.firmware import Firmware
@@ -94,6 +96,23 @@ def assert_admin(request: Request) -> ResolvedPermissions:
             detail="Administrator privileges required",
         )
     return perms
+
+
+def is_scoped_admin(request: Request, scope: Scope) -> bool:
+    """Whether the caller is an admin whose credential also carries ``scope``."""
+    return (
+        getattr(request.user, "role", None) == Role.ADMIN
+        and scope in request.auth.scopes
+    )
+
+
+def assert_admin_for_admin(request: Request, role: str | None, detail: str) -> None:
+    """Raise 403 when a non-admin targets or grants the admin role.
+
+    ``USERS_WRITE`` can be delegated to non-admins, so it alone never reaches admins.
+    """
+    if role == Role.ADMIN and getattr(request.user, "role", None) != Role.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
 
 
 # 404-masking helpers: a hidden entity must read as non-existent, not forbidden,

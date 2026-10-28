@@ -342,6 +342,32 @@ def test_get_config_warns_on_missing_platform(client, access_token, caplog):
     assert "missing platform/host" in caplog.text
 
 
+def test_a_container_broker_secret_overrides_the_env_secret():
+    """Containers with different BROKER_SECRETs each authenticate with their own."""
+    with patch("handler.streaming.config.STREAMING_BROKER_SECRET", "from-env"):
+        container = resolve_entry({**_webstation(), "broker_secret": "from-config"})
+    assert container is not None
+    assert container.broker_secret == "from-config"
+
+
+@pytest.mark.parametrize(
+    "configured", [{}, {"broker_secret": None}, {"broker_secret": ""}]
+)
+def test_a_container_without_a_broker_secret_falls_back_to_the_env_secret(configured):
+    with patch("handler.streaming.config.STREAMING_BROKER_SECRET", "from-env"):
+        container = resolve_entry({**_webstation(), **configured})
+    assert container is not None
+    assert container.broker_secret == "from-env"
+
+
+def test_a_blank_broker_secret_with_no_env_secret_sends_none():
+    """A bare `broker_secret:` key is YAML null, not the secret "None"."""
+    with patch("handler.streaming.config.STREAMING_BROKER_SECRET", ""):
+        container = resolve_entry({**_webstation(), "broker_secret": None})
+    assert container is not None
+    assert container.broker_secret == ""
+
+
 def test_a_config_warning_does_not_print_the_broker_secret(
     client, access_token, caplog
 ):
@@ -2132,6 +2158,31 @@ def test_an_admin_controls_the_pools_one_active_session(
             r = _volume(client, access_token, rom.platform_slug)
     assert r.status_code == 200
     assert volume.call_args[0][0].host == "http://192.168.1.10:3000"
+
+
+def _scoped_admin_token(admin_user: User, scopes: str) -> str:
+    return oauth_handler.create_access_token(
+        data={"sub": admin_user.username, "iss": "romm:oauth", "scopes": scopes},
+        expires_delta=timedelta(minutes=5),
+    )
+
+
+def test_an_admin_token_without_users_write_cannot_control_another_session(
+    client, admin_user: User, viewer_access_token, rom: Rom
+):
+    token = _scoped_admin_token(admin_user, "roms.read roms.user.write")
+    with _streaming(_pool_member(rom, 0)):
+        _claim_ok(client, viewer_access_token, rom.id)
+        r = _volume(client, token, rom.platform_slug)
+    assert r.status_code == 403
+
+
+def test_an_admin_token_without_users_read_cannot_list_containers(
+    client, admin_user: User
+):
+    token = _scoped_admin_token(admin_user, "roms.read")
+    with _streaming(_webstation()):
+        assert _containers(client, token).status_code == 403
 
 
 def test_an_admin_cannot_guess_which_of_two_sessions_to_control(
