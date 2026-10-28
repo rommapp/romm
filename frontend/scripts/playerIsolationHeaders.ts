@@ -7,7 +7,6 @@ import type { Connect, Plugin } from "vite";
 // docker/nginx/templates/default.conf.template; the test fails when they drift.
 export const ISOLATED_PLAYER_URLS: readonly RegExp[] = [
   /^\/rom\/.*\/(ejs|jsdos)(\?|$)/,
-  /^\/console\/rom\/[0-9]+\/play/,
 ];
 
 // nginx matches the request URI rather than the path, since try_files rewrites

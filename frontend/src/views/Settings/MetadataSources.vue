@@ -1,218 +1,222 @@
 <script setup lang="ts">
+// MetadataSources: v2-native settings view. Provider tiles grouped by
+// the shared provider taxonomy, rendered with the shared
+// MetadataProviderCard (tile layout) from the shared provider registry.
+// Each tile shows the logo, name + tone-coloured status chip, and a
+// footer with a "visit website" button plus a "get API key" button for
+// key-based providers.
+//
+// Status wording adapts to how the provider is configured: key-based
+// providers (IGDB, ScreenScraper, MobyGames, RetroAchievements,
+// SteamGridDB) talk about the API key (missing / invalid / valid);
+// flag-only providers talk about the connection / enabled state.
+//
+// A warning banner sits above the tiles when the build carries no
+// ScreenScraper developer credentials, since nothing on the tile itself
+// can explain why a valid account still gets refused.
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import RSection from "@/components/common/RSection.vue";
+import SettingsSection from "@/components/Settings/SettingsSection.vue";
+import MetadataProviderCard from "@/components/shared/MetadataProviderCard/MetadataProviderCard.vue";
+import type { ProviderCardStatus } from "@/components/shared/MetadataProviderCard/types";
+import { RAlert, RBtn } from "@/lib";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
+import {
+  groupProviders,
+  type MetadataProviderGroup,
+  type MetadataProviderKey,
+} from "@/utils/metadataProviderGroups";
+import {
+  METADATA_PROVIDER_INFO,
+  type MetadataProviderInfo,
+} from "@/utils/metadataProviderInfo";
+
+defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 const heartbeat = storeHeartbeat();
 const configStore = storeConfig();
 
-const heartbeatStatus = ref<Record<string, boolean | undefined>>({
-  igdb: undefined,
-  moby: undefined,
-  ss: undefined,
-  ra: undefined,
-  hasheous: undefined,
-  launchbox: undefined,
-  flashpoint: undefined,
-  hltb: undefined,
-  sgdb: undefined,
-});
+const heartbeatStatus = ref<Partial<Record<MetadataProviderKey, boolean>>>({});
 
-// Use a computed property to reactively update metadataOptions based on heartbeat
-const metadataOptions = computed(() => [
-  {
-    name: "IGDB",
-    value: "igdb",
-    logo_path: "/assets/scrappers/igdb.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED,
-    heartbeat: heartbeatStatus.value.igdb,
-  },
-  {
-    name: "MobyGames",
-    value: "moby",
-    logo_path: "/assets/scrappers/moby.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
-    heartbeat: heartbeatStatus.value.moby,
-  },
-  {
-    name: "ScreenScraper",
-    value: "ss",
-    logo_path: "/assets/scrappers/ss.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.SS_API_ENABLED,
-    heartbeat: heartbeatStatus.value.ss,
-  },
-  {
-    name: "RetroAchievements",
-    value: "ra",
-    logo_path: "/assets/scrappers/ra.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.RA_API_ENABLED,
-    heartbeat: heartbeatStatus.value.ra,
-  },
-  {
-    name: "Hasheous",
-    value: "hasheous",
-    logo_path: "/assets/scrappers/hasheous.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.HASHEOUS_API_ENABLED,
-    heartbeat: heartbeatStatus.value.hasheous,
-  },
-  {
-    name: "Launchbox",
-    value: "launchbox",
-    logo_path: "/assets/scrappers/launchbox.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.LAUNCHBOX_API_ENABLED,
-    heartbeat: heartbeatStatus.value.launchbox,
-  },
-  {
-    name: "Flashpoint Project",
-    value: "flashpoint",
-    logo_path: "/assets/scrappers/flashpoint.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.FLASHPOINT_API_ENABLED,
-    heartbeat: heartbeatStatus.value.flashpoint,
-  },
-  {
-    name: "HowLongToBeat",
-    value: "hltb",
-    logo_path: "/assets/scrappers/hltb.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.HLTB_API_ENABLED,
-    heartbeat: heartbeatStatus.value.hltb,
-  },
-  {
-    name: "SteamgridDB",
-    value: "sgdb",
-    logo_path: "/assets/scrappers/sgdb.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED,
-    heartbeat: heartbeatStatus.value.sgdb,
-  },
-]);
+type SourceStatus = "missing" | "invalid" | "ok" | "pending";
 
-// Fetch heartbeat status for all metadata sources in parallel
+interface Source extends MetadataProviderInfo {
+  disabled: boolean;
+  heartbeat?: boolean | undefined;
+}
+
+const sources = computed<Source[]>(() =>
+  METADATA_PROVIDER_INFO.map((info) => ({
+    ...info,
+    disabled: !heartbeat.value.METADATA_SOURCES?.[info.enabledFlag],
+    heartbeat: heartbeatStatus.value[info.key],
+  })),
+);
+
+const GROUP_LABELS: Record<
+  MetadataProviderGroup,
+  { titleKey: string; icon: string }
+> = {
+  catalog: {
+    titleKey: "settings.metadata-catalogs",
+    icon: "mdi-database-search-outline",
+  },
+  specialised: {
+    titleKey: "settings.metadata-specialised",
+    icon: "mdi-puzzle-outline",
+  },
+  proxy: {
+    titleKey: "settings.metadata-proxies",
+    icon: "mdi-swap-horizontal-bold",
+  },
+};
+
+const groups = computed(() => groupProviders(sources.value, GROUP_LABELS));
+
+// Gated on a heartbeat having landed: the store defaults to "not set", and a
+// backend that is down must not read as a ScreenScraper misconfiguration.
+const missingSSDevCredentials = computed(
+  () =>
+    heartbeat.loaded &&
+    !heartbeat.value.METADATA_SOURCES?.SS_DEV_CREDENTIALS_SET,
+);
+
+function statusOf(source: Source): SourceStatus {
+  if (source.disabled) return "missing";
+  if (source.heartbeat === true) return "ok";
+  if (source.heartbeat === false) return "invalid";
+  return "pending";
+}
+
+// Status chip wording depends on how the provider is configured.
+// Key-based providers speak about the API key; flag-only providers
+// speak about the enabled/connection state, since "API key invalid"
+// makes no sense for a provider that has no key.
+function statusInfo(source: Source): ProviderCardStatus {
+  const status = statusOf(source);
+  if (status === "ok") {
+    return {
+      tone: "success",
+      icon: "mdi-check-circle-outline",
+      label: source.requiresKey
+        ? t("scan.api-key-valid")
+        : t("scan.connection-successful"),
+    };
+  }
+  if (status === "invalid") {
+    return {
+      tone: "danger",
+      icon: "mdi-alert-circle-outline",
+      label: source.requiresKey
+        ? t("scan.api-key-invalid")
+        : t("scan.connection-failed"),
+    };
+  }
+  if (status === "pending") {
+    return {
+      tone: "warning",
+      icon: "mdi-progress-helper",
+      label: t("scan.connection-in-progress"),
+    };
+  }
+  return {
+    tone: "neutral",
+    icon: source.requiresKey
+      ? "mdi-key-alert-outline"
+      : "mdi-power-plug-off-outline",
+    label: source.requiresKey
+      ? t("scan.api-key-missing-short")
+      : t("scan.source-disabled"),
+  };
+}
+
 async function fetchAllHeartbeats() {
-  metadataOptions.value
-    .filter((source) => !source.disabled)
-    .map(async (source) => {
-      const result = await heartbeat.fetchMetadataHeartbeat(source.value);
-      heartbeatStatus.value[source.value] = result;
-    });
-}
-
-// Helper function to get status text for a metadata source
-function getSourceStatusText(source: {
-  disabled: boolean;
-  heartbeat?: boolean | undefined;
-}) {
-  if (source.disabled) {
-    return t("scan.api-key-missing-short");
-  }
-  if (source.heartbeat === true) {
-    return t("scan.api-key-valid");
-  }
-  if (source.heartbeat === false) {
-    return t("scan.api-key-invalid");
-  }
-  return t("scan.connection-in-progress");
-}
-
-// Helper function to get tooltip text for connection status
-function getConnectionStatusTooltip(source: {
-  disabled: boolean;
-  heartbeat?: boolean | undefined;
-}) {
-  if (source.disabled) {
-    return t("scan.api-key-missing-or-disabled");
-  }
-  if (source.heartbeat === true) {
-    return t("scan.connection-successful");
-  }
-  if (source.heartbeat === false) {
-    return t("scan.connection-failed");
-  }
-  return t("scan.connection-in-progress");
+  await Promise.all(
+    sources.value
+      .filter((source) => !source.disabled)
+      .map(async (source) => {
+        heartbeatStatus.value[source.key] =
+          await heartbeat.fetchMetadataHeartbeat(source.key);
+      }),
+  );
 }
 
 onMounted(() => {
-  configStore.fetchConfig();
-  fetchAllHeartbeats();
+  void configStore.fetchConfig();
+  void fetchAllHeartbeats();
 });
 </script>
 
 <template>
-  <RSection
-    icon="mdi-database-cog"
-    :title="t('scan.metadata-sources')"
-    class="ma-2"
-  >
-    <template #content>
-      <v-row no-gutters class="mt-2 cols-12">
-        <v-col
-          v-for="source in metadataOptions"
-          :key="source.value"
-          cols="12"
-          sm="6"
-          md="4"
-          lg="3"
-          xl="2"
-          class="pa-2"
-        >
-          <v-card class="pa-4 h-100 bg-toplayer" variant="elevated">
-            <div class="d-flex align-center mb-3">
-              <v-avatar variant="text" size="48" rounded="1" class="mr-3">
-                <v-img :src="source.logo_path" />
-              </v-avatar>
-              <div class="flex-grow-1">
-                <h3 class="text-h6">{{ source.name }}</h3>
-                <p class="text-caption mb-0">
-                  {{ getSourceStatusText(source) }}
-                </p>
-              </div>
-            </div>
+  <div class="r-section-stack">
+    <RAlert v-if="missingSSDevCredentials" type="warning">
+      <template #title>
+        {{ t("settings.metadata-ss-dev-credentials-title") }}
+      </template>
+      {{ t("settings.metadata-ss-dev-credentials-desc") }}
+    </RAlert>
 
-            <v-row no-gutters class="flex justify-center">
-              <v-avatar
-                :color="source.disabled ? 'error' : 'success'"
-                size="large"
-                :title="
-                  source.disabled
-                    ? t('scan.api-key-missing-or-disabled')
-                    : t('scan.api-key-set')
-                "
-              >
-                <v-icon>
-                  {{ source.disabled ? "mdi-key-alert" : "mdi-key" }}
-                </v-icon>
-              </v-avatar>
-              <v-avatar
-                :color="
-                  source.heartbeat === true
-                    ? 'success'
-                    : source.heartbeat === false
-                      ? 'error'
-                      : source.disabled
-                        ? 'surface'
-                        : 'warning'
-                "
-                size="large"
-                :title="getConnectionStatusTooltip(source)"
-                class="ml-4"
-              >
-                <v-icon>
-                  {{
-                    source.heartbeat === true
-                      ? "mdi-web-check"
-                      : source.heartbeat === false
-                        ? "mdi-web-remove"
-                        : source.disabled
-                          ? "mdi-web-off"
-                          : "mdi-web-refresh"
-                  }}
-                </v-icon>
-              </v-avatar>
-            </v-row>
-          </v-card>
-        </v-col>
-      </v-row>
-    </template>
-  </RSection>
+    <SettingsSection
+      v-for="group in groups"
+      :key="group.group"
+      :title="t(group.titleKey)"
+      :icon="group.icon"
+    >
+      <div class="r-meta__grid" :data-group="group.group">
+        <MetadataProviderCard
+          v-for="source in group.providers"
+          :key="source.key"
+          :data-provider="source.key"
+          :name="source.name"
+          :logo="source.logo"
+          :subtitle="source.subtitleKey ? t(source.subtitleKey) : undefined"
+          :status="statusInfo(source)"
+          :dimmed="statusOf(source) === 'missing'"
+        >
+          <template #actions>
+            <RBtn
+              v-if="source.requiresKey"
+              variant="translucent"
+              size="small"
+              prepend-icon="mdi-key-variant"
+              :href="source.docsUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {{ t("settings.metadata-get-key") }}
+            </RBtn>
+            <RBtn
+              variant="text"
+              size="small"
+              prepend-icon="mdi-open-in-new"
+              :href="source.website"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {{ t("settings.metadata-website") }}
+            </RBtn>
+          </template>
+        </MetadataProviderCard>
+      </div>
+    </SettingsSection>
+  </div>
 </template>
+
+<style scoped>
+/* 3-col grid; collapses gracefully on narrow viewports. The grid lives
+   inside SettingsSection's body so we add padding here. */
+.r-meta__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  padding: 16px;
+}
+html[data-bp~="sm-and-down"] .r-meta__grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+html[data-bp~="xs"] .r-meta__grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+</style>

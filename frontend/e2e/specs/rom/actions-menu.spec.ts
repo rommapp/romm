@@ -67,7 +67,7 @@ test.describe(
     test("renders in light theme too", async ({ page }) => {
       await page.emulateMedia({ colorScheme: "light" });
       await gotoFirstRom(page);
-      await expect(page.locator("html")).toHaveClass(/\br-v2-light\b/);
+      await expect(page.locator("html")).toHaveClass(/\br-light\b/);
       const panel = await openMoreMenu(page);
 
       const labels = await menuLabels(panel);

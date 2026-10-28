@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from tests.factories import make_rom
 
 from config.config_manager import MetadataMediaType
+from endpoints.responses.rom import PROVIDER_METADATA_FIELDS
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.database import db_collection_handler, db_rom_handler
 from handler.database.base_handler import sync_session
@@ -441,6 +442,30 @@ def test_get_roms_keeps_total_from_the_rom_id_index(
     body = response.json()
     assert body["total"] == 1
     assert body["rom_id_index"] == [rom.id]
+
+
+def test_get_roms_without_provider_metadata(
+    client: TestClient, access_token: str, platform: Platform
+) -> None:
+    make_rom(
+        platform,
+        "test_rom",
+        igdb_metadata={"alternative_names": ["Test Rom Alt"]},
+        ra_metadata={"achievements": [], "hash_match": True},
+        manual_metadata={"genres": ["Puzzle"]},
+    )
+    headers = {"Authorization": f"Bearer {access_token}"}
+    params = {"platform_id": platform.id}
+
+    (item,) = client.get(
+        "/api/roms", headers=headers, params={**params, "with_provider_metadata": False}
+    ).json()["items"]
+    assert all(item[field] is None for field in PROVIDER_METADATA_FIELDS)
+    assert item["manual_metadata"] == {"genres": ["Puzzle"]}
+    assert item["alternative_names"] == ["Test Rom Alt"]
+
+    (default,) = client.get("/api/roms", headers=headers, params=params).json()["items"]
+    assert default["igdb_metadata"] and default["merged_ra_metadata"]
 
 
 def test_get_roms_sorted_by_user_field_keeps_all_roms(
