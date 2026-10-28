@@ -1,7 +1,21 @@
 import glob
 import json
 import os
+import re
 import sys
+
+PLACEHOLDER = re.compile(r"\{\s*([\w-]+)\s*\}")
+
+
+def flatten(data, prefix=""):
+    flat = {}
+    for key, value in data.items():
+        if isinstance(value, dict):
+            flat.update(flatten(value, f"{prefix}{key}."))
+        else:
+            flat[f"{prefix}{key}"] = value
+    return flat
+
 
 locales_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -62,6 +76,23 @@ for lang_dir in lang_dirs:
         if extra_keys:
             print(f"  In {filename}, extra keys: {', '.join(extra_keys)}")
             has_errors = True
+
+        # A placeholder the code doesn't pass renders empty, and a dropped one
+        # loses the value, so each translation must use the same set.
+        en_flat = flatten(en_data)
+        lang_flat = flatten(lang_data)
+        for key, en_value in en_flat.items():
+            if key not in lang_flat:
+                continue
+            expected = set(PLACEHOLDER.findall(en_value))
+            actual = set(PLACEHOLDER.findall(lang_flat[key]))
+            if expected != actual:
+                print(
+                    f"  In {filename}, {key} placeholders differ:"
+                    f" missing {sorted(expected - actual)},"
+                    f" extra {sorted(actual - expected)}"
+                )
+                has_errors = True
 
 if has_errors:
     print("\n❌ Translation check failed!")

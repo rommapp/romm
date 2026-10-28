@@ -22,6 +22,7 @@ User-visible strings are **never hard-coded** in components; they come from loca
 - Reuse each locale's established terms: grep a sibling key for how it renders "metadata", "provider", etc.
 - Copying the English value is a last-resort placeholder, only when no translation is available, and must be flagged to revisit.
 - Removing or renaming a key means doing it across **every** locale.
+- **Keep the `{placeholders}` of the `en_US` string.** Same names, none dropped, none added: the code passes exactly the English set.
 
 ## Verify before handoff
 
@@ -30,8 +31,8 @@ python3 frontend/src/locales/check_i18n_locales.py
 python3 frontend/src/locales/check_i18n_sorted.py   # add --fix to auto-sort
 ```
 
-`check_i18n_locales.py` compares every non-English locale against `en_US` and **fails on any missing file, missing key, or extra key**. `check_i18n_sorted.py` **fails if any locale JSON file's keys aren't sorted alphabetically** (run with `--fix` to sort them in place). CI runs both scripts (`.github/workflows/i18n.yml`) on any change under `frontend/src/locales/**`; both must pass.
+`check_i18n_locales.py` compares every non-English locale against `en_US` and **fails on any missing file, missing key, extra key, or placeholder that differs from `en_US`**. `check_i18n_sorted.py` **fails if any locale JSON file's keys aren't sorted alphabetically** (run with `--fix` to sort them in place). CI runs both scripts (`.github/workflows/i18n.yml`) on any change under `frontend/src/locales/**`; both must pass.
 
 ## Adding a new language
 
-Create a new folder under `frontend/src/locales/` mirroring `en_US/`'s files, then translate. Open the PR against `master` (see the docs/Contributing flow). This is the one i18n change where a new locale directory is expected.
+Create a new folder under `frontend/src/locales/` mirroring `en_US/`'s files, then translate. Add its name, written in that language, to `LOCALE_NAMES` in `src/stores/language.ts`; the language selector lists every locale folder, and a unit test fails on a folder without a name. Open the PR against `master` (see the docs/Contributing flow). This is the one i18n change where a new locale directory is expected.
