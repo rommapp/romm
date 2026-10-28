@@ -694,11 +694,9 @@ def get_roms(
         updated_after=updated_after,
         released_days=parsed_released_days,
         released_before_year=released_before_year,
-        # The page's files answer all three flags without the subqueries.
-        include_file_stats=not with_files,
-        # Siblings and the notes indicator are resolved per page below.
-        include_siblings=False,
-        include_notes=False,
+        # Only ids, letters and counts are selected from it; the page's rows load
+        # through get_page_rows_query below.
+        include_related=False,
     )
 
     # Cache only the fully unscoped library scan: the sidecar cache key encodes
@@ -850,9 +848,14 @@ def get_roms(
             )
 
         if page_ids:
-            # The rows are reordered by `page_ids` below, so the sort is dropped.
+            # The ids already passed the filters and the sibling grouping, so the
+            # rows load without re-running either.
             page_rows = session.scalars(
-                query.where(Rom.id.in_(page_ids)).order_by(None)
+                db_rom_handler.get_page_rows_query(
+                    page_ids,
+                    visibility=perms.rom_visibility,
+                    include_file_stats=not with_files,
+                )
             ).all()
             rows_by_id = {rom.id: rom for rom in page_rows}
             page_items = [rows_by_id[i] for i in page_ids if i in rows_by_id]

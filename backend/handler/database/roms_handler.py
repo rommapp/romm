@@ -44,6 +44,7 @@ from sqlalchemy.orm import (
     selectinload,
     undefer,
 )
+from sqlalchemy.orm.interfaces import ORMOption
 from sqlalchemy.sql.dml import Insert
 from sqlalchemy.sql.elements import ColumnElement, UnaryExpression
 from sqlalchemy.sql.selectable import Select
@@ -564,25 +565,24 @@ def _region_rank() -> ColumnElement[Any]:
     )
 
 
-def _prerelease_rank() -> ColumnElement[Any]:
-    """Rank pre-release dumps after full releases within a sibling group.
+# "(" then any tag, so "(Demo)", "(Beta 2)" and "(Prototype)" match and a title that
+# merely contains "demo" does not.
+_PRERELEASE_PATTERN = (
+    rf"\(({'|'.join(re.escape(tag) for tag in PRERELEASE_FILENAME_TAGS)})"
+)
 
-    Matched with a case-insensitive LIKE over the filename rather than against
-    the parsed `tags` column, which keeps whatever casing the dumper used, and
-    which the dedup window's covering index does not carry.
-    """
-    return case(
-        (
-            or_(
-                *[
-                    Rom.fs_name_no_ext.ilike(f"%({tag}%")
-                    for tag in PRERELEASE_FILENAME_TAGS
-                ]
-            ),
-            1,
+
+def _prerelease_rank() -> ColumnElement[Any]:
+    """Rank pre-release dumps after full releases within a sibling group."""
+    # The filename: `tags` keeps the dumper's casing and the covering index lacks it.
+    # One regex beats a LOWER() per ILIKE on MariaDB; PostgreSQL's ILIKEs are faster.
+    is_prerelease = DialectCase(
+        postgresql=or_(
+            *[Rom.fs_name_no_ext.ilike(f"%({tag}%") for tag in PRERELEASE_FILENAME_TAGS]
         ),
-        else_=0,
+        mysql=Rom.fs_name_no_ext.regexp_match(_PRERELEASE_PATTERN, flags="i"),
     )
+    return case((is_prerelease, 1), else_=0)
 
 
 # The RomUser column types whose MIN/MAX matches ORDER BY semantics on every
@@ -654,12 +654,67 @@ def sorts_by_rom_user_column(order_by: str, user_id: int) -> bool:
 INJECTED_ROM_QUERY = typing_cast(RomSelect, None)
 
 
+def _rom_card_loaders(
+    *,
+    files: bool = True,
+    file_meta: bool = True,
+    file_stats: bool = True,
+    siblings: bool = True,
+    notes: bool = True,
+) -> list[ORMOption]:
+    """The loads `SimpleRomSchema` reads, each optional part switched by its flag."""
+    options: list[ORMOption] = [
+        selectinload(Rom.platform),
+        selectinload(Rom.rom_users).options(
+            raiseload(RomUser.rom), raiseload(RomUser.user)
+        ),
+        selectinload(Rom.metadatum).options(raiseload(RomMetadata.rom)),
+    ]
+    if files:
+        rom_backref = joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
+        options.append(
+            selectinload(Rom.files).options(
+                rom_backref,
+                selectinload(RomFile.track_meta),
+                selectinload(RomFile.doc_meta),
+            )
+            if file_meta
+            else selectinload(Rom.files).options(rom_backref)
+        )
+    if file_stats:
+        options += [
+            undefer(Rom.multi_file),
+            undefer(Rom.top_level_file_count),
+            undefer(Rom.has_soundtrack),
+            undefer(Rom.is_easyrpg_game),
+        ]
+    if siblings:
+        options.append(
+            selectinload(Rom.sibling_roms).options(
+                raiseload(Rom.platform),
+                raiseload(Rom.metadatum),
+                # is_main_sibling needs each sibling's RomUser (`lazy="raise"`).
+                selectinload(Rom.rom_users).options(
+                    raiseload(RomUser.rom), raiseload(RomUser.user)
+                ),
+                load_only(
+                    *ROM_VISIBILITY_COLUMNS,
+                    Rom.name,
+                    Rom.fs_name_no_tags,
+                    Rom.fs_name_no_ext,
+                ),
+            )
+        )
+    if notes:
+        options.append(selectinload(Rom.notes))
+    return options
+
+
 def with_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         kwargs["query"] = select(Rom).options(
-            # Ensure platform is loaded for main ROM objects
-            selectinload(Rom.platform),
+            *_rom_card_loaders(),
             selectinload(Rom.saves).options(
                 raiseload(Save.rom),
                 raiseload(Save.user),
@@ -671,39 +726,7 @@ def with_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
             selectinload(Rom.screenshots).options(
                 raiseload(Screenshot.rom),
             ),
-            selectinload(Rom.rom_users).options(
-                raiseload(RomUser.rom), raiseload(RomUser.user)
-            ),
-            selectinload(Rom.metadatum).options(raiseload(RomMetadata.rom)),
-            # Multi-file downloads, 3DS QR codes, and metadata matching
-            selectinload(Rom.files).options(
-                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
-                selectinload(RomFile.track_meta),
-                selectinload(RomFile.doc_meta),
-            ),
-            selectinload(Rom.sibling_roms).options(
-                raiseload(Rom.platform),
-                raiseload(Rom.metadatum),
-                # Per-sibling is_main_sibling resolution for the
-                # SiblingRomSchema needs each sibling's RomUser for the
-                # request user; the relationship is `lazy="raise"`, so
-                # it has to be eager-loaded here.
-                selectinload(Rom.rom_users).options(
-                    raiseload(RomUser.rom), raiseload(RomUser.user)
-                ),
-                load_only(
-                    *ROM_VISIBILITY_COLUMNS,
-                    Rom.name,
-                    Rom.fs_name_no_tags,
-                    Rom.fs_name_no_ext,
-                ),
-            ),
             selectinload(Rom.collections),
-            selectinload(Rom.notes),
-            undefer(Rom.multi_file),
-            undefer(Rom.top_level_file_count),
-            undefer(Rom.has_soundtrack),
-            undefer(Rom.is_easyrpg_game),
         )
         return func(*args, **kwargs)
 
@@ -711,49 +734,11 @@ def with_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
 
 
 def with_simple_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
-    """Lightweight eager-load for the `SimpleRomSchema` (v2 gallery card).
-
-    Loads only the relationships `SimpleRomSchema` serializes (rom_users,
-    files, sibling_roms + their rom_users, notes) and the deferred file-count
-    columns, skipping the `saves` / `states` / `screenshots` / `collections`
-    arrays that `with_details` pulls for the detail view. Keeps per-card
-    hydration cheap on low-power hosts.
-    """
+    """Eager-load only what the `SimpleRomSchema` (v2 gallery card) serializes."""
 
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-        kwargs["query"] = select(Rom).options(
-            selectinload(Rom.platform),
-            selectinload(Rom.rom_users).options(
-                raiseload(RomUser.rom), raiseload(RomUser.user)
-            ),
-            selectinload(Rom.metadatum).options(raiseload(RomMetadata.rom)),
-            selectinload(Rom.files).options(
-                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
-                selectinload(RomFile.track_meta),
-                selectinload(RomFile.doc_meta),
-            ),
-            selectinload(Rom.sibling_roms).options(
-                raiseload(Rom.platform),
-                raiseload(Rom.metadatum),
-                # Per-sibling is_main_sibling resolution needs each sibling's
-                # RomUser (relationship is `lazy="raise"`).
-                selectinload(Rom.rom_users).options(
-                    raiseload(RomUser.rom), raiseload(RomUser.user)
-                ),
-                load_only(
-                    *ROM_VISIBILITY_COLUMNS,
-                    Rom.name,
-                    Rom.fs_name_no_tags,
-                    Rom.fs_name_no_ext,
-                ),
-            ),
-            selectinload(Rom.notes),
-            undefer(Rom.multi_file),
-            undefer(Rom.top_level_file_count),
-            undefer(Rom.has_soundtrack),
-            undefer(Rom.is_easyrpg_game),
-        )
+        kwargs["query"] = select(Rom).options(*_rom_card_loaders())
         return func(*args, **kwargs)
 
     return wrapper
@@ -1553,11 +1538,8 @@ class DBRomsHandler(DBBaseHandler):
         updated_after: datetime | None = None,
         released_days: Sequence[tuple[int, int]] | None = None,
         released_before_year: int | None = None,
-        include_file_stats: bool = False,
         include_files: bool = False,
         include_related: bool = True,
-        include_siblings: bool = True,
-        include_notes: bool = True,
         visibility: RomVisibilityFilter = UNRESTRICTED,
         session: Session = INJECTED_SESSION,
     ) -> S:
@@ -1570,52 +1552,10 @@ class DBRomsHandler(DBBaseHandler):
         # include_related=False: loader options can't apply without an entity.
         if include_related:
             query = query.options(
-                # Ensure platform is loaded for main ROM objects
-                selectinload(Rom.platform),
-                # Display properties for the current user (last_played)
-                selectinload(Rom.rom_users).options(
-                    raiseload(RomUser.rom), raiseload(RomUser.user)
-                ),
-                # Sort table by metadata (first_release_date)
-                selectinload(Rom.metadatum).options(raiseload(RomMetadata.rom)),
-            )
-
-            # Show sibling rom badges on cards
-            if include_siblings:
-                query = query.options(
-                    selectinload(Rom.sibling_roms).options(
-                        raiseload(Rom.platform),
-                        raiseload(Rom.metadatum),
-                        # is_main_sibling needs each sibling's RomUser.
-                        selectinload(Rom.rom_users).options(
-                            raiseload(RomUser.rom), raiseload(RomUser.user)
-                        ),
-                    )
+                # Feeds read the files for download paths, never their metadata.
+                *_rom_card_loaders(
+                    files=include_files, file_meta=False, file_stats=False
                 )
-
-            # Notes indicator on cards
-            if include_notes:
-                query = query.options(selectinload(Rom.notes))
-
-        # Only load files (and the RomFile.rom backref needed by `is_top_level` /
-        # `file_name_for_download`) when the caller iterates them, e.g. the
-        # feed endpoints. The gallery/list and filter-value paths serialize
-        # SimpleRomSchema without files, so they skip this entirely.
-        if include_files:
-            query = query.options(
-                selectinload(Rom.files).options(
-                    joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
-                )
-            )
-
-        # Correlated subqueries and only undefer when the caller serializes the
-        # gallery-card flags. Feeds and filter-value lookups don't need them.
-        if include_file_stats:
-            query = query.options(
-                undefer(Rom.multi_file),
-                undefer(Rom.top_level_file_count),
-                undefer(Rom.has_soundtrack),
-                undefer(Rom.is_easyrpg_game),
             )
 
         # Handle platform filtering - platform filtering always uses OR logic since ROMs belong to only one platform
@@ -1999,6 +1939,28 @@ class DBRomsHandler(DBBaseHandler):
         )
 
         return query.order_by(*order_clauses), sort_key
+
+    def get_page_rows_query(
+        self,
+        page_ids: Sequence[int],
+        *,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
+        include_file_stats: bool = False,
+    ) -> RomSelect:
+        """The rows of one page, loaded by id with none of the filters re-run."""
+        # Visibility is re-checked in case a cached id index predates a rule change.
+        return (
+            select(Rom)
+            .where(Rom.id.in_(page_ids), *visibility.clauses())
+            .options(
+                *_rom_card_loaders(
+                    files=False,
+                    file_stats=include_file_stats,
+                    siblings=False,
+                    notes=False,
+                )
+            )
+        )
 
     def _scoped_roms_query(
         self,
