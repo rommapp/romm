@@ -72,6 +72,8 @@ def test_postgresql_keeps_one_ilike_per_tag():
         ("Game Four (Beta 2)", 1),
         ("Game Five (Prototype)", 1),
         ("Game Six (Kiosk Demo)", 1),
+        # Accent-sensitive on both engines, whatever the MariaDB collation.
+        ("Game Seven (Démo)", 0),
         # A tag counts only right after "(".
         ("Demolition Man (USA)", 0),
         ("Beta Fish (USA)", 0),
