@@ -1711,7 +1711,7 @@ async def scan_rom(
                 rom_attrs["url_cover"] = sgdb_cover
 
     log.info(
-        f"{hl(rom_attrs['fs_name'])} identified as {hl(rom_attrs['name'], color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
+        f"{hl(rom_attrs['fs_name'])} identified as {hl(rom_attrs.get('name', rom_attrs['fs_name']), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
         extra=LOGGER_MODULE_NAME,
     )
 
