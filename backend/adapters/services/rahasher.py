@@ -11,6 +11,7 @@ from utils.archives import extract_largest_archive_member
 from utils.filesystem import COMPRESSED_FILE_EXTENSIONS
 from utils.m3u import first_playlist_entry
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.platform_slugs import fill_duplicate_slugs
 from utils.psp_hasher import calculate_psp_ra_hash, is_psp_native_hash_file
 from utils.rvz_hasher import (
     calculate_gamecube_ra_hash,
@@ -153,6 +154,8 @@ PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[UPS, int] = {
     UPS.WONDERSWAN: 53,
     UPS.WONDERSWAN_COLOR: 53,
 }
+
+fill_duplicate_slugs(PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID)
 
 RA_BUFFER_HASH_UNSUPPORTED_IDS: frozenset[int] = frozenset(
     PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[ups] for ups in RA_BUFFER_HASH_UNSUPPORTED

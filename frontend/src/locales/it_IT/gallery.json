@@ -1,5 +1,4 @@
 {
-  "all-loaded": "Tutti i giochi sono stati caricati",
   "back-to-top": "Torna su",
   "column-actions": "Azioni",
   "column-cover": "Copertina",
@@ -8,7 +7,6 @@
   "firmware-selected-count": "{count} selezionati",
   "jump-to": "Vai a {letter}",
   "jump-to-letter": "Vai alla lettera",
-  "load-more": "Carica di più",
   "selection-clear": "Deseleziona",
   "selection-collections": "Gestisci collezioni",
   "selection-delete": "Elimina",

@@ -33,3 +33,7 @@ class ClientToken(BaseModel):
 
     user: Mapped[User] = relationship(lazy="joined", back_populates="client_tokens")
     device: Mapped[Device | None] = relationship(lazy="select")
+
+    def effective_scopes(self, user: User) -> set[str]:
+        """The token's scopes that its owner still holds."""
+        return set(self.scopes.split()) & {str(s) for s in user.oauth_scopes}

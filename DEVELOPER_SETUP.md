@@ -36,6 +36,8 @@ DEV_MODE=true
 docker compose build  # or `docker compose build --no-cache` to rebuild from scratch
 ```
 
+The image builds on the same Alpine base as the production image. `frontend/node_modules` lives in an anonymous volume that outlives the container, so after a rebuild that changes dependencies or the base image, recreate it with `docker compose up -d --renew-anon-volumes`.
+
 #### Spin up the Docker containers
 
 ```sh
@@ -181,7 +183,7 @@ npm run dev
 
 #### - Storybook (v2 components)
 
-Component docs and visual QA for `frontend/src/v2/` (port 6006):
+Component docs and visual QA for `frontend/src/` (port 6006):
 
 ```sh
 npm run storybook

@@ -1,5 +1,4 @@
 {
-  "all-loaded": "Alla spel har lästs in",
   "back-to-top": "Tillbaka till början",
   "column-actions": "Åtgärder",
   "column-cover": "Omslag",
@@ -8,7 +7,6 @@
   "firmware-selected-count": "{count} markerade",
   "jump-to": "Gå till {letter}",
   "jump-to-letter": "Gå till bokstav",
-  "load-more": "Läs in fler",
   "selection-clear": "Rensa markering",
   "selection-collections": "Hantera samlingar",
   "selection-delete": "Ta bort",

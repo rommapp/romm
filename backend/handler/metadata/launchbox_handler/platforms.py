@@ -1,6 +1,7 @@
 from typing import TypedDict
 
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.platform_slugs import fill_duplicate_slugs
 
 from .types import LaunchboxPlatform
 
@@ -219,6 +220,8 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
     UPS.ZX81: {"id": 147, "name": "Sinclair ZX-81"},
     UPS.ZXS: {"id": 46, "name": "Sinclair ZX Spectrum"},
 }
+
+fill_duplicate_slugs(LAUNCHBOX_PLATFORM_LIST)
 
 # Reverse lookup: LaunchBox platform ID → UPS slug
 LAUNCHBOX_PLATFORM_NAME_TO_SLUG = {

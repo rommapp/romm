@@ -1,11 +1,4 @@
 {
   "404-subtitle": "Sidan du söker finns inte",
-  "404-title": "Sidan hittades inte",
-  "firmware-text": "Den firmware eller BIOS du söker finns inte",
-  "firmware-title": "Ingen firmware eller BIOS att visa",
-  "home-headline": "Det finns inga spel i ditt bibliotek",
-  "home-text": "Redo att spela?",
-  "home-title": "Kör en snabb genomsökning för att automatiskt hitta spel på systemet",
-  "manual-match": "Sök efter spel hos alla metadataleverantörer",
-  "search-for-games": "Sök efter spel på alla plattformar"
+  "404-title": "Sidan hittades inte"
 }

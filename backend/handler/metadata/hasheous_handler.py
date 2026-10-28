@@ -21,6 +21,7 @@ from utils import get_version
 from utils.context import ctx_httpx_client
 from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.platform_slugs import fill_duplicate_slugs
 
 from .base_handler import BaseRom, MetadataHandler
 from .igdb_handler import (
@@ -1631,3 +1632,5 @@ HASHEOUS_PLATFORM_LIST: dict[UPS, SlugToHasheousId] = {
         "tgdb_id": None,
     },
 }
+
+fill_duplicate_slugs(HASHEOUS_PLATFORM_LIST)

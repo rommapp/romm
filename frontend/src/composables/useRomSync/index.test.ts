@@ -1,0 +1,322 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import storeAuth from "@/stores/auth";
+import storeCollections from "@/stores/collections";
+import storeGalleryFilter from "@/stores/galleryFilter";
+import storeGalleryRoms from "@/stores/galleryRoms";
+import storeGallerySelection from "@/stores/gallerySelection";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
+import { collectionFixture } from "@/utils/collection.fixtures";
+import { platformFixture } from "@/utils/platform.fixtures";
+import { detailedRomFixture, romFixture } from "@/utils/rom.fixtures";
+import { userFixture } from "@/utils/user.fixtures";
+import { useRomSync } from "./index";
+
+const { getRoms, getRom } = vi.hoisted(() => ({
+  getRoms: vi.fn(),
+  getRom: vi.fn(),
+}));
+
+vi.mock("@/services/api/rom", () => ({
+  default: { getRoms, getRom },
+}));
+
+function namedRom(overrides: Partial<SimpleRom> = {}): SimpleRom {
+  return romFixture({ name: "Chrono Trigger", ...overrides });
+}
+
+/** Put the gallery in a platform context with one loaded window so
+ * `onGalleryView` holds and there's cached state to invalidate. */
+function seedGallery(rom: SimpleRom, position = 3) {
+  const gallery = storeGalleryRoms();
+  gallery.setCurrentPlatform(platformFixture());
+  gallery.byPosition.set(position, rom);
+  gallery.loadedWindows.add(0);
+  gallery.metadataLoaded = true;
+  gallery.total = 1;
+  return gallery;
+}
+
+describe("useRomSync", () => {
+  beforeEach(() => {
+    getRoms.mockReset();
+    getRom.mockReset();
+    getRoms.mockResolvedValue({
+      data: { total: 0, items: [], char_index: {}, rom_id_index: [] },
+    });
+  });
+
+  it("syncCachedRom refreshes every surface rendering the ROM", () => {
+    const gallery = seedGallery(namedRom({ name: "old" }));
+    const romsStore = storeRoms();
+    romsStore.recentRoms = [namedRom({ name: "old" })];
+    romsStore.continuePlayingRoms = [namedRom({ name: "old" })];
+    // Detailed-only fields have to survive a SimpleRom write.
+    romsStore.cacheDetailedRom(
+      detailedRomFixture({ name: "Chrono Trigger", download_formats: ["iso"] }),
+    );
+
+    useRomSync().syncCachedRom(namedRom({ name: "new" }));
+
+    expect(gallery.getRomAt(3)?.name).toBe("new");
+    expect(romsStore.recentRoms[0]?.name).toBe("new");
+    expect(romsStore.continuePlayingRoms[0]?.name).toBe("new");
+    expect(romsStore.getDetailedRom(namedRom().id)).toMatchObject({
+      name: "new",
+      download_formats: ["iso"],
+    });
+  });
+
+  it("syncCachedRom is a no-op for a ROM the gallery has never loaded", () => {
+    const gallery = seedGallery(namedRom({ id: 2 }));
+
+    useRomSync().syncCachedRom(namedRom({ id: 1 }));
+
+    expect(gallery.byPosition.size).toBe(1);
+    expect(gallery.getRomAt(3)?.id).toBe(2);
+  });
+
+  // The motivating case: a gallery showing games IGDB hasn't matched has to
+  // drop a ROM the moment a match gives it an igdb_id.
+  it("applyRomWrite refetches when the metadata-provider filter is active", () => {
+    const gallery = seedGallery(namedRom());
+    const galleryFilter = storeGalleryFilter();
+    galleryFilter.selectedMetadataProviders = ["igdb"];
+    galleryFilter.metadataProvidersLogic = "none";
+
+    useRomSync().applyRomWrite(namedRom({ igdb_id: 1234 }));
+
+    expect(gallery.byPosition.size).toBe(0);
+    expect(getRoms).toHaveBeenCalled();
+  });
+
+  it("applyRomWrite refetches while the matched filter narrows the gallery", () => {
+    const gallery = seedGallery(namedRom());
+    storeGalleryFilter().filterMatched = false;
+
+    useRomSync().applyRomWrite(namedRom({ igdb_id: 1234 }));
+
+    expect(gallery.byPosition.size).toBe(0);
+    expect(getRoms).toHaveBeenCalled();
+  });
+
+  it("applyRomWrite reorders an unfiltered gallery when the active sort key moved", () => {
+    const gallery = seedGallery(namedRom({ name_sort_key: "chrono trigger" }));
+    gallery.setOrderBy("name");
+
+    useRomSync().applyRomWrite(namedRom({ name_sort_key: "zzz" }));
+
+    expect(gallery.byPosition.size).toBe(0);
+    expect(getRoms).toHaveBeenCalled();
+  });
+
+  it("applyRomWrite only checks the sort key in use", () => {
+    const gallery = seedGallery(
+      namedRom({ name_sort_key: "chrono trigger", fs_size_bytes: 100 }),
+    );
+    gallery.setOrderBy("fs_size_bytes");
+
+    // The name moved, but the gallery is ordered by size, so nothing moves.
+    useRomSync().applyRomWrite(
+      namedRom({ name_sort_key: "zzz", fs_size_bytes: 100 }),
+    );
+
+    expect(gallery.byPosition.size).toBe(1);
+    expect(getRoms).not.toHaveBeenCalled();
+  });
+
+  it("applyRomWrite refetches a search ranked by relevance", () => {
+    const gallery = seedGallery(namedRom({ name_sort_key: "chrono trigger" }));
+    gallery.setOrderBy(null);
+    gallery.relevanceLed = true;
+
+    useRomSync().applyRomWrite(
+      namedRom({ name_sort_key: "chrono trigger", fs_name: "renamed.sfc" }),
+    );
+
+    expect(gallery.byPosition.size).toBe(0);
+    expect(getRoms).toHaveBeenCalled();
+  });
+
+  it("applyRomWrite reads an unset sort the backend kept in name order as the name", () => {
+    const gallery = seedGallery(namedRom({ name_sort_key: "chrono trigger" }));
+    gallery.setOrderBy(null);
+    gallery.relevanceLed = false;
+
+    useRomSync().applyRomWrite(
+      namedRom({ name_sort_key: "chrono trigger", summary: "edited" }),
+    );
+
+    expect(gallery.byPosition.size).toBe(1);
+    expect(getRoms).not.toHaveBeenCalled();
+  });
+
+  it("applyRomWrite keeps an unfiltered gallery when nothing it orders by moved", () => {
+    const gallery = seedGallery(namedRom({ name_sort_key: "chrono trigger" }));
+    gallery.setOrderBy("name");
+
+    useRomSync().applyRomWrite(
+      namedRom({ name_sort_key: "chrono trigger", summary: "edited" }),
+    );
+
+    expect(gallery.byPosition.size).toBe(1);
+    expect(gallery.getRomAt(3)?.summary).toBe("edited");
+    expect(getRoms).not.toHaveBeenCalled();
+  });
+
+  // Collection heads and tiles read their count off the store, so the re-read
+  // is owed even for a write from GameDetails.
+  it("applyRomWrite re-reads the virtual collections when off the gallery", () => {
+    const collections = storeCollections();
+    const refresh = vi
+      .spyOn(collections, "refreshVirtualCollections")
+      .mockResolvedValue([]);
+
+    useRomSync().applyRomWrite(namedRom({ igdb_id: 1234 }));
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(getRoms).not.toHaveBeenCalled();
+  });
+
+  it("refreshAfterUserStateChange refetches the Favourites collection", () => {
+    const gallery = seedGallery(namedRom());
+    const collections = storeCollections();
+    const favorites = collectionFixture({ id: 9, is_favorite: true });
+    storeAuth().setCurrentUser(userFixture());
+    collections.setCollections([favorites]);
+    gallery.setCurrentCollection(favorites);
+
+    useRomSync().refreshAfterUserStateChange();
+
+    expect(gallery.byPosition.size).toBe(0);
+    expect(getRoms).toHaveBeenCalled();
+  });
+
+  it("refreshAfterUserStateChange refetches while the status filter is active", () => {
+    const gallery = seedGallery(namedRom());
+    storeGalleryFilter().selectedStatuses = ["now_playing"];
+
+    useRomSync().refreshAfterUserStateChange();
+
+    expect(gallery.byPosition.size).toBe(0);
+    expect(getRoms).toHaveBeenCalled();
+  });
+
+  // Narrower than applyRomWrite on purpose: hearting a game shouldn't throw
+  // away a genre-filtered gallery, since a toggle can't change its genres.
+  it("refreshAfterUserStateChange ignores filters that user state can't affect", () => {
+    const gallery = seedGallery(namedRom());
+    storeGalleryFilter().selectedGenres = ["RPG"];
+
+    useRomSync().refreshAfterUserStateChange();
+
+    expect(gallery.byPosition.size).toBe(1);
+    expect(getRoms).not.toHaveBeenCalled();
+  });
+
+  // For writes that mutate the cached ROM in place, so `applyRomWrite` has no
+  // before-state to diff: clearing last_played must still reorder a gallery
+  // sorted by it.
+  it("refreshIfOrderedBy refetches when the gallery orders by that field", () => {
+    const gallery = seedGallery(namedRom());
+    gallery.setOrderBy("last_played");
+
+    useRomSync().refreshIfOrderedBy("last_played");
+
+    expect(gallery.byPosition.size).toBe(0);
+    expect(getRoms).toHaveBeenCalled();
+  });
+
+  it("refreshIfOrderedBy is a no-op under any other sort", () => {
+    const gallery = seedGallery(namedRom());
+    gallery.setOrderBy("name");
+
+    useRomSync().refreshIfOrderedBy("last_played");
+
+    expect(gallery.byPosition.size).toBe(1);
+    expect(getRoms).not.toHaveBeenCalled();
+  });
+
+  // The caches a removed ROM has to leave. Missing any one of them is
+  // what #4151 and #4204 each had to fix, one call site at a time.
+  it("removeCachedRoms drops the ROMs from the gallery and the selection", () => {
+    const removed = namedRom({ id: 1 });
+    const kept = namedRom({ id: 2 });
+    const gallery = seedGallery(removed);
+    const selection = storeGallerySelection();
+    selection.setSelection([removed, kept]);
+
+    useRomSync().removeCachedRoms([removed]);
+
+    expect(gallery.byPosition.size).toBe(0);
+    expect(getRoms).toHaveBeenCalled();
+    expect([...selection.selected.keys()]).toEqual([2]);
+  });
+
+  // Leaving a collection isn't leaving the library: the pruning that a real
+  // delete needs stays in DeleteRomDialog rather than folding in here.
+  it("removeCachedRoms leaves Home's rows alone", () => {
+    const removed = namedRom({ id: 1 });
+    seedGallery(removed);
+    const romsStore = storeRoms();
+    romsStore.recentRoms = [removed];
+    romsStore.continuePlayingRoms = [removed];
+
+    useRomSync().removeCachedRoms([removed]);
+
+    expect(romsStore.recentRoms).toEqual([removed]);
+    expect(romsStore.continuePlayingRoms).toEqual([removed]);
+  });
+
+  it("applyRomWrite leaves an unloaded ROM alone (no row on screen to reorder)", () => {
+    const gallery = seedGallery(
+      namedRom({ id: 2, name_sort_key: "earthbound" }),
+    );
+    gallery.setOrderBy("name");
+
+    useRomSync().applyRomWrite(namedRom({ id: 1, name_sort_key: "zzz" }));
+
+    expect(gallery.byPosition.size).toBe(1);
+    expect(getRoms).not.toHaveBeenCalled();
+  });
+
+  describe("refetchRom", () => {
+    const detailed = (id: number) =>
+      detailedRomFixture({ id, name: "Chrono Trigger" });
+
+    it("applies the fresh rom to the open view and the caches", async () => {
+      const romsStore = storeRoms();
+      romsStore.cacheDetailedRom(detailed(1));
+      const gallery = seedGallery(namedRom());
+      const fresh = detailed(1);
+      getRom.mockResolvedValue({ data: fresh });
+
+      const result = await useRomSync().refetchRom(1);
+
+      expect(getRom).toHaveBeenCalledWith({ romId: 1 });
+      expect(result).toBe(fresh);
+      expect(romsStore.getDetailedRom(1)).toStrictEqual(fresh);
+      expect(gallery.getRomById(1)).toStrictEqual(fresh);
+    });
+
+    it("leaves a rom the user opened meanwhile alone", async () => {
+      const romsStore = storeRoms();
+      romsStore.cacheDetailedRom(detailed(1));
+      let resolve: (value: unknown) => void = () => {};
+      getRom.mockReturnValue(new Promise((r) => (resolve = r)));
+
+      const pending = useRomSync().refetchRom(1);
+      romsStore.cacheDetailedRom(detailed(2));
+      resolve({ data: detailed(1) });
+      await pending;
+
+      expect(romsStore.getDetailedRom(2)).toStrictEqual(detailed(2));
+    });
+
+    it("reports a failed request rather than throwing at the caller", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      getRom.mockRejectedValue(new Error("offline"));
+
+      await expect(useRomSync().refetchRom(1)).resolves.toBeNull();
+    });
+  });
+});

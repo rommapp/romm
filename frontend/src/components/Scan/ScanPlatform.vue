@@ -1,208 +1,136 @@
 <script setup lang="ts">
+// ScanPlatform (v2): one collapsible per scanning platform in the
+// Scan view. Header shows the platform icon + name + per-platform
+// chips (ROM count, firmware count, "not identified" badge).
+//
+// Body: lists every newly-scanned ROM via ScanPlatformRow, rendered
+// inside an RVirtualScroller whose viewport always equals the total
+// content height. No internal scroll: the parent scan log handles
+// overflow. The scroller stays in the loop anyway because its
+// transform-based row positioning avoids reflowing existing rows
+// as new ones stream in during a live scan.
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import RomListItem from "@/components/common/Game/ListItem.vue";
-import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
+import ScanPlatformRow from "@/components/Scan/ScanPlatformRow.vue";
+import PlatformIcon from "@/components/shared/PlatformIcon.vue";
+import { RCollapsible, RTag, RVirtualScroller } from "@/lib";
+import type { SimpleRom } from "@/stores/roms";
 import type { ScanningPlatform } from "@/stores/scanning";
 
-defineProps<{ platform: ScanningPlatform }>();
+defineOptions({ inheritAttrs: false });
+
+const props = defineProps<{
+  platform: ScanningPlatform;
+  /** Controlled open state: v-model:open from Scan.vue. */
+  open?: boolean;
+}>();
+
+defineEmits<{
+  (e: "update:open", value: boolean): void;
+}>();
 
 const { t } = useI18n();
+
+// Row height baked into ScanPlatformRow's scoped styles (8px padding +
+// 48px cover + 8px padding + 1px border). Kept here as a constant so
+// `getItemHeight` and the row style stay in sync.
+const ROW_HEIGHT = 65;
+
+// Viewport always matches the cumulative content height so the
+// collapsible body grows naturally with the ROM list: no internal
+// scroll. The parent scan log handles overflow. RVirtualScroller is
+// still useful here because its `transform: translateY` positioning
+// avoids reflowing existing rows as new ones stream in.
+const viewportHeight = computed(() => {
+  const rows = Math.max(props.platform.roms.length, 1);
+  return rows * ROW_HEIGHT;
+});
+
+function getItemHeight() {
+  return ROW_HEIGHT;
+}
+
+// Key rows by ROM id (not array index) so that prepending a freshly-scanned
+// ROM, the lifecycle unshifts newest-first, only mounts the new row and
+// lets the rest keep their DOM. Index keys would re-patch every row on each
+// insert, killing the per-row entrance animation and flashing the list.
+function getItemKey(item: unknown) {
+  return (item as SimpleRom).id;
+}
 </script>
 
 <template>
-  <v-expansion-panel-title static>
-    <v-list-item class="pa-0">
-      <template #prepend>
-        <v-avatar variant="text" rounded="0" size="40">
-          <PlatformIcon
-            v-if="platform.slug"
-            :key="platform.slug"
-            :slug="platform.slug"
-            :name="platform.display_name"
-          />
-        </v-avatar>
-      </template>
-      <div class="text-no-wrap">
-        {{ platform.display_name }}
-      </div>
-      <template #append>
-        <v-chip class="ml-3" color="primary" size="x-small" label>
-          {{ platform.roms.length }}
-        </v-chip>
-        <v-chip
-          v-if="platform.new_firmware_count > 0"
-          class="ml-1"
-          color="secondary"
-          size="x-small"
-          label
-          :title="t('scan.firmware-found', platform.new_firmware_count)"
-        >
-          <v-icon start size="x-small">mdi-memory</v-icon>
-          {{ platform.new_firmware_count }}
-        </v-chip>
-        <v-chip
-          v-if="!platform.is_identified"
-          color="red"
-          size="small"
-          class="ml-3"
-          label
-        >
-          <v-icon class="mr-1"> mdi-close </v-icon>
-          {{ t("scan.not-identified").toUpperCase() }}
-        </v-chip>
-      </template>
-    </v-list-item>
-  </v-expansion-panel-title>
-  <v-expansion-panel-text class="bg-toplayer">
-    <RomListItem
-      v-for="rom in platform.roms"
-      :key="rom.id"
-      class="pa-4"
-      :rom="rom"
-      with-link
-      with-filename
-    >
-      <template #append>
-        <template v-if="rom.is_identifying">
-          <v-chip color="orange" size="x-small" label>
-            <v-icon class="mr-1"> mdi-search-web </v-icon>
-            Identifying…
-          </v-chip>
-        </template>
-        <template v-else>
-          <v-chip v-if="rom.is_unidentified" color="red" size="x-small" label>
-            <v-icon class="mr-1"> mdi-close </v-icon>
-            {{ t("scan.not-identified") }}
-          </v-chip>
-          <v-chip
-            v-if="rom.hasheous_id"
-            title="Verified with Hasheous"
-            class="text-white pa-0 mr-1"
-            size="small"
-          >
-            <v-avatar
-              variant="text"
-              class="bg-romm-green"
-              size="26"
-              rounded="0"
-            >
-              <v-icon>mdi-check-decagram-outline</v-icon>
-            </v-avatar>
-          </v-chip>
-          <v-chip
-            v-if="rom.igdb_id"
-            class="pa-0 mr-1"
-            size="small"
-            title="IGDB match"
-          >
-            <v-avatar variant="text" size="26" rounded>
-              <v-img src="/assets/scrappers/igdb.png" />
-            </v-avatar>
-          </v-chip>
-          <v-chip
-            v-if="rom.ss_id"
-            class="pa-0 mr-1"
-            size="small"
-            title="ScreenScraper match"
-          >
-            <v-avatar variant="text" size="26" rounded>
-              <v-img src="/assets/scrappers/ss.png" />
-            </v-avatar>
-          </v-chip>
-          <v-chip
-            v-if="rom.moby_id"
-            class="pa-0 mr-1"
-            size="small"
-            title="MobyGames match"
-          >
-            <v-avatar variant="text" size="26" rounded>
-              <v-img src="/assets/scrappers/moby.png" />
-            </v-avatar>
-          </v-chip>
-          <v-chip
-            v-if="rom.launchbox_id"
-            class="pa-0 mr-1"
-            size="small"
-            title="LaunchBox match"
-          >
-            <v-avatar variant="text" size="26" style="background: #185a7c">
-              <v-img src="/assets/scrappers/launchbox.png" />
-            </v-avatar>
-          </v-chip>
-          <v-chip
-            v-if="rom.ra_id"
-            class="pa-0 mr-1"
-            size="small"
-            title="RetroAchievements match"
-          >
-            <v-avatar variant="text" size="26" rounded>
-              <v-img src="/assets/scrappers/ra.png" />
-            </v-avatar>
-          </v-chip>
-          <v-chip
-            v-if="rom.hasheous_id"
-            class="pa-1 mr-1 bg-surface"
-            size="small"
-            title="Hasheous match"
-          >
-            <v-avatar variant="text" size="18" rounded>
-              <v-img src="/assets/scrappers/hasheous.png" />
-            </v-avatar>
-          </v-chip>
-          <v-chip
-            v-if="rom.flashpoint_id"
-            class="pa-1 mr-1 bg-surface"
-            size="small"
-            title="Flashpoint match"
-          >
-            <v-avatar variant="text" size="18" rounded>
-              <v-img src="/assets/scrappers/flashpoint.png" />
-            </v-avatar>
-          </v-chip>
-          <v-chip
-            v-if="rom.hltb_id"
-            class="pa-1 mr-1 bg-surface"
-            size="small"
-            title="HowLongToBeat match"
-          >
-            <v-avatar variant="text" size="18" rounded>
-              <v-img src="/assets/scrappers/hltb.png" />
-            </v-avatar>
-          </v-chip>
-          <v-chip
-            v-if="rom.gamelist_id"
-            class="pa-1 mr-1 bg-surface"
-            size="small"
-            title="ES-DE match"
-          >
-            <v-avatar variant="text" size="18" rounded>
-              <v-img src="/assets/scrappers/esde.png" />
-            </v-avatar>
-          </v-chip>
-          <v-chip
-            v-if="rom.libretro_id"
-            class="pa-1 bg-surface"
-            size="small"
-            title="Libretro match"
-          >
-            <v-avatar variant="text" size="18" rounded>
-              <v-img src="/assets/scrappers/libretro.png" />
-            </v-avatar>
-          </v-chip>
-        </template>
-      </template>
-    </RomListItem>
-    <v-list-item v-if="platform.roms.length === 0" class="text-center my-2">
+  <RCollapsible
+    :model-value="open"
+    @update:model-value="(v) => $emit('update:open', v)"
+  >
+    <template #header-prepend>
+      <PlatformIcon
+        v-if="platform.slug"
+        :key="platform.slug"
+        :slug="platform.slug"
+        :name="platform.display_name"
+        :size="32"
+      />
+    </template>
+    <template #title>
+      {{ platform.display_name }}
+    </template>
+    <template #header-append>
+      <RTag tone="brand" size="x-small" :text="String(platform.roms.length)" />
+      <RTag
+        v-if="platform.new_firmware_count > 0"
+        tone="warning"
+        size="x-small"
+        icon="mdi-memory"
+        :text="String(platform.new_firmware_count)"
+        :title="t('scan.firmware-found', platform.new_firmware_count)"
+      />
+      <RTag
+        v-if="!platform.is_identified"
+        tone="danger"
+        size="small"
+        icon="mdi-close"
+        :text="t('scan.not-identified').toUpperCase()"
+      />
+    </template>
+
+    <!-- Always virtualised: keeps the body surface flush with its
+         content height regardless of how many rows have streamed in,
+         and bounds the DOM size on big platforms. -->
+    <div v-if="platform.roms.length === 0" class="r-scan-platform__empty">
       {{ t("scan.no-new-roms") }}
-    </v-list-item>
-  </v-expansion-panel-text>
+    </div>
+    <RVirtualScroller
+      v-else
+      :items="platform.roms"
+      :get-item-height="getItemHeight"
+      :get-item-key="getItemKey"
+      :height="viewportHeight"
+      :overscan="10"
+      class="r-scan-platform__virtual"
+    >
+      <template #default="{ item }">
+        <ScanPlatformRow :rom="item as SimpleRom" />
+      </template>
+    </RVirtualScroller>
+  </RCollapsible>
 </template>
+
 <style scoped>
-.v-chip {
-  contain: layout style paint;
+/* Row separator is already painted by ScanPlatformRow's own
+   `border-top`, so the virtual scroller itself stays chrome-less:
+   no extra border or background would cause its content height to
+   mismatch its inline `height:` style (border-box reserves the
+   border out of the content area and triggers a spurious scroll). */
+.r-scan-platform__virtual {
+  background: transparent;
 }
 
-.v-avatar {
-  contain: layout style paint;
+.r-scan-platform__empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--r-color-fg-muted);
+  font-size: 13px;
 }
 </style>

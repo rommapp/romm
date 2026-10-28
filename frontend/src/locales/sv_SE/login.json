@@ -7,7 +7,6 @@
   "login-failed": "Inloggningen misslyckades",
   "login-oidc": "Logga in med {oidc}",
   "new-password": "Nytt lösenord",
-  "or": "eller",
   "password": "Lösenord",
   "passwords-do-not-match": "Lösenorden stämmer inte överens",
   "register": "Registrera",
