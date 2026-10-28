@@ -1710,6 +1710,13 @@ async def scan_rom(
             if ranked[0] == MetadataSource.SGDB:
                 rom_attrs["url_cover"] = sgdb_cover
 
+    # Providers like libretro match without supplying a name. A new rom keeps the
+    # name it was created with, which for a physical game is what the user typed.
+    if not rom_attrs.get("name"):
+        rom_attrs["name"] = (
+            newly_added and rom.name
+        ) or fs_rom_handler.get_file_name_with_no_tags(rom_attrs["fs_name"])
+
     log.info(
         f"{hl(rom_attrs['fs_name'])} identified as {hl(rom_attrs['name'], color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
         extra=LOGGER_MODULE_NAME,
