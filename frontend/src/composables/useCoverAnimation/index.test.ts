@@ -219,6 +219,25 @@ describe("useCoverAnimation", () => {
     expect(second.animation.isVideoPlaying.value).toBe(true);
   });
 
+  it("keeps the still when play settles after the cover was left", async () => {
+    vi.useFakeTimers();
+    const { active, animation, play } = setup({ cd: false, video: true });
+    let settle!: () => void;
+    play.mockImplementation(
+      () => new Promise<void>((resolve) => (settle = resolve)),
+    );
+
+    active.value = true;
+    await nextTick();
+    vi.advanceTimersByTime(1000);
+    active.value = false;
+    await nextTick();
+    settle();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(animation.isVideoPlaying.value).toBe(false);
+  });
+
   it("drops the hover clip source on unmount", () => {
     const { load, videoEl, wrapper } = setup({ cd: false, video: true });
 

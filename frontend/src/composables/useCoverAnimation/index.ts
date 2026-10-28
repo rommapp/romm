@@ -30,7 +30,7 @@ import {
   type Ref,
 } from "vue";
 import { useReducedMotion } from "@/composables/useReducedMotion";
-import { claimMedia, releaseMedia } from "@/utils/releaseMedia";
+import { claimPreview, releaseMedia } from "@/utils/releaseMedia";
 
 export interface SpinConfig {
   /** Top rotational speed, deg/sec. */
@@ -237,12 +237,13 @@ export function useCoverAnimation(
       if (!v || !url) return;
       // The src is dropped on release, so put it back before playing.
       if (!v.getAttribute("src")) v.src = url;
-      claimMedia(v, () => {
+      claimPreview(v, () => {
         isVideoPlaying.value = false;
       });
       v.play()
         .then(() => {
-          isVideoPlaying.value = true;
+          // A leave or release can land after play() has already settled.
+          isVideoPlaying.value = wantsVideo.value && v.hasAttribute("src");
         })
         .catch(() => {
           isVideoPlaying.value = false;
@@ -289,7 +290,7 @@ export function useCoverAnimation(
   // A clip removed with the cover still mounted (a style change) would keep
   // its download.
   watch(opts.videoEl, (el, old) => {
-    if (old && old !== el) releaseMedia(old);
+    if (old) releaseMedia(old);
   });
 
   // ── Motion preference flips off mid-flight ────────────────────────
