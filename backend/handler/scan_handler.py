@@ -1722,7 +1722,7 @@ async def scan_rom(
                 rom_attrs["url_cover"] = sgdb_cover
 
     # Providers like libretro match without supplying a name. A new rom keeps the
-    # one its caller created it with, which for a physical game the user typed.
+    # name it was created with, which for a physical game is what the user typed.
     if not rom_attrs.get("name"):
         rom_attrs["name"] = (
             newly_added and rom.name
