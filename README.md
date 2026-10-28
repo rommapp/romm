@@ -49,7 +49,12 @@ Prefer a hosted deploy over wiring up the stack yourself?
   <br />Starting at <b>$6.49/mo</b> · <a href="https://docs.romm.app/latest/install/hostinger/">Setup guide</a>
 </p>
 
-<sub><i>Deployment and infrastructure support for this install is handled by Hostinger. Prices are indicative and may not reflect current offerings. Signups through the link above send a share of the revenue back to us, which helps fund the project.</i></sub>
+<p align="center">
+  <a href="https://corehost.io/apps/romm" target="_blank" rel="noopener noreferrer"><img src=".github/resources/corehost-badge.svg" alt="Deploy on CoreHost" width="250" height="58" /></a>
+  <br />Starting at <b>$2.30/mo</b> · <a href="https://docs.romm.app/latest/install/corehost/">Setup guide</a>
+</p>
+
+<sub><i>Deployment and infrastructure support for these installs is handled by Hostinger and CoreHost. Prices are indicative and may not reflect current offerings. Both send a share of the revenue back to us, which helps fund the project.</i></sub>
 
 ## Official apps
 
