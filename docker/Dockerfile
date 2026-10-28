@@ -95,6 +95,8 @@ COPY --from=uv-stage /usr/local/bin/uv /usr/local/bin/uvx /bin/
 WORKDIR /src
 
 COPY ./pyproject.toml ./uv.lock /src/
+# PYTHONDONTWRITEBYTECODE blocks caching at runtime, so ship compiled bytecode.
+ENV UV_COMPILE_BYTECODE=1
 RUN uv sync --frozen --no-cache
 
 FROM backend-build AS backend-dev-build
@@ -343,6 +345,7 @@ COPY --from=gme-build /gme ${WEBSERVER_FOLDER}/assets/gme
 RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
     ln -sf /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources
 COPY ./backend /backend
+RUN python3 -m compileall -q /backend
 
 # Setup init script and config files
 COPY ./docker/init_scripts/* /
