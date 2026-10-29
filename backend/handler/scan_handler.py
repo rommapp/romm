@@ -1324,17 +1324,14 @@ async def scan_rom(
                 if fields["metadata_field"]:
                     rom_attrs[fields["metadata_field"]] = {}
 
-        # Reset artwork fields so stale values are cleared when no source supplies
-        # them. The locks go too, since a complete rescan deletes the files.
+        # Clear the artwork sources and their locks, so whatever answers now can
+        # replace a file. The stored paths stay: a file no source replaces is
+        # kept, rather than lost to a provider that is down.
         rom_attrs.update(
             {
                 "url_cover": "",
                 "url_screenshots": [],
                 "url_manual": "",
-                "path_cover_s": "",
-                "path_cover_l": "",
-                "path_screenshots": [],
-                "path_manual": "",
                 "locked_fields": [],
             }
         )

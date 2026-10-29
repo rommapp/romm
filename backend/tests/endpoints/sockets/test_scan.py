@@ -3063,7 +3063,6 @@ def identify_harness(mocker):
         scan_module, "scan_rom", AsyncMock(return_value=MagicMock(is_identified=False))
     )
 
-    mocker.patch.object(scan_module, "fs_resource_handler", new=AsyncMock())
     mocker.patch.object(scan_module, "download_rom_resources", new=AsyncMock())
     mocker.patch.object(scan_handler_module, "SimpleRomSchema", MagicMock())
 
