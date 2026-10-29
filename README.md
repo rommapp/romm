@@ -44,15 +44,20 @@ The easiest way to start is with the [Quick Start Guide][docs-quick-start-guide]
 
 Prefer a hosted deploy over wiring up the stack yourself?
 
-<p align="center">
-  <a href="https://www.hostg.xyz/aff_c?offer_id=815&amp;aff_id=243561&amp;url_id=6779" target="_blank" rel="noopener noreferrer"><img src=".github/resources/hostinger-badge.svg" alt="Deploy on Hostinger" width="250" height="58" /></a>
-  <br />Starting at <b>$6.49/mo</b> · <a href="https://docs.romm.app/latest/install/hostinger/">Setup guide</a>
-</p>
-
-<p align="center">
-  <a href="https://corehost.io/p/romm" target="_blank" rel="noopener noreferrer"><img src=".github/resources/corehost-badge.svg" alt="Deploy on CoreHost" width="250" height="58" /></a>
-  <br />Starting at <b>$2.30/mo</b> · <a href="https://docs.romm.app/latest/install/corehost/">Setup guide</a>
-</p>
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <a href="https://www.hostg.xyz/aff_c?offer_id=815&amp;aff_id=243561&amp;url_id=6779" target="_blank" rel="noopener noreferrer"><img src=".github/resources/hostinger-badge.svg" alt="Deploy on Hostinger" width="250" height="58" /></a>
+        <br />Starting at <b>$6.49/mo</b> · <a href="https://docs.romm.app/latest/install/hostinger/">Setup guide</a>
+      </td>
+      <td align="center">
+        <a href="https://corehost.io/p/romm" target="_blank" rel="noopener noreferrer"><img src=".github/resources/corehost-badge.svg" alt="Deploy on CoreHost" width="250" height="58" /></a>
+        <br />Starting at <b>$2.30/mo</b> · <a href="https://docs.romm.app/latest/install/corehost/">Setup guide</a>
+      </td>
+    </tr>
+  </table>
+</div>
 
 <sub><i>Deployment and infrastructure support for these installs is handled by Hostinger and CoreHost. Prices are indicative and may not reflect current offerings. Both send a share of the revenue back to us, which helps fund the project.</i></sub>
 
