@@ -199,6 +199,75 @@ describe("useGamepad", () => {
     });
   });
 
+  describe("A", () => {
+    afterEach(() => {
+      document.body.innerHTML = "";
+    });
+
+    function focusField(html: string) {
+      document.body.innerHTML = html;
+      const field = document.querySelector<HTMLElement>("[data-field]")!;
+      field.focus();
+      return field;
+    }
+
+    it("clicks the focused control", () => {
+      const field = focusField("<button data-field>Go</button>");
+      const click = vi.fn();
+      field.addEventListener("click", click);
+
+      installOnMouse(padHolding(PAD_BUTTON.a));
+      step();
+
+      expect(click).toHaveBeenCalledOnce();
+    });
+
+    it("leaves a text field alone", () => {
+      const field = focusField("<input data-field />");
+      const click = vi.fn();
+      field.addEventListener("click", click);
+
+      installOnMouse(padHolding(PAD_BUTTON.a));
+      step();
+
+      expect(click).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["button", "button", "</button>"],
+      ["search field", "input", ""],
+    ])("picks the active option of an open %s combobox", (_, tag, close) => {
+      const field = focusField(
+        `<${tag} data-field role="combobox" aria-expanded="true" aria-activedescendant="opt-2">${close}` +
+          '<ul role="listbox"><li id="opt-1" role="option">1</li><li id="opt-2" role="option">2</li></ul>',
+      );
+      const picked = vi.fn();
+      document.getElementById("opt-2")!.addEventListener("click", picked);
+      const fieldClick = vi.fn();
+      field.addEventListener("click", fieldClick);
+
+      installOnMouse(padHolding(PAD_BUTTON.a));
+      step();
+
+      expect(picked).toHaveBeenCalledOnce();
+      expect(fieldClick).not.toHaveBeenCalled();
+    });
+
+    it("clicks a closed combobox itself", () => {
+      const field = focusField(
+        '<button data-field role="combobox" aria-expanded="false" aria-activedescendant="opt-1"></button>' +
+          '<li id="opt-1" role="option">1</li>',
+      );
+      const click = vi.fn();
+      field.addEventListener("click", click);
+
+      installOnMouse(padHolding(PAD_BUTTON.a));
+      step();
+
+      expect(click).toHaveBeenCalledOnce();
+    });
+  });
+
   describe("B", () => {
     it("goes back when nothing claims the Escape it sends", () => {
       installOnMouse(padHolding(PAD_BUTTON.b));

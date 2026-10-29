@@ -41,8 +41,7 @@ import {
 } from "@/composables/useNavDestinations";
 import { hasOpenEscapable } from "@/lib/overlays/RDialog/escapeStack.js";
 import storePlaying from "@/stores/playing";
-import { isEditable } from "@/utils/editable";
-import { isUsablePad } from "@/utils/gamepad";
+import { isUsablePad, padActivationTarget } from "@/utils/gamepad";
 
 // Routes where useGamepad's built-in actions (back, activate, section
 // nav, user menu) must NOT fire, so every button stays inspectable in
@@ -193,10 +192,7 @@ export function useGamepad() {
   // regardless of whether the event was trusted: that's the escape
   // hatch synthetic KeyboardEvents don't give us.
   function activateFocused() {
-    const active = document.activeElement;
-    // Pressing A inside a field shouldn't re-submit the form on every press.
-    if (!(active instanceof HTMLElement) || isEditable(active)) return;
-    active.click();
+    padActivationTarget(document.activeElement)?.click();
   }
 
   // Opens the app-wide user menu. UserMenu.vue marks its activator with

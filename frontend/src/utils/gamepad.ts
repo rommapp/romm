@@ -1,3 +1,5 @@
+import { isEditable } from "@/utils/editable";
+
 // Firefox keeps disconnected entries in getGamepads(), and their stale axes
 // drift across the press threshold with no input (#3851).
 export function isUsablePad(pad: Gamepad | null): pad is Gamepad {
@@ -17,4 +19,15 @@ export function readRightStick(): { x: number; y: number } {
     if (Math.abs(ay) > Math.abs(y)) y = ay;
   }
   return { x, y };
+}
+
+/** An open combobox's aria-activedescendant identifies the option pad A activates. */
+export function padActivationTarget(el: Element | null): HTMLElement | null {
+  if (!(el instanceof HTMLElement)) return null;
+  if (el.getAttribute("aria-expanded") === "true") {
+    const id = el.getAttribute("aria-activedescendant");
+    const option = id ? document.getElementById(id) : null;
+    if (option) return option;
+  }
+  return isEditable(el) ? null : el;
 }
