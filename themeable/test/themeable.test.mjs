@@ -1019,3 +1019,33 @@ test("every built-in pack ships placeholder cover art", async () => {
     assert.ok(pack.covers?.missing?.length && pack.covers?.unmatched?.length && pack.covers?.colors, `${pack.id} has covers`);
   }
 });
+
+test("a failed run's report names each job's failing tests and errors, with repository paths", async () => {
+  const { failureReport } = await import("../scripts/failure-report.mjs");
+  const root = "/home/runner/work/romm-themeable/romm-themeable";
+  const log = [
+    "test\tUnit tests\t\ufeff2026-10-29T01:28:50.1444453Z ##[group]Run npm test",
+    "test\tUnit tests\t2026-10-29T01:28:53.9343440Z ✖ parses the upstream tokens.css (0.3ms)",
+    "test\tUnit tests\t2026-10-29T01:28:53.9343440Z ✖ parses the upstream tokens.css (0.3ms)",
+    "test\tUnit tests\t2026-10-29T01:28:53.9701101Z ✖ failing tests:",
+    `test\tUnit tests\t2026-10-29T01:28:53.9704018Z   Error: ENOENT: no such file or directory, open '${root}/frontend/src/a.css'`,
+    "test\tUnit tests\t2026-10-29T01:28:53.9867128Z ##[error]Process completed with exit code 1.",
+    "verify\t-\t2026-10-29T01:30:00.0000000Z FAIL the start-up log has no errors",
+    "verify\t-\t2026-10-29T01:30:00.0000000Z ok   the loader is served",
+  ].join("\n");
+  assert.equal(
+    failureReport(log, { root }),
+    [
+      "### test",
+      "",
+      "- `✖ parses the upstream tokens.css (0.3ms)`",
+      "- `Error: ENOENT: no such file or directory, open 'frontend/src/a.css'`",
+      "- `Process completed with exit code 1.`",
+      "",
+      "### verify",
+      "",
+      "- `FAIL the start-up log has no errors`",
+    ].join("\n"),
+  );
+  assert.match(failureReport(""), /No failure lines found/);
+});
