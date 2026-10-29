@@ -5,6 +5,7 @@ import RMenu from "@/lib/menus/RMenu/RMenu.vue";
 import RMenuItem from "@/lib/menus/RMenuItem/RMenuItem.vue";
 import RBtn from "@/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/lib/primitives/RIcon/RIcon.vue";
+import { padActivationTarget } from "@/utils/gamepad";
 import { CONTRAST_TODO_PARAMETERS } from "@/utils/storyA11y";
 import RSelect from "./RSelect.vue";
 
@@ -805,6 +806,68 @@ export const KeyboardDisabledRows: Story = {
       await waitFor(() =>
         expect(document.querySelector(".r-select__panel")).toBeNull(),
       );
+    });
+  },
+};
+
+// `useGamepad` sends the D-pad as arrow keys to the focused element and
+// presses A on `padActivationTarget`, so the plays mirror both.
+function pressA() {
+  padActivationTarget(document.activeElement)?.click();
+}
+
+export const GamepadPick: Story = {
+  name: "Gamepad · pick with A (play)",
+  render: () => ({
+    components: { RSelect },
+    setup: () => ({ value: ref<string | null>(null), items: PLATFORMS }),
+    template: `<div style="width:340px"><RSelect v-model="value" :items="items" label="Platform" /></div>`,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const field = await within(canvasElement).findByRole("combobox", {
+      name: "Platform",
+    });
+
+    await step("A opens the list, Down and A pick the second row", async () => {
+      field.focus();
+      pressA();
+      await waitFor(() =>
+        expect(field).toHaveAttribute("aria-expanded", "true"),
+      );
+      await userEvent.keyboard("{ArrowDown}");
+      pressA();
+      await waitFor(() =>
+        expect(document.querySelector(".r-select__panel")).toBeNull(),
+      );
+      await expect(field).toHaveTextContent("Super Nintendo");
+    });
+  },
+};
+
+export const GamepadPickSearchable: Story = {
+  name: "Gamepad · searchable pick with A (play)",
+  render: () => ({
+    components: { RSelect },
+    setup: () => ({ value: ref<string | null>(null), items: PLATFORMS }),
+    template: `<div style="width:340px"><RSelect v-model="value" :items="items" searchable label="Platform" /></div>`,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const field = await within(canvasElement).findByRole("combobox", {
+      name: "Platform",
+    });
+    const search = () =>
+      document.querySelector<HTMLInputElement>(".r-select__search input");
+
+    await step("A in the search field picks the active row", async () => {
+      field.focus();
+      pressA();
+      await waitFor(() => expect(search()).toHaveFocus());
+      await userEvent.keyboard("{ArrowDown}");
+      pressA();
+      await waitFor(() =>
+        expect(document.querySelector(".r-select__panel")).toBeNull(),
+      );
+      await expect(field).toHaveTextContent("Super Nintendo");
     });
   },
 };
