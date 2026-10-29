@@ -1,16 +1,22 @@
 import logging
+import sqlite3
 import sys
 from collections.abc import Iterator
 from dataclasses import replace
-from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 import rq.scheduler
 from fakeredis import FakeRedis
 from rq.exceptions import AbandonedJobError
+from sqlalchemy import create_engine, event
 
-from handler.rq_worker import PreloadingWorker, RomMWorker, _DropPeriodicNoiseFilter
+from handler.rq_worker import (
+    _DATABASE_MODULE,
+    PreloadingWorker,
+    RomMWorker,
+    _DropPeriodicNoiseFilter,
+)
 from tasks.registry import REAP_STREAMING_SESSIONS_SPEC
 from tasks.tasks import report_task_failure
 
@@ -77,16 +83,14 @@ def test_worker_reports_failed_tasks() -> None:
     assert report_task_failure in worker._exc_handlers
 
 
+@pytest.fixture
+def engine(mocker):
+    """Patches the real module, so the worker's lookup breaks loudly if it moves."""
+    return mocker.patch(f"{_DATABASE_MODULE}.sync_engine")
+
+
 @pytest.mark.parametrize("result", [True, False])
-def test_job_disposes_database_pool_before_returning(
-    mocker, monkeypatch, result
-) -> None:
-    engine = MagicMock()
-    monkeypatch.setitem(
-        sys.modules,
-        "handler.database.base_handler",
-        SimpleNamespace(sync_engine=engine),
-    )
+def test_job_disposes_database_pool_before_returning(mocker, engine, result) -> None:
     perform = mocker.patch("rq.Worker.perform_job", return_value=result)
     worker = RomMWorker(["default"], connection=FakeRedis(version=7))
     job, queue = MagicMock(), MagicMock()
@@ -94,16 +98,10 @@ def test_job_disposes_database_pool_before_returning(
     assert worker.perform_job(job, queue) is result
 
     perform.assert_called_once_with(job, queue)
-    engine.dispose.assert_called_once_with()
+    assert engine.dispose.call_args_list == [call(close=False), call()]
 
 
-def test_job_disposes_database_pool_when_perform_raises(mocker, monkeypatch) -> None:
-    engine = MagicMock()
-    monkeypatch.setitem(
-        sys.modules,
-        "handler.database.base_handler",
-        SimpleNamespace(sync_engine=engine),
-    )
+def test_job_disposes_database_pool_when_perform_raises(mocker, engine) -> None:
     error = RuntimeError("job failed")
     mocker.patch("rq.Worker.perform_job", side_effect=error)
     worker = RomMWorker(["default"], connection=FakeRedis(version=7))
@@ -112,30 +110,48 @@ def test_job_disposes_database_pool_when_perform_raises(mocker, monkeypatch) -> 
         worker.perform_job(MagicMock(), MagicMock())
 
     assert caught.value is error
-    engine.dispose.assert_called_once_with()
+    assert engine.dispose.call_args_list == [call(close=False), call()]
+
+
+def test_job_closes_only_the_connections_it_opened(mocker, tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'romm.db'}")
+    mocker.patch(f"{_DATABASE_MODULE}.sync_engine", engine)
+    connections: list[sqlite3.Connection] = []
+    event.listen(engine, "connect", lambda dbapi, _: connections.append(dbapi))
+    # Pooled by the worker before the fork, as a failure callback does.
+    engine.connect().close()
+
+    def perform_job(job, queue) -> bool:
+        engine.connect().close()
+        return True
+
+    mocker.patch("rq.Worker.perform_job", side_effect=perform_job)
+    worker = RomMWorker(["default"], connection=FakeRedis(version=7))
+
+    assert worker.perform_job(MagicMock(), MagicMock()) is True
+
+    inherited, opened = connections
+    assert inherited.execute("SELECT 1").fetchone() == (1,)
+    with pytest.raises(sqlite3.ProgrammingError):
+        opened.execute("SELECT 1")
+    inherited.close()
 
 
 def test_job_without_database_does_not_import_it(mocker, monkeypatch) -> None:
-    monkeypatch.delitem(sys.modules, "handler.database.base_handler", raising=False)
+    monkeypatch.delitem(sys.modules, _DATABASE_MODULE, raising=False)
     mocker.patch("rq.Worker.perform_job", return_value=True)
     worker = RomMWorker(["default"], connection=FakeRedis(version=7))
 
     assert worker.perform_job(MagicMock(), MagicMock()) is True
 
-    assert "handler.database.base_handler" not in sys.modules
+    assert _DATABASE_MODULE not in sys.modules
 
 
 @pytest.mark.parametrize("job_error", [None, RuntimeError("job failed")])
 def test_cleanup_failure_does_not_replace_job_outcome(
-    mocker, monkeypatch, job_error
+    mocker, engine, job_error
 ) -> None:
-    engine = MagicMock()
-    engine.dispose.side_effect = RuntimeError("cleanup failed")
-    monkeypatch.setitem(
-        sys.modules,
-        "handler.database.base_handler",
-        SimpleNamespace(sync_engine=engine),
-    )
+    engine.dispose.side_effect = [None, RuntimeError("cleanup failed")]
     mocker.patch("rq.Worker.perform_job", return_value=True, side_effect=job_error)
     worker = RomMWorker(["default"], connection=FakeRedis(version=7))
     log = mocker.patch.object(worker.log, "exception")

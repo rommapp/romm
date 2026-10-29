@@ -1,14 +1,17 @@
 import contextlib
 import logging
 import sys
-from typing import Any, Final
+from typing import TYPE_CHECKING, Any, Final
 
 import rq.scheduler
-from rq import Worker
+from rq import Queue, Worker
 from rq.exceptions import AbandonedJobError
 from rq.job import Job
 
 from tasks.tasks import report_task_failure
+
+if TYPE_CHECKING:
+    from sqlalchemy import Engine, Pool
 
 # Fragments of the lines RQ logs on every tick. The maintenance sweep and the
 # scheduler heartbeat still run; only their log records are dropped.
@@ -16,6 +19,17 @@ _PERIODIC_NOISE: Final[tuple[str, ...]] = (
     "cleaning registries for queue",
     "scheduler sending heartbeat to",
 )
+
+# Looked up in sys.modules rather than imported, so a job that never loaded the
+# ORM does not load it just to clean it up.
+_DATABASE_MODULE: Final = "handler.database.base_handler"
+
+
+def _database_engine() -> "Engine | None":
+    engine: Engine | None = getattr(
+        sys.modules.get(_DATABASE_MODULE), "sync_engine", None
+    )
+    return engine
 
 
 class _DropPeriodicNoiseFilter(logging.Filter):
@@ -32,7 +46,8 @@ def _silence_periodic_noise(logger: logging.Logger) -> None:
 
 
 class RomMWorker(Worker):
-    """RQ worker that reports failed tasks and silences RQ's periodic log lines."""
+    """RQ worker that reports failed tasks, closes each work horse's database
+    connections, and silences RQ's periodic log lines."""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -41,17 +56,23 @@ class RomMWorker(Worker):
         # added here is the only one that logger inherits.
         _silence_periodic_noise(logging.getLogger(rq.scheduler.__name__))
         self.push_exc_handler(report_task_failure)
+        self._inherited_db_pool: Pool | None = None
 
-    def perform_job(self, job: Job, queue: Any) -> bool:
+    def perform_job(self, job: Job, queue: Queue) -> bool:
+        engine = _database_engine()
+        if engine is not None:
+            # The forked pool holds the worker's connections. Closing them, or letting
+            # them be garbage-collected, would end the worker's sessions.
+            self._inherited_db_pool = engine.pool
+            engine.dispose(close=False)
         try:
             return super().perform_job(job, queue)
         finally:
             # RQ exits the work horse with os._exit, bypassing pool finalizers.
-            # Jobs that never loaded the ORM do not need database cleanup.
-            database = sys.modules.get("handler.database.base_handler")
-            if database is not None:
+            engine = _database_engine()
+            if engine is not None:
                 try:
-                    database.sync_engine.dispose()
+                    engine.dispose()
                 except Exception:
                     self.log.exception("Could not close the work horse database pool")
 
