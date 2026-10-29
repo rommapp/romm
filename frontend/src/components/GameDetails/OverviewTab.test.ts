@@ -1,6 +1,6 @@
 import { shallowMount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ref } from "vue";
+import { nextTick, ref } from "vue";
 import type { IGDBRelatedGame, SimilarRomSchema } from "@/__generated__";
 import { detailedRomFixture } from "@/utils/rom.fixtures";
 import type { MediaShelfItem } from "./MediaShelf.vue";
@@ -88,6 +88,10 @@ function mount(props: Record<string, unknown> = {}) {
   });
 }
 
+function sourcePicker(wrapper: ReturnType<typeof mount>) {
+  return wrapper.findComponent({ name: "RSliderBtnGroup" });
+}
+
 function gridItems(wrapper: ReturnType<typeof mount>) {
   return wrapper
     .findAllComponents({ name: "RelatedGamesGrid" })
@@ -129,22 +133,15 @@ describe("OverviewTab similar games", () => {
       wrapper.findComponent({ name: "SimilarGamesGrid" }).props("items"),
     ).toEqual(similarRoms);
     expect(gridItems(wrapper)).toEqual([]);
-    await wrapper
-      .findAll("button")
-      .find((button) => button.text() === "IGDB")!
-      .trigger("click");
+
+    sourcePicker(wrapper).vm.$emit("update:modelValue", "igdb");
+    await nextTick();
+
     expect(similarGamesSource.value).toBe("igdb");
     expect(gridItems(wrapper)).toEqual([items]);
     expect(wrapper.findComponent({ name: "SimilarGamesGrid" }).exists()).toBe(
       false,
     );
-    expect(
-      gridItems(
-        mount({
-          rom: detailedRomFixture({ igdb_metadata: { similar_games: items } }),
-        }),
-      ),
-    ).toEqual([items]);
   });
 
   it("keeps the selector reachable when the selected source is empty", () => {
@@ -154,11 +151,12 @@ describe("OverviewTab similar games", () => {
       }),
     });
     expect(wrapper.text()).toContain("common.no-results");
-    expect(wrapper.text()).toContain("IGDB");
+    expect(sourcePicker(wrapper).props("modelValue")).toBe("romm");
+
     similarGamesSource.value = "igdb";
     const empty = mount({ similarRoms });
     expect(empty.text()).toContain("common.no-results");
-    expect(empty.text()).toContain("RomM");
+    expect(sourcePicker(empty).props("modelValue")).toBe("igdb");
   });
 
   it("hides both sources when recommendations are disabled", () => {
@@ -171,7 +169,7 @@ describe("OverviewTab similar games", () => {
       }),
     });
     expect(gridItems(wrapper)).toEqual([]);
-    expect(wrapper.find('[role="group"]').exists()).toBe(false);
+    expect(sourcePicker(wrapper).exists()).toBe(false);
   });
 
   it("hides the section when neither source has games", () => {

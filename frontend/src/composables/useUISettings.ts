@@ -65,8 +65,6 @@ export const UI_SETTINGS_KEYS = {
     default: "randomPick,anniversaries,libraryStats",
   },
 
-  similarGamesSource: { key: "settings.similarGamesSource", default: "romm" },
-
   // Gallery section
   groupRoms: { key: "settings.groupRoms", default: true },
   showRegions: { key: "settings.showRegions", default: true },
@@ -76,6 +74,7 @@ export const UI_SETTINGS_KEYS = {
   showLogoTitle: { key: "settings.showLogoTitle", default: false },
   showActionBar: { key: "settings.showActionBar", default: false },
   showGameTitle: { key: "settings.showGameTitle", default: false },
+  similarGamesSource: { key: "settings.similarGamesSource", default: "romm" },
   enable3DEffect: { key: "settings.enable3DEffect", default: false },
   disableAnimations: { key: "settings.disableAnimations", default: false },
   enableExperimentalCache: {
