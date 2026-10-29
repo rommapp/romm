@@ -37,6 +37,7 @@ from utils.database import (
     rom_sort_index_name,
     rom_unset_flag_column,
 )
+from utils.metadata_locks import PROJECTED_METADATA_LOCK_FIELDS
 
 TABLE = "roms"
 VIEW = "roms_metadata"
@@ -547,16 +548,7 @@ def _locked_metadata_projection(
     pg: bool, name: str, alias: str, *, with_locks: bool
 ) -> str:
     """Project a locked facet snapshot ahead of its current provider value."""
-    if not with_locks or alias not in {
-        "genres",
-        "franchises",
-        "collections",
-        "companies",
-        "game_modes",
-        "age_ratings",
-        "first_release_date",
-        "player_count",
-    }:
+    if not with_locks or alias not in PROJECTED_METADATA_LOCK_FIELDS:
         expression = name
     elif pg:
         has_key = f"metadata_locks ? '{alias}'"

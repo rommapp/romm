@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Any, Literal, TypeAlias, get_args
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias, get_args
 
-from models.rom import Rom
+if TYPE_CHECKING:
+    from models.rom import Rom
 
 MetadataLockField: TypeAlias = Literal[
     "name",
