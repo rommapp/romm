@@ -63,11 +63,7 @@ CollectionSchemaT = TypeVar(
 def _hide_collection_roms(
     schemas: list[CollectionSchemaT], request: Request
 ) -> list[CollectionSchemaT]:
-    """Drop hidden roms from each collection's `rom_ids` and covers for the caller.
-
-    Without this a collection leaks the ids (and inflated count) and the cover
-    art of roms hidden from the user via the opt-out visibility model.
-    """
+    """Drop roms hidden from the caller from each collection's ids, count and covers."""
     if not schemas:
         return schemas
     visibility = get_rom_visibility_filter(request)
@@ -248,7 +244,9 @@ async def add_smart_collection(
     )
     _record_collection(request, AuditAction.SMART_COLLECTION_CREATE, smart_collection)
 
-    return SmartCollectionSchema.model_validate(smart_collection)
+    return _hide_collection_roms(
+        [SmartCollectionSchema.model_validate(smart_collection)], request
+    )[0]
 
 
 @protected_route(router.get, "", [Scope.COLLECTIONS_READ])
@@ -586,7 +584,9 @@ async def update_collection(
             },
         )
 
-    return CollectionSchema.model_validate(updated_collection)
+    return _hide_collection_roms(
+        [CollectionSchema.model_validate(updated_collection)], request
+    )[0]
 
 
 @protected_route(
@@ -614,7 +614,9 @@ def update_collection_visibility(
     if collection.is_public != is_public:
         refresh_scoped_smart_collections(id)
 
-    return CollectionSchema.model_validate(updated_collection)
+    return _hide_collection_roms(
+        [CollectionSchema.model_validate(updated_collection)], request
+    )[0]
 
 
 class CollectionRomsPayload(PydanticBaseModel):
@@ -656,7 +658,9 @@ async def add_roms_to_collection(
             collection,
             {"count": len(added), "rom_ids": added},
         )
-    return CollectionSchema.model_validate(updated_collection)
+    return _hide_collection_roms(
+        [CollectionSchema.model_validate(updated_collection)], request
+    )[0]
 
 
 @protected_route(router.delete, "/{id}/roms", [Scope.COLLECTIONS_WRITE])
@@ -694,7 +698,9 @@ async def remove_roms_from_collection(
             collection,
             {"count": len(removed), "rom_ids": removed},
         )
-    return CollectionSchema.model_validate(updated_collection)
+    return _hide_collection_roms(
+        [CollectionSchema.model_validate(updated_collection)], request
+    )[0]
 
 
 @protected_route(router.put, "/smart/{id}", [Scope.COLLECTIONS_WRITE])
@@ -769,7 +775,9 @@ async def update_smart_collection(
     )
     _record_collection(request, AuditAction.SMART_COLLECTION_EDIT, smart_collection)
 
-    return SmartCollectionSchema.model_validate(smart_collection)
+    return _hide_collection_roms(
+        [SmartCollectionSchema.model_validate(smart_collection)], request
+    )[0]
 
 
 @protected_route(
@@ -791,9 +799,12 @@ def update_smart_collection_visibility(
     if smart_collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
 
-    return SmartCollectionSchema.model_validate(
-        db_collection_handler.update_smart_collection(id, {"is_public": is_public})
+    updated_smart_collection = db_collection_handler.update_smart_collection(
+        id, {"is_public": is_public}
     )
+    return _hide_collection_roms(
+        [SmartCollectionSchema.model_validate(updated_smart_collection)], request
+    )[0]
 
 
 @protected_route(
