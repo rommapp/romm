@@ -195,3 +195,38 @@ export const KeyboardSelection: Story = {
     });
   },
 };
+
+export const GamepadPick: Story = {
+  name: "Gamepad · pick a day with A (play)",
+  render: () => ({
+    components: { RDateField },
+    setup: () => ({ value: ref<Date | null>(new Date(Date.UTC(2024, 2, 15))) }),
+    template: `
+      <div style="width:280px;padding:24px">
+        <RDateField v-model="value" label="Released at" variant="outlined" />
+      </div>
+    `,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const field = await within(canvasElement).findByRole("combobox", {
+      name: "Released at",
+    });
+    const panel = () => document.querySelector('[role="dialog"]');
+
+    await step("D-pad moves between days and A picks one", async () => {
+      field.focus();
+      await userEvent.keyboard("{Enter}");
+      await waitFor(() =>
+        expect(document.activeElement).toHaveAttribute(
+          "data-value",
+          "2024-03-15",
+        ),
+      );
+      // `useGamepad` sends the D-pad as arrow keys and presses A as `.click()`.
+      await userEvent.keyboard("{ArrowDown}{ArrowRight}");
+      (document.activeElement as HTMLElement).click();
+      await waitFor(() => expect(panel()).toBeNull());
+      await expect(field).toHaveValue("Mar 23, 2024");
+    });
+  },
+};

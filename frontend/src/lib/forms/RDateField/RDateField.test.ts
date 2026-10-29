@@ -1,15 +1,6 @@
 import { mount } from "@vue/test-utils";
-import {
-  afterEach,
-  beforeAll,
-  describe,
-  expect,
-  it,
-  onTestFinished,
-  vi,
-} from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
-import { useInputModality } from "@/composables/useInputModality";
 import {
   type EscapableEntry,
   popEscapable,
@@ -35,15 +26,23 @@ async function openPicker(props: Record<string, unknown> = {}) {
 }
 
 function dayCell(day: number) {
+  const value = `2024-03-${String(day).padStart(2, "0")}`;
   return document.querySelector<HTMLButtonElement>(
-    `.r-date-cal__day[data-day-key="2024-2-${day}"]`,
+    `.r-date-cal__day[data-value="${value}"]:not([data-outside-view])`,
   );
 }
 
 function focusedKey() {
-  return document
-    .querySelector('.r-date-cal__day[tabindex="0"]')
-    ?.getAttribute("data-day-key");
+  return document.activeElement?.getAttribute("data-value");
+}
+
+// Keys land on the focused day, as real presses and `useGamepad` send them.
+async function press(key: string, init: KeyboardEventInit = {}) {
+  document.activeElement!.dispatchEvent(
+    new KeyboardEvent("keydown", { key, code: key, bubbles: true, ...init }),
+  );
+  await nextTick();
+  await nextTick();
 }
 
 describe("RDateField", () => {
@@ -74,7 +73,7 @@ describe("RDateField", () => {
     expect(document.querySelector(".r-date-cal__title")?.textContent).toContain(
       "March",
     );
-    expect(dayCell(15)?.classList).toContain("r-date-cal__day--selected");
+    expect(dayCell(15)?.hasAttribute("data-selected")).toBe(true);
   });
 
   it("lines the grid up under the weekday header", async () => {
@@ -88,7 +87,7 @@ describe("RDateField", () => {
     // firstDayOfWeek defaults to Monday and March 2024 opens on a Friday, so
     // the grid leads with Mon 26 Feb.
     const first = document.querySelector(".r-date-cal__day");
-    expect(first?.getAttribute("data-day-key")).toBe("2024-1-26");
+    expect(first?.getAttribute("data-value")).toBe("2024-02-26");
   });
 
   it("emits the day that was clicked", async () => {
@@ -104,59 +103,26 @@ describe("RDateField", () => {
   });
 
   it("walks one day per arrow key", async () => {
-    const wrapper = await openPicker();
-    expect(focusedKey()).toBe("2024-2-15");
+    await openPicker();
+    expect(focusedKey()).toBe("2024-03-15");
 
-    const panel = document.querySelector(".r-date-cal") as HTMLElement;
-    for (const key of ["ArrowRight", "ArrowDown"]) {
-      panel.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
-      await wrapper.vm.$nextTick();
-    }
-    expect(focusedKey()).toBe("2024-2-23");
+    await press("ArrowRight");
+    await press("ArrowDown");
+
+    expect(focusedKey()).toBe("2024-03-23");
   });
-
-  it("asks for a visible focus ring on the day it opens on and moves to", async () => {
-    const { setModality } = useInputModality();
-    setModality("key");
-    onTestFinished(() => setModality("mouse"));
-    const focus = vi.spyOn(HTMLElement.prototype, "focus");
-    const wrapper = await openPicker();
-    const panel = document.querySelector(".r-date-cal") as HTMLElement;
-    panel.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
-    );
-    await wrapper.vm.$nextTick();
-
-    for (const day of [15, 16]) {
-      const call = focus.mock.contexts.indexOf(dayCell(day)!);
-      expect(call).toBeGreaterThanOrEqual(0);
-      expect(focus.mock.calls[call]?.[0]).toEqual(
-        expect.objectContaining({ focusVisible: true }),
-      );
-    }
-  });
-
-  async function press(key: string, init: KeyboardEventInit = {}) {
-    document
-      .querySelector(".r-date-cal")!
-      .dispatchEvent(
-        new KeyboardEvent("keydown", { key, bubbles: true, ...init }),
-      );
-    await nextTick();
-    await nextTick();
-  }
 
   it("moves the cursor and focus a month or a year on PageDown and PageUp", async () => {
     await openPicker();
 
     await press("PageDown");
-    expect(focusedKey()).toBe("2024-3-15");
-    expect(document.activeElement?.getAttribute("data-day-key")).toBe(
-      "2024-3-15",
+    expect(focusedKey()).toBe("2024-04-15");
+    expect(document.activeElement?.getAttribute("data-value")).toBe(
+      "2024-04-15",
     );
 
     await press("PageUp", { shiftKey: true });
-    expect(focusedKey()).toBe("2023-3-15");
+    expect(focusedKey()).toBe("2023-04-15");
   });
 
   it("keeps the day of month on PageDown, capped at the month's end", async () => {
@@ -164,7 +130,7 @@ describe("RDateField", () => {
 
     await press("PageDown");
 
-    expect(focusedKey()).toBe("2024-1-29");
+    expect(focusedKey()).toBe("2024-02-29");
   });
 
   it("stops the cursor at max instead of stepping onto a disabled day", async () => {
@@ -177,9 +143,9 @@ describe("RDateField", () => {
     await press("ArrowRight");
     await press("PageDown");
 
-    expect(focusedKey()).toBe("2024-2-16");
-    expect(document.activeElement?.getAttribute("data-day-key")).toBe(
-      "2024-2-16",
+    expect(focusedKey()).toBe("2024-03-16");
+    expect(document.activeElement?.getAttribute("data-value")).toBe(
+      "2024-03-16",
     );
   });
 
@@ -191,7 +157,7 @@ describe("RDateField", () => {
 
     await press("PageUp");
 
-    expect(focusedKey()).toBe("2024-2-10");
+    expect(focusedKey()).toBe("2024-03-10");
   });
 
   it("keeps the label and the emitted value on the same day", async () => {
@@ -276,6 +242,26 @@ describe("RDateField inside an overlay", () => {
     );
     await nextTick();
     expect(document.querySelector(".r-date-cal")).toBeNull();
+    wrapper.unmount();
+  });
+});
+
+describe("RDateField with bounds and no value", () => {
+  it("opens on the nearest allowed day when today is past max", async () => {
+    const wrapper = mount(RDateField, {
+      props: { modelValue: null, max: Date.UTC(2020, 4, 20) },
+      attachTo: document.body,
+    });
+    await wrapper.get("input").trigger("click");
+    await nextTick();
+    await nextTick();
+
+    expect(document.querySelector(".r-date-cal__title")?.textContent).toContain(
+      "May 2020",
+    );
+    expect(document.activeElement?.getAttribute("data-value")).toMatch(
+      /^2020-05-/,
+    );
     wrapper.unmount();
   });
 });

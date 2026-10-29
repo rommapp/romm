@@ -41,6 +41,7 @@
   },
   "dependencies": {
     "@floating-ui/vue": "^2.0.0",
+    "@internationalized/date": "^3.12.4",
     "@mdi/font": "7.4.47",
     "@vueuse/core": "^15.0.0",
     "@vueuse/integrations": "^15.0.0",
@@ -58,6 +59,7 @@
     "mitt": "^3.0.1",
     "pinia": "^4.0.0",
     "qrcode": "^1.5.4",
+    "reka-ui": "^2.11.0",
     "semver": "^7.6.2",
     "socket.io-client": "^4.7.5",
     "spark-md5": "^3.0.2",

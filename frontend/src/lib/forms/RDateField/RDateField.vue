@@ -23,7 +23,22 @@ import {
   shift,
   useFloating,
 } from "@floating-ui/vue";
-import { computed, nextTick, ref, useId, watch } from "vue";
+import { CalendarDate, type DateValue } from "@internationalized/date";
+import {
+  CalendarCell,
+  CalendarCellTrigger,
+  CalendarGrid,
+  CalendarGridBody,
+  CalendarGridHead,
+  CalendarGridRow,
+  CalendarHeadCell,
+  CalendarHeader,
+  CalendarHeading,
+  CalendarNext,
+  CalendarPrev,
+  CalendarRoot,
+} from "reka-ui";
+import { computed, nextTick, ref, useId } from "vue";
 import { usePopoverDismiss } from "@/composables/usePopoverDismiss";
 import { useChromeLabels } from "@/lib/a11y/chromeLabels";
 import { focusFromInput } from "@/utils/autofocus";
@@ -147,273 +162,71 @@ function toggle() {
   else open();
 }
 
-// ── Calendar view state ────────────────────────────────────────
-// `viewMonth` is the first day of the displayed month (always day 1).
-// `focusedDay` tracks the keyboard cursor: separate from selection so
-// users can navigate without committing.
-function startOfMonth(d: Date): Date {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
-}
-function sameDay(a: Date | null, b: Date | null): boolean {
-  if (!a || !b) return false;
-  return (
-    a.getUTCFullYear() === b.getUTCFullYear() &&
-    a.getUTCMonth() === b.getUTCMonth() &&
-    a.getUTCDate() === b.getUTCDate()
+// ── Calendar (grid, labels, keyboard: reka-ui) ─────────────────
+// The calendar works in CalendarDate, a date with no time or zone, so it
+// can't drift across a day boundary; the model stays a UTC-midnight Date.
+function toCalendarDate(d: Date | null): CalendarDate | undefined {
+  if (!d) return undefined;
+  return new CalendarDate(
+    d.getUTCFullYear(),
+    d.getUTCMonth() + 1,
+    d.getUTCDate(),
   );
 }
-/** The user's local calendar day, re-anchored at UTC midnight. */
-function todayUtc(): Date {
+
+const calendarMin = computed(() => toCalendarDate(minDate.value));
+const calendarMax = computed(() => toCalendarDate(maxDate.value));
+
+/** The user's local calendar day. */
+function todayLocal(): CalendarDate {
   const now = new Date();
-  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  return new CalendarDate(now.getFullYear(), now.getMonth() + 1, now.getDate());
 }
 
-const viewMonth = ref<Date>(startOfMonth(selectedDate.value ?? todayUtc()));
-const focusedDay = ref<Date>(selectedDate.value ?? todayUtc());
-
-// Whenever the popup opens, snap the view + cursor back to the current
-// selection (or today) so the user never lands on a stale month.
-watch(isOpen, (next) => {
-  if (!next) return;
-  const anchor = selectedDate.value ?? todayUtc();
-  viewMonth.value = startOfMonth(anchor);
-  focusedDay.value = new Date(anchor);
-  void nextTick(focusDayCell);
-});
-
-// ── Grid building ──────────────────────────────────────────────
-interface GridCell {
-  date: Date;
-  inMonth: boolean;
-  isToday: boolean;
-  isSelected: boolean;
-  isDisabled: boolean;
-  isFocused: boolean;
-  key: string;
-}
-
-const today = computed(() => todayUtc());
-
-function isDisabledDate(d: Date): boolean {
-  if (minDate.value && d < startOfDay(minDate.value)) return true;
-  if (maxDate.value && d > endOfDay(maxDate.value)) return true;
-  return false;
-}
-function startOfDay(d: Date): Date {
-  return new Date(
-    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()),
-  );
-}
-function endOfDay(d: Date): Date {
-  return new Date(
-    Date.UTC(
-      d.getUTCFullYear(),
-      d.getUTCMonth(),
-      d.getUTCDate(),
-      23,
-      59,
-      59,
-      999,
-    ),
-  );
-}
-
-const grid = computed<GridCell[]>(() => {
-  const first = startOfMonth(viewMonth.value);
-  const startOffset = (first.getUTCDay() - props.firstDayOfWeek + 7) % 7;
-  const gridStart = new Date(first);
-  gridStart.setUTCDate(first.getUTCDate() - startOffset);
-
-  const cells: GridCell[] = [];
-  for (let i = 0; i < 42; i += 1) {
-    const d = new Date(gridStart);
-    d.setUTCDate(gridStart.getUTCDate() + i);
-    cells.push({
-      date: d,
-      inMonth: d.getUTCMonth() === viewMonth.value.getUTCMonth(),
-      isToday: sameDay(d, today.value),
-      isSelected: sameDay(d, selectedDate.value),
-      isDisabled: isDisabledDate(d),
-      isFocused: sameDay(d, focusedDay.value),
-      key: `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`,
-    });
+// Only the set ones: the calendar's props don't take an explicit undefined.
+// With no value it opens on today, pulled inside min and max so it never
+// lands on a month of disabled days.
+const calendarBounds = computed(() => {
+  const bounds = {
+    ...(calendarMin.value && { minValue: calendarMin.value }),
+    ...(calendarMax.value && { maxValue: calendarMax.value }),
+  };
+  const value = toCalendarDate(selectedDate.value);
+  if (value) return { ...bounds, modelValue: value };
+  let anchor = todayLocal();
+  if (calendarMin.value && anchor.compare(calendarMin.value) < 0) {
+    anchor = calendarMin.value;
+  } else if (calendarMax.value && anchor.compare(calendarMax.value) > 0) {
+    anchor = calendarMax.value;
   }
-  return cells;
+  return { ...bounds, defaultPlaceholder: anchor };
 });
 
-// ── Locale-aware labels ────────────────────────────────────────
-const monthYearFormat = new Intl.DateTimeFormat(undefined, {
-  month: "long",
-  year: "numeric",
-  timeZone: "UTC",
-});
-const monthLabel = computed(() => monthYearFormat.format(viewMonth.value));
+// The browser locale, which the field's own `Intl` label also uses.
+const locale = new Intl.DateTimeFormat().resolvedOptions().locale;
 
-const weekdayFormat = new Intl.DateTimeFormat(undefined, {
-  weekday: "short",
-  timeZone: "UTC",
-});
-const weekdays = computed(() => {
-  // Anchor on a known Sunday (2024-01-07) and step `firstDayOfWeek` ahead.
-  const anchor = new Date(Date.UTC(2024, 0, 7));
-  const out: string[] = [];
-  for (let i = 0; i < 7; i += 1) {
-    const d = new Date(anchor);
-    d.setUTCDate(anchor.getUTCDate() + ((i + props.firstDayOfWeek) % 7));
-    out.push(weekdayFormat.format(d));
-  }
-  return out;
-});
+const yearBack = (d: DateValue) => d.subtract({ years: 1 });
+const yearAhead = (d: DateValue) => d.add({ years: 1 });
 
-// ── Month / year navigation ────────────────────────────────────
-function shiftMonth(delta: number) {
-  viewMonth.value = new Date(
-    Date.UTC(
-      viewMonth.value.getUTCFullYear(),
-      viewMonth.value.getUTCMonth() + delta,
-      1,
-    ),
+function pick(day: DateValue | undefined) {
+  if (!day) return;
+  // UTC midnight, the shape callers already store (e.g. `released_at`).
+  emit(
+    "update:modelValue",
+    new Date(Date.UTC(day.year, day.month - 1, day.day)),
   );
-}
-function shiftYear(delta: number) {
-  viewMonth.value = new Date(
-    Date.UTC(
-      viewMonth.value.getUTCFullYear() + delta,
-      viewMonth.value.getUTCMonth(),
-      1,
-    ),
-  );
-}
-
-// ── Selection ──────────────────────────────────────────────────
-function selectDay(d: Date) {
-  if (isDisabledDate(d)) return;
-  // Emit UTC midnight so the round-trip survives timezones, matching the
-  // shape callers already store (e.g. `released_at` timestamps in DB).
-  const utc = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-  emit("update:modelValue", new Date(utc));
   close();
 }
+
 function selectToday() {
-  const t = today.value;
-  selectDay(t);
+  const day = todayLocal();
+  if (calendarMin.value && day.compare(calendarMin.value) < 0) return;
+  if (calendarMax.value && day.compare(calendarMax.value) > 0) return;
+  pick(day);
 }
 function clearValue() {
   emit("update:modelValue", null);
   close();
-}
-
-// ── Keyboard navigation inside the panel ───────────────────────
-// Day cells are real `<button>`s so Tab order works out of the box;
-// these handlers cover the rich grid-style navigation users expect.
-function onPanelKeydown(evt: KeyboardEvent) {
-  if (!isOpen.value) return;
-  switch (evt.key) {
-    case "ArrowLeft":
-      evt.preventDefault();
-      moveFocus(-1);
-      break;
-    case "ArrowRight":
-      evt.preventDefault();
-      moveFocus(1);
-      break;
-    case "ArrowUp":
-      evt.preventDefault();
-      moveFocus(-7);
-      break;
-    case "ArrowDown":
-      evt.preventDefault();
-      moveFocus(7);
-      break;
-    case "Home":
-      evt.preventDefault();
-      moveFocusToWeekEdge(-1);
-      break;
-    case "End":
-      evt.preventDefault();
-      moveFocusToWeekEdge(1);
-      break;
-    case "PageUp":
-      evt.preventDefault();
-      moveFocusByMonths(evt.shiftKey ? -12 : -1);
-      break;
-    case "PageDown":
-      evt.preventDefault();
-      moveFocusByMonths(evt.shiftKey ? 12 : 1);
-      break;
-    case "Enter":
-    case " ":
-      // The day button handles its own click; only intercept if focus
-      // is not on a day cell (e.g. on month nav arrows).
-      if (
-        !(evt.target as HTMLElement | null)?.classList.contains(
-          "r-date-cal__day",
-        )
-      ) {
-        return;
-      }
-      evt.preventDefault();
-      selectDay(new Date(focusedDay.value));
-      break;
-    default:
-      break;
-  }
-}
-
-function moveFocus(deltaDays: number) {
-  const next = new Date(focusedDay.value);
-  next.setUTCDate(next.getUTCDate() + deltaDays);
-  setCursor(next);
-}
-function moveFocusToWeekEdge(direction: -1 | 1) {
-  // -1: Home → start of week. +1: End → end of week.
-  const dow = focusedDay.value.getUTCDay();
-  const fdow = props.firstDayOfWeek;
-  const offsetFromStart = (dow - fdow + 7) % 7;
-  const next = new Date(focusedDay.value);
-  if (direction === -1) {
-    next.setUTCDate(next.getUTCDate() - offsetFromStart);
-  } else {
-    next.setUTCDate(next.getUTCDate() + (6 - offsetFromStart));
-  }
-  setCursor(next);
-}
-// Keeps the day of month, capped at the target month's last day.
-function moveFocusByMonths(deltaMonths: number) {
-  const year = focusedDay.value.getUTCFullYear();
-  const month = focusedDay.value.getUTCMonth() + deltaMonths;
-  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-  setCursor(
-    new Date(
-      Date.UTC(year, month, Math.min(focusedDay.value.getUTCDate(), lastDay)),
-    ),
-  );
-}
-
-// Disabled days can't take focus, so the cursor stops at min and max.
-function setCursor(next: Date) {
-  if (minDate.value && next < startOfDay(minDate.value)) {
-    next = startOfDay(minDate.value);
-  } else if (maxDate.value && next > endOfDay(maxDate.value)) {
-    next = startOfDay(maxDate.value);
-  }
-  focusedDay.value = next;
-  if (
-    next.getUTCFullYear() !== viewMonth.value.getUTCFullYear() ||
-    next.getUTCMonth() !== viewMonth.value.getUTCMonth()
-  ) {
-    viewMonth.value = startOfMonth(next);
-  }
-  void nextTick(focusDayCell);
-}
-
-function focusDayCell() {
-  if (!panelRef.value) return;
-  const key = `${focusedDay.value.getUTCFullYear()}-${focusedDay.value.getUTCMonth()}-${focusedDay.value.getUTCDate()}`;
-  const cell = panelRef.value.querySelector(
-    `[data-day-key="${key}"]`,
-  ) as HTMLElement | null;
-  focusFromInput(cell);
 }
 
 // ── Field-level keyboard wiring ────────────────────────────────
@@ -488,7 +301,6 @@ usePopoverDismiss(isOpen, close, {
 
     <Teleport to="body">
       <Transition name="r-date-pop">
-        <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -->
         <div
           v-if="isOpen"
           :id="panelId"
@@ -497,89 +309,94 @@ usePopoverDismiss(isOpen, close, {
           :style="floatingStyles"
           role="dialog"
           :aria-label="labels.datePicker"
-          @keydown="onPanelKeydown"
         >
-          <!-- Header: month/year title flanked by nav arrows. The
-               outer two step a year, the inner two step a month, so the
-               common moves are both one click away. -->
-          <div class="r-date-cal__head">
-            <button
-              type="button"
-              class="r-date-cal__nav"
-              :aria-label="labels.previousYear"
-              @click="shiftYear(-1)"
-            >
-              <RIcon icon="mdi-chevron-double-left" size="x-small" />
-            </button>
-            <button
-              type="button"
-              class="r-date-cal__nav"
-              :aria-label="labels.previousMonth"
-              @click="shiftMonth(-1)"
-            >
-              <RIcon icon="mdi-chevron-left" size="x-small" />
-            </button>
+          <CalendarRoot
+            v-slot="{ grid, weekDays }"
+            v-bind="calendarBounds"
+            :week-starts-on="firstDayOfWeek"
+            :locale="locale"
+            :calendar-label="labels.datePicker"
+            weekday-format="short"
+            fixed-weeks
+            prevent-deselect
+            initial-focus
+            class="r-date-cal__calendar"
+            @update:model-value="pick"
+          >
+            <!-- Header: month/year title flanked by nav arrows. The
+                 outer two step a year, the inner two step a month, so the
+                 common moves are both one click away. -->
+            <CalendarHeader class="r-date-cal__head">
+              <CalendarPrev
+                :prev-page="yearBack"
+                class="r-date-cal__nav"
+                :aria-label="labels.previousYear"
+              >
+                <RIcon icon="mdi-chevron-double-left" size="x-small" />
+              </CalendarPrev>
+              <CalendarPrev
+                class="r-date-cal__nav"
+                :aria-label="labels.previousMonth"
+              >
+                <RIcon icon="mdi-chevron-left" size="x-small" />
+              </CalendarPrev>
+              <CalendarHeading class="r-date-cal__title" aria-live="polite" />
+              <CalendarNext
+                class="r-date-cal__nav"
+                :aria-label="labels.nextMonth"
+              >
+                <RIcon icon="mdi-chevron-right" size="x-small" />
+              </CalendarNext>
+              <CalendarNext
+                :next-page="yearAhead"
+                class="r-date-cal__nav"
+                :aria-label="labels.nextYear"
+              >
+                <RIcon icon="mdi-chevron-double-right" size="x-small" />
+              </CalendarNext>
+            </CalendarHeader>
 
-            <div class="r-date-cal__title" aria-live="polite">
-              {{ monthLabel }}
-            </div>
-
-            <button
-              type="button"
-              class="r-date-cal__nav"
-              :aria-label="labels.nextMonth"
-              @click="shiftMonth(1)"
+            <!-- 6 × 7 days; days from neighbouring months render muted.
+                 Only the focused day is in the Tab order; arrow keys move it. -->
+            <CalendarGrid
+              v-for="month in grid"
+              :key="month.value.toString()"
+              class="r-date-cal__grid"
             >
-              <RIcon icon="mdi-chevron-right" size="x-small" />
-            </button>
-            <button
-              type="button"
-              class="r-date-cal__nav"
-              :aria-label="labels.nextYear"
-              @click="shiftYear(1)"
-            >
-              <RIcon icon="mdi-chevron-double-right" size="x-small" />
-            </button>
-          </div>
-
-          <!-- Weekday header. `aria-hidden` because the day cells carry
-               full-date aria-labels: reading the column header twice
-               would be noise. -->
-          <div class="r-date-cal__weekdays" aria-hidden="true">
-            <span
-              v-for="(w, i) in weekdays"
-              :key="i"
-              class="r-date-cal__weekday"
-            >
-              {{ w }}
-            </span>
-          </div>
-
-          <!-- Day grid. 6 × 7 = 42 cells; days from neighbouring months
-               render muted (`--out`). The Tab order is the focused day
-               only (`tabindex` rovers); arrow keys do the rest. -->
-          <div class="r-date-cal__grid" role="grid">
-            <button
-              v-for="cell in grid"
-              :key="cell.key"
-              type="button"
-              class="r-date-cal__day"
-              :class="{
-                'r-date-cal__day--out': !cell.inMonth,
-                'r-date-cal__day--today': cell.isToday,
-                'r-date-cal__day--selected': cell.isSelected,
-                'r-date-cal__day--disabled': cell.isDisabled,
-              }"
-              :data-day-key="cell.key"
-              :tabindex="cell.isFocused ? 0 : -1"
-              :aria-selected="cell.isSelected"
-              :aria-disabled="cell.isDisabled || undefined"
-              :disabled="cell.isDisabled"
-              @click="selectDay(cell.date)"
-            >
-              {{ cell.date.getUTCDate() }}
-            </button>
-          </div>
+              <CalendarGridHead>
+                <CalendarGridRow>
+                  <CalendarHeadCell
+                    v-for="day in weekDays"
+                    :key="day"
+                    class="r-date-cal__weekday"
+                  >
+                    {{ day }}
+                  </CalendarHeadCell>
+                </CalendarGridRow>
+              </CalendarGridHead>
+              <CalendarGridBody>
+                <CalendarGridRow
+                  v-for="week in month.rows"
+                  :key="week[0]!.toString()"
+                >
+                  <CalendarCell
+                    v-for="day in week"
+                    :key="day.toString()"
+                    :date="day"
+                    class="r-date-cal__cell"
+                  >
+                    <CalendarCellTrigger
+                      :day="day"
+                      :month="month.value"
+                      as="button"
+                      type="button"
+                      class="r-date-cal__day"
+                    />
+                  </CalendarCell>
+                </CalendarGridRow>
+              </CalendarGridBody>
+            </CalendarGrid>
+          </CalendarRoot>
 
           <!-- Footer shortcuts. Hidden when the consumer doesn't want
                quick-access buttons (e.g. embedded in a complex form). -->
@@ -718,13 +535,17 @@ usePopoverDismiss(isOpen, close, {
 .r-date-cal__nav:active {
   transform: scale(0.92);
 }
+.r-date-cal__nav:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
 
-/* ── Weekday header ────────────────────────────────────────────── */
-.r-date-cal__weekdays {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
-  padding: 0 2px;
+/* ── Grid: a table, with the weekday header in its first row ──── */
+.r-date-cal__grid {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 2px;
 }
 .r-date-cal__weekday {
   text-align: center;
@@ -735,13 +556,8 @@ usePopoverDismiss(isOpen, close, {
   color: var(--r-color-fg-muted);
   padding: 4px 0;
 }
-
-/* ── Day grid ──────────────────────────────────────────────────── */
-.r-date-cal__grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
-  padding: 0 2px;
+.r-date-cal__cell {
+  padding: 0;
 }
 
 .r-date-cal__day {
@@ -749,6 +565,7 @@ usePopoverDismiss(isOpen, close, {
   background: transparent;
   border: 0;
   border-radius: 8px;
+  width: 100%;
   aspect-ratio: 1 / 1;
   display: inline-flex;
   align-items: center;
@@ -758,7 +575,6 @@ usePopoverDismiss(isOpen, close, {
   font-weight: var(--r-font-weight-medium);
   color: var(--r-color-fg);
   cursor: pointer;
-  /* Sits inside an aspect-ratio cell so it scales with width. */
   padding: 0;
   position: relative;
   transition:
@@ -766,22 +582,22 @@ usePopoverDismiss(isOpen, close, {
     color var(--r-motion-fast) var(--r-motion-ease-out),
     transform var(--r-motion-fast) cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.r-date-cal__day:hover:not(:disabled) {
+.r-date-cal__day:hover:not([data-disabled]) {
   background: color-mix(in srgb, var(--r-color-fg) 12%, transparent);
 }
-.r-date-cal__day:active:not(:disabled) {
+.r-date-cal__day:active:not([data-disabled]) {
   transform: scale(0.92);
 }
 
 /* Days that bleed in from the neighbouring months: keep them visible
    but obviously secondary so the eye reads the in-month block first. */
-.r-date-cal__day--out {
+.r-date-cal__day[data-outside-view] {
   color: var(--r-color-fg-faint);
 }
 
 /* Today: a small dot under the digit instead of recolouring the cell
    so a "today + selected" state still reads as selected. */
-.r-date-cal__day--today::after {
+.r-date-cal__day[data-today]::after {
   content: "";
   position: absolute;
   bottom: 4px;
@@ -792,24 +608,23 @@ usePopoverDismiss(isOpen, close, {
   background: var(--r-color-brand-primary);
   transform: translateX(-50%);
 }
-.r-date-cal__day--today.r-date-cal__day--selected::after {
+.r-date-cal__day[data-today][data-selected]::after {
   background: white;
 }
 
 /* Selected: full brand fill, white digits. Matches the rest of the
    lib (RCheckbox icon, RBtn primary text) which use plain `white`
    against the brand fill. */
-.r-date-cal__day--selected {
+.r-date-cal__day[data-selected] {
   background: var(--r-color-brand-primary);
   color: white;
 }
-.r-date-cal__day--selected:hover:not(:disabled) {
+.r-date-cal__day[data-selected]:hover:not([data-disabled]) {
   background: color-mix(in srgb, var(--r-color-brand-primary) 90%, white);
 }
 
 /* Disabled: past min / after max. */
-.r-date-cal__day--disabled,
-.r-date-cal__day:disabled {
+.r-date-cal__day[data-disabled] {
   cursor: not-allowed;
   color: var(--r-color-fg-faint);
   opacity: 0.4;
