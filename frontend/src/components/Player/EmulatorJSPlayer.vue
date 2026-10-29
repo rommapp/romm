@@ -11,12 +11,7 @@ import {
 } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, useRouter } from "vue-router";
-import type {
-  FirmwareSchema,
-  SaveSchema,
-  StateSchema,
-  NetplayICEServer,
-} from "@/__generated__";
+import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import { useSnackbar, type SnackbarTone } from "@/composables/useSnackbar";
 import { userStorage } from "@/composables/useUserLocalStorage";
 import { ROUTES } from "@/plugins/router";
@@ -33,18 +28,15 @@ import storeLanguage from "@/stores/language";
 import storePlaying from "@/stores/playing";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import {
-  areThreadsRequiredForEJSCore,
-  getSupportedEJSCores,
-  getControlSchemeForPlatform,
-  getDownloadPath,
-} from "@/utils";
 import { newest } from "@/utils/assets";
-import { firmwareExternalFiles } from "@/utils/playerFirmware";
 import { leaveFullscreen } from "@/utils/playerFullscreen";
 import { browserDeviceId } from "@/utils/saveSync/browserDevice";
 import { bytesEqual, saveContentHash } from "@/utils/saveSync/hash";
 import { createRetryBackoff } from "@/utils/saveSync/retryBackoff";
+import {
+  applyEjsGlobals,
+  buildEjsConfig,
+} from "@/views/Player/emulatorJSConfig";
 import {
   saveSave,
   captureScreenshot,
@@ -69,8 +61,6 @@ import {
   saveSaveOnUnload,
   toArrayBuffer,
 } from "@/views/Player/emulatorJSRuntime";
-
-const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
 
 const authStore = storeAuth();
 const romsStore = storeRoms();
@@ -279,171 +269,25 @@ const emitter = inject<Emitter<Events>>("emitter");
 const { playing, fullScreen } = storeToRefs(playingStore);
 const { selectedLanguage } = storeToRefs(languageStore);
 
-// Declare global variables for EmulatorJS
-declare global {
-  interface Window {
-    EJS_core: string;
-    EJS_biosUrl: string;
-    EJS_player: string;
-    EJS_pathtodata: string;
-    EJS_color: string;
-    EJS_gameID: number;
-    EJS_gameName: string;
-    EJS_backgroundImage: string;
-    EJS_backgroundColor: string;
-    EJS_backgroundBlur: boolean;
-    EJS_gameUrl: string;
-    EJS_loadStateURL: string | null;
-    EJS_cheats: string;
-    EJS_gameParentUrl: string;
-    EJS_gamePatchUrl: string;
-    EJS_netplayServer: string;
-    EJS_netplayICEServers: NetplayICEServer[];
-    EJS_alignStartButton: "top" | "center" | "bottom";
-    EJS_startOnLoaded: boolean;
-    EJS_fullscreenOnLoaded: boolean;
-    EJS_threads: boolean;
-    EJS_controlScheme: string | null;
-    EJS_defaultOptions: object;
-    EJS_defaultControls: object;
-    EJS_emulator: any; // eslint-disable-line @typescript-eslint/no-explicit-any
-    EJS_language: string;
-    EJS_disableAutoLang: boolean;
-    EJS_DEBUG_XX: boolean;
-    EJS_CacheLimit: number;
-    EJS_Buttons: Record<string, boolean | { displayName: string }>;
-    EJS_VirtualGamepadSettings: Record<string, unknown>;
-    EJS_volume: number;
-    EJS_paths: Record<string, string>;
-    EJS_startButtonName: string;
-    EJS_softLoad: boolean;
-    EJS_screenCapture: object;
-    EJS_externalFiles: Record<string, string>;
-    EJS_videoRotation: number;
-    EJS_fixedSaveInterval: number;
-    EJS_disableCue: boolean;
-    EJS_dontExtractRom: boolean;
-    EJS_dontExtractBIOS: boolean;
-    EJS_disableDatabases: boolean;
-    EJS_disableLocalStorage: boolean;
-    EJS_disableAutoUnload: boolean;
-    EJS_disableBatchBootup: boolean;
-    EJS_onGameStart: () => void;
-    EJS_onSaveState: (args: {
-      screenshot?: ArrayBuffer;
-      state: ArrayBuffer;
-    }) => void;
-    EJS_onLoadState: () => void;
-    EJS_onSaveSave: (args: {
-      screenshot: ArrayBuffer;
-      save: ArrayBuffer;
-    }) => void;
-    EJS_onLoadSave: () => void;
-    // Only the 4.2.3 build exposes its GameManager class as a global.
-    EJS_GameManager?: {
-      prototype: {
-        writeFile(path: string, data: unknown): void;
-        __rommBytesPatched?: boolean;
-      };
-    };
-    // Socket.IO global, bundled by EmulatorJS and used by its netplay code.
-    io?: ((url: string, opts?: Record<string, unknown>) => unknown) & {
-      __rommNetplayPatched?: boolean;
-    };
-  }
-}
-
-const supportedCores = getSupportedEJSCores(
-  romRef.value.platform_slug,
-  configStore.config.EJS_NETPLAY_ENABLED,
-);
-window.EJS_core =
-  supportedCores.find((core) => core === props.core) ?? supportedCores[0]!;
-window.EJS_controlScheme = getControlSchemeForPlatform(
-  romRef.value.platform_slug,
-);
-window.EJS_threads = areThreadsRequiredForEJSCore(window.EJS_core);
-window.EJS_gameID = romRef.value.id;
 invalidateEmulatorJSRomCacheIfRenamed(romRef.value);
-window.EJS_gameUrl = getDownloadPath({
-  rom: romRef.value,
-  fileIDs: props.disc ? [props.disc] : [],
-  purpose: "play",
-});
-window.EJS_biosUrl = props.bios
-  ? `/api/firmware/${props.bios.id}/content/${props.bios.file_name}`
-  : "";
-window.EJS_externalFiles = firmwareExternalFiles(
-  window.EJS_core,
-  props.firmware,
+applyEjsGlobals(
+  buildEjsConfig({
+    rom: romRef.value,
+    core: props.core,
+    disc: props.disc,
+    bios: props.bios,
+    firmware: props.firmware,
+    loadStateLabel: props.loadStateLabel,
+    config: configStore.config,
+    coreOptions: (core) => configStore.getEJSCoreOptions(core),
+    controls: configStore.getEJSControls(props.core),
+    locale: selectedLanguage.value.value,
+    origin: window.location.origin,
+    backgroundColor: getComputedStyle(document.documentElement).backgroundColor,
+    t,
+  }),
 );
-window.EJS_player = "#game";
-window.EJS_color = "#A453FF";
-window.EJS_alignStartButton = "center";
-window.EJS_startOnLoaded = true;
-window.EJS_backgroundImage = `${window.location.origin}/assets/logos/romm_logo_xbox_one_circle_boot.svg`;
-window.EJS_backgroundColor = getComputedStyle(
-  document.documentElement,
-).backgroundColor;
-// Labels come from RomM's locales, which cover languages EmulatorJS does not.
-window.EJS_Buttons = {
-  // Disable the standard exit button to implement our own
-  exitEmulation: false,
-  // Saves load from the picker. Without auto-sync, Sync save uploads on demand.
-  saveSavFiles: configStore.config.EJS_ENABLE_AUTO_SAVE_SYNC
-    ? false
-    : { displayName: t("play.sync-save") },
-  loadSavFiles: false,
-  restart: { displayName: t("play.restart") },
-  pause: { displayName: t("play.pause") },
-  play: { displayName: t("play.resume") },
-  saveState: { displayName: t("play.save-state") },
-  loadState: { displayName: props.loadStateLabel ?? t("play.load-state") },
-  gamepad: { displayName: t("play.control-settings") },
-  cheat: { displayName: t("play.cheats") },
-  cacheManager: { displayName: t("play.cache-manager") },
-  netplay: { displayName: t("play.netplay") },
-  mute: { displayName: t("play.mute") },
-  unmute: { displayName: t("play.unmute") },
-  diskButton: { displayName: t("play.discs") },
-  settings: { displayName: t("common.settings") },
-  enterFullscreen: { displayName: t("play.full-screen") },
-  exitFullscreen: { displayName: t("play.exit-full-screen") },
-};
-const coreOptions = configStore.getEJSCoreOptions(window.EJS_core);
-window.EJS_defaultOptions = {
-  // Force saving saves and states to the browser
-  "save-state-location": "browser",
-  rewindEnabled: "enabled",
-  ...coreOptions,
-};
-const ejsControls = configStore.getEJSControls(props.core);
-if (ejsControls) window.EJS_defaultControls = ejsControls;
-// Set a valid game name
-window.EJS_gameName = romRef.value.fs_name_no_tags
-  .replace(INVALID_CHARS_REGEX, "")
-  .trim();
-window.EJS_language = selectedLanguage.value.value.replace("_", "-");
-window.EJS_disableAutoLang = true;
-
-const {
-  EJS_DEBUG,
-  EJS_CACHE_LIMIT,
-  EJS_DISABLE_AUTO_UNLOAD,
-  EJS_DISABLE_BATCH_BOOTUP,
-  EJS_NETPLAY_ICE_SERVERS,
-  EJS_NETPLAY_ENABLED,
-  EJS_ENABLE_AUTO_SAVE_SYNC,
-} = configStore.config;
-// Full origin (with scheme)
-window.EJS_netplayServer = EJS_NETPLAY_ENABLED ? window.location.origin : "";
-window.EJS_netplayICEServers = EJS_NETPLAY_ENABLED
-  ? EJS_NETPLAY_ICE_SERVERS
-  : [];
-window.EJS_DEBUG_XX = EJS_DEBUG;
-window.EJS_disableAutoUnload = EJS_DISABLE_AUTO_UNLOAD;
-window.EJS_disableBatchBootup = EJS_DISABLE_BATCH_BOOTUP;
-if (EJS_CACHE_LIMIT !== null) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
+const { EJS_NETPLAY_ENABLED, EJS_ENABLE_AUTO_SAVE_SYNC } = configStore.config;
 
 installEJSDefaultOptionsTrap();
 const patchNetplayHostAudio = EJS_NETPLAY_ENABLED
