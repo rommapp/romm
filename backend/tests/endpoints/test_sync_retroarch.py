@@ -2613,8 +2613,7 @@ class TestRetroArchSyncBlobs:
         delete_response = client.request("DELETE", path, auth=ADMIN_AUTH)
         assert delete_response.status_code == status.HTTP_204_NO_CONTENT
         assert (
-            client.get(path, auth=ADMIN_AUTH).status_code
-            == status.HTTP_404_NOT_FOUND
+            client.get(path, auth=ADMIN_AUTH).status_code == status.HTTP_404_NOT_FOUND
         )
 
     def test_unmatched_state_is_stored_served_listed_and_deleted(
@@ -2651,7 +2650,9 @@ class TestRetroArchSyncBlobs:
 
         deleted = client.request("DELETE", path, auth=ADMIN_AUTH)
         assert deleted.status_code == status.HTTP_204_NO_CONTENT
-        assert client.get(path, auth=ADMIN_AUTH).status_code == status.HTTP_404_NOT_FOUND
+        assert (
+            client.get(path, auth=ADMIN_AUTH).status_code == status.HTTP_404_NOT_FOUND
+        )
 
     def test_unmatched_save_remains_available_when_rom_resolves(
         self, client, admin_user: User, rom: Rom
@@ -2690,19 +2691,32 @@ class TestRetroArchSyncBlobs:
 
         deleted = client.request("DELETE", url, auth=ADMIN_AUTH)
         assert deleted.status_code == status.HTTP_204_NO_CONTENT
-        assert (
-            client.get(url, auth=ADMIN_AUTH).status_code
-            == status.HTTP_404_NOT_FOUND
-        )
+        assert client.get(url, auth=ADMIN_AUTH).status_code == status.HTTP_404_NOT_FOUND
+
+    def test_unmatched_folder_paths_conflict_instead_of_failing(
+        self, client, admin_user: User
+    ):
+        file_url = "/api/sync/retroarch/saves/Beetle Saturn/shared/memory-card.bin"
+        client.put(file_url, content=b"memory-card-data", auth=ADMIN_AUTH)
+        folder_url = "/api/sync/retroarch/saves/Beetle Saturn/shared"
+
+        deleted = client.request("DELETE", folder_url, auth=ADMIN_AUTH)
+        assert deleted.status_code == status.HTTP_404_NOT_FOUND
+        overwritten = client.put(folder_url, content=b"data", auth=ADMIN_AUTH)
+        assert overwritten.status_code == status.HTTP_409_CONFLICT
+        nested = client.put(f"{file_url}/nested.bin", content=b"x", auth=ADMIN_AUTH)
+        assert nested.status_code == status.HTTP_409_CONFLICT
+        assert client.get(file_url, auth=ADMIN_AUTH).content == b"memory-card-data"
 
     def test_serve_unmatched_asset_helper_ignores_non_asset_paths(
         self, admin_user: User
     ):
         from endpoints.sync.retroarch import _serve_unmatched_asset
 
-        assert _serve_unmatched_asset(
-            mock.Mock(user=admin_user), "config/retroarch.cfg"
-        ) is None
+        assert (
+            _serve_unmatched_asset(mock.Mock(user=admin_user), "config/retroarch.cfg")
+            is None
+        )
 
     def test_manifest_includes_blobs_alongside_assets(self, client, admin_user: User):
         client.put(

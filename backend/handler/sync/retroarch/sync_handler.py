@@ -66,7 +66,9 @@ ASSET_ROOTS: tuple[AssetKind, ...] = ("saves", "states")
 # RetroArch's config/thumbnails/system sync categories belong to no ROM, so
 # they're kept as opaque per-user blobs.
 BLOB_CATEGORIES = ("config", "thumbnails", "system")
-MANIFEST_BLOB_CATEGORIES = BLOB_CATEGORIES
+
+# Saves and states with no library ROM, kept beside each tree's matched assets.
+UNMATCHED_FOLDER = "_unmatched"
 
 # `<game>.state`, `<game>.state3`, `<game>.state.auto`: the auto suffix makes
 # this a two-segment extension, which splitext alone gets wrong.
@@ -618,7 +620,7 @@ def build_asset_file_path(
 
 
 def parse_retroarch_sync_blob_path(path: str) -> str | None:
-    """A non-save blob-category client path as ``category/...``."""
+    """A blob-category client path as ``category/...``, or None if it isn't one."""
     segments = split_segments(path)
     if segments is None or len(segments) < 2:
         return None
@@ -636,30 +638,28 @@ def parse_retroarch_unmatched_asset_path(path: str) -> str | None:
         segments is None
         or len(segments) < 2
         or segments[0] not in ASSET_ROOTS
-        or segments[1] == "_unmatched"
+        or segments[1] == UNMATCHED_FOLDER
     ):
         return None
     return "/".join(segments)
 
 
-def unmatched_asset_root_path(user: User, kind: AssetKind) -> str:
+def unmatched_asset_root_path(user: User, kind: str) -> str:
     """Physical root for unmatched files, alongside this user's matched assets."""
-    return f"{fs_asset_handler.user_folder_path(user)}/{kind}/_unmatched"
+    return f"{fs_asset_handler.user_folder_path(user)}/{kind}/{UNMATCHED_FOLDER}"
 
 
 def unmatched_asset_path(user: User, client_path: str) -> str:
-    """Map a RetroArch client path to its private unmatched-asset storage path."""
-    segments = split_segments(client_path)
-    if (
-        segments is None
-        or len(segments) < 2
-        or segments[0] not in ASSET_ROOTS
-        or segments[1] == "_unmatched"
-    ):
+    """Map a RetroArch client path to its private unmatched-asset storage path.
+
+    Raises:
+        ValueError: The path can't hold an unmatched asset.
+    """
+    relative_path = parse_retroarch_unmatched_asset_path(client_path)
+    if relative_path is None:
         raise ValueError("Invalid unmatched RetroArch asset path")
-    root = unmatched_asset_root_path(user, segments[0])
-    relative_path = "/".join(segments[1:])
-    return f"{root}/{relative_path}"
+    kind, rest = relative_path.split("/", 1)
+    return f"{unmatched_asset_root_path(user, kind)}/{rest}"
 
 
 def user_blob_path(user: User, blob_path: str) -> str:
@@ -711,28 +711,22 @@ async def _blob_md5(disk_path: str) -> str | None:
 
 
 async def build_blob_manifest_entries(user: User) -> list[dict[str, str]]:
+    roots = [
+        (category, user_blob_path(user, category)) for category in BLOB_CATEGORIES
+    ] + [(kind, unmatched_asset_root_path(user, kind)) for kind in ASSET_ROOTS]
+    listings = await asyncio.gather(
+        *(fs_retroarch_sync_handler.list_blob_files(prefix) for _, prefix in roots)
+    )
+
     blob_paths: list[str] = []
     jobs: list[tuple[str, Callable[[], Awaitable[str | None]]]] = []
-    for category in MANIFEST_BLOB_CATEGORIES:
-        prefix = user_blob_path(user, category)
-        for blob in await fs_retroarch_sync_handler.list_blob_files(prefix):
-            blob_path = f"{category}/{blob.relative_path}"
+    for (root, prefix), blobs in zip(roots, listings, strict=True):
+        for blob in blobs:
+            blob_path = f"{root}/{blob.relative_path}"
             blob_paths.append(blob_path)
             jobs.append(
                 (
                     f"romm:retroarch_sync:blob_md5:{user.id}:{blob_path}:{blob.size}:{blob.mtime}",
-                    partial(_blob_md5, f"{prefix}/{blob.relative_path}"),
-                )
-            )
-
-    for kind in ASSET_ROOTS:
-        prefix = unmatched_asset_root_path(user, kind)
-        for blob in await fs_retroarch_sync_handler.list_blob_files(prefix):
-            blob_path = f"{kind}/{blob.relative_path}"
-            blob_paths.append(blob_path)
-            jobs.append(
-                (
-                    f"romm:retroarch_sync:unmatched_md5:{user.id}:{blob_path}:{blob.size}:{blob.mtime}",
                     partial(_blob_md5, f"{prefix}/{blob.relative_path}"),
                 )
             )
@@ -907,15 +901,16 @@ def _manifest_assets(
 async def list_manifest_paths(
     user: User, can_see: Callable[[Rom], bool], tree: AssetKind
 ) -> list[str]:
-    """`tree`'s manifest paths, sorted, without hashing or listing blobs."""
-    assets, saves = await asyncio.to_thread(_manifest_assets, user, can_see, tree)
+    """`tree`'s manifest paths, sorted, without hashing anything."""
+    (assets, saves), unmatched = await asyncio.gather(
+        asyncio.to_thread(_manifest_assets, user, can_see, tree),
+        fs_retroarch_sync_handler.list_blob_files(
+            unmatched_asset_root_path(user, tree)
+        ),
+    )
     paths = [entry.path for entry in assets]
     paths += await psp.list_psp_member_paths(saves, can_see)
-    blob_root = unmatched_asset_root_path(user, tree)
-    paths.extend(
-        f"{tree}/{blob.relative_path}"
-        for blob in await fs_retroarch_sync_handler.list_blob_files(blob_root)
-    )
+    paths += [f"{tree}/{blob.relative_path}" for blob in unmatched]
     # A blob can remain from before its ROM entered the library. Keep the
     # matched asset as the single WebDAV path when both stores contain it.
     return sorted(set(paths))
