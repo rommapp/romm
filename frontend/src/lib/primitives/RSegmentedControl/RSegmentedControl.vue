@@ -472,9 +472,9 @@ function showBadge(badge: SegmentedControlItem<T>["badge"]): boolean {
 }
 .r-segmented-control--tab.r-segmented-control--size-x-small
   .r-segmented-control__btn {
-  padding: 3px 12px !important;
-  min-height: 24px !important;
-  height: 24px !important;
+  padding: 3px 12px;
+  min-height: 24px;
+  height: 24px;
   font-size: 12px;
 }
 
