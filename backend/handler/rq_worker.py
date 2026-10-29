@@ -1,7 +1,7 @@
 import contextlib
 import logging
 import sys
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Any, Final, cast
 
 import rq.scheduler
 from rq import Queue, Worker
@@ -26,10 +26,9 @@ _DATABASE_MODULE: Final = "handler.database.base_handler"
 
 
 def _database_engine() -> "Engine | None":
-    engine: Engine | None = getattr(
-        sys.modules.get(_DATABASE_MODULE), "sync_engine", None
+    return cast(
+        "Engine | None", getattr(sys.modules.get(_DATABASE_MODULE), "sync_engine", None)
     )
-    return engine
 
 
 class _DropPeriodicNoiseFilter(logging.Filter):

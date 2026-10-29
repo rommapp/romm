@@ -1,7 +1,9 @@
+import contextlib
 import logging
 import sqlite3
 import sys
 from collections.abc import Iterator
+from contextlib import AbstractContextManager
 from dataclasses import replace
 from unittest.mock import MagicMock, call
 
@@ -89,27 +91,24 @@ def engine(mocker):
     return mocker.patch(f"{_DATABASE_MODULE}.sync_engine")
 
 
-@pytest.mark.parametrize("result", [True, False])
-def test_job_disposes_database_pool_before_returning(mocker, engine, result) -> None:
-    perform = mocker.patch("rq.Worker.perform_job", return_value=result)
+def _job_outcome(job_error: Exception | None) -> AbstractContextManager[object]:
+    if job_error is None:
+        return contextlib.nullcontext()
+    return pytest.raises(RuntimeError, match="job failed")
+
+
+@pytest.mark.parametrize("job_error", [None, RuntimeError("job failed")])
+def test_job_disposes_database_pool(mocker, engine, job_error) -> None:
+    perform = mocker.patch(
+        "rq.Worker.perform_job", return_value=True, side_effect=job_error
+    )
     worker = RomMWorker(["default"], connection=FakeRedis(version=7))
     job, queue = MagicMock(), MagicMock()
 
-    assert worker.perform_job(job, queue) is result
+    with _job_outcome(job_error):
+        assert worker.perform_job(job, queue) is True
 
     perform.assert_called_once_with(job, queue)
-    assert engine.dispose.call_args_list == [call(close=False), call()]
-
-
-def test_job_disposes_database_pool_when_perform_raises(mocker, engine) -> None:
-    error = RuntimeError("job failed")
-    mocker.patch("rq.Worker.perform_job", side_effect=error)
-    worker = RomMWorker(["default"], connection=FakeRedis(version=7))
-
-    with pytest.raises(RuntimeError) as caught:
-        worker.perform_job(MagicMock(), MagicMock())
-
-    assert caught.value is error
     assert engine.dispose.call_args_list == [call(close=False), call()]
 
 
@@ -156,12 +155,8 @@ def test_cleanup_failure_does_not_replace_job_outcome(
     worker = RomMWorker(["default"], connection=FakeRedis(version=7))
     log = mocker.patch.object(worker.log, "exception")
 
-    if job_error is None:
+    with _job_outcome(job_error):
         assert worker.perform_job(MagicMock(), MagicMock()) is True
-    else:
-        with pytest.raises(RuntimeError) as caught:
-            worker.perform_job(MagicMock(), MagicMock())
-        assert caught.value is job_error
 
     log.assert_called_once_with("Could not close the work horse database pool")
 
