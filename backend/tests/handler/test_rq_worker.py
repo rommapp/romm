@@ -87,7 +87,7 @@ def test_worker_reports_failed_tasks() -> None:
 
 @pytest.fixture
 def engine(mocker):
-    """Patches the real module, so the worker's lookup breaks loudly if it moves."""
+    """Patches the real module, so these tests fail if the engine moves or is renamed."""
     return mocker.patch(f"{_DATABASE_MODULE}.sync_engine")
 
 
