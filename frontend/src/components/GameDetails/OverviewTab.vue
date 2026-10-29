@@ -68,7 +68,20 @@ const props = defineProps<{
 
 // The same preference hides the "Recommended for you" row on Home: the
 // feature is switched off everywhere at once, not per surface.
-const { showRecommendations } = useUISettings();
+const { showRecommendations, similarGamesSource } = useUISettings();
+
+const selectedSimilarGamesSource = computed(() =>
+  similarGamesSource.value === "igdb" ? "igdb" : "romm",
+);
+
+const igdbSimilarGames = computed(
+  () => props.rom.igdb_metadata?.similar_games ?? [],
+);
+const hasSimilarGames = computed(
+  () =>
+    showRecommendations.value &&
+    (props.similarRoms.length > 0 || igdbSimilarGames.value.length > 0),
+);
 
 const visibleSimilarRoms = computed(() =>
   showRecommendations.value ? props.similarRoms : [],
@@ -145,7 +158,7 @@ const hasRelated = computed(
       props.remakes.length +
       props.remasters.length +
       props.ports.length +
-      visibleSimilarRoms.value.length >
+      Number(hasSimilarGames.value) >
     0,
 );
 
@@ -342,12 +355,44 @@ const coverSource = computed(() => {
         </h4>
         <RelatedGamesGrid title="" :items="ports" />
       </div>
-      <div v-if="visibleSimilarRoms.length" class="overview-tab__section">
+      <div v-if="hasSimilarGames" class="overview-tab__section">
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-shape-outline" size="14" />
           {{ t("recommendations.similar-games") }}
         </h4>
-        <SimilarGamesGrid :items="visibleSimilarRoms" :webp="supportsWebp" />
+        <div
+          class="overview-tab__source"
+          role="group"
+          :aria-label="t('recommendations.similar-games')"
+        >
+          <RBtn
+            v-for="source in ['romm', 'igdb']"
+            :key="source"
+            size="small"
+            variant="text"
+            :active="selectedSimilarGamesSource === source"
+            :aria-pressed="selectedSimilarGamesSource === source"
+            @click="similarGamesSource = source"
+          >
+            {{ source === "romm" ? "RomM" : "IGDB" }}
+          </RBtn>
+        </div>
+        <template v-if="similarGamesSource === 'igdb'">
+          <RelatedGamesGrid
+            v-if="igdbSimilarGames.length"
+            title=""
+            :items="igdbSimilarGames"
+          />
+          <p v-else class="overview-tab__empty">{{ t("common.no-results") }}</p>
+        </template>
+        <template v-else>
+          <SimilarGamesGrid
+            v-if="visibleSimilarRoms.length"
+            :items="visibleSimilarRoms"
+            :webp="supportsWebp"
+          />
+          <p v-else class="overview-tab__empty">{{ t("common.no-results") }}</p>
+        </template>
       </div>
     </template>
 
@@ -500,6 +545,11 @@ const coverSource = computed(() => {
   justify-content: space-between;
   gap: 8px;
 }
+.overview-tab__source {
+  display: flex;
+  gap: var(--r-space-2);
+}
+
 .overview-tab__empty {
   margin: 0;
   font-size: 13px;

@@ -65,6 +65,8 @@ export const UI_SETTINGS_KEYS = {
     default: "randomPick,anniversaries,libraryStats",
   },
 
+  similarGamesSource: { key: "settings.similarGamesSource", default: "romm" },
+
   // Gallery section
   groupRoms: { key: "settings.groupRoms", default: true },
   showRegions: { key: "settings.showRegions", default: true },
