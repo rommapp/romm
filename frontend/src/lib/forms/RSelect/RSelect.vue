@@ -745,9 +745,8 @@ const { floatingStyles } = useFloating(activatorRef, panelRef, {
   ]),
 });
 
-// Without a search field the highlighted option takes focus, so pad A
-// (a `.click()` on the focused element) picks it. `typed` is the key
-// that opened the menu, for type-to-select.
+// Without a search field the highlighted option takes focus, so pad A picks
+// it. `typed` is the key that opened the menu, for type-to-select.
 function openMenu(typed?: string) {
   if (props.disabled || props.readonly) return;
   if (isOpen.value) return;
@@ -811,10 +810,8 @@ function onHighlight(
   highlightedId.value = payload?.ref.id;
 }
 
-// Type-to-select: a burst of characters matches a title prefix, and
-// repeating one character cycles through the rows that start with it.
-// reka's own typeahead also buffers named keys (Home, End) and matches
-// disabled rows, so printable keys stop here, before the listbox sees them.
+// Type-to-select, kept from reka's own, which also buffers named keys (Home,
+// End) and matches disabled rows; printable keys stop here, before the listbox.
 const TYPEAHEAD_RESET_MS = 500;
 let typeBuffer = "";
 let typeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -883,10 +880,8 @@ function onPanelKey(evt: KeyboardEvent) {
   }
 }
 
-// ListboxFilter puts the input's state on the element it renders, which
-// for RTextField is the wrapper around its <input>. The field takes that
-// state through `popup` instead; the key and input listeners stay, since
-// the input's events bubble through the wrapper.
+// ListboxFilter puts the input's state on RTextField's wrapper; the field
+// takes it through `popup` instead, and keeps the bubbling key/input listeners.
 const FILTER_INPUT_ATTRS = [
   "aria-activedescendant",
   "aria-disabled",
