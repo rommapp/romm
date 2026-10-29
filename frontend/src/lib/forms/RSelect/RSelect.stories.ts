@@ -834,6 +834,34 @@ export const GamepadPick: Story = {
         expect(document.querySelector(".r-select__panel")).toBeNull(),
       );
       await expect(field).toHaveTextContent("Super Nintendo");
+      await waitFor(() => expect(field).toHaveFocus());
+    });
+  },
+};
+
+export const HoverThenSpace: Story = {
+  name: "Hover then Space picks the hovered row (play)",
+  render: () => ({
+    components: { RSelect },
+    setup: () => ({ value: ref<string | null>(null), items: PLATFORMS }),
+    template: `<div style="width:340px"><RSelect v-model="value" :items="items" label="Platform" /></div>`,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const field = await within(canvasElement).findByRole("combobox", {
+      name: "Platform",
+    });
+
+    await step("Space acts on the row the pointer highlighted", async () => {
+      await userEvent.click(field);
+      const row = await within(document.body).findByRole("option", {
+        name: "PlayStation 1",
+      });
+      await userEvent.hover(row);
+      await userEvent.keyboard(" ");
+      await waitFor(() =>
+        expect(document.querySelector(".r-select__panel")).toBeNull(),
+      );
+      await expect(field).toHaveTextContent("PlayStation 1");
     });
   },
 };
@@ -862,6 +890,33 @@ export const GamepadPickSearchable: Story = {
         expect(document.querySelector(".r-select__panel")).toBeNull(),
       );
       await expect(field).toHaveTextContent("Super Nintendo");
+    });
+  },
+};
+
+export const SearchableClickKeepsKeys: Story = {
+  name: "Searchable multiple · click keeps the keys (play)",
+  render: () => ({
+    components: { RSelect },
+    setup: () => ({ value: ref<string[]>([]), items: PLATFORMS }),
+    template: `<div style="width:340px"><RSelect v-model="value" :items="items" multiple searchable label="Platforms" /></div>`,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const field = await within(canvasElement).findByRole("combobox", {
+      name: "Platforms",
+    });
+    const search = () =>
+      document.querySelector<HTMLInputElement>(".r-select__search input");
+
+    await step("Picking with the pointer leaves focus in search", async () => {
+      await userEvent.click(field);
+      await waitFor(() => expect(search()).toHaveFocus());
+      await userEvent.click(
+        await within(document.body).findByRole("option", { name: "PC" }),
+      );
+      await expect(search()).toHaveFocus();
+      await userEvent.keyboard("{ArrowDown}");
+      await expect(search()).toHaveAttribute("aria-activedescendant");
     });
   },
 };

@@ -452,3 +452,60 @@ describe("RSelect searchable without search autofocus", () => {
     wrapper.unmount();
   });
 });
+
+describe("RSelect list changes while open", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("moves the highlight off a row a parent's search filters out", async () => {
+    const wrapper = mount(RSelect, {
+      props: {
+        items: ["Apple", "Banana", "Cherry"],
+        modelValue: null,
+        searchable: true,
+        search: "",
+      },
+      attachTo: document.body,
+    });
+    await wrapper.get(".r-select__field").trigger("click");
+    await flushPromises();
+    const search = () =>
+      document.querySelector<HTMLInputElement>(".r-select__search input")!;
+    const active = () =>
+      document
+        .getElementById(search().getAttribute("aria-activedescendant") ?? "")
+        ?.textContent?.trim();
+    search().dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    await flushPromises();
+    expect(active()).toBe("Banana");
+
+    await wrapper.setProps({ search: "Ch" });
+    await flushPromises();
+
+    expect(active()).toBe("Cherry");
+    wrapper.unmount();
+  });
+
+  it("marks disabled options for assistive technology", async () => {
+    const wrapper = mount(RSelect, {
+      props: {
+        items: [
+          { title: "Apple", value: "a" },
+          { title: "Banana", value: "b", disabled: true },
+        ],
+        modelValue: null,
+      },
+      attachTo: document.body,
+    });
+    await wrapper.get(".r-select__field").trigger("click");
+    await flushPromises();
+
+    const options = document.querySelectorAll('[role="option"]');
+    expect(options[0]?.getAttribute("aria-disabled")).toBeNull();
+    expect(options[1]?.getAttribute("aria-disabled")).toBe("true");
+    wrapper.unmount();
+  });
+});

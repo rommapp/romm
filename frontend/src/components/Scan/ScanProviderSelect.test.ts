@@ -76,4 +76,26 @@ describe("ScanProviderSelect", () => {
 
     expect(wrapper.get('[role="switch"]').attributes("disabled")).toBeDefined();
   });
+
+  // The row is a listbox option whose Space/Enter would toggle the provider.
+  it("keeps the switch's Space and Enter from reaching its row, but not arrows", () => {
+    const wrapper = mountSelect({
+      launchboxRemote: false,
+      launchboxSelected: true,
+    });
+    const rowKeys: string[] = [];
+    const row = wrapper.findAll(".row")[1]!.element;
+    row.addEventListener("keydown", (e) =>
+      rowKeys.push((e as KeyboardEvent).key),
+    );
+    const toggle = wrapper.get('[role="switch"]').element;
+
+    for (const key of [" ", "Enter", "ArrowDown"]) {
+      toggle.dispatchEvent(
+        new KeyboardEvent("keydown", { key, bubbles: true }),
+      );
+    }
+
+    expect(rowKeys).toEqual(["ArrowDown"]);
+  });
 });

@@ -78,6 +78,8 @@ const { t } = useI18n();
             class="r-provider-select__lb-toggle"
             @click.stop
             @mousedown.stop
+            @keydown.space.stop
+            @keydown.enter.stop
           >
             <span
               class="r-provider-select__lb-label"

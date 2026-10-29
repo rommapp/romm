@@ -748,7 +748,8 @@ function openMenu(typed?: string) {
 }
 function closeMenu() {
   if (!isOpen.value) return;
-  const focusInPanel = !!panelRef.value?.contains(document.activeElement);
+  const panel = panelRef.value;
+  const focusInPanel = !!panel?.contains(document.activeElement);
   isOpen.value = false;
   emit("close");
   resetTypeahead();
@@ -758,7 +759,15 @@ function closeMenu() {
   // user expectation for "open select → type → pick → close → reopen"
   // not leaving a stale query that hides most rows.
   if (props.searchable && internalSearch.value) setSearch("");
-  if (focusInPanel) focusFromInput(activatorRef.value);
+  if (!focusInPanel) return;
+  focusFromInput(activatorRef.value);
+  // reka refocuses a picked option after its select handler returns.
+  void nextTick(() => {
+    const active = document.activeElement;
+    if (!active || active === document.body || panel?.contains(active)) {
+      focusFromInput(activatorRef.value);
+    }
+  });
 }
 function toggleMenu() {
   if (isOpen.value) closeMenu();
@@ -795,6 +804,37 @@ function onHighlight(
 ) {
   highlightedValue.value = payload?.value;
   highlightedId.value = payload?.ref.id;
+  // Hover highlights without focusing, but Space and pad A act on the
+  // focused row, so focus follows unless a control inside the row has it.
+  const active = document.activeElement;
+  if (
+    !props.searchable &&
+    payload &&
+    panelRef.value?.contains(active) &&
+    !payload.ref.contains(active)
+  ) {
+    focusFromInput(payload.ref, { preventScroll: true });
+  }
+}
+
+// A parent changing `items` or `search` can drop the highlighted row.
+watch(filteredItems, () => {
+  if (!isOpen.value) return;
+  void nextTick(() => {
+    const value = highlightedValue.value;
+    const kept =
+      (value === ALL_OPTION && showAllRow.value) ||
+      filteredItems.value.some((it) => !it.disabled && it.value === value);
+    if (kept) return;
+    const first = edgeValue("first");
+    if (first === undefined) onHighlight(undefined);
+    else listboxRef.value?.highlightItem(first);
+  });
+});
+
+// Keeps focus in the search field, where the arrow keys work, on a row click.
+function onOptionMousedown(evt: MouseEvent) {
+  if (props.searchable) evt.preventDefault();
 }
 
 // Type-to-select, kept from reka's own, which also buffers named keys (Home,
@@ -1310,6 +1350,7 @@ const describedBy = computed(() => {
                 class="r-select__item r-select__item--all"
                 :class="{ 'r-select__item--selected': isAllSelected }"
                 data-r-select-index="-1"
+                @mousedown="onOptionMousedown"
                 @select="onOptionSelect"
               >
                 <span class="r-select__item-title">{{ allText }}</span>
@@ -1338,7 +1379,9 @@ const describedBy = computed(() => {
                 as-child
                 :value="asListboxValue(item.value)"
                 :disabled="!!item.disabled"
+                :aria-disabled="item.disabled || undefined"
                 :data-r-select-index="i"
+                @mousedown="onOptionMousedown"
                 @select="onOptionSelect($event, item)"
               >
                 <slot
