@@ -1863,6 +1863,8 @@ async def force_release_all(
                     reason=reason,
                     ended_by_user_id=request.user.id,
                 )
+                await lifecycle.record_play_session(session)
+                await lifecycle.clear_session_activity(container_key, session)
             finally:
                 await release_own_session(container_key, session)
             return

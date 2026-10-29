@@ -254,3 +254,23 @@ async def test_a_complete_rescan_keeps_artwork_no_source_replaces():
     assert saved.path_cover_l == "roms/1/1/cover/big.png"
     assert saved.path_manual == "roms/1/1/manual/1.pdf"
     assert saved.path_screenshots == ["roms/1/1/screenshots/0.jpg"]
+
+
+@pytest.mark.parametrize(
+    ("path_cover_s", "url_cover"),
+    [("roms/1/1/cover/small.png", ""), ("", "file:///cart.p8.png")],
+)
+async def test_a_complete_rescan_falls_back_to_the_cartridge_only_without_a_cover(
+    path_cover_s: str, url_cover: str
+):
+    with patch(
+        "handler.scan_handler.fs_rom_handler.get_pico8_cover_url",
+        return_value="file:///cart.p8.png",
+    ):
+        saved = await _rescan(
+            [MetadataSource.IGDB],
+            igdb_result=UNREACHABLE,
+            path_cover_s=path_cover_s,
+        )
+
+    assert saved.url_cover == url_cover

@@ -4619,6 +4619,28 @@ def test_force_release_all_without_a_config_leaves_a_newer_claim(
     )
 
 
+def test_force_release_all_without_a_config_clears_the_activity(
+    client, access_token, rom: Rom
+):
+    key = _key_of(_container_for(rom))
+    session = _session_at(session_store.session_redis_key(key), user_id=99)
+
+    with (
+        _streaming(),
+        patch(
+            "handler.streaming.lifecycle.clear_session_activity", new=AsyncMock()
+        ) as cleared,
+        patch(
+            "handler.streaming.lifecycle.record_play_session", new=AsyncMock()
+        ) as recorded,
+    ):
+        r = client.delete("/api/streaming/sessions", headers=_auth(access_token))
+    assert r.status_code == 200
+    cleared.assert_awaited_once_with(key, session)
+    recorded.assert_awaited_once_with(session)
+    assert asyncio.run(async_cache.get(session_store.session_redis_key(key))) is None
+
+
 # ── Save-state sync ───────────────────────────────────────────────────────────
 
 

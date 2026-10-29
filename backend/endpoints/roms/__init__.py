@@ -2033,11 +2033,8 @@ async def _refetch_changed_matches(
 def _moved_file_location(
     file: RomFile, fs_path: str, old_name: str, new_name: str
 ) -> dict[str, str]:
-    """Where one of a rom's files sits once `rename_fs_rom` moved `old_name`.
-
-    Only the rom's own entry moves: a single file is renamed, and a folder's
-    files keep their names under the renamed folder.
-    """
+    """Where one of a rom's files sits once `rename_fs_rom` moved `old_name`;
+    a folder's files keep their own names."""
     if file.file_path == fs_path and file.file_name == old_name:
         return {"file_name": new_name, "file_path": fs_path}
     old_root = f"{fs_path}/{old_name}"

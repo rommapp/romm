@@ -1380,9 +1380,8 @@ async def scan_rom(
                 if fields["metadata_field"]:
                     rom_attrs[fields["metadata_field"]] = {}
 
-        # Clear the artwork sources and their locks, so whatever answers now can
-        # replace a file. The stored paths stay: a file no source replaces is
-        # kept, rather than lost to a provider that is down.
+        # Whatever answers now may replace a file; one nothing replaces keeps its
+        # stored path, rather than being lost to a provider that is down.
         rom_attrs.update(
             {
                 "url_cover": "",
@@ -1572,7 +1571,9 @@ async def scan_rom(
     # Use PICO-8 cartridge PNG as cover art if no cover is set.
     # PICO-8 .p8.png files are valid PNG images whose visual content is the
     # cartridge label, so the ROM file itself serves as the cover art.
-    if not rom_attrs.get("url_cover") and not rom_attrs.get("path_cover_s"):
+    if not rom_attrs.get("url_cover") and not rom_attrs.get(
+        "path_cover_s", rom.path_cover_s
+    ):
         pico8_url = fs_rom_handler.get_pico8_cover_url(
             platform.slug, rom_attrs["fs_name"], rom_attrs["fs_path"]
         )
