@@ -1,5 +1,8 @@
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
+
 from handler.database import db_device_handler
 from models.device import Device
 from models.user import User
@@ -130,3 +133,23 @@ class TestUpdateLastSeenDebounced:
     def test_noop_on_missing_device(self):
         # Should not raise
         db_device_handler.update_last_seen_debounced(device_id="does-not-exist")
+
+    def test_does_not_read_the_device_before_updating_it(self, admin_user: User):
+        """A read in the same transaction makes a concurrent commit fail the UPDATE with
+        "Record has changed since last read" (MariaDB error 1020)."""
+        device = db_device_handler.add_device(
+            Device(id="debounce-no-read", user_id=admin_user.id, last_seen=None)
+        )
+        statements: list[str] = []
+
+        def record(conn, cursor, statement, parameters, context, executemany):
+            statements.append(statement.lstrip().lower())
+
+        event.listen(Engine, "before_cursor_execute", record)
+        try:
+            db_device_handler.update_last_seen_debounced(device_id=device.id)
+        finally:
+            event.remove(Engine, "before_cursor_execute", record)
+
+        assert [s for s in statements if s.startswith("select")] == []
+        assert any(s.startswith("update") and "devices" in s for s in statements)

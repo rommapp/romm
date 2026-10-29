@@ -1,12 +1,11 @@
 from collections.abc import Iterable, Sequence
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import Session, joinedload
 
 from decorators.database import INJECTED_SESSION, begin_session
 from models.client_token import ClientToken
-from utils.datetime import to_utc
 
 from .base_handler import DBBaseHandler, affected_rows
 
@@ -100,21 +99,19 @@ class DBClientTokensHandler(DBBaseHandler):
         session: Session = INJECTED_SESSION,
     ) -> None:
         now = datetime.now(timezone.utc)
-        token = session.get(ClientToken, token_id)
-        if token is None:
-            return
-
-        if (
-            token.last_used_at
-            and (now - to_utc(token.last_used_at)) < LAST_USED_DEBOUNCE
-        ):
-            return
-
+        # A single conditional UPDATE: reading the row first in this transaction makes a
+        # concurrent request's commit fail the write with "Record has changed since last read".
         session.execute(
             update(ClientToken)
-            .where(ClientToken.id == token_id)
+            .where(
+                ClientToken.id == token_id,
+                or_(
+                    ClientToken.last_used_at.is_(None),
+                    ClientToken.last_used_at < now - LAST_USED_DEBOUNCE,
+                ),
+            )
             .values(last_used_at=now)
-            .execution_options(synchronize_session="evaluate")
+            .execution_options(synchronize_session=False)
         )
 
     @begin_session
