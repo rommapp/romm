@@ -29,13 +29,13 @@
 
 .r-image-story-reload-btn {
   padding: 6px 12px;
-  background: var(--r-color-brand-primary);
-  color: white;
+  background: var(--r-color-brand-primary-solid);
+  color: var(--r-color-brand-on-primary);
   border: none;
   border-radius: 6px;
   font: 12px/1 sans-serif;
   cursor: pointer;
 }
 .r-image-story-reload-btn:hover {
-  background: var(--r-color-brand-primary-hover);
+  background: var(--r-color-brand-primary-pressed);
 }

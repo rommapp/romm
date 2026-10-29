@@ -15,6 +15,7 @@ html.r-app {
 }
 
 .r-app {
+  --r-color-brand-on-primary: #ffffff;
   --r-color-brand-secondary-hover: #ebe7fa;
   --r-color-brand-secondary-pressed: #7a6bb4;
   --r-color-brand-accent-hover: #f0c8b8;
@@ -235,6 +236,7 @@ html.r-app {
   --r-color-brand-primary: light-dark(#553e98, #8b74e8);
   --r-color-brand-primary-hover: light-dark(#452788, #a18fff);
   --r-color-brand-primary-pressed: light-dark(#371f69, #6043c8);
+  --r-color-brand-primary-solid: light-dark(#553e98, #7459e3);
   --r-color-brand-secondary: light-dark(#6e5ca8, #9e8cd6);
   --r-color-brand-accent: light-dark(#a85530, #e1a38d);
   --r-color-romm-gold: light-dark(#b8860b, #ffd700);

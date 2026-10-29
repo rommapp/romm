@@ -31,3 +31,13 @@ export const ROUNDED_MAP: Readonly<Record<string, string>> = {
   pill: "999px",
   circle: "50%",
 };
+
+// Tones whose text colour is too light to carry white text as a fill.
+const SOLID_FILLS: Readonly<Record<string, string>> = {
+  [TONE_MAP.primary]: "var(--r-color-brand-primary-solid)",
+};
+
+/** The fill for a resolved tone colour that has text on top of it. */
+export function solidFill(color: string): string {
+  return SOLID_FILLS[color] ?? color;
+}

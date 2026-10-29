@@ -23,7 +23,7 @@
 // transition runs before the DOM is removed.
 import { computed, useSlots } from "vue";
 import { useChromeLabels } from "@/lib/a11y/chromeLabels";
-import { ROUNDED_MAP } from "@/lib/style/tokenMaps";
+import { ROUNDED_MAP, solidFill } from "@/lib/style/tokenMaps";
 import RIcon from "../RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -131,6 +131,7 @@ function close(evt: MouseEvent) {
       :style="{
         borderRadius: resolvedRounded,
         '--r-alert-color': resolvedColor,
+        '--r-alert-solid': resolvedColor && solidFill(resolvedColor),
       }"
       :role="ariaRole"
     >
@@ -308,7 +309,7 @@ function close(evt: MouseEvent) {
 
 /* ── Variant: flat, solid colour fill ───────────────────────── */
 .r-alert--flat.r-alert--has-color {
-  background: var(--r-alert-color);
+  background: var(--r-alert-solid);
   color: white;
 }
 .r-alert--flat.r-alert--has-color .r-alert__icon,
@@ -322,7 +323,7 @@ function close(evt: MouseEvent) {
 
 /* ── Variant: elevated, flat + shadow ───────────────────────── */
 .r-alert--elevated.r-alert--has-color {
-  background: var(--r-alert-color);
+  background: var(--r-alert-solid);
   color: white;
   box-shadow: 0 4px 12px
     color-mix(in srgb, var(--r-alert-color) 35%, transparent);

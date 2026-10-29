@@ -17,7 +17,7 @@
 // sibling: useful when you want a list badge that reads like "Inbox
 // (4)" rather than an overlay.
 import { computed } from "vue";
-import { TONE_MAP } from "@/lib/style/tokenMaps";
+import { TONE_MAP, solidFill } from "@/lib/style/tokenMaps";
 import RIcon from "../RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -114,6 +114,7 @@ const locationClass = computed(
         ]"
         :style="{
           '--r-badge-color': resolvedColor,
+          '--r-badge-solid': resolvedColor && solidFill(resolvedColor),
           '--r-badge-inset': `${inset}px`,
         }"
         aria-hidden="true"
@@ -145,7 +146,7 @@ const locationClass = computed(
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--r-badge-color);
+  background: var(--r-badge-solid);
   color: white;
   font-size: 10px;
   font-weight: var(--r-font-weight-bold);
