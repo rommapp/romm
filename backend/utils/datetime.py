@@ -1,11 +1,16 @@
 from collections.abc import Sequence
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 
 def to_utc(dt: datetime) -> datetime:
     if dt.tzinfo is None:
         return dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
+
+
+def older_than(dt: datetime | None, age: timedelta) -> bool:
+    """Whether `dt` is unset or more than `age` in the past."""
+    return dt is None or datetime.now(timezone.utc) - to_utc(dt) > age
 
 
 def parse_utc_timestamp(
