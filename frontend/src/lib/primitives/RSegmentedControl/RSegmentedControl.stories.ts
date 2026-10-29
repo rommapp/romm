@@ -52,6 +52,11 @@ export const Segmented: Story = {
   }),
 };
 
+export const SegmentedXSmall: Story = {
+  ...Segmented,
+  args: { variant: "segmented", size: "x-small" },
+};
+
 export const Tab: Story = {
   args: { variant: "tab" },
   render: (args) => ({
