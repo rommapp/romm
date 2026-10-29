@@ -11,7 +11,7 @@
 // as <RBtn> and emit update:modelValue on click. Active id is always driven
 // externally: the consumer decides it from route, prop, or store.
 import { useResizeObserver } from "@vueuse/core";
-import { nextTick, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import RTooltip from "@/lib/structural/RTooltip/RTooltip.vue";
 import RBtn from "../RBtn/RBtn.vue";
 import RIcon from "../RIcon/RIcon.vue";
@@ -163,6 +163,10 @@ onMounted(async () => {
   lastGroupWidth = groupEl.value?.getBoundingClientRect().width ?? 0;
 });
 
+const iconSize = computed(() =>
+  props.variant === "segmented" && props.size === "x-small" ? 12 : 16,
+);
+
 // `badge` accepts `string | number | null`, so a plain truthiness check would
 // still render a pill for the literal "0", and `badge !== 0` misses the string
 // "0" / empty string. Centralise the visible-badge rule here.
@@ -224,7 +228,7 @@ function showBadge(badge: SegmentedControlItem<T>["badge"]): boolean {
           location="top"
         />
         <slot name="item" :item="item" :active="item.id === modelValue">
-          <RIcon v-if="item.icon" :icon="item.icon" size="16" />
+          <RIcon v-if="item.icon" :icon="item.icon" :size="iconSize" />
           <span v-if="item.label" class="r-segmented-control__label">
             {{ item.label }}
           </span>
@@ -236,9 +240,10 @@ function showBadge(badge: SegmentedControlItem<T>["badge"]): boolean {
       <RBtn
         v-else
         :ref="(el) => setBtnEl(item.id, el)"
-        variant="text"
+        variant="plain"
         density="compact"
         size="x-small"
+        rounded="pill"
         class="r-segmented-control__btn"
         :class="{ 'r-segmented-control__btn--active': item.id === modelValue }"
         :aria-label="item.ariaLabel"
@@ -253,7 +258,7 @@ function showBadge(badge: SegmentedControlItem<T>["badge"]): boolean {
           location="top"
         />
         <slot name="item" :item="item" :active="item.id === modelValue">
-          <RIcon v-if="item.icon" :icon="item.icon" size="16" />
+          <RIcon v-if="item.icon" :icon="item.icon" :size="iconSize" />
           <span v-if="item.label" class="r-segmented-control__label">
             {{ item.label }}
           </span>
@@ -369,7 +374,7 @@ function showBadge(badge: SegmentedControlItem<T>["badge"]): boolean {
 }
 .r-segmented-control--disabled .r-segmented-control__btn--active,
 .r-segmented-control--disabled .r-segmented-control__btn--active:hover {
-  color: var(--r-color-fg-secondary) !important;
+  color: var(--r-color-fg-secondary);
 }
 
 /* Button: common. Indicator owns the active background; buttons stay
@@ -379,7 +384,7 @@ function showBadge(badge: SegmentedControlItem<T>["badge"]): boolean {
 .r-segmented-control__btn {
   position: relative;
   z-index: 1;
-  border-radius: var(--r-radius-pill) !important;
+  border-radius: var(--r-radius-pill);
   text-decoration: none;
   transition:
     color var(--r-motion-fast) var(--r-motion-ease-out),
@@ -392,17 +397,16 @@ function showBadge(badge: SegmentedControlItem<T>["badge"]): boolean {
   transform: scale(0.94);
 }
 
-/* Segmented sizing + colors. RBtn's variant styles apply a colour by
-   default; to get a neutral grey here we override with equal-or-greater
-   specificity + !important. */
+/* Segmented sizing + colors. RBtn renders with `variant="plain"`, so these
+   rules are its only source of colour. */
 .r-segmented-control--segmented .r-segmented-control__btn {
-  min-width: 28px !important;
-  min-height: 28px !important;
-  width: 28px !important;
-  height: 28px !important;
-  padding: 0 !important;
-  background: transparent !important;
-  color: var(--r-color-fg-secondary) !important;
+  min-width: 28px;
+  min-height: 28px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  color: var(--r-color-fg-secondary);
   display: inline-grid;
   place-items: center;
 }
@@ -413,13 +417,13 @@ function showBadge(badge: SegmentedControlItem<T>["badge"]): boolean {
 }
 .r-segmented-control--segmented
   .r-segmented-control__btn:hover:not(.r-segmented-control__btn--active) {
-  color: var(--r-color-fg) !important;
-  background: var(--r-color-surface) !important;
+  color: var(--r-color-fg);
+  background: var(--r-color-surface);
   transform: scale(1.08);
 }
 .r-segmented-control--segmented .r-segmented-control__btn--active,
 .r-segmented-control--segmented .r-segmented-control__btn--active:hover {
-  color: var(--r-color-overlay-emphasis-fg) !important;
+  color: var(--r-color-overlay-emphasis-fg);
 }
 
 /* x-small segmented: 22×22 button cluster, matches RBtn's x-small
@@ -428,38 +432,33 @@ function showBadge(badge: SegmentedControlItem<T>["badge"]): boolean {
    (28×28) keeps every existing call site identical. */
 .r-segmented-control--segmented.r-segmented-control--size-x-small
   .r-segmented-control__btn {
-  min-width: 22px !important;
-  min-height: 22px !important;
-  width: 22px !important;
-  height: 22px !important;
-}
-.r-segmented-control--segmented.r-segmented-control--size-x-small
-  .r-segmented-control__btn
-  :deep(.mdi) {
-  font-size: 12px !important;
+  min-width: 22px;
+  min-height: 22px;
+  width: 22px;
+  height: 22px;
 }
 
-/* Tab sizing + colors. Min-height is explicit (and !important) so RBtn items
-   (no `to`) match the height of router-link items. */
+/* Tab sizing + colors. Min-height is explicit so RBtn items (no `to`)
+   match the height of router-link items. */
 .r-segmented-control--tab .r-segmented-control__btn {
-  padding: 7px 22px !important;
-  min-height: 34px !important;
+  padding: 7px 22px;
+  min-height: 34px;
   font-size: 13.5px;
   font-weight: var(--r-font-weight-medium);
-  color: var(--r-color-fg-secondary) !important;
+  color: var(--r-color-fg-secondary);
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 .r-segmented-control--tab
   .r-segmented-control__btn:hover:not(.r-segmented-control__btn--active) {
-  color: var(--r-color-fg) !important;
+  color: var(--r-color-fg);
   background: var(--r-color-surface-hover);
 }
 .r-segmented-control--tab .r-segmented-control__btn--active,
 .r-segmented-control--tab .r-segmented-control__btn--active:hover {
-  color: var(--r-color-overlay-emphasis-fg) !important;
-  background: transparent !important;
+  color: var(--r-color-overlay-emphasis-fg);
+  background: transparent;
   font-weight: var(--r-font-weight-semibold);
 }
 

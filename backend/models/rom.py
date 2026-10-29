@@ -768,6 +768,17 @@ def rom_fs_resources_path(platform_id: int, id: int) -> str:
     return f"roms/{platform_id}/{id}"
 
 
+_ROM_RESOURCE_URL_ID = re.compile(
+    rf"^{re.escape(FRONTEND_RESOURCES_PATH)}/roms/\d+/(\d+)/"
+)
+
+
+def rom_id_from_resource_url(url: str) -> int | None:
+    """The rom id in a URL under `rom_fs_resources_path`, or None for any other URL."""
+    match = _ROM_RESOURCE_URL_ID.match(url)
+    return int(match[1]) if match else None
+
+
 class Rom(BaseModel):
     __tablename__ = "roms"
 
@@ -826,6 +837,8 @@ class Rom(BaseModel):
             "id",
         ),
         Index("idx_roms_platform_fs_size", "platform_id", "fs_size_bytes"),
+        # Covers a platform's age-hidden totals; InnoDB appends `id` for direct hides.
+        Index("idx_roms_platform_min_age", "platform_id", "min_age", "fs_size_bytes"),
         # The remaining gallery sorts, each paired with the `id` tiebreak the
         # gallery orders by; the key alone would not match its ORDER BY.
         Index("idx_roms_platform_id_sorted", "platform_id", "id"),

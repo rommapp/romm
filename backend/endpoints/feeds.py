@@ -116,9 +116,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
     """
 
     visibility = get_rom_visibility_filter(request)
-    platforms = db_platform_handler.get_platforms(
-        hidden_platform_ids=visibility.hidden_platform_ids
-    )
+    platforms = db_platform_handler.get_platforms(visibility=visibility)
 
     categories = []
     for p in platforms:
