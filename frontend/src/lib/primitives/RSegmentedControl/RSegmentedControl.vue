@@ -32,12 +32,8 @@ const props = withDefaults(
     /** Disable the whole cluster: dims the container and blocks clicks on
      *  every item, regardless of per-item `disabled`. */
     disabled?: boolean | undefined;
-    /** Button size. `small` (default) keeps the existing 28×28
-     *  segmented vocabulary so every existing call site stays
-     *  identical. `x-small` shrinks to 22×22 so the cluster reads as
-     *  a peer to RSwitch default (20px) when placed inline inside a
-     *  toggle row: mirrors RBtn's x-small / small ladder. On `tab`,
-     *  `x-small` is a 24px text pill for inline use beside a heading. */
+    /** `x-small` fits the control inline: beside an RSwitch in a toggle
+     *  row (segmented) or beside a section heading (tab). */
     size?: "x-small" | "small";
   }>(),
   {
