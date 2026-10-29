@@ -1,6 +1,6 @@
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, h, nextTick, ref } from "vue";
+import { defineComponent, h, ref } from "vue";
 import { useInputModality } from "@/composables/useInputModality";
 import {
   popEscapable,
@@ -218,7 +218,7 @@ describe("useGamepad", () => {
 
       installOnMouse(padHolding(PAD_BUTTON.a));
       step();
-      await nextTick();
+      await flushPromises();
 
       expect(click).toHaveBeenCalledOnce();
     });
@@ -230,7 +230,7 @@ describe("useGamepad", () => {
 
       installOnMouse(padHolding(PAD_BUTTON.a));
       step();
-      await nextTick();
+      await flushPromises();
 
       expect(click).not.toHaveBeenCalled();
     });
@@ -252,7 +252,7 @@ describe("useGamepad", () => {
 
         installOnMouse(padHolding(PAD_BUTTON.a));
         step();
-        await nextTick();
+        await flushPromises();
 
         expect(picked).toHaveBeenCalledOnce();
         expect(fieldClick).not.toHaveBeenCalled();
@@ -269,7 +269,7 @@ describe("useGamepad", () => {
 
       installOnMouse(padHolding(PAD_BUTTON.a));
       step();
-      await nextTick();
+      await flushPromises();
 
       expect(click).toHaveBeenCalledOnce();
     });
@@ -284,7 +284,7 @@ describe("useGamepad", () => {
 
       installOnMouse(padHolding(PAD_BUTTON.a));
       step();
-      await nextTick();
+      await flushPromises();
 
       expect(click).toHaveBeenCalledOnce();
     });
@@ -314,10 +314,15 @@ describe("useGamepad", () => {
         { attachTo: document.body },
       );
       document.querySelector<HTMLElement>("[data-field]")!.focus();
+      // Settle into pad mode first, so the press is the only pending update.
+      let pad = padHolding();
+      installOnMouse(() => [pad]);
+      setModality("pad");
+      await flushPromises();
 
-      installOnMouse(padHolding(PAD_BUTTON.a, PAD_BUTTON["dpad-down"]));
+      pad = padHolding(PAD_BUTTON.a, PAD_BUTTON["dpad-down"]);
       step();
-      await nextTick();
+      await flushPromises();
 
       expect(picked.mock.calls).toEqual([[2]]);
     });

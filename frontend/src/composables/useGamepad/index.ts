@@ -187,13 +187,12 @@ export function useGamepad() {
     if (next.to !== route.path) void router.push(next.to);
   }
 
-  // Activates the currently focused element. Router-links, submit
-  // buttons, custom [role=button] divs all navigate/trigger via .click()
-  // regardless of whether the event was trusted: that's the escape
-  // hatch synthetic KeyboardEvents don't give us. Waits a tick so arrows
-  // sent in the same poll have re-rendered the active option first.
+  // A is polled before the D-pad, so wait for that poll's arrows to queue
+  // their render, then for the render, before reading the active option.
   function activateFocused() {
-    void nextTick(() => padActivationTarget(document.activeElement)?.click());
+    queueMicrotask(() => {
+      void nextTick(() => padActivationTarget(document.activeElement)?.click());
+    });
   }
 
   // Opens the app-wide user menu. UserMenu.vue marks its activator with
