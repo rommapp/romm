@@ -36,7 +36,8 @@ const props = withDefaults(
      *  segmented vocabulary so every existing call site stays
      *  identical. `x-small` shrinks to 22×22 so the cluster reads as
      *  a peer to RSwitch default (20px) when placed inline inside a
-     *  toggle row: mirrors RBtn's x-small / small ladder. */
+     *  toggle row: mirrors RBtn's x-small / small ladder. On `tab`,
+     *  `x-small` is a 24px text pill for inline use beside a heading. */
     size?: "x-small" | "small";
   }>(),
   {
@@ -460,6 +461,22 @@ function showBadge(badge: SegmentedControlItem<T>["badge"]): boolean {
   color: var(--r-color-overlay-emphasis-fg) !important;
   background: transparent !important;
   font-weight: var(--r-font-weight-semibold);
+}
+
+.r-segmented-control--tab.r-segmented-control--size-x-small {
+  padding: 3px;
+}
+.r-segmented-control--tab.r-segmented-control--size-x-small.r-segmented-control--horizontal
+  .r-segmented-control__indicator {
+  top: 3px;
+  bottom: 3px;
+}
+.r-segmented-control--tab.r-segmented-control--size-x-small
+  .r-segmented-control__btn {
+  padding: 3px 12px !important;
+  min-height: 24px !important;
+  height: 24px !important;
+  font-size: 12px;
 }
 
 /* Count pill after the label. Background is a translucent tint of the
