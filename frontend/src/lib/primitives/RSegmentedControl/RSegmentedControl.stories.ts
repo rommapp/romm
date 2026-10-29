@@ -80,6 +80,11 @@ export const Tab: Story = {
   }),
 };
 
+export const TabXSmall: Story = {
+  ...Tab,
+  args: { variant: "tab", size: "x-small" },
+};
+
 /**
  * Vertical tab pill: same aesthetic and sliding indicator as the
  * horizontal tab variant, just stacked.

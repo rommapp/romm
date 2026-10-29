@@ -265,9 +265,8 @@ const achievementsEarned = computed(() => earnedAchievementIds.value.size);
 
 const igdb = computed(() => currentRom.value?.igdb_metadata ?? null);
 
-// Similar games come from the server-side recommendations index rather than
-// `igdb_metadata.similar_games`, which is mostly titles the server doesn't
-// hold and absent entirely for anything IGDB never matched.
+// The RomM similar games source: the server-side recommendations index. The
+// IGDB source reads `igdb_metadata.similar_games` directly in OverviewTab.
 const similarRoms = ref<SimilarRomSchema[]>([]);
 
 // Keyed on the id rather than the ROM: the cached record is replaced wholesale

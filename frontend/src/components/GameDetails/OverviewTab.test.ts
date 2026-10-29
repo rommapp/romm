@@ -1,6 +1,6 @@
 import { shallowMount } from "@vue/test-utils";
-import { describe, expect, it, vi } from "vitest";
-import { ref } from "vue";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { nextTick, ref } from "vue";
 import type { IGDBRelatedGame, SimilarRomSchema } from "@/__generated__";
 import { detailedRomFixture } from "@/utils/rom.fixtures";
 import type { MediaShelfItem } from "./MediaShelf.vue";
@@ -9,9 +9,15 @@ import OverviewTab from "./OverviewTab.vue";
 vi.mock("vue-i18n");
 
 const showRecommendations = ref(true);
+const similarGamesSource = ref("romm");
+
+beforeEach(() => {
+  showRecommendations.value = true;
+  similarGamesSource.value = "romm";
+});
 
 vi.mock("@/composables/useUISettings", () => ({
-  useUISettings: () => ({ showRecommendations }),
+  useUISettings: () => ({ showRecommendations, similarGamesSource }),
 }));
 
 vi.mock("@/stores/collections", () => ({
@@ -82,6 +88,10 @@ function mount(props: Record<string, unknown> = {}) {
   });
 }
 
+function sourcePicker(wrapper: ReturnType<typeof mount>) {
+  return wrapper.findComponent({ name: "RSegmentedControl" });
+}
+
 function gridItems(wrapper: ReturnType<typeof mount>) {
   return wrapper
     .findAllComponents({ name: "RelatedGamesGrid" })
@@ -112,6 +122,59 @@ describe("OverviewTab related games", () => {
 
 describe("OverviewTab similar games", () => {
   const similarRoms = [similar(2), similar(3)];
+
+  it("switches between RomM and IGDB using the saved source", async () => {
+    const items = [game(8, "IGDB game")];
+    const wrapper = mount({
+      similarRoms,
+      rom: detailedRomFixture({ igdb_metadata: { similar_games: items } }),
+    });
+    expect(
+      wrapper.findComponent({ name: "SimilarGamesGrid" }).props("items"),
+    ).toEqual(similarRoms);
+    expect(gridItems(wrapper)).toEqual([]);
+
+    sourcePicker(wrapper).vm.$emit("update:modelValue", "igdb");
+    await nextTick();
+
+    expect(similarGamesSource.value).toBe("igdb");
+    expect(gridItems(wrapper)).toEqual([items]);
+    expect(wrapper.findComponent({ name: "SimilarGamesGrid" }).exists()).toBe(
+      false,
+    );
+  });
+
+  it("keeps the selector reachable when the selected source is empty", () => {
+    const wrapper = mount({
+      rom: detailedRomFixture({
+        igdb_metadata: { similar_games: [game(8, "IGDB game")] },
+      }),
+    });
+    expect(wrapper.text()).toContain("common.no-results");
+    expect(sourcePicker(wrapper).props("modelValue")).toBe("romm");
+
+    similarGamesSource.value = "igdb";
+    const empty = mount({ similarRoms });
+    expect(empty.text()).toContain("common.no-results");
+    expect(sourcePicker(empty).props("modelValue")).toBe("igdb");
+  });
+
+  it("hides both sources when recommendations are disabled", () => {
+    showRecommendations.value = false;
+    similarGamesSource.value = "igdb";
+    const wrapper = mount({
+      similarRoms,
+      rom: detailedRomFixture({
+        igdb_metadata: { similar_games: [game(8, "IGDB game")] },
+      }),
+    });
+    expect(gridItems(wrapper)).toEqual([]);
+    expect(sourcePicker(wrapper).exists()).toBe(false);
+  });
+
+  it("hides the section when neither source has games", () => {
+    expect(mount().text()).not.toContain("recommendations.similar-games");
+  });
 
   it("shows the section when recommendations are enabled", () => {
     showRecommendations.value = true;
