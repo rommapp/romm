@@ -1725,8 +1725,9 @@ async def claim_desktop_session(
             emulator="desktop",
             gui_language=languages.gui_language(request.user),
         )
-    except Exception:
-        # Activation failed, free the claim so the container isn't wedged.
+    except BaseException:
+        # A cancelled request must free the claim too, or the container is
+        # wedged until the TTL lapses.
         await lifecycle.abort_claim(session_key, session)
         raise
 
