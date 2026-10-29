@@ -728,9 +728,9 @@ function onClick(e: MouseEvent) {
    that lead somewhere different, so the second CTA takes colour rather
    than a second white pill. */
 .r-game-btn--brand {
-  background: var(--r-color-brand-primary) !important;
-  border-color: var(--r-color-brand-primary) !important;
-  color: white !important;
+  background: var(--r-color-brand-primary-solid) !important;
+  border-color: var(--r-color-brand-primary-solid) !important;
+  color: var(--r-color-brand-on-primary) !important;
 }
 .r-game-btn--brand:hover {
   background: var(--r-color-brand-primary-hover) !important;

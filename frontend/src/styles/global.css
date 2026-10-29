@@ -139,8 +139,8 @@ html:not([data-input])
 }
 
 .r-app ::selection {
-  background-color: var(--r-color-brand-primary);
-  color: var(--r-color-overlay-fg);
+  background-color: var(--r-color-brand-primary-solid);
+  color: var(--r-color-brand-on-primary);
 }
 
 /* Hide the mouse cursor when the user is driving the UI with a gamepad:

@@ -1,13 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { onMounted, onUnmounted, ref } from "vue";
-import { CONTRAST_TODO_PARAMETERS } from "@/utils/storyA11y";
 import "./RImage.stories.css";
 import RImage from "./RImage.vue";
 
 const meta: Meta<typeof RImage> = {
   title: "Primitives/RImage",
   component: RImage,
-  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     width: { control: "text" },
     height: { control: "text" },

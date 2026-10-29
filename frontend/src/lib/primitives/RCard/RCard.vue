@@ -20,7 +20,7 @@
 // snap down to the nearest tabulated step so a card stays in the
 // design system even if a consumer passes 5 or 9.
 import { computed, useSlots } from "vue";
-import { ROUNDED_MAP, TONE_MAP } from "@/lib/style/tokenMaps";
+import { ROUNDED_MAP, TONE_MAP, solidFill } from "@/lib/style/tokenMaps";
 
 defineOptions({ inheritAttrs: false });
 
@@ -116,6 +116,7 @@ const hasHeader = computed(
       borderRadius: resolvedRounded,
       boxShadow: resolvedElevation,
       '--r-card-color': resolvedColor,
+      '--r-card-solid': resolvedColor && solidFill(resolvedColor),
     }"
   >
     <!-- Loading bar at the top. The bar lives inside the card so it
@@ -159,7 +160,7 @@ const hasHeader = computed(
   border: 1px solid var(--r-color-border);
 }
 .r-card--flat.r-card--has-color {
-  background: var(--r-card-color);
+  background: var(--r-card-solid);
   color: white;
   border-color: transparent;
 }
@@ -174,7 +175,7 @@ const hasHeader = computed(
   box-shadow: 0 4px 10px color-mix(in srgb, black 20%, transparent);
 }
 .r-card--elevated.r-card--has-color {
-  background: var(--r-card-color);
+  background: var(--r-card-solid);
   color: white;
 }
 

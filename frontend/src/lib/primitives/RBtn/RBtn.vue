@@ -33,7 +33,7 @@
 import { computed, ref, useSlots } from "vue";
 import { RouterLink, type RouteLocationRaw } from "vue-router";
 import { useDelayedFlag } from "@/composables/useDelayedFlag";
-import { ROUNDED_MAP, TONE_MAP } from "@/lib/style/tokenMaps";
+import { ROUNDED_MAP, TONE_MAP, solidFill } from "@/lib/style/tokenMaps";
 import RTooltip from "../../structural/RTooltip/RTooltip.vue";
 import RIcon from "../RIcon/RIcon.vue";
 import RProgressCircular from "../RProgressCircular/RProgressCircular.vue";
@@ -289,6 +289,7 @@ const spinnerSize = computed(() => {
     :style="{
       borderRadius: resolvedRounded,
       '--r-btn-color': resolvedColor,
+      '--r-btn-solid': resolvedColor && solidFill(resolvedColor),
     }"
     @pointerdown="onPointerDown"
     @keydown="onKeyDown"
@@ -615,7 +616,7 @@ const spinnerSize = computed(() => {
 
 /* ── Variant: flat, solid fill ────────────────────────────────── */
 .r-btn--flat.r-btn--has-color {
-  background: var(--r-btn-color);
+  background: var(--r-btn-solid);
   color: white;
 }
 .r-btn--flat:not(.r-btn--has-color) {
@@ -625,7 +626,7 @@ const spinnerSize = computed(() => {
 
 /* ── Variant: elevated, solid + shadow ────────────────────────── */
 .r-btn--elevated.r-btn--has-color {
-  background: var(--r-btn-color);
+  background: var(--r-btn-solid);
   color: white;
   box-shadow: 0 2px 6px color-mix(in srgb, black 22%, transparent);
 }

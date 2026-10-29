@@ -14,7 +14,7 @@
 // any text slot scales to ~40% of the avatar height: initials stay
 // legible at every size without a per-size override.
 import { computed } from "vue";
-import { ROUNDED_MAP, TONE_MAP } from "@/lib/style/tokenMaps";
+import { ROUNDED_MAP, TONE_MAP, solidFill } from "@/lib/style/tokenMaps";
 import RIcon from "../RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -91,6 +91,7 @@ const styleObj = computed(() => ({
   // Stays `undefined` when no `color` prop is set, falling through to
   // the variant's neutral defaults below.
   "--r-avatar-color": resolvedColor.value,
+  "--r-avatar-solid": resolvedColor.value && solidFill(resolvedColor.value),
 }));
 </script>
 
@@ -147,7 +148,7 @@ const styleObj = computed(() => ({
 
 /* ── Variant: flat, solid colour fill ─────────────────────────── */
 .r-avatar--flat.r-avatar--has-color {
-  background: var(--r-avatar-color);
+  background: var(--r-avatar-solid);
   color: white;
 }
 .r-avatar--flat:not(.r-avatar--has-color) {
@@ -157,7 +158,7 @@ const styleObj = computed(() => ({
 
 /* ── Variant: elevated, solid fill + soft shadow ──────────────── */
 .r-avatar--elevated.r-avatar--has-color {
-  background: var(--r-avatar-color);
+  background: var(--r-avatar-solid);
   color: white;
   box-shadow: 0 2px 8px color-mix(in srgb, black 30%, transparent);
 }
