@@ -1841,38 +1841,21 @@ async def force_release_all(
     # deleting only the Redis keys would leave the games running.
     grouped = containers_by_key()
 
-    async def _teardown(key: str | bytes, container_key: str) -> None:
-        # Read before the teardown so the displaced player can be identified
-        # even when the container config has since been removed.
+    async def _teardown(container_key: str) -> None:
         session = await get_session(container_key)
         container = container_for_session(
             grouped, container_key, session.get("platform") if session else None
         )
-
-        # All of it runs while the claim still guards the container and before
-        # the key is deleted.
-        try:
+        if session is None:
+            # The row went between the scan and the read; stop the emulator
+            # anyway rather than leave it running.
             if container is not None:
-                # Best-effort; a broker error must not abort the sweep.
-                if session is None:
-                    # The row went between the scan and the read; stop the
-                    # emulator anyway rather than leave it running.
-                    await asyncio.to_thread(commands.stop, container)
-                else:
-                    stopped = await lifecycle.quiesce_container(container, session)
-                    # Credit playtime to the session's owner, not the admin.
-                    await lifecycle.record_play_session(session)
-                    await lifecycle.clear_session_activity(container_key, session)
-                    await lifecycle.collect_exit_state(
-                        container, session, stopped.state_slot
-                    )
-                    await lifecycle.start_exit_save_pull(
-                        container, session, settled=stopped.settled
-                    )
-
-            # Note who ended it before the key goes, so the player's next poll
-            # can explain the stream vanishing.
-            if session is not None:
+                await asyncio.to_thread(commands.stop, container)
+            return
+        if container is None:
+            # The config is gone, so there is nothing to stop. Still tell the
+            # player why the stream vanished, and free the key.
+            try:
                 await record_termination(
                     session,
                     container_key,
@@ -1880,10 +1863,19 @@ async def force_release_all(
                     reason=reason,
                     ended_by_user_id=request.user.id,
                 )
-        finally:
-            # The sweep answered "released", so the key goes even when a step
-            # above raised; a phantom claim would block every later claim.
-            await async_cache.delete(key)
+            finally:
+                await release_own_session(container_key, session)
+            return
+        # Same teardown as releasing one session from the admin panel.
+        await lifecycle.teardown_released_session(
+            container,
+            session,
+            container_key,
+            container.platform,
+            acting_user_id=request.user.id,
+            acting_username=request.user.username,
+            reason=reason,
+        )
 
     released = []
     teardowns = []
@@ -1895,7 +1887,7 @@ async def force_release_all(
         if marker is not None and marker.get("draining"):
             continue
         released.append(container_key)
-        teardowns.append(_teardown(session_redis_key(container_key), container_key))
+        teardowns.append(_teardown(container_key))
 
     # Tear down concurrently so one slow or stuck broker cannot serialize the
     # whole sweep behind its timeout.

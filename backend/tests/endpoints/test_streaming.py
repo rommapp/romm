@@ -4561,6 +4561,64 @@ def test_force_release_all_stops_brokers(client, access_token, rom: Rom):
     assert stop_broker.call_count == 1
 
 
+def test_force_release_all_leaves_its_notice_before_the_stop(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """The sweep tears down like a single admin release, so the displaced tab's
+    poll finds the notice while the container drains."""
+    container = _container_for(rom)
+    seen: list[dict[str, Any] | None] = []
+
+    with _streaming(container):
+        _claim_ok(client, viewer_access_token, rom.id)
+        owner = json.loads(_session_raw(container))["user_id"]
+
+        async def capture(*args, **kwargs):
+            seen.append(await session_store.get_termination(_key_of(container), owner))
+            return commands.StopOutcome()
+
+        with patch(
+            "handler.streaming.lifecycle.quiesce_container",
+            new=AsyncMock(side_effect=capture),
+        ):
+            client.delete(
+                "/api/streaming/sessions",
+                params={"reason": "server restart"},
+                headers=_auth(access_token),
+            )
+    assert seen and seen[0] is not None
+    assert seen[0]["reason"] == "server restart"
+
+
+def test_force_release_all_without_a_config_leaves_a_newer_claim(
+    client, access_token, rom: Rom
+):
+    """With nothing to stop, the sweep still frees the key, but only while it
+    holds the session it read, never a claim that replaced it."""
+    container = _container_for(rom)
+    key = _key_of(container)
+    newer = _session_at(session_store.session_redis_key(key), user_id=99)
+
+    async def reclaimed(session, *args, **kwargs):
+        await async_cache.set(
+            session_store.session_redis_key(key),
+            json.dumps({**newer, "claimed_at": "2026-02-02T00:00:00+00:00"}),
+        )
+
+    with (
+        _streaming(),
+        patch(
+            "endpoints.streaming.record_termination",
+            new=AsyncMock(side_effect=reclaimed),
+        ),
+    ):
+        r = client.delete("/api/streaming/sessions", headers=_auth(access_token))
+    assert r.status_code == 200
+    assert _load_session(session_store.session_redis_key(key))["claimed_at"] == (
+        "2026-02-02T00:00:00+00:00"
+    )
+
+
 # ── Save-state sync ───────────────────────────────────────────────────────────
 
 
