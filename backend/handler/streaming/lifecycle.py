@@ -381,6 +381,12 @@ async def record_play_session(session: StreamingSession) -> None:
         log.exception("failed to record play session")
 
 
+async def close_session_record(session_key: str, session: StreamingSession) -> None:
+    """Credit a finished session's playtime and take it off the activity board."""
+    await record_play_session(session)
+    await clear_session_activity(session_key, session)
+
+
 async def _stop_and_collect(
     container: ResolvedContainer,
     session: StreamingSession,
@@ -391,8 +397,7 @@ async def _stop_and_collect(
 ) -> None:
     """Run every teardown's steps, in order, once it holds the container."""
     stopped = await quiesce_container(container, session, save=save)
-    await record_play_session(session)
-    await clear_session_activity(session_key, session)
+    await close_session_record(session_key, session)
     await collect_exit_state(container, session, stopped.state_slot)
     await collect_exit_saves(container, session, pull_mark, settled=stopped.settled)
 

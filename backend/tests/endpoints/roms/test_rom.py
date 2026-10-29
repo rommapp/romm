@@ -2662,8 +2662,6 @@ class TestUpdateMetadataIDs:
             "n64/roms/Renamed.z64/extras",
             "Game.z64.txt",
         ),
-        # A sibling sharing the prefix is not inside the rom.
-        ("n64/roms/Game.z64 Deluxe", "a.bin", "n64/roms/Game.z64 Deluxe", "a.bin"),
     ],
 )
 def test_moved_file_location_follows_the_rename_on_disk(
@@ -2674,6 +2672,11 @@ def test_moved_file_location_follows_the_rename_on_disk(
         "file_name": moved_name,
         "file_path": moved_path,
     }
+
+
+def test_moved_file_location_skips_a_sibling_sharing_the_prefix():
+    file = RomFile(file_path="n64/roms/Game.z64 Deluxe", file_name="a.bin")
+    assert _moved_file_location(file, "n64/roms", "Game.z64", "Renamed.z64") is None
 
 
 def test_moved_file_location_leaves_the_platform_path_alone():

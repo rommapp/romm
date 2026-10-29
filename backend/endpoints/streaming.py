@@ -1153,8 +1153,7 @@ async def save_and_exit_session(
     if safe_to_wipe:
         await memory_cards.wipe_session_card(container)
 
-    await lifecycle.record_play_session(session)
-    await lifecycle.clear_session_activity(session_key, session)
+    await lifecycle.close_session_record(session_key, session)
     # Before the key goes, so a claim that wins it next waits for the pull.
     await lifecycle.start_exit_save_pull(container, session, settled=settled)
 
@@ -1863,8 +1862,7 @@ async def force_release_all(
                     reason=reason,
                     ended_by_user_id=request.user.id,
                 )
-                await lifecycle.record_play_session(session)
-                await lifecycle.clear_session_activity(container_key, session)
+                await lifecycle.close_session_record(container_key, session)
             finally:
                 await release_own_session(container_key, session)
             return
