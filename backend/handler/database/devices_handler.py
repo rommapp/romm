@@ -157,8 +157,8 @@ class DBDevicesHandler(DBBaseHandler):
         request. Mirrors the debounce used by ClientToken.update_last_used.
         """
         now = datetime.now(timezone.utc)
-        # A single conditional UPDATE: reading the row first in this transaction makes a
-        # concurrent request's commit fail the write with "Record has changed since last read".
+        # No prior read: MariaDB fails an UPDATE of a row this transaction already read
+        # if a concurrent request committed to it since (error 1020).
         session.execute(
             update(Device)
             .where(
