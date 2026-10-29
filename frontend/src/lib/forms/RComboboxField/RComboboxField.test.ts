@@ -161,3 +161,52 @@ describe("RComboboxField commas", () => {
     ]);
   });
 });
+
+describe("RComboboxField combobox semantics", () => {
+  function mountField(props: Record<string, unknown> = {}) {
+    return mount(RComboboxField, {
+      props: {
+        items: ["Action", "Adventure", "Puzzle"],
+        label: "Genres",
+        ...props,
+      },
+      attachTo: document.body,
+    });
+  }
+
+  it("marks the input as a closed combobox that controls nothing yet", () => {
+    const wrapper = mountField();
+    const input = wrapper.get("input");
+
+    expect(input.attributes("role")).toBe("combobox");
+    expect(input.attributes("aria-autocomplete")).toBe("list");
+    expect(input.attributes("aria-expanded")).toBe("false");
+    expect(input.attributes("aria-controls")).toBeUndefined();
+    expect(input.attributes("aria-activedescendant")).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it("drops the pointers once the panel closes", async () => {
+    const wrapper = mountField();
+    const input = wrapper.get("input");
+    await input.trigger("focus");
+    await input.trigger("keydown", { key: "ArrowDown" });
+
+    await input.trigger("keydown", { key: "Escape" });
+    await nextTick();
+
+    expect(input.attributes("aria-expanded")).toBe("false");
+    expect(input.attributes("aria-controls")).toBeUndefined();
+    expect(input.attributes("aria-activedescendant")).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it("stays a plain text field without suggestions", () => {
+    const wrapper = mountField({ noSuggestions: true });
+    const input = wrapper.get("input");
+
+    expect(input.attributes("role")).toBeUndefined();
+    expect(input.attributes("aria-expanded")).toBeUndefined();
+    wrapper.unmount();
+  });
+});

@@ -50,6 +50,7 @@ import {
 import { useInputModality } from "@/composables/useInputModality";
 import { usePopoverDismiss } from "@/composables/usePopoverDismiss";
 import { useChromeLabels } from "@/lib/a11y/chromeLabels";
+import { TONE_MAP } from "@/lib/style/tokenMaps";
 import { focusFromInput, shouldAutofocusSearch } from "@/utils/autofocus";
 import RDivider from "../../primitives/RDivider/RDivider.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
@@ -246,20 +247,6 @@ const allOptionId = `${fieldId}-opt-all`;
 const optionId = (i: number) => `${fieldId}-opt-${i}`;
 
 // ── Tone resolver: same vocabulary as the rest of the lib ─────
-const TONE_MAP: Record<string, string> = {
-  primary: "var(--r-color-brand-primary)",
-  secondary: "var(--r-color-brand-secondary)",
-  accent: "var(--r-color-brand-accent)",
-  success: "var(--r-color-success)",
-  warning: "var(--r-color-warning)",
-  danger: "var(--r-color-danger)",
-  error: "var(--r-color-danger)",
-  info: "var(--r-color-info)",
-  "romm-red": "var(--r-color-romm-red)",
-  "romm-green": "var(--r-color-romm-green)",
-  "romm-blue": "var(--r-color-romm-blue)",
-  "romm-gold": "var(--r-color-romm-gold)",
-};
 const resolvedColor = computed<string>(
   () => TONE_MAP[props.color] ?? props.color ?? TONE_MAP.primary,
 );
