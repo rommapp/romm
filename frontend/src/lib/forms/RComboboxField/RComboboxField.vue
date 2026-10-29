@@ -133,14 +133,12 @@ const suggestions = computed(() => {
 const hasSuggestions = computed(() => suggestions.value.length > 0);
 const panelOpen = computed(() => isOpen.value && hasSuggestions.value);
 
-// The option keyboard navigation is on, for `aria-activedescendant`.
 const activeOptionId = computed(() =>
   panelOpen.value && suggestions.value[activeIndex.value]
     ? optionId(activeIndex.value)
     : undefined,
 );
 
-// A listbox needs a name; it shares the field's.
 const attrs = useAttrs();
 const listboxName = computed(
   () =>

@@ -186,28 +186,6 @@ describe("RComboboxField combobox semantics", () => {
     wrapper.unmount();
   });
 
-  it("points at the named listbox and the active suggestion while open", async () => {
-    const wrapper = mountField();
-    const input = wrapper.get("input");
-
-    await input.trigger("focus");
-    expect(input.attributes("aria-expanded")).toBe("true");
-    const listbox = document.getElementById(input.attributes("aria-controls")!);
-    expect(listbox?.getAttribute("role")).toBe("listbox");
-    expect(listbox?.getAttribute("aria-label")).toBe("Genres");
-    expect(input.attributes("aria-activedescendant")).toBeUndefined();
-
-    await input.trigger("keydown", { key: "ArrowDown" });
-    await input.trigger("keydown", { key: "ArrowDown" });
-    const active = document.getElementById(
-      input.attributes("aria-activedescendant")!,
-    );
-    expect(active?.textContent?.trim()).toBe("Adventure");
-    expect(active?.getAttribute("role")).toBe("option");
-    expect(active?.parentElement).toBe(listbox);
-    wrapper.unmount();
-  });
-
   it("drops the pointers once the panel closes", async () => {
     const wrapper = mountField();
     const input = wrapper.get("input");

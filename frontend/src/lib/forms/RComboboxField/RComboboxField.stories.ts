@@ -265,8 +265,15 @@ export const KeyboardSuggestions: Story = {
       await waitFor(() =>
         expect(input).toHaveAttribute("aria-expanded", "true"),
       );
+      const listbox = document.getElementById(
+        input.getAttribute("aria-controls") ?? "",
+      );
+      await expect(listbox).toHaveAttribute("role", "listbox");
+      await expect(listbox).toHaveAccessibleName("Game modes");
       await userEvent.keyboard("{ArrowDown}{ArrowDown}");
       await expect(active()).toHaveTextContent("Multiplayer");
+      await expect(active()).toHaveAttribute("role", "option");
+      await expect(active()?.parentElement).toBe(listbox);
     });
 
     await step("Enter commits it as a chip", async () => {
