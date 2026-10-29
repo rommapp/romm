@@ -41,7 +41,7 @@ import { PROVIDERS, providerId } from "@/components/GameDetails/providers";
 import { usePinnedMedia } from "@/composables/usePinnedMedia";
 import { useUISettings } from "@/composables/useUISettings";
 import { useWebpSupport } from "@/composables/useWebpSupport";
-import { RBtn, RIcon } from "@/lib";
+import { RBtn, RIcon, RSelect } from "@/lib";
 import storeCollections from "@/stores/collections";
 import type { DetailedRom } from "@/stores/roms";
 import { collectionCoverList } from "@/utils/collectionCovers";
@@ -70,9 +70,10 @@ const props = defineProps<{
 // feature is switched off everywhere at once, not per surface.
 const { showRecommendations, similarGamesSource } = useUISettings();
 
-const selectedSimilarGamesSource = computed(() =>
-  similarGamesSource.value === "igdb" ? "igdb" : "romm",
-);
+const similarGamesSources = [
+  { title: "RomM", value: "romm" },
+  { title: "IGDB", value: "igdb" },
+];
 
 const igdbSimilarGames = computed(
   () => props.rom.igdb_metadata?.similar_games ?? [],
@@ -356,26 +357,20 @@ const coverSource = computed(() => {
         <RelatedGamesGrid title="" :items="ports" />
       </div>
       <div v-if="hasSimilarGames" class="overview-tab__section">
-        <h4 class="overview-tab__section-heading">
-          <RIcon icon="mdi-shape-outline" size="14" />
-          {{ t("recommendations.similar-games") }}
-        </h4>
-        <div
-          class="overview-tab__source"
-          role="group"
-          :aria-label="t('recommendations.similar-games')"
-        >
-          <RBtn
-            v-for="source in ['romm', 'igdb']"
-            :key="source"
-            size="small"
-            variant="text"
-            :active="selectedSimilarGamesSource === source"
-            :aria-pressed="selectedSimilarGamesSource === source"
-            @click="similarGamesSource = source"
-          >
-            {{ source === "romm" ? "RomM" : "IGDB" }}
-          </RBtn>
+        <div class="overview-tab__section-head">
+          <h4 class="overview-tab__section-heading">
+            <RIcon icon="mdi-shape-outline" size="14" />
+            {{ t("recommendations.similar-games") }}
+          </h4>
+          <RSelect
+            v-model="similarGamesSource"
+            class="overview-tab__source"
+            :items="similarGamesSources"
+            :label="t('recommendations.similar-games')"
+            variant="plain"
+            density="compact"
+            hide-details
+          />
         </div>
         <template v-if="similarGamesSource === 'igdb'">
           <RelatedGamesGrid
@@ -546,8 +541,8 @@ const coverSource = computed(() => {
   gap: 8px;
 }
 .overview-tab__source {
-  display: flex;
-  gap: var(--r-space-2);
+  width: 112px;
+  flex-shrink: 0;
 }
 
 .overview-tab__empty {
