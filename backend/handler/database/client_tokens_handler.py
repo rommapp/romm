@@ -99,8 +99,8 @@ class DBClientTokensHandler(DBBaseHandler):
         session: Session = INJECTED_SESSION,
     ) -> None:
         now = datetime.now(timezone.utc)
-        # No prior read: MariaDB fails an UPDATE of a row this transaction already read
-        # if a concurrent request committed to it since (error 1020).
+        # Debounced in the WHERE clause because MariaDB fails an UPDATE of a row this
+        # transaction already read once another request commits to it (error 1020).
         session.execute(
             update(ClientToken)
             .where(
