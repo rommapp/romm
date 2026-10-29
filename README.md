@@ -50,7 +50,7 @@ Prefer a hosted deploy over wiring up the stack yourself?
 </p>
 
 <p align="center">
-  <a href="https://corehost.io/apps/romm" target="_blank" rel="noopener noreferrer"><img src=".github/resources/corehost-badge.svg" alt="Deploy on CoreHost" width="250" height="58" /></a>
+  <a href="https://corehost.io/p/romm" target="_blank" rel="noopener noreferrer"><img src=".github/resources/corehost-badge.svg" alt="Deploy on CoreHost" width="250" height="58" /></a>
   <br />Starting at <b>$2.30/mo</b> · <a href="https://docs.romm.app/latest/install/corehost/">Setup guide</a>
 </p>
 
