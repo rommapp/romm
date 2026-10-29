@@ -113,14 +113,13 @@ jobs:
             ghcr.io/${{ steps.v.outputs.owner }}/romm-themeable:latest
 
   # Checks what was published, as an admin would get it: every tag points at this build, and the
-  # image deploys with the root docker-compose.yml. A failure opens an issue.
+  # image deploys with the root docker-compose.yml.
   verify:
     needs: image
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: read
-      issues: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -151,14 +150,52 @@ jobs:
       - name: Deploy with docker-compose.yml and check it runs
         working-directory: themeable
         run: node scripts/verify-deployment.mjs --image "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/romm-themeable@${{ needs.image.outputs.digest }}"
-      - name: Open an issue on failure
-        if: failure()
+
+  # Any failure on main is reported in one issue, with each failed job's failing tests and errors.
+  report:
+    needs: [test, source, visual, image, verify]
+    if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Report what broke
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE: ${{ needs.image.outputs.release }}
+          RUN_ID: ${{ github.run_id }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RESULTS: "test=${{ needs.test.result }} source=${{ needs.source.result }} visual=${{ needs.visual.result }} image=${{ needs.image.result }} verify=${{ needs.verify.result }}"
         run: |
-          title="themeable: the published $RELEASE image failed verification"
-          if [ -z "$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "$title in:title" --json number --jq '.[].number')" ]; then
-            gh issue create -R "$GITHUB_REPOSITORY" --title "$title" --body "The image for $RELEASE was published, but the follow-up verification failed. The [run]($RUN_URL) names each failed check and holds the container logs. Fix the module and push to \`main\`; the next build publishes over the same tags."
+          # The run is still going, so each failed job's log is read on its own.
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" \
+            --jq '.jobs[] | select(.conclusion == "failure") | "\(.id)\t\(.name)"' |
+            while IFS="$(printf '\t')" read -r id name; do
+              gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$id/logs" | awk -v job="$name" '{ print job "\t-\t" $0 }'
+            done > failed.log || true
+          {
+            echo "The \`themeable\` run for ${GITHUB_SHA:0:9} on \`main\` failed ([run]($RUN_URL)). An image is only published when test, source and visual pass; if only verify failed, the published image is the one that failed it."
+            echo
+            echo "| Job | Result |"
+            echo "| --- | --- |"
+            for pair in $RESULTS; do echo "| ${pair%%=*} | ${pair#*=} |"; done
+            echo
+            node themeable/scripts/failure-report.mjs < failed.log
+          } > report.md
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+          title="themeable: the main build is failing"
+          open=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "$title in:title" --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$open" ]; then
+            gh issue comment "$open" -R "$GITHUB_REPOSITORY" --body-file report.md && exit 0
+          elif gh issue create -R "$GITHUB_REPOSITORY" --title "$title" --body-file report.md; then
+            exit 0
           fi
+          echo "::error::Couldn't open or update an issue (are issues enabled for this repository?). The report is in this run's summary."
+          exit 1
