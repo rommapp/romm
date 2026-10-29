@@ -64,7 +64,7 @@ import {
   RCard,
   RIcon,
   RSelect,
-  RSliderBtnGroup,
+  RSegmentedControl,
   RSpinner,
   RSwitch,
   RTextField,
@@ -862,7 +862,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
         variant="flat"
       >
         <div class="r-ejs__panel-head">
-          <RSliderBtnGroup
+          <RSegmentedControl
             variant="tab"
             :model-value="activeAssetTab"
             :items="assetTabs"

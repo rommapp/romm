@@ -1,5 +1,5 @@
 <script setup lang="ts" generic="T extends string | number">
-// RSliderBtnGroup: segmented/tab control with a sliding pill indicator.
+// RSegmentedControl: segmented/tab control with a sliding pill indicator.
 // One active id at a time; the indicator transitions from the previous button
 // to the new one on modelValue change.
 //
@@ -15,14 +15,14 @@ import { nextTick, onMounted, ref, watch } from "vue";
 import RTooltip from "@/lib/structural/RTooltip/RTooltip.vue";
 import RBtn from "../RBtn/RBtn.vue";
 import RIcon from "../RIcon/RIcon.vue";
-import type { SliderBtnGroupItem } from "./types";
+import type { SegmentedControlItem } from "./types";
 
 defineOptions({ inheritAttrs: false });
 
 const props = withDefaults(
   defineProps<{
     modelValue: T | null;
-    items: SliderBtnGroupItem<T>[];
+    items: SegmentedControlItem<T>[];
     variant?: "segmented" | "tab";
     /** Stack direction. `vertical` swaps the indicator from translateX/width
      *  to translateY/height and changes the flex axis. Same aesthetic, same
@@ -165,7 +165,7 @@ onMounted(async () => {
 // `badge` accepts `string | number | null`, so a plain truthiness check would
 // still render a pill for the literal "0", and `badge !== 0` misses the string
 // "0" / empty string. Centralise the visible-badge rule here.
-function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
+function showBadge(badge: SegmentedControlItem<T>["badge"]): boolean {
   return badge != null && badge !== 0 && badge !== "" && badge !== "0";
 }
 </script>
@@ -178,20 +178,20 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
   <div
     ref="groupEl"
     v-bind="$attrs"
-    class="r-slider-btn-group"
+    class="r-segmented-control"
     :class="[
-      `r-slider-btn-group--${variant}`,
-      `r-slider-btn-group--${orientation}`,
-      `r-slider-btn-group--size-${size}`,
-      { 'r-slider-btn-group--disabled': disabled },
+      `r-segmented-control--${variant}`,
+      `r-segmented-control--${orientation}`,
+      `r-segmented-control--size-${size}`,
+      { 'r-segmented-control--disabled': disabled },
     ]"
     :aria-label="ariaLabel"
     :aria-disabled="disabled || undefined"
     :role="ariaLabel ? 'group' : undefined"
   >
     <span
-      class="r-slider-btn-group__indicator"
-      :class="{ 'r-slider-btn-group__indicator--animate': animate }"
+      class="r-segmented-control__indicator"
+      :class="{ 'r-segmented-control__indicator--animate': animate }"
       :style="
         orientation === 'vertical'
           ? {
@@ -212,8 +212,8 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
         v-if="item.to"
         :ref="(el) => setBtnEl(item.id, el)"
         :to="item.to"
-        class="r-slider-btn-group__btn"
-        :class="{ 'r-slider-btn-group__btn--active': item.id === modelValue }"
+        class="r-segmented-control__btn"
+        :class="{ 'r-segmented-control__btn--active': item.id === modelValue }"
         :aria-label="item.ariaLabel"
       >
         <RTooltip
@@ -224,10 +224,10 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
         />
         <slot name="item" :item="item" :active="item.id === modelValue">
           <RIcon v-if="item.icon" :icon="item.icon" size="16" />
-          <span v-if="item.label" class="r-slider-btn-group__label">
+          <span v-if="item.label" class="r-segmented-control__label">
             {{ item.label }}
           </span>
-          <span v-if="showBadge(item.badge)" class="r-slider-btn-group__badge">
+          <span v-if="showBadge(item.badge)" class="r-segmented-control__badge">
             {{ item.badge }}
           </span>
         </slot>
@@ -238,8 +238,8 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
         variant="text"
         density="compact"
         size="x-small"
-        class="r-slider-btn-group__btn"
-        :class="{ 'r-slider-btn-group__btn--active': item.id === modelValue }"
+        class="r-segmented-control__btn"
+        :class="{ 'r-segmented-control__btn--active': item.id === modelValue }"
         :aria-label="item.ariaLabel"
         :aria-pressed="item.id === modelValue"
         :disabled="disabled || item.disabled"
@@ -253,10 +253,10 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
         />
         <slot name="item" :item="item" :active="item.id === modelValue">
           <RIcon v-if="item.icon" :icon="item.icon" size="16" />
-          <span v-if="item.label" class="r-slider-btn-group__label">
+          <span v-if="item.label" class="r-segmented-control__label">
             {{ item.label }}
           </span>
-          <span v-if="showBadge(item.badge)" class="r-slider-btn-group__badge">
+          <span v-if="showBadge(item.badge)" class="r-segmented-control__badge">
             {{ item.badge }}
           </span>
         </slot>
@@ -266,7 +266,7 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
 </template>
 
 <style scoped>
-.r-slider-btn-group {
+.r-segmented-control {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -278,7 +278,7 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
    work (just on the Y axis) thanks to the orientation-aware measure
    in update(). Items stretch to the container's width so they align
    in a clean column. */
-.r-slider-btn-group--vertical {
+.r-segmented-control--vertical {
   flex-direction: column;
   align-items: stretch;
   border-radius: var(--r-radius-lg);
@@ -288,7 +288,7 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
    28×28 inner buttons + 1px border puts the outer pill at 36px, which
    matches an `RBtn size="default"` sitting next to it (e.g., the disc
    filter / kebab buttons in `GalleryToolbar`). */
-.r-slider-btn-group--segmented {
+.r-segmented-control--segmented {
   padding: 3px;
   gap: 2px;
   background: var(--r-color-bg-elevated);
@@ -296,7 +296,7 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
 }
 
 /* Tab: text-padded cluster (top-nav style). */
-.r-slider-btn-group--tab {
+.r-segmented-control--tab {
   padding: 4px;
   gap: 2px;
   background: var(--r-color-surface);
@@ -304,7 +304,7 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
   backdrop-filter: blur(20px);
 }
 
-.r-slider-btn-group__indicator {
+.r-segmented-control__indicator {
   position: absolute;
   left: 0;
   /* Always a white pill with dark ink on top (the emphasis-pill vocabulary),
@@ -318,13 +318,13 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
   opacity: 0;
 }
 
-.r-slider-btn-group--segmented.r-slider-btn-group--horizontal
-  .r-slider-btn-group__indicator {
+.r-segmented-control--segmented.r-segmented-control--horizontal
+  .r-segmented-control__indicator {
   top: 3px;
   bottom: 3px;
 }
-.r-slider-btn-group--tab.r-slider-btn-group--horizontal
-  .r-slider-btn-group__indicator {
+.r-segmented-control--tab.r-segmented-control--horizontal
+  .r-segmented-control__indicator {
   top: 4px;
   bottom: 4px;
 }
@@ -335,20 +335,20 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
    the indicator's static position in a column-flex layout sits after
    the flex items, and `translateY(<offset>)` then adds to that,
    shifting the active background downward off the active item. */
-.r-slider-btn-group--tab.r-slider-btn-group--vertical
-  .r-slider-btn-group__indicator {
+.r-segmented-control--tab.r-segmented-control--vertical
+  .r-segmented-control__indicator {
   top: 0;
   left: 4px;
   right: 4px;
 }
-.r-slider-btn-group--segmented.r-slider-btn-group--vertical
-  .r-slider-btn-group__indicator {
+.r-segmented-control--segmented.r-segmented-control--vertical
+  .r-segmented-control__indicator {
   top: 0;
   left: 3px;
   right: 3px;
 }
 
-.r-slider-btn-group__indicator--animate {
+.r-segmented-control__indicator--animate {
   transition:
     transform var(--r-motion-med) var(--r-motion-ease-out),
     width var(--r-motion-med) var(--r-motion-ease-out),
@@ -362,12 +362,12 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
    opacity binding (see template); the active button must drop its
    inverted text colour too so it reads like every other muted item
    instead of leaving a low-contrast `--r-color-bg` ghost behind. */
-.r-slider-btn-group--disabled {
+.r-segmented-control--disabled {
   opacity: 0.4;
   pointer-events: none;
 }
-.r-slider-btn-group--disabled .r-slider-btn-group__btn--active,
-.r-slider-btn-group--disabled .r-slider-btn-group__btn--active:hover {
+.r-segmented-control--disabled .r-segmented-control__btn--active,
+.r-segmented-control--disabled .r-segmented-control__btn--active:hover {
   color: var(--r-color-fg-secondary) !important;
 }
 
@@ -375,7 +375,7 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
    transparent so the slide reads cleanly behind them. `transform` + extra
    transitions give the hover/press animation parity with RBtn's
    currentColor overlay + scale press cue. */
-.r-slider-btn-group__btn {
+.r-segmented-control__btn {
   position: relative;
   z-index: 1;
   border-radius: var(--r-radius-pill) !important;
@@ -387,14 +387,14 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
 }
 /* Press feedback: subtle scale-down, skipping the active pill so its
    content doesn't pulse during a drag/repeat. */
-.r-slider-btn-group__btn:active:not(.r-slider-btn-group__btn--active) {
+.r-segmented-control__btn:active:not(.r-segmented-control__btn--active) {
   transform: scale(0.94);
 }
 
 /* Segmented sizing + colors. RBtn's variant styles apply a colour by
    default; to get a neutral grey here we override with equal-or-greater
    specificity + !important. */
-.r-slider-btn-group--segmented .r-slider-btn-group__btn {
+.r-segmented-control--segmented .r-segmented-control__btn {
   min-width: 28px !important;
   min-height: 28px !important;
   width: 28px !important;
@@ -405,17 +405,19 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
   display: inline-grid;
   place-items: center;
 }
-.r-slider-btn-group--segmented .r-slider-btn-group__btn :deep(.r-btn__content) {
+.r-segmented-control--segmented
+  .r-segmented-control__btn
+  :deep(.r-btn__content) {
   min-width: 0;
 }
-.r-slider-btn-group--segmented
-  .r-slider-btn-group__btn:hover:not(.r-slider-btn-group__btn--active) {
+.r-segmented-control--segmented
+  .r-segmented-control__btn:hover:not(.r-segmented-control__btn--active) {
   color: var(--r-color-fg) !important;
   background: var(--r-color-surface) !important;
   transform: scale(1.08);
 }
-.r-slider-btn-group--segmented .r-slider-btn-group__btn--active,
-.r-slider-btn-group--segmented .r-slider-btn-group__btn--active:hover {
+.r-segmented-control--segmented .r-segmented-control__btn--active,
+.r-segmented-control--segmented .r-segmented-control__btn--active:hover {
   color: var(--r-color-overlay-emphasis-fg) !important;
 }
 
@@ -423,22 +425,22 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
    token so the segmented control reads as a peer to a 20px RSwitch
    when sitting inline inside a SettingsToggleRow. Default `small`
    (28×28) keeps every existing call site identical. */
-.r-slider-btn-group--segmented.r-slider-btn-group--size-x-small
-  .r-slider-btn-group__btn {
+.r-segmented-control--segmented.r-segmented-control--size-x-small
+  .r-segmented-control__btn {
   min-width: 22px !important;
   min-height: 22px !important;
   width: 22px !important;
   height: 22px !important;
 }
-.r-slider-btn-group--segmented.r-slider-btn-group--size-x-small
-  .r-slider-btn-group__btn
+.r-segmented-control--segmented.r-segmented-control--size-x-small
+  .r-segmented-control__btn
   :deep(.mdi) {
   font-size: 12px !important;
 }
 
 /* Tab sizing + colors. Min-height is explicit (and !important) so RBtn items
    (no `to`) match the height of router-link items. */
-.r-slider-btn-group--tab .r-slider-btn-group__btn {
+.r-segmented-control--tab .r-segmented-control__btn {
   padding: 7px 22px !important;
   min-height: 34px !important;
   font-size: 13.5px;
@@ -448,13 +450,13 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
   align-items: center;
   gap: 6px;
 }
-.r-slider-btn-group--tab
-  .r-slider-btn-group__btn:hover:not(.r-slider-btn-group__btn--active) {
+.r-segmented-control--tab
+  .r-segmented-control__btn:hover:not(.r-segmented-control__btn--active) {
   color: var(--r-color-fg) !important;
   background: var(--r-color-surface-hover);
 }
-.r-slider-btn-group--tab .r-slider-btn-group__btn--active,
-.r-slider-btn-group--tab .r-slider-btn-group__btn--active:hover {
+.r-segmented-control--tab .r-segmented-control__btn--active,
+.r-segmented-control--tab .r-segmented-control__btn--active:hover {
   color: var(--r-color-overlay-emphasis-fg) !important;
   background: transparent !important;
   font-weight: var(--r-font-weight-semibold);
@@ -463,7 +465,7 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
 /* Count pill after the label. Background is a translucent tint of the
    current text colour, so it stays legible both on inactive items
    (muted fg) and on the active item (inverted onto the indicator). */
-.r-slider-btn-group__badge {
+.r-segmented-control__badge {
   display: inline-grid;
   place-items: center;
   min-width: 18px;

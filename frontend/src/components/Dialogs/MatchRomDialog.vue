@@ -22,7 +22,7 @@ import {
   RDialog,
   RIcon,
   RSelect,
-  RSliderBtnGroup,
+  RSegmentedControl,
   RSpinner,
   RTextField,
 } from "@/lib";
@@ -319,7 +319,7 @@ function closeDialog() {
         <!-- Layout switcher: grid vs list, mirroring the gallery's own
              toggle. It lives up here because the header is the one row that
              never reflows as the filters or the search state change. -->
-        <RSliderBtnGroup
+        <RSegmentedControl
           :model-value="variant"
           :items="variantItems"
           variant="segmented"
