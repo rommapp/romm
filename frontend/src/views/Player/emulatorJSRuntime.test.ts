@@ -412,8 +412,10 @@ describe("installEJSDefaultOptionsTrap", () => {
     });
   });
 
-  it("hands an FBNeo BIOS archive to the core whole on the 4.2.3 build", () => {
+  it("hands an FBNeo BIOS archive to the core whole on the 4.2.3 build", async () => {
     const emulator = makeEmulator({});
+    emulator.downloadFile = () =>
+      Promise.resolve({ headers: {}, data: new ArrayBuffer(4) });
     Object.assign(emulator.config, {
       system: "fbneo",
       biosUrl: "/api/firmware/1/content/neogeo.zip",
@@ -435,6 +437,10 @@ describe("installEJSDefaultOptionsTrap", () => {
     expect(emulator.config.externalFiles).toEqual({
       "/neogeo.zip": "/api/firmware/1/content/neogeo.zip",
     });
+    const bios = await emulator.downloadFile(
+      "/api/firmware/1/content/neogeo.zip",
+    );
+    expect(bios.data).toBeInstanceOf(Uint8Array);
   });
 
   describe("cheats", () => {

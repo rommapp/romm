@@ -64,6 +64,40 @@ export function firmwareExternalFiles(
   );
 }
 
+interface ExternalFilesEmulator {
+  config: { externalFiles?: Record<string, string> | undefined };
+  downloadGameFile?: unknown;
+  downloadFile?:
+    ((path: string, ...args: unknown[]) => Promise<unknown>) | undefined;
+}
+
+/** Hands every EJS_externalFiles download to the 4.2.3 virtual FS as bytes. */
+export function writeExternalFilesAsBytes(
+  emulator: ExternalFilesEmulator,
+): void {
+  // 4.2.3 writes the raw ArrayBuffer, which Emscripten's FS.writeFile rejects.
+  const { downloadFile } = emulator;
+  if (typeof emulator.downloadGameFile !== "function" || !downloadFile) return;
+
+  emulator.downloadFile = function (path, ...args) {
+    const response = downloadFile.call(this, path, ...args);
+    const externalUrls = Object.values(emulator.config.externalFiles ?? {});
+    if (!externalUrls.includes(path)) return response;
+
+    return response.then((result) => {
+      if (
+        result !== null &&
+        typeof result === "object" &&
+        "data" in result &&
+        result.data instanceof ArrayBuffer
+      ) {
+        (result as { data: unknown }).data = new Uint8Array(result.data);
+      }
+      return result;
+    });
+  };
+}
+
 interface ArcadeBiosEmulator {
   config: {
     biosUrl?: string | undefined;
@@ -71,8 +105,6 @@ interface ArcadeBiosEmulator {
   };
   getCore(generic?: boolean): string;
   downloadGameFile?: unknown;
-  downloadFile?:
-    ((path: string, ...args: unknown[]) => Promise<unknown>) | undefined;
 }
 
 /** Hands an arcade BIOS archive to the core whole, the way FBNeo and MAME read it. */
@@ -86,32 +118,11 @@ export function keepArcadeBiosWhole(emulator: ArcadeBiosEmulator): void {
   const name = biosUrl?.split("/").pop()?.split(/[?#]/)[0];
   if (!biosUrl || !name || !ARCHIVE_EXTENSION.test(name)) return;
 
-  const biosPath = `/${name}`;
-  const downloadFile = emulator.downloadFile;
-  if (downloadFile) {
-    emulator.downloadFile = function (path, ...args) {
-      const response = downloadFile.call(this, path, ...args);
-      if (path !== biosUrl) return response;
-
-      return response.then((result) => {
-        if (
-          result !== null &&
-          typeof result === "object" &&
-          "data" in result &&
-          result.data instanceof ArrayBuffer
-        ) {
-          (result as { data: unknown }).data = new Uint8Array(result.data);
-        }
-        return result;
-      });
-    };
-  }
-
   // EJS_externalFiles writes an archive raw on 4.2.3. The root is the content
   // directory the game zip sits in, which both cores search.
   emulator.config.externalFiles = {
     ...emulator.config.externalFiles,
-    [biosPath]: biosUrl,
+    [`/${name}`]: biosUrl,
   };
   emulator.config.biosUrl = "";
 }
