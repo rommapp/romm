@@ -23,6 +23,7 @@ import BrandingArtwork from "@/v2/components/Settings/BrandingArtwork.vue";
 import BrandingRandomArtwork from "@/v2/components/Settings/BrandingRandomArtwork.vue";
 import BrandingUpload from "@/v2/components/Settings/BrandingUpload.vue";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
+import { useBrandingChoices } from "@/v2/composables/useBrandingChoices";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useFetchState } from "@/v2/composables/useFetchState";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -58,12 +59,8 @@ const {
 // Ids, storage key and stock swatch come from the compiled status, so they match the loader's.
 const client = computed(() => status.value?.client ?? null);
 const stockId = computed(() => client.value?.stock_id ?? "");
-// Random's groups as they will be saved; the count follows them before Save changes.
-const groups = ref<RandomGroups>({
-  stock: false,
-  built_in: true,
-  accessibility: true,
-});
+// The theme and Random's groups as they will be saved; the count follows the groups before Save changes.
+const { selected, groups, adoptNext } = useBrandingChoices(status);
 const groupKeys = computed(
   () => Object.keys(groups.value) as (keyof RandomGroups)[],
 );
@@ -83,7 +80,6 @@ const drawIds = computed(() => {
 const drawPacks = computed(() =>
   (status.value?.packs ?? []).filter((p) => drawIds.value.includes(p.id)),
 );
-const selected = ref<string>("");
 const rescanning = ref(false);
 const page = ref(1);
 const saving = ref(false);
@@ -142,15 +138,8 @@ const pageOptions = computed(() =>
   options.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE),
 );
 
-watch(status, (value) => {
-  if (!value) return;
-  if (value.random) {
-    const { stock, built_in, accessibility } = value.random;
-    groups.value = { stock, built_in, accessibility };
-  }
-  const known = options.value.some((o) => o.id === value.selected);
-  selected.value = known ? value.selected : stockId.value;
-  const index = options.value.findIndex((o) => o.id === selected.value);
+watch(selected, (id) => {
+  const index = options.value.findIndex((o) => o.id === id);
   page.value = Math.floor(Math.max(index, 0) / PAGE_SIZE) + 1;
 });
 
@@ -194,6 +183,7 @@ async function save(): Promise<void> {
     const { data } = await themeableApi.saveBranding(selected.value, {
       ...groups.value,
     });
+    if (data.ok) adoptNext();
     status.value = data;
     savedOnce.value = true;
     if (data.ok) snackbar.success(t("branding.saved"));
