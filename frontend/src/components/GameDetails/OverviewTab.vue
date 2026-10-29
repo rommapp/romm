@@ -41,7 +41,7 @@ import { PROVIDERS, providerId } from "@/components/GameDetails/providers";
 import { usePinnedMedia } from "@/composables/usePinnedMedia";
 import { useUISettings } from "@/composables/useUISettings";
 import { useWebpSupport } from "@/composables/useWebpSupport";
-import { RBtn, RIcon, RSelect } from "@/lib";
+import { RBtn, RIcon, RSliderBtnGroup } from "@/lib";
 import storeCollections from "@/stores/collections";
 import type { DetailedRom } from "@/stores/roms";
 import { collectionCoverList } from "@/utils/collectionCovers";
@@ -71,8 +71,8 @@ const props = defineProps<{
 const { showRecommendations, similarGamesSource } = useUISettings();
 
 const similarGamesSources = [
-  { title: "RomM", value: "romm" },
-  { title: "IGDB", value: "igdb" },
+  { id: "romm", label: "RomM" },
+  { id: "igdb", label: "IGDB" },
 ];
 
 const igdbSimilarGames = computed(
@@ -362,14 +362,13 @@ const coverSource = computed(() => {
             <RIcon icon="mdi-shape-outline" size="14" />
             {{ t("recommendations.similar-games") }}
           </h4>
-          <RSelect
+          <RSliderBtnGroup
             v-model="similarGamesSource"
             class="overview-tab__source"
             :items="similarGamesSources"
-            :label="t('recommendations.similar-games')"
-            variant="plain"
-            density="compact"
-            hide-details
+            :aria-label="t('recommendations.similar-games')"
+            variant="tab"
+            size="x-small"
           />
         </div>
         <template v-if="similarGamesSource === 'igdb'">
@@ -541,7 +540,6 @@ const coverSource = computed(() => {
   gap: 8px;
 }
 .overview-tab__source {
-  width: 112px;
   flex-shrink: 0;
 }
 
