@@ -83,8 +83,8 @@ class StoredDiscSwap(TypedDict):
 
 
 class StreamingSession(TypedDict, total=False):
-    """A container's session record. A drain marker holds only `draining` and
-    `drain_token`, and records from older releases can lack any field."""
+    """A container's session record, of which a drain marker holds only
+    `draining` and `drain_token` and an older release's record any subset."""
 
     user_id: int
     broker_session_id: str
