@@ -84,20 +84,17 @@ class SigilService:
             result = await asyncio.to_thread(
                 sigil.extract, file_path, platform=sigil_slug, filename_fallback=False
             )
+        # Expected for arbitrary library files: no title id, a format sigil
+        # can't parse, or a Switch header RomM holds no keys for.
+        except (
+            sigil.SigilNotFoundError,
+            sigil.SigilUnsupportedFormatError,
+            sigil.SigilNeedsKeyError,
+        ) as exc:
+            log.debug(f"Sigil found no title id for {file_path}: {exc}")
+            return None
         except Exception as exc:
-            # Expected for arbitrary library files: no title id, a format sigil
-            # can't parse, or a Switch header RomM holds no keys for.
-            if isinstance(
-                exc,
-                (
-                    sigil.SigilNotFoundError,
-                    sigil.SigilUnsupportedFormatError,
-                    sigil.SigilNeedsKeyError,
-                ),
-            ):
-                log.debug(f"Sigil found no title id for {file_path}: {exc}")
-            else:
-                log.error(f"Sigil extraction failed for {file_path}: {exc}")
+            log.error(f"Sigil extraction failed for {file_path}: {exc}")
             return None
 
         raw_content_type = getattr(result, "switch_content_type", None)
