@@ -1,12 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { onMounted, onUnmounted, ref } from "vue";
 import { CONTRAST_TODO_PARAMETERS } from "@/utils/storyA11y";
-import "./RImg.stories.css";
-import RImg from "./RImg.vue";
+import "./RImage.stories.css";
+import RImage from "./RImage.vue";
 
-const meta: Meta<typeof RImg> = {
-  title: "Primitives/RImg",
-  component: RImg,
+const meta: Meta<typeof RImage> = {
+  title: "Primitives/RImage",
+  component: RImage,
   parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     width: { control: "text" },
@@ -17,7 +17,7 @@ const meta: Meta<typeof RImg> = {
 
 export default meta;
 
-type Story = StoryObj<typeof RImg>;
+type Story = StoryObj<typeof RImage>;
 
 // A small known-good image we can use without network access in
 // Storybook. The local logo ships at /assets/isotipo.svg.
@@ -43,19 +43,19 @@ export const NaturalSize: Story = {
 export const WidthOnly: Story = {
   name: "Width only — auto height",
   render: () => ({
-    components: { RImg },
+    components: { RImage },
     template: `
       <div style="display:flex;align-items:flex-end;gap:24px;font:11px/1.2 sans-serif;color:var(--r-color-fg-muted)">
         <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
-          <RImg src="${LOGO}" :width="32" alt="logo" />
+          <RImage src="${LOGO}" :width="32" alt="logo" />
           <span>width 32</span>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
-          <RImg src="${LOGO}" :width="64" alt="logo" />
+          <RImage src="${LOGO}" :width="64" alt="logo" />
           <span>width 64</span>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
-          <RImg src="${LOGO}" :width="128" alt="logo" />
+          <RImage src="${LOGO}" :width="128" alt="logo" />
           <span>width 128</span>
         </div>
       </div>
@@ -66,15 +66,15 @@ export const WidthOnly: Story = {
 export const CoverFit: Story = {
   name: "cover · width × height",
   render: () => ({
-    components: { RImg },
+    components: { RImage },
     template: `
       <div style="display:flex;gap:24px;font:11px/1.2 sans-serif;color:var(--r-color-fg-muted)">
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
-          <RImg src="${PHOTO}" :width="160" :height="100" cover alt="cover" style="border-radius:8px" />
+          <RImage src="${PHOTO}" :width="160" :height="100" cover alt="cover" style="border-radius:8px" />
           <span>cover · 160×100</span>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
-          <RImg src="${PHOTO_TALL}" :width="160" :height="100" cover alt="cover tall" style="border-radius:8px" />
+          <RImage src="${PHOTO_TALL}" :width="160" :height="100" cover alt="cover tall" style="border-radius:8px" />
           <span>cover · tall src → cropped</span>
         </div>
       </div>
@@ -85,11 +85,11 @@ export const CoverFit: Story = {
 export const ContainFit: Story = {
   name: "contain · width × height",
   render: () => ({
-    components: { RImg },
+    components: { RImage },
     template: `
       <div style="display:flex;gap:24px;font:11px/1.2 sans-serif;color:var(--r-color-fg-muted)">
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
-          <RImg
+          <RImage
             src="${PHOTO}"
             :width="160"
             :height="100"
@@ -100,7 +100,7 @@ export const ContainFit: Story = {
           <span>contain · letterboxed</span>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
-          <RImg
+          <RImage
             src="${PHOTO_TALL}"
             :width="160"
             :height="100"
@@ -118,19 +118,19 @@ export const ContainFit: Story = {
 export const AspectRatio: Story = {
   name: "aspectRatio (responsive)",
   render: () => ({
-    components: { RImg },
+    components: { RImage },
     template: `
       <div style="display:flex;flex-direction:column;gap:16px;width:320px;font:11px/1.2 sans-serif;color:var(--r-color-fg-muted)">
         <div>
-          <RImg src="${PHOTO}" aspect-ratio="16/9" cover style="width:100%;border-radius:8px" alt="16/9" />
+          <RImage src="${PHOTO}" aspect-ratio="16/9" cover style="width:100%;border-radius:8px" alt="16/9" />
           <div style="margin-top:6px">aspectRatio "16/9" · cover · width 100%</div>
         </div>
         <div>
-          <RImg src="${PHOTO}" aspect-ratio="1/1" cover style="width:100%;border-radius:8px" alt="1/1" />
+          <RImage src="${PHOTO}" aspect-ratio="1/1" cover style="width:100%;border-radius:8px" alt="1/1" />
           <div style="margin-top:6px">aspectRatio "1/1" · cover · width 100%</div>
         </div>
         <div>
-          <RImg src="${PHOTO}" aspect-ratio="4/3" cover style="width:100%;border-radius:8px" alt="4/3" />
+          <RImage src="${PHOTO}" aspect-ratio="4/3" cover style="width:100%;border-radius:8px" alt="4/3" />
           <div style="margin-top:6px">aspectRatio "4/3" · cover · width 100%</div>
         </div>
       </div>
@@ -143,17 +143,17 @@ export const AspectRatio: Story = {
 export const ErrorSlot: Story = {
   name: "error slot (fallback)",
   render: () => ({
-    components: { RImg },
+    components: { RImage },
     template: `
       <div style="display:flex;align-items:center;gap:24px;font:12px/1.4 sans-serif;color:var(--r-color-fg-muted)">
-        <RImg src="/does-not-exist.png" :width="64" :height="64" alt="missing">
+        <RImage src="/does-not-exist.png" :width="64" :height="64" alt="missing">
           <template #error>
             <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--r-color-fg-faint)">
               <i class="mdi mdi-image-broken-variant" style="font-size:24px"></i>
               <span style="font-size:10px">missing</span>
             </div>
           </template>
-        </RImg>
+        </RImage>
         <span>The src 404s — the <code>#error</code> slot renders instead.</span>
       </div>
     `,
@@ -163,10 +163,10 @@ export const ErrorSlot: Story = {
 export const LoadingSlot: Story = {
   name: "loading slot (placeholder)",
   render: () => ({
-    components: { RImg },
+    components: { RImage },
     setup() {
       // The story controls how long the loading state lasts:
-      //   1. Start with `src` empty: RImg renders the loading slot.
+      //   1. Start with `src` empty: RImage renders the loading slot.
       //   2. After `loadingDelay` ms, set a real cache-busted src so
       //      the image fetches and `loaded` takes over.
       //   3. The "Reload" button restarts the cycle on demand.
@@ -185,7 +185,7 @@ export const LoadingSlot: Story = {
         const myCounter = counter;
         timer = setTimeout(() => {
           // Cache-bust each cycle so picsum re-fetches.
-          src.value = `https://picsum.photos/seed/r-img-loading-${myCounter}/400/400`;
+          src.value = `https://picsum.photos/seed/r-image-loading-${myCounter}/400/400`;
         }, loadingDelay);
       }
 
@@ -198,7 +198,7 @@ export const LoadingSlot: Story = {
     },
     template: `
       <div style="display:flex;align-items:center;gap:24px;font:12px/1.4 sans-serif;color:var(--r-color-fg-muted)">
-        <RImg
+        <RImage
           :src="src"
           :width="120"
           :height="120"
@@ -207,12 +207,12 @@ export const LoadingSlot: Story = {
           style="border-radius:8px"
         >
           <template #loading>
-            <div class="r-img-story-shimmer" />
+            <div class="r-image-story-shimmer" />
           </template>
-        </RImg>
+        </RImage>
         <div style="display:flex;flex-direction:column;gap:8px;max-width:240px">
           <span>The shimmer is forced visible for 2.5s before the image fetches. Click reload to re-trigger.</span>
-          <button class="r-img-story-reload-btn" type="button" @click="reload">Reload</button>
+          <button class="r-image-story-reload-btn" type="button" @click="reload">Reload</button>
         </div>
       </div>
     `,
@@ -222,9 +222,9 @@ export const LoadingSlot: Story = {
 export const DefaultSlotOverlay: Story = {
   name: "default slot (overlay over loaded image)",
   render: () => ({
-    components: { RImg },
+    components: { RImage },
     template: `
-      <RImg
+      <RImage
         src="${PHOTO}"
         :width="320"
         :height="180"
@@ -244,7 +244,7 @@ export const DefaultSlotOverlay: Story = {
         ">
           Overlay caption — composes on top of the image
         </div>
-      </RImg>
+      </RImage>
     `,
   }),
 };
@@ -254,11 +254,11 @@ export const DefaultSlotOverlay: Story = {
 export const Logo: Story = {
   name: "Logo (AppNav usage)",
   render: () => ({
-    components: { RImg },
+    components: { RImage },
     template: `
       <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 12px;background:var(--r-color-surface);border-radius:8px">
-        <RImg src="${LOGO}" :width="32" alt="isotipo" />
-        <RImg src="/assets/logotipo.svg" :width="70" alt="logotipo" />
+        <RImage src="${LOGO}" :width="32" alt="isotipo" />
+        <RImage src="/assets/logotipo.svg" :width="70" alt="logotipo" />
       </div>
     `,
   }),
