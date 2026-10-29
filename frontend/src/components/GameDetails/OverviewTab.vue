@@ -41,7 +41,7 @@ import { PROVIDERS, providerId } from "@/components/GameDetails/providers";
 import { usePinnedMedia } from "@/composables/usePinnedMedia";
 import { useUISettings } from "@/composables/useUISettings";
 import { useWebpSupport } from "@/composables/useWebpSupport";
-import { RBtn, RIcon, RSliderBtnGroup } from "@/lib";
+import { RBtn, RIcon, RSegmentedControl } from "@/lib";
 import storeCollections from "@/stores/collections";
 import type { DetailedRom } from "@/stores/roms";
 import { collectionCoverList } from "@/utils/collectionCovers";
@@ -362,7 +362,7 @@ const coverSource = computed(() => {
             <RIcon icon="mdi-shape-outline" size="14" />
             {{ t("recommendations.similar-games") }}
           </h4>
-          <RSliderBtnGroup
+          <RSegmentedControl
             v-model="similarGamesSource"
             class="overview-tab__source"
             :items="similarGamesSources"

@@ -89,7 +89,7 @@ function mount(props: Record<string, unknown> = {}) {
 }
 
 function sourcePicker(wrapper: ReturnType<typeof mount>) {
-  return wrapper.findComponent({ name: "RSliderBtnGroup" });
+  return wrapper.findComponent({ name: "RSegmentedControl" });
 }
 
 function gridItems(wrapper: ReturnType<typeof mount>) {
