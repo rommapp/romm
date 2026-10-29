@@ -1,6 +1,6 @@
 {
   "name": "romm-themeable",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "private": true,
   "description": "Theme and artwork module layered on top of stock RomM releases",
   "license": "AGPL-3.0-only",
