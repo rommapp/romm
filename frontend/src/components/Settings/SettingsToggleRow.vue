@@ -61,7 +61,7 @@ function toggle() {
          (e.g. a "Compact / Extended" segmented control for the
          Library Snapshot widget toggle). Click events stop here so
          nested interactive controls don't bubble up and flip the row
-         toggle; mousedown is stopped too so `<RSliderBtnGroup>`'s
+         toggle; mousedown is stopped too so `<RSegmentedControl>`'s
          pointer-based active-pill animation doesn't trigger a row
          click on release. */
     -->

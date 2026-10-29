@@ -1,7 +1,7 @@
 import { computed, toValue, type MaybeRefOrGetter } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema, StateSchema } from "@/__generated__";
-import type { SliderBtnGroupItem } from "@/lib/primitives/RSliderBtnGroup/types";
+import type { SegmentedControlItem } from "@/lib/primitives/RSegmentedControl/types";
 import { useStreamingStore } from "@/stores/streaming";
 import { isCoreCompatible, type AssetType } from "@/utils/assets";
 
@@ -25,7 +25,7 @@ export function useSaveStateTabs(
     () => compatibleStates.value.length === stateCount.value,
   );
 
-  const tabs = computed<SliderBtnGroupItem<AssetType>[]>(() => [
+  const tabs = computed<SegmentedControlItem<AssetType>[]>(() => [
     {
       id: "save",
       label: t("common.saves"),

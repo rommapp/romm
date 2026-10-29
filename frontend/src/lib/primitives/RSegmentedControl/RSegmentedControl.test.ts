@@ -2,9 +2,9 @@ import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import { stubResizeObserver } from "@/test-utils/resizeObserver";
-import RSliderBtnGroup from "./RSliderBtnGroup.vue";
+import RSegmentedControl from "./RSegmentedControl.vue";
 
-describe("RSliderBtnGroup resize", () => {
+describe("RSegmentedControl resize", () => {
   let frames: FrameRequestCallback[] = [];
   let ro: ReturnType<typeof stubResizeObserver>;
 
@@ -24,7 +24,7 @@ describe("RSliderBtnGroup resize", () => {
   });
 
   async function render() {
-    const wrapper = mount(RSliderBtnGroup, {
+    const wrapper = mount(RSegmentedControl, {
       props: {
         modelValue: "a",
         items: [
@@ -42,11 +42,11 @@ describe("RSliderBtnGroup resize", () => {
 
   it("snaps into place without sliding when a hidden group is shown", async () => {
     const wrapper = await render();
-    const group = wrapper.get(".r-slider-btn-group").element;
+    const group = wrapper.get(".r-segmented-control").element;
     const animated = () =>
       wrapper
-        .get(".r-slider-btn-group__indicator")
-        .classes("r-slider-btn-group__indicator--animate");
+        .get(".r-segmented-control__indicator")
+        .classes("r-segmented-control__indicator--animate");
     expect(animated()).toBe(true);
 
     vi.spyOn(group, "getBoundingClientRect").mockReturnValue(
@@ -63,7 +63,7 @@ describe("RSliderBtnGroup resize", () => {
 
   it("stops observing on unmount", async () => {
     const wrapper = await render();
-    const group = wrapper.get(".r-slider-btn-group").element;
+    const group = wrapper.get(".r-segmented-control").element;
     expect(ro.isObserved(group)).toBe(true);
 
     wrapper.unmount();

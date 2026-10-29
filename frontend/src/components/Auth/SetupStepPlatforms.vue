@@ -25,11 +25,11 @@ import {
   RCollapsible,
   REmptyState,
   RIcon,
-  RSliderBtnGroup,
+  RSegmentedControl,
   RTag,
   RTextField,
 } from "@/lib";
-import type { SliderBtnGroupItem } from "@/lib";
+import type { SegmentedControlItem } from "@/lib";
 import type { Platform } from "@/stores/platforms";
 import { platformMatchesSearch } from "@/utils/platformSearch";
 
@@ -129,7 +129,7 @@ const showDetectedFilter = computed(
     identifiedDetectedCount.value > 0 && unidentifiedDetectedCount.value > 0,
 );
 
-const detectedFilterItems = computed<SliderBtnGroupItem<DetectedFilter>[]>(
+const detectedFilterItems = computed<SegmentedControlItem<DetectedFilter>[]>(
   () => [
     {
       id: "all",
@@ -365,7 +365,7 @@ const detectedPlatformCount = computed(
             </RChip>
           </h3>
           <div v-if="showDetectedFilter" class="r-setup-platforms__toolbar">
-            <RSliderBtnGroup
+            <RSegmentedControl
               v-model="detectedFilter"
               :items="detectedFilterItems"
               variant="segmented"
