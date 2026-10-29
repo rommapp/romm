@@ -1998,21 +1998,53 @@ _MATCH_REFETCHES: Final = (
 )
 
 
-async def _refetch_changed_matches(rom: Rom, cleaned_data: dict[str, Any]) -> None:
-    """Refetch each provider whose id the edit changed, and drop the metadata of
-    each provider whose id it cleared."""
+def _match_changed(rom: Rom, cleaned_data: dict[str, Any], id_field: str) -> bool:
+    """Whether the edit set, replaced or cleared this provider's id."""
+    return (cleaned_data[id_field] or None) != (getattr(rom, id_field) or None)
+
+
+async def _refetch_changed_matches(
+    rom: Rom, cleaned_data: dict[str, Any]
+) -> frozenset[str]:
+    """Refetch each provider whose id the edit set or replaced, and drop the
+    metadata of each provider whose id it cleared.
+
+    Returns:
+        The id fields that were refetched.
+    """
+    refetched: set[str] = set()
     for refetch in _MATCH_REFETCHES:
+        if not _match_changed(rom, cleaned_data, refetch.id_field):
+            continue
         new_id = cleaned_data[refetch.id_field]
-        old_id = getattr(rom, refetch.id_field)
-        if new_id and new_id != old_id:
+        if new_id:
             fetched = await refetch.fetch(rom, new_id)
             cleaned_data.update(
                 fetched if fetched.get(refetch.id_field) else refetch.on_miss(rom)
             )
-        elif old_id and not new_id:
+            refetched.add(refetch.id_field)
+        else:
             cleaned_data[refetch.id_field] = None
             if refetch.metadata_field:
                 cleaned_data[refetch.metadata_field] = {}
+    return frozenset(refetched)
+
+
+def _moved_file_location(
+    file: RomFile, fs_path: str, old_name: str, new_name: str
+) -> dict[str, str]:
+    """Where one of a rom's files sits once `rename_fs_rom` moved `old_name`.
+
+    Only the rom's own entry moves: a single file is renamed, and a folder's
+    files keep their names under the renamed folder.
+    """
+    if file.file_path == fs_path and file.file_name == old_name:
+        return {"file_name": new_name, "file_path": fs_path}
+    old_root = f"{fs_path}/{old_name}"
+    if file.file_path == old_root or file.file_path.startswith(f"{old_root}/"):
+        moved = f"{fs_path}/{new_name}{file.file_path.removeprefix(old_root)}"
+        return {"file_name": file.file_name, "file_path": moved}
+    return {"file_name": file.file_name, "file_path": file.file_path}
 
 
 @protected_route(
@@ -2126,7 +2158,7 @@ async def update_rom(
                 detail=f"Invalid manual metadata: {exc}",
             ) from exc
 
-    await _refetch_changed_matches(rom, cleaned_data)
+    refetched = await _refetch_changed_matches(rom, cleaned_data)
 
     url_screenshots = cleaned_data.get("url_screenshots", [])
     # Files are named by position, so a reorder is a change too.
@@ -2274,8 +2306,7 @@ async def update_rom(
 
     cleaned_data["locked_fields"] = sorted(locked_fields)
 
-    # Handle RetroAchievements badges when the ID has changed
-    if cleaned_data["ra_id"] and int(cleaned_data["ra_id"]) != rom.ra_id:
+    if "ra_id" in refetched:
         await fs_resource_handler.store_ra_badges(
             cleaned_data.get("ra_metadata", {}).get("achievements", [])
         )
@@ -2287,7 +2318,7 @@ async def update_rom(
         ("ss_id", "ss_metadata"),
         ("launchbox_id", "launchbox_metadata"),
     ):
-        if int(cleaned_data[id_key] or 0) != (getattr(rom, id_key) or 0):
+        if _match_changed(rom, cleaned_data, id_key):
             rematched = True
             pending_media[column] = cleaned_data.get(column)
         elif column in cleaned_data:
@@ -2336,13 +2367,9 @@ async def update_rom(
 
     if should_update_fs:
         for file in rom.files:
-            db_rom_handler.update_rom_file(
-                file.id,
-                {
-                    "file_name": file.file_name.replace(rom.fs_name, new_fs_name),
-                    "file_path": file.file_path.replace(rom.fs_name, new_fs_name),
-                },
-            )
+            moved = _moved_file_location(file, rom.fs_path, rom.fs_name, new_fs_name)
+            if moved != {"file_name": file.file_name, "file_path": file.file_path}:
+                db_rom_handler.update_rom_file(file.id, moved)
 
     # Refetch the rom from the database
     before = rom
