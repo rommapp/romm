@@ -13,7 +13,7 @@ romm-themeable is a fork of [RomM](https://github.com/rommapp/romm), the self-ho
 
 **Packs.** A theme pack is a single `.zip` holding a `theme.json` and the artwork, fonts and CSS it uses. RomM's interface is built from design tokens, so a pack mostly sets token values and names replacement files. Packs live in a folder on the host. In **Administration → Branding**, administrators choose the server's theme, upload new packs, and rename or delete them. Every upload is checked before anything is installed, because packs come from users and the web.
 
-**Hooks, not a code fork.** Everything the project adds lives in the [`themeable/`](themeable/) folder. RomM's own source in this repository is left unedited. At build time, new files are overlaid and a few anchored edits are applied, and the image is built on top of the stock `rommapp/romm` release image. Four hooks connect the two:
+**Hooks, not a code fork.** Everything the project adds lives in the [`themeable/`](../themeable/) folder. RomM's own source in this repository is left unedited. At build time, new files are overlaid and a few anchored edits are applied, and the image is built on top of the stock `rommapp/romm` release image. Four hooks connect the two:
 
 1. a loader in `index.html` that picks the theme before the page renders;
 2. an nginx rule that serves a pack's artwork and tab icons in place of RomM's;
@@ -31,19 +31,19 @@ Releases are numbered `<major>.<feature>.<fix>-<RomM version>`:
 | `major` | the fork adopts a new RomM release |
 | `feature` | a feature update ships |
 | `fix` | a bug-fix or optimization update ships |
-| `RomM version` | names the RomM release the fork is built on, as in [`themeable/ROMM_VERSION`](themeable/ROMM_VERSION) |
+| `RomM version` | names the RomM release the fork is built on, as in [`themeable/ROMM_VERSION`](../themeable/ROMM_VERSION) |
 
 When a number goes up, the numbers to its right go back to 0. For example, `1.1.0-5.4.0` is the first feature update on top of RomM 5.4.0. A bug fix to it would be `1.1.1-5.4.0`, and adopting RomM 5.5.0 next would make it `2.0.0-5.5.0`.
 
-The module's own version lives in [`themeable/package.json`](themeable/package.json). Container images are tagged with the RomM version they are built on (`ghcr.io/stealthx3/romm-themeable:5.4.1`), with the full release (`:2.0.1-5.4.1`), and `:latest` for the newest.
+The module's own version lives in [`themeable/package.json`](../themeable/package.json). Container images are tagged with the RomM version they are built on (`ghcr.io/stealthx3/romm-themeable:5.4.1`), with the full release (`:2.0.1-5.4.1`), and `:latest` for the newest.
 
 ## Getting started
 
-The root [`docker-compose.yml`](docker-compose.yml) deploys romm-themeable with MariaDB; fill in the values marked `REQUIRED` and run `docker compose up -d`. Switching from stock RomM only means changing the image and adding a themes folder.
+The root [`docker-compose.yml`](../docker-compose.yml) deploys romm-themeable with MariaDB; fill in the values marked `REQUIRED` and run `docker compose up -d`. Switching from stock RomM only means changing the image and adding a themes folder.
 
-- [`themeable/README.md`](themeable/README.md): deploying, choosing and managing themes, the built-in themes, how it works, and developing the module.
-- [Creating a theme pack](themeable/docs/creating-a-theme-pack.md): a first pack, every `theme.json` key, zipping a pack, and readable colors.
+- [`themeable/README.md`](../themeable/README.md): deploying, choosing and managing themes, the built-in themes, how it works, and developing the module.
+- [Creating a theme pack](../themeable/docs/creating-a-theme-pack.md): a first pack, every `theme.json` key, zipping a pack, and readable colors.
 
 ## Built on RomM
 
-romm-themeable exists because of [RomM](https://github.com/rommapp/romm) and its contributors. For RomM itself (its features, documentation and community), see the [RomM project on GitHub](https://github.com/rommapp/romm). RomM's own README, unchanged, is on this repository's [`upstream`](https://github.com/Stealthx3/romm-themeable/tree/upstream) branch. Like RomM, romm-themeable is licensed under the AGPL-3.0.
+romm-themeable exists because of [RomM](https://github.com/rommapp/romm) and its contributors. For RomM itself (its features, documentation and community), see the [RomM project on GitHub](https://github.com/rommapp/romm). RomM's own README, unchanged, is this repository's root [`README.md`](../README.md). Like RomM, romm-themeable is licensed under the AGPL-3.0.

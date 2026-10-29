@@ -1049,3 +1049,11 @@ test("a failed run's report names each job's failing tests and errors, with repo
   );
   assert.match(failureReport(""), /No failure lines found/);
 });
+
+test("the root README stays RomM's own, and the fork's landing page links resolve", () => {
+  assert.ok(!readFileSync(join(repo, "README.md"), "utf8").includes("romm-themeable"), "README.md is upstream's; edit .github/README.md instead");
+  const landing = join(repo, ".github/README.md");
+  const links = [...readFileSync(landing, "utf8").matchAll(/\]\((?!https?:|#)([^)#]+)/g)].map((m) => m[1]);
+  assert.ok(links.length > 0);
+  for (const link of links) assert.ok(existsSync(join(dirname(landing), link)), `.github/README.md links to missing ${link}`);
+});
