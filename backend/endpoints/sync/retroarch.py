@@ -175,13 +175,13 @@ def _serve(handler: FSHandler, path: str, filename: str) -> Response:
     return build_asset_file_response(resolved_path, filename=filename)
 
 
-def _serve_unmatched_asset(request: Request, file_path: str) -> Response | None:
-    """Serve an unmatched save or state, or None if the path can't hold one."""
+def _is_storable_name(name: str) -> bool:
+    """Whether a name is stored exactly as sent, so the manifest echoes it back."""
     try:
-        disk_path = sync_handler.unmatched_asset_path(request.user, file_path)
+        check_filename_length(name)
+        return sanitize_filename(name) == name
     except ValueError:
-        return None
-    return _serve(fs_retroarch_sync_handler, disk_path, os.path.basename(disk_path))
+        return False
 
 
 async def _store_blob(request: Request, disk_path: str) -> Response:
@@ -504,6 +504,15 @@ async def _serve_matched_asset(request: Request, file_path: str) -> Response | N
     return _serve(fs_asset_handler, asset.full_path, asset.file_name)
 
 
+def _serve_unmatched_asset(request: Request, file_path: str) -> Response | None:
+    """Serve an unmatched save or state, or None if the path can't hold one."""
+    relative_path = sync_handler.parse_retroarch_unmatched_asset_path(file_path)
+    if not relative_path:
+        return None
+    disk_path = sync_handler.unmatched_asset_path(request.user, relative_path)
+    return _serve(fs_retroarch_sync_handler, disk_path, os.path.basename(disk_path))
+
+
 @router.api_route("/{file_path:path}", methods=["PUT"], include_in_schema=False)
 async def retroarch_sync_put(request: Request, file_path: str) -> Response:
     """Store an uploaded save/state against the ROM its file name points at."""
@@ -571,11 +580,7 @@ async def _put_matched_asset(request: Request, file_path: str) -> Response | Non
     # Stored under the client's exact name, or the manifest would advertise a
     # different path than the one the client uploaded.
     file_name = parsed.file_name
-    try:
-        if sanitize_filename(file_name) != file_name:
-            return _empty(status.HTTP_409_CONFLICT)
-        check_filename_length(file_name)
-    except ValueError:
+    if not _is_storable_name(file_name):
         return _empty(status.HTTP_409_CONFLICT)
 
     rom = await _resolve_rom(request, parsed.kind, file_name)
@@ -730,12 +735,7 @@ def _record_state(
 
 async def _put_unmatched_asset(request: Request, relative_path: str) -> Response:
     """Store a save or state with no matching ROM in the user's asset tree."""
-    try:
-        for segment in relative_path.split("/"):
-            if sanitize_filename(segment) != segment:
-                return _empty(status.HTTP_409_CONFLICT)
-            check_filename_length(segment)
-    except ValueError:
+    if not all(map(_is_storable_name, relative_path.split("/"))):
         return _empty(status.HTTP_409_CONFLICT)
 
     log.info(f"Cloud sync upload {hl(relative_path)} matches no ROM, stored unmatched")

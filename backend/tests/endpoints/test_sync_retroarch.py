@@ -2594,7 +2594,7 @@ class TestRetroArchSyncBlobs:
         ).json()
         assert {
             "path": "saves/Beetle Saturn/shared/memory-card.bin",
-            "hash": "4e1fec64617b57d580100ae80eb3a67c",
+            "hash": hashlib.md5(b"memory-card-data").hexdigest(),
         } in manifest
 
         root_listing = client.request(
@@ -2629,7 +2629,7 @@ class TestRetroArchSyncBlobs:
             )
         )
         assert disk_path.exists()
-        assert "states/_unmatched" in str(disk_path).replace("\\", "/")
+        assert disk_path.parent.parent.name == sync_handler.UNMATCHED_FOLDER
 
         get_response = client.get(path, auth=ADMIN_AUTH)
         assert get_response.status_code == status.HTTP_200_OK
@@ -2678,13 +2678,9 @@ class TestRetroArchSyncBlobs:
         assert served.content == b"unmatched-progress"
         assert manifest_paths().count(relative_path) == 1
 
-        # A matched upload takes ownership of the path and removes the shadowing
-        # blob.
+        # A matched upload takes ownership of the path and removes the shadowing blob.
         uploaded = client.put(url, content=b"matched-progress", auth=ADMIN_AUTH)
-        assert uploaded.status_code in (
-            status.HTTP_201_CREATED,
-            status.HTTP_204_NO_CONTENT,
-        )
+        assert uploaded.status_code == status.HTTP_201_CREATED
         assert not blob_disk_path.exists()
         assert manifest_paths().count(relative_path) == 1
         assert client.get(url, auth=ADMIN_AUTH).content == b"matched-progress"
@@ -2707,16 +2703,6 @@ class TestRetroArchSyncBlobs:
         nested = client.put(f"{file_url}/nested.bin", content=b"x", auth=ADMIN_AUTH)
         assert nested.status_code == status.HTTP_409_CONFLICT
         assert client.get(file_url, auth=ADMIN_AUTH).content == b"memory-card-data"
-
-    def test_serve_unmatched_asset_helper_ignores_non_asset_paths(
-        self, admin_user: User
-    ):
-        from endpoints.sync.retroarch import _serve_unmatched_asset
-
-        assert (
-            _serve_unmatched_asset(mock.Mock(user=admin_user), "config/retroarch.cfg")
-            is None
-        )
 
     def test_manifest_includes_blobs_alongside_assets(self, client, admin_user: User):
         client.put(

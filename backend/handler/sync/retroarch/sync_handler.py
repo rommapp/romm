@@ -649,15 +649,8 @@ def unmatched_asset_root_path(user: User, kind: str) -> str:
     return f"{fs_asset_handler.user_folder_path(user)}/{kind}/{UNMATCHED_FOLDER}"
 
 
-def unmatched_asset_path(user: User, client_path: str) -> str:
-    """Map a RetroArch client path to its private unmatched-asset storage path.
-
-    Raises:
-        ValueError: The path can't hold an unmatched asset.
-    """
-    relative_path = parse_retroarch_unmatched_asset_path(client_path)
-    if relative_path is None:
-        raise ValueError("Invalid unmatched RetroArch asset path")
+def unmatched_asset_path(user: User, relative_path: str) -> str:
+    """Where a parsed unmatched client path lives in this user's asset tree."""
     kind, rest = relative_path.split("/", 1)
     return f"{unmatched_asset_root_path(user, kind)}/{rest}"
 
