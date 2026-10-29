@@ -157,8 +157,7 @@ class DBDevicesHandler(DBBaseHandler):
         request. Mirrors the debounce used by ClientToken.update_last_used.
         """
         now = datetime.now(timezone.utc)
-        # Debounced in the WHERE clause because MariaDB fails an UPDATE of a row this
-        # transaction already read once another request commits to it (error 1020).
+        # Debounced in the WHERE clause, so concurrent bumps have no earlier read to race.
         session.execute(
             update(Device)
             .where(
