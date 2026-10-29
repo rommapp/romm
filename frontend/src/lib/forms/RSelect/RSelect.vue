@@ -2,7 +2,8 @@
 // RSelect: combines an RTextField-style activator (variants,
 // hover/focus halos, labels) with a floating menu panel positioned by
 // `@floating-ui/vue` and rendered as a teleported surface in the v2
-// glass language.
+// glass language. Keyboard navigation, highlight and type-to-select come
+// from reka-ui's Listbox.
 //
 // Single + multi-select. Items normalise via `itemTitle` / `itemValue`
 // (string key or function) so any shape (strings, numbers, plain
@@ -10,10 +11,10 @@
 // sticky search input at the top of the panel.
 //
 // Slots `#selection` and `#item`. The `#item` slot's `props` bag is
-// spread on any element you want, it carries `class` (including the
-// active/selected/disabled state), `role`, `aria-*`, click/hover
-// handlers, and the index data attribute. The row default is a `<li>`
-// styled by `.r-select__item`. `dividerAfter` draws a divider below the
+// spread on the row element: it carries the selected/disabled `class`,
+// and the listbox adds the option role, state and handlers to that
+// element. The highlighted row has `data-highlighted`. The row default
+// is a `<li>` styled by `.r-select__item`. `dividerAfter` draws a divider below the
 // rows it matches. `#append-label` adds a trailing well that mirrors the
 // inline prefix label; `info` fills it with an info icon and tooltip.
 import {
@@ -27,8 +28,18 @@ import {
 import type { Placement } from "@floating-ui/vue";
 import { useElementSize } from "@vueuse/core";
 import {
+  type AcceptableValue,
+  ListboxContent,
+  ListboxFilter,
+  ListboxItem,
+  type ListboxItemSelectEvent,
+  ListboxRoot,
+} from "reka-ui";
+import {
   computed,
+  type FunctionalComponent,
   getCurrentInstance,
+  h,
   nextTick,
   onBeforeUnmount,
   ref,
@@ -303,7 +314,7 @@ const itemSearchIndex = computed<string[][]>(() =>
 // Either way, `update:search` is always emitted on every keystroke so
 // parents that care can observe. This means `:searchable` just works
 // on its own (no v-model needed) and filtering survives unrelated
-// re-renders (e.g. `mouseenter` on a row updating `activeIndex`).
+// re-renders.
 const internalSearch = ref(props.search);
 watch(
   () => props.search,
@@ -681,7 +692,16 @@ const showClear = computed(
 // ── Open state + floating ───────────────────────────────────────
 const isOpen = ref(false);
 const activatorRef = ref<HTMLElement | null>(null);
-const panelRef = ref<HTMLElement | null>(null);
+// The exposed API RSelect calls on its `ListboxRoot`.
+interface ListboxApi {
+  $el: HTMLElement;
+  highlightSelected: () => Promise<void>;
+  highlightItem: (value: AcceptableValue) => void;
+}
+const listboxRef = ref<ListboxApi | null>(null);
+const panelRef = computed<HTMLElement | null>(
+  () => listboxRef.value?.$el ?? null,
+);
 
 // Ceiling for the panel; the viewport remainder can shrink it further.
 const MAX_PANEL_HEIGHT = 360;
@@ -725,22 +745,24 @@ const { floatingStyles } = useFloating(activatorRef, panelRef, {
   ]),
 });
 
-function openMenu() {
+// Without a search field the highlighted option takes focus, so pad A
+// (a `.click()` on the focused element) picks it. `typed` is the key
+// that opened the menu, for type-to-select.
+function openMenu(typed?: string) {
   if (props.disabled || props.readonly) return;
   if (isOpen.value) return;
   isOpen.value = true;
   infoOpen.value = false;
-  activeIndex.value = Math.max(
-    0,
-    filteredItems.value.findIndex((it) => isSelected(it.value)),
-  );
   emit("open");
-  // RMenuSearch autofocuses on mount; keys bubble up to the panel-level
-  // keydown handler. When `searchable` is off, focus stays on the
-  // activator and the activator-level keydown handler steers nav.
+  if (props.searchable) return;
+  void nextTick(async () => {
+    await listboxRef.value?.highlightSelected();
+    if (typed) typeahead(typed);
+  });
 }
 function closeMenu() {
   if (!isOpen.value) return;
+  const focusInPanel = !!panelRef.value?.contains(document.activeElement);
   isOpen.value = false;
   emit("close");
   resetTypeahead();
@@ -750,6 +772,7 @@ function closeMenu() {
   // user expectation for "open select → type → pick → close → reopen"
   // not leaving a stale query that hides most rows.
   if (props.searchable && internalSearch.value) setSearch("");
+  if (focusInPanel) focusFromInput(activatorRef.value);
 }
 function toggleMenu() {
   if (isOpen.value) closeMenu();
@@ -759,96 +782,39 @@ function toggleMenu() {
 usePopoverDismiss(isOpen, closeMenu, {
   reference: () => activatorRef.value,
   panel: () => panelRef.value,
-  onEscape: () => {
-    const focusInPanel = !!panelRef.value?.contains(document.activeElement);
-    closeMenu();
-    if (focusInPanel) focusFromInput(activatorRef.value);
-  },
 });
 
-// Close when search is changed externally? No, keep open while
-// editing search. Reset active index to 0 when filter changes so
-// keyboard nav stays sensible.
-watch(filteredItems, () => {
-  activeIndex.value = 0;
+// ── Listbox (keyboard nav, highlight, type-to-select: reka-ui) ─
+// Stands in for the synthetic "All" row's value in the listbox model.
+const ALL_OPTION = Object.freeze({ all: true });
+// Single-select model with nothing picked; matches no option.
+const NO_OPTION = Object.freeze({ none: true });
+// Identity, so a `null`-valued item and the sentinel compare as keys.
+const sameValue = (a: AcceptableValue, b: AcceptableValue) => a === b;
+
+// Item values are whatever the caller's items hold; the listbox only
+// compares them with `sameValue`.
+const asListboxValue = (value: unknown) => value as AcceptableValue;
+
+const listboxModel = computed<AcceptableValue | AcceptableValue[]>(() => {
+  const keys = selectedItems.value.map((it) => asListboxValue(it.value));
+  if (!props.multiple) return keys.length ? keys[0]! : NO_OPTION;
+  return showAllRow.value && isAllSelected.value ? [ALL_OPTION, ...keys] : keys;
 });
 
-// ── Keyboard nav ────────────────────────────────────────────────
-const activeIndex = ref(0);
-
-// The option keyboard navigation is on, for `aria-activedescendant`.
-// Index -1 is the synthetic "All" row.
-const activeOptionId = computed(() => {
-  if (!isOpen.value) return undefined;
-  if (activeIndex.value === -1)
-    return showAllRow.value ? allOptionId : undefined;
-  return filteredItems.value[activeIndex.value]
-    ? optionId(activeIndex.value)
-    : undefined;
-});
-
-// The "All" row sits above the items at index -1.
-const firstIndex = computed(() => (showAllRow.value ? -1 : 0));
-
-function moveActive(delta: number) {
-  const list = filteredItems.value;
-  const lo = firstIndex.value;
-  if (!list.length && lo === 0) return;
-  let i = activeIndex.value + delta;
-  // Wrap + skip disabled.
-  for (let n = 0; n < list.length - lo; n++) {
-    if (i < lo) i = list.length - 1;
-    if (i >= list.length) i = lo;
-    if (i === -1 || !list[i]!.disabled) break;
-    i += delta || 1;
-  }
-  activeIndex.value = i;
-  scrollActiveIntoView();
-}
-
-function activateActive() {
-  if (activeIndex.value === -1) {
-    if (showAllRow.value) toggleAllItems();
-    return;
-  }
-  const item = filteredItems.value[activeIndex.value];
-  if (item) selectItem(item);
-}
-const PAGE_STEP = 10;
-
-// Jump to the first or last enabled row.
-function moveActiveTo(edge: "first" | "last") {
-  const list = filteredItems.value;
-  if (edge === "first" && showAllRow.value) {
-    activeIndex.value = -1;
-    scrollActiveIntoView();
-    return;
-  }
-  const order = list.map((_, i) => i);
-  if (edge === "last") order.reverse();
-  const i = order.find((n) => !list[n]!.disabled);
-  if (i === undefined) return;
-  activeIndex.value = i;
-  scrollActiveIntoView();
-}
-
-// Move a page of rows, stopping at the ends instead of wrapping. A disabled
-// target backs off toward the current row.
-function movePage(dir: 1 | -1) {
-  const list = filteredItems.value;
-  const lo = firstIndex.value;
-  let i = Math.min(
-    list.length - 1,
-    Math.max(lo, activeIndex.value + dir * PAGE_STEP),
-  );
-  while (i !== -1 && list[i]?.disabled) i -= dir;
-  if (i < lo || i >= list.length) return;
-  activeIndex.value = i;
-  scrollActiveIntoView();
+const highlightedValue = ref<unknown>(undefined);
+const highlightedId = ref<string | undefined>(undefined);
+function onHighlight(
+  payload: { ref: HTMLElement; value: unknown } | undefined,
+) {
+  highlightedValue.value = payload?.value;
+  highlightedId.value = payload?.ref.id;
 }
 
 // Type-to-select: a burst of characters matches a title prefix, and
 // repeating one character cycles through the rows that start with it.
+// reka's own typeahead also buffers named keys (Home, End) and matches
+// disabled rows, so printable keys stop here, before the listbox sees them.
 const TYPEAHEAD_RESET_MS = 500;
 let typeBuffer = "";
 let typeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -860,13 +826,12 @@ function typeahead(char: string) {
   typeTimer = setTimeout(() => (typeBuffer = ""), TYPEAHEAD_RESET_MS);
   const cycling = [...typeBuffer].every((c) => c === typeBuffer[0]);
   const query = cycling ? typeBuffer[0]! : typeBuffer;
-  const from = activeIndex.value + (cycling || typeBuffer.length === 1 ? 1 : 0);
+  const current = list.findIndex((it) => it.value === highlightedValue.value);
+  const from = current + (cycling || typeBuffer.length === 1 ? 1 : 0);
   for (let n = 0; n < list.length; n++) {
-    const i = (from + n + list.length) % list.length;
-    const item = list[i]!;
+    const item = list[(from + n + list.length) % list.length]!;
     if (!item.disabled && item.title.toLowerCase().startsWith(query)) {
-      activeIndex.value = i;
-      scrollActiveIntoView();
+      listboxRef.value?.highlightItem(asListboxValue(item.value));
       return;
     }
   }
@@ -877,88 +842,92 @@ function resetTypeahead() {
 }
 onBeforeUnmount(resetTypeahead);
 
-function scrollActiveIntoView() {
-  void nextTick(() => {
-    const el = panelRef.value?.querySelector<HTMLElement>(
-      `[data-r-select-index="${activeIndex.value}"]`,
-    );
-    el?.scrollIntoView({ block: "nearest" });
-  });
+function onPanelKeyCapture(evt: KeyboardEvent) {
+  if (props.searchable || !isPrintable(evt)) return;
+  // Within a typing burst a space continues the query ("game boy").
+  if (evt.key === " " && !typeBuffer) return;
+  evt.preventDefault();
+  evt.stopPropagation();
+  typeahead(evt.key);
 }
+
+// The listbox's own model handling is left to run (it marks the change as
+// the user's, so the list keeps its highlight); RSelect's emits own the model.
+function onOptionSelect(
+  _evt: ListboxItemSelectEvent<AcceptableValue>,
+  item?: NormalisedItem,
+) {
+  if (item) selectItem(item);
+  else toggleAllItems();
+}
+
+const isPrintable = (evt: KeyboardEvent) =>
+  evt.key.length === 1 && !evt.ctrlKey && !evt.metaKey && !evt.altKey;
+
+// The first or last enabled row, for PageUp / PageDown.
+function edgeValue(edge: "first" | "last"): AcceptableValue | undefined {
+  if (edge === "first" && showAllRow.value) return ALL_OPTION;
+  const enabled = filteredItems.value.filter((it) => !it.disabled);
+  const item = edge === "first" ? enabled[0] : enabled.at(-1);
+  return item && asListboxValue(item.value);
+}
+
+function onPanelKey(evt: KeyboardEvent) {
+  if (evt.key === "PageUp" || evt.key === "PageDown") {
+    evt.preventDefault();
+    const value = edgeValue(evt.key === "PageUp" ? "first" : "last");
+    if (value !== undefined) listboxRef.value?.highlightItem(value);
+  } else if (evt.key === "Tab") {
+    // Focus goes back to the field first, so Tab moves on from there.
+    closeMenu();
+  }
+}
+
+// ListboxFilter puts the input's state on the element it renders, which
+// for RTextField is the wrapper around its <input>. The field takes that
+// state through `popup` instead; the key and input listeners stay, since
+// the input's events bubble through the wrapper.
+const FILTER_INPUT_ATTRS = [
+  "aria-activedescendant",
+  "aria-disabled",
+  "data-disabled",
+  "disabled",
+  "type",
+  "value",
+];
+const SearchField: FunctionalComponent = (_, { attrs, slots }) =>
+  h(
+    RTextField,
+    {
+      ...Object.fromEntries(
+        Object.entries(attrs).filter(([k]) => !FILTER_INPUT_ATTRS.includes(k)),
+      ),
+      modelValue: internalSearch.value,
+    },
+    { "prefix-label": slots.default },
+  );
 
 function onActivatorKey(evt: KeyboardEvent) {
   if (props.disabled || props.readonly) return;
-  // Within a typing burst a space continues the query ("game boy").
-  if (evt.key === " " && typeBuffer && !props.searchable) {
-    evt.preventDefault();
-    typeahead(" ");
+  if (isOpen.value) {
+    // Focus stays here when the search field skips autofocus (touch);
+    // the arrows hand it to the search field.
+    if (evt.key === "ArrowDown" || evt.key === "ArrowUp") {
+      evt.preventDefault();
+      focusFromInput(
+        panelRef.value?.querySelector<HTMLElement>(".r-select__search input"),
+      );
+    } else if (evt.key === "Tab") {
+      closeMenu();
+    }
     return;
   }
-  switch (evt.key) {
-    case "ArrowDown":
-      evt.preventDefault();
-      if (!isOpen.value) openMenu();
-      else moveActive(1);
-      break;
-    case "ArrowUp":
-      evt.preventDefault();
-      if (!isOpen.value) openMenu();
-      else moveActive(-1);
-      break;
-    case "Enter":
-    case " ":
-      if (!isOpen.value) {
-        evt.preventDefault();
-        openMenu();
-      } else {
-        evt.preventDefault();
-        activateActive();
-      }
-      break;
-    case "Tab":
-      if (isOpen.value) closeMenu();
-      break;
-    default:
-      // A searchable field sends typing to its search input instead.
-      if (props.searchable) break;
-      if (isOpen.value && (evt.key === "Home" || evt.key === "End")) {
-        evt.preventDefault();
-        moveActiveTo(evt.key === "Home" ? "first" : "last");
-      } else if (
-        isOpen.value &&
-        (evt.key === "PageUp" || evt.key === "PageDown")
-      ) {
-        evt.preventDefault();
-        movePage(evt.key === "PageUp" ? -1 : 1);
-      } else if (
-        evt.key.length === 1 &&
-        evt.key !== " " &&
-        !evt.ctrlKey &&
-        !evt.metaKey &&
-        !evt.altKey
-      ) {
-        evt.preventDefault();
-        if (!isOpen.value) openMenu();
-        typeahead(evt.key);
-      }
-  }
-}
-
-function onSearchKey(evt: KeyboardEvent) {
-  switch (evt.key) {
-    case "ArrowDown":
-      evt.preventDefault();
-      moveActive(1);
-      break;
-    case "ArrowUp":
-      evt.preventDefault();
-      moveActive(-1);
-      break;
-    case "Enter": {
-      evt.preventDefault();
-      activateActive();
-      break;
-    }
+  if (["ArrowDown", "ArrowUp", "Enter", " "].includes(evt.key)) {
+    evt.preventDefault();
+    openMenu();
+  } else if (!props.searchable && isPrintable(evt)) {
+    evt.preventDefault();
+    openMenu(evt.key);
   }
 }
 
@@ -1060,9 +1029,6 @@ const describedBy = computed(() => {
       :aria-haspopup="'listbox'"
       :aria-expanded="isOpen"
       :aria-controls="isOpen ? listboxId : undefined"
-      :aria-activedescendant="
-        searchable && autofocusSearch ? undefined : activeOptionId
-      "
       :aria-label="effectiveAriaLabel"
       :aria-labelledby="
         stackedLabelOn
@@ -1298,19 +1264,20 @@ const describedBy = computed(() => {
          contexts. Mounted only when open. -->
     <Teleport to="body">
       <Transition name="r-select-pop">
-        <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -- catches keys bubbling from the search input and option rows, which hold focus; the panel itself never does -->
-        <div
+        <ListboxRoot
           v-if="isOpen"
-          ref="panelRef"
+          ref="listboxRef"
           class="r-select__panel"
           :style="floatingStyles"
-          @keydown="onSearchKey"
+          :model-value="listboxModel"
+          :multiple="multiple"
+          :by="sameValue"
+          highlight-on-hover
+          loop
+          @highlight="onHighlight"
+          @keydown="onPanelKey"
+          @keydown.capture="onPanelKeyCapture"
         >
-          <!-- Sticky search: autofocused on open. The panel-level
-               keydown handler catches Up/Down/Enter/Esc bubbling from
-               whichever child is focused (search input or item rows).
-               We use RTextField directly (no wrapper primitive) since
-               the only extras are a magnifier icon + autofocus. -->
           <div
             v-if="searchable"
             class="r-select__search"
@@ -1318,7 +1285,8 @@ const describedBy = computed(() => {
             @click.stop
           >
             <!-- eslint-disable vuejs-accessibility/no-autofocus -- autofocusing the search field on open is intentional modal UX -->
-            <RTextField
+            <ListboxFilter
+              :as="SearchField"
               :model-value="internalSearch"
               :placeholder="searchPlaceholder"
               prefix-label="inline"
@@ -1329,24 +1297,21 @@ const describedBy = computed(() => {
                 kind: 'listbox',
                 expanded: true,
                 controls: listboxId,
-                activedescendant: activeOptionId,
+                activedescendant: highlightedId,
               }"
               :autofocus="autofocusSearch"
-              @update:model-value="(v) => setSearch(String(v ?? ''))"
+              @update:model-value="setSearch"
             >
-              <template #prefix-label>
-                <RIcon icon="mdi-magnify" size="16" />
-                <span class="r-select__search-label">{{ labels.search }}</span>
-              </template>
-            </RTextField>
+              <RIcon icon="mdi-magnify" size="16" />
+              <span class="r-select__search-label">{{ labels.search }}</span>
+            </ListboxFilter>
             <!-- eslint-enable vuejs-accessibility/no-autofocus -->
           </div>
 
-          <ul
+          <ListboxContent
             :id="listboxId"
+            as="ul"
             class="r-select__list"
-            role="listbox"
-            :aria-multiselectable="multiple"
             :aria-labelledby="
               stackedLabelOn ? `${fieldId}-label` : `${fieldId}-field`
             "
@@ -1356,20 +1321,14 @@ const describedBy = computed(() => {
                  items and is separated by a divider so it reads as a
                  meta action rather than a list item. -->
             <template v-if="showAllRow">
-              <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events, vuejs-accessibility/mouse-events-have-key-events -- option rows are pointer targets; keyboard navigation is handled by the listbox-level keydown (Up/Down/Enter/Esc) -->
-              <li
+              <ListboxItem
                 :id="allOptionId"
+                as="li"
+                :value="ALL_OPTION"
                 class="r-select__item r-select__item--all"
-                :class="{
-                  'r-select__item--active': activeIndex === -1,
-                  'r-select__item--selected': isAllSelected,
-                }"
+                :class="{ 'r-select__item--selected': isAllSelected }"
                 data-r-select-index="-1"
-                role="option"
-                :aria-selected="isAllSelected"
-                tabindex="-1"
-                @click="toggleAllItems"
-                @mouseenter="activeIndex = -1"
+                @select="onOptionSelect"
               >
                 <span class="r-select__item-title">{{ allText }}</span>
                 <RIcon
@@ -1378,7 +1337,7 @@ const describedBy = computed(() => {
                   class="r-select__item-check"
                   size="x-small"
                 />
-              </li>
+              </ListboxItem>
               <li
                 v-if="filteredItems.length"
                 class="r-select__divider"
@@ -1392,55 +1351,51 @@ const describedBy = computed(() => {
               v-for="(item, i) in filteredItems"
               :key="`${i}-${String(item.value)}`"
             >
-              <slot
-                name="item"
-                :item="{ title: item.title, value: item.value, raw: item.raw }"
-                :index="i"
-                :active="i === activeIndex"
-                :selected="isSelected(item.value)"
-                :props="{
-                  class: [
-                    'r-select__item',
-                    {
-                      'r-select__item--active': i === activeIndex,
+              <ListboxItem
+                :id="optionId(i)"
+                as-child
+                :value="asListboxValue(item.value)"
+                :disabled="!!item.disabled"
+                :data-r-select-index="i"
+                @select="onOptionSelect($event, item)"
+              >
+                <slot
+                  name="item"
+                  :item="{
+                    title: item.title,
+                    value: item.value,
+                    raw: item.raw,
+                  }"
+                  :index="i"
+                  :active="item.value === highlightedValue"
+                  :selected="isSelected(item.value)"
+                  :props="{
+                    class: [
+                      'r-select__item',
+                      {
+                        'r-select__item--selected': isSelected(item.value),
+                        'r-select__item--disabled': item.disabled,
+                      },
+                    ],
+                  }"
+                >
+                  <li
+                    class="r-select__item"
+                    :class="{
                       'r-select__item--selected': isSelected(item.value),
                       'r-select__item--disabled': item.disabled,
-                    },
-                  ],
-                  id: optionId(i),
-                  role: 'option',
-                  'aria-selected': isSelected(item.value),
-                  'aria-disabled': item.disabled || undefined,
-                  'data-r-select-index': i,
-                  tabindex: -1,
-                  onClick: () => selectItem(item),
-                  onMouseenter: () => (activeIndex = i),
-                }"
-              >
-                <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events, vuejs-accessibility/interactive-supports-focus, vuejs-accessibility/mouse-events-have-key-events -- option rows are pointer targets; the listbox-level keydown (Up/Down/Enter/Esc) drives keyboard selection and roving activeIndex -->
-                <li
-                  :id="optionId(i)"
-                  role="option"
-                  class="r-select__item"
-                  :class="{
-                    'r-select__item--active': i === activeIndex,
-                    'r-select__item--selected': isSelected(item.value),
-                    'r-select__item--disabled': item.disabled,
-                  }"
-                  :aria-selected="isSelected(item.value)"
-                  :data-r-select-index="i"
-                  @click="selectItem(item)"
-                  @mouseenter="activeIndex = i"
-                >
-                  <span class="r-select__item-title">{{ item.title }}</span>
-                  <RIcon
-                    v-if="isSelected(item.value)"
-                    icon="mdi-check"
-                    class="r-select__item-check"
-                    size="x-small"
-                  />
-                </li>
-              </slot>
+                    }"
+                  >
+                    <span class="r-select__item-title">{{ item.title }}</span>
+                    <RIcon
+                      v-if="isSelected(item.value)"
+                      icon="mdi-check"
+                      class="r-select__item-check"
+                      size="x-small"
+                    />
+                  </li>
+                </slot>
+              </ListboxItem>
               <li
                 v-if="dividerAfter?.(item.raw) && i < filteredItems.length - 1"
                 class="r-select__divider"
@@ -1449,12 +1404,12 @@ const describedBy = computed(() => {
                 <RDivider />
               </li>
             </template>
-          </ul>
+          </ListboxContent>
 
           <div v-if="!filteredItems.length" class="r-select__empty">
             <slot name="no-data">No options</slot>
           </div>
-        </div>
+        </ListboxRoot>
       </Transition>
     </Teleport>
   </component>
@@ -1633,13 +1588,6 @@ const describedBy = computed(() => {
    on a non-interactive li with reset padding. */
 .r-select__item--all {
   font-weight: var(--r-font-weight-semibold);
-}
-/* The All row is hovered via CSS, `activeIndex` is reserved for the
-   filtered-items list (keyboard navigation), so we can't piggyback on
-   the `--active` class here. */
-.r-select__item--all:hover {
-  background: var(--r-color-surface);
-  color: var(--r-color-fg);
 }
 .r-select__divider {
   padding: 0;
@@ -1925,7 +1873,7 @@ html[data-input="pad"] .r-select__field:focus {
 .r-select__item:last-child {
   margin-bottom: 0;
 }
-.r-select__item--active {
+.r-select__item[data-highlighted] {
   background: var(--r-color-surface);
   color: var(--r-color-fg);
 }

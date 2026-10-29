@@ -29,6 +29,11 @@ const PLATFORMS = [
   { title: "PC", value: "pc" },
 ];
 
+// The option keyboard navigation is on. The panel teleports to <body>,
+// outside the story canvas.
+const activeOption = () =>
+  document.querySelector<HTMLElement>(".r-select__panel [data-highlighted]");
+
 // Generic components can't fill Storybook's `component` slot, so it's cast;
 // the instantiation types the stories' args.
 const meta: Meta<typeof RSelect<unknown, unknown>> = {
@@ -596,10 +601,6 @@ export const KeyboardNavigation: Story = {
     const field = await within(canvasElement).findByRole("combobox", {
       name: "Platform",
     });
-    const activeOption = () =>
-      document.getElementById(
-        field.getAttribute("aria-activedescendant") ?? "",
-      );
 
     await step("Arrow Down opens the list on the first option", async () => {
       field.focus();
@@ -701,17 +702,14 @@ export const MultipleKeyboard: Story = {
     const field = await within(canvasElement).findByRole("combobox", {
       name: "Pick platforms",
     });
-    const activeOption = () =>
-      document.getElementById(
-        field.getAttribute("aria-activedescendant") ?? "",
-      );
 
-    await step("Arrow Up from the first option reaches All", async () => {
+    await step("Opening lands on All, the current selection", async () => {
       field.focus();
       await userEvent.keyboard("{ArrowDown}");
       await waitFor(() =>
-        expect(field).toHaveAttribute("aria-expanded", "true"),
+        expect(activeOption()).toHaveClass("r-select__item--all"),
       );
+      await userEvent.keyboard("{ArrowDown}");
       await expect(activeOption()).toHaveTextContent("Nintendo 64");
       await userEvent.keyboard("{ArrowUp}");
       await expect(activeOption()).toHaveClass("r-select__item--all");
@@ -767,10 +765,6 @@ export const KeyboardDisabledRows: Story = {
     const field = await within(canvasElement).findByRole("combobox", {
       name: "Fruit",
     });
-    const activeOption = () =>
-      document.getElementById(
-        field.getAttribute("aria-activedescendant") ?? "",
-      );
 
     await step("Paging backs off a disabled last row", async () => {
       field.focus();
@@ -805,6 +799,40 @@ export const KeyboardDisabledRows: Story = {
       await waitFor(() =>
         expect(document.querySelector(".r-select__panel")).toBeNull(),
       );
+    });
+  },
+};
+
+// `useGamepad` sends the D-pad as arrow keys to the focused element and
+// presses A as `.click()` on it, so the play mirrors both.
+function padA() {
+  (document.activeElement as HTMLElement | null)?.click();
+}
+
+export const GamepadPick: Story = {
+  name: "Gamepad · pick with A (play)",
+  render: () => ({
+    components: { RSelect },
+    setup: () => ({ value: ref<string | null>(null), items: PLATFORMS }),
+    template: `<div style="width:340px"><RSelect v-model="value" :items="items" label="Platform" /></div>`,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const field = await within(canvasElement).findByRole("combobox", {
+      name: "Platform",
+    });
+
+    await step("A opens the list, Down and A pick the second row", async () => {
+      field.focus();
+      padA();
+      await waitFor(() =>
+        expect(field).toHaveAttribute("aria-expanded", "true"),
+      );
+      await userEvent.keyboard("{ArrowDown}");
+      padA();
+      await waitFor(() =>
+        expect(document.querySelector(".r-select__panel")).toBeNull(),
+      );
+      await expect(field).toHaveTextContent("Super Nintendo");
     });
   },
 };

@@ -1,4 +1,4 @@
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import { useInputModality } from "@/composables/useInputModality";
@@ -394,17 +394,16 @@ describe("RSelect combobox semantics", () => {
       attachTo: document.body,
     });
     const field = wrapper.get(".r-select__field");
-    const active = () =>
-      document
-        .getElementById(field.attributes("aria-activedescendant") ?? "")
-        ?.textContent?.trim();
+    const highlighted = () =>
+      document.querySelector("[data-highlighted]")?.textContent?.trim();
 
     await field.trigger("keydown", { key: "b" });
+    await flushPromises();
     await field.trigger("keydown", { key: "Escape" });
-    await field.trigger("click");
     await field.trigger("keydown", { key: "c" });
+    await flushPromises();
 
-    expect(active()).toBe("Cherry");
+    expect(highlighted()).toBe("Cherry");
     wrapper.unmount();
     document.body.innerHTML = "";
   });
@@ -432,7 +431,7 @@ describe("RSelect searchable without search autofocus", () => {
     document.body.innerHTML = "";
   });
 
-  it("keeps the active option on the activator while focus stays there", async () => {
+  it("hands the arrow keys to the search field", async () => {
     window.matchMedia = vi.fn(() => ({ matches: false })) as never;
     const wrapper = mount(RSelect, {
       props: { items: ["Apple", "Banana"], modelValue: null, searchable: true },
@@ -441,13 +440,15 @@ describe("RSelect searchable without search autofocus", () => {
     const field = wrapper.get(".r-select__field");
 
     await field.trigger("click");
+    await flushPromises();
+    expect(document.activeElement).not.toBe(
+      document.querySelector(".r-select__search input"),
+    );
     await field.trigger("keydown", { key: "ArrowDown" });
 
-    expect(
-      document
-        .getElementById(field.attributes("aria-activedescendant") ?? "")
-        ?.textContent?.trim(),
-    ).toBe("Banana");
+    expect(document.activeElement).toBe(
+      document.querySelector(".r-select__search input"),
+    );
     wrapper.unmount();
   });
 });

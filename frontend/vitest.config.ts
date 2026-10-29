@@ -41,7 +41,7 @@ export default defineConfig({
         // A dependency found mid-run reloads the page and silently drops the
         // tests in flight, so pre-bundle everything stories reach up front.
         optimizeDeps: {
-          include: ["country-flag-emoji-polyfill"],
+          include: ["country-flag-emoji-polyfill", "reka-ui"],
         },
         // Mirrors vite.config.js, which the router's `process.env.BASE_URL` needs.
         define: { "process.env": {} },
