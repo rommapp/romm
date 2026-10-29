@@ -115,6 +115,32 @@ def test_branding_is_admin_only(client, editor_access_token):
         assert response.status_code == status.HTTP_403_FORBIDDEN, url
 
 
+def test_read_only_tokens_cannot_change_themes(client, access_token):
+    response = client.post(
+        "/api/client-tokens",
+        json={"name": "Read only", "scopes": ["roms.read"]},
+        headers=_auth(access_token),
+    )
+    read_only = response.json()["raw_token"]
+    response = client.get("/api/themeable/branding", headers=_auth(read_only))
+    assert response.status_code == status.HTTP_200_OK
+    for method, url in (
+        ("post", "/api/themeable/branding/rescan"),
+        ("put", "/api/themeable/branding"),
+        ("post", "/api/themeable/packs"),
+        ("patch", "/api/themeable/packs/ember"),
+        ("delete", "/api/themeable/packs/ember"),
+        ("post", "/api/themeable/packs/built-ins/restore"),
+    ):
+        kwargs = (
+            {"json": {"theme": "ember", "name": "x"}}
+            if method in ("put", "patch")
+            else {}
+        )
+        response = getattr(client, method)(url, headers=_auth(read_only), **kwargs)
+        assert response.status_code == status.HTTP_403_FORBIDDEN, url
+
+
 def test_lists_built_in_packs_with_stock_look_selected(client, access_token):
     response = client.get("/api/themeable/branding", headers=_auth(access_token))
     assert response.status_code == status.HTTP_200_OK

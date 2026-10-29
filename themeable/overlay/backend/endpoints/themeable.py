@@ -31,6 +31,9 @@ PACKS_PATH = Path(os.environ.get("THEMEABLE_PACKS_PATH", "/romm/themes"))
 COMPILE_TIMEOUT_SECONDS = 120
 MB = 1024 * 1024
 DEFAULT_MAX_UPLOAD_MB = 20
+# Theme changes are server settings, which RomM's own config routes guard with this scope,
+# so an admin's read-only API token can't make them.
+CHANGE_SCOPES = [Scope.PLATFORMS_WRITE]
 
 
 def _max_upload_mb() -> int:
@@ -284,7 +287,7 @@ async def get_branding(request: Request) -> BrandingStatusSchema:
     return await _current_status()
 
 
-@protected_route(router.post, "/branding/rescan", [Scope.ROMS_READ])
+@protected_route(router.post, "/branding/rescan", CHANGE_SCOPES)
 async def rescan_branding(request: Request) -> BrandingStatusSchema:
     """Recompile the packs from the themes folder, keeping the saved theme (admin only).
 
@@ -298,7 +301,7 @@ async def rescan_branding(request: Request) -> BrandingStatusSchema:
     return await _run_compiler([])
 
 
-@protected_route(router.put, "/branding", [Scope.ROMS_READ])
+@protected_route(router.put, "/branding", CHANGE_SCOPES)
 async def save_branding(
     request: Request, payload: BrandingSelectionPayload
 ) -> BrandingStatusSchema:
@@ -374,7 +377,7 @@ async def _receive_upload(request: Request, staged: Path) -> None:
         )
 
 
-@protected_route(router.post, "/packs", [Scope.ROMS_READ])
+@protected_route(router.post, "/packs", CHANGE_SCOPES)
 async def upload_pack(request: Request, replace: bool = False) -> BrandingStatusSchema:
     """Upload a .zip theme pack, check it, install it as <id>.zip and recompile (admin only).
 
@@ -430,7 +433,7 @@ async def upload_pack(request: Request, replace: bool = False) -> BrandingStatus
         await AsyncPath(staged).unlink(missing_ok=True)
 
 
-@protected_route(router.patch, "/packs/{pack_id}", [Scope.ROMS_READ])
+@protected_route(router.patch, "/packs/{pack_id}", CHANGE_SCOPES)
 async def rename_pack(
     request: Request, pack_id: str, payload: PackRenamePayload
 ) -> BrandingStatusSchema:
@@ -457,7 +460,7 @@ async def rename_pack(
     return result
 
 
-@protected_route(router.delete, "/packs/{pack_id}", [Scope.ROMS_READ])
+@protected_route(router.delete, "/packs/{pack_id}", CHANGE_SCOPES)
 async def delete_pack(request: Request, pack_id: str) -> BrandingStatusSchema:
     """Delete an uploaded pack, or hide a built-in one server-wide (admin only).
 
@@ -477,7 +480,7 @@ async def delete_pack(request: Request, pack_id: str) -> BrandingStatusSchema:
     return result
 
 
-@protected_route(router.post, "/packs/built-ins/restore", [Scope.ROMS_READ])
+@protected_route(router.post, "/packs/built-ins/restore", CHANGE_SCOPES)
 async def restore_built_in_packs(request: Request) -> BrandingStatusSchema:
     """Show every built-in pack that Delete hid (admin only).
 
