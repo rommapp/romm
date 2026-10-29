@@ -21,9 +21,7 @@ export function readRightStick(): { x: number; y: number } {
   return { x, y };
 }
 
-/** The element pad A clicks: an expanded combobox keeps focus and points
- *  at its active option, so A picks that option. A field is never clicked,
- *  so A doesn't re-submit its form. */
+/** An open combobox's aria-activedescendant identifies the option pad A activates. */
 export function padActivationTarget(el: Element | null): HTMLElement | null {
   if (!(el instanceof HTMLElement)) return null;
   if (el.getAttribute("aria-expanded") === "true") {
