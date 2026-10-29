@@ -25,7 +25,7 @@ import {
   RIcon,
   RMenu,
   RMenuItem,
-  RSliderBtnGroup,
+  RSegmentedControl,
   RTextField,
 } from "@/lib";
 import { shouldAutofocusSearch } from "@/utils/autofocus";
@@ -315,7 +315,7 @@ const { smAndUp } = useBreakpoint();
     <slot name="actions" />
 
     <template v-if="smAndUp">
-      <RSliderBtnGroup
+      <RSegmentedControl
         v-for="sf in segmentFilters"
         :key="sf.key"
         :model-value="sf.value"
@@ -334,7 +334,7 @@ const { smAndUp } = useBreakpoint();
     <div class="gallery-toolbar__controls">
       <!-- Grouping and sort: list mode sorts from its column header instead. -->
       <template v-if="smAndUp && !listMode">
-        <RSliderBtnGroup
+        <RSegmentedControl
           v-if="showGroupBy"
           :model-value="groupByValue"
           :items="effectiveGroupByItems"
@@ -376,7 +376,7 @@ const { smAndUp } = useBreakpoint();
           />
         </RMenu>
 
-        <RSliderBtnGroup
+        <RSegmentedControl
           v-if="!unsorted"
           :model-value="sortDirValue"
           :items="sortDirItems"
@@ -386,7 +386,7 @@ const { smAndUp } = useBreakpoint();
         />
       </template>
 
-      <RSliderBtnGroup
+      <RSegmentedControl
         v-if="smAndUp"
         :model-value="layoutValue"
         :items="layoutItems"

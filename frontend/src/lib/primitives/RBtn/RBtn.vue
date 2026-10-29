@@ -86,7 +86,7 @@ interface Props {
   /** Paints the lib's `--r-color-bg-elevated` token behind the button.
    *  Composes with any variant: use it when the button needs to read
    *  as "raised on a tinted pill" rather than "transparent on the page",
-   *  so it visually aligns with adjacent segmented `RSliderBtnGroup`
+   *  so it visually aligns with adjacent segmented `RSegmentedControl`
    *  surfaces (e.g., toolbar icon buttons next to sliders). */
   surface?: boolean;
   /** Toggle state. Defined → `aria-pressed`; true → translucent tint. */

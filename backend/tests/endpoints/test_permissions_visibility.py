@@ -19,7 +19,7 @@ from handler.auth.base_handler import oauth_handler
 from handler.database import db_collection_handler, db_rom_handler, db_user_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler
-from models.collection import SmartCollection
+from models.collection import Collection, SmartCollection
 from models.permission import (
     HiddenEntity,
     PermAction,
@@ -236,6 +236,152 @@ def test_platform_with_only_hidden_roms_counts_none(client, viewer_user, platfor
     ).json()
 
     assert (body["rom_count"], body["fs_size_bytes"]) == (0, 0)
+
+
+def _rom_with_cover(platform, name, **overrides):
+    rom = make_rom(platform, name, **overrides)
+    return db_rom_handler.update_rom(
+        rom.id,
+        {
+            "path_cover_s": f"{rom.fs_resources_path}/cover/small.png",
+            "path_cover_l": f"{rom.fs_resources_path}/cover/big.png",
+        },
+    )
+
+
+def _cover_rom_ids(body):
+    """The rom ids in a collection's small and large cover URLs, sorted."""
+    return tuple(
+        sorted(int(url.split("/")[-3]) for url in body[key])
+        for key in ("path_covers_small", "path_covers_large")
+    )
+
+
+def test_hidden_rom_is_dropped_from_a_collections_covers(
+    client, viewer_user, admin_user, platform
+):
+    shown = _rom_with_cover(platform, "shown")
+    hidden = _rom_with_cover(platform, "hidden")
+    collection = db_collection_handler.add_collection(
+        Collection(name="Mixed", description="", user_id=admin_user.id, is_public=True)
+    )
+    db_collection_handler.add_roms_to_collection(collection.id, [shown.id, hidden.id])
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    detail = client.get(
+        f"/api/collections/{collection.id}", headers=_auth(viewer_user)
+    ).json()
+    listed = next(
+        c
+        for c in client.get("/api/collections", headers=_auth(viewer_user)).json()
+        if c["id"] == collection.id
+    )
+
+    for body in (detail, listed):
+        assert _cover_rom_ids(body) == ([shown.id], [shown.id])
+
+
+def test_hidden_rom_is_dropped_from_a_smart_collections_covers(
+    client, viewer_user, admin_user, platform
+):
+    shown = _rom_with_cover(platform, "shown")
+    hidden = _rom_with_cover(platform, "hidden")
+    smart = db_collection_handler.add_smart_collection(
+        SmartCollection(
+            name="Everything",
+            description="",
+            user_id=admin_user.id,
+            is_public=True,
+            filter_criteria={"platform_ids": [platform.id]},
+        )
+    )
+    db_collection_handler.refresh_smart_collection(smart.id)
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    body = client.get(
+        f"/api/collections/smart/{smart.id}", headers=_auth(viewer_user)
+    ).json()
+
+    assert _cover_rom_ids(body) == ([shown.id], [shown.id])
+
+
+def test_hidden_rom_is_dropped_from_a_virtual_collections_covers(
+    client, viewer_user, platform
+):
+    roms = [
+        _rom_with_cover(platform, name, manual_metadata={"franchises": ["Grow"]})
+        for name in ("first", "second", "third")
+    ]
+    _hide(PermEntity.ROMS, roms[0].id, viewer_user.id)
+
+    body = next(
+        c
+        for c in client.get(
+            "/api/collections/virtual?type=franchise", headers=_auth(viewer_user)
+        ).json()
+        if c["name"] == "Grow"
+    )
+
+    visible = sorted(rom.id for rom in roms[1:])
+    assert _cover_rom_ids(body) == (visible, visible)
+
+
+def _member_ids(collection_id):
+    collection = db_collection_handler.get_collection(collection_id)
+    assert collection is not None
+    return set(collection.rom_ids)
+
+
+def test_hidden_rom_cannot_be_added_to_a_collection(client, viewer_user, platform):
+    hidden = _rom_with_cover(platform, "hidden")
+    own = db_collection_handler.add_collection(
+        Collection(name="Mine", description="", user_id=viewer_user.id)
+    )
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    body = client.post(
+        f"/api/collections/{own.id}/roms",
+        headers=_auth(viewer_user),
+        json={"rom_ids": [hidden.id]},
+    ).json()
+
+    assert body["rom_ids"] == []
+    assert _cover_rom_ids(body) == ([], [])
+    assert _member_ids(own.id) == set()
+
+
+def test_hidden_member_survives_a_collection_update(client, viewer_user, rom, platform):
+    hidden = make_rom(platform, "hidden")
+    own = db_collection_handler.add_collection(
+        Collection(name="Mine", description="", user_id=viewer_user.id)
+    )
+    db_collection_handler.add_roms_to_collection(own.id, [rom.id, hidden.id])
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    body = client.put(
+        f"/api/collections/{own.id}",
+        headers=_auth(viewer_user),
+        data={"rom_ids": f"[{rom.id}]", "name": "Renamed"},
+    ).json()
+
+    assert body["rom_ids"] == [rom.id]
+    assert _member_ids(own.id) == {rom.id, hidden.id}
+
+
+def test_hidden_rom_cannot_be_put_into_a_collection(client, viewer_user, platform):
+    hidden = make_rom(platform, "hidden")
+    own = db_collection_handler.add_collection(
+        Collection(name="Mine", description="", user_id=viewer_user.id)
+    )
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    client.put(
+        f"/api/collections/{own.id}",
+        headers=_auth(viewer_user),
+        data={"rom_ids": f"[{hidden.id}]"},
+    )
+
+    assert _member_ids(own.id) == set()
 
 
 def test_hidden_platform_cascades_to_its_roms(client, viewer_user, rom, platform):

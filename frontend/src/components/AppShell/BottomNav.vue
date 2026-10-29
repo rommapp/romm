@@ -3,7 +3,7 @@
 // on phones (xs) so the four destinations sit within thumb reach. AppNav
 // drops its centre pill on xs in turn (see AppNav.vue).
 //
-// This is the SAME RSliderBtnGroup tab pill the top nav uses (same glass
+// This is the SAME RSegmentedControl tab pill the top nav uses (same glass
 // surface, same border, same sliding active indicator), just pinned to
 // the bottom and stretched full-width. No bespoke nav surface and no
 // alternate layout, so the brand look and feel stay identical top vs
@@ -17,7 +17,7 @@
 import { useI18n } from "vue-i18n";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import { useNavDestinations } from "@/composables/useNavDestinations";
-import { RSliderBtnGroup } from "@/lib";
+import { RSegmentedControl } from "@/lib";
 
 const { t } = useI18n();
 const { smAndDown } = useBreakpoint();
@@ -29,7 +29,7 @@ const { destinations, activeId } = useNavDestinations();
 <template>
   <div v-if="smAndDown" class="r-bottom-nav-anchor">
     <nav class="r-bottom-nav" :aria-label="t('common.primary-navigation')">
-      <RSliderBtnGroup
+      <RSegmentedControl
         :model-value="activeId"
         :items="destinations"
         variant="tab"
@@ -84,16 +84,16 @@ const { destinations, activeId } = useNavDestinations();
    instead of leaving the items bunched in the centre. The indicator sits
    inside the pill's 4px padding, so even with sub-pixel cell rounding it
    never grazes the border. */
-.r-bottom-nav__group :deep(.r-slider-btn-group__btn) {
+.r-bottom-nav__group :deep(.r-segmented-control__btn) {
   flex: 1;
   justify-content: center;
 }
 
 /* Icon-only on phones: four full-width inline labels won't fit, and the
    icon-only treatment matches the top-nav-on-xs precedent. The
-   router-link `aria-label` (set by RSliderBtnGroup from each item's
+   router-link `aria-label` (set by RSegmentedControl from each item's
    `ariaLabel`) stays the source of accessible naming. */
-.r-bottom-nav__group :deep(.r-slider-btn-group__label) {
+.r-bottom-nav__group :deep(.r-segmented-control__label) {
   display: none;
 }
 </style>
