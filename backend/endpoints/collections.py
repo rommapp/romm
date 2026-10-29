@@ -1,4 +1,5 @@
 import json
+from collections.abc import Iterable
 from datetime import datetime
 from io import BytesIO
 from typing import Annotated, Any, TypeVar
@@ -60,18 +61,20 @@ CollectionSchemaT = TypeVar(
 )
 
 
+def _hidden_rom_ids(request: Request, rom_ids: Iterable[int]) -> set[int]:
+    """Of `rom_ids`, the ones hidden from the caller."""
+    ids = set(rom_ids)
+    visibility = get_rom_visibility_filter(request)
+    if not ids or visibility.is_unrestricted:
+        return set()
+    return db_rom_handler.get_hidden_rom_ids_among(list(ids), visibility)
+
+
 def _hide_collection_roms(
     schemas: list[CollectionSchemaT], request: Request
 ) -> list[CollectionSchemaT]:
     """Drop roms hidden from the caller from each collection's ids, count and covers."""
-    if not schemas:
-        return schemas
-    visibility = get_rom_visibility_filter(request)
-    if visibility.is_unrestricted:
-        return schemas
-
-    all_ids = {rid for s in schemas for rid in s.rom_ids}
-    hidden = db_rom_handler.get_hidden_rom_ids_among(list(all_ids), visibility)
+    hidden = _hidden_rom_ids(request, (rid for s in schemas for rid in s.rom_ids))
     if not hidden:
         return schemas
     for s in schemas:
@@ -500,6 +503,11 @@ async def update_collection(
             status_code=422,
             detail="Invalid list for rom_ids field in update collection",
         ) from e
+    # The caller can't add roms hidden from them, nor drop members they can't see.
+    hidden = _hidden_rom_ids(request, [*parsed_rom_ids, *collection.rom_ids])
+    parsed_rom_ids = [rid for rid in parsed_rom_ids if rid not in hidden] + sorted(
+        hidden & set(collection.rom_ids)
+    )
 
     cleaned_data = {
         "name": name if name is not None else collection.name,
@@ -650,11 +658,11 @@ async def add_roms_to_collection(
     if collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
 
+    hidden = _hidden_rom_ids(request, payload.rom_ids)
+    rom_ids = [rid for rid in payload.rom_ids if rid not in hidden]
     before = set(collection.rom_ids)
-    updated_collection = db_collection_handler.add_roms_to_collection(
-        id, payload.rom_ids
-    )
-    refresh_affected_smart_collections(payload.rom_ids, membership_only=True)
+    updated_collection = db_collection_handler.add_roms_to_collection(id, rom_ids)
+    refresh_affected_smart_collections(rom_ids, membership_only=True)
     if added := sorted(set(updated_collection.rom_ids) - before):
         _record_collection(
             request,

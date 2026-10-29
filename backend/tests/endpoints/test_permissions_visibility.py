@@ -235,9 +235,13 @@ def test_hidden_rom_is_dropped_from_a_virtual_collections_covers(
     assert _cover_rom_ids(body) == (visible, visible)
 
 
-def test_hidden_rom_is_dropped_from_a_collection_write_response(
-    client, viewer_user, platform
-):
+def _member_ids(collection_id):
+    collection = db_collection_handler.get_collection(collection_id)
+    assert collection is not None
+    return set(collection.rom_ids)
+
+
+def test_hidden_rom_cannot_be_added_to_a_collection(client, viewer_user, platform):
     hidden = _rom_with_cover(platform, "hidden")
     own = db_collection_handler.add_collection(
         Collection(name="Mine", description="", user_id=viewer_user.id)
@@ -252,6 +256,41 @@ def test_hidden_rom_is_dropped_from_a_collection_write_response(
 
     assert body["rom_ids"] == []
     assert _cover_rom_ids(body) == ([], [])
+    assert _member_ids(own.id) == set()
+
+
+def test_hidden_member_survives_a_collection_update(client, viewer_user, rom, platform):
+    hidden = make_rom(platform, "hidden")
+    own = db_collection_handler.add_collection(
+        Collection(name="Mine", description="", user_id=viewer_user.id)
+    )
+    db_collection_handler.add_roms_to_collection(own.id, [rom.id, hidden.id])
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    body = client.put(
+        f"/api/collections/{own.id}",
+        headers=_auth(viewer_user),
+        data={"rom_ids": f"[{rom.id}]", "name": "Renamed"},
+    ).json()
+
+    assert body["rom_ids"] == [rom.id]
+    assert _member_ids(own.id) == {rom.id, hidden.id}
+
+
+def test_hidden_rom_cannot_be_put_into_a_collection(client, viewer_user, platform):
+    hidden = make_rom(platform, "hidden")
+    own = db_collection_handler.add_collection(
+        Collection(name="Mine", description="", user_id=viewer_user.id)
+    )
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    client.put(
+        f"/api/collections/{own.id}",
+        headers=_auth(viewer_user),
+        data={"rom_ids": f"[{hidden.id}]"},
+    )
+
+    assert _member_ids(own.id) == set()
 
 
 def test_hidden_platform_cascades_to_its_roms(client, viewer_user, rom, platform):
