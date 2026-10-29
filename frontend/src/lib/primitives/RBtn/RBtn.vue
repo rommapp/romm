@@ -33,6 +33,7 @@
 import { computed, ref, useSlots } from "vue";
 import { RouterLink, type RouteLocationRaw } from "vue-router";
 import { useDelayedFlag } from "@/composables/useDelayedFlag";
+import { ROUNDED_MAP, TONE_MAP } from "@/lib/style/tokenMaps";
 import RTooltip from "../../structural/RTooltip/RTooltip.vue";
 import RIcon from "../RIcon/RIcon.vue";
 import RProgressCircular from "../RProgressCircular/RProgressCircular.vue";
@@ -178,20 +179,6 @@ const resolvedVariant = computed(() =>
 );
 
 // ── Tone resolver ────────────────────────────────────────────────
-const TONE_MAP: Record<string, string> = {
-  primary: "var(--r-color-brand-primary)",
-  secondary: "var(--r-color-brand-secondary)",
-  accent: "var(--r-color-brand-accent)",
-  success: "var(--r-color-success)",
-  warning: "var(--r-color-warning)",
-  danger: "var(--r-color-danger)",
-  error: "var(--r-color-danger)",
-  info: "var(--r-color-info)",
-  "romm-red": "var(--r-color-romm-red)",
-  "romm-green": "var(--r-color-romm-green)",
-  "romm-blue": "var(--r-color-romm-blue)",
-  "romm-gold": "var(--r-color-romm-gold)",
-};
 const resolvedColor = computed<string | undefined>(() => {
   const c = props.color ?? (props.active ? "primary" : undefined);
   if (!c) return undefined;
@@ -199,16 +186,6 @@ const resolvedColor = computed<string | undefined>(() => {
 });
 
 // ── Rounded resolver ─────────────────────────────────────────────
-const ROUNDED_MAP: Record<string, string> = {
-  "0": "0",
-  sm: "4px",
-  md: "8px",
-  lg: "12px",
-  xl: "16px",
-  full: "999px",
-  pill: "999px",
-  circle: "50%",
-};
 const resolvedRounded = computed<string>(() => {
   const r = props.rounded;
   if (r === undefined || r === null || r === "") return "8px";

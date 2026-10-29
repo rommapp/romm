@@ -23,6 +23,7 @@
 // transition runs before the DOM is removed.
 import { computed, useSlots } from "vue";
 import { useChromeLabels } from "@/lib/a11y/chromeLabels";
+import { ROUNDED_MAP } from "@/lib/style/tokenMaps";
 import RIcon from "../RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -91,14 +92,6 @@ const resolvedIcon = computed<string | undefined>(() => {
   return undefined;
 });
 
-const ROUNDED_MAP: Record<string, string> = {
-  "0": "0",
-  sm: "4px",
-  md: "8px",
-  lg: "12px",
-  xl: "16px",
-  full: "999px",
-};
 const resolvedRounded = computed<string>(() => {
   const r = props.rounded;
   if (r === undefined || r === null || r === "") return "8px";

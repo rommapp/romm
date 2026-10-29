@@ -12,6 +12,7 @@
 // via cubic-bezier(0.34, 1.56, 0.64, 1), active press squash, filled
 // stars get a "pop" entrance when they first cross the threshold.
 import { computed, ref } from "vue";
+import { TONE_MAP } from "@/lib/style/tokenMaps";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -63,20 +64,6 @@ const emit = defineEmits<{
 }>();
 
 // ── Tone resolver: same vocabulary as the rest of the lib. ─────
-const TONE_MAP: Record<string, string> = {
-  primary: "var(--r-color-brand-primary)",
-  secondary: "var(--r-color-brand-secondary)",
-  accent: "var(--r-color-brand-accent)",
-  success: "var(--r-color-success)",
-  warning: "var(--r-color-warning)",
-  danger: "var(--r-color-danger)",
-  error: "var(--r-color-danger)",
-  info: "var(--r-color-info)",
-  "romm-red": "var(--r-color-romm-red)",
-  "romm-green": "var(--r-color-romm-green)",
-  "romm-blue": "var(--r-color-romm-blue)",
-  "romm-gold": "var(--r-color-romm-gold)",
-};
 function resolveColor(value: string): string {
   if (TONE_MAP[value]) return TONE_MAP[value];
   if (/^[a-z][a-z0-9-]*$/i.test(value)) {
