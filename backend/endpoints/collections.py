@@ -81,7 +81,7 @@ def _hide_collection_roms(
     return schemas
 
 
-def _hide_collection_rom(
+def _hide_single_collection_roms(
     schema: CollectionSchemaT, request: Request
 ) -> CollectionSchemaT:
     return _hide_collection_roms([schema], request)[0]
@@ -248,7 +248,7 @@ async def add_smart_collection(
     )
     _record_collection(request, AuditAction.SMART_COLLECTION_CREATE, smart_collection)
 
-    return _hide_collection_rom(
+    return _hide_single_collection_roms(
         SmartCollectionSchema.model_validate(smart_collection), request
     )
 
@@ -408,7 +408,9 @@ def get_collection(request: Request, id: int) -> CollectionSchema:
     if collection.user_id != request.user.id and not collection.is_public:
         raise CollectionPermissionError(id)
 
-    return _hide_collection_rom(CollectionSchema.model_validate(collection), request)
+    return _hide_single_collection_roms(
+        CollectionSchema.model_validate(collection), request
+    )
 
 
 @protected_route(router.get, "/virtual/{id}", [Scope.COLLECTIONS_READ])
@@ -427,7 +429,7 @@ def get_virtual_collection(request: Request, id: str) -> VirtualCollectionSchema
     if not virtual_collection:
         raise CollectionNotFoundInDatabaseException(id)
 
-    return _hide_collection_rom(
+    return _hide_single_collection_roms(
         VirtualCollectionSchema.model_validate(virtual_collection), request
     )
 
@@ -451,7 +453,7 @@ def get_smart_collection(request: Request, id: int) -> SmartCollectionSchema:
     if smart_collection.user_id != request.user.id and not smart_collection.is_public:
         raise CollectionPermissionError(id)
 
-    return _hide_collection_rom(
+    return _hide_single_collection_roms(
         SmartCollectionSchema.model_validate(smart_collection), request
     )
 
@@ -586,7 +588,7 @@ async def update_collection(
             },
         )
 
-    return _hide_collection_rom(
+    return _hide_single_collection_roms(
         CollectionSchema.model_validate(updated_collection), request
     )
 
@@ -616,7 +618,7 @@ def update_collection_visibility(
     if collection.is_public != is_public:
         refresh_scoped_smart_collections(id)
 
-    return _hide_collection_rom(
+    return _hide_single_collection_roms(
         CollectionSchema.model_validate(updated_collection), request
     )
 
@@ -660,7 +662,7 @@ async def add_roms_to_collection(
             collection,
             {"count": len(added), "rom_ids": added},
         )
-    return _hide_collection_rom(
+    return _hide_single_collection_roms(
         CollectionSchema.model_validate(updated_collection), request
     )
 
@@ -700,7 +702,7 @@ async def remove_roms_from_collection(
             collection,
             {"count": len(removed), "rom_ids": removed},
         )
-    return _hide_collection_rom(
+    return _hide_single_collection_roms(
         CollectionSchema.model_validate(updated_collection), request
     )
 
@@ -777,7 +779,7 @@ async def update_smart_collection(
     )
     _record_collection(request, AuditAction.SMART_COLLECTION_EDIT, smart_collection)
 
-    return _hide_collection_rom(
+    return _hide_single_collection_roms(
         SmartCollectionSchema.model_validate(smart_collection), request
     )
 
@@ -801,7 +803,7 @@ def update_smart_collection_visibility(
     if smart_collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
 
-    return _hide_collection_rom(
+    return _hide_single_collection_roms(
         SmartCollectionSchema.model_validate(
             db_collection_handler.update_smart_collection(id, {"is_public": is_public})
         ),
