@@ -3196,6 +3196,27 @@ def test_desktop_frees_the_claim_when_activation_fails(client, access_token):
         assert _session_raw(container) is None
 
 
+def test_desktop_frees_the_claim_when_activation_is_cancelled(client, access_token):
+    """A cancellation is not an Exception, so a narrower catch would leak it."""
+    with _streaming(_webstation()):
+        container = _first_container("ps2")
+        key = _key_of(container)
+        with (
+            patch(
+                "handler.streaming.webstation.activate",
+                side_effect=asyncio.CancelledError,
+            ),
+            # Starlette's middleware surfaces the cancellation as its own error.
+            pytest.raises(RuntimeError),
+        ):
+            client.post(
+                "/api/streaming/desktop",
+                json={"container": key},
+                headers=_auth(access_token),
+            )
+        assert _session_raw(container) is None
+
+
 def test_releasing_a_desktop_session_syncs_nothing_to_the_library(client, access_token):
     """No ROM means no saves, no states and no playtime to credit, so teardown
     must stop at stopping the emulator."""
