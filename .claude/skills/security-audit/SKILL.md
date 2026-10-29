@@ -91,13 +91,13 @@ Every author should be a plausible contributor. author≠committer with committe
 **Reverted fixes, reach, and tests** for each security-sensitive change (auth, scopes, ownership, file ops, validation):
 
 ```bash
-git log --oneline -S'<removed line>' -- <file>               # which commit added a line the range deletes
-git grep -nw '<changed symbol>' "${RANGE#*..}" -- backend frontend/src | wc -l   # how many callers it reaches
-git diff --name-only $RANGE -- backend/tests frontend/src    # tests the range adds or changes
+git log --oneline -S'<removed line>' "${RANGE#*..}" -- <file>   # which commit added a line the range deletes
+git grep -nw '<changed symbol>' "${RANGE#*..}" -- backend frontend/src ':(exclude)backend/tests'   # where it is referenced
+git diff --name-only $RANGE -- backend/tests 'frontend/src/*.test.ts' 'frontend/src/*.spec.ts'   # tests the range adds or changes
 ```
 
 - A deleted check that arrived in a fix, security commit, or GHSA is a reintroduced bug until proven otherwise.
-- Count callers rather than guessing: a weakened helper used by 40 endpoints outranks one used by a single route.
+- Count callers rather than guessing: read the matches and drop definitions, imports and comments, then follow aliases. A weakened helper used by 40 endpoints outranks one used by a single route.
 - Changed sensitive code with no test covering it (`backend/<area>/x.py` → `backend/tests/<area>/test_x.py`) is `needs attention`, not proof of malice.
 
 ---
