@@ -12,9 +12,10 @@ from handler.scan_handler import (
     MetadataSource,
     ScanType,
     should_consult,
+    stored_match_id,
 )
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import METADATA_SOURCE_COLUMNS, Rom
 
 # A slug each slug-gated source covers; every other source keys off a platform id.
 COVERED_SLUG = {
@@ -97,6 +98,18 @@ EXPECTED_COLUMNS: dict[MetadataSource, tuple[str, str | None]] = {
 def test_each_rule_reads_its_own_columns(source: MetadataSource):
     rule = RESCAN_RULES[source]
     assert (rule.id_field, rule.metadata_field) == EXPECTED_COLUMNS[source]
+
+
+def test_the_identified_columns_match_the_rules():
+    assert {
+        slug: column.key
+        for slug, column in METADATA_SOURCE_COLUMNS.items()
+        if slug in RESCAN_RULES
+    } == {
+        source.value: RESCAN_RULES[source].id_field
+        for source in RESCAN_RULES
+        if source.value in METADATA_SOURCE_COLUMNS
+    }
 
 
 @pytest.mark.parametrize("source", ALL_SOURCES)
@@ -196,6 +209,24 @@ def test_a_platform_without_the_sources_id_is_never_consulted(
     assert not _consults(source, ScanType.COMPLETE, _rom(platform), newly_added=True)
 
 
+@pytest.mark.parametrize(
+    "source",
+    [
+        MetadataSource.LAUNCHBOX,
+        MetadataSource.SGDB,
+        MetadataSource.DEMOZOO,
+        MetadataSource.POUET,
+        MetadataSource.CSDB,
+        MetadataSource.GAMELIST,
+    ],
+)
+def test_a_source_without_a_platform_gate_covers_any_platform(
+    source: MetadataSource,
+):
+    rom = _rom(Platform(slug="not-a-platform"))
+    assert _consults(source, ScanType.COMPLETE, rom, newly_added=True)
+
+
 @pytest.mark.parametrize("source", ALL_SOURCES)
 def test_a_hash_scan_consults_only_the_hash_sources(source: MetadataSource):
     rule = RESCAN_RULES[source]
@@ -229,3 +260,36 @@ def test_an_unmatched_scan_skips_a_platform_igdb_does_not_list():
             newly_added=False,
             metadata_sources=[MetadataSource.IGDB.value],
         )
+
+
+@pytest.mark.parametrize("source", ALL_SOURCES)
+def test_an_update_refetches_the_stored_id(source: MetadataSource):
+    rule = RESCAN_RULES[source]
+    rom = _rom(_platform(source), **{rule.id_field: 7})
+    assert stored_match_id(source, scan_type=ScanType.UPDATE, rom=rom) == 7
+
+
+@pytest.mark.parametrize("source", ALL_SOURCES)
+@pytest.mark.parametrize("scan_type", [ScanType.COMPLETE, ScanType.HASHES])
+def test_a_rematching_scan_ignores_the_stored_id(
+    source: MetadataSource, scan_type: ScanType
+):
+    rule = RESCAN_RULES[source]
+    rom = _rom(_platform(source), **{rule.id_field: 7})
+    assert stored_match_id(source, scan_type=scan_type, rom=rom) is None
+
+
+@pytest.mark.parametrize(
+    "source",
+    [s for s in ALL_SOURCES if RESCAN_RULES[s].metadata_field is not None],
+)
+def test_an_unmatched_scan_refetches_an_id_missing_its_metadata(
+    source: MetadataSource,
+):
+    rule = RESCAN_RULES[source]
+    assert rule.metadata_field is not None
+    rom = _rom(_platform(source), **{rule.id_field: 7})
+    assert stored_match_id(source, scan_type=ScanType.UNMATCHED, rom=rom) == 7
+
+    setattr(rom, rule.metadata_field, {"name": "Matched"})
+    assert stored_match_id(source, scan_type=ScanType.UNMATCHED, rom=rom) is None

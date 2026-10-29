@@ -120,6 +120,7 @@ from handler.metadata.ss_handler import (
 from handler.recommendation import similar_roms
 from handler.rom_conversion import promote_single_file_to_folder
 from handler.scan_handler import (
+    RESCAN_RULES,
     MetadataSource,
     ScanType,
     build_hashless_fs_rom,
@@ -1947,34 +1948,53 @@ def _ra_miss(rom: Rom) -> dict[str, Any]:
 class _MatchRefetch:
     """How an edit that changes one provider's id pulls that provider's metadata."""
 
-    id_field: str
+    source: MetadataSource
     fetch: Callable[[Rom, Any], Awaitable[Mapping[str, object]]]
     on_miss: Callable[[Rom], dict[str, Any]] = lambda _rom: {}
 
     @property
-    def metadata_field(self) -> str:
-        return self.id_field.removesuffix("_id") + "_metadata"
+    def id_field(self) -> str:
+        return RESCAN_RULES[self.source].id_field
+
+    @property
+    def metadata_field(self) -> str | None:
+        return RESCAN_RULES[self.source].metadata_field
 
 
 # Applied in order, so a later provider's name, summary or cover wins.
 _MATCH_REFETCHES: Final = (
     _MatchRefetch(
-        "flashpoint_id", lambda _rom, i: meta_flashpoint_handler.get_rom_by_id(i)
+        MetadataSource.FLASHPOINT,
+        lambda _rom, i: meta_flashpoint_handler.get_rom_by_id(i),
     ),
-    _MatchRefetch("launchbox_id", _refetch_launchbox),
+    _MatchRefetch(MetadataSource.LAUNCHBOX, _refetch_launchbox),
     _MatchRefetch(
-        "ra_id",
+        MetadataSource.RA,
         lambda rom, i: meta_ra_handler.get_rom_by_id(rom, ra_id=i, ra_hash=rom.ra_hash),
         on_miss=_ra_miss,
     ),
-    _MatchRefetch("moby_id", lambda _rom, i: meta_moby_handler.get_rom_by_id(i)),
-    _MatchRefetch("ss_id", _refetch_ss),
-    _MatchRefetch("steam_id", lambda _rom, i: meta_steam_handler.get_rom_by_id(i)),
-    _MatchRefetch("igdb_id", lambda rom, i: meta_igdb_handler.get_rom_by_id(rom, i)),
-    _MatchRefetch("demozoo_id", lambda _rom, i: meta_demozoo_handler.get_rom_by_id(i)),
-    _MatchRefetch("pouet_id", lambda _rom, i: meta_pouet_handler.get_rom_by_id(i)),
-    _MatchRefetch("csdb_id", lambda _rom, i: meta_csdb_handler.get_rom_by_id(i)),
-    _MatchRefetch("hltb_id", lambda _rom, i: meta_hltb_handler.get_rom_by_id(i)),
+    _MatchRefetch(
+        MetadataSource.MOBY, lambda _rom, i: meta_moby_handler.get_rom_by_id(i)
+    ),
+    _MatchRefetch(MetadataSource.SS, _refetch_ss),
+    _MatchRefetch(
+        MetadataSource.STEAM, lambda _rom, i: meta_steam_handler.get_rom_by_id(i)
+    ),
+    _MatchRefetch(
+        MetadataSource.IGDB, lambda rom, i: meta_igdb_handler.get_rom_by_id(rom, i)
+    ),
+    _MatchRefetch(
+        MetadataSource.DEMOZOO, lambda _rom, i: meta_demozoo_handler.get_rom_by_id(i)
+    ),
+    _MatchRefetch(
+        MetadataSource.POUET, lambda _rom, i: meta_pouet_handler.get_rom_by_id(i)
+    ),
+    _MatchRefetch(
+        MetadataSource.CSDB, lambda _rom, i: meta_csdb_handler.get_rom_by_id(i)
+    ),
+    _MatchRefetch(
+        MetadataSource.HLTB, lambda _rom, i: meta_hltb_handler.get_rom_by_id(i)
+    ),
 )
 
 
@@ -1990,7 +2010,9 @@ async def _refetch_changed_matches(rom: Rom, cleaned_data: dict[str, Any]) -> No
                 fetched if fetched.get(refetch.id_field) else refetch.on_miss(rom)
             )
         elif old_id and not new_id:
-            cleaned_data.update({refetch.id_field: None, refetch.metadata_field: {}})
+            cleaned_data[refetch.id_field] = None
+            if refetch.metadata_field:
+                cleaned_data[refetch.metadata_field] = {}
 
 
 @protected_route(
