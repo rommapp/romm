@@ -95,7 +95,7 @@ def _stub_teardown(teardown: Any = None) -> Any:
     )
 
 
-async def _stored(entry: dict[str, Any]) -> dict[str, Any] | None:
+async def _stored(entry: dict[str, Any]) -> session_store.StreamingSession | None:
     return await session_store.get_session(_resolved(entry).key)
 
 
@@ -306,7 +306,7 @@ async def test_overlapping_runs_tear_a_session_down_once():
     # Both runs read the stale session before either marks it.
     both_read = asyncio.Barrier(2)
 
-    async def read_together(key: str) -> dict[str, Any] | None:
+    async def read_together(key: str) -> session_store.StreamingSession | None:
         session = await session_store.get_abandoned_session(key)
         await both_read.wait()
         return session

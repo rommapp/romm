@@ -25,6 +25,7 @@ from handler.streaming.config import (
 from handler.streaming.session_store import (
     DRAIN_MARKER_TTL,
     DiscSwap,
+    StreamingSession,
     StreamingSessionContended,
     broker_session_id,
     claim_drain_marker,
@@ -46,7 +47,7 @@ from logger.logger import log
 
 async def abort_claim(
     session_key: str,
-    claim: dict[str, Any],
+    claim: StreamingSession,
     blank_card_id: int | None = None,
 ) -> None:
     """Undo a claim that will not become a session.
@@ -66,7 +67,7 @@ async def abort_claim(
 
 
 def _hold_reservation(
-    session_key: str, token: str | None, claim: dict[str, Any]
+    session_key: str, token: str | None, claim: StreamingSession
 ) -> asyncio.Future[None]:
     """Keep a container reserved while a teardown runs.
 
@@ -83,7 +84,7 @@ def _hold_reservation(
 
 
 async def _drop_reservation(
-    session_key: str, token: str | None, claim: dict[str, Any]
+    session_key: str, token: str | None, claim: StreamingSession
 ) -> None:
     """Free whatever `_hold_reservation` was holding. `token` keeps the release
     aimed at this drain, so an overrun that outlived its own marker cannot free
@@ -98,7 +99,7 @@ async def release_after_state_pull(
     session_key: str,
     pull: Coroutine[Any, Any, Any],
     token: str | None,
-    claim: dict[str, Any],
+    claim: StreamingSession,
 ) -> None:
     """Run the exit state pull, then free the container it was holding.
 
@@ -114,7 +115,7 @@ async def release_after_state_pull(
 
 
 async def quiesce_container(
-    container: ResolvedContainer, session: dict[str, Any], *, save: bool = True
+    container: ResolvedContainer, session: StreamingSession, *, save: bool = True
 ) -> commands.StopOutcome:
     """Stop the emulator, then evacuate and wipe its memory card.
 
@@ -161,7 +162,7 @@ async def pull_exit_saves(
 
 
 async def mark_exit_saves_pending(
-    container: ResolvedContainer, session: dict[str, Any]
+    container: ResolvedContainer, session: StreamingSession
 ) -> saves.SavePullMark | None:
     """Hold the owner's next claim on this ROM until the exit pull has filed.
 
@@ -183,7 +184,7 @@ async def mark_exit_saves_pending(
 
 async def collect_exit_saves(
     container: ResolvedContainer,
-    session: dict[str, Any],
+    session: StreamingSession,
     mark: saves.SavePullMark | None,
     *,
     settled: bool,
@@ -223,7 +224,7 @@ async def collect_exit_saves(
 
 
 async def start_exit_save_pull(
-    container: ResolvedContainer, session: dict[str, Any], *, settled: bool
+    container: ResolvedContainer, session: StreamingSession, *, settled: bool
 ) -> None:
     """Mark the exit pull pending, then start it, for a stop that is already done."""
     mark = await mark_exit_saves_pending(container, session)
@@ -231,7 +232,7 @@ async def start_exit_save_pull(
 
 
 async def collect_exit_state(
-    container: ResolvedContainer, session: dict[str, Any], state_slot: int | None
+    container: ResolvedContainer, session: StreamingSession, state_slot: int | None
 ) -> None:
     """File the state the stop wrote, while the claim still guards the container.
 
@@ -266,7 +267,7 @@ _MIN_PLAY_SESSION_MS = 5_000
 _DEVICE_TYPE = "streaming"
 
 
-async def publish_session_activity(session_key: str, session: dict[str, Any]) -> None:
+async def publish_session_activity(session_key: str, session: StreamingSession) -> None:
     """Put a live streaming session on the activity board.
 
     Best-effort: the board is a view, never a reason to fail a launch.
@@ -289,7 +290,7 @@ async def publish_session_activity(session_key: str, session: dict[str, Any]) ->
         log.exception("failed to publish streaming session activity")
 
 
-async def refresh_session_activity(session_key: str, session: dict[str, Any]) -> None:
+async def refresh_session_activity(session_key: str, session: StreamingSession) -> None:
     """Keep the activity entry alive on the player's heartbeat.
 
     Re-stores what is already there instead of rebuilding it: nothing on the
@@ -314,7 +315,7 @@ async def refresh_session_activity(session_key: str, session: dict[str, Any]) ->
         log.exception("failed to refresh streaming session activity")
 
 
-async def clear_session_activity(session_key: str, session: dict[str, Any]) -> None:
+async def clear_session_activity(session_key: str, session: StreamingSession) -> None:
     """Take a finished streaming session off the activity board.
 
     Every teardown path calls this: the board is socket-driven, so an entry left
@@ -329,7 +330,7 @@ async def clear_session_activity(session_key: str, session: dict[str, Any]) -> N
         log.exception("failed to clear streaming session activity")
 
 
-async def record_play_session(session: dict[str, Any]) -> None:
+async def record_play_session(session: StreamingSession) -> None:
     """Record a finished streaming session as RomM playtime.
 
     Reuses the same ingest path as device sync (dedup on user+rom+start_time,
@@ -382,7 +383,7 @@ async def record_play_session(session: dict[str, Any]) -> None:
 
 async def teardown_released_session(
     container: ResolvedContainer,
-    session: dict[str, Any],
+    session: StreamingSession,
     session_key: str,
     platform: str,
     *,
@@ -471,7 +472,7 @@ async def teardown_released_session(
 async def teardown_abandoned_session(
     container: ResolvedContainer,
     session_key: str,
-    session: dict[str, Any],
+    session: StreamingSession,
     *,
     claimed_by: int | None,
 ) -> bool:
@@ -554,7 +555,7 @@ ABANDONED_TEARDOWN_WAIT = 30.0
 async def await_teardown_within_budget(
     container: ResolvedContainer,
     session_key: str,
-    session: dict[str, Any],
+    session: StreamingSession,
     budget: float,
     *,
     claimed_by: int,

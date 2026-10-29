@@ -99,6 +99,7 @@ from handler.streaming.protocol import room_url_on
 from handler.streaming.session_store import (
     STREAMING_SESSION_DRAIN_SECONDS,
     STREAMING_SESSION_TTL_SECONDS,
+    StreamingSession,
     StreamingSessionContended,
     claim_drain_marker,
     claim_gate,
@@ -438,7 +439,7 @@ async def get_state_picks(request: Request, rom_id: int) -> StreamStatePicksSche
 async def _win_container(
     request: Request,
     candidates: list[ResolvedContainer],
-    session: dict[str, Any],
+    session: StreamingSession,
     platform: str,
 ) -> ResolvedContainer:
     """Reserve one of the platform's containers for this claim.
@@ -469,7 +470,7 @@ async def _win_container(
 async def _reserve_container(
     request: Request,
     candidates: list[ResolvedContainer],
-    session: dict[str, Any],
+    session: StreamingSession,
     platform: str,
 ) -> ResolvedContainer:
     """Walk the platform's containers and claim the first one available."""
@@ -552,20 +553,21 @@ async def _reserve_container(
 
     # A drain marker names no holder, so the holder comes from a live session,
     # while `draining` still says a container is about to come free.
-    snapshots = [
+    snapshots: list[StreamingSession] = [
         snapshot or {}
         for snapshot in await asyncio.gather(
             *(get_session(candidate.key) for candidate in candidates)
         )
     ]
     draining = any(snapshot.get("draining") for snapshot in snapshots)
+    no_holder: StreamingSession = {}
     holder = next(
         (
             snapshot
             for snapshot in snapshots
             if snapshot and not snapshot.get("draining")
         ),
-        {},
+        no_holder,
     )
     if draining:
         message = "The previous session is still shutting down, try again shortly"
@@ -589,7 +591,7 @@ class _ClaimUndo:
     """What `claim_session` releases if the claim fails before the launch."""
 
     session_key: str
-    session: dict[str, Any]
+    session: StreamingSession
     blank_card_id: int | None = None
 
 
@@ -914,7 +916,7 @@ async def claim_session(
     gui_language = languages.gui_language(request.user)
 
     now = datetime.now(timezone.utc).isoformat()
-    session = {
+    session: StreamingSession = {
         # Unique per claim, and safe to put in a filename. The webstation
         # broker names its exit archive after it, so the pull can tell this
         # session's saves from one an earlier pull failed to collect.
@@ -1679,7 +1681,7 @@ async def claim_desktop_session(
 
     session_key = container.key
     now = datetime.now(timezone.utc).isoformat()
-    session = {
+    session: StreamingSession = {
         "user_id": request.user.id,
         "broker_session_id": secrets.token_hex(8),
         # No ROM and no card. Teardown reads both and skips the save pull, the
