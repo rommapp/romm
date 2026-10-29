@@ -78,12 +78,10 @@ def get_platforms(
 ) -> list[PlatformSchema]:
     """Retrieve platforms."""
 
-    perms = get_permissions(request)
     return [
         PlatformSchema.model_validate(p)
         for p in db_platform_handler.get_platforms(
             updated_after=updated_after,
-            hidden_platform_ids=perms.hidden_platform_ids,
             visibility=get_rom_visibility_filter(request),
         )
     ]
@@ -105,7 +103,7 @@ def get_platform_identifiers(
 def get_supported_platforms_endpoint(request: Request) -> list[PlatformSchema]:
     """Retrieve the list of supported platforms."""
 
-    return get_supported_platforms()
+    return get_supported_platforms(get_rom_visibility_filter(request))
 
 
 @protected_route(router.get, "/filesystem", [Scope.PLATFORMS_READ])

@@ -6,7 +6,6 @@ from typing import Any, cast
 from sqlalchemy import Select, delete, func, or_, select, update
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy.orm.attributes import set_committed_value
-from sqlalchemy.sql.elements import ColumnElement
 
 from decorators.database import INJECTED_SESSION, begin_session
 from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
@@ -44,23 +43,16 @@ def _with_visible_totals(
     """
     # The totals are adjusted in place, so a shared session must not reuse an adjusted row.
     query = query.execution_options(populate_existing=True)
-    hidden: list[ColumnElement[bool]] = []
-    if visibility.hidden_rom_ids:
-        hidden.append(Rom.id.in_(visibility.hidden_rom_ids))
-    # Callers already drop hidden platforms, so only the age rule needs a row clause.
-    if (
-        visibility.has_age_rule
-        and (row_hidden := visibility.row_hidden_clause()) is not None
-    ):
-        hidden.append(row_hidden)
-    if not hidden:
+    # Callers drop hidden platforms, so only the ROMs hidden on the rest count.
+    hidden = visibility.hidden_on_visible_platforms_clause()
+    if hidden is None:
         return list(session.scalars(query).unique().all())
 
     hidden_roms = select(
         Rom.platform_id,
         func.count(Rom.id).label("rom_count"),
         func.coalesce(func.sum(Rom.fs_size_bytes), 0).label("fs_size_bytes"),
-    ).where(or_(*hidden))
+    ).where(hidden)
     if platform_id is not None:
         hidden_roms = hidden_roms.where(Rom.platform_id == platform_id)
     totals = hidden_roms.group_by(Rom.platform_id).subquery()
@@ -135,18 +127,15 @@ class DBPlatformsHandler(DBBaseHandler):
     def get_platforms(
         self,
         updated_after: datetime | None = None,
-        hidden_platform_ids: Collection[int] | None = None,
         visibility: RomVisibilityFilter = UNRESTRICTED,
         query: Select[Platform] = INJECTED_PLATFORM_QUERY,
         session: Session = INJECTED_SESSION,
     ) -> Sequence[Platform]:
+        """The platforms `visibility` shows, their totals counting only its ROMs."""
         if updated_after:
             query = query.filter(Platform.updated_at > updated_after)
-
-        # Admin-driven visibility (opt-out): exclude platforms hidden from the
-        # caller. Empty/None (e.g. admins) skips filtering.
-        if hidden_platform_ids:
-            query = query.filter(Platform.id.not_in(hidden_platform_ids))
+        if visibility.hidden_platform_ids:
+            query = query.filter(Platform.id.not_in(visibility.hidden_platform_ids))
 
         return _with_visible_totals(
             session, query.order_by(Platform.name.asc()), visibility

@@ -10,7 +10,7 @@ from datetime import timedelta
 
 import pytest
 from fastapi import status
-from tests.factories import make_rom
+from tests.factories import make_platform, make_rom
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import roms as rom_endpoints
@@ -185,6 +185,46 @@ def test_platform_update_answers_with_the_editors_counts(client, editor_user, pl
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
     assert (body["rom_count"], body["fs_size_bytes"]) == (1, 100)
+
+
+def test_supported_platforms_count_only_visible_roms(client, viewer_user):
+    shown = make_platform("n64")
+    make_rom(shown, "shown", fs_size_bytes=100)
+    _hide(
+        PermEntity.ROMS, make_rom(shown, "hidden", fs_size_bytes=50).id, viewer_user.id
+    )
+    hidden_platform = make_platform("snes")
+    make_rom(hidden_platform, "on a hidden platform")
+    _hide(PermEntity.PLATFORMS, hidden_platform.id, viewer_user.id)
+
+    supported = {
+        p["slug"]: p
+        for p in client.get(
+            "/api/platforms/supported", headers=_auth(viewer_user)
+        ).json()
+    }
+
+    assert (supported["n64"]["rom_count"], supported["n64"]["fs_size_bytes"]) == (
+        1,
+        100,
+    )
+    assert (supported["snes"]["id"], supported["snes"]["rom_count"]) == (-1, 0)
+
+
+def test_retroarch_skips_a_platform_whose_roms_are_all_hidden(
+    client, editor_user, rom, platform
+):
+    _hide(PermEntity.ROMS, rom.id, editor_user.id)
+    auth = ("test_editor", "test_editor_password")
+
+    listing = client.request("PROPFIND", "/api/sync/retroarch/roms/", auth=auth)
+    folder = client.request(
+        "PROPFIND", f"/api/sync/retroarch/roms/{platform.fs_slug}/", auth=auth
+    )
+
+    assert listing.status_code == 207
+    assert f"/roms/{platform.fs_slug}/" not in listing.text
+    assert folder.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_platform_with_only_hidden_roms_counts_none(client, viewer_user, platform):

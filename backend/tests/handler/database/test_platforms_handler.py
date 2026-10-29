@@ -1,3 +1,4 @@
+import pytest
 from tests.factories import make_platform, make_rom
 
 from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
@@ -59,7 +60,11 @@ def test_rescan_preserves_user_authored_fields(platform):
     assert merged.description == "Aftermarket only"
 
 
-PEGI_18 = {"age_ratings": [{"category": "PEGI", "rating": "18"}]}
+def _pegi(rating: str) -> dict[str, list[dict[str, str]]]:
+    return {"age_ratings": [{"category": "PEGI", "rating": rating}]}
+
+
+PEGI_18 = _pegi("18")
 
 
 def _totals(platform):
@@ -139,3 +144,30 @@ def test_totals_are_whole_without_a_visibility():
     found = db_platform_handler.get_platform(platform.id)
 
     assert found is not None and _totals(found) == (2, 15)
+
+
+@pytest.mark.parametrize(
+    "visibility",
+    [
+        RomVisibilityFilter(age_limit=12),
+        RomVisibilityFilter(hide_unrated_roms=True),
+        RomVisibilityFilter(age_limit=12, hide_unrated_roms=True),
+        RomVisibilityFilter(age_limit=12, hidden_rom_ids=frozenset({-1})),
+    ],
+    ids=["limit", "unrated", "limit-and-unrated", "limit-and-hides"],
+)
+def test_totals_agree_with_the_visibility_rule(visibility: RomVisibilityFilter):
+    platform = make_platform("platform_a")
+    roms = [
+        make_rom(platform, "unrated", fs_size_bytes=1),
+        make_rom(platform, "pegi3", fs_size_bytes=2, igdb_metadata=_pegi("3")),
+        make_rom(platform, "pegi12", fs_size_bytes=4, igdb_metadata=_pegi("12")),
+        make_rom(platform, "pegi18", fs_size_bytes=8, igdb_metadata=_pegi("18")),
+    ]
+    shown = [rom for rom in roms if visibility.allows(rom)]
+
+    found = db_platform_handler.get_platform(platform.id, visibility=visibility)
+
+    assert 0 < len(shown) < len(roms)
+    assert found is not None
+    assert _totals(found) == (len(shown), sum(rom.fs_size_bytes for rom in shown))

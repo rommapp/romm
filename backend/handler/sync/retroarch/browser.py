@@ -90,10 +90,19 @@ def _display_name(rom: Rom) -> str:
 
 
 def list_platforms(permissions: ResolvedPermissions) -> list[Platform]:
-    platforms = db_platform_handler.get_platforms(
-        hidden_platform_ids=list(permissions.hidden_platform_ids)
-    )
+    platforms = db_platform_handler.get_platforms(visibility=permissions.rom_visibility)
     return [p for p in platforms if p.rom_count > 0]
+
+
+def find_platform(fs_slug: str, permissions: ResolvedPermissions) -> Platform | None:
+    """The platform behind `fs_slug`, if the caller can see it and any of its ROMs."""
+    platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
+    if not platform or not permissions.can_see_platform(platform.id):
+        return None
+    platform = db_platform_handler.get_platform(
+        platform.id, visibility=permissions.rom_visibility
+    )
+    return platform if platform and platform.rom_count > 0 else None
 
 
 def list_rom_files(
