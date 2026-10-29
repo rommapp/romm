@@ -2080,18 +2080,6 @@ class DBRomsHandler(DBBaseHandler):
         return hidden
 
     @begin_session
-    def get_cover_paths(
-        self,
-        rom_ids: Iterable[int],
-        session: Session = INJECTED_SESSION,
-    ) -> set[str]:
-        """The resource paths of the small and large covers of `rom_ids`."""
-        rows = session.execute(
-            select(Rom.path_cover_s, Rom.path_cover_l).where(Rom.id.in_(rom_ids))
-        ).all()
-        return {path for row in rows for path in row if path}
-
-    @begin_session
     def with_char_index(
         self,
         query: RomSelect,

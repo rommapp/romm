@@ -3,6 +3,7 @@ from typing import Any
 import pytest
 from tests.factories import make_rom
 
+from config import FRONTEND_RESOURCES_PATH
 from handler.database import db_rom_handler
 from handler.database.base_handler import sync_session
 from models.platform import Platform
@@ -13,6 +14,7 @@ from models.rom import (
     RomFile,
     compute_full_path_hash,
     compute_search_titles,
+    rom_id_from_resource_url,
 )
 
 
@@ -497,3 +499,20 @@ def test_alternative_names_skip_a_hand_edited_blob_that_is_not_a_list():
     )
 
     assert rom.alternative_names == ["Final Fantasy Seven"]
+
+
+@pytest.mark.parametrize(
+    "path, expected",
+    [
+        ("roms/3/42/cover/small.png?ts=2024-01-01", 42),
+        ("roms/3/42/screenshots/0.png", 42),
+        ("collections/42/cover/small.png", None),
+        ("roms/3/cover/small.png", None),
+    ],
+)
+def test_rom_id_from_resource_url(path: str, expected: int | None):
+    assert rom_id_from_resource_url(f"{FRONTEND_RESOURCES_PATH}/{path}") == expected
+
+
+def test_rom_id_from_resource_url_needs_the_resources_prefix():
+    assert rom_id_from_resource_url("roms/3/42/cover/small.png") is None

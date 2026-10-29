@@ -148,17 +148,22 @@ def test_hidden_rom_is_dropped_from_a_smart_collection_and_its_count(
 
 
 def _rom_with_cover(platform, name, **overrides):
-    return make_rom(
-        platform,
-        name,
-        path_cover_s=f"roms/{platform.id}/{name}/cover/small.png",
-        path_cover_l=f"roms/{platform.id}/{name}/cover/big.png",
-        **overrides,
+    rom = make_rom(platform, name, **overrides)
+    return db_rom_handler.update_rom(
+        rom.id,
+        {
+            "path_cover_s": f"{rom.fs_resources_path}/cover/small.png",
+            "path_cover_l": f"{rom.fs_resources_path}/cover/big.png",
+        },
     )
 
 
-def _cover_rom_names(urls):
-    return [url.split("?", 1)[0].rsplit("/", 3)[1] for url in urls]
+def _cover_rom_ids(body):
+    """The rom ids in a collection's small and large cover URLs, sorted."""
+    return tuple(
+        sorted(int(url.split("/")[-3]) for url in body[key])
+        for key in ("path_covers_small", "path_covers_large")
+    )
 
 
 def test_hidden_rom_is_dropped_from_a_collections_covers(
@@ -182,14 +187,13 @@ def test_hidden_rom_is_dropped_from_a_collections_covers(
     )
 
     for body in (detail, listed):
-        assert _cover_rom_names(body["path_covers_small"]) == ["shown"]
-        assert _cover_rom_names(body["path_covers_large"]) == ["shown"]
+        assert _cover_rom_ids(body) == ([shown.id], [shown.id])
 
 
 def test_hidden_rom_is_dropped_from_a_smart_collections_covers(
     client, viewer_user, admin_user, platform
 ):
-    _rom_with_cover(platform, "shown")
+    shown = _rom_with_cover(platform, "shown")
     hidden = _rom_with_cover(platform, "hidden")
     smart = db_collection_handler.add_smart_collection(
         SmartCollection(
@@ -207,8 +211,7 @@ def test_hidden_rom_is_dropped_from_a_smart_collections_covers(
         f"/api/collections/smart/{smart.id}", headers=_auth(viewer_user)
     ).json()
 
-    assert _cover_rom_names(body["path_covers_small"]) == ["shown"]
-    assert _cover_rom_names(body["path_covers_large"]) == ["shown"]
+    assert _cover_rom_ids(body) == ([shown.id], [shown.id])
 
 
 def test_hidden_rom_is_dropped_from_a_virtual_collections_covers(
@@ -228,8 +231,8 @@ def test_hidden_rom_is_dropped_from_a_virtual_collections_covers(
         if c["name"] == "Grow"
     )
 
-    assert sorted(_cover_rom_names(body["path_covers_small"])) == ["second", "third"]
-    assert sorted(_cover_rom_names(body["path_covers_large"])) == ["second", "third"]
+    visible = sorted(rom.id for rom in roms[1:])
+    assert _cover_rom_ids(body) == (visible, visible)
 
 
 def test_hidden_rom_is_dropped_from_a_collection_write_response(
@@ -248,8 +251,7 @@ def test_hidden_rom_is_dropped_from_a_collection_write_response(
     ).json()
 
     assert body["rom_ids"] == []
-    assert body["path_covers_small"] == []
-    assert body["path_covers_large"] == []
+    assert _cover_rom_ids(body) == ([], [])
 
 
 def test_hidden_platform_cascades_to_its_roms(client, viewer_user, rom, platform):
