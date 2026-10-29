@@ -20,6 +20,7 @@
 // snap down to the nearest tabulated step so a card stays in the
 // design system even if a consumer passes 5 or 9.
 import { computed, useSlots } from "vue";
+import { ROUNDED_MAP, TONE_MAP } from "@/lib/style/tokenMaps";
 
 defineOptions({ inheritAttrs: false });
 
@@ -47,37 +48,11 @@ const props = withDefaults(defineProps<Props>(), {
 
 const slots = useSlots();
 
-const TONE_MAP: Record<string, string> = {
-  primary: "var(--r-color-brand-primary)",
-  secondary: "var(--r-color-brand-secondary)",
-  accent: "var(--r-color-brand-accent)",
-  success: "var(--r-color-success)",
-  warning: "var(--r-color-warning)",
-  danger: "var(--r-color-danger)",
-  error: "var(--r-color-danger)",
-  info: "var(--r-color-info)",
-  "romm-red": "var(--r-color-romm-red)",
-  "romm-green": "var(--r-color-romm-green)",
-  "romm-blue": "var(--r-color-romm-blue)",
-  "romm-gold": "var(--r-color-romm-gold)",
-};
-
 const resolvedColor = computed<string | undefined>(() => {
   const c = props.color;
   if (!c) return undefined;
   return TONE_MAP[c] ?? c;
 });
-
-const ROUNDED_MAP: Record<string, string> = {
-  "0": "0",
-  sm: "4px",
-  md: "8px",
-  lg: "12px",
-  xl: "16px",
-  full: "999px",
-  pill: "999px",
-  circle: "50%",
-};
 
 const resolvedRounded = computed<string>(() => {
   const r = props.rounded;
