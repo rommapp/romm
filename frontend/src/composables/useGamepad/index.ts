@@ -32,7 +32,7 @@
 //   * Controller-test screen (ACTIONS_DISABLED_PATHS): built-in actions
 //     are muted so every button can be pressed and inspected in place.
 import { useEventListener, useRafFn } from "@vueuse/core";
-import { onBeforeUnmount } from "vue";
+import { nextTick, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useInputModality } from "@/composables/useInputModality";
 import {
@@ -190,9 +190,10 @@ export function useGamepad() {
   // Activates the currently focused element. Router-links, submit
   // buttons, custom [role=button] divs all navigate/trigger via .click()
   // regardless of whether the event was trusted: that's the escape
-  // hatch synthetic KeyboardEvents don't give us.
+  // hatch synthetic KeyboardEvents don't give us. Waits a tick so arrows
+  // sent in the same poll have re-rendered the active option first.
   function activateFocused() {
-    padActivationTarget(document.activeElement)?.click();
+    void nextTick(() => padActivationTarget(document.activeElement)?.click());
   }
 
   // Opens the app-wide user menu. UserMenu.vue marks its activator with

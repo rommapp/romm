@@ -741,6 +741,8 @@ function openMenu() {
 }
 function closeMenu() {
   if (!isOpen.value) return;
+  // The panel unmounts on close, so focus inside it goes back to the field.
+  const focusInPanel = !!panelRef.value?.contains(document.activeElement);
   isOpen.value = false;
   emit("close");
   resetTypeahead();
@@ -750,6 +752,7 @@ function closeMenu() {
   // user expectation for "open select → type → pick → close → reopen"
   // not leaving a stale query that hides most rows.
   if (props.searchable && internalSearch.value) setSearch("");
+  if (focusInPanel) focusFromInput(activatorRef.value);
 }
 function toggleMenu() {
   if (isOpen.value) closeMenu();
@@ -759,11 +762,6 @@ function toggleMenu() {
 usePopoverDismiss(isOpen, closeMenu, {
   reference: () => activatorRef.value,
   panel: () => panelRef.value,
-  onEscape: () => {
-    const focusInPanel = !!panelRef.value?.contains(document.activeElement);
-    closeMenu();
-    if (focusInPanel) focusFromInput(activatorRef.value);
-  },
 });
 
 // Close when search is changed externally? No, keep open while

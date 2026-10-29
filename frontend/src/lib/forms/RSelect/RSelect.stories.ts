@@ -868,6 +868,8 @@ export const GamepadPickSearchable: Story = {
         expect(document.querySelector(".r-select__panel")).toBeNull(),
       );
       await expect(field).toHaveTextContent("Super Nintendo");
+      // Focus leaves the unmounted search field for the field, so the pad can move on.
+      await expect(field).toHaveFocus();
     });
   },
 };
