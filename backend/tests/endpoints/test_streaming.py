@@ -3205,7 +3205,7 @@ def test_desktop_frees_the_claim_when_activation_is_cancelled(client, access_tok
             patch(
                 "handler.streaming.webstation.activate",
                 side_effect=asyncio.CancelledError,
-            ),
+            ) as activate,
             # Starlette's middleware surfaces the cancellation as its own error.
             pytest.raises(RuntimeError),
         ):
@@ -3214,6 +3214,7 @@ def test_desktop_frees_the_claim_when_activation_is_cancelled(client, access_tok
                 json={"container": key},
                 headers=_auth(access_token),
             )
+        activate.assert_called_once()
         assert _session_raw(container) is None
 
 
