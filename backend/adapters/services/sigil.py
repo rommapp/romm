@@ -85,7 +85,8 @@ class SigilService:
                 sigil.extract, file_path, platform=sigil_slug, filename_fallback=False
             )
         except Exception as exc:
-            code = getattr(exc, "code", None)
+            # Expected for arbitrary library files: no title id, a format sigil
+            # can't parse, or a Switch header RomM holds no keys for.
             if isinstance(
                 exc,
                 (
@@ -94,7 +95,7 @@ class SigilService:
                     sigil.SigilNeedsKeyError,
                 ),
             ):
-                log.debug(f"Sigil found no title id for {file_path}: {code}")
+                log.debug(f"Sigil found no title id for {file_path}: {exc}")
             else:
                 log.error(f"Sigil extraction failed for {file_path}: {exc}")
             return None

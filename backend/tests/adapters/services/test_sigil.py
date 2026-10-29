@@ -142,7 +142,11 @@ class TestSigilService:
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "error",
-        [FakeNotFoundError(-5), FakeUnsupportedFormatError(-4), FakeNeedsKeyError(-7)],
+        [
+            pytest.param(FakeNotFoundError(-5), id="not-found"),
+            pytest.param(FakeUnsupportedFormatError(-4), id="unsupported-format"),
+            pytest.param(FakeNeedsKeyError(-6), id="needs-key"),
+        ],
     )
     async def test_routine_sigil_error_returns_none(
         self, service: SigilService, monkeypatch, mocker, error: FakeSigilError
@@ -158,7 +162,13 @@ class TestSigilService:
         log.error.assert_not_called()
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("error", [OSError("native crash"), FakeSigilError(-2)])
+    @pytest.mark.parametrize(
+        "error",
+        [
+            pytest.param(OSError("native crash"), id="native-crash"),
+            pytest.param(FakeSigilError(-2), id="io-error"),
+        ],
+    )
     async def test_unexpected_error_returns_none(
         self, service: SigilService, monkeypatch, mocker, error: Exception
     ):
