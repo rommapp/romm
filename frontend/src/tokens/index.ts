@@ -13,8 +13,7 @@ export const colorBrand = {
   primary: "#8B74E8",
   primaryHover: "#A18FFF",
   primaryPressed: "#6043C8",
-  // Fill behind on-primary text (filled buttons, selected days, active
-  // steps): darker than `primary`, which is tuned as text on the page and
+  // Fill under on-primary text: `primary` is tuned as text on the page and
   // gives white text only 3.6:1 as a fill.
   primarySolid: "#7459E3",
   onPrimary: "#FFFFFF",

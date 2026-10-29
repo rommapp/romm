@@ -117,7 +117,10 @@ const resolvedHeight = computed<string | undefined>(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: var(--r-toolbar-solid, var(--r-color-bg-elevated));
+  background: var(
+    --r-toolbar-solid,
+    var(--r-toolbar-color, var(--r-color-bg-elevated))
+  );
   color: var(--r-color-fg);
   border-bottom: 1px solid var(--r-color-border);
   /* Smooth tone / theme swaps so a toolbar that changes colour mid-

@@ -427,6 +427,11 @@ const spinnerSize = computed(() => {
 .r-btn:active:not(.r-btn--disabled, :disabled)::before {
   opacity: 0.18;
 }
+/* Filled colours carry white text, which a lightening overlay would wash out. */
+.r-btn--flat.r-btn--has-color::before,
+.r-btn--elevated.r-btn--has-color::before {
+  background: black;
+}
 
 /* ── Focus ─────────────────────────────────────────────────────────
    Keyboard / pad focus rings come from the global modality-gated rule

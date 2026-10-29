@@ -104,6 +104,8 @@ function onClose(evt: MouseEvent) {
       `r-chip--${size}`,
       {
         'r-chip--has-color': !!resolvedColor,
+        'r-chip--solid':
+          !!resolvedColor && solidFill(resolvedColor) !== resolvedColor,
         'r-chip--label': label,
         'r-chip--disabled': disabled,
       },
@@ -168,6 +170,12 @@ function onClose(evt: MouseEvent) {
     transform var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-chip:hover:not(.r-chip--disabled) {
+  opacity: 1;
+}
+
+/* A fill darkened for white text loses that contrast to the rest-state mute. */
+.r-chip--flat.r-chip--solid:not(.r-chip--disabled),
+.r-chip--elevated.r-chip--solid:not(.r-chip--disabled) {
   opacity: 1;
 }
 
