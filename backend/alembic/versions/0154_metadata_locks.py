@@ -30,13 +30,18 @@ _LOCKED_ARRAY_FIELDS = (
     "age_ratings",
 )
 _FACET_FIELDS = (*_LOCKED_ARRAY_FIELDS, "player_count")
-_VIRTUAL_COLLECTION_FIELDS = (
+VIRTUAL_COLLECTION_FIELDS = (
     ("genre", "genres", "generated_genres"),
     ("franchise", "franchises", "generated_franchises"),
     ("collection", "collections", "generated_collections"),
     ("company", "companies", "generated_companies"),
     ("mode", "game_modes", "generated_game_modes"),
+    ("publisher", None, "generated_publishers"),
+    ("developer", None, "generated_developers"),
 )
+_VIRTUAL_COLLECTION_LOCK_KEYS = tuple(
+    field for _, field, _ in VIRTUAL_COLLECTION_FIELDS if field is not None
+) + ("cover",)
 _VIRTUAL_COLLECTION_COLUMNS = (
     "rom_id, type, name, path_cover_s, path_cover_l, created_at, updated_at"
 )
@@ -71,7 +76,7 @@ def _locked_facet_value(pg: bool, field: str, generated: str) -> str:
     )
 
 
-def _facet_sync_sql(pg: bool) -> str:
+def _facet_sync_sql(pg: bool, *, insert: bool = False) -> str:
     assignments = ",\n        ".join(
         f"{field} = {_locked_facet_value(pg, field, f'generated_{field}')}"
         for field in _FACET_FIELDS
@@ -92,9 +97,16 @@ END $$
 """
 
     paths = ", ".join(f"'$.{field}'" for field in _FACET_FIELDS)
+    timing = "INSERT" if insert else "UPDATE"
+    trigger = (
+        "zz_roms_facets_locked_after_insert"
+        if insert
+        else "zz_roms_facets_locked_after_update"
+    )
+    legacy = "roms_facets_after_insert" if insert else "roms_facets_after_update"
     return f"""
-CREATE TRIGGER zz_roms_facets_locked_after_update AFTER UPDATE ON roms
-FOR EACH ROW FOLLOWS roms_facets_after_update
+CREATE TRIGGER {trigger} AFTER {timing} ON roms
+FOR EACH ROW FOLLOWS {legacy}
 BEGIN
     IF JSON_CONTAINS_PATH(NEW.metadata_locks, 'one', {paths}) THEN
         UPDATE roms_facets SET
@@ -105,8 +117,12 @@ END
 """
 
 
-def _array_for_virtual_collection(pg: bool, field: str, generated: str) -> str:
-    value = _locked_array_value(pg, field, generated)
+def _array_for_virtual_collection(pg: bool, field: str | None, generated: str) -> str:
+    value = (
+        f"NEW.{generated}"
+        if field is None
+        else _locked_array_value(pg, field, generated)
+    )
     if pg:
         return (
             f"CASE WHEN jsonb_typeof({value}) = 'array' "
@@ -116,25 +132,27 @@ def _array_for_virtual_collection(pg: bool, field: str, generated: str) -> str:
 
 
 def _virtual_collection_rows(pg: bool) -> str:
+    cover_small = (
+        "CASE WHEN NEW.metadata_locks ? 'cover' "
+        "THEN NEW.metadata_locks -> 'cover' ->> 'small' ELSE NEW.path_cover_s END"
+        if pg
+        else "CASE WHEN JSON_CONTAINS_PATH(NEW.metadata_locks, 'one', '$.cover') "
+        "THEN CASE WHEN JSON_TYPE(JSON_EXTRACT(NEW.metadata_locks, '$.cover.small')) = 'NULL' "
+        "THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(NEW.metadata_locks, '$.cover.small')) END "
+        "ELSE NEW.path_cover_s END"
+    )
+    cover_large = (
+        "CASE WHEN NEW.metadata_locks ? 'cover' "
+        "THEN NEW.metadata_locks -> 'cover' ->> 'large' ELSE NEW.path_cover_l END"
+        if pg
+        else "CASE WHEN JSON_CONTAINS_PATH(NEW.metadata_locks, 'one', '$.cover') "
+        "THEN CASE WHEN JSON_TYPE(JSON_EXTRACT(NEW.metadata_locks, '$.cover.large')) = 'NULL' "
+        "THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(NEW.metadata_locks, '$.cover.large')) END "
+        "ELSE NEW.path_cover_l END"
+    )
     branches = []
-    for type_, field, generated in _VIRTUAL_COLLECTION_FIELDS:
+    for type_, field, generated in VIRTUAL_COLLECTION_FIELDS:
         value = _array_for_virtual_collection(pg, field, generated)
-        cover_small = (
-            "CASE WHEN NEW.metadata_locks ? 'cover' "
-            "THEN NEW.metadata_locks -> 'cover' ->> 'small' ELSE NEW.path_cover_s END"
-            if pg
-            else "CASE WHEN JSON_CONTAINS_PATH(NEW.metadata_locks, 'one', '$.cover') "
-            "THEN JSON_UNQUOTE(JSON_EXTRACT(NEW.metadata_locks, '$.cover.small')) "
-            "ELSE NEW.path_cover_s END"
-        )
-        cover_large = (
-            "CASE WHEN NEW.metadata_locks ? 'cover' "
-            "THEN NEW.metadata_locks -> 'cover' ->> 'large' ELSE NEW.path_cover_l END"
-            if pg
-            else "CASE WHEN JSON_CONTAINS_PATH(NEW.metadata_locks, 'one', '$.cover') "
-            "THEN JSON_UNQUOTE(JSON_EXTRACT(NEW.metadata_locks, '$.cover.large')) "
-            "ELSE NEW.path_cover_l END"
-        )
         if pg:
             source = f"jsonb_array_elements_text({value}) AS j(value)"
         else:
@@ -149,58 +167,87 @@ def _virtual_collection_rows(pg: bool) -> str:
     return "\nUNION ALL\n".join(branches)
 
 
-def _virtual_collection_trigger_sql(pg: bool) -> str:
-    generated_changes = [
-        "generated_genres",
-        "generated_franchises",
-        "generated_collections",
-        "generated_companies",
-        "generated_game_modes",
+def _virtual_collection_has_lock(pg: bool, row: str) -> str:
+    if pg:
+        keys = ", ".join(f"'{field}'" for field in _VIRTUAL_COLLECTION_LOCK_KEYS)
+        return f"COALESCE({row}.metadata_locks ?| ARRAY[{keys}], FALSE)"
+    paths = ", ".join(f"'$.{field}'" for field in _VIRTUAL_COLLECTION_LOCK_KEYS)
+    return f"COALESCE(JSON_CONTAINS_PATH({row}.metadata_locks, 'one', {paths}), 0)"
+
+
+def _virtual_collection_update_condition(pg: bool) -> str:
+    sources = tuple(source for _, _, source in VIRTUAL_COLLECTION_FIELDS) + (
         "path_cover_s",
         "path_cover_l",
-    ]
-    locked_fields = [field for _, field, _ in _VIRTUAL_COLLECTION_FIELDS] + ["cover"]
+    )
     if pg:
         lock_changes = [
             f"NEW.metadata_locks -> '{field}' IS DISTINCT FROM "
             f"OLD.metadata_locks -> '{field}'"
-            for field in locked_fields
+            for field in _VIRTUAL_COLLECTION_LOCK_KEYS
         ]
-        changed_check = " OR ".join(
-            [*lock_changes]
-            + [f"NEW.{field} IS DISTINCT FROM OLD.{field}" for field in generated_changes]
-        )
+        source_changes = [
+            f"NEW.{source} IS DISTINCT FROM OLD.{source}" for source in sources
+        ]
+    else:
+        lock_changes = [
+            f"NOT (JSON_EXTRACT(NEW.metadata_locks, '$.{field}') <=> "
+            f"JSON_EXTRACT(OLD.metadata_locks, '$.{field}'))"
+            for field in _VIRTUAL_COLLECTION_LOCK_KEYS
+        ]
+        source_changes = [f"NOT (NEW.{source} <=> OLD.{source})" for source in sources]
+    return (
+        f"({' OR '.join(lock_changes)}) OR (({' OR '.join(source_changes)}) AND "
+        f"({_virtual_collection_has_lock(pg, 'OLD')} OR "
+        f"{_virtual_collection_has_lock(pg, 'NEW')}))"
+    )
+
+
+def _virtual_collection_rebuild_sql(pg: bool) -> str:
+    insert = "INSERT INTO" if pg else "INSERT IGNORE INTO"
+    conflict = "\nON CONFLICT DO NOTHING" if pg else ""
+    return (
+        "DELETE FROM virtual_collection_roms WHERE rom_id = NEW.id;\n"
+        f"{insert} virtual_collection_roms ({_VIRTUAL_COLLECTION_COLUMNS})\n"
+        f"{_virtual_collection_rows(pg)}{conflict};"
+    )
+
+
+def _virtual_collection_trigger_sql(pg: bool) -> str:
+    rebuild = _virtual_collection_rebuild_sql(pg)
+    if pg:
         return f"""
 CREATE OR REPLACE FUNCTION romm_sync_locked_virtual_collections() RETURNS trigger
     LANGUAGE plpgsql AS $$
 BEGIN
-    IF {changed_check} THEN
-        DELETE FROM virtual_collection_roms WHERE rom_id = NEW.id;
-        INSERT INTO virtual_collection_roms ({_VIRTUAL_COLLECTION_COLUMNS})
-        {_virtual_collection_rows(True)}
-        ON CONFLICT DO NOTHING;
+    IF TG_OP = 'INSERT' THEN
+        IF {_virtual_collection_has_lock(True, "NEW")} THEN
+            {rebuild}
+        END IF;
+    ELSIF {_virtual_collection_update_condition(True)} THEN
+        {rebuild}
     END IF;
     RETURN NULL;
 END $$
 """
-
-    lock_changes = [
-        f"NOT (JSON_EXTRACT(NEW.metadata_locks, '$.{field}') <=> "
-        f"JSON_EXTRACT(OLD.metadata_locks, '$.{field}'))"
-        for field in locked_fields
-    ]
-    changed_check = " OR ".join(
-        [*lock_changes]
-        + [f"NOT (NEW.{field} <=> OLD.{field})" for field in generated_changes]
-    )
     return f"""
 CREATE TRIGGER zz_virtual_collection_roms_locked_after_update AFTER UPDATE ON roms
 FOR EACH ROW FOLLOWS virtual_collection_roms_au
 BEGIN
-    IF {changed_check} THEN
-        DELETE FROM virtual_collection_roms WHERE rom_id = NEW.id;
-        INSERT IGNORE INTO virtual_collection_roms ({_VIRTUAL_COLLECTION_COLUMNS})
-        {_virtual_collection_rows(False)};
+    IF {_virtual_collection_update_condition(False)} THEN
+        {rebuild}
+    END IF;
+END
+"""
+
+
+def _virtual_collection_insert_trigger_sql() -> str:
+    return f"""
+CREATE TRIGGER zz_virtual_collection_roms_locked_after_insert AFTER INSERT ON roms
+FOR EACH ROW FOLLOWS virtual_collection_roms_ai
+BEGIN
+    IF {_virtual_collection_has_lock(False, "NEW")} THEN
+        {_virtual_collection_rebuild_sql(False)}
     END IF;
 END
 """
@@ -210,8 +257,10 @@ def _install_lock_triggers(pg: bool) -> None:
     if pg:
         op.execute(_facet_sync_sql(True))
         op.execute("DROP TRIGGER IF EXISTS zz_roms_facets_locked_after_update ON roms")
+        op.execute("DROP TRIGGER IF EXISTS zz_roms_facets_locked_after_insert ON roms")
+        op.execute("DROP TRIGGER IF EXISTS zz_roms_facets_locked_after_write ON roms")
         op.execute(
-            "CREATE TRIGGER zz_roms_facets_locked_after_update AFTER UPDATE ON roms "
+            "CREATE TRIGGER zz_roms_facets_locked_after_write AFTER INSERT OR UPDATE ON roms "
             "FOR EACH ROW EXECUTE FUNCTION romm_sync_locked_facets()"
         )
         op.execute(_virtual_collection_trigger_sql(True))
@@ -219,31 +268,49 @@ def _install_lock_triggers(pg: bool) -> None:
             "DROP TRIGGER IF EXISTS zz_virtual_collection_roms_locked_after_update ON roms"
         )
         op.execute(
-            "CREATE TRIGGER zz_virtual_collection_roms_locked_after_update "
-            "AFTER UPDATE ON roms FOR EACH ROW "
+            "DROP TRIGGER IF EXISTS zz_virtual_collection_roms_locked_after_insert ON roms"
+        )
+        op.execute(
+            "DROP TRIGGER IF EXISTS zz_virtual_collection_roms_locked_after_write ON roms"
+        )
+        op.execute(
+            "CREATE TRIGGER zz_virtual_collection_roms_locked_after_write "
+            "AFTER INSERT OR UPDATE ON roms FOR EACH ROW "
             "EXECUTE FUNCTION romm_sync_locked_virtual_collections()"
         )
         return
 
     op.execute("DROP TRIGGER IF EXISTS zz_roms_facets_locked_after_update")
+    op.execute("DROP TRIGGER IF EXISTS zz_roms_facets_locked_after_insert")
+    op.execute(_facet_sync_sql(False, insert=True))
     op.execute(_facet_sync_sql(False))
     op.execute("DROP TRIGGER IF EXISTS zz_virtual_collection_roms_locked_after_update")
+    op.execute("DROP TRIGGER IF EXISTS zz_virtual_collection_roms_locked_after_insert")
+    op.execute(_virtual_collection_insert_trigger_sql())
     op.execute(_virtual_collection_trigger_sql(False))
 
 
 def _drop_lock_triggers(pg: bool) -> None:
     if pg:
-        op.execute("DROP TRIGGER IF EXISTS zz_roms_facets_locked_after_update ON roms")
+        for trigger in (
+            "zz_roms_facets_locked_after_update",
+            "zz_roms_facets_locked_after_insert",
+            "zz_roms_facets_locked_after_write",
+            "zz_virtual_collection_roms_locked_after_update",
+            "zz_virtual_collection_roms_locked_after_insert",
+            "zz_virtual_collection_roms_locked_after_write",
+        ):
+            op.execute(f"DROP TRIGGER IF EXISTS {trigger} ON roms")
         op.execute("DROP FUNCTION IF EXISTS romm_sync_locked_facets()")
-        op.execute(
-            "DROP TRIGGER IF EXISTS zz_virtual_collection_roms_locked_after_update ON roms"
-        )
         op.execute("DROP FUNCTION IF EXISTS romm_sync_locked_virtual_collections()")
     else:
-        op.execute("DROP TRIGGER IF EXISTS zz_roms_facets_locked_after_update")
-        op.execute(
-            "DROP TRIGGER IF EXISTS zz_virtual_collection_roms_locked_after_update"
-        )
+        for trigger in (
+            "zz_roms_facets_locked_after_update",
+            "zz_roms_facets_locked_after_insert",
+            "zz_virtual_collection_roms_locked_after_update",
+            "zz_virtual_collection_roms_locked_after_insert",
+        ):
+            op.execute(f"DROP TRIGGER IF EXISTS {trigger}")
 
 
 def upgrade() -> None:
