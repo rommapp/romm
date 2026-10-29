@@ -539,6 +539,7 @@ def test_the_rom_file_title_ids_revision_reverses_and_replays():
 def test_the_age_limits_revision_reverses_replays_and_fills(platform: Platform):
     """0148 rates existing ROMs and keeps mirroring the rating into roms_facets."""
     migration = _load_migration("0148_rom_age_limits.py")
+    min_age_index = _load_migration("0156_roms_platform_min_age_index.py")
     rated = make_rom(
         platform,
         "Rated",
@@ -559,6 +560,7 @@ def test_the_age_limits_revision_reverses_replays_and_fills(platform: Platform):
     with sync_engine.begin() as connection:
         before = {table: _schema_of(connection, table) for table in tables}
         with Operations.context(MigrationContext.configure(connection)):
+            min_age_index.downgrade()
             migration.downgrade()
             assert not has_column(connection, "roms", "min_age")
             assert not has_column(connection, "users", "age_limit")
@@ -566,6 +568,7 @@ def test_the_age_limits_revision_reverses_replays_and_fills(platform: Platform):
 
             migration.upgrade()
             migration.upgrade()
+            min_age_index.upgrade()
 
         assert ages(connection, "roms", "id") == {rated.id: 16, unrated.id: None}
         assert ages(connection, "roms_facets", "rom_id") == {
