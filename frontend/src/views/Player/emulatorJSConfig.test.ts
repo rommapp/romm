@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import type { FirmwareSchema } from "@/__generated__";
+import { firmwareFixture } from "@/utils/firmware.fixtures";
 import { detailedRomFixture } from "@/utils/rom.fixtures";
 import {
   applyEjsGlobals,
@@ -15,10 +15,7 @@ const rom = detailedRomFixture({
   files: [],
 });
 
-const bios = {
-  id: 3,
-  file_name: "scph5501.bin",
-} as Partial<FirmwareSchema> as FirmwareSchema;
+const bios = firmwareFixture({ id: 3, file_name: "scph5501.bin" });
 
 function input(overrides: Partial<EjsConfigInput> = {}): EjsConfigInput {
   return {

@@ -180,7 +180,6 @@ export function buildEjsConfig(input: EjsConfigInput): EjsConfig {
     EJS_backgroundColor: input.backgroundColor,
     // Labels come from RomM's locales, which cover languages EmulatorJS does not.
     EJS_Buttons: {
-      // RomM draws its own exit button.
       exitEmulation: false,
       // Saves load from the picker. Without auto-sync, Sync save uploads on demand.
       saveSavFiles: config.EJS_ENABLE_AUTO_SAVE_SYNC
@@ -204,7 +203,7 @@ export function buildEjsConfig(input: EjsConfigInput): EjsConfig {
       exitFullscreen: { displayName: t("play.exit-full-screen") },
     },
     EJS_defaultOptions: {
-      // Saves and states go to the browser, and RomM syncs them from there.
+      // The save sync reads saves and states from browser storage.
       "save-state-location": "browser",
       rewindEnabled: "enabled",
       ...input.coreOptions(core),
