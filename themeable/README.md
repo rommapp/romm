@@ -6,7 +6,7 @@ Release versioning for this downstream fork should operate as follows:
 
 A theme and artwork module for [RomM](https://github.com/rommapp/romm). Theme packs restyle RomM's interface: colors for light and dark mode, fonts, spacing, corner radius, motion, the logo and wordmark, login backgrounds, placeholder covers for games without one, platform and provider icons, browser tab icons, and any extra CSS a pack brings. Packs are `.zip` archives in a folder on the host, and admins choose the server's theme in **Administration → Branding**.
 
-The module sits beside RomM's code instead of inside it. Everything it owns lives in this `themeable/` folder, plus the `themeable*` workflows in `.github/workflows/`, the root `README.md`, which on this branch describes romm-themeable, the root `CLAUDE.md`, and the root `docker-compose.yml`, which on this branch deploys romm-themeable. Each stock RomM release is merged in, checked and rebuilt automatically, so adopting a new release needs an audit, not a code merge.
+The module sits beside RomM's code instead of inside it. Everything it owns lives in this `themeable/` folder, plus the `themeable*` workflows in `.github/workflows/`, `.github/README.md`, which GitHub shows as this repository's front page, the root `CLAUDE.md`, and the root `docker-compose.yml`, which on this branch deploys romm-themeable. Each stock RomM release is merged in, checked and rebuilt automatically, so adopting a new release needs an audit, not a code merge.
 
 ## Contents
 
@@ -137,11 +137,11 @@ Four workflows keep the module current and leave a pull request trail to audit:
 | `themeable visual check` | Called by the other two | Builds the frontend with the overlay and patches, then loads the login screen for the stock look, every built-in pack (served from archives, as in the image) and one archive pack in the themes folder in dark and light mode, failing if a pack's tokens, artwork, inlined artwork or tab icons didn't apply or it looks identical to stock, and checks that Random deals a different pack on each of four loads with matching artwork and tab icons. Screenshots are kept for 90 days |
 | `themeable source check` | Called by the other two | Lints, type-checks and unit-tests the patched frontend, and runs the Branding API tests against MariaDB with the patched backend |
 
-The repository has two long-lived branches. `upstream` is a clean copy of RomM: it holds nothing but upstream release commits and moves only when a stable release is published; prereleases and manual runs with other tags leave it alone, and GitHub's **Sync fork** button shouldn't be used. `main` holds this project's changes on top of RomM, and every release is merged into it. When a release changes upstream's root `docker-compose.yml` or `README.md`, the merge keeps `main`'s version; upstream's README stays on the `upstream` branch. Any other merge conflict, or a missing token, opens an issue instead. Setting the repository variable `THEMEABLE_AUTO_MERGE` to `false` holds every adoption for review.
+The repository has two long-lived branches. `upstream` is a clean copy of RomM: it holds nothing but upstream release commits and moves only when a stable release is published; prereleases and manual runs with other tags leave it alone, and GitHub's **Sync fork** button shouldn't be used. `main` holds this project's changes on top of RomM, and every release is merged into it. When a release changes upstream's root `docker-compose.yml`, the merge keeps `main`'s version. The root `README.md` is RomM's own, unedited, so upstream's changes to it merge cleanly. Any other merge conflict, or a missing token, opens an issue instead. Setting the repository variable `THEMEABLE_AUTO_MERGE` to `false` holds every adoption for review.
 
 To adopt a release by hand:
 
-1. Merge the release tag into `main`, keeping its root `docker-compose.yml` and `README.md` if they conflict.
+1. Merge the release tag into `main`, keeping its root `docker-compose.yml` if it conflicts.
 2. Run `npm run check-upstream` for the report of added, removed and renamed tokens and artwork, and any pack, hook or patch that would break.
 3. Record token renames in `catalog/token-aliases.json` (`{"--r-old": "--r-new"}`); packs using an old name keep compiling, with a warning.
 4. Run `npm run catalog` and `npm run example`, set `ROMM_VERSION` and the compose file's image tag to the release, raise the major version in `package.json` (resetting the other two numbers to 0), and push.

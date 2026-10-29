@@ -105,9 +105,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "${{ steps.rel.outputs.branch }}"
           if ! git merge --no-edit -m "Merge RomM ${{ steps.rel.outputs.tag }} into main" "${{ steps.rel.outputs.tag }}"; then
-            # The root docker-compose.yml and README.md are the module's own on this branch
-            # (upstream's stay on the upstream branch), so keep ours.
-            for own in docker-compose.yml README.md; do
+            # The root docker-compose.yml is the module's own on this branch (upstream's stays on
+            # the upstream branch), so keep ours.
+            for own in docker-compose.yml; do
               if git diff --name-only --diff-filter=U | grep -qx "$own"; then
                 git checkout --ours "$own"
                 git add "$own"
@@ -132,7 +132,7 @@ jobs:
             echo
             sed 's/^/- `/; s/$/`/' "$RUNNER_TEMP/conflicts.txt"
             echo
-            echo "The module only adds files, plus its own root README.md and docker-compose.yml (both kept automatically), so resolve these by hand and run this workflow again."
+            echo "The module only adds files, plus its own root docker-compose.yml (kept automatically) and .github/README.md, so resolve these by hand and run this workflow again."
           } > "$RUNNER_TEMP/issue.md"
           gh issue create -R "$GITHUB_REPOSITORY" --title "themeable: merging RomM ${{ steps.rel.outputs.tag }} conflicts" --body-file "$RUNNER_TEMP/issue.md"
           exit 1
