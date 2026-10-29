@@ -1,204 +1,61 @@
 <script setup lang="ts">
-import { useLocalStorage, useScroll } from "@vueuse/core";
-import type { Emitter } from "mitt";
+// Search: global ROM search. Thin orchestrator: clears any prior
+// gallery scope, kicks the initial fetch, and fills the shell's
+// `#header` slot with a PageHeader. Everything else lives in
+// `GalleryShell`.
 import { storeToRefs } from "pinia";
-import { inject, onMounted, onUnmounted, ref, watch } from "vue";
-import GalleryAppBarSearch from "@/components/Gallery/AppBar/Search/Base.vue";
-import FabOverlay from "@/components/Gallery/FabOverlay.vue";
-import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
-import Skeleton from "@/components/Gallery/Skeleton.vue";
-import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
-import EmptySearch from "@/components/common/EmptyStates/EmptySearch.vue";
-import GameCard from "@/components/common/Game/Card/Base.vue";
-import GameTable from "@/components/common/Game/VirtualTable.vue";
-import storeGalleryFilter from "@/stores/galleryFilter";
-import storeGalleryView from "@/stores/galleryView";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
-import type { Events } from "@/types/emitter";
-import { views } from "@/utils";
+import { nextTick, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import GalleryShell from "@/components/Gallery/GalleryShell.vue";
+import PageHeader from "@/components/shared/PageHeader.vue";
+import { RTag } from "@/lib";
+import storeGalleryRoms from "@/stores/galleryRoms";
 
-const galleryViewStore = storeGalleryView();
-const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
-const galleryFilterStore = storeGalleryFilter();
-const { searchTerm } = storeToRefs(galleryFilterStore);
-const romsStore = storeRoms();
-const {
-  filteredRoms,
-  selectedRoms,
-  fetchingRoms,
-  initialSearch,
-  fetchTotalRoms,
-} = storeToRefs(romsStore);
-const emitter = inject<Emitter<Events>>("emitter");
-const isHovering = ref(false);
-const hoveringRomId = ref<number>();
-const openedMenu = ref(false);
-const openedMenuRomId = ref<number>();
-const enable3DEffect = useLocalStorage("settings.enable3DEffect", false);
-let timeout: ReturnType<typeof setTimeout>;
+const { t } = useI18n();
+const galleryRoms = storeGalleryRoms();
+const { total, initialFetching } = storeToRefs(galleryRoms);
 
-function onHover(emitData: { isHovering: boolean; id: number }) {
-  isHovering.value = emitData.isHovering;
-  hoveringRomId.value = emitData.id;
-}
-
-function onOpenedMenu(emitData: { openedMenu: boolean; id: number }) {
-  openedMenu.value = emitData.openedMenu;
-  openedMenuRomId.value = emitData.id;
-}
-
-function onClosedMenu() {
-  openedMenu.value = false;
-  openedMenuRomId.value = undefined;
-}
-
-function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
-  let index = filteredRoms.value.indexOf(emitData.rom);
-  if (
-    emitData.event.shiftKey ||
-    romsStore.selectingRoms ||
-    romsStore.selectedRoms.length > 0
-  ) {
-    emitData.event.preventDefault();
-    emitData.event.stopPropagation();
-    if (!selectedRoms.value.includes(emitData.rom)) {
-      romsStore.addToSelection(emitData.rom);
-    } else {
-      romsStore.removeFromSelection(emitData.rom);
-    }
-    if (emitData.event.shiftKey) {
-      const [start = index, end = index] = [
-        romsStore.lastSelectedIndex,
-        index,
-      ].sort((a, b) => a - b);
-      if (romsStore.selectedRoms.includes(emitData.rom)) {
-        for (let i = start + 1; i < end; i++) {
-          romsStore.addToSelection(filteredRoms.value[i]!);
-        }
-      } else {
-        for (let i = start; i <= end; i++) {
-          romsStore.removeFromSelection(filteredRoms.value[i]!);
-        }
-      }
-      romsStore.updateLastSelected(
-        romsStore.selectedRoms.includes(emitData.rom) ? index : index - 1,
-      );
-    } else {
-      romsStore.updateLastSelected(index);
-    }
-  }
-}
-
-function onGameTouchStart(emitData: { rom: SimpleRom; event: TouchEvent }) {
-  timeout = setTimeout(() => {
-    romsStore.addToSelection(emitData.rom);
-  }, 500);
-}
-
-function onGameTouchEnd() {
-  clearTimeout(timeout);
-}
-
-function fetchRoms() {
-  romsStore.fetchRoms().catch((error) => {
-    emitter?.emit("snackbarShow", {
-      msg: `Couldn't fetch roms: ${error}`,
-      icon: "mdi-close-circle",
-      color: "red",
-      timeout: 4000,
-    });
-  });
-}
-
-const { y: windowY } = useScroll(window, { throttle: 500 });
-
-watch(windowY, () => {
-  clearTimeout(timeout);
-
-  window.setTimeout(async () => {
-    scrolledToTop.value = windowY.value === 0;
-    if (
-      windowY.value + window.innerHeight >= document.body.scrollHeight - 300 &&
-      fetchTotalRoms.value > filteredRoms.value.length
-    ) {
-      await fetchRoms();
-    }
-  }, 100);
-});
+const initialSearch = ref(false);
+const shellRef = ref<InstanceType<typeof GalleryShell> | null>(null);
 
 onMounted(async () => {
-  scrolledToTop.value = true;
-  fetchRoms();
-});
-
-onUnmounted(() => {
-  searchTerm.value = "";
+  // Global search: drop ALL gallery scoping from previous views, then
+  // flag the gallery as "currently in a search context" so the store's
+  // `onGalleryView` getter resolves true and `groupByMetaId` honours
+  // the user's `groupRoms` preference. Without this the search results
+  // never collapse siblings, even with grouping enabled.
+  //
+  // Bootstrap metadata only; both grid and list mode hydrate rows via
+  // the per-position fetch path (grid: shell viewport-sync; list:
+  // GameListRow's onMounted). No big initial batch.
+  galleryRoms.resetGallery();
+  galleryRoms.currentSearch = true;
+  await galleryRoms.fetchInitialMetadata();
+  initialSearch.value = true;
+  await nextTick();
+  shellRef.value?.applyRestoredScroll();
 });
 </script>
 
 <template>
-  <GalleryAppBarSearch />
-  <template v-if="fetchingRoms && filteredRoms.length === 0">
-    <Skeleton />
-  </template>
-  <template v-else>
-    <template v-if="filteredRoms.length > 0">
-      <v-row v-if="currentView != 2" class="mx-1 my-3 mr-14" no-gutters>
-        <v-col
-          v-for="rom in filteredRoms"
-          :key="rom.id"
-          class="pa-1 align-self-center"
-          :cols="views[currentView]!['size-cols']"
-          :sm="views[currentView]!['size-sm']"
-          :md="views[currentView]!['size-md']"
-          :lg="views[currentView]!['size-lg']"
-          :xl="views[currentView]!['size-xl']"
-          :style="{
-            zIndex:
-              (isHovering && hoveringRomId === rom.id) ||
-              (openedMenu && openedMenuRomId === rom.id)
-                ? 1000
-                : 1,
-          }"
-        >
-          <GameCard
-            :key="rom.id"
-            :rom="rom"
-            title-on-hover
-            pointer-on-hover
-            with-link
-            transform-scale
-            show-action-bar
-            show-chips
-            :with-border-primary="
-              romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
-            "
-            :enable3-d-tilt="enable3DEffect"
-            :size-action-bar="currentView"
-            @click="onGameClick"
-            @touchstart="onGameTouchStart"
-            @touchend="onGameTouchEnd"
-            @hover="onHover"
-            @focus="onHover"
-            @openedmenu="onOpenedMenu"
-            @closedmenu="onClosedMenu"
-          />
-        </v-col>
-      </v-row>
-
-      <!-- Gallery list view -->
-      <v-row v-else class="mr-13" no-gutters>
-        <v-col class="my-4">
-          <GameTable show-platform-icon class="mx-2" />
-        </v-col>
-      </v-row>
-
-      <LoadMoreBtn :fetch-roms="fetchRoms" />
-      <FabOverlay />
+  <GalleryShell
+    ref="shellRef"
+    :has-header="true"
+    :search-placeholder="t('rom.search-placeholder')"
+    autofocus-search
+    :empty-message="t('rom.no-games-match')"
+    empty-icon="mdi-magnify-close"
+    :skeleton-row-count="4"
+    :default-order-by="null"
+  >
+    <!-- HEADER (Section 1): title + result-count chip. The shell
+         auto-measures this slot; no need to declare a height. -->
+    <template #header>
+      <PageHeader :title="t('common.search')">
+        <template #count>
+          <RTag v-if="initialSearch && !initialFetching" :text="total" />
+        </template>
+      </PageHeader>
     </template>
-    <template v-else>
-      <EmptyGame v-if="!fetchingRoms && initialSearch" />
-      <EmptySearch v-else-if="!initialSearch" />
-    </template>
-  </template>
+  </GalleryShell>
 </template>

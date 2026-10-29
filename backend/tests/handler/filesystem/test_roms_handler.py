@@ -2181,6 +2181,26 @@ class TestSigilTitleIdExtraction:
         assert mock_extract.await_count == 1
 
     @pytest.mark.asyncio
+    async def test_sidecar_files_are_not_read(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_multi_part_rom(
+            tmp_path,
+            PS2_PLATFORM,
+            "Game",
+            ["Game.cue", "Game.bin", "Game.SBI", "readme.txt", "Game.nfo"],
+        )
+
+        mock_extract = AsyncMock(return_value=None)
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            await handler.get_rom_files(rom)
+
+        read = [Path(call.args[1]).name for call in mock_extract.await_args_list]
+        assert read == ["Game.bin"]
+
+    @pytest.mark.asyncio
     @pytest.mark.parametrize(
         ("fs_name", "title_id", "expected"),
         [

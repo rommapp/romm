@@ -6,7 +6,6 @@ from typing import Any, Final, NotRequired, TypedDict
 
 import socketio
 
-from adapters.services.igdb import IGDB_PLATFORM_LIST
 from adapters.services.screenscraper import ScreenScraperRateLimitError
 from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
@@ -79,6 +78,7 @@ from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import (
     METADATA_SOURCE_COLUMNS,
+    PROVIDER_METADATA_COLUMNS,
     Rom,
     RomFile,
     RomFileCategory,
@@ -659,19 +659,7 @@ async def scan_rom(
                 "csdb_id": rom.csdb_id,
                 "steam_id": rom.steam_id,
                 "libretro_id": rom.libretro_id,
-                "igdb_metadata": rom.igdb_metadata,
-                "moby_metadata": rom.moby_metadata,
-                "ss_metadata": rom.ss_metadata,
-                "ra_metadata": rom.ra_metadata,
-                "launchbox_metadata": rom.launchbox_metadata,
-                "hasheous_metadata": rom.hasheous_metadata,
-                "gamelist_metadata": rom.gamelist_metadata,
-                "flashpoint_metadata": rom.flashpoint_metadata,
-                "hltb_metadata": rom.hltb_metadata,
-                "demozoo_metadata": rom.demozoo_metadata,
-                "pouet_metadata": rom.pouet_metadata,
-                "csdb_metadata": rom.csdb_metadata,
-                "steam_metadata": rom.steam_metadata,
+                **{c: getattr(rom, c) for c in PROVIDER_METADATA_COLUMNS},
             }
         )
 
@@ -801,7 +789,7 @@ async def scan_rom(
                 or (
                     scan_type == ScanType.UNMATCHED
                     and (not rom.igdb_id or not rom.igdb_metadata)
-                    and rom.platform_slug in IGDB_PLATFORM_LIST
+                    and meta_igdb_handler.get_platform(rom.platform_slug)["igdb_id"]
                 )
             )
         ):
@@ -1720,6 +1708,13 @@ async def scan_rom(
             )
             if ranked[0] == MetadataSource.SGDB:
                 rom_attrs["url_cover"] = sgdb_cover
+
+    # Providers like libretro match without supplying a name. A new rom keeps the
+    # name it was created with, which for a physical game is what the user typed.
+    if not rom_attrs.get("name"):
+        rom_attrs["name"] = (
+            newly_added and rom.name
+        ) or fs_rom_handler.get_file_name_with_no_tags(rom_attrs["fs_name"])
 
     log.info(
         f"{hl(rom_attrs['fs_name'])} identified as {hl(rom_attrs['name'], color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",

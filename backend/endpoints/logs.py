@@ -22,7 +22,7 @@ MAX_LOG_LIMIT = LOG_BUFFER_SIZE
 async def get_logs(
     request: Request, limit: int = MAX_LOG_LIMIT
 ) -> list[LogEntrySchema]:
-    """Return the most recent backend log lines for backfill (admin only).
+    """Return the most recent backend log lines for backfill.
 
     Args:
         request (Request): FastAPI Request object.

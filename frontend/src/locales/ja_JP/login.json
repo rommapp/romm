@@ -7,7 +7,6 @@
   "login-failed": "ログインに失敗しました",
   "login-oidc": "Login with {oidc}",
   "new-password": "新しいパスワード",
-  "or": "or",
   "password": "パスワード",
   "passwords-do-not-match": "パスワードが一致しません",
   "register": "登録",

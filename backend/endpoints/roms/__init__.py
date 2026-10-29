@@ -6,7 +6,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from io import BytesIO
 from stat import S_IFREG
-from typing import Annotated, Any, Final, Literal, Sequence, cast
+from typing import Annotated, Any, Final, Literal, Sequence
 from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
@@ -47,6 +47,7 @@ from endpoints.responses.rom import (
     ManualMetadata,
     RomUserSchema,
     SimpleRomSchema,
+    clean_metadata_name_lists,
 )
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import (
@@ -131,6 +132,7 @@ from models.rom import (
     PINNED_MEDIA_KEY_MAX_LENGTH,
     PINNED_MEDIA_KEY_PATTERN,
     PINNED_MEDIA_MAX_ITEMS,
+    PROVIDER_METADATA_COLUMNS,
     TITLE_ID_MAX_LENGTH,
     Rom,
     RomFile,
@@ -516,10 +518,20 @@ def parse_raw_metadata(
         return None
 
     try:
-        return cast(dict[str, Any] | None, json.loads(str(raw_json)))
+        metadata = json.loads(str(raw_json))
     except json.JSONDecodeError as e:
         log.warning(f"Invalid JSON for {form_key}: {e}")
         return None
+
+    if not isinstance(metadata, dict):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Invalid {form_key}: expected a JSON object",
+        )
+    # Manual metadata is checked strictly by its adapter instead.
+    if form_key == "raw_manual_metadata":
+        return metadata
+    return clean_metadata_name_lists(form_key.removeprefix("raw_"), metadata)
 
 
 class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
@@ -599,6 +611,16 @@ def get_roms(
             )
         ),
     ] = True,
+    with_provider_metadata: Annotated[
+        bool,
+        Query(
+            description=(
+                "Whether to include each rom's provider metadata. When false, every"
+                " `*_metadata` object but `manual_metadata` comes back null, meaning"
+                " not requested rather than no match; `metadatum` is unaffected."
+            )
+        ),
+    ] = True,
     order_by: Annotated[
         str,
         Query(
@@ -672,11 +694,9 @@ def get_roms(
         updated_after=updated_after,
         released_days=parsed_released_days,
         released_before_year=released_before_year,
-        # The page's files answer all three flags without the subqueries.
-        include_file_stats=not with_files,
-        # Siblings and the notes indicator are resolved per page below.
-        include_siblings=False,
-        include_notes=False,
+        # Only ids, letters and counts are selected from it; the page's rows load
+        # through get_page_rows_query below.
+        include_related=False,
     )
 
     # Cache only the fully unscoped library scan: the sidecar cache key encodes
@@ -797,6 +817,7 @@ def get_roms(
                     siblings=siblings_by_rom.get(item.id, []),
                     screenshot_path=screenshot_by_rom.get(item.id),
                     has_notes=item.id in rom_ids_with_notes,
+                    with_provider_metadata=with_provider_metadata,
                 )
                 for item in items
             ]
@@ -827,9 +848,14 @@ def get_roms(
             )
 
         if page_ids:
-            # The rows are reordered by `page_ids` below, so the sort is dropped.
+            # The ids already passed the filters and the sibling grouping, so the
+            # rows load without re-running either.
             page_rows = session.scalars(
-                query.where(Rom.id.in_(page_ids)).order_by(None)
+                db_rom_handler.get_page_rows_query(
+                    page_ids,
+                    visibility=perms.rom_visibility,
+                    include_file_stats=not with_files,
+                )
             ).all()
             rows_by_id = {rom.id: rom for rom in page_rows}
             page_items = [rows_by_id[i] for i in page_ids if i in rows_by_id]
@@ -1919,20 +1945,8 @@ async def update_rom(
                     else rom.path_manual
                 ),
                 "slug": "",
-                "igdb_metadata": {},
-                "moby_metadata": {},
-                "ss_metadata": {},
-                "ra_metadata": {},
-                "launchbox_metadata": {},
-                "hasheous_metadata": {},
-                "flashpoint_metadata": {},
-                "hltb_metadata": {},
-                "demozoo_metadata": {},
-                "pouet_metadata": {},
-                "csdb_metadata": {},
-                "steam_metadata": {},
+                **{c: {} for c in PROVIDER_METADATA_COLUMNS},
                 "revision": "",
-                "gamelist_metadata": {},
             },
         )
 

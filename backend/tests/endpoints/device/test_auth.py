@@ -312,6 +312,23 @@ class TestApprove:
         )
         assert resp.status_code == status.HTTP_403_FORBIDDEN
 
+    def test_scope_clamping_uses_the_callers_token_scopes(
+        self, client, admin_user: User
+    ):
+        _, narrow = make_device_token(admin_user, None, scopes="me.read me.write")
+        body = _authorize(client)
+
+        pending = client.get(
+            f"/api/auth/device/pending/{body['user_code']}",
+            headers={"Authorization": f"Bearer {narrow}"},
+        )
+        assert pending.json()["allowed_scopes"] == []
+
+        resp = _approve(
+            client, narrow, body["user_code"], approved_scopes=["roms.read"]
+        )
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+
     def test_scope_clamping_rejects_scopes_above_requested(
         self, client, access_token: str
     ):

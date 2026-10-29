@@ -1,12 +1,8 @@
 import cronstrue from "cronstrue";
 import { formatDistanceToNow } from "date-fns";
-import { storeToRefs } from "pinia";
-import { computed } from "vue";
-import { useDisplay } from "vuetify";
 import type { RomFileSchema, RomUserStatus } from "@/__generated__";
 import type { Config } from "@/stores/config";
 import type { Heartbeat } from "@/stores/heartbeat";
-import storeNavigation from "@/stores/navigation";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
 
 export {
@@ -414,6 +410,9 @@ const _EJS_CORES_MAP: Record<string, string[]> = {
     "fbalpha2012_cps1",
     "fbalpha2012_cps2",
   ],
+  mame: ["mame2003_plus", "mame2003"],
+  fbneo: ["fbneo"],
+  fba: ["fbneo", "fbalpha2012_cps1", "fbalpha2012_cps2"],
   neogeoaes: ["fbneo"],
   neogeomvs: ["fbneo"],
   atari2600: ["stella2014"],
@@ -859,25 +858,6 @@ export function isNintendoDSRom(rom: DetailedRom | SimpleRom): boolean {
   return hasValidExtension || hasValidFile;
 }
 
-export function calculateMainLayoutWidth() {
-  const { smAndDown } = useDisplay();
-  const navigationStore = storeNavigation();
-  const { mainBarCollapsed } = storeToRefs(navigationStore);
-  // The side safe-area insets sit outside the layout as RomM.vue's spacers.
-  const insetX =
-    "env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)";
-  const calculatedWidth = computed(() => {
-    const chrome = smAndDown.value
-      ? "16px"
-      : mainBarCollapsed.value
-        ? "76px"
-        : "106px";
-    return `calc(100% - ${chrome} - ${insetX}) !important`;
-  });
-
-  return { calculatedWidth };
-}
-
 /**
  * Get the icon for a given platform category.
  *
@@ -944,7 +924,34 @@ export function isCDBasedSystem(platformSlug: string): boolean {
   return CD_BASED_SYSTEMS.has(platformSlug.toLowerCase());
 }
 
-export const ARCADE_SYSTEMS = new Set(["arcade", "neogeoaes", "neogeomvs"]);
+export const ARCADE_SYSTEMS = new Set([
+  "arcade",
+  "atomiswave",
+  "chihiro",
+  "daphne",
+  "dice",
+  "fba",
+  "fbneo",
+  "gaelco",
+  "hikaru",
+  "lindbergh",
+  "mame",
+  "mame-advmame",
+  "model2",
+  "model3",
+  "namco2x6",
+  "namco3xx",
+  "naomi",
+  "naomi2",
+  "naomigd",
+  "neogeoaes",
+  "neogeomvs",
+  "singe",
+  "stv",
+  "teknoparrot",
+  "triforce",
+  "type-x",
+]);
 
 export function isArcadeSystem(platformSlug: string): boolean {
   return ARCADE_SYSTEMS.has(platformSlug.toLowerCase());

@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "frontend/src/locales/**/*.json"
+      - "frontend/src/locales/*.py"
 
 # A new push cancels a PR's superseded run; each master commit keeps its own.
 concurrency:
@@ -25,14 +26,17 @@ jobs:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
 
       - name: Install python
         run: uv python install
 
-      # Both checks are stdlib-only, so skip resolving the backend project.
+      # The checks and their tests are stdlib-only, so skip resolving the backend project.
       - name: Run localization check
         run: uv run --no-project python frontend/src/locales/check_i18n_locales.py
 
       - name: Check locale files are sorted
         run: uv run --no-project python frontend/src/locales/check_i18n_sorted.py
+
+      - name: Test the localization checks
+        run: uv run --no-project python -B -m unittest discover -s frontend/src/locales -p "test_*.py"

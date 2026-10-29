@@ -1,5 +1,4 @@
 {
-  "all-loaded": "Всички игри са заредени",
   "back-to-top": "Към началото",
   "column-actions": "Действия",
   "column-cover": "Корица",
@@ -8,7 +7,6 @@
   "firmware-selected-count": "{count} избрани",
   "jump-to": "Скочи до {letter}",
   "jump-to-letter": "Скочи до буква",
-  "load-more": "Зареди още",
   "selection-clear": "Изчисти избора",
   "selection-collections": "Управление на колекции",
   "selection-delete": "Изтрий",
