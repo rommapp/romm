@@ -20,7 +20,7 @@ import NowPlayingPill from "@/components/Soundtrack/NowPlayingPill.vue";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import { useNavDestinations } from "@/composables/useNavDestinations";
 import { useNavGlass } from "@/composables/useNavGlass";
-import { RSegmentedControl, RImg } from "@/lib";
+import { RSegmentedControl, RImage } from "@/lib";
 
 defineOptions({ inheritAttrs: false });
 
@@ -54,14 +54,14 @@ const scrolled = computed(
   >
     <nav class="r-nav">
       <router-link to="/" class="r-nav__logo" :aria-label="t('common.home')">
-        <RImg
+        <RImage
           src="/assets/isotipo.svg"
           alt="RomM isotipo"
           aria-hidden="true"
           class="r-nav__logo-mark"
           :width="32"
         />
-        <RImg
+        <RImage
           src="/assets/logotipo.svg"
           alt="RomM logotipo"
           aria-hidden="true"

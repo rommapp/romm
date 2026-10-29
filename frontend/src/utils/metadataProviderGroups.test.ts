@@ -36,7 +36,7 @@ vi.mock("@/lib", () => {
       template: "<div><slot name='toolbar' /><slot name='content' /></div>",
     }),
     RIcon: slotHost("i"),
-    RImg: slotHost("span"),
+    RImage: slotHost("span"),
     RTabNav: defineComponent({ name: "RTabNav", template: "<nav />" }),
     RTag: slotHost("span"),
   };

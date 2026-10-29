@@ -71,6 +71,7 @@ from handler.redis_handler import (
 )
 from handler.rom_files import loaded_rom_files, refresh_rom_files
 from handler.scan_handler import (
+    RESCAN_RULES,
     MetadataSource,
     ScanType,
     build_hashless_fs_rom,
@@ -82,6 +83,7 @@ from handler.scan_handler import (
     scan_firmware,
     scan_platform,
     scan_rom,
+    should_consult,
 )
 from handler.scan_jobs import (
     get_blocking_library_scans,
@@ -374,6 +376,7 @@ async def _identify_firmware(
 
 def should_scan_rom(
     scan_type: ScanType,
+    platform: Platform,
     rom: Rom | None,
     roms_ids: list[int],
     metadata_sources: list[str],
@@ -382,6 +385,7 @@ def should_scan_rom(
 
     Args:
         scan_type (ScanType): Type of scan to be performed.
+        platform (Platform): The platform the rom belongs to.
         rom (Rom | None): The rom to be scanned.
         roms_ids (list[int]): List of selected roms to be scanned.
         metadata_sources (list[str]): List of metadata sources to be used.
@@ -401,26 +405,21 @@ def should_scan_rom(
         or (scan_type == ScanType.COMPLETE)
         # Hashes rescan should scan all roms to update the hashes
         or (scan_type == ScanType.HASHES)
+        # Update and unmatched scans only pick a rom some selected source will refresh
         or (
             rom
-            and (
-                # Update scan should scan ROMs identified by the selected metadata sources
-                (
-                    scan_type == ScanType.UPDATE
-                    and rom.is_identified
-                    and any(
-                        getattr(rom, f"{source}_id", None)
-                        for source in metadata_sources
-                    )
+            and scan_type in (ScanType.UPDATE, ScanType.UNMATCHED)
+            and any(
+                should_consult(
+                    MetadataSource(source),
+                    scan_type=scan_type,
+                    rom=rom,
+                    platform=platform,
+                    newly_added=False,
+                    metadata_sources=metadata_sources,
                 )
-                # Unmatched scan should scan ROMs that are not identified by the selected metadata sources
-                or (
-                    scan_type == ScanType.UNMATCHED
-                    and any(
-                        not getattr(rom, f"{source}_id", None)
-                        for source in metadata_sources
-                    )
-                )
+                for source in metadata_sources
+                if source in RESCAN_RULES
             )
         )
     )
@@ -1103,6 +1102,7 @@ async def _identify_platform(
                 restored_roms.append(rom)
             if should_scan_rom(
                 scan_type=scan_type,
+                platform=platform,
                 rom=rom,
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,

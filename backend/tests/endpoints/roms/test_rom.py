@@ -18,12 +18,15 @@ from handler.database.base_handler import sync_session
 from handler.database.rom_filters import RomFiltersDict
 from handler.filesystem.resources_handler import FSResourcesHandler
 from handler.filesystem.roms_handler import FSRomsHandler
+from handler.metadata.csdb_handler import CsdbHandler
+from handler.metadata.demozoo_handler import DemozooHandler
 from handler.metadata.flashpoint_handler import FlashpointHandler, FlashpointRom
 from handler.metadata.hltb_handler import HLTBHandler, HLTBRom
 from handler.metadata.igdb_handler import IGDBHandler, IGDBRom
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.launchbox_handler.types import LaunchboxRom
 from handler.metadata.moby_handler import MobyGamesHandler, MobyGamesRom
+from handler.metadata.pouet_handler import PouetHandler
 from handler.metadata.ra_handler import RAGameRom, RAHandler
 from handler.metadata.ss_handler import SSHandler, SSRom
 from handler.metadata.steam_handler import SteamHandler, SteamRom
@@ -2638,6 +2641,192 @@ class TestUpdateMetadataIDs:
         body = response.json()
         assert body["steam_id"] is None
         assert body["steam_metadata"] == {}
+
+
+# (id field, handler, form value, id the handler receives and the row stores)
+REFETCH_CASES: list[tuple[str, type, str, int | str]] = [
+    ("flashpoint_id", FlashpointHandler, "fp-game", "fp-game"),
+    ("launchbox_id", LaunchboxHandler, "11", 11),
+    ("ra_id", RAHandler, "12", 12),
+    ("moby_id", MobyGamesHandler, "13", 13),
+    ("ss_id", SSHandler, "14", 14),
+    ("steam_id", SteamHandler, "15", 15),
+    ("igdb_id", IGDBHandler, "16", 16),
+    ("demozoo_id", DemozooHandler, "17", 17),
+    ("pouet_id", PouetHandler, "18", 18),
+    ("csdb_id", CsdbHandler, "19", 19),
+    ("hltb_id", HLTBHandler, "20", 20),
+]
+
+
+def _metadata_field(id_field: str) -> str:
+    return id_field.removesuffix("_id") + "_metadata"
+
+
+class TestUpdateRomProviderRefetch:
+    @pytest.mark.parametrize(
+        ("id_field", "handler", "form_value", "stored_id"), REFETCH_CASES
+    )
+    def test_a_changed_id_refetches_that_provider(
+        self,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+        id_field: str,
+        handler: type,
+        form_value: str,
+        stored_id: int | str,
+    ):
+        metadata_field = _metadata_field(id_field)
+        with patch.object(
+            handler,
+            "get_rom_by_id",
+            return_value={
+                id_field: stored_id,
+                metadata_field: {"marker": id_field},
+                "summary": f"from {id_field}",
+            },
+        ) as get_rom_by_id:
+            response = client.put(
+                f"/api/roms/{rom.id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+                data={id_field: form_value},
+            )
+        assert response.status_code == status.HTTP_200_OK
+
+        get_rom_by_id.assert_awaited_once()
+        call = get_rom_by_id.await_args
+        assert call is not None
+        assert stored_id in (*call.args, *call.kwargs.values())
+        refreshed = db_rom_handler.get_rom(rom.id)
+        assert refreshed is not None
+        assert getattr(refreshed, id_field) == stored_id
+        assert getattr(refreshed, metadata_field)["marker"] == id_field
+        assert refreshed.summary == f"from {id_field}"
+
+    @pytest.mark.parametrize(
+        ("id_field", "handler", "form_value", "stored_id"), REFETCH_CASES
+    )
+    def test_a_cleared_id_drops_that_providers_metadata(
+        self,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+        id_field: str,
+        handler: type,
+        form_value: str,
+        stored_id: int | str,
+    ):
+        metadata_field = _metadata_field(id_field)
+        db_rom_handler.update_rom(
+            rom.id, {id_field: stored_id, metadata_field: {"marker": id_field}}
+        )
+        with patch.object(handler, "get_rom_by_id") as get_rom_by_id:
+            response = client.put(
+                f"/api/roms/{rom.id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+                data={id_field: ""},
+            )
+        assert response.status_code == status.HTTP_200_OK
+
+        get_rom_by_id.assert_not_called()
+        refreshed = db_rom_handler.get_rom(rom.id)
+        assert refreshed is not None
+        assert getattr(refreshed, id_field) is None
+        assert getattr(refreshed, metadata_field) == {}
+
+    @pytest.mark.parametrize(
+        ("id_field", "handler", "form_value", "stored_id"), REFETCH_CASES
+    )
+    def test_an_unchanged_id_is_not_refetched(
+        self,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+        id_field: str,
+        handler: type,
+        form_value: str,
+        stored_id: int | str,
+    ):
+        db_rom_handler.update_rom(rom.id, {id_field: stored_id})
+        with patch.object(handler, "get_rom_by_id") as get_rom_by_id:
+            response = client.put(
+                f"/api/roms/{rom.id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+                data={id_field: form_value},
+            )
+        assert response.status_code == status.HTTP_200_OK
+        get_rom_by_id.assert_not_called()
+
+    @patch.object(
+        IGDBHandler,
+        "get_rom_by_id",
+        return_value={"igdb_id": 16, "summary": "from IGDB"},
+    )
+    @patch.object(
+        MobyGamesHandler,
+        "get_rom_by_id",
+        return_value={"moby_id": 13, "summary": "from MobyGames"},
+    )
+    def test_a_later_provider_wins_a_shared_field(
+        self,
+        _moby_mock: AsyncMock,
+        _igdb_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """IGDB refetches after MobyGames, so its summary is the one kept."""
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"moby_id": "13", "igdb_id": "16"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["summary"] == "from IGDB"
+
+    @pytest.mark.parametrize(
+        ("id_field", "handler", "form_value", "stored_id"),
+        # RetroAchievements takes no raw metadata from the form.
+        [
+            *(case for case in REFETCH_CASES if case[0] != "ra_id"),
+            ("hasheous_id", None, "21", 21),
+        ],
+    )
+    def test_raw_metadata_is_stored_when_the_refetch_misses(
+        self,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+        id_field: str,
+        handler: type | None,
+        form_value: str,
+        stored_id: int | str,
+    ):
+        metadata_field = _metadata_field(id_field)
+        data = {
+            id_field: form_value,
+            f"raw_{metadata_field}": json.dumps({"marker": "raw"}),
+        }
+        if handler is None:
+            response = client.put(
+                f"/api/roms/{rom.id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+                data=data,
+            )
+        else:
+            with patch.object(handler, "get_rom_by_id", return_value={}):
+                response = client.put(
+                    f"/api/roms/{rom.id}",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    data=data,
+                )
+        assert response.status_code == status.HTTP_200_OK
+
+        refreshed = db_rom_handler.get_rom(rom.id)
+        assert refreshed is not None
+        assert getattr(refreshed, id_field) == stored_id
+        assert getattr(refreshed, metadata_field)["marker"] == "raw"
 
 
 class TestUpdateRawMetadata:

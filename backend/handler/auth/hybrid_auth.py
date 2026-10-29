@@ -14,9 +14,10 @@ from handler.database import (
     db_device_handler,
     db_user_handler,
 )
+from handler.database.client_tokens_handler import LAST_USED_DEBOUNCE
 from models.client_token import ClientToken
 from models.user import User
-from utils.datetime import to_utc
+from utils.datetime import older_than, to_utc
 
 from .constants import CLIENT_TOKEN_PREFIX, READ_SCOPES
 
@@ -105,14 +106,17 @@ class HybridAuthBackend(AuthenticationBackend):
                         return None
 
                     client_token, user, effective_scopes = identity
-                    db_client_token_handler.update_last_used(client_token.id)
+                    # The device rides on the token's debounce, so a request inside
+                    # the window costs no write.
+                    if older_than(client_token.last_used_at, LAST_USED_DEBOUNCE):
+                        db_client_token_handler.update_last_used(client_token.id)
+                        if client_token.device_id:
+                            db_device_handler.update_last_seen_debounced(
+                                client_token.device_id
+                            )
                     user.set_last_active()
                     conn.state.client_token_id = client_token.id
                     conn.state.device_id = client_token.device_id
-                    if client_token.device_id:
-                        db_device_handler.update_last_seen_debounced(
-                            client_token.device_id
-                        )
                     return (AuthCredentials(effective_scopes), user)
 
                 # OAuth JWT bearer tokens

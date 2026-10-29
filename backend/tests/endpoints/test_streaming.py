@@ -89,6 +89,7 @@ from handler.streaming.protocol import protocol_for
 from handler.streaming.session_store import (
     STREAMING_SESSION_DRAIN_SECONDS,
     STREAMING_SESSION_TTL_SECONDS,
+    StreamingSession,
     StreamingSessionContended,
     release_own_session,
 )
@@ -276,11 +277,11 @@ def _auth(token):
     return {"Authorization": f"Bearer {token}"}
 
 
-def _load_session(key: str) -> dict[str, Any]:
+def _load_session(key: str) -> StreamingSession:
     """The session stored at `key`, failing the test if nothing is there."""
     raw = asyncio.run(async_cache.get(key))
     assert raw is not None, f"no session stored at {key}"
-    return cast(dict[str, Any], json.loads(raw))
+    return cast(StreamingSession, json.loads(raw))
 
 
 def _claim(client, token, rom_id, state_id=None, save_id=None):
@@ -3196,6 +3197,28 @@ def test_desktop_frees_the_claim_when_activation_fails(client, access_token):
         assert _session_raw(container) is None
 
 
+def test_desktop_frees_the_claim_when_activation_is_cancelled(client, access_token):
+    """A cancellation is not an Exception, so a narrower catch would leak it."""
+    with _streaming(_webstation()):
+        container = _first_container("ps2")
+        key = _key_of(container)
+        with (
+            patch(
+                "handler.streaming.webstation.activate",
+                side_effect=asyncio.CancelledError,
+            ) as activate,
+            # Starlette's middleware surfaces the cancellation as its own error.
+            pytest.raises(RuntimeError),
+        ):
+            client.post(
+                "/api/streaming/desktop",
+                json={"container": key},
+                headers=_auth(access_token),
+            )
+        activate.assert_called_once()
+        assert _session_raw(container) is None
+
+
 def test_releasing_a_desktop_session_syncs_nothing_to_the_library(client, access_token):
     """No ROM means no saves, no states and no playtime to credit, so teardown
     must stop at stopping the emulator."""
@@ -4834,9 +4857,12 @@ def test_save_and_exit_without_a_rom_drains_only_briefly(
     assert 0 < ttl <= STREAMING_SESSION_DRAIN_SECONDS
 
 
-def _session_at(key: str, **fields) -> dict[str, Any]:
+def _session_at(key: str, **fields) -> StreamingSession:
     """Put a session on the key and hand back the claim a route would hold."""
-    session = {"user_id": 1, "claimed_at": "2026-01-01T00:00:00+00:00", **fields}
+    session = cast(
+        StreamingSession,
+        {"user_id": 1, "claimed_at": "2026-01-01T00:00:00+00:00", **fields},
+    )
     asyncio.run(
         async_cache.set(key, json.dumps(session), ex=STREAMING_SESSION_TTL_SECONDS)
     )
@@ -4951,7 +4977,8 @@ def test_a_corrupt_session_key_is_dropped_rather_than_wedging_the_container():
     try:
         asyncio.run(async_cache.set(key, "not a session"))
         assert (
-            asyncio.run(session_store.mutate_session("cas-corrupt", {"a": 1})) is None
+            asyncio.run(session_store.mutate_session("cas-corrupt", {"user_id": 1}))
+            is None
         )
         assert asyncio.run(async_cache.get(key)) is None
 
@@ -8627,7 +8654,11 @@ def test_run_launch_sends_rom_identity_fields(rom: Rom, admin_user: User):
     rom.save_target = "SLUS-12345"
     rom.save_target_layout = SaveTargetLayout.FOLDER_EXACT
     activate = MagicMock(return_value={"url": "/room/x"})
-    session = {"broker_session_id": "s1", "claimed_at": "t1", "user_id": admin_user.id}
+    session: StreamingSession = {
+        "broker_session_id": "s1",
+        "claimed_at": "t1",
+        "user_id": admin_user.id,
+    }
     with (
         patch("handler.streaming.launch.webstation.activate", activate),
         patch("handler.streaming.launch.lifecycle.hold_session_claim", new=AsyncMock()),
@@ -8685,7 +8716,11 @@ def test_run_launch_pushes_refusals_when_the_broker_refuses_an_import(
         docs=None,
     )
     activate = MagicMock(side_effect=broker.ImportRefusedError([refusal], 2))
-    session = {"broker_session_id": "s1", "claimed_at": "t1", "user_id": admin_user.id}
+    session: StreamingSession = {
+        "broker_session_id": "s1",
+        "claimed_at": "t1",
+        "user_id": admin_user.id,
+    }
     pushed = AsyncMock()
     with (
         patch("handler.streaming.launch.webstation.activate", activate),
@@ -8783,7 +8818,11 @@ def test_run_launch_skips_the_state_push_when_resuming_via_import(
     pushed through the ordinary state-file PUT."""
     state = _add_state(rom, admin_user, "Game.00.dolphin", "dolphin")
     activate = MagicMock(return_value={"url": "/room/x"})
-    session = {"broker_session_id": "s1", "claimed_at": "t1", "user_id": admin_user.id}
+    session: StreamingSession = {
+        "broker_session_id": "s1",
+        "claimed_at": "t1",
+        "user_id": admin_user.id,
+    }
     push_resume = AsyncMock()
     with (
         patch("handler.streaming.launch.webstation.activate", activate),
@@ -8833,7 +8872,11 @@ def test_run_launch_sends_no_resume_slot_when_the_import_was_lost(
     broker load that slot anyway, from whatever the archive does carry."""
     state = _add_state(rom, admin_user, "Game.00.dolphin", "dolphin")
     activate = MagicMock(return_value={"url": "/room/x"})
-    session = {"broker_session_id": "s1", "claimed_at": "t1", "user_id": admin_user.id}
+    session: StreamingSession = {
+        "broker_session_id": "s1",
+        "claimed_at": "t1",
+        "user_id": admin_user.id,
+    }
     push_resume = AsyncMock()
     with (
         patch("handler.streaming.launch.webstation.activate", activate),
@@ -9388,7 +9431,7 @@ def test_an_earlier_pull_finishing_leaves_a_later_exits_mark(
     while it runs, and its finishing must not let a claim past the later pull."""
     entry = _container_for(rom)
     container = _resolved(entry)
-    session = {"user_id": admin_user.id, "rom_id": rom.id}
+    session: StreamingSession = {"user_id": admin_user.id, "rom_id": rom.id}
 
     async def scenario() -> tuple[bool, bool]:
         with (
@@ -9415,7 +9458,7 @@ def test_an_exit_save_pull_runs_on_the_streaming_worker(
 ):
     """A web restart would otherwise cut a pull short and park the next claim."""
     container = _resolved(_container_for(rom))
-    session = {
+    session: StreamingSession = {
         "user_id": admin_user.id,
         "rom_id": rom.id,
         "broker_session_id": "b1",
@@ -9451,7 +9494,7 @@ def test_an_exit_save_pull_runs_on_the_streaming_worker(
 
 
 def test_a_queued_exit_save_pull_hands_on_the_disc(admin_user: User, rom: Rom):
-    session = {"user_id": admin_user.id, "rom_id": rom.id}
+    session: StreamingSession = {"user_id": admin_user.id, "rom_id": rom.id}
 
     async def scenario() -> AsyncMock:
         container = _resolved(_container_for(rom))
@@ -9486,7 +9529,7 @@ def test_a_pull_that_cannot_be_queued_lets_the_next_claim_through(
     admin_user: User, rom: Rom, exit_pull_queue: MagicMock
 ):
     container = _resolved(_container_for(rom))
-    session = {"user_id": admin_user.id, "rom_id": rom.id}
+    session: StreamingSession = {"user_id": admin_user.id, "rom_id": rom.id}
     exit_pull_queue.enqueue.side_effect = ConnectionError("redis went away")
 
     async def scenario() -> bool:
@@ -9500,7 +9543,7 @@ def test_a_pull_that_cannot_be_queued_lets_the_next_claim_through(
 def test_a_queued_pull_for_a_container_no_longer_configured_clears_its_mark(
     admin_user: User, rom: Rom
 ):
-    session = {"user_id": admin_user.id, "rom_id": rom.id}
+    session: StreamingSession = {"user_id": admin_user.id, "rom_id": rom.id}
 
     async def scenario() -> tuple[bool, AsyncMock]:
         container = _resolved(_container_for(rom))
@@ -12239,7 +12282,7 @@ def test_record_play_session_stores_duration(admin_user: User, rom: Rom):
     """A finished streaming session is recorded as playtime and updates the
     ROM's last_played, keyed off the stored claim timestamp."""
     start = datetime.now(timezone.utc) - timedelta(minutes=10)
-    session = {
+    session: StreamingSession = {
         "user_id": admin_user.id,
         "rom_id": rom.id,
         "claimed_at": start.isoformat(),
@@ -12255,7 +12298,7 @@ def test_record_play_session_stores_duration(admin_user: User, rom: Rom):
 
 def test_record_play_session_skips_accidental_short_session(admin_user: User, rom: Rom):
     """A claim released almost immediately is noise, not playtime."""
-    session = {
+    session: StreamingSession = {
         "user_id": admin_user.id,
         "rom_id": rom.id,
         "claimed_at": datetime.now(timezone.utc).isoformat(),
