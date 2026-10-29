@@ -326,10 +326,28 @@ NON_BINARY_FILE_CATEGORIES: Final = DOCUMENT_CATEGORIES | {
 }
 
 
+# Disc sheets, subchannel data and text beside a ROM binary hold no title id,
+# and sigil fails short ones with the IO error it raises for real failures.
+SIDECAR_FILE_SUFFIXES: Final = (
+    ".ccd",
+    ".cue",
+    ".gdi",
+    ".md5",
+    ".nfo",
+    ".sbi",
+    ".sfv",
+    ".sha1",
+    ".sub",
+    ".txt",
+)
+
+
 def _may_hold_title_id(path: Path, category: RomFileCategory | None) -> bool:
     """Whether sigil can read a title id from this file."""
+    name = path.name.lower()
     return (
-        not path.name.lower().endswith(COMPRESSED_FILE_SUFFIXES)
+        not name.endswith(COMPRESSED_FILE_SUFFIXES)
+        and not name.endswith(SIDECAR_FILE_SUFFIXES)
         and category not in NON_BINARY_FILE_CATEGORIES
     )
 
