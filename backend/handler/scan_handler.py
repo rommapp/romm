@@ -254,12 +254,7 @@ def should_consult(
     newly_added: bool,
     metadata_sources: Collection[str],
 ) -> bool:
-    """Whether a scan asks `source` about `rom`.
-
-    A new rom and a complete rescan ask every enabled source that covers the
-    platform. An update refreshes the sources the rom is matched to, and an
-    unmatched scan retries the ones it has no match or no metadata from.
-    """
+    """Whether a scan asks `source` about `rom`."""
     rule = RESCAN_RULES[source]
     if source not in metadata_sources or not rule.platform_supported(platform):
         return False

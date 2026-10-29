@@ -73,6 +73,32 @@ def test_every_scanned_source_has_a_rule():
     }
 
 
+# Written out rather than derived, so a rule pointing at the wrong column fails.
+EXPECTED_COLUMNS: dict[MetadataSource, tuple[str, str | None]] = {
+    MetadataSource.IGDB: ("igdb_id", "igdb_metadata"),
+    MetadataSource.MOBY: ("moby_id", "moby_metadata"),
+    MetadataSource.SS: ("ss_id", "ss_metadata"),
+    MetadataSource.RA: ("ra_id", "ra_metadata"),
+    MetadataSource.LAUNCHBOX: ("launchbox_id", "launchbox_metadata"),
+    MetadataSource.HASHEOUS: ("hasheous_id", "hasheous_metadata"),
+    MetadataSource.SGDB: ("sgdb_id", None),
+    MetadataSource.FLASHPOINT: ("flashpoint_id", "flashpoint_metadata"),
+    MetadataSource.HLTB: ("hltb_id", "hltb_metadata"),
+    MetadataSource.DEMOZOO: ("demozoo_id", "demozoo_metadata"),
+    MetadataSource.POUET: ("pouet_id", "pouet_metadata"),
+    MetadataSource.CSDB: ("csdb_id", "csdb_metadata"),
+    MetadataSource.STEAM: ("steam_id", "steam_metadata"),
+    MetadataSource.GAMELIST: ("gamelist_id", "gamelist_metadata"),
+    MetadataSource.LIBRETRO: ("libretro_id", None),
+}
+
+
+@pytest.mark.parametrize("source", ALL_SOURCES)
+def test_each_rule_reads_its_own_columns(source: MetadataSource):
+    rule = RESCAN_RULES[source]
+    assert (rule.id_field, rule.metadata_field) == EXPECTED_COLUMNS[source]
+
+
 @pytest.mark.parametrize("source", ALL_SOURCES)
 def test_a_disabled_source_is_never_consulted(source: MetadataSource):
     rom = _rom(_platform(source))
@@ -154,7 +180,13 @@ def test_a_platform_outside_the_sources_list_is_never_consulted(
 
 @pytest.mark.parametrize(
     "source",
-    [MetadataSource.IGDB, MetadataSource.MOBY, MetadataSource.SS, MetadataSource.RA],
+    [
+        MetadataSource.IGDB,
+        MetadataSource.MOBY,
+        MetadataSource.SS,
+        MetadataSource.RA,
+        MetadataSource.HASHEOUS,
+    ],
 )
 def test_a_platform_without_the_sources_id_is_never_consulted(
     source: MetadataSource,
