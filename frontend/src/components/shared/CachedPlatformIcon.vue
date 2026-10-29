@@ -6,7 +6,7 @@ import {
   getCachedPlatformIcon,
   invalidatePlatformIcon,
 } from "@/composables/usePlatformIconCache";
-import { RImg } from "@/lib";
+import { RImage } from "@/lib";
 import { DEFAULT_PLATFORM_ICON, platformIconUrl } from "@/utils/platformIcons";
 
 interface Props {
@@ -43,7 +43,7 @@ function onError() {
 </script>
 
 <template>
-  <RImg
+  <RImage
     :src="src"
     :alt="name || slug"
     :title="name || slug"

@@ -20,7 +20,7 @@ export * from "./primitives/RChip";
 export * from "./primitives/RDivider";
 export * from "./primitives/REmptyState";
 export * from "./primitives/RIcon";
-export * from "./primitives/RImg";
+export * from "./primitives/RImage";
 export * from "./primitives/RLetterHeading";
 export * from "./primitives/RMarquee";
 export * from "./primitives/RProgressCircular";

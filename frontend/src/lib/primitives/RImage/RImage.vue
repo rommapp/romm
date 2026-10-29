@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RImg: wraps a native <img> with three slot-driven
+// RImage: wraps a native <img> with three slot-driven
 // states: `loading` (while the network fetch is in flight), `error`
 // (when load fails or src is empty), and `default` (a content overlay
 // rendered on top of the loaded image: captions, hover CTAs, etc).
@@ -95,13 +95,13 @@ const wrapperStyle = computed(() => ({
 <template>
   <div
     v-bind="$attrs"
-    class="r-img"
+    class="r-image"
     :class="{
-      'r-img--loading': state === 'loading',
-      'r-img--loaded': state === 'loaded',
-      'r-img--error': state === 'error',
-      'r-img--cover': cover,
-      'r-img--contain': contain,
+      'r-image--loading': state === 'loading',
+      'r-image--loaded': state === 'loaded',
+      'r-image--error': state === 'error',
+      'r-image--cover': cover,
+      'r-image--contain': contain,
     }"
     :style="wrapperStyle"
   >
@@ -109,34 +109,34 @@ const wrapperStyle = computed(() => ({
       v-if="src && state !== 'error'"
       :src="src"
       :alt="alt ?? ''"
-      class="r-img__image"
+      class="r-image__image"
       decoding="async"
       @load="onLoad"
       @error="onError"
     />
 
-    <div v-if="state === 'loading' && slots.loading" class="r-img__layer">
+    <div v-if="state === 'loading' && slots.loading" class="r-image__layer">
       <slot name="loading" />
     </div>
     <div
       v-else-if="state === 'loading' && slots.placeholder"
-      class="r-img__layer"
+      class="r-image__layer"
     >
       <slot name="placeholder" />
     </div>
 
-    <div v-if="state === 'error'" class="r-img__layer">
+    <div v-if="state === 'error'" class="r-image__layer">
       <slot name="error" />
     </div>
 
-    <div v-if="state === 'loaded' && slots.default" class="r-img__overlay">
+    <div v-if="state === 'loaded' && slots.default" class="r-image__overlay">
       <slot />
     </div>
   </div>
 </template>
 
 <style scoped>
-.r-img {
+.r-image {
   display: inline-block;
   position: relative;
   overflow: hidden;
@@ -149,7 +149,7 @@ const wrapperStyle = computed(() => ({
 /* Image: defaults to width 100%, height auto so a logo with only
    `width` set keeps its natural aspect ratio. Adding `cover`/`contain`
    forces the height to fill the wrapper so object-fit takes effect. */
-.r-img__image {
+.r-image__image {
   display: block;
   width: 100%;
   height: auto;
@@ -159,25 +159,25 @@ const wrapperStyle = computed(() => ({
   opacity: 0;
   transition: opacity var(--r-motion-base) var(--r-motion-ease-out);
 }
-.r-img--loaded .r-img__image {
+.r-image--loaded .r-image__image {
   opacity: 1;
 }
 
-.r-img--cover .r-img__image,
-.r-img--contain .r-img__image {
+.r-image--cover .r-image__image,
+.r-image--contain .r-image__image {
   height: 100%;
 }
-.r-img--cover .r-img__image {
+.r-image--cover .r-image__image {
   object-fit: cover;
 }
-.r-img--contain .r-img__image {
+.r-image--contain .r-image__image {
   object-fit: contain;
 }
 
 /* Loading / error layer: absolutely positioned over the wrapper so
    it sits where the image would and disappears once the image lands.
    `inset: 0` works with the inline-block sizing. */
-.r-img__layer {
+.r-image__layer {
   position: absolute;
   inset: 0;
   display: flex;
@@ -192,7 +192,7 @@ const wrapperStyle = computed(() => ({
 
 /* Default-slot overlay: sits over the loaded image. Caption /
    hover-CTA / shimmer-on-top. */
-.r-img__overlay {
+.r-image__overlay {
   position: absolute;
   inset: 0;
   line-height: 1.4;
