@@ -20,7 +20,7 @@ import NowPlayingPill from "@/components/Soundtrack/NowPlayingPill.vue";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import { useNavDestinations } from "@/composables/useNavDestinations";
 import { useNavGlass } from "@/composables/useNavGlass";
-import { RSliderBtnGroup, RImg } from "@/lib";
+import { RSegmentedControl, RImg } from "@/lib";
 
 defineOptions({ inheritAttrs: false });
 
@@ -71,7 +71,7 @@ const scrolled = computed(
       </router-link>
 
       <div class="r-nav__center">
-        <RSliderBtnGroup
+        <RSegmentedControl
           :model-value="activeTab"
           :items="tabs"
           variant="tab"

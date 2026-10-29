@@ -1,4 +1,4 @@
-export interface SliderBtnGroupItem<T extends string | number> {
+export interface SegmentedControlItem<T extends string | number> {
   id: T;
   label?: string;
   icon?: string;

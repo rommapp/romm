@@ -2,7 +2,7 @@
 // RTabNav: single component, two visual presentations:
 //   * variant="underlined" (default): horizontal nav with a brand
 //     underline on active. Used for primary tabs and tight subtabs.
-//     The underline is a sliding indicator (parallels RSliderBtnGroup)
+//     The underline is a sliding indicator (parallels RSegmentedControl)
 //     that translates between buttons on `modelValue` change.
 //   * variant="pill": stacked menu-like items with a soft rounded
 //     fill on active. Pairs naturally with `orientation="vertical"`
@@ -477,7 +477,7 @@ html[data-input="pad"] .r-tab-nav__btn:focus-visible::before {
 }
 
 /* Sliding underline: sits on the bottom border line, slides between
-   buttons on modelValue change (parallels RSliderBtnGroup's indicator). */
+   buttons on modelValue change (parallels RSegmentedControl's indicator). */
 .r-tab-nav__indicator {
   position: absolute;
   left: 0;

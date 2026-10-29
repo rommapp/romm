@@ -20,6 +20,7 @@ import {
   saveSave,
   saveSaveOnUnload,
   saveState,
+  writeArrayBuffersAsBytes,
 } from "./emulatorJSRuntime";
 
 const saveApiMocks = vi.hoisted(() => ({
@@ -137,6 +138,64 @@ describe("patchNetplaySocketIo", () => {
   });
 });
 
+describe("writeArrayBuffersAsBytes", () => {
+  // Stands in for EmulatorJS 4.2.3's window.EJS_GameManager class.
+  function installGameManager() {
+    const writeFile = vi.fn();
+    class GameManager {
+      writeFile(path: string, data: unknown) {
+        writeFile(path, data);
+      }
+    }
+    window.EJS_GameManager = GameManager;
+    return { writeFile, gameManager: new GameManager() };
+  }
+
+  afterEach(() => {
+    delete window.EJS_GameManager;
+  });
+
+  it("writes an ArrayBuffer to the FS as bytes", () => {
+    const { writeFile, gameManager } = installGameManager();
+    writeArrayBuffersAsBytes();
+
+    gameManager.writeFile(
+      "/neogeo.zip",
+      Uint8Array.from([0x50, 0x4b, 0x03, 0x04]).buffer,
+    );
+
+    expect(writeFile).toHaveBeenCalledWith(
+      "/neogeo.zip",
+      Uint8Array.from([0x50, 0x4b, 0x03, 0x04]),
+    );
+  });
+
+  it.each(["retroarch.cfg contents", Uint8Array.from([1, 2])])(
+    "passes %j through untouched",
+    (data) => {
+      const { writeFile, gameManager } = installGameManager();
+      writeArrayBuffersAsBytes();
+
+      gameManager.writeFile("/file", data);
+
+      expect(writeFile).toHaveBeenCalledWith("/file", data);
+    },
+  );
+
+  it("wraps the class only once", () => {
+    installGameManager();
+    writeArrayBuffersAsBytes();
+    const patched = window.EJS_GameManager?.prototype.writeFile;
+    writeArrayBuffersAsBytes();
+
+    expect(window.EJS_GameManager?.prototype.writeFile).toBe(patched);
+  });
+
+  it("does nothing without the 4.2.3 global", () => {
+    expect(() => writeArrayBuffersAsBytes()).not.toThrow();
+  });
+});
+
 describe("installNetplayHostAudioTap", () => {
   class FakeAudioNode {
     targets: unknown[] = [];
@@ -237,7 +296,17 @@ describe("installEJSDefaultOptionsTrap", () => {
 
   afterEach(() => {
     delete (window as { EJS_emulator?: unknown }).EJS_emulator;
+    delete window.EJS_GameManager;
     localStorage.clear();
+  });
+
+  it("writes 4.2.3 file data as bytes once the instance is assigned", () => {
+    window.EJS_GameManager = class {
+      writeFile() {}
+    };
+    window.EJS_emulator = makeEmulator({});
+
+    expect(window.EJS_GameManager.prototype.__rommBytesPatched).toBe(true);
   });
 
   it("patches the instance when window.EJS_emulator is assigned", () => {

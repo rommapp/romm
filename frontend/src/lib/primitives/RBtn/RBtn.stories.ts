@@ -366,7 +366,7 @@ export const FormActions: Story = {
 
 /**
  * `surface` gives an outlined icon-only RBtn the same tinted chrome as the
- * `RSliderBtnGroup` beside it.
+ * `RSegmentedControl` beside it.
  */
 export const SurfaceWithSlider: Story = {
   name: "Surface modifier (icon button next to slider)",

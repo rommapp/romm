@@ -438,6 +438,26 @@ def test_get_config_ships_capabilities_for_a_retroarch_platform(client, access_t
     assert caps["autosave_slot"] == 10
 
 
+def test_get_config_ships_capabilities_for_a_ppsspp_container(client, access_token):
+    """A psp: ppsspp container ships and accepts the broker's one working state slot."""
+    container = {
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "platforms": {"psp": "ppsspp"},
+    }
+    with _streaming(container):
+        r = client.get("/api/streaming/config", headers=_auth(access_token))
+        streaming._assert_valid_slot("psp", 10)
+        with pytest.raises(HTTPException):
+            streaming._assert_valid_slot("psp", 3)
+    assert r.status_code == 200
+    caps = r.json()["containers"][0]["capabilities"]
+    assert caps["max_slots"] == 0
+    assert caps["has_autosave"] is True
+    assert caps["autosave_slot"] == 10
+    assert caps["has_memory_card"] is False
+
+
 def _picks(client, token, rom: Rom, platform: str, spec=None, core=None):
     container = _webstation(platforms={rom.platform_slug: platform})
     with _streaming(container):

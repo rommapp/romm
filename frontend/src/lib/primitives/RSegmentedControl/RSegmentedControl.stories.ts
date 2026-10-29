@@ -1,12 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/vue3";
 import { ref } from "vue";
-import RSliderBtnGroup from "./RSliderBtnGroup.vue";
+import RSegmentedControl from "./RSegmentedControl.vue";
 
 // Generic components can't fill Storybook's `component` slot, so it's cast;
 // the instantiation types the stories' args.
-const meta: Meta<typeof RSliderBtnGroup<string>> = {
-  title: "Primitives/RSliderBtnGroup",
-  component: RSliderBtnGroup as never,
+const meta: Meta<typeof RSegmentedControl<string>> = {
+  title: "Primitives/RSegmentedControl",
+  component: RSegmentedControl as never,
   argTypes: {
     variant: {
       control: "select",
@@ -33,13 +33,13 @@ type Story = StoryObj;
 export const Segmented: Story = {
   args: { variant: "segmented" },
   render: (args) => ({
-    components: { RSliderBtnGroup },
+    components: { RSegmentedControl },
     setup() {
       const layout = ref<"grid" | "list">("grid");
       return { args, layout };
     },
     template: `
-      <RSliderBtnGroup
+      <RSegmentedControl
         v-bind="args"
         :model-value="layout"
         :items="[
@@ -55,13 +55,13 @@ export const Segmented: Story = {
 export const Tab: Story = {
   args: { variant: "tab" },
   render: (args) => ({
-    components: { RSliderBtnGroup },
+    components: { RSegmentedControl },
     setup() {
       const active = ref<"home" | "favorites" | "platforms">("home");
       return { args, active };
     },
     template: `
-      <RSliderBtnGroup
+      <RSegmentedControl
         v-bind="args"
         :model-value="active"
         :items="[
@@ -82,14 +82,14 @@ export const Tab: Story = {
 export const VerticalTab: Story = {
   args: { variant: "tab", orientation: "vertical" },
   render: (args) => ({
-    components: { RSliderBtnGroup },
+    components: { RSegmentedControl },
     setup() {
       const tool = ref<"scan" | "upload" | "patcher">("scan");
       return { args, tool };
     },
     template: `
       <div style="display: inline-block;">
-        <RSliderBtnGroup
+        <RSegmentedControl
           v-bind="args"
           :model-value="tool"
           :items="[
@@ -120,13 +120,13 @@ export const VerticalTab: Story = {
 export const VerticalSegmented: Story = {
   args: { variant: "segmented", orientation: "vertical" },
   render: (args) => ({
-    components: { RSliderBtnGroup },
+    components: { RSegmentedControl },
     setup() {
       const view = ref<"grid" | "list" | "compact">("grid");
       return { args, view };
     },
     template: `
-      <RSliderBtnGroup
+      <RSegmentedControl
         v-bind="args"
         :model-value="view"
         :items="[
@@ -143,13 +143,13 @@ export const VerticalSegmented: Story = {
 export const Disabled: Story = {
   args: { variant: "segmented" },
   render: (args) => ({
-    components: { RSliderBtnGroup },
+    components: { RSegmentedControl },
     setup() {
       const group = ref<"none" | "letter">("none");
       return { args, group };
     },
     template: `
-      <RSliderBtnGroup
+      <RSegmentedControl
         v-bind="args"
         :model-value="group"
         :items="[
