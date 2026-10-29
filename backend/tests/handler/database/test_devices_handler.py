@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import event
-from sqlalchemy.engine import Engine
 
 from handler.database import db_device_handler
+from handler.database.base_handler import sync_engine
 from models.device import Device
 from models.user import User
 from utils.datetime import to_utc
@@ -134,22 +134,53 @@ class TestUpdateLastSeenDebounced:
         # Should not raise
         db_device_handler.update_last_seen_debounced(device_id="does-not-exist")
 
-    def test_does_not_read_the_device_before_updating_it(self, admin_user: User):
+    def test_does_not_read_the_device_before_updating_it(
+        self, admin_user: User, executed_statements: list[str]
+    ):
         """A read in the same transaction makes a concurrent commit fail the UPDATE with
         "Record has changed since last read" (MariaDB error 1020)."""
         device = db_device_handler.add_device(
             Device(id="debounce-no-read", user_id=admin_user.id, last_seen=None)
         )
-        statements: list[str] = []
+        executed_statements.clear()
 
-        def record(conn, cursor, statement, parameters, context, executemany):
-            statements.append(statement.lstrip().lower())
+        db_device_handler.update_last_seen_debounced(device_id=device.id)
 
-        event.listen(Engine, "before_cursor_execute", record)
+        statements = [s.lstrip().lower() for s in executed_statements]
+        assert [s for s in statements if s.startswith("select")] == []
+        assert any(s.startswith("update devices") for s in statements)
+
+    def test_survives_a_concurrent_request_committing_the_same_update(
+        self, admin_user: User
+    ):
+        """Another request bumping the same device between this one's snapshot and its UPDATE
+        must not fail this request (MariaDB error 1020, "Record has changed since last read").
+        """
+        device = db_device_handler.add_device(
+            Device(id="debounce-race", user_id=admin_user.id, last_seen=None)
+        )
+        raced = False
+
+        def commit_the_other_request_first(
+            conn, cursor, statement, parameters, context, executemany
+        ):
+            nonlocal raced
+            if raced or not statement.lstrip().lower().startswith("update devices"):
+                return
+            raced = True
+            db_device_handler.update_last_seen_debounced(device_id=device.id)
+
+        event.listen(
+            sync_engine, "before_cursor_execute", commit_the_other_request_first
+        )
         try:
             db_device_handler.update_last_seen_debounced(device_id=device.id)
         finally:
-            event.remove(Engine, "before_cursor_execute", record)
+            event.remove(
+                sync_engine, "before_cursor_execute", commit_the_other_request_first
+            )
 
-        assert [s for s in statements if s.startswith("select")] == []
-        assert any(s.startswith("update") and "devices" in s for s in statements)
+        assert raced
+        refreshed = db_device_handler.get_device_by_id(device.id)
+        assert refreshed is not None
+        assert refreshed.last_seen is not None

@@ -1,11 +1,11 @@
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import event
-from sqlalchemy.engine import Engine
+from tests.factories import make_device_token
 
 from handler.database import db_client_token_handler
+from handler.database.base_handler import sync_engine
 from models.user import User
-from tests.factories import make_device_token
 from utils.datetime import to_utc
 
 
@@ -44,32 +44,29 @@ class TestUpdateLastUsed:
         assert refreshed is not None
         assert abs((to_utc(refreshed) - recent).total_seconds()) < 1
 
-    def test_unknown_token_is_a_no_op(self, admin_user: User):
+    def test_unknown_token_is_a_no_op(self):
         db_client_token_handler.update_last_used(999_999)
 
-    def test_does_not_read_the_token_before_updating_it(self, admin_user: User):
+    def test_does_not_read_the_token_before_updating_it(
+        self, admin_user: User, executed_statements: list[str]
+    ):
         """A read in the same transaction makes a concurrent commit fail the UPDATE with
         "Record has changed since last read" (MariaDB error 1020)."""
         token, _ = make_device_token(admin_user, None)
-        statements: list[str] = []
+        executed_statements.clear()
 
-        def record(conn, cursor, statement, parameters, context, executemany):
-            statements.append(statement.lstrip().lower())
+        db_client_token_handler.update_last_used(token.id)
 
-        event.listen(Engine, "before_cursor_execute", record)
-        try:
-            db_client_token_handler.update_last_used(token.id)
-        finally:
-            event.remove(Engine, "before_cursor_execute", record)
-
+        statements = [s.lstrip().lower() for s in executed_statements]
         assert [s for s in statements if s.startswith("select")] == []
-        assert any(s.startswith("update") and "client_tokens" in s for s in statements)
+        assert any(s.startswith("update client_tokens") for s in statements)
 
     def test_survives_a_concurrent_request_committing_the_same_update(
         self, admin_user: User
     ):
         """Another request bumping the same token between this one's snapshot and its UPDATE
-        must not fail this request (MariaDB error 1020, "Record has changed since last read")."""
+        must not fail this request (MariaDB error 1020, "Record has changed since last read").
+        """
         token, _ = make_device_token(admin_user, None)
         raced = False
 
@@ -84,12 +81,14 @@ class TestUpdateLastUsed:
             raced = True
             db_client_token_handler.update_last_used(token.id)
 
-        event.listen(Engine, "before_cursor_execute", commit_the_other_request_first)
+        event.listen(
+            sync_engine, "before_cursor_execute", commit_the_other_request_first
+        )
         try:
             db_client_token_handler.update_last_used(token.id)
         finally:
             event.remove(
-                Engine, "before_cursor_execute", commit_the_other_request_first
+                sync_engine, "before_cursor_execute", commit_the_other_request_first
             )
 
         assert raced
