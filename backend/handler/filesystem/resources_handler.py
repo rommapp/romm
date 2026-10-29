@@ -362,6 +362,9 @@ class FSResourcesHandler(FSHandler):
                 self.validate_path(big_path),
                 self.validate_path(small_path),
             )
+            await asyncio.to_thread(
+                self._drop_other_cover_formats, self.validate_path(cover_file)
+            )
         except UnidentifiedImageError as exc:
             # Undecodable bytes still satisfy cover_exists(), so keeping them
             # would stop every later scan from refetching a working cover.
@@ -372,6 +375,16 @@ class FSResourcesHandler(FSHandler):
             log.error(f"Unable to write cover for {url_cover}: {str(exc)}")
             for path in (big_path, small_path):
                 await self._discard_partial_file(path)
+
+    def _drop_other_cover_formats(self, cover_dir: Path) -> None:
+        """Remove covers left in another format, since lookups take the first match."""
+        keep = (
+            {".png", ".webp"} if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP else {".png"}
+        )
+        for size in CoverSize:
+            for path in cover_dir.glob(f"{size.value}.*"):
+                if path.suffix not in keep:
+                    path.unlink(missing_ok=True)
 
     async def _derive_small_cover(self, entity: Rom | Collection) -> None:
         """Rebuild a missing small cover from the large one already on disk.

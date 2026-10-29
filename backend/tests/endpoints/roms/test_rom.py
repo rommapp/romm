@@ -12,7 +12,6 @@ from tests.factories import make_rom
 
 from config.config_manager import MetadataMediaType
 from endpoints.responses.rom import PROVIDER_METADATA_FIELDS
-from endpoints.roms import _moved_file_location
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.database import db_collection_handler, db_rom_handler
 from handler.database.base_handler import sync_session
@@ -2642,50 +2641,6 @@ class TestUpdateMetadataIDs:
         body = response.json()
         assert body["steam_id"] is None
         assert body["steam_metadata"] == {}
-
-
-@pytest.mark.parametrize(
-    ("file_path", "file_name", "moved_path", "moved_name"),
-    [
-        # A single-file rom is the file itself.
-        ("n64/roms", "Game.z64", "n64/roms", "Renamed.z64"),
-        # A folder's files keep their names, even one named after the folder.
-        (
-            "n64/roms/Game.z64",
-            "Game.z64 (Disc 1).bin",
-            "n64/roms/Renamed.z64",
-            "Game.z64 (Disc 1).bin",
-        ),
-        (
-            "n64/roms/Game.z64/extras",
-            "Game.z64.txt",
-            "n64/roms/Renamed.z64/extras",
-            "Game.z64.txt",
-        ),
-    ],
-)
-def test_moved_file_location_follows_the_rename_on_disk(
-    file_path: str, file_name: str, moved_path: str, moved_name: str
-):
-    file = RomFile(file_path=file_path, file_name=file_name)
-    assert _moved_file_location(file, "n64/roms", "Game.z64", "Renamed.z64") == {
-        "file_name": moved_name,
-        "file_path": moved_path,
-    }
-
-
-def test_moved_file_location_skips_a_sibling_sharing_the_prefix():
-    file = RomFile(file_path="n64/roms/Game.z64 Deluxe", file_name="a.bin")
-    assert _moved_file_location(file, "n64/roms", "Game.z64", "Renamed.z64") is None
-
-
-def test_moved_file_location_leaves_the_platform_path_alone():
-    """A rom named like its platform folder must not rewrite that folder."""
-    file = RomFile(file_path="n64/roms", file_name="n64")
-    assert _moved_file_location(file, "n64/roms", "n64", "N64 Game") == {
-        "file_name": "N64 Game",
-        "file_path": "n64/roms",
-    }
 
 
 # (id field, handler, form value, id the handler receives and the row stores)

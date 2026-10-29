@@ -1308,6 +1308,20 @@ class FSRomsHandler(FSHandler):
                 f"{fs_path}/{old_name}", f"{fs_path}/{new_name}"
             )
 
+    @staticmethod
+    def moved_file_location(
+        file: RomFile, fs_path: str, old_name: str, new_name: str
+    ) -> dict[str, str] | None:
+        """Where one of a rom's files sits once `rename_fs_rom` moved `old_name`
+        (a folder's files keep their own names), or None when it did not move."""
+        if file.file_path == fs_path and file.file_name == old_name:
+            return {"file_name": new_name, "file_path": fs_path}
+        old_root = f"{fs_path}/{old_name}"
+        if file.file_path == old_root or file.file_path.startswith(f"{old_root}/"):
+            moved = f"{fs_path}/{new_name}{file.file_path.removeprefix(old_root)}"
+            return {"file_name": file.file_name, "file_path": moved}
+        return None
+
     async def embed_switch_title_ids(self, parsed: ParsedRomFiles) -> str | None:
         """Rename each parsed Switch file to embed the title id read from it.
 

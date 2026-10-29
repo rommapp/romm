@@ -2030,20 +2030,6 @@ async def _refetch_changed_matches(
     return frozenset(refetched)
 
 
-def _moved_file_location(
-    file: RomFile, fs_path: str, old_name: str, new_name: str
-) -> dict[str, str] | None:
-    """Where one of a rom's files sits once `rename_fs_rom` moved `old_name`
-    (a folder's files keep their own names), or None when it did not move."""
-    if file.file_path == fs_path and file.file_name == old_name:
-        return {"file_name": new_name, "file_path": fs_path}
-    old_root = f"{fs_path}/{old_name}"
-    if file.file_path == old_root or file.file_path.startswith(f"{old_root}/"):
-        moved = f"{fs_path}/{new_name}{file.file_path.removeprefix(old_root)}"
-        return {"file_name": file.file_name, "file_path": moved}
-    return None
-
-
 @protected_route(
     router.put,
     "/{id}",
@@ -2364,7 +2350,9 @@ async def update_rom(
 
     if should_update_fs:
         for file in rom.files:
-            moved = _moved_file_location(file, rom.fs_path, rom.fs_name, new_fs_name)
+            moved = fs_rom_handler.moved_file_location(
+                file, rom.fs_path, rom.fs_name, new_fs_name
+            )
             if moved:
                 db_rom_handler.update_rom_file(file.id, moved)
 
