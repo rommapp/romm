@@ -339,6 +339,13 @@ declare global {
       save: ArrayBuffer;
     }) => void;
     EJS_onLoadSave: () => void;
+    // Only the 4.2.3 build exposes its GameManager class as a global.
+    EJS_GameManager?: {
+      prototype: {
+        writeFile(path: string, data: unknown): void;
+        __rommBytesPatched?: boolean;
+      };
+    };
     // Socket.IO global, bundled by EmulatorJS and used by its netplay code.
     io?: ((url: string, opts?: Record<string, unknown>) => unknown) & {
       __rommNetplayPatched?: boolean;

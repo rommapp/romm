@@ -64,40 +64,6 @@ export function firmwareExternalFiles(
   );
 }
 
-interface ExternalFilesEmulator {
-  config: { externalFiles?: Record<string, string> | undefined };
-  downloadGameFile?: unknown;
-  downloadFile?:
-    ((path: string, ...args: unknown[]) => Promise<unknown>) | undefined;
-}
-
-/** Hands every EJS_externalFiles download to the 4.2.3 virtual FS as bytes. */
-export function writeExternalFilesAsBytes(
-  emulator: ExternalFilesEmulator,
-): void {
-  // 4.2.3 writes the raw ArrayBuffer, which Emscripten's FS.writeFile rejects.
-  const { downloadFile } = emulator;
-  if (typeof emulator.downloadGameFile !== "function" || !downloadFile) return;
-
-  emulator.downloadFile = function (path, ...args) {
-    const response = downloadFile.call(this, path, ...args);
-    const externalUrls = Object.values(emulator.config.externalFiles ?? {});
-    if (!externalUrls.includes(path)) return response;
-
-    return response.then((result) => {
-      if (
-        result !== null &&
-        typeof result === "object" &&
-        "data" in result &&
-        result.data instanceof ArrayBuffer
-      ) {
-        (result as { data: unknown }).data = new Uint8Array(result.data);
-      }
-      return result;
-    });
-  };
-}
-
 interface ArcadeBiosEmulator {
   config: {
     biosUrl?: string | undefined;

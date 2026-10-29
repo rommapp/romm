@@ -1,9 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   firmwareExternalFiles,
   keepArcadeBiosWhole,
   resolveInitialFirmware,
-  writeExternalFilesAsBytes,
 } from "./playerFirmware";
 
 // Only these three fields are read; minimal stubs stand in for FirmwareSchema.
@@ -197,96 +196,5 @@ describe("keepArcadeBiosWhole", () => {
     const instance = emulator("fbneo", "");
     keepArcadeBiosWhole(instance);
     expect(instance.config.externalFiles).toBeUndefined();
-  });
-});
-
-describe("writeExternalFilesAsBytes", () => {
-  const BIOS_URL = "/api/firmware/9/content/neogeo.zip";
-  const KICKSTART_URL = "/api/firmware/5/content/kick.rom";
-
-  const downloader = (
-    download: (path: string, ...args: unknown[]) => Promise<unknown>,
-    { nightly = false } = {},
-  ) => ({
-    config: {
-      externalFiles: {
-        "/neogeo.zip": BIOS_URL,
-        "/home/web_user/retroarch/userdata/system/kick.rom": KICKSTART_URL,
-      },
-    },
-    downloadGameFile: nightly ? undefined : () => undefined,
-    downloadFile: download,
-  });
-
-  it.each([BIOS_URL, KICKSTART_URL])(
-    "hands %s to the FS as bytes",
-    async (url) => {
-      const archive = Uint8Array.from([0x50, 0x4b, 0x03, 0x04]).buffer;
-      const instance = downloader(() =>
-        Promise.resolve({ headers: {}, data: archive }),
-      );
-      writeExternalFilesAsBytes(instance);
-
-      const response = await instance.downloadFile(url, null, true, {
-        responseType: "arraybuffer",
-        method: "GET",
-      });
-
-      expect(response).toMatchObject({ data: expect.any(Uint8Array) });
-      expect(Array.from((response as { data: Uint8Array }).data)).toEqual([
-        0x50, 0x4b, 0x03, 0x04,
-      ]);
-    },
-  );
-
-  it("preserves other download results unchanged", async () => {
-    const archive = Uint8Array.from([0x50, 0x4b]).buffer;
-    const instance = downloader(() =>
-      Promise.resolve({ headers: {}, data: archive }),
-    );
-    writeExternalFilesAsBytes(instance);
-
-    const response = await instance.downloadFile("/game.zip");
-
-    expect(response).toEqual({ headers: {}, data: archive });
-    expect((response as { data: ArrayBuffer }).data).toBe(archive);
-  });
-
-  it("preserves the download receiver and arguments", async () => {
-    const download = vi.fn(() => Promise.resolve({ data: new ArrayBuffer(1) }));
-    const instance = downloader(download);
-    const options = { responseType: "arraybuffer", method: "GET" };
-    writeExternalFilesAsBytes(instance);
-
-    await instance.downloadFile(BIOS_URL, null, true, options);
-
-    expect(download).toHaveBeenCalledWith(BIOS_URL, null, true, options);
-    expect(download.mock.contexts[0]).toBe(instance);
-  });
-
-  it.each([-1, { headers: {} }, { data: new Uint8Array([1, 2]) }])(
-    "preserves non-ArrayBuffer responses: %j",
-    async (response) => {
-      const instance = downloader(() => Promise.resolve(response));
-      writeExternalFilesAsBytes(instance);
-
-      expect(await instance.downloadFile(BIOS_URL)).toBe(response);
-    },
-  );
-
-  it("preserves download rejections", async () => {
-    const error = new Error("download failed");
-    const instance = downloader(() => Promise.reject(error));
-    writeExternalFilesAsBytes(instance);
-
-    await expect(instance.downloadFile(BIOS_URL)).rejects.toBe(error);
-  });
-
-  it("leaves the nightly build's downloads alone", () => {
-    const download = () => Promise.resolve({});
-    const instance = downloader(download, { nightly: true });
-    writeExternalFilesAsBytes(instance);
-
-    expect(instance.downloadFile).toBe(download);
   });
 });
