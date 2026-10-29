@@ -1,7 +1,8 @@
 from tests.factories import make_platform, make_rom
 
-from handler.auth.rom_visibility import RomVisibilityFilter
+from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
 from handler.database import db_platform_handler
+from handler.database.base_handler import sync_session
 from models.platform import Platform
 
 
@@ -109,6 +110,25 @@ def test_a_rom_hidden_both_ways_is_left_out_once():
     )
 
     assert found is not None and _totals(found) == (1, 10)
+
+
+def test_a_shared_session_rereads_the_totals():
+    platform = make_platform("platform_a")
+    make_rom(platform, "a1", fs_size_bytes=10)
+    hidden = make_rom(platform, "a2", fs_size_bytes=5)
+    visibility = RomVisibilityFilter(hidden_rom_ids=frozenset({hidden.id}))
+
+    reads = []
+    with sync_session.begin() as session:
+        # Each read returns the session's one instance, so take its totals at once.
+        for read_visibility in (visibility, visibility, UNRESTRICTED):
+            found = db_platform_handler.get_platform(
+                platform.id, visibility=read_visibility, session=session
+            )
+            assert found is not None
+            reads.append(_totals(found))
+
+    assert reads == [(1, 10), (1, 10), (2, 15)]
 
 
 def test_totals_are_whole_without_a_visibility():

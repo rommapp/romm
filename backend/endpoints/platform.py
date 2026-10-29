@@ -186,11 +186,13 @@ async def update_platform(
             {"changed": changed},
         )
 
-    # Re-read for the caller's totals; the saved row carries everyone's.
-    visible = db_platform_handler.get_platform(
-        id, visibility=get_rom_visibility_filter(request)
-    )
-    return PlatformSchema.model_validate(visible or platform_db)
+    visibility = get_rom_visibility_filter(request)
+    if not visibility.is_unrestricted:
+        # Re-read for the caller's totals; the saved row carries everyone's.
+        platform_db = db_platform_handler.get_platform(id, visibility=visibility)
+        if not platform_db:
+            raise PlatformNotFoundInDatabaseException(id)
+    return PlatformSchema.model_validate(platform_db)
 
 
 @protected_route(

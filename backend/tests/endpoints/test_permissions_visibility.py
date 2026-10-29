@@ -171,6 +171,22 @@ def test_hidden_rom_is_left_out_of_its_platforms_counts(
     assert (admin["rom_count"], admin["fs_size_bytes"]) == (2, 150)
 
 
+def test_platform_update_answers_with_the_editors_counts(client, editor_user, platform):
+    make_rom(platform, "shown", fs_size_bytes=100)
+    hidden = make_rom(platform, "hidden", fs_size_bytes=50)
+    _hide(PermEntity.ROMS, hidden.id, editor_user.id)
+
+    response = client.put(
+        f"/api/platforms/{platform.id}",
+        headers=_auth(editor_user),
+        json={"custom_name": "Renamed"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    body = response.json()
+    assert (body["rom_count"], body["fs_size_bytes"]) == (1, 100)
+
+
 def test_platform_with_only_hidden_roms_counts_none(client, viewer_user, platform):
     hidden = make_rom(platform, "hidden", fs_size_bytes=50)
     _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
