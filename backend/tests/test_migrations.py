@@ -26,7 +26,7 @@ from handler.database.base_handler import sync_engine
 from models.base import BaseModel
 from models.collection import Collection, SmartCollection, VirtualCollectionRom
 from models.platform import Platform
-from models.rom import FULL_PATH_HASH_LENGTH, Rom, compute_full_path_hash
+from models.rom import FULL_PATH_HASH_LENGTH, Rom, RomMetadata, compute_full_path_hash
 from models.user import User
 from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
@@ -964,7 +964,10 @@ def _metadata_lock_replay_state(connection: sa.Connection, rom_id: int):
         .where(VirtualCollectionRom.rom_id == rom_id)
         .order_by(VirtualCollectionRom.type, VirtualCollectionRom.name)
     ).all()
-    return source, memberships
+    projected_genres = connection.execute(
+        sa.select(RomMetadata.genres).where(RomMetadata.rom_id == rom_id)
+    ).scalar_one()
+    return source, memberships, projected_genres
 
 
 def test_metadata_locks_migration_replay_preserves_snapshots_and_memberships(
@@ -1008,6 +1011,7 @@ def test_metadata_locks_migration_replay_preserves_snapshots_and_memberships(
     with sync_engine.connect() as connection:
         after = _metadata_lock_replay_state(connection, rom.id)
         assert sa.inspect(connection).has_table("roms_metadata")
+    assert before[2] == ["Locked genre"]
     assert after == before
 
     db_rom_handler.update_rom(

@@ -1,3 +1,5 @@
+from typing import Any
+
 from sqlalchemy import select
 from tests.factories import make_rom
 
@@ -20,7 +22,7 @@ def _memberships(rom_id: int) -> list[tuple[str, str, str | None, str | None]]:
                 )
                 .where(VirtualCollectionRom.rom_id == rom_id)
                 .order_by(VirtualCollectionRom.type, VirtualCollectionRom.name)
-            ).tuples()
+            ).all()
         )
 
 
@@ -38,6 +40,21 @@ def _names(rom_id: int) -> dict[str, set[str]]:
             "developer",
         )
     }
+
+
+def _assert_rom_metadata(rom_id: int, expected: dict[str, Any]) -> None:
+    rom = db_rom_handler.get_rom(rom_id)
+    assert rom is not None
+    assert rom.metadatum is not None
+    for field, value in expected.items():
+        assert getattr(rom.metadatum, field) == value
+
+
+def _assert_facets(rom_id: int, expected: dict[str, Any]) -> None:
+    with sync_session.begin() as session:
+        facets = session.get_one(RomFacets, rom_id)
+        for field, value in expected.items():
+            assert getattr(facets, field) == value
 
 
 def test_insert_applies_metadata_locks_to_facets_and_memberships(platform: Platform):
@@ -78,12 +95,12 @@ def test_cover_update_preserves_all_seven_unlocked_membership_types(
         manual_metadata={
             "genres": ["Action"],
             "franchises": ["Series"],
-            "collections": ["Set"],
             "companies": ["Studio"],
             "game_modes": ["Single-player"],
             "publishers": ["Publisher"],
             "developers": ["Developer"],
         },
+        igdb_metadata={"collections": ["Set"]},
     )
 
     db_rom_handler.update_rom(
@@ -112,7 +129,6 @@ def test_publisher_and_developer_changes_reapply_other_active_locks(
     provider = {
         "genres": ["Generated genre"],
         "franchises": ["Series"],
-        "collections": ["Set"],
         "companies": ["Studio"],
         "game_modes": ["Single-player"],
         "publishers": ["Publisher A"],
@@ -122,6 +138,7 @@ def test_publisher_and_developer_changes_reapply_other_active_locks(
         platform,
         "locked memberships",
         manual_metadata=provider,
+        igdb_metadata={"collections": ["Set"]},
         path_cover_s="source-small.png",
         path_cover_l="source-large.png",
     )
@@ -223,3 +240,111 @@ def test_unlock_rebuilds_from_latest_generated_values(platform: Platform):
 
     db_rom_handler.update_rom(rom.id, {"metadata_locks": {}})
     assert _names(rom.id)["genre"] == {"Generated B"}
+
+
+def test_metadata_view_projects_locked_snapshots_until_unlock(platform: Platform):
+    initial = {
+        "genres": ["Initial genre"],
+        "franchises": ["Initial franchise"],
+        "collections": ["Initial collection"],
+        "companies": ["Initial company"],
+        "game_modes": ["Initial mode"],
+        "age_ratings": [{"rating": "E"}],
+        "first_release_date": "1569369600",
+        "player_count": "2",
+    }
+    rom = make_rom(
+        platform,
+        "locked metadata view",
+        igdb_metadata=initial,
+    )
+    locks = {
+        "genres": ["Locked genre"],
+        "franchises": ["Locked franchise"],
+        "collections": ["Locked collection"],
+        "companies": ["Locked company"],
+        "game_modes": ["Locked mode"],
+        "age_ratings": ["Locked rating"],
+        "first_release_date": 1234567890000,
+        "player_count": "8",
+    }
+    facet_locks = {
+        field: value for field, value in locks.items() if field != "first_release_date"
+    }
+
+    db_rom_handler.update_rom(rom.id, {"metadata_locks": locks})
+    _assert_rom_metadata(rom.id, locks)
+    _assert_facets(rom.id, facet_locks)
+
+    updated = {
+        "genres": ["Updated genre"],
+        "franchises": ["Updated franchise"],
+        "collections": ["Updated collection"],
+        "companies": ["Updated company"],
+        "game_modes": ["Updated mode"],
+        "age_ratings": [{"rating": "T"}],
+        "first_release_date": "1609459200",
+        "player_count": "4",
+    }
+    db_rom_handler.update_rom(rom.id, {"igdb_metadata": updated})
+    _assert_rom_metadata(rom.id, locks)
+    _assert_facets(rom.id, facet_locks)
+
+    db_rom_handler.update_rom(rom.id, {"metadata_locks": {}})
+    _assert_rom_metadata(
+        rom.id,
+        {
+            "genres": ["Updated genre"],
+            "franchises": ["Updated franchise"],
+            "collections": ["Updated collection"],
+            "companies": ["Updated company"],
+            "game_modes": ["Updated mode"],
+            "age_ratings": ["T"],
+            "first_release_date": 1609459200000,
+            "player_count": "4",
+        },
+    )
+
+
+def test_metadata_view_keeps_empty_and_null_snapshots(platform: Platform):
+    rom = make_rom(
+        platform,
+        "empty and null metadata locks",
+        igdb_metadata={
+            "genres": ["Generated genre"],
+            "first_release_date": "1569369600",
+            "player_count": "2",
+        },
+    )
+    locks: dict[str, Any] = {
+        "genres": [],
+        "first_release_date": None,
+        "player_count": None,
+    }
+
+    db_rom_handler.update_rom(rom.id, {"metadata_locks": locks})
+    _assert_rom_metadata(rom.id, locks)
+    _assert_facets(rom.id, {"genres": [], "player_count": None})
+
+    db_rom_handler.update_rom(
+        rom.id,
+        {
+            "igdb_metadata": {
+                "genres": ["Updated genre"],
+                "first_release_date": "1609459200",
+                "player_count": "4",
+            }
+        },
+    )
+    _assert_rom_metadata(rom.id, locks)
+    _assert_facets(rom.id, {"genres": [], "player_count": None})
+
+    db_rom_handler.update_rom(rom.id, {"metadata_locks": {}})
+    _assert_rom_metadata(
+        rom.id,
+        {
+            "genres": ["Updated genre"],
+            "first_release_date": 1609459200000,
+            "player_count": "4",
+        },
+    )
