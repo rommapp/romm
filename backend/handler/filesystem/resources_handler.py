@@ -1,7 +1,7 @@
 import asyncio
 import gzip
 import os
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Container, Iterable, Sequence
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Final, NamedTuple, cast
@@ -172,6 +172,7 @@ class _PathClaim(NamedTuple):
 
     provider: int
     url: str | None
+    media_type: MetadataMediaType
 
 
 class FSResourcesHandler(FSHandler):
@@ -266,8 +267,8 @@ class FSResourcesHandler(FSHandler):
             full_path.unlink()
         return True
 
-    async def _discard_partial_file(self, relative_path: str) -> None:
-        """Remove a partially written file left behind by a failed download.
+    async def _discard_file(self, relative_path: str) -> None:
+        """Remove a stale or partially written file, logging rather than raising.
 
         A truncated image is worse than a missing one: it satisfies the
         `*_exists` checks, so later scans skip it and never refetch it.
@@ -276,7 +277,7 @@ class FSResourcesHandler(FSHandler):
             if await self.file_exists(relative_path):
                 await self.remove_file(relative_path)
         except OSError as exc:
-            log.error(f"Unable to remove partial file {relative_path}: {str(exc)}")
+            log.error(f"Unable to remove file {relative_path}: {str(exc)}")
 
     async def _store_cover(self, entity: Rom | Collection, url_cover: str) -> None:
         """Fetch a cover once and write both sizes.
@@ -302,7 +303,7 @@ class FSResourcesHandler(FSHandler):
                 await self.copy_file(resolved, big_path, allow_link=False)
             except Exception as exc:
                 log.error(f"Unable to copy cover file {url_cover}: {str(exc)}")
-                await self._discard_partial_file(big_path)
+                await self._discard_file(big_path)
                 return None
         else:
             # Handle HTTP URLs
@@ -354,7 +355,7 @@ class FSResourcesHandler(FSHandler):
             if await self._discard_if_chroma_key(big_path):
                 # A small cover left by an earlier scan would outlive the large
                 # one it was derived from.
-                await self._discard_partial_file(small_path)
+                await self._discard_file(small_path)
                 return None
 
             await asyncio.to_thread(
@@ -370,11 +371,11 @@ class FSResourcesHandler(FSHandler):
             # would stop every later scan from refetching a working cover.
             log.error(f"Unable to identify image {big_path}: {str(exc)}")
             for path in (big_path, small_path):
-                await self._discard_partial_file(path)
+                await self._discard_file(path)
         except OSError as exc:
             log.error(f"Unable to write cover for {url_cover}: {str(exc)}")
             for path in (big_path, small_path):
-                await self._discard_partial_file(path)
+                await self._discard_file(path)
 
     def _drop_other_cover_formats(self, cover_dir: Path) -> None:
         """Remove covers left in another format, since lookups take the first match."""
@@ -412,7 +413,7 @@ class FSResourcesHandler(FSHandler):
             # Unlike a fresh download, these bytes weren't written here, so the
             # large cover stays put and only the partial small one is dropped.
             log.error(f"Unable to resize cover {path_cover_l}: {str(exc)}")
-            await self._discard_partial_file(path_cover_s)
+            await self._discard_file(path_cover_s)
 
     def _get_cover_path(self, entity: Rom | Collection, size: CoverSize) -> str | None:
         """Returns rom cover filesystem path adapted to frontend folder structure
@@ -511,7 +512,7 @@ class FSResourcesHandler(FSHandler):
                 f"Unable to write artwork for {entity.fs_resources_path}: {str(exc)}"
             )
             for path in (path_cover_l, path_cover_s):
-                await self._discard_partial_file(str(path.relative_to(self.base_path)))
+                await self._discard_file(str(path.relative_to(self.base_path)))
             return None, None
 
         return str(path_cover_l.relative_to(self.base_path)), str(
@@ -544,7 +545,7 @@ class FSResourcesHandler(FSHandler):
                 return True
             except Exception as exc:
                 log.error(f"Unable to copy screenshot file {url_screenhot}: {str(exc)}")
-                await self._discard_partial_file(f"{screenshot_path}/{idx}.jpg")
+                await self._discard_file(f"{screenshot_path}/{idx}.jpg")
                 return False
         else:
             # Handle HTTP URLs
@@ -633,7 +634,7 @@ class FSResourcesHandler(FSHandler):
                 # Otherwise the old image at this index passes for the new one
                 # on the next scan, and is never fetched again.
                 if overwrite:
-                    await self._discard_partial_file(path)
+                    await self._discard_file(path)
                 return None
             return path
 
@@ -641,6 +642,16 @@ class FSResourcesHandler(FSHandler):
             *(screenshot_path(idx, url) for idx, url in enumerate(url_screenshots))
         )
         return [path for path in paths if path]
+
+    async def remove_screenshots_past(self, rom: Rom, count: int) -> None:
+        """Delete the stored screenshots indexed past a list of `count` urls.
+
+        Callers run it once the new paths are saved, so a failed save never
+        leaves the row listing deleted files.
+        """
+        for idx in self._stored_screenshot_indexes(rom):
+            if idx.isdecimal() and int(idx) >= count:
+                await self._discard_file(self._get_screenshot_path(rom, idx))
 
     # Manuals
     def manual_exists(self, rom: Rom) -> bool:
@@ -673,7 +684,7 @@ class FSResourcesHandler(FSHandler):
                 )
             except Exception as exc:
                 log.error(f"Unable to copy manual file {url_manual}: {str(exc)}")
-                await self._discard_partial_file(f"{manual_path}/{rom.id}.pdf")
+                await self._discard_file(f"{manual_path}/{rom.id}.pdf")
                 return None
         else:
             # Handle HTTP URL
@@ -843,7 +854,7 @@ class FSResourcesHandler(FSHandler):
                         await self.copy_file(resolved, dest_path, allow_link=True)
                 except Exception as exc:
                     log.error(f"Unable to copy media file {url_media}: {str(exc)}")
-                    await self._discard_partial_file(dest_path)
+                    await self._discard_file(dest_path)
                     return False
             else:
                 # Handle HTTP URLs
@@ -970,33 +981,42 @@ class FSResourcesHandler(FSHandler):
         self,
         previous: Sequence[dict[str, Any] | None],
         current: Sequence[dict[str, Any] | None],
-        media_types: Iterable[MetadataMediaType],
+        refetched: Sequence[Container[MetadataMediaType]],
     ) -> None:
-        """Delete stored media whose owner or source changed, so it is fetched again.
+        """Delete stored media nothing records, or whose owner or source changed.
 
         Args:
             previous: Every provider's dict before the scan, highest priority first.
-            current: The same providers' dicts about to be stored, in that order.
-            media_types: The types to compare.
+            current: The same providers' dicts after it, in that order.
+            refetched: The types each provider stores again in this pass, in
+                that order. A changed file is kept when its new owner won't
+                fetch it, so its recorded path never points at nothing.
         """
-        media_types = list(media_types)
 
         def claims(dicts: Sequence[dict[str, Any] | None]) -> dict[str, _PathClaim]:
             # A shared path holds the file of the first provider that records it.
             owned: dict[str, _PathClaim] = {}
             for provider, metadata in enumerate(dicts):
-                for media in self.recorded_media(metadata or {}, media_types):
-                    owned.setdefault(media.path, _PathClaim(provider, media.url))
+                # Every type: a provider records no path for one no longer preferred.
+                for media in self.recorded_media(metadata or {}, MetadataMediaType):
+                    owned.setdefault(
+                        media.path, _PathClaim(provider, media.url, media.media_type)
+                    )
             return owned
 
         after = claims(current)
         stale = [
             path
             for path, before in claims(previous).items()
-            # A current claim without a URL keeps what its provider stored.
             if (claim := after.get(path)) is None
-            or claim.provider != before.provider
-            or claim.url not in (None, before.url)
+            or (
+                claim.media_type in refetched[claim.provider]
+                # A current claim without a URL keeps what its provider stored.
+                and (
+                    claim.provider != before.provider
+                    or claim.url not in (None, before.url)
+                )
+            )
         ]
         for path in stale:
             try:

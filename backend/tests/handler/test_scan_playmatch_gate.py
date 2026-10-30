@@ -7,7 +7,7 @@ from tests.handler.scan_stubs import add_n64_platform, add_rom, run_scan
 
 from handler.metadata import meta_igdb_handler, meta_playmatch_handler
 from handler.metadata.igdb_handler import IGDBRom
-from handler.scan_handler import MetadataSource, ScanType
+from handler.scan.sources import MetadataSource, ScanType
 
 
 async def _update_scan(**rom_fields: Any) -> AsyncMock:

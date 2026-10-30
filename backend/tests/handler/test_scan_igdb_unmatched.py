@@ -8,7 +8,7 @@ from tests.handler.scan_stubs import add_rom, run_scan
 
 from adapters.services.igdb import IGDB_PLATFORM_LIST
 from handler.metadata.igdb_handler import IGDBRom
-from handler.scan_handler import MetadataSource, ScanType
+from handler.scan.sources import MetadataSource, ScanType
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 ARCADE_IGDB_ID = IGDB_PLATFORM_LIST[UPS.ARCADE]["id"]
@@ -19,7 +19,7 @@ async def _unmatched_scan(slug: str) -> AsyncMock:
     rom = add_rom(platform, "mvsc2.zip", "mvsc2")
     lookup = AsyncMock(return_value=IGDBRom(igdb_id=None))
 
-    with patch("handler.scan_handler.meta_igdb_handler.get_rom", new=lookup):
+    with patch("handler.scan.lookups.meta_igdb_handler.get_rom", new=lookup):
         await run_scan(
             platform,
             rom,

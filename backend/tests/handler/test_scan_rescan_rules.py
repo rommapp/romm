@@ -7,7 +7,7 @@ from handler.metadata.flashpoint_handler import FLASHPOINT_PLATFORM_LIST
 from handler.metadata.hltb_handler import HLTB_PLATFORM_LIST
 from handler.metadata.libretro_handler import LIBRETRO_PLATFORM_LIST
 from handler.metadata.steam_handler import STEAM_PLATFORMS
-from handler.scan_handler import (
+from handler.scan.sources import (
     RESCAN_RULES,
     MetadataSource,
     ScanType,

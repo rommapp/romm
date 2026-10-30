@@ -68,20 +68,22 @@ from handler.redis_handler import (
     scan_queue,
 )
 from handler.rom_files import loaded_rom_files, refresh_rom_files
-from handler.scan_handler import (
+from handler.scan.merge import fs_rom_file_attrs
+from handler.scan.sources import (
     RESCAN_RULES,
     MetadataSource,
     ScanType,
+    get_enabled_metadata_sources,
+    should_consult,
+)
+from handler.scan_handler import (
     build_hashless_fs_rom,
     download_rom_resources,
     emit_scanning_rom,
-    fs_rom_file_attrs,
-    get_enabled_metadata_sources,
     persist_soundtrack_cover,
     scan_firmware,
     scan_platform,
     scan_rom,
-    should_consult,
 )
 from handler.scan_jobs import (
     get_blocking_library_scans,

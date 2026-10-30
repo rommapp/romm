@@ -175,7 +175,7 @@ async def test_get_rom_matched_returns_cover_url(handler: LibretroHandler):
 async def test_get_rom_fetches_extra_art_when_preferred(handler: LibretroHandler):
     """SCREENSHOT/TITLE_SCREEN/LOGO in SCAN_MEDIA trigger the corresponding
     Named_Snaps/Named_Titles/Named_Logos fetches; matches land in
-    url_screenshots so the scan_handler artwork loop can pick them up."""
+    url_screenshots so the scan's artwork merge can pick them up."""
     with (
         patch.object(
             handler.service,

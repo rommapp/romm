@@ -146,7 +146,7 @@ def test_scan_priority_sources_match_metadata_source_enum():
     """VALID_SCAN_PRIORITY_SOURCES duplicates MetadataSource to avoid a circular
     import; guard against the two drifting apart."""
     from config.config_manager import VALID_SCAN_PRIORITY_SOURCES
-    from handler.scan_handler import MetadataSource
+    from handler.scan.sources import MetadataSource
 
     assert VALID_SCAN_PRIORITY_SOURCES == {source.value for source in MetadataSource}
 

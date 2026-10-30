@@ -33,9 +33,8 @@ from handler.metadata.ss_handler import (
     get_rate_limited_rom_names,
     reset_rate_limited_roms,
 )
+from handler.scan.sources import MetadataSource, ScanType
 from handler.scan_handler import (
-    MetadataSource,
-    ScanType,
     build_hashless_fs_rom,
     download_rom_resources,
     scan_platform,

@@ -119,10 +119,8 @@ from handler.metadata.ss_handler import (
 )
 from handler.recommendation import similar_roms
 from handler.rom_conversion import promote_single_file_to_folder
+from handler.scan.sources import RESCAN_RULES, MetadataSource, ScanType
 from handler.scan_handler import (
-    RESCAN_RULES,
-    MetadataSource,
-    ScanType,
     build_hashless_fs_rom,
     build_physical_fs_name,
     build_physical_fs_path,
@@ -2347,6 +2345,9 @@ async def update_rom(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update ROM {id}: {exc}",
         ) from exc
+
+    if url_screenshots:
+        await fs_resource_handler.remove_screenshots_past(rom, len(url_screenshots))
 
     if should_update_fs:
         for file in rom.files:
