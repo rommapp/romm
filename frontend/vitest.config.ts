@@ -16,6 +16,24 @@ export default defineConfig({
         inline: ["@vueuse/integrations"],
       },
     },
+    coverage: {
+      provider: "v8",
+      // Listing sources reports files no test imports at 0% instead of omitting them.
+      include: ["src/**/*.{ts,vue}"],
+      exclude: [
+        "src/__generated__/**",
+        "src/locales/**",
+        "src/tokens/**",
+        "src/test-utils/**",
+        "src/**/*.{test,spec}.ts",
+        "src/**/*.stories.ts",
+        "src/**/*.fixtures.ts",
+        "src/**/*.plays.ts",
+        "src/**/*.d.ts",
+      ],
+      // projectRoot makes cobertura paths repo-relative (frontend/...), as code coverage expects.
+      reporter: ["text-summary", "html", ["cobertura", { projectRoot: ".." }]],
+    },
     projects: [
       {
         extends: true,
