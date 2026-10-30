@@ -41,7 +41,7 @@ from handler.filesystem.resources_handler import (
 )
 from models.collection import Collection
 from models.rom import Rom
-from utils.images import frame_durations
+from utils.images import WEBP_QUALITY, frame_durations
 from utils.rate_limiter import ConcurrencyLimiter, RateLimiter
 
 
@@ -294,6 +294,17 @@ class TestFSResourcesHandler:
             assert small.format == "WEBP"
             assert small.size == SMALL_FRAME_SIZE
             assert frame_durations(small) == DURATIONS
+
+    def test_resize_cover_to_small_encodes_animation_at_the_webp_quality(
+        self, handler: FSResourcesHandler, tmp_path: Path
+    ):
+        with (
+            Image.open(BytesIO(animated_image_bytes("GIF"))) as img,
+            patch.object(Image.Image, "save", autospec=True) as save,
+        ):
+            handler.resize_cover_to_small(img, save_path=str(tmp_path / "small.png"))
+
+        assert save.call_args.kwargs["quality"] == WEBP_QUALITY
 
     @pytest.mark.parametrize(
         "fmt, source_params",

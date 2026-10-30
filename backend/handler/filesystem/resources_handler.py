@@ -23,6 +23,7 @@ from utils.context import ctx_httpx_client
 from utils.images import (
     IMAGE_DECODE_ERRORS,
     MAX_TRIM_PIXELS,
+    WEBP_QUALITY,
     frame_durations,
     is_animated,
     webp_loop,
@@ -223,6 +224,7 @@ class FSResourcesHandler(FSHandler):
                 append_images=frames[1:],
                 duration=durations,
                 loop=webp_loop(cover),
+                quality=WEBP_QUALITY,
             )
             return
 

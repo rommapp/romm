@@ -12,6 +12,10 @@ MAX_ANIMATION_PIXELS = 100_000_000
 # Largest image a logo trim decodes; real wheels are about half a million pixels.
 MAX_TRIM_PIXELS = 16_000_000
 
+# Lossy WebP quality for cover copies. Past 95, files grow about a third
+# for little visible gain, since chroma stays subsampled at any quality.
+WEBP_QUALITY = 95
+
 # Largest loop count a WebP animation can store
 _MAX_WEBP_LOOP = 0xFFFF
 
