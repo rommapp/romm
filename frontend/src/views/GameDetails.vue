@@ -237,8 +237,9 @@ const overviewSections = computed<InfoGridSection[]>(() => [
 ]);
 
 const playerCount = computed<string | null>(() => {
+  // Untrimmed: the badge's search pivot must match the stored value exactly.
   const pc = currentRom.value?.metadatum?.player_count;
-  return pc ? pc.trim() : null;
+  return pc?.trim() ? pc : null;
 });
 const userCollections = computed(
   () => currentRom.value?.user_collections ?? [],

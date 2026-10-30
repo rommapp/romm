@@ -11,6 +11,7 @@
 import { computed, reactive } from "vue";
 import { RIcon, RTooltip } from "@/lib";
 import type { DetailedRom } from "@/stores/roms";
+import { searchLocation } from "@/utils/searchLocation";
 
 // IGDB hosts every rating icon at a conventional URL, but not every
 // `category_rating` combo is actually populated: old/regional ratings
@@ -41,6 +42,9 @@ type Badge = {
   rating: string;
   category: string;
   rating_cover_url?: string | undefined;
+  label: string;
+  // The stored entry, which the ageRatings search filter matches on.
+  raw: string;
 };
 
 // IGDB icon URLs use lowercased rating codes with "+" stripped
@@ -55,19 +59,27 @@ function igdbIconUrl(category: string, rating: string): string | undefined {
   return `https://www.igdb.com/icons/rating_icons/${slug}/${slug}_${normalize(rating)}.png`;
 }
 
+// Ratings like "12" or "M" exist under several categories, so a rom can
+// store the same string twice; each occurrence takes the next entry.
+function queueByRating<T extends { rating: string }>(entries: T[]) {
+  const queues = new Map<string, T[]>();
+  for (const r of entries) {
+    const key = r.rating.trim();
+    const queue = queues.get(key);
+    if (queue) queue.push(r);
+    else queues.set(key, [r]);
+  }
+  return queues;
+}
+
 const badges = computed<Badge[]>(() => {
   const ratings = props.rom.metadatum?.age_ratings ?? [];
-  const igdbRatings = props.rom.igdb_metadata?.age_ratings ?? [];
-  const ssRatings = props.rom.ss_metadata?.age_ratings ?? [];
-
-  const igdbByRating = new Map(
-    igdbRatings.map((r) => [String(r.rating).trim(), r]),
+  const igdbByRating = queueByRating(
+    props.rom.igdb_metadata?.age_ratings ?? [],
   );
-  const ssByRating = new Map(
-    ssRatings.map((r) => [String(r.rating).trim(), r]),
-  );
+  const ssByRating = queueByRating(props.rom.ss_metadata?.age_ratings ?? []);
 
-  return ratings.map<Badge>((entry) => {
+  function resolve(entry: string): Omit<Badge, "label" | "raw"> {
     // Manually entered "CATEGORY:RATING": reconstruct the icon URL
     // by convention since there's no provider object to look up.
     if (entry.includes(":")) {
@@ -81,13 +93,14 @@ const badges = computed<Badge[]>(() => {
       };
     }
 
+    const key = entry.trim();
     // IGDB entries already carry the icon URL.
-    const igdbMatch = igdbByRating.get(entry.trim());
+    const igdbMatch = igdbByRating.get(key)?.shift();
     if (igdbMatch) return igdbMatch;
 
     // ScreenScraper entries carry the category but no icon URL;
     // reconstruct the same way as the manual case.
-    const ssMatch = ssByRating.get(entry.trim());
+    const ssMatch = ssByRating.get(key)?.shift();
     if (ssMatch) {
       return {
         ...ssMatch,
@@ -96,6 +109,14 @@ const badges = computed<Badge[]>(() => {
     }
 
     return { rating: entry, category: "", rating_cover_url: undefined };
+  }
+
+  return ratings.map((entry) => {
+    const badge = resolve(entry);
+    const label = badge.category
+      ? `${badge.category}: ${badge.rating}`
+      : badge.rating;
+    return { ...badge, label, raw: entry };
   });
 });
 </script>
@@ -103,26 +124,31 @@ const badges = computed<Badge[]>(() => {
 <template>
   <div v-if="badges.length" class="age-ratings">
     <RTooltip
-      v-for="b in badges"
-      :key="`${b.category}:${b.rating}`"
-      :text="b.category ? `${b.category}: ${b.rating}` : b.rating"
+      v-for="(b, i) in badges"
+      :key="`${i}:${b.raw}`"
+      :text="b.label"
       location="top"
       :open-delay="250"
     >
       <template #activator="{ props: activatorProps }">
-        <img
-          v-if="b.rating_cover_url && !failedImages.has(b.rating_cover_url)"
+        <router-link
           v-bind="activatorProps"
-          :src="b.rating_cover_url"
-          :alt="b.category ? `${b.category}: ${b.rating}` : b.rating"
-          class="age-ratings__img"
-          loading="lazy"
-          @error="failedImages.add(b.rating_cover_url!)"
-        />
-        <span v-else v-bind="activatorProps" class="age-ratings__chip">
-          <RIcon icon="mdi-shield-outline" size="13" />
-          {{ b.category ? `${b.category}: ${b.rating}` : b.rating }}
-        </span>
+          class="age-ratings__link"
+          :to="searchLocation('ageRatings', b.raw)"
+        >
+          <img
+            v-if="b.rating_cover_url && !failedImages.has(b.rating_cover_url)"
+            :src="b.rating_cover_url"
+            :alt="b.label"
+            class="age-ratings__img"
+            loading="lazy"
+            @error="failedImages.add(b.rating_cover_url!)"
+          />
+          <span v-else class="age-ratings__chip">
+            <RIcon icon="mdi-shield-outline" size="13" />
+            {{ b.label }}
+          </span>
+        </router-link>
       </template>
     </RTooltip>
   </div>
@@ -135,6 +161,11 @@ const badges = computed<Badge[]>(() => {
   gap: 10px;
   align-items: center;
 }
+.age-ratings__link {
+  display: inline-flex;
+  border-radius: var(--r-radius-sm);
+  text-decoration: none;
+}
 .age-ratings__img {
   width: 44px;
   height: 44px;
@@ -144,12 +175,8 @@ const badges = computed<Badge[]>(() => {
   padding: 3px;
   border: 1px solid var(--r-color-border);
   transition:
-    transform var(--r-motion-fast) var(--r-motion-ease-out),
-    border-color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.age-ratings__img:hover {
-  transform: translateY(-1px);
-  border-color: var(--r-color-border-strong);
+    border-color var(--r-motion-fast) var(--r-motion-ease-out),
+    background var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .age-ratings__chip {
   display: inline-flex;
@@ -163,5 +190,15 @@ const badges = computed<Badge[]>(() => {
   font-weight: var(--r-font-weight-semibold);
   color: var(--r-color-fg-secondary);
   letter-spacing: 0.02em;
+  transition:
+    color var(--r-motion-fast) var(--r-motion-ease-out),
+    border-color var(--r-motion-fast) var(--r-motion-ease-out),
+    background var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.age-ratings__link:hover .age-ratings__img,
+.age-ratings__link:hover .age-ratings__chip {
+  color: var(--r-color-fg);
+  border-color: var(--r-color-brand-primary);
+  background: var(--r-color-surface-hover);
 }
 </style>

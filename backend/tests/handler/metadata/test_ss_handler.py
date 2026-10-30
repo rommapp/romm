@@ -782,6 +782,16 @@ class TestExtractMetadataFromSsRom:
 
         assert metadata["franchises"] == ["Mario DE"]
 
+    def test_player_count_is_trimmed(self):
+        game = cast(SSGame, {"joueurs": {"text": " 1-4 "}, "medias": []})
+
+        with patch(
+            "handler.metadata.ss_handler.cm.get_config", return_value=_make_config()
+        ):
+            metadata = extract_metadata_from_ss_rom(self._make_rom(), game)
+
+        assert metadata["player_count"] == "1-4"
+
 
 class TestBuildSSGame:
     def _make_rom(self, regions: list[str] | None = None) -> MagicMock:
