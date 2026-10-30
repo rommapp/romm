@@ -91,7 +91,7 @@ git diff $RANGE -- backend/config/__init__.py | grep -E '^[+-].*_get_env'
 # new, moved or removed routes
 git diff $RANGE -- backend/endpoints/ | grep -E '^[+-].*@(protected_route|router\.)'
 # response-schema changes the frontend types are generated from
-git diff --stat $RANGE -- backend/endpoints/responses/ backend/handler/scan/sources.py
+git diff --stat $RANGE -- backend/endpoints/responses/ backend/handler/scan/sources.py backend/handler/scan_handler.py
 # migrations, which imply an irreversible upgrade step
 git diff --name-status $RANGE -- backend/alembic/versions/
 # config.yml surface

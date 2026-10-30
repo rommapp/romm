@@ -1,7 +1,7 @@
 import asyncio
 import gzip
 import os
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Container, Iterable, Sequence
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Final, NamedTuple, cast
@@ -172,6 +172,7 @@ class _PathClaim(NamedTuple):
 
     provider: int
     url: str | None
+    media_type: MetadataMediaType
 
 
 class FSResourcesHandler(FSHandler):
@@ -621,10 +622,9 @@ class FSResourcesHandler(FSHandler):
         if not url_screenshots:
             return rom.path_screenshots or []
 
-        on_disk = self._stored_screenshot_indexes(rom)
         # Go by what is on disk, not what was recorded: an unchanged url set
         # still has to replace whatever an earlier run failed to write.
-        stored = set() if overwrite else on_disk
+        stored = set() if overwrite else self._stored_screenshot_indexes(rom)
 
         async def screenshot_path(idx: int, url_screenshot: str) -> str | None:
             path = self._get_screenshot_path(rom, str(idx))
@@ -641,19 +641,17 @@ class FSResourcesHandler(FSHandler):
         paths = await gather_all(
             *(screenshot_path(idx, url) for idx, url in enumerate(url_screenshots))
         )
-        # The downloads only write indexes below the count, so the listing
-        # taken before them still holds every index past it.
-        await self._remove_screenshots_past(rom, on_disk, len(url_screenshots))
         return [path for path in paths if path]
 
-    async def _remove_screenshots_past(
-        self, rom: Rom, indexes: set[str], count: int
-    ) -> None:
-        """Delete the stored `indexes` that fall past a list of `count` urls."""
-        for idx in indexes:
-            if not idx.isdecimal() or int(idx) < count:
-                continue
-            await self._discard_file(self._get_screenshot_path(rom, idx))
+    async def remove_screenshots_past(self, rom: Rom, count: int) -> None:
+        """Delete the stored screenshots indexed past a list of `count` urls.
+
+        Callers run it once the new paths are saved, so a failed save never
+        leaves the row listing deleted files.
+        """
+        for idx in self._stored_screenshot_indexes(rom):
+            if idx.isdecimal() and int(idx) >= count:
+                await self._discard_file(self._get_screenshot_path(rom, idx))
 
     # Manuals
     def manual_exists(self, rom: Rom) -> bool:
@@ -983,12 +981,16 @@ class FSResourcesHandler(FSHandler):
         self,
         previous: Sequence[dict[str, Any] | None],
         current: Sequence[dict[str, Any] | None],
+        refetched: Sequence[Container[MetadataMediaType]],
     ) -> None:
-        """Delete stored media whose owner or source changed, so it is fetched again.
+        """Delete stored media nothing records, or whose owner or source changed.
 
         Args:
             previous: Every provider's dict before the scan, highest priority first.
-            current: The same providers' dicts about to be stored, in that order.
+            current: The same providers' dicts after it, in that order.
+            refetched: The types each provider stores again in this pass, in
+                that order. A changed file is kept when its new owner won't
+                fetch it, so its recorded path never points at nothing.
         """
 
         def claims(dicts: Sequence[dict[str, Any] | None]) -> dict[str, _PathClaim]:
@@ -997,17 +999,24 @@ class FSResourcesHandler(FSHandler):
             for provider, metadata in enumerate(dicts):
                 # Every type: a provider records no path for one no longer preferred.
                 for media in self.recorded_media(metadata or {}, MetadataMediaType):
-                    owned.setdefault(media.path, _PathClaim(provider, media.url))
+                    owned.setdefault(
+                        media.path, _PathClaim(provider, media.url, media.media_type)
+                    )
             return owned
 
         after = claims(current)
         stale = [
             path
             for path, before in claims(previous).items()
-            # A current claim without a URL keeps what its provider stored.
             if (claim := after.get(path)) is None
-            or claim.provider != before.provider
-            or claim.url not in (None, before.url)
+            or (
+                claim.media_type in refetched[claim.provider]
+                # A current claim without a URL keeps what its provider stored.
+                and (
+                    claim.provider != before.provider
+                    or claim.url not in (None, before.url)
+                )
+            )
         ]
         for path in stale:
             try:

@@ -4,6 +4,7 @@ import os
 import struct
 import threading
 import zlib
+from collections.abc import Container
 from io import BytesIO
 from pathlib import Path
 from typing import Any, cast
@@ -527,28 +528,7 @@ class TestFSResourcesHandler:
             assert result == expected_paths
 
     @pytest.mark.asyncio
-    async def test_get_rom_screenshots_removes_indexes_past_a_shorter_list(
-        self, handler: FSResourcesHandler, rom, tmp_path
-    ):
-        handler.base_path = tmp_path
-        directory = tmp_path / f"{rom.fs_resources_path}/screenshots"
-        directory.mkdir(parents=True)
-        for name in ("0.jpg", "1.jpg", "2.jpg", "cover.jpg"):
-            (directory / name).write_bytes(b"jpeg")
-
-        with patch.object(handler, "_store_screenshot", return_value=True):
-            result = await handler.get_rom_screenshots(
-                rom, True, ["http://example.com/only.jpg"]
-            )
-
-        assert result == [f"{rom.fs_resources_path}/screenshots/0.jpg"]
-        assert sorted(path.name for path in directory.iterdir()) == [
-            "0.jpg",
-            "cover.jpg",
-        ]
-
-    @pytest.mark.asyncio
-    async def test_get_rom_screenshots_survives_a_leftover_it_cannot_remove(
+    async def test_get_rom_screenshots_leaves_indexes_past_a_shorter_list(
         self, handler: FSResourcesHandler, rom, tmp_path
     ):
         handler.base_path = tmp_path
@@ -557,15 +537,44 @@ class TestFSResourcesHandler:
         for name in ("0.jpg", "1.jpg"):
             (directory / name).write_bytes(b"jpeg")
 
-        with (
-            patch.object(handler, "_store_screenshot", return_value=True),
-            patch.object(handler, "remove_file", side_effect=PermissionError("ro")),
-        ):
+        with patch.object(handler, "_store_screenshot", return_value=True):
             result = await handler.get_rom_screenshots(
                 rom, True, ["http://example.com/only.jpg"]
             )
 
         assert result == [f"{rom.fs_resources_path}/screenshots/0.jpg"]
+        assert (directory / "1.jpg").exists()
+
+    @pytest.mark.asyncio
+    async def test_remove_screenshots_past_removes_only_numbered_leftovers(
+        self, handler: FSResourcesHandler, rom, tmp_path
+    ):
+        handler.base_path = tmp_path
+        directory = tmp_path / f"{rom.fs_resources_path}/screenshots"
+        directory.mkdir(parents=True)
+        for name in ("0.jpg", "1.jpg", "2.jpg", "cover.jpg"):
+            (directory / name).write_bytes(b"jpeg")
+
+        await handler.remove_screenshots_past(rom, 1)
+
+        assert sorted(path.name for path in directory.iterdir()) == [
+            "0.jpg",
+            "cover.jpg",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_remove_screenshots_past_survives_a_leftover_it_cannot_remove(
+        self, handler: FSResourcesHandler, rom, tmp_path
+    ):
+        handler.base_path = tmp_path
+        directory = tmp_path / f"{rom.fs_resources_path}/screenshots"
+        directory.mkdir(parents=True)
+        (directory / "1.jpg").write_bytes(b"jpeg")
+
+        with patch.object(handler, "remove_file", side_effect=PermissionError("ro")):
+            await handler.remove_screenshots_past(rom, 1)
+
+        assert (directory / "1.jpg").exists()
 
     def test_manual_exists_no_manual(self, handler: FSResourcesHandler, rom: Rom):
         """Test manual_exists when no manual exists"""
@@ -1543,8 +1552,13 @@ class TestRemoveStaleMedia:
         handler: FSResourcesHandler,
         previous: list[dict[str, Any] | None],
         current: list[dict[str, Any] | None],
+        refetched: list[Container[MetadataMediaType]] | None = None,
     ) -> None:
-        await handler.remove_stale_media(previous, current)
+        await handler.remove_stale_media(
+            previous,
+            current,
+            refetched or [list(MetadataMediaType)] * len(current),
+        )
 
     @pytest.mark.asyncio
     async def test_removes_a_file_whose_url_changed(
@@ -1646,6 +1660,23 @@ class TestRemoveStaleMedia:
         )
 
         assert not (tmp_path / fanart).exists()
+
+    @pytest.mark.asyncio
+    async def test_keeps_a_file_whose_new_owner_wont_refetch_it(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        # Gamelist still records the path but isn't stored this pass.
+        self._write(tmp_path, self.shared)
+        gamelist = self._physical("file://gamelist.png")
+
+        await self._remove(
+            handler,
+            [self._physical("http://ss/disc1.png"), gamelist],
+            [{}, gamelist],
+            [list(MetadataMediaType), []],
+        )
+
+        assert (tmp_path / self.shared).exists()
 
 
 class TestRemoveRecordedMedia:

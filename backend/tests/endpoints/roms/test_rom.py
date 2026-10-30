@@ -41,6 +41,7 @@ from models.rom import (
     compute_name_sort_key,
 )
 from models.user import User
+from utils.validation import ValidationError
 
 MOCK_IGDB_ID = 11111
 MOCK_MOBY_ID = 22222
@@ -1277,6 +1278,82 @@ def test_update_rom_redownloads_screenshots_when_their_order_changes(
     screenshot_call = get_rom_screenshots_mock.await_args
     assert screenshot_call is not None
     assert screenshot_call.kwargs["overwrite"] is expected
+
+
+@patch.object(FSResourcesHandler, "remove_screenshots_past", new_callable=AsyncMock)
+@patch.object(
+    FSResourcesHandler,
+    "get_rom_screenshots",
+    new_callable=AsyncMock,
+    return_value=["roms/1/1/screenshots/0.jpg"],
+)
+@patch.object(
+    IGDBHandler,
+    "get_rom_by_id",
+    return_value=IGDBRom(igdb_id=MOCK_IGDB_ID, url_screenshots=["http://x/a.jpg"]),
+)
+def test_update_rom_prunes_screenshots_after_saving_their_paths(
+    _get_rom_by_id_mock: AsyncMock,
+    _get_rom_screenshots_mock: AsyncMock,
+    remove_screenshots_past_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    saved: list[list[str] | None] = []
+
+    async def prune(pruned_rom: Rom, _count: int) -> None:
+        stored = db_rom_handler.get_rom(pruned_rom.id)
+        assert stored is not None
+        saved.append(stored.path_screenshots)
+
+    remove_screenshots_past_mock.side_effect = prune
+
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"igdb_id": str(MOCK_IGDB_ID)},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert saved == [["roms/1/1/screenshots/0.jpg"]]
+    call = remove_screenshots_past_mock.await_args
+    assert call is not None
+    assert call.args[1] == 1
+
+
+@patch.object(FSResourcesHandler, "remove_screenshots_past", new_callable=AsyncMock)
+@patch.object(
+    FSResourcesHandler,
+    "get_cover",
+    new_callable=AsyncMock,
+    side_effect=ValidationError("Invalid URL"),
+)
+@patch.object(
+    FSResourcesHandler, "get_rom_screenshots", new_callable=AsyncMock, return_value=[]
+)
+@patch.object(
+    IGDBHandler,
+    "get_rom_by_id",
+    return_value=IGDBRom(igdb_id=MOCK_IGDB_ID, url_screenshots=["http://x/a.jpg"]),
+)
+def test_update_rom_keeps_screenshots_when_the_save_is_refused(
+    _get_rom_by_id_mock: AsyncMock,
+    _get_rom_screenshots_mock: AsyncMock,
+    _get_cover_mock: AsyncMock,
+    remove_screenshots_past_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"igdb_id": str(MOCK_IGDB_ID), "url_cover": "http://x/cover.png"},
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    remove_screenshots_past_mock.assert_not_awaited()
 
 
 # Minimal valid PNG (1x1 transparent pixel)

@@ -2346,6 +2346,9 @@ async def update_rom(
             detail=f"Failed to update ROM {id}: {exc}",
         ) from exc
 
+    if url_screenshots:
+        await fs_resource_handler.remove_screenshots_past(rom, len(url_screenshots))
+
     if should_update_fs:
         for file in rom.files:
             moved = fs_rom_handler.moved_file_location(

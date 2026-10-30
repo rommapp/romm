@@ -570,9 +570,14 @@ async def download_rom_resources(
         # Compared across every provider at once, before any stores, since a
         # shared path's file belongs to whichever provider records it first.
         if previous_media:
+            stored_columns = {column for column, *_ in provider_media}
             await fs_resource_handler.remove_stale_media(
                 [previous_media.get(column) for column, *_ in providers],
                 [getattr(added_rom, column) for column, *_ in providers],
+                [
+                    preferred_media_types if column in stored_columns else ()
+                    for column, *_ in providers
+                ],
             )
         # Providers share media paths, so they take turns: a later one finds the
         # file an earlier one landed on disk and keeps it.
@@ -630,6 +635,10 @@ async def download_rom_resources(
         )
     if updates:
         db_rom_handler.update_rom(added_rom.id, updates)
+    if url_screenshots and not isinstance(paths, BaseException):
+        await fs_resource_handler.remove_screenshots_past(
+            added_rom, len(url_screenshots)
+        )
 
     for outcome in outcomes:
         if isinstance(outcome, BaseException):
@@ -657,6 +666,7 @@ async def refresh_provider_media(
     await fs_resource_handler.remove_stale_media(
         [getattr(rom, column) for column, *_ in MEDIA_PROVIDERS],
         current,
+        [preferred_media_types if metadata else () for metadata in current],
     )
 
     updates: dict[str, dict[str, Any]] = {}
