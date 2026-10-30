@@ -381,6 +381,27 @@ async def record_play_session(session: StreamingSession) -> None:
         log.exception("failed to record play session")
 
 
+async def close_session_record(session_key: str, session: StreamingSession) -> None:
+    """Credit a finished session's playtime and take it off the activity board."""
+    await record_play_session(session)
+    await clear_session_activity(session_key, session)
+
+
+async def _stop_and_collect(
+    container: ResolvedContainer,
+    session: StreamingSession,
+    session_key: str,
+    pull_mark: saves.SavePullMark | None,
+    *,
+    save: bool = True,
+) -> None:
+    """Run every teardown's steps, in order, once it holds the container."""
+    stopped = await quiesce_container(container, session, save=save)
+    await close_session_record(session_key, session)
+    await collect_exit_state(container, session, stopped.state_slot)
+    await collect_exit_saves(container, session, pull_mark, settled=stopped.settled)
+
+
 async def teardown_released_session(
     container: ResolvedContainer,
     session: StreamingSession,
@@ -442,14 +463,7 @@ async def teardown_released_session(
 
         # The marker, or the claim it could not replace, holds the container
         # throughout, so no concurrent claim can interleave.
-        stopped = await quiesce_container(container, session, save=save)
-
-        await record_play_session(session)
-        await clear_session_activity(session_key, session)
-
-        # Awaited, not spawned: the claim is released below.
-        await collect_exit_state(container, session, stopped.state_slot)
-        await collect_exit_saves(container, session, pull_mark, settled=stopped.settled)
+        await _stop_and_collect(container, session, session_key, pull_mark, save=save)
         # The pull clears it from here.
         pull_mark = None
 
@@ -523,11 +537,7 @@ async def teardown_abandoned_session(
                 session, session_key, ended_by=None, reason="abandoned"
             )
         stopping = True
-        stopped = await quiesce_container(container, session)
-        await record_play_session(session)
-        await clear_session_activity(session_key, session)
-        await collect_exit_state(container, session, stopped.state_slot)
-        await collect_exit_saves(container, session, pull_mark, settled=stopped.settled)
+        await _stop_and_collect(container, session, session_key, pull_mark)
         pull_mark = None
     except Exception:
         log.exception("abandoned session teardown failed, key=%s", session_key)

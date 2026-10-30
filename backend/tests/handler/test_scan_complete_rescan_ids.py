@@ -57,6 +57,7 @@ async def _rescan(
     ss_get_rom_result: SSRom | Exception = SS_MISS,
     platform_hasheous_id: int | None = None,
     hasheous_lookup_result: tuple[HasheousRom, bool] = (HASHEOUS_MISS, True),
+    **rom_fields: Any,
 ) -> Rom:
     """Rescan a ROM carrying hand-set IDs, and persist the result."""
     platform = add_n64_platform(
@@ -74,6 +75,7 @@ async def _rescan(
         pouet_id=STALE_POUET_ID,
         ss_id=STALE_SS_ID,
         hasheous_id=STALE_HASHEOUS_ID,
+        **rom_fields,
     )
 
     igdb_mock = _lookup(igdb_result)
@@ -232,3 +234,43 @@ async def test_only_a_complete_rescan_drops_ids(scan_type: ScanType):
     saved = await _rescan([MetadataSource.IGDB], scan_type=scan_type)
 
     assert saved.igdb_id == STALE_IGDB_ID
+
+
+async def test_a_complete_rescan_keeps_artwork_no_source_replaces():
+    """The files stay on disk, so their paths must too: a provider that is down
+    must not leave the ROM without a cover, manual or screenshots."""
+    saved = await _rescan(
+        [MetadataSource.IGDB],
+        igdb_result=UNREACHABLE,
+        url_cover="https://example.com/cover.png",
+        path_cover_s="roms/1/1/cover/small.png",
+        path_cover_l="roms/1/1/cover/big.png",
+        path_manual="roms/1/1/manual/1.pdf",
+        path_screenshots=["roms/1/1/screenshots/0.jpg"],
+    )
+
+    assert saved.url_cover == ""
+    assert saved.path_cover_s == "roms/1/1/cover/small.png"
+    assert saved.path_cover_l == "roms/1/1/cover/big.png"
+    assert saved.path_manual == "roms/1/1/manual/1.pdf"
+    assert saved.path_screenshots == ["roms/1/1/screenshots/0.jpg"]
+
+
+@pytest.mark.parametrize(
+    ("path_cover_s", "url_cover"),
+    [("roms/1/1/cover/small.png", ""), ("", "file:///cart.p8.png")],
+)
+async def test_a_complete_rescan_falls_back_to_the_cartridge_only_without_a_cover(
+    path_cover_s: str, url_cover: str
+):
+    with patch(
+        "handler.scan_handler.fs_rom_handler.get_pico8_cover_url",
+        return_value="file:///cart.p8.png",
+    ):
+        saved = await _rescan(
+            [MetadataSource.IGDB],
+            igdb_result=UNREACHABLE,
+            path_cover_s=path_cover_s,
+        )
+
+    assert saved.url_cover == url_cover

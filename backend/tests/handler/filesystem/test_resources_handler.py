@@ -1803,6 +1803,39 @@ class TestDiskFullHandling:
         assert target.read_bytes() == b"the good cover"
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("webp", [False, True])
+    async def test_store_cover_replaces_a_cover_in_another_format(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path, webp: bool
+    ):
+        handler.base_path = tmp_path
+        cover_dir = tmp_path / "roms/1/1/cover"
+        cover_dir.mkdir(parents=True)
+        (cover_dir / "big.jpg").write_bytes(b"uploaded")
+        (cover_dir / "small.jpg").write_bytes(b"uploaded")
+        source = tmp_path / "new.png"
+        Image.new("RGB", (40, 60), "red").save(source)
+
+        with (
+            patch(
+                "handler.filesystem.resources_handler._resolve_local_file_uri",
+                return_value=source,
+            ),
+            patch(
+                "handler.filesystem.resources_handler.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP",
+                webp,
+            ),
+        ):
+            await handler._store_cover(rom, "file://new.png")
+
+        expected = {"big.png", "small.png"}
+        if webp:
+            expected |= {"big.webp", "small.webp"}
+        assert {p.name for p in cover_dir.iterdir()} == expected
+        assert handler._get_cover_path(rom, CoverSize.BIG) in {
+            f"roms/1/1/cover/{name}" for name in expected
+        }
+
+    @pytest.mark.asyncio
     async def test_cancelled_download_leaves_no_temp_file(
         self, handler: FSResourcesHandler, tmp_path
     ):
