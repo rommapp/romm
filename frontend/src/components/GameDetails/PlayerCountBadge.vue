@@ -47,8 +47,7 @@ const label = computed(() => {
 </script>
 
 <template>
-  <!-- `player_counts` is a SCALAR_IN filter over `metadatum.player_count`,
-       so the pivot carries the provider's free-form string verbatim. -->
+  <!-- The player count filter is an exact match, so pass the stored string as-is. -->
   <router-link class="player-count" :to="searchLocation('playerCounts', value)">
     <RIcon :icon="icon" size="16" class="player-count__icon" />
     <span class="player-count__label">{{ label }}</span>
