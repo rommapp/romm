@@ -42,6 +42,7 @@ type Badge = {
   rating: string;
   category: string;
   rating_cover_url?: string | undefined;
+  label: string;
   // Search filters must use the stored entry, not the display label.
   raw: string;
 };
@@ -63,8 +64,10 @@ function igdbIconUrl(category: string, rating: string): string | undefined {
 function queueByRating<T extends { rating: string }>(entries: T[]) {
   const queues = new Map<string, T[]>();
   for (const r of entries) {
-    const key = String(r.rating).trim();
-    queues.set(key, [...(queues.get(key) ?? []), r]);
+    const key = r.rating.trim();
+    const queue = queues.get(key);
+    if (queue) queue.push(r);
+    else queues.set(key, [r]);
   }
   return queues;
 }
@@ -76,7 +79,7 @@ const badges = computed<Badge[]>(() => {
   );
   const ssByRating = queueByRating(props.rom.ss_metadata?.age_ratings ?? []);
 
-  function resolve(entry: string): Omit<Badge, "raw"> {
+  function resolve(entry: string): Omit<Badge, "label" | "raw"> {
     // Manually entered "CATEGORY:RATING": reconstruct the icon URL
     // by convention since there's no provider object to look up.
     if (entry.includes(":")) {
@@ -90,13 +93,14 @@ const badges = computed<Badge[]>(() => {
       };
     }
 
+    const key = entry.trim();
     // IGDB entries already carry the icon URL.
-    const igdbMatch = igdbByRating.get(entry.trim())?.shift();
+    const igdbMatch = igdbByRating.get(key)?.shift();
     if (igdbMatch) return igdbMatch;
 
     // ScreenScraper entries carry the category but no icon URL;
     // reconstruct the same way as the manual case.
-    const ssMatch = ssByRating.get(entry.trim())?.shift();
+    const ssMatch = ssByRating.get(key)?.shift();
     if (ssMatch) {
       return {
         ...ssMatch,
@@ -107,7 +111,13 @@ const badges = computed<Badge[]>(() => {
     return { rating: entry, category: "", rating_cover_url: undefined };
   }
 
-  return ratings.map((entry) => ({ ...resolve(entry), raw: entry }));
+  return ratings.map((entry) => {
+    const badge = resolve(entry);
+    const label = badge.category
+      ? `${badge.category}: ${badge.rating}`
+      : badge.rating;
+    return { ...badge, label, raw: entry };
+  });
 });
 </script>
 
@@ -116,7 +126,7 @@ const badges = computed<Badge[]>(() => {
     <RTooltip
       v-for="(b, i) in badges"
       :key="`${i}:${b.raw}`"
-      :text="b.category ? `${b.category}: ${b.rating}` : b.rating"
+      :text="b.label"
       location="top"
       :open-delay="250"
     >
@@ -129,14 +139,14 @@ const badges = computed<Badge[]>(() => {
           <img
             v-if="b.rating_cover_url && !failedImages.has(b.rating_cover_url)"
             :src="b.rating_cover_url"
-            :alt="b.category ? `${b.category}: ${b.rating}` : b.rating"
+            :alt="b.label"
             class="age-ratings__img"
             loading="lazy"
             @error="failedImages.add(b.rating_cover_url!)"
           />
           <span v-else class="age-ratings__chip">
             <RIcon icon="mdi-shield-outline" size="13" />
-            {{ b.category ? `${b.category}: ${b.rating}` : b.rating }}
+            {{ b.label }}
           </span>
         </router-link>
       </template>
