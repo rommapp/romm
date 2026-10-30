@@ -43,7 +43,7 @@ type Badge = {
   category: string;
   rating_cover_url?: string | undefined;
   label: string;
-  // Search filters must use the stored entry, not the display label.
+  // The stored entry, which the ageRatings search filter matches on.
   raw: string;
 };
 
