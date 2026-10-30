@@ -983,9 +983,6 @@ class FSResourcesHandler(FSHandler):
     ) -> None:
         """Delete stored media whose owner or source changed, so it is fetched again.
 
-        Every type is compared, not only the preferred ones: a provider records
-        no path for a type that left the preferences, so its file goes too.
-
         Args:
             previous: Every provider's dict before the scan, highest priority first.
             current: The same providers' dicts about to be stored, in that order.
@@ -995,6 +992,7 @@ class FSResourcesHandler(FSHandler):
             # A shared path holds the file of the first provider that records it.
             owned: dict[str, _PathClaim] = {}
             for provider, metadata in enumerate(dicts):
+                # Every type: a provider records no path for one no longer preferred.
                 for media in self.recorded_media(metadata or {}, MetadataMediaType):
                     owned.setdefault(media.path, _PathClaim(provider, media.url))
             return owned
