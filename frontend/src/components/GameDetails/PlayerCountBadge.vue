@@ -71,10 +71,6 @@ const label = computed(() => {
 .player-count:hover .player-count__label {
   color: var(--r-color-fg);
 }
-.player-count:focus-visible {
-  outline: 2px solid var(--r-color-brand-primary);
-  outline-offset: 2px;
-}
 .player-count__icon {
   color: var(--r-color-brand-primary);
 }

@@ -58,19 +58,25 @@ function igdbIconUrl(category: string, rating: string): string | undefined {
   return `https://www.igdb.com/icons/rating_icons/${slug}/${slug}_${normalize(rating)}.png`;
 }
 
+// Ratings like "12" or "M" exist under several categories, so a rom can
+// store the same string twice; each occurrence takes the next entry.
+function queueByRating<T extends { rating: string }>(entries: T[]) {
+  const queues = new Map<string, T[]>();
+  for (const r of entries) {
+    const key = String(r.rating).trim();
+    queues.set(key, [...(queues.get(key) ?? []), r]);
+  }
+  return queues;
+}
+
 const badges = computed<Badge[]>(() => {
   const ratings = props.rom.metadatum?.age_ratings ?? [];
-  const igdbRatings = props.rom.igdb_metadata?.age_ratings ?? [];
-  const ssRatings = props.rom.ss_metadata?.age_ratings ?? [];
-
-  const igdbByRating = new Map(
-    igdbRatings.map((r) => [String(r.rating).trim(), r]),
+  const igdbByRating = queueByRating(
+    props.rom.igdb_metadata?.age_ratings ?? [],
   );
-  const ssByRating = new Map(
-    ssRatings.map((r) => [String(r.rating).trim(), r]),
-  );
+  const ssByRating = queueByRating(props.rom.ss_metadata?.age_ratings ?? []);
 
-  return ratings.map<Badge>((entry) => {
+  function resolve(entry: string): Omit<Badge, "raw"> {
     // Manually entered "CATEGORY:RATING": reconstruct the icon URL
     // by convention since there's no provider object to look up.
     if (entry.includes(":")) {
@@ -81,40 +87,35 @@ const badges = computed<Badge[]>(() => {
         rating,
         category,
         rating_cover_url: igdbIconUrl(category, rating),
-        raw: entry,
       };
     }
 
     // IGDB entries already carry the icon URL.
-    const igdbMatch = igdbByRating.get(entry.trim());
-    if (igdbMatch) return { ...igdbMatch, raw: entry };
+    const igdbMatch = igdbByRating.get(entry.trim())?.shift();
+    if (igdbMatch) return igdbMatch;
 
     // ScreenScraper entries carry the category but no icon URL;
     // reconstruct the same way as the manual case.
-    const ssMatch = ssByRating.get(entry.trim());
+    const ssMatch = ssByRating.get(entry.trim())?.shift();
     if (ssMatch) {
       return {
         ...ssMatch,
         rating_cover_url: igdbIconUrl(ssMatch.category, ssMatch.rating),
-        raw: entry,
       };
     }
 
-    return {
-      rating: entry,
-      category: "",
-      rating_cover_url: undefined,
-      raw: entry,
-    };
-  });
+    return { rating: entry, category: "", rating_cover_url: undefined };
+  }
+
+  return ratings.map((entry) => ({ ...resolve(entry), raw: entry }));
 });
 </script>
 
 <template>
   <div v-if="badges.length" class="age-ratings">
     <RTooltip
-      v-for="b in badges"
-      :key="`${b.category}:${b.rating}`"
+      v-for="(b, i) in badges"
+      :key="`${i}:${b.raw}`"
       :text="b.category ? `${b.category}: ${b.rating}` : b.rating"
       location="top"
       :open-delay="250"
@@ -154,10 +155,6 @@ const badges = computed<Badge[]>(() => {
   display: inline-flex;
   border-radius: var(--r-radius-sm);
   text-decoration: none;
-}
-.age-ratings__link:focus-visible {
-  outline: 2px solid var(--r-color-brand-primary);
-  outline-offset: 2px;
 }
 .age-ratings__img {
   width: 44px;
