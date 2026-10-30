@@ -66,9 +66,15 @@ const label = computed(() => {
   border-radius: var(--r-radius-pill);
   font-size: 12px;
   color: var(--r-color-fg-secondary);
+  transition:
+    color var(--r-motion-fast) var(--r-motion-ease-out),
+    border-color var(--r-motion-fast) var(--r-motion-ease-out),
+    background var(--r-motion-fast) var(--r-motion-ease-out);
 }
-.player-count:hover .player-count__label {
+.player-count:hover {
   color: var(--r-color-fg);
+  border-color: var(--r-color-brand-primary);
+  background: var(--r-color-surface-hover);
 }
 .player-count__icon {
   color: var(--r-color-brand-primary);

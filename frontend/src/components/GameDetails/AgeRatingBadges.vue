@@ -175,12 +175,8 @@ const badges = computed<Badge[]>(() => {
   padding: 3px;
   border: 1px solid var(--r-color-border);
   transition:
-    transform var(--r-motion-fast) var(--r-motion-ease-out),
-    border-color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.age-ratings__img:hover {
-  transform: translateY(-1px);
-  border-color: var(--r-color-border-strong);
+    border-color var(--r-motion-fast) var(--r-motion-ease-out),
+    background var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .age-ratings__chip {
   display: inline-flex;
@@ -194,5 +190,15 @@ const badges = computed<Badge[]>(() => {
   font-weight: var(--r-font-weight-semibold);
   color: var(--r-color-fg-secondary);
   letter-spacing: 0.02em;
+  transition:
+    color var(--r-motion-fast) var(--r-motion-ease-out),
+    border-color var(--r-motion-fast) var(--r-motion-ease-out),
+    background var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.age-ratings__link:hover .age-ratings__img,
+.age-ratings__link:hover .age-ratings__chip {
+  color: var(--r-color-fg);
+  border-color: var(--r-color-brand-primary);
+  background: var(--r-color-surface-hover);
 }
 </style>
