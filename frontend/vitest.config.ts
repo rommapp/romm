@@ -19,7 +19,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       // Listing sources reports files no test imports at 0% instead of omitting them.
-      include: ["src/**/*.{ts,vue}"],
+      include: ["src/**/*.{ts,js,vue}"],
       exclude: [
         "src/__generated__/**",
         "src/locales/**",
