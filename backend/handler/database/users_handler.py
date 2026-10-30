@@ -1,7 +1,8 @@
 from collections.abc import Sequence
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import Result, and_, delete, func, not_, select, update
+from sqlalchemy import Result, and_, delete, func, not_, or_, select, update
 from sqlalchemy.orm import QueryableAttribute, Session, load_only
 from sqlalchemy.sql import Delete, Select, Update
 
@@ -10,6 +11,8 @@ from exceptions.database_exceptions import LastAdminError
 from models.user import Role, User
 
 from .base_handler import DBBaseHandler
+
+LAST_ACTIVE_DEBOUNCE = timedelta(minutes=5)
 
 
 class DBUsersHandler(DBBaseHandler):
@@ -122,6 +125,27 @@ class DBUsersHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
         return session.scalars(select(User).filter_by(id=id)).one()
+
+    @begin_session
+    def update_last_active(
+        self,
+        id: int,
+        session: Session = INJECTED_SESSION,
+    ) -> None:
+        """Bump last_active, skipping a user already bumped within the debounce window."""
+        now = datetime.now(timezone.utc)
+        session.execute(
+            update(User)
+            .where(
+                User.id == id,
+                or_(
+                    User.last_active.is_(None),
+                    User.last_active < now - LAST_ACTIVE_DEBOUNCE,
+                ),
+            )
+            .values(last_active=now)
+            .execution_options(synchronize_session=False)
+        )
 
     @begin_session
     def get_users(

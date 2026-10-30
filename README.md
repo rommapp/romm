@@ -44,12 +44,22 @@ The easiest way to start is with the [Quick Start Guide][docs-quick-start-guide]
 
 Prefer a hosted deploy over wiring up the stack yourself?
 
-<p align="center">
-  <a href="https://www.hostg.xyz/aff_c?offer_id=815&amp;aff_id=243561&amp;url_id=6779" target="_blank" rel="noopener noreferrer"><img src=".github/resources/hostinger-badge.svg" alt="Deploy on Hostinger" width="250" height="58" /></a>
-  <br />Starting at <b>$6.49/mo</b> · <a href="https://docs.romm.app/latest/install/hostinger/">Setup guide</a>
-</p>
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <a href="https://www.hostg.xyz/aff_c?offer_id=815&amp;aff_id=243561&amp;url_id=6779" target="_blank" rel="noopener noreferrer"><img src=".github/resources/hostinger-badge.svg" alt="Deploy on Hostinger" width="250" height="58" /></a>
+        <br />Starting at <b>$6.49/mo</b> · <a href="https://docs.romm.app/latest/install/hostinger/">Setup guide</a>
+      </td>
+      <td align="center">
+        <a href="https://corehost.io/p/romm" target="_blank" rel="noopener noreferrer"><img src=".github/resources/corehost-badge.svg" alt="Deploy on CoreHost" width="250" height="58" /></a>
+        <br />Starting at <b>$2.30/mo</b> · <a href="https://docs.romm.app/latest/install/corehost/">Setup guide</a>
+      </td>
+    </tr>
+  </table>
+</div>
 
-<sub><i>Deployment and infrastructure support for this install is handled by Hostinger. Prices are indicative and may not reflect current offerings. Signups through the link above send a share of the revenue back to us, which helps fund the project.</i></sub>
+<sub><i>Deployment and infrastructure support for these installs is handled by Hostinger and CoreHost. Prices are indicative and may not reflect current offerings. Both send a share of the revenue back to us, which helps fund the project.</i></sub>
 
 ## Official apps
 
@@ -89,7 +99,9 @@ Here are some cool projects maintained by members of our community. Please note 
 
 ### Mobile and TV
 
+- [R-Shop][r-shop]: Controller-first game manager for Android handhelds and TVs by [@AverageConsumer](https://github.com/AverageConsumer)
 - [romm-ios-app][romm-ios-app]: Native iOS app by [@ilyas-hallak](https://github.com/ilyas-hallak)
+- [RomMMobile][rommmobile]: Android app that downloads games into your existing frontend's folders by [@pippopapera](https://github.com/pippopapera)
 - [RomMulus][rommulus]: Android TV app with built-in emulator cores and save sync by [@DEV-DUFORD](https://github.com/DEV-DUFORD)
 
 ### Desktop
@@ -102,6 +114,7 @@ Here are some cool projects maintained by members of our community. Please note 
 ### Handhelds and Steam Deck
 
 - [Gameflow Deck][gameflow-deck]: Controller-first frontend for handhelds by [@simeonradivoev](https://github.com/simeonradivoev)
+- [KONSORU][konsoru]: Home screen launcher for the AYN Thor with a themed UI per console by [@FabianZettl](https://github.com/FabianZettl)
 - [RomMix][rommix]: Big Picture-style frontend for Linux and Steam Deck by [@leclercb](https://github.com/leclercb)
 - [Tender][romm-tender]: Decky Loader plugin with library and save sync for Steam Deck by [@danielcopper](https://github.com/danielcopper)
 - [Vita RomM][vita-romm]: PS Vita homebrew client for browsing and downloading games by [@denkacn](https://github.com/denkacn)
@@ -189,6 +202,9 @@ Here are a few projects that we think you might like:
 [gameflow-deck]: https://github.com/simeonradivoev/gameflow-deck
 [rommix]: https://github.com/leclercb/rommix
 [vita-romm]: https://github.com/denkacn/vita-romm
+[r-shop]: https://github.com/AverageConsumer/R-Shop
+[rommmobile]: https://github.com/pippopapera/RomMMobile
+[konsoru]: https://github.com/FabianZettl/konsoru-launcher-releases
 [grout]: https://github.com/rommapp/grout
 [romm-ios-app]: https://github.com/ilyas-hallak/romm-ios-app
 [argosy-launcher]: https://github.com/rommapp/argosy-launcher

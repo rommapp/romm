@@ -57,7 +57,7 @@ from endpoints.responses.streaming import (
     VolumeResponse,
 )
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
+from handler.auth.dependencies import assert_rom_visible, is_scoped_admin
 from handler.database import (
     db_container_adoption_handler,
     db_rom_handler,
@@ -99,6 +99,7 @@ from handler.streaming.protocol import room_url_on
 from handler.streaming.session_store import (
     STREAMING_SESSION_DRAIN_SECONDS,
     STREAMING_SESSION_TTL_SECONDS,
+    StreamingSession,
     StreamingSessionContended,
     claim_drain_marker,
     claim_gate,
@@ -126,7 +127,6 @@ from handler.streaming.session_store import (
 from logger.logger import log
 from models.assets import MemoryCard, MemoryCardVersion, Save, State
 from models.rom import Rom
-from models.user import Role
 from utils.m3u import playlist_files
 from utils.router import APIRouter
 
@@ -439,7 +439,7 @@ async def get_state_picks(request: Request, rom_id: int) -> StreamStatePicksSche
 async def _win_container(
     request: Request,
     candidates: list[ResolvedContainer],
-    session: dict[str, Any],
+    session: StreamingSession,
     platform: str,
 ) -> ResolvedContainer:
     """Reserve one of the platform's containers for this claim.
@@ -470,7 +470,7 @@ async def _win_container(
 async def _reserve_container(
     request: Request,
     candidates: list[ResolvedContainer],
-    session: dict[str, Any],
+    session: StreamingSession,
     platform: str,
 ) -> ResolvedContainer:
     """Walk the platform's containers and claim the first one available."""
@@ -553,20 +553,21 @@ async def _reserve_container(
 
     # A drain marker names no holder, so the holder comes from a live session,
     # while `draining` still says a container is about to come free.
-    snapshots = [
+    snapshots: list[StreamingSession] = [
         snapshot or {}
         for snapshot in await asyncio.gather(
             *(get_session(candidate.key) for candidate in candidates)
         )
     ]
     draining = any(snapshot.get("draining") for snapshot in snapshots)
+    no_holder: StreamingSession = {}
     holder = next(
         (
             snapshot
             for snapshot in snapshots
             if snapshot and not snapshot.get("draining")
         ),
-        {},
+        no_holder,
     )
     if draining:
         message = "The previous session is still shutting down, try again shortly"
@@ -590,7 +591,7 @@ class _ClaimUndo:
     """What `claim_session` releases if the claim fails before the launch."""
 
     session_key: str
-    session: dict[str, Any]
+    session: StreamingSession
     blank_card_id: int | None = None
 
 
@@ -915,7 +916,7 @@ async def claim_session(
     gui_language = languages.gui_language(request.user)
 
     now = datetime.now(timezone.utc).isoformat()
-    session = {
+    session: StreamingSession = {
         # Unique per claim, and safe to put in a filename. The webstation
         # broker names its exit archive after it, so the pull can tell this
         # session's saves from one an earlier pull failed to collect.
@@ -1152,8 +1153,7 @@ async def save_and_exit_session(
     if safe_to_wipe:
         await memory_cards.wipe_session_card(container)
 
-    await lifecycle.record_play_session(session)
-    await lifecycle.clear_session_activity(session_key, session)
+    await lifecycle.close_session_record(session_key, session)
     # Before the key goes, so a claim that wins it next waits for the pull.
     await lifecycle.start_exit_save_pull(container, session, settled=settled)
 
@@ -1605,7 +1605,7 @@ async def list_containers(request: Request) -> AdminContainersResponse:
     platforms but hosts one session, so the platform rows the frontend gets
     from `/streaming/config` are the wrong unit for operating the fleet.
     """
-    if request.user.role != Role.ADMIN:
+    if not is_scoped_admin(request, Scope.USERS_READ):
         raise HTTPException(status_code=403, detail="Forbidden")
 
     containers: list[AdminContainerSchema] = []
@@ -1668,7 +1668,7 @@ async def claim_desktop_session(
     Returns 404 for an unknown container, 409 when it is occupied, 502/503 when
     the broker rejects the activation or is unreachable.
     """
-    if request.user.role != Role.ADMIN:
+    if not is_scoped_admin(request, Scope.USERS_WRITE):
         raise HTTPException(status_code=403, detail="Forbidden")
 
     container, platform = access.container_by_name(req.container)
@@ -1680,7 +1680,7 @@ async def claim_desktop_session(
 
     session_key = container.key
     now = datetime.now(timezone.utc).isoformat()
-    session = {
+    session: StreamingSession = {
         "user_id": request.user.id,
         "broker_session_id": secrets.token_hex(8),
         # No ROM and no card. Teardown reads both and skips the save pull, the
@@ -1726,8 +1726,9 @@ async def claim_desktop_session(
             emulator="desktop",
             gui_language=languages.gui_language(request.user),
         )
-    except Exception:
-        # Activation failed, free the claim so the container isn't wedged.
+    except BaseException:
+        # A cancelled request must free the claim too, or the container is
+        # wedged until the TTL lapses.
         await lifecycle.abort_claim(session_key, session)
         raise
 
@@ -1798,7 +1799,7 @@ async def list_sessions(request: Request) -> AdminSessionsResponse:
     Entries carry the platform the session was claimed under so an admin
     client can release one through `DELETE /sessions/{platform}`.
     """
-    if request.user.role != Role.ADMIN:
+    if not is_scoped_admin(request, Scope.USERS_READ):
         raise HTTPException(status_code=403, detail="Forbidden")
 
     grouped = containers_by_key()
@@ -1832,45 +1833,28 @@ async def force_release_all(
 
     `reason` is surfaced to every displaced player alongside the admin's name.
     """
-    if request.user.role != Role.ADMIN:
+    if not is_scoped_admin(request, Scope.USERS_WRITE):
         raise HTTPException(status_code=403, detail="Forbidden")
 
     # Map container keys back to configs so each broker can be told to stop -
     # deleting only the Redis keys would leave the games running.
     grouped = containers_by_key()
 
-    async def _teardown(key: str | bytes, container_key: str) -> None:
-        # Read before the teardown so the displaced player can be identified
-        # even when the container config has since been removed.
+    async def _teardown(container_key: str) -> None:
         session = await get_session(container_key)
         container = container_for_session(
             grouped, container_key, session.get("platform") if session else None
         )
-
-        # All of it runs while the claim still guards the container and before
-        # the key is deleted.
-        try:
+        if session is None:
+            # The row went between the scan and the read; stop the emulator
+            # anyway rather than leave it running.
             if container is not None:
-                # Best-effort; a broker error must not abort the sweep.
-                if session is None:
-                    # The row went between the scan and the read; stop the
-                    # emulator anyway rather than leave it running.
-                    await asyncio.to_thread(commands.stop, container)
-                else:
-                    stopped = await lifecycle.quiesce_container(container, session)
-                    # Credit playtime to the session's owner, not the admin.
-                    await lifecycle.record_play_session(session)
-                    await lifecycle.clear_session_activity(container_key, session)
-                    await lifecycle.collect_exit_state(
-                        container, session, stopped.state_slot
-                    )
-                    await lifecycle.start_exit_save_pull(
-                        container, session, settled=stopped.settled
-                    )
-
-            # Note who ended it before the key goes, so the player's next poll
-            # can explain the stream vanishing.
-            if session is not None:
+                await asyncio.to_thread(commands.stop, container)
+            return
+        if container is None:
+            # The config is gone, so there is nothing to stop. Still tell the
+            # player why the stream vanished, and free the key.
+            try:
                 await record_termination(
                     session,
                     container_key,
@@ -1878,10 +1862,20 @@ async def force_release_all(
                     reason=reason,
                     ended_by_user_id=request.user.id,
                 )
-        finally:
-            # The sweep answered "released", so the key goes even when a step
-            # above raised; a phantom claim would block every later claim.
-            await async_cache.delete(key)
+                await lifecycle.close_session_record(container_key, session)
+            finally:
+                await release_own_session(container_key, session)
+            return
+        # Same teardown as releasing one session from the admin panel.
+        await lifecycle.teardown_released_session(
+            container,
+            session,
+            container_key,
+            container.platform,
+            acting_user_id=request.user.id,
+            acting_username=request.user.username,
+            reason=reason,
+        )
 
     released = []
     teardowns = []
@@ -1893,7 +1887,7 @@ async def force_release_all(
         if marker is not None and marker.get("draining"):
             continue
         released.append(container_key)
-        teardowns.append(_teardown(session_redis_key(container_key), container_key))
+        teardowns.append(_teardown(container_key))
 
     # Tear down concurrently so one slow or stuck broker cannot serialize the
     # whole sweep behind its timeout.

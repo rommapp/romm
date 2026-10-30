@@ -11,6 +11,7 @@ from utils import get_version, is_valid_uuid
 from utils.context import ctx_httpx_client
 from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.platform_slugs import fill_duplicate_slugs
 
 from .base_handler import HTTPX_REQUEST_ERRORS, MetadataHandler
 
@@ -408,3 +409,5 @@ class SlugToFlashpointId(TypedDict):
 FLASHPOINT_PLATFORM_LIST: dict[UPS, SlugToFlashpointId] = {
     UPS.BROWSER: {"id": 1, "name": "Browser (Flash/HTML5)"}
 }
+
+fill_duplicate_slugs(FLASHPOINT_PLATFORM_LIST)

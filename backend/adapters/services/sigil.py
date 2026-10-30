@@ -34,12 +34,6 @@ SIGIL_PLATFORM_SLUGS: Final[dict[str, str]] = {
 # and it is the only family whose files may carry their title id in the filename.
 SWITCH_PLATFORM_SLUGS: Final = frozenset({UPS.SWITCH, UPS.SWITCH_2})
 
-# Errors that are expected for arbitrary library files (no title id present,
-# format sigil can't parse, missing decryption keys). Logged at debug level.
-ROUTINE_SIGIL_ERROR_CODES: Final = frozenset(
-    {"NOT_FOUND", "UNSUPPORTED", "UNSUPPORTED_FORMAT", "NEEDS_KEY"}
-)
-
 
 @dataclass(frozen=True)
 class SigilExtractionResult:
@@ -90,12 +84,17 @@ class SigilService:
             result = await asyncio.to_thread(
                 sigil.extract, file_path, platform=sigil_slug, filename_fallback=False
             )
+        # Expected for arbitrary library files: no title id, a format sigil
+        # can't parse, or a Switch header RomM holds no keys for.
+        except (
+            sigil.SigilNotFoundError,
+            sigil.SigilUnsupportedFormatError,
+            sigil.SigilNeedsKeyError,
+        ) as exc:
+            log.debug(f"Sigil found no title id for {file_path}: {exc}")
+            return None
         except Exception as exc:
-            code = getattr(exc, "code", None)
-            if code in ROUTINE_SIGIL_ERROR_CODES:
-                log.debug(f"Sigil found no title id for {file_path}: {code}")
-            else:
-                log.error(f"Sigil extraction failed for {file_path}: {exc}")
+            log.error(f"Sigil extraction failed for {file_path}: {exc}")
             return None
 
         raw_content_type = getattr(result, "switch_content_type", None)

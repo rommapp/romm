@@ -163,7 +163,7 @@ Run from `frontend/`:
 
 **If you touched the backend API:** start the backend, run `npm run generate`, then re-`typecheck`.
 
-**If you touched tokens** (`src/v2/tokens/index.ts`): `npm run build:tokens` (also auto-runs on `predev`/`prebuild`) and confirm `tokens.css` regenerated.
+**If you touched tokens** (`src/tokens/index.ts`): `npm run build:tokens` (also auto-runs on `predev`/`prebuild`) and confirm `tokens.css` regenerated.
 
 **If you touched locales** (`src/locales/**`): `python3 frontend/src/locales/check_i18n_locales.py` must pass with zero missing/extra keys. See the `frontend-i18n` skill.
 
@@ -172,7 +172,7 @@ Run from `frontend/`:
 With `uiVersion = "v2"`:
 
 - **Golden path + edge cases:** empty, error, loading, no-permission, extreme data; plus nearby regressions.
-- **Both themes:** `v2-dark` and `v2-light`.
+- **Both themes:** `r-dark` and `r-light`.
 - **All four input modalities:** mouse, touch, keyboard, gamepad; focus ring only on `key`/`pad`.
 - **Responsive sweep:** 320px → 4K across the `useBreakpoint` tiers; overlays full-bleed on `xs`.
 - **Accessibility:** contrast, keyboard reachability with no traps, aria-labels on icon-only controls.
@@ -187,7 +187,7 @@ With `uiVersion = "v2"`:
 - New primitive → mandatory story with controls + at least one variant per theme; interactive ones get a `play()`.
 - Modified primitive → existing story still renders and interactions still pass.
 - Don't duplicate coverage between Vitest (pure logic) and Storybook `play()` (components).
-- Responsive composites: sweep the Storybook viewport presets (see `frontend-v2-input`).
+- Responsive composites: sweep the Storybook viewport presets (see `frontend-input`).
 
 ### Backend (`backend/`)
 

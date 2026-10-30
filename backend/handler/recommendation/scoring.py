@@ -14,6 +14,8 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final
 
+from utils.facets import facet_names
+
 
 class Facet(enum.StrEnum):
     """Every axis a recommendation can be explained by.
@@ -147,16 +149,16 @@ class RomFeatures:
 def extract_tokens(
     *,
     platform_id: int,
-    genres: Sequence[str] | None = None,
-    franchises: Sequence[str] | None = None,
-    collections: Sequence[str] | None = None,
-    companies: Sequence[str] | None = None,
-    developers: Sequence[str] | None = None,
-    publishers: Sequence[str] | None = None,
-    game_modes: Sequence[str] | None = None,
-    keywords: Sequence[str] | None = None,
-    themes: Sequence[str] | None = None,
-    player_perspectives: Sequence[str] | None = None,
+    genres: object = None,
+    franchises: object = None,
+    collections: object = None,
+    companies: object = None,
+    developers: object = None,
+    publishers: object = None,
+    game_modes: object = None,
+    keywords: object = None,
+    themes: object = None,
+    player_perspectives: object = None,
     first_release_date: int | None = None,
 ) -> tuple[str, ...]:
     """Flatten a ROM's metadata into namespaced, deduplicated feature tokens."""
@@ -165,27 +167,25 @@ def extract_tokens(
     # Prefer the role-split lists where a provider reported them, and fall back
     # to the merged one otherwise. Emitting both would count an IGDB-matched
     # game's studio twice while a game matched elsewhere counted once.
-    has_roles = bool(developers) or bool(publishers)
-    company_facets: tuple[tuple[Facet, Sequence[str] | None], ...] = (
-        ((Facet.DEVELOPER, developers), (Facet.PUBLISHER, publishers))
-        if has_roles
-        else ((Facet.COMPANY, companies),)
+    developer_names = facet_names(developers)
+    publisher_names = facet_names(publishers)
+    company_facets: tuple[tuple[Facet, list[str]], ...] = (
+        ((Facet.DEVELOPER, developer_names), (Facet.PUBLISHER, publisher_names))
+        if developer_names or publisher_names
+        else ((Facet.COMPANY, facet_names(companies)),)
     )
 
-    for facet, values in (
-        (Facet.GENRE, genres),
-        (Facet.FRANCHISE, franchises),
-        (Facet.COLLECTION, collections),
+    for facet, names in (
+        (Facet.GENRE, facet_names(genres)),
+        (Facet.FRANCHISE, facet_names(franchises)),
+        (Facet.COLLECTION, facet_names(collections)),
         *company_facets,
-        (Facet.GAME_MODE, game_modes),
-        (Facet.KEYWORD, keywords),
-        (Facet.THEME, themes),
-        (Facet.PERSPECTIVE, player_perspectives),
+        (Facet.GAME_MODE, facet_names(game_modes)),
+        (Facet.KEYWORD, facet_names(keywords)),
+        (Facet.THEME, facet_names(themes)),
+        (Facet.PERSPECTIVE, facet_names(player_perspectives)),
     ):
-        for value in values or ():
-            cleaned = (value or "").strip()
-            if cleaned:
-                tokens.append(make_token(facet, cleaned))
+        tokens.extend(make_token(facet, name) for name in names)
 
     tokens.append(make_token(Facet.PLATFORM, str(platform_id)))
 

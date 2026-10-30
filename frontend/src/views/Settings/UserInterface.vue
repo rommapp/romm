@@ -1,13 +1,618 @@
 <script setup lang="ts">
-import Interface from "@/components/Settings/UserInterface/Interface.vue";
-import Language from "@/components/Settings/UserInterface/Language.vue";
-import Theme from "@/components/Settings/UserInterface/Theme.vue";
-import UIVersion from "@/components/Settings/UserInterface/UIVersion.vue";
+// UserInterface: v2-native UI preferences view.
+//
+// Sections:
+//   1. Language          (RSelect, prefix-label)
+//   2. Theme             (3-button compact picker)
+//   3. Home              (toggle grid)
+//   4. Gallery           (toggle grid + boxart RSelect prefix-label +
+//                         advanced per-page boxart overrides)
+//   5. Jukebox           (resume-after-reload toggle)
+//   6. Gameplay          (launch-confirmation toggle)
+//   7. Desktop shell     (only inside it; opens its own settings)
+//   8. Virtual collections (RSelect prefix-label)
+import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import CrtWarmup from "@/components/AppShell/CrtWarmup.vue";
+import WidgetReorderList from "@/components/Home/Widgets/WidgetReorderList.vue";
+import SettingsSection from "@/components/Settings/SettingsSection.vue";
+import SettingsSubsection from "@/components/Settings/SettingsSubsection.vue";
+import SettingsToggleRow from "@/components/Settings/SettingsToggleRow.vue";
+import LanguageSelector from "@/components/shared/LanguageSelector.vue";
+import { isBoxartStyle } from "@/composables/useCoverArt";
+import { useCrtMode } from "@/composables/useCrtMode";
+import { useDebugMode } from "@/composables/useDebugMode";
+import { useReducedMotion } from "@/composables/useReducedMotion";
+import { useSnackbar } from "@/composables/useSnackbar";
+import { useUISettings } from "@/composables/useUISettings";
+import { RBtn, RIcon, RSelect, RSegmentedControl } from "@/lib";
+import { canOpenNativeSettings, openNativeSettings } from "@/services/native";
+import storeCollections from "@/stores/collections";
+import { useNativeStore } from "@/stores/native";
+
+const { t } = useI18n();
+const { enabled: debugEnabled } = useDebugMode();
+const collectionsStore = storeCollections();
+const nativeStore = useNativeStore();
+const snackbar = useSnackbar();
+
+// The shell's settings are a file on the user's own machine, so this only asks
+// it to open them: RomM never reads or writes what is in there.
+const showShellSettings = nativeStore.available && canOpenNativeSettings();
+
+// A missing or unwritable configuration fails inside the shell, where the user
+// cannot see it, so the button would otherwise look like it does nothing.
+async function onOpenShellSettings() {
+  if (!(await openNativeSettings())) {
+    snackbar.error(t("settings.open-shell-settings-failed"));
+  }
+}
+
+const {
+  theme: selectedTheme,
+  // Home
+  showRecentRoms,
+  showContinuePlaying,
+  showRecommendations,
+  showPlatforms,
+  showCollections,
+  showSmartCollections,
+  showVirtualCollections,
+  virtualCollectionType,
+  // Home widgets (v2 only)
+  showHomeWidgets,
+  widgetRandomPick,
+  widgetLibraryStats,
+  widgetAnniversaries,
+  libraryStatsMode,
+  widgetOrder,
+  // Gallery
+  groupRoms,
+  showRegions,
+  showLanguages,
+  showStatus,
+  showLogoTitle,
+  disableAnimations,
+  enableExperimentalCache,
+  boxartStyle,
+  boxartStyleDetails,
+  boxartStylePlayer,
+  // Jukebox
+  resumeMusic,
+  // Gameplay
+  confirmProtectedLaunch,
+} = useUISettings();
+
+type Theme = "dark" | "light" | "auto";
+const themeOptions: { value: Theme; label: string; icon: string }[] = [
+  {
+    value: "dark",
+    label: t("settings.theme-dark"),
+    icon: "mdi-moon-waning-crescent",
+  },
+  {
+    value: "light",
+    label: t("settings.theme-light"),
+    icon: "mdi-white-balance-sunny",
+  },
+  {
+    value: "auto",
+    label: t("settings.theme-auto"),
+    icon: "mdi-theme-light-dark",
+  },
+];
+
+function setTheme(value: Theme) {
+  selectedTheme.value = value;
+}
+
+// Cosmetic easter egg: toggle the persistent "CRT mode" shader; switching
+// it ON also fires the one-shot power-on warm-up flash.
+const { enabled: crtEnabled } = useCrtMode();
+const crtWarmup = ref<InstanceType<typeof CrtWarmup> | null>(null);
+function onCrtToggle(value: boolean) {
+  crtEnabled.value = value;
+  if (value) crtWarmup.value?.play();
+}
+
+// Reduced-motion mode: drop GPU-heavy decoration and animation (background
+// blur, cover blur-up, spins, transitions) for smoother rendering on low-power
+// devices. Per-device flag, defaults to the OS prefers-reduced-motion setting.
+const { enabled: reducedMotion } = useReducedMotion();
+
+// Selects --------------------------------------------------------------
+const boxartStyleItems = computed(() => [
+  { title: t("settings.boxart-cover"), value: "cover_path" },
+  { title: t("settings.boxart-box3d"), value: "box3d_path" },
+  { title: t("settings.boxart-physical"), value: "physical_path" },
+  { title: t("settings.boxart-miximage"), value: "miximage_path" },
+  { title: t("settings.boxart-miximage-v2"), value: "miximage_v2_path" },
+]);
+
+// Per-page styles hold a concrete style; legacy stored values (the
+// removed "inherit" option) display as the gallery style, which is also
+// how `resolveBoxartStyle` resolves them.
+const boxartGallery = computed(() =>
+  isBoxartStyle(boxartStyle.value) ? boxartStyle.value : "cover_path",
+);
+const boxartDetailsModel = computed<string>({
+  get: () =>
+    isBoxartStyle(boxartStyleDetails.value)
+      ? boxartStyleDetails.value
+      : boxartGallery.value,
+  set: (value) => {
+    boxartStyleDetails.value = value;
+  },
+});
+const boxartPlayerModel = computed<string>({
+  get: () =>
+    isBoxartStyle(boxartStylePlayer.value)
+      ? boxartStylePlayer.value
+      : boxartGallery.value,
+  set: (value) => {
+    boxartStylePlayer.value = value;
+  },
+});
+
+// Changing the gallery-wide style resets the per-page styles to match,
+// so pages only diverge when the user explicitly re-picks one (#3943).
+function onBoxartStyleChange(value: unknown) {
+  if (!isBoxartStyle(value)) return;
+  boxartStyle.value = value;
+  boxartStyleDetails.value = value;
+  boxartStylePlayer.value = value;
+}
+
+const showAdvancedBoxart = ref(false);
+
+const libraryStatsModeItems = computed(() => [
+  {
+    id: "compact",
+    icon: "mdi-view-agenda-outline",
+    ariaLabel: t("settings.widget-library-stats-compact"),
+    title: t("settings.widget-library-stats-compact"),
+  },
+  {
+    id: "extended",
+    icon: "mdi-view-list-outline",
+    ariaLabel: t("settings.widget-library-stats-extended"),
+    title: t("settings.widget-library-stats-extended"),
+  },
+]);
+
+const virtualCollectionTypeItems = computed(() => [
+  { title: t("settings.vc-collection"), value: "collection" },
+  { title: t("settings.vc-franchise"), value: "franchise" },
+  { title: t("settings.vc-genre"), value: "genre" },
+  { title: t("settings.vc-mode"), value: "mode" },
+  { title: t("settings.vc-company"), value: "company" },
+  { title: t("settings.vc-publisher"), value: "publisher" },
+  { title: t("settings.vc-developer"), value: "developer" },
+  { title: t("settings.vc-all"), value: "all" },
+]);
+
+function onVirtualCollectionTypeChange(value: unknown) {
+  const next = typeof value === "string" ? value : "";
+  virtualCollectionType.value = next;
+  void collectionsStore.fetchVirtualCollections(next);
+}
 </script>
 
 <template>
-  <UIVersion />
-  <Language />
-  <Theme />
-  <Interface />
+  <div class="r-section-stack">
+    <SettingsSection :title="t('settings.language')" icon="mdi-translate">
+      <div class="r-ui__field">
+        <LanguageSelector prefix-label />
+      </div>
+    </SettingsSection>
+
+    <SettingsSection :title="t('settings.theme')" icon="mdi-brush-variant">
+      <div class="r-ui__theme-row">
+        <button
+          v-for="opt in themeOptions"
+          :key="opt.value"
+          type="button"
+          class="r-ui__theme-btn"
+          :class="{
+            'r-ui__theme-btn--active': selectedTheme === opt.value,
+          }"
+          :aria-pressed="selectedTheme === opt.value"
+          @click="setTheme(opt.value)"
+        >
+          <RIcon :icon="opt.icon" size="14" />
+          <span>{{ opt.label }}</span>
+        </button>
+      </div>
+      <div
+        class="r-ui__toggle-grid r-ui__toggle-grid--single r-ui__toggle-grid--bordered"
+      >
+        <SettingsToggleRow
+          :model-value="crtEnabled"
+          :title="t('common.crt-mode')"
+          :description="t('settings.crt-mode-desc')"
+          @update:model-value="onCrtToggle"
+        />
+        <SettingsToggleRow
+          v-model="reducedMotion"
+          :title="t('settings.reduced-motion')"
+          :description="t('settings.reduced-motion-desc')"
+        />
+      </div>
+    </SettingsSection>
+
+    <!-- Home: sections + widgets, split into two subsections inside
+         a single card so the visual hierarchy reads as one cohesive
+         Home settings region. -->
+    <SettingsSection :title="t('settings.home')" icon="mdi-home-outline">
+      <SettingsSubsection
+        :title="t('settings.home-sections')"
+        icon="mdi-view-list-outline"
+      >
+        <div class="r-ui__toggle-grid">
+          <SettingsToggleRow
+            v-model="showRecentRoms"
+            :title="t('settings.show-recently-added')"
+            :description="t('settings.show-recently-added-desc')"
+          />
+          <SettingsToggleRow
+            v-model="showContinuePlaying"
+            :title="t('settings.show-continue-playing')"
+            :description="t('settings.show-continue-playing-desc')"
+          />
+          <SettingsToggleRow
+            v-model="showRecommendations"
+            :title="t('settings.show-recommendations')"
+            :description="t('settings.show-recommendations-desc')"
+          />
+          <SettingsToggleRow
+            v-model="showPlatforms"
+            :title="t('settings.show-platforms')"
+            :description="t('settings.show-platforms-desc')"
+          />
+          <SettingsToggleRow
+            v-model="showCollections"
+            :title="t('settings.show-collections')"
+            :description="t('settings.show-collections-desc')"
+          />
+          <SettingsToggleRow
+            v-model="showSmartCollections"
+            :title="t('settings.show-smart-collections')"
+            :description="t('settings.show-smart-collections-desc')"
+          />
+          <SettingsToggleRow
+            v-model="showVirtualCollections"
+            :title="t('settings.show-virtual-collections')"
+            :description="t('settings.show-virtual-collections-desc')"
+          />
+        </div>
+      </SettingsSubsection>
+
+      <SettingsSubsection
+        :title="t('settings.home-widgets')"
+        icon="mdi-view-dashboard-outline"
+      >
+        <div class="r-ui__toggle-grid">
+          <SettingsToggleRow
+            v-model="showHomeWidgets"
+            :title="t('settings.show-home-widgets')"
+            :description="t('settings.show-home-widgets-desc')"
+          />
+          <SettingsToggleRow
+            v-model="widgetRandomPick"
+            :title="t('settings.widget-random-pick')"
+            :description="t('settings.widget-random-pick-desc')"
+            :disabled="!showHomeWidgets"
+          />
+          <SettingsToggleRow
+            v-model="widgetAnniversaries"
+            :title="t('settings.widget-anniversaries')"
+            :description="t('settings.widget-anniversaries-desc')"
+            :disabled="!showHomeWidgets"
+          />
+          <SettingsToggleRow
+            v-model="widgetLibraryStats"
+            :title="t('settings.widget-library-stats')"
+            :description="t('settings.widget-library-stats-desc')"
+            :disabled="!showHomeWidgets"
+          >
+            <template #append>
+              <!-- Compact / Extended segmented control. Lives inside
+                   the row so its scope reads at a glance; clicks
+                   are stopped by the slot wrapper in SettingsToggleRow
+                   so toggling the segmented control doesn't also flip
+                   the row's main switch. -->
+              <RSegmentedControl
+                v-model="libraryStatsMode"
+                :items="libraryStatsModeItems"
+                variant="segmented"
+                size="x-small"
+                :disabled="!showHomeWidgets || !widgetLibraryStats"
+                :aria-label="t('settings.widget-library-stats-mode')"
+              />
+            </template>
+          </SettingsToggleRow>
+        </div>
+        <!-- Reorder list: drag handles let users decide the
+             left-to-right order the widgets paint on Home. Disabled
+             ones still show up so users can prep order before
+             toggling them on. -->
+        <WidgetReorderList v-model="widgetOrder" :disabled="!showHomeWidgets" />
+      </SettingsSubsection>
+    </SettingsSection>
+
+    <!-- Gallery: 7 toggles + boxart-style select -->
+    <SettingsSection :title="t('settings.gallery')" icon="mdi-view-grid">
+      <div class="r-ui__toggle-grid">
+        <SettingsToggleRow
+          v-model="groupRoms"
+          :title="t('settings.group-roms')"
+          :description="t('settings.group-roms-desc')"
+        />
+        <!-- The sibling-count chip follows `groupRoms`: it appears when the
+             gallery groups, and is noise when every version shows
+             separately. -->
+        <SettingsToggleRow
+          v-model="showStatus"
+          :title="t('settings.show-status')"
+          :description="t('settings.show-status-desc')"
+        />
+        <SettingsToggleRow
+          v-model="showRegions"
+          :title="t('settings.show-regions')"
+          :description="t('settings.show-regions-desc')"
+        />
+        <SettingsToggleRow
+          v-model="showLanguages"
+          :title="t('settings.show-languages')"
+          :description="t('settings.show-languages-desc')"
+        />
+        <SettingsToggleRow
+          v-model="showLogoTitle"
+          :title="t('settings.show-logo-title')"
+          :description="t('settings.show-logo-title-desc')"
+        />
+        <SettingsToggleRow
+          v-model="disableAnimations"
+          :title="t('settings.disable-animations')"
+          :description="t('settings.disable-animations-desc')"
+        />
+        <SettingsToggleRow
+          v-model="enableExperimentalCache"
+          :title="t('settings.enable-experimental-cache')"
+          :description="t('settings.enable-experimental-cache-desc')"
+        />
+      </div>
+      <div class="r-ui__field r-ui__field--bordered">
+        <RSelect
+          :model-value="boxartGallery"
+          :items="boxartStyleItems"
+          prefix-label="stacked"
+          hide-details
+          @update:model-value="onBoxartStyleChange"
+        >
+          <template #prefix-label>
+            <RIcon icon="mdi-image-frame" size="14" />
+            {{ t("settings.boxart-style") }}
+          </template>
+        </RSelect>
+        <RBtn
+          variant="text"
+          size="small"
+          :prepend-icon="
+            showAdvancedBoxart ? 'mdi-chevron-down' : 'mdi-chevron-right'
+          "
+          :aria-expanded="showAdvancedBoxart"
+          class="r-ui__advanced-toggle"
+          @click="showAdvancedBoxart = !showAdvancedBoxart"
+        >
+          {{ t("settings.boxart-advanced") }}
+        </RBtn>
+        <template v-if="showAdvancedBoxart">
+          <p class="r-ui__desc">
+            {{ t("settings.boxart-advanced-desc") }}
+          </p>
+          <RSelect
+            v-model="boxartDetailsModel"
+            :items="boxartStyleItems"
+            prefix-label="stacked"
+            hide-details
+          >
+            <template #prefix-label>
+              <RIcon icon="mdi-card-text-outline" size="14" />
+              {{ t("settings.boxart-style-details") }}
+            </template>
+          </RSelect>
+          <RSelect
+            v-model="boxartPlayerModel"
+            :items="boxartStyleItems"
+            prefix-label="stacked"
+            hide-details
+          >
+            <template #prefix-label>
+              <RIcon icon="mdi-play-box-outline" size="14" />
+              {{ t("settings.boxart-style-player") }}
+            </template>
+          </RSelect>
+        </template>
+      </div>
+    </SettingsSection>
+
+    <!-- Jukebox -->
+    <SettingsSection
+      :title="t('common.jukebox')"
+      icon="mdi-music-box-multiple-outline"
+    >
+      <div class="r-ui__toggle-grid r-ui__toggle-grid--single">
+        <SettingsToggleRow
+          v-model="resumeMusic"
+          :title="t('settings.resume-music')"
+          :description="t('settings.resume-music-desc')"
+        />
+      </div>
+    </SettingsSection>
+
+    <!-- Gameplay -->
+    <SettingsSection
+      :title="t('settings.gameplay')"
+      icon="mdi-play-circle-outline"
+    >
+      <div class="r-ui__toggle-grid r-ui__toggle-grid--single">
+        <SettingsToggleRow
+          v-model="confirmProtectedLaunch"
+          :title="t('settings.confirm-protected-launch')"
+          :description="t('settings.confirm-protected-launch-desc')"
+        />
+      </div>
+    </SettingsSection>
+
+    <SettingsSection
+      v-if="showShellSettings"
+      :title="t('settings.desktop-shell')"
+      icon="mdi-desktop-classic"
+    >
+      <div class="r-ui__field">
+        <p class="r-ui__desc">
+          {{
+            t("settings.desktop-shell-desc", {
+              version: nativeStore.shellVersion ?? "",
+            })
+          }}
+        </p>
+        <RBtn
+          variant="outlined"
+          size="small"
+          prepend-icon="mdi-cog-outline"
+          @click="onOpenShellSettings"
+        >
+          {{ t("settings.open-shell-settings") }}
+        </RBtn>
+      </div>
+    </SettingsSection>
+
+    <!-- Virtual collections -->
+    <SettingsSection
+      :title="t('common.virtual-collections')"
+      icon="mdi-bookmark-box-multiple"
+    >
+      <div class="r-ui__field">
+        <RSelect
+          :model-value="virtualCollectionType"
+          :items="virtualCollectionTypeItems"
+          prefix-label="stacked"
+          hide-details
+          @update:model-value="onVirtualCollectionTypeChange"
+        >
+          <template #prefix-label>
+            <RIcon icon="mdi-shape-outline" size="14" />
+            {{ t("settings.virtual-collection-type") }}
+          </template>
+        </RSelect>
+      </div>
+    </SettingsSection>
+
+    <!-- Developer: kept dead last. Debug overlay is a
+         per-device localStorage toggle (useDebugMode), not synced to the
+         account, so it never follows you across machines. -->
+    <SettingsSection :title="t('settings.developer')" icon="mdi-bug-outline">
+      <div class="r-ui__toggle-grid r-ui__toggle-grid--single">
+        <SettingsToggleRow
+          v-model="debugEnabled"
+          :title="t('settings.debug-overlay')"
+          :description="t('settings.debug-overlay-desc')"
+        />
+      </div>
+    </SettingsSection>
+
+    <!-- One-shot CRT power-on flash, fired when CRT mode is switched on
+         from the Theme section above. -->
+    <CrtWarmup ref="crtWarmup" />
+  </div>
 </template>
+
+<style scoped>
+/* Generic field row inside a section body. */
+.r-ui__field {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.r-ui__field--bordered {
+  border-top: 1px solid var(--r-color-border);
+}
+
+.r-ui__advanced-toggle {
+  align-self: flex-start;
+}
+
+.r-ui__desc {
+  margin: 0;
+  color: var(--r-color-fg-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 640px;
+}
+
+/* Toggle grid: 2 cols, hairline gap (the gap shows the section body's
+   border colour through to give the divider effect). */
+.r-ui__toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--r-color-border);
+}
+
+.r-ui__toggle-grid--single {
+  grid-template-columns: 1fr;
+}
+/* Separate a toggle grid from the control row above it (e.g. the CRT
+   toggle sitting under the theme picker) with a hairline divider. */
+.r-ui__toggle-grid--bordered {
+  border-top: 1px solid var(--r-color-border);
+}
+html[data-bp~="xs"] .r-ui__toggle-grid {
+  grid-template-columns: 1fr;
+}
+
+/* Theme picker: 3 buttons in a flush row inside the section body. */
+.r-ui__theme-row {
+  display: flex;
+  gap: 10px;
+  padding: 16px;
+}
+.r-ui__theme-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--r-color-border);
+  background: var(--r-color-surface);
+  color: var(--r-color-fg-muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: var(--r-font-weight-medium);
+  transition:
+    background var(--r-motion-fast) var(--r-motion-ease-out),
+    border-color var(--r-motion-fast) var(--r-motion-ease-out),
+    color var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-ui__theme-btn:hover {
+  background: var(--r-color-surface-hover);
+  color: var(--r-color-fg);
+}
+.r-ui__theme-btn--active {
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-brand-primary) 60%,
+    transparent
+  );
+  background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
+  color: var(--r-color-brand-primary);
+}
+html[data-bp~="xs"] .r-ui__theme-row {
+  flex-direction: column;
+}
+</style>

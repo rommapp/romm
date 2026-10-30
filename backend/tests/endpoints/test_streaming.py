@@ -89,6 +89,7 @@ from handler.streaming.protocol import protocol_for
 from handler.streaming.session_store import (
     STREAMING_SESSION_DRAIN_SECONDS,
     STREAMING_SESSION_TTL_SECONDS,
+    StreamingSession,
     StreamingSessionContended,
     release_own_session,
 )
@@ -276,11 +277,11 @@ def _auth(token):
     return {"Authorization": f"Bearer {token}"}
 
 
-def _load_session(key: str) -> dict[str, Any]:
+def _load_session(key: str) -> StreamingSession:
     """The session stored at `key`, failing the test if nothing is there."""
     raw = asyncio.run(async_cache.get(key))
     assert raw is not None, f"no session stored at {key}"
-    return cast(dict[str, Any], json.loads(raw))
+    return cast(StreamingSession, json.loads(raw))
 
 
 def _claim(client, token, rom_id, state_id=None, save_id=None):
@@ -340,6 +341,32 @@ def test_get_config_warns_on_missing_platform(client, access_token, caplog):
     assert response.status_code == 200
     assert response.json()["containers"] == []
     assert "missing platform/host" in caplog.text
+
+
+def test_a_container_broker_secret_overrides_the_env_secret():
+    """Containers with different BROKER_SECRETs each authenticate with their own."""
+    with patch("handler.streaming.config.STREAMING_BROKER_SECRET", "from-env"):
+        container = resolve_entry({**_webstation(), "broker_secret": "from-config"})
+    assert container is not None
+    assert container.broker_secret == "from-config"
+
+
+@pytest.mark.parametrize(
+    "configured", [{}, {"broker_secret": None}, {"broker_secret": ""}]
+)
+def test_a_container_without_a_broker_secret_falls_back_to_the_env_secret(configured):
+    with patch("handler.streaming.config.STREAMING_BROKER_SECRET", "from-env"):
+        container = resolve_entry({**_webstation(), **configured})
+    assert container is not None
+    assert container.broker_secret == "from-env"
+
+
+def test_a_blank_broker_secret_with_no_env_secret_sends_none():
+    """A bare `broker_secret:` key is YAML null, not the secret "None"."""
+    with patch("handler.streaming.config.STREAMING_BROKER_SECRET", ""):
+        container = resolve_entry({**_webstation(), "broker_secret": None})
+    assert container is not None
+    assert container.broker_secret == ""
 
 
 def test_a_config_warning_does_not_print_the_broker_secret(
@@ -410,6 +437,26 @@ def test_get_config_ships_capabilities_for_a_retroarch_platform(client, access_t
     caps = r.json()["containers"][0]["capabilities"]
     assert caps["has_autosave"] is True
     assert caps["autosave_slot"] == 10
+
+
+def test_get_config_ships_capabilities_for_a_ppsspp_container(client, access_token):
+    """A psp: ppsspp container ships and accepts the broker's one working state slot."""
+    container = {
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "platforms": {"psp": "ppsspp"},
+    }
+    with _streaming(container):
+        r = client.get("/api/streaming/config", headers=_auth(access_token))
+        streaming._assert_valid_slot("psp", 10)
+        with pytest.raises(HTTPException):
+            streaming._assert_valid_slot("psp", 3)
+    assert r.status_code == 200
+    caps = r.json()["containers"][0]["capabilities"]
+    assert caps["max_slots"] == 0
+    assert caps["has_autosave"] is True
+    assert caps["autosave_slot"] == 10
+    assert caps["has_memory_card"] is False
 
 
 def _picks(client, token, rom: Rom, platform: str, spec=None, core=None):
@@ -2134,6 +2181,31 @@ def test_an_admin_controls_the_pools_one_active_session(
     assert volume.call_args[0][0].host == "http://192.168.1.10:3000"
 
 
+def _scoped_admin_token(admin_user: User, scopes: str) -> str:
+    return oauth_handler.create_access_token(
+        data={"sub": admin_user.username, "iss": "romm:oauth", "scopes": scopes},
+        expires_delta=timedelta(minutes=5),
+    )
+
+
+def test_an_admin_token_without_users_write_cannot_control_another_session(
+    client, admin_user: User, viewer_access_token, rom: Rom
+):
+    token = _scoped_admin_token(admin_user, "roms.read roms.user.write")
+    with _streaming(_pool_member(rom, 0)):
+        _claim_ok(client, viewer_access_token, rom.id)
+        r = _volume(client, token, rom.platform_slug)
+    assert r.status_code == 403
+
+
+def test_an_admin_token_without_users_read_cannot_list_containers(
+    client, admin_user: User
+):
+    token = _scoped_admin_token(admin_user, "roms.read")
+    with _streaming(_webstation()):
+        assert _containers(client, token).status_code == 403
+
+
 def test_an_admin_cannot_guess_which_of_two_sessions_to_control(
     client, access_token, viewer_access_token, editor_access_token, rom: Rom
 ):
@@ -3122,6 +3194,28 @@ def test_desktop_frees_the_claim_when_activation_fails(client, access_token):
                 headers=_auth(access_token),
             )
         assert response.status_code == 503
+        assert _session_raw(container) is None
+
+
+def test_desktop_frees_the_claim_when_activation_is_cancelled(client, access_token):
+    """A cancellation is not an Exception, so a narrower catch would leak it."""
+    with _streaming(_webstation()):
+        container = _first_container("ps2")
+        key = _key_of(container)
+        with (
+            patch(
+                "handler.streaming.webstation.activate",
+                side_effect=asyncio.CancelledError,
+            ) as activate,
+            # Starlette's middleware surfaces the cancellation as its own error.
+            pytest.raises(RuntimeError),
+        ):
+            client.post(
+                "/api/streaming/desktop",
+                json={"container": key},
+                headers=_auth(access_token),
+            )
+        activate.assert_called_once()
         assert _session_raw(container) is None
 
 
@@ -4467,6 +4561,86 @@ def test_force_release_all_stops_brokers(client, access_token, rom: Rom):
     assert stop_broker.call_count == 1
 
 
+def test_force_release_all_leaves_its_notice_before_the_stop(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """The sweep tears down like a single admin release, so the displaced tab's
+    poll finds the notice while the container drains."""
+    container = _container_for(rom)
+    seen: list[dict[str, Any] | None] = []
+
+    with _streaming(container):
+        _claim_ok(client, viewer_access_token, rom.id)
+        owner = json.loads(_session_raw(container))["user_id"]
+
+        async def capture(*args, **kwargs):
+            seen.append(await session_store.get_termination(_key_of(container), owner))
+            return commands.StopOutcome()
+
+        with patch(
+            "handler.streaming.lifecycle.quiesce_container",
+            new=AsyncMock(side_effect=capture),
+        ):
+            client.delete(
+                "/api/streaming/sessions",
+                params={"reason": "server restart"},
+                headers=_auth(access_token),
+            )
+    assert seen and seen[0] is not None
+    assert seen[0]["reason"] == "server restart"
+
+
+def test_force_release_all_without_a_config_leaves_a_newer_claim(
+    client, access_token, rom: Rom
+):
+    """With nothing to stop, the sweep still frees the key, but only while it
+    holds the session it read, never a claim that replaced it."""
+    container = _container_for(rom)
+    key = _key_of(container)
+    newer = _session_at(session_store.session_redis_key(key), user_id=99)
+
+    async def reclaimed(session, *args, **kwargs):
+        await async_cache.set(
+            session_store.session_redis_key(key),
+            json.dumps({**newer, "claimed_at": "2026-02-02T00:00:00+00:00"}),
+        )
+
+    with (
+        _streaming(),
+        patch(
+            "endpoints.streaming.record_termination",
+            new=AsyncMock(side_effect=reclaimed),
+        ),
+    ):
+        r = client.delete("/api/streaming/sessions", headers=_auth(access_token))
+    assert r.status_code == 200
+    assert _load_session(session_store.session_redis_key(key))["claimed_at"] == (
+        "2026-02-02T00:00:00+00:00"
+    )
+
+
+def test_force_release_all_without_a_config_clears_the_activity(
+    client, access_token, rom: Rom
+):
+    key = _key_of(_container_for(rom))
+    session = _session_at(session_store.session_redis_key(key), user_id=99)
+
+    with (
+        _streaming(),
+        patch(
+            "handler.streaming.lifecycle.clear_session_activity", new=AsyncMock()
+        ) as cleared,
+        patch(
+            "handler.streaming.lifecycle.record_play_session", new=AsyncMock()
+        ) as recorded,
+    ):
+        r = client.delete("/api/streaming/sessions", headers=_auth(access_token))
+    assert r.status_code == 200
+    cleared.assert_awaited_once_with(key, session)
+    recorded.assert_awaited_once_with(session)
+    assert asyncio.run(async_cache.get(session_store.session_redis_key(key))) is None
+
+
 # ── Save-state sync ───────────────────────────────────────────────────────────
 
 
@@ -4763,9 +4937,12 @@ def test_save_and_exit_without_a_rom_drains_only_briefly(
     assert 0 < ttl <= STREAMING_SESSION_DRAIN_SECONDS
 
 
-def _session_at(key: str, **fields) -> dict[str, Any]:
+def _session_at(key: str, **fields) -> StreamingSession:
     """Put a session on the key and hand back the claim a route would hold."""
-    session = {"user_id": 1, "claimed_at": "2026-01-01T00:00:00+00:00", **fields}
+    session = cast(
+        StreamingSession,
+        {"user_id": 1, "claimed_at": "2026-01-01T00:00:00+00:00", **fields},
+    )
     asyncio.run(
         async_cache.set(key, json.dumps(session), ex=STREAMING_SESSION_TTL_SECONDS)
     )
@@ -4880,7 +5057,8 @@ def test_a_corrupt_session_key_is_dropped_rather_than_wedging_the_container():
     try:
         asyncio.run(async_cache.set(key, "not a session"))
         assert (
-            asyncio.run(session_store.mutate_session("cas-corrupt", {"a": 1})) is None
+            asyncio.run(session_store.mutate_session("cas-corrupt", {"user_id": 1}))
+            is None
         )
         assert asyncio.run(async_cache.get(key)) is None
 
@@ -8556,7 +8734,11 @@ def test_run_launch_sends_rom_identity_fields(rom: Rom, admin_user: User):
     rom.save_target = "SLUS-12345"
     rom.save_target_layout = SaveTargetLayout.FOLDER_EXACT
     activate = MagicMock(return_value={"url": "/room/x"})
-    session = {"broker_session_id": "s1", "claimed_at": "t1", "user_id": admin_user.id}
+    session: StreamingSession = {
+        "broker_session_id": "s1",
+        "claimed_at": "t1",
+        "user_id": admin_user.id,
+    }
     with (
         patch("handler.streaming.launch.webstation.activate", activate),
         patch("handler.streaming.launch.lifecycle.hold_session_claim", new=AsyncMock()),
@@ -8614,7 +8796,11 @@ def test_run_launch_pushes_refusals_when_the_broker_refuses_an_import(
         docs=None,
     )
     activate = MagicMock(side_effect=broker.ImportRefusedError([refusal], 2))
-    session = {"broker_session_id": "s1", "claimed_at": "t1", "user_id": admin_user.id}
+    session: StreamingSession = {
+        "broker_session_id": "s1",
+        "claimed_at": "t1",
+        "user_id": admin_user.id,
+    }
     pushed = AsyncMock()
     with (
         patch("handler.streaming.launch.webstation.activate", activate),
@@ -8712,7 +8898,11 @@ def test_run_launch_skips_the_state_push_when_resuming_via_import(
     pushed through the ordinary state-file PUT."""
     state = _add_state(rom, admin_user, "Game.00.dolphin", "dolphin")
     activate = MagicMock(return_value={"url": "/room/x"})
-    session = {"broker_session_id": "s1", "claimed_at": "t1", "user_id": admin_user.id}
+    session: StreamingSession = {
+        "broker_session_id": "s1",
+        "claimed_at": "t1",
+        "user_id": admin_user.id,
+    }
     push_resume = AsyncMock()
     with (
         patch("handler.streaming.launch.webstation.activate", activate),
@@ -8762,7 +8952,11 @@ def test_run_launch_sends_no_resume_slot_when_the_import_was_lost(
     broker load that slot anyway, from whatever the archive does carry."""
     state = _add_state(rom, admin_user, "Game.00.dolphin", "dolphin")
     activate = MagicMock(return_value={"url": "/room/x"})
-    session = {"broker_session_id": "s1", "claimed_at": "t1", "user_id": admin_user.id}
+    session: StreamingSession = {
+        "broker_session_id": "s1",
+        "claimed_at": "t1",
+        "user_id": admin_user.id,
+    }
     push_resume = AsyncMock()
     with (
         patch("handler.streaming.launch.webstation.activate", activate),
@@ -9317,7 +9511,7 @@ def test_an_earlier_pull_finishing_leaves_a_later_exits_mark(
     while it runs, and its finishing must not let a claim past the later pull."""
     entry = _container_for(rom)
     container = _resolved(entry)
-    session = {"user_id": admin_user.id, "rom_id": rom.id}
+    session: StreamingSession = {"user_id": admin_user.id, "rom_id": rom.id}
 
     async def scenario() -> tuple[bool, bool]:
         with (
@@ -9344,7 +9538,7 @@ def test_an_exit_save_pull_runs_on_the_streaming_worker(
 ):
     """A web restart would otherwise cut a pull short and park the next claim."""
     container = _resolved(_container_for(rom))
-    session = {
+    session: StreamingSession = {
         "user_id": admin_user.id,
         "rom_id": rom.id,
         "broker_session_id": "b1",
@@ -9380,7 +9574,7 @@ def test_an_exit_save_pull_runs_on_the_streaming_worker(
 
 
 def test_a_queued_exit_save_pull_hands_on_the_disc(admin_user: User, rom: Rom):
-    session = {"user_id": admin_user.id, "rom_id": rom.id}
+    session: StreamingSession = {"user_id": admin_user.id, "rom_id": rom.id}
 
     async def scenario() -> AsyncMock:
         container = _resolved(_container_for(rom))
@@ -9415,7 +9609,7 @@ def test_a_pull_that_cannot_be_queued_lets_the_next_claim_through(
     admin_user: User, rom: Rom, exit_pull_queue: MagicMock
 ):
     container = _resolved(_container_for(rom))
-    session = {"user_id": admin_user.id, "rom_id": rom.id}
+    session: StreamingSession = {"user_id": admin_user.id, "rom_id": rom.id}
     exit_pull_queue.enqueue.side_effect = ConnectionError("redis went away")
 
     async def scenario() -> bool:
@@ -9429,7 +9623,7 @@ def test_a_pull_that_cannot_be_queued_lets_the_next_claim_through(
 def test_a_queued_pull_for_a_container_no_longer_configured_clears_its_mark(
     admin_user: User, rom: Rom
 ):
-    session = {"user_id": admin_user.id, "rom_id": rom.id}
+    session: StreamingSession = {"user_id": admin_user.id, "rom_id": rom.id}
 
     async def scenario() -> tuple[bool, AsyncMock]:
         container = _resolved(_container_for(rom))
@@ -12168,7 +12362,7 @@ def test_record_play_session_stores_duration(admin_user: User, rom: Rom):
     """A finished streaming session is recorded as playtime and updates the
     ROM's last_played, keyed off the stored claim timestamp."""
     start = datetime.now(timezone.utc) - timedelta(minutes=10)
-    session = {
+    session: StreamingSession = {
         "user_id": admin_user.id,
         "rom_id": rom.id,
         "claimed_at": start.isoformat(),
@@ -12184,7 +12378,7 @@ def test_record_play_session_stores_duration(admin_user: User, rom: Rom):
 
 def test_record_play_session_skips_accidental_short_session(admin_user: User, rom: Rom):
     """A claim released almost immediately is noise, not playtime."""
-    session = {
+    session: StreamingSession = {
         "user_id": admin_user.id,
         "rom_id": rom.id,
         "claimed_at": datetime.now(timezone.utc).isoformat(),

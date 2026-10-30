@@ -1,4 +1,4 @@
-import { emulatorLabelFrom } from "@/v2/utils/assets";
+import { emulatorLabelFrom } from "@/utils/assets";
 
 // Stands in for `@/stores/streaming` via `vi.mock(path, () => import(...))`.
 const EMULATOR_LABELS: Record<string, string> = {

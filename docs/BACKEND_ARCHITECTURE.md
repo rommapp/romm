@@ -228,6 +228,10 @@ backend/
 │
 ├── handler/                   # Business logic layer
 │   ├── scan_handler.py        # Library scan orchestration
+│   ├── scan/                  # What scan_handler builds on
+│   │   ├── sources.py         # Scan types, metadata sources, rescan rules, priority
+│   │   ├── lookups.py         # One rom's lookups against each source
+│   │   └── merge.py           # Merging the sources' answers into a rom's columns
 │   ├── socket_handler.py      # Socket.IO server management
 │   ├── netplay_handler.py     # Netplay room state
 │   ├── redis_handler.py       # Redis clients & queues
@@ -1319,7 +1323,7 @@ Endpoints also check the caller's permission group (`handler/auth/permissions.py
 
 ### 8.1 Scan Handler (`handler/scan_handler.py`)
 
-The core of RomM. Orchestrates library scanning and metadata enrichment.
+The core of RomM. Orchestrates library scanning and metadata enrichment. The scan types, metadata sources and rescan rules live in `handler/scan/sources.py`, the per-source lookups in `handler/scan/lookups.py`, and the merge of their answers into a rom's columns in `handler/scan/merge.py`.
 
 **Scan Types:**
 
@@ -1481,7 +1485,7 @@ await notify(user.id, NotificationKind.SCAN_COMPLETED, NotificationLevel.SUCCESS
 await notify_admins("custom", NotificationLevel.WARNING, title="Disk almost full")
 ```
 
-A `NotificationKind` is translated by the client from `data`; a new one needs a describer in `frontend/src/v2/utils/notifications.ts` and locale keys. Until then, or for a one-off, pass any other kind with `title`/`body`/`link`/`icon`. Both helpers log and swallow failures, so a job never fails over reporting itself.
+A `NotificationKind` is translated by the client from `data`; a new one needs a describer in `frontend/src/utils/notifications.ts` and locale keys. Until then, or for a one-off, pass any other kind with `title`/`body`/`link`/`icon`. Both helpers log and swallow failures, so a job never fails over reporting itself.
 
 A task reports its success from `run_task_by_name`. Its failure is reported by `report_task_failure`, an exception handler `RomMWorker` installs, so a timeout, a killed work horse or a dead worker notifies too, for cron runs as well as manual ones. The handler can run in the worker parent, so it enqueues `notify_task_failure` on the default queue rather than loading the notification stack there.
 

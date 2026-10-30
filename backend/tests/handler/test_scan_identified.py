@@ -7,7 +7,7 @@ from tests.handler.scan_stubs import add_n64_platform, add_rom, run_scan
 
 from handler.metadata.libretro_handler import LibretroRom
 from handler.metadata.sgdb_handler import SGDBRom
-from handler.scan_handler import MetadataSource, ScanType
+from handler.scan.sources import MetadataSource, ScanType
 
 FS_NAME = "Mario Kart 64 (USA).z64"
 
@@ -15,7 +15,7 @@ FS_NAME = "Mario Kart 64 (USA).z64"
 @pytest.fixture
 def sgdb_lookup():
     with patch(
-        "handler.scan_handler.meta_sgdb_handler.get_details_by_names",
+        "handler.scan.lookups.meta_sgdb_handler.get_details_by_names",
         new=AsyncMock(return_value=SGDBRom(sgdb_id=None)),
     ) as lookup:
         yield lookup
@@ -26,7 +26,7 @@ async def test_libretro_only_match_counts_as_identified(sgdb_lookup):
     rom = add_rom(platform, FS_NAME, "Mario Kart 64")
 
     with patch(
-        "handler.scan_handler.meta_libretro_handler.get_rom",
+        "handler.scan.lookups.meta_libretro_handler.get_rom",
         new=AsyncMock(
             return_value=LibretroRom(
                 libretro_id="Mario Kart 64 (USA)", name="Mario Kart 64"
@@ -51,7 +51,7 @@ async def test_unmatched_rom_skips_the_sgdb_lookup(sgdb_lookup):
     rom = add_rom(platform, FS_NAME, "Mario Kart 64")
 
     with patch(
-        "handler.scan_handler.meta_libretro_handler.get_rom",
+        "handler.scan.lookups.meta_libretro_handler.get_rom",
         new=AsyncMock(return_value=LibretroRom(libretro_id=None)),
     ):
         result = await run_scan(

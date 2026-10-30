@@ -2181,6 +2181,26 @@ class TestSigilTitleIdExtraction:
         assert mock_extract.await_count == 1
 
     @pytest.mark.asyncio
+    async def test_sidecar_files_are_not_read(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_multi_part_rom(
+            tmp_path,
+            PS2_PLATFORM,
+            "Game",
+            ["Game.cue", "Game.bin", "Game.SBI", "readme.txt", "Game.nfo"],
+        )
+
+        mock_extract = AsyncMock(return_value=None)
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            await handler.get_rom_files(rom)
+
+        read = [Path(call.args[1]).name for call in mock_extract.await_args_list]
+        assert read == ["Game.bin"]
+
+    @pytest.mark.asyncio
     @pytest.mark.parametrize(
         ("fs_name", "title_id", "expected"),
         [
@@ -3582,3 +3602,52 @@ class TestIncrementalRomFiles:
 
     def test_upload_temp_files_are_excluded_by_default(self):
         assert "assembling" in DEFAULT_EXCLUDED_EXTENSIONS
+
+
+@pytest.mark.parametrize(
+    ("file_path", "file_name", "moved_path", "moved_name"),
+    [
+        # A single-file rom is the file itself.
+        ("n64/roms", "Game.z64", "n64/roms", "Renamed.z64"),
+        # A folder's files keep their names, even one named after the folder.
+        (
+            "n64/roms/Game.z64",
+            "Game.z64 (Disc 1).bin",
+            "n64/roms/Renamed.z64",
+            "Game.z64 (Disc 1).bin",
+        ),
+        (
+            "n64/roms/Game.z64/extras",
+            "Game.z64.txt",
+            "n64/roms/Renamed.z64/extras",
+            "Game.z64.txt",
+        ),
+    ],
+)
+def test_moved_file_location_follows_the_rename_on_disk(
+    file_path: str, file_name: str, moved_path: str, moved_name: str
+):
+    file = RomFile(file_path=file_path, file_name=file_name)
+    assert FSRomsHandler.moved_file_location(
+        file, "n64/roms", "Game.z64", "Renamed.z64"
+    ) == {
+        "file_name": moved_name,
+        "file_path": moved_path,
+    }
+
+
+def test_moved_file_location_skips_a_sibling_sharing_the_prefix():
+    file = RomFile(file_path="n64/roms/Game.z64 Deluxe", file_name="a.bin")
+    assert (
+        FSRomsHandler.moved_file_location(file, "n64/roms", "Game.z64", "Renamed.z64")
+        is None
+    )
+
+
+def test_moved_file_location_leaves_the_platform_path_alone():
+    """A rom named like its platform folder must not rewrite that folder."""
+    file = RomFile(file_path="n64/roms", file_name="n64")
+    assert FSRomsHandler.moved_file_location(file, "n64/roms", "n64", "N64 Game") == {
+        "file_name": "N64 Game",
+        "file_path": "n64/roms",
+    }

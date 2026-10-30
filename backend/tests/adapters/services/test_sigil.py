@@ -10,13 +10,30 @@ from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 
 class FakeSigilError(Exception):
-    def __init__(self, code: str):
-        super().__init__(code)
+    def __init__(self, code: int):
+        super().__init__(f"sigil error {code}")
         self.code = code
 
 
+class FakeNotFoundError(FakeSigilError):
+    pass
+
+
+class FakeUnsupportedFormatError(FakeSigilError):
+    pass
+
+
+class FakeNeedsKeyError(FakeSigilError):
+    pass
+
+
 def make_fake_sigil(extract: Mock) -> types.SimpleNamespace:
-    return types.SimpleNamespace(extract=extract)
+    return types.SimpleNamespace(
+        extract=extract,
+        SigilNotFoundError=FakeNotFoundError,
+        SigilUnsupportedFormatError=FakeUnsupportedFormatError,
+        SigilNeedsKeyError=FakeNeedsKeyError,
+    )
 
 
 def make_result(
@@ -123,27 +140,47 @@ class TestSigilService:
         assert result.content_type is None
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("code", ["NOT_FOUND", "UNSUPPORTED_FORMAT", "NEEDS_KEY"])
+    @pytest.mark.parametrize(
+        "error",
+        [
+            pytest.param(FakeNotFoundError(-5), id="not-found"),
+            pytest.param(FakeUnsupportedFormatError(-4), id="unsupported-format"),
+            pytest.param(FakeNeedsKeyError(-6), id="needs-key"),
+        ],
+    )
     async def test_routine_sigil_error_returns_none(
-        self, service: SigilService, monkeypatch, code: str
+        self, service: SigilService, monkeypatch, mocker, error: FakeSigilError
     ):
-        extract = Mock(side_effect=FakeSigilError(code))
+        extract = Mock(side_effect=error)
         monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+        log = mocker.patch.object(sigil_adapter, "log")
 
         result = await service.extract_title_id(UPS.PSX, "/roms/psx/game.bin")
 
         assert result is None
+        log.debug.assert_called_once()
+        log.error.assert_not_called()
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "error",
+        [
+            pytest.param(OSError("native crash"), id="native-crash"),
+            pytest.param(FakeSigilError(-2), id="io-error"),
+        ],
+    )
     async def test_unexpected_error_returns_none(
-        self, service: SigilService, monkeypatch
+        self, service: SigilService, monkeypatch, mocker, error: Exception
     ):
-        extract = Mock(side_effect=OSError("native crash"))
+        extract = Mock(side_effect=error)
         monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+        log = mocker.patch.object(sigil_adapter, "log")
 
         result = await service.extract_title_id(UPS.PS2, "/roms/ps2/game.iso")
 
         assert result is None
+        log.error.assert_called_once()
+        log.debug.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_playlist_reads_its_first_disc(

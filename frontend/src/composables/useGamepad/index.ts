@@ -1,0 +1,401 @@
+// useGamepad
+//
+// Universal gamepad support. Translates D-pad / left-stick presses into
+// synthetic KeyboardEvents so the normal DOM focus model and Vue click
+// handlers work out of the box on a controller: no bespoke spatial-nav
+// engine required. Face buttons run direct actions (click the focused
+// element, open a menu, nav sections) because synthetic keyboard events
+// have `isTrusted=false` and don't trigger the default activation
+// behaviour on <a href> / <button type="submit">: a direct .click() is
+// the only reliable path there.
+//
+// Mapping (Standard Gamepad):
+//   D-pad up / down / left / right → Arrow{Up,Down,Left,Right}
+//   Left stick (above threshold)   → Arrow* (with initial delay + repeat)
+//   A button (0)                   → activate focused element (click)
+//   B button (1)                   → Escape, else history back
+//   Back / Select (8)              → same as B
+//   Start (9)                      → open user menu
+//   LB (4) / RB (5)                → AppNav section prev / next (cyclic)
+//
+// Action buttons (A/B/Back/Start/LB/RB) fire once per press (no repeat),
+// so a held face button doesn't shotgun actions. Synthetic-key buttons
+// (arrows) use the v1 console input cadence: 350ms initial delay, 120ms
+// repeat.
+//
+// Two contexts suppress this translation:
+//   * Game running (storePlaying.playing): the emulator reads the pad
+//     itself, so all translation is off. Otherwise B (shared by Circle /
+//     Nintendo-A in the standard mapping) would quit the game. Holding
+//     Select+Start instead fires `gamepad:exitchord`; a player opts into
+//     a pad exit by listening for it.
+//   * Controller-test screen (ACTIONS_DISABLED_PATHS): built-in actions
+//     are muted so every button can be pressed and inspected in place.
+import { useEventListener, useRafFn } from "@vueuse/core";
+import { nextTick, onBeforeUnmount } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useInputModality } from "@/composables/useInputModality";
+import {
+  NAV_TARGETS,
+  navDestinationAt,
+} from "@/composables/useNavDestinations";
+import { hasOpenEscapable } from "@/lib/overlays/RDialog/escapeStack.js";
+import storePlaying from "@/stores/playing";
+import { isUsablePad, padActivationTarget } from "@/utils/gamepad";
+
+// Routes where useGamepad's built-in actions (back, activate, section
+// nav, user menu) must NOT fire, so every button stays inspectable in
+// place. The controller-debug "test" screen needs this: otherwise B
+// pops history and A clicks before the press can even be seen.
+const ACTIONS_DISABLED_PATHS = new Set<string>(["/controller-debug"]);
+
+const INITIAL_DELAY_MS = 350;
+const REPEAT_MS = 120;
+export const AXIS_THRESHOLD = 0.5;
+// Outlasts anything a game itself binds to Select+Start.
+export const EXIT_CHORD_HOLD_MS = 1500;
+
+// Short symbolic name → W3C standard-mapping button index, so a view can
+// read raw pad state without memorising indices. Exhaustive over the standard
+// 0..16 range; anything past that has no name.
+export const PAD_BUTTON = {
+  a: 0,
+  b: 1,
+  x: 2,
+  y: 3,
+  lb: 4,
+  rb: 5,
+  lt: 6,
+  rt: 7,
+  back: 8,
+  start: 9,
+  l3: 10,
+  r3: 11,
+  "dpad-up": 12,
+  "dpad-down": 13,
+  "dpad-left": 14,
+  "dpad-right": 15,
+  home: 16,
+} as const;
+
+// The `name` field on the `gamepad:buttondown` event; `undefined` past 16.
+const BUTTON_NAMES: Record<number, string> = Object.fromEntries(
+  Object.entries(PAD_BUTTON).map(([name, index]) => [index, name]),
+);
+
+export interface GamepadButtonEventDetail {
+  /** W3C standard-mapping button index. */
+  index: number;
+  /** Symbolic name (e.g. "y", "rt", "dpad-up"). Undefined past 16. */
+  name?: string;
+}
+
+// Augment the global event map so listeners get typed `detail`s
+// without per-call-site casts.
+declare global {
+  interface WindowEventMap {
+    "gamepad:buttondown": CustomEvent<GamepadButtonEventDetail>;
+    "gamepad:exitchord": Event;
+  }
+}
+
+type Binding = { key: string; code: string };
+
+const ARROWS = {
+  up: { key: "ArrowUp", code: "ArrowUp" },
+  down: { key: "ArrowDown", code: "ArrowDown" },
+  left: { key: "ArrowLeft", code: "ArrowLeft" },
+  right: { key: "ArrowRight", code: "ArrowRight" },
+} satisfies Record<string, Binding>;
+
+const ESCAPE: Binding = { key: "Escape", code: "Escape" };
+
+// Standard gamepad button index → synthetic keyboard event. Only the
+// navigational keys live here (arrows); face buttons and bumpers get
+// handled by BUTTON_ACTIONS below where a .click() / router.push() can
+// actually do the thing.
+const BUTTON_MAP: Record<number, Binding | undefined> = {
+  12: ARROWS.up,
+  13: ARROWS.down,
+  14: ARROWS.left,
+  15: ARROWS.right,
+};
+
+const padEvents = new WeakSet<Event>();
+
+/** True when `event` is a key useGamepad dispatched for the pad. */
+export function isPadEvent(event: Event): boolean {
+  return padEvents.has(event);
+}
+
+// Other mappings don't guarantee the Back/Start indices.
+function holdsExitChord(pad: Gamepad): boolean {
+  return (
+    pad.mapping === "standard" &&
+    !!pad.buttons[PAD_BUTTON.back]?.pressed &&
+    !!pad.buttons[PAD_BUTTON.start]?.pressed
+  );
+}
+
+// Returns true when a handler claimed the keydown with preventDefault.
+function dispatchKey(binding: Binding): boolean {
+  const target =
+    (document.activeElement as HTMLElement | null) ?? document.body;
+  const init: KeyboardEventInit = {
+    key: binding.key,
+    code: binding.code,
+    bubbles: true,
+    cancelable: true,
+  };
+  const fire = (type: string) => {
+    const event = new KeyboardEvent(type, init);
+    padEvents.add(event);
+    return target.dispatchEvent(event);
+  };
+  const claimed = !fire("keydown");
+  fire("keyup");
+  return claimed;
+}
+
+type ButtonState = { pressed: boolean; nextRepeatAt: number };
+type PadState = {
+  buttons: Record<number, ButtonState>;
+  axisNextAt: { x: number; y: number };
+};
+
+let installed = false;
+
+export function useGamepad() {
+  // Resolved here (setup context) so install() can reach them from inside
+  // the RAF loop without needing the component instance.
+  const router = useRouter();
+  const route = useRoute();
+
+  const playingStore = storePlaying();
+
+  function cycleSection(step: -1 | 1) {
+    const current = navDestinationAt(route.path);
+    // Off the nav sections (e.g. on /rom/:id), Home is the predictable
+    // landing spot for either bumper.
+    if (!current) {
+      if (route.path !== "/") void router.push("/");
+      return;
+    }
+    const at = NAV_TARGETS.findIndex(({ id }) => id === current);
+    const next =
+      NAV_TARGETS[(at + step + NAV_TARGETS.length) % NAV_TARGETS.length]!;
+    if (next.to !== route.path) void router.push(next.to);
+  }
+
+  // A is polled before the D-pad, so wait for that poll's arrows to queue
+  // their render, then for the render, before reading the active option.
+  function activateFocused() {
+    queueMicrotask(() => {
+      void nextTick(() => padActivationTarget(document.activeElement)?.click());
+    });
+  }
+
+  // Opens the app-wide user menu. UserMenu.vue marks its activator with
+  // `data-user-menu-trigger` so we can find it regardless of which view
+  // is mounted: the nav is always in the DOM.
+  function openUserMenu() {
+    const trigger = document.querySelector<HTMLElement>(
+      "[data-user-menu-trigger]",
+    );
+    trigger?.click();
+  }
+
+  // B is Escape first; only a press no handler claims pops history, so one
+  // B never both dismisses something and navigates.
+  function goBack() {
+    if (!dispatchKey(ESCAPE)) router.back();
+  }
+
+  // Button-index → zero-argument action. Unlike BUTTON_MAP these don't
+  // fire a repeat while held; one press = one action.
+  const BUTTON_ACTIONS: Record<number, () => void> = {
+    0: activateFocused, //          A / Cross: activate (navigate/click)
+    1: goBack, //                   B / Circle: Escape, else history back
+    4: () => cycleSection(-1), //   LB / L1: previous AppNav section
+    5: () => cycleSection(1), //    RB / R1: next AppNav section
+    8: goBack, //                   Back / Share: same as B
+    9: openUserMenu, //             Start / Options: open user menu
+  };
+
+  // Buttons that stay live when an escapable overlay is open over a
+  // running game (the player's exit dialog): A activates, B and Back
+  // close. Everything else (LB/RB section cycling, Start user menu,
+  // per-view CustomEvent bindings) stays muted so a stray press cannot
+  // drive the app chrome behind the modal.
+  const OVERLAY_SAFE_BUTTONS = new Set([0, 1, 8]);
+
+  function install() {
+    if (installed) return;
+    if (typeof navigator === "undefined" || !navigator.getGamepads) return;
+    installed = true;
+
+    const states: Record<string, PadState> = {};
+    const { setModality } = useInputModality();
+    let everSawPad = false;
+    let chordHeldSince: number | null = null;
+    // Cleared only on release, so a chord still held after its dialog is
+    // cancelled doesn't reopen it.
+    let chordFired = false;
+
+    const onAnyInput = () => setModality("pad");
+    useEventListener(window, "gamepadconnected", () => setModality("pad"));
+
+    // Initial poll: if the browser already exposes a pad at install time
+    // (Firefox, or Chrome on a reload where a pad was previously used),
+    // flip modality immediately so the grid-nav autofocus can land without
+    // waiting for a first press. Chrome hides pads until first interaction
+    // for privacy; in that case this no-ops and the gamepadconnected event
+    // or first button press takes over.
+    function detectPadPresence() {
+      const list = navigator.getGamepads?.() ?? [];
+      const hasPad = Array.from(list).some((p) => isUsablePad(p));
+      if (hasPad && !everSawPad) {
+        everSawPad = true;
+        setModality("pad");
+      }
+    }
+    detectPadPresence();
+
+    const loop = () => {
+      const pads = navigator.getGamepads?.() ?? [];
+      const t = performance.now();
+
+      // Keep checking while no pad has been seen yet: covers the case
+      // where a pad appears partway through the session (plugged in
+      // mid-browse, or Chrome exposes it once the user moves a stick).
+      if (!everSawPad) detectPadPresence();
+
+      // While a game is running (or launching) the emulator owns the pad
+      // directly. Translating presses into navigation here would, for
+      // example, make B (or Circle / Nintendo-A, which share the standard
+      // B index) quit the game. The exception is an open escapable overlay
+      // (the player's exit dialog): translation resumes so the dialog is
+      // navigable by pad, and closing it hands the pad back to the game.
+      const gameOwnsInput = playingStore.playing && !hasOpenEscapable();
+      // In that overlay-over-game state only OVERLAY_SAFE_BUTTONS (and
+      // the dpad/stick synthetic arrows) translate.
+      const overlayOverGame = playingStore.playing && !gameOwnsInput;
+      // On the controller-test screen the built-in actions are muted so
+      // every button can be pressed and inspected without side effects.
+      const actionsDisabled = ACTIONS_DISABLED_PATHS.has(route.path);
+      let chordHeld = false;
+
+      for (const pad of pads) {
+        // Skip disconnected phantom gamepads.
+        if (!isUsablePad(pad)) continue;
+        chordHeld ||= holdsExitChord(pad);
+        const key = `${pad.index}:${pad.id}`;
+        const st = (states[key] ||= {
+          buttons: {},
+          axisNextAt: { x: 0, y: 0 },
+        });
+
+        // Left stick → ArrowKey equivalents.
+        const x = pad.axes[0] ?? 0;
+        const y = pad.axes[1] ?? 0;
+        tickAxis(st, "x", x, t, (dir) => {
+          onAnyInput();
+          if (!gameOwnsInput) dispatchKey(dir < 0 ? ARROWS.left : ARROWS.right);
+        });
+        tickAxis(st, "y", y, t, (dir) => {
+          onAnyInput();
+          if (!gameOwnsInput) dispatchKey(dir < 0 ? ARROWS.up : ARROWS.down);
+        });
+
+        // Buttons. Three tracks, evaluated in order:
+        //   * BUTTON_MAP → synthetic keyboard event, with repeat cadence.
+        //   * BUTTON_ACTIONS → one-shot callback, fires on press edge only.
+        //   * Always: emit a `gamepad:buttondown` CustomEvent so views
+        //     can opt into per-button bindings without needing to touch
+        //     useGamepad (e.g. the Player view subscribes to Y to flip
+        //     the saves/states tab).
+        // A button can be in any combination; press-edge always emits the
+        // CustomEvent regardless of built-in semantics.
+        for (let i = 0; i < pad.buttons.length; i++) {
+          const button = pad.buttons[i]!;
+          const binding = BUTTON_MAP[i];
+          const action = BUTTON_ACTIONS[i];
+          const prev = (st.buttons[i] ||= { pressed: false, nextRepeatAt: 0 });
+          if (button.pressed) {
+            if (!prev.pressed) {
+              // Before dispatching, so handlers focus with the pad's ring.
+              onAnyInput();
+              if (!gameOwnsInput) {
+                const suppressed =
+                  overlayOverGame && !OVERLAY_SAFE_BUTTONS.has(i);
+                if (binding) dispatchKey(binding);
+                else if (!actionsDisabled && !suppressed) action?.();
+                // Fire the CustomEvent on every press edge so views can
+                // bind to buttons we don't otherwise reserve.
+                if (!suppressed) {
+                  window.dispatchEvent(
+                    new CustomEvent("gamepad:buttondown", {
+                      detail: { index: i, name: BUTTON_NAMES[i] },
+                    }),
+                  );
+                }
+              }
+              prev.pressed = true;
+              prev.nextRepeatAt = t + INITIAL_DELAY_MS;
+            } else if (!gameOwnsInput && binding && t >= prev.nextRepeatAt) {
+              // Only synthetic-key bindings repeat while held.
+              dispatchKey(binding);
+              prev.nextRepeatAt = t + REPEAT_MS;
+            }
+          } else {
+            prev.pressed = false;
+            prev.nextRepeatAt = 0;
+          }
+        }
+      }
+
+      // B is muted during play, so a long Select+Start hold is the pad's exit.
+      if (!chordHeld) {
+        chordHeldSince = null;
+        chordFired = false;
+      } else if (!gameOwnsInput) {
+        chordHeldSince = null;
+      } else if (!chordFired) {
+        chordHeldSince ??= t;
+        if (t - chordHeldSince >= EXIT_CHORD_HOLD_MS) {
+          chordFired = true;
+          window.dispatchEvent(new Event("gamepad:exitchord"));
+        }
+      }
+    };
+
+    useRafFn(loop);
+
+    onBeforeUnmount(() => {
+      installed = false;
+    });
+  }
+
+  return { install };
+}
+
+function tickAxis(
+  st: PadState,
+  axis: "x" | "y",
+  value: number,
+  now: number,
+  fire: (direction: -1 | 1) => void,
+) {
+  if (Math.abs(value) < AXIS_THRESHOLD) {
+    st.axisNextAt[axis] = 0;
+    return;
+  }
+  const dir = value < 0 ? -1 : 1;
+  if (st.axisNextAt[axis] === 0) {
+    fire(dir);
+    st.axisNextAt[axis] = now + INITIAL_DELAY_MS;
+  } else if (now >= st.axisNextAt[axis]) {
+    fire(dir);
+    st.axisNextAt[axis] = now + REPEAT_MS;
+  }
+}

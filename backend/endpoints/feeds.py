@@ -116,9 +116,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
     """
 
     visibility = get_rom_visibility_filter(request)
-    platforms = db_platform_handler.get_platforms(
-        hidden_platform_ids=visibility.hidden_platform_ids
-    )
+    platforms = db_platform_handler.get_platforms(visibility=visibility)
 
     categories = []
     for p in platforms:
@@ -182,7 +180,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
 @protected_route(
     router.get,
     "/tinfoil",
-    [],
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
 async def tinfoil_index_feed(
     request: Request, slug: str = "switch"
