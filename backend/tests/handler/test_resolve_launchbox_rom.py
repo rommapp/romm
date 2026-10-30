@@ -51,11 +51,11 @@ def lookups():
     """Patch both LaunchBox lookups, defaulting each to a miss."""
     with (
         patch(
-            "handler.scan_handler.meta_launchbox_handler.get_rom_by_id",
+            "handler.scan.lookups.meta_launchbox_handler.get_rom_by_id",
             new=AsyncMock(return_value=NO_MATCH),
         ) as by_id,
         patch(
-            "handler.scan_handler.meta_launchbox_handler.get_rom",
+            "handler.scan.lookups.meta_launchbox_handler.get_rom",
             new=AsyncMock(return_value=NO_MATCH),
         ) as by_name,
     ):

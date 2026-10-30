@@ -48,7 +48,7 @@ from handler.metadata.ss_handler import (
     get_preferred_media_types,
 )
 from handler.metadata.steam_handler import SteamRom
-from handler.scan.lookups import SGDB_NAME_SOURCES, RomLookups
+from handler.scan.lookups import RomLookups
 from handler.scan.merge import (
     apply_artwork_priority,
     apply_metadata_priority,
@@ -56,22 +56,16 @@ from handler.scan.merge import (
     build_metadata_handlers,
     clear_rehash_misses,
     follow_demozoo_link,
-    hash_source_tags,
     keep_base_fields,
     merge_tags,
+    order_merge_sources,
     record_dump_tags,
     reset_rematched_sources,
     resolve_scene_lock,
     seed_rom_attrs,
     splice_scene_summaries,
 )
-from handler.scan.sources import (
-    HASH_MATCHED_TAG_SOURCES,
-    LOGGER_MODULE_NAME,
-    MetadataSource,
-    ScanType,
-    get_priority_ordered_metadata_sources,
-)
+from handler.scan.sources import LOGGER_MODULE_NAME, MetadataSource, ScanType
 from logger.formatter import BLUE, LIGHTYELLOW
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -437,20 +431,13 @@ async def scan_rom(
 
     # Filename is usually only (demozoo-N). Demozoo's Pouët and CSDb links are the
     # ids we would have used had the tag been (pouet-N) or (csdb-N).
-    if MetadataSource.POUET in metadata_sources:
-        await follow_demozoo_link(
-            MetadataSource.POUET,
-            "Pouët",
-            handler_roms,
-            meta_pouet_handler.get_rom_by_id,
-        )
-    if MetadataSource.CSDB in metadata_sources:
-        await follow_demozoo_link(
-            MetadataSource.CSDB, "CSDb", handler_roms, meta_csdb_handler.get_rom_by_id
-        )
+    for source, get_rom_by_id in (
+        (MetadataSource.POUET, meta_pouet_handler.get_rom_by_id),
+        (MetadataSource.CSDB, meta_csdb_handler.get_rom_by_id),
+    ):
+        await follow_demozoo_link(source, handler_roms, get_rom_by_id, metadata_sources)
     splice_scene_summaries(handler_roms)
 
-    handler_roms[MetadataSource.SGDB] = {}
     metadata_handlers = build_metadata_handlers(handler_roms)
 
     if is_complete_rescan:
@@ -471,17 +458,9 @@ async def scan_rom(
 
     record_dump_tags(metadata_handlers)
 
-    # One ordering pass for both lists, since each one rereads config.yml.
-    hash_sources = [] if scene_locked else list(HASH_MATCHED_TAG_SOURCES)
-    ordered = get_priority_ordered_metadata_sources(
-        list(dict.fromkeys([*apply_sources, *hash_sources])), "metadata"
+    priority_ordered, hash_claims = order_merge_sources(
+        apply_sources, scene_locked, metadata_handlers, rom_attrs
     )
-    priority_ordered = [source for source in ordered if source in apply_sources]
-    hash_claims = [
-        hash_source_tags(metadata_handlers[source], rom_attrs)
-        for source in ordered
-        if source in hash_sources
-    ]
 
     apply_metadata_priority(rom_attrs, metadata_handlers, priority_ordered)
     merge_tags(rom_attrs, metadata_handlers, priority_ordered, hash_claims)
@@ -517,7 +496,7 @@ async def scan_rom(
     (sgdb_result,) = await asyncio.gather(
         lookups.fetch_sgdb_rom(
             playmatch_hash_match,
-            [handler_roms[source].get("name") for source in SGDB_NAME_SOURCES],
+            handler_roms,
             scene_locked=scene_locked,
         ),
         return_exceptions=True,

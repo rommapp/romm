@@ -189,13 +189,13 @@ def seed_rom_attrs(
 
 async def follow_demozoo_link(
     source: MetadataSource,
-    label: str,
     handler_roms: dict[MetadataSource, Any],
     get_rom_by_id: Callable[[int], Awaitable[Any]],
+    metadata_sources: list[str],
 ) -> None:
     """Match `source` by the id Demozoo links to, when the scan found none itself."""
     id_field = RESCAN_RULES[source].id_field
-    if handler_roms[source].get(id_field):
+    if source not in metadata_sources or handler_roms[source].get(id_field):
         return
     demozoo_metadata = handler_roms[MetadataSource.DEMOZOO].get("demozoo_metadata")
     linked = (demozoo_metadata or {}).get(id_field)
@@ -205,7 +205,7 @@ async def follow_demozoo_link(
         followed = await get_rom_by_id(int(linked))
     except Exception as exc:
         log.error(
-            f"Error following Demozoo {label} id {hl(str(linked))}: {exc}",
+            f"Error following Demozoo {source} id {hl(str(linked))}: {exc}",
             extra=LOGGER_MODULE_NAME,
         )
         return
@@ -269,6 +269,15 @@ def build_metadata_handlers(
         }
         for source, handler_rom in handler_roms.items()
     }
+    # SteamGridDB answers after the merge, so its entry starts out empty.
+    metadata_handlers.setdefault(
+        MetadataSource.SGDB,
+        {
+            "handler": {},
+            "id_field": RESCAN_RULES[MetadataSource.SGDB].id_field,
+            "metadata_field": RESCAN_RULES[MetadataSource.SGDB].metadata_field,
+        },
+    )
     # No scan consults TheGamesDB, so it has no rule, but a rescan still resets it.
     metadata_handlers[MetadataSource.TGDB] = {
         "handler": {},
@@ -371,6 +380,27 @@ def record_dump_tags(metadata_handlers: dict[MetadataSource, dict[str, Any]]) ->
             }
             blob = {**(handler.get(fields["metadata_field"]) or {}), **dump_tags}
             fields["handler"] = {**handler, fields["metadata_field"]: blob}
+
+
+def order_merge_sources(
+    apply_sources: list[MetadataSource],
+    scene_locked: bool,
+    metadata_handlers: dict[MetadataSource, dict[str, Any]],
+    rom_attrs: dict[str, Any],
+) -> tuple[list[MetadataSource], list[tuple[dict[str, list[str]], bool]]]:
+    """The sources to merge in priority order, and the hash-matched sources' tag claims."""
+    # One ordering pass for both lists, since each one rereads config.yml.
+    hash_sources = [] if scene_locked else list(HASH_MATCHED_TAG_SOURCES)
+    ordered = get_priority_ordered_metadata_sources(
+        list(dict.fromkeys([*apply_sources, *hash_sources])), "metadata"
+    )
+    priority_ordered = [source for source in ordered if source in apply_sources]
+    hash_claims = [
+        hash_source_tags(metadata_handlers[source], rom_attrs)
+        for source in ordered
+        if source in hash_sources
+    ]
+    return priority_ordered, hash_claims
 
 
 def apply_metadata_priority(

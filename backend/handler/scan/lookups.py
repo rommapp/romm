@@ -507,7 +507,7 @@ class RomLookups:
     async def fetch_sgdb_rom(
         self,
         playmatch_rom: PlaymatchRomMatch,
-        provider_names: list[str | None],
+        handler_roms: Mapping[MetadataSource, Any],
         *,
         scene_locked: bool,
     ) -> SGDBRom:
@@ -516,8 +516,8 @@ class RomLookups:
         if scene_locked or not self.attempts(MetadataSource.SGDB):
             return SGDBRom(sgdb_id=None)
 
-        if self.scan_type == ScanType.UPDATE and self.rom.sgdb_id:
-            return await meta_sgdb_handler.get_rom_by_id(self.rom.sgdb_id)
+        if sgdb_id := self.stored_id(MetadataSource.SGDB):
+            return await meta_sgdb_handler.get_rom_by_id(sgdb_id)
 
         if playmatch_rom["sgdb_id"] is not None:
             log.debug(
@@ -530,12 +530,15 @@ class RomLookups:
         file_name_no_tags = fs_rom_handler.get_file_name_with_no_tags(
             str(self.rom_attrs["fs_name"])
         )
+        provider_names = [
+            handler_roms[source].get("name") for source in _SGDB_NAME_SOURCES
+        ]
         valid_names = [name for name in [*provider_names, file_name_no_tags] if name]
         return await meta_sgdb_handler.get_details_by_names(valid_names)
 
 
 # The sources whose matched names SteamGridDB searches by, in order.
-SGDB_NAME_SOURCES: Final = (
+_SGDB_NAME_SOURCES: Final = (
     MetadataSource.IGDB,
     MetadataSource.HASHEOUS,
     MetadataSource.SS,

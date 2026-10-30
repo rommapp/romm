@@ -25,11 +25,11 @@ def lookups():
     """Patch both HowLongToBeat lookups, defaulting each to a miss."""
     with (
         patch(
-            "handler.scan_handler.meta_hltb_handler.get_rom_by_id",
+            "handler.scan.lookups.meta_hltb_handler.get_rom_by_id",
             new=AsyncMock(return_value=NO_MATCH),
         ) as by_id,
         patch(
-            "handler.scan_handler.meta_hltb_handler.get_rom",
+            "handler.scan.lookups.meta_hltb_handler.get_rom",
             new=AsyncMock(return_value=NO_MATCH),
         ) as by_name,
     ):

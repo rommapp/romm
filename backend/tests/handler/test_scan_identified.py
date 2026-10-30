@@ -26,7 +26,7 @@ async def test_libretro_only_match_counts_as_identified(sgdb_lookup):
     rom = add_rom(platform, FS_NAME, "Mario Kart 64")
 
     with patch(
-        "handler.scan_handler.meta_libretro_handler.get_rom",
+        "handler.scan.lookups.meta_libretro_handler.get_rom",
         new=AsyncMock(
             return_value=LibretroRom(
                 libretro_id="Mario Kart 64 (USA)", name="Mario Kart 64"
@@ -51,7 +51,7 @@ async def test_unmatched_rom_skips_the_sgdb_lookup(sgdb_lookup):
     rom = add_rom(platform, FS_NAME, "Mario Kart 64")
 
     with patch(
-        "handler.scan_handler.meta_libretro_handler.get_rom",
+        "handler.scan.lookups.meta_libretro_handler.get_rom",
         new=AsyncMock(return_value=LibretroRom(libretro_id=None)),
     ):
         result = await run_scan(

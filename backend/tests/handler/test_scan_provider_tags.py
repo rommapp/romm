@@ -32,11 +32,11 @@ def hasheous_lookup() -> Iterator[AsyncMock]:
     """Patch the Hasheous hash lookup and the proxied IGDB fetch."""
     with (
         patch(
-            "handler.scan_handler.meta_hasheous_handler.lookup_rom",
+            "handler.scan.lookups.meta_hasheous_handler.lookup_rom",
             new=AsyncMock(return_value=(HASHEOUS_MATCH, True)),
         ) as lookup,
         patch(
-            "handler.scan_handler.meta_hasheous_handler.get_igdb_game",
+            "handler.scan.lookups.meta_hasheous_handler.get_igdb_game",
             new=AsyncMock(return_value=HASHEOUS_MATCH),
         ),
     ):
@@ -47,7 +47,7 @@ def hasheous_lookup() -> Iterator[AsyncMock]:
 def ss_lookup() -> Iterator[AsyncMock]:
     """Patch the ScreenScraper hash lookup, the only one that names a dump."""
     with patch(
-        "handler.scan_handler.meta_ss_handler.lookup_rom",
+        "handler.scan.lookups.meta_ss_handler.lookup_rom",
         new=AsyncMock(return_value=(SS_MATCH, False)),
     ) as by_hash:
         yield by_hash
@@ -57,7 +57,7 @@ def ss_lookup() -> Iterator[AsyncMock]:
 def ss_translated() -> Iterator[AsyncMock]:
     """Patch a hash lookup whose dump carries ScreenScraper's `trad` flag."""
     with patch(
-        "handler.scan_handler.meta_ss_handler.lookup_rom",
+        "handler.scan.lookups.meta_ss_handler.lookup_rom",
         new=AsyncMock(return_value=(SS_TRANSLATED, False)),
     ) as by_hash:
         yield by_hash
@@ -67,7 +67,7 @@ def ss_translated() -> Iterator[AsyncMock]:
 def ss_translated_by_id() -> Iterator[AsyncMock]:
     """Patch the id refetch an UPDATE scan takes, dump tags included."""
     with patch(
-        "handler.scan_handler.meta_ss_handler.get_rom_by_id",
+        "handler.scan.lookups.meta_ss_handler.get_rom_by_id",
         new=AsyncMock(return_value=SS_TRANSLATED),
     ) as by_id:
         yield by_id
@@ -77,7 +77,7 @@ def ss_translated_by_id() -> Iterator[AsyncMock]:
 def ss_match_by_id() -> Iterator[AsyncMock]:
     """Patch the id refetch with an answer that finds the game but not our dump."""
     with patch(
-        "handler.scan_handler.meta_ss_handler.get_rom_by_id",
+        "handler.scan.lookups.meta_ss_handler.get_rom_by_id",
         new=AsyncMock(return_value=SS_MATCH),
     ) as by_id:
         yield by_id
@@ -89,11 +89,11 @@ def hasheous_no_match() -> Iterator[AsyncMock]:
     no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None)
     with (
         patch(
-            "handler.scan_handler.meta_hasheous_handler.lookup_rom",
+            "handler.scan.lookups.meta_hasheous_handler.lookup_rom",
             new=AsyncMock(return_value=(no_match, True)),
         ) as lookup,
         patch(
-            "handler.scan_handler.meta_hasheous_handler.get_igdb_game",
+            "handler.scan.lookups.meta_hasheous_handler.get_igdb_game",
             new=AsyncMock(return_value=no_match),
         ),
     ):
@@ -105,11 +105,11 @@ def ss_name_search() -> Iterator[AsyncMock]:
     """Patch the ScreenScraper name search, which identifies a title, not a dump."""
     with (
         patch(
-            "handler.scan_handler.meta_ss_handler.lookup_rom",
+            "handler.scan.lookups.meta_ss_handler.lookup_rom",
             new=AsyncMock(return_value=(SSRom(ss_id=None), False)),
         ),
         patch(
-            "handler.scan_handler.meta_ss_handler.get_rom",
+            "handler.scan.lookups.meta_ss_handler.get_rom",
             new=AsyncMock(return_value=SSRom(ss_id=42, name="Mario Kart 64")),
         ) as by_name,
     ):

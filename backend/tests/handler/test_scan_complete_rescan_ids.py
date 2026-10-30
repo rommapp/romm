@@ -81,31 +81,31 @@ async def _rescan(
     igdb_mock = _lookup(igdb_result)
     pouet_mock = _lookup(pouet_result)
     with (
-        patch("handler.scan_handler.meta_igdb_handler.get_rom", new=igdb_mock),
-        patch("handler.scan_handler.meta_igdb_handler.get_rom_by_id", new=igdb_mock),
+        patch("handler.scan.lookups.meta_igdb_handler.get_rom", new=igdb_mock),
+        patch("handler.scan.lookups.meta_igdb_handler.get_rom_by_id", new=igdb_mock),
         patch(
             "handler.scan.lookups.meta_sgdb_handler.get_details_by_names",
             new=_lookup(sgdb_result),
         ),
-        patch("handler.scan_handler.meta_pouet_handler.get_rom", new=pouet_mock),
-        patch("handler.scan_handler.meta_pouet_handler.get_rom_by_id", new=pouet_mock),
+        patch("handler.scan.lookups.meta_pouet_handler.get_rom", new=pouet_mock),
+        patch("handler.scan.lookups.meta_pouet_handler.get_rom_by_id", new=pouet_mock),
         patch(
-            "handler.scan_handler.meta_ss_handler.lookup_rom",
+            "handler.scan.lookups.meta_ss_handler.lookup_rom",
             new=_lookup(ss_lookup_result),
         ),
         patch(
-            "handler.scan_handler.meta_ss_handler.get_rom",
+            "handler.scan.lookups.meta_ss_handler.get_rom",
             new=_lookup(ss_get_rom_result),
         ),
         patch(
-            "handler.scan_handler.meta_hasheous_handler.is_enabled", return_value=True
+            "handler.scan.lookups.meta_hasheous_handler.is_enabled", return_value=True
         ),
         patch(
-            "handler.scan_handler.meta_hasheous_handler.lookup_rom",
+            "handler.scan.lookups.meta_hasheous_handler.lookup_rom",
             new=_lookup(hasheous_lookup_result),
         ),
         patch(
-            "handler.scan_handler.meta_hasheous_handler.get_igdb_game",
+            "handler.scan.lookups.meta_hasheous_handler.get_igdb_game",
             new=_lookup(HASHEOUS_MISS),
         ),
     ):

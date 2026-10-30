@@ -32,7 +32,7 @@ async def test_follows_the_linked_id(source: MetadataSource, id_field: str):
     handler_roms = _handler_roms(source, id_field, linked="42")
     get_rom_by_id = AsyncMock(return_value={id_field: 42, "name": "Linked"})
 
-    await follow_demozoo_link(source, "label", handler_roms, get_rom_by_id)
+    await follow_demozoo_link(source, handler_roms, get_rom_by_id, [source])
 
     get_rom_by_id.assert_awaited_once_with(42)
     assert handler_roms[source] == {id_field: 42, "name": "Linked"}
@@ -46,7 +46,7 @@ async def test_keeps_a_match_the_scan_found_itself(
     handler_roms = _handler_roms(source, id_field, own=7, linked="42")
     get_rom_by_id = AsyncMock()
 
-    await follow_demozoo_link(source, "label", handler_roms, get_rom_by_id)
+    await follow_demozoo_link(source, handler_roms, get_rom_by_id, [source])
 
     get_rom_by_id.assert_not_awaited()
     assert handler_roms[source] == {id_field: 7}
@@ -63,7 +63,7 @@ async def test_a_failed_or_empty_follow_keeps_the_miss(
     ):
         handler_roms = _handler_roms(source, id_field, linked="42")
 
-        await follow_demozoo_link(source, "label", handler_roms, get_rom_by_id)
+        await follow_demozoo_link(source, handler_roms, get_rom_by_id, [source])
 
         assert handler_roms[source] == {id_field: None}
 

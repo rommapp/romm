@@ -1775,7 +1775,7 @@ class TestDiskFullHandling:
         return rom
 
     @pytest.mark.asyncio
-    async def test_discard_partial_file_removes_file(
+    async def test_discard_file_removes_file(
         self, handler: FSResourcesHandler, tmp_path
     ):
         handler.base_path = tmp_path
@@ -1783,19 +1783,19 @@ class TestDiskFullHandling:
         (tmp_path / rel).parent.mkdir(parents=True)
         (tmp_path / rel).write_bytes(b"truncated")
 
-        await handler._discard_partial_file(rel)
+        await handler._discard_file(rel)
 
         assert not (tmp_path / rel).exists()
 
     @pytest.mark.asyncio
-    async def test_discard_partial_file_missing_is_noop(
+    async def test_discard_file_missing_is_noop(
         self, handler: FSResourcesHandler, tmp_path
     ):
         handler.base_path = tmp_path
-        await handler._discard_partial_file("roms/1/1/cover/big.png")
+        await handler._discard_file("roms/1/1/cover/big.png")
 
     @pytest.mark.asyncio
-    async def test_discard_partial_file_survives_removal_failure(
+    async def test_discard_file_survives_removal_failure(
         self, handler: FSResourcesHandler, tmp_path
     ):
         # Cleanup runs inside an error path, so it must never mask the
@@ -1806,7 +1806,7 @@ class TestDiskFullHandling:
         (tmp_path / rel).write_bytes(b"truncated")
 
         with patch.object(handler, "remove_file", side_effect=OSError("read-only")):
-            await handler._discard_partial_file(rel)
+            await handler._discard_file(rel)
 
     @pytest.mark.asyncio
     async def test_store_cover_discards_partial_download(

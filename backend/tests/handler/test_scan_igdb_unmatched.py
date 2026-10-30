@@ -19,7 +19,7 @@ async def _unmatched_scan(slug: str) -> AsyncMock:
     rom = add_rom(platform, "mvsc2.zip", "mvsc2")
     lookup = AsyncMock(return_value=IGDBRom(igdb_id=None))
 
-    with patch("handler.scan_handler.meta_igdb_handler.get_rom", new=lookup):
+    with patch("handler.scan.lookups.meta_igdb_handler.get_rom", new=lookup):
         await run_scan(
             platform,
             rom,

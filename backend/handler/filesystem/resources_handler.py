@@ -266,8 +266,8 @@ class FSResourcesHandler(FSHandler):
             full_path.unlink()
         return True
 
-    async def _discard_partial_file(self, relative_path: str) -> None:
-        """Remove a partially written file left behind by a failed download.
+    async def _discard_file(self, relative_path: str) -> None:
+        """Remove a stale or partially written file, logging rather than raising.
 
         A truncated image is worse than a missing one: it satisfies the
         `*_exists` checks, so later scans skip it and never refetch it.
@@ -276,7 +276,7 @@ class FSResourcesHandler(FSHandler):
             if await self.file_exists(relative_path):
                 await self.remove_file(relative_path)
         except OSError as exc:
-            log.error(f"Unable to remove partial file {relative_path}: {str(exc)}")
+            log.error(f"Unable to remove file {relative_path}: {str(exc)}")
 
     async def _store_cover(self, entity: Rom | Collection, url_cover: str) -> None:
         """Fetch a cover once and write both sizes.
@@ -302,7 +302,7 @@ class FSResourcesHandler(FSHandler):
                 await self.copy_file(resolved, big_path, allow_link=False)
             except Exception as exc:
                 log.error(f"Unable to copy cover file {url_cover}: {str(exc)}")
-                await self._discard_partial_file(big_path)
+                await self._discard_file(big_path)
                 return None
         else:
             # Handle HTTP URLs
@@ -354,7 +354,7 @@ class FSResourcesHandler(FSHandler):
             if await self._discard_if_chroma_key(big_path):
                 # A small cover left by an earlier scan would outlive the large
                 # one it was derived from.
-                await self._discard_partial_file(small_path)
+                await self._discard_file(small_path)
                 return None
 
             await asyncio.to_thread(
@@ -370,11 +370,11 @@ class FSResourcesHandler(FSHandler):
             # would stop every later scan from refetching a working cover.
             log.error(f"Unable to identify image {big_path}: {str(exc)}")
             for path in (big_path, small_path):
-                await self._discard_partial_file(path)
+                await self._discard_file(path)
         except OSError as exc:
             log.error(f"Unable to write cover for {url_cover}: {str(exc)}")
             for path in (big_path, small_path):
-                await self._discard_partial_file(path)
+                await self._discard_file(path)
 
     def _drop_other_cover_formats(self, cover_dir: Path) -> None:
         """Remove covers left in another format, since lookups take the first match."""
@@ -412,7 +412,7 @@ class FSResourcesHandler(FSHandler):
             # Unlike a fresh download, these bytes weren't written here, so the
             # large cover stays put and only the partial small one is dropped.
             log.error(f"Unable to resize cover {path_cover_l}: {str(exc)}")
-            await self._discard_partial_file(path_cover_s)
+            await self._discard_file(path_cover_s)
 
     def _get_cover_path(self, entity: Rom | Collection, size: CoverSize) -> str | None:
         """Returns rom cover filesystem path adapted to frontend folder structure
@@ -511,7 +511,7 @@ class FSResourcesHandler(FSHandler):
                 f"Unable to write artwork for {entity.fs_resources_path}: {str(exc)}"
             )
             for path in (path_cover_l, path_cover_s):
-                await self._discard_partial_file(str(path.relative_to(self.base_path)))
+                await self._discard_file(str(path.relative_to(self.base_path)))
             return None, None
 
         return str(path_cover_l.relative_to(self.base_path)), str(
@@ -544,7 +544,7 @@ class FSResourcesHandler(FSHandler):
                 return True
             except Exception as exc:
                 log.error(f"Unable to copy screenshot file {url_screenhot}: {str(exc)}")
-                await self._discard_partial_file(f"{screenshot_path}/{idx}.jpg")
+                await self._discard_file(f"{screenshot_path}/{idx}.jpg")
                 return False
         else:
             # Handle HTTP URLs
@@ -634,7 +634,7 @@ class FSResourcesHandler(FSHandler):
                 # Otherwise the old image at this index passes for the new one
                 # on the next scan, and is never fetched again.
                 if overwrite:
-                    await self._discard_partial_file(path)
+                    await self._discard_file(path)
                 return None
             return path
 
@@ -653,14 +653,7 @@ class FSResourcesHandler(FSHandler):
         for idx in indexes:
             if not idx.isdecimal() or int(idx) < count:
                 continue
-            path = self._get_screenshot_path(rom, idx)
-            try:
-                await self.remove_file(path)
-            except FileNotFoundError:
-                pass
-            except OSError as exc:
-                # A leftover file must not cost the rom the screenshots that landed.
-                log.error(f"Unable to remove screenshot {path}: {str(exc)}")
+            await self._discard_file(self._get_screenshot_path(rom, idx))
 
     # Manuals
     def manual_exists(self, rom: Rom) -> bool:
@@ -693,7 +686,7 @@ class FSResourcesHandler(FSHandler):
                 )
             except Exception as exc:
                 log.error(f"Unable to copy manual file {url_manual}: {str(exc)}")
-                await self._discard_partial_file(f"{manual_path}/{rom.id}.pdf")
+                await self._discard_file(f"{manual_path}/{rom.id}.pdf")
                 return None
         else:
             # Handle HTTP URL
@@ -863,7 +856,7 @@ class FSResourcesHandler(FSHandler):
                         await self.copy_file(resolved, dest_path, allow_link=True)
                 except Exception as exc:
                     log.error(f"Unable to copy media file {url_media}: {str(exc)}")
-                    await self._discard_partial_file(dest_path)
+                    await self._discard_file(dest_path)
                     return False
             else:
                 # Handle HTTP URLs
