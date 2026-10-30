@@ -2,7 +2,7 @@ import asyncio
 import dataclasses
 import enum
 import functools
-from collections.abc import Callable, Collection, Mapping
+from collections.abc import Awaitable, Callable, Collection, Mapping
 from dataclasses import dataclass
 from typing import Any, Final, NotRequired, TypedDict
 
@@ -1072,17 +1072,55 @@ class _RomLookups:
 
         return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None)
 
+    async def fetch_sgdb_rom(
+        self,
+        playmatch_rom: PlaymatchRomMatch,
+        provider_names: list[str | None],
+        *,
+        scene_locked: bool,
+    ) -> SGDBRom:
+        # SGDB searches by title (and by IGDB's similar-name match). That is
+        # the same collision a scene production is locked out of.
+        if scene_locked or not self.attempts(MetadataSource.SGDB):
+            return SGDBRom(sgdb_id=None)
 
-async def scan_rom(
+        if self.scan_type == ScanType.UPDATE and self.rom.sgdb_id:
+            return await meta_sgdb_handler.get_rom_by_id(self.rom.sgdb_id)
+
+        if playmatch_rom["sgdb_id"] is not None:
+            log.debug(
+                f"{hl(self.rom_attrs['fs_name'])} identified by Playmatch as SteamGridDB "
+                f"{hl(str(playmatch_rom['sgdb_id']), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
+                extra=LOGGER_MODULE_NAME,
+            )
+            return await meta_sgdb_handler.get_rom_by_id(playmatch_rom["sgdb_id"])
+
+        file_name_no_tags = fs_rom_handler.get_file_name_with_no_tags(
+            str(self.rom_attrs["fs_name"])
+        )
+        valid_names = [name for name in [*provider_names, file_name_no_tags] if name]
+        return await meta_sgdb_handler.get_details_by_names(valid_names)
+
+
+# The sources whose matched names SteamGridDB searches by, in order.
+SGDB_NAME_SOURCES: Final = (
+    MetadataSource.IGDB,
+    MetadataSource.HASHEOUS,
+    MetadataSource.SS,
+    MetadataSource.MOBY,
+    MetadataSource.LAUNCHBOX,
+    MetadataSource.GAMELIST,
+)
+
+
+def _seed_rom_attrs(
     scan_type: ScanType,
     platform: Platform,
     rom: Rom,
     fs_rom: FSRom,
-    metadata_sources: list[str],
     newly_added: bool,
-    launchbox_remote_enabled: bool = True,
-    socket_manager: socketio.AsyncRedisManager | None = None,
-) -> Rom:
+) -> dict[str, Any]:
+    """The columns a scan of `rom` starts from, before any source answers."""
     rom_attrs = {
         "id": rom.id,
         "platform_id": platform.id,
@@ -1154,6 +1192,381 @@ async def scan_rom(
             }
         )
 
+    return rom_attrs
+
+
+async def _follow_demozoo_link(
+    source: MetadataSource,
+    label: str,
+    handler_roms: dict[MetadataSource, Any],
+    get_rom_by_id: Callable[[int], Awaitable[Any]],
+) -> None:
+    """Match `source` by the id Demozoo links to, when the scan found none itself."""
+    id_field = RESCAN_RULES[source].id_field
+    if handler_roms[source].get(id_field):
+        return
+    demozoo_metadata = handler_roms[MetadataSource.DEMOZOO].get("demozoo_metadata")
+    linked = (demozoo_metadata or {}).get(id_field)
+    if not linked:
+        return
+    try:
+        followed = await get_rom_by_id(int(linked))
+    except Exception as exc:
+        log.error(
+            f"Error following Demozoo {label} id {hl(str(linked))}: {exc}",
+            extra=LOGGER_MODULE_NAME,
+        )
+        return
+    if followed.get(id_field):
+        handler_roms[source] = followed
+
+
+def _splice_scene_summaries(handler_roms: dict[MetadataSource, Any]) -> None:
+    """Keep Demozoo's richer summary, adding Pouët's votes and links and the CSDb page."""
+    demozoo_rom = handler_roms[MetadataSource.DEMOZOO]
+    pouet_rom = handler_roms[MetadataSource.POUET]
+    csdb_rom = handler_roms[MetadataSource.CSDB]
+
+    # Pouët is later in metadata priority, so its short summary would
+    # replace Demozoo's party / credits / YouTube.
+    if demozoo_rom.get("demozoo_id") and pouet_rom.get("pouet_id"):
+        dz_meta = demozoo_rom.get("demozoo_metadata") or {}
+        pq_meta = pouet_rom.get("pouet_metadata") or {}
+        merged = splice_pouet_vote(
+            str(demozoo_rom.get("summary") or ""),
+            pq_meta.get("vote_avg"),
+            pq_meta.get("pouet_rank"),
+            pq_meta.get("pouet_cdc"),
+        )
+        if merged:
+            demozoo_rom["summary"] = merged
+            pouet_rom["summary"] = merged
+        urls: list[str] = []
+        for url in (dz_meta.get("download_urls") or []) + (
+            pq_meta.get("download_urls") or []
+        ):
+            _append_unique(urls, url)
+        if urls:
+            dz_meta["download_urls"] = urls
+            pq_meta["download_urls"] = urls
+        if not dz_meta.get("youtube_video_id") and pq_meta.get("youtube_video_id"):
+            dz_meta["youtube_video_id"] = pq_meta["youtube_video_id"]
+        demozoo_rom["demozoo_metadata"] = dz_meta
+        pouet_rom["pouet_metadata"] = pq_meta
+
+    csdb_url = (csdb_rom.get("csdb_metadata") or {}).get("csdb_url") or (
+        (demozoo_rom.get("demozoo_metadata") or {}).get("csdb_url")
+    )
+    if csdb_url:
+        for blob in (demozoo_rom, pouet_rom, csdb_rom):
+            if blob.get("summary") or blob.get("csdb_id") or blob.get("demozoo_id"):
+                merged_csdb = splice_csdb_url(str(blob.get("summary") or ""), csdb_url)
+                if merged_csdb:
+                    blob["summary"] = merged_csdb
+
+
+def _build_metadata_handlers(
+    handler_roms: dict[MetadataSource, Any],
+) -> dict[MetadataSource, dict[str, Any]]:
+    """Each source's answer beside the columns it fills."""
+    metadata_handlers: dict[MetadataSource, dict[str, Any]] = {
+        source: {
+            "handler": handler_rom,
+            "id_field": RESCAN_RULES[source].id_field,
+            "metadata_field": RESCAN_RULES[source].metadata_field,
+        }
+        for source, handler_rom in handler_roms.items()
+    }
+    # No scan consults TheGamesDB, so it has no rule, but a rescan still resets it.
+    metadata_handlers[MetadataSource.TGDB] = {
+        "handler": {},
+        "id_field": "tgdb_id",
+        "metadata_field": None,
+    }
+    return metadata_handlers
+
+
+def _reset_rematched_sources(
+    rom_attrs: dict[str, Any],
+    metadata_handlers: dict[MetadataSource, dict[str, Any]],
+    attempted_sources: set[MetadataSource],
+    metadata_sources: list[str],
+) -> None:
+    """Clear what a complete rescan rematches, so a miss undoes the old match."""
+    # The consulted sources and the deselected ones are the ones it can rematch.
+    for source, fields in metadata_handlers.items():
+        if source in attempted_sources or source not in metadata_sources:
+            rom_attrs[fields["id_field"]] = None
+            if fields["metadata_field"]:
+                rom_attrs[fields["metadata_field"]] = {}
+
+    # Clear the sources and locks so whatever answers now can replace a file.
+    rom_attrs.update(
+        {
+            "url_cover": "",
+            "url_screenshots": [],
+            "url_manual": "",
+            "locked_fields": [],
+        }
+    )
+
+
+def _resolve_scene_lock(
+    rom_attrs: dict[str, Any], metadata_handlers: dict[MetadataSource, dict[str, Any]]
+) -> tuple[list[MetadataSource], bool]:
+    """The sources allowed to write the rom, and whether it is a scene production."""
+    available_sources = [
+        name
+        for name, fields in metadata_handlers.items()
+        if fields["handler"].get(fields["id_field"])
+    ]
+    # A persisted id locks the ROM too, so an unreachable provider can't hand an
+    # identified production back to the catalogs. Deselecting the source on a
+    # complete rescan clears the id, which is the way out.
+    scene_locked = any(
+        source in SCENE_METADATA_SOURCES for source in available_sources
+    ) or any(
+        rom_attrs.get(metadata_handlers[source]["id_field"])
+        for source in SCENE_METADATA_SOURCES
+    )
+    if scene_locked:
+        log.info(
+            f"{hl(rom_attrs['fs_name'])} is a Demozoo/Pouët/CSDb production, "
+            "using scene artwork and title, not similar game catalogs",
+            extra=LOGGER_MODULE_NAME,
+        )
+    return (
+        scene_apply_sources(available_sources, scene_locked=scene_locked),
+        scene_locked,
+    )
+
+
+def _clear_rehash_misses(
+    rom_attrs: dict[str, Any],
+    lookups: _RomLookups,
+    hasheous_hash_match: HasheousRom,
+    hasheous_lookup_conclusive: bool,
+    ra_handler_rom: Any,
+) -> None:
+    """Drop the hash matches a rehash no longer earns."""
+    # Otherwise the ROM keeps showing verification flags earned by hashes it no
+    # longer has. Only a conclusive lookup clears them, so an unreachable
+    # Hasheous can't silently de-verify a library.
+    if hasheous_lookup_conclusive and not hasheous_hash_match.get("hasheous_id"):
+        rom_attrs["hasheous_id"] = None
+        rom_attrs["hasheous_metadata"] = {}
+
+    # Same for the RA hash match, once an RA lookup that ran found nothing.
+    ra_metadata = rom_attrs.get("ra_metadata") or {}
+    if (
+        MetadataSource.RA in lookups.attempted_sources
+        and not ra_handler_rom.get("ra_id")
+        and ra_metadata.get("hash_match")
+    ):
+        rom_attrs["ra_metadata"] = {**ra_metadata, "hash_match": False}
+
+
+def _record_dump_tags(metadata_handlers: dict[MetadataSource, dict[str, Any]]) -> None:
+    """Copy each hash source's dump tags into its own blob."""
+    # A skipped source's tags can't be told apart on the row.
+    for source_name in HASH_MATCHED_TAG_SOURCES:
+        fields = metadata_handlers[source_name]
+        handler = fields["handler"]
+        if handler.get(fields["id_field"]):
+            dump_tags = {
+                DUMP_TAG_KEYS[field]: list(handler.get(field) or [])
+                for field in PROVIDER_ALL_TAG_FIELDS
+            }
+            blob = {**(handler.get(fields["metadata_field"]) or {}), **dump_tags}
+            fields["handler"] = {**handler, fields["metadata_field"]: blob}
+
+
+def _apply_metadata_priority(
+    rom_attrs: dict[str, Any],
+    metadata_handlers: dict[MetadataSource, dict[str, Any]],
+    priority_ordered: list[MetadataSource],
+) -> None:
+    """Write each source's non-empty fields, the highest priority last."""
+    for source_name in reversed(priority_ordered):
+        for key, field_value in metadata_handlers[source_name]["handler"].items():
+            if (
+                key in PROVIDER_ALL_TAG_FIELDS
+                and source_name in HASH_MATCHED_TAG_SOURCES
+            ):
+                continue
+            if field_value:
+                rom_attrs[key] = field_value
+
+
+def _merge_tags(
+    rom_attrs: dict[str, Any],
+    metadata_handlers: dict[MetadataSource, dict[str, Any]],
+    priority_ordered: list[MetadataSource],
+    hash_claims: list[tuple[dict[str, list[str]], bool]],
+) -> None:
+    """Settle the tag fields from the filename, the catalogs and the hash sources."""
+    # Re-read rather than taken off the row, which cannot say whether its value
+    # is a tag the user wrote or what a provider left there on an earlier scan.
+    filename_tags = fs_rom_handler.parse_tags(rom_attrs["fs_name"])
+    local_tags = {
+        "regions": filename_tags.regions,
+        "languages": filename_tags.languages,
+        "tags": filename_tags.other_tags,
+    }
+    catalog_handlers = [
+        metadata_handlers[source_name]["handler"]
+        for source_name in priority_ordered
+        if source_name not in HASH_MATCHED_TAG_SOURCES
+    ]
+
+    for field in PROVIDER_TAG_FIELDS:
+        if local_tags[field] or any(handler.get(field) for handler in catalog_handlers):
+            continue
+        for claims, answered in hash_claims:
+            # What a source said on an earlier scan fills only an empty slot: the
+            # row's value may come from a source this scan didn't ask either.
+            if claims[field] and (answered or not rom_attrs.get(field)):
+                rom_attrs[field] = claims[field]
+                break
+
+    for field in PROVIDER_MERGED_TAG_FIELDS:
+        # The base is what a local source says now, never the stored list: a
+        # dump that stops being a translation has to lose the tag again.
+        claimed = next(
+            (handler[field] for handler in catalog_handlers if handler.get(field)),
+            local_tags[field],
+        )
+        merged_tags = list(claimed)
+        for claims, _ in hash_claims:
+            for tag in claims[field]:
+                if tag not in merged_tags:
+                    merged_tags.append(tag)
+        rom_attrs[field] = merged_tags
+
+
+def _apply_artwork_priority(
+    rom_attrs: dict[str, Any],
+    metadata_handlers: dict[MetadataSource, dict[str, Any]],
+    apply_sources: list[MetadataSource],
+) -> None:
+    """Write the artwork urls, each field under its own priority override."""
+    for field in ["url_cover", "url_screenshots", "url_manual"]:
+        priority_ordered_artwork = get_priority_ordered_metadata_sources(
+            apply_sources, field
+        )
+        for source_name in reversed(priority_ordered_artwork):
+            field_value = metadata_handlers[source_name]["handler"].get(field)
+            if field_value:
+                rom_attrs[field] = field_value
+
+
+def _keep_base_fields(rom_attrs: dict[str, Any], rom: Rom) -> None:
+    """Hold the stored name, summary and locked artwork against a refresh."""
+    # A ROM's name defaults to a filename-derived placeholder when first
+    # created. Treat that placeholder as "no name" so a freshly matched provider
+    # name replaces it (while preserving user-edited names).
+    fs_name_no_tags = fs_rom_handler.get_file_name_with_no_tags(rom_attrs["fs_name"])
+    # Both the existing name and the seeded rom_attrs name can hold the
+    # placeholder. Discard either when it's a placeholder so the parsed
+    # filename fallback can win.
+    placeholders = (None, "", rom.fs_name, fs_name_no_tags)
+    existing_name = None if rom.name in placeholders else rom.name
+    matched_name = rom_attrs.get("name")
+    matched_name = None if matched_name in placeholders else matched_name
+    rom_attrs.update(
+        {
+            "name": existing_name or matched_name or fs_name_no_tags or None,
+            "summary": rom.summary or rom_attrs.get("summary") or None,
+            # Only a locked slot resists the freshly resolved url. A stored
+            # manual is pinned regardless, since one with no url was uploaded.
+            "url_cover": (
+                ""
+                if rom.is_field_locked("url_cover")
+                else rom_attrs.get("url_cover") or None
+            ),
+            "url_manual": (
+                rom.url_manual
+                if rom.url_manual
+                or rom.path_manual
+                or rom.is_field_locked("url_manual")
+                else rom_attrs.get("url_manual") or None
+            ),
+            "url_screenshots": rom_attrs.get("url_screenshots") or [],
+        }
+    )
+
+
+def _log_unidentified(
+    rom_attrs: dict[str, Any], inconclusive_sources: set[MetadataSource]
+) -> None:
+    if inconclusive_sources:
+        # Reporting a plain "not identified" here writes the ROM up as a
+        # coverage gap the providers confirmed, when one of them simply
+        # never answered.
+        silent = ", ".join(hl(source) for source in sorted(inconclusive_sources))
+        log.warning(
+            f"{hl(rom_attrs['fs_name'])} not identified, but {silent} gave "
+            f"no answer, so this is not a confirmed miss - an UNMATCHED "
+            f"scan will retry it {emoji.EMOJI_WARNING}",
+            extra=LOGGER_MODULE_NAME,
+        )
+    else:
+        log.warning(
+            f"{hl(rom_attrs['fs_name'])} not identified {emoji.EMOJI_CROSS_MARK}",
+            extra=LOGGER_MODULE_NAME,
+        )
+
+
+def _apply_sgdb_match(
+    rom_attrs: dict[str, Any],
+    rom: Rom,
+    sgdb_rom: SGDBRom,
+    metadata_handlers: dict[MetadataSource, dict[str, Any]],
+) -> None:
+    """Record the SteamGridDB id, and its cover when it outranks the rest."""
+    rom_attrs["sgdb_id"] = sgdb_rom["sgdb_id"]
+
+    # Never over a locked cover, and only when SGDB outranks every other source
+    # that already produced one under the cover priority.
+    sgdb_cover = sgdb_rom.get("url_cover")
+    if not sgdb_cover or rom.is_field_locked("url_cover"):
+        return
+    cover_sources = [
+        name
+        for name, fields in metadata_handlers.items()
+        if fields["handler"].get("url_cover")
+    ]
+    ranked = get_priority_ordered_metadata_sources(
+        cover_sources + [MetadataSource.SGDB], "url_cover"
+    )
+    if ranked[0] == MetadataSource.SGDB:
+        rom_attrs["url_cover"] = sgdb_cover
+
+
+def _log_identified(rom_attrs: dict[str, Any], fs_rom: FSRom) -> None:
+    log.info(
+        f"{hl(rom_attrs['fs_name'])} identified as {hl(rom_attrs.get('name', rom_attrs['fs_name']), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
+        extra=LOGGER_MODULE_NAME,
+    )
+    if not fs_rom["flat"]:
+        for file in fs_rom["files"]:
+            log.info(
+                f"\t · {hl(file.file_name, color=LIGHTYELLOW)}",
+                extra=LOGGER_MODULE_NAME,
+            )
+
+
+async def scan_rom(
+    scan_type: ScanType,
+    platform: Platform,
+    rom: Rom,
+    fs_rom: FSRom,
+    metadata_sources: list[str],
+    newly_added: bool,
+    launchbox_remote_enabled: bool = True,
+    socket_manager: socketio.AsyncRedisManager | None = None,
+) -> Rom:
+    rom_attrs = _seed_rom_attrs(scan_type, platform, rom, fs_rom, newly_added)
     is_complete_rescan = not newly_added and scan_type == ScanType.COMPLETE
 
     lookups = _RomLookups(
@@ -1242,209 +1655,48 @@ async def scan_rom(
         *(coro for _, coro, _ in provider_fetches), return_exceptions=True
     )
 
-    resolved: list[Any] = [
-        lookups.resolve_fetch(source, result, fallback)
+    handler_roms: dict[MetadataSource, Any] = {
+        source: lookups.resolve_fetch(source, result, fallback)
         for (source, _, fallback), result in zip(
             provider_fetches, fetch_results, strict=True
         )
-    ]
+    }
 
-    (
-        igdb_handler_rom,
-        moby_handler_rom,
-        ss_handler_rom,
-        ra_handler_rom,
-        launchbox_handler_rom,
-        hasheous_handler_rom,
-        flashpoint_handler_rom,
-        hltb_handler_rom,
-        demozoo_handler_rom,
-        pouet_handler_rom,
-        csdb_handler_rom,
-        steam_handler_rom,
-        gamelist_handler_rom,
-        libretro_handler_rom,
-    ) = resolved
-
-    # Filename is usually only (demozoo-N). Demozoo's Pouët link is the
-    # ID we would have used if the tag had been (pouet-N).
-    if MetadataSource.POUET in metadata_sources and not pouet_handler_rom.get(
-        "pouet_id"
-    ):
-        linked = (demozoo_handler_rom.get("demozoo_metadata") or {}).get("pouet_id")
-        if linked:
-            try:
-                followed = await meta_pouet_handler.get_rom_by_id(int(linked))
-            except Exception as exc:
-                log.error(
-                    f"Error following Demozoo Pouët id {hl(str(linked))}: {exc}",
-                    extra=LOGGER_MODULE_NAME,
-                )
-            else:
-                if followed.get("pouet_id"):
-                    pouet_handler_rom = followed
-
-    if MetadataSource.CSDB in metadata_sources and not csdb_handler_rom.get("csdb_id"):
-        linked_csdb = (demozoo_handler_rom.get("demozoo_metadata") or {}).get("csdb_id")
-        if linked_csdb:
-            try:
-                followed_csdb = await meta_csdb_handler.get_rom_by_id(int(linked_csdb))
-            except Exception as exc:
-                log.error(
-                    f"Error following Demozoo CSDb id {hl(str(linked_csdb))}: {exc}",
-                    extra=LOGGER_MODULE_NAME,
-                )
-            else:
-                if followed_csdb.get("csdb_id"):
-                    csdb_handler_rom = followed_csdb
-
-    # Pouët is later in metadata priority, so its short summary would
-    # replace Demozoo's party / credits / YouTube. Keep the richer line
-    # and splice in Pouët score / rank / extra links.
-    if demozoo_handler_rom.get("demozoo_id") and pouet_handler_rom.get("pouet_id"):
-        dz_meta = demozoo_handler_rom.get("demozoo_metadata") or {}
-        pq_meta = pouet_handler_rom.get("pouet_metadata") or {}
-        merged = splice_pouet_vote(
-            str(demozoo_handler_rom.get("summary") or ""),
-            pq_meta.get("vote_avg"),
-            pq_meta.get("pouet_rank"),
-            pq_meta.get("pouet_cdc"),
+    # Filename is usually only (demozoo-N). Demozoo's Pouët and CSDb links are the
+    # ids we would have used had the tag been (pouet-N) or (csdb-N).
+    if MetadataSource.POUET in metadata_sources:
+        await _follow_demozoo_link(
+            MetadataSource.POUET,
+            "Pouët",
+            handler_roms,
+            meta_pouet_handler.get_rom_by_id,
         )
-        if merged:
-            demozoo_handler_rom["summary"] = merged
-            pouet_handler_rom["summary"] = merged
-        urls: list[str] = []
-        for url in (dz_meta.get("download_urls") or []) + (
-            pq_meta.get("download_urls") or []
-        ):
-            _append_unique(urls, url)
-        if urls:
-            dz_meta["download_urls"] = urls
-            pq_meta["download_urls"] = urls
-        if not dz_meta.get("youtube_video_id") and pq_meta.get("youtube_video_id"):
-            dz_meta["youtube_video_id"] = pq_meta["youtube_video_id"]
-        demozoo_handler_rom["demozoo_metadata"] = dz_meta
-        pouet_handler_rom["pouet_metadata"] = pq_meta
+    if MetadataSource.CSDB in metadata_sources:
+        await _follow_demozoo_link(
+            MetadataSource.CSDB, "CSDb", handler_roms, meta_csdb_handler.get_rom_by_id
+        )
+    _splice_scene_summaries(handler_roms)
 
-    # Same idea: Demozoo's Overview is richer; just add the CSDb page.
-    csdb_url = (csdb_handler_rom.get("csdb_metadata") or {}).get("csdb_url") or (
-        (demozoo_handler_rom.get("demozoo_metadata") or {}).get("csdb_url")
-    )
-    if csdb_url:
-        for blob in (demozoo_handler_rom, pouet_handler_rom, csdb_handler_rom):
-            if blob.get("summary") or blob.get("csdb_id") or blob.get("demozoo_id"):
-                merged_csdb = splice_csdb_url(str(blob.get("summary") or ""), csdb_url)
-                if merged_csdb:
-                    blob["summary"] = merged_csdb
+    handler_roms[MetadataSource.SGDB] = {}
+    metadata_handlers = _build_metadata_handlers(handler_roms)
 
-    handler_roms: dict[MetadataSource, Any] = {
-        MetadataSource.IGDB: igdb_handler_rom,
-        MetadataSource.MOBY: moby_handler_rom,
-        MetadataSource.SS: ss_handler_rom,
-        MetadataSource.RA: ra_handler_rom,
-        MetadataSource.LAUNCHBOX: launchbox_handler_rom,
-        MetadataSource.HASHEOUS: hasheous_handler_rom,
-        MetadataSource.FLASHPOINT: flashpoint_handler_rom,
-        MetadataSource.HLTB: hltb_handler_rom,
-        MetadataSource.DEMOZOO: demozoo_handler_rom,
-        MetadataSource.POUET: pouet_handler_rom,
-        MetadataSource.CSDB: csdb_handler_rom,
-        MetadataSource.STEAM: steam_handler_rom,
-        MetadataSource.GAMELIST: gamelist_handler_rom,
-        MetadataSource.LIBRETRO: libretro_handler_rom,
-        MetadataSource.SGDB: {},
-    }
-    metadata_handlers: dict[MetadataSource, dict[str, Any]] = {
-        source: {
-            "handler": handler_rom,
-            "id_field": RESCAN_RULES[source].id_field,
-            "metadata_field": RESCAN_RULES[source].metadata_field,
-        }
-        for source, handler_rom in handler_roms.items()
-    }
-    # No scan consults TheGamesDB, so it has no rule, but a rescan still resets it.
-    metadata_handlers[MetadataSource.TGDB] = {
-        "handler": {},
-        "id_field": "tgdb_id",
-        "metadata_field": None,
-    }
-
-    # Reset the id and blob of every source this rescan could rematch: the ones it
-    # consulted, whose miss has to undo the old match, and the deselected ones.
     if is_complete_rescan:
-        for source, fields in metadata_handlers.items():
-            if source in lookups.attempted_sources or source not in metadata_sources:
-                rom_attrs[fields["id_field"]] = None
-                if fields["metadata_field"]:
-                    rom_attrs[fields["metadata_field"]] = {}
-
-        # Clear the sources and locks so whatever answers now can replace a file.
-        rom_attrs.update(
-            {
-                "url_cover": "",
-                "url_screenshots": [],
-                "url_manual": "",
-                "locked_fields": [],
-            }
+        _reset_rematched_sources(
+            rom_attrs, metadata_handlers, lookups.attempted_sources, metadata_sources
         )
 
-    # Determine which metadata sources are available
-    available_sources = [
-        name
-        for name, fields in metadata_handlers.items()
-        if fields["handler"].get(fields["id_field"])
-    ]
-    # A persisted id locks the ROM too, so an unreachable provider can't hand an
-    # identified production back to the catalogs. Deselecting the source on a
-    # complete rescan clears the id above, which is the way out.
-    scene_locked = any(
-        source in SCENE_METADATA_SOURCES for source in available_sources
-    ) or any(
-        rom_attrs.get(metadata_handlers[source]["id_field"])
-        for source in SCENE_METADATA_SOURCES
-    )
-    apply_sources = scene_apply_sources(available_sources, scene_locked=scene_locked)
-    if scene_locked:
-        log.info(
-            f"{hl(rom_attrs['fs_name'])} is a Demozoo/Pouët/CSDb production, "
-            "using scene artwork and title, not similar game catalogs",
-            extra=LOGGER_MODULE_NAME,
+    apply_sources, scene_locked = _resolve_scene_lock(rom_attrs, metadata_handlers)
+
+    if scan_type == ScanType.HASHES:
+        _clear_rehash_misses(
+            rom_attrs,
+            lookups,
+            hasheous_hash_match,
+            hasheous_lookup_conclusive,
+            handler_roms[MetadataSource.RA],
         )
 
-    # A rehash that no longer matches must drop the previous Hasheous match, or
-    # the ROM keeps showing verification flags earned by hashes it no longer has.
-    # Only a conclusive lookup clears them, so an unreachable Hasheous can't
-    # silently de-verify a library.
-    if (
-        scan_type == ScanType.HASHES
-        and hasheous_lookup_conclusive
-        and not hasheous_hash_match.get("hasheous_id")
-    ):
-        rom_attrs["hasheous_id"] = None
-        rom_attrs["hasheous_metadata"] = {}
-
-    # Same for the RA hash match, once an RA lookup that ran found nothing.
-    ra_metadata = rom_attrs.get("ra_metadata") or {}
-    if (
-        scan_type == ScanType.HASHES
-        and MetadataSource.RA in lookups.attempted_sources
-        and not ra_handler_rom.get("ra_id")
-        and ra_metadata.get("hash_match")
-    ):
-        rom_attrs["ra_metadata"] = {**ra_metadata, "hash_match": False}
-
-    # A skipped source's tags can't be told apart on the row, so each hash source
-    # keeps the ones its dump gave in its own blob.
-    for source_name in HASH_MATCHED_TAG_SOURCES:
-        fields = metadata_handlers[source_name]
-        handler = fields["handler"]
-        if handler.get(fields["id_field"]):
-            dump_tags = {
-                DUMP_TAG_KEYS[field]: list(handler.get(field) or [])
-                for field in PROVIDER_ALL_TAG_FIELDS
-            }
-            blob = {**(handler.get(fields["metadata_field"]) or {}), **dump_tags}
-            fields["handler"] = {**handler, fields["metadata_field"]: blob}
+    _record_dump_tags(metadata_handlers)
 
     # One ordering pass for both lists, since each one rereads config.yml.
     hash_sources = [] if scene_locked else list(HASH_MATCHED_TAG_SOURCES)
@@ -1458,71 +1710,9 @@ async def scan_rom(
         if source in hash_sources
     ]
 
-    # Apply metadata priority order
-    # Reverse priority order to apply highest priority last
-    for source_name in reversed(priority_ordered):
-        handler_data = metadata_handlers[source_name]["handler"]
-        # Only update fields that have valid values
-        for key, field_value in handler_data.items():
-            if (
-                key in PROVIDER_ALL_TAG_FIELDS
-                and source_name in HASH_MATCHED_TAG_SOURCES
-            ):
-                continue
-            if field_value:
-                rom_attrs[key] = field_value
-
-    # Re-read rather than taken off the row, which cannot say whether its value
-    # is a tag the user wrote or what a provider left there on an earlier scan.
-    filename_tags = fs_rom_handler.parse_tags(rom_attrs["fs_name"])
-    local_tags = {
-        "regions": filename_tags.regions,
-        "languages": filename_tags.languages,
-        "tags": filename_tags.other_tags,
-    }
-    for field in PROVIDER_TAG_FIELDS:
-        if local_tags[field] or any(
-            metadata_handlers[source_name]["handler"].get(field)
-            for source_name in priority_ordered
-            if source_name not in HASH_MATCHED_TAG_SOURCES
-        ):
-            continue
-        for claims, answered in hash_claims:
-            # What a source said on an earlier scan fills only an empty slot: the
-            # row's value may come from a source this scan didn't ask either.
-            if claims[field] and (answered or not rom_attrs.get(field)):
-                rom_attrs[field] = claims[field]
-                break
-
-    for field in PROVIDER_MERGED_TAG_FIELDS:
-        # The base is what a local source says now, never the stored list: a
-        # dump that stops being a translation has to lose the tag again.
-        merged_tags = list(local_tags[field])
-        for source_name in priority_ordered:
-            if source_name in HASH_MATCHED_TAG_SOURCES:
-                continue
-            claimed = metadata_handlers[source_name]["handler"].get(field)
-            if claimed:
-                merged_tags = list(claimed)
-                break
-        for claims, _ in hash_claims:
-            for tag in claims[field]:
-                if tag not in merged_tags:
-                    merged_tags.append(tag)
-        rom_attrs[field] = merged_tags
-
-    # Artwork sources are prioritized separately, and each field can carry its
-    # own override on top of the shared artwork priority.
-    for field in ["url_cover", "url_screenshots", "url_manual"]:
-        priority_ordered_artwork = get_priority_ordered_metadata_sources(
-            apply_sources, field
-        )
-        # Reverse priority order to apply highest priority last
-        for source_name in reversed(priority_ordered_artwork):
-            # Only update fields that have valid values
-            field_value = metadata_handlers[source_name]["handler"].get(field)
-            if field_value:
-                rom_attrs[field] = field_value
+    _apply_metadata_priority(rom_attrs, metadata_handlers, priority_ordered)
+    _merge_tags(rom_attrs, metadata_handlers, priority_ordered, hash_claims)
+    _apply_artwork_priority(rom_attrs, metadata_handlers, apply_sources)
 
     # Don't overwrite existing base fields on update, unmatched and hashes scans
     if not newly_added and scan_type in (
@@ -1530,40 +1720,7 @@ async def scan_rom(
         ScanType.UPDATE,
         ScanType.HASHES,
     ):
-        # A ROM's name defaults to a filename-derived placeholder when first
-        # created. Treat that placeholder as "no name" so a freshly matched provider
-        # name replaces it (while preserving user-edited names).
-        fs_name_no_tags = fs_rom_handler.get_file_name_with_no_tags(
-            rom_attrs["fs_name"]
-        )
-        # Both the existing name and the seeded rom_attrs name can hold the
-        # placeholder. Discard either when it's a placeholder so the parsed
-        # filename fallback can win.
-        placeholders = (None, "", rom.fs_name, fs_name_no_tags)
-        existing_name = None if rom.name in placeholders else rom.name
-        matched_name = rom_attrs.get("name")
-        matched_name = None if matched_name in placeholders else matched_name
-        rom_attrs.update(
-            {
-                "name": existing_name or matched_name or fs_name_no_tags or None,
-                "summary": rom.summary or rom_attrs.get("summary") or None,
-                # Only a locked slot resists the freshly resolved url. A stored
-                # manual is pinned regardless, since one with no url was uploaded.
-                "url_cover": (
-                    ""
-                    if rom.is_field_locked("url_cover")
-                    else rom_attrs.get("url_cover") or None
-                ),
-                "url_manual": (
-                    rom.url_manual
-                    if rom.url_manual
-                    or rom.path_manual
-                    or rom.is_field_locked("url_manual")
-                    else rom_attrs.get("url_manual") or None
-                ),
-                "url_screenshots": rom_attrs.get("url_screenshots") or [],
-            }
-        )
+        _keep_base_fields(rom_attrs, rom)
 
     # Use PICO-8 cartridge PNG as cover art if no cover is set.
     # PICO-8 .p8.png files are valid PNG images whose visual content is the
@@ -1579,93 +1736,29 @@ async def scan_rom(
     if not any(
         rom_attrs.get(column.key) for column in METADATA_SOURCE_COLUMNS.values()
     ):
-        if lookups.inconclusive_sources:
-            # Reporting a plain "not identified" here writes the ROM up as a
-            # coverage gap the providers confirmed, when one of them simply
-            # never answered.
-            silent = ", ".join(
-                hl(source) for source in sorted(lookups.inconclusive_sources)
-            )
-            log.warning(
-                f"{hl(rom_attrs['fs_name'])} not identified, but {silent} gave "
-                f"no answer, so this is not a confirmed miss - an UNMATCHED "
-                f"scan will retry it {emoji.EMOJI_WARNING}",
-                extra=LOGGER_MODULE_NAME,
-            )
-        else:
-            log.warning(
-                f"{hl(rom_attrs['fs_name'])} not identified {emoji.EMOJI_CROSS_MARK}",
-                extra=LOGGER_MODULE_NAME,
-            )
+        _log_unidentified(rom_attrs, lookups.inconclusive_sources)
         return Rom(**rom_attrs)
-
-    async def fetch_sgdb_details(playmatch_rom: PlaymatchRomMatch) -> SGDBRom:
-        """Fetch SteamGridDB details for the ROM."""
-        # SGDB searches by title (and by IGDB's similar-name match). That is
-        # the same collision we just locked out for scene productions.
-        if scene_locked:
-            return SGDBRom(sgdb_id=None)
-
-        if lookups.attempts(MetadataSource.SGDB):
-            if scan_type == ScanType.UPDATE and rom.sgdb_id:
-                return await meta_sgdb_handler.get_rom_by_id(rom.sgdb_id)
-
-            if playmatch_rom["sgdb_id"] is not None:
-                log.debug(
-                    f"{hl(rom_attrs['fs_name'])} identified by Playmatch as SteamGridDB "
-                    f"{hl(str(playmatch_rom['sgdb_id']), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
-                    extra=LOGGER_MODULE_NAME,
-                )
-                return await meta_sgdb_handler.get_rom_by_id(playmatch_rom["sgdb_id"])
-
-            file_name_no_tags = fs_rom_handler.get_file_name_with_no_tags(
-                str(rom_attrs["fs_name"])
-            )
-            game_names = [
-                igdb_handler_rom.get("name", None),
-                hasheous_handler_rom.get("name", None),
-                ss_handler_rom.get("name", None),
-                moby_handler_rom.get("name", None),
-                launchbox_handler_rom.get("name", None),
-                gamelist_handler_rom.get("name", None),
-                file_name_no_tags,
-            ]
-            valid_names = [name for name in game_names if name]
-            return await meta_sgdb_handler.get_details_by_names(valid_names)
-
-        return SGDBRom(sgdb_id=None)
 
     # SteamGridDB searches on the names the other providers just produced, so it
     # can't join the gather above, but it resolves the same way.
     (sgdb_result,) = await asyncio.gather(
-        fetch_sgdb_details(playmatch_hash_match), return_exceptions=True
+        lookups.fetch_sgdb_rom(
+            playmatch_hash_match,
+            [handler_roms[source].get("name") for source in SGDB_NAME_SOURCES],
+            scene_locked=scene_locked,
+        ),
+        return_exceptions=True,
     )
-    sgdb_hander_rom = lookups.resolve_fetch(
+    sgdb_handler_rom = lookups.resolve_fetch(
         MetadataSource.SGDB, sgdb_result, SGDBRom(sgdb_id=None)
     )
 
-    # Resolving this late means missing the reset block above, so clear its id here.
+    # Resolving this late means missing the reset above, so clear its id here.
     if is_complete_rescan and MetadataSource.SGDB in lookups.attempted_sources:
         rom_attrs["sgdb_id"] = None
 
-    if sgdb_hander_rom.get("sgdb_id"):
-        rom_attrs["sgdb_id"] = sgdb_hander_rom["sgdb_id"]
-
-        # Apply SGDB's cover only when it outranks every other source that
-        # already produced one under the cover priority, and never over a
-        # locked cover.
-        sgdb_cover = sgdb_hander_rom.get("url_cover")
-        if sgdb_cover and not rom.is_field_locked("url_cover"):
-            cover_sources = [
-                name
-                for name, fields in metadata_handlers.items()
-                if fields["handler"].get("url_cover")
-            ]
-            ranked = get_priority_ordered_metadata_sources(
-                cover_sources + [MetadataSource.SGDB], "url_cover"
-            )
-            if ranked[0] == MetadataSource.SGDB:
-                rom_attrs["url_cover"] = sgdb_cover
+    if sgdb_handler_rom.get("sgdb_id"):
+        _apply_sgdb_match(rom_attrs, rom, sgdb_handler_rom, metadata_handlers)
 
     # Providers like libretro match without supplying a name. A new rom keeps the
     # name it was created with, which for a physical game is what the user typed.
@@ -1674,17 +1767,7 @@ async def scan_rom(
             newly_added and rom.name
         ) or fs_rom_handler.get_file_name_with_no_tags(rom_attrs["fs_name"])
 
-    log.info(
-        f"{hl(rom_attrs['fs_name'])} identified as {hl(rom_attrs.get('name', rom_attrs['fs_name']), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
-        extra=LOGGER_MODULE_NAME,
-    )
-
-    if not fs_rom["flat"]:
-        for file in fs_rom["files"]:
-            log.info(
-                f"\t · {hl(file.file_name, color=LIGHTYELLOW)}",
-                extra=LOGGER_MODULE_NAME,
-            )
+    _log_identified(rom_attrs, fs_rom)
 
     rom_attrs["missing_from_fs"] = False
     return Rom(**rom_attrs)
