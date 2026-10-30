@@ -1101,6 +1101,7 @@ async def scan_rom(
         "fs_size_bytes": rom.fs_size_bytes,
         "is_physical": rom.is_physical,
         "upc": rom.upc,
+        "storefront": rom.storefront,
     }
 
     file_attrs = fs_rom_file_attrs(fs_rom)

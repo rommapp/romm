@@ -12,6 +12,7 @@ from models.rom import (
     LookupHashes,
     Rom,
     RomFile,
+    RomStorefront,
     compute_full_path_hash,
     compute_search_titles,
     rom_id_from_resource_url,
@@ -54,6 +55,11 @@ def test_has_file_on_disk_covers_both_file_less_cases(rom: Rom):
     rom.missing_from_fs = False
     rom.is_physical = True
     assert rom.has_file_on_disk is False
+
+    rom.is_physical = False
+    rom.storefront = RomStorefront.STEAM
+    assert rom.has_file_on_disk is False
+    assert rom.never_has_file is True
 
 
 def test_rom_with_libretro_match_is_identified(rom: Rom):

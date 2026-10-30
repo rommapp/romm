@@ -96,7 +96,9 @@ from models.rom import (
     compute_name_sort_key,
     compute_search_titles,
     fold_search_title,
+    rom_without_file,
 )
+from models.steam_library import SteamLibraryEntry
 from utils import get_version
 from utils.age_ratings import MIN_AGE_SOURCE_COLUMNS, compute_min_age
 from utils.arcade_platforms import PLAYABLE_ARCADE_SET_PLATFORMS
@@ -1375,6 +1377,25 @@ class DBRomsHandler(DBBaseHandler):
             predicate = not_(predicate)
         return query.filter(predicate)
 
+    def _filter_by_owned_on_steam[S: Select[*tuple[Any, ...]]](
+        self, query: S, value: bool, user_id: int | None = None
+    ) -> S:
+        """Filter based on whether the current user's Steam account owns the
+        rom's Steam app."""
+        if not user_id:
+            return query
+        predicate: ColumnElement[bool] = (
+            select(SteamLibraryEntry.id)
+            .where(
+                SteamLibraryEntry.user_id == user_id,
+                SteamLibraryEntry.steam_app_id == Rom.steam_id,
+            )
+            .exists()
+        )
+        if not value:
+            predicate = not_(predicate)
+        return query.filter(predicate)
+
     def _filter_by_has_states[S: Select[*tuple[Any, ...]]](
         self, query: S, value: bool, user_id: int | None = None
     ) -> S:
@@ -1395,10 +1416,10 @@ class DBRomsHandler(DBBaseHandler):
         # though, and this filter backs the Missing tab's whole-library scan.
         if not value:
             return query.filter(Rom.missing_from_fs == false())
-        # Physical games are never "missing"; exclude them so a stray flag can
+        # A game without a file is never "missing"; exclude it so a stray flag can
         # never make one eligible for the missing-roms cleanup that hard-deletes.
         return query.filter(
-            and_(Rom.missing_from_fs == true(), Rom.is_physical.is_(False))
+            and_(Rom.missing_from_fs == true(), not_(rom_without_file()))
         )
 
     def _filter_by_verified[S: Select[*tuple[Any, ...]]](
@@ -1610,6 +1631,11 @@ class DBRomsHandler(DBBaseHandler):
                 query, value=filters.has_saves, user_id=user_id
             )
 
+        if filters.owned_on_steam is not None:
+            query = self._filter_by_owned_on_steam(
+                query, value=filters.owned_on_steam, user_id=user_id
+            )
+
         if filters.has_states is not None:
             query = self._filter_by_has_states(
                 query, value=filters.has_states, user_id=user_id
@@ -1620,6 +1646,13 @@ class DBRomsHandler(DBBaseHandler):
 
         if filters.physical is not None:
             query = query.filter(Rom.is_physical.is_(filters.physical))
+
+        if filters.store_only is not None:
+            query = query.filter(
+                Rom.storefront.is_not(None)
+                if filters.store_only
+                else Rom.storefront.is_(None)
+            )
 
         if filters.verified is not None:
             query = self._filter_by_verified(query, value=filters.verified)
@@ -2448,12 +2481,12 @@ class DBRomsHandler(DBBaseHandler):
         changes, so a re-scan of an unchanged platform issues no updates.
         """
         keep_set = set(fs_roms_to_keep)
-        # Physical games have no file on disk, so they must never be flagged missing.
+        # Games without a file on disk must never be flagged missing.
         rows = session.execute(
             select(Rom.id, Rom.fs_path, Rom.fs_name, Rom.missing_from_fs).where(
                 and_(
                     Rom.platform_id == platform_id,
-                    Rom.is_physical.is_(False),
+                    not_(rom_without_file()),
                 )
             )
         ).all()
@@ -2483,7 +2516,7 @@ class DBRomsHandler(DBBaseHandler):
                     and_(
                         Rom.platform_id == platform_id,
                         Rom.missing_from_fs.is_(True),
-                        Rom.is_physical.is_(False),
+                        not_(rom_without_file()),
                     )
                 )
                 .order_by(Rom.fs_name.asc())

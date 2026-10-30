@@ -34,6 +34,8 @@ class UserSchema(BaseModel):
     last_active: UTCDatetime | None
     ra_username: str | None = None
     ra_progression: RAProgression | None = None
+    steam_id: str | None = None
+    steam_persona_name: str | None = None
     ui_settings: dict[str, Any] | None = None
     current_device_id: str | None = None
 

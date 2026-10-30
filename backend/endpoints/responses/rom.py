@@ -471,6 +471,7 @@ class RomSchema(BaseModel):
     updated_at: UTCDatetime
     missing_from_fs: bool
     is_physical: bool
+    storefront: str | None
     has_file_on_disk: bool
     upc: str | None
     has_notes: bool

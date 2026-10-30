@@ -7,10 +7,13 @@ from fastapi import Path as PathVar
 from fastapi import Request, status
 from fastapi.responses import FileResponse
 
+from config import STEAM_API_KEY
 from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.permissions import emit_permissions_changed
+from endpoints.responses import TaskExecutionResponse
 from endpoints.responses.identity import InviteLinkSchema, UserSchema
+from endpoints.tasks import build_task_execution_response
 from exceptions.database_exceptions import LastAdminError
 from handler.audit_handler import (
     AuditActor,
@@ -26,6 +29,7 @@ from handler.auth.dependencies import assert_admin_for_admin
 from handler.database import (
     db_client_token_handler,
     db_device_handler,
+    db_steam_library_handler,
     db_user_handler,
 )
 from handler.device_install import device_install_handler
@@ -38,10 +42,17 @@ from handler.metadata import meta_ra_handler
 from handler.metadata.ra_handler import RAUserProgression
 from handler.notification_handler import notify
 from handler.socket_handler import close_client_token_sockets
+from handler.steam_library_handler import (
+    SteamLibraryError,
+    link_steam_profile,
+    resolve_steam_profile,
+    unlink_steam_profile,
+)
 from logger.logger import log
 from models.audit_event import AuditAction
 from models.notification import NotificationKind, NotificationLevel
-from models.user import Role, User
+from models.user import TEXT_FIELD_LENGTH, Role, User
+from tasks.registry import SYNC_STEAM_LIBRARIES_TASK, enqueue_task
 from utils.router import APIRouter
 from utils.validation import (
     ValidationError,
@@ -737,3 +748,122 @@ async def refresh_retro_achievements(
         },
     )
     return None
+
+
+def _get_steam_user(request: Request, id: int) -> User:
+    """The user whose Steam account is used, if the caller may manage them."""
+    user = db_user_handler.get_user(id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    _assert_can_manage_user(request, user)
+    return user
+
+
+@protected_route(
+    router.put,
+    "/{id}/steam",
+    [Scope.ME_WRITE],
+    summary="Link a Steam account",
+    responses={
+        status.HTTP_400_BAD_REQUEST: {},
+        status.HTTP_403_FORBIDDEN: {},
+        status.HTTP_404_NOT_FOUND: {},
+    },
+)
+async def link_steam_account(
+    request: Request,
+    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+    profile: Annotated[
+        str,
+        Body(
+            description="SteamID64, Steam profile link, or custom profile URL name.",
+            embed=True,
+            max_length=TEXT_FIELD_LENGTH,
+        ),
+    ],
+) -> UserSchema:
+    """Link the Steam account whose games are imported for a user."""
+    user = _get_steam_user(request, id)
+    try:
+        summary = await resolve_steam_profile(profile)
+    except SteamLibraryError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
+
+    link_steam_profile(user, summary)
+    return UserSchema.model_validate(db_user_handler.get_user(user.id))
+
+
+@protected_route(
+    router.delete,
+    "/{id}/steam",
+    [Scope.ME_WRITE],
+    summary="Unlink a Steam account",
+    responses={status.HTTP_403_FORBIDDEN: {}, status.HTTP_404_NOT_FOUND: {}},
+)
+async def unlink_steam_account(
+    request: Request,
+    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+) -> UserSchema:
+    """Unlink a user's Steam account and forget which games it owns."""
+    user = _get_steam_user(request, id)
+    unlink_steam_profile(user)
+    return UserSchema.model_validate(db_user_handler.get_user(user.id))
+
+
+@protected_route(
+    router.get,
+    "/{id}/steam/library",
+    [Scope.ME_READ],
+    summary="List owned Steam apps",
+    responses={status.HTTP_403_FORBIDDEN: {}, status.HTTP_404_NOT_FOUND: {}},
+)
+def get_steam_library(
+    request: Request,
+    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+) -> list[int]:
+    """List the Steam app ids a user's linked account owned at its last sync."""
+    user = _get_steam_user(request, id)
+    return db_steam_library_handler.get_owned_app_ids(user.id)
+
+
+@protected_route(
+    router.post,
+    "/{id}/steam/sync",
+    [Scope.ME_WRITE],
+    summary="Sync a Steam library",
+    status_code=status.HTTP_202_ACCEPTED,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {},
+        status.HTTP_403_FORBIDDEN: {},
+        status.HTTP_404_NOT_FOUND: {},
+    },
+)
+async def sync_steam_account(
+    request: Request,
+    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+) -> TaskExecutionResponse:
+    """Queue an import of the games a user's linked Steam account owns."""
+    user = _get_steam_user(request, id)
+    if not STEAM_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Set STEAM_API_KEY to import Steam libraries",
+        )
+    if not user.steam_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Link a Steam account first",
+        )
+
+    job = enqueue_task(
+        SYNC_STEAM_LIBRARIES_TASK,
+        task_kwargs={"user_id": user.id},
+        run_by_user_id=request.user.id,
+    )
+    return build_task_execution_response(
+        job, SYNC_STEAM_LIBRARIES_TASK, job.meta["task_name"]
+    )

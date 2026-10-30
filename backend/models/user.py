@@ -102,6 +102,11 @@ class User(BaseModel, SimpleUser):
     ra_progression: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
+    # A SteamID64 overflows JavaScript's safe integers, so it is kept as text.
+    steam_id: Mapped[str | None] = mapped_column(String(length=20), default=None)
+    steam_persona_name: Mapped[str | None] = mapped_column(
+        String(length=TEXT_FIELD_LENGTH), default=None
+    )
     ui_settings: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )

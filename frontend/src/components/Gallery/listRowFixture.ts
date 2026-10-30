@@ -116,6 +116,7 @@ export const ROM_DEFAULTS: SimpleRom = {
   updated_at: "2026-01-02T00:00:00Z",
   missing_from_fs: false,
   is_physical: false,
+  storefront: null,
   has_file_on_disk: true,
   upc: null,
   has_notes: false,

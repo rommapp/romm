@@ -258,6 +258,9 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0148_rom_age_limits.py", "permission_groups"),
         ("0148_rom_age_limits.py", "users"),
         ("0151_state_content_hash.py", "states"),
+        ("0155_steam_library.py", "roms"),
+        ("0155_steam_library.py", "users"),
+        ("0155_steam_library.py", "steam_library_entries"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
