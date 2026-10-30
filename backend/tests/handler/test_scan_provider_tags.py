@@ -12,7 +12,7 @@ from tests.handler.scan_stubs import add_n64_platform, add_rom, run_scan
 
 from handler.metadata.hasheous_handler import HasheousRom
 from handler.metadata.ss_handler import SSRom
-from handler.scan_handler import MetadataSource, ScanType
+from handler.scan.sources import MetadataSource, ScanType
 from models.rom import Rom
 
 HASHEOUS_MATCH = HasheousRom(

@@ -119,10 +119,8 @@ from handler.metadata.ss_handler import (
 )
 from handler.recommendation import similar_roms
 from handler.rom_conversion import promote_single_file_to_folder
+from handler.scan.sources import RESCAN_RULES, MetadataSource, ScanType
 from handler.scan_handler import (
-    RESCAN_RULES,
-    MetadataSource,
-    ScanType,
     build_hashless_fs_rom,
     build_physical_fs_name,
     build_physical_fs_path,

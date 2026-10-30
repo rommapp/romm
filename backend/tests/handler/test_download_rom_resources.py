@@ -7,7 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from tests.concurrency_stubs import InFlight
 
-from handler.scan_handler import MetadataSource, download_rom_resources
+from handler.scan.sources import MetadataSource
+from handler.scan_handler import download_rom_resources
 from models.rom import Rom
 
 

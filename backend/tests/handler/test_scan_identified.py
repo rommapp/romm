@@ -7,7 +7,7 @@ from tests.handler.scan_stubs import add_n64_platform, add_rom, run_scan
 
 from handler.metadata.libretro_handler import LibretroRom
 from handler.metadata.sgdb_handler import SGDBRom
-from handler.scan_handler import MetadataSource, ScanType
+from handler.scan.sources import MetadataSource, ScanType
 
 FS_NAME = "Mario Kart 64 (USA).z64"
 
@@ -15,7 +15,7 @@ FS_NAME = "Mario Kart 64 (USA).z64"
 @pytest.fixture
 def sgdb_lookup():
     with patch(
-        "handler.scan_handler.meta_sgdb_handler.get_details_by_names",
+        "handler.scan.lookups.meta_sgdb_handler.get_details_by_names",
         new=AsyncMock(return_value=SGDBRom(sgdb_id=None)),
     ) as lookup:
         yield lookup

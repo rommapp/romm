@@ -390,7 +390,7 @@ VALID_GAMELIST_IMAGE_TYPES = frozenset(
 )
 
 # Valid provider slugs for scan.priority.* lists. Mirrors
-# handler.scan_handler.MetadataSource, which can't be imported here without a
+# handler.scan.sources.MetadataSource, which can't be imported here without a
 # circular import; test_config_loader guards against drift.
 VALID_SCAN_PRIORITY_SOURCES = frozenset(
     {

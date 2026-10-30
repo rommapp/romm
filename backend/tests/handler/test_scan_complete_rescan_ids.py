@@ -17,7 +17,7 @@ from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.pouet_handler import PouetRom
 from handler.metadata.sgdb_handler import SGDBRom
 from handler.metadata.ss_handler import ScreenScraperExhaustedError, SSRom
-from handler.scan_handler import MetadataSource, ScanType
+from handler.scan.sources import MetadataSource, ScanType
 from models.rom import Rom
 
 FS_NAME = "Some Homebrew Thing (Aftermarket).z64"
@@ -84,7 +84,7 @@ async def _rescan(
         patch("handler.scan_handler.meta_igdb_handler.get_rom", new=igdb_mock),
         patch("handler.scan_handler.meta_igdb_handler.get_rom_by_id", new=igdb_mock),
         patch(
-            "handler.scan_handler.meta_sgdb_handler.get_details_by_names",
+            "handler.scan.lookups.meta_sgdb_handler.get_details_by_names",
             new=_lookup(sgdb_result),
         ),
         patch("handler.scan_handler.meta_pouet_handler.get_rom", new=pouet_mock),

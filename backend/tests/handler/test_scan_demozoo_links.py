@@ -5,11 +5,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from handler.scan_handler import (
-    MetadataSource,
-    _follow_demozoo_link,
-    _splice_scene_summaries,
-)
+from handler.scan.merge import follow_demozoo_link, splice_scene_summaries
+from handler.scan.sources import MetadataSource
 
 LINKED_SOURCES = [
     pytest.param(MetadataSource.POUET, "pouet_id", id="pouet"),
@@ -35,7 +32,7 @@ async def test_follows_the_linked_id(source: MetadataSource, id_field: str):
     handler_roms = _handler_roms(source, id_field, linked="42")
     get_rom_by_id = AsyncMock(return_value={id_field: 42, "name": "Linked"})
 
-    await _follow_demozoo_link(source, "label", handler_roms, get_rom_by_id)
+    await follow_demozoo_link(source, "label", handler_roms, get_rom_by_id)
 
     get_rom_by_id.assert_awaited_once_with(42)
     assert handler_roms[source] == {id_field: 42, "name": "Linked"}
@@ -49,7 +46,7 @@ async def test_keeps_a_match_the_scan_found_itself(
     handler_roms = _handler_roms(source, id_field, own=7, linked="42")
     get_rom_by_id = AsyncMock()
 
-    await _follow_demozoo_link(source, "label", handler_roms, get_rom_by_id)
+    await follow_demozoo_link(source, "label", handler_roms, get_rom_by_id)
 
     get_rom_by_id.assert_not_awaited()
     assert handler_roms[source] == {id_field: 7}
@@ -66,7 +63,7 @@ async def test_a_failed_or_empty_follow_keeps_the_miss(
     ):
         handler_roms = _handler_roms(source, id_field, linked="42")
 
-        await _follow_demozoo_link(source, "label", handler_roms, get_rom_by_id)
+        await follow_demozoo_link(source, "label", handler_roms, get_rom_by_id)
 
         assert handler_roms[source] == {id_field: None}
 
@@ -93,7 +90,7 @@ def test_splices_pouet_votes_links_and_the_csdb_page_into_demozoos_summary():
         },
     }
 
-    _splice_scene_summaries(handler_roms)
+    splice_scene_summaries(handler_roms)
 
     demozoo = handler_roms[MetadataSource.DEMOZOO]
     assert demozoo["summary"].startswith("Party 1st")

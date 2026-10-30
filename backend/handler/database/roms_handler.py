@@ -1544,7 +1544,7 @@ class DBRomsHandler(DBBaseHandler):
         visibility: RomVisibilityFilter = UNRESTRICTED,
         session: Session = INJECTED_SESSION,
     ) -> S:
-        from handler.scan_handler import MetadataSource
+        from handler.scan.sources import MetadataSource
 
         filters = filters or RomFilterParams()
         order_dir = order_dir.lower()

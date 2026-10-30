@@ -60,7 +60,7 @@ from handler.filesystem.roms_handler import (
 from handler.metadata import meta_gamelist_handler
 from handler.redis_handler import async_cache, redis_lock, scan_queue
 from handler.rom_files import RomFilesRefresh
-from handler.scan_handler import MetadataSource, ScanType
+from handler.scan.sources import MetadataSource, ScanType
 from handler.scan_jobs import SCAN_PLATFORMS_FUNC
 from handler.socket_handler import socket_handler
 from models.audit_event import AuditAction

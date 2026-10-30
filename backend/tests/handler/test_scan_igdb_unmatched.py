@@ -8,7 +8,7 @@ from tests.handler.scan_stubs import add_rom, run_scan
 
 from adapters.services.igdb import IGDB_PLATFORM_LIST
 from handler.metadata.igdb_handler import IGDBRom
-from handler.scan_handler import MetadataSource, ScanType
+from handler.scan.sources import MetadataSource, ScanType
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 ARCADE_IGDB_ID = IGDB_PLATFORM_LIST[UPS.ARCADE]["id"]

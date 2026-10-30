@@ -11,7 +11,7 @@ import pytest
 from tests.handler.scan_stubs import add_n64_platform, add_rom, run_scan
 
 from handler.metadata.hltb_handler import HLTBMetadata, HLTBRom
-from handler.scan_handler import MetadataSource, ScanType
+from handler.scan.sources import MetadataSource, ScanType
 from models.rom import Rom
 
 FS_NAME = "Mario Kart 64 (USA).z64"
