@@ -547,6 +547,26 @@ class TestFSResourcesHandler:
             "cover.jpg",
         ]
 
+    @pytest.mark.asyncio
+    async def test_get_rom_screenshots_survives_a_leftover_it_cannot_remove(
+        self, handler: FSResourcesHandler, rom, tmp_path
+    ):
+        handler.base_path = tmp_path
+        directory = tmp_path / f"{rom.fs_resources_path}/screenshots"
+        directory.mkdir(parents=True)
+        for name in ("0.jpg", "1.jpg"):
+            (directory / name).write_bytes(b"jpeg")
+
+        with (
+            patch.object(handler, "_store_screenshot", return_value=True),
+            patch.object(handler, "remove_file", side_effect=PermissionError("ro")),
+        ):
+            result = await handler.get_rom_screenshots(
+                rom, True, ["http://example.com/only.jpg"]
+            )
+
+        assert result == [f"{rom.fs_resources_path}/screenshots/0.jpg"]
+
     def test_manual_exists_no_manual(self, handler: FSResourcesHandler, rom: Rom):
         """Test manual_exists when no manual exists"""
         assert not handler.manual_exists(rom)

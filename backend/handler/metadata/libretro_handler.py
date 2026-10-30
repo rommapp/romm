@@ -141,7 +141,7 @@ class LibretroHandler(MetadataHandler):
         Additionally fetches Named_Snaps / Named_Titles / Named_Logos when the
         matching MetadataMediaType (SCREENSHOT / TITLE_SCREEN / LOGO) is in
         SCAN_MEDIA, and appends any matches to `url_screenshots` so the
-        scan_handler artwork loop picks them up. `name` is deliberately
+        scan's artwork merge picks them up. `name` is deliberately
         omitted, since libretro artwork filenames aren't proper game names.
         """
         platform = self.get_platform(platform_slug)

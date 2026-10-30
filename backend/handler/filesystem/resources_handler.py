@@ -621,9 +621,10 @@ class FSResourcesHandler(FSHandler):
         if not url_screenshots:
             return rom.path_screenshots or []
 
+        on_disk = self._stored_screenshot_indexes(rom)
         # Go by what is on disk, not what was recorded: an unchanged url set
         # still has to replace whatever an earlier run failed to write.
-        stored = set() if overwrite else self._stored_screenshot_indexes(rom)
+        stored = set() if overwrite else on_disk
 
         async def screenshot_path(idx: int, url_screenshot: str) -> str | None:
             path = self._get_screenshot_path(rom, str(idx))
@@ -640,17 +641,26 @@ class FSResourcesHandler(FSHandler):
         paths = await gather_all(
             *(screenshot_path(idx, url) for idx, url in enumerate(url_screenshots))
         )
-        await self._remove_screenshots_past(rom, len(url_screenshots))
+        # The downloads only write indexes below the count, so the listing
+        # taken before them still holds every index past it.
+        await self._remove_screenshots_past(rom, on_disk, len(url_screenshots))
         return [path for path in paths if path]
 
-    async def _remove_screenshots_past(self, rom: Rom, count: int) -> None:
-        """Delete the stored screenshots indexed past a list of `count` urls."""
-        for idx in self._stored_screenshot_indexes(rom):
-            if idx.isdigit() and int(idx) >= count:
-                try:
-                    await self.remove_file(self._get_screenshot_path(rom, idx))
-                except FileNotFoundError:
-                    pass
+    async def _remove_screenshots_past(
+        self, rom: Rom, indexes: set[str], count: int
+    ) -> None:
+        """Delete the stored `indexes` that fall past a list of `count` urls."""
+        for idx in indexes:
+            if not idx.isdecimal() or int(idx) < count:
+                continue
+            path = self._get_screenshot_path(rom, idx)
+            try:
+                await self.remove_file(path)
+            except FileNotFoundError:
+                pass
+            except OSError as exc:
+                # A leftover file must not cost the rom the screenshots that landed.
+                log.error(f"Unable to remove screenshot {path}: {str(exc)}")
 
     # Manuals
     def manual_exists(self, rom: Rom) -> bool:
