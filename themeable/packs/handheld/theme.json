@@ -1,0 +1,131 @@
+{
+  "$schema": "../../schema/theme.schema.json",
+  "id": "handheld",
+  "name": "Handheld",
+  "version": "1.0.0",
+  "author": "romm-themeable",
+  "description": "Retro: the four shades of a pocket LCD, with pixel-art artwork",
+  "tokens": {
+    "common": {
+      "--r-color-brand-primary": "#4b7a1c",
+      "--r-color-brand-primary-hover": "#5f9424",
+      "--r-color-brand-primary-pressed": "#3a5f15",
+      "--r-color-brand-secondary": "#6e8a0c",
+      "--r-color-brand-secondary-hover": "#b5d23a",
+      "--r-color-brand-secondary-pressed": "#55690a",
+      "--r-color-brand-accent": "#9bbc0f",
+      "--r-color-brand-accent-hover": "#c8de6a",
+      "--r-color-avatar-gradient": "linear-gradient(135deg, #9bbc0f, #306230)",
+      "--r-radius-xs": "0",
+      "--r-radius-sm": "0",
+      "--r-radius-chip": "0",
+      "--r-radius-md": "2px",
+      "--r-radius-art": "0",
+      "--r-radius-lg": "2px",
+      "--r-radius-card": "2px",
+      "--r-radius-xl": "4px",
+      "--r-font-family-display": "ui-monospace, \"Cascadia Mono\", \"DejaVu Sans Mono\", Menlo, Consolas, monospace",
+      "--r-color-canvas-bg-deep": "#0f2a0f"
+    },
+    "dark": {
+      "--r-color-bg": "#0b1a0b",
+      "--r-color-bg-elevated": "rgba(155, 188, 15, 0.04)",
+      "--r-color-surface": "rgba(155, 188, 15, 0.07)",
+      "--r-color-surface-hover": "rgba(155, 188, 15, 0.13)",
+      "--r-color-border": "rgba(155, 188, 15, 0.12)",
+      "--r-color-border-strong": "rgba(155, 188, 15, 0.24)",
+      "--r-color-panel": "rgba(15, 40, 15, 0.97)",
+      "--r-color-panel-border": "rgba(155, 188, 15, 0.16)",
+      "--r-color-tooltip-bg": "rgba(11, 26, 11, 0.95)",
+      "--r-color-toast-bg": "rgba(12, 30, 12, 0.93)",
+      "--r-color-auth-glass": "rgba(11, 26, 11, 0.7)",
+      "--r-color-cover-placeholder": "#183618",
+      "--r-color-cover-placeholder-bright": "#224822",
+      "--r-color-fg": "rgb(217, 234, 176)",
+      "--r-color-fg-heading": "rgb(217, 234, 176)",
+      "--r-color-fg-secondary": "rgba(217, 234, 176, 0.84)",
+      "--r-color-fg-muted": "rgba(217, 234, 176, 0.6)",
+      "--r-color-fg-faint": "rgba(217, 234, 176, 0.45)"
+    },
+    "light": {
+      "--r-color-bg": "#c4cfa1",
+      "--r-color-bg-elevated": "rgba(15, 56, 15, 0.03)",
+      "--r-color-surface": "rgba(15, 56, 15, 0.05)",
+      "--r-color-surface-hover": "rgba(15, 56, 15, 0.11)",
+      "--r-color-border": "rgba(15, 56, 15, 0.14)",
+      "--r-color-border-strong": "rgba(15, 56, 15, 0.28)",
+      "--r-color-panel": "rgba(184, 196, 145, 0.98)",
+      "--r-color-panel-border": "rgba(15, 56, 15, 0.14)",
+      "--r-color-tooltip-bg": "rgba(196, 207, 161, 0.97)",
+      "--r-color-toast-bg": "rgba(196, 207, 161, 0.96)",
+      "--r-color-auth-glass": "rgba(196, 207, 161, 0.86)",
+      "--r-color-cover-placeholder": "#aebb84",
+      "--r-color-cover-placeholder-bright": "#b8c48f",
+      "--r-color-fg": "rgb(15, 56, 15)",
+      "--r-color-fg-heading": "rgba(15, 56, 15, 0.9)",
+      "--r-color-fg-secondary": "rgba(15, 56, 15, 0.84)",
+      "--r-color-fg-muted": "rgba(15, 56, 15, 0.74)",
+      "--r-color-fg-faint": "rgba(15, 56, 15, 0.58)",
+      "--r-color-brand-primary": "#306230",
+      "--r-color-brand-primary-hover": "#234a23",
+      "--r-color-brand-primary-pressed": "#183418",
+      "--r-color-brand-secondary": "#4a6a0a",
+      "--r-color-brand-accent": "#4a5a08"
+    }
+  },
+  "vuetify": {
+    "dark": {
+      "primary": "#4b7a1c",
+      "secondary": "#6e8a0c",
+      "accent": "#9bbc0f",
+      "background": "#0b1a0b",
+      "surface": "#132a13",
+      "toplayer": "#1a361a"
+    },
+    "light": {
+      "primary": "#306230",
+      "secondary": "#4a6a0a",
+      "accent": "#4a5a08",
+      "background": "#c4cfa1",
+      "surface": "#d2dbb2",
+      "toplayer": "#b8c491"
+    }
+  },
+  "assets": {
+    "/assets/isotipo.svg": "assets/isotipo.svg",
+    "/assets/logotipo.svg": "assets/logotipo.svg",
+    "/assets/logos/romm_logo_xbox_one_circle_grayscale.svg": "assets/isotipo.svg",
+    "/assets/auth_background.svg": "assets/auth_background.svg",
+    "/assets/auth_background_static.svg": "assets/auth_background_static.svg"
+  },
+  "rootFiles": {
+    "/favicon.ico": "root/favicon.ico",
+    "/favicon.svg": "root/favicon.svg",
+    "/favicon-16x16.png": "root/favicon-16x16.png",
+    "/favicon-32x32.png": "root/favicon-32x32.png",
+    "/apple-touch-icon.png": "root/apple-touch-icon.png",
+    "/android-chrome-192x192.png": "root/android-chrome-192x192.png",
+    "/android-chrome-512x512.png": "root/android-chrome-512x512.png"
+  },
+  "covers": {
+    "colors": {
+      "base": "#8bac0f",
+      "shade": "#306230",
+      "warm": "#9bbc0f",
+      "icon": "#0f380f"
+    },
+    "missing": [
+      "covers/missing-1.svg",
+      "covers/missing-2.svg",
+      "covers/missing-3.svg"
+    ],
+    "unmatched": [
+      "covers/unmatched-1.svg",
+      "covers/unmatched-2.svg",
+      "covers/unmatched-3.svg"
+    ]
+  },
+  "pwa": {
+    "themeColor": "#0b1a0b"
+  }
+}
