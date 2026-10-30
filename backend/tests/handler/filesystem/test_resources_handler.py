@@ -526,6 +526,27 @@ class TestFSResourcesHandler:
             ]
             assert result == expected_paths
 
+    @pytest.mark.asyncio
+    async def test_get_rom_screenshots_removes_indexes_past_a_shorter_list(
+        self, handler: FSResourcesHandler, rom, tmp_path
+    ):
+        handler.base_path = tmp_path
+        directory = tmp_path / f"{rom.fs_resources_path}/screenshots"
+        directory.mkdir(parents=True)
+        for name in ("0.jpg", "1.jpg", "2.jpg", "cover.jpg"):
+            (directory / name).write_bytes(b"jpeg")
+
+        with patch.object(handler, "_store_screenshot", return_value=True):
+            result = await handler.get_rom_screenshots(
+                rom, True, ["http://example.com/only.jpg"]
+            )
+
+        assert result == [f"{rom.fs_resources_path}/screenshots/0.jpg"]
+        assert sorted(path.name for path in directory.iterdir()) == [
+            "0.jpg",
+            "cover.jpg",
+        ]
+
     def test_manual_exists_no_manual(self, handler: FSResourcesHandler, rom: Rom):
         """Test manual_exists when no manual exists"""
         assert not handler.manual_exists(rom)
@@ -1503,9 +1524,7 @@ class TestRemoveStaleMedia:
         previous: list[dict[str, Any] | None],
         current: list[dict[str, Any] | None],
     ) -> None:
-        await handler.remove_stale_media(
-            previous, current, [MetadataMediaType.PHYSICAL]
-        )
+        await handler.remove_stale_media(previous, current)
 
     @pytest.mark.asyncio
     async def test_removes_a_file_whose_url_changed(
@@ -1591,6 +1610,22 @@ class TestRemoveStaleMedia:
         )
 
         assert not (tmp_path / self.shared).exists()
+
+    @pytest.mark.asyncio
+    async def test_removes_a_type_that_left_the_preferences(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        # A provider records no path for a type that is no longer preferred.
+        fanart = "roms/1/1/fanart/fanart.png"
+        self._write(tmp_path, fanart)
+
+        await self._remove(
+            handler,
+            [{"fanart_url": "http://ss/fanart.png", "fanart_path": fanart}],
+            [{"fanart_url": "http://ss/fanart.png", "fanart_path": None}],
+        )
+
+        assert not (tmp_path / fanart).exists()
 
 
 class TestRemoveRecordedMedia:

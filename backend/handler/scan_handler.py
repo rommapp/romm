@@ -1738,7 +1738,6 @@ async def download_rom_resources(
             await fs_resource_handler.remove_stale_media(
                 [previous_media.get(column) for column, *_ in providers],
                 [getattr(added_rom, column) for column, *_ in providers],
-                preferred_media_types,
             )
         # Providers share media paths, so they take turns: a later one finds the
         # file an earlier one landed on disk and keeps it.
@@ -1823,7 +1822,6 @@ async def refresh_provider_media(
     await fs_resource_handler.remove_stale_media(
         [getattr(rom, column) for column, *_ in MEDIA_PROVIDERS],
         current,
-        preferred_media_types,
     )
 
     updates: dict[str, dict[str, Any]] = {}

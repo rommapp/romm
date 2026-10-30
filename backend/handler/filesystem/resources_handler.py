@@ -640,7 +640,17 @@ class FSResourcesHandler(FSHandler):
         paths = await gather_all(
             *(screenshot_path(idx, url) for idx, url in enumerate(url_screenshots))
         )
+        await self._remove_screenshots_past(rom, len(url_screenshots))
         return [path for path in paths if path]
+
+    async def _remove_screenshots_past(self, rom: Rom, count: int) -> None:
+        """Delete the stored screenshots indexed past a list of `count` urls."""
+        for idx in self._stored_screenshot_indexes(rom):
+            if idx.isdigit() and int(idx) >= count:
+                try:
+                    await self.remove_file(self._get_screenshot_path(rom, idx))
+                except FileNotFoundError:
+                    pass
 
     # Manuals
     def manual_exists(self, rom: Rom) -> bool:
@@ -970,22 +980,22 @@ class FSResourcesHandler(FSHandler):
         self,
         previous: Sequence[dict[str, Any] | None],
         current: Sequence[dict[str, Any] | None],
-        media_types: Iterable[MetadataMediaType],
     ) -> None:
         """Delete stored media whose owner or source changed, so it is fetched again.
+
+        Every type is compared, not only the preferred ones: a provider records
+        no path for a type that left the preferences, so its file goes too.
 
         Args:
             previous: Every provider's dict before the scan, highest priority first.
             current: The same providers' dicts about to be stored, in that order.
-            media_types: The types to compare.
         """
-        media_types = list(media_types)
 
         def claims(dicts: Sequence[dict[str, Any] | None]) -> dict[str, _PathClaim]:
             # A shared path holds the file of the first provider that records it.
             owned: dict[str, _PathClaim] = {}
             for provider, metadata in enumerate(dicts):
-                for media in self.recorded_media(metadata or {}, media_types):
+                for media in self.recorded_media(metadata or {}, MetadataMediaType):
                     owned.setdefault(media.path, _PathClaim(provider, media.url))
             return owned
 

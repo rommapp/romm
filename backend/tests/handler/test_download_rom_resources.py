@@ -142,7 +142,6 @@ async def test_stale_media_is_compared_across_providers_before_any_stores(
     resources.remove_stale_media.assert_awaited_once_with(
         [previous_ss, None, None],
         [rom.ss_metadata, rom.gamelist_metadata, rom.launchbox_metadata],
-        [],
     )
     assert calls == ["remove", "store", "store"]
 
