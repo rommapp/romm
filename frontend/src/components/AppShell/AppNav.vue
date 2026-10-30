@@ -152,7 +152,10 @@ const scrolled = computed(
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  padding: 0 var(--r-row-pad);
+  /* The bar stops short of a gallery's scrollbar; the right pad gives that
+     width back so the pill and user menu hold still across routes. */
+  padding: 0 max(0px, var(--r-row-pad) - var(--r-shell-scrollbar-w, 0px)) 0
+    var(--r-row-pad);
   gap: 0;
 }
 
