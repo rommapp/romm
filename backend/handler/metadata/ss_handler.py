@@ -672,10 +672,10 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
         return []
 
     def _get_player_count(game: SSGame) -> str:
-        player_count = game.get("joueurs", {}).get("text")
-        if not player_count or str(player_count).lower() in ("null", "none"):
+        player_count = str(game.get("joueurs", {}).get("text") or "").strip()
+        if not player_count or player_count.lower() in ("null", "none"):
             return "1"
-        return str(player_count)
+        return player_count
 
     def _get_age_ratings(game: SSGame) -> list[SSAgeRating]:
         return [
