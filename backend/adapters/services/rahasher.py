@@ -34,12 +34,7 @@ RAHASHER_ZIP_METHODS: frozenset[int] = frozenset(
 
 
 def _rahasher_reads_zip(file_path: Path) -> bool:
-    """Whether RAHasher can hash this zip's ROM without our help.
-
-    RAHasher only unzips an archive holding exactly one entry (directories
-    count); with more it hashes the whole zip, a hash RetroAchievements never
-    lists (issue #5415).
-    """
+    """Whether RAHasher unzips this itself: one entry (directories count), stored or deflated."""
     try:
         with zipfile.ZipFile(file_path) as z:
             entries = z.infolist()
