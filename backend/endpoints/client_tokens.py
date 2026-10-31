@@ -3,7 +3,7 @@ import json
 from fastapi import HTTPException, Request, status
 from pydantic import BaseModel, Field
 
-from decorators.auth import protected_route
+from decorators.auth import protected_route, raise_auth_error
 from endpoints.responses.client_token import (
     ClientTokenAdminSchema,
     ClientTokenCreateSchema,
@@ -101,14 +101,10 @@ def list_tokens(request: Request) -> list[ClientTokenSchema]:
 @protected_route(router.delete, "/current")
 async def delete_current_token(request: Request) -> None:
     """Revoke the client token that authenticates the request, with no scope needed."""
-    if not request.user.is_authenticated:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
     token_id = request_client_token_id(request)
     if token_id is None:
+        if not request.user.is_authenticated:
+            raise_auth_error(request)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Request is not authenticated with a client token",
