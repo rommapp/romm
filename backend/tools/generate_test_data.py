@@ -24,7 +24,7 @@ import os
 import random
 import sys
 import time
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -40,6 +40,7 @@ from sqlalchemy.pool import ConnectionPoolEntry  # noqa: E402
 from tools.seed_images import (  # noqa: E402
     RomCaption,
     RomImageJob,
+    SeededImages,
     draw_rom_images,
     plan_rom_images,
     rom_fidelity,
@@ -850,7 +851,10 @@ def main() -> int:
         "--image-media",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="Also write ScreenScraper media (box3d, fanart...) for roms with SS data",
+        help=(
+            "Also write ScreenScraper media (box3d, fanart...) for roms with SS data;"
+            " needs --image-fidelity 2 or 3"
+        ),
     )
     parser.add_argument(
         "--image-workers",
@@ -859,6 +863,8 @@ def main() -> int:
         help="Processes drawing images at fidelity 2+ (default: all cores; 1 = inline)",
     )
     args = parser.parse_args()
+    if args.image_media and args.image_fidelity == 1:
+        parser.error("--image-media needs --image-fidelity 2 or 3")
 
     rng = random.Random(args.seed)  # nosec B311 - fake data, not security-sensitive
     # Separate stream for image pixels so rom rows stay identical with or
@@ -1105,6 +1111,7 @@ def main() -> int:
         if args.images and args.image_fidelity > 1 and args.image_workers > 1
         else None
     )
+    drawing: Iterator[SeededImages] = iter(())
     for batch_start in range(0, args.roms, args.batch_size):
         batch_end = min(batch_start + args.batch_size, args.roms)
         image_jobs: list[RomImageJob] = []
@@ -1168,8 +1175,7 @@ def main() -> int:
             if not is_sibling and igdb_id is not None:
                 sibling_seed[platform["id"]] = {"igdb_id": igdb_id, "facts": f}
 
-            # Cover art, screenshots and media: write image files to the resources
-            # tree and point the path columns at them, or leave them empty.
+            # Image files land in the resources tree and the path columns point at them.
             # Drawn whatever the image flags, so they never shift the rows.
             n_shots = rng.randint(0, 4)
             media_paths: dict[str, str] = {}
@@ -1529,8 +1535,11 @@ def main() -> int:
                     )
 
         if image_pool is not None:
-            # list() waits for the batch and re-raises any worker's error.
-            list(image_pool.map(draw_rom_images, image_jobs, chunksize=4))
+            # This batch draws while the next one is built; list() waits for the
+            # previous batch and re-raises any worker's error.
+            previous = drawing
+            drawing = image_pool.map(draw_rom_images, image_jobs, chunksize=4)
+            list(previous)
         else:
             for job in image_jobs:
                 draw_rom_images(job)
@@ -1689,6 +1698,7 @@ def main() -> int:
     counts["sync_sessions"] = len(sync_rows)
     counts["play_sessions"] = len(play_rows)
 
+    list(drawing)
     if image_pool is not None:
         image_pool.shutdown()
 

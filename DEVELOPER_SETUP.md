@@ -214,7 +214,7 @@ That seeds 2,000 roms in under a minute. It prints the seed it used and a login 
   - `2` uses the real mix of cover sizes and shapes, drawn as debug art showing each rom's id, size and path.
   - `3` also matches real file weights, JPEG data inside some `big.png` files included.
 - `--image-limit N` draws covers for the first N roms only, and `--no-images` skips them.
-- `--image-media` adds ScreenScraper media (box3d, fanart...).
+- `--image-media` adds ScreenScraper media (box3d, fanart...) at fidelity 2 or 3.
 
 The seeded roms have no files under `library/`, so a scan would mark them missing. The frontend's `assets/romm/resources` symlink should point at the same resources folder, so the UI shows the seeded covers.
 

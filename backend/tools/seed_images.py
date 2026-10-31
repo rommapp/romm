@@ -7,9 +7,12 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Final
 
-from PIL import Image, ImageChops, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
+from config.config_manager import MetadataMediaType
 from handler.filesystem import fs_resource_handler
+from handler.filesystem.base_handler import CoverSize
+from models.rom import rom_fs_resources_path
 
 # Large-cover sizes and how often each appears: the 16 most common of 134 sizes
 # (97% of covers) in one library's 8,396 covers, measured 2026-10-14.
@@ -40,28 +43,28 @@ LANDSCAPE_SIZES: Final = {
 # Same library: ~500 of 8,897 roms have no cover, and 22% of big.png files hold JPEG bytes.
 NO_COVER_SHARE: Final = 0.056
 JPEG_IN_PNG_SHARE: Final = 0.22
-# Noise strength for the level-3 texture, tuned so PNG output matches the measured
-# spread: 2.5 / 16 / 40 give the 10th percentile / median / 90th (0.89 / 1.5 / 2.02 bytes/pixel).
-NOISE_MEDIAN: Final = 16.0
+# Lognormal level-3 noise strength: its 10th percentile, median and 90th give the
+# measured PNG spread of 0.89 / 1.5 / 2.02 bytes per pixel.
+NOISE_MEDIAN: Final = 6.0
 NOISE_SPREAD: Final = 1.0
-NOISE_RANGE: Final = (2.0, 48.0)
+NOISE_RANGE: Final = (1.0, 40.0)
 # Standard deviation of uniform 0-255 bytes, to scale them to a noise strength.
 UNIFORM_NOISE_SPREAD: Final = 73.9
 
 # Provisional until a media listing is measured: which media kinds a rom with
 # ScreenScraper media gets, and their sizes. None means "the cover's size".
-MEDIA_SIZES: Final[dict[str, tuple[int, int] | None]] = {
-    "box2d": None,
-    "box2d_back": None,
-    "box2d_side": (80, 900),
-    "box3d": (720, 1000),
-    "physical": (600, 600),
-    "miximage": (640, 480),
-    "miximage_v2": (640, 480),
-    "title_screen": (640, 480),
-    "fanart": (1280, 720),
-    "marquee": (800, 200),
-    "logo": (600, 250),
+MEDIA_SIZES: Final[dict[MetadataMediaType, tuple[int, int] | None]] = {
+    MetadataMediaType.BOX2D: None,
+    MetadataMediaType.BOX2D_BACK: None,
+    MetadataMediaType.BOX2D_SIDE: (80, 900),
+    MetadataMediaType.BOX3D: (720, 1000),
+    MetadataMediaType.PHYSICAL: (600, 600),
+    MetadataMediaType.MIXIMAGE: (640, 480),
+    MetadataMediaType.MIXIMAGE_V2: (640, 480),
+    MetadataMediaType.TITLE_SCREEN: (640, 480),
+    MetadataMediaType.FANART: (1280, 720),
+    MetadataMediaType.MARQUEE: (800, 200),
+    MetadataMediaType.LOGO: (600, 250),
 }
 SCREENSHOT_SIZE: Final = (640, 480)
 
@@ -288,8 +291,7 @@ def _fade_alpha(
             end=degree - 89,
             fill=round(255 * (1 - degree / 359)),
         )
-    alpha = Image.composite(sweep, Image.new("L", size, 255), ring)
-    return ImageChops.lighter(alpha, ImageChops.invert(ring))
+    return Image.composite(sweep, Image.new("L", size, 255), ring)
 
 
 def _fade_ring(
@@ -307,7 +309,6 @@ def draw_debug_overlay(
     fmt: str,
     caption: RomCaption,
     path: str = "",
-    path_column: str = "",
 ) -> Image.Image:
     """Draw the guides that tell which game and file a tile is, and how it was cut."""
     w, h = img.size
@@ -435,7 +436,6 @@ def make_image(
     fmt: str,
     caption: RomCaption,
     path: str = "",
-    path_column: str = "",
 ) -> Image.Image:
     """A debug picture of `size`: flat at level 2, over real-weight texture from level 3."""
     width, height = size
@@ -450,17 +450,18 @@ def make_image(
             0.7,
         )
         # Noise from `rng`, not Image.effect_noise, so `--seed` reproduces the bytes.
+        # One stream per channel: grey noise compresses too well to reach the 90th.
         noise = Image.blend(
-            Image.new("L", size, 128),
-            Image.frombytes("L", size, rng.randbytes(width * height)),
+            Image.new("RGB", size, (128, 128, 128)),
+            Image.frombytes("RGB", size, rng.randbytes(width * height * 3)),
             _noise_strength(rng) / UNIFORM_NOISE_SPREAD,
         )
         picture = Image.blend(
             Image.new("RGB", size, base),
-            Image.blend(texture, noise.convert("RGB"), 0.5),
+            Image.blend(texture, noise, 0.5),
             0.55,
         )
-    return draw_debug_overlay(picture, rom_id, kind, fmt, caption, path, path_column)
+    return draw_debug_overlay(picture, rom_id, kind, fmt, caption, path)
 
 
 def rom_rng(seed: int, rom_id: int) -> random.Random:
@@ -499,18 +500,20 @@ def plan_rom_images(job: RomImageJob) -> SeededImages:
     """The paths a job will write, without drawing anything."""
     if not _has_cover(rom_rng(job.seed, job.rom_id)):
         return SeededImages()
-    rel = f"roms/{job.platform_id}/{job.rom_id}"
+    rel = rom_fs_resources_path(job.platform_id, job.rom_id)
+    media_paths: dict[str, str] = {}
+    for kind in MEDIA_SIZES if job.with_media else ():
+        folder = fs_resource_handler.get_media_resources_path(
+            job.platform_id, job.rom_id, kind
+        )
+        media_paths[f"{kind}_path"] = f"{folder}/{kind}.png"
     planned = SeededImages(
-        large=f"{rel}/cover/big.png",
-        small=f"{rel}/cover/small.png",
+        large=f"{rel}/cover/{CoverSize.BIG.value}.png",
+        small=f"{rel}/cover/{CoverSize.SMALL.value}.png",
         screenshots=[
             f"{rel}/screenshots/{index}.jpg" for index in range(job.n_screenshots)
         ],
-        media_paths=(
-            {f"{kind}_path": f"{rel}/{kind}/{kind}.png" for kind in MEDIA_SIZES}
-            if job.with_media
-            else {}
-        ),
+        media_paths=media_paths,
     )
     planned.files_written = 2 + job.n_screenshots + len(planned.media_paths)
     return planned
@@ -533,12 +536,11 @@ def draw_rom_images(job: RomImageJob) -> SeededImages:
     if not _has_cover(rng):
         return SeededImages()
     planned = plan_rom_images(job)
-    rel = f"roms/{job.platform_id}/{job.rom_id}"
 
-    def draw(
-        size: tuple[int, int], kind: str, fmt: str, path: str, path_column: str
-    ) -> Image.Image:
-        return make_image(
+    def draw(size: tuple[int, int], kind: str, fmt: str, path: str) -> None:
+        target = Path(job.resources_base, path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        image = make_image(
             rng,
             size,
             job.fidelity,
@@ -547,67 +549,27 @@ def draw_rom_images(job: RomImageJob) -> SeededImages:
             fmt=fmt,
             caption=job.caption,
             path=path,
-            path_column=path_column,
         )
+        _save(image, target, fmt, job.fidelity)
 
     cover_size = pick_cover_size(rng)
-    cover_dir = Path(job.resources_base, rel, "cover")
-    cover_dir.mkdir(parents=True, exist_ok=True)
-    big = cover_dir / "big.png"
     # Downloads keep the provider's bytes, so some big.png files are JPEG inside.
     big_format = (
         "JPEG" if job.fidelity >= 3 and rng.random() < JPEG_IN_PNG_SHARE else "PNG"
     )
-    _save(
-        draw(cover_size, "big", big_format, planned.large, "roms.path_cover_l"),
-        big,
-        big_format,
-        job.fidelity,
-    )
+    draw(cover_size, "big", big_format, planned.large)
     # RomM's own rule picks the small size; the picture is redrawn at it so its
     # guides stay sharp and its label says "small".
-    small = cover_dir / "small.png"
-    with Image.open(big) as cover:
+    small = Path(job.resources_base, planned.small)
+    with Image.open(Path(job.resources_base, planned.large)) as cover:
         fs_resource_handler.resize_cover_to_small(cover, save_path=str(small))
     with Image.open(small) as resized:
         small_size = resized.size
-    _save(
-        draw(small_size, "small", "PNG", planned.small, "roms.path_cover_s"),
-        small,
-        "PNG",
-        job.fidelity,
-    )
+    draw(small_size, "small", "PNG", planned.small)
 
-    if planned.screenshots:
-        shot_dir = Path(job.resources_base, rel, "screenshots")
-        shot_dir.mkdir(parents=True, exist_ok=True)
-        for index, shot in enumerate(planned.screenshots):
-            _save(
-                draw(
-                    SCREENSHOT_SIZE,
-                    f"screenshot {index}",
-                    "JPEG",
-                    shot,
-                    "roms.path_screenshots",
-                ),
-                shot_dir / f"{index}.jpg",
-                "JPEG",
-                job.fidelity,
-            )
+    for index, shot in enumerate(planned.screenshots):
+        draw(SCREENSHOT_SIZE, f"screenshot {index}", "JPEG", shot)
 
     for kind, size in MEDIA_SIZES.items() if planned.media_paths else ():
-        media_dir = Path(job.resources_base, rel, kind)
-        media_dir.mkdir(parents=True, exist_ok=True)
-        _save(
-            draw(
-                size or cover_size,
-                kind,
-                "PNG",
-                planned.media_paths[f"{kind}_path"],
-                f"roms.ss_metadata.{kind}_path",
-            ),
-            media_dir / f"{kind}.png",
-            "PNG",
-            job.fidelity,
-        )
+        draw(size or cover_size, kind, "PNG", planned.media_paths[f"{kind}_path"])
     return planned

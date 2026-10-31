@@ -1,4 +1,5 @@
 import io
+import math
 import random
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
@@ -15,6 +16,9 @@ from tools.seed_images import (
     LANDSCAPE_SIZES,
     MEDIA_SIZES,
     NO_COVER_SHARE,
+    NOISE_MEDIAN,
+    NOISE_RANGE,
+    NOISE_SPREAD,
     RomCaption,
     RomImageJob,
     SeededImages,
@@ -44,7 +48,6 @@ def _picture(seed: int, size: tuple[int, int], fidelity: int) -> Image.Image:
         fmt="PNG",
         caption=CAPTION,
         path="roms/9/42/cover/big.png",
-        path_column="roms.path_cover_l",
     )
 
 
@@ -127,13 +130,15 @@ def test_without_media_only_covers_and_screenshots_are_written(tmp_path: Path) -
 
 
 @pytest.mark.parametrize(
-    "strength,measured",
+    "z_score,measured",
     # Measured PNG covers: 10th percentile, median and 90th, in bytes per pixel.
-    [(2.5, 0.89), (16.0, 1.5), (40.0, 2.02)],
+    [(-1.2816, 0.89), (0.0, 1.5), (1.2816, 2.02)],
 )
 def test_weight_level_noise_maps_to_measured_bytes_per_pixel(
-    monkeypatch: pytest.MonkeyPatch, strength: float, measured: float
+    monkeypatch: pytest.MonkeyPatch, z_score: float, measured: float
 ) -> None:
+    strength = NOISE_MEDIAN * math.exp(z_score * NOISE_SPREAD)
+    assert NOISE_RANGE[0] <= strength <= NOISE_RANGE[1]
     monkeypatch.setattr(seed_images, "_noise_strength", lambda rng: strength)
     buffer = io.BytesIO()
     _picture(0, (600, 900), 3).save(buffer, "PNG")
@@ -263,14 +268,6 @@ def test_level_two_draws_every_nth_rom_at_level_three() -> None:
     assert [rom_fidelity(2, rom_id, 10) for rom_id in (9, 10, 11, 20)] == [2, 3, 2, 3]
     assert rom_fidelity(2, 10, 0) == 2
     assert rom_fidelity(3, 11, 10) == 3
-
-
-def test_media_off_writes_no_media_and_no_metadata_paths(tmp_path: Path) -> None:
-    seeded = _seed(tmp_path, fidelity=2, with_media=False)
-
-    assert seeded.media_paths == {}
-    kinds = {Path(path).parts[3] for path in _files(tmp_path)}
-    assert kinds <= {"cover", "screenshots"}
 
 
 def test_both_tiers_draw_the_same_guides() -> None:
