@@ -1,4 +1,5 @@
 import json
+from collections.abc import Iterator
 from datetime import datetime, timezone
 from typing import Any, cast
 from unittest.mock import AsyncMock, patch
@@ -2978,6 +2979,21 @@ class TestUpdateRomProviderRefetch:
 
 
 class TestUpdateRawMetadata:
+    @pytest.fixture
+    def store_metadata_media_mock(self) -> Iterator[AsyncMock]:
+        with (
+            patch.object(
+                FSResourcesHandler, "remove_stale_media", new_callable=AsyncMock
+            ),
+            patch.object(
+                FSResourcesHandler,
+                "store_metadata_media",
+                new_callable=AsyncMock,
+                return_value=False,
+            ) as store_mock,
+        ):
+            yield store_mock
+
     @patch.object(
         IGDBHandler,
         "get_rom_by_id",
@@ -3113,6 +3129,188 @@ class TestUpdateRawMetadata:
         assert body["launchbox_metadata"]["first_release_date"] == 1675814400
         assert body["launchbox_metadata"]["max_players"] == 4
         assert body["launchbox_metadata"]["release_type"] == "Single"
+
+    @patch.object(SSHandler, "get_rom_by_id", return_value=SSRom(ss_id=MOCK_SS_ID))
+    def test_update_raw_ss_metadata_keeps_only_the_roms_media_paths(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        store_metadata_media_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        box2d = f"roms/{rom.platform_id}/{rom.id}/box2d/box2d.png"
+        video = f"roms/{rom.platform_id}/{rom.id}/video/video.mp4"
+        physical = f"roms/{rom.platform_id}/{rom.id}/physical"
+        raw_metadata = {
+            "box2d_url": "https://example.com/box2d.png",
+            "box2d_path": box2d,
+            "video_url": "https://example.com/video.mp4",
+            "video_path": video,
+            "fanart_url": "https://example.com/fanart.png",
+            "fanart_path": f"roms/{rom.platform_id}/{rom.id}/fanart/x.html",
+            "logo_url": "https://example.com/logo.png",
+            "logo_path": f"roms/{rom.platform_id}/{rom.id + 1}/logo/logo.png",
+            "marquee_url": "https://example.com/marquee.png",
+            "marquee_path": f"roms/{rom.platform_id}/{rom.id}/logo/marquee.png",
+            "bezel_url": "https://example.com/bezel.png",
+            "bezel_path": f"roms/{rom.platform_id}/{rom.id}/bezel/../../x.png",
+            "miximage_url": "https://example.com/miximage.png",
+            "miximage_path": f"roms/{rom.platform_id}/{rom.id}/miximage/a\x00.png",
+            "title_screen_url": "https://example.com/title_screen.png",
+            "title_screen_path": (
+                f"roms/{rom.platform_id}/{rom.id}/title_screen/{'a' * 300}.png"
+            ),
+            "physical_url": "https://example.com/physical.png",
+            "physical_path": f"{physical}/physical.png",
+            "physical_extra_discs": [
+                {"disc": 2, "url": "https://example.com/2.png", "path": "x/2.png"},
+                {
+                    "disc": 3,
+                    "url": "https://example.com/3.png",
+                    "path": f"{physical}/physical_disc3.png",
+                },
+            ],
+        }
+        # The URLs are the rom's own, so only the paths are on trial. PostgreSQL
+        # jsonb rejects the NUL byte, so the seed leaves the paths out.
+        seeded = {k: v for k, v in raw_metadata.items() if not k.endswith("_path")}
+        db_rom_handler.update_rom(rom.id, {"ss_metadata": seeded})
+
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={
+                "ss_id": str(MOCK_SS_ID),
+                "raw_ss_metadata": json.dumps(raw_metadata),
+            },
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        stored = response.json()["ss_metadata"]
+        assert stored["box2d_path"] == box2d
+        assert stored["video_path"] == video
+        assert stored["physical_path"] == f"{physical}/physical.png"
+        for key in (
+            "fanart_path",
+            "logo_path",
+            "marquee_path",
+            "bezel_path",
+            "miximage_path",
+            "title_screen_path",
+        ):
+            assert stored[key] is None
+        assert [disc["path"] for disc in stored["physical_extra_discs"]] == [
+            None,
+            f"{physical}/physical_disc3.png",
+        ]
+        fetched = store_metadata_media_mock.call_args_list[0].args[0]
+        assert fetched["fanart_path"] is None
+
+    @patch.object(SSHandler, "get_rom_by_id", return_value=SSRom(ss_id=MOCK_SS_ID))
+    def test_update_raw_ss_metadata_keeps_only_the_roms_media_urls(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        store_metadata_media_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        folder = f"roms/{rom.platform_id}/{rom.id}"
+        box2d_url = "https://example.com/box2d.png"
+        disc2 = {"disc": 2, "url": "https://example.com/2.png", "path": None}
+        db_rom_handler.update_rom(
+            rom.id,
+            {"ss_metadata": {"box2d_url": box2d_url, "physical_extra_discs": [disc2]}},
+        )
+        raw_metadata = {
+            "box2d_url": box2d_url,
+            "box2d_path": f"{folder}/box2d/box2d.png",
+            "fanart_url": "file://some/library/file.bin",
+            "fanart_path": f"{folder}/fanart/fanart.png",
+            "video_url": "http://10.0.0.1/internal.mp4",
+            "video_path": f"{folder}/video/video.mp4",
+            "physical_extra_discs": [
+                disc2,
+                {"disc": 3, "url": "http://10.0.0.1/3.png", "path": None},
+            ],
+        }
+
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={
+                "ss_id": str(MOCK_SS_ID),
+                "raw_ss_metadata": json.dumps(raw_metadata),
+            },
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        stored = response.json()["ss_metadata"]
+        assert stored["box2d_url"] == box2d_url
+        assert "fanart_url" not in stored
+        assert "video_url" not in stored
+        assert stored["physical_extra_discs"] == [disc2]
+        fetched = store_metadata_media_mock.call_args_list[0].args[0]
+        assert "fanart_url" not in fetched
+
+    @pytest.mark.usefixtures("store_metadata_media_mock")
+    @patch.object(
+        LaunchboxHandler,
+        "get_rom_by_id",
+        return_value=LaunchboxRom(launchbox_id=MOCK_LAUNCHBOX_ID),
+    )
+    def test_update_raw_launchbox_metadata_keeps_only_the_roms_media_paths(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        raw_metadata = {
+            "box3d_url": "https://example.com/box3d.png",
+            "box3d_path": (
+                f"roms/{rom.platform_id}/{rom.id}/box3d/box3d.png/../../../../index.html"
+            ),
+        }
+
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={
+                "launchbox_id": str(MOCK_LAUNCHBOX_ID),
+                "raw_launchbox_metadata": json.dumps(raw_metadata),
+            },
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["launchbox_metadata"]["box3d_path"] is None
+
+    @pytest.mark.parametrize(
+        "raw_metadata",
+        [
+            ["box2d_path"],
+            {"physical_extra_discs": ["roms/1/1/physical/x.png"]},
+            {"box2d_url": 5, "box2d_path": "roms/1/1/box2d/box2d.png"},
+        ],
+    )
+    @patch.object(SSHandler, "get_rom_by_id", return_value=SSRom(ss_id=MOCK_SS_ID))
+    def test_update_rom_rejects_malformed_raw_ss_metadata(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        raw_metadata: Any,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={
+                "ss_id": str(MOCK_SS_ID),
+                "raw_ss_metadata": json.dumps(raw_metadata),
+            },
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_update_raw_hasheous_metadata(
         self, client: TestClient, access_token: str, rom: Rom

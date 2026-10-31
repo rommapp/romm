@@ -1,7 +1,9 @@
 import binascii
 import json
+import posixpath
 import re
 from base64 import b64encode
+from collections.abc import Iterator
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from io import BytesIO
@@ -47,6 +49,7 @@ from config import (
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
     LIBRARY_BASE_PATH,
 )
+from config.config_manager import MetadataMediaType
 from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
 from endpoints.responses.base import PAGE_QUERY, LimitOffsetPage, PageParams
@@ -112,7 +115,10 @@ from handler.metadata import (
     meta_upc_handler,
     scene_id_or_none,
 )
-from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
+from handler.metadata.launchbox_handler.media import (
+    RECOGNIZED_VIDEO_EXTENSIONS,
+    populate_rom_specific_paths,
+)
 from handler.metadata.ss_handler import (
     ScreenScraperExhaustedError,
     add_ss_auth_to_url,
@@ -121,6 +127,7 @@ from handler.recommendation import similar_roms
 from handler.rom_conversion import promote_single_file_to_folder
 from handler.scan.sources import RESCAN_RULES, MetadataSource, ScanType
 from handler.scan_handler import (
+    MEDIA_PROVIDERS,
     build_hashless_fs_rom,
     build_physical_fs_name,
     build_physical_fs_path,
@@ -540,6 +547,81 @@ def parse_raw_metadata(
     if form_key == "raw_manual_metadata":
         return metadata
     return clean_metadata_name_lists(form_key.removeprefix("raw_"), metadata)
+
+
+# Provider media is stored as PNG, except videos, which keep their source extension.
+STORED_MEDIA_EXTENSIONS: Final = frozenset((".png", *RECOGNIZED_VIDEO_EXTENSIONS))
+STORED_MEDIA_STEM: Final = re.compile(r"[A-Za-z0-9_-]{1,64}")
+
+
+def _is_stored_media_path(path: object, folder: str) -> bool:
+    if not isinstance(path, str):
+        return False
+    head, name = posixpath.split(path)
+    stem, ext = posixpath.splitext(name)
+    return (
+        head == folder
+        and STORED_MEDIA_STEM.fullmatch(stem) is not None
+        and ext.lower() in STORED_MEDIA_EXTENSIONS
+    )
+
+
+def _media_url_slots(metadata: dict[str, Any]) -> Iterator[tuple[dict[str, Any], str]]:
+    for media_type in MetadataMediaType:
+        yield metadata, f"{media_type.value}_url"
+        for disc in metadata.get(f"{media_type.value}_extra_discs") or []:
+            yield disc, "url"
+
+
+def confine_provider_media(
+    metadata: dict[str, Any], stored: dict[str, Any] | None, rom: Rom, form_key: str
+) -> None:
+    """Drop client-supplied media paths outside the rom's own media folders, and media
+    URLs (or disc entries) the rom's stored provider metadata doesn't already hold.
+
+    Args:
+        metadata: The client-supplied provider dict, edited in place.
+        stored: The same provider's dict as the rom holds it.
+        rom: The rom being updated.
+        form_key: The form field the dict came from, for errors and logs.
+    """
+    invalid = HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail=f"Invalid {form_key}",
+    )
+    try:
+        recorded = fs_resource_handler.recorded_media(metadata, MetadataMediaType)
+    except (AttributeError, TypeError) as exc:
+        raise invalid from exc
+    if any(m.url is not None and not isinstance(m.url, str) for m in recorded):
+        raise invalid
+
+    for media in recorded:
+        path = media.owner[media.key]
+        folder = fs_resource_handler.get_media_resources_path(
+            rom.platform_id, rom.id, media.media_type
+        )
+        if not _is_stored_media_path(path, folder):
+            log.warning(f"Ignoring media path {path!r} from {form_key} of rom {rom.id}")
+            media.owner[media.key] = None
+
+    known = {owner.get(key) for owner, key in _media_url_slots(stored or {})}
+
+    def untrusted(url: object) -> bool:
+        if isinstance(url, str) and url in known:
+            return False
+        log.warning(f"Ignoring media URL {url!r} from {form_key} of rom {rom.id}")
+        return True
+
+    for media_type in MetadataMediaType:
+        url_key = f"{media_type.value}_url"
+        if metadata.get(url_key) is not None and untrusted(metadata[url_key]):
+            del metadata[url_key]
+        discs_key = f"{media_type.value}_extra_discs"
+        if metadata.get(discs_key):
+            metadata[discs_key] = [
+                disc for disc in metadata[discs_key] if not untrusted(disc.get("url"))
+            ]
 
 
 class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
@@ -1908,6 +1990,9 @@ _RAW_METADATA_FORM_KEYS: Final = tuple(
     for f in RomUpdateForm.model_fields
     if f.startswith("raw_") and f != "raw_manual_metadata"
 )
+_MEDIA_RAW_METADATA_FORM_KEYS: Final = frozenset(
+    f"raw_{column}" for column, *_ in MEDIA_PROVIDERS
+)
 
 
 def _parse_match_id(field: str, value: str | None) -> int | str | None:
@@ -2127,6 +2212,10 @@ async def update_rom(
         raw_metadata = parse_raw_metadata(form_data, form_key)
         provider = form_key.removeprefix("raw_").removesuffix("_metadata")
         if cleaned_data[f"{provider}_id"] and raw_metadata is not None:
+            if form_key in _MEDIA_RAW_METADATA_FORM_KEYS:
+                confine_provider_media(
+                    raw_metadata, getattr(rom, f"{provider}_metadata"), rom, form_key
+                )
             cleaned_data[f"{provider}_metadata"] = raw_metadata
     raw_manual_metadata = parse_raw_metadata(form_data, "raw_manual_metadata")
     if raw_manual_metadata is not None:

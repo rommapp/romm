@@ -275,6 +275,8 @@ DEFAULT_EXCLUDED_EXTENSIONS: Final = [
     ROM_UPLOAD_ASSEMBLING_EXT,
 ]
 DEFAULT_EXCLUDED_FILES: Final = [
+    # macOS AppleDouble metadata, written beside files on SMB and exFAT shares
+    "._*",
     ".DS_Store",
     ".localized",
     ".Trashes",
@@ -317,10 +319,16 @@ PLATFORM_MEDIA_DIRS: Final = {
     "title_screen": "titlescreens",
     "video": "videos",
 }
+# ES-DE's own media roots, which hold the per-type folders above.
+ESDE_MEDIA_ROOT_DIRS: Final = ["media", "downloaded_media"]
 # Folders inside a platform that are never a multi-file ROM (a ROM whose parts
 # live in a directory). Scraper media output lands here, so it is skipped too.
 DEFAULT_EXCLUDED_MULTI_FILE_DIRS: Final = sorted(
-    {*DEFAULT_EXCLUDED_PLATFORM_DIRS, *PLATFORM_MEDIA_DIRS.values()}
+    {
+        *DEFAULT_EXCLUDED_PLATFORM_DIRS,
+        *PLATFORM_MEDIA_DIRS.values(),
+        *ESDE_MEDIA_ROOT_DIRS,
+    }
 )
 
 

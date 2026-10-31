@@ -15,7 +15,13 @@ from tests._zipfile_shim import reload_zipfile
 
 from adapters.services.sigil import SigilExtractionResult
 from config import LIBRARY_BASE_PATH
-from config.config_manager import DEFAULT_EXCLUDED_EXTENSIONS, Config, ConvertoConfig
+from config.config_manager import (
+    DEFAULT_EXCLUDED_EXTENSIONS,
+    DEFAULT_EXCLUDED_FILES,
+    DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
+    Config,
+    ConvertoConfig,
+)
 from handler.filesystem.base_handler import (
     LANGUAGES_BY_SHORTCODE,
     REGIONS_BY_SHORTCODE,
@@ -487,6 +493,33 @@ class TestFSRomsHandler:
 
             result = handler.exclude_multi_roms(roms)
             assert result == roms
+
+    def test_default_exclusions_skip_esde_media_and_appledouble(
+        self, handler: FSRomsHandler
+    ):
+        config = Config(
+            EXCLUDED_PLATFORMS=[],
+            EXCLUDED_SINGLE_EXT=[],
+            EXCLUDED_SINGLE_FILES=[],
+            EXCLUDED_MULTI_FILES=list(DEFAULT_EXCLUDED_MULTI_FILE_DIRS),
+            EXCLUDED_MULTI_PARTS_EXT=[],
+            EXCLUDED_MULTI_PARTS_FILES=list(DEFAULT_EXCLUDED_FILES),
+            PLATFORMS_BINDING={},
+            PLATFORMS_VERSIONS={},
+            STRUCTURE_TEMPLATES={
+                "default": "{platform}/roms/{game}",
+                "firmware": "{platform}/bios",
+            },
+        )
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+
+            assert handler.exclude_multi_roms(
+                ["Game (Disc 1)", "media", "downloaded_media"]
+            ) == ["Game (Disc 1)"]
+            assert handler.is_excluded_multi_part("._track01.bin", config)
+            assert not handler.is_excluded_multi_part("track01.bin", config)
 
     def test_exclude_multi_roms_drops_hidden_folders(
         self, handler: FSRomsHandler, config
@@ -1353,6 +1386,26 @@ class TestFSRomsHandler:
             # Clean up
             if test_file.exists():
                 test_file.unlink()
+
+    def test_list_rom_dir_sorts_regardless_of_listing_order(
+        self, handler: FSRomsHandler, config, tmp_path
+    ):
+        rom_dir = tmp_path / "Order Test (World)"
+        (rom_dir / "sub").mkdir(parents=True)
+        for name in ("a.bin", "b.bin", "sub/c.bin"):
+            (rom_dir / name).write_bytes(b"x")
+        listing = [(rom_dir, "b.bin"), (rom_dir / "sub", "c.bin"), (rom_dir, "a.bin")]
+
+        with patch(
+            "handler.filesystem.roms_handler.iter_files", return_value=iter(listing)
+        ):
+            entries = handler._list_rom_dir(rom_dir, config)
+
+        assert [(p, n) for p, n, _ in entries] == [
+            (rom_dir, "a.bin"),
+            (rom_dir, "b.bin"),
+            (rom_dir / "sub", "c.bin"),
+        ]
 
     def test_failed_7z_extraction_hashes_only_the_raw_archive(
         self, handler: FSRomsHandler, tmp_path

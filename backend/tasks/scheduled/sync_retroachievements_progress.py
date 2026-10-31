@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any, cast
 
 from adapters.services.retroachievements_types import RAUserCompletionProgressKind
@@ -75,6 +76,40 @@ def _sync_rom_user_statuses(user: User, user_progression: RAUserProgression) -> 
         log.debug(f"Set {updated} rom_user statuses for user '{user.username}'")
 
 
+async def sync_user_progress(user: User) -> None:
+    """Fetch a user's RetroAchievements progression incrementally and store it."""
+    user_progression = await meta_ra_handler.get_user_progression(
+        cast(str, user.ra_username),
+        current_progression=cast(RAUserProgression | None, user.ra_progression),
+    )
+    db_user_handler.update_user(user.id, {"ra_progression": user_progression})
+    log.debug(f"Updated RetroAchievements progress for user: {user.username}")
+    # A failed status write (e.g. a ROM deleted mid-sync) keeps the progression.
+    try:
+        _sync_rom_user_statuses(user, user_progression)
+    except Exception as e:
+        log.error(
+            f"Failed to sync RetroAchievements statuses for user: {user.username}, error: {e}"
+        )
+
+
+@initialize_context()
+async def _sync_user_progress_by_id(user_id: int) -> None:
+    user = db_user_handler.get_user(user_id)
+    if user is None or not user.ra_username or not meta_ra_handler.is_enabled():
+        return
+    await sync_user_progress(user)
+
+
+def sync_user_progress_job(user_id: int) -> None:
+    """RQ job: refresh one user's RetroAchievements progression after a play."""
+    # A failed job keeps its fixed id, which would refuse the user's next sync.
+    try:
+        asyncio.run(_sync_user_progress_by_id(user_id))
+    except Exception:
+        log.exception(f"Failed to sync RetroAchievements progress for user {user_id}")
+
+
 class SyncRetroAchievementsProgressTask(PeriodicTask):
     def __init__(self) -> None:
         super().__init__(SYNC_RETROACHIEVEMENTS_PROGRESS_SPEC)
@@ -97,34 +132,13 @@ class SyncRetroAchievementsProgressTask(PeriodicTask):
         update_stats.update(processed=processed_users, total=total_users)
 
         for user in users:
+            # `has_ra_username` above filters out users without one.
             try:
-                user_progression = await meta_ra_handler.get_user_progression(
-                    # `has_ra_username` above filters out users without one
-                    cast(str, user.ra_username),
-                    current_progression=cast(
-                        RAUserProgression | None, user.ra_progression
-                    ),
-                )
-                db_user_handler.update_user(
-                    user.id,
-                    {"ra_progression": user_progression},
-                )
+                await sync_user_progress(user)
             except Exception as e:
                 log.error(
                     f"Failed to update RetroAchievements progress for user: {user.username}, error: {e}"
                 )
-            else:
-                log.debug(
-                    f"Updated RetroAchievements progress for user: {user.username}"
-                )
-                # A failed status write (e.g. a ROM deleted mid-sync) skips only
-                # this user.
-                try:
-                    _sync_rom_user_statuses(user, user_progression)
-                except Exception as e:
-                    log.error(
-                        f"Failed to sync RetroAchievements statuses for user: {user.username}, error: {e}"
-                    )
 
             processed_users += 1
             update_stats.update(processed=processed_users)
