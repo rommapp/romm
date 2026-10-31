@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from config import FRONTEND_RESOURCES_PATH
 from handler.activity_handler import ActivityEntry, ActivityHandler, activity_handler
 from handler.database import db_rom_handler, db_user_handler
 from handler.database.base_handler import sync_session
@@ -47,6 +48,25 @@ def test_build_entry_names_the_game_the_player_and_the_device(
     assert entry["platform_slug"] == rom.platform_slug
     assert entry["device_id"] == "container-1"
     assert entry["device_type"] == "streaming"
+
+
+def test_build_entry_shows_the_players_pinned_screenshot(admin_user: User, rom: Rom):
+    shots = ["roms/1/1/screenshots/0.jpg", "roms/1/1/screenshots/1.jpg"]
+    db_rom_handler.update_rom(rom.id, {"path_screenshots": shots})
+    rom_user = db_rom_handler.add_rom_user(rom.id, admin_user.id)
+    pinned = f"{FRONTEND_RESOURCES_PATH}/{shots[1]}"
+    db_rom_handler.update_rom_user(rom_user.id, {"pinned_media": [f"scraped:{pinned}"]})
+
+    entry = asyncio.run(
+        activity_handler.build_entry(
+            user_id=admin_user.id,
+            device_id="container-1",
+            rom_id=rom.id,
+            preserve_started_at=False,
+        )
+    )
+    assert entry is not None
+    assert entry["screenshot_path"] == pinned
 
 
 def test_build_entry_returns_none_for_a_rom_that_is_gone(admin_user: User):

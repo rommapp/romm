@@ -107,11 +107,10 @@ class ActivityHandler:
             device = db_device_handler.get_device(device_id=device_id, user_id=user_id)
             device_type = device.client if device else None
 
-        # "Where they are" image - the player's latest save screenshot, else the
-        # title screen / first gameplay screenshot (frontend falls back to cover).
         latest_save = db_save_handler.get_latest_saves_for_roms(
             user_id=user_id, rom_ids=[rom_id]
         ).get(rom_id)
+        rom_user = db_rom_handler.get_rom_user(rom_id=rom_id, user_id=user_id)
 
         platform = rom.platform
         return ActivityEntry(
@@ -121,7 +120,10 @@ class ActivityHandler:
             rom_id=rom.id,
             rom_name=rom.name or rom.fs_name,
             rom_cover_path=rom.path_cover_s or "",
-            screenshot_path=continue_playing_screenshot(rom, latest_save) or "",
+            screenshot_path=continue_playing_screenshot(
+                rom, latest_save, rom_user.pinned_media if rom_user else None
+            )
+            or "",
             platform_slug=platform.slug if platform else "",
             platform_name=((platform.custom_name or platform.name) if platform else ""),
             device_id=device_id,

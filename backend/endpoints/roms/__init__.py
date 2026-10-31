@@ -813,8 +813,14 @@ def get_roms(
                     user_id=request.user.id, rom_ids=rom_ids, session=session
                 )
                 for item in items:
+                    rom_user = next(
+                        (ru for ru in item.rom_users if ru.user_id == request.user.id),
+                        None,
+                    )
                     screenshot_by_rom[item.id] = continue_playing_screenshot(
-                        item, latest_saves.get(item.id)
+                        item,
+                        latest_saves.get(item.id),
+                        rom_user.pinned_media if rom_user else None,
                     )
 
             return [

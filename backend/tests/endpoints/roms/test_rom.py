@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
 from tests.factories import make_rom
 
+from config import FRONTEND_RESOURCES_PATH
 from config.config_manager import MetadataMediaType
 from endpoints.responses.rom import PROVIDER_METADATA_FIELDS
 from exceptions.fs_exceptions import RomAlreadyExistsException
@@ -500,6 +501,32 @@ def test_get_roms_sorted_by_user_field_keeps_all_roms(
     body = response.json()
     assert body["total"] == 2
     assert [item["id"] for item in body["items"]] == [rom.id, never_played.id]
+
+
+def test_continue_playing_rail_shows_the_pinned_screenshot(
+    client: TestClient, access_token: str, admin_user: User, rom: Rom
+):
+    shots = ["roms/1/1/screenshots/0.jpg", "roms/1/1/screenshots/1.jpg"]
+    db_rom_handler.update_rom(rom.id, {"path_screenshots": shots})
+    pinned = f"{FRONTEND_RESOURCES_PATH}/{shots[1]}"
+    rom_user = db_rom_handler.get_rom_user(rom.id, admin_user.id)
+    assert rom_user is not None
+    db_rom_handler.update_rom_user(
+        rom_user.id,
+        {
+            "last_played": datetime(2024, 1, 1, tzinfo=timezone.utc),
+            "pinned_media": [f"scraped:{pinned}"],
+        },
+    )
+
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"last_played": True},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    (item,) = response.json()["items"]
+    assert item["screenshot_path"] == pinned
 
 
 def test_get_roms_filter_by_metadata_providers(
