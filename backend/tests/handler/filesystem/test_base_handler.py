@@ -279,6 +279,15 @@ class TestFSHandler:
 
             assert handler.exclude_single_files(files) == ["game.iso"]
 
+    def test_exclude_single_files_appledouble(self, handler: FSHandler):
+        files = ["Tetris (World) (Rev 1).gb", "._Tetris (World) (Rev 1).gb"]
+
+        with patch("handler.filesystem.base_handler.cm.get_config") as mock_config:
+            mock_config.return_value.EXCLUDED_SINGLE_EXT = []
+            mock_config.return_value.EXCLUDED_SINGLE_FILES = DEFAULT_EXCLUDED_FILES
+
+            assert handler.exclude_single_files(files) == ["Tetris (World) (Rev 1).gb"]
+
     async def test_make_directory(self, handler: FSHandler):
         """Test directory creation"""
         await handler.make_directory("test_dir")
