@@ -67,6 +67,9 @@ const props = defineProps<{
   similarRoms: SimilarRomSchema[];
 }>();
 
+// CSS keeps a bare CR as a space, so CRLF and classic Mac CR both become LF.
+const summaryText = computed(() => props.summary?.replace(/\r\n?/g, "\n"));
+
 // The same preference hides the "Recommended for you" row on Home: the
 // feature is switched off everywhere at once, not per surface.
 const { showRecommendations, similarGamesSource } = useUISettings();
@@ -212,7 +215,7 @@ const coverSource = computed(() => {
 <template>
   <section class="overview-tab">
     <!-- 1. Summary -->
-    <p v-if="summary" class="overview-tab__summary">{{ summary }}</p>
+    <p v-if="summaryText" class="overview-tab__summary">{{ summaryText }}</p>
 
     <!-- 2. Per-ROM fact rows (left-labelled). Revision, Version, Last
          played + the per-game characteristics (Players, Age rating, RomM
@@ -446,6 +449,7 @@ const coverSource = computed(() => {
   font-size: 13.5px;
   line-height: 1.7;
   color: var(--r-color-fg-secondary);
+  white-space: pre-line;
   margin: 0;
 }
 .overview-tab__summary--muted {
