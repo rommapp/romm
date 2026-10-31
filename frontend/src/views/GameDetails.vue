@@ -381,6 +381,7 @@ const activeTab = computed({
             :hltb="currentRom.hltb_metadata"
             :last-played="lastPlayed"
             :revision="currentRom.revision ?? null"
+            :version="currentRom.version ?? null"
             :expansions="expansions"
             :dlcs="dlcs"
             :remakes="remakes"

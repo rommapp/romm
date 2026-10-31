@@ -76,6 +76,7 @@ function mount(props: Record<string, unknown> = {}) {
       hltb: null,
       lastPlayed: null,
       revision: null,
+      version: null,
       expansions: [],
       dlcs: [],
       remakes: [],
@@ -97,6 +98,18 @@ function gridItems(wrapper: ReturnType<typeof mount>) {
     .findAllComponents({ name: "RelatedGamesGrid" })
     .map((c) => c.props("items") as IGDBRelatedGame[]);
 }
+
+describe("OverviewTab fact rows", () => {
+  it("shows the parsed version", () => {
+    const text = mount({ version: "CN-07" }).text();
+    expect(text).toContain("rom.version");
+    expect(text).toContain("CN-07");
+  });
+
+  it("hides the version row when there is none", () => {
+    expect(mount().text()).not.toContain("rom.version");
+  });
+});
 
 describe("OverviewTab related games", () => {
   // IGDB has always sent `ports`; the overview dropped them on the floor.

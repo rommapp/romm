@@ -450,6 +450,7 @@ class RomSchema(BaseModel):
     is_identified: bool
 
     revision: str | None
+    version: str | None
     regions: list[str]
     languages: list[str]
     tags: list[str]
@@ -483,6 +484,11 @@ class RomSchema(BaseModel):
     sibling_roms: list[SiblingRomSchema] = Field(
         validation_alias="included_sibling_roms"
     )
+
+    # The filename parser stores "" when a name has no such tag.
+    @field_validator("revision", "version")
+    def empty_tag_to_none(cls, v: str | None) -> str | None:
+        return v or None
 
     @field_validator(*_METADATA_NAME_LIST_KEYS, mode="before")
     def clean_name_lists(cls, v: object, info: ValidationInfo) -> object:

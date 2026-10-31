@@ -484,6 +484,7 @@
   "verification": "Verifiering",
   "verified-rom": "Verifierad ROM-fil",
   "verified-rom-hint": "Hashvärdet har verifierats mot ROM-databasen",
+  "version": "Version",
   "versions-count": "{n} versioner",
   "volume-mute": "Stäng av ljudet",
   "volume-unmute": "Sätt på ljudet",

@@ -58,6 +58,7 @@ const props = defineProps<{
   hltb: RomHLTBMetadata | null | undefined;
   lastPlayed: string | null;
   revision: string | null;
+  version: string | null;
   expansions: IGDBRelatedGame[];
   dlcs: IGDBRelatedGame[];
   remakes: IGDBRelatedGame[];
@@ -213,19 +214,28 @@ const coverSource = computed(() => {
     <!-- 1. Summary -->
     <p v-if="summary" class="overview-tab__summary">{{ summary }}</p>
 
-    <!-- 2. Per-ROM fact rows (left-labelled). Revision, Last played +
-         the per-game characteristics (Players, Age rating, RomM
+    <!-- 2. Per-ROM fact rows (left-labelled). Revision, Version, Last
+         played + the per-game characteristics (Players, Age rating, RomM
          collections) get a row each so each fact can render its own
          semantic widget instead of being flattened to a chip list. -->
     <div
       v-if="
-        revision || lastPlayed || hasQuickFacts || userCollectionTiles.length
+        revision ||
+        version ||
+        lastPlayed ||
+        hasQuickFacts ||
+        userCollectionTiles.length
       "
       class="overview-tab__facts"
     >
       <div v-if="revision" class="overview-tab__row">
         <div class="overview-tab__label">{{ t("rom.revision") }}</div>
         <div class="overview-tab__field">{{ revision }}</div>
+      </div>
+
+      <div v-if="version" class="overview-tab__row">
+        <div class="overview-tab__label">{{ t("rom.version") }}</div>
+        <div class="overview-tab__field">{{ version }}</div>
       </div>
 
       <div v-if="lastPlayed" class="overview-tab__row">

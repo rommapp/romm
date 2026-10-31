@@ -2083,7 +2083,8 @@ async def update_rom(
                 ),
                 "slug": "",
                 **{c: {} for c in PROVIDER_METADATA_COLUMNS},
-                "revision": "",
+                "revision": None,
+                "version": None,
             },
         )
 
