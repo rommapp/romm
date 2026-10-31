@@ -4,8 +4,8 @@ import asyncio
 from typing import cast
 
 from opentelemetry import trace
-from rq.exceptions import DuplicateJobError
-from rq.job import Job
+from rq.exceptions import DuplicateJobError, NoSuchJobError
+from rq.job import Job, JobStatus
 from rq.utils import as_text
 
 from config import (
@@ -94,6 +94,21 @@ def _enqueue_recompute_save_hashes_if_needed() -> None:
     _enqueue_backfill("recompute_save_content_hashes", RECOMPUTE_SAVE_HASHES_JOB_ID)
 
 
+TERMINAL_JOB_STATUSES = frozenset(
+    {JobStatus.FINISHED, JobStatus.FAILED, JobStatus.STOPPED, JobStatus.CANCELED}
+)
+
+
+def _free_finished_job_id(job_id: str) -> None:
+    """Delete a job that has stopped running, so its id can be enqueued again."""
+    try:
+        job = Job.fetch(job_id, connection=redis_client)
+    except NoSuchJobError:
+        return
+    if job.get_status() in TERMINAL_JOB_STATUSES:
+        job.delete()
+
+
 def _enqueue_recompute_name_sort_keys_if_needed() -> None:
     """Re-derive sort keys when `sorting.articles` differs from the stored keys'."""
     try:
@@ -104,11 +119,13 @@ def _enqueue_recompute_name_sort_keys_if_needed() -> None:
         return
 
     if outdated:
-        # Keyed by the list, so a finished job for another list can't block it.
-        _enqueue_backfill(
-            "recompute_name_sort_keys",
-            f"{RECOMPUTE_NAME_SORT_KEYS_JOB_ID}_{articles_digest(articles)}",
-        )
+        # Keyed by the list; a queued or running job for it still blocks a duplicate.
+        job_id = f"{RECOMPUTE_NAME_SORT_KEYS_JOB_ID}_{articles_digest(articles)}"
+        try:
+            _free_finished_job_id(job_id)
+        except Exception:
+            log.exception(f"Failed to check {job_id}; enqueueing anyway")
+        _enqueue_backfill("recompute_name_sort_keys", job_id)
 
 
 def _enqueue_convert_images_to_webp() -> None:
