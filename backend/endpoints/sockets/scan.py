@@ -756,8 +756,10 @@ async def _identify_rom(
                 else None
             ),
         )
-        # Keep the in-memory rom's name matching the renamed file.
-        rom.fs_name = fs_rom["fs_name"]
+        # Keep the in-memory rom's name matching the renamed file. Setting it
+        # re-derives the stored placeholder name, so only on a real rename.
+        if rom.fs_name != fs_rom["fs_name"]:
+            rom.fs_name = fs_rom["fs_name"]
 
     log.debug(f"Scanning {rom.fs_name}...")
     scanned_rom = await scan_rom(
