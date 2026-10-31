@@ -454,6 +454,11 @@ class RomSchema(BaseModel):
         validation_alias="included_sibling_roms"
     )
 
+    # The filename parser stores "" when a name has no such tag.
+    @field_validator("revision", "version")
+    def empty_tag_to_none(cls, v: str | None) -> str | None:
+        return v or None
+
     @field_validator("files")
     def sort_files(cls, v: list[RomFileSchema]) -> list[RomFileSchema]:
         return sorted(v, key=lambda x: x.file_name)

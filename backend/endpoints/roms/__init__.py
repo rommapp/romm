@@ -1931,7 +1931,8 @@ async def update_rom(
                 "pouet_metadata": {},
                 "csdb_metadata": {},
                 "steam_metadata": {},
-                "revision": "",
+                "revision": None,
+                "version": None,
                 "gamelist_metadata": {},
             },
         )

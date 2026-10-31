@@ -973,6 +973,51 @@ def test_rom_responses_include_the_parsed_version_tag(
 
 @patch.object(FSRomsHandler, "rename_fs_rom")
 @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_rom_responses_return_null_for_missing_revision_and_version(
+    get_rom_by_id_mock: AsyncMock,
+    rename_fs_rom_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"fs_name": "Helmet (USA).nes"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["revision"] is None
+    assert response.json()["version"] is None
+
+
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_unmatch_metadata_clears_revision_and_version(
+    get_rom_by_id_mock: AsyncMock,
+    rename_fs_rom_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    headers = {"Authorization": f"Bearer {access_token}"}
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers=headers,
+        data={"fs_name": "Helmet (Rev 1) (v1.1).nes"},
+    )
+    assert response.json()["revision"] == "1"
+    assert response.json()["version"] == "1.1"
+
+    response = client.put(
+        f"/api/roms/{rom.id}", headers=headers, params={"unmatch_metadata": True}
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["revision"] is None
+    assert response.json()["version"] is None
+
+
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
 def test_update_rom_manual_alternative_names_are_searchable(
     _get_rom_by_id_mock: AsyncMock,
     _rename_fs_rom_mock: AsyncMock,
