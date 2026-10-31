@@ -326,6 +326,7 @@ backend/
 │   └── manual/                # On-demand tasks
 │       ├── cleanup_missing_roms.py       # Drop DB entries for missing files
 │       ├── convert_library.py            # Store matched ROMs in each platform's library format
+│       ├── recompute_name_sort_keys.py   # Re-derive sort keys after `sorting.articles` changes
 │       ├── cleanup_orphaned_resources.py # Remove unreferenced artwork
 │       └── sync_folder_scan.py           # Scan sync folder for new saves
 │
@@ -1743,11 +1744,12 @@ Toggled via environment variables:
 
 Triggered via `POST /api/tasks/run/{task_name}`, which enqueues on `low_prio_queue` and answers 503 when no live worker is listening on it:
 
-| Task                   | Description                                                                           |
-| ---------------------- | ------------------------------------------------------------------------------------- |
-| `cleanup_missing_roms` | Remove DB entries for files no longer on disk                                         |
-| `sync_folder_scan`     | Scan sync folder for new device saves                                                 |
-| `convert_library`      | Convert matched ROMs to `converto.platform_formats` in place, replacing the originals |
+| Task                       | Description                                                                                                                       |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `cleanup_missing_roms`     | Remove DB entries for files no longer on disk                                                                                     |
+| `sync_folder_scan`         | Scan sync folder for new device saves                                                                                             |
+| `convert_library`          | Convert matched ROMs to `converto.platform_formats` in place, replacing the originals                                             |
+| `recompute_name_sort_keys` | Re-derive ROM sort keys with the articles `sorting.articles` names, keeping custom keys. Queued at startup when that list changes |
 
 A spec marked `destructive` asks for a typed confirmation before the UI runs it, and one marked `single_instance` answers 409 while a job of it is queued or running. `convert_library` is both, and runs only with `ROM_CONVERTO_ENABLED` set.
 

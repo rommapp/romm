@@ -7,7 +7,7 @@ import sys
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from functools import cached_property
+from functools import cache, cached_property
 from typing import TYPE_CHECKING, Any, Final, NamedTuple, TypedDict
 
 from sqlalchemy import (
@@ -97,9 +97,8 @@ ALTERNATIVE_NAME_SOURCES = (
 PINNED_MEDIA_MAX_ITEMS = 100
 PINNED_MEDIA_KEY_MAX_LENGTH = 1024
 PINNED_MEDIA_KEY_PATTERN = r"^(scraped|file|screenshot|artwork):\S"
-# Articles ignored when sorting or bucketing a title, across the languages
-# No-Intro and LaunchBox name games in. Both patterns built from this are
-# anchored on the right, so "la" preceding "las" costs nothing.
+# Articles LaunchBox moves to the end of a title ("Boot, Das"), across the
+# languages No-Intro and LaunchBox name games in.
 ARTICLES = (
     "the",
     "a",
@@ -118,14 +117,39 @@ ARTICLES = (
     "das",
     "het",
 )
-ARTICLE_PREFIX_RE = re.compile(rf"^({'|'.join(ARTICLES)})\s+")
 DIGIT_RUN_RE = re.compile(r"\d+")
 
 
-def compute_name_sort_key(name: str | None) -> str:
-    """Precompute the natural-sort key stored in `Rom.name_sort_key`"""
-    value = (name or "").lower()
-    value = ARTICLE_PREFIX_RE.sub("", value).strip()
+@cache
+def _article_prefix_re(articles: tuple[str, ...]) -> re.Pattern[str] | None:
+    if not articles:
+        return None
+    return re.compile(rf"^({'|'.join(map(re.escape, articles))})\s+")
+
+
+def sort_articles() -> tuple[str, ...]:
+    """The leading words a title sorts without, from `sorting.articles`."""
+    # Imported here: the config manager imports this module.
+    from config.config_manager import config_manager as cm
+
+    return tuple(cm.config.SORT_ARTICLES)
+
+
+def compute_name_sort_key(
+    name: str | None, *, articles: Sequence[str] | None = None
+) -> str:
+    """Precompute the natural-sort key stored in `Rom.name_sort_key`.
+
+    Args:
+        articles: Leading words to drop, the configured ones by default. An
+            empty sequence keeps the name as given, for a custom sort key.
+    """
+    value = (name or "").lower().strip()
+    pattern = _article_prefix_re(
+        sort_articles() if articles is None else tuple(articles)
+    )
+    if pattern is not None:
+        value = pattern.sub("", value).strip()
     value = DIGIT_RUN_RE.sub(lambda m: m.group(0).zfill(12), value)
     return value[:NAME_SORT_KEY_MAX_LENGTH]
 
@@ -1119,7 +1143,10 @@ class Rom(BaseModel):
     def _sync_name_sort_key(self, key: str, value: str | None) -> str | None:
         """Keep the indexed `name_sort_key` in sync with `name`"""
         if key == "name_sort_key":
-            return compute_name_sort_key(value or self.name)
+            # A key that is set explicitly sorts as given, leading article included.
+            if value:
+                return compute_name_sort_key(value, articles=())
+            return compute_name_sort_key(self.name)
 
         if self.name_sort_key is None or self.name_sort_key == compute_name_sort_key(
             self.name

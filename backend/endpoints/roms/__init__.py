@@ -2273,8 +2273,10 @@ async def update_rom(
         # it out so update_rom re-derives only if the stored key isn't custom.
         submitted = (form_data.name_sort_key or "").strip()
         if submitted != (rom.name_sort_key or "").strip():
-            cleaned_data["name_sort_key"] = compute_name_sort_key(
-                submitted or name_value
+            cleaned_data["name_sort_key"] = (
+                compute_name_sort_key(submitted, articles=())
+                if submitted
+                else compute_name_sort_key(name_value)
             )
 
     cleaned_data.update({"fs_name": new_fs_name})

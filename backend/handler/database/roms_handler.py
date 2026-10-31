@@ -638,8 +638,8 @@ def _resolve_gallery_sort_key(order_by: str, user_id: int | None) -> _GallerySor
             return _GallerySortKey(metadata_column, "rom_metadata", nullable=True)
 
     column = rom_column if rom_column is not None else Rom.name
-    # Use indexed `name_sort_key` to have fast access to names without
-    # articles (the, a, an) and leading digits. The key is derived from
+    # Use indexed `name_sort_key` to have fast access to names without the
+    # leading articles `sorting.articles` names. The key is derived from
     # `name` at write time, or holds a custom override when one is set.
     if column is Rom.name:
         column = Rom.name_sort_key
@@ -2430,6 +2430,53 @@ class DBRomsHandler(DBBaseHandler):
                 .values(missing_from_fs=False)
                 .execution_options(synchronize_session="evaluate")
             )
+
+    @begin_session
+    def get_name_sort_keys_after_id(
+        self,
+        after_id: int,
+        limit: int,
+        session: Session = INJECTED_SESSION,
+    ) -> list[tuple[int, str | None, str | None]]:
+        """A page of `(id, name, name_sort_key)` for the ROMs after `after_id`."""
+        rows = session.execute(
+            select(Rom.id, Rom.name, Rom.name_sort_key)
+            .where(Rom.id > after_id)
+            .order_by(Rom.id)
+            .limit(limit)
+        ).all()
+        return [(rom_id, name, sort_key) for rom_id, name, sort_key in rows]
+
+    @begin_session
+    def replace_name_sort_keys(
+        self,
+        replacements: Mapping[int, tuple[str | None, str]],
+        session: Session = INJECTED_SESSION,
+    ) -> int:
+        """Swap each ROM's sort key, only while it still holds the expected one.
+
+        Args:
+            replacements: ROM id to its (expected, new) sort key.
+
+        Returns:
+            How many keys were replaced.
+        """
+        replaced = 0
+        for rom_id, (expected, new) in replacements.items():
+            current = (
+                Rom.name_sort_key.is_(None)
+                if expected is None
+                else Rom.name_sort_key == expected
+            )
+            replaced += affected_rows(
+                session.execute(
+                    update(Rom)
+                    .where(Rom.id == rom_id, current)
+                    .values(name_sort_key=new)
+                    .execution_options(synchronize_session=False)
+                )
+            )
+        return replaced
 
     @begin_session
     def mark_missing_roms(

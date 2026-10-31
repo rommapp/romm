@@ -47,6 +47,29 @@ def test_enqueue_recompute_fires_when_missing_hashes_present(mocker, enqueue_tas
     )
 
 
+@pytest.mark.parametrize(
+    ("applied", "queued"),
+    [(("the", "a", "an"), False), (("the", "die"), True)],
+    ids=["unchanged", "changed"],
+)
+def test_enqueue_recompute_name_sort_keys_when_the_articles_change(
+    mocker, enqueue_task, applied, queued
+):
+    mocker.patch.object(startup, "applied_sort_articles", return_value=applied)
+    mocker.patch.object(startup, "sort_articles", return_value=("the", "a", "an"))
+
+    startup._enqueue_recompute_name_sort_keys_if_needed()
+
+    if queued:
+        enqueue_task.assert_called_once_with(
+            "recompute_name_sort_keys",
+            job_id=startup.RECOMPUTE_NAME_SORT_KEYS_JOB_ID,
+            unique=True,
+        )
+    else:
+        enqueue_task.assert_not_called()
+
+
 def test_enqueue_convert_webp_fires_when_not_queued(enqueue_task):
     """No in-flight bootstrap job -> enqueue the backfill exactly once."""
     startup._enqueue_convert_images_to_webp()
