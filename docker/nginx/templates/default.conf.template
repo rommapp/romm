@@ -46,6 +46,13 @@ map $args $resources_cache_control {
     "~(^|&)(ts|v)=" "public, max-age=31536000, immutable";
 }
 
+# Resources are served sandboxed. PDFs are exempt so the browser's PDF viewer
+# still opens them; an empty value makes add_header skip the header.
+map $uri $resources_csp {
+    default     "sandbox; default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'";
+    "~*\.pdf$" "";
+}
+
 server {
     root /var/www/html;
     listen ${ROMM_PORT};
@@ -84,6 +91,8 @@ server {
     # Freeze library resources carrying cache-busting query
     location /assets/romm/resources/ {
         add_header Cache-Control $resources_cache_control;
+        add_header X-Content-Type-Options nosniff;
+        add_header Content-Security-Policy $resources_csp;
         try_files $uri $uri/ =404;
     }
 
