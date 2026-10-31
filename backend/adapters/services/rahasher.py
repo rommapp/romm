@@ -1,6 +1,7 @@
 import asyncio
 import re
 import tempfile
+import zipfile
 from pathlib import Path
 
 from handler.metadata.ra_handler import RAGamesPlatform
@@ -25,6 +26,31 @@ RAHASHER_VALID_HASH_REGEX = re.compile(r"[0-9a-f]{32}")
 # container is hashed as its raw archive bytes, silently producing a hash that
 # matches nothing on RetroAchievements (issue #3808).
 RAHASHER_NATIVE_ARCHIVE_EXTENSIONS: tuple[str, ...] = (".zip",)
+
+# The zip methods miniz can inflate; RAHasher fails outright on any other.
+RAHASHER_ZIP_METHODS: frozenset[int] = frozenset(
+    {zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED}
+)
+
+
+def _rahasher_reads_zip(file_path: Path) -> bool:
+    """Whether RAHasher can hash this zip's ROM without our help.
+
+    RAHasher only unzips an archive holding exactly one entry (directories
+    count); with more it hashes the whole zip, a hash RetroAchievements never
+    lists (issue #5415).
+    """
+    try:
+        with zipfile.ZipFile(file_path) as z:
+            entries = z.infolist()
+    except zipfile.BadZipFile, OSError:
+        return False
+    return (
+        len(entries) == 1
+        and not entries[0].is_dir()
+        and entries[0].compress_type in RAHASHER_ZIP_METHODS
+    )
+
 
 # Disc descriptor / playlist files that point RAHasher at the real data
 # tracks. Handing RAHasher one of these reproduces the hash a shell-expanded
@@ -249,8 +275,8 @@ class RAHasherService:
                 if is_native_entry:
                     file_path = entry_str
 
-        # RAHasher only decompresses .zip archives itself; any other container
-        # gets hashed as its raw archive bytes, silently storing a hash that
+        # RAHasher only decompresses single-entry .zip archives itself; any
+        # other container gets hashed as its raw archive bytes, storing a hash that
         # matches nothing on RetroAchievements (issue #3808). Extract the ROM
         # to a temp file and hash that instead. Arcade is exempt: its RA hash
         # is the file's own basename, so the container format never matters
@@ -258,8 +284,11 @@ class RAHasherService:
         lower_path = file_path.lower()
         if (
             lower_path.endswith(tuple(COMPRESSED_FILE_EXTENSIONS))
-            and not lower_path.endswith(RAHASHER_NATIVE_ARCHIVE_EXTENSIONS)
             and platform["ra_id"] != ARCADE_RA_ID
+            and not (
+                lower_path.endswith(RAHASHER_NATIVE_ARCHIVE_EXTENSIONS)
+                and await asyncio.to_thread(_rahasher_reads_zip, Path(file_path))
+            )
         ):
             with tempfile.TemporaryDirectory(prefix="romm_rahasher_") as tmp_dir:
                 extracted = await asyncio.to_thread(
