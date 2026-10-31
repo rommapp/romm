@@ -538,6 +538,8 @@
   "widget-library-stats-desc": "Liczbowy przegląd Twojej biblioteki: gry, platformy, ulubione i więcej.",
   "widget-library-stats-extended": "Rozszerzony (zapisy, stany, zrzuty ekranu, dysk)",
   "widget-library-stats-mode": "Szczegóły statystyk biblioteki",
+  "widget-playing-now": "Teraz grane",
+  "widget-playing-now-desc": "Pokazuje grę, w którą ktoś teraz gra, z linkiem do Aktywnych sesji. Ukryte, gdy nikt nie gra.",
   "widget-random-pick": "Losowy wybór",
   "widget-random-pick-desc": "Proponuje losową ROM z Twojej biblioteki, z przyciskiem ponownego losowania.",
   "widget-reorder-drag": "Przeciągnij, aby zmienić kolejność"

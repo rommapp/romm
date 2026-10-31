@@ -538,6 +538,8 @@
   "widget-library-stats-desc": "Prezentare numerică a bibliotecii: jocuri, platforme, favorite și altele.",
   "widget-library-stats-extended": "Extins (salvări, stări, capturi de ecran, disc)",
   "widget-library-stats-mode": "Detalii statistici bibliotecă",
+  "widget-playing-now": "Se joacă acum",
+  "widget-playing-now-desc": "Afișează un joc pe care cineva îl joacă acum, cu link către Sesiuni active. Ascuns cât timp nu joacă nimeni.",
   "widget-random-pick": "Alegere aleatorie",
   "widget-random-pick-desc": "Sugerează o ROM aleatorie din biblioteca ta, cu un buton pentru a alege din nou.",
   "widget-reorder-drag": "Trage pentru a reordona"

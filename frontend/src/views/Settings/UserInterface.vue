@@ -64,6 +64,7 @@ const {
   widgetRandomPick,
   widgetLibraryStats,
   widgetAnniversaries,
+  widgetPlayingNow,
   libraryStatsMode,
   widgetOrder,
   // Gallery
@@ -307,6 +308,12 @@ function onVirtualCollectionTypeChange(value: unknown) {
             v-model="widgetAnniversaries"
             :title="t('settings.widget-anniversaries')"
             :description="t('settings.widget-anniversaries-desc')"
+            :disabled="!showHomeWidgets"
+          />
+          <SettingsToggleRow
+            v-model="widgetPlayingNow"
+            :title="t('settings.widget-playing-now')"
+            :description="t('settings.widget-playing-now-desc')"
             :disabled="!showHomeWidgets"
           />
           <SettingsToggleRow

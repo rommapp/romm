@@ -538,6 +538,8 @@
   "widget-library-stats-desc": "라이브러리의 수치 개요: 게임, 플랫폼, 즐겨찾기 등.",
   "widget-library-stats-extended": "확장 (세이브, 상태, 스크린샷, 디스크)",
   "widget-library-stats-mode": "라이브러리 통계 세부 정보",
+  "widget-playing-now": "지금 플레이 중",
+  "widget-playing-now-desc": "누군가 지금 플레이 중인 게임을 표시하고 활성 세션으로 연결합니다. 아무도 플레이하지 않을 때는 숨겨집니다.",
   "widget-random-pick": "랜덤 선택",
   "widget-random-pick-desc": "라이브러리에서 무작위 ROM을 추천하며, 다시 뽑기 버튼으로 다시 섞을 수 있습니다.",
   "widget-reorder-drag": "드래그하여 순서 변경"
