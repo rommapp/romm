@@ -6,7 +6,7 @@ import pytest
 from tests.factories import make_rom
 
 from adapters.services.retroachievements_types import RAUserCompletionProgressKind
-from handler.database import db_rom_handler
+from handler.database import db_rom_handler, db_user_handler
 from handler.database.roms_handler import DBRomsHandler
 from handler.database.users_handler import DBUsersHandler
 from handler.metadata.ra_handler import RAHandler
@@ -15,6 +15,7 @@ from models.user import User
 from tasks.scheduled.sync_retroachievements_progress import (
     SyncRetroAchievementsProgressTask,
     _get_rom_user_status_from_ra_award_kind,
+    _sync_user_progress_by_id,
 )
 
 
@@ -307,3 +308,30 @@ class TestSyncRetroAchievementsProgressTask:
         rom_user = db_rom_handler.get_rom_user(retired_rom.id, viewer_user.id)
         assert rom_user is not None
         assert rom_user.status == RomUserStatus.RETIRED
+
+
+class TestSyncUserProgressJob:
+    async def test_syncs_the_user(self, viewer_user, mocker):
+        db_user_handler.update_user(viewer_user.id, {"ra_username": "player"})
+        update_user = mocker.patch.object(DBUsersHandler, "update_user")
+        progression = {"total": 0, "results": []}
+        get_progression = mocker.patch.object(
+            RAHandler, "get_user_progression", return_value=progression
+        )
+
+        await _sync_user_progress_by_id(viewer_user.id)
+
+        get_progression.assert_awaited_once()
+        await_args = get_progression.await_args
+        assert await_args is not None
+        assert await_args.args == ("player",)
+        update_user.assert_called_once_with(
+            viewer_user.id, {"ra_progression": progression}
+        )
+
+    async def test_skips_a_user_without_an_ra_username(self, viewer_user, mocker):
+        get_progression = mocker.patch.object(RAHandler, "get_user_progression")
+
+        await _sync_user_progress_by_id(viewer_user.id)
+
+        get_progression.assert_not_called()
