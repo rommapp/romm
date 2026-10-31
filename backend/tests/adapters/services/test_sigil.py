@@ -1,3 +1,4 @@
+import asyncio
 import types
 from pathlib import Path
 from unittest.mock import Mock
@@ -6,6 +7,7 @@ import pytest
 
 import adapters.services.sigil as sigil_adapter
 from adapters.services.sigil import SigilExtractionResult, SigilService
+from logger.formatter import highlight as hl
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 
@@ -274,3 +276,33 @@ class TestScanSummary:
         sigil_adapter.log_scan_summary()
 
         log.info.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_overlapping_scans_keep_their_own_count(self, monkeypatch, mocker):
+        extract = Mock(side_effect=FakeNeedsKeyError(-6))
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+        log = mocker.patch.object(sigil_adapter, "log")
+        first_scanned = asyncio.Event()
+        second_began = asyncio.Event()
+
+        async def first_scan() -> None:
+            sigil_adapter.begin_scan()
+            await SigilService().extract_title_id(UPS.SWITCH, "/roms/switch/a.nsp")
+            first_scanned.set()
+            await second_began.wait()
+            sigil_adapter.log_scan_summary()
+
+        async def second_scan() -> None:
+            await first_scanned.wait()
+            sigil_adapter.begin_scan()
+            second_began.set()
+            for name in ("b.nsp", "c.nsp", "d.xci"):
+                await SigilService().extract_title_id(
+                    UPS.SWITCH, f"/roms/switch/{name}"
+                )
+            sigil_adapter.log_scan_summary()
+
+        await asyncio.gather(first_scan(), second_scan())
+
+        counts = sorted(call.args[0].split(" ")[0] for call in log.info.call_args_list)
+        assert counts == [hl("1"), hl("3")]

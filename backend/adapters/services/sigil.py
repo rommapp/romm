@@ -1,4 +1,5 @@
 import asyncio
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -35,20 +36,24 @@ SIGIL_PLATFORM_SLUGS: Final[dict[str, str]] = {
 # and it is the only family whose files may carry their title id in the filename.
 SWITCH_PLATFORM_SLUGS: Final = frozenset({UPS.SWITCH, UPS.SWITCH_2})
 
-# Files this scan skipped because RomM holds no keys for their headers.
-_needs_key_paths: set[str] = set()
+# Files the current scan skipped because RomM holds no keys for their headers.
+# A context var, so scans overlapping in one process (DEV_MODE) keep their own.
+_needs_key_paths: ContextVar[set[str] | None] = ContextVar(
+    "sigil_needs_key_paths", default=None
+)
 
 
 def begin_scan() -> None:
-    _needs_key_paths.clear()
+    _needs_key_paths.set(set())
 
 
 def log_scan_summary() -> None:
     """Say how many encrypted Switch files this scan left without a title id."""
-    if not _needs_key_paths:
+    paths = _needs_key_paths.get()
+    if not paths:
         return
     log.info(
-        f"{hl(str(len(_needs_key_paths)))} encrypted Switch files got no title id: "
+        f"{hl(str(len(paths)))} encrypted Switch files got no title id: "
         "RomM doesn't decrypt Switch files. Decrypted dumps, or a client "
         "holding your keys, can identify them."
     )
@@ -105,7 +110,8 @@ class SigilService:
             )
         # A Switch header RomM holds no keys for, reported in the scan summary.
         except sigil.SigilNeedsKeyError as exc:
-            _needs_key_paths.add(file_path)
+            if (paths := _needs_key_paths.get()) is not None:
+                paths.add(file_path)
             log.debug(f"Sigil found no title id for {file_path}: {exc}")
             return None
         # Expected for arbitrary library files: no title id or a format sigil can't parse.
