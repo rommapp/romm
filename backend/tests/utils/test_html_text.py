@@ -16,6 +16,15 @@ from utils.html_text import html_to_text
         ('<a href="https://x">link</a> text', "link text"),
         ("<ul><li>a</li><li>b</li></ul><p>after</p>", "• a\n• b\n\nafter"),
         ("<p>a</p><p></p><p></p><p>b</p>", "a\n\nb"),
+        (
+            "<table><tr><td>Single player</td><td>Co-op</td></tr>"
+            "<tr><th>A</th><th>B</th></tr></table>",
+            "Single player Co-op\nA B",
+        ),
+        (
+            "<ul><li><p>Save Hyrule</p></li><li>\n  <p>Again</p></li></ul>",
+            "• Save Hyrule\n\n• Again",
+        ),
         ("<script>alert(1)</script>Safe", "Safe"),
         ("Non&nbsp;breaking", "Non breaking"),
     ],
