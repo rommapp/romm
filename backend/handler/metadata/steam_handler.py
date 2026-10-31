@@ -11,6 +11,7 @@ from adapters.services.steam_types import (
 from config import STEAM_API_ENABLED
 from logger.logger import log
 from utils.datetime import parse_utc_timestamp
+from utils.html_text import html_to_text
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
@@ -402,7 +403,7 @@ class SteamHandler(MetadataHandler):
             steam_metadata=extract_steam_metadata(details),
         )
 
-        summary = details.get("short_description")
+        summary = html_to_text(details.get("short_description"))
         if summary:
             rom["summary"] = summary
 

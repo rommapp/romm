@@ -42,6 +42,7 @@ from logger.logger import log
 from models.rom import LookupHashes, Rom, RomFile
 from utils.database import safe_int
 from utils.datetime import parse_utc_timestamp
+from utils.html_text import html_to_text
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.platform_slugs import fill_duplicate_slugs
 
@@ -872,7 +873,7 @@ def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
     game_rom: SSRom = {
         "ss_id": ss_id,
         "name": html.unescape(res_name.replace(" : ", ": ")),  # Normalize colons
-        "summary": html.unescape(res_summary),
+        "summary": html_to_text(res_summary),
         "url_cover": str(url_cover) if url_cover else "",
         "url_manual": str(url_manual) if url_manual else "",
         "url_screenshots": url_screenshots,

@@ -8,6 +8,7 @@ from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import region_name_to_provider_shortcode
 from handler.metadata.ss_handler import get_preferred_media_types
 from utils.database import safe_str_to_bool
+from utils.html_text import html_to_text
 
 if TYPE_CHECKING:
     from models.rom import Rom
@@ -769,13 +770,12 @@ def build_rom(
         or ""
     ).strip()
 
-    summary = (
+    summary = html_to_text(
         coalesce(
             (local.get("Notes") if local else None),
             (remote.get("Overview") if remote else None),
         )
-        or ""
-    ).strip()
+    )
 
     launchbox_id = int(launchbox_id) if launchbox_id is not None else None
     metadata = build_launchbox_metadata(

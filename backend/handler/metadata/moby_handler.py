@@ -10,6 +10,7 @@ from config import MOBYGAMES_API_KEY
 from logger.logger import log
 from models.rom import Rom
 from utils.arcade_platforms import arcade_fallbacks
+from utils.html_text import html_to_text
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.platform_slugs import fill_duplicate_slugs
 
@@ -85,7 +86,7 @@ def build_moby_rom(game: MobyGame) -> MobyGamesRom:
     rom = {
         "moby_id": game["game_id"],
         "name": game["title"],
-        "summary": game.get("description"),
+        "summary": html_to_text(game.get("description")),
         "url_cover": pydash.get(game, "sample_cover.image", None),
         "url_screenshots": [s["image"] for s in game.get("sample_screenshots", [])],
         "moby_metadata": extract_metadata_from_moby_rom(game),
@@ -257,7 +258,7 @@ class MobyGamesHandler(MetadataHandler):
                     for k, v in {
                         "moby_id": rom["game_id"],
                         "name": rom["title"],
-                        "summary": rom.get("description", ""),
+                        "summary": html_to_text(rom.get("description")),
                         "url_cover": pydash.get(rom, "sample_cover.image", None),
                         "url_screenshots": [
                             s["image"] for s in rom.get("sample_screenshots", [])
