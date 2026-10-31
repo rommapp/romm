@@ -322,7 +322,9 @@ class TestSyncUserProgressJob:
         await _sync_user_progress_by_id(viewer_user.id)
 
         get_progression.assert_awaited_once()
-        assert get_progression.await_args.args == ("player",)
+        await_args = get_progression.await_args
+        assert await_args is not None
+        assert await_args.args == ("player",)
         update_user.assert_called_once_with(
             viewer_user.id, {"ra_progression": progression}
         )

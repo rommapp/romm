@@ -67,15 +67,20 @@ def _apply_play_to_rom_user(
         db_rom_handler.update_rom_user(rom_user.id, updates)
 
 
+RA_PROGRESS_SYNC_FAILURE_TTL_SECONDS = 300
+
+
 def _queue_ra_progress_sync(user_id: int) -> None:
     """Refresh the user's RetroAchievements progress, at most one job at a time."""
     try:
         low_prio_queue.enqueue(
             "tasks.scheduled.sync_retroachievements_progress.sync_user_progress_job",
             kwargs={"user_id": user_id},
-            job_id=f"ra_progress_sync:{user_id}",
+            job_id=f"ra_progress_sync_{user_id}",
             unique=True,
             result_ttl=0,
+            # A worker killed mid-run fails the job, which must not hold the id long.
+            failure_ttl=RA_PROGRESS_SYNC_FAILURE_TTL_SECONDS,
             meta={"task_name": "RetroAchievements progress sync"},
         )
     except DuplicateJobError:

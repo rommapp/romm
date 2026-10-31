@@ -77,11 +77,7 @@ def _sync_rom_user_statuses(user: User, user_progression: RAUserProgression) -> 
 
 
 async def sync_user_progress(user: User) -> None:
-    """Fetch a user's RetroAchievements progression incrementally and store it.
-
-    Raises:
-        Exception: The progression could not be fetched or stored.
-    """
+    """Fetch a user's RetroAchievements progression incrementally and store it."""
     user_progression = await meta_ra_handler.get_user_progression(
         cast(str, user.ra_username),
         current_progression=cast(RAUserProgression | None, user.ra_progression),
@@ -107,7 +103,11 @@ async def _sync_user_progress_by_id(user_id: int) -> None:
 
 def sync_user_progress_job(user_id: int) -> None:
     """RQ job: refresh one user's RetroAchievements progression after a play."""
-    asyncio.run(_sync_user_progress_by_id(user_id))
+    # A failed job keeps its fixed id, which would refuse the user's next sync.
+    try:
+        asyncio.run(_sync_user_progress_by_id(user_id))
+    except Exception:
+        log.exception(f"Failed to sync RetroAchievements progress for user {user_id}")
 
 
 class SyncRetroAchievementsProgressTask(PeriodicTask):
