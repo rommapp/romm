@@ -4,6 +4,7 @@
 /* eslint-disable */
 export type EarnedAchievement = {
     id: string;
+    ra_id?: number;
     date: string;
     date_hardcore?: string;
 };

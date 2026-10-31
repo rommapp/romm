@@ -552,13 +552,14 @@ class TestUserProgression:
         call = AsyncMock(
             return_value={
                 "Achievements": {
-                    "1": {"BadgeName": "a", "DateEarned": "2026-01-01"},
+                    "1": {"ID": 1, "BadgeName": "a", "DateEarned": "2026-01-01"},
                     "2": {
+                        "ID": 2,
                         "BadgeName": "b",
                         "DateEarned": "2026-01-02",
                         "DateEarnedHardcore": "2026-01-02",
                     },
-                    "3": {"BadgeName": "c"},
+                    "3": {"ID": 3, "BadgeName": "c"},
                 }
             }
         )
@@ -586,9 +587,10 @@ class TestUserProgression:
                     "most_recent_awarded_date": "2026-01-02T00:00:00+00:00",
                     "highest_award_kind": "beaten-softcore",
                     "earned_achievements": [
-                        {"id": "a", "date": "2026-01-01"},
+                        {"id": "a", "ra_id": 1, "date": "2026-01-01"},
                         {
                             "id": "b",
+                            "ra_id": 2,
                             "date": "2026-01-02",
                             "date_hardcore": "2026-01-02",
                         },
@@ -615,6 +617,47 @@ class TestUserProgression:
         [game] = progression["results"]
         assert game["highest_award_kind"] == "mastered"
         assert len(game["earned_achievements"]) == 2
+
+    async def test_achievements_sharing_a_badge_are_each_earned(
+        self,
+        handler: RAHandler,
+        completion: list[dict[str, object]],
+        game_progress: AsyncMock,
+    ):
+        completion.append(_completion(42))
+        game_progress.return_value = {
+            "Achievements": {
+                str(ra_id): {
+                    "ID": ra_id,
+                    "BadgeName": "217206",
+                    "DateEarned": "2026-01-01",
+                }
+                for ra_id in (95204, 95207, 95217)
+            }
+        }
+
+        progression = await handler.get_user_progression("me")
+
+        earned = progression["results"][0]["earned_achievements"]
+        assert sorted(e["ra_id"] for e in earned) == [95204, 95207, 95217]
+
+    async def test_a_game_stored_without_achievement_ids_is_read_again(
+        self,
+        handler: RAHandler,
+        completion: list[dict[str, object]],
+        game_progress: AsyncMock,
+    ):
+        completion.append(_completion(42))
+        previous = await handler.get_user_progression("me")
+        for earned in previous["results"][0]["earned_achievements"]:
+            del earned["ra_id"]
+        game_progress.reset_mock()
+
+        progression = await handler.get_user_progression("me", previous)
+
+        game_progress.assert_awaited_once()
+        earned = progression["results"][0]["earned_achievements"]
+        assert [e["ra_id"] for e in earned] == [1, 2]
 
     @pytest.mark.parametrize(
         "change",

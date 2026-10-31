@@ -73,7 +73,9 @@ class RAGameRom(BaseRom):
 
 
 class EarnedAchievement(TypedDict):
+    # The achievement's badge name, which several achievements can share.
     id: str
+    ra_id: NotRequired[int]
     date: str
     date_hardcore: NotRequired[str]
 
@@ -377,6 +379,11 @@ class RAHandler(MetadataHandler):
             game_current_progression = current_progression_by_game_id.get(rom_game_id)
             if (
                 game_current_progression
+                # Entries stored before `ra_id` existed are read again to gain it.
+                and all(
+                    "ra_id" in e
+                    for e in game_current_progression.get("earned_achievements", [])
+                )
                 and rom["NumAwarded"] == game_current_progression.get("num_awarded")
                 and rom["NumAwardedHardcore"]
                 == game_current_progression.get("num_awarded_hardcore")
@@ -414,6 +421,8 @@ class RAHandler(MetadataHandler):
                             id=badge_name,
                             date=date_earned,
                         )
+                        if achievement.get("ID") is not None:
+                            earned_achievement["ra_id"] = achievement["ID"]
                         if date_earned_hardcore:
                             earned_achievement["date_hardcore"] = date_earned_hardcore
                         earned_achievements.append(earned_achievement)
