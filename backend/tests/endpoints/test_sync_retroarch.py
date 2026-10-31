@@ -768,17 +768,14 @@ class TestRetroArchSyncUpload:
         assert len(states) == 1
         assert states[0].file_name == "test_rom.state.auto"
 
-    def test_rejects_upload_with_no_matching_rom(self, client, admin_user: User):
-        response = client.put(
-            "/api/sync/retroarch/saves/Snes9x/not_in_library.srm",
-            content=b"data",
-            auth=ADMIN_AUTH,
-        )
+    def test_accepts_upload_with_no_matching_rom(self, client, admin_user: User):
+        path = "/api/sync/retroarch/saves/Snes9x/not_in_library.srm"
+        response = client.put(path, content=b"data", auth=ADMIN_AUTH)
 
-        # A conflict rather than a fake success: the client keeps its copy and
-        # retries, instead of recording a file the server never stored.
-        assert response.status_code == status.HTTP_409_CONFLICT
-        assert response.content == b""
+        assert response.status_code == status.HTTP_201_CREATED
+        served = client.get(path, auth=ADMIN_AUTH)
+        assert served.status_code == status.HTTP_200_OK
+        assert served.content == b"data"
 
     def test_rejects_unsupported_sync_root(self, client, admin_user: User, rom: Rom):
         response = client.put(
@@ -2467,6 +2464,26 @@ class TestRetroArchSyncBlobPathParsing:
     def test_rejects_non_blob_paths(self, path):
         assert sync_handler.parse_retroarch_sync_blob_path(path) is None
 
+    @pytest.mark.parametrize(
+        ("path", "expected"),
+        [
+            ("saves/Snes9x/unknown_game.srm", "saves/Snes9x/unknown_game.srm"),
+            (
+                "saves/Beetle Saturn/shared/memory-card.bin",
+                "saves/Beetle Saturn/shared/memory-card.bin",
+            ),
+            ("states/Snes9x/unmatched.state", "states/Snes9x/unmatched.state"),
+        ],
+    )
+    def test_parses_unmatched_asset_paths(self, path, expected):
+        assert sync_handler.parse_retroarch_unmatched_asset_path(path) == expected
+
+    @pytest.mark.parametrize(
+        "path", ["config/a.cfg", "saves", "saves/../secret", "states/_unmatched/state"]
+    )
+    def test_rejects_non_unmatched_asset_paths(self, path):
+        assert sync_handler.parse_retroarch_unmatched_asset_path(path) is None
+
 
 class TestRetroArchSyncBlobs:
     def test_creates_and_downloads_config_blob(self, client, admin_user: User):
@@ -2560,6 +2577,132 @@ class TestRetroArchSyncBlobs:
             "/api/sync/retroarch/config/retroarch.cfg", auth=ADMIN_AUTH
         )
         assert get_response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_unmatched_save_is_stored_served_and_in_manifest(
+        self, client, admin_user: User
+    ):
+        path = "/api/sync/retroarch/saves/Beetle Saturn/shared/memory-card.bin"
+        put_response = client.put(path, content=b"memory-card-data", auth=ADMIN_AUTH)
+        assert put_response.status_code == status.HTTP_201_CREATED
+
+        get_response = client.get(path, auth=ADMIN_AUTH)
+        assert get_response.status_code == status.HTTP_200_OK
+        assert get_response.content == b"memory-card-data"
+
+        manifest = client.get(
+            "/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH
+        ).json()
+        assert {
+            "path": "saves/Beetle Saturn/shared/memory-card.bin",
+            "hash": hashlib.md5(b"memory-card-data").hexdigest(),
+        } in manifest
+
+        root_listing = client.request(
+            "PROPFIND", "/api/sync/retroarch/saves/", auth=ADMIN_AUTH
+        )
+        assert root_listing.status_code == 207
+        assert "Beetle" in root_listing.text
+        folder_listing = client.request(
+            "PROPFIND",
+            "/api/sync/retroarch/saves/Beetle Saturn/shared/",
+            auth=ADMIN_AUTH,
+        )
+        assert folder_listing.status_code == 207
+        assert "memory-card.bin" in folder_listing.text
+
+        delete_response = client.request("DELETE", path, auth=ADMIN_AUTH)
+        assert delete_response.status_code == status.HTTP_204_NO_CONTENT
+        assert (
+            client.get(path, auth=ADMIN_AUTH).status_code == status.HTTP_404_NOT_FOUND
+        )
+
+    def test_unmatched_state_is_stored_served_listed_and_deleted(
+        self, client, admin_user: User
+    ):
+        path = "/api/sync/retroarch/states/Snes9x/not_in_library.state"
+        put_response = client.put(path, content=b"state-data", auth=ADMIN_AUTH)
+        assert put_response.status_code == status.HTTP_201_CREATED
+
+        disk_path = fs_retroarch_sync_handler.validate_path(
+            sync_handler.unmatched_asset_path(
+                admin_user, "states/Snes9x/not_in_library.state"
+            )
+        )
+        assert disk_path.exists()
+        assert disk_path.parent.parent.name == sync_handler.UNMATCHED_FOLDER
+
+        get_response = client.get(path, auth=ADMIN_AUTH)
+        assert get_response.status_code == status.HTTP_200_OK
+        assert get_response.content == b"state-data"
+
+        manifest = client.get(
+            "/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH
+        ).json()
+        assert "states/Snes9x/not_in_library.state" in [
+            entry["path"] for entry in manifest
+        ]
+
+        listing = client.request(
+            "PROPFIND", "/api/sync/retroarch/states/Snes9x/", auth=ADMIN_AUTH
+        )
+        assert listing.status_code == 207
+        assert "not_in_library.state" in listing.text
+
+        deleted = client.request("DELETE", path, auth=ADMIN_AUTH)
+        assert deleted.status_code == status.HTTP_204_NO_CONTENT
+        assert (
+            client.get(path, auth=ADMIN_AUTH).status_code == status.HTTP_404_NOT_FOUND
+        )
+
+    def test_unmatched_save_remains_available_when_rom_resolves(
+        self, client, admin_user: User, rom: Rom
+    ):
+        relative_path = "saves/Snes9x/test_rom.srm"
+
+        def manifest_paths() -> list[str]:
+            response = client.get(
+                "/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH
+            )
+            return [entry["path"] for entry in response.json()]
+
+        url = f"/api/sync/retroarch/{relative_path}"
+        blob_disk_path = fs_retroarch_sync_handler.validate_path(
+            sync_handler.unmatched_asset_path(admin_user, relative_path)
+        )
+        blob_disk_path.parent.mkdir(parents=True, exist_ok=True)
+        blob_disk_path.write_bytes(b"unmatched-progress")
+
+        # The path resolves to a library ROM, but there is no Save row yet.
+        served = client.get(url, auth=ADMIN_AUTH)
+        assert served.status_code == status.HTTP_200_OK
+        assert served.content == b"unmatched-progress"
+        assert manifest_paths().count(relative_path) == 1
+
+        # A matched upload takes ownership of the path and removes the shadowing blob.
+        uploaded = client.put(url, content=b"matched-progress", auth=ADMIN_AUTH)
+        assert uploaded.status_code == status.HTTP_201_CREATED
+        assert not blob_disk_path.exists()
+        assert manifest_paths().count(relative_path) == 1
+        assert client.get(url, auth=ADMIN_AUTH).content == b"matched-progress"
+
+        deleted = client.request("DELETE", url, auth=ADMIN_AUTH)
+        assert deleted.status_code == status.HTTP_204_NO_CONTENT
+        assert client.get(url, auth=ADMIN_AUTH).status_code == status.HTTP_404_NOT_FOUND
+
+    def test_unmatched_folder_paths_conflict_instead_of_failing(
+        self, client, admin_user: User
+    ):
+        file_url = "/api/sync/retroarch/saves/Beetle Saturn/shared/memory-card.bin"
+        client.put(file_url, content=b"memory-card-data", auth=ADMIN_AUTH)
+        folder_url = "/api/sync/retroarch/saves/Beetle Saturn/shared"
+
+        deleted = client.request("DELETE", folder_url, auth=ADMIN_AUTH)
+        assert deleted.status_code == status.HTTP_404_NOT_FOUND
+        overwritten = client.put(folder_url, content=b"data", auth=ADMIN_AUTH)
+        assert overwritten.status_code == status.HTTP_409_CONFLICT
+        nested = client.put(f"{file_url}/nested.bin", content=b"x", auth=ADMIN_AUTH)
+        assert nested.status_code == status.HTTP_409_CONFLICT
+        assert client.get(file_url, auth=ADMIN_AUTH).content == b"memory-card-data"
 
     def test_manifest_includes_blobs_alongside_assets(self, client, admin_user: User):
         client.put(
@@ -2705,6 +2848,7 @@ class TestRetroArchSyncBrowsing:
         synced_save: Save,
         synced_state_screenshot: Screenshot,
     ):
+        list_blob_files.return_value = []
         saves = client.request(
             "PROPFIND", "/api/sync/retroarch/saves/Snes9x/", auth=ADMIN_AUTH
         )
@@ -2718,7 +2862,10 @@ class TestRetroArchSyncBrowsing:
         assert "/api/sync/retroarch/states/Snes9x/test_rom.state<" in states.text
         assert "/api/sync/retroarch/states/Snes9x/test_rom.state.png<" in states.text
         asset_md5s.assert_not_awaited()
-        list_blob_files.assert_not_awaited()
+        assert list_blob_files.await_args_list == [
+            mock.call(sync_handler.unmatched_asset_root_path(admin_user, "saves")),
+            mock.call(sync_handler.unmatched_asset_root_path(admin_user, "states")),
+        ]
 
     def test_propfind_builds_only_the_requested_tree(
         self, client, admin_user: User, synced_save: Save, synced_state: State
