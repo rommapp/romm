@@ -1129,6 +1129,9 @@ async def test_a_rescan_keeps_the_stored_placeholder_of_an_unchanged_file(mocker
     rom = Rom(fs_name="celeste.p8.png", fs_path="pico/roms", platform_id=1)
     rom.id = 7
     rom.fs_name_no_tags = "celeste.p8"
+    scan_rom = mocker.patch.object(
+        scan_module, "scan_rom", AsyncMock(return_value=MagicMock(is_identified=False))
+    )
 
     await _identify_rom(
         platform=platform,
@@ -1143,7 +1146,7 @@ async def test_a_rescan_keeps_the_stored_placeholder_of_an_unchanged_file(mocker
         scanned_rom_ids=set(),
     )
 
-    scanned = scan_module.scan_rom.call_args.kwargs["rom"]
+    scanned = scan_rom.call_args.kwargs["rom"]
     assert scanned.fs_name_no_tags == "celeste.p8"
 
 
