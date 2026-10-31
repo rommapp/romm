@@ -210,6 +210,18 @@ class TestFSHandler:
         assert handler.get_file_name_with_no_tags("game (USA) [Beta].rom") == "game"
         assert handler.get_file_name_with_no_tags("plain_name.rom") == "plain_name"
 
+    @pytest.mark.parametrize(
+        "file_name",
+        ["celeste.p8.png", "celeste.P8.PNG", "celeste (v1.1).p8.png", "celeste.p8"],
+    )
+    def test_a_pico8_cart_title_drops_the_cart_extension(
+        self, handler: FSHandler, file_name: str
+    ):
+        assert handler.get_file_name_with_no_tags(file_name) == "celeste"
+
+    def test_only_a_pico8_cart_loses_a_p8_suffix(self, handler: FSHandler):
+        assert handler.get_file_name_with_no_tags("Game.p8.zip") == "Game.p8"
+
     def test_parse_file_extension(self, handler: FSHandler):
         """Test file extension parsing"""
         assert handler.parse_file_extension("test.txt") == "txt"

@@ -491,7 +491,8 @@ def keep_base_fields(rom_attrs: dict[str, Any], rom: Rom) -> None:
     # Both the existing name and the seeded rom_attrs name can hold the
     # placeholder. Discard either when it's a placeholder so the parsed
     # filename fallback can win.
-    placeholders = (None, "", rom.fs_name, fs_name_no_tags)
+    # The stored no-tags name covers placeholders derived by an older rule.
+    placeholders = (None, "", rom.fs_name, fs_name_no_tags, rom.fs_name_no_tags)
     existing_name = None if rom.name in placeholders else rom.name
     matched_name = rom_attrs.get("name")
     matched_name = None if matched_name in placeholders else matched_name
