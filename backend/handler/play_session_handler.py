@@ -2,10 +2,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Literal, NotRequired, TypedDict
 
 from pydash import compact
+from rq.exceptions import DuplicateJobError
 
 from handler.audit_handler import AuditActor, AuditDraft, AuditTarget, record_many
 from handler.auth.permissions import ResolvedPermissions
 from handler.database import db_device_handler, db_play_session_handler, db_rom_handler
+from handler.metadata import meta_ra_handler
+from handler.redis_handler import low_prio_queue
 from logger.logger import log
 from models.audit_event import AuditAction, AuditActorKind
 from models.play_session import PlaySession
@@ -62,6 +65,23 @@ def _apply_play_to_rom_user(
         if rom_user.status in (None, RomUserStatus.FINISHED):
             updates["status"] = RomUserStatus.INCOMPLETE
         db_rom_handler.update_rom_user(rom_user.id, updates)
+
+
+def _queue_ra_progress_sync(user_id: int) -> None:
+    """Refresh the user's RetroAchievements progress, at most one job at a time."""
+    try:
+        low_prio_queue.enqueue(
+            "tasks.scheduled.sync_retroachievements_progress.sync_user_progress_job",
+            kwargs={"user_id": user_id},
+            job_id=f"ra_progress_sync:{user_id}",
+            unique=True,
+            result_ttl=0,
+            meta={"task_name": "RetroAchievements progress sync"},
+        )
+    except DuplicateJobError:
+        pass
+    except Exception:  # noqa: BLE001 - the nightly sync catches up
+        log.exception("Failed to queue a RetroAchievements progress sync")
 
 
 def ingest_play_sessions(
@@ -161,6 +181,10 @@ def ingest_play_sessions(
 
     # Phase 4: Side effects
     _apply_play_to_rom_user(rom_user_updates, user_id)
+    if meta_ra_handler.is_enabled() and any(
+        found_roms[rom_id].ra_id for rom_id in rom_user_updates
+    ):
+        _queue_ra_progress_sync(user_id)
 
     actor = AuditActor(
         AuditActorKind.USER,
