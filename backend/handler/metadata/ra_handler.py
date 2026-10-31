@@ -1,10 +1,11 @@
 import json
 import os
 import time
-from typing import NotRequired, TypedDict, cast
+from typing import Annotated, NotRequired, TypedDict, cast
 
 import pydash
 from anyio import Path as AnyioPath
+from pydantic import Field
 
 from adapters.services.provider_http import unavailable
 from adapters.services.retroachievements import RetroAchievementsService
@@ -73,8 +74,13 @@ class RAGameRom(BaseRom):
 
 
 class EarnedAchievement(TypedDict):
-    # The achievement's badge name, which several achievements can share.
-    id: str
+    id: Annotated[
+        str,
+        Field(
+            description="The badge name, which several achievements can share. Use `ra_id`.",
+            deprecated=True,
+        ),
+    ]
     ra_id: NotRequired[int]
     date: str
     date_hardcore: NotRequired[str]
