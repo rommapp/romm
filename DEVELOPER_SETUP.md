@@ -198,6 +198,29 @@ For responsive layouts, use the viewport toolbar presets from `.storybook/rommVi
 
 To run `npm run dev` or `npm run preview` against another RomM instance (for example a home server with a full library), set `DEV_PROXY_TARGET` in the repo-root `.env` to its origin, such as `https://romm.example.com`. Vite then proxies `/api`, `/ws` and `/assets/romm` there instead of the local backend. Leave it empty to keep the default `http://127.0.0.1:${DEV_PORT}`. The remote's TLS certificate must be valid. Sign in with a username and password: OIDC login does not work through the proxy, because the identity provider redirects to the remote's `OIDC_REDIRECT_URI`, so the session never reaches localhost.
 
+## Seeding a test library
+
+`backend/tools/generate_test_data.py` fills a database with a prod-like library (platforms, users, roms, files, saves, collections...) and draws cover art on disk. It writes to the database and `RESOURCES_BASE_PATH` from your `.env`, so point both at a throwaway database and folder, not a library you care about.
+
+```sh
+cd backend
+uv run tools/generate_test_data.py --roms 2000 --image-fidelity 2 --wipe
+```
+
+That seeds 2,000 roms in under a minute. It prints the seed it used and a login (every seeded user's password is `password`). Useful flags, all listed in `--help`:
+
+- `--wipe` deletes the rows the script populates before seeding.
+- `--seed N` reproduces the same rows and images (default `1337`).
+- `--image-fidelity` sets how real the covers are:
+  - `1` (default) draws one-size mosaics.
+  - `2` uses the real mix of cover sizes and shapes, drawn as debug art showing each rom's id, size and path.
+  - `3` also matches real file weights, and some `big.png` files hold JPEG data.
+- `--image-limit N` draws covers for the first N roms only, and `--no-images` skips them.
+- `--image-media` adds ScreenScraper media (box3d, fanart...).
+- `--dry-run` builds everything but writes nothing, image files included.
+
+The seeded roms have no files under `library/`, so a scan would mark them missing. The frontend's `assets/romm/resources` symlink should point at the same resources folder, so the UI shows the seeded covers.
+
 ## Setting up the linter
 
 We use [Trunk](https://trunk.io) for linting, which combines multiple linters and formatters with sensible defaults and a single configuration file. You'll need to install the Trunk CLI to use it.

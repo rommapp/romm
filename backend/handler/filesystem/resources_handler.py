@@ -154,6 +154,12 @@ def _trim_transparent_border(image_path: Path) -> Image.Image | None:
         return None
 
 
+def small_cover_size(width: int, height: int) -> tuple[int, int]:
+    """The small cover's size for a big cover of `width` x `height`."""
+    ratio = 0.2 if height >= 1000 else 0.4
+    return int(width * ratio), int(height * ratio)
+
+
 class RecordedMedia(NamedTuple):
     """A media file a provider metadata dict records a path for."""
 
@@ -202,15 +208,7 @@ class FSResourcesHandler(FSHandler):
 
     def resize_cover_to_small(self, cover: ImageFile.ImageFile, save_path: str) -> None:
         """Resize cover to small size, and save it to filesystem."""
-        if cover.height >= 1000:
-            ratio = 0.2
-        else:
-            ratio = 0.4
-
-        small_width = int(cover.width * ratio)
-        small_height = int(cover.height * ratio)
-        small_size = (small_width, small_height)
-
+        small_size = small_cover_size(cover.width, cover.height)
         frames: list[Image.Image] = []
         durations = frame_durations(
             cover, lambda frame: frames.append(frame.convert("RGBA").resize(small_size))
