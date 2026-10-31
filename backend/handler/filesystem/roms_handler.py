@@ -35,7 +35,11 @@ from exceptions.fs_exceptions import (
     RomsNotFoundException,
 )
 from logger.logger import log
-from models.base import compute_file_extension, compute_file_name_no_ext
+from models.base import (
+    PICO8_CARTRIDGE_EXTENSION,
+    compute_file_extension,
+    compute_file_name_no_ext,
+)
 from models.platform import Platform
 from models.rom import (
     DOCUMENT_CATEGORIES,
@@ -77,10 +81,6 @@ from .base_handler import (
     normalize_region,
     translation_language,
 )
-
-# PICO-8 cartridges are often stored as PNG files
-PICO8_CARTRIDGE_EXTENSION = ".p8.png"
-
 
 NON_HASHABLE_PLATFORMS = frozenset(
     (
