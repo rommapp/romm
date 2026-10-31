@@ -24,9 +24,9 @@ import models
 from handler.database import db_collection_handler, db_rom_handler
 from handler.database.base_handler import sync_engine
 from models.base import BaseModel
-from models.collection import Collection, SmartCollection
+from models.collection import Collection, SmartCollection, VirtualCollectionRom
 from models.platform import Platform
-from models.rom import FULL_PATH_HASH_LENGTH, Rom, compute_full_path_hash
+from models.rom import FULL_PATH_HASH_LENGTH, Rom, RomMetadata, compute_full_path_hash
 from models.user import User
 from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
@@ -938,6 +938,166 @@ def test_the_first_roms_columns_revision_downgrades_to_the_schema_it_found():
         alembic.config.main(argv=["upgrade", "head"])
 
     assert after == before
+
+
+@pytest.mark.parametrize("pg", [True, False])
+def test_metadata_lock_virtual_collection_sql_tracks_all_sources(pg: bool):
+    migration = _load_migration("0154_metadata_locks.py")
+    sql = migration._virtual_collection_trigger_sql(pg)
+    rows = migration._virtual_collection_rows(pg)
+
+    assert all(
+        f"'{type_}'" in rows
+        for type_ in (
+            "genre",
+            "franchise",
+            "collection",
+            "company",
+            "mode",
+            "publisher",
+            "developer",
+        )
+    )
+    assert all(
+        source in sql
+        for source in (
+            "generated_genres",
+            "generated_franchises",
+            "generated_collections",
+            "generated_companies",
+            "generated_game_modes",
+            "generated_publishers",
+            "generated_developers",
+            "path_cover_s",
+            "path_cover_l",
+        )
+    )
+    assert "IF (" in sql
+    if pg:
+        assert "?| ARRAY[" in sql
+        assert "TG_OP = 'INSERT'" in sql
+    else:
+        assert "JSON_CONTAINS_PATH(OLD.metadata_locks" in sql
+        assert "CREATE TRIGGER zz_virtual_collection_roms_locked_after_insert" in (
+            migration._virtual_collection_insert_trigger_sql()
+        )
+        assert (
+            "JSON_TYPE(JSON_EXTRACT(NEW.metadata_locks, '$.cover.small')) = 'NULL'"
+            in rows
+        )
+        assert (
+            "JSON_TYPE(JSON_EXTRACT(NEW.metadata_locks, '$.cover.large')) = 'NULL'"
+            in rows
+        )
+
+
+def _metadata_lock_replay_state(connection: sa.Connection, rom_id: int):
+    source = connection.execute(
+        sa.text(
+            "SELECT manual_metadata, metadata_locks, generated_genres "
+            "FROM roms WHERE id = :rom_id"
+        ),
+        {"rom_id": rom_id},
+    ).one()
+    memberships = connection.execute(
+        sa.select(
+            VirtualCollectionRom.type,
+            VirtualCollectionRom.name,
+            VirtualCollectionRom.path_cover_s,
+            VirtualCollectionRom.path_cover_l,
+        )
+        .where(VirtualCollectionRom.rom_id == rom_id)
+        .order_by(VirtualCollectionRom.type, VirtualCollectionRom.name)
+    ).all()
+    projected_genres = connection.execute(
+        sa.select(RomMetadata.genres).where(RomMetadata.rom_id == rom_id)
+    ).scalar_one()
+    return source, memberships, projected_genres
+
+
+def test_metadata_locks_migration_replay_preserves_snapshots_and_memberships(
+    platform: Platform,
+):
+    rom = make_rom(
+        platform,
+        "metadata lock replay",
+        manual_metadata={
+            "genres": ["Generated genre"],
+            "publishers": ["Publisher"],
+            "developers": ["Developer"],
+        },
+    )
+    locks = {
+        "genres": ["Locked genre"],
+        "cover": {"small": "locked-s.png", "large": "locked-l.png"},
+    }
+    db_rom_handler.update_rom(rom.id, {"metadata_locks": locks})
+
+    with sync_engine.connect() as connection:
+        before = _metadata_lock_replay_state(connection, rom.id)
+    for _ in range(2):
+        with sync_engine.begin() as connection:
+            _replay(connection, "0154_metadata_locks.py")
+
+    try:
+        with sync_engine.begin() as connection:
+            connection.execute(sa.text("DROP VIEW roms_metadata"))
+            trigger_drop = (
+                "DROP TRIGGER zz_virtual_collection_roms_locked_after_write ON roms"
+                if is_postgresql(connection)
+                else "DROP TRIGGER zz_virtual_collection_roms_locked_after_update"
+            )
+            connection.execute(sa.text(trigger_drop))
+            _replay(connection, "0154_metadata_locks.py")
+    finally:
+        with sync_engine.begin() as connection:
+            _replay(connection, "0154_metadata_locks.py")
+
+    with sync_engine.connect() as connection:
+        after = _metadata_lock_replay_state(connection, rom.id)
+        assert sa.inspect(connection).has_table("roms_metadata")
+    assert before[2] == ["Locked genre"]
+    assert after == before
+
+    db_rom_handler.update_rom(
+        rom.id,
+        {
+            "manual_metadata": {
+                "genres": ["Provider genre"],
+                "publishers": ["Publisher B"],
+                "developers": ["Developer B"],
+            }
+        },
+    )
+    with sync_engine.connect() as connection:
+        memberships = connection.execute(
+            sa.select(VirtualCollectionRom.type, VirtualCollectionRom.name)
+            .where(VirtualCollectionRom.rom_id == rom.id)
+            .order_by(VirtualCollectionRom.type, VirtualCollectionRom.name)
+        ).all()
+    assert ("genre", "Locked genre") in memberships
+    assert ("genre", "Provider genre") not in memberships
+    assert ("publisher", "Publisher B") in memberships
+
+
+def test_metadata_locks_migration_downgrades_and_reapplies():
+    alembic.config.main(argv=["downgrade", "0153_play_permissions"])
+    try:
+        with sync_engine.connect() as connection:
+            columns = {
+                column["name"] for column in sa.inspect(connection).get_columns("roms")
+            }
+            assert "metadata_locks" not in columns
+            assert sa.inspect(connection).has_table("roms_metadata")
+    finally:
+        alembic.config.main(argv=["upgrade", "head"])
+
+    with sync_engine.connect() as connection:
+        columns = {
+            column["name"] for column in sa.inspect(connection).get_columns("roms")
+        }
+        assert "metadata_locks" in columns
+        assert sa.inspect(connection).has_table("roms_metadata")
 
 
 def test_the_roms_columns_helper_puts_back_a_view_a_run_lost():
