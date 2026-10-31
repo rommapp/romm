@@ -2476,6 +2476,8 @@ class DBRomsHandler(DBBaseHandler):
                     .execution_options(synchronize_session=False)
                 )
             )
+        if replaced:
+            session.info[FILTER_VALUES_BUMP_KEY] = True
         return replaced
 
     @begin_session

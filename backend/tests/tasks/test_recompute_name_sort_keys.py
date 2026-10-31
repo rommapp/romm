@@ -5,6 +5,7 @@ from tests.factories import make_rom
 
 from config.config_manager import config_manager as cm
 from handler.database import db_rom_handler
+from handler.database.roms_handler import DBRomsHandler
 from handler.redis_handler import sync_cache
 from models.platform import Platform
 from models.rom import compute_name_sort_key
@@ -68,3 +69,15 @@ async def test_a_changed_articles_list_rederives_from_the_recorded_one(
     await recompute_name_sort_keys_task.run()
 
     assert stored_sort_key(rom.id) == "siedler"
+
+
+async def test_replacing_keys_drops_the_cached_gallery_order(
+    platform: Platform, mocker
+):
+    rom = make_rom(platform, "Die Hard Arcade", name_sort_key=None)
+    db_rom_handler.update_rom(rom.id, {"name_sort_key": "hard arcade"})
+    invalidate = mocker.patch.object(DBRomsHandler, "invalidate_filter_values_cache")
+
+    await recompute_name_sort_keys_task.run()
+
+    invalidate.assert_called_once()

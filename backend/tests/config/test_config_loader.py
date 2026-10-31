@@ -1090,3 +1090,16 @@ def test_sorting_articles_must_be_a_list_of_words(tmp_path, value):
         ConfigManager(str(config_file))
 
     assert excinfo.value.code == 3
+
+
+def test_sorting_articles_survive_saving_another_setting(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("sorting:\n  articles: [der, die, das]\n")
+
+    ConfigManager(str(config_file)).add_platform_binding("gc", "ngc")
+
+    assert ConfigManager(str(config_file)).config.SORT_ARTICLES == [
+        "der",
+        "die",
+        "das",
+    ]

@@ -1516,6 +1516,7 @@ class ConfigManager:
                 "settings": self.config.EJS_SETTINGS,
                 "controls": self._format_ejs_controls_for_yaml(),
             },
+            "sorting": {"articles": self.config.SORT_ARTICLES},
             "scan": {
                 "priority": {
                     "metadata": self.config.SCAN_METADATA_PRIORITY,
