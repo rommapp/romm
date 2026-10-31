@@ -948,14 +948,14 @@ def test_update_rom_reparses_tags_on_fs_name_change(
 @patch.object(FSRomsHandler, "rename_fs_rom")
 @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
 def test_rom_responses_include_the_parsed_version_tag(
-    rename_fs_rom_mock: AsyncMock,
     get_rom_by_id_mock: AsyncMock,
+    rename_fs_rom_mock: AsyncMock,
     client: TestClient,
     access_token: str,
     rom: Rom,
 ):
-    # The version tag is taken out of `tags`, so the response field is the
-    # only place a client can read it from.
+    # The version tag is taken out of `tags`, so this field is the only
+    # parsed copy a client gets.
     response = client.put(
         f"/api/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
