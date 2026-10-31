@@ -75,6 +75,7 @@ class DeviceAuthTokenPayload(BaseModel):
 
 
 class DeviceAuthTokenResponse(BaseModel):
+    id: int
     access_token: str
     device_id: str
     scopes: list[str]
