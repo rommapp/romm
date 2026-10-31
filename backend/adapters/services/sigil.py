@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
+from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.filesystem import COMPRESSED_FILE_SUFFIXES
 from utils.m3u import first_playlist_entry
@@ -33,6 +34,24 @@ SIGIL_PLATFORM_SLUGS: Final[dict[str, str]] = {
 # The Switch family in RomM's own terms. Its headers need prod.keys to decrypt,
 # and it is the only family whose files may carry their title id in the filename.
 SWITCH_PLATFORM_SLUGS: Final = frozenset({UPS.SWITCH, UPS.SWITCH_2})
+
+# Files this scan skipped because RomM holds no keys for their headers.
+_needs_key_paths: set[str] = set()
+
+
+def begin_scan() -> None:
+    _needs_key_paths.clear()
+
+
+def log_scan_summary() -> None:
+    """Say how many encrypted Switch files this scan left without a title id."""
+    if not _needs_key_paths:
+        return
+    log.info(
+        f"{hl(str(len(_needs_key_paths)))} encrypted Switch files got no title id: "
+        "RomM doesn't decrypt Switch files. Decrypted dumps, or a client "
+        "holding your keys, can identify them."
+    )
 
 
 @dataclass(frozen=True)
@@ -84,12 +103,15 @@ class SigilService:
             result = await asyncio.to_thread(
                 sigil.extract, file_path, platform=sigil_slug, filename_fallback=False
             )
-        # Expected for arbitrary library files: no title id, a format sigil
-        # can't parse, or a Switch header RomM holds no keys for.
+        # A Switch header RomM holds no keys for, reported in the scan summary.
+        except sigil.SigilNeedsKeyError as exc:
+            _needs_key_paths.add(file_path)
+            log.debug(f"Sigil found no title id for {file_path}: {exc}")
+            return None
+        # Expected for arbitrary library files: no title id or a format sigil can't parse.
         except (
             sigil.SigilNotFoundError,
             sigil.SigilUnsupportedFormatError,
-            sigil.SigilNeedsKeyError,
         ) as exc:
             log.debug(f"Sigil found no title id for {file_path}: {exc}")
             return None

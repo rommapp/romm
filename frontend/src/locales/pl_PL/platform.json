@@ -20,6 +20,8 @@
   "firmware-bios": "Firmware / BIOS",
   "firmware-deleted-successfully": "Firmware usunięty! | {count} firmware'ów usuniętych!",
   "firmware-dropzone-description": "Przeciągnij i upuść pliki firmware tutaj lub kliknij, aby przeglądać",
+  "firmware-keys-unused": "Nieużywane przez RomM",
+  "firmware-keys-unused-tooltip": "Przechowywane dla Twoich klientów i emulatorów. RomM nigdy nie odczytuje plików kluczy, więc zaszyfrowane zrzuty Switch nie otrzymują Title ID.",
   "firmware-remove-warning": "Usuniesz {count} firmware z systemu. Nie można cofnąć! | Usuniesz {count} firmware'ów z systemu. Nie można cofnąć!",
   "firmware-select-to-remove": "Wybierz firmware do usunięcia z systemu, w przeciwnym razie zostaną usunięte tylko z bazy danych.",
   "firmware-uploaded-successfully": "{count} plik przesłany. | {count} plików przesłanych.",

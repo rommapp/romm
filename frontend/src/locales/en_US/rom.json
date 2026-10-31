@@ -451,6 +451,7 @@
   "tab-notes": "Notes",
   "tab-overview": "Overview",
   "title-id": "Title ID",
+  "title-id-missing-switch": "RomM doesn't decrypt Switch files, so encrypted dumps get no title ID. Decrypted dumps, or a client holding your keys, can identify this game.",
   "tracks-n": "{n} track | {n} tracks",
   "tracks-summary": "{count} tracks · {duration}",
   "unmatch": "Unmatch ROM",

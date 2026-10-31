@@ -20,6 +20,8 @@
   "firmware-bios": "Firmware / BIOS",
   "firmware-deleted-successfully": "{count} firmware odstraněno! | {count} firmware odstraněn! | {count} firmware odstraněny! | {count} firmware odstraněno!",
   "firmware-dropzone-description": "Přetáhněte sem soubory firmwaru nebo klikněte pro výběr",
+  "firmware-keys-unused": "RomM nepoužívá",
+  "firmware-keys-unused-tooltip": "Uloženo pro vaše klienty a emulátory. RomM soubory s klíči nikdy nečte, takže šifrované dumpy Switch nemají Title ID.",
   "firmware-remove-warning": "Odstraníte {count} firmwarů ze systému. Akce je nevratná! | Odstraníte {count} firmware ze systému. Akce je nevratná! | Odstraníte {count} firmware ze systému. Akce je nevratná! | Odstraníte {count} firmwarů ze systému. Akce je nevratná!",
   "firmware-select-to-remove": "Vyberte firmwary k odstranění ze systému, jinak budou smazány pouze z databáze.",
   "firmware-uploaded-successfully": "{count} souborů nahráno. | {count} soubor nahrán. | {count} soubory nahrány. | {count} souborů nahráno.",

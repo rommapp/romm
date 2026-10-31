@@ -451,6 +451,7 @@
   "tab-notes": "Notas",
   "tab-overview": "Resumen",
   "title-id": "ID del título",
+  "title-id-missing-switch": "RomM no descifra archivos de Switch, así que los volcados cifrados no obtienen Title ID. Los volcados descifrados, o un cliente con tus claves, pueden identificar este juego.",
   "tracks-n": "{n} pista | {n} pistas",
   "tracks-summary": "{count} pistas · {duration}",
   "unmatch": "Desvincular ROM",

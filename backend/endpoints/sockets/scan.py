@@ -18,6 +18,8 @@ from rq.timeouts import JobTimeoutException
 from sqlalchemy.exc import IntegrityError
 
 from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
+from adapters.services.sigil import begin_scan as begin_sigil_scan
+from adapters.services.sigil import log_scan_summary as log_sigil_scan_summary
 from config import DEV_MODE, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import config_manager as cm
 from endpoints.responses.platform import PlatformSchema
@@ -1230,6 +1232,7 @@ async def scan_platforms(
     # overlap, and resetting would drop the other scan's limits and skips.
     if MetadataSource.SS in metadata_sources:
         await begin_ss_scan()
+    begin_sigil_scan()
 
     fs_platforms: list[str] = []
     if not roms_ids:
@@ -1394,6 +1397,7 @@ async def scan_platforms(
 
         if MetadataSource.SS in metadata_sources:
             log_ss_scan_summary()
+        log_sigil_scan_summary()
 
         log.info(f"{emoji.EMOJI_CHECK_MARK} Scan completed")
 

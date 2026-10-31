@@ -20,6 +20,8 @@
   "firmware-bios": "Firmware / BIOS",
   "firmware-deleted-successfully": "Firmware har tagits bort. | {count} firmwareposter har tagits bort.",
   "firmware-dropzone-description": "Dra och släpp firmwarefiler här eller klicka för att bläddra",
+  "firmware-keys-unused": "Används inte av RomM",
+  "firmware-keys-unused-tooltip": "Lagras för dina klienter och emulatorer. RomM läser aldrig nyckelfiler, så krypterade Switch-dumpar får inget Title ID.",
   "firmware-remove-warning": "Du håller på att ta bort {count} firmwarefil från filsystemet. Åtgärden kan inte ångras. | Du håller på att ta bort {count} firmwarefiler från filsystemet. Åtgärden kan inte ångras.",
   "firmware-select-to-remove": "Markera firmwarefilerna som ska tas bort från filsystemet. Annars tas de bara bort från RomM-databasen.",
   "firmware-uploaded-successfully": "{count} fil laddades upp. | {count} filer laddades upp.",

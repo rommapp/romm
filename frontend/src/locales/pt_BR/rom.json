@@ -451,6 +451,7 @@
   "tab-notes": "Notas",
   "tab-overview": "Visão geral",
   "title-id": "ID do título",
+  "title-id-missing-switch": "O RomM não descriptografa arquivos de Switch, então dumps criptografados não recebem Title ID. Dumps descriptografados, ou um cliente com suas chaves, podem identificar este jogo.",
   "tracks-n": "{n} faixa | {n} faixas",
   "tracks-summary": "{count} faixas · {duration}",
   "unmatch": "Desvincular ROM",

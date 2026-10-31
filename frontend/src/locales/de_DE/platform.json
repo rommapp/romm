@@ -20,6 +20,8 @@
   "firmware-bios": "Firmware / BIOS",
   "firmware-deleted-successfully": "Firmware gelöscht! | {count} Firmwares gelöscht!",
   "firmware-dropzone-description": "Firmware-Dateien hierher ziehen oder klicken zum Durchsuchen",
+  "firmware-keys-unused": "Nicht von RomM verwendet",
+  "firmware-keys-unused-tooltip": "Für deine Clients und Emulatoren gespeichert. RomM liest Schlüsseldateien nie, daher erhalten verschlüsselte Switch-Dumps keine Title-ID.",
   "firmware-remove-warning": "{count} Firmware vom System entfernen. Nicht rückgängig machbar! | {count} Firmwares vom System entfernen. Nicht rückgängig machbar!",
   "firmware-select-to-remove": "Wählen Sie Firmwares zum Entfernen aus dem System, sonst nur aus der Datenbank.",
   "firmware-uploaded-successfully": "{count} Datei hochgeladen. | {count} Dateien hochgeladen.",

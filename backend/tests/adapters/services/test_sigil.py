@@ -243,3 +243,34 @@ class TestSigilService:
             platform="switch",
             filename_fallback=False,
         )
+
+
+class TestScanSummary:
+    @pytest.mark.asyncio
+    async def test_counts_encrypted_files_once_per_scan(self, monkeypatch, mocker):
+        extract = Mock(side_effect=FakeNeedsKeyError(-6))
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+        log = mocker.patch.object(sigil_adapter, "log")
+        service = SigilService()
+
+        sigil_adapter.begin_scan()
+        await service.extract_title_id(UPS.SWITCH, "/roms/switch/a.nsp")
+        await service.extract_title_id(UPS.SWITCH, "/roms/switch/a.nsp")
+        await service.extract_title_id(UPS.SWITCH, "/roms/switch/b.xci")
+        sigil_adapter.log_scan_summary()
+
+        log.info.assert_called_once()
+        assert "2" in log.info.call_args.args[0]
+
+    @pytest.mark.asyncio
+    async def test_new_scan_drops_the_last_count(self, monkeypatch, mocker):
+        extract = Mock(side_effect=FakeNeedsKeyError(-6))
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+        log = mocker.patch.object(sigil_adapter, "log")
+
+        sigil_adapter.begin_scan()
+        await SigilService().extract_title_id(UPS.SWITCH, "/roms/switch/a.nsp")
+        sigil_adapter.begin_scan()
+        sigil_adapter.log_scan_summary()
+
+        log.info.assert_not_called()
