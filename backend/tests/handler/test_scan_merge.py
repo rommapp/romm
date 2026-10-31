@@ -4,10 +4,8 @@ from handler.scan.merge import keep_base_fields
 from models.platform import Platform
 
 
-def test_a_placeholder_name_from_an_older_filename_rule_is_replaced(
-    platform: Platform,
-):
-    # Stored before `.p8` was stripped from PICO-8 cart titles.
+def test_the_stored_placeholder_name_is_replaced(platform: Platform):
+    # The stored placeholder differs from the title derived from the filename.
     rom = make_rom(
         platform,
         "celeste.p8",
