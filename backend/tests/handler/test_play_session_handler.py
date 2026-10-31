@@ -7,6 +7,7 @@ from rq import Queue, SimpleWorker
 from handler import play_session_handler
 from handler.play_session_handler import _queue_ra_progress_sync
 from handler.redis_handler import redis_client
+from tasks.registry import SYNC_RETROACHIEVEMENTS_PROGRESS_SPEC
 
 JOB_PATH = "tasks.scheduled.sync_retroachievements_progress"
 
@@ -41,6 +42,9 @@ class TestQueueRAProgressSync:
         _queue_ra_progress_sync(second)
 
         assert sorted(job.kwargs["user_id"] for job in queue.jobs) == [first, second]
+        assert {job.timeout for job in queue.jobs} == {
+            SYNC_RETROACHIEVEMENTS_PROGRESS_SPEC.timeout
+        }
 
     @pytest.mark.parametrize("fails", [False, True], ids=["synced", "sync_failed"])
     def test_a_finished_sync_lets_the_next_play_queue_another(

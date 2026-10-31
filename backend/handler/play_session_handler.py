@@ -13,6 +13,7 @@ from logger.logger import log
 from models.audit_event import AuditAction, AuditActorKind
 from models.play_session import PlaySession
 from models.rom import RomUserStatus
+from tasks.registry import SYNC_RETROACHIEVEMENTS_PROGRESS_SPEC
 from utils.datetime import to_utc
 
 
@@ -78,8 +79,10 @@ def _queue_ra_progress_sync(user_id: int) -> None:
             kwargs={"user_id": user_id},
             job_id=f"ra_progress_sync_{user_id}",
             unique=True,
+            job_timeout=SYNC_RETROACHIEVEMENTS_PROGRESS_SPEC.timeout,
             result_ttl=0,
             # A worker killed mid-run fails the job, which must not hold the id long.
+            # Not 0: RQ reads a stored 0 back as unset, which means a year.
             failure_ttl=RA_PROGRESS_SYNC_FAILURE_TTL_SECONDS,
             meta={"task_name": "RetroAchievements progress sync"},
         )
