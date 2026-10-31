@@ -877,17 +877,18 @@ A reset link is emailed when SMTP is set up, the user has an address and `ROMM_B
 
 ### 6.3 Client Tokens (`/api/client-tokens`)
 
-| Method | Path                  | Scope       | Description                   |
-| ------ | --------------------- | ----------- | ----------------------------- |
-| POST   | `/`                   | ME_WRITE    | Create token                  |
-| GET    | `/`                   | ME_READ     | List user's tokens            |
-| DELETE | `/{id}`               | ME_WRITE    | Delete token (self: no scope) |
-| PUT    | `/{id}/regenerate`    | ME_WRITE    | Regenerate token              |
-| POST   | `/{id}/pair`          | ME_WRITE    | Generate pair code            |
-| GET    | `/pair/{code}/status` | None        | Check pair status             |
-| POST   | `/exchange`           | None        | Exchange pair code for token  |
-| GET    | `/all`                | USERS_READ  | Admin: list all tokens        |
-| DELETE | `/{id}/admin`         | USERS_WRITE | Admin: delete any token       |
+| Method | Path                  | Scope       | Description                     |
+| ------ | --------------------- | ----------- | ------------------------------- |
+| POST   | `/`                   | ME_WRITE    | Create token                    |
+| GET    | `/`                   | ME_READ     | List user's tokens              |
+| DELETE | `/current`            | None        | Revoke the calling client token |
+| DELETE | `/{id}`               | ME_WRITE    | Delete token                    |
+| PUT    | `/{id}/regenerate`    | ME_WRITE    | Regenerate token                |
+| POST   | `/{id}/pair`          | ME_WRITE    | Generate pair code              |
+| GET    | `/pair/{code}/status` | None        | Check pair status               |
+| POST   | `/exchange`           | None        | Exchange pair code for token    |
+| GET    | `/all`                | USERS_READ  | Admin: list all tokens          |
+| DELETE | `/{id}/admin`         | USERS_WRITE | Admin: delete any token         |
 
 ### 6.4 Platforms (`/api/platforms`)
 

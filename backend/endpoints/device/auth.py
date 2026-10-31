@@ -244,6 +244,7 @@ def approve(
     mark_approved(
         device_code,
         raw_token=raw_token,
+        token_id=token.id,
         device_id=device.id,
         scopes=sorted(approved_set),
         expires_at=token.expires_at,
@@ -346,6 +347,7 @@ def token(request: Request, payload: DeviceAuthTokenPayload) -> DeviceAuthTokenR
         )
         return DeviceAuthTokenResponse(
             access_token=approved["raw_token"],
+            token_id=approved["token_id"],
             device_id=approved["device_id"],
             scopes=list(approved.get("scopes", [])),
             expires_at=expires_at,

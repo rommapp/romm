@@ -533,6 +533,9 @@ class TestToken:
         data = resp.json()
         assert data["access_token"].startswith("rmm_")
         assert data["device_id"] == approve.json()["device_id"]
+        token = db_client_token_handler.get_token(token_id=data["token_id"])
+        assert token is not None
+        assert token.device_id == data["device_id"]
         assert set(data["scopes"]) == {"roms.read", "roms.user.write"}
 
     def test_one_shot_second_poll_returns_expired_token(
