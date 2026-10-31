@@ -291,6 +291,23 @@ class TestGetRom:
             "title": "zelda",
         }
 
+    async def test_the_html_description_becomes_plain_text(
+        self, moby: tuple[MobyGamesHandler, AsyncMock]
+    ):
+        handler, list_games = moby
+        list_games.by_title["zelda"] = [
+            {
+                **_game(2, "Zelda"),
+                "description": "<p>Save <i>Hyrule</i> &amp; Zelda.</p><p>Again.</p>",
+            }
+        ]
+
+        result = await handler.get_rom(
+            Rom(fs_name="Zelda (USA).sfc"), "Zelda (USA).sfc", SNES
+        )
+
+        assert result["summary"] == "Save Hyrule & Zelda.\n\nAgain."
+
     async def test_empty_fields_are_left_out(
         self, moby: tuple[MobyGamesHandler, AsyncMock]
     ):
