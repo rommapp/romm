@@ -93,7 +93,7 @@
   "memory-card-erase-keyword": "ERASE",
   "memory-card-hint": "În mod implicit se încarcă cel mai recent card. Progresul se sincronizează la ieșire.",
   "memory-card-import-adopt": "Importă acest card",
-  "memory-card-import-body": "Acest container are deja un card de memorie cu {count} fișier(e) de salvare. Îl imporți în biblioteca ta sau începi cu un card nou?",
+  "memory-card-import-body": "Acest container are deja un card de memorie cu {count} fișier de salvare. Îl imporți în biblioteca ta sau începi cu un card nou? | Acest container are deja un card de memorie cu {count} fișiere de salvare. Îl imporți în biblioteca ta sau începi cu un card nou?",
   "memory-card-import-discard": "Începe de la zero",
   "memory-card-import-discard-body": "Cardul de memorie de pe acest container va fi șters. Nimic din ce este salvat pe el nu va putea fi recuperat.",
   "memory-card-import-discard-confirm": "Șterge și începe de la zero",

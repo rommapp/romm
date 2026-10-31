@@ -30,6 +30,7 @@ import {
   type Ref,
 } from "vue";
 import { useReducedMotion } from "@/composables/useReducedMotion";
+import { claimPreview, releaseMedia } from "@/utils/releaseMedia";
 
 export interface SpinConfig {
   /** Top rotational speed, deg/sec. */
@@ -60,6 +61,10 @@ const CART_LOAD_MS = 600;
 // Delay before the hover video kicks in, so fast scans across the gallery
 // don't fire a burst of <video> loads.
 const VIDEO_HOVER_DELAY_MS = 1000;
+
+// A left clip keeps its src and buffer this long, so hovering straight back
+// replays without refetching; another clip playing releases it sooner.
+const VIDEO_RELEASE_DELAY_MS = 5000;
 
 /** Pure one-frame integration of the spin physics: exported for tests.
  *  `accelerating` is true while the cover is hovered/focused; otherwise the
@@ -220,6 +225,8 @@ export function useCoverAnimation(
 
   // ── Hover video ───────────────────────────────────────────────────
   const isVideoPlaying = ref(false);
+  // Set once the clip has been played and holds its src, until released.
+  let holdsVideo = false;
 
   const wantsVideo = computed(
     () => opts.active.value && !!opts.videoUrl.value && motionOk.value,
@@ -228,10 +235,19 @@ export function useCoverAnimation(
   const { start: scheduleVideo, stop: cancelVideo } = useTimeoutFn(
     () => {
       const v = opts.videoEl.value;
-      if (!v) return;
+      const url = opts.videoUrl.value;
+      if (!v || !url) return;
+      // The src is dropped on release, so put it back before playing.
+      if (!v.getAttribute("src")) v.src = url;
+      holdsVideo = true;
+      claimPreview(v, () => {
+        holdsVideo = false;
+        isVideoPlaying.value = false;
+      });
       v.play()
         .then(() => {
-          isVideoPlaying.value = true;
+          // A leave or release can land after play() has already settled.
+          isVideoPlaying.value = wantsVideo.value && v.hasAttribute("src");
         })
         .catch(() => {
           isVideoPlaying.value = false;
@@ -241,19 +257,47 @@ export function useCoverAnimation(
     { immediate: false },
   );
 
-  function stopVideo() {
+  function releaseVideo() {
+    holdsVideo = false;
+    if (opts.videoEl.value) releaseMedia(opts.videoEl.value);
+  }
+
+  const { start: scheduleRelease, stop: cancelRelease } = useTimeoutFn(
+    releaseVideo,
+    VIDEO_RELEASE_DELAY_MS,
+    { immediate: false },
+  );
+
+  function leaveVideo() {
     cancelVideo();
     isVideoPlaying.value = false;
     const v = opts.videoEl.value;
-    if (v) {
-      v.pause();
-      v.currentTime = 0;
-    }
+    if (!v || !holdsVideo) return;
+    v.pause();
+    v.currentTime = 0;
+    scheduleRelease();
+  }
+
+  function stopVideo() {
+    cancelVideo();
+    cancelRelease();
+    isVideoPlaying.value = false;
+    releaseVideo();
   }
 
   watch(wantsVideo, (on) => {
-    if (on) scheduleVideo();
-    else stopVideo();
+    if (on) {
+      cancelRelease();
+      scheduleVideo();
+    } else {
+      leaveVideo();
+    }
+  });
+
+  // A clip removed with the cover still mounted (a style change) would keep
+  // its download.
+  watch(opts.videoEl, (_el, old) => {
+    if (old) releaseMedia(old);
   });
 
   // ── Motion preference flips off mid-flight ────────────────────────
@@ -265,7 +309,7 @@ export function useCoverAnimation(
     }
   });
 
-  onBeforeUnmount(() => opts.videoEl.value?.pause());
+  onBeforeUnmount(releaseVideo);
 
   return { isVideoPlaying, playLoad };
 }

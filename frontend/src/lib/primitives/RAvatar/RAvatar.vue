@@ -14,6 +14,7 @@
 // any text slot scales to ~40% of the avatar height: initials stay
 // legible at every size without a per-size override.
 import { computed } from "vue";
+import { ROUNDED_MAP, TONE_MAP, solidFill } from "@/lib/style/tokenMaps";
 import RIcon from "../RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -55,36 +56,11 @@ const resolvedSize = computed<string>(() => {
   return SIZE_MAP[s] ?? s;
 });
 
-const TONE_MAP: Record<string, string> = {
-  primary: "var(--r-color-brand-primary)",
-  secondary: "var(--r-color-brand-secondary)",
-  accent: "var(--r-color-brand-accent)",
-  success: "var(--r-color-success)",
-  warning: "var(--r-color-warning)",
-  danger: "var(--r-color-danger)",
-  error: "var(--r-color-danger)",
-  info: "var(--r-color-info)",
-  "romm-red": "var(--r-color-romm-red)",
-  "romm-green": "var(--r-color-romm-green)",
-  "romm-blue": "var(--r-color-romm-blue)",
-  "romm-gold": "var(--r-color-romm-gold)",
-};
-
 const resolvedColor = computed<string | undefined>(() => {
   const c = props.color;
   if (!c) return undefined;
   return TONE_MAP[c] ?? c;
 });
-
-const ROUNDED_MAP: Record<string, string> = {
-  "0": "0",
-  sm: "4px",
-  md: "8px",
-  lg: "12px",
-  xl: "16px",
-  pill: "999px",
-  circle: "50%",
-};
 
 const resolvedRounded = computed<string>(() => {
   const r = props.rounded;
@@ -115,6 +91,7 @@ const styleObj = computed(() => ({
   // Stays `undefined` when no `color` prop is set, falling through to
   // the variant's neutral defaults below.
   "--r-avatar-color": resolvedColor.value,
+  "--r-avatar-solid": resolvedColor.value && solidFill(resolvedColor.value),
 }));
 </script>
 
@@ -171,7 +148,7 @@ const styleObj = computed(() => ({
 
 /* ── Variant: flat, solid colour fill ─────────────────────────── */
 .r-avatar--flat.r-avatar--has-color {
-  background: var(--r-avatar-color);
+  background: var(--r-avatar-solid);
   color: white;
 }
 .r-avatar--flat:not(.r-avatar--has-color) {
@@ -181,7 +158,7 @@ const styleObj = computed(() => ({
 
 /* ── Variant: elevated, solid fill + soft shadow ──────────────── */
 .r-avatar--elevated.r-avatar--has-color {
-  background: var(--r-avatar-color);
+  background: var(--r-avatar-solid);
   color: white;
   box-shadow: 0 2px 8px color-mix(in srgb, black 30%, transparent);
 }

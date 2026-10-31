@@ -36,7 +36,9 @@ function scrollWindowTo(y: number) {
 
 function mountNav() {
   return mount(AppNav, {
-    global: { stubs: { RouterLink: true, RImg: true, RSliderBtnGroup: true } },
+    global: {
+      stubs: { RouterLink: true, RImage: true, RSegmentedControl: true },
+    },
   });
 }
 

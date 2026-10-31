@@ -45,6 +45,7 @@ from handler.metadata.igdb_handler import (
     get_igdb_preferred_locale,
 )
 from handler.redis_handler import as_text, async_cache
+from utils.arcade_platforms import ARCADE_PLATFORMS
 from utils.context import ctx_httpx_client
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
@@ -1289,13 +1290,48 @@ class TestGetPlatform:
     def test_an_unlisted_platform_family_overrides_its_siblings(
         self, handler: IGDBHandler
     ):
-        assert handler.get_platform("model2") == {
+        assert handler.get_platform("taito-x-55") == {
             "igdb_id": None,
-            "slug": "model2",
+            "slug": "taito-x-55",
             "category": "Arcade",
-            "family_name": "Sega",
-            "family_slug": "sega",
+            "family_name": "Taito",
+            "family_slug": "taito",
         }
+
+    @pytest.mark.parametrize(
+        ("slug", "name"),
+        [("naomi", "NAOMI"), ("naomi2", "NAOMI 2"), ("stv", "Sega Titan Video")],
+    )
+    def test_an_arcade_board_maps_to_its_platform_version(
+        self, handler: IGDBHandler, slug: str, name: str
+    ):
+        platform = handler.get_platform(slug)
+
+        assert (platform["igdb_id"], platform["slug"], platform.get("name")) == (
+            IGDB_PLATFORM_LIST[UPS.ARCADE]["id"],
+            slug,
+            name,
+        )
+        assert platform.get("family_name") == "Sega"
+
+    def test_an_arcade_platform_without_a_version_gets_arcade_and_no_name(
+        self, handler: IGDBHandler
+    ):
+        platform = handler.get_platform("model2")
+
+        assert platform["igdb_id"] == IGDB_PLATFORM_LIST[UPS.ARCADE]["id"]
+        assert platform.get("igdb_slug") == "arcade"
+        assert platform.get("family_name") == "Sega"
+        assert "name" not in platform
+
+    @pytest.mark.parametrize("slug", sorted(ARCADE_PLATFORMS))
+    def test_every_arcade_platform_is_looked_up_under_arcade(
+        self, handler: IGDBHandler, slug: UPS
+    ):
+        assert (
+            handler.get_platform(slug)["igdb_id"]
+            == IGDB_PLATFORM_LIST[UPS.ARCADE]["id"]
+        )
 
     def test_an_unlisted_platform_with_only_a_family(self, handler: IGDBHandler):
         assert handler.get_platform("ti-994a") == {
@@ -1309,7 +1345,11 @@ class TestGetPlatform:
         assert not IGDB_SIBLING_PLATFORMS.keys() & IGDB_PLATFORM_LIST.keys()
 
     @pytest.mark.parametrize(
-        "slug", sorted(IGDB_SIBLING_PLATFORMS.keys() | IGDB_PLATFORM_FAMILIES.keys())
+        "slug",
+        sorted(
+            (IGDB_SIBLING_PLATFORMS.keys() | IGDB_PLATFORM_FAMILIES.keys())
+            - ARCADE_PLATFORMS
+        ),
     )
     def test_every_platform_with_a_family_entry_gets_a_family(
         self, handler: IGDBHandler, slug: UPS

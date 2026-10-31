@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 import enum
 import hashlib
 import re
@@ -63,6 +62,23 @@ FULL_PATH_HASH_LENGTH = 64
 AUDIO_TAG_MAX_LENGTH = 512
 # Max length for the binary identity columns (title id and save target).
 TITLE_ID_MAX_LENGTH = 100
+
+# Every provider's metadata column; `manual_metadata` holds the user's own overrides.
+PROVIDER_METADATA_COLUMNS: Final = (
+    "igdb_metadata",
+    "moby_metadata",
+    "ss_metadata",
+    "ra_metadata",
+    "launchbox_metadata",
+    "hasheous_metadata",
+    "flashpoint_metadata",
+    "hltb_metadata",
+    "demozoo_metadata",
+    "pouet_metadata",
+    "csdb_metadata",
+    "steam_metadata",
+    "gamelist_metadata",
+)
 
 # (metadata column, key) of each provider's alternative titles.
 PROVIDER_ALTERNATIVE_NAME_SOURCES = (
@@ -752,6 +768,17 @@ def rom_fs_resources_path(platform_id: int, id: int) -> str:
     return f"roms/{platform_id}/{id}"
 
 
+_ROM_RESOURCE_URL_ID = re.compile(
+    rf"^{re.escape(FRONTEND_RESOURCES_PATH)}/roms/\d+/(\d+)/"
+)
+
+
+def rom_id_from_resource_url(url: str) -> int | None:
+    """The rom id in a URL under `rom_fs_resources_path`, or None for any other URL."""
+    match = _ROM_RESOURCE_URL_ID.match(url)
+    return int(match[1]) if match else None
+
+
 class Rom(BaseModel):
     __tablename__ = "roms"
 
@@ -810,6 +837,8 @@ class Rom(BaseModel):
             "id",
         ),
         Index("idx_roms_platform_fs_size", "platform_id", "fs_size_bytes"),
+        # Covers a platform's age-hidden totals; InnoDB appends `id` for direct hides.
+        Index("idx_roms_platform_min_age", "platform_id", "min_age", "fs_size_bytes"),
         # The remaining gallery sorts, each paired with the `id` tiebreak the
         # gallery orders by; the key alone would not match its ORDER BY.
         Index("idx_roms_platform_id_sorted", "platform_id", "id"),
@@ -1286,26 +1315,21 @@ class Rom(BaseModel):
 
     @cached_property
     def merged_ra_metadata(self) -> dict[str, Any] | None:
-        if self.ra_metadata and "achievements" in self.ra_metadata:
-            # Create a deep copy to avoid mutating the original metadata
-            # This ensures that badge paths remain relative for filesystem operations
-            # while the frontend receives absolute paths
-            metadata_copy = copy.deepcopy(self.ra_metadata)
-            # The provider returns achievements keyed by id, so the stored order
-            # is arbitrary.
-            achievements = sorted(
-                metadata_copy.get("achievements", []), key=_ra_achievement_sort_key
+        if not self.ra_metadata or "achievements" not in self.ra_metadata:
+            return self.ra_metadata
+        # New dicts keep the stored badge paths relative for the filesystem.
+        # The provider keys achievements by id, so the stored order is arbitrary.
+        achievements = [
+            {
+                **achievement,
+                "badge_path_lock": f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path_lock']}",
+                "badge_path": f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path']}",
+            }
+            for achievement in sorted(
+                self.ra_metadata["achievements"], key=_ra_achievement_sort_key
             )
-            for achievement in achievements:
-                achievement["badge_path_lock"] = (
-                    f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path_lock']}"
-                )
-                achievement["badge_path"] = (
-                    f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path']}"
-                )
-            metadata_copy["achievements"] = achievements
-            return metadata_copy
-        return self.ra_metadata
+        ]
+        return {**self.ra_metadata, "achievements": achievements}
 
     # Used only during scan process
     @property

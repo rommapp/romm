@@ -327,6 +327,24 @@ def test_extract_metadata_from_gamelist_rom_includes_sort_name(platform: Platfor
     assert metadata["sort_name"] == "Akumajou Dracula"
 
 
+@pytest.mark.parametrize(("players", "expected"), [(" 1-4 ", "1-4"), ("  ", None)])
+def test_extract_metadata_from_gamelist_rom_trims_player_count(
+    platform: Platform, players: str, expected: str | None
+):
+    game = ET.fromstring(f"""<game>
+  <path>./test-rom.zip</path>
+  <players>{players}</players>
+</game>""")
+
+    with patch(
+        "handler.metadata.gamelist_handler.extract_media_from_gamelist_rom",
+        return_value=MOCK_MEDIA,
+    ):
+        metadata = extract_metadata_from_gamelist_rom(game, platform, {})
+
+    assert metadata["player_count"] == expected
+
+
 def _platform_dir(platform: Platform) -> str:
     return fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
 

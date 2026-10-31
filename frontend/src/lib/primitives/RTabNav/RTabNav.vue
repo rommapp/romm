@@ -2,7 +2,7 @@
 // RTabNav: single component, two visual presentations:
 //   * variant="underlined" (default): horizontal nav with a brand
 //     underline on active. Used for primary tabs and tight subtabs.
-//     The underline is a sliding indicator (parallels RSliderBtnGroup)
+//     The underline is a sliding indicator (parallels RSegmentedControl)
 //     that translates between buttons on `modelValue` change.
 //   * variant="pill": stacked menu-like items with a soft rounded
 //     fill on active. Pairs naturally with `orientation="vertical"`
@@ -18,7 +18,7 @@ import { useResizeObserver } from "@vueuse/core";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useReducedMotion } from "@/composables/useReducedMotion";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
-import RImg from "../../primitives/RImg/RImg.vue";
+import RImage from "../../primitives/RImage/RImage.vue";
 import type { RTabNavItem } from "./types";
 
 // Width of the faded edge, also the margin kept when scrolling a tab into view
@@ -227,7 +227,7 @@ onMounted(async () => {
         :aria-selected="modelValue === t.id"
         @click="$emit('update:modelValue', t.id)"
       >
-        <RImg
+        <RImage
           v-if="t.image"
           :src="t.image"
           alt=""
@@ -398,7 +398,7 @@ onMounted(async () => {
 .r-tab-nav__icon {
   flex-shrink: 0;
 }
-/* Image variant: provider logos / brand marks. RImg owns the inner
+/* Image variant: provider logos / brand marks. RImage owns the inner
    <img>; we round its outer wrapper and ride opacity from "muted at
    rest" to "full saturation on hover/active" so the brand mark stands
    out only when it's the focus of the surface. */
@@ -477,7 +477,7 @@ html[data-input="pad"] .r-tab-nav__btn:focus-visible::before {
 }
 
 /* Sliding underline: sits on the bottom border line, slides between
-   buttons on modelValue change (parallels RSliderBtnGroup's indicator). */
+   buttons on modelValue change (parallels RSegmentedControl's indicator). */
 .r-tab-nav__indicator {
   position: absolute;
   left: 0;

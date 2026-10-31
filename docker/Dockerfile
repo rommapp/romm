@@ -3,7 +3,6 @@
 #   - python-runtime: Patch the Python image's libraries before they ship
 #   - frontend-build: Build frontend
 #   - backend-build: Build backend environment
-#   - backend-dev-build: Similar to `backend-build`, but also compiles and installs development dependencies
 #   - rahasher-build: Build RAHasher
 #   - sigil-build: Build sigil Python bindings (title ID extraction)
 #   - gme-build: Build libgme to WebAssembly (chiptune soundtracks)
@@ -13,8 +12,6 @@
 #   - production-stage: Setup frontend and backend
 #   - slim-image: Slim image with only the necessary files
 #   - full-image: Full image with emulator stage
-#   - dev-slim: Slim image with development dependencies
-#   - dev-full: Full image with emulator stage and development dependencies
 
 
 # ARGUMENT DECLARATIONS
@@ -95,15 +92,9 @@ COPY --from=uv-stage /usr/local/bin/uv /usr/local/bin/uvx /bin/
 WORKDIR /src
 
 COPY ./pyproject.toml ./uv.lock /src/
+# PYTHONDONTWRITEBYTECODE blocks caching at runtime, so ship compiled bytecode.
+ENV UV_COMPILE_BYTECODE=1
 RUN uv sync --frozen --no-cache
-
-FROM backend-build AS backend-dev-build
-
-# linux-headers is needed to install psutil
-RUN apk add --no-cache \
-    linux-headers
-
-RUN uv sync --frozen --no-cache --all-extras
 
 
 # CUSTOM RAHASHER FOR RETROACHIEVEMENTS
@@ -139,18 +130,16 @@ FROM python-alias AS sigil-build
 RUN apk add --no-cache \
     cmake \
     g++ \
-    git \
     make \
     musl-dev
 
 # Keep this pin in sync with the dev image's SIGIL_VERSION in ../Dockerfile.
 ARG SIGIL_VERSION=8a3b0089676e07f74da2d9ad08979dedf5cae7c0
 
-RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git && \
-    cd ./argosy-sigil && \
-    git checkout "${SIGIL_VERSION}" && \
-    git submodule update --init --recursive && \
-    cmake -B ./build-python -S . -DSIGIL_BUILD_CLI=OFF -DSIGIL_BUILD_TESTS=OFF && \
+# checkov:skip=CKV_DOCKER_4:the ADD below is a Git URL pinned to a commit
+ADD "https://github.com/rommapp/argosy-sigil.git#${SIGIL_VERSION}" /argosy-sigil
+WORKDIR /argosy-sigil
+RUN cmake -B ./build-python -S . -DSIGIL_BUILD_CLI=OFF -DSIGIL_BUILD_TESTS=OFF && \
     cmake --build ./build-python --target sigil && \
     pip install --no-cache-dir cffi setuptools && \
     cd ./bindings/python && \
@@ -185,10 +174,10 @@ RUN /romm-gme/build.sh /libgme /gme
 # Keep the version and both sums in sync with the dev image's copy in ../Dockerfile.
 FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rom-converto-fetch
 ARG TARGETARCH
-ARG ROM_CONVERTO_VERSION=v0.23.2
+ARG ROM_CONVERTO_VERSION=v0.24.0
 RUN case "${TARGETARCH}" in \
-        amd64) rc="linux-x64-musl"; sum="734ecccfa77d425c01dc3ba621261389c1c23d23f0e5d6b8e3346fda1879d687" ;; \
-        arm64) rc="linux-arm64-musl"; sum="e90cca392b08b859b79bab13fcd47300ffc613d5dca7da1b4d1e38e3a4bbc297" ;; \
+        amd64) rc="linux-x64-musl"; sum="67964054931f7e74848bfe7b54ff1f0cacdc25596c29e3a79876f76e0f2407a8" ;; \
+        arm64) rc="linux-arm64-musl"; sum="60f9dc0fe7c3e3355c840c5e21c2b65b770b74ba78567aec7a2e5f846b8087ce" ;; \
         *) echo "unsupported TARGETARCH: ${TARGETARCH}" && exit 1 ;; \
     esac && \
     wget -qO /rom-converto \
@@ -277,7 +266,6 @@ FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS nginx-build
 
 RUN apk add --no-cache \
     gcc \
-    git \
     libc-dev \
     make \
     pcre-dev \
@@ -289,23 +277,19 @@ ARG NGINX_VERSION
 # TODO: Move to a tagged release of `mod_zip`, once a version newer than 1.3.0 is released.
 ARG NGINX_MOD_ZIP_COMMIT=a9f9afa441117831cc712a832c98408b3f0416f6
 
-# Clone both `nginx` and `ngx_http_zip_module` repositories, needed to compile the module from source.
-# This is needed to be able to dinamically load it as a module in the final image. `nginx` Docker
-# images do not have a simple way to include third-party modules.
-RUN git clone https://github.com/evanmiller/mod_zip.git && \
-    cd ./mod_zip && \
-    git checkout "${NGINX_MOD_ZIP_COMMIT}" && \
-    cd ../ && \
-    git clone --branch "release-${NGINX_VERSION}" --depth 1 https://github.com/nginx/nginx.git && \
-    cd ./nginx && \
-    ./auto/configure --with-compat --add-dynamic-module=../mod_zip/ && \
+# The module is compiled against the nginx sources so the final image can load it dynamically;
+# `nginx` Docker images do not have a simple way to include third-party modules.
+# checkov:skip=CKV_DOCKER_4:the ADDs below are Git URLs pinned to a commit and a release tag
+ADD "https://github.com/evanmiller/mod_zip.git#${NGINX_MOD_ZIP_COMMIT}" /mod_zip
+ADD "https://github.com/nginx/nginx.git#release-${NGINX_VERSION}" /nginx
+WORKDIR /nginx
+RUN ./auto/configure --with-compat --add-dynamic-module=../mod_zip/ && \
     make -f ./objs/Makefile modules && \
     chmod 644 ./objs/ngx_http_zip_module.so
 
 
 # PRODUCTION STAGE
 FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION}@sha256:${NGINX_SHA256} AS production-stage
-ARG WEBSERVER_FOLDER=/var/www/html
 
 # Alpine backports security fixes to its repo faster than the base image is
 # rebuilt, so the digest pin alone leaves known-vulnerable packages in the image.
@@ -328,21 +312,21 @@ RUN apk upgrade --no-cache && apk add --no-cache \
 ARG PYTHON_VERSION
 COPY --from=python-runtime /usr/lib/* /usr/lib/
 COPY --from=python-runtime /usr/local/bin/* /usr/local/bin/
-COPY --from=python-runtime /usr/local/include/python${PYTHON_VERSION} /usr/local/include/python${PYTHON_VERSION}
 COPY --from=python-runtime /usr/local/lib/libpython* /usr/local/lib/
 COPY --from=python-runtime /usr/local/lib/python${PYTHON_VERSION} /usr/local/lib/python${PYTHON_VERSION}
 
 COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
 COPY --from=rom-converto-fetch /rom-converto /usr/bin/rom-converto
-COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
-COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
+COPY --from=nginx-build /nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
+COPY --from=frontend-build /front/dist /var/www/html
 COPY --from=backend-node-build /backend-node/rom_patcher/node_modules/rom-patcher/rom-patcher-js /backend/utils/rom_patcher/rom-patcher-js
 
-COPY ./frontend/assets ${WEBSERVER_FOLDER}/assets
-COPY --from=gme-build /gme ${WEBSERVER_FOLDER}/assets/gme
-RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
-    ln -sf /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources
+COPY ./frontend/assets /var/www/html/assets
+COPY --from=gme-build /gme /var/www/html/assets/gme
+RUN mkdir -p /var/www/html/assets/romm && \
+    ln -sf /romm/resources /var/www/html/assets/romm/resources
 COPY ./backend /backend
+RUN python3 -m compileall -q /backend
 
 # Setup init script and config files
 COPY ./docker/init_scripts/* /
@@ -358,7 +342,6 @@ COPY ./docker/gunicorn/logging.conf /etc/gunicorn/logging.conf
 RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm && \
     mkdir /romm /redis-data && \
     chown romm:romm /romm /redis-data && \
-    chmod 755 /romm /redis-data && \
     chmod -R a+w /etc/nginx/conf.d && \
     chmod -R a+w /etc/gunicorn
 
@@ -384,7 +367,6 @@ ARG SCREENSCRAPER_DEV_PASSWORD
 ENV SCREENSCRAPER_DEV_ID=${SCREENSCRAPER_DEV_ID}
 ENV SCREENSCRAPER_DEV_PASSWORD=${SCREENSCRAPER_DEV_PASSWORD}
 
-# Security: Set security-focused environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/backend
@@ -403,17 +385,9 @@ CMD ["/init"]
 
 # FULL IMAGE
 FROM slim-image AS full-image
-ARG WEBSERVER_FOLDER=/var/www/html
-COPY --from=emulator-stage /emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
-COPY --from=emulator-stage /ruffle ${WEBSERVER_FOLDER}/assets/ruffle
-COPY --from=emulator-stage /jsdos/dist ${WEBSERVER_FOLDER}/assets/jsdos
-COPY --from=emulator-stage /fake08 ${WEBSERVER_FOLDER}/assets/pico8
-COPY --from=emulator-stage /easyrpg ${WEBSERVER_FOLDER}/assets/easyrpg
+COPY --from=emulator-stage /emulatorjs /var/www/html/assets/emulatorjs
+COPY --from=emulator-stage /ruffle /var/www/html/assets/ruffle
+COPY --from=emulator-stage /jsdos/dist /var/www/html/assets/jsdos
+COPY --from=emulator-stage /fake08 /var/www/html/assets/pico8
+COPY --from=emulator-stage /easyrpg /var/www/html/assets/easyrpg
 
-
-FROM slim-image AS dev-slim
-COPY --from=backend-dev-build /src/.venv /src/.venv
-
-
-FROM full-image AS dev-full
-COPY --from=backend-dev-build /src/.venv /src/.venv

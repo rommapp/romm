@@ -1,11 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import { CONTRAST_TODO_PARAMETERS } from "@/utils/storyA11y";
 import RCard from "./RCard.vue";
 
 const meta: Meta<typeof RCard> = {
   title: "Primitives/RCard",
   component: RCard,
-  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     color: { control: "text" },
     elevation: { control: "number" },

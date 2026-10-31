@@ -11,18 +11,22 @@ from sqlalchemy.exc import IntegrityError
 from tests.factories import make_rom
 
 from config.config_manager import MetadataMediaType
+from endpoints.responses.rom import PROVIDER_METADATA_FIELDS
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.database import db_collection_handler, db_rom_handler
 from handler.database.base_handler import sync_session
 from handler.database.rom_filters import RomFiltersDict
 from handler.filesystem.resources_handler import FSResourcesHandler
 from handler.filesystem.roms_handler import FSRomsHandler
+from handler.metadata.csdb_handler import CsdbHandler
+from handler.metadata.demozoo_handler import DemozooHandler
 from handler.metadata.flashpoint_handler import FlashpointHandler, FlashpointRom
 from handler.metadata.hltb_handler import HLTBHandler, HLTBRom
 from handler.metadata.igdb_handler import IGDBHandler, IGDBRom
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.launchbox_handler.types import LaunchboxRom
 from handler.metadata.moby_handler import MobyGamesHandler, MobyGamesRom
+from handler.metadata.pouet_handler import PouetHandler
 from handler.metadata.ra_handler import RAGameRom, RAHandler
 from handler.metadata.ss_handler import SSHandler, SSRom
 from handler.metadata.steam_handler import SteamHandler, SteamRom
@@ -37,6 +41,7 @@ from models.rom import (
     compute_name_sort_key,
 )
 from models.user import User
+from utils.validation import ValidationError
 
 MOCK_IGDB_ID = 11111
 MOCK_MOBY_ID = 22222
@@ -443,6 +448,30 @@ def test_get_roms_keeps_total_from_the_rom_id_index(
     assert body["rom_id_index"] == [rom.id]
 
 
+def test_get_roms_without_provider_metadata(
+    client: TestClient, access_token: str, platform: Platform
+) -> None:
+    make_rom(
+        platform,
+        "test_rom",
+        igdb_metadata={"alternative_names": ["Test Rom Alt"]},
+        ra_metadata={"achievements": [], "hash_match": True},
+        manual_metadata={"genres": ["Puzzle"]},
+    )
+    headers = {"Authorization": f"Bearer {access_token}"}
+    params = {"platform_id": platform.id}
+
+    (item,) = client.get(
+        "/api/roms", headers=headers, params={**params, "with_provider_metadata": False}
+    ).json()["items"]
+    assert all(item[field] is None for field in PROVIDER_METADATA_FIELDS)
+    assert item["manual_metadata"] == {"genres": ["Puzzle"]}
+    assert item["alternative_names"] == ["Test Rom Alt"]
+
+    (default,) = client.get("/api/roms", headers=headers, params=params).json()["items"]
+    assert default["igdb_metadata"] and default["merged_ra_metadata"]
+
+
 def test_get_roms_sorted_by_user_field_keeps_all_roms(
     client: TestClient,
     access_token: str,
@@ -665,6 +694,27 @@ def test_get_roms_filter_values_are_never_null(
     assert_filter_values_are_lists(filter_values)
     assert filter_values["genres"] == []
     assert filter_values["platforms"] == ([platform.id] if with_filter_values else [])
+
+
+def test_get_roms_reads_names_from_metadata_objects(
+    client: TestClient, access_token: str, rom: Rom, platform: Platform
+) -> None:
+    db_rom_handler.update_rom(
+        rom.id,
+        {"igdb_metadata": {"genres": [{"id": 12, "name": "RPG"}, " Action "]}},
+    )
+
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "with_filter_values": True},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["items"][0]["igdb_metadata"]["genres"] == ["RPG", "Action"]
+    assert body["items"][0]["metadatum"]["genres"] == ["Action", "RPG"]
+    assert body["filter_values"]["genres"] == ["Action", "RPG"]
 
 
 def test_get_rom_filters_are_never_null(
@@ -1072,6 +1122,56 @@ def test_update_rom_rejects_malformed_manual_metadata(
 
 @patch.object(FSRomsHandler, "rename_fs_rom")
 @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_stores_names_from_raw_metadata_objects(
+    _get_rom_by_id_mock: AsyncMock,
+    _rename_fs_rom_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    raw_igdb_metadata = {
+        "genres": [{"id": 12, "name": "RPG"}, " Action "],
+        "youtube_video_id": "dQw4w9WgXcQ",
+    }
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={
+            "igdb_id": str(MOCK_IGDB_ID),
+            "raw_igdb_metadata": json.dumps(raw_igdb_metadata),
+        },
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    stored = db_rom_handler.get_rom(rom.id)
+    assert stored is not None
+    assert stored.igdb_metadata == {
+        "genres": ["RPG", "Action"],
+        "youtube_video_id": "dQw4w9WgXcQ",
+    }
+
+
+@pytest.mark.parametrize("form_key", ["raw_igdb_metadata", "raw_manual_metadata"])
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_rejects_raw_metadata_that_is_not_an_object(
+    _get_rom_by_id_mock: AsyncMock,
+    _rename_fs_rom_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    form_key: str,
+):
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"igdb_id": str(MOCK_IGDB_ID), form_key: '["RPG"]'},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
 def test_update_rom_rejects_fs_name_over_255_bytes(
     _get_rom_by_id_mock: AsyncMock,
     rename_fs_rom_mock: AsyncMock,
@@ -1249,6 +1349,82 @@ def test_update_rom_redownloads_screenshots_when_their_order_changes(
     screenshot_call = get_rom_screenshots_mock.await_args
     assert screenshot_call is not None
     assert screenshot_call.kwargs["overwrite"] is expected
+
+
+@patch.object(FSResourcesHandler, "remove_screenshots_past", new_callable=AsyncMock)
+@patch.object(
+    FSResourcesHandler,
+    "get_rom_screenshots",
+    new_callable=AsyncMock,
+    return_value=["roms/1/1/screenshots/0.jpg"],
+)
+@patch.object(
+    IGDBHandler,
+    "get_rom_by_id",
+    return_value=IGDBRom(igdb_id=MOCK_IGDB_ID, url_screenshots=["http://x/a.jpg"]),
+)
+def test_update_rom_prunes_screenshots_after_saving_their_paths(
+    _get_rom_by_id_mock: AsyncMock,
+    _get_rom_screenshots_mock: AsyncMock,
+    remove_screenshots_past_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    saved: list[list[str] | None] = []
+
+    async def prune(pruned_rom: Rom, _count: int) -> None:
+        stored = db_rom_handler.get_rom(pruned_rom.id)
+        assert stored is not None
+        saved.append(stored.path_screenshots)
+
+    remove_screenshots_past_mock.side_effect = prune
+
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"igdb_id": str(MOCK_IGDB_ID)},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert saved == [["roms/1/1/screenshots/0.jpg"]]
+    call = remove_screenshots_past_mock.await_args
+    assert call is not None
+    assert call.args[1] == 1
+
+
+@patch.object(FSResourcesHandler, "remove_screenshots_past", new_callable=AsyncMock)
+@patch.object(
+    FSResourcesHandler,
+    "get_cover",
+    new_callable=AsyncMock,
+    side_effect=ValidationError("Invalid URL"),
+)
+@patch.object(
+    FSResourcesHandler, "get_rom_screenshots", new_callable=AsyncMock, return_value=[]
+)
+@patch.object(
+    IGDBHandler,
+    "get_rom_by_id",
+    return_value=IGDBRom(igdb_id=MOCK_IGDB_ID, url_screenshots=["http://x/a.jpg"]),
+)
+def test_update_rom_keeps_screenshots_when_the_save_is_refused(
+    _get_rom_by_id_mock: AsyncMock,
+    _get_rom_screenshots_mock: AsyncMock,
+    _get_cover_mock: AsyncMock,
+    remove_screenshots_past_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"igdb_id": str(MOCK_IGDB_ID), "url_cover": "http://x/cover.png"},
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    remove_screenshots_past_mock.assert_not_awaited()
 
 
 # Minimal valid PNG (1x1 transparent pixel)
@@ -2613,6 +2789,192 @@ class TestUpdateMetadataIDs:
         body = response.json()
         assert body["steam_id"] is None
         assert body["steam_metadata"] == {}
+
+
+# (id field, handler, form value, id the handler receives and the row stores)
+REFETCH_CASES: list[tuple[str, type, str, int | str]] = [
+    ("flashpoint_id", FlashpointHandler, "fp-game", "fp-game"),
+    ("launchbox_id", LaunchboxHandler, "11", 11),
+    ("ra_id", RAHandler, "12", 12),
+    ("moby_id", MobyGamesHandler, "13", 13),
+    ("ss_id", SSHandler, "14", 14),
+    ("steam_id", SteamHandler, "15", 15),
+    ("igdb_id", IGDBHandler, "16", 16),
+    ("demozoo_id", DemozooHandler, "17", 17),
+    ("pouet_id", PouetHandler, "18", 18),
+    ("csdb_id", CsdbHandler, "19", 19),
+    ("hltb_id", HLTBHandler, "20", 20),
+]
+
+
+def _metadata_field(id_field: str) -> str:
+    return id_field.removesuffix("_id") + "_metadata"
+
+
+class TestUpdateRomProviderRefetch:
+    @pytest.mark.parametrize(
+        ("id_field", "handler", "form_value", "stored_id"), REFETCH_CASES
+    )
+    def test_a_changed_id_refetches_that_provider(
+        self,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+        id_field: str,
+        handler: type,
+        form_value: str,
+        stored_id: int | str,
+    ):
+        metadata_field = _metadata_field(id_field)
+        with patch.object(
+            handler,
+            "get_rom_by_id",
+            return_value={
+                id_field: stored_id,
+                metadata_field: {"marker": id_field},
+                "summary": f"from {id_field}",
+            },
+        ) as get_rom_by_id:
+            response = client.put(
+                f"/api/roms/{rom.id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+                data={id_field: form_value},
+            )
+        assert response.status_code == status.HTTP_200_OK
+
+        get_rom_by_id.assert_awaited_once()
+        call = get_rom_by_id.await_args
+        assert call is not None
+        assert stored_id in (*call.args, *call.kwargs.values())
+        refreshed = db_rom_handler.get_rom(rom.id)
+        assert refreshed is not None
+        assert getattr(refreshed, id_field) == stored_id
+        assert getattr(refreshed, metadata_field)["marker"] == id_field
+        assert refreshed.summary == f"from {id_field}"
+
+    @pytest.mark.parametrize(
+        ("id_field", "handler", "form_value", "stored_id"), REFETCH_CASES
+    )
+    def test_a_cleared_id_drops_that_providers_metadata(
+        self,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+        id_field: str,
+        handler: type,
+        form_value: str,
+        stored_id: int | str,
+    ):
+        metadata_field = _metadata_field(id_field)
+        db_rom_handler.update_rom(
+            rom.id, {id_field: stored_id, metadata_field: {"marker": id_field}}
+        )
+        with patch.object(handler, "get_rom_by_id") as get_rom_by_id:
+            response = client.put(
+                f"/api/roms/{rom.id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+                data={id_field: ""},
+            )
+        assert response.status_code == status.HTTP_200_OK
+
+        get_rom_by_id.assert_not_called()
+        refreshed = db_rom_handler.get_rom(rom.id)
+        assert refreshed is not None
+        assert getattr(refreshed, id_field) is None
+        assert getattr(refreshed, metadata_field) == {}
+
+    @pytest.mark.parametrize(
+        ("id_field", "handler", "form_value", "stored_id"), REFETCH_CASES
+    )
+    def test_an_unchanged_id_is_not_refetched(
+        self,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+        id_field: str,
+        handler: type,
+        form_value: str,
+        stored_id: int | str,
+    ):
+        db_rom_handler.update_rom(rom.id, {id_field: stored_id})
+        with patch.object(handler, "get_rom_by_id") as get_rom_by_id:
+            response = client.put(
+                f"/api/roms/{rom.id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+                data={id_field: form_value},
+            )
+        assert response.status_code == status.HTTP_200_OK
+        get_rom_by_id.assert_not_called()
+
+    @patch.object(
+        IGDBHandler,
+        "get_rom_by_id",
+        return_value={"igdb_id": 16, "summary": "from IGDB"},
+    )
+    @patch.object(
+        MobyGamesHandler,
+        "get_rom_by_id",
+        return_value={"moby_id": 13, "summary": "from MobyGames"},
+    )
+    def test_a_later_provider_wins_a_shared_field(
+        self,
+        _moby_mock: AsyncMock,
+        _igdb_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """IGDB refetches after MobyGames, so its summary is the one kept."""
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"moby_id": "13", "igdb_id": "16"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["summary"] == "from IGDB"
+
+    @pytest.mark.parametrize(
+        ("id_field", "handler", "form_value", "stored_id"),
+        # RetroAchievements takes no raw metadata from the form.
+        [
+            *(case for case in REFETCH_CASES if case[0] != "ra_id"),
+            ("hasheous_id", None, "21", 21),
+        ],
+    )
+    def test_raw_metadata_is_stored_when_the_refetch_misses(
+        self,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+        id_field: str,
+        handler: type | None,
+        form_value: str,
+        stored_id: int | str,
+    ):
+        metadata_field = _metadata_field(id_field)
+        data = {
+            id_field: form_value,
+            f"raw_{metadata_field}": json.dumps({"marker": "raw"}),
+        }
+        if handler is None:
+            response = client.put(
+                f"/api/roms/{rom.id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+                data=data,
+            )
+        else:
+            with patch.object(handler, "get_rom_by_id", return_value={}):
+                response = client.put(
+                    f"/api/roms/{rom.id}",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    data=data,
+                )
+        assert response.status_code == status.HTTP_200_OK
+
+        refreshed = db_rom_handler.get_rom(rom.id)
+        assert refreshed is not None
+        assert getattr(refreshed, id_field) == stored_id
+        assert getattr(refreshed, metadata_field)["marker"] == "raw"
 
 
 class TestUpdateRawMetadata:

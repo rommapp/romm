@@ -93,7 +93,7 @@
   "memory-card-erase-keyword": "ERASE",
   "memory-card-hint": "La tarjeta más reciente se carga de forma predeterminada. El progreso se sincroniza al salir.",
   "memory-card-import-adopt": "Importar esta tarjeta",
-  "memory-card-import-body": "Este contenedor ya tiene una tarjeta de memoria con {count} archivo(s) de guardado. ¿Quieres importarla a tu biblioteca o empezar con una tarjeta nueva?",
+  "memory-card-import-body": "Este contenedor ya tiene una tarjeta de memoria con {count} archivo de guardado. ¿Quieres importarla a tu biblioteca o empezar con una tarjeta nueva? | Este contenedor ya tiene una tarjeta de memoria con {count} archivos de guardado. ¿Quieres importarla a tu biblioteca o empezar con una tarjeta nueva?",
   "memory-card-import-discard": "Empezar de cero",
   "memory-card-import-discard-body": "La tarjeta de memoria de este contenedor se borrará. Nada de lo guardado en ella se podrá recuperar.",
   "memory-card-import-discard-confirm": "Borrar y empezar de cero",

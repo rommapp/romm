@@ -167,6 +167,8 @@ let pasteRequest = 0;
 let reading: { url: string; done: Promise<void> } | null = null;
 const parsedUrl = ref("");
 const URL_LIKE = /^[a-z][\w+.-]*:\/\/\S+$/i;
+// Apprise's own URLs never use http(s), so these are a service's own.
+const NATIVE_URL = /^https?:\/\//i;
 
 function clearPaste() {
   pasteRequest++;
@@ -263,9 +265,10 @@ async function readUrl(url: string) {
       });
       return;
     }
-    // What's typed beside a service's own URL (a Discord bot name) stays.
+    // What's typed beside a service's own URL (a Discord bot name) stays; an
+    // Apprise URL carries every option, so the defaults it omits (ntfy's mode) win.
     const typed =
-      found.id === service.value?.id && found.url_fields.length > 0
+      found.id === service.value?.id && NATIVE_URL.test(url)
         ? Object.fromEntries(
             Object.entries(appriseValues.value).filter(
               ([key]) => !found.url_fields.includes(key),

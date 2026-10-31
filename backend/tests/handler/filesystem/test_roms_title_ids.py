@@ -10,7 +10,8 @@ from adapters.services.rom_converto import RomConvertoInfo, rom_converto_service
 from adapters.services.sigil import SigilExtractionResult
 from config.config_manager import Config, ConvertoConfig
 from handler.filesystem.roms_handler import FSRom, FSRomsHandler, _rom_level_identity
-from handler.scan_handler import ScanType, scan_rom
+from handler.scan.sources import ScanType
+from handler.scan_handler import scan_rom
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomIdentity, SaveTargetLayout
 from utils import switch

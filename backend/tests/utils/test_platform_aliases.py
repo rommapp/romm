@@ -51,10 +51,48 @@ def test_folder_without_alias_passes_through():
     assert resolve_platform_slug("my-custom-folder", config) == "my-custom-folder"
 
 
+def test_resolves_zc_folders_to_zelda_classic():
+    """zc210 (Batocera/libretro 2.10) and zc250 (2.50) both map to Zelda Classic."""
+    assert resolve_platform_slug("zc210", _config()) == UPS.ZELDA_CLASSIC.value
+    assert resolve_platform_slug("zc250", _config()) == UPS.ZELDA_CLASSIC.value
+    # Two folder names map here, so no single reverse folder is canonical.
+    assert resolve_fs_slug(UPS.ZELDA_CLASSIC.value, _config()) is None
+
+
 def test_resolves_easyrpg_to_rpg_maker():
     """Batocera, RetroBat and ES-DE all name the RPG Maker folder after the engine."""
     assert resolve_platform_slug("easyrpg", _config()) == UPS.RPG_MAKER.value
     assert resolve_fs_slug(UPS.RPG_MAKER.value, _config()) == "easyrpg"
+
+
+@pytest.mark.parametrize(
+    ("folder", "slug"),
+    [
+        ("mame", UPS.MAME),
+        ("fbneo", UPS.FBNEO),
+        ("naomi", UPS.NAOMI),
+        ("lindbergh", UPS.LINDBERGH),
+        ("laserdisc", UPS.DAPHNE),
+        ("cps2", UPS.ARCADE),
+        ("system16", UPS.ARCADE),
+        ("model1", UPS.ARCADE),
+        ("namco22", UPS.ARCADE),
+        ("system-32", UPS.ARCADE),
+        ("typex", UPS.TYPE_X),
+        ("teknoparrot", UPS.TEKNOPARROT),
+    ],
+)
+def test_arcade_folders_resolve_by_emulator(folder: str, slug: UPS):
+    """Emulator families and boards with their own emulator keep a slug; MAME-only boards are Arcade."""
+    assert resolve_platform_slug(folder, _config()) == slug.value
+
+
+def test_a_binding_to_an_alias_resolves_to_its_platform():
+    config = _config(bindings={"capcom": "cps2"}, versions={"sega": "Mastersystem"})
+
+    assert resolve_platform_slug("capcom", config) == UPS.ARCADE.value
+    assert resolve_platform_slug("sega", config) == UPS.SMS.value
+    assert resolve_fs_slug(UPS.SMS.value, config) == "sega"
 
 
 def test_binding_and_version_win_over_alias():

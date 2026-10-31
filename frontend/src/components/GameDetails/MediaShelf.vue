@@ -1,16 +1,19 @@
 <script setup lang="ts">
 // MediaShelf: mixed-shape art (a box spine next to a 16:9 screenshot) on a
 // shared baseline, each asset keeping its own proportions.
-import { computed, ref } from "vue";
+import { computed, reactive, ref, type VNode } from "vue";
 import { useI18n } from "vue-i18n";
 import MediaPinBtn from "@/components/GameDetails/MediaPinBtn.vue";
 import { RCarousel, RIcon } from "@/lib";
+import { claimMedia, releaseMedia } from "@/utils/releaseMedia";
 
 export type MediaShelfItem = {
   key: string;
   label: string;
   url: string;
   isVideo?: boolean;
+  /** Still shown in a clip's box until it plays. */
+  poster?: string;
 };
 
 defineOptions({ inheritAttrs: false });
@@ -41,6 +44,29 @@ function openImage(item: MediaShelfItem) {
 function close() {
   lightboxOpen.value = false;
 }
+
+// A clip left attached keeps its download open after the card is gone.
+function releaseVideo(vnode: VNode) {
+  releaseMedia(vnode.el as HTMLMediaElement);
+}
+
+// A clip released for another one gets a fresh <video>: poster back, and it
+// plays on demand without refetching in the meantime.
+const resets = reactive(new Map<string, number>());
+
+// Freeze the box at its pre-play (poster) shape: the clip's own shape arrives
+// with its metadata and would resize the row; another shape letterboxes.
+function onClipPlay(event: Event, key: string) {
+  const video = event.target as HTMLVideoElement;
+  claimMedia(video, () => resets.set(key, (resets.get(key) ?? 0) + 1));
+  if (video.style.aspectRatio) return;
+  const { width, height } = video.getBoundingClientRect();
+  // A width held at max-width is the cap, not the poster's shape.
+  const capped = width >= parseFloat(getComputedStyle(video).maxWidth) - 0.5;
+  if (width && height && !capped) {
+    video.style.aspectRatio = `${width} / ${height}`;
+  }
+}
 </script>
 
 <template>
@@ -61,10 +87,14 @@ function close() {
           <!-- eslint-disable-next-line vuejs-accessibility/media-has-caption -->
           <video
             v-if="item.isVideo"
+            :key="`${item.key}:${resets.get(item.key) ?? 0}`"
             class="r-media-shelf__media r-media-shelf__media--video"
             :src="item.url"
+            :poster="item.poster"
             controls
-            preload="metadata"
+            preload="none"
+            @play="onClipPlay($event, item.key)"
+            @vue:before-unmount="releaseVideo"
           />
           <button
             v-else
@@ -179,10 +209,11 @@ function close() {
     filter var(--r-motion-med) var(--r-motion-ease-out);
 }
 
-/* Free width tracks the clip's ratio once metadata lands; the backing only
-   covers the wait before then. */
+/* The poster's shape before play (4:3 without one), frozen on play by
+   onClipPlay; the backing shows until the poster or first frame paints. */
 .r-media-shelf__media--video {
   height: var(--art-h);
+  aspect-ratio: auto 4 / 3;
   background: var(--r-color-cover-placeholder);
 }
 

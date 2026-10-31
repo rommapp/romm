@@ -20,7 +20,7 @@ import NowPlayingPill from "@/components/Soundtrack/NowPlayingPill.vue";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import { useNavDestinations } from "@/composables/useNavDestinations";
 import { useNavGlass } from "@/composables/useNavGlass";
-import { RSliderBtnGroup, RImg } from "@/lib";
+import { RSegmentedControl, RImage } from "@/lib";
 
 defineOptions({ inheritAttrs: false });
 
@@ -54,14 +54,14 @@ const scrolled = computed(
   >
     <nav class="r-nav">
       <router-link to="/" class="r-nav__logo" :aria-label="t('common.home')">
-        <RImg
+        <RImage
           src="/assets/isotipo.svg"
           alt="RomM isotipo"
           aria-hidden="true"
           class="r-nav__logo-mark"
           :width="32"
         />
-        <RImg
+        <RImage
           src="/assets/logotipo.svg"
           alt="RomM logotipo"
           aria-hidden="true"
@@ -71,7 +71,7 @@ const scrolled = computed(
       </router-link>
 
       <div class="r-nav__center">
-        <RSliderBtnGroup
+        <RSegmentedControl
           :model-value="activeTab"
           :items="tabs"
           variant="tab"
@@ -152,7 +152,10 @@ const scrolled = computed(
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  padding: 0 var(--r-row-pad);
+  /* The bar stops short of a gallery's scrollbar; the right pad gives that
+     width back so the pill and user menu hold still across routes. */
+  padding: 0 max(0px, var(--r-row-pad) - var(--r-shell-scrollbar-w, 0px)) 0
+    var(--r-row-pad);
   gap: 0;
 }
 

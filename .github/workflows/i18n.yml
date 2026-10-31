@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "frontend/src/locales/**/*.json"
+      - "frontend/src/locales/*.py"
 
 # A new push cancels a PR's superseded run; each master commit keeps its own.
 concurrency:
@@ -30,9 +31,12 @@ jobs:
       - name: Install python
         run: uv python install
 
-      # Both checks are stdlib-only, so skip resolving the backend project.
+      # The checks and their tests are stdlib-only, so skip resolving the backend project.
       - name: Run localization check
         run: uv run --no-project python frontend/src/locales/check_i18n_locales.py
 
       - name: Check locale files are sorted
         run: uv run --no-project python frontend/src/locales/check_i18n_sorted.py
+
+      - name: Test the localization checks
+        run: uv run --no-project python -B -m unittest discover -s frontend/src/locales -p "test_*.py"

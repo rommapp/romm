@@ -34,7 +34,8 @@ describe("useUISettings", () => {
     });
 
     authStore.setCurrentUser(userWith(1, { theme: "dark" }));
-    const { theme } = useUISettings();
+    const { theme, similarGamesSource } = useUISettings();
+    expect(similarGamesSource.value).toBe("romm");
     await nextTick();
     vi.runAllTimers();
     expect(theme.value).toBe("dark");
@@ -42,13 +43,31 @@ describe("useUISettings", () => {
     authStore.setCurrentUser(null);
     await nextTick();
     localStorage.setItem("user:2:settings.theme", "dark");
-    authStore.setCurrentUser(userWith(2, { theme: "light" }));
+    authStore.setCurrentUser(
+      userWith(2, { theme: "light", similarGamesSource: "igdb" }),
+    );
     await nextTick();
     vi.runAllTimers();
     await nextTick();
 
     expect(theme.value).toBe("light");
+    expect(similarGamesSource.value).toBe("igdb");
+    expect(localStorage.getItem("user:2:settings.similarGamesSource")).toBe(
+      "igdb",
+    );
     expect(localStorage.getItem("user:1:settings.theme")).toBe("dark");
     expect(updateUser).not.toHaveBeenCalled();
+
+    updateUser.mockResolvedValue({
+      data: userWith(2, { similarGamesSource: "romm" }),
+    });
+    similarGamesSource.value = "romm";
+    await nextTick();
+    expect(updateUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 2,
+        ui_settings: expect.stringContaining('"similarGamesSource":"romm"'),
+      }),
+    );
   });
 });

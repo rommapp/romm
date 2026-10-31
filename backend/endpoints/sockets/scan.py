@@ -19,7 +19,6 @@ from sqlalchemy.exc import IntegrityError
 
 from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
 from config import DEV_MODE, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
-from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from endpoints.responses.platform import PlatformSchema
 from endpoints.sockets.activity import get_authenticated_user
@@ -45,7 +44,6 @@ from handler.database import (
 from handler.filesystem import (
     fs_firmware_handler,
     fs_platform_handler,
-    fs_resource_handler,
     fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom, ParsedRomFiles
@@ -70,14 +68,18 @@ from handler.redis_handler import (
     scan_queue,
 )
 from handler.rom_files import loaded_rom_files, refresh_rom_files
-from handler.scan_handler import (
+from handler.scan.merge import fs_rom_file_attrs
+from handler.scan.sources import (
+    RESCAN_RULES,
     MetadataSource,
     ScanType,
+    get_enabled_metadata_sources,
+    should_consult,
+)
+from handler.scan_handler import (
     build_hashless_fs_rom,
     download_rom_resources,
     emit_scanning_rom,
-    fs_rom_file_attrs,
-    get_enabled_metadata_sources,
     persist_soundtrack_cover,
     scan_firmware,
     scan_platform,
@@ -374,6 +376,7 @@ async def _identify_firmware(
 
 def should_scan_rom(
     scan_type: ScanType,
+    platform: Platform,
     rom: Rom | None,
     roms_ids: list[int],
     metadata_sources: list[str],
@@ -382,6 +385,7 @@ def should_scan_rom(
 
     Args:
         scan_type (ScanType): Type of scan to be performed.
+        platform (Platform): The platform the rom belongs to.
         rom (Rom | None): The rom to be scanned.
         roms_ids (list[int]): List of selected roms to be scanned.
         metadata_sources (list[str]): List of metadata sources to be used.
@@ -401,26 +405,21 @@ def should_scan_rom(
         or (scan_type == ScanType.COMPLETE)
         # Hashes rescan should scan all roms to update the hashes
         or (scan_type == ScanType.HASHES)
+        # Update and unmatched scans only pick a rom some selected source will refresh
         or (
             rom
-            and (
-                # Update scan should scan ROMs identified by the selected metadata sources
-                (
-                    scan_type == ScanType.UPDATE
-                    and rom.is_identified
-                    and any(
-                        getattr(rom, f"{source}_id", None)
-                        for source in metadata_sources
-                    )
+            and scan_type in (ScanType.UPDATE, ScanType.UNMATCHED)
+            and any(
+                should_consult(
+                    MetadataSource(source),
+                    scan_type=scan_type,
+                    rom=rom,
+                    platform=platform,
+                    newly_added=False,
+                    metadata_sources=metadata_sources,
                 )
-                # Unmatched scan should scan ROMs that are not identified by the selected metadata sources
-                or (
-                    scan_type == ScanType.UNMATCHED
-                    and any(
-                        not getattr(rom, f"{source}_id", None)
-                        for source in metadata_sources
-                    )
-                )
+                for source in metadata_sources
+                if source in RESCAN_RULES
             )
         )
     )
@@ -760,36 +759,6 @@ async def _identify_rom(
         # Keep the in-memory rom's name matching the renamed file.
         rom.fs_name = fs_rom["fs_name"]
 
-    # For a COMPLETE rescan, wipe all downloaded resources before re-fetching so
-    # stale files (e.g. a cover from the wrong region) can't be reused. The
-    # post-scan download steps below skip downloads when a file already exists or
-    # when the source URL is unchanged, so the on-disk files must be removed here.
-    if not newly_added and scan_type == ScanType.COMPLETE:
-        try:
-            await fs_resource_handler.remove_cover(rom)
-        except FileNotFoundError:
-            pass
-
-        try:
-            await fs_resource_handler.remove_manual(rom)
-        except FileNotFoundError:
-            pass
-
-        try:
-            await fs_resource_handler.remove_directory(
-                f"{rom.fs_resources_path}/screenshots"
-            )
-        except FileNotFoundError:
-            pass
-
-        for media_type in MetadataMediaType:
-            try:
-                await fs_resource_handler.remove_media_resources_path(
-                    platform.id, rom.id, media_type
-                )
-            except FileNotFoundError:
-                pass
-
     log.debug(f"Scanning {rom.fs_name}...")
     scanned_rom = await scan_rom(
         scan_type=scan_type,
@@ -1103,6 +1072,7 @@ async def _identify_platform(
                 restored_roms.append(rom)
             if should_scan_rom(
                 scan_type=scan_type,
+                platform=platform,
                 rom=rom,
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
