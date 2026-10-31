@@ -649,8 +649,8 @@ class TestUserProgression:
     ):
         completion.append(_completion(42))
         previous = await handler.get_user_progression("me")
-        for earned in previous["results"][0]["earned_achievements"]:
-            del earned["ra_id"]
+        for entry in previous["results"][0]["earned_achievements"]:
+            del entry["ra_id"]
         game_progress.reset_mock()
 
         progression = await handler.get_user_progression("me", previous)
