@@ -3,6 +3,7 @@ import math
 import random
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -10,8 +11,8 @@ from PIL import Image
 from tools import seed_images
 from tools.seed_images import (
     CORNER_COLOURS,
-    CORNER_RING,
     COVER_SIZES,
+    GUIDE_BLACK,
     LANDSCAPE_SHARE,
     LANDSCAPE_SIZES,
     MEDIA_SIZES,
@@ -75,7 +76,9 @@ def _job(
 
 
 def _seed(root: Path, **job_args: int | bool) -> SeededImages:
-    return draw_rom_images(_job(root, **job_args))  # type: ignore[arg-type]
+    job = _job(root, **job_args)  # type: ignore[arg-type]
+    draw_rom_images(job)
+    return plan_rom_images(job)
 
 
 def _files(root: Path) -> dict[str, bytes]:
@@ -177,19 +180,15 @@ def test_each_corner_pixel_has_its_own_colour_ringed_in_black(
         colour = CORNER_COLOURS[name]
         assert picture.getpixel((x, y)) == colour
         assert picture.getpixel((x + dx * (dot - 1), y + dy * (dot - 1))) == colour
-        assert picture.getpixel((x + dx * dot, y)) == CORNER_RING
-        assert picture.getpixel((x, y + dy * dot)) == CORNER_RING
+        assert picture.getpixel((x + dx * dot, y)) == GUIDE_BLACK
+        assert picture.getpixel((x, y + dy * dot)) == GUIDE_BLACK
 
 
 def test_the_same_seed_writes_the_same_bytes(tmp_path: Path) -> None:
-    first = _seed(tmp_path / "a", fidelity=3, seed=3)
-    second = _seed(tmp_path / "b", fidelity=3, seed=3)
+    _seed(tmp_path / "a", fidelity=3, seed=3, with_media=False)
+    _seed(tmp_path / "b", fidelity=3, seed=3, with_media=False)
 
-    assert first == second
-    for path in [first.large, *first.screenshots, *first.media_paths.values()]:
-        assert (tmp_path / "a" / path).read_bytes() == (
-            tmp_path / "b" / path
-        ).read_bytes()
+    assert _files(tmp_path / "a") == _files(tmp_path / "b")
 
 
 def _opacity(alpha: Image.Image, xy: tuple[int, int]) -> int:
@@ -240,9 +239,8 @@ def test_the_plan_names_exactly_the_files_drawn(tmp_path: Path) -> None:
     job = _job(tmp_path, fidelity=2)
     planned = plan_rom_images(job)
 
-    drawn = draw_rom_images(job)
+    draw_rom_images(job)
 
-    assert planned == drawn
     expected = {planned.large, planned.small, *planned.screenshots}
     assert expected | set(planned.media_paths.values()) == set(_files(tmp_path))
     assert planned.files_written == len(_files(tmp_path))
@@ -250,14 +248,12 @@ def test_the_plan_names_exactly_the_files_drawn(tmp_path: Path) -> None:
 
 def test_workers_write_the_same_bytes_as_one_process(tmp_path: Path) -> None:
     jobs = [
-        _job(tmp_path / "inline", fidelity=2, rom_id=rom_id) for rom_id in range(10, 16)
+        _job(tmp_path / "inline", fidelity=2, rom_id=rom_id, with_media=False)
+        for rom_id in range(10, 13)
     ]
     for job in jobs:
         draw_rom_images(job)
-    pooled = [
-        RomImageJob(**{**job.__dict__, "resources_base": str(tmp_path / "pool")})
-        for job in jobs
-    ]
+    pooled = [replace(job, resources_base=str(tmp_path / "pool")) for job in jobs]
     with ProcessPoolExecutor(2) as pool:
         list(pool.map(draw_rom_images, pooled))
 

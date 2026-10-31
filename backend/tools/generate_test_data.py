@@ -40,7 +40,6 @@ from sqlalchemy.pool import ConnectionPoolEntry  # noqa: E402
 from tools.seed_images import (  # noqa: E402
     RomCaption,
     RomImageJob,
-    SeededImages,
     draw_rom_images,
     plan_rom_images,
     rom_fidelity,
@@ -1111,7 +1110,7 @@ def main() -> int:
         if args.images and args.image_fidelity > 1 and args.image_workers > 1
         else None
     )
-    drawing: Iterator[SeededImages] = iter(())
+    drawing: Iterator[None] = iter(())
     for batch_start in range(0, args.roms, args.batch_size):
         batch_end = min(batch_start + args.batch_size, args.roms)
         image_jobs: list[RomImageJob] = []
@@ -1175,8 +1174,7 @@ def main() -> int:
             if not is_sibling and igdb_id is not None:
                 sibling_seed[platform["id"]] = {"igdb_id": igdb_id, "facts": f}
 
-            # Image files land in the resources tree and the path columns point at them.
-            # Drawn whatever the image flags, so they never shift the rows.
+            # n_shots is drawn even without images, so the image flags never shift the rows.
             n_shots = rng.randint(0, 4)
             media_paths: dict[str, str] = {}
             with_images = args.images and (
@@ -1534,15 +1532,14 @@ def main() -> int:
                         }
                     )
 
-        if image_pool is not None:
-            # This batch draws while the next one is built; list() waits for the
-            # previous batch and re-raises any worker's error.
-            previous = drawing
-            drawing = image_pool.map(draw_rom_images, image_jobs, chunksize=4)
-            list(previous)
-        else:
-            for job in image_jobs:
-                draw_rom_images(job)
+        # A pool draws this batch while the next one is built; list() waits for the
+        # previous batch and re-raises any worker's error.
+        previous, drawing = drawing, (
+            image_pool.map(draw_rom_images, image_jobs, chunksize=4)
+            if image_pool is not None
+            else map(draw_rom_images, image_jobs)
+        )
+        list(previous)
 
         if not args.dry_run:
             with sync_engine.begin() as conn:

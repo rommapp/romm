@@ -12,6 +12,7 @@ from PIL import Image, ImageDraw, ImageFont
 from config.config_manager import MetadataMediaType
 from handler.filesystem import fs_resource_handler
 from handler.filesystem.base_handler import CoverSize
+from handler.filesystem.resources_handler import small_cover_size
 from models.rom import rom_fs_resources_path
 
 # Large-cover sizes and how often each appears: the 16 most common of 134 sizes
@@ -82,7 +83,6 @@ CORNER_COLOURS: Final[dict[str, tuple[int, int, int]]] = {
 }
 # Guides (circle, cross, ticks, boxes, corners, stats) are pure black on every rom.
 GUIDE_BLACK: Final = (0, 0, 0)
-CORNER_RING: Final = GUIDE_BLACK
 # Black on white reads at a distance; the kind cell's tint shows which cover loaded.
 STATS_WHITE: Final = (255, 255, 255)
 KIND_CELL_COLOURS: Final[dict[str, tuple[int, int, int]]] = {
@@ -107,7 +107,10 @@ class SeededImages:
     screenshots: list[str] = field(default_factory=list)
     # ScreenScraper metadata keys (`<kind>_path`) for the media written.
     media_paths: dict[str, str] = field(default_factory=dict)
-    files_written: int = 0
+
+    @property
+    def files_written(self) -> int:
+        return (2 if self.large else 0) + len(self.screenshots) + len(self.media_paths)
 
 
 def pick_cover_size(rng: random.Random) -> tuple[int, int]:
@@ -165,7 +168,6 @@ def _dashed_box(
     box: tuple[float, float, float, float],
     dash: int,
     width: int,
-    ink: RGB,
 ) -> None:
     x0, y0, x1, y1 = box
     for (ax, ay), (bx, by) in (
@@ -184,7 +186,7 @@ def _dashed_box(
                     ax + (bx - ax) * t1,
                     ay + (by - ay) * t1,
                 ),
-                fill=ink,
+                fill=GUIDE_BLACK,
                 width=width,
             )
 
@@ -208,15 +210,23 @@ def _chord(radius: float, offset: float) -> float:
 
 
 def _fitted_size(
-    draw: ImageDraw.ImageDraw, texts: list[str], size: int, max_width: float
+    draw: ImageDraw.ImageDraw, text: str, size: int, max_width: float
 ) -> int:
-    """Largest font size up to `size` at which the widest of `texts` fits."""
-    while (
-        size > 7
-        and max(draw.textlength(t, font=_font(size)) for t in texts) > max_width
-    ):
-        size -= 1
-    return size
+    """Largest font size from 7 up to `size` at which `text` fits."""
+
+    def fits(candidate: int) -> bool:
+        return draw.textlength(text, font=_font(candidate)) <= max_width
+
+    # Width is near-linear in size, so start from a proportional guess and step to it.
+    width = draw.textlength(text, font=_font(size))
+    if size <= 7 or width <= max_width:
+        return size
+    guess = max(7, min(size - 1, int(size * max_width / width)))
+    while guess < size - 1 and fits(guess + 1):
+        guess += 1
+    while guess > 7 and not fits(guess):
+        guess -= 1
+    return guess
 
 
 # Fractions of the circle's radius, so the box matches on every tile; the id column
@@ -256,7 +266,7 @@ def _draw_fact_box(
     for (value, background), (x0, y0, x1, y1) in zip(cells, rects, strict=True):
         draw.rectangle((x0, y0, x1, y1), fill=background)
         # Only a value too long for its cell shrinks; the rest keep one size.
-        size = _fitted_size(draw, [value], standard, (x1 - x0) * 0.88)
+        size = _fitted_size(draw, value, standard, (x1 - x0) * 0.88)
         draw.text(
             ((x0 + x1) / 2, (y0 + y1) / 2),
             value,
@@ -276,7 +286,7 @@ def _draw_fact_box(
 def _fade_alpha(
     size: tuple[int, int], cx: float, cy: float, outer: float, inner: float
 ) -> Image.Image:
-    """The ring's alpha mask; the same for every image of one size, so it is cached."""
+    """A ring opaque at 12 o'clock and fading clockwise to clear, cached per size."""
     ring = Image.new("L", size, 0)
     ring_draw = ImageDraw.Draw(ring)
     ring_draw.ellipse((cx - outer, cy - outer, cx + outer, cy + outer), fill=255)
@@ -292,14 +302,6 @@ def _fade_alpha(
             fill=round(255 * (1 - degree / 359)),
         )
     return Image.composite(sweep, Image.new("L", size, 255), ring)
-
-
-def _fade_ring(
-    img: Image.Image, cx: float, cy: float, outer: float, inner: float
-) -> Image.Image:
-    """Make a ring transparent by degrees: opaque at 12 o'clock, fading clockwise to clear."""
-    img.putalpha(_fade_alpha(img.size, cx, cy, outer, inner))
-    return img
 
 
 def draw_debug_overlay(
@@ -319,8 +321,8 @@ def draw_debug_overlay(
 
     # What a 1:1 or 2:3 tile keeps, and a circle that turns into an ellipse when stretched.
     dash = max(3, side // 40)
-    _dashed_box(draw, _centred_box(w, h, (1, 1)), dash, line, GUIDE_BLACK)
-    _dashed_box(draw, _centred_box(w, h, (2, 3)), dash, line, GUIDE_BLACK)
+    _dashed_box(draw, _centred_box(w, h, (1, 1)), dash, line)
+    _dashed_box(draw, _centred_box(w, h, (2, 3)), dash, line)
     cx, cy, radius = w / 2, h / 2, side * 0.4
     arm = side * 0.05
     draw.line((cx - arm, cy, cx + arm, cy), fill=GUIDE_BLACK, width=line)
@@ -356,8 +358,8 @@ def draw_debug_overlay(
             font=corner_font,
             anchor="mm",
         )
-        # The corner pixel itself is a pure colour, ringed in 1px black on its inner sides.
-        for reach, colour in ((dot, CORNER_RING), (dot - 1, CORNER_COLOURS[name])):
+        # The black ring keeps the pure corner pixel visible against a pale base.
+        for reach, colour in ((dot, GUIDE_BLACK), (dot - 1, CORNER_COLOURS[name])):
             xs = sorted((x0, x0 + dx * reach))
             ys = sorted((y0, y0 + dy * reach))
             draw.rectangle((xs[0], ys[0], xs[1], ys[1]), fill=colour)
@@ -365,7 +367,8 @@ def draw_debug_overlay(
     # Real transparency shows the page behind the tile; JPEG has no alpha.
     if fmt != "JPEG":
         outer = radius - line - 2
-        img = _fade_ring(img, cx, cy, outer, outer - 3 * line)
+        img.putalpha(_fade_alpha(img.size, cx, cy, outer, outer - 3 * line))
+        # putalpha swaps the image core, so the old draw handle is stale.
         draw = ImageDraw.Draw(img)
 
     # Game above the cross, file facts below it: the box also shows which way is down.
@@ -380,7 +383,7 @@ def draw_debug_overlay(
             continue
         size = max(7, round(side * relative))
         size = _fitted_size(
-            draw, [text], size, _chord(radius, cy - (edge - size * 1.3)) - margin
+            draw, text, size, _chord(radius, cy - (edge - size * 1.3)) - margin
         )
         draw.text(
             (cx, edge - size * 0.65), text, fill=ink, font=_font(size), anchor="mm"
@@ -398,12 +401,10 @@ def draw_debug_overlay(
         cy,
         radius,
     )
-    # The original path runs along the bottom edge, above the ticks and between
-    # the corner triangles.
     if path:
         text = f"original path: {path}"
         size = _fitted_size(
-            draw, [text], max(8, round(side * 0.04)), w - 2 * tri - side * 0.06
+            draw, text, max(8, round(side * 0.04)), w - 2 * tri - side * 0.06
         )
         centre = max(h - 1 - side * 0.1 - size * 0.65, y + size * 1.2)
         half = draw.textlength(text, font=_font(size)) / 2 + size * 0.4
@@ -489,7 +490,7 @@ class RomImageJob:
     fidelity: int
     n_screenshots: int
     with_media: bool
-    caption: RomCaption = RomCaption()
+    caption: RomCaption
 
 
 def _has_cover(rng: random.Random) -> bool:
@@ -507,7 +508,7 @@ def plan_rom_images(job: RomImageJob) -> SeededImages:
             job.platform_id, job.rom_id, kind
         )
         media_paths[f"{kind}_path"] = f"{folder}/{kind}.png"
-    planned = SeededImages(
+    return SeededImages(
         large=f"{rel}/cover/{CoverSize.BIG.value}.png",
         small=f"{rel}/cover/{CoverSize.SMALL.value}.png",
         screenshots=[
@@ -515,8 +516,6 @@ def plan_rom_images(job: RomImageJob) -> SeededImages:
         ],
         media_paths=media_paths,
     )
-    planned.files_written = 2 + job.n_screenshots + len(planned.media_paths)
-    return planned
 
 
 def _save(image: Image.Image, path: Path, fmt: str, fidelity: int) -> None:
@@ -530,12 +529,13 @@ def _save(image: Image.Image, path: Path, fmt: str, fidelity: int) -> None:
         image.save(path, "PNG")
 
 
-def draw_rom_images(job: RomImageJob) -> SeededImages:
-    """Write one rom's covers, screenshots and (optionally) media in RomM's layout."""
-    rng = rom_rng(job.seed, job.rom_id)
-    if not _has_cover(rng):
-        return SeededImages()
+def draw_rom_images(job: RomImageJob) -> None:
+    """Write the files `plan_rom_images` names for `job`."""
     planned = plan_rom_images(job)
+    if not planned.large:
+        return
+    rng = rom_rng(job.seed, job.rom_id)
+    _has_cover(rng)  # the plan's draw, so the rest of the stream lines up
 
     def draw(size: tuple[int, int], kind: str, fmt: str, path: str) -> None:
         target = Path(job.resources_base, path)
@@ -558,18 +558,11 @@ def draw_rom_images(job: RomImageJob) -> SeededImages:
         "JPEG" if job.fidelity >= 3 and rng.random() < JPEG_IN_PNG_SHARE else "PNG"
     )
     draw(cover_size, "big", big_format, planned.large)
-    # RomM's own rule picks the small size; the picture is redrawn at it so its
-    # guides stay sharp and its label says "small".
-    small = Path(job.resources_base, planned.small)
-    with Image.open(Path(job.resources_base, planned.large)) as cover:
-        fs_resource_handler.resize_cover_to_small(cover, save_path=str(small))
-    with Image.open(small) as resized:
-        small_size = resized.size
-    draw(small_size, "small", "PNG", planned.small)
+    # Drawn at RomM's small size rather than resized, so its guides stay sharp.
+    draw(small_cover_size(*cover_size), "small", "PNG", planned.small)
 
     for index, shot in enumerate(planned.screenshots):
         draw(SCREENSHOT_SIZE, f"screenshot {index}", "JPEG", shot)
 
     for kind, size in MEDIA_SIZES.items() if planned.media_paths else ():
         draw(size or cover_size, kind, "PNG", planned.media_paths[f"{kind}_path"])
-    return planned
