@@ -104,6 +104,7 @@ from utils.database import (
     ROMS_SEARCH_FULLTEXT_COLUMNS,
     SORTABLE_NULLABLE_ROM_COLUMNS,
     epoch_ms_in_ranges,
+    exact_collation,
     is_non_blank,
     is_postgresql,
     release_day_ranges,
@@ -2460,8 +2461,11 @@ class DBRomsHandler(DBBaseHandler):
             How many keys were replaced.
         """
         replaced = 0
+        # Exact, so an accent-only rename still counts as a change of name.
+        collation = exact_collation(session.get_bind())
+        stored_name = Rom.name.collate(collation) if collation else Rom.name
         for rom_id, (name, new) in replacements.items():
-            same_name = Rom.name.is_(None) if name is None else Rom.name == name
+            same_name = stored_name.is_(None) if name is None else stored_name == name
             replaced += affected_rows(
                 session.execute(
                     update(Rom)

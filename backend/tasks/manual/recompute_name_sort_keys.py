@@ -1,5 +1,6 @@
 """Re-derive ROM sort keys when the articles `sorting.articles` names change."""
 
+import hashlib
 import json
 
 from handler.database import db_rom_handler
@@ -11,6 +12,12 @@ from tasks.tasks import Task
 
 APPLIED_SORT_ARTICLES_KEY = "romm:sort_articles"
 PAGE_SIZE = 1000
+
+
+def articles_digest(articles: tuple[str, ...]) -> str:
+    """A short id for an articles list, safe in an RQ job id."""
+    encoded = json.dumps(articles).encode()
+    return hashlib.sha1(encoded, usedforsecurity=False).hexdigest()[:12]
 
 
 def applied_sort_articles() -> tuple[str, ...] | None:
@@ -25,6 +32,8 @@ class RecomputeNameSortKeysTask(Task):
 
     async def run(self) -> dict[str, int]:
         articles = sort_articles()
+        # Cleared until every batch is written, so a run that fails partway is redone.
+        sync_cache.delete(APPLIED_SORT_ARTICLES_KEY)
         scanned = replaced = 0
         last_id = 0
         while page := db_rom_handler.get_sort_keys_after_id(last_id, PAGE_SIZE):

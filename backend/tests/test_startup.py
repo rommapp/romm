@@ -10,6 +10,7 @@ from rq.job import JOB_ID_PATTERN
 from handler.database import db_save_handler
 from handler.metadata.launchbox_handler.types import LAUNCHBOX_METADATA_STORE
 from handler.redis_handler import default_queue, high_prio_queue, low_prio_queue
+from tasks.manual.recompute_name_sort_keys import articles_digest
 from tasks.registry import get_task
 from tasks.scheduled.update_switch_titledb import SWITCH_TITLEDB_STORE
 from utils.cache import VersionedCacheStore
@@ -63,7 +64,10 @@ def test_enqueue_recompute_name_sort_keys_when_the_articles_change(
     if queued:
         enqueue_task.assert_called_once_with(
             "recompute_name_sort_keys",
-            job_id=startup.RECOMPUTE_NAME_SORT_KEYS_JOB_ID,
+            job_id=(
+                f"{startup.RECOMPUTE_NAME_SORT_KEYS_JOB_ID}_"
+                f"{articles_digest(('the', 'a', 'an'))}"
+            ),
             unique=True,
         )
     else:

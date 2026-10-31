@@ -38,7 +38,10 @@ from handler.scan_jobs import drop_stale_scheduled_scans
 from logger.logger import log
 from models.firmware import FIRMWARE_FIXTURES_DIR, KNOWN_BIOS_KEY
 from models.rom import sort_articles
-from tasks.manual.recompute_name_sort_keys import applied_sort_articles
+from tasks.manual.recompute_name_sort_keys import (
+    applied_sort_articles,
+    articles_digest,
+)
 from tasks.registry import enqueue_task
 from tasks.scheduled.update_switch_titledb import SWITCH_TITLEDB_STORE
 from utils.cache import conditionally_set_cache, drop_stale_cache_store
@@ -94,13 +97,18 @@ def _enqueue_recompute_save_hashes_if_needed() -> None:
 def _enqueue_recompute_name_sort_keys_if_needed() -> None:
     """Re-derive sort keys when `sorting.articles` differs from the stored keys'."""
     try:
-        outdated = applied_sort_articles() != sort_articles()
+        articles = sort_articles()
+        outdated = applied_sort_articles() != articles
     except Exception:
         log.exception("Failed to compare the sort articles; skipping the recompute")
         return
 
     if outdated:
-        _enqueue_backfill("recompute_name_sort_keys", RECOMPUTE_NAME_SORT_KEYS_JOB_ID)
+        # Keyed by the list, so a finished job for another list can't block it.
+        _enqueue_backfill(
+            "recompute_name_sort_keys",
+            f"{RECOMPUTE_NAME_SORT_KEYS_JOB_ID}_{articles_digest(articles)}",
+        )
 
 
 def _enqueue_convert_images_to_webp() -> None:
