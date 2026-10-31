@@ -76,7 +76,6 @@ class DeviceAuthTokenPayload(BaseModel):
 
 class DeviceAuthTokenResponse(BaseModel):
     access_token: str
-    token_id: int
     device_id: str
     scopes: list[str]
     expires_at: UTCDatetime | None

@@ -149,7 +149,6 @@ def mark_approved(
     device_code: str,
     *,
     raw_token: str,
-    token_id: int,
     device_id: str,
     scopes: list[str],
     expires_at: datetime | None,
@@ -161,7 +160,6 @@ def mark_approved(
     approved = {
         "status": FlowStatus.APPROVED,
         "raw_token": raw_token,
-        "token_id": token_id,
         "device_id": device_id,
         "scopes": scopes,
         "expires_at": expires_at.isoformat() if expires_at else None,

@@ -98,26 +98,13 @@ def list_tokens(request: Request) -> list[ClientTokenSchema]:
     return [build_schema(t) for t in tokens]
 
 
-@protected_route(router.delete, "/current")
-async def delete_current_token(request: Request) -> None:
-    """Revoke the client token that authenticates the request, with no scope needed."""
-    token_id = request_client_token_id(request)
-    if token_id is None:
-        if not request.user.is_authenticated:
-            raise_auth_error(request)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Request is not authenticated with a client token",
-        )
-    await _revoke_token(request, token_id)
-
-
-@protected_route(router.delete, "/{token_id}", [Scope.ME_WRITE])
+@protected_route(router.delete, "/{token_id}")
 async def delete_token(request: Request, token_id: int) -> None:
-    await _revoke_token(request, token_id)
+    """Revoke one of the caller's tokens; a client token can always revoke itself."""
+    is_self_revoke = token_id == request_client_token_id(request)
+    if not is_self_revoke and Scope.ME_WRITE not in request.auth.scopes:
+        raise_auth_error(request)
 
-
-async def _revoke_token(request: Request, token_id: int) -> None:
     token = db_client_token_handler.get_token(
         token_id=token_id, user_id=request.user.id
     )
