@@ -3172,8 +3172,10 @@ class TestUpdateRawMetadata:
                 },
             ],
         }
-        # The URLs are the rom's own, so only the paths are on trial.
-        db_rom_handler.update_rom(rom.id, {"ss_metadata": raw_metadata})
+        # The URLs are the rom's own, so only the paths are on trial. PostgreSQL
+        # jsonb rejects the NUL byte, so the seed leaves the paths out.
+        seeded = {k: v for k, v in raw_metadata.items() if not k.endswith("_path")}
+        db_rom_handler.update_rom(rom.id, {"ss_metadata": seeded})
 
         response = client.put(
             f"/api/roms/{rom.id}",
