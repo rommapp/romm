@@ -21,9 +21,10 @@ branch_labels = None
 depends_on = None
 
 BATCH_SIZE = 1000
-# models.rom.compute_name_sort_key when this revision was written: every key
-# stored before it was derived by stripping these articles.
-LEGACY_ARTICLES = (
+# The rules models.rom.compute_name_sort_key derived keys with before this
+# revision: English articles from 0084, every LaunchBox article from 5.2.0.
+ENGLISH_ARTICLES = ("the", "a", "an")
+MULTILINGUAL_ARTICLES = (
     "the",
     "a",
     "an",
@@ -41,20 +42,26 @@ LEGACY_ARTICLES = (
     "das",
     "het",
 )
-LEGACY_ARTICLE_PREFIX_RE = re.compile(rf"^({'|'.join(LEGACY_ARTICLES)})\s+")
 DIGIT_RUN_RE = re.compile(r"\d+")
 NAME_SORT_KEY_MAX_LENGTH = 500
 
 
-def _legacy_sort_key(name: str | None) -> str:
+def _sort_key(name: str | None, articles: tuple[str, ...]) -> str:
     value = (name or "").lower()
-    value = LEGACY_ARTICLE_PREFIX_RE.sub("", value).strip()
+    value = re.sub(rf"^({'|'.join(articles)})\s+", "", value).strip()
     value = DIGIT_RUN_RE.sub(lambda m: m.group(0).zfill(12), value)
     return value[:NAME_SORT_KEY_MAX_LENGTH]
 
 
+def _is_derived(name: str | None, key: str) -> bool:
+    return key in (
+        _sort_key(name, ENGLISH_ARTICLES),
+        _sort_key(name, MULTILINGUAL_ARTICLES),
+    )
+
+
 def _flag_custom_keys(conn: sa.Connection) -> None:
-    """Mark each stored key that no name derives under the legacy rule."""
+    """Mark each stored key that neither earlier rule derives from its name."""
     roms = sa.table(
         "roms",
         sa.column("id", sa.Integer),
@@ -74,7 +81,7 @@ def _flag_custom_keys(conn: sa.Connection) -> None:
             row.id
             for row in rows
             if row.name_sort_key is not None
-            and row.name_sort_key != _legacy_sort_key(row.name)
+            and not _is_derived(row.name, row.name_sort_key)
         ]
         if custom_ids:
             conn.execute(
