@@ -79,7 +79,7 @@ oauth.register(
 )
 
 
-def _raise_auth_error(request: Request) -> None:
+def raise_auth_error(request: Request) -> None:
     """Raise the status matching the caller's auth state.
 
     401 tells the client it has no valid credentials (so it can redirect to
@@ -120,7 +120,7 @@ def _requires_scopes(
                 request = kwargs.get("request", args[idx] if idx < len(args) else None)
                 assert isinstance(request, Request)
                 if not has_required_scope(request, scopes):
-                    _raise_auth_error(request)
+                    raise_auth_error(request)
                 return await func(*args, **kwargs)
 
             return async_wrapper  # type: ignore[return-value]
@@ -130,7 +130,7 @@ def _requires_scopes(
             request = kwargs.get("request", args[idx] if idx < len(args) else None)
             assert isinstance(request, Request)
             if not has_required_scope(request, scopes):
-                _raise_auth_error(request)
+                raise_auth_error(request)
             return func(*args, **kwargs)
 
         return sync_wrapper  # type: ignore[return-value]

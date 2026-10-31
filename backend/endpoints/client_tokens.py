@@ -3,7 +3,7 @@ import json
 from fastapi import HTTPException, Request, status
 from pydantic import BaseModel, Field
 
-from decorators.auth import protected_route
+from decorators.auth import protected_route, raise_auth_error
 from endpoints.responses.client_token import (
     ClientTokenAdminSchema,
     ClientTokenCreateSchema,
@@ -19,6 +19,7 @@ from handler.redis_handler import sync_cache
 from handler.socket_handler import close_client_token_sockets
 from models.audit_event import AuditAction, AuditTargetType
 from models.client_token import ClientToken
+from utils.auth import request_client_token_id
 from utils.client_tokens import (
     PAIR_CODE_TTL_SECONDS,
     build_admin_schema,
@@ -97,8 +98,17 @@ def list_tokens(request: Request) -> list[ClientTokenSchema]:
     return [build_schema(t) for t in tokens]
 
 
-@protected_route(router.delete, "/{token_id}", [Scope.ME_WRITE])
+@protected_route(router.delete, "/{token_id}")
 async def delete_token(request: Request, token_id: int) -> None:
+    """Revoke one of the caller's tokens.
+
+    Requires `me.write`, except for a client token revoking itself, so a device
+    can sign out without holding account-management scopes.
+    """
+    is_self_revoke = token_id == request_client_token_id(request)
+    if not is_self_revoke and Scope.ME_WRITE not in request.auth.scopes:
+        raise_auth_error(request)
+
     token = db_client_token_handler.get_token(
         token_id=token_id, user_id=request.user.id
     )
