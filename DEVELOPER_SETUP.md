@@ -212,7 +212,7 @@ That seeds 2,000 roms in under a minute. It prints the seed it used and a login 
 - `--image-fidelity` sets how real the covers are:
   - `1` (default) draws one-size mosaics.
   - `2` uses the real mix of cover sizes and shapes, drawn as debug art showing each rom's id, size and path.
-  - `3` also matches real file weights, JPEG data inside some `big.png` files included.
+  - `3` also matches real file weights, and some `big.png` files hold JPEG data.
 - `--image-limit N` draws covers for the first N roms only, and `--no-images` skips them.
 - `--image-media` adds ScreenScraper media (box3d, fanart...) at fidelity 2 or 3.
 
