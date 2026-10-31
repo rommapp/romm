@@ -1387,6 +1387,26 @@ class TestFSRomsHandler:
             if test_file.exists():
                 test_file.unlink()
 
+    def test_list_rom_dir_sorts_regardless_of_listing_order(
+        self, handler: FSRomsHandler, config, tmp_path
+    ):
+        rom_dir = tmp_path / "Order Test (World)"
+        (rom_dir / "sub").mkdir(parents=True)
+        for name in ("a.bin", "b.bin", "sub/c.bin"):
+            (rom_dir / name).write_bytes(b"x")
+        listing = [(rom_dir, "b.bin"), (rom_dir / "sub", "c.bin"), (rom_dir, "a.bin")]
+
+        with patch(
+            "handler.filesystem.roms_handler.iter_files", return_value=iter(listing)
+        ):
+            entries = handler._list_rom_dir(rom_dir, config)
+
+        assert [(p, n) for p, n, _ in entries] == [
+            (rom_dir, "a.bin"),
+            (rom_dir, "b.bin"),
+            (rom_dir / "sub", "c.bin"),
+        ]
+
     def test_failed_7z_extraction_hashes_only_the_raw_archive(
         self, handler: FSRomsHandler, tmp_path
     ):

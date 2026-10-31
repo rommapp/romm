@@ -665,6 +665,8 @@ class FSRomsHandler(FSHandler):
                 entries.append((f_path, file_name, os.stat(Path(f_path, file_name))))
             except OSError as exc:
                 log.warning(f"Skipping unreadable file {f_path / file_name}: {exc}")
+        # Listing order is filesystem-specific; the ROM-level hash must not be.
+        entries.sort(key=lambda e: Path(e[0], e[1]).as_posix())
         return entries
 
     async def converto_active(self, platform_slug: str) -> bool:
