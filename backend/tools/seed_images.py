@@ -1,4 +1,4 @@
-"""Cover and media files with debug art for `generate_test_data.py` levels 2 and 3."""
+"""Cover, screenshot and media files for `generate_test_data.py`, at every fidelity level."""
 
 import math
 import random
@@ -68,6 +68,9 @@ MEDIA_SIZES: Final[dict[MetadataMediaType, tuple[int, int] | None]] = {
     MetadataMediaType.LOGO: (600, 250),
 }
 SCREENSHOT_SIZE: Final = (640, 480)
+# Level 1: every cover at one size, a few random blocks upscaled, no debug art.
+MOSAIC_COVER_SIZE: Final = (264, 396)
+MOSAIC_BLOCKS: Final = (6, 9)
 
 # Debug art: one OKLCH hue per rom, golden-angle steps so neighbours always differ.
 GOLDEN_ANGLE: Final = 137.508
@@ -438,10 +441,15 @@ def make_image(
     caption: RomCaption,
     path: str = "",
 ) -> Image.Image:
-    """A debug picture of `size`: flat at level 2, over real-weight texture from level 3."""
+    """A picture of `size`: a mosaic at level 1, debug art from level 2 (textured at 3)."""
     width, height = size
+    if fidelity == 1:
+        mosaic = rng.randbytes(MOSAIC_BLOCKS[0] * MOSAIC_BLOCKS[1] * 3)
+        return Image.frombytes("RGB", MOSAIC_BLOCKS, mosaic).resize(
+            size, Image.Resampling.NEAREST
+        )
     base, _ = rom_colors(rom_id)
-    if fidelity <= 2:
+    if fidelity == 2:
         picture = Image.new("RGB", size, base)
     else:
         blocks = Image.frombytes("RGB", (12, 18), rng.randbytes(12 * 18 * 3))
@@ -552,7 +560,7 @@ def draw_rom_images(job: RomImageJob) -> None:
         )
         _save(image, target, fmt, job.fidelity)
 
-    cover_size = pick_cover_size(rng)
+    cover_size = MOSAIC_COVER_SIZE if job.fidelity == 1 else pick_cover_size(rng)
     # Downloads keep the provider's bytes, so some big.png files are JPEG inside.
     big_format = (
         "JPEG" if job.fidelity >= 3 and rng.random() < JPEG_IN_PNG_SHARE else "PNG"

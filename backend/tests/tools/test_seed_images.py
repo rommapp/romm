@@ -16,6 +16,7 @@ from tools.seed_images import (
     LANDSCAPE_SHARE,
     LANDSCAPE_SIZES,
     MEDIA_SIZES,
+    MOSAIC_COVER_SIZE,
     NO_COVER_SHARE,
     NOISE_MEDIAN,
     NOISE_RANGE,
@@ -35,6 +36,7 @@ from tools.seed_images import (
 )
 
 from handler.filesystem import fs_resource_handler
+from handler.filesystem.resources_handler import small_cover_size
 
 CAPTION = RomCaption("Neon Harbor Racing", "Super Nintendo", "Japan")
 
@@ -113,6 +115,18 @@ def test_small_cover_follows_romms_resize_rule(tmp_path: Path) -> None:
         fs_resource_handler.resize_cover_to_small(big, save_path=str(expected))
     with Image.open(tmp_path / seeded.small) as small, Image.open(expected) as rule:
         assert small.size == rule.size
+
+
+def test_mosaic_level_draws_one_cover_size_with_media(tmp_path: Path) -> None:
+    seeded = _seed(tmp_path, fidelity=1)
+
+    with (
+        Image.open(tmp_path / seeded.large) as big,
+        Image.open(tmp_path / seeded.small) as small,
+    ):
+        assert big.size == MOSAIC_COVER_SIZE
+        assert small.size == small_cover_size(*MOSAIC_COVER_SIZE)
+    assert seeded.files_written == len(_files(tmp_path)) == 2 + 2 + len(MEDIA_SIZES)
 
 
 def test_media_files_match_their_metadata_paths(tmp_path: Path) -> None:

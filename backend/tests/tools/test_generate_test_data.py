@@ -6,9 +6,11 @@ from typing import Any
 
 import pytest
 from redis.exceptions import RedisError
+from sqlalchemy import event
 from tools import generate_test_data
 
 from handler.database import db_rom_handler
+from handler.database.base_handler import sync_engine
 from models.rom import Rom
 
 IMAGE_FIELDS = {"path_cover_s", "path_cover_l", "path_screenshots"}
@@ -25,6 +27,7 @@ def _rom_rows(
     resources: Path,
     *flags: str,
     rotate_cache: Callable[[], None] = lambda: None,
+    rotate_feeds: Callable[[], None] = lambda: None,
 ) -> list[dict[str, Any]]:
     """Run the seeder, recording rom rows instead of inserting anything."""
     rows: list[dict[str, Any]] = []
@@ -37,8 +40,7 @@ def _rom_rows(
     monkeypatch.setattr(generate_test_data, "_advance_sequences", lambda *_: None)
     monkeypatch.setattr(generate_test_data, "datetime", _FrozenDatetime)
     monkeypatch.setattr(db_rom_handler, "invalidate_filter_values_cache", rotate_cache)
-    # main() registers a connect listener on the shared engine; keep it out of other tests.
-    monkeypatch.setattr("sqlalchemy.event.listens_for", lambda *_, **__: lambda f: f)
+    monkeypatch.setattr(generate_test_data, "invalidate_all_cached_feeds", rotate_feeds)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -74,14 +76,46 @@ def test_image_flags_never_change_the_rows(
     assert _without_images(every) == _without_images(limited)
 
 
-def test_media_is_refused_at_mosaic_fidelity(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+@pytest.mark.parametrize("fidelity", ["1", "2"])
+def test_a_dry_run_writes_no_image_files(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, fidelity: str
 ) -> None:
-    monkeypatch.setattr(sys, "argv", ["generate_test_data.py", "--image-media"])
+    _rom_rows(monkeypatch, tmp_path, "--dry-run", "--image-fidelity", fidelity)
 
-    with pytest.raises(SystemExit):
-        generate_test_data.main()
-    assert "--image-media needs --image-fidelity 2 or 3" in capsys.readouterr().err
+    assert not tmp_path.exists() or not any(tmp_path.rglob("*"))
+
+
+def test_a_seed_rotates_the_gallery_and_feed_caches(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    rotated: list[str] = []
+
+    _rom_rows(
+        monkeypatch,
+        tmp_path,
+        rotate_cache=lambda: rotated.append("gallery"),
+        rotate_feeds=lambda: rotated.append("feeds"),
+    )
+
+    assert rotated == ["gallery", "feeds"]
+
+
+def test_the_utc_listener_is_removed_after_a_run(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    listeners: list[Callable[..., None]] = []
+    pin_utc = generate_test_data._pin_utc
+
+    def recorded(postgresql: bool) -> Callable[..., None]:
+        listeners.append(pin_utc(postgresql))
+        return listeners[-1]
+
+    monkeypatch.setattr(generate_test_data, "_pin_utc", recorded)
+
+    _rom_rows(monkeypatch, tmp_path)
+
+    assert listeners
+    assert not event.contains(sync_engine, "connect", listeners[0])
 
 
 def test_a_cache_failure_still_reports_the_saved_seed(
