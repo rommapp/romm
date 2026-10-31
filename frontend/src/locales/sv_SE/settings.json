@@ -538,6 +538,8 @@
   "widget-library-stats-desc": "Översikt över antalen i biblioteket: spel, plattformar, favoriter med mera.",
   "widget-library-stats-extended": "Utökad (sparfiler, sparlägen, skärmbilder, disk)",
   "widget-library-stats-mode": "Detaljnivå för biblioteksstatistik",
+  "widget-playing-now": "Spelas nu",
+  "widget-playing-now-desc": "Visa ett spel som någon spelar just nu, med en länk till Aktiva sessioner. Dold när ingen spelar.",
   "widget-random-pick": "Slumpmässigt val",
   "widget-random-pick-desc": "Föreslå en slumpmässig ROM-fil från biblioteket med en knapp för att välja igen.",
   "widget-reorder-drag": "Dra för att ändra ordning"
