@@ -881,7 +881,7 @@ A reset link is emailed when SMTP is set up, the user has an address and `ROMM_B
 | ------ | --------------------- | ----------- | ----------------------------- |
 | POST   | `/`                   | ME_WRITE    | Create token                  |
 | GET    | `/`                   | ME_READ     | List user's tokens            |
-| DELETE | `/{id}`               | ME_WRITE    | Delete token (self: no scope) |
+| DELETE | `/{id}`               | ME_WRITE    | Delete token                  |
 | PUT    | `/{id}/regenerate`    | ME_WRITE    | Regenerate token              |
 | POST   | `/{id}/pair`          | ME_WRITE    | Generate pair code            |
 | GET    | `/pair/{code}/status` | None        | Check pair status             |
