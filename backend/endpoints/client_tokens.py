@@ -100,11 +100,7 @@ def list_tokens(request: Request) -> list[ClientTokenSchema]:
 
 @protected_route(router.delete, "/{token_id}")
 async def delete_token(request: Request, token_id: int) -> None:
-    """Revoke one of the caller's tokens.
-
-    Requires `me.write`, except for a client token revoking itself, so a device
-    can sign out without holding account-management scopes.
-    """
+    """Revoke one of the caller's tokens; a client token can always revoke itself."""
     is_self_revoke = token_id == request_client_token_id(request)
     if not is_self_revoke and Scope.ME_WRITE not in request.auth.scopes:
         raise_auth_error(request)

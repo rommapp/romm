@@ -1,7 +1,7 @@
 import functools
 import inspect
 from collections.abc import Callable
-from typing import Any
+from typing import Any, NoReturn
 
 from authlib.integrations.starlette_client import OAuth
 from authlib.oidc.discovery import get_well_known_url
@@ -79,7 +79,7 @@ oauth.register(
 )
 
 
-def raise_auth_error(request: Request) -> None:
+def raise_auth_error(request: Request) -> NoReturn:
     """Raise the status matching the caller's auth state.
 
     401 tells the client it has no valid credentials (so it can redirect to
