@@ -665,6 +665,7 @@ class GamelistHandler(MetadataHandler):
                     gamelist_id=str(uuid.uuid4()),
                     name=name,
                     name_sort_key=name_sort_key,
+                    name_sort_key_custom=name_sort_key is not None,
                     summary=summary,
                     regions=regions,
                     languages=languages,

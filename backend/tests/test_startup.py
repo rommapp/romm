@@ -49,8 +49,8 @@ def test_enqueue_recompute_fires_when_missing_hashes_present(mocker, enqueue_tas
 
 @pytest.mark.parametrize(
     ("applied", "queued"),
-    [(("the", "a", "an"), False), (("the", "die"), True)],
-    ids=["unchanged", "changed"],
+    [(("the", "a", "an"), False), (("the", "die"), True), (None, True)],
+    ids=["unchanged", "changed", "unrecorded"],
 )
 def test_enqueue_recompute_name_sort_keys_when_the_articles_change(
     mocker, enqueue_task, applied, queued

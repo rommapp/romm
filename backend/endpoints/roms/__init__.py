@@ -2153,6 +2153,7 @@ async def update_rom(
                 **dict.fromkeys(UNMATCH_ID_FIELDS),
                 "name": rom.fs_name,
                 "name_sort_key": compute_name_sort_key(rom.fs_name),
+                "name_sort_key_custom": False,
                 "summary": "",
                 "url_screenshots": [],
                 "path_screenshots": [],
@@ -2278,6 +2279,7 @@ async def update_rom(
                 if submitted
                 else compute_name_sort_key(name_value)
             )
+            cleaned_data["name_sort_key_custom"] = bool(submitted)
 
     cleaned_data.update({"fs_name": new_fs_name})
 

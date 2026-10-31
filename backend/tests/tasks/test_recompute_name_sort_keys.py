@@ -8,7 +8,6 @@ from handler.database import db_rom_handler
 from handler.database.roms_handler import DBRomsHandler
 from handler.redis_handler import sync_cache
 from models.platform import Platform
-from models.rom import compute_name_sort_key
 from tasks.manual.recompute_name_sort_keys import (
     APPLIED_SORT_ARTICLES_KEY,
     applied_sort_articles,
@@ -29,14 +28,15 @@ def clear_applied_articles():
     sync_cache.delete(APPLIED_SORT_ARTICLES_KEY)
 
 
-def test_unrecorded_articles_are_every_launchbox_article():
-    assert "die" in applied_sort_articles()
+def test_no_articles_are_recorded_until_a_recompute_runs():
+    assert applied_sort_articles() is None
 
 
 async def test_derived_keys_follow_the_configured_articles(platform: Platform):
-    # Derived with every LaunchBox article, as before an articles list was recorded.
-    rom = make_rom(platform, "Die Hard Arcade", name_sort_key=None)
-    db_rom_handler.update_rom(rom.id, {"name_sort_key": "hard arcade"})
+    rom = make_rom(platform, "Die Hard Arcade")
+    db_rom_handler.update_rom(
+        rom.id, {"name_sort_key": "hard arcade", "name_sort_key_custom": False}
+    )
 
     stats = await recompute_name_sort_keys_task.run()
 
@@ -48,34 +48,45 @@ async def test_derived_keys_follow_the_configured_articles(platform: Platform):
 
 
 async def test_a_custom_sort_key_is_kept(platform: Platform):
-    rom = make_rom(platform, "Die Hard Arcade", name_sort_key=None)
-    db_rom_handler.update_rom(rom.id, {"name_sort_key": "arcade die hard"})
+    rom = make_rom(platform, "Die Hard Arcade")
+    db_rom_handler.update_rom(rom.id, {"name_sort_key": "hard arcade"})
 
     await recompute_name_sort_keys_task.run()
 
-    assert stored_sort_key(rom.id) == "arcade die hard"
+    assert stored_sort_key(rom.id) == "hard arcade"
 
 
-async def test_a_changed_articles_list_rederives_from_the_recorded_one(
+async def test_a_changed_articles_list_rederives_derived_keys(
     platform: Platform, mocker
 ):
-    rom = make_rom(platform, "Die Siedler", name_sort_key=None)
-    sync_cache.set(APPLIED_SORT_ARTICLES_KEY, json.dumps(["the", "a", "an"]))
+    rom = make_rom(platform, "Die Siedler")
+    assert stored_sort_key(rom.id) == "die siedler"
     mocker.patch.object(cm.config, "SORT_ARTICLES", ["der", "die", "das"])
-    assert stored_sort_key(rom.id) == compute_name_sort_key(
-        "Die Siedler", articles=("the", "a", "an")
-    )
 
     await recompute_name_sort_keys_task.run()
 
     assert stored_sort_key(rom.id) == "siedler"
 
 
+def test_a_key_is_not_replaced_once_its_name_changed(platform: Platform):
+    rom = make_rom(platform, "Die Hard Arcade")
+    db_rom_handler.update_rom(rom.id, {"name": "Die Hard Trilogy"})
+
+    replaced = db_rom_handler.replace_derived_sort_keys(
+        {rom.id: ("Die Hard Arcade", "die hard arcade")}
+    )
+
+    assert replaced == 0
+    assert stored_sort_key(rom.id) == "die hard trilogy"
+
+
 async def test_replacing_keys_drops_the_cached_gallery_order(
     platform: Platform, mocker
 ):
-    rom = make_rom(platform, "Die Hard Arcade", name_sort_key=None)
-    db_rom_handler.update_rom(rom.id, {"name_sort_key": "hard arcade"})
+    rom = make_rom(platform, "Die Hard Arcade")
+    db_rom_handler.update_rom(
+        rom.id, {"name_sort_key": "hard arcade", "name_sort_key_custom": False}
+    )
     invalidate = mocker.patch.object(DBRomsHandler, "invalidate_filter_values_cache")
 
     await recompute_name_sort_keys_task.run()

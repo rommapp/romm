@@ -26,6 +26,7 @@ from sqlalchemy import (
     UniqueConstraint,
     and_,
     event,
+    false,
     func,
     inspect,
     or_,
@@ -934,6 +935,10 @@ class Rom(BaseModel):
     name_sort_key: Mapped[str | None] = mapped_column(
         String(length=NAME_SORT_KEY_MAX_LENGTH), default=None
     )
+    # Set by whoever writes a key on purpose; a derived key follows `name`.
+    name_sort_key_custom: Mapped[bool] = mapped_column(
+        default=False, server_default=false(), nullable=False
+    )
     slug: Mapped[str | None] = mapped_column(String(length=400))
     summary: Mapped[str | None] = mapped_column(Text)
     igdb_metadata: Mapped[dict[str, Any] | None] = mapped_column(
@@ -1148,9 +1153,7 @@ class Rom(BaseModel):
                 return compute_name_sort_key(value, articles=())
             return compute_name_sort_key(self.name)
 
-        if self.name_sort_key is None or self.name_sort_key == compute_name_sort_key(
-            self.name
-        ):
+        if not self.name_sort_key_custom:
             self.name_sort_key = compute_name_sort_key(value)
 
         return value

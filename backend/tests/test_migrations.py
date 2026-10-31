@@ -258,6 +258,7 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0148_rom_age_limits.py", "permission_groups"),
         ("0148_rom_age_limits.py", "users"),
         ("0151_state_content_hash.py", "states"),
+        ("0157_rom_custom_sort_key_flag.py", "roms"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -1376,3 +1377,35 @@ def test_the_ownerless_own_only_revision_keeps_each_rows_access(admin_user: User
         ("logs", "read", False, False),
         ("devices", "write", True, True),
     }
+
+
+def test_the_custom_sort_key_revision_flags_keys_no_name_derives(
+    platform: Platform,
+):
+    """0157 marks a key custom when the legacy rule would not derive it."""
+    migration = _load_migration("0157_rom_custom_sort_key_flag.py")
+    derived = make_rom(platform, "Die Hard Arcade")
+    custom = make_rom(platform, "Le Mans 24 Hours")
+
+    with sync_engine.begin() as connection:
+        connection.execute(
+            sa.text("UPDATE roms SET name_sort_key = :key WHERE id = :id"),
+            [
+                {"id": derived.id, "key": "hard arcade"},
+                {"id": custom.id, "key": "le mans 000000000024 hours"},
+            ],
+        )
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            migration.upgrade()
+
+        flags: dict[int, bool] = dict(
+            connection.execute(
+                sa.text(
+                    "SELECT id, name_sort_key_custom FROM roms WHERE id IN (:a, :b)"
+                ),
+                {"a": derived.id, "b": custom.id},
+            ).all()
+        )
+    assert not flags[derived.id]
+    assert flags[custom.id]
