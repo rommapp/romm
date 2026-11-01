@@ -291,11 +291,7 @@ OIDC_RESERVED_AUTH_PARAMS: Final = frozenset(
 
 
 def parse_oidc_auth_params(raw: str) -> dict[str, str]:
-    """Parse a JSON object of extra OIDC authorization request parameters.
-
-    Raises:
-        ValueError: The value isn't a flat JSON object, or sets a reserved parameter.
-    """
+    """Parse a JSON object of extra OIDC authorization request parameters."""
     if not raw:
         return {}
     try:
