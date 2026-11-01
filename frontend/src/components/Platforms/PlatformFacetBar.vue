@@ -1,8 +1,6 @@
 <script setup lang="ts">
-// PlatformFacetBar: the Platforms index's discovery filters. One
-// multi-select per facet, each option labelled with how many platforms it
-// would add, plus a reset once anything is picked. Presentational: the
-// view owns the selection (URL-backed) and the counts.
+// PlatformFacetBar: one multi-select per Platforms index facet. The view
+// owns the URL-backed selection and the option counts.
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { RBtn, RIcon, RSelect } from "@/lib";

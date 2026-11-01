@@ -1,7 +1,5 @@
-// Faceted filtering for the Platforms index: values inside one facet are
-// OR-ed, facets are AND-ed, and each facet's option counts ignore that
-// facet's own selection so picking "Console" still shows how many
-// portables there are to add.
+// Platforms index faceting: values OR within a facet, facets AND together,
+// and a facet's counts ignore its own selection.
 
 export const PLATFORM_FACET_KEYS = [
   "category",
