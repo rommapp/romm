@@ -581,10 +581,14 @@ def test_get_roms_rejects_a_negative_hltb_main_story_bound(
 def test_get_roms_filter_by_duplicate(
     client: TestClient, access_token: str, rom: Rom, platform: Platform
 ):
-    """The gallery's "Versions" filter, which reads `sibling_roms`."""
+    """The gallery's "Versions" filter, which reads `sibling_roms`.
+
+    `rom_japan` and `rom_korea` share nothing directly, only a key with `rom_usa`.
+    """
     siblings = [
-        make_rom(platform, name, igdb_id=MOCK_IGDB_ID)
-        for name in ("rom_usa", "rom_japan")
+        make_rom(platform, "rom_usa", igdb_id=MOCK_IGDB_ID, ss_id=MOCK_SS_ID),
+        make_rom(platform, "rom_japan", igdb_id=MOCK_IGDB_ID),
+        make_rom(platform, "rom_korea", ss_id=MOCK_SS_ID),
     ]
 
     response = client.get(
@@ -609,7 +613,7 @@ def test_get_roms_filter_by_duplicate(
 def test_get_rom_sibling_matched_by_two_providers_appears_once(
     client: TestClient, access_token: str, platform: Platform
 ):
-    """`sibling_roms` has a row per matching provider; the response has one."""
+    """A pair matched by two providers is still listed once."""
     roms = [
         make_rom(platform, name, igdb_id=MOCK_IGDB_ID, ss_id=MOCK_SS_ID)
         for name in ("twin_usa", "twin_japan")

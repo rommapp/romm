@@ -4,7 +4,7 @@ import enum
 import hashlib
 import re
 import sys
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from functools import cache, cached_property
@@ -307,9 +307,9 @@ class DocSource(enum.StrEnum):
 
 
 # Provider ids that name a game rather than a file, so two ROMs sharing any of
-# them are one title (regions, revisions, storefront copies). Every reader of
-# "the same game" matches on this one list: `sibling_roms`, the
-# `group_by_meta_id` gallery window, and the recommendation feed's exclusions.
+# them are one title (regions, revisions, storefront copies). `sibling_roms`,
+# the `group_by_meta_id` gallery window and the recommendation surfaces all
+# read the groups built from this list (`RomSiblingGroup`).
 #
 # A field's position is the `provider` code stored in `rom_identity_keys`, so
 # the tuple is append-only, and a new provider needs a migration that backfills
@@ -326,6 +326,9 @@ IDENTITY_ID_FIELDS: Final[tuple[str, ...]] = (
     "flashpoint_id",
 )
 
+# The `roms` columns whose change moves a ROM's identity keys.
+IDENTITY_KEY_SOURCE_COLUMNS: Final = frozenset({"platform_id", *IDENTITY_ID_FIELDS})
+
 # Wide enough for the longest of those columns (`flashpoint_id`), since
 # `rom_identity_keys` holds every provider's id in one column.
 IDENTITY_PROVIDER_ID_LENGTH: Final = 100
@@ -338,9 +341,9 @@ class RomIdentityKey(BaseModel):
     """One row per (ROM, provider it has a match id for), scoped to a platform.
 
     Two ROMs are the same game when they share a row's (provider, platform,
-    provider id), so `sibling_roms` is an indexed lookup over this table rather
-    than an OR of one equality per `IDENTITY_ID_FIELDS` entry across the whole
-    of `roms`.
+    provider id), so finding a ROM's versions is an indexed lookup over this
+    table rather than an OR of one equality per `IDENTITY_ID_FIELDS` entry
+    across the whole of `roms`. `RomSiblingGroup` is built from it.
 
     Maintained by database triggers on `roms` (migration 0127), so no write path
     has to update it; deletes ride the foreign key's cascade.
@@ -367,36 +370,39 @@ class RomIdentityKey(BaseModel):
     )
 
 
+class RomSiblingGroup(BaseModel):
+    """A ROM's connected component over `rom_identity_keys`, keyed by its lowest id."""
+
+    # Only ROMs with a sibling have a row. `db_rom_handler` keeps it, since no
+    # portable trigger can walk a graph.
+    __tablename__ = "rom_sibling_groups"
+
+    __table_args__ = (Index("idx_rom_sibling_groups_group_id", "group_id", "rom_id"),)
+
+    rom_id: Mapped[int] = mapped_column(
+        ForeignKey("roms.id", ondelete="CASCADE"), primary_key=True
+    )
+    group_id: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now()
+    )
+
+
 class SiblingRom(BaseModel):
     """Other files of the same game on the same platform.
 
-    A database view, not a table, over `RomIdentityKey` self-joined on its
-    (provider, platform, provider id). A pair matched by several providers
-    appears once per provider, which `get_siblings_for_roms` and
-    `UniqueSiblingList` both collapse.
+    A database view, not a table, over `RomSiblingGroup` self-joined on its
+    `group_id`, so it lists every other member of the ROM's group once.
     """
 
     __tablename__ = "sibling_roms"
 
     rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     sibling_rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-
-
-class UniqueSiblingList(list["Rom"]):
-    """`Rom.sibling_roms`, holding each sibling once though the view repeats it."""
-
-    def __init__(self, roms: Iterable[Rom] = ()) -> None:
-        super().__init__(roms)
-        self._held = {id(rom) for rom in self}
-
-    # selectinload hands the collection every view row, duplicates included.
-    def append(self, rom: Rom, /) -> None:
-        # A list method other than this one changed the contents.
-        if len(self._held) != len(self):
-            self._held = {id(held) for held in self}
-        if id(rom) not in self._held:
-            self._held.add(id(rom))
-            super().append(rom)
 
 
 class RomArchiveMember(TypedDict):
@@ -1111,7 +1117,6 @@ class Rom(BaseModel):
         secondary="sibling_roms",
         primaryjoin="Rom.id == SiblingRom.rom_id",
         secondaryjoin="Rom.id == SiblingRom.sibling_rom_id",
-        collection_class=UniqueSiblingList,
         lazy="raise",
     )
     files: Mapped[list[RomFile]] = relationship(lazy="raise", back_populates="rom")
