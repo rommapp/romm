@@ -2,9 +2,10 @@
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
-import PlatformFacetBar, {
+import GalleryToolbar from "@/components/Gallery/GalleryToolbar.vue";
+import PlatformFilterDrawer, {
   type PlatformFacet,
-} from "@/components/Platforms/PlatformFacetBar.vue";
+} from "@/components/Platforms/PlatformFilterDrawer.vue";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import { platformFixture } from "@/utils/platform.fixtures";
 import PlatformsIndex from "./PlatformsIndex.vue";
@@ -38,13 +39,16 @@ vi.mock("@/lib", () => ({
 }));
 
 vi.mock("@/components/Gallery/GalleryToolbar.vue", () => ({
-  default: defineComponent({ template: "<div />" }),
+  default: defineComponent({
+    props: { filterActiveCount: { type: Number, default: 0 } },
+    template: "<div />",
+  }),
 }));
 
-vi.mock("@/components/Platforms/PlatformFacetBar.vue", () => ({
+vi.mock("@/components/Platforms/PlatformFilterDrawer.vue", () => ({
   default: defineComponent({
     props: { facets: { type: Array, default: () => [] } },
-    template: '<div class="facet-bar" />',
+    template: "<div />",
   }),
 }));
 
@@ -416,7 +420,7 @@ describe("PlatformsIndex", () => {
       key: string,
     ): PlatformFacet | undefined {
       const facets = wrapper
-        .findComponent(PlatformFacetBar)
+        .findComponent(PlatformFilterDrawer)
         .props("facets") as PlatformFacet[];
       return facets.find((f) => f.key === key);
     }
@@ -491,6 +495,20 @@ describe("PlatformsIndex", () => {
         label: "__proto__",
         count: 0,
       });
+    });
+
+    it("badges the toolbar filter button with the active facet count", () => {
+      seed();
+      routeState.query = {
+        category: "console,portable_console",
+        play: "stream",
+      };
+
+      const wrapper = mount(PlatformsIndex);
+
+      expect(
+        wrapper.findComponent(GalleryToolbar).props("filterActiveCount"),
+      ).toBe(2);
     });
 
     it("says the filters matched nothing", () => {

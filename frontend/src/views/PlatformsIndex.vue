@@ -24,9 +24,9 @@ import GalleryToolbar, {
   type GroupByItem,
   type SegmentFilter,
 } from "@/components/Gallery/GalleryToolbar.vue";
-import PlatformFacetBar, {
+import PlatformFilterDrawer, {
   type PlatformFacet,
-} from "@/components/Platforms/PlatformFacetBar.vue";
+} from "@/components/Platforms/PlatformFilterDrawer.vue";
 import PlatformListHeader from "@/components/Platforms/PlatformListHeader.vue";
 import PlatformListRow from "@/components/Platforms/PlatformListRow.vue";
 import PlatformTile from "@/components/Platforms/PlatformTile.vue";
@@ -319,9 +319,12 @@ const facetSelection = computed<FacetSelection<PlatformFacetKey>>(() =>
     ]),
   ),
 );
-const hasFacetSelection = computed(() =>
-  PLATFORM_FACET_KEYS.some((key) => facetParams[key].value !== ""),
+const activeFacetCount = computed(
+  () =>
+    PLATFORM_FACET_KEYS.filter((key) => facetParams[key].value !== "").length,
 );
+const hasFacetSelection = computed(() => activeFacetCount.value > 0);
+const filterDrawerOpen = ref(false);
 
 function onFacetUpdate({
   key,
@@ -633,12 +636,6 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
     <template #header>
       <PageHeader :title="t('common.platforms')" :count="totalCount" />
       <RDivider class="r-pidx__header-divider" />
-      <PlatformFacetBar
-        v-if="allPlatforms.length"
-        :facets="facets"
-        @update="onFacetUpdate"
-        @clear="clearFacets"
-      />
     </template>
 
     <template #toolbar>
@@ -649,6 +646,8 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
         :search="searchTerm"
         :group-by-items="platformGroupByItems"
         :segment-filters="segmentFilters"
+        show-filter
+        :filter-active-count="activeFacetCount"
         show-search
         :search-placeholder="t('platform.search-placeholder')"
         @update:group-by="groupBy = $event"
@@ -656,6 +655,13 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
         @update:sort-dir="gridSortDir = $event"
         @update:search="searchTerm = $event"
         @update:segment-filter="onSegmentFilter"
+        @click:filter="filterDrawerOpen = true"
+      />
+      <PlatformFilterDrawer
+        v-model="filterDrawerOpen"
+        :facets="facets"
+        @update="onFacetUpdate"
+        @clear="clearFacets"
       />
     </template>
 
