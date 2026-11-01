@@ -1,6 +1,10 @@
 import pytest
 
-from utils.media_types import guess_media_file_type, is_allowed_image_file
+from utils.media_types import (
+    guess_media_file_type,
+    is_allowed_image_file,
+    is_allowed_screenshot_upload,
+)
 
 
 @pytest.mark.parametrize(
@@ -19,3 +23,9 @@ def test_modern_image_formats_are_served_inline(file_name: str, mime: str):
 
 def test_unknown_extension_is_not_an_image():
     assert not is_allowed_image_file("cover.psd")
+
+
+def test_uploaded_screenshots_keep_to_formats_every_browser_renders():
+    assert is_allowed_screenshot_upload("shot.png")
+    assert not is_allowed_screenshot_upload("shot.jxl")
+    assert is_allowed_image_file("shot.jxl")

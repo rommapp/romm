@@ -25,6 +25,9 @@ ALLOWED_IMAGE_EXTENSIONS = frozenset(
         ".jxl",
     }
 )
+# Uploaded screenshots are served back as stored, so they keep to the formats
+# every browser renders; JPEG XL stays a library-file format.
+SCREENSHOT_UPLOAD_EXTENSIONS = ALLOWED_IMAGE_EXTENSIONS - {".jxl"}
 ALLOWED_VIDEO_EXTENSIONS = frozenset({".mp4", ".webm", ".ogv", ".mov", ".m4v"})
 ALLOWED_DOCUMENT_EXTENSIONS = frozenset({".pdf", ".md", ".txt", ".html", ".htm"})
 
@@ -77,6 +80,12 @@ def is_allowed_image_file(file_name: str) -> bool:
     """Whether a library file is an image the browser can render inline."""
     ext = os.path.splitext(file_name)[1].lower()
     return ext in ALLOWED_IMAGE_EXTENSIONS
+
+
+def is_allowed_screenshot_upload(file_name: str) -> bool:
+    """Whether an uploaded screenshot has an extension every browser renders."""
+    ext = os.path.splitext(file_name)[1].lower()
+    return ext in SCREENSHOT_UPLOAD_EXTENSIONS
 
 
 def is_allowed_video_file(file_name: str) -> bool:

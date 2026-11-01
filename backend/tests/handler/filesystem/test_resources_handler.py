@@ -393,6 +393,16 @@ class TestFSResourcesHandler:
             assert big.size == FRAME_SIZE
         assert (tmp_path / path_cover_s).is_file()
 
+    async def test_store_artwork_rejects_a_corrupt_jpeg_xl(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+        data = jxl_image_bytes()
+
+        paths = await handler.store_artwork(rom, BytesIO(data[: len(data) // 2]), "png")
+
+        assert paths == (None, None)
+
     def test_get_cover_path_no_cover(
         self, handler: FSResourcesHandler, rom: Rom, tmp_path
     ):
