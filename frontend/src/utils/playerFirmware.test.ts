@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   firmwareExternalFiles,
   keepArcadeBiosWhole,
+  pointSystemDirectoryAtFirmware,
   resolveInitialFirmware,
 } from "./playerFirmware";
 
@@ -196,5 +197,62 @@ describe("keepArcadeBiosWhole", () => {
     const instance = emulator("fbneo", "");
     keepArcadeBiosWhole(instance);
     expect(instance.config.externalFiles).toBeUndefined();
+  });
+});
+
+const RETROARCH_CFG = "/home/web_user/.config/retroarch/retroarch.cfg";
+
+// A GameManager whose constructor already wrote retroarch.cfg, as EmulatorJS's does.
+const gameManager = (cfg = "audio_latency = 64\n") => {
+  const files: Record<string, string> = { [RETROARCH_CFG]: cfg };
+  return {
+    files,
+    FS: {
+      readFile: (path: string) => files[path] ?? "",
+      writeFile: (path: string, data: string) => {
+        files[path] = data;
+      },
+    },
+  };
+};
+
+const booting = (externalFiles?: Record<string, string>, cfg?: string) => {
+  const instance: {
+    config: { externalFiles?: Record<string, string> | undefined };
+    gameManager?: ReturnType<typeof gameManager> | undefined;
+  } = { config: { externalFiles } };
+  pointSystemDirectoryAtFirmware(instance);
+  const manager = gameManager(cfg);
+  instance.gameManager = manager;
+  return { instance, manager };
+};
+
+describe("pointSystemDirectoryAtFirmware", () => {
+  it("points RetroArch at the Kickstarts written for PUAE", () => {
+    const { instance, manager } = booting(
+      firmwareExternalFiles("puae", firmware),
+    );
+    expect(instance.gameManager).toBe(manager);
+    expect(manager.files[RETROARCH_CFG]).toBe(
+      'audio_latency = 64\nsystem_directory = "/home/web_user/retroarch/userdata/system"\n',
+    );
+  });
+
+  it("keeps a system_directory the config already sets", () => {
+    const { manager } = booting(
+      firmwareExternalFiles("puae", firmware),
+      'system_directory = "/bios"\n',
+    );
+    expect(manager.files[RETROARCH_CFG]).toBe('system_directory = "/bios"\n');
+  });
+
+  // Games may bundle their own Kickstarts, and other cores find their BIOS in
+  // the content directory RetroArch falls back to.
+  it.each([
+    ["no firmware", undefined],
+    ["a BIOS beside the game", { "/neogeo.zip": "/api/firmware/9" }],
+  ])("keeps the content directory with %s", (_, externalFiles) => {
+    const { manager } = booting(externalFiles);
+    expect(manager.files[RETROARCH_CFG]).toBe("audio_latency = 64\n");
   });
 });

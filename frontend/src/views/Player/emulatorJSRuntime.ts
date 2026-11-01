@@ -19,7 +19,10 @@ import pendingAssetStore, {
 import storeHeartbeat from "@/stores/heartbeat";
 import { type DetailedRom } from "@/stores/roms";
 import { buildFormInput } from "@/utils/formData";
-import { keepArcadeBiosWhole } from "@/utils/playerFirmware";
+import {
+  keepArcadeBiosWhole,
+  pointSystemDirectoryAtFirmware,
+} from "@/utils/playerFirmware";
 import { bytesEqual, saveContentHash } from "@/utils/saveSync/hash";
 
 /** Tears the emulator down once, however many owners ask. */
@@ -612,6 +615,7 @@ export function installEJSDefaultOptionsTrap() {
       lookUpGamepadsByBrowserIndex(value);
       replayConnectedGamepads(value);
       keepArcadeBiosWhole(value);
+      pointSystemDirectoryAtFirmware(value);
       writeArrayBuffersAsBytes();
       applyOnlyEnabledCheats(value);
       skipDiskSelectionBeforeStart(value);
