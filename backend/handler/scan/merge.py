@@ -131,6 +131,7 @@ def seed_rom_attrs(
         "fs_size_bytes": rom.fs_size_bytes,
         "is_physical": rom.is_physical,
         "upc": rom.upc,
+        "name_sort_key_custom": False,
     }
 
     file_attrs = fs_rom_file_attrs(fs_rom)
@@ -157,7 +158,11 @@ def seed_rom_attrs(
         rom_attrs.update(
             {
                 "name": rom.name,
-                "name_sort_key": rom.name_sort_key,
+                # A derived key is left out, so it follows the name this scan settles.
+                "name_sort_key": (
+                    rom.name_sort_key if rom.name_sort_key_custom else None
+                ),
+                "name_sort_key_custom": rom.name_sort_key_custom,
                 "slug": rom.slug,
                 "summary": rom.summary,
                 "url_cover": rom.url_cover,

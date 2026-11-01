@@ -240,6 +240,18 @@ SYNC_FOLDER_SCAN_SPEC: Final = TaskSpec(
     manual_run=True,
 )
 
+RECOMPUTE_NAME_SORT_KEYS_SPEC: Final = TaskSpec(
+    implementation="tasks.manual.recompute_name_sort_keys.recompute_name_sort_keys_task",
+    title="Recompute ROM sort keys",
+    description=(
+        "Re-derive each ROM's sort key from its name with the articles "
+        "sorting.articles names, keeping custom sort keys."
+    ),
+    task_type=TaskType.UPDATE,
+    enabled=True,
+    manual_run=True,
+)
+
 RECOMPUTE_SAVE_CONTENT_HASHES_SPEC: Final = TaskSpec(
     implementation="tasks.manual.recompute_save_content_hashes.recompute_save_content_hashes_task",
     title="Recompute save content hashes",
@@ -296,6 +308,7 @@ MANUAL_TASKS: Final[dict[str, TaskSpec]] = {
     "cleanup_missing_firmware": CLEANUP_MISSING_FIRMWARE_SPEC,
     "sync_folder_scan": SYNC_FOLDER_SCAN_SPEC,
     "recompute_save_content_hashes": RECOMPUTE_SAVE_CONTENT_HASHES_SPEC,
+    "recompute_name_sort_keys": RECOMPUTE_NAME_SORT_KEYS_SPEC,
     "convert_library": CONVERT_LIBRARY_SPEC,
 }
 

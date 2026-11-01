@@ -104,6 +104,7 @@ from utils.database import (
     ROMS_SEARCH_FULLTEXT_COLUMNS,
     SORTABLE_NULLABLE_ROM_COLUMNS,
     epoch_ms_in_ranges,
+    exact_collation,
     is_non_blank,
     is_postgresql,
     release_day_ranges,
@@ -638,8 +639,8 @@ def _resolve_gallery_sort_key(order_by: str, user_id: int | None) -> _GallerySor
             return _GallerySortKey(metadata_column, "rom_metadata", nullable=True)
 
     column = rom_column if rom_column is not None else Rom.name
-    # Use indexed `name_sort_key` to have fast access to names without
-    # articles (the, a, an) and leading digits. The key is derived from
+    # Use indexed `name_sort_key` to have fast access to names without the
+    # leading articles `sorting.articles` names. The key is derived from
     # `name` at write time, or holds a custom override when one is set.
     if column is Rom.name:
         column = Rom.name_sort_key
@@ -2275,15 +2276,13 @@ class DBRomsHandler(DBBaseHandler):
         data: dict[str, Any],
         session: Session = INJECTED_SESSION,
     ) -> Rom:
+        if "name_sort_key" in data and "name_sort_key_custom" not in data:
+            # A key written without saying otherwise is the caller's own choice.
+            data = {**data, "name_sort_key_custom": data["name_sort_key"] is not None}
         if "name" in data and "name_sort_key" not in data:
-            # Re-derive the key from the new name, but only when the stored key
-            # is still the derived value (i.e. not a manual override). Mirrors
-            # the `@validates` logic, which the bulk update() bypasses.
-            existing = session.get_one(Rom, id)
-            if (
-                existing.name_sort_key is None
-                or existing.name_sort_key == compute_name_sort_key(existing.name)
-            ):
+            # Re-derive the key from the new name unless it is a custom one.
+            # Mirrors the `@validates` logic, which the bulk update() bypasses.
+            if not session.get_one(Rom, id).name_sort_key_custom:
                 data = {**data, "name_sort_key": compute_name_sort_key(data["name"])}
 
         if data.keys() & SEARCH_TITLE_COLUMNS:
@@ -2430,6 +2429,56 @@ class DBRomsHandler(DBBaseHandler):
                 .values(missing_from_fs=False)
                 .execution_options(synchronize_session="evaluate")
             )
+
+    @begin_session
+    def get_sort_keys_after_id(
+        self,
+        after_id: int,
+        limit: int,
+        session: Session = INJECTED_SESSION,
+    ) -> list[tuple[int, str | None, str | None, bool]]:
+        """A page of `(id, name, name_sort_key, name_sort_key_custom)` after `after_id`."""
+        rows = session.execute(
+            select(Rom.id, Rom.name, Rom.name_sort_key, Rom.name_sort_key_custom)
+            .where(Rom.id > after_id)
+            .order_by(Rom.id)
+            .limit(limit)
+        ).all()
+        return [(rom_id, name, key, custom) for rom_id, name, key, custom in rows]
+
+    @begin_session
+    def replace_derived_sort_keys(
+        self,
+        replacements: Mapping[int, tuple[str | None, str]],
+        session: Session = INJECTED_SESSION,
+    ) -> int:
+        """Re-derive sort keys, each only while its name is the one it was derived from.
+
+        Args:
+            replacements: ROM id to its (name, new sort key).
+
+        Returns:
+            How many keys were replaced.
+        """
+        replaced = 0
+        # Exact, so an accent-only rename still counts as a change of name.
+        collation = exact_collation(session.get_bind())
+        stored_name = Rom.name.collate(collation) if collation else Rom.name
+        for rom_id, (name, new) in replacements.items():
+            same_name = stored_name.is_(None) if name is None else stored_name == name
+            replaced += affected_rows(
+                session.execute(
+                    update(Rom)
+                    .where(
+                        Rom.id == rom_id, same_name, Rom.name_sort_key_custom.is_(False)
+                    )
+                    .values(name_sort_key=new)
+                    .execution_options(synchronize_session=False)
+                )
+            )
+        if replaced:
+            session.info[FILTER_VALUES_BUMP_KEY] = True
+        return replaced
 
     @begin_session
     def mark_missing_roms(

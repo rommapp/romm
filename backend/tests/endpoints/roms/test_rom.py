@@ -966,10 +966,23 @@ def test_update_rom(
 
     body = response.json()
     assert body["fs_name"] == "Metroid Prime Remastered.zip"
-    assert body["name_sort_key"] == compute_name_sort_key("Metroid Prime")
+    assert body["name_sort_key"] == compute_name_sort_key("Metroid Prime", articles=())
 
     assert rename_fs_rom_mock.called
     assert get_rom_by_id_mock.called
+
+
+def test_update_rom_keeps_a_custom_sort_keys_leading_article(
+    client: TestClient, access_token: str, rom: Rom
+):
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"name_sort_key": "The Simpsons"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    assert response.json()["name_sort_key"] == "the simpsons"
 
 
 @patch.object(FSRomsHandler, "rename_fs_rom")

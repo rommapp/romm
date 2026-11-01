@@ -93,6 +93,18 @@
 #     ps3: 'roms/{platform}/{category}/{game}'
 #     snes: 'roms/{platform}/{region}/{game}'
 
+# sorting:
+#   # Leading words a title sorts without, so "The Legend of Zelda" files under L.
+#   # Defaults to English; list your library's articles to change it. A custom
+#   # sort name set on a game is always used as typed.
+#   articles:
+#     - the
+#     - a
+#     - an
+#     - der
+#     - die
+#     - das
+
 # scan:
 #   # Metadata priority during scans
 #   priority:
