@@ -1946,6 +1946,7 @@ Falls back to `FakeRedis` in test mode.
 | `OIDC_TLS_CACERTFILE`           |                      | Custom CA bundle for OIDC calls |
 | `OIDC_RP_INITIATED_LOGOUT`      | `false`              | Send logout to OIDC provider    |
 | `OIDC_END_SESSION_ENDPOINT`     |                      | End-session URL override        |
+| `OIDC_AUTH_PARAMS`              |                      | JSON of extra authorize params  |
 
 #### API Keys
 
