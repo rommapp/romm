@@ -48,6 +48,9 @@ CONVERSION_WAIT_SECONDS: Final = 15
 RETRY_AFTER_SECONDS: Final = 30
 PARTIAL_DIR: Final = ".partial"
 FAILED_FILE: Final = ".failed"
+# Touched on each serve so TTL cleanup measures demand without changing the
+# served copy's mtime, which nginx builds its ETag from.
+SERVED_FILE: Final = ".served"
 # Give nginx time to open a copy after the X-Accel-Redirect response.
 SERVE_GRACE_SECONDS: Final = 60
 # Room a conversion to an uncompressed target reserves per input byte; the
@@ -139,6 +142,11 @@ def _lookup(
     return operation, converted_file_path(rom_id, rom_file, operation, input_ext)
 
 
+def _record_served(key_dir: Path) -> None:
+    with contextlib.suppress(OSError):
+        (key_dir / SERVED_FILE).touch()
+
+
 def _serve_cached(final_path: Path, *, touch: bool) -> Path | None:
     """`final_path` if it is cached, or None while cleanup or a conversion holds its dir."""
     with (
@@ -147,9 +155,7 @@ def _serve_cached(final_path: Path, *, touch: bool) -> Path | None:
     ):
         if locked and final_path.exists():
             if touch:
-                # Keep a served file fresh so TTL cleanup measures demand.
-                with contextlib.suppress(OSError):
-                    os.utime(final_path)
+                _record_served(final_path.parent)
             return final_path
     return None
 
@@ -165,7 +171,7 @@ def get_cached_converted(
     """The converted file if it is already cached, without converting.
 
     Args:
-        touch: Refresh its mtime so TTL cleanup measures demand.
+        touch: Record the serve so TTL cleanup measures demand.
     """
     found = _lookup(rom_id, rom_file, platform_slug, target)
     return _serve_cached(found[1], touch=touch) if found else None
@@ -242,7 +248,7 @@ async def resolve_format_download(
     Args:
         allowed: The caller may start a conversion.
         start: Start it now, rather than only report that one would run.
-        touch: Refresh a served copy's mtime so TTL cleanup measures demand.
+        touch: Record the serve so TTL cleanup measures demand.
     """
     if file_format(file.file_name) in formats:
         return FormatResolution(FormatOutcome.ORIGINAL)
@@ -311,8 +317,7 @@ async def get_or_convert(
                 return None
             # A conversion may have finished between the check above and the lock.
             if final_path.exists():
-                with contextlib.suppress(OSError):
-                    os.utime(final_path)
+                _record_served(final_path.parent)
                 return final_path
             if (final_path.parent / FAILED_FILE).exists():
                 return None
