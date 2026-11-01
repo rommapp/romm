@@ -681,7 +681,9 @@ class TestArtworkUpload:
             headers={"Authorization": f"Bearer {access_token}"},
         )
         assert response.status_code == status.HTTP_200_OK
-        _, _, file_ext = store_artwork_mock.call_args.args
+        call_args = store_artwork_mock.call_args
+        assert call_args is not None
+        _, _, file_ext = call_args.args
         assert file_ext == "png"
 
     def test_update_collection_rejects_non_image_artwork(

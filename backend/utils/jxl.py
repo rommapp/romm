@@ -1,9 +1,4 @@
-"""JPEG XL support for Pillow, size-checked before any pixel is decoded.
-
-pillow-jxl decodes the whole image while opening it, before Pillow's
-decompression-bomb check sees the size, so this reads the dimensions from the
-codestream header first and registers a guarded decoder in its place.
-"""
+"""JPEG XL support for Pillow, size-checked before any pixel is decoded."""
 
 import struct
 
