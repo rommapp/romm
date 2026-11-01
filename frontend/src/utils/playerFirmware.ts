@@ -78,7 +78,14 @@ export function keepArcadeBiosWhole(emulator: ArcadeBiosEmulator): void {
   // EmulatorJS 4.2.3 (the build with downloadGameFile) unpacks every BIOS
   // archive, but these cores only find a romset like neogeo.zip as a zip.
   if (typeof emulator.downloadGameFile !== "function") return;
-  if (!["arcade", "mame", "neogeomvs", "neogeoaes"].includes(emulator.getCore(true))) return;
+  // Neo Geo MVS/AES also read neogeo.zip as a zip, not as extracted files.
+  if (
+    !["arcade", "mame", "neogeomvs", "neogeoaes"].includes(
+      emulator.getCore(true),
+    )
+  ) {
+    return;
+  }
 
   const { biosUrl } = emulator.config;
   const name = biosUrl?.split("/").pop()?.split(/[?#]/)[0];
