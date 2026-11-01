@@ -2270,6 +2270,36 @@ class DBRomsHandler(DBBaseHandler):
         return sorted(roms, key=lambda rom: rom.id)
 
     @begin_session
+    def get_roms_by_file_name_prefixes(
+        self,
+        prefixes: Iterable[str],
+        session: Session = INJECTED_SESSION,
+    ) -> list[tuple[str, Rom]]:
+        """Each file whose name starts with one of `prefixes`, in any case, with its ROM.
+
+        Returns:
+            (file name, owning ROM) pairs, in ROM id order.
+        """
+        unique = list(dict.fromkeys(prefixes))
+        rows: list[tuple[str, Rom]] = []
+        for batch in batched(unique, 100, strict=False):
+            rows += session.execute(
+                select(RomFile.file_name, Rom)
+                .join(Rom, Rom.id == RomFile.rom_id)
+                .options(selectinload(Rom.platform))
+                .where(
+                    or_(
+                        *(
+                            RomFile.file_name.istartswith(prefix, autoescape=True)
+                            for prefix in batch
+                        )
+                    )
+                )
+            ).all()
+
+        return sorted(rows, key=lambda row: (row[1].id, row[0]))
+
+    @begin_session
     def update_rom(
         self,
         id: int,

@@ -280,8 +280,12 @@ async def check_against_capture(slot: SlotStates, body: UploadFile) -> CaptureCh
 SLOTTED_SAVE_EXTENSION = "srm"
 
 
-def save_lineage(emulator: str | None, file_name: str) -> SaveLineage | None:
+def save_lineage(rom: Rom, emulator: str | None, file_name: str) -> SaveLineage | None:
     """The `autosave` lineage a RetroArch save path maps to, or None for an unslotted file."""
+    # A lineage holds one save per ROM and core, so saves named after the ROM's
+    # files (one per disc) stay unslotted to keep each under its own path.
+    if not is_rom_name(rom, game_name_from_file_name("saves", file_name)):
+        return None
     lineage = SaveLineage.of(emulator, file_name)
     return lineage if lineage.file_extension == SLOTTED_SAVE_EXTENSION else None
 
@@ -289,10 +293,7 @@ def save_lineage(emulator: str | None, file_name: str) -> SaveLineage | None:
 def advertised_save_name(save: Save) -> str:
     """A version's name without its tag when that still names its ROM, else RetroArch's name for it."""
     name = strip_datetime_tag(save.file_name)
-    if (
-        game_name_from_file_name("saves", name).lower()
-        == save.rom.fs_name_no_ext.lower()
-    ):
+    if is_rom_name(save.rom, game_name_from_file_name("saves", name)):
         return name
     return f"{save.rom.fs_name_no_ext}{os.path.splitext(name)[1]}"
 
@@ -361,7 +362,7 @@ def resolve_save(
     user: User, rom: Rom, emulator: str | None, requested_file_name: str
 ) -> Save | None:
     """The save a RetroArch path serves: the newest `autosave` version, else the unslotted save there."""
-    lineage = save_lineage(emulator, requested_file_name)
+    lineage = save_lineage(rom, emulator, requested_file_name)
     head = lineage_head(user, rom, lineage) if lineage else None
     return head or _unslotted_save_at(user, rom, emulator, requested_file_name)
 
@@ -370,7 +371,7 @@ def saves_at_path(
     user: User, rom: Rom, emulator: str | None, requested_file_name: str
 ) -> list[Save]:
     """Every save a RetroArch path covers, so deleting it leaves nothing to resurface."""
-    lineage = save_lineage(emulator, requested_file_name)
+    lineage = save_lineage(rom, emulator, requested_file_name)
     if not lineage:
         return _unslotted_saves_at(user, rom, emulator, requested_file_name)
 
@@ -405,7 +406,7 @@ async def store_save(
     Raises:
         ValueError: The timestamped version name is too long.
     """
-    lineage = save_lineage(emulator, requested_file_name)
+    lineage = save_lineage(rom, emulator, requested_file_name)
     if not lineage:
         return await _store_unslotted_save(
             user, rom, emulator, requested_file_name, body
@@ -699,25 +700,69 @@ async def build_blob_manifest_entries(user: User) -> list[dict[str, str]]:
     ]
 
 
-def resolve_roms(
-    game_names: Iterable[str], can_see: Callable[[Rom], bool]
+def _match_names(
+    names: Collection[str], candidates: Iterable[tuple[str, Rom]]
 ) -> dict[str, Rom]:
-    """The ROM each game name belongs to, the first visible one by id when ambiguous."""
-    names = set(game_names)
+    """The first ROM each name's candidates offer, the client's exact spelling first."""
     exact: dict[str, Rom] = {}
-    # The lookup ignores case, so the client's exact spelling wins a tie.
     folded: dict[str, Rom] = {}
-    for rom in db_rom_handler.get_roms_by_fs_names_no_ext(names):
-        if can_see(rom):
-            exact.setdefault(rom.fs_name_no_ext, rom)
-            folded.setdefault(rom.fs_name_no_ext.casefold(), rom)
+    for candidate_name, rom in candidates:
+        exact.setdefault(candidate_name, rom)
+        folded.setdefault(candidate_name.casefold(), rom)
 
     resolved = {name: exact.get(name) or folded.get(name.casefold()) for name in names}
     return {name: rom for name, rom in resolved.items() if rom}
 
 
-def resolve_rom(game_name: str, can_see: Callable[[Rom], bool]) -> Rom | None:
-    return resolve_roms([game_name], can_see).get(game_name)
+def resolve_roms(
+    game_names: Iterable[str],
+    can_see: Callable[[Rom], bool],
+    *,
+    by_file_name: bool = False,
+) -> dict[str, Rom]:
+    """The ROM each game name belongs to, the first visible one by id when ambiguous.
+
+    Args:
+        by_file_name: Also resolve a name no ROM carries to the ROM owning a file
+            of that name, such as one disc in a multi-disc game folder.
+    """
+    names = set(game_names)
+    resolved = _match_names(
+        names,
+        (
+            (rom.fs_name_no_ext, rom)
+            for rom in db_rom_handler.get_roms_by_fs_names_no_ext(names)
+            if can_see(rom)
+        ),
+    )
+    unresolved = names - resolved.keys()
+    if by_file_name and unresolved:
+        folded = {name.casefold() for name in unresolved}
+        files = db_rom_handler.get_roms_by_file_name_prefixes(
+            f"{name}." for name in unresolved
+        )
+        resolved |= _match_names(
+            unresolved,
+            (
+                (stem, rom)
+                for file_name, rom in files
+                # The prefix also matches longer names such as `<name>.v2.bin`.
+                if (stem := os.path.splitext(file_name)[0]).casefold() in folded
+                and can_see(rom)
+            ),
+        )
+    return resolved
+
+
+def resolve_rom(
+    game_name: str, can_see: Callable[[Rom], bool], *, by_file_name: bool = False
+) -> Rom | None:
+    return resolve_roms([game_name], can_see, by_file_name=by_file_name).get(game_name)
+
+
+def is_rom_name(rom: Rom, game_name: str) -> bool:
+    """Whether `game_name` is the ROM's own name rather than one of its files'."""
+    return game_name.casefold() == rom.fs_name_no_ext.casefold()
 
 
 def _mark_missing_from_fs(asset: Save | State | Screenshot) -> None:
@@ -800,7 +845,7 @@ def _manifest_assets(
             if not save.missing_from_fs
             and not psp.is_psp_bundle_file_name(save.file_name)
             and not (
-                save_lineage(save.emulator, save.file_name)
+                save_lineage(save.rom, save.emulator, save.file_name)
                 and (save.rom_id, retroarch_folder(save.emulator)) in head_by_folder
             )
         ),
@@ -825,14 +870,20 @@ def _manifest_assets(
 
     # A path carries no platform, so only the ROM that GET/PUT/DELETE would
     # resolve it to may claim it; a same-named ROM elsewhere would shadow it.
-    owners = resolve_roms(
-        [game_name_from_file_name("saves", name) for name, _ in listed_saves]
-        + [game_name_from_file_name("states", name) for _, name, _ in listed_states],
-        can_see,
-    )
+    owners: dict[AssetKind, dict[str, Rom]] = {
+        "saves": resolve_roms(
+            [game_name_from_file_name("saves", name) for name, _ in listed_saves],
+            can_see,
+            by_file_name=True,
+        ),
+        "states": resolve_roms(
+            [game_name_from_file_name("states", name) for _, name, _ in listed_states],
+            can_see,
+        ),
+    }
 
     def is_addressable(rom: Rom, kind: AssetKind, file_name: str) -> bool:
-        owner = owners.get(game_name_from_file_name(kind, file_name))
+        owner = owners[kind].get(game_name_from_file_name(kind, file_name))
         return owner is not None and owner.id == rom.id
 
     assets = [

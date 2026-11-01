@@ -37,7 +37,7 @@ from handler.sync.retroarch.emulator_names import (
 from models.assets import Save, Screenshot, State
 from models.device import SyncMode
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import Rom, RomFile
 from models.user import User
 
 ADMIN_AUTH = ("test_admin", "test_admin_password")
@@ -1466,6 +1466,132 @@ class TestRetroArchSyncSaveSlots:
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert self._versions(admin_user, rom) == []
+
+
+@pytest.fixture
+def disc_folder_rom(admin_user: User, platform: Platform) -> Rom:
+    """A game folder whose disc files carry names the folder doesn't."""
+    rom = make_rom(platform, "Some Game", fs_extension="")
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+    for file_name in ("Some Game (USA) (Disc 1).chd", "Some Game (USA) (Disc 2).chd"):
+        db_rom_handler.add_rom_file(
+            RomFile(
+                rom_id=rom.id,
+                file_name=file_name,
+                file_path=f"{rom.fs_path}/{rom.fs_name}",
+                file_size_bytes=1,
+            )
+        )
+    return rom
+
+
+@pytest.mark.usefixtures("version_names")
+class TestRetroArchSyncRomFileNames:
+    """Saves RetroArch names after one file of a multi-file ROM, such as a disc."""
+
+    DISC_1_URL = "/api/sync/retroarch/saves/Snes9x/Some%20Game%20(USA)%20(Disc%201).srm"
+    DISC_2_URL = "/api/sync/retroarch/saves/Snes9x/Some%20Game%20(USA)%20(Disc%202).srm"
+
+    def test_upload_files_an_unslotted_save_per_disc(
+        self, client, admin_user: User, disc_folder_rom: Rom
+    ):
+        for url, content in ((self.DISC_1_URL, b"one"), (self.DISC_2_URL, b"two")):
+            response = client.put(url, content=content, auth=ADMIN_AUTH)
+            assert response.status_code == status.HTTP_201_CREATED
+
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[disc_folder_rom.id]
+        )
+        assert sorted((save.file_name, save.slot) for save in saves) == [
+            ("Some Game (USA) (Disc 1).srm", None),
+            ("Some Game (USA) (Disc 2).srm", None),
+        ]
+        assert client.get(self.DISC_1_URL, auth=ADMIN_AUTH).content == b"one"
+        assert client.get(self.DISC_2_URL, auth=ADMIN_AUTH).content == b"two"
+
+    def test_matches_the_file_name_in_another_case(
+        self, client, admin_user: User, disc_folder_rom: Rom
+    ):
+        response = client.put(
+            "/api/sync/retroarch/saves/Snes9x/some%20game%20(usa)%20(disc%201).srm",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+
+    @_mock_asset_md5()
+    def test_manifest_lists_each_disc_beside_the_folder_save(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, disc_folder_rom: Rom
+    ):
+        client.put(self.DISC_1_URL, content=b"one", auth=ADMIN_AUTH)
+        client.put(self.DISC_2_URL, content=b"two", auth=ADMIN_AUTH)
+        client.put(
+            "/api/sync/retroarch/saves/Snes9x/Some%20Game.srm",
+            content=b"m3u",
+            auth=ADMIN_AUTH,
+        )
+
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+
+        assert [entry["path"] for entry in response.json()] == [
+            "saves/Snes9x/Some Game (USA) (Disc 1).srm",
+            "saves/Snes9x/Some Game (USA) (Disc 2).srm",
+            "saves/Snes9x/Some Game.srm",
+        ]
+
+    def test_delete_removes_the_disc_save(
+        self, client, admin_user: User, disc_folder_rom: Rom
+    ):
+        client.put(self.DISC_1_URL, content=b"one", auth=ADMIN_AUTH)
+
+        response = client.request("DELETE", self.DISC_1_URL, auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert (
+            db_save_handler.get_saves(
+                user_id=admin_user.id, rom_ids=[disc_folder_rom.id]
+            )
+            == []
+        )
+
+    def test_a_rom_named_like_the_file_wins(
+        self,
+        client,
+        admin_user: User,
+        disc_folder_rom: Rom,
+        other_platform: Platform,
+    ):
+        disc_rom = make_rom(other_platform, "Some Game (USA) (Disc 1)")
+        db_rom_handler.add_rom_user(rom_id=disc_rom.id, user_id=admin_user.id)
+
+        response = client.put(self.DISC_1_URL, content=b"data", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_201_CREATED
+        [save] = db_save_handler.get_saves(user_id=admin_user.id)
+        assert save.rom_id == disc_rom.id
+
+    def test_a_longer_file_name_with_the_same_prefix_does_not_match(
+        self, client, admin_user: User, disc_folder_rom: Rom
+    ):
+        response = client.put(
+            "/api/sync/retroarch/saves/Snes9x/Some%20Game%20(USA).srm",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+
+    def test_a_state_named_after_a_disc_matches_no_rom(
+        self, client, admin_user: User, disc_folder_rom: Rom
+    ):
+        response = client.put(
+            "/api/sync/retroarch/states/Snes9x/Some%20Game%20(USA)%20(Disc%201).state",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
 
 
 def test_uploads_in_the_same_second_keep_both_versions(
