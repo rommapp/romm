@@ -92,3 +92,45 @@ export function keepArcadeBiosWhole(emulator: ArcadeBiosEmulator): void {
   };
   emulator.config.biosUrl = "";
 }
+
+const RETROARCH_CFG = "/home/web_user/.config/retroarch/retroarch.cfg";
+
+interface GameManagerLike {
+  FS: {
+    readFile(path: string, opts: { encoding: "utf8" }): string;
+    writeFile(path: string, data: string): void;
+  };
+}
+
+interface SystemDirectoryEmulator {
+  config: { externalFiles?: Record<string, string> | undefined };
+  gameManager?: GameManagerLike | undefined;
+}
+
+/** Points RetroArch's system directory at the firmware firmwareExternalFiles writes. */
+export function pointSystemDirectoryAtFirmware(
+  emulator: SystemDirectoryEmulator,
+): void {
+  // EJS_biosUrl and keepArcadeBiosWhole put BIOS files in the content directory,
+  // RetroArch's fallback, so only firmware written to SYSTEM_DIRECTORY moves it.
+  const paths = Object.keys(emulator.config.externalFiles ?? {});
+  if (!paths.some((path) => path.startsWith(`${SYSTEM_DIRECTORY}/`))) return;
+
+  let manager = emulator.gameManager;
+  // EmulatorJS assigns gameManager after writing retroarch.cfg and before it
+  // loads EJS_externalFiles or boots the core.
+  Object.defineProperty(emulator, "gameManager", {
+    configurable: true,
+    get: () => manager,
+    set: (value: GameManagerLike | undefined) => {
+      manager = value;
+      if (!value) return;
+      const cfg = value.FS.readFile(RETROARCH_CFG, { encoding: "utf8" });
+      if (/^system_directory\s*=/m.test(cfg)) return;
+      value.FS.writeFile(
+        RETROARCH_CFG,
+        `${cfg}system_directory = "${SYSTEM_DIRECTORY}"\n`,
+      );
+    },
+  });
+}
