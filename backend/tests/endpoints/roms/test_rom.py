@@ -1460,7 +1460,7 @@ def test_update_rom_rejects_non_image_artwork(
         files={"artwork": ("cover.png", b"<script>alert(1)</script>", "image/png")},
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert "PNG, JPEG, WebP, or GIF" in response.json()["detail"]
+    assert "PNG, JPEG, WebP, GIF, or JPEG XL" in response.json()["detail"]
 
 
 @patch.object(

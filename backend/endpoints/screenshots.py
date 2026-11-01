@@ -18,8 +18,8 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.media_types import (
-    ALLOWED_IMAGE_EXTENSIONS,
-    is_allowed_image_file,
+    SCREENSHOT_UPLOAD_EXTENSIONS,
+    is_allowed_screenshot_upload,
 )
 from utils.router import APIRouter
 from utils.uploads import check_asset_upload_size, sanitize_asset_filename
@@ -70,12 +70,12 @@ async def add_screenshot(
         screenshotFile.filename, "screenshot"
     )
 
-    if not is_allowed_image_file(sanitized_screenshot_filename):
+    if not is_allowed_screenshot_upload(sanitized_screenshot_filename):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
                 f"Unsupported image file type. Allowed: "
-                f"{', '.join(sorted(ALLOWED_IMAGE_EXTENSIONS))}"
+                f"{', '.join(sorted(SCREENSHOT_UPLOAD_EXTENSIONS))}"
             ),
         )
 

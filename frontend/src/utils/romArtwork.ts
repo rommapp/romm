@@ -18,6 +18,7 @@
 import type { MediaShelfItem } from "@/components/GameDetails/MediaShelf.vue";
 import i18n from "@/locales";
 import type { DetailedRom } from "@/stores/roms";
+import { isRenderableImageExtension } from "@/utils/imageSupport";
 import { mediaKey } from "@/utils/mediaKeys";
 import { versionedResourceUrl, versionedRomFileUrl } from "@/utils/romFiles";
 
@@ -33,6 +34,7 @@ const LIBRARY_IMAGE_EXTENSIONS = new Set([
   "tif",
   "bmp",
   "avif",
+  "jxl",
 ]);
 const LIBRARY_VIDEO_EXTENSIONS = new Set(["mp4", "webm", "ogv", "mov", "m4v"]);
 
@@ -164,7 +166,12 @@ export function resolveRomArtwork(rom: DetailedRom): MediaShelfItem[] {
     .map((file) => {
       const ext = file.file_name.split(".").pop()?.toLowerCase() ?? "";
       const isVideo = LIBRARY_VIDEO_EXTENSIONS.has(ext);
-      if (!isVideo && !LIBRARY_IMAGE_EXTENSIONS.has(ext)) return null;
+      if (
+        !isVideo &&
+        !isRenderableImageExtension(ext, LIBRARY_IMAGE_EXTENSIONS)
+      ) {
+        return null;
+      }
 
       return {
         key: mediaKey.file(file.id),

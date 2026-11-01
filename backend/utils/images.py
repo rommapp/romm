@@ -2,6 +2,8 @@ from collections.abc import Callable
 
 from PIL import Image, ImageSequence
 
+import utils.jxl  # noqa: F401  # registers the size-checked JPEG XL decoder
+
 # Multi-frame formats browsers play as animations (MPO/TIFF pages are not)
 ANIMATED_FORMATS = frozenset({"GIF", "PNG", "WEBP"})
 

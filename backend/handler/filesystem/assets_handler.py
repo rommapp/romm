@@ -14,7 +14,10 @@ from fastapi.responses import FileResponse
 from config import ASSETS_BASE_PATH
 from logger.logger import log
 from models.user import User
-from utils.media_types import IMAGE_EXT_BY_MIME_TYPE
+from utils.media_types import (
+    CONVERTED_IMAGE_EXT_BY_MIME_TYPE,
+    IMAGE_EXT_BY_MIME_TYPE,
+)
 
 from .base_handler import FSHandler
 
@@ -91,13 +94,19 @@ def hash_save_file(path: str | os.PathLike[str]) -> str | None:
         return None
 
 
-def validate_image_upload(upload: UploadFile, *, label: str = "Image") -> str:
+def validate_image_upload(
+    upload: UploadFile, *, label: str = "Image", allow_converted: bool = False
+) -> str:
     """Validate that an uploaded file is one of the safe image types.
 
     Sniffs the leading bytes with libmagic and returns the trusted extension
     matching the detected MIME type. Raises HTTPException(400) if the file
     is not a recognized image, or if MIME sniffing fails.
     Leaves the file cursor at 0.
+
+    Args:
+        allow_converted: Also accept the types artwork storage re-encodes
+            (JPEG XL), returning the extension they are re-encoded to.
     """
     upload.file.seek(0)
     header = upload.file.read(4096)
@@ -114,11 +123,18 @@ def validate_image_upload(upload: UploadFile, *, label: str = "Image") -> str:
         ) from exc
 
     safe_extension = IMAGE_EXT_BY_MIME_TYPE.get(detected_mime)
+    if not safe_extension and allow_converted:
+        safe_extension = CONVERTED_IMAGE_EXT_BY_MIME_TYPE.get(detected_mime)
     if not safe_extension:
+        accepted = (
+            "PNG, JPEG, WebP, GIF, or JPEG XL"
+            if allow_converted
+            else "PNG, JPEG, WebP, or GIF"
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                f"{label} must be a PNG, JPEG, WebP, or GIF image "
+                f"{label} must be a {accepted} image "
                 f"(detected {detected_mime or 'unknown type'})"
             ),
         )

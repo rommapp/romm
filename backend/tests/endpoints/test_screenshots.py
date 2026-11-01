@@ -63,6 +63,28 @@ def test_upload_gallery_screenshot_sets_flags(
     "endpoints.screenshots.fs_asset_handler.write_file", new_callable=mock.AsyncMock
 )
 @mock.patch("endpoints.screenshots.scan_screenshot", new_callable=mock.AsyncMock)
+def test_upload_rejects_a_jpeg_xl_screenshot(
+    _mock_scan,
+    mock_write,
+    client,
+    access_token: str,
+    rom: Rom,
+):
+    response = client.post(
+        f"/api/screenshots?rom_id={rom.id}",
+        files={"screenshotFile": ("shot.jxl", BytesIO(b"\xff\x0a"), "image/jxl")},
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert ".jxl" not in response.json()["detail"]
+    mock_write.assert_not_called()
+
+
+@mock.patch(
+    "endpoints.screenshots.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+)
+@mock.patch("endpoints.screenshots.scan_screenshot", new_callable=mock.AsyncMock)
 def test_upload_rejects_invalid_extension(
     _mock_scan,
     _mock_write,

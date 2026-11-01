@@ -163,7 +163,9 @@ async def add_collection(
 
     try:
         if artwork is not None and artwork.filename is not None:
-            file_ext = validate_image_upload(artwork, label="Artwork")
+            file_ext = validate_image_upload(
+                artwork, label="Artwork", allow_converted=True
+            )
             artwork_content = BytesIO(await artwork.read())
             (
                 path_cover_l,
@@ -523,7 +525,9 @@ async def update_collection(
         cleaned_data.update({"url_cover": ""})
     else:
         if artwork is not None and artwork.filename is not None:
-            file_ext = validate_image_upload(artwork, label="Artwork")
+            file_ext = validate_image_upload(
+                artwork, label="Artwork", allow_converted=True
+            )
             artwork_content = BytesIO(await artwork.read())
             (
                 path_cover_l,
