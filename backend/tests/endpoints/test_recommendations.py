@@ -2,10 +2,12 @@ from datetime import datetime, timezone
 
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.endpoints.test_permissions_visibility import _auth, _hide
 from tests.handler.recommendation.test_builder import make_rom
 
 from handler.database import db_rom_handler
 from handler.recommendation import SimilarityBuilder, invalidate_cached_feed
+from models.permission import PermEntity
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
@@ -355,3 +357,40 @@ def test_similar_roms_show_the_users_main_version(
     returned_ids = [entry["rom"]["id"] for entry in body]
     assert metroid_europe.id in returned_ids
     assert library["metroid"].id not in returned_ids
+
+
+def test_similar_roms_show_a_visible_version_of_a_hidden_one(
+    client: TestClient, viewer_user: User, platform: Platform
+):
+    """The edges point at the hidden version; the game must still show."""
+    library = build_library(platform)
+    metroid_europe = _metroid_europe(platform)
+    SimilarityBuilder().build()
+    _hide(PermEntity.ROMS, library["metroid"].id, viewer_user.id)
+
+    body = client.get(
+        f"/api/roms/{library['metroid_2'].id}/similar", headers=_auth(viewer_user)
+    ).json()
+
+    returned_ids = [entry["rom"]["id"] for entry in body]
+    assert metroid_europe.id in returned_ids
+    assert library["metroid"].id not in returned_ids
+
+
+def test_cold_start_reads_past_a_game_with_many_versions(
+    client: TestClient, access_token: str, admin_user: User, platform: Platform
+):
+    """More versions than one overfetched batch must not crowd out the next game."""
+    for index in range(12):
+        make_rom(platform, f"Clone {index}", igdb_id=6201, average_rating=99.0)
+    runner_up = make_rom(platform, "Runner Up", igdb_id=6202, average_rating=80.0)
+    SimilarityBuilder().build()
+    invalidate_cached_feed(admin_user.id)
+
+    body = client.get(
+        "/api/recommendations?limit=2",
+        headers={"Authorization": f"Bearer {access_token}"},
+    ).json()
+
+    assert len(body) == 2
+    assert runner_up.id in [entry["rom"]["id"] for entry in body]

@@ -9,18 +9,15 @@ from __future__ import annotations
 
 import json
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from itertools import batched
 from typing import Any, Final
 
 from handler.database import db_recommendation_handler, db_rom_handler
 from handler.database.recommendations_handler import UserAffinityRow
-from handler.recommendation.diversity import (
-    OVERFETCH_FACTOR,
-    cap_by_series,
-    collapse_sibling_groups,
-)
+from handler.recommendation.diversity import OVERFETCH_FACTOR, cap_by_series
 from handler.recommendation.scoring import Facet
 from handler.redis_handler import sync_cache
 from logger.logger import log
@@ -239,16 +236,16 @@ class FeedBuilder:
             if candidate.rom_id in played_rom_ids:
                 candidate.score *= PLAYED_NOVELTY_FACTOR
 
-        ordered = sorted(candidates.values(), key=lambda c: (-c.score, c.rom_id))[
-            : limit * OVERFETCH_FACTOR
-        ]
+        depth = limit * OVERFETCH_FACTOR
         # Seeds reach different versions of one game, and each would take a slot.
-        ordered = collapse_sibling_groups(
-            ordered,
-            lambda candidate: candidate.rom_id,
-            db_rom_handler.get_sibling_group_keys(
-                [candidate.rom_id for candidate in ordered]
+        ordered = first_distinct_games(
+            batched(
+                sorted(candidates.values(), key=lambda c: (-c.score, c.rom_id)),
+                depth,
+                strict=False,
             ),
+            lambda candidate: candidate.rom_id,
+            want=depth,
         )
 
         roms = hydrate_roms([candidate.rom_id for candidate in ordered])
@@ -282,15 +279,18 @@ class FeedBuilder:
         """No usable activity yet, so fall back to the library's best-reviewed."""
         log.debug(f"No recommendation seeds for user {self.user_id}, using fallback")
 
-        rom_ids = db_recommendation_handler.get_fallback_rom_ids(
-            limit * OVERFETCH_FACTOR, exclude_rom_ids=list(excluded)
-        )
+        batch_size = limit * OVERFETCH_FACTOR
+
+        def pages() -> Iterator[list[int]]:
+            offset = 0
+            while page := db_recommendation_handler.get_fallback_rom_ids(
+                batch_size, exclude_rom_ids=list(excluded), offset=offset
+            ):
+                yield page
+                offset += batch_size
+
         # Every version of a game carries its rating, so they rank side by side.
-        rom_ids = collapse_sibling_groups(
-            rom_ids,
-            lambda rom_id: rom_id,
-            db_rom_handler.get_sibling_group_keys(rom_ids),
-        )[:limit]
+        rom_ids = first_distinct_games(pages(), lambda rom_id: rom_id, want=limit)
         roms = hydrate_roms(rom_ids)
 
         return [
@@ -302,6 +302,31 @@ class FeedBuilder:
             for rom_id in rom_ids
             if rom_id in roms
         ]
+
+
+def first_distinct_games[T](
+    batches: Iterable[Sequence[T]], rom_id_of: Callable[[T], int], *, want: int
+) -> list[T]:
+    """The first `want` items that are each a different game, in order.
+
+    Reads `batches` lazily, so a game with a dozen versions costs another
+    batch rather than a short list.
+    """
+    seen: set[int] = set()
+    kept: list[T] = []
+    for batch in batches:
+        group_keys = db_rom_handler.get_sibling_group_keys(
+            [rom_id_of(item) for item in batch]
+        )
+        for item in batch:
+            group_key = group_keys.get(rom_id_of(item), rom_id_of(item))
+            if group_key in seen:
+                continue
+            seen.add(group_key)
+            kept.append(item)
+            if len(kept) == want:
+                return kept
+    return kept
 
 
 def hydrate_roms(rom_ids: Sequence[int]) -> dict[int, Rom]:

@@ -24,7 +24,6 @@ from handler.recommendation.feed import (
     hydrate_roms,
     set_cached_feed,
 )
-from models.rom import Rom
 
 # Extra depth for a viewer whose visibility rules hide ROMs: ranking exactly
 # `limit` and filtering afterwards hands them a short row, or an empty one.
@@ -47,21 +46,21 @@ def similar_roms(
         lambda edge: edge.rom_id,
         group_keys,
     )
-    roms = _visible_roms([edge.rom_id for edge in edges], permissions)
-
-    # Without the cap this section is just the franchise the user is already
-    # looking at: five Metroid games for Super Metroid.
-    selected = cap_by_series(edges, lambda edge: roms.get(edge.rom_id), limit=limit)
-
-    return as_representatives(
+    roms = hydrate_roms([edge.rom_id for edge in edges])
+    candidates = _visible_representatives(
         [
             RecommendedRom(
                 rom=roms[edge.rom_id], score=edge.score, reasons=edge.reasons
             )
-            for edge in selected
+            for edge in edges
+            if edge.rom_id in roms
         ],
         permissions,
     )
+
+    # Without the cap this section is just the franchise the user is already
+    # looking at: five Metroid games for Super Metroid.
+    return cap_by_series(candidates, lambda item: item.rom, limit=limit)
 
 
 def recommended_roms(
@@ -89,8 +88,22 @@ def recommended_roms(
 
     # Visibility is applied after the cache so a permission change takes effect
     # without waiting for the entry to expire.
-    visible = [item for item in feed if permissions.can_see_rom(item.rom)]
-    return as_representatives(visible, permissions)[:limit]
+    return _visible_representatives(feed, permissions)[:limit]
+
+
+def _visible_representatives(
+    items: Sequence[RecommendedRom], permissions: ResolvedPermissions
+) -> list[RecommendedRom]:
+    """`as_representatives`, then the visibility cut.
+
+    In that order, so a game whose top-ranked version is hidden from the
+    viewer is shown through a visible version rather than dropped.
+    """
+    return [
+        item
+        for item in as_representatives(items, permissions)
+        if permissions.can_see_rom(item.rom)
+    ]
 
 
 def as_representatives(
@@ -131,14 +144,3 @@ def _ranked_depth(limit: int, permissions: ResolvedPermissions) -> int:
     if permissions.rom_visibility.is_unrestricted:
         return depth
     return depth * VISIBILITY_OVERFETCH
-
-
-def _visible_roms(
-    rom_ids: Sequence[int], permissions: ResolvedPermissions
-) -> dict[int, Rom]:
-    """Hydrate through the shared load path, keeping what the viewer can see."""
-    return {
-        rom_id: rom
-        for rom_id, rom in hydrate_roms(rom_ids).items()
-        if permissions.can_see_rom(rom)
-    }

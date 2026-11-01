@@ -371,17 +371,10 @@ class RomIdentityKey(BaseModel):
 
 
 class RomSiblingGroup(BaseModel):
-    """The sibling group of a ROM that shares an identity key with another.
+    """A ROM's connected component over `rom_identity_keys`, keyed by its lowest id."""
 
-    A group is a connected component of `rom_identity_keys`: ROMs A and C are
-    one game when A shares an IGDB id with B and B shares a ScreenScraper id
-    with C, though A and C share nothing directly. `group_id` is the lowest
-    member's id, and a ROM with no sibling has no row.
-
-    Kept by `db_rom_handler` on every ROM write that can move a key, since
-    finding a component is a graph walk no trigger can do on every engine.
-    """
-
+    # Only ROMs with a sibling have a row. `db_rom_handler` keeps it, since no
+    # portable trigger can walk a graph.
     __tablename__ = "rom_sibling_groups"
 
     __table_args__ = (Index("idx_rom_sibling_groups_group_id", "group_id", "rom_id"),)

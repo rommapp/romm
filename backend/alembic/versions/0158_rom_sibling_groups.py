@@ -1,11 +1,5 @@
 """Group sibling ROMs by connected component and key `sibling_roms` on it
 
-`sibling_roms` paired ROMs sharing any one identity key, while the gallery's
-`group_by_meta_id` window partitioned on the first non-null id in a fixed
-provider order. A ROM matched by IGDB and ScreenScraper and its sibling matched
-by ScreenScraper alone were siblings on the game page but two gallery cards.
-Both now read `rom_sibling_groups`, the transitive closure of the keys.
-
 Revision ID: 0158_rom_sibling_groups
 Revises: 0157_rom_custom_sort_key_flag
 Create Date: 2026-10-31 00:00:00.000000

@@ -422,6 +422,7 @@ class DBRecommendationsHandler(DBBaseHandler):
         self,
         limit: int,
         exclude_rom_ids: Sequence[int] = (),
+        offset: int = 0,
         session: Session = INJECTED_SESSION,
     ) -> list[int]:
         """Cold-start feed: the best-reviewed games in the library.
@@ -451,8 +452,10 @@ class DBRecommendationsHandler(DBBaseHandler):
                 Rom.missing_from_fs.is_(False),
                 RomMetadata.average_rating.is_not(None),
             )
-            .order_by(bayesian.desc(), Rom.name_sort_key.asc())
+            # The id keeps tied ratings in one order, so pages never overlap.
+            .order_by(bayesian.desc(), Rom.name_sort_key.asc(), Rom.id.asc())
             .limit(limit)
+            .offset(offset)
         )
 
         if exclude_rom_ids:
