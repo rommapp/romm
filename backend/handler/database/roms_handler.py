@@ -1417,7 +1417,12 @@ class DBRomsHandler(DBBaseHandler):
         self, query: S, value: bool
     ) -> S:
         """Filter based on whether the rom has duplicates."""
-        predicate = Rom.sibling_roms.any()
+        # Only a ROM with another version has a group row, so this is a PK probe.
+        predicate: ColumnElement[bool] = (
+            select(RomSiblingGroup.rom_id)
+            .where(RomSiblingGroup.rom_id == Rom.id)
+            .exists()
+        )
         if not value:
             predicate = not_(predicate)
         return query.filter(predicate)

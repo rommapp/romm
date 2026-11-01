@@ -316,9 +316,9 @@ class RomIdentityKey(BaseModel):
     """One row per (ROM, provider it has a match id for), scoped to a platform.
 
     Two ROMs are the same game when they share a row's (provider, platform,
-    provider id), so `sibling_roms` is an indexed lookup over this table rather
-    than an OR of one equality per `IDENTITY_ID_FIELDS` entry across the whole
-    of `roms`.
+    provider id), so finding a ROM's versions is an indexed lookup over this
+    table rather than an OR of one equality per `IDENTITY_ID_FIELDS` entry
+    across the whole of `roms`. `RomSiblingGroup` is built from it.
 
     Maintained by database triggers on `roms` (migration 0127), so no write path
     has to update it; deletes ride the foreign key's cascade.
