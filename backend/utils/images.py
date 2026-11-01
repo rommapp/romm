@@ -1,5 +1,6 @@
 from collections.abc import Callable
 
+import pillow_jxl  # noqa: F401  # registers JPEG XL with Pillow
 from PIL import Image, ImageSequence
 
 # Multi-frame formats browsers play as animations (MPO/TIFF pages are not)

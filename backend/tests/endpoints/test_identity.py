@@ -14,6 +14,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from joserfc.errors import InvalidClaimError
 from tests.factories import make_device_token
+from tests.utils.test_images import jxl_image_bytes
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import permissions as permissions_endpoints
@@ -271,6 +272,18 @@ def test_update_user_rejects_non_image_avatar(
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "PNG, JPEG, WebP, or GIF" in response.json()["detail"]
+
+
+def test_update_user_rejects_jpeg_xl_avatar(
+    client, access_token: str, editor_user: User
+):
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        files={"avatar": ("avatar.jxl", jxl_image_bytes(), "image/jxl")},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "PNG, JPEG, WebP, or GIF image" in response.json()["detail"]
 
 
 def test_update_user_accepts_png_avatar(

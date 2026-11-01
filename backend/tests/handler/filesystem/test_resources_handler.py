@@ -20,6 +20,7 @@ from tests.utils.test_images import (
     FRAME_SIZE,
     animated_image_bytes,
     encode_animation,
+    jxl_image_bytes,
     truncated_animation_bytes,
 )
 
@@ -371,6 +372,26 @@ class TestFSResourcesHandler:
         with Image.open(tmp_path / path_cover_s) as small:
             assert small.format == "WEBP"
             assert frame_durations(small) == DURATIONS
+
+    async def test_store_artwork_reencodes_jpeg_xl_as_png(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+
+        with patch(
+            "handler.filesystem.resources_handler.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP",
+            False,
+        ):
+            path_cover_l, path_cover_s = await handler.store_artwork(
+                rom, BytesIO(jxl_image_bytes()), "png"
+            )
+
+        assert path_cover_l is not None and path_cover_l.endswith("big.png")
+        assert path_cover_s is not None
+        with Image.open(tmp_path / path_cover_l) as big:
+            assert big.format == "PNG"
+            assert big.size == FRAME_SIZE
+        assert (tmp_path / path_cover_s).is_file()
 
     def test_get_cover_path_no_cover(
         self, handler: FSResourcesHandler, rom: Rom, tmp_path

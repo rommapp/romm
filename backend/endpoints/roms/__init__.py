@@ -2307,7 +2307,9 @@ async def update_rom(
         locked_fields.discard("url_cover")
     else:
         if artwork is not None and artwork.filename is not None:
-            file_ext = validate_image_upload(artwork, label="Artwork")
+            file_ext = validate_image_upload(
+                artwork, label="Artwork", allow_converted=True
+            )
             artwork_content = BytesIO(await artwork.read())
             (
                 path_cover_l,

@@ -68,6 +68,10 @@ IMAGE_EXT_BY_MIME_TYPE: Final[dict[str, str]] = {
     "image/gif": "gif",
 }
 
+# Artwork MIME types not every browser renders, mapped to the extension the
+# cover is re-encoded to on upload.
+CONVERTED_IMAGE_EXT_BY_MIME_TYPE: Final[dict[str, str]] = {"image/jxl": "png"}
+
 
 def is_allowed_image_file(file_name: str) -> bool:
     """Whether a library file is an image the browser can render inline."""

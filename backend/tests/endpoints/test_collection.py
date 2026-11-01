@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import status
+from tests.utils.test_images import jxl_image_bytes
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth.base_handler import oauth_handler
@@ -636,7 +637,7 @@ class TestArtworkUpload:
             headers={"Authorization": f"Bearer {access_token}"},
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "PNG, JPEG, WebP, or GIF" in response.json()["detail"]
+        assert "PNG, JPEG, WebP, GIF, or JPEG XL" in response.json()["detail"]
 
     @patch.object(
         FSResourcesHandler,
@@ -661,6 +662,28 @@ class TestArtworkUpload:
         _, _, file_ext = store_artwork_mock.call_args.args
         assert file_ext == "png"
 
+    @patch.object(
+        FSResourcesHandler,
+        "store_artwork",
+        new_callable=AsyncMock,
+        return_value=("path/to/big.png", "path/to/small.png"),
+    )
+    def test_add_collection_accepts_jpeg_xl_artwork_as_png(
+        self,
+        store_artwork_mock: AsyncMock,
+        client,
+        access_token: str,
+    ):
+        response = client.post(
+            "/api/collections",
+            data={"name": "JPEG XL Cover Collection"},
+            files={"artwork": ("cover.jxl", jxl_image_bytes(), "image/jxl")},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        _, _, file_ext = store_artwork_mock.call_args.args
+        assert file_ext == "png"
+
     def test_update_collection_rejects_non_image_artwork(
         self, client, access_token: str, collection: Collection
     ):
@@ -671,7 +694,7 @@ class TestArtworkUpload:
             headers={"Authorization": f"Bearer {access_token}"},
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "PNG, JPEG, WebP, or GIF" in response.json()["detail"]
+        assert "PNG, JPEG, WebP, GIF, or JPEG XL" in response.json()["detail"]
 
     @patch.object(
         FSResourcesHandler,

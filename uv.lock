@@ -1992,6 +1992,30 @@ wheels = [
 ]
 
 [[package]]
+name = "pillow-jxl-plugin"
+version = "1.3.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "packaging" },
+    { name = "pillow" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/02/75/810608d489c2d453e16a0866de5edea2bedd728e8830da22a1ec633f3b80/pillow_jxl_plugin-1.3.8.tar.gz", hash = "sha256:4430fd7757899742079c548a7d2537d6d63cf0f1d323180095bc0f6f03d9d4fa", size = 1602233, upload-time = "2026-07-17T03:23:50.387Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/66/30/c37d161345302ebda07f29d8230b15ba83b43c586f14fec98d088b18e982/pillow_jxl_plugin-1.3.8-cp314-cp314-macosx_10_12_x86_64.whl", hash = "sha256:30b72accb8505a46b05f709871da40f09975aea3a6b6f3cb1d646ff0a9aaba5e", size = 2362140, upload-time = "2026-07-17T03:22:59.694Z" },
+    { url = "https://files.pythonhosted.org/packages/a7/be/01613af0307c31e77aced40bdf9cf3d25ce1333b3e99bb85575bdcbfeca5/pillow_jxl_plugin-1.3.8-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:b5bbc933487207e634802f21990c365b6e61473cea34f6621420f4eda8ffd1df", size = 2660381, upload-time = "2026-07-17T03:22:51.351Z" },
+    { url = "https://files.pythonhosted.org/packages/c5/8b/89636d315a31eb805681e60e569fe38d5eef3d09f13b1b6f576574387942/pillow_jxl_plugin-1.3.8-cp314-cp314-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c1d06fd4eb038f431db27f1ab2e483fd6967bafb21a7757e1bd5f76b6fd93649", size = 2787875, upload-time = "2026-07-17T03:22:24.736Z" },
+    { url = "https://files.pythonhosted.org/packages/2b/e0/7b9bdc388d89773a5f9ae74ff0be3b06080ef1a60be57b5897d929012622/pillow_jxl_plugin-1.3.8-cp314-cp314-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:f65361ce18db59e8949c60599bfa46b7de187e28917fc39b5d816ab4b81cb16d", size = 2500834, upload-time = "2026-07-17T03:22:33.928Z" },
+    { url = "https://files.pythonhosted.org/packages/24/25/0903ba5a4c8d948df9217e48182ff7d872098ddf86fe512402569f4041cc/pillow_jxl_plugin-1.3.8-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:70b881a40737c647a24270b73cd3f506dd16d634202e5214cb492f9270bd1b02", size = 2504805, upload-time = "2026-07-17T03:22:42.911Z" },
+    { url = "https://files.pythonhosted.org/packages/4b/ef/77a15b2f3227854d4ef2563250ea57b03538ed962f406f1248c9caf045aa/pillow_jxl_plugin-1.3.8-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:d4049e48f09947a38047fc5d70817c6dffa90ffb5f14585c8c00e8b534d17c9b", size = 9725768, upload-time = "2026-07-17T03:23:10.845Z" },
+    { url = "https://files.pythonhosted.org/packages/c6/95/486fc1fabd1e6cb8b520dce9898b51f2e29e991ba54e632381fe7f287300/pillow_jxl_plugin-1.3.8-cp314-cp314-musllinux_1_2_armv7l.whl", hash = "sha256:6ce20ef0887efb6dace5245f714f94b4f070ef39a1ec45161b35879c48faf30a", size = 8386447, upload-time = "2026-07-17T03:23:22.87Z" },
+    { url = "https://files.pythonhosted.org/packages/05/28/7979927eb5dc79e40b31e4e07d074057722656743d324182f4a68056c2a9/pillow_jxl_plugin-1.3.8-cp314-cp314-musllinux_1_2_i686.whl", hash = "sha256:845e61add39272ca8545f4a0e6ead977ebb7e89fa017014bb8e17273a7a09c6c", size = 9032664, upload-time = "2026-07-17T03:23:34.78Z" },
+    { url = "https://files.pythonhosted.org/packages/92/b7/f606ed6fcb5fd9e177ce2b15a613a405ac22ceafc2c03bb3f58cd500ca04/pillow_jxl_plugin-1.3.8-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:915b8fee6a97aaf5486d0d625f26faae2e9f0d9b5892f1076f5a29b8103125a4", size = 9233868, upload-time = "2026-07-17T03:23:46.277Z" },
+    { url = "https://files.pythonhosted.org/packages/a4/6d/d10a4426fc3b394d2222cb694774451e67ab052df2e15a488dfac22be561/pillow_jxl_plugin-1.3.8-cp314-cp314-win32.whl", hash = "sha256:d63d1c3566a8c9ebdd1ec6b75da816b9475d95c4f69656827d6d3957d2594ecb", size = 4554691, upload-time = "2026-07-17T03:24:11.39Z" },
+    { url = "https://files.pythonhosted.org/packages/47/77/0f0297c265f1743784b6d1df719e62e49dabd1d9ede8efb0a9ba93174293/pillow_jxl_plugin-1.3.8-cp314-cp314-win_amd64.whl", hash = "sha256:6b23c83aabf4615b92ae609293d8597ca1a8d14d01ab16c703bb3a3df359796b", size = 4939714, upload-time = "2026-07-17T03:24:03.288Z" },
+    { url = "https://files.pythonhosted.org/packages/ca/cf/2db398fb1a41c46fd382bad96ee90283589eaed0ec2c50cfe4afda3df72c/pillow_jxl_plugin-1.3.8-cp314-cp314-win_arm64.whl", hash = "sha256:60c36bec3d8d4ef23cf2aed0f792213f999312dd3d8cd5225ae1494c430e16f6", size = 2330667, upload-time = "2026-07-17T03:23:55.913Z" },
+]
+
+[[package]]
 name = "platformdirs"
 version = "4.3.8"
 source = { registry = "https://pypi.org/simple" }
@@ -2600,6 +2624,7 @@ dependencies = [
     { name = "opentelemetry-instrumentation-redis" },
     { name = "opentelemetry-instrumentation-sqlalchemy" },
     { name = "pillow" },
+    { name = "pillow-jxl-plugin" },
     { name = "psycopg", extra = ["c"] },
     { name = "pydantic" },
     { name = "pydash" },
@@ -2682,6 +2707,7 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-redis", specifier = "~=0.56" },
     { name = "opentelemetry-instrumentation-sqlalchemy", specifier = "~=0.56" },
     { name = "pillow", specifier = "~=13.0" },
+    { name = "pillow-jxl-plugin", specifier = "~=1.3" },
     { name = "psycopg", extras = ["c"], specifier = "~=3.2" },
     { name = "pydantic", specifier = "~=2.11" },
     { name = "pydash", specifier = "~=8.0" },
