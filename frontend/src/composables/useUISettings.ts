@@ -51,6 +51,7 @@ export const UI_SETTINGS_KEYS = {
     key: "settings.widgetAnniversaries",
     default: true,
   },
+  widgetPlayingNow: { key: "settings.widgetPlayingNow", default: true },
   libraryStatsMode: {
     key: "settings.libraryStatsMode",
     default: "compact",
@@ -62,7 +63,7 @@ export const UI_SETTINGS_KEYS = {
   // the registry doesn't leave dangling entries in user storage.
   widgetOrder: {
     key: "settings.widgetOrder",
-    default: "randomPick,anniversaries,libraryStats",
+    default: "randomPick,anniversaries,playingNow,libraryStats",
   },
 
   // Gallery section

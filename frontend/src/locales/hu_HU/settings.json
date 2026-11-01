@@ -538,6 +538,8 @@
   "widget-library-stats-desc": "Számszerű áttekintés a könyvtáradról: játékok, platformok, kedvencek és más.",
   "widget-library-stats-extended": "Bővített (mentések, állapotok, képernyőképek, lemez)",
   "widget-library-stats-mode": "Könyvtárstatisztika részletei",
+  "widget-playing-now": "Most játszott",
+  "widget-playing-now-desc": "Megjelenít egy játékot, amellyel valaki éppen játszik, és az Aktív munkamenetek oldalra mutat. Rejtve marad, amíg senki sem játszik.",
   "widget-random-pick": "Véletlen választás",
   "widget-random-pick-desc": "Véletlenszerű ROM-ot ajánl a könyvtáradból, újradobás gombbal.",
   "widget-reorder-drag": "Húzd az átrendezéshez"
