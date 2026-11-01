@@ -14,13 +14,19 @@
 // blindly. When the global groupBy lands on a value with no usable
 // data on the loaded platforms, the view falls through to flat: the
 // toolbar's mode is the user's intent, not a hard requirement.
+//
+// Facets (category / generation / family / play mode) filter on top of the
+// search and live in the URL, so a narrowed view can be shared or bookmarked.
 import { storeToRefs } from "pinia";
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, type Ref, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import GalleryToolbar, {
   type GroupByItem,
   type SegmentFilter,
 } from "@/components/Gallery/GalleryToolbar.vue";
+import PlatformFilterDrawer, {
+  type PlatformFacet,
+} from "@/components/Platforms/PlatformFilterDrawer.vue";
 import PlatformListHeader from "@/components/Platforms/PlatformListHeader.vue";
 import PlatformListRow from "@/components/Platforms/PlatformListRow.vue";
 import PlatformTile from "@/components/Platforms/PlatformTile.vue";
@@ -40,6 +46,17 @@ import { useRouteQueryParam } from "@/composables/useRouteQueryParam";
 import { useTileSearchUrl } from "@/composables/useTileSearchUrl";
 import { RDivider, REmptyState, RLetterHeading, RSkeletonBlock } from "@/lib";
 import storePlatforms, { type Platform } from "@/stores/platforms";
+import {
+  type FacetOption,
+  type FacetSelection,
+  facetOptions,
+  filterByFacets,
+  formatFacetParam,
+  parseFacetParam,
+  PLATFORM_FACET_KEYS,
+  type PlatformFacetKey,
+  sameFacetOptions,
+} from "@/utils/platformFacets";
 import { platformMatchesSearch } from "@/utils/platformSearch";
 
 const { t } = useI18n();
@@ -87,17 +104,27 @@ useGridNav(gridRoot, { cellSelector: ".plat-tile" });
 // streaming container, or in a local emulator when the desktop shell is
 // there to launch one -- a platform with no in-browser core at all, PS2
 // being the example, is playable inside the shell and has to sort as such.
-const playableById = computed(() => {
+const PLAY_MODES = ["browser", "stream", "native"] as const;
+type PlayMode = (typeof PLAY_MODES)[number];
+
+const playModesById = computed(() => {
   const playableFn = isPlayable.value;
   const streamableFn = isStreamable.value;
   const nativeFn = isNativeSupported.value;
-  const map = new Map<number | string, boolean>();
+  const map = new Map<number | string, PlayMode[]>();
   for (const p of allPlatforms.value) {
-    map.set(
-      p.id,
-      playableFn(p.slug) || streamableFn(p.slug) || nativeFn(p.slug),
-    );
+    const modes: PlayMode[] = [];
+    if (playableFn(p.slug)) modes.push("browser");
+    if (streamableFn(p.slug)) modes.push("stream");
+    if (nativeFn(p.slug)) modes.push("native");
+    map.set(p.id, modes);
   }
+  return map;
+});
+
+const playableById = computed(() => {
+  const map = new Map<number | string, boolean>();
+  for (const [id, modes] of playModesById.value) map.set(id, modes.length > 0);
   return map;
 });
 
@@ -265,11 +292,162 @@ onMounted(() => {
   }
 });
 
-const filtered = computed<Platform[]>(() => {
+const searched = computed<Platform[]>(() => {
   const term = searchTerm.value.trim().toLowerCase();
   if (!term) return visiblePlatforms.value;
   return visiblePlatforms.value.filter((p) => platformMatchesSearch(p, term));
 });
+
+const FACET_PARAMS: Record<PlatformFacetKey, string> = {
+  category: "category",
+  generation: "gen",
+  family: "family",
+  play: "play",
+};
+const facetParams = Object.fromEntries(
+  PLATFORM_FACET_KEYS.map((key) => [
+    key,
+    useRouteQueryParam(FACET_PARAMS[key], ""),
+  ]),
+) as Record<PlatformFacetKey, Ref<string>>;
+
+const facetSelection = computed<FacetSelection<PlatformFacetKey>>(() =>
+  Object.fromEntries(
+    PLATFORM_FACET_KEYS.map((key) => [
+      key,
+      parseFacetParam(facetParams[key].value),
+    ]),
+  ),
+);
+const activeFacetCount = computed(
+  () =>
+    PLATFORM_FACET_KEYS.filter((key) => facetParams[key].value !== "").length,
+);
+const hasFacetSelection = computed(() => activeFacetCount.value > 0);
+const filterDrawerOpen = ref(false);
+
+function onFacetUpdate({
+  key,
+  values,
+}: {
+  key: PlatformFacetKey;
+  values: string[];
+}) {
+  facetParams[key].value = formatFacetParam(values);
+}
+
+function clearFacets() {
+  for (const key of PLATFORM_FACET_KEYS) facetParams[key].value = "";
+}
+
+function facetValuesOf(p: Platform, key: PlatformFacetKey): readonly string[] {
+  switch (key) {
+    case "category":
+      return p.category ? [p.category] : [];
+    case "generation":
+      return typeof p.generation === "number" && p.generation > 0
+        ? [String(p.generation)]
+        : [];
+    case "family":
+      return p.family_slug ? [p.family_slug] : [];
+    case "play":
+      return playModesById.value.get(p.id) ?? [];
+  }
+}
+
+const familyNames = computed(() => {
+  const map = new Map<string, string>();
+  for (const p of allPlatforms.value) {
+    if (p.family_slug && p.family_name) map.set(p.family_slug, p.family_name);
+  }
+  return map;
+});
+
+const PLAY_MODE_LABEL_KEYS: Record<PlayMode, string> = {
+  browser: "platform.play-mode-browser",
+  stream: "platform.play-mode-stream",
+  native: "platform.play-mode-native",
+};
+
+function facetLabel(key: PlatformFacetKey, value: string): string {
+  switch (key) {
+    case "category":
+      return prettifyPlatformCategory(value);
+    case "generation":
+      return platformGenerationLabel(Number(value));
+    case "family":
+      return familyNames.value.get(value) ?? value;
+    case "play":
+      return Object.hasOwn(PLAY_MODE_LABEL_KEYS, value)
+        ? t(PLAY_MODE_LABEL_KEYS[value as PlayMode])
+        : value;
+  }
+}
+
+const byNumericValue = (a: FacetOption, b: FacetOption) =>
+  Number(a.value) - Number(b.value);
+const byPlayModeOrder = (a: FacetOption, b: FacetOption) =>
+  PLAY_MODES.indexOf(a.value as PlayMode) -
+  PLAY_MODES.indexOf(b.value as PlayMode);
+
+const FACET_META: Record<
+  PlatformFacetKey,
+  {
+    labelKey: string;
+    icon: string;
+    compare?: (a: FacetOption, b: FacetOption) => number;
+  }
+> = {
+  category: { labelKey: "platform.category", icon: "mdi-shape-outline" },
+  generation: {
+    labelKey: "platform.generation",
+    icon: "mdi-numeric",
+    compare: byNumericValue,
+  },
+  family: { labelKey: "platform.family", icon: "mdi-family-tree" },
+  play: {
+    labelKey: "platform.play-mode",
+    icon: "mdi-play-circle-outline",
+    compare: byPlayModeOrder,
+  },
+};
+
+// An open select resets its keyboard highlight whenever its items array
+// changes, so a facet whose options didn't change keeps the same array.
+const lastOptions = new Map<PlatformFacetKey, FacetOption[]>();
+function stableOptions(
+  key: PlatformFacetKey,
+  next: FacetOption[],
+): FacetOption[] {
+  const prev = lastOptions.get(key);
+  if (prev && sameFacetOptions(prev, next)) return prev;
+  lastOptions.set(key, next);
+  return next;
+}
+
+const facets = computed<PlatformFacet[]>(() =>
+  PLATFORM_FACET_KEYS.map((key) => ({
+    key,
+    label: t(FACET_META[key].labelKey),
+    icon: FACET_META[key].icon,
+    options: stableOptions(
+      key,
+      facetOptions(
+        searched.value,
+        key,
+        facetSelection.value,
+        facetValuesOf,
+        (value) => facetLabel(key, value),
+        FACET_META[key].compare,
+      ),
+    ),
+    selected: facetSelection.value[key] ?? [],
+  })),
+);
+
+const filtered = computed<Platform[]>(() =>
+  filterByFacets(searched.value, facetSelection.value, facetValuesOf),
+);
 
 // Per-mode sorted views. Grid uses the toolbar asc/desc + groupBy axis;
 // list uses the column-header click state. Buckets are always fed the
@@ -295,11 +473,12 @@ const noResults = computed(
     allPlatforms.value.length > 0 &&
     filtered.value.length === 0,
 );
-const noResultsMessage = computed(() =>
-  searchTerm.value.trim()
+const noResultsMessage = computed(() => {
+  if (hasFacetSelection.value) return t("platform.no-platforms-filters");
+  return searchTerm.value.trim()
     ? t("platform.no-platforms-search", { query: searchTerm.value })
-    : t("platform.no-platforms-with-games"),
-);
+    : t("platform.no-platforms-with-games");
+});
 
 // Generic bucket: every grouping computed produces the same shape so
 // the template can iterate one branch per non-letter mode. `key` is the
@@ -467,6 +646,8 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
         :search="searchTerm"
         :group-by-items="platformGroupByItems"
         :segment-filters="segmentFilters"
+        show-filter
+        :filter-active-count="activeFacetCount"
         show-search
         :search-placeholder="t('platform.search-placeholder')"
         @update:group-by="groupBy = $event"
@@ -474,6 +655,13 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
         @update:sort-dir="gridSortDir = $event"
         @update:search="searchTerm = $event"
         @update:segment-filter="onSegmentFilter"
+        @click:filter="filterDrawerOpen = true"
+      />
+      <PlatformFilterDrawer
+        v-model="filterDrawerOpen"
+        :facets="facets"
+        @update="onFacetUpdate"
+        @clear="clearFacets"
       />
     </template>
 
