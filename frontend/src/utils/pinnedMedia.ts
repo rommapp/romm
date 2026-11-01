@@ -4,6 +4,7 @@ import type { RomFileSchema } from "@/__generated__";
 import type { MediaShelfItem } from "@/components/GameDetails/MediaShelf.vue";
 import i18n from "@/locales";
 import type { DetailedRom } from "@/stores/roms";
+import { isRenderableImageExtension } from "@/utils/imageSupport";
 import { mediaKey } from "@/utils/mediaKeys";
 import { resolveRomArtwork } from "@/utils/romArtwork";
 import { versionedRomFileUrl } from "@/utils/romFiles";
@@ -32,7 +33,7 @@ export function romFolderScreenshots(rom: DetailedRom): RomFileSchema[] {
       return false;
     }
     const ext = file.file_name.split(".").pop()?.toLowerCase() ?? "";
-    return SCREENSHOT_EXTENSIONS.has(ext);
+    return isRenderableImageExtension(ext, SCREENSHOT_EXTENSIONS);
   });
 }
 
