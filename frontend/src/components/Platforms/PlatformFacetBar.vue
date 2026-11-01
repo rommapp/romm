@@ -5,7 +5,6 @@
 // view owns the selection (URL-backed) and the counts.
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { useBreakpoint } from "@/composables/useBreakpoint";
 import { RBtn, RIcon, RSelect } from "@/lib";
 import type { FacetOption, PlatformFacetKey } from "@/utils/platformFacets";
 
@@ -31,9 +30,6 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
-// Phones pair the facets two per row, so the label moves above the field.
-const { xs } = useBreakpoint();
-
 // A long list (families on a big library) is easier to scan with a filter.
 const SEARCHABLE_FROM = 8;
 
@@ -67,7 +63,7 @@ const optionTitle = (o: FacetOption) => `${o.label} (${o.count})`;
       clearable
       hide-details
       density="compact"
-      :prefix-label="xs ? 'stacked' : 'inline'"
+      prefix-label="stacked"
       @update:model-value="
         (v) => emit('update', { key: f.key, values: v as string[] })
       "
@@ -96,27 +92,21 @@ const optionTitle = (o: FacetOption) => `${o.label} (${o.count})`;
 
 <style scoped>
 .r-pfacets {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  align-items: end;
   gap: var(--r-space-2);
   margin-bottom: var(--r-space-4);
 }
 
 .r-pfacets__select {
-  flex: 1 1 200px;
   min-width: 0;
-  max-width: 300px;
 }
 
-html[data-bp~="xs"] .r-pfacets {
-  display: grid;
+html[data-bp~="sm-and-down"] .r-pfacets {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
-html[data-bp~="xs"] .r-pfacets__select {
-  max-width: none;
-}
-html[data-bp~="xs"] .r-pfacets__clear {
+html[data-bp~="sm-and-down"] .r-pfacets__clear {
   grid-column: 1 / -1;
   justify-self: start;
 }
