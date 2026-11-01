@@ -134,6 +134,9 @@ const isOpen = computed(() =>
   props.modelValue !== undefined ? !!props.modelValue : internalOpen.value,
 );
 function setOpen(v: boolean) {
+  // Before the state flips, so a dialog an item opens records the activator
+  // as the element to return focus to, not the item about to unmount.
+  if (!v) returnFocusToActivator();
   if (props.modelValue !== undefined) {
     emit("update:modelValue", v);
   } else {
@@ -168,6 +171,29 @@ const reference = computed(() =>
   isOpen.value ? (activatorWrapper.value?.firstElementChild ?? null) : null,
 );
 const panelRef = ref<HTMLElement | null>(null);
+
+// ── Focus return ────────────────────────────────────────────────
+// Like a native menu button: closing with focus inside the panel (an item
+// pick, Escape, pad B) puts focus back on the activator, so keyboard and pad
+// users keep their place. Focus that already left the panel stays put.
+function returnFocusToActivator() {
+  const panel = panelRef.value;
+  if (!panel?.contains(document.activeElement)) return;
+  const wrapper = activatorWrapper.value;
+  focusFromInput(
+    wrapper?.querySelector<HTMLElement>('[aria-haspopup="menu"]') ??
+      (wrapper?.firstElementChild as HTMLElement | null | undefined),
+  );
+}
+
+// A controlled menu can also be closed by its parent without `close()`.
+watch(
+  isOpen,
+  (open) => {
+    if (!open) returnFocusToActivator();
+  },
+  { flush: "sync" },
+);
 
 // ── Placement translation ───────────────────────────────────────
 const PLACEMENT_MAP: Record<Anchor, Placement> = {

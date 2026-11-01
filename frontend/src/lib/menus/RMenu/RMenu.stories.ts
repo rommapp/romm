@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 import { ref } from "vue";
 import RMenuItem from "@/lib/menus/RMenuItem/RMenuItem.vue";
 import RAvatar from "@/lib/primitives/RAvatar/RAvatar.vue";
@@ -53,6 +54,66 @@ export const Basic: Story = {
       </div>
     `,
   }),
+};
+
+// ── Keyboard: focus returns to the activator ──────────────────────
+
+export const KeyboardFocusReturn: Story = {
+  name: "Keyboard focus return (play)",
+  globals: { input: "key" },
+  render: () => ({
+    components: { RMenu, RMenuItem, RBtn },
+    setup: () => ({ picked: ref<string | null>(null) }),
+    template: `
+      <div style="padding:48px;display:flex;flex-direction:column;align-items:center;gap:12px">
+        <RMenu>
+          <template #activator="{ props }">
+            <RBtn v-bind="props" variant="translucent" append-icon="mdi-chevron-down">
+              Sort by
+            </RBtn>
+          </template>
+          <RMenuItem icon="mdi-sort-alphabetical-ascending" label="Name" @click="picked = 'Name'" />
+          <RMenuItem icon="mdi-calendar" label="Release date" @click="picked = 'Release date'" />
+          <RMenuItem icon="mdi-star-outline" label="Rating" @click="picked = 'Rating'" />
+        </RMenu>
+        <span data-testid="picked">{{ picked ?? "None" }}</span>
+      </div>
+    `,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const canvas = within(canvasElement);
+    const activator = await canvas.findByRole("button", { name: /Sort by/ });
+    const menu = () => document.querySelector('[role="menu"]');
+
+    async function openFromKeyboard() {
+      activator.focus();
+      await userEvent.keyboard("{Enter}");
+      await waitFor(() =>
+        expect(document.activeElement).toHaveAccessibleName("Name"),
+      );
+    }
+
+    await step("Enter opens the menu on the first item", openFromKeyboard);
+
+    await step("Picking an item returns focus to the activator", async () => {
+      await userEvent.keyboard("{ArrowDown}");
+      await expect(document.activeElement).toHaveAccessibleName("Release date");
+      await userEvent.keyboard("{Enter}");
+      await waitFor(() => expect(menu()).toBeNull());
+      await expect(canvas.getByTestId("picked")).toHaveTextContent(
+        "Release date",
+      );
+      await expect(activator).toHaveFocus();
+      await expect(activator).toHaveAttribute("aria-expanded", "false");
+    });
+
+    await step("Escape returns focus to the activator", async () => {
+      await openFromKeyboard();
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(menu()).toBeNull());
+      await expect(activator).toHaveFocus();
+    });
+  },
 };
 
 // ── Account menu (real-world) ─────────────────────────────────────

@@ -118,6 +118,98 @@ describe("RMenu", () => {
     wrapper.unmount();
   });
 
+  describe("focus return", () => {
+    async function openWithItemFocused(
+      options: Parameters<typeof mountMenu>[0] = {},
+    ) {
+      const wrapper = mountMenu({
+        content: `<button type="button" class="r-menu-item first">A</button><button type="button" class="r-menu-item second">B</button>`,
+        ...options,
+      });
+      await wrapper.find("button.trigger").trigger("click");
+      await flushPromises();
+      document.querySelector<HTMLElement>(".second")!.focus();
+      return wrapper;
+    }
+
+    it("returns focus to the activator after an item pick", async () => {
+      modality.value = "key";
+      const wrapper = await openWithItemFocused();
+      const trigger = wrapper.get("button.trigger").element as HTMLElement;
+      const focus = vi.spyOn(trigger, "focus");
+
+      document.querySelector<HTMLElement>(".second")!.click();
+      await flushPromises();
+
+      expect(document.querySelector('[role="menu"]')).toBeNull();
+      expect(document.activeElement).toBe(trigger);
+      expect(focus).toHaveBeenCalledWith(
+        expect.objectContaining({ focusVisible: true }),
+      );
+      wrapper.unmount();
+    });
+
+    it("returns focus to the activator on Escape", async () => {
+      const wrapper = await openWithItemFocused();
+
+      document.activeElement!.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+      await flushPromises();
+
+      expect(document.querySelector('[role="menu"]')).toBeNull();
+      expect(document.activeElement).toBe(
+        wrapper.get("button.trigger").element,
+      );
+      wrapper.unmount();
+    });
+
+    it("asks for no focus ring after a mouse pick", async () => {
+      const wrapper = await openWithItemFocused();
+      const trigger = wrapper.get("button.trigger").element as HTMLElement;
+      const focus = vi.spyOn(trigger, "focus");
+
+      document.querySelector<HTMLElement>(".second")!.click();
+      await flushPromises();
+
+      expect(document.activeElement).toBe(trigger);
+      expect(focus).not.toHaveBeenCalledWith(
+        expect.objectContaining({ focusVisible: true }),
+      );
+      wrapper.unmount();
+    });
+
+    it("leaves focus where an item handler moved it", async () => {
+      const outside = document.createElement("button");
+      document.body.appendChild(outside);
+      const wrapper = await openWithItemFocused();
+      document
+        .querySelector<HTMLElement>(".second")!
+        .addEventListener("click", () => outside.focus());
+
+      document.querySelector<HTMLElement>(".second")!.click();
+      await flushPromises();
+
+      expect(document.activeElement).toBe(outside);
+      wrapper.unmount();
+    });
+
+    it("returns focus when the parent closes a controlled menu", async () => {
+      const wrapper = await openWithItemFocused({
+        props: { modelValue: true },
+      });
+
+      await wrapper.setProps({ modelValue: false });
+      await flushPromises();
+
+      expect(document.querySelector('[role="menu"]')).toBeNull();
+      expect(document.activeElement).toBe(
+        wrapper.get("button.trigger").element,
+      );
+      wrapper.unmount();
+    });
+  });
+
   describe("openOnHover", () => {
     function mountHoverMenu() {
       return mount(RMenu, {
