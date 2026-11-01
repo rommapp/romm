@@ -16,14 +16,14 @@
 
 # ARGUMENT DECLARATIONS
 ARG ALPINE_VERSION=3.24
-ARG ALPINE_SHA256=294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+ARG ALPINE_DIGEST=sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
 # Pins the base image tag, so it cannot read ../.python-version; keep the two in sync.
 ARG PYTHON_VERSION=3.14
-ARG PYTHON_ALPINE_SHA256=9e9fde4d32eedce0b661d9ab91e826b62dddf28e928c230ec55f1866cac66b01
+ARG PYTHON_ALPINE_DIGEST=sha256:eb2c62658b8d51bff0acc408504b76521d02030de56a8a3c1e830083e89b89d2
 # Build stages get pip from CPython's bundled ensurepip, which lags pip's security releases.
 ARG PIP_VERSION=26.2.2
 ARG NODE_VERSION=24.22
-ARG NODE_ALPINE_SHA256=6a1c190e17215d844926b0677f4bf87273ff7d5e54db06d3b5b5863ab0b09a3d
+ARG NODE_ALPINE_DIGEST=sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85
 ARG NGINX_VERSION=1.30.6
 ARG NGINX_SHA256=47928bf67eb62a1863cb08d9ecb52d3e704304ba614eaee17884204677702951
 ARG UV_VERSION=0.13.4
@@ -35,7 +35,7 @@ ARG GME_VERSION=0.6.5
 ARG GME_COMMIT=9e23d10f9fd2a6a2f33b10912dd8dc7153258995
 
 
-FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
+FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@${PYTHON_ALPINE_DIGEST} AS python-alias
 ARG PIP_VERSION
 RUN pip install --no-cache-dir --upgrade pip==${PIP_VERSION}
 
@@ -55,7 +55,7 @@ RUN apk upgrade --no-cache && \
 # FRONTEND BUILD
 # Built on the native build platform: the output (/front/dist) is static JS/CSS,
 # fully architecture-independent, so there is no need to emulate the target arch.
-FROM --platform=$BUILDPLATFORM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_SHA256} AS frontend-build
+FROM --platform=$BUILDPLATFORM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@${NODE_ALPINE_DIGEST} AS frontend-build
 WORKDIR /front
 
 COPY ./frontend/package*.json ./
@@ -66,7 +66,7 @@ RUN npm run build
 
 
 # BACKEND NODE HELPERS BUILD (server-side ROM patching via RomPatcher.js)
-FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_SHA256} AS backend-node-build
+FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@${NODE_ALPINE_DIGEST} AS backend-node-build
 WORKDIR /backend-node/rom_patcher
 COPY ./backend/utils/rom_patcher/package*.json ./
 RUN npm ci --ignore-scripts --no-audit --no-fund
@@ -98,7 +98,7 @@ RUN uv sync --frozen --no-cache
 
 
 # CUSTOM RAHASHER FOR RETROACHIEVEMENTS
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rahasher-build
+FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS rahasher-build
 RUN apk add --no-cache \
     g++ \
     git \
@@ -172,7 +172,7 @@ RUN /romm-gme/build.sh /libgme /gme
 
 # ROM-CONVERTO CLI
 # Keep the version and both sums in sync with the dev image's copy in ../Dockerfile.
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rom-converto-fetch
+FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS rom-converto-fetch
 ARG TARGETARCH
 ARG ROM_CONVERTO_VERSION=v0.24.0
 RUN case "${TARGETARCH}" in \
@@ -189,7 +189,7 @@ RUN case "${TARGETARCH}" in \
 # FETCH EMULATORJS, RUFFLE, JS-DOS, FAKE-08 AND EASYRPG
 # Keep the pins below in sync with the dev image's copies in ../Dockerfile.
 # checkov:skip=CKV_DOCKER_4:every ADD below is a remote URL pinned by --checksum
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS emulator-stage
+FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS emulator-stage
 
 RUN apk add --no-cache \
     7zip
@@ -262,7 +262,7 @@ RUN mkdir /easyrpg/rtp && \
 
 
 # BUILD NGINX MODULE WITH MOD_ZIP
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS nginx-build
+FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS nginx-build
 
 RUN apk add --no-cache \
     gcc \
