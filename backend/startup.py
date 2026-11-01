@@ -36,7 +36,7 @@ from handler.redis_handler import (
 )
 from handler.scan_jobs import drop_stale_scheduled_scans
 from logger.logger import log
-from models.firmware import FIRMWARE_FIXTURES_DIR, KNOWN_BIOS_KEY
+from models.firmware import KNOWN_BIOS_FILE, KNOWN_BIOS_KEY
 from models.rom import sort_articles
 from tasks.manual.recompute_name_sort_keys import (
     applied_sort_articles,
@@ -269,9 +269,7 @@ async def main() -> None:
             PSP_SERIAL_INDEX_KEY,
             METADATA_FIXTURES_DIR / "psp_serial_index.json",
         )
-        await conditionally_set_cache(
-            async_cache, KNOWN_BIOS_KEY, FIRMWARE_FIXTURES_DIR / "known_bios_files.json"
-        )
+        await conditionally_set_cache(async_cache, KNOWN_BIOS_KEY, KNOWN_BIOS_FILE)
 
         log.info("Startup tasks completed")
 
