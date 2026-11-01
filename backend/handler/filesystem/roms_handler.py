@@ -15,8 +15,7 @@ from typing import Any, Final, NotRequired, TypedDict
 from adapters.services.rom_converto import (
     CONVERTO_PLATFORM_SLUGS,
     CUE_EXT,
-    RomConvertoUnsafeSourceError,
-    cue_tracks,
+    cue_track_names,
     rom_converto_service,
 )
 from adapters.services.sigil import (
@@ -347,11 +346,7 @@ SIDECAR_FILE_SUFFIXES: Final = (
 
 
 def playlist_disc_paths(m3u_path: Path) -> list[Path]:
-    """The files a standalone .m3u lists in or below its own folder.
-
-    A listed cue sheet brings its track files along, since the disc can't be
-    loaded without them.
-    """
+    """The files a standalone .m3u lists in or below its folder, with each listed cue's tracks."""
     root = m3u_path.parent
     paths: dict[Path, None] = {}
     for candidates in playlist_entries(m3u_path) or []:
@@ -373,9 +368,18 @@ def playlist_disc_paths(m3u_path: Path) -> list[Path]:
         listed = [disc]
         if disc.suffix.lower() == CUE_EXT:
             try:
-                listed += [track for track in cue_tracks(disc) if track.is_file()]
-            except (RomConvertoUnsafeSourceError, OSError) as exc:
+                names = cue_track_names(disc)
+            except OSError as exc:
                 log.warning(f"Skipping the tracks of {disc}: {exc}")
+                names = []
+            for name in names:
+                track = Path(os.path.normpath(disc.parent / name))
+                if track.is_relative_to(root) and track.is_file():
+                    listed.append(track)
+                else:
+                    log.warning(
+                        f"Skipping {disc} track outside its folder or missing: {name}"
+                    )
         paths.update(dict.fromkeys(path for path in listed if path != m3u_path))
     return list(paths)
 
@@ -1168,11 +1172,7 @@ class FSRomsHandler(FSHandler):
         existing_by_key: Mapping[RomFileKey, RomFile] | None,
         hashable_platform: bool,
     ) -> list[RomFile]:
-        """Rows for the discs a standalone .m3u lists.
-
-        Each disc is hashed on its own, like a folder ROM's nested files, so the
-        ROM-level hashes stay the playlist's own.
-        """
+        """Rows for the discs a standalone .m3u lists, each hashed on its own."""
         disc_files: list[RomFile] = []
         for path in await asyncio.to_thread(playlist_disc_paths, m3u_path):
             try:

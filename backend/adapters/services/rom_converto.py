@@ -274,6 +274,12 @@ def _cue_file_name(line: str) -> str | None:
     return parts[1] if len(parts) >= 3 else ""
 
 
+def cue_track_names(cue: Path) -> list[str]:
+    """The track names a cue sheet's `FILE` lines reference, unvalidated."""
+    lines = cue.read_text(encoding="utf-8-sig", errors="replace").splitlines()
+    return [name for name in map(_cue_file_name, lines) if name is not None]
+
+
 def cue_tracks(cue: Path) -> list[Path]:
     """The track files a cue sheet references, all beside it.
 
@@ -281,10 +287,7 @@ def cue_tracks(cue: Path) -> list[Path]:
         RomConvertoUnsafeSourceError: A track is not a plain file name in the cue's folder.
     """
     tracks: list[Path] = []
-    for line in cue.read_text(encoding="utf-8-sig", errors="replace").splitlines():
-        name = _cue_file_name(line)
-        if name is None:
-            continue
+    for name in cue_track_names(cue):
         # The CLI joins the name onto the cue's folder, so `..` or `/` would read any file.
         if name in ("", ".", "..") or Path(name).name != name:
             raise RomConvertoUnsafeSourceError(

@@ -2646,6 +2646,25 @@ class TestStandalonePlaylistDiscs:
             "Game (Disc 3) (Track 1).bin",
         ]
 
+    def test_cue_tracks_in_a_subfolder_stay_inside_the_playlist_folder(
+        self, tmp_path: Path
+    ):
+        roms_path = tmp_path / "ps2/roms"
+        (roms_path / "discs/tracks").mkdir(parents=True)
+        cue = roms_path / "discs/Game.cue"
+        cue.write_text(
+            'FILE "tracks/track01.bin" BINARY\n'
+            'FILE "../../outside.bin" BINARY\n'
+            'FILE "tracks/missing.bin" BINARY\n'
+        )
+        track = roms_path / "discs/tracks/track01.bin"
+        track.write_bytes(b"track")
+        (tmp_path / "ps2/outside.bin").write_bytes(b"secret")
+        m3u = roms_path / "Game.m3u"
+        m3u.write_text("discs/Game.cue\n")
+
+        assert playlist_disc_paths(m3u) == [cue, track]
+
     async def test_without_resolvable_entries_only_the_playlist_remains(
         self, handler: FSRomsHandler, tmp_path: Path
     ):
