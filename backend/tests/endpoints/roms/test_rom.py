@@ -581,7 +581,7 @@ def test_get_roms_rejects_a_negative_hltb_main_story_bound(
 def test_get_roms_filter_by_duplicate(
     client: TestClient, access_token: str, rom: Rom, platform: Platform
 ):
-    """The gallery's "Versions" filter, which reads `rom_sibling_groups`.
+    """The gallery's "Versions" filter, which reads `sibling_roms`.
 
     `rom_japan` and `rom_korea` share nothing directly, only a key with `rom_usa`.
     """

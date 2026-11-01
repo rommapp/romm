@@ -535,14 +535,18 @@ def _representative_order(
     prerelease_rank: ColumnElement[Any],
     region_rank: ColumnElement[Any],
     fs_name_no_ext: ColumnElement[Any] | QueryableAttribute[Any],
+    rom_id: ColumnElement[Any] | QueryableAttribute[Any],
 ) -> list[ColumnElement[Any]]:
     """Which version stands for its group: the user's pick, then a full release,
-    then the configured region priority, then the filename as a stable tiebreak.
+    then the configured region priority, then the filename, then the id.
     """
     order: list[ColumnElement[Any]] = [
         prerelease_rank.asc(),
         region_rank.asc(),
         fs_name_no_ext.asc(),
+        # Versions often share a filename stem, and an open tie lets the
+        # representative change from one query to the next.
+        rom_id.asc(),
     ]
     if is_main_sibling is not None:
         # NULL (no rom_user row) sorts with false, after the picked version.
@@ -1135,6 +1139,7 @@ class DBRomsHandler(DBBaseHandler):
                             prerelease_rank=_prerelease_rank(),
                             region_rank=_region_rank(),
                             fs_name_no_ext=Rom.fs_name_no_ext,
+                            rom_id=Rom.id,
                         ),
                     ],
                 )
@@ -1417,12 +1422,7 @@ class DBRomsHandler(DBBaseHandler):
         self, query: S, value: bool
     ) -> S:
         """Filter based on whether the rom has duplicates."""
-        # Only a ROM with another version has a group row, so this is a PK probe.
-        predicate: ColumnElement[bool] = (
-            select(RomSiblingGroup.rom_id)
-            .where(RomSiblingGroup.rom_id == Rom.id)
-            .exists()
-        )
+        predicate = Rom.sibling_roms.any()
         if not value:
             predicate = not_(predicate)
         return query.filter(predicate)
@@ -1814,6 +1814,7 @@ class DBRomsHandler(DBBaseHandler):
                 prerelease_rank=base_subquery.c.prerelease_rank,
                 region_rank=base_subquery.c.region_rank,
                 fs_name_no_ext=base_subquery.c.fs_name_no_ext,
+                rom_id=base_subquery.c.id,
             )
             if user_id:
                 # A sibling the visibility filter below drops can't represent

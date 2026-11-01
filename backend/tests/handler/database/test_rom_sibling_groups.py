@@ -162,6 +162,18 @@ class TestSiblingRepresentatives:
 
         assert representatives[first.id] != first.id
 
+    def test_a_full_tie_goes_to_the_lowest_id(
+        self, admin_user: User, platform: Platform
+    ):
+        """Same stem, same (absent) region: only the id can break the tie."""
+        first = make_rom(platform, "Tie", fs_extension="zip", igdb_id=80)
+        second = make_rom(platform, "Tie", fs_extension="7z", igdb_id=80)
+
+        assert _gallery(platform, admin_user.id) == [first.id]
+        assert db_rom_handler.get_sibling_representatives(
+            [second.id], user_id=admin_user.id
+        ) == {second.id: first.id}
+
     def test_a_rom_without_siblings_represents_itself(
         self, admin_user: User, platform: Platform
     ):
