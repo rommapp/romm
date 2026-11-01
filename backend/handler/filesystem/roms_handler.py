@@ -14,6 +14,8 @@ from typing import Any, Final, NotRequired, TypedDict
 
 from adapters.services.rom_converto import (
     CONVERTO_PLATFORM_SLUGS,
+    CUE_EXT,
+    cue_track_names,
     rom_converto_service,
 )
 from adapters.services.sigil import (
@@ -70,6 +72,7 @@ from utils.archives import (
 )
 from utils.filesystem import COMPRESSED_FILE_SUFFIXES, iter_files
 from utils.hashing import crc32_to_hex
+from utils.m3u import PLAYLIST_EXT, playlist_entries
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
@@ -340,6 +343,45 @@ SIDECAR_FILE_SUFFIXES: Final = (
     ".sub",
     ".txt",
 )
+
+
+def playlist_disc_paths(m3u_path: Path) -> list[Path]:
+    """The files a standalone .m3u lists in or below its folder, with each listed cue's tracks."""
+    root = m3u_path.parent
+    paths: dict[Path, None] = {}
+    for candidates in playlist_entries(m3u_path) or []:
+        # Lexical, so `..` can't escape while a symlinked disc folder still counts.
+        inside = [
+            normalized
+            for normalized in (Path(os.path.normpath(c)) for c in candidates)
+            if normalized.is_relative_to(root)
+        ]
+        if not inside:
+            log.warning(
+                f"Skipping {m3u_path} entry outside its folder: {candidates[0]}"
+            )
+            continue
+        disc = next((path for path in inside if path.is_file()), None)
+        if disc is None:
+            log.warning(f"Skipping {m3u_path} entry missing on disk: {inside[0]}")
+            continue
+        listed = [disc]
+        if disc.suffix.lower() == CUE_EXT:
+            try:
+                names = cue_track_names(disc)
+            except OSError as exc:
+                log.warning(f"Skipping the tracks of {disc}: {exc}")
+                names = []
+            for name in names:
+                track = Path(os.path.normpath(disc.parent / name))
+                if track.is_relative_to(root) and track.is_file():
+                    listed.append(track)
+                else:
+                    log.warning(
+                        f"Skipping {disc} track outside its folder or missing: {name}"
+                    )
+        paths.update(dict.fromkeys(path for path in listed if path != m3u_path))
+    return list(paths)
 
 
 def _may_hold_title_id(path: Path, category: RomFileCategory | None) -> bool:
@@ -1056,6 +1098,13 @@ class FSRomsHandler(FSHandler):
             rom_files.append(rom_file)
             _record_title_id_source(rom_dir, rom_file)
 
+        if not is_multi_part and rom_ext == PLAYLIST_EXT:
+            rom_files.extend(
+                await self._playlist_disc_files(
+                    rom, rom_dir, existing_by_key, hashable_platform
+                )
+            )
+
         # New and changed rows were never read; reused ones only if rom-converto
         # hasn't recognized them yet. Every row sits under the validated rom dir.
         converto_sources = [
@@ -1115,6 +1164,59 @@ class FSRomsHandler(FSHandler):
             ),
             embed_candidates=embed_candidates,
         )
+
+    async def _playlist_disc_files(
+        self,
+        rom: Rom,
+        m3u_path: Path,
+        existing_by_key: Mapping[RomFileKey, RomFile] | None,
+        hashable_platform: bool,
+    ) -> list[RomFile]:
+        """Rows for the discs a standalone .m3u lists, each hashed on its own."""
+        disc_files: list[RomFile] = []
+        for path in await asyncio.to_thread(playlist_disc_paths, m3u_path):
+            try:
+                st = os.stat(path)
+            except OSError as exc:
+                log.warning(f"Skipping unreadable file {path}: {exc}")
+                continue
+            rel_dir = path.parent.relative_to(self.base_path)
+            row = (
+                existing_by_key.get((str(rel_dir), path.name))
+                if existing_by_key is not None
+                else None
+            )
+            if row is not None and rom_file_unchanged(
+                row, size=st.st_size, mtime=st.st_mtime, hashable=hashable_platform
+            ):
+                disc_files.append(row)
+                continue
+
+            file_hash = FileHash(
+                crc_hash="", md5_hash="", sha1_hash="", chd_sha1_hash=""
+            )
+            if hashable_platform:
+                try:
+                    crc_c, _, md5_h, _, sha1_h, _ = await asyncio.to_thread(
+                        self._calculate_rom_hashes, path
+                    )
+                    file_hash = _make_file_hash(
+                        crc_c, md5_h, sha1_h, chd_sha1_hash=_chd_sha1_hash(path)
+                    )
+                except zlib.error:
+                    file_hash["chd_sha1_hash"] = _chd_sha1_hash(path)
+
+            disc_files.append(
+                self._build_rom_file(
+                    rom=rom,
+                    rom_path=rel_dir,
+                    file_name=path.name,
+                    file_hash=file_hash,
+                    file_size_bytes=st.st_size,
+                    last_modified=st.st_mtime,
+                )
+            )
+        return disc_files
 
     def _calculate_rom_hashes(
         self,

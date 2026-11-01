@@ -33,6 +33,7 @@ from handler.filesystem.roms_handler import (
     category_for_path_parts,
     category_matches,
     mtime_matches,
+    playlist_disc_paths,
 )
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, SaveTargetLayout
@@ -2582,6 +2583,128 @@ class TestSigilTitleIdExtraction:
             "ps2", str(tmp_path / "ps2/roms/Game.m3u")
         )
         assert parsed.identity.title_id is not None
+
+
+class TestStandalonePlaylistDiscs:
+    """A standalone .m3u brings the discs it lists along as its own files."""
+
+    @pytest.fixture
+    def handler(self, tmp_path: Path, sigil_config: Config, stub_ra_hasher: None):
+        handler = make_sigil_handler(tmp_path)
+        handler.converto_active = AsyncMock(return_value=False)
+        return handler
+
+    def _playlist_rom(self, tmp_path: Path, playlist: str) -> Rom:
+        roms_path = tmp_path / "ps2/roms"
+        (roms_path / "discs").mkdir(parents=True)
+        (roms_path / "discs/Game (Disc 1).chd").write_bytes(b"disc one")
+        (roms_path / "discs/Game (Disc 2).chd").write_bytes(b"disc two")
+        (roms_path / "Game.m3u").write_text(playlist)
+        return Rom(
+            id=1,
+            fs_name="Game.m3u",
+            fs_extension="m3u",
+            fs_path="ps2/roms",
+            platform=PS2_PLATFORM,
+        )
+
+    async def test_listed_discs_become_rom_files(
+        self, handler: FSRomsHandler, tmp_path: Path
+    ):
+        playlist = "discs/Game (Disc 1).chd\ndiscs/Game (Disc 2).chd\n"
+        rom = self._playlist_rom(tmp_path, playlist)
+
+        parsed = await handler.get_rom_files(rom, extract_title_ids=False)
+
+        assert [(f.file_path, f.file_name) for f in parsed.rom_files] == [
+            ("ps2/roms", "Game.m3u"),
+            ("ps2/roms/discs", "Game (Disc 1).chd"),
+            ("ps2/roms/discs", "Game (Disc 2).chd"),
+        ]
+        disc = parsed.rom_files[1]
+        assert disc.file_size_bytes == len(b"disc one")
+        assert disc.sha1_hash == hashlib.sha1(b"disc one").hexdigest()
+        assert disc.category is None
+        # The ROM-level hash stays the playlist's, as nested files don't feed it.
+        assert parsed.sha1_hash == hashlib.sha1(playlist.encode()).hexdigest()
+
+    async def test_cue_tracks_come_with_their_sheet(
+        self, handler: FSRomsHandler, tmp_path: Path
+    ):
+        rom = self._playlist_rom(tmp_path, "discs/Game (Disc 3).cue\n")
+        discs = tmp_path / "ps2/roms/discs"
+        (discs / "Game (Disc 3).cue").write_text(
+            'FILE "Game (Disc 3) (Track 1).bin" BINARY\n'
+        )
+        (discs / "Game (Disc 3) (Track 1).bin").write_bytes(b"track")
+
+        parsed = await handler.get_rom_files(rom, extract_title_ids=False)
+
+        assert [f.file_name for f in parsed.rom_files] == [
+            "Game.m3u",
+            "Game (Disc 3).cue",
+            "Game (Disc 3) (Track 1).bin",
+        ]
+
+    def test_cue_tracks_in_a_subfolder_stay_inside_the_playlist_folder(
+        self, tmp_path: Path
+    ):
+        roms_path = tmp_path / "ps2/roms"
+        (roms_path / "discs/tracks").mkdir(parents=True)
+        cue = roms_path / "discs/Game.cue"
+        cue.write_text(
+            'FILE "tracks/track01.bin" BINARY\n'
+            'FILE "../../outside.bin" BINARY\n'
+            'FILE "tracks/missing.bin" BINARY\n'
+        )
+        track = roms_path / "discs/tracks/track01.bin"
+        track.write_bytes(b"track")
+        (tmp_path / "ps2/outside.bin").write_bytes(b"secret")
+        m3u = roms_path / "Game.m3u"
+        m3u.write_text("discs/Game.cue\n")
+
+        assert playlist_disc_paths(m3u) == [cue, track]
+
+    async def test_without_resolvable_entries_only_the_playlist_remains(
+        self, handler: FSRomsHandler, tmp_path: Path
+    ):
+        rom = self._playlist_rom(tmp_path, "# nothing listed\n\nmissing.chd\n")
+
+        parsed = await handler.get_rom_files(rom, extract_title_ids=False)
+
+        assert [f.file_name for f in parsed.rom_files] == ["Game.m3u"]
+
+    async def test_unchanged_discs_are_reused_without_hashing(
+        self, handler: FSRomsHandler, tmp_path: Path, mocker
+    ):
+        rom = self._playlist_rom(tmp_path, "discs/Game (Disc 1).chd\n")
+        first = await handler.get_rom_files(rom, extract_title_ids=False)
+        hasher = mocker.spy(handler, "_calculate_rom_hashes")
+
+        parsed = await handler.get_rom_files(
+            rom, extract_title_ids=False, existing_files=first.rom_files
+        )
+
+        assert [id(f) for f in parsed.rom_files] == [id(f) for f in first.rom_files]
+        hasher.assert_not_called()
+
+    def test_skips_comments_missing_and_escaping_entries(self, tmp_path: Path):
+        roms_path = tmp_path / "ps2/roms"
+        (roms_path / "discs").mkdir(parents=True)
+        disc = roms_path / "discs/Game (Disc 1).chd"
+        disc.write_bytes(b"disc")
+        outside = tmp_path / "ps2/outside.chd"
+        outside.write_bytes(b"secret")
+        m3u = roms_path / "Game.m3u"
+        m3u.write_bytes(
+            b"#EXTM3U\n\n"
+            b"../outside.chd\n"
+            + str(outside).encode()
+            + b"\ndiscs/missing.chd\nGame.m3u\n"
+            b"discs\\Game (Disc 1).chd\ndiscs/Game (Disc 1).chd\n\xff\xfe\n"
+        )
+
+        assert playlist_disc_paths(m3u) == [disc]
 
 
 class TestEmbedSwitchTitleIdInName:
