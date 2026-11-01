@@ -62,6 +62,7 @@ class Platform(BaseModel):
     description: Mapped[str | None] = mapped_column(Text, default="")
     category: Mapped[str | None] = mapped_column(String(length=100), default="")
     generation: Mapped[int | None]
+    first_release_year: Mapped[int | None] = mapped_column(Integer(), default=None)
     family_name: Mapped[str | None] = mapped_column(String(length=1000), default="")
     family_slug: Mapped[str | None] = mapped_column(String(length=1000), default="")
     url: Mapped[str | None] = mapped_column(String(length=1000), default="")

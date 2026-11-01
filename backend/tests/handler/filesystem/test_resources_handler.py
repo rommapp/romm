@@ -280,7 +280,7 @@ class TestFSResourcesHandler:
         mock_image.resize.assert_called_once_with((expected_width, expected_height))
         mock_image.save.assert_called_once_with(save_path)
 
-    @pytest.mark.parametrize("fmt", ["GIF", "PNG", "WEBP"])
+    @pytest.mark.parametrize("fmt", ["GIF", "PNG", "WEBP", "AVIF"])
     def test_resize_cover_to_small_keeps_animation(
         self, handler: FSResourcesHandler, tmp_path: Path, fmt: str
     ):
@@ -310,6 +310,7 @@ class TestFSResourcesHandler:
         "fmt, source_params",
         [
             ("GIF", {"disposal": 2}),
+            ("AVIF", {}),
             ("PNG", {"blend": [Blend.OP_OVER, Blend.OP_SOURCE, Blend.OP_SOURCE]}),
         ],
     )

@@ -3,7 +3,7 @@ from collections.abc import Callable
 from PIL import Image, ImageSequence
 
 # Multi-frame formats browsers play as animations (MPO/TIFF pages are not)
-ANIMATED_FORMATS = frozenset({"GIF", "PNG", "WEBP"})
+ANIMATED_FORMATS = frozenset({"GIF", "PNG", "WEBP", "AVIF"})
 
 # Pixels decoded across all frames past which an animation keeps only its
 # first frame, since re-encoding one holds every frame in memory.

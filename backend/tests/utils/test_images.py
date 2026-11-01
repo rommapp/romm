@@ -58,7 +58,7 @@ def growing_canvas_gif() -> bytes:
 
 
 class TestIsAnimated:
-    @pytest.mark.parametrize("fmt", ["GIF", "PNG", "WEBP"])
+    @pytest.mark.parametrize("fmt", ["GIF", "PNG", "WEBP", "AVIF"])
     def test_multi_frame_image(self, fmt: str):
         with Image.open(BytesIO(animated_image_bytes(fmt))) as img:
             assert is_animated(img)
@@ -86,7 +86,7 @@ class TestIsAnimated:
 
 
 class TestFrameDurations:
-    @pytest.mark.parametrize("fmt", ["GIF", "PNG", "WEBP"])
+    @pytest.mark.parametrize("fmt", ["GIF", "PNG", "WEBP", "AVIF"])
     def test_reads_each_frame(self, fmt: str):
         with Image.open(BytesIO(animated_image_bytes(fmt))) as img:
             assert frame_durations(img) == DURATIONS

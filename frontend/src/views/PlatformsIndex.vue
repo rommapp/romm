@@ -546,6 +546,9 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
               :fs-slug="p.fs_slug"
               :display-name="p.display_name"
               :rom-count="p.rom_count"
+              :artwork-url="p.url_logo"
+              :category="p.category"
+              :first-release-year="p.first_release_year"
               variant="grid"
             />
           </div>
@@ -564,6 +567,9 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
           :fs-slug="p.fs_slug"
           :display-name="p.display_name"
           :rom-count="p.rom_count"
+          :artwork-url="p.url_logo"
+          :category="p.category"
+          :first-release-year="p.first_release_year"
           variant="grid"
         />
       </div>
@@ -580,7 +586,7 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
 
 .r-pidx__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 16px;
 }
 
@@ -603,7 +609,7 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
 }
 
 html[data-bp~="xs"] .r-pidx__grid {
-  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
   gap: 10px;
 }
 </style>
