@@ -18,8 +18,7 @@ function probeJxl() {
   img.src = JXL_PROBE;
 }
 
-/** Whether this browser renders JPEG XL. False until the probe decodes, and
- *  reactive, so a computed that calls it updates once the answer is in. */
+/** Reactive browser support for JPEG XL, false until the probe decodes. */
 export function canRenderJxl(): boolean {
   probeJxl();
   return jxlDecodes.value;
