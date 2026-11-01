@@ -12,18 +12,7 @@ from typing import Final
 # manual viewer can render them; the browser renders PDFs in a sandboxed
 # viewer and Markdown is served as text/markdown (never sniffed to HTML).
 ALLOWED_IMAGE_EXTENSIONS = frozenset(
-    {
-        ".png",
-        ".jpg",
-        ".jpeg",
-        ".webp",
-        ".gif",
-        ".tiff",
-        ".tif",
-        ".bmp",
-        ".avif",
-        ".jxl",
-    }
+    {".png", ".jpg", ".jpeg", ".webp", ".gif", ".tiff", ".tif", ".bmp", ".avif"}
 )
 ALLOWED_VIDEO_EXTENSIONS = frozenset({".mp4", ".webm", ".ogv", ".mov", ".m4v"})
 ALLOWED_DOCUMENT_EXTENSIONS = frozenset({".pdf", ".md", ".txt", ".html", ".htm"})
@@ -36,7 +25,6 @@ HTML_DOCUMENT_EXTENSIONS = frozenset({".html", ".htm"})
 # all) across platforms.
 MEDIA_MIME_OVERRIDES = {
     ".avif": "image/avif",
-    ".jxl": "image/jxl",
     ".webp": "image/webp",
     ".mp4": "video/mp4",
     ".m4v": "video/mp4",

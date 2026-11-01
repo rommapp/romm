@@ -33,7 +33,6 @@ const LIBRARY_IMAGE_EXTENSIONS = new Set([
   "tif",
   "bmp",
   "avif",
-  "jxl",
 ]);
 const LIBRARY_VIDEO_EXTENSIONS = new Set(["mp4", "webm", "ogv", "mov", "m4v"]);
 

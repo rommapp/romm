@@ -21,7 +21,6 @@ const SCREENSHOT_EXTENSIONS = new Set([
   "gif",
   "bmp",
   "avif",
-  "jxl",
 ]);
 
 export function romFolderScreenshots(rom: DetailedRom): RomFileSchema[] {
