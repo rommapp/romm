@@ -16,7 +16,11 @@ from typing import Any, Final
 
 from handler.database import db_recommendation_handler, db_rom_handler
 from handler.database.recommendations_handler import UserAffinityRow
-from handler.recommendation.diversity import OVERFETCH_FACTOR, cap_by_series
+from handler.recommendation.diversity import (
+    OVERFETCH_FACTOR,
+    cap_by_series,
+    collapse_sibling_groups,
+)
 from handler.recommendation.scoring import Facet
 from handler.redis_handler import sync_cache
 from logger.logger import log
@@ -148,6 +152,9 @@ class FeedBuilder:
         affinity_rows = db_recommendation_handler.get_user_affinity(self.user_id)
 
         seeds, excluded = self._partition(affinity_rows)
+        if excluded:
+            # Playing the USA release rules out the Japanese one too.
+            excluded = db_rom_handler.get_sibling_group_members(list(excluded))
         if not seeds:
             return self._cold_start(limit, excluded)
 
@@ -235,6 +242,14 @@ class FeedBuilder:
         ordered = sorted(candidates.values(), key=lambda c: (-c.score, c.rom_id))[
             : limit * OVERFETCH_FACTOR
         ]
+        # Seeds reach different versions of one game, and each would take a slot.
+        ordered = collapse_sibling_groups(
+            ordered,
+            lambda candidate: candidate.rom_id,
+            db_rom_handler.get_sibling_group_keys(
+                [candidate.rom_id for candidate in ordered]
+            ),
+        )
 
         roms = hydrate_roms([candidate.rom_id for candidate in ordered])
         seed_names = db_recommendation_handler.get_rom_names(
@@ -268,8 +283,14 @@ class FeedBuilder:
         log.debug(f"No recommendation seeds for user {self.user_id}, using fallback")
 
         rom_ids = db_recommendation_handler.get_fallback_rom_ids(
-            limit, exclude_rom_ids=list(excluded)
+            limit * OVERFETCH_FACTOR, exclude_rom_ids=list(excluded)
         )
+        # Every version of a game carries its rating, so they rank side by side.
+        rom_ids = collapse_sibling_groups(
+            rom_ids,
+            lambda rom_id: rom_id,
+            db_rom_handler.get_sibling_group_keys(rom_ids),
+        )[:limit]
         roms = hydrate_roms(rom_ids)
 
         return [

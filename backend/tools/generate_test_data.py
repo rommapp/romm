@@ -68,7 +68,8 @@ from models.play_session import PlaySession  # noqa: E402
 
 # NOTE: `roms_metadata` and `sibling_roms` are DB VIEWS, not tables: the
 # aggregated metadata and sibling links are derived from each rom's provider
-# columns, so we populate those columns instead of inserting into the views.
+# columns, so we populate those columns instead of inserting into the views
+# (and rebuild `rom_sibling_groups` once the ROMs are in).
 # `roms_facets` is a real table, but triggers on `roms` fill it in.
 from models.rom import (  # noqa: E402
     Rom,
@@ -1674,6 +1675,10 @@ def _seed(args: argparse.Namespace, image_pool: ProcessPoolExecutor | None) -> i
     counts["play_sessions"] = len(play_rows)
 
     list(drawing)
+
+    # The handlers group siblings on each ROM write, which the bulk insert skips.
+    if not args.dry_run:
+        db_rom_handler.rebuild_sibling_groups()
 
     # Rows written straight to the database don't rotate the gallery and feed
     # caches in Redis, so rotate them here.

@@ -70,6 +70,7 @@ from models.music import MusicFavoriteTrack, MusicPlaylistTrack
 from models.platform import Platform
 from models.rom import (
     ALTERNATIVE_NAME_SOURCES,
+    IDENTITY_KEY_SOURCE_COLUMNS,
     METADATA_SOURCE_FACET_COLUMNS,
     ROM_IS_IDENTIFIED,
     ROM_VISIBILITY_COLUMNS,
@@ -86,6 +87,7 @@ from models.rom import (
     RomInstallTarget,
     RomMetadata,
     RomNote,
+    RomSiblingGroup,
     RomUser,
     RomUserStatus,
     RomVisibility,
@@ -127,7 +129,9 @@ from utils.sql_dialect import (
     optimizer_hint_on_mysql,
 )
 
+from . import sibling_groups
 from .base_handler import DBBaseHandler, affected_rows, sync_engine
+from .sibling_groups import sibling_group_key
 
 type RomSelect = Select[Rom]
 
@@ -525,23 +529,25 @@ def _store_versioned_cache(redis_key: str, version: str, result: Any) -> None:
             pass
 
 
-def _create_metadata_id_case(
-    prefix: str,
-    id_column: ColumnElement[Any],
-    platform_id_column: ColumnElement[Any],
-) -> ColumnElement[Any]:
-    return case(
-        (
-            id_column.isnot(None),
-            func.concat(
-                f"{prefix}-",
-                platform_id_column,
-                "-",
-                id_column,
-            ),
-        ),
-        else_=None,
-    )
+def _representative_order(
+    *,
+    is_main_sibling: ColumnElement[Any] | QueryableAttribute[Any] | None,
+    prerelease_rank: ColumnElement[Any],
+    region_rank: ColumnElement[Any],
+    fs_name_no_ext: ColumnElement[Any] | QueryableAttribute[Any],
+) -> list[ColumnElement[Any]]:
+    """Which version stands for its group: the user's pick, then a full release,
+    then the configured region priority, then the filename as a stable tiebreak.
+    """
+    order: list[ColumnElement[Any]] = [
+        prerelease_rank.asc(),
+        region_rank.asc(),
+        fs_name_no_ext.asc(),
+    ]
+    if is_main_sibling is not None:
+        # NULL (no rom_user row) sorts with false, after the picked version.
+        order.insert(0, func.coalesce(cast(is_main_sibling, Integer), 0).desc())
+    return order
 
 
 def _region_rank() -> ColumnElement[Any]:
@@ -852,6 +858,7 @@ class DBRomsHandler(DBBaseHandler):
     ) -> Rom:
         rom = session.merge(rom)
         session.flush()
+        sibling_groups.regroup(session, [rom.id])
 
         return session.scalars(query.filter_by(id=rom.id).limit(1)).one()
 
@@ -1062,19 +1069,105 @@ class DBRomsHandler(DBBaseHandler):
                 ),
             )
         )
-        rows = session.execute(query).all()
-
-        # Dedupe by (parent rom, sibling id) so a duplicate join row doesn't
-        # surface the same sibling twice on the wire.
-        seen: dict[int, set[int]] = {rom_id: set() for rom_id in rom_ids}
         buckets: dict[int, list[tuple[Rom, bool]]] = {rom_id: [] for rom_id in rom_ids}
-        for rom_id, sibling, is_main in rows:
-            if sibling.id in seen[rom_id]:
-                continue
-            seen[rom_id].add(sibling.id)
+        for rom_id, sibling, is_main in session.execute(query).all():
             buckets[rom_id].append((sibling, bool(is_main)))
 
         return buckets
+
+    @begin_session
+    def get_sibling_group_keys(
+        self,
+        rom_ids: Sequence[int],
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> dict[int, int]:
+        """Each ROM's `sibling_group_key`, equal for every version of one game."""
+        return sibling_groups.group_keys(session, rom_ids)
+
+    @begin_session
+    def get_sibling_group_members(
+        self,
+        rom_ids: Sequence[int],
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> set[int]:
+        """`rom_ids` plus every other version of the same games."""
+        return sibling_groups.group_members(session, rom_ids)
+
+    @begin_session
+    def get_sibling_representatives(
+        self,
+        rom_ids: Sequence[int],
+        *,
+        user_id: int | None,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
+        session: Session = INJECTED_SESSION,
+    ) -> dict[int, int]:
+        """Map each ROM to the version of its game the grouped gallery shows.
+
+        ROMs whose every version is hidden from the viewer or missing from disk
+        are left out.
+        """
+        group_keys = self.get_sibling_group_keys(rom_ids, session=session)
+        if not group_keys:
+            return {}
+
+        group_key = sibling_group_key()
+        hidden_last = (
+            case((func.coalesce(RomUser.hidden, false()), 1), else_=0).asc()
+            if user_id is not None
+            else literal(0)
+        )
+        members = (
+            select(
+                Rom.id,
+                group_key.label("group_key"),
+                func.row_number()
+                .over(
+                    partition_by=group_key,
+                    order_by=[
+                        hidden_last,
+                        *_representative_order(
+                            is_main_sibling=(
+                                RomUser.is_main_sibling if user_id is not None else None
+                            ),
+                            prerelease_rank=_prerelease_rank(),
+                            region_rank=_region_rank(),
+                            fs_name_no_ext=Rom.fs_name_no_ext,
+                        ),
+                    ],
+                )
+                .label("row_num"),
+            )
+            .outerjoin(RomSiblingGroup, RomSiblingGroup.rom_id == Rom.id)
+            .outerjoin(
+                RomUser, and_(RomUser.rom_id == Rom.id, RomUser.user_id == user_id)
+            )
+            .where(
+                # The group id when there is one, so the lookup stays on its index.
+                or_(
+                    RomSiblingGroup.group_id.in_(set(group_keys.values())),
+                    and_(
+                        RomSiblingGroup.group_id.is_(None),
+                        Rom.id.in_(group_keys.keys()),
+                    ),
+                ),
+                Rom.missing_from_fs.is_(False),
+                *visibility.clauses(),
+            )
+            .subquery()
+        )
+        representatives = dict(
+            session.execute(
+                select(members.c.group_key, members.c.id).where(members.c.row_num == 1)
+            ).all()
+        )
+        return {
+            rom_id: representatives[key]
+            for rom_id, key in group_keys.items()
+            if key in representatives
+        }
 
     def get_rom_ids_with_notes(
         self,
@@ -1544,8 +1637,6 @@ class DBRomsHandler(DBBaseHandler):
         visibility: RomVisibilityFilter = UNRESTRICTED,
         session: Session = INJECTED_SESSION,
     ) -> S:
-        from handler.scan.sources import MetadataSource
-
         filters = filters or RomFilterParams()
         order_dir = order_dir.lower()
 
@@ -1684,13 +1775,6 @@ class DBRomsHandler(DBBaseHandler):
 
         # BEWARE YE WHO ENTERS HERE 💀
         if filters.group_by_meta_id:
-            # Convert NULL is_main_sibling to 0 (false) so it sorts after true values
-            is_main_sibling_order = (
-                func.coalesce(cast(RomUser.is_main_sibling, Integer), 0).desc()
-                if user_id
-                else literal(1)
-            )
-
             if sort_key is None:
                 sort_key = _resolve_gallery_sort_key(order_by, user_id)
             # A group sorts by its best sibling's key; only rom_user keys
@@ -1699,94 +1783,33 @@ class DBRomsHandler(DBBaseHandler):
                 sort_key.column.type, _GROUP_SORT_AGGREGATE_TYPES
             )
 
-            # Create a subquery that identifies the primary ROM in each group.
-            # Priority order: visible to this user, then is_main_sibling (desc),
-            # then a full release over a pre-release, then the configured
-            # region priority, then fs_name_no_ext (asc) as a stable tiebreak.
+            # Create a subquery that identifies the primary ROM in each group,
+            # preferring one visible to this user, then `_representative_order`.
             # Materialize only the columns the dedup window needs (not all of
             # Rom, whose JSON metadata blobs make the derived table huge), and
             # drop the carried-over ORDER BY the window doesn't use.
             base_subquery = (
                 query.order_by(None)
+                .outerjoin(RomSiblingGroup, RomSiblingGroup.rom_id == Rom.id)
                 .with_only_columns(
                     Rom.id,
                     Rom.fs_name_no_ext,
                     _prerelease_rank().label("prerelease_rank"),
                     _region_rank().label("region_rank"),
-                    Rom.platform_id,
-                    Rom.igdb_id,
-                    Rom.ss_id,
-                    Rom.moby_id,
-                    Rom.ra_id,
-                    Rom.hasheous_id,
-                    Rom.launchbox_id,
-                    Rom.tgdb_id,
-                    Rom.flashpoint_id,
-                    Rom.steam_id,
+                    sibling_group_key().label("group_key"),
                 )
                 .subquery()
             )
-            partition_key = func.coalesce(
-                _create_metadata_id_case(
-                    MetadataSource.IGDB,
-                    base_subquery.c.igdb_id,
-                    base_subquery.c.platform_id,
-                ),
-                _create_metadata_id_case(
-                    MetadataSource.SS,
-                    base_subquery.c.ss_id,
-                    base_subquery.c.platform_id,
-                ),
-                _create_metadata_id_case(
-                    MetadataSource.MOBY,
-                    base_subquery.c.moby_id,
-                    base_subquery.c.platform_id,
-                ),
-                _create_metadata_id_case(
-                    MetadataSource.RA,
-                    base_subquery.c.ra_id,
-                    base_subquery.c.platform_id,
-                ),
-                _create_metadata_id_case(
-                    MetadataSource.HASHEOUS,
-                    base_subquery.c.hasheous_id,
-                    base_subquery.c.platform_id,
-                ),
-                _create_metadata_id_case(
-                    MetadataSource.LAUNCHBOX,
-                    base_subquery.c.launchbox_id,
-                    base_subquery.c.platform_id,
-                ),
-                _create_metadata_id_case(
-                    MetadataSource.TGDB,
-                    base_subquery.c.tgdb_id,
-                    base_subquery.c.platform_id,
-                ),
-                _create_metadata_id_case(
-                    MetadataSource.FLASHPOINT,
-                    base_subquery.c.flashpoint_id,
-                    base_subquery.c.platform_id,
-                ),
-                _create_metadata_id_case(
-                    MetadataSource.STEAM,
-                    base_subquery.c.steam_id,
-                    base_subquery.c.platform_id,
-                ),
-                _create_metadata_id_case(
-                    "romm",
-                    base_subquery.c.id,
-                    base_subquery.c.platform_id,
-                ),
-            )
+            partition_key = base_subquery.c.group_key
 
             # Only id, the row number and the group sort key flow downstream;
             # wider columns here spill the window's temp-table sort to disk.
-            window_order = [
-                is_main_sibling_order,
-                base_subquery.c.prerelease_rank.asc(),
-                base_subquery.c.region_rank.asc(),
-                base_subquery.c.fs_name_no_ext.asc(),
-            ]
+            window_order = _representative_order(
+                is_main_sibling=RomUser.is_main_sibling if user_id else None,
+                prerelease_rank=base_subquery.c.prerelease_rank,
+                region_rank=base_subquery.c.region_rank,
+                fs_name_no_ext=base_subquery.c.fs_name_no_ext,
+            )
             if user_id:
                 # A sibling the visibility filter below drops can't represent
                 # its group while a visible one exists.
@@ -2343,6 +2366,8 @@ class DBRomsHandler(DBBaseHandler):
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
+        if data.keys() & IDENTITY_KEY_SOURCE_COLUMNS:
+            sibling_groups.regroup(session, [id])
         return session.scalars(select(Rom).filter_by(id=id)).one()
 
     @begin_session
@@ -2376,11 +2401,15 @@ class DBRomsHandler(DBBaseHandler):
         id: int,
         session: Session = INJECTED_SESSION,
     ) -> None:
+        # Read before the cascade drops the row that names them.
+        former_siblings = sibling_groups.group_members(session, [id]) - {id}
         session.execute(
             delete(Rom)
             .where(Rom.id == id)
             .execution_options(synchronize_session="evaluate")
         )
+        if former_siblings:
+            sibling_groups.regroup(session, former_siblings)
 
     @begin_session
     def get_missing_rom_ids(
@@ -3941,6 +3970,15 @@ class DBRomsHandler(DBBaseHandler):
         InnoDB's auto-recalc refreshes the stored row count without replanning.
         """
         session.execute(Analyze(RomIdentityKey.__tablename__))
+
+    @begin_session
+    def rebuild_sibling_groups(
+        self,
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> None:
+        """Recompute every sibling group, repairing any a concurrent write raced."""
+        sibling_groups.rebuild(session)
 
     @staticmethod
     def invalidate_filter_values_cache() -> None:

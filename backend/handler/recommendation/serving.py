@@ -8,10 +8,15 @@ cannot see, cap by series, truncate) is shared.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import replace
 
 from handler.auth.permissions import ResolvedPermissions
-from handler.database import db_recommendation_handler
-from handler.recommendation.diversity import OVERFETCH_FACTOR, cap_by_series
+from handler.database import db_recommendation_handler, db_rom_handler
+from handler.recommendation.diversity import (
+    OVERFETCH_FACTOR,
+    cap_by_series,
+    collapse_sibling_groups,
+)
 from handler.recommendation.feed import (
     FeedBuilder,
     RecommendedRom,
@@ -33,16 +38,30 @@ def similar_roms(
     edges = db_recommendation_handler.get_similar_rom_edges(
         rom_id, limit=_ranked_depth(limit, permissions)
     )
+    group_keys = db_rom_handler.get_sibling_group_keys(
+        [rom_id, *(edge.rom_id for edge in edges)]
+    )
+    source_group = group_keys.get(rom_id, rom_id)
+    edges = collapse_sibling_groups(
+        [edge for edge in edges if group_keys.get(edge.rom_id) != source_group],
+        lambda edge: edge.rom_id,
+        group_keys,
+    )
     roms = _visible_roms([edge.rom_id for edge in edges], permissions)
 
     # Without the cap this section is just the franchise the user is already
     # looking at: five Metroid games for Super Metroid.
     selected = cap_by_series(edges, lambda edge: roms.get(edge.rom_id), limit=limit)
 
-    return [
-        RecommendedRom(rom=roms[edge.rom_id], score=edge.score, reasons=edge.reasons)
-        for edge in selected
-    ]
+    return as_representatives(
+        [
+            RecommendedRom(
+                rom=roms[edge.rom_id], score=edge.score, reasons=edge.reasons
+            )
+            for edge in selected
+        ],
+        permissions,
+    )
 
 
 def recommended_roms(
@@ -71,7 +90,39 @@ def recommended_roms(
     # Visibility is applied after the cache so a permission change takes effect
     # without waiting for the entry to expire.
     visible = [item for item in feed if permissions.can_see_rom(item.rom)]
-    return visible[:limit]
+    return as_representatives(visible, permissions)[:limit]
+
+
+def as_representatives(
+    items: Sequence[RecommendedRom], permissions: ResolvedPermissions
+) -> list[RecommendedRom]:
+    """Swap each ROM for the version of its game the grouped gallery shows.
+
+    Resolved per request rather than ranked in, so a user's main-version pick
+    takes effect without waiting for a cached feed to expire.
+    """
+    representatives = db_rom_handler.get_sibling_representatives(
+        [item.rom.id for item in items],
+        user_id=permissions.user_id,
+        visibility=permissions.rom_visibility,
+    )
+    swapped_ids = {
+        representatives[item.rom.id]
+        for item in items
+        if representatives.get(item.rom.id, item.rom.id) != item.rom.id
+    }
+    swapped = hydrate_roms(list(swapped_ids)) if swapped_ids else {}
+
+    result: list[RecommendedRom] = []
+    for item in items:
+        representative_id = representatives.get(item.rom.id)
+        if representative_id is None:
+            continue
+        rom = swapped.get(representative_id, item.rom)
+        if rom.id != representative_id:
+            continue
+        result.append(replace(item, rom=rom))
+    return result
 
 
 def _ranked_depth(limit: int, permissions: ResolvedPermissions) -> int:

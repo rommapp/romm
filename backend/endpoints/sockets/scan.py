@@ -1419,6 +1419,13 @@ async def scan_platforms(
         except Exception as e:
             log.error(f"Couldn't resample the sibling identity keys: {e}")
 
+        # Each ROM write regroups its own versions; this repairs a group two
+        # scan workers rewrote at once.
+        try:
+            db_rom_handler.rebuild_sibling_groups()
+        except Exception as e:
+            log.error(f"Couldn't rebuild the sibling groups: {e}")
+
         # Otherwise the games scanned today have an empty "Similar games"
         # section until the nightly build. Threaded: the scoring is CPU-bound.
         try:

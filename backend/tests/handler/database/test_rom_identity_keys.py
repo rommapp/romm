@@ -130,11 +130,10 @@ class TestRomIdentityKeys:
     def test_pair_matching_two_providers_surfaces_once(
         self, admin_user: User, platform: Platform
     ):
-        """The view emits a row per matching provider; the API must not."""
         first = make_rom(platform, "twice_a", igdb_id=9, ss_id=9)
         second = make_rom(platform, "twice_b", igdb_id=9, ss_id=9)
 
-        assert _view_rows(first.id) == [second.id, second.id]
+        assert _view_rows(first.id) == [second.id]
         assert _siblings(first.id, admin_user.id) == [second.id]
 
         loaded = db_rom_handler.get_rom(first.id)

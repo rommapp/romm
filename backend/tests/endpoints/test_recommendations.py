@@ -273,3 +273,85 @@ def test_recommendations_require_auth(client: TestClient):
         status.HTTP_401_UNAUTHORIZED,
         status.HTTP_403_FORBIDDEN,
     )
+
+
+def _play(rom: Rom, user: User, **props: object) -> None:
+    rom_user = db_rom_handler.get_rom_user(rom.id, user.id)
+    if rom_user is None:
+        rom_user = db_rom_handler.add_rom_user(rom.id, user.id)
+    db_rom_handler.update_rom_user(
+        rom_user.id, {"last_played": datetime.now(timezone.utc), **props}
+    )
+    invalidate_cached_feed(user.id)
+
+
+def _metroid_europe(platform: Platform) -> Rom:
+    """Another version of `build_library`'s Super Metroid."""
+    return make_rom(
+        platform,
+        "Super Metroid (Europe)",
+        igdb_id=5001,
+        genres=["Platform", "Adventure"],
+        franchises=["Metroid"],
+        companies=["Nintendo"],
+    )
+
+
+def test_cold_start_shows_one_version_per_game(
+    client: TestClient, access_token: str, admin_user: User, platform: Platform
+):
+    """Versions share a rating, so they rank side by side."""
+    versions = [
+        make_rom(platform, f"Acclaimed ({region})", igdb_id=6101, average_rating=95.0)
+        for region in ("USA", "Europe", "Japan")
+    ]
+    other = make_rom(platform, "Runner Up", igdb_id=6102, average_rating=80.0)
+    SimilarityBuilder().build()
+    invalidate_cached_feed(admin_user.id)
+
+    body = client.get(
+        "/api/recommendations",
+        headers={"Authorization": f"Bearer {access_token}"},
+    ).json()
+
+    returned_ids = [entry["rom"]["id"] for entry in body]
+    assert len(set(returned_ids) & {rom.id for rom in versions}) == 1
+    assert other.id in returned_ids
+
+
+def test_playing_one_version_excludes_the_others(
+    client: TestClient, access_token: str, admin_user: User, platform: Platform
+):
+    library = build_library(platform)
+    metroid_europe = _metroid_europe(platform)
+    SimilarityBuilder().build()
+    _play(library["metroid_2"], admin_user, rating=10)
+    _play(metroid_europe, admin_user)
+
+    body = client.get(
+        "/api/recommendations",
+        headers={"Authorization": f"Bearer {access_token}"},
+    ).json()
+
+    returned_ids = [entry["rom"]["id"] for entry in body]
+    assert library["metroid"].id not in returned_ids
+    assert metroid_europe.id not in returned_ids
+
+
+def test_similar_roms_show_the_users_main_version(
+    client: TestClient, access_token: str, admin_user: User, platform: Platform
+):
+    library = build_library(platform)
+    metroid_europe = _metroid_europe(platform)
+    SimilarityBuilder().build()
+    rom_user = db_rom_handler.add_rom_user(metroid_europe.id, admin_user.id)
+    db_rom_handler.update_rom_user(rom_user.id, {"is_main_sibling": True})
+
+    body = client.get(
+        f"/api/roms/{library['metroid_2'].id}/similar",
+        headers={"Authorization": f"Bearer {access_token}"},
+    ).json()
+
+    returned_ids = [entry["rom"]["id"] for entry in body]
+    assert metroid_europe.id in returned_ids
+    assert library["metroid"].id not in returned_ids
