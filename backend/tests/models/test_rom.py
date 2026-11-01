@@ -85,6 +85,30 @@ def test_is_top_level_at_any_folder_depth(
     assert file.is_top_level is expected
 
 
+@pytest.mark.parametrize(
+    "fs_name, file_path, file_name, hidden_folder, expected",
+    [
+        ("FF X", "ps2/roms/FF X", "disc1.iso", False, "disc1.iso"),
+        ("FF X", "ps2/roms/FF X/dlc", "extra.bin", True, ".hidden/dlc/extra.bin"),
+        ("FF X.m3u", "ps2/roms", "FF X.m3u", False, "FF X.m3u"),
+        (
+            "FF X.m3u",
+            "ps2/roms/discs",
+            "FF X (Disc 1).iso",
+            True,
+            "discs/FF X (Disc 1).iso",
+        ),
+    ],
+)
+def test_file_name_for_download_is_relative_to_the_rom(
+    fs_name: str, file_path: str, file_name: str, hidden_folder: bool, expected: str
+):
+    rom = Rom(fs_path="ps2/roms", fs_name=fs_name)
+    file = RomFile(rom=rom, file_path=file_path, file_name=file_name)
+
+    assert file.file_name_for_download(hidden_folder) == expected
+
+
 def _archive(**kwargs) -> RomFile:
     return RomFile(
         file_name="sf2.zip",
