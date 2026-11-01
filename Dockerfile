@@ -8,12 +8,12 @@
 # Same bases as docker/Dockerfile, so system tools (7zip, libmagic, libarchive)
 # match production. Keep these pins in sync with its ARGUMENT DECLARATIONS.
 ARG ALPINE_VERSION=3.24
-ARG ALPINE_SHA256=294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+ARG ALPINE_DIGEST=sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
 # Pins the base image tag, so it cannot read .python-version; keep the two in sync.
 ARG PYTHON_VERSION=3.14
-ARG PYTHON_ALPINE_SHA256=9e9fde4d32eedce0b661d9ab91e826b62dddf28e928c230ec55f1866cac66b01
+ARG PYTHON_ALPINE_DIGEST=sha256:eb2c62658b8d51bff0acc408504b76521d02030de56a8a3c1e830083e89b89d2
 ARG NODE_VERSION=24.22
-ARG NODE_ALPINE_SHA256=6a1c190e17215d844926b0677f4bf87273ff7d5e54db06d3b5b5863ab0b09a3d
+ARG NODE_ALPINE_DIGEST=sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85
 ARG UV_VERSION=0.13.4
 ARG UV_SHA256=0cb69bb18ffcd57db04f045010b0234132a111da70dde5a393d26ad288d38e13
 ARG EMSDK_VERSION=4.0.12
@@ -36,7 +36,7 @@ COPY docker/gme /romm-gme
 RUN /romm-gme/build.sh /libgme /gme
 
 
-FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_SHA256} AS node-stage
+FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@${NODE_ALPINE_DIGEST} AS node-stage
 
 
 # https://github.com/astral-sh/uv/pkgs/container/uv
@@ -44,7 +44,7 @@ FROM ghcr.io/astral-sh/uv:${UV_VERSION}-python${PYTHON_VERSION}-alpine@sha256:${
 
 
 # Tag 1.8.3. Keep the pin and the musl patches in sync with docker/Dockerfile.
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rahasher-build
+FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS rahasher-build
 RUN apk add --no-cache \
     g++ \
     git \
@@ -68,7 +68,7 @@ RUN git clone --filter=blob:none https://github.com/RetroAchievements/RALibretro
 
 # Built on the Python image so the cffi extension matches the venv's CPython ABI.
 # Keep the pin in sync with docker/Dockerfile.
-FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS sigil-build
+FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@${PYTHON_ALPINE_DIGEST} AS sigil-build
 RUN apk add --no-cache \
     cmake \
     g++ \
@@ -88,7 +88,7 @@ RUN cmake -B ./build-python -S . -DSIGIL_BUILD_CLI=OFF -DSIGIL_BUILD_TESTS=OFF &
 
 
 # Keep the version and both sums in sync with docker/Dockerfile.
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rom-converto-fetch
+FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS rom-converto-fetch
 ARG TARGETARCH
 ARG ROM_CONVERTO_VERSION=v0.24.0
 RUN case "${TARGETARCH}" in \
@@ -103,7 +103,7 @@ RUN case "${TARGETARCH}" in \
 
 
 # Browser player runtimes. Keep the pins in sync with the emulator stage of docker/Dockerfile.
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS emulator-download
+FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS emulator-download
 
 RUN apk add --no-cache \
     7zip
@@ -176,7 +176,7 @@ RUN mkdir /emulators/easyrpg/rtp && \
     find /emulators/easyrpg/rtp \( -name '.git*' -o -name Makefile \) -exec rm -f {} +
 
 
-FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256}
+FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@${PYTHON_ALPINE_DIGEST}
 
 # Runtime packages match production-stage in docker/Dockerfile; the rest build
 # Python dependencies from source (memray has no arm64 musl wheel).
