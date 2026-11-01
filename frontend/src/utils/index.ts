@@ -957,6 +957,13 @@ export function isArcadeSystem(platformSlug: string): boolean {
   return ARCADE_SYSTEMS.has(platformSlug.toLowerCase());
 }
 
+// Mirrors the backend's SWITCH_PLATFORM_SLUGS.
+const SWITCH_SYSTEMS = new Set(["switch", "switch-2"]);
+
+export function isSwitchSystem(platformSlug: string): boolean {
+  return SWITCH_SYSTEMS.has(platformSlug.toLowerCase());
+}
+
 /** Fisher-Yates shuffle returning a new array. `random` is injectable so
  *  callers can make shuffled output deterministic under test. */
 export function shuffled<T>(

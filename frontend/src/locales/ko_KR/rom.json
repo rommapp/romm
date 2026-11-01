@@ -451,6 +451,7 @@
   "tab-notes": "노트",
   "tab-overview": "개요",
   "title-id": "타이틀 ID",
+  "title-id-missing-switch": "RomM은 Switch 파일을 복호화하지 않으므로 암호화된 덤프에는 Title ID가 없습니다. 복호화된 덤프나 키를 가진 클라이언트로 이 게임을 식별할 수 있습니다.",
   "tracks-n": "{n}개 트랙 | {n}개 트랙",
   "tracks-summary": "{count}개 트랙 · {duration}",
   "unmatch": "DB 대응 해제",

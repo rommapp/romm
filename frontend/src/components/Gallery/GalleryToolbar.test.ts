@@ -227,3 +227,47 @@ describe("GalleryToolbar sort axis", () => {
     wrapper.unmount();
   });
 });
+
+describe("GalleryToolbar group-by control", () => {
+  const MANY_MODES = [
+    { id: "none", icon: "mdi-view-agenda-outline", title: "Flat view" },
+    {
+      id: "letter",
+      icon: "mdi-alphabetical-variant",
+      title: "Group by letter",
+    },
+    { id: "family", icon: "mdi-family-tree", title: "Group by family" },
+  ];
+
+  it("keeps the segmented slider for the default two modes", () => {
+    const wrapper = mountToolbar({}, RMenuPassthrough);
+
+    expect(
+      wrapper
+        .findAllComponents({ name: "RSegmentedControl" })
+        .some((c) => c.props("items")?.length === 2),
+    ).toBe(true);
+    wrapper.unmount();
+  });
+
+  it("lists more than two modes in a labelled menu with the active one checked", () => {
+    const wrapper = mountToolbar(
+      { groupBy: "family", groupByItems: MANY_MODES },
+      RMenuPassthrough,
+    );
+
+    expect(
+      wrapper
+        .findAllComponents({ name: "RSegmentedControl" })
+        .some((c) => c.props("items") === MANY_MODES),
+    ).toBe(false);
+    const family = wrapper
+      .findAllComponents({ name: "RMenuItem" })
+      .filter((item) => item.props("label") === "Group by family");
+    expect(family.length).toBeGreaterThan(0);
+    expect(family.some((item) => item.props("variant") === "active")).toBe(
+      true,
+    );
+    wrapper.unmount();
+  });
+});

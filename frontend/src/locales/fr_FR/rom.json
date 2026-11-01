@@ -451,6 +451,7 @@
   "tab-notes": "Notes",
   "tab-overview": "Aperçu",
   "title-id": "ID du titre",
+  "title-id-missing-switch": "RomM ne déchiffre pas les fichiers Switch, donc les dumps chiffrés n'obtiennent pas de Title ID. Un dump déchiffré, ou un client possédant vos clés, peut identifier ce jeu.",
   "tracks-n": "{n} piste | {n} pistes",
   "tracks-summary": "{count} pistes · {duration}",
   "unmatch": "Dissocier le ROM",

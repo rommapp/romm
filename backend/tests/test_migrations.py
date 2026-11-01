@@ -21,6 +21,7 @@ from sqlalchemy.sql.schema import NULL_UNSPECIFIED
 from tests.factories import make_platform, make_rom
 
 import models
+from config.config_manager import config_manager as cm
 from handler.database import db_collection_handler, db_rom_handler
 from handler.database.base_handler import sync_engine
 from models.base import BaseModel
@@ -258,6 +259,7 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0148_rom_age_limits.py", "permission_groups"),
         ("0148_rom_age_limits.py", "users"),
         ("0151_state_content_hash.py", "states"),
+        ("0157_rom_custom_sort_key_flag.py", "roms"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -1412,3 +1414,50 @@ def test_the_ownerless_own_only_revision_keeps_each_rows_access(admin_user: User
         ("logs", "read", False, False),
         ("devices", "write", True, True),
     }
+
+
+def test_the_custom_sort_key_revision_flags_keys_no_name_derives(
+    platform: Platform,
+):
+    """0157 marks a key custom when the legacy rule would not derive it."""
+    migration = _load_migration("0157_rom_custom_sort_key_flag.py")
+    derived = make_rom(platform, "Die Hard Arcade")
+    english = make_rom(platform, "Die Siedler")
+    custom = make_rom(platform, "Le Mans 24 Hours")
+
+    with sync_engine.begin() as connection:
+        connection.execute(
+            sa.text("UPDATE roms SET name_sort_key = :key WHERE id = :id"),
+            [
+                # Derived by the multilingual rule, and by 0084's English one.
+                {"id": derived.id, "key": "hard arcade"},
+                {"id": english.id, "key": "die siedler"},
+                {"id": custom.id, "key": "mans le 000000000024 hours"},
+            ],
+        )
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            migration.upgrade()
+
+        flags: dict[int, bool] = dict(
+            connection.execute(
+                sa.text(
+                    "SELECT id, name_sort_key_custom FROM roms WHERE id IN (:a, :b, :c)"
+                ),
+                {"a": derived.id, "b": english.id, "c": custom.id},
+            ).all()
+        )
+    assert not flags[derived.id]
+    assert not flags[english.id]
+    assert flags[custom.id]
+
+
+def test_the_sort_key_backfill_keeps_its_original_rule(mocker):
+    """0084 fills keys the way it always has, whatever the configured articles."""
+    migration = _load_migration("0084_add_roms_search_index.py")
+    mocker.patch.object(cm.config, "SORT_ARTICLES", ["der", "die", "das"])
+
+    assert migration._sort_key("Die Hard Arcade") == "die hard arcade"
+    assert (
+        migration._sort_key("The Legend of Zelda 2") == "legend of zelda 000000000002"
+    )

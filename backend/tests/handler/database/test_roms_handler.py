@@ -101,6 +101,20 @@ class TestUpdateRomDerivedColumns:
         assert updated.name == "The New Name 2"
         assert updated.name_sort_key == "pinned"
 
+    def test_renaming_rederives_a_stale_key_that_is_not_custom(self, rom: Rom):
+        db_rom_handler.update_rom(
+            rom.id, {"name_sort_key": "hard arcade", "name_sort_key_custom": False}
+        )
+
+        updated = db_rom_handler.update_rom(rom.id, {"name": "Die Hard Trilogy"})
+
+        assert updated.name_sort_key == "die hard trilogy"
+
+    def test_an_explicit_key_is_custom(self, rom: Rom):
+        updated = db_rom_handler.update_rom(rom.id, {"name_sort_key": "zelda"})
+
+        assert updated.name_sort_key_custom
+
     def test_update_metadata_resyncs_min_age(self, rom: Rom):
         rated = db_rom_handler.update_rom(
             rom.id,

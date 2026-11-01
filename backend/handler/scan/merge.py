@@ -131,6 +131,7 @@ def seed_rom_attrs(
         "fs_size_bytes": rom.fs_size_bytes,
         "is_physical": rom.is_physical,
         "upc": rom.upc,
+        "name_sort_key_custom": False,
     }
 
     file_attrs = fs_rom_file_attrs(fs_rom)
@@ -157,7 +158,11 @@ def seed_rom_attrs(
         rom_attrs.update(
             {
                 "name": rom.name,
-                "name_sort_key": rom.name_sort_key,
+                # A derived key is left out, so it follows the name this scan settles.
+                "name_sort_key": (
+                    rom.name_sort_key if rom.name_sort_key_custom else None
+                ),
+                "name_sort_key_custom": rom.name_sort_key_custom,
                 "slug": rom.slug,
                 "summary": rom.summary,
                 "url_cover": rom.url_cover,
@@ -491,7 +496,8 @@ def keep_base_fields(rom_attrs: dict[str, Any], rom: Rom) -> None:
     # Both the existing name and the seeded rom_attrs name can hold the
     # placeholder. Discard either when it's a placeholder so the parsed
     # filename fallback can win.
-    placeholders = (None, "", rom.fs_name, fs_name_no_tags)
+    # The stored no-tags name is the placeholder the ROM's name was seeded from.
+    placeholders = (None, "", rom.fs_name, fs_name_no_tags, rom.fs_name_no_tags)
     existing_name = None if rom.name in placeholders else rom.name
     matched_name = rom_attrs.get("name")
     matched_name = None if matched_name in placeholders else matched_name

@@ -1,5 +1,6 @@
 import pytest
 
+from config.config_manager import config_manager as cm
 from models.assets import Save
 from models.base import compute_file_name_parts
 from models.firmware import Firmware
@@ -34,11 +35,28 @@ def test_compute_file_name_parts(file_name, no_tags, no_ext, extension):
         ("The Legend of Zelda 2", "legend of zelda 000000000002"),
         ("A Bug's Life", "bug's life"),
         ("Final Fantasy 10", "final fantasy 000000000010"),
+        ("Die Hard Arcade", "die hard arcade"),
+        ("Le Mans 24 Hours", "le mans 000000000024 hours"),
         (None, ""),
     ],
 )
 def test_compute_name_sort_key(name, expected):
     assert compute_name_sort_key(name) == expected
+
+
+def test_compute_name_sort_key_drops_the_configured_articles(mocker):
+    mocker.patch.object(cm.config, "SORT_ARTICLES", ["der", "die", "das"])
+
+    assert compute_name_sort_key("Die Siedler") == "siedler"
+    assert compute_name_sort_key("The Legend of Zelda") == "the legend of zelda"
+
+
+def test_a_custom_sort_key_keeps_its_leading_article():
+    assert compute_name_sort_key("The Legend", articles=()) == "the legend"
+
+    rom = Rom(name="The Legend of Zelda", name_sort_key="The Legend")
+
+    assert rom.name_sort_key == "the legend"
 
 
 def test_rom_validator_derives_fs_name_parts_on_construction():

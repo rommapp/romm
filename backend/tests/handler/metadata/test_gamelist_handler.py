@@ -869,3 +869,28 @@ class TestGamelistHandler:
         tags = [elem.tag for elem in handler._iter_game_elements(gamelist_path)]
 
         assert tags == ["game", "folder"]
+
+
+def test_parse_gamelist_xml_keeps_a_sort_names_leading_article(
+    tmp_path: Path, platform: Platform
+):
+    gamelist_path = tmp_path / "gamelist.xml"
+    gamelist_path.write_text(
+        """<?xml version="1.0"?>
+<gameList>
+  <game>
+    <path>./test-rom.zip</path>
+    <name>The Simpsons Arcade Game</name>
+    <sortname>The Simpsons</sortname>
+  </game>
+</gameList>""",
+        encoding="utf-8",
+    )
+
+    with patch(
+        "handler.metadata.gamelist_handler.get_preferred_media_types",
+        return_value=[],
+    ):
+        roms_data = GamelistHandler()._parse_gamelist_xml(gamelist_path, platform)
+
+    assert roms_data["test-rom.zip"].get("name_sort_key") == "the simpsons"

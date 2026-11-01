@@ -1112,6 +1112,44 @@ def make_fs_rom(fs_name: str, fs_path: str = "test/roms") -> FSRom:
     }
 
 
+async def test_a_rescan_keeps_the_stored_placeholder_of_an_unchanged_file(mocker):
+    """`keep_base_fields` reads the stored placeholder, so rebuilding the files
+    must not re-derive it from a file name that has not changed."""
+    patch_identify_rom(
+        mocker,
+        parsed=ParsedRomFiles(
+            rom_files=[], crc_hash="", md5_hash="", sha1_hash="", ra_hash=""
+        ),
+        roms_fs_structure="pico/roms",
+        name_with_no_tags="celeste",
+        platform_slug="pico",
+    )
+    platform = Platform(name="pico", slug="pico", fs_slug="pico")
+    platform.id = 1
+    rom = Rom(fs_name="celeste.p8.png", fs_path="pico/roms", platform_id=1)
+    rom.id = 7
+    rom.fs_name_no_tags = "celeste.p8"
+    scan_rom = mocker.patch.object(
+        scan_module, "scan_rom", AsyncMock(return_value=MagicMock(is_identified=False))
+    )
+
+    await _identify_rom(
+        platform=platform,
+        fs_rom=make_fs_rom("celeste.p8.png", "pico/roms"),
+        rom=rom,
+        scan_type=ScanType.HASHES,
+        roms_ids=[],
+        metadata_sources=[],
+        launchbox_remote_enabled=False,
+        socket_manager=AsyncMock(),
+        scan_stats=AsyncMock(),
+        scanned_rom_ids=set(),
+    )
+
+    scanned = scan_rom.call_args.kwargs["rom"]
+    assert scanned.fs_name_no_tags == "celeste.p8"
+
+
 class TestIdentifyRomReassociation:
     """`_identify_rom` reassociates a renamed/moved file with its missing entry.
 

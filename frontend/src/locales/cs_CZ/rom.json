@@ -451,6 +451,7 @@
   "tab-notes": "Poznámky",
   "tab-overview": "Přehled",
   "title-id": "ID titulu",
+  "title-id-missing-switch": "RomM nedešifruje soubory Switch, takže šifrované dumpy nemají Title ID. Hru dokážou identifikovat dešifrované dumpy nebo klient s vašimi klíči.",
   "tracks-n": "{n} skladeb | {n} skladba | {n} skladby | {n} skladeb",
   "tracks-summary": "{count} skladeb · {duration}",
   "unmatch": "Odpojit ROM",

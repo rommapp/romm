@@ -15,6 +15,7 @@ from starlette.config import Config
 from starlette.requests import Request
 
 from config import (
+    OIDC_AUTH_PARAMS,
     OIDC_CLAIM_ROLES,
     OIDC_CLIENT_ID,
     OIDC_CLIENT_SECRET,
@@ -76,6 +77,7 @@ oauth.register(
         # so providers that mandate PKCE refuse the code without it.
         "code_challenge_method": "S256",
     },
+    authorize_params=OIDC_AUTH_PARAMS or None,
 )
 
 

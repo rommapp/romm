@@ -18,6 +18,8 @@ from rq.timeouts import JobTimeoutException
 from sqlalchemy.exc import IntegrityError
 
 from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
+from adapters.services.sigil import begin_scan as begin_sigil_scan
+from adapters.services.sigil import log_scan_summary as log_sigil_scan_summary
 from config import DEV_MODE, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import config_manager as cm
 from endpoints.responses.platform import PlatformSchema
@@ -756,8 +758,10 @@ async def _identify_rom(
                 else None
             ),
         )
-        # Keep the in-memory rom's name matching the renamed file.
-        rom.fs_name = fs_rom["fs_name"]
+        # Keep the in-memory rom's name matching the renamed file. Setting it
+        # re-derives the stored placeholder name, so only on a real rename.
+        if rom.fs_name != fs_rom["fs_name"]:
+            rom.fs_name = fs_rom["fs_name"]
 
     log.debug(f"Scanning {rom.fs_name}...")
     scanned_rom = await scan_rom(
@@ -1230,6 +1234,7 @@ async def scan_platforms(
     # overlap, and resetting would drop the other scan's limits and skips.
     if MetadataSource.SS in metadata_sources:
         await begin_ss_scan()
+    begin_sigil_scan()
 
     fs_platforms: list[str] = []
     if not roms_ids:
@@ -1394,6 +1399,7 @@ async def scan_platforms(
 
         if MetadataSource.SS in metadata_sources:
             log_ss_scan_summary()
+        log_sigil_scan_summary()
 
         log.info(f"{emoji.EMOJI_CHECK_MARK} Scan completed")
 

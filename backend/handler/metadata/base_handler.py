@@ -83,6 +83,7 @@ def tag_id_from_filename(tag_regex: re.Pattern[str], fs_name: str) -> int | None
 class BaseRom(TypedDict):
     name: NotRequired[str]
     name_sort_key: NotRequired[str | None]
+    name_sort_key_custom: NotRequired[bool]
     summary: NotRequired[str]
     url_cover: NotRequired[str]
     url_screenshots: NotRequired[list[str]]
