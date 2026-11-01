@@ -1520,6 +1520,19 @@ class TestRetroArchSyncRomFileNames:
 
         assert response.status_code == status.HTTP_201_CREATED
 
+    def test_a_reupload_in_another_case_replaces_the_stored_bytes(
+        self, client, admin_user: User, disc_folder_rom: Rom
+    ):
+        client.put(self.DISC_1_URL, content=b"old", auth=ADMIN_AUTH)
+        response = client.put(
+            "/api/sync/retroarch/saves/Snes9x/some%20game%20(usa)%20(disc%201).srm",
+            content=b"new",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert client.get(self.DISC_1_URL, auth=ADMIN_AUTH).content == b"new"
+
     @_mock_asset_md5()
     def test_manifest_lists_each_disc_beside_the_folder_save(
         self, _asset_md5: mock.AsyncMock, client, admin_user: User, disc_folder_rom: Rom

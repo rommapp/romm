@@ -445,9 +445,11 @@ async def _store_unslotted_save(
     existing = await asyncio.to_thread(
         _unslotted_save_at, user, rom, emulator, file_name
     )
-    # Written where the existing row points, so it keeps tracking the bytes.
+    # Written where the existing row points, so it keeps tracking the bytes even
+    # when the lookup matched it under a different case.
     if existing:
         emulator = existing.emulator
+        file_name = existing.file_name
     asset_path = build_asset_file_path(user, rom, "saves", emulator)
     await fs_asset_handler.write_file(file=body, path=asset_path, filename=file_name)
     scanned = await scan_save(
