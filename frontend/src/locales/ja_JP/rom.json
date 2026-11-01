@@ -451,6 +451,7 @@
   "tab-notes": "ノート",
   "tab-overview": "概要",
   "title-id": "タイトルID",
+  "title-id-missing-switch": "RomM は Switch のファイルを復号しないため、暗号化されたダンプには Title ID が付きません。復号済みのダンプ、またはキーを持つクライアントならこのゲームを識別できます。",
   "tracks-n": "{n}件のトラック | {n}件のトラック",
   "tracks-summary": "{count}件のトラック · {duration}",
   "unmatch": "検索結果無し",

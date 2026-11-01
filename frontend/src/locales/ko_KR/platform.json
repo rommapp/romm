@@ -20,6 +20,8 @@
   "firmware-bios": "펌웨어 / BIOS",
   "firmware-deleted-successfully": "펌웨어 삭제 완료! | {count}개 펌웨어 삭제 완료!",
   "firmware-dropzone-description": "펌웨어 파일을 여기에 끌어다 놓거나 클릭하여 탐색하세요",
+  "firmware-keys-unused": "RomM에서 사용하지 않음",
+  "firmware-keys-unused-tooltip": "클라이언트와 에뮬레이터용으로 저장됩니다. RomM은 키 파일을 읽지 않으므로 암호화된 Switch 덤프에는 Title ID가 없습니다.",
   "firmware-remove-warning": "시스템에서 {count}개 펌웨어를 제거합니다. 되돌릴 수 없습니다!",
   "firmware-select-to-remove": "시스템에서 제거할 펌웨어를 선택하세요. 선택하지 않으면 데이터베이스에서만 삭제됩니다.",
   "firmware-uploaded-successfully": "{count}개 파일 업로드 완료.",

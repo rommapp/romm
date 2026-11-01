@@ -20,6 +20,8 @@
   "firmware-bios": "Прошивка / BIOS",
   "firmware-deleted-successfully": "Прошивка удалена! | {count} прошивок удалено!",
   "firmware-dropzone-description": "Перетащите файлы прошивки сюда или нажмите для выбора",
+  "firmware-keys-unused": "Не используется RomM",
+  "firmware-keys-unused-tooltip": "Хранится для ваших клиентов и эмуляторов. RomM никогда не читает файлы ключей, поэтому зашифрованные дампы Switch не получают Title ID.",
   "firmware-remove-warning": "Вы удалите {count} прошивку из системы. Действие необратимо! | Вы удалите {count} прошивок из системы. Действие необратимо!",
   "firmware-select-to-remove": "Выберите прошивки для удаления из системы, иначе они будут удалены только из базы данных.",
   "firmware-uploaded-successfully": "{count} файл загружен. | {count} файлов загружено.",

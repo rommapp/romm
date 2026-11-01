@@ -20,6 +20,8 @@
   "firmware-bios": "Firmware / BIOS",
   "firmware-deleted-successfully": "Firmware başarıyla silindi! | {count} firmware başarıyla silindi!",
   "firmware-dropzone-description": "Firmware dosyalarını buraya sürükleyip bırakın veya göz atmak için tıklayın",
+  "firmware-keys-unused": "RomM tarafından kullanılmaz",
+  "firmware-keys-unused-tooltip": "İstemcileriniz ve emülatörleriniz için saklanır. RomM anahtar dosyalarını asla okumaz; bu yüzden şifreli Switch dökümleri Title ID almaz.",
   "firmware-remove-warning": "Dosya sisteminizden {count} firmware kaldıracaksınız. Bu işlem geri alınamaz! | Dosya sisteminizden {count} firmware kaldıracaksınız. Bu işlem geri alınamaz!",
   "firmware-select-to-remove": "Dosya sisteminizden kaldırmak istediğiniz firmware dosyalarını seçin; aksi takdirde yalnızca RomM veritabanından silinirler.",
   "firmware-uploaded-successfully": "{count} dosya başarıyla yüklendi. | {count} dosya başarıyla yüklendi.",

@@ -451,6 +451,7 @@
   "tab-notes": "Anteckningar",
   "tab-overview": "Översikt",
   "title-id": "Titel-ID",
+  "title-id-missing-switch": "RomM dekrypterar inte Switch-filer, så krypterade dumpar får inget Title ID. Dekrypterade dumpar, eller en klient med dina nycklar, kan identifiera spelet.",
   "tracks-n": "{n} spår | {n} spår",
   "tracks-summary": "{count} spår · {duration}",
   "unmatch": "Ta bort ROM-matchning",

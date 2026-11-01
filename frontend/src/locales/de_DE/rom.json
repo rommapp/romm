@@ -451,6 +451,7 @@
   "tab-notes": "Notizen",
   "tab-overview": "Übersicht",
   "title-id": "Titel-ID",
+  "title-id-missing-switch": "RomM entschlüsselt keine Switch-Dateien, daher erhalten verschlüsselte Dumps keine Title-ID. Entschlüsselte Dumps oder ein Client mit deinen Schlüsseln können dieses Spiel identifizieren.",
   "tracks-n": "{n} Track | {n} Tracks",
   "tracks-summary": "{count} Tracks · {duration}",
   "unmatch": "Zuweisung aufheben",

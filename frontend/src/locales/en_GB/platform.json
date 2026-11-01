@@ -20,6 +20,8 @@
   "firmware-bios": "Firmware / BIOS",
   "firmware-deleted-successfully": "Firmware deleted successfully! | {count} firmwares deleted successfully!",
   "firmware-dropzone-description": "Drag and drop firmware files here, or click to browse",
+  "firmware-keys-unused": "Not used by RomM",
+  "firmware-keys-unused-tooltip": "Stored for your clients and emulators. RomM never reads key files, so encrypted Switch dumps get no title ID.",
   "firmware-remove-warning": "You are going to remove {count} firmware from your filesystem. This action can't be reverted! | You are going to remove {count} firmwares from your filesystem. This action can't be reverted!",
   "firmware-select-to-remove": "Select the firmware files you want to remove from your filesystem, otherwise they will only be deleted from RomM database.",
   "firmware-uploaded-successfully": "{count} file uploaded successfully. | {count} files uploaded successfully.",

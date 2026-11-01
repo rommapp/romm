@@ -451,6 +451,7 @@
   "tab-notes": "Note",
   "tab-overview": "Panoramica",
   "title-id": "ID titolo",
+  "title-id-missing-switch": "RomM non decifra i file Switch, quindi i dump cifrati non ottengono un Title ID. Dump decifrati, o un client con le tue chiavi, possono identificare questo gioco.",
   "tracks-n": "{n} traccia | {n} tracce",
   "tracks-summary": "{count} tracce · {duration}",
   "unmatch": "Rimuovi associazione rom",

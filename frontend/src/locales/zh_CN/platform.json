@@ -20,6 +20,8 @@
   "firmware-bios": "固件 / BIOS",
   "firmware-deleted-successfully": "固件已删除！ | 已删除{count}个固件！",
   "firmware-dropzone-description": "将固件文件拖放到此处，或点击浏览",
+  "firmware-keys-unused": "RomM 不使用",
+  "firmware-keys-unused-tooltip": "为你的客户端和模拟器保存。RomM 从不读取密钥文件，因此加密的 Switch 转储没有 Title ID。",
   "firmware-remove-warning": "您将从系统中删除{count}个固件。此操作无法撤销！",
   "firmware-select-to-remove": "选择要从系统中删除的固件，否则只会从数据库中删除。",
   "firmware-uploaded-successfully": "已上传{count}个文件。",

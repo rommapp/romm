@@ -20,6 +20,8 @@
   "firmware-bios": "ファームウェア / BIOS",
   "firmware-deleted-successfully": "ファームウェアを削除しました！ | {count}個のファームウェアを削除しました！",
   "firmware-dropzone-description": "ファームウェアファイルをここにドラッグ&ドロップするか、クリックして参照してください",
+  "firmware-keys-unused": "RomM では未使用",
+  "firmware-keys-unused-tooltip": "クライアントやエミュレーター用に保存されています。RomM はキーファイルを読み込まないため、暗号化された Switch のダンプには Title ID が付きません。",
   "firmware-remove-warning": "システムから{count}個のファームウェアを削除します。元に戻せません！",
   "firmware-select-to-remove": "システムから削除するファームウェアを選択してください。選択しない場合はデータベースからのみ削除されます。",
   "firmware-uploaded-successfully": "{count}個のファイルをアップロードしました。",
