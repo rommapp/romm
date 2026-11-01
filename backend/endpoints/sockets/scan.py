@@ -346,12 +346,24 @@ async def _identify_firmware(
                 f"{firmware_path}/{fs_fw}"
             )
             if file_size == firmware.file_size_bytes:
-                # Only written when it actually flips, keeping `updated_at`
+                # Only written when a value actually flips, keeping `updated_at`
                 # usable as an incremental signal.
+                updates: dict[str, bool] = {}
                 if firmware.missing_from_fs:
-                    db_firmware_handler.update_firmware(
-                        firmware.id, {"missing_from_fs": False}
-                    )
+                    updates["missing_from_fs"] = False
+                # Stored hashes are rechecked so a widened known-BIOS match
+                # reaches rows that quick scans never rehash.
+                if not firmware.is_verified and Firmware.verify_file_hashes(
+                    platform_slug=platform.slug,
+                    file_name=fs_fw,
+                    file_size_bytes=firmware.file_size_bytes,
+                    md5_hash=firmware.md5_hash,
+                    sha1_hash=firmware.sha1_hash,
+                    crc_hash=firmware.crc_hash,
+                ):
+                    updates["is_verified"] = True
+                if updates:
+                    db_firmware_handler.update_firmware(firmware.id, updates)
                 return 0
 
     scanned_firmware = await scan_firmware(

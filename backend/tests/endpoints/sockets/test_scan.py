@@ -1923,6 +1923,7 @@ class TestIdentifyFirmwareRehashing:
         size: int = 1024,
         md5: str = "d41d8cd9",
         missing=False,
+        verified=True,
         file_path: str = "bios/test",
     ):
         firmware = Firmware(file_name="bios.bin", file_path=file_path, platform_id=1)
@@ -1930,6 +1931,7 @@ class TestIdentifyFirmwareRehashing:
         firmware.md5_hash = md5
         firmware.file_size_bytes = size
         firmware.missing_from_fs = missing
+        firmware.is_verified = verified
         return firmware
 
     async def _run(self, scan_type: ScanType = ScanType.QUICK) -> int:
@@ -1994,6 +1996,28 @@ class TestIdentifyFirmwareRehashing:
         patched.db_firmware.update_firmware.assert_called_once_with(
             7, {"missing_from_fs": False}
         )
+
+    async def test_verifies_a_stored_row_without_rehashing(self, patched):
+        patched.db_firmware.get_firmware_by_filename.return_value = self._stored(
+            verified=False
+        )
+
+        await self._run()
+
+        patched.scan_firmware.assert_not_called()
+        patched.db_firmware.update_firmware.assert_called_once_with(
+            7, {"is_verified": True}
+        )
+
+    async def test_leaves_an_unverifiable_row_untouched(self, patched, mocker):
+        mocker.patch.object(Firmware, "verify_file_hashes", return_value=False)
+        patched.db_firmware.get_firmware_by_filename.return_value = self._stored(
+            verified=False
+        )
+
+        await self._run()
+
+        patched.db_firmware.update_firmware.assert_not_called()
 
     async def test_leaves_an_unchanged_row_untouched(self, patched):
         await self._run()
