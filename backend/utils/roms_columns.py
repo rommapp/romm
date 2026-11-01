@@ -37,6 +37,7 @@ from utils.database import (
     rom_sort_index_name,
     rom_unset_flag_column,
 )
+from utils.metadata_locks import PROJECTED_METADATA_LOCK_FIELDS
 
 TABLE = "roms"
 VIEW = "roms_metadata"
@@ -508,6 +509,7 @@ PLAIN_COLUMNS: list[sa.Column[Any]] = [
     sa.Column("is_physical", sa.Boolean(), nullable=False, server_default=sa.false()),
     sa.Column("upc", sa.String(length=64)),
     sa.Column("locked_fields", CustomJSON()),
+    sa.Column("metadata_locks", CustomJSON()),
     sa.Column("demozoo_id", sa.Integer()),
     sa.Column("pouet_id", sa.Integer()),
     sa.Column("csdb_id", sa.Integer()),
@@ -550,15 +552,41 @@ def _full_path_hash_ddl(conn: sa.Connection) -> str:
     return ddl
 
 
-def roms_metadata_view_sql(pg: bool, columns: list[tuple[str, str]]) -> str:
+def _locked_metadata_projection(
+    pg: bool, name: str, alias: str, *, with_locks: bool
+) -> str:
+    """Project a locked facet snapshot ahead of its current provider value."""
+    if not with_locks or alias not in PROJECTED_METADATA_LOCK_FIELDS:
+        expression = name
+    elif pg:
+        has_key = f"metadata_locks ? '{alias}'"
+        value = f"metadata_locks -> '{alias}'"
+        if alias == "first_release_date":
+            value = f"(metadata_locks ->> '{alias}')::bigint"
+        elif alias == "player_count":
+            value = f"metadata_locks ->> '{alias}'"
+        expression = f"CASE WHEN {has_key} THEN {value} ELSE {name} END"
+    else:
+        has_key = f"JSON_CONTAINS_PATH(metadata_locks, 'one', '$.{alias}')"
+        value = f"JSON_EXTRACT(metadata_locks, '$.{alias}')"
+        if alias == "first_release_date":
+            unquoted = f"JSON_UNQUOTE({value})"
+            value = f"CASE WHEN {unquoted} = 'null' THEN NULL ELSE CAST({unquoted} AS SIGNED) END"
+        elif alias == "player_count":
+            unquoted = f"JSON_UNQUOTE({value})"
+            value = f"NULLIF({unquoted}, 'null')"
+        expression = f"CASE WHEN {has_key} THEN {value} ELSE {name} END"
+
+    if pg and alias == "player_count":
+        expression = f"{expression}::text"
+    return f"{expression} AS {alias}"
+
+
+def roms_metadata_view_sql(
+    pg: bool, columns: list[tuple[str, str]], *, with_locks: bool = False
+) -> str:
     projections = ",\n    ".join(
-        # 0098 exposed player_count as text; kept so later CREATE OR REPLACE
-        # VIEW statements on PostgreSQL still match the column's type.
-        (
-            f"{name}::text AS {alias}"
-            if pg and alias == "player_count"
-            else f"{name} AS {alias}"
-        )
+        _locked_metadata_projection(pg, name, alias, with_locks=with_locks)
         for name, alias in columns
     )
     return (
@@ -677,6 +705,7 @@ def rebuild_generated_columns(
     """
     pg = is_postgresql(conn)
     present = column_names(conn, TABLE)
+    with_locks = "metadata_locks" in present and "metadata_locks" not in drop
     actions = [
         f"DROP COLUMN {name}"
         for name in [column.name for column in add] + drop
@@ -688,7 +717,9 @@ def rebuild_generated_columns(
     conn.execute(sa.text(f"DROP VIEW IF EXISTS {VIEW}"))
     conn.execute(sa.text(f"ALTER TABLE {TABLE}\n" + ",\n".join(actions)))  # nosec B608
     _restore_generated_indexes(conn)
-    conn.execute(sa.text(roms_metadata_view_sql(pg, view_columns)))
+    conn.execute(
+        sa.text(roms_metadata_view_sql(pg, view_columns, with_locks=with_locks))
+    )
 
 
 def ensure_roms_columns(conn: sa.Connection) -> None:
@@ -733,7 +764,13 @@ def ensure_roms_columns(conn: sa.Connection) -> None:
     # Outside the block above so a run that died between the ALTER and this
     # statement gets its view back on the replay.
     if not sa.inspect(conn).has_table(VIEW):
-        conn.execute(sa.text(roms_metadata_view_sql(pg, ROMS_METADATA_VIEW_COLUMNS)))
+        conn.execute(
+            sa.text(
+                roms_metadata_view_sql(
+                    pg, ROMS_METADATA_VIEW_COLUMNS, with_locks=True
+                )
+            )
+        )
 
     # The digest default only exists to fill the copy; the model has none. A
     # run that died between the two statements finishes here on the replay.
