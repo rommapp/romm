@@ -200,7 +200,14 @@ ARG EMULATORJS_SHA256=07d451bc06fa3ad04ab30d9b94eb63ac34ad0babee52d60357b002bde8
 ADD --checksum=sha256:${EMULATORJS_SHA256} \
     "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATORJS_VERSION}/${EMULATORJS_VERSION}.7z" \
     /downloads/emulatorjs.7z
-RUN 7z x -y /downloads/emulatorjs.7z -o/emulatorjs
+RUN 7z x -y /downloads/emulatorjs.7z -o/emulatorjs && \
+    # EmulatorJS 4.2.3's loadExternalFiles() passes a raw ArrayBuffer to
+    # FS.writeFile, which writes a zero-byte file. FBNeo then sees an empty
+    # neogeo.zip and reports missing BIOS members (#5224, #5302). Wrap it in a
+    # Uint8Array until upstream ships the fix.
+    sed -i 's/this\.writeFile(n,i\.data)/this.writeFile(n,new Uint8Array(i.data))/' \
+      /emulatorjs/data/emulator.min.js && \
+    grep -q 'writeFile(n,new Uint8Array(i.data))' /emulatorjs/data/emulator.min.js
 
 ARG RUFFLE_VERSION=nightly-2025-08-14
 ARG RUFFLE_FILE=ruffle-nightly-2025_08_14-web-selfhosted.zip
