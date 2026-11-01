@@ -174,6 +174,20 @@ describe("keepArcadeBiosWhole", () => {
     });
   });
 
+  it("writes the CD-i BIOS archive whole for same_cdi", () => {
+    const instance = emulator(
+      "same_cdi",
+      "/api/firmware/4/content/cdimono1.zip",
+    );
+    keepArcadeBiosWhole(instance);
+    expect(instance.config).toEqual({
+      biosUrl: "",
+      externalFiles: {
+        "/cdimono1.zip": "/api/firmware/4/content/cdimono1.zip",
+      },
+    });
+  });
+
   it("leaves the BIOS to EmulatorJS on a build that keeps it whole", () => {
     const instance = emulator("fbneo", "/api/firmware/9/content/neogeo.zip", {
       nightly: true,
