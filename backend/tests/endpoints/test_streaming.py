@@ -13617,6 +13617,180 @@ def test_resuming_a_state_with_no_disc_swaps_nothing(
     restore.assert_not_called()
 
 
+# ── claim: starting disc ────────────────────────────────────────────────────
+
+
+def _claim_disc(client, token, rom_id, disc_file_id):
+    return client.post(
+        "/api/streaming/sessions",
+        json={"rom_id": rom_id, "disc_file_id": disc_file_id},
+        headers=_auth(token),
+    )
+
+
+def test_claim_starts_on_the_picked_disc_through_the_tray(client, access_token):
+    rom = _rom_on("dc")
+    _add_rom_file(rom, "Game.m3u")
+    _add_rom_file(rom, "Game (Disc 1).chd")
+    disc = _add_rom_file(rom, "Game (Disc 2).chd")
+    run_launch_mock = AsyncMock()
+    with (
+        _streaming(_tray_container(rom)),
+        patch("handler.streaming.launch.run_launch", run_launch_mock),
+    ):
+        r = _claim_disc(client, access_token, rom.id, disc.id)
+    assert r.status_code == 202
+    kwargs = run_launch_mock.call_args.kwargs
+    assert kwargs["start_disc_id"] == disc.id
+    assert kwargs["rom_path"] == f"{LIBRARY_BASE_PATH}/{rom.full_path}"
+
+
+def test_claim_boots_the_picked_disc_where_no_tray_can_reach_it(client, access_token):
+    rom = _rom_on("dc")
+    _add_rom_file(rom, "Game.m3u")
+    _add_rom_file(rom, "Game (Disc 1).chd")
+    disc = _add_rom_file(rom, "Game (Disc 2).chd")
+    run_launch_mock = AsyncMock()
+    with (
+        _streaming(_container_for(rom)),
+        patch("handler.streaming.launch.run_launch", run_launch_mock),
+    ):
+        r = _claim_disc(client, access_token, rom.id, disc.id)
+    assert r.status_code == 202
+    kwargs = run_launch_mock.call_args.kwargs
+    assert kwargs["start_disc_id"] is None
+    assert kwargs["rom_path"] == f"{LIBRARY_BASE_PATH}/{disc.full_path}"
+
+
+def test_claim_boots_the_picked_disc_of_a_set_without_a_playlist(client, access_token):
+    """The tray steps through a loaded playlist, which a set with no .m3u never
+    gives the emulator."""
+    rom = _rom_on("dc")
+    _add_rom_file(rom, "Game (Disc 1).chd")
+    disc = _add_rom_file(rom, "Game (Disc 2).chd")
+    run_launch_mock = AsyncMock()
+    with (
+        _streaming(_tray_container(rom)),
+        patch("handler.streaming.launch.run_launch", run_launch_mock),
+    ):
+        r = _claim_disc(client, access_token, rom.id, disc.id)
+    assert r.status_code == 202
+    kwargs = run_launch_mock.call_args.kwargs
+    assert kwargs["start_disc_id"] is None
+    assert kwargs["rom_path"] == f"{LIBRARY_BASE_PATH}/{disc.full_path}"
+
+
+@pytest.mark.parametrize("own_file", [True, False])
+def test_claim_refuses_a_disc_that_is_not_one_of_the_roms(
+    client, access_token, rom: Rom, own_file: bool
+):
+    streamed = _rom_on("dc")
+    playlist = _add_rom_file(streamed, "Game.m3u")
+    _add_rom_file(streamed, "Game (Disc 1).chd")
+    stranger = _add_rom_file(rom, "Other.chd")
+    container = _tray_container(streamed)
+    run_launch_mock = AsyncMock()
+    with (
+        _streaming(container),
+        patch("handler.streaming.launch.run_launch", run_launch_mock),
+    ):
+        r = _claim_disc(
+            client, access_token, streamed.id, (playlist if own_file else stranger).id
+        )
+    assert r.status_code == 400
+    run_launch_mock.assert_not_called()
+    assert not asyncio.run(
+        async_cache.exists(session_store.session_redis_key(_key_of(container)))
+    )
+
+
+def _run_launch_restoring(
+    rom: Rom,
+    user: User,
+    *,
+    start_disc_id: int | None,
+    resume_disc_id: int | None = None,
+) -> MagicMock:
+    """Run a launch and return the stand-in for the disc restore it spawns."""
+    resume_state = (
+        cast(State, MagicMock(disc_file_id=resume_disc_id))
+        if resume_disc_id is not None
+        else None
+    )
+    session: StreamingSession = {
+        "broker_session_id": "s1",
+        "claimed_at": "t1",
+        "user_id": user.id,
+    }
+    restore = MagicMock()
+    with (
+        patch(
+            "handler.streaming.launch.webstation.activate",
+            MagicMock(return_value={"url": "/room/x"}),
+        ),
+        patch("handler.streaming.launch.lifecycle.hold_session_claim", new=AsyncMock()),
+        patch(
+            "handler.streaming.launch.lifecycle.publish_session_activity",
+            new=AsyncMock(),
+        ),
+        patch("handler.streaming.launch.stamp_launched", new=AsyncMock()),
+        patch("handler.streaming.launch.push_to_user", new=AsyncMock()),
+        patch("handler.streaming.launch.background.spawn_sync_task"),
+        patch(
+            "handler.streaming.launch.states.hydrate_states_to_broker", new=MagicMock()
+        ),
+        patch("handler.streaming.launch.states.restore_session_disc", restore),
+    ):
+        asyncio.run(
+            launch.run_launch(
+                container=_resolved(_tray_container(rom)),
+                session_key="k1",
+                session=session,
+                user=user,
+                rom=rom,
+                platform=rom.platform_slug,
+                rom_name=rom.name or rom.fs_name_no_ext,
+                rom_path="rom/path",
+                rom_language=None,
+                gui_language=None,
+                archive_path=None,
+                resume_state=resume_state,
+                resume_slot=None,
+                resume_pushed=resume_state is not None,
+                resume_after_launch=False,
+                resume_import="none",
+                memory_card_synced=False,
+                multiplayer=False,
+                blank_card_id=None,
+                start_disc_id=start_disc_id,
+            )
+        )
+    return restore
+
+
+def test_run_launch_swaps_to_the_picked_disc(admin_user: User):
+    rom = _rom_on("dc")
+    restore = _run_launch_restoring(rom, admin_user, start_disc_id=42)
+    restore.assert_called_once()
+    assert restore.call_args.kwargs["file_id"] == 42
+
+
+def test_run_launch_resumes_on_the_states_disc_over_the_pick(admin_user: User):
+    """A state only loads on the disc it was captured on."""
+    rom = _rom_on("dc")
+    restore = _run_launch_restoring(
+        rom, admin_user, start_disc_id=42, resume_disc_id=43
+    )
+    restore.assert_called_once()
+    assert restore.call_args.kwargs["file_id"] == 43
+
+
+def test_run_launch_leaves_the_first_disc_without_a_pick(admin_user: User):
+    rom = _rom_on("dc")
+    restore = _run_launch_restoring(rom, admin_user, start_disc_id=None)
+    restore.assert_not_called()
+
+
 # ── _restore_session_disc (direct) ──────────────────────────────────────────
 
 

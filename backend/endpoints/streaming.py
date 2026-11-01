@@ -150,6 +150,8 @@ class ClaimStreamingSessionRequest(BaseModel):
     # card has never been adopted. "adopt" keeps it, "discard" wipes it, and
     # "discard" doubles as the override for a card that could not be read.
     card_import: Literal["adopt", "discard"] | None = None
+    # Optional disc of a multi-disc set to start on, one of its playlist entries.
+    disc_file_id: Annotated[int, Field(ge=1)] | None = None
     # Decided on the launch screen and fixed for the session. True advertises
     # the session on GET /sessions/joinable and tells the room to show its
     # comms surface while the host is still alone.
@@ -902,6 +904,16 @@ async def claim_session(
             req.memory_card_id,
         )
 
+    start_disc = None
+    if req.disc_file_id is not None:
+        start_disc = next(
+            (f for f in playlist_files(rom.files) if f.id == req.disc_file_id), None
+        )
+        if start_disc is None:
+            raise HTTPException(
+                status_code=400, detail="File is not a disc of this ROM"
+            )
+
     # A broker with no join route cannot seat a second viewer, so recording
     # the flag there would advertise a session every Join would 409 on.
     multiplayer = req.multiplayer and reference.protocol.supports_join
@@ -1018,6 +1030,14 @@ async def claim_session(
         # that is valid inside that container.
         library_base = container.library_path
         rom_path = f"{library_base}/{rom.full_path}"
+        # The tray can only step through a playlist the emulator loaded, so a
+        # container without one boots the picked disc on its own.
+        start_disc_id = None
+        if start_disc is not None:
+            if container.capabilities["supports_disc_swap"] and rom.has_m3u_file():
+                start_disc_id = start_disc.id
+            else:
+                rom_path = f"{library_base}/{start_disc.full_path}"
 
         # Nothing beats for the player until the stream is up, and on a slow
         # container these steps can outlast the window after which a claim is stale.
@@ -1095,6 +1115,7 @@ async def claim_session(
         memory_card_synced=memory_card is not None,
         multiplayer=multiplayer,
         blank_card_id=undo.blank_card_id,
+        start_disc_id=start_disc_id,
     )
 
     return LaunchingSessionSchema(

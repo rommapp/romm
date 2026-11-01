@@ -831,7 +831,7 @@ async def restore_session_disc(
     file_id: int,
     broker_session_id: str | None = None,
 ) -> bool:
-    """Background task: put back the disc a resumed state was captured on.
+    """Background task: switch to the disc a resumed state or the player names.
 
     The launch always mounts the ROM folder so the emulator loads the playlist
     and starts on the first disc; anything else would boot a bare image the
