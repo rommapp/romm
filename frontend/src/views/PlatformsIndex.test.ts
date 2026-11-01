@@ -480,6 +480,19 @@ describe("PlatformsIndex", () => {
       ]);
     });
 
+    it("falls back to the raw value for an unknown play mode", () => {
+      seed();
+      routeState.query = { play: "__proto__" };
+
+      const wrapper = mount(PlatformsIndex);
+
+      expect(facet(wrapper, "play")?.options).toContainEqual({
+        value: "__proto__",
+        label: "__proto__",
+        count: 0,
+      });
+    });
+
     it("says the filters matched nothing", () => {
       seed();
       routeState.query = { category: "portable_console", gen: "5" };

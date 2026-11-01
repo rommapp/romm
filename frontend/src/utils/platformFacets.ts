@@ -75,6 +75,21 @@ export function facetOptions<T, K extends string>(
     .sort(compare);
 }
 
+export function sameFacetOptions(
+  a: readonly FacetOption[],
+  b: readonly FacetOption[],
+): boolean {
+  return (
+    a.length === b.length &&
+    a.every(
+      (o, i) =>
+        o.value === b[i]!.value &&
+        o.label === b[i]!.label &&
+        o.count === b[i]!.count,
+    )
+  );
+}
+
 /** Comma-separated query value ⇄ list, dropping empties and duplicates. */
 export function parseFacetParam(raw: string): string[] {
   return [...new Set(raw.split(",").filter(Boolean))];

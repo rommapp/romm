@@ -55,6 +55,7 @@ import {
   parseFacetParam,
   PLATFORM_FACET_KEYS,
   type PlatformFacetKey,
+  sameFacetOptions,
 } from "@/utils/platformFacets";
 import { platformMatchesSearch } from "@/utils/platformSearch";
 
@@ -374,7 +375,7 @@ function facetLabel(key: PlatformFacetKey, value: string): string {
     case "family":
       return familyNames.value.get(value) ?? value;
     case "play":
-      return value in PLAY_MODE_LABEL_KEYS
+      return Object.hasOwn(PLAY_MODE_LABEL_KEYS, value)
         ? t(PLAY_MODE_LABEL_KEYS[value as PlayMode])
         : value;
   }
@@ -408,18 +409,34 @@ const FACET_META: Record<
   },
 };
 
+// An open select resets its keyboard highlight whenever its items array
+// changes, so a facet whose options didn't change keeps the same array.
+const lastOptions = new Map<PlatformFacetKey, FacetOption[]>();
+function stableOptions(
+  key: PlatformFacetKey,
+  next: FacetOption[],
+): FacetOption[] {
+  const prev = lastOptions.get(key);
+  if (prev && sameFacetOptions(prev, next)) return prev;
+  lastOptions.set(key, next);
+  return next;
+}
+
 const facets = computed<PlatformFacet[]>(() =>
   PLATFORM_FACET_KEYS.map((key) => ({
     key,
     label: t(FACET_META[key].labelKey),
     icon: FACET_META[key].icon,
-    options: facetOptions(
-      searched.value,
+    options: stableOptions(
       key,
-      facetSelection.value,
-      facetValuesOf,
-      (value) => facetLabel(key, value),
-      FACET_META[key].compare,
+      facetOptions(
+        searched.value,
+        key,
+        facetSelection.value,
+        facetValuesOf,
+        (value) => facetLabel(key, value),
+        FACET_META[key].compare,
+      ),
     ),
     selected: facetSelection.value[key] ?? [],
   })),

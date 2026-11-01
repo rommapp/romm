@@ -4,6 +4,7 @@ import {
   filterByFacets,
   formatFacetParam,
   parseFacetParam,
+  sameFacetOptions,
 } from "@/utils/platformFacets";
 
 type Key = "category" | "play";
@@ -111,5 +112,25 @@ describe("facet query params", () => {
     expect(parseFacetParam("")).toEqual([]);
     expect(parseFacetParam("a,,b,a")).toEqual(["a", "b"]);
     expect(formatFacetParam(["a", "b", "a"])).toBe("a,b");
+  });
+});
+
+describe("sameFacetOptions", () => {
+  const a = [{ value: "x", label: "X", count: 1 }];
+
+  it("matches equal lists held in different arrays", () => {
+    expect(sameFacetOptions(a, [{ value: "x", label: "X", count: 1 }])).toBe(
+      true,
+    );
+  });
+
+  it("notices a changed count, label, or length", () => {
+    expect(sameFacetOptions(a, [{ value: "x", label: "X", count: 2 }])).toBe(
+      false,
+    );
+    expect(sameFacetOptions(a, [{ value: "x", label: "Y", count: 1 }])).toBe(
+      false,
+    );
+    expect(sameFacetOptions(a, [])).toBe(false);
   });
 });
