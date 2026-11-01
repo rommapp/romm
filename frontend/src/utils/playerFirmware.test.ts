@@ -174,6 +174,20 @@ describe("keepArcadeBiosWhole", () => {
     });
   });
 
+  it.each(["neogeomvs", "neogeoaes"])(
+    "writes the Neo Geo BIOS archive whole for %s",
+    (core) => {
+      const instance = emulator(core, "/api/firmware/9/content/neogeo.zip");
+      keepArcadeBiosWhole(instance);
+      expect(instance.config).toEqual({
+        biosUrl: "",
+        externalFiles: {
+          "/neogeo.zip": "/api/firmware/9/content/neogeo.zip",
+        },
+      });
+    },
+  );
+
   it("leaves the BIOS to EmulatorJS on a build that keeps it whole", () => {
     const instance = emulator("fbneo", "/api/firmware/9/content/neogeo.zip", {
       nightly: true,
