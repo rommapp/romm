@@ -524,8 +524,8 @@ def test_the_search_titles_revision_reverses_replays_and_fills(platform: Platfor
 def test_the_sibling_groups_revision_reverses_replays_and_backfills(
     platform: Platform,
 ):
-    """0157 groups a chain of different provider ids into one game."""
-    migration = _load_migration("0157_rom_sibling_groups.py")
+    """0158 groups a chain of different provider ids into one game."""
+    migration = _load_migration("0158_rom_sibling_groups.py")
     first = make_rom(platform, "Chain (USA)", igdb_id=10)
     bridge = make_rom(platform, "Chain (Europe)", igdb_id=10, ss_id=20)
     last = make_rom(platform, "Chain (Japan)", ss_id=20)

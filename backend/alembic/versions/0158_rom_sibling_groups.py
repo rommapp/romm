@@ -6,8 +6,8 @@ provider order. A ROM matched by IGDB and ScreenScraper and its sibling matched
 by ScreenScraper alone were siblings on the game page but two gallery cards.
 Both now read `rom_sibling_groups`, the transitive closure of the keys.
 
-Revision ID: 0157_rom_sibling_groups
-Revises: 0156_roms_platform_min_age_index
+Revision ID: 0158_rom_sibling_groups
+Revises: 0157_rom_custom_sort_key_flag
 Create Date: 2026-10-31 00:00:00.000000
 
 """
@@ -20,8 +20,8 @@ from alembic import op
 from utils.sibling_groups import sibling_groups
 
 # revision identifiers, used by Alembic.
-revision = "0157_rom_sibling_groups"
-down_revision = "0156_roms_platform_min_age_index"
+revision = "0158_rom_sibling_groups"
+down_revision = "0157_rom_custom_sort_key_flag"
 branch_labels = None
 depends_on = None
 
