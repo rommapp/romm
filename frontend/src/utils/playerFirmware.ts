@@ -112,7 +112,7 @@ export function pointSystemDirectoryAtFirmware(
   emulator: SystemDirectoryEmulator,
 ): void {
   // EJS_biosUrl and keepArcadeBiosWhole put BIOS files in the content directory,
-  // RetroArch's fallback, so only firmware RomM wrote to SYSTEM_DIRECTORY moves it.
+  // RetroArch's fallback, so only firmware written to SYSTEM_DIRECTORY moves it.
   const paths = Object.keys(emulator.config.externalFiles ?? {});
   if (!paths.some((path) => path.startsWith(`${SYSTEM_DIRECTORY}/`))) return;
 
