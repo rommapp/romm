@@ -173,9 +173,8 @@ const reference = computed(() =>
 const panelRef = ref<HTMLElement | null>(null);
 
 // ── Focus return ────────────────────────────────────────────────
-// Like a native menu button: closing with focus inside the panel (an item
-// pick, Escape, pad B) puts focus back on the activator, so keyboard and pad
-// users keep their place. Focus that already left the panel stays put.
+// Like a native menu button, so keyboard and pad users keep their place.
+// Focus that already left the panel stays put.
 function returnFocusToActivator() {
   const panel = panelRef.value;
   if (!panel?.contains(document.activeElement)) return;

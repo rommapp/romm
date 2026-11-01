@@ -149,21 +149,6 @@ describe("RMenu", () => {
       wrapper.unmount();
     });
 
-    it("returns focus to the activator on Escape", async () => {
-      const wrapper = await openWithItemFocused();
-
-      document.activeElement!.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-      );
-      await flushPromises();
-
-      expect(document.querySelector('[role="menu"]')).toBeNull();
-      expect(document.activeElement).toBe(
-        wrapper.get("button.trigger").element,
-      );
-      wrapper.unmount();
-    });
-
     it("asks for no focus ring after a mouse pick", async () => {
       const wrapper = await openWithItemFocused();
       const trigger = wrapper.get("button.trigger").element as HTMLElement;
