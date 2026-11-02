@@ -127,6 +127,7 @@ Here are some cool projects maintained by members of our community. Please note 
 ### Integrations
 
 - [GGRequestz][ggrequestz]: Game discovery and request tool by [@XTREEMMAK](https://github.com/XTREEMMAK)
+- [ROMarr][romarr]: *arr-style ROM acquisition, No-Intro/Redump DAT verification, and Igir 1G1R companion for RomM by [@BlizzHacker](https://github.com/BlizzHacker)
 - [romm-comm][romm-comm-discord-bot]: Discord bot by [@idio-sync](https://github.com/idio-sync)
 
 ## Support the project
