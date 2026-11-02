@@ -88,11 +88,9 @@ from utils.platform_aliases import (
 PHYSICAL_FS_SUBDIR = ".physical"
 
 
-def build_physical_fs_path(platform: Platform) -> str:
-    """Sentinel `fs_path` for a file-less physical game on the given platform."""
-    return (
-        f"{fs_rom_handler.get_roms_fs_structure(platform.fs_slug)}/{PHYSICAL_FS_SUBDIR}"
-    )
+def build_physical_fs_path(platform: Platform, subdir: str = PHYSICAL_FS_SUBDIR) -> str:
+    """Sentinel `fs_path` for a file-less game on the given platform."""
+    return f"{fs_rom_handler.get_roms_fs_structure(platform.fs_slug)}/{subdir}"
 
 
 def build_physical_fs_name(name: str) -> str:

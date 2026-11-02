@@ -4,7 +4,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from rq.exceptions import DuplicateJobError
-from tests.factories import make_platform, make_rom, steam_player_summary
+from sqlalchemy import event
+from tests.factories import STEAM_ID, make_platform, make_rom, steam_player_summary
 
 from adapters.services.steam import SteamWebAPIError
 from adapters.services.steam_types import (
@@ -19,6 +20,7 @@ from handler.database import (
     db_steam_library_handler,
     db_user_handler,
 )
+from handler.database.base_handler import sync_engine
 from handler.metadata import meta_igdb_handler
 from handler.steam_library_handler import (
     STEAM_FS_SUBDIR,
@@ -39,8 +41,6 @@ from models.collection import SmartCollection
 from models.platform import Platform
 from models.rom import RomStorefront, RomUserStatus
 from models.user import User
-
-STEAM_ID = "76561197960287930"
 
 
 @pytest.mark.parametrize(
@@ -227,6 +227,23 @@ async def test_a_second_sync_reuses_the_store_only_rom(
     assert len(db_steam_library_handler.get_entries(steam_user.id)) == 1
 
 
+async def test_a_store_only_rom_that_lost_its_steam_id_is_relinked(
+    steam_api: MagicMock, steam_user: User, win: Platform
+):
+    steam_api.get_owned_games.return_value = [_game(220, "Half-Life 2")]
+    await sync_steam_library(steam_user)
+    [entry] = db_steam_library_handler.get_entries(steam_user.id)
+    db_rom_handler.update_rom(entry.rom_id, {"steam_id": None})
+
+    result = await sync_steam_library(steam_user)
+
+    assert result.created == 0
+    [relinked] = db_steam_library_handler.get_entries(steam_user.id)
+    assert relinked.rom_id == entry.rom_id
+    rom = db_rom_handler.get_rom(entry.rom_id)
+    assert rom is not None and rom.steam_id == 220
+
+
 async def test_forgets_games_no_longer_owned(
     steam_api: MagicMock, steam_user: User, win: Platform
 ):
@@ -242,6 +259,27 @@ async def test_forgets_games_no_longer_owned(
     assert result.removed == 1
     [entry] = db_steam_library_handler.get_entries(steam_user.id)
     assert (entry.steam_app_id, entry.playtime_minutes) == (400, 30)
+
+
+async def test_an_unchanged_library_writes_no_entry(
+    steam_api: MagicMock, steam_user: User, win: Platform
+):
+    steam_api.get_owned_games.return_value = [
+        _game(220, "Half-Life 2", playtime=90, last_played=1_700_000_000)
+    ]
+    await sync_steam_library(steam_user)
+    statements: list[str] = []
+
+    def record(_conn: Any, _cursor: Any, statement: str, *_args: Any) -> None:
+        statements.append(statement)
+
+    event.listen(sync_engine, "before_cursor_execute", record)
+    try:
+        await sync_steam_library(steam_user)
+    finally:
+        event.remove(sync_engine, "before_cursor_execute", record)
+
+    assert not [s for s in statements if s.startswith("UPDATE steam_library_entries")]
 
 
 async def test_a_matched_store_only_rom_is_not_scanned_again(
@@ -273,6 +311,37 @@ async def test_a_sync_moves_an_owned_on_steam_smart_collection(
     await sync_steam_library(steam_user)
 
     after = db_collection_handler.get_smart_collection(smart_collection.id)
+    assert after is not None and after.rom_ids == [rom.id]
+
+
+async def test_a_sync_checks_only_the_owners_owned_on_steam_collections(
+    steam_api: MagicMock, steam_user: User, editor_user: User, win: Platform
+):
+    rom = make_rom(win, "Portal", steam_id=400)
+    owners, _, _ = (
+        db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name=name, description="", user_id=user.id, filter_criteria=criteria
+            )
+        )
+        for name, user, criteria in (
+            ("Owned", steam_user, {"owned_on_steam": True}),
+            ("Theirs", editor_user, {"owned_on_steam": True}),
+            ("Portal", steam_user, {"search_term": "Portal"}),
+        )
+    )
+    steam_api.get_owned_games.return_value = [_game(400, "Portal")]
+
+    with patch.object(
+        db_rom_handler,
+        "get_smart_collection_matches",
+        wraps=db_rom_handler.get_smart_collection_matches,
+    ) as matches:
+        await sync_steam_library(steam_user)
+
+    checked = {call.kwargs["smart_collection"].id for call in matches.call_args_list}
+    assert checked == {owners.id}
+    after = db_collection_handler.get_smart_collection(owners.id)
     assert after is not None and after.rom_ids == [rom.id]
 
 

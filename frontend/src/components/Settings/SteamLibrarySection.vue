@@ -31,15 +31,10 @@ const personaName = computed(
   () => auth.user?.steam_persona_name || auth.user?.steam_id || "",
 );
 
-async function startSync(id: number) {
-  await userApi.syncSteamLibrary({ id });
-  snackbar.info(t("settings.steam-sync-started"), { icon: "mdi-steam" });
-}
-
 async function link() {
   const user = auth.user;
   const value = profile.value.trim();
-  if (!user || !value) return;
+  if (!user || !value || linking.value) return;
   linking.value = true;
   try {
     const { data } = await userApi.linkSteamAccount({
@@ -58,24 +53,16 @@ async function link() {
     linking.value = false;
   }
 
-  syncing.value = true;
-  try {
-    await startSync(user.id);
-  } catch (err) {
-    snackbar.error(
-      t("settings.steam-sync-failed", { error: errorMessage(err) }),
-      { icon: "mdi-close-circle" },
-    );
-  } finally {
-    syncing.value = false;
-  }
+  await sync();
 }
 
 async function sync() {
-  if (!auth.user) return;
+  const user = auth.user;
+  if (!user) return;
   syncing.value = true;
   try {
-    await startSync(auth.user.id);
+    await userApi.syncSteamLibrary({ id: user.id });
+    snackbar.info(t("settings.steam-sync-started"), { icon: "mdi-steam" });
   } catch (err) {
     snackbar.error(
       t("settings.steam-sync-failed", { error: errorMessage(err) }),

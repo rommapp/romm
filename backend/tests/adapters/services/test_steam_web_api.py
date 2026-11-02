@@ -3,14 +3,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
 import pytest
+from tests.factories import STEAM_ID
 
 from adapters.services.steam import (
     SteamWebAPIError,
     SteamWebApiService,
     web_api_key_middleware,
 )
-
-STEAM_ID = "76561197960287930"
 
 
 def _response(json_body: object) -> MagicMock:

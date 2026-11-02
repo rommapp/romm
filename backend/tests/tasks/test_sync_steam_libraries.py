@@ -1,6 +1,7 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from tests.factories import STEAM_ID
 
 from endpoints.sockets.scan import ScanPayload
 from exceptions.socket_exceptions import NoScanWorkerException
@@ -29,7 +30,7 @@ def api_key():
 
 @pytest.fixture
 def linked_user(admin_user: User) -> User:
-    db_user_handler.update_user(admin_user.id, {"steam_id": "76561197960287930"})
+    db_user_handler.update_user(admin_user.id, {"steam_id": STEAM_ID})
     return admin_user
 
 

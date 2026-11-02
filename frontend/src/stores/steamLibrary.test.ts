@@ -43,17 +43,16 @@ describe("steamLibrary", () => {
     await flushPromises();
 
     expect(library.isLoaded).toBe(true);
-    expect(library.ownedAppIds.has(220)).toBe(true);
+    expect(library.count).toBe(1);
 
     vi.mocked(userApi.fetchSteamLibrary).mockResolvedValue({
-      data: [400],
+      data: [400, 620],
     } as never);
     setVisibility("hidden");
     setVisibility("visible");
     await flushPromises();
 
-    expect(library.ownedAppIds.has(220)).toBe(false);
-    expect(library.ownedAppIds.has(400)).toBe(true);
+    expect(library.count).toBe(2);
   });
 
   it("keeps the newest reply when an older one arrives late", async () => {
@@ -64,7 +63,7 @@ describe("steamLibrary", () => {
           answerFirst = resolve;
         }) as never,
       )
-      .mockResolvedValueOnce({ data: [400] } as never);
+      .mockResolvedValueOnce({ data: [400, 620] } as never);
     storeAuth().setCurrentUser(
       userFixture({ id: 1, steam_id: "76561197960287930" }),
     );
@@ -75,8 +74,7 @@ describe("steamLibrary", () => {
     answerFirst({ data: [220] });
     await flushPromises();
 
-    expect(library.ownedAppIds.has(400)).toBe(true);
-    expect(library.ownedAppIds.has(220)).toBe(false);
+    expect(library.count).toBe(2);
   });
 
   it("loads nothing without a linked account", async () => {

@@ -7,7 +7,6 @@ from datetime import datetime, timezone
 from typing import Final, TypedDict, cast
 
 from rq.exceptions import DuplicateJobError
-from sqlalchemy.exc import IntegrityError
 
 from adapters.services.steam import SteamWebAPIError, SteamWebApiService
 from adapters.services.steam_types import (
@@ -24,10 +23,10 @@ from handler.database import (
     db_steam_library_handler,
     db_user_handler,
 )
-from handler.filesystem import fs_platform_handler, fs_rom_handler
+from handler.filesystem import fs_platform_handler
 from handler.metadata.steam_handler import STEAM_PLATFORMS
 from handler.redis_handler import low_prio_queue
-from handler.scan_handler import scan_platform
+from handler.scan_handler import build_physical_fs_path, scan_platform
 from logger.logger import log
 from models.platform import Platform
 from models.rom import Rom, RomStorefront, RomUserStatus
@@ -153,12 +152,14 @@ async def resolve_steam_profile(profile: str) -> SteamPlayerSummary:
     return summary
 
 
-def _refresh_ownership_collections(app_ids: Sequence[int]) -> None:
-    """Follow a change in what a user owns into the smart collections filtering on it."""
+def _refresh_ownership_collections(user_id: int, app_ids: Sequence[int]) -> None:
+    """Follow a change in what a user owns into their smart collections filtering on it."""
     try:
         db_collection_handler.refresh_smart_collections_for_roms(
             db_steam_library_handler.get_rom_ids_by_app_ids(app_ids),
             membership_only=True,
+            user_id=user_id,
+            criterion="owned_on_steam",
         )
     except Exception as e:
         # The ownership change is committed, so a stale count is the worst this costs.
@@ -166,10 +167,12 @@ def _refresh_ownership_collections(app_ids: Sequence[int]) -> None:
 
 
 def _forget_library(user_id: int) -> None:
-    _refresh_ownership_collections(db_steam_library_handler.delete_entries(user_id))
+    _refresh_ownership_collections(
+        user_id, db_steam_library_handler.delete_entries(user_id)
+    )
 
 
-def link_steam_profile(user: User, summary: SteamPlayerSummary) -> None:
+def link_steam_profile(user: User, summary: SteamPlayerSummary) -> User:
     """Link the Steam account `summary` describes, forgetting another one's games."""
     previous = user.steam_id
     # The account changes first, so a sync of the previous one discards its result.
@@ -180,18 +183,20 @@ def link_steam_profile(user: User, summary: SteamPlayerSummary) -> None:
     }
     if switched:
         changes["steam_progression"] = {}
-    db_user_handler.update_user(user.id, changes)
+    linked = db_user_handler.update_user(user.id, changes)
     if previous and switched:
         _forget_library(user.id)
+    return linked
 
 
-def unlink_steam_profile(user: User) -> None:
+def unlink_steam_profile(user: User) -> User:
     """Unlink a user's Steam account and forget which games it owns."""
-    db_user_handler.update_user(
+    unlinked = db_user_handler.update_user(
         user.id,
         {"steam_id": None, "steam_persona_name": None, "steam_progression": {}},
     )
     _forget_library(user.id)
+    return unlinked
 
 
 async def steam_library_platform() -> Platform:
@@ -220,10 +225,7 @@ def _store_only_rom(platform: Platform, game: SteamOwnedGame) -> Rom:
         platform_id=platform.id,
         # The tag lets the Steam provider match by id, as it does for files.
         fs_name=sanitize_filename(f"{name} (steam-{app_id})"),
-        fs_path=(
-            f"{fs_rom_handler.get_roms_fs_structure(platform.fs_slug)}"
-            f"/{STEAM_FS_SUBDIR}"
-        ),
+        fs_path=build_physical_fs_path(platform, subdir=STEAM_FS_SUBDIR),
         fs_size_bytes=0,
         name=name,
         steam_id=app_id,
@@ -236,7 +238,7 @@ def _store_only_rom(platform: Platform, game: SteamOwnedGame) -> Rom:
 
 def _last_played(game: SteamOwnedGame) -> datetime | None:
     # Steam sends 0 for a game never played.
-    timestamp = game.get("rtime_last_played") or 0
+    timestamp = game.get("rtime_last_played")
     return datetime.fromtimestamp(timestamp, timezone.utc) if timestamp else None
 
 
@@ -268,28 +270,26 @@ async def sync_steam_library(user: User) -> SteamSyncResult:
     )
     result = SteamSyncResult(owned=len(games), linked=len(rom_ids))
 
-    entries: list[SteamLibraryEntry] = []
-    for game in games:
-        app_id = game["appid"]
-        if app_id not in rom_ids:
-            try:
-                rom = db_rom_handler.add_rom(_store_only_rom(platform, game))
-            except IntegrityError:
-                log.warning(
-                    f"Skipping Steam app {app_id}: another game already uses its name"
-                )
-                continue
-            rom_ids[app_id] = rom.id
-            result.created += 1
+    store_only = db_steam_library_handler.add_store_only_roms(
+        [
+            _store_only_rom(platform, game)
+            for game in games
+            if game["appid"] not in rom_ids
+        ]
+    )
+    rom_ids.update(store_only.rom_ids)
+    result.created = store_only.created
 
-        entries.append(
-            SteamLibraryEntry(
-                rom_id=rom_ids[app_id],
-                steam_app_id=app_id,
-                playtime_minutes=game.get("playtime_forever", 0),
-                last_played_at=_last_played(game),
-            )
+    entries = [
+        SteamLibraryEntry(
+            rom_id=rom_ids[game["appid"]],
+            steam_app_id=game["appid"],
+            playtime_minutes=game.get("playtime_forever", 0),
+            last_played_at=_last_played(game),
         )
+        for game in games
+        if game["appid"] in rom_ids
+    ]
 
     changes = db_steam_library_handler.replace_entries(user.id, steam_id, entries)
     if changes is None:
@@ -297,7 +297,7 @@ async def sync_steam_library(user: User) -> SteamSyncResult:
             f"{user.username}'s Steam account changed during the sync"
         )
     result.removed = len(changes.removed)
-    _refresh_ownership_collections([*changes.added, *changes.removed])
+    _refresh_ownership_collections(user.id, [*changes.added, *changes.removed])
     result.unmatched_rom_ids = (
         db_steam_library_handler.get_unmatched_store_only_rom_ids(
             [entry.rom_id for entry in entries]
