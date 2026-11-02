@@ -1,7 +1,7 @@
 """Add the user's Steam ID and achievement progression
 
-Revision ID: 0158_user_steam_achievements
-Revises: 0157_rom_custom_sort_key_flag
+Revision ID: 0159_user_steam_achievements
+Revises: 0158_platform_first_release_year
 Create Date: 2026-11-02 00:00:00.000000
 
 """
@@ -12,8 +12,8 @@ from alembic import op
 from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
-revision = "0158_user_steam_achievements"
-down_revision = "0157_rom_custom_sort_key_flag"
+revision = "0159_user_steam_achievements"
+down_revision = "0158_platform_first_release_year"
 branch_labels = None
 depends_on = None
 
