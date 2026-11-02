@@ -107,7 +107,6 @@ Here are some cool projects maintained by members of our community. Please note 
 ### Desktop
 
 - [Freegosy][freegosy]: Cross-platform game manager with save sync by [@abduznik](https://github.com/abduznik)
-- [GRID Launcher][grid-launcher]: Desktop launcher with emulator setup and save sync by [@Sixdd6](https://github.com/Sixdd6)
 - [RetroVault][retrovault]: Native macOS library and player by [@kennethreitz](https://github.com/kennethreitz)
 - [romm-client][romm-client]: Desktop client by [@chaun14](https://github.com/chaun14)
 - [RomMate][rommate]: Desktop app for browsing your collection by [@brenoprata10](https://github.com/brenoprata10)
@@ -213,5 +212,4 @@ Here are a few projects that we think you might like:
 [romm-ios-app]: https://github.com/ilyas-hallak/romm-ios-app
 [romp]: https://github.com/RompEmu/RomP
 [rommps]: https://github.com/s0liton/RommPS
-[grid-launcher]: https://github.com/Sixdd6/grid-launcher
 [argosy-launcher]: https://github.com/rommapp/argosy-launcher
