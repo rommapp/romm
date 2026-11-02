@@ -500,6 +500,18 @@ class TestDBSavesHandlerSlotFiltering:
             "saves/snes9x",
         ]
 
+    def test_get_saves_at_paths_ignores_case(self, admin_user: User, rom: Rom):
+        make_save(rom, admin_user, "Game (Disc 1).srm", file_path="saves/snes9x")
+
+        saves = db_save_handler.get_saves_at_paths(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            file_paths=["saves/snes9x"],
+            file_name="game (disc 1).srm",
+        )
+
+        assert [save.file_name for save in saves] == ["Game (Disc 1).srm"]
+
     def test_get_saves_with_null_slot_filter(self, admin_user: User, rom: Rom):
         make_save(
             rom,
