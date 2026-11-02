@@ -248,6 +248,21 @@ class TestUniquePlatformFullPath:
         assert first.id != second.id
 
 
+class TestGetRomsByFileNamePrefixes:
+    def test_matches_a_prefix_in_another_case(self, rom: Rom, rom_file: RomFile):
+        assert [
+            (file_name, owner.id)
+            for file_name, owner in db_rom_handler.get_roms_by_file_name_prefixes(
+                ["TEST_ROM."]
+            )
+        ] == [("test_rom.zip", rom.id)]
+
+    def test_treats_like_wildcards_literally(self, rom: Rom, rom_file: RomFile):
+        assert (
+            db_rom_handler.get_roms_by_file_name_prefixes(["test%", "test_rom_"]) == []
+        )
+
+
 class TestGetRomsByFsNamesNoExt:
     def test_matches_a_name_in_another_case(self, rom: Rom):
         assert [
