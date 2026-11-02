@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx2
 import pytest
 import pytest_asyncio
+from fastapi import HTTPException
 
 import config
 from adapters.services.igdb import (
@@ -50,6 +51,69 @@ from utils.context import ctx_httpx_client
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 GENESIS_IGDB_ID = 29
+
+
+@pytest.mark.parametrize("slug, version", [("n64", False), ("zx-spectrum", True)])
+async def test_platform_launch_year_targets_platform_or_revision(slug, version):
+    handler = IGDBHandler()
+    with (
+        patch.object(handler, "is_enabled", return_value=True),
+        patch.object(
+            handler.igdb_service,
+            "platform_discovery",
+            new_callable=AsyncMock,
+            return_value={"first_release_year": 1996},
+        ) as lookup,
+    ):
+        assert await handler.get_platform_discovery(slug) == {
+            "first_release_year": 1996
+        }
+    assert lookup.await_args is not None
+    assert lookup.await_args.kwargs == {"version": version}
+
+
+async def test_platform_launch_year_disabled_does_not_contact_igdb():
+    handler = IGDBHandler()
+    with (
+        patch.object(handler, "is_enabled", return_value=False),
+        patch.object(
+            handler.igdb_service, "platform_discovery", new_callable=AsyncMock
+        ) as lookup,
+    ):
+        assert await handler.get_platform_discovery("n64") == {}
+    lookup.assert_not_awaited()
+
+
+async def test_platform_launch_year_failure_does_not_abort_scan():
+    handler = IGDBHandler()
+    with (
+        patch.object(handler, "is_enabled", return_value=True),
+        patch.object(
+            handler.igdb_service,
+            "platform_discovery",
+            new_callable=AsyncMock,
+            side_effect=HTTPException(status_code=503),
+        ),
+    ):
+        assert await handler.get_platform_discovery("n64") == {}
+
+
+async def test_platform_discovery_preserves_logo_transparency():
+    handler = IGDBHandler()
+    with (
+        patch.object(handler, "is_enabled", return_value=True),
+        patch.object(
+            handler.igdb_service,
+            "platform_discovery",
+            new_callable=AsyncMock,
+            return_value={
+                "url_logo": "//images.igdb.com/igdb/image/upload/t_thumb/example.jpg"
+            },
+        ),
+    ):
+        assert await handler.get_platform_discovery("n64") == {
+            "url_logo": "https://images.igdb.com/igdb/image/upload/t_720p/example.png"
+        }
 
 
 def _make_game(
