@@ -38,6 +38,12 @@
       "allowedVersions": "<0.30"
     },
     {
+      "description": "From 0.149, FastAPI reads an empty form value as a missing field, so clients can no longer clear a field by submitting it empty. Raise this bound once the update endpoints tell absent and empty apart again.",
+      "matchManagers": ["pep621"],
+      "matchPackageNames": ["fastapi"],
+      "allowedVersions": "<0.149"
+    },
+    {
       "matchDatasources": ["docker"],
       "matchPackageNames": ["postgres"],
       "groupName": "postgres"

@@ -10,7 +10,6 @@ from fastapi import Query, Request, UploadFile, status
 from pydantic import BaseModel as PydanticBaseModel
 
 from decorators.auth import protected_route
-from endpoints.forms.fields import keep_empty_string
 from endpoints.responses.collection import (
     CollectionSchema,
     SmartCollectionSchema,
@@ -494,10 +493,6 @@ async def update_collection(
     if collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
 
-    form = await request.form()
-    description = keep_empty_string(form, "description", description)
-    url_cover = keep_empty_string(form, "url_cover", url_cover)
-
     if name is not None:
         namesake = db_collection_handler.get_collection_by_name(name, request.user.id)
         if namesake and namesake.id != collection.id:
@@ -751,8 +746,6 @@ async def update_smart_collection(
 
     if smart_collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
-
-    description = keep_empty_string(await request.form(), "description", description)
 
     if name is not None:
         namesake = db_collection_handler.get_smart_collection_by_name(

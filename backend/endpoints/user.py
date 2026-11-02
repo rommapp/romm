@@ -8,7 +8,6 @@ from fastapi import Request, status
 from fastapi.responses import FileResponse
 
 from decorators.auth import protected_route
-from endpoints.forms.fields import keep_empty_string
 from endpoints.forms.identity import UserForm
 from endpoints.permissions import emit_permissions_changed
 from endpoints.responses.identity import InviteLinkSchema, UserSchema
@@ -458,8 +457,6 @@ async def update_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
 
     _assert_can_manage_user(request, db_user)
-
-    form_data.email = keep_empty_string(await request.form(), "email", form_data.email)
 
     # Usernames and emails match case-insensitively, so a case-only edit is no change.
     new_username = (

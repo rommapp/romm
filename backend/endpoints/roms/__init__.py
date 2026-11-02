@@ -51,7 +51,6 @@ from config import (
 )
 from config.config_manager import MetadataMediaType
 from decorators.auth import protected_route
-from endpoints.forms.fields import keep_empty_string
 from endpoints.responses import BulkOperationResponse
 from endpoints.responses.base import PAGE_QUERY, LimitOffsetPage, PageParams
 from endpoints.responses.recommendation import SimilarRomSchema
@@ -481,7 +480,7 @@ async def parse_rom_update_form(
     url_manual: str | None = Form(default=None),
 ) -> RomUpdateForm:
     # Preserve "field was provided" behavior used by update logic.
-    form = await request.form()
+    form_keys = set((await request.form()).keys())
     field_values = {
         "igdb_id": igdb_id,
         "sgdb_id": sgdb_id,
@@ -519,11 +518,7 @@ async def parse_rom_update_form(
     }
 
     return RomUpdateForm.model_validate(
-        {
-            field: keep_empty_string(form, field, value)
-            for field, value in field_values.items()
-            if field in form
-        }
+        {field: value for field, value in field_values.items() if field in form_keys}
     )
 
 

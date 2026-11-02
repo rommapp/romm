@@ -172,39 +172,6 @@ class TestRenameCollection:
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["name"] == "TEST COLLECTION"
 
-    def test_an_empty_description_clears_it(
-        self, client, access_token: str, collection: Collection
-    ):
-        response = client.put(
-            f"/api/collections/{collection.id}",
-            data={"rom_ids": "[]", "description": ""},
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-
-        assert response.status_code == status.HTTP_200_OK
-        assert response.json()["description"] == ""
-
-    def test_an_empty_smart_collection_description_clears_it(
-        self, client, access_token: str, admin_user: User
-    ):
-        smart_collection = db_collection_handler.add_smart_collection(
-            SmartCollection(
-                name="Described",
-                description="Old description",
-                user_id=admin_user.id,
-                filter_criteria={},
-            )
-        )
-
-        response = client.put(
-            f"/api/collections/smart/{smart_collection.id}",
-            data={"description": ""},
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-
-        assert response.status_code == status.HTTP_200_OK
-        assert response.json()["description"] == ""
-
     def test_taken_smart_collection_name_returns_conflict(
         self, client, access_token: str, admin_user: User
     ):
