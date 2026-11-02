@@ -151,7 +151,7 @@ def _parse_release_date(raw_date: str) -> int | None:
 
 
 def _icon_filename(url: str | None) -> str | None:
-    """The last path segment of an icon URL, which Steam names by content hash."""
+    """The file name an icon URL ends in, or None if it has none."""
     if not url:
         return None
     try:

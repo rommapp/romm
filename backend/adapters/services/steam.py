@@ -251,7 +251,7 @@ class SteamWebApiService:
     async def get_schema_achievements(
         self, app_id: int, *, language: str = "english"
     ) -> list[SteamSchemaAchievement]:
-        """The app's achievements in the developer's order, empty when it has none."""
+        """The app's achievements in the developer's order, empty if none or unreadable."""
         url = self.url.joinpath("ISteamUserStats/GetSchemaForGame/v2/").with_query(
             appid=str(app_id), l=language
         )
@@ -265,7 +265,7 @@ class SteamWebApiService:
     async def get_global_achievement_percentages(
         self, app_id: int
     ) -> list[SteamGlobalAchievementPercent]:
-        """The share of players holding each achievement, keyed by its API name."""
+        """The share of players holding each achievement, empty if unreadable."""
         url = self.url.joinpath(
             "ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/"
         ).with_query(gameid=str(app_id))
