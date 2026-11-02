@@ -29,6 +29,7 @@ from handler.streaming.session_store import (
     StreamingSession,
     hold_session_claim,
     push_to_user,
+    set_session_disc,
     stamp_launched,
 )
 from logger.logger import log
@@ -63,6 +64,7 @@ async def run_launch(
     blank_card_id: int | None,
     native_fallback: bool = False,
     start_disc_id: int | None = None,
+    booted_disc_id: int | None = None,
 ) -> None:
     """Start the game, then tell the player's tabs where to find it.
 
@@ -73,6 +75,8 @@ async def run_launch(
         native_fallback: `archive_path` holds only a default save, so a refusal
             of it boots the newest native archive instead.
         start_disc_id: the disc the player picked to start on, if any.
+        booted_disc_id: the disc `rom_path` boots directly, recorded so states
+            saved on it remember their disc.
     """
     # Nothing beats for the player until the stream is up, so without this the
     # next claimant reads the record as abandoned and tears the container down
@@ -223,6 +227,12 @@ async def run_launch(
             state_core=state_core,
         )
     )
+
+    if booted_disc_id is not None:
+        await set_session_disc(
+            session_key, booted_disc_id, session["broker_session_id"]
+        )
+        return
 
     # The launch always starts on the playlist's first disc. A resumed state
     # needs the disc it was captured on, which outranks the player's pick.

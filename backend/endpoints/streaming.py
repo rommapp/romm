@@ -1033,11 +1033,24 @@ async def claim_session(
         # The tray can only step through a playlist the emulator loaded, so a
         # container without one boots the picked disc on its own.
         start_disc_id = None
+        booted_disc_id = None
         if start_disc is not None:
             if container.capabilities["supports_disc_swap"] and rom.has_m3u_file():
                 start_disc_id = start_disc.id
             else:
-                rom_path = f"{library_base}/{start_disc.full_path}"
+                # No swap can follow, so a resumed state's own disc boots instead.
+                state_disc = next(
+                    (
+                        f
+                        for f in playlist_files(rom.files)
+                        if resume_state is not None
+                        and f.id == resume_state.disc_file_id
+                    ),
+                    None,
+                )
+                boot_disc = state_disc or start_disc
+                rom_path = f"{library_base}/{boot_disc.full_path}"
+                booted_disc_id = boot_disc.id
 
         # Nothing beats for the player until the stream is up, and on a slow
         # container these steps can outlast the window after which a claim is stale.
@@ -1116,6 +1129,7 @@ async def claim_session(
         multiplayer=multiplayer,
         blank_card_id=undo.blank_card_id,
         start_disc_id=start_disc_id,
+        booted_disc_id=booted_disc_id,
     )
 
     return LaunchingSessionSchema(

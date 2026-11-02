@@ -13710,6 +13710,8 @@ def _run_launch_restoring(
     *,
     start_disc_id: int | None,
     resume_disc_id: int | None = None,
+    booted_disc_id: int | None = None,
+    set_disc: AsyncMock | None = None,
 ) -> MagicMock:
     """Run a launch and return the stand-in for the disc restore it spawns."""
     resume_state = (
@@ -13740,6 +13742,7 @@ def _run_launch_restoring(
             "handler.streaming.launch.states.hydrate_states_to_broker", new=MagicMock()
         ),
         patch("handler.streaming.launch.states.restore_session_disc", restore),
+        patch("handler.streaming.launch.set_session_disc", set_disc or AsyncMock()),
     ):
         asyncio.run(
             launch.run_launch(
@@ -13763,6 +13766,7 @@ def _run_launch_restoring(
                 multiplayer=False,
                 blank_card_id=None,
                 start_disc_id=start_disc_id,
+                booted_disc_id=booted_disc_id,
             )
         )
     return restore
@@ -13789,6 +13793,45 @@ def test_run_launch_leaves_the_first_disc_without_a_pick(admin_user: User):
     rom = _rom_on("dc")
     restore = _run_launch_restoring(rom, admin_user, start_disc_id=None)
     restore.assert_not_called()
+
+
+def test_claim_boots_the_resumed_states_disc_where_no_tray_can_reach_it(
+    client, access_token, admin_user: User
+):
+    """No swap can follow a direct boot, so the state's disc wins up front."""
+    rom = _rom_on("dc")
+    _add_rom_file(rom, "Game.m3u")
+    state_disc = _add_rom_file(rom, "Game (Disc 1).chd")
+    picked = _add_rom_file(rom, "Game (Disc 2).chd")
+    state = _add_state(rom, admin_user, "Game.state", "retroarch")
+    db_state_handler.update_state(state.id, {"disc_file_id": state_disc.id})
+    run_launch_mock = AsyncMock()
+    with (
+        _streaming({**_container_for(rom), "emulator": "retroarch"}),
+        patch("handler.streaming.states.push_resume_state", return_value=True),
+        patch("handler.streaming.launch.run_launch", run_launch_mock),
+    ):
+        r = client.post(
+            "/api/streaming/sessions",
+            json={"rom_id": rom.id, "disc_file_id": picked.id, "state_id": state.id},
+            headers=_auth(access_token),
+        )
+    assert r.status_code == 202
+    kwargs = run_launch_mock.call_args.kwargs
+    assert kwargs["rom_path"] == f"{LIBRARY_BASE_PATH}/{state_disc.full_path}"
+    assert kwargs["booted_disc_id"] == state_disc.id
+
+
+def test_run_launch_records_a_directly_booted_disc_without_a_swap(
+    admin_user: User,
+):
+    rom = _rom_on("dc")
+    set_disc = AsyncMock()
+    restore = _run_launch_restoring(
+        rom, admin_user, start_disc_id=None, booted_disc_id=42, set_disc=set_disc
+    )
+    restore.assert_not_called()
+    set_disc.assert_awaited_once_with("k1", 42, "s1")
 
 
 # ── _restore_session_disc (direct) ──────────────────────────────────────────
