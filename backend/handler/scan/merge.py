@@ -131,6 +131,7 @@ def seed_rom_attrs(
         "fs_size_bytes": rom.fs_size_bytes,
         "is_physical": rom.is_physical,
         "upc": rom.upc,
+        "storefront": rom.storefront,
         "name_sort_key_custom": False,
     }
 

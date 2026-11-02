@@ -88,11 +88,9 @@ from utils.platform_aliases import (
 PHYSICAL_FS_SUBDIR = ".physical"
 
 
-def build_physical_fs_path(platform: Platform) -> str:
-    """Sentinel `fs_path` for a file-less physical game on the given platform."""
-    return (
-        f"{fs_rom_handler.get_roms_fs_structure(platform.fs_slug)}/{PHYSICAL_FS_SUBDIR}"
-    )
+def build_physical_fs_path(platform: Platform, subdir: str = PHYSICAL_FS_SUBDIR) -> str:
+    """Sentinel `fs_path` for a file-less game on the given platform."""
+    return f"{fs_rom_handler.get_roms_fs_structure(platform.fs_slug)}/{subdir}"
 
 
 def build_physical_fs_name(name: str) -> str:
@@ -596,8 +594,13 @@ async def download_rom_resources(
         if added_rom.ra_metadata and MetadataSource.RA in metadata_sources
         else []
     )
+    steam_achievements = (
+        added_rom.steam_metadata.get("achievements", [])
+        if added_rom.steam_metadata and MetadataSource.STEAM in metadata_sources
+        else []
+    )
 
-    # ScreenScraper media and RA badges are bounded by their own limiters. What
+    # ScreenScraper media and achievement images have their own limiters. What
     # landed is saved even when another download failed, then that failure raised.
     outcomes: tuple[Any, ...] = await asyncio.gather(
         gather_all(
@@ -619,6 +622,9 @@ async def download_rom_resources(
         ),
         store_provider_media(),
         fs_resource_handler.store_ra_badges(achievements),
+        fs_resource_handler.store_steam_achievement_icons(
+            added_rom, steam_achievements
+        ),
         return_exceptions=True,
     )
     paths = outcomes[0]

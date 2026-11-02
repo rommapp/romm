@@ -507,6 +507,7 @@ NAME_SORT_KEY_CUSTOM_COLUMN = "name_sort_key_custom"
 PLAIN_COLUMNS: list[sa.Column[Any]] = [
     sa.Column("is_physical", sa.Boolean(), nullable=False, server_default=sa.false()),
     sa.Column("upc", sa.String(length=64)),
+    sa.Column("storefront", sa.String(length=32)),
     sa.Column("locked_fields", CustomJSON()),
     sa.Column("demozoo_id", sa.Integer()),
     sa.Column("pouet_id", sa.Integer()),

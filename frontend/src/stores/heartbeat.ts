@@ -36,6 +36,7 @@ const defaultHeartbeat: Heartbeat = {
     POUET_API_ENABLED: false,
     CSDB_API_ENABLED: false,
     STEAM_API_ENABLED: false,
+    STEAM_LIBRARY_ENABLED: false,
     LIBRETRO_API_ENABLED: false,
   },
   FILESYSTEM: {

@@ -35,6 +35,7 @@ export type { Body_delete_memory_cards_api_memory_cards_delete_post } from './mo
 export type { Body_delete_roms_api_roms_delete_post } from './models/Body_delete_roms_api_roms_delete_post';
 export type { Body_delete_saves_api_saves_delete_post } from './models/Body_delete_saves_api_saves_delete_post';
 export type { Body_delete_states_api_states_delete_post } from './models/Body_delete_states_api_states_delete_post';
+export type { Body_link_steam_account_api_users__id__steam_put } from './models/Body_link_steam_account_api_users__id__steam_put';
 export type { Body_patch_rom_api_roms__id__patch_post } from './models/Body_patch_rom_api_roms__id__patch_post';
 export type { Body_refresh_retro_achievements_api_users__id__ra_refresh_post } from './models/Body_refresh_retro_achievements_api_users__id__ra_refresh_post';
 export type { Body_remove_hidden_entity_api_permissions_hidden_delete } from './models/Body_remove_hidden_entity_api_permissions_hidden_delete';
@@ -281,6 +282,7 @@ export type { SSAgeRating } from './models/SSAgeRating';
 export type { SSPhysicalDisc } from './models/SSPhysicalDisc';
 export type { StateSchema } from './models/StateSchema';
 export type { StatsReturn } from './models/StatsReturn';
+export type { SteamAchievement } from './models/SteamAchievement';
 export type { SteamPlatforms } from './models/SteamPlatforms';
 export type { StreamingConfigSchema } from './models/StreamingConfigSchema';
 export type { StreamingContainerSchema } from './models/StreamingContainerSchema';

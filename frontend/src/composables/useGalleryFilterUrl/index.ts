@@ -16,6 +16,7 @@
 //   ?filterPlayables=true|false
 //   ?filterMissing=true|false
 //   ?filterPhysical=true|false
+//   ?filterOwnedOnSteam=true|false
 //   ?filterVerified=true|false
 //   ?filterRA=true|false
 //   ?filterSaves=true|false
@@ -113,6 +114,7 @@ export function useGalleryFilterUrl() {
     filterPlayables,
     filterMissing,
     filterPhysical,
+    filterOwnedOnSteam,
     filterVerified,
     filterRA,
     filterSaves,
@@ -164,6 +166,7 @@ export function useGalleryFilterUrl() {
       filterPlayables: qBool(q.filterPlayables),
       filterMissing: qBool(q.filterMissing),
       filterPhysical: qBool(q.filterPhysical),
+      filterOwnedOnSteam: qBool(q.filterOwnedOnSteam),
       filterVerified: qBool(q.filterVerified),
       filterRA: qBool(q.filterRA),
       filterSaves: qBool(q.filterSaves),
@@ -215,6 +218,8 @@ export function useGalleryFilterUrl() {
       filterMissing.value = url.filterMissing;
     if (url.filterPhysical !== filterPhysical.value)
       filterPhysical.value = url.filterPhysical;
+    if (url.filterOwnedOnSteam !== filterOwnedOnSteam.value)
+      filterOwnedOnSteam.value = url.filterOwnedOnSteam;
     if (url.filterVerified !== filterVerified.value)
       filterVerified.value = url.filterVerified;
     if (url.filterRA !== filterRA.value) filterRA.value = url.filterRA;
@@ -367,6 +372,7 @@ export function useGalleryFilterUrl() {
     setBool("filterPlayables", filterPlayables.value);
     setBool("filterMissing", filterMissing.value);
     setBool("filterPhysical", filterPhysical.value);
+    setBool("filterOwnedOnSteam", filterOwnedOnSteam.value);
     setBool("filterVerified", filterVerified.value);
     setBool("filterRA", filterRA.value);
     setBool("filterSaves", filterSaves.value);
@@ -481,6 +487,7 @@ export function useGalleryFilterUrl() {
       filterPlayables,
       filterMissing,
       filterPhysical,
+      filterOwnedOnSteam,
       filterVerified,
       filterRA,
       filterSaves,
