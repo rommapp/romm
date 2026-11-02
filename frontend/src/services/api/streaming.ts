@@ -115,6 +115,7 @@ async function claimSession(
   memoryCardId?: number,
   cardImport?: MemoryCardImport,
   multiplayer?: boolean,
+  discFileId?: number,
 ) {
   return api.post<LaunchingSession>("/streaming/sessions", {
     rom_id: romId,
@@ -123,6 +124,7 @@ async function claimSession(
     ...(memoryCardId !== undefined ? { memory_card_id: memoryCardId } : {}),
     ...(cardImport !== undefined ? { card_import: cardImport } : {}),
     ...(multiplayer !== undefined ? { multiplayer } : {}),
+    ...(discFileId !== undefined ? { disc_file_id: discFileId } : {}),
   });
 }
 

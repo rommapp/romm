@@ -2,6 +2,7 @@ import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick, type Slots, type VNodeChild } from "vue";
 import type {
+  RomFileSchema,
   SaveSchema,
   StateSchema,
   StreamStatePicksSchema,
@@ -9,10 +10,11 @@ import type {
 import AssetPreview from "@/components/Player/AssetPreview.vue";
 import SaveDataPanel from "@/components/Player/SaveDataPanel.vue";
 import AssetList from "@/components/shared/AssetList.vue";
-import { RBtn, RSlider } from "@/lib";
+import { RBtn, RSelect, RSlider } from "@/lib";
 import type { DetailedRom } from "@/stores/roms";
+import { propOf } from "@/test-utils/propOf";
 import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
-import { detailedRomFixture } from "@/utils/rom.fixtures";
+import { detailedRomFixture, romFileFixture } from "@/utils/rom.fixtures";
 import Stream from "./Stream.vue";
 
 const mocks = vi.hoisted(() => ({
@@ -234,14 +236,18 @@ const ARCHIVES = [
   save(1, "Pool [retroarch 2026-09-14 00-20-28].saves.zip"),
 ];
 
-function romWith(saves: SaveSchema[], states: StateSchema[] = []): DetailedRom {
+function romWith(
+  saves: SaveSchema[],
+  states: StateSchema[] = [],
+  files: RomFileSchema[] = [],
+): DetailedRom {
   return detailedRomFixture({
     id: 3,
     name: "Archer Maclean's 3D Pool (USA)",
     platform_slug: "gba",
     platform_display_name: "Game Boy Advance",
     fs_name: "Archer Maclean's 3D Pool (USA).gba",
-    files: [],
+    files,
     user_saves: saves,
     all_user_states: states.map((state) => ({ ...state, username: "admin" })),
     user_screenshots: [],
@@ -256,6 +262,7 @@ async function launch(opts: {
   imports?: ("save" | "state")[];
   // The backend's answer; every state is native unless a test says otherwise.
   picks?: StreamStatePicksSchema | Error | Promise<StreamStatePicksSchema>;
+  files?: RomFileSchema[];
 }): Promise<VueWrapper> {
   mocks.container = {
     name: "WEBSTATION-DEV",
@@ -268,7 +275,7 @@ async function launch(opts: {
     supports_multiplayer: false,
   };
   mocks.getRom.mockResolvedValue({
-    data: romWith(opts.saves ?? ARCHIVES, opts.states),
+    data: romWith(opts.saves ?? ARCHIVES, opts.states, opts.files),
   });
   const ids = (opts.states ?? []).map((state) => state.id);
   const picks = opts.picks ?? { native: ids, pickable: ids };
@@ -671,6 +678,45 @@ async function launchFailed(
     ...payload,
   });
 }
+
+const DISCS = [
+  romFileFixture({ id: 101, file_name: "Pool (Disc 1).chd" }),
+  romFileFixture({ id: 102, file_name: "Pool (Disc 2).chd" }),
+];
+
+function discSelect(wrapper: VueWrapper) {
+  return wrapper
+    .findAllComponents(RSelect)
+    .find((s) => propOf(s, "prependInnerIcon") === "mdi-disc");
+}
+
+describe("Stream starting disc", () => {
+  beforeEach(() => {
+    mocks.claimSession.mockResolvedValue(CLAIM);
+  });
+
+  it("offers no disc pick for a single-file game", async () => {
+    const wrapper = await launch({ picker: false });
+
+    expect(discSelect(wrapper)).toBeUndefined();
+  });
+
+  it("leaves the disc to the backend until one is picked", async () => {
+    const wrapper = await launch({ picker: false, files: DISCS });
+
+    expect(discSelect(wrapper)).toBeDefined();
+    await (wrapper.vm as unknown as { onPlay: () => Promise<void> }).onPlay();
+    expect(mocks.claimSession.mock.calls[0]![6]).toBeUndefined();
+  });
+
+  it("sends the picked disc on the claim", async () => {
+    const wrapper = await launch({ picker: false, files: DISCS });
+
+    await discSelect(wrapper)!.vm.$emit("update:modelValue", 102);
+    await (wrapper.vm as unknown as { onPlay: () => Promise<void> }).onPlay();
+    expect(mocks.claimSession.mock.calls[0]![6]).toBe(102);
+  });
+});
 
 describe("Stream session-ended notices", () => {
   beforeEach(() => {
