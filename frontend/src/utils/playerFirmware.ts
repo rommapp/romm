@@ -78,14 +78,15 @@ export function keepArcadeBiosWhole(emulator: ArcadeBiosEmulator): void {
   // EmulatorJS 4.2.3 (the build with downloadGameFile) unpacks every BIOS
   // archive, but these cores only find a romset like neogeo.zip as a zip.
   if (typeof emulator.downloadGameFile !== "function") return;
-  if (!["arcade", "mame"].includes(emulator.getCore(true))) return;
+  // same_cdi is MAME-based and looks for cdimono1.zip the same way.
+  if (!["arcade", "mame", "same_cdi"].includes(emulator.getCore(true))) return;
 
   const { biosUrl } = emulator.config;
   const name = biosUrl?.split("/").pop()?.split(/[?#]/)[0];
   if (!biosUrl || !name || !ARCHIVE_EXTENSION.test(name)) return;
 
   // EJS_externalFiles writes an archive raw on 4.2.3. The root is the content
-  // directory the game zip sits in, which both cores search.
+  // directory the game sits in, which these cores search.
   emulator.config.externalFiles = {
     ...emulator.config.externalFiles,
     [`/${name}`]: biosUrl,
