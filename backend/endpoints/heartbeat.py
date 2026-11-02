@@ -69,7 +69,7 @@ from handler.metadata import (
     meta_tgdb_handler,
 )
 from handler.redis_handler import sync_cache
-from handler.scan_handler import MetadataSource
+from handler.scan.sources import MetadataSource
 from logger.logger import log
 from utils import get_git_branch, get_version
 from utils.platforms import get_supported_platforms

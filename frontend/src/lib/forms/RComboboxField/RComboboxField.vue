@@ -27,7 +27,7 @@ import {
   useFloating,
 } from "@floating-ui/vue";
 import type { Placement } from "@floating-ui/vue";
-import { computed, nextTick, ref, useId, useSlots, watch } from "vue";
+import { computed, nextTick, ref, useAttrs, useId, useSlots, watch } from "vue";
 import { usePopoverDismiss } from "@/composables/usePopoverDismiss";
 import { useChromeLabels } from "@/lib/a11y/chromeLabels";
 import RIcon from "@/lib/primitives/RIcon/RIcon.vue";
@@ -102,6 +102,8 @@ void slots;
 // Generate an id once so every consumer gets a stable label↔input
 // association without forcing them to pass an id prop.
 const inputId = useId();
+const listboxId = `${inputId}-listbox`;
+const optionId = (i: number) => `${inputId}-opt-${i}`;
 
 // ── State ──────────────────────────────────────────────────────
 const inputRef = ref<HTMLInputElement | null>(null);
@@ -129,6 +131,21 @@ const suggestions = computed(() => {
 });
 
 const hasSuggestions = computed(() => suggestions.value.length > 0);
+const panelOpen = computed(() => isOpen.value && hasSuggestions.value);
+
+const activeOptionId = computed(() =>
+  panelOpen.value && suggestions.value[activeIndex.value]
+    ? optionId(activeIndex.value)
+    : undefined,
+);
+
+const attrs = useAttrs();
+const listboxName = computed(
+  () =>
+    props.label ??
+    (attrs["aria-label"] as string | undefined) ??
+    props.placeholder,
+);
 
 // ── Floating panel ─────────────────────────────────────────────
 const placement: Placement = "bottom-start";
@@ -278,11 +295,10 @@ function pickSuggestion(item: string) {
   void nextTick(() => focusFromInput(inputRef.value));
 }
 
-usePopoverDismiss(
-  computed(() => isOpen.value && hasSuggestions.value),
-  closePanel,
-  { reference: () => fieldRef.value, panel: () => panelRef.value },
-);
+usePopoverDismiss(panelOpen, closePanel, {
+  reference: () => fieldRef.value,
+  panel: () => panelRef.value,
+});
 
 // Reset active highlight when the suggestion set changes.
 watch(suggestions, () => {
@@ -397,6 +413,11 @@ const showDetails = computed(
           v-bind="$attrs"
           type="text"
           class="r-combobox-field__input"
+          :role="noSuggestions ? undefined : 'combobox'"
+          :aria-autocomplete="noSuggestions ? undefined : 'list'"
+          :aria-expanded="noSuggestions ? undefined : panelOpen"
+          :aria-controls="panelOpen ? listboxId : undefined"
+          :aria-activedescendant="activeOptionId"
           :value="query"
           :placeholder="!chips.length ? placeholder : undefined"
           :disabled="disabled"
@@ -427,20 +448,25 @@ const showDetails = computed(
     <Teleport to="body">
       <Transition name="r-combobox-pop">
         <div
-          v-if="isOpen && hasSuggestions"
+          v-if="panelOpen"
           ref="panelRef"
           class="r-combobox-field__panel"
           :style="floatingStyles"
-          role="listbox"
         >
           <!-- Listbox items: keyboard activation is handled by the
                input's ArrowDown / Enter wiring, not by per-item key
                handlers. The lint rule expects per-item keydown which
                isn't the listbox pattern. -->
-          <ul class="r-combobox-field__list">
+          <ul
+            :id="listboxId"
+            class="r-combobox-field__list"
+            role="listbox"
+            :aria-label="listboxName"
+          >
             <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events, vuejs-accessibility/mouse-events-have-key-events, vuejs-accessibility/interactive-supports-focus -->
             <li
               v-for="(item, i) in suggestions"
+              :id="optionId(i)"
               :key="item"
               role="option"
               class="r-combobox-field__item"

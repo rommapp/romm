@@ -32,7 +32,7 @@
 //   * Controller-test screen (ACTIONS_DISABLED_PATHS): built-in actions
 //     are muted so every button can be pressed and inspected in place.
 import { useEventListener, useRafFn } from "@vueuse/core";
-import { onBeforeUnmount } from "vue";
+import { nextTick, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useInputModality } from "@/composables/useInputModality";
 import {
@@ -41,8 +41,7 @@ import {
 } from "@/composables/useNavDestinations";
 import { hasOpenEscapable } from "@/lib/overlays/RDialog/escapeStack.js";
 import storePlaying from "@/stores/playing";
-import { isEditable } from "@/utils/editable";
-import { isUsablePad } from "@/utils/gamepad";
+import { isUsablePad, padActivationTarget } from "@/utils/gamepad";
 
 // Routes where useGamepad's built-in actions (back, activate, section
 // nav, user menu) must NOT fire, so every button stays inspectable in
@@ -188,15 +187,12 @@ export function useGamepad() {
     if (next.to !== route.path) void router.push(next.to);
   }
 
-  // Activates the currently focused element. Router-links, submit
-  // buttons, custom [role=button] divs all navigate/trigger via .click()
-  // regardless of whether the event was trusted: that's the escape
-  // hatch synthetic KeyboardEvents don't give us.
+  // A is polled before the D-pad, so wait for that poll's arrows to queue
+  // their render, then for the render, before reading the active option.
   function activateFocused() {
-    const active = document.activeElement;
-    // Pressing A inside a field shouldn't re-submit the form on every press.
-    if (!(active instanceof HTMLElement) || isEditable(active)) return;
-    active.click();
+    queueMicrotask(() => {
+      void nextTick(() => padActivationTarget(document.activeElement)?.click());
+    });
   }
 
   // Opens the app-wide user menu. UserMenu.vue marks its activator with

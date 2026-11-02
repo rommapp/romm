@@ -228,6 +228,10 @@ backend/
 │
 ├── handler/                   # Business logic layer
 │   ├── scan_handler.py        # Library scan orchestration
+│   ├── scan/                  # What scan_handler builds on
+│   │   ├── sources.py         # Scan types, metadata sources, rescan rules, priority
+│   │   ├── lookups.py         # One rom's lookups against each source
+│   │   └── merge.py           # Merging the sources' answers into a rom's columns
 │   ├── socket_handler.py      # Socket.IO server management
 │   ├── netplay_handler.py     # Netplay room state
 │   ├── redis_handler.py       # Redis clients & queues
@@ -323,6 +327,7 @@ backend/
 │   └── manual/                # On-demand tasks
 │       ├── cleanup_missing_roms.py       # Drop DB entries for missing files
 │       ├── convert_library.py            # Store matched ROMs in each platform's library format
+│       ├── recompute_name_sort_keys.py   # Re-derive sort keys after `sorting.articles` changes
 │       ├── cleanup_orphaned_resources.py # Remove unreferenced artwork
 │       └── sync_folder_scan.py           # Scan sync folder for new saves
 │
@@ -1340,7 +1345,7 @@ Endpoints also check the caller's permission group (`handler/auth/permissions.py
 
 ### 8.1 Scan Handler (`handler/scan_handler.py`)
 
-The core of RomM. Orchestrates library scanning and metadata enrichment.
+The core of RomM. Orchestrates library scanning and metadata enrichment. The scan types, metadata sources and rescan rules live in `handler/scan/sources.py`, the per-source lookups in `handler/scan/lookups.py`, and the merge of their answers into a rom's columns in `handler/scan/merge.py`.
 
 **Scan Types:**
 
@@ -1761,11 +1766,12 @@ Toggled via environment variables:
 
 Triggered via `POST /api/tasks/run/{task_name}`, which enqueues on `low_prio_queue` and answers 503 when no live worker is listening on it:
 
-| Task                   | Description                                                                           |
-| ---------------------- | ------------------------------------------------------------------------------------- |
-| `cleanup_missing_roms` | Remove DB entries for files no longer on disk                                         |
-| `sync_folder_scan`     | Scan sync folder for new device saves                                                 |
-| `convert_library`      | Convert matched ROMs to `converto.platform_formats` in place, replacing the originals |
+| Task                       | Description                                                                                                                       |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `cleanup_missing_roms`     | Remove DB entries for files no longer on disk                                                                                     |
+| `sync_folder_scan`         | Scan sync folder for new device saves                                                                                             |
+| `convert_library`          | Convert matched ROMs to `converto.platform_formats` in place, replacing the originals                                             |
+| `recompute_name_sort_keys` | Re-derive ROM sort keys with the articles `sorting.articles` names, keeping custom keys. Queued at startup when that list changes |
 
 A spec marked `destructive` asks for a typed confirmation before the UI runs it, and one marked `single_instance` answers 409 while a job of it is queued or running. `convert_library` is both, and runs only with `ROM_CONVERTO_ENABLED` set.
 
@@ -1964,6 +1970,7 @@ Falls back to `FakeRedis` in test mode.
 | `OIDC_TLS_CACERTFILE`           |                      | Custom CA bundle for OIDC calls |
 | `OIDC_RP_INITIATED_LOGOUT`      | `false`              | Send logout to OIDC provider    |
 | `OIDC_END_SESSION_ENDPOINT`     |                      | End-session URL override        |
+| `OIDC_AUTH_PARAMS`              |                      | JSON of extra authorize params  |
 
 #### API Keys
 

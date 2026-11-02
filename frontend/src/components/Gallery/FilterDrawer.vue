@@ -33,7 +33,7 @@ import {
   RDrawer,
   RIcon,
   RSelect,
-  RSliderBtnGroup,
+  RSegmentedControl,
   RTag,
   RTextField,
 } from "@/lib";
@@ -137,7 +137,7 @@ const providerTitle = (slug: string): string =>
   providerLabels.get(slug) ?? slug;
 
 // ── Tri-state mapping helpers ──────────────────────────────────
-// The RSliderBtnGroup speaks string ids; the store speaks `boolean | null`.
+// The RSegmentedControl speaks string ids; the store speaks `boolean | null`.
 // One helper makes the binding bidirectional in a few lines.
 type TriValue = "all" | "yes" | "no";
 function triFor(v: boolean | null): TriValue {
@@ -577,7 +577,7 @@ function saveAsSmartCollection() {
             <RIcon :icon="cfg.icon" size="16" />
             <span>{{ cfg.label }}</span>
           </span>
-          <RSliderBtnGroup
+          <RSegmentedControl
             :model-value="triFor(cfg.value.value)"
             :items="triItems(cfg)"
             size="small"
@@ -633,7 +633,7 @@ function saveAsSmartCollection() {
               {{ s.label }}
             </template>
           </RSelect>
-          <RSliderBtnGroup
+          <RSegmentedControl
             :model-value="s.logic.value"
             :items="LOGIC_ITEMS"
             size="small"

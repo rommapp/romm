@@ -16,11 +16,11 @@ import asyncio
 import json
 import secrets
 import time
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Mapping
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from enum import Enum, auto
-from typing import Any, NamedTuple, cast
+from typing import Any, NamedTuple, TypedDict, cast
 
 from redis.exceptions import WatchError
 
@@ -77,6 +77,35 @@ def session_redis_key(session_key: str) -> str:
     return f"{SESSION_KEY_PREFIX}{session_key}"
 
 
+class StoredDiscSwap(TypedDict):
+    file_id: int
+    at: str
+
+
+class StreamingSession(TypedDict, total=False):
+    """A container's session record, of which a drain marker holds only
+    `draining` and `drain_token` and an older release's record any subset."""
+
+    user_id: int
+    broker_session_id: str
+    rom_id: int | None
+    rom_name: str | None
+    platform: str
+    claimed_at: str
+    last_seen: str
+    launched_at: str
+    multiplayer: bool
+    memory_card_id: int | None
+    desktop: bool
+    host: str
+    core: str | None
+    core_tier: str | None
+    disc_file_id: int | None
+    disc_swaps: list[StoredDiscSwap]
+    draining: bool
+    drain_token: str
+
+
 # A claim reads whether the player already holds a session on the platform and
 # only then reserves a container, two round trips a second claim from the same
 # player can slip between. The gate below makes the pair atomic per player and
@@ -108,19 +137,19 @@ async def claim_gate(platform: str, user_id: int) -> AsyncIterator[bool]:
             await async_cache.delete(key)
 
 
-async def get_session(session_key: str) -> dict[str, Any] | None:
+async def get_session(session_key: str) -> StreamingSession | None:
     raw = await async_cache.get(session_redis_key(session_key))
     if raw is None:
         return None
     try:
-        return cast(dict[str, Any] | None, json.loads(raw))
+        return cast(StreamingSession | None, json.loads(raw))
     except TypeError, json.JSONDecodeError:
         # Corrupt entry, drop it rather than wedging the container forever.
         await async_cache.delete(session_redis_key(session_key))
         return None
 
 
-async def get_live_session(session_key: str) -> dict[str, Any] | None:
+async def get_live_session(session_key: str) -> StreamingSession | None:
     """The session occupying a container, or None when nobody holds it.
 
     A drain marker holds the key while a teardown finishes: it has no owner and
@@ -139,7 +168,7 @@ async def iter_session_keys() -> AsyncIterator[str]:
         yield as_text(key).removeprefix(SESSION_KEY_PREFIX)
 
 
-async def iter_live_sessions() -> AsyncIterator[tuple[str, dict[str, Any]]]:
+async def iter_live_sessions() -> AsyncIterator[tuple[str, StreamingSession]]:
     """Every occupied container, as (container key, session). Unreadable rows
     and drain markers are skipped, so listing routes never re-decide either."""
     async for container_key in iter_session_keys():
@@ -190,8 +219,8 @@ class _SessionWrite(NamedTuple):
 
 async def cas_session(
     session_key: str,
-    plan: Callable[[dict[str, Any]], _SessionWrite | None],
-) -> tuple[_CasOutcome, dict[str, Any] | None]:
+    plan: Callable[[StreamingSession], _SessionWrite | None],
+) -> tuple[_CasOutcome, StreamingSession | None]:
     """Run `plan` against the session at `session_key` and apply what it asks
     for, atomically.
 
@@ -217,14 +246,15 @@ async def cas_session(
                 await pipe.unwatch()
                 return _CasOutcome.MISSING, None
             try:
-                session = json.loads(raw)
+                decoded = json.loads(raw)
             except TypeError, json.JSONDecodeError:
-                session = None
-            if not isinstance(session, dict):
+                decoded = None
+            if not isinstance(decoded, dict):
                 await pipe.unwatch()
                 # Drop it rather than wedging the container until the TTL.
                 await async_cache.delete(key)
                 return _CasOutcome.CORRUPT, None
+            session = cast(StreamingSession, decoded)
             write = plan(session)
             if write is None:
                 await pipe.unwatch()
@@ -250,10 +280,10 @@ async def cas_session(
 
 async def mutate_session(
     session_key: str,
-    changes: dict[str, Any] | Callable[[dict[str, Any]], dict[str, Any]],
+    changes: StreamingSession | Callable[[StreamingSession], StreamingSession],
     *,
-    require: Callable[[dict[str, Any]], bool] | None = None,
-) -> dict[str, Any] | None:
+    require: Callable[[StreamingSession], bool] | None = None,
+) -> StreamingSession | None:
     """Merge `changes` into a live session, atomically. A callable builds them
     from the session as it stands, so they can extend what is stored.
 
@@ -262,7 +292,7 @@ async def mutate_session(
     never landed, which is not the same as the key being gone.
     """
 
-    def plan(session: dict[str, Any]) -> _SessionWrite | None:
+    def plan(session: StreamingSession) -> _SessionWrite | None:
         if require is not None and not require(session):
             return None
         session.update(changes(session) if callable(changes) else changes)
@@ -272,7 +302,7 @@ async def mutate_session(
     return session if outcome is _CasOutcome.WROTE else None
 
 
-def session_platform_matches(session: dict[str, Any], platform: str) -> bool:
+def session_platform_matches(session: Mapping[str, object], platform: str) -> bool:
     """Whether a session was claimed for this platform, a record from before the
     field existed matching anything so an upgrade cannot strand one."""
     stored = session.get("platform")
@@ -281,12 +311,12 @@ def session_platform_matches(session: dict[str, Any], platform: str) -> bool:
     return stored.lower() == platform.lower()
 
 
-def session_is_desktop(session: dict[str, Any]) -> bool:
+def session_is_desktop(session: Mapping[str, object]) -> bool:
     """Whether a session is an admin desktop rather than a game."""
     return bool(session.get("desktop"))
 
 
-def same_claim(session: dict[str, Any], claim: dict[str, Any]) -> bool:
+def same_claim(session: StreamingSession, claim: StreamingSession) -> bool:
     """Whether a session read back is still the one a route resolved. Identity is
     the holder plus the moment they took it, so a re-claim by the same user does
     not pass for the claim it replaced."""
@@ -299,7 +329,7 @@ def same_claim(session: dict[str, Any], claim: dict[str, Any]) -> bool:
 
 async def replace_session_if(
     session_key: str,
-    require: Callable[[dict[str, Any]], bool],
+    require: Callable[[StreamingSession], bool],
     value: str | None,
     ttl: int | None = None,
 ) -> bool:
@@ -327,13 +357,13 @@ def drain_marker(token: str) -> str:
     return json.dumps({"draining": True, "drain_token": token})
 
 
-def _holds_marker(token: str) -> Callable[[dict[str, Any]], bool]:
+def _holds_marker(token: str) -> Callable[[StreamingSession], bool]:
     """Whether a session key still holds the drain marker `token` wrote."""
     return lambda current: current.get("drain_token") == token
 
 
 async def claim_drain_marker(
-    session_key: str, claim: dict[str, Any], ttl: int = DRAIN_MARKER_TTL
+    session_key: str, claim: StreamingSession, ttl: int = DRAIN_MARKER_TTL
 ) -> str | None:
     """Replace a session with a drain marker, while the key still holds the claim
     that is exiting.
@@ -394,7 +424,7 @@ async def hold_drain_marker(session_key: str, token: str) -> None:
             return
 
 
-async def hold_session_claim(session_key: str, claim: dict[str, Any]) -> None:
+async def hold_session_claim(session_key: str, claim: StreamingSession) -> None:
     """Keep a claim's liveness stamp current for as long as work runs under it.
 
     For the paths where a drain marker could not be written and the claim itself
@@ -428,7 +458,7 @@ async def hold_session_claim(session_key: str, claim: dict[str, Any]) -> None:
 
 async def stamp_launched(
     session_key: str,
-    claim: dict[str, Any],
+    claim: StreamingSession,
     host: str | None,
     core: str | None = None,
     core_tier: str | None = None,
@@ -481,7 +511,7 @@ async def drop_drain_marker(session_key: str, token: str) -> None:
 
 
 async def restore_drained_session(
-    session_key: str, token: str, session: dict[str, Any]
+    session_key: str, token: str, session: StreamingSession
 ) -> None:
     """Put `session` back in place of the drain marker `token` wrote, while it is still there."""
     try:
@@ -495,7 +525,7 @@ async def restore_drained_session(
         log.warning("could not restore the session on %s", session_key)
 
 
-async def release_own_session(session_key: str, claim: dict[str, Any]) -> bool:
+async def release_own_session(session_key: str, claim: StreamingSession) -> bool:
     """Free a container, while the key still holds the claim being released.
 
     Save-and-exit blocks on the broker for as long as the emulator takes to
@@ -530,7 +560,7 @@ async def set_session_disc(
     the swap the player asked for.
     """
 
-    def _still_the_same_claim(session: dict[str, Any]) -> bool:
+    def _still_the_same_claim(session: StreamingSession) -> bool:
         if session.get("draining"):
             return False
         return (
@@ -540,7 +570,7 @@ async def set_session_disc(
 
     at = datetime.now(timezone.utc).isoformat()
 
-    def _swapped(session: dict[str, Any]) -> dict[str, Any]:
+    def _swapped(session: StreamingSession) -> StreamingSession:
         swaps = session.get("disc_swaps")
         history = swaps if isinstance(swaps, list) else []
         return {
@@ -558,13 +588,13 @@ async def set_session_disc(
         log.warning("could not record disc %s on session %s", file_id, session_key)
 
 
-def broker_session_id(session: dict[str, Any]) -> str | None:
+def broker_session_id(session: StreamingSession) -> str | None:
     """The id activate gave the broker, absent on sessions claimed before it."""
     value = session.get("broker_session_id")
     return str(value) if value else None
 
 
-def session_disc_id(session: dict[str, Any]) -> int | None:
+def session_disc_id(session: StreamingSession) -> int | None:
     """The disc a swap put this session on, if any."""
     value = session.get("disc_file_id")
     return value if isinstance(value, int) else None
@@ -575,7 +605,7 @@ class DiscSwap(NamedTuple):
     at: datetime
 
 
-def session_disc_swaps(session: dict[str, Any]) -> list[DiscSwap]:
+def session_disc_swaps(session: StreamingSession) -> list[DiscSwap]:
     """The discs this session's swaps put in the tray, oldest first."""
     swaps = session.get("disc_swaps")
     history: list[DiscSwap] = []
@@ -589,7 +619,7 @@ def session_disc_swaps(session: dict[str, Any]) -> list[DiscSwap]:
     return history
 
 
-def session_is_stale(session: dict[str, Any]) -> bool:
+def session_is_stale(session: StreamingSession) -> bool:
     """True when the owner's heartbeat stopped long enough ago that the session
     counts as abandoned. Sessions written before heartbeats existed carry no
     `last_seen`; their `claimed_at` stands in. An unparseable stamp counts as
@@ -620,7 +650,7 @@ async def in_restart_grace() -> bool:
     return bool(await async_cache.exists(_RESTART_GRACE_KEY))
 
 
-async def get_abandoned_session(session_key: str) -> dict[str, Any] | None:
+async def get_abandoned_session(session_key: str) -> StreamingSession | None:
     """The claim on `session_key` when its heartbeat went stale, never a drain marker."""
     session = await get_live_session(session_key)
     if session is None or not session_is_stale(session):
@@ -644,7 +674,7 @@ def _termination_redis_key(session_key: str, user_id: int) -> str:
 
 
 async def record_termination(
-    session: dict[str, Any],
+    session: StreamingSession,
     session_key: str,
     *,
     ended_by: str | None,

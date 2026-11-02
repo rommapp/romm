@@ -1,10 +1,12 @@
 from unittest.mock import MagicMock
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from authlib.integrations.starlette_client.apps import StarletteOAuth2App
 from fastapi import HTTPException, status
 from joserfc.jwt import Token
 
+from decorators.auth import oauth
 from handler.auth.base_handler import OpenIDHandler
 from handler.database import db_user_handler
 from models.user import TEXT_FIELD_LENGTH, Role, User
@@ -1006,3 +1008,18 @@ async def test_oidc_registration_stores_the_identity(
     assert user is not None
     assert user.oidc_sub == "sub-1"
     assert db_user_handler.get_user_by_oidc_identity(ISSUER, "sub-1") is not None
+
+
+async def test_authorize_url_carries_extra_auth_params(mocker, mock_discovery):
+    mocker.patch.object(oauth.openid, "authorize_params", {"prompt": "select_account"})
+
+    first = await oauth.openid.create_authorization_url("https://romm.test/cb")
+    second = await oauth.openid.create_authorization_url("https://romm.test/cb")
+
+    query = parse_qs(urlsplit(first["url"]).query)
+    assert query["prompt"] == ["select_account"]
+    assert query["code_challenge_method"] == ["S256"]
+    assert query["state"] == [first["state"]]
+    assert query["nonce"] == [first["nonce"]]
+    assert first["state"] != second["state"]
+    assert first["nonce"] != second["nonce"]

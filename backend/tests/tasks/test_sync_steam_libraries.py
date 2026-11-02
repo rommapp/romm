@@ -5,7 +5,7 @@ import pytest
 from endpoints.sockets.scan import ScanPayload
 from exceptions.socket_exceptions import NoScanWorkerException
 from handler.database import db_user_handler
-from handler.scan_handler import ScanType
+from handler.scan.sources import ScanType
 from handler.steam_library_handler import SteamLibraryError, SteamSyncResult
 from models.user import User
 from tasks.scheduled.sync_steam_libraries import SyncSteamLibrariesTask

@@ -4,6 +4,7 @@ import os
 import struct
 import threading
 import zlib
+from collections.abc import Container
 from io import BytesIO
 from pathlib import Path
 from typing import Any, cast
@@ -19,6 +20,7 @@ from tests.utils.test_images import (
     FRAME_SIZE,
     animated_image_bytes,
     encode_animation,
+    jxl_image_bytes,
     truncated_animation_bytes,
 )
 
@@ -40,7 +42,7 @@ from handler.filesystem.resources_handler import (
 )
 from models.collection import Collection
 from models.rom import Rom
-from utils.images import frame_durations
+from utils.images import WEBP_QUALITY, frame_durations
 from utils.rate_limiter import ConcurrencyLimiter, RateLimiter
 
 
@@ -279,7 +281,7 @@ class TestFSResourcesHandler:
         mock_image.resize.assert_called_once_with((expected_width, expected_height))
         mock_image.save.assert_called_once_with(save_path)
 
-    @pytest.mark.parametrize("fmt", ["GIF", "PNG", "WEBP"])
+    @pytest.mark.parametrize("fmt", ["GIF", "PNG", "WEBP", "AVIF"])
     def test_resize_cover_to_small_keeps_animation(
         self, handler: FSResourcesHandler, tmp_path: Path, fmt: str
     ):
@@ -294,10 +296,22 @@ class TestFSResourcesHandler:
             assert small.size == SMALL_FRAME_SIZE
             assert frame_durations(small) == DURATIONS
 
+    def test_resize_cover_to_small_encodes_animation_at_the_webp_quality(
+        self, handler: FSResourcesHandler, tmp_path: Path
+    ):
+        with (
+            Image.open(BytesIO(animated_image_bytes("GIF"))) as img,
+            patch.object(Image.Image, "save", autospec=True) as save,
+        ):
+            handler.resize_cover_to_small(img, save_path=str(tmp_path / "small.png"))
+
+        assert save.call_args.kwargs["quality"] == WEBP_QUALITY
+
     @pytest.mark.parametrize(
         "fmt, source_params",
         [
             ("GIF", {"disposal": 2}),
+            ("AVIF", {}),
             ("PNG", {"blend": [Blend.OP_OVER, Blend.OP_SOURCE, Blend.OP_SOURCE]}),
         ],
     )
@@ -359,6 +373,36 @@ class TestFSResourcesHandler:
         with Image.open(tmp_path / path_cover_s) as small:
             assert small.format == "WEBP"
             assert frame_durations(small) == DURATIONS
+
+    async def test_store_artwork_reencodes_jpeg_xl_as_png(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+
+        with patch(
+            "handler.filesystem.resources_handler.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP",
+            False,
+        ):
+            path_cover_l, path_cover_s = await handler.store_artwork(
+                rom, BytesIO(jxl_image_bytes()), "png"
+            )
+
+        assert path_cover_l is not None and path_cover_l.endswith("big.png")
+        assert path_cover_s is not None
+        with Image.open(tmp_path / path_cover_l) as big:
+            assert big.format == "PNG"
+            assert big.size == FRAME_SIZE
+        assert (tmp_path / path_cover_s).is_file()
+
+    async def test_store_artwork_rejects_a_corrupt_jpeg_xl(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+        data = jxl_image_bytes()
+
+        paths = await handler.store_artwork(rom, BytesIO(data[: len(data) // 2]), "png")
+
+        assert paths == (None, None)
 
     def test_get_cover_path_no_cover(
         self, handler: FSResourcesHandler, rom: Rom, tmp_path
@@ -525,6 +569,55 @@ class TestFSResourcesHandler:
                 f"{rom.fs_resources_path}/screenshots/1.jpg",
             ]
             assert result == expected_paths
+
+    @pytest.mark.asyncio
+    async def test_get_rom_screenshots_leaves_indexes_past_a_shorter_list(
+        self, handler: FSResourcesHandler, rom, tmp_path
+    ):
+        handler.base_path = tmp_path
+        directory = tmp_path / f"{rom.fs_resources_path}/screenshots"
+        directory.mkdir(parents=True)
+        for name in ("0.jpg", "1.jpg"):
+            (directory / name).write_bytes(b"jpeg")
+
+        with patch.object(handler, "_store_screenshot", return_value=True):
+            result = await handler.get_rom_screenshots(
+                rom, True, ["http://example.com/only.jpg"]
+            )
+
+        assert result == [f"{rom.fs_resources_path}/screenshots/0.jpg"]
+        assert (directory / "1.jpg").exists()
+
+    @pytest.mark.asyncio
+    async def test_remove_screenshots_past_removes_only_numbered_leftovers(
+        self, handler: FSResourcesHandler, rom, tmp_path
+    ):
+        handler.base_path = tmp_path
+        directory = tmp_path / f"{rom.fs_resources_path}/screenshots"
+        directory.mkdir(parents=True)
+        for name in ("0.jpg", "1.jpg", "2.jpg", "cover.jpg"):
+            (directory / name).write_bytes(b"jpeg")
+
+        await handler.remove_screenshots_past(rom, 1)
+
+        assert sorted(path.name for path in directory.iterdir()) == [
+            "0.jpg",
+            "cover.jpg",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_remove_screenshots_past_survives_a_leftover_it_cannot_remove(
+        self, handler: FSResourcesHandler, rom, tmp_path
+    ):
+        handler.base_path = tmp_path
+        directory = tmp_path / f"{rom.fs_resources_path}/screenshots"
+        directory.mkdir(parents=True)
+        (directory / "1.jpg").write_bytes(b"jpeg")
+
+        with patch.object(handler, "remove_file", side_effect=PermissionError("ro")):
+            await handler.remove_screenshots_past(rom, 1)
+
+        assert (directory / "1.jpg").exists()
 
     def test_manual_exists_no_manual(self, handler: FSResourcesHandler, rom: Rom):
         """Test manual_exists when no manual exists"""
@@ -1502,9 +1595,12 @@ class TestRemoveStaleMedia:
         handler: FSResourcesHandler,
         previous: list[dict[str, Any] | None],
         current: list[dict[str, Any] | None],
+        refetched: list[Container[MetadataMediaType]] | None = None,
     ) -> None:
         await handler.remove_stale_media(
-            previous, current, [MetadataMediaType.PHYSICAL]
+            previous,
+            current,
+            refetched or [list(MetadataMediaType)] * len(current),
         )
 
     @pytest.mark.asyncio
@@ -1591,6 +1687,39 @@ class TestRemoveStaleMedia:
         )
 
         assert not (tmp_path / self.shared).exists()
+
+    @pytest.mark.asyncio
+    async def test_removes_a_type_that_left_the_preferences(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        # A provider records no path for a type that is no longer preferred.
+        fanart = "roms/1/1/fanart/fanart.png"
+        self._write(tmp_path, fanart)
+
+        await self._remove(
+            handler,
+            [{"fanart_url": "http://ss/fanart.png", "fanart_path": fanart}],
+            [{"fanart_url": "http://ss/fanart.png", "fanart_path": None}],
+        )
+
+        assert not (tmp_path / fanart).exists()
+
+    @pytest.mark.asyncio
+    async def test_keeps_a_file_whose_new_owner_wont_refetch_it(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        # Gamelist still records the path but isn't stored this pass.
+        self._write(tmp_path, self.shared)
+        gamelist = self._physical("file://gamelist.png")
+
+        await self._remove(
+            handler,
+            [self._physical("http://ss/disc1.png"), gamelist],
+            [{}, gamelist],
+            [list(MetadataMediaType), []],
+        )
+
+        assert (tmp_path / self.shared).exists()
 
 
 class TestRemoveRecordedMedia:
@@ -1720,7 +1849,7 @@ class TestDiskFullHandling:
         return rom
 
     @pytest.mark.asyncio
-    async def test_discard_partial_file_removes_file(
+    async def test_discard_file_removes_file(
         self, handler: FSResourcesHandler, tmp_path
     ):
         handler.base_path = tmp_path
@@ -1728,19 +1857,19 @@ class TestDiskFullHandling:
         (tmp_path / rel).parent.mkdir(parents=True)
         (tmp_path / rel).write_bytes(b"truncated")
 
-        await handler._discard_partial_file(rel)
+        await handler._discard_file(rel)
 
         assert not (tmp_path / rel).exists()
 
     @pytest.mark.asyncio
-    async def test_discard_partial_file_missing_is_noop(
+    async def test_discard_file_missing_is_noop(
         self, handler: FSResourcesHandler, tmp_path
     ):
         handler.base_path = tmp_path
-        await handler._discard_partial_file("roms/1/1/cover/big.png")
+        await handler._discard_file("roms/1/1/cover/big.png")
 
     @pytest.mark.asyncio
-    async def test_discard_partial_file_survives_removal_failure(
+    async def test_discard_file_survives_removal_failure(
         self, handler: FSResourcesHandler, tmp_path
     ):
         # Cleanup runs inside an error path, so it must never mask the
@@ -1751,7 +1880,7 @@ class TestDiskFullHandling:
         (tmp_path / rel).write_bytes(b"truncated")
 
         with patch.object(handler, "remove_file", side_effect=OSError("read-only")):
-            await handler._discard_partial_file(rel)
+            await handler._discard_file(rel)
 
     @pytest.mark.asyncio
     async def test_store_cover_discards_partial_download(
@@ -1801,6 +1930,39 @@ class TestDiskFullHandling:
             await handler._store_cover(rom, "http://example.com/cover.png")
 
         assert target.read_bytes() == b"the good cover"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("webp", [False, True])
+    async def test_store_cover_replaces_a_cover_in_another_format(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path, webp: bool
+    ):
+        handler.base_path = tmp_path
+        cover_dir = tmp_path / "roms/1/1/cover"
+        cover_dir.mkdir(parents=True)
+        (cover_dir / "big.jpg").write_bytes(b"uploaded")
+        (cover_dir / "small.jpg").write_bytes(b"uploaded")
+        source = tmp_path / "new.png"
+        Image.new("RGB", (40, 60), "red").save(source)
+
+        with (
+            patch(
+                "handler.filesystem.resources_handler._resolve_local_file_uri",
+                return_value=source,
+            ),
+            patch(
+                "handler.filesystem.resources_handler.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP",
+                webp,
+            ),
+        ):
+            await handler._store_cover(rom, "file://new.png")
+
+        expected = {"big.png", "small.png"}
+        if webp:
+            expected |= {"big.webp", "small.webp"}
+        assert {p.name for p in cover_dir.iterdir()} == expected
+        assert handler._get_cover_path(rom, CoverSize.BIG) in {
+            f"roms/1/1/cover/{name}" for name in expected
+        }
 
     @pytest.mark.asyncio
     async def test_cancelled_download_leaves_no_temp_file(

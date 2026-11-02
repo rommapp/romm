@@ -375,7 +375,9 @@ def extract_metadata_from_gamelist_rom(
     family = family_elem.text if family_elem is not None and family_elem.text else None
     genre = genre_elem.text if genre_elem is not None and genre_elem.text else None
     players = (
-        players_elem.text if players_elem is not None and players_elem.text else None
+        players_elem.text.strip() or None
+        if players_elem is not None and players_elem.text
+        else None
     )
     md5 = md5_elem.text if md5_elem is not None and md5_elem.text else None
 
@@ -656,11 +658,14 @@ class GamelistHandler(MetadataHandler):
                 rom_metadata = extract_metadata_from_gamelist_rom(
                     game, platform, media_files, validate_path
                 )
-                name_sort_key = compute_name_sort_key(sort_name) if sort_name else None
+                name_sort_key = (
+                    compute_name_sort_key(sort_name, articles=()) if sort_name else None
+                )
                 rom_data = GamelistRom(
                     gamelist_id=str(uuid.uuid4()),
                     name=name,
                     name_sort_key=name_sort_key,
+                    name_sort_key_custom=name_sort_key is not None,
                     summary=summary,
                     regions=regions,
                     languages=languages,

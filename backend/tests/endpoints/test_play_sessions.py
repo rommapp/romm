@@ -5,6 +5,7 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from main import app
+from rq.exceptions import DuplicateJobError
 from tests.audit_events import recorded_events
 from tests.factories import make_device_token, make_rom
 
@@ -18,6 +19,7 @@ from handler.database import (
 )
 from handler.database.audit_events_handler import AuditEventFilters
 from handler.database.base_handler import sync_session
+from handler.redis_handler import low_prio_queue
 from models.device import Device
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
@@ -103,6 +105,41 @@ class TestPlaySessionIngest:
         assert len(data["results"]) == 1
         assert data["results"][0]["status"] == "created"
         assert data["results"][0]["id"] is not None
+
+    @pytest.mark.parametrize("ra_id", [1234, None], ids=["ra_matched", "unmatched"])
+    def test_playing_an_ra_game_queues_a_progress_sync(
+        self, client, access_token: str, admin_user: User, rom: Rom, mocker, ra_id
+    ):
+        db_rom_handler.update_rom(rom.id, {"ra_id": ra_id})
+        enqueue = mocker.patch.object(low_prio_queue, "enqueue")
+
+        response = client.post(
+            "/api/play-sessions",
+            json=_ingest(sessions=[_session(rom_id=rom.id)]),
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        if ra_id is None:
+            enqueue.assert_not_called()
+        else:
+            enqueue.assert_called_once()
+            assert enqueue.call_args.kwargs["kwargs"] == {"user_id": admin_user.id}
+            assert enqueue.call_args.kwargs["unique"] is True
+
+    def test_a_queued_progress_sync_is_not_queued_twice(
+        self, client, access_token: str, rom: Rom, mocker
+    ):
+        db_rom_handler.update_rom(rom.id, {"ra_id": 1234})
+        mocker.patch.object(low_prio_queue, "enqueue", side_effect=DuplicateJobError)
+
+        response = client.post(
+            "/api/play-sessions",
+            json=_ingest(sessions=[_session(rom_id=rom.id)]),
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
 
     def test_batch_sessions(self, client, access_token: str, device: Device, rom: Rom):
         payload = _ingest(

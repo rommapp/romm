@@ -18,6 +18,7 @@
 import type { MediaShelfItem } from "@/components/GameDetails/MediaShelf.vue";
 import i18n from "@/locales";
 import type { DetailedRom } from "@/stores/roms";
+import { isRenderableImageExtension } from "@/utils/imageSupport";
 import { mediaKey } from "@/utils/mediaKeys";
 import { versionedResourceUrl, versionedRomFileUrl } from "@/utils/romFiles";
 
@@ -33,6 +34,7 @@ const LIBRARY_IMAGE_EXTENSIONS = new Set([
   "tif",
   "bmp",
   "avif",
+  "jxl",
 ]);
 const LIBRARY_VIDEO_EXTENSIONS = new Set(["mp4", "webm", "ogv", "mov", "m4v"]);
 
@@ -54,6 +56,11 @@ export function resolveRomArtwork(rom: DetailedRom): MediaShelfItem[] {
   const seen = new Set<string>();
   const out: MediaShelfItem[] = [];
   const extraDiscs = (ss?.physical_extra_discs ?? []).filter((d) => d.path);
+  // A still shown in each clip's box until it plays: the title screen, else
+  // the first screenshot.
+  const poster = ss?.title_screen_path
+    ? versionedResourceUrl(ss.title_screen_path, rom.updated_at)
+    : rom.merged_screenshots?.[0];
 
   const artworkDefs: ArtworkDef[] = [
     {
@@ -159,13 +166,19 @@ export function resolveRomArtwork(rom: DetailedRom): MediaShelfItem[] {
     .map((file) => {
       const ext = file.file_name.split(".").pop()?.toLowerCase() ?? "";
       const isVideo = LIBRARY_VIDEO_EXTENSIONS.has(ext);
-      if (!isVideo && !LIBRARY_IMAGE_EXTENSIONS.has(ext)) return null;
+      if (
+        !isVideo &&
+        !isRenderableImageExtension(ext, LIBRARY_IMAGE_EXTENSIONS)
+      ) {
+        return null;
+      }
 
       return {
         key: mediaKey.file(file.id),
         label: file.file_name.replace(/\.[^.]+$/, ""),
         url: versionedRomFileUrl(file),
         isVideo,
+        ...(isVideo && poster ? { poster } : {}),
       };
     })
     .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
@@ -182,6 +195,7 @@ export function resolveRomArtwork(rom: DetailedRom): MediaShelfItem[] {
         ? def.url
         : versionedResourceUrl(def.url, rom.updated_at),
       isVideo: def.isVideo ?? false,
+      ...(def.isVideo && poster ? { poster } : {}),
     });
   }
 

@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx2
 import pytest
 import pytest_asyncio
+from fastapi import HTTPException
 
 import config
 from adapters.services.igdb import (
@@ -45,10 +46,74 @@ from handler.metadata.igdb_handler import (
     get_igdb_preferred_locale,
 )
 from handler.redis_handler import as_text, async_cache
+from utils.arcade_platforms import ARCADE_PLATFORMS
 from utils.context import ctx_httpx_client
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 GENESIS_IGDB_ID = 29
+
+
+@pytest.mark.parametrize("slug, version", [("n64", False), ("zx-spectrum", True)])
+async def test_platform_launch_year_targets_platform_or_revision(slug, version):
+    handler = IGDBHandler()
+    with (
+        patch.object(handler, "is_enabled", return_value=True),
+        patch.object(
+            handler.igdb_service,
+            "platform_discovery",
+            new_callable=AsyncMock,
+            return_value={"first_release_year": 1996},
+        ) as lookup,
+    ):
+        assert await handler.get_platform_discovery(slug) == {
+            "first_release_year": 1996
+        }
+    assert lookup.await_args is not None
+    assert lookup.await_args.kwargs == {"version": version}
+
+
+async def test_platform_launch_year_disabled_does_not_contact_igdb():
+    handler = IGDBHandler()
+    with (
+        patch.object(handler, "is_enabled", return_value=False),
+        patch.object(
+            handler.igdb_service, "platform_discovery", new_callable=AsyncMock
+        ) as lookup,
+    ):
+        assert await handler.get_platform_discovery("n64") == {}
+    lookup.assert_not_awaited()
+
+
+async def test_platform_launch_year_failure_does_not_abort_scan():
+    handler = IGDBHandler()
+    with (
+        patch.object(handler, "is_enabled", return_value=True),
+        patch.object(
+            handler.igdb_service,
+            "platform_discovery",
+            new_callable=AsyncMock,
+            side_effect=HTTPException(status_code=503),
+        ),
+    ):
+        assert await handler.get_platform_discovery("n64") == {}
+
+
+async def test_platform_discovery_preserves_logo_transparency():
+    handler = IGDBHandler()
+    with (
+        patch.object(handler, "is_enabled", return_value=True),
+        patch.object(
+            handler.igdb_service,
+            "platform_discovery",
+            new_callable=AsyncMock,
+            return_value={
+                "url_logo": "//images.igdb.com/igdb/image/upload/t_thumb/example.jpg"
+            },
+        ),
+    ):
+        assert await handler.get_platform_discovery("n64") == {
+            "url_logo": "https://images.igdb.com/igdb/image/upload/t_720p/example.png"
+        }
 
 
 def _make_game(
@@ -1289,13 +1354,48 @@ class TestGetPlatform:
     def test_an_unlisted_platform_family_overrides_its_siblings(
         self, handler: IGDBHandler
     ):
-        assert handler.get_platform("model2") == {
+        assert handler.get_platform("taito-x-55") == {
             "igdb_id": None,
-            "slug": "model2",
+            "slug": "taito-x-55",
             "category": "Arcade",
-            "family_name": "Sega",
-            "family_slug": "sega",
+            "family_name": "Taito",
+            "family_slug": "taito",
         }
+
+    @pytest.mark.parametrize(
+        ("slug", "name"),
+        [("naomi", "NAOMI"), ("naomi2", "NAOMI 2"), ("stv", "Sega Titan Video")],
+    )
+    def test_an_arcade_board_maps_to_its_platform_version(
+        self, handler: IGDBHandler, slug: str, name: str
+    ):
+        platform = handler.get_platform(slug)
+
+        assert (platform["igdb_id"], platform["slug"], platform.get("name")) == (
+            IGDB_PLATFORM_LIST[UPS.ARCADE]["id"],
+            slug,
+            name,
+        )
+        assert platform.get("family_name") == "Sega"
+
+    def test_an_arcade_platform_without_a_version_gets_arcade_and_no_name(
+        self, handler: IGDBHandler
+    ):
+        platform = handler.get_platform("model2")
+
+        assert platform["igdb_id"] == IGDB_PLATFORM_LIST[UPS.ARCADE]["id"]
+        assert platform.get("igdb_slug") == "arcade"
+        assert platform.get("family_name") == "Sega"
+        assert "name" not in platform
+
+    @pytest.mark.parametrize("slug", sorted(ARCADE_PLATFORMS))
+    def test_every_arcade_platform_is_looked_up_under_arcade(
+        self, handler: IGDBHandler, slug: UPS
+    ):
+        assert (
+            handler.get_platform(slug)["igdb_id"]
+            == IGDB_PLATFORM_LIST[UPS.ARCADE]["id"]
+        )
 
     def test_an_unlisted_platform_with_only_a_family(self, handler: IGDBHandler):
         assert handler.get_platform("ti-994a") == {
@@ -1309,7 +1409,11 @@ class TestGetPlatform:
         assert not IGDB_SIBLING_PLATFORMS.keys() & IGDB_PLATFORM_LIST.keys()
 
     @pytest.mark.parametrize(
-        "slug", sorted(IGDB_SIBLING_PLATFORMS.keys() | IGDB_PLATFORM_FAMILIES.keys())
+        "slug",
+        sorted(
+            (IGDB_SIBLING_PLATFORMS.keys() | IGDB_PLATFORM_FAMILIES.keys())
+            - ARCADE_PLATFORMS
+        ),
     )
     def test_every_platform_with_a_family_entry_gets_a_family(
         self, handler: IGDBHandler, slug: UPS

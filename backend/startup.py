@@ -4,8 +4,8 @@ import asyncio
 from typing import cast
 
 from opentelemetry import trace
-from rq.exceptions import DuplicateJobError
-from rq.job import Job
+from rq.exceptions import DuplicateJobError, NoSuchJobError
+from rq.job import Job, JobStatus
 from rq.utils import as_text
 
 from config import (
@@ -36,7 +36,12 @@ from handler.redis_handler import (
 )
 from handler.scan_jobs import drop_stale_scheduled_scans
 from logger.logger import log
-from models.firmware import FIRMWARE_FIXTURES_DIR, KNOWN_BIOS_KEY
+from models.firmware import KNOWN_BIOS_FILE, KNOWN_BIOS_KEY
+from models.rom import sort_articles
+from tasks.manual.recompute_name_sort_keys import (
+    applied_sort_articles,
+    articles_digest,
+)
 from tasks.registry import enqueue_task
 from tasks.scheduled.update_switch_titledb import SWITCH_TITLEDB_STORE
 from utils.cache import conditionally_set_cache, drop_stale_cache_store
@@ -46,6 +51,7 @@ from utils.sentry import init_sentry
 tracer = trace.get_tracer(__name__)
 
 RECOMPUTE_SAVE_HASHES_JOB_ID = "recompute_save_content_hashes_bootstrap"
+RECOMPUTE_NAME_SORT_KEYS_JOB_ID = "recompute_name_sort_keys_bootstrap"
 CONVERT_IMAGES_TO_WEBP_JOB_ID = "convert_images_to_webp_bootstrap"
 UPDATE_LAUNCHBOX_METADATA_JOB_ID = "update_launchbox_metadata_bootstrap"
 UPDATE_SWITCH_TITLEDB_JOB_ID = "update_switch_titledb_bootstrap"
@@ -86,6 +92,40 @@ def _enqueue_recompute_save_hashes_if_needed() -> None:
 
     log.info(f"{missing} save(s) still have a NULL content_hash")
     _enqueue_backfill("recompute_save_content_hashes", RECOMPUTE_SAVE_HASHES_JOB_ID)
+
+
+TERMINAL_JOB_STATUSES = frozenset(
+    {JobStatus.FINISHED, JobStatus.FAILED, JobStatus.STOPPED, JobStatus.CANCELED}
+)
+
+
+def _free_finished_job_id(job_id: str) -> None:
+    """Delete a job that has stopped running, so its id can be enqueued again."""
+    try:
+        job = Job.fetch(job_id, connection=redis_client)
+    except NoSuchJobError:
+        return
+    if job.get_status() in TERMINAL_JOB_STATUSES:
+        job.delete()
+
+
+def _enqueue_recompute_name_sort_keys_if_needed() -> None:
+    """Re-derive sort keys when `sorting.articles` differs from the stored keys'."""
+    try:
+        articles = sort_articles()
+        outdated = applied_sort_articles() != articles
+    except Exception:
+        log.exception("Failed to compare the sort articles; skipping the recompute")
+        return
+
+    if outdated:
+        # Keyed by the list; a queued or running job for it still blocks a duplicate.
+        job_id = f"{RECOMPUTE_NAME_SORT_KEYS_JOB_ID}_{articles_digest(articles)}"
+        try:
+            _free_finished_job_id(job_id)
+        except Exception:
+            log.exception(f"Failed to check {job_id}; enqueueing anyway")
+        _enqueue_backfill("recompute_name_sort_keys", job_id)
 
 
 def _enqueue_convert_images_to_webp() -> None:
@@ -195,6 +235,7 @@ async def main() -> None:
             _enqueue_convert_images_to_webp()
 
         _enqueue_recompute_save_hashes_if_needed()
+        _enqueue_recompute_name_sort_keys_if_needed()
 
         try:
             await _rebuild_outdated_metadata_stores()
@@ -228,9 +269,7 @@ async def main() -> None:
             PSP_SERIAL_INDEX_KEY,
             METADATA_FIXTURES_DIR / "psp_serial_index.json",
         )
-        await conditionally_set_cache(
-            async_cache, KNOWN_BIOS_KEY, FIRMWARE_FIXTURES_DIR / "known_bios_files.json"
-        )
+        await conditionally_set_cache(async_cache, KNOWN_BIOS_KEY, KNOWN_BIOS_FILE)
 
         log.info("Startup tasks completed")
 

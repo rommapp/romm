@@ -14,6 +14,9 @@ TAG_GROUP_REGEX = re.compile(r"(?:\s*(?:\([^)]*\)|\[[^]]*\]))+\s*$")
 # Matches a trailing file extension, including multi-part ones like ".tar.gz".
 EXTENSION_REGEX = re.compile(r"\.(([a-z]+\.)*\w+)$")
 
+# PICO-8 carts are often saved as PNG images, so the `.p8` outlives the extension.
+PICO8_CARTRIDGE_EXTENSION = ".p8.png"
+
 # Filename tags that mark a dump as a pre-release rather than the shipped game.
 # Lowercase and unterminated so one prefix covers its variants: "demo" also
 # matches "(Demo Kiosk)", "proto" also matches "(Prototype)".
@@ -43,6 +46,8 @@ def compute_file_name_no_tags(file_name: str) -> str:
     legitimately contains parentheses/brackets mid-name is not truncated.
     """
     name = compute_file_name_no_ext(file_name)
+    if file_name.lower().endswith(PICO8_CARTRIDGE_EXTENSION):
+        name = name[: -len(".p8")]
     return TAG_GROUP_REGEX.sub("", name).strip()
 
 

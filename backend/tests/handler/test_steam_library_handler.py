@@ -13,6 +13,7 @@ from handler.database import (
     db_steam_library_handler,
     db_user_handler,
 )
+from handler.metadata import meta_igdb_handler
 from handler.steam_library_handler import (
     STEAM_FS_SUBDIR,
     SteamLibraryError,
@@ -292,10 +293,18 @@ async def test_uses_the_existing_win_platform(win: Platform):
 
 
 async def test_creates_the_win_platform_and_its_folder():
-    with patch(
-        "handler.steam_library_handler.fs_platform_handler.add_platform",
-        new_callable=AsyncMock,
-    ) as add_folder:
+    with (
+        patch(
+            "handler.steam_library_handler.fs_platform_handler.add_platform",
+            new_callable=AsyncMock,
+        ) as add_folder,
+        patch.object(
+            meta_igdb_handler,
+            "get_platform_discovery",
+            new_callable=AsyncMock,
+            return_value={},
+        ),
+    ):
         platform = await steam_library_platform()
 
     add_folder.assert_awaited_once_with(fs_slug="win")

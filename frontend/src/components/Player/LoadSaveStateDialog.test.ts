@@ -21,7 +21,7 @@ const RDialog = {
   props: ["modelValue"],
   template: `<div v-if="modelValue"><slot name="toolbar" /><slot name="content" /></div>`,
 };
-const RSliderBtnGroup = {
+const RSegmentedControl = {
   props: ["modelValue", "items"],
   emits: ["update:modelValue"],
   template: `<div><button v-for="i in items" :key="i.id" :class="'tab-' + i.id" @click="$emit('update:modelValue', i.id)" /></div>`,
@@ -64,7 +64,7 @@ function openDialog() {
   const wrapper = mount(LoadSaveStateDialog, {
     global: {
       provide: { emitter },
-      stubs: { RDialog, RSliderBtnGroup, AssetList, AssetStrip, RBtn: true },
+      stubs: { RDialog, RSegmentedControl, AssetList, AssetStrip, RBtn: true },
     },
   });
   const open = async () => {

@@ -17,6 +17,7 @@ from handler.metadata.moby_handler import (
     MobyGamesHandler,
 )
 from handler.redis_handler import async_cache
+from models.platform import Platform
 from models.rom import Rom
 
 
@@ -109,6 +110,10 @@ class TestSearchTermEncoding:
         title = await_args.kwargs["title"]
         assert title == "Super Mario 3D World + Bowser's Fury"
         assert "%" not in title
+
+
+def _arcade_rom(slug: str) -> Rom:
+    return Rom(fs_name="sf2.zip", platform=Platform(slug=slug, fs_slug=slug))
 
 
 def _game(game_id: int, title: str) -> MobyGame:
@@ -286,6 +291,23 @@ class TestGetRom:
             "title": "zelda",
         }
 
+    async def test_the_html_description_becomes_plain_text(
+        self, moby: tuple[MobyGamesHandler, AsyncMock]
+    ):
+        handler, list_games = moby
+        list_games.by_title["zelda"] = [
+            {
+                **_game(2, "Zelda"),
+                "description": "<p>Save <i>Hyrule</i> &amp; Zelda.</p><p>Again.</p>",
+            }
+        ]
+
+        result = await handler.get_rom(
+            Rom(fs_name="Zelda (USA).sfc"), "Zelda (USA).sfc", SNES
+        )
+
+        assert result["summary"] == "Save Hyrule & Zelda.\n\nAgain."
+
     async def test_empty_fields_are_left_out(
         self, moby: tuple[MobyGamesHandler, AsyncMock]
     ):
@@ -386,7 +408,7 @@ class TestGetRom:
         )
         list_games.by_title["Street Fighter II"] = [_game(3, "Street Fighter II")]
 
-        result = await handler.get_rom(Rom(fs_name="sf2.zip"), "sf2.zip", 143)
+        result = await handler.get_rom(_arcade_rom("arcade"), "sf2.zip", 143)
 
         assert result["moby_id"] == 3
 
@@ -398,7 +420,7 @@ class TestGetRom:
             handler, "_mame_format", AsyncMock(return_value="Street Fighter II")
         )
 
-        assert await handler.get_rom(Rom(fs_name="sf2.zip"), "sf2.zip", 36) == {
+        assert await handler.get_rom(_arcade_rom("neogeomvs"), "sf2.zip", 36) == {
             "moby_id": None,
             "name": "Street Fighter II",
         }

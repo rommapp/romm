@@ -12,7 +12,7 @@ from config.config_manager import config_manager, parse_structure_template
 from handler.database import db_platform_handler
 from handler.metadata import meta_igdb_handler
 from handler.redis_handler import scan_queue
-from handler.scan_handler import ScanType
+from handler.scan.sources import ScanType
 
 _job_ids = count()
 

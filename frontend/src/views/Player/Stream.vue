@@ -64,12 +64,12 @@ import {
   RIcon,
   RSelect,
   RSlider,
-  RSliderBtnGroup,
+  RSegmentedControl,
   RSpinner,
   RSwitch,
   RTooltip,
 } from "@/lib";
-import type { SliderBtnGroupItem } from "@/lib/primitives/RSliderBtnGroup/types";
+import type { SegmentedControlItem } from "@/lib/primitives/RSegmentedControl/types";
 import romApi from "@/services/api/rom";
 import streamingApi, {
   type ContainerBusyDetail,
@@ -495,7 +495,7 @@ function setResumeTab(id: ResumeTab): void {
   resumeTab.value = id;
 }
 
-const resumeTabs = computed<SliderBtnGroupItem<ResumeTab>[]>(() => [
+const resumeTabs = computed<SegmentedControlItem<ResumeTab>[]>(() => [
   {
     id: "state",
     label: t("common.states"),
@@ -1519,7 +1519,7 @@ onBeforeUnmount(() => {
           class="r-stream__panel-head"
           :class="{ 'r-stream__panel-head--label': !showResumeTabs }"
         >
-          <RSliderBtnGroup
+          <RSegmentedControl
             v-if="showResumeTabs"
             variant="tab"
             :model-value="activeResumeTab"

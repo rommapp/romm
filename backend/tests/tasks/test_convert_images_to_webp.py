@@ -15,7 +15,7 @@ from tasks.scheduled.convert_images_to_webp import (
     ConvertImagesToWebPTask,
     ImageConverter,
 )
-from utils.images import frame_durations
+from utils.images import WEBP_QUALITY, frame_durations
 
 
 class TestImageConverter:
@@ -32,7 +32,7 @@ class TestImageConverter:
         with Image.open(tmp_path / "big.webp") as img:
             assert img.format == "WEBP"
 
-    @pytest.mark.parametrize("fmt", ["GIF", "PNG"])
+    @pytest.mark.parametrize("fmt", ["GIF", "PNG", "AVIF"])
     def test_keeps_animation(self, converter: ImageConverter, tmp_path: Path, fmt: str):
         source = tmp_path / f"big.{fmt.lower()}"
         source.write_bytes(animated_image_bytes(fmt))
@@ -42,6 +42,25 @@ class TestImageConverter:
         with Image.open(tmp_path / "big.webp") as img:
             assert img.format == "WEBP"
             assert frame_durations(img) == DURATIONS
+
+    @pytest.mark.parametrize("animated", [False, True])
+    def test_encodes_at_the_webp_quality(
+        self,
+        converter: ImageConverter,
+        tmp_path: Path,
+        mocker: MockerFixture,
+        animated: bool,
+    ):
+        source = tmp_path / "big.png"
+        if animated:
+            source.write_bytes(animated_image_bytes("PNG"))
+        else:
+            Image.new("RGB", (8, 8), "red").save(source)
+        save = mocker.spy(Image.Image, "save")
+
+        assert converter.convert_to_webp(source)
+
+        assert save.call_args.kwargs["quality"] == WEBP_QUALITY
 
     def test_play_once_gif_stays_play_once(
         self, converter: ImageConverter, tmp_path: Path

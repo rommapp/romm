@@ -54,7 +54,7 @@ def _is_lookup_attr(attr: str | None) -> TypeIs[PlaymatchLookupAttr]:
 
 
 # MetadataSource values (StrEnum) for which Playmatch can return ids. Typed as
-# strings so this module stays free of scan_handler imports. EmuReady and
+# strings so this module stays free of handler.scan imports. EmuReady and
 # OpenVGDB are in Playmatch's enum but have no RomM counterpart yet.
 PLAYMATCH_SUPPORTED_SOURCES: frozenset[str] = frozenset(
     {"igdb", "moby", "ss", "launchbox", "sgdb"}

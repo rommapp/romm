@@ -1,5 +1,5 @@
 from endpoints.sockets.scan import ScanStats, scan_platforms
-from handler.scan_handler import ScanType, get_enabled_metadata_sources
+from handler.scan.sources import ScanType, get_enabled_metadata_sources
 from logger.logger import log
 from tasks.registry import SCAN_LIBRARY_SPEC
 from tasks.tasks import PeriodicTask

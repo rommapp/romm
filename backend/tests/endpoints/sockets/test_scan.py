@@ -60,7 +60,7 @@ from handler.filesystem.roms_handler import (
 from handler.metadata import meta_gamelist_handler
 from handler.redis_handler import async_cache, redis_lock, scan_queue
 from handler.rom_files import RomFilesRefresh
-from handler.scan_handler import MetadataSource, ScanType
+from handler.scan.sources import MetadataSource, ScanType
 from handler.scan_jobs import SCAN_PLATFORMS_FUNC
 from handler.socket_handler import socket_handler
 from models.audit_event import AuditAction
@@ -69,6 +69,9 @@ from models.notification import NotificationKind, NotificationLevel
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, RomIdentity
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+
+# A platform IGDB and MobyGames both cover, so rescans can consult either.
+N64 = Platform(slug="n64", igdb_id=4, moby_id=9)
 
 
 @pytest.fixture
@@ -520,51 +523,58 @@ class TestScreenScraperScanReporting:
 class TestShouldScanRom:
     def test_new_platforms_scan_with_no_rom(self):
         """NEW_PLATFORMS should scan when rom is None"""
-        result = should_scan_rom(ScanType.NEW_PLATFORMS, None, [], ["igdb"])
+        result = should_scan_rom(ScanType.NEW_PLATFORMS, N64, None, [], ["igdb"])
         assert result is True
 
     def test_new_platforms_scan_with_existing_rom(self, rom: Rom):
         """NEW_PLATFORMS should not scan when rom exists"""
-        result = should_scan_rom(ScanType.NEW_PLATFORMS, rom, [], ["igdb"])
+        result = should_scan_rom(ScanType.NEW_PLATFORMS, N64, rom, [], ["igdb"])
         assert result is False
 
     # Test QUICK scan type
     def test_quick_scan_with_no_rom(self):
         """QUICK should scan when rom is None"""
-        result = should_scan_rom(ScanType.QUICK, None, [], ["igdb"])
+        result = should_scan_rom(ScanType.QUICK, N64, None, [], ["igdb"])
         assert result is True
 
     def test_quick_scan_with_existing_rom(self, rom: Rom):
         """QUICK should scan an existing rom, to reconcile its files"""
-        result = should_scan_rom(ScanType.QUICK, rom, [], ["igdb"])
+        result = should_scan_rom(ScanType.QUICK, N64, rom, [], ["igdb"])
         assert result is True
 
     # Test COMPLETE scan type
     def test_complete_scan_always_scans(self, rom: Rom):
         """COMPLETE should scan everything when unscoped, but respect roms_ids when scoped"""
-        assert should_scan_rom(ScanType.COMPLETE, None, [], ["igdb"]) is True
-        assert should_scan_rom(ScanType.COMPLETE, rom, [], ["igdb"]) is True
+        assert should_scan_rom(ScanType.COMPLETE, N64, None, [], ["igdb"]) is True
+        assert should_scan_rom(ScanType.COMPLETE, N64, rom, [], ["igdb"]) is True
         # Scoped scan should not scan/add new filesystem ROMs when rom is None
-        assert should_scan_rom(ScanType.COMPLETE, None, [rom.id], ["igdb"]) is False
+        assert (
+            should_scan_rom(ScanType.COMPLETE, N64, None, [rom.id], ["igdb"]) is False
+        )
         # Scoped scan: rom not in list → skip even for COMPLETE
-        assert should_scan_rom(ScanType.COMPLETE, rom, [rom.id + 99], ["igdb"]) is False
-        assert should_scan_rom(ScanType.COMPLETE, rom, [rom.id], ["igdb"]) is True
+        assert (
+            should_scan_rom(ScanType.COMPLETE, N64, rom, [rom.id + 99], ["igdb"])
+            is False
+        )
+        assert should_scan_rom(ScanType.COMPLETE, N64, rom, [rom.id], ["igdb"]) is True
 
     # Test HASHES scan type
     def test_hashes_scan_always_scans(self, rom: Rom):
         """HASHES should scan everything when unscoped, but respect roms_ids when scoped"""
-        assert should_scan_rom(ScanType.HASHES, None, [], ["igdb"]) is True
-        assert should_scan_rom(ScanType.HASHES, rom, [], ["igdb"]) is True
+        assert should_scan_rom(ScanType.HASHES, N64, None, [], ["igdb"]) is True
+        assert should_scan_rom(ScanType.HASHES, N64, rom, [], ["igdb"]) is True
         # Scoped scan should not scan/add new filesystem ROMs when rom is None
-        assert should_scan_rom(ScanType.HASHES, None, [rom.id], ["igdb"]) is False
+        assert should_scan_rom(ScanType.HASHES, N64, None, [rom.id], ["igdb"]) is False
         # Scoped scan: rom not in list → skip even for HASHES
-        assert should_scan_rom(ScanType.HASHES, rom, [rom.id + 99], ["igdb"]) is False
-        assert should_scan_rom(ScanType.HASHES, rom, [rom.id], ["igdb"]) is True
+        assert (
+            should_scan_rom(ScanType.HASHES, N64, rom, [rom.id + 99], ["igdb"]) is False
+        )
+        assert should_scan_rom(ScanType.HASHES, N64, rom, [rom.id], ["igdb"]) is True
 
     # Test UNMATCHED scan type
     def test_unmatched_scan_with_no_rom(self):
         """UNMATCHED should not scan when rom is None"""
-        result = should_scan_rom(ScanType.UNMATCHED, None, [], ["igdb"])
+        result = should_scan_rom(ScanType.UNMATCHED, N64, None, [], ["igdb"])
         assert result is False
 
     def test_unmatched_scan_with_unmatched_rom(self, rom: Rom):
@@ -574,25 +584,25 @@ class TestShouldScanRom:
         rom.ss_id = None
         rom.ra_id = None
         rom.launchbox_id = None
-        result = should_scan_rom(ScanType.UNMATCHED, rom, [], ["igdb"])
+        result = should_scan_rom(ScanType.UNMATCHED, N64, rom, [], ["igdb"])
         assert result is True
 
     def test_unmatched_scan_with_identified_rom(self, rom: Rom):
         """UNMATCHED should also scan when rom is identified"""
         rom.igdb_id = 1
-        result = should_scan_rom(ScanType.UNMATCHED, rom, [], ["moby"])
+        result = should_scan_rom(ScanType.UNMATCHED, N64, rom, [], ["moby"])
         assert result is True
 
     # Test UPDATE scan type
     def test_update_scan_with_no_rom(self):
         """UPDATE should not scan when rom is None"""
-        result = should_scan_rom(ScanType.UPDATE, None, [], ["igdb"])
+        result = should_scan_rom(ScanType.UPDATE, N64, None, [], ["igdb"])
         assert result is False
 
     def test_update_scan_with_identified_rom(self, rom: Rom):
         """UPDATE should scan when rom is identified"""
         rom.igdb_id = 1
-        result = should_scan_rom(ScanType.UPDATE, rom, [], ["igdb"])
+        result = should_scan_rom(ScanType.UPDATE, N64, rom, [], ["igdb"])
         assert result is True
 
     def test_update_scan_with_unmatched_rom(self, rom: Rom):
@@ -602,8 +612,36 @@ class TestShouldScanRom:
         rom.ss_id = None
         rom.ra_id = None
         rom.launchbox_id = None
-        result = should_scan_rom(ScanType.UPDATE, rom, [], ["igdb"])
+        result = should_scan_rom(ScanType.UPDATE, N64, rom, [], ["igdb"])
         assert result is False
+
+    def test_unmatched_scan_retries_an_id_without_metadata(self, rom: Rom):
+        rom.igdb_id = 1
+        rom.igdb_metadata = {}
+        assert should_scan_rom(ScanType.UNMATCHED, N64, rom, [], ["igdb"]) is True
+
+        rom.igdb_metadata = {"total_rating": "90"}
+        assert should_scan_rom(ScanType.UNMATCHED, N64, rom, [], ["igdb"]) is False
+
+    def test_unmatched_scan_skips_a_source_the_platform_lacks(self, rom: Rom):
+        rom.igdb_id = 1
+        rom.igdb_metadata = {"total_rating": "90"}
+        rom.libretro_id = None
+        sources = ["igdb", "libretro"]
+
+        assert should_scan_rom(ScanType.UNMATCHED, N64, rom, [], sources) is True
+        not_covered = Platform(slug="not-a-platform", igdb_id=4)
+        assert (
+            should_scan_rom(ScanType.UNMATCHED, not_covered, rom, [], sources) is False
+        )
+
+    def test_playmatch_alone_picks_no_rom(self, rom: Rom):
+        rom.igdb_id = 1
+        rom.igdb_metadata = {"total_rating": "90"}
+        sources = ["igdb", "playmatch"]
+
+        assert should_scan_rom(ScanType.UNMATCHED, N64, rom, [], sources) is False
+        assert should_scan_rom(ScanType.UPDATE, N64, rom, [], ["playmatch"]) is False
 
     # Test rom_ids parameter
     def test_scan_when_rom_id_in_list(self, rom: Rom):
@@ -617,7 +655,7 @@ class TestShouldScanRom:
             ScanType.UNMATCHED,
             ScanType.UPDATE,
         ]:
-            result = should_scan_rom(scan_type, rom, roms_ids, ["igdb"])
+            result = should_scan_rom(scan_type, N64, rom, roms_ids, ["igdb"])
             assert result is True
 
     def test_no_scan_when_rom_id_not_in_list(self, rom: Rom):
@@ -638,7 +676,7 @@ class TestShouldScanRom:
             ScanType.COMPLETE,
             ScanType.HASHES,
         ]:
-            assert should_scan_rom(scan_type, rom, roms_ids, ["igdb"]) is False
+            assert should_scan_rom(scan_type, N64, rom, roms_ids, ["igdb"]) is False
 
     # Edge cases
     def test_empty_roms_ids_list(self, rom: Rom):
@@ -646,8 +684,8 @@ class TestShouldScanRom:
         rom.id = 1
         rom.igdb_id = 1
 
-        assert should_scan_rom(ScanType.UPDATE, rom, [], ["igdb"]) is True
-        assert should_scan_rom(ScanType.NEW_PLATFORMS, rom, [], ["igdb"]) is False
+        assert should_scan_rom(ScanType.UPDATE, N64, rom, [], ["igdb"]) is True
+        assert should_scan_rom(ScanType.NEW_PLATFORMS, N64, rom, [], ["igdb"]) is False
 
     def test_rom_id_type_conversion(self, rom: Rom):
         """Test that rom.id (int) is properly compared with roms_ids (list of strings)"""
@@ -655,7 +693,7 @@ class TestShouldScanRom:
         roms_ids = [123, 456]
 
         # This should scan because 123 should match "123"
-        result = should_scan_rom(ScanType.QUICK, rom, roms_ids, ["igdb"])
+        result = should_scan_rom(ScanType.QUICK, N64, rom, roms_ids, ["igdb"])
         assert result is True
 
     @pytest.mark.parametrize(
@@ -702,7 +740,7 @@ class TestShouldScanRom:
             if rom_in_list:
                 roms_ids = [1]
 
-        result = should_scan_rom(scan_type, rom, roms_ids, ["igdb"])
+        result = should_scan_rom(scan_type, N64, rom, roms_ids, ["igdb"])
         assert result is expected
 
 
@@ -1072,6 +1110,44 @@ def make_fs_rom(fs_name: str, fs_path: str = "test/roms") -> FSRom:
         "sha1_hash": "",
         "ra_hash": "",
     }
+
+
+async def test_a_rescan_keeps_the_stored_placeholder_of_an_unchanged_file(mocker):
+    """`keep_base_fields` reads the stored placeholder, so rebuilding the files
+    must not re-derive it from a file name that has not changed."""
+    patch_identify_rom(
+        mocker,
+        parsed=ParsedRomFiles(
+            rom_files=[], crc_hash="", md5_hash="", sha1_hash="", ra_hash=""
+        ),
+        roms_fs_structure="pico/roms",
+        name_with_no_tags="celeste",
+        platform_slug="pico",
+    )
+    platform = Platform(name="pico", slug="pico", fs_slug="pico")
+    platform.id = 1
+    rom = Rom(fs_name="celeste.p8.png", fs_path="pico/roms", platform_id=1)
+    rom.id = 7
+    rom.fs_name_no_tags = "celeste.p8"
+    scan_rom = mocker.patch.object(
+        scan_module, "scan_rom", AsyncMock(return_value=MagicMock(is_identified=False))
+    )
+
+    await _identify_rom(
+        platform=platform,
+        fs_rom=make_fs_rom("celeste.p8.png", "pico/roms"),
+        rom=rom,
+        scan_type=ScanType.HASHES,
+        roms_ids=[],
+        metadata_sources=[],
+        launchbox_remote_enabled=False,
+        socket_manager=AsyncMock(),
+        scan_stats=AsyncMock(),
+        scanned_rom_ids=set(),
+    )
+
+    scanned = scan_rom.call_args.kwargs["rom"]
+    assert scanned.fs_name_no_tags == "celeste.p8"
 
 
 class TestIdentifyRomReassociation:
@@ -3001,13 +3077,13 @@ def test_scan_stats_reports_file_counters():
 
 class TestQuickScanCoversRomFiles:
     def test_quick_scan_covers_new_and_existing_roms(self, rom: Rom):
-        assert should_scan_rom(ScanType.QUICK, None, [], []) is True
-        assert should_scan_rom(ScanType.QUICK, rom, [], []) is True
+        assert should_scan_rom(ScanType.QUICK, N64, None, [], []) is True
+        assert should_scan_rom(ScanType.QUICK, N64, rom, [], []) is True
 
     def test_scoped_quick_scan_respects_roms_ids(self, rom: Rom):
-        assert should_scan_rom(ScanType.QUICK, None, [rom.id], []) is False
-        assert should_scan_rom(ScanType.QUICK, rom, [rom.id + 99], []) is False
-        assert should_scan_rom(ScanType.QUICK, rom, [rom.id], []) is True
+        assert should_scan_rom(ScanType.QUICK, N64, None, [rom.id], []) is False
+        assert should_scan_rom(ScanType.QUICK, N64, rom, [rom.id + 99], []) is False
+        assert should_scan_rom(ScanType.QUICK, N64, rom, [rom.id], []) is True
 
 
 class TestShouldHashIncrementally:
@@ -3058,7 +3134,6 @@ def identify_harness(mocker):
         scan_module, "scan_rom", AsyncMock(return_value=MagicMock(is_identified=False))
     )
 
-    mocker.patch.object(scan_module, "fs_resource_handler", new=AsyncMock())
     mocker.patch.object(scan_module, "download_rom_resources", new=AsyncMock())
     mocker.patch.object(scan_handler_module, "SimpleRomSchema", MagicMock())
 

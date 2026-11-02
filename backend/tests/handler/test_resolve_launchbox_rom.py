@@ -13,7 +13,8 @@ import pytest
 
 from handler.metadata.launchbox_handler.types import LaunchboxRom
 from handler.metadata.playmatch_handler import PlaymatchRomMatch
-from handler.scan_handler import ScanType, resolve_launchbox_rom
+from handler.scan.lookups import resolve_launchbox_rom
+from handler.scan.sources import ScanType
 
 MATCH = LaunchboxRom(launchbox_id=266, name="Mario Kart 64")
 NO_MATCH = LaunchboxRom(launchbox_id=None)
@@ -50,11 +51,11 @@ def lookups():
     """Patch both LaunchBox lookups, defaulting each to a miss."""
     with (
         patch(
-            "handler.scan_handler.meta_launchbox_handler.get_rom_by_id",
+            "handler.scan.lookups.meta_launchbox_handler.get_rom_by_id",
             new=AsyncMock(return_value=NO_MATCH),
         ) as by_id,
         patch(
-            "handler.scan_handler.meta_launchbox_handler.get_rom",
+            "handler.scan.lookups.meta_launchbox_handler.get_rom",
             new=AsyncMock(return_value=NO_MATCH),
         ) as by_name,
     ):

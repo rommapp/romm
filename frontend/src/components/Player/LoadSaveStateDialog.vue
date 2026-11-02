@@ -11,7 +11,7 @@ import { useBreakpoint } from "@/composables/useBreakpoint";
 import { useConfirm } from "@/composables/useConfirm";
 import { useEmitterEvent } from "@/composables/useEmitterEvent";
 import { useSaveStateTabs } from "@/composables/useSaveStateTabs";
-import { RDialog, RSliderBtnGroup } from "@/lib";
+import { RDialog, RSegmentedControl } from "@/lib";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Asset, AssetType } from "@/utils/assets";
@@ -89,7 +89,7 @@ function closeDialog() {
     </template>
     <template #toolbar>
       <div class="r-load-save-state__tabs">
-        <RSliderBtnGroup
+        <RSegmentedControl
           v-model="tab"
           variant="tab"
           :items="tabs"

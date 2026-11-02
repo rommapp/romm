@@ -13,6 +13,7 @@ from handler.auth.constants import Scope
 from models.base import BaseModel
 from models.permission import PermissionGroup
 from utils.database import CustomJSON, ExactString
+from utils.datetime import older_than
 
 if TYPE_CHECKING:
     from models.assets import MemoryCard, Save, Screenshot, State
@@ -191,7 +192,7 @@ class User(BaseModel, SimpleUser):
 
     def set_last_active(self) -> None:
         from handler.database import db_user_handler
+        from handler.database.users_handler import LAST_ACTIVE_DEBOUNCE
 
-        db_user_handler.update_user(
-            self.id, {"last_active": datetime.now(timezone.utc)}
-        )
+        if older_than(self.last_active, LAST_ACTIVE_DEBOUNCE):
+            db_user_handler.update_last_active(self.id)

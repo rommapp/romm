@@ -1,9 +1,11 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { defineComponent, type Ref, ref } from "vue";
-import type { RAGameRomAchievement } from "@/__generated__";
+import type { EarnedAchievement, RAGameRomAchievement } from "@/__generated__";
+import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
 import { detailedRomFixture } from "@/utils/rom.fixtures";
+import { userFixture } from "@/utils/user.fixtures";
 import GameDetails from "./GameDetails.vue";
 
 const { route, routeRom, panel } = vi.hoisted(() => ({
@@ -74,7 +76,7 @@ vi.mock("@/lib", () => ({
       items: { type: Array, default: () => [] },
     },
     template: `<nav data-test="tabs" :data-active="modelValue">
-      <span v-for="item in items" :key="item.id" data-test="tab">{{ item.id }}</span>
+      <span v-for="item in items" :key="item.id" data-test="tab" :data-badge="item.badge">{{ item.id }}</span>
     </nav>`,
   }),
 }));
@@ -178,5 +180,58 @@ describe("GameDetails achievements tab", () => {
     expect(wrapper.find('[data-test="panel-achievements"]').exists()).toBe(
       true,
     );
+  });
+});
+
+describe("GameDetails achievements badge", () => {
+  // Three achievements that share one badge image.
+  const shared = [1, 2, 3].map((ra_id) => ({
+    ...achievement,
+    ra_id,
+    badge_id: "217206",
+  }));
+
+  function earn(earned: EarnedAchievement[]) {
+    storeAuth().setCurrentUser(
+      userFixture({
+        ra_progression: {
+          total: 1,
+          results: [
+            {
+              rom_ra_id: 10210,
+              max_possible: 3,
+              num_awarded: earned.length,
+              num_awarded_hardcore: 0,
+              earned_achievements: earned,
+            },
+          ],
+        },
+      }),
+    );
+  }
+
+  const badge = (wrapper: Awaited<ReturnType<typeof mountDetails>>) =>
+    wrapper
+      .findAll('[data-test="tab"]')
+      .find((tab) => tab.text() === "achievements")
+      ?.attributes("data-badge");
+
+  it("counts each earned achievement that shares a badge", async () => {
+    earn([
+      { id: "217206", ra_id: 1, date: "2026-01-01" },
+      { id: "217206", ra_id: 3, date: "2026-01-01" },
+    ]);
+
+    const wrapper = await mountDetails(romWith(shared));
+
+    expect(badge(wrapper)).toBe("2/3");
+  });
+
+  it("counts a badge-only entry synced before achievement ids", async () => {
+    earn([{ id: "217206", date: "2026-01-01" }]);
+
+    const wrapper = await mountDetails(romWith(shared));
+
+    expect(badge(wrapper)).toBe("3/3");
   });
 });

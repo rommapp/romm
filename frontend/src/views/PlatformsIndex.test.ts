@@ -2,6 +2,10 @@
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
+import GalleryToolbar from "@/components/Gallery/GalleryToolbar.vue";
+import PlatformFilterDrawer, {
+  type PlatformFacet,
+} from "@/components/Platforms/PlatformFilterDrawer.vue";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import { platformFixture } from "@/utils/platform.fixtures";
 import PlatformsIndex from "./PlatformsIndex.vue";
@@ -35,7 +39,17 @@ vi.mock("@/lib", () => ({
 }));
 
 vi.mock("@/components/Gallery/GalleryToolbar.vue", () => ({
-  default: defineComponent({ template: "<div />" }),
+  default: defineComponent({
+    props: { filterActiveCount: { type: Number, default: 0 } },
+    template: "<div />",
+  }),
+}));
+
+vi.mock("@/components/Platforms/PlatformFilterDrawer.vue", () => ({
+  default: defineComponent({
+    props: { facets: { type: Array, default: () => [] } },
+    template: "<div />",
+  }),
 }));
 
 vi.mock("@/components/Platforms/PlatformListHeader.vue", () => ({
@@ -370,6 +384,140 @@ describe("PlatformsIndex", () => {
       const wrapper = mount(PlatformsIndex);
 
       expect(wrapper.text()).toContain("Arcade 7");
+    });
+  });
+
+  describe("facets", () => {
+    function seed() {
+      streamableSlugs.add("gba");
+      storePlatforms().set([
+        platform(1, "PlayStation", 30, {
+          slug: "ps",
+          category: "console",
+          generation: 5,
+          family_slug: "playstation",
+          family_name: "PlayStation",
+        }),
+        platform(2, "Nintendo 64", 12, {
+          slug: "n64",
+          category: "console",
+          generation: 5,
+          family_slug: "nintendo",
+          family_name: "Nintendo",
+        }),
+        platform(3, "Game Boy Advance", 5, {
+          slug: "gba",
+          category: "portable_console",
+          generation: 6,
+          family_slug: "nintendo",
+          family_name: "Nintendo",
+        }),
+      ]);
+    }
+
+    function facet(
+      wrapper: ReturnType<typeof mount>,
+      key: string,
+    ): PlatformFacet | undefined {
+      const facets = wrapper
+        .findComponent(PlatformFilterDrawer)
+        .props("facets") as PlatformFacet[];
+      return facets.find((f) => f.key === key);
+    }
+
+    it("ORs values picked in one facet", () => {
+      seed();
+      routeState.query = { category: "portable_console,console" };
+
+      const wrapper = mount(PlatformsIndex);
+
+      expect(wrapper.text()).toContain("PlayStation 30");
+      expect(wrapper.text()).toContain("Game Boy Advance 5");
+    });
+
+    it("ANDs across facets", () => {
+      seed();
+      routeState.query = { category: "console", family: "nintendo" };
+
+      const wrapper = mount(PlatformsIndex);
+
+      expect(wrapper.text()).toContain("Nintendo 64 12");
+      expect(wrapper.text()).not.toContain("PlayStation 30");
+      expect(wrapper.text()).not.toContain("Game Boy Advance 5");
+      expect(wrapper.text()).toContain("common.platforms 3");
+    });
+
+    it("filters by play mode", () => {
+      seed();
+      routeState.query = { play: "stream" };
+
+      const wrapper = mount(PlatformsIndex);
+
+      expect(wrapper.text()).toContain("Game Boy Advance 5");
+      expect(wrapper.text()).not.toContain("Nintendo 64 12");
+    });
+
+    it("counts each facet's options against the other facets", () => {
+      seed();
+      routeState.query = { family: "nintendo", gen: "5" };
+
+      const wrapper = mount(PlatformsIndex);
+
+      expect(facet(wrapper, "category")?.options).toEqual([
+        { value: "console", label: "Console", count: 1 },
+        { value: "portable_console", label: "Portable Console", count: 0 },
+      ]);
+      expect(facet(wrapper, "generation")?.options).toEqual([
+        { value: "5", label: "5th generation", count: 1 },
+        { value: "6", label: "6th generation", count: 1 },
+      ]);
+      expect(facet(wrapper, "family")?.selected).toEqual(["nintendo"]);
+    });
+
+    it("only offers play modes some platform supports", () => {
+      seed();
+
+      const wrapper = mount(PlatformsIndex);
+
+      expect(facet(wrapper, "play")?.options).toEqual([
+        { value: "stream", label: "platform.play-mode-stream", count: 1 },
+      ]);
+    });
+
+    it("falls back to the raw value for an unknown play mode", () => {
+      seed();
+      routeState.query = { play: "__proto__" };
+
+      const wrapper = mount(PlatformsIndex);
+
+      expect(facet(wrapper, "play")?.options).toContainEqual({
+        value: "__proto__",
+        label: "__proto__",
+        count: 0,
+      });
+    });
+
+    it("badges the toolbar filter button with the active facet count", () => {
+      seed();
+      routeState.query = {
+        category: "console,portable_console",
+        play: "stream",
+      };
+
+      const wrapper = mount(PlatformsIndex);
+
+      expect(
+        wrapper.findComponent(GalleryToolbar).props("filterActiveCount"),
+      ).toBe(2);
+    });
+
+    it("says the filters matched nothing", () => {
+      seed();
+      routeState.query = { category: "portable_console", gen: "5" };
+
+      const wrapper = mount(PlatformsIndex);
+
+      expect(wrapper.text()).toContain("platform.no-platforms-filters");
     });
   });
 });

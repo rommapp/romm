@@ -35,7 +35,7 @@ function mountToolbar(
         RBtn: true,
         RIcon: true,
         RMenu: menuStub,
-        RSliderBtnGroup: true,
+        RSegmentedControl: true,
       },
     },
   });
@@ -158,7 +158,7 @@ describe("GalleryToolbar sort axis", () => {
   it("hides the direction toggle while the unsorted order is active", () => {
     const sorted = mountWithSortOptions({ unsortedLabel: "Relevance" });
     const togglesWhenSorted = sorted.findAllComponents({
-      name: "RSliderBtnGroup",
+      name: "RSegmentedControl",
     }).length;
     sorted.unmount();
 
@@ -168,9 +168,9 @@ describe("GalleryToolbar sort axis", () => {
       unsorted: true,
     });
 
-    expect(wrapper.findAllComponents({ name: "RSliderBtnGroup" })).toHaveLength(
-      togglesWhenSorted - 1,
-    );
+    expect(
+      wrapper.findAllComponents({ name: "RSegmentedControl" }),
+    ).toHaveLength(togglesWhenSorted - 1);
     const relevance = wrapper
       .findAllComponents({ name: "RMenuItem" })
       .find((item) => item.props("label") === "Relevance");
@@ -184,7 +184,7 @@ describe("GalleryToolbar sort axis", () => {
   it("ticks nothing and keeps the toggle for a sort it doesn't offer", () => {
     const sorted = mountWithSortOptions({ unsortedLabel: "Relevance" });
     const togglesWhenSorted = sorted.findAllComponents({
-      name: "RSliderBtnGroup",
+      name: "RSegmentedControl",
     }).length;
     sorted.unmount();
 
@@ -194,9 +194,9 @@ describe("GalleryToolbar sort axis", () => {
       unsorted: false,
     });
 
-    expect(wrapper.findAllComponents({ name: "RSliderBtnGroup" })).toHaveLength(
-      togglesWhenSorted,
-    );
+    expect(
+      wrapper.findAllComponents({ name: "RSegmentedControl" }),
+    ).toHaveLength(togglesWhenSorted);
     const ticked = wrapper
       .findAllComponents({ name: "RMenuItem" })
       .filter(
@@ -224,6 +224,50 @@ describe("GalleryToolbar sort axis", () => {
       menusInGrid - 1,
     );
     expect(sortItems(wrapper)).toHaveLength(0);
+    wrapper.unmount();
+  });
+});
+
+describe("GalleryToolbar group-by control", () => {
+  const MANY_MODES = [
+    { id: "none", icon: "mdi-view-agenda-outline", title: "Flat view" },
+    {
+      id: "letter",
+      icon: "mdi-alphabetical-variant",
+      title: "Group by letter",
+    },
+    { id: "family", icon: "mdi-family-tree", title: "Group by family" },
+  ];
+
+  it("keeps the segmented slider for the default two modes", () => {
+    const wrapper = mountToolbar({}, RMenuPassthrough);
+
+    expect(
+      wrapper
+        .findAllComponents({ name: "RSegmentedControl" })
+        .some((c) => c.props("items")?.length === 2),
+    ).toBe(true);
+    wrapper.unmount();
+  });
+
+  it("lists more than two modes in a labelled menu with the active one checked", () => {
+    const wrapper = mountToolbar(
+      { groupBy: "family", groupByItems: MANY_MODES },
+      RMenuPassthrough,
+    );
+
+    expect(
+      wrapper
+        .findAllComponents({ name: "RSegmentedControl" })
+        .some((c) => c.props("items") === MANY_MODES),
+    ).toBe(false);
+    const family = wrapper
+      .findAllComponents({ name: "RMenuItem" })
+      .filter((item) => item.props("label") === "Group by family");
+    expect(family.length).toBeGreaterThan(0);
+    expect(family.some((item) => item.props("variant") === "active")).toBe(
+      true,
+    );
     wrapper.unmount();
   });
 });

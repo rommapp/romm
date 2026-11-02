@@ -16,7 +16,6 @@ from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.auth.permissions import ResolvedPermissions
 from handler.database import (
-    db_platform_handler,
     db_screenshot_handler,
     db_state_handler,
 )
@@ -314,12 +313,8 @@ def _rom_file_propfind_entry(slug: str, file: browser.RomFile) -> browser.Propfi
 def _platform_listing(
     slug: str, depth: int, permissions: ResolvedPermissions
 ) -> list[browser.PropfindEntry] | None:
-    platform = db_platform_handler.get_platform_by_fs_slug(slug)
-    if (
-        not platform
-        or platform.rom_count == 0
-        or not permissions.can_see_platform(platform.id)
-    ):
+    platform = browser.find_platform(slug, permissions)
+    if not platform:
         return None
 
     self_entry = _collection_entry(f"roms/{slug}", platform.name)

@@ -8,6 +8,8 @@ play stats, collections and sync data, then bulk-inserts everything.
 Run from the backend directory:
 
     uv run tools/generate_test_data.py --roms 100000
+    uv run tools/generate_test_data.py --roms 2000 --image-fidelity 2   # real cover sizes, debug art
+    uv run tools/generate_test_data.py --roms 500 --image-fidelity 3    # real file weights too
 
 The script talks straight to the database configured by the usual env vars
 (DB_HOST, DB_NAME, ...). It assigns primary keys explicitly so foreign keys
@@ -22,22 +24,34 @@ import os
 import random
 import sys
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable, Iterator
+from concurrent.futures import ProcessPoolExecutor
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 # Allow running as `python3 tools/generate_test_data.py` from backend/.
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from PIL import Image  # noqa: E402
-from sqlalchemy import Connection, insert  # noqa: E402
+from redis.exceptions import RedisError  # noqa: E402
+from sqlalchemy import Connection, event, insert  # noqa: E402
 from sqlalchemy.engine.interfaces import DBAPIConnection  # noqa: E402
 from sqlalchemy.pool import ConnectionPoolEntry  # noqa: E402
+from tools.seed_images import (  # noqa: E402
+    RomCaption,
+    RomImageJob,
+    draw_rom_images,
+    plan_rom_images,
+    rom_fidelity,
+)
 
 from adapters.services.igdb import IGDB_PLATFORM_LIST  # noqa: E402
 from config import RESOURCES_BASE_PATH  # noqa: E402
+from handler.database import db_rom_handler  # noqa: E402
+from handler.database.base_handler import sync_engine  # noqa: E402
 from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST  # noqa: E402
 from handler.metadata.ss_handler import SCREENSAVER_PLATFORM_LIST  # noqa: E402
+from handler.recommendation import invalidate_all_cached_feeds  # noqa: E402
 from models.assets import Save, Screenshot, State  # noqa: E402
 from models.base import BaseModel, compute_file_name_parts  # noqa: E402
 from models.client_token import ClientToken  # noqa: E402
@@ -69,6 +83,7 @@ from models.rom import (  # noqa: E402
 )
 from models.sync_session import SyncSession, SyncSessionStatus  # noqa: E402
 from models.user import Role, User  # noqa: E402
+from utils.database import is_postgresql  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Static data pools used to fabricate believable metadata.
@@ -372,45 +387,6 @@ DISC_HINTS = ("ps", "dc", "saturn", "cd", "ngc", "wii", "psp", "3do", "cdi")
 
 def rand_hex(rng: random.Random, nbytes: int) -> str:
     return "%0*x" % (nbytes * 2, rng.getrandbits(nbytes * 8))
-
-
-# Cover/screenshot output dimensions (px) and their low-res mosaic block grid.
-# A few random blocks upscaled with NEAREST give a unique, abstract image per
-# rom that PNG compresses to ~1-2 KB; this is the fastest believable artwork.
-COVER_BIG = ((264, 396), (6, 9))
-COVER_SMALL = ((132, 198), (4, 6))
-SCREENSHOT = ((320, 240), (8, 6))
-
-
-def _write_mosaic(
-    rng: random.Random, path: str, spec: tuple[tuple[int, int], tuple[int, int]]
-) -> None:
-    (w, h), (bw, bh) = spec
-    buf = bytes(rng.getrandbits(8) for _ in range(bw * bh * 3))
-    img = Image.frombytes("RGB", (bw, bh), buf).resize((w, h), Image.Resampling.NEAREST)
-    img.save(path, "PNG")
-
-
-def generate_rom_images(
-    rng: random.Random, resources_base: str, platform_id: int, rom_id: int, n_shots: int
-) -> tuple[str, str, list[str]]:
-    """Write mosaic PNG covers (+screenshots) and return their resource-relative
-    paths, matching RomM's roms/{platform_id}/{rom_id} layout."""
-    rel = f"roms/{platform_id}/{rom_id}"
-    cover_dir = os.path.join(resources_base, rel, "cover")
-    os.makedirs(cover_dir, exist_ok=True)
-    _write_mosaic(rng, os.path.join(cover_dir, "big.png"), COVER_BIG)
-    _write_mosaic(rng, os.path.join(cover_dir, "small.png"), COVER_SMALL)
-
-    shot_paths: list[str] = []
-    if n_shots:
-        shot_dir = os.path.join(resources_base, rel, "screenshots")
-        os.makedirs(shot_dir, exist_ok=True)
-        for i in range(n_shots):
-            _write_mosaic(rng, os.path.join(shot_dir, f"{i}.png"), SCREENSHOT)
-            shot_paths.append(f"{rel}/screenshots/{i}.png")
-
-    return f"{rel}/cover/small.png", f"{rel}/cover/big.png", shot_paths
 
 
 def slugify(value: str) -> str:
@@ -731,7 +707,7 @@ def bulk_insert(
         conn.execute(insert(model).values(rows[i : i + chunk]))
 
 
-def main() -> int:
+def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -800,19 +776,105 @@ def main() -> int:
         "--images",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Generate mosaic PNG covers/screenshots on disk (default: on)",
+        help="Write cover, screenshot and media files on disk (default: on)",
     )
     parser.add_argument(
         "--resources-path",
         default=RESOURCES_BASE_PATH,
         help="Base dir for generated images (default: config RESOURCES_BASE_PATH)",
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--image-fidelity",
+        type=int,
+        choices=(1, 2, 3),
+        default=1,
+        help=(
+            "How closely images match a real library: 1 mosaic (one size), "
+            "2 shapes (real cover size mix, debug art), 3 weight (real bytes per "
+            "pixel, some JPEG in big.png). Default: 1"
+        ),
+    )
+    parser.add_argument(
+        "--image-limit",
+        type=int,
+        default=None,
+        help="Write image files for only the first N roms (default: all)",
+    )
+    parser.add_argument(
+        "--image-weighted-every",
+        type=int,
+        default=10,
+        help=(
+            "At --image-fidelity 2, draw roms whose id is a multiple of N at level 3"
+            " (real bytes, JPEG in big.png), for image-conversion work; 0 = none."
+            " Default: 10"
+        ),
+    )
+    parser.add_argument(
+        "--image-media",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "Also write ScreenScraper media (box3d, fanart...) for roms with SS data"
+        ),
+    )
+    parser.add_argument(
+        "--image-workers",
+        type=int,
+        default=os.cpu_count() or 1,
+        help="Processes drawing images (default: all cores; 1 = inline)",
+    )
+    return parser.parse_args()
 
+
+def _pin_utc(
+    postgresql: bool,
+) -> Callable[[DBAPIConnection, ConnectionPoolEntry], None]:
+    """A connect listener pinning sessions to UTC, so timestamps never hit a DST gap."""
+
+    def listener(dbapi_conn: DBAPIConnection, _record: ConnectionPoolEntry) -> None:
+        cur = dbapi_conn.cursor()
+        try:
+            cur.execute(
+                "SET TIME ZONE 'UTC'" if postgresql else "SET time_zone = '+00:00'"
+            )
+        finally:
+            cur.close()
+        # PostgreSQL's SET is transactional: the pool's rollback on return would undo it.
+        dbapi_conn.commit()
+
+    return listener
+
+
+@contextmanager
+def _image_pool(args: argparse.Namespace) -> Iterator[ProcessPoolExecutor | None]:
+    if not args.images or args.dry_run or args.image_workers <= 1:
+        yield None
+        return
+    pool = ProcessPoolExecutor(args.image_workers)
+    try:
+        yield pool
+    except BaseException:
+        pool.shutdown(cancel_futures=True)
+        raise
+    pool.shutdown()
+
+
+def main() -> int:
+    args = _parse_args()
+    pin_utc = _pin_utc(is_postgresql(sync_engine))
+    event.listen(sync_engine, "connect", pin_utc)
+    try:
+        with _image_pool(args) as image_pool:
+            return _seed(args, image_pool)
+    finally:
+        event.remove(sync_engine, "connect", pin_utc)
+        # Pooled connections keep the pinned time zone, so close them with the listener.
+        sync_engine.dispose()
+
+
+def _seed(args: argparse.Namespace, image_pool: ProcessPoolExecutor | None) -> int:
     rng = random.Random(args.seed)  # nosec B311 - fake data, not security-sensitive
-    # Separate stream for image pixels so rom rows stay identical with or
-    # without --images (image draws never perturb the main rng sequence).
-    img_rng = random.Random(args.seed ^ 0x53A17)  # nosec B311 - fake data
     now = datetime.now(timezone.utc)
     pool = build_platform_pool()
     if args.platforms > len(pool):
@@ -827,28 +889,11 @@ def main() -> int:
     if args.dry_run:
         print("DRY RUN: nothing will be written.")
 
-    from sqlalchemy import event, func, select
+    from sqlalchemy import func, select
 
     from handler.auth.base_handler import auth_handler
-    from handler.database.base_handler import sync_engine
-    from utils.database import is_postgresql
 
-    # Pin every connection to UTC so the random historical timestamps we
-    # generate never land in a local DST gap that TIMESTAMP columns reject.
     postgresql = is_postgresql(sync_engine)
-
-    @event.listens_for(sync_engine, "connect")
-    def _session_utc(dbapi_conn: DBAPIConnection, _record: ConnectionPoolEntry) -> None:
-        cur = dbapi_conn.cursor()
-        try:
-            cur.execute(
-                "SET TIME ZONE 'UTC'" if postgresql else "SET time_zone = '+00:00'"
-            )
-        finally:
-            cur.close()
-        # PostgreSQL's SET is transactional: the pool's rollback on return would undo it.
-        dbapi_conn.commit()
-
     pw_hash = auth_handler.get_password_hash(args.password)
 
     # ----- decide starting primary keys (offset past any existing rows) -----
@@ -1044,11 +1089,14 @@ def main() -> int:
     # -------------------------------- roms ---------------------------------
     rom_id_base = starts["roms"]
     images_written = 0
-    if args.images:
-        print(f"Writing cover/screenshot PNGs under {args.resources_path}")
+    if args.images and not args.dry_run:
+        print(f"Writing image files under {args.resources_path}")
     t0 = time.time()
+    # Images are planned inline (their paths go into the rows) and drawn per batch.
+    drawing: Iterator[None] = iter(())
     for batch_start in range(0, args.roms, args.batch_size):
         batch_end = min(batch_start + args.batch_size, args.roms)
+        image_jobs: list[RomImageJob] = []
         rom_rows, file_rows, ru_rows = [], [], []
         track_rows: list[dict[str, Any]] = []
         save_rows, state_rows, shot_rows, note_rows = [], [], [], []
@@ -1109,14 +1157,31 @@ def main() -> int:
             if not is_sibling and igdb_id is not None:
                 sibling_seed[platform["id"]] = {"igdb_id": igdb_id, "facts": f}
 
-            # Cover art + screenshots: write real mosaic PNGs to the resources
-            # tree and point the path columns at them, or leave them empty.
-            if args.images:
-                n_shots = rng.randint(0, 4)
-                path_cover_s, path_cover_l, path_screenshots = generate_rom_images(
-                    img_rng, args.resources_path, platform["id"], rid, n_shots
+            # n_shots is drawn even without images, so the image flags never shift the rows.
+            n_shots = rng.randint(0, 4)
+            media_paths: dict[str, str] = {}
+            with_images = args.images and (
+                args.image_limit is None or rid - rom_id_base < args.image_limit
+            )
+            if with_images:
+                job = RomImageJob(
+                    resources_base=args.resources_path,
+                    seed=args.seed,
+                    platform_id=platform["id"],
+                    rom_id=rid,
+                    fidelity=rom_fidelity(
+                        args.image_fidelity, rid, args.image_weighted_every
+                    ),
+                    n_screenshots=n_shots,
+                    with_media=args.image_media and has_ss,
+                    caption=RomCaption(f["title"], platform["name"], f["region"]),
                 )
-                images_written += 2 + n_shots
+                seeded = plan_rom_images(job)
+                if seeded.large and not args.dry_run:
+                    image_jobs.append(job)
+                path_cover_s, path_cover_l = seeded.small, seeded.large
+                path_screenshots, media_paths = seeded.screenshots, seeded.media_paths
+                images_written += seeded.files_written
             else:
                 path_cover_s = path_cover_l = ""
                 path_screenshots = []
@@ -1153,7 +1218,9 @@ def main() -> int:
                     "moby_metadata": (
                         build_moby_metadata(rng, f, platform) if has_moby else {}
                     ),
-                    "ss_metadata": build_ss_metadata(rng, f) if has_ss else {},
+                    "ss_metadata": (
+                        build_ss_metadata(rng, f) | media_paths if has_ss else {}
+                    ),
                     "ra_metadata": build_ra_metadata(rng, f) if has_ra else {},
                     "launchbox_metadata": (
                         build_launchbox_metadata(rng, f) if has_lb else {}
@@ -1443,6 +1510,15 @@ def main() -> int:
                         }
                     )
 
+        # A pool draws this batch while the next one is built; list() waits for the
+        # previous batch and re-raises any worker's error.
+        previous, drawing = drawing, (
+            image_pool.map(draw_rom_images, image_jobs, chunksize=4)
+            if image_pool is not None
+            else map(draw_rom_images, image_jobs)
+        )
+        list(previous)
+
         if not args.dry_run:
             with sync_engine.begin() as conn:
                 bulk_insert(conn, Rom, rom_rows)
@@ -1597,13 +1673,29 @@ def main() -> int:
     counts["sync_sessions"] = len(sync_rows)
     counts["play_sessions"] = len(play_rows)
 
+    list(drawing)
+
+    # Rows written straight to the database don't rotate the gallery and feed
+    # caches in Redis, so rotate them here.
+    if not args.dry_run:
+        try:
+            db_rom_handler.invalidate_filter_values_cache()
+            invalidate_all_cached_feeds()
+        except RedisError as exc:
+            print(
+                f"Warning: could not rotate the gallery cache ({exc}); "
+                "the seed is saved, but the gallery may show old lists until it is.",
+                file=sys.stderr,
+            )
+
     # ------------------------------- report --------------------------------
     elapsed = time.time() - t0
     print("\nDone in %.1fs. Row counts:" % elapsed)
     for name in sorted(counts):
         print(f"  {name:<20} {counts[name]:>12,}")
     if args.images:
-        print(f"  {'images (png)':<20} {images_written:>12,}")
+        label = "image files (planned)" if args.dry_run else "image files"
+        print(f"  {label:<20} {images_written:>12,}")
     if not args.dry_run and user_rows:
         print(
             f"\nLogin with username '{user_rows[0]['username']}' "

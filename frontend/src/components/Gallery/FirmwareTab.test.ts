@@ -106,6 +106,21 @@ describe("FirmwareTab", () => {
   });
 });
 
+describe("FirmwareTab key files", () => {
+  it("marks Switch key files as not used by RomM", () => {
+    const wrapper = mountTab([
+      firmware({ id: 1, file_name: "prod.keys" }),
+      firmware({ id: 2, file_name: "title.keys" }),
+      firmware({ id: 3, file_name: "BOOT0" }),
+    ]);
+
+    const keyChips = wrapper
+      .findAllComponents({ name: "RChip" })
+      .filter((c) => c.props("prependIcon") === "mdi-key-outline");
+    expect(keyChips).toHaveLength(2);
+  });
+});
+
 describe("FirmwareTab selection", () => {
   const rows = [
     firmware({ id: 1 }),

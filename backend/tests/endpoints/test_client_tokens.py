@@ -410,6 +410,49 @@ class TestClientTokenScopeCeiling:
         assert response.status_code == status.HTTP_200_OK
 
 
+class TestClientTokenSelfRevoke:
+    def test_a_token_revokes_itself_without_me_write(self, client, admin_user):
+        token, raw = make_device_token(admin_user, None, scopes="roms.read")
+
+        response = client.delete(
+            f"/api/client-tokens/{token.id}",
+            headers={"Authorization": f"Bearer {raw}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert db_client_token_handler.get_token(token_id=token.id) is None
+        after = client.get("/api/platforms", headers={"Authorization": f"Bearer {raw}"})
+        assert after.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_a_token_with_me_write_revokes_a_sibling(self, client, admin_user):
+        _, raw = make_device_token(admin_user, None, scopes="me.write roms.read")
+        sibling, _ = make_device_token(admin_user, None, scopes="roms.read")
+
+        response = client.delete(
+            f"/api/client-tokens/{sibling.id}",
+            headers={"Authorization": f"Bearer {raw}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert db_client_token_handler.get_token(token_id=sibling.id) is None
+
+    def test_a_token_cannot_revoke_a_sibling_without_me_write(self, client, admin_user):
+        _, raw = make_device_token(admin_user, None, scopes="roms.read")
+        sibling, _ = make_device_token(admin_user, None, scopes="roms.read")
+
+        response = client.delete(
+            f"/api/client-tokens/{sibling.id}",
+            headers={"Authorization": f"Bearer {raw}"},
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert db_client_token_handler.get_token(token_id=sibling.id)
+
+    def test_an_anonymous_caller_is_unauthorized(self, client, admin_user):
+        token, _ = make_device_token(admin_user, None, scopes="roms.read")
+
+        response = client.delete(f"/api/client-tokens/{token.id}")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert db_client_token_handler.get_token(token_id=token.id)
+
+
 class TestClientTokenUserIsolation:
     def test_list_only_own_tokens(
         self,
@@ -840,6 +883,17 @@ class TestRevocationClosesDeviceSockets:
 
         assert response.status_code == status.HTTP_200_OK
         close.assert_awaited_once_with([token_id])
+
+    def test_a_token_revoking_itself(self, client, admin_user, close):
+        token, raw = make_device_token(admin_user, None, scopes="devices.read")
+
+        response = client.delete(
+            f"/api/client-tokens/{token.id}",
+            headers={"Authorization": f"Bearer {raw}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        close.assert_awaited_once_with([token.id])
 
     def test_regenerating_a_token(self, client, headers, token_id, close):
         response = client.put(

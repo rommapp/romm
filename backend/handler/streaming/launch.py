@@ -26,6 +26,7 @@ from handler.streaming import (
 )
 from handler.streaming.config import ResolvedContainer
 from handler.streaming.session_store import (
+    StreamingSession,
     hold_session_claim,
     push_to_user,
     stamp_launched,
@@ -43,7 +44,7 @@ async def run_launch(
     *,
     container: ResolvedContainer,
     session_key: str,
-    session: dict[str, Any],
+    session: StreamingSession,
     user: User,
     rom: Rom,
     platform: str,
@@ -256,7 +257,7 @@ PHASE_POLL_SECONDS = 3.0
 async def _watch_launch_phase(
     container: ResolvedContainer,
     session_key: str,
-    session: dict[str, Any],
+    session: StreamingSession,
     platform: str,
 ) -> None:
     """Push the broker's extraction phase while a launch is still running.

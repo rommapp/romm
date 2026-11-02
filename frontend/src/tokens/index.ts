@@ -13,6 +13,10 @@ export const colorBrand = {
   primary: "#8B74E8",
   primaryHover: "#A18FFF",
   primaryPressed: "#6043C8",
+  // Fill under on-primary text: `primary` is tuned as text on the page and
+  // gives white text only 3.6:1 as a fill.
+  primarySolid: "#7459E3",
+  onPrimary: "#FFFFFF",
   // Secondary mirrors v1's secondary purple for chips / inactive bits.
   secondary: "#9E8CD6",
   secondaryHover: "#EBE7FA",
@@ -47,6 +51,7 @@ export const colorBrandLight = {
   primary: "#553E98",
   primaryHover: "#452788",
   primaryPressed: "#371F69",
+  primarySolid: "#553E98",
   secondary: "#6E5CA8",
   accent: "#A85530",
   // Rating stars (RRating) read as bright neon gold on dark; on the light

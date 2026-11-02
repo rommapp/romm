@@ -97,6 +97,7 @@ export const ROM_DEFAULTS: SimpleRom = {
   is_unidentified: false,
   is_identified: true,
   revision: null,
+  version: null,
   regions: ["USA"],
   languages: ["en"],
   tags: [],

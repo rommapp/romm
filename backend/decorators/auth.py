@@ -1,7 +1,7 @@
 import functools
 import inspect
 from collections.abc import Callable
-from typing import Any
+from typing import Any, NoReturn
 
 from authlib.integrations.starlette_client import OAuth
 from authlib.oidc.discovery import get_well_known_url
@@ -15,6 +15,7 @@ from starlette.config import Config
 from starlette.requests import Request
 
 from config import (
+    OIDC_AUTH_PARAMS,
     OIDC_CLAIM_ROLES,
     OIDC_CLIENT_ID,
     OIDC_CLIENT_SECRET,
@@ -36,7 +37,7 @@ from utils.tls import build_ca_ssl_context
 
 # Using the internal password flow
 oauth2_password_bearer = OAuth2PasswordBearer(
-    tokenUrl="/token",
+    tokenUrl="/api/token",
     auto_error=False,
     # The maps are keyed by Scope, which is a StrEnum; FastAPI wants plain str.
     scopes={
@@ -76,10 +77,11 @@ oauth.register(
         # so providers that mandate PKCE refuse the code without it.
         "code_challenge_method": "S256",
     },
+    authorize_params=OIDC_AUTH_PARAMS or None,
 )
 
 
-def _raise_auth_error(request: Request) -> None:
+def raise_auth_error(request: Request) -> NoReturn:
     """Raise the status matching the caller's auth state.
 
     401 tells the client it has no valid credentials (so it can redirect to
@@ -120,7 +122,7 @@ def _requires_scopes(
                 request = kwargs.get("request", args[idx] if idx < len(args) else None)
                 assert isinstance(request, Request)
                 if not has_required_scope(request, scopes):
-                    _raise_auth_error(request)
+                    raise_auth_error(request)
                 return await func(*args, **kwargs)
 
             return async_wrapper  # type: ignore[return-value]
@@ -130,7 +132,7 @@ def _requires_scopes(
             request = kwargs.get("request", args[idx] if idx < len(args) else None)
             assert isinstance(request, Request)
             if not has_required_scope(request, scopes):
-                _raise_auth_error(request)
+                raise_auth_error(request)
             return func(*args, **kwargs)
 
         return sync_wrapper  # type: ignore[return-value]

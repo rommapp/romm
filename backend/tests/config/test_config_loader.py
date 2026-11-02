@@ -146,7 +146,7 @@ def test_scan_priority_sources_match_metadata_source_enum():
     """VALID_SCAN_PRIORITY_SOURCES duplicates MetadataSource to avoid a circular
     import; guard against the two drifting apart."""
     from config.config_manager import VALID_SCAN_PRIORITY_SOURCES
-    from handler.scan_handler import MetadataSource
+    from handler.scan.sources import MetadataSource
 
     assert VALID_SCAN_PRIORITY_SOURCES == {source.value for source in MetadataSource}
 
@@ -1061,3 +1061,45 @@ def test_a_platform_named_like_a_layout_key_uses_the_default(tmp_path):
 
     config = loader.get_config()
     assert config.platform_structure("firmware") == (config.default_structure,)
+
+
+def test_sorting_articles_default_to_english(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("{}\n")
+
+    assert ConfigManager(str(config_file)).config.SORT_ARTICLES == ["the", "a", "an"]
+
+
+def test_sorting_articles_are_normalized(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("sorting:\n  articles: [' Der ', 'DIE', '', das]\n")
+
+    assert ConfigManager(str(config_file)).config.SORT_ARTICLES == [
+        "der",
+        "die",
+        "das",
+    ]
+
+
+@pytest.mark.parametrize("value", ["the", "[1, 2]"])
+def test_sorting_articles_must_be_a_list_of_words(tmp_path, value):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(f"sorting:\n  articles: {value}\n")
+
+    with pytest.raises(SystemExit) as excinfo:
+        ConfigManager(str(config_file))
+
+    assert excinfo.value.code == 3
+
+
+def test_sorting_articles_survive_saving_another_setting(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("sorting:\n  articles: [der, die, das]\n")
+
+    ConfigManager(str(config_file)).add_platform_binding("gc", "ngc")
+
+    assert ConfigManager(str(config_file)).config.SORT_ARTICLES == [
+        "der",
+        "die",
+        "das",
+    ]

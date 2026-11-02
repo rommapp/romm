@@ -76,11 +76,11 @@ def enabled(monkeypatch: pytest.MonkeyPatch) -> SSHandler:
     return SSHandler()
 
 
-def _rom() -> Rom:
+def _rom(slug: str = "snes") -> Rom:
     return Rom(
         id=7,
         platform_id=3,
-        platform=Platform(slug="snes", fs_slug="snes", name="SNES"),
+        platform=Platform(slug=slug, fs_slug=slug, name=slug.upper()),
         regions=["USA"],
     )
 
@@ -419,7 +419,7 @@ class TestExhausted:
             ),
             pytest.raises(ScreenScraperExhaustedError) as exc,
         ):
-            await enabled.get_rom(_rom(), "pacman.zip", ARCADE_SS_ID)
+            await enabled.get_rom(_rom("arcade"), "pacman.zip", ARCADE_SS_ID)
 
         assert exc.value.fallback == {"ss_id": None, "name": "Pac-Man"}
 
@@ -504,25 +504,27 @@ class TestGetRom:
         assert search.await_args.kwargs["term"] == " Ocarina of Time"
 
     @pytest.mark.parametrize(
-        ("file_name", "platform_ss_id", "helper"),
+        ("file_name", "slug", "platform_ss_id", "helper"),
         [
-            ("SLUS_200.62.Grand Theft Auto.iso", PS2_SS_ID, "_ps2_opl_format"),
-            ("Ridge Racer [SLUS-01234].iso", PS2_SS_ID, "_ps2_serial_format"),
-            ("Lumines [ULUS-10046].iso", PSP_SS_ID, "_psp_serial_format"),
-            ("pacman.zip", ARCADE_SS_ID, "_mame_format"),
+            ("SLUS_200.62.Grand Theft Auto.iso", "ps2", PS2_SS_ID, "_ps2_opl_format"),
+            ("Ridge Racer [SLUS-01234].iso", "ps2", PS2_SS_ID, "_ps2_serial_format"),
+            ("Lumines [ULUS-10046].iso", "psp", PSP_SS_ID, "_psp_serial_format"),
+            ("pacman.zip", "arcade", ARCADE_SS_ID, "_mame_format"),
+            ("mvsc2.zip", "naomi", 56, "_mame_format"),
         ],
-        ids=["ps2_opl", "ps2_serial", "psp_serial", "arcade"],
+        ids=["ps2_opl", "ps2_serial", "psp_serial", "arcade", "naomi"],
     )
     async def test_a_platform_format_names_the_search_and_the_fallback(
         self,
         enabled: SSHandler,
         search: AsyncMock,
         file_name: str,
+        slug: str,
         platform_ss_id: int,
         helper: str,
     ):
         with patch.object(enabled, helper, AsyncMock(return_value="Resolved")):
-            rom = await enabled.get_rom(_rom(), file_name, platform_ss_id)
+            rom = await enabled.get_rom(_rom(slug), file_name, platform_ss_id)
 
         assert rom == {"ss_id": None, "name": "Resolved"}
         assert search.await_args is not None
