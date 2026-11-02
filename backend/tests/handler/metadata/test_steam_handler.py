@@ -11,6 +11,8 @@ from handler.metadata.steam_handler import (
     _parse_release_date,
     extract_steam_achievements,
     extract_steam_metadata,
+    is_steam_game_completed,
+    parse_steam_profile,
 )
 
 CYBERPUNK: SteamAppDetails = {
@@ -519,3 +521,153 @@ async def test_rom_skips_the_web_api_without_a_key_or_achievements(key, details)
 
     assert "achievements" not in rom.get("steam_metadata", {})
     web_api.get_schema_achievements.assert_not_awaited()
+
+
+GABEN = "76561197960287930"
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (GABEN, (GABEN, None)),
+        (f" {GABEN} ", (GABEN, None)),
+        (f"https://steamcommunity.com/profiles/{GABEN}/", (GABEN, None)),
+        ("https://steamcommunity.com/profiles/12345", (None, None)),
+        ("https://steamcommunity.com/id/gabelogannewell", (None, "gabelogannewell")),
+        ("steamcommunity.com/id/gabe-n/", (None, "gabe-n")),
+        ("gabelogannewell", (None, "gabelogannewell")),
+        ("https://example.com/id/gabe", (None, None)),
+        ("not a profile", (None, None)),
+    ],
+)
+def test_parse_steam_profile(value, expected):
+    assert parse_steam_profile(value) == expected
+
+
+async def test_resolve_profile_resolves_a_custom_url_name():
+    handler, _ = _handler()
+    web_api = _web_api(handler)
+    web_api.resolve_vanity_url = AsyncMock(return_value=GABEN)
+
+    assert await handler.resolve_profile("gabelogannewell") == GABEN
+    web_api.resolve_vanity_url.assert_awaited_once_with("gabelogannewell")
+
+
+async def test_resolve_profile_takes_an_id_without_a_request():
+    handler, _ = _handler()
+    web_api = _web_api(handler)
+    web_api.resolve_vanity_url = AsyncMock()
+
+    assert await handler.resolve_profile(GABEN) == GABEN
+    web_api.resolve_vanity_url.assert_not_awaited()
+
+
+def _owned(app_id: int, playtime: int, last_played: int, **extra: Any) -> Any:
+    return {
+        "appid": app_id,
+        "playtime_forever": playtime,
+        "rtime_last_played": last_played,
+        **extra,
+    }
+
+
+def _stored(app_id: int, playtime: int, last_played: int) -> Any:
+    return {
+        "rom_steam_id": app_id,
+        "rtime_last_played": last_played,
+        "playtime_forever": playtime,
+        "num_achievements": 2,
+        "num_unlocked": 1,
+        "earned_achievements": [{"api_name": "OLD", "unlock_time": 1}],
+    }
+
+
+async def test_user_progression_reads_the_played_library_games():
+    handler, _ = _handler()
+    web_api = _web_api(handler)
+    web_api.get_owned_games = AsyncMock(
+        return_value=[
+            _owned(400, 90, 1700000000),
+            _owned(500, 10, 1700000000),  # Not in the library.
+            _owned(620, 0, 0),  # Never played.
+            _owned(70, 5, 1700000000, has_community_visible_stats=False),
+        ]
+    )
+    web_api.get_player_achievements = AsyncMock(
+        return_value=[
+            {"apiname": "A", "achieved": 1, "unlocktime": 1700000001},
+            {"apiname": "B", "achieved": 0, "unlocktime": 0},
+        ]
+    )
+
+    progression = await handler.get_user_progression(GABEN, {400, 620, 70})
+
+    assert progression == {
+        "total": 1,
+        "results": [
+            {
+                "rom_steam_id": 400,
+                "rtime_last_played": 1700000000,
+                "playtime_forever": 90,
+                "num_achievements": 2,
+                "num_unlocked": 1,
+                "earned_achievements": [{"api_name": "A", "unlock_time": 1700000001}],
+            }
+        ],
+    }
+    web_api.get_player_achievements.assert_awaited_once_with(GABEN, 400)
+
+
+async def test_user_progression_skips_games_not_played_since_the_last_sync():
+    handler, _ = _handler()
+    web_api = _web_api(handler)
+    web_api.get_owned_games = AsyncMock(
+        return_value=[_owned(400, 90, 1700000000), _owned(620, 30, 1700000500)]
+    )
+    web_api.get_player_achievements = AsyncMock(
+        return_value=[{"apiname": "A", "achieved": 1, "unlocktime": 1700000400}]
+    )
+    unchanged = _stored(400, 90, 1700000000)
+    current: Any = {"total": 2, "results": [unchanged, _stored(620, 20, 1700000000)]}
+
+    progression = await handler.get_user_progression(GABEN, {400, 620}, current)
+
+    assert progression is not None
+    assert progression["results"][0] is unchanged
+    assert progression["results"][1]["num_unlocked"] == 1
+    web_api.get_player_achievements.assert_awaited_once_with(GABEN, 620)
+
+
+async def test_user_progression_keeps_a_game_whose_refresh_fails():
+    handler, _ = _handler()
+    web_api = _web_api(handler)
+    web_api.get_owned_games = AsyncMock(return_value=[_owned(400, 95, 1700000900)])
+    web_api.get_player_achievements = AsyncMock(return_value=None)
+    stored = _stored(400, 90, 1700000000)
+
+    progression = await handler.get_user_progression(
+        GABEN, {400}, {"total": 1, "results": [stored]}
+    )
+
+    assert progression == {"total": 1, "results": [stored]}
+
+
+async def test_user_progression_is_none_for_private_game_details():
+    handler, _ = _handler()
+    web_api = _web_api(handler)
+    web_api.get_owned_games = AsyncMock(return_value=None)
+
+    assert await handler.get_user_progression(GABEN, {400}) is None
+
+
+@pytest.mark.parametrize(
+    ("total", "unlocked", "expected"),
+    [(2, 2, True), (2, 1, False), (0, 0, False)],
+)
+def test_is_steam_game_completed(total, unlocked, expected):
+    game: Any = {
+        **_stored(400, 1, 1),
+        "num_achievements": total,
+        "num_unlocked": unlocked,
+    }
+    assert is_steam_game_completed(game) is expected

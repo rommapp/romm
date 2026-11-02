@@ -114,3 +114,50 @@ class SteamGlobalAchievementPercentages(TypedDict):
 
 class SteamGlobalAchievementPercentagesResponse(TypedDict):
     achievementpercentages: SteamGlobalAchievementPercentages
+
+
+class SteamResolvedVanityUrl(TypedDict):
+    # 1 on a match, 42 when no profile has that custom URL.
+    success: int
+    steamid: NotRequired[str]
+    message: NotRequired[str]
+
+
+class SteamResolveVanityUrlResponse(TypedDict):
+    response: SteamResolvedVanityUrl
+
+
+class SteamOwnedGame(TypedDict):
+    appid: int
+    playtime_forever: int
+    rtime_last_played: NotRequired[int]
+    has_community_visible_stats: NotRequired[bool]
+    name: NotRequired[str]
+
+
+class SteamOwnedGames(TypedDict):
+    # Both are left out when the profile's game details are private.
+    game_count: NotRequired[int]
+    games: NotRequired[list[SteamOwnedGame]]
+
+
+class SteamOwnedGamesResponse(TypedDict):
+    response: SteamOwnedGames
+
+
+class SteamPlayerAchievement(TypedDict):
+    apiname: str
+    achieved: int
+    unlocktime: int
+
+
+class SteamPlayerStats(TypedDict):
+    success: bool
+    steamID: NotRequired[str]
+    gameName: NotRequired[str]
+    achievements: NotRequired[list[SteamPlayerAchievement]]
+    error: NotRequired[str]
+
+
+class SteamPlayerAchievementsResponse(TypedDict):
+    playerstats: SteamPlayerStats

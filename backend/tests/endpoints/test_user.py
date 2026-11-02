@@ -1,14 +1,22 @@
 import base64
 from datetime import timedelta
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
+import pytest
 from fastapi import status
 
+from endpoints.user import STEAM_ACHIEVEMENTS_DISABLED, STEAM_GAME_DETAILS_PRIVATE
 from exceptions.database_exceptions import LastAdminError
 from handler.auth.base_handler import auth_handler, oauth_handler
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.database import db_permission_handler, db_user_handler
+from handler.metadata.steam_handler import SteamHandler
 from models.permission import PermAction, PermEntity
 from models.user import Role, User
+from tasks.scheduled.sync_steam_achievements_progress import (
+    SteamGameDetailsPrivateError,
+)
 
 
 def _bearer(token: str) -> dict[str, str]:
@@ -611,3 +619,183 @@ async def test_a_password_less_account_sets_a_first_password_from_its_session(
     assert response.json()["has_password"] is True
     assert _password_matches(viewer_user.id, "a_first_password")
     await RedisSessionMiddleware.clear_user_sessions(viewer_user.username)
+
+
+STEAM_ID = "76561197960287930"
+
+
+@pytest.fixture
+def steam_achievements(mocker) -> SimpleNamespace:
+    """Steam achievements enabled, with every profile public and resolvable."""
+    mocker.patch.object(SteamHandler, "achievements_enabled", return_value=True)
+    return SimpleNamespace(
+        resolve_profile=mocker.patch.object(
+            SteamHandler, "resolve_profile", AsyncMock(return_value=STEAM_ID)
+        ),
+        can_read_games=mocker.patch.object(
+            SteamHandler, "can_read_games", AsyncMock(return_value=True)
+        ),
+    )
+
+
+def _link_steam(client, token: str, user: User, value: str):
+    return client.put(
+        f"/api/users/{user.id}", data={"steam_id": value}, headers=_bearer(token)
+    )
+
+
+def test_linking_a_steam_profile_stores_its_steam_id(
+    client, viewer_access_token: str, viewer_user: User, steam_achievements
+):
+    response = _link_steam(
+        client,
+        viewer_access_token,
+        viewer_user,
+        "https://steamcommunity.com/id/gabelogannewell",
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["steam_id"] == STEAM_ID
+    steam_achievements.resolve_profile.assert_awaited_once_with(
+        "https://steamcommunity.com/id/gabelogannewell"
+    )
+
+
+def test_relinking_another_profile_drops_the_old_progression(
+    client, viewer_access_token: str, viewer_user: User, steam_achievements
+):
+    db_user_handler.update_user(
+        viewer_user.id,
+        {"steam_id": "76561197960265728", "steam_progression": {"total": 1}},
+    )
+
+    response = _link_steam(client, viewer_access_token, viewer_user, STEAM_ID)
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["steam_progression"] == {}
+
+
+def test_relinking_the_same_profile_keeps_its_progression(
+    client, viewer_access_token: str, viewer_user: User, steam_achievements
+):
+    progression = {"total": 0, "results": []}
+    db_user_handler.update_user(
+        viewer_user.id, {"steam_id": STEAM_ID, "steam_progression": progression}
+    )
+
+    response = _link_steam(client, viewer_access_token, viewer_user, STEAM_ID)
+
+    assert response.json()["steam_progression"] == progression
+    steam_achievements.can_read_games.assert_not_awaited()
+
+
+def test_a_blank_steam_id_unlinks_the_profile(
+    client, viewer_access_token: str, viewer_user: User
+):
+    db_user_handler.update_user(
+        viewer_user.id, {"steam_id": STEAM_ID, "steam_progression": {"total": 0}}
+    )
+
+    response = _link_steam(client, viewer_access_token, viewer_user, "")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["steam_id"] is None
+    assert response.json()["steam_progression"] == {}
+
+
+@pytest.mark.parametrize(
+    ("resolved", "readable", "detail"),
+    [
+        (None, True, "No Steam profile matches this ID or URL"),
+        (STEAM_ID, False, STEAM_GAME_DETAILS_PRIVATE),
+    ],
+    ids=["unknown-profile", "private-game-details"],
+)
+def test_linking_refuses_a_profile_it_cannot_read(
+    client,
+    viewer_access_token: str,
+    viewer_user: User,
+    steam_achievements,
+    resolved,
+    readable,
+    detail,
+):
+    steam_achievements.resolve_profile.return_value = resolved
+    steam_achievements.can_read_games.return_value = readable
+
+    response = _link_steam(client, viewer_access_token, viewer_user, "gabe")
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json()["detail"] == detail
+    unchanged = db_user_handler.get_user(viewer_user.id)
+    assert unchanged and unchanged.steam_id is None
+
+
+def test_linking_needs_steam_achievements_enabled(
+    client, viewer_access_token: str, viewer_user: User, mocker
+):
+    mocker.patch.object(SteamHandler, "achievements_enabled", return_value=False)
+
+    response = _link_steam(client, viewer_access_token, viewer_user, STEAM_ID)
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json()["detail"] == STEAM_ACHIEVEMENTS_DISABLED
+
+
+def test_refreshing_steam_achievements_syncs_the_user(
+    client, viewer_access_token: str, viewer_user: User, steam_achievements, mocker
+):
+    db_user_handler.update_user(viewer_user.id, {"steam_id": STEAM_ID})
+    sync = mocker.patch("endpoints.user.sync_user_progress", AsyncMock())
+
+    response = client.post(
+        f"/api/users/{viewer_user.id}/steam/refresh",
+        json={"incremental": True},
+        headers=_bearer(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert sync.await_args.args[0].id == viewer_user.id
+    assert sync.await_args.kwargs == {"incremental": True}
+
+
+def test_refreshing_a_private_profile_explains_why_it_failed(
+    client, viewer_access_token: str, viewer_user: User, steam_achievements, mocker
+):
+    db_user_handler.update_user(viewer_user.id, {"steam_id": STEAM_ID})
+    mocker.patch(
+        "endpoints.user.sync_user_progress",
+        AsyncMock(side_effect=SteamGameDetailsPrivateError(STEAM_ID)),
+    )
+
+    response = client.post(
+        f"/api/users/{viewer_user.id}/steam/refresh",
+        headers=_bearer(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json()["detail"] == STEAM_GAME_DETAILS_PRIVATE
+
+
+def test_refreshing_without_a_linked_profile_is_not_found(
+    client, viewer_access_token: str, viewer_user: User, steam_achievements
+):
+    response = client.post(
+        f"/api/users/{viewer_user.id}/steam/refresh",
+        headers=_bearer(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_another_users_steam_achievements_cannot_be_refreshed(
+    client, viewer_access_token: str, editor_user: User, steam_achievements
+):
+    db_user_handler.update_user(editor_user.id, {"steam_id": STEAM_ID})
+
+    response = client.post(
+        f"/api/users/{editor_user.id}/steam/refresh",
+        headers=_bearer(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN

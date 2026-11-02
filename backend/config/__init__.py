@@ -411,6 +411,13 @@ SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON: Final[str] = _get_env(
     "SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON",
     "0 4 * * *",  # At 4:00 AM every day
 )
+ENABLE_SCHEDULED_STEAM_ACHIEVEMENTS_PROGRESS_SYNC: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_STEAM_ACHIEVEMENTS_PROGRESS_SYNC")
+)
+SCHEDULED_STEAM_ACHIEVEMENTS_PROGRESS_SYNC_CRON: Final[str] = _get_env(
+    "SCHEDULED_STEAM_ACHIEVEMENTS_PROGRESS_SYNC_CRON",
+    "15 4 * * *",  # At 4:15 AM every day
+)
 # On by default: the similarity index is what both the "Similar games" section
 # and the personalised feed read, so leaving it off silently empties them.
 ENABLE_SCHEDULED_BUILD_RECOMMENDATIONS: Final[bool] = safe_str_to_bool(

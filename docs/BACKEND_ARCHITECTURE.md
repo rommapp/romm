@@ -532,22 +532,24 @@ Constants: `FILE_NAME_MAX_LENGTH=450`, `FILE_PATH_MAX_LENGTH=1000`, `FILE_EXTENS
 
 **Table:** `users`
 
-| Column            | Type                              | Notes                                           |
-| ----------------- | --------------------------------- | ----------------------------------------------- |
-| `id`              | Integer                           | PK, autoincrement                               |
-| `username`        | String(255)                       | Unique, indexed                                 |
-| `hashed_password` | String(255)                       | Nullable (OIDC users)                           |
-| `email`           | String(255)                       | Unique, indexed, nullable                       |
-| `oidc_issuer`     | ExactString(255)                  | OIDC `iss`, nullable                            |
-| `oidc_sub`        | ExactString(255)                  | OIDC `sub`, nullable; unique with `oidc_issuer` |
-| `enabled`         | Boolean                           | Default `True`                                  |
-| `role`            | Enum(`VIEWER`, `EDITOR`, `ADMIN`) | Default `VIEWER`                                |
-| `avatar_path`     | String(255)                       | Default `""`                                    |
-| `last_login`      | Timestamp                         | Nullable                                        |
-| `last_active`     | Timestamp                         | Nullable                                        |
-| `ra_username`     | String(255)                       | RetroAchievements username                      |
-| `ra_progression`  | JSON                              | RetroAchievements data                          |
-| `ui_settings`     | JSON                              | User preferences                                |
+| Column              | Type                              | Notes                                           |
+| ------------------- | --------------------------------- | ----------------------------------------------- |
+| `id`                | Integer                           | PK, autoincrement                               |
+| `username`          | String(255)                       | Unique, indexed                                 |
+| `hashed_password`   | String(255)                       | Nullable (OIDC users)                           |
+| `email`             | String(255)                       | Unique, indexed, nullable                       |
+| `oidc_issuer`       | ExactString(255)                  | OIDC `iss`, nullable                            |
+| `oidc_sub`          | ExactString(255)                  | OIDC `sub`, nullable; unique with `oidc_issuer` |
+| `enabled`           | Boolean                           | Default `True`                                  |
+| `role`              | Enum(`VIEWER`, `EDITOR`, `ADMIN`) | Default `VIEWER`                                |
+| `avatar_path`       | String(255)                       | Default `""`                                    |
+| `last_login`        | Timestamp                         | Nullable                                        |
+| `last_active`       | Timestamp                         | Nullable                                        |
+| `ra_username`       | String(255)                       | RetroAchievements username                      |
+| `ra_progression`    | JSON                              | RetroAchievements data                          |
+| `steam_id`          | String(17)                        | Linked SteamID64                                |
+| `steam_progression` | JSON                              | Steam achievements for the library's games      |
+| `ui_settings`       | JSON                              | User preferences                                |
 
 **Relationships:** saves (1:M), states (1:M), screenshots (1:M), rom_users (1:M), notes (1:M), collections (1:M), smart_collections (1:M), devices (1:M, cascade), client_tokens (1:M, cascade)
 
@@ -863,18 +865,19 @@ A reset link is emailed when SMTP is set up, the user has an address and `ROMM_B
 
 ### 6.2 Users (`/api/users`)
 
-| Method | Path               | Scope                  | Description                      |
-| ------ | ------------------ | ---------------------- | -------------------------------- |
-| POST   | `/`                | ME_WRITE / USERS_WRITE | Create user (first user = admin) |
-| POST   | `/invite-link`     | USERS_WRITE            | Generate invite token            |
-| POST   | `/register`        | None                   | Register with invite token       |
-| GET    | `/`                | USERS_READ             | List all users                   |
-| GET    | `/identifiers`     | USERS_READ             | Get user IDs                     |
-| GET    | `/me`              | ME_READ                | Current user profile             |
-| GET    | `/{id}`            | USERS_READ             | Get user by ID                   |
-| PUT    | `/{id}`            | ME_WRITE               | Update user                      |
-| DELETE | `/{id}`            | USERS_WRITE            | Delete user                      |
-| POST   | `/{id}/ra/refresh` | ME_WRITE               | Refresh RetroAchievements data   |
+| Method | Path                  | Scope                  | Description                      |
+| ------ | --------------------- | ---------------------- | -------------------------------- |
+| POST   | `/`                   | ME_WRITE / USERS_WRITE | Create user (first user = admin) |
+| POST   | `/invite-link`        | USERS_WRITE            | Generate invite token            |
+| POST   | `/register`           | None                   | Register with invite token       |
+| GET    | `/`                   | USERS_READ             | List all users                   |
+| GET    | `/identifiers`        | USERS_READ             | Get user IDs                     |
+| GET    | `/me`                 | ME_READ                | Current user profile             |
+| GET    | `/{id}`               | USERS_READ             | Get user by ID                   |
+| PUT    | `/{id}`               | ME_WRITE               | Update user                      |
+| DELETE | `/{id}`               | USERS_WRITE            | Delete user                      |
+| POST   | `/{id}/ra/refresh`    | ME_WRITE               | Refresh RetroAchievements data   |
+| POST   | `/{id}/steam/refresh` | ME_WRITE               | Refresh Steam achievements       |
 
 ### 6.3 Client Tokens (`/api/client-tokens`)
 
@@ -1724,21 +1727,22 @@ failure callback and a scan needs one to report a worker that died mid-scan.
 
 Toggled via environment variables:
 
-| Task                              | Env Toggle                                            | Default Cron       | Description                    |
-| --------------------------------- | ----------------------------------------------------- | ------------------ | ------------------------------ |
-| `scan_library`                    | `ENABLE_SCHEDULED_RESCAN`                             | `0 3 * * *` (3 AM) | Full library rescan            |
-| `update_switch_titledb`           | `ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB`              | `0 4 * * *`        | Update Switch game DB          |
-| `update_launchbox_metadata`       | `ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA`          | `0 4 * * *`        | Refresh LaunchBox data         |
-| `convert_images_to_webp`          | `ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP`             | `0 4 * * *`        | Image optimization             |
-| `sync_retroachievements_progress` | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC`    | `0 4 * * *`        | Sync RA user progress          |
-| `cleanup_orphaned_resources`      | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`         | `0 5 * * *`        | Remove unused artwork          |
-| `cleanup_netplay`                 | `ENABLE_SCHEDULED_CLEANUP_NETPLAY` (default on)       | `*/30 * * * *`     | Clean empty rooms              |
-| `cleanup_upload_tmp`              | `ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP` (default on)    | `0 * * * *`        | Drop stale uploads             |
-| `cleanup_zip_cache`               | `ENABLE_SCHEDULED_CLEANUP_ZIP_CACHE` (default on)     | `0 4 * * *`        | Drop stale cached ZIPs         |
-| `cleanup_conversion_cache`        | Always on                                             | `0 4 * * *`        | Drop stale converted downloads |
-| `cleanup_sync_sessions`           | `ENABLE_SCHEDULED_CLEANUP_SYNC_SESSIONS` (default on) | `23 * * * *`       | Fail abandoned syncs           |
-| `reap_streaming_sessions`         | `streaming.enabled` in config, read at startup        | `* * * * *`        | Stop abandoned streams         |
-| `cleanup_audit_log`               | `AUDIT_LOG_RETENTION_DAYS` above 0 (default 90)       | `30 4 * * *`       | Prune old audit events         |
+| Task                               | Env Toggle                                            | Default Cron       | Description                    |
+| ---------------------------------- | ----------------------------------------------------- | ------------------ | ------------------------------ |
+| `scan_library`                     | `ENABLE_SCHEDULED_RESCAN`                             | `0 3 * * *` (3 AM) | Full library rescan            |
+| `update_switch_titledb`            | `ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB`              | `0 4 * * *`        | Update Switch game DB          |
+| `update_launchbox_metadata`        | `ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA`          | `0 4 * * *`        | Refresh LaunchBox data         |
+| `convert_images_to_webp`           | `ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP`             | `0 4 * * *`        | Image optimization             |
+| `sync_retroachievements_progress`  | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC`    | `0 4 * * *`        | Sync RA user progress          |
+| `sync_steam_achievements_progress` | `ENABLE_SCHEDULED_STEAM_ACHIEVEMENTS_PROGRESS_SYNC`   | `15 4 * * *`       | Sync Steam user progress       |
+| `cleanup_orphaned_resources`       | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`         | `0 5 * * *`        | Remove unused artwork          |
+| `cleanup_netplay`                  | `ENABLE_SCHEDULED_CLEANUP_NETPLAY` (default on)       | `*/30 * * * *`     | Clean empty rooms              |
+| `cleanup_upload_tmp`               | `ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP` (default on)    | `0 * * * *`        | Drop stale uploads             |
+| `cleanup_zip_cache`                | `ENABLE_SCHEDULED_CLEANUP_ZIP_CACHE` (default on)     | `0 4 * * *`        | Drop stale cached ZIPs         |
+| `cleanup_conversion_cache`         | Always on                                             | `0 4 * * *`        | Drop stale converted downloads |
+| `cleanup_sync_sessions`            | `ENABLE_SCHEDULED_CLEANUP_SYNC_SESSIONS` (default on) | `23 * * * *`       | Fail abandoned syncs           |
+| `reap_streaming_sessions`          | `streaming.enabled` in config, read at startup        | `* * * * *`        | Stop abandoned streams         |
+| `cleanup_audit_log`                | `AUDIT_LOG_RETENTION_DAYS` above 0 (default 90)       | `30 4 * * *`       | Prune old audit events         |
 
 ### Manual Tasks
 

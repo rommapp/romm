@@ -10,6 +10,7 @@ export type UserForm = {
     role?: (string | null);
     enabled?: (boolean | null);
     ra_username?: (string | null);
+    steam_id?: (string | null);
     avatar?: (string | null);
     ui_settings?: (string | null);
 };

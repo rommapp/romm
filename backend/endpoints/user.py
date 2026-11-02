@@ -34,7 +34,7 @@ from handler.filesystem.assets_handler import (
     build_asset_file_response,
     validate_image_upload,
 )
-from handler.metadata import meta_ra_handler
+from handler.metadata import meta_ra_handler, meta_steam_handler
 from handler.metadata.ra_handler import RAUserProgression
 from handler.notification_handler import notify
 from handler.socket_handler import close_client_token_sockets
@@ -42,6 +42,10 @@ from logger.logger import log
 from models.audit_event import AuditAction
 from models.notification import NotificationKind, NotificationLevel
 from models.user import Role, User
+from tasks.scheduled.sync_steam_achievements_progress import (
+    SteamGameDetailsPrivateError,
+    sync_user_progress,
+)
 from utils.router import APIRouter
 from utils.validation import (
     ValidationError,
@@ -110,6 +114,42 @@ async def _verify_account_holder(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Sign in to the web interface to change the username, password or email of this account",
         )
+
+
+STEAM_ACHIEVEMENTS_DISABLED: Final = (
+    "Steam achievements need STEAM_API_ENABLED and STEAM_API_KEY"
+)
+STEAM_GAME_DETAILS_PRIVATE: Final = (
+    "Couldn't read this Steam profile's games, check its Game details are public"
+)
+
+
+async def _steam_link_update(value: str, user: User) -> dict[str, Any]:
+    """The user columns that link the Steam profile in `value`, or unlink a blank one."""
+    if not value.strip():
+        return {"steam_id": None, "steam_progression": {}}
+
+    if not meta_steam_handler.achievements_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=STEAM_ACHIEVEMENTS_DISABLED,
+        )
+
+    steam_id = await meta_steam_handler.resolve_profile(value)
+    if not steam_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No Steam profile matches this ID or URL",
+        )
+    if steam_id == user.steam_id:
+        return {}
+
+    if not await meta_steam_handler.can_read_games(steam_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=STEAM_GAME_DETAILS_PRIVATE,
+        )
+    return {"steam_id": steam_id, "steam_progression": {}}
 
 
 def _assert_can_manage_user(request: Request, target: User) -> None:
@@ -555,6 +595,9 @@ async def update_user(
     if form_data.ra_username:
         cleaned_data["ra_username"] = form_data.ra_username
 
+    if form_data.steam_id is not None:
+        cleaned_data.update(await _steam_link_update(form_data.steam_id, db_user))
+
     if form_data.ui_settings is not None:
         try:
             ui_settings = json.loads(form_data.ui_settings)
@@ -737,3 +780,49 @@ async def refresh_retro_achievements(
         },
     )
     return None
+
+
+@protected_route(
+    router.post,
+    "/{id}/steam/refresh",
+    [Scope.ME_WRITE],
+    status_code=status.HTTP_200_OK,
+    summary="Refresh Steam achievements",
+    responses={
+        status.HTTP_400_BAD_REQUEST: {},
+        status.HTTP_404_NOT_FOUND: {},
+    },
+)
+async def refresh_steam_achievements(
+    request: Request,
+    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+    incremental: Annotated[
+        bool,
+        Body(
+            description="Whether to skip games not played since the last refresh.",
+            embed=True,
+        ),
+    ] = False,
+) -> None:
+    """Refresh a user's Steam achievements for the games in the library."""
+    user = db_user_handler.get_user(id)
+    if user:
+        _assert_can_manage_user(request, user)
+    if not user or not user.steam_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User does not have a Steam profile linked",
+        )
+    if not meta_steam_handler.achievements_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=STEAM_ACHIEVEMENTS_DISABLED,
+        )
+
+    try:
+        await sync_user_progress(user, incremental=incremental)
+    except SteamGameDetailsPrivateError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=STEAM_GAME_DETAILS_PRIVATE,
+        ) from exc

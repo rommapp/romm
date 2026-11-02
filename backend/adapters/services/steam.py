@@ -12,6 +12,11 @@ from adapters.services.steam_types import (
     SteamAppDetailsEnvelope,
     SteamGlobalAchievementPercent,
     SteamGlobalAchievementPercentagesResponse,
+    SteamOwnedGame,
+    SteamOwnedGamesResponse,
+    SteamPlayerAchievement,
+    SteamPlayerAchievementsResponse,
+    SteamResolveVanityUrlResponse,
     SteamSchemaAchievement,
     SteamSchemaForGameResponse,
     SteamStoreSearchItem,
@@ -270,3 +275,45 @@ class SteamWebApiService:
             return []
 
         return response.get("achievementpercentages", {}).get("achievements") or []
+
+    async def resolve_vanity_url(self, vanity_name: str) -> str | None:
+        """The SteamID64 behind a profile's custom URL name, or None."""
+        url = self.url.joinpath("ISteamUser/ResolveVanityURL/v1/").with_query(
+            vanityurl=vanity_name
+        )
+        response = await self._request(url, SteamResolveVanityUrlResponse)
+        if not response:
+            return None
+
+        resolved = response.get("response", {})
+        return resolved.get("steamid") if resolved.get("success") == 1 else None
+
+    async def get_owned_games(self, steam_id: str) -> list[SteamOwnedGame] | None:
+        """The games a profile owns, or None when its game details are private."""
+        url = self.url.joinpath("IPlayerService/GetOwnedGames/v1/").with_query(
+            steamid=steam_id, include_appinfo="1", include_played_free_games="1"
+        )
+        response = await self._request(url, SteamOwnedGamesResponse)
+        owned = response.get("response", {}) if response else {}
+        if "game_count" not in owned:
+            return None
+
+        return owned.get("games") or []
+
+    async def get_player_achievements(
+        self, steam_id: str, app_id: int
+    ) -> list[SteamPlayerAchievement] | None:
+        """A player's state on each achievement of a game, or None if unreadable.
+
+        Steam answers a private profile with a 403 and a game without stats with
+        a 400, both of which `_request` turns into None.
+        """
+        url = self.url.joinpath("ISteamUserStats/GetPlayerAchievements/v1/").with_query(
+            steamid=steam_id, appid=str(app_id)
+        )
+        response = await self._request(url, SteamPlayerAchievementsResponse)
+        stats = response.get("playerstats") if response else None
+        if not stats or not stats.get("success"):
+            return None
+
+        return stats.get("achievements") or []

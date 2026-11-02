@@ -989,6 +989,26 @@ class DBRomsHandler(DBBaseHandler):
             select(Rom.id, Rom.ra_id).where(Rom.ra_id.in_(ra_ids))
         ).all()
 
+    @begin_session
+    def get_roms_by_steam_ids(
+        self,
+        steam_ids: Sequence[int],
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> Sequence[Row[int, int | None]]:
+        """Get `(id, steam_id)` for every ROM matching any of `steam_ids`."""
+        if not steam_ids:
+            return []
+        return session.execute(
+            select(Rom.id, Rom.steam_id).where(Rom.steam_id.in_(steam_ids))
+        ).all()
+
+    @begin_session
+    def get_steam_ids(self, *, session: Session = INJECTED_SESSION) -> set[int]:
+        """Every Steam app ID the library holds a match for."""
+        steam_ids = session.scalars(select(Rom.steam_id).distinct()).all()
+        return {steam_id for steam_id in steam_ids if steam_id is not None}
+
     def get_files_for_roms(
         self,
         rom_ids: list[int],

@@ -13,6 +13,8 @@ class UserForm(BaseModel):
     role: str | None = None
     enabled: bool | None = None
     ra_username: str | None = Field(default=None, max_length=TEXT_FIELD_LENGTH)
+    # A SteamID64, a profile URL or a custom URL name; blank unlinks.
+    steam_id: str | None = Field(default=None, max_length=TEXT_FIELD_LENGTH)
     avatar: UploadFile | None = None
     ui_settings: str | None = None
 
