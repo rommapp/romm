@@ -458,6 +458,11 @@ async def update_user(
 
     _assert_can_manage_user(request, db_user)
 
+    # A form model reads a submitted "" as absent, but "" is how a client clears the email.
+    email = form_data.email
+    if email is None and (await request.form()).get("email") == "":
+        email = ""
+
     # Usernames and emails match case-insensitively, so a case-only edit is no change.
     new_username = (
         form_data.username
@@ -465,9 +470,8 @@ async def update_user(
         else None
     )
     new_email = (
-        form_data.email
-        if form_data.email is not None
-        and form_data.email.lower() != (db_user.email or "").lower()
+        email
+        if email is not None and email.lower() != (db_user.email or "").lower()
         else None
     )
 

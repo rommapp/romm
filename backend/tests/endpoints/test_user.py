@@ -92,6 +92,19 @@ def test_admin_can_demote_another_admin(client, access_token: str, admin_user: U
     assert response.json()["role"] == Role.USER
 
 
+def test_a_role_only_edit_keeps_the_account_enabled(
+    client, access_token: str, viewer_user: User
+):
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"role": "admin"},
+        headers=_bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["enabled"] is True
+
+
 def test_rename_is_lowercased(client, access_token: str, viewer_user: User):
     response = client.put(
         f"/api/users/{viewer_user.id}",
