@@ -41,15 +41,11 @@ const useSteamLibrary = defineStore("steamLibrary", () => {
     }
   }
 
-  function reset() {
-    ownedAppIds.value = new Set();
-    loadedFor.value = null;
-  }
-
   watch(
     account,
     (next) => {
-      reset();
+      ownedAppIds.value = new Set();
+      loadedFor.value = null;
       if (next) void load();
     },
     { immediate: true },
@@ -75,7 +71,7 @@ const useSteamLibrary = defineStore("steamLibrary", () => {
     { connect: false },
   );
 
-  return { ownedAppIds, isLoaded, count, load, reset };
+  return { isLoaded, count, load };
 });
 
 export default useSteamLibrary;

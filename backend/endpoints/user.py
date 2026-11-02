@@ -13,7 +13,7 @@ from endpoints.forms.identity import UserForm
 from endpoints.permissions import emit_permissions_changed
 from endpoints.responses import TaskExecutionResponse
 from endpoints.responses.identity import InviteLinkSchema, UserSchema
-from endpoints.tasks import build_task_execution_response
+from endpoints.tasks import assert_task_worker, build_task_execution_response
 from exceptions.database_exceptions import LastAdminError
 from handler.audit_handler import (
     AuditActor,
@@ -41,7 +41,7 @@ from handler.filesystem.assets_handler import (
 from handler.metadata import meta_ra_handler
 from handler.metadata.ra_handler import RAUserProgression
 from handler.notification_handler import notify
-from handler.redis_handler import QUEUES_BY_NAME, has_live_worker
+from handler.redis_handler import QUEUES_BY_NAME
 from handler.socket_handler import close_client_token_sockets
 from handler.steam_library_handler import (
     SteamLibraryError,
@@ -755,8 +755,8 @@ async def refresh_retro_achievements(
     return None
 
 
-def _get_steam_user(request: Request, id: int) -> User:
-    """The user whose Steam account is used, if the caller may manage them."""
+def _get_manageable_user(request: Request, id: int) -> User:
+    """The user with id `id`, if the caller may manage them."""
     user = db_user_handler.get_user(id)
     if not user:
         raise HTTPException(
@@ -790,7 +790,7 @@ async def link_steam_account(
     ],
 ) -> UserSchema:
     """Link the Steam account whose games are imported for a user."""
-    user = _get_steam_user(request, id)
+    user = _get_manageable_user(request, id)
     try:
         summary = await resolve_steam_profile(profile)
     except SteamLibraryError as exc:
@@ -798,8 +798,7 @@ async def link_steam_account(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
 
-    link_steam_profile(user, summary)
-    return UserSchema.model_validate(db_user_handler.get_user(user.id))
+    return UserSchema.model_validate(link_steam_profile(user, summary))
 
 
 @protected_route(
@@ -814,9 +813,8 @@ async def unlink_steam_account(
     id: Annotated[int, PathVar(description="User internal id.", ge=1)],
 ) -> UserSchema:
     """Unlink a user's Steam account and forget which games it owns."""
-    user = _get_steam_user(request, id)
-    unlink_steam_profile(user)
-    return UserSchema.model_validate(db_user_handler.get_user(user.id))
+    user = _get_manageable_user(request, id)
+    return UserSchema.model_validate(unlink_steam_profile(user))
 
 
 @protected_route(
@@ -831,7 +829,7 @@ def get_steam_library(
     id: Annotated[int, PathVar(description="User internal id.", ge=1)],
 ) -> list[int]:
     """List the Steam app ids a user's linked account owned at its last sync."""
-    user = _get_steam_user(request, id)
+    user = _get_manageable_user(request, id)
     return db_steam_library_handler.get_owned_app_ids(user.id)
 
 
@@ -853,7 +851,7 @@ async def sync_steam_account(
     id: Annotated[int, PathVar(description="User internal id.", ge=1)],
 ) -> TaskExecutionResponse:
     """Queue an import of the games a user's linked Steam account owns."""
-    user = _get_steam_user(request, id)
+    user = _get_manageable_user(request, id)
     if not STEAM_API_KEY:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -864,12 +862,7 @@ async def sync_steam_account(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Link a Steam account first",
         )
-    # Without a worker the job would sit queued while the UI says it started.
-    if not has_live_worker(QUEUES_BY_NAME[SYNC_STEAM_LIBRARIES_SPEC.queue_name]):
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="No task worker is listening, so the sync cannot be queued",
-        )
+    assert_task_worker(QUEUES_BY_NAME[SYNC_STEAM_LIBRARIES_SPEC.queue_name], "the sync")
 
     job = enqueue_task(
         SYNC_STEAM_LIBRARIES_TASK,

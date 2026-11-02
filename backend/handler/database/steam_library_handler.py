@@ -1,5 +1,7 @@
 from collections.abc import Collection, Sequence
-from typing import NamedTuple
+from datetime import UTC, datetime
+from itertools import batched
+from typing import NamedTuple, cast
 
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
@@ -17,6 +19,13 @@ from .base_handler import DBBaseHandler
 
 # Keeps each IN list well under every database's bound-parameter limit.
 STEAM_ID_CHUNK_SIZE = 1000
+
+
+def _as_utc(value: datetime | None) -> datetime | None:
+    """`value` as UTC-aware, since MariaDB reads timezone-aware columns back naive."""
+    if value is None or value.tzinfo is not None:
+        return value
+    return value.replace(tzinfo=UTC)
 
 
 class SteamLibraryChanges(NamedTuple):
@@ -38,27 +47,17 @@ class DBSteamLibraryHandler(DBBaseHandler):
         session: Session = INJECTED_SESSION,
     ) -> dict[int, int]:
         """Each Steam app's rom on the given platforms, preferring one with a file."""
-        rows: list[tuple[int | None, int, str | None]] = []
-        ids = list(steam_app_ids)
-        for start in range(0, len(ids), STEAM_ID_CHUNK_SIZE):
-            rows.extend(
-                (app_id, rom_id, storefront)
-                for app_id, rom_id, storefront in session.execute(
-                    select(Rom.steam_id, Rom.id, Rom.storefront)
-                    .join(Platform, Platform.id == Rom.platform_id)
-                    .where(
-                        Platform.slug.in_(platform_slugs),
-                        Rom.steam_id.in_(ids[start : start + STEAM_ID_CHUNK_SIZE]),
-                    )
-                ).all()
-            )
-
         rom_ids: dict[int, int] = {}
-        for app_id, rom_id, _ in sorted(
-            rows, key=lambda row: (row[2] is not None, row[1])
-        ):
-            if app_id is not None:
-                rom_ids.setdefault(app_id, rom_id)
+        for chunk in batched(steam_app_ids, STEAM_ID_CHUNK_SIZE, strict=False):
+            rows = session.execute(
+                select(Rom.steam_id, Rom.id)
+                .join(Platform, Platform.id == Rom.platform_id)
+                .where(Platform.slug.in_(platform_slugs), Rom.steam_id.in_(chunk))
+                .order_by(Rom.storefront.is_not(None), Rom.id)
+            ).all()
+            for app_id, rom_id in rows:
+                # The IN filter already excludes a NULL steam_id.
+                rom_ids.setdefault(cast(int, app_id), rom_id)
         return rom_ids
 
     @begin_session
@@ -106,13 +105,12 @@ class DBSteamLibraryHandler(DBBaseHandler):
     ) -> list[int]:
         """The store-only roms among `rom_ids` that no metadata source matched yet."""
         # Their Steam id is set at creation, so the cover a match fills in tells instead.
-        ids = list(rom_ids)
         unmatched: list[int] = []
-        for start in range(0, len(ids), STEAM_ID_CHUNK_SIZE):
+        for chunk in batched(rom_ids, STEAM_ID_CHUNK_SIZE, strict=False):
             unmatched.extend(
                 session.scalars(
                     select(Rom.id).where(
-                        Rom.id.in_(ids[start : start + STEAM_ID_CHUNK_SIZE]),
+                        Rom.id.in_(chunk),
                         Rom.storefront.is_not(None),
                         ~is_non_blank(Rom.url_cover),
                     )
@@ -170,13 +168,11 @@ class DBSteamLibraryHandler(DBBaseHandler):
         owned = {entry.steam_app_id for entry in entries}
 
         dropped = [app_id for app_id in existing if app_id not in owned]
-        for start in range(0, len(dropped), STEAM_ID_CHUNK_SIZE):
+        for chunk in batched(dropped, STEAM_ID_CHUNK_SIZE, strict=False):
             session.execute(
                 delete(SteamLibraryEntry).where(
                     SteamLibraryEntry.user_id == user_id,
-                    SteamLibraryEntry.steam_app_id.in_(
-                        dropped[start : start + STEAM_ID_CHUNK_SIZE]
-                    ),
+                    SteamLibraryEntry.steam_app_id.in_(chunk),
                 )
             )
 
@@ -188,9 +184,13 @@ class DBSteamLibraryHandler(DBBaseHandler):
                 session.add(entry)
                 added.append(entry.steam_app_id)
                 continue
-            current.rom_id = entry.rom_id
-            current.playtime_minutes = entry.playtime_minutes
-            current.last_played_at = entry.last_played_at
+            # Assigning only changes keeps an unchanged game from issuing an UPDATE.
+            if current.rom_id != entry.rom_id:
+                current.rom_id = entry.rom_id
+            if current.playtime_minutes != entry.playtime_minutes:
+                current.playtime_minutes = entry.playtime_minutes
+            if _as_utc(current.last_played_at) != _as_utc(entry.last_played_at):
+                current.last_played_at = entry.last_played_at
 
         return SteamLibraryChanges(added=added, removed=dropped)
 
@@ -220,14 +220,9 @@ class DBSteamLibraryHandler(DBBaseHandler):
         self, steam_app_ids: Collection[int], session: Session = INJECTED_SESSION
     ) -> list[int]:
         """Every rom with one of the Steam app ids, on any platform."""
-        app_ids = sorted(steam_app_ids)
         rom_ids: list[int] = []
-        for start in range(0, len(app_ids), STEAM_ID_CHUNK_SIZE):
+        for chunk in batched(steam_app_ids, STEAM_ID_CHUNK_SIZE, strict=False):
             rom_ids.extend(
-                session.scalars(
-                    select(Rom.id).where(
-                        Rom.steam_id.in_(app_ids[start : start + STEAM_ID_CHUNK_SIZE])
-                    )
-                ).all()
+                session.scalars(select(Rom.id).where(Rom.steam_id.in_(chunk))).all()
             )
         return rom_ids
