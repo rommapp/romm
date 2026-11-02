@@ -4,6 +4,7 @@ from typing import Final
 import aiohttp
 import yarl
 from aiohttp.client import ClientTimeout
+from fastapi import HTTPException
 
 from adapters.services.provider_http import send_with_retries
 from adapters.services.response_validation import parse_response
@@ -237,7 +238,8 @@ class SteamWebApiService:
         except TimeoutError:
             log.debug("Request to URL=%s timed out on every attempt", url)
             return None
-        except aiohttp.ClientResponseError as exc:
+        # A connection failure arrives as the 503 `send_with_retries` raises.
+        except (aiohttp.ClientResponseError, HTTPException) as exc:
             log.error(exc)
             return None
         except json.JSONDecodeError as exc:

@@ -803,7 +803,10 @@ def steam_achievement_icon_path(
     platform_id: int, rom_id: int, icon_url: str
 ) -> str | None:
     """Where a Steam achievement icon is stored, or None for an unusable URL."""
-    filename = posixpath.basename(urlsplit(icon_url).path)
+    try:
+        filename = posixpath.basename(urlsplit(icon_url).path)
+    except ValueError:
+        return None
     if not _STEAM_ICON_FILENAME.fullmatch(filename):
         return None
     return f"{rom_fs_resources_path(platform_id, rom_id)}/steam/achievements/{filename}"

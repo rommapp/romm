@@ -275,3 +275,11 @@ async def test_web_api_error_status_degrades_to_no_achievements(session):
 
     assert await SteamWebApiService().get_schema_achievements(400) == []
     assert session.get.await_count == 1
+
+
+async def test_web_api_connection_failure_degrades_to_no_achievements(session):
+    """An optional extra must not fail the storefront match it enriches."""
+    session.get.side_effect = aiohttp.ClientConnectionError()
+
+    assert await SteamWebApiService().get_schema_achievements(400) == []
+    assert await SteamWebApiService().get_global_achievement_percentages(400) == []

@@ -599,9 +599,8 @@ async def download_rom_resources(
         else []
     )
 
-    # ScreenScraper media and achievement images are bounded by their own
-    # limiters. What landed is saved even when another download failed, then that
-    # failure raised.
+    # ScreenScraper media and achievement images have their own limiters. What
+    # landed is saved even when another download failed, then that failure raised.
     outcomes: tuple[Any, ...] = await asyncio.gather(
         gather_all(
             fs_resource_handler.get_cover(

@@ -539,6 +539,7 @@ def test_rom_id_from_resource_url_needs_the_resources_prefix():
         ("https://cdn.example/apps/400/", None),
         ("https://cdn.example/apps/400/..", None),
         ("https://cdn.example/apps/400/icon.svg", None),
+        ("https://[", None),
     ],
 )
 def test_steam_achievement_icon_path(icon_url: str, expected: str | None):

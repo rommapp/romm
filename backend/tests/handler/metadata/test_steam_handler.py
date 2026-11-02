@@ -519,3 +519,15 @@ async def test_rom_skips_the_web_api_without_a_key_or_achievements(key, details)
 
     assert "achievements" not in rom.get("steam_metadata", {})
     web_api.get_schema_achievements.assert_not_awaited()
+
+
+async def test_rom_keeps_the_schema_when_only_the_unlock_rates_fail():
+    handler, _ = _handler(details={**CYBERPUNK, "achievements": {"total": 2}})
+    web_api = _web_api(handler)
+    web_api.get_global_achievement_percentages = AsyncMock(return_value=[])
+
+    with patch("handler.metadata.steam_handler.STEAM_API_KEY", "secret"):
+        rom = await handler.get_rom_by_id(1091500)
+
+    achievements = rom.get("steam_metadata", {}).get("achievements", [])
+    assert [a["global_percent"] for a in achievements] == [None, None]
