@@ -8,7 +8,10 @@ from handler.database import db_user_handler
 from handler.scan.sources import ScanType
 from handler.steam_library_handler import SteamLibraryError, SteamSyncResult
 from models.user import User
-from tasks.scheduled.sync_steam_libraries import SyncSteamLibrariesTask
+from tasks.scheduled.sync_steam_libraries import (
+    SyncSteamLibrariesTask,
+    sync_steam_achievements_job,
+)
 
 MODULE = "tasks.scheduled.sync_steam_libraries"
 
@@ -123,3 +126,31 @@ async def test_does_nothing_without_an_api_key(
 
     sync.assert_not_awaited()
     assert stats == {"processed": 0, "total": 0}
+
+
+def test_the_achievements_job_reads_the_users_unlocks(admin_user: User):
+    db_user_handler.update_user(admin_user.id, {"steam_id": "76561197960287930"})
+    with (
+        patch("tasks.scheduled.sync_steam_libraries.STEAM_API_KEY", "secret"),
+        patch(
+            "tasks.scheduled.sync_steam_libraries.sync_steam_achievements",
+            new_callable=AsyncMock,
+        ) as sync,
+    ):
+        sync_steam_achievements_job(admin_user.id)
+
+    await_args = sync.await_args
+    assert await_args is not None
+    assert await_args.args[0].id == admin_user.id
+
+
+def test_a_failing_achievements_job_does_not_raise(admin_user: User):
+    with (
+        patch("tasks.scheduled.sync_steam_libraries.STEAM_API_KEY", "secret"),
+        patch(
+            "tasks.scheduled.sync_steam_libraries.sync_steam_achievements",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("Steam down"),
+        ),
+    ):
+        sync_steam_achievements_job(admin_user.id)

@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Any
 
+from adapters.services.steam_types import SteamPlayerSummary
 from handler.auth.base_handler import auth_handler
 from handler.database import (
     db_client_token_handler,
@@ -142,3 +143,15 @@ def make_device_token(
     }
     token = db_client_token_handler.add_token(ClientToken(**(fields | overrides)))
     return token, raw_token
+
+
+def steam_player_summary(
+    steam_id: str = "76561197960287930", name: str = "Gabe"
+) -> SteamPlayerSummary:
+    """A public GetPlayerSummaries entry, as Steam returns it."""
+    return {
+        "steamid": steam_id,
+        "personaname": name,
+        "profileurl": f"https://steamcommunity.com/profiles/{steam_id}/",
+        "communityvisibilitystate": 3,
+    }

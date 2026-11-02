@@ -43,8 +43,9 @@ STEAM_WEB_API_MAX_REQUESTS_PER_SECOND: Final[float] = 4
 _web_api_rate_limiter = RateLimiter(STEAM_WEB_API_MAX_REQUESTS_PER_SECOND)
 # ResolveVanityURL's `success` when the name belongs to a profile.
 STEAM_VANITY_RESOLVED: Final[int] = 1
-# GetPlayerAchievements' status for a game that has no stats.
+# GetPlayerAchievements' statuses for a game without stats and a private player.
 STEAM_NO_STATS_STATUS: Final[int] = 400
+STEAM_PRIVATE_STATS_STATUS: Final[int] = 403
 
 # Undocumented conventions, so an app can have no asset at these URLs.
 STEAM_LIBRARY_CAPSULE_URL = (
@@ -350,12 +351,15 @@ class SteamWebApiService:
 
     async def get_player_achievements(
         self, steam_id: str, app_id: int
-    ) -> list[SteamPlayerAchievement]:
-        """A player's state on each achievement of a game, empty if it has none.
+    ) -> list[SteamPlayerAchievement] | None:
+        """A player's state on each achievement of a game.
+
+        Returns:
+            Empty for a game without stats, or None when the player's game details
+            are private.
 
         Raises:
-            SteamWebAPIError: Steam refused the request (a 403 when the player's
-                game details are private) or could not be reached.
+            SteamWebAPIError: Steam refused the request or could not be reached.
         """
         url = self.url.joinpath("ISteamUserStats/GetPlayerAchievements/v1/").with_query(
             steamid=steam_id, appid=str(app_id)
@@ -365,6 +369,8 @@ class SteamWebApiService:
         except SteamWebAPIError as exc:
             if exc.status == STEAM_NO_STATS_STATUS:
                 return []
+            if exc.status == STEAM_PRIVATE_STATS_STATUS:
+                return None
             raise
         # A reply that strays from its TypedDict is handed back as sent.
         stats = response.get("playerstats")

@@ -1,5 +1,5 @@
-from collections.abc import Collection, Sequence
-from typing import Any, NamedTuple
+from collections.abc import Collection, Mapping, Sequence
+from typing import NamedTuple
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
@@ -20,6 +20,15 @@ STEAM_ID_CHUNK_SIZE = 1000
 class SteamLibraryChanges(NamedTuple):
     added: list[int]
     removed: list[int]
+
+
+def _still_linked(session: Session, user_id: int, steam_id: str) -> bool:
+    """Whether the user is linked to `steam_id`, locking the row until the write."""
+    # Locked so an unlink or relink can't commit between the check and the write.
+    linked = session.scalar(
+        select(User.steam_id).where(User.id == user_id).with_for_update()
+    )
+    return linked == steam_id
 
 
 class DBSteamLibraryHandler(DBBaseHandler):
@@ -108,11 +117,7 @@ class DBSteamLibraryHandler(DBBaseHandler):
             The app ids newly owned and the ones no longer owned, or None when
             the user's linked account changed since `entries` were fetched.
         """
-        # Locked so an unlink or relink can't commit between the check and the write.
-        linked = session.scalar(
-            select(User.steam_id).where(User.id == user_id).with_for_update()
-        )
-        if linked != steam_id:
+        if not _still_linked(session, user_id, steam_id):
             return None
 
         existing = {
@@ -153,7 +158,7 @@ class DBSteamLibraryHandler(DBBaseHandler):
         self,
         user_id: int,
         steam_id: str,
-        progression: dict[str, Any],
+        progression: Mapping[str, object],
         session: Session = INJECTED_SESSION,
     ) -> bool:
         """Store the user's achievement progression, if still linked to `steam_id`.
@@ -161,11 +166,7 @@ class DBSteamLibraryHandler(DBBaseHandler):
         Returns:
             Whether it was stored, which it isn't once the linked account changed.
         """
-        # Locked like `replace_entries`, so an unlink can't commit in between.
-        linked = session.scalar(
-            select(User.steam_id).where(User.id == user_id).with_for_update()
-        )
-        if linked != steam_id:
+        if not _still_linked(session, user_id, steam_id):
             return False
         session.execute(
             update(User).where(User.id == user_id).values(steam_progression=progression)

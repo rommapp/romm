@@ -169,15 +169,25 @@ async def test_a_game_without_stats_has_no_player_achievements(session):
     assert await _service().get_player_achievements(STEAM_ID, 220) == []
 
 
-async def test_refused_player_achievements_are_an_error_with_their_status(session):
-    response = _response({})
+async def test_private_game_details_have_no_player_achievements(session):
+    response = _response({"playerstats": {"success": False}})
     response.raise_for_status.side_effect = _error(403)
+    session.get.return_value = response
+
+    assert await _service().get_player_achievements(STEAM_ID, 220) is None
+
+
+async def test_other_player_achievement_failures_are_an_error_with_their_status(
+    session,
+):
+    response = _response({})
+    response.raise_for_status.side_effect = _error(500)
     session.get.return_value = response
 
     with pytest.raises(SteamWebAPIError) as exc_info:
         await _service().get_player_achievements(STEAM_ID, 220)
 
-    assert exc_info.value.status == 403
+    assert exc_info.value.status == 500
 
 
 @pytest.mark.parametrize(

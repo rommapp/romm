@@ -1,15 +1,15 @@
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from tests.factories import make_platform, make_rom
+from rq.exceptions import DuplicateJobError
+from tests.factories import make_platform, make_rom, steam_player_summary
 
 from adapters.services.steam import SteamWebAPIError
 from adapters.services.steam_types import (
     SteamOwnedGame,
     SteamPlayerAchievement,
-    SteamPlayerSummary,
 )
 from endpoints.responses.identity import UserSchema
 from handler.database import (
@@ -27,9 +27,11 @@ from handler.steam_library_handler import (
     is_steam_game_completed,
     link_steam_profile,
     parse_steam_profile,
+    queue_steam_achievements_sync,
     resolve_steam_profile,
     steam_library_platform,
     steam_web_api,
+    sync_steam_achievements,
     sync_steam_library,
     unlink_steam_profile,
 )
@@ -84,6 +86,12 @@ def steam_api():
     api.get_player_achievements = AsyncMock(return_value=[])
     with patch("handler.steam_library_handler.steam_web_api", return_value=api):
         yield api
+
+
+@pytest.fixture(autouse=True)
+def queue_achievements():
+    with patch("handler.steam_library_handler.queue_steam_achievements_sync") as queue:
+        yield queue
 
 
 async def test_resolves_a_custom_name_to_its_account(steam_api: MagicMock):
@@ -339,10 +347,41 @@ def _unlocks(*states: bool) -> list[SteamPlayerAchievement]:
     ]
 
 
-def _progression(user: User) -> dict[str, Any]:
+HALF_LIFE_2_PLAYED = _game(220, "Half-Life 2", playtime=90, last_played=1_700_000_000)
+
+
+def _reload(user: User) -> User:
     stored = db_user_handler.get_user(user.id)
     assert stored is not None
-    return stored.steam_progression or {}
+    return stored
+
+
+def _progression(user: User) -> dict[str, Any]:
+    return _reload(user).steam_progression or {}
+
+
+async def _sync_achievements(user: User) -> None:
+    """The job the library sync queues, run in place."""
+    await sync_steam_achievements(_reload(user))
+
+
+async def test_a_library_sync_queues_the_achievements_job(
+    steam_api: MagicMock, steam_user: User, win: Platform, queue_achievements
+):
+    await sync_steam_library(steam_user)
+
+    queue_achievements.assert_called_once_with(steam_user.id)
+
+
+def test_the_achievements_job_is_queued_once_per_user():
+    with patch("handler.steam_library_handler.low_prio_queue") as queue:
+        queue.enqueue.side_effect = [None, DuplicateJobError()]
+        queue_steam_achievements_sync(7)
+        queue_steam_achievements_sync(7)
+
+    first = queue.enqueue.call_args_list[0]
+    assert first.kwargs["job_id"] == "steam_achievements_sync_7"
+    assert first.kwargs["unique"] is True
 
 
 async def test_a_sync_stores_unlocks_and_completes_fully_unlocked_games(
@@ -350,14 +389,15 @@ async def test_a_sync_stores_unlocks_and_completes_fully_unlocked_games(
 ):
     regional_copy = make_rom(win, "Half-Life 2 (EU)", steam_id=220)
     steam_api.get_owned_games.return_value = [
-        _game(220, "Half-Life 2", playtime=90, last_played=1_700_000_000),
+        HALF_LIFE_2_PLAYED,
         _game(400, "Portal", playtime=30, last_played=1_700_000_500),
     ]
     steam_api.get_player_achievements.side_effect = lambda _id, app_id: (
         _unlocks(True, True) if app_id == 220 else _unlocks(True, False)
     )
-
     await sync_steam_library(steam_user)
+
+    await _sync_achievements(steam_user)
 
     results = {g["rom_steam_id"]: g for g in _progression(steam_user)["results"]}
     assert (results[220]["num_unlocked"], results[220]["num_achievements"]) == (2, 2)
@@ -368,8 +408,11 @@ async def test_a_sync_stores_unlocks_and_completes_fully_unlocked_games(
     assert results[220]["rtime_last_played"] == 1_700_000_000
     completed = db_rom_handler.get_rom_user(regional_copy.id, steam_user.id)
     assert completed is not None and completed.status == RomUserStatus.COMPLETED_100
-    portal = db_steam_library_handler.get_entries(steam_user.id)
-    portal_rom_id = next(e.rom_id for e in portal if e.steam_app_id == 400)
+    portal_rom_id = next(
+        e.rom_id
+        for e in db_steam_library_handler.get_entries(steam_user.id)
+        if e.steam_app_id == 400
+    )
     started = db_rom_handler.get_rom_user(portal_rom_id, steam_user.id)
     assert started is None or started.status is None
 
@@ -377,21 +420,19 @@ async def test_a_sync_stores_unlocks_and_completes_fully_unlocked_games(
 async def test_a_game_not_played_since_the_last_sync_is_not_read_again(
     steam_api: MagicMock, steam_user: User, win: Platform
 ):
-    steam_api.get_owned_games.return_value = [
-        _game(220, "Half-Life 2", playtime=90, last_played=1_700_000_000)
-    ]
+    steam_api.get_owned_games.return_value = [HALF_LIFE_2_PLAYED]
     steam_api.get_player_achievements.return_value = _unlocks(True)
     await sync_steam_library(steam_user)
-    user = db_user_handler.get_user(steam_user.id)
-    assert user is not None
+    await _sync_achievements(steam_user)
 
-    await sync_steam_library(user)
+    await _sync_achievements(steam_user)
     assert steam_api.get_player_achievements.await_count == 1
 
     steam_api.get_owned_games.return_value = [
         _game(220, "Half-Life 2", playtime=120, last_played=1_700_009_000)
     ]
-    await sync_steam_library(user)
+    await sync_steam_library(_reload(steam_user))
+    await _sync_achievements(steam_user)
     assert steam_api.get_player_achievements.await_count == 2
 
 
@@ -399,8 +440,9 @@ async def test_a_game_never_played_is_not_read(
     steam_api: MagicMock, steam_user: User, win: Platform
 ):
     steam_api.get_owned_games.return_value = [_game(220, "Half-Life 2")]
-
     await sync_steam_library(steam_user)
+
+    await _sync_achievements(steam_user)
 
     steam_api.get_player_achievements.assert_not_awaited()
     assert _progression(steam_user)["results"] == []
@@ -409,11 +451,10 @@ async def test_a_game_never_played_is_not_read(
 async def test_a_game_without_stats_is_kept_so_it_is_not_read_again(
     steam_api: MagicMock, steam_user: User, win: Platform
 ):
-    steam_api.get_owned_games.return_value = [
-        _game(220, "Half-Life 2", playtime=90, last_played=1_700_000_000)
-    ]
-
+    steam_api.get_owned_games.return_value = [HALF_LIFE_2_PLAYED]
     await sync_steam_library(steam_user)
+
+    await _sync_achievements(steam_user)
 
     [game] = _progression(steam_user)["results"]
     assert (game["num_achievements"], game["num_unlocked"]) == (0, 0)
@@ -422,113 +463,141 @@ async def test_a_game_without_stats_is_kept_so_it_is_not_read_again(
 async def test_a_failed_read_keeps_what_the_last_sync_stored(
     steam_api: MagicMock, steam_user: User, win: Platform
 ):
-    steam_api.get_owned_games.return_value = [
-        _game(220, "Half-Life 2", playtime=90, last_played=1_700_000_000)
-    ]
+    steam_api.get_owned_games.return_value = [HALF_LIFE_2_PLAYED]
     steam_api.get_player_achievements.return_value = _unlocks(True, False)
     await sync_steam_library(steam_user)
-    user = db_user_handler.get_user(steam_user.id)
-    assert user is not None
+    await _sync_achievements(steam_user)
     steam_api.get_owned_games.return_value = [
         _game(220, "Half-Life 2", playtime=95, last_played=1_700_000_900)
     ]
     steam_api.get_player_achievements.side_effect = SteamWebAPIError(
         "Steam answered with HTTP 500", status=500
     )
+    await sync_steam_library(_reload(steam_user))
 
-    await sync_steam_library(user)
+    await _sync_achievements(steam_user)
 
-    [game] = _progression(user)["results"]
+    [game] = _progression(steam_user)["results"]
     assert (game["num_unlocked"], game["playtime_forever"]) == (1, 90)
 
 
-async def test_malformed_unlocks_are_coerced_or_dropped(
+async def test_private_game_details_stop_the_reads(
     steam_api: MagicMock, steam_user: User, win: Platform
 ):
     steam_api.get_owned_games.return_value = [
-        _game(220, "Half-Life 2", playtime=90, last_played=1_700_000_000)
+        HALF_LIFE_2_PLAYED,
+        _game(400, "Portal", playtime=30, last_played=1_700_000_500),
     ]
-    steam_api.get_player_achievements.return_value = [
-        {"apiname": "WIN", "achieved": 1, "unlocktime": "1700000000"},
-        {"apiname": "LATE", "achieved": 1, "unlocktime": None},
-        {"apiname": "LOCKED", "achieved": "0", "unlocktime": 0},
-        {"apiname": 5, "achieved": 1, "unlocktime": 1},
-        {"achieved": 1},
-        "NOT_AN_ACHIEVEMENT",
-    ]
-
+    steam_api.get_player_achievements.return_value = None
     await sync_steam_library(steam_user)
 
-    UserSchema.model_validate(db_user_handler.get_user(steam_user.id))
-    [game] = _progression(steam_user)["results"]
-    assert game["earned_achievements"] == [
-        {"api_name": "WIN", "unlock_time": 1_700_000_000},
-        {"api_name": "LATE", "unlock_time": 0},
-    ]
-    assert (game["num_achievements"], game["num_unlocked"]) == (3, 2)
+    await _sync_achievements(steam_user)
 
-
-async def test_refused_achievements_leave_the_library_sync_intact(
-    steam_api: MagicMock, steam_user: User, win: Platform
-):
-    steam_api.get_owned_games.return_value = [
-        _game(220, "Half-Life 2", playtime=90, last_played=1_700_000_000)
-    ]
-    steam_api.get_player_achievements.side_effect = SteamWebAPIError(
-        "Steam rejected the API key", status=403
-    )
-
-    result = await sync_steam_library(steam_user)
-
-    assert result.owned == 1
-    assert len(db_steam_library_handler.get_entries(steam_user.id)) == 1
-    assert _progression(steam_user) == {}
+    assert steam_api.get_player_achievements.await_count == 1
+    assert _progression(steam_user)["results"] == []
 
 
 async def test_progression_read_for_an_unlinked_account_is_not_stored(
     steam_api: MagicMock, steam_user: User, win: Platform
 ):
-    steam_api.get_owned_games.return_value = [
-        _game(220, "Half-Life 2", playtime=90, last_played=1_700_000_000)
-    ]
+    steam_api.get_owned_games.return_value = [HALF_LIFE_2_PLAYED]
+    await sync_steam_library(steam_user)
+    user = _reload(steam_user)
 
     async def unlink_while_reading(
         _steam_id: str, _app_id: int
     ) -> list[SteamPlayerAchievement]:
-        unlink_steam_profile(steam_user)
+        unlink_steam_profile(user)
         return _unlocks(True)
 
     steam_api.get_player_achievements.side_effect = unlink_while_reading
 
+    await sync_steam_achievements(user)
+
+    assert _progression(user) == {}
+
+
+async def test_games_past_the_read_budget_wait_for_the_next_sync(
+    steam_api: MagicMock, steam_user: User, win: Platform
+):
+    steam_api.get_owned_games.return_value = [
+        HALF_LIFE_2_PLAYED,
+        _game(400, "Portal", playtime=30, last_played=1_700_000_500),
+    ]
+    steam_api.get_player_achievements.return_value = _unlocks(True)
     await sync_steam_library(steam_user)
 
-    assert _progression(steam_user) == {}
+    with patch("handler.steam_library_handler.STEAM_ACHIEVEMENT_READS_PER_SYNC", 1):
+        await _sync_achievements(steam_user)
+        assert len(_progression(steam_user)["results"]) == 1
+        await _sync_achievements(steam_user)
 
-
-def _summary(steam_id: str, name: str) -> SteamPlayerSummary:
-    return {
-        "steamid": steam_id,
-        "personaname": name,
-        "profileurl": f"https://steamcommunity.com/profiles/{steam_id}/",
-        "communityvisibilitystate": 3,
+    assert {g["rom_steam_id"] for g in _progression(steam_user)["results"]} == {
+        220,
+        400,
     }
+    assert steam_api.get_player_achievements.await_count == 2
+
+
+async def test_reads_stop_after_several_failures_in_a_row(
+    steam_api: MagicMock, steam_user: User, win: Platform
+):
+    steam_api.get_owned_games.return_value = [
+        _game(app_id, f"Game {app_id}", playtime=10, last_played=1_700_000_000)
+        for app_id in range(1, 6)
+    ]
+    steam_api.get_player_achievements.side_effect = SteamWebAPIError(
+        "Steam did not answer in time"
+    )
+    await sync_steam_library(steam_user)
+
+    await _sync_achievements(steam_user)
+
+    assert steam_api.get_player_achievements.await_count == 3
+
+
+async def test_malformed_unlocks_are_coerced_or_dropped(
+    steam_api: MagicMock, steam_user: User, win: Platform
+):
+    steam_api.get_owned_games.return_value = [HALF_LIFE_2_PLAYED]
+    steam_api.get_player_achievements.return_value = cast(
+        Any,
+        [
+            {"apiname": "GOOD", "achieved": 1, "unlocktime": "1700000000"},
+            {"apiname": "BAD_TIME", "achieved": 1, "unlocktime": None},
+            {"apiname": "TEXT_FLAG", "achieved": "0", "unlocktime": 1},
+            {"apiname": 5, "achieved": 1, "unlocktime": 1},
+            "not an object",
+        ],
+    )
+    await sync_steam_library(steam_user)
+
+    await _sync_achievements(steam_user)
+
+    [game] = _progression(steam_user)["results"]
+    assert (game["num_achievements"], game["num_unlocked"]) == (3, 2)
+    assert game["earned_achievements"] == [
+        {"api_name": "GOOD", "unlock_time": 1_700_000_000},
+        {"api_name": "BAD_TIME", "unlock_time": 0},
+    ]
+    UserSchema.model_validate(_reload(steam_user))
 
 
 def test_linking_another_account_or_unlinking_drops_the_progression(steam_user: User):
     stored = {"total": 1, "results": []}
     db_user_handler.update_user(steam_user.id, {"steam_progression": stored})
 
-    link_steam_profile(steam_user, _summary(STEAM_ID, "Gabe"))
+    link_steam_profile(steam_user, steam_player_summary(STEAM_ID))
     assert _progression(steam_user) == stored
 
-    user = db_user_handler.get_user(steam_user.id)
-    assert user is not None
-    link_steam_profile(user, _summary("76561197960265728", "Other"))
-    assert _progression(user) == {}
+    link_steam_profile(
+        _reload(steam_user), steam_player_summary("76561197960265728", "Other")
+    )
+    assert _progression(steam_user) == {}
 
-    db_user_handler.update_user(user.id, {"steam_progression": stored})
-    unlink_steam_profile(user)
-    assert _progression(user) == {}
+    db_user_handler.update_user(steam_user.id, {"steam_progression": stored})
+    unlink_steam_profile(_reload(steam_user))
+    assert _progression(steam_user) == {}
 
 
 @pytest.mark.parametrize(
@@ -547,40 +616,3 @@ def test_a_game_is_completed_only_with_every_achievement(
         "earned_achievements": [],
     }
     assert is_steam_game_completed(game) is expected
-
-
-async def test_games_past_the_read_budget_wait_for_the_next_sync(
-    steam_api: MagicMock, steam_user: User, win: Platform
-):
-    steam_api.get_owned_games.return_value = [
-        _game(220, "Half-Life 2", playtime=90, last_played=1_700_000_000),
-        _game(400, "Portal", playtime=30, last_played=1_700_000_500),
-    ]
-    steam_api.get_player_achievements.return_value = _unlocks(True)
-
-    with patch("handler.steam_library_handler.STEAM_ACHIEVEMENT_READS_PER_SYNC", 1):
-        await sync_steam_library(steam_user)
-        assert len(_progression(steam_user)["results"]) == 1
-
-        user = db_user_handler.get_user(steam_user.id)
-        assert user is not None
-        await sync_steam_library(user)
-
-    assert {g["rom_steam_id"] for g in _progression(user)["results"]} == {220, 400}
-    assert steam_api.get_player_achievements.await_count == 2
-
-
-async def test_reads_stop_after_several_failures_in_a_row(
-    steam_api: MagicMock, steam_user: User, win: Platform
-):
-    steam_api.get_owned_games.return_value = [
-        _game(app_id, f"Game {app_id}", playtime=10, last_played=1_700_000_000)
-        for app_id in range(1, 6)
-    ]
-    steam_api.get_player_achievements.side_effect = SteamWebAPIError(
-        "Steam did not answer in time"
-    )
-
-    await sync_steam_library(steam_user)
-
-    assert steam_api.get_player_achievements.await_count == 3

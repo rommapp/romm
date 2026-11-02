@@ -4,8 +4,9 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Final, TypedDict, cast
+from typing import Final, TypedDict, cast
 
+from rq.exceptions import DuplicateJobError
 from sqlalchemy.exc import IntegrityError
 
 from adapters.services.steam import SteamWebAPIError, SteamWebApiService
@@ -25,12 +26,15 @@ from handler.database import (
 )
 from handler.filesystem import fs_platform_handler, fs_rom_handler
 from handler.metadata.steam_handler import STEAM_PLATFORMS
+from handler.redis_handler import low_prio_queue
 from handler.scan_handler import scan_platform
 from logger.logger import log
 from models.platform import Platform
 from models.rom import Rom, RomStorefront, RomUserStatus
 from models.steam_library import SteamLibraryEntry
 from models.user import User
+from tasks.registry import SYNC_STEAM_LIBRARIES_SPEC
+from utils import int_or_none
 from utils.filesystem import sanitize_filename
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
@@ -60,11 +64,13 @@ class SteamSyncResult:
     unmatched_rom_ids: list[int] = field(default_factory=list)
 
 
-# Reads per library sync, so a large first sync stays within the task timeout
-# and the rest are read by the syncs after it.
+# Reads per achievements job, so a large first read stays within the job's
+# timeout and the rest are read after the next library sync.
 STEAM_ACHIEVEMENT_READS_PER_SYNC: Final[int] = 100
 # Failed reads in a row that mean Steam itself is struggling.
 STEAM_ACHIEVEMENT_FAILURES_IN_A_ROW: Final[int] = 3
+# A failed job keeps its fixed id this long, which must not block the next one.
+STEAM_ACHIEVEMENTS_SYNC_FAILURE_TTL_SECONDS: Final[int] = 300
 
 
 class SteamEarnedAchievement(TypedDict):
@@ -167,14 +173,15 @@ def link_steam_profile(user: User, summary: SteamPlayerSummary) -> None:
     """Link the Steam account `summary` describes, forgetting another one's games."""
     previous = user.steam_id
     # The account changes first, so a sync of the previous one discards its result.
+    switched = previous != summary["steamid"]
     changes: dict[str, object] = {
         "steam_id": summary["steamid"],
         "steam_persona_name": summary["personaname"],
     }
-    if previous != summary["steamid"]:
+    if switched:
         changes["steam_progression"] = {}
     db_user_handler.update_user(user.id, changes)
-    if previous and previous != summary["steamid"]:
+    if previous and switched:
         _forget_library(user.id)
 
 
@@ -296,24 +303,12 @@ async def sync_steam_library(user: User) -> SteamSyncResult:
             [entry.rom_id for entry in entries]
         )
     )
-    # Achievements are an extra, so their failure leaves the library sync intact.
-    try:
-        await sync_steam_achievements(user, steam_id, entries)
-    except Exception as e:
-        log.error(f"Steam achievements sync failed for {user.username}: {e}")
+    queue_steam_achievements_sync(user.id)
     return result
 
 
 def _last_played_epoch(entry: SteamLibraryEntry) -> int | None:
     return int(entry.last_played_at.timestamp()) if entry.last_played_at else None
-
-
-def _unlock_time(value: Any) -> int:
-    """Steam's unlock time in epoch seconds, or 0, its own "unknown", if unreadable."""
-    try:
-        return int(value)
-    except (TypeError, ValueError, OverflowError):
-        return 0
 
 
 def _game_progression(
@@ -327,7 +322,9 @@ def _game_progression(
     ]
     earned = [
         SteamEarnedAchievement(
-            api_name=a["apiname"], unlock_time=_unlock_time(a.get("unlocktime"))
+            # Steam's own "unknown" unlock time is 0.
+            api_name=a["apiname"],
+            unlock_time=int_or_none(a.get("unlocktime")) or 0,
         )
         for a in named
         if a.get("achieved") == 1
@@ -350,66 +347,66 @@ async def get_steam_progression(
     """Read the unlocks of the played games in `entries`, up to a budget per sync.
 
     A game not played since `current` was read keeps its entry without a
-    request. Once the budget is spent, or Steam fails several reads in a row,
-    the remaining games keep what `current` has and wait for the next sync.
-
-    Raises:
-        SteamWebAPIError: Steam refused the player's achievements outright.
+    request. Once the budget is spent, Steam fails several reads in a row, or
+    the player's game details turn out private, the remaining games keep what
+    `current` has and wait for the next sync.
     """
     known_results = current.get("results", []) if current else []
     current_by_app_id = {p["rom_steam_id"]: p for p in known_results}
     api = steam_web_api()
     results: list[SteamUserGameProgression] = []
     reads = failures_in_a_row = 0
+    private = False
     for entry in entries:
         if not entry.playtime_minutes:
             continue
 
-        known = current_by_app_id.get(entry.steam_app_id)
+        result = current_by_app_id.get(entry.steam_app_id)
         unchanged = (
-            known
-            and known["rtime_last_played"] == _last_played_epoch(entry)
-            and known["playtime_forever"] == entry.playtime_minutes
+            result
+            and result["rtime_last_played"] == _last_played_epoch(entry)
+            and result["playtime_forever"] == entry.playtime_minutes
         )
-        if (
+        if not (
             unchanged
+            or private
             or reads >= STEAM_ACHIEVEMENT_READS_PER_SYNC
             or failures_in_a_row >= STEAM_ACHIEVEMENT_FAILURES_IN_A_ROW
         ):
-            if known:
-                results.append(known)
-            continue
-
-        reads += 1
-        try:
-            achievements = await api.get_player_achievements(
-                steam_id, entry.steam_app_id
-            )
-        except SteamWebAPIError as exc:
-            if exc.status == 403:
-                raise
-            failures_in_a_row += 1
-            log.warning(
-                f"Couldn't read achievements for Steam app {entry.steam_app_id}: {exc}"
-            )
-            if known:
-                results.append(known)
-            continue
-        failures_in_a_row = 0
-        results.append(_game_progression(entry, achievements))
+            reads += 1
+            try:
+                achievements = await api.get_player_achievements(
+                    steam_id, entry.steam_app_id
+                )
+            except SteamWebAPIError as exc:
+                failures_in_a_row += 1
+                log.warning(
+                    f"Couldn't read achievements for Steam app {entry.steam_app_id}: {exc}"
+                )
+            else:
+                failures_in_a_row = 0
+                if achievements is None:
+                    private = True
+                else:
+                    result = _game_progression(entry, achievements)
+        if result:
+            results.append(result)
 
     return SteamUserProgression(total=len(results), results=results)
 
 
-async def sync_steam_achievements(
-    user: User, steam_id: str, entries: Sequence[SteamLibraryEntry]
-) -> None:
+async def sync_steam_achievements(user: User) -> None:
     """Store the user's unlocks and mark each fully unlocked game as completed."""
+    steam_id = user.steam_id
+    if not steam_id:
+        return
+
+    current = cast(SteamUserProgression | None, user.steam_progression)
     progression = await get_steam_progression(
-        steam_id, entries, cast(SteamUserProgression | None, user.steam_progression)
+        steam_id, db_steam_library_handler.get_entries(user.id), current
     )
-    if not db_steam_library_handler.replace_progression(
-        user.id, steam_id, cast(dict[str, Any], progression)
+    if progression == current or not db_steam_library_handler.replace_progression(
+        user.id, steam_id, progression
     ):
         return
 
@@ -423,3 +420,23 @@ async def sync_steam_achievements(
         RomUserStatus.COMPLETED_100,
     )
     db_rom_handler.set_rom_user_statuses(user.id, statuses)
+
+
+def queue_steam_achievements_sync(user_id: int) -> None:
+    """Read the user's unlocks in a job of their own, at most one at a time."""
+    try:
+        low_prio_queue.enqueue(
+            "tasks.scheduled.sync_steam_libraries.sync_steam_achievements_job",
+            kwargs={"user_id": user_id},
+            job_id=f"steam_achievements_sync_{user_id}",
+            unique=True,
+            job_timeout=SYNC_STEAM_LIBRARIES_SPEC.timeout,
+            result_ttl=0,
+            # Not 0: RQ reads a stored 0 back as unset, which means a year.
+            failure_ttl=STEAM_ACHIEVEMENTS_SYNC_FAILURE_TTL_SECONDS,
+            meta={"task_name": "Steam achievements sync"},
+        )
+    except DuplicateJobError:
+        pass
+    except Exception:  # noqa: BLE001 - the next library sync queues it again
+        log.exception("Failed to queue a Steam achievements sync")

@@ -5,7 +5,7 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from rq.job import JobStatus
-from tests.factories import make_platform, make_rom
+from tests.factories import make_platform, make_rom, steam_player_summary
 
 from handler.database import (
     db_collection_handler,
@@ -26,15 +26,6 @@ def _bearer(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _summary(steam_id: str = STEAM_ID, name: str = "Gabe") -> dict[str, object]:
-    return {
-        "steamid": steam_id,
-        "personaname": name,
-        "profileurl": f"https://steamcommunity.com/profiles/{steam_id}/",
-        "communityvisibilitystate": 3,
-    }
-
-
 def _own_one_game(user: User) -> None:
     rom = make_rom(make_platform("win"), "Half-Life 2", steam_id=220)
     db_user_handler.update_user(user.id, {"steam_id": STEAM_ID})
@@ -50,7 +41,7 @@ def resolve_profile():
     with patch(
         "endpoints.user.resolve_steam_profile", new_callable=AsyncMock
     ) as resolve:
-        resolve.return_value = _summary()
+        resolve.return_value = steam_player_summary()
         yield resolve
 
 
@@ -91,7 +82,7 @@ def test_linking_another_account_forgets_the_old_library(
 ):
     db_user_handler.update_user(admin_user.id, {"steam_id": STEAM_ID})
     _own_one_game(admin_user)
-    resolve_profile.return_value = _summary(OTHER_STEAM_ID)
+    resolve_profile.return_value = steam_player_summary(OTHER_STEAM_ID)
 
     client.put(
         f"/api/users/{admin_user.id}/steam",
