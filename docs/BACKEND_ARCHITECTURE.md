@@ -1974,14 +1974,14 @@ Falls back to `FakeRedis` in test mode.
 
 #### API Keys
 
-| Variable                                        | Description                  |
-| ----------------------------------------------- | ---------------------------- |
-| `IGDB_CLIENT_ID` + `IGDB_CLIENT_SECRET`         | IGDB (via Twitch)            |
-| `MOBYGAMES_API_KEY`                             | MobyGames                    |
-| `SCREENSCRAPER_USER` + `SCREENSCRAPER_PASSWORD` | ScreenScraper                |
-| `STEAMGRIDDB_API_KEY`                           | SteamGridDB                  |
-| `RETROACHIEVEMENTS_API_KEY`                     | RetroAchievements            |
-| `STEAM_API_KEY`                                 | Steam Web API (achievements) |
+| Variable                                        | Description                                  |
+| ----------------------------------------------- | -------------------------------------------- |
+| `IGDB_CLIENT_ID` + `IGDB_CLIENT_SECRET`         | IGDB (via Twitch)                            |
+| `MOBYGAMES_API_KEY`                             | MobyGames                                    |
+| `SCREENSCRAPER_USER` + `SCREENSCRAPER_PASSWORD` | ScreenScraper                                |
+| `STEAMGRIDDB_API_KEY`                           | SteamGridDB                                  |
+| `RETROACHIEVEMENTS_API_KEY`                     | RetroAchievements                            |
+| `STEAM_API_KEY`                                 | Steam Web API (library import, achievements) |
 
 #### Feature Toggles
 

@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from tests.factories import make_platform, make_rom
 
+from adapters.services.steam import SteamWebAPIError
 from adapters.services.steam_types import SteamOwnedGame
-from adapters.services.steam_web_api import SteamWebAPIError
 from handler.database import (
     db_collection_handler,
     db_platform_handler,

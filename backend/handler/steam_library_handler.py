@@ -8,8 +8,8 @@ from typing import Final
 
 from sqlalchemy.exc import IntegrityError
 
+from adapters.services.steam import SteamWebAPIError, SteamWebApiService
 from adapters.services.steam_types import SteamOwnedGame, SteamPlayerSummary
-from adapters.services.steam_web_api import SteamWebAPIError, SteamWebAPIService
 from config import STEAM_API_KEY
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.database import (
@@ -56,10 +56,10 @@ class SteamSyncResult:
     unmatched_rom_ids: list[int] = field(default_factory=list)
 
 
-def steam_web_api() -> SteamWebAPIService:
+def steam_web_api() -> SteamWebApiService:
     if not STEAM_API_KEY:
         raise SteamLibraryError("Set STEAM_API_KEY to import Steam libraries")
-    return SteamWebAPIService(STEAM_API_KEY)
+    return SteamWebApiService()
 
 
 def parse_steam_profile(profile: str) -> tuple[str | None, str | None]:

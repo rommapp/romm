@@ -4,7 +4,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import aiohttp
 import pytest
 
-from adapters.services.steam_web_api import SteamWebAPIError, SteamWebAPIService
+from adapters.services.steam import (
+    SteamWebAPIError,
+    SteamWebApiService,
+    web_api_key_middleware,
+)
 
 STEAM_ID = "76561197960287930"
 
@@ -31,26 +35,28 @@ def no_backoff_sleep():
 @pytest.fixture
 def session():
     mock_session = AsyncMock()
-    with patch("adapters.services.steam_web_api.ctx_aiohttp_session") as mock_ctx:
+    with patch("adapters.services.steam.ctx_aiohttp_session") as mock_ctx:
         mock_ctx.get.return_value = mock_session
         yield mock_session
 
 
-def _service() -> SteamWebAPIService:
-    return SteamWebAPIService("secret-key")
+def _service() -> SteamWebApiService:
+    return SteamWebApiService()
 
 
-async def test_sends_the_key_and_parameters(session):
+async def test_sends_the_parameters_with_the_key_middleware(session):
     session.get.return_value = _response(
         {"response": {"success": 1, "steamid": STEAM_ID}}
     )
 
     await _service().resolve_vanity_url("gabe")
 
-    url = session.get.await_args.args[0]
+    await_args = session.get.await_args
+    url = await_args.args[0]
     assert url.path == "/ISteamUser/ResolveVanityURL/v1/"
-    assert url.query["key"] == "secret-key"
     assert url.query["vanityurl"] == "gabe"
+    assert "key" not in url.query
+    assert await_args.kwargs["middlewares"] == (web_api_key_middleware,)
 
 
 async def test_resolves_a_custom_name(session):
