@@ -9,6 +9,7 @@ import type {
 import { TONE_ICONS } from "@/composables/useSnackbar";
 import i18n from "@/locales";
 import { ROUTES } from "@/plugins/routeNames";
+import storeAuth from "@/stores/auth";
 import { count, text } from "@/utils/eventData";
 import { STEAM_LIBRARY_SYNC_TASK } from "@/utils/tasks";
 
@@ -86,15 +87,18 @@ function taskView(
     icon: "mdi-pulse",
     title: t(key, { task: text(data.title) ?? "" }),
     body,
-    // Any user can sync their own Steam library, so it opens their profile.
-    to: {
-      name:
-        data.task === STEAM_LIBRARY_SYNC_TASK
-          ? ROUTES.USER_PROFILE
-          : ROUTES.ADMINISTRATION,
-    },
+    to: taskTarget(data.task),
     toast: true,
   };
+}
+
+function taskTarget(task: unknown): RouteLocationRaw | null {
+  if (task !== STEAM_LIBRARY_SYNC_TASK) return { name: ROUTES.ADMINISTRATION };
+  // Any user can sync their own Steam library, so it opens their profile.
+  const userId = storeAuth().user?.id;
+  return userId
+    ? { name: ROUTES.USER_PROFILE, params: { user: userId } }
+    : null;
 }
 
 const DESCRIBERS: Record<

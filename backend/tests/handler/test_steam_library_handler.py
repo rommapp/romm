@@ -209,6 +209,23 @@ async def test_a_second_sync_reuses_the_store_only_rom(
     assert len(db_steam_library_handler.get_entries(steam_user.id)) == 1
 
 
+async def test_a_store_only_rom_that_lost_its_steam_id_is_relinked(
+    steam_api: MagicMock, steam_user: User, win: Platform
+):
+    steam_api.get_owned_games.return_value = [_game(220, "Half-Life 2")]
+    await sync_steam_library(steam_user)
+    [entry] = db_steam_library_handler.get_entries(steam_user.id)
+    db_rom_handler.update_rom(entry.rom_id, {"steam_id": None})
+
+    result = await sync_steam_library(steam_user)
+
+    assert result.created == 0
+    [relinked] = db_steam_library_handler.get_entries(steam_user.id)
+    assert relinked.rom_id == entry.rom_id
+    rom = db_rom_handler.get_rom(entry.rom_id)
+    assert rom is not None and rom.steam_id == 220
+
+
 async def test_forgets_games_no_longer_owned(
     steam_api: MagicMock, steam_user: User, win: Platform
 ):

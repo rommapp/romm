@@ -41,6 +41,7 @@ from handler.filesystem.assets_handler import (
 from handler.metadata import meta_ra_handler
 from handler.metadata.ra_handler import RAUserProgression
 from handler.notification_handler import notify
+from handler.redis_handler import QUEUES_BY_NAME, has_live_worker
 from handler.socket_handler import close_client_token_sockets
 from handler.steam_library_handler import (
     SteamLibraryError,
@@ -52,7 +53,11 @@ from logger.logger import log
 from models.audit_event import AuditAction
 from models.notification import NotificationKind, NotificationLevel
 from models.user import TEXT_FIELD_LENGTH, Role, User
-from tasks.registry import SYNC_STEAM_LIBRARIES_TASK, enqueue_task
+from tasks.registry import (
+    SYNC_STEAM_LIBRARIES_SPEC,
+    SYNC_STEAM_LIBRARIES_TASK,
+    enqueue_task,
+)
 from utils.router import APIRouter
 from utils.validation import (
     ValidationError,
@@ -840,6 +845,7 @@ def get_steam_library(
         status.HTTP_400_BAD_REQUEST: {},
         status.HTTP_403_FORBIDDEN: {},
         status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_503_SERVICE_UNAVAILABLE: {},
     },
 )
 async def sync_steam_account(
@@ -857,6 +863,12 @@ async def sync_steam_account(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Link a Steam account first",
+        )
+    # Without a worker the job would sit queued while the UI says it started.
+    if not has_live_worker(QUEUES_BY_NAME[SYNC_STEAM_LIBRARIES_SPEC.queue_name]):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No task worker is listening, so the sync cannot be queued",
         )
 
     job = enqueue_task(

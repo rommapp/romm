@@ -211,7 +211,10 @@ def test_sync_queues_the_task_for_that_user(
 ):
     db_user_handler.update_user(admin_user.id, {"steam_id": STEAM_ID})
 
-    with patch("endpoints.user.enqueue_task", return_value=_job()) as enqueue:
+    with (
+        patch("endpoints.user.has_live_worker", return_value=True),
+        patch("endpoints.user.enqueue_task", return_value=_job()) as enqueue,
+    ):
         response = client.post(
             f"/api/users/{admin_user.id}/steam/sync", headers=_bearer(access_token)
         )
@@ -223,6 +226,25 @@ def test_sync_queues_the_task_for_that_user(
         task_kwargs={"user_id": admin_user.id},
         run_by_user_id=admin_user.id,
     )
+
+
+@patch("endpoints.user.STEAM_API_KEY", "key")
+def test_sync_needs_a_task_worker(
+    client: TestClient, access_token: str, admin_user: User
+):
+    db_user_handler.update_user(admin_user.id, {"steam_id": STEAM_ID})
+    enqueue = MagicMock()
+
+    with (
+        patch("endpoints.user.has_live_worker", return_value=False),
+        patch("endpoints.user.enqueue_task", enqueue),
+    ):
+        response = client.post(
+            f"/api/users/{admin_user.id}/steam/sync", headers=_bearer(access_token)
+        )
+
+    assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+    enqueue.assert_not_called()
 
 
 @patch("endpoints.user.STEAM_API_KEY", "key")

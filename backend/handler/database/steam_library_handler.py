@@ -2,9 +2,11 @@ from collections.abc import Collection, Sequence
 from typing import NamedTuple
 
 from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from decorators.database import INJECTED_SESSION, begin_session
+from logger.logger import log
 from models.platform import Platform
 from models.rom import Rom
 from models.steam_library import SteamLibraryEntry
@@ -20,6 +22,11 @@ STEAM_ID_CHUNK_SIZE = 1000
 class SteamLibraryChanges(NamedTuple):
     added: list[int]
     removed: list[int]
+
+
+class StoreOnlyRoms(NamedTuple):
+    rom_ids: dict[int, int]
+    created: int
 
 
 class DBSteamLibraryHandler(DBBaseHandler):
@@ -53,6 +60,45 @@ class DBSteamLibraryHandler(DBBaseHandler):
             if app_id is not None:
                 rom_ids.setdefault(app_id, rom_id)
         return rom_ids
+
+    @begin_session
+    def add_store_only_roms(
+        self, roms: Sequence[Rom], session: Session = INJECTED_SESSION
+    ) -> StoreOnlyRoms:
+        """Insert store-only roms, reusing the row already at a rom's path.
+
+        Returns:
+            Each app's rom id, and how many rows were inserted.
+        """
+        rom_ids: dict[int, int] = {}
+        created = 0
+        for rom in roms:
+            app_id = rom.steam_id
+            if app_id is None:
+                continue
+            try:
+                with session.begin_nested():
+                    session.add(rom)
+                    session.flush()
+            except IntegrityError:
+                existing = session.scalar(
+                    select(Rom).where(
+                        Rom.platform_id == rom.platform_id,
+                        Rom.full_path_hash == rom.full_path_hash,
+                    )
+                )
+                if existing is None:
+                    log.warning(f"Skipping Steam app {app_id}: its rom can't be added")
+                    continue
+                # An unmatch or a complete rescan can clear it, and the sync
+                # finds this rom by it.
+                if existing.steam_id is None:
+                    existing.steam_id = app_id
+                rom_ids[app_id] = existing.id
+                continue
+            rom_ids[app_id] = rom.id
+            created += 1
+        return StoreOnlyRoms(rom_ids=rom_ids, created=created)
 
     @begin_session
     def get_unmatched_store_only_rom_ids(

@@ -39,7 +39,7 @@ async function startSync(id: number) {
 async function link() {
   const user = auth.user;
   const value = profile.value.trim();
-  if (!user || !value) return;
+  if (!user || !value || linking.value) return;
   linking.value = true;
   try {
     const { data } = await userApi.linkSteamAccount({

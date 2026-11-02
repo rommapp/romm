@@ -6,8 +6,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Final
 
-from sqlalchemy.exc import IntegrityError
-
 from adapters.services.steam import SteamWebAPIError, SteamWebApiService
 from adapters.services.steam_types import SteamOwnedGame, SteamPlayerSummary
 from config import STEAM_API_KEY
@@ -15,7 +13,6 @@ from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.database import (
     db_collection_handler,
     db_platform_handler,
-    db_rom_handler,
     db_steam_library_handler,
     db_user_handler,
 )
@@ -217,28 +214,26 @@ async def sync_steam_library(user: User) -> SteamSyncResult:
     )
     result = SteamSyncResult(owned=len(games), linked=len(rom_ids))
 
-    entries: list[SteamLibraryEntry] = []
-    for game in games:
-        app_id = game["appid"]
-        if app_id not in rom_ids:
-            try:
-                rom = db_rom_handler.add_rom(_store_only_rom(platform, game))
-            except IntegrityError:
-                log.warning(
-                    f"Skipping Steam app {app_id}: another game already uses its name"
-                )
-                continue
-            rom_ids[app_id] = rom.id
-            result.created += 1
+    store_only = db_steam_library_handler.add_store_only_roms(
+        [
+            _store_only_rom(platform, game)
+            for game in games
+            if game["appid"] not in rom_ids
+        ]
+    )
+    rom_ids.update(store_only.rom_ids)
+    result.created = store_only.created
 
-        entries.append(
-            SteamLibraryEntry(
-                rom_id=rom_ids[app_id],
-                steam_app_id=app_id,
-                playtime_minutes=game.get("playtime_forever", 0),
-                last_played_at=_last_played(game),
-            )
+    entries = [
+        SteamLibraryEntry(
+            rom_id=rom_ids[game["appid"]],
+            steam_app_id=game["appid"],
+            playtime_minutes=game.get("playtime_forever", 0),
+            last_played_at=_last_played(game),
         )
+        for game in games
+        if game["appid"] in rom_ids
+    ]
 
     changes = db_steam_library_handler.replace_entries(user.id, steam_id, entries)
     if changes is None:
