@@ -11,7 +11,7 @@ from unittest import mock
 import pytest
 from fastapi import status
 from sqlalchemy import update
-from tests.factories import make_save, make_screenshot, make_state
+from tests.factories import make_device_token, make_save, make_screenshot, make_state
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.asset_store import apply_datetime_tag, reserve_version_name
@@ -373,6 +373,56 @@ class TestSaveSyncEndpoints:
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert "nonexistent-device" in response.json()["detail"]
+
+
+class TestSaveDeviceTokenBinding:
+    @pytest.fixture
+    def other_device(self, admin_user: User) -> Device:
+        return db_device_handler.add_device(
+            Device(id="other-save-dev", user_id=admin_user.id)
+        )
+
+    @pytest.fixture
+    def bound_headers(self, admin_user: User, device: Device) -> dict[str, str]:
+        _, raw_token = make_device_token(
+            admin_user, device.id, scopes="assets.read devices.read devices.write"
+        )
+        return {"Authorization": f"Bearer {raw_token}"}
+
+    def test_reads_saves_as_its_own_device(
+        self, client, bound_headers, save: Save, device: Device
+    ):
+        response = client.get(
+            f"/api/saves?device_id={device.id}", headers=bound_headers
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_cannot_read_saves_as_another_device(
+        self, client, bound_headers, save: Save, other_device: Device
+    ):
+        response = client.get(
+            f"/api/saves?device_id={other_device.id}", headers=bound_headers
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_cannot_untrack_for_another_device(
+        self, client, bound_headers, save: Save, other_device: Device
+    ):
+        response = client.post(
+            f"/api/saves/{save.id}/untrack",
+            json={"device_id": other_device.id},
+            headers=bound_headers,
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert (
+            db_device_save_sync_handler.get_sync(
+                device_id=other_device.id, save_id=save.id
+            )
+            is None
+        )
 
 
 class TestSaveUploadWithSync:

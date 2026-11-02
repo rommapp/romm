@@ -68,10 +68,17 @@ def keys_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return path
 
 
+HOST_KEY = (
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOoOcFphVSisS5UKyUEUiJctlahXQzEK9QHClKgIPr0d"
+)
+
+
 @pytest.fixture
 def known_hosts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     path = tmp_path / "known_hosts"
-    path.write_text("deck.local ssh-ed25519 AAAA\n")
+    path.write_text(
+        f"deck.local {HOST_KEY}\n192.168.1.20 {HOST_KEY}\n[odin.local]:2222 {HOST_KEY}\n"
+    )
     monkeypatch.setattr(ssh_handler, "SYNC_SSH_KNOWN_HOSTS_PATH", str(path))
     return path
 
@@ -211,6 +218,52 @@ class TestConnect:
         )
 
         with pytest.raises(FileNotFoundError, match="known_hosts"):
+            await handler.connect(
+                {"ssh_host": "deck.local", "ssh_password": "hunter2"},
+                device_id="deck-1",
+            )
+
+        ssh_connect.assert_not_awaited()
+
+    @pytest.mark.parametrize(
+        "host, port",
+        [("192.168.1.20", 22), ("odin.local", 2222)],
+    )
+    async def test_connects_to_a_host_in_known_hosts(
+        self, handler: SSHSyncHandler, known_hosts: Path, ssh_connect, host, port
+    ):
+        await handler.connect(
+            {"ssh_host": host, "ssh_port": port, "ssh_password": "hunter2"},
+            device_id="deck-1",
+        )
+
+        kwargs = _connect_kwargs(ssh_connect)
+        assert (kwargs["host"], kwargs["port"]) == (host, port)
+
+    @pytest.mark.parametrize(
+        "host, port",
+        [("127.0.0.1", 22), ("10.0.0.5", 6379), ("odin.local", 22)],
+    )
+    async def test_refuses_a_host_missing_from_known_hosts(
+        self, handler: SSHSyncHandler, known_hosts: Path, ssh_connect, host, port
+    ):
+        with pytest.raises(ValueError, match="not in"):
+            await handler.connect(
+                {"ssh_host": host, "ssh_port": port, "ssh_password": "hunter2"},
+                device_id="deck-1",
+            )
+
+        ssh_connect.assert_not_awaited()
+
+    @pytest.fixture
+    def revoked_known_hosts(self, known_hosts: Path) -> Path:
+        known_hosts.write_text(f"@revoked deck.local {HOST_KEY}\n")
+        return known_hosts
+
+    async def test_a_revoked_key_does_not_admit_the_host(
+        self, handler: SSHSyncHandler, revoked_known_hosts: Path, ssh_connect
+    ):
+        with pytest.raises(ValueError, match="not in"):
             await handler.connect(
                 {"ssh_host": "deck.local", "ssh_password": "hunter2"},
                 device_id="deck-1",

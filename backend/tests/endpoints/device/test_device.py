@@ -738,3 +738,67 @@ class TestSyncConfigMasking:
         config = response.json()["sync_config"]
         assert config["ssh_host"] == "10.0.0.1"
         assert config["ssh_port"] == 2222
+
+
+class TestDeviceTokenBinding:
+    @pytest.fixture
+    def devices(self, admin_user: User) -> tuple[Device, Device]:
+        own = db_device_handler.add_device(
+            Device(id="bound-dev", user_id=admin_user.id, name="Handheld")
+        )
+        other = db_device_handler.add_device(
+            Device(id="other-dev", user_id=admin_user.id, name="TV box")
+        )
+        return own, other
+
+    @pytest.fixture
+    def bound_headers(
+        self, admin_user: User, devices: tuple[Device, Device]
+    ) -> dict[str, str]:
+        _, raw_token = make_device_token(admin_user, devices[0].id)
+        return {"Authorization": f"Bearer {raw_token}"}
+
+    def test_lists_only_its_own_device(self, client, bound_headers):
+        response = client.get("/api/devices", headers=bound_headers)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [d["id"] for d in response.json()] == ["bound-dev"]
+
+    def test_reads_and_updates_its_own_device(self, client, bound_headers):
+        response = client.get("/api/devices/bound-dev", headers=bound_headers)
+        assert response.status_code == status.HTTP_200_OK
+
+        response = client.put(
+            "/api/devices/bound-dev", json={"name": "Renamed"}, headers=bound_headers
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+    @pytest.mark.parametrize(
+        "method, body",
+        [
+            ("get", None),
+            ("put", {"sync_config": {"ssh_host": "10.0.0.1"}}),
+            ("delete", None),
+        ],
+    )
+    def test_another_device_is_not_found(
+        self, client, bound_headers, method: str, body
+    ):
+        kwargs = {"json": body} if body else {}
+        response = client.request(
+            method, "/api/devices/other-dev", headers=bound_headers, **kwargs
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        other = db_device_handler.get_device_by_id("other-dev")
+        assert other is not None
+        assert other.sync_config is None
+
+    def test_an_unbound_session_still_reaches_every_device(
+        self, client, access_token: str, devices
+    ):
+        response = client.get(
+            "/api/devices", headers={"Authorization": f"Bearer {access_token}"}
+        )
+
+        assert {d["id"] for d in response.json()} >= {"bound-dev", "other-dev"}

@@ -24,6 +24,7 @@ from handler.filesystem import get_fs_sync_handler
 from handler.socket_handler import close_client_token_sockets
 from logger.logger import log
 from models.device import Device, SyncMode
+from utils.auth import require_token_device, token_device_id
 from utils.router import APIRouter
 
 from .install import router as install_router
@@ -169,11 +170,15 @@ def register_device(
 @protected_route(router.get, "", [Scope.DEVICES_READ])
 def get_devices(request: Request) -> list[DeviceSchema]:
     devices = db_device_handler.get_devices(user_id=request.user.id)
+    bound_device_id = token_device_id(request)
+    if bound_device_id is not None:
+        devices = [device for device in devices if device.id == bound_device_id]
     return [DeviceSchema.model_validate(device) for device in devices]
 
 
 @protected_route(router.get, "/{device_id}", [Scope.DEVICES_READ])
 def get_device(request: Request, device_id: str) -> DeviceSchema:
+    require_token_device(request, device_id)
     device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
     if not device:
         raise HTTPException(
@@ -189,6 +194,7 @@ def update_device(
     device_id: str,
     payload: DeviceUpdatePayload,
 ) -> DeviceSchema:
+    require_token_device(request, device_id)
     device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
     if not device:
         raise HTTPException(
@@ -214,6 +220,7 @@ def update_device(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_device(request: Request, device_id: str) -> None:
+    require_token_device(request, device_id)
     device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
     if not device:
         raise HTTPException(

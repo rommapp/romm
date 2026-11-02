@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import ipaddress
 import os
 import tempfile
 from dataclasses import dataclass
@@ -37,6 +38,17 @@ class RemoteSaveInfo:
     file_size: int
     mtime: datetime
     content_hash: str | None = None
+
+
+def _is_known_host(host: str, port: int) -> bool:
+    """Whether known_hosts trusts a key, or a CA, for this host and port."""
+    try:
+        addr = str(ipaddress.ip_address(host))
+    except ValueError:
+        addr = ""
+    known_hosts = asyncssh.read_known_hosts(SYNC_SSH_KNOWN_HOSTS_PATH)
+    host_keys, ca_keys, *_ = known_hosts.match(host, addr, port)
+    return bool(host_keys or ca_keys)
 
 
 class SSHSyncHandler:
@@ -88,6 +100,13 @@ class SSHSyncHandler:
             raise FileNotFoundError(
                 f"SSH known_hosts file not found at {SYNC_SSH_KNOWN_HOSTS_PATH}. "
                 "Mount a known_hosts file or set SYNC_SSH_KNOWN_HOSTS_PATH."
+            )
+        # Device owners pick ssh_host, so the admin's known_hosts doubles as the
+        # allowlist: nothing else is dialled, keeping the network unprobed.
+        if not await asyncio.to_thread(_is_known_host, host, port):
+            raise ValueError(
+                f"SSH host {host} is not in {SYNC_SSH_KNOWN_HOSTS_PATH}. "
+                "Add its host key there to sync with it."
             )
 
         connect_kwargs: dict[str, Any] = {

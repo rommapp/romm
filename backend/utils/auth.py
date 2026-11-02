@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from http.cookies import SimpleCookie
 from typing import Any, cast
 
-from fastapi import Request
+from fastapi import HTTPException, Request, status
 from starlette.requests import HTTPConnection
 from ua_parser import Result as UAResult
 from ua_parser import parse as parse_ua
@@ -22,6 +22,16 @@ from utils import json_module
 def token_device_id(conn: HTTPConnection) -> str | None:
     """The device the request's client token is bound to, if any."""
     return getattr(conn.state, "device_id", None)
+
+
+def require_token_device(conn: HTTPConnection, device_id: str) -> None:
+    """Hide every other device from a client token bound to one, as a 404."""
+    bound_device_id = token_device_id(conn)
+    if bound_device_id not in (None, device_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Device with ID {device_id} not found",
+        )
 
 
 def request_client_token_id(conn: HTTPConnection) -> int | None:
