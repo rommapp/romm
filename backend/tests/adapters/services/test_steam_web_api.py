@@ -178,3 +178,14 @@ async def test_refused_player_achievements_are_an_error_with_their_status(sessio
         await _service().get_player_achievements(STEAM_ID, 220)
 
     assert exc_info.value.status == 403
+
+
+@pytest.mark.parametrize(
+    "playerstats", [["not", "an", "object"], {"success": True, "achievements": "ACH"}]
+)
+async def test_a_malformed_player_achievements_reply_has_none(
+    session, lenient, playerstats
+):
+    session.get.return_value = _response({"playerstats": playerstats})
+
+    assert await _service().get_player_achievements(STEAM_ID, 220) == []

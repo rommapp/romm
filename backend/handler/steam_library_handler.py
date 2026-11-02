@@ -60,6 +60,13 @@ class SteamSyncResult:
     unmatched_rom_ids: list[int] = field(default_factory=list)
 
 
+# Reads per library sync, so a large first sync stays within the task timeout
+# and the rest are read by the syncs after it.
+STEAM_ACHIEVEMENT_READS_PER_SYNC: Final[int] = 100
+# Failed reads in a row that mean Steam itself is struggling.
+STEAM_ACHIEVEMENT_FAILURES_IN_A_ROW: Final[int] = 3
+
+
 class SteamEarnedAchievement(TypedDict):
     api_name: str
     # Epoch seconds.
@@ -297,21 +304,39 @@ async def sync_steam_library(user: User) -> SteamSyncResult:
     return result
 
 
+def _last_played_epoch(entry: SteamLibraryEntry) -> int | None:
+    return int(entry.last_played_at.timestamp()) if entry.last_played_at else None
+
+
+def _unlock_time(value: Any) -> int:
+    """Steam's unlock time in epoch seconds, or 0, its own "unknown", if unreadable."""
+    try:
+        return int(value)
+    except (TypeError, ValueError, OverflowError):
+        return 0
+
+
 def _game_progression(
     entry: SteamLibraryEntry, achievements: list[SteamPlayerAchievement]
 ) -> SteamUserGameProgression:
-    earned = [
-        SteamEarnedAchievement(api_name=a["apiname"], unlock_time=a["unlocktime"])
+    # Steam's reply arrives even when it strays, and this must pass `UserSchema`.
+    named = [
+        a
         for a in achievements
-        if a.get("achieved") and a.get("apiname")
+        if isinstance(a, dict) and isinstance(a.get("apiname"), str) and a["apiname"]
+    ]
+    earned = [
+        SteamEarnedAchievement(
+            api_name=a["apiname"], unlock_time=_unlock_time(a.get("unlocktime"))
+        )
+        for a in named
+        if a.get("achieved") == 1
     ]
     return SteamUserGameProgression(
         rom_steam_id=entry.steam_app_id,
-        rtime_last_played=(
-            int(entry.last_played_at.timestamp()) if entry.last_played_at else None
-        ),
+        rtime_last_played=_last_played_epoch(entry),
         playtime_forever=entry.playtime_minutes,
-        num_achievements=len(achievements),
+        num_achievements=len(named),
         num_unlocked=len(earned),
         earned_achievements=earned,
     )
@@ -322,10 +347,11 @@ async def get_steam_progression(
     entries: Sequence[SteamLibraryEntry],
     current: SteamUserProgression | None,
 ) -> SteamUserProgression:
-    """Read the unlocks of each played game in `entries`.
+    """Read the unlocks of the played games in `entries`, up to a budget per sync.
 
-    A game not played since `current` was read keeps its entry without a request,
-    and one whose read fails keeps whatever `current` has for it.
+    A game not played since `current` was read keeps its entry without a
+    request. Once the budget is spent, or Steam fails several reads in a row,
+    the remaining games keep what `current` has and wait for the next sync.
 
     Raises:
         SteamWebAPIError: Steam refused the player's achievements outright.
@@ -334,20 +360,27 @@ async def get_steam_progression(
     current_by_app_id = {p["rom_steam_id"]: p for p in known_results}
     api = steam_web_api()
     results: list[SteamUserGameProgression] = []
+    reads = failures_in_a_row = 0
     for entry in entries:
         if not entry.playtime_minutes:
             continue
 
-        game = _game_progression(entry, [])
         known = current_by_app_id.get(entry.steam_app_id)
-        if (
+        unchanged = (
             known
-            and known["rtime_last_played"] == game["rtime_last_played"]
-            and known["playtime_forever"] == game["playtime_forever"]
+            and known["rtime_last_played"] == _last_played_epoch(entry)
+            and known["playtime_forever"] == entry.playtime_minutes
+        )
+        if (
+            unchanged
+            or reads >= STEAM_ACHIEVEMENT_READS_PER_SYNC
+            or failures_in_a_row >= STEAM_ACHIEVEMENT_FAILURES_IN_A_ROW
         ):
-            results.append(known)
+            if known:
+                results.append(known)
             continue
 
+        reads += 1
         try:
             achievements = await api.get_player_achievements(
                 steam_id, entry.steam_app_id
@@ -355,12 +388,14 @@ async def get_steam_progression(
         except SteamWebAPIError as exc:
             if exc.status == 403:
                 raise
+            failures_in_a_row += 1
             log.warning(
                 f"Couldn't read achievements for Steam app {entry.steam_app_id}: {exc}"
             )
             if known:
                 results.append(known)
             continue
+        failures_in_a_row = 0
         results.append(_game_progression(entry, achievements))
 
     return SteamUserProgression(total=len(results), results=results)
@@ -383,8 +418,8 @@ async def sync_steam_achievements(
         for game in progression["results"]
         if is_steam_game_completed(game)
     ]
-    statuses = {
-        rom.id: RomUserStatus.COMPLETED_100
-        for rom in db_rom_handler.get_roms_by_steam_ids(completed)
-    }
+    statuses = dict.fromkeys(
+        db_steam_library_handler.get_rom_ids_by_app_ids(completed),
+        RomUserStatus.COMPLETED_100,
+    )
     db_rom_handler.set_rom_user_statuses(user.id, statuses)

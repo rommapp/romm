@@ -11,6 +11,7 @@ from adapters.services.steam_types import (
     SteamPlayerAchievement,
     SteamPlayerSummary,
 )
+from endpoints.responses.identity import UserSchema
 from handler.database import (
     db_collection_handler,
     db_platform_handler,
@@ -441,6 +442,32 @@ async def test_a_failed_read_keeps_what_the_last_sync_stored(
     assert (game["num_unlocked"], game["playtime_forever"]) == (1, 90)
 
 
+async def test_malformed_unlocks_are_coerced_or_dropped(
+    steam_api: MagicMock, steam_user: User, win: Platform
+):
+    steam_api.get_owned_games.return_value = [
+        _game(220, "Half-Life 2", playtime=90, last_played=1_700_000_000)
+    ]
+    steam_api.get_player_achievements.return_value = [
+        {"apiname": "WIN", "achieved": 1, "unlocktime": "1700000000"},
+        {"apiname": "LATE", "achieved": 1, "unlocktime": None},
+        {"apiname": "LOCKED", "achieved": "0", "unlocktime": 0},
+        {"apiname": 5, "achieved": 1, "unlocktime": 1},
+        {"achieved": 1},
+        "NOT_AN_ACHIEVEMENT",
+    ]
+
+    await sync_steam_library(steam_user)
+
+    UserSchema.model_validate(db_user_handler.get_user(steam_user.id))
+    [game] = _progression(steam_user)["results"]
+    assert game["earned_achievements"] == [
+        {"api_name": "WIN", "unlock_time": 1_700_000_000},
+        {"api_name": "LATE", "unlock_time": 0},
+    ]
+    assert (game["num_achievements"], game["num_unlocked"]) == (3, 2)
+
+
 async def test_refused_achievements_leave_the_library_sync_intact(
     steam_api: MagicMock, steam_user: User, win: Platform
 ):
@@ -520,3 +547,40 @@ def test_a_game_is_completed_only_with_every_achievement(
         "earned_achievements": [],
     }
     assert is_steam_game_completed(game) is expected
+
+
+async def test_games_past_the_read_budget_wait_for_the_next_sync(
+    steam_api: MagicMock, steam_user: User, win: Platform
+):
+    steam_api.get_owned_games.return_value = [
+        _game(220, "Half-Life 2", playtime=90, last_played=1_700_000_000),
+        _game(400, "Portal", playtime=30, last_played=1_700_000_500),
+    ]
+    steam_api.get_player_achievements.return_value = _unlocks(True)
+
+    with patch("handler.steam_library_handler.STEAM_ACHIEVEMENT_READS_PER_SYNC", 1):
+        await sync_steam_library(steam_user)
+        assert len(_progression(steam_user)["results"]) == 1
+
+        user = db_user_handler.get_user(steam_user.id)
+        assert user is not None
+        await sync_steam_library(user)
+
+    assert {g["rom_steam_id"] for g in _progression(user)["results"]} == {220, 400}
+    assert steam_api.get_player_achievements.await_count == 2
+
+
+async def test_reads_stop_after_several_failures_in_a_row(
+    steam_api: MagicMock, steam_user: User, win: Platform
+):
+    steam_api.get_owned_games.return_value = [
+        _game(app_id, f"Game {app_id}", playtime=10, last_played=1_700_000_000)
+        for app_id in range(1, 6)
+    ]
+    steam_api.get_player_achievements.side_effect = SteamWebAPIError(
+        "Steam did not answer in time"
+    )
+
+    await sync_steam_library(steam_user)
+
+    assert steam_api.get_player_achievements.await_count == 3

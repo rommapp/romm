@@ -366,4 +366,7 @@ class SteamWebApiService:
             if exc.status == STEAM_NO_STATS_STATUS:
                 return []
             raise
-        return response.get("playerstats", {}).get("achievements") or []
+        # A reply that strays from its TypedDict is handed back as sent.
+        stats = response.get("playerstats")
+        achievements = stats.get("achievements") if isinstance(stats, dict) else None
+        return achievements if isinstance(achievements, list) else []
