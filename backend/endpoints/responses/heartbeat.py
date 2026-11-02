@@ -98,6 +98,8 @@ class HeartbeatResponse(TypedDict):
 
 class SetupExistingPlatform(TypedDict):
     fs_slug: str
+    # The platform slug the folder resolves to (aliases and config bindings applied).
+    slug: str
     rom_count: int
 
 

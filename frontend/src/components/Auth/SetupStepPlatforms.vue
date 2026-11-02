@@ -65,13 +65,13 @@ const SEARCH_LIMIT = 80;
 // through the cracks.
 
 const detectedSlugSet = computed(
-  () => new Set(props.libraryInfo.existing_platforms.map((p) => p.fs_slug)),
+  () => new Set(props.libraryInfo.existing_platforms.map((p) => p.slug)),
 );
 
 const romCountBySlug = computed(() => {
   const map = new Map<string, number>();
   for (const p of props.libraryInfo.existing_platforms)
-    map.set(p.fs_slug, p.rom_count);
+    map.set(p.slug, (map.get(p.slug) ?? 0) + p.rom_count);
   return map;
 });
 
@@ -86,12 +86,12 @@ const detectedPlatforms = computed<Array<Platform & { unidentified: boolean }>>(
       .filter((p) => detectedSlugSet.value.has(p.fs_slug))
       .map((p) => ({ ...p, unidentified: false }));
     const unidentified = props.libraryInfo.existing_platforms
-      .filter((p) => !supportedSlugSet.value.has(p.fs_slug))
+      .filter((p) => !supportedSlugSet.value.has(p.slug))
       .map(
         (p) =>
           ({
             fs_slug: p.fs_slug,
-            slug: p.fs_slug,
+            slug: p.slug,
             name: p.fs_slug,
             family_name: UNIDENTIFIED,
             generation: 999,
@@ -415,7 +415,7 @@ const detectedPlatformCount = computed(
                     prepend-icon="mdi-disc"
                     :aria-label="t('setup.games')"
                   >
-                    {{ romCountBySlug.get(platform.fs_slug) ?? 0 }}
+                    {{ romCountBySlug.get(platform.slug) ?? 0 }}
                   </RChip>
                 </template>
                 <RChip
@@ -426,7 +426,7 @@ const detectedPlatformCount = computed(
                   prepend-icon="mdi-disc"
                   :aria-label="t('setup.games')"
                 >
-                  {{ romCountBySlug.get(platform.fs_slug) ?? 0 }}
+                  {{ romCountBySlug.get(platform.slug) ?? 0 }}
                 </RChip>
               </div>
             </li>
