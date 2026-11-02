@@ -15,6 +15,7 @@ from models.rom import (
     compute_full_path_hash,
     compute_search_titles,
     rom_id_from_resource_url,
+    steam_achievement_icon_path,
 )
 
 
@@ -522,3 +523,47 @@ def test_rom_id_from_resource_url(path: str, expected: int | None):
 
 def test_rom_id_from_resource_url_needs_the_resources_prefix():
     assert rom_id_from_resource_url("roms/3/42/cover/small.png") is None
+
+
+@pytest.mark.parametrize(
+    ("icon_file", "expected"),
+    [
+        ("0a1b.jpg", "roms/2/9/steam/achievements/0a1b.jpg"),
+        ("lab_rat.PNG", "roms/2/9/steam/achievements/lab_rat.PNG"),
+        (None, None),
+        ("", None),
+        ("../a.jpg", None),
+        ("icon.svg", None),
+    ],
+)
+def test_steam_achievement_icon_path(icon_file: str | None, expected: str | None):
+    assert steam_achievement_icon_path(2, 9, icon_file) == expected
+
+
+class TestMergedSteamMetadata:
+    def test_achievements_gain_resource_urls_for_their_stored_icons(self):
+        achievement: dict[str, Any] = {
+            "api_name": "WIN",
+            "icon_url": "https://cdn.example/apps/400/a.jpg",
+            "icon_gray_url": None,
+            "icon_file": "a.jpg",
+            "icon_gray_file": None,
+        }
+        stored = {"genres": ["Puzzle"], "achievements": [achievement]}
+        rom = Rom(id=9, platform_id=2, steam_metadata=stored)
+
+        merged = rom.merged_steam_metadata
+
+        assert merged is not None
+        assert merged["genres"] == ["Puzzle"]
+        assert merged["achievements"][0]["icon_path"] == (
+            f"{FRONTEND_RESOURCES_PATH}/roms/2/9/steam/achievements/a.jpg"
+        )
+        assert merged["achievements"][0]["icon_gray_path"] is None
+        assert "icon_path" not in achievement
+
+    def test_metadata_without_achievements_is_served_as_stored(self):
+        stored = {"genres": ["Puzzle"]}
+        rom = Rom(id=9, platform_id=2, steam_metadata=stored)
+
+        assert rom.merged_steam_metadata is stored

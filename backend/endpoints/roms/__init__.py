@@ -2387,6 +2387,10 @@ async def update_rom(
         await fs_resource_handler.store_ra_badges(
             cleaned_data.get("ra_metadata", {}).get("achievements", [])
         )
+    if "steam_id" in refetched:
+        await fs_resource_handler.store_steam_achievement_icons(
+            rom, (cleaned_data.get("steam_metadata") or {}).get("achievements", [])
+        )
 
     # A changed or cleared match changes which provider supplies shared media.
     rematched = False
