@@ -1,4 +1,5 @@
 import asyncio
+import math
 from collections.abc import Awaitable
 from typing import Final, NotRequired, TypedDict
 
@@ -144,11 +145,15 @@ def _parse_release_date(raw_date: str) -> int | None:
     )
 
 
-def _parse_percent(raw: float | str) -> float | None:
+def _parse_percent(raw: float | str | None) -> float | None:
+    if raw is None:
+        return None
     try:
-        return float(raw)
+        percent = float(raw)
     except TypeError, ValueError:
         return None
+    # A JSON column cannot hold NaN or infinity.
+    return percent if math.isfinite(percent) else None
 
 
 def extract_steam_achievements(
@@ -157,7 +162,7 @@ def extract_steam_achievements(
 ) -> list[SteamAchievement]:
     """Join the schema with the global unlock rates, keeping the schema's order."""
     percent_by_name = {
-        entry["name"]: _parse_percent(entry["percent"])
+        entry["name"]: _parse_percent(entry.get("percent"))
         for entry in percentages
         if entry.get("name")
     }

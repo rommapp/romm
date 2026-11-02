@@ -1,7 +1,9 @@
 import asyncio
+import json
 from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import aiohttp
 import pytest
 
 from adapters.services.steam_types import SteamAppDetails
@@ -469,9 +471,19 @@ def test_extract_steam_achievements_joins_the_global_rates_in_schema_order():
     ]
 
 
-def test_extract_steam_achievements_tolerates_missing_or_bad_rates():
+@pytest.mark.parametrize(
+    "rate",
+    [
+        {"percent": "n/a"},
+        {"percent": "NaN"},
+        {"percent": "inf"},
+        {},
+    ],
+    ids=["not-a-number", "nan", "infinite", "no-percent"],
+)
+def test_extract_steam_achievements_tolerates_missing_or_bad_rates(rate):
     achievements = extract_steam_achievements(
-        cast(Any, PORTAL_SCHEMA), [{"name": "PORTAL_BEAT_GAME", "percent": "n/a"}]
+        cast(Any, PORTAL_SCHEMA), cast(Any, [{"name": "PORTAL_BEAT_GAME", **rate}])
     )
 
     assert [a["global_percent"] for a in achievements] == [None, None]
@@ -523,10 +535,20 @@ async def test_rom_skips_the_web_api_without_a_key_or_achievements(key, details)
 
 async def test_rom_keeps_the_schema_when_only_the_unlock_rates_fail():
     handler, _ = _handler(details={**CYBERPUNK, "achievements": {"total": 2}})
-    web_api = _web_api(handler)
-    web_api.get_global_achievement_percentages = AsyncMock(return_value=[])
+    schema = {"game": {"availableGameStats": {"achievements": PORTAL_SCHEMA}}}
 
-    with patch("handler.metadata.steam_handler.STEAM_API_KEY", "secret"):
+    async def get(url, **_kwargs):
+        if "GetSchemaForGame" not in url.path:
+            raise aiohttp.ClientPayloadError("Response payload is not completed")
+        response = MagicMock()
+        response.read = AsyncMock(return_value=json.dumps(schema).encode())
+        return response
+
+    with (
+        patch("handler.metadata.steam_handler.STEAM_API_KEY", "secret"),
+        patch("adapters.services.steam.ctx_aiohttp_session") as ctx,
+    ):
+        ctx.get.return_value = MagicMock(get=get)
         rom = await handler.get_rom_by_id(1091500)
 
     achievements = rom.get("steam_metadata", {}).get("achievements", [])

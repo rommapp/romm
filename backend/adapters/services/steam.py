@@ -223,8 +223,9 @@ class SteamWebApiService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
+            # The path ends in the method name, then its version.
             return parse_response(
-                tp, await res.read(), source=f"Steam Web API {url.parent.name}"
+                tp, await res.read(), source=f"Steam Web API {url.parent.parent.name}"
             )
 
         try:
@@ -239,10 +240,11 @@ class SteamWebApiService:
             log.debug("Request to URL=%s timed out on every attempt", url)
             return None
         # A connection failure arrives as the 503 `send_with_retries` raises.
-        except (aiohttp.ClientResponseError, HTTPException) as exc:
+        except (aiohttp.ClientError, HTTPException) as exc:
             log.error(exc)
             return None
-        except json.JSONDecodeError as exc:
+        # Also a body that is not UTF-8, which `json` raises as a UnicodeDecodeError.
+        except ValueError as exc:
             log.error("Error decoding JSON response from Steam Web API: %s", exc)
             return None
 

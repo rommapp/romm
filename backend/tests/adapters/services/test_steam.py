@@ -257,6 +257,15 @@ async def test_get_global_achievement_percentages(session):
     assert url.query["gameid"] == "400"
 
 
+async def test_web_api_response_source_names_the_method(session):
+    session.get.return_value = _response({"game": {}})
+
+    with patch("adapters.services.steam.parse_response", return_value=None) as parse:
+        await SteamWebApiService().get_schema_achievements(400)
+
+    assert parse.call_args.kwargs["source"] == "Steam Web API GetSchemaForGame"
+
+
 async def test_web_api_key_middleware_adds_the_key():
     request = MagicMock(url=yarl.URL("https://api.example/x?appid=400"))
     handler = AsyncMock()
@@ -275,6 +284,16 @@ async def test_web_api_error_status_degrades_to_no_achievements(session):
 
     assert await SteamWebApiService().get_schema_achievements(400) == []
     assert session.get.await_count == 1
+
+
+async def test_web_api_truncated_body_degrades_to_no_achievements(session):
+    response = _response({})
+    response.read = AsyncMock(
+        side_effect=aiohttp.ClientPayloadError("Response payload is not completed")
+    )
+    session.get.return_value = response
+
+    assert await SteamWebApiService().get_schema_achievements(400) == []
 
 
 async def test_web_api_connection_failure_degrades_to_no_achievements(session):
