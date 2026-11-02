@@ -985,6 +985,21 @@ def test_update_rom_keeps_a_custom_sort_keys_leading_article(
     assert response.json()["name_sort_key"] == "the simpsons"
 
 
+def test_update_rom_with_an_empty_summary_clears_it(
+    client: TestClient, access_token: str, rom: Rom
+):
+    db_rom_handler.update_rom(rom.id, {"summary": "Old summary"})
+
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"summary": ""},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    assert response.json()["summary"] == ""
+
+
 @patch.object(FSRomsHandler, "rename_fs_rom")
 @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
 def test_update_rom_reparses_tags_on_fs_name_change(
