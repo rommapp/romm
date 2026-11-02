@@ -358,6 +358,7 @@ class TestCSRFMiddleware:
         assert cookie1 != cookie2
 
         # Try to post with cookie from first session and header from second
+        client.cookies.clear()
         client.cookies.set("csrftoken", cookie1)
         resp = client.post("/post", headers={"x-csrftoken": cookie2})
         assert resp.status_code == 403
