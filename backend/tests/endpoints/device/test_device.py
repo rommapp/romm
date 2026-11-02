@@ -6,7 +6,7 @@ from fastapi import status
 from tests.factories import make_device_token, make_save
 
 from endpoints import device as device_endpoints
-from handler.database import db_device_handler
+from handler.database import db_client_token_handler, db_device_handler
 from handler.device_install import device_install_handler
 from models.device import Device
 from models.user import User
@@ -802,3 +802,45 @@ class TestDeviceTokenBinding:
         )
 
         assert {d["id"] for d in response.json()} >= {"bound-dev", "other-dev"}
+
+    def test_registering_another_devices_fingerprint_leaves_it_alone(
+        self, client, bound_headers, devices
+    ):
+        other = devices[1]
+        db_device_handler.update_device(
+            device_id=other.id,
+            user_id=other.user_id,
+            data={"mac_address": "AA:BB:CC:DD:EE:FF"},
+        )
+
+        response = client.post(
+            "/api/devices",
+            json={
+                "mac_address": "AA:BB:CC:DD:EE:FF",
+                "capabilities": {"remote_install": True},
+            },
+            headers=bound_headers,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.json()["device_id"] != other.id
+        stored = db_device_handler.get_device_by_id(other.id)
+        assert stored is not None
+        assert stored.capabilities is None
+
+    def test_deleting_a_device_revokes_its_tokens(
+        self, client, access_token: str, admin_user: User, devices
+    ):
+        token, raw_token = make_device_token(admin_user, devices[0].id)
+
+        response = client.delete(
+            "/api/devices/bound-dev",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert db_client_token_handler.get_token(token.id) is None
+        response = client.get(
+            "/api/devices", headers={"Authorization": f"Bearer {raw_token}"}
+        )
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED

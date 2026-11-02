@@ -93,6 +93,9 @@ def register_device(
             hostname=payload.hostname,
             platform=payload.platform,
         )
+        bound_device_id = token_device_id(request)
+        if existing_device and bound_device_id not in (None, existing_device.id):
+            existing_device = None
 
     if existing_device:
         if not payload.allow_existing:
