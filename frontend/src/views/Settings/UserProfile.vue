@@ -6,6 +6,7 @@
 //   • Account Details section (form rows + Discard / Apply buttons,
 //     password handled by ChangePasswordDialog)
 //   • RetroAchievements section (own component)
+//   • Steam section (own component), when the server has a Steam API key
 //
 // While `userToEdit` is loading we render a thin skeleton so the
 // layout doesn't pop in. Apply is disabled until the form is dirty;
@@ -22,12 +23,14 @@ import { useI18n } from "vue-i18n";
 import ChangePasswordDialog from "@/components/Settings/ChangePasswordDialog.vue";
 import RetroAchievementsSection from "@/components/Settings/RetroAchievementsSection.vue";
 import SettingsSection from "@/components/Settings/SettingsSection.vue";
+import SteamLibrarySection from "@/components/Settings/SteamLibrarySection.vue";
 import PasswordField from "@/components/shared/PasswordField.vue";
 import { usePageTitle } from "@/composables/usePageTitle";
 import { useSnackbar } from "@/composables/useSnackbar";
 import { RBtn, RIcon, RSkeletonBlock, RTag, RTextField } from "@/lib";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
+import storeHeartbeat from "@/stores/heartbeat";
 import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
@@ -38,6 +41,7 @@ import { userAvatarUrl } from "@/utils/userAvatar";
 const { t, locale } = useI18n();
 const auth = storeAuth();
 const { user } = storeToRefs(auth);
+const heartbeat = storeHeartbeat();
 const userToEdit = ref<UserItem | null>(null);
 const originalSnapshot = ref<Pick<UserItem, "username" | "email"> | null>(null);
 const usersStore = storeUsers();
@@ -347,6 +351,9 @@ onMounted(reset);
       </SettingsSection>
 
       <RetroAchievementsSection />
+      <SteamLibrarySection
+        v-if="heartbeat.value.METADATA_SOURCES.STEAM_LIBRARY_ENABLED"
+      />
     </template>
 
     <!-- Skeleton: shown until userToEdit is hydrated from auth.user. -->

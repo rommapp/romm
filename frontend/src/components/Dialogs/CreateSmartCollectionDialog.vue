@@ -85,6 +85,7 @@ const openHandler = () => {
       filterSoundtrack: galleryFilter.filterSoundtrack,
       filterMissing: galleryFilter.filterMissing,
       filterPhysical: galleryFilter.filterPhysical,
+      filterOwnedOnSteam: galleryFilter.filterOwnedOnSteam,
       filterVerified: galleryFilter.filterVerified,
       selectedPlatforms: galleryFilter.selectedPlatforms,
       selectedGenres: galleryFilter.selectedGenres,

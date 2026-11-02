@@ -19,6 +19,7 @@ from .saves_handler import DBSavesHandler
 from .screenshots_handler import DBScreenshotsHandler
 from .states_handler import DBStatesHandler
 from .stats_handler import DBStatsHandler
+from .steam_library_handler import DBSteamLibraryHandler
 from .sync_sessions_handler import DBSyncSessionsHandler
 from .users_handler import DBUsersHandler
 
@@ -42,6 +43,7 @@ db_rom_handler = DBRomsHandler()
 db_save_handler = DBSavesHandler()
 db_screenshot_handler = DBScreenshotsHandler()
 db_state_handler = DBStatesHandler()
+db_steam_library_handler = DBSteamLibraryHandler()
 db_stats_handler = DBStatsHandler()
 db_sync_session_handler = DBSyncSessionsHandler()
 db_user_handler = DBUsersHandler()

@@ -45,6 +45,10 @@ class SteamScreenshot(TypedDict):
     path_full: str
 
 
+class SteamAchievementsSummary(TypedDict):
+    total: int
+
+
 class SteamAppDetails(TypedDict):
     type: str
     name: str
@@ -66,8 +70,108 @@ class SteamAppDetails(TypedDict):
     screenshots: NotRequired[list[SteamScreenshot]]
     release_date: NotRequired[SteamReleaseDate]
     controller_support: NotRequired[str]
+    achievements: NotRequired[SteamAchievementsSummary]
 
 
 class SteamAppDetailsEnvelope(TypedDict):
     success: bool
     data: NotRequired[SteamAppDetails]
+
+
+class SteamVanityResult(TypedDict):
+    # 1 when the name resolved, 42 when no profile uses it.
+    success: int
+    steamid: NotRequired[str]
+    message: NotRequired[str]
+
+
+class SteamVanityResponse(TypedDict):
+    response: SteamVanityResult
+
+
+class SteamPlayerSummary(TypedDict):
+    steamid: str
+    personaname: str
+    profileurl: str
+    avatarfull: NotRequired[str]
+    # 3 is public; anything else hides the owned-games list.
+    communityvisibilitystate: int
+
+
+class SteamPlayerSummariesResult(TypedDict):
+    players: list[SteamPlayerSummary]
+
+
+class SteamPlayerSummariesResponse(TypedDict):
+    response: SteamPlayerSummariesResult
+
+
+class SteamOwnedGame(TypedDict):
+    appid: int
+    name: NotRequired[str]
+    playtime_forever: int
+    rtime_last_played: NotRequired[int]
+
+
+class SteamOwnedGamesResult(TypedDict):
+    # Both are missing when the profile's game details are private.
+    game_count: NotRequired[int]
+    games: NotRequired[list[SteamOwnedGame]]
+
+
+class SteamOwnedGamesResponse(TypedDict):
+    response: SteamOwnedGamesResult
+
+
+class SteamSchemaAchievement(TypedDict):
+    name: str
+    displayName: str
+    hidden: int
+    # Left out for most hidden achievements.
+    description: NotRequired[str]
+    icon: NotRequired[str]
+    icongray: NotRequired[str]
+
+
+class SteamSchemaGameStats(TypedDict):
+    achievements: NotRequired[list[SteamSchemaAchievement]]
+
+
+class SteamSchemaGame(TypedDict):
+    availableGameStats: NotRequired[SteamSchemaGameStats]
+
+
+class SteamSchemaForGameResponse(TypedDict):
+    game: SteamSchemaGame
+
+
+class SteamGlobalAchievementPercent(TypedDict):
+    name: str
+    # Sent as a decimal string ("80.9"); a number is accepted too.
+    percent: float | str
+
+
+class SteamGlobalAchievementPercentages(TypedDict):
+    achievements: list[SteamGlobalAchievementPercent]
+
+
+class SteamGlobalAchievementPercentagesResponse(TypedDict):
+    achievementpercentages: SteamGlobalAchievementPercentages
+
+
+class SteamPlayerAchievement(TypedDict):
+    apiname: str
+    achieved: int
+    unlocktime: int
+
+
+class SteamPlayerStats(TypedDict):
+    success: bool
+    steamID: NotRequired[str]
+    gameName: NotRequired[str]
+    achievements: NotRequired[list[SteamPlayerAchievement]]
+    error: NotRequired[str]
+
+
+class SteamPlayerAchievementsResponse(TypedDict):
+    playerstats: SteamPlayerStats

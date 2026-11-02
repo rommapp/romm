@@ -33,7 +33,7 @@ from config import RESOURCES_BASE_PATH
 from config.config_manager import MetadataMediaType
 from handler.filesystem.base_handler import CoverSize
 from handler.filesystem.resources_handler import (
-    RA_BADGE_MAX_CONCURRENCY,
+    ACHIEVEMENT_IMAGE_MAX_CONCURRENCY,
     FSResourcesHandler,
     _check_content_type,
     _content_type_essence,
@@ -2013,7 +2013,7 @@ class TestDiskFullHandling:
         with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
             mock_ctx.get.return_value = _FakeHttpxClient(_EnospcResponse())
 
-            await handler.store_ra_badge("http://example.com/badge.png", rel)
+            await handler.store_achievement_image("http://example.com/badge.png", rel)
 
         assert not target.exists()
 
@@ -2524,16 +2524,20 @@ class TestConcurrentDownloads:
     ):
         tracker = InFlight()
         paths = [
-            f"roms/1/1/badges/{i}.png" for i in range(RA_BADGE_MAX_CONCURRENCY * 2)
+            f"roms/1/1/badges/{i}.png"
+            for i in range(ACHIEVEMENT_IMAGE_MAX_CONCURRENCY * 2)
         ]
 
         with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
             mock_ctx.get.return_value = _InFlightClient(tracker)
             await asyncio.gather(
-                *(handler.store_ra_badge("http://x/badge.png", p) for p in paths)
+                *(
+                    handler.store_achievement_image("http://x/badge.png", p)
+                    for p in paths
+                )
             )
 
-        assert tracker.peak == RA_BADGE_MAX_CONCURRENCY
+        assert tracker.peak == ACHIEVEMENT_IMAGE_MAX_CONCURRENCY
         assert all((tmp_path / p).exists() for p in paths)
 
     @pytest.mark.asyncio
@@ -2619,10 +2623,39 @@ class TestConcurrentDownloads:
         }
         store = AsyncMock()
 
-        with patch.object(handler, "store_ra_badge", store):
+        with patch.object(handler, "store_achievement_image", store):
             await handler.store_ra_badges([badge, dict(badge), {"badge_url": "x"}])
 
         assert sorted(call.args for call in store.await_args_list) == [
             ("http://x/1.png", "roms/1/1/badges/1.png"),
             ("http://x/1_lock.png", "roms/1/1/badges/1_lock.png"),
+        ]
+
+    @pytest.mark.asyncio
+    async def test_steam_icons_shared_by_achievements_are_fetched_once(
+        self, handler: FSResourcesHandler
+    ):
+        icons = {
+            "icon_url": "https://cdn.example/apps/400/a.jpg",
+            "icon_gray_url": "https://cdn.example/apps/400/a_gray.jpg",
+            "icon_file": "a.jpg",
+            "icon_gray_file": "a_gray.jpg",
+        }
+        unusable = {"icon_url": "https://cdn.example/x", "icon_file": "../a.jpg"}
+        store = AsyncMock()
+
+        with patch.object(handler, "store_achievement_image", store):
+            await handler.store_steam_achievement_icons(
+                Rom(id=5, platform_id=3), [icons, dict(icons), unusable]
+            )
+
+        assert sorted(call.args for call in store.await_args_list) == [
+            (
+                "https://cdn.example/apps/400/a.jpg",
+                "roms/3/5/steam/achievements/a.jpg",
+            ),
+            (
+                "https://cdn.example/apps/400/a_gray.jpg",
+                "roms/3/5/steam/achievements/a_gray.jpg",
+            ),
         ]
