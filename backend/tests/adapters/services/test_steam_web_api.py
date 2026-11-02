@@ -148,3 +148,33 @@ async def test_a_reply_that_is_not_json_is_an_error(session):
 
     with pytest.raises(SteamWebAPIError, match="could not be read"):
         await _service().get_owned_games(STEAM_ID)
+
+
+async def test_reads_a_players_achievements(session):
+    unlocks = [{"apiname": "WIN", "achieved": 1, "unlocktime": 1_700_000_000}]
+    session.get.return_value = _response(
+        {"playerstats": {"steamID": STEAM_ID, "success": True, "achievements": unlocks}}
+    )
+
+    assert await _service().get_player_achievements(STEAM_ID, 220) == unlocks
+    url = session.get.await_args.args[0]
+    assert (url.query["steamid"], url.query["appid"]) == (STEAM_ID, "220")
+
+
+async def test_a_game_without_stats_has_no_player_achievements(session):
+    response = _response({"playerstats": {"success": False}})
+    response.raise_for_status.side_effect = _error(400)
+    session.get.return_value = response
+
+    assert await _service().get_player_achievements(STEAM_ID, 220) == []
+
+
+async def test_refused_player_achievements_are_an_error_with_their_status(session):
+    response = _response({})
+    response.raise_for_status.side_effect = _error(403)
+    session.get.return_value = response
+
+    with pytest.raises(SteamWebAPIError) as exc_info:
+        await _service().get_player_achievements(STEAM_ID, 220)
+
+    assert exc_info.value.status == 403

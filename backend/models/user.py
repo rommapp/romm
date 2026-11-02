@@ -107,6 +107,9 @@ class User(BaseModel, SimpleUser):
     steam_persona_name: Mapped[str | None] = mapped_column(
         String(length=TEXT_FIELD_LENGTH), default=None
     )
+    steam_progression: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
     ui_settings: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )

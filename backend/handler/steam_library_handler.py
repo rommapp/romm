@@ -4,12 +4,16 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Final
+from typing import Any, Final, TypedDict, cast
 
 from sqlalchemy.exc import IntegrityError
 
 from adapters.services.steam import SteamWebAPIError, SteamWebApiService
-from adapters.services.steam_types import SteamOwnedGame, SteamPlayerSummary
+from adapters.services.steam_types import (
+    SteamOwnedGame,
+    SteamPlayerAchievement,
+    SteamPlayerSummary,
+)
 from config import STEAM_API_KEY
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.database import (
@@ -24,7 +28,7 @@ from handler.metadata.steam_handler import STEAM_PLATFORMS
 from handler.scan_handler import scan_platform
 from logger.logger import log
 from models.platform import Platform
-from models.rom import Rom, RomStorefront
+from models.rom import Rom, RomStorefront, RomUserStatus
 from models.steam_library import SteamLibraryEntry
 from models.user import User
 from utils.filesystem import sanitize_filename
@@ -54,6 +58,33 @@ class SteamSyncResult:
     removed: int = 0
     # Store-only roms no metadata source matched yet, new ones included.
     unmatched_rom_ids: list[int] = field(default_factory=list)
+
+
+class SteamEarnedAchievement(TypedDict):
+    api_name: str
+    # Epoch seconds.
+    unlock_time: int
+
+
+class SteamUserGameProgression(TypedDict):
+    rom_steam_id: int
+    # The game's last-played time and playtime when its unlocks were read, to
+    # skip it until it is played again.
+    rtime_last_played: int | None
+    playtime_forever: int
+    num_achievements: int
+    num_unlocked: int
+    earned_achievements: list[SteamEarnedAchievement]
+
+
+class SteamUserProgression(TypedDict):
+    total: int
+    results: list[SteamUserGameProgression]
+
+
+def is_steam_game_completed(progression: SteamUserGameProgression) -> bool:
+    """Whether every achievement of the game is unlocked."""
+    return 0 < progression["num_achievements"] == progression["num_unlocked"]
 
 
 def steam_web_api() -> SteamWebApiService:
@@ -129,17 +160,23 @@ def link_steam_profile(user: User, summary: SteamPlayerSummary) -> None:
     """Link the Steam account `summary` describes, forgetting another one's games."""
     previous = user.steam_id
     # The account changes first, so a sync of the previous one discards its result.
-    db_user_handler.update_user(
-        user.id,
-        {"steam_id": summary["steamid"], "steam_persona_name": summary["personaname"]},
-    )
+    changes: dict[str, object] = {
+        "steam_id": summary["steamid"],
+        "steam_persona_name": summary["personaname"],
+    }
+    if previous != summary["steamid"]:
+        changes["steam_progression"] = {}
+    db_user_handler.update_user(user.id, changes)
     if previous and previous != summary["steamid"]:
         _forget_library(user.id)
 
 
 def unlink_steam_profile(user: User) -> None:
     """Unlink a user's Steam account and forget which games it owns."""
-    db_user_handler.update_user(user.id, {"steam_id": None, "steam_persona_name": None})
+    db_user_handler.update_user(
+        user.id,
+        {"steam_id": None, "steam_persona_name": None, "steam_progression": {}},
+    )
     _forget_library(user.id)
 
 
@@ -252,4 +289,102 @@ async def sync_steam_library(user: User) -> SteamSyncResult:
             [entry.rom_id for entry in entries]
         )
     )
+    # Achievements are an extra, so their failure leaves the library sync intact.
+    try:
+        await sync_steam_achievements(user, steam_id, entries)
+    except Exception as e:
+        log.error(f"Steam achievements sync failed for {user.username}: {e}")
     return result
+
+
+def _game_progression(
+    entry: SteamLibraryEntry, achievements: list[SteamPlayerAchievement]
+) -> SteamUserGameProgression:
+    earned = [
+        SteamEarnedAchievement(api_name=a["apiname"], unlock_time=a["unlocktime"])
+        for a in achievements
+        if a.get("achieved") and a.get("apiname")
+    ]
+    return SteamUserGameProgression(
+        rom_steam_id=entry.steam_app_id,
+        rtime_last_played=(
+            int(entry.last_played_at.timestamp()) if entry.last_played_at else None
+        ),
+        playtime_forever=entry.playtime_minutes,
+        num_achievements=len(achievements),
+        num_unlocked=len(earned),
+        earned_achievements=earned,
+    )
+
+
+async def get_steam_progression(
+    steam_id: str,
+    entries: Sequence[SteamLibraryEntry],
+    current: SteamUserProgression | None,
+) -> SteamUserProgression:
+    """Read the unlocks of each played game in `entries`.
+
+    A game not played since `current` was read keeps its entry without a request,
+    and one whose read fails keeps whatever `current` has for it.
+
+    Raises:
+        SteamWebAPIError: Steam refused the player's achievements outright.
+    """
+    known_results = current.get("results", []) if current else []
+    current_by_app_id = {p["rom_steam_id"]: p for p in known_results}
+    api = steam_web_api()
+    results: list[SteamUserGameProgression] = []
+    for entry in entries:
+        if not entry.playtime_minutes:
+            continue
+
+        game = _game_progression(entry, [])
+        known = current_by_app_id.get(entry.steam_app_id)
+        if (
+            known
+            and known["rtime_last_played"] == game["rtime_last_played"]
+            and known["playtime_forever"] == game["playtime_forever"]
+        ):
+            results.append(known)
+            continue
+
+        try:
+            achievements = await api.get_player_achievements(
+                steam_id, entry.steam_app_id
+            )
+        except SteamWebAPIError as exc:
+            if exc.status == 403:
+                raise
+            log.warning(
+                f"Couldn't read achievements for Steam app {entry.steam_app_id}: {exc}"
+            )
+            if known:
+                results.append(known)
+            continue
+        results.append(_game_progression(entry, achievements))
+
+    return SteamUserProgression(total=len(results), results=results)
+
+
+async def sync_steam_achievements(
+    user: User, steam_id: str, entries: Sequence[SteamLibraryEntry]
+) -> None:
+    """Store the user's unlocks and mark each fully unlocked game as completed."""
+    progression = await get_steam_progression(
+        steam_id, entries, cast(SteamUserProgression | None, user.steam_progression)
+    )
+    if not db_steam_library_handler.replace_progression(
+        user.id, steam_id, cast(dict[str, Any], progression)
+    ):
+        return
+
+    completed = [
+        game["rom_steam_id"]
+        for game in progression["results"]
+        if is_steam_game_completed(game)
+    ]
+    statuses = {
+        rom.id: RomUserStatus.COMPLETED_100
+        for rom in db_rom_handler.get_roms_by_steam_ids(completed)
+    }
+    db_rom_handler.set_rom_user_statuses(user.id, statuses)

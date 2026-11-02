@@ -4,6 +4,7 @@
 /* eslint-disable */
 import type { RAProgression } from './RAProgression';
 import type { Role } from './Role';
+import type { SteamProgression } from './SteamProgression';
 export type UserSchema = {
     id: number;
     username: string;
@@ -21,6 +22,7 @@ export type UserSchema = {
     ra_progression?: (RAProgression | null);
     steam_id?: (string | null);
     steam_persona_name?: (string | null);
+    steam_progression?: (SteamProgression | null);
     ui_settings?: (Record<string, any> | null);
     current_device_id?: (string | null);
     created_at: string;

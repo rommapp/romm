@@ -157,3 +157,21 @@ class SteamGlobalAchievementPercentages(TypedDict):
 
 class SteamGlobalAchievementPercentagesResponse(TypedDict):
     achievementpercentages: SteamGlobalAchievementPercentages
+
+
+class SteamPlayerAchievement(TypedDict):
+    apiname: str
+    achieved: int
+    unlocktime: int
+
+
+class SteamPlayerStats(TypedDict):
+    success: bool
+    steamID: NotRequired[str]
+    gameName: NotRequired[str]
+    achievements: NotRequired[list[SteamPlayerAchievement]]
+    error: NotRequired[str]
+
+
+class SteamPlayerAchievementsResponse(TypedDict):
+    playerstats: SteamPlayerStats

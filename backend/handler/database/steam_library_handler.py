@@ -1,7 +1,7 @@
 from collections.abc import Collection, Sequence
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from decorators.database import INJECTED_SESSION, begin_session
@@ -147,6 +147,30 @@ class DBSteamLibraryHandler(DBBaseHandler):
             current.last_played_at = entry.last_played_at
 
         return SteamLibraryChanges(added=added, removed=dropped)
+
+    @begin_session
+    def replace_progression(
+        self,
+        user_id: int,
+        steam_id: str,
+        progression: dict[str, Any],
+        session: Session = INJECTED_SESSION,
+    ) -> bool:
+        """Store the user's achievement progression, if still linked to `steam_id`.
+
+        Returns:
+            Whether it was stored, which it isn't once the linked account changed.
+        """
+        # Locked like `replace_entries`, so an unlink can't commit in between.
+        linked = session.scalar(
+            select(User.steam_id).where(User.id == user_id).with_for_update()
+        )
+        if linked != steam_id:
+            return False
+        session.execute(
+            update(User).where(User.id == user_id).values(steam_progression=progression)
+        )
+        return True
 
     @begin_session
     def delete_entries(

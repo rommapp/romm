@@ -263,6 +263,7 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0159_steam_library.py", "roms"),
         ("0159_steam_library.py", "users"),
         ("0159_steam_library.py", "steam_library_entries"),
+        ("0160_user_steam_progression.py", "users"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -439,6 +440,22 @@ def test_the_user_oidc_sub_revision_reverses_and_replays():
             migration.downgrade()
             assert not has_column(connection, "users", "oidc_sub")
             assert not has_column(connection, "users", "oidc_issuer")
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        assert _schema_of(connection, "users") == before
+
+
+def test_the_user_steam_progression_revision_reverses_and_replays():
+    migration = _load_migration("0160_user_steam_progression.py")
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "users")
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert not has_column(connection, "users", "steam_progression")
 
             migration.downgrade()
             migration.upgrade()

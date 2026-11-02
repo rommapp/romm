@@ -4,6 +4,7 @@ from pydantic import ConfigDict
 from starlette.requests import Request
 
 from handler.metadata.ra_handler import RAUserProgression
+from handler.steam_library_handler import SteamUserProgression
 from models.user import Role, User
 from utils.auth import current_device_id
 from utils.urls import get_public_base_url
@@ -13,6 +14,11 @@ from .base import BaseModel, UTCDatetime
 RAProgression = TypedDict(  # type: ignore[misc]
     "RAProgression",
     {k: NotRequired[v] for k, v in get_type_hints(RAUserProgression).items()},
+    total=False,
+)
+SteamProgression = TypedDict(  # type: ignore[misc]
+    "SteamProgression",
+    {k: NotRequired[v] for k, v in get_type_hints(SteamUserProgression).items()},
     total=False,
 )
 
@@ -36,6 +42,7 @@ class UserSchema(BaseModel):
     ra_progression: RAProgression | None = None
     steam_id: str | None = None
     steam_persona_name: str | None = None
+    steam_progression: SteamProgression | None = None
     ui_settings: dict[str, Any] | None = None
     current_device_id: str | None = None
 
