@@ -16,7 +16,7 @@ from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, RESOURCES_BASE_PATH
 from config.config_manager import MetadataMediaType
 from logger.logger import log
 from models.collection import Collection
-from models.rom import Rom
+from models.rom import Rom, steam_achievement_icon_path
 from tasks.scheduled.convert_images_to_webp import ImageConverter
 from utils.concurrency import gather_all
 from utils.context import ctx_httpx_client
@@ -36,10 +36,10 @@ LOCAL_FILE_SCHEMES = ("file://", "launchbox-file://")
 
 ALLOWED_MANUAL_EXTENSIONS = frozenset({".pdf", ".md", ".txt"})
 
-# An achievement set runs to hundreds of badges, so they are fetched a few at a
+# An achievement set runs to hundreds of images, so they are fetched a few at a
 # time across every scan rather than all at once.
-RA_BADGE_MAX_CONCURRENCY: Final[int] = 8
-_ra_badge_limiter = ConcurrencyLimiter(RA_BADGE_MAX_CONCURRENCY)
+ACHIEVEMENT_IMAGE_MAX_CONCURRENCY: Final[int] = 8
+_achievement_image_limiter = ConcurrencyLimiter(ACHIEVEMENT_IMAGE_MAX_CONCURRENCY)
 
 
 def _resolve_local_file_uri(uri: str) -> Path | None:
@@ -768,22 +768,24 @@ class FSResourcesHandler(FSHandler):
     async def remove_manual(self, rom: Rom) -> None:
         await self.remove_directory(f"{rom.fs_resources_path}/manual")
 
-    # Retroachievements
-    async def store_ra_badge(self, url: str, path: str) -> None:
+    # Achievements
+    async def store_achievement_image(self, url: str, path: str) -> None:
         httpx_client = ctx_httpx_client.get()
         directory, filename = os.path.split(path)
 
         if await self.file_exists(path):
-            log.debug(f"Badge {path} already exists, skipping download")
+            log.debug(f"Achievement image {path} already exists, skipping download")
             return
 
         try:
             async with (
-                _ra_badge_limiter,
+                _achievement_image_limiter,
                 httpx_client.stream("GET", url, timeout=120) as response,
             ):
                 if response.status_code == status.HTTP_200_OK:
-                    if not _check_content_type(response, ("image/",), "badge"):
+                    if not _check_content_type(
+                        response, ("image/",), "achievement image"
+                    ):
                         return
 
                     async with self.write_file_streamed(
@@ -792,9 +794,9 @@ class FSResourcesHandler(FSHandler):
                         async for chunk in response.aiter_raw():
                             await f.write(chunk)
         except httpx2.TransportError as exc:
-            log.error(f"Unable to fetch badge at {url}: {str(exc)}")
+            log.error(f"Unable to fetch achievement image at {url}: {str(exc)}")
         except OSError as exc:
-            log.error(f"Unable to write badge for {url}: {str(exc)}")
+            log.error(f"Unable to write achievement image for {url}: {str(exc)}")
 
     async def store_ra_badges(self, achievements: Iterable[dict[str, Any]]) -> None:
         """Fetch the normal and locked badge of every achievement."""
@@ -809,7 +811,24 @@ class FSResourcesHandler(FSHandler):
                     badges.setdefault(ach[path_key], ach[url_key])
 
         await gather_all(
-            *(self.store_ra_badge(url, path) for path, url in badges.items())
+            *(self.store_achievement_image(url, path) for path, url in badges.items())
+        )
+
+    async def store_steam_achievement_icons(
+        self, rom: Rom, achievements: Iterable[dict[str, Any]]
+    ) -> None:
+        """Fetch the unlocked and locked icon of every Steam achievement."""
+        icons: dict[str, str] = {}
+        for ach in achievements:
+            for url in (ach.get("icon_url"), ach.get("icon_gray_url")):
+                if not url:
+                    continue
+                path = steam_achievement_icon_path(rom.platform_id, rom.id, url)
+                if path:
+                    icons.setdefault(path, url)
+
+        await gather_all(
+            *(self.store_achievement_image(url, path) for path, url in icons.items())
         )
 
     def get_ra_resources_path(self, platform_id: int, rom_id: int) -> str:

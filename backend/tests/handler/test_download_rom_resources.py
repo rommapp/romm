@@ -44,7 +44,7 @@ def resources() -> Iterator[SimpleNamespace]:
         "store_metadata_media": AsyncMock(return_value=False),
         "remove_stale_media": AsyncMock(return_value=None),
         "remove_screenshots_past": AsyncMock(return_value=None),
-        "store_ra_badge": AsyncMock(return_value=None),
+        "store_achievement_image": AsyncMock(return_value=None),
     }
     with (
         patch("handler.scan_handler.get_preferred_media_types", return_value=[]),
@@ -71,7 +71,7 @@ async def test_downloads_every_file_of_a_rom_together(resources: SimpleNamespace
     resources.get_manual.side_effect = tracker.returning("manual.pdf")
     resources.get_rom_screenshots.side_effect = tracker.returning(["0.jpg"])
     resources.store_metadata_media.side_effect = tracker.returning(False)
-    resources.store_ra_badge.side_effect = tracker.returning(None)
+    resources.store_achievement_image.side_effect = tracker.returning(None)
 
     await _download(
         _rom(), [MetadataSource.SS, MetadataSource.GAMELIST, MetadataSource.RA]
@@ -281,7 +281,7 @@ async def test_a_failed_provider_download_still_saves_the_paths_that_landed(
     resources: SimpleNamespace,
 ):
     resources.get_cover.return_value = ("small.png", "big.png")
-    resources.store_ra_badge.side_effect = OSError("disk full")
+    resources.store_achievement_image.side_effect = OSError("disk full")
 
     with pytest.raises(OSError):
         await _download(_rom(), [MetadataSource.RA])
@@ -298,10 +298,55 @@ async def test_a_failed_badge_download_still_saves_changed_provider_media(
     resources.store_metadata_media.side_effect = (
         lambda metadata, *_args: metadata is rom.gamelist_metadata
     )
-    resources.store_ra_badge.side_effect = OSError("disk full")
+    resources.store_achievement_image.side_effect = OSError("disk full")
 
     with pytest.raises(OSError):
         await _download(rom, [MetadataSource.GAMELIST, MetadataSource.RA])
 
     written = resources.update_rom.call_args.args[1]
     assert written["gamelist_metadata"] is rom.gamelist_metadata
+
+
+def _steam_rom() -> Rom:
+    return Rom(
+        id=8,
+        platform_id=2,
+        steam_metadata={
+            "achievements": [
+                {
+                    "api_name": "WIN",
+                    "icon_url": "https://cdn.example/apps/400/abc.jpg",
+                    "icon_gray_url": "https://cdn.example/apps/400/abc_gray.jpg",
+                }
+            ]
+        },
+    )
+
+
+@pytest.mark.asyncio
+async def test_steam_achievement_icons_are_stored_when_steam_is_a_source(
+    resources: SimpleNamespace,
+):
+    await _download(_steam_rom(), [MetadataSource.STEAM])
+
+    assert sorted(
+        c.args for c in resources.store_achievement_image.await_args_list
+    ) == [
+        (
+            "https://cdn.example/apps/400/abc.jpg",
+            "roms/2/8/steam/achievements/abc.jpg",
+        ),
+        (
+            "https://cdn.example/apps/400/abc_gray.jpg",
+            "roms/2/8/steam/achievements/abc_gray.jpg",
+        ),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_steam_achievement_icons_are_skipped_when_steam_is_not_a_source(
+    resources: SimpleNamespace,
+):
+    await _download(_steam_rom(), [MetadataSource.IGDB])
+
+    resources.store_achievement_image.assert_not_awaited()

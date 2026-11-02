@@ -2654,6 +2654,53 @@ class TestUpdateMetadataIDs:
         assert body["steam_metadata"]["total_rating"] == "86"
         assert get_rom_by_id_mock.called
 
+    @patch.object(
+        SteamHandler,
+        "get_rom_by_id",
+        return_value=SteamRom(
+            steam_id=MOCK_STEAM_ID,
+            steam_metadata={
+                "achievements": [
+                    {
+                        "api_name": "WIN",
+                        "title": "Win",
+                        "description": None,
+                        "hidden": False,
+                        "icon_url": "https://cdn.example/apps/400/a.jpg",
+                        "icon_gray_url": "https://cdn.example/apps/400/a_gray.jpg",
+                        "global_percent": 12.5,
+                    }
+                ]
+            },
+        ),
+    )
+    def test_update_rom_steam_id_stores_and_serves_achievement_icons(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        with patch.object(
+            FSResourcesHandler, "store_achievement_image", new_callable=AsyncMock
+        ) as store:
+            response = client.put(
+                f"/api/roms/{rom.id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+                data={"steam_id": str(MOCK_STEAM_ID)},
+            )
+        assert response.status_code == status.HTTP_200_OK
+
+        icons_dir = f"roms/{rom.platform_id}/{rom.id}/steam/achievements"
+        assert sorted(c.args for c in store.await_args_list) == [
+            ("https://cdn.example/apps/400/a.jpg", f"{icons_dir}/a.jpg"),
+            ("https://cdn.example/apps/400/a_gray.jpg", f"{icons_dir}/a_gray.jpg"),
+        ]
+        achievement = response.json()["steam_metadata"]["achievements"][0]
+        assert achievement["icon_path"].endswith(f"{icons_dir}/a.jpg")
+        assert achievement["icon_gray_path"].endswith(f"{icons_dir}/a_gray.jpg")
+        assert achievement["global_percent"] == 12.5
+
     @patch.object(SteamHandler, "get_rom_by_id", return_value=SteamRom(steam_id=None))
     def test_update_rom_steam_id_persists_when_handler_disabled(
         self,
