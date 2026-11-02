@@ -7,10 +7,10 @@ import pydash
 from config import RAWG_API_KEY
 from logger.logger import log
 from utils.context import ctx_httpx_client
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.rate_limiter import RateLimiter
 
 from .base_handler import BaseRom, MetadataHandler
-from .base_handler import UniversalPlatformSlug as UPS
 
 RAWG_TAG_REGEX = re.compile(r"\(rawg-(\d+)\)", re.IGNORECASE)
 

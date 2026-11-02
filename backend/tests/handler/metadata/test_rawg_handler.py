@@ -2,12 +2,12 @@ from unittest.mock import patch
 
 import pytest
 
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.metadata.rawg_handler import (
     SLUG_TO_RAWG_SLUG,
     RAWGHandler,
     extract_metadata_from_rawg_rom,
 )
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 
 @pytest.fixture
