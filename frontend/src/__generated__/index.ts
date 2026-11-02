@@ -282,6 +282,7 @@ export type { SSAgeRating } from './models/SSAgeRating';
 export type { SSPhysicalDisc } from './models/SSPhysicalDisc';
 export type { StateSchema } from './models/StateSchema';
 export type { StatsReturn } from './models/StatsReturn';
+export type { SteamAchievement } from './models/SteamAchievement';
 export type { SteamPlatforms } from './models/SteamPlatforms';
 export type { StreamingConfigSchema } from './models/StreamingConfigSchema';
 export type { StreamingContainerSchema } from './models/StreamingContainerSchema';

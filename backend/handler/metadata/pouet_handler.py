@@ -16,7 +16,7 @@ import httpx2
 from adapters.services.provider_http import unavailable
 from config import POUET_API_ENABLED
 from logger.logger import log
-from utils import get_version, int_or_none
+from utils import float_or_none, get_version, int_or_none
 from utils.context import ctx_httpx_client
 from utils.rate_limiter import RateLimiter
 
@@ -90,13 +90,6 @@ def pouet_id_from_location(location: str) -> int | None:
     if which and which[0].isdigit():
         return int_or_none(which[0])
     return None
-
-
-def _float_or_none(value: Any) -> float | None:
-    try:
-        return float(value) if value is not None and value != "" else None
-    except TypeError, ValueError:
-        return None
 
 
 _POUET_TYPE_LABELS: Final[dict[str, str]] = {
@@ -249,7 +242,7 @@ def production_to_rom(prod: dict[str, Any]) -> PouetRom:
 
     year = str(prod.get("releaseDate") or "")[:4]
     who = ", ".join(groups)
-    vote_avg = _float_or_none(prod.get("voteavg"))
+    vote_avg = float_or_none(prod.get("voteavg"))
     pouet_rank = int_or_none(prod.get("rank"))
     pouet_cdc = int_or_none(prod.get("cdc"))
     pouet_url = POUET_PROD_PAGE.format(id=pouet_id)
@@ -265,7 +258,7 @@ def production_to_rom(prod: dict[str, Any]) -> PouetRom:
         vote_avg=vote_avg,
         pouet_rank=pouet_rank,
         pouet_cdc=pouet_cdc,
-        pouet_popularity=_float_or_none(prod.get("popularity")),
+        pouet_popularity=float_or_none(prod.get("popularity")),
         demozoo_id=demozoo_id,
         pouet_url=pouet_url,
         youtube_video_id=youtube_id,
