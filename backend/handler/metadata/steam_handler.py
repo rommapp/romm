@@ -1,7 +1,8 @@
 import asyncio
-import math
+import posixpath
 from collections.abc import Awaitable
 from typing import Final, NotRequired, TypedDict
+from urllib.parse import urlsplit
 
 from adapters.services.steam import SteamService, SteamWebApiService
 from adapters.services.steam_types import (
@@ -13,6 +14,7 @@ from adapters.services.steam_types import (
 )
 from config import STEAM_API_ENABLED, STEAM_API_KEY
 from logger.logger import log
+from utils import float_or_none
 from utils.datetime import parse_utc_timestamp
 from utils.html_text import html_to_text
 from utils.platform_slugs import UniversalPlatformSlug as UPS
@@ -72,9 +74,12 @@ class SteamAchievement(TypedDict):
     hidden: bool
     icon_url: str | None
     icon_gray_url: str | None
+    # The names the icons are stored under in the ROM's resources.
+    icon_file: str | None
+    icon_gray_file: str | None
     # Share of the game's players holding it, from 0 to 100.
     global_percent: float | None
-    # Stored copies of the icons, filled in when the ROM is served.
+    # Resource URLs of the stored icons, added when the ROM is served.
     icon_path: NotRequired[str | None]
     icon_gray_path: NotRequired[str | None]
 
@@ -145,15 +150,14 @@ def _parse_release_date(raw_date: str) -> int | None:
     )
 
 
-def _parse_percent(raw: float | str | None) -> float | None:
-    if raw is None:
+def _icon_filename(url: str | None) -> str | None:
+    """The last path segment of an icon URL, which Steam names by content hash."""
+    if not url:
         return None
     try:
-        percent = float(raw)
-    except TypeError, ValueError:
+        return posixpath.basename(urlsplit(url).path) or None
+    except ValueError:
         return None
-    # A JSON column cannot hold NaN or infinity.
-    return percent if math.isfinite(percent) else None
 
 
 def extract_steam_achievements(
@@ -162,7 +166,7 @@ def extract_steam_achievements(
 ) -> list[SteamAchievement]:
     """Join the schema with the global unlock rates, keeping the schema's order."""
     percent_by_name = {
-        entry["name"]: _parse_percent(entry.get("percent"))
+        entry["name"]: float_or_none(entry.get("percent"))
         for entry in percentages
         if entry.get("name")
     }
@@ -174,6 +178,8 @@ def extract_steam_achievements(
             hidden=bool(achievement.get("hidden")),
             icon_url=achievement.get("icon") or None,
             icon_gray_url=achievement.get("icongray") or None,
+            icon_file=_icon_filename(achievement.get("icon")),
+            icon_gray_file=_icon_filename(achievement.get("icongray")),
             global_percent=percent_by_name.get(achievement["name"]),
         )
         for achievement in schema
@@ -303,7 +309,9 @@ class SteamHandler(MetadataHandler):
 
         return await self._search_and_match(search_term)
 
-    async def get_rom_by_id(self, steam_id: int) -> SteamRom:
+    async def get_rom_by_id(
+        self, steam_id: int, *, with_achievements: bool = True
+    ) -> SteamRom:
         """Build a ROM from a known Steam app ID."""
         if not self.is_enabled():
             return SteamRom(steam_id=None)
@@ -313,7 +321,7 @@ class SteamHandler(MetadataHandler):
             log.debug("Could not find Steam app %s", steam_id)
             return SteamRom(steam_id=None)
 
-        return await self._build_rom(details)
+        return await self._build_rom(details, with_achievements=with_achievements)
 
     async def get_matched_rom_by_id(
         self, steam_id: int, platform_slug: str
@@ -322,7 +330,8 @@ class SteamHandler(MetadataHandler):
         if platform_slug not in STEAM_PLATFORMS:
             return SteamRom(steam_id=None)
 
-        return await self.get_rom_by_id(steam_id)
+        # Applying the picked match refetches the app, achievements included.
+        return await self.get_rom_by_id(steam_id, with_achievements=False)
 
     async def get_matched_roms_by_name(
         self, search_term: str, platform_slug: str
@@ -445,13 +454,18 @@ class SteamHandler(MetadataHandler):
         )
         return await self._build_rom(details)
 
-    async def _build_rom(self, details: SteamAppDetails) -> SteamRom:
+    async def _build_rom(
+        self, details: SteamAppDetails, *, with_achievements: bool = True
+    ) -> SteamRom:
         app_id = details["steam_appid"]
         metadata = extract_steam_metadata(details)
-        url_cover, achievements = await asyncio.gather(
-            self._resolve_cover_url(app_id, details),
-            self._get_achievements(app_id, details),
-        )
+        cover = self._resolve_cover_url(app_id, details)
+        if with_achievements:
+            url_cover, achievements = await asyncio.gather(
+                cover, self._get_achievements(app_id, details)
+            )
+        else:
+            url_cover, achievements = await cover, []
         if achievements:
             metadata["achievements"] = achievements
 

@@ -2668,6 +2668,8 @@ class TestUpdateMetadataIDs:
                         "hidden": False,
                         "icon_url": "https://cdn.example/apps/400/a.jpg",
                         "icon_gray_url": "https://cdn.example/apps/400/a_gray.jpg",
+                        "icon_file": "a.jpg",
+                        "icon_gray_file": "a_gray.jpg",
                         "global_percent": 12.5,
                     }
                 ]

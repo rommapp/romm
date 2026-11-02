@@ -93,8 +93,6 @@ class SteamSchemaGameStats(TypedDict):
 
 
 class SteamSchemaGame(TypedDict):
-    gameName: NotRequired[str]
-    gameVersion: NotRequired[str]
     availableGameStats: NotRequired[SteamSchemaGameStats]
 
 

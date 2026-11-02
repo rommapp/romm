@@ -317,6 +317,8 @@ def _steam_rom() -> Rom:
                     "api_name": "WIN",
                     "icon_url": "https://cdn.example/apps/400/abc.jpg",
                     "icon_gray_url": "https://cdn.example/apps/400/abc_gray.jpg",
+                    "icon_file": "abc.jpg",
+                    "icon_gray_file": "abc_gray.jpg",
                 }
             ]
         },

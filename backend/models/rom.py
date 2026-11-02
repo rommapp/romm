@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import enum
 import hashlib
-import posixpath
 import re
 import sys
 from collections.abc import Iterable, Mapping, Sequence
@@ -10,7 +9,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from functools import cache, cached_property
 from typing import TYPE_CHECKING, Any, Final, NamedTuple, TypedDict
-from urllib.parse import urlsplit
 
 from sqlalchemy import (
     TIMESTAMP,
@@ -800,16 +798,14 @@ _STEAM_ICON_FILENAME = re.compile(r"[\w-]+\.(?:jpe?g|png|gif)", re.IGNORECASE)
 
 
 def steam_achievement_icon_path(
-    platform_id: int, rom_id: int, icon_url: str
+    platform_id: int, rom_id: int, icon_file: str | None
 ) -> str | None:
-    """Where a Steam achievement icon is stored, or None for an unusable URL."""
-    try:
-        filename = posixpath.basename(urlsplit(icon_url).path)
-    except ValueError:
+    """Where a Steam achievement icon is stored, or None for an unusable name."""
+    if not icon_file or not _STEAM_ICON_FILENAME.fullmatch(icon_file):
         return None
-    if not _STEAM_ICON_FILENAME.fullmatch(filename):
-        return None
-    return f"{rom_fs_resources_path(platform_id, rom_id)}/steam/achievements/{filename}"
+    return (
+        f"{rom_fs_resources_path(platform_id, rom_id)}/steam/achievements/{icon_file}"
+    )
 
 
 _ROM_RESOURCE_URL_ID = re.compile(
@@ -1385,17 +1381,15 @@ class Rom(BaseModel):
         if not self.steam_metadata or "achievements" not in self.steam_metadata:
             return self.steam_metadata
 
-        def resource_url(icon_url: str | None) -> str | None:
-            path = icon_url and steam_achievement_icon_path(
-                self.platform_id, self.id, icon_url
-            )
+        def resource_url(icon_file: str | None) -> str | None:
+            path = steam_achievement_icon_path(self.platform_id, self.id, icon_file)
             return f"{FRONTEND_RESOURCES_PATH}/{path}" if path else None
 
         achievements = [
             {
                 **achievement,
-                "icon_path": resource_url(achievement.get("icon_url")),
-                "icon_gray_path": resource_url(achievement.get("icon_gray_url")),
+                "icon_path": resource_url(achievement.get("icon_file")),
+                "icon_gray_path": resource_url(achievement.get("icon_gray_file")),
             }
             for achievement in self.steam_metadata["achievements"]
         ]

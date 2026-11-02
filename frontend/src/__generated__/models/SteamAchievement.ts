@@ -9,6 +9,8 @@ export type SteamAchievement = {
     hidden: boolean;
     icon_url: (string | null);
     icon_gray_url: (string | null);
+    icon_file: (string | null);
+    icon_gray_file: (string | null);
     global_percent: (number | null);
     icon_path?: (string | null);
     icon_gray_path?: (string | null);
