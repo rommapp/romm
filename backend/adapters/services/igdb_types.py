@@ -28,7 +28,6 @@ GameMode = UnimplementedEntity
 InvolvedCompany = UnimplementedEntity
 Keyword = UnimplementedEntity
 LanguageSupport = UnimplementedEntity
-PlatformVersionReleaseDate = UnimplementedEntity
 PlatformWebsite = UnimplementedEntity
 PlayerPerspective = UnimplementedEntity
 ReleaseDate = UnimplementedEntity
@@ -466,6 +465,11 @@ class PlatformVersionCompany(IGDBEntity, total=False):
     company: ExpandableField[Company]
     developer: bool
     manufacturer: bool
+
+
+class PlatformVersionReleaseDate(IGDBEntity, total=False):
+    date: int
+    y: int
 
 
 # https://api-docs.igdb.com/#region

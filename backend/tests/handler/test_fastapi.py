@@ -48,14 +48,21 @@ from utils.context import initialize_context
 
 @pytest.mark.vcr
 async def test_scan_platform():
-    async with initialize_context():
-        platform = await scan_platform("n64", ["n64"])
+    with patch.object(
+        meta_igdb_handler,
+        "get_platform_discovery",
+        new_callable=AsyncMock,
+        return_value={"first_release_year": 1996},
+    ):
+        async with initialize_context():
+            platform = await scan_platform("n64", ["n64"])
 
     assert type(platform) is Platform
     assert platform.fs_slug == "n64"
     assert platform.slug == "n64"
     assert platform.name == "Nintendo 64"
     assert platform.igdb_id == 4
+    assert platform.first_release_year == 1996
     assert platform.hasheous_id == 64
     # Hasheous returns tgdb_id=None and Moby has no tgdb_id for n64, so
     # this value must come from the TGDB handler fallback.

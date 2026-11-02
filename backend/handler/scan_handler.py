@@ -216,6 +216,9 @@ async def scan_platform(
         }
     )
 
+    platform_attrs.update(
+        await meta_igdb_handler.get_platform_discovery(platform_attrs["slug"])
+    )
     platform_attrs["missing_from_fs"] = False
     scanned_platform = Platform(**platform_attrs)
 
