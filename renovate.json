@@ -38,12 +38,6 @@
       "allowedVersions": "<0.30"
     },
     {
-      "description": "Form models changed under us: from 0.147 a missing bool field reads as false (so a role-only user edit disables the account), and from 0.149 an empty value reads as missing (so a field can't be cleared). Raise this bound once the update endpoints tell absent, empty and false apart themselves.",
-      "matchManagers": ["pep621"],
-      "matchPackageNames": ["fastapi"],
-      "allowedVersions": "<0.147"
-    },
-    {
       "matchDatasources": ["docker"],
       "matchPackageNames": ["postgres"],
       "groupName": "postgres"
