@@ -4,7 +4,7 @@ from pydantic import ConfigDict
 from starlette.requests import Request
 
 from handler.metadata.ra_handler import RAUserProgression
-from handler.metadata.steam_handler import SteamUserProgression
+from handler.steam_library_handler import SteamUserProgression
 from models.user import Role, User
 from utils.auth import current_device_id
 from utils.urls import get_public_base_url
@@ -41,6 +41,7 @@ class UserSchema(BaseModel):
     ra_username: str | None = None
     ra_progression: RAProgression | None = None
     steam_id: str | None = None
+    steam_persona_name: str | None = None
     steam_progression: SteamProgression | None = None
     ui_settings: dict[str, Any] | None = None
     current_device_id: str | None = None

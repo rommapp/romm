@@ -1,20 +1,20 @@
 import asyncio
-import re
-from collections.abc import Awaitable, Collection
+import posixpath
+from collections.abc import Awaitable
 from typing import Final, NotRequired, TypedDict
+from urllib.parse import urlsplit
 
 from adapters.services.steam import SteamService, SteamWebApiService
 from adapters.services.steam_types import (
     SteamAppDetails,
     SteamGlobalAchievementPercent,
-    SteamOwnedGame,
     SteamPlatforms,
-    SteamPlayerAchievement,
     SteamSchemaAchievement,
     SteamStoreSearchItem,
 )
 from config import STEAM_API_ENABLED, STEAM_API_KEY
 from logger.logger import log
+from utils import float_or_none
 from utils.datetime import parse_utc_timestamp
 from utils.html_text import html_to_text
 from utils.platform_slugs import UniversalPlatformSlug as UPS
@@ -53,13 +53,6 @@ STEAM_HEADER_IMAGE_SIZE: Final[tuple[int, int]] = (460, 215)
 # Regex to detect Steam app ID tags in filenames like (steam-12345)
 STEAM_TAG_REGEX = provider_tag_regex("steam")
 
-_STEAM_ID64 = re.compile(r"7656119\d{10}")
-_STEAM_PROFILE_URL = re.compile(
-    r"(?:https?://)?(?:www\.)?steamcommunity\.com/(profiles|id)/([\w-]+)/?",
-    re.IGNORECASE,
-)
-_STEAM_VANITY_NAME = re.compile(r"[\w-]{2,32}")
-
 # Steam category IDs mapped onto the game-mode vocabulary the other providers use.
 STEAM_CATEGORY_GAME_MODES: Final[dict[int, str]] = {
     1: "Multiplayer",
@@ -81,9 +74,12 @@ class SteamAchievement(TypedDict):
     hidden: bool
     icon_url: str | None
     icon_gray_url: str | None
+    # The names the icons are stored under in the ROM's resources.
+    icon_file: str | None
+    icon_gray_file: str | None
     # Share of the game's players holding it, from 0 to 100.
     global_percent: float | None
-    # Stored copies of the icons, filled in when the ROM is served.
+    # Resource URLs of the stored icons, added when the ROM is served.
     icon_path: NotRequired[str | None]
     icon_gray_path: NotRequired[str | None]
 
@@ -106,27 +102,6 @@ class SteamMetadata(TypedDict):
     is_free: NotRequired[bool]
     required_age: NotRequired[int]
     achievements: NotRequired[list[SteamAchievement]]
-
-
-class SteamEarnedAchievement(TypedDict):
-    api_name: str
-    # Epoch seconds.
-    unlock_time: int
-
-
-class SteamUserGameProgression(TypedDict):
-    rom_steam_id: int
-    # As GetOwnedGames last reported them, to skip games not played since.
-    rtime_last_played: int | None
-    playtime_forever: int
-    num_achievements: int
-    num_unlocked: int
-    earned_achievements: list[SteamEarnedAchievement]
-
-
-class SteamUserProgression(TypedDict):
-    total: int
-    results: list[SteamUserGameProgression]
 
 
 class SteamRom(BaseRom):
@@ -175,10 +150,13 @@ def _parse_release_date(raw_date: str) -> int | None:
     )
 
 
-def _parse_percent(raw: float | str) -> float | None:
+def _icon_filename(url: str | None) -> str | None:
+    """The file name an icon URL ends in, or None if it has none."""
+    if not url:
+        return None
     try:
-        return float(raw)
-    except TypeError, ValueError:
+        return posixpath.basename(urlsplit(url).path) or None
+    except ValueError:
         return None
 
 
@@ -188,7 +166,7 @@ def extract_steam_achievements(
 ) -> list[SteamAchievement]:
     """Join the schema with the global unlock rates, keeping the schema's order."""
     percent_by_name = {
-        entry["name"]: _parse_percent(entry["percent"])
+        entry["name"]: float_or_none(entry.get("percent"))
         for entry in percentages
         if entry.get("name")
     }
@@ -200,56 +178,13 @@ def extract_steam_achievements(
             hidden=bool(achievement.get("hidden")),
             icon_url=achievement.get("icon") or None,
             icon_gray_url=achievement.get("icongray") or None,
+            icon_file=_icon_filename(achievement.get("icon")),
+            icon_gray_file=_icon_filename(achievement.get("icongray")),
             global_percent=percent_by_name.get(achievement["name"]),
         )
         for achievement in schema
         if achievement.get("name")
     ]
-
-
-def parse_steam_profile(value: str) -> tuple[str | None, str | None]:
-    """Split what a user typed into a SteamID64 or a custom URL name to resolve.
-
-    Returns:
-        `(steam_id, None)`, `(None, vanity_name)`, or `(None, None)` if neither.
-    """
-    value = value.strip()
-    if _STEAM_ID64.fullmatch(value):
-        return value, None
-
-    if match := _STEAM_PROFILE_URL.fullmatch(value):
-        kind, key = match.groups()
-        if kind.lower() == "profiles":
-            return (key, None) if _STEAM_ID64.fullmatch(key) else (None, None)
-        return None, key
-
-    if _STEAM_VANITY_NAME.fullmatch(value):
-        return None, value
-
-    return None, None
-
-
-def is_steam_game_completed(progression: SteamUserGameProgression) -> bool:
-    """Whether every achievement of the game is unlocked."""
-    return 0 < progression["num_achievements"] == progression["num_unlocked"]
-
-
-def _game_progression(
-    game: SteamOwnedGame, achievements: list[SteamPlayerAchievement]
-) -> SteamUserGameProgression:
-    earned = [
-        SteamEarnedAchievement(api_name=a["apiname"], unlock_time=a["unlocktime"])
-        for a in achievements
-        if a.get("achieved") and a.get("apiname")
-    ]
-    return SteamUserGameProgression(
-        rom_steam_id=game["appid"],
-        rtime_last_played=game.get("rtime_last_played"),
-        playtime_forever=game["playtime_forever"],
-        num_achievements=len(achievements),
-        num_unlocked=len(earned),
-        earned_achievements=earned,
-    )
 
 
 def extract_steam_metadata(details: SteamAppDetails) -> SteamMetadata:
@@ -337,11 +272,6 @@ class SteamHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         return STEAM_API_ENABLED
 
-    @classmethod
-    def achievements_enabled(cls) -> bool:
-        """Achievements also need a Web API key on top of the storefront."""
-        return cls.is_enabled() and bool(STEAM_API_KEY)
-
     async def heartbeat(self) -> bool:
         async def probe() -> bool:
             details = await self.steam_service.get_app_details(
@@ -379,7 +309,9 @@ class SteamHandler(MetadataHandler):
 
         return await self._search_and_match(search_term)
 
-    async def get_rom_by_id(self, steam_id: int) -> SteamRom:
+    async def get_rom_by_id(
+        self, steam_id: int, *, with_achievements: bool = True
+    ) -> SteamRom:
         """Build a ROM from a known Steam app ID."""
         if not self.is_enabled():
             return SteamRom(steam_id=None)
@@ -389,7 +321,7 @@ class SteamHandler(MetadataHandler):
             log.debug("Could not find Steam app %s", steam_id)
             return SteamRom(steam_id=None)
 
-        return await self._build_rom(details)
+        return await self._build_rom(details, with_achievements=with_achievements)
 
     async def get_matched_rom_by_id(
         self, steam_id: int, platform_slug: str
@@ -398,7 +330,8 @@ class SteamHandler(MetadataHandler):
         if platform_slug not in STEAM_PLATFORMS:
             return SteamRom(steam_id=None)
 
-        return await self.get_rom_by_id(steam_id)
+        # Applying the picked match refetches the app, achievements included.
+        return await self.get_rom_by_id(steam_id, with_achievements=False)
 
     async def get_matched_roms_by_name(
         self, search_term: str, platform_slug: str
@@ -521,13 +454,18 @@ class SteamHandler(MetadataHandler):
         )
         return await self._build_rom(details)
 
-    async def _build_rom(self, details: SteamAppDetails) -> SteamRom:
+    async def _build_rom(
+        self, details: SteamAppDetails, *, with_achievements: bool = True
+    ) -> SteamRom:
         app_id = details["steam_appid"]
         metadata = extract_steam_metadata(details)
-        url_cover, achievements = await asyncio.gather(
-            self._resolve_cover_url(app_id, details),
-            self._get_achievements(app_id, details),
-        )
+        cover = self._resolve_cover_url(app_id, details)
+        if with_achievements:
+            url_cover, achievements = await asyncio.gather(
+                cover, self._get_achievements(app_id, details)
+            )
+        else:
+            url_cover, achievements = await cover, []
         if achievements:
             metadata["achievements"] = achievements
 
@@ -553,9 +491,7 @@ class SteamHandler(MetadataHandler):
         self, app_id: int, details: SteamAppDetails
     ) -> list[SteamAchievement]:
         """The app's achievements, when a Web API key is set and the store lists any."""
-        if not self.achievements_enabled() or not details.get("achievements", {}).get(
-            "total"
-        ):
+        if not STEAM_API_KEY or not details.get("achievements", {}).get("total"):
             return []
 
         schema, percentages = await asyncio.gather(
@@ -568,64 +504,3 @@ class SteamHandler(MetadataHandler):
         """Prefer the portrait capsule, falling back to the landscape header."""
         capsule_url = await self.steam_service.get_library_capsule_url(app_id)
         return capsule_url or details.get("header_image", "")
-
-    async def resolve_profile(self, value: str) -> str | None:
-        """The SteamID64 of a profile given as an ID, a profile URL or a custom URL name."""
-        steam_id, vanity_name = parse_steam_profile(value)
-        if vanity_name:
-            steam_id = await self.steam_web_api.resolve_vanity_url(vanity_name)
-        return steam_id
-
-    async def can_read_games(self, steam_id: str) -> bool:
-        """Whether the profile's game details are public."""
-        return await self.steam_web_api.get_owned_games(steam_id) is not None
-
-    async def get_user_progression(
-        self,
-        steam_id: str,
-        app_ids: Collection[int],
-        current_progression: SteamUserProgression | None = None,
-    ) -> SteamUserProgression | None:
-        """A user's unlocks across the owned games among `app_ids`.
-
-        A game not played since `current_progression` keeps its entry without a
-        request, and one never played gets none.
-
-        Returns:
-            None when the profile's game details are private.
-        """
-        owned = await self.steam_web_api.get_owned_games(steam_id)
-        if owned is None:
-            return None
-
-        current_results = (
-            current_progression.get("results", []) if current_progression else []
-        )
-        current_by_app_id = {p["rom_steam_id"]: p for p in current_results}
-        results: list[SteamUserGameProgression] = []
-        for game in owned:
-            if (
-                game["appid"] not in app_ids
-                or not game.get("playtime_forever")
-                or game.get("has_community_visible_stats") is False
-            ):
-                continue
-
-            current = current_by_app_id.get(game["appid"])
-            if (
-                current
-                and current["rtime_last_played"] == game.get("rtime_last_played")
-                and current["playtime_forever"] == game["playtime_forever"]
-            ):
-                results.append(current)
-                continue
-
-            achievements = await self.steam_web_api.get_player_achievements(
-                steam_id, game["appid"]
-            )
-            if achievements:
-                results.append(_game_progression(game, achievements))
-            elif current:
-                results.append(current)
-
-        return SteamUserProgression(total=len(results), results=results)

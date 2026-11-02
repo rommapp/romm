@@ -35,9 +35,9 @@ export type { Body_delete_memory_cards_api_memory_cards_delete_post } from './mo
 export type { Body_delete_roms_api_roms_delete_post } from './models/Body_delete_roms_api_roms_delete_post';
 export type { Body_delete_saves_api_saves_delete_post } from './models/Body_delete_saves_api_saves_delete_post';
 export type { Body_delete_states_api_states_delete_post } from './models/Body_delete_states_api_states_delete_post';
+export type { Body_link_steam_account_api_users__id__steam_put } from './models/Body_link_steam_account_api_users__id__steam_put';
 export type { Body_patch_rom_api_roms__id__patch_post } from './models/Body_patch_rom_api_roms__id__patch_post';
 export type { Body_refresh_retro_achievements_api_users__id__ra_refresh_post } from './models/Body_refresh_retro_achievements_api_users__id__ra_refresh_post';
-export type { Body_refresh_steam_achievements_api_users__id__steam_refresh_post } from './models/Body_refresh_steam_achievements_api_users__id__steam_refresh_post';
 export type { Body_remove_hidden_entity_api_permissions_hidden_delete } from './models/Body_remove_hidden_entity_api_permissions_hidden_delete';
 export type { Body_rename_memory_card_api_memory_cards__id__put } from './models/Body_rename_memory_card_api_memory_cards__id__put';
 export type { Body_rename_save_api_saves__id__file_name_put } from './models/Body_rename_save_api_saves__id__file_name_put';

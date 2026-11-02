@@ -41,8 +41,6 @@ class Role(enum.StrEnum):
 
 
 TEXT_FIELD_LENGTH = 255
-# Length of a SteamID64, the 17-digit form every Steam Web API user call takes.
-STEAM_ID_LENGTH: Final = 17
 
 # Id of the synthetic, unauthenticated visitor KIOSK_MODE hands out. Negative so
 # it can never collide with an auto-increment row.
@@ -104,9 +102,10 @@ class User(BaseModel, SimpleUser):
     ra_progression: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
-    # A SteamID64 overflows a JavaScript number, so it is kept as text.
-    steam_id: Mapped[str | None] = mapped_column(
-        String(length=STEAM_ID_LENGTH), default=None
+    # A SteamID64 overflows JavaScript's safe integers, so it is kept as text.
+    steam_id: Mapped[str | None] = mapped_column(String(length=20), default=None)
+    steam_persona_name: Mapped[str | None] = mapped_column(
+        String(length=TEXT_FIELD_LENGTH), default=None
     )
     steam_progression: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict

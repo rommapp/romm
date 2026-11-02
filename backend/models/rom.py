@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import enum
 import hashlib
-import posixpath
 import re
 import sys
 from collections.abc import Iterable, Mapping, Sequence
@@ -10,7 +9,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from functools import cache, cached_property
 from typing import TYPE_CHECKING, Any, Final, NamedTuple, TypedDict
-from urllib.parse import urlsplit
 
 from sqlalchemy import (
     TIMESTAMP,
@@ -238,6 +236,10 @@ if TYPE_CHECKING:
     from models.platform import Platform
     from models.recommendation import RomSimilarity
     from models.user import User
+
+
+class RomStorefront(enum.StrEnum):
+    STEAM = "steam"
 
 
 class RomFileCategory(enum.StrEnum):
@@ -800,13 +802,14 @@ _STEAM_ICON_FILENAME = re.compile(r"[\w-]+\.(?:jpe?g|png|gif)", re.IGNORECASE)
 
 
 def steam_achievement_icon_path(
-    platform_id: int, rom_id: int, icon_url: str
+    platform_id: int, rom_id: int, icon_file: str | None
 ) -> str | None:
-    """Where a Steam achievement icon is stored, or None for an unusable URL."""
-    filename = posixpath.basename(urlsplit(icon_url).path)
-    if not _STEAM_ICON_FILENAME.fullmatch(filename):
+    """Where a Steam achievement icon is stored, or None for an unusable name."""
+    if not icon_file or not _STEAM_ICON_FILENAME.fullmatch(icon_file):
         return None
-    return f"{rom_fs_resources_path(platform_id, rom_id)}/steam/achievements/{filename}"
+    return (
+        f"{rom_fs_resources_path(platform_id, rom_id)}/steam/achievements/{icon_file}"
+    )
 
 
 _ROM_RESOURCE_URL_ID = re.compile(
@@ -1117,6 +1120,8 @@ class Rom(BaseModel):
     # same metadata as digital ROMs but must never be flagged missing or cleaned up.
     is_physical: Mapped[bool] = mapped_column(default=False, nullable=False)
     upc: Mapped[str | None] = mapped_column(String(length=64), default=None)
+    # Set on a game imported from a store library with no file behind it.
+    storefront: Mapped[str | None] = mapped_column(String(length=32), default=None)
 
     platform_id: Mapped[int] = mapped_column(
         ForeignKey("platforms.id", ondelete="CASCADE")
@@ -1317,15 +1322,20 @@ class Rom(BaseModel):
         )
 
     @property
+    def never_has_file(self) -> bool:
+        """Whether this row stands for a game with no file at all."""
+        return self.is_physical or self.storefront is not None
+
+    @property
     def has_file_on_disk(self) -> bool:
         """Whether a readable file backs this rom.
 
         False for two different reasons that every file-dependent surface
         (download, playback, the ES-DE and Pegasus exporters, the device feeds)
-        needs to treat alike: a physical game never had a file, and a missing
-        one no longer does.
+        needs to treat alike: a physical or store-only game never had a file,
+        and a missing one no longer does.
         """
-        return not self.is_physical and not self.missing_from_fs
+        return not self.never_has_file and not self.missing_from_fs
 
     def has_m3u_file(self) -> bool:
         """
@@ -1382,17 +1392,15 @@ class Rom(BaseModel):
         if not self.steam_metadata or "achievements" not in self.steam_metadata:
             return self.steam_metadata
 
-        def resource_url(icon_url: str | None) -> str | None:
-            path = icon_url and steam_achievement_icon_path(
-                self.platform_id, self.id, icon_url
-            )
+        def resource_url(icon_file: str | None) -> str | None:
+            path = steam_achievement_icon_path(self.platform_id, self.id, icon_file)
             return f"{FRONTEND_RESOURCES_PATH}/{path}" if path else None
 
         achievements = [
             {
                 **achievement,
-                "icon_path": resource_url(achievement.get("icon_url")),
-                "icon_gray_path": resource_url(achievement.get("icon_gray_url")),
+                "icon_path": resource_url(achievement.get("icon_file")),
+                "icon_gray_path": resource_url(achievement.get("icon_gray_file")),
             }
             for achievement in self.steam_metadata["achievements"]
         ]
@@ -1463,6 +1471,11 @@ Rom.is_easyrpg_game = column_property(
     .scalar_subquery(),
     deferred=True,
 )
+
+
+def rom_without_file() -> ColumnElement[bool]:
+    """Matches rows that never had a file: physical games and store-only ones."""
+    return or_(Rom.is_physical.is_(True), Rom.storefront.is_not(None))
 
 
 def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
@@ -1549,6 +1562,7 @@ def _refresh_min_age(_mapper: Any, _connection: Any, rom: Rom) -> None:
 
 class HasFileOnDiskFilters(TypedDict):
     physical: bool
+    store_only: bool
     missing: bool
 
 
@@ -1556,6 +1570,7 @@ class HasFileOnDiskFilters(TypedDict):
 # want the file-less ones dropped by the database rather than after loading.
 HAS_FILE_ON_DISK_FILTERS: Final[HasFileOnDiskFilters] = {
     "physical": False,
+    "store_only": False,
     "missing": False,
 }
 

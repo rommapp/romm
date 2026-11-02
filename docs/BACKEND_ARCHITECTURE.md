@@ -318,6 +318,7 @@ backend/
 │   ├── scheduled/             # Cron-scheduled tasks
 │   │   ├── scan_library.py                    # Nightly library rescan
 │   │   ├── sync_retroachievements_progress.py # Pull RA user progress
+│   │   ├── sync_steam_libraries.py            # Import linked Steam libraries
 │   │   ├── update_switch_titledb.py           # Refresh Switch TitleDB
 │   │   ├── update_launchbox_metadata.py       # Refresh LaunchBox data
 │   │   ├── convert_images_to_webp.py          # Artwork WebP conversion
@@ -532,24 +533,23 @@ Constants: `FILE_NAME_MAX_LENGTH=450`, `FILE_PATH_MAX_LENGTH=1000`, `FILE_EXTENS
 
 **Table:** `users`
 
-| Column              | Type                              | Notes                                           |
-| ------------------- | --------------------------------- | ----------------------------------------------- |
-| `id`                | Integer                           | PK, autoincrement                               |
-| `username`          | String(255)                       | Unique, indexed                                 |
-| `hashed_password`   | String(255)                       | Nullable (OIDC users)                           |
-| `email`             | String(255)                       | Unique, indexed, nullable                       |
-| `oidc_issuer`       | ExactString(255)                  | OIDC `iss`, nullable                            |
-| `oidc_sub`          | ExactString(255)                  | OIDC `sub`, nullable; unique with `oidc_issuer` |
-| `enabled`           | Boolean                           | Default `True`                                  |
-| `role`              | Enum(`VIEWER`, `EDITOR`, `ADMIN`) | Default `VIEWER`                                |
-| `avatar_path`       | String(255)                       | Default `""`                                    |
-| `last_login`        | Timestamp                         | Nullable                                        |
-| `last_active`       | Timestamp                         | Nullable                                        |
-| `ra_username`       | String(255)                       | RetroAchievements username                      |
-| `ra_progression`    | JSON                              | RetroAchievements data                          |
-| `steam_id`          | String(17)                        | Linked SteamID64                                |
-| `steam_progression` | JSON                              | Steam achievements for the library's games      |
-| `ui_settings`       | JSON                              | User preferences                                |
+| Column              | Type                              | Notes                                                   |
+| ------------------- | --------------------------------- | ------------------------------------------------------- |
+| `id`                | Integer                           | PK, autoincrement                                       |
+| `username`          | String(255)                       | Unique, indexed                                         |
+| `hashed_password`   | String(255)                       | Nullable (OIDC users)                                   |
+| `email`             | String(255)                       | Unique, indexed, nullable                               |
+| `oidc_issuer`       | ExactString(255)                  | OIDC `iss`, nullable                                    |
+| `oidc_sub`          | ExactString(255)                  | OIDC `sub`, nullable; unique with `oidc_issuer`         |
+| `enabled`           | Boolean                           | Default `True`                                          |
+| `role`              | Enum(`VIEWER`, `EDITOR`, `ADMIN`) | Default `VIEWER`                                        |
+| `avatar_path`       | String(255)                       | Default `""`                                            |
+| `last_login`        | Timestamp                         | Nullable                                                |
+| `last_active`       | Timestamp                         | Nullable                                                |
+| `ra_username`       | String(255)                       | RetroAchievements username                              |
+| `ra_progression`    | JSON                              | RetroAchievements data                                  |
+| `steam_progression` | JSON                              | Steam achievement unlocks, read during the library sync |
+| `ui_settings`       | JSON                              | User preferences                                        |
 
 **Relationships:** saves (1:M), states (1:M), screenshots (1:M), rom_users (1:M), notes (1:M), collections (1:M), smart_collections (1:M), devices (1:M, cascade), client_tokens (1:M, cascade)
 
@@ -658,6 +658,22 @@ Audio metadata for a `SOUNDTRACK` rom_file (1:1), indexed for the music API. Wri
 | `player_count`       | String(100)                 |
 | `first_release_date` | BigInteger (UNIX timestamp) |
 | `average_rating`     | Float                       |
+
+---
+
+#### Steam Library
+
+**Table:** `steam_library_entries` (games a user owns on Steam)
+
+| Column                     | Type         | Notes                         |
+| -------------------------- | ------------ | ----------------------------- |
+| `user_id` + `steam_app_id` | FK + Integer | Unique constraint             |
+| `rom_id`                   | FK           | The rom standing for the game |
+| `playtime_minutes`         | Integer      | Steam's total playtime        |
+| `last_played_at`           | Timestamp    | Null when never played        |
+
+A game not already in the library gets a store-only rom on `win`: `storefront`
+is `steam`, and it has no file, like a physical game.
 
 ---
 
@@ -877,7 +893,10 @@ A reset link is emailed when SMTP is set up, the user has an address and `ROMM_B
 | PUT    | `/{id}`               | ME_WRITE               | Update user                      |
 | DELETE | `/{id}`               | USERS_WRITE            | Delete user                      |
 | POST   | `/{id}/ra/refresh`    | ME_WRITE               | Refresh RetroAchievements data   |
-| POST   | `/{id}/steam/refresh` | ME_WRITE               | Refresh Steam achievements       |
+| PUT    | `/{id}/steam`         | ME_WRITE               | Link a Steam account             |
+| DELETE | `/{id}/steam`         | ME_WRITE               | Unlink a Steam account           |
+| GET    | `/{id}/steam/library` | ME_READ                | List owned Steam app ids         |
+| POST   | `/{id}/steam/sync`    | ME_WRITE               | Queue a Steam library sync       |
 
 ### 6.3 Client Tokens (`/api/client-tokens`)
 
@@ -1727,22 +1746,22 @@ failure callback and a scan needs one to report a worker that died mid-scan.
 
 Toggled via environment variables:
 
-| Task                               | Env Toggle                                            | Default Cron       | Description                    |
-| ---------------------------------- | ----------------------------------------------------- | ------------------ | ------------------------------ |
-| `scan_library`                     | `ENABLE_SCHEDULED_RESCAN`                             | `0 3 * * *` (3 AM) | Full library rescan            |
-| `update_switch_titledb`            | `ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB`              | `0 4 * * *`        | Update Switch game DB          |
-| `update_launchbox_metadata`        | `ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA`          | `0 4 * * *`        | Refresh LaunchBox data         |
-| `convert_images_to_webp`           | `ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP`             | `0 4 * * *`        | Image optimization             |
-| `sync_retroachievements_progress`  | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC`    | `0 4 * * *`        | Sync RA user progress          |
-| `sync_steam_achievements_progress` | `ENABLE_SCHEDULED_STEAM_ACHIEVEMENTS_PROGRESS_SYNC`   | `15 4 * * *`       | Sync Steam user progress       |
-| `cleanup_orphaned_resources`       | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`         | `0 5 * * *`        | Remove unused artwork          |
-| `cleanup_netplay`                  | `ENABLE_SCHEDULED_CLEANUP_NETPLAY` (default on)       | `*/30 * * * *`     | Clean empty rooms              |
-| `cleanup_upload_tmp`               | `ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP` (default on)    | `0 * * * *`        | Drop stale uploads             |
-| `cleanup_zip_cache`                | `ENABLE_SCHEDULED_CLEANUP_ZIP_CACHE` (default on)     | `0 4 * * *`        | Drop stale cached ZIPs         |
-| `cleanup_conversion_cache`         | Always on                                             | `0 4 * * *`        | Drop stale converted downloads |
-| `cleanup_sync_sessions`            | `ENABLE_SCHEDULED_CLEANUP_SYNC_SESSIONS` (default on) | `23 * * * *`       | Fail abandoned syncs           |
-| `reap_streaming_sessions`          | `streaming.enabled` in config, read at startup        | `* * * * *`        | Stop abandoned streams         |
-| `cleanup_audit_log`                | `AUDIT_LOG_RETENTION_DAYS` above 0 (default 90)       | `30 4 * * *`       | Prune old audit events         |
+| Task                              | Env Toggle                                            | Default Cron       | Description                    |
+| --------------------------------- | ----------------------------------------------------- | ------------------ | ------------------------------ |
+| `scan_library`                    | `ENABLE_SCHEDULED_RESCAN`                             | `0 3 * * *` (3 AM) | Full library rescan            |
+| `update_switch_titledb`           | `ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB`              | `0 4 * * *`        | Update Switch game DB          |
+| `update_launchbox_metadata`       | `ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA`          | `0 4 * * *`        | Refresh LaunchBox data         |
+| `convert_images_to_webp`          | `ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP`             | `0 4 * * *`        | Image optimization             |
+| `sync_retroachievements_progress` | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC`    | `0 4 * * *`        | Sync RA user progress          |
+| `sync_steam_libraries`            | `ENABLE_SCHEDULED_STEAM_LIBRARY_SYNC`                 | `30 4 * * *`       | Import linked Steam libraries  |
+| `cleanup_orphaned_resources`      | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`         | `0 5 * * *`        | Remove unused artwork          |
+| `cleanup_netplay`                 | `ENABLE_SCHEDULED_CLEANUP_NETPLAY` (default on)       | `*/30 * * * *`     | Clean empty rooms              |
+| `cleanup_upload_tmp`              | `ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP` (default on)    | `0 * * * *`        | Drop stale uploads             |
+| `cleanup_zip_cache`               | `ENABLE_SCHEDULED_CLEANUP_ZIP_CACHE` (default on)     | `0 4 * * *`        | Drop stale cached ZIPs         |
+| `cleanup_conversion_cache`        | Always on                                             | `0 4 * * *`        | Drop stale converted downloads |
+| `cleanup_sync_sessions`           | `ENABLE_SCHEDULED_CLEANUP_SYNC_SESSIONS` (default on) | `23 * * * *`       | Fail abandoned syncs           |
+| `reap_streaming_sessions`         | `streaming.enabled` in config, read at startup        | `* * * * *`        | Stop abandoned streams         |
+| `cleanup_audit_log`               | `AUDIT_LOG_RETENTION_DAYS` above 0 (default 90)       | `30 4 * * *`       | Prune old audit events         |
 
 ### Manual Tasks
 
@@ -1956,14 +1975,14 @@ Falls back to `FakeRedis` in test mode.
 
 #### API Keys
 
-| Variable                                        | Description                  |
-| ----------------------------------------------- | ---------------------------- |
-| `IGDB_CLIENT_ID` + `IGDB_CLIENT_SECRET`         | IGDB (via Twitch)            |
-| `MOBYGAMES_API_KEY`                             | MobyGames                    |
-| `SCREENSCRAPER_USER` + `SCREENSCRAPER_PASSWORD` | ScreenScraper                |
-| `STEAMGRIDDB_API_KEY`                           | SteamGridDB                  |
-| `RETROACHIEVEMENTS_API_KEY`                     | RetroAchievements            |
-| `STEAM_API_KEY`                                 | Steam Web API (achievements) |
+| Variable                                        | Description                                  |
+| ----------------------------------------------- | -------------------------------------------- |
+| `IGDB_CLIENT_ID` + `IGDB_CLIENT_SECRET`         | IGDB (via Twitch)                            |
+| `MOBYGAMES_API_KEY`                             | MobyGames                                    |
+| `SCREENSCRAPER_USER` + `SCREENSCRAPER_PASSWORD` | ScreenScraper                                |
+| `STEAMGRIDDB_API_KEY`                           | SteamGridDB                                  |
+| `RETROACHIEVEMENTS_API_KEY`                     | RetroAchievements                            |
+| `STEAM_API_KEY`                                 | Steam Web API (library import, achievements) |
 
 #### Feature Toggles
 
@@ -1976,6 +1995,7 @@ Falls back to `FakeRedis` in test mode.
 | `FLASHPOINT_API_ENABLED` | `false` | Flashpoint archive       |
 | `HLTB_API_ENABLED`       | `false` | HowLongToBeat            |
 | `STEAM_API_ENABLED`      | `false` | Steam storefront         |
+| `STEAM_API_KEY`          | -       | Steam library import     |
 | `DISABLE_EMULATOR_JS`    | `false` | Hide EmulatorJS player   |
 | `DISABLE_RUFFLE_RS`      | `false` | Hide Ruffle Flash player |
 | `DISABLE_JSDOS`          | `false` | Hide js-dos player       |

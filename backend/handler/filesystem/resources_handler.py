@@ -820,11 +820,15 @@ class FSResourcesHandler(FSHandler):
         """Fetch the unlocked and locked icon of every Steam achievement."""
         icons: dict[str, str] = {}
         for ach in achievements:
-            for url in (ach.get("icon_url"), ach.get("icon_gray_url")):
-                if not url:
-                    continue
-                path = steam_achievement_icon_path(rom.platform_id, rom.id, url)
-                if path:
+            for url_key, file_key in (
+                ("icon_url", "icon_file"),
+                ("icon_gray_url", "icon_gray_file"),
+            ):
+                url = ach.get(url_key)
+                path = steam_achievement_icon_path(
+                    rom.platform_id, rom.id, ach.get(file_key)
+                )
+                if url and path:
                     icons.setdefault(path, url)
 
         await gather_all(

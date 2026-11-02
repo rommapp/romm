@@ -21,6 +21,7 @@ export type UserSchema = {
     ra_username?: (string | null);
     ra_progression?: (RAProgression | null);
     steam_id?: (string | null);
+    steam_persona_name?: (string | null);
     steam_progression?: (SteamProgression | null);
     ui_settings?: (Record<string, any> | null);
     current_device_id?: (string | null);

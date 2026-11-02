@@ -4,6 +4,7 @@ from typing import Final
 import aiohttp
 import yarl
 from aiohttp.client import ClientTimeout
+from fastapi import HTTPException
 
 from adapters.services.provider_http import send_with_retries
 from adapters.services.response_validation import parse_response
@@ -16,11 +17,13 @@ from adapters.services.steam_types import (
     SteamOwnedGamesResponse,
     SteamPlayerAchievement,
     SteamPlayerAchievementsResponse,
-    SteamResolveVanityUrlResponse,
+    SteamPlayerSummariesResponse,
+    SteamPlayerSummary,
     SteamSchemaAchievement,
     SteamSchemaForGameResponse,
     SteamStoreSearchItem,
     SteamStoreSearchResponse,
+    SteamVanityResponse,
 )
 from config import STEAM_API_KEY
 from logger.logger import log
@@ -38,6 +41,10 @@ _rate_limiter = RateLimiter(STEAM_MAX_REQUESTS_PER_SECOND)
 # The Web API allows 100,000 calls a day per key, with no documented burst limit.
 STEAM_WEB_API_MAX_REQUESTS_PER_SECOND: Final[float] = 4
 _web_api_rate_limiter = RateLimiter(STEAM_WEB_API_MAX_REQUESTS_PER_SECOND)
+# ResolveVanityURL's `success` when the name belongs to a profile.
+STEAM_VANITY_RESOLVED: Final[int] = 1
+# GetPlayerAchievements' status for a game that has no stats.
+STEAM_NO_STATS_STATUS: Final[int] = 400
 
 # Undocumented conventions, so an app can have no asset at these URLs.
 STEAM_LIBRARY_CAPSULE_URL = (
@@ -203,6 +210,14 @@ async def web_api_key_middleware(
     return await handler(req)
 
 
+class SteamWebAPIError(Exception):
+    """The Steam Web API refused a request or could not be reached."""
+
+    def __init__(self, message: str, *, status: int | None = None) -> None:
+        super().__init__(message)
+        self.status = status
+
+
 class SteamWebApiService:
     """Service to interact with the keyed Steam Web API.
 
@@ -214,7 +229,13 @@ class SteamWebApiService:
 
     async def _request[T](
         self, url: yarl.URL, tp: type[T], request_timeout: int = 60
-    ) -> T | None:
+    ) -> T:
+        """Fetch one method's reply.
+
+        Raises:
+            SteamWebAPIError: Steam refused the request, could not be reached, or
+                sent a reply that could not be read.
+        """
         aiohttp_session = ctx_aiohttp_session.get()
 
         async def send() -> T | None:
@@ -227,36 +248,56 @@ class SteamWebApiService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
+            # The path ends in the method name, then its version.
             return parse_response(
-                tp, await res.read(), source=f"Steam Web API {url.parent.name}"
+                tp, await res.read(), source=f"Steam Web API {url.parent.parent.name}"
             )
 
         try:
-            return await send_with_retries(
+            response = await send_with_retries(
                 send,
                 provider="Steam Web API",
                 url=str(url),
                 attempts=STEAM_MAX_REQUEST_ATTEMPTS,
                 backoff=STEAM_RATE_LIMIT_BACKOFF_SECONDS,
             )
-        except TimeoutError:
-            log.debug("Request to URL=%s timed out on every attempt", url)
-            return None
+        except TimeoutError as exc:
+            raise SteamWebAPIError("Steam did not answer in time") from exc
+        # A connection failure arrives as the 503 `send_with_retries` raises.
+        except HTTPException as exc:
+            raise SteamWebAPIError("Can't connect to Steam") from exc
         except aiohttp.ClientResponseError as exc:
-            log.error(exc)
-            return None
-        except json.JSONDecodeError as exc:
-            log.error("Error decoding JSON response from Steam Web API: %s", exc)
+            if exc.status in (401, 403):
+                raise SteamWebAPIError(
+                    "Steam rejected the API key", status=exc.status
+                ) from exc
+            raise SteamWebAPIError(
+                f"Steam answered with HTTP {exc.status}", status=exc.status
+            ) from exc
+        # Also a truncated body, or one that is not UTF-8 JSON.
+        except (aiohttp.ClientError, ValueError) as exc:
+            raise SteamWebAPIError("Steam sent a reply that could not be read") from exc
+
+        if response is None:
+            raise SteamWebAPIError("Steam sent a reply that could not be read")
+        return response
+
+    async def _optional_request[T](self, url: yarl.URL, tp: type[T]) -> T | None:
+        """Fetch an optional extra, logging a failure instead of raising it."""
+        try:
+            return await self._request(url, tp)
+        except SteamWebAPIError as exc:
+            log.error("Steam Web API %s failed: %s", url.parent.parent.name, exc)
             return None
 
     async def get_schema_achievements(
         self, app_id: int, *, language: str = "english"
     ) -> list[SteamSchemaAchievement]:
-        """The app's achievements in the developer's order, empty when it has none."""
+        """The app's achievements in the developer's order, empty if none or unreadable."""
         url = self.url.joinpath("ISteamUserStats/GetSchemaForGame/v2/").with_query(
             appid=str(app_id), l=language
         )
-        response = await self._request(url, SteamSchemaForGameResponse)
+        response = await self._optional_request(url, SteamSchemaForGameResponse)
         if not response:
             return []
 
@@ -266,54 +307,63 @@ class SteamWebApiService:
     async def get_global_achievement_percentages(
         self, app_id: int
     ) -> list[SteamGlobalAchievementPercent]:
-        """The share of players holding each achievement, keyed by its API name."""
+        """The share of players holding each achievement, empty if unreadable."""
         url = self.url.joinpath(
             "ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/"
         ).with_query(gameid=str(app_id))
-        response = await self._request(url, SteamGlobalAchievementPercentagesResponse)
+        response = await self._optional_request(
+            url, SteamGlobalAchievementPercentagesResponse
+        )
         if not response:
             return []
 
         return response.get("achievementpercentages", {}).get("achievements") or []
 
     async def resolve_vanity_url(self, vanity_name: str) -> str | None:
-        """The SteamID64 behind a profile's custom URL name, or None."""
+        """The SteamID64 behind a custom profile URL name, or None if unused."""
         url = self.url.joinpath("ISteamUser/ResolveVanityURL/v1/").with_query(
             vanityurl=vanity_name
         )
-        response = await self._request(url, SteamResolveVanityUrlResponse)
-        if not response:
+        result = (await self._request(url, SteamVanityResponse)).get("response", {})
+        if result.get("success") != STEAM_VANITY_RESOLVED:
             return None
+        return result.get("steamid")
 
-        resolved = response.get("response", {})
-        return resolved.get("steamid") if resolved.get("success") == 1 else None
+    async def get_player_summary(self, steam_id: str) -> SteamPlayerSummary | None:
+        """The public profile of a SteamID64, or None if no account has it."""
+        url = self.url.joinpath("ISteamUser/GetPlayerSummaries/v2/").with_query(
+            steamids=steam_id
+        )
+        response = await self._request(url, SteamPlayerSummariesResponse)
+        players = response.get("response", {}).get("players", [])
+        return players[0] if players else None
 
     async def get_owned_games(self, steam_id: str) -> list[SteamOwnedGame] | None:
-        """The games a profile owns, or None when its game details are private."""
+        """Every game the account owns, or None when its game details are private."""
         url = self.url.joinpath("IPlayerService/GetOwnedGames/v1/").with_query(
             steamid=steam_id, include_appinfo="1", include_played_free_games="1"
         )
-        response = await self._request(url, SteamOwnedGamesResponse)
-        owned = response.get("response", {}) if response else {}
-        if "game_count" not in owned:
+        result = (await self._request(url, SteamOwnedGamesResponse)).get("response", {})
+        if "game_count" not in result:
             return None
-
-        return owned.get("games") or []
+        return result.get("games", [])
 
     async def get_player_achievements(
         self, steam_id: str, app_id: int
-    ) -> list[SteamPlayerAchievement] | None:
-        """A player's state on each achievement of a game, or None if unreadable.
+    ) -> list[SteamPlayerAchievement]:
+        """A player's state on each achievement of a game, empty if it has none.
 
-        Steam answers a private profile with a 403 and a game without stats with
-        a 400, both of which `_request` turns into None.
+        Raises:
+            SteamWebAPIError: Steam refused the request (a 403 when the player's
+                game details are private) or could not be reached.
         """
         url = self.url.joinpath("ISteamUserStats/GetPlayerAchievements/v1/").with_query(
             steamid=steam_id, appid=str(app_id)
         )
-        response = await self._request(url, SteamPlayerAchievementsResponse)
-        stats = response.get("playerstats") if response else None
-        if not stats or not stats.get("success"):
-            return None
-
-        return stats.get("achievements") or []
+        try:
+            response = await self._request(url, SteamPlayerAchievementsResponse)
+        except SteamWebAPIError as exc:
+            if exc.status == STEAM_NO_STATS_STATUS:
+                return []
+            raise
+        return response.get("playerstats", {}).get("achievements") or []

@@ -181,7 +181,7 @@ CSDB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("CSDB_API_ENABLED"))
 
 # STEAM
 STEAM_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("STEAM_API_ENABLED"))
-# Web API key, needed for achievements on top of the keyless storefront.
+# Steam Web API key, for users' Steam libraries and games' achievements.
 STEAM_API_KEY: Final[str | None] = _get_env("STEAM_API_KEY")
 
 # UPC LOOKUP (barcode -> title, used when adding physical games by UPC)
@@ -411,12 +411,12 @@ SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON: Final[str] = _get_env(
     "SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON",
     "0 4 * * *",  # At 4:00 AM every day
 )
-ENABLE_SCHEDULED_STEAM_ACHIEVEMENTS_PROGRESS_SYNC: Final[bool] = safe_str_to_bool(
-    _get_env("ENABLE_SCHEDULED_STEAM_ACHIEVEMENTS_PROGRESS_SYNC")
+ENABLE_SCHEDULED_STEAM_LIBRARY_SYNC: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_STEAM_LIBRARY_SYNC")
 )
-SCHEDULED_STEAM_ACHIEVEMENTS_PROGRESS_SYNC_CRON: Final[str] = _get_env(
-    "SCHEDULED_STEAM_ACHIEVEMENTS_PROGRESS_SYNC_CRON",
-    "15 4 * * *",  # At 4:15 AM every day
+SCHEDULED_STEAM_LIBRARY_SYNC_CRON: Final[str] = _get_env(
+    "SCHEDULED_STEAM_LIBRARY_SYNC_CRON",
+    "30 4 * * *",  # At 4:30 AM every day
 )
 # On by default: the similarity index is what both the "Similar games" section
 # and the personalised feed read, so leaving it off silently empties them.

@@ -257,6 +257,15 @@ async def test_get_global_achievement_percentages(session):
     assert url.query["gameid"] == "400"
 
 
+async def test_web_api_response_source_names_the_method(session):
+    session.get.return_value = _response({"game": {}})
+
+    with patch("adapters.services.steam.parse_response", return_value=None) as parse:
+        await SteamWebApiService().get_schema_achievements(400)
+
+    assert parse.call_args.kwargs["source"] == "Steam Web API GetSchemaForGame"
+
+
 async def test_web_api_key_middleware_adds_the_key():
     request = MagicMock(url=yarl.URL("https://api.example/x?appid=400"))
     handler = AsyncMock()
@@ -277,73 +286,19 @@ async def test_web_api_error_status_degrades_to_no_achievements(session):
     assert session.get.await_count == 1
 
 
-async def test_resolve_vanity_url_returns_the_steam_id(session):
-    session.get.return_value = _response(
-        {"response": {"steamid": "76561197960287930", "success": 1}}
+async def test_web_api_truncated_body_degrades_to_no_achievements(session):
+    response = _response({})
+    response.read = AsyncMock(
+        side_effect=aiohttp.ClientPayloadError("Response payload is not completed")
     )
+    session.get.return_value = response
 
-    assert await SteamWebApiService().resolve_vanity_url("gabelogannewell") == (
-        "76561197960287930"
-    )
-    assert session.get.await_args.args[0].query["vanityurl"] == "gabelogannewell"
+    assert await SteamWebApiService().get_schema_achievements(400) == []
 
 
-async def test_resolve_vanity_url_is_none_without_a_match(session):
-    session.get.return_value = _response(
-        {"response": {"success": 42, "message": "No match"}}
-    )
+async def test_web_api_connection_failure_degrades_to_no_achievements(session):
+    """An optional extra must not fail the storefront match it enriches."""
+    session.get.side_effect = aiohttp.ClientConnectionError()
 
-    assert await SteamWebApiService().resolve_vanity_url("nobody") is None
-
-
-async def test_get_owned_games_lists_a_public_library(session):
-    game = {"appid": 400, "playtime_forever": 90, "rtime_last_played": 1700000000}
-    session.get.return_value = _response(
-        {"response": {"game_count": 1, "games": [game]}}
-    )
-
-    assert await SteamWebApiService().get_owned_games("76561197960287930") == [game]
-
-
-async def test_get_owned_games_is_empty_for_an_empty_public_library(session):
-    session.get.return_value = _response({"response": {"game_count": 0}})
-
-    assert await SteamWebApiService().get_owned_games("76561197960287930") == []
-
-
-async def test_get_owned_games_is_none_for_private_game_details(session):
-    session.get.return_value = _response({"response": {}})
-
-    assert await SteamWebApiService().get_owned_games("76561197960287930") is None
-
-
-async def test_get_player_achievements(session):
-    unlocks = [{"apiname": "WIN", "achieved": 1, "unlocktime": 1700000000}]
-    session.get.return_value = _response(
-        {"playerstats": {"steamID": "1", "success": True, "achievements": unlocks}}
-    )
-
-    assert (
-        await SteamWebApiService().get_player_achievements("76561197960287930", 400)
-        == unlocks
-    )
-
-
-@pytest.mark.parametrize(
-    "outcome",
-    [
-        _error(http.HTTPStatus.FORBIDDEN),
-        _response({"playerstats": {"success": False, "error": "No stats"}}),
-    ],
-    ids=["private-profile", "unsuccessful"],
-)
-async def test_get_player_achievements_is_none_when_unreadable(session, outcome):
-    if isinstance(outcome, Exception):
-        session.get.side_effect = outcome
-    else:
-        session.get.return_value = outcome
-
-    assert (
-        await SteamWebApiService().get_player_achievements("76561197960287930", 400)
-        is None
-    )
+    assert await SteamWebApiService().get_schema_achievements(400) == []
+    assert await SteamWebApiService().get_global_achievement_percentages(400) == []

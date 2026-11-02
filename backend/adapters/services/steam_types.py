@@ -78,6 +78,51 @@ class SteamAppDetailsEnvelope(TypedDict):
     data: NotRequired[SteamAppDetails]
 
 
+class SteamVanityResult(TypedDict):
+    # 1 when the name resolved, 42 when no profile uses it.
+    success: int
+    steamid: NotRequired[str]
+    message: NotRequired[str]
+
+
+class SteamVanityResponse(TypedDict):
+    response: SteamVanityResult
+
+
+class SteamPlayerSummary(TypedDict):
+    steamid: str
+    personaname: str
+    profileurl: str
+    avatarfull: NotRequired[str]
+    # 3 is public; anything else hides the owned-games list.
+    communityvisibilitystate: int
+
+
+class SteamPlayerSummariesResult(TypedDict):
+    players: list[SteamPlayerSummary]
+
+
+class SteamPlayerSummariesResponse(TypedDict):
+    response: SteamPlayerSummariesResult
+
+
+class SteamOwnedGame(TypedDict):
+    appid: int
+    name: NotRequired[str]
+    playtime_forever: int
+    rtime_last_played: NotRequired[int]
+
+
+class SteamOwnedGamesResult(TypedDict):
+    # Both are missing when the profile's game details are private.
+    game_count: NotRequired[int]
+    games: NotRequired[list[SteamOwnedGame]]
+
+
+class SteamOwnedGamesResponse(TypedDict):
+    response: SteamOwnedGamesResult
+
+
 class SteamSchemaAchievement(TypedDict):
     name: str
     displayName: str
@@ -93,8 +138,6 @@ class SteamSchemaGameStats(TypedDict):
 
 
 class SteamSchemaGame(TypedDict):
-    gameName: NotRequired[str]
-    gameVersion: NotRequired[str]
     availableGameStats: NotRequired[SteamSchemaGameStats]
 
 
@@ -114,35 +157,6 @@ class SteamGlobalAchievementPercentages(TypedDict):
 
 class SteamGlobalAchievementPercentagesResponse(TypedDict):
     achievementpercentages: SteamGlobalAchievementPercentages
-
-
-class SteamResolvedVanityUrl(TypedDict):
-    # 1 on a match, 42 when no profile has that custom URL.
-    success: int
-    steamid: NotRequired[str]
-    message: NotRequired[str]
-
-
-class SteamResolveVanityUrlResponse(TypedDict):
-    response: SteamResolvedVanityUrl
-
-
-class SteamOwnedGame(TypedDict):
-    appid: int
-    playtime_forever: int
-    rtime_last_played: NotRequired[int]
-    has_community_visible_stats: NotRequired[bool]
-    name: NotRequired[str]
-
-
-class SteamOwnedGames(TypedDict):
-    # Both are left out when the profile's game details are private.
-    game_count: NotRequired[int]
-    games: NotRequired[list[SteamOwnedGame]]
-
-
-class SteamOwnedGamesResponse(TypedDict):
-    response: SteamOwnedGames
 
 
 class SteamPlayerAchievement(TypedDict):

@@ -12,6 +12,7 @@ from models.rom import (
     LookupHashes,
     Rom,
     RomFile,
+    RomStorefront,
     compute_full_path_hash,
     compute_search_titles,
     rom_id_from_resource_url,
@@ -55,6 +56,11 @@ def test_has_file_on_disk_covers_both_file_less_cases(rom: Rom):
     rom.missing_from_fs = False
     rom.is_physical = True
     assert rom.has_file_on_disk is False
+
+    rom.is_physical = False
+    rom.storefront = RomStorefront.STEAM
+    assert rom.has_file_on_disk is False
+    assert rom.never_has_file is True
 
 
 def test_rom_with_libretro_match_is_identified(rom: Rom):
@@ -526,23 +532,18 @@ def test_rom_id_from_resource_url_needs_the_resources_prefix():
 
 
 @pytest.mark.parametrize(
-    ("icon_url", "expected"),
+    ("icon_file", "expected"),
     [
-        (
-            "https://cdn.example/steamcommunity/public/images/apps/400/0a1b.jpg",
-            "roms/2/9/steam/achievements/0a1b.jpg",
-        ),
-        (
-            "https://cdn.example/apps/400/lab_rat.PNG?v=2",
-            "roms/2/9/steam/achievements/lab_rat.PNG",
-        ),
-        ("https://cdn.example/apps/400/", None),
-        ("https://cdn.example/apps/400/..", None),
-        ("https://cdn.example/apps/400/icon.svg", None),
+        ("0a1b.jpg", "roms/2/9/steam/achievements/0a1b.jpg"),
+        ("lab_rat.PNG", "roms/2/9/steam/achievements/lab_rat.PNG"),
+        (None, None),
+        ("", None),
+        ("../a.jpg", None),
+        ("icon.svg", None),
     ],
 )
-def test_steam_achievement_icon_path(icon_url: str, expected: str | None):
-    assert steam_achievement_icon_path(2, 9, icon_url) == expected
+def test_steam_achievement_icon_path(icon_file: str | None, expected: str | None):
+    assert steam_achievement_icon_path(2, 9, icon_file) == expected
 
 
 class TestMergedSteamMetadata:
@@ -551,6 +552,8 @@ class TestMergedSteamMetadata:
             "api_name": "WIN",
             "icon_url": "https://cdn.example/apps/400/a.jpg",
             "icon_gray_url": None,
+            "icon_file": "a.jpg",
+            "icon_gray_file": None,
         }
         stored = {"genres": ["Puzzle"], "achievements": [achievement]}
         rom = Rom(id=9, platform_id=2, steam_metadata=stored)
