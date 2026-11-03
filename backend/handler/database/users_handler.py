@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -10,7 +10,7 @@ from decorators.database import INJECTED_SESSION, begin_session
 from exceptions.database_exceptions import LastAdminError
 from models.user import Role, User
 
-from .base_handler import DBBaseHandler
+from .base_handler import DBBaseHandler, affected_rows
 
 LAST_ACTIVE_DEBOUNCE = timedelta(minutes=5)
 
@@ -125,6 +125,27 @@ class DBUsersHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
         return session.scalars(select(User).filter_by(id=id)).one()
+
+    @begin_session
+    def set_ra_progression(
+        self,
+        id: int,
+        ra_username: str,
+        progression: Mapping[str, object],
+        session: Session = INJECTED_SESSION,
+    ) -> bool:
+        """Store progression fetched for `ra_username` if the user still links that profile.
+
+        Returns:
+            Whether the progression was stored.
+        """
+        result = session.execute(
+            update(User)
+            .where(User.id == id, User.ra_username == ra_username)
+            .values(ra_progression=progression)
+            .execution_options(synchronize_session=False)
+        )
+        return affected_rows(result) > 0
 
     @begin_session
     def update_last_active(

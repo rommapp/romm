@@ -47,7 +47,7 @@ def _mock_sync(
         The `get_roms_by_ra_ids` and `set_rom_user_statuses` mocks.
     """
     mocker.patch.object(DBUsersHandler, "get_users", return_value=[user])
-    mocker.patch.object(DBUsersHandler, "update_user")
+    mocker.patch.object(DBUsersHandler, "set_ra_progression", return_value=True)
     mocker.patch.object(RAHandler, "get_user_progression", return_value=progression)
     return (
         mocker.patch.object(
@@ -138,7 +138,9 @@ class TestSyncRetroAchievementsProgressTask:
     async def test_run_saves_progress(self, task, viewer_user, mocker):
         """Test run method saves retrieved progress."""
         mocker.patch.object(DBUsersHandler, "get_users", return_value=[viewer_user])
-        mock_update_user = mocker.patch.object(DBUsersHandler, "update_user")
+        mock_set_progression = mocker.patch.object(
+            DBUsersHandler, "set_ra_progression", return_value=True
+        )
         user_progression = {"total": 0, "results": []}
         mocker.patch.object(
             RAHandler, "get_user_progression", return_value=user_progression
@@ -146,9 +148,8 @@ class TestSyncRetroAchievementsProgressTask:
 
         await task.run()
 
-        mock_update_user.assert_called_once_with(
-            viewer_user.id,
-            {"ra_progression": user_progression},
+        mock_set_progression.assert_called_once_with(
+            viewer_user.id, viewer_user.ra_username, user_progression
         )
 
     async def test_run_is_resilient_to_errors(
@@ -169,13 +170,14 @@ class TestSyncRetroAchievementsProgressTask:
                 user_progression,
             ],
         )
-        mock_update_user = mocker.patch.object(DBUsersHandler, "update_user")
+        mock_set_progression = mocker.patch.object(
+            DBUsersHandler, "set_ra_progression", return_value=True
+        )
 
         await task.run()
 
-        mock_update_user.assert_called_once_with(
-            editor_user.id,
-            {"ra_progression": user_progression},
+        mock_set_progression.assert_called_once_with(
+            editor_user.id, editor_user.ra_username, user_progression
         )
 
     @pytest.mark.parametrize(
@@ -289,7 +291,7 @@ class TestSyncRetroAchievementsProgressTask:
             retired_rom_user.id, {"status": RomUserStatus.RETIRED}
         )
         mocker.patch.object(DBUsersHandler, "get_users", return_value=[viewer_user])
-        mocker.patch.object(DBUsersHandler, "update_user")
+        mocker.patch.object(DBUsersHandler, "set_ra_progression", return_value=True)
         mocker.patch.object(
             RAHandler,
             "get_user_progression",
@@ -313,7 +315,6 @@ class TestSyncRetroAchievementsProgressTask:
 class TestSyncUserProgressJob:
     async def test_syncs_the_user(self, viewer_user, mocker):
         db_user_handler.update_user(viewer_user.id, {"ra_username": "player"})
-        update_user = mocker.patch.object(DBUsersHandler, "update_user")
         progression = {"total": 0, "results": []}
         get_progression = mocker.patch.object(
             RAHandler, "get_user_progression", return_value=progression
@@ -325,9 +326,30 @@ class TestSyncUserProgressJob:
         await_args = get_progression.await_args
         assert await_args is not None
         assert await_args.args == ("player",)
-        update_user.assert_called_once_with(
-            viewer_user.id, {"ra_progression": progression}
+        synced = db_user_handler.get_user(viewer_user.id)
+        assert synced and synced.ra_progression == progression
+
+    async def test_drops_progress_fetched_for_a_profile_unlinked_meanwhile(
+        self, viewer_user, mocker
+    ):
+        db_user_handler.update_user(viewer_user.id, {"ra_username": "player"})
+
+        async def unlink_during_fetch(*_args, **_kwargs):
+            db_user_handler.update_user(
+                viewer_user.id, {"ra_username": None, "ra_progression": {}}
+            )
+            return _progression((12345, RAUserCompletionProgressKind.MASTERED))
+
+        mocker.patch.object(
+            RAHandler, "get_user_progression", side_effect=unlink_during_fetch
         )
+        set_statuses = mocker.patch.object(DBRomsHandler, "set_rom_user_statuses")
+
+        await _sync_user_progress_by_id(viewer_user.id)
+
+        unlinked = db_user_handler.get_user(viewer_user.id)
+        assert unlinked and unlinked.ra_progression == {}
+        set_statuses.assert_not_called()
 
     async def test_skips_a_user_without_an_ra_username(self, viewer_user, mocker):
         get_progression = mocker.patch.object(RAHandler, "get_user_progression")

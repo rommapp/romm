@@ -83,6 +83,15 @@ def _record_user_edit(
     record(AuditAction.USER_EDIT, request, AuditTarget.of_user(after), data)
 
 
+async def _submitted_value(
+    request: Request, name: str, parsed: str | None
+) -> str | None:
+    """Return a form-model field, keeping a submitted "" the model reads as absent."""
+    if parsed is None and (await request.form()).get(name) == "":
+        return ""
+    return parsed
+
+
 async def _verify_account_holder(
     request: Request, db_user: User, current_password: str | None
 ) -> None:
@@ -458,10 +467,8 @@ async def update_user(
 
     _assert_can_manage_user(request, db_user)
 
-    # A form model reads a submitted "" as absent, but "" is how a client clears the email.
-    email = form_data.email
-    if email is None and (await request.form()).get("email") == "":
-        email = ""
+    email = await _submitted_value(request, "email", form_data.email)
+    ra_username = await _submitted_value(request, "ra_username", form_data.ra_username)
 
     # Usernames and emails match case-insensitively, so a case-only edit is no change.
     new_username = (
@@ -556,8 +563,12 @@ async def update_user(
     if form_data.enabled is not None and request.user.id != id:
         cleaned_data["enabled"] = form_data.enabled
 
-    if form_data.ra_username:
-        cleaned_data["ra_username"] = form_data.ra_username
+    if ra_username:
+        cleaned_data["ra_username"] = ra_username
+    elif ra_username == "" and db_user.ra_username:
+        # The synced progression belongs to the unlinked profile.
+        cleaned_data["ra_username"] = None
+        cleaned_data["ra_progression"] = {}
 
     if form_data.ui_settings is not None:
         try:
@@ -734,10 +745,5 @@ async def refresh_retro_achievements(
             cast(RAUserProgression | None, user.ra_progression) if incremental else None
         ),
     )
-    db_user_handler.update_user(
-        id,
-        {
-            "ra_progression": user_progression,
-        },
-    )
+    db_user_handler.set_ra_progression(id, user.ra_username, user_progression)
     return None
