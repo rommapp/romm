@@ -5548,7 +5548,7 @@ def test_a_streamed_state_is_the_one_cloud_sync_serves_for_its_slot(
         "Game.20261008-153825000000.state.auto",
         "mgba",
         core="mgba",
-        updated_at=datetime(2099, 1, 1, tzinfo=timezone.utc),
+        updated_at=datetime.now(timezone.utc) + timedelta(days=365),
     )
 
     served = retroarch_sync.resolve_state_by_slot(
@@ -5683,7 +5683,7 @@ def test_hydrate_pushes_a_newer_cloud_synced_state_of_the_booted_core(
         admin_user,
         "Game.state.auto",
         "bsnes",
-        updated_at=datetime(2099, 1, 1, tzinfo=timezone.utc),
+        updated_at=datetime.now(timezone.utc) + timedelta(days=365),
     )
     push = _hydrate_core(
         rom, admin_user, "retroarch:bsnes", states.StateCore("bsnes", False)
