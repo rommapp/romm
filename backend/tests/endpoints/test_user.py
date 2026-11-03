@@ -7,6 +7,7 @@ from exceptions.database_exceptions import LastAdminError
 from handler.auth.base_handler import auth_handler, oauth_handler
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.database import db_permission_handler, db_user_handler
+from handler.metadata import meta_ra_handler
 from models.permission import PermAction, PermEntity
 from models.user import Role, User
 
@@ -187,6 +188,30 @@ def test_an_empty_ra_username_unlinks_the_profile(
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["ra_username"] is None
+    unlinked = db_user_handler.get_user(viewer_user.id)
+    assert unlinked and unlinked.ra_progression == {}
+
+
+def test_a_refresh_running_while_the_profile_is_unlinked_keeps_it_unlinked(
+    client, access_token: str, viewer_user: User, mocker
+):
+    db_user_handler.update_user(viewer_user.id, {"ra_username": "retro_viewer"})
+
+    async def unlink_during_fetch(*_args, **_kwargs):
+        db_user_handler.update_user(
+            viewer_user.id, {"ra_username": None, "ra_progression": {}}
+        )
+        return {"total": 3, "results": []}
+
+    mocker.patch.object(
+        meta_ra_handler, "get_user_progression", side_effect=unlink_during_fetch
+    )
+
+    response = client.post(
+        f"/api/users/{viewer_user.id}/ra/refresh", headers=_bearer(access_token)
+    )
+
+    assert response.status_code == status.HTTP_200_OK
     unlinked = db_user_handler.get_user(viewer_user.id)
     assert unlinked and unlinked.ra_progression == {}
 

@@ -745,10 +745,5 @@ async def refresh_retro_achievements(
             cast(RAUserProgression | None, user.ra_progression) if incremental else None
         ),
     )
-    db_user_handler.update_user(
-        id,
-        {
-            "ra_progression": user_progression,
-        },
-    )
+    db_user_handler.set_ra_progression(id, user.ra_username, user_progression)
     return None
