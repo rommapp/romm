@@ -2,7 +2,7 @@
 
 import dataclasses
 import functools
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Final
 
@@ -55,6 +55,7 @@ from handler.metadata.ss_handler import (
 from handler.metadata.steam_handler import SteamRom
 from handler.scan.sources import (
     LOGGER_MODULE_NAME,
+    RESCAN_RULES,
     MetadataSource,
     ScanType,
     should_consult,
@@ -84,6 +85,21 @@ def get_main_platform_igdb_id(platform: Platform) -> int | None:
     else:
         main_platform_igdb_id = platform.igdb_id
     return main_platform_igdb_id
+
+
+async def lookup_by_file_name[MatchT: Mapping[str, object]](
+    source: MetadataSource,
+    fs_name: str,
+    lookup: Callable[[str], Awaitable[MatchT]],
+) -> MatchT:
+    """Look `source` up by the file name, then by each of its titles until one matches."""
+    match = await lookup(fs_name)
+    id_field = RESCAN_RULES[source].id_field
+    for title_fs_name in fs_rom_handler.get_title_file_names(fs_name):
+        if match.get(id_field):
+            break
+        match = await lookup(title_fs_name)
+    return match
 
 
 async def resolve_launchbox_rom(
@@ -126,10 +142,12 @@ async def resolve_launchbox_rom(
     # platforms it answers for nearly every ROM. Letting that miss stand would
     # strand the whole platform unmatched, so the filename lookup still runs.
     if not launchbox_rom.get("launchbox_id"):
-        launchbox_rom = await meta_launchbox_handler.get_rom(
+        launchbox_rom = await lookup_by_file_name(
+            MetadataSource.LAUNCHBOX,
             fs_name,
-            platform_slug,
-            remote_enabled=remote_enabled,
+            lambda name: meta_launchbox_handler.get_rom(
+                name, platform_slug, remote_enabled=remote_enabled
+            ),
         )
 
     return launchbox_rom
@@ -147,7 +165,11 @@ async def resolve_steam_rom(
     if steam_id:
         return await meta_steam_handler.get_rom_by_id(steam_id)
 
-    return await meta_steam_handler.get_rom(fs_name, platform_slug)
+    return await lookup_by_file_name(
+        MetadataSource.STEAM,
+        fs_name,
+        lambda name: meta_steam_handler.get_rom(name, platform_slug),
+    )
 
 
 @dataclass
@@ -292,11 +314,15 @@ class RomLookups:
                 )
 
             # If no matches found, use the file name to get the IGDB ID
-            main_platform_igdb_id = get_main_platform_igdb_id(self.platform)
-            return await meta_igdb_handler.get_rom(
-                self.rom,
+            platform_igdb_id = (
+                get_main_platform_igdb_id(self.platform) or self.platform.igdb_id
+            )
+            return await lookup_by_file_name(
+                MetadataSource.IGDB,
                 self.rom_attrs["fs_name"],
-                main_platform_igdb_id or self.platform.igdb_id,
+                lambda name: meta_igdb_handler.get_rom(
+                    self.rom, name, platform_igdb_id
+                ),
             )
 
         return IGDBRom(igdb_id=None)
@@ -314,8 +340,10 @@ class RomLookups:
             flashpoint_id = self.stored_id(MetadataSource.FLASHPOINT)
             if flashpoint_id:
                 return await meta_flashpoint_handler.get_rom_by_id(flashpoint_id)
-            return await meta_flashpoint_handler.get_rom(
-                self.rom_attrs["fs_name"], self.platform.slug
+            return await lookup_by_file_name(
+                MetadataSource.FLASHPOINT,
+                self.rom_attrs["fs_name"],
+                lambda name: meta_flashpoint_handler.get_rom(name, self.platform.slug),
             )
 
         return FlashpointRom(flashpoint_id=None)
@@ -334,8 +362,10 @@ class RomLookups:
             if hltb_id:
                 return await meta_hltb_handler.get_rom_by_id(hltb_id)
 
-            return await meta_hltb_handler.get_rom(
-                self.rom_attrs["fs_name"], self.platform.slug
+            return await lookup_by_file_name(
+                MetadataSource.HLTB,
+                self.rom_attrs["fs_name"],
+                lambda name: meta_hltb_handler.get_rom(name, self.platform.slug),
             )
 
         return HLTBRom(hltb_id=None)
@@ -345,8 +375,10 @@ class RomLookups:
             demozoo_id = self.stored_id(MetadataSource.DEMOZOO)
             if demozoo_id:
                 return await meta_demozoo_handler.get_rom_by_id(demozoo_id)
-            return await meta_demozoo_handler.get_rom(
-                self.rom_attrs["fs_name"], self.platform.slug
+            return await lookup_by_file_name(
+                MetadataSource.DEMOZOO,
+                self.rom_attrs["fs_name"],
+                lambda name: meta_demozoo_handler.get_rom(name, self.platform.slug),
             )
         return DemozooRom(demozoo_id=None)
 
@@ -354,8 +386,10 @@ class RomLookups:
         if self.attempts(MetadataSource.POUET):
             if self.rom.pouet_id:
                 return await meta_pouet_handler.get_rom_by_id(int(self.rom.pouet_id))
-            return await meta_pouet_handler.get_rom(
-                self.rom_attrs["fs_name"], self.platform.slug
+            return await lookup_by_file_name(
+                MetadataSource.POUET,
+                self.rom_attrs["fs_name"],
+                lambda name: meta_pouet_handler.get_rom(name, self.platform.slug),
             )
         return PouetRom(pouet_id=None)
 
@@ -363,8 +397,10 @@ class RomLookups:
         if self.attempts(MetadataSource.CSDB):
             if self.rom.csdb_id:
                 return await meta_csdb_handler.get_rom_by_id(int(self.rom.csdb_id))
-            return await meta_csdb_handler.get_rom(
-                self.rom_attrs["fs_name"], self.platform.slug
+            return await lookup_by_file_name(
+                MetadataSource.CSDB,
+                self.rom_attrs["fs_name"],
+                lambda name: meta_csdb_handler.get_rom(name, self.platform.slug),
             )
         return CsdbRom(csdb_id=None)
 
@@ -393,10 +429,13 @@ class RomLookups:
                 )
                 return await meta_moby_handler.get_rom_by_id(playmatch_rom["moby_id"])
 
-            return await meta_moby_handler.get_rom(
-                self.rom,
+            platform_moby_id = self.platform.moby_id
+            return await lookup_by_file_name(
+                MetadataSource.MOBY,
                 self.rom_attrs["fs_name"],
-                platform_moby_id=self.platform.moby_id,
+                lambda name: meta_moby_handler.get_rom(
+                    self.rom, name, platform_moby_id=platform_moby_id
+                ),
             )
 
         return MobyGamesRom(moby_id=None)
@@ -440,10 +479,13 @@ class RomLookups:
                         return game_by_hash
 
                 # Fallback to the filename
-                return await meta_ss_handler.get_rom(
-                    self.rom,
+                platform_ss_id = self.platform.ss_id
+                return await lookup_by_file_name(
+                    MetadataSource.SS,
                     self.rom_attrs["fs_name"],
-                    platform_ss_id=self.platform.ss_id,
+                    lambda name: meta_ss_handler.get_rom(
+                        self.rom, name, platform_ss_id=platform_ss_id
+                    ),
                 )
             except ScreenScraperExhaustedError as exc:
                 short_circuited = True
@@ -527,13 +569,15 @@ class RomLookups:
             )
             return await meta_sgdb_handler.get_rom_by_id(playmatch_rom["sgdb_id"])
 
-        file_name_no_tags = fs_rom_handler.get_file_name_with_no_tags(
-            str(self.rom_attrs["fs_name"])
-        )
+        fs_name = str(self.rom_attrs["fs_name"])
+        file_names_no_tags = [
+            fs_rom_handler.get_file_name_with_no_tags(name)
+            for name in [fs_name, *fs_rom_handler.get_title_file_names(fs_name)]
+        ]
         provider_names = [
             handler_roms[source].get("name") for source in _SGDB_NAME_SOURCES
         ]
-        valid_names = [name for name in [*provider_names, file_name_no_tags] if name]
+        valid_names = [name for name in [*provider_names, *file_names_no_tags] if name]
         return await meta_sgdb_handler.get_details_by_names(valid_names)
 
 
