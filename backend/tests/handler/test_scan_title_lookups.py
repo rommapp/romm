@@ -1,8 +1,4 @@
-"""How a scan looks up a file named by all of a game's titles.
-
-No-Intro and Redump join them with " ~ ", and a provider searching the whole
-name often finds nothing where either title alone finds the game.
-"""
+"""How a scan looks up a file named by all of a game's titles."""
 
 from unittest.mock import AsyncMock, call, patch
 
@@ -11,6 +7,7 @@ from tests.handler.scan_stubs import add_rom, run_scan
 
 from handler.metadata.hltb_handler import HLTBRom
 from handler.metadata.igdb_handler import IGDBRom
+from handler.metadata.sgdb_handler import SGDBRom
 from handler.scan.lookups import lookup_by_file_name
 from handler.scan.sources import MetadataSource, ScanType
 
@@ -86,3 +83,34 @@ async def test_a_scan_matches_igdb_by_the_second_title():
     ]
     assert result.igdb_id == 6773
     assert result.name == "Aero Fighters 2"
+
+
+async def test_steamgriddb_searches_each_title_once():
+    platform = make_platform("neo-geo-cd", id=1, igdb_id=136)
+    rom = add_rom(platform, FS_NAME, "Sonic Wings 2 ~ Aero Fighters 2")
+    igdb_lookup = AsyncMock(
+        side_effect=[
+            IGDBRom(igdb_id=None),
+            IGDBRom(igdb_id=None),
+            IGDBRom(igdb_id=6773, name="Aero Fighters 2"),
+        ]
+    )
+    sgdb_lookup = AsyncMock(return_value=SGDBRom(sgdb_id=None))
+
+    with (
+        patch("handler.scan.lookups.meta_igdb_handler.get_rom", new=igdb_lookup),
+        patch(
+            "handler.scan.lookups.meta_sgdb_handler.get_details_by_names",
+            new=sgdb_lookup,
+        ),
+    ):
+        await run_scan(
+            platform,
+            rom,
+            scan_type=ScanType.COMPLETE,
+            metadata_sources=[MetadataSource.IGDB, MetadataSource.SGDB],
+        )
+
+    sgdb_lookup.assert_awaited_once_with(
+        ["Aero Fighters 2", "Sonic Wings 2 ~ Aero Fighters 2", "Sonic Wings 2"]
+    )

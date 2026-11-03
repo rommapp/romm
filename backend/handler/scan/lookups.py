@@ -577,7 +577,11 @@ class RomLookups:
         provider_names = [
             handler_roms[source].get("name") for source in _SGDB_NAME_SOURCES
         ]
-        valid_names = [name for name in [*provider_names, *file_names_no_tags] if name]
+        valid_names = list(
+            dict.fromkeys(
+                name for name in [*provider_names, *file_names_no_tags] if name
+            )
+        )
         return await meta_sgdb_handler.get_details_by_names(valid_names)
 
 
