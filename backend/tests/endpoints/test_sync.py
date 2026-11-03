@@ -1734,12 +1734,12 @@ class TestNegotiateBaseline:
         assert upload.status_code == status.HTTP_200_OK
 
         # The server moves on after the boundary the upload recorded.
+        later = (datetime.now(timezone.utc) + timedelta(days=365)).replace(
+            microsecond=0
+        )
         db_save_handler.update_save(
             upload.json()["id"],
-            {
-                "content_hash": "server_new",
-                "updated_at": datetime(2099, 1, 1, tzinfo=timezone.utc),
-            },
+            {"content_hash": "server_new", "updated_at": later},
         )
 
         with mock.patch(
@@ -1755,7 +1755,7 @@ class TestNegotiateBaseline:
                             "file_name": "chain.sav",
                             "slot": "autosave",
                             "content_hash": "client_hash",
-                            "updated_at": "2099-01-01T00:00:00Z",
+                            "updated_at": later.isoformat(),
                             "file_size_bytes": 100,
                         }
                     ],
