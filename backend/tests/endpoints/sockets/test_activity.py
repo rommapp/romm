@@ -60,7 +60,8 @@ class TestStart:
         self, signed_in, build_entry, publish_active, entry, sessions
     ):
         await activity.activity_start(
-            SID, {"rom_id": 42, "device_id": "deck", "user_id": 99}  # type: ignore[typeddict-unknown-key]
+            SID,
+            {"rom_id": 42, "device_id": "deck", "user_id": 99},  # type: ignore[typeddict-unknown-key]
         )
 
         build_entry.assert_awaited_once_with(
@@ -219,3 +220,32 @@ async def test_an_unauthenticated_socket_has_no_user(sessions, mocker):
 
     assert await activity.get_authenticated_user(SID) is None
     get_user.assert_not_called()
+
+
+class TestClientTokenScopes:
+    async def test_a_token_with_roms_read_publishes(
+        self, sessions, build_entry, publish_active
+    ):
+        await activity.store_authenticated_user(SID, 7, scopes=["roms.read"])
+
+        await activity.activity_start(SID, {"rom_id": 42, "device_id": "deck"})
+
+        publish_active.assert_awaited_once()
+
+    async def test_a_token_without_roms_read_cannot_publish(
+        self, sessions, build_entry, publish_active
+    ):
+        await activity.store_authenticated_user(SID, 7, scopes=["me.read"])
+
+        await activity.activity_start(SID, {"rom_id": 42, "device_id": "deck"})
+
+        build_entry.assert_not_awaited()
+        publish_active.assert_not_awaited()
+
+
+async def test_a_token_without_roms_read_cannot_stop(sessions, publish_clear):
+    await activity.store_authenticated_user(SID, 7, scopes=["me.read"])
+
+    await activity.activity_stop(SID, {"device_id": "deck"})
+
+    publish_clear.assert_not_awaited()

@@ -8,6 +8,7 @@ import pytest
 from endpoints.netplay import DEFAULT_MAX_PLAYERS
 from endpoints.sockets import netplay as netplay_module
 from endpoints.sockets.netplay import (
+    AUTH_SCOPES_SESSION_KEY,
     AUTH_USER_SESSION_KEY,
     RoomData,
     RoomDataExtra,
@@ -619,3 +620,74 @@ class TestConnectIdentity:
 
         # socketio refuses the connection when the handler returns False.
         assert await connect("sid", {}) is None  # type: ignore[func-returns-value]
+
+
+class TestClientTokenConnect:
+    def _identity(self, *scopes: str) -> Mock:
+        identity = Mock()
+        identity.user.id = 1
+        identity.scopes = list(scopes)
+        return identity
+
+    async def _connect_with_token(self, mocker, identity: Mock) -> None:
+        mocker.patch.object(
+            netplay_socket_handler, "authenticate", AsyncMock(return_value=None)
+        )
+        mocker.patch.object(
+            netplay_socket_handler,
+            "authenticate_client_token",
+            AsyncMock(return_value=identity),
+        )
+        # The user is reloaded per room action, with their own full scopes.
+        mocker.patch.object(
+            db_user_handler, "get_user", return_value=_user(Scope.ROMS_READ)
+        )
+        await connect("sid", {}, {"token": "rmm_abc"})
+
+    async def test_a_client_token_stores_its_user_and_scopes(
+        self, mocker, server, rooms
+    ):
+        await self._connect_with_token(mocker, self._identity("roms.read"))
+
+        assert server.sessions["sid"][AUTH_USER_SESSION_KEY] == 1
+        assert server.sessions["sid"][AUTH_SCOPES_SESSION_KEY] == ["roms.read"]
+
+    async def test_a_token_without_roms_read_cannot_open_a_room(
+        self, mocker, server, rooms
+    ):
+        # The token's scopes win over the user's own, broader scopes.
+        await self._connect_with_token(mocker, self._identity("me.read"))
+
+        result = await open_room("sid", _open())
+
+        assert result == "Not authorized to open a room for this game"
+
+    async def test_a_session_socket_without_stored_scopes_uses_the_users(
+        self, mocker, server, rooms
+    ):
+        # Sockets that connected before scopes were recorded keep working.
+        server.sessions["sid"] = {AUTH_USER_SESSION_KEY: 1}
+        mocker.patch.object(
+            db_user_handler, "get_user", return_value=_user(Scope.ROMS_READ)
+        )
+
+        assert await open_room("sid", _open()) is None
+
+
+async def test_a_session_users_current_scopes_apply(mocker, server, rooms):
+    user = _user(Scope.ROMS_READ)
+    mocker.patch.object(
+        netplay_socket_handler, "authenticate", AsyncMock(return_value=user)
+    )
+    mocker.patch.object(db_user_handler, "get_user", return_value=user)
+
+    await connect("sid", {})
+
+    assert server.sessions["sid"] == {AUTH_USER_SESSION_KEY: 1}
+
+    # Losing ROM-read after connecting blocks the next room action.
+    mocker.patch.object(db_user_handler, "get_user", return_value=_user())
+
+    result = await open_room("sid", _open())
+
+    assert result == "Not authorized to open a room for this game"

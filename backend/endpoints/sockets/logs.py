@@ -1,9 +1,11 @@
 """Real-time backend log streaming over Socket.IO (admin only).
 
 Pieces:
-- ``connect`` handler on the main socket server: resolves the session user,
-  joins them to their own ``user:{id}`` room, and, if they are an admin, also
-  joins the ``admin`` room. It never rejects a connection, so the existing
+- ``connect`` handler on the main socket server: resolves the session user
+  or client token, joins session users to their own ``user:{id}`` room,
+  and, if they are an admin, also joins the ``admin`` room. Token sockets
+  only get an identity: user rooms carry events their scopes may not cover.
+  It never rejects a connection, so the existing
   scan/sync sockets keep working for everyone. It also ties the socket to its
   login session, which ``disconnect`` undoes.
 - ``start_log_forwarder``: a single background task (Redis-lock guarded) that
@@ -34,24 +36,30 @@ FORWARDER_LOCK_TTL: Final = 30  # seconds
 
 @socket_handler.on("connect")
 async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
-    """Resolve the authenticated user on socket connect.
-
-    Stores the user id in the socket session so activity events can trust the
-    server-resolved identity instead of a client-supplied ``user_id``, joins
-    every authenticated user to their own ``user:{id}`` room (the target for
-    sync and streaming push notifications), and joins admins to the
-    log-streaming room. Always returns ``None`` (accepts the connection):
-    only identity storage and room membership are gated, so the existing
-    scan/sync sockets keep working for everyone.
-    """
+    """Resolve the socket's user from its login session or client token."""
     try:
         user = await socket_handler.authenticate(sid, environ)
+        scopes: list[str] | None = None
+        if user is None:
+            # Device clients hold a client token rather than a login session.
+            identity = await socket_handler.authenticate_client_token(
+                sid, environ, auth
+            )
+            if identity is not None:
+                user = identity.user
+                scopes = identity.scopes
         if user is None:
             return
 
-        await store_authenticated_user(sid, user.id)
-        await socket_handler.socket_server.enter_room(sid, f"user:{user.id}")
+        await store_authenticated_user(sid, user.id, scopes=scopes)
+        if scopes is not None:
+            # User rooms carry events the token's scopes may not cover, so
+            # token sockets stay out of them until delivery is scope-filtered.
+            return
 
+        await socket_handler.socket_server.enter_room(sid, f"user:{user.id}")
+        # The log stream stays a browser-session capability: no client-token
+        # scope covers it, and device clients have no use for it.
         if not DISABLE_LOGS_VIEWER and user.role == Role.ADMIN:
             await socket_handler.socket_server.enter_room(sid, ADMIN_ROOM)
     except Exception:  # noqa: BLE001 - never let auth resolution refuse a socket
@@ -63,6 +71,7 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
 async def disconnect(sid: str) -> None:
     """Undo what ``connect`` and the activity events tied to the socket."""
     await socket_handler.unbind_from_login_session(sid)
+    await socket_handler.unbind_from_client_token(sid)
     await activity_on_disconnect(sid)
 
 

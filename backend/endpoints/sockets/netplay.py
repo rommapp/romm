@@ -23,6 +23,9 @@ if TYPE_CHECKING:
 # Session keys. The connect-time identity and the room membership share one
 # server-side session dict, so every read goes through these names.
 AUTH_USER_SESSION_KEY = "netplay_auth_user_id"
+# The scopes the connect-time credential holds: a login session stores the
+# user's own scopes, a client token its effective (token ∩ user) scopes.
+AUTH_SCOPES_SESSION_KEY = "netplay_auth_scopes"
 ROOM_SESSION_KEY = "session_id"
 PLAYER_SESSION_KEY = "player_id"
 
@@ -79,7 +82,17 @@ async def _playable_rom_id(
         owned: whether the room is the user's own, where an "own items only" grant counts.
     """
     user = await _authenticated_user(sid)
-    if user is None or Scope.ROMS_READ not in user.oauth_scopes:
+    if user is None:
+        return None
+
+    # Token sockets act within the token's recorded scopes; every other
+    # socket answers with the user's current scopes.
+    scopes = (await netplay_socket_handler.get_session(sid)).get(
+        AUTH_SCOPES_SESSION_KEY
+    )
+    if scopes is None:
+        scopes = [str(s) for s in user.oauth_scopes]
+    if str(Scope.ROMS_READ) not in scopes:
         return None
 
     perms = resolve_permissions(user)
@@ -121,6 +134,19 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
         user = await netplay_socket_handler.authenticate(sid, environ)
         if user is not None:
             await _save_session(sid, {AUTH_USER_SESSION_KEY: user.id})
+            return
+
+        identity = await netplay_socket_handler.authenticate_client_token(
+            sid, environ, auth
+        )
+        if identity is not None:
+            await _save_session(
+                sid,
+                {
+                    AUTH_USER_SESSION_KEY: identity.user.id,
+                    AUTH_SCOPES_SESSION_KEY: identity.scopes,
+                },
+            )
     except Exception:  # noqa: BLE001 - never let auth resolution refuse a socket
         log.exception("Failed to resolve user on netplay connect")
 
@@ -314,6 +340,7 @@ async def webrtc_signal_error(_sid: str, _error: str, _data: Any) -> None:
 @netplay_socket_handler.on("disconnect")
 async def disconnect(sid: str) -> None:
     await netplay_socket_handler.unbind_from_login_session(sid)
+    await netplay_socket_handler.unbind_from_client_token(sid)
     await leave_room(sid)
 
 
