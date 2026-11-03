@@ -216,6 +216,31 @@ async def test_prefers_a_rom_with_a_file_over_a_store_only_one(
     assert entry.rom_id == with_file.id
 
 
+@pytest.mark.parametrize(
+    ("kind", "overrides"),
+    [
+        ("physical", {"is_physical": True}),
+        ("missing", {"missing_from_fs": True}),
+    ],
+)
+async def test_prefers_a_rom_with_a_file_over_one_without(
+    kind: str,
+    overrides: dict[str, Any],
+    steam_api: MagicMock,
+    steam_user: User,
+    win: Platform,
+):
+    """A copy with no readable file loses even when it was created first."""
+    make_rom(make_platform("linux"), "Portal 2", steam_id=620, **overrides)
+    with_file = make_rom(make_platform("mac"), "Portal 2", steam_id=620)
+    steam_api.get_owned_games.return_value = [_game(620, "Portal 2")]
+
+    await sync_steam_library(steam_user)
+
+    [entry] = db_steam_library_handler.get_entries(steam_user.id)
+    assert entry.rom_id == with_file.id
+
+
 async def test_a_second_sync_reuses_the_store_only_rom(
     steam_api: MagicMock, steam_user: User, win: Platform
 ):

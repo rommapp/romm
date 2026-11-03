@@ -100,6 +100,26 @@ describe("SteamLibrarySection", () => {
     expect(wrapper.text()).toContain("settings.steam-owned-count");
   });
 
+  it("ignores a second Sync press while one is in flight", async () => {
+    storeAuth().setCurrentUser(userFixture({ id: 1, steam_id: STEAM_ID }));
+    let release!: () => void;
+    vi.mocked(userApi.syncSteamLibrary).mockReturnValueOnce(
+      new Promise<never>((resolve) => {
+        release = resolve as () => void;
+      }),
+    );
+    const wrapper = mountSection();
+    await flushPromises();
+    const syncBtn = wrapper.findAll("button")[0]!;
+
+    await syncBtn.trigger("click");
+    await syncBtn.trigger("click");
+    release();
+    await flushPromises();
+
+    expect(userApi.syncSteamLibrary).toHaveBeenCalledExactlyOnceWith({ id: 1 });
+  });
+
   it("unlinks only once confirmed", async () => {
     storeAuth().setCurrentUser(userFixture({ id: 1, steam_id: STEAM_ID }));
     vi.mocked(userApi.unlinkSteamAccount).mockResolvedValue({
