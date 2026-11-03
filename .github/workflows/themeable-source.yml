@@ -1,0 +1,92 @@
+name: themeable source check
+
+# Checks RomM's source at `ref` with the overlay and patches applied: frontend lint,
+# type-check and unit tests, and the Branding API tests. See themeable/README.md#staying-current-with-romm.
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit or branch to check
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - name: Set up the frontend
+        uses: ./.github/actions/setup-frontend
+      - name: Apply overlay and patches
+        run: node themeable/scripts/apply-source.mjs --root . --only frontend --force
+      - name: Lint the module's frontend files
+        working-directory: frontend
+        run: |
+          files=$(cd ../themeable/overlay/frontend && find src -type f \( -name '*.vue' -o -name '*.ts' \))
+          npx eslint $files src/v2/views/Settings/Administration.vue
+      - name: Type-check the patched frontend
+        working-directory: frontend
+        run: npx vue-tsc --noEmit -p tsconfig.app.json
+      - name: Unit-test the module's frontend files
+        working-directory: frontend
+        run: |
+          tests=$(cd ../themeable/overlay/frontend && find src -type f -name '*.test.ts')
+          if [ -n "$tests" ]; then npx vitest run --project app $tests; fi
+
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      mariadb:
+        image: mariadb:13.0.2
+        ports:
+          - 3306
+        env:
+          MYSQL_USER: romm_test
+          MYSQL_PASSWORD: passwd
+          MYSQL_DATABASE: romm_test
+          MYSQL_ROOT_PASSWORD: passwd
+        options: --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=5s --health-timeout=2s --health-retries=3 --health-start-period=30s
+      valkey:
+        image: valkey/valkey:9.0.6
+        ports:
+          - 6379
+        options: >-
+          --health-cmd="redis-cli ping" --health-interval=5s --health-timeout=2s --health-retries=3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      # Upstream's own action, so the backend tracks the release's Python and lockfile.
+      - name: Set up the backend
+        uses: ./.github/actions/setup-backend
+        with:
+          sync-args: --extra test
+          apt-packages: 7zip
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Initiate MariaDB database
+        env:
+          MARIADB_PORT: ${{ job.services.mariadb.ports['3306'] }}
+        run: |
+          mysql --host 127.0.0.1 --port "$MARIADB_PORT" -uroot -ppasswd -e "GRANT ALL PRIVILEGES ON \`romm\_test%\`.* TO 'romm_test'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
+      - name: Apply overlay and patches
+        run: node themeable/scripts/apply-source.mjs --root . --only backend --force
+      - name: Branding API tests, plus an app start-up smoke test
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: ${{ job.services.mariadb.ports['3306'] }}
+          ROMM_DB_DRIVER: mariadb
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: ${{ job.services.valkey.ports['6379'] }}
+        working-directory: backend
+        run: uv run pytest -vv tests/endpoints/test_themeable.py tests/endpoints/test_heartbeat.py

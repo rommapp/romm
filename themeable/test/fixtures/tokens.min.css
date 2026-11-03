@@ -1,0 +1,5 @@
+.r-v2{--r-color-brand-primary:#8b74e8;--r-radius-md:8px;font-family:x}
+html[data-input="key"] .r-v2{--r-focus-ring-width:2.5px}
+.r-v2.r-v2-dark{--r-color-bg:#07070f}
+.r-v2.r-v2-light{--r-color-bg:#f5f5fa;--r-color-brand-primary:#553e98}
+@media (min-width:1px){.r-v2-x{--r-not-a-scope:1px}}

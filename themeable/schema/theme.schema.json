@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Stealthx3/romm-themeable/themeable/schema/theme.schema.json",
+  "title": "RomM themeable pack",
+  "type": "object",
+  "required": ["id", "name"],
+  "additionalProperties": false,
+  "$defs": {
+    "tokenMap": {
+      "type": "object",
+      "propertyNames": { "pattern": "^--r-[a-z0-9-]+$" },
+      "additionalProperties": { "type": "string", "pattern": "^[^{};<>\\\\]+$" }
+    },
+    "hex": { "type": "string", "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" },
+    "vuetifyColors": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
+      "additionalProperties": { "$ref": "#/$defs/hex" }
+    }
+  },
+  "properties": {
+    "$schema": { "type": "string" },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$", "not": { "enum": ["none", "default", "random", "index", "stock"] } },
+    "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "version": { "type": "string" },
+    "author": { "type": "string" },
+    "description": { "type": "string" },
+    "tags": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$" },
+      "description": "Short lowercase labels. \"accessibility\" shows an Accessibility label in Branding and puts the pack in Random's accessibility group."
+    },
+    "tokens": {
+      "type": "object",
+      "description": "CSS custom properties from RomM's v2 tokens.css, per scope.",
+      "additionalProperties": false,
+      "properties": {
+        "common": { "$ref": "#/$defs/tokenMap" },
+        "dark": { "$ref": "#/$defs/tokenMap" },
+        "light": { "$ref": "#/$defs/tokenMap" },
+        "input-key": { "$ref": "#/$defs/tokenMap" },
+        "input-pad": { "$ref": "#/$defs/tokenMap" }
+      }
+    },
+    "vuetify": {
+      "type": "object",
+      "description": "Best-effort palette for the legacy v1 UI (Vuetify theme colors).",
+      "additionalProperties": false,
+      "properties": {
+        "dark": { "$ref": "#/$defs/vuetifyColors" },
+        "light": { "$ref": "#/$defs/vuetifyColors" }
+      }
+    },
+    "assets": {
+      "type": "object",
+      "description": "Stock /assets/... path to a file inside the pack with the same extension.",
+      "propertyNames": { "pattern": "^/assets/[A-Za-z0-9._/ -]+$" },
+      "additionalProperties": { "type": "string" }
+    },
+    "rootFiles": {
+      "type": "object",
+      "description": "Favicons and app icons; served from the server's selected theme.",
+      "propertyNames": {
+        "enum": [
+          "/favicon.ico",
+          "/favicon.svg",
+          "/favicon-16x16.png",
+          "/favicon-32x32.png",
+          "/apple-touch-icon.png",
+          "/android-chrome-192x192.png",
+          "/android-chrome-512x512.png",
+          "/safari-pinned-tab.svg"
+        ]
+      },
+      "additionalProperties": { "type": "string" }
+    },
+    "fonts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["family", "src"],
+        "additionalProperties": false,
+        "properties": {
+          "family": { "type": "string" },
+          "src": { "type": "string", "pattern": "\\.(woff2|woff|ttf|otf)$" },
+          "weight": { "type": "string" },
+          "style": { "type": "string" },
+          "display": { "type": "string" }
+        }
+      }
+    },
+    "pwa": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "themeColor": { "$ref": "#/$defs/hex" } }
+    },
+    "covers": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Placeholder covers for games without one: recolor RomM's generated art, or replace it with your own (a variant is picked per game).",
+      "properties": {
+        "colors": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "base": { "type": "string", "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" },
+            "shade": { "type": "string", "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" },
+            "warm": { "type": "string", "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" },
+            "icon": { "type": "string", "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" }
+          }
+        },
+        "missing": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "type": "string" }, "description": "Art for games that were identified but have no cover (600 x 800 works best)." },
+        "unmatched": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "type": "string" }, "description": "Art for games that weren't identified." }
+      }
+    },
+    "extraCss": { "type": "string", "description": "A CSS file applied only while this theme is active (wrapped in the theme selector). Not checked against new RomM releases." }
+  }
+}

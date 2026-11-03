@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RomM themes</title>
+    <style>
+      :root {
+        --bg: #f5f5fa;
+        --card: #ffffff;
+        --fg: #111117;
+        --muted: #5b5b6b;
+        --border: rgba(0, 0, 0, 0.1);
+        --accent: #553e98;
+        color-scheme: light dark;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #07070f;
+          --card: #12121c;
+          --fg: #ffffff;
+          --muted: #a3a3b5;
+          --border: rgba(255, 255, 255, 0.1);
+          --accent: #a18fff;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      main {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 40px 16px 64px;
+      }
+      header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-bottom: 24px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 24px;
+      }
+      a {
+        color: var(--accent);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 16px;
+      }
+      .card {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 16px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--card);
+      }
+      .card[aria-current="true"] {
+        outline: 2px solid var(--accent);
+      }
+      .swatch {
+        display: flex;
+        height: 56px;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+      }
+      .swatch span {
+        flex: 1;
+      }
+      .name {
+        font-weight: 600;
+        margin: 0;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 13px;
+        margin: 0;
+      }
+      button {
+        margin-top: auto;
+        padding: 8px 12px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--accent);
+        color: var(--bg);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button[disabled] {
+        opacity: 0.55;
+        cursor: default;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Themes</h1>
+        <a href="/">Back to RomM</a>
+      </header>
+      <div class="grid" id="themes"></div>
+    </main>
+    <script>
+      (function () {
+        var client = null;
+        function current() {
+          var stored = null;
+          try {
+            stored = localStorage.getItem(client.storage_key);
+          } catch (e) {}
+          return stored || client.follow_server_id;
+        }
+        function use(id) {
+          location.href = "/?" + client.url_param + "=" + encodeURIComponent(id);
+        }
+        function card(theme, active) {
+          var el = document.createElement("article");
+          el.className = "card";
+          el.setAttribute("aria-current", String(active));
+          var sw = document.createElement("div");
+          sw.className = "swatch";
+          (theme.swatch || []).forEach(function (c) {
+            var s = document.createElement("span");
+            s.style.background = c;
+            sw.appendChild(s);
+          });
+          var name = document.createElement("p");
+          name.className = "name";
+          name.textContent = theme.name;
+          var meta = document.createElement("p");
+          meta.className = "meta";
+          meta.textContent = [theme.description, theme.author && "by " + theme.author]
+            .filter(Boolean)
+            .join(" · ");
+          var btn = document.createElement("button");
+          btn.type = "button";
+          btn.textContent = active ? "In use" : "Use this theme";
+          btn.disabled = active || !!theme.unavailable;
+          btn.addEventListener("click", function () {
+            use(theme.id);
+          });
+          el.append(sw, name, meta, btn);
+          return el;
+        }
+        fetch("/themes/index.json", { cache: "no-cache" })
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (manifest) {
+            client = manifest.client;
+            var active = current();
+            var grid = document.getElementById("themes");
+            var count = manifest.random ? manifest.random.ids.length : 0;
+            // Each pack's brand color, so the card hints at the whole draw.
+            var random = {
+              id: client.random_id,
+              name: "Random",
+              description: count
+                ? "A different theme on every page load, from " + count + (count === 1 ? " choice" : " choices")
+                : "No themes are available to choose from",
+              swatch: manifest.themes
+                .filter(function (t) {
+                  return manifest.random.ids.indexOf(t.id) >= 0;
+                })
+                .map(function (t) {
+                  return t.swatch[1];
+                }),
+              unavailable: !count,
+            };
+            var server =
+              manifest.default === client.random_id
+                ? random
+                : manifest.themes.filter(function (t) {
+                    return t.id === manifest.default;
+                  })[0];
+            var serverChoice = {
+              id: client.follow_server_id,
+              name: "Server's theme",
+              description: "Follow the theme the admin picked" + (server ? " (currently " + server.name + ")" : " (currently RomM default)"),
+              swatch: server ? server.swatch : client.stock_swatch,
+            };
+            var stock = {
+              id: client.stock_id,
+              name: "RomM default",
+              description: "The stock RomM look, no theme applied",
+              swatch: client.stock_swatch,
+            };
+            [serverChoice, random, stock].concat(manifest.themes).forEach(function (t) {
+              grid.appendChild(card(t, t.id === active));
+            });
+          });
+      })();
+    </script>
+  </body>
+</html>

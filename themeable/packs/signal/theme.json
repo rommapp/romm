@@ -1,0 +1,158 @@
+{
+  "$schema": "../../schema/theme.schema.json",
+  "id": "signal",
+  "name": "Signal",
+  "version": "1.0.0",
+  "author": "romm-themeable",
+  "description": "Blue and orange states that never rely on red against green, AAA text and no motion",
+  "tags": [
+    "accessibility"
+  ],
+  "tokens": {
+    "common": {
+      "--r-color-overlay-fg": "#ffffff",
+      "--r-color-overlay-fg-secondary": "#ebebeb",
+      "--r-color-overlay-fg-muted": "#cccccc",
+      "--r-color-overlay-border": "rgba(255, 255, 255, 0.45)",
+      "--r-color-overlay-border-strong": "#ffffff",
+      "--r-color-canvas-bg-deep": "#000000",
+      "--r-focus-ring-width": "3px",
+      "--r-focus-ring-offset": "3px"
+    },
+    "dark": {
+      "--r-color-bg": "#0d1117",
+      "--r-color-fg": "#f2f2f2",
+      "--r-color-fg-heading": "#ffffff",
+      "--r-color-fg-secondary": "#dcdfe4",
+      "--r-color-fg-muted": "#bfc4cc",
+      "--r-color-fg-faint": "#a3a9b3",
+      "--r-color-border": "#5e6673",
+      "--r-color-border-strong": "#9aa1ad",
+      "--r-color-panel-border": "#5e6673",
+      "--r-color-tooltip-border": "#9aa1ad",
+      "--r-color-focus": "#f0e442",
+      "--r-color-brand-primary": "#0072b2",
+      "--r-color-brand-primary-hover": "#00669f",
+      "--r-color-brand-primary-pressed": "#005a8c",
+      "--r-color-brand-secondary": "#56b4e9",
+      "--r-color-brand-accent": "#f0e442",
+      "--r-color-success": "#56b4e9",
+      "--r-color-danger": "#e69f00",
+      "--r-color-danger-fg": "#f2b84b",
+      "--r-color-warning": "#f0e442",
+      "--r-color-warning-fg": "#f0e442",
+      "--r-color-info": "#e39bc4",
+      "--r-color-bg-elevated": "#151b24",
+      "--r-color-surface": "#1b222c",
+      "--r-color-surface-hover": "#29313d",
+      "--r-color-panel": "#121821",
+      "--r-color-tooltip-bg": "#0d1117",
+      "--r-color-toast-bg": "#0d1117",
+      "--r-color-fg-faint-hard": "#333333",
+      "--r-color-cover-placeholder": "#1c1c1c",
+      "--r-color-cover-placeholder-bright": "#2a2a2a",
+      "--r-color-title-shadow": "rgba(0, 0, 0, 0.8)",
+      "--r-color-switch-knob-on": "#000000"
+    },
+    "light": {
+      "--r-color-bg": "#ffffff",
+      "--r-color-fg": "#111111",
+      "--r-color-fg-heading": "#000000",
+      "--r-color-fg-secondary": "#1f1f1f",
+      "--r-color-fg-muted": "#333333",
+      "--r-color-fg-faint": "#4a4a4a",
+      "--r-color-border": "#767676",
+      "--r-color-border-strong": "#333333",
+      "--r-color-panel-border": "#767676",
+      "--r-color-tooltip-border": "#333333",
+      "--r-color-focus": "#000000",
+      "--r-color-brand-primary": "#00609a",
+      "--r-color-brand-primary-hover": "#004f80",
+      "--r-color-brand-primary-pressed": "#003d63",
+      "--r-color-brand-secondary": "#004f80",
+      "--r-color-brand-accent": "#7a4c00",
+      "--r-color-success": "#00598c",
+      "--r-color-danger": "#8f3800",
+      "--r-color-danger-fg": "#8f3800",
+      "--r-color-warning": "#5e5300",
+      "--r-color-warning-fg": "#5e5300",
+      "--r-color-info": "#7d3a63",
+      "--r-color-bg-elevated": "rgba(0, 0, 0, 0.03)",
+      "--r-color-surface": "rgba(0, 0, 0, 0.05)",
+      "--r-color-surface-hover": "rgba(0, 0, 0, 0.12)",
+      "--r-color-panel": "#ffffff",
+      "--r-color-tooltip-bg": "#ffffff",
+      "--r-color-toast-bg": "#ffffff",
+      "--r-color-fg-faint-hard": "#cccccc",
+      "--r-color-cover-placeholder": "#e6e6e6",
+      "--r-color-cover-placeholder-bright": "#f2f2f2",
+      "--r-color-title-shadow": "transparent",
+      "--r-color-switch-knob-on": "#ffffff"
+    },
+    "input-key": {
+      "--r-focus-ring-width": "3.5px"
+    },
+    "input-pad": {
+      "--r-focus-ring-width": "4.5px"
+    }
+  },
+  "vuetify": {
+    "dark": {
+      "primary": "#0072b2",
+      "secondary": "#56b4e9",
+      "background": "#0d1117",
+      "surface": "#161c25",
+      "error": "#e69f00",
+      "success": "#56b4e9",
+      "warning": "#f0e442",
+      "info": "#e39bc4"
+    },
+    "light": {
+      "primary": "#00609a",
+      "secondary": "#004f80",
+      "background": "#ffffff",
+      "surface": "#ffffff",
+      "error": "#8f3800",
+      "success": "#00598c",
+      "warning": "#5e5300",
+      "info": "#7d3a63"
+    }
+  },
+  "assets": {
+    "/assets/isotipo.svg": "assets/isotipo.svg",
+    "/assets/logotipo.svg": "assets/logotipo.svg",
+    "/assets/logos/romm_logo_xbox_one_circle_grayscale.svg": "assets/isotipo.svg",
+    "/assets/auth_background.svg": "assets/auth_background.svg",
+    "/assets/auth_background_static.svg": "assets/auth_background.svg"
+  },
+  "rootFiles": {
+    "/favicon.ico": "root/favicon.ico",
+    "/favicon.svg": "root/favicon.svg",
+    "/favicon-16x16.png": "root/favicon-16x16.png",
+    "/favicon-32x32.png": "root/favicon-32x32.png",
+    "/apple-touch-icon.png": "root/apple-touch-icon.png",
+    "/android-chrome-192x192.png": "root/android-chrome-192x192.png",
+    "/android-chrome-512x512.png": "root/android-chrome-512x512.png"
+  },
+  "covers": {
+    "colors": {
+      "base": "#0d1117",
+      "shade": "#161c25",
+      "warm": "#0072b2",
+      "icon": "#f2f2f2"
+    },
+    "missing": [
+      "covers/missing-1.svg",
+      "covers/missing-2.svg",
+      "covers/missing-3.svg"
+    ],
+    "unmatched": [
+      "covers/unmatched-1.svg",
+      "covers/unmatched-2.svg",
+      "covers/unmatched-3.svg"
+    ]
+  },
+  "pwa": {
+    "themeColor": "#0d1117"
+  }
+}

@@ -1,0 +1,10 @@
+# Build context is the repository root; only the frontend source and the module are used.
+**
+!frontend/
+!themeable/
+frontend/node_modules/
+frontend/dist/
+frontend/e2e/
+frontend/assets/romm/
+themeable/dist/
+themeable/node_modules/
