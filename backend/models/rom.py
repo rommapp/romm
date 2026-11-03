@@ -798,10 +798,10 @@ _STEAM_ICON_FILENAME = re.compile(r"[\w-]+\.(?:jpe?g|png|gif)", re.IGNORECASE)
 
 
 def steam_achievement_icon_path(
-    platform_id: int, rom_id: int, icon_file: str | None
+    platform_id: int, rom_id: int, icon_file: object
 ) -> str | None:
     """Where a Steam achievement icon is stored, or None for an unusable name."""
-    if not icon_file or not _STEAM_ICON_FILENAME.fullmatch(icon_file):
+    if not isinstance(icon_file, str) or not _STEAM_ICON_FILENAME.fullmatch(icon_file):
         return None
     return (
         f"{rom_fs_resources_path(platform_id, rom_id)}/steam/achievements/{icon_file}"
@@ -1378,10 +1378,14 @@ class Rom(BaseModel):
 
     @cached_property
     def merged_steam_metadata(self) -> dict[str, Any] | None:
-        if not self.steam_metadata or "achievements" not in self.steam_metadata:
+        if not self.steam_metadata:
+            return self.steam_metadata
+        # `raw_steam_metadata` stores any JSON object, so the shape is not given.
+        stored = self.steam_metadata.get("achievements")
+        if not isinstance(stored, list):
             return self.steam_metadata
 
-        def resource_url(icon_file: str | None) -> str | None:
+        def resource_url(icon_file: object) -> str | None:
             path = steam_achievement_icon_path(self.platform_id, self.id, icon_file)
             return f"{FRONTEND_RESOURCES_PATH}/{path}" if path else None
 
@@ -1391,7 +1395,8 @@ class Rom(BaseModel):
                 "icon_path": resource_url(achievement.get("icon_file")),
                 "icon_gray_path": resource_url(achievement.get("icon_gray_file")),
             }
-            for achievement in self.steam_metadata["achievements"]
+            for achievement in stored
+            if isinstance(achievement, Mapping)
         ]
         return {**self.steam_metadata, "achievements": achievements}
 
