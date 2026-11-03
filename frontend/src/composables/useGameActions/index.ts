@@ -20,6 +20,7 @@ import storeFormatConversions from "@/stores/formatConversions";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
+import useSteamLibrary from "@/stores/steamLibrary";
 import { useStreamingStore } from "@/stores/streaming";
 import type { Events } from "@/types/emitter";
 import type { PlayingStatus } from "@/utils";
@@ -76,6 +77,7 @@ export function useGameActions(
     useRomSync();
   const auth = storeAuth();
   const heartbeat = storeHeartbeat();
+  const steamLibrary = useSteamLibrary();
   const canCreateCollection = useCan("collection.create");
   const canEditCollection = useCan("collection.edit");
   // Write/destructive gates, mirroring the backend grants. Surfaces that
@@ -326,7 +328,13 @@ export function useGameActions(
     );
   });
 
-  const canOpenInSteam = computed(() => isSteamAppId(getRom()?.steam_id));
+  // Once a linked account's library has loaded, only games it owns open in
+  // Steam; without one, ownership is unknown and every Steam game qualifies.
+  const canOpenInSteam = computed(() => {
+    const appId = getRom()?.steam_id;
+    if (!isSteamAppId(appId)) return false;
+    return !steamLibrary.isLoaded || steamLibrary.owns(appId);
+  });
 
   // Launching a game the user deliberately shelved asks first. `retired` /
   // `never_playing` encode an opt-in "don't play" intent; the prompt is

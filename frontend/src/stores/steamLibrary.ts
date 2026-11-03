@@ -23,6 +23,10 @@ const useSteamLibrary = defineStore("steamLibrary", () => {
   );
   const count = computed(() => ownedAppIds.value.size);
 
+  function owns(appId: number): boolean {
+    return ownedAppIds.value.has(appId);
+  }
+
   // Only the newest request may write, so a slow earlier reply can't win.
   let latestRequest = 0;
 
@@ -71,7 +75,7 @@ const useSteamLibrary = defineStore("steamLibrary", () => {
     { connect: false },
   );
 
-  return { isLoaded, count, load };
+  return { isLoaded, count, owns, load };
 });
 
 export default useSteamLibrary;
