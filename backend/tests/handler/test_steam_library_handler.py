@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -399,6 +400,30 @@ async def test_creates_the_win_platform_and_its_folder():
     assert db_platform_handler.get_platform_by_slug("win") is not None
 
 
+async def test_concurrent_first_syncs_create_one_win_platform():
+    async def slow_discovery(*_args: object, **_kwargs: object) -> dict[str, Any]:
+        await asyncio.sleep(0.05)
+        return {}
+
+    with (
+        patch(
+            "handler.steam_library_handler.fs_platform_handler.add_platform",
+            new_callable=AsyncMock,
+        ),
+        patch.object(
+            meta_igdb_handler, "get_platform_discovery", side_effect=slow_discovery
+        ),
+    ):
+        first, second = await asyncio.gather(
+            steam_library_platform(), steam_library_platform()
+        )
+
+    assert first.id == second.id
+    assert [p.id for p in db_platform_handler.get_platforms() if p.slug == "win"] == [
+        first.id
+    ]
+
+
 async def test_a_folder_that_cannot_be_created_is_an_error():
     with patch(
         "handler.steam_library_handler.fs_platform_handler.add_platform",
@@ -503,6 +528,22 @@ async def test_a_game_not_played_since_the_last_sync_is_not_read_again(
     await sync_steam_library(_reload(steam_user))
     await _sync_achievements(steam_user)
     assert steam_api.get_player_achievements.await_count == 2
+
+
+async def test_a_copy_matched_after_an_unchanged_sync_is_completed(
+    steam_api: MagicMock, steam_user: User, win: Platform
+):
+    steam_api.get_owned_games.return_value = [HALF_LIFE_2_PLAYED]
+    steam_api.get_player_achievements.return_value = _unlocks(True)
+    await sync_steam_library(steam_user)
+    await _sync_achievements(steam_user)
+    later_copy = make_rom(win, "Half-Life 2 (EU)", steam_id=220)
+
+    await _sync_achievements(steam_user)
+
+    assert steam_api.get_player_achievements.await_count == 1
+    completed = db_rom_handler.get_rom_user(later_copy.id, steam_user.id)
+    assert completed is not None and completed.status == RomUserStatus.COMPLETED_100
 
 
 async def test_a_game_never_played_is_not_read(

@@ -25,7 +25,7 @@ from handler.database import (
 )
 from handler.filesystem import fs_platform_handler
 from handler.metadata.steam_handler import STEAM_PLATFORMS
-from handler.redis_handler import low_prio_queue
+from handler.redis_handler import low_prio_queue, redis_lock
 from handler.scan_handler import build_physical_fs_path, scan_platform
 from logger.logger import log
 from models.platform import Platform
@@ -40,6 +40,8 @@ from utils.platform_slugs import UniversalPlatformSlug as UPS
 # Store-only games sit in a folder no scan lists, like physical games do.
 STEAM_FS_SUBDIR: Final = ".steam"
 STEAM_LIBRARY_PLATFORM: Final = UPS.WIN
+# Long enough for another sync to finish creating the platform, metadata lookup included.
+STEAM_LIBRARY_PLATFORM_LOCK_TIMEOUT_SECONDS: Final = 300
 
 STEAM_ID64_RE: Final = re.compile(r"^7656119\d{10}$")
 STEAM_VANITY_RE: Final = re.compile(r"^[A-Za-z0-9_-]{2,32}$")
@@ -206,16 +208,32 @@ async def steam_library_platform() -> Platform:
         return platform
 
     fs_slug = STEAM_LIBRARY_PLATFORM.value
+    # Platform slugs aren't unique, so two first syncs would each add one.
     try:
-        await fs_platform_handler.add_platform(fs_slug=fs_slug)
-    except PlatformAlreadyExistsException:
-        pass
-    except OSError as exc:
-        raise SteamLibraryError(
-            f"Could not create the {fs_slug!r} platform folder for Steam games"
-        ) from exc
+        async with redis_lock(
+            f"steam_library_platform:{fs_slug}",
+            timeout_seconds=STEAM_LIBRARY_PLATFORM_LOCK_TIMEOUT_SECONDS,
+        ):
+            platform = db_platform_handler.get_platform_by_slug(STEAM_LIBRARY_PLATFORM)
+            if platform is not None:
+                return platform
 
-    return db_platform_handler.add_platform(await scan_platform(fs_slug, [fs_slug]))
+            try:
+                await fs_platform_handler.add_platform(fs_slug=fs_slug)
+            except PlatformAlreadyExistsException:
+                pass
+            except OSError as exc:
+                raise SteamLibraryError(
+                    f"Could not create the {fs_slug!r} platform folder for Steam games"
+                ) from exc
+
+            return db_platform_handler.add_platform(
+                await scan_platform(fs_slug, [fs_slug])
+            )
+    except TimeoutError as exc:
+        raise SteamLibraryError(
+            f"Timed out creating the {fs_slug!r} platform for Steam games"
+        ) from exc
 
 
 def _store_only_rom(platform: Platform, game: SteamOwnedGame) -> Rom:
@@ -344,13 +362,7 @@ async def get_steam_progression(
     entries: Sequence[SteamLibraryEntry],
     current: SteamUserProgression | None,
 ) -> SteamUserProgression:
-    """Read the unlocks of the played games in `entries`, up to a budget per sync.
-
-    A game not played since `current` was read keeps its entry without a
-    request. Once the budget is spent, Steam fails several reads in a row, or
-    the player's game details turn out private, the remaining games keep what
-    `current` has and wait for the next sync.
-    """
+    """Read the unlocks of the played games in `entries`, up to a budget per sync."""
     known_results = current.get("results", []) if current else []
     current_by_app_id = {p["rom_steam_id"]: p for p in known_results}
     api = steam_web_api()
@@ -405,11 +417,12 @@ async def sync_steam_achievements(user: User) -> None:
     progression = await get_steam_progression(
         steam_id, db_steam_library_handler.get_entries(user.id), current
     )
-    if progression == current or not db_steam_library_handler.replace_progression(
+    if progression != current and not db_steam_library_handler.replace_progression(
         user.id, steam_id, progression
     ):
         return
 
+    # Applied on every run, so a copy matched since the last unlock is completed too.
     completed = [
         game["rom_steam_id"]
         for game in progression["results"]
