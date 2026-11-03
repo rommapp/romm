@@ -573,3 +573,33 @@ class TestMergedSteamMetadata:
         rom = Rom(id=9, platform_id=2, steam_metadata=stored)
 
         assert rom.merged_steam_metadata is stored
+
+    @pytest.mark.parametrize("achievements", [None, 123, "a", {"a": 1}])
+    def test_achievements_of_the_wrong_type_are_served_as_stored(
+        self, achievements: Any
+    ):
+        stored = {"genres": ["Puzzle"], "achievements": achievements}
+        rom = Rom(id=9, platform_id=2, steam_metadata=stored)
+
+        assert rom.merged_steam_metadata is stored
+
+    def test_entries_that_are_not_objects_are_dropped(self):
+        stored = {"achievements": [123, None, "a", {"api_name": "WIN"}]}
+        rom = Rom(id=9, platform_id=2, steam_metadata=stored)
+
+        merged = rom.merged_steam_metadata
+
+        assert merged is not None
+        assert merged["achievements"] == [
+            {"api_name": "WIN", "icon_path": None, "icon_gray_path": None}
+        ]
+
+    @pytest.mark.parametrize("icon_file", [123, ["a.jpg"], {"name": "a.jpg"}, True])
+    def test_icon_names_that_are_not_strings_yield_no_path(self, icon_file: Any):
+        stored = {"achievements": [{"api_name": "WIN", "icon_file": icon_file}]}
+        rom = Rom(id=9, platform_id=2, steam_metadata=stored)
+
+        merged = rom.merged_steam_metadata
+
+        assert merged is not None
+        assert merged["achievements"][0]["icon_path"] is None
