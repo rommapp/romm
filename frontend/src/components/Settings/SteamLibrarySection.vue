@@ -58,7 +58,7 @@ async function link() {
 
 async function sync() {
   const user = auth.user;
-  if (!user) return;
+  if (!user || syncing.value) return;
   syncing.value = true;
   try {
     await userApi.syncSteamLibrary({ id: user.id });

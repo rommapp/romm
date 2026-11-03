@@ -29,6 +29,7 @@ from sqlalchemy import (
     false,
     func,
     inspect,
+    not_,
     or_,
     select,
 )
@@ -1476,6 +1477,11 @@ Rom.is_easyrpg_game = column_property(
 def rom_without_file() -> ColumnElement[bool]:
     """Matches rows that never had a file: physical games and store-only ones."""
     return or_(Rom.is_physical.is_(True), Rom.storefront.is_not(None))
+
+
+def rom_has_file_on_disk() -> ColumnElement[bool]:
+    """Matches rows a readable file backs, as `Rom.has_file_on_disk` does in Python."""
+    return and_(not_(rom_without_file()), Rom.missing_from_fs.is_(False))
 
 
 def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:

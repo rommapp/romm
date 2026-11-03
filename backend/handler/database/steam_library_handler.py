@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from decorators.database import INJECTED_SESSION, begin_session
 from logger.logger import log
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import Rom, rom_has_file_on_disk
 from models.steam_library import SteamLibraryEntry
 from models.user import User
 from utils.database import is_non_blank
@@ -62,7 +62,7 @@ class DBSteamLibraryHandler(DBBaseHandler):
                 select(Rom.steam_id, Rom.id)
                 .join(Platform, Platform.id == Rom.platform_id)
                 .where(Platform.slug.in_(platform_slugs), Rom.steam_id.in_(chunk))
-                .order_by(Rom.storefront.is_not(None), Rom.id)
+                .order_by(rom_has_file_on_disk().desc(), Rom.id)
             ).all()
             for app_id, rom_id in rows:
                 # The IN filter already excludes a NULL steam_id.
