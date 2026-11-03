@@ -89,6 +89,7 @@ EXPECTED_COLUMNS: dict[MetadataSource, tuple[str, str | None]] = {
     MetadataSource.POUET: ("pouet_id", "pouet_metadata"),
     MetadataSource.CSDB: ("csdb_id", "csdb_metadata"),
     MetadataSource.STEAM: ("steam_id", "steam_metadata"),
+    MetadataSource.RAWG: ("rawg_id", "rawg_metadata"),
     MetadataSource.GAMELIST: ("gamelist_id", "gamelist_metadata"),
     MetadataSource.LIBRETRO: ("libretro_id", None),
 }

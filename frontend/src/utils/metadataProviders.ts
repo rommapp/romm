@@ -21,6 +21,7 @@ export type ProviderIdKey =
   | "pouet_id"
   | "csdb_id"
   | "steam_id"
+  | "rawg_id"
   | "gamelist_id"
   | "libretro_id";
 
@@ -102,6 +103,7 @@ export const METADATA_PROVIDERS: readonly MetadataProvider[] = [
     logo: "csdb.png",
   },
   { key: "steam_id", name: "Steam", title: "Steam match", logo: "steam.png" },
+  { key: "rawg_id", name: "RAWG", title: "RAWG match", logo: "rawg.png" },
   { key: "gamelist_id", name: "ES-DE", title: "ES-DE match", logo: "esde.png" },
   {
     key: "libretro_id",

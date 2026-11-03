@@ -19,6 +19,7 @@ from handler.metadata import (
     meta_playmatch_handler,
     meta_pouet_handler,
     meta_ra_handler,
+    meta_rawg_handler,
     meta_sgdb_handler,
     meta_ss_handler,
     meta_steam_handler,
@@ -31,6 +32,7 @@ from handler.metadata.launchbox_handler.platforms import LAUNCHBOX_PLATFORM_LIST
 from handler.metadata.libretro_handler import LIBRETRO_PLATFORM_LIST
 from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST
 from handler.metadata.ra_handler import RA_PLATFORM_LIST
+from handler.metadata.rawg_handler import SLUG_TO_RAWG_SLUG
 from handler.metadata.ss_handler import SCREENSAVER_PLATFORM_LIST
 from handler.metadata.steam_handler import STEAM_PLATFORMS
 from models.platform import Platform
@@ -65,6 +67,7 @@ class MetadataSource(enum.StrEnum):
     POUET = "pouet"  # Pouët
     CSDB = "csdb"  # CSDb (C64)
     STEAM = "steam"  # Steam storefront
+    RAWG = "rawg"  # RAWG.io
     GAMELIST = "gamelist"  # ES-DE gamelist.xml
     LIBRETRO = "libretro"  # Libretro thumbnails
     PLAYMATCH = "playmatch"  # Playmatch
@@ -183,6 +186,11 @@ RESCAN_RULES: Final[Mapping[MetadataSource, RescanRule]] = {
         "steam_metadata",
         platform_supported=lambda p: p.slug in STEAM_PLATFORMS,
     ),
+    MetadataSource.RAWG: RescanRule(
+        "rawg_id",
+        "rawg_metadata",
+        platform_supported=lambda p: p.slug in SLUG_TO_RAWG_SLUG,
+    ),
     MetadataSource.GAMELIST: RescanRule("gamelist_id", "gamelist_metadata"),
     MetadataSource.LIBRETRO: RescanRule(
         "libretro_id",
@@ -299,6 +307,7 @@ def get_enabled_metadata_sources() -> list[str]:
         MetadataSource.POUET: meta_pouet_handler,
         MetadataSource.CSDB: meta_csdb_handler,
         MetadataSource.STEAM: meta_steam_handler,
+        MetadataSource.RAWG: meta_rawg_handler,
         MetadataSource.TGDB: meta_tgdb_handler,
         MetadataSource.LIBRETRO: meta_libretro_handler,
     }
