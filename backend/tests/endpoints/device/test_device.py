@@ -3,11 +3,13 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import status
+from tests.audit_events import recorded_events
 from tests.factories import make_device_token, make_save
 
 from endpoints import device as device_endpoints
-from handler.database import db_device_handler
+from handler.database import db_client_token_handler, db_device_handler
 from handler.device_install import device_install_handler
+from models.audit_event import AuditAction
 from models.device import Device
 from models.user import User
 
@@ -738,3 +740,124 @@ class TestSyncConfigMasking:
         config = response.json()["sync_config"]
         assert config["ssh_host"] == "10.0.0.1"
         assert config["ssh_port"] == 2222
+
+
+class TestDeviceTokenBinding:
+    @pytest.fixture
+    def devices(self, admin_user: User) -> tuple[Device, Device]:
+        own = db_device_handler.add_device(
+            Device(id="bound-dev", user_id=admin_user.id, name="Handheld")
+        )
+        other = db_device_handler.add_device(
+            Device(id="other-dev", user_id=admin_user.id, name="TV box")
+        )
+        return own, other
+
+    @pytest.fixture
+    def bound_headers(
+        self, admin_user: User, devices: tuple[Device, Device]
+    ) -> dict[str, str]:
+        _, raw_token = make_device_token(admin_user, devices[0].id)
+        return {"Authorization": f"Bearer {raw_token}"}
+
+    def test_lists_only_its_own_device(self, client, bound_headers):
+        response = client.get("/api/devices", headers=bound_headers)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [d["id"] for d in response.json()] == ["bound-dev"]
+
+    def test_reads_and_updates_its_own_device(self, client, bound_headers):
+        response = client.get("/api/devices/bound-dev", headers=bound_headers)
+        assert response.status_code == status.HTTP_200_OK
+
+        response = client.put(
+            "/api/devices/bound-dev", json={"name": "Renamed"}, headers=bound_headers
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+    @pytest.mark.parametrize(
+        "method, body",
+        [
+            ("get", None),
+            ("put", {"sync_config": {"ssh_host": "10.0.0.1"}}),
+            ("delete", None),
+        ],
+    )
+    def test_another_device_is_not_found(
+        self, client, bound_headers, method: str, body
+    ):
+        kwargs = {"json": body} if body else {}
+        response = client.request(
+            method, "/api/devices/other-dev", headers=bound_headers, **kwargs
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        other = db_device_handler.get_device_by_id("other-dev")
+        assert other is not None
+        assert other.sync_config is None
+
+    def test_an_unbound_session_still_reaches_every_device(
+        self, client, access_token: str, devices
+    ):
+        response = client.get(
+            "/api/devices", headers={"Authorization": f"Bearer {access_token}"}
+        )
+
+        assert {d["id"] for d in response.json()} >= {"bound-dev", "other-dev"}
+
+    def test_registering_another_devices_fingerprint_leaves_it_alone(
+        self, client, bound_headers, devices
+    ):
+        other = devices[1]
+        db_device_handler.update_device(
+            device_id=other.id,
+            user_id=other.user_id,
+            data={"mac_address": "AA:BB:CC:DD:EE:FF"},
+        )
+
+        response = client.post(
+            "/api/devices",
+            json={
+                "mac_address": "AA:BB:CC:DD:EE:FF",
+                "capabilities": {"remote_install": True},
+            },
+            headers=bound_headers,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.json()["device_id"] != other.id
+        stored = db_device_handler.get_device_by_id(other.id)
+        assert stored is not None
+        assert stored.capabilities is None
+
+    def test_deleting_a_device_revokes_its_tokens(
+        self, client, access_token: str, admin_user: User, devices
+    ):
+        token, raw_token = make_device_token(admin_user, devices[0].id)
+
+        response = client.delete(
+            "/api/devices/bound-dev",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert db_client_token_handler.get_token(token.id) is None
+        response = client.get(
+            "/api/devices", headers={"Authorization": f"Bearer {raw_token}"}
+        )
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        revokes = [
+            event
+            for event in recorded_events()
+            if event.action == AuditAction.CLIENT_TOKEN_REVOKE
+        ]
+        assert [event.target_id for event in revokes] == [str(token.id)]
+
+    def test_the_database_deletes_a_devices_tokens_with_it(
+        self, admin_user: User, devices
+    ):
+        token, _ = make_device_token(admin_user, devices[0].id)
+
+        db_device_handler.delete_device(device_id="bound-dev", user_id=admin_user.id)
+
+        assert db_client_token_handler.get_token(token.id) is None

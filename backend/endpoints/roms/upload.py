@@ -42,6 +42,7 @@ from handler.rom_upload import (
 )
 from logger.logger import log
 from models.audit_event import AuditAction
+from models.platform import Platform
 from models.rom import Rom, RomFile
 from utils.router import APIRouter
 
@@ -122,6 +123,18 @@ def _sanitized_filename(filename: str) -> str:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
+
+
+def _get_upload_platform(request: Request, platform_id: int) -> Platform:
+    platform = db_platform_handler.get_platform(platform_id)
+    # A hidden platform answers like a missing one, so a restricted caller can
+    # neither write into its folder nor tell the two apart.
+    if not platform or not get_permissions(request).can_see_platform(platform_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Platform not found",
+        )
+    return platform
 
 
 def _get_upload_rom(request: Request, rom_id: int, platform_id: int) -> Rom:
@@ -242,8 +255,10 @@ async def _resolve_destination(
     filename = session["filename"]
     rom_id = session.get("rom_id")
     if rom_id is None:
+        # Visibility can be revoked while the session is open.
+        platform = _get_upload_platform(request, session["platform_id"])
         try:
-            roms_path = fs_rom_handler.get_roms_upload_path(session["platform_fs_slug"])
+            roms_path = fs_rom_handler.get_roms_upload_path(platform.fs_slug)
             location = fs_rom_handler.validate_path(f"{roms_path}/{filename}")
         except ValueError as exc:
             raise HTTPException(
@@ -316,16 +331,7 @@ async def start_chunked_upload(
             detail="Chunk count does not match the file size",
         )
 
-    db_platform = db_platform_handler.get_platform(platform_id)
-    # A hidden platform answers like a missing one, so a restricted caller can
-    # neither write into its folder nor tell the two apart.
-    if not db_platform or not get_permissions(request).can_see_platform(platform_id):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Platform not found",
-        )
-
-    platform_fs_slug = db_platform.fs_slug
+    db_platform = _get_upload_platform(request, platform_id)
     if target and target.filename is not None:
         filename = target.filename
     safe_filename = _sanitized_filename(filename)
@@ -335,7 +341,7 @@ async def start_chunked_upload(
 
     if rom_id is None:
         try:
-            roms_path = fs_rom_handler.get_roms_upload_path(platform_fs_slug)
+            roms_path = fs_rom_handler.get_roms_upload_path(db_platform.fs_slug)
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
@@ -370,7 +376,6 @@ async def start_chunked_upload(
     session = {
         "upload_id": upload_id,
         "platform_id": platform_id,
-        "platform_fs_slug": platform_fs_slug,
         "filename": safe_filename,
         "total_chunks": total_chunks,
         "total_size": total_size,

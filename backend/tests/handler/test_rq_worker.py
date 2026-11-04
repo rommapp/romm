@@ -10,9 +10,13 @@ from unittest.mock import MagicMock, call
 import pytest
 import rq.scheduler
 from fakeredis import FakeRedis
+from rq import Queue, Worker
 from rq.exceptions import AbandonedJobError
+from rq.worker import WorkerStatus
+from rq.worker_registration import clean_worker_registry
 from sqlalchemy import create_engine, event
 
+from handler.redis_handler import has_live_worker
 from handler.rq_worker import (
     _DATABASE_MODULE,
     PreloadingWorker,
@@ -213,3 +217,62 @@ class TestPreloadingWorker:
         PreloadingWorker(["scans"], connection=FakeRedis(version=7))
 
         get_task.assert_not_called()
+
+
+class TestRegistrationRecovery:
+    @pytest.fixture
+    def worker(self) -> RomMWorker:
+        worker = RomMWorker(["scans"], connection=FakeRedis(version=7))
+        worker.register_birth()
+        worker.set_state(WorkerStatus.IDLE)
+        return worker
+
+    def scan_worker_listening(self, worker: RomMWorker) -> bool:
+        """Asks the way the scan endpoint does."""
+        workers = Worker.all(connection=worker.connection)
+        return has_live_worker(Queue("scans", connection=worker.connection), workers)
+
+    @pytest.mark.parametrize("swept", [True, False])
+    def test_registers_again_after_its_key_expired(
+        self, worker: RomMWorker, swept: bool
+    ) -> None:
+        birth = worker.connection.hget(worker.key, "birth")
+        worker.connection.delete(worker.key)
+        if swept:
+            clean_worker_registry(Queue("scans", connection=worker.connection))
+        else:
+            # The base heartbeat recreates the key with only last_heartbeat.
+            Worker.heartbeat(worker)
+        assert not self.scan_worker_listening(worker)
+
+        worker.heartbeat()
+
+        assert self.scan_worker_listening(worker)
+        assert worker.connection.hget(worker.key, "birth") == birth
+        assert worker.connection.hget(worker.key, "state") == b"idle"
+        assert worker.connection.ttl(worker.key) > 0
+
+    def test_a_registered_worker_is_left_alone(
+        self, worker: RomMWorker, mocker
+    ) -> None:
+        register_again = mocker.patch.object(worker, "_register_again")
+
+        worker.heartbeat()
+
+        register_again.assert_not_called()
+
+    def test_a_pipelined_heartbeat_does_not_register(self, worker: RomMWorker) -> None:
+        worker.connection.delete(worker.key)
+
+        with worker.connection.pipeline() as pipeline:
+            worker.heartbeat(pipeline=pipeline)
+            pipeline.execute()
+
+        assert not worker.connection.hexists(worker.key, "queues")
+
+    def test_a_worker_not_yet_born_does_not_register(self) -> None:
+        worker = RomMWorker(["scans"], connection=FakeRedis(version=7))
+
+        worker.heartbeat()
+
+        assert not worker.connection.hexists(worker.key, "queues")

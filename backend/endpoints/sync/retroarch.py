@@ -127,8 +127,12 @@ def _rom_visibility(request: Request) -> Callable[[Rom], bool]:
 
 async def _resolve_rom(request: Request, kind: AssetKind, file_name: str) -> Rom | None:
     game_name = sync_handler.game_name_from_file_name(kind, file_name)
+    # States are advertised under the ROM's own name, so only saves may name a file.
     return await asyncio.to_thread(
-        sync_handler.resolve_rom, game_name, _rom_visibility(request)
+        sync_handler.resolve_rom,
+        game_name,
+        _rom_visibility(request),
+        by_file_name=kind == "saves",
     )
 
 

@@ -40,9 +40,14 @@ from logger.logger import log
 from models.assets import Save
 from models.deleted_asset import DeletedAsset
 from models.device import SyncMode
-from models.sync_session import SyncSessionStatus
+from models.sync_session import SyncSession, SyncSessionStatus
 from tasks.registry import SYNC_PUSH_PULL_SPEC
-from utils.auth import token_device_id
+from utils.auth import (
+    require_device,
+    require_token_device,
+    token_device_id,
+    token_reaches_device,
+)
 from utils.datetime import to_utc
 from utils.router import APIRouter
 from utils.validation import MAX_ROM_IDS_PER_QUERY, RomIdScope
@@ -166,6 +171,19 @@ async def _notify_conflicts(
         )
 
 
+def _require_sync_session(request: Request, session_id: int) -> SyncSession:
+    """The caller's sync session, a 404 when a bound token's other device ran it."""
+    sync_session = db_sync_session_handler.get_session(
+        session_id=session_id, user_id=request.user.id
+    )
+    if not sync_session or not token_reaches_device(request, sync_session.device_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Sync session with ID {session_id} not found",
+        )
+    return sync_session
+
+
 @protected_route(router.post, "/negotiate", [Scope.ASSETS_READ, Scope.DEVICES_READ])
 def negotiate_sync(
     request: Request,
@@ -201,12 +219,7 @@ def negotiate_sync(
             ),
         )
 
-    device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
-    if not device:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device with ID {device_id} not found",
-        )
+    device = require_device(request, device_id)
 
     if not device.sync_enabled:
         raise HTTPException(
@@ -448,14 +461,7 @@ def complete_sync_session(
     payload: SyncCompletePayload,
 ) -> SyncCompleteResponse:
     """Mark a sync session as completed, optionally ingesting play sessions."""
-    sync_session = db_sync_session_handler.get_session(
-        session_id=session_id, user_id=request.user.id
-    )
-    if not sync_session:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Sync session with ID {session_id} not found",
-        )
+    sync_session = _require_sync_session(request, session_id)
 
     # A session the cleanup expired can still be completed: its counts and the
     # play sessions the client carries are worth more than the guess that
@@ -521,6 +527,8 @@ def get_sync_sessions(
     device_id: str | None = None,
 ) -> list[SyncSessionSchema]:
     """List sync sessions for the current user."""
+    if device_id is not None:
+        require_token_device(request, device_id)
     sessions = db_sync_session_handler.get_sessions(
         user_id=request.user.id,
         device_id=device_id,
@@ -536,16 +544,7 @@ def get_sync_session(
     session_id: int,
 ) -> SyncSessionSchema:
     """Get a specific sync session."""
-    sync_session = db_sync_session_handler.get_session(
-        session_id=session_id, user_id=request.user.id
-    )
-    if not sync_session:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Sync session with ID {session_id} not found",
-        )
-
-    return SyncSessionSchema.model_validate(sync_session)
+    return SyncSessionSchema.model_validate(_require_sync_session(request, session_id))
 
 
 # --- Push-Pull Mode Endpoints ---
@@ -557,12 +556,7 @@ def trigger_push_pull(
     device_id: str,
 ) -> SyncSessionSchema:
     """Manually trigger a push-pull sync for a specific device."""
-    device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
-    if not device:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device with ID {device_id} not found",
-        )
+    device = require_device(request, device_id)
 
     if device.sync_mode != SyncMode.PUSH_PULL:
         raise HTTPException(

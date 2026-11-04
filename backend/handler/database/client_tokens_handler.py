@@ -54,13 +54,13 @@ class DBClientTokensHandler(DBBaseHandler):
         ).all()
 
     @begin_session
-    def get_token_ids_by_device(
+    def get_tokens_by_device(
         self,
         device_id: str,
         session: Session = None,  # type: ignore[assignment]
-    ) -> Sequence[int]:
+    ) -> Sequence[ClientToken]:
         return session.scalars(
-            select(ClientToken.id).where(ClientToken.device_id == device_id)
+            select(ClientToken).where(ClientToken.device_id == device_id)
         ).all()
 
     @begin_session

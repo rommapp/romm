@@ -304,6 +304,17 @@ class TestOnline:
 
         assert response.json() == ["dev-1"]
 
+    def test_a_bound_token_sees_only_its_own_device(
+        self, client, device_headers, device: Device, other_device: Device
+    ):
+        sync_cache.sadd(f"device_presence:{device.id}", "sid-1")
+        sync_cache.sadd(f"device_presence:{other_device.id}", "sid-2")
+
+        response = client.get("/api/devices/online", headers=device_headers)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == [device.id]
+
     def test_is_not_found_while_disabled(self, mocker, client, headers):
         mocker.patch.object(device_install, "DEVICE_INSTALL_ENABLED", False)
 

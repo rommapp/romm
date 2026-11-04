@@ -78,11 +78,14 @@ def _sync_rom_user_statuses(user: User, user_progression: RAUserProgression) -> 
 
 async def sync_user_progress(user: User) -> None:
     """Fetch a user's RetroAchievements progression incrementally and store it."""
+    ra_username = cast(str, user.ra_username)
     user_progression = await meta_ra_handler.get_user_progression(
-        cast(str, user.ra_username),
+        ra_username,
         current_progression=cast(RAUserProgression | None, user.ra_progression),
     )
-    db_user_handler.update_user(user.id, {"ra_progression": user_progression})
+    if not db_user_handler.set_ra_progression(user.id, ra_username, user_progression):
+        log.debug(f"Dropped stale RetroAchievements progress for user: {user.username}")
+        return
     log.debug(f"Updated RetroAchievements progress for user: {user.username}")
     # A failed status write (e.g. a ROM deleted mid-sync) keeps the progression.
     try:

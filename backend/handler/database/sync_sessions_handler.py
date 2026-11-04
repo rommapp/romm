@@ -91,15 +91,19 @@ class DBSyncSessionsHandler(DBBaseHandler):
         self,
         session_id: int,
         user_id: int,
+        device_id: str | None = None,
         session: Session = INJECTED_SESSION,
     ) -> None:
+        """Count one operation, only on ``device_id``'s session when it is given."""
+        query = update(SyncSession).where(
+            SyncSession.id == session_id, SyncSession.user_id == user_id
+        )
+        if device_id is not None:
+            query = query.where(SyncSession.device_id == device_id)
         session.execute(
-            update(SyncSession)
-            .where(SyncSession.id == session_id, SyncSession.user_id == user_id)
-            .values(
+            query.values(
                 operations_completed=SyncSession.operations_completed + 1,
-            )
-            .execution_options(synchronize_session="evaluate")
+            ).execution_options(synchronize_session="evaluate")
         )
 
     @begin_session

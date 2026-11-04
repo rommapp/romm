@@ -7,6 +7,7 @@ from exceptions.database_exceptions import LastAdminError
 from handler.auth.base_handler import auth_handler, oauth_handler
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.database import db_permission_handler, db_user_handler
+from handler.metadata import meta_ra_handler
 from models.permission import PermAction, PermEntity
 from models.user import Role, User
 
@@ -92,6 +93,19 @@ def test_admin_can_demote_another_admin(client, access_token: str, admin_user: U
     assert response.json()["role"] == Role.USER
 
 
+def test_a_role_only_edit_keeps_the_account_enabled(
+    client, access_token: str, viewer_user: User
+):
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"role": "admin"},
+        headers=_bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["enabled"] is True
+
+
 def test_rename_is_lowercased(client, access_token: str, viewer_user: User):
     response = client.put(
         f"/api/users/{viewer_user.id}",
@@ -156,6 +170,65 @@ def test_update_with_an_empty_email_clears_it(
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["email"] is None
+
+
+def test_an_empty_ra_username_unlinks_the_profile(
+    client, access_token: str, viewer_user: User
+):
+    db_user_handler.update_user(
+        viewer_user.id,
+        {"ra_username": "retro_viewer", "ra_progression": {"total": 3}},
+    )
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"ra_username": ""},
+        headers=_bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["ra_username"] is None
+    unlinked = db_user_handler.get_user(viewer_user.id)
+    assert unlinked and unlinked.ra_progression == {}
+
+
+def test_a_refresh_running_while_the_profile_is_unlinked_keeps_it_unlinked(
+    client, access_token: str, viewer_user: User, mocker
+):
+    db_user_handler.update_user(viewer_user.id, {"ra_username": "retro_viewer"})
+
+    async def unlink_during_fetch(*_args, **_kwargs):
+        db_user_handler.update_user(
+            viewer_user.id, {"ra_username": None, "ra_progression": {}}
+        )
+        return {"total": 3, "results": []}
+
+    mocker.patch.object(
+        meta_ra_handler, "get_user_progression", side_effect=unlink_during_fetch
+    )
+
+    response = client.post(
+        f"/api/users/{viewer_user.id}/ra/refresh", headers=_bearer(access_token)
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    unlinked = db_user_handler.get_user(viewer_user.id)
+    assert unlinked and unlinked.ra_progression == {}
+
+
+def test_an_omitted_ra_username_keeps_the_link(
+    client, access_token: str, viewer_user: User
+):
+    db_user_handler.update_user(viewer_user.id, {"ra_username": "retro_viewer"})
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"ui_settings": "{}"},
+        headers=_bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["ra_username"] == "retro_viewer"
 
 
 def test_update_to_a_short_password_is_rejected(
