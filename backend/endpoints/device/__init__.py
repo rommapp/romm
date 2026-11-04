@@ -23,8 +23,10 @@ from handler.device_install import device_install_handler
 from handler.filesystem import get_fs_sync_handler
 from handler.socket_handler import close_client_token_sockets
 from logger.logger import log
+from models.audit_event import AuditAction
 from models.device import Device, SyncMode
 from utils.auth import require_device, token_reaches_device
+from utils.client_tokens import record_token_event
 from utils.router import APIRouter
 
 from .install import router as install_router
@@ -213,8 +215,10 @@ def update_device(
 async def delete_device(request: Request, device_id: str) -> None:
     require_device(request, device_id)
 
-    token_ids = db_client_token_handler.get_token_ids_by_device(device_id)
+    tokens = db_client_token_handler.get_tokens_by_device(device_id)
     db_device_handler.delete_device(device_id=device_id, user_id=request.user.id)
     log.info(f"Deleted device {device_id} for user {request.user.username}")
-    await close_client_token_sockets(token_ids)
+    for token in tokens:
+        record_token_event(request, AuditAction.CLIENT_TOKEN_REVOKE, token)
+    await close_client_token_sockets([token.id for token in tokens])
     await device_install_handler.discard_for_device(device_id)

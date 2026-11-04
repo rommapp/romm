@@ -23,6 +23,7 @@ from handler.database import (
     db_device_save_sync_handler,
     db_save_handler,
     db_screenshot_handler,
+    db_sync_session_handler,
 )
 from handler.database.base_handler import sync_session
 from handler.sync.comparison import compare_save_state
@@ -423,6 +424,38 @@ class TestSaveDeviceTokenBinding:
             )
             is None
         )
+
+    @pytest.mark.parametrize("owner", ["own", "other"])
+    @mock.patch("endpoints.saves.fs_asset_handler.validate_path")
+    def test_counts_only_its_own_devices_session(
+        self,
+        mock_validate_path,
+        client,
+        admin_user: User,
+        bound_headers,
+        save: Save,
+        device: Device,
+        other_device: Device,
+        tmp_path,
+        owner: str,
+    ):
+        test_file = tmp_path / "test.sav"
+        test_file.write_bytes(b"save file content")
+        mock_validate_path.return_value = test_file
+        session_device = device if owner == "own" else other_device
+        sync_session = db_sync_session_handler.create_session(
+            session_device.id, admin_user.id
+        )
+
+        response = client.get(
+            f"/api/saves/{save.id}/content?session_id={sync_session.id}",
+            headers=bound_headers,
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        stored = db_sync_session_handler.get_session(sync_session.id, admin_user.id)
+        assert stored is not None
+        assert stored.operations_completed == (1 if owner == "own" else 0)
 
 
 class TestSaveUploadWithSync:

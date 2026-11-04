@@ -3,11 +3,13 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import status
+from tests.audit_events import recorded_events
 from tests.factories import make_device_token, make_save
 
 from endpoints import device as device_endpoints
 from handler.database import db_client_token_handler, db_device_handler
 from handler.device_install import device_install_handler
+from models.audit_event import AuditAction
 from models.device import Device
 from models.user import User
 
@@ -844,3 +846,18 @@ class TestDeviceTokenBinding:
             "/api/devices", headers={"Authorization": f"Bearer {raw_token}"}
         )
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        revokes = [
+            event
+            for event in recorded_events()
+            if event.action == AuditAction.CLIENT_TOKEN_REVOKE
+        ]
+        assert [event.target_id for event in revokes] == [str(token.id)]
+
+    def test_the_database_deletes_a_devices_tokens_with_it(
+        self, admin_user: User, devices
+    ):
+        token, _ = make_device_token(admin_user, devices[0].id)
+
+        db_device_handler.delete_device(device_id="bound-dev", user_id=admin_user.id)
+
+        assert db_client_token_handler.get_token(token.id) is None

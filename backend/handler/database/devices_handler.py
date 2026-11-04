@@ -6,7 +6,6 @@ from sqlalchemy import delete, or_, select, update
 from sqlalchemy.orm import Session
 
 from decorators.database import INJECTED_SESSION, begin_session
-from models.client_token import ClientToken
 from models.device import Device, SyncMode
 
 from .base_handler import DBBaseHandler
@@ -179,12 +178,6 @@ class DBDevicesHandler(DBBaseHandler):
         user_id: int,
         session: Session = INJECTED_SESSION,
     ) -> None:
-        # The FK only unbinds them, and an unbound token reaches every device.
-        session.execute(
-            delete(ClientToken)
-            .where(ClientToken.device_id == device_id, ClientToken.user_id == user_id)
-            .execution_options(synchronize_session="evaluate")
-        )
         session.execute(
             delete(Device)
             .where(Device.id == device_id, Device.user_id == user_id)

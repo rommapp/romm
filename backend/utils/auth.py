@@ -24,7 +24,7 @@ def token_device_id(conn: HTTPConnection) -> str | None:
     return getattr(conn.state, "device_id", None)
 
 
-def token_reaches_device(conn: HTTPConnection, device_id: str) -> bool:
+def token_reaches_device(conn: HTTPConnection, device_id: str | None) -> bool:
     """Whether the request's client token may act on this device; unbound ones reach all."""
     return token_device_id(conn) in (None, device_id)
 

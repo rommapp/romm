@@ -38,7 +38,7 @@ from models.base import FILE_NAME_MAX_LENGTH
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from utils.assets import normalize_asset_labels
-from utils.auth import require_device
+from utils.auth import require_device, token_device_id
 from utils.datetime import to_utc
 from utils.router import APIRouter
 from utils.uploads import (
@@ -148,11 +148,12 @@ def _record_device_sync(
     db_device_handler.update_last_seen(device_id=device_id, user_id=user_id)
 
 
-def _increment_session_counter(session_id: int, user_id: int) -> None:
+def _increment_session_counter(request: Request, session_id: int) -> None:
     try:
         db_sync_session_handler.increment_operations_completed(
             session_id=session_id,
-            user_id=user_id,
+            user_id=request.user.id,
+            device_id=token_device_id(request),
         )
     except Exception:
         log.warning(f"Failed to update sync session {session_id}", exc_info=True)
@@ -398,7 +399,7 @@ async def add_save(
         _record_device_sync(device.id, db_save, request.user.id, content_hash)
 
     if session_id:
-        _increment_session_counter(session_id, request.user.id)
+        _increment_session_counter(request, session_id)
 
     if slot and keep is not None:
         await prune_save_slot(request.user.id, rom.id, slot, keep, lineage=lineage)
@@ -575,7 +576,7 @@ def download_save(
         _record_device_sync(device.id, save, request.user.id)
 
     if session_id:
-        _increment_session_counter(session_id, request.user.id)
+        _increment_session_counter(request, session_id)
 
     return FileResponse(path=str(file_path), filename=save.file_name)
 
