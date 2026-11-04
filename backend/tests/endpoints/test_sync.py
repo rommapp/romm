@@ -735,6 +735,23 @@ class TestSyncDeviceTokenBinding:
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
+    def test_cannot_read_another_devices_sessions(
+        self, client, bound_headers, admin_user: User, other_device: Device
+    ):
+        sync_session = db_sync_session_handler.create_session(
+            device_id=other_device.id, user_id=admin_user.id
+        )
+
+        by_id = client.get(
+            f"/api/sync/sessions/{sync_session.id}", headers=bound_headers
+        )
+        by_device = client.get(
+            f"/api/sync/sessions?device_id={other_device.id}", headers=bound_headers
+        )
+
+        assert by_id.status_code == status.HTTP_404_NOT_FOUND
+        assert by_device.status_code == status.HTTP_404_NOT_FOUND
+
     def test_cannot_trigger_another_devices_push_pull(
         self, client, bound_headers, other_device: Device
     ):

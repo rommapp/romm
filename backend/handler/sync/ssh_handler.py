@@ -41,14 +41,25 @@ class RemoteSaveInfo:
 
 
 def _is_known_host(host: str, port: int) -> bool:
-    """Whether known_hosts trusts a key, or a CA, for this host and port."""
+    """Whether known_hosts trusts a key, a CA, or a certificate for this host and port."""
     try:
         addr = str(ipaddress.ip_address(host))
     except ValueError:
         addr = ""
     known_hosts = asyncssh.read_known_hosts(SYNC_SSH_KNOWN_HOSTS_PATH)
-    host_keys, ca_keys, *_ = known_hosts.match(host, addr, port)
-    return bool(host_keys or ca_keys)
+    if port and port != asyncssh.constants.DEFAULT_PORT:
+        # match() retries another port without one, which would admit every port.
+        names = dict.fromkeys(name for name in (host, addr) if name)
+        lookups = [(f"[{name}]:{port}", "") for name in names]
+    else:
+        lookups = [(host, addr)]
+    for name, address in lookups:
+        host_keys, ca_keys, _, x509_certs, _, x509_subjects, _ = known_hosts.match(
+            name, address, None
+        )
+        if host_keys or ca_keys or x509_certs or x509_subjects:
+            return True
+    return False
 
 
 class SSHSyncHandler:
@@ -105,8 +116,8 @@ class SSHSyncHandler:
         # allowlist: nothing else is dialled, keeping the network unprobed.
         if not await asyncio.to_thread(_is_known_host, host, port):
             raise ValueError(
-                f"SSH host {host} is not in {SYNC_SSH_KNOWN_HOSTS_PATH}. "
-                "Add its host key there to sync with it."
+                f"SSH host {host} port {port} is not in {SYNC_SSH_KNOWN_HOSTS_PATH}. "
+                "Add its host key there (as [host]:port for a port other than 22)."
             )
 
         connect_kwargs: dict[str, Any] = {

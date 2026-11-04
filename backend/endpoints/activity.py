@@ -7,6 +7,7 @@ from handler.activity_handler import ActivityEntry, activity_handler
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.database import db_device_handler, db_rom_handler
+from utils.auth import require_token_device
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -65,6 +66,7 @@ async def device_heartbeat(
     activity state to Redis and sends an ``activity:update`` event to the
     users who can see the ROM.
     """
+    require_token_device(request, payload.device_id)
     device = db_device_handler.get_device(
         device_id=payload.device_id, user_id=request.user.id
     )
@@ -107,5 +109,6 @@ async def device_heartbeat(
 )
 async def clear_device_activity(request: Request, device_id: str) -> None:
     """Immediately clear an active session for a device (e.g. on graceful exit)."""
+    require_token_device(request, device_id)
     await activity_handler.publish_clear(request.user.id, device_id)
     return None

@@ -153,8 +153,11 @@ async def get_online_devices(request: Request) -> list[str]:
     """Ids of the caller's devices holding an open device socket or that claimed lately."""
     if not DEVICE_INSTALL_ENABLED:
         raise DeviceInstallDisabledException()
+    bound_device_id = token_device_id(request)
     device_ids = [
-        device.id for device in db_device_handler.get_devices(user_id=request.user.id)
+        device.id
+        for device in db_device_handler.get_devices(user_id=request.user.id)
+        if bound_device_id in (None, device.id)
     ]
     return await online_device_ids(device_ids)
 

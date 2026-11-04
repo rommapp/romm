@@ -77,7 +77,8 @@ HOST_KEY = (
 def known_hosts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     path = tmp_path / "known_hosts"
     path.write_text(
-        f"deck.local {HOST_KEY}\n192.168.1.20 {HOST_KEY}\n[odin.local]:2222 {HOST_KEY}\n"
+        f"deck.local {HOST_KEY}\n[deck.local]:2222 {HOST_KEY}\n"
+        f"192.168.1.20 {HOST_KEY}\n[odin.local]:2222 {HOST_KEY}\n"
     )
     monkeypatch.setattr(ssh_handler, "SYNC_SSH_KNOWN_HOSTS_PATH", str(path))
     return path
@@ -242,7 +243,13 @@ class TestConnect:
 
     @pytest.mark.parametrize(
         "host, port",
-        [("127.0.0.1", 22), ("10.0.0.5", 6379), ("odin.local", 22)],
+        [
+            ("127.0.0.1", 22),
+            ("10.0.0.5", 6379),
+            ("odin.local", 22),
+            ("deck.local", 6379),
+            ("192.168.1.20", 2222),
+        ],
     )
     async def test_refuses_a_host_missing_from_known_hosts(
         self, handler: SSHSyncHandler, known_hosts: Path, ssh_connect, host, port

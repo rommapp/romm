@@ -7,6 +7,7 @@ import httpx2
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.factories import make_device_token
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth.base_handler import oauth_handler
@@ -250,6 +251,59 @@ class TestClear:
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
         emit.assert_not_awaited()
+
+
+class TestDeviceTokenBinding:
+    @pytest.fixture
+    def bound_headers(self, admin_user: User) -> dict[str, str]:
+        _device(admin_user, "deck")
+        _device(admin_user, "tv-box")
+        _, raw_token = make_device_token(
+            admin_user, "deck", scopes="roms.user.read roms.user.write"
+        )
+        return {"Authorization": f"Bearer {raw_token}"}
+
+    def test_cannot_heartbeat_as_another_device(
+        self,
+        client: TestClient,
+        admin_user: User,
+        rom: Rom,
+        emit: AsyncMock,
+        bound_headers: dict[str, str],
+    ):
+        response = client.post(
+            "/api/activity/heartbeat",
+            headers=bound_headers,
+            json={"rom_id": rom.id, "device_id": "tv-box"},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        emit.assert_not_awaited()
+        device = db_device_handler.get_device(device_id="tv-box", user_id=admin_user.id)
+        assert device is not None
+        assert device.last_seen is None
+
+    def test_cannot_clear_another_devices_session(
+        self,
+        client: TestClient,
+        admin_user: User,
+        rom: Rom,
+        emit: AsyncMock,
+        bound_headers: dict[str, str],
+    ):
+        _heartbeat(client, admin_user, "tv-box", rom.id)
+        emit.reset_mock()
+
+        response = client.delete(
+            "/api/activity/heartbeat",
+            headers=bound_headers,
+            params={"device_id": "tv-box"},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        emit.assert_not_awaited()
+        listed = client.get("/api/activity", headers=_auth(admin_user)).json()
+        assert [entry["device_id"] for entry in listed] == ["tv-box"]
 
 
 class TestListing:
