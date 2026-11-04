@@ -130,6 +130,17 @@ def _refresh_ownership_collections(user_id: int, app_ids: Sequence[int]) -> None
         log.error(f"Couldn't refresh smart collections for Steam apps {app_ids}: {e}")
 
 
+def _refresh_library_collections(rom_ids: Sequence[int]) -> None:
+    """Follow roms added to the library into every smart collection they match."""
+    if not rom_ids:
+        return
+    try:
+        db_collection_handler.refresh_smart_collections_for_roms(rom_ids)
+    except Exception as e:
+        # The roms are committed, so a stale count is the worst this costs.
+        log.error(f"Couldn't refresh smart collections for new Steam roms: {e}")
+
+
 def _forget_library(user_id: int) -> None:
     _refresh_ownership_collections(
         user_id, db_steam_library_handler.delete_entries(user_id)
@@ -258,7 +269,7 @@ async def sync_steam_library(user: User) -> SteamSyncResult:
         ]
     )
     rom_ids.update(store_only.rom_ids)
-    result.created = store_only.created
+    result.created = len(store_only.created_ids)
 
     entries = [
         SteamLibraryEntry(
@@ -278,6 +289,7 @@ async def sync_steam_library(user: User) -> SteamSyncResult:
         )
     result.removed = len(changes.removed)
     _refresh_ownership_collections(user.id, [*changes.added, *changes.removed])
+    _refresh_library_collections(store_only.created_ids)
     result.unmatched_rom_ids = (
         db_steam_library_handler.get_unmatched_store_only_rom_ids(
             [entry.rom_id for entry in entries]

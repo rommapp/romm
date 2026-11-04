@@ -207,6 +207,29 @@ async def test_prefers_a_rom_with_a_file_over_one_without(
     assert entry.rom_id == with_file.id
 
 
+async def test_imported_games_reach_collections_that_do_not_filter_on_steam(
+    steam_api: MagicMock, steam_user: User, win: Platform
+):
+    """A store-only rom is a library row, so it cannot wait on the metadata scan."""
+    collection = db_collection_handler.add_smart_collection(
+        SmartCollection(
+            name="Windows games",
+            description="",
+            user_id=steam_user.id,
+            filter_criteria={"platform_ids": [win.id]},
+        )
+    )
+    db_collection_handler.refresh_smart_collections()
+    seeded = db_collection_handler.get_smart_collection(collection.id)
+    assert seeded is not None and seeded.rom_count == 0
+    steam_api.get_owned_games.return_value = [_game(220, "Half-Life 2")]
+
+    await sync_steam_library(steam_user)
+
+    after = db_collection_handler.get_smart_collection(collection.id)
+    assert after is not None and after.rom_count == 1
+
+
 async def test_a_second_sync_reuses_the_store_only_rom(
     steam_api: MagicMock, steam_user: User, win: Platform
 ):
