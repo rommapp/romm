@@ -2,9 +2,9 @@
 // SteamLibrarySection: links a RomM account to a Steam account and imports
 // the games it owns. The import runs as a task whose completion arrives as a
 // notification, which also refreshes the owned count shown here.
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import SettingsSection from "@/components/Settings/SettingsSection.vue";
 import { useConfirm } from "@/composables/useConfirm";
 import { useSnackbar } from "@/composables/useSnackbar";
@@ -18,6 +18,7 @@ defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 const route = useRoute();
+const router = useRouter();
 const auth = storeAuth();
 const steamLibrary = useSteamLibrary();
 const snackbar = useSnackbar();
@@ -31,6 +32,23 @@ const isLinked = computed(() => Boolean(auth.user?.steam_id));
 const personaName = computed(
   () => auth.user?.steam_persona_name || auth.user?.steam_id || "",
 );
+
+// The sign-in happens on Steam's site, so its outcome comes back in the query
+// rather than in a reply this component awaited.
+onMounted(() => {
+  const failure = route.query.steam_error;
+  if (typeof failure === "string" && failure) {
+    snackbar.error(t("settings.steam-link-failed", { error: failure }), {
+      icon: "mdi-close-circle",
+    });
+  }
+  if ("steam_error" in route.query || "steam" in route.query) {
+    const query = { ...route.query };
+    delete query.steam_error;
+    delete query.steam;
+    void router.replace({ query });
+  }
+});
 
 // Steam signs the user in on its own site, then returns to `next`, so this
 // hands the browser over rather than awaiting a reply.

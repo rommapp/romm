@@ -23,8 +23,11 @@ vi.mock("@/services/api/user", () => ({
 vi.mock("@/composables/useSnackbar", () => ({ useSnackbar: () => snackbar }));
 vi.mock("@/composables/useConfirm", () => ({ useConfirm: () => confirm }));
 vi.mock("@/composables/useSocketEvent", () => ({ useSocketEvent: vi.fn() }));
+const routerReplace = vi.fn();
+let routeQuery: Record<string, string> = {};
 vi.mock("vue-router", () => ({
-  useRoute: () => ({ fullPath: "/settings/user/1" }),
+  useRoute: () => ({ fullPath: "/settings/user/1", query: routeQuery }),
+  useRouter: () => ({ replace: routerReplace }),
 }));
 
 function mountSection() {
@@ -51,10 +54,32 @@ function mountSection() {
 describe("SteamLibrarySection", () => {
   beforeEach(() => {
     vi.stubGlobal("location", { ...window.location, assign });
+    routeQuery = {};
     vi.mocked(userApi.fetchSteamLibrary).mockResolvedValue({
       data: [220, 400],
     } as never);
     vi.mocked(userApi.syncSteamLibrary).mockResolvedValue({} as never);
+  });
+
+  it("reports a sign-in Steam refused and clears it from the url", async () => {
+    storeAuth().setCurrentUser(userFixture({ id: 1 }));
+    routeQuery = { steam_error: "Steam could not confirm the sign-in" };
+
+    mountSection();
+    await flushPromises();
+
+    expect(snackbar.error).toHaveBeenCalledOnce();
+    expect(routerReplace).toHaveBeenCalledWith({ query: {} });
+  });
+
+  it("says nothing when no sign-in just happened", async () => {
+    storeAuth().setCurrentUser(userFixture({ id: 1 }));
+
+    mountSection();
+    await flushPromises();
+
+    expect(snackbar.error).not.toHaveBeenCalled();
+    expect(routerReplace).not.toHaveBeenCalled();
   });
 
   it("hands the browser to Steam to sign in", async () => {
