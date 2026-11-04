@@ -84,7 +84,7 @@ def _linked_steam_id(user_id: int) -> str | None:
 def _sign_in(client: TestClient, user: User, token: str) -> None:
     state = _start_login(client, user, token)
     response = client.get(
-        f"/api/users/{user.id}/steam/callback",
+        f"/api/users/{user.id}/steam/complete",
         params={"state": state, "openid.claimed_id": "x"},
         headers=_bearer(token),
         follow_redirects=False,
@@ -108,6 +108,33 @@ def test_the_login_route_points_at_steam(
     ).replace("%2F", "/")
 
 
+def test_the_callback_hops_to_the_authenticated_route_without_a_session(
+    client: TestClient, admin_user: User
+):
+    response = client.get(
+        f"/api/users/{admin_user.id}/steam/callback",
+        params={"state": "abc", "openid.mode": "id_res"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.headers["referrer-policy"] == "no-referrer"
+    target = (
+        f"/api/users/{admin_user.id}/steam/complete?state=abc&amp;openid.mode=id_res"
+    )
+    assert f'content="0;url={target}"' in response.text
+
+
+def test_the_callback_hop_escapes_the_query(client: TestClient, admin_user: User):
+    response = client.get(
+        f"/api/users/{admin_user.id}/steam/callback",
+        params={"state": '"><script>alert(1)</script>'},
+        follow_redirects=False,
+    )
+
+    assert "<script>" not in response.text
+
+
 def test_the_callback_links_the_account_steam_vouches_for(
     client: TestClient,
     access_token: str,
@@ -118,7 +145,7 @@ def test_the_callback_links_the_account_steam_vouches_for(
     state = _start_login(client, admin_user, access_token)
 
     response = client.get(
-        f"/api/users/{admin_user.id}/steam/callback",
+        f"/api/users/{admin_user.id}/steam/complete",
         params={"state": state, "openid.claimed_id": "x", "openid.mode": "id_res"},
         headers=_bearer(access_token),
         follow_redirects=False,
@@ -139,7 +166,7 @@ def test_a_sign_in_steam_will_not_confirm_links_nothing(
     state = _start_login(client, admin_user, access_token)
 
     response = client.get(
-        f"/api/users/{admin_user.id}/steam/callback",
+        f"/api/users/{admin_user.id}/steam/complete",
         params={"state": state, "openid.claimed_id": "forged"},
         headers=_bearer(access_token),
         follow_redirects=False,
@@ -161,7 +188,7 @@ def test_a_callback_that_did_not_start_here_links_nothing(
     _start_login(client, admin_user, access_token)
 
     response = client.get(
-        f"/api/users/{admin_user.id}/steam/callback",
+        f"/api/users/{admin_user.id}/steam/complete",
         params={"state": "someone-elses-nonce", "openid.claimed_id": "x"},
         headers=_bearer(access_token),
         follow_redirects=False,
@@ -182,7 +209,7 @@ def test_a_replayed_callback_links_nothing(
     state = _start_login(client, admin_user, access_token)
     params = {"state": state, "openid.claimed_id": "x"}
     first = client.get(
-        f"/api/users/{admin_user.id}/steam/callback",
+        f"/api/users/{admin_user.id}/steam/complete",
         params=params,
         headers=_bearer(access_token),
         follow_redirects=False,
@@ -191,7 +218,7 @@ def test_a_replayed_callback_links_nothing(
 
     db_user_handler.update_user(admin_user.id, {"steam_id": None})
     replay = client.get(
-        f"/api/users/{admin_user.id}/steam/callback",
+        f"/api/users/{admin_user.id}/steam/complete",
         params=params,
         headers=_bearer(access_token),
         follow_redirects=False,
@@ -212,7 +239,7 @@ def test_an_account_steam_cannot_describe_is_reported(
     state = _start_login(client, admin_user, access_token)
 
     response = client.get(
-        f"/api/users/{admin_user.id}/steam/callback",
+        f"/api/users/{admin_user.id}/steam/complete",
         params={"state": state, "openid.claimed_id": "x"},
         headers=_bearer(access_token),
         follow_redirects=False,
