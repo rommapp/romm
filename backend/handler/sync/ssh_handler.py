@@ -47,7 +47,7 @@ def _is_known_host(known_hosts: asyncssh.SSHKnownHosts, host: str, port: int) ->
     except ValueError:
         addr = ""
     if port and port != asyncssh.constants.DEFAULT_PORT:
-        # match() retries another port without one, which would admit every port.
+        # match() falls back to the bare host entry, which would admit every port.
         names = dict.fromkeys(name for name in (host, addr) if name)
         lookups = [(f"[{name}]:{port}", "") for name in names]
     else:
@@ -111,8 +111,8 @@ class SSHSyncHandler:
                 f"SSH known_hosts file not found at {SYNC_SSH_KNOWN_HOSTS_PATH}. "
                 "Mount a known_hosts file or set SYNC_SSH_KNOWN_HOSTS_PATH."
             )
-        # Device owners pick ssh_host, so the admin's known_hosts doubles as the
-        # allowlist: nothing else is dialled, keeping the network unprobed.
+        # Device owners pick ssh_host, so the admin's known_hosts is also the
+        # allowlist. Refusing before any TCP connect stops them probing the network.
         known_hosts = await asyncio.to_thread(
             asyncssh.read_known_hosts, SYNC_SSH_KNOWN_HOSTS_PATH
         )

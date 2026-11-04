@@ -179,7 +179,7 @@ class DBDevicesHandler(DBBaseHandler):
         user_id: int,
         session: Session = INJECTED_SESSION,
     ) -> None:
-        # The FK would only unbind them, leaving tokens that reach every device.
+        # The FK only unbinds them, and an unbound token reaches every device.
         session.execute(
             delete(ClientToken)
             .where(ClientToken.device_id == device_id, ClientToken.user_id == user_id)
