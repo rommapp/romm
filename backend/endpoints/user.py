@@ -1,4 +1,5 @@
 import asyncio
+import html
 import json
 import secrets
 from typing import Annotated, Any, Final, cast
@@ -7,7 +8,7 @@ from urllib.parse import quote
 from fastapi import Body, Form, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Query, Request, status
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 
 from adapters.services.steam import SteamOpenIDService
 from config import STEAM_API_KEY
@@ -838,9 +839,33 @@ def start_steam_login(
     )
 
 
+@router.get(
+    "/{id}/steam/callback",
+    include_in_schema=False,
+    response_class=HTMLResponse,
+)
+def steam_login_return(
+    request: Request,
+    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+) -> HTMLResponse:
+    """Hop from Steam's cross-site redirect to the authenticated completion route."""
+    # Strict session cookies are withheld on a navigation Steam started, so the
+    # page navigates again itself: that request is same-site and carries them.
+    target = f"/api/users/{id}/steam/complete"
+    if request.url.query:
+        target = f"{target}?{request.url.query}"
+    href = html.escape(target, quote=True)
+    return HTMLResponse(
+        '<!doctype html><meta charset="utf-8">'
+        f'<meta http-equiv="refresh" content="0;url={href}">'
+        f'<a href="{href}">Continue</a>',
+        headers={"Referrer-Policy": "no-referrer", "Cache-Control": "no-store"},
+    )
+
+
 @protected_route(
     router.get,
-    "/{id}/steam/callback",
+    "/{id}/steam/complete",
     [Scope.ME_WRITE],
     summary="Finish a Steam sign-in",
     responses={
