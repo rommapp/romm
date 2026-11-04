@@ -135,9 +135,9 @@ class TestConnect:
             client_keys=[str(keys_dir / "deck-1.pem")],
         )
         # The allowlist check and the connection share one parse of the file.
-        assert isinstance(
-            ssh_connect.await_args.kwargs["known_hosts"], asyncssh.SSHKnownHosts
-        )
+        call = ssh_connect.await_args
+        assert call is not None
+        assert isinstance(call.kwargs["known_hosts"], asyncssh.SSHKnownHosts)
 
     async def test_a_key_path_in_the_config_is_ignored(
         self, handler: SSHSyncHandler, keys_dir: Path, known_hosts: Path, ssh_connect
