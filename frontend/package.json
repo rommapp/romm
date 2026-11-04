@@ -79,7 +79,7 @@
     "@storybook/vue3-vite": "^10.6.2",
     "@types/js-cookie": "^3.0.6",
     "@types/lodash": "^4.17.16",
-    "@types/node": "^24.0.0",
+    "@types/node": "^26.0.0",
     "@types/qrcode": "^1.5.5",
     "@types/semver": "^7.7.0",
     "@types/spark-md5": "^3.0.5",
@@ -125,7 +125,7 @@
     }
   },
   "engines": {
-    "node": "24",
+    "node": "26",
     "npm": ">=11.10"
   },
   "packageManager": "npm@11.21.1"
