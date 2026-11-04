@@ -73,8 +73,14 @@ def _start_login(client: TestClient, user: User, token: str) -> str:
         f"/api/users/{user.id}/steam/login", headers=_bearer(token)
     )
     assert response.status_code == status.HTTP_200_OK
-    url = response.json()["url"]
+    url = str(response.json()["url"])
     return url.split("state%3D")[-1].split("&")[0]
+
+
+def _linked_steam_id(user_id: int) -> str | None:
+    user = db_user_handler.get_user(user_id)
+    assert user is not None
+    return user.steam_id
 
 
 def _sign_in(client: TestClient, user: User, token: str) -> None:
@@ -121,7 +127,7 @@ def test_the_callback_links_the_account_steam_vouches_for(
     )
 
     assert response.status_code == status.HTTP_303_SEE_OTHER
-    assert db_user_handler.get_user(admin_user.id).steam_id == STEAM_ID
+    assert _linked_steam_id(admin_user.id) == STEAM_ID
 
 
 def test_a_sign_in_steam_will_not_confirm_links_nothing(
@@ -143,7 +149,7 @@ def test_a_sign_in_steam_will_not_confirm_links_nothing(
 
     assert response.status_code == status.HTTP_303_SEE_OTHER
     assert "steam_error" in response.headers["location"]
-    assert db_user_handler.get_user(admin_user.id).steam_id is None
+    assert _linked_steam_id(admin_user.id) is None
     resolve_account.assert_not_awaited()
 
 
@@ -164,7 +170,7 @@ def test_a_callback_that_did_not_start_here_links_nothing(
     )
 
     assert response.status_code == status.HTTP_303_SEE_OTHER
-    assert db_user_handler.get_user(admin_user.id).steam_id is None
+    assert _linked_steam_id(admin_user.id) is None
     verify_sign_in.assert_not_awaited()
 
 
@@ -194,7 +200,7 @@ def test_a_replayed_callback_links_nothing(
     )
 
     assert "steam_error" in replay.headers["location"]
-    assert db_user_handler.get_user(admin_user.id).steam_id is None
+    assert _linked_steam_id(admin_user.id) is None
 
 
 def test_an_account_steam_cannot_describe_is_reported(
@@ -215,7 +221,7 @@ def test_an_account_steam_cannot_describe_is_reported(
     )
 
     assert "steam_error" in response.headers["location"]
-    assert db_user_handler.get_user(admin_user.id).steam_id is None
+    assert _linked_steam_id(admin_user.id) is None
     user = db_user_handler.get_user(admin_user.id)
     assert user is not None and user.steam_id is None
 
