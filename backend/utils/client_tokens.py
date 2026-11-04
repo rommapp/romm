@@ -10,10 +10,13 @@ from endpoints.responses.client_token import (
     ClientTokenCreateSchema,
     ClientTokenSchema,
 )
+from handler.audit_handler import AuditTarget, record
 from handler.auth.base_handler import auth_handler
 from handler.database import db_client_token_handler, db_user_handler
 from handler.redis_handler import sync_cache
+from models.audit_event import AuditAction, AuditTargetType
 from models.client_token import ClientToken
+from utils.auth import token_reaches_device
 from utils.rate_limit import enforce_rate_limit, get_client_ip
 
 PAIR_CODE_LENGTH = 8
@@ -65,6 +68,26 @@ def validate_scopes(requested: Iterable[str], caller_scopes: Iterable[str]) -> N
 def validate_token_within_caller(request: Request, token: ClientToken) -> None:
     """Reject acting on a token that grants scopes the caller doesn't hold."""
     validate_scopes(token.effective_scopes(request.user), request.auth.scopes)
+
+
+def validate_token_device(request: Request, token: ClientToken) -> None:
+    """Hide tokens of other devices, and unbound ones, from a device-bound token."""
+    if not token_reaches_device(request, token.device_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Token not found",
+        )
+
+
+def record_token_event(
+    request: Request, action: AuditAction, token: ClientToken
+) -> None:
+    record(
+        action,
+        request,
+        AuditTarget(AuditTargetType.CLIENT_TOKEN, token.id, token.name),
+        {"owner_id": token.user_id, "scopes": token.scopes.split()},
+    )
 
 
 def validate_token_reissue(request: Request, token: ClientToken) -> None:

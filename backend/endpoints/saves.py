@@ -38,6 +38,7 @@ from models.base import FILE_NAME_MAX_LENGTH
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from utils.assets import normalize_asset_labels
+from utils.auth import require_device, token_device_id
 from utils.datetime import to_utc
 from utils.router import APIRouter
 from utils.uploads import (
@@ -119,24 +120,18 @@ def _slot_retention(autocleanup: bool, autocleanup_limit: int) -> int | None:
 
 
 def _resolve_device(
+    request: Request,
     device_id: str | None,
-    user_id: int,
-    scopes: set[str] | None = None,
     required_scope: Scope | None = None,
 ) -> Device | None:
     if not device_id:
         return None
 
+    scopes = request.auth.scopes
     if required_scope and scopes and required_scope not in scopes:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
-    device = db_device_handler.get_device(device_id=device_id, user_id=user_id)
-    if not device:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device with ID {device_id} not found",
-        )
-    return device
+    return require_device(request, device_id)
 
 
 def _record_device_sync(
@@ -153,11 +148,12 @@ def _record_device_sync(
     db_device_handler.update_last_seen(device_id=device_id, user_id=user_id)
 
 
-def _increment_session_counter(session_id: int, user_id: int) -> None:
+def _increment_session_counter(request: Request, session_id: int) -> None:
     try:
         db_sync_session_handler.increment_operations_completed(
             session_id=session_id,
-            user_id=user_id,
+            user_id=request.user.id,
+            device_id=token_device_id(request),
         )
     except Exception:
         log.warning(f"Failed to update sync session {session_id}", exc_info=True)
@@ -211,9 +207,7 @@ async def add_save(
     autocleanup_limit = max(1, min(autocleanup_limit, MAX_AUTOCLEANUP_LIMIT))
     keep = _slot_retention(autocleanup, autocleanup_limit)
 
-    device = _resolve_device(
-        device_id, request.user.id, request.auth.scopes, Scope.DEVICES_WRITE
-    )
+    device = _resolve_device(request, device_id, Scope.DEVICES_WRITE)
 
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
@@ -405,7 +399,7 @@ async def add_save(
         _record_device_sync(device.id, db_save, request.user.id, content_hash)
 
     if session_id:
-        _increment_session_counter(session_id, request.user.id)
+        _increment_session_counter(request, session_id)
 
     if slot and keep is not None:
         await prune_save_slot(request.user.id, rom.id, slot, keep, lineage=lineage)
@@ -473,9 +467,7 @@ def get_saves(
     slot: str | None = None,
 ) -> list[SaveSchema]:
     """Retrieve saves for the current user."""
-    device = _resolve_device(
-        device_id, request.user.id, request.auth.scopes, Scope.DEVICES_READ
-    )
+    device = _resolve_device(request, device_id, Scope.DEVICES_READ)
 
     saves = db_save_handler.get_saves(
         user_id=request.user.id,
@@ -525,9 +517,7 @@ def get_saves_summary(request: Request, rom_id: int) -> SaveSummarySchema:
 @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
 def get_save(request: Request, id: int, device_id: str | None = None) -> SaveSchema:
     """Retrieve a save by ID."""
-    device = _resolve_device(
-        device_id, request.user.id, request.auth.scopes, Scope.DEVICES_READ
-    )
+    device = _resolve_device(request, device_id, Scope.DEVICES_READ)
 
     save = db_save_handler.get_save(user_id=request.user.id, id=id)
     if not save:
@@ -548,9 +538,7 @@ def download_save(
     optimistic: bool = True,
 ) -> FileResponse:
     """Download a save file."""
-    device = _resolve_device(
-        device_id, request.user.id, request.auth.scopes, Scope.DEVICES_READ
-    )
+    device = _resolve_device(request, device_id, Scope.DEVICES_READ)
 
     # Owner can download any of their saves; everyone else only public ones.
     save = db_save_handler.get_save_by_id(id)
@@ -588,7 +576,7 @@ def download_save(
         _record_device_sync(device.id, save, request.user.id)
 
     if session_id:
-        _increment_session_counter(session_id, request.user.id)
+        _increment_session_counter(request, session_id)
 
     return FileResponse(path=str(file_path), filename=save.file_name)
 
@@ -608,7 +596,7 @@ def confirm_download(
             detail=f"Save with ID {id} not found",
         )
 
-    device = _resolve_device(device_id, request.user.id)
+    device = _resolve_device(request, device_id)
     synced_at, server_hash = save.updated_at, save.content_hash
     served = db_device_save_sync_handler.get_sync(device_id=device_id, save_id=save.id)
     if served and served.last_sync_server_hash and not served.last_sync_hash:
@@ -643,9 +631,7 @@ async def update_save(
     check_asset_upload_size(saveFile, "Save file")
     check_asset_upload_size(screenshotFile, "Screenshot file")
 
-    device = _resolve_device(
-        device_id, request.user.id, request.auth.scopes, Scope.DEVICES_WRITE
-    )
+    device = _resolve_device(request, device_id, Scope.DEVICES_WRITE)
 
     db_save = db_save_handler.get_save(user_id=request.user.id, id=id)
     if not db_save:
@@ -880,7 +866,7 @@ def track_save(
             detail=f"Save with ID {id} not found",
         )
 
-    device = _resolve_device(device_id, request.user.id)
+    device = _resolve_device(request, device_id)
     db_device_save_sync_handler.set_untracked(
         device_id=device_id, save_id=id, untracked=False
     )
@@ -902,7 +888,7 @@ def untrack_save(
             detail=f"Save with ID {id} not found",
         )
 
-    device = _resolve_device(device_id, request.user.id)
+    device = _resolve_device(request, device_id)
     db_device_save_sync_handler.set_untracked(
         device_id=device_id, save_id=id, untracked=True
     )
