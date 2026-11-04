@@ -44,7 +44,7 @@ def _still_linked(session: Session, user_id: int, steam_id: str) -> bool:
 
 class StoreOnlyRoms(NamedTuple):
     rom_ids: dict[int, int]
-    created: int
+    created_ids: list[int]
 
 
 class DBSteamLibraryHandler(DBBaseHandler):
@@ -76,10 +76,10 @@ class DBSteamLibraryHandler(DBBaseHandler):
         """Insert store-only roms, reusing the row already at a rom's path.
 
         Returns:
-            Each app's rom id, and how many rows were inserted.
+            Each app's rom id, and the ids of the rows that were inserted.
         """
         rom_ids: dict[int, int] = {}
-        created = 0
+        created: list[int] = []
         for rom in roms:
             app_id = rom.steam_id
             if app_id is None:
@@ -105,8 +105,8 @@ class DBSteamLibraryHandler(DBBaseHandler):
                 rom_ids[app_id] = existing.id
                 continue
             rom_ids[app_id] = rom.id
-            created += 1
-        return StoreOnlyRoms(rom_ids=rom_ids, created=created)
+            created.append(rom.id)
+        return StoreOnlyRoms(rom_ids=rom_ids, created_ids=created)
 
     @begin_session
     def get_unmatched_store_only_rom_ids(

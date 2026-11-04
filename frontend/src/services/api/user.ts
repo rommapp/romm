@@ -1,9 +1,9 @@
 import type {
   Body_add_user_api_users_post as AddUserInput,
   Body_create_user_from_invite_api_users_register_post as RegisterUserInput,
-  Body_link_steam_account_api_users__id__steam_put as LinkSteamAccountInput,
   Body_refresh_retro_achievements_api_users__id__ra_refresh_post as RefreshRetroAchievementsInput,
   InviteLinkSchema,
+  SteamLoginSchema,
   TaskExecutionResponse,
   UserSchema,
 } from "@/__generated__";
@@ -109,15 +109,10 @@ async function refreshRetroAchievements({
   return api.post<void>(`/users/${id}/ra/refresh`, payload);
 }
 
-async function linkSteamAccount({
-  id,
-  profile,
-}: {
-  id: number;
-  profile: string;
-}) {
-  const payload: LinkSteamAccountInput = { profile };
-  return api.put<UserSchema>(`/users/${id}/steam`, payload);
+async function startSteamLogin({ id, next }: { id: number; next: string }) {
+  return api.get<SteamLoginSchema>(`/users/${id}/steam/login`, {
+    params: { next },
+  });
 }
 
 async function unlinkSteamAccount({ id }: { id: number }) {
@@ -142,7 +137,7 @@ export default {
   updateUser,
   deleteUser,
   refreshRetroAchievements,
-  linkSteamAccount,
+  startSteamLogin,
   unlinkSteamAccount,
   syncSteamLibrary,
   fetchSteamLibrary,

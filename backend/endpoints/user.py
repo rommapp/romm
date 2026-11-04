@@ -1,18 +1,26 @@
 import asyncio
 import json
+import secrets
+from urllib.parse import quote
 from typing import Annotated, Any, Final, cast
 
 from fastapi import Body, Form, HTTPException
+from fastapi import Query
 from fastapi import Path as PathVar
 from fastapi import Request, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 
+from adapters.services.steam import SteamOpenIDService
 from config import STEAM_API_KEY
 from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.permissions import emit_permissions_changed
 from endpoints.responses import TaskExecutionResponse
-from endpoints.responses.identity import InviteLinkSchema, UserSchema
+from endpoints.responses.identity import (
+    InviteLinkSchema,
+    SteamLoginSchema,
+    UserSchema,
+)
 from endpoints.tasks import assert_task_worker, build_task_execution_response
 from exceptions.database_exceptions import LastAdminError
 from handler.audit_handler import (
@@ -46,10 +54,11 @@ from handler.socket_handler import close_client_token_sockets
 from handler.steam_library_handler import (
     SteamLibraryError,
     link_steam_profile,
-    resolve_steam_profile,
+    resolve_steam_account,
     unlink_steam_profile,
 )
 from logger.logger import log
+from utils.urls import get_public_base_url
 from models.audit_event import AuditAction
 from models.notification import NotificationKind, NotificationLevel
 from models.user import TEXT_FIELD_LENGTH, Role, User
@@ -766,39 +775,119 @@ def _get_manageable_user(request: Request, id: int) -> User:
     return user
 
 
+# Steam signs the return_to it was given, so the flow's state rides in its query.
+STEAM_OPENID_SESSION_KEY: Final = "steam_openid"
+
+
+def _safe_next_path(next_path: str | None) -> str:
+    """`next_path` if it points within RomM, else the app root."""
+    # A path from the caller must never become an absolute or protocol-relative
+    # URL, or the callback turns into an open redirect.
+    if not next_path or not next_path.startswith("/"):
+        return "/"
+    if next_path.startswith("//") or "\\" in next_path:
+        return "/"
+    return next_path
+
+
 @protected_route(
-    router.put,
-    "/{id}/steam",
+    router.get,
+    "/{id}/steam/login",
     [Scope.ME_WRITE],
-    summary="Link a Steam account",
+    summary="Start a Steam sign-in",
     responses={
         status.HTTP_400_BAD_REQUEST: {},
         status.HTTP_403_FORBIDDEN: {},
         status.HTTP_404_NOT_FOUND: {},
     },
 )
-async def link_steam_account(
+def start_steam_login(
     request: Request,
     id: Annotated[int, PathVar(description="User internal id.", ge=1)],
-    profile: Annotated[
-        str,
-        Body(
-            description="SteamID64, Steam profile link, or custom profile URL name.",
-            embed=True,
+    next_path: Annotated[
+        str | None,
+        Query(
+            alias="next",
+            description="Path within RomM to return to, defaulting to the app root.",
             max_length=TEXT_FIELD_LENGTH,
         ),
-    ],
-) -> UserSchema:
-    """Link the Steam account whose games are imported for a user."""
+    ] = None,
+) -> SteamLoginSchema:
+    """Where to send the browser to link a user's Steam account."""
     user = _get_manageable_user(request, id)
-    try:
-        summary = await resolve_steam_profile(profile)
-    except SteamLibraryError as exc:
+    if not STEAM_API_KEY:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Set STEAM_API_KEY to import Steam libraries",
+        )
+    base_url = get_public_base_url()
+    if base_url is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Set ROMM_BASE_URL to the address Steam should return to",
+        )
 
-    return UserSchema.model_validate(link_steam_profile(user, summary))
+    nonce = secrets.token_urlsafe(32)
+    request.session[STEAM_OPENID_SESSION_KEY] = {
+        "nonce": nonce,
+        "user_id": user.id,
+        "next": _safe_next_path(next_path),
+    }
+    return_to = f"{base_url}/api/users/{user.id}/steam/callback?state={nonce}"
+    return SteamLoginSchema(
+        url=SteamOpenIDService().login_url(return_to=return_to, realm=base_url)
+    )
+
+
+@protected_route(
+    router.get,
+    "/{id}/steam/callback",
+    [Scope.ME_WRITE],
+    summary="Finish a Steam sign-in",
+    responses={
+        status.HTTP_303_SEE_OTHER: {},
+        status.HTTP_400_BAD_REQUEST: {},
+        status.HTTP_403_FORBIDDEN: {},
+        status.HTTP_404_NOT_FOUND: {},
+    },
+)
+async def finish_steam_login(
+    request: Request,
+    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+    state: Annotated[str, Query(description="The nonce the sign-in started with.")],
+) -> RedirectResponse:
+    """Link the Steam account that just signed in, then return to the app."""
+    user = _get_manageable_user(request, id)
+    pending = request.session.pop(STEAM_OPENID_SESSION_KEY, None)
+    destination = _safe_next_path(
+        pending.get("next") if isinstance(pending, dict) else None
+    )
+
+    def back(error: str | None = None) -> RedirectResponse:
+        query = f"?steam_error={quote(error)}" if error else "?steam=linked"
+        return RedirectResponse(
+            f"{destination}{query}", status_code=status.HTTP_303_SEE_OTHER
+        )
+
+    if (
+        not isinstance(pending, dict)
+        or pending.get("user_id") != user.id
+        or not secrets.compare_digest(str(pending.get("nonce", "")), state)
+    ):
+        return back("This Steam sign-in did not start here")
+
+    # Only Steam's own answer says who signed in; the query alone is forgeable.
+    steam_id = await SteamOpenIDService().verify(dict(request.query_params))
+    if steam_id is None:
+        return back("Steam could not confirm the sign-in")
+
+    try:
+        summary = await resolve_steam_account(steam_id)
+    except SteamLibraryError as exc:
+        return back(str(exc))
+
+    link_steam_profile(user, summary)
+    return back()
 
 
 @protected_route(

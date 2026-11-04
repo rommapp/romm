@@ -3,11 +3,12 @@
 // the games it owns. The import runs as a task whose completion arrives as a
 // notification, which also refreshes the owned count shown here.
 import { computed, ref } from "vue";
+import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import SettingsSection from "@/components/Settings/SettingsSection.vue";
 import { useConfirm } from "@/composables/useConfirm";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RTag, RTextField } from "@/lib";
+import { RBtn, RTag } from "@/lib";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 import useSteamLibrary from "@/stores/steamLibrary";
@@ -16,12 +17,12 @@ import { errorMessage } from "@/utils/errorMessage";
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
+const route = useRoute();
 const auth = storeAuth();
 const steamLibrary = useSteamLibrary();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 
-const profile = ref("");
 const linking = ref(false);
 const syncing = ref(false);
 const unlinking = ref(false);
@@ -31,29 +32,25 @@ const personaName = computed(
   () => auth.user?.steam_persona_name || auth.user?.steam_id || "",
 );
 
+// Steam signs the user in on its own site, then returns to `next`, so this
+// hands the browser over rather than awaiting a reply.
 async function link() {
   const user = auth.user;
-  const value = profile.value.trim();
-  if (!user || !value || linking.value) return;
+  if (!user || linking.value) return;
   linking.value = true;
   try {
-    const { data } = await userApi.linkSteamAccount({
+    const { data } = await userApi.startSteamLogin({
       id: user.id,
-      profile: value,
+      next: route.fullPath,
     });
-    auth.setCurrentUser(data);
-    profile.value = "";
+    window.location.assign(data.url);
   } catch (err) {
+    linking.value = false;
     snackbar.error(
       t("settings.steam-link-failed", { error: errorMessage(err) }),
       { icon: "mdi-close-circle" },
     );
-    return;
-  } finally {
-    linking.value = false;
   }
-
-  await sync();
 }
 
 async function sync() {
@@ -149,26 +146,16 @@ async function unlink() {
     </template>
 
     <template v-else>
-      <div class="r-steam__field">
-        <RTextField
-          v-model="profile"
-          prefix-label="stacked"
-          :hint="t('settings.steam-profile-hint')"
-          @keyup.enter="link"
-        >
-          <template #prefix-label>{{ t("settings.steam-profile") }}</template>
-        </RTextField>
-      </div>
+      <p class="r-steam__summary">{{ t("settings.steam-sign-in-hint") }}</p>
       <div class="r-steam__actions">
         <RBtn
           variant="flat"
           color="primary"
-          prepend-icon="mdi-link-variant"
-          :loading="linking || syncing"
-          :disabled="!profile.trim()"
+          prepend-icon="mdi-steam"
+          :loading="linking"
           @click="link"
         >
-          {{ t("settings.steam-link") }}
+          {{ t("settings.steam-sign-in") }}
         </RBtn>
       </div>
     </template>
@@ -176,10 +163,6 @@ async function unlink() {
 </template>
 
 <style scoped>
-.r-steam__field {
-  padding: 14px 16px;
-}
-
 .r-steam__summary {
   margin: 0;
   padding: 14px 16px;

@@ -43,37 +43,6 @@ def _service() -> SteamWebApiService:
     return SteamWebApiService()
 
 
-async def test_sends_the_parameters_with_the_key_middleware(session):
-    session.get.return_value = _response(
-        {"response": {"success": 1, "steamid": STEAM_ID}}
-    )
-
-    await _service().resolve_vanity_url("gabe")
-
-    await_args = session.get.await_args
-    url = await_args.args[0]
-    assert url.path == "/ISteamUser/ResolveVanityURL/v1/"
-    assert url.query["vanityurl"] == "gabe"
-    assert "key" not in url.query
-    assert await_args.kwargs["middlewares"] == (web_api_key_middleware,)
-
-
-async def test_resolves_a_custom_name(session):
-    session.get.return_value = _response(
-        {"response": {"success": 1, "steamid": STEAM_ID}}
-    )
-
-    assert await _service().resolve_vanity_url("gabe") == STEAM_ID
-
-
-async def test_an_unused_custom_name_resolves_to_nothing(session):
-    session.get.return_value = _response(
-        {"response": {"success": 42, "message": "No match"}}
-    )
-
-    assert await _service().resolve_vanity_url("nobody") is None
-
-
 async def test_returns_the_player_summary(session):
     player = {
         "steamid": STEAM_ID,
