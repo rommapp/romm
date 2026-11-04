@@ -1,7 +1,7 @@
 """Add the user's Steam achievement progression
 
-Revision ID: 0160_user_steam_progression
-Revises: 0159_steam_library
+Revision ID: 0161_user_steam_progression
+Revises: 0160_steam_library
 Create Date: 2026-11-02 00:00:00.000000
 
 """
@@ -12,8 +12,8 @@ from alembic import op
 from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
-revision = "0160_user_steam_progression"
-down_revision = "0159_steam_library"
+revision = "0161_user_steam_progression"
+down_revision = "0160_steam_library"
 branch_labels = None
 depends_on = None
 

@@ -1,7 +1,7 @@
 """Add Steam library import: linked accounts, store-only roms, owned games
 
-Revision ID: 0159_steam_library
-Revises: 0158_platform_first_release_year
+Revision ID: 0160_steam_library
+Revises: 0159_client_tokens_fk_cascade
 Create Date: 2026-10-26 00:00:00.000000
 
 """
@@ -13,8 +13,8 @@ from utils.database import column_names
 from utils.roms_columns import ensure_roms_columns
 
 # revision identifiers, used by Alembic.
-revision = "0159_steam_library"
-down_revision = "0158_platform_first_release_year"
+revision = "0160_steam_library"
+down_revision = "0159_client_tokens_fk_cascade"
 branch_labels = None
 depends_on = None
 
