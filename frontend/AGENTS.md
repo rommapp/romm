@@ -9,7 +9,7 @@ The `frontend-*` skills in `.claude/skills/` hold the detailed rules. **Read the
 ## Commands (`cd frontend`)
 
 ```bash
-npm install                         # install (Node 24)
+npm install                         # install (Node 26)
 npm run dev                         # dev server :3000
 npm run typecheck                   # vue-tsc --build: the app, the Node tooling and the e2e suite
 npm run typecheck:scripts           # Node only: scripts/, eslint-plugin-romm/, tool configs, the e2e suite
