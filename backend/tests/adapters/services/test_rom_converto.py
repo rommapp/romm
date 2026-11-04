@@ -24,6 +24,7 @@ from adapters.services.rom_converto import (
     RomConvertoUnsafeSourceError,
     canonical_format,
     conversion_source,
+    cue_file_names,
     cue_track_names,
     cue_tracks,
     download_targets,
@@ -31,7 +32,7 @@ from adapters.services.rom_converto import (
     is_archive,
     resolve_operation,
 )
-from models.rom import TITLE_ID_MAX_LENGTH, RomFile
+from models.rom import TITLE_ID_MAX_LENGTH, RomArchiveMember, RomFile
 from utils.filesystem import SERVED_FILE_MODE
 
 # rom-converto carries the images a file embeds in its info output.
@@ -119,6 +120,23 @@ class TestRun:
 
         assert len(seen) == 1
         assert not seen[0].exists()
+
+    async def test_sandbox_sits_under_romm_tmp_path(self, tmp_path: Path):
+        root = tmp_path / "romm-tmp"
+        seen: list[Path] = []
+
+        async def spawn(*args, cwd, **kwargs):
+            seen.append(Path(cwd))
+            return FakeProc()
+
+        with (
+            patch.object(rom_converto, "ROMM_TMP_PATH", str(root)),
+            patch("shutil.which", return_value="/usr/bin/rom-converto"),
+            patch("asyncio.create_subprocess_exec", spawn),
+        ):
+            await rom_converto._run(["info", "--json", "Game.zip"], timeout_seconds=1)
+
+        assert seen[0].parent == root
 
 
 class TestIsEnabled:
@@ -347,12 +365,9 @@ class TestReadInfos:
         paths_file = calls[0][calls[0].index("--paths-file") + 1]
         assert not await anyio.Path(paths_file).exists()
 
-    @pytest.mark.parametrize(
-        ("file_name", "expected"),
-        [("game.iso", {}), ("game.zip", {Path("/roms/game.zip"): RomConvertoInfo()})],
-    )
-    async def test_nonzero_stamps_only_archives(
-        self, service: RomConvertoService, file_name: str, expected
+    @pytest.mark.parametrize("file_name", ["game.iso", "game.zip"])
+    async def test_nonzero_exit_stamps_nothing(
+        self, service: RomConvertoService, file_name: str
     ):
         path = Path("/roms") / file_name
         records = [{"path": str(path), "ok": False, "error": "could not detect"}]
@@ -365,7 +380,7 @@ class TestReadInfos:
             patch("shutil.which", return_value="rc"),
             patch("asyncio.create_subprocess_exec", return_value=proc),
         ):
-            assert await service.read_infos([path]) == expected
+            assert await service.read_infos([path]) == {}
 
     @pytest.mark.parametrize(
         ("file_name", "expected"),
@@ -587,7 +602,7 @@ class TestCanInspect:
             ("Game.gz", False),
         ],
     )
-    async def test_archives_do_not_need_manifest_extensions(
+    async def test_unrecorded_archives_are_inspected(
         self, service: RomConvertoService, name: str, expected: bool
     ):
         proc = FakeProc(stdout=b'{"version": "0.24.0", "info_extensions": ["iso"]}')
@@ -599,6 +614,31 @@ class TestCanInspect:
             assert await service.is_enabled() is True
 
         assert service.can_inspect(Path("/roms") / name) is expected
+
+    @pytest.mark.parametrize(
+        ("members", "expected"),
+        [
+            pytest.param(["Game/GAME.ISO", "readme.txt"], True, id="image"),
+            pytest.param(["setup.exe", "readme.txt"], False, id="no-image"),
+            pytest.param([], False, id="empty"),
+        ],
+    )
+    async def test_recorded_archive_needs_an_inspectable_member(
+        self, service: RomConvertoService, members: list[str], expected: bool
+    ):
+        proc = FakeProc(stdout=b'{"version": "0.24.0", "info_extensions": ["iso"]}')
+        with (
+            patch.object(rom_converto, "ROM_CONVERTO_ENABLED", True),
+            patch("shutil.which", return_value="/usr/bin/rom-converto"),
+            patch("asyncio.create_subprocess_exec", return_value=proc),
+        ):
+            assert await service.is_enabled() is True
+
+        recorded: list[RomArchiveMember] = [
+            {"name": name, "size": 1, "crc_hash": "", "md5_hash": "", "sha1_hash": ""}
+            for name in members
+        ]
+        assert service.can_inspect(Path("/roms/Game.zip"), recorded) is expected
 
 
 class TestParseInfo:
@@ -1120,6 +1160,16 @@ class TestCueTracks:
         )
 
         assert cue_track_names(text, "Game.cue") == ["Game (Track 1).bin"]
+
+    def test_file_names_read_leniently(self):
+        text = (
+            'file "lower.bin" binary\r'
+            "  track 01 AUDIO\r"
+            'FILE "untracked.bin" BINARY\n'
+            "REM a comment\n"
+        )
+
+        assert cue_file_names(text) == ["lower.bin", "untracked.bin"]
 
     def test_skips_files_without_tracks(self):
         text = (

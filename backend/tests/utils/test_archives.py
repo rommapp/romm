@@ -183,7 +183,11 @@ def test_external_archive_listing_is_unfiltered(suffix):
 @pytest.mark.parametrize("suffix", [".7z", ".rar"])
 @pytest.mark.parametrize(
     ("member", "rar_pattern"),
-    [("Game.cue", "Game.cue"), ("Game [1]*?.cue", r"Game \[1\]\*\?.cue")],
+    [
+        ("Game.cue", "Game.cue"),
+        ("Game [1]*?.cue", r"Game \[1\]\*\?.cue"),
+        ("@Game.cue", "@Game.cue"),
+    ],
 )
 def test_external_archive_member_returns_bytes(suffix, member, rar_pattern):
     data = b'FILE "Game.bin" BINARY\n'
@@ -243,16 +247,6 @@ def test_external_archive_member_nonzero_exit_raises(suffix):
 
         with pytest.raises(archives.ArchiveReadError, match="code 2"):
             read_archive_member(Path(f"/fake/Game{suffix}"), "Game.cue", 1024)
-
-
-def test_7z_listfile_member_is_refused_without_a_subprocess():
-    with (
-        patch.object(subprocess, "Popen") as popen,
-        pytest.raises(archives.ArchiveReadError, match="Unsafe 7-Zip member name"),
-    ):
-        read_archive_member(Path("/fake/Game.7z"), "@Game.cue", 1024)
-
-    popen.assert_not_called()
 
 
 @pytest.mark.parametrize("suffix", [".7z", ".rar"])

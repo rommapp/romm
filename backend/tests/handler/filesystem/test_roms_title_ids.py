@@ -1,11 +1,13 @@
 """Tests for rom-converto's per-file title ids during scan."""
 
 import json
+import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from tests._zipfile_shim import reload_zipfile
 from tests.factories import make_platform, make_rom
 
 from adapters.services.rom_converto import RomConvertoInfo, rom_converto_service
@@ -481,6 +483,25 @@ class TestGetRomFilesWithConverto:
         [reused_file] = rescan.rom_files
         assert reused_file.title_id is None
         assert reused_file.converto_read_at == first_file.converto_read_at
+
+    @pytest.mark.asyncio
+    async def test_archive_without_an_inspectable_member_is_not_read(
+        self, scan_env, mocker
+    ):
+        rom = make_rom(make_platform("psp"), "Game")
+        archive = scan_env.handler.base_path / "psp" / "roms" / "Game.zip"
+        archive.parent.mkdir(parents=True)
+        reload_zipfile()
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr("data.bin", b"rom-bytes")
+        run = mocker.patch("adapters.services.rom_converto._run", mocker.AsyncMock())
+
+        parsed = await scan_env.handler.get_rom_files(rom)
+
+        run.assert_not_awaited()
+        [rom_file] = parsed.rom_files
+        assert rom_file.archive_members
+        assert rom_file.converto_read_at is None
 
     @pytest.mark.asyncio
     async def test_psp_archive_stores_converto_title_id(self, scan_env, mocker):

@@ -19,6 +19,7 @@ from adapters.services.rom_converto import (
     RomConvertoError,
     RomConvertoUnsafeSourceError,
     conversion_source,
+    cue_file_names,
     cue_track_names,
     cue_tracks,
     file_format,
@@ -58,14 +59,18 @@ class ConvertLibraryStats:
 
 
 def _shared_tracks(cue: Path, tracks: list[Path]) -> set[Path]:
-    """The tracks of `cue` that another cue beside it also references."""
-    others: set[Path] = set()
+    """The tracks of `cue` another cue beside it may open, read leniently so a doubt keeps them."""
+    others: set[str] = set()
     for other in cue.parent.iterdir():
         if other == cue or other.suffix.lower() != CUE_EXT or not other.is_file():
             continue
-        with contextlib.suppress(OSError, RomConvertoUnsafeSourceError):
-            others.update(cue_tracks(other))
-    return set(tracks) & others
+        with contextlib.suppress(OSError):
+            text = other.read_bytes().decode("utf-8-sig", errors="replace")
+            others.update(
+                os.path.basename(name.replace("\\", "/")).casefold()
+                for name in cue_file_names(text)
+            )
+    return {track for track in tracks if track.name.casefold() in others}
 
 
 def _renamed_entry(line: str, renames: dict[str, str]) -> str:

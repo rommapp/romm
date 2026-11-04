@@ -624,6 +624,36 @@ async def test_a_track_another_cue_shares_is_refused(
     assert (library / rom.full_path / "game.bin").exists()
 
 
+@pytest.mark.parametrize(
+    "sibling",
+    [
+        pytest.param(
+            b'file "GAME.BIN" binary\n  track 01 mode2/2352\n', id="lowercase"
+        ),
+        pytest.param(b'FILE "game.bin" BINARY\n', id="untracked"),
+    ],
+)
+async def test_a_track_a_leniently_read_cue_shares_is_kept(
+    library: Path, admin_user: User, converto, converted, sibling: bytes
+):
+    rom = _rom(
+        library,
+        admin_user,
+        make_platform("psx"),
+        {
+            "disc 1.cue": b'FILE "game.bin" BINARY\n  TRACK 01 MODE2/2352\n',
+            "disc 2.cue": sibling,
+            "game.bin": b"x",
+        },
+        folder=True,
+    )
+
+    await _run()
+
+    assert (library / rom.full_path / "disc 1.cue").exists()
+    assert (library / rom.full_path / "game.bin").exists()
+
+
 async def test_a_stage_left_by_a_killed_conversion_is_removed(
     library: Path, admin_user: User, converto, converted
 ):

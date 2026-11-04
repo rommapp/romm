@@ -14,11 +14,12 @@ from config import (
     ROM_CONVERTO_ENABLED,
     ROM_CONVERTO_MAX_CONCURRENCY,
     ROM_CONVERTO_TIMEOUT,
+    ROMM_TMP_PATH,
 )
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import TITLE_ID_MAX_LENGTH, RomFile
+from models.rom import TITLE_ID_MAX_LENGTH, RomArchiveMember, RomFile
 from utils.filesystem import SERVED_FILE_MODE
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
@@ -326,10 +327,10 @@ _CUE_WORD: Final[re.Pattern[str]] = re.compile(
 )
 
 
-def _cue_file_name(line: str) -> str | None:
-    """The track a cue `FILE` line names, read the way the CLI reads it, or None for another line."""
+def _cue_file_name(line: str, *, any_case: bool = False) -> str | None:
+    """The track a cue `FILE` line names, read the way the CLI reads it unless `any_case`, or None for another line."""
     parts = _CUE_WORD.findall(line)
-    if not parts or parts[0] != "FILE":
+    if not parts or (parts[0].upper() if any_case else parts[0]) != "FILE":
         return None
     # The CLI takes everything between the first and last quote, or the bare second word.
     start, end = line.find('"'), line.rfind('"')
@@ -360,6 +361,15 @@ def cue_track_names(text: str, cue_name: str) -> list[str]:
             )
         pending = name
     return tracks
+
+
+def cue_file_names(text: str) -> list[str]:
+    """Every FILE name, in any keyword case and with or without a track, as lenient players read a sheet."""
+    return [
+        name
+        for line in text.splitlines()
+        if (name := _cue_file_name(line, any_case=True))
+    ]
 
 
 def cue_tracks(cue: Path) -> list[Path]:
@@ -405,7 +415,10 @@ def _listable(path: Path) -> bool:
 
 def _make_sandbox() -> tuple[Path, Path]:
     """A new empty dir to run the CLI from, and the empty config file inside it."""
-    sandbox = Path(tempfile.mkdtemp(prefix="rom-converto-"))
+    # Archives unpack in here, so it sits on ROMM_TMP_PATH with RomM's other large temp files.
+    if ROMM_TMP_PATH:
+        Path(ROMM_TMP_PATH).mkdir(parents=True, exist_ok=True)
+    sandbox = Path(tempfile.mkdtemp(prefix="rom-converto-", dir=ROMM_TMP_PATH))
     config = sandbox / "config.toml"
     config.touch()
     return sandbox, config
@@ -628,10 +641,17 @@ class RomConvertoService:
             self._available = True
             return True
 
-    def can_inspect(self, path: Path) -> bool:
-        """Whether `info` recognizes this file's extension; it also opens archives."""
-        if is_archive(path.name) or self._info_extensions is None:
+    def can_inspect(
+        self, path: Path, members: list[RomArchiveMember] | None = None
+    ) -> bool:
+        """Whether `info` recognizes this file's extension, or an archive's recorded member's; unrecorded archives are read."""
+        if self._info_extensions is None:
             return True
+        if is_archive(path.name):
+            exts = tuple(self._info_extensions)
+            return members is None or any(
+                member["name"].lower().endswith(exts) for member in members
+            )
         return path.suffix.lower() in self._info_extensions
 
     async def read_infos(self, paths: list[Path]) -> dict[Path, RomConvertoInfo]:
@@ -652,9 +672,6 @@ class RomConvertoService:
         return infos
 
     async def _read_run(self, listed: list[Path]) -> dict[Path, RomConvertoInfo]:
-        def _unread_archives() -> dict[Path, RomConvertoInfo]:
-            return {path: RomConvertoInfo() for path in listed if is_archive(path.name)}
-
         log.debug(
             f"Executing {hl('rom-converto', color=LIGHTMAGENTA)} info on {len(listed)} file(s)"
         )
@@ -670,7 +687,8 @@ class RomConvertoService:
             )
         except RomConvertoTimeoutError as exc:
             log.warning(f"rom-converto info failed: {exc}")
-            return _unread_archives()
+            # Stamped so an archive too slow to unpack doesn't stall every scan.
+            return {path: RomConvertoInfo() for path in listed if is_archive(path.name)}
         except (RomConvertoError, OSError) as exc:
             log.warning(f"rom-converto info failed: {exc}")
             return {}
@@ -680,7 +698,7 @@ class RomConvertoService:
                     os.unlink(paths_file)
         if code != 0:
             log.warning(f"rom-converto info failed (code {code}): {_tail(stderr)}")
-            return _unread_archives()
+            return {}
         try:
             records = json.loads(stdout)
         except json.JSONDecodeError:

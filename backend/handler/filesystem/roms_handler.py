@@ -352,11 +352,11 @@ def _may_hold_title_id(path: Path, category: RomFileCategory | None) -> bool:
     )
 
 
-def _converto_may_read(path: Path, category: RomFileCategory | None) -> bool:
+def _converto_may_read(path: Path, rom_file: RomFile) -> bool:
     """Whether rom-converto can read a title id from this file."""
     return (
-        category not in NON_BINARY_FILE_CATEGORIES
-        and rom_converto_service.can_inspect(path)
+        rom_file.category not in NON_BINARY_FILE_CATEGORIES
+        and rom_converto_service.can_inspect(path, rom_file.archive_members)
     )
 
 
@@ -1066,7 +1066,7 @@ class FSRomsHandler(FSHandler):
             and _converto_may_read(
                 path := abs_fs_path
                 / Path(rom_file.full_path).relative_to(rel_roms_path),
-                rom_file.category,
+                rom_file,
             )
         ]
         await self._read_converto_infos(converto_sources)

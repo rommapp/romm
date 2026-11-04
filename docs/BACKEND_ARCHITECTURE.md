@@ -1830,7 +1830,7 @@ Hashing can be disabled per-installation via `skip_hash_calculation` in config.y
 Alongside hashing, scans extract platform-native title IDs from ROM binaries via
 the optional `sigil` binding (Switch, PlayStation, Nintendo, Xbox and Dreamcast
 families). The feature no-ops when the binding is absent, and can be turned off
-with `skip_title_id_extraction`. With rom-converto enabled and `converto.scan_metadata` on, scans also read per-file title IDs with rom-converto, including from the image inside a `.zip`, `.7z`, `.rar`, `.tar`, `.tar.gz` or `.tgz` archive. It unpacks that image into the temp directory first, at most `ROM_CONVERTO_MAX_CONCURRENCY` at a time per worker, and an archive it can't read is not retried until the file changes.
+with `skip_title_id_extraction`. With rom-converto enabled and `converto.scan_metadata` on, scans also read per-file title IDs with rom-converto, including from the image inside a `.zip`, `.7z`, `.rar`, `.tar`, `.tar.gz` or `.tgz` archive. It reads an archive only when the scan did not record its members or one of them has an extension rom-converto's `info` recognizes. It unpacks that image into the temp directory first (under `ROMM_TMP_PATH` when set), at most `ROM_CONVERTO_MAX_CONCURRENCY` at a time per worker, and an archive it can't read or that times out is not retried until the file changes.
 
 ---
 

@@ -602,7 +602,7 @@ def _archive_member_command(file_path: Path, member: str) -> list[str]:
 
     # "-spd" disables wildcard matching so a member name containing "*" or "?"
     # can't select other members; "--" stops switch parsing so one starting
-    # with "-" stays a member name.
+    # with "-" or "@" stays a member name.
     return [SEVEN_ZIP_PATH, "e", str(file_path), "-so", "-y", "-spd", "--", member]
 
 
@@ -710,9 +710,6 @@ def read_archive_member(file_path: Path, member: str, limit: int) -> bytes:
                 with tar_reader:
                     data = tar_reader.read(limit + 1)
         elif name.endswith((".7z", ".rar")):
-            # 7-Zip treats @member as a list file even after -- and -spd.
-            if name.endswith(".7z") and member.startswith("@"):
-                raise ArchiveReadError(f"Unsafe 7-Zip member name: {member}")
             with (
                 subprocess.Popen(
                     _archive_member_command(file_path, member),
