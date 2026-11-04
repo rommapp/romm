@@ -1,13 +1,12 @@
 import asyncio
 import json
 import secrets
-from urllib.parse import quote
 from typing import Annotated, Any, Final, cast
+from urllib.parse import quote
 
 from fastapi import Body, Form, HTTPException
-from fastapi import Query
 from fastapi import Path as PathVar
-from fastapi import Request, status
+from fastapi import Query, Request, status
 from fastapi.responses import FileResponse, RedirectResponse
 
 from adapters.services.steam import SteamOpenIDService
@@ -58,7 +57,6 @@ from handler.steam_library_handler import (
     unlink_steam_profile,
 )
 from logger.logger import log
-from utils.urls import get_public_base_url
 from models.audit_event import AuditAction
 from models.notification import NotificationKind, NotificationLevel
 from models.user import TEXT_FIELD_LENGTH, Role, User
@@ -68,6 +66,7 @@ from tasks.registry import (
     enqueue_task,
 )
 from utils.router import APIRouter
+from utils.urls import get_public_base_url
 from utils.validation import (
     ValidationError,
     validate_email,

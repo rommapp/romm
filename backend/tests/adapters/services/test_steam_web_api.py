@@ -5,11 +5,7 @@ import aiohttp
 import pytest
 from tests.factories import STEAM_ID
 
-from adapters.services.steam import (
-    SteamWebAPIError,
-    SteamWebApiService,
-    web_api_key_middleware,
-)
+from adapters.services.steam import SteamWebAPIError, SteamWebApiService
 
 
 def _response(json_body: object) -> MagicMock:
