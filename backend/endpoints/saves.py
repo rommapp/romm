@@ -38,7 +38,7 @@ from models.base import FILE_NAME_MAX_LENGTH
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from utils.assets import normalize_asset_labels
-from utils.auth import require_token_device
+from utils.auth import require_device
 from utils.datetime import to_utc
 from utils.router import APIRouter
 from utils.uploads import (
@@ -131,14 +131,7 @@ def _resolve_device(
     if required_scope and scopes and required_scope not in scopes:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
-    require_token_device(request, device_id)
-    device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
-    if not device:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device with ID {device_id} not found",
-        )
-    return device
+    return require_device(request, device_id)
 
 
 def _record_device_sync(

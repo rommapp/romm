@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePath
 from types import TracebackType
 from typing import Any, Self, overload
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import ANY, AsyncMock, MagicMock
 
 import asyncssh
 import pytest
@@ -131,8 +131,12 @@ class TestConnect:
             host="deck.local",
             port=22,
             username="root",
-            known_hosts=str(known_hosts),
+            known_hosts=ANY,
             client_keys=[str(keys_dir / "deck-1.pem")],
+        )
+        # The allowlist check and the connection share one parse of the file.
+        assert isinstance(
+            ssh_connect.await_args.kwargs["known_hosts"], asyncssh.SSHKnownHosts
         )
 
     async def test_a_key_path_in_the_config_is_ignored(

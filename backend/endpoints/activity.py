@@ -7,7 +7,7 @@ from handler.activity_handler import ActivityEntry, activity_handler
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.database import db_device_handler, db_rom_handler
-from utils.auth import require_token_device
+from utils.auth import require_device, require_token_device
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -66,15 +66,7 @@ async def device_heartbeat(
     activity state to Redis and sends an ``activity:update`` event to the
     users who can see the ROM.
     """
-    require_token_device(request, payload.device_id)
-    device = db_device_handler.get_device(
-        device_id=payload.device_id, user_id=request.user.id
-    )
-    if device is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device {payload.device_id} not found for this user",
-        )
+    device = require_device(request, payload.device_id)
 
     # build_entry does the ROM lookup; None back from it is a missing ROM, and a
     # hidden one answers the same 404.

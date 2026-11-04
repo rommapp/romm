@@ -24,7 +24,7 @@ from handler.filesystem import get_fs_sync_handler
 from handler.socket_handler import close_client_token_sockets
 from logger.logger import log
 from models.device import Device, SyncMode
-from utils.auth import require_token_device, token_device_id
+from utils.auth import require_device, token_reaches_device
 from utils.router import APIRouter
 
 from .install import router as install_router
@@ -93,8 +93,7 @@ def register_device(
             hostname=payload.hostname,
             platform=payload.platform,
         )
-        bound_device_id = token_device_id(request)
-        if existing_device and bound_device_id not in (None, existing_device.id):
+        if existing_device and not token_reaches_device(request, existing_device.id):
             existing_device = None
 
     if existing_device:
@@ -173,21 +172,16 @@ def register_device(
 @protected_route(router.get, "", [Scope.DEVICES_READ])
 def get_devices(request: Request) -> list[DeviceSchema]:
     devices = db_device_handler.get_devices(user_id=request.user.id)
-    bound_device_id = token_device_id(request)
-    if bound_device_id is not None:
-        devices = [device for device in devices if device.id == bound_device_id]
-    return [DeviceSchema.model_validate(device) for device in devices]
+    return [
+        DeviceSchema.model_validate(device)
+        for device in devices
+        if token_reaches_device(request, device.id)
+    ]
 
 
 @protected_route(router.get, "/{device_id}", [Scope.DEVICES_READ])
 def get_device(request: Request, device_id: str) -> DeviceSchema:
-    require_token_device(request, device_id)
-    device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
-    if not device:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device with ID {device_id} not found",
-        )
+    device = require_device(request, device_id)
     return DeviceSchema.model_validate(device)
 
 
@@ -197,13 +191,7 @@ def update_device(
     device_id: str,
     payload: DeviceUpdatePayload,
 ) -> DeviceSchema:
-    require_token_device(request, device_id)
-    device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
-    if not device:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device with ID {device_id} not found",
-        )
+    device: Device | None = require_device(request, device_id)
 
     update_data = payload.model_dump(exclude_unset=True)
     if update_data:
@@ -223,13 +211,7 @@ def update_device(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_device(request: Request, device_id: str) -> None:
-    require_token_device(request, device_id)
-    device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
-    if not device:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device with ID {device_id} not found",
-        )
+    require_device(request, device_id)
 
     token_ids = db_client_token_handler.get_token_ids_by_device(device_id)
     db_device_handler.delete_device(device_id=device_id, user_id=request.user.id)

@@ -66,9 +66,9 @@ def ingest_play_sessions(
             detail=f"Batch size exceeds maximum of {MAX_BATCH_SIZE}",
         )
 
+    if payload.device_id:
+        require_token_device(request, payload.device_id)
     device_id = payload.device_id or token_device_id(request)
-    if device_id:
-        require_token_device(request, device_id)
 
     summary = _ingest(
         user_id=request.user.id,

@@ -42,7 +42,12 @@ from models.deleted_asset import DeletedAsset
 from models.device import SyncMode
 from models.sync_session import SyncSession, SyncSessionStatus
 from tasks.registry import SYNC_PUSH_PULL_SPEC
-from utils.auth import require_token_device, token_device_id
+from utils.auth import (
+    require_device,
+    require_token_device,
+    token_device_id,
+    token_reaches_device,
+)
 from utils.datetime import to_utc
 from utils.router import APIRouter
 from utils.validation import MAX_ROM_IDS_PER_QUERY, RomIdScope
@@ -171,10 +176,7 @@ def _require_sync_session(request: Request, session_id: int) -> SyncSession:
     sync_session = db_sync_session_handler.get_session(
         session_id=session_id, user_id=request.user.id
     )
-    if not sync_session or token_device_id(request) not in (
-        None,
-        sync_session.device_id,
-    ):
+    if not sync_session or not token_reaches_device(request, sync_session.device_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Sync session with ID {session_id} not found",
@@ -217,13 +219,7 @@ def negotiate_sync(
             ),
         )
 
-    require_token_device(request, device_id)
-    device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
-    if not device:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device with ID {device_id} not found",
-        )
+    device = require_device(request, device_id)
 
     if not device.sync_enabled:
         raise HTTPException(
@@ -560,13 +556,7 @@ def trigger_push_pull(
     device_id: str,
 ) -> SyncSessionSchema:
     """Manually trigger a push-pull sync for a specific device."""
-    require_token_device(request, device_id)
-    device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
-    if not device:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device with ID {device_id} not found",
-        )
+    device = require_device(request, device_id)
 
     if device.sync_mode != SyncMode.PUSH_PULL:
         raise HTTPException(
