@@ -36,43 +36,186 @@ def half_life() -> Rom:
     return make_rom(make_platform("win"), "Half-Life 2", steam_id=220)
 
 
+BASE_URL = "https://romm.example"
+
+
 @pytest.fixture
-def resolve_profile():
+def resolve_account():
     with patch(
-        "endpoints.user.resolve_steam_profile", new_callable=AsyncMock
+        "endpoints.user.resolve_steam_account", new_callable=AsyncMock
     ) as resolve:
         resolve.return_value = steam_player_summary()
         yield resolve
 
 
-def test_links_the_resolved_account(
-    client: TestClient, access_token: str, admin_user: User, resolve_profile
-):
-    response = client.put(
-        f"/api/users/{admin_user.id}/steam",
-        json={"profile": "https://steamcommunity.com/id/gabe"},
-        headers=_bearer(access_token),
-    )
+@pytest.fixture(autouse=True)
+def public_base_url():
+    with (
+        patch("endpoints.user.get_public_base_url", return_value=BASE_URL),
+        patch("endpoints.user.STEAM_API_KEY", "key"),
+    ):
+        yield
 
+
+@pytest.fixture
+def verify_sign_in():
+    """Stand in for Steam's check_authentication answer."""
+    with patch(
+        "endpoints.user.SteamOpenIDService.verify", new_callable=AsyncMock
+    ) as verify:
+        verify.return_value = STEAM_ID
+        yield verify
+
+
+def _start_login(client: TestClient, user: User, token: str) -> str:
+    """Begin a sign-in and hand back the nonce it bound to the session."""
+    response = client.get(
+        f"/api/users/{user.id}/steam/login", headers=_bearer(token)
+    )
     assert response.status_code == status.HTTP_200_OK
-    assert response.json()["steam_id"] == STEAM_ID
-    assert response.json()["steam_persona_name"] == "Gabe"
-    resolve_profile.assert_awaited_once_with("https://steamcommunity.com/id/gabe")
+    url = response.json()["url"]
+    return url.split("state%3D")[-1].split("&")[0]
 
 
-def test_a_profile_steam_cannot_resolve_is_a_bad_request(
-    client: TestClient, access_token: str, admin_user: User, resolve_profile
+def _sign_in(client: TestClient, user: User, token: str) -> None:
+    state = _start_login(client, user, token)
+    response = client.get(
+        f"/api/users/{user.id}/steam/callback",
+        params={"state": state, "openid.claimed_id": "x"},
+        headers=_bearer(token),
+        follow_redirects=False,
+    )
+    assert response.status_code == status.HTTP_303_SEE_OTHER
+
+
+def test_the_login_route_points_at_steam(
+    client: TestClient, access_token: str, admin_user: User
 ):
-    resolve_profile.side_effect = SteamLibraryError("No Steam profile uses it")
-
-    response = client.put(
-        f"/api/users/{admin_user.id}/steam",
-        json={"profile": "nobody"},
+    response = client.get(
+        f"/api/users/{admin_user.id}/steam/login?next=/settings/user/1",
         headers=_bearer(access_token),
     )
 
-    assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert response.json()["detail"] == "No Steam profile uses it"
+    url = response.json()["url"]
+    assert url.startswith("https://steamcommunity.com/openid/login?")
+    assert "openid.mode=checkid_setup" in url
+    assert f"{BASE_URL}/api/users/{admin_user.id}/steam/callback" in url.replace(
+        "%3A", ":"
+    ).replace("%2F", "/")
+
+
+def test_the_callback_links_the_account_steam_vouches_for(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    verify_sign_in,
+    resolve_account,
+):
+    state = _start_login(client, admin_user, access_token)
+
+    response = client.get(
+        f"/api/users/{admin_user.id}/steam/callback",
+        params={"state": state, "openid.claimed_id": "x", "openid.mode": "id_res"},
+        headers=_bearer(access_token),
+        follow_redirects=False,
+    )
+
+    assert response.status_code == status.HTTP_303_SEE_OTHER
+    assert db_user_handler.get_user(admin_user.id).steam_id == STEAM_ID
+
+
+def test_a_sign_in_steam_will_not_confirm_links_nothing(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    verify_sign_in,
+    resolve_account,
+):
+    verify_sign_in.return_value = None
+    state = _start_login(client, admin_user, access_token)
+
+    response = client.get(
+        f"/api/users/{admin_user.id}/steam/callback",
+        params={"state": state, "openid.claimed_id": "forged"},
+        headers=_bearer(access_token),
+        follow_redirects=False,
+    )
+
+    assert response.status_code == status.HTTP_303_SEE_OTHER
+    assert "steam_error" in response.headers["location"]
+    assert db_user_handler.get_user(admin_user.id).steam_id is None
+    resolve_account.assert_not_awaited()
+
+
+def test_a_callback_that_did_not_start_here_links_nothing(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    verify_sign_in,
+    resolve_account,
+):
+    _start_login(client, admin_user, access_token)
+
+    response = client.get(
+        f"/api/users/{admin_user.id}/steam/callback",
+        params={"state": "someone-elses-nonce", "openid.claimed_id": "x"},
+        headers=_bearer(access_token),
+        follow_redirects=False,
+    )
+
+    assert response.status_code == status.HTTP_303_SEE_OTHER
+    assert db_user_handler.get_user(admin_user.id).steam_id is None
+    verify_sign_in.assert_not_awaited()
+
+
+def test_a_replayed_callback_links_nothing(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    verify_sign_in,
+    resolve_account,
+):
+    state = _start_login(client, admin_user, access_token)
+    params = {"state": state, "openid.claimed_id": "x"}
+    first = client.get(
+        f"/api/users/{admin_user.id}/steam/callback",
+        params=params,
+        headers=_bearer(access_token),
+        follow_redirects=False,
+    )
+    assert first.status_code == status.HTTP_303_SEE_OTHER
+
+    db_user_handler.update_user(admin_user.id, {"steam_id": None})
+    replay = client.get(
+        f"/api/users/{admin_user.id}/steam/callback",
+        params=params,
+        headers=_bearer(access_token),
+        follow_redirects=False,
+    )
+
+    assert "steam_error" in replay.headers["location"]
+    assert db_user_handler.get_user(admin_user.id).steam_id is None
+
+
+def test_an_account_steam_cannot_describe_is_reported(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    verify_sign_in,
+    resolve_account,
+):
+    resolve_account.side_effect = SteamLibraryError("No Steam account has the ID")
+    state = _start_login(client, admin_user, access_token)
+
+    response = client.get(
+        f"/api/users/{admin_user.id}/steam/callback",
+        params={"state": state, "openid.claimed_id": "x"},
+        headers=_bearer(access_token),
+        follow_redirects=False,
+    )
+
+    assert "steam_error" in response.headers["location"]
+    assert db_user_handler.get_user(admin_user.id).steam_id is None
     user = db_user_handler.get_user(admin_user.id)
     assert user is not None and user.steam_id is None
 
@@ -81,17 +224,15 @@ def test_linking_another_account_forgets_the_old_library(
     client: TestClient,
     access_token: str,
     admin_user: User,
-    resolve_profile,
+    verify_sign_in,
+    resolve_account,
     half_life: Rom,
 ):
     make_steam_library_entry(admin_user, half_life)
-    resolve_profile.return_value = steam_player_summary(OTHER_STEAM_ID)
+    resolve_account.return_value = steam_player_summary(OTHER_STEAM_ID)
+    verify_sign_in.return_value = OTHER_STEAM_ID
 
-    client.put(
-        f"/api/users/{admin_user.id}/steam",
-        json={"profile": OTHER_STEAM_ID},
-        headers=_bearer(access_token),
-    )
+    _sign_in(client, admin_user, access_token)
 
     assert db_steam_library_handler.get_entries(admin_user.id) == []
 
@@ -100,31 +241,26 @@ def test_relinking_the_same_account_keeps_the_library(
     client: TestClient,
     access_token: str,
     admin_user: User,
-    resolve_profile,
+    verify_sign_in,
+    resolve_account,
     half_life: Rom,
 ):
     make_steam_library_entry(admin_user, half_life)
 
-    client.put(
-        f"/api/users/{admin_user.id}/steam",
-        json={"profile": STEAM_ID},
-        headers=_bearer(access_token),
-    )
+    _sign_in(client, admin_user, access_token)
 
     assert len(db_steam_library_handler.get_entries(admin_user.id)) == 1
 
 
-def test_a_user_cannot_link_someone_elses_account(
-    client: TestClient, viewer_access_token: str, admin_user: User, resolve_profile
+def test_a_user_cannot_start_a_sign_in_for_someone_else(
+    client: TestClient, viewer_access_token: str, admin_user: User
 ):
-    response = client.put(
-        f"/api/users/{admin_user.id}/steam",
-        json={"profile": STEAM_ID},
+    response = client.get(
+        f"/api/users/{admin_user.id}/steam/login",
         headers=_bearer(viewer_access_token),
     )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
-    resolve_profile.assert_not_awaited()
 
 
 def test_unlinking_clears_the_account_and_its_library(

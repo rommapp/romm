@@ -8,12 +8,13 @@ import SteamLibrarySection from "./SteamLibrarySection.vue";
 const STEAM_ID = "76561197960287930";
 
 const confirm = vi.fn();
+const assign = vi.fn();
 const snackbar = { info: vi.fn(), error: vi.fn() };
 
 vi.mock("vue-i18n");
 vi.mock("@/services/api/user", () => ({
   default: {
-    linkSteamAccount: vi.fn(),
+    startSteamLogin: vi.fn(),
     unlinkSteamAccount: vi.fn(),
     syncSteamLibrary: vi.fn(),
     fetchSteamLibrary: vi.fn(),
@@ -22,6 +23,7 @@ vi.mock("@/services/api/user", () => ({
 vi.mock("@/composables/useSnackbar", () => ({ useSnackbar: () => snackbar }));
 vi.mock("@/composables/useConfirm", () => ({ useConfirm: () => confirm }));
 vi.mock("@/composables/useSocketEvent", () => ({ useSocketEvent: vi.fn() }));
+vi.mock("vue-router", () => ({ useRoute: () => ({ fullPath: "/settings/user/1" }) }));
 
 function mountSection() {
   return mount(SteamLibrarySection, {
@@ -46,47 +48,42 @@ function mountSection() {
 
 describe("SteamLibrarySection", () => {
   beforeEach(() => {
+    vi.stubGlobal("location", { ...window.location, assign });
     vi.mocked(userApi.fetchSteamLibrary).mockResolvedValue({
       data: [220, 400],
     } as never);
     vi.mocked(userApi.syncSteamLibrary).mockResolvedValue({} as never);
   });
 
-  it("links the typed profile, then starts a sync", async () => {
+  it("hands the browser to Steam to sign in", async () => {
     storeAuth().setCurrentUser(userFixture({ id: 1 }));
-    vi.mocked(userApi.linkSteamAccount).mockResolvedValue({
-      data: userFixture({
-        id: 1,
-        steam_id: STEAM_ID,
-        steam_persona_name: "Gabe",
-      }),
+    vi.mocked(userApi.startSteamLogin).mockResolvedValue({
+      data: { url: "https://steamcommunity.com/openid/login?openid.mode=x" },
     } as never);
     const wrapper = mountSection();
 
-    await wrapper.get("input").setValue("  gabelogannewell ");
     await wrapper.get("button").trigger("click");
     await flushPromises();
 
-    expect(userApi.linkSteamAccount).toHaveBeenCalledExactlyOnceWith({
+    expect(userApi.startSteamLogin).toHaveBeenCalledExactlyOnceWith({
       id: 1,
-      profile: "gabelogannewell",
+      next: "/settings/user/1",
     });
-    expect(userApi.syncSteamLibrary).toHaveBeenCalledExactlyOnceWith({ id: 1 });
-    expect(storeAuth().user?.steam_id).toBe(STEAM_ID);
+    expect(assign).toHaveBeenCalledExactlyOnceWith(
+      "https://steamcommunity.com/openid/login?openid.mode=x",
+    );
   });
 
-  it("keeps the field and skips the sync when Steam rejects the profile", async () => {
+  it("stays put when the sign-in cannot be started", async () => {
     storeAuth().setCurrentUser(userFixture({ id: 1 }));
-    vi.mocked(userApi.linkSteamAccount).mockRejectedValue(new Error("nope"));
+    vi.mocked(userApi.startSteamLogin).mockRejectedValue(new Error("nope"));
     const wrapper = mountSection();
 
-    await wrapper.get("input").setValue("nobody");
     await wrapper.get("button").trigger("click");
     await flushPromises();
 
-    expect(userApi.syncSteamLibrary).not.toHaveBeenCalled();
+    expect(assign).not.toHaveBeenCalled();
     expect(snackbar.error).toHaveBeenCalledOnce();
-    expect(wrapper.get("input").element.value).toBe("nobody");
   });
 
   it("shows how many games the linked account owns", async () => {

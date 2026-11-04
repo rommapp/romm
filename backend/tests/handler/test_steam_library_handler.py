@@ -29,9 +29,8 @@ from handler.steam_library_handler import (
     SteamUserGameProgression,
     is_steam_game_completed,
     link_steam_profile,
-    parse_steam_profile,
     queue_steam_achievements_sync,
-    resolve_steam_profile,
+    resolve_steam_account,
     steam_library_platform,
     steam_web_api,
     sync_steam_achievements,
@@ -44,42 +43,9 @@ from models.rom import RomStorefront, RomUserStatus
 from models.user import User
 
 
-@pytest.mark.parametrize(
-    "profile, expected",
-    [
-        (STEAM_ID, (STEAM_ID, None)),
-        (f"  {STEAM_ID}  ", (STEAM_ID, None)),
-        (f"https://steamcommunity.com/profiles/{STEAM_ID}/", (STEAM_ID, None)),
-        (f"steamcommunity.com/profiles/{STEAM_ID}", (STEAM_ID, None)),
-        ("https://steamcommunity.com/id/gabelogannewell/", (None, "gabelogannewell")),
-        ("https://STEAMCOMMUNITY.com/id/gabe?l=english", (None, "gabe")),
-        ("gabelogannewell", (None, "gabelogannewell")),
-    ],
-)
-def test_parses_ids_links_and_custom_names(
-    profile: str, expected: tuple[str | None, str | None]
-):
-    assert parse_steam_profile(profile) == expected
-
-
-@pytest.mark.parametrize(
-    "profile",
-    [
-        "",
-        "not a profile!",
-        "https://example.com/id/gabe",
-        "https://steamcommunity.com/profiles/gabe",
-    ],
-)
-def test_rejects_anything_else(profile: str):
-    with pytest.raises(SteamLibraryError):
-        parse_steam_profile(profile)
-
-
 @pytest.fixture
 def steam_api():
     api = MagicMock()
-    api.resolve_vanity_url = AsyncMock(return_value=STEAM_ID)
     api.get_player_summary = AsyncMock(
         return_value={"steamid": STEAM_ID, "personaname": "Gabe"}
     )
@@ -95,33 +61,33 @@ def queue_achievements():
         yield queue
 
 
-async def test_resolves_a_custom_name_to_its_account(steam_api: MagicMock):
-    summary = await resolve_steam_profile("gabe")
+async def test_describes_the_signed_in_account(steam_api: MagicMock):
+    summary = await resolve_steam_account(STEAM_ID)
 
     assert summary["steamid"] == STEAM_ID
-    steam_api.resolve_vanity_url.assert_awaited_once_with("gabe")
     steam_api.get_player_summary.assert_awaited_once_with(STEAM_ID)
 
 
-async def test_an_unused_custom_name_is_an_error(steam_api: MagicMock):
-    steam_api.resolve_vanity_url.return_value = None
+@pytest.mark.parametrize("steam_id", ["", "gabe", "123", f"{STEAM_ID}0"])
+async def test_only_a_steamid64_is_accepted(steam_id: str, steam_api: MagicMock):
+    with pytest.raises(SteamLibraryError, match="isn't a SteamID64"):
+        await resolve_steam_account(steam_id)
 
-    with pytest.raises(SteamLibraryError, match="custom URL 'gabe'"):
-        await resolve_steam_profile("gabe")
+    steam_api.get_player_summary.assert_not_awaited()
 
 
 async def test_an_unknown_id_is_an_error(steam_api: MagicMock):
     steam_api.get_player_summary.return_value = None
 
     with pytest.raises(SteamLibraryError, match=STEAM_ID):
-        await resolve_steam_profile(STEAM_ID)
+        await resolve_steam_account(STEAM_ID)
 
 
 async def test_a_steam_failure_is_reported_as_a_library_error(steam_api: MagicMock):
     steam_api.get_player_summary.side_effect = SteamWebAPIError("Steam rejected it")
 
     with pytest.raises(SteamLibraryError, match="Steam rejected it"):
-        await resolve_steam_profile(STEAM_ID)
+        await resolve_steam_account(STEAM_ID)
 
 
 @patch("handler.steam_library_handler.STEAM_API_KEY", None)

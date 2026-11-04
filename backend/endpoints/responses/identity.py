@@ -72,3 +72,9 @@ class InviteLinkSchema(BaseModel):
             token=token,
             url=f"{base_url}/register?token={token}" if base_url else None,
         )
+
+
+class SteamLoginSchema(BaseModel):
+    """Where to send the browser to sign in through Steam."""
+
+    url: str

@@ -1,4 +1,6 @@
 import json
+import re
+from collections.abc import Mapping
 from typing import Final
 
 import aiohttp
@@ -23,7 +25,6 @@ from adapters.services.steam_types import (
     SteamSchemaForGameResponse,
     SteamStoreSearchItem,
     SteamStoreSearchResponse,
-    SteamVanityResponse,
 )
 from config import STEAM_API_KEY
 from logger.logger import log
@@ -41,8 +42,6 @@ _rate_limiter = RateLimiter(STEAM_MAX_REQUESTS_PER_SECOND)
 # The Web API allows 100,000 calls a day per key, with no documented burst limit.
 STEAM_WEB_API_MAX_REQUESTS_PER_SECOND: Final[float] = 4
 _web_api_rate_limiter = RateLimiter(STEAM_WEB_API_MAX_REQUESTS_PER_SECOND)
-# ResolveVanityURL's `success` when the name belongs to a profile.
-STEAM_VANITY_RESOLVED: Final[int] = 1
 # GetPlayerAchievements' statuses for a game without stats and a private player.
 STEAM_NO_STATS_STATUS: Final[int] = 400
 STEAM_PRIVATE_STATS_STATUS: Final[int] = 403
@@ -320,16 +319,6 @@ class SteamWebApiService:
 
         return response.get("achievementpercentages", {}).get("achievements") or []
 
-    async def resolve_vanity_url(self, vanity_name: str) -> str | None:
-        """The SteamID64 behind a custom profile URL name, or None if unused."""
-        url = self.url.joinpath("ISteamUser/ResolveVanityURL/v1/").with_query(
-            vanityurl=vanity_name
-        )
-        result = (await self._request(url, SteamVanityResponse)).get("response", {})
-        if result.get("success") != STEAM_VANITY_RESOLVED:
-            return None
-        return result.get("steamid")
-
     async def get_player_summary(self, steam_id: str) -> SteamPlayerSummary | None:
         """The public profile of a SteamID64, or None if no account has it."""
         url = self.url.joinpath("ISteamUser/GetPlayerSummaries/v2/").with_query(
@@ -376,3 +365,75 @@ class SteamWebApiService:
         stats = response.get("playerstats")
         achievements = stats.get("achievements") if isinstance(stats, dict) else None
         return achievements if isinstance(achievements, list) else []
+
+
+# Steam signs users in with OpenID 2.0, which is not OpenID Connect and yields
+# only a SteamID64: every Web API call still needs STEAM_API_KEY.
+STEAM_OPENID_ENDPOINT: Final[str] = "https://steamcommunity.com/openid/login"
+STEAM_OPENID_NS: Final[str] = "http://specs.openid.net/auth/2.0"
+STEAM_OPENID_IDENTIFIER_SELECT: Final[str] = (
+    "http://specs.openid.net/auth/2.0/identifier_select"
+)
+_STEAM_OPENID_CLAIMED_ID = re.compile(
+    r"^https://steamcommunity\.com/openid/id/(\d{17})$"
+)
+
+
+class SteamOpenIDService:
+    """Service to start and verify a Steam OpenID 2.0 sign-in."""
+
+    def __init__(self, base_url: str | None = None) -> None:
+        self.url = yarl.URL(base_url or STEAM_OPENID_ENDPOINT)
+
+    def login_url(self, *, return_to: str, realm: str) -> str:
+        """Where to send the browser to sign in through Steam."""
+        return str(
+            self.url.with_query(
+                {
+                    "openid.ns": STEAM_OPENID_NS,
+                    "openid.mode": "checkid_setup",
+                    "openid.return_to": return_to,
+                    "openid.realm": realm,
+                    "openid.identity": STEAM_OPENID_IDENTIFIER_SELECT,
+                    "openid.claimed_id": STEAM_OPENID_IDENTIFIER_SELECT,
+                }
+            )
+        )
+
+    async def verify(self, params: Mapping[str, str]) -> str | None:
+        """The SteamID64 Steam vouches for, or None when it does not.
+
+        Args:
+            params: The openid.* query Steam sent back, unmodified.
+
+        Returns:
+            The signed-in SteamID64, or None when Steam rejects the assertion
+            or cannot be reached.
+        """
+        # Steam signs what it sent, so only its own answer may be trusted here.
+        payload = {k: v for k, v in params.items() if k.startswith("openid.")}
+        if not payload:
+            return None
+        payload["openid.mode"] = "check_authentication"
+
+        aiohttp_session = ctx_aiohttp_session.get()
+        try:
+            res = await aiohttp_session.post(
+                self.url,
+                data=payload,
+                headers={"user-agent": f"RomM/{get_version()}"},
+                timeout=ClientTimeout(total=30),
+            )
+            res.raise_for_status()
+            body = await res.text()
+        except Exception as exc:
+            log.error("Could not verify a Steam sign-in: %s", exc)
+            return None
+
+        if not any(
+            line.strip() == "is_valid:true" for line in body.splitlines()
+        ):
+            return None
+
+        claimed = _STEAM_OPENID_CLAIMED_ID.match(params.get("openid.claimed_id", ""))
+        return claimed.group(1) if claimed else None

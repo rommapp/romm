@@ -78,17 +78,6 @@ class SteamAppDetailsEnvelope(TypedDict):
     data: NotRequired[SteamAppDetails]
 
 
-class SteamVanityResult(TypedDict):
-    # 1 when the name resolved, 42 when no profile uses it.
-    success: int
-    steamid: NotRequired[str]
-    message: NotRequired[str]
-
-
-class SteamVanityResponse(TypedDict):
-    response: SteamVanityResult
-
-
 class SteamPlayerSummary(TypedDict):
     steamid: str
     personaname: str

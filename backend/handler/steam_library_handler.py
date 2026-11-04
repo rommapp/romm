@@ -44,11 +44,6 @@ STEAM_LIBRARY_PLATFORM: Final = UPS.WIN
 STEAM_LIBRARY_PLATFORM_LOCK_TIMEOUT_SECONDS: Final = 300
 
 STEAM_ID64_RE: Final = re.compile(r"^7656119\d{10}$")
-STEAM_VANITY_RE: Final = re.compile(r"^[A-Za-z0-9_-]{2,32}$")
-STEAM_PROFILE_URL_RE: Final = re.compile(
-    r"^(?:https?://)?(?:www\.)?steamcommunity\.com/(profiles|id)/([^/?#]+)/?(?:[?#].*)?$",
-    re.IGNORECASE,
-)
 
 
 class SteamLibraryError(Exception):
@@ -107,45 +102,12 @@ def steam_web_api() -> SteamWebApiService:
     return SteamWebApiService()
 
 
-def parse_steam_profile(profile: str) -> tuple[str | None, str | None]:
-    """Split what a user typed into a SteamID64 or a custom URL name.
-
-    Returns:
-        `(steam_id, None)` or `(None, vanity_name)`.
-
-    Raises:
-        SteamLibraryError: The text is neither.
-    """
-    text = profile.strip()
-    url = STEAM_PROFILE_URL_RE.match(text)
-    if url:
-        kind, value = url.group(1).lower(), url.group(2)
-        if kind == "profiles" and STEAM_ID64_RE.match(value):
-            return value, None
-        if kind == "id" and STEAM_VANITY_RE.match(value):
-            return None, value
-    elif STEAM_ID64_RE.match(text):
-        return text, None
-    elif STEAM_VANITY_RE.match(text):
-        return None, text
-
-    raise SteamLibraryError(
-        f"{text!r} isn't a SteamID64, a Steam profile link or a custom URL name"
-    )
-
-
-async def resolve_steam_profile(profile: str) -> SteamPlayerSummary:
-    """Find the Steam account a SteamID64, profile link or custom URL name names."""
-    steam_id, vanity_name = parse_steam_profile(profile)
-    api = steam_web_api()
+async def resolve_steam_account(steam_id: str) -> SteamPlayerSummary:
+    """Describe the account a signed-in SteamID64 belongs to."""
+    if not STEAM_ID64_RE.match(steam_id):
+        raise SteamLibraryError(f"{steam_id!r} isn't a SteamID64")
     try:
-        if vanity_name is not None:
-            steam_id = await api.resolve_vanity_url(vanity_name)
-        if steam_id is None:
-            raise SteamLibraryError(
-                f"No Steam profile uses the custom URL {vanity_name!r}"
-            )
-        summary = await api.get_player_summary(steam_id)
+        summary = await steam_web_api().get_player_summary(steam_id)
     except SteamWebAPIError as exc:
         raise SteamLibraryError(str(exc)) from exc
 
