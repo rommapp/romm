@@ -234,11 +234,7 @@ def is_archive(file_name: str) -> bool:
 
 
 def conversion_source(rom_file: RomFile) -> tuple[str, int] | None:
-    """The name whose format picks how `rom_file` converts, and the bytes it holds.
-
-    That is the file's own, or an archive's only recorded image member's. None for
-    an archive without one or with several, since rom-converto converts only the first.
-    """
+    """The name and size of the file itself, or of an archive's only recorded image; None for an archive with none or several."""
     if not is_archive(rom_file.file_name):
         return rom_file.file_name, rom_file.file_size_bytes
     source: tuple[str, int] | None = None
