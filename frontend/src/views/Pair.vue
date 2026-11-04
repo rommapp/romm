@@ -1,11 +1,25 @@
 <script setup lang="ts">
+// Pair: device pairing target. Lands here via a pairing link from a
+// native client; either displays the code for manual entry or auto-exchanges
+// it and redirects to the client's custom URL scheme.
+//
+// Ported verbatim from src/views/Pair.vue: the token-exchange flow is the
+// contract with the client device and must not drift.
 import axios from "axios";
 import { computed, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
+import { useClipboard } from "@/composables/useClipboard";
+import { usePageTitle } from "@/composables/usePageTitle";
+import { RBtn, RIcon } from "@/lib";
+import { errorMessage as apiErrorMessage } from "@/utils/errorMessage";
 import { isCustomScheme } from "@/utils/pairCallback";
-import { errorMessage as apiErrorMessage } from "@/v2/utils/errorMessage";
 
+const { t } = useI18n();
 const route = useRoute();
+const clipboard = useClipboard();
+
+usePageTitle(() => t("settings.pair-device"));
 
 const code = computed(() => (route.query.code as string) || "");
 const callback = computed(() => (route.query.callback as string) || "");
@@ -24,15 +38,14 @@ async function exchange(pairCode: string): Promise<string> {
 onMounted(async () => {
   if (!code.value) {
     status.value = "error";
-    errorMessage.value = "No pairing code provided.";
+    errorMessage.value = t("settings.pair-no-code");
     return;
   }
 
   if (callback.value) {
     if (!isCustomScheme(callback.value)) {
       status.value = "error";
-      errorMessage.value =
-        "Only custom URL schemes are supported for callbacks (no http/https).";
+      errorMessage.value = t("settings.pair-scheme-error");
       return;
     }
 
@@ -45,13 +58,12 @@ onMounted(async () => {
       status.value = "error";
       errorMessage.value = apiErrorMessage(
         err,
-        "Failed to exchange pairing code.",
+        t("settings.pair-exchange-failed"),
       );
     }
     return;
   }
 
-  // No callback -- just display the code for manual entry
   status.value = "idle";
 });
 
@@ -60,42 +72,144 @@ const formattedCode = computed(() => {
   if (c.length === 8) return c.slice(0, 4) + "-" + c.slice(4);
   return c;
 });
+
+async function copyCode() {
+  await clipboard.copy(formattedCode.value, {
+    successMessage: t("common.clipboard-copied", {
+      label: t("common.copy-code"),
+    }),
+  });
+}
 </script>
 
 <template>
-  <v-app>
-    <v-main
-      class="d-flex align-center justify-center"
-      style="min-height: 100dvh"
-    >
-      <v-card max-width="450" class="pa-8 text-center" variant="outlined">
-        <template v-if="status === 'exchanging'">
-          <v-progress-circular indeterminate size="48" class="mb-4" />
-          <p class="text-body-1">Exchanging pairing code...</p>
-        </template>
+  <div class="r-pair">
+    <div v-if="status === 'exchanging'" class="r-pair__state">
+      <div
+        class="r-pair__spinner"
+        :aria-label="t('settings.pair-exchanging')"
+      />
+      <p class="r-pair__body">{{ t("settings.pair-exchanging") }}</p>
+    </div>
 
-        <template v-else-if="status === 'error'">
-          <v-icon size="64" color="error" class="mb-4">mdi-alert-circle</v-icon>
-          <p class="text-body-1">{{ errorMessage }}</p>
-        </template>
+    <div v-else-if="status === 'error'" class="r-pair__state">
+      <div class="r-pair__icon-wrap r-pair__icon-wrap--danger">
+        <RIcon icon="mdi-alert-circle" size="32" />
+      </div>
+      <p class="r-pair__body">
+        {{ errorMessage }}
+      </p>
+    </div>
 
-        <template v-else>
-          <v-icon size="48" class="mb-4">mdi-key-variant</v-icon>
-          <p class="text-body-1 mb-4">
-            Enter this code in your device to complete pairing:
-          </p>
-          <div
-            class="text-h3 font-weight-bold mb-4"
-            style="font-family: monospace; letter-spacing: 0.1em"
-          >
-            {{ formattedCode }}
-          </div>
-          <p class="text-body-2 text-medium-emphasis">
-            This code expires shortly. Return to the web interface to generate a
-            new one if needed.
-          </p>
-        </template>
-      </v-card>
-    </v-main>
-  </v-app>
+    <div v-else class="r-pair__state">
+      <div class="r-pair__icon-wrap">
+        <RIcon icon="mdi-key-variant" size="32" />
+      </div>
+      <p class="r-pair__body">
+        {{ t("settings.pair-enter-code-prompt") }}
+      </p>
+      <div
+        class="r-pair__code"
+        :aria-label="t('settings.pair-enter-code-prompt')"
+      >
+        {{ formattedCode }}
+      </div>
+      <RBtn
+        variant="translucent"
+        color="primary"
+        prepend-icon="mdi-content-copy"
+        @click="copyCode"
+      >
+        {{ t("common.copy-code") }}
+      </RBtn>
+      <p class="r-pair__hint">
+        {{ t("settings.pair-expires-shortly") }}
+      </p>
+    </div>
+  </div>
 </template>
+
+<style scoped>
+.r-pair {
+  background: color-mix(
+    in srgb,
+    var(--r-color-canvas-bg-deep) 72%,
+    transparent
+  );
+  border: 1px solid var(--r-color-border-strong);
+  border-radius: var(--r-radius-lg);
+  backdrop-filter: blur(22px);
+  padding: 40px 32px;
+  box-shadow:
+    0 22px 60px color-mix(in srgb, black 55%, transparent),
+    0 2px 6px color-mix(in srgb, black 30%, transparent);
+}
+
+.r-pair__state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.r-pair__icon-wrap {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--r-color-brand-primary) 15%, transparent);
+  color: var(--r-color-brand-primary);
+}
+.r-pair__icon-wrap--danger {
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-danger) 15%,
+    transparent
+  );
+  color: var(--r-color-danger-fg);
+}
+
+.r-pair__body {
+  margin: 0;
+  color: var(--r-color-fg);
+  font-size: var(--r-font-size-md);
+  max-width: 320px;
+}
+
+.r-pair__code {
+  font-family: var(--r-font-family-mono, monospace);
+  font-size: 40px;
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.14em;
+  color: var(--r-color-fg);
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border-strong);
+  border-radius: var(--r-radius-md);
+  padding: 18px 28px;
+  margin: 4px 0;
+  user-select: all;
+}
+
+.r-pair__hint {
+  margin: 4px 0 0;
+  color: var(--r-color-fg-muted);
+  font-size: var(--r-font-size-sm);
+  max-width: 360px;
+}
+
+.r-pair__spinner {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 3px solid var(--r-color-surface-hover);
+  border-top-color: var(--r-color-brand-primary);
+  animation: r-pair-spin 0.8s linear infinite;
+}
+@keyframes r-pair-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+</style>

@@ -82,6 +82,7 @@ export type SimpleRomSchema = {
     is_unidentified: boolean;
     is_identified: boolean;
     revision: (string | null);
+    version: (string | null);
     regions: Array<string>;
     languages: Array<string>;
     tags: Array<string>;

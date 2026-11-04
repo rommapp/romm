@@ -19,10 +19,9 @@ describe("trimIconCss", () => {
 });
 
 describe("usedIconNames", () => {
-  it("finds icons from src and the ones Vuetify draws", () => {
+  it("finds the icons named in src", () => {
     const used = usedIconNames(".");
 
     expect(used).toContain("mdi-magnify");
-    expect(used).toContain("mdi-checkbox-marked");
   });
 });

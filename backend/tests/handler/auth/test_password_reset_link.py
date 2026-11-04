@@ -6,6 +6,7 @@ from fakeredis import FakeRedis
 from handler.auth import base_handler
 from handler.auth.base_handler import auth_handler
 from handler.email_handler import EmailError
+from logger.log_stream_handler import STDOUT_ONLY
 
 
 @pytest.fixture(autouse=True)
@@ -55,6 +56,13 @@ def test_logs_the_link_for_a_user_without_an_address(sent, logged):
 
     sent.assert_not_called()
     assert _logged_link(logged)
+
+
+def test_logged_link_stays_out_of_the_log_buffer(sent, logged):
+    auth_handler.send_password_reset_link(_user(email=None))
+
+    (call,) = [c for c in logged.info.call_args_list if "Reset link:" in str(c.args[0])]
+    assert call.kwargs["extra"] is STDOUT_ONLY
 
 
 def test_logs_the_link_without_a_shareable_base_url(sent, logged, mocker):

@@ -1,0 +1,716 @@
+<script setup lang="ts">
+// CreateClientTokenDialog: v2-native rebuild of v1's
+// `Settings/ClientApiTokens/Dialog/CreateClientToken.vue`. Single dialog
+// driving the create + regenerate flows through four steps:
+//   1. config: name + expiry + scope picker
+//   2. delivery: choose copy or pair
+//   3. copy: shows the raw token with a copy button
+//   4. pair: QR + 4-digit code + countdown; polls until claimed
+//
+// Regenerate jumps straight to step 2 with the new token already
+// generated. The dialog responds to the same emitter events the v1
+// dialog used so call-sites don't change.
+import { useCountdown } from "@vueuse/core";
+import { useQRCode } from "@vueuse/integrations/useQRCode";
+import { computed, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import { useClipboard } from "@/composables/useClipboard";
+import { useEmitterEvent } from "@/composables/useEmitterEvent";
+import { useSnackbar } from "@/composables/useSnackbar";
+import {
+  RBtn,
+  RCheckbox,
+  RIcon,
+  RProgressCircular,
+  RSelect,
+  RTextField,
+} from "@/lib";
+import RDialog from "@/lib/overlays/RDialog/RDialog.vue";
+import clientTokenApi, {
+  type ClientTokenSchema,
+} from "@/services/api/client-token";
+import storeAuth from "@/stores/auth";
+import { colorOverlay } from "@/tokens";
+
+defineOptions({ inheritAttrs: false });
+
+const emit = defineEmits<{ created: [] }>();
+
+const { t } = useI18n();
+const auth = storeAuth();
+const snackbar = useSnackbar();
+const clipboard = useClipboard();
+
+type Step = "config" | "delivery" | "copy" | "pair";
+type PairStatus = "pending" | "claimed" | "expired";
+
+const show = ref(false);
+const step = ref<Step>("config");
+const loading = ref(false);
+
+const tokenName = ref("");
+const selectedScopes = ref<string[]>([]);
+const selectedExpiry = ref("never");
+const rawToken = ref("");
+const tokenId = ref<number | null>(null);
+
+const pairCode = ref("");
+const pairStatus = ref<PairStatus>("pending");
+const pairLoading = ref(false);
+const {
+  remaining: pairCountdown,
+  start: startPairCountdown,
+  pause: stopPairPolling,
+  stop: resetPairCountdown,
+} = useCountdown(0, {
+  onTick: () => void pollPairStatus(),
+  onComplete: () => (pairStatus.value = "expired"),
+});
+
+const regenerateToken = ref<ClientTokenSchema | null>(null);
+const isRegenerate = computed(() => regenerateToken.value !== null);
+
+const expiryOptions = computed(() => [
+  { title: t("settings.client-token-expiry-30d"), value: "30d" },
+  { title: t("settings.client-token-expiry-90d"), value: "90d" },
+  { title: t("settings.client-token-expiry-1y"), value: "1y" },
+  { title: t("settings.client-token-expiry-never"), value: "never" },
+]);
+
+const userScopes = computed(() => auth.scopes);
+
+interface ScopeGroup {
+  label: string;
+  scopes: string[];
+}
+
+const scopeColumns = computed<{ left: ScopeGroup[]; right: ScopeGroup[] }>(
+  () => {
+    const sortScopes = (scopes: string[]) => {
+      const prefixOrder = new Map<string, number>();
+      scopes.forEach((s) => {
+        const prefix = s.split(".").slice(0, -1).join(".");
+        if (!prefixOrder.has(prefix)) prefixOrder.set(prefix, prefixOrder.size);
+      });
+      return [...scopes].sort((a, b) => {
+        const pa = a.split(".").slice(0, -1).join(".");
+        const pb = b.split(".").slice(0, -1).join(".");
+        if (pa !== pb)
+          return (prefixOrder.get(pa) ?? 0) - (prefixOrder.get(pb) ?? 0);
+        return a.localeCompare(b);
+      });
+    };
+
+    const personal = sortScopes(
+      userScopes.value.filter((s) =>
+        /^(me|assets|devices|roms\.user)\./.test(s),
+      ),
+    );
+    const admin = sortScopes(
+      userScopes.value.filter((s) => /^(users|tasks)\./.test(s)),
+    );
+    const library = sortScopes(
+      userScopes.value.filter(
+        (s) =>
+          /^(platforms|firmware|collections)\./.test(s) ||
+          (/^roms\./.test(s) && !/^roms\.user\./.test(s)),
+      ),
+    );
+    const grouped = new Set([...personal, ...admin, ...library]);
+    const other = userScopes.value.filter((s) => !grouped.has(s));
+
+    const left: ScopeGroup[] = [];
+    if (personal.length > 0)
+      left.push({ label: t("settings.scope-personal"), scopes: personal });
+    if (admin.length > 0)
+      left.push({ label: t("settings.scope-administration"), scopes: admin });
+    if (other.length > 0)
+      left.push({ label: t("settings.scope-other"), scopes: other });
+
+    const right: ScopeGroup[] = [];
+    if (library.length > 0)
+      right.push({ label: t("settings.scope-library"), scopes: library });
+    return { left, right };
+  },
+);
+
+const configValid = computed(
+  () => tokenName.value.trim().length > 0 && selectedScopes.value.length > 0,
+);
+
+function isScopeSelected(scope: string): boolean {
+  return selectedScopes.value.includes(scope);
+}
+
+function toggleScope(scope: string, value: boolean | null) {
+  const set = new Set(selectedScopes.value);
+  if (value) set.add(scope);
+  else set.delete(scope);
+  selectedScopes.value = [...set];
+}
+
+const formattedPairCode = computed(() => {
+  const c = pairCode.value;
+  return c ? `${c.slice(0, 4)}-${c.slice(4)}` : "";
+});
+
+const pairUrl = computed(() =>
+  formattedPairCode.value
+    ? `${window.location.origin}/pair?code=${formattedPairCode.value}`
+    : "",
+);
+// High error correction leaves room for the logo covering the center.
+// Rendered at 2x the largest display size so it stays sharp on HiDPI screens.
+const pairQRCode = useQRCode(pairUrl, {
+  margin: 2,
+  width: 500,
+  errorCorrectionLevel: "H",
+  color: { light: colorOverlay.emphasisBg },
+});
+// useQRCode keeps the previous image until the new one resolves; drop it so
+// a regenerated code never briefly shows the expired one.
+watch(pairUrl, () => (pairQRCode.value = ""));
+
+const dialogTitle = computed(() => {
+  if (step.value === "config") return t("settings.create-new-api-token");
+  if (step.value === "delivery")
+    return isRegenerate.value
+      ? t("settings.regenerate-token-title")
+      : t("settings.deliver-token");
+  if (step.value === "copy") return t("settings.copy-token-title");
+  return t("settings.pair-device");
+});
+
+useEmitterEvent("showCreateClientTokenDialog", () => {
+  resetDialog();
+  regenerateToken.value = null;
+  selectedScopes.value = [...userScopes.value];
+  show.value = true;
+});
+
+useEmitterEvent("showRegenerateClientTokenDialog", (token) => {
+  resetDialog();
+  regenerateToken.value = token;
+  tokenName.value = token.name;
+  selectedScopes.value = [...token.scopes];
+  step.value = "delivery";
+  show.value = true;
+  void doRegenerate();
+});
+
+function resetDialog() {
+  step.value = "config";
+  tokenName.value = "";
+  selectedScopes.value = [];
+  selectedExpiry.value = "never";
+  rawToken.value = "";
+  tokenId.value = null;
+  pairCode.value = "";
+  pairStatus.value = "pending";
+  loading.value = false;
+  pairLoading.value = false;
+  resetPairCountdown();
+}
+
+async function createToken() {
+  loading.value = true;
+  try {
+    const { data } = await clientTokenApi.createToken({
+      name: tokenName.value.trim(),
+      scopes: selectedScopes.value,
+      expires_in:
+        selectedExpiry.value === "never" ? undefined : selectedExpiry.value,
+    });
+    rawToken.value = data.raw_token;
+    tokenId.value = data.id;
+    step.value = "delivery";
+    emit("created");
+    snackbar.success(t("settings.client-token-created"), {
+      icon: "mdi-check-bold",
+    });
+  } catch (err) {
+    const e = err as { response?: { data?: { detail?: string } } };
+    snackbar.error(
+      e?.response?.data?.detail || t("settings.failed-to-create-token"),
+      { icon: "mdi-close-circle" },
+    );
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function doRegenerate() {
+  if (!regenerateToken.value) return;
+  loading.value = true;
+  try {
+    const { data } = await clientTokenApi.regenerateToken(
+      regenerateToken.value.id,
+    );
+    rawToken.value = data.raw_token;
+    tokenId.value = data.id;
+    emit("created");
+    snackbar.success(t("settings.client-token-regenerated"), {
+      icon: "mdi-check-bold",
+    });
+  } catch (err) {
+    const e = err as { response?: { data?: { detail?: string } } };
+    snackbar.error(
+      e?.response?.data?.detail || t("settings.failed-to-regenerate-token"),
+      { icon: "mdi-close-circle" },
+    );
+    show.value = false;
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function copyToken() {
+  await clipboard.copy(rawToken.value, {
+    successMessage: t("settings.client-token-copied"),
+  });
+}
+
+async function startPairing() {
+  if (!tokenId.value) return;
+  step.value = "pair";
+  pairLoading.value = true;
+  pairStatus.value = "pending";
+  try {
+    const { data } = await clientTokenApi.pairToken(tokenId.value);
+    pairCode.value = data.code;
+    pairLoading.value = false;
+    startPairCountdown(data.expires_in);
+  } catch (err) {
+    pairLoading.value = false;
+    const e = err as { response?: { data?: { detail?: string } } };
+    snackbar.error(
+      e?.response?.data?.detail ||
+        t("settings.failed-to-generate-pairing-code"),
+      { icon: "mdi-close-circle" },
+    );
+    step.value = "delivery";
+  }
+}
+
+async function pollPairStatus() {
+  if (pairCountdown.value <= 0 || pairCountdown.value % 3 !== 0) return;
+  try {
+    await clientTokenApi.pollPairStatus(pairCode.value);
+  } catch {
+    // The poll throws when the code has been claimed (4xx); treat
+    // it as "claimed" if there's still time, "expired" otherwise.
+    stopPairPolling();
+    if (pairCountdown.value > 0) {
+      pairStatus.value = "claimed";
+      snackbar.success(t("settings.client-token-pair-claimed"), {
+        icon: "mdi-check-bold",
+      });
+    } else {
+      pairStatus.value = "expired";
+    }
+  }
+}
+
+async function regeneratePairCode() {
+  if (!tokenId.value) return;
+  pairStatus.value = "pending";
+  pairLoading.value = true;
+  try {
+    const { data } = await clientTokenApi.pairToken(tokenId.value);
+    pairCode.value = data.code;
+    pairLoading.value = false;
+    startPairCountdown(data.expires_in);
+  } catch (err) {
+    pairLoading.value = false;
+    const e = err as { response?: { data?: { detail?: string } } };
+    snackbar.error(
+      e?.response?.data?.detail || t("settings.failed-to-regenerate-code"),
+      { icon: "mdi-close-circle" },
+    );
+  }
+}
+
+function closeDialog() {
+  stopPairPolling();
+  show.value = false;
+}
+
+watch(show, (val) => {
+  if (!val) stopPairPolling();
+});
+</script>
+
+<template>
+  <RDialog
+    v-model="show"
+    :icon="isRegenerate ? 'mdi-refresh' : 'mdi-key-plus'"
+    :width="720"
+    scroll-content
+    :cancelable="step === 'config' || step === 'delivery'"
+    @close="closeDialog"
+  >
+    <template #header>
+      <span class="r-tok-dialog__title">{{ dialogTitle }}</span>
+    </template>
+
+    <template #content>
+      <!-- Step 1: Config -->
+      <div v-if="step === 'config'" class="r-tok-dialog__body">
+        <RTextField
+          v-model="tokenName"
+          prefix-label="stacked"
+          density="comfortable"
+          hide-details
+        >
+          <template #prefix-label>
+            <RIcon icon="mdi-tag-outline" size="14" />
+            {{ t("settings.client-token-name") }}
+          </template>
+        </RTextField>
+        <RSelect
+          v-model="selectedExpiry"
+          :items="expiryOptions"
+          :label="t('settings.client-token-select-expiry')"
+          prefix-label="stacked"
+          variant="outlined"
+          density="comfortable"
+          hide-details
+        />
+        <div>
+          <div class="r-tok-dialog__scopes-title">
+            {{ t("settings.client-token-scopes") }}
+          </div>
+          <div class="r-tok-dialog__scopes-grid">
+            <div class="r-tok-dialog__scopes-col">
+              <template
+                v-for="group in scopeColumns.left"
+                :key="`left-${group.label}`"
+              >
+                <div class="r-tok-dialog__scopes-group">
+                  {{ group.label }}
+                </div>
+                <RCheckbox
+                  v-for="scope in group.scopes"
+                  :key="scope"
+                  :model-value="isScopeSelected(scope)"
+                  :label="scope"
+                  density="compact"
+                  hide-details
+                  @update:model-value="(v) => toggleScope(scope, v)"
+                />
+              </template>
+            </div>
+            <div class="r-tok-dialog__scopes-col">
+              <template
+                v-for="group in scopeColumns.right"
+                :key="`right-${group.label}`"
+              >
+                <div class="r-tok-dialog__scopes-group">
+                  {{ group.label }}
+                </div>
+                <RCheckbox
+                  v-for="scope in group.scopes"
+                  :key="scope"
+                  :model-value="isScopeSelected(scope)"
+                  :label="scope"
+                  density="compact"
+                  hide-details
+                  @update:model-value="(v) => toggleScope(scope, v)"
+                />
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Delivery -->
+      <div
+        v-else-if="step === 'delivery'"
+        class="r-tok-dialog__body r-tok-dialog__body--center"
+      >
+        <p class="r-tok-dialog__intro">
+          {{
+            isRegenerate
+              ? t("settings.delivery-intro-regenerate")
+              : t("settings.delivery-intro")
+          }}
+        </p>
+        <p class="r-tok-dialog__warn">
+          {{ t("settings.client-token-delivery-hint") }}
+        </p>
+        <div class="r-tok-dialog__delivery-row">
+          <RBtn
+            variant="flat"
+            size="large"
+            prepend-icon="mdi-content-copy"
+            @click="step = 'copy'"
+          >
+            {{ t("settings.copy-token") }}
+          </RBtn>
+          <RBtn
+            variant="flat"
+            size="large"
+            prepend-icon="mdi-qrcode"
+            @click="startPairing"
+          >
+            {{ t("settings.pair-device") }}
+          </RBtn>
+        </div>
+      </div>
+
+      <!-- Step 3: Copy -->
+      <div v-else-if="step === 'copy'" class="r-tok-dialog__body">
+        <p class="r-tok-dialog__warn">
+          {{ t("settings.client-token-delivery-hint") }}
+        </p>
+        <RTextField
+          :model-value="rawToken"
+          variant="outlined"
+          density="comfortable"
+          readonly
+          hide-details
+          class="r-tok-dialog__token-input"
+        >
+          <template #append-inner>
+            <button
+              type="button"
+              class="r-tok-dialog__copy-btn"
+              :aria-label="t('settings.copy-token')"
+              @click="copyToken"
+            >
+              <RIcon icon="mdi-content-copy" size="16" />
+            </button>
+          </template>
+        </RTextField>
+      </div>
+
+      <!-- Step 4: Pair -->
+      <div
+        v-else-if="step === 'pair'"
+        class="r-tok-dialog__body r-tok-dialog__body--center"
+      >
+        <div v-if="pairLoading" class="r-tok-dialog__pair-loading">
+          <RProgressCircular indeterminate :size="36" />
+        </div>
+        <template v-else-if="pairStatus === 'pending'">
+          <div class="r-tok-dialog__qr">
+            <template v-if="pairQRCode">
+              <img
+                :src="pairQRCode"
+                :alt="t('settings.pair-device')"
+                class="r-tok-dialog__qr-code"
+              />
+              <img
+                src="/assets/logos/romm_logo_xbox_one_circle.svg"
+                alt=""
+                class="r-tok-dialog__qr-logo"
+              />
+            </template>
+          </div>
+          <div class="r-tok-dialog__pair-code">{{ formattedPairCode }}</div>
+          <div class="r-tok-dialog__pair-counter">{{ pairCountdown }}s</div>
+        </template>
+        <template v-else-if="pairStatus === 'claimed'">
+          <RIcon
+            icon="mdi-check-circle"
+            size="64"
+            class="r-tok-dialog__pair-ok"
+          />
+          <p class="r-tok-dialog__pair-result">
+            {{ t("settings.client-token-pair-claimed") }}
+          </p>
+        </template>
+        <template v-else>
+          <RIcon
+            icon="mdi-timer-off"
+            size="64"
+            class="r-tok-dialog__pair-warn"
+          />
+          <p class="r-tok-dialog__pair-result">
+            {{ t("settings.client-token-pair-expired") }}
+          </p>
+          <RBtn
+            variant="flat"
+            prepend-icon="mdi-refresh"
+            @click="regeneratePairCode"
+          >
+            {{ t("settings.regenerate-code") }}
+          </RBtn>
+        </template>
+      </div>
+    </template>
+
+    <template #footer-start>
+      <RBtn
+        v-if="step !== 'config' && step !== 'delivery'"
+        variant="text"
+        @click="step = 'delivery'"
+      >
+        {{ t("common.back") }}
+      </RBtn>
+    </template>
+    <template #footer>
+      <RBtn
+        v-if="step === 'config'"
+        variant="flat"
+        color="primary"
+        :loading="loading"
+        :disabled="!configValid"
+        @click="createToken"
+      >
+        {{ t("common.create") }}
+      </RBtn>
+      <RBtn
+        v-else-if="step !== 'delivery'"
+        variant="flat"
+        color="primary"
+        @click="closeDialog"
+      >
+        {{ t("common.close") }}
+      </RBtn>
+    </template>
+  </RDialog>
+</template>
+
+<style scoped>
+.r-tok-dialog__title {
+  font-weight: var(--r-font-weight-semibold);
+}
+/* Per-step body: wraps a single v-if branch inside RDialog's body.
+   Keeps the column layout so children inherit the step's gap (slightly
+   wider than the dialog's default) and an opt-in centred alignment for
+   delivery / pair steps. Padding stays in RDialog. */
+.r-tok-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.r-tok-dialog__body--center {
+  align-items: center;
+  text-align: center;
+}
+
+.r-tok-dialog__scopes-title {
+  font-size: 11px;
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--r-color-fg-muted);
+  margin-bottom: 10px;
+}
+.r-tok-dialog__scopes-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+/* Phones: the two scope columns get cramped (and their content can push the
+   tracks past the sheet); stack them into one. */
+html[data-bp~="xs"] .r-tok-dialog__scopes-grid {
+  grid-template-columns: 1fr;
+}
+html[data-bp~="xs"] .r-tok-dialog__scopes-grid {
+  grid-template-columns: 1fr;
+}
+.r-tok-dialog__scopes-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.r-tok-dialog__scopes-group {
+  font-size: 11px;
+  font-weight: var(--r-font-weight-semibold);
+  color: var(--r-color-fg-muted);
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+.r-tok-dialog__intro {
+  margin: 0;
+  font-size: 13px;
+  color: var(--r-color-fg);
+  max-width: 440px;
+}
+.r-tok-dialog__warn {
+  margin: 0;
+  font-size: 12px;
+  color: var(--r-color-warning);
+}
+
+.r-tok-dialog__delivery-row {
+  display: flex;
+  gap: 12px;
+}
+
+.r-tok-dialog__token-input {
+  font-family: var(--r-font-family-mono, monospace);
+}
+.r-tok-dialog__copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--r-color-brand-primary);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-tok-dialog__copy-btn:hover {
+  background: var(--r-color-surface);
+}
+
+.r-tok-dialog__qr {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  margin: 0 auto;
+}
+html[data-bp~="lg-and-up"] .r-tok-dialog__qr {
+  width: 250px;
+  height: 250px;
+}
+.r-tok-dialog__qr-code {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.r-tok-dialog__qr-logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  box-sizing: content-box;
+  width: 24%;
+  padding: 4px;
+  border-radius: 50%;
+  background: var(--r-color-overlay-emphasis-bg);
+  transform: translate(-50%, -50%);
+}
+.r-tok-dialog__pair-code {
+  margin-top: 8px;
+  font-family: var(--r-font-family-mono, monospace);
+  font-size: 28px;
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.05em;
+  color: var(--r-color-fg);
+}
+.r-tok-dialog__pair-counter {
+  font-size: 12px;
+  color: var(--r-color-fg-muted);
+}
+.r-tok-dialog__pair-loading {
+  padding: 32px;
+}
+.r-tok-dialog__pair-ok {
+  color: var(--r-color-success);
+}
+.r-tok-dialog__pair-warn {
+  color: var(--r-color-warning);
+}
+.r-tok-dialog__pair-result {
+  font-size: 14px;
+  margin: 4px 0;
+  color: var(--r-color-fg);
+}
+</style>

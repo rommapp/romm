@@ -17,7 +17,7 @@ The frontend talks to the backend over `/api/*` (REST) and `/ws` (Socket.IO). Ty
 
 ## Stack-specific guidance
 
-`frontend/AGENTS.md` (v1 vs v2, frontend commands) and `backend/AGENTS.md` (backend commands) load when you work in those directories. New frontend work goes in v2 (`frontend/src/v2/`); v1 is frozen.
+`frontend/AGENTS.md` (frontend layout and commands) and `backend/AGENTS.md` (backend commands) load when you work in those directories. The UI lives in `frontend/src/`.
 
 ---
 
@@ -46,7 +46,7 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 **Python tools live in `backend/tools/`.** Standalone dev/test utilities and scripts (not part of the app runtime) go in `backend/tools/`, not scattered across `backend/`.
 **Link PRs to issues.** In the PR description, use `Fixes #XXXX` for issue/bug fixes and `Closes #XXXX` for feature implementations.
 **Use the PR template.** Base every PR description on `.github/PULL_REQUEST_TEMPLATE.md`.
-**Show UI changes in the PR.** A PR that touches anything visible ships with at least one screenshot under the template's `Screenshots` heading, captured from the running app during the `review-polish` browser pass. Enough shots to convey what changed, not a catalogue of every state. Save the files outside the repo and never commit them, and upload them with `gh pr create --attach` (or `gh pr edit --attach` on an existing PR) rather than handing the paths to the user.
+**Show UI changes in the PR.** A PR that touches anything visible ships with at least one screenshot under the template's `Screenshots` heading, captured from the running app during the `review-polish` browser pass. Enough shots to convey what changed, not a catalogue of every state. Save the files outside the repo and never commit them, and upload them with `gh pr create --attach` (or `gh pr edit --attach` on an existing PR) rather than handing the paths to the user. `--attach` needs gh 2.99.0 or later (check `gh --version`). Claude Code cloud sessions block the GraphQL API that `gh pr create` and `gh pr edit` use, so there `--attach` fails whatever the version: send the files to the user to attach instead.
 **Diagram architectural changes in the PR.** When a change moves a boundary (a new service, task, or provider in a path, a model relationship, a different call path across layers, an auth or socket flow), the PR description carries a `mermaid` block showing it. GitHub renders them. Draw what changed, not the whole system. See `review-polish`.
 
 ---

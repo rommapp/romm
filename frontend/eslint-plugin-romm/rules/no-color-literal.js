@@ -17,7 +17,7 @@ export default {
     schema: [],
     messages: {
       colorLiteral:
-        "Color literal `{{literal}}`: use a `var(--r-color-*)` token, or `color-mix()` over a token or named color. Add a token in src/v2/tokens/index.ts if none fits.",
+        "Color literal `{{literal}}`: use a `var(--r-color-*)` token, or `color-mix()` over a token or named color. Add a token in src/tokens/index.ts if none fits.",
     },
   },
   create(context) {

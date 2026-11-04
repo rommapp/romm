@@ -8,10 +8,12 @@ from sqlalchemy import TIMESTAMP, Boolean, Enum, ForeignKey, Index, Integer, Str
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from starlette.authentication import SimpleUser
 
+from config import OIDC_ENABLED
 from handler.auth.constants import Scope
 from models.base import BaseModel
 from models.permission import PermissionGroup
 from utils.database import CustomJSON, ExactString
+from utils.datetime import older_than
 
 if TYPE_CHECKING:
     from models.assets import MemoryCard, Save, Screenshot, State
@@ -167,13 +169,25 @@ class User(BaseModel, SimpleUser):
         return compute_oauth_scopes(self)
 
     @property
+    def has_password(self) -> bool:
+        """Whether the account can sign in with a password: OIDC-provisioned
+        accounts hold a random placeholder instead of a bcrypt hash."""
+        return bool(self.hashed_password and self.hashed_password.startswith("$2"))
+
+    @property
+    def email_managed_by_oidc(self) -> bool:
+        """Whether the provider owns the email: it overwrites a linked account's
+        at every sign-in, and finds an unlinked password-less account by it."""
+        return OIDC_ENABLED and (self.oidc_sub is not None or not self.has_password)
+
+    @property
     def fs_safe_folder_name(self) -> str:
         # Uses the ID to avoid issues with username changes
         return f"User:{self.id}".encode().hex()
 
     def set_last_active(self) -> None:
         from handler.database import db_user_handler
+        from handler.database.users_handler import LAST_ACTIVE_DEBOUNCE
 
-        db_user_handler.update_user(
-            self.id, {"last_active": datetime.now(timezone.utc)}
-        )
+        if older_than(self.last_active, LAST_ACTIVE_DEBOUNCE):
+            db_user_handler.update_last_active(self.id)

@@ -149,6 +149,96 @@ class TestAgainstAServer:
 
 
 class TestRequestsAgainstAServer:
+    async def test_platform_discovery_returns_current_logo_without_dates(
+        self, igdb_server
+    ):
+        fake, service, _ = igdb_server
+        fake.replies["platforms"] = [
+            (
+                200,
+                [
+                    {
+                        "id": 4,
+                        "platform_logo": {
+                            "id": 2,
+                            "url": "//images.igdb.com/example.png",
+                        },
+                    }
+                ],
+            )
+        ]
+        assert await service.platform_discovery(4) == {
+            "url_logo": "//images.igdb.com/example.png"
+        }
+
+    @pytest.mark.parametrize("version", [False, True])
+    async def test_platform_launch_uses_earliest_regional_year(
+        self, igdb_server, version
+    ):
+        fake, service, _ = igdb_server
+        endpoint = "platform_versions" if version else "platforms"
+        dates = {
+            "id": 1,
+            "platform_version_release_dates": [
+                {"id": 1, "y": 1996},
+                {"id": 2, "y": 1997},
+                {"id": 3},
+            ],
+        }
+        data = (
+            [dates]
+            if version
+            else [
+                {
+                    "id": 4,
+                    "versions": [
+                        dates,
+                        {
+                            "id": 2,
+                            "platform_version_release_dates": [{"id": 4, "y": 2000}],
+                        },
+                    ],
+                }
+            ]
+        )
+        fake.replies[endpoint] = [(200, data)]
+        assert await service.platform_discovery(4, version=version) == {
+            "first_release_year": 1996
+        }
+        [request] = fake.endpoint(endpoint)
+        prefix = "" if version else "versions."
+        assert (
+            await request.text()
+            == f"fields platform_logo.url,{prefix}platform_version_release_dates.y; where id=4; limit 1;"
+        )
+
+    @pytest.mark.parametrize(
+        "data",
+        [
+            [],
+            [{"id": 4}],
+            [
+                {
+                    "id": 4,
+                    "versions": [
+                        {
+                            "id": 1,
+                            "platform_version_release_dates": [
+                                {"id": 1, "y": 0},
+                                {"id": 2},
+                            ],
+                        },
+                        2,
+                    ],
+                }
+            ],
+        ],
+    )
+    async def test_missing_platform_dates_stay_unknown(self, igdb_server, data):
+        fake, service, _ = igdb_server
+        fake.replies["platforms"] = [(200, data)]
+        assert await service.platform_discovery(4) == {}
+
     async def test_sends_an_apicalypse_query_with_credentials(
         self, igdb_server: tuple[ScriptedServer, IGDBService, MagicMock]
     ):

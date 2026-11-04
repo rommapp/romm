@@ -20,8 +20,6 @@ system:
   # below override folders RomM would otherwise match to their own platform.
   platforms:
     atari800: atari8bit
-    model2: arcade
-    model3: arcade
     pico: sega-pico
   versions: {}
 scan:

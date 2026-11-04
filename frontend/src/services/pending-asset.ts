@@ -14,9 +14,9 @@ import stateApi, {
   sessionStateName,
 } from "@/services/api/state";
 import storeAuth from "@/stores/auth";
-import { errorMessage } from "@/v2/utils/errorMessage";
-import { openDb } from "@/v2/utils/idb";
-import { saveContentHash } from "@/v2/utils/saveSync/hash";
+import { errorMessage } from "@/utils/errorMessage";
+import { openDb } from "@/utils/idb";
+import { saveContentHash } from "@/utils/saveSync/hash";
 
 const DB_NAME = "romm-player";
 const DB_VERSION = 6;

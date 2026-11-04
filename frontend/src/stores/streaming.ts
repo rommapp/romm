@@ -10,7 +10,7 @@ import type {
   StreamingConfig,
   StreamingContainer,
 } from "@/services/api/streaming";
-import { emulatorLabelFrom } from "@/v2/utils/assets";
+import { emulatorLabelFrom } from "@/utils/assets";
 
 export type {
   LaunchingSession,
@@ -189,6 +189,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     memoryCardId?: number,
     cardImport?: MemoryCardImport,
     multiplayer?: boolean,
+    discFileId?: number,
   ): Promise<LaunchingSession> {
     const { data } = await streamingApi.claimSession(
       romId,
@@ -197,6 +198,7 @@ export const useStreamingStore = defineStore("streaming", () => {
       memoryCardId,
       cardImport,
       multiplayer,
+      discFileId,
     );
     return data;
   }

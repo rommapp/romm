@@ -15,7 +15,13 @@ from tests._zipfile_shim import reload_zipfile
 
 from adapters.services.sigil import SigilExtractionResult
 from config import LIBRARY_BASE_PATH
-from config.config_manager import DEFAULT_EXCLUDED_EXTENSIONS, Config, ConvertoConfig
+from config.config_manager import (
+    DEFAULT_EXCLUDED_EXTENSIONS,
+    DEFAULT_EXCLUDED_FILES,
+    DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
+    Config,
+    ConvertoConfig,
+)
 from handler.filesystem.base_handler import (
     LANGUAGES_BY_SHORTCODE,
     REGIONS_BY_SHORTCODE,
@@ -487,6 +493,33 @@ class TestFSRomsHandler:
 
             result = handler.exclude_multi_roms(roms)
             assert result == roms
+
+    def test_default_exclusions_skip_esde_media_and_appledouble(
+        self, handler: FSRomsHandler
+    ):
+        config = Config(
+            EXCLUDED_PLATFORMS=[],
+            EXCLUDED_SINGLE_EXT=[],
+            EXCLUDED_SINGLE_FILES=[],
+            EXCLUDED_MULTI_FILES=list(DEFAULT_EXCLUDED_MULTI_FILE_DIRS),
+            EXCLUDED_MULTI_PARTS_EXT=[],
+            EXCLUDED_MULTI_PARTS_FILES=list(DEFAULT_EXCLUDED_FILES),
+            PLATFORMS_BINDING={},
+            PLATFORMS_VERSIONS={},
+            STRUCTURE_TEMPLATES={
+                "default": "{platform}/roms/{game}",
+                "firmware": "{platform}/bios",
+            },
+        )
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+
+            assert handler.exclude_multi_roms(
+                ["Game (Disc 1)", "media", "downloaded_media"]
+            ) == ["Game (Disc 1)"]
+            assert handler.is_excluded_multi_part("._track01.bin", config)
+            assert not handler.is_excluded_multi_part("track01.bin", config)
 
     def test_exclude_multi_roms_drops_hidden_folders(
         self, handler: FSRomsHandler, config
@@ -1354,6 +1387,26 @@ class TestFSRomsHandler:
             if test_file.exists():
                 test_file.unlink()
 
+    def test_list_rom_dir_sorts_regardless_of_listing_order(
+        self, handler: FSRomsHandler, config, tmp_path
+    ):
+        rom_dir = tmp_path / "Order Test (World)"
+        (rom_dir / "sub").mkdir(parents=True)
+        for name in ("a.bin", "b.bin", "sub/c.bin"):
+            (rom_dir / name).write_bytes(b"x")
+        listing = [(rom_dir, "b.bin"), (rom_dir / "sub", "c.bin"), (rom_dir, "a.bin")]
+
+        with patch(
+            "handler.filesystem.roms_handler.iter_files", return_value=iter(listing)
+        ):
+            entries = handler._list_rom_dir(rom_dir, config)
+
+        assert [(p, n) for p, n, _ in entries] == [
+            (rom_dir, "a.bin"),
+            (rom_dir, "b.bin"),
+            (rom_dir / "sub", "c.bin"),
+        ]
+
     def test_failed_7z_extraction_hashes_only_the_raw_archive(
         self, handler: FSRomsHandler, tmp_path
     ):
@@ -2179,6 +2232,26 @@ class TestSigilTitleIdExtraction:
 
         # Only the ROM file itself is worth a native parse.
         assert mock_extract.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_sidecar_files_are_not_read(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_multi_part_rom(
+            tmp_path,
+            PS2_PLATFORM,
+            "Game",
+            ["Game.cue", "Game.bin", "Game.SBI", "readme.txt", "Game.nfo"],
+        )
+
+        mock_extract = AsyncMock(return_value=None)
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            await handler.get_rom_files(rom)
+
+        read = [Path(call.args[1]).name for call in mock_extract.await_args_list]
+        assert read == ["Game.bin"]
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -3582,3 +3655,52 @@ class TestIncrementalRomFiles:
 
     def test_upload_temp_files_are_excluded_by_default(self):
         assert "assembling" in DEFAULT_EXCLUDED_EXTENSIONS
+
+
+@pytest.mark.parametrize(
+    ("file_path", "file_name", "moved_path", "moved_name"),
+    [
+        # A single-file rom is the file itself.
+        ("n64/roms", "Game.z64", "n64/roms", "Renamed.z64"),
+        # A folder's files keep their names, even one named after the folder.
+        (
+            "n64/roms/Game.z64",
+            "Game.z64 (Disc 1).bin",
+            "n64/roms/Renamed.z64",
+            "Game.z64 (Disc 1).bin",
+        ),
+        (
+            "n64/roms/Game.z64/extras",
+            "Game.z64.txt",
+            "n64/roms/Renamed.z64/extras",
+            "Game.z64.txt",
+        ),
+    ],
+)
+def test_moved_file_location_follows_the_rename_on_disk(
+    file_path: str, file_name: str, moved_path: str, moved_name: str
+):
+    file = RomFile(file_path=file_path, file_name=file_name)
+    assert FSRomsHandler.moved_file_location(
+        file, "n64/roms", "Game.z64", "Renamed.z64"
+    ) == {
+        "file_name": moved_name,
+        "file_path": moved_path,
+    }
+
+
+def test_moved_file_location_skips_a_sibling_sharing_the_prefix():
+    file = RomFile(file_path="n64/roms/Game.z64 Deluxe", file_name="a.bin")
+    assert (
+        FSRomsHandler.moved_file_location(file, "n64/roms", "Game.z64", "Renamed.z64")
+        is None
+    )
+
+
+def test_moved_file_location_leaves_the_platform_path_alone():
+    """A rom named like its platform folder must not rewrite that folder."""
+    file = RomFile(file_path="n64/roms", file_name="n64")
+    assert FSRomsHandler.moved_file_location(file, "n64/roms", "n64", "N64 Game") == {
+        "file_name": "N64 Game",
+        "file_path": "n64/roms",
+    }

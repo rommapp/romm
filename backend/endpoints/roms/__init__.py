@@ -1,12 +1,23 @@
 import binascii
 import json
+import posixpath
 import re
 from base64 import b64encode
-from dataclasses import replace
+from collections.abc import Iterator
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from io import BytesIO
 from stat import S_IFREG
-from typing import Annotated, Any, Final, Literal, Sequence, cast
+from typing import (
+    Annotated,
+    Any,
+    Awaitable,
+    Callable,
+    Final,
+    Literal,
+    Mapping,
+    Sequence,
+)
 from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
@@ -38,6 +49,7 @@ from config import (
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
     LIBRARY_BASE_PATH,
 )
+from config.config_manager import MetadataMediaType
 from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
 from endpoints.responses.base import PAGE_QUERY, LimitOffsetPage, PageParams
@@ -47,6 +59,7 @@ from endpoints.responses.rom import (
     ManualMetadata,
     RomUserSchema,
     SimpleRomSchema,
+    clean_metadata_name_lists,
 )
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import (
@@ -102,16 +115,19 @@ from handler.metadata import (
     meta_upc_handler,
     scene_id_or_none,
 )
-from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
+from handler.metadata.launchbox_handler.media import (
+    RECOGNIZED_VIDEO_EXTENSIONS,
+    populate_rom_specific_paths,
+)
 from handler.metadata.ss_handler import (
     ScreenScraperExhaustedError,
     add_ss_auth_to_url,
 )
 from handler.recommendation import similar_roms
 from handler.rom_conversion import promote_single_file_to_folder
+from handler.scan.sources import RESCAN_RULES, MetadataSource, ScanType
 from handler.scan_handler import (
-    MetadataSource,
-    ScanType,
+    MEDIA_PROVIDERS,
     build_hashless_fs_rom,
     build_physical_fs_name,
     build_physical_fs_path,
@@ -131,6 +147,7 @@ from models.rom import (
     PINNED_MEDIA_KEY_MAX_LENGTH,
     PINNED_MEDIA_KEY_PATTERN,
     PINNED_MEDIA_MAX_ITEMS,
+    PROVIDER_METADATA_COLUMNS,
     TITLE_ID_MAX_LENGTH,
     Rom,
     RomFile,
@@ -516,10 +533,95 @@ def parse_raw_metadata(
         return None
 
     try:
-        return cast(dict[str, Any] | None, json.loads(str(raw_json)))
+        metadata = json.loads(str(raw_json))
     except json.JSONDecodeError as e:
         log.warning(f"Invalid JSON for {form_key}: {e}")
         return None
+
+    if not isinstance(metadata, dict):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Invalid {form_key}: expected a JSON object",
+        )
+    # Manual metadata is checked strictly by its adapter instead.
+    if form_key == "raw_manual_metadata":
+        return metadata
+    return clean_metadata_name_lists(form_key.removeprefix("raw_"), metadata)
+
+
+# Provider media is stored as PNG, except videos, which keep their source extension.
+STORED_MEDIA_EXTENSIONS: Final = frozenset((".png", *RECOGNIZED_VIDEO_EXTENSIONS))
+STORED_MEDIA_STEM: Final = re.compile(r"[A-Za-z0-9_-]{1,64}")
+
+
+def _is_stored_media_path(path: object, folder: str) -> bool:
+    if not isinstance(path, str):
+        return False
+    head, name = posixpath.split(path)
+    stem, ext = posixpath.splitext(name)
+    return (
+        head == folder
+        and STORED_MEDIA_STEM.fullmatch(stem) is not None
+        and ext.lower() in STORED_MEDIA_EXTENSIONS
+    )
+
+
+def _media_url_slots(metadata: dict[str, Any]) -> Iterator[tuple[dict[str, Any], str]]:
+    for media_type in MetadataMediaType:
+        yield metadata, f"{media_type.value}_url"
+        for disc in metadata.get(f"{media_type.value}_extra_discs") or []:
+            yield disc, "url"
+
+
+def confine_provider_media(
+    metadata: dict[str, Any], stored: dict[str, Any] | None, rom: Rom, form_key: str
+) -> None:
+    """Drop client-supplied media paths outside the rom's own media folders, and media
+    URLs (or disc entries) the rom's stored provider metadata doesn't already hold.
+
+    Args:
+        metadata: The client-supplied provider dict, edited in place.
+        stored: The same provider's dict as the rom holds it.
+        rom: The rom being updated.
+        form_key: The form field the dict came from, for errors and logs.
+    """
+    invalid = HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail=f"Invalid {form_key}",
+    )
+    try:
+        recorded = fs_resource_handler.recorded_media(metadata, MetadataMediaType)
+    except (AttributeError, TypeError) as exc:
+        raise invalid from exc
+    if any(m.url is not None and not isinstance(m.url, str) for m in recorded):
+        raise invalid
+
+    for media in recorded:
+        path = media.owner[media.key]
+        folder = fs_resource_handler.get_media_resources_path(
+            rom.platform_id, rom.id, media.media_type
+        )
+        if not _is_stored_media_path(path, folder):
+            log.warning(f"Ignoring media path {path!r} from {form_key} of rom {rom.id}")
+            media.owner[media.key] = None
+
+    known = {owner.get(key) for owner, key in _media_url_slots(stored or {})}
+
+    def untrusted(url: object) -> bool:
+        if isinstance(url, str) and url in known:
+            return False
+        log.warning(f"Ignoring media URL {url!r} from {form_key} of rom {rom.id}")
+        return True
+
+    for media_type in MetadataMediaType:
+        url_key = f"{media_type.value}_url"
+        if metadata.get(url_key) is not None and untrusted(metadata[url_key]):
+            del metadata[url_key]
+        discs_key = f"{media_type.value}_extra_discs"
+        if metadata.get(discs_key):
+            metadata[discs_key] = [
+                disc for disc in metadata[discs_key] if not untrusted(disc.get("url"))
+            ]
 
 
 class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
@@ -599,6 +701,16 @@ def get_roms(
             )
         ),
     ] = True,
+    with_provider_metadata: Annotated[
+        bool,
+        Query(
+            description=(
+                "Whether to include each rom's provider metadata. When false, every"
+                " `*_metadata` object but `manual_metadata` comes back null, meaning"
+                " not requested rather than no match; `metadatum` is unaffected."
+            )
+        ),
+    ] = True,
     order_by: Annotated[
         str,
         Query(
@@ -672,11 +784,9 @@ def get_roms(
         updated_after=updated_after,
         released_days=parsed_released_days,
         released_before_year=released_before_year,
-        # The page's files answer all three flags without the subqueries.
-        include_file_stats=not with_files,
-        # Siblings and the notes indicator are resolved per page below.
-        include_siblings=False,
-        include_notes=False,
+        # Only ids, letters and counts are selected from it; the page's rows load
+        # through get_page_rows_query below.
+        include_related=False,
     )
 
     # Cache only the fully unscoped library scan: the sidecar cache key encodes
@@ -797,6 +907,7 @@ def get_roms(
                     siblings=siblings_by_rom.get(item.id, []),
                     screenshot_path=screenshot_by_rom.get(item.id),
                     has_notes=item.id in rom_ids_with_notes,
+                    with_provider_metadata=with_provider_metadata,
                 )
                 for item in items
             ]
@@ -827,9 +938,14 @@ def get_roms(
             )
 
         if page_ids:
-            # The rows are reordered by `page_ids` below, so the sort is dropped.
+            # The ids already passed the filters and the sibling grouping, so the
+            # rows load without re-running either.
             page_rows = session.scalars(
-                query.where(Rom.id.in_(page_ids)).order_by(None)
+                db_rom_handler.get_page_rows_query(
+                    page_ids,
+                    visibility=perms.rom_visibility,
+                    include_file_stats=not with_files,
+                )
             ).all()
             rows_by_id = {rom.id: rom for rom in page_rows}
             page_items = [rows_by_id[i] for i in page_ids if i in rows_by_id]
@@ -1865,6 +1981,138 @@ async def create_physical_rom(
     return DetailedRomSchema.from_orm_with_request(added_rom, request)
 
 
+# Ids the form takes as text; the scene archives also accept a production URL.
+_STRING_MATCH_ID_FIELDS: Final = frozenset({"flashpoint_id", "libretro_id"})
+_SCENE_MATCH_ID_FIELDS: Final = frozenset({"demozoo_id", "pouet_id", "csdb_id"})
+# The providers whose raw metadata the edit form can overwrite.
+_RAW_METADATA_FORM_KEYS: Final = tuple(
+    f
+    for f in RomUpdateForm.model_fields
+    if f.startswith("raw_") and f != "raw_manual_metadata"
+)
+_MEDIA_RAW_METADATA_FORM_KEYS: Final = frozenset(
+    f"raw_{column}" for column, *_ in MEDIA_PROVIDERS
+)
+
+
+def _parse_match_id(field: str, value: str | None) -> int | str | None:
+    if field in _STRING_MATCH_ID_FIELDS:
+        return value or None
+    if field in _SCENE_MATCH_ID_FIELDS:
+        return scene_id_or_none(value, field.removesuffix("_id"))
+    return safe_int_or_none(value)
+
+
+async def _refetch_launchbox(rom: Rom, launchbox_id: Any) -> Mapping[str, object]:
+    launchbox_rom = await meta_launchbox_handler.get_rom_by_id(
+        launchbox_id, fs_name=rom.fs_name, platform_slug=rom.platform_slug
+    )
+    metadata = launchbox_rom.get("launchbox_metadata")
+    if launchbox_rom.get("launchbox_id") and metadata:
+        populate_rom_specific_paths(metadata, rom)
+    return launchbox_rom
+
+
+async def _refetch_ss(rom: Rom, ss_id: Any) -> Mapping[str, object]:
+    try:
+        return await meta_ss_handler.get_rom_by_id(rom, ss_id)
+    except ScreenScraperExhaustedError as exc:
+        return exc.fallback
+
+
+def _ra_miss(rom: Rom) -> dict[str, Any]:
+    # The kept blob's hash match was earned against the previous game.
+    if rom.ra_metadata and rom.ra_metadata.get("hash_match"):
+        return {"ra_metadata": {**rom.ra_metadata, "hash_match": False}}
+    return {}
+
+
+@dataclass(frozen=True)
+class _MatchRefetch:
+    """How an edit that changes one provider's id pulls that provider's metadata."""
+
+    source: MetadataSource
+    fetch: Callable[[Rom, Any], Awaitable[Mapping[str, object]]]
+    on_miss: Callable[[Rom], dict[str, Any]] = lambda _rom: {}
+
+    @property
+    def id_field(self) -> str:
+        return RESCAN_RULES[self.source].id_field
+
+    @property
+    def metadata_field(self) -> str | None:
+        return RESCAN_RULES[self.source].metadata_field
+
+
+# Applied in order, so a later provider's name, summary or cover wins.
+_MATCH_REFETCHES: Final = (
+    _MatchRefetch(
+        MetadataSource.FLASHPOINT,
+        lambda _rom, i: meta_flashpoint_handler.get_rom_by_id(i),
+    ),
+    _MatchRefetch(MetadataSource.LAUNCHBOX, _refetch_launchbox),
+    _MatchRefetch(
+        MetadataSource.RA,
+        lambda rom, i: meta_ra_handler.get_rom_by_id(rom, ra_id=i, ra_hash=rom.ra_hash),
+        on_miss=_ra_miss,
+    ),
+    _MatchRefetch(
+        MetadataSource.MOBY, lambda _rom, i: meta_moby_handler.get_rom_by_id(i)
+    ),
+    _MatchRefetch(MetadataSource.SS, _refetch_ss),
+    _MatchRefetch(
+        MetadataSource.STEAM, lambda _rom, i: meta_steam_handler.get_rom_by_id(i)
+    ),
+    _MatchRefetch(
+        MetadataSource.IGDB, lambda rom, i: meta_igdb_handler.get_rom_by_id(rom, i)
+    ),
+    _MatchRefetch(
+        MetadataSource.DEMOZOO, lambda _rom, i: meta_demozoo_handler.get_rom_by_id(i)
+    ),
+    _MatchRefetch(
+        MetadataSource.POUET, lambda _rom, i: meta_pouet_handler.get_rom_by_id(i)
+    ),
+    _MatchRefetch(
+        MetadataSource.CSDB, lambda _rom, i: meta_csdb_handler.get_rom_by_id(i)
+    ),
+    _MatchRefetch(
+        MetadataSource.HLTB, lambda _rom, i: meta_hltb_handler.get_rom_by_id(i)
+    ),
+)
+
+
+def _match_changed(rom: Rom, cleaned_data: dict[str, Any], id_field: str) -> bool:
+    """Whether the edit set, replaced or cleared this provider's id."""
+    return (cleaned_data[id_field] or None) != (getattr(rom, id_field) or None)
+
+
+async def _refetch_changed_matches(
+    rom: Rom, cleaned_data: dict[str, Any]
+) -> frozenset[str]:
+    """Refetch each provider whose id the edit set or replaced, and drop the
+    metadata of each provider whose id it cleared.
+
+    Returns:
+        The id fields that were refetched.
+    """
+    refetched: set[str] = set()
+    for refetch in _MATCH_REFETCHES:
+        if not _match_changed(rom, cleaned_data, refetch.id_field):
+            continue
+        new_id = cleaned_data[refetch.id_field]
+        if new_id:
+            fetched = await refetch.fetch(rom, new_id)
+            cleaned_data.update(
+                fetched if fetched.get(refetch.id_field) else refetch.on_miss(rom)
+            )
+            refetched.add(refetch.id_field)
+        else:
+            cleaned_data[refetch.id_field] = None
+            if refetch.metadata_field:
+                cleaned_data[refetch.metadata_field] = {}
+    return frozenset(refetched)
+
+
 @protected_route(
     router.put,
     "/{id}",
@@ -1905,6 +2153,7 @@ async def update_rom(
                 **dict.fromkeys(UNMATCH_ID_FIELDS),
                 "name": rom.fs_name,
                 "name_sort_key": compute_name_sort_key(rom.fs_name),
+                "name_sort_key_custom": False,
                 "summary": "",
                 "url_screenshots": [],
                 "path_screenshots": [],
@@ -1919,20 +2168,9 @@ async def update_rom(
                     else rom.path_manual
                 ),
                 "slug": "",
-                "igdb_metadata": {},
-                "moby_metadata": {},
-                "ss_metadata": {},
-                "ra_metadata": {},
-                "launchbox_metadata": {},
-                "hasheous_metadata": {},
-                "flashpoint_metadata": {},
-                "hltb_metadata": {},
-                "demozoo_metadata": {},
-                "pouet_metadata": {},
-                "csdb_metadata": {},
-                "steam_metadata": {},
-                "revision": "",
-                "gamelist_metadata": {},
+                **{c: {} for c in PROVIDER_METADATA_COLUMNS},
+                "revision": None,
+                "version": None,
             },
         )
 
@@ -1963,118 +2201,24 @@ async def update_rom(
 
     provided_fields = form_data.model_fields_set
     cleaned_data: dict[str, Any] = {
-        "igdb_id": (
-            safe_int_or_none(form_data.igdb_id)
-            if "igdb_id" in provided_fields
-            else rom.igdb_id
-        ),
-        "sgdb_id": (
-            safe_int_or_none(form_data.sgdb_id)
-            if "sgdb_id" in provided_fields
-            else rom.sgdb_id
-        ),
-        "moby_id": (
-            safe_int_or_none(form_data.moby_id)
-            if "moby_id" in provided_fields
-            else rom.moby_id
-        ),
-        "ss_id": (
-            safe_int_or_none(form_data.ss_id)
-            if "ss_id" in provided_fields
-            else rom.ss_id
-        ),
-        "ra_id": (
-            safe_int_or_none(form_data.ra_id)
-            if "ra_id" in provided_fields
-            else rom.ra_id
-        ),
-        "launchbox_id": (
-            safe_int_or_none(form_data.launchbox_id)
-            if "launchbox_id" in provided_fields
-            else rom.launchbox_id
-        ),
-        "hasheous_id": (
-            safe_int_or_none(form_data.hasheous_id)
-            if "hasheous_id" in provided_fields
-            else rom.hasheous_id
-        ),
-        "tgdb_id": (
-            safe_int_or_none(form_data.tgdb_id)
-            if "tgdb_id" in provided_fields
-            else rom.tgdb_id
-        ),
-        "flashpoint_id": (
-            form_data.flashpoint_id or None
-            if "flashpoint_id" in provided_fields
-            else rom.flashpoint_id
-        ),
-        "hltb_id": (
-            safe_int_or_none(form_data.hltb_id)
-            if "hltb_id" in provided_fields
-            else rom.hltb_id
-        ),
-        "demozoo_id": (
-            scene_id_or_none(form_data.demozoo_id, "demozoo")
-            if "demozoo_id" in provided_fields
-            else rom.demozoo_id
-        ),
-        "pouet_id": (
-            scene_id_or_none(form_data.pouet_id, "pouet")
-            if "pouet_id" in provided_fields
-            else rom.pouet_id
-        ),
-        "csdb_id": (
-            scene_id_or_none(form_data.csdb_id, "csdb")
-            if "csdb_id" in provided_fields
-            else rom.csdb_id
-        ),
-        "steam_id": (
-            safe_int_or_none(form_data.steam_id)
-            if "steam_id" in provided_fields
-            else rom.steam_id
-        ),
-        "libretro_id": (
-            form_data.libretro_id or None
-            if "libretro_id" in provided_fields
-            else rom.libretro_id
-        ),
+        field: (
+            _parse_match_id(field, getattr(form_data, field))
+            if field in provided_fields
+            else getattr(rom, field)
+        )
+        for field in MATCH_ID_FIELDS
     }
 
-    # Add raw metadata parsing
-    raw_igdb_metadata = parse_raw_metadata(form_data, "raw_igdb_metadata")
-    raw_moby_metadata = parse_raw_metadata(form_data, "raw_moby_metadata")
-    raw_ss_metadata = parse_raw_metadata(form_data, "raw_ss_metadata")
-    raw_launchbox_metadata = parse_raw_metadata(form_data, "raw_launchbox_metadata")
-    raw_hasheous_metadata = parse_raw_metadata(form_data, "raw_hasheous_metadata")
-    raw_flashpoint_metadata = parse_raw_metadata(form_data, "raw_flashpoint_metadata")
-    raw_hltb_metadata = parse_raw_metadata(form_data, "raw_hltb_metadata")
-    raw_demozoo_metadata = parse_raw_metadata(form_data, "raw_demozoo_metadata")
-    raw_pouet_metadata = parse_raw_metadata(form_data, "raw_pouet_metadata")
-    raw_csdb_metadata = parse_raw_metadata(form_data, "raw_csdb_metadata")
-    raw_steam_metadata = parse_raw_metadata(form_data, "raw_steam_metadata")
+    for form_key in _RAW_METADATA_FORM_KEYS:
+        raw_metadata = parse_raw_metadata(form_data, form_key)
+        provider = form_key.removeprefix("raw_").removesuffix("_metadata")
+        if cleaned_data[f"{provider}_id"] and raw_metadata is not None:
+            if form_key in _MEDIA_RAW_METADATA_FORM_KEYS:
+                confine_provider_media(
+                    raw_metadata, getattr(rom, f"{provider}_metadata"), rom, form_key
+                )
+            cleaned_data[f"{provider}_metadata"] = raw_metadata
     raw_manual_metadata = parse_raw_metadata(form_data, "raw_manual_metadata")
-    if cleaned_data["igdb_id"] and raw_igdb_metadata is not None:
-        cleaned_data["igdb_metadata"] = raw_igdb_metadata
-    if cleaned_data["moby_id"] and raw_moby_metadata is not None:
-        cleaned_data["moby_metadata"] = raw_moby_metadata
-    if cleaned_data["ss_id"] and raw_ss_metadata is not None:
-        cleaned_data["ss_metadata"] = raw_ss_metadata
-    if cleaned_data["launchbox_id"] and raw_launchbox_metadata is not None:
-        cleaned_data["launchbox_metadata"] = raw_launchbox_metadata
-    if cleaned_data["hasheous_id"] and raw_hasheous_metadata is not None:
-        cleaned_data["hasheous_metadata"] = raw_hasheous_metadata
-    if cleaned_data["flashpoint_id"] and raw_flashpoint_metadata is not None:
-        cleaned_data["flashpoint_metadata"] = raw_flashpoint_metadata
-    if cleaned_data["hltb_id"] and raw_hltb_metadata is not None:
-        cleaned_data["hltb_metadata"] = raw_hltb_metadata
-    if cleaned_data["demozoo_id"] and raw_demozoo_metadata is not None:
-        cleaned_data["demozoo_metadata"] = raw_demozoo_metadata
-    if cleaned_data["pouet_id"] and raw_pouet_metadata is not None:
-        cleaned_data["pouet_metadata"] = raw_pouet_metadata
-    if cleaned_data["csdb_id"] and raw_csdb_metadata is not None:
-        cleaned_data["csdb_metadata"] = raw_csdb_metadata
-    if cleaned_data["steam_id"] and raw_steam_metadata is not None:
-        cleaned_data["steam_metadata"] = raw_steam_metadata
     if raw_manual_metadata is not None:
         try:
             cleaned_data["manual_metadata"] = MANUAL_METADATA_ADAPTER.validate_python(
@@ -2086,114 +2230,7 @@ async def update_rom(
                 detail=f"Invalid manual metadata: {exc}",
             ) from exc
 
-    # Fetch metadata from external sources
-    if (
-        cleaned_data["flashpoint_id"]
-        and cleaned_data["flashpoint_id"] != rom.flashpoint_id
-    ):
-        flashpoint_rom = await meta_flashpoint_handler.get_rom_by_id(
-            cleaned_data["flashpoint_id"]
-        )
-        if flashpoint_rom.get("flashpoint_id"):
-            cleaned_data.update(flashpoint_rom)
-    elif rom.flashpoint_id and not cleaned_data["flashpoint_id"]:
-        cleaned_data.update({"flashpoint_id": None, "flashpoint_metadata": {}})
-
-    if (
-        cleaned_data["launchbox_id"]
-        and int(cleaned_data["launchbox_id"]) != rom.launchbox_id
-    ):
-        launchbox_rom = await meta_launchbox_handler.get_rom_by_id(
-            cleaned_data["launchbox_id"],
-            fs_name=rom.fs_name,
-            platform_slug=rom.platform_slug,
-        )
-        if launchbox_rom.get("launchbox_id"):
-            metadata = launchbox_rom.get("launchbox_metadata")
-            if metadata:
-                populate_rom_specific_paths(metadata, rom)
-            cleaned_data.update(launchbox_rom)
-    elif rom.launchbox_id and not cleaned_data["launchbox_id"]:
-        cleaned_data.update({"launchbox_id": None, "launchbox_metadata": {}})
-
-    if cleaned_data["ra_id"] and int(cleaned_data["ra_id"]) != rom.ra_id:
-        ra_rom = await meta_ra_handler.get_rom_by_id(
-            rom, ra_id=cleaned_data["ra_id"], ra_hash=rom.ra_hash
-        )
-        if ra_rom.get("ra_id"):
-            cleaned_data.update(ra_rom)
-        elif rom.ra_metadata and rom.ra_metadata.get("hash_match"):
-            # The kept blob's hash match was earned against the previous game.
-            cleaned_data["ra_metadata"] = {**rom.ra_metadata, "hash_match": False}
-    elif rom.ra_id and not cleaned_data["ra_id"]:
-        cleaned_data.update({"ra_id": None, "ra_metadata": {}})
-
-    if cleaned_data["moby_id"] and int(cleaned_data["moby_id"]) != rom.moby_id:
-        moby_rom = await meta_moby_handler.get_rom_by_id(
-            int(cleaned_data.get("moby_id", ""))
-        )
-        if moby_rom.get("moby_id"):
-            cleaned_data.update(moby_rom)
-    elif rom.moby_id and not cleaned_data["moby_id"]:
-        cleaned_data.update({"moby_id": None, "moby_metadata": {}})
-
-    if cleaned_data["ss_id"] and int(cleaned_data["ss_id"]) != rom.ss_id:
-        try:
-            ss_rom = await meta_ss_handler.get_rom_by_id(rom, cleaned_data["ss_id"])
-        except ScreenScraperExhaustedError as exc:
-            ss_rom = exc.fallback
-        if ss_rom.get("ss_id"):
-            cleaned_data.update(ss_rom)
-    elif rom.ss_id and not cleaned_data["ss_id"]:
-        cleaned_data.update({"ss_id": None, "ss_metadata": {}})
-
-    if cleaned_data["steam_id"] and int(cleaned_data["steam_id"]) != rom.steam_id:
-        steam_rom = await meta_steam_handler.get_rom_by_id(
-            int(cleaned_data["steam_id"])
-        )
-        if steam_rom.get("steam_id"):
-            cleaned_data.update(steam_rom)
-    elif rom.steam_id and not cleaned_data["steam_id"]:
-        cleaned_data.update({"steam_id": None, "steam_metadata": {}})
-
-    if cleaned_data["igdb_id"] and int(cleaned_data["igdb_id"]) != rom.igdb_id:
-        igdb_rom = await meta_igdb_handler.get_rom_by_id(rom, cleaned_data["igdb_id"])
-        if igdb_rom.get("igdb_id"):
-            cleaned_data.update(igdb_rom)
-    elif rom.igdb_id and not cleaned_data["igdb_id"]:
-        cleaned_data.update({"igdb_id": None, "igdb_metadata": {}})
-
-    if cleaned_data["demozoo_id"] and int(cleaned_data["demozoo_id"]) != rom.demozoo_id:
-        demozoo_rom = await meta_demozoo_handler.get_rom_by_id(
-            int(cleaned_data["demozoo_id"])
-        )
-        if demozoo_rom.get("demozoo_id"):
-            cleaned_data.update(demozoo_rom)
-    elif rom.demozoo_id and not cleaned_data["demozoo_id"]:
-        cleaned_data.update({"demozoo_id": None, "demozoo_metadata": {}})
-
-    if cleaned_data["pouet_id"] and int(cleaned_data["pouet_id"]) != rom.pouet_id:
-        pouet_rom = await meta_pouet_handler.get_rom_by_id(
-            int(cleaned_data["pouet_id"])
-        )
-        if pouet_rom.get("pouet_id"):
-            cleaned_data.update(pouet_rom)
-    elif rom.pouet_id and not cleaned_data["pouet_id"]:
-        cleaned_data.update({"pouet_id": None, "pouet_metadata": {}})
-
-    if cleaned_data["csdb_id"] and int(cleaned_data["csdb_id"]) != rom.csdb_id:
-        csdb_rom = await meta_csdb_handler.get_rom_by_id(int(cleaned_data["csdb_id"]))
-        if csdb_rom.get("csdb_id"):
-            cleaned_data.update(csdb_rom)
-    elif rom.csdb_id and not cleaned_data["csdb_id"]:
-        cleaned_data.update({"csdb_id": None, "csdb_metadata": {}})
-
-    if cleaned_data["hltb_id"] and int(cleaned_data["hltb_id"]) != rom.hltb_id:
-        hltb_rom = await meta_hltb_handler.get_rom_by_id(int(cleaned_data["hltb_id"]))
-        if hltb_rom.get("hltb_id"):
-            cleaned_data.update(hltb_rom)
-    elif rom.hltb_id and not cleaned_data["hltb_id"]:
-        cleaned_data.update({"hltb_id": None, "hltb_metadata": {}})
+    refetched = await _refetch_changed_matches(rom, cleaned_data)
 
     url_screenshots = cleaned_data.get("url_screenshots", [])
     # Files are named by position, so a reorder is a change too.
@@ -2237,9 +2274,12 @@ async def update_rom(
         # it out so update_rom re-derives only if the stored key isn't custom.
         submitted = (form_data.name_sort_key or "").strip()
         if submitted != (rom.name_sort_key or "").strip():
-            cleaned_data["name_sort_key"] = compute_name_sort_key(
-                submitted or name_value
+            cleaned_data["name_sort_key"] = (
+                compute_name_sort_key(submitted, articles=())
+                if submitted
+                else compute_name_sort_key(name_value)
             )
+            cleaned_data["name_sort_key_custom"] = bool(submitted)
 
     cleaned_data.update({"fs_name": new_fs_name})
 
@@ -2267,7 +2307,9 @@ async def update_rom(
         locked_fields.discard("url_cover")
     else:
         if artwork is not None and artwork.filename is not None:
-            file_ext = validate_image_upload(artwork, label="Artwork")
+            file_ext = validate_image_upload(
+                artwork, label="Artwork", allow_converted=True
+            )
             artwork_content = BytesIO(await artwork.read())
             (
                 path_cover_l,
@@ -2341,8 +2383,7 @@ async def update_rom(
 
     cleaned_data["locked_fields"] = sorted(locked_fields)
 
-    # Handle RetroAchievements badges when the ID has changed
-    if cleaned_data["ra_id"] and int(cleaned_data["ra_id"]) != rom.ra_id:
+    if "ra_id" in refetched:
         await fs_resource_handler.store_ra_badges(
             cleaned_data.get("ra_metadata", {}).get("achievements", [])
         )
@@ -2354,7 +2395,7 @@ async def update_rom(
         ("ss_id", "ss_metadata"),
         ("launchbox_id", "launchbox_metadata"),
     ):
-        if int(cleaned_data[id_key] or 0) != (getattr(rom, id_key) or 0):
+        if _match_changed(rom, cleaned_data, id_key):
             rematched = True
             pending_media[column] = cleaned_data.get(column)
         elif column in cleaned_data:
@@ -2401,15 +2442,16 @@ async def update_rom(
             detail=f"Failed to update ROM {id}: {exc}",
         ) from exc
 
+    if url_screenshots:
+        await fs_resource_handler.remove_screenshots_past(rom, len(url_screenshots))
+
     if should_update_fs:
         for file in rom.files:
-            db_rom_handler.update_rom_file(
-                file.id,
-                {
-                    "file_name": file.file_name.replace(rom.fs_name, new_fs_name),
-                    "file_path": file.file_path.replace(rom.fs_name, new_fs_name),
-                },
+            moved = fs_rom_handler.moved_file_location(
+                file, rom.fs_path, rom.fs_name, new_fs_name
             )
+            if moved:
+                db_rom_handler.update_rom_file(file.id, moved)
 
     # Refetch the rom from the database
     before = rom

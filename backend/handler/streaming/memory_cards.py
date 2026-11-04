@@ -12,7 +12,7 @@ import io
 import urllib.error
 import zipfile
 from pathlib import PurePosixPath
-from typing import Any, TypedDict
+from typing import TypedDict
 
 from fastapi import HTTPException
 
@@ -20,6 +20,7 @@ from handler.database import db_memory_card_handler, db_user_handler
 from handler.filesystem import fs_asset_handler
 from handler.streaming import broker
 from handler.streaming.config import ResolvedContainer
+from handler.streaming.session_store import StreamingSession
 from logger.logger import log
 from models.assets import MemoryCard
 from utils.memory_cards import MEMORY_CARD_MAX_BYTES, content_hash_of_bytes
@@ -301,7 +302,7 @@ async def evacuate_card(
 
 
 async def evacuate_session_card(
-    session: dict[str, Any], container: ResolvedContainer
+    session: StreamingSession, container: ResolvedContainer
 ) -> bool:
     """Evacuate a whole-card-sync session's card before its container is freed.
 

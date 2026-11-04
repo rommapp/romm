@@ -14,8 +14,10 @@ from tests.redis_stubs import fail_expire, record_pipelines
 from endpoints.roms import upload as upload_endpoint
 from handler import rom_upload
 from handler.database import db_rom_handler
+from handler.database.base_handler import sync_session
 from handler.filesystem import fs_rom_handler
 from handler.redis_handler import sync_cache
+from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import DocSource, Rom, RomFile, RomFileCategory
 from models.user import User
@@ -265,6 +267,42 @@ def test_complete_missing_chunks_returns_400(
     assert upload_response.status_code == status.HTTP_200_OK
     assert complete_response.status_code == status.HTTP_400_BAD_REQUEST
     assert complete_response.json()["detail"] == "Missing chunks: [1]"
+
+
+def test_complete_after_the_platform_is_hidden_returns_400(
+    client: TestClient,
+    editor_user: User,
+    editor_access_token: str,
+    platform: Platform,
+    upload_fs: dict[str, Any],
+):
+    start_response = _start_upload(
+        client, editor_access_token, platform.id, total_size=6, total_chunks=1
+    )
+    upload_id = start_response.json()["upload_id"]
+    with sync_session.begin() as s:
+        s.add(
+            HiddenEntity(
+                entity=PermEntity.PLATFORMS,
+                entity_id=platform.id,
+                user_id=editor_user.id,
+            )
+        )
+
+    client.put(
+        f"/api/roms/upload/{upload_id}",
+        headers={**_auth_headers(editor_access_token), "x-chunk-index": "0"},
+        content=b"ABCDEF",
+    )
+    complete_response = client.post(
+        f"/api/roms/upload/{upload_id}/complete",
+        headers=_auth_headers(editor_access_token),
+    )
+
+    assert complete_response.status_code == status.HTTP_400_BAD_REQUEST
+    assert complete_response.json()["detail"] == "Platform not found"
+    assert not (upload_fs["final_dir"] / "game.zip").exists()
+    assert not (upload_fs["uploads_tmp"] / upload_id).exists()
 
 
 def test_complete_invalid_upload_id(client: TestClient, access_token: str):

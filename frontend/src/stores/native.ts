@@ -26,7 +26,7 @@ import {
   getSupportedEJSCores,
   resolvePlatformSlug,
 } from "@/utils";
-import type { DiscSelection } from "@/v2/utils/playerDisc";
+import type { DiscSelection } from "@/utils/playerDisc";
 
 export type { LaunchState, PlatformSupport } from "@/types/rommNative";
 

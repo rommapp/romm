@@ -1,0 +1,719 @@
+<script setup lang="ts">
+// SelectionBar: floating bottom panel that surfaces bulk actions
+// over the currently-selected ROMs. Replaces v1's `FabOverlay`
+// speed-dial: the bar sits below the gallery, never inside the
+// toolbar, so filter/search/sort all stay reachable while the user
+// is selecting (vs. v1's behaviour of co-opting the toolbar).
+//
+// Visibility: bound to `gallerySelection.enabled`. Slides up from
+// `bottom: 0` when the first ROM is selected and slides back down
+// when the count drops to zero, the panel stays mounted so its
+// buttons keep their ripple state cleanly between cycles.
+//
+// Actions wire-up:
+//   * favorite / unfavorite: direct collectionApi bulk call against
+//     the favorite collection. The Card/Row's per-rom favourite
+//     toggle still routes through `useGameActions` per-rom; here we
+//     bypass only its per-rom write to issue a single add/remove call
+//     for the whole set, while still reusing its
+//     `ensureFavoriteCollection` so a fresh instance gets one.
+//   * manage collections: re-uses the existing
+//     `ManageCollectionsDialog` (already accepts SimpleRom[]) via
+//     the `showManageCollectionsDialog` emitter event.
+//   * download: a single selected ROM downloads directly (like the
+//     per-rom `useGameActions.download`); multi-selections go through
+//     the bulk endpoint so the server bundles them into one zip.
+//     `hideDownload` drops the action for hosts whose rows have no
+//     file to serve (the Missing games tab).
+//   * refresh metadata: emits `showRefreshMetadataDialog` for each
+//     ROM in turn. (Phase-2 follow-up: the dialog will accept arrays
+//     so the user only sees the scan-type picker once for the whole
+//     batch instead of N dialogs.)
+//   * delete: emits `showDeleteRomDialog` with the full selection;
+//     the dialog already paints a per-ROM "remove from disk"
+//     checklist for bulk deletes.
+//
+// Permissions: scan and delete are gated by `useCan` so users
+// without `rom.refresh` / `rom.delete` don't see actions they can't
+// run.
+import { useElementSize } from "@vueuse/core";
+import type { Emitter } from "mitt";
+import { computed, inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import type { RomUserData, RomUserStatus } from "@/__generated__";
+import { useAnimatedNumber } from "@/composables/useAnimatedNumber";
+import { useCan } from "@/composables/useCan";
+import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
+import { useGallerySelectAll } from "@/composables/useGallerySelectAll";
+import { useRomSync } from "@/composables/useRomSync";
+import { useSnackbar } from "@/composables/useSnackbar";
+import {
+  RBtn,
+  RIcon,
+  RMenu,
+  RMenuItem,
+  RToolbar,
+  RTooltip,
+  RDivider,
+} from "@/lib";
+import collectionApi from "@/services/api/collection";
+import romApi from "@/services/api/rom";
+import storeCollections from "@/stores/collections";
+import storeGalleryRoms from "@/stores/galleryRoms";
+import storeGallerySelection from "@/stores/gallerySelection";
+import type { Events } from "@/types/emitter";
+import { romStatusMap } from "@/utils";
+import {
+  ENUM_KEYS,
+  FLAG_KEYS,
+  PLAY_FLAG_KEYS,
+  STATUS_ICONS,
+  type StatusFlagKey,
+  VISIBILITY_FLAG_KEYS,
+} from "@/utils/romStatus";
+import { settleWithLimit } from "@/utils/settleWithLimit";
+import {
+  FILLET_PX,
+  NOTCH_RADIUS_PX,
+  selectionBarOutline,
+} from "./selectionBarOutline";
+
+interface Props {
+  /** Hides the download action where the selected ROMs have no file on
+   * disk, so the bar never offers a transfer that can only fail. */
+  hideDownload?: boolean;
+}
+
+defineProps<Props>();
+
+defineOptions({ inheritAttrs: false });
+
+const { t } = useI18n();
+const emitter = inject<Emitter<Events>>("emitter");
+const snackbar = useSnackbar();
+const selection = storeGallerySelection();
+// The count rolls up to its new value rather than snapping, so a selection
+// that grew by a tap is a number you see move.
+const rollingCount = useAnimatedNumber(() => selection.count);
+const collectionsStore = storeCollections();
+const galleryRomsStore = storeGalleryRoms();
+const { ensureFavoriteCollection } = useFavoriteToggle();
+const { syncCachedRom, removeCachedRoms, refreshAfterUserStateChange } =
+  useRomSync();
+// Whole-result select-all, shared with the list header checkbox and
+// Ctrl/Cmd+A.
+const { selectingAll, allSelected, selectAll } = useGallerySelectAll();
+
+// The filtered-result size, so the label says how many "all" is. Falls
+// back to the plain label while the bootstrap hasn't resolved a total.
+const selectAllLabel = computed(() =>
+  galleryRomsStore.total > 0
+    ? t("gallery.selection-select-all-count", { n: galleryRomsStore.total })
+    : t("gallery.selection-select-all"),
+);
+
+const canRefresh = useCan("rom.refresh");
+const canDownload = useCan("rom.download");
+const hasDeleteGrant = useCan("rom.delete");
+const canEditRom = useCan("rom.edit");
+// Bulk delete hits `POST /roms/delete`, which gates on ROMS_WRITE
+const canDelete = computed(() => hasDeleteGrant.value && canEditRom.value);
+
+// `favorite` is the favourite collection, used to compute "are all
+// selected ROMs in favorites?" so the button can toggle between
+// "add to" / "remove from" instead of forcing a separate unfavorite
+// action. Same model as the per-card favourite button.
+const allFavorited = computed(() => {
+  const fav = collectionsStore.favoriteCollection;
+  if (!fav || selection.count === 0) return false;
+  const favIds = new Set(fav.rom_ids ?? []);
+  for (const id of selection.ids) {
+    if (!favIds.has(id)) return false;
+  }
+  return true;
+});
+
+const favoriteIcon = computed(() =>
+  allFavorited.value ? "mdi-heart" : "mdi-heart-outline",
+);
+const favoriteLabel = computed(() =>
+  allFavorited.value
+    ? t("gallery.selection-unfavorite")
+    : t("gallery.selection-favorite"),
+);
+
+// Guards the create-if-missing call below.
+const favoritePending = ref(false);
+
+async function bulkFavorite() {
+  const ids = selection.ids;
+  const roms = selection.roms;
+  if (ids.length === 0 || favoritePending.value) return;
+  // `allFavorited` tracks the live selection and the collection's rom_ids,
+  // both of which can move while the calls below are in flight, so the
+  // direction has to be snapshotted alongside the ids it applies to.
+  const wasAllFavorited = allFavorited.value;
+  favoritePending.value = true;
+  try {
+    // A fresh instance has no favourites collection until something is
+    // favourited.
+    const fav = await ensureFavoriteCollection();
+    const { data } = wasAllFavorited
+      ? await collectionApi.removeRomsFromCollection(fav.id, ids)
+      : await collectionApi.addRomsToCollection(fav.id, ids);
+    collectionsStore.updateCollection(data);
+    if (wasAllFavorited && galleryRomsStore.currentCollection?.id === fav.id) {
+      // We were on the favourites collection view and just removed
+      // every selected rom from it, drop them from the visible
+      // roms so the UI reflects the new membership immediately.
+      removeCachedRoms(roms);
+    }
+    // The branch above only covers the Favourites collection view; a
+    // favourites filter moves membership just as much.
+    refreshAfterUserStateChange();
+    snackbar.success(
+      wasAllFavorited
+        ? t("gallery.selection-unfavorite-success", { n: ids.length })
+        : t("gallery.selection-favorite-success", { n: ids.length }),
+    );
+  } catch {
+    snackbar.error(t("gallery.selection-favorite-fail"));
+  } finally {
+    favoritePending.value = false;
+  }
+}
+
+// Bulk status: toggles one play-status across the whole selection,
+// mirroring the favourite button's all-or-nothing model: a status reads
+// as "active" only when *every* selected ROM already has it. Clicking an
+// active status clears it on all; clicking an inactive one (at least one
+// ROM is missing it) sets it on all. The per-rom `updateUserRomProps` is
+// the only endpoint (no bulk variant), so we fan out one request per ROM,
+// optimistically write the store, and revert only the ROMs whose request
+// failed. The fan-out is bounded so a whole-library selection doesn't queue
+// thousands of requests on a single-worker backend.
+const STATUS_CONCURRENCY = 4;
+//
+// `enumAllActive` / `flagAllActive` mirror `allFavorited`: keyed by
+// status so each menu row can paint its active state and decide its
+// toggle direction.
+const enumAllActive = computed<Record<RomUserStatus, boolean>>(() => {
+  const roms = selection.roms;
+  const out = {} as Record<RomUserStatus, boolean>;
+  for (const key of ENUM_KEYS) {
+    out[key] = roms.length > 0 && roms.every((r) => r.rom_user?.status === key);
+  }
+  return out;
+});
+const flagAllActive = computed<Record<StatusFlagKey, boolean>>(() => {
+  const roms = selection.roms;
+  const out = {} as Record<StatusFlagKey, boolean>;
+  for (const key of FLAG_KEYS) {
+    out[key] = roms.length > 0 && roms.every((r) => Boolean(r.rom_user?.[key]));
+  }
+  return out;
+});
+const hasAnyStatus = computed(() => {
+  const roms = selection.roms;
+  return roms.some(
+    (r) =>
+      Boolean(r.rom_user?.status) ||
+      FLAG_KEYS.some((key) => Boolean(r.rom_user?.[key])),
+  );
+});
+
+// One batch at a time, so a slower earlier batch can't land after a newer choice.
+const applyingStatus = ref(false);
+
+async function applyStatus(data: Partial<RomUserData>) {
+  const roms = selection.roms;
+  if (roms.length === 0 || applyingStatus.value) return;
+  applyingStatus.value = true;
+  try {
+    await applyStatusTo(roms, data);
+  } finally {
+    applyingStatus.value = false;
+  }
+}
+
+async function applyStatusTo(
+  roms: typeof selection.roms,
+  data: Partial<RomUserData>,
+) {
+  const before = new Map<number, RomUserData>();
+  for (const rom of roms) {
+    if (!rom.rom_user) continue;
+    before.set(rom.id, { ...rom.rom_user });
+    Object.assign(rom.rom_user, data);
+    syncCachedRom(rom);
+  }
+
+  const results = await settleWithLimit(roms, STATUS_CONCURRENCY, (rom) =>
+    romApi.updateUserRomProps({ romId: rom.id, data }),
+  );
+  const failed = roms.filter((_, i) => results[i]!.status === "rejected");
+  for (const rom of failed) {
+    const snapshot = before.get(rom.id);
+    if (rom.rom_user && snapshot) {
+      Object.assign(rom.rom_user, snapshot);
+      syncCachedRom(rom);
+    }
+  }
+
+  // Once for the whole batch, after the reverts are in.
+  refreshAfterUserStateChange();
+
+  const ok = roms.length - failed.length;
+  if (failed.length === 0) {
+    snackbar.success(t("gallery.selection-status-success", { n: ok }));
+  } else if (ok > 0) {
+    snackbar.warning(
+      t("gallery.selection-status-partial", { n: ok, total: roms.length }),
+    );
+  } else {
+    snackbar.error(t("gallery.selection-status-fail"));
+  }
+}
+
+function toggleEnumStatus(key: RomUserStatus) {
+  void applyStatus({ status: enumAllActive.value[key] ? null : key });
+}
+
+function toggleFlagStatus(key: StatusFlagKey) {
+  void applyStatus({ [key]: !flagAllActive.value[key] });
+}
+
+function clearStatus() {
+  void applyStatus({
+    now_playing: false,
+    backlogged: false,
+    hidden: false,
+    status: null,
+  });
+}
+
+function manageCollections() {
+  if (selection.count === 0) return;
+  emitter?.emit("showManageCollectionsDialog", selection.roms);
+}
+
+function bulkDownload() {
+  const roms = selection.roms;
+  if (roms.length === 0) return;
+  if (roms.length === 1) {
+    void romApi.downloadRom({ rom: roms[0]! });
+    return;
+  }
+  // Bundle multi-selections into a single zip server-side; firing one
+  // anchor download per ROM trips browser multi-download blocking.
+  void romApi.bulkDownloadRoms({ romIDs: roms.map((r) => r.id) });
+  snackbar.info(t("gallery.selection-download-many", { n: roms.length }));
+}
+
+function bulkRefresh() {
+  if (selection.count === 0) return;
+  emitter?.emit("showRefreshMetadataDialogBulk", selection.roms);
+}
+
+function bulkDelete() {
+  if (selection.count === 0) return;
+  emitter?.emit("showDeleteRomDialog", selection.roms);
+}
+
+// ── Outline ─────────────────────────────────────────────────────────
+
+/** The hill's own geometry, which its fill and the outline both read. */
+const notchStyle = {
+  "--r-notch-fillet": `${FILLET_PX}px`,
+  "--r-notch-radius": `${NOTCH_RADIUS_PX}px`,
+};
+
+const barEl = ref<HTMLElement | null>(null);
+const notchEl = ref<HTMLElement | null>(null);
+// The bar's width follows its buttons and the hill's follows the digit count,
+// so both are watched rather than measured once.
+const bar = useElementSize(barEl, undefined, { box: "border-box" });
+const notch = useElementSize(notchEl, undefined, { box: "border-box" });
+const barSize = computed(() => ({ w: bar.width.value, h: bar.height.value }));
+const notchSize = computed(() => ({
+  w: notch.width.value,
+  h: notch.height.value,
+}));
+
+const outline = computed(() =>
+  selectionBarOutline(barSize.value, notchSize.value),
+);
+
+function clear() {
+  selection.clear();
+}
+</script>
+
+<template>
+  <div
+    ref="barEl"
+    class="selection-bar"
+    :class="{ 'selection-bar--visible': selection.enabled }"
+    :inert="!selection.enabled"
+  >
+    <!-- One stroke around bar, hill and fillets, since three boxes cannot
+         share a border without seams where their edges meet. -->
+    <svg
+      v-if="outline"
+      class="selection-bar__outline"
+      :style="{ top: `${-outline.rise}px`, height: `${outline.height}px` }"
+      :viewBox="`0 0 ${outline.width} ${outline.height}`"
+      :width="outline.width"
+      :height="outline.height"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path :d="outline.d" />
+    </svg>
+    <!-- Count: a notch rising from the bar's top edge, centred. Its lower
+         half hides behind the bar, so the two read as one surface. -->
+    <!-- Named, not a live region: the digits change once per animation frame
+         while the count rolls, and a status role would read out every one. -->
+    <div
+      ref="notchEl"
+      class="selection-bar__notch"
+      :style="notchStyle"
+      role="img"
+      :aria-label="t('gallery.selection-n-selected', { n: selection.count })"
+    >
+      <span class="selection-bar__notch-count">{{ rollingCount }}</span>
+    </div>
+
+    <RToolbar
+      density="compact"
+      rounded="full"
+      flat
+      class="selection-bar__panel"
+    >
+      <template #prepend>
+        <!-- Extends the selection to the whole filtered result; the
+             sole grid-mode affordance (list mode has the header checkbox). -->
+        <RTooltip :text="selectAllLabel">
+          <template #activator="{ props: tipProps }">
+            <RBtn
+              v-bind="tipProps"
+              icon="mdi-select-all"
+              variant="text"
+              :loading="selectingAll"
+              :disabled="allSelected"
+              :aria-label="selectAllLabel"
+              @click="selectAll"
+            />
+          </template>
+        </RTooltip>
+      </template>
+
+      <RDivider vertical class="selection-bar__divider" />
+
+      <!-- Default slot: action buttons. Order mirrors the v1 FAB:
+           download → favourite → collections → refresh → delete.
+           Every button is wrapped in RTooltip so the user gets a
+           consistent hover hint and gamepad users see the label,
+           the v2 visual vocabulary for icon-only buttons. -->
+      <RTooltip
+        v-if="canDownload && !hideDownload"
+        :text="t('gallery.selection-download')"
+      >
+        <template #activator="{ props: tipProps }">
+          <RBtn
+            v-bind="tipProps"
+            icon="mdi-download"
+            variant="text"
+            :aria-label="t('gallery.selection-download')"
+            @click="bulkDownload"
+          />
+        </template>
+      </RTooltip>
+
+      <RTooltip :text="favoriteLabel">
+        <template #activator="{ props: tipProps }">
+          <RBtn
+            v-bind="tipProps"
+            :icon="favoriteIcon"
+            variant="text"
+            :color="allFavorited ? 'primary' : undefined"
+            :aria-label="favoriteLabel"
+            @click="bulkFavorite"
+          />
+        </template>
+      </RTooltip>
+
+      <!-- Set status: opens a picker that toggles one play-status across
+           the whole selection. Mirrors the per-ROM status menu
+           (GameActionBtn) and the favourite button's all-or-nothing
+           model: a row reads active only when every selected ROM already
+           has it; clicking flips it on (if any is missing it) or off (if
+           all have it). Stays open on click so the active marks update
+           live. Opens upward (location="top") to clear the bottom-
+           anchored bar. -->
+      <RMenu
+        location="top"
+        :offset="8"
+        width="240px"
+        :close-on-content-click="false"
+      >
+        <template #activator="{ props: activatorProps }">
+          <RBtn
+            v-bind="activatorProps"
+            icon="mdi-list-status"
+            variant="text"
+            :tooltip="t('gallery.selection-status')"
+            :aria-label="t('gallery.selection-status')"
+          />
+        </template>
+        <!-- Enum statuses: single play-status per ROM. Active row tints
+             brand when all selected share it. -->
+        <RMenuItem
+          v-for="key in ENUM_KEYS"
+          :key="key"
+          :icon="STATUS_ICONS[key]"
+          :variant="enumAllActive[key] ? 'active' : 'default'"
+          :disabled="applyingStatus"
+          @click="toggleEnumStatus(key)"
+        >
+          {{ t(romStatusMap[key].i18nKey) }}
+        </RMenuItem>
+
+        <RDivider />
+
+        <!-- Play-status flags: independent toggles. Active rows tint
+             brand and show a trailing check when every selected ROM has
+             the flag set. -->
+        <RMenuItem
+          v-for="key in PLAY_FLAG_KEYS"
+          :key="key"
+          :icon="STATUS_ICONS[key]"
+          :text-color="flagAllActive[key] ? 'brand-primary' : undefined"
+          :icon-color="flagAllActive[key] ? 'brand-primary' : undefined"
+          :disabled="applyingStatus"
+          @click="toggleFlagStatus(key)"
+        >
+          {{ t(romStatusMap[key].i18nKey) }}
+          <template v-if="flagAllActive[key]" #append>
+            <RIcon icon="mdi-check" size="x-small" color="primary" />
+          </template>
+        </RMenuItem>
+
+        <RDivider />
+
+        <!-- Visibility flag: distinct category (library visibility,
+             not play state) so it lives in its own section. -->
+        <RMenuItem
+          v-for="key in VISIBILITY_FLAG_KEYS"
+          :key="key"
+          :icon="STATUS_ICONS[key]"
+          :text-color="flagAllActive[key] ? 'brand-primary' : undefined"
+          :icon-color="flagAllActive[key] ? 'brand-primary' : undefined"
+          :disabled="applyingStatus"
+          @click="toggleFlagStatus(key)"
+        >
+          {{ t(romStatusMap[key].i18nKey) }}
+          <template v-if="flagAllActive[key]" #append>
+            <RIcon icon="mdi-check" size="x-small" color="primary" />
+          </template>
+        </RMenuItem>
+
+        <template v-if="hasAnyStatus">
+          <RDivider />
+          <RMenuItem
+            icon="mdi-close-circle-outline"
+            variant="danger"
+            :disabled="applyingStatus"
+            @click="clearStatus"
+          >
+            {{ t("rom.clear-all") }}
+          </RMenuItem>
+        </template>
+      </RMenu>
+
+      <RTooltip :text="t('gallery.selection-collections')">
+        <template #activator="{ props: tipProps }">
+          <RBtn
+            v-bind="tipProps"
+            icon="mdi-bookmark-outline"
+            variant="text"
+            :aria-label="t('gallery.selection-collections')"
+            @click="manageCollections"
+          />
+        </template>
+      </RTooltip>
+
+      <RTooltip
+        v-if="canRefresh"
+        :text="t('gallery.selection-refresh-metadata')"
+      >
+        <template #activator="{ props: tipProps }">
+          <RBtn
+            v-bind="tipProps"
+            icon="mdi-refresh"
+            variant="text"
+            :aria-label="t('gallery.selection-refresh-metadata')"
+            @click="bulkRefresh"
+          />
+        </template>
+      </RTooltip>
+
+      <RTooltip v-if="canDelete" :text="t('gallery.selection-delete')">
+        <template #activator="{ props: tipProps }">
+          <RBtn
+            v-bind="tipProps"
+            icon="mdi-delete-outline"
+            variant="text"
+            color="danger"
+            :aria-label="t('gallery.selection-delete')"
+            @click="bulkDelete"
+          />
+        </template>
+      </RTooltip>
+
+      <!-- Append region: clear button, floats to the right edge via
+           RToolbar's built-in spacer. -->
+      <template #append>
+        <RTooltip :text="t('gallery.selection-clear')">
+          <template #activator="{ props: tipProps }">
+            <RBtn
+              v-bind="tipProps"
+              icon="mdi-close"
+              variant="text"
+              :aria-label="t('gallery.selection-clear')"
+              @click="clear"
+            />
+          </template>
+        </RTooltip>
+      </template>
+    </RToolbar>
+  </div>
+</template>
+
+<style scoped>
+.selection-bar {
+  /* Same brand edge a selected card carries, a hair thinner. */
+  --r-color-selection-edge: var(--r-color-brand-primary);
+  position: fixed;
+  left: 50%;
+  bottom: max(24px, var(--r-safe-b));
+  transform: translateX(-50%);
+  /* Above the bottom tab bar (z 100) so the multi-select bar floats over
+     it on mobile instead of being painted behind it; still below dialogs
+     (z 2400) so a confirm opened from a selection covers it. */
+  z-index: 101;
+  pointer-events: none;
+  opacity: 0;
+  /* The drop shadow belongs to the whole silhouette, not to the bar: cast
+     from the bar itself it lands on the hill, which sits behind it, and
+     tints it a shade darker than the surface it is meant to continue. */
+  border-radius: var(--r-radius-pill);
+  box-shadow: 0 12px 32px color-mix(in srgb, black 32%, transparent);
+  /* Fades in and out where it stands. */
+  transition: opacity var(--r-motion-med) var(--r-motion-ease-out);
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.selection-bar--visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.selection-bar__outline {
+  position: absolute;
+  left: 0;
+  z-index: 3;
+  overflow: visible;
+  fill: none;
+  stroke: var(--r-color-selection-edge);
+  stroke-width: 1;
+  pointer-events: none;
+}
+
+/* On sm-and-down sit just above the bottom tab bar (8px gap) so the two
+   read as stacked, not overlapping. */
+html[data-bp~="sm-and-down"] .selection-bar {
+  bottom: calc(var(--r-bottom-nav-h) + 8px + var(--r-safe-b));
+}
+
+/* RToolbar's default surface (`--r-color-bg-elevated`) is overridden
+   to the panel glass tone so the bar reads as a sibling of menus /
+   dialogs (premise III.1: one visual vocabulary for every surface).
+   Border + shadow + backdrop-blur are stacked on top of the
+   primitive's flat pill. `max-width` keeps it inside a 320px viewport. */
+.selection-bar__panel {
+  /* Over the hill, so the part that laps into the bar is hidden behind it
+     instead of painting across the buttons' own backgrounds. */
+  position: relative;
+  z-index: 2;
+  --r-toolbar-color: var(--r-color-panel);
+  max-width: calc(100vw - 16px);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+
+/* A hill rising from the bar's top edge. It shares the bar's fill and laps
+   into it, and the two pseudo-elements curve its foot out into the bar, so
+   bar and hill read as one surface. Nothing here carries a stroke: an edge
+   that stopped at the join is exactly what makes a seam. */
+.selection-bar__notch {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  bottom: calc(100% - 6px);
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 16px 13px;
+  /* The foot stays square so the sides run straight down into the fillets
+     below. Rounding it would pull the edge inward and open a gap between
+     hill, fillet and bar. The square corners themselves sit inside the bar,
+     out of sight. */
+  border-radius: var(--r-notch-radius) var(--r-notch-radius) 0 0;
+  background: var(--r-color-panel);
+  /* The bar's glass too, or the fill reads a shade off against it. */
+  backdrop-filter: blur(18px) saturate(140%);
+  color: var(--r-color-fg);
+  font-size: var(--r-font-size-md);
+  font-weight: var(--r-font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.selection-bar__notch-count {
+  display: inline-block;
+}
+.selection-bar__notch::before,
+.selection-bar__notch::after {
+  content: "";
+  position: absolute;
+  bottom: 6px;
+  width: var(--r-notch-fillet);
+  height: var(--r-notch-fillet);
+  pointer-events: none;
+}
+.selection-bar__notch::before {
+  /* 1px under the hill, so no hairline survives between the two fills. */
+  right: calc(100% - 1px);
+  background: radial-gradient(
+    circle var(--r-notch-fillet) at top left,
+    transparent 0 var(--r-notch-fillet),
+    var(--r-color-panel) var(--r-notch-fillet)
+  );
+}
+.selection-bar__notch::after {
+  left: calc(100% - 1px);
+  background: radial-gradient(
+    circle var(--r-notch-fillet) at top right,
+    transparent 0 var(--r-notch-fillet),
+    var(--r-color-panel) var(--r-notch-fillet)
+  );
+}
+
+/* Tighten the action row on phones so all buttons + the divider fit a 320px
+   width: squeeze the inter-button gaps and side padding. */
+html[data-bp~="xs"] .selection-bar__panel {
+  gap: 2px;
+  padding: 0 6px;
+}
+</style>

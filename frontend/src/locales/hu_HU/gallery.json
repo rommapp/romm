@@ -1,5 +1,4 @@
 {
-  "all-loaded": "Minden játék betöltődött",
   "back-to-top": "Vissza a tetejére",
   "column-actions": "Műveletek",
   "column-cover": "Borító",
@@ -8,7 +7,6 @@
   "firmware-selected-count": "{count} kiválasztva",
   "jump-to": "Ugrás: {letter}",
   "jump-to-letter": "Ugrás betűhöz",
-  "load-more": "Továbbiak betöltése",
   "selection-clear": "Kijelölés törlése",
   "selection-collections": "Gyűjtemények kezelése",
   "selection-delete": "Törlés",

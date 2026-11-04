@@ -19,6 +19,7 @@ from utils import conversion_cache
 from utils.conversion_cache import (
     FAILED_FILE,
     RETRY_AFTER_SECONDS,
+    SERVED_FILE,
     _lookup,
 )
 
@@ -324,7 +325,7 @@ def test_a_format_needs_a_single_file(
         pytest.param("head", "authenticated", id="metadata"),
     ],
 )
-def test_get_refreshes_a_cached_copy_but_head_does_not(
+def test_get_records_a_serve_but_head_does_not(
     client: TestClient,
     access_token: str,
     rom: Rom,
@@ -345,6 +346,7 @@ def test_get_refreshes_a_cached_copy_but_head_does_not(
         headers = {}
     conversion.converto.cache_max_size_gb = 1
     mocker.patch.object(conversion_cache, "BYTES_PER_GB", 100)
+    mtime = cached_copy.stat().st_mtime
 
     response = client.request(
         method,
@@ -356,7 +358,8 @@ def test_get_refreshes_a_cached_copy_but_head_does_not(
 
     assert response.status_code == status.HTTP_200_OK
     assert _redirect(response) == "/cache/converts/1-abc/test_rom.chd"
-    assert (cached_copy.stat().st_mtime > time.time() - 60) is (method == "get")
+    assert cached_copy.stat().st_mtime == mtime
+    assert (cached_copy.parent / SERVED_FILE).exists() is (method == "get")
     assert conversion_cache.cleanup_stale_conversions() == (0 if method == "get" else 1)
     assert cached_copy.exists() is (method == "get")
     conversion.convert.assert_not_called()

@@ -40,6 +40,13 @@ def animated_image_bytes(
     )
 
 
+def jxl_image_bytes(size: tuple[int, int] = FRAME_SIZE) -> bytes:
+    """A still JPEG XL image, encoded through the plugin utils.images registers."""
+    buf = BytesIO()
+    Image.new("RGB", size, "red").save(buf, format="JXL")
+    return buf.getvalue()
+
+
 def truncated_animation_bytes(fmt: str) -> bytes:
     """An animation with its last frame cut short."""
     return animated_image_bytes(fmt)[:-40]
@@ -58,7 +65,7 @@ def growing_canvas_gif() -> bytes:
 
 
 class TestIsAnimated:
-    @pytest.mark.parametrize("fmt", ["GIF", "PNG", "WEBP"])
+    @pytest.mark.parametrize("fmt", ["GIF", "PNG", "WEBP", "AVIF"])
     def test_multi_frame_image(self, fmt: str):
         with Image.open(BytesIO(animated_image_bytes(fmt))) as img:
             assert is_animated(img)
@@ -86,7 +93,7 @@ class TestIsAnimated:
 
 
 class TestFrameDurations:
-    @pytest.mark.parametrize("fmt", ["GIF", "PNG", "WEBP"])
+    @pytest.mark.parametrize("fmt", ["GIF", "PNG", "WEBP", "AVIF"])
     def test_reads_each_frame(self, fmt: str):
         with Image.open(BytesIO(animated_image_bytes(fmt))) as img:
             assert frame_durations(img) == DURATIONS
@@ -145,3 +152,9 @@ class TestWebpLoop:
         data = animated_image_bytes(fmt, [100, 100], loop=loop)
         with Image.open(BytesIO(data)) as img:
             assert webp_loop(img) == expected
+
+
+def test_jpeg_xl_decodes_once_utils_images_is_imported():
+    with Image.open(BytesIO(jxl_image_bytes())) as img:
+        assert img.format == "JXL"
+        assert img.size == FRAME_SIZE

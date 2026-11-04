@@ -3,8 +3,7 @@
 // Hydrated from the backend's `/permissions/me` (the source of truth) via
 // `installPermissionsHydration()` in each layout, and refreshed live on the
 // `permissions:changed` socket event. Features consume this store via
-// `useCan(action, scope?)`. v1 and console mode read only `rom.play` here;
-// their other checks stay on scopes.
+// `useCan(action, scope?)`.
 import { defineStore } from "pinia";
 import type {
   PermissionScopeSchema,
@@ -14,7 +13,7 @@ import {
   type ActionKey,
   type Grant,
   type PermissionScope,
-} from "@/v2/composables/useCan/actions";
+} from "@/composables/useCan/actions";
 
 interface State {
   grants: Grant[];

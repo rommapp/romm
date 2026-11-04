@@ -72,14 +72,6 @@ export const PAGES: Record<RouteName, PageDef> = {
   [ROUTES.STREAM_DESKTOP]: { skip: "needs a streaming host" },
   [ROUTES.PAIR]: { skip: "needs a second device" },
   [ROUTES.PAIR_DEVICE]: { skip: "needs a second device" },
-  [ROUTES.APRIL_FOOLS]: { skip: "an easter egg" },
-  [ROUTES.CONSOLE_HOME]: { skip: "console mode, part of the frozen v1 UI" },
-  [ROUTES.CONSOLE_PLATFORM]: { skip: "console mode, part of the v1 UI" },
-  [ROUTES.CONSOLE_COLLECTION]: { skip: "console mode, part of the v1 UI" },
-  [ROUTES.CONSOLE_SMART_COLLECTION]: { skip: "console mode, part of v1" },
-  [ROUTES.CONSOLE_VIRTUAL_COLLECTION]: { skip: "console mode, part of v1" },
-  [ROUTES.CONSOLE_ROM]: { skip: "console mode, part of the v1 UI" },
-  [ROUTES.CONSOLE_PLAY]: { skip: "console mode, part of the v1 UI" },
   [ROUTES.NOT_FOUND]: { skip: "the viewer checks on admin-only pages" },
 };
 

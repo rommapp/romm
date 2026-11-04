@@ -35,7 +35,11 @@ from exceptions.fs_exceptions import (
     RomsNotFoundException,
 )
 from logger.logger import log
-from models.base import compute_file_extension, compute_file_name_no_ext
+from models.base import (
+    PICO8_CARTRIDGE_EXTENSION,
+    compute_file_extension,
+    compute_file_name_no_ext,
+)
 from models.platform import Platform
 from models.rom import (
     DOCUMENT_CATEGORIES,
@@ -77,10 +81,6 @@ from .base_handler import (
     normalize_region,
     translation_language,
 )
-
-# PICO-8 cartridges are often stored as PNG files
-PICO8_CARTRIDGE_EXTENSION = ".p8.png"
-
 
 NON_HASHABLE_PLATFORMS = frozenset(
     (
@@ -326,10 +326,28 @@ NON_BINARY_FILE_CATEGORIES: Final = DOCUMENT_CATEGORIES | {
 }
 
 
+# Disc sheets, subchannel data and text beside a ROM binary hold no title id,
+# and sigil fails short ones with the IO error it raises for real failures.
+SIDECAR_FILE_SUFFIXES: Final = (
+    ".ccd",
+    ".cue",
+    ".gdi",
+    ".md5",
+    ".nfo",
+    ".sbi",
+    ".sfv",
+    ".sha1",
+    ".sub",
+    ".txt",
+)
+
+
 def _may_hold_title_id(path: Path, category: RomFileCategory | None) -> bool:
     """Whether sigil can read a title id from this file."""
+    name = path.name.lower()
     return (
-        not path.name.lower().endswith(COMPRESSED_FILE_SUFFIXES)
+        not name.endswith(COMPRESSED_FILE_SUFFIXES)
+        and not name.endswith(SIDECAR_FILE_SUFFIXES)
         and category not in NON_BINARY_FILE_CATEGORIES
     )
 
@@ -647,6 +665,8 @@ class FSRomsHandler(FSHandler):
                 entries.append((f_path, file_name, os.stat(Path(f_path, file_name))))
             except OSError as exc:
                 log.warning(f"Skipping unreadable file {f_path / file_name}: {exc}")
+        # Listing order is filesystem-specific; the ROM-level hash must not be.
+        entries.sort(key=lambda e: Path(e[0], e[1]).as_posix())
         return entries
 
     async def converto_active(self, platform_slug: str) -> bool:
@@ -1289,6 +1309,20 @@ class FSRomsHandler(FSHandler):
             await self.move_file_or_folder(
                 f"{fs_path}/{old_name}", f"{fs_path}/{new_name}"
             )
+
+    @staticmethod
+    def moved_file_location(
+        file: RomFile, fs_path: str, old_name: str, new_name: str
+    ) -> dict[str, str] | None:
+        """Where one of a rom's files sits once `rename_fs_rom` moved `old_name`
+        (a folder's files keep their own names), or None when it did not move."""
+        if file.file_path == fs_path and file.file_name == old_name:
+            return {"file_name": new_name, "file_path": fs_path}
+        old_root = f"{fs_path}/{old_name}"
+        if file.file_path == old_root or file.file_path.startswith(f"{old_root}/"):
+            moved = f"{fs_path}/{new_name}{file.file_path.removeprefix(old_root)}"
+            return {"file_name": file.file_name, "file_path": moved}
+        return None
 
     async def embed_switch_title_ids(self, parsed: ParsedRomFiles) -> str | None:
         """Rename each parsed Switch file to embed the title id read from it.

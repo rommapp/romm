@@ -25,6 +25,14 @@ def test_refreshing_oauth_token_basic(client, refresh_token):
     assert body["expires"] == OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 
 
+def test_the_schema_token_url_is_the_token_route(client):
+    """Clients such as Swagger UI's Authorize button request tokens from this URL."""
+    schemes = client.app.openapi()["components"]["securitySchemes"]
+    password_flow = schemes["OAuth2PasswordBearer"]["flows"]["password"]
+
+    assert password_flow["tokenUrl"] == client.app.url_path_for("token")
+
+
 def test_refreshing_oauth_token_without_refresh_token(client):
     try:
         client.post(

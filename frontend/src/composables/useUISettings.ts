@@ -13,10 +13,6 @@ export const UI_SETTINGS_KEYS = {
   // Theme
   theme: { key: "settings.theme", default: "auto" },
 
-  // NOTE: uiVersion is intentionally NOT tracked here. It's owned by the
-  // singleton in composables/useUiVersion.ts so a write propagates reactively
-  // to the RomM.vue gate without a reload.
-
   // Home section
   showStats: { key: "settings.showStats", default: true },
   showRecentRoms: { key: "settings.showRecentRoms", default: true },
@@ -69,12 +65,8 @@ export const UI_SETTINGS_KEYS = {
     default: "randomPick,anniversaries,libraryStats",
   },
 
-  // Platforms drawer
-  platformsGroupBy: { key: "settings.platformsGroupBy", default: null },
-
   // Gallery section
   groupRoms: { key: "settings.groupRoms", default: true },
-  showSiblings: { key: "settings.showSiblings", default: true },
   showRegions: { key: "settings.showRegions", default: true },
   showLanguages: { key: "settings.showLanguages", default: true },
   showStatus: { key: "settings.showStatus", default: true },
@@ -82,6 +74,7 @@ export const UI_SETTINGS_KEYS = {
   showLogoTitle: { key: "settings.showLogoTitle", default: false },
   showActionBar: { key: "settings.showActionBar", default: false },
   showGameTitle: { key: "settings.showGameTitle", default: false },
+  similarGamesSource: { key: "settings.similarGamesSource", default: "romm" },
   enable3DEffect: { key: "settings.enable3DEffect", default: false },
   disableAnimations: { key: "settings.disableAnimations", default: false },
   enableExperimentalCache: {

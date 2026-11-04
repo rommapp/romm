@@ -15,7 +15,7 @@ export default {
     schema: [],
     messages: {
       safeAreaEnv:
-        "Raw `{{literal}}`: use `var(--r-safe-t|r|b|l)`, or `--r-gutter-l|r` / `--r-stage-inset`, defined once in src/v2/styles/global.css.",
+        "Raw `{{literal}}`: use `var(--r-safe-t|r|b|l)`, or `--r-gutter-l|r` / `--r-stage-inset`, defined once in src/styles/global.css.",
     },
   },
   create(context) {

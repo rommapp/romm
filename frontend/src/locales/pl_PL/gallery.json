@@ -1,5 +1,4 @@
 {
-  "all-loaded": "Wszystkie gry zostały załadowane",
   "back-to-top": "Powrót na górę",
   "column-actions": "Akcje",
   "column-cover": "Okładka",
@@ -8,7 +7,6 @@
   "firmware-selected-count": "{count} wybrano",
   "jump-to": "Przejdź do {letter}",
   "jump-to-letter": "Przejdź do litery",
-  "load-more": "Załaduj więcej",
   "selection-clear": "Wyczyść zaznaczenie",
   "selection-collections": "Zarządzaj kolekcjami",
   "selection-delete": "Usuń",

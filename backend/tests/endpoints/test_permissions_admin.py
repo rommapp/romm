@@ -65,6 +65,81 @@ def test_catalog_lists_vocabulary(client, access_token):
     assert set(body["actions"]) == {"read", "write", "delete"}
 
 
+def test_catalog_lists_the_ownable_entities(client, access_token):
+    body = client.get("/api/permissions/catalog", headers=_bearer(access_token)).json()
+    assert "collections" in body["ownable_entities"]
+    assert not {"users", "tasks", "logs", "roms"} & set(body["ownable_entities"])
+
+
+def test_own_only_is_rejected_on_an_entity_without_owners(client, access_token):
+    h = _bearer(access_token)
+    own_users = {"entity": "users", "action": "write", "own_only": True}
+    try:
+        created = client.post(
+            "/api/permissions/groups",
+            headers=h,
+            json={"name": "x", "grants": [own_users]},
+        )
+        assert created.status_code == 422
+
+        gid = client.post(
+            "/api/permissions/groups",
+            headers=h,
+            json={
+                "name": "Own collections",
+                "grants": [
+                    {"entity": "collections", "action": "write", "own_only": True}
+                ],
+            },
+        ).json()["id"]
+        updated = client.put(
+            f"/api/permissions/groups/{gid}", headers=h, json={"grants": [own_users]}
+        )
+        assert updated.status_code == 422
+    finally:
+        _cleanup()
+
+
+def test_own_only_override_is_rejected_on_an_entity_without_owners(
+    client, access_token, viewer_user
+):
+    response = client.put(
+        f"/api/permissions/users/{viewer_user.id}",
+        headers=_bearer(access_token),
+        json={
+            "overrides": [
+                {
+                    "entity": "tasks",
+                    "action": "write",
+                    "granted": True,
+                    "own_only": True,
+                }
+            ]
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_own_only_revoke_override_is_accepted_on_an_entity_without_owners(
+    client, access_token, viewer_user
+):
+    response = client.put(
+        f"/api/permissions/users/{viewer_user.id}",
+        headers=_bearer(access_token),
+        json={
+            "overrides": [
+                {
+                    "entity": "tasks",
+                    "action": "write",
+                    "granted": False,
+                    "own_only": True,
+                }
+            ]
+        },
+    )
+    assert response.status_code == 200
+
+
 def test_groups_expose_the_system_key(client, access_token):
     groups = client.get("/api/permissions/groups", headers=_bearer(access_token)).json()
     keys = {g["name"]: g["system_key"] for g in groups}

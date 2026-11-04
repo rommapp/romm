@@ -1,0 +1,19 @@
+{
+  "clear": "Rensa",
+  "click-to-copy": "Klicka för att kopiera till urklipp",
+  "copied": "Loggarna har kopierats till urklipp",
+  "copy": "Kopiera till urklipp",
+  "download": "Hämta",
+  "empty": "Inga loggar ännu",
+  "jump-to-latest": "Gå till senaste",
+  "level-all": "Alla nivåer",
+  "level-filter": "Filtrera efter nivå",
+  "line-copied": "Raden har kopierats till urklipp",
+  "load-error": "Kunde inte läsa in loggar",
+  "module-all": "Alla moduler",
+  "module-filter": "Filtrera efter modul",
+  "no-matches": "Inga loggar matchar dina filter",
+  "pause": "Pausa",
+  "resume": "Återuppta",
+  "search-placeholder": "Sök i loggar"
+}

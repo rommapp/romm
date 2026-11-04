@@ -154,6 +154,8 @@ start_bin_gunicorn() {
 		--error-logfile - \
 		--log-config "${gunicorn_log_config}" \
 		main:app &
+	# Gunicorn writes --pid only after a cold start, too late for the watchdog.
+	echo "$!" >/tmp/gunicorn.pid
 }
 
 # Commands to start nginx (handling PID creation internally)

@@ -27,6 +27,8 @@ class UserSchema(BaseModel):
     role: Role
     permission_group_id: int | None = None
     oauth_scopes: list[str]
+    has_password: bool
+    email_managed_by_oidc: bool
     avatar_path: str
     last_login: UTCDatetime | None
     last_active: UTCDatetime | None

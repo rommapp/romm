@@ -1,11 +1,11 @@
 /**
- * build-tokens: emits src/v2/styles/tokens.css from src/v2/tokens/index.ts.
+ * build-tokens: emits src/styles/tokens.css from src/tokens/index.ts.
  *
  * The TypeScript module is the single source of truth. This script declares
  * the JS-path → CSS-variable mapping and writes the CSS file. Run it via
  * `npm run build:tokens` (also wired into predev / prebuild).
  *
- * Adding a new token: add it to src/v2/tokens/index.ts, then add a mapping
+ * Adding a new token: add it to src/tokens/index.ts, then add a mapping
  * entry below if the default convention does not produce the desired CSS
  * variable name. Re-run `npm run build:tokens`.
  */
@@ -35,10 +35,10 @@ import {
   radius,
   space,
   zIndex,
-} from "../src/v2/tokens/index.js";
+} from "../src/tokens/index.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const OUTPUT = resolve(__dirname, "../src/v2/styles/tokens.css");
+const OUTPUT = resolve(__dirname, "../src/styles/tokens.css");
 
 function camelToKebab(s: string): string {
   return s.replace(/([A-Z])/g, "-$1").toLowerCase();
@@ -176,55 +176,65 @@ const SHARED: Entry[] = [
   ...entriesFor(zIndex, "zIndex", "--r-z-index"),
 ];
 
-// Native `color-scheme` rides with the palette so UA-drawn chrome (scrollbars,
-// form controls, embedded viewers) follows the theme instead of staying light.
-const DARK: Entry[] = [
-  ["color-scheme", "dark"],
-  ...entriesFor(colorDark, "colorDark", "--r-color"),
-];
-// Light theme: the surface palette, then the brand overrides that re-tune
-// primary/secondary/accent for the off-white page (deeper for contrast).
+// light-dark() resolves using the color-scheme where the token is consumed.
+const DARK: Entry[] = entriesFor(colorDark, "colorDark", "--r-color");
 const LIGHT: Entry[] = [
-  ["color-scheme", "light"],
   ...entriesFor(colorLight, "colorLight", "--r-color"),
   ...entriesFor(colorStatusLight, "colorStatusLight", "--r-color"),
   ...entriesFor(colorBrandLight, "colorBrandLight", "--r-color-brand"),
 ];
 
+const sharedByName = new Map(SHARED);
+const darkByName = new Map(DARK);
+const lightByName = new Map(LIGHT);
+
+for (const [n] of DARK) {
+  if (!lightByName.has(n)) {
+    throw new Error(`${n} has a dark value but no light value`);
+  }
+}
+
+function themed([n, light]: Entry): Entry {
+  const dark = darkByName.get(n) ?? sharedByName.get(n);
+  if (dark === undefined) {
+    throw new Error(`${n} has a light value but no dark value`);
+  }
+  return [n, `light-dark(${light}, ${dark})`];
+}
+
+const THEMED = new Set(LIGHT.map(([n]) => n));
+const SHARED_UNTHEMED = SHARED.filter(([n]) => !THEMED.has(n));
+
 const HEADER = `/*
- * RomM v2 Design Tokens, CSS Custom Properties
+ * RomM Design Tokens, CSS Custom Properties
  *
- * GENERATED FILE, do not hand-edit. Source: src/v2/tokens/index.ts
+ * GENERATED FILE, do not hand-edit. Source: src/tokens/index.ts
  * Regenerate with: npm run build:tokens
  *
- * Scoped under .r-v2 so v1 styling is unaffected. Theme palettes live under
- * .r-v2.r-v2-dark and .r-v2.r-v2-light. The classes are toggled on <html>
- * by RomM.vue so teleported overlays (RDialog, RMenu, RTooltip), which
- * land in <body> outside the app root, still resolve var(--r-color-*).
+ * Scoped under .r-app. Themed colours are light-dark() pairs; the scheme is
+ * the OS preference unless RomM.vue sets .r-dark or .r-light on <html>, so
+ * teleported overlays (RDialog, RMenu, RTooltip), which land in <body>
+ * outside the app root, still resolve var(--r-color-*).
  */
 `;
 
 const css = [
   HEADER,
-  block(".r-v2", SHARED),
+  // Root only: a nested .r-app (RCarousel) must inherit the pinned scheme.
+  "html.r-app {\n  color-scheme: light dark;\n}",
   "",
-  `html[data-input="key"] .r-v2 {`,
+  block(".r-app", [...SHARED_UNTHEMED, ...LIGHT.map(themed)]),
+  "",
+  `html[data-input="key"] .r-app {`,
   `  --r-focus-ring-width: ${focus.ringWidthKey};`,
   `}`,
-  `html[data-input="pad"] .r-v2 {`,
+  `html[data-input="pad"] .r-app {`,
   `  --r-focus-ring-width: ${focus.ringWidthPad};`,
   `}`,
   "",
-  block(
-    ".r-v2.r-v2-dark",
-    DARK,
-    "Dark surface palette: translucent white over the near-black base.",
-  ),
-  block(
-    ".r-v2.r-v2-light",
-    LIGHT,
-    "Light surface palette: translucent black over the off-white base.",
-  ),
+  ".r-app.r-dark {\n  color-scheme: dark;\n}",
+  ".r-app.r-light {\n  color-scheme: light;\n}",
+  "",
 ].join("\n");
 
 async function main() {

@@ -1,5 +1,4 @@
 {
-  "all-loaded": "All games have been loaded",
   "back-to-top": "Back to top",
   "column-actions": "Actions",
   "column-cover": "Cover",
@@ -8,7 +7,6 @@
   "firmware-selected-count": "{count} selected",
   "jump-to": "Jump to {letter}",
   "jump-to-letter": "Jump to letter",
-  "load-more": "Load more",
   "selection-clear": "Clear selection",
   "selection-collections": "Manage collections",
   "selection-delete": "Delete",

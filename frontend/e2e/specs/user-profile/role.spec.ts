@@ -34,7 +34,7 @@ test.describe("Profile page role chip", { tag: "@page:user-profile" }, () => {
     await gotoOwnProfile(page);
 
     // The identity row still shows the role the picker no longer edits.
-    const chip = page.locator(".r-v2-profile__role-tag");
+    const chip = page.locator(".r-profile__role-tag");
     await expect(chip).toBeVisible();
     await expect(chip).toHaveText(/user/i);
   });

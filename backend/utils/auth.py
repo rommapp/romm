@@ -24,6 +24,11 @@ def token_device_id(conn: HTTPConnection) -> str | None:
     return getattr(conn.state, "device_id", None)
 
 
+def request_client_token_id(conn: HTTPConnection) -> int | None:
+    """The id of the client token that authenticated the request, if any."""
+    return getattr(conn.state, "client_token_id", None)
+
+
 def current_device_id(conn: HTTPConnection) -> str | None:
     """The device a request comes from: its client token's, else its web session's."""
     return token_device_id(conn) or (conn.scope.get("session") or {}).get("device_id")

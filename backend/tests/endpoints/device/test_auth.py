@@ -312,6 +312,23 @@ class TestApprove:
         )
         assert resp.status_code == status.HTTP_403_FORBIDDEN
 
+    def test_scope_clamping_uses_the_callers_token_scopes(
+        self, client, admin_user: User
+    ):
+        _, narrow = make_device_token(admin_user, None, scopes="me.read me.write")
+        body = _authorize(client)
+
+        pending = client.get(
+            f"/api/auth/device/pending/{body['user_code']}",
+            headers={"Authorization": f"Bearer {narrow}"},
+        )
+        assert pending.json()["allowed_scopes"] == []
+
+        resp = _approve(
+            client, narrow, body["user_code"], approved_scopes=["roms.read"]
+        )
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+
     def test_scope_clamping_rejects_scopes_above_requested(
         self, client, access_token: str
     ):
@@ -516,7 +533,22 @@ class TestToken:
         data = resp.json()
         assert data["access_token"].startswith("rmm_")
         assert data["device_id"] == approve.json()["device_id"]
+        token = db_client_token_handler.get_token(token_id=data["id"])
+        assert token is not None
+        assert token.device_id == data["device_id"]
         assert set(data["scopes"]) == {"roms.read", "roms.user.write"}
+
+    def test_issued_token_revokes_itself_by_id(self, client, access_token: str):
+        body = _authorize(client)
+        _approve(client, access_token, body["user_code"], approved_scopes=["roms.read"])
+        creds = _poll_token(client, body["device_code"]).json()
+
+        resp = client.delete(
+            f"/api/client-tokens/{creds['id']}",
+            headers={"Authorization": f"Bearer {creds['access_token']}"},
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        assert db_client_token_handler.get_token(token_id=creds["id"]) is None
 
     def test_one_shot_second_poll_returns_expired_token(
         self, client, access_token: str

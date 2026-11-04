@@ -3,7 +3,7 @@ import json
 from fastapi import HTTPException, Request, status
 from pydantic import BaseModel, Field
 
-from decorators.auth import protected_route
+from decorators.auth import protected_route, raise_auth_error
 from endpoints.responses.client_token import (
     ClientTokenAdminSchema,
     ClientTokenCreateSchema,
@@ -13,11 +13,13 @@ from endpoints.responses.client_token import (
 from handler.audit_handler import AuditTarget, record
 from handler.auth.base_handler import auth_handler
 from handler.auth.constants import Scope
+from handler.auth.dependencies import assert_admin_for_admin
 from handler.database import db_client_token_handler
 from handler.redis_handler import sync_cache
 from handler.socket_handler import close_client_token_sockets
 from models.audit_event import AuditAction, AuditTargetType
 from models.client_token import ClientToken
+from utils.auth import request_client_token_id
 from utils.client_tokens import (
     PAIR_CODE_TTL_SECONDS,
     build_admin_schema,
@@ -27,6 +29,8 @@ from utils.client_tokens import (
     generate_pair_code,
     parse_expiry,
     validate_scopes,
+    validate_token_reissue,
+    validate_token_within_caller,
 )
 from utils.router import APIRouter
 
@@ -63,7 +67,7 @@ def create_token(
     payload: ClientTokenCreatePayload,
 ) -> ClientTokenCreateSchema:
     user = request.user
-    validate_scopes(payload.scopes, user.oauth_scopes)
+    validate_scopes(payload.scopes, request.auth.scopes)
 
     count = db_client_token_handler.count_tokens_by_user(user.id)
     if count >= MAX_TOKENS_PER_USER:
@@ -94,11 +98,18 @@ def list_tokens(request: Request) -> list[ClientTokenSchema]:
     return [build_schema(t) for t in tokens]
 
 
-@protected_route(router.delete, "/{token_id}", [Scope.ME_WRITE])
+@protected_route(router.delete, "/{token_id}")
 async def delete_token(request: Request, token_id: int) -> None:
+    """Revoke one of the caller's tokens; a client token can always revoke itself."""
+    is_self_revoke = token_id == request_client_token_id(request)
+    if not is_self_revoke and Scope.ME_WRITE not in request.auth.scopes:
+        raise_auth_error(request)
+
     token = db_client_token_handler.get_token(
         token_id=token_id, user_id=request.user.id
     )
+    if token is not None:
+        validate_token_within_caller(request, token)
     rows = db_client_token_handler.delete_token(
         token_id=token_id, user_id=request.user.id
     )
@@ -113,6 +124,16 @@ async def delete_token(request: Request, token_id: int) -> None:
 
 @protected_route(router.put, "/{token_id}/regenerate", [Scope.ME_WRITE])
 async def regenerate_token(request: Request, token_id: int) -> ClientTokenCreateSchema:
+    existing = db_client_token_handler.get_token(
+        token_id=token_id, user_id=request.user.id
+    )
+    if existing is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Token not found",
+        )
+    validate_token_reissue(request, existing)
+
     raw_token = auth_handler.generate_client_token()
     new_hash = auth_handler.hash_client_token(raw_token)
 
@@ -141,6 +162,7 @@ def pair_token(request: Request, token_id: int) -> ClientTokenPairSchema:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Token not found",
         )
+    validate_token_reissue(request, token)
 
     code = generate_pair_code()
     redis_key = f"pair:{code}"
@@ -182,6 +204,10 @@ def list_all_tokens(request: Request) -> list[ClientTokenAdminSchema]:
 @protected_route(router.delete, "/{token_id}/admin", [Scope.USERS_WRITE])
 async def admin_delete_token(request: Request, token_id: int) -> None:
     token = db_client_token_handler.get_token(token_id=token_id)
+    if token is not None:
+        assert_admin_for_admin(
+            request, token.user.role, "Only an administrator can revoke admin tokens"
+        )
     rows = db_client_token_handler.delete_token(token_id=token_id)
     if rows == 0 or token is None:
         raise HTTPException(

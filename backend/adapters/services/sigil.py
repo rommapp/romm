@@ -1,8 +1,10 @@
 import asyncio
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
+from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.filesystem import COMPRESSED_FILE_SUFFIXES
 from utils.m3u import first_playlist_entry
@@ -34,11 +36,27 @@ SIGIL_PLATFORM_SLUGS: Final[dict[str, str]] = {
 # and it is the only family whose files may carry their title id in the filename.
 SWITCH_PLATFORM_SLUGS: Final = frozenset({UPS.SWITCH, UPS.SWITCH_2})
 
-# Errors that are expected for arbitrary library files (no title id present,
-# format sigil can't parse, missing decryption keys). Logged at debug level.
-ROUTINE_SIGIL_ERROR_CODES: Final = frozenset(
-    {"NOT_FOUND", "UNSUPPORTED", "UNSUPPORTED_FORMAT", "NEEDS_KEY"}
+# Files the current scan skipped because RomM holds no keys for their headers.
+# A context var, so scans overlapping in one process (DEV_MODE) keep their own.
+_needs_key_paths: ContextVar[set[str] | None] = ContextVar(
+    "sigil_needs_key_paths", default=None
 )
+
+
+def begin_scan() -> None:
+    _needs_key_paths.set(set())
+
+
+def log_scan_summary() -> None:
+    """Say how many encrypted Switch files this scan left without a title id."""
+    paths = _needs_key_paths.get()
+    if not paths:
+        return
+    log.info(
+        f"{hl(str(len(paths)))} encrypted Switch files got no title id: "
+        "RomM doesn't decrypt Switch files. Decrypted dumps, or a client "
+        "holding your keys, can identify them."
+    )
 
 
 @dataclass(frozen=True)
@@ -90,12 +108,21 @@ class SigilService:
             result = await asyncio.to_thread(
                 sigil.extract, file_path, platform=sigil_slug, filename_fallback=False
             )
+        # A Switch header RomM holds no keys for, reported in the scan summary.
+        except sigil.SigilNeedsKeyError as exc:
+            if (paths := _needs_key_paths.get()) is not None:
+                paths.add(file_path)
+            log.debug(f"Sigil found no title id for {file_path}: {exc}")
+            return None
+        # Expected for arbitrary library files: no title id or a format sigil can't parse.
+        except (
+            sigil.SigilNotFoundError,
+            sigil.SigilUnsupportedFormatError,
+        ) as exc:
+            log.debug(f"Sigil found no title id for {file_path}: {exc}")
+            return None
         except Exception as exc:
-            code = getattr(exc, "code", None)
-            if code in ROUTINE_SIGIL_ERROR_CODES:
-                log.debug(f"Sigil found no title id for {file_path}: {code}")
-            else:
-                log.error(f"Sigil extraction failed for {file_path}: {exc}")
+            log.error(f"Sigil extraction failed for {file_path}: {exc}")
             return None
 
         raw_content_type = getattr(result, "switch_content_type", None)

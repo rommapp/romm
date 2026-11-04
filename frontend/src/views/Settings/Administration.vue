@@ -1,13 +1,104 @@
 <script setup lang="ts">
-import Tasks from "@/components/Settings/Administration/Tasks.vue";
-import TokensTable from "@/components/Settings/Administration/Tokens/TokensTable.vue";
-import UsersTable from "@/components/Settings/Administration/Users/UsersTable.vue";
+// Administration: v2-native page chrome for the admin-only sections.
+// Uses the shared `RTabNav` primitive (same one Library Management
+// uses) to expose Users / Groups / Tasks / Streaming as sibling tabs,
+// keeping the `?tab=` query param so deep links survive a reload.
+//
+// Tabs are gated by scope: `users.write` for the groups tab,
+// `tasks.run` for the Tasks tab, `app.admin` for Streaming, whose every
+// endpoint is admin-only. Users tab is always visible to anyone who can
+// reach this route (route-level guard already checks `app.admin`).
+import { computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import CreateUserDialog from "@/components/Settings/CreateUserDialog.vue";
+import EditUserDialog from "@/components/Settings/EditUserDialog.vue";
+import GroupFormDialog from "@/components/Settings/GroupFormDialog.vue";
+import InviteLinkDialog from "@/components/Settings/InviteLinkDialog.vue";
+import PermissionGroupsSection from "@/components/Settings/PermissionGroupsSection.vue";
+import StreamingSection from "@/components/Settings/StreamingSection.vue";
+import TasksSection from "@/components/Settings/TasksSection.vue";
+import UsersSection from "@/components/Settings/UsersSection.vue";
+import { useCan } from "@/composables/useCan";
+import { useRouteQueryParam } from "@/composables/useRouteQueryParam";
+import { RTabNav, type RTabNavItem } from "@/lib";
 import storeAuth from "@/stores/auth";
+import storePermissions from "@/stores/permissions";
 
+const { t } = useI18n();
 const auth = storeAuth();
+const permissions = storePermissions();
+const isAdmin = useCan("app.admin");
+
+type Tab = "users" | "groups" | "tasks" | "streaming";
+const validTabs: readonly Tab[] = ["users", "groups", "tasks", "streaming"];
+
+const tab = useRouteQueryParam("tab", "users", validTabs);
+
+const tabs = computed<RTabNavItem[]>(() => {
+  const items: RTabNavItem[] = [
+    {
+      id: "users",
+      label: t("settings.users"),
+      icon: "mdi-account-group",
+    },
+  ];
+  if (auth.scopes.includes("users.write")) {
+    items.push({
+      id: "groups",
+      label: t("settings.permission-groups"),
+      icon: "mdi-shield-lock-outline",
+    });
+  }
+  if (auth.scopes.includes("tasks.run")) {
+    items.push({
+      id: "tasks",
+      label: t("settings.tasks"),
+      icon: "mdi-pulse",
+    });
+  }
+  if (isAdmin.value) {
+    items.push({
+      id: "streaming",
+      label: t("settings.streaming"),
+      icon: "mdi-monitor-dashboard",
+    });
+  }
+  return items;
+});
+
+// A tab nobody can see is not one the query param may select: the route
+// admits `users.write` as well, and Streaming would otherwise deep-link them
+// to a panel whose every request 403s.
+watch(
+  () => [tabs.value, permissions.hydrated] as const,
+  ([items, hydrated]) => {
+    if (!hydrated) return; // Admin-only tabs appear once permissions load.
+    if (!items.some((item) => item.id === tab.value)) tab.value = "users";
+  },
+  { immediate: true },
+);
+
+// Bridge between RTabNav's string modelValue and our Tab union.
+const tabModel = computed<string>({
+  get: () => tab.value,
+  set: (v) => {
+    if ((validTabs as readonly string[]).includes(v)) tab.value = v as Tab;
+  },
+});
 </script>
+
 <template>
-  <UsersTable />
-  <TokensTable v-if="auth.scopes.includes('users.read')" class="mt-6" />
-  <Tasks v-if="auth.scopes.includes('tasks.run')" class="mt-6" />
+  <div class="r-section-stack">
+    <RTabNav v-model="tabModel" :items="tabs" />
+
+    <UsersSection v-if="tab === 'users'" />
+    <PermissionGroupsSection v-else-if="tab === 'groups'" />
+    <TasksSection v-else-if="tab === 'tasks'" />
+    <StreamingSection v-else-if="tab === 'streaming' && isAdmin" />
+
+    <CreateUserDialog />
+    <EditUserDialog />
+    <InviteLinkDialog />
+    <GroupFormDialog />
+  </div>
 </template>

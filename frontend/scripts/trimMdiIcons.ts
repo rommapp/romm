@@ -1,4 +1,4 @@
-// Drops the @mdi/font icon rules nothing in src/ (or Vuetify itself) names.
+// Drops the @mdi/font icon rules nothing in src/ names.
 import { readdirSync, readFileSync } from "node:fs";
 import { extname, join } from "node:path";
 import type { Plugin } from "vite";
@@ -13,7 +13,6 @@ export function usedIconNames(root: string): Set<string> {
   })
     .filter((path) => [".vue", ".ts"].includes(extname(path)))
     .map((path) => join(root, "src", path));
-  files.push(join(root, "node_modules/vuetify/lib/iconsets/mdi.js"));
   return new Set(
     files.flatMap((file) => readFileSync(file, "utf8").match(ICON_NAME) ?? []),
   );

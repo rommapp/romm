@@ -5,7 +5,7 @@ import pytest
 
 from config import SCAN_TIMEOUT
 from handler import metadata
-from handler.scan_handler import MetadataSource, ScanType
+from handler.scan.sources import MetadataSource, ScanType
 from tasks.scheduled.scan_library import ScanLibraryTask, scan_library_task
 
 

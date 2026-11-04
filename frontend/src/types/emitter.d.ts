@@ -26,12 +26,7 @@ export type Events = {
   showDeletePlatformDialog: Platform;
   showCreateCollectionDialog: null;
   showCreateSmartCollectionDialog: null;
-  /** v1: opens the legacy AddRoms picker. The v2 equivalent is
-   *  `showManageCollectionsDialog`; this entry stays while v1 still
-   *  consumes it.
-   *  @deprecated v2 → use `showManageCollectionsDialog`. */
-  showAddToCollectionDialog: SimpleRom[];
-  /** v2: opens ManageCollectionsDialog with the given selection. */
+  /** Opens ManageCollectionsDialog with the given selection. */
   showManageCollectionsDialog: SimpleRom[];
   /** v2: fired by ManageCollectionsDialog when it closes, so the
    *  GameActionBtn that opened it can drop its pinned-hover state. */
@@ -52,9 +47,8 @@ export type Events = {
   updateUrlCover: string;
   showEditRomDialog: SimpleRom;
   showRefreshMetadataDialog: SimpleRom;
-  /** v2-only: bulk refresh of multiple ROMs from the SelectionBar.
-   * The v2 RefreshMetadataDialog listens to both this and the single
-   * event; v1 keeps the single-rom contract. */
+  /** Bulk refresh of multiple ROMs from the SelectionBar. The
+   * RefreshMetadataDialog listens to both this and the single event. */
   showRefreshMetadataDialogBulk: SimpleRom[];
   showCopyDownloadLinkDialog: string;
   showDeleteRomDialog: SimpleRom[];

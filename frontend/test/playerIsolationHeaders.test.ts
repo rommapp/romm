@@ -89,7 +89,6 @@ describe("playerIsolationHeaders", () => {
     // The v2 players carry their state in the query, and nginx matches the
     // request URI, so the query string has to be allowed for explicitly.
     "/rom/1/ejs?core=snes9x",
-    "/console/rom/1/play",
   ])("isolates %s", (url) => {
     expect(headersFor(url)).toEqual(ISOLATED);
   });

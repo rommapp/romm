@@ -1,5 +1,4 @@
 {
-  "all-loaded": "Všechny hry byly načteny",
   "back-to-top": "Zpět nahoru",
   "column-actions": "Akce",
   "column-cover": "Obal",
@@ -8,7 +7,6 @@
   "firmware-selected-count": "{count} vybráno",
   "jump-to": "Přejít na {letter}",
   "jump-to-letter": "Přejít na písmeno",
-  "load-more": "Načíst více",
   "selection-clear": "Zrušit výběr",
   "selection-collections": "Spravovat kolekce",
   "selection-delete": "Smazat",

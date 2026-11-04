@@ -1,5 +1,4 @@
 {
-  "all-loaded": "Tous les jeux ont été chargés",
   "back-to-top": "Retour en haut",
   "column-actions": "Actions",
   "column-cover": "Jaquette",
@@ -8,7 +7,6 @@
   "firmware-selected-count": "{count} sélectionné(s)",
   "jump-to": "Aller à {letter}",
   "jump-to-letter": "Aller à la lettre",
-  "load-more": "Charger plus",
   "selection-clear": "Effacer la sélection",
   "selection-collections": "Gérer les collections",
   "selection-delete": "Supprimer",

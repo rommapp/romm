@@ -1,7 +1,8 @@
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import Result, and_, delete, func, not_, select, update
+from sqlalchemy import Result, and_, delete, func, not_, or_, select, update
 from sqlalchemy.orm import QueryableAttribute, Session, load_only
 from sqlalchemy.sql import Delete, Select, Update
 
@@ -9,7 +10,9 @@ from decorators.database import INJECTED_SESSION, begin_session
 from exceptions.database_exceptions import LastAdminError
 from models.user import Role, User
 
-from .base_handler import DBBaseHandler
+from .base_handler import DBBaseHandler, affected_rows
+
+LAST_ACTIVE_DEBOUNCE = timedelta(minutes=5)
 
 
 class DBUsersHandler(DBBaseHandler):
@@ -122,6 +125,48 @@ class DBUsersHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
         return session.scalars(select(User).filter_by(id=id)).one()
+
+    @begin_session
+    def set_ra_progression(
+        self,
+        id: int,
+        ra_username: str,
+        progression: Mapping[str, object],
+        session: Session = INJECTED_SESSION,
+    ) -> bool:
+        """Store progression fetched for `ra_username` if the user still links that profile.
+
+        Returns:
+            Whether the progression was stored.
+        """
+        result = session.execute(
+            update(User)
+            .where(User.id == id, User.ra_username == ra_username)
+            .values(ra_progression=progression)
+            .execution_options(synchronize_session=False)
+        )
+        return affected_rows(result) > 0
+
+    @begin_session
+    def update_last_active(
+        self,
+        id: int,
+        session: Session = INJECTED_SESSION,
+    ) -> None:
+        """Bump last_active, skipping a user already bumped within the debounce window."""
+        now = datetime.now(timezone.utc)
+        session.execute(
+            update(User)
+            .where(
+                User.id == id,
+                or_(
+                    User.last_active.is_(None),
+                    User.last_active < now - LAST_ACTIVE_DEBOUNCE,
+                ),
+            )
+            .values(last_active=now)
+            .execution_options(synchronize_session=False)
+        )
 
     @begin_session
     def get_users(

@@ -10,5 +10,6 @@ import type { PermEntity } from './PermEntity';
 export type PermissionCatalogSchema = {
     entities: Array<PermEntity>;
     actions: Array<PermAction>;
+    ownable_entities: Array<PermEntity>;
 };
 

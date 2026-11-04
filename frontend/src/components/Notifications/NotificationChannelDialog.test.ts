@@ -1,0 +1,672 @@
+import { flushPromises, mount } from "@vue/test-utils";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { defineComponent, nextTick } from "vue";
+import type { NotificationChannelSchema } from "@/__generated__";
+import { RCheckbox, RComboboxField, RSelect } from "@/lib";
+import storePermissions from "@/stores/permissions";
+import { propOf } from "@/test-utils/propOf";
+import {
+  makeAppriseService,
+  makeChannel,
+} from "@/utils/notificationChannels.fixtures";
+import NotificationChannelDialog from "./NotificationChannelDialog.vue";
+
+const api = vi.hoisted(() => ({
+  create: vi.fn(),
+  update: vi.fn(),
+  getAppriseServices: vi.fn(),
+  parseAppriseUrl: vi.fn(),
+}));
+
+vi.mock("@/services/api/notificationChannel", () => ({ default: api }));
+vi.mock("vue-i18n");
+
+function channel(
+  overrides: Partial<NotificationChannelSchema> = {},
+): NotificationChannelSchema {
+  return makeChannel({
+    id: 4,
+    type: "webhook",
+    name: "Hook",
+    topics: ["scans"],
+    target: "https://hooks.example.com/…oken",
+    service: null,
+    service_name: null,
+    fields: null,
+    stored_secrets: null,
+    has_secret: true,
+    ...overrides,
+  });
+}
+
+const WEBHOOK_PLACEHOLDER = '[placeholder="https://example.com/hooks/romm"]';
+
+async function open(
+  existing: NotificationChannelSchema | null = null,
+  { admin = false } = {},
+) {
+  const permissions = storePermissions();
+  permissions.isAdmin = admin;
+  permissions.hydrated = true;
+  const wrapper = mount(NotificationChannelDialog, {
+    props: { modelValue: false, channel: existing },
+    attachTo: document.body,
+    global: {
+      stubs: {
+        RDialog: defineComponent({
+          props: { modelValue: { type: Boolean, default: false } },
+          template: `<div v-if="modelValue"><slot name="header" /><slot name="content" /><slot name="footer" /></div>`,
+        }),
+      },
+    },
+  });
+  await wrapper.setProps({ modelValue: true });
+  await flushPromises();
+  return wrapper;
+}
+
+type Wrapper = Awaited<ReturnType<typeof open>>;
+
+function input(wrapper: Wrapper, selector: string) {
+  return wrapper.find<HTMLInputElement>(`input${selector}`);
+}
+
+async function pick(wrapper: Wrapper, kind: string) {
+  wrapper.findAllComponents(RSelect)[0]!.vm.$emit("update:modelValue", kind);
+  await nextTick();
+}
+
+function textField(wrapper: Wrapper, label: string) {
+  return wrapper
+    .findAll(".r-text-field")
+    .find((field) => field.text().includes(label))
+    ?.find<HTMLInputElement>("input");
+}
+
+async function save(wrapper: Wrapper) {
+  await wrapper
+    .findAll("button")
+    .find((b) => b.text() === "common.save")
+    ?.trigger("click");
+  await flushPromises();
+}
+
+describe("NotificationChannelDialog", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    // Only the timers, so flushPromises still settles.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    api.getAppriseServices.mockResolvedValue({ data: [makeAppriseService()] });
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("creates a webhook that forwards every topic", async () => {
+    api.create.mockResolvedValue({ data: channel() });
+    const wrapper = await open();
+
+    await wrapper.findAll("input.r-text-field__input")[0]!.setValue(" Hook ");
+    await input(wrapper, WEBHOOK_PLACEHOLDER).setValue(
+      " https://hooks.example.com/romm ",
+    );
+    await input(wrapper, '[type="password"]').setValue("s3cret");
+    await save(wrapper);
+
+    expect(api.create).toHaveBeenCalledWith({
+      type: "webhook",
+      name: "Hook",
+      url: "https://hooks.example.com/romm",
+      secret: "s3cret",
+      min_level: "info",
+      topics: null,
+    });
+    expect(wrapper.emitted("saved")?.[0]).toEqual([channel()]);
+    expect(wrapper.emitted("update:modelValue")?.at(-1)).toEqual([false]);
+    wrapper.unmount();
+  });
+
+  it("sends nothing for a URL that isn't http", async () => {
+    const wrapper = await open();
+
+    await wrapper.findAll("input.r-text-field__input")[0]!.setValue("Hook");
+    await input(wrapper, WEBHOOK_PLACEHOLDER).setValue("ftp://example.com");
+    await save(wrapper);
+
+    expect(api.create).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("builds an admin's Apprise channel from the service's fields", async () => {
+    api.create.mockResolvedValue({ data: channel({ type: "apprise" }) });
+    const wrapper = await open(null, { admin: true });
+
+    await pick(wrapper, "apprise:ntfy");
+    await wrapper.findAll("input.r-text-field__input")[0]!.setValue("Phone");
+    await textField(wrapper, "notifications.channel-field-host")?.setValue(
+      "ntfy.example.com",
+    );
+    wrapper
+      .findComponent(RComboboxField)
+      .vm.$emit("update:modelValue", ["romm"]);
+    await nextTick();
+    await save(wrapper);
+
+    expect(api.create).toHaveBeenCalledWith({
+      type: "apprise",
+      name: "Phone",
+      service: "ntfy",
+      fields: {
+        schema: "ntfys",
+        host: "ntfy.example.com",
+        targets: ["romm"],
+        image: true,
+        priority: "default",
+      },
+      min_level: "info",
+      topics: null,
+    });
+    wrapper.unmount();
+  });
+
+  it("asks for a required list before saving", async () => {
+    const wrapper = await open(null, { admin: true });
+
+    await pick(wrapper, "apprise:ntfy");
+    await wrapper.findAll("input.r-text-field__input")[0]!.setValue("Phone");
+    await save(wrapper);
+
+    expect(api.create).not.toHaveBeenCalled();
+    expect(wrapper.find(".r-combobox-field").text()).toContain(
+      "common.required",
+    );
+    wrapper.unmount();
+  });
+
+  it("takes an address in an email field and checks it", async () => {
+    const sendgrid = makeAppriseService({
+      id: "sendgrid",
+      name: "SendGrid",
+      fields: [
+        {
+          ...makeAppriseService().fields[3]!,
+          key: "apikey",
+          label: "API Key",
+          required: true,
+        },
+        {
+          ...makeAppriseService().fields[1]!,
+          key: "from_email",
+          label: "From Email",
+          type: "email",
+          required: true,
+        },
+      ],
+    });
+    api.getAppriseServices.mockResolvedValue({ data: [sendgrid] });
+    api.create.mockResolvedValue({ data: channel({ type: "apprise" }) });
+    const wrapper = await open(null, { admin: true });
+
+    await pick(wrapper, "apprise:sendgrid");
+    await wrapper.findAll("input.r-text-field__input")[0]!.setValue("Mail");
+    await input(wrapper, '[type="password"]').setValue("abc123");
+    const address = input(wrapper, '[type="email"]');
+    await address.setValue("romm");
+    await save(wrapper);
+
+    expect(api.create).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain("Invalid email");
+
+    await address.setValue("romm@example.com");
+    await save(wrapper);
+
+    expect(api.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        service: "sendgrid",
+        fields: { apikey: "abc123", from_email: "romm@example.com" },
+      }),
+    );
+    wrapper.unmount();
+  });
+
+  const ntfyChannel = () =>
+    channel({
+      type: "apprise",
+      service: "ntfy",
+      service_name: "ntfy",
+      fields: { host: "ntfy.example.com", targets: ["romm"] },
+      stored_secrets: ["token"],
+      has_secret: false,
+    });
+  async function paste(
+    wrapper: Wrapper,
+    url: string,
+    label = "notifications.channel-paste-url",
+  ) {
+    await textField(wrapper, label)?.setValue(url);
+    // Past the field's debounce.
+    await vi.advanceTimersByTimeAsync(450);
+    await flushPromises();
+  }
+
+  it("fills the fields in as soon as a URL is pasted", async () => {
+    api.create.mockResolvedValue({ data: channel({ type: "apprise" }) });
+    api.parseAppriseUrl.mockResolvedValue({
+      data: {
+        service: "ntfy",
+        fields: { host: "ntfy.example.com", port: 8080, targets: ["romm"] },
+      },
+    });
+    const wrapper = await open(null, { admin: true });
+
+    await pick(wrapper, "apprise:ntfy");
+    await wrapper.findAll("input.r-text-field__input")[0]!.setValue("Phone");
+    await paste(wrapper, "ntfys://ntfy.example.com:8080/romm");
+
+    const pasted = textField(wrapper, "notifications.channel-paste-url");
+    expect(pasted?.element.value).toBe("ntfys://ntfy.example.com:8080/romm");
+    expect(wrapper.text()).toContain("notifications.channel-paste-filled");
+    expect(wrapper.findAll(".r-apprise-field--filled")).toHaveLength(3);
+    await save(wrapper);
+
+    expect(api.parseAppriseUrl).toHaveBeenCalledWith(
+      "ntfys://ntfy.example.com:8080/romm",
+    );
+    expect(api.create.mock.calls[0]![0].fields).toMatchObject({
+      host: "ntfy.example.com",
+      port: 8080,
+      targets: ["romm"],
+    });
+    wrapper.unmount();
+  });
+
+  describe("an Apprise URL read over values already in the form", () => {
+    const label = "notifications.channel-service-url";
+    const cloud = {
+      service: "ntfy",
+      fields: { targets: ["romm"], mode: "cloud" },
+    };
+    const privateServer = {
+      service: "ntfy",
+      fields: { schema: "ntfy", host: "10.0.0.5", targets: ["romm"] },
+    };
+
+    async function openNtfy(editing?: NotificationChannelSchema) {
+      const base = makeAppriseService();
+      const field = base.fields[0]!;
+      api.getAppriseServices.mockResolvedValue({
+        data: [
+          makeAppriseService({
+            url_fields: ["schema", "host", "port", "targets"],
+            fields: [
+              ...base.fields,
+              {
+                ...field,
+                key: "mode",
+                label: "Mode",
+                required: false,
+                advanced: true,
+                default: "private",
+                values: ["private", "cloud"],
+              },
+            ],
+          }),
+        ],
+      });
+      api.create.mockResolvedValue({ data: channel({ type: "apprise" }) });
+      api.update.mockResolvedValue({ data: channel({ type: "apprise" }) });
+      const wrapper = await open(editing ?? null, { admin: true });
+      if (editing) return wrapper;
+      await pick(wrapper, "apprise:ntfy");
+      await wrapper.findAll("input.r-text-field__input")[0]!.setValue("Phone");
+      return wrapper;
+    }
+
+    const pasteUrl = (wrapper: Wrapper, url: string) =>
+      paste(wrapper, url, label);
+    const saved = () => api.create.mock.calls[0]![0].fields;
+
+    it("drops what an earlier URL set and the new one leaves out", async () => {
+      api.parseAppriseUrl
+        .mockResolvedValueOnce({ data: cloud })
+        .mockResolvedValueOnce({ data: privateServer });
+      const wrapper = await openNtfy();
+
+      await pasteUrl(wrapper, "ntfy://romm");
+      await pasteUrl(wrapper, "ntfy://10.0.0.5/romm");
+      await save(wrapper);
+
+      expect(saved()).toMatchObject({ host: "10.0.0.5", mode: "private" });
+      wrapper.unmount();
+    });
+
+    it("drops a stored value the URL leaves out when editing", async () => {
+      api.parseAppriseUrl.mockResolvedValueOnce({ data: privateServer });
+      const wrapper = await openNtfy(
+        channel({
+          type: "apprise",
+          service: "ntfy",
+          service_name: "ntfy",
+          fields: { host: "10.0.0.5", targets: ["romm"], mode: "cloud" },
+        }),
+      );
+
+      await pasteUrl(wrapper, "ntfy://user:pass@10.0.0.5/romm");
+      await save(wrapper);
+
+      expect(api.update.mock.calls[0]![1].fields).toMatchObject({
+        host: "10.0.0.5",
+        mode: "private",
+      });
+      wrapper.unmount();
+    });
+
+    it("ignores a read that answers after a newer one", async () => {
+      let answerOlder: (value: unknown) => void = () => {};
+      api.parseAppriseUrl
+        .mockResolvedValueOnce({ data: cloud })
+        .mockReturnValueOnce(new Promise((resolve) => (answerOlder = resolve)))
+        .mockResolvedValueOnce({ data: privateServer });
+      const wrapper = await openNtfy();
+
+      await pasteUrl(wrapper, "ntfy://romm");
+      await pasteUrl(wrapper, "ntfy://user:pass@10.0.0.5/romm");
+      await pasteUrl(wrapper, "ntfy://10.0.0.5/romm");
+      answerOlder({
+        data: {
+          ...privateServer,
+          fields: { ...privateServer.fields, host: "older.example.com" },
+        },
+      });
+      await flushPromises();
+      await save(wrapper);
+
+      expect(saved()).toMatchObject({ host: "10.0.0.5", mode: "private" });
+      wrapper.unmount();
+    });
+  });
+
+  it("says why it can't read a pasted URL", async () => {
+    api.parseAppriseUrl.mockRejectedValue({
+      isAxiosError: true,
+      response: { data: { detail: "Apprise can't read this URL" } },
+    });
+    const wrapper = await open(null, { admin: true });
+
+    await pick(wrapper, "apprise:ntfy");
+    await paste(wrapper, "nowhere://romm");
+
+    expect(wrapper.text()).toContain("Apprise can't read this URL");
+    wrapper.unmount();
+  });
+
+  it("moves a new channel to the service a pasted URL is for", async () => {
+    const discord = makeAppriseService({
+      id: "discord",
+      name: "Discord",
+      fields: [],
+    });
+    api.getAppriseServices.mockResolvedValue({
+      data: [makeAppriseService(), discord],
+    });
+    api.parseAppriseUrl.mockResolvedValue({
+      data: { service: "discord", fields: {} },
+    });
+    const wrapper = await open(null, { admin: true });
+
+    await pick(wrapper, "apprise:ntfy");
+    await paste(wrapper, "https://discord.com/api/webhooks/1/token");
+
+    expect(propOf(wrapper.findAllComponents(RSelect)[0]!, "modelValue")).toBe(
+      "apprise:discord",
+    );
+    wrapper.unmount();
+  });
+
+  it("keeps an edited channel on its service whatever URL is pasted", async () => {
+    api.parseAppriseUrl.mockResolvedValue({
+      data: { service: "discord", fields: {} },
+    });
+    api.getAppriseServices.mockResolvedValue({
+      data: [
+        makeAppriseService(),
+        makeAppriseService({ id: "discord", name: "Discord", fields: [] }),
+      ],
+    });
+    const wrapper = await open(ntfyChannel(), { admin: true });
+
+    await paste(wrapper, "https://discord.com/api/webhooks/1/token");
+
+    expect(wrapper.text()).toContain(
+      "notifications.channel-paste-other-service",
+    );
+    wrapper.unmount();
+  });
+
+  const discord = () => {
+    const secret = {
+      type: "string" as const,
+      required: true,
+      private: true,
+      advanced: false,
+      default: null,
+      values: null,
+      min: null,
+      max: null,
+    };
+    return makeAppriseService({
+      id: "discord",
+      name: "Discord",
+      url_fields: ["webhook_id", "webhook_token"],
+      fields: [
+        {
+          ...secret,
+          key: "botname",
+          label: "Bot Name",
+          required: false,
+          private: false,
+        },
+        { ...secret, key: "webhook_id", label: "Webhook ID" },
+        { ...secret, key: "webhook_token", label: "Webhook Token" },
+      ],
+    });
+  };
+
+  it("sets a service with its own URL up from that URL alone", async () => {
+    api.getAppriseServices.mockResolvedValue({
+      data: [makeAppriseService(), discord()],
+    });
+    api.parseAppriseUrl.mockResolvedValue({
+      data: {
+        service: "discord",
+        fields: { webhook_id: "1", webhook_token: "t" },
+      },
+    });
+    api.create.mockResolvedValue({ data: channel({ type: "apprise" }) });
+    const wrapper = await open(null, { admin: true });
+
+    await pick(wrapper, "apprise:discord");
+    expect(textField(wrapper, "Webhook ID")).toBeUndefined();
+    await wrapper.findAll("input.r-text-field__input")[0]!.setValue("Alerts");
+    await textField(wrapper, "notifications.channel-field-botname")?.setValue(
+      "RomM",
+    );
+    // Saved before the pause that would read it.
+    await textField(wrapper, "notifications.channel-service-url")?.setValue(
+      "https://discord.com/api/webhooks/1/t",
+    );
+    await save(wrapper);
+
+    expect(api.parseAppriseUrl).toHaveBeenCalledWith(
+      "https://discord.com/api/webhooks/1/t",
+    );
+    expect(api.create.mock.calls[0]![0]).toMatchObject({
+      service: "discord",
+      fields: { botname: "RomM", webhook_id: "1", webhook_token: "t" },
+    });
+    wrapper.unmount();
+  });
+
+  it("saves what a URL read during the save's wait fills in", async () => {
+    api.getAppriseServices.mockResolvedValue({ data: [discord()] });
+    let answer: (value: unknown) => void = () => {};
+    api.parseAppriseUrl.mockImplementation(
+      () => new Promise((resolve) => (answer = resolve)),
+    );
+    api.create.mockResolvedValue({ data: channel({ type: "apprise" }) });
+    const wrapper = await open(null, { admin: true });
+
+    await pick(wrapper, "apprise:discord");
+    await wrapper.findAll("input.r-text-field__input")[0]!.setValue("Alerts");
+    await textField(wrapper, "notifications.channel-service-url")?.setValue(
+      "https://discord.com/api/webhooks/1/t",
+    );
+    await save(wrapper);
+    // The field's own read comes due while the save waits on its read.
+    await vi.advanceTimersByTimeAsync(450);
+    answer({
+      data: {
+        service: "discord",
+        fields: { webhook_id: "1", webhook_token: "t" },
+      },
+    });
+    await flushPromises();
+
+    expect(api.parseAppriseUrl).toHaveBeenCalledTimes(1);
+    expect(api.create.mock.calls[0]![0].fields).toMatchObject({
+      webhook_id: "1",
+      webhook_token: "t",
+    });
+    wrapper.unmount();
+  });
+
+  it("needs the URL of a service set up from one", async () => {
+    api.getAppriseServices.mockResolvedValue({ data: [discord()] });
+    const wrapper = await open(null, { admin: true });
+
+    await pick(wrapper, "apprise:discord");
+    await wrapper.findAll("input.r-text-field__input")[0]!.setValue("Alerts");
+    await save(wrapper);
+
+    expect(api.create).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("offers Apprise's services to admins only", async () => {
+    const kinds = async (admin: boolean) => {
+      const wrapper = await open(null, { admin });
+      const items = propOf(wrapper.findAllComponents(RSelect)[0]!, "items") as {
+        value: string;
+      }[];
+      wrapper.unmount();
+      return items.map((item) => item.value);
+    };
+
+    expect(await kinds(false)).toEqual(["webhook", "email"]);
+    expect(await kinds(true)).toEqual(["webhook", "email", "apprise:ntfy"]);
+    expect(api.getAppriseServices).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the URL and secret an edit leaves blank", async () => {
+    api.update.mockResolvedValue({ data: channel() });
+    const wrapper = await open(channel());
+
+    await save(wrapper);
+
+    expect(api.update).toHaveBeenCalledWith(4, {
+      name: "Hook",
+      min_level: "info",
+      topics: ["scans"],
+    });
+    wrapper.unmount();
+  });
+
+  it("keeps the Apprise secrets an edit leaves blank", async () => {
+    api.update.mockResolvedValue({ data: channel({ type: "apprise" }) });
+    const wrapper = await open(ntfyChannel(), { admin: true });
+
+    expect(
+      textField(wrapper, "notifications.channel-field-token")?.attributes(
+        "type",
+      ),
+    ).toBe("password");
+    await save(wrapper);
+
+    // The token is left out, so the channel keeps it.
+    expect(api.update).toHaveBeenCalledWith(4, {
+      name: "Hook",
+      min_level: "info",
+      topics: ["scans"],
+      fields: {
+        schema: "ntfys",
+        host: "ntfy.example.com",
+        targets: ["romm"],
+        image: true,
+        priority: "default",
+      },
+    });
+    wrapper.unmount();
+  });
+
+  it("removes a stored Apprise secret when asked to", async () => {
+    api.update.mockResolvedValue({ data: channel({ type: "apprise" }) });
+    const wrapper = await open(ntfyChannel(), { admin: true });
+
+    wrapper
+      .findAllComponents(RCheckbox)
+      .find(
+        (box) => box.props("label") === "notifications.channel-secret-remove",
+      )
+      ?.vm.$emit("update:modelValue", true);
+    await save(wrapper);
+
+    expect(api.update.mock.calls[0]![1].fields).toMatchObject({ token: "" });
+    wrapper.unmount();
+  });
+
+  it("drops the secret when asked to", async () => {
+    api.update.mockResolvedValue({ data: channel({ has_secret: false }) });
+    const wrapper = await open(channel());
+
+    await wrapper.find('input[type="checkbox"]').setValue(true);
+    await save(wrapper);
+
+    expect(api.update.mock.calls[0]![1]).toMatchObject({ secret: "" });
+    wrapper.unmount();
+  });
+
+  it("moves an email channel to a new address", async () => {
+    api.update.mockResolvedValue({ data: channel() });
+    const wrapper = await open(
+      channel({
+        type: "email",
+        target: "a@example.com",
+        has_secret: false,
+      }),
+    );
+
+    await input(wrapper, '[type="email"]').setValue("b@example.com");
+    await save(wrapper);
+
+    expect(api.update).toHaveBeenCalledWith(4, {
+      name: "Hook",
+      min_level: "info",
+      topics: ["scans"],
+      address: "b@example.com",
+    });
+    wrapper.unmount();
+  });
+
+  it("shows why the server refused and stays open", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    api.update.mockRejectedValue({
+      isAxiosError: true,
+      response: { data: { detail: "The URL must start with http://" } },
+    });
+    const wrapper = await open(channel());
+
+    await save(wrapper);
+
+    expect(wrapper.text()).toContain("The URL must start with http://");
+    expect(wrapper.emitted("saved")).toBeUndefined();
+    wrapper.unmount();
+  });
+});

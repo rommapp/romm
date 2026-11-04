@@ -1,6 +1,6 @@
 import threading
 from base64 import b64encode
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
@@ -411,3 +411,33 @@ async def test_hybrid_auth_client_token_bound_sets_device_id_and_bumps_last_seen
     )
     assert refreshed is not None
     assert refreshed.last_seen is not None
+
+
+async def test_hybrid_auth_client_token_inside_the_debounce_window_writes_nothing(
+    editor_user: User, executed_statements: list[str]
+):
+    device = db_device_handler.add_device(
+        Device(id="debounced-device", user_id=editor_user.id)
+    )
+    now = datetime.now(timezone.utc)
+    _, raw_token = make_device_token(
+        editor_user,
+        device.id,
+        scopes=" ".join(editor_user.oauth_scopes[:3]),
+        last_used_at=now,
+    )
+    db_user_handler.update_user(editor_user.id, {"last_active": now})
+    executed_statements.clear()
+
+    class MockConnection(HTTPConnection):
+        def __init__(self):
+            self.scope: dict[str, dict[str, Any]] = {"session": {}, "state": {}}
+            self._headers = Headers({"Authorization": f"Bearer {raw_token}"})
+
+    result = await HybridAuthBackend().authenticate(MockConnection())
+
+    assert result is not None
+    updates = [
+        s for s in executed_statements if s.lstrip().upper().startswith("UPDATE")
+    ]
+    assert updates == []

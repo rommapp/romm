@@ -1,11 +1,10 @@
 # RomM frontend
 
-## The frontend has two UIs - know which you're in
+## Layout
 
-- **v1 is frozen.** Everything under `frontend/src/views/`, `src/components/`, `src/console/`, `src/layouts/` is legacy and will be deleted wholesale in a final wave. **Do not refactor v1.** Only touch it for a critical bug, and when a v2 fork exists, mark the v1 export `@deprecated`.
-- **v2 is the active rewrite** under `frontend/src/v2/`, gated by `user.ui_settings.uiVersion`. It has its own design system (tokens), primitive library (`R*` components in `src/v2/lib/`), universal input (mouse/touch/keyboard/gamepad), and responsive system. New frontend work goes in v2.
+The UI lives under `frontend/src/`. It has its own design system (tokens), primitive library (`R*` components in `src/lib/`), universal input (mouse/touch/keyboard/gamepad), and responsive system. Shared stores, services, composables, utils, locales and the router live directly under `frontend/src/`.
 
-v2 has a detailed constitution, split across the `frontend-v2-*` skills in `.claude/skills/`. **Read the relevant skill before editing v2 code.**
+The `frontend-*` skills in `.claude/skills/` hold the detailed rules. **Read the relevant skill before editing v2 code.**
 
 ## Commands (`cd frontend`)
 
@@ -15,6 +14,7 @@ npm run dev                         # dev server :3000
 npm run typecheck                   # vue-tsc --build: the app, the Node tooling and the e2e suite
 npm run typecheck:scripts           # Node only: scripts/, eslint-plugin-romm/, tool configs, the e2e suite
 npm run test                        # vitest (+ Storybook play() and a11y tests in Chromium)
+npm run test:coverage               # the same, with a v8 coverage report in coverage/ (open index.html)
 npm run test:e2e                    # playwright, see e2e/README.md
 npm run build                       # production build
 npm run generate                    # regenerate types from backend OpenAPI (backend must be running)

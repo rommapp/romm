@@ -1,5 +1,4 @@
 {
-  "all-loaded": "모든 게임이 불러와졌습니다",
   "back-to-top": "맨 위로",
   "column-actions": "작업",
   "column-cover": "커버",
@@ -8,7 +7,6 @@
   "firmware-selected-count": "{count}개 선택됨",
   "jump-to": "{letter}(으)로 이동",
   "jump-to-letter": "글자로 이동",
-  "load-more": "더 불러오기",
   "selection-clear": "선택 해제",
   "selection-collections": "모음집 관리",
   "selection-delete": "삭제",

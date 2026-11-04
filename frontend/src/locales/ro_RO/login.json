@@ -7,7 +7,6 @@
   "login-failed": "Autentificare eșuată",
   "login-oidc": "Autentificare cu {oidc}",
   "new-password": "Parolă nouă",
-  "or": "sau",
   "password": "Parolă",
   "passwords-do-not-match": "Parolele nu coincid",
   "register": "Înregistrare",

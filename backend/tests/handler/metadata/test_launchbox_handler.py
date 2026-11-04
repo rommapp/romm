@@ -1966,8 +1966,9 @@ class TestLaunchboxHandlerGetRom:
             # fs_rom_handler.get_file_name_with_no_tags should NOT be called
             mock_fs.get_file_name_with_no_tags.assert_not_called()
 
+    @pytest.mark.parametrize("platform_slug", ["arcade", "mame", "naomi"])
     async def test_arcade_mame_resolves_shortname_to_full_title(
-        self, handler: LaunchboxHandler
+        self, handler: LaunchboxHandler, platform_slug: str
     ):
         mame_entry = {"FileName": "wrlok_l3", "Name": "Warlok"}
         remote_entry = {"DatabaseID": "999", "Name": "Warlok"}
@@ -1987,7 +1988,7 @@ class TestLaunchboxHandlerGetRom:
             ) as mock_fs,
         ):
             mock_fs.get_file_name_with_no_tags.return_value = "wrlok_l3"
-            result = await handler.get_rom("wrlok_l3.zip", "arcade")
+            result = await handler.get_rom("wrlok_l3.zip", platform_slug)
 
         mock_mame.assert_called_once_with("wrlok_l3.zip")
         # Search term should be the MAME Name, lowercased.

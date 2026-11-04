@@ -14,9 +14,10 @@ from handler.database import (
     db_device_handler,
     db_user_handler,
 )
+from handler.database.client_tokens_handler import LAST_USED_DEBOUNCE
 from models.client_token import ClientToken
 from models.user import User
-from utils.datetime import to_utc
+from utils.datetime import older_than, to_utc
 
 from .constants import CLIENT_TOKEN_PREFIX, READ_SCOPES
 
@@ -44,9 +45,8 @@ def resolve_client_token(raw_token: str) -> ClientTokenIdentity | None:
     if user is None or not user.enabled:
         return None
 
-    token_scopes = set(client_token.scopes.split())
     return ClientTokenIdentity(
-        client_token, user, list(token_scopes & set(user.oauth_scopes))
+        client_token, user, list(client_token.effective_scopes(user))
     )
 
 
@@ -82,7 +82,7 @@ class HybridAuthBackend(AuthenticationBackend):
             # Check if basic auth header is valid
             if scheme.lower() == "basic":
                 try:
-                    credentials = await HTTPBasic().__call__(conn)  # type: ignore[arg-type]
+                    credentials = await HTTPBasic().__call__(conn)
                 except HTTPException:
                     return None
                 if not credentials:
@@ -106,14 +106,17 @@ class HybridAuthBackend(AuthenticationBackend):
                         return None
 
                     client_token, user, effective_scopes = identity
-                    db_client_token_handler.update_last_used(client_token.id)
+                    # The device rides on the token's debounce, so a request inside
+                    # the window costs no write.
+                    if older_than(client_token.last_used_at, LAST_USED_DEBOUNCE):
+                        db_client_token_handler.update_last_used(client_token.id)
+                        if client_token.device_id:
+                            db_device_handler.update_last_seen_debounced(
+                                client_token.device_id
+                            )
                     user.set_last_active()
                     conn.state.client_token_id = client_token.id
                     conn.state.device_id = client_token.device_id
-                    if client_token.device_id:
-                        db_device_handler.update_last_seen_debounced(
-                            client_token.device_id
-                        )
                     return (AuthCredentials(effective_scopes), user)
 
                 # OAuth JWT bearer tokens

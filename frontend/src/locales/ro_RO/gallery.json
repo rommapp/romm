@@ -1,5 +1,4 @@
 {
-  "all-loaded": "Toate jocurile au fost încărcate",
   "back-to-top": "Înapoi sus",
   "column-actions": "Acțiuni",
   "column-cover": "Copertă",
@@ -8,7 +7,6 @@
   "firmware-selected-count": "{count} selectate",
   "jump-to": "Sari la {letter}",
   "jump-to-letter": "Sari la literă",
-  "load-more": "Încarcă mai mult",
   "selection-clear": "Șterge selecția",
   "selection-collections": "Gestionează colecțiile",
   "selection-delete": "Șterge",

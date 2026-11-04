@@ -72,6 +72,16 @@ class RomVisibilityFilter:
         clauses = self._row_clauses(Rom.platform_id, Rom.min_age)
         return not_(and_(*clauses)) if clauses else None
 
+    def hidden_on_visible_platforms_clause(self) -> ColumnElement[bool] | None:
+        """WHERE clause matching the `roms` rows hidden directly or by the age rule,
+        or None when neither applies; hidden platforms are left to the caller."""
+        clauses: list[ColumnElement[bool]] = []
+        if self.hidden_rom_ids:
+            clauses.append(Rom.id.in_(self.hidden_rom_ids))
+        if self.has_age_rule:
+            clauses.append(self._age_hidden_clause(Rom.min_age))
+        return or_(*clauses) if clauses else None
+
     def _row_clauses(
         self,
         platform_id_col: InstrumentedAttribute[int],
@@ -94,6 +104,16 @@ class RomVisibilityFilter:
         if self.hide_unrated_roms:
             return and_(min_age_col.is_not(None), min_age_col <= self.age_limit)
         return or_(min_age_col.is_(None), min_age_col <= self.age_limit)
+
+    def _age_hidden_clause(
+        self, min_age_col: InstrumentedAttribute[int | None]
+    ) -> ColumnElement[bool]:
+        """The negation of `_age_clause`, spelled as ranges an index on `min_age` serves."""
+        if self.age_limit is None:
+            return min_age_col.is_(None)
+        if self.hide_unrated_roms:
+            return or_(min_age_col.is_(None), min_age_col > self.age_limit)
+        return min_age_col > self.age_limit
 
     @cached_property
     def allows(self) -> Callable[[VisibilityColumns], bool]:

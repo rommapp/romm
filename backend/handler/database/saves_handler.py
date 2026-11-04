@@ -143,9 +143,9 @@ class DBSavesHandler(DBBaseHandler):
         file_name: str,
         session: Session = INJECTED_SESSION,
     ) -> Sequence[Save]:
-        """Every save named ``file_name`` in any of ``file_paths``."""
+        """Every save named ``file_name``, in any case, in any of ``file_paths``."""
         return session.scalars(
-            _at_paths_query(user_id, rom_id, file_paths, file_name)
+            _at_paths_query(user_id, rom_id, file_paths, file_name, ignore_case=True)
         ).all()
 
     @begin_session
@@ -655,13 +655,23 @@ class DBSavesHandler(DBBaseHandler):
 
 
 def _at_paths_query(
-    user_id: int, rom_id: int, file_paths: Collection[str], file_name: str
+    user_id: int,
+    rom_id: int,
+    file_paths: Collection[str],
+    file_name: str,
+    ignore_case: bool = False,
 ) -> Select[Save]:
+    # Explicit lower() since PostgreSQL compares case-sensitively and MariaDB doesn't.
+    name_matches = (
+        func.lower(Save.file_name) == file_name.lower()
+        if ignore_case
+        else Save.file_name == file_name
+    )
     return select(Save).where(
         Save.user_id == user_id,
         Save.rom_id == rom_id,
         Save.file_path.in_(file_paths),
-        Save.file_name == file_name,
+        name_matches,
     )
 
 

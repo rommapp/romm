@@ -131,9 +131,9 @@ def get_pending(request: Request, user_code: str) -> DeviceAuthPendingSchema:
             detail=f"Code already {data.get('status')}",
         )
 
-    user_scopes = {str(s) for s in request.user.oauth_scopes}
+    caller_scopes = {str(s) for s in request.auth.scopes}
     requested = list(data.get("requested_scopes", []))
-    allowed = sorted(set(requested) & user_scopes)
+    allowed = sorted(set(requested) & caller_scopes)
 
     return DeviceAuthPendingSchema(
         client_device_identifier=data["client_device_identifier"],
@@ -172,9 +172,9 @@ def approve(
             detail=f"Code already {data.get('status')}",
         )
 
-    user_scopes = {str(s) for s in request.user.oauth_scopes}
+    caller_scopes = {str(s) for s in request.auth.scopes}
     requested = set(data.get("requested_scopes", []))
-    allowed = requested & user_scopes
+    allowed = requested & caller_scopes
     approved_set = set(payload.approved_scopes)
     if not approved_set or not approved_set.issubset(allowed):
         raise HTTPException(
@@ -244,6 +244,7 @@ def approve(
     mark_approved(
         device_code,
         raw_token=raw_token,
+        token_id=token.id,
         device_id=device.id,
         scopes=sorted(approved_set),
         expires_at=token.expires_at,
@@ -345,6 +346,7 @@ def token(request: Request, payload: DeviceAuthTokenPayload) -> DeviceAuthTokenR
             f"device_code_prefix={_device_code_prefix(payload.device_code)}"
         )
         return DeviceAuthTokenResponse(
+            id=approved["token_id"],
             access_token=approved["raw_token"],
             device_id=approved["device_id"],
             scopes=list(approved.get("scopes", [])),

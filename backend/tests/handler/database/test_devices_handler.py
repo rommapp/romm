@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
+from tests.db_race_stubs import run_before_first
+
 from handler.database import db_device_handler
 from models.device import Device
 from models.user import User
@@ -130,3 +132,36 @@ class TestUpdateLastSeenDebounced:
     def test_noop_on_missing_device(self):
         # Should not raise
         db_device_handler.update_last_seen_debounced(device_id="does-not-exist")
+
+    def test_does_not_read_the_device_before_updating_it(
+        self, admin_user: User, executed_statements: list[str]
+    ):
+        device = db_device_handler.add_device(
+            Device(id="debounce-no-read", user_id=admin_user.id, last_seen=None)
+        )
+        executed_statements.clear()
+
+        db_device_handler.update_last_seen_debounced(device_id=device.id)
+
+        statements = [s.lstrip().lower() for s in executed_statements]
+        assert [s for s in statements if s.startswith("select")] == []
+        assert any(s.startswith("update devices") for s in statements)
+
+    def test_survives_a_concurrent_request_committing_the_same_update(
+        self, admin_user: User
+    ):
+        """Guards against MariaDB error 1020, "Record has changed since last read"."""
+        device = db_device_handler.add_device(
+            Device(id="debounce-race", user_id=admin_user.id, last_seen=None)
+        )
+
+        with run_before_first(
+            "update devices",
+            lambda: db_device_handler.update_last_seen_debounced(device_id=device.id),
+        ) as raced:
+            db_device_handler.update_last_seen_debounced(device_id=device.id)
+
+        assert raced
+        refreshed = db_device_handler.get_device_by_id(device.id)
+        assert refreshed is not None
+        assert refreshed.last_seen is not None

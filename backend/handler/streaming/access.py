@@ -1,14 +1,16 @@
 """Who may see and drive a streaming session, and which container holds it."""
 
-from typing import Any
+from collections.abc import Mapping
 
 from fastapi import HTTPException, Request
 
+from handler.auth.constants import Scope
 from handler.auth.dependencies import (
     assert_can,
     can_access,
     get_permissions,
     get_rom_visibility_filter,
+    is_scoped_admin,
 )
 from handler.database import db_platform_handler, db_rom_handler
 from handler.streaming.config import (
@@ -19,6 +21,7 @@ from handler.streaming.config import (
     key_for_name,
 )
 from handler.streaming.session_store import (
+    StreamingSession,
     get_live_session,
     session_is_desktop,
     session_platform_matches,
@@ -26,10 +29,9 @@ from handler.streaming.session_store import (
 from logger.logger import log
 from models.permission import PermAction, PermEntity
 from models.rom import Rom
-from models.user import Role
 
 
-def session_owner_id(session: dict[str, Any], request: Request) -> int:
+def session_owner_id(session: StreamingSession, request: Request) -> int:
     """Whose library a session's states and saves belong to.
 
     An admin may drive a session they do not own, and what it writes is still
@@ -40,11 +42,11 @@ def session_owner_id(session: dict[str, Any], request: Request) -> int:
     return user_id if isinstance(user_id, int) else request.user.id
 
 
-def assert_session_owner(session: dict[str, Any], request: Request) -> None:
+def assert_session_owner(session: StreamingSession, request: Request) -> None:
     """Only the user who claimed a session (or an admin) may control it."""
     if session.get("user_id") == request.user.id:
         return
-    if request.user.role == Role.ADMIN:
+    if is_scoped_admin(request, Scope.USERS_WRITE):
         return
     raise HTTPException(status_code=403, detail="Session is claimed by another user")
 
@@ -85,19 +87,19 @@ def rom_is_visible(request: Request, rom: Rom | None) -> bool:
     return rom is None or get_rom_visibility_filter(request).allows(rom)
 
 
-def session_rom(session: dict[str, Any]) -> Rom | None:
+def session_rom(session: StreamingSession) -> Rom | None:
     """The ROM a session is running, None for a desktop or a deleted entry."""
     rom_id = session.get("rom_id")
     return db_rom_handler.get_rom_simple(rom_id) if rom_id is not None else None
 
 
-def session_rom_is_visible(request: Request, session: dict[str, Any]) -> bool:
+def session_rom_is_visible(request: Request, session: StreamingSession) -> bool:
     """Can the caller see the ROM a session is running?"""
     return rom_is_visible(request, session_rom(session))
 
 
 def joinable_session_rom(
-    request: Request, session: dict[str, Any]
+    request: Request, session: StreamingSession
 ) -> tuple[bool, Rom | None]:
     """Whether a live session is one this caller may ask to join (its host opted
     into multiplayer, it is somebody else's, its ROM is not hidden), with that ROM."""
@@ -108,14 +110,14 @@ def joinable_session_rom(
 
 
 def assert_session_rom_visible(
-    request: Request, session: dict[str, Any], *, not_found_detail: str
+    request: Request, session: StreamingSession, *, not_found_detail: str
 ) -> None:
     """Raise 404 when the session's ROM is hidden from the caller."""
     if not session_rom_is_visible(request, session):
         raise HTTPException(status_code=404, detail=not_found_detail)
 
 
-def visible_rom_name(request: Request, session: dict[str, Any]) -> str | None:
+def visible_rom_name(request: Request, session: StreamingSession) -> str | None:
     """The name of the ROM a session is running, blanked when the caller cannot
     see that ROM. "Busy" is safe to report to anyone; what is running is not."""
     if not session or not session_rom_is_visible(request, session):
@@ -139,7 +141,7 @@ def platform_is_visible(request: Request, platform_slug: str) -> bool:
 
 
 def session_in_scope(
-    session: dict[str, Any],
+    session: Mapping[str, object],
     platform: str,
     include_desktop: bool,
     claimed_at: str | None = None,
@@ -160,7 +162,7 @@ async def find_session_for_user(
     platform: str,
     include_desktop: bool = False,
     claimed_at: str | None = None,
-) -> tuple[ResolvedContainer, str, dict[str, Any]] | None:
+) -> tuple[ResolvedContainer, str, StreamingSession] | None:
     """The candidate holding this user's session, as (container, key, session).
 
     With a pool the platform no longer identifies the container, the session does.
@@ -196,7 +198,7 @@ def named_container(platform: str, container_key: str) -> ResolvedContainer:
 
 async def resolve_named_container(
     platform: str, container_key: str
-) -> tuple[ResolvedContainer, str, dict[str, Any] | None]:
+) -> tuple[ResolvedContainer, str, StreamingSession | None]:
     """A named container plus whatever session it holds.
 
     Returns (container, session_key, session), the session being None when the
@@ -211,7 +213,7 @@ async def resolve_named_container(
 
 async def resolve_owned_session(
     platform: str, request: Request
-) -> tuple[ResolvedContainer, str, dict[str, Any]]:
+) -> tuple[ResolvedContainer, str, StreamingSession]:
     """Find the caller's session for this platform in its first pool.
 
     Returns (container, session_key, session). Raises 404 when the platform has
@@ -225,7 +227,7 @@ async def resolve_owned_session(
             detail=f"No streaming container configured for platform '{platform}'",
         )
 
-    others: list[tuple[ResolvedContainer, str, dict[str, Any]]] = []
+    others: list[tuple[ResolvedContainer, str, StreamingSession]] = []
     for candidate in candidates:
         session_key = candidate.key
         session = await get_live_session(session_key)
@@ -245,7 +247,7 @@ async def resolve_owned_session(
     # An admin may control a session they do not own, but the scan found none of
     # theirs, so fall back to the platform's active session. A pool can hold
     # several and the path does not say which, so the caller has to name one.
-    if request.user.role != Role.ADMIN:
+    if not is_scoped_admin(request, Scope.USERS_WRITE):
         raise HTTPException(
             status_code=403, detail="Session is claimed by another user"
         )
@@ -267,7 +269,7 @@ async def resolve_claim(
     claimed_at: str | None,
     *,
     game_only: bool,
-) -> tuple[ResolvedContainer, str, dict[str, Any]] | None:
+) -> tuple[ResolvedContainer, str, StreamingSession] | None:
     """The session a route acting on a claim reaches, or None when that claim is gone.
 
     Args:
@@ -312,7 +314,7 @@ async def require_claim(
     request: Request,
     container_key: str | None,
     claimed_at: str | None,
-) -> tuple[ResolvedContainer, str, dict[str, Any]]:
+) -> tuple[ResolvedContainer, str, StreamingSession]:
     """The game a control route drives, raising 404 once the caller's claim is gone."""
     target = await resolve_claim(
         platform, request, container_key, claimed_at, game_only=True

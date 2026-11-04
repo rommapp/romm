@@ -7,7 +7,6 @@
   "login-failed": "登录失败",
   "login-oidc": "使用 {oidc} 登录",
   "new-password": "新密码",
-  "or": "或",
   "password": "密码",
   "passwords-do-not-match": "两次输入的密码不一致",
   "register": "注册",

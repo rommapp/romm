@@ -4,18 +4,15 @@ import { setup, type Preview } from "@storybook/vue3-vite";
 import mitt from "mitt";
 import { createPinia } from "pinia";
 import { createMemoryHistory, createRouter } from "vue-router";
-import { createVuetify } from "vuetify";
-import "vuetify/styles";
+import { installBreakpointAttribute } from "../src/composables/useBreakpoint";
+import { ChromeLabelsKey } from "../src/lib/a11y/chromeLabels";
 import i18n from "../src/locales";
 import storePermissions from "../src/stores/permissions";
-import "../src/styles/common.css";
 import "../src/styles/fonts.css";
-import { dark, light } from "../src/styles/themes";
+import "../src/styles/global.css";
+import "../src/styles/reset.css";
 import type { Events } from "../src/types/emitter";
-import { installBreakpointAttribute } from "../src/v2/composables/useBreakpoint";
-import { ChromeLabelsKey } from "../src/v2/lib/a11y/chromeLabels";
-import "../src/v2/styles/global.css";
-import { createChromeLabels } from "../src/v2/utils/chromeLabels";
+import { createChromeLabels } from "../src/utils/chromeLabels";
 import "./preview.css";
 import { ROMM_STORYBOOK_VIEWPORTS } from "./rommViewports";
 import {
@@ -28,11 +25,8 @@ import {
 // Mirror AppLayout/AuthLayout so html[data-bp] CSS matches useBreakpoint() in the iframe.
 installBreakpointAttribute();
 
-// Each story runs inside a Vue app with Pinia + i18n + Vuetify registered.
-// v2 primitives are Vuetify-free at runtime: Vuetify stays registered only
-// because some shared dependencies still pull it in. The visible theme for
-// v2 stories comes from the `.r-v2-dark` / `.r-v2-light` class toggled on
-// <html> by the theme switcher decorator below.
+// Each story runs in a Vue app with Pinia + i18n. The `.r-dark` / `.r-light`
+// class on <html> (set by the decorator below) picks the theme.
 //
 // permissionsStore is hydrated with admin grants so any primitive that
 // consumes `useCan(...)` renders its enabled state. Stories that need to
@@ -53,14 +47,6 @@ setup((app) => {
     createRouter({
       history: createMemoryHistory(),
       routes: [{ path: "/:pathMatch(.*)*", component: { render: () => null } }],
-    }),
-  );
-  app.use(
-    createVuetify({
-      theme: {
-        defaultTheme: "dark",
-        themes: { dark, light },
-      },
     }),
   );
 
@@ -121,8 +107,8 @@ const preview: Preview = {
     withInputModality,
     withThemeByClassName({
       themes: {
-        dark: "r-v2 r-v2-dark v-theme--dark",
-        light: "r-v2 r-v2-light v-theme--light",
+        dark: "r-app r-dark",
+        light: "r-app r-light",
       },
       defaultTheme: "dark",
       parentSelector: "html",

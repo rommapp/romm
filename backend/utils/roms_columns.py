@@ -501,6 +501,8 @@ def drop_save_target_layout_type(conn: sa.Connection) -> None:
         _save_target_layout_type().drop(conn, checkfirst=True)
 
 
+NAME_SORT_KEY_CUSTOM_COLUMN = "name_sort_key_custom"
+
 # The stored columns in the catalog, minus `full_path_hash`.
 PLAIN_COLUMNS: list[sa.Column[Any]] = [
     sa.Column("is_physical", sa.Boolean(), nullable=False, server_default=sa.false()),
@@ -522,6 +524,12 @@ PLAIN_COLUMNS: list[sa.Column[Any]] = [
     ),
     sa.Column(SEARCH_TITLES_COLUMN, sa.Text()),
     sa.Column(MIN_AGE_COLUMN, sa.Integer()),
+    sa.Column(
+        NAME_SORT_KEY_CUSTOM_COLUMN,
+        sa.Boolean(),
+        nullable=False,
+        server_default=sa.false(),
+    ),
 ]
 
 

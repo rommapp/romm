@@ -210,6 +210,18 @@ class TestFSHandler:
         assert handler.get_file_name_with_no_tags("game (USA) [Beta].rom") == "game"
         assert handler.get_file_name_with_no_tags("plain_name.rom") == "plain_name"
 
+    @pytest.mark.parametrize(
+        "file_name",
+        ["celeste.p8.png", "celeste.P8.PNG", "celeste (v1.1).p8.png", "celeste.p8"],
+    )
+    def test_a_pico8_cart_title_drops_the_cart_extension(
+        self, handler: FSHandler, file_name: str
+    ):
+        assert handler.get_file_name_with_no_tags(file_name) == "celeste"
+
+    def test_only_a_pico8_cart_loses_a_p8_suffix(self, handler: FSHandler):
+        assert handler.get_file_name_with_no_tags("Game.p8.zip") == "Game.p8"
+
     def test_parse_file_extension(self, handler: FSHandler):
         """Test file extension parsing"""
         assert handler.parse_file_extension("test.txt") == "txt"
@@ -278,6 +290,15 @@ class TestFSHandler:
             mock_config.return_value.EXCLUDED_SINGLE_FILES = DEFAULT_EXCLUDED_FILES
 
             assert handler.exclude_single_files(files) == ["game.iso"]
+
+    def test_exclude_single_files_appledouble(self, handler: FSHandler):
+        files = ["Tetris (World) (Rev 1).gb", "._Tetris (World) (Rev 1).gb"]
+
+        with patch("handler.filesystem.base_handler.cm.get_config") as mock_config:
+            mock_config.return_value.EXCLUDED_SINGLE_EXT = []
+            mock_config.return_value.EXCLUDED_SINGLE_FILES = DEFAULT_EXCLUDED_FILES
+
+            assert handler.exclude_single_files(files) == ["Tetris (World) (Rev 1).gb"]
 
     async def test_make_directory(self, handler: FSHandler):
         """Test directory creation"""

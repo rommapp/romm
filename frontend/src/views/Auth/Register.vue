@@ -1,121 +1,112 @@
 <script setup lang="ts">
-import type { Emitter } from "mitt";
-import { inject, ref, onBeforeMount } from "vue";
+import { onBeforeMount, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRouter, useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
+import AuthBackLink from "@/components/shared/AuthBackLink.vue";
+import AuthCard from "@/components/shared/AuthCard.vue";
+import PasswordField from "@/components/shared/PasswordField.vue";
+import { useSnackbar } from "@/composables/useSnackbar";
+import { RBtn, RForm, RTextField } from "@/lib";
 import userApi from "@/services/api/user";
 import storeUsers from "@/stores/users";
-import type { Events } from "@/types/emitter";
+import { errorMessage } from "@/utils/errorMessage";
 
 const { t } = useI18n();
-const emitter = inject<Emitter<Events>>("emitter");
+const snackbar = useSnackbar();
 const route = useRoute();
 const router = useRouter();
 const usersStore = storeUsers();
 const token = route.query.token as string;
+
 const username = ref("");
 const email = ref("");
 const password = ref("");
-const visiblePassword = ref(false);
-const validForm = ref<boolean | null>(false);
+const submitting = ref(false);
+const formRef = ref<InstanceType<typeof RForm> | null>(null);
 
-function register() {
-  if (!validForm.value) {
-    return;
-  }
-
-  userApi
-    .registerUser(username.value, email.value, password.value, token)
-    .then(() => {
-      emitter?.emit("snackbarShow", {
-        msg: "User registered successfully",
-        icon: "mdi-check-circle",
-        color: "green",
-        timeout: 5000,
-      });
-      router.push("/login");
-    })
-    .catch((error) => {
-      emitter?.emit("snackbarShow", {
-        msg: `Unable to register user: ${
-          error?.response?.data?.detail || error?.message
-        }`,
-        icon: "mdi-close-circle",
-        color: "red",
-        timeout: 5000,
-      });
+async function register() {
+  const result = await formRef.value?.validate();
+  if (!result?.valid) return;
+  submitting.value = true;
+  try {
+    await userApi.registerUser(
+      username.value,
+      email.value,
+      password.value,
+      token,
+    );
+    snackbar.success(t("login.register-success"), {
+      icon: "mdi-check-circle",
+      timeout: 5000,
     });
-}
-// Redirect to login if no token is not valid
-onBeforeMount(() => {
-  if (!token) {
-    router.push("/");
+    void router.push("/login");
+  } catch (error: unknown) {
+    snackbar.error(t("login.register-failed", { error: errorMessage(error) }), {
+      icon: "mdi-close-circle",
+      timeout: 5000,
+    });
+  } finally {
+    submitting.value = false;
   }
+}
+
+// Redirect if no invite token is present.
+onBeforeMount(() => {
+  if (!token) void router.push("/");
 });
 </script>
 
 <template>
-  <v-card class="translucent py-8 px-5" width="500">
-    <v-img src="/assets/isotipo.svg" class="mx-auto mb-8" width="80" />
-    <v-row class="justify-center mt-2" no-gutters>
-      <v-col cols="10">
-        <v-form v-model="validForm" @submit.prevent="register">
-          <v-text-field
-            v-model="username"
-            :label="t('settings.username')"
-            type="text"
-            :rules="usersStore.usernameRules"
-            required
-            variant="underlined"
-            class="mt-4"
-          />
-          <v-text-field
-            v-model="email"
-            :label="t('settings.email')"
-            type="text"
-            :rules="usersStore.emailRules"
-            required
-            variant="underlined"
-            class="mt-4"
-          />
-          <v-text-field
-            v-model="password"
-            :label="t('settings.password')"
-            :type="visiblePassword ? 'text' : 'password'"
-            :rules="usersStore.passwordRules"
-            required
-            :append-inner-icon="visiblePassword ? 'mdi-eye-off' : 'mdi-eye'"
-            variant="underlined"
-            class="mt-4"
-            @click:append-inner="visiblePassword = !visiblePassword"
-          />
-          <v-btn
-            type="submit"
-            class="bg-toplayer mt-4"
-            variant="text"
-            block
-            :disabled="!validForm"
-          >
-            <template #prepend>
-              <v-icon>mdi-account-check</v-icon>
-            </template>
-            {{ t("common.create") }}
-            <template #loader>
-              <v-progress-circular
-                color="primary"
-                :width="2"
-                :size="20"
-                indeterminate
-              />
-            </template>
-          </v-btn>
-        </v-form>
-        <div class="my-6 text-right">
-          <a class="text-blue text-caption" href="/login">
-            {{ t("login.back-to-login") }}
-          </a>
-        </div>
-      </v-col>
-    </v-row>
-  </v-card>
+  <AuthCard>
+    <RForm ref="formRef" class="r-register__form" @submit="register">
+      <RTextField
+        v-model="username"
+        :label="t('settings.username')"
+        type="text"
+        variant="underlined"
+        prepend-inner-icon="mdi-account"
+        :rules="usersStore.usernameRules"
+        autocomplete="username"
+        :disabled="submitting"
+      />
+      <RTextField
+        v-model="email"
+        :label="t('settings.email')"
+        type="email"
+        variant="underlined"
+        prepend-inner-icon="mdi-email"
+        :rules="usersStore.emailRules"
+        autocomplete="email"
+        :disabled="submitting"
+      />
+      <PasswordField
+        v-model="password"
+        :label="t('settings.password')"
+        autocomplete="new-password"
+        :rules="usersStore.passwordRules"
+        :disabled="submitting"
+      />
+      <RBtn
+        type="submit"
+        variant="flat"
+        color="primary"
+        block
+        prepend-icon="mdi-account-check"
+        :loading="submitting"
+        :disabled="submitting || !username || !email || !password"
+      >
+        {{ t("common.create") }}
+      </RBtn>
+    </RForm>
+
+    <AuthBackLink />
+  </AuthCard>
 </template>
+
+<style scoped>
+.r-register__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--r-space-3);
+}
+</style>

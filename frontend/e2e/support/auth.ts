@@ -54,13 +54,13 @@ export async function fillLoginForm(
   await loginButton(page).click();
 }
 
-/** Force the v2 UI before the app boots, and the "auto" theme, so the
- *  browser's `colorScheme` picks it and the account never stores another. */
+/** Seed the "auto" theme before the app boots, so the browser's
+ *  `colorScheme` picks it and the account never stores another. */
 export async function seedUiState(page: Page) {
   await page.addInitScript(() => {
     // Init scripts also run in Chrome's own error page, which denies storage.
     if (!location.protocol.startsWith("http")) return;
-    const seeded = { "settings.uiVersion": "v2", "settings.theme": "auto" };
+    const seeded = { "settings.theme": "auto" };
     // The app only adopts an unscoped value when the signed-in user has no
     // `user:<id>:` copy, and a saved session carries one.
     for (const key of Object.keys(localStorage)) {

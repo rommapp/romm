@@ -16,6 +16,7 @@ from handler.metadata import (
     meta_demozoo_handler,
     meta_hasheous_handler,
     meta_igdb_handler,
+    meta_libretro_handler,
     meta_moby_handler,
     meta_playmatch_handler,
     meta_ra_handler,
@@ -25,15 +26,15 @@ from handler.metadata import (
 from handler.metadata.demozoo_handler import DemozooRom
 from handler.metadata.hasheous_handler import HasheousMetadata, HasheousRom
 from handler.metadata.igdb_handler import IGDBRom
+from handler.metadata.libretro_handler import LibretroRom
 from handler.metadata.ra_handler import RAGameRom
 from handler.metadata.ss_handler import (
     SSRom,
     get_rate_limited_rom_names,
     reset_rate_limited_roms,
 )
+from handler.scan.sources import MetadataSource, ScanType
 from handler.scan_handler import (
-    MetadataSource,
-    ScanType,
     build_hashless_fs_rom,
     download_rom_resources,
     scan_platform,
@@ -47,14 +48,21 @@ from utils.context import initialize_context
 
 @pytest.mark.vcr
 async def test_scan_platform():
-    async with initialize_context():
-        platform = await scan_platform("n64", ["n64"])
+    with patch.object(
+        meta_igdb_handler,
+        "get_platform_discovery",
+        new_callable=AsyncMock,
+        return_value={"first_release_year": 1996},
+    ):
+        async with initialize_context():
+            platform = await scan_platform("n64", ["n64"])
 
     assert type(platform) is Platform
     assert platform.fs_slug == "n64"
     assert platform.slug == "n64"
     assert platform.name == "Nintendo 64"
     assert platform.igdb_id == 4
+    assert platform.first_release_year == 1996
     assert platform.hasheous_id == 64
     # Hasheous returns tgdb_id=None and Moby has no tgdb_id for n64, so
     # this value must come from the TGDB handler fallback.
@@ -1720,3 +1728,54 @@ async def test_scan_rom_flags_new_roms_and_writes_existing_ones(
     assert [(p["is_new"], p["is_identifying"], p["id"]) for p in payloads] == [
         (newly_added, True, rom.id)
     ]
+
+
+@pytest.mark.parametrize(
+    ("scan_type", "newly_added", "expected_name"),
+    [
+        # A complete rescan derives the name from the tag-stripped filename.
+        (ScanType.COMPLETE, False, "Mario Kart Wii"),
+        # A new rom keeps the name its caller created it with.
+        (ScanType.QUICK, True, "Mario Kart Wii (USA)"),
+    ],
+)
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_libretro_handler, "get_rom", new_callable=AsyncMock)
+async def test_scan_rom_libretro_only_match_still_names_the_rom(
+    mock_get_rom,
+    mock_playmatch_enabled,
+    scan_type: ScanType,
+    newly_added: bool,
+    expected_name: str,
+):
+    """Libretro matches by filename and supplies no name, so a ROM it alone
+    identifies takes its name from the row or the filename."""
+    mock_get_rom.return_value = LibretroRom(
+        libretro_id="Mario Kart Wii (USA).wbfs",
+        url_cover="https://thumbnails.libretro.com/mario-kart-wii.png",
+    )
+
+    platform = make_platform("wii", id=1, name="Wii")
+    # The row's name keeps the tags, so it can't pass for the filename fallback.
+    rom = make_rom(
+        platform,
+        "Mario Kart Wii (USA)",
+        fs_extension="wbfs",
+        fs_path="wii",
+        fs_size_bytes=1024,
+        tags=[],
+    )
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=scan_type,
+            rom=rom,
+            fs_rom=build_hashless_fs_rom(rom.fs_name, rom.fs_path, flat=True),
+            metadata_sources=[MetadataSource.LIBRETRO],
+            newly_added=newly_added,
+        )
+
+    mock_get_rom.assert_awaited_once()
+    assert result.libretro_id == "Mario Kart Wii (USA).wbfs"
+    assert result.name == expected_name
