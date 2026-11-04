@@ -3,8 +3,8 @@
 // the games it owns. The import runs as a task whose completion arrives as a
 // notification, which also refreshes the owned count shown here.
 import { computed, ref } from "vue";
-import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
+import { useRoute } from "vue-router";
 import SettingsSection from "@/components/Settings/SettingsSection.vue";
 import { useConfirm } from "@/composables/useConfirm";
 import { useSnackbar } from "@/composables/useSnackbar";

@@ -69,9 +69,7 @@ def verify_sign_in():
 
 def _start_login(client: TestClient, user: User, token: str) -> str:
     """Begin a sign-in and hand back the nonce it bound to the session."""
-    response = client.get(
-        f"/api/users/{user.id}/steam/login", headers=_bearer(token)
-    )
+    response = client.get(f"/api/users/{user.id}/steam/login", headers=_bearer(token))
     assert response.status_code == status.HTTP_200_OK
     url = str(response.json()["url"])
     return url.split("state%3D")[-1].split("&")[0]

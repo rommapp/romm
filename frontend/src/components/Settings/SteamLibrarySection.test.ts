@@ -23,7 +23,9 @@ vi.mock("@/services/api/user", () => ({
 vi.mock("@/composables/useSnackbar", () => ({ useSnackbar: () => snackbar }));
 vi.mock("@/composables/useConfirm", () => ({ useConfirm: () => confirm }));
 vi.mock("@/composables/useSocketEvent", () => ({ useSocketEvent: vi.fn() }));
-vi.mock("vue-router", () => ({ useRoute: () => ({ fullPath: "/settings/user/1" }) }));
+vi.mock("vue-router", () => ({
+  useRoute: () => ({ fullPath: "/settings/user/1" }),
+}));
 
 function mountSection() {
   return mount(SteamLibrarySection, {

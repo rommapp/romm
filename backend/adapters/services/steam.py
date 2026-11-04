@@ -430,9 +430,7 @@ class SteamOpenIDService:
             log.error("Could not verify a Steam sign-in: %s", exc)
             return None
 
-        if not any(
-            line.strip() == "is_valid:true" for line in body.splitlines()
-        ):
+        if not any(line.strip() == "is_valid:true" for line in body.splitlines()):
             return None
 
         claimed = _STEAM_OPENID_CLAIMED_ID.match(params.get("openid.claimed_id", ""))

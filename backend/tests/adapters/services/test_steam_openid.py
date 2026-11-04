@@ -35,7 +35,9 @@ def test_the_login_url_asks_steam_to_pick_the_identity():
 
 
 async def test_an_assertion_steam_signs_yields_its_steam_id(session: AsyncMock):
-    session.post.return_value = _response("ns:http://specs.openid.net/auth/2.0\nis_valid:true\n")
+    session.post.return_value = _response(
+        "ns:http://specs.openid.net/auth/2.0\nis_valid:true\n"
+    )
 
     steam_id = await SteamOpenIDService().verify(
         {"openid.mode": "id_res", "openid.claimed_id": CLAIMED_ID}
