@@ -107,12 +107,12 @@ def test_job_disposes_database_pool(mocker, engine, job_error) -> None:
         "rq.Worker.perform_job", return_value=True, side_effect=job_error
     )
     worker = RomMWorker(["default"], connection=FakeRedis(version=7))
-    job, queue = MagicMock(), MagicMock()
+    job, queue, execution = MagicMock(), MagicMock(), MagicMock()
 
     with _job_outcome(job_error):
-        assert worker.perform_job(job, queue) is True
+        assert worker.perform_job(job, queue, execution) is True
 
-    perform.assert_called_once_with(job, queue)
+    perform.assert_called_once_with(job, queue, execution)
     assert engine.dispose.call_args_list == [call(close=False), call()]
 
 
@@ -124,14 +124,14 @@ def test_job_closes_only_the_connections_it_opened(mocker, tmp_path) -> None:
     # Pooled by the worker before the fork, as a failure callback does.
     engine.connect().close()
 
-    def perform_job(job, queue) -> bool:
+    def perform_job(job, queue, execution) -> bool:
         engine.connect().close()
         return True
 
     mocker.patch("rq.Worker.perform_job", side_effect=perform_job)
     worker = RomMWorker(["default"], connection=FakeRedis(version=7))
 
-    assert worker.perform_job(MagicMock(), MagicMock()) is True
+    assert worker.perform_job(MagicMock(), MagicMock(), MagicMock()) is True
 
     inherited, opened = connections
     assert inherited.execute("SELECT 1").fetchone() == (1,)
@@ -145,7 +145,7 @@ def test_job_without_database_does_not_import_it(mocker, monkeypatch) -> None:
     mocker.patch("rq.Worker.perform_job", return_value=True)
     worker = RomMWorker(["default"], connection=FakeRedis(version=7))
 
-    assert worker.perform_job(MagicMock(), MagicMock()) is True
+    assert worker.perform_job(MagicMock(), MagicMock(), MagicMock()) is True
 
     assert _DATABASE_MODULE not in sys.modules
 
@@ -160,7 +160,7 @@ def test_cleanup_failure_does_not_replace_job_outcome(
     log = mocker.patch.object(worker.log, "exception")
 
     with _job_outcome(job_error):
-        assert worker.perform_job(MagicMock(), MagicMock()) is True
+        assert worker.perform_job(MagicMock(), MagicMock(), MagicMock()) is True
 
     log.assert_called_once_with("Could not close the work horse database pool")
 
@@ -168,13 +168,15 @@ def test_cleanup_failure_does_not_replace_job_outcome(
 def test_a_killed_horse_is_reported_like_a_dead_worker(mocker) -> None:
     worker = RomMWorker(["default"], connection=FakeRedis(version=7))
     handle_exception = mocker.patch.object(worker, "handle_exception")
+    callback = mocker.patch("handler.rq_worker.execute_failure_callback")
     job = MagicMock()
 
     worker.handle_work_horse_killed(job, 123, 9, None)
 
-    callback_args = job.execute_failure_callback.call_args.args
+    callback_args = callback.call_args.args
     exception_args = handle_exception.call_args.args
-    assert callback_args[1] is AbandonedJobError
+    assert callback_args[0] is job
+    assert callback_args[2] is AbandonedJobError
     assert exception_args[0] is job
     assert exception_args[1] is AbandonedJobError
 
@@ -182,10 +184,12 @@ def test_a_killed_horse_is_reported_like_a_dead_worker(mocker) -> None:
 def test_a_failing_callback_still_reaches_the_handlers(mocker) -> None:
     worker = RomMWorker(["default"], connection=FakeRedis(version=7))
     handle_exception = mocker.patch.object(worker, "handle_exception")
-    job = MagicMock()
-    job.execute_failure_callback.side_effect = RuntimeError("callback broke")
+    mocker.patch(
+        "handler.rq_worker.execute_failure_callback",
+        side_effect=RuntimeError("callback broke"),
+    )
 
-    worker.handle_work_horse_killed(job, 123, 9, None)
+    worker.handle_work_horse_killed(MagicMock(), 123, 9, None)
 
     handle_exception.assert_called_once()
 
