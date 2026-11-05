@@ -2724,7 +2724,7 @@ requires-dist = [
     { name = "python-socketio", specifier = "~=5.16" },
     { name = "pyyaml", specifier = "~=6.0" },
     { name = "redis", specifier = "~=8.1" },
-    { name = "rq", specifier = "~=2.12" },
+    { name = "rq", specifier = "~=3.0" },
     { name = "sentry-sdk", specifier = "~=2.32" },
     { name = "sqlalchemy", extras = ["mariadb-connector", "mysql-connector", "postgresql-psycopg"], specifier = "~=2.1" },
     { name = "starlette", specifier = "~=1.10.0" },
@@ -2747,16 +2747,16 @@ provides-extras = ["dev", "test"]
 
 [[package]]
 name = "rq"
-version = "2.12.0"
+version = "3.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
     { name = "croniter" },
     { name = "redis" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a2/81/dacb94c8f67606b233cb7836dd67042daf9a61f7b585dcec65113f1e71f7/rq-2.12.0.tar.gz", hash = "sha256:78116d0c860f6285817b52d7d6d0b16a726372073ce8ea1d229732ce74ef9378", size = 760892, upload-time = "2026-08-30T12:05:25.048Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/bb/dd/386529e533eef3d67e51a430566ebb24382e664168a6612e2260b6b12243/rq-3.0.0.tar.gz", hash = "sha256:b41e39b3c36ec3faf9e2402c638a0b25fe18ebb93a1cb15193bc69694f054618", size = 803458, upload-time = "2026-10-28T15:32:57.123Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a4/c2/995863e88669133a058c2a6a912b62d18a64fa7baaf78eb66aaa4350b48d/rq-2.12.0-py3-none-any.whl", hash = "sha256:97e349a00e9f2a18962102b3dca156cb5ce315d3ef38145e24ba9cabd16a9361", size = 127957, upload-time = "2026-08-30T12:05:23.131Z" },
+    { url = "https://files.pythonhosted.org/packages/4b/b7/bfba8789d38b7a797d4c177969d8c7eaf9dac7d2dcbda61f2ba50d17330c/rq-3.0.0-py3-none-any.whl", hash = "sha256:71b92cb7b2880e0d0ac2a462945e3f09243122f61465cec4238689d8ddf2abf4", size = 143521, upload-time = "2026-10-28T15:32:52.626Z" },
 ]
 
 [[package]]
