@@ -2,7 +2,8 @@
 
 from typing import Any, Final, cast
 
-from rq.job import Callback, Job
+from rq import Callback
+from rq.job import Job
 from rq.queue import Queue
 from rq.utils import import_attribute
 from rq.worker import Worker
