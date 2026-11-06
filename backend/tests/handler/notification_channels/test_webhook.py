@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import hmac
 import json
+from typing import Any
 
 import httpx2
 import pytest
@@ -77,7 +78,8 @@ class TestCheckUrl:
 
     async def test_a_users_client_gets_no_admin_configured_internal_origin(self):
         async with webhook._client(allow_private=False) as client:
-            backend = client._transport._pool._network_backend
+            transport: Any = client._transport
+            backend = transport._pool._network_backend
             assert isinstance(backend, SSRFProtectedAsyncBackend)
             assert backend._allowlist == frozenset()
 

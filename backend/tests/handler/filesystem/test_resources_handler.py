@@ -2033,12 +2033,6 @@ class _ChunkedResponse:
             yield chunk
 
 
-def _png_bytes(size: tuple[int, int] = (40, 60)) -> bytes:
-    buf = BytesIO()
-    Image.new("RGB", size, "red").save(buf, format="PNG")
-    return buf.getvalue()
-
-
 def _gzip_chunks(data: bytes, size: int = 1024) -> list[bytes]:
     compressor = zlib.compressobj(wbits=16 + zlib.MAX_WBITS)
     body = compressor.compress(data) + compressor.flush()

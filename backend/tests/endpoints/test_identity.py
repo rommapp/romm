@@ -763,7 +763,7 @@ async def test_password_change_invalidates_sessions(client, admin_user: User):
 
 
 def _password_grant(client, username: str, password: str) -> httpx2.Response:
-    return client.post(
+    response: httpx2.Response = client.post(
         "/api/token",
         data={
             "grant_type": "password",
@@ -772,6 +772,7 @@ def _password_grant(client, username: str, password: str) -> httpx2.Response:
             "scope": "me.read me.write",
         },
     )
+    return response
 
 
 def test_password_change_revokes_oauth_tokens(
