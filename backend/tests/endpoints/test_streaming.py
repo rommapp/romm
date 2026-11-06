@@ -36,6 +36,7 @@ from endpoints.streaming import platform_capabilities
 from handler import asset_store
 from handler.activity_handler import activity_handler
 from handler.auth.base_handler import oauth_handler
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
     db_container_adoption_handler,
     db_memory_card_handler,
@@ -5749,7 +5750,9 @@ def test_a_streamed_state_is_filed_where_cloud_sync_files_its_core(
             )
         )
 
-    [stored] = db_state_handler.get_states(user_id=admin_user.id, rom_ids=[rom.id])
+    [stored] = db_state_handler.get_states(
+        user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+    )
     assert (stored.emulator, stored.core) == (folder, core)
     assert re.fullmatch(r"Game\.\d{8}-\d{12}\.state", stored.file_name)
 
@@ -5965,7 +5968,7 @@ def test_an_unhashed_state_gets_its_hash_once_read(rom: Rom, admin_user: User):
         asyncio.run(
             states.stored_copy(admin_user.id, rom.id, "retroarch", b"other-bytes")
         )
-    row = db_state_handler.get_state(user_id=admin_user.id, id=state.id)
+    row = db_state_handler.get_state_by_id(state.id)
     assert row is not None
     assert row.content_hash == content_hash_of_bytes(content)
     assert row.updated_at == before.updated_at
@@ -6029,7 +6032,9 @@ def test_prune_state_history_drops_oldest_past_limit(rom: Rom, admin_user: User)
     remove.assert_awaited_once()
     remaining = {
         s.file_name
-        for s in db_state_handler.get_states(user_id=admin_user.id, rom_ids=[rom.id])
+        for s in db_state_handler.get_states(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
     }
     assert remaining == {
         "Game.20260102-000000000000.01.p2s",
@@ -6055,7 +6060,10 @@ def _prune_to_one(rom: Rom, user: User) -> set[int]:
     ):
         asyncio.run(states.prune_state_history(user, rom, "retroarch"))
     return {
-        s.id for s in db_state_handler.get_states(user_id=user.id, rom_ids=[rom.id])
+        s.id
+        for s in db_state_handler.get_states(
+            user_id=user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
     }
 
 
@@ -6439,7 +6447,9 @@ def test_pull_saves_stores_new_archive(rom: Rom, admin_user: User):
         )
     assert ok is True
     wf.assert_awaited_once()
-    stored = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+    stored = db_save_handler.get_saves(
+        user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+    )
     assert any(s.emulator == "pcsx2" and s.content_hash == "hash-a" for s in stored)
 
 
@@ -6462,7 +6472,9 @@ def test_pull_saves_dedups_identical_archive(rom: Rom, admin_user: User):
         )
     assert ok is True
     rm.assert_awaited_once()
-    stored = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+    stored = db_save_handler.get_saves(
+        user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+    )
     hashes = [s.content_hash for s in stored if s.emulator == "pcsx2"]
     assert hashes == ["dup-hash"]
 
@@ -6565,7 +6577,11 @@ def _pull_exit(
 
 
 def _stored_saves(rom: Rom, user: User) -> list[Save]:
-    return list(db_save_handler.get_saves(user_id=user.id, rom_ids=[rom.id]))
+    return list(
+        db_save_handler.get_saves(
+            user_id=user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
+    )
 
 
 @pytest.mark.parametrize(
@@ -10832,9 +10848,19 @@ def test_resolve_memory_card_default_most_recent(admin_user: User):
 def test_resolve_memory_card_none_when_user_has_no_card(admin_user: User):
     """Resolution never creates rows; a cardless user resolves to None so the
     claim path can defer creation until the claim is won."""
-    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+    assert (
+        db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+        == []
+    )
     assert memory_cards.resolve_card(admin_user.id, "pcsx2", None) is None
-    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+    assert (
+        db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+        == []
+    )
 
 
 def test_create_blank_memory_card(admin_user: User, rom: Rom):
@@ -11541,7 +11567,12 @@ def test_claim_aborts_when_card_hydration_fails(
     """A failed card hydration must free the claim and return 502, never launch
     a container that could still hold the previous player's card. The blank card
     auto-created for this claim must be cleaned up so an aborted claim leaks none."""
-    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+    assert (
+        db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+        == []
+    )
     with _streaming(_mc_container_for(rom)):
         with (
             patch("handler.streaming.commands.launch") as launch,
@@ -11560,7 +11591,12 @@ def test_claim_aborts_when_card_hydration_fails(
         asyncio.run(session_store.get_session(_key_of(_mc_container_for(rom)))) is None
     )
     # No orphan blank card survives the aborted claim.
-    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+    assert (
+        db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+        == []
+    )
 
 
 def test_claim_aborts_on_an_unexpected_error_after_the_blank_card(
@@ -11583,7 +11619,12 @@ def test_claim_aborts_on_an_unexpected_error_after_the_blank_card(
     assert (
         asyncio.run(session_store.get_session(_key_of(_mc_container_for(rom)))) is None
     )
-    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+    assert (
+        db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+        == []
+    )
 
 
 def test_claim_aborts_on_an_unexpected_error_keeps_the_players_card(
@@ -11606,9 +11647,12 @@ def test_claim_aborts_on_an_unexpected_error_keeps_the_players_card(
     assert (
         asyncio.run(session_store.get_session(_key_of(_mc_container_for(rom)))) is None
     )
-    assert [c.id for c in db_memory_card_handler.get_cards(admin_user.id, "pcsx2")] == [
-        card.id
-    ]
+    assert [
+        c.id
+        for c in db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+    ] == [card.id]
 
 
 def test_claim_releases_once_on_an_http_error_from_a_step(
@@ -11637,7 +11681,12 @@ def test_claim_releases_once_on_an_http_error_from_a_step(
     assert (
         asyncio.run(session_store.get_session(_key_of(_mc_container_for(rom)))) is None
     )
-    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+    assert (
+        db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+        == []
+    )
 
 
 def test_claim_releases_once_when_card_hydration_fails(
@@ -11661,7 +11710,12 @@ def test_claim_releases_once_when_card_hydration_fails(
             r = _mc_claim(client, access_token, rom.id)
     assert r.status_code == 502
     abort_claim.assert_awaited_once()
-    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+    assert (
+        db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+        == []
+    )
 
 
 def test_claim_aborted_after_adopt_keeps_the_adopted_card(
@@ -11685,7 +11739,9 @@ def test_claim_aborted_after_adopt_keeps_the_adopted_card(
             _mc_claim(client, access_token, rom.id, card_import="adopt")
 
         assert asyncio.run(session_store.get_session(_key_of(container))) is None
-        cards = db_memory_card_handler.get_cards(admin_user.id, "pcsx2")
+        cards = db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
         assert len(cards) == 1
         assert db_memory_card_handler.get_latest_version(cards[0].id) is not None
 
@@ -11702,9 +11758,12 @@ def test_claim_aborted_after_adopt_keeps_the_adopted_card(
     assert r.status_code == 202
     fetch.assert_not_called()
     assert push.call_args[0][1] == card_bytes
-    assert [c.id for c in db_memory_card_handler.get_cards(admin_user.id, "pcsx2")] == [
-        cards[0].id
-    ]
+    assert [
+        c.id
+        for c in db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+    ] == [cards[0].id]
 
 
 def test_save_and_exit_evacuates_card(client, access_token, rom: Rom):
@@ -11870,10 +11929,20 @@ def test_lost_claim_race_does_not_create_blank_card(
             _spawns_nothing(),
         ):
             assert _mc_claim(client, access_token, rom.id).status_code == 202
-            assert db_memory_card_handler.get_cards(viewer_user.id, "pcsx2") == []
+            assert (
+                db_memory_card_handler.get_cards(
+                    viewer_user.id, "pcsx2", visibility=UNRESTRICTED
+                )
+                == []
+            )
             r = _mc_claim(client, viewer_access_token, rom.id)
     assert r.status_code == 409
-    assert db_memory_card_handler.get_cards(viewer_user.id, "pcsx2") == []
+    assert (
+        db_memory_card_handler.get_cards(
+            viewer_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+        == []
+    )
 
 
 # ── First-claim card adoption ─────────────────────────────────────────────────
@@ -12038,7 +12107,9 @@ def test_adopt_stores_the_container_card_as_version_one(
     assert push.call_args[0][1] != memory_cards.EMPTY_CARD
     adoption = db_container_adoption_handler.get_adoption(_key_of(container))
     assert adoption is not None and adoption.outcome == "adopt"
-    cards = db_memory_card_handler.get_cards(admin_user.id, "pcsx2")
+    cards = db_memory_card_handler.get_cards(
+        admin_user.id, "pcsx2", visibility=UNRESTRICTED
+    )
     assert len(cards) == 1
     assert db_memory_card_handler.get_latest_version(cards[0].id) is not None
 
@@ -12106,7 +12177,12 @@ def test_failed_adopt_aborts_the_claim_without_wiping(
     launch.assert_not_called()
     # Nothing is recorded, so the next claim asks again instead of wiping.
     assert db_container_adoption_handler.get_adoption(_key_of(container)) is None
-    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+    assert (
+        db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+        == []
+    )
     assert asyncio.run(session_store.get_session(_key_of(container))) is None
 
 
@@ -12202,7 +12278,12 @@ def test_adopt_with_unreadable_card_aborts_without_recording(
     launch.assert_not_called()
     # No decision recorded, so the next claim asks again instead of wiping.
     assert db_container_adoption_handler.get_adoption(_key_of(container)) is None
-    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+    assert (
+        db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+        == []
+    )
     assert asyncio.run(session_store.get_session(_key_of(container))) is None
 
 
@@ -12224,7 +12305,12 @@ def test_adopt_with_absent_card_aborts_without_recording(
     push.assert_not_called()
     launch.assert_not_called()
     assert db_container_adoption_handler.get_adoption(_key_of(container)) is None
-    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+    assert (
+        db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+        == []
+    )
     assert asyncio.run(session_store.get_session(_key_of(container))) is None
 
 

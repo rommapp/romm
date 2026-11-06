@@ -74,7 +74,6 @@ from handler.scan.audience import (
     SCAN_ROOM,
     begin_scan_audience,
     current_scan_audience,
-    emit_to_rooms,
 )
 from handler.scan.merge import fs_rom_file_attrs
 from handler.scan.sources import (
@@ -99,7 +98,7 @@ from handler.scan_jobs import (
     get_running_scan_job,
     get_scheduled_scan_jobs,
 )
-from handler.socket_handler import socket_handler
+from handler.socket_handler import emit_to_rooms, socket_handler
 from logger.formatter import BLUE, LIGHTYELLOW
 from logger.formatter import highlight as hl
 from logger.logger import log

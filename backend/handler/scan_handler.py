@@ -48,7 +48,7 @@ from handler.metadata.ss_handler import (
     get_preferred_media_types,
 )
 from handler.metadata.steam_handler import SteamRom
-from handler.scan.audience import current_scan_audience, emit_to_rooms
+from handler.scan.audience import current_scan_audience
 from handler.scan.lookups import RomLookups
 from handler.scan.merge import (
     apply_artwork_priority,
@@ -67,6 +67,7 @@ from handler.scan.merge import (
     splice_scene_summaries,
 )
 from handler.scan.sources import LOGGER_MODULE_NAME, MetadataSource, ScanType
+from handler.socket_handler import emit_to_rooms
 from logger.formatter import BLUE, LIGHTYELLOW
 from logger.formatter import highlight as hl
 from logger.logger import log

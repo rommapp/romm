@@ -78,7 +78,7 @@ class TestMarkMissing:
 
         for row in (
             db_save_handler.get_save(user_id=save.user_id, id=save.id),
-            db_state_handler.get_state(user_id=state.user_id, id=state.id),
+            db_state_handler.get_state_by_id(state.id),
         ):
             assert row is not None
             assert row.missing_from_fs

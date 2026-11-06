@@ -23,6 +23,7 @@ from typing import Literal
 from redis.exceptions import RedisError
 
 from config import SYNC_RETROARCH_PSP_SERIAL_MAP
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import db_platform_handler, db_rom_handler, db_save_handler
 from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
 from handler.redis_handler import async_cache
@@ -136,6 +137,7 @@ def _find_bundle_by_folder(
         user_id=user.id,
         slot_is_null=True,
         file_name_prefix=_bundle_base_name(save_folder).removesuffix(".zip"),
+        visibility=UNRESTRICTED,
     )
     return _latest_bundles_by_folder(saves, can_see).get(save_folder)
 

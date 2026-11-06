@@ -16,6 +16,7 @@ from redis.exceptions import RedisError
 from tests import factories
 from tests.factories import make_rom, make_save, make_screenshot
 
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
@@ -466,7 +467,7 @@ class TestRetroArchSyncManifest:
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == []
-        state = db_state_handler.get_state(user_id=admin_user.id, id=synced_state.id)
+        state = db_state_handler.get_state_by_id(synced_state.id)
         assert state is not None
         assert state.missing_from_fs
 
@@ -764,7 +765,9 @@ class TestRetroArchSyncUpload:
 
         assert response.status_code == status.HTTP_201_CREATED
 
-        states = db_state_handler.get_states(user_id=admin_user.id, rom_ids=[rom.id])
+        states = db_state_handler.get_states(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
         assert len(states) == 1
         assert states[0].file_name == "test_rom.state.auto"
 
@@ -817,7 +820,12 @@ class TestRetroArchSyncUpload:
 
         assert response.status_code == status.HTTP_413_CONTENT_TOO_LARGE
         mock_write_file.assert_not_awaited()
-        assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id]) == []
+        assert (
+            db_save_handler.get_saves(
+                user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+            )
+            == []
+        )
 
     @mock.patch(
         "endpoints.sync.retroarch.fs_asset_handler.remove_file",
@@ -857,7 +865,7 @@ class TestRetroArchSyncUpload:
         )
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        state = db_state_handler.get_state(user_id=admin_user.id, id=legacy_state.id)
+        state = db_state_handler.get_state_by_id(legacy_state.id)
         assert state is not None
         assert state.file_path == states_path
         mock_remove_file.assert_awaited_once_with(file_path=legacy_state.full_path)
@@ -905,7 +913,7 @@ class TestRetroArchSyncStreamCaptures:
         )
 
         assert response.status_code == status.HTTP_201_CREATED
-        kept = db_state_handler.get_state(user_id=admin_user.id, id=capture.id)
+        kept = db_state_handler.get_state_by_id(capture.id)
         assert kept is not None
         assert (kept.file_name, kept.file_size_bytes, kept.core) == (
             capture.file_name,
@@ -915,7 +923,7 @@ class TestRetroArchSyncStreamCaptures:
         added = [
             s
             for s in db_state_handler.get_states(
-                user_id=admin_user.id, rom_ids=[rom.id]
+                user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
             )
             if s.id != capture.id
         ]
@@ -941,7 +949,7 @@ class TestRetroArchSyncStreamCaptures:
         states = {
             s.id: s
             for s in db_state_handler.get_states(
-                user_id=admin_user.id, rom_ids=[rom.id]
+                user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
             )
         }
         assert set(states) == {own.id, capture.id}
@@ -974,7 +982,9 @@ class TestRetroArchSyncStreamCaptures:
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
         mock_write_file.assert_not_awaited()
-        states = db_state_handler.get_states(user_id=admin_user.id, rom_ids=[rom.id])
+        states = db_state_handler.get_states(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
         assert [s.id for s in states] == [capture.id]
 
     @mock.patch(
@@ -1046,7 +1056,7 @@ class TestRetroArchSyncStreamCaptures:
         uploaded = next(
             s
             for s in db_state_handler.get_states(
-                user_id=admin_user.id, rom_ids=[rom.id]
+                user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
             )
             if s.id != capture.id
         )
@@ -1124,7 +1134,9 @@ class TestRetroArchSyncStreamCaptures:
         )
 
         assert response.status_code == status.HTTP_201_CREATED
-        states = db_state_handler.get_states(user_id=admin_user.id, rom_ids=[rom.id])
+        states = db_state_handler.get_states(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
         assert sorted((s.id == capture.id, s.core) for s in states) == [
             (False, None),
             (True, "snes9x"),
@@ -1153,7 +1165,9 @@ class TestRetroArchSyncStreamCaptures:
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
         mock_remove_file.assert_awaited_once_with(file_path=own.full_path)
-        states = db_state_handler.get_states(user_id=admin_user.id, rom_ids=[rom.id])
+        states = db_state_handler.get_states(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
         assert [s.id for s in states] == [capture.id]
 
     @mock.patch(
@@ -1215,7 +1229,10 @@ class TestRetroArchSyncSaveSlots:
 
     def _versions(self, admin_user: User, rom: Rom) -> Sequence[Save]:
         return db_save_handler.get_saves(
-            user_id=admin_user.id, rom_ids=[rom.id], order_by="updated_at"
+            user_id=admin_user.id,
+            rom_ids=[rom.id],
+            order_by="updated_at",
+            visibility=UNRESTRICTED,
         )
 
     def _other_client_save(
@@ -1500,7 +1517,7 @@ class TestRetroArchSyncRomFileNames:
             assert response.status_code == status.HTTP_201_CREATED
 
         saves = db_save_handler.get_saves(
-            user_id=admin_user.id, rom_ids=[disc_folder_rom.id]
+            user_id=admin_user.id, rom_ids=[disc_folder_rom.id], visibility=UNRESTRICTED
         )
         assert sorted((save.file_name, save.slot) for save in saves) == [
             ("Some Game (USA) (Disc 1).srm", None),
@@ -1563,7 +1580,9 @@ class TestRetroArchSyncRomFileNames:
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert (
             db_save_handler.get_saves(
-                user_id=admin_user.id, rom_ids=[disc_folder_rom.id]
+                user_id=admin_user.id,
+                rom_ids=[disc_folder_rom.id],
+                visibility=UNRESTRICTED,
             )
             == []
         )
@@ -1581,7 +1600,9 @@ class TestRetroArchSyncRomFileNames:
         response = client.put(self.DISC_1_URL, content=b"data", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_201_CREATED
-        [save] = db_save_handler.get_saves(user_id=admin_user.id)
+        [save] = db_save_handler.get_saves(
+            user_id=admin_user.id, visibility=UNRESTRICTED
+        )
         assert save.rom_id == disc_rom.id
 
     def test_a_longer_file_name_with_the_same_prefix_does_not_match(
@@ -1621,7 +1642,11 @@ def test_uploads_in_the_same_second_keep_both_versions(
             )
 
     versions = db_save_handler.get_saves(
-        user_id=admin_user.id, rom_ids=[rom.id], order_by="updated_at", order_dir="asc"
+        user_id=admin_user.id,
+        rom_ids=[rom.id],
+        order_by="updated_at",
+        order_dir="asc",
+        visibility=UNRESTRICTED,
     )
     assert [save.file_size_bytes for save in versions] == [
         len(b"first"),
@@ -1733,7 +1758,14 @@ class TestRetroArchSyncCoreAliases:
         response = client.put(self.SAVE_URL, content=b"same", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        assert len(db_save_handler.get_saves(user_id=admin_user.id)) == 1
+        assert (
+            len(
+                db_save_handler.get_saves(
+                    user_id=admin_user.id, visibility=UNRESTRICTED
+                )
+            )
+            == 1
+        )
 
     @mock.patch(
         "endpoints.sync.retroarch.fs_asset_handler.remove_file",
@@ -1754,7 +1786,10 @@ class TestRetroArchSyncCoreAliases:
         response = client.request("DELETE", self.SAVE_URL, auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        assert db_save_handler.get_saves(user_id=admin_user.id) == []
+        assert (
+            db_save_handler.get_saves(user_id=admin_user.id, visibility=UNRESTRICTED)
+            == []
+        )
 
     def test_an_unslotted_file_under_an_alias_is_served_and_updated_in_place(
         self, client, admin_user: User, rom: Rom
@@ -1768,7 +1803,9 @@ class TestRetroArchSyncCoreAliases:
         response = client.put(url, content=b"ticked", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        [updated] = db_save_handler.get_saves(user_id=admin_user.id)
+        [updated] = db_save_handler.get_saves(
+            user_id=admin_user.id, visibility=UNRESTRICTED
+        )
         assert (updated.id, updated.file_path) == (save.id, save.file_path)
         assert client.get(url, auth=ADMIN_AUTH).content == b"ticked"
 
@@ -1800,7 +1837,9 @@ class TestRetroArchSyncCoreAliases:
         response = client.put(self.STATE_URL, content=b"retroarch", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        [updated] = db_state_handler.get_states(user_id=admin_user.id)
+        [updated] = db_state_handler.get_states(
+            user_id=admin_user.id, visibility=UNRESTRICTED
+        )
         assert (updated.id, updated.file_path) == (state.id, state.file_path)
         assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"retroarch"
 
@@ -1856,7 +1895,7 @@ class TestRetroArchSyncCoreAliases:
         vanished = self._vanished_state(admin_user, rom, "mednafen_psx_hw")
 
         assert self._manifest_paths(client) == ["states/Beetle PSX HW/test_rom.state"]
-        state = db_state_handler.get_state(user_id=admin_user.id, id=vanished.id)
+        state = db_state_handler.get_state_by_id(vanished.id)
         assert state is not None and state.missing_from_fs
 
     def test_get_falls_back_when_the_newest_state_file_vanished(
@@ -1866,7 +1905,7 @@ class TestRetroArchSyncCoreAliases:
         vanished = self._vanished_state(admin_user, rom, "mednafen_psx_hw")
 
         assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"older"
-        state = db_state_handler.get_state(user_id=admin_user.id, id=vanished.id)
+        state = db_state_handler.get_state_by_id(vanished.id)
         assert state is not None and state.missing_from_fs
 
     def test_get_404s_when_every_state_file_in_the_slot_vanished(
@@ -1890,7 +1929,12 @@ class TestRetroArchSyncCoreAliases:
         response = client.put(self.STATE_URL, content=b"fresh", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        states = {s.id: s for s in db_state_handler.get_states(user_id=admin_user.id)}
+        states = {
+            s.id: s
+            for s in db_state_handler.get_states(
+                user_id=admin_user.id, visibility=UNRESTRICTED
+            )
+        }
         assert states.keys() == {older.id, missing.id}
         assert not states[missing.id].missing_from_fs
         assert states[missing.id].file_size_bytes == len(b"fresh")
@@ -1906,7 +1950,10 @@ class TestRetroArchSyncCoreAliases:
         response = client.request("DELETE", self.STATE_URL, auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        assert db_state_handler.get_states(user_id=admin_user.id) == []
+        assert (
+            db_state_handler.get_states(user_id=admin_user.id, visibility=UNRESTRICTED)
+            == []
+        )
         assert self._manifest_paths(client) == []
 
     @_mock_asset_md5()
@@ -1955,7 +2002,12 @@ class TestRetroArchSyncDelete:
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
         mock_remove_file.assert_awaited_once()
-        assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id]) == []
+        assert (
+            db_save_handler.get_saves(
+                user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+            )
+            == []
+        )
 
     @mock.patch(
         "endpoints.sync.retroarch.fs_asset_handler.compute_content_hash",
@@ -2047,7 +2099,12 @@ class TestRetroArchSyncDelete:
         )
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id]) == []
+        assert (
+            db_save_handler.get_saves(
+                user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+            )
+            == []
+        )
 
     def test_delete_of_unknown_file_is_not_found(self, client, admin_user: User):
         response = client.request(
@@ -2103,7 +2160,9 @@ class TestRetroArchSyncPsp:
         )
         assert put_data.status_code == status.HTTP_201_CREATED
 
-        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
         assert len(saves) == 1
         assert saves[0].file_name == "PSP-TEST12345DATA0.zip"
 
@@ -2265,7 +2324,9 @@ class TestRetroArchSyncPsp:
         )
         assert response.status_code == status.HTTP_201_CREATED
 
-        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
         assert [save.file_name for save in saves] == [tagged_name]
 
         get_data = client.get(
@@ -2312,7 +2373,9 @@ class TestRetroArchSyncPsp:
             "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
             auth=ADMIN_AUTH,
         )
-        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
         assert [save.file_name for save in saves] == [slotted_name]
 
     def test_bundles_a_folder_synced_without_core_sorting(
@@ -2475,7 +2538,12 @@ class TestRetroArchSyncPsp:
             )
             assert response.status_code == status.HTTP_204_NO_CONTENT
 
-        assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id]) == []
+        assert (
+            db_save_handler.get_saves(
+                user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+            )
+            == []
+        )
 
         get_response = client.get(
             "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
@@ -2514,7 +2582,9 @@ class TestRetroArchSyncPsp:
             content=b"sfo",
             auth=ADMIN_AUTH,
         )
-        [bundle] = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        [bundle] = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
         bundle_file = fs_asset_handler.validate_path(bundle.full_path)
         bundle_file.write_bytes(b"not a zip")
 

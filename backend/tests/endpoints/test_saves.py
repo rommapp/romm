@@ -17,6 +17,7 @@ from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.asset_store import apply_datetime_tag, reserve_version_name
 from handler.auth.base_handler import oauth_handler
 from handler.auth.constants import Scope
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
@@ -1928,7 +1929,10 @@ class TestAutocleanup:
         from handler.database import db_save_handler
 
         initial_saves = db_save_handler.get_saves(
-            user_id=admin_user.id, rom_ids=[rom.id], slot="autosave"
+            user_id=admin_user.id,
+            rom_ids=[rom.id],
+            slot="autosave",
+            visibility=UNRESTRICTED,
         )
         assert len(initial_saves) == 15
 
@@ -2125,7 +2129,10 @@ class TestAutocleanup:
 
         assert response.status_code == status.HTTP_200_OK
         remaining = db_save_handler.get_saves(
-            user_id=admin_user.id, rom_ids=[rom.id], slot="autosave"
+            user_id=admin_user.id,
+            rom_ids=[rom.id],
+            slot="autosave",
+            visibility=UNRESTRICTED,
         )
         assert len(remaining) == 1
 
@@ -2238,7 +2245,10 @@ class TestSlotRetention:
         return [
             save.file_name_no_ext
             for save in db_save_handler.get_saves(
-                user_id=admin_user.id, rom_ids=[rom.id], slot=slot
+                user_id=admin_user.id,
+                rom_ids=[rom.id],
+                slot=slot,
+                visibility=UNRESTRICTED,
             )
         ]
 
@@ -2309,7 +2319,10 @@ class TestSlotRetention:
         assert {
             save.file_name
             for save in db_save_handler.get_saves(
-                user_id=admin_user.id, rom_ids=[rom.id], slot="main_quest"
+                user_id=admin_user.id,
+                rom_ids=[rom.id],
+                slot="main_quest",
+                visibility=UNRESTRICTED,
             )
         } == {"main_quest.srm", "main_quest.rtc", "main_quest_new.sav"}
 
@@ -2363,7 +2376,10 @@ class TestSlotRetention:
         assert [
             save.id
             for save in db_save_handler.get_saves(
-                user_id=admin_user.id, rom_ids=[rom.id], slot="side_quest"
+                user_id=admin_user.id,
+                rom_ids=[rom.id],
+                slot="side_quest",
+                visibility=UNRESTRICTED,
             )
         ] == [response.json()["id"]]
 
@@ -2593,7 +2609,10 @@ class TestAutocleanupScreenshots:
         remaining = {
             save.file_name_no_ext
             for save in db_save_handler.get_saves(
-                user_id=admin_user.id, rom_ids=[rom.id], slot="autosave"
+                user_id=admin_user.id,
+                rom_ids=[rom.id],
+                slot="autosave",
+                visibility=UNRESTRICTED,
             )
         }
         assert len(remaining) == 2
@@ -3801,6 +3820,7 @@ class TestSlotScopedDedupeMatrix:
             rom_ids=[rom.id],
             slot="slot1",
             order_by="updated_at",
+            visibility=UNRESTRICTED,
         )
         assert head_ids[0] == old_id
         bumped = db_save_handler.get_save_by_id(old_id)

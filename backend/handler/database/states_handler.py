@@ -5,10 +5,10 @@ from sqlalchemy import Select, delete, desc, or_, select, update
 from sqlalchemy.orm import Session
 
 from decorators.database import INJECTED_SESSION, begin_session
-from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
+from handler.auth.rom_visibility import RomVisibilityFilter
 from models.assets import State
 from models.base import with_file_name_parts
-from models.rom import Rom
+from models.rom import RomFacets
 
 from .base_handler import DBBaseHandler
 
@@ -21,15 +21,6 @@ class DBStatesHandler(DBBaseHandler):
         session: Session = INJECTED_SESSION,
     ) -> State:
         return session.merge(state)
-
-    @begin_session
-    def get_state(
-        self,
-        user_id: int,
-        id: int,
-        session: Session = INJECTED_SESSION,
-    ) -> State | None:
-        return session.scalar(select(State).filter_by(user_id=user_id, id=id).limit(1))
 
     @begin_session
     def get_state_by_filename(
@@ -50,7 +41,8 @@ class DBStatesHandler(DBBaseHandler):
         user_id: int,
         rom_ids: Collection[int] | None = None,
         platform_id: int | None = None,
-        visibility: RomVisibilityFilter = UNRESTRICTED,
+        *,
+        visibility: RomVisibilityFilter,
     ) -> Select[State]:
         query = select(State).filter_by(user_id=user_id)
 
@@ -58,12 +50,12 @@ class DBStatesHandler(DBBaseHandler):
         if rom_ids is not None:
             query = query.filter(State.rom_id.in_(rom_ids))
 
-        if platform_id or not visibility.is_unrestricted:
-            query = query.join(Rom, State.rom_id == Rom.id).filter(
-                *visibility.clauses()
-            )
         if platform_id:
-            query = query.filter(Rom.platform_id == platform_id)
+            query = query.join(RomFacets, RomFacets.rom_id == State.rom_id).where(
+                RomFacets.platform_id == platform_id, *visibility.facets_clauses()
+            )
+        else:
+            query = visibility.restrict(query, State.rom_id)
 
         return query
 
@@ -73,7 +65,8 @@ class DBStatesHandler(DBBaseHandler):
         user_id: int,
         rom_ids: Collection[int] | None = None,
         platform_id: int | None = None,
-        visibility: RomVisibilityFilter = UNRESTRICTED,
+        *,
+        visibility: RomVisibilityFilter,
         session: Session = INJECTED_SESSION,
     ) -> Sequence[State]:
         query = self._states_query(
@@ -90,7 +83,8 @@ class DBStatesHandler(DBBaseHandler):
         user_id: int,
         rom_ids: Collection[int] | None = None,
         platform_id: int | None = None,
-        visibility: RomVisibilityFilter = UNRESTRICTED,
+        *,
+        visibility: RomVisibilityFilter,
         session: Session = INJECTED_SESSION,
     ) -> list[int]:
         """Ids only, so no `State` is built and no eager rom or user join fires."""

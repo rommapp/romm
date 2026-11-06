@@ -28,6 +28,7 @@ from handler.asset_store import (
     reserve_version_name,
     strip_datetime_tag,
 )
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
     db_rom_handler,
     db_save_handler,
@@ -215,7 +216,9 @@ def states_in_slot(
     key = (rom.id, retroarch_folder(emulator), state_slot_suffix(requested_file_name))
     return [
         state
-        for state in db_state_handler.get_states(user_id=user.id, rom_ids=[rom.id])
+        for state in db_state_handler.get_states(
+            user_id=user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
         if _state_slot_key(state) == key
     ]
 
@@ -384,6 +387,7 @@ def saves_at_path(
             slot=AUTOSAVE_SLOT,
             with_unslotted=True,
             lineages=alias_lineages(lineage),
+            visibility=UNRESTRICTED,
         )
         # The manifest hides unslotted ones behind the head, so whatever their
         # case they would resurface once the versions go.
@@ -832,7 +836,9 @@ def _manifest_assets(
     saves: Sequence[Save] = []
     heads: Sequence[Save] = []
     if tree != "states":
-        saves = db_save_handler.get_saves(user_id=user.id, slot_is_null=True)
+        saves = db_save_handler.get_saves(
+            user_id=user.id, slot_is_null=True, visibility=UNRESTRICTED
+        )
         heads = db_save_handler.get_lineage_heads(
             user_id=user.id, slot=AUTOSAVE_SLOT, file_extension=SLOTTED_SAVE_EXTENSION
         )
@@ -862,7 +868,7 @@ def _manifest_assets(
         [
             (state.emulator, canonical_state_file_name(state.rom, slot_suffix), state)
             for (_rom_id, _folder, slot_suffix), state in group_states_by_slot(
-                db_state_handler.get_states(user_id=user.id)
+                db_state_handler.get_states(user_id=user.id, visibility=UNRESTRICTED)
             ).items()
             if not state.missing_from_fs and can_see(state.rom)
         ]

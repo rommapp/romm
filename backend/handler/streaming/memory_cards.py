@@ -16,6 +16,7 @@ from typing import TypedDict
 
 from fastapi import HTTPException
 
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import db_memory_card_handler, db_user_handler
 from handler.filesystem import fs_asset_handler
 from handler.streaming import broker
@@ -169,7 +170,9 @@ def resolve_card(
             )
         return card
 
-    cards = db_memory_card_handler.get_cards(user_id=user_id, emulator=emulator)
+    cards = db_memory_card_handler.get_cards(
+        user_id=user_id, emulator=emulator, visibility=UNRESTRICTED
+    )
     if cards:
         return cards[0]  # get_cards orders by updated_at desc
     return None

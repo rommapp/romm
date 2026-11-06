@@ -15,10 +15,7 @@ from endpoints.responses.memory_cards import (
     UserMemoryCardSchema,
 )
 from handler.auth.constants import Scope
-from handler.auth.dependencies import (
-    assert_platform_visible,
-    get_rom_visibility_filter,
-)
+from handler.auth.dependencies import get_rom_visibility_filter
 from handler.database import db_memory_card_handler, db_platform_handler
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import build_asset_file_response
@@ -59,15 +56,15 @@ class MemoryCardCreatePayload(PydanticBaseModel):
     is_public: bool = False
 
 
-def _hidden_platform_ids(request: Request) -> frozenset[int]:
-    return get_rom_visibility_filter(request).hidden_platform_ids
-
-
-def _visible_card_or_404(
-    request: Request, card_id: int, card: MemoryCard | None
-) -> MemoryCard:
-    """404 a missing card, or one on a platform hidden from the caller."""
-    if not card or card.platform_id in _hidden_platform_ids(request):
+def _card_or_404(request: Request, card_id: int) -> MemoryCard:
+    """Fetch a card the caller may read: their own, or another user's public
+    one. Everything else is a 404 (never reveal a private card exists)."""
+    card = db_memory_card_handler.get_card_by_id(card_id)
+    if (
+        not card
+        or (card.user_id != request.user.id and not card.is_public)
+        or card.platform_id in get_rom_visibility_filter(request).hidden_platform_ids
+    ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Memory card with ID {card_id} not found",
@@ -75,20 +72,19 @@ def _visible_card_or_404(
     return card
 
 
-def _card_or_404(request: Request, card_id: int) -> MemoryCard:
-    """Fetch a card the caller may read: their own, or another user's public
-    one. Everything else is a 404 (never reveal a private card exists)."""
-    card = db_memory_card_handler.get_card_by_id(card_id)
-    if card and card.user_id != request.user.id and not card.is_public:
-        card = None
-    return _visible_card_or_404(request, card_id, card)
-
-
 def _owned_card_or_404(request: Request, card_id: int) -> MemoryCard:
     """Fetch a card the caller owns, for mutations. A card owned by someone
     else is a 404, matching how states scope writes to the owner."""
     card = db_memory_card_handler.get_card(user_id=request.user.id, id=card_id)
-    return _visible_card_or_404(request, card_id, card)
+    if (
+        not card
+        or card.platform_id in get_rom_visibility_filter(request).hidden_platform_ids
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Memory card with ID {card_id} not found",
+        )
+    return card
 
 
 def _apply_card_update(card_id: int, data: dict[str, Any]) -> MemoryCard:
@@ -123,13 +119,15 @@ def add_memory_card(
         )
 
     if payload.platform_id is not None:
-        platform_not_found = f"Platform with ID {payload.platform_id} not found"
         platform = db_platform_handler.get_platform(payload.platform_id)
-        if not platform:
+        if (
+            not platform
+            or platform.id in get_rom_visibility_filter(request).hidden_platform_ids
+        ):
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=platform_not_found
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Platform with ID {payload.platform_id} not found",
             )
-        assert_platform_visible(request, platform, not_found_detail=platform_not_found)
 
     card = db_memory_card_handler.add_card(
         MemoryCard(
@@ -151,7 +149,7 @@ def get_memory_cards(
 ) -> list[MemoryCardSchema]:
     """The caller's own cards, newest-synced first, optionally one emulator."""
     cards = db_memory_card_handler.get_cards(
-        request.user.id, emulator, hidden_platform_ids=_hidden_platform_ids(request)
+        request.user.id, emulator, visibility=get_rom_visibility_filter(request)
     )
     return [MemoryCardSchema.model_validate(card) for card in cards]
 
@@ -166,7 +164,7 @@ def get_shared_memory_cards(
     cards = db_memory_card_handler.get_shared_cards(
         emulator=emulator,
         user_id=request.user.id,
-        hidden_platform_ids=_hidden_platform_ids(request),
+        visibility=get_rom_visibility_filter(request),
     )
     return [
         UserMemoryCardSchema.model_validate(

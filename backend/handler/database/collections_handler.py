@@ -13,7 +13,6 @@ from sqlalchemy import (
     literal,
     or_,
     select,
-    tuple_,
     union_all,
     update,
 )
@@ -300,20 +299,17 @@ class DBCollectionsHandler(DBBaseHandler):
         """
         if not collections:
             return
-        # Built once, so every select in a batch shares the hidden-id binds.
-        facets_clauses = visibility.facets_clauses()
 
         def covers_select(collection: VirtualCollection) -> Select[*tuple[Any, ...]]:
-            query = select(
-                VirtualCollectionRom.type,
-                VirtualCollectionRom.name,
-                VirtualCollectionRom.path_cover_s,
-                VirtualCollectionRom.path_cover_l,
+            query = visibility.restrict(
+                select(
+                    VirtualCollectionRom.type,
+                    VirtualCollectionRom.name,
+                    VirtualCollectionRom.path_cover_s,
+                    VirtualCollectionRom.path_cover_l,
+                ),
+                VirtualCollectionRom.rom_id,
             )
-            if not visibility.is_unrestricted:
-                query = query.join(
-                    RomFacets, RomFacets.rom_id == VirtualCollectionRom.rom_id
-                ).where(*facets_clauses)
             return (
                 query.where(
                     VirtualCollectionRom.type == collection.type,
@@ -354,9 +350,11 @@ class DBCollectionsHandler(DBBaseHandler):
         if visibility.is_unrestricted:
             return query
         visible = (
-            select(VirtualCollectionRom.type, VirtualCollectionRom.name)
-            .join(RomFacets, RomFacets.rom_id == VirtualCollectionRom.rom_id)
-            .where(*visibility.facets_clauses(), *member_filters)
+            visibility.restrict(
+                select(VirtualCollectionRom.type, VirtualCollectionRom.name),
+                VirtualCollectionRom.rom_id,
+            )
+            .where(*member_filters)
             .group_by(VirtualCollectionRom.type, VirtualCollectionRom.name)
             .subquery()
         )
@@ -368,7 +366,7 @@ class DBCollectionsHandler(DBBaseHandler):
             ),
         )
 
-    def _attach_visible_rom_ids(
+    def _drop_hidden_members(
         self,
         session: Session,
         collections: Sequence[VirtualCollection],
@@ -377,27 +375,17 @@ class DBCollectionsHandler(DBBaseHandler):
         """Narrow each collection's members to the ones `visibility` keeps."""
         if visibility.is_unrestricted or not collections:
             return
-        visible: set[int] = set()
-        for batch in batched(collections, COLLECTIONS_BATCH_SIZE, strict=False):
-            keys = [(collection.type, collection.name) for collection in batch]
-            visible.update(
-                session.scalars(
-                    select(VirtualCollectionRom.rom_id)
-                    .join(RomFacets, RomFacets.rom_id == VirtualCollectionRom.rom_id)
-                    .where(
-                        *visibility.facets_clauses(),
-                        tuple_(
-                            VirtualCollectionRom.type, VirtualCollectionRom.name
-                        ).in_(keys),
-                    )
-                ).all()
+        hidden = set(visibility.hidden_rom_ids)
+        row_hidden = visibility.row_hidden_clause(
+            platform_id_col=RomFacets.platform_id, min_age_col=RomFacets.min_age
+        )
+        if row_hidden is not None:
+            hidden.update(
+                session.scalars(select(RomFacets.rom_id).where(row_hidden)).all()
             )
-        # By id, as the collation can file a member under another spelling, and
-        # committed, so the session never tries to write the view back.
+        # Committed, so the session never tries to write the view back.
         for collection in collections:
-            set_committed_value(
-                collection, "rom_ids", set(collection.rom_ids) & visible
-            )
+            set_committed_value(collection, "rom_ids", set(collection.rom_ids) - hidden)
 
     @begin_session
     def get_virtual_collection(
@@ -407,16 +395,15 @@ class DBCollectionsHandler(DBBaseHandler):
         session: Session = INJECTED_SESSION,
     ) -> VirtualCollection | None:
         name, type = VirtualCollection.from_id(id)
-        query = self._only_visible(
-            select(VirtualCollection).filter_by(name=name, type=type),
-            visibility,
-            VirtualCollectionRom.type == type,
-            VirtualCollectionRom.name == name,
+        collection = session.scalar(
+            select(VirtualCollection).filter_by(name=name, type=type).limit(1)
         )
-        collection = session.scalar(query.limit(1))
-        if collection:
-            self._attach_visible_rom_ids(session, [collection], visibility)
-            self._attach_covers(session, [collection], visibility)
+        if not collection:
+            return None
+        self._drop_hidden_members(session, [collection], visibility)
+        if not collection.rom_ids:
+            return None
+        self._attach_covers(session, [collection], visibility)
 
         return collection
 
@@ -447,7 +434,7 @@ class DBCollectionsHandler(DBBaseHandler):
             return session.scalars(query).unique().all()
 
         collections = session.scalars(query).unique().all()
-        self._attach_visible_rom_ids(session, collections, visibility)
+        self._drop_hidden_members(session, collections, visibility)
         self._attach_covers(session, collections, visibility)
 
         return collections

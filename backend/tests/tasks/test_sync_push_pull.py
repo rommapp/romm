@@ -8,10 +8,12 @@ import pytest
 from tests.factories import make_esrb_rated_rom, make_save
 
 from endpoints.sockets import sync as sync_sockets
+from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
+    db_permission_handler,
     db_save_handler,
     db_sync_session_handler,
     db_user_handler,
@@ -157,7 +159,11 @@ class TestNullSlotLeakInProcessRemoteSave:
 
         with patch("tasks.sync_push_pull_task.get_ssh_sync_handler", return_value=ssh):
             action = await _process_remote_save(
-                device, conn=MagicMock(), remote_save=remote_save, session_id=1
+                device,
+                conn=MagicMock(),
+                remote_save=remote_save,
+                session_id=1,
+                visibility=UNRESTRICTED,
             )
 
         # Archival rows must not be selected as a sync target.
@@ -219,7 +225,11 @@ class TestNullSlotLeakInProcessRemoteSave:
             mock_cmp.return_value = MagicMock(action="no_op", reason=None)
             mock_anyio_path.return_value.exists = AsyncMock(return_value=False)
             await _process_remote_save(
-                device, conn=MagicMock(), remote_save=remote_save, session_id=1
+                device,
+                conn=MagicMock(),
+                remote_save=remote_save,
+                session_id=1,
+                visibility=UNRESTRICTED,
             )
 
             # compare_save_state should have been called with the SLOTTED save's
@@ -264,7 +274,11 @@ class TestNullSlotLeakInProcessRemoteSave:
         ):
             mock_anyio_path.return_value.exists = AsyncMock(return_value=False)
             action = await _process_remote_save(
-                device, conn=MagicMock(), remote_save=remote_save, session_id=1
+                device,
+                conn=MagicMock(),
+                remote_save=remote_save,
+                session_id=1,
+                visibility=UNRESTRICTED,
             )
 
         assert action == "pushed"
@@ -305,7 +319,11 @@ class TestProcessRemoteSaveConflict:
             mock_cmp.return_value = MagicMock(action="conflict", reason="both changed")
             mock_anyio_path.return_value.exists = AsyncMock(return_value=False)
             action = await _process_remote_save(
-                device, conn=MagicMock(), remote_save=remote_save, session_id=5
+                device,
+                conn=MagicMock(),
+                remote_save=remote_save,
+                session_id=5,
+                visibility=UNRESTRICTED,
             )
 
         assert action == "conflict"
@@ -365,6 +383,7 @@ class TestNullSlotLeakInPushMissingSaves:
                 conn=MagicMock(),
                 remote_saves=[],
                 save_directories=save_directories,
+                visibility=UNRESTRICTED,
             )
 
         uploaded_local_paths = [call.args[1] for call in ssh.upload_save.call_args_list]
@@ -461,6 +480,7 @@ class TestBaselineInProcessRemoteSave:
                 conn=MagicMock(),
                 remote_save=self._remote(platform),
                 session_id=1,
+                visibility=UNRESTRICTED,
             )
 
         kwargs = mock_cmp.call_args.kwargs
@@ -495,6 +515,7 @@ class TestBaselineInProcessRemoteSave:
                 conn=MagicMock(),
                 remote_save=self._remote(platform),
                 session_id=1,
+                visibility=UNRESTRICTED,
             )
 
         sync = db_device_save_sync_handler.get_sync(device.id, save.id)
@@ -526,6 +547,7 @@ class TestBaselineInProcessRemoteSave:
                 conn=MagicMock(),
                 remote_save=self._remote(platform),
                 session_id=1,
+                visibility=UNRESTRICTED,
             )
 
         sync = db_device_save_sync_handler.get_sync(device.id, save.id)
@@ -555,6 +577,7 @@ class TestBaselineInProcessRemoteSave:
                 conn=MagicMock(),
                 remote_save=self._remote(platform),
                 session_id=1,
+                visibility=UNRESTRICTED,
             )
 
         sync = db_device_save_sync_handler.get_sync(device.id, save.id)
@@ -590,6 +613,7 @@ class TestBaselineInProcessRemoteSave:
                 conn=MagicMock(),
                 remote_save=self._remote(platform),
                 session_id=1,
+                visibility=UNRESTRICTED,
             )
 
         assert action == "conflict"
@@ -620,6 +644,7 @@ class TestBaselineInProcessRemoteSave:
                 save_directories=[
                     {"platform_slug": platform.fs_slug, "path": "/remote/saves"}
                 ],
+                visibility=UNRESTRICTED,
             )
 
         assert pushed == (1, 0)
@@ -652,6 +677,7 @@ class TestBaselineInProcessRemoteSave:
                 save_directories=[
                     {"platform_slug": platform.fs_slug, "path": "/remote/saves"}
                 ],
+                visibility=UNRESTRICTED,
             )
 
         assert result == (0, 1)
@@ -840,6 +866,18 @@ class TestSyncDevice:
         ssh.connect.assert_not_awaited()
         assert self._sessions(device) == []
 
+    async def test_a_disabled_owner_syncs_nothing(self, device, ssh, emitted):
+        db_user_handler.update_user(device.user_id, {"enabled": False})
+
+        result = await _sync_device(device)
+
+        assert result == {
+            "device_id": device.id,
+            "status": "error",
+            "message": "No owner",
+        }
+        ssh.connect.assert_not_awaited()
+
     async def test_reuses_the_session_the_trigger_created(
         self, device, ssh, emitted, process, push_missing
     ):
@@ -903,6 +941,10 @@ class TestRunPushPullSyncDevices:
         assert (call.args[0].id, call.kwargs["session_id"]) == ("deck", 7)
 
 
+def _owner_visibility(user: User) -> RomVisibilityFilter:
+    return db_permission_handler.get_user_visibilities([user.id])[user.id]
+
+
 class TestRomsHiddenFromTheOwner:
     @pytest.fixture
     def device(self, viewer_user: User) -> Device:
@@ -946,7 +988,11 @@ class TestRomsHiddenFromTheOwner:
         )
 
         action = await _process_remote_save(
-            device, conn=MagicMock(), remote_save=remote_save, session_id=1
+            device,
+            conn=MagicMock(),
+            remote_save=remote_save,
+            session_id=1,
+            visibility=_owner_visibility(viewer_user),
         )
 
         assert action == "skipped"
@@ -963,6 +1009,7 @@ class TestRomsHiddenFromTheOwner:
             conn=MagicMock(),
             remote_saves=[],
             save_directories=[{"platform_slug": platform.fs_slug, "path": "/r"}],
+            visibility=_owner_visibility(viewer_user),
         )
 
         assert pushed == (0, 0)
@@ -980,6 +1027,7 @@ class TestRomsHiddenFromTheOwner:
             conn=MagicMock(),
             remote_saves=[],
             save_directories=[{"platform_slug": platform.fs_slug, "path": "/r"}],
+            visibility=_owner_visibility(viewer_user),
         )
 
         assert pushed == (0, 0)

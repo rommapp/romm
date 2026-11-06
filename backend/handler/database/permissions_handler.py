@@ -106,6 +106,44 @@ class DBPermissionsHandler(DBBaseHandler):
         ).all()
 
     @begin_session
+    def get_grants_by_group(
+        self,
+        group_ids: Collection[int],
+        session: Session = INJECTED_SESSION,
+    ) -> dict[int, list[GrantTuple]]:
+        """The grants of each of `group_ids` that still exists."""
+        grants: defaultdict[int, list[GrantTuple]] = defaultdict(list)
+        if not group_ids:
+            return grants
+        for row in session.execute(
+            select(
+                PermissionGroupGrant.group_id,
+                PermissionGroupGrant.entity,
+                PermissionGroupGrant.action,
+                PermissionGroupGrant.own_only,
+            ).where(PermissionGroupGrant.group_id.in_(group_ids))
+        ).all():
+            grants[row.group_id].append((row.entity, row.action, row.own_only))
+        return grants
+
+    @begin_session
+    def get_overrides_by_user(
+        self,
+        user_ids: Collection[int],
+        session: Session = INJECTED_SESSION,
+    ) -> dict[int, list[UserPermissionOverride]]:
+        overrides: defaultdict[int, list[UserPermissionOverride]] = defaultdict(list)
+        if not user_ids:
+            return overrides
+        for override in session.scalars(
+            select(UserPermissionOverride).where(
+                UserPermissionOverride.user_id.in_(user_ids)
+            )
+        ).all():
+            overrides[override.user_id].append(override)
+        return overrides
+
+    @begin_session
     def get_user_visibilities(
         self,
         user_ids: Collection[int] | None = None,
@@ -144,29 +182,8 @@ class DBPermissionsHandler(DBBaseHandler):
                 )
             ).all()
         }
-        # A request for some users reads only their own and their groups' hides.
-        principals: list[ColumnElement[bool]] = []
-        if user_ids is not None:
-            restricted = [user for user in users if user.role != Role.ADMIN]
-            group_ids = {
-                (
-                    user.permission_group_id
-                    if user.permission_group_id is not None
-                    else default_group_id
-                )
-                for user in restricted
-            } - {None}
-            principals.append(
-                or_(
-                    HiddenEntity.user_id.in_([user.id for user in restricted]),
-                    HiddenEntity.group_id.in_(group_ids),
-                )
-            )
-        hides_filter = (
-            and_(
-                HiddenEntity.entity.in_((PermEntity.ROMS, PermEntity.PLATFORMS)),
-                *principals,
-            )
+        entity_clause = (
+            HiddenEntity.entity.in_((PermEntity.ROMS, PermEntity.PLATFORMS))
             if rom is None
             else or_(
                 and_(
@@ -179,6 +196,25 @@ class DBPermissionsHandler(DBBaseHandler):
                 ),
             )
         )
+        hides_filter: ColumnElement[bool] = entity_clause
+        # A request for some users reads only their own and their groups' hides.
+        if user_ids is not None:
+            restricted = [user for user in users if user.role != Role.ADMIN]
+            group_ids = {
+                (
+                    user.permission_group_id
+                    if user.permission_group_id is not None
+                    else default_group_id
+                )
+                for user in restricted
+            } - {None}
+            hides_filter = and_(
+                entity_clause,
+                or_(
+                    HiddenEntity.user_id.in_([user.id for user in restricted]),
+                    HiddenEntity.group_id.in_(group_ids),
+                ),
+            )
         hidden_by_user: dict[int, list[tuple[PermEntity, int]]] = defaultdict(list)
         hidden_by_group: dict[int, list[tuple[PermEntity, int]]] = defaultdict(list)
         for hide in session.execute(

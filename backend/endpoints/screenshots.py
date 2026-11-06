@@ -9,7 +9,7 @@ from decorators.auth import protected_route
 from endpoints.responses.assets import ScreenshotSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
+from handler.auth.dependencies import assert_rom_visible, owned_rom_asset_or_404
 from handler.database import db_rom_handler, db_screenshot_handler
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import build_asset_file_response
@@ -17,7 +17,6 @@ from handler.scan_handler import scan_screenshot
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.assets import Screenshot
 from utils.media_types import (
     SCREENSHOT_UPLOAD_EXTENSIONS,
     is_allowed_screenshot_upload,
@@ -31,18 +30,6 @@ router = APIRouter(
 )
 
 SCREENSHOT_FILE_UPLOAD = File(..., description="Screenshot file to upload.")
-
-
-def _owned_screenshot_or_404(request: Request, id: int) -> Screenshot:
-    """The caller's screenshot, 404 when missing, not theirs, or on a hidden ROM."""
-    screenshot = db_screenshot_handler.get_screenshot_by_id(id)
-    if not screenshot or screenshot.user_id != request.user.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Screenshot not found",
-        )
-    assert_rom_visible(request, screenshot.rom, not_found_detail="Screenshot not found")
-    return screenshot
 
 
 @protected_route(router.post, "", [Scope.ASSETS_WRITE])
@@ -184,7 +171,9 @@ async def update_screenshot(
     is_public: Annotated[bool, Body(embed=True)],
 ) -> ScreenshotSchema:
     """Toggle a gallery screenshot's public/private visibility (owner only)."""
-    _owned_screenshot_or_404(request, id)
+    owned_rom_asset_or_404(
+        request, db_screenshot_handler.get_screenshot_by_id(id), "Screenshot not found"
+    )
 
     updated = db_screenshot_handler.update_screenshot(id, {"is_public": is_public})
     return ScreenshotSchema.model_validate(updated)
@@ -201,7 +190,9 @@ async def delete_screenshot(
     id: Annotated[int, PathVar(description="Screenshot internal id.", ge=1)],
 ) -> Response:
     """Delete a gallery screenshot — its file and DB row (owner only)."""
-    screenshot = _owned_screenshot_or_404(request, id)
+    screenshot = owned_rom_asset_or_404(
+        request, db_screenshot_handler.get_screenshot_by_id(id), "Screenshot not found"
+    )
 
     try:
         await fs_asset_handler.remove_file(file_path=screenshot.full_path)

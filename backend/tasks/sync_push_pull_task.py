@@ -11,16 +11,15 @@ import asyncssh
 from anyio import Path as AnyioPath
 from anyio import open_file
 
-from handler.auth.permissions import resolve_permissions
 from handler.auth.rom_visibility import RomVisibilityFilter
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
+    db_permission_handler,
     db_platform_handler,
     db_save_handler,
     db_sync_session_handler,
-    db_user_handler,
 )
 from handler.filesystem import fs_asset_handler
 from handler.sync.comparison import compare_save_state
@@ -67,24 +66,20 @@ async def run_push_pull_sync(
     return {"status": "completed", "device_results": results}
 
 
-def _owner_visibility(device: Device) -> RomVisibilityFilter:
-    """The ROM visibility of the device's owner."""
-    owner = db_user_handler.get_user(device.user_id)
-    if owner is None:
-        raise LookupError(f"Owner {device.user_id} of device {device.id} not found")
-    return resolve_permissions(owner).rom_visibility
-
-
 async def _sync_device(device: Device, session_id: int | None = None) -> dict[str, Any]:
     """Perform push-pull sync for a single device."""
     sync_config = device.sync_config or {}
     if not sync_config.get("ssh_host"):
         log.warning(f"Push-pull device {device.id} has no ssh_host configured")
         return {"device_id": device.id, "status": "error", "message": "No ssh_host"}
-    try:
-        visibility = _owner_visibility(device)
-    except LookupError as e:
-        log.warning(f"Push-pull: {e}")
+    visibility = db_permission_handler.get_user_visibilities([device.user_id]).get(
+        device.user_id
+    )
+    if visibility is None:
+        log.warning(
+            f"Push-pull: owner {device.user_id} of device {device.id} "
+            "is missing or disabled"
+        )
         return {"device_id": device.id, "status": "error", "message": "No owner"}
 
     from endpoints.sockets.sync import (
@@ -246,13 +241,9 @@ async def _process_remote_save(
     conn: asyncssh.SSHClientConnection,
     remote_save: RemoteSaveInfo,
     session_id: int,
-    visibility: RomVisibilityFilter | None = None,
+    visibility: RomVisibilityFilter,
 ) -> str:
-    """Process a single remote save file. Returns action taken.
-
-    Args:
-        visibility: The owner's ROM visibility, resolved here when not given.
-    """
+    """Process a single remote save file. Returns action taken."""
     from endpoints.sockets.sync import emit_sync_conflict
 
     ssh_sync_handler = get_ssh_sync_handler()
@@ -269,7 +260,7 @@ async def _process_remote_save(
         user_id=device.user_id,
         platform_id=platform.id,
         slot_not_null=True,
-        visibility=visibility if visibility is not None else _owner_visibility(device),
+        visibility=visibility,
     )
     matched_save = None
     for save in saves:
@@ -406,16 +397,11 @@ async def _push_missing_saves(
     conn: asyncssh.SSHClientConnection,
     remote_saves: list[RemoteSaveInfo],
     save_directories: list[dict[str, Any]],
-    visibility: RomVisibilityFilter | None = None,
+    *,
+    visibility: RomVisibilityFilter,
 ) -> tuple[int, int]:
-    """Push server saves that are missing from the device; returns (pushed, failed).
-
-    Args:
-        visibility: The owner's ROM visibility, resolved here when not given.
-    """
+    """Push server saves that are missing from the device; returns (pushed, failed)."""
     ssh_sync_handler = get_ssh_sync_handler()
-    if visibility is None:
-        visibility = _owner_visibility(device)
     pushed = 0
     failed = 0
 

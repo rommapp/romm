@@ -267,9 +267,11 @@ async def claim_install_requests(
     require_device(request, device_id, device_only=True)
 
     # A request is only queued for a visible ROM, so one hidden later stays pending.
-    hidden = _hidden_rom_ids(
-        request, await device_install_handler.list_for_device(device_id)
-    )
+    hidden: set[int] = set()
+    if not get_rom_visibility_filter(request).is_unrestricted:
+        hidden = _hidden_rom_ids(
+            request, await device_install_handler.list_for_device(device_id)
+        )
     with _install_errors():
         claim = await device_install_handler.claim(device_id, skip_rom_ids=hidden)
 

@@ -22,7 +22,7 @@ from config import DISABLE_LOGS_VIEWER
 from endpoints.sockets.activity import activity_on_disconnect, store_authenticated_user
 from handler.redis_handler import async_cache
 from handler.scan.audience import SCAN_ROOM, follows_scans
-from handler.socket_handler import socket_handler
+from handler.socket_handler import socket_handler, user_room
 from logger.log_stream_handler import LOG_BUFFER_KEY, LOG_CHANNEL
 from logger.logger import log
 from models.user import Role
@@ -51,8 +51,8 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
             return
 
         await store_authenticated_user(sid, user.id)
-        await socket_handler.socket_server.enter_room(sid, f"user:{user.id}")
-        if follows_scans(user):
+        await socket_handler.socket_server.enter_room(sid, user_room(user.id))
+        if await asyncio.to_thread(follows_scans, user):
             await socket_handler.socket_server.enter_room(sid, SCAN_ROOM)
 
         if not DISABLE_LOGS_VIEWER and user.role == Role.ADMIN:

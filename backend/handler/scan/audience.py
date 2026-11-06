@@ -7,13 +7,13 @@ from collections import defaultdict
 from collections.abc import Mapping
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Any, Final
-
-import socketio
+from typing import Final
 
 from handler.auth.constants import Scope
+from handler.auth.permissions import compute_oauth_scopes_by_user
 from handler.auth.rom_visibility import RomVisibilityFilter, VisibilityColumns
 from handler.database import db_permission_handler, db_user_handler
+from handler.socket_handler import user_room
 from models.user import User
 
 # Joined on connect by every socket whose user may follow a scan.
@@ -29,7 +29,7 @@ def follows_scans(user: User) -> bool:
 
 @dataclass(frozen=True)
 class ScanAudience:
-    """The followers' `user:{id}` rooms, grouped by what they can see, so a
+    """The followers' `user_room` rooms, grouped by what they can see, so a
     per-ROM check costs one test per distinct visibility rather than per user."""
 
     rooms_by_visibility: Mapping[RomVisibilityFilter, tuple[str, ...]]
@@ -52,16 +52,18 @@ class ScanAudience:
 
 
 def resolve_scan_audience() -> ScanAudience:
+    users = db_user_handler.get_enabled_principals()
+    scopes = compute_oauth_scopes_by_user(users)
     follower_ids = [
-        user.id
-        for user in db_user_handler.get_users()
-        if user.enabled and follows_scans(user)
+        user_id
+        for user_id, user_scopes in scopes.items()
+        if not SCAN_FOLLOWER_SCOPES.isdisjoint(user_scopes)
     ]
     rooms: defaultdict[RomVisibilityFilter, list[str]] = defaultdict(list)
     if follower_ids:
         visibilities = db_permission_handler.get_user_visibilities(follower_ids)
         for user_id, visibility in visibilities.items():
-            rooms[visibility].append(f"user:{user_id}")
+            rooms[visibility].append(user_room(user_id))
     return ScanAudience({vis: tuple(r) for vis, r in rooms.items()})
 
 
@@ -76,16 +78,8 @@ def begin_scan_audience() -> None:
 
 
 def current_scan_audience() -> ScanAudience:
-    """The running scan's audience, resolved afresh outside of one."""
-    return _scan_audience.get() or resolve_scan_audience()
-
-
-async def emit_to_rooms(
-    socket_manager: socketio.AsyncRedisManager,
-    event: str,
-    payload: Any,
-    rooms: list[str],
-) -> None:
-    # An empty `to` would broadcast to every socket.
-    if rooms:
-        await socket_manager.emit(event, payload, to=rooms)
+    """The audience `begin_scan_audience` resolved for the running scan."""
+    audience = _scan_audience.get()
+    if audience is None:
+        raise RuntimeError("No scan audience: begin_scan_audience() was not called")
+    return audience

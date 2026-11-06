@@ -85,6 +85,9 @@ def scan_followed_by_an_admin(mocker):
         "resolve_scan_audience",
         return_value=ScanAudience({UNRESTRICTED: ("user:1",)}),
     )
+    audience_module.begin_scan_audience()
+    yield
+    audience_module._scan_audience.set(None)
 
 
 @pytest.fixture

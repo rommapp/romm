@@ -1188,12 +1188,12 @@ def test_states(state: State, rom: Rom, admin_user: User):
     assert refreshed is not None
     assert len(refreshed.states) == 2
 
-    new_state = db_state_handler.get_state(user_id=admin_user.id, id=state.id)
+    new_state = db_state_handler.get_state_by_id(state.id)
     assert new_state is not None
     assert new_state.file_name == "test_state.state"
 
     db_state_handler.update_state(new_state.id, {"file_name": "test_state_2.state"})
-    new_state = db_state_handler.get_state(user_id=admin_user.id, id=new_state.id)
+    new_state = db_state_handler.get_state_by_id(new_state.id)
     assert new_state is not None
     assert new_state.file_name == "test_state_2.state"
 

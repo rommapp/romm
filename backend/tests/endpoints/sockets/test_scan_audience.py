@@ -10,12 +10,25 @@ from tests.factories import make_esrb_rated_rom, make_rom
 from endpoints.responses.rom import SimpleRomSchema
 from endpoints.sockets import scan as scan_module
 from endpoints.sockets.scan import ScanStats
+from handler.auth.permissions import compute_oauth_scopes_by_user
 from handler.database import db_permission_handler, db_rom_handler, db_user_handler
 from handler.database.base_handler import sync_session
 from handler.scan import audience as audience_module
-from handler.scan.audience import SCAN_ROOM, ScanAudience, resolve_scan_audience
+from handler.scan.audience import (
+    SCAN_FOLLOWER_SCOPES,
+    SCAN_ROOM,
+    ScanAudience,
+    follows_scans,
+    resolve_scan_audience,
+)
 from handler.scan_handler import emit_scanning_rom
-from models.permission import HiddenEntity, PermEntity, SystemGroupKey
+from models.permission import (
+    HiddenEntity,
+    PermAction,
+    PermEntity,
+    SystemGroupKey,
+    UserPermissionOverride,
+)
 from models.platform import Platform
 from models.rom import Rom, RomVisibility
 from models.user import Role, User
@@ -54,6 +67,40 @@ def test_only_users_who_may_follow_a_scan_are_in_it(
     rooms = resolve_scan_audience().platform_rooms(platform.id)
 
     assert sorted(rooms) == sorted([_room(admin_user), _room(editor_user)])
+
+
+def test_batched_scopes_match_each_users_own(
+    admin_user: User, editor_user: User, viewer_user: User
+):
+    granted = db_user_handler.add_user(
+        User(username="granted", hashed_password="x", role=Role.USER)
+    )
+    with sync_session.begin() as session:
+        session.add(
+            UserPermissionOverride(
+                user_id=granted.id,
+                entity=PermEntity.TASKS,
+                action=PermAction.WRITE,
+                granted=True,
+            )
+        )
+        session.add(
+            UserPermissionOverride(
+                user_id=editor_user.id,
+                entity=PermEntity.PLATFORMS,
+                action=PermAction.WRITE,
+                granted=False,
+            )
+        )
+
+    users = db_user_handler.get_users()
+    batched = compute_oauth_scopes_by_user(db_user_handler.get_enabled_principals())
+
+    assert {user.id: follows_scans(user) for user in users} == {
+        user_id: not SCAN_FOLLOWER_SCOPES.isdisjoint(scopes)
+        for user_id, scopes in batched.items()
+    }
+    assert batched == {user.id: user.oauth_scopes for user in users}
 
 
 def test_a_rom_event_skips_followers_it_is_hidden_from(
@@ -114,6 +161,7 @@ class TestEmits:
         mocker.patch.object(
             audience_module, "resolve_scan_audience", return_value=audience
         )
+        audience_module.begin_scan_audience()
 
     async def test_a_rom_event_goes_to_its_audience(self, mocker):
         self._audience(mocker, ["user:1", "user:2"])

@@ -246,17 +246,19 @@ def negotiate_sync(
     )
 
     # Pair on (rom_id, slot), keeping the newest row per slot: slot uploads are datetime-tagged (spec) so tagged filenames never equal the client's untagged name, and a slot accrues many rows over time. Null-slot rows stay archival-only.
+    # A save on a hidden ROM negotiates as if the ROM didn't exist.
+    visibility = get_rom_visibility_filter(request)
     server_saves = db_save_handler.get_saves(
-        user_id=request.user.id, slot_not_null=True, rom_ids=rom_id_scope
+        user_id=request.user.id,
+        slot_not_null=True,
+        rom_ids=rom_id_scope,
+        visibility=visibility,
     )
     if payload.emulators is not None:
         server_saves = [s for s in server_saves if s.emulator in payload.emulators]
-    # A save on a hidden ROM negotiates as if the ROM didn't exist.
     hidden_rom_ids = db_rom_handler.get_hidden_rom_ids_among(
-        [s.rom_id for s in server_saves] + [s.rom_id for s in payload.saves],
-        get_rom_visibility_filter(request),
+        [s.rom_id for s in payload.saves], visibility
     )
-    server_saves = [s for s in server_saves if s.rom_id not in hidden_rom_ids]
     server_save_map: dict[tuple[int, str | None], Save] = {}
     for save in server_saves:
         key = (save.rom_id, save.slot)

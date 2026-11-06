@@ -47,11 +47,9 @@ class DBStatsHandler(DBBaseHandler):
         session: Session, model: type[RomAsset], visibility: RomVisibilityFilter
     ) -> int:
         """Count every user's `model` rows whose ROM `visibility` keeps."""
-        query = select(func.count()).select_from(model)
-        if not visibility.is_unrestricted:
-            query = query.join(RomFacets, RomFacets.rom_id == model.rom_id).where(
-                *visibility.facets_clauses()
-            )
+        query = visibility.restrict(
+            select(func.count()).select_from(model), model.rom_id
+        )
         return session.scalar(query) or 0
 
     @begin_session

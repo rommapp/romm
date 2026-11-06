@@ -22,6 +22,7 @@ import io
 import sys
 import zipfile
 
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import db_memory_card_handler, db_user_handler
 from models.assets import MemoryCard
 from utils.memory_cards import (
@@ -38,7 +39,7 @@ async def _import(username: str, emulator: str, content: bytes) -> int:
         print(f"error: no user named {username!r}", file=sys.stderr)
         return 2
 
-    cards = db_memory_card_handler.get_cards(user.id, emulator)
+    cards = db_memory_card_handler.get_cards(user.id, emulator, visibility=UNRESTRICTED)
     if cards:
         card = cards[0]  # most-recently-updated
         print(f"reusing card id={card.id} name={card.name!r}")

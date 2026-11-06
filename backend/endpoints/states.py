@@ -16,7 +16,11 @@ from handler.asset_store import (
     store_state_file,
 )
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible, get_rom_visibility_filter
+from handler.auth.dependencies import (
+    assert_rom_visible,
+    get_rom_visibility_filter,
+    owned_rom_asset_or_404,
+)
 from handler.database import db_rom_handler, db_screenshot_handler, db_state_handler
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import build_asset_file_response
@@ -40,16 +44,6 @@ async def _delete_state(state: State) -> None:
     db_state_handler.delete_state(state.id)
     await remove_asset_file(state.full_path, "State file")
     await release_thumbnail(state.screenshot)
-
-
-def _owned_state_or_404(request: Request, id: int) -> State:
-    """The caller's state, 404 when missing, not theirs, or on a hidden ROM."""
-    not_found = f"State with ID {id} not found"
-    state = db_state_handler.get_state_by_id(id)
-    if not state or state.user_id != request.user.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=not_found)
-    assert_rom_visible(request, state.rom, not_found_detail=not_found)
-    return state
 
 
 router = APIRouter(
@@ -175,7 +169,9 @@ def get_state_identifiers(
 
 @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
 def get_state(request: Request, id: int) -> StateSchema:
-    state = _owned_state_or_404(request, id)
+    state = owned_rom_asset_or_404(
+        request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
+    )
 
     return StateSchema.model_validate(state)
 
@@ -224,7 +220,9 @@ async def update_state(
     check_asset_upload_size(stateFile, "State file")
     check_asset_upload_size(screenshotFile, "Screenshot file")
 
-    db_state = _owned_state_or_404(request, id)
+    db_state = owned_rom_asset_or_404(
+        request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
+    )
 
     sanitized_screenshot_filename = (
         sanitize_asset_filename(screenshotFile.filename, "screenshot")
@@ -277,7 +275,9 @@ def update_state_visibility(
     is_public: Annotated[bool, Body(embed=True)],
 ) -> StateSchema:
     """Toggle a state's public/private visibility (owner only)."""
-    state = _owned_state_or_404(request, id)
+    state = owned_rom_asset_or_404(
+        request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
+    )
 
     updated = db_state_handler.update_state(id, {"is_public": is_public}, touch=False)
 
@@ -306,7 +306,9 @@ def update_state_favorite(
     is_favorite: Annotated[bool, Body(embed=True)],
 ) -> StateSchema:
     """Favorite a state, sorting it ahead of the rest (owner only)."""
-    _owned_state_or_404(request, id)
+    owned_rom_asset_or_404(
+        request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
+    )
 
     return StateSchema.model_validate(
         db_state_handler.update_state(id, {"is_favorite": is_favorite}, touch=False)
@@ -325,7 +327,9 @@ def update_state_labels(
     labels: Annotated[list[str], Body(embed=True)],
 ) -> StateSchema:
     """Replace a state's free-text labels (owner only)."""
-    _owned_state_or_404(request, id)
+    owned_rom_asset_or_404(
+        request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
+    )
 
     return StateSchema.model_validate(
         db_state_handler.update_state(
@@ -350,7 +354,9 @@ async def rename_state(
     file_name: Annotated[str, Body(embed=True, max_length=FILE_NAME_MAX_LENGTH)],
 ) -> StateSchema:
     """Rename a state's file, its screenshot following along (owner only)."""
-    state = _owned_state_or_404(request, id)
+    state = owned_rom_asset_or_404(
+        request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
+    )
 
     return StateSchema.model_validate(await rename_asset(state, file_name))
 
@@ -383,7 +389,14 @@ async def delete_states(
     affected_rom_ids: set[int] = set()
 
     # Resolved up front, so a bad id fails the batch before anything is removed.
-    owned = [_owned_state_or_404(request, state_id) for state_id in states]
+    owned = [
+        owned_rom_asset_or_404(
+            request,
+            db_state_handler.get_state_by_id(state_id),
+            f"State with ID {state_id} not found",
+        )
+        for state_id in states
+    ]
     for state in owned:
         affected_rom_ids.add(state.rom_id)
         log.info(
