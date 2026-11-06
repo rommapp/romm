@@ -21,11 +21,12 @@ from endpoints.responses.sync import (
 )
 from endpoints.sockets.sync import emit_sync_conflict
 from handler.auth.constants import Scope
-from handler.auth.dependencies import get_permissions
+from handler.auth.dependencies import get_permissions, get_rom_visibility_filter
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
+    db_rom_handler,
     db_save_handler,
     db_sync_session_handler,
 )
@@ -245,11 +246,19 @@ def negotiate_sync(
     )
 
     # Pair on (rom_id, slot), keeping the newest row per slot: slot uploads are datetime-tagged (spec) so tagged filenames never equal the client's untagged name, and a slot accrues many rows over time. Null-slot rows stay archival-only.
+    # A save on a hidden ROM negotiates as if the ROM didn't exist.
+    visibility = get_rom_visibility_filter(request)
     server_saves = db_save_handler.get_saves(
-        user_id=request.user.id, slot_not_null=True, rom_ids=rom_id_scope
+        user_id=request.user.id,
+        slot_not_null=True,
+        rom_ids=rom_id_scope,
+        visibility=visibility,
     )
     if payload.emulators is not None:
         server_saves = [s for s in server_saves if s.emulator in payload.emulators]
+    hidden_rom_ids = db_rom_handler.get_hidden_rom_ids_among(
+        [s.rom_id for s in payload.saves], visibility
+    )
     server_save_map: dict[tuple[int, str | None], Save] = {}
     for save in server_saves:
         key = (save.rom_id, save.slot)
@@ -263,6 +272,7 @@ def negotiate_sync(
             user_id=request.user.id,
             rom_ids=roms_to_check_for_removals(payload.saves, server_save_map),
         )
+        if record.rom_id not in hidden_rom_ids
     }
 
     # Only the newest row per slot is ever looked up, so superseded rows stay out.

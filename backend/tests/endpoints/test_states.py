@@ -292,7 +292,7 @@ def test_reupload_updates_file_path_and_emulator(
 
     assert response.status_code == status.HTTP_200_OK
 
-    updated = db_state_handler.get_state(user_id=admin_user.id, id=existing.id)
+    updated = db_state_handler.get_state_by_id(existing.id)
     assert updated is not None
     assert updated.file_path == new_path
     assert updated.emulator == "new_emu"
@@ -460,7 +460,7 @@ def test_delete_state_removes_file_and_screenshot(
     )
 
     assert response.status_code == status.HTTP_200_OK
-    assert db_state_handler.get_state(user_id=admin_user.id, id=state.id) is None
+    assert db_state_handler.get_state_by_id(state.id) is None
     assert (
         db_screenshot_handler.get_screenshot(
             rom_id=rom.id,
@@ -1195,6 +1195,6 @@ def test_update_state_records_the_new_bytes_hash(
     )
 
     assert response.status_code == status.HTTP_200_OK
-    updated = db_state_handler.get_state(user_id=admin_user.id, id=state.id)
+    updated = db_state_handler.get_state_by_id(state.id)
     assert updated is not None
     assert updated.content_hash == "a" * 32

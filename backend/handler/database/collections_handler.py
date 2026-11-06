@@ -1,10 +1,12 @@
 import functools
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
+from itertools import batched
 from typing import Any, cast
 
 from sqlalchemy import (
     Select,
+    and_,
     delete,
     false,
     insert,
@@ -23,9 +25,12 @@ from sqlalchemy.orm import (
     raiseload,
     selectinload,
 )
+from sqlalchemy.orm.attributes import set_committed_value
+from sqlalchemy.sql.elements import ColumnElement
 
 from config import FRONTEND_RESOURCES_PATH
 from decorators.database import INJECTED_SESSION, begin_session
+from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
 from handler.database.rom_filters import RomFilterParams
 from models.collection import (
     SMART_COLLECTION_MAX_COVERS,
@@ -35,15 +40,15 @@ from models.collection import (
     VirtualCollection,
     VirtualCollectionRom,
 )
-from models.rom import Rom
+from models.rom import Rom, RomFacets
 from utils.sql_dialect import json_array_contains_value
 
 from .base_handler import DBBaseHandler, affected_rows
 
 MAX_VIRTUAL_COLLECTION_COVERS = 5
 
-# Collections per UNION ALL statement, to keep any single statement small.
-COVERS_BATCH_SIZE = 100
+# Collections per statement, to keep any single statement small.
+COLLECTIONS_BATCH_SIZE = 100
 
 
 def _roms_load_options() -> list[Any]:
@@ -280,8 +285,9 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         session: Session,
         collections: Sequence[VirtualCollection],
+        visibility: RomVisibilityFilter,
     ) -> None:
-        """Fill in each collection's covers from its membership rows.
+        """Fill in each collection's covers from its visible membership rows.
 
         The view deliberately doesn't aggregate covers: on a large library that
         is megabytes of cover paths per request, while callers render a handful.
@@ -295,14 +301,17 @@ class DBCollectionsHandler(DBBaseHandler):
             return
 
         def covers_select(collection: VirtualCollection) -> Select[*tuple[Any, ...]]:
-            return (
+            query = visibility.restrict(
                 select(
                     VirtualCollectionRom.type,
                     VirtualCollectionRom.name,
                     VirtualCollectionRom.path_cover_s,
                     VirtualCollectionRom.path_cover_l,
-                )
-                .where(
+                ),
+                VirtualCollectionRom.rom_id,
+            )
+            return (
+                query.where(
                     VirtualCollectionRom.type == collection.type,
                     VirtualCollectionRom.name == collection.name,
                     or_(
@@ -315,8 +324,7 @@ class DBCollectionsHandler(DBBaseHandler):
             )
 
         covers: dict[tuple[str, str], tuple[list[str], list[str]]] = {}
-        for start in range(0, len(collections), COVERS_BATCH_SIZE):
-            batch = collections[start : start + COVERS_BATCH_SIZE]
+        for batch in batched(collections, COLLECTIONS_BATCH_SIZE, strict=False):
             selects = [covers_select(collection) for collection in batch]
             statement = selects[0] if len(selects) == 1 else union_all(*selects)
 
@@ -332,18 +340,70 @@ class DBCollectionsHandler(DBBaseHandler):
             collection.path_covers_s = small
             collection.path_covers_l = large
 
+    def _only_visible(
+        self,
+        query: Select[VirtualCollection],
+        visibility: RomVisibilityFilter,
+        *member_filters: ColumnElement[bool],
+    ) -> Select[VirtualCollection]:
+        """Narrow `query` to the collections with a member `visibility` keeps."""
+        if visibility.is_unrestricted:
+            return query
+        visible = (
+            visibility.restrict(
+                select(VirtualCollectionRom.type, VirtualCollectionRom.name),
+                VirtualCollectionRom.rom_id,
+            )
+            .where(*member_filters)
+            .group_by(VirtualCollectionRom.type, VirtualCollectionRom.name)
+            .subquery()
+        )
+        return query.join(
+            visible,
+            and_(
+                visible.c.type == VirtualCollection.type,
+                visible.c.name == VirtualCollection.name,
+            ),
+        )
+
+    def _drop_hidden_members(
+        self,
+        session: Session,
+        collections: Sequence[VirtualCollection],
+        visibility: RomVisibilityFilter,
+    ) -> None:
+        """Narrow each collection's members to the ones `visibility` keeps."""
+        if visibility.is_unrestricted or not collections:
+            return
+        hidden = set(visibility.hidden_rom_ids)
+        row_hidden = visibility.row_hidden_clause(
+            platform_id_col=RomFacets.platform_id, min_age_col=RomFacets.min_age
+        )
+        if row_hidden is not None:
+            hidden.update(
+                session.scalars(select(RomFacets.rom_id).where(row_hidden)).all()
+            )
+        # Committed, so the session never tries to write the view back.
+        for collection in collections:
+            set_committed_value(collection, "rom_ids", set(collection.rom_ids) - hidden)
+
     @begin_session
     def get_virtual_collection(
         self,
         id: str,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
         session: Session = INJECTED_SESSION,
     ) -> VirtualCollection | None:
         name, type = VirtualCollection.from_id(id)
         collection = session.scalar(
             select(VirtualCollection).filter_by(name=name, type=type).limit(1)
         )
-        if collection:
-            self._attach_covers(session, [collection])
+        if not collection:
+            return None
+        self._drop_hidden_members(session, [collection], visibility)
+        if not collection.rom_ids:
+            return None
+        self._attach_covers(session, [collection], visibility)
 
         return collection
 
@@ -353,11 +413,17 @@ class DBCollectionsHandler(DBBaseHandler):
         type: str,
         limit: int | None = None,
         only_fields: Sequence[QueryableAttribute[Any]] | None = None,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
         session: Session = INJECTED_SESSION,
     ) -> Sequence[VirtualCollection]:
         query = (
-            select(VirtualCollection)
-            .filter(or_(VirtualCollection.type == type, literal(type == "all")))
+            self._only_visible(
+                select(VirtualCollection).filter(
+                    or_(VirtualCollection.type == type, literal(type == "all"))
+                ),
+                visibility,
+                or_(VirtualCollectionRom.type == type, literal(type == "all")),
+            )
             .limit(limit)
             .order_by(VirtualCollection.name.asc())
         )
@@ -368,7 +434,8 @@ class DBCollectionsHandler(DBBaseHandler):
             return session.scalars(query).unique().all()
 
         collections = session.scalars(query).unique().all()
-        self._attach_covers(session, collections)
+        self._drop_hidden_members(session, collections, visibility)
+        self._attach_covers(session, collections, visibility)
 
         return collections
 

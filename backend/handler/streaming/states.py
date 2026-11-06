@@ -33,6 +33,7 @@ from fastapi import HTTPException
 
 from config import STREAMING_STATE_HISTORY_LIMIT
 from handler.asset_store import release_thumbnail, store_screenshot, store_state_file
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
     db_rom_handler,
     db_state_handler,
@@ -462,7 +463,9 @@ def user_states_for_emulator(
     """
     states = [
         s
-        for s in db_state_handler.get_states(user_id=user_id, rom_ids=[rom_id])
+        for s in db_state_handler.get_states(
+            user_id=user_id, rom_ids=[rom_id], visibility=UNRESTRICTED
+        )
         if is_native_state(s, emulator, core)
     ]
     # Ties on id, because updated_at only has second resolution: two captures
@@ -560,7 +563,9 @@ async def prune_state_history(
         served = {
             state.id
             for state in group_states_by_slot(
-                db_state_handler.get_states(user_id=user.id, rom_ids=[rom.id])
+                db_state_handler.get_states(
+                    user_id=user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+                )
             ).values()
             if not state.missing_from_fs
         }

@@ -21,6 +21,7 @@ from tests.app_sources import app_sources
 from tests.factories import make_save
 
 import handler.database.saves_handler as saves_handler_module
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import db_deleted_asset_handler, db_save_handler
 from handler.database.base_handler import sync_engine
 from models.assets import Save, SaveLineage
@@ -35,7 +36,9 @@ class TestDBSavesHandlerPlatformFiltering:
 
     def test_get_saves_without_platform_filter(self, admin_user: User, save: Save):
         """Test that get_saves returns all saves when no platform filter is applied."""
-        saves = db_save_handler.get_saves(user_id=admin_user.id)
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id, visibility=UNRESTRICTED
+        )
 
         assert len(saves) >= 1
         save_ids = [save.id for save in saves]
@@ -46,7 +49,7 @@ class TestDBSavesHandlerPlatformFiltering:
     ):
         """Test that get_saves filters correctly by platform_id."""
         saves = db_save_handler.get_saves(
-            user_id=admin_user.id, platform_id=platform.id
+            user_id=admin_user.id, platform_id=platform.id, visibility=UNRESTRICTED
         )
 
         assert len(saves) == 1
@@ -58,7 +61,10 @@ class TestDBSavesHandlerPlatformFiltering:
     ):
         """Test that get_saves works with both rom_id and platform_id filters."""
         saves = db_save_handler.get_saves(
-            user_id=admin_user.id, rom_ids=[rom.id], platform_id=platform.id
+            user_id=admin_user.id,
+            rom_ids=[rom.id],
+            platform_id=platform.id,
+            visibility=UNRESTRICTED,
         )
 
         assert len(saves) == 1
@@ -66,7 +72,9 @@ class TestDBSavesHandlerPlatformFiltering:
 
     def test_get_saves_with_nonexistent_platform(self, admin_user: User, save: Save):
         """Test that get_saves returns empty list for nonexistent platform."""
-        saves = db_save_handler.get_saves(user_id=admin_user.id, platform_id=999)
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id, platform_id=999, visibility=UNRESTRICTED
+        )
 
         assert len(saves) == 0
 
@@ -77,7 +85,7 @@ class TestDBSavesHandlerPlatformFiltering:
         assert rom.platform_id == platform.id
 
         saves_platform = db_save_handler.get_saves(
-            user_id=admin_user.id, platform_id=platform.id
+            user_id=admin_user.id, platform_id=platform.id, visibility=UNRESTRICTED
         )
 
         assert len(saves_platform) == 1
@@ -103,7 +111,7 @@ class TestDBSavesHandlerPlatformFiltering:
 
         # Filter by platform should return both saves
         saves = db_save_handler.get_saves(
-            user_id=admin_user.id, platform_id=rom.platform_id
+            user_id=admin_user.id, platform_id=rom.platform_id, visibility=UNRESTRICTED
         )
 
         assert len(saves) == 2
@@ -272,7 +280,7 @@ class TestDBSavesHandlerPlatformFiltering:
 
         # Filter by platform should return both saves regardless of emulator
         saves = db_save_handler.get_saves(
-            user_id=admin_user.id, platform_id=platform.id
+            user_id=admin_user.id, platform_id=platform.id, visibility=UNRESTRICTED
         )
 
         assert len(saves) == 2
@@ -322,13 +330,19 @@ class TestDBSavesHandlerSlotFiltering:
         )
 
         slot_a_saves = db_save_handler.get_saves(
-            user_id=admin_user.id, rom_ids=[rom.id], slot="Slot A"
+            user_id=admin_user.id,
+            rom_ids=[rom.id],
+            slot="Slot A",
+            visibility=UNRESTRICTED,
         )
         assert len(slot_a_saves) == 2
         assert all(s.slot == "Slot A" for s in slot_a_saves)
 
         slot_b_saves = db_save_handler.get_saves(
-            user_id=admin_user.id, rom_ids=[rom.id], slot="Slot B"
+            user_id=admin_user.id,
+            rom_ids=[rom.id],
+            slot="Slot B",
+            visibility=UNRESTRICTED,
         )
         assert len(slot_b_saves) == 1
         assert slot_b_saves[0].slot == "Slot B"
@@ -353,14 +367,16 @@ class TestDBSavesHandlerSlotFiltering:
             )
 
         [found] = db_save_handler.get_saves(
-            user_id=admin_user.id, rom_ids=[rom.id], slot=slot
+            user_id=admin_user.id, rom_ids=[rom.id], slot=slot, visibility=UNRESTRICTED
         )
         assert found.slot == slot
 
         db_save_handler.prune_slot(
             user_id=admin_user.id, rom_id=rom.id, slot=slot, keep=0
         )
-        [kept] = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        [kept] = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
         assert kept.slot == sibling
 
     def _lineage_versions(self, admin_user: User, rom: Rom, **overrides: Any) -> None:
@@ -394,7 +410,9 @@ class TestDBSavesHandlerSlotFiltering:
             lineage=SaveLineage("snes9x", "srm"),
         )
 
-        kept = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        kept = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
         assert {save.file_name for save in kept} == {
             "new.SRM",
             "clock.rtc",
@@ -466,7 +484,10 @@ class TestDBSavesHandlerSlotFiltering:
 
         def names(*lineages: SaveLineage) -> set[str]:
             saves = db_save_handler.get_saves(
-                user_id=admin_user.id, rom_ids=[rom.id], lineages=lineages
+                user_id=admin_user.id,
+                rom_ids=[rom.id],
+                lineages=lineages,
+                visibility=UNRESTRICTED,
             )
             return {save.file_name for save in saves}
 
@@ -530,7 +551,9 @@ class TestDBSavesHandlerSlotFiltering:
             slot=None,
         )
 
-        all_saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        all_saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
         assert len(all_saves) >= 2
 
     def test_get_saves_with_unslotted_widens_the_slot_filter(
@@ -545,6 +568,7 @@ class TestDBSavesHandlerSlotFiltering:
             rom_ids=[rom.id],
             slot="autosave",
             with_unslotted=True,
+            visibility=UNRESTRICTED,
         )
 
         assert {save.file_name for save in saves} == {"autosave.srm", "unslotted.srm"}
@@ -583,6 +607,7 @@ class TestDBSavesHandlerSlotFiltering:
             rom_ids=[rom.id],
             slot="order_test",
             order_by="updated_at",
+            visibility=UNRESTRICTED,
         )
 
         assert len(ordered_saves_desc) == 2
@@ -595,6 +620,7 @@ class TestDBSavesHandlerSlotFiltering:
             slot="order_test",
             order_by="updated_at",
             order_dir="asc",
+            visibility=UNRESTRICTED,
         )
 
         assert len(ordered_saves_asc) == 2
@@ -618,6 +644,7 @@ class TestDBSavesHandlerPromoteToSlotHead:
             rom_ids=[rom.id],
             slot="slot1",
             order_by="updated_at",
+            visibility=UNRESTRICTED,
         ) == [older.id, head.id]
 
     def test_leaves_the_head_as_is(self, admin_user: User, rom: Rom):
@@ -755,7 +782,9 @@ class TestDBSavesHandlerSlotNotNullFilter:
             slot=None,
         )
 
-        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
 
         names = {s.file_name for s in saves}
         assert "slotted.sav" in names
@@ -780,7 +809,10 @@ class TestDBSavesHandlerSlotNotNullFilter:
         )
 
         saves = db_save_handler.get_saves(
-            user_id=admin_user.id, rom_ids=[rom.id], slot_not_null=True
+            user_id=admin_user.id,
+            rom_ids=[rom.id],
+            slot_not_null=True,
+            visibility=UNRESTRICTED,
         )
 
         names = {s.file_name for s in saves}
@@ -813,7 +845,11 @@ class TestDBSavesHandlerSlotNotNullFilter:
         )
 
         saves = db_save_handler.get_saves(
-            user_id=admin_user.id, rom_ids=[rom.id], slot="A", slot_not_null=True
+            user_id=admin_user.id,
+            rom_ids=[rom.id],
+            slot="A",
+            slot_not_null=True,
+            visibility=UNRESTRICTED,
         )
 
         assert len(saves) == 1
@@ -1040,7 +1076,9 @@ class TestGetSavesRomIdsScope:
     def test_scopes_to_listed_roms(
         self, admin_user: User, rom: Rom, save: Save, second_save: Save
     ):
-        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
 
         assert [s.id for s in saves] == [save.id]
 
@@ -1053,16 +1091,25 @@ class TestGetSavesRomIdsScope:
         second_save: Save,
     ):
         saves = db_save_handler.get_saves(
-            user_id=admin_user.id, rom_ids=[rom.id, second_rom.id]
+            user_id=admin_user.id,
+            rom_ids=[rom.id, second_rom.id],
+            visibility=UNRESTRICTED,
         )
 
         assert {s.id for s in saves} == {save.id, second_save.id}
 
     def test_empty_scope_returns_nothing(self, admin_user: User, save: Save):
-        assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[]) == []
+        assert (
+            db_save_handler.get_saves(
+                user_id=admin_user.id, rom_ids=[], visibility=UNRESTRICTED
+            )
+            == []
+        )
 
     def test_omitted_scope_returns_everything(self, admin_user: User, save: Save):
-        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=None)
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=None, visibility=UNRESTRICTED
+        )
 
         assert save.id in [s.id for s in saves]
 
@@ -1070,7 +1117,10 @@ class TestGetSavesRomIdsScope:
         self, admin_user: User, rom: Rom, save: Save, archival_save: Save
     ):
         saves = db_save_handler.get_saves(
-            user_id=admin_user.id, rom_ids=[rom.id], slot_not_null=True
+            user_id=admin_user.id,
+            rom_ids=[rom.id],
+            slot_not_null=True,
+            visibility=UNRESTRICTED,
         )
 
         assert [s.id for s in saves] == [save.id]
@@ -1152,7 +1202,14 @@ class TestDBSavesHandlerRecordsLostVersions:
             )
         [unhashed] = raised.value.versions
         assert unhashed.file_name == "v0.sav"
-        assert len(db_save_handler.get_saves(user_id=admin_user.id)) == 3
+        assert (
+            len(
+                db_save_handler.get_saves(
+                    user_id=admin_user.id, visibility=UNRESTRICTED
+                )
+            )
+            == 3
+        )
 
         db_save_handler.prune_slot(
             user_id=admin_user.id,
@@ -1249,7 +1306,9 @@ class TestDBSavesHandlerRecordsLostVersions:
             event.remove(sync_engine, "before_execute", fail_the_delete)
 
         assert self._lost(admin_user, rom) == {"autosave": []}
-        assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        assert db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
 
     def test_a_loss_the_first_read_missed_is_still_recorded(
         self, admin_user: User, rom: Rom
@@ -1304,7 +1363,7 @@ class TestDBSavesHandlerRecordsLostVersions:
         remaining = {
             save.content_hash
             for save in db_save_handler.get_saves(
-                user_id=admin_user.id, rom_ids=[rom.id]
+                user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
             )
         }
         lost = {h for hashes in self._lost(admin_user, rom).values() for h in hashes}
@@ -1379,7 +1438,9 @@ class TestDBSavesHandlerRecordsLostVersions:
 
         db_save_handler.rehash_save(save.id, "entries_md5", replacing="raw_md5")
 
-        [kept] = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        [kept] = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
         assert kept.content_hash == "entries_md5"
         assert to_utc(kept.updated_at) == written
 
@@ -1391,7 +1452,9 @@ class TestDBSavesHandlerRecordsLostVersions:
         assert not db_save_handler.rehash_save(
             save.id, "entries_md5", replacing="read_before"
         )
-        [kept] = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        [kept] = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
         assert kept.content_hash == "newer"
 
     @pytest.mark.parametrize(

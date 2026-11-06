@@ -7,6 +7,7 @@ it properly filters by platform_id through the Rom relationship.
 
 from tests.factories import make_state
 
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import db_state_handler
 from models.assets import State
 from models.platform import Platform
@@ -19,7 +20,9 @@ class TestDBStatesHandlerPlatformFiltering:
 
     def test_get_states_without_platform_filter(self, admin_user: User, state: State):
         """Test that get_states returns all states when no platform filter is applied."""
-        states = db_state_handler.get_states(user_id=admin_user.id)
+        states = db_state_handler.get_states(
+            user_id=admin_user.id, visibility=UNRESTRICTED
+        )
 
         assert len(states) >= 1
         state_ids = [state.id for state in states]
@@ -30,7 +33,7 @@ class TestDBStatesHandlerPlatformFiltering:
     ):
         """Test that get_states filters correctly by platform_id."""
         states = db_state_handler.get_states(
-            user_id=admin_user.id, platform_id=platform.id
+            user_id=admin_user.id, platform_id=platform.id, visibility=UNRESTRICTED
         )
 
         assert len(states) == 1
@@ -42,7 +45,10 @@ class TestDBStatesHandlerPlatformFiltering:
     ):
         """Test that get_states works with both rom_ids and platform_id filters."""
         states = db_state_handler.get_states(
-            user_id=admin_user.id, rom_ids=[rom.id], platform_id=platform.id
+            user_id=admin_user.id,
+            rom_ids=[rom.id],
+            platform_id=platform.id,
+            visibility=UNRESTRICTED,
         )
 
         assert len(states) == 1
@@ -50,7 +56,9 @@ class TestDBStatesHandlerPlatformFiltering:
 
     def test_get_states_with_nonexistent_platform(self, admin_user: User, state: State):
         """Test that get_states returns empty list for nonexistent platform."""
-        states = db_state_handler.get_states(user_id=admin_user.id, platform_id=999)
+        states = db_state_handler.get_states(
+            user_id=admin_user.id, platform_id=999, visibility=UNRESTRICTED
+        )
 
         assert len(states) == 0
 
@@ -61,7 +69,7 @@ class TestDBStatesHandlerPlatformFiltering:
         assert rom.platform_id == platform.id
 
         states_platform = db_state_handler.get_states(
-            user_id=admin_user.id, platform_id=platform.id
+            user_id=admin_user.id, platform_id=platform.id, visibility=UNRESTRICTED
         )
 
         assert len(states_platform) == 1
@@ -89,7 +97,7 @@ class TestDBStatesHandlerPlatformFiltering:
 
         # Filter by platform should return both states
         states = db_state_handler.get_states(
-            user_id=admin_user.id, platform_id=platform.id
+            user_id=admin_user.id, platform_id=platform.id, visibility=UNRESTRICTED
         )
 
         assert len(states) == 2
@@ -132,7 +140,7 @@ class TestDBStatesHandlerPlatformFiltering:
 
         # Filter by platform should return both states regardless of emulator
         states = db_state_handler.get_states(
-            user_id=admin_user.id, platform_id=platform.id
+            user_id=admin_user.id, platform_id=platform.id, visibility=UNRESTRICTED
         )
 
         assert len(states) == 2
@@ -144,7 +152,7 @@ class TestDBStatesHandlerPlatformFiltering:
         self, admin_user: User, platform: Platform, state: State
     ):
         """Test that get_state works correctly and maintains platform context."""
-        retrieved_state = db_state_handler.get_state(user_id=admin_user.id, id=state.id)
+        retrieved_state = db_state_handler.get_state_by_id(state.id)
 
         assert retrieved_state is not None
         assert retrieved_state.id == state.id
@@ -160,7 +168,9 @@ class TestGetStatesRomIdsScope:
     def test_scopes_to_listed_roms(
         self, admin_user: User, rom: Rom, state: State, second_state: State
     ):
-        states = db_state_handler.get_states(user_id=admin_user.id, rom_ids=[rom.id])
+        states = db_state_handler.get_states(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
 
         assert [s.id for s in states] == [state.id]
 
@@ -173,16 +183,25 @@ class TestGetStatesRomIdsScope:
         second_state: State,
     ):
         states = db_state_handler.get_states(
-            user_id=admin_user.id, rom_ids=[rom.id, second_rom.id]
+            user_id=admin_user.id,
+            rom_ids=[rom.id, second_rom.id],
+            visibility=UNRESTRICTED,
         )
 
         assert {s.id for s in states} == {state.id, second_state.id}
 
     def test_empty_scope_returns_nothing(self, admin_user: User, state: State):
-        assert db_state_handler.get_states(user_id=admin_user.id, rom_ids=[]) == []
+        assert (
+            db_state_handler.get_states(
+                user_id=admin_user.id, rom_ids=[], visibility=UNRESTRICTED
+            )
+            == []
+        )
 
     def test_omitted_scope_returns_everything(self, admin_user: User, state: State):
-        states = db_state_handler.get_states(user_id=admin_user.id, rom_ids=None)
+        states = db_state_handler.get_states(
+            user_id=admin_user.id, rom_ids=None, visibility=UNRESTRICTED
+        )
 
         assert state.id in [s.id for s in states]
 
@@ -190,7 +209,10 @@ class TestGetStatesRomIdsScope:
         self, admin_user: User, platform: Platform, rom: Rom, state: State
     ):
         states = db_state_handler.get_states(
-            user_id=admin_user.id, rom_ids=[rom.id], platform_id=platform.id
+            user_id=admin_user.id,
+            rom_ids=[rom.id],
+            platform_id=platform.id,
+            visibility=UNRESTRICTED,
         )
 
         assert [s.id for s in states] == [state.id]

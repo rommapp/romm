@@ -22,6 +22,7 @@ from fastapi import HTTPException
 from redis.exceptions import WatchError
 
 from handler.asset_store import reserve_version_name
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import db_rom_handler, db_save_handler, db_user_handler
 from handler.filesystem import fs_asset_handler
 from handler.redis_handler import async_cache
@@ -550,7 +551,9 @@ def newest_restorable(user_id: int, rom_id: int, emulator: str) -> Save | None:
     return _newest(
         [
             save
-            for save in db_save_handler.get_saves(user_id=user_id, rom_ids=[rom_id])
+            for save in db_save_handler.get_saves(
+                user_id=user_id, rom_ids=[rom_id], visibility=UNRESTRICTED
+            )
             if _is_restorable(save, emulator)
         ]
     )
@@ -564,7 +567,9 @@ def default_save(
     Raises:
         HTTPException: 503 when the broker can't say whether a newer `.srm` imports.
     """
-    stored = db_save_handler.get_saves(user_id=user_id, rom_ids=[rom_id])
+    stored = db_save_handler.get_saves(
+        user_id=user_id, rom_ids=[rom_id], visibility=UNRESTRICTED
+    )
     native = _newest([s for s in stored if _is_restorable(s, container.emulator)])
     if container.emulator.lower() != "retroarch":
         return native, False

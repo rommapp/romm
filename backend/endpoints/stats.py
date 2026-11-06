@@ -26,9 +26,9 @@ def stats(request: Request, include_platform_stats: bool = False) -> StatsReturn
     result: StatsReturn = {
         "PLATFORMS": db_stats_handler.get_platforms_count(visibility),
         "ROMS": db_stats_handler.get_roms_count(visibility),
-        "SAVES": db_stats_handler.get_saves_count(),
-        "STATES": db_stats_handler.get_states_count(),
-        "SCREENSHOTS": db_stats_handler.get_screenshots_count(),
+        "SAVES": db_stats_handler.get_saves_count(visibility),
+        "STATES": db_stats_handler.get_states_count(visibility),
+        "SCREENSHOTS": db_stats_handler.get_screenshots_count(visibility),
         "TOTAL_FILESIZE_BYTES": db_stats_handler.get_total_filesize(visibility),
     }
 

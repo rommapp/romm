@@ -19,7 +19,12 @@ from handler.asset_store import (
     reserve_version_name,
 )
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
+from handler.auth.dependencies import (
+    assert_rom_visible,
+    get_rom_visibility_filter,
+    owned_rom_asset_or_404,
+)
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
@@ -159,16 +164,6 @@ def _increment_session_counter(request: Request, session_id: int) -> None:
         log.warning(f"Failed to update sync session {session_id}", exc_info=True)
 
 
-def _owned_save_or_404(id: int, user_id: int) -> Save:
-    save = db_save_handler.get_save_by_id(id)
-    if not save or save.user_id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Save with ID {id} not found",
-        )
-    return save
-
-
 router = APIRouter(
     prefix="/saves",
     tags=["saves"],
@@ -270,6 +265,7 @@ async def add_save(
             rom_ids=[rom.id],
             slot=slot,
             order_by="updated_at",
+            visibility=get_rom_visibility_filter(request),
         )
         if slot_saves:
             latest_in_slot = slot_saves[0]
@@ -379,7 +375,7 @@ async def add_save(
             still_referenced = any(
                 other.id != db_save.id and other.full_path == stale_full_path
                 for other in db_save_handler.get_saves(
-                    user_id=request.user.id, rom_ids=[rom.id]
+                    user_id=request.user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
                 )
             )
             if not still_referenced:
@@ -474,6 +470,7 @@ def get_saves(
         rom_ids=narrow_rom_id_scope(rom_id, rom_ids),
         platform_id=platform_id,
         slot=slot,
+        visibility=get_rom_visibility_filter(request),
     )
 
     if not device:
@@ -492,12 +489,19 @@ def get_saves(
 @protected_route(router.get, "/identifiers", [Scope.ASSETS_READ])
 def get_save_identifiers(request: Request) -> list[int]:
     """Retrieve save identifiers."""
-    return db_save_handler.get_save_ids(user_id=request.user.id)
+    return db_save_handler.get_save_ids(
+        user_id=request.user.id, visibility=get_rom_visibility_filter(request)
+    )
 
 
 @protected_route(router.get, "/summary", [Scope.ASSETS_READ])
 def get_saves_summary(request: Request, rom_id: int) -> SaveSummarySchema:
     """Retrieve saves summary grouped by slot."""
+    if db_rom_handler.get_hidden_rom_ids_among(
+        [rom_id], get_rom_visibility_filter(request)
+    ):
+        return SaveSummarySchema(total_count=0, slots=[])
+
     summary_data = db_save_handler.get_saves_summary(
         user_id=request.user.id, rom_id=rom_id
     )
@@ -519,14 +523,8 @@ def get_save(request: Request, id: int, device_id: str | None = None) -> SaveSch
     """Retrieve a save by ID."""
     device = _resolve_device(request, device_id, Scope.DEVICES_READ)
 
-    save = db_save_handler.get_save(user_id=request.user.id, id=id)
-    if not save:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Save with ID {id} not found",
-        )
-    assert_rom_visible(
-        request, save.rom, not_found_detail=f"Save with ID {id} not found"
+    save = owned_rom_asset_or_404(
+        request, db_save_handler.get_save_by_id(id), f"Save with ID {id} not found"
     )
 
     return _build_save_schema(save, _syncs_for_save(save.id, device), device)
@@ -592,12 +590,9 @@ def confirm_download(
     content_hash: str | None = Body(default=None, embed=True),
 ) -> SaveSchema:
     """Confirm a save was downloaded successfully."""
-    save = db_save_handler.get_save(user_id=request.user.id, id=id)
-    if not save:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Save with ID {id} not found",
-        )
+    save = owned_rom_asset_or_404(
+        request, db_save_handler.get_save_by_id(id), f"Save with ID {id} not found"
+    )
 
     device = _resolve_device(request, device_id)
     synced_at, server_hash = save.updated_at, save.content_hash
@@ -636,11 +631,9 @@ async def update_save(
 
     device = _resolve_device(request, device_id, Scope.DEVICES_WRITE)
 
-    db_save = db_save_handler.get_save(user_id=request.user.id, id=id)
-    if not db_save:
-        error = f"Save with ID {id} not found"
-        log.error(error)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+    db_save = owned_rom_asset_or_404(
+        request, db_save_handler.get_save_by_id(id), f"Save with ID {id} not found"
+    )
 
     sanitized_screenshot_filename = (
         sanitize_asset_filename(screenshotFile.filename, "screenshot")
@@ -732,7 +725,9 @@ def update_save_visibility(
     is_public: Annotated[bool, Body(embed=True)],
 ) -> SaveSchema:
     """Toggle a save's public/private visibility (owner only)."""
-    save = _owned_save_or_404(id, request.user.id)
+    save = owned_rom_asset_or_404(
+        request, db_save_handler.get_save_by_id(id), f"Save with ID {id} not found"
+    )
 
     updated = db_save_handler.update_save(id, {"is_public": is_public}, touch=False)
 
@@ -761,7 +756,9 @@ def update_save_favorite(
     is_favorite: Annotated[bool, Body(embed=True)],
 ) -> SaveSchema:
     """Favorite a save, sorting it ahead of the rest (owner only)."""
-    _owned_save_or_404(id, request.user.id)
+    owned_rom_asset_or_404(
+        request, db_save_handler.get_save_by_id(id), f"Save with ID {id} not found"
+    )
 
     return _build_save_schema(
         db_save_handler.update_save(id, {"is_favorite": is_favorite}, touch=False)
@@ -780,7 +777,9 @@ def update_save_labels(
     labels: Annotated[list[str], Body(embed=True)],
 ) -> SaveSchema:
     """Replace a save's free-text labels (owner only)."""
-    _owned_save_or_404(id, request.user.id)
+    owned_rom_asset_or_404(
+        request, db_save_handler.get_save_by_id(id), f"Save with ID {id} not found"
+    )
 
     return _build_save_schema(
         db_save_handler.update_save(
@@ -805,7 +804,9 @@ async def rename_save(
     file_name: Annotated[str, Body(embed=True, max_length=FILE_NAME_MAX_LENGTH)],
 ) -> SaveSchema:
     """Rename a save's file, its screenshot following along (owner only)."""
-    save = _owned_save_or_404(id, request.user.id)
+    save = owned_rom_asset_or_404(
+        request, db_save_handler.get_save_by_id(id), f"Save with ID {id} not found"
+    )
 
     return _build_save_schema(await rename_asset(save, file_name))
 
@@ -837,13 +838,16 @@ async def delete_saves(
 
     affected_rom_ids: set[int] = set()
 
-    for save_id in saves:
-        save = db_save_handler.get_save(user_id=request.user.id, id=save_id)
-        if not save:
-            error = f"Save with ID {save_id} not found"
-            log.error(error)
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-
+    # Resolved up front, so a bad id fails the batch before anything is removed.
+    owned = [
+        owned_rom_asset_or_404(
+            request,
+            db_save_handler.get_save_by_id(save_id),
+            f"Save with ID {save_id} not found",
+        )
+        for save_id in saves
+    ]
+    for save in owned:
         affected_rom_ids.add(save.rom_id)
         log.info(
             f"Deleting save {hl(save.file_name)} [{save.rom.platform_slug}] from filesystem"
@@ -862,12 +866,9 @@ def track_save(
     device_id: str = Body(..., embed=True),
 ) -> SaveSchema:
     """Re-enable sync tracking for a save on a device."""
-    save = db_save_handler.get_save(user_id=request.user.id, id=id)
-    if not save:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Save with ID {id} not found",
-        )
+    save = owned_rom_asset_or_404(
+        request, db_save_handler.get_save_by_id(id), f"Save with ID {id} not found"
+    )
 
     device = _resolve_device(request, device_id)
     db_device_save_sync_handler.set_untracked(
@@ -884,12 +885,9 @@ def untrack_save(
     device_id: str = Body(..., embed=True),
 ) -> SaveSchema:
     """Disable sync tracking for a save on a device."""
-    save = db_save_handler.get_save(user_id=request.user.id, id=id)
-    if not save:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Save with ID {id} not found",
-        )
+    save = owned_rom_asset_or_404(
+        request, db_save_handler.get_save_by_id(id), f"Save with ID {id} not found"
+    )
 
     device = _resolve_device(request, device_id)
     db_device_save_sync_handler.set_untracked(

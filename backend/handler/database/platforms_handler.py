@@ -178,10 +178,15 @@ class DBPlatformsHandler(DBBaseHandler):
     def get_platform_by_slug(
         self,
         slug: str,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
         query: Select[Platform] = INJECTED_PLATFORM_QUERY,
         session: Session = INJECTED_SESSION,
     ) -> Platform | None:
-        return session.scalar(query.filter_by(slug=slug).limit(1))
+        """A platform with `slug` that `visibility` doesn't hide."""
+        query = query.filter_by(slug=slug)
+        if visibility.hidden_platform_ids:
+            query = query.filter(Platform.id.not_in(visibility.hidden_platform_ids))
+        return session.scalar(query.limit(1))
 
     @begin_session
     def delete_platform(

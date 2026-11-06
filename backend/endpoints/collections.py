@@ -60,7 +60,6 @@ ROM_IDS_ADAPTER: Final = TypeAdapter(list[int])
 CollectionSchemaT = TypeVar(
     "CollectionSchemaT",
     CollectionSchema,
-    VirtualCollectionSchema,
     SmartCollectionSchema,
 )
 
@@ -333,13 +332,10 @@ def get_virtual_collections(
     """
 
     virtual_collections = db_collection_handler.get_virtual_collections(
-        type=type, limit=limit
+        type=type, limit=limit, visibility=get_rom_visibility_filter(request)
     )
 
-    return _hide_collection_roms(
-        [VirtualCollectionSchema.model_validate(vc) for vc in virtual_collections],
-        request,
-    )
+    return [VirtualCollectionSchema.model_validate(vc) for vc in virtual_collections]
 
 
 @protected_route(router.get, "/virtual/identifiers", [Scope.COLLECTIONS_READ])
@@ -358,6 +354,7 @@ def get_virtual_collection_identifiers(
     virtual_collections = db_collection_handler.get_virtual_collections(
         type="all",
         only_fields=[VirtualCollection.name, VirtualCollection.type],
+        visibility=get_rom_visibility_filter(request),
     )
 
     return [s.id for s in virtual_collections]
@@ -444,13 +441,13 @@ def get_virtual_collection(request: Request, id: str) -> VirtualCollectionSchema
         VirtualCollectionSchema: Virtual collection
     """
 
-    virtual_collection = db_collection_handler.get_virtual_collection(id)
+    virtual_collection = db_collection_handler.get_virtual_collection(
+        id, visibility=get_rom_visibility_filter(request)
+    )
     if not virtual_collection:
         raise CollectionNotFoundInDatabaseException(id)
 
-    return _hide_single_collection_roms(
-        VirtualCollectionSchema.model_validate(virtual_collection), request
-    )
+    return VirtualCollectionSchema.model_validate(virtual_collection)
 
 
 @protected_route(router.get, "/smart/{id}", [Scope.COLLECTIONS_READ])

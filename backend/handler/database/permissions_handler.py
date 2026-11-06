@@ -1,11 +1,16 @@
-from collections.abc import Iterable, Sequence
+from collections import defaultdict
+from collections.abc import Collection, Iterable, Sequence
 from typing import Final, NamedTuple
 
-from sqlalchemy import and_, delete, or_, select, update
+from sqlalchemy import ColumnElement, and_, delete, or_, select, update
 from sqlalchemy.orm import Session
 
 from decorators.database import INJECTED_SESSION, begin_session
-from handler.auth.rom_visibility import RomVisibilityFilter, VisibilityColumns
+from handler.auth.rom_visibility import (
+    UNRESTRICTED,
+    RomVisibilityFilter,
+    VisibilityColumns,
+)
 from models.permission import (
     HiddenEntity,
     PermAction,
@@ -101,13 +106,20 @@ class DBPermissionsHandler(DBBaseHandler):
         ).all()
 
     @begin_session
-    def get_rom_audience(
+    def get_user_visibilities(
         self,
-        rom: VisibilityColumns,
+        user_ids: Collection[int] | None = None,
+        *,
+        rom: VisibilityColumns | None = None,
         session: Session = INJECTED_SESSION,
-    ) -> list[int]:
-        """Ids of the enabled users who can see `rom`, in four queries."""
-        users = session.execute(
+    ) -> dict[int, RomVisibilityFilter]:
+        """Each enabled user's ROM visibility, in four queries.
+
+        Args:
+            user_ids: Only these users, when given.
+            rom: Read only the hides bearing on this ROM, for a caller checking no other.
+        """
+        users_query = (
             select(
                 User.id,
                 User.role,
@@ -117,7 +129,10 @@ class DBPermissionsHandler(DBBaseHandler):
             )
             .where(User.enabled.is_(True))
             .order_by(User.id)
-        ).all()
+        )
+        if user_ids is not None:
+            users_query = users_query.where(User.id.in_(user_ids))
+        users = session.execute(users_query).all()
         default_group_id = self.get_default_group_id(session=session)
         groups = {
             row.id: row
@@ -129,47 +144,77 @@ class DBPermissionsHandler(DBBaseHandler):
                 )
             ).all()
         }
-        hides = session.execute(
-            select(
-                HiddenEntity.entity, HiddenEntity.user_id, HiddenEntity.group_id
-            ).where(
-                or_(
-                    and_(
-                        HiddenEntity.entity == PermEntity.ROMS,
-                        HiddenEntity.entity_id == rom.id,
-                    ),
-                    and_(
-                        HiddenEntity.entity == PermEntity.PLATFORMS,
-                        HiddenEntity.entity_id == rom.platform_id,
-                    ),
-                )
+        entity_clause = (
+            HiddenEntity.entity.in_((PermEntity.ROMS, PermEntity.PLATFORMS))
+            if rom is None
+            else or_(
+                and_(
+                    HiddenEntity.entity == PermEntity.ROMS,
+                    HiddenEntity.entity_id == rom.id,
+                ),
+                and_(
+                    HiddenEntity.entity == PermEntity.PLATFORMS,
+                    HiddenEntity.entity_id == rom.platform_id,
+                ),
             )
-        ).all()
+        )
+        hides_filter: ColumnElement[bool] = entity_clause
+        # A request for some users reads only their own and their groups' hides.
+        if user_ids is not None:
+            restricted = [user for user in users if user.role != Role.ADMIN]
+            group_ids = {
+                (
+                    user.permission_group_id
+                    if user.permission_group_id is not None
+                    else default_group_id
+                )
+                for user in restricted
+            } - {None}
+            hides_filter = and_(
+                entity_clause,
+                or_(
+                    HiddenEntity.user_id.in_([user.id for user in restricted]),
+                    HiddenEntity.group_id.in_(group_ids),
+                ),
+            )
+        hidden_by_user: dict[int, list[tuple[PermEntity, int]]] = defaultdict(list)
+        hidden_by_group: dict[int, list[tuple[PermEntity, int]]] = defaultdict(list)
+        for hide in session.execute(
+            select(
+                HiddenEntity.entity,
+                HiddenEntity.entity_id,
+                HiddenEntity.user_id,
+                HiddenEntity.group_id,
+            ).where(hides_filter)
+        ).all():
+            if hide.user_id is not None:
+                hidden_by_user[hide.user_id].append((hide.entity, hide.entity_id))
+            elif hide.group_id is not None:
+                hidden_by_group[hide.group_id].append((hide.entity, hide.entity_id))
 
-        audience = []
+        visibilities: dict[int, RomVisibilityFilter] = {}
         for user in users:
             if user.role == Role.ADMIN:
-                audience.append(user.id)
+                visibilities[user.id] = UNRESTRICTED
                 continue
             group_id = user.permission_group_id
             if group_id is None:
                 group_id = default_group_id
             group = groups.get(group_id) if group_id is not None else None
-            hidden = {
-                hide.entity
-                for hide in hides
-                if hide.user_id == user.id
-                or (group_id is not None and hide.group_id == group_id)
-            }
+            hides = hidden_by_user.get(user.id, []) + (
+                hidden_by_group.get(group_id, []) if group_id is not None else []
+            )
             # The user's own age settings replace the group's; NULL inherits.
-            visibility = RomVisibilityFilter(
-                hidden_platform_ids=(
-                    frozenset({rom.platform_id})
-                    if PermEntity.PLATFORMS in hidden
-                    else frozenset()
+            visibilities[user.id] = RomVisibilityFilter(
+                hidden_platform_ids=frozenset(
+                    entity_id
+                    for entity, entity_id in hides
+                    if entity == PermEntity.PLATFORMS
                 ),
-                hidden_rom_ids=(
-                    frozenset({rom.id}) if PermEntity.ROMS in hidden else frozenset()
+                hidden_rom_ids=frozenset(
+                    entity_id
+                    for entity, entity_id in hides
+                    if entity == PermEntity.ROMS
                 ),
                 age_limit=(
                     user.age_limit
@@ -182,9 +227,21 @@ class DBPermissionsHandler(DBBaseHandler):
                     else bool(group and group.hide_unrated_roms)
                 ),
             )
-            if visibility.allows(rom):
-                audience.append(user.id)
-        return audience
+        return visibilities
+
+    @begin_session
+    def get_rom_audience(
+        self,
+        rom: VisibilityColumns,
+        session: Session = INJECTED_SESSION,
+    ) -> list[int]:
+        """Ids of the enabled users who can see `rom`, in four queries."""
+        visibilities = self.get_user_visibilities(rom=rom, session=session)
+        return [
+            user_id
+            for user_id, visibility in visibilities.items()
+            if visibility.allows(rom)
+        ]
 
     @begin_session
     def get_hidden_entity_ids(
