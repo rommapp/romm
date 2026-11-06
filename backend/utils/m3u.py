@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from models.rom import RomFile
 
+PLAYLIST_EXT = ".m3u"
+
 # Sheet formats that describe a disc by pointing at raw track files: .cue for
 # BIN/CUE, .gdi for Dreamcast, .ccd for CloneCD and .mds for Alcohol. No one
 # format is privileged over the others.
@@ -46,7 +48,7 @@ def _disc_order(file: RomFile) -> tuple[bool, int, str]:
     return (number is None, number or 0, file.file_name)
 
 
-def _playlist_entries(m3u_path: Path) -> list[list[Path]] | None:
+def playlist_entries(m3u_path: Path) -> list[list[Path]] | None:
     """Each disc line's possible paths, literal first since a POSIX name may
     hold the backslashes Windows playlists separate folders with."""
     try:
@@ -77,7 +79,7 @@ def first_playlist_entry(m3u_path: Path) -> Path | None:
         The first entry's path, or None when the playlist can't be read or that
         entry isn't a file on disk.
     """
-    entries = _playlist_entries(m3u_path)
+    entries = playlist_entries(m3u_path)
     if not entries:
         return None
     return next((path for path in entries[0] if path.is_file()), None)
@@ -133,7 +135,7 @@ def listing_playlist(disc: Path) -> str | None:
     except OSError:
         return None
     for playlist in playlists:
-        for candidates in _playlist_entries(playlist) or []:
+        for candidates in playlist_entries(playlist) or []:
             # The path an emulator would open, as first_playlist_entry picks it.
             on_disk = next((path for path in candidates if path.is_file()), None)
             if on_disk:
