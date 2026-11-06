@@ -1,10 +1,14 @@
 """Tests for rom-converto's per-file title ids during scan."""
 
+import json
+import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from tests._zipfile_shim import reload_zipfile
+from tests.factories import make_platform, make_rom
 
 from adapters.services.rom_converto import RomConvertoInfo, rom_converto_service
 from adapters.services.sigil import SigilExtractionResult
@@ -449,6 +453,100 @@ class TestGetRomFilesWithConverto:
         assert by_name["Game (Disc 1).iso"].title_id == "SLUS-10001"
         assert by_name["Game (Disc 1).iso"].converto_read_at is not None
         assert by_name["Game (Disc 2).iso"].converto_read_at is None
+
+    @pytest.mark.asyncio
+    async def test_unrecognized_psp_archive_is_not_reread(self, scan_env, mocker):
+        platform = make_platform("psp")
+        rom = make_rom(platform, "Game")
+        archive = scan_env.handler.base_path / "psp" / "roms" / "Game.zip"
+        archive.parent.mkdir(parents=True)
+        archive.write_bytes(b"rom-bytes")
+        records = [{"path": str(archive), "ok": False, "error": "could not detect"}]
+        run = mocker.patch(
+            "adapters.services.rom_converto._run",
+            mocker.AsyncMock(return_value=(0, json.dumps(records), "")),
+        )
+        first = await scan_env.handler.get_rom_files(rom, calculate_hashes=False)
+
+        run.assert_awaited_once()
+        [first_file] = first.rom_files
+        assert first_file.file_name == "Game.zip"
+        assert first_file.title_id is None
+        assert first_file.converto_read_at is not None
+        run.reset_mock()
+
+        rescan = await scan_env.handler.get_rom_files(
+            rom, calculate_hashes=False, existing_files=first.rom_files
+        )
+
+        run.assert_not_awaited()
+        [reused_file] = rescan.rom_files
+        assert reused_file.title_id is None
+        assert reused_file.converto_read_at == first_file.converto_read_at
+
+    @pytest.mark.asyncio
+    async def test_archive_without_an_inspectable_member_is_not_read(
+        self, scan_env, mocker
+    ):
+        rom = make_rom(make_platform("psp"), "Game")
+        archive = scan_env.handler.base_path / "psp" / "roms" / "Game.zip"
+        archive.parent.mkdir(parents=True)
+        reload_zipfile()
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr("data.bin", b"rom-bytes")
+        run = mocker.patch("adapters.services.rom_converto._run", mocker.AsyncMock())
+
+        parsed = await scan_env.handler.get_rom_files(rom)
+
+        run.assert_not_awaited()
+        [rom_file] = parsed.rom_files
+        assert rom_file.archive_members
+        assert rom_file.converto_read_at is None
+
+    @pytest.mark.asyncio
+    async def test_psp_archive_stores_converto_title_id(self, scan_env, mocker):
+        platform = make_platform("psp")
+        rom = make_rom(platform, "Game")
+        archive = scan_env.handler.base_path / "psp" / "roms" / "Game.zip"
+        archive.parent.mkdir(parents=True)
+        archive.write_bytes(b"rom-bytes")
+        records = [
+            {
+                "path": str(archive),
+                "ok": True,
+                "info": {"kind": "psp", "title_id": "ULUS10041"},
+            }
+        ]
+        mocker.patch(
+            "adapters.services.rom_converto._run",
+            mocker.AsyncMock(return_value=(0, json.dumps(records), "")),
+        )
+
+        parsed = await scan_env.handler.get_rom_files(rom, calculate_hashes=False)
+        fs_rom = _fs_rom(parsed.rom_files, parsed.sha1_hash, parsed.identity)
+        fs_rom["fs_name"] = rom.fs_name
+        fs_rom["fs_path"] = rom.fs_path
+        mocker.patch(
+            "handler.scan_handler.cm.get_config",
+            return_value=SimpleNamespace(
+                SCAN_METADATA_PRIORITY=[],
+                SCAN_ARTWORK_PRIORITY=[],
+                SCAN_ARTWORK_PRIORITY_OVERRIDES={},
+            ),
+        )
+        scanned = await scan_rom(
+            scan_type=ScanType.QUICK,
+            platform=platform,
+            rom=rom,
+            fs_rom=fs_rom,
+            metadata_sources=[],
+            newly_added=False,
+        )
+        [scanned_file] = parsed.rom_files
+        assert scanned_file.file_name == "Game.zip"
+        assert scanned_file.title_id == "ULUS-10041"
+        assert scanned_file.converto_read_at is not None
+        assert scanned.title_id == "ULUS-10041"
 
 
 @pytest.mark.parametrize(

@@ -10,11 +10,16 @@ from itertools import batched
 from pathlib import Path
 from typing import Any, Final
 
-from config import ROM_CONVERTO_ENABLED, ROM_CONVERTO_TIMEOUT
+from config import (
+    ROM_CONVERTO_ENABLED,
+    ROM_CONVERTO_MAX_CONCURRENCY,
+    ROM_CONVERTO_TIMEOUT,
+    ROMM_TMP_PATH,
+)
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import TITLE_ID_MAX_LENGTH
+from models.rom import TITLE_ID_MAX_LENGTH, RomArchiveMember, RomFile
 from utils.filesystem import SERVED_FILE_MODE
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
@@ -49,6 +54,16 @@ _BINARY: Final = "rom-converto"
 
 CUE_EXT: Final = ".cue"
 
+# The archives the CLI opens to read the image inside; a bare `.gz` is no container.
+ARCHIVE_SUFFIXES: Final[tuple[str, ...]] = (
+    ".tar.gz",
+    ".tgz",
+    ".zip",
+    ".7z",
+    ".tar",
+    ".rar",
+)
+
 # Bounds one run's output, which carries every file's embedded images as JSON.
 INFO_RUN_MAX_FILES: Final = 64
 
@@ -72,8 +87,10 @@ class RomConvertoUnsafeSourceError(RomConvertoError):
     """A cue sheet references a track outside its own folder."""
 
 
-# `xbox convert` keeps only a dump's game partition, so a library never stores its output.
-_LOSSY_ARGV: Final[frozenset[tuple[str, ...]]] = frozenset({("xbox", "convert")})
+# `xbox convert` keeps only the game partition; `cue to-iso` keeps only the first track.
+_LOSSY_ARGV: Final[frozenset[tuple[str, ...]]] = frozenset(
+    {("xbox", "convert"), ("cue", "to-iso")}
+)
 
 
 @dataclass(frozen=True)
@@ -99,8 +116,15 @@ class Operation:
         return self.argv not in _LOSSY_ARGV
 
     def output_name(self, src: Path, input_ext: str) -> str:
-        """`src` renamed from the matched lowercase `input_ext` to the output extension."""
-        return f"{src.name[: len(src.name) - len(input_ext)]}{self.output_ext}"
+        """Drop an archive suffix and a matching `input_ext`, then append the output extension."""
+        name = src.name
+        for suffix in ARCHIVE_SUFFIXES:
+            if name.lower().endswith(suffix):
+                name = name[: -len(suffix)]
+                break
+        if name.lower().endswith(input_ext.lower()):
+            name = name[: -len(input_ext)]
+        return f"{name}{self.output_ext}"
 
 
 def _op(
@@ -192,6 +216,36 @@ _KNOWN_EXTS: Final[frozenset[str]] = frozenset(
     {ext for op in OPERATIONS for ext in (*op.input_exts, op.output_ext)}
     | _FORMAT_ALIASES.keys()
 )
+# The CLI's commands also pick these from an archive (`chd compress` .gdi/.avi, `ctr`
+# .3dsx/.z3dsx, `nx` .nca/.ncz), so one beside the image makes its pick ambiguous.
+_ARCHIVE_IMAGE_EXTS: Final[frozenset[str]] = _KNOWN_EXTS | {
+    ".gdi",
+    ".avi",
+    ".3dsx",
+    ".z3dsx",
+    ".nca",
+    ".ncz",
+}
+
+
+def is_archive(file_name: str) -> bool:
+    """Whether `file_name` has an archive suffix the CLI opens."""
+    return file_name.lower().endswith(ARCHIVE_SUFFIXES)
+
+
+def conversion_source(rom_file: RomFile) -> tuple[str, int] | None:
+    """The name and size of the file itself, or of an archive's only recorded image; None for an archive with none or several."""
+    if not is_archive(rom_file.file_name):
+        return rom_file.file_name, rom_file.file_size_bytes
+    source: tuple[str, int] | None = None
+    for member in rom_file.archive_members or []:
+        name = member["name"].lower()
+        if not any(name.endswith(ext) for ext in _ARCHIVE_IMAGE_EXTS):
+            continue
+        if source is not None:
+            return None
+        source = member["name"], member["size"]
+    return source
 
 
 def file_format(file_name: str) -> str:
@@ -262,10 +316,17 @@ def download_targets(platform_slug: str, file_name: str) -> list[str]:
     )
 
 
-def _cue_file_name(line: str) -> str | None:
-    """The track a cue `FILE` line names, read the way the CLI reads it, or None for another line."""
-    parts = line.split()
-    if not parts or parts[0].upper() != "FILE":
+# Runs between the CLI's whitespace (Rust's char::is_whitespace); Python's str.split()
+# also splits on \x1c-\x1f, so a crafted line would parse differently.
+_CUE_WORD: Final[re.Pattern[str]] = re.compile(
+    "[^\t\n\x0b\x0c\r \x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+"
+)
+
+
+def _cue_file_name(line: str, *, any_case: bool = False) -> str | None:
+    """The track a cue `FILE` line names, read the way the CLI reads it unless `any_case`, or None for another line."""
+    parts = _CUE_WORD.findall(line)
+    if not parts or (parts[0].upper() if any_case else parts[0]) != "FILE":
         return None
     # The CLI takes everything between the first and last quote, or the bare second word.
     start, end = line.find('"'), line.rfind('"')
@@ -274,24 +335,52 @@ def _cue_file_name(line: str) -> str | None:
     return parts[1] if len(parts) >= 3 else ""
 
 
+def cue_track_names(text: str, cue_name: str) -> list[str]:
+    """The safe FILE names owning at least one TRACK, in cue order.
+
+    Raises:
+        RomConvertoUnsafeSourceError: A track is not a plain file name in the cue's folder.
+    """
+    tracks: list[str] = []
+    pending: str | None = None
+    for line in text.split("\n"):
+        name = _cue_file_name(line)
+        if name is None:
+            if pending is not None and _CUE_WORD.findall(line)[:1] == ["TRACK"]:
+                tracks.append(pending)
+                pending = None
+            continue
+        # The CLI joins the name onto the cue's folder, so `..` or `/` would read any file.
+        if name in ("", ".", "..") or Path(name).name != name:
+            raise RomConvertoUnsafeSourceError(
+                f"{cue_name} references a track outside its folder"
+            )
+        pending = name
+    return tracks
+
+
+def cue_file_names(text: str) -> list[str]:
+    """Every FILE name, in any keyword case and with or without a track, as lenient players read a sheet."""
+    return [
+        name
+        for line in text.splitlines()
+        if (name := _cue_file_name(line, any_case=True))
+    ]
+
+
 def cue_tracks(cue: Path) -> list[Path]:
     """The track files a cue sheet references, all beside it.
 
     Raises:
         RomConvertoUnsafeSourceError: A track is not a plain file name in the cue's folder.
     """
-    tracks: list[Path] = []
-    for line in cue.read_text(encoding="utf-8-sig", errors="replace").splitlines():
-        name = _cue_file_name(line)
-        if name is None:
-            continue
-        # The CLI joins the name onto the cue's folder, so `..` or `/` would read any file.
-        if name in ("", ".", "..") or Path(name).name != name:
-            raise RomConvertoUnsafeSourceError(
-                f"{cue.name} references a track outside its folder"
-            )
-        tracks.append(cue.with_name(name))
-    return tracks
+    # Decoded from bytes so a lone \r stays inside its line, as it does for the CLI.
+    return [
+        cue.with_name(name)
+        for name in cue_track_names(
+            cue.read_bytes().decode("utf-8-sig", errors="replace"), cue.name
+        )
+    ]
 
 
 def _convert_argv(operation: Operation, src: Path, out: Path) -> list[str]:
@@ -322,7 +411,10 @@ def _listable(path: Path) -> bool:
 
 def _make_sandbox() -> tuple[Path, Path]:
     """A new empty dir to run the CLI from, and the empty config file inside it."""
-    sandbox = Path(tempfile.mkdtemp(prefix="rom-converto-"))
+    # Archives unpack in here, so it sits on ROMM_TMP_PATH with RomM's other large temp files.
+    if ROMM_TMP_PATH:
+        Path(ROMM_TMP_PATH).mkdir(parents=True, exist_ok=True)
+    sandbox = Path(tempfile.mkdtemp(prefix="rom-converto-", dir=ROMM_TMP_PATH))
     config = sandbox / "config.toml"
     config.touch()
     return sandbox, config
@@ -361,6 +453,8 @@ async def _run(argv: list[str], timeout_seconds: float) -> tuple[int, str, str]:
             str(config),
             *argv,
             cwd=sandbox,
+            # Archives unpack under TMPDIR, so a killed CLI leaves nothing behind.
+            env={**os.environ, "TMPDIR": str(sandbox)},
             stdin=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -485,6 +579,19 @@ class RomConvertoService:
         # None when the manifest predates `info_extensions`: inspect everything.
         self._info_extensions: frozenset[str] | None = None
         self._probe_lock = asyncio.Lock()
+        self._archive_reads: (
+            tuple[asyncio.AbstractEventLoop, asyncio.Semaphore] | None
+        ) = None
+
+    def _archive_read_slots(self) -> asyncio.Semaphore:
+        """The running loop's cap on archives unpacking at once; each RQ job runs its own loop."""
+        loop = asyncio.get_running_loop()
+        if self._archive_reads is None or self._archive_reads[0] is not loop:
+            self._archive_reads = (
+                loop,
+                asyncio.Semaphore(ROM_CONVERTO_MAX_CONCURRENCY),
+            )
+        return self._archive_reads[1]
 
     async def is_enabled(self) -> bool:
         if not ROM_CONVERTO_ENABLED:
@@ -530,18 +637,34 @@ class RomConvertoService:
             self._available = True
             return True
 
-    def can_inspect(self, path: Path) -> bool:
-        """Whether `info` recognizes this file's extension."""
+    def can_inspect(
+        self, path: Path, members: list[RomArchiveMember] | None = None
+    ) -> bool:
+        """Whether `info` recognizes this file's extension, or an archive's recorded member's; unrecorded archives are read."""
         if self._info_extensions is None:
             return True
+        if is_archive(path.name):
+            exts = tuple(self._info_extensions)
+            return members is None or any(
+                member["name"].lower().endswith(exts) for member in members
+            )
         return path.suffix.lower() in self._info_extensions
 
     async def read_infos(self, paths: list[Path]) -> dict[Path, RomConvertoInfo]:
-        """Inspect files in `info` runs of up to `INFO_RUN_MAX_FILES`, keyed by the paths it recognized; never raises."""
+        """Inspect plain files in batches and archives alone, returning recognized files and unreadable archives; never raises."""
         listed = await asyncio.to_thread(lambda: [p for p in paths if _listable(p)])
+        plain: list[Path] = []
+        archives: list[Path] = []
+        for path in listed:
+            (archives if is_archive(path.name) else plain).append(path)
         infos: dict[Path, RomConvertoInfo] = {}
-        for chunk in batched(listed, INFO_RUN_MAX_FILES, strict=False):
+        for chunk in batched(plain, INFO_RUN_MAX_FILES, strict=False):
             infos.update(await self._read_run(list(chunk)))
+        # An archive's image is unpacked into the temp dir before it is read, so each
+        # gets its own run and timeout, and concurrent scans share a few slots.
+        for archive in archives:
+            async with self._archive_read_slots():
+                infos.update(await self._read_run([archive]))
         return infos
 
     async def _read_run(self, listed: list[Path]) -> dict[Path, RomConvertoInfo]:
@@ -558,6 +681,10 @@ class RomConvertoService:
             code, stdout, stderr = await _run(
                 ["info", "--json", "--paths-file", paths_file], ROM_CONVERTO_TIMEOUT
             )
+        except RomConvertoTimeoutError as exc:
+            log.warning(f"rom-converto info failed: {exc}")
+            # Stamped so an archive too slow to unpack doesn't stall every scan.
+            return {path: RomConvertoInfo() for path in listed if is_archive(path.name)}
         except (RomConvertoError, OSError) as exc:
             log.warning(f"rom-converto info failed: {exc}")
             return {}
@@ -584,6 +711,9 @@ class RomConvertoService:
             if record.get("ok") and isinstance(payload, dict):
                 infos[Path(str(record.get("path")))] = _parse_info(payload)
             else:
+                if is_archive(str(record.get("path"))):
+                    # Stamp unreadable archives so unchanged files are not unpacked on every scan.
+                    infos[Path(str(record.get("path")))] = RomConvertoInfo()
                 log.debug(
                     f"rom-converto did not recognize {record.get('path')}: "
                     f"{record.get('error')}"

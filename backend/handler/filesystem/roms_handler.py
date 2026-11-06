@@ -352,11 +352,11 @@ def _may_hold_title_id(path: Path, category: RomFileCategory | None) -> bool:
     )
 
 
-def _converto_may_read(path: Path, category: RomFileCategory | None) -> bool:
+def _converto_may_read(path: Path, rom_file: RomFile) -> bool:
     """Whether rom-converto can read a title id from this file."""
     return (
-        category not in NON_BINARY_FILE_CATEGORIES
-        and rom_converto_service.can_inspect(path)
+        rom_file.category not in NON_BINARY_FILE_CATEGORIES
+        and rom_converto_service.can_inspect(path, rom_file.archive_members)
     )
 
 
@@ -678,7 +678,7 @@ class FSRomsHandler(FSHandler):
         )
 
     async def _read_converto_infos(self, sources: list[tuple[Path, RomFile]]) -> None:
-        """Write title ids and the read time onto the files rom-converto recognized."""
+        """Write title ids and the read time onto the files rom-converto read."""
         if not sources:
             return
         infos = await rom_converto_service.read_infos([p for p, _ in sources])
@@ -1057,7 +1057,7 @@ class FSRomsHandler(FSHandler):
             _record_title_id_source(rom_dir, rom_file)
 
         # New and changed rows were never read; reused ones only if rom-converto
-        # hasn't recognized them yet. Every row sits under the validated rom dir.
+        # hasn't read them yet. Every row sits under the validated rom dir.
         converto_sources = [
             (path, rom_file)
             for rom_file in rom_files
@@ -1066,7 +1066,7 @@ class FSRomsHandler(FSHandler):
             and _converto_may_read(
                 path := abs_fs_path
                 / Path(rom_file.full_path).relative_to(rel_roms_path),
-                rom_file.category,
+                rom_file,
             )
         ]
         await self._read_converto_infos(converto_sources)

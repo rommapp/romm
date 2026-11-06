@@ -13,6 +13,7 @@ import pytest
 
 from logger.logger import log
 from utils import archives
+from utils.archives import list_archive_members, read_archive_member
 from utils.zip_cache import ensure_zipfile_writable
 
 
@@ -74,6 +75,189 @@ def _mock_popen_streaming(
 
     popen.side_effect = _popen_call
     return popen
+
+
+@pytest.fixture
+def member_archive(tmp_path, request):
+    suffix = request.param
+    path = tmp_path / f"Game{suffix}"
+    members = {
+        "folder/Game.cue": b'FILE "Game.bin" BINARY\n',
+        "dump.log": b"keep log",
+        ".DS_Store": b"keep metadata",
+    }
+    if suffix == ".zip":
+        ensure_zipfile_writable()
+        with zipfile.ZipFile(path, "w") as archive:
+            archive.writestr("folder/", b"")
+            for name, data in members.items():
+                archive.writestr(name, data)
+    else:
+        with tarfile.open(path, "w" if suffix == ".tar" else "w:gz") as archive:
+            directory = tarfile.TarInfo("folder/")
+            directory.type = tarfile.DIRTYPE
+            archive.addfile(directory)
+            for name, data in members.items():
+                entry = tarfile.TarInfo(name)
+                entry.size = len(data)
+                archive.addfile(entry, io.BytesIO(data))
+    return path, members
+
+
+@pytest.mark.parametrize(
+    "member_archive", [".zip", ".tar", ".tar.gz", ".tgz"], indirect=True
+)
+def test_list_archive_members_is_unfiltered(member_archive):
+    path, members = member_archive
+
+    assert sorted(list_archive_members(path)) == sorted(members)
+
+
+@pytest.mark.parametrize("member_archive", [".zip", ".tar"], indirect=True)
+def test_read_archive_member_returns_bytes(member_archive):
+    path, members = member_archive
+
+    data = members["folder/Game.cue"]
+    assert read_archive_member(path, "folder/Game.cue", len(data)) == data
+
+
+@pytest.mark.parametrize("member_archive", [".zip", ".tar"], indirect=True)
+def test_archive_member_overflow_raises(member_archive):
+    path, members = member_archive
+    limit = len(members["folder/Game.cue"]) - 1
+
+    with pytest.raises(archives.ArchiveReadError, match="exceeds"):
+        read_archive_member(path, "folder/Game.cue", limit)
+
+
+def test_zip_member_with_an_unbounded_codec_is_refused(tmp_path):
+    path = tmp_path / "Game.zip"
+    ensure_zipfile_writable()
+    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_BZIP2) as archive:
+        archive.writestr("Game.cue", b'FILE "Game.bin" BINARY\n')
+
+    with pytest.raises(archives.ArchiveReadError, match="compression method"):
+        read_archive_member(path, "Game.cue", 1024)
+
+
+@pytest.mark.parametrize("operation", ["list", "read"])
+def test_corrupt_archive_raises(tmp_path, operation):
+    path = tmp_path / "Game.zip"
+    path.write_bytes(b"not a zip")
+
+    with pytest.raises(archives.ArchiveReadError):
+        if operation == "list":
+            list_archive_members(path)
+        else:
+            read_archive_member(path, "missing.cue", 1024)
+
+
+@pytest.mark.parametrize("member_archive", [".zip", ".tar"], indirect=True)
+def test_missing_archive_member_raises(member_archive):
+    path, _ = member_archive
+
+    with pytest.raises(archives.ArchiveReadError):
+        read_archive_member(path, "missing.cue", 1024)
+
+
+@pytest.mark.parametrize("suffix", [".7z", ".rar"])
+def test_external_archive_listing_is_unfiltered(suffix):
+    names = ["folder/Game.cue", "dump.log", ".DS_Store"]
+    stdout: str | bytes
+    if suffix == ".7z":
+        stdout = (
+            "Path = folder\nSize = 0\nAttributes = D drwxr-xr-x\n\n"
+            + _fake_7z_listing(names)
+        )
+    else:
+        stdout = _fake_mtree_listing(
+            ["./folder type=dir", *(f"./{name} type=file size=10" for name in names)]
+        )
+
+    with patch.object(subprocess, "run", return_value=MagicMock(stdout=stdout)):
+        assert sorted(list_archive_members(Path(f"/fake/Game{suffix}"))) == sorted(
+            names
+        )
+
+
+@pytest.mark.parametrize("suffix", [".7z", ".rar"])
+@pytest.mark.parametrize(
+    ("member", "rar_pattern"),
+    [
+        ("Game.cue", "Game.cue"),
+        ("Game [1]*?.cue", r"Game \[1\]\*\?.cue"),
+        ("@Game.cue", "@Game.cue"),
+    ],
+)
+def test_external_archive_member_returns_bytes(suffix, member, rar_pattern):
+    data = b'FILE "Game.bin" BINARY\n'
+    path = Path(f"/fake/Game{suffix}")
+    with patch.object(subprocess, "Popen") as popen:
+        process = popen.return_value.__enter__.return_value
+        process.stdout.read.return_value = data
+        process.returncode = 0
+
+        assert read_archive_member(path, member, len(data)) == data
+
+    process.stdout.read.assert_called_once_with(len(data) + 1)
+
+    expected = (
+        [
+            archives.SEVEN_ZIP_PATH,
+            "e",
+            str(path),
+            "-so",
+            "-y",
+            "-spd",
+            "--",
+            member,
+        ]
+        if suffix == ".7z"
+        else [archives.BSDTAR_PATH, "-xOf", str(path), "--", rar_pattern]
+    )
+    popen.assert_called_once_with(
+        expected,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        shell=False,
+    )
+
+
+@pytest.mark.parametrize("suffix", [".7z", ".rar"])
+def test_external_archive_member_overflow_kills_process(suffix):
+    with patch.object(subprocess, "Popen") as popen:
+        process = popen.return_value.__enter__.return_value
+        process.stdout.read.return_value = b"12345"
+        process.returncode = -9
+
+        with pytest.raises(archives.ArchiveReadError, match="exceeds"):
+            read_archive_member(Path(f"/fake/Game{suffix}"), "Game.cue", 4)
+
+    process.stdout.read.assert_called_once_with(5)
+    process.kill.assert_called_once()
+    process.wait.assert_called_once()
+
+
+@pytest.mark.parametrize("suffix", [".7z", ".rar"])
+def test_external_archive_member_nonzero_exit_raises(suffix):
+    with patch.object(subprocess, "Popen") as popen:
+        process = popen.return_value.__enter__.return_value
+        process.stdout.read.return_value = b""
+        process.returncode = 2
+
+        with pytest.raises(archives.ArchiveReadError, match="code 2"):
+            read_archive_member(Path(f"/fake/Game{suffix}"), "Game.cue", 1024)
+
+
+@pytest.mark.parametrize("suffix", [".7z", ".rar"])
+def test_external_archive_listing_failure_raises(suffix):
+    with (
+        patch.object(
+            subprocess, "run", side_effect=subprocess.CalledProcessError(2, "extractor")
+        ),
+        pytest.raises(archives.ArchiveReadError),
+    ):
+        list_archive_members(Path(f"/fake/Game{suffix}"))
 
 
 def test_stream_7z_chunks_yields_until_eof():
@@ -184,6 +368,13 @@ class TestStalledExtractorIsKilled:
                 Path("/fake.7z"), [], []
             ):
                 list(chunks)
+        assert time.monotonic() - start < 10
+
+    @pytest.mark.usefixtures("stalling_7zz")
+    def test_bounded_member_read_raises(self):
+        start = time.monotonic()
+        with pytest.raises(archives.ArchiveReadError, match="timed out"):
+            read_archive_member(Path("/fake.7z"), "game.cue", 1024)
         assert time.monotonic() - start < 10
 
     @pytest.mark.usefixtures("stalling_7zz")

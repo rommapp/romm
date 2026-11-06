@@ -661,6 +661,101 @@ def _list_archive_file_members(file_path: Path) -> list[tuple[str, int]]:
     return entries
 
 
+def list_archive_members(file_path: Path) -> list[str]:
+    """List every non-directory member, raising ArchiveReadError on failure."""
+    name = file_path.name.lower()
+    try:
+        if name.endswith(".zip"):
+            with zipfile.ZipFile(file_path) as archive:
+                return [
+                    entry.filename for entry in archive.infolist() if not entry.is_dir()
+                ]
+        if name.endswith((".tar", ".tar.gz", ".tgz")):
+            with tarfile.open(file_path, "r:*") as archive:
+                return [
+                    entry.name for entry in archive.getmembers() if not entry.isdir()
+                ]
+        if name.endswith((".7z", ".rar")):
+            entries = _list_archive_file_members(file_path)
+            if not entries:
+                raise ArchiveReadError(f"Could not list members of {file_path}")
+            return [member for member, _ in entries]
+    except (zipfile.BadZipFile, tarfile.TarError, OSError, EOFError, zlib.error) as exc:
+        raise ArchiveReadError(f"Error listing {file_path}: {exc}") from exc
+    raise ArchiveReadError(f"Unsupported archive: {file_path}")
+
+
+def read_archive_member(file_path: Path, member: str, limit: int) -> bytes:
+    """Read at most `limit` bytes from one member, raising ArchiveReadError on failure."""
+    name = file_path.name.lower()
+    try:
+        if name.endswith(".zip"):
+            with zipfile.ZipFile(file_path) as archive:
+                info = archive.getinfo(member)
+                # zipfile caps only stored and deflated reads; other codecs inflate whole chunks.
+                if info.compress_type not in (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED):
+                    raise ArchiveReadError(
+                        f"{member} in {file_path} uses compression method {info.compress_type}"
+                    )
+                with archive.open(info) as reader:
+                    data = reader.read(limit + 1)
+        elif name.endswith((".tar", ".tar.gz", ".tgz")):
+            with tarfile.open(file_path, "r:*") as tar_archive:
+                entry = tar_archive.getmember(member)
+                if not entry.isfile():
+                    raise ArchiveReadError(f"{member} in {file_path} is not a file")
+                tar_reader = tar_archive.extractfile(entry)
+                if tar_reader is None:
+                    raise ArchiveReadError(f"Could not read {member} from {file_path}")
+                with tar_reader:
+                    data = tar_reader.read(limit + 1)
+        elif name.endswith((".7z", ".rar")):
+            with (
+                subprocess.Popen(
+                    _archive_member_command(file_path, member),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    shell=False,  # trunk-ignore(bandit/B603): binary paths are hardcoded, args are validated
+                ) as process,
+                _kill_at_deadline(
+                    process, time.monotonic() + SEVEN_ZIP_TIMEOUT
+                ) as expired,
+            ):
+                assert process.stdout is not None
+                data = process.stdout.read(limit + 1)
+                overflowed = len(data) > limit
+                if overflowed:
+                    process.kill()
+                process.wait()
+                if not overflowed and expired.is_set():
+                    raise ArchiveReadError(
+                        f"Reading {member} from {file_path} timed out"
+                    )
+                if not overflowed and process.returncode != 0:
+                    raise ArchiveReadError(
+                        f"Error reading {member} from {file_path}: code {process.returncode}"
+                    )
+        else:
+            raise ArchiveReadError(f"Unsupported archive: {file_path}")
+        if len(data) > limit:
+            raise ArchiveReadError(f"{member} in {file_path} exceeds {limit} bytes")
+        return data
+    except (
+        zipfile.BadZipFile,
+        tarfile.TarError,
+        OSError,
+        EOFError,
+        zlib.error,
+        KeyError,
+        RuntimeError,
+        NotImplementedError,
+        subprocess.SubprocessError,
+    ) as exc:
+        raise ArchiveReadError(
+            f"Error reading {member} from {file_path}: {exc}"
+        ) from exc
+
+
 def _extract_member_to_dir(
     file_path: Path, member: str, dest_dir: Path, deadline: float
 ) -> Path | None:
