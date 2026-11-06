@@ -89,9 +89,9 @@ class DBPlaySessionsHandler(DBBaseHandler):
             )
 
         if rom_id is not None:
-            stmt = stmt.filter_by(rom_id=rom_id)
+            stmt = stmt.where(PlaySession.rom_id == rom_id)
         if device_id is not None:
-            stmt = stmt.filter_by(device_id=device_id)
+            stmt = stmt.where(PlaySession.device_id == device_id)
         if start_after is not None:
             stmt = stmt.where(PlaySession.start_time >= start_after)
         if end_before is not None:

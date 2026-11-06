@@ -18,6 +18,7 @@ from endpoints.roms import walkthrough as walkthrough_endpoints
 from handler.auth.base_handler import oauth_handler
 from handler.database import (
     db_collection_handler,
+    db_device_handler,
     db_play_session_handler,
     db_rom_handler,
     db_user_handler,
@@ -25,6 +26,7 @@ from handler.database import (
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler
 from models.collection import Collection, SmartCollection
+from models.device import Device
 from models.permission import (
     HiddenEntity,
     PermAction,
@@ -727,6 +729,39 @@ def test_play_sessions_on_hidden_roms_are_left_out(client, viewer_user, platform
     _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
 
     response = client.get("/api/play-sessions", headers=_auth(viewer_user))
+
+    assert response.status_code == status.HTTP_200_OK
+    assert [s["rom_id"] for s in response.json()] == [rom.id]
+
+
+@pytest.mark.parametrize("by", ["rom_id", "device_id"])
+def test_filtered_play_sessions_skip_hidden_roms(
+    client, viewer_user, platform, rom, by
+):
+    hidden = make_rom(platform, "hidden")
+    device = db_device_handler.add_device(
+        Device(id="handheld", user_id=viewer_user.id, name="Handheld")
+    )
+    start = datetime.now(timezone.utc) - timedelta(hours=2)
+    db_play_session_handler.add_sessions(
+        [
+            PlaySession(
+                user_id=viewer_user.id,
+                rom_id=rom_id,
+                device_id=device.id,
+                start_time=start,
+                end_time=start + timedelta(minutes=30),
+                duration_ms=30 * 60 * 1000,
+            )
+            for rom_id in (rom.id, hidden.id)
+        ]
+    )
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+    params = {"rom_id": rom.id} if by == "rom_id" else {"device_id": device.id}
+
+    response = client.get(
+        "/api/play-sessions", params=params, headers=_auth(viewer_user)
+    )
 
     assert response.status_code == status.HTTP_200_OK
     assert [s["rom_id"] for s in response.json()] == [rom.id]
