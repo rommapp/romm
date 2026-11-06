@@ -10,6 +10,7 @@ from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
 from tests.factories import make_rom
+from tests.utils.test_images import png_header_bytes
 
 from config.config_manager import MetadataMediaType
 from endpoints.responses.rom import PROVIDER_METADATA_FIELDS
@@ -1519,6 +1520,18 @@ def test_update_rom_rejects_non_image_artwork(
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "PNG, JPEG, WebP, GIF, or JPEG XL" in response.json()["detail"]
+
+
+def test_update_rom_rejects_artwork_with_oversized_dimensions(
+    client: TestClient, access_token: str, rom: Rom
+):
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        files={"artwork": ("cover.png", png_header_bytes(10000, 8000), "image/png")},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "too large" in response.json()["detail"]
 
 
 @patch.object(

@@ -1,10 +1,18 @@
+import struct
+import zlib
 from io import BytesIO
 from typing import Any
 
 import pytest
 from PIL import Image
 
-from utils.images import frame_durations, is_animated, webp_loop
+from utils.images import (
+    MAX_COVER_PIXELS,
+    frame_durations,
+    is_animated,
+    is_oversized_cover,
+    webp_loop,
+)
 
 FRAME_SIZE = (60, 90)
 FRAME_COLORS = ("red", "green", "blue")
@@ -47,6 +55,18 @@ def jxl_image_bytes(size: tuple[int, int] = FRAME_SIZE) -> bytes:
     return buf.getvalue()
 
 
+def png_header_bytes(width: int, height: int) -> bytes:
+    """A PNG that declares width x height but holds no pixel data."""
+    ihdr = b"IHDR" + struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + struct.pack(">I", len(ihdr) - 4)
+        + ihdr
+        + struct.pack(">I", zlib.crc32(ihdr))
+        + b"\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+
+
 def truncated_animation_bytes(fmt: str) -> bytes:
     """An animation with its last frame cut short."""
     return animated_image_bytes(fmt)[:-40]
@@ -62,6 +82,16 @@ def growing_canvas_gif() -> bytes:
     # Frames follow the header and global palette, sized alike in both files
     frames_start = 13 + 3 * 2 ** ((parts[0][10] & 0x07) + 1)
     return parts[0][:-1] + parts[1][frames_start:]
+
+
+class TestIsOversizedCover:
+    def test_header_past_the_limit(self):
+        with Image.open(BytesIO(png_header_bytes(10000, 8000))) as img:
+            assert is_oversized_cover(img)
+
+    def test_header_at_the_limit(self):
+        with Image.open(BytesIO(png_header_bytes(MAX_COVER_PIXELS, 1))) as img:
+            assert not is_oversized_cover(img)
 
 
 class TestIsAnimated:
