@@ -480,7 +480,7 @@ async function getRecentPlayedRoms() {
 
 // Two rows of cards at typical widths, so the section doesn't push the rest
 // of the overview below the fold.
-export const SIMILAR_ROMS_LIMIT = 6;
+export const SIMILAR_ROMS_LIMIT = 10;
 export const RECOMMENDED_ROMS_LIMIT = 15;
 
 /** Library games similar to this one, from the precomputed similarity index. */
