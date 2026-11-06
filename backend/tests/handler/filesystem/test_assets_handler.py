@@ -573,12 +573,45 @@ class TestHashSaveFile:
         self, temp_base: Path, monkeypatch: pytest.MonkeyPatch
     ):
         self._write_zip(temp_base / "save.zip", zipfile.ZIP_DEFLATED)
-        monkeypatch.setattr(assets_handler, "MAX_DECOMPRESSED_ENTRY_BYTES", 8)
+        monkeypatch.setattr(assets_handler, "MAX_DECOMPRESSED_ARCHIVE_BYTES", 8)
         handler = FSAssetsHandler()
         handler.base_path = temp_base
 
         assert hash_save_file(temp_base / "save.zip") is None
         assert await handler.compute_content_hash("save.zip") is None
+
+    @pytest.mark.asyncio
+    async def test_entries_under_the_budget_alone_but_over_it_together_are_unknown(
+        self, temp_base: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        reload_zipfile()
+        path = temp_base / "save.zip"
+        with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for i in range(4):
+                zf.writestr(f"part{i}.bin", b"\x00" * 1000)
+        handler = FSAssetsHandler()
+        handler.base_path = temp_base
+
+        monkeypatch.setattr(assets_handler, "MAX_DECOMPRESSED_ARCHIVE_BYTES", 4000)
+        assert hash_save_file(path) is not None
+
+        monkeypatch.setattr(assets_handler, "MAX_DECOMPRESSED_ARCHIVE_BYTES", 3999)
+        with zipfile.ZipFile(path) as zf, pytest.raises(assets_handler.ArchiveTooLarge):
+            assets_handler.hash_zip_contents(zf)
+        assert hash_save_file(path) is None
+        assert await handler.compute_content_hash("save.zip") is None
+
+    def test_too_many_entries_is_unknown(
+        self, temp_base: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        path = temp_base / "save.zip"
+        self._write_zip(path, zipfile.ZIP_DEFLATED)
+
+        monkeypatch.setattr(assets_handler, "MAX_ARCHIVE_ENTRIES", 2)
+        assert hash_save_file(path) is not None
+
+        monkeypatch.setattr(assets_handler, "MAX_ARCHIVE_ENTRIES", 1)
+        assert hash_save_file(path) is None
 
     @pytest.mark.parametrize("error", [RuntimeError, NotImplementedError])
     def test_an_entry_that_cannot_be_opened_is_unknown(

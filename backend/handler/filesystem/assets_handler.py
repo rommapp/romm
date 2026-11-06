@@ -3,6 +3,7 @@ import hashlib
 import os
 import threading
 import zipfile
+from collections.abc import Iterator
 from mimetypes import guess_type
 from pathlib import Path
 from typing import IO, TYPE_CHECKING
@@ -31,36 +32,50 @@ if TYPE_CHECKING:
 _MIME_DETECTOR = magic.Magic(mime=True)
 _MIME_DETECTOR_LOCK = threading.Lock()
 
-# A zip entry's declared size is attacker-controlled, so entries are hashed in
-# chunks against this ceiling rather than read whole. Sized well above any real
-# memory card or save archive.
-MAX_DECOMPRESSED_ENTRY_BYTES = 512 * 1024 * 1024
+# A zip's declared sizes are attacker-controlled, so archives are hashed in
+# chunks against these ceilings rather than read whole. The byte budget covers
+# the whole archive, since many small entries can expand as far as one big one.
+MAX_DECOMPRESSED_ARCHIVE_BYTES = 512 * 1024 * 1024
+MAX_ARCHIVE_ENTRIES = 10_000
+_ZIP_READ_CHUNK_BYTES = 64 * 1024
 
 
-def hash_zip_entry(zf: zipfile.ZipFile, name: str) -> str:
-    """md5 of one zip entry, streamed so a compression bomb cannot exhaust memory."""
-    hash_obj = hashlib.md5(usedforsecurity=False)
+class ArchiveTooLarge(ValueError):
+    """A zip archive that decompresses past the budget it is read against."""
+
+
+def iter_zip_entry(
+    zf: zipfile.ZipFile,
+    entry: str | zipfile.ZipInfo,
+    budget: int,
+    chunk_size: int = _ZIP_READ_CHUNK_BYTES,
+) -> Iterator[bytes]:
+    """Stream one entry's decompressed bytes, raising ArchiveTooLarge past ``budget``."""
     read = 0
-    with zf.open(name, "r") as entry:
-        while chunk := entry.read(8192):
+    with zf.open(entry, "r") as stream:
+        while chunk := stream.read(chunk_size):
             read += len(chunk)
-            if read > MAX_DECOMPRESSED_ENTRY_BYTES:
-                raise ValueError(
-                    f"zip entry {name} exceeds the decompressed size limit"
-                )
-            hash_obj.update(chunk)
-    return hash_obj.hexdigest()
+            if read > budget:
+                raise ArchiveTooLarge("zip archive exceeds the decompressed size limit")
+            yield chunk
 
 
 def hash_zip_contents(zf: zipfile.ZipFile) -> str:
     """md5 of a zip archive's contents, keyed by sorted entry name and each
     entry's own hash. Shared by disk-path and in-memory hashing so both agree
     on a card or save archive's dedup hash."""
+    if len(zf.infolist()) > MAX_ARCHIVE_ENTRIES:
+        raise ArchiveTooLarge(f"zip archive has over {MAX_ARCHIVE_ENTRIES} entries")
+    budget = MAX_DECOMPRESSED_ARCHIVE_BYTES
     file_hashes = []
     for name in sorted(zf.namelist()):
-        if not name.endswith("/"):
-            file_hash = hash_zip_entry(zf, name)
-            file_hashes.append(f"{name}:{file_hash}")
+        if name.endswith("/"):
+            continue
+        hash_obj = hashlib.md5(usedforsecurity=False)
+        for chunk in iter_zip_entry(zf, name, budget):
+            budget -= len(chunk)
+            hash_obj.update(chunk)
+        file_hashes.append(f"{name}:{hash_obj.hexdigest()}")
     combined = "\n".join(file_hashes)
     return hashlib.md5(combined.encode(), usedforsecurity=False).hexdigest()
 

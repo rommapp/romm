@@ -12,7 +12,11 @@ from pathlib import PurePosixPath
 
 from handler.database import db_memory_card_handler
 from handler.filesystem import fs_asset_handler
-from handler.filesystem.assets_handler import hash_zip_contents
+from handler.filesystem.assets_handler import (
+    ArchiveTooLarge,
+    hash_zip_contents,
+    iter_zip_entry,
+)
 from handler.scan_handler import scan_memory_card_version
 from logger.logger import log
 from models.assets import MemoryCard, MemoryCardVersion
@@ -64,16 +68,14 @@ def _assert_entry_fits(zf: zipfile.ZipFile, entry: zipfile.ZipInfo, budget: int)
     uploader put there, and an unpacker writes what actually comes out.
     """
     read = 0
-    with zf.open(entry, "r") as stream:
-        while True:
-            chunk = stream.read(_UNPACK_CHUNK_BYTES)
-            if not chunk:
-                return read
+    try:
+        for chunk in iter_zip_entry(zf, entry, budget, _UNPACK_CHUNK_BYTES):
             read += len(chunk)
-            if read > budget:
-                raise UnsafeCardArchive(
-                    f"unpacks to over {MEMORY_CARD_MAX_BYTES} bytes"
-                )
+    except ArchiveTooLarge:
+        raise UnsafeCardArchive(
+            f"unpacks to over {MEMORY_CARD_MAX_BYTES} bytes"
+        ) from None
+    return read
 
 
 def assert_card_archive_safe(content: bytes) -> None:
