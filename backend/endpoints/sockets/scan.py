@@ -613,6 +613,9 @@ async def _identify_rom(
     # A quick scan only reconciles an existing entry's files with disk, so it
     # needs none of the metadata prelude below.
     if rom is not None and scan_type == ScanType.QUICK:
+        if rom.never_has_file:
+            await scan_stats.increment(socket_manager=socket_manager, scanned_roms=1)
+            return
         refreshed = await refresh_rom_files(rom)
         await scan_stats.increment(
             socket_manager=socket_manager,
@@ -658,6 +661,8 @@ async def _identify_rom(
     embed_title_ids = cnfg.EMBED_SWITCH_TITLE_IDS
 
     newly_added: bool = rom is None
+    # Only an existing entry can lack a file by design; a new one came off disk.
+    has_no_file = rom is not None and rom.never_has_file
     reassociated: bool = False
     files_built: bool = False
 
@@ -734,11 +739,14 @@ async def _identify_rom(
 
     # Build rom files object before scanning. A reassociated ROM always rebuilds
     # its files so the stale paths from the old filename are replaced.
-    should_update_files = reassociated or _should_get_rom_files(
-        scan_type=scan_type,
-        rom=rom,
-        newly_added=newly_added,
-        roms_ids=roms_ids,
+    should_update_files = not has_no_file and (
+        reassociated
+        or _should_get_rom_files(
+            scan_type=scan_type,
+            rom=rom,
+            newly_added=newly_added,
+            roms_ids=roms_ids,
+        )
     )
     if should_update_files and not files_built:
         # Get hash calculation setting from config
@@ -858,7 +866,9 @@ async def _scan_selected_roms(
         async with scan_semaphore:
             # A library scan learns this from splitting the platform folder into
             # files and directories; with no listing to consult, ask the path.
-            is_flat = await fs_rom_handler.file_exists(rom.full_path)
+            is_flat = rom.never_has_file or await fs_rom_handler.file_exists(
+                rom.full_path
+            )
             if not is_flat and not await fs_rom_handler.directory_exists(rom.full_path):
                 # A library scan never reaches an entry whose file is gone, since
                 # it walks the filesystem. Reaching one here must not resurrect
@@ -1530,7 +1540,7 @@ class ScanPayload(BaseModel):
         }
 
 
-def _enqueue_scan(payload: ScanPayload, started_by_user_id: int) -> Job:
+def _enqueue_scan(payload: ScanPayload, started_by_user_id: int | None) -> Job:
     """Check the scan can run, then queue it, listing the workers once for both."""
     workers = Worker.all(connection=redis_client)
     if not has_live_worker(scan_queue, workers):
@@ -1560,8 +1570,8 @@ def _enqueue_scan(payload: ScanPayload, started_by_user_id: int) -> Job:
     )
 
 
-async def queue_scan(payload: ScanPayload, *, started_by_user_id: int) -> Job:
-    """Queue a scan a user asked for on the scan worker.
+async def queue_scan(payload: ScanPayload, *, started_by_user_id: int | None) -> Job:
+    """Queue a scan on the scan worker, for a user or, with None, for a task.
 
     Raises:
         NoScanWorkerException: No worker listens on the scan queue.

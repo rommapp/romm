@@ -38,6 +38,7 @@ export interface SmartFilterCriteria {
   has_soundtrack?: boolean;
   missing?: boolean;
   physical?: boolean;
+  owned_on_steam?: boolean;
   verified?: boolean;
   genres?: string[];
   genres_logic?: FilterLogic;
@@ -85,6 +86,7 @@ export interface GalleryFilterSnapshot {
   filterSoundtrack: boolean | null;
   filterMissing: boolean | null;
   filterPhysical: boolean | null;
+  filterOwnedOnSteam: boolean | null;
   filterVerified: boolean | null;
   selectedPlatforms: Platform[];
   selectedGenres: string[];
@@ -175,6 +177,8 @@ export function buildSmartFilterCriteria(
     out.has_soundtrack = snap.filterSoundtrack;
   if (snap.filterMissing !== null) out.missing = snap.filterMissing;
   if (snap.filterPhysical !== null) out.physical = snap.filterPhysical;
+  if (snap.filterOwnedOnSteam !== null)
+    out.owned_on_steam = snap.filterOwnedOnSteam;
   if (snap.filterVerified !== null) out.verified = snap.filterVerified;
 
   if (snap.selectedGenres.length > 0) {
@@ -407,6 +411,15 @@ const FIELDS: FieldSpec[] = [
     defaultLabel: "Physical game",
     negLabelKey: "platform.show-not-physical-only",
     negDefaultLabel: "Show ROMs with a file only",
+    kind: "bool",
+  },
+  {
+    storage: "owned_on_steam",
+    icon: "mdi-steam",
+    labelKey: "platform.show-owned-on-steam",
+    defaultLabel: "Owned on Steam",
+    negLabelKey: "platform.show-not-owned-on-steam-only",
+    negDefaultLabel: "Show games not owned on Steam only",
     kind: "bool",
   },
   {

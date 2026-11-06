@@ -163,6 +163,7 @@ const {
   filterPlayables,
   filterMissing,
   filterPhysical,
+  filterOwnedOnSteam,
   filterVerified,
   filterRA,
   filterSaves,
@@ -214,6 +215,7 @@ const filterActiveCount = computed(() => {
   if (filterPlayables.value !== null) n += 1;
   if (filterMissing.value !== null) n += 1;
   if (filterPhysical.value !== null) n += 1;
+  if (filterOwnedOnSteam.value !== null) n += 1;
   if (filterVerified.value !== null) n += 1;
   if (filterRA.value !== null) n += 1;
   if (filterSaves.value !== null) n += 1;
@@ -257,6 +259,7 @@ watch(
     filterPlayables,
     filterMissing,
     filterPhysical,
+    filterOwnedOnSteam,
     filterVerified,
     filterRA,
     filterSaves,

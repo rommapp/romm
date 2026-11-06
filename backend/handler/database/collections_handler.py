@@ -673,6 +673,9 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         rom_ids: Sequence[int],
         membership_only: bool = False,
+        *,
+        user_id: int | None = None,
+        criterion: str | None = None,
         session: Session = INJECTED_SESSION,
     ) -> None:
         """Refresh the collections a handful of changed ROMs touch.
@@ -687,14 +690,26 @@ class DBCollectionsHandler(DBBaseHandler):
         needs no recount. That matters because autosaves land constantly. The
         default suits a library change, where a ROM that stayed a member can
         still have a new name, sort position or cover to reflect.
+
+        `user_id` and `criterion` narrow the check to that user's collections
+        whose criteria set that filter, for a change only it can see.
         """
         from handler.database import db_rom_handler
 
         if not rom_ids:
             return
 
+        query = select(SmartCollection)
+        if user_id is not None:
+            query = query.where(SmartCollection.user_id == user_id)
+
         candidates = set(rom_ids)
-        for smart_collection in session.scalars(select(SmartCollection)).all():
+        for smart_collection in session.scalars(query).all():
+            criteria = smart_collection.filter_criteria
+            if criterion is not None and (
+                not isinstance(criteria, Mapping) or criteria.get(criterion) is None
+            ):
+                continue
             matching = db_rom_handler.get_smart_collection_matches(
                 smart_collection=smart_collection,
                 rom_ids=candidates,

@@ -2140,6 +2140,39 @@ class TestScanSelectedRoms:
         identify.assert_not_called()
         db_rom.update_rom.assert_called_once_with(rom.id, {"missing_from_fs": True})
 
+    @pytest.mark.parametrize(
+        "fileless", [{"is_physical": True}, {"storefront": "steam"}]
+    )
+    async def test_a_rom_without_a_file_by_design_is_scanned(
+        self, mocker, platform, rom, fileless
+    ):
+        for key, value in fileless.items():
+            setattr(rom, key, value)
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(return_value=None))
+        )
+        file_exists = mocker.patch.object(fs_rom_handler, "file_exists", AsyncMock())
+        db_rom = mocker.patch.object(scan_module, "db_rom_handler")
+        identify = mocker.patch.object(
+            scan_module, "_identify_rom", side_effect=AsyncMock()
+        )
+
+        await _scan_selected_roms(
+            platform=platform,
+            roms=[rom],
+            scan_type=ScanType.COMPLETE,
+            roms_ids=[rom.id],
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            socket_manager=AsyncMock(),
+            scan_stats=AsyncMock(),
+            scanned_rom_ids=set(),
+        )
+
+        file_exists.assert_not_called()
+        db_rom.update_rom.assert_not_called()
+        identify.assert_called_once()
+
     async def test_a_multi_file_rom_is_reported_as_not_flat(
         self, mocker, platform, rom
     ):
@@ -3196,6 +3229,45 @@ class TestIdentifyRomFiles:
         identify_harness.db.get_rom_simple.assert_called_once_with(rom.id)
         socket_manager.emit.assert_awaited_once()
         assert socket_manager.emit.await_args.args[0] == "scan:scanning_rom"
+
+    async def test_a_quick_scan_leaves_a_rom_without_a_file_alone(
+        self, identify_harness
+    ):
+        rom = identify_harness.existing_rom()
+        rom.storefront = "steam"
+        socket_manager = AsyncMock()
+        scan_stats = AsyncMock()
+
+        await identify_harness.run(
+            rom,
+            ScanType.QUICK,
+            [],
+            socket_manager=socket_manager,
+            scan_stats=scan_stats,
+        )
+
+        identify_harness.refresh.assert_not_called()
+        identify_harness.scan_rom.assert_not_called()
+        scan_stats.increment.assert_awaited_once_with(
+            socket_manager=socket_manager, scanned_roms=1
+        )
+
+    @pytest.mark.parametrize(
+        "fileless", [{"is_physical": True}, {"storefront": "steam"}]
+    )
+    async def test_a_selected_rom_without_a_file_gets_metadata_without_reading_disk(
+        self, identify_harness, fileless
+    ):
+        rom = identify_harness.existing_rom()
+        for key, value in fileless.items():
+            setattr(rom, key, value)
+
+        await identify_harness.run(rom, ScanType.UNMATCHED, [rom.id])
+
+        identify_harness.get_rom_files.assert_not_called()
+        identify_harness.refresh.assert_not_called()
+        identify_harness.db.sync_rom_files.assert_not_called()
+        identify_harness.scan_rom.assert_awaited_once()
 
     async def test_unchanged_rom_emits_nothing(self, identify_harness):
         identify_harness.refresh.return_value = RomFilesRefresh(

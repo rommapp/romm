@@ -192,6 +192,7 @@ export interface GetRomsParams {
   filterSoundtrack?: boolean | null;
   filterMissing?: boolean | null;
   filterPhysical?: boolean | null;
+  filterOwnedOnSteam?: boolean | null;
   filterVerified?: boolean | null;
   groupByMetaId?: boolean;
   // Multi-value filters
@@ -258,6 +259,7 @@ export function buildGetRomsQuery({
   filterSoundtrack = null,
   filterMissing = null,
   filterPhysical = null,
+  filterOwnedOnSteam = null,
   filterVerified = null,
   groupByMetaId = false,
   selectedGenres = null,
@@ -418,6 +420,9 @@ export function buildGetRomsQuery({
     ...(filterPlayables !== null ? { playable: filterPlayables } : {}),
     ...(filterMissing !== null ? { missing: filterMissing } : {}),
     ...(filterPhysical !== null ? { physical: filterPhysical } : {}),
+    ...(filterOwnedOnSteam !== null
+      ? { owned_on_steam: filterOwnedOnSteam }
+      : {}),
     ...(filterRA !== null ? { has_ra: filterRA } : {}),
     ...(filterSaves !== null ? { has_saves: filterSaves } : {}),
     ...(filterStates !== null ? { has_states: filterStates } : {}),

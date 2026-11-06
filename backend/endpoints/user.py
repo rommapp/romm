@@ -1,16 +1,27 @@
 import asyncio
+import html
 import json
+import secrets
 from typing import Annotated, Any, Final, cast
+from urllib.parse import quote
 
 from fastapi import Body, Form, HTTPException
 from fastapi import Path as PathVar
-from fastapi import Request, status
-from fastapi.responses import FileResponse
+from fastapi import Query, Request, status
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 
+from adapters.services.steam import SteamOpenIDService
+from config import STEAM_API_KEY
 from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.permissions import emit_permissions_changed
-from endpoints.responses.identity import InviteLinkSchema, UserSchema
+from endpoints.responses import TaskExecutionResponse
+from endpoints.responses.identity import (
+    InviteLinkSchema,
+    SteamLoginSchema,
+    UserSchema,
+)
+from endpoints.tasks import assert_task_worker, build_task_execution_response
 from exceptions.database_exceptions import LastAdminError
 from handler.audit_handler import (
     AuditActor,
@@ -26,6 +37,7 @@ from handler.auth.dependencies import assert_admin_for_admin
 from handler.database import (
     db_client_token_handler,
     db_device_handler,
+    db_steam_library_handler,
     db_user_handler,
 )
 from handler.device_install import device_install_handler
@@ -37,12 +49,25 @@ from handler.filesystem.assets_handler import (
 from handler.metadata import meta_ra_handler
 from handler.metadata.ra_handler import RAUserProgression
 from handler.notification_handler import notify
+from handler.redis_handler import QUEUES_BY_NAME
 from handler.socket_handler import close_client_token_sockets
+from handler.steam_library_handler import (
+    SteamLibraryError,
+    link_steam_profile,
+    resolve_steam_account,
+    unlink_steam_profile,
+)
 from logger.logger import log
 from models.audit_event import AuditAction
 from models.notification import NotificationKind, NotificationLevel
-from models.user import Role, User
+from models.user import TEXT_FIELD_LENGTH, Role, User
+from tasks.registry import (
+    SYNC_STEAM_LIBRARIES_SPEC,
+    SYNC_STEAM_LIBRARIES_TASK,
+    enqueue_task,
+)
 from utils.router import APIRouter
+from utils.urls import get_public_base_url
 from utils.validation import (
     ValidationError,
     validate_email,
@@ -749,3 +774,226 @@ async def refresh_retro_achievements(
     )
     db_user_handler.set_ra_progression(id, user.ra_username, user_progression)
     return None
+
+
+def _get_manageable_user(request: Request, id: int) -> User:
+    """The user with id `id`, if the caller may manage them."""
+    user = db_user_handler.get_user(id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    _assert_can_manage_user(request, user)
+    return user
+
+
+# Steam signs the return_to it was given, so the flow's state rides in its query.
+STEAM_OPENID_SESSION_KEY: Final = "steam_openid"
+
+
+def _safe_next_path(next_path: str | None) -> str:
+    """`next_path` if it points within RomM, else the app root."""
+    # A path from the caller must never become an absolute or protocol-relative
+    # URL, or the callback turns into an open redirect.
+    if not next_path or not next_path.startswith("/"):
+        return "/"
+    if next_path.startswith("//") or "\\" in next_path:
+        return "/"
+    return next_path
+
+
+@protected_route(
+    router.get,
+    "/{id}/steam/login",
+    [Scope.ME_WRITE],
+    summary="Start a Steam sign-in",
+    responses={
+        status.HTTP_400_BAD_REQUEST: {},
+        status.HTTP_403_FORBIDDEN: {},
+        status.HTTP_404_NOT_FOUND: {},
+    },
+)
+def start_steam_login(
+    request: Request,
+    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+    next_path: Annotated[
+        str | None,
+        Query(
+            alias="next",
+            description="Path within RomM to return to, defaulting to the app root.",
+            max_length=TEXT_FIELD_LENGTH,
+        ),
+    ] = None,
+) -> SteamLoginSchema:
+    """Where to send the browser to link a user's Steam account."""
+    user = _get_manageable_user(request, id)
+    if not STEAM_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Set STEAM_API_KEY to import Steam libraries",
+        )
+    base_url = get_public_base_url()
+    if base_url is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Set ROMM_BASE_URL to the address Steam should return to",
+        )
+
+    nonce = secrets.token_urlsafe(32)
+    request.session[STEAM_OPENID_SESSION_KEY] = {
+        "nonce": nonce,
+        "user_id": user.id,
+        "next": _safe_next_path(next_path),
+    }
+    return_to = f"{base_url}/api/users/{user.id}/steam/callback?state={nonce}"
+    return SteamLoginSchema(
+        url=SteamOpenIDService().login_url(return_to=return_to, realm=base_url)
+    )
+
+
+@router.get(
+    "/{id}/steam/callback",
+    include_in_schema=False,
+    response_class=HTMLResponse,
+)
+def steam_login_return(
+    request: Request,
+    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+) -> HTMLResponse:
+    """Hop from Steam's cross-site redirect to the authenticated completion route."""
+    # Strict session cookies are withheld on a navigation Steam started, so the
+    # page navigates again itself: that request is same-site and carries them.
+    target = f"/api/users/{id}/steam/complete"
+    if request.url.query:
+        target = f"{target}?{request.url.query}"
+    href = html.escape(target, quote=True)
+    return HTMLResponse(
+        '<!doctype html><meta charset="utf-8">'
+        f'<meta http-equiv="refresh" content="0;url={href}">'
+        f'<a href="{href}">Continue</a>',
+        headers={"Referrer-Policy": "no-referrer", "Cache-Control": "no-store"},
+    )
+
+
+@protected_route(
+    router.get,
+    "/{id}/steam/complete",
+    [Scope.ME_WRITE],
+    summary="Finish a Steam sign-in",
+    responses={
+        status.HTTP_303_SEE_OTHER: {},
+        status.HTTP_400_BAD_REQUEST: {},
+        status.HTTP_403_FORBIDDEN: {},
+        status.HTTP_404_NOT_FOUND: {},
+    },
+)
+async def finish_steam_login(
+    request: Request,
+    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+    state: Annotated[str, Query(description="The nonce the sign-in started with.")],
+) -> RedirectResponse:
+    """Link the Steam account that just signed in, then return to the app."""
+    user = _get_manageable_user(request, id)
+    pending = request.session.pop(STEAM_OPENID_SESSION_KEY, None)
+    destination = _safe_next_path(
+        pending.get("next") if isinstance(pending, dict) else None
+    )
+
+    def back(error: str | None = None) -> RedirectResponse:
+        query = f"?steam_error={quote(error)}" if error else "?steam=linked"
+        return RedirectResponse(
+            f"{destination}{query}", status_code=status.HTTP_303_SEE_OTHER
+        )
+
+    if (
+        not isinstance(pending, dict)
+        or pending.get("user_id") != user.id
+        or not secrets.compare_digest(str(pending.get("nonce", "")), state)
+    ):
+        return back("This Steam sign-in did not start here")
+
+    # Only Steam's own answer says who signed in; the query alone is forgeable.
+    steam_id = await SteamOpenIDService().verify(dict(request.query_params))
+    if steam_id is None:
+        return back("Steam could not confirm the sign-in")
+
+    try:
+        summary = await resolve_steam_account(steam_id)
+    except SteamLibraryError as exc:
+        return back(str(exc))
+
+    link_steam_profile(user, summary)
+    return back()
+
+
+@protected_route(
+    router.delete,
+    "/{id}/steam",
+    [Scope.ME_WRITE],
+    summary="Unlink a Steam account",
+    responses={status.HTTP_403_FORBIDDEN: {}, status.HTTP_404_NOT_FOUND: {}},
+)
+async def unlink_steam_account(
+    request: Request,
+    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+) -> UserSchema:
+    """Unlink a user's Steam account and forget which games it owns."""
+    user = _get_manageable_user(request, id)
+    return UserSchema.model_validate(unlink_steam_profile(user))
+
+
+@protected_route(
+    router.get,
+    "/{id}/steam/library",
+    [Scope.ME_READ],
+    summary="List owned Steam apps",
+    responses={status.HTTP_403_FORBIDDEN: {}, status.HTTP_404_NOT_FOUND: {}},
+)
+def get_steam_library(
+    request: Request,
+    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+) -> list[int]:
+    """List the Steam app ids a user's linked account owned at its last sync."""
+    user = _get_manageable_user(request, id)
+    return db_steam_library_handler.get_owned_app_ids(user.id)
+
+
+@protected_route(
+    router.post,
+    "/{id}/steam/sync",
+    [Scope.ME_WRITE],
+    summary="Sync a Steam library",
+    status_code=status.HTTP_202_ACCEPTED,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {},
+        status.HTTP_403_FORBIDDEN: {},
+        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_503_SERVICE_UNAVAILABLE: {},
+    },
+)
+async def sync_steam_account(
+    request: Request,
+    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+) -> TaskExecutionResponse:
+    """Queue an import of the games a user's linked Steam account owns."""
+    user = _get_manageable_user(request, id)
+    if not STEAM_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Set STEAM_API_KEY to import Steam libraries",
+        )
+    if not user.steam_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Link a Steam account first",
+        )
+    assert_task_worker(QUEUES_BY_NAME[SYNC_STEAM_LIBRARIES_SPEC.queue_name], "the sync")
+
+    job = enqueue_task(
+        SYNC_STEAM_LIBRARIES_TASK,
+        task_kwargs={"user_id": user.id},
+        run_by_user_id=request.user.id,
+    )
+    return build_task_execution_response(
+        job, SYNC_STEAM_LIBRARIES_TASK, job.meta["task_name"]
+    )

@@ -11,6 +11,8 @@ import i18n from "@/locales";
 
 const { t } = i18n.global;
 
+export const STEAM_LIBRARY_SYNC_TASK = "sync_steam_libraries";
+
 export type TaskStatusResponse =
   | ScanTaskStatusResponse
   | ConversionTaskStatusResponse

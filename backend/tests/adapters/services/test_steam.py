@@ -4,12 +4,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
 import pytest
+import yarl
 from fastapi import HTTPException, status
 
 from adapters.services.steam import (
     STEAM_HEADER_IMAGE_URL,
     STEAM_LIBRARY_CAPSULE_URL,
     SteamService,
+    SteamWebApiService,
+    web_api_key_middleware,
 )
 
 
@@ -208,3 +211,94 @@ async def test_header_image_url_is_none_when_missing(session):
     session.head.return_value = MagicMock(status=http.HTTPStatus.NOT_FOUND)
 
     assert await SteamService().get_header_image_url(400) is None
+
+
+async def test_get_schema_achievements_returns_the_schema_list(session):
+    achievement = {
+        "name": "PORTAL_GET_PORTALGUNS",
+        "defaultvalue": 0,
+        "displayName": "Lab Rat",
+        "hidden": 0,
+        "description": "Maintain a portal",
+        "icon": "https://cdn.example/apps/400/a.jpg",
+        "icongray": "https://cdn.example/apps/400/b.jpg",
+    }
+    session.get.return_value = _response(
+        {
+            "game": {
+                "gameName": "Portal",
+                "gameVersion": "4",
+                "availableGameStats": {"achievements": [achievement]},
+            }
+        }
+    )
+
+    assert await SteamWebApiService().get_schema_achievements(400) == [achievement]
+    url = session.get.await_args.args[0]
+    assert url.path == "/ISteamUserStats/GetSchemaForGame/v2/"
+    assert url.query["appid"] == "400"
+    assert "key" not in url.query
+
+
+async def test_get_schema_achievements_is_empty_for_an_app_without_stats(session):
+    session.get.return_value = _response({"game": {}})
+
+    assert await SteamWebApiService().get_schema_achievements(400) == []
+
+
+async def test_get_global_achievement_percentages(session):
+    entries = [{"name": "PORTAL_GET_PORTALGUNS", "percent": "80.9"}]
+    session.get.return_value = _response(
+        {"achievementpercentages": {"achievements": entries}}
+    )
+
+    assert await SteamWebApiService().get_global_achievement_percentages(400) == entries
+    url = session.get.await_args.args[0]
+    assert url.query["gameid"] == "400"
+
+
+async def test_web_api_response_source_names_the_method(session):
+    session.get.return_value = _response({"game": {}})
+
+    with patch("adapters.services.steam.parse_response", return_value=None) as parse:
+        await SteamWebApiService().get_schema_achievements(400)
+
+    assert parse.call_args.kwargs["source"] == "Steam Web API GetSchemaForGame"
+
+
+async def test_web_api_key_middleware_adds_the_key():
+    request = MagicMock(url=yarl.URL("https://api.example/x?appid=400"))
+    handler = AsyncMock()
+
+    with patch("adapters.services.steam.STEAM_API_KEY", "secret"):
+        await web_api_key_middleware(request, handler)
+
+    assert request.url.query["key"] == "secret"
+    assert request.url.query["appid"] == "400"
+    handler.assert_awaited_once_with(request)
+
+
+async def test_web_api_error_status_degrades_to_no_achievements(session):
+    """A rejected key or a game without stats must not abort the scan."""
+    session.get.side_effect = _error(http.HTTPStatus.FORBIDDEN)
+
+    assert await SteamWebApiService().get_schema_achievements(400) == []
+    assert session.get.await_count == 1
+
+
+async def test_web_api_truncated_body_degrades_to_no_achievements(session):
+    response = _response({})
+    response.read = AsyncMock(
+        side_effect=aiohttp.ClientPayloadError("Response payload is not completed")
+    )
+    session.get.return_value = response
+
+    assert await SteamWebApiService().get_schema_achievements(400) == []
+
+
+async def test_web_api_connection_failure_degrades_to_no_achievements(session):
+    """An optional extra must not fail the storefront match it enriches."""
+    session.get.side_effect = aiohttp.ClientConnectionError()
+
+    assert await SteamWebApiService().get_schema_achievements(400) == []
+    assert await SteamWebApiService().get_global_achievement_percentages(400) == []

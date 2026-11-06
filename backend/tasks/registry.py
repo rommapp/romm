@@ -19,6 +19,7 @@ from config import (
     ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
     ENABLE_SCHEDULED_RESCAN,
     ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC,
+    ENABLE_SCHEDULED_STEAM_LIBRARY_SYNC,
     ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
     ENABLE_SYNC_FOLDER_WATCHER,
@@ -35,6 +36,7 @@ from config import (
     SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON,
     SCHEDULED_RESCAN_CRON,
     SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON,
+    SCHEDULED_STEAM_LIBRARY_SYNC_CRON,
     SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
     SYNC_PUSH_PULL_CRON,
@@ -205,6 +207,17 @@ SYNC_RETROACHIEVEMENTS_PROGRESS_SPEC: Final = TaskSpec(
     cron_string=SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON,
 )
 
+# Also queued for a single user when they sync their linked Steam account.
+SYNC_STEAM_LIBRARIES_TASK: Final = "sync_steam_libraries"
+SYNC_STEAM_LIBRARIES_SPEC: Final = TaskSpec(
+    implementation="tasks.scheduled.sync_steam_libraries.sync_steam_libraries_task",
+    title="Steam library sync",
+    description="Imports the games each linked Steam account owns",
+    task_type=TaskType.UPDATE,
+    enabled=ENABLE_SCHEDULED_STEAM_LIBRARY_SYNC,
+    cron_string=SCHEDULED_STEAM_LIBRARY_SYNC_CRON,
+)
+
 SYNC_PUSH_PULL_SPEC: Final = TaskSpec(
     implementation="tasks.sync_push_pull_task.sync_push_pull_task",
     title="Push-Pull Sync",
@@ -301,6 +314,7 @@ SCHEDULED_TASKS: Final[dict[str, TaskSpec]] = {
     "cleanup_sync_sessions": CLEANUP_SYNC_SESSIONS_SPEC,
     "cleanup_audit_log": CLEANUP_AUDIT_LOG_SPEC,
     "sync_retroachievements_progress": SYNC_RETROACHIEVEMENTS_PROGRESS_SPEC,
+    SYNC_STEAM_LIBRARIES_TASK: SYNC_STEAM_LIBRARIES_SPEC,
     "sync_push_pull": SYNC_PUSH_PULL_SPEC,
 }
 

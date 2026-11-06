@@ -4,7 +4,8 @@
 //
 // Surface area (matches v1 1:1 so URLs stay compatible):
 //   • Tri-state boolean filters: matched / favourites / duplicates /
-//     playables / missing / physical / verified / RA. Each maps null → "all",
+//     playables / missing / physical / verified / RA, plus owned on Steam
+//     for a linked account. Each maps null → "all",
 //     true → positive, false → negative.
 //   • Optional platform multi-select (only on Search / Collection views
 //     where you can mix platforms).
@@ -36,6 +37,7 @@ import {
   RTag,
   RTextField,
 } from "@/lib";
+import storeAuth from "@/stores/auth";
 import storeGalleryFilter, {
   type FilterLogicOperator,
 } from "@/stores/galleryFilter";
@@ -63,6 +65,7 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const filter = storeGalleryFilter();
+const auth = storeAuth();
 const platformsStore = storePlatforms();
 const {
   filterMatched,
@@ -71,6 +74,7 @@ const {
   filterPlayables,
   filterMissing,
   filterPhysical,
+  filterOwnedOnSteam,
   filterVerified,
   filterRA,
   filterSaves,
@@ -158,7 +162,7 @@ interface BoolFilterConfig {
   value: { value: boolean | null };
 }
 
-const boolFilters: BoolFilterConfig[] = [
+const baseBoolFilters: BoolFilterConfig[] = [
   {
     label: t("platform.show-matched"),
     icon: "mdi-link-variant",
@@ -259,6 +263,24 @@ const boolFilters: BoolFilterConfig[] = [
     value: filterSoundtrack,
   },
 ];
+
+const ownedOnSteamFilter: BoolFilterConfig = {
+  label: t("platform.show-owned-on-steam"),
+  icon: "mdi-steam",
+  yesIcon: "mdi-steam",
+  noIcon: "mdi-minus-circle-outline",
+  yesAria: t("platform.show-owned-on-steam-only"),
+  noAria: t("platform.show-not-owned-on-steam-only"),
+  value: filterOwnedOnSteam,
+};
+
+// Only a linked Steam account has a library to filter by. A filter already set
+// (from a shared link, say) stays listed so it can be cleared.
+const boolFilters = computed(() =>
+  auth.user?.steam_id || filterOwnedOnSteam.value !== null
+    ? [...baseBoolFilters, ownedOnSteamFilter]
+    : baseBoolFilters,
+);
 
 function setTri(cfg: BoolFilterConfig, v: TriValue) {
   cfg.value.value = triToBool(v);
@@ -482,7 +504,7 @@ const hasLengthFilter = computed(
 // ── Active-filter count (footer badge) ────────────────────────
 const activeCount = computed(() => {
   let n = 0;
-  for (const f of boolFilters) if (f.value.value !== null) n += 1;
+  for (const f of boolFilters.value) if (f.value.value !== null) n += 1;
   if (selectedPlatforms.value.length > 0) n += 1;
   for (const s of multiSections.value) if (s.selected.value.length > 0) n += 1;
   if (hasLengthFilter.value) n += 1;
@@ -494,7 +516,7 @@ function close() {
 }
 
 function resetAll() {
-  for (const f of boolFilters) f.value.value = null;
+  for (const f of boolFilters.value) f.value.value = null;
   filter.setSelectedFilterPlatforms([]);
   for (const s of multiSections.value) {
     s.selected.value = [];
