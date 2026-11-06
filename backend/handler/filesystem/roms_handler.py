@@ -485,7 +485,13 @@ class FSRomsHandler(FSHandler):
                 spaced = translation_match["spaced"]
                 code = spaced or translation_match["goodtools"]
                 code = code or translation_match["tosec"]
-                language = translation_language(code) if code else None
+                # "T-Pt-BR" carries its regional variant in what reads as a patch.
+                patch = translation_match["patch"] or ""
+                language = (
+                    (translation_language(code + patch) or translation_language(code))
+                    if code
+                    else None
+                )
                 # "T Rex" and a suffixless "T-Rex" collide with ordinary words,
                 # so those two spellings only count when the code is a language.
                 bare_superseded = (

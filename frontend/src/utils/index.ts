@@ -351,6 +351,9 @@ export function languageToEmoji(language: string) {
     case "pt":
     case "portuguese":
       return "🇵🇹";
+    case "pt-br":
+    case "brazilian portuguese":
+      return "🇧🇷";
     case "ro":
     case "romanian":
       return "🇷🇴";
