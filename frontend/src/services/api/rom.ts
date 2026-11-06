@@ -478,8 +478,7 @@ async function getRecentPlayedRoms() {
   });
 }
 
-// Matches the length of IGDB's similar games list, so the two sources are
-// comparable side by side.
+// IGDB's similar games list contains up to 10 entries.
 export const SIMILAR_ROMS_LIMIT = 10;
 export const RECOMMENDED_ROMS_LIMIT = 15;
 
