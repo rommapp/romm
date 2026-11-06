@@ -1,6 +1,8 @@
 from fastapi import Request
 
+from decorators.auth import protected_route
 from endpoints.responses.stats import StatsReturn
+from handler.auth.constants import Scope
 from handler.auth.dependencies import get_rom_visibility_filter
 from handler.database import db_stats_handler
 from utils.router import APIRouter
@@ -11,7 +13,7 @@ router = APIRouter(
 )
 
 
-@router.get("")
+@protected_route(router.get, "", [Scope.ROMS_READ])
 def stats(request: Request, include_platform_stats: bool = False) -> StatsReturn:
     """Endpoint to return the current RomM stats
 
