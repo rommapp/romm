@@ -275,7 +275,7 @@ backend/
 │       ├── sgdb_handler.py          # SteamGridDB
 │       ├── ra_handler.py            # RetroAchievements
 │       ├── hltb_handler.py          # HowLongToBeat
-│       ├── steam_handler.py         # Steam storefront (PC platforms)
+│       ├── steam_handler.py         # Steam storefront + Web API achievements (PC platforms)
 │       ├── hasheous_handler.py      # Hasheous hash-based lookup
 │       ├── tgdb_handler.py          # TheGamesDB
 │       ├── flashpoint_handler.py    # Flashpoint archive
@@ -318,6 +318,7 @@ backend/
 │   ├── scheduled/             # Cron-scheduled tasks
 │   │   ├── scan_library.py                    # Nightly library rescan
 │   │   ├── sync_retroachievements_progress.py # Pull RA user progress
+│   │   ├── sync_steam_libraries.py            # Import linked Steam libraries
 │   │   ├── update_switch_titledb.py           # Refresh Switch TitleDB
 │   │   ├── update_launchbox_metadata.py       # Refresh LaunchBox data
 │   │   ├── convert_images_to_webp.py          # Artwork WebP conversion
@@ -532,22 +533,23 @@ Constants: `FILE_NAME_MAX_LENGTH=450`, `FILE_PATH_MAX_LENGTH=1000`, `FILE_EXTENS
 
 **Table:** `users`
 
-| Column            | Type                              | Notes                                           |
-| ----------------- | --------------------------------- | ----------------------------------------------- |
-| `id`              | Integer                           | PK, autoincrement                               |
-| `username`        | String(255)                       | Unique, indexed                                 |
-| `hashed_password` | String(255)                       | Nullable (OIDC users)                           |
-| `email`           | String(255)                       | Unique, indexed, nullable                       |
-| `oidc_issuer`     | ExactString(255)                  | OIDC `iss`, nullable                            |
-| `oidc_sub`        | ExactString(255)                  | OIDC `sub`, nullable; unique with `oidc_issuer` |
-| `enabled`         | Boolean                           | Default `True`                                  |
-| `role`            | Enum(`VIEWER`, `EDITOR`, `ADMIN`) | Default `VIEWER`                                |
-| `avatar_path`     | String(255)                       | Default `""`                                    |
-| `last_login`      | Timestamp                         | Nullable                                        |
-| `last_active`     | Timestamp                         | Nullable                                        |
-| `ra_username`     | String(255)                       | RetroAchievements username                      |
-| `ra_progression`  | JSON                              | RetroAchievements data                          |
-| `ui_settings`     | JSON                              | User preferences                                |
+| Column              | Type                              | Notes                                                   |
+| ------------------- | --------------------------------- | ------------------------------------------------------- |
+| `id`                | Integer                           | PK, autoincrement                                       |
+| `username`          | String(255)                       | Unique, indexed                                         |
+| `hashed_password`   | String(255)                       | Nullable (OIDC users)                                   |
+| `email`             | String(255)                       | Unique, indexed, nullable                               |
+| `oidc_issuer`       | ExactString(255)                  | OIDC `iss`, nullable                                    |
+| `oidc_sub`          | ExactString(255)                  | OIDC `sub`, nullable; unique with `oidc_issuer`         |
+| `enabled`           | Boolean                           | Default `True`                                          |
+| `role`              | Enum(`VIEWER`, `EDITOR`, `ADMIN`) | Default `VIEWER`                                        |
+| `avatar_path`       | String(255)                       | Default `""`                                            |
+| `last_login`        | Timestamp                         | Nullable                                                |
+| `last_active`       | Timestamp                         | Nullable                                                |
+| `ra_username`       | String(255)                       | RetroAchievements username                              |
+| `ra_progression`    | JSON                              | RetroAchievements data                                  |
+| `steam_progression` | JSON                              | Steam achievement unlocks, read during the library sync |
+| `ui_settings`       | JSON                              | User preferences                                        |
 
 **Relationships:** saves (1:M), states (1:M), screenshots (1:M), rom_users (1:M), notes (1:M), collections (1:M), smart_collections (1:M), devices (1:M, cascade), client_tokens (1:M, cascade)
 
@@ -656,6 +658,22 @@ Audio metadata for a `SOUNDTRACK` rom_file (1:1), indexed for the music API. Wri
 | `player_count`       | String(100)                 |
 | `first_release_date` | BigInteger (UNIX timestamp) |
 | `average_rating`     | Float                       |
+
+---
+
+#### Steam Library
+
+**Table:** `steam_library_entries` (games a user owns on Steam)
+
+| Column                     | Type         | Notes                         |
+| -------------------------- | ------------ | ----------------------------- |
+| `user_id` + `steam_app_id` | FK + Integer | Unique constraint             |
+| `rom_id`                   | FK           | The rom standing for the game |
+| `playtime_minutes`         | Integer      | Steam's total playtime        |
+| `last_played_at`           | Timestamp    | Null when never played        |
+
+A game not already in the library gets a store-only rom on `win`: `storefront`
+is `steam`, and it has no file, like a physical game.
 
 ---
 
@@ -863,18 +881,22 @@ A reset link is emailed when SMTP is set up, the user has an address and `ROMM_B
 
 ### 6.2 Users (`/api/users`)
 
-| Method | Path               | Scope                  | Description                      |
-| ------ | ------------------ | ---------------------- | -------------------------------- |
-| POST   | `/`                | ME_WRITE / USERS_WRITE | Create user (first user = admin) |
-| POST   | `/invite-link`     | USERS_WRITE            | Generate invite token            |
-| POST   | `/register`        | None                   | Register with invite token       |
-| GET    | `/`                | USERS_READ             | List all users                   |
-| GET    | `/identifiers`     | USERS_READ             | Get user IDs                     |
-| GET    | `/me`              | ME_READ                | Current user profile             |
-| GET    | `/{id}`            | USERS_READ             | Get user by ID                   |
-| PUT    | `/{id}`            | ME_WRITE               | Update user                      |
-| DELETE | `/{id}`            | USERS_WRITE            | Delete user                      |
-| POST   | `/{id}/ra/refresh` | ME_WRITE               | Refresh RetroAchievements data   |
+| Method | Path                  | Scope                  | Description                      |
+| ------ | --------------------- | ---------------------- | -------------------------------- |
+| POST   | `/`                   | ME_WRITE / USERS_WRITE | Create user (first user = admin) |
+| POST   | `/invite-link`        | USERS_WRITE            | Generate invite token            |
+| POST   | `/register`           | None                   | Register with invite token       |
+| GET    | `/`                   | USERS_READ             | List all users                   |
+| GET    | `/identifiers`        | USERS_READ             | Get user IDs                     |
+| GET    | `/me`                 | ME_READ                | Current user profile             |
+| GET    | `/{id}`               | USERS_READ             | Get user by ID                   |
+| PUT    | `/{id}`               | ME_WRITE               | Update user                      |
+| DELETE | `/{id}`               | USERS_WRITE            | Delete user                      |
+| POST   | `/{id}/ra/refresh`    | ME_WRITE               | Refresh RetroAchievements data   |
+| PUT    | `/{id}/steam`         | ME_WRITE               | Link a Steam account             |
+| DELETE | `/{id}/steam`         | ME_WRITE               | Unlink a Steam account           |
+| GET    | `/{id}/steam/library` | ME_READ                | List owned Steam app ids         |
+| POST   | `/{id}/steam/sync`    | ME_WRITE               | Queue a Steam library sync       |
 
 ### 6.3 Client Tokens (`/api/client-tokens`)
 
@@ -1395,22 +1417,22 @@ Each entity has a dedicated handler providing CRUD operations:
 
 Each external provider has a handler that normalizes data into a common format:
 
-| Handler              | Provider          | Key Data                                   |
-| -------------------- | ----------------- | ------------------------------------------ |
-| `igdb_handler`       | IGDB              | Game info, covers, screenshots, franchises |
-| `moby_handler`       | MobyGames         | Publisher, genre classification            |
-| `ss_handler`         | ScreenScraper     | Regional metadata, box art, manuals        |
-| `sgdb_handler`       | SteamGridDB       | Grid artwork, logos, icons                 |
-| `ra_handler`         | RetroAchievements | Achievements, user progression             |
-| `hltb_handler`       | HowLongToBeat     | Playtime estimates                         |
-| `steam_handler`      | Steam             | PC store metadata, capsule art             |
-| `hasheous_handler`   | Hasheous          | Hash-based ROM identification              |
-| `tgdb_handler`       | TheGamesDB        | Alternative metadata                       |
-| `flashpoint_handler` | Flashpoint        | Browser game archive                       |
-| `gamelist_handler`   | gamelist.xml      | ES-DE format parser                        |
-| `libretro_handler`   | Libretro          | Libretro thumbnails DB                     |
-| `playmatch_handler`  | PlayMatch         | Game matching algorithm                    |
-| `launchbox_handler/` | LaunchBox         | Local + remote database, media             |
+| Handler              | Provider          | Key Data                                     |
+| -------------------- | ----------------- | -------------------------------------------- |
+| `igdb_handler`       | IGDB              | Game info, covers, screenshots, franchises   |
+| `moby_handler`       | MobyGames         | Publisher, genre classification              |
+| `ss_handler`         | ScreenScraper     | Regional metadata, box art, manuals          |
+| `sgdb_handler`       | SteamGridDB       | Grid artwork, logos, icons                   |
+| `ra_handler`         | RetroAchievements | Achievements, user progression               |
+| `hltb_handler`       | HowLongToBeat     | Playtime estimates                           |
+| `steam_handler`      | Steam             | PC store metadata, capsule art, achievements |
+| `hasheous_handler`   | Hasheous          | Hash-based ROM identification                |
+| `tgdb_handler`       | TheGamesDB        | Alternative metadata                         |
+| `flashpoint_handler` | Flashpoint        | Browser game archive                         |
+| `gamelist_handler`   | gamelist.xml      | ES-DE format parser                          |
+| `libretro_handler`   | Libretro          | Libretro thumbnails DB                       |
+| `playmatch_handler`  | PlayMatch         | Game matching algorithm                      |
+| `launchbox_handler/` | LaunchBox         | Local + remote database, media               |
 
 **Priority system:** Metadata sources are queried in configurable priority order. First match wins for each field, with manual overrides taking highest priority.
 
@@ -1731,6 +1753,7 @@ Toggled via environment variables:
 | `update_launchbox_metadata`       | `ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA`          | `0 4 * * *`        | Refresh LaunchBox data         |
 | `convert_images_to_webp`          | `ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP`             | `0 4 * * *`        | Image optimization             |
 | `sync_retroachievements_progress` | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC`    | `0 4 * * *`        | Sync RA user progress          |
+| `sync_steam_libraries`            | `ENABLE_SCHEDULED_STEAM_LIBRARY_SYNC`                 | `30 4 * * *`       | Import linked Steam libraries  |
 | `cleanup_orphaned_resources`      | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`         | `0 5 * * *`        | Remove unused artwork          |
 | `cleanup_netplay`                 | `ENABLE_SCHEDULED_CLEANUP_NETPLAY` (default on)       | `*/30 * * * *`     | Clean empty rooms              |
 | `cleanup_upload_tmp`              | `ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP` (default on)    | `0 * * * *`        | Drop stale uploads             |
@@ -1952,13 +1975,14 @@ Falls back to `FakeRedis` in test mode.
 
 #### API Keys
 
-| Variable                                        | Description       |
-| ----------------------------------------------- | ----------------- |
-| `IGDB_CLIENT_ID` + `IGDB_CLIENT_SECRET`         | IGDB (via Twitch) |
-| `MOBYGAMES_API_KEY`                             | MobyGames         |
-| `SCREENSCRAPER_USER` + `SCREENSCRAPER_PASSWORD` | ScreenScraper     |
-| `STEAMGRIDDB_API_KEY`                           | SteamGridDB       |
-| `RETROACHIEVEMENTS_API_KEY`                     | RetroAchievements |
+| Variable                                        | Description                                  |
+| ----------------------------------------------- | -------------------------------------------- |
+| `IGDB_CLIENT_ID` + `IGDB_CLIENT_SECRET`         | IGDB (via Twitch)                            |
+| `MOBYGAMES_API_KEY`                             | MobyGames                                    |
+| `SCREENSCRAPER_USER` + `SCREENSCRAPER_PASSWORD` | ScreenScraper                                |
+| `STEAMGRIDDB_API_KEY`                           | SteamGridDB                                  |
+| `RETROACHIEVEMENTS_API_KEY`                     | RetroAchievements                            |
+| `STEAM_API_KEY`                                 | Steam Web API (library import, achievements) |
 
 #### Feature Toggles
 
@@ -1971,6 +1995,7 @@ Falls back to `FakeRedis` in test mode.
 | `FLASHPOINT_API_ENABLED` | `false` | Flashpoint archive       |
 | `HLTB_API_ENABLED`       | `false` | HowLongToBeat            |
 | `STEAM_API_ENABLED`      | `false` | Steam storefront         |
+| `STEAM_API_KEY`          | -       | Steam library import     |
 | `DISABLE_EMULATOR_JS`    | `false` | Hide EmulatorJS player   |
 | `DISABLE_RUFFLE_RS`      | `false` | Hide Ruffle Flash player |
 | `DISABLE_JSDOS`          | `false` | Hide js-dos player       |

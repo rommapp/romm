@@ -110,6 +110,7 @@ export type DetailedRomSchema = {
     updated_at: string;
     missing_from_fs: boolean;
     is_physical: boolean;
+    storefront: (string | null);
     has_file_on_disk: boolean;
     upc: (string | null);
     has_notes: boolean;

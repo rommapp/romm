@@ -1,9 +1,13 @@
+import { createPinia, setActivePinia } from "pinia";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { NotificationKind, NotificationSchema } from "@/__generated__";
 import { loadLocale } from "@/locales";
 import { ROUTES } from "@/plugins/routeNames";
+import storeAuth from "@/stores/auth";
 import { describeNotification } from "@/utils/notifications";
 import { makeNotification } from "@/utils/notifications.fixtures";
+import { STEAM_LIBRARY_SYNC_TASK } from "@/utils/tasks";
+import { userFixture } from "@/utils/user.fixtures";
 
 function notification(
   kind: NotificationKind | string,
@@ -54,6 +58,23 @@ describe("describeNotification", () => {
     expect(view.title).toBe("Cleanup Missing ROMs failed");
     expect(view.body).toBe("disk full");
     expect(view.toast).toBe(true);
+  });
+
+  it("opens the reader's own profile for a Steam library sync", () => {
+    setActivePinia(createPinia());
+    storeAuth().setCurrentUser(userFixture({ id: 5 }));
+
+    const view = describeNotification(
+      notification("task_completed", {
+        task: STEAM_LIBRARY_SYNC_TASK,
+        title: "Steam library sync",
+      }),
+    );
+
+    expect(view.to).toEqual({
+      name: ROUTES.USER_PROFILE,
+      params: { user: 5 },
+    });
   });
 
   it("links an ended stream to its game and carries the admin's reason", () => {

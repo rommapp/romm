@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Any, Final, Mapping, cast
 
 from fastapi import Body, HTTPException, Request, status
-from rq import Worker
+from rq import Queue, Worker
 from rq.exceptions import NoSuchJobError
 from rq.job import Job, JobStatus
 from rq.registry import FailedJobRegistry, FinishedJobRegistry
@@ -118,7 +118,21 @@ def _fill_cleanup_stats(stats: Mapping[str, Any] | None) -> CleanupStats | None:
     return cast(CleanupStats, legacy)
 
 
-def _build_task_execution_response(
+def assert_task_worker(queue: Queue, task_title: str) -> None:
+    """Refuse to queue `task_title` when no worker would pick it up.
+
+    Raises:
+        HTTPException: 503, since the job would otherwise sit queued while the
+            UI waits on it.
+    """
+    if not has_live_worker(queue):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"No task worker is listening, so {task_title} cannot be queued",
+        )
+
+
+def build_task_execution_response(
     job: Job, task_key: str | None, task_name: str
 ) -> TaskExecutionResponse:
     """Describe a job that was just queued."""
@@ -354,12 +368,7 @@ async def run_single_task(
             detail=f"Task '{task_name}' cannot be run",
         )
 
-    # Without a worker the job would sit queued while the UI waits on it.
-    if not has_live_worker(low_prio_queue):
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="No task worker is listening, so the task cannot be queued",
-        )
+    assert_task_worker(low_prio_queue, "the task")
 
     # The lock covers two requests landing before either job is queued.
     if task_instance.single_instance and (
@@ -391,7 +400,7 @@ async def run_single_task(
         {"job_id": job.id, "kwargs": task_kwargs or {}},
     )
 
-    return _build_task_execution_response(job, task_name, task_instance.title)
+    return build_task_execution_response(job, task_name, task_instance.title)
 
 
 SCAN_PAYLOAD = Body(default_factory=ScanPayload)
@@ -424,4 +433,4 @@ async def start_scan(
     except ScanInFlightException as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
 
-    return _build_task_execution_response(job, None, job.meta["task_name"])
+    return build_task_execution_response(job, None, job.meta["task_name"])

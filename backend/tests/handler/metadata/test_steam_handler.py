@@ -1,14 +1,15 @@
 import asyncio
-from typing import cast
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adapters.services.steam_types import SteamAppDetails
+from adapters.services.steam_types import SteamAppDetails, SteamSchemaAchievement
 from handler.metadata.steam_handler import (
     STEAM_SEARCH_RESULT_LIMIT,
     SteamHandler,
     _parse_release_date,
+    extract_steam_achievements,
     extract_steam_metadata,
 )
 
@@ -414,3 +415,157 @@ async def test_get_details_gives_up_on_slow_covers():
 
     with patch("handler.metadata.steam_handler.STEAM_COVER_PROBE_TIMEOUT", 0.01):
         assert await handler.get_details("Blur") == []
+
+
+PORTAL_SCHEMA: list[SteamSchemaAchievement] = [
+    {
+        "name": "PORTAL_GET_PORTALGUNS",
+        "displayName": "Lab Rat",
+        "hidden": 0,
+        "description": "Maintain a portal",
+        "icon": "https://cdn.example/apps/400/a.jpg",
+        "icongray": "https://cdn.example/apps/400/a_gray.jpg",
+    },
+    {
+        "name": "PORTAL_BEAT_GAME",
+        "displayName": "Heartbreaker",
+        "hidden": 1,
+        "icon": "https://cdn.example/apps/400/b.jpg",
+        "icongray": "https://cdn.example/apps/400/b_gray.jpg",
+    },
+]
+CYBERPUNK_WITH_ACHIEVEMENTS: SteamAppDetails = {
+    **CYBERPUNK,
+    "achievements": {"total": 2},
+}
+
+
+def test_extract_steam_achievements_joins_the_global_rates_in_schema_order():
+    achievements = extract_steam_achievements(
+        PORTAL_SCHEMA,
+        [
+            {"name": "PORTAL_BEAT_GAME", "percent": "52.1"},
+            {"name": "PORTAL_GET_PORTALGUNS", "percent": 80.9},
+        ],
+    )
+
+    assert achievements == [
+        {
+            "api_name": "PORTAL_GET_PORTALGUNS",
+            "title": "Lab Rat",
+            "description": "Maintain a portal",
+            "hidden": False,
+            "icon_url": "https://cdn.example/apps/400/a.jpg",
+            "icon_gray_url": "https://cdn.example/apps/400/a_gray.jpg",
+            "icon_file": "a.jpg",
+            "icon_gray_file": "a_gray.jpg",
+            "global_percent": 80.9,
+        },
+        {
+            "api_name": "PORTAL_BEAT_GAME",
+            "title": "Heartbreaker",
+            "description": None,
+            "hidden": True,
+            "icon_url": "https://cdn.example/apps/400/b.jpg",
+            "icon_gray_url": "https://cdn.example/apps/400/b_gray.jpg",
+            "icon_file": "b.jpg",
+            "icon_gray_file": "b_gray.jpg",
+            "global_percent": 52.1,
+        },
+    ]
+
+
+def test_extract_steam_achievements_has_no_file_for_a_malformed_icon_url():
+    schema: list[SteamSchemaAchievement] = [
+        {"name": "X", "displayName": "X", "hidden": 0, "icon": "https://["}
+    ]
+
+    [achievement] = extract_steam_achievements(schema, [])
+
+    assert achievement["icon_file"] is None
+    assert achievement["icon_gray_file"] is None
+
+
+@pytest.mark.parametrize(
+    "rate",
+    [
+        {"percent": "n/a"},
+        {"percent": "NaN"},
+        {"percent": "inf"},
+        {},
+    ],
+    ids=["not-a-number", "nan", "infinite", "no-percent"],
+)
+def test_extract_steam_achievements_tolerates_missing_or_bad_rates(rate):
+    achievements = extract_steam_achievements(
+        PORTAL_SCHEMA, cast(Any, [{"name": "PORTAL_BEAT_GAME", **rate}])
+    )
+
+    assert [a["global_percent"] for a in achievements] == [None, None]
+
+
+def _web_api(handler: SteamHandler) -> MagicMock:
+    web_api = MagicMock()
+    web_api.get_schema_achievements = AsyncMock(return_value=PORTAL_SCHEMA)
+    web_api.get_global_achievement_percentages = AsyncMock(return_value=[])
+    handler.steam_web_api = web_api
+    return web_api
+
+
+async def test_rom_gains_achievements_when_a_key_is_set():
+    handler, _ = _handler(details=CYBERPUNK_WITH_ACHIEVEMENTS)
+    web_api = _web_api(handler)
+
+    with patch("handler.metadata.steam_handler.STEAM_API_KEY", "secret"):
+        rom = await handler.get_rom_by_id(1091500)
+
+    metadata = rom.get("steam_metadata")
+    assert metadata is not None
+    assert [a["api_name"] for a in metadata.get("achievements", [])] == [
+        "PORTAL_GET_PORTALGUNS",
+        "PORTAL_BEAT_GAME",
+    ]
+    web_api.get_schema_achievements.assert_awaited_once_with(1091500)
+
+
+@pytest.mark.parametrize(
+    ("key", "details"),
+    [
+        (None, CYBERPUNK_WITH_ACHIEVEMENTS),
+        ("secret", {**CYBERPUNK, "achievements": {"total": 0}}),
+        ("secret", CYBERPUNK),
+    ],
+    ids=["no-key", "store-lists-none", "store-omits-count"],
+)
+async def test_rom_skips_the_web_api_without_a_key_or_achievements(key, details):
+    handler, _ = _handler(details=details)
+    web_api = _web_api(handler)
+
+    with patch("handler.metadata.steam_handler.STEAM_API_KEY", key):
+        rom = await handler.get_rom_by_id(1091500)
+
+    assert "achievements" not in rom.get("steam_metadata", {})
+    web_api.get_schema_achievements.assert_not_awaited()
+
+
+async def test_a_search_by_id_skips_the_achievements():
+    """Applying the picked match refetches the app, achievements included."""
+    handler, _ = _handler(details=CYBERPUNK_WITH_ACHIEVEMENTS)
+    web_api = _web_api(handler)
+
+    with patch("handler.metadata.steam_handler.STEAM_API_KEY", "secret"):
+        rom = await handler.get_matched_rom_by_id(1091500, "win")
+
+    assert rom["steam_id"] == 1091500
+    web_api.get_schema_achievements.assert_not_awaited()
+
+
+async def test_rom_keeps_the_schema_without_unlock_rates():
+    handler, _ = _handler(details=CYBERPUNK_WITH_ACHIEVEMENTS)
+    _web_api(handler)
+
+    with patch("handler.metadata.steam_handler.STEAM_API_KEY", "secret"):
+        rom = await handler.get_rom_by_id(1091500)
+
+    achievements = rom.get("steam_metadata", {}).get("achievements", [])
+    assert [a["global_percent"] for a in achievements] == [None, None]

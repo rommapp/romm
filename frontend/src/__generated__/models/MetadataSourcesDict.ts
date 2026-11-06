@@ -20,6 +20,7 @@ export type MetadataSourcesDict = {
     POUET_API_ENABLED: boolean;
     CSDB_API_ENABLED: boolean;
     STEAM_API_ENABLED: boolean;
+    STEAM_LIBRARY_ENABLED: boolean;
     LIBRETRO_API_ENABLED: boolean;
 };
 

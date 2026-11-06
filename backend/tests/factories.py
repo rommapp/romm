@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Any
 
+from adapters.services.steam_types import SteamPlayerSummary
 from handler.auth.base_handler import auth_handler
 from handler.database import (
     db_client_token_handler,
@@ -10,13 +11,18 @@ from handler.database import (
     db_save_handler,
     db_screenshot_handler,
     db_state_handler,
+    db_steam_library_handler,
+    db_user_handler,
 )
 from models.assets import Save, Screenshot, State
 from models.client_token import ClientToken
 from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom
+from models.steam_library import SteamLibraryEntry
 from models.user import User
+
+STEAM_ID = "76561197960287930"
 
 
 def make_platform(slug: str, /, **overrides: Any) -> Platform:
@@ -69,6 +75,17 @@ def make_esrb_rated_rom(platform: Platform, name: str, esrb: str, /) -> Rom:
             ]
         },
     )
+
+
+def make_steam_library_entry(
+    user: User, rom: Rom, /, **overrides: Any
+) -> SteamLibraryEntry:
+    """Link `user` to `STEAM_ID` and make `rom`'s Steam app their whole library."""
+    assert rom.steam_id is not None
+    db_user_handler.update_user(user.id, {"steam_id": STEAM_ID})
+    entry = SteamLibraryEntry(rom_id=rom.id, steam_app_id=rom.steam_id, **overrides)
+    db_steam_library_handler.replace_entries(user.id, STEAM_ID, [entry])
+    return entry
 
 
 def _asset_fields(rom: Rom, user: User, file_name: str, folder: str) -> dict[str, Any]:
@@ -142,3 +159,15 @@ def make_device_token(
     }
     token = db_client_token_handler.add_token(ClientToken(**(fields | overrides)))
     return token, raw_token
+
+
+def steam_player_summary(
+    steam_id: str = STEAM_ID, name: str = "Gabe"
+) -> SteamPlayerSummary:
+    """A public GetPlayerSummaries entry, as Steam returns it."""
+    return {
+        "steamid": steam_id,
+        "personaname": name,
+        "profileurl": f"https://steamcommunity.com/profiles/{steam_id}/",
+        "communityvisibilitystate": 3,
+    }
