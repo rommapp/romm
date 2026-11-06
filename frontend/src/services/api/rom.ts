@@ -478,8 +478,8 @@ async function getRecentPlayedRoms() {
   });
 }
 
-// Two rows of cards at typical widths, so the section doesn't push the rest
-// of the overview below the fold.
+// Matches the length of IGDB's similar games list, so the two sources are
+// comparable side by side.
 export const SIMILAR_ROMS_LIMIT = 10;
 export const RECOMMENDED_ROMS_LIMIT = 15;
 
