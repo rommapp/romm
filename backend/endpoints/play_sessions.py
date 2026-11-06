@@ -13,7 +13,7 @@ from endpoints.responses.play_session import (
 )
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
-from handler.database import db_play_session_handler, db_rom_handler
+from handler.database import db_play_session_handler
 from handler.play_session_handler import ingest_play_sessions as _ingest
 from logger.logger import log
 from utils.auth import require_token_device, token_device_id
@@ -124,16 +124,9 @@ def get_play_sessions(
         end_before=end_before,
         limit=page.limit if start_after is None and end_before is None else None,
         offset=page.offset,
+        visibility=get_permissions(request).rom_visibility,
     )
-    visibility = get_permissions(request).rom_visibility
-    hidden: set[int] = set()
-    if not visibility.is_unrestricted:
-        hidden = db_rom_handler.get_hidden_rom_ids_among(
-            [s.rom_id for s in sessions if s.rom_id is not None], visibility
-        )
-    return [
-        PlaySessionSchema.model_validate(s) for s in sessions if s.rom_id not in hidden
-    ]
+    return [PlaySessionSchema.model_validate(s) for s in sessions]
 
 
 @protected_route(

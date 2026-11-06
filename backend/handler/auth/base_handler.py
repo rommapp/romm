@@ -506,9 +506,10 @@ class OAuthHandler:
         self,
         data: dict[str, Any],
         expires_delta: timedelta = DEFAULT_OAUTH_TOKEN_EXPIRY,
+        issued_at: datetime | None = None,
     ) -> str:
         to_encode = data.copy()
-        now = datetime.now(timezone.utc)
+        now = issued_at or datetime.now(timezone.utc)
         # Sub-second, so a login right after a revocation outlives it.
         to_encode["iat"] = now.timestamp()
         to_encode["exp"] = int((now + expires_delta).timestamp())
@@ -523,13 +524,17 @@ class OAuthHandler:
         self,
         data: dict[str, Any],
         expires_delta: timedelta = DEFAULT_OAUTH_TOKEN_EXPIRY,
+        issued_at: datetime | None = None,
     ) -> str:
         to_encode = data.copy()
         to_encode["type"] = "access"
-        return self._create_oauth_token(to_encode, expires_delta)
+        return self._create_oauth_token(to_encode, expires_delta, issued_at)
 
     def create_refresh_token(
-        self, data: dict[str, Any], expires_delta: timedelta
+        self,
+        data: dict[str, Any],
+        expires_delta: timedelta,
+        issued_at: datetime | None = None,
     ) -> str:
         if expires_delta <= timedelta(0):
             raise ValueError("expires_delta must be positive for refresh tokens")
@@ -543,7 +548,7 @@ class OAuthHandler:
             }
         )
 
-        token = self._create_oauth_token(to_encode, expires_delta)
+        token = self._create_oauth_token(to_encode, expires_delta, issued_at)
 
         redis_client.set(
             f"refresh-jti:{jti}", "valid", ex=int(expires_delta.total_seconds())

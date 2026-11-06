@@ -168,6 +168,23 @@ def _trim_transparent_border(image_path: Path) -> Image.Image | None:
         return None
 
 
+def _inflate_gzip(
+    inflater: "zlib._Decompress", chunk: bytes, max_length: int
+) -> tuple[bytes, "zlib._Decompress"]:
+    """Inflate a chunk that may span several gzip members, up to `max_length`
+    bytes (0 for no cap); returns the bytes and the inflater to carry on with."""
+    out = bytearray()
+    pending = chunk
+    while pending:
+        if inflater.eof:
+            inflater = zlib.decompressobj(16 + zlib.MAX_WBITS)
+        out += inflater.decompress(pending, max_length - len(out) if max_length else 0)
+        if max_length and len(out) >= max_length:
+            break
+        pending = inflater.unused_data
+    return bytes(out), inflater
+
+
 def _is_oversized_image(image_path: Path) -> bool:
     with Image.open(image_path) as img:
         return is_oversized_cover(img)
@@ -328,8 +345,8 @@ class FSResourcesHandler(FSHandler):
                 if inflater is not None:
                     try:
                         # One byte past the budget is enough to tell it overflowed
-                        data = inflater.decompress(
-                            chunk, limit - written + 1 if limit else 0
+                        data, inflater = _inflate_gzip(
+                            inflater, chunk, limit - written + 1 if limit else 0
                         )
                     except zlib.error as exc:
                         if not first_chunk:
@@ -341,6 +358,9 @@ class FSResourcesHandler(FSHandler):
                 if limit and written > limit:
                     raise DownloadTooLargeError()
                 await f.write(data)
+            # Raised inside the block, so a cut-off body never replaces the file.
+            if inflater is not None and not inflater.eof:
+                raise OSError("Truncated gzip body")
 
     async def _store_cover(self, entity: Rom | Collection, url_cover: str) -> None:
         """Fetch a cover once and write both sizes.

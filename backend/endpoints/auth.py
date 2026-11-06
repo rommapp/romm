@@ -212,6 +212,9 @@ async def token(
     """
 
     user: User | None
+    # Read before any credential check, so a revocation that lands during the
+    # check still covers the tokens issued below.
+    issued_at = datetime.now(timezone.utc)
     # Support refreshing access tokens
     if form_data.grant_type == "refresh_token":
         token = form_data.refresh_token
@@ -238,6 +241,7 @@ async def token(
                 "scopes": claims.get("scopes"),
             },
             expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
+            issued_at=issued_at,
         )
 
         refresh_token = oauth_handler.create_refresh_token(
@@ -247,6 +251,7 @@ async def token(
                 "scopes": claims.get("scopes"),
             },
             expires_delta=timedelta(seconds=OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS),
+            issued_at=issued_at,
         )
 
         return {
@@ -309,6 +314,7 @@ async def token(
             "scopes": " ".join(form_data.scopes),
         },
         expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
+        issued_at=issued_at,
     )
 
     refresh_token = oauth_handler.create_refresh_token(
@@ -318,6 +324,7 @@ async def token(
             "scopes": " ".join(form_data.scopes),
         },
         expires_delta=timedelta(seconds=OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS),
+        issued_at=issued_at,
     )
     _record_login(request, user, "token")
 

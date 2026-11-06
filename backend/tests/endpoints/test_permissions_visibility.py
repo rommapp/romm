@@ -723,6 +723,32 @@ def test_play_sessions_on_hidden_roms_are_left_out(client, viewer_user, platform
     assert [s["rom_id"] for s in response.json()] == [rom.id]
 
 
+def test_hidden_play_sessions_do_not_shorten_a_page(client, viewer_user, platform, rom):
+    hidden = make_rom(platform, "hidden")
+    now = datetime.now(timezone.utc)
+    # The newest session is on the hidden ROM, so a slice taken first comes back empty.
+    db_play_session_handler.add_sessions(
+        [
+            PlaySession(
+                user_id=viewer_user.id,
+                rom_id=rom_id,
+                start_time=now - timedelta(hours=hours_ago),
+                end_time=now - timedelta(hours=hours_ago) + timedelta(minutes=30),
+                duration_ms=30 * 60 * 1000,
+            )
+            for rom_id, hours_ago in ((hidden.id, 1), (rom.id, 2))
+        ]
+    )
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    response = client.get(
+        "/api/play-sessions", params={"limit": 1}, headers=_auth(viewer_user)
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert [s["rom_id"] for s in response.json()] == [rom.id]
+
+
 def test_hidden_member_survives_a_removal(client, viewer_user, rom, platform):
     hidden = make_rom(platform, "hidden")
     own = db_collection_handler.add_collection(

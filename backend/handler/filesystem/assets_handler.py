@@ -32,9 +32,8 @@ if TYPE_CHECKING:
 _MIME_DETECTOR = magic.Magic(mime=True)
 _MIME_DETECTOR_LOCK = threading.Lock()
 
-# A zip's declared sizes are attacker-controlled, so archives are hashed in
-# chunks against these ceilings rather than read whole. The byte budget covers
-# the whole archive, since many small entries can expand as far as one big one.
+# A zip's declared sizes can lie, so entries are hashed in chunks against these
+# ceilings. The byte budget spans the whole archive, not each entry.
 MAX_DECOMPRESSED_ARCHIVE_BYTES = 512 * 1024 * 1024
 MAX_ARCHIVE_ENTRIES = 10_000
 _ZIP_READ_CHUNK_BYTES = 64 * 1024

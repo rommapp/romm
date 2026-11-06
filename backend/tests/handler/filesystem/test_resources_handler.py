@@ -4,7 +4,7 @@ import os
 import struct
 import threading
 import zlib
-from collections.abc import Container
+from collections.abc import AsyncIterator, Container
 from io import BytesIO
 from pathlib import Path
 from typing import Any, cast
@@ -2020,17 +2020,24 @@ class TestDiskFullHandling:
         assert not target.exists()
 
 
-class _ChunkedResponse:
-    """Streams the given chunks with the given headers."""
-
-    def __init__(self, chunks: list[bytes], headers: dict[str, str] | None = None):
-        self.status_code = 200
-        self.headers = {"content-type": "image/png", **(headers or {})}
+class _ChunkStream(httpx2.AsyncByteStream):
+    def __init__(self, chunks: list[bytes]) -> None:
         self._chunks = chunks
 
-    async def aiter_raw(self):
+    async def __aiter__(self) -> AsyncIterator[bytes]:
         for chunk in self._chunks:
             yield chunk
+
+
+def _chunked_response(
+    chunks: list[bytes], headers: dict[str, str] | None = None
+) -> httpx2.Response:
+    """A 200 response streaming `chunks` raw, an image unless `headers` say otherwise."""
+    return httpx2.Response(
+        200,
+        headers={"content-type": "image/png", **(headers or {})},
+        stream=_ChunkStream(chunks),
+    )
 
 
 def _gzip_chunks(data: bytes, size: int = 1024) -> list[bytes]:
@@ -2055,7 +2062,7 @@ class TestDownloadLimits:
         return rom
 
     async def _store_cover(
-        self, handler: FSResourcesHandler, rom: Rom, response: _ChunkedResponse
+        self, handler: FSResourcesHandler, rom: Rom, response: httpx2.Response
     ) -> None:
         with (
             patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx,
@@ -2077,7 +2084,7 @@ class TestDownloadLimits:
         with patch(
             "handler.filesystem.resources_handler.MAX_ASSET_UPLOAD_SIZE_BYTES", 1000
         ):
-            await self._store_cover(handler, rom, _ChunkedResponse([b"x" * 400] * 3))
+            await self._store_cover(handler, rom, _chunked_response([b"x" * 400] * 3))
 
         assert list(cover_dir.iterdir()) == []
 
@@ -2093,7 +2100,7 @@ class TestDownloadLimits:
         with patch(
             "handler.filesystem.resources_handler.MAX_ASSET_UPLOAD_SIZE_BYTES", 1000
         ):
-            await self._store_cover(handler, rom, _ChunkedResponse([b"x" * 400] * 3))
+            await self._store_cover(handler, rom, _chunked_response([b"x" * 400] * 3))
 
         assert target.read_bytes() == b"the good cover"
 
@@ -2111,7 +2118,7 @@ class TestDownloadLimits:
             64 * 1024,
         ):
             await self._store_cover(
-                handler, rom, _ChunkedResponse(chunks, {"content-encoding": "gzip"})
+                handler, rom, _chunked_response(chunks, {"content-encoding": "gzip"})
             )
 
         assert list(cover_dir.iterdir()) == []
@@ -2126,7 +2133,47 @@ class TestDownloadLimits:
         await self._store_cover(
             handler,
             rom,
-            _ChunkedResponse(_gzip_chunks(png, 64), {"content-encoding": "gzip"}),
+            _chunked_response(_gzip_chunks(png, 64), {"content-encoding": "gzip"}),
+        )
+
+        assert (tmp_path / "roms/1/1/cover/big.png").read_bytes() == png
+
+    @pytest.mark.asyncio
+    async def test_truncated_gzip_keeps_the_existing_cover(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+        target = tmp_path / "roms/1/1/cover/big.png"
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b"the good cover")
+        chunks = _gzip_chunks(_png_bytes(), 64)
+
+        await self._store_cover(
+            handler,
+            rom,
+            _chunked_response(chunks[:-1], {"content-encoding": "gzip"}),
+        )
+
+        assert target.read_bytes() == b"the good cover"
+
+    @pytest.mark.asyncio
+    async def test_multi_member_gzip_is_inflated_whole(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+        png = _png_bytes()
+        half = len(png) // 2
+        body = b"".join(
+            b"".join(_gzip_chunks(part)) for part in (png[:half], png[half:])
+        )
+
+        await self._store_cover(
+            handler,
+            rom,
+            _chunked_response(
+                [body[i : i + 64] for i in range(0, len(body), 64)],
+                {"content-encoding": "gzip"},
+            ),
         )
 
         assert (tmp_path / "roms/1/1/cover/big.png").read_bytes() == png
@@ -2139,7 +2186,7 @@ class TestDownloadLimits:
         png = _png_bytes()
 
         await self._store_cover(
-            handler, rom, _ChunkedResponse([png], {"content-encoding": "gzip"})
+            handler, rom, _chunked_response([png], {"content-encoding": "gzip"})
         )
 
         assert (tmp_path / "roms/1/1/cover/big.png").read_bytes() == png
@@ -2152,7 +2199,7 @@ class TestDownloadLimits:
         cover_dir = tmp_path / "roms/1/1/cover"
 
         await self._store_cover(
-            handler, rom, _ChunkedResponse([png_header_bytes(10000, 8000)])
+            handler, rom, _chunked_response([png_header_bytes(10000, 8000)])
         )
 
         assert list(cover_dir.iterdir()) == []
@@ -2169,7 +2216,7 @@ class TestDownloadLimits:
             "_write_derived_covers",
             side_effect=Image.DecompressionBombError("too many pixels"),
         ):
-            await self._store_cover(handler, rom, _ChunkedResponse([_png_bytes()]))
+            await self._store_cover(handler, rom, _chunked_response([_png_bytes()]))
 
         assert list(cover_dir.iterdir()) == []
 
@@ -2187,7 +2234,7 @@ class TestDownloadLimits:
             ),
         ):
             mock_ctx.get.return_value = _FakeHttpxClient(
-                _ChunkedResponse([b"x" * 400] * 3, {"content-type": "video/mp4"})
+                _chunked_response([b"x" * 400] * 3, {"content-type": "video/mp4"})
             )
             stored = await handler.store_media_file("http://example.com/v.mp4", rel)
 

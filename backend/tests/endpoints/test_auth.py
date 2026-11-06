@@ -12,7 +12,7 @@ from joserfc.jwk import OctKey
 from tests.audit_events import recorded_events
 
 from handler.auth import base_handler as auth_handler_module
-from handler.auth.base_handler import auth_handler, oidc_handler
+from handler.auth.base_handler import auth_handler, oauth_handler, oidc_handler
 from handler.auth.constants import ALGORITHM, SESSION_COOKIE_NAME
 from handler.database import db_user_handler
 from handler.redis_handler import redis_client
@@ -148,6 +148,41 @@ def test_reset_password_revokes_oauth_tokens(client, admin_user: User):
     response = client.post(
         "/api/token",
         data={"grant_type": "refresh_token", "refresh_token": old["refresh_token"]},
+    )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_a_revocation_during_the_password_check_covers_the_login(
+    client, admin_user: User
+):
+    check = auth_handler.authenticate_user
+
+    def check_then_revoke(username: str, password: str) -> User | None:
+        user = check(username, password)
+        # The password changes while this login's check is still in flight.
+        oauth_handler.revoke_user_tokens(username)
+        return user
+
+    with mock.patch.object(
+        auth_handler, "authenticate_user", side_effect=check_then_revoke
+    ):
+        tokens = client.post(
+            "/api/token",
+            data={
+                "grant_type": "password",
+                "username": "test_admin",
+                "password": "test_admin_password",
+                "scope": "me.read",
+            },
+        ).json()
+
+    response = client.get(
+        "/api/users/me", headers={"Authorization": f"Bearer {tokens['access_token']}"}
+    )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    response = client.post(
+        "/api/token",
+        data={"grant_type": "refresh_token", "refresh_token": tokens["refresh_token"]},
     )
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
