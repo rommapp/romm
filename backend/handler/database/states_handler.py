@@ -5,6 +5,7 @@ from sqlalchemy import Select, delete, desc, or_, select, update
 from sqlalchemy.orm import Session
 
 from decorators.database import INJECTED_SESSION, begin_session
+from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
 from models.assets import State
 from models.base import with_file_name_parts
 from models.rom import Rom
@@ -49,6 +50,7 @@ class DBStatesHandler(DBBaseHandler):
         user_id: int,
         rom_ids: Collection[int] | None = None,
         platform_id: int | None = None,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
     ) -> Select[State]:
         query = select(State).filter_by(user_id=user_id)
 
@@ -56,10 +58,12 @@ class DBStatesHandler(DBBaseHandler):
         if rom_ids is not None:
             query = query.filter(State.rom_id.in_(rom_ids))
 
-        if platform_id:
+        if platform_id or not visibility.is_unrestricted:
             query = query.join(Rom, State.rom_id == Rom.id).filter(
-                Rom.platform_id == platform_id
+                *visibility.clauses()
             )
+        if platform_id:
+            query = query.filter(Rom.platform_id == platform_id)
 
         return query
 
@@ -69,10 +73,14 @@ class DBStatesHandler(DBBaseHandler):
         user_id: int,
         rom_ids: Collection[int] | None = None,
         platform_id: int | None = None,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
         session: Session = INJECTED_SESSION,
     ) -> Sequence[State]:
         query = self._states_query(
-            user_id=user_id, rom_ids=rom_ids, platform_id=platform_id
+            user_id=user_id,
+            rom_ids=rom_ids,
+            platform_id=platform_id,
+            visibility=visibility,
         )
         return session.scalars(query).all()
 
@@ -82,11 +90,15 @@ class DBStatesHandler(DBBaseHandler):
         user_id: int,
         rom_ids: Collection[int] | None = None,
         platform_id: int | None = None,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
         session: Session = INJECTED_SESSION,
     ) -> list[int]:
         """Ids only, so no `State` is built and no eager rom or user join fires."""
         query = self._states_query(
-            user_id=user_id, rom_ids=rom_ids, platform_id=platform_id
+            user_id=user_id,
+            rom_ids=rom_ids,
+            platform_id=platform_id,
+            visibility=visibility,
         )
         return list(session.scalars(query.with_only_columns(State.id)).all())
 
