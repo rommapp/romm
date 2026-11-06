@@ -78,8 +78,7 @@ def _lz4_decompress_block(src: bytes, max_size: int) -> bytes:
                 literal_len += b
                 if b != 0xFF:
                     break
-        # Lengths are unbounded in the format, so every copy is clamped to the
-        # room left rather than trusting the block to stop at max_size.
+        # Lengths are unbounded in the format, so each copy is clamped to the room left.
         out += src[i : i + min(literal_len, max_size - len(out))]
         i += literal_len
         if i + 2 > n or len(out) >= max_size:
