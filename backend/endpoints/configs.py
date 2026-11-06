@@ -1,5 +1,7 @@
+from typing import Annotated
+
 from fastapi import HTTPException, Request, status
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from adapters.services.rom_converto import (
     LIBRARY_TARGETS_BY_PLATFORM,
@@ -36,9 +38,13 @@ router = APIRouter(
 )
 
 
+# config.yml refuses to load an empty mapping value, so one must never be written.
+NonEmptySlug = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+
 class PlatformBindingPayload(BaseModel):
-    fs_slug: str
-    slug: str
+    fs_slug: NonEmptySlug
+    slug: NonEmptySlug
 
 
 class ExclusionPayload(BaseModel):
