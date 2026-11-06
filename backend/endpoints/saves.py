@@ -502,8 +502,8 @@ def get_save_identifiers(request: Request) -> list[int]:
 def get_saves_summary(request: Request, rom_id: int) -> SaveSummarySchema:
     """Retrieve saves summary grouped by slot."""
     rom = db_rom_handler.get_rom_visibility(rom_id)
-    if rom:
-        assert_rom_visible(request, rom)
+    if rom and not get_rom_visibility_filter(request).allows(rom):
+        return SaveSummarySchema(total_count=0, slots=[])
 
     summary_data = db_save_handler.get_saves_summary(
         user_id=request.user.id, rom_id=rom_id

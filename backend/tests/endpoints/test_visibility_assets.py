@@ -198,17 +198,21 @@ def test_save_lists_leave_out_hidden_roms(
     assert set(ids) == kept_ids
 
 
-def test_saves_summary_is_404_on_a_hidden_rom(
+def test_saves_summary_on_a_hidden_rom_matches_a_missing_one(
     client: TestClient, editor_user: User, rom: Rom
 ):
     make_save(rom, editor_user, "hidden.sav")
     _hide(PermEntity.ROMS, rom.id, editor_user.id)
 
-    response = client.get(
+    hidden = client.get(
         f"/api/saves/summary?rom_id={rom.id}", headers=_auth(editor_user)
     )
+    missing = client.get(
+        f"/api/saves/summary?rom_id={rom.id + 1000}", headers=_auth(editor_user)
+    )
 
-    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert hidden.status_code == missing.status_code == status.HTTP_200_OK
+    assert hidden.json() == missing.json() == {"total_count": 0, "slots": []}
 
 
 def test_state_lists_leave_out_hidden_platforms(
