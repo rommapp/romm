@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi import status
-from tests.factories import make_platform, make_rom, make_save
+from tests.factories import make_platform, make_rom, make_save, make_state
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import roms as rom_endpoints
@@ -696,6 +696,15 @@ def test_own_save_on_a_hidden_rom_is_404(client, viewer_user, rom):
     _hide(PermEntity.ROMS, rom.id, viewer_user.id)
 
     response = client.get(f"/api/saves/{save.id}", headers=_auth(viewer_user))
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_own_state_on_a_hidden_rom_is_404(client, viewer_user, rom):
+    state = make_state(rom, viewer_user, "hidden.state")
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+
+    response = client.get(f"/api/states/{state.id}", headers=_auth(viewer_user))
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
 

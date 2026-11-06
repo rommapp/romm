@@ -178,6 +178,9 @@ def get_state(request: Request, id: int) -> StateSchema:
         error = f"State with ID {id} not found"
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+    assert_rom_visible(
+        request, state.rom, not_found_detail=f"State with ID {id} not found"
+    )
 
     return StateSchema.model_validate(state)
 

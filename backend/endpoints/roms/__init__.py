@@ -1366,7 +1366,7 @@ def get_rom_by_hash(
 
 
 @protected_route(router.get, "/filters", [Scope.ROMS_READ])
-async def get_rom_filters(request: Request) -> RomFiltersDict:
+def get_rom_filters(request: Request) -> RomFiltersDict:
     from handler.database import db_rom_handler
 
     return db_rom_handler.get_rom_filters(get_rom_visibility_filter(request))

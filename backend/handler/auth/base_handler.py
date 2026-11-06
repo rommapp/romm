@@ -357,18 +357,21 @@ class AuthHandler:
             db_user_handler.update_user(user_id, data, session=session)
 
         if revoke_sessions_for:
-            # After it, for a login the old password was still good for. The
-            # write has committed, so a failure here is logged, not raised.
-            try:
-                await self._revoke_user_credentials(revoke_sessions_for)
-            except RedisError, OSError:
-                log.error(
-                    "Credentials for '%s' changed, but revoking its sessions and "
-                    "tokens afterwards failed; one created during the update may "
-                    "still be live",
-                    hl(revoke_sessions_for, color=CYAN),
-                    exc_info=True,
-                )
+            # After it, for a login the old password was still good for.
+            await self.revoke_committed_credentials(revoke_sessions_for)
+
+    async def revoke_committed_credentials(self, username: str) -> None:
+        """Revoke the username's sessions and OAuth tokens after an account change
+        has committed, logging a failure since the change can't be undone."""
+        try:
+            await self._revoke_user_credentials(username)
+        except RedisError, OSError:
+            log.error(
+                "Account '%s' changed, but revoking its sessions and tokens "
+                "afterwards failed; one created during the change may still be live",
+                hl(username, color=CYAN),
+                exc_info=True,
+            )
 
     @staticmethod
     async def _revoke_user_credentials(username: str) -> None:

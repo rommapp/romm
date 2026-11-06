@@ -172,6 +172,18 @@ class TestRenameCollection:
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["name"] == "TEST COLLECTION"
 
+    @pytest.mark.parametrize("rom_ids", ["5", "null", '{"1": 1}', '["1"]', "[1"])
+    def test_rom_ids_must_be_a_list_of_ids(
+        self, client, access_token: str, collection: Collection, rom_ids: str
+    ):
+        response = client.put(
+            f"/api/collections/{collection.id}",
+            data={"rom_ids": rom_ids},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
     def test_taken_smart_collection_name_returns_conflict(
         self, client, access_token: str, admin_user: User
     ):

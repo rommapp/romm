@@ -67,15 +67,15 @@ def _assert_entry_fits(zf: zipfile.ZipFile, entry: zipfile.ZipInfo, budget: int)
     Decompressed rather than trusting `file_size`: that header is whatever the
     uploader put there, and an unpacker writes what actually comes out.
     """
-    read = 0
     try:
-        for chunk in iter_zip_entry(zf, entry, budget, _UNPACK_CHUNK_BYTES):
-            read += len(chunk)
+        return sum(
+            len(chunk)
+            for chunk in iter_zip_entry(zf, entry, budget, _UNPACK_CHUNK_BYTES)
+        )
     except ArchiveTooLarge:
         raise UnsafeCardArchive(
             f"unpacks to over {MEMORY_CARD_MAX_BYTES} bytes"
         ) from None
-    return read
 
 
 def assert_card_archive_safe(content: bytes) -> None:

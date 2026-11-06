@@ -693,6 +693,8 @@ async def delete_user(
             status_code=400, detail="You cannot delete the last admin user"
         ) from exc
     await close_client_token_sockets(token_ids)
+    # Keyed by username, so they would otherwise pass for whoever takes it next.
+    await auth_handler.revoke_committed_credentials(user.username)
     for device_id in device_ids:
         await device_install_handler.discard_for_device(device_id)
     record(

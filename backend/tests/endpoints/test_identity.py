@@ -858,6 +858,31 @@ def test_a_rename_revokes_tokens_for_whoever_takes_the_old_username(
     assert new.status_code == HTTPStatus.OK
 
 
+def test_a_deletion_revokes_tokens_for_whoever_takes_the_username(
+    client, access_token: str, editor_user: User
+):
+    old = _password_grant(client, editor_user.username, "test_editor_password").json()
+
+    response = client.delete(
+        f"/api/users/{editor_user.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == HTTPStatus.OK
+    DBUsersHandler().add_user(
+        User(username=editor_user.username, hashed_password="x", role=Role.USER)
+    )
+
+    response = client.get(
+        "/api/users/me", headers={"Authorization": f"Bearer {old['access_token']}"}
+    )
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    response = client.post(
+        "/api/token",
+        data={"grant_type": "refresh_token", "refresh_token": old["refresh_token"]},
+    )
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+
 @pytest.mark.asyncio
 async def test_logout_invalidates_session(client, admin_user: User):
     # Get the user's session cookie

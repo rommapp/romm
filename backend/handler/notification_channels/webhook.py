@@ -11,7 +11,8 @@ from urllib.parse import urlsplit
 import httpx2
 
 from config import has_proxy_env
-from utils.ssrf import install_async_ssrf_protection, validate_url_for_http_request
+from utils.context import create_httpx_async_client
+from utils.ssrf import validate_url_for_http_request
 from utils.validation import ValidationError
 
 from .config import WebhookConfig
@@ -96,19 +97,11 @@ def build_request(config: WebhookConfig, message: OutboundMessage) -> WebhookReq
     return WebhookRequest(url=config["url"], content=content, headers=headers)
 
 
-async def _validate_request_url(request: httpx2.Request) -> None:
-    validate_url_for_http_request(str(request.url), allowlist=NO_INTERNAL_ORIGINS)
-
-
 def _client(allow_private: bool) -> httpx2.AsyncClient:
     if allow_private:
         return httpx2.AsyncClient(trust_env=has_proxy_env(), timeout=TIMEOUT_SECONDS)
-    client = httpx2.AsyncClient(
-        trust_env=has_proxy_env(),
-        timeout=TIMEOUT_SECONDS,
-        event_hooks={"request": [_validate_request_url]},
-    )
-    install_async_ssrf_protection(client, allowlist=NO_INTERNAL_ORIGINS)
+    client = create_httpx_async_client(allowlist=NO_INTERNAL_ORIGINS)
+    client.timeout = httpx2.Timeout(TIMEOUT_SECONDS)
     return client
 
 

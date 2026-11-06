@@ -2,12 +2,14 @@ import json
 from collections.abc import Iterable
 from datetime import datetime
 from io import BytesIO
-from typing import Annotated, Any, TypeVar
+from typing import Annotated, Any, Final, TypeVar
 
 from fastapi import Body, File, Form, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Query, Request, UploadFile, status
 from pydantic import BaseModel as PydanticBaseModel
+from pydantic import TypeAdapter
+from pydantic import ValidationError as PydanticValidationError
 
 from decorators.auth import protected_route
 from endpoints.responses.collection import (
@@ -53,6 +55,7 @@ router = APIRouter(
 )
 
 COLLECTION_ARTWORK_FILE = File(default=None, description="Collection artwork file.")
+ROM_IDS_ADAPTER: Final = TypeAdapter(list[int])
 
 CollectionSchemaT = TypeVar(
     "CollectionSchemaT",
@@ -511,8 +514,8 @@ async def update_collection(
             raise CollectionAlreadyExistsException(name)
 
     try:
-        parsed_rom_ids = json.loads(rom_ids)
-    except json.JSONDecodeError as e:
+        parsed_rom_ids = ROM_IDS_ADAPTER.validate_json(rom_ids, strict=True)
+    except PydanticValidationError as e:
         raise HTTPException(
             status_code=422,
             detail="Invalid list for rom_ids field in update collection",
