@@ -111,6 +111,22 @@ def _criteria_collection_id(criteria: object) -> int | None:
     return filters.collection_id if filters else None
 
 
+def _parse_filter_criteria(raw: str) -> dict[str, Any]:
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid JSON for filter_criteria field",
+        ) from e
+    if not isinstance(parsed, dict):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="filter_criteria must be a JSON object",
+        )
+    return parsed
+
+
 def _check_criteria_collection(
     criteria: object, user_id: int, kept_id: int | None = None
 ) -> None:
@@ -218,14 +234,7 @@ async def add_smart_collection(
     Returns:
         SmartCollectionSchema: Just created smart collection
     """
-    # Parse filter criteria from JSON string
-    try:
-        parsed_filter_criteria = json.loads(filter_criteria)
-    except json.JSONDecodeError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid JSON for filter_criteria field",
-        ) from e
+    parsed_filter_criteria = _parse_filter_criteria(filter_criteria)
     _check_criteria_collection(parsed_filter_criteria, request.user.id)
 
     cleaned_data = {
@@ -757,13 +766,7 @@ async def update_smart_collection(
     # Parse filter criteria if provided
     parsed_filter_criteria = smart_collection.filter_criteria
     if filter_criteria is not None:
-        try:
-            parsed_filter_criteria = json.loads(filter_criteria)
-        except json.JSONDecodeError as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid JSON for filter_criteria field",
-            ) from e
+        parsed_filter_criteria = _parse_filter_criteria(filter_criteria)
         # The form resends the stored scope on every edit; the ROM filters
         # already match nothing for one the owner has since lost.
         _check_criteria_collection(

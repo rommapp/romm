@@ -766,6 +766,40 @@ class TestSmartCollectionEndpoints:
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["rom_ids"] == [rom.id]
 
+    @pytest.mark.parametrize("criteria", ["[]", "1", '"x"', "null"])
+    def test_non_object_criteria_are_rejected(
+        self, client, access_token: str, admin_user: User, criteria: str
+    ):
+        created = client.post(
+            "/api/collections/smart",
+            data={"name": "Broken", "is_public": "true", "filter_criteria": criteria},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert created.status_code == status.HTTP_400_BAD_REQUEST
+
+        smart_collection = db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name="Valid",
+                description="",
+                user_id=admin_user.id,
+                filter_criteria={},
+                is_public=True,
+            )
+        )
+        updated = client.put(
+            f"/api/collections/smart/{smart_collection.id}",
+            data={"filter_criteria": criteria},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert updated.status_code == status.HTTP_400_BAD_REQUEST
+
+        listed = client.get(
+            "/api/collections/smart",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert listed.status_code == status.HTTP_200_OK
+        assert [c["name"] for c in listed.json()] == ["Valid"]
+
     def test_reading_a_smart_collection_does_not_touch_it(
         self, client, access_token: str, admin_user: User, rom: Rom
     ):
