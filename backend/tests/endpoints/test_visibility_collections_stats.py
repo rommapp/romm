@@ -95,6 +95,23 @@ class TestVirtualCollections:
 
         assert _genres(client, viewer_user)["Ccc Visible"]["rom_count"] == 1
 
+    def test_a_member_spelled_differently_stays_in_its_collection(
+        self, client, admin_user, viewer_user, platform
+    ):
+        # MariaDB's case-insensitive collation files all four under one name.
+        roms = [
+            make_rom(platform, f"rpg {index}", manual_metadata={"genres": [genre]})
+            for index, genre in enumerate(["Rpg", "Rpg", "Rpg", "RPG"])
+        ]
+        _hide(PermEntity.ROMS, roms[0].id, viewer_user)
+
+        every = _genres(client, admin_user)
+        shown = _genres(client, viewer_user)
+
+        assert {name: set(c["rom_ids"]) for name, c in shown.items()} == {
+            name: set(c["rom_ids"]) - {roms[0].id} for name, c in every.items()
+        }
+
     def test_the_admin_sees_every_member(self, client, admin_user, library):
         genres = _genres(client, admin_user)
 

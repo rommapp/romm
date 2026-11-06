@@ -135,6 +135,35 @@ def test_state_routes_404_on_a_hidden_rom(
     assert response.json()["detail"] == f"State with ID {state.id} not found"
 
 
+@pytest.mark.parametrize(
+    ("path", "key", "make"),
+    [
+        ("/api/saves/delete", "saves", make_save),
+        ("/api/states/delete", "states", make_state),
+    ],
+)
+def test_a_batch_delete_with_a_hidden_asset_removes_nothing(
+    client: TestClient,
+    editor_user: User,
+    rom: Rom,
+    second_rom: Rom,
+    path: str,
+    key: str,
+    make: Any,
+):
+    shown = make(second_rom, editor_user, "shown.bin")
+    hidden = make(rom, editor_user, "hidden.bin")
+    _hide(PermEntity.ROMS, rom.id, editor_user.id)
+
+    response = client.post(
+        path, headers=_auth(editor_user), json={key: [shown.id, hidden.id]}
+    )
+    listed = client.get(f"/api/{key}", headers=_auth(editor_user))
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert [asset["id"] for asset in listed.json()] == [shown.id]
+
+
 def test_a_save_on_a_visible_rom_still_updates(
     client: TestClient, editor_user: User, rom: Rom
 ):

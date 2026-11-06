@@ -88,10 +88,10 @@ router = APIRouter(
 
 
 def _visible_platform_by_slug(request: Request, slug: str) -> Platform | None:
-    """The platform with `slug`, or None when it is missing or hidden from the caller."""
-    platform = db_platform_handler.get_platform_by_slug(slug)
-    hidden = get_rom_visibility_filter(request).hidden_platform_ids
-    return None if platform is None or platform.id in hidden else platform
+    """A platform with `slug` the caller can see, or None."""
+    return db_platform_handler.get_platform_by_slug(
+        slug, visibility=get_rom_visibility_filter(request)
+    )
 
 
 def _platform_roms(

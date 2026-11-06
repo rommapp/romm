@@ -501,8 +501,9 @@ def get_save_identifiers(request: Request) -> list[int]:
 @protected_route(router.get, "/summary", [Scope.ASSETS_READ])
 def get_saves_summary(request: Request, rom_id: int) -> SaveSummarySchema:
     """Retrieve saves summary grouped by slot."""
-    rom = db_rom_handler.get_rom_visibility(rom_id)
-    if rom and not get_rom_visibility_filter(request).allows(rom):
+    if db_rom_handler.get_hidden_rom_ids_among(
+        [rom_id], get_rom_visibility_filter(request)
+    ):
         return SaveSummarySchema(total_count=0, slots=[])
 
     summary_data = db_save_handler.get_saves_summary(
@@ -827,9 +828,9 @@ async def delete_saves(
 
     affected_rom_ids: set[int] = set()
 
-    for save_id in saves:
-        save = _owned_save_or_404(request, save_id)
-
+    # Resolved up front, so a bad id fails the batch before anything is removed.
+    owned = [_owned_save_or_404(request, save_id) for save_id in saves]
+    for save in owned:
         affected_rom_ids.add(save.rom_id)
         log.info(
             f"Deleting save {hl(save.file_name)} [{save.rom.platform_slug}] from filesystem"

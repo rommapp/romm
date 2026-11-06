@@ -300,6 +300,8 @@ class DBCollectionsHandler(DBBaseHandler):
         """
         if not collections:
             return
+        # Built once, so every select in a batch shares the hidden-id binds.
+        facets_clauses = visibility.facets_clauses()
 
         def covers_select(collection: VirtualCollection) -> Select[*tuple[Any, ...]]:
             query = select(
@@ -311,7 +313,7 @@ class DBCollectionsHandler(DBBaseHandler):
             if not visibility.is_unrestricted:
                 query = query.join(
                     RomFacets, RomFacets.rom_id == VirtualCollectionRom.rom_id
-                ).where(*visibility.facets_clauses())
+                ).where(*facets_clauses)
             return (
                 query.where(
                     VirtualCollectionRom.type == collection.type,
@@ -341,19 +343,6 @@ class DBCollectionsHandler(DBBaseHandler):
             small, large = covers.get((collection.type, collection.name), ([], []))
             collection.path_covers_s = small
             collection.path_covers_l = large
-
-    @staticmethod
-    def _visible_members(visibility: RomVisibilityFilter) -> Select[str, str, int]:
-        """Membership rows of the ROMs `visibility` keeps."""
-        return (
-            select(
-                VirtualCollectionRom.type,
-                VirtualCollectionRom.name,
-                VirtualCollectionRom.rom_id,
-            )
-            .join(RomFacets, RomFacets.rom_id == VirtualCollectionRom.rom_id)
-            .where(*visibility.facets_clauses())
-        )
 
     def _only_visible(
         self,
@@ -385,26 +374,29 @@ class DBCollectionsHandler(DBBaseHandler):
         collections: Sequence[VirtualCollection],
         visibility: RomVisibilityFilter,
     ) -> None:
-        """Replace each collection's members with the ones `visibility` keeps."""
+        """Narrow each collection's members to the ones `visibility` keeps."""
         if visibility.is_unrestricted or not collections:
             return
-        rom_ids: dict[tuple[str, str], set[int]] = {
-            (collection.type, collection.name): set() for collection in collections
-        }
+        visible: set[int] = set()
         for batch in batched(collections, COLLECTIONS_BATCH_SIZE, strict=False):
             keys = [(collection.type, collection.name) for collection in batch]
-            for row in session.execute(
-                self._visible_members(visibility).where(
-                    tuple_(VirtualCollectionRom.type, VirtualCollectionRom.name).in_(
-                        keys
+            visible.update(
+                session.scalars(
+                    select(VirtualCollectionRom.rom_id)
+                    .join(RomFacets, RomFacets.rom_id == VirtualCollectionRom.rom_id)
+                    .where(
+                        *visibility.facets_clauses(),
+                        tuple_(
+                            VirtualCollectionRom.type, VirtualCollectionRom.name
+                        ).in_(keys),
                     )
-                )
-            ).all():
-                rom_ids[(row.type, row.name)].add(row.rom_id)
-        # Committed, so the session never tries to write the view back.
+                ).all()
+            )
+        # By id, as the collation can file a member under another spelling, and
+        # committed, so the session never tries to write the view back.
         for collection in collections:
             set_committed_value(
-                collection, "rom_ids", rom_ids[(collection.type, collection.name)]
+                collection, "rom_ids", set(collection.rom_ids) & visible
             )
 
     @begin_session

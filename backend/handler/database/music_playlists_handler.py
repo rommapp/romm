@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from decorators.database import INJECTED_SESSION, begin_session
 from handler.auth.rom_visibility import RomVisibilityFilter
 from models.music import MusicFavoriteTrack, MusicPlaylist, MusicPlaylistTrack
-from models.rom import Rom, RomFile
+from models.rom import RomFacets, RomFile
 
 from .base_handler import DBBaseHandler, affected_rows
 
@@ -113,8 +113,8 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
         if not visibility.is_unrestricted:
             query = (
                 query.join(RomFile, RomFile.id == MusicPlaylistTrack.rom_file_id)
-                .join(Rom, Rom.id == RomFile.rom_id)
-                .where(*visibility.clauses())
+                .join(RomFacets, RomFacets.rom_id == RomFile.rom_id)
+                .where(*visibility.facets_clauses())
             )
         rows = session.execute(query.group_by(MusicPlaylistTrack.playlist_id)).all()
         return {playlist_id: count for playlist_id, count in rows}

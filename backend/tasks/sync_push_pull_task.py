@@ -5,7 +5,6 @@ and performs bidirectional sync operations.
 """
 
 import os
-from collections.abc import Sequence
 from typing import Any
 
 import asyncssh
@@ -19,7 +18,6 @@ from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
     db_platform_handler,
-    db_rom_handler,
     db_save_handler,
     db_sync_session_handler,
     db_user_handler,
@@ -29,7 +27,6 @@ from handler.sync.comparison import compare_save_state
 from handler.sync.ssh_handler import RemoteSaveInfo, get_ssh_sync_handler
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.assets import Save
 from models.device import Device, SyncMode
 from models.sync_session import SyncSessionStatus
 from tasks.registry import SYNC_PUSH_PULL_SPEC
@@ -76,15 +73,6 @@ def _owner_visibility(device: Device) -> RomVisibilityFilter:
     if owner is None:
         raise LookupError(f"Owner {device.user_id} of device {device.id} not found")
     return resolve_permissions(owner).rom_visibility
-
-
-def _visible_saves(
-    saves: Sequence[Save], visibility: RomVisibilityFilter
-) -> list[Save]:
-    hidden = db_rom_handler.get_hidden_rom_ids_among(
-        [save.rom_id for save in saves], visibility
-    )
-    return [save for save in saves if save.rom_id not in hidden]
 
 
 async def _sync_device(device: Device, session_id: int | None = None) -> dict[str, Any]:
@@ -277,11 +265,11 @@ async def _process_remote_save(
     # Find matching server save. Only slot-bound saves participate in sync;
     # null-slot saves are web-UI / archival uploads and must never be paired
     # with a device push. Filter in SQL so archival rows never load.
-    saves = _visible_saves(
-        db_save_handler.get_saves(
-            user_id=device.user_id, platform_id=platform.id, slot_not_null=True
-        ),
-        visibility if visibility is not None else _owner_visibility(device),
+    saves = db_save_handler.get_saves(
+        user_id=device.user_id,
+        platform_id=platform.id,
+        slot_not_null=True,
+        visibility=visibility if visibility is not None else _owner_visibility(device),
     )
     matched_save = None
     for save in saves:
@@ -451,11 +439,11 @@ async def _push_missing_saves(
         # Only slot-bound saves participate in sync; null-slot saves are
         # web-UI / archival uploads and must never be pushed to a device.
         # Filter in SQL so archival rows never load.
-        server_saves = _visible_saves(
-            db_save_handler.get_saves(
-                user_id=device.user_id, platform_id=platform.id, slot_not_null=True
-            ),
-            visibility,
+        server_saves = db_save_handler.get_saves(
+            user_id=device.user_id,
+            platform_id=platform.id,
+            slot_not_null=True,
+            visibility=visibility,
         )
 
         remote_set = remote_files.get(platform_slug, set())

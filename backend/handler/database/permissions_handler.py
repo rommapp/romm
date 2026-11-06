@@ -2,7 +2,7 @@ from collections import defaultdict
 from collections.abc import Collection, Iterable, Sequence
 from typing import Final, NamedTuple
 
-from sqlalchemy import and_, delete, or_, select, update
+from sqlalchemy import ColumnElement, and_, delete, or_, select, update
 from sqlalchemy.orm import Session
 
 from decorators.database import INJECTED_SESSION, begin_session
@@ -144,8 +144,29 @@ class DBPermissionsHandler(DBBaseHandler):
                 )
             ).all()
         }
+        # A request for some users reads only their own and their groups' hides.
+        principals: list[ColumnElement[bool]] = []
+        if user_ids is not None:
+            restricted = [user for user in users if user.role != Role.ADMIN]
+            group_ids = {
+                (
+                    user.permission_group_id
+                    if user.permission_group_id is not None
+                    else default_group_id
+                )
+                for user in restricted
+            } - {None}
+            principals.append(
+                or_(
+                    HiddenEntity.user_id.in_([user.id for user in restricted]),
+                    HiddenEntity.group_id.in_(group_ids),
+                )
+            )
         hides_filter = (
-            HiddenEntity.entity.in_((PermEntity.ROMS, PermEntity.PLATFORMS))
+            and_(
+                HiddenEntity.entity.in_((PermEntity.ROMS, PermEntity.PLATFORMS)),
+                *principals,
+            )
             if rom is None
             else or_(
                 and_(

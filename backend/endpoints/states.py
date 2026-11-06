@@ -382,9 +382,9 @@ async def delete_states(
 
     affected_rom_ids: set[int] = set()
 
-    for state_id in states:
-        state = _owned_state_or_404(request, state_id)
-
+    # Resolved up front, so a bad id fails the batch before anything is removed.
+    owned = [_owned_state_or_404(request, state_id) for state_id in states]
+    for state in owned:
         affected_rom_ids.add(state.rom_id)
         log.info(
             f"Deleting state {hl(state.file_name)} [{state.rom.platform_slug}] from filesystem"

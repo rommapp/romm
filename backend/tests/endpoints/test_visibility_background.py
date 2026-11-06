@@ -242,6 +242,17 @@ class TestFeeds:
         assert hidden.status_code == status.HTTP_404_NOT_FOUND
         assert hidden.json() == missing.json()
 
+    def test_a_visible_platform_sharing_a_hidden_ones_slug_is_served(
+        self, client, viewer_user: User
+    ):
+        hidden = make_platform("nds")
+        make_platform("nds", fs_slug="nintendo-ds")
+        _hide(PermEntity.PLATFORMS, hidden.id, viewer_user.id)
+
+        response = client.get("/api/feeds/kekatsu/nds", headers=_auth(viewer_user))
+
+        assert response.status_code == status.HTTP_200_OK
+
     def test_tinfoil_reports_a_hidden_switch_as_missing(
         self, client, viewer_user: User
     ):
