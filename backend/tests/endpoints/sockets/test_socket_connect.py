@@ -65,3 +65,40 @@ async def test_disconnect_undoes_the_binding_and_the_activity(mocker):
 def test_one_disconnect_handler_serves_the_whole_server():
     # A second registration would silently replace this one.
     assert socket_handler.socket_server.handlers["/"]["disconnect"] is logs.disconnect
+
+
+async def test_a_client_token_authenticates_the_socket(mocker, enter_room, bind):
+    _session(mocker)  # No login session: a device client holds a token instead.
+    identity = MagicMock()
+    identity.user.id = 9
+    identity.scopes = ["roms.read"]
+    token_auth = mocker.patch.object(
+        socket_handler, "authenticate_client_token", AsyncMock(return_value=identity)
+    )
+
+    await logs.connect("sid-1", {}, {"token": "rmm_abc"})
+
+    token_auth.assert_awaited_once_with("sid-1", {}, {"token": "rmm_abc"})
+    logs.store_authenticated_user.assert_awaited_once_with(
+        "sid-1", 9, scopes=["roms.read"]
+    )
+    # Token sockets get an identity only: user rooms carry events their
+    # scopes may not cover.
+    enter_room.assert_not_awaited()
+
+
+async def test_a_token_authenticated_admin_does_not_join_the_log_room(
+    mocker, enter_room
+):
+    _session(mocker)
+    identity = MagicMock()
+    identity.user.id = 9
+    identity.user.role = Role.ADMIN
+    identity.scopes = ["roms.read"]
+    mocker.patch.object(
+        socket_handler, "authenticate_client_token", AsyncMock(return_value=identity)
+    )
+
+    await logs.connect("sid-1", {}, {"token": "rmm_abc"})
+
+    enter_room.assert_not_awaited()

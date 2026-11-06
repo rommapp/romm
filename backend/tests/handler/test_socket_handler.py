@@ -1,14 +1,17 @@
 from contextlib import asynccontextmanager
-from typing import cast
+from datetime import datetime, timedelta, timezone
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import socketio
 from tests.redis_stubs import fail_expire, record_pipelines
 
+from config import SESSION_MAX_AGE_SECONDS
 from handler.database import db_user_handler
-from handler.redis_handler import REDIS_CLIENT_OPTIONS, async_cache, sync_cache
+from handler.redis_handler import REDIS_CLIENT_OPTIONS, as_text, async_cache, sync_cache
 from handler.socket_handler import (
+    CLIENT_TOKEN_ID_SESSION_KEY,
     DEVICES_NAMESPACE,
     LOGIN_SESSION_ID_KEY,
     SocketHandler,
@@ -278,10 +281,19 @@ class TestTrackedSockets:
 class TestClientTokenSockets:
     async def test_closing_a_token_disconnects_its_device_sockets(self, mocker):
         close = mocker.patch.object(socket_handler, "close_tracked", AsyncMock())
+        netplay_close = mocker.patch.object(
+            netplay_socket_handler, "close_tracked", AsyncMock()
+        )
 
         await close_client_token_sockets([42])
 
-        close.assert_awaited_once_with("device_token_sockets:42", DEVICES_NAMESPACE)
+        assert close.await_args_list == [
+            mocker.call("device_token_sockets:42", DEVICES_NAMESPACE),
+            mocker.call("device_token_sockets:42:socketio:default"),
+        ]
+        netplay_close.assert_awaited_once_with(
+            "device_token_sockets:42:netplay:default"
+        )
 
     async def test_a_broker_failure_moves_on_to_the_next_token(self, mocker, cache):
         await cache.sadd("device_token_sockets:1", "sid-1")
@@ -362,3 +374,140 @@ class TestAuthenticate:
 
         assert await handler.authenticate("sid-1", {}) is None
         bind.assert_not_awaited()
+
+
+class TestAuthenticateClientToken:
+    @pytest.fixture
+    def handler(self) -> SocketHandler:
+        return SocketHandler(path="/test", channel="test-channel")
+
+    @pytest.fixture
+    def socket_session(self, mocker, handler) -> dict[str, Any]:
+        stored: dict[str, Any] = {}
+
+        @asynccontextmanager
+        async def session(sid: str, namespace: str | None = None):
+            yield stored
+
+        mocker.patch.object(handler.socket_server, "session", session)
+        return stored
+
+    @pytest.fixture
+    def identity(self, mocker) -> MagicMock:
+        identity = MagicMock()
+        identity.token.id = 42
+        identity.token.expires_at = None
+        identity.user.id = 7
+        identity.scopes = ["roms.read"]
+        mocker.patch(
+            "handler.auth.hybrid_auth.resolve_client_token", return_value=identity
+        )
+        mocker.patch("handler.database.db_client_token_handler.update_last_used")
+        mocker.patch("handler.socket_handler.fire_and_forget")
+        return identity
+
+    async def test_resolves_and_tracks_a_client_token(
+        self, handler, socket_session, identity, cache
+    ):
+        result = await handler.authenticate_client_token(
+            "sid-1", {}, {"token": "rmm_abc"}
+        )
+
+        assert result is identity
+        assert socket_session == {CLIENT_TOKEN_ID_SESSION_KEY: 42}
+        members = await cache.smembers("device_token_sockets:42:test-channel:default")
+        assert {as_text(member) for member in members} == {"sid-1"}
+
+    async def test_untracks_a_token_revoked_while_binding(
+        self, handler, socket_session, mocker, identity, cache
+    ):
+        mocker.patch(
+            "handler.auth.hybrid_auth.resolve_client_token",
+            side_effect=[identity, None],
+        )
+
+        assert (
+            await handler.authenticate_client_token("sid-1", {}, {"token": "rmm_abc"})
+            is None
+        )
+        members = await cache.smembers("device_token_sockets:42:test-channel:default")
+        assert members == set()
+        assert socket_session == {}
+
+
+async def test_revoking_a_token_closes_its_sockets_on_every_namespace(mocker, cache):
+    identity = MagicMock()
+    identity.token.id = 42
+    identity.token.expires_at = None
+    identity.user.id = 7
+    identity.scopes = ["roms.read"]
+    mocker.patch("handler.auth.hybrid_auth.resolve_client_token", return_value=identity)
+    mocker.patch("handler.database.db_client_token_handler.update_last_used")
+    mocker.patch("handler.socket_handler.fire_and_forget")
+
+    for handler in (socket_handler, netplay_socket_handler):
+
+        @asynccontextmanager
+        async def session(sid: str, namespace: str | None = None):
+            yield {}
+
+        mocker.patch.object(handler.socket_server, "session", session)
+
+    main_disconnect = mocker.patch.object(
+        socket_handler.socket_server, "disconnect", AsyncMock()
+    )
+    netplay_disconnect = mocker.patch.object(
+        netplay_socket_handler.socket_server, "disconnect", AsyncMock()
+    )
+
+    await socket_handler.authenticate_client_token("sid-main", {}, {"token": "rmm_abc"})
+    await netplay_socket_handler.authenticate_client_token(
+        "sid-netplay", {}, {"token": "rmm_abc"}
+    )
+    # The devices namespace tracks its own sockets from its own connect handler.
+    await cache.sadd("device_token_sockets:42", "sid-devices")
+
+    await close_client_token_sockets([42])
+
+    assert main_disconnect.await_count == 2
+    main_disconnect.assert_any_await("sid-devices", namespace=DEVICES_NAMESPACE)
+    main_disconnect.assert_any_await("sid-main", namespace=None)
+    netplay_disconnect.assert_awaited_once_with("sid-netplay", namespace=None)
+
+
+class TestKeepTokenTracked:
+    @pytest.fixture
+    def handler(self) -> SocketHandler:
+        return SocketHandler(path="/test", channel="test-channel")
+
+    async def test_disconnects_an_expired_token(self, mocker, handler):
+        mocker.patch.object(handler.socket_server, "sleep", AsyncMock())
+        mocker.patch.object(
+            handler.socket_server.manager, "is_connected", return_value=True
+        )
+        disconnect = mocker.patch.object(
+            handler.socket_server, "disconnect", AsyncMock()
+        )
+        track = mocker.patch.object(handler, "track", AsyncMock())
+
+        await handler._keep_token_tracked(
+            "sid-1", 42, datetime.now(timezone.utc) - timedelta(seconds=1), None
+        )
+
+        disconnect.assert_awaited_once_with("sid-1", namespace=None)
+        track.assert_not_awaited()
+
+    async def test_renews_tracking_while_connected(self, mocker, handler):
+        mocker.patch.object(handler.socket_server, "sleep", AsyncMock())
+        mocker.patch.object(
+            handler.socket_server.manager, "is_connected", side_effect=[True, False]
+        )
+        track = mocker.patch.object(handler, "track", AsyncMock())
+
+        await handler._keep_token_tracked("sid-1", 42, None, None)
+
+        track.assert_awaited_once_with(
+            "device_token_sockets:42:test-channel:default",
+            "sid-1",
+            SESSION_MAX_AGE_SECONDS,
+        )

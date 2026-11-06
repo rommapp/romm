@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import Awaitable, Callable, Iterable
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Final
 
 import socketio
@@ -8,17 +9,38 @@ from config import REDIS_URL, SESSION_MAX_AGE_SECONDS
 from handler.redis_handler import REDIS_CLIENT_OPTIONS, as_text, async_cache
 from logger.logger import log
 from utils import json_module
+from utils.background_tasks import fire_and_forget
+from utils.datetime import to_utc
 
 if TYPE_CHECKING:
+    from handler.auth.hybrid_auth import ClientTokenIdentity
     from models.user import User
 
 # Where a socket's own session records the login session that opened it.
 LOGIN_SESSION_ID_KEY: Final = "login_session_id"
+# Where a socket's own session records the client token that opened it.
+CLIENT_TOKEN_ID_SESSION_KEY: Final = "client_token_id"
 DEVICES_NAMESPACE: Final = "/devices"
+# How often a token socket's tracking is renewed while it stays connected.
+TOKEN_TRACKING_REFRESH_SECONDS: Final = SESSION_MAX_AGE_SECONDS / 2
 
 
 def client_token_sockets_key(token_id: int) -> str:
     return f"device_token_sockets:{token_id}"
+
+
+def raw_client_token_from_handshake(
+    environ: dict[str, Any], auth: Any = None
+) -> str | None:
+    """The token from the handshake's auth payload, else its bearer header."""
+    token = auth.get("token") if isinstance(auth, dict) else None
+    if isinstance(token, str) and token:
+        return token
+
+    scheme, _, credentials = str(environ.get("HTTP_AUTHORIZATION", "")).partition(" ")
+    if scheme.lower() != "bearer" or not credentials:
+        return None
+    return credentials.strip()
 
 
 class SocketHandler:
@@ -113,6 +135,90 @@ class SocketHandler:
         if session_id and not await self.bind_to_login_session(sid, session_id):
             return None
         return user
+
+    def _token_tracking_key(self, token_id: int, namespace: str | None) -> str:
+        """The token's socket set for this server and namespace, so closing one set cannot consume another's."""
+        return f"{client_token_sockets_key(token_id)}:{self.channel}:{namespace or 'default'}"
+
+    async def authenticate_client_token(
+        self,
+        sid: str,
+        environ: dict[str, Any],
+        auth: Any = None,
+        *,
+        namespace: str | None = None,
+    ) -> "ClientTokenIdentity | None":
+        """The live client-token identity behind a handshake, binding the socket for revocation."""
+        # Deferred: both import the auth middleware, which imports this module.
+        from handler.auth.constants import CLIENT_TOKEN_PREFIX
+        from handler.auth.hybrid_auth import resolve_client_token
+        from handler.database import db_client_token_handler
+
+        raw_token = raw_client_token_from_handshake(environ, auth)
+        if not raw_token or not raw_token.startswith(CLIENT_TOKEN_PREFIX):
+            return None
+
+        identity = resolve_client_token(raw_token)
+        if identity is None:
+            return None
+
+        token_id = identity.token.id
+        tracking_key = self._token_tracking_key(token_id, namespace)
+        await self.track(tracking_key, sid, SESSION_MAX_AGE_SECONDS)
+        # A revocation that ran before the socket was tracked found nothing to close.
+        refreshed = resolve_client_token(raw_token)
+        if refreshed is None or refreshed.token.id != token_id:
+            await self.untrack(tracking_key, sid)
+            return None
+
+        db_client_token_handler.update_last_used(token_id)
+        async with self.socket_server.session(sid, namespace=namespace) as session:
+            session[CLIENT_TOKEN_ID_SESSION_KEY] = token_id
+        expires_at = identity.token.expires_at
+        fire_and_forget(
+            self._keep_token_tracked(
+                sid, token_id, to_utc(expires_at) if expires_at else None, namespace
+            )
+        )
+        return identity
+
+    async def _keep_token_tracked(
+        self,
+        sid: str,
+        token_id: int,
+        expires_at: datetime | None,
+        namespace: str | None,
+    ) -> None:
+        """Renew a token socket's tracking until it disconnects or its token expires."""
+        server = self.socket_server
+        while True:
+            await server.sleep(TOKEN_TRACKING_REFRESH_SECONDS)
+            if not server.manager.is_connected(sid, namespace or "/"):
+                return
+            if expires_at and expires_at <= datetime.now(timezone.utc):
+                await server.disconnect(sid, namespace=namespace)
+                return
+            try:
+                await self.track(
+                    self._token_tracking_key(token_id, namespace),
+                    sid,
+                    SESSION_MAX_AGE_SECONDS,
+                )
+            except Exception:  # noqa: BLE001
+                log.warning(
+                    f"Failed to refresh the tracking of token {token_id}",
+                    exc_info=True,
+                )
+
+    async def unbind_from_client_token(
+        self, sid: str, *, namespace: str | None = None
+    ) -> None:
+        """Forget which client token opened a socket, if any, on disconnect."""
+        token_id = (await self.get_session(sid, namespace=namespace)).get(
+            CLIENT_TOKEN_ID_SESSION_KEY
+        )
+        if token_id is not None:
+            await self.untrack(self._token_tracking_key(token_id, namespace), sid)
 
     async def track(
         self, key: str, sid: str, ttl_seconds: int, *, while_exists: str | None = None
@@ -214,8 +320,16 @@ async def close_login_session_sockets(session_ids: Iterable[str]) -> None:
 
 
 async def close_client_token_sockets(token_ids: Iterable[int]) -> None:
-    """Disconnect every device socket the given client tokens opened, on any worker."""
+    """Disconnect every socket the given client tokens opened, on any worker."""
     for token_id in token_ids:
-        await socket_handler.close_tracked(
-            client_token_sockets_key(token_id), DEVICES_NAMESPACE
+        await asyncio.gather(
+            socket_handler.close_tracked(
+                client_token_sockets_key(token_id), DEVICES_NAMESPACE
+            ),
+            socket_handler.close_tracked(
+                socket_handler._token_tracking_key(token_id, None)
+            ),
+            netplay_socket_handler.close_tracked(
+                netplay_socket_handler._token_tracking_key(token_id, None)
+            ),
         )

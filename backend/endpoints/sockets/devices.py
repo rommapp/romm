@@ -15,6 +15,7 @@ from handler.redis_handler import async_cache
 from handler.socket_handler import (
     DEVICES_NAMESPACE,
     client_token_sockets_key,
+    raw_client_token_from_handshake,
     socket_handler,
 )
 from logger.logger import log
@@ -45,14 +46,7 @@ def _claim_presence_key(device_id: str) -> str:
 
 def _raw_client_token(environ: dict[str, Any], auth: Any) -> str | None:
     """The token from the handshake's auth payload, else its bearer header."""
-    token = auth.get("token") if isinstance(auth, dict) else None
-    if isinstance(token, str):
-        return token
-
-    scheme, _, credentials = str(environ.get("HTTP_AUTHORIZATION", "")).partition(" ")
-    if scheme.lower() == "bearer" and credentials:
-        return credentials.strip()
-    return None
+    return raw_client_token_from_handshake(environ, auth)
 
 
 class BoundToken(NamedTuple):

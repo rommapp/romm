@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, TypedDict
 
 from handler.activity_handler import activity_handler
+from handler.auth.constants import Scope
 from handler.database import db_user_handler
 from handler.socket_handler import socket_handler
 from logger.logger import log
@@ -29,6 +30,9 @@ if TYPE_CHECKING:
 # Socket-session key holding the authenticated user id, written by the connect
 # handler. Identity for every activity event is derived from this, not payload.
 AUTH_USER_SESSION_KEY = "activity_auth_user_id"
+# Present only on client-token-authenticated sockets: the token's effective
+# scopes. Login-session sockets have no entry and keep their user-level access.
+AUTH_SCOPES_SESSION_KEY = "activity_auth_scopes"
 
 
 class ActivityEventPayload(TypedDict, total=False):
@@ -43,14 +47,14 @@ async def _session(sid: str) -> dict[str, Any]:
         return {}
 
 
-async def store_authenticated_user(sid: str, user_id: int) -> None:
-    """Record the authenticated user for a socket so activity events trust it.
-
-    Called from the connect handler once the session has been resolved. Without
-    this, activity events have no identity to act on and are ignored.
-    """
+async def store_authenticated_user(
+    sid: str, user_id: int, *, scopes: list[str] | None = None
+) -> None:
+    """Record the authenticated user, and any token scopes, so activity events trust the socket."""
     existing = await _session(sid)
     existing[AUTH_USER_SESSION_KEY] = user_id
+    if scopes is not None:
+        existing[AUTH_SCOPES_SESSION_KEY] = scopes
     await socket_handler.socket_server.save_session(sid, existing)
 
 
@@ -99,12 +103,20 @@ def _extract_payload(data: object) -> tuple[str | None, int | None]:
     return device_id, rom_id
 
 
+async def _can_publish(sid: str) -> bool:
+    """Whether the socket may publish activity: token sockets need roms.read, others are unrestricted."""
+    scopes = (await _session(sid)).get(AUTH_SCOPES_SESSION_KEY)
+    return scopes is None or str(Scope.ROMS_READ) in scopes
+
+
 @socket_handler.on("activity:start")
 async def activity_start(sid: str, data: ActivityEventPayload) -> None:
     user_id = await _authenticated_user_id(sid)
     device_id, rom_id = _extract_payload(data)
     if user_id is None or device_id is None or rom_id is None:
         log.debug(f"activity:start ignored (unauthenticated or invalid): {data}")
+        return
+    if not await _can_publish(sid):
         return
 
     entry = await activity_handler.build_entry(
@@ -125,6 +137,8 @@ async def activity_heartbeat(sid: str, data: ActivityEventPayload) -> None:
     user_id = await _authenticated_user_id(sid)
     device_id, rom_id = _extract_payload(data)
     if user_id is None or device_id is None or rom_id is None:
+        return
+    if not await _can_publish(sid):
         return
 
     entry = await activity_handler.build_entry(
@@ -153,6 +167,8 @@ async def activity_stop(sid: str, data: ActivityEventPayload | None = None) -> N
         device_id = (await _session(sid)).get("activity_device_id")
 
     if user_id is None or not device_id:
+        return
+    if not await _can_publish(sid):
         return
 
     await activity_handler.publish_clear(int(user_id), device_id)
