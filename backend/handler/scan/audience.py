@@ -13,6 +13,7 @@ from handler.auth.constants import Scope
 from handler.auth.permissions import compute_oauth_scopes_by_user
 from handler.auth.rom_visibility import RomVisibilityFilter, VisibilityColumns
 from handler.database import db_permission_handler, db_user_handler
+from handler.redis_handler import sync_cache
 from handler.socket_handler import user_room
 from models.user import User
 
@@ -67,19 +68,43 @@ def resolve_scan_audience() -> ScanAudience:
     return ScanAudience({vis: tuple(r) for vis, r in rooms.items()})
 
 
-_scan_audience: ContextVar[ScanAudience | None] = ContextVar(
+# Bumped on every permission change, so a running scan knows its audience is stale.
+PERMISSIONS_GENERATION_KEY: Final = "permissions:generation"
+
+
+def bump_permissions_generation() -> None:
+    sync_cache.incr(PERMISSIONS_GENERATION_KEY)
+
+
+def _permissions_generation() -> bytes | str | None:
+    return sync_cache.get(PERMISSIONS_GENERATION_KEY)
+
+
+@dataclass
+class _ScanAudienceState:
+    audience: ScanAudience
+    generation: bytes | str | None
+
+
+# Mutable, so a refresh made inside one of the scan's tasks reaches the others.
+_scan_audience: ContextVar[_ScanAudienceState | None] = ContextVar(
     "scan_audience", default=None
 )
 
 
 def begin_scan_audience() -> None:
-    """Resolve the audience once for the scan running in this context."""
-    _scan_audience.set(resolve_scan_audience())
+    """Resolve the audience for the scan running in this context."""
+    generation = _permissions_generation()
+    _scan_audience.set(_ScanAudienceState(resolve_scan_audience(), generation))
 
 
 def current_scan_audience() -> ScanAudience:
-    """The audience `begin_scan_audience` resolved for the running scan."""
-    audience = _scan_audience.get()
-    if audience is None:
+    """The running scan's audience, resolved again after a permission change."""
+    state = _scan_audience.get()
+    if state is None:
         raise RuntimeError("No scan audience: begin_scan_audience() was not called")
-    return audience
+    generation = _permissions_generation()
+    if generation != state.generation:
+        state.audience = resolve_scan_audience()
+        state.generation = generation
+    return state.audience

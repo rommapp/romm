@@ -187,5 +187,21 @@ class TestEmits:
 
         await ScanStats().update(socket_manager, total_roms=3)
 
-        assert socket_manager.emit.await_args.args[0] == "scan:update_stats"
-        assert socket_manager.emit.await_args.kwargs == {"to": SCAN_ROOM}
+        emitted = socket_manager.emit.await_args
+        assert emitted is not None
+        assert emitted.args[0] == "scan:update_stats"
+        assert emitted.kwargs == {"to": SCAN_ROOM}
+
+    async def test_a_permission_change_refreshes_a_running_scans_audience(self, mocker):
+        before, after = Mock(spec=ScanAudience), Mock(spec=ScanAudience)
+        resolve = mocker.patch.object(
+            audience_module, "resolve_scan_audience", side_effect=[before, after]
+        )
+        audience_module.begin_scan_audience()
+        assert audience_module.current_scan_audience() is before
+
+        audience_module.bump_permissions_generation()
+
+        assert audience_module.current_scan_audience() is after
+        assert audience_module.current_scan_audience() is after
+        assert resolve.call_count == 2

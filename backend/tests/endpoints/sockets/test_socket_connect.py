@@ -70,7 +70,7 @@ async def test_a_scan_follower_joins_the_scan_room(
     await logs.connect("sid-1", {})
 
     rooms = [call.args[1] for call in enter_room.await_args_list]
-    assert rooms == ["user:3", SCAN_ROOM] if follows else ["user:3"]
+    assert rooms == (["user:3", SCAN_ROOM] if follows else ["user:3"])
 
 
 async def test_disconnect_undoes_the_binding_and_the_activity(mocker):

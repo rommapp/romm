@@ -27,6 +27,7 @@ from handler.database import (
     db_rom_handler,
     db_user_handler,
 )
+from handler.scan.audience import bump_permissions_generation
 from handler.socket_handler import close_client_token_sockets, socket_handler
 from logger.logger import log
 from models.audit_event import AuditAction, AuditTargetType
@@ -63,6 +64,7 @@ async def emit_permissions_changed(*user_ids: int) -> None:
     # The gallery's cached id index, counts and filter values are computed per
     # user with visibility applied, so they go stale with it.
     db_rom_handler.invalidate_filter_values_cache()
+    bump_permissions_generation()
     if not user_ids:
         return
     await asyncio.gather(*(_broadcast_permissions_changed(u) for u in user_ids))

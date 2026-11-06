@@ -154,7 +154,9 @@ class TestDeviceInstalls:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        _, _, _, data = emits["notify"].await_args.args
+        notified = emits["notify"].await_args
+        assert notified is not None
+        _, _, _, data = notified.args
         assert (data["rom_id"], data["rom_name"]) == (None, None)
 
 
