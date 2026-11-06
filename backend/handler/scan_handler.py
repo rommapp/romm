@@ -48,6 +48,7 @@ from handler.metadata.ss_handler import (
     get_preferred_media_types,
 )
 from handler.metadata.steam_handler import SteamRom
+from handler.scan.audience import current_scan_audience, emit_to_rooms
 from handler.scan.lookups import RomLookups
 from handler.scan.merge import (
     apply_artwork_priority,
@@ -289,7 +290,12 @@ async def emit_scanning_rom(
         exclude=_SCANNING_ROM_EXCLUDE
     )
     payload["is_new"] = is_new
-    await socket_manager.emit("scan:scanning_rom", payload)
+    await emit_to_rooms(
+        socket_manager,
+        "scan:scanning_rom",
+        payload,
+        current_scan_audience().rom_rooms(rom),
+    )
 
 
 def _log_unidentified(

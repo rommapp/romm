@@ -1700,7 +1700,7 @@ async def test_scan_rom_games_still_use_fuzzy_catalog_covers(
 
 @pytest.mark.parametrize("newly_added", [True, False])
 async def test_scan_rom_flags_new_roms_and_writes_existing_ones(
-    newly_added: bool, mocker
+    newly_added: bool, mocker, admin_user
 ):
     """Clients count a ROM off `is_new`, and only an existing one is written first."""
     platform = make_platform("n64", id=1, name="Nintendo 64")

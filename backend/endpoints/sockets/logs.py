@@ -2,9 +2,9 @@
 
 Pieces:
 - ``connect`` handler on the main socket server: resolves the session user,
-  joins them to their own ``user:{id}`` room, and, if they are an admin, also
-  joins the ``admin`` room. It never rejects a connection, so the existing
-  scan/sync sockets keep working for everyone. It also ties the socket to its
+  joins them to their own ``user:{id}`` room, scan followers to the ``scan``
+  room, and admins to the ``admin`` room. It never rejects a connection, so an
+  anonymous socket still connects. It also ties the socket to its
   login session, which ``disconnect`` undoes.
 - ``start_log_forwarder``: a single background task (Redis-lock guarded) that
   subscribes to the ``romm:logs`` pub/sub channel — fed by ``LogStreamHandler``
@@ -21,6 +21,7 @@ import socketio
 from config import DISABLE_LOGS_VIEWER
 from endpoints.sockets.activity import activity_on_disconnect, store_authenticated_user
 from handler.redis_handler import async_cache
+from handler.scan.audience import SCAN_ROOM, follows_scans
 from handler.socket_handler import socket_handler
 from logger.log_stream_handler import LOG_BUFFER_KEY, LOG_CHANNEL
 from logger.logger import log
@@ -39,10 +40,10 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
     Stores the user id in the socket session so activity events can trust the
     server-resolved identity instead of a client-supplied ``user_id``, joins
     every authenticated user to their own ``user:{id}`` room (the target for
-    sync and streaming push notifications), and joins admins to the
-    log-streaming room. Always returns ``None`` (accepts the connection):
-    only identity storage and room membership are gated, so the existing
-    scan/sync sockets keep working for everyone.
+    sync and streaming push notifications), joins scan followers to the scan
+    room, and joins admins to the log-streaming room. Always returns ``None``
+    (accepts the connection): only identity storage and room membership are
+    gated, so an anonymous socket still connects but receives none of them.
     """
     try:
         user = await socket_handler.authenticate(sid, environ)
@@ -51,6 +52,8 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
 
         await store_authenticated_user(sid, user.id)
         await socket_handler.socket_server.enter_room(sid, f"user:{user.id}")
+        if follows_scans(user):
+            await socket_handler.socket_server.enter_room(sid, SCAN_ROOM)
 
         if not DISABLE_LOGS_VIEWER and user.role == Role.ADMIN:
             await socket_handler.socket_server.enter_room(sid, ADMIN_ROOM)
