@@ -127,6 +127,31 @@ def test_reset_password_rejects_an_expired_token(client, admin_user: User):
     assert response.json()["detail"] == "Token has expired"
 
 
+def test_reset_password_revokes_oauth_tokens(client, admin_user: User):
+    old = client.post(
+        "/api/token",
+        data={
+            "grant_type": "password",
+            "username": "test_admin",
+            "password": "test_admin_password",
+            "scope": "me.read",
+        },
+    ).json()
+
+    token = auth_handler.generate_password_reset_token(admin_user)
+    assert _reset_password(client, token).status_code == status.HTTP_200_OK
+
+    response = client.get(
+        "/api/users/me", headers={"Authorization": f"Bearer {old['access_token']}"}
+    )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    response = client.post(
+        "/api/token",
+        data={"grant_type": "refresh_token", "refresh_token": old["refresh_token"]},
+    )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
 def test_reset_password_for_a_deleted_user_is_not_found(client, viewer_user: User):
     token = auth_handler.generate_password_reset_token(viewer_user)
     db_user_handler.delete_user(viewer_user.id)

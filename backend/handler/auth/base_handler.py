@@ -17,6 +17,8 @@ import models.user
 from config import (
     EMAIL_ENABLED,
     INVITE_TOKEN_EXPIRY_SECONDS,
+    OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS,
+    OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS,
     OIDC_ALLOW_REGISTRATION,
     OIDC_CLAIM_ROLES,
     OIDC_ENABLED,
@@ -37,7 +39,7 @@ from handler.auth.constants import (
 )
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.email_handler import EmailError, send_email
-from handler.redis_handler import redis_client
+from handler.redis_handler import redis_client, sync_cache
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.log_stream_handler import STDOUT_ONLY
@@ -104,6 +106,16 @@ def _invite_token_spent() -> HTTPException:
         status_code=status.HTTP_400_BAD_REQUEST,
         detail="Invite token has already been used or is invalid.",
     )
+
+
+# Outlives every OAuth token, so a revoked one can't come back once the key expires.
+OAUTH_REVOCATION_TTL_SECONDS = max(
+    OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS, OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS
+)
+
+
+def _oauth_revoked_before_key(username: str) -> str:
+    return f"oauth-revoked-before:{username}"
 
 
 # bcrypt only reads the first 72 bytes and raises on longer secrets.
@@ -317,12 +329,13 @@ class AuthHandler:
         keep_an_admin: bool = False,
     ) -> None:
         """
-        Write an update to a user, revoking that account's sessions around it.
+        Write an update to a user, revoking the account's sessions and OAuth
+        tokens around it.
         Args:
             user_id (int): The user the update applies to.
             data (dict[str, Any]): The fields to write.
-            revoke_sessions_for (str | None): Username the sessions are keyed by,
-                or None to write without revoking.
+            revoke_sessions_for (str | None): Username the sessions and tokens
+                are keyed by, or None to write without revoking.
             keep_an_admin (bool): Refuse, with LastAdminError, a role change
                 that would leave no admin.
         """
@@ -339,7 +352,7 @@ class AuthHandler:
             if revoke_sessions_for:
                 # Ahead of the write: an unreachable Redis then aborts the change
                 # rather than committing it with the account's sessions left live.
-                await RedisSessionMiddleware.clear_user_sessions(revoke_sessions_for)
+                await self._revoke_user_credentials(revoke_sessions_for)
 
             db_user_handler.update_user(user_id, data, session=session)
 
@@ -347,15 +360,20 @@ class AuthHandler:
             # After it, for a login the old password was still good for. The
             # write has committed, so a failure here is logged, not raised.
             try:
-                await RedisSessionMiddleware.clear_user_sessions(revoke_sessions_for)
+                await self._revoke_user_credentials(revoke_sessions_for)
             except RedisError, OSError:
                 log.error(
-                    "Credentials for '%s' changed, but revoking its sessions "
-                    "afterwards failed; a session created during the update may "
+                    "Credentials for '%s' changed, but revoking its sessions and "
+                    "tokens afterwards failed; one created during the update may "
                     "still be live",
                     hl(revoke_sessions_for, color=CYAN),
                     exc_info=True,
                 )
+
+    @staticmethod
+    async def _revoke_user_credentials(username: str) -> None:
+        OAuthHandler.revoke_user_tokens(username)
+        await RedisSessionMiddleware.clear_user_sessions(username)
 
     async def set_user_new_password(self, user: Any, new_password: str) -> None:
         """
@@ -465,14 +483,35 @@ class OAuthHandler:
     def __init__(self) -> None:
         pass
 
+    @staticmethod
+    def revoke_user_tokens(username: str) -> None:
+        """Invalidate every OAuth token issued to the username until now."""
+        sync_cache.set(
+            _oauth_revoked_before_key(username),
+            repr(datetime.now(timezone.utc).timestamp()),
+            ex=OAUTH_REVOCATION_TTL_SECONDS,
+        )
+
+    @staticmethod
+    def _assert_not_revoked(username: str, claims: dict[str, Any]) -> None:
+        revoked_before = sync_cache.get(_oauth_revoked_before_key(username))
+        if revoked_before is None:
+            return
+        # A token without `iat` predates revocation support, so it counts as old.
+        issued_at = claims.get("iat")
+        if not isinstance(issued_at, int | float) or issued_at <= float(revoked_before):
+            raise OAuthCredentialsException
+
     def _create_oauth_token(
         self,
         data: dict[str, Any],
         expires_delta: timedelta = DEFAULT_OAUTH_TOKEN_EXPIRY,
     ) -> str:
         to_encode = data.copy()
-        expire = int((datetime.now(timezone.utc) + expires_delta).timestamp())
-        to_encode["exp"] = expire
+        now = datetime.now(timezone.utc)
+        # Sub-second, so a login right after a revocation outlives it.
+        to_encode["iat"] = now.timestamp()
+        to_encode["exp"] = int((now + expires_delta).timestamp())
 
         return jwt.encode(
             {"alg": ALGORITHM},
@@ -538,6 +577,8 @@ class OAuthHandler:
         if not username:
             raise OAuthCredentialsException
 
+        self._assert_not_revoked(username, payload.claims)
+
         user = db_user_handler.get_user_by_username(username)
         if user is None:
             raise OAuthCredentialsException
@@ -568,6 +609,8 @@ class OAuthHandler:
         username = payload.claims.get("sub")
         if username is None:
             raise OAuthCredentialsException
+
+        self._assert_not_revoked(username, payload.claims)
 
         user = db_user_handler.get_user_by_username(username)
         if user is None:
