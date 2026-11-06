@@ -711,11 +711,12 @@ async def remove_roms_from_collection(
     if collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
 
+    # Members hidden from the caller stay, as in update_collection.
+    hidden = _hidden_rom_ids(request, payload.rom_ids)
+    rom_ids = [rid for rid in payload.rom_ids if rid not in hidden]
     before = set(collection.rom_ids)
-    updated_collection = db_collection_handler.remove_roms_from_collection(
-        id, payload.rom_ids
-    )
-    refresh_affected_smart_collections(payload.rom_ids, membership_only=True)
+    updated_collection = db_collection_handler.remove_roms_from_collection(id, rom_ids)
+    refresh_affected_smart_collections(rom_ids, membership_only=True)
     if removed := sorted(before - set(updated_collection.rom_ids)):
         _record_collection(
             request,

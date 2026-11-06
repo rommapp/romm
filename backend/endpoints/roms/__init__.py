@@ -1355,7 +1355,7 @@ def get_rom_by_hash(
 async def get_rom_filters(request: Request) -> RomFiltersDict:
     from handler.database import db_rom_handler
 
-    return db_rom_handler.get_rom_filters()
+    return db_rom_handler.get_rom_filters(get_rom_visibility_filter(request))
 
 
 @protected_route(

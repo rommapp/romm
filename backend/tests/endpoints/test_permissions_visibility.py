@@ -6,17 +6,22 @@ to its roms, admins are unaffected, and delete requires a delete grant even when
 the coarse write scope is present.
 """
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi import status
-from tests.factories import make_platform, make_rom
+from tests.factories import make_platform, make_rom, make_save
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import roms as rom_endpoints
 from endpoints.roms import walkthrough as walkthrough_endpoints
 from handler.auth.base_handler import oauth_handler
-from handler.database import db_collection_handler, db_rom_handler, db_user_handler
+from handler.database import (
+    db_collection_handler,
+    db_play_session_handler,
+    db_rom_handler,
+    db_user_handler,
+)
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler
 from models.collection import Collection, SmartCollection
@@ -27,6 +32,7 @@ from models.permission import (
     PermissionGroup,
     PermissionGroupGrant,
 )
+from models.play_session import PlaySession
 from models.rom import RomFile, RomFileCategory
 from utils.gamelist_exporter import GamelistExporter
 from utils.pegasus_exporter import PegasusExporter
@@ -672,3 +678,65 @@ def test_delete_requires_delete_grant_even_with_write_scope(
 def test_admin_can_delete_platform(client, admin_user, platform):
     resp = client.delete(f"/api/platforms/{platform.id}", headers=_auth(admin_user))
     assert resp.status_code == status.HTTP_200_OK
+
+
+def test_rom_filters_leave_out_hidden_platforms(client, viewer_user, platform, rom):
+    hidden_platform = make_platform("snes")
+    make_rom(hidden_platform, "on a hidden platform")
+    _hide(PermEntity.PLATFORMS, hidden_platform.id, viewer_user.id)
+
+    response = client.get("/api/roms/filters", headers=_auth(viewer_user))
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["platforms"] == [platform.id]
+
+
+def test_own_save_on_a_hidden_rom_is_404(client, viewer_user, rom):
+    save = make_save(rom, viewer_user, "hidden.sav")
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+
+    response = client.get(f"/api/saves/{save.id}", headers=_auth(viewer_user))
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_play_sessions_on_hidden_roms_are_left_out(client, viewer_user, platform, rom):
+    hidden = make_rom(platform, "hidden")
+    start = datetime.now(timezone.utc) - timedelta(hours=2)
+    db_play_session_handler.add_sessions(
+        [
+            PlaySession(
+                user_id=viewer_user.id,
+                rom_id=rom_id,
+                start_time=start,
+                end_time=start + timedelta(minutes=30),
+                duration_ms=30 * 60 * 1000,
+            )
+            for rom_id in (rom.id, hidden.id)
+        ]
+    )
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    response = client.get("/api/play-sessions", headers=_auth(viewer_user))
+
+    assert response.status_code == status.HTTP_200_OK
+    assert [s["rom_id"] for s in response.json()] == [rom.id]
+
+
+def test_hidden_member_survives_a_removal(client, viewer_user, rom, platform):
+    hidden = make_rom(platform, "hidden")
+    own = db_collection_handler.add_collection(
+        Collection(name="Mine", description="", user_id=viewer_user.id)
+    )
+    db_collection_handler.add_roms_to_collection(own.id, [rom.id, hidden.id])
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    response = client.request(
+        "DELETE",
+        f"/api/collections/{own.id}/roms",
+        headers=_auth(viewer_user),
+        json={"rom_ids": [rom.id, hidden.id]},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert _member_ids(own.id) == {hidden.id}

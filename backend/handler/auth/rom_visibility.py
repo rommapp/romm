@@ -11,7 +11,7 @@ from sqlalchemy import and_, not_, or_
 from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql.elements import ColumnElement
 
-from models.rom import Rom
+from models.rom import Rom, RomFacets
 
 
 class VisibilityColumns(Protocol):
@@ -65,6 +65,14 @@ class RomVisibilityFilter:
         if self.hidden_rom_ids:
             clauses.append(rom_id_col.not_in(self.hidden_rom_ids))
         return clauses
+
+    def facets_clauses(self) -> list[ColumnElement[bool]]:
+        """`clauses()` over the `roms_facets` mirror, so it needs no join to `roms`."""
+        return self.clauses(
+            rom_id_col=RomFacets.rom_id,
+            platform_id_col=RomFacets.platform_id,
+            min_age_col=RomFacets.min_age,
+        )
 
     def row_hidden_clause(self) -> ColumnElement[bool] | None:
         """WHERE clause matching the `roms` rows a rule other than a direct hide

@@ -525,6 +525,9 @@ def get_save(request: Request, id: int, device_id: str | None = None) -> SaveSch
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Save with ID {id} not found",
         )
+    assert_rom_visible(
+        request, save.rom, not_found_detail=f"Save with ID {id} not found"
+    )
 
     return _build_save_schema(save, _syncs_for_save(save.id, device), device)
 

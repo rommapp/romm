@@ -4065,9 +4065,10 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def get_rom_filters(
         self,
+        visibility: RomVisibilityFilter,
         session: Session = INJECTED_SESSION,
     ) -> RomFiltersDict:
-        """
-        Returns all filter values across all ROM metadata
-        """
-        return self._collect_filter_values(session, _FILTER_VALUES_SELECT)
+        """Every filter value across the ROMs `visibility` lets the caller see."""
+        return self._collect_filter_values(
+            session, _FILTER_VALUES_SELECT.where(*visibility.facets_clauses())
+        )
