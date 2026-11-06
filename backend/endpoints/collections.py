@@ -18,6 +18,7 @@ from endpoints.responses.collection import (
 from endpoints.roms import (
     refresh_affected_smart_collections,
     refresh_scoped_smart_collections,
+    reject_local_file_url,
 )
 from exceptions.endpoint_exceptions import (
     CollectionAlreadyExistsException,
@@ -159,6 +160,7 @@ async def add_collection(
     Returns:
         CollectionSchema: Just created collection
     """
+    reject_local_file_url("url_cover", url_cover, None)
     cleaned_data = {
         "name": name,
         "description": description,
@@ -501,6 +503,7 @@ async def update_collection(
 
     if collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
+    reject_local_file_url("url_cover", url_cover, collection.url_cover)
 
     if name is not None:
         namesake = db_collection_handler.get_collection_by_name(name, request.user.id)

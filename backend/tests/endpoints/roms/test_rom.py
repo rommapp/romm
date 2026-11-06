@@ -1441,6 +1441,64 @@ def test_update_rom_keeps_screenshots_when_the_save_is_refused(
     remove_screenshots_past_mock.assert_not_awaited()
 
 
+@pytest.mark.parametrize(
+    "field,url",
+    [
+        ("url_cover", "file://n64/cover.png"),
+        ("url_cover", "launchbox-file://Images/a.png"),
+        ("url_manual", "file://n64/manual.pdf"),
+    ],
+)
+@patch.object(FSResourcesHandler, "get_manual", new_callable=AsyncMock)
+@patch.object(FSResourcesHandler, "get_cover", new_callable=AsyncMock)
+def test_update_rom_rejects_local_file_url(
+    get_cover_mock: AsyncMock,
+    get_manual_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    field: str,
+    url: str,
+):
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={field: url},
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    get_cover_mock.assert_not_awaited()
+    get_manual_mock.assert_not_awaited()
+
+
+@patch.object(
+    FSResourcesHandler, "get_manual", new_callable=AsyncMock, return_value=None
+)
+@patch.object(
+    FSResourcesHandler,
+    "get_cover",
+    new_callable=AsyncMock,
+    return_value=("small.png", "big.png"),
+)
+def test_update_rom_keeps_a_scanned_local_file_url(
+    _get_cover_mock: AsyncMock,
+    _get_manual_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    # The edit form posts the stored url back on every save
+    db_rom_handler.update_rom(rom.id, {"url_cover": "file://n64/cover.png"})
+
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"url_cover": "file://n64/cover.png"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+
+
 # Minimal valid PNG (1x1 transparent pixel)
 _PNG_BYTES = (
     b"\x89PNG\r\n\x1a\n"
