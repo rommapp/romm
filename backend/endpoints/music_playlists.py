@@ -79,7 +79,7 @@ def get_playlists(request: Request) -> list[MusicPlaylistSchema]:
     """The requesting user's playlists plus other users' public playlists."""
     playlists = db_music_playlist_handler.get_playlists(request.user.id)
     counts = db_music_playlist_handler.get_playlist_track_counts(
-        [p.id for p in playlists]
+        [p.id for p in playlists], get_permissions(request).rom_visibility
     )
     return [_playlist_schema(p, counts.get(p.id, 0)) for p in playlists]
 
@@ -110,7 +110,9 @@ def get_playlist(
     id: Annotated[int, PathVar(description="Playlist internal id.", ge=1)],
 ) -> MusicPlaylistSchema:
     playlist = _get_visible_playlist(request, id)
-    counts = db_music_playlist_handler.get_playlist_track_counts([playlist.id])
+    counts = db_music_playlist_handler.get_playlist_track_counts(
+        [playlist.id], get_permissions(request).rom_visibility
+    )
     return _playlist_schema(playlist, counts.get(playlist.id, 0))
 
 
@@ -137,7 +139,9 @@ def update_playlist(
             playlist = db_music_playlist_handler.update_playlist(id, data)
         except IntegrityError:
             raise MusicPlaylistAlreadyExistsException(data.get("name")) from None
-    counts = db_music_playlist_handler.get_playlist_track_counts([id])
+    counts = db_music_playlist_handler.get_playlist_track_counts(
+        [id], get_permissions(request).rom_visibility
+    )
     return _playlist_schema(playlist, counts.get(id, 0))
 
 
@@ -162,10 +166,8 @@ def get_playlist_tracks(
     ] = "position",
     order_dir: Annotated[str, Query(description="asc or desc.")] = "asc",
 ) -> MusicPage[MusicTrackSchema]:
-    """Tracks of a playlist, in playlist order by default.
-
-    Entries hidden from the viewer are omitted, so the page total can be lower
-    than the playlist's stored track_count."""
+    """Tracks of a playlist, in playlist order by default, leaving out entries
+    hidden from the viewer."""
     playlist = _get_visible_playlist(request, id)
     perms = get_permissions(request)
     rows, total = db_rom_handler.get_music_tracks(

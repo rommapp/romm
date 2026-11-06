@@ -46,6 +46,7 @@ from endpoints.responses.heartbeat import (
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.auth.base_handler import reset_link_base_url
 from handler.auth.constants import Scope
+from handler.auth.dependencies import get_rom_visibility_filter
 from handler.database import db_stats_handler, db_user_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata import (
@@ -316,7 +317,9 @@ async def get_setup_library_info(request: Request) -> SetupLibraryResponse:
             "library_ready": library_ready,
             "library_structure": cm.get_config().default_structure_pattern,
             "existing_platforms": [],
-            "supported_platforms": get_supported_platforms(),
+            "supported_platforms": get_supported_platforms(
+                get_rom_visibility_filter(request)
+            ),
         }
 
     # Get existing platforms from filesystem
@@ -363,7 +366,7 @@ async def get_setup_library_info(request: Request) -> SetupLibraryResponse:
             )
 
     # Get all supported platforms with metadata
-    supported_platforms = get_supported_platforms()
+    supported_platforms = get_supported_platforms(get_rom_visibility_filter(request))
 
     return {
         "library_ready": library_ready,

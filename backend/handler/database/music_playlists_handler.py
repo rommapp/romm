@@ -7,7 +7,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from decorators.database import INJECTED_SESSION, begin_session
+from handler.auth.rom_visibility import RomVisibilityFilter
 from models.music import MusicFavoriteTrack, MusicPlaylist, MusicPlaylistTrack
+from models.rom import Rom, RomFile
 
 from .base_handler import DBBaseHandler, affected_rows
 
@@ -99,16 +101,22 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
     def get_playlist_track_counts(
         self,
         playlist_ids: Sequence[int],
+        visibility: RomVisibilityFilter,
         session: Session = INJECTED_SESSION,
     ) -> dict[int, int]:
-        """Stored entry counts per playlist, before any visibility filtering."""
+        """Entry counts per playlist, of the tracks on ROMs `visibility` shows."""
         if not playlist_ids:
             return {}
-        rows = session.execute(
-            select(MusicPlaylistTrack.playlist_id, func.count())
-            .where(MusicPlaylistTrack.playlist_id.in_(playlist_ids))
-            .group_by(MusicPlaylistTrack.playlist_id)
-        ).all()
+        query = select(MusicPlaylistTrack.playlist_id, func.count()).where(
+            MusicPlaylistTrack.playlist_id.in_(playlist_ids)
+        )
+        if not visibility.is_unrestricted:
+            query = (
+                query.join(RomFile, RomFile.id == MusicPlaylistTrack.rom_file_id)
+                .join(Rom, Rom.id == RomFile.rom_id)
+                .where(*visibility.clauses())
+            )
+        rows = session.execute(query.group_by(MusicPlaylistTrack.playlist_id)).all()
         return {playlist_id: count for playlist_id, count in rows}
 
     @begin_session

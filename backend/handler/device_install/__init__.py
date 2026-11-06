@@ -1,7 +1,7 @@
 """Install requests a user pushes to one of their devices, held in Redis while live."""
 
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Collection
 from datetime import datetime, timezone
 from typing import Final, NamedTuple
 
@@ -143,8 +143,13 @@ class DeviceInstallHandler:
         """Every live request the user made for a rom, oldest first."""
         return await self._load(_rom_key(user_id, rom_id))
 
-    async def claim(self, device_id: str) -> InstallClaim:
+    async def claim(
+        self, device_id: str, skip_rom_ids: Collection[int] = frozenset()
+    ) -> InstallClaim:
         """Take every pending request of the device, returning all it holds taken.
+
+        Args:
+            skip_rom_ids: ROMs whose requests are neither taken nor returned.
 
         Raises:
             InstallTransitionError: Other writers kept changing the requests.
@@ -156,7 +161,8 @@ class DeviceInstallHandler:
             ids = [as_text(i) for i in await pipe.smembers(device_key)]
             if ids:
                 await pipe.watch(*[_request_key(i) for i in ids])
-            live, gone = _partition(ids, await self._read(pipe, ids))
+            stored, gone = _partition(ids, await self._read(pipe, ids))
+            live = [r for r in stored if r.rom_id not in skip_rom_ids]
             already_taken = [r for r in live if r.status == InstallStatus.TAKEN]
             pending = [r for r in live if r.status == InstallStatus.PENDING]
             owned = await self._owns_active_keys(pipe, pending) if pending else []

@@ -48,6 +48,7 @@ from handler.metadata.base_handler import (
     SONY_SERIAL_REGEX,
     SWITCH_TITLEDB_REGEX,
 )
+from models.platform import Platform
 from models.rom import (
     HAS_FILE_ON_DISK_FILTERS,
     Rom,
@@ -84,6 +85,13 @@ router = APIRouter(
     prefix="/feeds",
     tags=["feeds"],
 )
+
+
+def _visible_platform_by_slug(request: Request, slug: str) -> Platform | None:
+    """The platform with `slug`, or None when it is missing or hidden from the caller."""
+    platform = db_platform_handler.get_platform_by_slug(slug)
+    hidden = get_rom_visibility_filter(request).hidden_platform_ids
+    return None if platform is None or platform.id in hidden else platform
 
 
 def _platform_roms(
@@ -195,7 +203,7 @@ async def tinfoil_index_feed(
     Returns:
         TinfoilFeedSchema: Tinfoil feed object schema
     """
-    switch = db_platform_handler.get_platform_by_slug(slug)
+    switch = _visible_platform_by_slug(request, slug)
     if not switch:
         return TinfoilFeedSchema(
             files=[],
@@ -345,7 +353,7 @@ def pkgi_ps3_feed(
     Returns:
         Response: txt file with PKGi PS3 database format
     """
-    ps3_platform = db_platform_handler.get_platform_by_slug(UPS.PS3)
+    ps3_platform = _visible_platform_by_slug(request, UPS.PS3)
     if not ps3_platform:
         raise HTTPException(status_code=404, detail="PlayStation 3 platform not found")
 
@@ -420,7 +428,7 @@ def pkgi_psvita_feed(
     Returns:
         Response: txt file with PKGi PS Vita database format
     """
-    psvita_platform = db_platform_handler.get_platform_by_slug(UPS.PSVITA)
+    psvita_platform = _visible_platform_by_slug(request, UPS.PSVITA)
     if not psvita_platform:
         raise HTTPException(
             status_code=404, detail="PlayStation Vita platform not found"
@@ -494,7 +502,7 @@ def pkgi_psp_feed(
     Returns:
         Response: txt file with PKGi PSP database format
     """
-    psp_platform = db_platform_handler.get_platform_by_slug(UPS.PSP)
+    psp_platform = _visible_platform_by_slug(request, UPS.PSP)
     if not psp_platform:
         raise HTTPException(
             status_code=404, detail="PlayStation Portable platform not found"
@@ -649,7 +657,7 @@ def fpkgi_feed(
     Returns:
         Response: JSON file in FPKGi format
     """
-    platform = db_platform_handler.get_platform_by_slug(platform_slug)
+    platform = _visible_platform_by_slug(request, platform_slug)
     if not platform:
         raise HTTPException(
             status_code=404, detail=f"Platform {platform_slug} not found"
@@ -722,7 +730,7 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
     Returns:
         Response: Text file with Kekatsu DS database format
     """
-    platform = db_platform_handler.get_platform_by_slug(platform_slug)
+    platform = _visible_platform_by_slug(request, platform_slug)
     if not platform:
         raise HTTPException(
             status_code=404, detail=f"Platform {platform_slug} not found"
@@ -785,7 +793,7 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
 def pkgj_psp_games_feed(request: Request) -> Response:
-    platform = db_platform_handler.get_platform_by_slug(UPS.PSP)
+    platform = _visible_platform_by_slug(request, UPS.PSP)
     if not platform:
         raise HTTPException(
             status_code=404, detail="PlayStation Portable platform not found"
@@ -849,7 +857,7 @@ def pkgj_psp_games_feed(request: Request) -> Response:
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
 def pkgj_psp_dlcs_feed(request: Request) -> Response:
-    platform = db_platform_handler.get_platform_by_slug(UPS.PSP)
+    platform = _visible_platform_by_slug(request, UPS.PSP)
     if not platform:
         raise HTTPException(
             status_code=404, detail="PlayStation Portable platform not found"
@@ -911,7 +919,7 @@ def pkgj_psp_dlcs_feed(request: Request) -> Response:
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
 def pkgj_psv_games_feed(request: Request) -> Response:
-    platform = db_platform_handler.get_platform_by_slug(UPS.PSVITA)
+    platform = _visible_platform_by_slug(request, UPS.PSVITA)
     if not platform:
         raise HTTPException(
             status_code=404, detail="PlayStation Vita platform not found"
@@ -976,7 +984,7 @@ def pkgj_psv_games_feed(request: Request) -> Response:
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
 def pkgj_psv_dlcs_feed(request: Request) -> Response:
-    platform = db_platform_handler.get_platform_by_slug(UPS.PSVITA)
+    platform = _visible_platform_by_slug(request, UPS.PSVITA)
     if not platform:
         raise HTTPException(
             status_code=404, detail="PlayStation Vita platform not found"
@@ -1035,7 +1043,7 @@ def pkgj_psv_dlcs_feed(request: Request) -> Response:
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
 def pkgj_psx_games_feed(request: Request) -> Response:
-    platform = db_platform_handler.get_platform_by_slug(UPS.PSX)
+    platform = _visible_platform_by_slug(request, UPS.PSX)
     if not platform:
         raise HTTPException(status_code=404, detail="PlayStation platform not found")
 

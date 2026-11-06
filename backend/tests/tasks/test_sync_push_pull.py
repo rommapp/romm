@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from tests.factories import make_save
+from tests.factories import make_esrb_rated_rom, make_save
 
 from endpoints.sockets import sync as sync_sockets
 from handler.database import (
@@ -14,10 +14,13 @@ from handler.database import (
     db_device_save_sync_handler,
     db_save_handler,
     db_sync_session_handler,
+    db_user_handler,
 )
+from handler.database.base_handler import sync_session
 from handler.sync.ssh_handler import RemoteSaveInfo
 from models.assets import Save
 from models.device import Device, SyncMode
+from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom
 from models.sync_session import SyncSessionStatus
@@ -898,3 +901,86 @@ class TestRunPushPullSyncDevices:
         call = sync_device.await_args
         assert call is not None
         assert (call.args[0].id, call.kwargs["session_id"]) == ("deck", 7)
+
+
+class TestRomsHiddenFromTheOwner:
+    @pytest.fixture
+    def device(self, viewer_user: User) -> Device:
+        return db_device_handler.add_device(
+            Device(
+                id="pp-hidden",
+                user_id=viewer_user.id,
+                sync_mode=SyncMode.PUSH_PULL,
+                sync_enabled=True,
+                sync_config={"ssh_host": "1.2.3.4"},
+            )
+        )
+
+    @pytest.fixture
+    def ssh(self, mocker) -> MagicMock:
+        handler = MagicMock()
+        handler.download_save = AsyncMock(return_value=("/tmp/unused", "remote"))
+        handler.upload_save = AsyncMock()
+        mocker.patch.object(push_pull, "get_ssh_sync_handler", return_value=handler)
+        mocker.patch.object(push_pull, "fs_asset_handler")
+        return handler
+
+    @staticmethod
+    def _hide(rom: Rom, user: User) -> None:
+        with sync_session.begin() as s:
+            s.add(
+                HiddenEntity(entity=PermEntity.ROMS, entity_id=rom.id, user_id=user.id)
+            )
+
+    async def test_a_hidden_roms_save_is_not_pulled(
+        self, device: Device, viewer_user: User, rom: Rom, platform: Platform, ssh
+    ):
+        save = make_save(rom, viewer_user, "hidden.sav", slot="autosave")
+        self._hide(rom, viewer_user)
+        remote_save = RemoteSaveInfo(
+            path=f"/remote/{save.file_name}",
+            file_name=save.file_name,
+            platform_slug=platform.fs_slug,
+            file_size=1,
+            mtime=datetime(2099, 1, 1, tzinfo=timezone.utc),
+        )
+
+        action = await _process_remote_save(
+            device, conn=MagicMock(), remote_save=remote_save, session_id=1
+        )
+
+        assert action == "skipped"
+        ssh.download_save.assert_not_awaited()
+
+    async def test_a_hidden_roms_save_is_not_pushed(
+        self, device: Device, viewer_user: User, rom: Rom, platform: Platform, ssh
+    ):
+        make_save(rom, viewer_user, "hidden.sav", slot="autosave")
+        self._hide(rom, viewer_user)
+
+        pushed = await _push_missing_saves(
+            device,
+            conn=MagicMock(),
+            remote_saves=[],
+            save_directories=[{"platform_slug": platform.fs_slug, "path": "/r"}],
+        )
+
+        assert pushed == (0, 0)
+        ssh.upload_save.assert_not_awaited()
+
+    async def test_a_rom_above_the_owners_age_limit_is_not_pushed(
+        self, device: Device, viewer_user: User, platform: Platform, ssh
+    ):
+        mature = make_esrb_rated_rom(platform, "Mature", "M")
+        make_save(mature, viewer_user, "mature.sav", slot="autosave")
+        db_user_handler.update_user(viewer_user.id, {"age_limit": 12})
+
+        pushed = await _push_missing_saves(
+            device,
+            conn=MagicMock(),
+            remote_saves=[],
+            save_directories=[{"platform_slug": platform.fs_slug, "path": "/r"}],
+        )
+
+        assert pushed == (0, 0)
+        ssh.upload_save.assert_not_awaited()

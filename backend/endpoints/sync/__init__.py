@@ -21,11 +21,12 @@ from endpoints.responses.sync import (
 )
 from endpoints.sockets.sync import emit_sync_conflict
 from handler.auth.constants import Scope
-from handler.auth.dependencies import get_permissions
+from handler.auth.dependencies import get_permissions, get_rom_visibility_filter
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
+    db_rom_handler,
     db_save_handler,
     db_sync_session_handler,
 )
@@ -250,6 +251,12 @@ def negotiate_sync(
     )
     if payload.emulators is not None:
         server_saves = [s for s in server_saves if s.emulator in payload.emulators]
+    # A save on a hidden ROM negotiates as if the ROM didn't exist.
+    hidden_rom_ids = db_rom_handler.get_hidden_rom_ids_among(
+        [s.rom_id for s in server_saves] + [s.rom_id for s in payload.saves],
+        get_rom_visibility_filter(request),
+    )
+    server_saves = [s for s in server_saves if s.rom_id not in hidden_rom_ids]
     server_save_map: dict[tuple[int, str | None], Save] = {}
     for save in server_saves:
         key = (save.rom_id, save.slot)
@@ -263,6 +270,7 @@ def negotiate_sync(
             user_id=request.user.id,
             rom_ids=roms_to_check_for_removals(payload.saves, server_save_map),
         )
+        if record.rom_id not in hidden_rom_ids
     }
 
     # Only the newest row per slot is ever looked up, so superseded rows stay out.
