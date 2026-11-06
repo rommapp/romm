@@ -110,7 +110,7 @@ def _lz4_decompress_block(src: bytes, max_size: int) -> bytes:
         if len(out) >= max_size:
             break
 
-    return bytes(out[:max_size])
+    return bytes(out)
 
 
 class _BlockDiscImage:

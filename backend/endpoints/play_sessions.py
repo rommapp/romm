@@ -27,6 +27,14 @@ router = APIRouter(
 MAX_BATCH_SIZE = 100
 
 
+def assert_batch_size(count: int) -> None:
+    if count > MAX_BATCH_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Batch size exceeds maximum of {MAX_BATCH_SIZE}",
+        )
+
+
 class PlaySessionEntry(BaseModel):
     rom_id: int | None = None
     save_slot: str | None = None
@@ -60,11 +68,7 @@ def ingest_play_sessions(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Payload must contain at least one session",
         )
-    if len(payload.sessions) > MAX_BATCH_SIZE:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Batch size exceeds maximum of {MAX_BATCH_SIZE}",
-        )
+    assert_batch_size(len(payload.sessions))
 
     if payload.device_id:
         require_token_device(request, payload.device_id)

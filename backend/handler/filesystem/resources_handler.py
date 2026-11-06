@@ -73,13 +73,6 @@ def _resolve_local_file_uri(uri: str) -> Path | None:
     return None
 
 
-class DownloadTooLargeError(OSError):
-    """A download whose body outgrew MAX_ASSET_UPLOAD_SIZE_BYTES."""
-
-    def __init__(self) -> None:
-        super().__init__(f"Body exceeds {MAX_ASSET_UPLOAD_SIZE_BYTES} bytes")
-
-
 def _content_type_essence(header_value: str) -> str:
     """Return the MIME type token (before parameters), lowercased."""
     if not header_value:
@@ -328,7 +321,7 @@ class FSResourcesHandler(FSHandler):
             decode_gzip: Inflate a gzip content-encoding, or keep the body as sent.
 
         Raises:
-            DownloadTooLargeError: The body outgrew the cap; any earlier file is kept.
+            OSError: The body outgrew the cap; any earlier file is kept.
         """
         limit = MAX_ASSET_UPLOAD_SIZE_BYTES
         inflater = (
@@ -356,7 +349,7 @@ class FSResourcesHandler(FSHandler):
                 first_chunk = False
                 written += len(data)
                 if limit and written > limit:
-                    raise DownloadTooLargeError()
+                    raise OSError(f"Body exceeds {limit} bytes")
                 await f.write(data)
             # Raised inside the block, so a cut-off body never replaces the file.
             if inflater is not None and not inflater.eof:

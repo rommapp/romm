@@ -39,7 +39,7 @@ from handler.auth.constants import (
 )
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.email_handler import EmailError, send_email
-from handler.redis_handler import redis_client, sync_cache
+from handler.redis_handler import async_cache, redis_client, sync_cache
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.log_stream_handler import STDOUT_ONLY
@@ -496,8 +496,8 @@ class OAuthHandler:
         )
 
     @staticmethod
-    def _assert_not_revoked(username: str, claims: dict[str, Any]) -> None:
-        revoked_before = sync_cache.get(_oauth_revoked_before_key(username))
+    async def _assert_not_revoked(username: str, claims: dict[str, Any]) -> None:
+        revoked_before = await async_cache.get(_oauth_revoked_before_key(username))
         if revoked_before is None:
             return
         # A token without `iat` predates revocation support, so it counts as old.
@@ -585,7 +585,7 @@ class OAuthHandler:
         if not username:
             raise OAuthCredentialsException
 
-        self._assert_not_revoked(username, payload.claims)
+        await self._assert_not_revoked(username, payload.claims)
 
         user = db_user_handler.get_user_by_username(username)
         if user is None:
@@ -618,7 +618,7 @@ class OAuthHandler:
         if username is None:
             raise OAuthCredentialsException
 
-        self._assert_not_revoked(username, payload.claims)
+        await self._assert_not_revoked(username, payload.claims)
 
         user = db_user_handler.get_user_by_username(username)
         if user is None:
