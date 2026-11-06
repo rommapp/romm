@@ -1,6 +1,6 @@
 import asyncio
-import gzip
 import os
+import zlib
 from collections.abc import Callable, Container, Iterable, Sequence
 from io import BytesIO
 from pathlib import Path
@@ -8,11 +8,15 @@ from typing import Any, Final, NamedTuple, cast
 
 import httpx2
 from anyio import Path as AnyioPath
-from fastapi import status
+from fastapi import HTTPException, status
 from PIL import Image, ImageFile, UnidentifiedImageError
 
 from adapters.services.screenscraper import media_download_slot
-from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, RESOURCES_BASE_PATH
+from config import (
+    ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
+    MAX_ASSET_UPLOAD_SIZE_BYTES,
+    RESOURCES_BASE_PATH,
+)
 from config.config_manager import MetadataMediaType
 from logger.logger import log
 from models.collection import Collection
@@ -26,6 +30,7 @@ from utils.images import (
     WEBP_QUALITY,
     frame_durations,
     is_animated,
+    is_oversized_cover,
     webp_loop,
 )
 from utils.rate_limiter import ConcurrencyLimiter
@@ -103,6 +108,8 @@ def _is_chroma_key_placeholder(image_path: Path) -> bool:
     """True if the image is (almost) entirely a chroma-key green fill."""
     try:
         with Image.open(image_path) as img:
+            if is_oversized_cover(img):
+                return False
             sample = img.convert("RGB")
             sample.thumbnail((32, 32))  # cheap: sample a downscaled copy
             raw = sample.tobytes()  # flat RGB triples
@@ -152,6 +159,28 @@ def _trim_transparent_border(image_path: Path) -> Image.Image | None:
             return img.crop(bbox)
     except IMAGE_DECODE_ERRORS:
         return None
+
+
+def _inflate_gzip(
+    inflater: "zlib._Decompress", chunk: bytes, max_length: int
+) -> tuple[bytes, "zlib._Decompress"]:
+    """Inflate a chunk that may span several gzip members, up to `max_length`
+    bytes (0 for no cap); returns the bytes and the inflater to carry on with."""
+    out = bytearray()
+    pending = chunk
+    while pending:
+        if inflater.eof:
+            inflater = zlib.decompressobj(16 + zlib.MAX_WBITS)
+        out += inflater.decompress(pending, max_length - len(out) if max_length else 0)
+        if max_length and len(out) >= max_length:
+            break
+        pending = inflater.unused_data
+    return bytes(out), inflater
+
+
+def _is_oversized_image(image_path: Path) -> bool:
+    with Image.open(image_path) as img:
+        return is_oversized_cover(img)
 
 
 def small_cover_size(width: int, height: int) -> tuple[int, int]:
@@ -279,6 +308,53 @@ class FSResourcesHandler(FSHandler):
         except OSError as exc:
             log.error(f"Unable to remove file {relative_path}: {str(exc)}")
 
+    async def _write_response(
+        self,
+        response: httpx2.Response,
+        path: str,
+        filename: str,
+        decode_gzip: bool = False,
+    ) -> None:
+        """Stream a response body to a file, capped at MAX_ASSET_UPLOAD_SIZE_BYTES.
+
+        Args:
+            decode_gzip: Inflate a gzip content-encoding, or keep the body as sent.
+
+        Raises:
+            OSError: The body outgrew the cap; any earlier file is kept.
+        """
+        limit = MAX_ASSET_UPLOAD_SIZE_BYTES
+        inflater = (
+            zlib.decompressobj(16 + zlib.MAX_WBITS)
+            if decode_gzip
+            and response.headers.get("content-encoding", "").lower() == "gzip"
+            else None
+        )
+        written = 0
+        first_chunk = True
+        async with self.write_file_streamed(path=path, filename=filename) as f:
+            async for chunk in response.aiter_raw():
+                data = chunk
+                if inflater is not None:
+                    try:
+                        # One byte past the budget is enough to tell it overflowed
+                        data, inflater = _inflate_gzip(
+                            inflater, chunk, limit - written + 1 if limit else 0
+                        )
+                    except zlib.error as exc:
+                        if not first_chunk:
+                            raise OSError(f"Corrupt gzip body: {exc}") from exc
+                        # Some servers label a plain body as gzip
+                        inflater = None
+                first_chunk = False
+                written += len(data)
+                if limit and written > limit:
+                    raise OSError(f"Body exceeds {limit} bytes")
+                await f.write(data)
+            # Raised inside the block, so a cut-off body never replaces the file.
+            if inflater is not None and not inflater.eof:
+                raise OSError("Truncated gzip body")
+
     async def _store_cover(self, entity: Rom | Collection, url_cover: str) -> None:
         """Fetch a cover once and write both sizes.
 
@@ -318,28 +394,12 @@ class FSResourcesHandler(FSHandler):
                             if not _check_content_type(response, ("image/",), "cover"):
                                 return None
 
-                            # Check if content is gzipped from response headers
-                            is_gzipped = (
-                                response.headers.get("content-encoding", "").lower()
-                                == "gzip"
+                            await self._write_response(
+                                response,
+                                cover_file,
+                                f"{CoverSize.BIG.value}.png",
+                                decode_gzip=True,
                             )
-
-                            async with self.write_file_streamed(
-                                path=cover_file, filename=f"{CoverSize.BIG.value}.png"
-                            ) as f:
-                                if is_gzipped:
-                                    # Content is gzipped, decompress it
-                                    content = await response.aread()
-                                    try:
-                                        decompressed_content = gzip.decompress(content)
-                                        await f.write(decompressed_content)
-                                    except gzip.BadGzipFile:
-                                        await f.write(content)
-                                else:
-                                    # Content is not gzipped, stream directly
-                                    async for chunk in response.aiter_raw():
-                                        await f.write(chunk)
-
                             downloaded = True
             except httpx2.TransportError as exc:
                 log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
@@ -352,6 +412,14 @@ class FSResourcesHandler(FSHandler):
                 return None
 
         try:
+            if await asyncio.to_thread(
+                _is_oversized_image, self.validate_path(big_path)
+            ):
+                log.warning(f"Discarding oversized cover from {url_cover}")
+                for path in (big_path, small_path):
+                    await self._discard_file(path)
+                return None
+
             if await self._discard_if_chroma_key(big_path):
                 # A small cover left by an earlier scan would outlive the large
                 # one it was derived from.
@@ -372,7 +440,7 @@ class FSResourcesHandler(FSHandler):
             log.error(f"Unable to identify image {big_path}: {str(exc)}")
             for path in (big_path, small_path):
                 await self._discard_file(path)
-        except OSError as exc:
+        except IMAGE_DECODE_ERRORS as exc:
             log.error(f"Unable to write cover for {url_cover}: {str(exc)}")
             for path in (big_path, small_path):
                 await self._discard_file(path)
@@ -409,7 +477,7 @@ class FSResourcesHandler(FSHandler):
                 self.validate_path(path_cover_s),
                 convert_large=False,
             )
-        except (UnidentifiedImageError, OSError) as exc:
+        except IMAGE_DECODE_ERRORS as exc:
             # Unlike a fresh download, these bytes weren't written here, so the
             # large cover stays put and only the partial small one is dropped.
             log.error(f"Unable to resize cover {path_cover_l}: {str(exc)}")
@@ -490,6 +558,8 @@ class FSResourcesHandler(FSHandler):
 
         try:
             with Image.open(artwork) as img:
+                if is_oversized_cover(img):
+                    raise Image.DecompressionBombError(f"{img.size} is too large")
                 if is_animated(img):
                     # Kept as uploaded: re-encoding composited frames loses quality
                     await self.write_file(
@@ -502,6 +572,11 @@ class FSResourcesHandler(FSHandler):
             await asyncio.to_thread(
                 self._write_derived_covers, path_cover_l, path_cover_s
             )
+        except Image.DecompressionBombError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Artwork dimensions are too large",
+            ) from exc
         except UnidentifiedImageError as exc:
             log.error(
                 f"Unable to identify image for {entity.fs_resources_path}: {str(exc)}"
@@ -561,28 +636,9 @@ class FSResourcesHandler(FSHandler):
                         if not _check_content_type(response, ("image/",), "screenshot"):
                             return False
 
-                        # Check if content is gzipped from response headers
-                        is_gzipped = (
-                            response.headers.get("content-encoding", "").lower()
-                            == "gzip"
+                        await self._write_response(
+                            response, screenshot_path, f"{idx}.jpg", decode_gzip=True
                         )
-
-                        async with self.write_file_streamed(
-                            path=screenshot_path, filename=f"{idx}.jpg"
-                        ) as f:
-                            if is_gzipped:
-                                # Content is gzipped, decompress it
-                                content = await response.aread()
-                                try:
-                                    decompressed_content = gzip.decompress(content)
-                                    await f.write(decompressed_content)
-                                except gzip.BadGzipFile:
-                                    await f.write(content)
-                            else:
-                                # Content is not gzipped, stream directly
-                                async for chunk in response.aiter_raw():
-                                    await f.write(chunk)
-
                         return True
             except httpx2.TransportError as exc:
                 log.error(f"Unable to fetch screenshot at {url_screenhot}: {str(exc)}")
@@ -706,27 +762,9 @@ class FSResourcesHandler(FSHandler):
                         ):
                             return None
 
-                        # Check if content is gzipped from response headers
-                        is_gzipped = (
-                            response.headers.get("content-encoding", "").lower()
-                            == "gzip"
+                        await self._write_response(
+                            response, manual_path, f"{rom.id}.pdf", decode_gzip=True
                         )
-
-                        async with self.write_file_streamed(
-                            path=manual_path, filename=f"{rom.id}.pdf"
-                        ) as f:
-                            if is_gzipped:
-                                # Decompress gzipped content
-                                content = await response.aread()
-                                try:
-                                    decompressed_content = gzip.decompress(content)
-                                    await f.write(decompressed_content)
-                                except gzip.BadGzipFile:
-                                    await f.write(content)
-                            else:
-                                # Content is not gzipped, stream directly
-                                async for chunk in response.aiter_raw():
-                                    await f.write(chunk)
             except httpx2.TransportError as exc:
                 log.error(f"Unable to fetch manual at {url_manual}: {str(exc)}")
                 return None
@@ -786,11 +824,7 @@ class FSResourcesHandler(FSHandler):
                     if not _check_content_type(response, ("image/",), "badge"):
                         return
 
-                    async with self.write_file_streamed(
-                        path=directory, filename=filename
-                    ) as f:
-                        async for chunk in response.aiter_raw():
-                            await f.write(chunk)
+                    await self._write_response(response, directory, filename)
         except httpx2.TransportError as exc:
             log.error(f"Unable to fetch badge at {url}: {str(exc)}")
         except OSError as exc:
@@ -874,11 +908,7 @@ class FSResourcesHandler(FSHandler):
                             ):
                                 return False
 
-                            async with self.write_file_streamed(
-                                path=directory, filename=filename
-                            ) as f:
-                                async for chunk in response.aiter_raw():
-                                    await f.write(chunk)
+                            await self._write_response(response, directory, filename)
                 except httpx2.TransportError as exc:
                     log.error(f"Unable to fetch media file at {url_media}: {str(exc)}")
                     return False

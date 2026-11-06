@@ -99,6 +99,7 @@ from handler.database.roms_handler import (
 )
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.assets_handler import validate_image_upload
+from handler.filesystem.resources_handler import LOCAL_FILE_SCHEMES
 from handler.metadata import (
     meta_csdb_handler,
     meta_demozoo_handler,
@@ -564,6 +565,19 @@ def _is_stored_media_path(path: object, folder: str) -> bool:
         and STORED_MEDIA_STEM.fullmatch(stem) is not None
         and ext.lower() in STORED_MEDIA_EXTENSIONS
     )
+
+
+def reject_local_file_url(field: str, url: str | None, stored: str | None) -> None:
+    """Refuse a client-supplied local-file URI, which only scans may record.
+
+    Args:
+        stored: The value already saved, which the client may echo back unchanged.
+    """
+    if url and url != stored and url.lower().startswith(LOCAL_FILE_SCHEMES):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid {field}: local file URLs are not accepted",
+        )
 
 
 def _media_url_slots(metadata: dict[str, Any]) -> Iterator[tuple[dict[str, Any], str]]:
@@ -1352,10 +1366,10 @@ def get_rom_by_hash(
 
 
 @protected_route(router.get, "/filters", [Scope.ROMS_READ])
-async def get_rom_filters(request: Request) -> RomFiltersDict:
+def get_rom_filters(request: Request) -> RomFiltersDict:
     from handler.database import db_rom_handler
 
-    return db_rom_handler.get_rom_filters()
+    return db_rom_handler.get_rom_filters(get_rom_visibility_filter(request))
 
 
 @protected_route(
@@ -2198,6 +2212,8 @@ async def update_rom(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid file name: {exc}",
         ) from exc
+    reject_local_file_url("url_cover", form_data.url_cover, rom.url_cover)
+    reject_local_file_url("url_manual", form_data.url_manual, rom.url_manual)
 
     provided_fields = form_data.model_fields_set
     cleaned_data: dict[str, Any] = {

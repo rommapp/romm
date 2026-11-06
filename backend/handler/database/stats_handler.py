@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from sqlalchemy import case, distinct, func, select
 from sqlalchemy.orm import Session
-from sqlalchemy.sql.elements import ColumnElement
 
 from decorators.database import INJECTED_SESSION, begin_session
 from endpoints.responses.stats import MetadataCoverageItem, RegionBreakdownItem
@@ -17,15 +16,6 @@ from models.rom import (
 from utils.database import is_non_blank
 
 from .base_handler import DBBaseHandler
-
-
-def _facets_clauses(visibility: RomVisibilityFilter) -> list[ColumnElement[bool]]:
-    """`visibility` over the `roms_facets` mirror, so it needs no join to `roms`."""
-    return visibility.clauses(
-        platform_id_col=RomFacets.platform_id,
-        rom_id_col=RomFacets.rom_id,
-        min_age_col=RomFacets.min_age,
-    )
 
 
 class DBStatsHandler(DBBaseHandler):
@@ -105,7 +95,7 @@ class DBStatsHandler(DBBaseHandler):
                 ),
             )
             .select_from(RomFacets)
-            .where(*_facets_clauses(visibility))
+            .where(*visibility.facets_clauses())
             .group_by(RomFacets.platform_id)
         ).all()
 
@@ -131,7 +121,7 @@ class DBStatsHandler(DBBaseHandler):
         """
         rows = session.execute(
             select(RomFacets.platform_id, RomFacets.regions).where(
-                RomFacets.regions.is_not(None), *_facets_clauses(visibility)
+                RomFacets.regions.is_not(None), *visibility.facets_clauses()
             )
         ).all()
 

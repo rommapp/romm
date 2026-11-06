@@ -14,6 +14,7 @@ from tests.factories import (
 )
 
 from handler.auth.base_handler import auth_handler
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
     db_platform_handler,
     db_rom_handler,
@@ -1311,5 +1312,5 @@ def test_get_rom_filters_includes_tags(rom: Rom, platform: Platform):
     make_rom(platform, "rom_proto", tags=["Proto"])
     make_rom(platform, "rom_beta", tags=["Beta", "Demo"])
 
-    filters = db_rom_handler.get_rom_filters()
+    filters = db_rom_handler.get_rom_filters(UNRESTRICTED)
     assert filters["tags"] == ["Beta", "Demo", "Proto"]

@@ -12,6 +12,7 @@ import pytest
 from fastapi import status
 from tests.factories import make_device_token, make_save
 
+from endpoints.play_sessions import MAX_BATCH_SIZE
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
@@ -1482,6 +1483,61 @@ class TestSyncCompleteWithPlaySessions:
         )
         assert len(sessions) >= 1
         assert sessions[0].device_id == device.id
+
+    def test_play_sessions_need_roms_user_write(
+        self, client, admin_user: User, rom: Rom
+    ):
+        device = db_device_handler.add_device(
+            Device(id="sync-ps-dev-scope", user_id=admin_user.id)
+        )
+        sync_session = db_sync_session_handler.create_session(
+            device_id=device.id, user_id=admin_user.id
+        )
+        _, raw_token = make_device_token(
+            admin_user, device.id, scopes="devices.read devices.write"
+        )
+
+        response = client.post(
+            f"/api/sync/sessions/{sync_session.id}/complete",
+            json={
+                "operations_completed": 0,
+                "operations_failed": 0,
+                "play_sessions": [_play_session(rom_id=rom.id)],
+            },
+            headers={"Authorization": f"Bearer {raw_token}"},
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert db_play_session_handler.get_sessions(user_id=admin_user.id) == []
+        unchanged = db_sync_session_handler.get_session(sync_session.id, admin_user.id)
+        assert unchanged is not None
+        assert unchanged.status == SyncSessionStatus.PENDING
+
+    def test_play_sessions_batch_size_is_capped(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        device = db_device_handler.add_device(
+            Device(id="sync-ps-dev-cap", user_id=admin_user.id)
+        )
+        sync_session = db_sync_session_handler.create_session(
+            device_id=device.id, user_id=admin_user.id
+        )
+
+        response = client.post(
+            f"/api/sync/sessions/{sync_session.id}/complete",
+            json={
+                "operations_completed": 0,
+                "operations_failed": 0,
+                "play_sessions": [
+                    _play_session(rom_id=rom.id, start_offset_hours=-(i + 1))
+                    for i in range(MAX_BATCH_SIZE + 1)
+                ],
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert db_play_session_handler.get_sessions(user_id=admin_user.id) == []
 
     def test_complete_without_play_sessions_backward_compatible(
         self, client, access_token: str, admin_user: User

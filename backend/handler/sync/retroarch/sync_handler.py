@@ -414,7 +414,7 @@ async def store_save(
 
     head = await asyncio.to_thread(lineage_head, user, rom, lineage)
     # A re-sent file adds no version, so it can't push real history past the cap.
-    content_hash = hash_save_content(body.file)
+    content_hash = await asyncio.to_thread(hash_save_content, body.file)
     if head and content_hash and content_hash == head.content_hash:
         return "unchanged"
 
