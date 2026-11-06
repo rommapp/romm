@@ -33,6 +33,7 @@ from handler.metadata.ss_handler import (
     get_rate_limited_rom_names,
     reset_rate_limited_roms,
 )
+from handler.scan.audience import begin_scan_audience
 from handler.scan.sources import MetadataSource, ScanType
 from handler.scan_handler import (
     build_hashless_fs_rom,
@@ -1708,6 +1709,7 @@ async def test_scan_rom_flags_new_roms_and_writes_existing_ones(
     socket_manager = AsyncMock()
 
     add_rom_spy = mocker.spy(db_rom_handler, "add_rom")
+    begin_scan_audience()
     async with initialize_context():
         await scan_rom(
             platform=platform,
