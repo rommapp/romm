@@ -71,6 +71,7 @@ from handler.redis_handler import sync_cache
 from handler.scan.sources import MetadataSource
 from logger.logger import log
 from utils import get_git_branch, get_version
+from utils.platform_aliases import resolve_platform_slug
 from utils.platforms import get_supported_platforms
 from utils.rate_limit import enforce_rate_limit, get_client_ip
 from utils.router import APIRouter
@@ -358,6 +359,7 @@ async def get_setup_library_info(request: Request) -> SetupLibraryResponse:
             existing_platforms.append(
                 {
                     "fs_slug": fs_slug,
+                    "slug": resolve_platform_slug(fs_slug, cm.get_config()),
                     "rom_count": rom_count,
                 }
             )
