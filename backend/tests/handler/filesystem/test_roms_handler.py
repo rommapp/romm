@@ -348,6 +348,14 @@ class TestFSRomsHandler:
         assert parsed.languages == ["Brazilian Portuguese"]
         assert parsed.other_tags == ["Translation"]
 
+    def test_parse_tags_reads_a_versioned_regional_translation(
+        self, handler: FSRomsHandler
+    ):
+        parsed = handler.parse_tags("Game (USA) [T+Pt-BR1.1_Grp].rom")
+
+        assert parsed.languages == ["Brazilian Portuguese"]
+        assert parsed.other_tags == ["Translation"]
+
     def test_parse_tags_reads_a_non_iso_translation_code(self, handler: FSRomsHandler):
         """Ge, Sp, Du, Gr and Jp are not ISO codes but do name a language."""
         parsed = handler.parse_tags("Game (Japan) [T+Ge].sfc")
