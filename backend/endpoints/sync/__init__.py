@@ -7,7 +7,7 @@ from fastapi import BackgroundTasks, Depends, HTTPException, Request, status
 from pydantic import Field
 
 from decorators.auth import protected_route
-from endpoints.play_sessions import PlaySessionEntry
+from endpoints.play_sessions import MAX_BATCH_SIZE, PlaySessionEntry
 from endpoints.responses.base import PAGE_QUERY, BaseModel, PageParams
 from endpoints.responses.play_session import (
     PlaySessionIngestResponse,
@@ -461,6 +461,17 @@ def complete_sync_session(
     payload: SyncCompletePayload,
 ) -> SyncCompleteResponse:
     """Mark a sync session as completed, optionally ingesting play sessions."""
+    if payload.play_sessions:
+        if Scope.ROMS_USER_WRITE not in request.auth.scopes:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
+            )
+        if len(payload.play_sessions) > MAX_BATCH_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Batch size exceeds maximum of {MAX_BATCH_SIZE}",
+            )
+
     sync_session = _require_sync_session(request, session_id)
 
     # A session the cleanup expired can still be completed: its counts and the
