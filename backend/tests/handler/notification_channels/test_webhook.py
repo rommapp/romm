@@ -15,6 +15,7 @@ from handler.notification_channels.webhook import (
     check_url,
     send,
 )
+from utils.ssrf import SSRFProtectedAsyncBackend
 
 from .fixtures import make_actor, make_notification
 
@@ -65,6 +66,20 @@ class TestCheckUrl:
 
     def test_lets_an_admin_reach_the_local_network(self):
         check_url("http://192.168.1.10/hook", allow_private=True)
+
+    def test_a_user_gets_no_admin_configured_internal_origin(self, mocker):
+        validate = mocker.spy(webhook, "validate_url_for_http_request")
+
+        with pytest.raises(ValueError):
+            check_url("http://127.0.0.1:9099/hook", allow_private=False)
+
+        assert validate.call_args.kwargs["allowlist"] == frozenset()
+
+    async def test_a_users_client_gets_no_admin_configured_internal_origin(self):
+        async with webhook._client(allow_private=False) as client:
+            backend = client._transport._pool._network_backend
+            assert isinstance(backend, SSRFProtectedAsyncBackend)
+            assert backend._allowlist == frozenset()
 
     @pytest.mark.parametrize(
         "url",

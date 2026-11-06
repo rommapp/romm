@@ -11,8 +11,7 @@ from urllib.parse import urlsplit
 import httpx2
 
 from config import has_proxy_env
-from utils.context import create_httpx_async_client
-from utils.ssrf import validate_url_for_http_request
+from utils.ssrf import install_async_ssrf_protection, validate_url_for_http_request
 from utils.validation import ValidationError
 
 from .config import WebhookConfig
@@ -23,6 +22,9 @@ SIGNATURE_HEADER: Final = "X-RomM-Signature"
 # How much of a refusal's body is read, for the error its owner sees.
 ERROR_DETAIL_BYTES: Final = 1024
 ERROR_DETAIL_CHARS: Final = 200
+# The admin's own Playmatch/Hasheous origins are trusted for RomM's requests,
+# not for a webhook that a non-admin points at them.
+NO_INTERNAL_ORIGINS: Final[frozenset[tuple[str, int]]] = frozenset()
 
 
 class WebhookError(RuntimeError):
@@ -57,7 +59,7 @@ def check_url(url: str, allow_private: bool) -> None:
         raise ValueError("The URL's port isn't valid")
     if not allow_private:
         try:
-            validate_url_for_http_request(url)
+            validate_url_for_http_request(url, allowlist=NO_INTERNAL_ORIGINS)
         except ValidationError as exc:
             raise ValueError(exc.message) from exc
 
@@ -94,11 +96,19 @@ def build_request(config: WebhookConfig, message: OutboundMessage) -> WebhookReq
     return WebhookRequest(url=config["url"], content=content, headers=headers)
 
 
+async def _validate_request_url(request: httpx2.Request) -> None:
+    validate_url_for_http_request(str(request.url), allowlist=NO_INTERNAL_ORIGINS)
+
+
 def _client(allow_private: bool) -> httpx2.AsyncClient:
     if allow_private:
         return httpx2.AsyncClient(trust_env=has_proxy_env(), timeout=TIMEOUT_SECONDS)
-    client = create_httpx_async_client()
-    client.timeout = httpx2.Timeout(TIMEOUT_SECONDS)
+    client = httpx2.AsyncClient(
+        trust_env=has_proxy_env(),
+        timeout=TIMEOUT_SECONDS,
+        event_hooks={"request": [_validate_request_url]},
+    )
+    install_async_ssrf_protection(client, allowlist=NO_INTERNAL_ORIGINS)
     return client
 
 
