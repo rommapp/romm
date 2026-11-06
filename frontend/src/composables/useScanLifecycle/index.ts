@@ -17,10 +17,8 @@
 //                                then refetch platforms to reconcile counts.
 //   * `scan:done_ko`:           scan errored; flip `scanning` off.
 //
-// They reach every user holding `platforms.write` or `tasks.run`, and the
-// per-ROM and per-platform ones only those who can see that ROM or platform.
-// Only the tab that started the scan toasts its end; whoever else it concerns
-// gets a notification.
+// Both reach every connected user, so only the tab that started the scan
+// toasts its end. Whoever else it concerns gets a notification.
 //
 // Events alone can't tell a tab that loads mid-scan what's going on, so
 // install also reconciles against the running RQ job; see

@@ -70,11 +70,6 @@ from handler.redis_handler import (
     scan_queue,
 )
 from handler.rom_files import loaded_rom_files, refresh_rom_files
-from handler.scan.audience import (
-    SCAN_ROOM,
-    begin_scan_audience,
-    current_scan_audience,
-)
 from handler.scan.merge import fs_rom_file_attrs
 from handler.scan.sources import (
     RESCAN_RULES,
@@ -98,7 +93,7 @@ from handler.scan_jobs import (
     get_running_scan_job,
     get_scheduled_scan_jobs,
 )
-from handler.socket_handler import emit_to_rooms, socket_handler
+from handler.socket_handler import socket_handler
 from logger.formatter import BLUE, LIGHTYELLOW
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -169,7 +164,7 @@ def report_scan_failure(
     started_by_user_id = (get_job_kwargs(job) or {}).get("started_by_user_id")
 
     async def report() -> None:
-        await _get_socket_manager().emit("scan:done_ko", reason, to=SCAN_ROOM)
+        await _get_socket_manager().emit("scan:done_ko", reason)
         await notify_scan_end(started_by_user_id, reason)
 
     record(
@@ -247,7 +242,7 @@ class ScanStats:
         self._published_at = now
         stats = self.to_dict()
         update_job_meta({"scan_stats": stats})
-        await socket_manager.emit("scan:update_stats", stats, to=SCAN_ROOM)
+        await socket_manager.emit("scan:update_stats", stats)
 
     async def update(
         self, socket_manager: socketio.AsyncRedisManager, **kwargs: int
@@ -993,8 +988,7 @@ async def _identify_platform(
 
     # `new_firmware_count` is scoped to this scan: the client reports what the
     # scan discovered, not the platform's total firmware library.
-    await emit_to_rooms(
-        socket_manager,
+    await socket_manager.emit(
         "scan:scanning_platform",
         {
             **PlatformSchema.model_validate(platform).model_dump(
@@ -1009,7 +1003,6 @@ async def _identify_platform(
             ),
             "new_firmware_count": new_firmware,
         },
-        current_scan_audience().platform_rooms(platform.id),
     )
 
     # This reduces the number of socket emissions
@@ -1201,7 +1194,6 @@ async def scan_platforms(
 
     socket_manager = _get_socket_manager()
     scan_stats = ScanStats()
-    begin_scan_audience()
 
     # Filled in by the ROM pass, and read by the post-scan work that has to know
     # which entries changed rather than how many.
@@ -1211,7 +1203,7 @@ async def scan_platforms(
         """End the scan, reporting whatever a coalesced increment held back."""
         update_job_meta({SCAN_REPORTED_META_KEY: True})
         await scan_stats.flush(socket_manager)
-        await socket_manager.emit(event, payload, to=SCAN_ROOM)
+        await socket_manager.emit(event, payload)
         failed = event == "scan:done_ko"
         record(
             AuditAction.SCAN_FINISH,

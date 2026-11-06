@@ -33,7 +33,6 @@ from handler.metadata.ss_handler import (
     get_rate_limited_rom_names,
     reset_rate_limited_roms,
 )
-from handler.scan.audience import begin_scan_audience
 from handler.scan.sources import MetadataSource, ScanType
 from handler.scan_handler import (
     build_hashless_fs_rom,
@@ -1701,7 +1700,7 @@ async def test_scan_rom_games_still_use_fuzzy_catalog_covers(
 
 @pytest.mark.parametrize("newly_added", [True, False])
 async def test_scan_rom_flags_new_roms_and_writes_existing_ones(
-    newly_added: bool, mocker, admin_user
+    newly_added: bool, mocker
 ):
     """Clients count a ROM off `is_new`, and only an existing one is written first."""
     platform = make_platform("n64", id=1, name="Nintendo 64")
@@ -1709,7 +1708,6 @@ async def test_scan_rom_flags_new_roms_and_writes_existing_ones(
     socket_manager = AsyncMock()
 
     add_rom_spy = mocker.spy(db_rom_handler, "add_rom")
-    begin_scan_audience()
     async with initialize_context():
         await scan_rom(
             platform=platform,

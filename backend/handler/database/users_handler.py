@@ -2,7 +2,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import Result, Row, and_, delete, func, not_, or_, select, update
+from sqlalchemy import Result, and_, delete, func, not_, or_, select, update
 from sqlalchemy.orm import QueryableAttribute, Session, load_only
 from sqlalchemy.sql import Delete, Select, Update
 
@@ -191,18 +191,6 @@ class DBUsersHandler(DBBaseHandler):
             query = query.options(load_only(*only_fields))
 
         return session.scalars(query).all()
-
-    @begin_session
-    def get_enabled_principals(
-        self,
-        session: Session = INJECTED_SESSION,
-    ) -> Sequence[Row[int, Role, int | None]]:
-        """The id, role and group of every enabled user, without loading them."""
-        return session.execute(
-            select(User.id, User.role, User.permission_group_id).where(
-                User.enabled.is_(True)
-            )
-        ).all()
 
     @begin_session
     def delete_user(

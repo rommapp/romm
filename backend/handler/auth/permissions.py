@@ -11,10 +11,10 @@ Precedence: admin bypass > per-user override > group grant > legacy default.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cached_property
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 
@@ -30,11 +30,11 @@ from handler.auth.rom_visibility import (
     RomVisibilityFilter,
     VisibilityColumns,
 )
-from models.permission import PermAction, PermEntity, UserPermissionOverride
-from models.user import KIOSK_USER_ID, Role, User
+from models.permission import PermAction, PermEntity
+from models.user import Role, User
 
 if TYPE_CHECKING:
-    from handler.database.permissions_handler import GrantTuple, GroupPolicy
+    from handler.database.permissions_handler import GroupPolicy
 
 
 @dataclass(frozen=True)
@@ -99,27 +99,6 @@ def _effective_group(user: User, *, session: Session) -> tuple[int | None, Group
     return group_id, db_permission_handler.get_group_policy(group_id, session=session)
 
 
-def _grant_map(
-    grants: Iterable[GrantTuple], overrides: Iterable[UserPermissionOverride]
-) -> dict[tuple[PermEntity, PermAction], bool]:
-    """Effective ``(entity, action) -> own_only`` map from a group's grants and a
-    user's overrides."""
-    base = {(entity, action): own_only for entity, action, own_only in grants}
-
-    # Per-user overrides win over the group: grant adds, revoke removes.
-    # Override identity is (entity, action) only, so a grant override fully
-    # replaces the group's own_only for that key rather than merging. Both
-    # directions are admin-initiated and the narrowing case fails closed, so
-    # this is a granularity limit, not a privilege leak.
-    for ov in overrides:
-        if ov.granted:
-            base[(ov.entity, ov.action)] = ov.own_only
-        else:
-            base.pop((ov.entity, ov.action), None)
-
-    return base
-
-
 def _resolve_grant_map(
     user: User, group: GroupPolicy, *, session: Session
 ) -> dict[tuple[PermEntity, PermAction], bool]:
@@ -127,12 +106,21 @@ def _resolve_grant_map(
 
     from handler.database import db_permission_handler
 
-    overrides = (
-        db_permission_handler.get_user_overrides(user.id, session=session)
-        if user.id is not None
-        else ()
-    )
-    return _grant_map(group.grants, overrides)
+    base = {(entity, action): own_only for entity, action, own_only in group.grants}
+
+    # Per-user overrides win over the group: grant adds, revoke removes.
+    # Override identity is (entity, action) only, so a grant override fully
+    # replaces the group's own_only for that key rather than merging. Both
+    # directions are admin-initiated and the narrowing case fails closed, so
+    # this is a granularity limit, not a privilege leak.
+    if user.id is not None:
+        for ov in db_permission_handler.get_user_overrides(user.id, session=session):
+            if ov.granted:
+                base[(ov.entity, ov.action)] = ov.own_only
+            else:
+                base.pop((ov.entity, ov.action), None)
+
+    return base
 
 
 def resolve_permissions(user: User) -> ResolvedPermissions:
@@ -214,69 +202,7 @@ def _compute_non_admin_scopes(
     session: Session = INJECTED_SESSION,
 ) -> list[Scope]:
     _, group = _effective_group(user, session=session)
-    return _project_scopes(user.id, _resolve_grant_map(user, group, session=session))
-
-
-class ScopeSubject(Protocol):
-    """The user columns `compute_oauth_scopes_by_user` reads."""
-
-    @property
-    def id(self) -> int: ...
-
-    @property
-    def role(self) -> Role: ...
-
-    @property
-    def permission_group_id(self) -> int | None: ...
-
-
-@begin_session
-def compute_oauth_scopes_by_user(
-    users: Iterable[ScopeSubject],
-    *,
-    session: Session = INJECTED_SESSION,
-) -> dict[int, list[Scope]]:
-    """`compute_oauth_scopes` of each user, in three queries however many there are."""
-    from handler.database import db_permission_handler
-
-    scopes: dict[int, list[Scope]] = {}
-    group_of: dict[int, int | None] = {}
-    default_group_id: int | None = None
-    for user in users:
-        if user.role == Role.ADMIN:
-            scopes[user.id] = order_scopes(FULL_SCOPES)
-            continue
-        if user.permission_group_id is None and default_group_id is None:
-            default_group_id = db_permission_handler.get_default_group_id(
-                session=session
-            )
-        group_of[user.id] = (
-            user.permission_group_id
-            if user.permission_group_id is not None
-            else default_group_id
-        )
-    if not group_of:
-        return scopes
-
-    grants = db_permission_handler.get_grants_by_group(
-        {group_id for group_id in group_of.values() if group_id is not None},
-        session=session,
-    )
-    overrides = db_permission_handler.get_overrides_by_user(
-        list(group_of), session=session
-    )
-    for user_id, group_id in group_of.items():
-        grant_map = _grant_map(
-            grants.get(group_id, []) if group_id is not None else [],
-            overrides.get(user_id, []),
-        )
-        scopes[user_id] = _project_scopes(user_id, grant_map)
-    return scopes
-
-
-def _project_scopes(
-    user_id: int | None, grant_map: dict[tuple[PermEntity, PermAction], bool]
-) -> list[Scope]:
+    grant_map = _resolve_grant_map(user, group, session=session)
     scopes = set(
         grants_to_scopes(
             (entity, action, own_only)
@@ -285,6 +211,6 @@ def _project_scopes(
     )
     # Kiosk mode is an anonymous-visitor lockdown, not an account-wide cap: a
     # user someone deliberately logged into keeps the grants they were given.
-    if KIOSK_MODE and user_id == KIOSK_USER_ID:
+    if KIOSK_MODE and user.is_kiosk_guest:
         scopes &= set(READ_SCOPES)
     return order_scopes(scopes)

@@ -3,9 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from endpoints.sockets import logs
-from handler.auth.constants import Scope
 from handler.database import db_user_handler
-from handler.scan.audience import SCAN_ROOM
 from handler.socket_handler import socket_handler
 from models.user import Role
 from utils import auth as auth_utils
@@ -50,27 +48,6 @@ async def test_an_anonymous_socket_is_tied_to_nothing(mocker, user, enter_room, 
     await logs.connect("sid-1", {})
 
     bind.assert_not_awaited()
-    enter_room.assert_not_awaited()
-
-
-@pytest.mark.parametrize(
-    ("scopes", "follows"),
-    [
-        ([Scope.ROMS_READ], False),
-        ([Scope.ROMS_READ, Scope.PLATFORMS_WRITE], True),
-        ([Scope.ROMS_READ, Scope.TASKS_RUN], True),
-    ],
-)
-async def test_a_scan_follower_joins_the_scan_room(
-    mocker, user, enter_room, bind, scopes, follows
-):
-    user.oauth_scopes = scopes
-    _session(mocker, iss="romm:auth", sub="player", session_id="s1")
-
-    await logs.connect("sid-1", {})
-
-    rooms = [call.args[1] for call in enter_room.await_args_list]
-    assert rooms == (["user:3", SCAN_ROOM] if follows else ["user:3"])
 
 
 async def test_disconnect_undoes_the_binding_and_the_activity(mocker):

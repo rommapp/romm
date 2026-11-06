@@ -48,7 +48,6 @@ from handler import notification_handler
 from handler import scan_handler as scan_handler_module
 from handler.audit_handler import SYSTEM_ACTOR
 from handler.auth.constants import Scope
-from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import db_collection_handler, db_platform_handler, db_rom_handler
 from handler.database.roms_handler import SyncedRomFiles
 from handler.filesystem import fs_firmware_handler, fs_platform_handler, fs_rom_handler
@@ -61,8 +60,6 @@ from handler.filesystem.roms_handler import (
 from handler.metadata import meta_gamelist_handler
 from handler.redis_handler import async_cache, redis_lock, scan_queue
 from handler.rom_files import RomFilesRefresh
-from handler.scan import audience as audience_module
-from handler.scan.audience import SCAN_ROOM, ScanAudience
 from handler.scan.sources import MetadataSource, ScanType
 from handler.scan_jobs import SCAN_PLATFORMS_FUNC
 from handler.socket_handler import socket_handler
@@ -75,19 +72,6 @@ from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 # A platform IGDB and MobyGames both cover, so rescans can consult either.
 N64 = Platform(slug="n64", igdb_id=4, moby_id=9)
-
-
-@pytest.fixture(autouse=True)
-def scan_followed_by_an_admin(mocker):
-    """One follower who sees everything, so a test can assert on what is emitted."""
-    mocker.patch.object(
-        audience_module,
-        "resolve_scan_audience",
-        return_value=ScanAudience({UNRESTRICTED: ("user:1",)}),
-    )
-    audience_module.begin_scan_audience()
-    yield
-    audience_module._scan_audience.set(None)
 
 
 @pytest.fixture
@@ -284,7 +268,6 @@ class TestScanFailureReporting:
 
         assert update_job_meta.call_args.args[0]["scan_stats"]["scanned_roms"] == 7
         assert patched.emit.await_args.args[0] == "scan:done_ko"
-        assert patched.emit.await_args.kwargs == {"to": SCAN_ROOM}
 
 
 class TestScanEndNotification:

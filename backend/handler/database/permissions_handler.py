@@ -106,44 +106,6 @@ class DBPermissionsHandler(DBBaseHandler):
         ).all()
 
     @begin_session
-    def get_grants_by_group(
-        self,
-        group_ids: Collection[int],
-        session: Session = INJECTED_SESSION,
-    ) -> dict[int, list[GrantTuple]]:
-        """The grants of each of `group_ids` that still exists."""
-        grants: defaultdict[int, list[GrantTuple]] = defaultdict(list)
-        if not group_ids:
-            return grants
-        for row in session.execute(
-            select(
-                PermissionGroupGrant.group_id,
-                PermissionGroupGrant.entity,
-                PermissionGroupGrant.action,
-                PermissionGroupGrant.own_only,
-            ).where(PermissionGroupGrant.group_id.in_(group_ids))
-        ).all():
-            grants[row.group_id].append((row.entity, row.action, row.own_only))
-        return grants
-
-    @begin_session
-    def get_overrides_by_user(
-        self,
-        user_ids: Collection[int],
-        session: Session = INJECTED_SESSION,
-    ) -> dict[int, list[UserPermissionOverride]]:
-        overrides: defaultdict[int, list[UserPermissionOverride]] = defaultdict(list)
-        if not user_ids:
-            return overrides
-        for override in session.scalars(
-            select(UserPermissionOverride).where(
-                UserPermissionOverride.user_id.in_(user_ids)
-            )
-        ).all():
-            overrides[override.user_id].append(override)
-        return overrides
-
-    @begin_session
     def get_user_visibilities(
         self,
         user_ids: Collection[int] | None = None,
