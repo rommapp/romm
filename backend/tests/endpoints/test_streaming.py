@@ -36,7 +36,7 @@ from endpoints.streaming import platform_capabilities
 from handler import asset_store
 from handler.activity_handler import activity_handler
 from handler.auth.base_handler import oauth_handler
-from handler.auth.rom_visibility import UNRESTRICTED
+from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
 from handler.database import (
     db_container_adoption_handler,
     db_memory_card_handler,
@@ -10781,12 +10781,18 @@ def _mc_claim(client, token, rom_id, memory_card_id=None, card_import=None):
     return client.post("/api/streaming/sessions", json=body, headers=_auth(token))
 
 
-def _make_card(user: User, emulator="pcsx2", name="My PS2 card", is_public=False):
+def _make_card(
+    user: User,
+    emulator="pcsx2",
+    name="My PS2 card",
+    is_public=False,
+    platform_id: int | None = None,
+):
     return db_memory_card_handler.add_card(
         MemoryCard(
             user_id=user.id,
             emulator=emulator,
-            platform_id=None,
+            platform_id=platform_id,
             name=name,
             slot=1,
             is_public=is_public,
@@ -10810,7 +10816,7 @@ def _card_version(card_id: int, file_name: str, content_hash: str | None):
 
 def test_resolve_memory_card_explicit_owned(admin_user: User):
     card = _make_card(admin_user)
-    resolved = memory_cards.resolve_card(admin_user.id, "pcsx2", card.id)
+    resolved = memory_cards.resolve_card(admin_user.id, "pcsx2", card.id, UNRESTRICTED)
     assert resolved is not None
     assert resolved.id == card.id
 
@@ -10818,7 +10824,7 @@ def test_resolve_memory_card_explicit_owned(admin_user: User):
 def test_resolve_memory_card_wrong_emulator_404(admin_user: User):
     card = _make_card(admin_user, emulator="dolphin")
     with pytest.raises(HTTPException) as exc:
-        memory_cards.resolve_card(admin_user.id, "pcsx2", card.id)
+        memory_cards.resolve_card(admin_user.id, "pcsx2", card.id, UNRESTRICTED)
     assert exc.value.status_code == 404
 
 
@@ -10826,8 +10832,20 @@ def test_resolve_memory_card_foreign_id_404(admin_user: User, viewer_user: User)
     """An id owned by another user is not resolvable, even if public."""
     card = _make_card(viewer_user, is_public=True)
     with pytest.raises(HTTPException) as exc:
-        memory_cards.resolve_card(admin_user.id, "pcsx2", card.id)
+        memory_cards.resolve_card(admin_user.id, "pcsx2", card.id, UNRESTRICTED)
     assert exc.value.status_code == 404
+
+
+def test_resolve_memory_card_on_a_hidden_platform_is_not_mounted(
+    admin_user: User, platform: Platform
+):
+    card = _make_card(admin_user, platform_id=platform.id)
+    hidden = RomVisibilityFilter(hidden_platform_ids=frozenset({platform.id}))
+
+    with pytest.raises(HTTPException) as exc:
+        memory_cards.resolve_card(admin_user.id, "pcsx2", card.id, hidden)
+    assert exc.value.status_code == 404
+    assert memory_cards.resolve_card(admin_user.id, "pcsx2", None, hidden) is None
 
 
 def test_resolve_memory_card_default_most_recent(admin_user: User):
@@ -10840,7 +10858,7 @@ def test_resolve_memory_card_default_most_recent(admin_user: User):
     db_memory_card_handler.update_card(
         newer.id, {"updated_at": datetime(2026, 6, 1, tzinfo=timezone.utc)}
     )
-    resolved = memory_cards.resolve_card(admin_user.id, "pcsx2", None)
+    resolved = memory_cards.resolve_card(admin_user.id, "pcsx2", None, UNRESTRICTED)
     assert resolved is not None
     assert resolved.id == newer.id
 
@@ -10854,7 +10872,7 @@ def test_resolve_memory_card_none_when_user_has_no_card(admin_user: User):
         )
         == []
     )
-    assert memory_cards.resolve_card(admin_user.id, "pcsx2", None) is None
+    assert memory_cards.resolve_card(admin_user.id, "pcsx2", None, UNRESTRICTED) is None
     assert (
         db_memory_card_handler.get_cards(
             admin_user.id, "pcsx2", visibility=UNRESTRICTED

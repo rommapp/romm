@@ -16,7 +16,7 @@ from typing import TypedDict
 
 from fastapi import HTTPException
 
-from handler.auth.rom_visibility import UNRESTRICTED
+from handler.auth.rom_visibility import RomVisibilityFilter
 from handler.database import db_memory_card_handler, db_user_handler
 from handler.filesystem import fs_asset_handler
 from handler.streaming import broker
@@ -149,7 +149,10 @@ def summarize_card(content: bytes) -> MemoryCardSummary:
 
 
 def resolve_card(
-    user_id: int, emulator: str, memory_card_id: int | None
+    user_id: int,
+    emulator: str,
+    memory_card_id: int | None,
+    visibility: RomVisibilityFilter,
 ) -> MemoryCard | None:
     """Pick the card to mount for a claim.
 
@@ -164,14 +167,18 @@ def resolve_card(
     """
     if memory_card_id is not None:
         card = db_memory_card_handler.get_card(user_id=user_id, id=memory_card_id)
-        if card is None or card.emulator != emulator:
+        if (
+            card is None
+            or card.emulator != emulator
+            or card.platform_id in visibility.hidden_platform_ids
+        ):
             raise HTTPException(
                 status_code=404, detail="Memory card not found for this emulator"
             )
         return card
 
     cards = db_memory_card_handler.get_cards(
-        user_id=user_id, emulator=emulator, visibility=UNRESTRICTED
+        user_id=user_id, emulator=emulator, visibility=visibility
     )
     if cards:
         return cards[0]  # get_cards orders by updated_at desc

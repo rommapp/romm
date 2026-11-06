@@ -57,7 +57,11 @@ from endpoints.responses.streaming import (
     VolumeResponse,
 )
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible, is_scoped_admin
+from handler.auth.dependencies import (
+    assert_rom_visible,
+    get_rom_visibility_filter,
+    is_scoped_admin,
+)
 from handler.database import (
     db_container_adoption_handler,
     db_rom_handler,
@@ -902,6 +906,7 @@ async def claim_session(
             request.user.id,
             reference.emulator,
             req.memory_card_id,
+            get_rom_visibility_filter(request),
         )
 
     start_disc = None
