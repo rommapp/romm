@@ -181,6 +181,8 @@ CSDB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("CSDB_API_ENABLED"))
 
 # STEAM
 STEAM_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("STEAM_API_ENABLED"))
+# Web API key, needed for achievements on top of the keyless storefront.
+STEAM_API_KEY: Final[str | None] = _get_env("STEAM_API_KEY")
 
 # UPC LOOKUP (barcode -> title, used when adding physical games by UPC)
 UPC_LOOKUP_ENABLED: Final[bool] = safe_str_to_bool(

@@ -45,6 +45,10 @@ class SteamScreenshot(TypedDict):
     path_full: str
 
 
+class SteamAchievementsSummary(TypedDict):
+    total: int
+
+
 class SteamAppDetails(TypedDict):
     type: str
     name: str
@@ -66,8 +70,45 @@ class SteamAppDetails(TypedDict):
     screenshots: NotRequired[list[SteamScreenshot]]
     release_date: NotRequired[SteamReleaseDate]
     controller_support: NotRequired[str]
+    achievements: NotRequired[SteamAchievementsSummary]
 
 
 class SteamAppDetailsEnvelope(TypedDict):
     success: bool
     data: NotRequired[SteamAppDetails]
+
+
+class SteamSchemaAchievement(TypedDict):
+    name: str
+    displayName: str
+    hidden: int
+    # Left out for most hidden achievements.
+    description: NotRequired[str]
+    icon: NotRequired[str]
+    icongray: NotRequired[str]
+
+
+class SteamSchemaGameStats(TypedDict):
+    achievements: NotRequired[list[SteamSchemaAchievement]]
+
+
+class SteamSchemaGame(TypedDict):
+    availableGameStats: NotRequired[SteamSchemaGameStats]
+
+
+class SteamSchemaForGameResponse(TypedDict):
+    game: SteamSchemaGame
+
+
+class SteamGlobalAchievementPercent(TypedDict):
+    name: str
+    # Sent as a decimal string ("80.9"); a number is accepted too.
+    percent: float | str
+
+
+class SteamGlobalAchievementPercentages(TypedDict):
+    achievements: list[SteamGlobalAchievementPercent]
+
+
+class SteamGlobalAchievementPercentagesResponse(TypedDict):
+    achievementpercentages: SteamGlobalAchievementPercentages

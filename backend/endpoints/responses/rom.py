@@ -7,6 +7,7 @@ from typing import Any, Final, NotRequired, TypedDict, get_type_hints
 
 from fastapi import Request
 from pydantic import (
+    AliasChoices,
     ConfigDict,
     Field,
     ValidationInfo,
@@ -430,7 +431,10 @@ class RomSchema(BaseModel):
     demozoo_metadata: RomDemozooMetadata | None
     pouet_metadata: RomPouetMetadata | None
     csdb_metadata: RomCsdbMetadata | None
-    steam_metadata: RomSteamMetadata | None
+    # Served with each achievement's stored icon paths.
+    steam_metadata: RomSteamMetadata | None = Field(
+        validation_alias=AliasChoices("merged_steam_metadata", "steam_metadata")
+    )
     gamelist_metadata: RomGamelistMetadata | None
     manual_metadata: ManualMetadata | None
 
