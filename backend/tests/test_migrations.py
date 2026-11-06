@@ -521,6 +521,42 @@ def test_the_search_titles_revision_reverses_replays_and_fills(platform: Platfor
     assert expected[first.id] == "\x1ffinal fantasy vii\x1fff7\x1f"
 
 
+def test_the_sibling_groups_revision_reverses_replays_and_backfills(
+    platform: Platform,
+):
+    """0158 groups a chain of different provider ids into one game."""
+    migration = _load_migration("0158_rom_sibling_groups.py")
+    first = make_rom(platform, "Chain (USA)", igdb_id=10)
+    bridge = make_rom(platform, "Chain (Europe)", igdb_id=10, ss_id=20)
+    last = make_rom(platform, "Chain (Japan)", ss_id=20)
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "rom_sibling_groups")
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert not sa.inspect(connection).has_table("rom_sibling_groups")
+            migration.downgrade()
+
+            migration.upgrade()
+            migration.upgrade()
+
+        groups = connection.execute(
+            sa.text("SELECT rom_id, group_id FROM rom_sibling_groups")
+        ).all()
+        siblings = connection.execute(
+            sa.text("SELECT sibling_rom_id FROM sibling_roms WHERE rom_id = :id"),
+            {"id": first.id},
+        ).all()
+
+        assert _schema_of(connection, "rom_sibling_groups") == before
+    assert dict(groups) == {
+        first.id: first.id,
+        bridge.id: first.id,
+        last.id: first.id,
+    }
+    assert sorted(row[0] for row in siblings) == sorted([bridge.id, last.id])
+
+
 def test_the_rom_file_title_ids_revision_reverses_and_replays():
     migration = _load_migration("0147_rom_file_title_ids.py")
 
