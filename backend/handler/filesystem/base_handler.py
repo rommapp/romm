@@ -56,6 +56,7 @@ LANGUAGES = (
     ("No", "Norwegian"),
     ("Pl", "Polish"),
     ("Pt", "Portuguese"),
+    ("Pt-BR", "Brazilian Portuguese"),
     ("Ru", "Russian"),
     ("Sr", "Serbian"),
     ("Sv", "Swedish"),

@@ -220,6 +220,9 @@ TRANSLATION_TAG_REGEX = re.compile(
     re.I,
 )
 
+# The regional variant that opens a GoodTools patch ("-BR" in "T+Pt-BR1.1_Grp").
+TRANSLATION_VARIANT_REGEX = re.compile(r"^-([a-z]{2})(?![a-z])", re.I)
+
 
 @dataclass(frozen=True)
 class ParsedTags:
@@ -485,7 +488,13 @@ class FSRomsHandler(FSHandler):
                 spaced = translation_match["spaced"]
                 code = spaced or translation_match["goodtools"]
                 code = code or translation_match["tosec"]
-                language = translation_language(code) if code else None
+                patch = translation_match["patch"] or ""
+                variant = TRANSLATION_VARIANT_REGEX.match(patch)
+                language = None
+                if code:
+                    language = (
+                        variant and translation_language(f"{code}-{variant[1]}")
+                    ) or translation_language(code)
                 # "T Rex" and a suffixless "T-Rex" collide with ordinary words,
                 # so those two spellings only count when the code is a language.
                 bare_superseded = (
