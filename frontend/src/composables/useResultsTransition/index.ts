@@ -67,8 +67,9 @@ export function useResultsTransition(opts: Options) {
   if (getCurrentScope())
     onScopeDispose(onEscapableOpen(() => settleRunning?.()));
 
-  /** Runs `apply` (the swap) inside a view transition when one can run. */
-  async function run(apply: () => void): Promise<void> {
+  /** Runs `apply` (the swap) inside a view transition when one can run.
+   *  `apply` returns false when it changed nothing, which skips the animation. */
+  async function run(apply: () => boolean | void): Promise<void> {
     settleRunning?.();
     const root = opts.container();
     if (
@@ -128,12 +129,21 @@ export function useResultsTransition(opts: Options) {
     };
     const transition = document.startViewTransition(async () => {
       clearNames();
-      apply();
+      const applied = apply();
       await nextTick();
       if (settled) return;
+      if (applied === false) {
+        settle();
+        return;
+      }
       const after = visibleCards(root, opts.visibleTop(), opts.visibleBottom());
       const entering = [...after.keys()].filter((id) => !before.has(id));
       const keep = new Set([...after.keys()].filter((id) => before.has(id)));
+      // A kept card that changed rows remounts, and its own mount fade would
+      // play inside the morph.
+      for (const id of keep) {
+        for (const a of after.get(id)?.getAnimations?.() ?? []) a.finish();
+      }
       if (rows) {
         for (const id of entering) keep.add(id);
         // A named pseudo-element outranks the `(*)` rules in global.css,

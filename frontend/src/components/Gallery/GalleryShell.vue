@@ -672,13 +672,17 @@ const scheduleFetchSync = useDebounceFn(syncFetches, FETCH_DEBOUNCE_MS);
 // search invalidate), drop the pending debounced sync. The store's
 // `invalidateWindows` / `resetGallery` already aborts every in-flight
 // request, so we just clear local state.
-watch(virtualItems, async () => {
+watch(virtualItems, async (_items, _prev, onCleanup) => {
   scheduleFetchSync.cancel();
   // Re-sync against the current viewport so visible rows in the new
   // context start fetching immediately (no debounce: items just
   // changed, the user is staring at skeletons). The tick lets a scroll
   // reset from the same swap report its range first.
+  let superseded = false;
+  onCleanup(() => (superseded = true));
   await nextTick();
+  // An unmount in the meantime already aborted the gallery's fetches.
+  if (superseded) return;
   syncFetches(viewportRange.value);
 });
 
@@ -726,17 +730,18 @@ const resultsTransition = useResultsTransition({
 
 function commitRefresh(apply: () => boolean): Promise<void> {
   return resultsTransition.run(() => {
-    if (!apply()) return;
+    if (!apply()) return false;
     // The open panel's position now holds another game, even at the same count.
     listExpansion.collapse();
     endLetterJump();
     // A new result reads from its first row, not the old scroll depth.
     const root = scrollerRef.value?.containerEl;
-    if (!root) return;
+    if (!root) return true;
     root.scrollTop = 0;
     // The scroller tracks its offset from scroll events, which would only
     // land after the transition captured the new state.
     root.dispatchEvent(new Event("scroll"));
+    return true;
   });
 }
 
@@ -1161,7 +1166,7 @@ defineExpose({
           >
             <div
               v-for="(p, slotIdx) in rowPositions(asRow(item as GalleryItem))"
-              :key="getRomAt(p)?.id ?? `sk-${p}`"
+              :key="`${p}-${getRomAt(p)?.id ?? 'sk'}`"
               role="gridcell"
               class="r-shell__cell"
               :aria-selected="getRomAt(p) ? isRomSelected(p) : undefined"

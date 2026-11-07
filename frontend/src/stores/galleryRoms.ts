@@ -378,7 +378,8 @@ export default defineStore("v2GalleryRoms", {
      * keeps the known result count as `reorderTotal`. */
     invalidateWindows({ reorder = false } = {}) {
       abortAllInFlight();
-      if (!reorder) this.reorderTotal = null;
+      // Mid-refresh, the loaded total still counts the previous filters.
+      if (!reorder || this.refreshing) this.reorderTotal = null;
       else if (this.metadataLoaded) this.reorderTotal = this.total;
       this.total = 0;
       this.charIndex = {};

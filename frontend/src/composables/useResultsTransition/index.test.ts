@@ -221,6 +221,23 @@ describe("useResultsTransition", () => {
     expect(document.documentElement.classList).toContain("r-results-vt--rows");
   });
 
+  it("skips the animation when the swap changed nothing", async () => {
+    stubViewTransitions();
+    const kept = card(1, 200);
+    const root = scroller(kept);
+    const { run } = useResultsTransition({
+      container: () => root,
+      visibleTop: () => 100,
+      visibleBottom: () => 1000,
+      kind: () => "cards",
+    });
+
+    await run(() => false);
+
+    expect(kept.style.viewTransitionName).toBe("");
+    expect(document.documentElement.classList).not.toContain("r-results-vt");
+  });
+
   it("leaves cards under the bottom chrome unnamed", async () => {
     stubViewTransitions();
     const above = card(1, 200);

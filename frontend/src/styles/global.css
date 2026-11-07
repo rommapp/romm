@@ -512,6 +512,11 @@ html.r-reduced-motion {
 html.r-results-vt {
   view-transition-name: none;
 }
+/* Other morph names on the page (a header's platform icon) would fly in
+   with the scroll reset, painted over the nav bar. */
+html.r-results-vt [style*="view-transition-name"]:not([data-result-id]) {
+  view-transition-name: none !important;
+}
 html.r-results-vt::view-transition {
   pointer-events: none;
 }

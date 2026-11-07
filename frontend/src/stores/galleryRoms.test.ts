@@ -564,6 +564,17 @@ describe("galleryRoms refresh", () => {
     expect(store.metadataLoaded).toBe(false);
     expect(store.byPosition.size).toBe(0);
   });
+
+  it("doesn't size a re-sort's skeletons by the previous filters' count", () => {
+    getRoms.mockReturnValue(deferred().promise);
+    const store = storeGalleryRoms();
+    seedOldResult(store);
+
+    void store.refreshResults();
+    store.invalidateWindows({ reorder: true });
+
+    expect(store.reorderTotal).toBeNull();
+  });
 });
 
 describe("galleryRoms length filter", () => {
