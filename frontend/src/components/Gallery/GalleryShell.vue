@@ -672,11 +672,13 @@ const scheduleFetchSync = useDebounceFn(syncFetches, FETCH_DEBOUNCE_MS);
 // search invalidate), drop the pending debounced sync. The store's
 // `invalidateWindows` / `resetGallery` already aborts every in-flight
 // request, so we just clear local state.
-watch(virtualItems, () => {
+watch(virtualItems, async () => {
   scheduleFetchSync.cancel();
   // Re-sync against the current viewport so visible rows in the new
   // context start fetching immediately (no debounce: items just
-  // changed, the user is staring at skeletons).
+  // changed, the user is staring at skeletons). The tick lets a scroll
+  // reset from the same swap report its range first.
+  await nextTick();
   syncFetches(viewportRange.value);
 });
 
@@ -709,9 +711,15 @@ function scrollToItem(idx: number, smooth: boolean) {
   });
 }
 
+// Content scrolls under the bottom nav on phones; its band isn't "visible".
+const bottomChromeHeight = useCssLength(
+  "calc(var(--r-bottom-nav-h) + var(--r-safe-b))",
+);
+
 const resultsTransition = useResultsTransition({
   container: () => scrollerRef.value?.containerEl ?? null,
   visibleTop: stickyOffset,
+  visibleBottom: () => window.innerHeight - bottomChromeHeight.value,
   kind: () => (layout.value === "list" ? "rows" : "cards"),
 });
 
@@ -720,6 +728,7 @@ function commitRefresh(apply: () => boolean): Promise<void> {
     if (!apply()) return;
     // The open panel's position now holds another game, even at the same count.
     listExpansion.collapse();
+    endLetterJump();
     // A new result reads from its first row, not the old scroll depth.
     const root = scrollerRef.value?.containerEl;
     if (!root) return;

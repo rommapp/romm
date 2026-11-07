@@ -1,8 +1,12 @@
 // Animates a gallery result swap with a view transition. Only the named
 // cards animate; the root opts out so the search box stays live.
-import { nextTick } from "vue";
+import { getCurrentScope, nextTick, onScopeDispose } from "vue";
 import { useReducedMotion } from "@/composables/useReducedMotion";
 import { pendingMorphName } from "@/composables/useViewTransition";
+import {
+  hasOpenEscapable,
+  onEscapableOpen,
+} from "@/lib/overlays/RDialog/escapeStack";
 
 /** Marks an element as one result card, valued by its ROM id. */
 export const RESULT_ID_ATTR = "data-result-id";
@@ -24,6 +28,8 @@ interface Options {
   container: () => HTMLElement | null;
   /** Viewport y below which a card is visible (under any sticky chrome). */
   visibleTop: () => number;
+  /** Viewport y above which a card is visible (over any bottom chrome). */
+  visibleBottom: () => number;
   kind: () => ResultsKind;
 }
 
@@ -39,12 +45,10 @@ function supported(): boolean {
 function visibleCards(
   root: HTMLElement,
   top: number,
+  visibleBottom: number,
 ): Map<string, HTMLElement> {
   const out = new Map<string, HTMLElement>();
-  const bottom = Math.min(
-    window.innerHeight,
-    root.getBoundingClientRect().bottom,
-  );
+  const bottom = Math.min(visibleBottom, root.getBoundingClientRect().bottom);
   for (const el of root.querySelectorAll<HTMLElement>(`[${RESULT_ID_ATTR}]`)) {
     const id = el.getAttribute(RESULT_ID_ATTR);
     if (!id || out.has(id)) continue;
@@ -59,6 +63,9 @@ let settleRunning: (() => void) | null = null;
 
 export function useResultsTransition(opts: Options) {
   const { enabled: reducedMotion } = useReducedMotion();
+  // Snapshots paint above overlays, so one opening ends the animation.
+  if (getCurrentScope())
+    onScopeDispose(onEscapableOpen(() => settleRunning?.()));
 
   /** Runs `apply` (the swap) inside a view transition when one can run. */
   async function run(apply: () => void): Promise<void> {
@@ -69,13 +76,14 @@ export function useResultsTransition(opts: Options) {
       !supported() ||
       reducedMotion.value ||
       pendingMorphName.value !== null ||
+      hasOpenEscapable() ||
       document.visibilityState === "hidden"
     ) {
       apply();
       return;
     }
 
-    const before = visibleCards(root, opts.visibleTop());
+    const before = visibleCards(root, opts.visibleTop(), opts.visibleBottom());
     if (before.size === 0) {
       apply();
       return;
@@ -123,7 +131,7 @@ export function useResultsTransition(opts: Options) {
       apply();
       await nextTick();
       if (settled) return;
-      const after = visibleCards(root, opts.visibleTop());
+      const after = visibleCards(root, opts.visibleTop(), opts.visibleBottom());
       const entering = [...after.keys()].filter((id) => !before.has(id));
       const keep = new Set([...after.keys()].filter((id) => before.has(id)));
       if (rows) {

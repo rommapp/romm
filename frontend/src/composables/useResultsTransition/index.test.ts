@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ref } from "vue";
+import { effectScope, ref } from "vue";
+import {
+  popEscapable,
+  pushEscapable,
+  type EscapableEntry,
+} from "@/lib/overlays/RDialog/escapeStack";
 import { RESULT_ID_ATTR, useResultsTransition } from "./index";
 
 const reduced = ref(false);
@@ -84,6 +89,7 @@ describe("useResultsTransition", () => {
     const { run } = useResultsTransition({
       container: () => root,
       visibleTop: () => 100,
+      visibleBottom: () => 1000,
       kind: () => "cards",
     });
 
@@ -100,6 +106,7 @@ describe("useResultsTransition", () => {
     const { run } = useResultsTransition({
       container: () => root,
       visibleTop: () => 100,
+      visibleBottom: () => 1000,
       kind: () => "cards",
     });
 
@@ -119,6 +126,7 @@ describe("useResultsTransition", () => {
     const { run } = useResultsTransition({
       container: () => root,
       visibleTop: () => 100,
+      visibleBottom: () => 1000,
       kind: () => "cards",
     });
 
@@ -148,6 +156,7 @@ describe("useResultsTransition", () => {
     const { run } = useResultsTransition({
       container: () => root,
       visibleTop: () => 100,
+      visibleBottom: () => 1000,
       kind: () => "rows",
     });
 
@@ -176,6 +185,7 @@ describe("useResultsTransition", () => {
     const { run } = useResultsTransition({
       container: () => root,
       visibleTop: () => 100,
+      visibleBottom: () => 1000,
       kind: () => "cards",
     });
 
@@ -197,6 +207,7 @@ describe("useResultsTransition", () => {
     const { run } = useResultsTransition({
       container: () => root,
       visibleTop: () => 100,
+      visibleBottom: () => 1000,
       kind: () => "rows",
     });
 
@@ -210,6 +221,70 @@ describe("useResultsTransition", () => {
     expect(document.documentElement.classList).toContain("r-results-vt--rows");
   });
 
+  it("leaves cards under the bottom chrome unnamed", async () => {
+    stubViewTransitions();
+    const above = card(1, 200);
+    const underNav = card(2, 850);
+    const root = scroller(above, underNav);
+    const { run } = useResultsTransition({
+      container: () => root,
+      visibleTop: () => 100,
+      visibleBottom: () => 900,
+      kind: () => "cards",
+    });
+
+    await run(() => {});
+
+    expect(above.style.viewTransitionName).toBe("r-result-1");
+    expect(underNav.style.viewTransitionName).toBe("");
+  });
+
+  describe("with an overlay", () => {
+    const overlay: EscapableEntry = { close: () => {}, persistent: false };
+    afterEach(() => popEscapable(overlay));
+
+    it("swaps directly while one is open", async () => {
+      const start = stubViewTransitions();
+      const root = scroller(card(1, 200));
+      const apply = vi.fn();
+      const { run } = useResultsTransition({
+        container: () => root,
+        visibleTop: () => 100,
+        visibleBottom: () => 1000,
+        kind: () => "cards",
+      });
+      pushEscapable(overlay);
+
+      await run(apply);
+
+      expect(apply).toHaveBeenCalledOnce();
+      expect(start).not.toHaveBeenCalled();
+    });
+
+    it("ends a running animation when one opens", async () => {
+      stubViewTransitions();
+      const kept = card(1, 200);
+      const root = scroller(kept);
+      const scope = effectScope();
+      const { run } = scope.run(() =>
+        useResultsTransition({
+          container: () => root,
+          visibleTop: () => 100,
+          visibleBottom: () => 1000,
+          kind: () => "cards",
+        }),
+      )!;
+      await run(() => {});
+      expect(kept.style.viewTransitionName).toBe("r-result-1");
+
+      pushEscapable(overlay);
+
+      expect(kept.style.viewTransitionName).toBe("");
+      expect(document.documentElement.classList).not.toContain("r-results-vt");
+      scope.stop();
+    });
+  });
+
   it("clears every name and the root class once finished", async () => {
     stubViewTransitions();
     const kept = card(1, 200);
@@ -217,6 +292,7 @@ describe("useResultsTransition", () => {
     const { run } = useResultsTransition({
       container: () => root,
       visibleTop: () => 100,
+      visibleBottom: () => 1000,
       kind: () => "rows",
     });
 
