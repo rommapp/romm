@@ -82,7 +82,7 @@ describe("GalleryShell search refresh", () => {
         stubs: {
           // Renders every item, so the list rows exist without a viewport.
           RVirtualScroller: {
-            props: ["items"],
+            props: { items: { type: Array, required: true } },
             template: `<div><template v-for="(item, index) in items" :key="index"><slot :item="item" :index="index" /></template></div>`,
           },
         },
