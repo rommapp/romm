@@ -17,7 +17,7 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
     "amiga500": UPS.AMIGA,
     "amiga600": UPS.AMIGA,
     "amigacd32": UPS.AMIGA_CD32,
-    "amigacdtv": UPS.AMIGA_CD32,
+    "amigacdtv": UPS.COMMODORE_CDTV,
     "amstradcpc": UPS.ACPC,
     "apfm1000": UPS.APF,
     "apple2": UPS.APPLEII,
