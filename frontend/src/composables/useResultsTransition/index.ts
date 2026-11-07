@@ -2,7 +2,7 @@
 // cards animate; the root opts out so the search box stays live.
 import { getCurrentScope, nextTick, onScopeDispose } from "vue";
 import { useReducedMotion } from "@/composables/useReducedMotion";
-import { isSupported, pendingMorphName } from "@/composables/useViewTransition";
+import { isMorphRunning, isSupported } from "@/composables/useViewTransition";
 import {
   hasOpenEscapable,
   onEscapableOpen,
@@ -68,7 +68,7 @@ export function useResultsTransition(opts: Options) {
       !root ||
       !isSupported() ||
       reducedMotion.value ||
-      pendingMorphName.value !== null ||
+      isMorphRunning() ||
       hasOpenEscapable() ||
       document.visibilityState === "hidden"
     ) {

@@ -6,7 +6,12 @@ import {
   skippedReady,
   stubStartViewTransition,
 } from "@/test-utils/viewTransition";
-import { installBackMorph, useViewTransition } from "./index";
+import {
+  installBackMorph,
+  isMorphRunning,
+  pendingMorphName,
+  useViewTransition,
+} from "./index";
 
 vi.mock("@/plugins/router", () => ({
   ROUTES: {
@@ -71,6 +76,42 @@ describe("morphTransition", () => {
 
     expect(el.style.viewTransitionName).toBe("");
     el.remove();
+  });
+});
+
+describe("isMorphRunning", () => {
+  it("is true while a forward morph or a back-morph tag is live", async () => {
+    let finish!: () => void;
+    const finished = new Promise<void>((r) => {
+      finish = r;
+    });
+    Object.defineProperty(document, "startViewTransition", {
+      configurable: true,
+      value: vi.fn((callback?: () => Promise<void>) => {
+        void callback?.();
+        return {
+          updateCallbackDone: Promise.resolve(),
+          ready: Promise.resolve(),
+          finished,
+          skipTransition: () => {},
+        };
+      }),
+    });
+    const { morphTransition } = useViewTransition();
+    expect(isMorphRunning()).toBe(false);
+
+    morphTransition(
+      { el: document.createElement("div"), name: "rom-cover-1" },
+      () => {},
+    );
+    expect(isMorphRunning()).toBe(true);
+    finish();
+    await flushPromises();
+    expect(isMorphRunning()).toBe(false);
+
+    pendingMorphName.value = "rom-cover-2";
+    expect(isMorphRunning()).toBe(true);
+    pendingMorphName.value = null;
   });
 });
 
