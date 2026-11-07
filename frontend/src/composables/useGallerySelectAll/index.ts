@@ -69,6 +69,8 @@ export function useGallerySelectAll() {
    * the remainder merges when `fetchAllFilteredRoms` lands. A second
    * trigger supersedes the running fetch (the store aborts it). */
   async function selectAll(): Promise<void> {
+    // The loaded games still belong to the previous search mid-refresh.
+    if (galleryRoms.refreshing) return;
     if (allSelected.value) return;
     selection.selectMany(galleryRoms.byPosition.values());
     if (allSelected.value) return;

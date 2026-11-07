@@ -76,6 +76,10 @@ import { useGridNav } from "@/composables/useGridNav";
 import { useListExpansion } from "@/composables/useListExpansion";
 import { usePinnedToolbar } from "@/composables/usePinnedToolbar";
 import { useResponsiveColumns } from "@/composables/useResponsiveColumns";
+import {
+  RESULT_ID_ATTR,
+  useResultsTransition,
+} from "@/composables/useResultsTransition";
 import { useUISettings } from "@/composables/useUISettings";
 import { useVirtualScrollDebug } from "@/composables/useVirtualScrollDebug";
 import { useWebpSupport } from "@/composables/useWebpSupport";
@@ -293,16 +297,22 @@ watch(
     selectedLengthMaxHours,
   ],
   () => {
-    galleryRoms.invalidateWindows();
-    void galleryRoms.fetchInitialMetadata();
+    void galleryRoms.refreshResults(commitRefresh);
   },
   { deep: true },
 );
 
 const { supportsWebp } = useWebpSupport();
 
-const { total, reorderTotal, charIndex, initialFetching, orderBy, orderDir } =
-  storeToRefs(galleryRoms);
+const {
+  total,
+  reorderTotal,
+  charIndex,
+  initialFetching,
+  refreshing,
+  orderBy,
+  orderDir,
+} = storeToRefs(galleryRoms);
 
 const { groupBy, layout, toolbarPosition } = useGalleryMode();
 
@@ -405,7 +415,7 @@ useGridNav(sectionEl, {
 });
 
 const loadingInitial = computed(
-  () => initialFetching.value && total.value === 0,
+  () => (initialFetching.value || refreshing.value) && total.value === 0,
 );
 
 const notFoundRef = computed(() => props.notFound);
@@ -662,11 +672,17 @@ const scheduleFetchSync = useDebounceFn(syncFetches, FETCH_DEBOUNCE_MS);
 // search invalidate), drop the pending debounced sync. The store's
 // `invalidateWindows` / `resetGallery` already aborts every in-flight
 // request, so we just clear local state.
-watch(virtualItems, () => {
+watch(virtualItems, async (_items, _prev, onCleanup) => {
   scheduleFetchSync.cancel();
   // Re-sync against the current viewport so visible rows in the new
   // context start fetching immediately (no debounce: items just
   // changed, the user is staring at skeletons).
+  let superseded = false;
+  onCleanup(() => (superseded = true));
+  // Lets a scroll reset in the same swap report its range first.
+  await nextTick();
+  // A rerun owns the sync, and an unmount already aborted the fetches.
+  if (superseded) return;
   syncFetches(viewportRange.value);
 });
 
@@ -683,13 +699,45 @@ function anchorLetter(letter: string, smooth: boolean) {
   scrollToItem(idx, smooth);
 }
 
-function scrollToItem(idx: number, smooth: boolean) {
-  // The section runs under the top bar, so rows land below it in either dock.
-  const stickyOffset =
+// The section runs under the top bar, so rows land below it in either dock.
+function stickyOffset(): number {
+  return (
     navHeight.value +
     toolbarHeight.value +
-    (layout.value === "list" ? LIST_HEADER_HEIGHT_PX : 0);
-  scrollerRef.value?.scrollToIndex(idx, { smooth, stickyOffset });
+    (layout.value === "list" ? LIST_HEADER_HEIGHT_PX : 0)
+  );
+}
+
+function scrollToItem(idx: number, smooth: boolean) {
+  scrollerRef.value?.scrollToIndex(idx, {
+    smooth,
+    stickyOffset: stickyOffset(),
+  });
+}
+
+// Content scrolls under the phone bottom nav, which only renders below md.
+const bottomChromeHeight = useCssLength(
+  "calc(var(--r-bottom-nav-h) + var(--r-safe-b))",
+);
+
+const resultsTransition = useResultsTransition({
+  container: () => scrollerRef.value?.containerEl ?? null,
+  visibleTop: stickyOffset,
+  visibleBottom: () =>
+    window.innerHeight - (smAndDown.value ? bottomChromeHeight.value : 0),
+  rows: () => layout.value === "list",
+});
+
+function commitRefresh(apply: () => boolean): Promise<void> {
+  return resultsTransition.run(() => {
+    if (!apply()) return false;
+    // The open panel's position now holds another game, even at the same count.
+    listExpansion.collapse();
+    endLetterJump();
+    // A new result reads from its first row, not the old scroll depth.
+    scrollerRef.value?.scrollTo(0);
+    return true;
+  });
 }
 
 function scrollToLetter(letter: string) {
@@ -859,8 +907,10 @@ onBeforeUnmount(() => {
 });
 
 // ── Slot helpers ────────────────────────────────────────────────────
+// Read the map directly: the store action's wrapper is a cost per call, and
+// each card calls this several times per render.
 function getRomAt(p: number) {
-  return galleryRoms.getRomAt(p);
+  return galleryRoms.byPosition.get(p) ?? null;
 }
 
 function rowPositions(row: {
@@ -883,6 +933,8 @@ const asEmpty = (i: GalleryItem) => i as EmptyItem;
 const asListRow = (i: GalleryItem) => i as ListRowItem;
 const asSkeletonRow = (i: GalleryItem) => i as SkeletonRowItem;
 const itemKind = (i: GalleryItem) => i.kind;
+const listRowRomId = (i: GalleryItem) =>
+  i.kind === "list-row" ? getRomAt(i.position)?.id : undefined;
 
 // The desktop list header is the grid's first row; the compact one is a
 // toolbar above the grid.
@@ -899,7 +951,9 @@ const gridAttrs = computed(() => {
     role: "grid",
     "aria-label": t("common.games"),
     "aria-multiselectable": true,
-    "aria-busy": !loaded && !items.some((i) => i.kind === "empty"),
+    "aria-busy":
+      refreshing.value || (!loaded && !items.some((i) => i.kind === "empty")),
+    "data-stale": refreshing.value || undefined,
     "aria-rowcount": items.length + (listHeaderInGrid.value ? 1 : 0),
     "aria-colcount": listHeaderInGrid.value
       ? getListColumns(props.showPlatformColumn).length
@@ -1095,6 +1149,7 @@ defineExpose({
         <div
           class="r-shell__item"
           v-bind="itemAttrs(item as GalleryItem, index)"
+          :[RESULT_ID_ATTR]="listRowRomId(item as GalleryItem)"
         >
           <RLetterHeading
             v-if="itemKind(item as GalleryItem) === 'letter-header'"
@@ -1108,13 +1163,14 @@ defineExpose({
           >
             <div
               v-for="(p, slotIdx) in rowPositions(asRow(item as GalleryItem))"
-              :key="p"
+              :key="`${p}-${getRomAt(p)?.id ?? 'sk'}`"
               role="gridcell"
               class="r-shell__cell"
               :aria-selected="getRomAt(p) ? isRomSelected(p) : undefined"
             >
               <GameCard
                 v-if="getRomAt(p)"
+                :[RESULT_ID_ATTR]="getRomAt(p)!.id"
                 class="r-card-fade"
                 :style="{ '--card-fade-i': slotIdx }"
                 :rom="getRomAt(p)!"
@@ -1374,6 +1430,16 @@ html[data-bp~="md-and-up"] .r-shell__list-header {
 }
 .r-shell__cell > * {
   flex-shrink: 0;
+}
+
+/* Stale results fade only when a refetch outlasts the delay, so a quick
+   one never flickers. */
+.r-shell__scroller :deep(.r-virtual-scroller__body) {
+  transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-shell__scroller :deep(.r-virtual-scroller__body[data-stale]) {
+  opacity: 0.6;
+  transition-delay: 150ms;
 }
 
 /* Card reveal animation (.r-card-fade) lives in global.css, shared

@@ -10,6 +10,7 @@ import storeGalleryRoms, {
 } from "@/stores/galleryRoms";
 import storePlatforms from "@/stores/platforms";
 import { platformFixture } from "@/utils/platform.fixtures";
+import { romFixture } from "@/utils/rom.fixtures";
 
 const { getRoms } = vi.hoisted(() => ({ getRoms: vi.fn() }));
 
@@ -425,6 +426,154 @@ describe("galleryRoms whole-result fetch", () => {
 
     expect(await store.fetchAllFilteredRoms()).toBeNull();
     expect(getRoms).not.toHaveBeenCalled();
+  });
+});
+
+describe("galleryRoms refresh", () => {
+  beforeEach(() => {
+    getRoms.mockReset();
+  });
+
+  function seedOldResult(store: ReturnType<typeof storeGalleryRoms>) {
+    store.total = 2;
+    store.metadataLoaded = true;
+    store.byPosition = new Map([
+      [0, romFixture({ id: 1 })],
+      [1, romFixture({ id: 2 })],
+    ]);
+    store.loadedWindows = new Set([0]);
+  }
+
+  it("keeps the old result until the new page swaps in", async () => {
+    const d = deferred();
+    getRoms.mockReturnValue(d.promise);
+    const store = storeGalleryRoms();
+    seedOldResult(store);
+
+    const refreshing = store.refreshResults();
+
+    expect(store.refreshing).toBe(true);
+    expect(store.total).toBe(2);
+    expect(store.getRomAt(0)?.id).toBe(1);
+
+    d.resolve(windowResponse(1, [{ id: 9 }]));
+
+    expect(await refreshing).toBe(true);
+    expect(store.refreshing).toBe(false);
+    expect(store.total).toBe(1);
+    expect(store.getRomAt(0)?.id).toBe(9);
+    expect(store.getRomAt(1)).toBeNull();
+    expect(store.loadedWindows).toEqual(new Set([0]));
+  });
+
+  it("fetches the page and its metadata in one request", async () => {
+    getRoms.mockResolvedValue(windowResponse(1, [{ id: 9 }]));
+    const store = storeGalleryRoms();
+
+    await store.refreshResults();
+
+    expect(getRoms).toHaveBeenCalledTimes(1);
+    expect(getRoms.mock.calls[0]![0].withCharIndex).toBeUndefined();
+    expect(getRoms.mock.calls[0]![0].offset).toBe(0);
+  });
+
+  it("holds window fetches while refreshing", () => {
+    getRoms.mockReturnValue(deferred().promise);
+    const store = storeGalleryRoms();
+    seedOldResult(store);
+
+    void store.refreshResults();
+    store.syncVisibleWindows([100]);
+    void store.fetchInitialMetadata();
+
+    expect(getRoms).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides the old id list while refreshing", () => {
+    getRoms.mockReturnValue(deferred().promise);
+    const store = storeGalleryRoms();
+    store.currentSearch = true;
+    seedOldResult(store);
+
+    void store.refreshResults();
+
+    expect(store.filteredRomIds).toBeNull();
+  });
+
+  it("lets a newer refresh supersede an older one", async () => {
+    const first = deferred();
+    const second = deferred();
+    getRoms
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const store = storeGalleryRoms();
+
+    const older = store.refreshResults();
+    const newer = store.refreshResults();
+    first.resolve(windowResponse(1, [{ id: 1 }]));
+    second.resolve(windowResponse(1, [{ id: 2 }]));
+
+    expect(await older).toBe(false);
+    expect(await newer).toBe(true);
+    expect(store.getRomAt(0)?.id).toBe(2);
+  });
+
+  it("runs the swap through the commit and skips it once superseded", async () => {
+    getRoms.mockResolvedValueOnce(windowResponse(1, [{ id: 9 }]));
+    const store = storeGalleryRoms();
+    seedOldResult(store);
+    let deferredApply: (() => boolean) | undefined;
+
+    const older = store.refreshResults((apply) => {
+      deferredApply = apply;
+    });
+    await flushPromises();
+    getRoms.mockReturnValue(deferred().promise);
+    void store.refreshResults();
+
+    expect(deferredApply!()).toBe(false);
+    expect(await older).toBe(false);
+    expect(store.getRomAt(0)?.id).toBe(1);
+  });
+
+  it("falls back to skeletons when the refresh fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    getRoms
+      .mockRejectedValueOnce(new Error("boom"))
+      .mockReturnValue(deferred().promise);
+    const store = storeGalleryRoms();
+    seedOldResult(store);
+
+    expect(await store.refreshResults()).toBe(false);
+
+    expect(store.refreshing).toBe(false);
+    expect(store.total).toBe(0);
+    expect(store.byPosition.size).toBe(0);
+    expect(store.initialFetching).toBe(true);
+  });
+
+  it("drops the old result when the gallery unmounts mid-refresh", () => {
+    getRoms.mockReturnValue(deferred().promise);
+    const store = storeGalleryRoms();
+    seedOldResult(store);
+
+    void store.refreshResults();
+    store.abortInFlight();
+
+    expect(store.refreshing).toBe(false);
+    expect(store.metadataLoaded).toBe(false);
+    expect(store.byPosition.size).toBe(0);
+  });
+
+  it("doesn't size a re-sort's skeletons by the previous filters' count", () => {
+    getRoms.mockReturnValue(deferred().promise);
+    const store = storeGalleryRoms();
+    seedOldResult(store);
+
+    void store.refreshResults();
+    store.invalidateWindows({ reorder: true });
+
+    expect(store.reorderTotal).toBeNull();
   });
 });
 
