@@ -402,15 +402,23 @@ useGridNav(sectionEl, {
   revealEdge,
 });
 
+// A known result, empty included, stays on screen through a refresh.
 const loadingInitial = computed(
-  () => (initialFetching.value || refreshing.value) && total.value === 0,
+  () =>
+    (initialFetching.value || refreshing.value) &&
+    total.value === 0 &&
+    !galleryRoms.metadataLoaded,
 );
 
 const notFoundRef = computed(() => props.notFound);
 // An empty result under a search or filters says why, not that the view is empty.
 const emptyMessageRef = computed(() => {
-  if (searchTerm.value) {
-    return t("rom.no-games-match-query", { query: searchTerm.value });
+  // Names the search the displayed result answers, not one still loading.
+  const shownTerm = galleryRoms.resultParams
+    ? galleryRoms.resultParams.searchTerm
+    : searchTerm.value;
+  if (shownTerm) {
+    return t("rom.no-games-match-query", { query: shownTerm });
   }
   if (filterActiveCount.value > 0) return t("rom.no-games-match-filters");
   return props.emptyMessage;

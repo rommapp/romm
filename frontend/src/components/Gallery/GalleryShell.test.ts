@@ -58,6 +58,40 @@ describe("GalleryShell re-sort", () => {
   });
 });
 
+describe("GalleryShell empty result", () => {
+  it("keeps a known-empty result on screen through a refresh", async () => {
+    getRoms.mockImplementation(() => new Promise(() => {}));
+    const galleryRoms = storeGalleryRoms();
+    galleryRoms.currentSearch = true;
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: "/search", component: { template: "<div />" } }],
+    });
+    await router.push("/search?search=zzz");
+    const wrapper = shallowMount(GalleryShell, {
+      props: { hasHeader: false, searchPlaceholder: "", emptyMessage: "" },
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+    galleryRoms._resultRequest(0);
+    galleryRoms.metadataLoaded = true;
+    galleryRoms.initialFetching = false;
+    await flushPromises();
+    const empty = () =>
+      scrollerItems(wrapper).find((i) => i.kind === "empty") as
+        { message: string } | undefined;
+    const before = empty()?.message;
+    expect(before).toContain('"query":"zzz"');
+
+    galleryRoms.setOrderDir("desc");
+    storeGalleryFilter().searchTerm = "zzzz";
+    await flushPromises();
+
+    expect(galleryRoms.refreshing).toBe(true);
+    expect(empty()?.message).toBe(before);
+  });
+});
+
 describe("GalleryShell search refresh", () => {
   it("closes an open list panel when a new result swaps in at the same count", async () => {
     const page = (ids: number[]) => ({
