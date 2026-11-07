@@ -292,17 +292,26 @@ watch(
     selectedLengthMinHours,
     selectedLengthMaxHours,
   ],
-  () => {
-    galleryRoms.invalidateWindows();
-    void galleryRoms.fetchInitialMetadata();
+  async () => {
+    if (!(await galleryRoms.refreshResults())) return;
+    // A new result reads from its first row, not the old scroll depth.
+    const root = scrollerRef.value?.containerEl;
+    if (root) root.scrollTop = 0;
   },
   { deep: true },
 );
 
 const { supportsWebp } = useWebpSupport();
 
-const { total, reorderTotal, charIndex, initialFetching, orderBy, orderDir } =
-  storeToRefs(galleryRoms);
+const {
+  total,
+  reorderTotal,
+  charIndex,
+  initialFetching,
+  refreshing,
+  orderBy,
+  orderDir,
+} = storeToRefs(galleryRoms);
 
 const { groupBy, layout, toolbarPosition } = useGalleryMode();
 
@@ -405,7 +414,7 @@ useGridNav(sectionEl, {
 });
 
 const loadingInitial = computed(
-  () => initialFetching.value && total.value === 0,
+  () => (initialFetching.value || refreshing.value) && total.value === 0,
 );
 
 const notFoundRef = computed(() => props.notFound);
@@ -899,7 +908,9 @@ const gridAttrs = computed(() => {
     role: "grid",
     "aria-label": t("common.games"),
     "aria-multiselectable": true,
-    "aria-busy": !loaded && !items.some((i) => i.kind === "empty"),
+    "aria-busy":
+      refreshing.value || (!loaded && !items.some((i) => i.kind === "empty")),
+    "data-stale": refreshing.value || undefined,
     "aria-rowcount": items.length + (listHeaderInGrid.value ? 1 : 0),
     "aria-colcount": listHeaderInGrid.value
       ? getListColumns(props.showPlatformColumn).length
@@ -1108,7 +1119,7 @@ defineExpose({
           >
             <div
               v-for="(p, slotIdx) in rowPositions(asRow(item as GalleryItem))"
-              :key="p"
+              :key="getRomAt(p)?.id ?? `sk-${p}`"
               role="gridcell"
               class="r-shell__cell"
               :aria-selected="getRomAt(p) ? isRomSelected(p) : undefined"
@@ -1374,6 +1385,16 @@ html[data-bp~="md-and-up"] .r-shell__list-header {
 }
 .r-shell__cell > * {
   flex-shrink: 0;
+}
+
+/* Stale results fade only when a refetch outlasts the delay, so a quick
+   one never flickers. */
+.r-shell__scroller :deep(.r-virtual-scroller__body) {
+  transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-shell__scroller :deep(.r-virtual-scroller__body[data-stale]) {
+  opacity: 0.6;
+  transition-delay: 150ms;
 }
 
 /* Card reveal animation (.r-card-fade) lives in global.css, shared
