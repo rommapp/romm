@@ -676,12 +676,12 @@ watch(virtualItems, async (_items, _prev, onCleanup) => {
   scheduleFetchSync.cancel();
   // Re-sync against the current viewport so visible rows in the new
   // context start fetching immediately (no debounce: items just
-  // changed, the user is staring at skeletons). The tick lets a scroll
-  // reset from the same swap report its range first.
+  // changed, the user is staring at skeletons).
   let superseded = false;
   onCleanup(() => (superseded = true));
+  // Lets a scroll reset in the same swap report its range first.
   await nextTick();
-  // An unmount in the meantime already aborted the gallery's fetches.
+  // A rerun owns the sync, and an unmount already aborted the fetches.
   if (superseded) return;
   syncFetches(viewportRange.value);
 });
