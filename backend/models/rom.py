@@ -1055,6 +1055,11 @@ class Rom(BaseModel):
         default=[],
         doc="Slots a user owns, whose stored file a scan must leave alone",
     )
+    metadata_locks: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(),
+        default=dict,
+        doc="Snapshots of metadata fields protected from scanner updates",
+    )
 
     revision: Mapped[str | None] = mapped_column(String(length=100))
     version: Mapped[str | None] = mapped_column(String(length=100))
@@ -1289,6 +1294,10 @@ class Rom(BaseModel):
     def locked_fields_without(self, field: str) -> list[str]:
         """This rom's locks minus ``field``, for handing to an update."""
         return sorted({*(self.locked_fields or [])} - {field})
+
+    @property
+    def metadata_locked_fields(self) -> list[str]:
+        return sorted((self.metadata_locks or {}).keys())
 
     @property
     def is_unidentified(self) -> bool:
