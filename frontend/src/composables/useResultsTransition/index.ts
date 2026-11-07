@@ -11,18 +11,24 @@ import { pendingMorphName } from "@/composables/useViewTransition";
 export const RESULT_ID_ATTR = "data-result-id";
 
 const ROOT_CLASS = "r-results-vt";
+const ROWS_CLASS = `${ROOT_CLASS}--rows`;
 const NAME_PREFIX = "r-result-";
 const ENTER_STAGGER_MS = 28;
 const ENTER_STAGGER_CAP = 12;
+// Leaving rows clear their slot before arriving rows fade into it.
+const ROWS_ENTER_DELAY_MS = 100;
+
+/** How a layout's items behave across a swap. `cards` remount on arrival and
+ *  play their own fade; `rows` are reused in place, so arrivals fade in
+ *  through the transition once the rows leaving their slot are gone. */
+export type ResultsKind = "cards" | "rows";
 
 interface Options {
   /** The scroller holding the cards. */
   container: () => HTMLElement | null;
   /** Viewport y below which a card is visible (under any sticky chrome). */
   visibleTop: () => number;
-  /** Whether arriving cards fade in through the transition. A layout whose
-   *  cards already animate on mount opts out so they don't play twice. */
-  animateEntering: () => boolean;
+  kind: () => ResultsKind;
 }
 
 function supported(): boolean {
@@ -95,7 +101,9 @@ export function useResultsTransition(opts: Options) {
       "--r-results-vt-from",
       body ? getComputedStyle(body).opacity : "1",
     );
+    const rows = opts.kind() === "rows";
     html.classList.add(ROOT_CLASS);
+    html.classList.toggle(ROWS_CLASS, rows);
     nameAll(before, new Set(before.keys()));
 
     const stagger = document.createElement("style");
@@ -106,14 +114,17 @@ export function useResultsTransition(opts: Options) {
       const after = visibleCards(root, opts.visibleTop());
       const entering = [...after.keys()].filter((id) => !before.has(id));
       const keep = new Set([...after.keys()].filter((id) => before.has(id)));
-      if (opts.animateEntering()) {
+      if (rows) {
         for (const id of entering) keep.add(id);
+        // A named pseudo-element outranks the `(*)` rules in global.css,
+        // so these delays win over their `animation` shorthand.
         stagger.textContent = entering
-          .slice(0, ENTER_STAGGER_CAP)
-          .map(
-            (id, i) =>
-              `::view-transition-new(${NAME_PREFIX}${id}){animation-delay:${i * ENTER_STAGGER_MS}ms}`,
-          )
+          .map((id, i) => {
+            const delay =
+              ROWS_ENTER_DELAY_MS +
+              Math.min(i, ENTER_STAGGER_CAP) * ENTER_STAGGER_MS;
+            return `html.${ROOT_CLASS}::view-transition-new(${NAME_PREFIX}${id}):only-child{animation-delay:${delay}ms}`;
+          })
           .join("");
         document.head.appendChild(stagger);
       }
@@ -125,7 +136,7 @@ export function useResultsTransition(opts: Options) {
       .finally(() => {
         clearNames();
         stagger.remove();
-        html.classList.remove(ROOT_CLASS);
+        html.classList.remove(ROOT_CLASS, ROWS_CLASS);
         html.style.removeProperty("--r-results-vt-from");
       });
     // A skipped transition still runs the update, so only wait for it.

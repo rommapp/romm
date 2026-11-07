@@ -709,11 +709,10 @@ function scrollToItem(idx: number, smooth: boolean) {
   });
 }
 
-// Grid cards remount on arrival and play their own staggered fade.
 const resultsTransition = useResultsTransition({
   container: () => scrollerRef.value?.containerEl ?? null,
   visibleTop: stickyOffset,
-  animateEntering: () => layout.value === "list",
+  kind: () => (layout.value === "list" ? "rows" : "cards"),
 });
 
 function commitRefresh(apply: () => boolean): Promise<void> {

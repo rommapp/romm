@@ -77,7 +77,7 @@ describe("useResultsTransition", () => {
     const { run } = useResultsTransition({
       container: () => root,
       visibleTop: () => 100,
-      animateEntering: () => false,
+      kind: () => "cards",
     });
 
     await run(apply);
@@ -93,7 +93,7 @@ describe("useResultsTransition", () => {
     const { run } = useResultsTransition({
       container: () => root,
       visibleTop: () => 100,
-      animateEntering: () => false,
+      kind: () => "cards",
     });
 
     await run(apply);
@@ -112,7 +112,7 @@ describe("useResultsTransition", () => {
     const { run } = useResultsTransition({
       container: () => root,
       visibleTop: () => 100,
-      animateEntering: () => false,
+      kind: () => "cards",
     });
 
     await run(() => {
@@ -135,13 +135,41 @@ describe("useResultsTransition", () => {
     expect(document.documentElement.classList).toContain("r-results-vt");
   });
 
-  it("names arriving cards when the layout asks for an entry fade", async () => {
+  it("names arriving rows and delays them past the leaving ones", async () => {
     stubViewTransitions();
     const root = scroller(card(1, 200));
     const { run } = useResultsTransition({
       container: () => root,
       visibleTop: () => 100,
-      animateEntering: () => true,
+      kind: () => "rows",
+    });
+
+    await run(() => {
+      root.append(card(4, 400));
+      root.append(card(5, 600));
+    });
+
+    expect(
+      root.querySelector<HTMLElement>(`[${RESULT_ID_ATTR}="4"]`)!.style
+        .viewTransitionName,
+    ).toBe("r-result-4");
+    expect(document.documentElement.classList).toContain("r-results-vt--rows");
+    const css = document.head.textContent ?? "";
+    expect(css).toContain(
+      "html.r-results-vt::view-transition-new(r-result-4):only-child{animation-delay:100ms}",
+    );
+    expect(css).toContain(
+      "view-transition-new(r-result-5):only-child{animation-delay:128ms}",
+    );
+  });
+
+  it("leaves arriving cards unnamed so their mount fade plays", async () => {
+    stubViewTransitions();
+    const root = scroller(card(1, 200));
+    const { run } = useResultsTransition({
+      container: () => root,
+      visibleTop: () => 100,
+      kind: () => "cards",
     });
 
     await run(() => root.append(card(4, 400)));
@@ -149,9 +177,9 @@ describe("useResultsTransition", () => {
     expect(
       root.querySelector<HTMLElement>(`[${RESULT_ID_ATTR}="4"]`)!.style
         .viewTransitionName,
-    ).toBe("r-result-4");
-    expect(document.head.textContent).toContain(
-      "::view-transition-new(r-result-4)",
+    ).toBe("");
+    expect(document.documentElement.classList).not.toContain(
+      "r-results-vt--rows",
     );
   });
 
@@ -162,7 +190,7 @@ describe("useResultsTransition", () => {
     const { run } = useResultsTransition({
       container: () => root,
       visibleTop: () => 100,
-      animateEntering: () => true,
+      kind: () => "rows",
     });
 
     await run(() => root.append(card(4, 400)));
@@ -171,6 +199,9 @@ describe("useResultsTransition", () => {
 
     expect(kept.style.viewTransitionName).toBe("");
     expect(document.documentElement.classList).not.toContain("r-results-vt");
+    expect(document.documentElement.classList).not.toContain(
+      "r-results-vt--rows",
+    );
     expect(document.head.textContent).not.toContain("view-transition-new");
   });
 });
