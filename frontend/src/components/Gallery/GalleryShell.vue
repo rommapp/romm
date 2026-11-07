@@ -711,7 +711,7 @@ function scrollToItem(idx: number, smooth: boolean) {
   });
 }
 
-// Content scrolls under the bottom nav on phones; its band isn't "visible".
+// Content scrolls under the phone bottom nav, which only renders below md.
 const bottomChromeHeight = useCssLength(
   "calc(var(--r-bottom-nav-h) + var(--r-safe-b))",
 );
@@ -719,7 +719,8 @@ const bottomChromeHeight = useCssLength(
 const resultsTransition = useResultsTransition({
   container: () => scrollerRef.value?.containerEl ?? null,
   visibleTop: stickyOffset,
-  visibleBottom: () => window.innerHeight - bottomChromeHeight.value,
+  visibleBottom: () =>
+    window.innerHeight - (smAndDown.value ? bottomChromeHeight.value : 0),
   kind: () => (layout.value === "list" ? "rows" : "cards"),
 });
 
