@@ -538,6 +538,8 @@
   "widget-library-stats-desc": "Counts overview of your library: games, platforms, favourites, and more.",
   "widget-library-stats-extended": "Extended (saves, states, screenshots, disk)",
   "widget-library-stats-mode": "Library stats detail",
+  "widget-playing-now": "Playing now",
+  "widget-playing-now-desc": "Show a game someone is playing right now, linking to Active Sessions. Hidden while nobody is playing.",
   "widget-random-pick": "Random pick",
   "widget-random-pick-desc": "Suggest a random ROM from your library, with a reroll button to shuffle again.",
   "widget-reorder-drag": "Drag to reorder"

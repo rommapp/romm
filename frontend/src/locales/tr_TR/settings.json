@@ -538,6 +538,8 @@
   "widget-library-stats-desc": "Kütüphanenizin sayım özeti: oyunlar, platformlar, favoriler ve daha fazlası.",
   "widget-library-stats-extended": "Genişletilmiş (kayıtlar, durum kayıtları, ekran görüntüleri, disk)",
   "widget-library-stats-mode": "Kütüphane istatistikleri detayı",
+  "widget-playing-now": "Şu an oynanıyor",
+  "widget-playing-now-desc": "Birinin şu anda oynadığı bir oyunu gösterir ve Aktif Oturumlar sayfasına bağlanır. Kimse oynamıyorken gizlenir.",
   "widget-random-pick": "Rastgele seçim",
   "widget-random-pick-desc": "Kütüphanenizden rastgele bir ROM öner, yeniden çevirmek için düğmeye basın.",
   "widget-reorder-drag": "Yeniden sıralamak için sürükleyin"
