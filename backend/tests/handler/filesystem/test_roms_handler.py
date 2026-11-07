@@ -339,9 +339,7 @@ class TestFSRomsHandler:
             "Brazilian Portuguese"
         ]
 
-    def test_parse_tags_reads_a_regional_translation_code(
-        self, handler: FSRomsHandler
-    ):
+    def test_parse_tags_reads_a_regional_translation_code(self, handler: FSRomsHandler):
         """The variant after the code names a different language than the code."""
         parsed = handler.parse_tags("Game (USA) (T-Pt-BR).rom")
 

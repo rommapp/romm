@@ -223,6 +223,7 @@ TRANSLATION_TAG_REGEX = re.compile(
 # The regional variant that opens a GoodTools patch ("-BR" in "T+Pt-BR1.1_Grp").
 TRANSLATION_VARIANT_REGEX = re.compile(r"^-([a-z]{2})(?![a-z])", re.I)
 
+
 @dataclass(frozen=True)
 class ParsedTags:
     version: str
