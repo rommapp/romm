@@ -1,0 +1,85 @@
+name: Build Windows WSL Release
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "Release tag to attach the files to"
+        required: true
+        type: string
+      image:
+        description: "RomM image to build from, by digest"
+        required: true
+        type: string
+  # Backfills a published release; builds from the image pushed under its tag.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release tag to attach the files to"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-wsl-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ inputs.version }}
+      IMAGE: ${{ inputs.image }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      DIST: packaging/windows/dist
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check the release
+        run: |
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$ ]]; then
+            echo "::error::Not a release version: $VERSION"
+            exit 1
+          fi
+          gh release view "$VERSION" --json tagName >/dev/null
+
+      - name: Resolve image digest
+        if: env.IMAGE == ''
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          digest=$(docker buildx imagetools inspect "ghcr.io/${OWNER}/romm:${VERSION}" --format '{{.Manifest.Digest}}')
+          echo "IMAGE=ghcr.io/${OWNER}/romm@${digest}" >>"$GITHUB_ENV"
+
+      - name: Build rootfs and script
+        run: packaging/windows/build-rootfs.sh "$IMAGE" "$VERSION"
+
+      - name: Attest provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            ${{ env.DIST }}/RomM-${{ env.VERSION }}.ps1
+            ${{ env.DIST }}/romm-wsl-${{ env.VERSION }}.tar.gz
+
+      - name: Upload to the release
+        run: |
+          gh release upload "$VERSION" --clobber \
+            "$DIST/RomM-${VERSION}.ps1" "$DIST/romm-wsl-${VERSION}.tar.gz"
+
+      # Re-reads the body right before editing, to keep edits made during the build.
+      - name: Add install notes to the release
+        run: |
+          gh release view "$VERSION" --json body --jq .body |
+            packaging/windows/release-notes.sh "$VERSION" \
+              "$DIST/RomM-${VERSION}.ps1" "$DIST/romm-wsl-${VERSION}.tar.gz" >"$RUNNER_TEMP/notes.md"
+          gh release edit "$VERSION" --notes-file "$RUNNER_TEMP/notes.md"
