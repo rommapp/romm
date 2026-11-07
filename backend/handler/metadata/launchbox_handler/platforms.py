@@ -32,7 +32,7 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
     UPS.ANDROID: {"id": 4, "name": "Android"},
     UPS.APF: {"id": 68, "name": "APF Imagination Machine"},
     UPS.APPLE_IIGS: {"id": 112, "name": "Apple IIGS"},
-    UPS.APPLEII: {"id": 110, "name": "Apple II"},
+    UPS.APPLEII: {"id": 111, "name": "Apple II"},
     UPS.ARCADE: {"id": 5, "name": "Arcade"},
     UPS.ATOMISWAVE: {"id": 98, "name": "Sammy Atomiswave"},
     UPS.NAOMI: {"id": 99, "name": "Sega Naomi"},
