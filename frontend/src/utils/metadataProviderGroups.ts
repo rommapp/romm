@@ -12,6 +12,7 @@ export const METADATA_PROVIDER_GROUPS = {
   launchbox: "catalog",
   flashpoint: "catalog",
   steam: "catalog",
+  rawg: "catalog",
   gamelist: "catalog",
   libretro: "catalog",
   demozoo: "catalog",

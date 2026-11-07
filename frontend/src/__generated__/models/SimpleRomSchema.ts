@@ -37,6 +37,7 @@ export type SimpleRomSchema = {
     pouet_id: (number | null);
     csdb_id: (number | null);
     steam_id: (number | null);
+    rawg_id: (number | null);
     gamelist_id: (string | null);
     libretro_id: (string | null);
     platform_id: number;

@@ -516,6 +516,8 @@ PLAIN_COLUMNS: list[sa.Column[Any]] = [
     sa.Column("csdb_metadata", CustomJSON()),
     sa.Column("steam_id", sa.Integer()),
     sa.Column(STEAM_METADATA_COLUMN, CustomJSON()),
+    sa.Column("rawg_id", sa.Integer()),
+    sa.Column("rawg_metadata", CustomJSON()),
     sa.Column("title_id", sa.String(length=TITLE_ID_MAX_LENGTH)),
     sa.Column("save_target", sa.String(length=TITLE_ID_MAX_LENGTH)),
     sa.Column(

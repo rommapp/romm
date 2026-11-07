@@ -27,6 +27,7 @@ class MetadataSourcesDict(TypedDict):
     POUET_API_ENABLED: bool
     CSDB_API_ENABLED: bool
     STEAM_API_ENABLED: bool
+    RAWG_API_ENABLED: bool
     LIBRETRO_API_ENABLED: bool
 
 

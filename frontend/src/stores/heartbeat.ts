@@ -36,6 +36,7 @@ const defaultHeartbeat: Heartbeat = {
     POUET_API_ENABLED: false,
     CSDB_API_ENABLED: false,
     STEAM_API_ENABLED: false,
+    RAWG_API_ENABLED: false,
     LIBRETRO_API_ENABLED: false,
   },
   FILESYSTEM: {
@@ -244,6 +245,14 @@ export default defineStore("heartbeat", {
           logo_path: "/assets/scrappers/steam.png",
           disabled: !this.value.METADATA_SOURCES?.STEAM_API_ENABLED
             ? i18n.global.t("scan.disabled-by-admin")
+            : "",
+        },
+        {
+          name: "RAWG",
+          value: "rawg",
+          logo_path: "/assets/scrappers/rawg.png",
+          disabled: !this.value.METADATA_SOURCES?.RAWG_API_ENABLED
+            ? i18n.global.t("scan.api-key-missing")
             : "",
         },
         {

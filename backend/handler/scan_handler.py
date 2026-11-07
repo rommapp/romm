@@ -41,6 +41,7 @@ from handler.metadata.moby_handler import MobyGamesRom
 from handler.metadata.platform_names import resolve_platform_name
 from handler.metadata.pouet_handler import PouetRom
 from handler.metadata.ra_handler import RAGameRom
+from handler.metadata.rawg_handler import RAWGRom
 from handler.metadata.sgdb_handler import SGDBRom
 from handler.metadata.ss_handler import (
     SSRom,
@@ -410,6 +411,7 @@ async def scan_rom(
         (MetadataSource.POUET, lookups.fetch_pouet_rom(), PouetRom(pouet_id=None)),
         (MetadataSource.CSDB, lookups.fetch_csdb_rom(), CsdbRom(csdb_id=None)),
         (MetadataSource.STEAM, lookups.fetch_steam_rom(), SteamRom(steam_id=None)),
+        (MetadataSource.RAWG, lookups.fetch_rawg_rom(), RAWGRom(rawg_id=None)),
         (
             MetadataSource.GAMELIST,
             lookups.fetch_gamelist_rom(),
