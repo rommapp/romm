@@ -27,8 +27,8 @@ function scrollerItems(wrapper: ReturnType<typeof shallowMount>) {
     .props("items") as GalleryItem[];
 }
 
-describe("GalleryShell re-sort skeleton", () => {
-  it("paints only the known count while a re-sort refetches", async () => {
+describe("GalleryShell re-sort", () => {
+  it("keeps the result on screen while a re-sort refetches", async () => {
     getRoms.mockImplementation(() => new Promise(() => {}));
     const galleryRoms = storeGalleryRoms();
     galleryRoms.currentSearch = true;
@@ -45,15 +45,16 @@ describe("GalleryShell re-sort skeleton", () => {
     galleryRoms.total = 2;
     galleryRoms.metadataLoaded = true;
     galleryRoms.initialFetching = false;
+    getRoms.mockClear();
 
     galleryRoms.setOrderDir("desc");
     await flushPromises();
 
-    const cards = scrollerItems(wrapper).reduce(
-      (n, i) => n + (i.kind === "skeleton-row" ? i.cards : 0),
-      0,
+    expect(galleryRoms.refreshing).toBe(true);
+    expect(getRoms.mock.calls[0]![0].orderDir).toBe("desc");
+    expect(scrollerItems(wrapper).some((i) => i.kind === "skeleton-row")).toBe(
+      false,
     );
-    expect(cards).toBe(2);
   });
 });
 

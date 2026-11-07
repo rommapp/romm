@@ -1,6 +1,7 @@
 import { flushPromises } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { useGallerySelectAll } from "@/composables/useGallerySelectAll";
+import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryRoms from "@/stores/galleryRoms";
 import storeGallerySelection from "@/stores/gallerySelection";
 import type { SimpleRom } from "@/stores/roms";
@@ -72,16 +73,21 @@ describe("useGallerySelectAll", () => {
     expect(getRoms).toHaveBeenCalledTimes(1);
   });
 
-  it("selects nothing while a search refresh is in flight", async () => {
-    const galleryRoms = setupGallery({ ids: [1, 2], loaded: [rom(1), rom(2)] });
+  it("selects the displayed result while a refresh is in flight", async () => {
+    const galleryRoms = setupGallery({ ids: [1, 2, 3], loaded: [rom(1)] });
+    const filter = storeGalleryFilter();
+    filter.searchTerm = "mario";
+    galleryRoms._resultRequest(0);
+    filter.searchTerm = "zelda";
     galleryRoms.refreshing = true;
     const selection = storeGallerySelection();
+    getRoms.mockResolvedValue(resultPage([rom(1), rom(2), rom(3)]));
 
     const { selectAll } = useGallerySelectAll();
     await selectAll();
 
-    expect(selection.ids).toEqual([]);
-    expect(getRoms).not.toHaveBeenCalled();
+    expect(getRoms.mock.calls[0]![0].searchTerm).toBe("mario");
+    expect(selection.ids.sort((a, b) => a - b)).toEqual([1, 2, 3]);
   });
 
   it("merges the loaded roms before the whole-result fetch resolves", async () => {

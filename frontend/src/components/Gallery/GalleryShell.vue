@@ -304,15 +304,8 @@ watch(
 
 const { supportsWebp } = useWebpSupport();
 
-const {
-  total,
-  reorderTotal,
-  charIndex,
-  initialFetching,
-  refreshing,
-  orderBy,
-  orderDir,
-} = storeToRefs(galleryRoms);
+const { total, charIndex, initialFetching, refreshing, orderBy, orderDir } =
+  storeToRefs(galleryRoms);
 
 const { groupBy, layout, toolbarPosition } = useGalleryMode();
 
@@ -377,14 +370,9 @@ const listMinWidth = computed(
 // Compact list rows (phones / tablets) open one detail panel at a time; the
 // virtualiser reads the same position to give that row its taller slot.
 const listExpansion = useListExpansion();
+// A new result puts another game at the open panel's position.
 watch(
-  [
-    layout,
-    smAndDown,
-    () => galleryRoms.total,
-    () => galleryRoms.orderBy,
-    () => galleryRoms.orderDir,
-  ],
+  [layout, smAndDown, () => galleryRoms.resultEpoch],
   listExpansion.collapse,
 );
 
@@ -443,7 +431,6 @@ const { virtualItems, letterToIndex, availableLetters, getItemHeight } =
     notFound: notFoundRef,
     notFoundMessage: notFoundMessageRef,
     skeletonRowCount: props.skeletonRowCount,
-    skeletonTotal: reorderTotal,
     cardHeight,
     rowWidth: usableWidth,
     gap: CARD_GAP_PX,
@@ -731,8 +718,6 @@ const resultsTransition = useResultsTransition({
 function commitRefresh(apply: () => boolean): Promise<void> {
   return resultsTransition.run(() => {
     if (!apply()) return false;
-    // The open panel's position now holds another game, even at the same count.
-    listExpansion.collapse();
     endLetterJump();
     // A new result reads from its first row, not the old scroll depth.
     scrollerRef.value?.scrollTo(0);
@@ -817,8 +802,7 @@ const sortOptions = computed(() => getSortOptions(props.showPlatformColumn));
 // initial URL hydration runs before this watch is set up, so it does
 // not echo here.
 watch([orderBy, orderDir], () => {
-  galleryRoms.invalidateWindows({ reorder: true });
-  void galleryRoms.fetchInitialMetadata();
+  void galleryRoms.refreshResults(commitRefresh);
 });
 
 // ── Scroll restoration ─────────────────────────────────────────────
