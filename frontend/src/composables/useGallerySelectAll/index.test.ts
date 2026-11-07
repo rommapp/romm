@@ -72,6 +72,18 @@ describe("useGallerySelectAll", () => {
     expect(getRoms).toHaveBeenCalledTimes(1);
   });
 
+  it("selects nothing while a search refresh is in flight", async () => {
+    const galleryRoms = setupGallery({ ids: [1, 2], loaded: [rom(1), rom(2)] });
+    galleryRoms.refreshing = true;
+    const selection = storeGallerySelection();
+
+    const { selectAll } = useGallerySelectAll();
+    await selectAll();
+
+    expect(selection.ids).toEqual([]);
+    expect(getRoms).not.toHaveBeenCalled();
+  });
+
   it("merges the loaded roms before the whole-result fetch resolves", async () => {
     setupGallery({ ids: [1, 2, 3], loaded: [rom(1)] });
     const selection = storeGallerySelection();

@@ -1,8 +1,5 @@
-// useResultsTransition: animates a gallery result swap (a search or filter
-// refetch) with a view transition. Cards in both results glide to their new
-// slot, cards that left fade out, and cards that arrive fade in staggered.
-// Only the named cards animate: the root opts out, so the toolbar and the
-// search box stay live and typeable throughout.
+// Animates a gallery result swap with a view transition. Only the named
+// cards animate; the root opts out so the search box stays live.
 import { nextTick } from "vue";
 import { useReducedMotion } from "@/composables/useReducedMotion";
 import { pendingMorphName } from "@/composables/useViewTransition";
@@ -18,9 +15,8 @@ const ENTER_STAGGER_CAP = 12;
 // Leaving rows clear their slot before arriving rows fade into it.
 const ROWS_ENTER_DELAY_MS = 100;
 
-/** How a layout's items behave across a swap. `cards` remount on arrival and
- *  play their own fade; `rows` are reused in place, so arrivals fade in
- *  through the transition once the rows leaving their slot are gone. */
+/** `cards` remount on arrival and play their own fade; `rows` are reused in
+ *  place, so arrivals fade in through the transition. */
 export type ResultsKind = "cards" | "rows";
 
 interface Options {
@@ -58,11 +54,15 @@ function visibleCards(
   return out;
 }
 
+// Settles the running swap so its late cleanup can't clear a newer one's names.
+let settleRunning: (() => void) | null = null;
+
 export function useResultsTransition(opts: Options) {
   const { enabled: reducedMotion } = useReducedMotion();
 
   /** Runs `apply` (the swap) inside a view transition when one can run. */
   async function run(apply: () => void): Promise<void> {
+    settleRunning?.();
     const root = opts.container();
     if (
       !root ||
@@ -107,10 +107,22 @@ export function useResultsTransition(opts: Options) {
     nameAll(before, new Set(before.keys()));
 
     const stagger = document.createElement("style");
+    let settled = false;
+    const settle = () => {
+      if (settled) return;
+      settled = true;
+      transition.skipTransition();
+      clearNames();
+      stagger.remove();
+      html.classList.remove(ROOT_CLASS, ROWS_CLASS);
+      html.style.removeProperty("--r-results-vt-from");
+      if (settleRunning === settle) settleRunning = null;
+    };
     const transition = document.startViewTransition(async () => {
       clearNames();
       apply();
       await nextTick();
+      if (settled) return;
       const after = visibleCards(root, opts.visibleTop());
       const entering = [...after.keys()].filter((id) => !before.has(id));
       const keep = new Set([...after.keys()].filter((id) => before.has(id)));
@@ -131,14 +143,8 @@ export function useResultsTransition(opts: Options) {
       nameAll(after, keep);
     });
 
-    void transition.finished
-      .catch(() => {})
-      .finally(() => {
-        clearNames();
-        stagger.remove();
-        html.classList.remove(ROOT_CLASS, ROWS_CLASS);
-        html.style.removeProperty("--r-results-vt-from");
-      });
+    settleRunning = settle;
+    void transition.finished.catch(() => {}).finally(settle);
     // A skipped transition still runs the update, so only wait for it.
     await transition.updateCallbackDone.catch(() => {});
   }

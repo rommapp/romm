@@ -43,14 +43,13 @@ function stubViewTransitions() {
 function card(id: number, top: number): HTMLElement {
   const el = document.createElement("div");
   el.setAttribute(RESULT_ID_ATTR, String(id));
-  el.getBoundingClientRect = () =>
-    ({ top, bottom: top + 100, width: 100 }) as DOMRect;
+  el.getBoundingClientRect = () => new DOMRect(0, top, 100, 100);
   return el;
 }
 
 function scroller(...cards: HTMLElement[]): HTMLElement {
   const root = document.createElement("div");
-  root.getBoundingClientRect = () => ({ bottom: 1000 }) as DOMRect;
+  root.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 1000);
   root.append(...cards);
   document.body.append(root);
   return root;
@@ -181,6 +180,26 @@ describe("useResultsTransition", () => {
     expect(document.documentElement.classList).not.toContain(
       "r-results-vt--rows",
     );
+  });
+
+  it("keeps a newer swap's names when an older one finishes late", async () => {
+    stubViewTransitions();
+    const kept = card(1, 200);
+    const root = scroller(kept);
+    const { run } = useResultsTransition({
+      container: () => root,
+      visibleTop: () => 100,
+      kind: () => "rows",
+    });
+
+    await run(() => {});
+    await run(() => {});
+    transitions[0]!.finish();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(kept.style.viewTransitionName).toBe("r-result-1");
+    expect(document.documentElement.classList).toContain("r-results-vt");
+    expect(document.documentElement.classList).toContain("r-results-vt--rows");
   });
 
   it("clears every name and the root class once finished", async () => {

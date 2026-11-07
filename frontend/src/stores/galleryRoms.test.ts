@@ -10,6 +10,7 @@ import storeGalleryRoms, {
 } from "@/stores/galleryRoms";
 import storePlatforms from "@/stores/platforms";
 import { platformFixture } from "@/utils/platform.fixtures";
+import { romFixture } from "@/utils/rom.fixtures";
 
 const { getRoms } = vi.hoisted(() => ({ getRoms: vi.fn() }));
 
@@ -437,9 +438,9 @@ describe("galleryRoms refresh", () => {
     store.total = 2;
     store.metadataLoaded = true;
     store.byPosition = new Map([
-      [0, { id: 1 }],
-      [1, { id: 2 }],
-    ] as never);
+      [0, romFixture({ id: 1 })],
+      [1, romFixture({ id: 2 })],
+    ]);
     store.loadedWindows = new Set([0]);
   }
 

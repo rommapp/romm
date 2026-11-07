@@ -507,9 +507,8 @@ html.r-reduced-motion {
   }
 }
 
-/* Result swap (useResultsTransition): kept cards glide to their new slot,
-   dropped ones shrink away, arrivals rise in. The root opts out so only the
-   named cards animate and the page stays interactive underneath. */
+/* Result swap (useResultsTransition): only the named cards animate, so
+   the page stays interactive underneath. */
 html.r-results-vt {
   view-transition-name: none;
 }
@@ -532,9 +531,8 @@ html.r-results-vt::view-transition-old(*):only-child {
 html.r-results-vt::view-transition-new(*):only-child {
   animation: r-results-enter 380ms cubic-bezier(0.34, 1.28, 0.64, 1) both;
 }
-/* Rows share full-width slots and are mostly text, so a leaving row fades
-   out quickly and in place, and an arrival waits for it (the delay is set
-   per row by the composable). */
+/* Rows share full-width text slots: a leaving row clears before an
+   arrival fades in (per-row delays come from the composable). */
 html.r-results-vt--rows::view-transition-old(*):only-child {
   animation: r-results-out 120ms var(--r-motion-ease-out) both;
 }
