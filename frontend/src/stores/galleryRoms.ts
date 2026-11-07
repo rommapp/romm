@@ -396,9 +396,17 @@ export default defineStore("v2GalleryRoms", {
     /** Refetch the first page and its metadata in one request, keeping the
      * previous result on screen until it swaps in whole.
      *
+     * Args:
+     *   commit: Runs the swap, e.g. inside a view transition. The swap is a
+     *     no-op, returning false, once a newer refresh supersedes it.
+     *
      * Returns:
      *   Whether the new result was applied (false when superseded). */
-    async refreshResults(): Promise<boolean> {
+    async refreshResults(
+      commit: (apply: () => boolean) => void | Promise<void> = (apply) => {
+        apply();
+      },
+    ): Promise<boolean> {
       abortAllInFlight();
       this.reorderTotal = null;
       this.pendingWindows = new Set();
@@ -421,14 +429,21 @@ export default defineStore("v2GalleryRoms", {
         });
         if (inFlightControllers.get(ctrlKey) !== controller) return false;
         const data = response.data;
-        const next = new Map<number, SimpleRom>();
-        data.items.forEach((rom, i) => next.set(i, rom));
-        this.charIndex = {};
-        this.romIdIndex = [];
-        this._applyMetadata(data, galleryFilter, platformsStore);
-        this.byPosition = next;
-        this.loadedWindows = new Set([0]);
-        return true;
+        let applied = false;
+        await commit(() => {
+          if (inFlightControllers.get(ctrlKey) !== controller) return false;
+          const next = new Map<number, SimpleRom>();
+          data.items.forEach((rom, i) => next.set(i, rom));
+          this.charIndex = {};
+          this.romIdIndex = [];
+          this._applyMetadata(data, galleryFilter, platformsStore);
+          this.byPosition = next;
+          this.loadedWindows = new Set([0]);
+          this.refreshing = false;
+          applied = true;
+          return true;
+        });
+        return applied;
       } catch (err) {
         if (axios.isCancel(err)) return false;
         if (inFlightControllers.get(ctrlKey) !== controller) return false;

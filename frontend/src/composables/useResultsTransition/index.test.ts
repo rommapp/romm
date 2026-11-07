@@ -1,0 +1,176 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ref } from "vue";
+import { RESULT_ID_ATTR, useResultsTransition } from "./index";
+
+const reduced = ref(false);
+vi.mock("@/composables/useReducedMotion", () => ({
+  useReducedMotion: () => ({ enabled: reduced }),
+}));
+vi.mock("@/composables/useViewTransition", async () => {
+  const { ref: vueRef } = await import("vue");
+  return { pendingMorphName: vueRef(null) };
+});
+
+interface FakeTransition {
+  update: () => Promise<void>;
+  finish: () => void;
+}
+
+let transitions: FakeTransition[] = [];
+
+function stubViewTransitions() {
+  const start = vi.fn((update: () => Promise<void>) => {
+    let finish!: () => void;
+    const finished = new Promise<void>((r) => {
+      finish = r;
+    });
+    const done = update();
+    transitions.push({ update, finish });
+    return {
+      finished,
+      updateCallbackDone: done,
+      ready: Promise.resolve(),
+      skipTransition: () => {},
+    };
+  });
+  Object.defineProperty(document, "startViewTransition", {
+    value: start,
+    configurable: true,
+  });
+  return start;
+}
+
+function card(id: number, top: number): HTMLElement {
+  const el = document.createElement("div");
+  el.setAttribute(RESULT_ID_ATTR, String(id));
+  el.getBoundingClientRect = () =>
+    ({ top, bottom: top + 100, width: 100 }) as DOMRect;
+  return el;
+}
+
+function scroller(...cards: HTMLElement[]): HTMLElement {
+  const root = document.createElement("div");
+  root.getBoundingClientRect = () => ({ bottom: 1000 }) as DOMRect;
+  root.append(...cards);
+  document.body.append(root);
+  return root;
+}
+
+describe("useResultsTransition", () => {
+  beforeEach(() => {
+    transitions = [];
+    reduced.value = false;
+    vi.stubGlobal("innerHeight", 1000);
+  });
+
+  afterEach(async () => {
+    for (const t of transitions) t.finish();
+    await new Promise((r) => setTimeout(r, 0));
+    document.body.innerHTML = "";
+    delete (document as { startViewTransition?: unknown }).startViewTransition;
+    document.documentElement.className = "";
+  });
+
+  it("swaps directly without view transition support", async () => {
+    const root = scroller(card(1, 200));
+    const apply = vi.fn();
+    const { run } = useResultsTransition({
+      container: () => root,
+      visibleTop: () => 100,
+      animateEntering: () => false,
+    });
+
+    await run(apply);
+
+    expect(apply).toHaveBeenCalledOnce();
+  });
+
+  it("swaps directly under reduced motion", async () => {
+    const start = stubViewTransitions();
+    reduced.value = true;
+    const root = scroller(card(1, 200));
+    const apply = vi.fn();
+    const { run } = useResultsTransition({
+      container: () => root,
+      visibleTop: () => 100,
+      animateEntering: () => false,
+    });
+
+    await run(apply);
+
+    expect(apply).toHaveBeenCalledOnce();
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it("names visible cards in both states and only kept ones after", async () => {
+    stubViewTransitions();
+    const kept = card(1, 200);
+    const dropped = card(2, 400);
+    const hidden = card(3, 50);
+    const root = scroller(kept, dropped, hidden);
+    const names: string[] = [];
+    const { run } = useResultsTransition({
+      container: () => root,
+      visibleTop: () => 100,
+      animateEntering: () => false,
+    });
+
+    await run(() => {
+      names.push(
+        kept.style.viewTransitionName,
+        dropped.style.viewTransitionName,
+      );
+      dropped.remove();
+      root.append(card(4, 600));
+    });
+
+    // Cleared before the swap so the old elements don't keep stale names.
+    expect(names).toEqual(["", ""]);
+    expect(kept.style.viewTransitionName).toBe("r-result-1");
+    expect(hidden.style.viewTransitionName).toBe("");
+    expect(
+      root.querySelector<HTMLElement>(`[${RESULT_ID_ATTR}="4"]`)!.style
+        .viewTransitionName,
+    ).toBe("");
+    expect(document.documentElement.classList).toContain("r-results-vt");
+  });
+
+  it("names arriving cards when the layout asks for an entry fade", async () => {
+    stubViewTransitions();
+    const root = scroller(card(1, 200));
+    const { run } = useResultsTransition({
+      container: () => root,
+      visibleTop: () => 100,
+      animateEntering: () => true,
+    });
+
+    await run(() => root.append(card(4, 400)));
+
+    expect(
+      root.querySelector<HTMLElement>(`[${RESULT_ID_ATTR}="4"]`)!.style
+        .viewTransitionName,
+    ).toBe("r-result-4");
+    expect(document.head.textContent).toContain(
+      "::view-transition-new(r-result-4)",
+    );
+  });
+
+  it("clears every name and the root class once finished", async () => {
+    stubViewTransitions();
+    const kept = card(1, 200);
+    const root = scroller(kept);
+    const { run } = useResultsTransition({
+      container: () => root,
+      visibleTop: () => 100,
+      animateEntering: () => true,
+    });
+
+    await run(() => root.append(card(4, 400)));
+    transitions[0]!.finish();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(kept.style.viewTransitionName).toBe("");
+    expect(document.documentElement.classList).not.toContain("r-results-vt");
+    expect(document.head.textContent).not.toContain("view-transition-new");
+  });
+});

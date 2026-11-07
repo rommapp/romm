@@ -517,6 +517,24 @@ describe("galleryRoms refresh", () => {
     expect(store.getRomAt(0)?.id).toBe(2);
   });
 
+  it("runs the swap through the commit and skips it once superseded", async () => {
+    getRoms.mockResolvedValueOnce(windowResponse(1, [{ id: 9 }]));
+    const store = storeGalleryRoms();
+    seedOldResult(store);
+    let deferredApply: (() => boolean) | undefined;
+
+    const older = store.refreshResults((apply) => {
+      deferredApply = apply;
+    });
+    await flushPromises();
+    getRoms.mockReturnValue(deferred().promise);
+    void store.refreshResults();
+
+    expect(deferredApply!()).toBe(false);
+    expect(await older).toBe(false);
+    expect(store.getRomAt(0)?.id).toBe(1);
+  });
+
   it("falls back to skeletons when the refresh fails", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     getRoms

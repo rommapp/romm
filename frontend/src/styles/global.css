@@ -507,6 +507,71 @@ html.r-reduced-motion {
   }
 }
 
+/* Result swap (useResultsTransition): kept cards glide to their new slot,
+   dropped ones shrink away, arrivals rise in. The root opts out so only the
+   named cards animate and the page stays interactive underneath. */
+html.r-results-vt {
+  view-transition-name: none;
+}
+html.r-results-vt::view-transition {
+  pointer-events: none;
+}
+html.r-results-vt::view-transition-group(*) {
+  animation-duration: 420ms;
+  animation-timing-function: var(--r-motion-ease-out);
+}
+html.r-results-vt::view-transition-old(*) {
+  animation: r-results-out var(--r-motion-med) var(--r-motion-ease-out) both;
+}
+html.r-results-vt::view-transition-new(*) {
+  animation: r-results-in var(--r-motion-slow) var(--r-motion-ease-out) both;
+}
+html.r-results-vt::view-transition-old(*):only-child {
+  animation: r-results-exit var(--r-motion-med) var(--r-motion-ease-out) both;
+}
+html.r-results-vt::view-transition-new(*):only-child {
+  animation: r-results-enter 380ms cubic-bezier(0.34, 1.28, 0.64, 1) both;
+}
+@keyframes r-results-out {
+  from {
+    opacity: var(--r-results-vt-from, 1);
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes r-results-in {
+  from {
+    opacity: var(--r-results-vt-from, 1);
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes r-results-exit {
+  from {
+    opacity: var(--r-results-vt-from, 1);
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+}
+@keyframes r-results-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.92);
+  }
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 /* Asset reveal: the list/strip variant of the card pop. Saves,
    states, file rows, screenshot thumbs and soundtrack tracks are
    dense info content, so the pop+overshoot of `.r-card-fade`

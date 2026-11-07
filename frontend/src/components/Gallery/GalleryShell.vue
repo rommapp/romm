@@ -76,6 +76,10 @@ import { useGridNav } from "@/composables/useGridNav";
 import { useListExpansion } from "@/composables/useListExpansion";
 import { usePinnedToolbar } from "@/composables/usePinnedToolbar";
 import { useResponsiveColumns } from "@/composables/useResponsiveColumns";
+import {
+  RESULT_ID_ATTR,
+  useResultsTransition,
+} from "@/composables/useResultsTransition";
 import { useUISettings } from "@/composables/useUISettings";
 import { useVirtualScrollDebug } from "@/composables/useVirtualScrollDebug";
 import { useWebpSupport } from "@/composables/useWebpSupport";
@@ -292,11 +296,8 @@ watch(
     selectedLengthMinHours,
     selectedLengthMaxHours,
   ],
-  async () => {
-    if (!(await galleryRoms.refreshResults())) return;
-    // A new result reads from its first row, not the old scroll depth.
-    const root = scrollerRef.value?.containerEl;
-    if (root) root.scrollTop = 0;
+  () => {
+    void galleryRoms.refreshResults(commitRefresh);
   },
   { deep: true },
 );
@@ -692,13 +693,40 @@ function anchorLetter(letter: string, smooth: boolean) {
   scrollToItem(idx, smooth);
 }
 
-function scrollToItem(idx: number, smooth: boolean) {
-  // The section runs under the top bar, so rows land below it in either dock.
-  const stickyOffset =
+// The section runs under the top bar, so rows land below it in either dock.
+function stickyOffset(): number {
+  return (
     navHeight.value +
     toolbarHeight.value +
-    (layout.value === "list" ? LIST_HEADER_HEIGHT_PX : 0);
-  scrollerRef.value?.scrollToIndex(idx, { smooth, stickyOffset });
+    (layout.value === "list" ? LIST_HEADER_HEIGHT_PX : 0)
+  );
+}
+
+function scrollToItem(idx: number, smooth: boolean) {
+  scrollerRef.value?.scrollToIndex(idx, {
+    smooth,
+    stickyOffset: stickyOffset(),
+  });
+}
+
+// Grid cards remount on arrival and play their own staggered fade.
+const resultsTransition = useResultsTransition({
+  container: () => scrollerRef.value?.containerEl ?? null,
+  visibleTop: stickyOffset,
+  animateEntering: () => layout.value === "list",
+});
+
+function commitRefresh(apply: () => boolean): Promise<void> {
+  return resultsTransition.run(() => {
+    if (!apply()) return;
+    // A new result reads from its first row, not the old scroll depth.
+    const root = scrollerRef.value?.containerEl;
+    if (!root) return;
+    root.scrollTop = 0;
+    // The scroller tracks its offset from scroll events, which would only
+    // land after the transition captured the new state.
+    root.dispatchEvent(new Event("scroll"));
+  });
 }
 
 function scrollToLetter(letter: string) {
@@ -892,6 +920,8 @@ const asEmpty = (i: GalleryItem) => i as EmptyItem;
 const asListRow = (i: GalleryItem) => i as ListRowItem;
 const asSkeletonRow = (i: GalleryItem) => i as SkeletonRowItem;
 const itemKind = (i: GalleryItem) => i.kind;
+const listRowRomId = (i: GalleryItem) =>
+  i.kind === "list-row" ? getRomAt(i.position)?.id : undefined;
 
 // The desktop list header is the grid's first row; the compact one is a
 // toolbar above the grid.
@@ -1106,6 +1136,7 @@ defineExpose({
         <div
           class="r-shell__item"
           v-bind="itemAttrs(item as GalleryItem, index)"
+          :[RESULT_ID_ATTR]="listRowRomId(item as GalleryItem)"
         >
           <RLetterHeading
             v-if="itemKind(item as GalleryItem) === 'letter-header'"
@@ -1126,6 +1157,7 @@ defineExpose({
             >
               <GameCard
                 v-if="getRomAt(p)"
+                :[RESULT_ID_ATTR]="getRomAt(p)!.id"
                 class="r-card-fade"
                 :style="{ '--card-fade-i': slotIdx }"
                 :rom="getRomAt(p)!"
