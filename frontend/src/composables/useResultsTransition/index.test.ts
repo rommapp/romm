@@ -24,13 +24,21 @@ function stubViewTransitions() {
     const finished = new Promise<void>((r) => {
       finish = r;
     });
+    let rejectReady!: (reason: unknown) => void;
+    const ready = new Promise<void>((_, reject) => {
+      rejectReady = reject;
+    });
     const done = update();
     transitions.push({ update, finish });
     return {
       finished,
       updateCallbackDone: done,
-      ready: Promise.resolve(),
-      skipTransition: () => {},
+      ready,
+      // As in the browser: skipping before the transition is ready rejects it.
+      skipTransition: () => {
+        rejectReady(new DOMException("Skipped", "AbortError"));
+        finish();
+      },
     };
   });
   Object.defineProperty(document, "startViewTransition", {

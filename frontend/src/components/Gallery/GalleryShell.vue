@@ -718,6 +718,8 @@ const resultsTransition = useResultsTransition({
 function commitRefresh(apply: () => boolean): Promise<void> {
   return resultsTransition.run(() => {
     if (!apply()) return;
+    // The open panel's position now holds another game, even at the same count.
+    listExpansion.collapse();
     // A new result reads from its first row, not the old scroll depth.
     const root = scrollerRef.value?.containerEl;
     if (!root) return;

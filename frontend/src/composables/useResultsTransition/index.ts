@@ -144,6 +144,8 @@ export function useResultsTransition(opts: Options) {
     });
 
     settleRunning = settle;
+    // A preempted transition rejects all three promises.
+    void transition.ready.catch(() => {});
     void transition.finished.catch(() => {}).finally(settle);
     // A skipped transition still runs the update, so only wait for it.
     await transition.updateCallbackDone.catch(() => {});
