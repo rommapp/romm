@@ -13,7 +13,10 @@ vi.mock("@/composables/useReducedMotion", () => ({
 }));
 vi.mock("@/composables/useViewTransition", async () => {
   const { ref: vueRef } = await import("vue");
-  return { pendingMorphName: vueRef(null) };
+  return {
+    pendingMorphName: vueRef(null),
+    isSupported: () => typeof document.startViewTransition === "function",
+  };
 });
 
 interface FakeTransition {
@@ -53,6 +56,15 @@ function stubViewTransitions() {
   return start;
 }
 
+function setup(root: HTMLElement, { rows = false, visibleBottom = 1000 } = {}) {
+  return useResultsTransition({
+    container: () => root,
+    visibleTop: () => 100,
+    visibleBottom: () => visibleBottom,
+    rows: () => rows,
+  });
+}
+
 function card(id: number, top: number): HTMLElement {
   const el = document.createElement("div");
   el.setAttribute(RESULT_ID_ATTR, String(id));
@@ -86,12 +98,7 @@ describe("useResultsTransition", () => {
   it("swaps directly without view transition support", async () => {
     const root = scroller(card(1, 200));
     const apply = vi.fn();
-    const { run } = useResultsTransition({
-      container: () => root,
-      visibleTop: () => 100,
-      visibleBottom: () => 1000,
-      kind: () => "cards",
-    });
+    const { run } = setup(root);
 
     await run(apply);
 
@@ -103,12 +110,7 @@ describe("useResultsTransition", () => {
     reduced.value = true;
     const root = scroller(card(1, 200));
     const apply = vi.fn();
-    const { run } = useResultsTransition({
-      container: () => root,
-      visibleTop: () => 100,
-      visibleBottom: () => 1000,
-      kind: () => "cards",
-    });
+    const { run } = setup(root);
 
     await run(apply);
 
@@ -123,12 +125,7 @@ describe("useResultsTransition", () => {
     const hidden = card(3, 50);
     const root = scroller(kept, dropped, hidden);
     const names: string[] = [];
-    const { run } = useResultsTransition({
-      container: () => root,
-      visibleTop: () => 100,
-      visibleBottom: () => 1000,
-      kind: () => "cards",
-    });
+    const { run } = setup(root);
 
     await run(() => {
       names.push(
@@ -153,12 +150,7 @@ describe("useResultsTransition", () => {
   it("names arriving rows and delays them past the leaving ones", async () => {
     stubViewTransitions();
     const root = scroller(card(1, 200));
-    const { run } = useResultsTransition({
-      container: () => root,
-      visibleTop: () => 100,
-      visibleBottom: () => 1000,
-      kind: () => "rows",
-    });
+    const { run } = setup(root, { rows: true });
 
     await run(() => {
       root.append(card(4, 400));
@@ -182,12 +174,7 @@ describe("useResultsTransition", () => {
   it("leaves arriving cards unnamed so their mount fade plays", async () => {
     stubViewTransitions();
     const root = scroller(card(1, 200));
-    const { run } = useResultsTransition({
-      container: () => root,
-      visibleTop: () => 100,
-      visibleBottom: () => 1000,
-      kind: () => "cards",
-    });
+    const { run } = setup(root);
 
     await run(() => root.append(card(4, 400)));
 
@@ -204,12 +191,7 @@ describe("useResultsTransition", () => {
     stubViewTransitions();
     const kept = card(1, 200);
     const root = scroller(kept);
-    const { run } = useResultsTransition({
-      container: () => root,
-      visibleTop: () => 100,
-      visibleBottom: () => 1000,
-      kind: () => "rows",
-    });
+    const { run } = setup(root, { rows: true });
 
     await run(() => {});
     await run(() => {});
@@ -225,12 +207,7 @@ describe("useResultsTransition", () => {
     stubViewTransitions();
     const kept = card(1, 200);
     const root = scroller(kept);
-    const { run } = useResultsTransition({
-      container: () => root,
-      visibleTop: () => 100,
-      visibleBottom: () => 1000,
-      kind: () => "cards",
-    });
+    const { run } = setup(root);
 
     await run(() => false);
 
@@ -243,12 +220,7 @@ describe("useResultsTransition", () => {
     const above = card(1, 200);
     const underNav = card(2, 850);
     const root = scroller(above, underNav);
-    const { run } = useResultsTransition({
-      container: () => root,
-      visibleTop: () => 100,
-      visibleBottom: () => 900,
-      kind: () => "cards",
-    });
+    const { run } = setup(root, { visibleBottom: 900 });
 
     await run(() => {});
 
@@ -264,12 +236,7 @@ describe("useResultsTransition", () => {
       const start = stubViewTransitions();
       const root = scroller(card(1, 200));
       const apply = vi.fn();
-      const { run } = useResultsTransition({
-        container: () => root,
-        visibleTop: () => 100,
-        visibleBottom: () => 1000,
-        kind: () => "cards",
-      });
+      const { run } = setup(root);
       pushEscapable(overlay);
 
       await run(apply);
@@ -283,14 +250,7 @@ describe("useResultsTransition", () => {
       const kept = card(1, 200);
       const root = scroller(kept);
       const scope = effectScope();
-      const { run } = scope.run(() =>
-        useResultsTransition({
-          container: () => root,
-          visibleTop: () => 100,
-          visibleBottom: () => 1000,
-          kind: () => "cards",
-        }),
-      )!;
+      const { run } = scope.run(() => setup(root))!;
       await run(() => {});
       expect(kept.style.viewTransitionName).toBe("r-result-1");
 
@@ -306,12 +266,7 @@ describe("useResultsTransition", () => {
     stubViewTransitions();
     const kept = card(1, 200);
     const root = scroller(kept);
-    const { run } = useResultsTransition({
-      container: () => root,
-      visibleTop: () => 100,
-      visibleBottom: () => 1000,
-      kind: () => "rows",
-    });
+    const { run } = setup(root, { rows: true });
 
     await run(() => root.append(card(4, 400)));
     transitions[0]!.finish();

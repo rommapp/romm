@@ -725,7 +725,7 @@ const resultsTransition = useResultsTransition({
   visibleTop: stickyOffset,
   visibleBottom: () =>
     window.innerHeight - (smAndDown.value ? bottomChromeHeight.value : 0),
-  kind: () => (layout.value === "list" ? "rows" : "cards"),
+  rows: () => layout.value === "list",
 });
 
 function commitRefresh(apply: () => boolean): Promise<void> {
@@ -735,12 +735,7 @@ function commitRefresh(apply: () => boolean): Promise<void> {
     listExpansion.collapse();
     endLetterJump();
     // A new result reads from its first row, not the old scroll depth.
-    const root = scrollerRef.value?.containerEl;
-    if (!root) return true;
-    root.scrollTop = 0;
-    // The scroller tracks its offset from scroll events, which would only
-    // land after the transition captured the new state.
-    root.dispatchEvent(new Event("scroll"));
+    scrollerRef.value?.scrollTo(0);
     return true;
   });
 }
@@ -912,8 +907,10 @@ onBeforeUnmount(() => {
 });
 
 // ── Slot helpers ────────────────────────────────────────────────────
+// Read the map directly: the store action's wrapper is a cost per call, and
+// each card calls this several times per render.
 function getRomAt(p: number) {
-  return galleryRoms.getRomAt(p);
+  return galleryRoms.byPosition.get(p) ?? null;
 }
 
 function rowPositions(row: {

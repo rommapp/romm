@@ -2,11 +2,12 @@
 // cards animate; the root opts out so the search box stays live.
 import { getCurrentScope, nextTick, onScopeDispose } from "vue";
 import { useReducedMotion } from "@/composables/useReducedMotion";
-import { pendingMorphName } from "@/composables/useViewTransition";
+import { isSupported, pendingMorphName } from "@/composables/useViewTransition";
 import {
   hasOpenEscapable,
   onEscapableOpen,
 } from "@/lib/overlays/RDialog/escapeStack";
+import { absorbPreemptionSkip } from "@/plugins/transition";
 
 /** Marks an element as one result card, valued by its ROM id. */
 export const RESULT_ID_ATTR = "data-result-id";
@@ -19,10 +20,6 @@ const ENTER_STAGGER_CAP = 12;
 // Leaving rows clear their slot before arriving rows fade into it.
 const ROWS_ENTER_DELAY_MS = 100;
 
-/** `cards` remount on arrival and play their own fade; `rows` are reused in
- *  place, so arrivals fade in through the transition. */
-export type ResultsKind = "cards" | "rows";
-
 interface Options {
   /** The scroller holding the cards. */
   container: () => HTMLElement | null;
@@ -30,14 +27,9 @@ interface Options {
   visibleTop: () => number;
   /** Viewport y above which a card is visible (over any bottom chrome). */
   visibleBottom: () => number;
-  kind: () => ResultsKind;
-}
-
-function supported(): boolean {
-  return (
-    typeof document !== "undefined" &&
-    typeof document.startViewTransition === "function"
-  );
+  /** True for rows reused in place, which fade arrivals in through the
+   *  transition; cards remount on arrival and play their own fade. */
+  rows: () => boolean;
 }
 
 /** Cards wholly inside the visible band, by ROM id. Partly hidden cards are
@@ -74,7 +66,7 @@ export function useResultsTransition(opts: Options) {
     const root = opts.container();
     if (
       !root ||
-      !supported() ||
+      !isSupported() ||
       reducedMotion.value ||
       pendingMorphName.value !== null ||
       hasOpenEscapable() ||
@@ -91,9 +83,8 @@ export function useResultsTransition(opts: Options) {
     }
 
     const named: HTMLElement[] = [];
-    const nameAll = (cards: Map<string, HTMLElement>, keep: Set<string>) => {
+    const nameAll = (cards: Iterable<[string, HTMLElement]>) => {
       for (const [id, el] of cards) {
-        if (!keep.has(id)) continue;
         el.style.viewTransitionName = `${NAME_PREFIX}${id}`;
         named.push(el);
       }
@@ -110,10 +101,10 @@ export function useResultsTransition(opts: Options) {
       "--r-results-vt-from",
       body ? getComputedStyle(body).opacity : "1",
     );
-    const rows = opts.kind() === "rows";
+    const rows = opts.rows();
     html.classList.add(ROOT_CLASS);
     html.classList.toggle(ROWS_CLASS, rows);
-    nameAll(before, new Set(before.keys()));
+    nameAll(before);
 
     const stagger = document.createElement("style");
     let settled = false;
@@ -137,15 +128,14 @@ export function useResultsTransition(opts: Options) {
         return;
       }
       const after = visibleCards(root, opts.visibleTop(), opts.visibleBottom());
-      const entering = [...after.keys()].filter((id) => !before.has(id));
-      const keep = new Set([...after.keys()].filter((id) => before.has(id)));
+      const kept = [...after].filter(([id]) => before.has(id));
       // A kept card that changed rows remounts, and its own mount fade would
       // play inside the morph.
-      for (const id of keep) {
-        for (const a of after.get(id)?.getAnimations?.() ?? []) a.finish();
+      for (const [, el] of kept) {
+        for (const a of el.getAnimations?.() ?? []) a.finish();
       }
       if (rows) {
-        for (const id of entering) keep.add(id);
+        const entering = [...after.keys()].filter((id) => !before.has(id));
         // A named pseudo-element outranks the `(*)` rules in global.css,
         // so these delays win over their `animation` shorthand.
         stagger.textContent = entering
@@ -158,12 +148,11 @@ export function useResultsTransition(opts: Options) {
           .join("");
         document.head.appendChild(stagger);
       }
-      nameAll(after, keep);
+      nameAll(rows ? after : kept);
     });
 
     settleRunning = settle;
-    // A preempted transition rejects all three promises.
-    void transition.ready.catch(() => {});
+    void absorbPreemptionSkip(transition.ready);
     void transition.finished.catch(() => {}).finally(settle);
     // A skipped transition still runs the update, so only wait for it.
     await transition.updateCallbackDone.catch(() => {});

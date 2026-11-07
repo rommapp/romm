@@ -512,9 +512,9 @@ html.r-reduced-motion {
 html.r-results-vt {
   view-transition-name: none;
 }
-/* Other morph names on the page (a header's platform icon) would fly in
-   with the scroll reset, painted over the nav bar. */
-html.r-results-vt [style*="view-transition-name"]:not([data-result-id]) {
+/* Other morph names (a header's platform icon) would fly in with the scroll
+   reset. `data-result-id` is RESULT_ID_ATTR in useResultsTransition. */
+html.r-results-vt :not([data-result-id]) {
   view-transition-name: none !important;
 }
 html.r-results-vt::view-transition {
@@ -532,9 +532,6 @@ html.r-results-vt::view-transition-new(*) {
 }
 html.r-results-vt::view-transition-old(*):only-child {
   animation: r-results-exit var(--r-motion-med) var(--r-motion-ease-out) both;
-}
-html.r-results-vt::view-transition-new(*):only-child {
-  animation: r-results-enter 380ms cubic-bezier(0.34, 1.28, 0.64, 1) both;
 }
 /* Rows share full-width text slots: a leaving row clears before an
    arrival fades in (per-row delays come from the composable). */
@@ -578,19 +575,6 @@ html.r-results-vt--rows::view-transition-new(*):only-child {
   to {
     opacity: 0;
     transform: scale(0.88);
-  }
-}
-@keyframes r-results-enter {
-  0% {
-    opacity: 0;
-    transform: translateY(10px) scale(0.92);
-  }
-  55% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
   }
 }
 

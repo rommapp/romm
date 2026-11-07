@@ -59,7 +59,7 @@ export const pendingMorphName = ref<string | null>(null);
 // transition starting from `beforeResolve`.
 let forwardTransitionActive = false;
 
-function isSupported(): boolean {
+export function isSupported(): boolean {
   return (
     typeof document !== "undefined" &&
     typeof document.startViewTransition === "function"

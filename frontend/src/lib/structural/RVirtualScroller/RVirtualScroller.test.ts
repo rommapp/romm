@@ -183,3 +183,18 @@ describe("RVirtualScroller resize", () => {
     expect(ro.isObserved(band)).toBe(false);
   });
 });
+
+describe("RVirtualScroller scrollTo", () => {
+  it("updates the exposed offset without waiting for a scroll event", async () => {
+    const wrapper = await mountScroller();
+    wrapper.element.scrollTop = 300;
+    wrapper.element.dispatchEvent(new Event("scroll"));
+    expect(wrapper.vm.scrollTop).toBe(300);
+
+    wrapper.vm.scrollTo(0);
+
+    expect(wrapper.element.scrollTop).toBe(0);
+    expect(wrapper.vm.scrollTop).toBe(0);
+    wrapper.unmount();
+  });
+});

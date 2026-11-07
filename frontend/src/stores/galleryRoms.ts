@@ -422,17 +422,19 @@ export default defineStore("v2GalleryRoms", {
       const ctrlKey = "refresh";
       const controller = new AbortController();
       inFlightControllers.set(ctrlKey, controller);
+      // A newer refresh or any context switch replaces or drops this entry.
+      const isCurrent = () => inFlightControllers.get(ctrlKey) === controller;
 
       try {
         const response = await romApi.getRoms({
           ...params,
           signal: controller.signal,
         });
-        if (inFlightControllers.get(ctrlKey) !== controller) return false;
+        if (!isCurrent()) return false;
         const data = response.data;
         let applied = false;
         await commit(() => {
-          if (inFlightControllers.get(ctrlKey) !== controller) return false;
+          if (!isCurrent()) return false;
           const next = new Map<number, SimpleRom>();
           data.items.forEach((rom, i) => next.set(i, rom));
           this.charIndex = {};
@@ -447,14 +449,14 @@ export default defineStore("v2GalleryRoms", {
         return applied;
       } catch (err) {
         if (axios.isCancel(err)) return false;
-        if (inFlightControllers.get(ctrlKey) !== controller) return false;
+        if (!isCurrent()) return false;
         console.error("[v2GalleryRoms] refresh fetch failed", err);
         // The skeleton path's window retries take over.
         this.invalidateWindows();
         void this.fetchInitialMetadata();
         return false;
       } finally {
-        if (inFlightControllers.get(ctrlKey) === controller) {
+        if (isCurrent()) {
           inFlightControllers.delete(ctrlKey);
           this.refreshing = false;
         }
