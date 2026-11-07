@@ -11,13 +11,11 @@ const reduced = ref(false);
 vi.mock("@/composables/useReducedMotion", () => ({
   useReducedMotion: () => ({ enabled: reduced }),
 }));
-vi.mock("@/composables/useViewTransition", async () => {
-  const { ref: vueRef } = await import("vue");
-  return {
-    pendingMorphName: vueRef(null),
-    isSupported: () => typeof document.startViewTransition === "function",
-  };
-});
+const morphRunning = ref(false);
+vi.mock("@/composables/useViewTransition", () => ({
+  isMorphRunning: () => morphRunning.value,
+  isSupported: () => typeof document.startViewTransition === "function",
+}));
 
 interface FakeTransition {
   update: () => Promise<void>;
@@ -84,6 +82,7 @@ describe("useResultsTransition", () => {
   beforeEach(() => {
     transitions = [];
     reduced.value = false;
+    morphRunning.value = false;
     vi.stubGlobal("innerHeight", 1000);
   });
 
@@ -108,6 +107,19 @@ describe("useResultsTransition", () => {
   it("swaps directly under reduced motion", async () => {
     const start = stubViewTransitions();
     reduced.value = true;
+    const root = scroller(card(1, 200));
+    const apply = vi.fn();
+    const { run } = setup(root);
+
+    await run(apply);
+
+    expect(apply).toHaveBeenCalledOnce();
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it("swaps directly while a page morph runs", async () => {
+    const start = stubViewTransitions();
+    morphRunning.value = true;
     const root = scroller(card(1, 200));
     const apply = vi.fn();
     const { run } = setup(root);

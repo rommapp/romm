@@ -477,27 +477,93 @@ describe("galleryRoms refresh", () => {
     expect(getRoms.mock.calls[0]![0].offset).toBe(0);
   });
 
-  it("holds window fetches while refreshing", () => {
+  it("fills the displayed result with its own request while refreshing", () => {
     getRoms.mockReturnValue(deferred().promise);
     const store = storeGalleryRoms();
+    const filter = storeGalleryFilter();
+    filter.searchTerm = "mario";
+    store.syncVisibleWindows([0]);
     seedOldResult(store);
+    store.total = 200;
+    getRoms.mockClear();
 
+    filter.searchTerm = "zelda";
     void store.refreshResults();
     store.syncVisibleWindows([100]);
-    void store.fetchInitialMetadata();
 
-    expect(getRoms).toHaveBeenCalledTimes(1);
+    const [refresh, window] = getRoms.mock.calls.map((c) => c[0]);
+    expect(refresh.searchTerm).toBe("zelda");
+    expect(window.searchTerm).toBe("mario");
+    expect(window.offset).toBe(72);
   });
 
-  it("hides the old id list while refreshing", () => {
+  it("keeps the displayed id list while refreshing", () => {
     getRoms.mockReturnValue(deferred().promise);
     const store = storeGalleryRoms();
     store.currentSearch = true;
     seedOldResult(store);
+    store.romIdIndex = [1, 2];
 
     void store.refreshResults();
 
-    expect(store.filteredRomIds).toBeNull();
+    expect(store.filteredRomIds).toEqual([1, 2]);
+  });
+
+  it("ends the old result's window fetches when the new one swaps in", async () => {
+    const refresh = deferred();
+    getRoms
+      .mockReturnValueOnce(refresh.promise)
+      .mockReturnValue(deferred().promise);
+    const store = storeGalleryRoms();
+    seedOldResult(store);
+    store.total = 200;
+
+    const done = store.refreshResults();
+    store.syncVisibleWindows([100]);
+    const windowSignal: AbortSignal = getRoms.mock.calls[1]![0].signal;
+    refresh.resolve(windowResponse(1, [{ id: 9 }]));
+    await done;
+
+    expect(windowSignal.aborted).toBe(true);
+    expect(store.pendingWindows.size).toBe(0);
+  });
+
+  it("counts each result that replaces the displayed one", async () => {
+    getRoms.mockResolvedValue(windowResponse(1, [{ id: 9 }]));
+    const store = storeGalleryRoms();
+    const start = store.resultEpoch;
+
+    await store.refreshResults();
+    expect(store.resultEpoch).toBe(start + 1);
+
+    store.invalidateWindows();
+    expect(store.resultEpoch).toBe(start + 2);
+
+    // A superseded refresh replaces nothing.
+    const stale = deferred();
+    getRoms.mockReturnValueOnce(stale.promise);
+    const older = store.refreshResults(() => {});
+    await store.refreshResults();
+    stale.resolve(windowResponse(1, [{ id: 1 }]));
+    await older;
+    expect(store.resultEpoch).toBe(start + 3);
+  });
+
+  it("builds requests from the live filters once no result is displayed", () => {
+    getRoms.mockReturnValue(deferred().promise);
+    const store = storeGalleryRoms();
+    const filter = storeGalleryFilter();
+    filter.searchTerm = "mario";
+    store.syncVisibleWindows([0]);
+
+    filter.searchTerm = "zelda";
+    store.invalidateWindows();
+    store.syncVisibleWindows([0]);
+
+    expect(getRoms.mock.calls.map((c) => c[0].searchTerm)).toEqual([
+      "mario",
+      "zelda",
+    ]);
   });
 
   it("lets a newer refresh supersede an older one", async () => {
@@ -563,17 +629,6 @@ describe("galleryRoms refresh", () => {
     expect(store.refreshing).toBe(false);
     expect(store.metadataLoaded).toBe(false);
     expect(store.byPosition.size).toBe(0);
-  });
-
-  it("doesn't size a re-sort's skeletons by the previous filters' count", () => {
-    getRoms.mockReturnValue(deferred().promise);
-    const store = storeGalleryRoms();
-    seedOldResult(store);
-
-    void store.refreshResults();
-    store.invalidateWindows({ reorder: true });
-
-    expect(store.reorderTotal).toBeNull();
   });
 });
 
@@ -663,58 +718,6 @@ describe("galleryRoms relevance order", () => {
 
     expect(store.orderBy).toBeNull();
     expect(store.orderDir).toBe("asc");
-  });
-});
-
-describe("galleryRoms reorder count", () => {
-  it("keeps the count through a re-sort", () => {
-    const store = storeGalleryRoms();
-    store.total = 3;
-    store.metadataLoaded = true;
-
-    store.invalidateWindows({ reorder: true });
-
-    expect(store.total).toBe(0);
-    expect(store.reorderTotal).toBe(3);
-  });
-
-  it("keeps the count through a second re-sort before the first lands", () => {
-    const store = storeGalleryRoms();
-    store.total = 3;
-    store.metadataLoaded = true;
-
-    store.invalidateWindows({ reorder: true });
-    store.invalidateWindows({ reorder: true });
-
-    expect(store.reorderTotal).toBe(3);
-  });
-
-  it("drops the count on any other invalidation", () => {
-    const store = storeGalleryRoms();
-    store.total = 3;
-    store.metadataLoaded = true;
-    store.invalidateWindows({ reorder: true });
-
-    store.invalidateWindows();
-
-    expect(store.reorderTotal).toBeNull();
-  });
-
-  it("keeps a known empty result through a re-sort", () => {
-    const store = storeGalleryRoms();
-    store.metadataLoaded = true;
-
-    store.invalidateWindows({ reorder: true });
-
-    expect(store.reorderTotal).toBe(0);
-  });
-
-  it("knows no count for a re-sort before the first load lands", () => {
-    const store = storeGalleryRoms();
-
-    store.invalidateWindows({ reorder: true });
-
-    expect(store.reorderTotal).toBeNull();
   });
 });
 
