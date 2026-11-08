@@ -85,6 +85,7 @@ async def _refresh(rom: Rom, cnfg: Config) -> RomFilesRefresh:
         calculate_hashes=calculate_hashes,
         extract_title_ids=not cnfg.SKIP_TITLE_ID_EXTRACTION,
         existing_files=existing,
+        reuse_title_ids=True,
         cnfg=cnfg,
     )
     if existing and not parsed.rom_files:

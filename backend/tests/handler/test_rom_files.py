@@ -449,13 +449,19 @@ def extract_title_id(mocker):
 
 
 def _sigil_rom(
-    slug: str, admin_user: User, lib: Path, title_id: str | None = None
+    slug: str,
+    admin_user: User,
+    lib: Path,
+    title_id: str | None = None,
+    layout: SaveTargetLayout | None = SaveTargetLayout.FOLDER_EXACT,
 ) -> Rom:
     rom = _folder_rom(
         make_platform(slug), admin_user, lib, {"a.nsp": b"a", "b.nsp": b"b"}
     )
     if title_id:
-        db_rom_handler.update_rom(rom.id, {"title_id": title_id})
+        db_rom_handler.update_rom(
+            rom.id, {"title_id": title_id, "save_target_layout": layout}
+        )
     return _reload(rom.id)
 
 
@@ -479,6 +485,27 @@ async def test_unchanged_rom_without_a_title_id_is_parsed(
     await refresh_rom_files(rom)
 
     extract_title_id.assert_awaited()
+
+
+async def test_a_title_id_sigil_never_read_is_parsed(
+    admin_user, library, extract_title_id
+):
+    rom = _sigil_rom("psx", admin_user, library, title_id="SLUS-00001", layout=None)
+
+    await refresh_rom_files(rom)
+
+    extract_title_id.assert_awaited()
+
+
+async def test_a_parse_outside_a_refresh_still_reads_unchanged_files(
+    admin_user, library, extract_title_id
+):
+    rom = _sigil_rom("switch", admin_user, library, title_id="0100ABCD12340000")
+
+    parsed = await fs_rom_handler.get_rom_files(rom, existing_files=list(rom.files))
+
+    extract_title_id.assert_awaited()
+    assert parsed.embed_candidates
 
 
 async def test_a_changed_rom_is_parsed_again(admin_user, library, extract_title_id):

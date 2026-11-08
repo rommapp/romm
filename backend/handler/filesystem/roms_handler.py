@@ -680,11 +680,7 @@ class FSRomsHandler(FSHandler):
         )
 
     async def _read_converto_infos(self, sources: list[tuple[Path, RomFile]]) -> None:
-        """Write title ids and the read time onto the files rom-converto inspected.
-
-        A file it inspected but didn't recognize only gets the read time, so it
-        isn't sent again until its content changes.
-        """
+        """Record the read time on every inspected file, and its title id where recognized."""
         if not sources:
             return
         infos = await rom_converto_service.read_infos([p for p, _ in sources])
@@ -706,6 +702,7 @@ class FSRomsHandler(FSHandler):
         extract_title_ids: bool = True,
         *,
         existing_files: Sequence[RomFile] | None = None,
+        reuse_title_ids: bool = False,
         cnfg: Config | None = None,
     ) -> ParsedRomFiles:
         """Build the ROM's file rows from disk.
@@ -714,8 +711,9 @@ class FSRomsHandler(FSHandler):
             existing_files: The rows currently stored for the ROM. When given,
                 files whose size and mtime still match are returned as those
                 very rows with their hashes untouched, and the ROM-level hashes
-                are only recomputed when a top-level file changed. When no file
-                changed and the ROM has a title id, its files aren't parsed again.
+                are only recomputed when a top-level file changed.
+            reuse_title_ids: Keep the stored identity, without a parse, when no
+                file changed and sigil already read the ROM.
             cnfg: The config to read, so a scan can load it once.
         """
         from adapters.services.rahasher import RAHasherService
@@ -1094,7 +1092,13 @@ class FSRomsHandler(FSHandler):
             and len(rom_files) == len(existing_by_key)
             and (flat_reused or len(stored_categories) == len(rom_files))
         )
-        reuse_title_ids = files_unchanged and bool(rom.title_id)
+        # Only sigil writes a save target layout, so one marks a completed read.
+        reuse_title_ids = (
+            reuse_title_ids
+            and files_unchanged
+            and bool(rom.title_id)
+            and (rom.save_target_layout is not None or not sigil_platform)
+        )
         if reuse_title_ids:
             for rom_file in rom_files:
                 if id(rom_file) in stored_categories:
