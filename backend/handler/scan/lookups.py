@@ -95,10 +95,13 @@ async def lookup_by_file_name[MatchT: Mapping[str, object]](
     """Look `source` up by the file name, then by each of its titles until one matches."""
     match = await lookup(fs_name)
     id_field = RESCAN_RULES[source].id_field
+    if match.get(id_field):
+        return match
     for title_fs_name in fs_rom_handler.get_title_file_names(fs_name):
-        if match.get(id_field):
-            break
-        match = await lookup(title_fs_name)
+        title_match = await lookup(title_fs_name)
+        if title_match.get(id_field):
+            return title_match
+    # A miss can still carry data, like a fallback name or an id-less local entry.
     return match
 
 
@@ -397,10 +400,9 @@ class RomLookups:
         if self.attempts(MetadataSource.CSDB):
             if self.rom.csdb_id:
                 return await meta_csdb_handler.get_rom_by_id(int(self.rom.csdb_id))
-            return await lookup_by_file_name(
-                MetadataSource.CSDB,
-                self.rom_attrs["fs_name"],
-                lambda name: meta_csdb_handler.get_rom(name, self.platform.slug),
+            # CSDb only matches a (csdb-N) tag, which every title shares.
+            return await meta_csdb_handler.get_rom(
+                self.rom_attrs["fs_name"], self.platform.slug
             )
         return CsdbRom(csdb_id=None)
 

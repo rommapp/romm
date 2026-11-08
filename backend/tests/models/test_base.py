@@ -49,6 +49,8 @@ def test_compute_file_name_parts(file_name, no_tags, no_ext, extension):
         ),
         ("Mickey Mouse ~ Egg", ["Mickey Mouse", "Egg"]),
         ("Aero Fighters 2 (World).chd", []),
+        ("Puzzle Bobble ~ Puzzle Bobble (Japan).zip", ["Puzzle Bobble (Japan).zip"]),
+        ("A ~ B ~ C ~ D ~ E ~ F.zip", ["A.zip", "B.zip", "C.zip", "D.zip"]),
         # A tag naming the compilation's titles leaves the game's title whole
         (
             "Sonic The Hedgehog 2 (World) (Rev B) (Sonic Compilation ~ Sonic Classics).md",

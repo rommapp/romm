@@ -16,6 +16,8 @@ EXTENSION_REGEX = re.compile(r"\.(([a-z]+\.)*\w+)$")
 
 # No-Intro and Redump name a game released under several titles by all of them.
 TITLE_SEPARATOR = " ~ "
+# Each title costs a lookup per provider, so a file name can't fan a scan out further.
+MAX_TITLES = 4
 
 # PICO-8 carts are often saved as PNG images, so the `.p8` outlives the extension.
 PICO8_CARTRIDGE_EXTENSION = ".p8.png"
@@ -61,7 +63,8 @@ def compute_title_file_names(file_name: str) -> list[str]:
     if len(titles) < 2 or not file_name.startswith(title):
         return []
     tags_and_extension = file_name[len(title) :]
-    return [part + tags_and_extension for part in titles if part]
+    unique_titles = list(dict.fromkeys(part for part in titles if part))
+    return [part + tags_and_extension for part in unique_titles[:MAX_TITLES]]
 
 
 def compute_file_extension(file_name: str) -> str:
