@@ -309,7 +309,7 @@ class TestReadInfos:
         ],
     )
     async def test_malformed_records_are_left_out(
-        self, service: RomConvertoService, record: dict
+        self, service: RomConvertoService, record: dict[str, Any]
     ):
         with patch.object(
             rom_converto, "_run", return_value=(0, json.dumps([record]), "")
