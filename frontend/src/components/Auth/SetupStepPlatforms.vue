@@ -80,21 +80,16 @@ const detectedPlatforms = computed<Array<Platform & { unidentified: boolean }>>(
     return props.libraryInfo.existing_platforms
       .map((p) => {
         const supported = supportedBySlug.value.get(p.slug);
-        if (supported)
-          return {
-            ...supported,
-            fs_slug: p.fs_slug,
-            rom_count: p.rom_count,
-            unidentified: false,
-          };
         return {
+          ...(supported ?? {
+            slug: p.slug,
+            name: p.fs_slug,
+            family_name: UNIDENTIFIED,
+            generation: 999,
+          }),
           fs_slug: p.fs_slug,
-          slug: p.slug,
-          name: p.fs_slug,
           rom_count: p.rom_count,
-          family_name: UNIDENTIFIED,
-          generation: 999,
-          unidentified: true,
+          unidentified: !supported,
         } as Platform & { unidentified: boolean };
       })
       .sort((a, b) => (a.name ?? a.fs_slug).localeCompare(b.name ?? b.fs_slug));
@@ -227,7 +222,6 @@ function isSelected(slug: string): boolean {
 }
 
 function togglePlatform(slug: string, next: boolean) {
-  if (detectedSlugSet.value.has(slug)) return;
   const set = new Set(props.selectedNewPlatforms);
   if (next) set.add(slug);
   else set.delete(slug);
@@ -235,9 +229,7 @@ function togglePlatform(slug: string, next: boolean) {
 }
 
 function newSlugsInGroup(items: Platform[]): string[] {
-  return items
-    .filter((p) => !detectedSlugSet.value.has(p.slug))
-    .map((p) => p.fs_slug);
+  return items.map((p) => p.fs_slug);
 }
 
 function groupSelectedState(items: Platform[]): boolean | null {
@@ -401,25 +393,17 @@ const detectedPlatformCount = computed(
                 </span>
               </div>
               <div class="r-setup-platforms__item-state">
-                <template v-if="platform.unidentified">
-                  <RTag size="x-small" tone="warning">
-                    {{ t("setup.unidentified") }}
-                  </RTag>
-                  <RChip
-                    size="x-small"
-                    variant="translucent"
-                    color="warning"
-                    prepend-icon="mdi-disc"
-                    :aria-label="t('setup.games')"
-                  >
-                    {{ platform.rom_count }}
-                  </RChip>
-                </template>
+                <RTag
+                  v-if="platform.unidentified"
+                  size="x-small"
+                  tone="warning"
+                >
+                  {{ t("setup.unidentified") }}
+                </RTag>
                 <RChip
-                  v-else
                   size="x-small"
                   variant="translucent"
-                  color="primary"
+                  :color="platform.unidentified ? 'warning' : 'primary'"
                   prepend-icon="mdi-disc"
                   :aria-label="t('setup.games')"
                 >
