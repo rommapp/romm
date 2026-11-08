@@ -1,6 +1,6 @@
 # Creating a theme pack
 
-A theme pack is a `.zip` archive holding a `theme.json` file and any artwork, fonts or CSS it uses. RomM compiles it into a stylesheet plus replacement files, and the theme applies to RomM's v2 interface (and, for colors only, the older v1 interface).
+A theme pack is a `.zip` archive holding a `theme.json` file and any artwork, fonts or CSS it uses. RomM compiles it into a stylesheet plus replacement files, and the theme applies to RomM's v2 interface. The older v1 interface gets the pack's artwork and tab icons where it uses the same files, and its own palette from `vuetify`; tokens don't reach it.
 
 ## Where packs live
 
@@ -25,7 +25,7 @@ themes/
       custom.css
 ```
 
-**Folder packs.** The themes folder takes `.zip` packs only. A folder pack left there by an older version is converted to `<id>.zip` when the container starts and the folder is moved to `themes/.converted/<id>/`. Keep your working folder outside the themes folder and zip it yourself, as below.
+**Folder packs.** The themes folder takes `.zip` packs only. A folder pack left there by an older version is converted to `<id>.zip` at start-up or the next recompile, and the folder is moved to `themes/.converted/<id>/`. Keep your working folder outside the themes folder and zip it yourself, as below.
 
 ## Your first pack
 
@@ -33,7 +33,7 @@ themes/
 
    ```json
    {
-     "$schema": "https://raw.githubusercontent.com/Stealthx3/romm-themeable/themeable/themeable/schema/theme.schema.json",
+     "$schema": "https://raw.githubusercontent.com/Stealthx3/romm-themeable/main/themeable/schema/theme.schema.json",
      "id": "midnight",
      "name": "Midnight",
      "description": "Deep blue with a cyan accent",
@@ -59,19 +59,19 @@ themes/
 
 To change the pack later, edit its files, zip it again and upload it; Branding asks before replacing the installed Midnight. Copying it over `midnight.zip` in the themes folder and clicking the refresh button works too. Only archives that changed are read again.
 
-The pack's id comes from `theme.json`, not the archive's name, and a built-in pack can't be replaced by an upload: to change one, copy it, give it a new id and upload that.
+For an upload, the pack's id comes from `theme.json`, not the archive's name, and the pack is installed as `<id>.zip`. A pack copied into the themes folder by hand must already be named `<id>.zip`. A built-in pack can't be replaced by an upload: to change one, copy it, give it a new id and upload that. A `.zip` with a built-in pack's id copied into the themes folder by hand does replace the built-in one.
 
 ## Zipping a pack
 
 Zip the pack's folder, then make sure the archive's name is the pack's id plus `.zip`.
 
-- **Windows:** in File Explorer, right-click the `midnight` folder and choose **Send to → Compressed (zipped) folder** (on Windows 11, **Compress to → ZIP File**). In PowerShell: `Compress-Archive -Path midnight -DestinationPath midnight.zip`.
+- **Windows:** in File Explorer, right-click the `midnight` folder and choose **Send to → Compressed (zipped) folder** (on Windows 11, **Compress to → ZIP File**). In PowerShell 7 (`pwsh`): `Compress-Archive -Path midnight -DestinationPath midnight.zip`. Windows PowerShell 5.1's `Compress-Archive` can write backslashes into the paths inside the archive, which RomM refuses; if Branding reports "a backslash in the path", zip the folder with File Explorer instead.
 - **macOS:** in Finder, right-click the folder and choose **Compress "midnight"**. The `__MACOSX` and `.DS_Store` entries Finder adds are ignored. In Terminal: `zip -r midnight.zip midnight -x '*.DS_Store'`.
 - **Linux:** right-click the folder in your file manager and choose **Compress**, picking `.zip`. In a terminal: `zip -r midnight.zip midnight`.
 
 Zipping the files themselves, so `theme.json` is at the root of the archive, works too.
 
-**Limits.** Packs come from users and the web, so each archive is checked before anything in it is read: at most 2,000 files, 64 MB uncompressed in total, 16 MB per file, and a compression ratio of at most 100:1. Files must be stored or deflated, which every common zip tool does by default; encrypted, split and ZIP64 archives are refused. An administrator can change the limits with the `THEMEABLE_ZIP_MAX_ENTRIES`, `THEMEABLE_ZIP_MAX_TOTAL_MB`, `THEMEABLE_ZIP_MAX_FILE_MB` and `THEMEABLE_ZIP_MAX_RATIO` environment variables.
+**Limits.** Packs come from users and the web, so each archive is checked before anything in it is read: at most 2,000 entries (files and folders), 64 MB uncompressed in total, 16 MB per file, and a compression ratio of at most 100:1 for the whole archive. Files must be stored or deflated, which every common zip tool does by default; encrypted, split and ZIP64 archives are refused. An administrator can change the limits with the `THEMEABLE_ZIP_MAX_ENTRIES`, `THEMEABLE_ZIP_MAX_TOTAL_MB`, `THEMEABLE_ZIP_MAX_FILE_MB` and `THEMEABLE_ZIP_MAX_RATIO` environment variables. An upload from Branding is also capped at 20 MB, set by `THEMEABLE_MAX_UPLOAD_MB`.
 
 ## theme.json reference
 
@@ -79,8 +79,8 @@ Zipping the files themselves, so `theme.json` is at the root of the archive, wor
 
 | Key | Required | What it does |
 | --- | --- | --- |
-| `id` | yes | Lowercase letters, digits and dashes, up to 64 characters, matching the archive's file name without `.zip`. `none`, `default`, `random`, `index` and `stock` are reserved. |
-| `name` | yes | Shown in Branding and the theme picker; up to 80 characters. Administrators can change it later with **Rename** in Branding. |
+| `id` | yes | Lowercase letters, digits and dashes, starting with a letter or digit, up to 64 characters, matching the archive's file name without `.zip`. `none`, `default`, `random`, `index` and `stock` are reserved. |
+| `name` | yes | Shown in Branding and the theme picker; up to 80 characters, with no control characters. Administrators can change it later with **Rename** in Branding. |
 | `description`, `author`, `version` | no | Shown in Branding and the theme picker. |
 | `tags` | no | Up to 8 lowercase words, see [Tags and the Accessibility label](#tags-and-the-accessibility-label). |
 | `covers` | no | Placeholder covers for games without one, see [Placeholder covers](#placeholder-covers). |
@@ -133,7 +133,7 @@ Values are plain CSS: `#38bdf8`, `rgba(255, 255, 255, 0.08)`, `18px`, `linear-gr
 }
 ```
 
-Packs are served from RomM's own address, so they can only replace images (`.svg`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.avif`, `.ico`), fonts (`.woff2`, `.woff`, `.ttf`, `.otf`) and stylesheets (`.css`). An SVG anywhere in a pack, including covers and tab icons, is refused if it contains a `<script>`, an event handler such as `onload`, a `javascript:` link, a `<foreignObject>`, `<iframe>`, `<embed>` or `<object>`, or an `<!ENTITY>`. CSS and SMIL animation are fine.
+Packs are served from RomM's own address, so they can only replace images (`.svg`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.avif`, `.ico`), fonts (`.woff2`, `.woff`, `.ttf`, `.otf`) and stylesheets (`.css`). Any SVG the pack uses, including covers and tab icons, is refused if it contains a `<script>`, an event handler such as `onload`, a `javascript:` or `data:text/html` link, a `<foreignObject>`, `<iframe>`, `<embed>`, `<object>`, `<handler>` or `<listener>`, or an `<!ENTITY>`. CSS and SMIL animation are fine.
 
 Every file you can replace is listed in [`catalog/assets.json`](../catalog/assets.json). The most visible:
 
@@ -143,9 +143,11 @@ Every file you can replace is listed in [`catalog/assets.json`](../catalog/asset
 | `/assets/logotipo.svg` | The "RomM" wordmark in the top bar |
 | `/assets/logos/romm_logo_xbox_one_circle_grayscale.svg` | The logo on the loading screen |
 | `/assets/auth_background.svg`, `/assets/auth_background_static.svg` | The login and setup background (the static one is used by Firefox) |
-| `/assets/default/*` | Placeholder covers and the default avatar |
-| `/assets/platforms/<slug>.svg` or `.ico` | Platform icons (only platforms RomM already ships an icon for) |
+| `/assets/default/user.svg` | The default avatar |
+| `/assets/platforms/<slug>.svg`, `.ico` or `.png` | Platform icons (only platforms RomM already ships an icon for) |
 | `/assets/scrappers/*.png` | Metadata provider logos |
+
+Placeholder covers for games without one are drawn in code, not served as files, so they are themed with `covers` (see [Placeholder covers](#placeholder-covers)) rather than `assets`.
 
 Artwork follows each visitor's theme: two people using different themes see different logos at the same time.
 
@@ -166,13 +168,13 @@ When a game has no cover, RomM draws one: a backdrop with two shapes placed by t
 ```
 
 - `colors` redraws RomM's art in your colors: `base` is the backdrop, `shade` and `warm` the two shapes, `icon` the icon. Leave any out to keep RomM's.
-- `missing` and `unmatched` replace the art with your own images, up to 8 of each (`.svg`, `.png`, `.webp` or `.jpg`; 600 by 800 pixels, or that shape, works best). Each game always gets the same one, picked from its name, so a library mixes them instead of repeating one tile. RomM paints the game's title over the middle, darkened slightly, so keep important detail away from the center.
+- `missing` and `unmatched` replace the art with your own images, up to 8 of each (`.svg`, `.png`, `.webp`, `.jpg` or `.jpeg`; 600 by 800 pixels, or that shape, works best). Each game always gets the same one, picked from its name, so a library mixes them instead of repeating one tile. RomM paints the game's title over the middle, darkened slightly, so keep important detail away from the center.
 
 Branding previews the first `missing` image at the end of each pack's artwork, or a sketch in your `colors` when there is none. Every built-in pack ships its own covers, which make good starting points.
 
 ## Tags and the Accessibility label
 
-`tags` is a list of up to 8 short lowercase words (letters, digits and dashes), such as `["accessibility", "retro"]`. Branding gives a pack tagged `accessibility` a colored **Accessibility** label, lists it with the accessibility themes near the top, and puts it in Random's accessibility group, which administrators can include in or leave out of Random's draw. Use the tag only for a pack built for accessibility, such as the built-in `contrast-dark`, `contrast-light` and `signal`; see [Readable colors](#readable-colors) for what they meet. Other tags are kept with the pack for now.
+`tags` is a list of up to 8 short lowercase words, such as `["accessibility", "retro"]`. Each starts with a letter, holds only letters, digits and dashes, is at most 32 characters long, and appears once. Branding gives a pack tagged `accessibility` a colored **Accessibility** label, lists it with the accessibility themes near the top, and puts it in Random's accessibility group, which administrators can include in or leave out of Random's draw. Use the tag only for a pack built for accessibility, such as the built-in `contrast-dark`, `contrast-light` and `signal`; see [Readable colors](#readable-colors) for what they meet. Other tags are stored but have no effect.
 
 ## Fonts
 
@@ -218,7 +220,7 @@ Tips:
 
 ## The v1 interface
 
-RomM's older interface (users can still switch to it) isn't themed beyond colors. `vuetify.dark` and `vuetify.light` set its palette with hex colors:
+RomM's older interface (users can still switch to it) doesn't read design tokens. It shows the pack's replacement artwork and tab icons wherever it uses the same files, and `vuetify.dark` and `vuetify.light` set its palette with hex colors:
 
 ```json
 "vuetify": {
@@ -232,11 +234,13 @@ RomM's older interface (users can still switch to it) isn't themed beyond colors
 When packs compile, each one is validated, and problems show in Branding with the key at fault:
 
 - that the archive is a readable zip within the limits above, with no paths that leave it, no duplicate names and no links;
-- the `id` format, and that it matches the archive's file name;
+- the `id` format, that it isn't reserved, and that it matches the archive's file name;
+- the `name` length, with no control characters;
 - every token name exists in this RomM release, and values contain no unsafe characters;
 - every replaced file exists in the pack, sits inside the pack and keeps the original's extension; files under `/assets/emulatorjs`, `/assets/ruffle` and other player or library folders can't be replaced;
-- fonts and the CSS file exist;
-- `tags` are short lowercase words, and `covers` names colors as hex and images that exist inside the pack, with up to 8 of each kind.
+- fonts and the CSS file exist, and the CSS file has no `<style>` tags;
+- `tags` are short lowercase words, each listed once, and `covers` names colors as hex and images that exist inside the pack, with up to 8 of each kind;
+- no SVG the pack uses can run code or embed a document.
 
 A pack with problems is skipped; RomM keeps running with the other packs, and with its default look if the broken pack was the selected one.
 
