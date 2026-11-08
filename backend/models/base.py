@@ -16,7 +16,7 @@ EXTENSION_REGEX = re.compile(r"\.(([a-z]+\.)*\w+)$")
 
 # No-Intro and Redump name a game released under several titles by all of them.
 TITLE_SEPARATOR = " ~ "
-# Each title costs a lookup per provider, so a file name can't fan a scan out further.
+# Each title costs a lookup per provider, so only this many are tried.
 MAX_TITLES = 4
 
 # PICO-8 carts are often saved as PNG images, so the `.p8` outlives the extension.
