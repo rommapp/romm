@@ -751,6 +751,7 @@ class FSRomsHandler(FSHandler):
         converto_active = await self.converto_active(rom.platform_slug, cnfg)
         is_multi_part = await self.directory_exists(rom.full_path)
         sigil_extractions: list[SigilExtractionResult] = []
+        settled_categories: set[int] = set()
         embed_candidates: list[TitleIdEmbedCandidate] = []
         title_id_sources: list[_TitleIdSource] = []
         sigil_service = SigilService()
@@ -785,6 +786,7 @@ class FSRomsHandler(FSHandler):
                 category = switch.CONTENT_TYPE_CATEGORIES.get(extraction.content_type)
                 if category is not None:
                     source.rom_file.category = category
+                    settled_categories.add(id(source.rom_file))
             sigil_extractions.append(extraction)
 
             # Embedding is Switch-only even though sigil covers more platforms.
@@ -1115,17 +1117,20 @@ class FSRomsHandler(FSHandler):
                 or all(source.rom_file.title_id for source in title_id_sources)
             )
         )
-        if reuse_title_ids:
-            for rom_file in rom_files:
-                if id(rom_file) in stored_categories:
-                    rom_file.category = stored_categories[id(rom_file)]
-        else:
+        if not reuse_title_ids:
             # Listings come in no fixed order; a ROM is identified by its first
             # disc, and only Switch reads past it for each file's content type.
             for source in sorted(title_id_sources, key=_TitleIdSource.order):
                 await _extract_title_id(source)
                 if sigil_extractions and not is_switch:
                     break
+        # Only sigil settles a Switch file's content type, so a reused row keeps
+        # the stored one unless this pass read a new one.
+        if is_switch:
+            for rom_file in rom_files:
+                key = id(rom_file)
+                if key in stored_categories and key not in settled_categories:
+                    rom_file.category = stored_categories[key]
 
         if top_level_changed:
             crc_hash = crc32_to_hex(rom_crc_c) if rom_crc_c != DEFAULT_CRC_C else ""

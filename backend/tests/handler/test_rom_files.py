@@ -589,3 +589,18 @@ async def test_a_fresh_rom_converto_id_is_reconciled(
     await refresh_rom_files(rom)
 
     extract_title_id.assert_awaited()
+
+
+async def test_a_switch_file_sigil_cannot_read_keeps_its_stored_category(
+    admin_user, library, extract_title_id
+):
+    rom = _sigil_rom("switch", admin_user, library, title_id="0100ABCD12340000")
+    for rom_file in rom.files:
+        db_rom_handler.update_rom_file(rom_file.id, {"category": RomFileCategory.DLC})
+    extract_title_id.return_value = None
+
+    result = await refresh_rom_files(_reload(rom.id))
+
+    extract_title_id.assert_awaited()
+    assert not result.changed
+    assert {f.category for f in _reload(rom.id).files} == {RomFileCategory.DLC}
