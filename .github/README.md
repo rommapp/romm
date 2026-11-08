@@ -1,6 +1,21 @@
+<!-- themeable:progress:start
+  Progress bar slot. Nothing shows here while no version is in development.
+  When development on a new version begins, add one line between this comment and the
+  end marker below: the version, a ten-segment bar, the percentage of the plan's steps
+  done and the current phase, linked to that version's expanded progress page. Example:
+
+  **In development:** [`2.1.0-5.4.1` ▰▰▰▱▱▱▱▱▱▱ 30% · Phase B of D](https://claude.ai/artifact/REPLACE-WITH-PROGRESS-PAGE-ID)
+
+  Update it when each phase ends. When the release is merged into main, delete the line
+  so only these two comments remain. The rules are in themeable/GUIDELINES.md, "Progress bar".
+-->
+<!-- themeable:progress:end -->
+
 # romm-themeable
 
 romm-themeable is a fork of [RomM](https://github.com/rommapp/romm), the self-hosted ROM manager and player, that adds themes. Theme packs restyle RomM's interface (colors for light and dark mode, fonts, spacing, logos and wordmarks, login backgrounds, browser tab icons and custom CSS), and administrators choose, upload and manage them from RomM itself.
+
+![RomM's login screen as it ships, next to the same screen with the Phosphor theme](../themeable/docs/images/before-after.webp)
 
 ## What it sets out to do
 
@@ -8,6 +23,22 @@ romm-themeable is a fork of [RomM](https://github.com/rommapp/romm), the self-ho
 - **Stay current with RomM.** Every stable RomM release is adopted automatically, checked and rebuilt, so running romm-themeable never means running an old RomM.
 - **Never leave the server worse off.** A broken or missing pack disables only itself, a change that fails to compile changes nothing, and RomM's own look is always one click or one URL away.
 - **Be usable by everyone.** Three of the built-in themes are designed for accessibility: High Contrast Dark, High Contrast Light, and Signal, which never relies on red against green.
+
+## Screenshots
+
+**Ten built-in themes.** Each one restyles the whole interface, not just the login screen shown here. High Contrast Dark, High Contrast Light and Signal are the accessibility themes.
+
+![The login screen in each of the ten built-in themes](../themeable/docs/images/built-in-themes.webp)
+
+**Branding, in Administration.** Administrators upload a pack, choose the server's theme, set which groups Random draws from, and preview, rename or delete packs. Each row shows the pack's login background, wordmarks on dark and light, and tab icons. The page itself is wearing Neon.
+
+![The Branding tab with the upload control, Random and the built-in themes](../themeable/docs/images/branding.webp)
+
+**A theme for each browser.** Any visitor can open `/themeable/` to follow the server's theme, pick Random, or choose a theme for their own browser.
+
+![The theme picker at /themeable/](../themeable/docs/images/picker.webp)
+
+The screenshots are taken from the built-in packs through the module's local preview (`themeable/dev/preview.mjs`).
 
 ## How it does it
 

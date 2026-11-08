@@ -40,6 +40,14 @@ The module's own version (`<major>.<feature>.<fix>`) lives in `themeable/package
 - Anything the plan doesn't cover, or that it lists as deferred, waits for a later release. If work seems to need something outside the plan, stop and ask rather than widening the scope.
 - When a decision in the plan changes during the work, update the plan in the same commit as the change.
 
+### Progress bar
+
+`.github/README.md` opens with a hidden slot between the comments `themeable:progress:start` and `themeable:progress:end`. It shows nothing while no version is in development.
+
+- **When development on a new version begins**, add one line between the two comments, in the first commit on the release branch: `**In development:**` followed by a link whose text is the version, a ten-segment bar (`▰` for done, `▱` for not done, rounded down), the percentage of the plan's steps done and the current phase, for example `` [`2.1.0-5.4.1` ▰▰▰▱▱▱▱▱▱▱ 30% · Phase B of D](https://claude.ai/artifact/<id>) ``. The link goes to that version's expanded progress page.
+- **Update the line** in the commit that finishes each phase, so it is current whenever the branch is pushed.
+- **Delete the line** in the commit that merges the release into `main`, leaving only the two comments.
+
 ## Staying independent of upstream
 
 - Everything the module owns lives in `themeable/`, plus the `themeable*` workflows in `.github/workflows/`, `.github/README.md` (the fork's landing page, which GitHub shows in place of the root README), the root `docker-compose.yml` and the root `CLAUDE.md`. The root `README.md` is RomM's own and stays unedited. Keep it that way: new module files go in `themeable/`.
