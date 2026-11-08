@@ -431,12 +431,11 @@ class RomLookups:
                 )
                 return await meta_moby_handler.get_rom_by_id(playmatch_rom["moby_id"])
 
-            platform_moby_id = self.platform.moby_id
             return await lookup_by_file_name(
                 MetadataSource.MOBY,
                 self.rom_attrs["fs_name"],
                 lambda name: meta_moby_handler.get_rom(
-                    self.rom, name, platform_moby_id=platform_moby_id
+                    self.rom, name, platform_moby_id=self.platform.moby_id
                 ),
             )
 
@@ -481,12 +480,11 @@ class RomLookups:
                         return game_by_hash
 
                 # Fallback to the filename
-                platform_ss_id = self.platform.ss_id
                 return await lookup_by_file_name(
                     MetadataSource.SS,
                     self.rom_attrs["fs_name"],
                     lambda name: meta_ss_handler.get_rom(
-                        self.rom, name, platform_ss_id=platform_ss_id
+                        self.rom, name, platform_ss_id=self.platform.ss_id
                     ),
                 )
             except ScreenScraperExhaustedError as exc:
@@ -573,8 +571,8 @@ class RomLookups:
 
         fs_name = str(self.rom_attrs["fs_name"])
         file_names_no_tags = [
-            fs_rom_handler.get_file_name_with_no_tags(name)
-            for name in [fs_name, *fs_rom_handler.get_title_file_names(fs_name)]
+            fs_rom_handler.get_file_name_with_no_tags(fs_name),
+            *fs_rom_handler.get_titles(fs_name),
         ]
         provider_names = [
             handler_roms[source].get("name") for source in _SGDB_NAME_SOURCES

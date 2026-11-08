@@ -36,8 +36,9 @@ async def test_each_title_is_looked_up_until_one_matches():
     assert result == MATCH
 
 
-async def test_a_miss_on_every_title_stays_a_miss():
-    lookup = AsyncMock(return_value=NO_MATCH)
+async def test_a_miss_on_every_title_keeps_the_full_name_answer():
+    full_name_miss = HLTBRom(hltb_id=None, name="Sonic Wings 2 ~ Aero Fighters 2")
+    lookup = AsyncMock(side_effect=[full_name_miss, NO_MATCH, NO_MATCH])
 
     result = await lookup_by_file_name(MetadataSource.HLTB, FS_NAME, lookup)
 
@@ -46,15 +47,6 @@ async def test_a_miss_on_every_title_stays_a_miss():
         call(FIRST_TITLE),
         call(SECOND_TITLE),
     ]
-    assert result == NO_MATCH
-
-
-async def test_a_miss_on_every_title_keeps_the_full_name_answer():
-    full_name_miss = HLTBRom(hltb_id=None, name="Sonic Wings 2 ~ Aero Fighters 2")
-    lookup = AsyncMock(side_effect=[full_name_miss, NO_MATCH, NO_MATCH])
-
-    result = await lookup_by_file_name(MetadataSource.HLTB, FS_NAME, lookup)
-
     assert result is full_name_miss
 
 

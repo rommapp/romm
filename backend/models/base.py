@@ -56,15 +56,22 @@ def compute_file_name_no_tags(file_name: str) -> str:
     return TAG_GROUP_REGEX.sub("", name).strip()
 
 
+def compute_titles(file_name: str) -> list[str]:
+    """Each title of a game named by several, else []."""
+    parts = compute_file_name_no_tags(file_name).split(TITLE_SEPARATOR)
+    if len(parts) < 2:
+        return []
+    titles = [title for title in dict.fromkeys(part.strip() for part in parts) if title]
+    return titles[:MAX_TITLES]
+
+
 def compute_title_file_names(file_name: str) -> list[str]:
     """The file name once per title of a game named by several, else []."""
     title = compute_file_name_no_tags(file_name)
-    titles = [part.strip() for part in title.split(TITLE_SEPARATOR)]
-    if len(titles) < 2 or not file_name.startswith(title):
+    if not file_name.startswith(title):
         return []
     tags_and_extension = file_name[len(title) :]
-    unique_titles = list(dict.fromkeys(part for part in titles if part))
-    return [part + tags_and_extension for part in unique_titles[:MAX_TITLES]]
+    return [part + tags_and_extension for part in compute_titles(file_name)]
 
 
 def compute_file_extension(file_name: str) -> str:
