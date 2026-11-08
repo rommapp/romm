@@ -431,11 +431,12 @@ class RomLookups:
                 )
                 return await meta_moby_handler.get_rom_by_id(playmatch_rom["moby_id"])
 
+            platform_moby_id = self.platform.moby_id
             return await lookup_by_file_name(
                 MetadataSource.MOBY,
                 self.rom_attrs["fs_name"],
                 lambda name: meta_moby_handler.get_rom(
-                    self.rom, name, platform_moby_id=self.platform.moby_id
+                    self.rom, name, platform_moby_id=platform_moby_id
                 ),
             )
 
@@ -480,11 +481,12 @@ class RomLookups:
                         return game_by_hash
 
                 # Fallback to the filename
+                platform_ss_id = self.platform.ss_id
                 return await lookup_by_file_name(
                     MetadataSource.SS,
                     self.rom_attrs["fs_name"],
                     lambda name: meta_ss_handler.get_rom(
-                        self.rom, name, platform_ss_id=self.platform.ss_id
+                        self.rom, name, platform_ss_id=platform_ss_id
                     ),
                 )
             except ScreenScraperExhaustedError as exc:
