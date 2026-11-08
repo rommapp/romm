@@ -797,9 +797,11 @@ function stopScan() {
 
 /* Counter chips: sit in the middle grid track, right-aligned against
    the actions. Each chip has a min-width so 1 → 2 → 3-digit transitions
-   don't reflow neighbouring chips. */
+   don't reflow neighbouring chips. Chips never shrink below their content;
+   on narrow screens the row wraps instead. */
 .r-scan-live__counters {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 6px;
@@ -818,6 +820,7 @@ function stopScan() {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   min-width: 64px;
+  flex-shrink: 0;
 }
 .r-scan-live__chip--alt {
   background: color-mix(
