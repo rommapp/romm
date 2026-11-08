@@ -68,6 +68,27 @@ class TestReadConvertoInfos:
         assert rom_file.title_version == 65536
 
     @pytest.mark.asyncio
+    async def test_unrecognized_stored_row_is_marked_read(self, handler, mocker):
+        rom_file = RomFile(id=7, file_name="game.chd", file_path="psx/roms")
+        path = Path("/romm/library/psx/roms/game.chd")
+        _patch_service(mocker, mocker.AsyncMock(return_value={path: None}))
+
+        assert not await handler._read_converto_infos([(path, rom_file)])
+
+        assert rom_file.converto_read_at is not None
+        assert rom_file.title_id is None
+
+    @pytest.mark.asyncio
+    async def test_unrecognized_new_row_is_left_unmarked(self, handler, mocker):
+        rom_file = RomFile(file_name="game.chd", file_path="psx/roms")
+        path = Path("/romm/library/psx/roms/game.chd")
+        _patch_service(mocker, mocker.AsyncMock(return_value={path: None}))
+
+        await handler._read_converto_infos([(path, rom_file)])
+
+        assert rom_file.converto_read_at is None
+
+    @pytest.mark.asyncio
     async def test_no_sources_skip_the_subprocess(self, handler, mocker):
         read_infos = mocker.AsyncMock()
         _patch_service(mocker, read_infos)
