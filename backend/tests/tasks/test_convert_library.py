@@ -1,4 +1,6 @@
+import io
 import os
+import zipfile
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -17,7 +19,9 @@ from handler.filesystem import fs_rom_handler
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
+from tasks.manual import convert_library
 from tasks.manual.convert_library import ConvertLibraryTask
+from utils.zip_cache import ensure_zipfile_writable
 
 
 @pytest.fixture
@@ -102,6 +106,281 @@ async def _run(platform: Platform | None = None) -> dict[str, int]:
     return await ConvertLibraryTask().run(platform.id if platform else None)
 
 
+def _archive_rom(
+    library: Path, admin_user: User, platform: Platform, files: dict[str, bytes]
+) -> Rom:
+    data = io.BytesIO()
+    ensure_zipfile_writable()
+    with zipfile.ZipFile(data, "w") as archive:
+        for name, content in files.items():
+            archive.writestr(name, content)
+    rom = _rom(library, admin_user, platform, {"Game.zip": data.getvalue()})
+    db_rom_handler.update_rom(
+        rom.id,
+        {"fs_name": "Game.zip", "fs_name_no_ext": "Game", "fs_name_no_tags": "Game"},
+    )
+    db_rom_handler.update_rom_file(
+        rom.files[0].id,
+        {
+            "archive_members": [
+                {
+                    "name": name,
+                    "size": len(content),
+                    "crc_hash": "crc",
+                    "md5_hash": "md5",
+                    "sha1_hash": "sha1",
+                }
+                for name, content in files.items()
+            ]
+        },
+    )
+    return _reload(rom)
+
+
+@pytest.mark.parametrize(
+    ("slug", "members"),
+    [
+        ("psp", {"Game.iso": b"x" * 100}),
+        (
+            "psx",
+            {
+                "Game.cue": (
+                    b'FILE "Game (Track 1).bin" BINARY\n'
+                    b"  TRACK 01 MODE2/2352\n"
+                    b'FILE "Game (Track 2).bin" BINARY\n'
+                    b"  TRACK 02 AUDIO\n"
+                ),
+                "Game (Track 1).bin": b"x" * 50,
+                "Game (Track 2).bin": b"y" * 50,
+            },
+        ),
+    ],
+    ids=["iso", "cue-tracks"],
+)
+async def test_archive_is_replaced_and_keeps_its_id(
+    library: Path, admin_user: User, converto, converted, slug, members
+):
+    rom = _archive_rom(library, admin_user, make_platform(slug), members)
+    source = library / rom.full_path
+    size = source.stat().st_size
+
+    stats = await _run()
+
+    assert stats["converted"] == 1
+    assert stats["unsupported"] == 0
+    assert stats["bytes_saved"] == size - 1
+    assert not source.exists()
+    assert sorted(p.name for p in source.parent.iterdir()) == ["Game.chd"]
+    assert (source.parent / "Game.chd").read_bytes() == b"c"
+    assert [name for name, _ in converted] == ["Game.zip"]
+    assert converted[0][1].name == "Game.chd"
+    after = _reload(rom)
+    assert after.id == rom.id
+    assert after.fs_name == "Game.chd"
+    assert after.fs_extension == "chd"
+    assert [f.file_name for f in after.files] == ["Game.chd"]
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "unlisted",
+        "readme",
+        "two-cues",
+        "extra-track",
+        "duplicate-basename",
+        "untracked-file",
+        "separator-hidden-track",
+        "bom-cue",
+        "oversized-cue",
+        "cue-read-overflow",
+        "corrupt",
+        "listing-value-error",
+        "listing-unicode-error",
+        "filtered-member",
+        "size-changed",
+        "mtime-changed",
+    ],
+)
+async def test_unsafe_archive_is_unsupported(
+    library: Path, admin_user: User, converto, converted, case, mocker
+):
+    if case in (
+        "two-cues",
+        "extra-track",
+        "duplicate-basename",
+        "untracked-file",
+        "separator-hidden-track",
+        "bom-cue",
+        "oversized-cue",
+        "cue-read-overflow",
+    ):
+        slug = "psx"
+        members = {
+            "Game.cue": (
+                b'FILE "Game (Track 1).bin" BINARY\n'
+                b"  TRACK 01 MODE2/2352\n"
+                b'FILE "Game (Track 2).bin" BINARY\n'
+                b"  TRACK 02 AUDIO\n"
+            ),
+            "Game (Track 1).bin": b"x" * 50,
+            "Game (Track 2).bin": b"y" * 50,
+        }
+        if case == "two-cues":
+            members["Other.cue"] = (
+                b'FILE "Game (Track 1).bin" BINARY\n  TRACK 01 MODE2/2352\n'
+            )
+        elif case == "duplicate-basename":
+            track = members.pop("Game (Track 1).bin")
+            members["a/Game (Track 1).bin"] = track
+            members["b/Game (Track 1).bin"] = track
+        elif case in ("extra-track", "untracked-file", "separator-hidden-track"):
+            members["Game (Track 3).bin"] = b"z" * 50
+            if case == "untracked-file":
+                members["Game.cue"] += b'FILE "Game (Track 3).bin" BINARY\n'
+            elif case == "separator-hidden-track":
+                # The CLI reads \x1c as part of the word, so this is no TRACK to it.
+                members[
+                    "Game.cue"
+                ] += b'FILE "Game (Track 3).bin" BINARY\n\x1cTRACK 03 AUDIO\n'
+        elif case == "bom-cue":
+            # The CLI keeps a BOM, so it doesn't see the first FILE line.
+            members["Game.cue"] = "\ufeff".encode() + members["Game.cue"]
+    else:
+        slug = "psp"
+        members = {"Game.iso": b"x" * 100}
+        if case == "readme":
+            members["readme.txt"] = b"keep me"
+        elif case == "filtered-member":
+            members["dump.log"] = b"keep me"
+    rom = _archive_rom(library, admin_user, make_platform(slug), members)
+    source = library / rom.full_path
+    if case == "unlisted":
+        db_rom_handler.update_rom_file(rom.files[0].id, {"archive_members": None})
+    elif case == "filtered-member":
+        recorded = rom.files[0].archive_members
+        assert recorded is not None
+        db_rom_handler.update_rom_file(
+            rom.files[0].id,
+            {"archive_members": [m for m in recorded if m["name"] != "dump.log"]},
+        )
+    elif case == "size-changed":
+        before = source.stat()
+        source.write_bytes(source.read_bytes() + b"changed")
+        os.utime(source, ns=(before.st_atime_ns, before.st_mtime_ns))
+    elif case == "mtime-changed":
+        before = source.stat()
+        os.utime(source, ns=(before.st_atime_ns, before.st_mtime_ns + 2_000_000_000))
+    elif case == "corrupt":
+        source.write_bytes(b"not a zip")
+        db_rom_handler.update_rom_file(
+            rom.files[0].id,
+            {
+                "file_size_bytes": source.stat().st_size,
+                "last_modified": source.stat().st_mtime,
+            },
+        )
+    elif case in ("listing-value-error", "listing-unicode-error"):
+        error = (
+            UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid byte")
+            if case == "listing-unicode-error"
+            else ValueError("invalid archive listing")
+        )
+        mocker.patch(
+            "tasks.manual.convert_library.list_archive_members", side_effect=error
+        )
+    elif case == "oversized-cue":
+        mocker.patch("tasks.manual.convert_library._MAX_CUE_BYTES", 1)
+    elif case == "cue-read-overflow":
+        mocker.patch("tasks.manual.convert_library._MAX_CUE_BYTES", 1)
+        recorded = rom.files[0].archive_members
+        assert recorded is not None
+        db_rom_handler.update_rom_file(
+            rom.files[0].id,
+            {
+                "archive_members": [
+                    {**member, "size": 1} if member["name"] == "Game.cue" else member
+                    for member in recorded
+                ]
+            },
+        )
+    read_member = mocker.spy(convert_library, "read_archive_member")
+    original = source.read_bytes()
+
+    stats = await _run()
+
+    assert stats["unsupported"] == 1
+    assert stats["converted"] == 0
+    assert stats["failed"] == 0
+    assert converted == []
+    if case == "oversized-cue":
+        read_member.assert_not_called()
+    elif case == "cue-read-overflow":
+        read_member.assert_called_once_with(source, "Game.cue", 1)
+    assert source.read_bytes() == original
+    assert sorted(p.name for p in source.parent.iterdir()) == ["Game.zip"]
+    after = _reload(rom)
+    assert after.fs_name == "Game.zip"
+    assert [f.file_name for f in after.files] == ["Game.zip"]
+
+
+async def test_archive_changed_during_conversion_is_kept(
+    library: Path, admin_user: User, converto, converted, mocker
+):
+    rom = _archive_rom(
+        library, admin_user, make_platform("psp"), {"Game.iso": b"x" * 100}
+    )
+    source = library / rom.full_path
+    before = source.stat()
+    changed = source.read_bytes() + b"changed"
+    warning = mocker.patch("tasks.manual.convert_library.log.warning")
+
+    def convert(operation, src: Path, out: Path) -> None:
+        src.write_bytes(changed)
+        os.utime(src, ns=(before.st_atime_ns, before.st_mtime_ns + 2_000_000_000))
+        out.write_bytes(b"c")
+
+    mocker.patch.object(rom_converto_service, "convert", AsyncMock(side_effect=convert))
+
+    stats = await _run()
+
+    assert stats["converted"] == 1
+    assert stats["failed"] == 0
+    assert stats["bytes_saved"] == -1
+    assert source.read_bytes() == changed
+    assert sorted(p.name for p in source.parent.iterdir()) == ["Game.chd", "Game.zip"]
+    assert (source.parent / "Game.chd").read_bytes() == b"c"
+    assert _reload(rom).fs_name == "Game.chd"
+    # The file refresh afterwards may warn too, with no rom-converto binary in tests.
+    assert any(
+        "changed during the conversion" in call.args[0]
+        for call in warning.call_args_list
+    )
+
+
+async def test_archive_removed_during_conversion_is_not_reported(
+    library: Path, admin_user: User, converto, converted, mocker
+):
+    rom = _archive_rom(
+        library, admin_user, make_platform("psp"), {"Game.iso": b"x" * 100}
+    )
+    warning = mocker.patch("tasks.manual.convert_library.log.warning")
+
+    def convert(operation, src: Path, out: Path) -> None:
+        src.unlink()
+        out.write_bytes(b"c")
+
+    mocker.patch.object(rom_converto_service, "convert", AsyncMock(side_effect=convert))
+
+    stats = await _run()
+
+    assert stats["converted"] == 1
+    assert _reload(rom).fs_name == "Game.chd"
+    assert not any(
+        "could not delete" in call.args[0] for call in warning.call_args_list
+    )
+
+
 async def test_a_single_file_rom_is_replaced_and_keeps_its_id(
     library: Path, admin_user: User, converto, converted
 ):
@@ -124,7 +403,10 @@ async def test_a_cue_folder_becomes_one_chd_and_its_playlist_follows(
     library: Path, admin_user: User, converto, converted
 ):
     psx = make_platform("psx")
-    cue = 'FILE "game (Track 1).bin" BINARY\nFILE "game (Track 2).bin" BINARY\n'
+    cue = (
+        'FILE "game (Track 1).bin" BINARY\n  TRACK 01 MODE2/2352\n'
+        'FILE "game (Track 2).bin" BINARY\n  TRACK 02 AUDIO\n'
+    )
     rom = _rom(
         library,
         admin_user,
@@ -158,7 +440,7 @@ async def test_a_bom_cue_and_playlist_still_follow_the_conversion(
         admin_user,
         make_platform("psx"),
         {
-            "game.cue": bom + b'FILE "game.bin" BINARY\n',
+            "game.cue": bom + b'FILE "game.bin" BINARY\n  TRACK 01 MODE2/2352\n',
             "game.bin": b"x" * 50,
             "game.m3u": bom + b"./game.cue\n",
         },
@@ -307,7 +589,12 @@ async def test_a_cue_track_held_by_another_rom_is_not_deleted(
     library: Path, admin_user: User, converto, converted
 ):
     psx = make_platform("psx")
-    rom = _rom(library, admin_user, psx, {"game.cue": b'FILE "game.bin" BINARY\n'})
+    rom = _rom(
+        library,
+        admin_user,
+        psx,
+        {"game.cue": b'FILE "game.bin" BINARY\n  TRACK 01 MODE2/2352\n'},
+    )
     (library / rom.fs_path / "game.bin").write_bytes(b"x")
     make_rom(psx, "track", fs_stem="game", fs_extension="bin")
 
@@ -321,7 +608,7 @@ async def test_a_cue_track_held_by_another_rom_is_not_deleted(
 async def test_a_track_another_cue_shares_is_refused(
     library: Path, admin_user: User, converto, converted
 ):
-    track = b'FILE "game.bin" BINARY\n'
+    track = b'FILE "game.bin" BINARY\n  TRACK 01 MODE2/2352\n'
     rom = _rom(
         library,
         admin_user,
@@ -334,6 +621,36 @@ async def test_a_track_another_cue_shares_is_refused(
 
     assert stats["failed"] == 2
     assert converted == []
+    assert (library / rom.full_path / "game.bin").exists()
+
+
+@pytest.mark.parametrize(
+    "sibling",
+    [
+        pytest.param(
+            b'file "GAME.BIN" binary\n  track 01 mode2/2352\n', id="lowercase"
+        ),
+        pytest.param(b'FILE "game.bin" BINARY\n', id="untracked"),
+    ],
+)
+async def test_a_track_a_leniently_read_cue_shares_is_kept(
+    library: Path, admin_user: User, converto, converted, sibling: bytes
+):
+    rom = _rom(
+        library,
+        admin_user,
+        make_platform("psx"),
+        {
+            "disc 1.cue": b'FILE "game.bin" BINARY\n  TRACK 01 MODE2/2352\n',
+            "disc 2.cue": sibling,
+            "game.bin": b"x",
+        },
+        folder=True,
+    )
+
+    await _run()
+
+    assert (library / rom.full_path / "disc 1.cue").exists()
     assert (library / rom.full_path / "game.bin").exists()
 
 
