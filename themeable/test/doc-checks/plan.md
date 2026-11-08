@@ -82,14 +82,6 @@ Runtime `--validate-archive` on variants of `midnight`, each expected as stated:
 
 The proposed guide passes if every row matches. Note any row where the current guide is silent.
 
-### C10 Zipping on Windows (pack guide, "Zipping a pack")
-
-Needs a Windows guest. Look for one with `virsh -c qemu:///system list --all`. If none exists, mark **not run** and list it for the owner.
-
-- **Current:** `Compress-Archive -Path midnight -DestinationPath midnight.zip` in PowerShell.
-- **Steps:** in Windows PowerShell 5.1 and in PowerShell 7 if installed, zip `midnight/` that way, copy each archive to the lab VM, and run runtime `--validate-archive`. Outdated if the 5.1 archive is refused for "a backslash in the path".
-- **Proposed:** the PowerShell 7 command and the File Explorer route. Passes if both archives validate.
-
 ### C11 Adopting a release by hand (README, "Staying current with RomM")
 
 Local only: use a bare repository in the VM as `origin`, never GitHub.

@@ -65,7 +65,7 @@ For an upload, the pack's id comes from `theme.json`, not the archive's name, an
 
 Zip the pack's folder, then make sure the archive's name is the pack's id plus `.zip`.
 
-- **Windows:** in File Explorer, right-click the `midnight` folder and choose **Send to → Compressed (zipped) folder** (on Windows 11, **Compress to → ZIP File**). In PowerShell 7 (`pwsh`): `Compress-Archive -Path midnight -DestinationPath midnight.zip`. Windows PowerShell 5.1's `Compress-Archive` can write backslashes into the paths inside the archive, which RomM refuses; if Branding reports "a backslash in the path", zip the folder with File Explorer instead.
+- **Windows:** in File Explorer, right-click the `midnight` folder and choose **Send to → Compressed (zipped) folder** (on Windows 11, **Compress to → ZIP File**). If Branding reports "a backslash in the path", the tool that made the archive wrote Windows-style paths; zip the folder with File Explorer instead.
 - **macOS:** in Finder, right-click the folder and choose **Compress "midnight"**. The `__MACOSX` and `.DS_Store` entries Finder adds are ignored. In Terminal: `zip -r midnight.zip midnight -x '*.DS_Store'`.
 - **Linux:** right-click the folder in your file manager and choose **Compress**, picking `.zip`. In a terminal: `zip -r midnight.zip midnight`.
 
