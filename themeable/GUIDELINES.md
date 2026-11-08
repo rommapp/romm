@@ -15,7 +15,7 @@ The owner is Micaiah Fonken (GitHub `Stealthx3`). "Approval" below always means 
 
 | Branch | Holds | Rules |
 | --- | --- | --- |
-| `main` | The released fork: upstream RomM plus this module | Every push that touches the module builds and publishes `ghcr.io/stealthx3/romm-themeable:<ROMM_VERSION>` and `:latest`, so it only receives a finished release, merged with approval |
+| `main` | The released fork: upstream RomM plus this module | Every push that touches the module, other than docs-only changes, builds and publishes `ghcr.io/stealthx3/romm-themeable:<ROMM_VERSION>`, `:<module>-<ROMM_VERSION>` and `:latest`, so it only receives a finished release, merged with approval |
 | `upstream` | A clean copy of stock RomM release commits | Moved only by the `themeable upstream release` workflow. Never commit to it, and never use GitHub's **Sync fork** button |
 | `release/<version>` | Development of one release, for example `release/1.1.0-5.4.0` | Created from `main` when a plan starts; receives the phase pushes; tests, source check and visual check run on it, the image job doesn't |
 | `themeable-upstream/<tag>` | Automated adoption of an upstream release | Created and managed by the workflow; don't work on it by hand |
@@ -35,7 +35,7 @@ The module's own version (`<major>.<feature>.<fix>`) lives in `themeable/package
 
 ## Development plans
 
-- Each release starts from a written development plan, kept in `themeable/docs/plans/<version>.md` and in the claude.ai Project for this repository. The plan in the repository is the copy agents work from.
+- Each release starts from a written development plan in `themeable/docs/plans/<version>.md`, which is the copy agents work from. A plan drafted in the claude.ai Project for this repository is copied there when work starts; the Project holds drafts and these guidelines, not every plan.
 - Phases are built in the plan's order. Each phase ends with its checks passing, its documentation updated and a push request to the owner.
 - Anything the plan doesn't cover, or that it lists as deferred, waits for a later release. If work seems to need something outside the plan, stop and ask rather than widening the scope.
 - When a decision in the plan changes during the work, update the plan in the same commit as the change.
@@ -65,7 +65,7 @@ The long-term goal is for module development and downstream patching to run with
 ## Module conventions
 
 - **No dependencies.** The module runs on Node 20 or later with built-in modules only. Don't add npm packages to `themeable/`.
-- **Shared values have one home.** Ids, cookie and storage names, URL parameters and preview slots live in `themeable/lib/client.mjs` and reach the browser files through the manifest. Reserved ids (`none`, `default`, and `random` from 1.1.0) are defined there only.
+- **Shared values have one home.** Ids, cookie and storage names, URL parameters and preview slots live in `themeable/lib/client.mjs` and reach the browser files through the manifest. The loader's special ids (`none`, `default` and `random`) are defined there only, and `themeable/lib/pack.mjs` builds the reserved-id list from them plus `index` and `stock`.
 - **Never leave the server worse off.** Compiles build into a new folder and switch over with one atomic rename, under the compile lock and timeout. Anything that changes the themes folder (upload, rename, delete, convert) validates first, swaps in atomically and restores the previous state if the compile fails.
 - **Uploaded and host-provided packs are untrusted.** Check sizes, entry counts, compression ratios and paths before reading anything, and keep every path inside its pack.
 - **Built-in themes stay original.** Artwork in built-in packs is made for this project; don't copy existing logos, characters or other people's artwork into them.

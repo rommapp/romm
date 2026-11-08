@@ -64,9 +64,9 @@ Releases are numbered `<major>.<feature>.<fix>-<RomM version>`:
 | `fix` | a bug-fix or optimization update ships |
 | `RomM version` | names the RomM release the fork is built on, as in [`themeable/ROMM_VERSION`](../themeable/ROMM_VERSION) |
 
-When a number goes up, the numbers to its right go back to 0. For example, `1.1.0-5.4.0` is the first feature update on top of RomM 5.4.0. A bug fix to it would be `1.1.1-5.4.0`, and adopting RomM 5.5.0 next would make it `2.0.0-5.5.0`.
+When a number goes up, the numbers to its right go back to 0. For example, `2.0.5-5.4.1` is the fifth fix release on top of RomM 5.4.1, the second RomM release the fork adopted. The next feature update would be `2.1.0-5.4.1`, and adopting RomM 5.5.0 after that would make it `3.0.0-5.5.0`.
 
-The module's own version lives in [`themeable/package.json`](../themeable/package.json). Container images are tagged with the RomM version they are built on (`ghcr.io/stealthx3/romm-themeable:5.4.1`), with the full release (`:2.0.1-5.4.1`), and `:latest` for the newest.
+The module's own version lives in [`themeable/package.json`](../themeable/package.json). Container images are tagged with the RomM version they are built on (`ghcr.io/stealthx3/romm-themeable:5.4.1`), with the full release (`:<module>-<RomM>`, for example `:2.0.5-5.4.1`), and `:latest` for the newest.
 
 ## Getting started
 

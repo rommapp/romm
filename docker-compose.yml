@@ -11,7 +11,7 @@ volumes:
 
 services:
   romm:
-    # Tagged with the RomM release it is built from. :<module>-<RomM> (e.g. 2.0.1-5.4.1) pins one
+    # Tagged with the RomM release it is built from. :<module>-<RomM> (e.g. 2.0.5-5.4.1) pins one
     # module release, and :latest follows main.
     image: ghcr.io/stealthx3/romm-themeable:5.4.1
     # To build on this machine instead, uncomment this and run `docker compose up -d --build`:

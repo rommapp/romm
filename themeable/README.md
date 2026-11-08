@@ -1,12 +1,8 @@
 # RomM Themeable
 
-Release versioning for this downstream fork should operate as follows:
-
-`<+1 for each RomM release>.<+1 for each feature update>.<+1 for any bugfix or optimization updates>-<RomM Version>`
-
 A theme and artwork module for [RomM](https://github.com/rommapp/romm). Theme packs restyle RomM's interface: colors for light and dark mode, fonts, spacing, corner radius, motion, the logo and wordmark, login backgrounds, placeholder covers for games without one, platform and provider icons, browser tab icons, and any extra CSS a pack brings. Packs are `.zip` archives in a folder on the host, and admins choose the server's theme in **Administration → Branding**.
 
-The module sits beside RomM's code instead of inside it. Everything it owns lives in this `themeable/` folder, plus the `themeable*` workflows in `.github/workflows/`, `.github/README.md`, which GitHub shows as this repository's front page, the root `CLAUDE.md`, and the root `docker-compose.yml`, which on this branch deploys romm-themeable. Each stock RomM release is merged in, checked and rebuilt automatically, so adopting a new release needs an audit, not a code merge.
+The module sits beside RomM's code instead of inside it. Everything it owns lives in this `themeable/` folder, plus the `themeable*` workflows in `.github/workflows/`, `.github/README.md`, which GitHub shows as this repository's front page, the root `CLAUDE.md`, and the root `docker-compose.yml`, which on this branch deploys romm-themeable. Each stock RomM release is merged in, checked and rebuilt automatically, so adopting a new release needs an audit, not a code merge. Releases are numbered `<major>.<feature>.<fix>-<RomM version>`, as set out in [`GUIDELINES.md`](GUIDELINES.md#versions).
 
 ## Contents
 
@@ -23,21 +19,21 @@ The module sits beside RomM's code instead of inside it. Everything it owns live
 
 ## Deploying
 
-The root [`docker-compose.yml`](../docker-compose.yml) deploys romm-themeable with MariaDB. It pins the image and database versions, health-checks both containers, rotates their logs, and marks every value you must fill in as `REQUIRED`. Settings are written in the file itself, as in upstream's example. Upstream's development stack, which normally lives in that file, stays on the `upstream` branch with `DEVELOPER_SETUP.md`.
+The root [`docker-compose.yml`](../docker-compose.yml) deploys romm-themeable with MariaDB. It pins the image and database versions, health-checks both containers, rotates their logs, and marks every value you must fill in as `REQUIRED`. Settings are written in the file itself, as in upstream's example. Upstream's development stack, which normally lives in that file, is on the `upstream` branch; RomM's own `DEVELOPER_SETUP.md`, kept unedited at the root, describes that version.
 
 The parts that differ from stock RomM:
 
 ```yaml
 services:
   romm:
-    image: ghcr.io/stealthx3/romm-themeable:5.4.1 # or :2.0.1-5.4.1, or :latest
+    image: ghcr.io/stealthx3/romm-themeable:5.4.1 # or :<module>-5.4.1, or :latest
     volumes:
       - /path/to/themes:/romm/themes # theme packs, one .zip each, plus themeable.json
 ```
 
 **First start:** replace every `/path/to/...` with a folder on the host, fill in every `REQUIRED` value (`openssl rand -hex 32` makes a good secret), run `docker compose up -d` from the clone's root, and open `http://<host>/` to create the admin account. The themes folder must be writable, because Branding saves its choice there.
 
-**Upgrading:** back up the database, set the image tag to the new RomM release, then run `docker compose pull && docker compose up -d`. The tag in the compose file always matches [`ROMM_VERSION`](ROMM_VERSION); the release workflow updates both. Each image is tagged three ways: with the RomM release it is built from (`:5.4.1`, which moves to each module release on that RomM release), with the full release (`:2.0.1-5.4.1`, which never moves), and `:latest`.
+**Upgrading:** back up the database, set the image tag to the new RomM release, then run `docker compose pull && docker compose up -d`. The tag in the compose file always matches [`ROMM_VERSION`](ROMM_VERSION); the release workflow updates both. Each image is tagged three ways: with the RomM release it is built from (`:5.4.1`, which moves to each module release on that RomM release), with the full release (`:<module>-<RomM>`, for example `:2.0.5-5.4.1`, which never moves), and `:latest`.
 
 **Building the image yourself:** uncomment the `build:` block in the compose file and run `docker compose up -d --build`, or build directly from the repository root:
 
@@ -66,7 +62,7 @@ The toggles on the Random entry choose which groups it draws from: **RomM defaul
 
 Choose a theme and click **Save changes**. The choice is stored in `themeable.json` in the themes folder and every pack is recompiled from the folder, so edits made on the host take effect on save. The refresh button rescans the folder without changing the choice. A choice or Random toggle you haven't saved yet stays on screen while you upload, rename or delete packs. Everyone who hasn't picked a theme of their own gets the server's theme on their next page load.
 
-**Uploading a pack:** drop a `.zip` on **Upload a theme pack**, or click it to choose one. The page refuses anything that isn't a `.zip` or is over the size limit (`THEMEABLE_MAX_UPLOAD_MB`, 20 MB by default) before sending it. The server stores the upload in a temporary file, cutting it off at the limit, and checks it exactly as a compile would: the archive limits, paths, `theme.json` and every file it names. A pack with problems is refused with each one listed, and nothing is written. A pack that passes is installed as `<id>.zip`, with the id taken from its `theme.json`, not the file name, and every pack is recompiled; if that compile fails, the themes folder is left as it was. If a pack with that id is already in the themes folder, Branding asks before replacing it. A built-in pack can't be replaced by an upload; to change one, upload your copy under a new id.
+**Uploading a pack:** drop a `.zip` on **Upload a theme pack**, or click it to choose one. The page refuses anything that isn't a `.zip` or is over the size limit (`THEMEABLE_MAX_UPLOAD_MB`, 20 MB by default) before sending it. The server stores the upload in a temporary file, cutting it off at the limit, and checks it exactly as a compile would: the archive limits, paths, `theme.json` and every file it names. A pack with problems is refused with each one listed, and nothing is written. A pack that passes is installed as `<id>.zip`, with the id taken from its `theme.json`, not the file name, and every pack is recompiled; if that compile fails, the themes folder is left as it was. If a pack with that id is already in the themes folder, Branding asks before replacing it. A built-in pack can't be replaced by an upload; to change one, upload your copy under a new id. (A `.zip` with a built-in pack's id copied into the themes folder by hand does replace it, as described under [Built-in themes](#built-in-themes).)
 
 **Renaming and deleting packs:** **Rename…** changes a pack's display name; the id stays the same, so the server's theme, browsers' choices and preview links keep working. For a pack in the themes folder it rewrites the `theme.json` inside the archive. For a built-in pack the name is saved in `themeable.json`, and **Reset name** in the same menu brings back the shipped one. **Delete…** removes a pack's archive after you type its id to confirm. Deleting a built-in pack hides it for everyone instead, including after upgrades, and **Restore built-in packs** shows every hidden one again. If the deleted pack was the server's theme, the server switches to RomM default, and browsers that picked it follow the server's theme. RomM default and Random can never be renamed or deleted. Every change runs under the compile lock and only touches the themes folder once its compile has succeeded.
 
@@ -98,7 +94,7 @@ These ship in the image, ready to choose without adding anything to the themes f
 | `contrast-light` | Accessibility | Black on white with heavy borders; AAA text contrast and no motion |
 | `signal` | Accessibility | Blue for success and orange for danger, so state never rests on red against green; AAA text contrast and no motion |
 
-Every built-in pack replaces the logo, wordmark, loading logo, login background (animated, with a still version for Firefox and reduced motion) and every browser tab icon, and sets colors for both modes and for RomM's older v1 interface. The accessibility packs use the still background in both slots, a 3 px focus ring (thicker for keyboard and gamepad) and solid text colors at 7:1 or better; the two High Contrast packs keep one palette in both modes. Unit tests check that every built-in pack keeps 3:1 under white button text and a wordmark color at 3:1 on both its pages, and that the accessibility packs keep their text at 7:1. Their artwork is original. A pack in the themes folder with the same id replaces a built-in one, and copying one under a new id is a quick way to start a theme of your own.
+Every built-in pack replaces the logo, wordmark, loading logo, login background (animated, with a still version for Firefox and reduced motion) and every browser tab icon, and sets colors for both modes and for RomM's older v1 interface. The accessibility packs use the still background in both slots, a 3 px focus ring (thicker for keyboard and gamepad) and solid text colors at 7:1 or better; the two High Contrast packs keep one palette in both modes. Unit tests check that every built-in pack keeps 3:1 under white button text and a wordmark color at 3:1 on both its pages, and that the accessibility packs keep their text at 7:1. Their artwork is original. A `.zip` with a built-in pack's id copied into the themes folder by hand replaces that built-in pack, though Branding refuses one as an upload. Copying a built-in pack under a new id is a quick way to start a theme of your own.
 
 ## Writing a pack
 
@@ -132,19 +128,19 @@ Four workflows keep the module current and leave a pull request trail to audit:
 
 | Workflow | Runs | Does |
 | --- | --- | --- |
-| `themeable` | Every push to `main` or a `release/**` branch, and every pull request to `main` | Unit tests, compatibility check, then the source and visual checks; on a push to `main`, builds the image, smoke-tests it (start-up compile, theme links, patched files, nginx config) and publishes `ghcr.io/stealthx3/romm-themeable:<ROMM_VERSION>`, `:<module version>-<ROMM_VERSION>` and `:latest`. A follow-up job then checks that every tag points at that build for amd64 and arm64, and deploys it with the root `docker-compose.yml` (`scripts/verify-deployment.mjs`). When any job fails on `main`, a report job opens or updates the issue "themeable: the main build is failing" with each failed job's failing tests and errors (`scripts/failure-report.mjs`); it needs issues enabled on the repository, and otherwise leaves the report in the run's summary |
+| `themeable` | Every push to `main` or a `release/**` branch that touches `themeable/`, the `themeable*` workflows, `frontend/`, `backend/main.py` or `docker/nginx/` (docs-only changes under `themeable/docs/` and Markdown files in `themeable/` are skipped), and every pull request to `main` | Unit tests, compatibility check, then the source and visual checks; on a push to `main`, builds the image, smoke-tests it (start-up compile, theme links, patched files, nginx config) and publishes `ghcr.io/stealthx3/romm-themeable:<ROMM_VERSION>`, `:<module version>-<ROMM_VERSION>` and `:latest`. A follow-up job then checks that every tag points at that build for amd64 and arm64, and deploys it with the root `docker-compose.yml` (`scripts/verify-deployment.mjs`). When any job fails on `main`, a report job opens or updates the issue "themeable: the main build is failing" with each failed job's failing tests and errors (`scripts/failure-report.mjs`); it needs issues enabled on the repository, and otherwise leaves the report in the run's summary |
 | `themeable upstream release` | Hourly, or by hand with a tag | When RomM publishes a stable release: moves `upstream` to the release commit, merges the tag into a `themeable-upstream/<tag>` branch, runs the compatibility check, refreshes the catalog and the example pack, bumps `ROMM_VERSION`, the module's major version in `package.json` and the compose file's image tag, runs the visual and source checks against the new release, and opens a pull request with the reports. If everything passes it merges, which publishes the new image; otherwise it stays open as "needs attention" |
 | `themeable visual check` | Called by the other two | Builds the frontend with the overlay and patches, then loads the login screen for the stock look, every built-in pack (served from archives, as in the image) and one archive pack in the themes folder in dark and light mode, failing if a pack's tokens, artwork, inlined artwork or tab icons didn't apply or it looks identical to stock, and checks that Random deals a different pack on each of four loads with matching artwork and tab icons. Screenshots are kept for 90 days |
 | `themeable source check` | Called by the other two | Lints, type-checks and unit-tests the patched frontend, and runs the Branding API tests against MariaDB with the patched backend |
 
 The repository has two long-lived branches. `upstream` is a clean copy of RomM: it holds nothing but upstream release commits and moves only when a stable release is published; prereleases and manual runs with other tags leave it alone, and GitHub's **Sync fork** button shouldn't be used. `main` holds this project's changes on top of RomM, and every release is merged into it. When a release changes upstream's root `docker-compose.yml`, the merge keeps `main`'s version. The root `README.md` is RomM's own, unedited, so upstream's changes to it merge cleanly. Any other merge conflict, or a missing token, opens an issue instead. Setting the repository variable `THEMEABLE_AUTO_MERGE` to `false` holds every adoption for review.
 
-To adopt a release by hand:
+To adopt a release by hand, work on a branch and let `main` receive it only as an approved merge, as [`GUIDELINES.md`](GUIDELINES.md) requires:
 
-1. Merge the release tag into `main`, keeping its root `docker-compose.yml` if it conflicts.
+1. Create `themeable-upstream/<tag>` from `main` and merge the release tag into it, keeping `main`'s root `docker-compose.yml` if it conflicts.
 2. Run `npm run check-upstream` for the report of added, removed and renamed tokens and artwork, and any pack, hook or patch that would break.
 3. Record token renames in `catalog/token-aliases.json` (`{"--r-old": "--r-new"}`); packs using an old name keep compiling, with a warning.
-4. Run `npm run catalog` and `npm run example`, set `ROMM_VERSION` and the compose file's image tag to the release, raise the major version in `package.json` (resetting the other two numbers to 0), and push.
+4. Run `npm run catalog` and `npm run example`, set `ROMM_VERSION` and the compose file's image tag to the release, raise the major version in `package.json` (resetting the other two numbers to 0), push the branch and open a pull request to `main`. Its checks run on the pull request, and merging it, with the owner's approval, publishes the image.
 
 ## Developing the module
 
@@ -159,7 +155,7 @@ Everything runs from `themeable/` with Node 20 or later and no dependencies to i
 | `overlay/`, `patches/` | Files added to RomM's source, and anchored edits to its existing files |
 | `catalog/` | RomM's tokens, replaceable files and CSS artwork references for the current release, plus token aliases |
 | `docker/` | The Dockerfile and entrypoint |
-| `schema/`, `docs/` | The pack schema, the authoring guide, the full example pack and the hooks diagram |
+| `schema/`, `docs/` | The pack schema, the authoring guide, the full example pack, the hooks diagram, the landing page's screenshots (`docs/images/`) and each release's development plan (`docs/plans/`) |
 | `test/`, `dev/` | Unit and visual tests, and the local preview server |
 
 | Command | Does |
@@ -225,7 +221,9 @@ One-time settings for unattended running:
 
 1. **Default branch:** set it to `main`. Scheduled workflows only run from the default branch, and the landing page then shows this module.
 2. **Bot token:** create a fine-grained personal access token for this repository with Contents, Pull requests and Workflows set to read and write, and save it as the Actions secret `THEMEABLE_BOT_TOKEN`. GitHub's built-in token can't push the workflow-file changes most upstream releases include. Renew it before it expires; the workflow opens an issue when it's missing.
-3. **Upstream's scheduled workflows:** disable upstream's `build.yml`, `image-scan.yml`, `trunk-check-all.yml`, `trunk-upgrade.yml` and `update-hltb-api-url.yml` under Actions. They run on schedules once `main` is the default branch and fail without upstream's secrets; disabling them leaves the files untouched, so merges stay clean.
+3. **Issues:** enable them under Settings → General. The `themeable` workflow files its failure reports as issues, and the upstream workflow opens one when its token is missing.
+4. **Protect `main`:** add a branch protection rule or ruleset that requires the `themeable` checks, so nothing reaches `main` without them.
+5. **Upstream's scheduled workflows:** disable upstream's `build.yml`, `image-scan.yml`, `trunk-check-all.yml`, `trunk-upgrade.yml` and `update-hltb-api-url.yml` under Actions. They run on schedules once `main` is the default branch and fail without upstream's secrets; disabling them leaves the files untouched, so merges stay clean.
 
 GitHub pauses scheduled workflows after 60 days without repository activity; each adopted release counts as activity.
 
