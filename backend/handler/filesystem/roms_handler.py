@@ -679,21 +679,31 @@ class FSRomsHandler(FSHandler):
             and await rom_converto_service.is_enabled()
         )
 
-    async def _read_converto_infos(self, sources: list[tuple[Path, RomFile]]) -> None:
-        """Record the read time on every inspected file, and its title id where recognized."""
+    async def _read_converto_infos(self, sources: list[tuple[Path, RomFile]]) -> bool:
+        """Write title ids onto recognized files and mark stored rows it couldn't read.
+
+        Returns:
+            Whether any file was recognized.
+        """
         if not sources:
-            return
+            return False
         infos = await rom_converto_service.read_infos([p for p, _ in sources])
         read_at = datetime.now(timezone.utc)
+        recognized = False
         for path, rom_file in sources:
             if path not in infos:
                 continue
-            rom_file.converto_read_at = read_at
             info = infos[path]
             if info is None:
+                # A stored row already carries its ids, so the mark can't blank one.
+                if rom_file.id is not None:
+                    rom_file.converto_read_at = read_at
                 continue
             rom_file.title_id = info.title_id
             rom_file.title_version = info.title_version
+            rom_file.converto_read_at = read_at
+            recognized = True
+        return recognized
 
     async def get_rom_files(
         self,
@@ -1083,7 +1093,7 @@ class FSRomsHandler(FSHandler):
                 rom_file.category,
             )
         ]
-        await self._read_converto_infos(converto_sources)
+        converto_recognized = await self._read_converto_infos(converto_sources)
 
         # Same bytes parse to the same ids, and the stored rows already hold
         # what an earlier parse settled, categories included.
@@ -1093,11 +1103,17 @@ class FSRomsHandler(FSHandler):
             and (flat_reused or len(stored_categories) == len(rom_files))
         )
         # Only sigil writes a save target layout, so one marks a completed read.
+        # A Switch file sigil left without an id has no category settled yet.
         reuse_title_ids = (
             reuse_title_ids
             and files_unchanged
+            and not converto_recognized
             and bool(rom.title_id)
             and (rom.save_target_layout is not None or not sigil_platform)
+            and (
+                not is_switch
+                or all(source.rom_file.title_id for source in title_id_sources)
+            )
         )
         if reuse_title_ids:
             for rom_file in rom_files:

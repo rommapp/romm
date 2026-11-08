@@ -302,6 +302,21 @@ class TestReadInfos:
             }
 
     @pytest.mark.parametrize(
+        "record",
+        [
+            pytest.param({"path": "/roms/game.iso", "ok": True}, id="ok-without-info"),
+            pytest.param({"path": "/roms/game.iso", "info": {}}, id="no-ok"),
+        ],
+    )
+    async def test_malformed_records_are_left_out(
+        self, service: RomConvertoService, record: dict
+    ):
+        with patch.object(
+            rom_converto, "_run", return_value=(0, json.dumps([record]), "")
+        ):
+            assert await service.read_infos([Path("/roms/game.iso")]) == {}
+
+    @pytest.mark.parametrize(
         "path",
         [
             pytest.param(Path("/roms/bad\nname.iso"), id="newline"),

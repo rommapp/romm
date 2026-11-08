@@ -8,6 +8,7 @@ import pytest
 from tests.factories import make_platform, make_rom
 
 from adapters.services.rom_converto import (
+    RomConvertoInfo,
     RomConvertoTimeoutError,
     rom_converto_service,
 )
@@ -522,7 +523,10 @@ async def test_unchanged_switch_rom_keeps_its_settled_categories(
 ):
     rom = _sigil_rom("switch", admin_user, library, title_id="0100ABCD12340000")
     for rom_file in rom.files:
-        db_rom_handler.update_rom_file(rom_file.id, {"category": RomFileCategory.DLC})
+        db_rom_handler.update_rom_file(
+            rom_file.id,
+            {"category": RomFileCategory.DLC, "title_id": "0100ABCD12341001"},
+        )
     rom = _reload(rom.id)
 
     result = await refresh_rom_files(rom)
@@ -552,3 +556,36 @@ async def test_a_file_rom_converto_did_not_recognize_is_not_sent_again(
     stored = _files_by_name(rom.id)["game.iso"]
     assert stored.converto_read_at is not None
     assert stored.title_id is None
+
+
+async def test_a_switch_file_sigil_left_without_an_id_is_parsed(
+    admin_user, library, extract_title_id
+):
+    rom = _sigil_rom("switch", admin_user, library, title_id="0100ABCD12340000")
+    db_rom_handler.update_rom_file(rom.files[0].id, {"title_id": "0100ABCD12340000"})
+
+    await refresh_rom_files(_reload(rom.id))
+
+    extract_title_id.assert_awaited()
+
+
+async def test_a_fresh_rom_converto_id_is_reconciled(
+    admin_user, library, extract_title_id, mocker
+):
+    rom = _sigil_rom("psx", admin_user, library, title_id="SLUS-00001")
+    mocker.patch.object(fs_rom_handler, "converto_active", AsyncMock(return_value=True))
+    mocker.patch.object(rom_converto_service, "_info_extensions", frozenset({".nsp"}))
+    mocker.patch.object(
+        rom_converto_service,
+        "read_infos",
+        AsyncMock(
+            side_effect=lambda paths: {
+                p: RomConvertoInfo(title_id="SLUS-00002", title_version=None)
+                for p in paths
+            }
+        ),
+    )
+
+    await refresh_rom_files(rom)
+
+    extract_title_id.assert_awaited()

@@ -589,7 +589,9 @@ class RomConvertoService:
             if record.get("ok") and isinstance(payload, dict):
                 infos[Path(str(record.get("path")))] = _parse_info(payload)
             else:
-                infos[Path(str(record.get("path")))] = None
+                # Only an explicit miss is a read; a malformed record is retried.
+                if record.get("ok") is False:
+                    infos[Path(str(record.get("path")))] = None
                 log.debug(
                     f"rom-converto did not recognize {record.get('path')}: "
                     f"{record.get('error')}"
