@@ -23,6 +23,8 @@ from models.base import (
     compute_file_extension,
     compute_file_name_no_ext,
     compute_file_name_no_tags,
+    compute_title_file_names,
+    compute_titles,
 )
 from utils.filesystem import (
     LINK_FALLBACK_ERRNOS,
@@ -520,6 +522,12 @@ class FSHandler:
 
     def get_file_name_with_no_tags(self, file_name: str) -> str:
         return compute_file_name_no_tags(file_name)
+
+    def get_title_file_names(self, file_name: str) -> list[str]:
+        return compute_title_file_names(file_name)
+
+    def get_titles(self, file_name: str) -> list[str]:
+        return compute_titles(file_name)
 
     def parse_file_extension(self, file_name: str) -> str:
         return compute_file_extension(file_name)
