@@ -1,2 +1,4 @@
 dist/
 node_modules/
+test/doc-checks/results/
+test/doc-checks/proposed.bundle

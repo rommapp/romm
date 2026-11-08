@@ -50,7 +50,7 @@ The module's own version (`<major>.<feature>.<fix>`) lives in `themeable/package
 
 ## Staying independent of upstream
 
-- Everything the module owns lives in `themeable/`, plus the `themeable*` workflows in `.github/workflows/`, `.github/README.md` (the fork's landing page, which GitHub shows in place of the root README), the root `docker-compose.yml` and the root `CLAUDE.md`. The root `README.md` is RomM's own and stays unedited. Keep it that way: new module files go in `themeable/`.
+- Everything the module owns lives in `themeable/`, plus the `themeable*` workflows in `.github/workflows/`, `.github/README.md` (the fork's landing page, which GitHub shows in place of the root README), the root `docker-compose.yml`, the root `CLAUDE.md` and the `themeable-*` agents in `.claude/agents/`. The root `README.md` is RomM's own and stays unedited. Keep it that way: new module files go in `themeable/`.
 - Change RomM's own files only through `themeable/overlay/` (new files) and `themeable/patches/` (anchored edits), applied at build time. Don't edit upstream files in place, so each RomM release merges cleanly.
 - Each upstream release is adopted by the `themeable upstream release` workflow: merge, compatibility check, catalog and example refresh, visual and source checks. Fixes for a release that breaks the module go into the module, not into upstream's code.
 
