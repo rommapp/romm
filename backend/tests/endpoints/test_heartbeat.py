@@ -389,7 +389,9 @@ def test_get_setup_library_info_walks_when_platforms_have_no_roms(
     ]
 
 
-def test_get_setup_library_info_resolves_folder_aliases(client, admin_user, access_token):
+def test_get_setup_library_info_resolves_folder_aliases(
+    client, admin_user, access_token
+):
     """A folder alias reports the platform slug it resolves to, next to its folder name."""
     with (
         patch(

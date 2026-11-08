@@ -307,6 +307,7 @@ async def get_setup_library_info(request: Request) -> SetupLibraryResponse:
         )
 
     library_ready = fs_platform_handler.library_structure_exists()
+    config = cm.get_config()
 
     # The per-platform rom counts below are a first-run hint, so a fresh
     # instance can show what RomM already sees on disk. Once the database
@@ -315,7 +316,7 @@ async def get_setup_library_info(request: Request) -> SetupLibraryResponse:
     if db_stats_handler.get_roms_count() > 0:
         return {
             "library_ready": library_ready,
-            "library_structure": cm.get_config().default_structure_pattern,
+            "library_structure": config.default_structure_pattern,
             "existing_platforms": [],
             "supported_platforms": get_supported_platforms(),
         }
@@ -359,7 +360,7 @@ async def get_setup_library_info(request: Request) -> SetupLibraryResponse:
             existing_platforms.append(
                 {
                     "fs_slug": fs_slug,
-                    "slug": resolve_platform_slug(fs_slug, cm.get_config()),
+                    "slug": resolve_platform_slug(fs_slug, config),
                     "rom_count": rom_count,
                 }
             )
@@ -369,7 +370,7 @@ async def get_setup_library_info(request: Request) -> SetupLibraryResponse:
 
     return {
         "library_ready": library_ready,
-        "library_structure": cm.get_config().default_structure_pattern,
+        "library_structure": config.default_structure_pattern,
         "existing_platforms": existing_platforms,
         "supported_platforms": supported_platforms,
     }
