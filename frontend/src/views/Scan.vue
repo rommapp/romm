@@ -795,10 +795,8 @@ function stopScan() {
   }
 }
 
-/* Counter chips: sit in the middle grid track, right-aligned against
-   the actions. Each chip has a min-width so 1 → 2 → 3-digit transitions
-   don't reflow neighbouring chips. Chips never shrink below their content;
-   on narrow screens the row wraps instead. */
+/* Chip min-width keeps 1 → 2 → 3-digit transitions from reflowing
+   neighbours; an explicit min-width also disables the flex content floor. */
 .r-scan-live__counters {
   display: inline-flex;
   flex-wrap: wrap;
