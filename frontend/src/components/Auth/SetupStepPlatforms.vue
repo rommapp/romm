@@ -72,8 +72,7 @@ const supportedBySlug = computed(
   () => new Map(props.libraryInfo.supported_platforms.map((p) => [p.slug, p])),
 );
 
-// One row per folder: an alias folder keeps its own name and rom count
-// rather than the platform's canonical fs_slug.
+// One row per folder, so an alias folder shows its own name and rom count.
 const detectedPlatforms = computed<Array<Platform & { unidentified: boolean }>>(
   () => {
     if (!props.libraryInfo.library_ready) return [];
