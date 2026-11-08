@@ -218,11 +218,10 @@ def test_get_setup_library_info_reports_a_ready_library(client, access_token):
                 data = response.json()
 
                 assert data["library_ready"] is True
-                assert len(data["existing_platforms"]) == 2
-                assert data["existing_platforms"][0]["fs_slug"] == "n64"
-                assert data["existing_platforms"][0]["rom_count"] == 2
-                assert data["existing_platforms"][1]["fs_slug"] == "psx"
-                assert data["existing_platforms"][1]["rom_count"] == 1
+                assert data["existing_platforms"] == [
+                    {"fs_slug": "n64", "slug": "n64", "rom_count": 2},
+                    {"fs_slug": "psx", "slug": "psx", "rom_count": 1},
+                ]
                 assert "supported_platforms" in data
 
 
@@ -266,9 +265,9 @@ def test_get_setup_library_info_counts_one_platform(client, admin_user, access_t
                 data = response.json()
 
                 assert data["library_ready"] is True
-                assert len(data["existing_platforms"]) == 1
-                assert data["existing_platforms"][0]["fs_slug"] == "gba"
-                assert data["existing_platforms"][0]["rom_count"] == 3
+                assert data["existing_platforms"] == [
+                    {"fs_slug": "gba", "slug": "gba", "rom_count": 3}
+                ]
 
 
 def test_get_setup_library_info_no_library_yet(client, admin_user, access_token):
