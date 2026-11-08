@@ -3,7 +3,8 @@ name: themeable
 on:
   push:
     branches: [main, "release/**"]
-    paths: ["themeable/**", ".github/workflows/themeable*.yml", "frontend/**", "backend/main.py", "docker/nginx/**"]
+    # Docs-only pushes don't build or publish an image; pull requests still run every check.
+    paths: ["themeable/**", ".github/workflows/themeable*.yml", "frontend/**", "backend/main.py", "docker/nginx/**", "!themeable/docs/**", "!themeable/**/*.md"]
   pull_request:
     branches: [main]
   workflow_dispatch:
