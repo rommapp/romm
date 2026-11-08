@@ -222,7 +222,8 @@ class TestReadInfos:
         assert infos == {
             Path("/roms/game.nsp"): RomConvertoInfo(
                 title_id="0100ABCD12345000", title_version=65536
-            )
+            ),
+            Path("/roms/junk.bin"): None,
         }
 
     async def test_splits_paths_into_runs_of_the_run_limit(
@@ -291,14 +292,14 @@ class TestReadInfos:
         ):
             assert await service.read_infos([Path("/roms/game.iso")]) == {}
 
-    async def test_unrecognized_files_return_an_empty_dict(
-        self, service: RomConvertoService
-    ):
+    async def test_unrecognized_files_map_to_none(self, service: RomConvertoService):
         records = [{"path": "/roms/game.iso", "ok": False, "error": "could not detect"}]
         with patch.object(
             rom_converto, "_run", return_value=(0, json.dumps(records), "")
         ):
-            assert await service.read_infos([Path("/roms/game.iso")]) == {}
+            assert await service.read_infos([Path("/roms/game.iso")]) == {
+                Path("/roms/game.iso"): None
+            }
 
     @pytest.mark.parametrize(
         "path",

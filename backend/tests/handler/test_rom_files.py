@@ -5,12 +5,13 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from tests.factories import make_rom
+from tests.factories import make_platform, make_rom
 
 from adapters.services.rom_converto import (
     RomConvertoTimeoutError,
     rom_converto_service,
 )
+from adapters.services.sigil import SigilExtractionResult, SigilService
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.filesystem.roms_handler import ParsedRomFiles, category_for_path_parts
@@ -426,3 +427,101 @@ async def test_failed_info_run_keeps_stored_title_ids(platform, library, mocker)
     assert stored.id == file_id
     assert stored.file_size_bytes == st.st_size
     assert {column: getattr(stored, column) for column in metadata} == metadata
+
+
+@pytest.fixture
+def extract_title_id(mocker):
+    mocker.patch.object(
+        fs_rom_handler, "converto_active", AsyncMock(return_value=False)
+    )
+    return mocker.patch.object(
+        SigilService,
+        "extract_title_id",
+        AsyncMock(
+            return_value=SigilExtractionResult(
+                title_id="0100ABCD12340000",
+                save_target="",
+                usage="",
+                content_type="addon",
+            )
+        ),
+    )
+
+
+def _sigil_rom(
+    slug: str, admin_user: User, lib: Path, title_id: str | None = None
+) -> Rom:
+    rom = _folder_rom(
+        make_platform(slug), admin_user, lib, {"a.nsp": b"a", "b.nsp": b"b"}
+    )
+    if title_id:
+        db_rom_handler.update_rom(rom.id, {"title_id": title_id})
+    return _reload(rom.id)
+
+
+async def test_unchanged_rom_with_a_title_id_is_not_parsed_again(
+    admin_user, library, extract_title_id
+):
+    rom = _sigil_rom("psx", admin_user, library, title_id="SLUS-00001")
+
+    result = await refresh_rom_files(rom)
+
+    extract_title_id.assert_not_awaited()
+    assert not result.changed
+    assert _reload(rom.id).title_id == "SLUS-00001"
+
+
+async def test_unchanged_rom_without_a_title_id_is_parsed(
+    admin_user, library, extract_title_id
+):
+    rom = _sigil_rom("psx", admin_user, library)
+
+    await refresh_rom_files(rom)
+
+    extract_title_id.assert_awaited()
+
+
+async def test_a_changed_rom_is_parsed_again(admin_user, library, extract_title_id):
+    rom = _sigil_rom("psx", admin_user, library, title_id="SLUS-00001")
+    _write(library, f"{rom.fs_path}/{FOLDER}/c.nsp", b"c")
+
+    await refresh_rom_files(rom)
+
+    extract_title_id.assert_awaited()
+
+
+async def test_unchanged_switch_rom_keeps_its_settled_categories(
+    admin_user, library, extract_title_id
+):
+    rom = _sigil_rom("switch", admin_user, library, title_id="0100ABCD12340000")
+    for rom_file in rom.files:
+        db_rom_handler.update_rom_file(rom_file.id, {"category": RomFileCategory.DLC})
+    rom = _reload(rom.id)
+
+    result = await refresh_rom_files(rom)
+
+    extract_title_id.assert_not_awaited()
+    assert not result.changed
+    assert {f.category for f in _reload(rom.id).files} == {RomFileCategory.DLC}
+
+
+async def test_a_file_rom_converto_did_not_recognize_is_not_sent_again(
+    platform, admin_user, library, mocker
+):
+    rom = _folder_rom(platform, admin_user, library, {"game.iso": b"game"})
+    mocker.patch.object(fs_rom_handler, "converto_active", AsyncMock(return_value=True))
+    mocker.patch.object(rom_converto_service, "_info_extensions", frozenset({".iso"}))
+    read_infos = mocker.patch.object(
+        rom_converto_service,
+        "read_infos",
+        AsyncMock(side_effect=lambda paths: dict.fromkeys(paths)),
+    )
+
+    first = await refresh_rom_files(rom)
+    await refresh_rom_files(_reload(rom.id))
+
+    assert first.updated_files == 1
+    assert read_infos.await_count == 1
+    stored = _files_by_name(rom.id)["game.iso"]
+    assert stored.converto_read_at is not None
+    assert stored.title_id is None
