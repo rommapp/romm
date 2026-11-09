@@ -119,7 +119,7 @@ html.r-app {
   --r-focus-ring-offset: 3px;
   --r-nav-h: calc(58px + var(--r-safe-t));
   --r-nav-pill-h: 38px;
-  --r-bottom-nav-h: 58px;
+  --r-bottom-nav-h: 80px;
   --r-bottom-nav-max-w: 480px;
   --r-touch-target: 44px;
   --r-page-max-w: 1920px;
