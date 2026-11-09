@@ -52,7 +52,7 @@ const scrolled = computed(
       'r-nav-bar--glass-below': innerGlass,
     }"
   >
-    <nav class="r-nav">
+    <nav class="r-nav" :aria-label="t('common.primary-navigation')">
       <router-link to="/" class="r-nav__logo" :aria-label="t('common.home')">
         <RImage
           src="/assets/isotipo.svg"

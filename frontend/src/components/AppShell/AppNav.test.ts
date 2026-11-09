@@ -44,6 +44,18 @@ function mountNav() {
 
 const SCROLLED = "r-nav-bar--scrolled";
 
+describe("AppNav landmark", () => {
+  it("names the navigation landmark", () => {
+    // Act
+    const wrapper = mountNav();
+
+    // Assert
+    expect(wrapper.get("nav").attributes("aria-label")).toBe(
+      "common.primary-navigation",
+    );
+  });
+});
+
 describe("AppNav glass", () => {
   afterEach(() => {
     document.documentElement.scrollTop = 0;
