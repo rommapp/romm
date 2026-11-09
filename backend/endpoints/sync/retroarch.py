@@ -125,14 +125,15 @@ def _rom_visibility(request: Request) -> Callable[[Rom], bool]:
     return lambda rom: get_permissions(request).can_see_rom(rom)
 
 
-async def _resolve_rom(request: Request, kind: AssetKind, file_name: str) -> Rom | None:
-    game_name = sync_handler.game_name_from_file_name(kind, file_name)
+async def _resolve_rom(request: Request, parsed: RetroArchSyncPath) -> Rom | None:
+    game_name = sync_handler.game_name_from_file_name(parsed.kind, parsed.file_name)
     # States are advertised under the ROM's own name, so only saves may name a file.
     return await asyncio.to_thread(
         sync_handler.resolve_rom,
         game_name,
         _rom_visibility(request),
-        by_file_name=kind == "saves",
+        emulator=parsed.emulator,
+        by_file_name=parsed.kind == "saves",
     )
 
 
@@ -438,7 +439,7 @@ async def retroarch_sync_get(request: Request, file_path: str) -> Response:
     if not parsed:
         return _empty(status.HTTP_404_NOT_FOUND)
 
-    rom = await _resolve_rom(request, parsed.kind, parsed.file_name)
+    rom = await _resolve_rom(request, parsed)
     if not rom:
         return _empty(status.HTTP_404_NOT_FOUND)
 
@@ -522,7 +523,7 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
     except ValueError:
         return _empty(status.HTTP_409_CONFLICT)
 
-    rom = await _resolve_rom(request, parsed.kind, file_name)
+    rom = await _resolve_rom(request, parsed)
     if not rom:
         log.warning(f"Cloud sync upload {hl(file_path)} matches no ROM in the library")
         return _empty(status.HTTP_409_CONFLICT)
@@ -719,7 +720,7 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
     if not parsed:
         return _empty(status.HTTP_404_NOT_FOUND)
 
-    rom = await _resolve_rom(request, parsed.kind, parsed.file_name)
+    rom = await _resolve_rom(request, parsed)
     if not rom:
         return _empty(status.HTTP_404_NOT_FOUND)
 

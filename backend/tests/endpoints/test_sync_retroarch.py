@@ -14,7 +14,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from redis.exceptions import RedisError
 from tests import factories
-from tests.factories import make_rom, make_save, make_screenshot
+from tests.factories import make_platform, make_rom, make_save, make_screenshot
 
 from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
@@ -1626,6 +1626,102 @@ class TestRetroArchSyncRomFileNames:
         )
 
         assert response.status_code == status.HTTP_409_CONFLICT
+
+
+@pytest.mark.usefixtures("version_names")
+class TestRetroArchSyncCorePlatforms:
+    """A game name several platforms share resolves to the core's platform."""
+
+    PSX_SAVE_URL = "/api/sync/retroarch/saves/Beetle%20PSX%20HW/Road%20Rash%20(USA).srm"
+
+    @pytest.fixture
+    def saturn_rom(self) -> Rom:
+        return make_rom(make_platform("saturn"), "Road Rash (USA)", fs_extension="7z")
+
+    @pytest.fixture
+    def psx_platform(self) -> Platform:
+        return make_platform("psx")
+
+    def _saves(self, user: User) -> list[Save]:
+        return list(db_save_handler.get_saves(user_id=user.id, visibility=UNRESTRICTED))
+
+    def test_upload_goes_to_the_rom_on_the_cores_platform(
+        self, client, admin_user: User, saturn_rom: Rom, psx_platform: Platform
+    ):
+        psx_rom = make_rom(psx_platform, "Road Rash (USA)")
+
+        response = client.put(self.PSX_SAVE_URL, content=b"data", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_201_CREATED
+        [save] = self._saves(admin_user)
+        assert save.rom_id == psx_rom.id
+        assert client.get(self.PSX_SAVE_URL, auth=ADMIN_AUTH).content == b"data"
+
+    def test_a_file_on_the_cores_platform_beats_a_rom_name_elsewhere(
+        self, client, admin_user: User, saturn_rom: Rom, psx_platform: Platform
+    ):
+        psx_rom = make_rom(psx_platform, "Road Rash", fs_extension="")
+        db_rom_handler.add_rom_file(
+            RomFile(
+                rom_id=psx_rom.id,
+                file_name="Road Rash (USA).cue",
+                file_path=f"{psx_rom.fs_path}/{psx_rom.fs_name}",
+                file_size_bytes=1,
+            )
+        )
+
+        response = client.put(self.PSX_SAVE_URL, content=b"data", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_201_CREATED
+        [save] = self._saves(admin_user)
+        assert save.rom_id == psx_rom.id
+
+    def test_an_unknown_core_keeps_the_first_rom_by_id(
+        self, client, admin_user: User, saturn_rom: Rom, psx_platform: Platform
+    ):
+        make_rom(psx_platform, "Road Rash (USA)")
+
+        response = client.put(
+            "/api/sync/retroarch/saves/Some%20Core/Road%20Rash%20(USA).srm",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        [save] = self._saves(admin_user)
+        assert save.rom_id == saturn_rom.id
+
+    @_mock_asset_md5()
+    def test_manifest_lists_a_save_under_its_cores_platform(
+        self,
+        _asset_md5: mock.AsyncMock,
+        client,
+        admin_user: User,
+        saturn_rom: Rom,
+        psx_platform: Platform,
+    ):
+        psx_rom = make_rom(psx_platform, "Road Rash (USA)")
+        make_save(
+            psx_rom,
+            admin_user,
+            "Road Rash (USA).srm",
+            file_path=fs_asset_handler.build_saves_file_path(
+                user=admin_user,
+                platform_fs_slug=psx_platform.fs_slug,
+                rom_id=psx_rom.id,
+                emulator="mednafen_psx_hw",
+            ),
+            file_size_bytes=4,
+            emulator="mednafen_psx_hw",
+            slot=None,
+        )
+
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == [
+            {"path": "saves/Beetle PSX HW/Road Rash (USA).srm", "hash": EMPTY_MD5}
+        ]
 
 
 def test_uploads_in_the_same_second_keep_both_versions(

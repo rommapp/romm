@@ -41,6 +41,7 @@ from handler.redis_handler import async_cache
 from handler.scan_handler import scan_save
 from handler.sync.retroarch import psp
 from handler.sync.retroarch.emulator_names import (
+    core_platforms,
     retroarch_aliases,
     to_retroarch_dir_name,
     to_romm_emulator,
@@ -707,31 +708,40 @@ async def build_blob_manifest_entries(user: User) -> list[dict[str, str]]:
 
 
 def _match_names(
-    names: Collection[str], candidates: Iterable[tuple[str, Rom]]
+    names: Collection[str],
+    candidates: Iterable[tuple[str, Rom]],
+    platforms: Collection[str],
 ) -> dict[str, Rom]:
-    """The first ROM each name's candidates offer, the client's exact spelling first."""
-    exact: dict[str, Rom] = {}
-    folded: dict[str, Rom] = {}
-    for candidate_name, rom in candidates:
-        exact.setdefault(candidate_name, rom)
-        folded.setdefault(candidate_name.casefold(), rom)
+    """Each name's ROM: one on `platforms` first, then the client's exact spelling, then the first offered."""
+    names_by_folded: defaultdict[str, list[str]] = defaultdict(list)
+    for name in names:
+        names_by_folded[name.casefold()].append(name)
 
-    resolved = {name: exact.get(name) or folded.get(name.casefold()) for name in names}
-    return {name: rom for name, rom in resolved.items() if rom}
+    best: dict[str, tuple[tuple[bool, bool, int], Rom]] = {}
+    for order, (candidate_name, rom) in enumerate(candidates):
+        for name in names_by_folded.get(candidate_name.casefold(), ()):
+            rank = (rom.platform_slug not in platforms, candidate_name != name, order)
+            if name not in best or rank < best[name][0]:
+                best[name] = (rank, rom)
+    return {name: rom for name, (_, rom) in best.items()}
 
 
 def resolve_roms(
     game_names: Iterable[str],
     can_see: Callable[[Rom], bool],
     *,
+    emulator: str | None = None,
     by_file_name: bool = False,
 ) -> dict[str, Rom]:
     """The ROM each game name belongs to, the first visible one by id when ambiguous.
 
     Args:
+        emulator: The core the client synced through. A name several platforms
+            share resolves to a ROM on a platform that core runs.
         by_file_name: Also resolve a name no ROM carries to the ROM owning a file
             of that name, such as one disc in a multi-disc game folder.
     """
+    platforms = core_platforms(emulator)
     names = set(game_names)
     resolved = _match_names(
         names,
@@ -740,15 +750,21 @@ def resolve_roms(
             for rom in db_rom_handler.get_roms_by_fs_names_no_ext(names)
             if can_see(rom)
         ),
+        platforms,
     )
-    unresolved = names - resolved.keys()
-    if by_file_name and unresolved:
-        folded = {name.casefold() for name in unresolved}
+    off_core = {
+        name
+        for name in names
+        if name not in resolved
+        or (platforms and resolved[name].platform_slug not in platforms)
+    }
+    if by_file_name and off_core:
+        folded = {name.casefold() for name in off_core}
         files = db_rom_handler.get_roms_by_file_name_prefixes(
-            f"{name}." for name in unresolved
+            f"{name}." for name in off_core
         )
-        resolved |= _match_names(
-            unresolved,
+        by_file = _match_names(
+            off_core,
             (
                 (stem, rom)
                 for file_name, rom in files
@@ -756,14 +772,24 @@ def resolve_roms(
                 if (stem := os.path.splitext(file_name)[0]).casefold() in folded
                 and can_see(rom)
             ),
+            platforms,
         )
+        for name, rom in by_file.items():
+            if name not in resolved or rom.platform_slug in platforms:
+                resolved[name] = rom
     return resolved
 
 
 def resolve_rom(
-    game_name: str, can_see: Callable[[Rom], bool], *, by_file_name: bool = False
+    game_name: str,
+    can_see: Callable[[Rom], bool],
+    *,
+    emulator: str | None = None,
+    by_file_name: bool = False,
 ) -> Rom | None:
-    return resolve_roms([game_name], can_see, by_file_name=by_file_name).get(game_name)
+    return resolve_roms(
+        [game_name], can_see, emulator=emulator, by_file_name=by_file_name
+    ).get(game_name)
 
 
 def is_rom_name(rom: Rom, game_name: str) -> bool:
@@ -878,32 +904,46 @@ def _manifest_assets(
 
     # A path carries no platform, so only the ROM that GET/PUT/DELETE would
     # resolve it to may claim it; a same-named ROM elsewhere would shadow it.
-    owners: dict[AssetKind, dict[str, Rom]] = {
-        "saves": resolve_roms(
-            [game_name_from_file_name("saves", name) for name, _ in listed_saves],
-            can_see,
-            by_file_name=True,
-        ),
-        "states": resolve_roms(
-            [game_name_from_file_name("states", name) for _, name, _ in listed_states],
-            can_see,
-        ),
-    }
+    OwnerKey = tuple[AssetKind, frozenset[str], str]
 
-    def is_addressable(rom: Rom, kind: AssetKind, file_name: str) -> bool:
-        owner = owners[kind].get(game_name_from_file_name(kind, file_name))
+    def resolve_owners(
+        kind: AssetKind, paths: Iterable[tuple[str | None, str]]
+    ) -> dict[OwnerKey, Rom]:
+        names_by_emulator: defaultdict[str | None, set[str]] = defaultdict(set)
+        for emulator, file_name in paths:
+            names_by_emulator[emulator].add(game_name_from_file_name(kind, file_name))
+        return {
+            (kind, core_platforms(emulator), name): rom
+            for emulator, names in names_by_emulator.items()
+            for name, rom in resolve_roms(
+                names, can_see, emulator=emulator, by_file_name=kind == "saves"
+            ).items()
+        }
+
+    owners = resolve_owners(
+        "saves", ((save.emulator, name) for name, save in listed_saves)
+    ) | resolve_owners(
+        "states", ((emulator, name) for emulator, name, _ in listed_states)
+    )
+
+    def is_addressable(
+        rom: Rom, kind: AssetKind, emulator: str | None, file_name: str
+    ) -> bool:
+        owner = owners.get(
+            (kind, core_platforms(emulator), game_name_from_file_name(kind, file_name))
+        )
         return owner is not None and owner.id == rom.id
 
     assets = [
         ManifestAsset(build_retroarch_sync_path("saves", save.emulator, name), save)
         for name, save in listed_saves
-        if is_addressable(save.rom, "saves", name)
+        if is_addressable(save.rom, "saves", save.emulator, name)
     ]
 
     addressable_states = [
         (emulator, file_name, state)
         for emulator, file_name, state in listed_states
-        if is_addressable(state.rom, "states", file_name)
+        if is_addressable(state.rom, "states", emulator, file_name)
     ]
     screenshots = state_screenshots(user, [state for _, _, state in addressable_states])
     for emulator, file_name, state in addressable_states:
