@@ -63,7 +63,7 @@ const { destinations, activeId } = useNavDestinations();
   pointer-events: none;
 }
 
-/* Boosted saturation lets the content behind bleed through as colour. */
+/* saturate() keeps the colour of the content behind visible through the blur. */
 .r-bottom-nav__group.r-segmented-control--tab {
   pointer-events: auto;
   flex: 1;
@@ -118,7 +118,7 @@ html.r-reduced-motion .r-bottom-nav__group.r-segmented-control--tab {
   backdrop-filter: var(--r-glass-bar-filter);
 }
 
-/* Touch has no hover; the press scale is the only feedback needed. */
+/* No hover fill on the bar; the primitive's press scale gives the feedback. */
 .r-bottom-nav__group.r-segmented-control--tab
   :deep(
     .r-segmented-control__btn:hover:not(.r-segmented-control__btn--active)
