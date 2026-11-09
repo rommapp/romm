@@ -70,10 +70,7 @@ function tabIcon(icon: string, active: boolean): string {
   pointer-events: none;
 }
 
-/* Liquid-glass surface: a thin tinted pane with heavy blur and boosted
-   saturation so the content behind bleeds through as colour, a bright
-   top rim and soft inner glow for the lensing edge, and a floating drop
-   shadow. */
+/* Boosted saturation lets the content behind bleed through as colour. */
 .r-bottom-nav__group.r-segmented-control--tab {
   pointer-events: auto;
   flex: 1;
@@ -84,7 +81,6 @@ function tabIcon(icon: string, active: boolean): string {
   background: color-mix(in srgb, var(--r-color-bg) 42%, transparent);
   border: 1px solid color-mix(in srgb, white 14%, transparent);
   backdrop-filter: blur(24px) saturate(190%) brightness(1.06);
-  -webkit-backdrop-filter: blur(24px) saturate(190%) brightness(1.06);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, white 28%, transparent),
     inset 0 -1px 0 color-mix(in srgb, white 6%, transparent),
