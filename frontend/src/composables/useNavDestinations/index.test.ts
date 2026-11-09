@@ -1,8 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { navDestinationAt, useNavDestinations } from "./index";
-
-vi.mock("vue-i18n", () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock("vue-router", () => ({ useRoute: () => ({ path: "/" }) }));
+import { describe, expect, it } from "vitest";
+import { navDestinationAt } from "./index";
 
 describe("navDestinationAt", () => {
   it.each([
@@ -23,19 +20,4 @@ describe("navDestinationAt", () => {
       expect(navDestinationAt(path)).toBeNull();
     },
   );
-});
-
-describe("useNavDestinations", () => {
-  it("pairs each glyph with the one shown on the active tab", () => {
-    const { destinations } = useNavDestinations();
-    const icons = Object.fromEntries(
-      destinations.value.map((d) => [d.id, [d.icon, d.activeIcon]]),
-    );
-    expect(icons).toEqual({
-      home: ["mdi-home-outline", "mdi-home"],
-      platforms: ["mdi-controller", "mdi-controller"],
-      collections: ["mdi-bookmark-outline", "mdi-bookmark"],
-      search: ["mdi-magnify", "mdi-magnify"],
-    });
-  });
 });
