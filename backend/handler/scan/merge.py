@@ -406,19 +406,20 @@ def record_name_claims(metadata_handlers: dict[MetadataSource, dict[str, Any]]) 
         fields["handler"] = {**handler, metadata_field: {**blob, **claim}}
 
 
+def kept_title(blob: Any) -> str | None:
+    """The title a source's stored blob holds, or None when it holds none."""
+    # A hand edit of the raw metadata can store any JSON; only a string counts.
+    title = blob.get(NAME_CLAIM_KEY) if isinstance(blob, dict) else None
+    return title if isinstance(title, str) else None
+
+
 def settle_name(
     rom_attrs: dict[str, Any],
     rom: Rom,
     metadata_handlers: dict[MetadataSource, dict[str, Any]],
     scene_locked: bool,
 ) -> None:
-    """Name the ROM after the highest-priority source that has named it.
-
-    A refresh merges only the sources it consults, so its own pick follows
-    whichever source a scan happened to ask. The sources the ROM is still
-    matched to but this scan skipped speak through the title kept in their
-    blob, and a source whose title isn't known yet keeps the stored name.
-    """
+    """Name the ROM after the highest-priority source that has named it."""
     claims: dict[MetadataSource, str | None] = {}
     for source, fields in metadata_handlers.items():
         metadata_field = fields["metadata_field"]
@@ -427,15 +428,12 @@ def settle_name(
         if fields["handler"].get(fields["id_field"]):
             claims[source] = fields["handler"].get("name") or ""
         elif rom_attrs.get(fields["id_field"]):
-            # A blob written before titles were kept can't say what it named.
-            blob = rom_attrs.get(metadata_field)
-            claims[source] = (
-                blob.get(NAME_CLAIM_KEY) if isinstance(blob, dict) else None
-            )
+            claims[source] = kept_title(rom_attrs.get(metadata_field))
 
     allowed = scene_apply_sources(list(claims), scene_locked=scene_locked)
     for source in get_priority_ordered_metadata_sources(allowed, "metadata"):
         claim = claims[source]
+        # A matched source whose title isn't known outranks the rest.
         if claim is None:
             rom_attrs["name"] = rom.name
             return
@@ -558,9 +556,7 @@ def keep_base_fields(rom_attrs: dict[str, Any], rom: Rom) -> None:
     # A title a source gave is no more the user's than the filename is, so a
     # better-ranked source can still replace it.
     claimed = {
-        blob.get(NAME_CLAIM_KEY)
-        for column in PROVIDER_METADATA_COLUMNS
-        if isinstance(blob := getattr(rom, column, None), dict)
+        kept_title(getattr(rom, column, None)) for column in PROVIDER_METADATA_COLUMNS
     }
     existing_name = None if rom.name in (*placeholders, *claimed) else rom.name
     matched_name = rom_attrs.get("name")

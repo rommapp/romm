@@ -149,3 +149,16 @@ async def test_a_match_without_metadata_gets_no_blob(lookups):
     result = await _scan(TITLE, ScanType.UNMATCHED, [MetadataSource.HLTB])
 
     assert not result.hltb_metadata
+
+
+async def test_a_hand_edited_title_that_isnt_text_is_ignored(lookups):
+    """The raw metadata editor stores any JSON, so a title may not be a string."""
+    result = await _scan(
+        TITLE,
+        ScanType.UNMATCHED,
+        [MetadataSource.HLTB],
+        launchbox_id=266,
+        launchbox_metadata={"first_release_date": 851990400, "name": ["Mario"]},
+    )
+
+    assert result.name == "Mario Kart 64"
