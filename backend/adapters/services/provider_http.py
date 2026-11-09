@@ -11,6 +11,8 @@ from fastapi import HTTPException, status
 from logger.logger import log
 
 RATE_LIMIT_BACKOFF_SECONDS: Final[float] = 2
+# Bounds a provider's Retry-After so one reply can't stall a request for long.
+MAX_RETRY_AFTER_SECONDS: Final[float] = 60
 
 
 def unavailable(provider: str) -> HTTPException:
@@ -21,12 +23,29 @@ def unavailable(provider: str) -> HTTPException:
     )
 
 
+def _rate_limit_delay(
+    exc: aiohttp.ClientResponseError, backoff: float, attempt: int
+) -> float:
+    """The provider's Retry-After when it sends one, else a doubling backoff."""
+    retry_after = exc.headers.get("Retry-After") if exc.headers else None
+    if retry_after is not None:
+        try:
+            seconds = float(retry_after)
+        except ValueError:
+            pass
+        else:
+            if seconds >= 0:
+                return min(seconds, MAX_RETRY_AFTER_SECONDS)
+    return backoff * 2.0 ** (attempt - 1)
+
+
 async def send_with_retries[T](
     send: Callable[[], Awaitable[T]],
     *,
     provider: str,
     url: str,
     attempts: int = 2,
+    rate_limit_attempts: int | None = None,
     backoff: float = RATE_LIMIT_BACKOFF_SECONDS,
     retry_on_status: (
         Callable[[aiohttp.ClientResponseError], Awaitable[bool]] | None
@@ -34,7 +53,10 @@ async def send_with_retries[T](
 ) -> T:
     """Send a request, retrying a timeout or a 429 while attempts remain.
 
+    A 429 waits for the provider's Retry-After, or `backoff` doubled per attempt.
+
     Args:
+        rate_limit_attempts: Attempts a run of 429s may use, `attempts` by default.
         retry_on_status: Decides whether another error status earns a retry.
 
     Raises:
@@ -42,13 +64,13 @@ async def send_with_retries[T](
         TimeoutError: The last attempt timed out.
         aiohttp.ClientResponseError: An error status that earns no retry.
     """
-    for attempt in range(1, attempts + 1):
-        is_last = attempt == attempts
+    rate_limit_attempts = rate_limit_attempts or attempts
+    for attempt in range(1, max(attempts, rate_limit_attempts) + 1):
         try:
             return await send()
         # A `total` timeout is a bare TimeoutError, not aiohttp's ServerTimeoutError.
         except TimeoutError:
-            if is_last:
+            if attempt >= attempts:
                 raise
             log.debug("Request to URL=%s timed out. Retrying...", url)
         except aiohttp.ClientConnectionError as exc:
@@ -57,12 +79,17 @@ async def send_with_retries[T](
             )
             raise unavailable(provider) from exc
         except aiohttp.ClientResponseError as exc:
-            if is_last:
-                raise
             if exc.status == http.HTTPStatus.TOO_MANY_REQUESTS:
-                log.warning("%s: rate limit hit, retrying after %ss", provider, backoff)
-                await asyncio.sleep(backoff)
-            elif retry_on_status is None or not await retry_on_status(exc):
+                if attempt >= rate_limit_attempts:
+                    raise
+                delay = _rate_limit_delay(exc, backoff, attempt)
+                log.warning("%s: rate limit hit, retrying after %ss", provider, delay)
+                await asyncio.sleep(delay)
+            elif (
+                attempt >= attempts
+                or retry_on_status is None
+                or not await retry_on_status(exc)
+            ):
                 raise
 
     raise ValueError(f"attempts must be at least 1, got {attempts}")

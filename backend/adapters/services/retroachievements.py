@@ -26,6 +26,8 @@ from utils.rate_limiter import RateLimiter
 # within the "fair burst" allowance the API documents
 RA_MAX_REQUESTS_PER_SECOND: Final[float] = 4
 _rate_limiter = RateLimiter(RA_MAX_REQUESTS_PER_SECOND)
+# A progress sync sends one request per game, so ride out a throttled burst.
+RA_RATE_LIMIT_ATTEMPTS: Final[int] = 5
 
 
 async def auth_middleware(
@@ -94,7 +96,12 @@ class RetroAchievementsService:
             return _parse(tp, await res.read(), source=source)
 
         try:
-            return await send_with_retries(send, provider="RetroAchievements", url=url)
+            return await send_with_retries(
+                send,
+                provider="RetroAchievements",
+                url=url,
+                rate_limit_attempts=RA_RATE_LIMIT_ATTEMPTS,
+            )
         except (
             aiohttp.ClientResponseError,
             TimeoutError,

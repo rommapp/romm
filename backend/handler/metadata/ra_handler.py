@@ -5,6 +5,7 @@ from typing import Annotated, NotRequired, TypedDict, cast
 
 import pydash
 from anyio import Path as AnyioPath
+from fastapi import HTTPException
 from pydantic import Field
 
 from adapters.services.provider_http import unavailable
@@ -368,8 +369,12 @@ class RAHandler(MetadataHandler):
 
         If `current_progression` is provided, it will only incrementally update the
         progression based on new achievements since the last check.
+
+        Once RA refuses a game's details, the remaining changed games keep their
+        stored entry, so the games already read are saved and the next sync resumes.
         """
         game_progressions: list[RAUserGameProgression] = []
+        refused = False
         current_progression_by_game_id: dict[int | None, RAUserGameProgression] = {}
         if current_progression:
             current_progression_by_game_id = {
@@ -413,10 +418,25 @@ class RAHandler(MetadataHandler):
 
             earned_achievements: list[EarnedAchievement] = []
             if rom_game_id:
-                result = await self.ra_service.get_user_game_progress(
-                    username=username,
-                    game_id=rom_game_id,
-                )
+                result = None
+                if not refused:
+                    try:
+                        result = await self.ra_service.get_user_game_progress(
+                            username=username,
+                            game_id=rom_game_id,
+                        )
+                    except HTTPException as exc:
+                        log.warning(
+                            "RetroAchievements refused progress for game %s, "
+                            "deferring the remaining games to the next sync: %s",
+                            rom_game_id,
+                            exc.detail,
+                        )
+                        refused = True
+                if refused:
+                    if game_current_progression:
+                        game_progressions.append(game_current_progression)
+                    continue
                 achievements = result.get("Achievements", {}) if result else {}
                 for achievement in achievements.values():
                     badge_name = achievement.get("BadgeName")

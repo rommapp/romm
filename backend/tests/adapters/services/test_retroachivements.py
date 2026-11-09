@@ -524,6 +524,20 @@ class TestAgainstAServer:
         assert await service.get_achievement_of_the_week() == {"ok": 1}
         no_backoff.assert_awaited_once_with(2)
 
+    async def test_a_rate_limited_burst_is_ridden_out(
+        self,
+        ra_server: tuple[ScriptedServer, RetroAchievementsService],
+        no_backoff: AsyncMock,
+    ):
+        fake, service = ra_server
+        fake.replies["API_GetAchievementOfTheWeek.php"] = [
+            *[(429, {})] * (retroachievements.RA_RATE_LIMIT_ATTEMPTS - 1),
+            (200, {"ok": 1}),
+        ]
+
+        assert await service.get_achievement_of_the_week() == {"ok": 1}
+        assert [c.args[0] for c in no_backoff.await_args_list] == [2, 4, 8, 16]
+
     async def test_a_failed_retry_is_unavailable(
         self,
         ra_server: tuple[ScriptedServer, RetroAchievementsService],

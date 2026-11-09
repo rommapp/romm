@@ -698,3 +698,30 @@ class TestUserProgression:
         progression = await handler.get_user_progression("me")
 
         assert progression["results"][0]["earned_achievements"] == []
+
+    async def test_a_refusal_keeps_what_was_read_and_defers_the_rest(
+        self,
+        handler: RAHandler,
+        completion: list[dict[str, object]],
+        game_progress: AsyncMock,
+    ):
+        completion.extend([_completion(1), _completion(2), _completion(3)])
+        previous = await handler.get_user_progression("me")
+        completion[:] = [_completion(i, NumAwarded=3) for i in (1, 2, 3)] + [
+            _completion(4)
+        ]
+        game_progress.reset_mock()
+        reply = game_progress.return_value
+        game_progress.side_effect = [
+            reply,
+            HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE),
+        ]
+
+        progression = await handler.get_user_progression("me", previous)
+
+        assert game_progress.await_count == 2
+        assert [(g["rom_ra_id"], g["num_awarded"]) for g in progression["results"]] == [
+            (1, 3),
+            (2, 2),
+            (3, 2),
+        ]

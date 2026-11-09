@@ -4,14 +4,20 @@ from unittest.mock import AsyncMock, MagicMock
 import aiohttp
 import pytest
 from fastapi import HTTPException, status
+from multidict import CIMultiDict
 
 from adapters.services import provider_http
 from adapters.services.provider_http import send_with_retries, unavailable
 
 
-def _status(code: int) -> aiohttp.ClientResponseError:
+def _status(
+    code: int, headers: dict[str, str] | None = None
+) -> aiohttp.ClientResponseError:
     return aiohttp.ClientResponseError(
-        request_info=MagicMock(), history=(), status=code
+        request_info=MagicMock(),
+        history=(),
+        status=code,
+        headers=CIMultiDict(headers) if headers else None,
     )
 
 
@@ -23,11 +29,19 @@ def no_backoff(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
 
 
 async def _send(
-    *outcomes: object, attempts: int = 2, backoff: float = 2
+    *outcomes: object,
+    attempts: int = 2,
+    rate_limit_attempts: int | None = None,
+    backoff: float = 2,
 ) -> tuple[object, AsyncMock]:
     send = AsyncMock(side_effect=list(outcomes))
     result = await send_with_retries(
-        send, provider="Test", url="u", attempts=attempts, backoff=backoff
+        send,
+        provider="Test",
+        url="u",
+        attempts=attempts,
+        rate_limit_attempts=rate_limit_attempts,
+        backoff=backoff,
     )
     return result, send
 
@@ -68,6 +82,51 @@ async def test_a_rate_limit_backs_off_before_retrying(no_backoff: AsyncMock):
 
     assert result == "ok"
     no_backoff.assert_awaited_once_with(5)
+
+
+async def test_each_rate_limit_doubles_the_backoff(no_backoff: AsyncMock):
+    result, _ = await _send(_status(429), _status(429), _status(429), "ok", attempts=4)
+
+    assert result == "ok"
+    assert [c.args[0] for c in no_backoff.await_args_list] == [2, 4, 8]
+
+
+@pytest.mark.parametrize(
+    ("retry_after", "delay"),
+    [("7", 7), ("0", 0), ("3600", provider_http.MAX_RETRY_AFTER_SECONDS)],
+    ids=["seconds", "now", "capped"],
+)
+async def test_a_rate_limit_waits_for_retry_after(
+    no_backoff: AsyncMock, retry_after: str, delay: float
+):
+    await _send(_status(429, {"Retry-After": retry_after}), "ok")
+
+    no_backoff.assert_awaited_once_with(delay)
+
+
+@pytest.mark.parametrize("retry_after", ["soon", "-1"])
+async def test_an_unreadable_retry_after_falls_back_to_the_backoff(
+    no_backoff: AsyncMock, retry_after: str
+):
+    await _send(_status(429, {"Retry-After": retry_after}), "ok", backoff=5)
+
+    no_backoff.assert_awaited_once_with(5)
+
+
+async def test_rate_limits_get_their_own_attempts():
+    result, send = await _send(
+        _status(429), _status(429), _status(429), "ok", rate_limit_attempts=4
+    )
+
+    assert result == "ok"
+    assert send.await_count == 4
+
+
+async def test_rate_limit_attempts_leave_timeouts_their_own_budget():
+    with pytest.raises(TimeoutError):
+        await _send(
+            TimeoutError(), TimeoutError(), "ok", attempts=2, rate_limit_attempts=4
+        )
 
 
 async def test_the_last_rate_limit_is_raised():
