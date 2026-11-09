@@ -846,6 +846,7 @@ class TestTranslationLanguage:
             ("Du", "Dutch"),
             ("Gr", "Greek"),
             ("Jp", "Japanese"),
+            ("Pt-BR", "Brazilian Portuguese"),
         ],
     )
     def test_resolves_the_forms_a_translation_tag_uses(self, code: str, expected: str):

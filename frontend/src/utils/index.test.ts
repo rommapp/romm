@@ -10,6 +10,7 @@ import {
   isJsDosEmulationSupported,
   isPico8EmulationSupported,
   isPico8Rom,
+  languageToEmoji,
 } from "./index";
 import { romFixture } from "./rom.fixtures";
 
@@ -186,5 +187,13 @@ describe("arcade platforms", () => {
     expect(isArcadeSystem("naomi")).toBe(true);
     expect(isArcadeSystem("model2")).toBe(true);
     expect(isArcadeSystem("snes")).toBe(false);
+  });
+});
+
+describe("languageToEmoji", () => {
+  it("tells Brazilian from European Portuguese", () => {
+    expect(languageToEmoji("Brazilian Portuguese")).toBe("🇧🇷");
+    expect(languageToEmoji("pt-BR")).toBe("🇧🇷");
+    expect(languageToEmoji("Portuguese")).toBe("🇵🇹");
   });
 });
