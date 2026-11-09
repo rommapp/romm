@@ -418,8 +418,5 @@ const innerStyle = computed(() => {
   top: 0;
   left: 0;
   right: 0;
-  /* `transform` triggers a compositor layer; the scroll-position-driven
-     re-positioning then bypasses paint costs. */
-  will-change: transform;
 }
 </style>
