@@ -66,6 +66,13 @@ def test_resolves_easyrpg_to_rpg_maker():
     assert resolve_fs_slug(UPS.RPG_MAKER.value, _config()) == "easyrpg"
 
 
+@pytest.mark.parametrize("folder", ["sgb", "sgb-msu1"])
+def test_super_game_boy_folders_stay_unidentified(folder: str):
+    """ES-DE and Batocera use sgb for the Super Game Boy, which has no RomM slug."""
+    assert resolve_builtin_platform_slug(folder) is None
+    assert resolve_platform_slug(folder, _config()) == folder
+
+
 @pytest.mark.parametrize(
     ("folder", "slug"),
     [

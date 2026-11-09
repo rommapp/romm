@@ -115,8 +115,6 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
     "segastv": UPS.STV,
     "sfc": UPS.SFAM,
     "sg-1000": UPS.SG1000,
-    "sgb": UPS.GBC,
-    "sgb-msu1": UPS.GBC,
     "snes-msu1": UPS.SNES,
     "sufami": UPS.SUFAMI_TURBO,
     "supracan": UPS.SUPER_ACAN,

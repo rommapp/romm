@@ -79,6 +79,26 @@ async def test_scan_platform():
     assert platform.tgdb_id is None
 
 
+@pytest.mark.parametrize(
+    ("fs_platforms", "expected_fs_slug"),
+    [([], "gbc"), (["gbc2players"], "gbc2players")],
+)
+async def test_scan_platform_keeps_missing_folder_unless_alias_exists(
+    fs_platforms: list[str], expected_fs_slug: str
+):
+    make_platform("gbc")
+    with patch.object(
+        meta_igdb_handler,
+        "get_platform_discovery",
+        new_callable=AsyncMock,
+        return_value={},
+    ):
+        async with initialize_context():
+            platform = await scan_platform("gbc", fs_platforms)
+
+    assert platform.fs_slug == expected_fs_slug
+
+
 @pytest.mark.vcr
 async def test_scan_rom():
     platform = make_platform("n64", id=1, name="Nintendo 64", igdb_id=4, hasheous_id=64)

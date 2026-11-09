@@ -166,14 +166,13 @@ async def scan_platform(
             extra=LOGGER_MODULE_NAME,
         )
         platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
-        if platform:
-            known_fs_slug = resolve_fs_slug(platform.slug, cnfg)
-            if known_fs_slug:
-                # `resolve_fs_slug` answers with a lowercased config key, but
-                # every path is built from the folder's own casing.
-                platform_attrs["fs_slug"] = (
-                    resolve_fs_folder(known_fs_slug, fs_platforms) or known_fs_slug
-                )
+        known_fs_slug = platform and resolve_fs_slug(platform.slug, cnfg)
+        # `resolve_fs_slug` answers with a lowercased config key, but every
+        # path is built from the folder's own casing. A folder that isn't on
+        # disk either would only overwrite the stored one.
+        known_folder = known_fs_slug and resolve_fs_folder(known_fs_slug, fs_platforms)
+        if known_folder:
+            platform_attrs["fs_slug"] = known_folder
 
     platform_attrs["slug"] = resolve_platform_slug(fs_slug, cnfg)
 
