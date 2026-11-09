@@ -40,8 +40,8 @@ const NAV_META: Record<NavDestinationId, { labelKey: string; icon: string }> = {
   search: { labelKey: "common.search", icon: "mdi-magnify" },
 };
 
-/** Filled glyphs the bottom tab bar swaps in on the active tab. */
-export const NAV_ACTIVE_ICONS: Partial<Record<NavDestinationId, string>> = {
+/** Filled glyphs the bottom tab bar uses, as Apple's tab bar guidance prefers. */
+export const NAV_FILLED_ICONS: Partial<Record<NavDestinationId, string>> = {
   home: "mdi-home",
   collections: "mdi-bookmark",
 };

@@ -53,15 +53,12 @@ const tab = (canvasElement: HTMLElement, name: string) =>
 export const Default: Story = {
   decorators: [atRoute("/")],
   play: async ({ canvasElement, step }) => {
-    await step("Home is active and shows its filled glyph", async () => {
+    await step("Home is active", async () => {
       await waitFor(() =>
         expect(tab(canvasElement, "Home")).toHaveClass(
           "r-segmented-control__btn--active",
         ),
       );
-      await expect(
-        tab(canvasElement, "Home").querySelector(".mdi-home"),
-      ).not.toBeNull();
     });
 
     await step("Tapping Collections moves the selection", async () => {
@@ -71,12 +68,9 @@ export const Default: Story = {
           "r-segmented-control__btn--active",
         ),
       );
-      await expect(
-        tab(canvasElement, "Collections").querySelector(".mdi-bookmark"),
-      ).not.toBeNull();
-      await expect(
-        tab(canvasElement, "Home").querySelector(".mdi-home-outline"),
-      ).not.toBeNull();
+      await expect(tab(canvasElement, "Home")).not.toHaveClass(
+        "r-segmented-control__btn--active",
+      );
     });
   },
 };
