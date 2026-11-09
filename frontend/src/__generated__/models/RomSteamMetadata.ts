@@ -17,5 +17,6 @@ export type RomSteamMetadata = {
     website?: string;
     is_free?: boolean;
     required_age?: number;
+    name?: string;
 };
 

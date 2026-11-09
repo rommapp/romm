@@ -16,5 +16,6 @@ export type RomHLTBMetadata = {
     review_count?: number;
     popularity?: number;
     completions?: number;
+    name?: string;
 };
 

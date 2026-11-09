@@ -8,5 +8,6 @@ export type RomMobyMetadata = {
     genres?: Array<string>;
     alternate_titles?: Array<string>;
     platforms?: Array<MobyMetadataPlatform>;
+    name?: string;
 };
 

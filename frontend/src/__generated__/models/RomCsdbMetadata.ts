@@ -13,5 +13,6 @@ export type RomCsdbMetadata = {
     companies?: Array<string>;
     genres?: Array<string>;
     download_urls?: Array<string>;
+    name?: string;
 };
 

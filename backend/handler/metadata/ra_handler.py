@@ -66,6 +66,8 @@ class RAMetadata(TypedDict):
     achievements: list[RAGameRomAchievement]
     # The ROM's RA hash is one RetroAchievements lists for this game.
     hash_match: NotRequired[bool]
+    # The title this source gave the game, kept by the scan.
+    name: NotRequired[str]
 
 
 class RAGameRom(BaseRom):

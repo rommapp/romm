@@ -57,6 +57,8 @@ class FlashpointMetadata(TypedDict):
     version: str | None
     language: str | None
     notes: str | None
+    # The title this source gave the game, kept by the scan.
+    name: NotRequired[str]
 
 
 class FlashpointRom(TypedDict):

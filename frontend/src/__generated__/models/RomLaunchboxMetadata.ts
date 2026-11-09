@@ -28,5 +28,6 @@ export type RomLaunchboxMetadata = {
     box2d_side_path?: (string | null);
     box3d_path?: (string | null);
     video_path?: (string | null);
+    name?: string;
 };
 

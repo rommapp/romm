@@ -53,5 +53,6 @@ export type RomSSMetadata = {
     dump_regions?: Array<string>;
     dump_languages?: Array<string>;
     dump_tags?: Array<string>;
+    name?: string;
 };
 

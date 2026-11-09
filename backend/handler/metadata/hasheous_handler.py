@@ -47,6 +47,8 @@ class HasheousMetadata(TypedDict):
     dump_regions: NotRequired[list[str]]
     dump_languages: NotRequired[list[str]]
     dump_tags: NotRequired[list[str]]
+    # The title this source gave the game, kept by the scan.
+    name: NotRequired[str]
 
 
 class HasheousPlatform(TypedDict):

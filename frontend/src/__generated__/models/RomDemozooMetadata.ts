@@ -24,5 +24,6 @@ export type RomDemozooMetadata = {
     genres?: Array<string>;
     collections?: Array<string>;
     download_urls?: Array<string>;
+    name?: string;
 };
 

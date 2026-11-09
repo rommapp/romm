@@ -66,6 +66,8 @@ class PouetMetadata(TypedDict, total=False):
     genres: list[str]
     companies: list[str]
     download_urls: list[str]
+    # The title this source gave the game, kept by the scan.
+    name: str
 
 
 class PouetRom(BaseRom):

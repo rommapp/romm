@@ -105,6 +105,8 @@ class HLTBMetadata(TypedDict):
     review_count: NotRequired[int]
     popularity: NotRequired[int]
     completions: NotRequired[int]
+    # The title this source gave the game, kept by the scan.
+    name: NotRequired[str]
 
 
 class HLTBRom(BaseRom):

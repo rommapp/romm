@@ -78,6 +78,8 @@ class SteamMetadata(TypedDict):
     website: NotRequired[str]
     is_free: NotRequired[bool]
     required_age: NotRequired[int]
+    # The title this source gave the game, kept by the scan.
+    name: NotRequired[str]
 
 
 class SteamRom(BaseRom):

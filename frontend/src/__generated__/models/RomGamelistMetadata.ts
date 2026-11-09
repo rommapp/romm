@@ -17,6 +17,7 @@ export type RomGamelistMetadata = {
     thumbnail_url?: (string | null);
     title_screen_url?: (string | null);
     video_url?: (string | null);
+    name?: string;
     rating?: (number | null);
     first_release_date?: (string | null);
     sort_name?: (string | null);

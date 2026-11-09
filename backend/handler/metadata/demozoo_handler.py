@@ -68,6 +68,8 @@ class DemozooMetadata(TypedDict, total=False):
     genres: list[str]
     collections: list[str]
     download_urls: list[str]
+    # The title this source gave the game, kept by the scan.
+    name: str
 
 
 class DemozooRom(BaseRom):

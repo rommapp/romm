@@ -99,6 +99,8 @@ class LaunchboxMetadata(TypedDict):
     box2d_side_path: NotRequired[str | None]
     box3d_path: NotRequired[str | None]
     video_path: NotRequired[str | None]
+    # The title this source gave the game, kept by the scan.
+    name: NotRequired[str]
 
 
 class LaunchboxRom(BaseRom):

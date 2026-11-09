@@ -21,5 +21,6 @@ export type RomPouetMetadata = {
     genres?: Array<string>;
     companies?: Array<string>;
     download_urls?: Array<string>;
+    name?: string;
 };
 

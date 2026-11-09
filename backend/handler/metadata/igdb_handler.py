@@ -151,6 +151,8 @@ class IGDBMetadata(TypedDict):
     expanded_games: list[IGDBRelatedGame]
     ports: list[IGDBRelatedGame]
     similar_games: list[IGDBRelatedGame]
+    # The title this source gave the game, kept by the scan.
+    name: NotRequired[str]
 
 
 class IGDBRom(BaseRom):

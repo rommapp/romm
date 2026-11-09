@@ -49,6 +49,8 @@ class CsdbMetadata(TypedDict, total=False):
     companies: list[str]
     genres: list[str]
     download_urls: list[str]
+    # The title this source gave the game, kept by the scan.
+    name: str
 
 
 class CsdbRom(BaseRom):

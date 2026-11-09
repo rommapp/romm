@@ -54,6 +54,8 @@ class MobyMetadata(TypedDict):
     genres: list[str]
     alternate_titles: list[str]
     platforms: list[MobyMetadataPlatform]
+    # The title this source gave the game, kept by the scan.
+    name: NotRequired[str]
 
 
 class MobyGamesRom(BaseRom):

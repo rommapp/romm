@@ -15,5 +15,6 @@ export type RomFlashpointMetadata = {
     version?: (string | null);
     language?: (string | null);
     notes?: (string | null);
+    name?: string;
 };
 

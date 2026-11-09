@@ -102,6 +102,10 @@ PROVIDER_ALL_TAG_FIELDS = PROVIDER_TAG_FIELDS + PROVIDER_MERGED_TAG_FIELDS
 DUMP_TAG_KEYS = {field: f"dump_{field}" for field in PROVIDER_ALL_TAG_FIELDS}
 
 
+# Where every source's blob keeps the title it gave the game.
+NAME_CLAIM_KEY = "name"
+
+
 def _always(_entity: Any) -> bool:
     return True
 

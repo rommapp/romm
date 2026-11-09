@@ -60,9 +60,11 @@ from handler.scan.merge import (
     merge_tags,
     order_merge_sources,
     record_dump_tags,
+    record_name_claims,
     reset_rematched_sources,
     resolve_scene_lock,
     seed_rom_attrs,
+    settle_name,
     splice_scene_summaries,
 )
 from handler.scan.sources import LOGGER_MODULE_NAME, MetadataSource, ScanType
@@ -459,6 +461,7 @@ async def scan_rom(
         )
 
     record_dump_tags(metadata_handlers)
+    record_name_claims(metadata_handlers)
 
     priority_ordered, hash_claims = order_merge_sources(
         apply_sources, scene_locked, metadata_handlers, rom_attrs
@@ -474,6 +477,7 @@ async def scan_rom(
         ScanType.UPDATE,
         ScanType.HASHES,
     ):
+        settle_name(rom_attrs, rom, metadata_handlers, scene_locked)
         keep_base_fields(rom_attrs, rom)
 
     # Use PICO-8 cartridge PNG as cover art if no cover is set.

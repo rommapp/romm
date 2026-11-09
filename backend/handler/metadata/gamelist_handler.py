@@ -58,6 +58,9 @@ class GamelistMetadataMedia(TypedDict):
     thumbnail_url: str | None
     title_screen_url: str | None
     video_url: str | None
+    # The title this source gave the game, kept by the scan. Declared here because
+    # the metadata is built by unpacking the media.
+    name: NotRequired[str]
 
 
 class GamelistMetadata(GamelistMetadataMedia):

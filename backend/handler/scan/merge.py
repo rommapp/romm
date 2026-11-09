@@ -16,6 +16,7 @@ from handler.scan.sources import (
     DUMP_TAG_KEYS,
     HASH_MATCHED_TAG_SOURCES,
     LOGGER_MODULE_NAME,
+    NAME_CLAIM_KEY,
     PROVIDER_ALL_TAG_FIELDS,
     PROVIDER_MERGED_TAG_FIELDS,
     PROVIDER_TAG_FIELDS,
@@ -387,6 +388,62 @@ def record_dump_tags(metadata_handlers: dict[MetadataSource, dict[str, Any]]) ->
             fields["handler"] = {**handler, fields["metadata_field"]: blob}
 
 
+def record_name_claims(metadata_handlers: dict[MetadataSource, dict[str, Any]]) -> None:
+    """Copy the title each answering source gave into its own blob."""
+    # The row's name can't say which source it came from, and a scan only hears
+    # from the sources it consults.
+    for fields in metadata_handlers.values():
+        handler = fields["handler"]
+        metadata_field = fields["metadata_field"]
+        if not metadata_field or not handler.get(fields["id_field"]):
+            continue
+        blob = handler.get(metadata_field)
+        # A match without metadata stays one an unmatched scan retries, so it
+        # isn't handed a blob just to hold the title.
+        if not isinstance(blob, dict) or not blob:
+            continue
+        claim = {NAME_CLAIM_KEY: handler.get("name") or ""}
+        fields["handler"] = {**handler, metadata_field: {**blob, **claim}}
+
+
+def settle_name(
+    rom_attrs: dict[str, Any],
+    rom: Rom,
+    metadata_handlers: dict[MetadataSource, dict[str, Any]],
+    scene_locked: bool,
+) -> None:
+    """Name the ROM after the highest-priority source that has named it.
+
+    A refresh merges only the sources it consults, so its own pick follows
+    whichever source a scan happened to ask. The sources the ROM is still
+    matched to but this scan skipped speak through the title kept in their
+    blob, and a source whose title isn't known yet keeps the stored name.
+    """
+    claims: dict[MetadataSource, str | None] = {}
+    for source, fields in metadata_handlers.items():
+        metadata_field = fields["metadata_field"]
+        if not metadata_field:
+            continue
+        if fields["handler"].get(fields["id_field"]):
+            claims[source] = fields["handler"].get("name") or ""
+        elif rom_attrs.get(fields["id_field"]):
+            # A blob written before titles were kept can't say what it named.
+            blob = rom_attrs.get(metadata_field)
+            claims[source] = (
+                blob.get(NAME_CLAIM_KEY) if isinstance(blob, dict) else None
+            )
+
+    allowed = scene_apply_sources(list(claims), scene_locked=scene_locked)
+    for source in get_priority_ordered_metadata_sources(allowed, "metadata"):
+        claim = claims[source]
+        if claim is None:
+            rom_attrs["name"] = rom.name
+            return
+        if claim:
+            rom_attrs["name"] = claim
+            return
+
+
 def order_merge_sources(
     apply_sources: list[MetadataSource],
     scene_locked: bool,
@@ -498,7 +555,14 @@ def keep_base_fields(rom_attrs: dict[str, Any], rom: Rom) -> None:
     # filename fallback can win.
     # The stored no-tags name is the placeholder the ROM's name was seeded from.
     placeholders = (None, "", rom.fs_name, fs_name_no_tags, rom.fs_name_no_tags)
-    existing_name = None if rom.name in placeholders else rom.name
+    # A title a source gave is no more the user's than the filename is, so a
+    # better-ranked source can still replace it.
+    claimed = {
+        blob.get(NAME_CLAIM_KEY)
+        for column in PROVIDER_METADATA_COLUMNS
+        if isinstance(blob := getattr(rom, column, None), dict)
+    }
+    existing_name = None if rom.name in (*placeholders, *claimed) else rom.name
     matched_name = rom_attrs.get("name")
     matched_name = None if matched_name in placeholders else matched_name
     rom_attrs.update(
