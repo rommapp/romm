@@ -45,6 +45,7 @@ def test_heartbeat(client):
     assert "FILESYSTEM" in heartbeat
     filesystem = heartbeat["FILESYSTEM"]
     assert isinstance(filesystem["FS_PLATFORMS"], list)
+    assert isinstance(filesystem["FS_PLATFORM_SLUGS"], dict)
 
     assert "EMULATION" in heartbeat
     emulation = heartbeat["EMULATION"]
@@ -65,6 +66,19 @@ def test_heartbeat(client):
     assert isinstance(oidc["RP_INITIATED_LOGOUT"], bool)
 
     assert isinstance(heartbeat["CONVERTO"]["ENABLED"], bool)
+
+
+def test_heartbeat_maps_folders_to_builtin_slugs(client):
+    with patch(
+        "endpoints.heartbeat.fs_platform_handler.get_platforms",
+        AsyncMock(return_value=["gamecube", "N64", "mystery"]),
+    ):
+        response = client.get("/api/heartbeat")
+
+    assert response.json()["FILESYSTEM"]["FS_PLATFORM_SLUGS"] == {
+        "gamecube": "ngc",
+        "N64": "n64",
+    }
 
 
 @pytest.mark.parametrize(

@@ -32,6 +32,8 @@ class MetadataSourcesDict(TypedDict):
 
 class FilesystemDict(TypedDict):
     FS_PLATFORMS: list[str]
+    # Folders whose name or built-in alias names a platform, mapped to its slug.
+    FS_PLATFORM_SLUGS: dict[str, str]
     TITLE_ID_EXTRACTION_ENABLED: bool
 
 

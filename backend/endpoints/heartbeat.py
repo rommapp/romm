@@ -71,7 +71,10 @@ from handler.redis_handler import sync_cache
 from handler.scan.sources import MetadataSource
 from logger.logger import log
 from utils import get_git_branch, get_version
-from utils.platform_aliases import resolve_platform_slug
+from utils.platform_aliases import (
+    resolve_builtin_platform_slug,
+    resolve_platform_slug,
+)
 from utils.platforms import get_supported_platforms
 from utils.rate_limit import enforce_rate_limit, get_client_ip
 from utils.router import APIRouter
@@ -103,6 +106,7 @@ async def heartbeat() -> HeartbeatResponse:
     title_id_extraction_enabled = (
         SigilService.is_enabled() and not cm.get_config().SKIP_TITLE_ID_EXTRACTION
     )
+    fs_platforms = await fs_platform_handler.get_platforms()
 
     igdb_enabled = meta_igdb_handler.is_enabled()
     flashpoint_enabled = meta_flashpoint_handler.is_enabled()
@@ -165,7 +169,12 @@ async def heartbeat() -> HeartbeatResponse:
             "LIBRETRO_API_ENABLED": libretro_enabled,
         },
         "FILESYSTEM": {
-            "FS_PLATFORMS": await fs_platform_handler.get_platforms(),
+            "FS_PLATFORMS": fs_platforms,
+            "FS_PLATFORM_SLUGS": {
+                fs_slug: slug
+                for fs_slug in fs_platforms
+                if (slug := resolve_builtin_platform_slug(fs_slug))
+            },
             "TITLE_ID_EXTRACTION_ENABLED": title_id_extraction_enabled,
         },
         "EMULATION": {
