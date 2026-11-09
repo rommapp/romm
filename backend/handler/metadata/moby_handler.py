@@ -955,7 +955,6 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
         "slug": "philips-vg-5000",
     },
     UPS.PHOTOCD: {"id": 272, "name": "Photo CD", "slug": "photocd"},
-    UPS.PICO: {"id": 316, "name": "PICO", "slug": "pico"},
     UPS.PIPPIN: {"id": 112, "name": "Pippin", "slug": "pippin"},
     UPS.PLAYDATE: {"id": 303, "name": "Playdate", "slug": "playdate"},
     UPS.PLAYDIA: {"id": 107, "name": "Playdia", "slug": "playdia"},
