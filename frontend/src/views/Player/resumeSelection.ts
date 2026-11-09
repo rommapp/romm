@@ -2,7 +2,8 @@ import type { SaveSchema, StateSchema } from "@/__generated__";
 import { newest } from "@/utils/assets";
 
 // What the player boots from and where progress is written back. A state
-// restores the whole machine, SRAM included, so it wins a tie at boot.
+// restores the whole machine, SRAM included, so it wins a tie at boot unless
+// another device wrote the save (see defaultResumeSelection).
 export interface ResumeSelection {
   save: SaveSchema | null;
   state: StateSchema | null;
@@ -24,13 +25,38 @@ function newestOfEither(
   return save && { kind: "save", asset: save };
 }
 
-/** The newest save or compatible state, whichever is later; never both. */
+// Server timestamps of a save and a state uploaded together by one quit.
+const SAME_QUIT_WINDOW_MS = 5_000;
+
+function writtenTogether(save: SaveSchema, state: StateSchema): boolean {
+  const gap = Date.parse(state.updated_at) - Date.parse(save.updated_at);
+  return Math.abs(gap) <= SAME_QUIT_WINDOW_MS;
+}
+
+/**
+ * The newest save or compatible state, whichever is later; never both.
+ *
+ * Args:
+ *   thisDeviceId: this browser's sync device, if it registered one.
+ */
 export function defaultResumeSelection(
   saves: readonly SaveSchema[],
   compatibleStates: readonly StateSchema[],
+  thisDeviceId: string | null = null,
 ): ResumeSelection {
   const latest = newestOfEither(saves, compatibleStates);
   if (!latest) return { save: null, state: null };
+  // States record no device, so one written with another device's save likely
+  // came from that device's core, which may not load here.
+  const save = newest(saves);
+  if (
+    latest.kind === "state" &&
+    save?.origin_device_id &&
+    save.origin_device_id !== thisDeviceId &&
+    writtenTogether(save, latest.asset)
+  ) {
+    return pickSave(save);
+  }
   return latest.kind === "state"
     ? pickState(latest.asset)
     : pickSave(latest.asset);
@@ -58,7 +84,15 @@ export function newerThanPick(
   const picked = selection.state ?? selection.save;
   if (!picked) return null;
   const candidate = newestOfEither(saves, compatibleStates);
-  return candidate && candidate.asset.updated_at > picked.updated_at
-    ? candidate
-    : null;
+  if (!candidate || candidate.asset.updated_at <= picked.updated_at)
+    return null;
+  // A state from the same quit as the picked save holds no newer progress.
+  if (
+    candidate.kind === "state" &&
+    selection.save &&
+    writtenTogether(selection.save, candidate.asset)
+  ) {
+    return null;
+  }
+  return candidate;
 }
