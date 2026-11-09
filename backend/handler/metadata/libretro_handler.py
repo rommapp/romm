@@ -223,7 +223,7 @@ LIBRETRO_PLATFORM_LIST: Final[dict[UPS, str]] = {
     UPS.INTELLIVISION: "Mattel - Intellivision",
     UPS.MSX: "Microsoft - MSX",
     UPS.MSX2: "Microsoft - MSX2",
-    UPS.XBOX: "Microsoft - XBOX",
+    UPS.XBOX: "Microsoft - Xbox",
     UPS.PC_8800_SERIES: "NEC - PC-88",
     UPS.PC_FX: "NEC - PC-FX",
     UPS.PC_9800_SERIES: "NEC - PC-98",
@@ -274,8 +274,6 @@ LIBRETRO_PLATFORM_LIST: Final[dict[UPS, str]] = {
     UPS.PS2: "Sony - PlayStation 2",
     UPS.PSP: "Sony - PlayStation Portable",
     UPS.TIC_80: "TIC-80",
-    UPS.ZELDA_CLASSIC: "Zelda Classic",
-    UPS.TOMY_TUTOR: "Tomy - Tutor",
     UPS.SUPERVISION: "Watara - Supervision",
 }
 
