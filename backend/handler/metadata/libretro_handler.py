@@ -212,6 +212,7 @@ LIBRETRO_PLATFORM_LIST: Final[dict[UPS, str]] = {
     UPS.COLECOVISION: "Coleco - ColecoVision",
     UPS.C64: "Commodore - 64",
     UPS.VIC_20: "Commodore - VIC-20",
+    UPS.COMMODORE_CDTV: "Commodore - CDTV",
     UPS.DOOM: "DOOM",
     UPS.DOS: "DOS",
     UPS.FAIRCHILD_CHANNEL_F: "Fairchild - Channel F",
