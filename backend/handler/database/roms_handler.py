@@ -989,6 +989,230 @@ class DBRomsHandler(DBBaseHandler):
             select(Rom.id, Rom.ra_id).where(Rom.ra_id.in_(ra_ids))
         ).all()
 
+    @begin_session
+    def get_rom_achievement_sources(
+        self,
+        ra_ids: Sequence[int],
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> list[dict[str, Any]]:
+        """ROM fields the earned-achievements page joins onto progression.
+
+        One query for the games the user has already unlocked something in.
+        The gallery relationship graph stays unloaded.
+        """
+        if not ra_ids:
+            return []
+
+        rows = session.execute(
+            select(
+                Rom.id,
+                Rom.name.label("rom_name"),
+                Rom.fs_name_no_tags,
+                Rom.ra_id,
+                Rom.ra_metadata,
+                Rom.platform_id,
+                Rom.min_age,
+                Platform.custom_name.label("platform_custom_name"),
+                Platform.name.label("platform_name"),
+            )
+            .join(Platform, Rom.platform_id == Platform.id)
+            .where(Rom.ra_id.in_(list(ra_ids)))
+        ).all()
+
+        sources: list[dict[str, Any]] = []
+        for row in rows:
+            if not isinstance(row.ra_id, int):
+                continue
+            metadata = row.ra_metadata if isinstance(row.ra_metadata, dict) else {}
+            achievements = metadata.get("achievements")
+            name = (row.rom_name or row.fs_name_no_tags or "").strip() or f"#{row.id}"
+            sources.append(
+                {
+                    "id": row.id,
+                    "name": name,
+                    "ra_id": row.ra_id,
+                    "platform_id": row.platform_id,
+                    "min_age": row.min_age,
+                    "platform_name": row.platform_custom_name or row.platform_name,
+                    "achievements": achievements
+                    if isinstance(achievements, list)
+                    else [],
+                }
+            )
+        return sources
+
+    @begin_session
+    def get_library_achievement_sources(
+        self,
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> list[dict[str, Any]]:
+        """Every ROM that RetroAchievements has matched, cover included.
+
+        The achievements page needs games still at 0%, so this is not limited
+        to ids already present in the user's sync.
+        """
+        rows = session.execute(
+            select(
+                Rom.id,
+                Rom.name.label("rom_name"),
+                Rom.fs_name_no_tags,
+                Rom.ra_id,
+                Rom.ra_metadata,
+                Rom.platform_id,
+                Rom.min_age,
+                Rom.path_cover_l,
+                Rom.path_cover_s,
+                Rom.url_cover,
+                Rom.updated_at,
+                Platform.custom_name.label("platform_custom_name"),
+                Platform.name.label("platform_name"),
+                Platform.slug.label("platform_slug"),
+                Platform.fs_slug.label("platform_fs_slug"),
+            )
+            .join(Platform, Rom.platform_id == Platform.id)
+            .where(Rom.ra_id.is_not(None))
+        ).all()
+
+        sources: list[dict[str, Any]] = []
+        for row in rows:
+            if not isinstance(row.ra_id, int):
+                continue
+            metadata = row.ra_metadata if isinstance(row.ra_metadata, dict) else {}
+            achievements = metadata.get("achievements")
+            name = (row.rom_name or row.fs_name_no_tags or "").strip() or f"#{row.id}"
+            small = row.path_cover_s.strip() if isinstance(row.path_cover_s, str) else ""
+            large = row.path_cover_l.strip() if isinstance(row.path_cover_l, str) else ""
+            remote = row.url_cover.strip() if isinstance(row.url_cover, str) else ""
+            sources.append(
+                {
+                    "id": row.id,
+                    "name": name,
+                    "ra_id": row.ra_id,
+                    "platform_id": row.platform_id,
+                    "min_age": row.min_age,
+                    "platform_name": row.platform_custom_name or row.platform_name,
+                    "platform_slug": row.platform_slug,
+                    "platform_fs_slug": row.platform_fs_slug,
+                    "path_cover_l": large or None,
+                    "path_cover_s": small or None,
+                    "url_cover": remote or None,
+                    "updated_at": row.updated_at,
+                    "image_icon": metadata.get("image_icon"),
+                    "image_title": metadata.get("image_title"),
+                    "image_ingame": metadata.get("image_ingame"),
+                    "image_box_art": metadata.get("image_box_art"),
+                    "achievements": achievements
+                    if isinstance(achievements, list)
+                    else [],
+                }
+            )
+        return sources
+
+    @begin_session
+    def set_ra_image_icons(
+        self,
+        icons: Mapping[int, str],
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> int:
+        """Merge an ImageIcon path into ``ra_metadata`` for each game id.
+
+        Other metadata, including the achievement catalog, stays as it is.
+        A ROM that already stores the same path is left untouched.
+        """
+        if not icons:
+            return 0
+
+        rows = session.execute(
+            select(Rom.id, Rom.ra_id, Rom.ra_metadata).where(
+                Rom.ra_id.in_(list(icons))
+            )
+        ).all()
+        updated = 0
+        for row in rows:
+            ra_id = row.ra_id
+            if isinstance(ra_id, bool) or not isinstance(ra_id, int):
+                continue
+            path = icons.get(ra_id)
+            if (
+                not isinstance(path, str)
+                or not path.startswith("/Images/")
+                or not path.endswith(".png")
+                or "?" in path
+                or "\\" in path
+            ):
+                continue
+            metadata = (
+                dict(row.ra_metadata) if isinstance(row.ra_metadata, dict) else {}
+            )
+            if metadata.get("image_icon") == path:
+                continue
+            metadata["image_icon"] = path
+            session.execute(
+                update(Rom).where(Rom.id == row.id).values(ra_metadata=metadata)
+            )
+            updated += 1
+        return updated
+
+    @begin_session
+    def set_ra_game_art(
+        self,
+        arts: Mapping[int, Mapping[str, str]],
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> int:
+        """Merge title, in-game and box-art paths into ``ra_metadata``.
+
+        An empty string means RetroAchievements has no image for that slot.
+        The achievement catalog and every other key stay as they are. A ROM
+        that already stores the same paths is left untouched.
+        """
+        if not arts:
+            return 0
+
+        from handler.metadata.earned_achievements import RA_ART_KEYS, ra_image_icon_path
+
+        rows = session.execute(
+            select(Rom.id, Rom.ra_id, Rom.ra_metadata).where(Rom.ra_id.in_(list(arts)))
+        ).all()
+        updated = 0
+        for row in rows:
+            ra_id = row.ra_id
+            if isinstance(ra_id, bool) or not isinstance(ra_id, int):
+                continue
+            incoming = arts.get(ra_id)
+            if not isinstance(incoming, Mapping):
+                continue
+            metadata = (
+                dict(row.ra_metadata) if isinstance(row.ra_metadata, dict) else {}
+            )
+            changed = False
+            for key in RA_ART_KEYS:
+                if key not in incoming:
+                    continue
+                raw = incoming[key]
+                if raw == "":
+                    path = ""
+                elif isinstance(raw, str):
+                    path = ra_image_icon_path(raw)
+                    if path is None:
+                        continue
+                else:
+                    continue
+                if metadata.get(key) == path:
+                    continue
+                metadata[key] = path
+                changed = True
+            if not changed:
+                continue
+            session.execute(
+                update(Rom).where(Rom.id == row.id).values(ra_metadata=metadata)
+            )
+            updated += 1
+        return updated
+
     def get_files_for_roms(
         self,
         rom_ids: list[int],

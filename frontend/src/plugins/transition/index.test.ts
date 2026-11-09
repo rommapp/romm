@@ -11,6 +11,34 @@ afterEach(() => {
 });
 
 describe("startViewTransition", () => {
+  it("calls the native API with document as this", async () => {
+    const ready = Promise.resolve();
+    const start = vi.fn(function (
+      this: Document,
+      callback?: () => Promise<void> | void,
+    ) {
+      if (this !== document) {
+        throw new TypeError("Illegal invocation");
+      }
+      void callback?.();
+      return {
+        updateCallbackDone: Promise.resolve(),
+        ready,
+        finished: Promise.resolve(),
+        skipTransition: () => {},
+      };
+    });
+    Object.defineProperty(document, "startViewTransition", {
+      configurable: true,
+      value: start,
+    });
+
+    const transition = startViewTransition(async () => {});
+    await transition.captured;
+
+    expect(start).toHaveBeenCalledTimes(1);
+  });
+
   it("invokes the callback once when the native API is available", async () => {
     await stubStartViewTransition(Promise.resolve());
     const callback = vi.fn(async () => {});

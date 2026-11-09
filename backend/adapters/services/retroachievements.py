@@ -10,6 +10,7 @@ from fastapi import HTTPException, status
 from adapters.services.provider_http import send_with_retries
 from adapters.services.response_validation import parse_response
 from adapters.services.retroachievements_types import (
+    RAGame,
     RAGameExtendedDetails,
     RAGameInfoAndUserProgress,
     RAGameListItem,
@@ -109,6 +110,14 @@ class RetroAchievementsService:
         """
         url = self.url.joinpath("API_GetAchievementOfTheWeek.php")
         return await self._request(str(url), dict[str, Any])
+
+    async def get_game(self, game_id: int) -> RAGame | None:
+        """Basic metadata for one game, including its ImageIcon path.
+
+        Reference: https://api-docs.retroachievements.org/v1/get-game.html
+        """
+        url = self.url.joinpath("API_GetGame.php").with_query(i=[game_id])
+        return await self._request(str(url), RAGame)
 
     async def get_game_extended_details(
         self, game_id: int

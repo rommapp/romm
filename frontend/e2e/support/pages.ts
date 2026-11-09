@@ -35,6 +35,7 @@ export const PAGES: Record<RouteName, PageDef> = {
   [ROUTES.PLATFORMS_INDEX]: { open: "/platforms" },
   [ROUTES.PLATFORM]: { open: gotoFirstPlatform },
   [ROUTES.COLLECTIONS_INDEX]: { open: "/collections" },
+  [ROUTES.ACHIEVEMENTS]: { open: "/achievements" },
   [ROUTES.SEARCH]: { open: "/search" },
   [ROUTES.MUSIC]: { open: "/music" },
   [ROUTES.ROM]: { open: clickThroughToFirstRom },

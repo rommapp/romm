@@ -145,6 +145,14 @@ function morphNameForRoute(route: RouteLocationNormalized): string | null {
   return null;
 }
 
+function achievementIconTag(route: RouteLocationNormalized): string | null {
+  if (String(route.name) !== ROUTES.ACHIEVEMENTS) return null;
+  const raw = route.query.rom;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (!value || !/^[1-9]\d*$/.test(value)) return null;
+  return `ach-icon-${value}`;
+}
+
 // Install a router guard that morphs the leaving view's hero element
 // back into the matching tile in the destination view: covers BackBtn,
 // navbar clicks, and the browser back button (all flow through the same
@@ -164,6 +172,26 @@ function morphNameForRoute(route: RouteLocationNormalized): string | null {
 //
 // Skips when a forward `morphTransition` is already running so the two
 // don't fight over `document.startViewTransition`.
+function runBackMorph(tag: string): Promise<void> {
+  pendingMorphName.value = tag;
+  return new Promise<void>((resolveGuard) => {
+    const transition = document.startViewTransition(async () => {
+      // Let the route advance; once the router commits, Vue re-renders
+      // the destination view, and the matching tile now carries the
+      // view-transition-name.
+      resolveGuard();
+      await nextTick();
+      await nextTick();
+    });
+    // A navigation during the capture phase preempts this transition, same
+    // as the forward morph's.
+    void absorbPreemptionSkip(transition.ready);
+    void transition.finished.finally(() => {
+      pendingMorphName.value = null;
+    });
+  });
+}
+
 export function installBackMorph(router: Router): () => void {
   const removeGuard = router.beforeResolve(async (to, from) => {
     if (forwardTransitionActive) return true;
@@ -171,29 +199,20 @@ export function installBackMorph(router: Router): () => void {
     // No morph between two views of the same kind (e.g. /platform/A →
     // /platform/B): that would compete with the in-route transition
     // and there's no shared element to pair anyway.
-    if (from.name && to.name === from.name) return true;
+    // Achievements stays on one route and only changes `?rom=`. That is the
+    // same enter/back morph as a platform tile and its header icon.
+    if (from.name && to.name === from.name) {
+      const leaving = achievementIconTag(from);
+      const entering = achievementIconTag(to);
+      if (!leaving || leaving === entering) return true;
+      await runBackMorph(leaving);
+      return true;
+    }
 
     const tag = morphNameForRoute(from);
     if (!tag) return true;
 
-    pendingMorphName.value = tag;
-
-    await new Promise<void>((resolveGuard) => {
-      const transition = document.startViewTransition(async () => {
-        // Let the route advance; once the router commits, Vue re-renders
-        // the destination view, and the matching tile now carries the
-        // view-transition-name.
-        resolveGuard();
-        await nextTick();
-        await nextTick();
-      });
-      // A navigation during the capture phase preempts this transition, same
-      // as the forward morph's.
-      void absorbPreemptionSkip(transition.ready);
-      void transition.finished.finally(() => {
-        pendingMorphName.value = null;
-      });
-    });
+    await runBackMorph(tag);
 
     return true;
   });
