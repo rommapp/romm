@@ -7,6 +7,7 @@ from config.config_manager import Config
 from utils.platform_aliases import (
     PLATFORM_FS_ALIASES,
     PLATFORM_SLUG_FOLDERS,
+    resolve_builtin_platform_slug,
     resolve_fs_folder,
     resolve_fs_slug,
     resolve_platform_slug,
@@ -159,3 +160,11 @@ def test_example_configs_list_only_needed_overrides(config_file: Path):
         if resolve_platform_slug(fs_slug, empty) == slug
     }
     assert not redundant
+
+
+@pytest.mark.parametrize(
+    ("folder", "slug"),
+    [("gamecube", "ngc"), ("MegaDrive", "genesis"), ("N64", "n64"), ("mystery", None)],
+)
+def test_resolves_builtin_slug_without_config(folder: str, slug: str | None):
+    assert resolve_builtin_platform_slug(folder) == slug

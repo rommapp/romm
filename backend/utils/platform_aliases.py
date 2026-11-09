@@ -175,6 +175,16 @@ def _to_slug(name: str) -> str:
     return alias.value if alias else name
 
 
+def resolve_builtin_platform_slug(fs_slug: str) -> str | None:
+    """Resolve a folder name to a platform slug by its name or built-in alias.
+
+    Returns:
+        The platform slug, or None when the folder needs a config mapping.
+    """
+    slug = _to_slug(fs_slug)
+    return slug if slug in UPS else None
+
+
 def resolve_platform_slug(fs_slug: str, config: Config) -> str:
     """Resolve a platform folder name to a RomM platform slug."""
     key = fs_slug.lower()

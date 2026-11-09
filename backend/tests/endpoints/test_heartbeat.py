@@ -45,6 +45,7 @@ def test_heartbeat(client):
     assert "FILESYSTEM" in heartbeat
     filesystem = heartbeat["FILESYSTEM"]
     assert isinstance(filesystem["FS_PLATFORMS"], list)
+    assert isinstance(filesystem["FS_PLATFORM_SLUGS"], dict)
 
     assert "EMULATION" in heartbeat
     emulation = heartbeat["EMULATION"]
@@ -65,6 +66,19 @@ def test_heartbeat(client):
     assert isinstance(oidc["RP_INITIATED_LOGOUT"], bool)
 
     assert isinstance(heartbeat["CONVERTO"]["ENABLED"], bool)
+
+
+def test_heartbeat_maps_folders_to_builtin_slugs(client):
+    with patch(
+        "endpoints.heartbeat.fs_platform_handler.get_platforms",
+        AsyncMock(return_value=["gamecube", "N64", "mystery"]),
+    ):
+        response = client.get("/api/heartbeat")
+
+    assert response.json()["FILESYSTEM"]["FS_PLATFORM_SLUGS"] == {
+        "gamecube": "ngc",
+        "N64": "n64",
+    }
 
 
 @pytest.mark.parametrize(
@@ -218,11 +232,10 @@ def test_get_setup_library_info_reports_a_ready_library(client, access_token):
                 data = response.json()
 
                 assert data["library_ready"] is True
-                assert len(data["existing_platforms"]) == 2
-                assert data["existing_platforms"][0]["fs_slug"] == "n64"
-                assert data["existing_platforms"][0]["rom_count"] == 2
-                assert data["existing_platforms"][1]["fs_slug"] == "psx"
-                assert data["existing_platforms"][1]["rom_count"] == 1
+                assert data["existing_platforms"] == [
+                    {"fs_slug": "n64", "slug": "n64", "rom_count": 2},
+                    {"fs_slug": "psx", "slug": "psx", "rom_count": 1},
+                ]
                 assert "supported_platforms" in data
 
 
@@ -266,9 +279,9 @@ def test_get_setup_library_info_counts_one_platform(client, admin_user, access_t
                 data = response.json()
 
                 assert data["library_ready"] is True
-                assert len(data["existing_platforms"]) == 1
-                assert data["existing_platforms"][0]["fs_slug"] == "gba"
-                assert data["existing_platforms"][0]["rom_count"] == 3
+                assert data["existing_platforms"] == [
+                    {"fs_slug": "gba", "slug": "gba", "rom_count": 3}
+                ]
 
 
 def test_get_setup_library_info_no_library_yet(client, admin_user, access_token):
@@ -384,7 +397,44 @@ def test_get_setup_library_info_walks_when_platforms_have_no_roms(
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
 
-    assert data["existing_platforms"] == [{"fs_slug": "n64", "rom_count": 1}]
+    assert data["existing_platforms"] == [
+        {"fs_slug": "n64", "slug": "n64", "rom_count": 1}
+    ]
+
+
+def test_get_setup_library_info_resolves_folder_aliases(
+    client, admin_user, access_token
+):
+    """A folder alias reports the platform slug it resolves to, next to its folder name."""
+    with (
+        patch(
+            "endpoints.heartbeat.fs_platform_handler.library_structure_exists"
+        ) as mock_detect,
+        patch(
+            "endpoints.heartbeat.fs_platform_handler.get_platforms"
+        ) as mock_get_platforms,
+        patch("endpoints.heartbeat.AnyioPath") as mock_anyio_path,
+    ):
+        mock_detect.return_value = True
+        mock_get_platforms.return_value = ["gamecube", "megadrive", "gba"]
+
+        async def mock_iterdir():
+            return
+            yield
+
+        mock_path = AsyncMock()
+        mock_path.exists = AsyncMock(return_value=True)
+        mock_path.iterdir = mock_iterdir
+        mock_anyio_path.return_value = mock_path
+
+        response = client.get(
+            "/api/setup/library",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    folders = {p["fs_slug"]: p["slug"] for p in response.json()["existing_platforms"]}
+    assert folders == {"gamecube": "ngc", "megadrive": "genesis", "gba": "gba"}
 
 
 def test_create_setup_platforms_success(client, admin_user, access_token):

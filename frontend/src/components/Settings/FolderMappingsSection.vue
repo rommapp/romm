@@ -63,9 +63,7 @@ const TYPE_ORDER: Record<NonNullable<RowType> | "none", number> = {
 const mappings = computed<Row[]>(() => {
   const rows: Row[] = [];
   const folders = heartbeat.value?.FILESYSTEM?.FS_PLATFORMS || [];
-  const autoSlug: Record<string, string | undefined> = {};
-
-  for (const p of supportedPlatforms.value) autoSlug[p.slug] = p.slug;
+  const autoSlug = heartbeat.value?.FILESYSTEM?.FS_PLATFORM_SLUGS || {};
 
   for (const folder of folders) {
     const binding = configStore.getPlatformBinding(folder);
@@ -90,8 +88,7 @@ const mappings = computed<Row[]>(() => {
       });
       continue;
     }
-    // Platform slugs are lowercase; the folder on disk may not be.
-    const auto = autoSlug[folder.toLowerCase()];
+    const auto = autoSlug[folder];
     if (auto) {
       const platform = supportedPlatforms.value.find((p) => p.slug === auto);
       rows.push({
