@@ -21,7 +21,7 @@ function input(overrides: Partial<EjsConfigInput> = {}): EjsConfigInput {
   return {
     rom,
     core: null,
-    disc: null,
+    fileIds: [],
     bios: null,
     firmware: [],
     config: {
@@ -67,7 +67,7 @@ describe("buildEjsConfig", () => {
       buildEjsConfig(
         input({
           core: "mednafen_psx_hw",
-          disc: 42,
+          fileIds: [42],
           bios,
           loadStateLabel: "Load from RomM",
           controls: { 0: { 0: { value: "x" } } },

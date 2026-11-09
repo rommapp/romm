@@ -40,6 +40,7 @@ from models.rom import (
     PINNED_MEDIA_MAX_ITEMS,
     Rom,
     RomFile,
+    RomFileCategory,
     compute_name_sort_key,
 )
 from models.user import User
@@ -257,6 +258,33 @@ def test_download_multi_file_rom_content(
     body = response.text
     assert "disc1.bin" in body
     assert "disc2.bin" in body
+    assert f"{multi_file_rom.fs_name}.m3u" in body
+
+
+def test_download_selected_files_generates_playlist_beside_a_variant_one(
+    client: TestClient, access_token: str, multi_file_rom: Rom
+):
+    """A translation's .m3u does not list the base discs, so the base set gets its own."""
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=multi_file_rom.id,
+            file_name="Game (T-Es).m3u",
+            file_path=f"{multi_file_rom.fs_path}/{multi_file_rom.fs_name}/translations",
+            file_size_bytes=1,
+            category=RomFileCategory.TRANSLATION,
+        )
+    )
+    base_ids = ",".join(str(f.id) for f in multi_file_rom.files)
+
+    response = client.get(
+        f"/api/roms/{multi_file_rom.id}/content/{multi_file_rom.fs_name}",
+        params={"file_ids": base_ids},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    body = response.text
+    assert "Game (T-Es).m3u" not in body
     assert f"{multi_file_rom.fs_name}.m3u" in body
 
 

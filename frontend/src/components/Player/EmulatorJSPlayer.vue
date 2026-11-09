@@ -78,7 +78,8 @@ const props = defineProps<{
   bios: FirmwareSchema | null;
   firmware: FirmwareSchema[];
   core: string | null;
-  disc: number | null;
+  /** The files to boot, or none for the whole rom. */
+  fileIds: number[];
   /** Slot for new saves when the loaded save has none; defaults to autosave. */
   saveSlot?: string | null;
   /** Load State button label; the shell names the picker it opens. */
@@ -274,7 +275,7 @@ applyEjsGlobals(
   buildEjsConfig({
     rom: romRef.value,
     core: props.core,
-    disc: props.disc,
+    fileIds: props.fileIds,
     bios: props.bios,
     firmware: props.firmware,
     loadStateLabel: props.loadStateLabel,
@@ -321,10 +322,10 @@ onMounted(() => {
     userStorage.removeItem(`player:${romRef.value.platform_slug}:core`);
   }
 
-  if (props.disc) {
+  if (props.fileIds.length === 1) {
     userStorage.setItem(
       `player:${romRef.value.id}:disc`,
-      props.disc.toString(),
+      props.fileIds[0]!.toString(),
     );
   } else {
     userStorage.removeItem(`player:${romRef.value.id}:disc`);

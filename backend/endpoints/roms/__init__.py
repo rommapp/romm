@@ -1731,6 +1731,8 @@ async def get_rom_content(
         )
 
     m3u_files = playlist_files(files)
+    # A variant's playlist does not list the base discs, so only served files count.
+    has_m3u = any(f.file_extension.lower() == "m3u" for f in files)
 
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
@@ -1787,7 +1789,7 @@ async def get_rom_content(
                         raise
 
                 # Add M3U file if not already present
-                if not rom.has_m3u_file():
+                if not has_m3u:
                     m3u_encoded_content = "\n".join(
                         [f.file_name_for_download(hidden_folder) for f in m3u_files]
                     ).encode()
@@ -1828,7 +1830,6 @@ async def get_rom_content(
     # fall through to mod_zip streaming for non-Range requests.
     range_header = request.headers.get("range")
     if range_header:
-        has_m3u = rom.has_m3u_file()
         redirect_path = await resolve_cached_zip(
             str(rom.id),
             [ZipFileEntry.from_rom_file(f, hidden_folder) for f in files],
@@ -1855,7 +1856,7 @@ async def get_rom_content(
         for f in files
     ]
 
-    if not rom.has_m3u_file():
+    if not has_m3u:
         m3u_encoded_content = generate_m3u_content(files, hidden_folder)
         m3u_base64_content = b64encode(m3u_encoded_content).decode()
         m3u_line = ZipContentLine(

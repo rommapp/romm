@@ -3,8 +3,10 @@ import type { RomFileCategory } from "@/__generated__";
 import {
   ALL_DISCS,
   bootDiscId,
+  bootFileIds,
   bootableFiles,
   defaultDisc,
+  offersAllDiscs,
   rememberDisc,
   resolveRememberedDisc,
   resolveStoredDisc,
@@ -284,5 +286,95 @@ describe("resolveStoredDisc with a remembered playlist", () => {
     ]);
 
     expect(stored).toEqual({ disc: ALL_DISCS, stale: true });
+  });
+});
+
+// Issue #5462: variants in translations/ or hacks/ sit beside the base game.
+describe("a rom with translated or hacked variants", () => {
+  const disc1 = file(1, "Parasite Eve (USA) (Disc 1).chd");
+  const disc2 = file(2, "Parasite Eve (USA) (Disc 2).chd");
+  const playlist = file(3, "Parasite Eve (USA).m3u");
+  const tDisc1 = file(
+    4,
+    "Parasite Eve (USA) (Disc 1) (T-Es).chd",
+    "translation",
+  );
+  const tDisc2 = file(
+    5,
+    "Parasite Eve (USA) (Disc 2) (T-Es).chd",
+    "translation",
+  );
+  const tPlaylist = file(6, "Parasite Eve (USA) (T-Es).m3u", "translation");
+  const multiDisc = [tDisc1, tDisc2, tPlaylist, disc1, disc2, playlist];
+
+  const cartridge = file(10, "Mother 3 (Japan).gba");
+  const upsPatch = file(11, "Mother 3 (Japan) (T-Es).ups", "translation");
+  const bpsPatch = file(12, "Mother 3 (Japan) (T-Es).BPS", "translation");
+
+  const hacked = file(20, "Game (Hack).gba", "hack");
+  const plain = file(21, "Game.gba");
+
+  it("never boots a patch file, whatever folder it sits in", () => {
+    expect(bootableFiles([upsPatch, bpsPatch, cartridge])).toEqual([cartridge]);
+    expect(defaultDisc([upsPatch, bpsPatch, cartridge])).toBe(10);
+  });
+
+  it("defaults to the base game's set, not a variant's playlist", () => {
+    expect(defaultDisc(multiDisc)).toBe(ALL_DISCS);
+  });
+
+  it("defaults to the base file when a variant sorts before it", () => {
+    expect(defaultDisc([hacked, plain])).toBe(21);
+  });
+
+  it("lists the base game's discs before the variants", () => {
+    expect(selectableDiscFiles(multiDisc)).toEqual([
+      disc1,
+      disc2,
+      tDisc1,
+      tDisc2,
+    ]);
+  });
+
+  it("offers all discs only when the base game has several", () => {
+    expect(offersAllDiscs(multiDisc)).toBe(true);
+    expect(offersAllDiscs([hacked, plain])).toBe(false);
+  });
+
+  it("drops a stored all-discs choice once the base game is one file", () => {
+    expect(resolveStoredDisc(ALL_DISCS, [hacked, plain])).toEqual({
+      disc: 21,
+      stale: true,
+    });
+  });
+
+  it("boots all discs as the base set alone", () => {
+    expect(bootFileIds(ALL_DISCS, multiDisc)).toEqual([1, 2, 3]);
+  });
+});
+
+describe("bootFileIds", () => {
+  it("downloads a single file when one disc is selected", () => {
+    expect(bootFileIds(4, files(4, 5))).toEqual([4]);
+  });
+
+  it("downloads the rom whole when every file is the base game", () => {
+    expect(bootFileIds(ALL_DISCS, files(1, 2))).toEqual([]);
+    expect(bootFileIds(null, files(1, 2))).toEqual([]);
+  });
+
+  it("leaves media out of an all-discs boot", () => {
+    expect(
+      bootFileIds(ALL_DISCS, [...files(1, 2), file(3, "manual.pdf", "manual")]),
+    ).toEqual([1, 2]);
+  });
+
+  it("downloads the rom whole when it is nothing but variants", () => {
+    expect(
+      bootFileIds(ALL_DISCS, [
+        file(1, "Game (Disc 1).chd", "hack"),
+        file(2, "Game (Disc 2).chd", "hack"),
+      ]),
+    ).toEqual([]);
   });
 });

@@ -90,8 +90,9 @@ import {
 } from "@/utils/playerBezel";
 import {
   ALL_DISCS,
-  bootDiscId,
+  bootFileIds,
   bootableFiles,
+  offersAllDiscs,
   rememberDisc,
   resolveRememberedDisc,
   selectableDiscFiles,
@@ -243,7 +244,9 @@ const {
 const bootableRomFiles = computed(() => bootableFiles(rom.value?.files ?? []));
 
 const discItems = computed<{ title: string; value: DiscSelection }[]>(() => [
-  { title: t("play.all-discs"), value: ALL_DISCS },
+  ...(offersAllDiscs(bootableRomFiles.value)
+    ? [{ title: t("play.all-discs"), value: ALL_DISCS as DiscSelection }]
+    : []),
   ...selectableDiscFiles(rom.value?.files ?? []).map((f) => ({
     title: f.file_name,
     value: f.id,
@@ -1083,7 +1086,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
         :bios="selectedFirmware"
         :firmware="firmwareOptions"
         :core="selectedCore"
-        :disc="bootDiscId(selectedDisc)"
+        :file-ids="bootFileIds(selectedDisc, rom.files)"
       />
       <!-- Bezel overlay drawn around the game canvas. Purely decorative and
            click-through, so pointer events reach the emulator underneath. In

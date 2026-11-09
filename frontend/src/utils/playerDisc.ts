@@ -12,6 +12,7 @@
 // disc switcher (issue #3985). That choice is stored as `ALL_DISCS`.
 import type { RomFileCategory } from "@/__generated__";
 import { userStorage } from "@/composables/useUserLocalStorage";
+import { isPatchFile } from "@/utils/romPatch";
 
 export const ALL_DISCS = "all";
 
@@ -37,8 +38,26 @@ const NON_BOOTABLE_CATEGORIES: readonly RomFileCategory[] = [
 ];
 
 function isBootableFile(file: DiscFile): boolean {
+  if (isPatchFile(file)) return false;
   // A file scanned before categories existed carries none, so absence boots.
   return !file.category || !NON_BOOTABLE_CATEGORIES.includes(file.category);
+}
+
+// Top-level files carry no category; one in a translations/, hacks/ or similar
+// folder is a variant that boots only when picked.
+function isBaseGameFile(file: DiscFile): boolean {
+  return (!file.category || file.category === "game") && !isPatchFile(file);
+}
+
+// Falls back to every file when the rom is nothing but variants.
+function baseGameFiles<T extends DiscFile>(files: readonly T[]): readonly T[] {
+  const base = files.filter(isBaseGameFile);
+  return base.length > 0 ? base : files;
+}
+
+/** Whether the base game spans several files that can boot together. */
+export function offersAllDiscs(files: readonly DiscFile[]): boolean {
+  return baseGameFiles(bootableFiles(files)).length > 1;
 }
 
 // Falls back to every file when media is all the rom has, so the player is
@@ -62,8 +81,7 @@ export function resolveStoredDisc(
   files: readonly DiscFile[],
 ): ResolvedDisc {
   if (storedDisc === ALL_DISCS) {
-    // Nothing left to boot together once the rom is down to a single file.
-    return files.length > 1
+    return offersAllDiscs(files)
       ? { disc: ALL_DISCS, stale: false }
       : { disc: defaultDisc(files), stale: true };
   }
@@ -85,7 +103,11 @@ export function resolveStoredDisc(
 export function selectableDiscFiles<T extends DiscFile>(
   files: readonly T[],
 ): readonly T[] {
-  return bootableFiles(files).filter((f) => !isM3uFile(f));
+  const discs = bootableFiles(files).filter((f) => !isM3uFile(f));
+  return [
+    ...discs.filter(isBaseGameFile),
+    ...discs.filter((f) => !isBaseGameFile(f)),
+  ];
 }
 
 // Sheets that point at sibling track files, so neither the sheet nor a track
@@ -100,13 +122,27 @@ function isDescriptorFile(file: DiscFile): boolean {
 // A set carrying a playlist or disc sheet only boots whole; anything else boots
 // one file to avoid pulling hundreds of unused MB.
 export function defaultDisc(files: readonly DiscFile[]): DiscSelection {
-  if (files.length > 1 && files.some(isDescriptorFile)) return ALL_DISCS;
-  return bootableFiles(files)[0]?.id ?? null;
+  const base = baseGameFiles(bootableFiles(files));
+  if (base.length > 1 && base.some(isDescriptorFile)) return ALL_DISCS;
+  return base[0]?.id ?? null;
 }
 
 // The file id to download, or null to download the rom whole.
 export function bootDiscId(disc: DiscSelection): number | null {
   return typeof disc === "number" ? disc : null;
+}
+
+/** The file ids to download, or none for the rom whole; ALL_DISCS is the base set alone. */
+export function bootFileIds(
+  disc: DiscSelection,
+  files: readonly DiscFile[],
+): number[] {
+  if (typeof disc === "number") return [disc];
+  if (disc !== ALL_DISCS) return [];
+  const base = files.filter(isBaseGameFile);
+  return base.length > 0 && base.length < files.length
+    ? base.map((f) => f.id)
+    : [];
 }
 
 // v1's <Player> owns `player:<romId>:disc` and clears it whenever it is handed

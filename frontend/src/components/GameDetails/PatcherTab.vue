@@ -31,6 +31,11 @@ import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeUpload from "@/stores/upload";
 import { formatBytes } from "@/utils";
+import {
+  SUPPORTED_PATCH_EXTENSIONS,
+  fileExtension,
+  isPatchFile,
+} from "@/utils/romPatch";
 
 const props = defineProps<{ rom: DetailedRomSchema }>();
 
@@ -42,31 +47,6 @@ const heartbeat = storeHeartbeat();
 const uploadStore = storeUpload();
 const { startScan } = useScanTrigger();
 
-const supportedPatchExtensions = [
-  ".ips",
-  ".ups",
-  ".bps",
-  ".ppf",
-  ".rup",
-  ".aps",
-  ".bdf",
-  ".pmsr",
-  ".vcdiff",
-  ".xdelta",
-];
-
-function getExt(name: string) {
-  const match = name.match(/\.[^.]+$/);
-  return match ? match[0].toLowerCase() : "";
-}
-
-function isPatchFile(file: RomFileSchema) {
-  return (
-    file.category === "patch" ||
-    supportedPatchExtensions.includes(getExt(file.file_name))
-  );
-}
-
 const selectedRomFile = ref<RomFileSchema | null>(null);
 const selectedPatchFile = ref<RomFileSchema | null>(null);
 const selectedArchiveMemberName = ref<string | null>(null);
@@ -75,7 +55,7 @@ const selectedArchiveMemberName = ref<string | null>(null);
 // stored); picking either clears the other.
 const uploadedPatch = ref<File | null>(null);
 
-const acceptAttr = supportedPatchExtensions.join(",");
+const acceptAttr = SUPPORTED_PATCH_EXTENSIONS.join(",");
 
 const downloadLocally = ref(true);
 // Uploading the patched ROM back into RomM needs write access. Viewers
@@ -115,7 +95,7 @@ const hasPatch = computed(
 );
 
 const romExtension = computed(() =>
-  selectedRomFile.value ? getExt(selectedRomFile.value.file_name) : "",
+  selectedRomFile.value ? fileExtension(selectedRomFile.value.file_name) : "",
 );
 
 const archiveMembers = computed(() =>
@@ -482,7 +462,7 @@ const applyLabel = computed(() => {
             </template>
             <div class="r-patch__formats-list">
               <span
-                v-for="format in supportedPatchExtensions"
+                v-for="format in SUPPORTED_PATCH_EXTENSIONS"
                 :key="format"
                 class="r-patch__format-chip"
               >
