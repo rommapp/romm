@@ -725,3 +725,44 @@ class TestUserProgression:
             (2, 2),
             (3, 2),
         ]
+
+    async def test_a_full_refresh_rereads_unchanged_games_and_keeps_refused_ones(
+        self,
+        handler: RAHandler,
+        completion: list[dict[str, object]],
+        game_progress: AsyncMock,
+    ):
+        completion.extend([_completion(1), _completion(2)])
+        previous = await handler.get_user_progression("me")
+        game_progress.reset_mock()
+        reply = game_progress.return_value
+        game_progress.side_effect = [
+            reply,
+            HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE),
+        ]
+
+        progression = await handler.get_user_progression(
+            "me", previous, refresh_all=True
+        )
+
+        assert game_progress.await_count == 2
+        assert progression["results"] == previous["results"]
+
+    async def test_a_failed_page_fails_before_any_details_are_read(
+        self,
+        handler: RAHandler,
+        monkeypatch: pytest.MonkeyPatch,
+        game_progress: AsyncMock,
+    ):
+        async def iterate(_username: str) -> AsyncIterator[dict[str, object]]:
+            yield _completion(1)
+            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        monkeypatch.setattr(
+            handler.ra_service, "iter_user_completion_progress", iterate
+        )
+
+        with pytest.raises(HTTPException):
+            await handler.get_user_progression("me")
+
+        game_progress.assert_not_awaited()

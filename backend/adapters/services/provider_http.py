@@ -51,9 +51,7 @@ async def send_with_retries[T](
         Callable[[aiohttp.ClientResponseError], Awaitable[bool]] | None
     ) = None,
 ) -> T:
-    """Send a request, retrying a timeout or a 429 while attempts remain.
-
-    A 429 waits for the provider's Retry-After, or `backoff` doubled per attempt.
+    """Send a request, retrying a timeout or a 429 (after its Retry-After or a doubling backoff).
 
     Args:
         rate_limit_attempts: Attempts a run of 429s may use, `attempts` by default.

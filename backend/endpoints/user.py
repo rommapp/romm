@@ -743,9 +743,8 @@ async def refresh_retro_achievements(
 
     user_progression = await meta_ra_handler.get_user_progression(
         user.ra_username,
-        current_progression=(
-            cast(RAUserProgression | None, user.ra_progression) if incremental else None
-        ),
+        current_progression=cast(RAUserProgression | None, user.ra_progression),
+        refresh_all=not incremental,
     )
     db_user_handler.set_ra_progression(id, user.ra_username, user_progression)
     return None

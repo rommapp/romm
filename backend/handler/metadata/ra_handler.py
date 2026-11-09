@@ -364,14 +364,15 @@ class RAHandler(MetadataHandler):
         self,
         username: str,
         current_progression: RAUserProgression | None = None,
+        *,
+        refresh_all: bool = False,
     ) -> RAUserProgression:
         """Retrieves the user's RetroAchievements progression.
 
-        If `current_progression` is provided, it will only incrementally update the
-        progression based on new achievements since the last check.
-
-        Once RA refuses a game's details, the remaining changed games keep their
-        stored entry, so the games already read are saved and the next sync resumes.
+        Args:
+            current_progression: stored progression; unchanged games reuse it,
+                and games RA refuses to detail keep it.
+            refresh_all: re-read every game's details, even unchanged ones.
         """
         game_progressions: list[RAUserGameProgression] = []
         refused = False
@@ -381,7 +382,12 @@ class RAHandler(MetadataHandler):
                 p["rom_ra_id"]: p for p in current_progression.get("results", [])
             }
 
-        async for rom in self.ra_service.iter_user_completion_progress(username):
+        # Every page is read before any detail request, so a throttled page
+        # fails the sync before details are fetched and thrown away.
+        completion = [
+            rom async for rom in self.ra_service.iter_user_completion_progress(username)
+        ]
+        for rom in completion:
             rom_game_id = rom.get("GameID")
             highest_award_kind = rom.get("HighestAwardKind", None)
 
@@ -389,7 +395,8 @@ class RAHandler(MetadataHandler):
             # recent awarded date match, then we can skip fetching progression details.
             game_current_progression = current_progression_by_game_id.get(rom_game_id)
             if (
-                game_current_progression
+                not refresh_all
+                and game_current_progression
                 # Entries stored before `ra_id` existed are read again to gain it.
                 and all(
                     "ra_id" in e

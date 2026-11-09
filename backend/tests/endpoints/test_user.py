@@ -1,6 +1,7 @@
 import base64
 from datetime import timedelta
 
+import pytest
 from fastapi import status
 
 from exceptions.database_exceptions import LastAdminError
@@ -214,6 +215,32 @@ def test_a_refresh_running_while_the_profile_is_unlinked_keeps_it_unlinked(
     assert response.status_code == status.HTTP_200_OK
     unlinked = db_user_handler.get_user(viewer_user.id)
     assert unlinked and unlinked.ra_progression == {}
+
+
+@pytest.mark.parametrize("incremental", [False, True])
+def test_a_refresh_hands_the_stored_progression_to_the_sync(
+    client, access_token: str, viewer_user: User, mocker, incremental: bool
+):
+    stored = {"total": 1, "results": [{"rom_ra_id": 7}]}
+    db_user_handler.update_user(
+        viewer_user.id, {"ra_username": "retro_viewer", "ra_progression": stored}
+    )
+    fetch = mocker.patch.object(
+        meta_ra_handler,
+        "get_user_progression",
+        return_value={"total": 0, "results": []},
+    )
+
+    response = client.post(
+        f"/api/users/{viewer_user.id}/ra/refresh",
+        json={"incremental": incremental},
+        headers=_bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    fetch.assert_awaited_once_with(
+        "retro_viewer", current_progression=stored, refresh_all=not incremental
+    )
 
 
 def test_an_omitted_ra_username_keeps_the_link(
