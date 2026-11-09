@@ -1,6 +1,5 @@
 <script setup lang="ts">
-// BottomNav: the primary-navigation tab bar on sm-and-down, where AppNav
-// drops its centre pill. Built on RSegmentedControl for routing and roving.
+// Primary-nav tab bar on sm-and-down, where AppNav drops its centre pill.
 // Mount-gated (not `display: none`) so hidden links never take focus.
 import { useI18n } from "vue-i18n";
 import { useBreakpoint } from "@/composables/useBreakpoint";
@@ -82,8 +81,7 @@ const { destinations, activeId } = useNavDestinations();
     var(--r-elev-1);
 }
 
-/* Active capsule: a translucent lens rather than the solid white pill the
-   top nav uses, so the tinted icon + label carry the selection. */
+/* A translucent capsule, so the tinted icon + label carry the selection. */
 .r-bottom-nav__group.r-segmented-control--tab.r-segmented-control--horizontal
   :deep(.r-segmented-control__indicator) {
   top: 5px;

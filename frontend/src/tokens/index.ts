@@ -399,10 +399,8 @@ export const layout = {
   // Pills in the top bar's right cluster (scan indicator, mini player, user
   // menu) share one height so they line up.
   navPillHeight: "38px",
-  // Fixed bottom tab bar shown on sm-and-down: the 64px stacked icon +
-  // label pill plus its 8px top/bottom gutters. Consumed as
-  // `--r-bottom-nav-h` to reserve space in AppLayout and offset the
-  // gallery scroll height on mobile.
+  // Bottom tab bar on sm-and-down: the 64px pill plus 8px gutters above and
+  // below. Layouts reserve it as `--r-bottom-nav-h` (safe-area inset excluded).
   bottomNavHeight: "80px",
   // Cap for the bottom tab bar pill so it stays thumb-sized on large
   // tablets (the sm range reaches 959px) instead of stretching the four
