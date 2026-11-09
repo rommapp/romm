@@ -92,7 +92,10 @@ export function newerThanPick(
     selection.save &&
     writtenTogether(selection.save, candidate.asset)
   ) {
-    return null;
+    const save = newest(saves);
+    return save && save.updated_at > picked.updated_at
+      ? { kind: "save", asset: save }
+      : null;
   }
   return candidate;
 }

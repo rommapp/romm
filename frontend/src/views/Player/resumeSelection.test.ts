@@ -159,6 +159,19 @@ describe("newerThanPick", () => {
     expect(newerThanPick(saves, states, pickSave(saves[0]!))).toBe(null);
   });
 
+  it("still warns about a newer save beside a same-quit state", () => {
+    const saves = [
+      at(1, "2026-09-05T10:00:00Z"),
+      at(2, "2026-09-05T10:00:02Z"),
+    ];
+    const states = [stateAt(9, "2026-09-05T10:00:03Z")];
+
+    expect(newerThanPick(saves, states, pickSave(saves[0]!))).toEqual({
+      kind: "save",
+      asset: saves[1],
+    });
+  });
+
   it("stays quiet when the pick is the latest progress or nothing is picked", () => {
     const saves = [at(1, "2026-09-03T10:00:00Z")];
     const states = [stateAt(9, "2026-09-02T10:00:00Z")];
