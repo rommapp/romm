@@ -406,7 +406,7 @@ const FIELDS: FieldSpec[] = [
     labelKey: "platform.show-physical",
     defaultLabel: "Physical game",
     negLabelKey: "platform.show-not-physical-only",
-    negDefaultLabel: "Show ROMs with a file only",
+    negDefaultLabel: "Show only ROMs with a file",
     kind: "bool",
   },
   {
