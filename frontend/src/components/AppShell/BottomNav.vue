@@ -38,6 +38,7 @@ function tabIcon(icon: string, active: boolean): string {
             :icon="tabIcon(item.icon ?? '', active)"
             :size="26"
             class="r-bottom-nav__icon"
+            :class="`r-bottom-nav__icon--${item.id}`"
           />
           <span class="r-bottom-nav__label">{{ item.label }}</span>
         </template>
@@ -129,6 +130,12 @@ function tabIcon(icon: string, active: boolean): string {
     .r-segmented-control__btn:hover:not(.r-segmented-control__btn--active)
   ) {
   background: transparent;
+}
+
+/* The controller glyph is wide and short and sits low in its box, so it
+   is scaled and lifted to match the others' optical height and centre. */
+.r-bottom-nav__icon--platforms {
+  transform: translateY(-1.3px) scale(1.2);
 }
 
 .r-bottom-nav__label {
