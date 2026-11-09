@@ -198,7 +198,7 @@ class LibretroHandler(MetadataHandler):
 LIBRETRO_PLATFORM_LIST: Final[dict[UPS, str]] = {
     UPS.ADVENTURE_VISION: "Entex - Adventure Vision",
     UPS.AMIGA: "Commodore - Amiga",
-    UPS.AMIGA_CD32: "Commodore - Amiga",
+    UPS.AMIGA_CD32: "Commodore - CD32",
     UPS.ACPC: "Amstrad - CPC",
     UPS.ATOMISWAVE: "Atomiswave",
     UPS.ATARI2600: "Atari - 2600",
