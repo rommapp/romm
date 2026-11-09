@@ -17,8 +17,7 @@ export type NavDestinationId = "home" | "platforms" | "collections" | "search";
 export interface NavDestination {
   id: NavDestinationId;
   label: string;
-  // Mirrors `label` so the icon-only variants (xs top pill, bottom bar)
-  // still name each link to screen readers / focus rings.
+  // Mirrors `label`; RSegmentedControl sets it as each link's `aria-label`.
   ariaLabel: string;
   icon: string;
   /** Filled glyph the bottom tab bar shows on the active tab. */

@@ -26,7 +26,7 @@ describe("navDestinationAt", () => {
 });
 
 describe("useNavDestinations", () => {
-  it("pairs each outline glyph with its filled active glyph", () => {
+  it("pairs each glyph with the one shown on the active tab", () => {
     const { destinations } = useNavDestinations();
     const icons = Object.fromEntries(
       destinations.value.map((d) => [d.id, [d.icon, d.activeIcon]]),

@@ -1,12 +1,7 @@
 <script setup lang="ts">
-// BottomNav: the primary-navigation tab bar, pinned to the bottom edge on
-// sm-and-down so the four destinations sit within thumb reach (AppNav drops
-// its centre pill there). A floating glass bar with stacked icon + label
-// tabs, built on RSegmentedControl so routing, the sliding active capsule
-// and keyboard / gamepad roving come from the primitive.
-//
-// Mount-gated on the breakpoint ref (not `display: none`) so the router
-// links never sit hidden-but-focusable in the tab order on larger viewports.
+// BottomNav: the primary-navigation tab bar on sm-and-down, where AppNav
+// drops its centre pill. Built on RSegmentedControl for routing and roving.
+// Mount-gated (not `display: none`) so hidden links never take focus.
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useBreakpoint } from "@/composables/useBreakpoint";
@@ -37,7 +32,6 @@ const activeIcons = computed(
           <RIcon
             :icon="active ? activeIcons.get(item.id) : item.icon"
             :size="26"
-            class="r-bottom-nav__icon"
             :class="`r-bottom-nav__icon--${item.id}`"
           />
           <span class="r-bottom-nav__label">{{ item.label }}</span>
@@ -79,7 +73,7 @@ const activeIcons = computed(
   padding: 5px;
   gap: 0;
   background: color-mix(in srgb, var(--r-color-bg) 42%, transparent);
-  border: 1px solid color-mix(in srgb, white 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--r-color-fg) 14%, transparent);
   backdrop-filter: blur(24px) saturate(190%) brightness(1.06);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, white 28%, transparent),
@@ -91,15 +85,17 @@ const activeIcons = computed(
 
 /* Active capsule: a translucent lens rather than the solid white pill the
    top nav uses, so the tinted icon + label carry the selection. */
-.r-bottom-nav__group :deep(.r-segmented-control__indicator) {
+.r-bottom-nav__group.r-segmented-control--tab.r-segmented-control--horizontal
+  :deep(.r-segmented-control__indicator) {
   top: 5px;
   bottom: 5px;
   background: color-mix(in srgb, var(--r-color-fg) 12%, transparent);
   box-shadow: inset 0 1px 0 color-mix(in srgb, white 12%, transparent);
 }
 
-.r-bottom-nav__group :deep(.r-segmented-control__btn) {
+.r-bottom-nav__group.r-segmented-control--tab :deep(.r-segmented-control__btn) {
   flex: 1;
+  min-width: 0;
   flex-direction: column;
   justify-content: center;
   gap: 2px;
@@ -109,8 +105,10 @@ const activeIcons = computed(
   font-weight: var(--r-font-weight-medium);
 }
 
-.r-bottom-nav__group :deep(.r-segmented-control__btn--active),
-.r-bottom-nav__group :deep(.r-segmented-control__btn--active:hover) {
+.r-bottom-nav__group.r-segmented-control--tab
+  :deep(.r-segmented-control__btn--active),
+.r-bottom-nav__group.r-segmented-control--tab
+  :deep(.r-segmented-control__btn--active:hover) {
   /* Pulled toward fg so the tint stays legible over a warm backdrop. */
   color: color-mix(
     in srgb,
@@ -121,13 +119,13 @@ const activeIcons = computed(
 }
 
 /* Mirrors the shared glass bar: reduced motion drops the costly blur. */
-:global(html.r-reduced-motion) .r-bottom-nav__group.r-segmented-control--tab {
+html.r-reduced-motion .r-bottom-nav__group.r-segmented-control--tab {
   background: var(--r-glass-bar-bg);
   backdrop-filter: var(--r-glass-bar-filter);
 }
 
 /* Touch has no hover; the press scale is the only feedback needed. */
-.r-bottom-nav__group
+.r-bottom-nav__group.r-segmented-control--tab
   :deep(
     .r-segmented-control__btn:hover:not(.r-segmented-control__btn--active)
   ) {
