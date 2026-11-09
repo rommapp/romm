@@ -1,0 +1,20 @@
+{
+  "counter-total": "Total",
+  "earned-on": "Obtida em {date}",
+  "empty-earned-hint": "Ainda não há conquistas obtidas nos jogos desta biblioteca. Quando você desbloquear uma e sincronizar de novo, ela aparece aqui.",
+  "empty-earned-title": "Nenhuma conquista obtida",
+  "empty-unlinked-hint": "Abra seu perfil, em RetroAchievements informe seu usuário e pressione Salvar. Salvar também inicia a sincronização.",
+  "empty-unlinked-title": "Nenhuma conta RetroAchievements vinculada",
+  "empty-unsynced-hint": "Abra seu perfil e, em RetroAchievements, pressione Sincronizar.",
+  "empty-unsynced-title": "Nada sincronizado ainda",
+  "filter-all-games": "Todos os jogos",
+  "filter-game": "Jogo",
+  "game-achievements-n": "{n} conquista | {n} conquistas",
+  "go-to-profile": "Abrir perfil",
+  "load-error": "Não foi possível carregar as conquistas",
+  "open-game": "Abrir {name}",
+  "points-label": "Pontos",
+  "sort-catalog": "Ordem do catálogo",
+  "sort-date": "Data",
+  "sort-other": "Outras"
+}

@@ -21,7 +21,7 @@
 // element via its own class, that wins over `aspect-ratio`. Radius is a
 // `--r-cover-radius` var (defaults to the gallery card radius).
 import { useElementHover } from "@vueuse/core";
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import CoverPlaceholder from "@/components/shared/CoverPlaceholder.vue";
 import { revealedCoverSrcs } from "@/components/shared/coverReveal";
 import { useCoverAnimation } from "@/composables/useCoverAnimation";
@@ -37,6 +37,7 @@ import {
   setCoverRatio,
 } from "@/composables/useGalleryCoverRatios";
 import { pendingMorphName } from "@/composables/useViewTransition";
+import { RSkeletonBlock } from "@/lib";
 
 // inheritAttrs stays ON (default): consumers pass a `class` (e.g.
 // `r-gc__art`, `r-det-cover__art`) that must land on, and merge with,
@@ -140,10 +141,18 @@ const videoEl = ref<HTMLVideoElement | null>(null);
 // snaps into focus the moment its bytes land. `coverLoaded` flips on the
 // <img> load event; it resets whenever the active source changes so a
 // recycled card (virtual scroll) re-plays the reveal for its new art.
+// `coverPainted` lags that fade so the skeleton stays under the image
+// instead of uncovering an empty box while it is still transparent.
 const coverLoaded = ref(false);
+const coverPainted = ref(false);
+let paintTimer: number | undefined;
 const activeSrc = computed(() =>
   showFallback.value ? art.fallbackUrl.value : art.coverUrl.value,
 );
+if (activeSrc.value && revealedCoverSrcs.has(activeSrc.value)) {
+  coverLoaded.value = true;
+  coverPainted.value = true;
+}
 // Rom id to key the measured ratio under, but ONLY when this is the rom's
 // own cover in the gallery's artwork style. With a `coverSrc` override (the
 // cover shows a screenshot / marquee / preview blob instead) the measured
@@ -179,13 +188,36 @@ function measureNaturalRatio() {
 watch(activeSrc, (src) => {
   // Seed from the session-seen set: a URL we've already bloomed once skips the
   // reveal so a recycled card doesn't re-flash it (and doesn't pay the blur).
-  coverLoaded.value = !!src && revealedCoverSrcs.has(src);
+  window.clearTimeout(paintTimer);
+  const seen = !!src && revealedCoverSrcs.has(src);
+  coverLoaded.value = seen;
+  coverPainted.value = seen;
   naturalRatio.value = getCoverRatio({ url: src, romId: ratioRomId.value });
 });
-const onCoverLoad = () => {
+function markCoverLoaded() {
+  if (coverPainted.value && coverLoaded.value) {
+    measureNaturalRatio();
+    return;
+  }
   coverLoaded.value = true;
   if (activeSrc.value) revealedCoverSrcs.add(activeSrc.value);
   measureNaturalRatio();
+  if (coverPainted.value) return;
+  window.clearTimeout(paintTimer);
+  // Opacity finishes before this. The timer only covers a transition that
+  // never emits `transitionend` (reduced motion, or a cached paint).
+  paintTimer = window.setTimeout(() => {
+    coverPainted.value = true;
+  }, 700);
+}
+function onCoverFadeEnd(event: TransitionEvent) {
+  if (event.target !== imgEl.value || event.propertyName !== "opacity") return;
+  if (!coverLoaded.value) return;
+  window.clearTimeout(paintTimer);
+  coverPainted.value = true;
+}
+const onCoverLoad = () => {
+  markCoverLoaded();
 };
 // True ratio once known, else the style ratio as a first guess.
 const boxRatio = computed(() => naturalRatio.value ?? art.ratio.value);
@@ -225,16 +257,25 @@ onMounted(() => {
   // (recycled) mount, regardless of whether the <img> reports `complete` yet.
   if (activeSrc.value && revealedCoverSrcs.has(activeSrc.value)) {
     coverLoaded.value = true;
+    coverPainted.value = true;
+    return;
   }
   // A cached cover can already be decoded before the load listener binds,
   // mark it loaded so the reveal still resolves (it bloom-snaps from the
   // soft initial paint instead of getting stuck blurred).
   if (imgEl.value?.complete && imgEl.value.naturalWidth > 0) {
-    coverLoaded.value = true;
-    if (activeSrc.value) revealedCoverSrcs.add(activeSrc.value);
-    measureNaturalRatio();
+    markCoverLoaded();
   }
 });
+
+onBeforeUnmount(() => {
+  window.clearTimeout(paintTimer);
+});
+
+// Alt art floats on a transparent box; a skeleton would paint a card behind it.
+const showCoverSkeleton = computed(
+  () => showingImage.value && !isAltStyle.value && !coverPainted.value,
+);
 
 defineExpose({
   /** Trigger the one-shot launch flourish (disc drop+spin / cartridge
@@ -254,6 +295,9 @@ defineExpose({
     :class="{ 'game-cover--alt': isAltStyle }"
     :style="[{ '--r-cover-ratio': boxRatio }, morphStyle]"
   >
+    <span v-if="showCoverSkeleton" class="game-cover__skeleton">
+      <RSkeletonBlock width="100%" height="100%" rounded="none" />
+    </span>
     <img
       v-if="showingImage"
       ref="imgEl"
@@ -272,12 +316,14 @@ defineExpose({
       class="game-cover__img"
       :class="{
         'game-cover__img--behind': isVideoPlaying,
+        'game-cover__img--pending': !coverLoaded,
         'game-cover__img--reveal': !coverLoaded && art.motionEnabled.value,
       }"
       loading="lazy"
       decoding="async"
       @load="onCoverLoad"
       @error="failedCoverUrl = art.coverUrl.value"
+      @transitionend="onCoverFadeEnd"
     />
     <CoverPlaceholder
       v-else
@@ -350,8 +396,21 @@ defineExpose({
     scale 0.65s cubic-bezier(0.22, 1, 0.36, 1),
     margin 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
-.game-cover__img--behind {
+.game-cover__img--behind,
+.game-cover__img--pending {
   opacity: 0;
+}
+
+/* Fills the cover box. The parent clips it to the cover radius. */
+.game-cover__skeleton {
+  position: absolute;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.game-cover__skeleton :deep(.r-skeleton) {
+  display: block;
 }
 
 /* Blur-up "bloom": the cover lands soft, a touch oversaturated/bright and

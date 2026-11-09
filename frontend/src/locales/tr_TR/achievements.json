@@ -1,0 +1,20 @@
+{
+  "counter-total": "Toplam",
+  "earned-on": "{date} tarihinde kazanıldı",
+  "empty-earned-hint": "Bu kitaplıktaki oyunlarda henüz kazanılmış başarı yok. Birini açıp yeniden eşitlediğinde burada görünür.",
+  "empty-earned-title": "Henüz kazanılmış başarı yok",
+  "empty-unlinked-hint": "Profilini aç, RetroAchievements altında kullanıcı adını yaz ve Kaydet'e bas. Kaydetmek eşitlemeyi de başlatır.",
+  "empty-unlinked-title": "Bağlı RetroAchievements hesabı yok",
+  "empty-unsynced-hint": "Profilini aç ve RetroAchievements altında Eşitle'ye bas.",
+  "empty-unsynced-title": "Henüz bir eşitleme yok",
+  "filter-all-games": "Tüm oyunlar",
+  "filter-game": "Oyun",
+  "game-achievements-n": "{n} başarı | {n} başarı",
+  "go-to-profile": "Profili aç",
+  "load-error": "Başarılar yüklenemedi",
+  "open-game": "{name} oyununu aç",
+  "points-label": "Puan",
+  "sort-catalog": "Katalog sırası",
+  "sort-date": "Tarih",
+  "sort-other": "Diğer"
+}

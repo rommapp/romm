@@ -1,0 +1,20 @@
+{
+  "counter-total": "Gesamt",
+  "earned-on": "Erhalten am {date}",
+  "empty-earned-hint": "In den Spielen dieser Bibliothek gibt es noch keine freigeschalteten Erfolge. Sobald du einen freischaltest und erneut synchronisierst, erscheint er hier.",
+  "empty-earned-title": "Noch keine Erfolge freigeschaltet",
+  "empty-unlinked-hint": "Öffne dein Profil, gib unter RetroAchievements deinen Benutzernamen ein und klicke auf Speichern. Das Speichern startet auch die Synchronisierung.",
+  "empty-unlinked-title": "Kein RetroAchievements-Konto verknüpft",
+  "empty-unsynced-hint": "Öffne dein Profil und klicke unter RetroAchievements auf Synchronisieren.",
+  "empty-unsynced-title": "Noch nichts synchronisiert",
+  "filter-all-games": "Alle Spiele",
+  "filter-game": "Spiel",
+  "game-achievements-n": "{n} Erfolg | {n} Erfolge",
+  "go-to-profile": "Profil öffnen",
+  "load-error": "Erfolge konnten nicht geladen werden",
+  "open-game": "{name} öffnen",
+  "points-label": "Punkte",
+  "sort-catalog": "Katalogreihenfolge",
+  "sort-date": "Datum",
+  "sort-other": "Sonstige"
+}

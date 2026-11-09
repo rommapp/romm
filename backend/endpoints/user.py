@@ -10,8 +10,10 @@ from fastapi.responses import FileResponse
 from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.permissions import emit_permissions_changed
+from endpoints.responses.earned_achievement import EarnedAchievementsSchema
 from endpoints.responses.identity import InviteLinkSchema, UserSchema
 from exceptions.database_exceptions import LastAdminError
+from handler.achievements_handler import library_overview
 from handler.audit_handler import (
     AuditActor,
     AuditTarget,
@@ -22,7 +24,7 @@ from handler.audit_handler import (
 )
 from handler.auth.base_handler import auth_handler
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_admin_for_admin
+from handler.auth.dependencies import assert_admin_for_admin, get_permissions
 from handler.database import (
     db_client_token_handler,
     db_device_handler,
@@ -387,6 +389,20 @@ def get_current_user(request: Request) -> UserSchema | None:
     """
 
     return UserSchema.from_orm_with_request(request.user, request)
+
+
+@protected_route(
+    router.get,
+    "/me/earned-achievements",
+    [Scope.ME_READ, Scope.ROMS_READ],
+    summary="RetroAchievements progress",
+)
+async def get_earned_achievements(request: Request) -> EarnedAchievementsSchema:
+    """RetroAchievements progress for the games this user is allowed to see."""
+    perms = get_permissions(request)
+    return EarnedAchievementsSchema.model_validate(
+        await library_overview(request.user, perms.can_see_rom)
+    )
 
 
 @protected_route(router.get, "/{id}", [Scope.USERS_READ])

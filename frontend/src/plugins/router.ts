@@ -21,6 +21,7 @@ import {
   routeComponents,
 } from "@/router/routes";
 import romApi from "@/services/api/rom";
+import { prefetchEarnedAchievements } from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
@@ -364,6 +365,15 @@ const routes = [
         name: ROUTES.COLLECTIONS_INDEX,
         meta: { title: "common.collections" },
         component: routeComponent(ROUTES.COLLECTIONS_INDEX),
+      },
+      {
+        path: "achievements",
+        name: ROUTES.ACHIEVEMENTS,
+        meta: { title: "common.achievements" },
+        component: routeComponent(ROUTES.ACHIEVEMENTS),
+        beforeEnter: async () => {
+          await prefetchEarnedAchievements();
+        },
       },
       {
         path: ":pathMatch(.*)*",

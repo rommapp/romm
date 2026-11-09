@@ -1,0 +1,20 @@
+{
+  "counter-total": "Общо",
+  "earned-on": "Спечелено на {date}",
+  "empty-earned-hint": "В игрите от тази библиотека още няма спечелени постижения. Когато отключиш някое и синхронизираш отново, то се показва тук.",
+  "empty-earned-title": "Още няма спечелени постижения",
+  "empty-unlinked-hint": "Отвори профила си, в RetroAchievements въведи потребителското име и натисни Запазване. Запазването стартира и синхронизацията.",
+  "empty-unlinked-title": "Няма свързан акаунт в RetroAchievements",
+  "empty-unsynced-hint": "Отвори профила си и в RetroAchievements натисни Синхронизиране.",
+  "empty-unsynced-title": "Още няма синхронизация",
+  "filter-all-games": "Всички игри",
+  "filter-game": "Игра",
+  "game-achievements-n": "{n} постижение | {n} постижения",
+  "go-to-profile": "Отвори профила",
+  "load-error": "Постиженията не можаха да се заредят",
+  "open-game": "Отвори {name}",
+  "points-label": "Точки",
+  "sort-catalog": "Ред в каталога",
+  "sort-date": "Дата",
+  "sort-other": "Други"
+}

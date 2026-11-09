@@ -1,0 +1,20 @@
+{
+  "counter-total": "總計",
+  "earned-on": "於 {date} 獲得",
+  "empty-earned-hint": "這個收藏庫裡的遊戲還沒有已獲得的成就。解鎖一個並再次同步後，會顯示在這裡。",
+  "empty-earned-title": "還沒有已獲得的成就",
+  "empty-unlinked-hint": "開啟個人檔案，在 RetroAchievements 輸入使用者名稱並按下儲存。儲存也會開始同步。",
+  "empty-unlinked-title": "尚未連結 RetroAchievements 帳號",
+  "empty-unsynced-hint": "開啟個人檔案，在 RetroAchievements 按下同步。",
+  "empty-unsynced-title": "尚未同步",
+  "filter-all-games": "全部遊戲",
+  "filter-game": "遊戲",
+  "game-achievements-n": "{n} 個成就 | {n} 個成就",
+  "go-to-profile": "開啟個人檔案",
+  "load-error": "無法載入成就",
+  "open-game": "開啟 {name}",
+  "points-label": "點數",
+  "sort-catalog": "目錄順序",
+  "sort-date": "日期",
+  "sort-other": "其他"
+}

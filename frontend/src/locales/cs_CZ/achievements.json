@@ -1,0 +1,20 @@
+{
+  "counter-total": "Celkem",
+  "earned-on": "Získáno {date}",
+  "empty-earned-hint": "Ve hrách této knihovny zatím nejsou žádné získané úspěchy. Až nějaký odemkneš a znovu synchronizuješ, objeví se tady.",
+  "empty-earned-title": "Zatím žádné získané úspěchy",
+  "empty-unlinked-hint": "Otevři profil, v části RetroAchievements zadej uživatelské jméno a stiskni Uložit. Uložení také spustí synchronizaci.",
+  "empty-unlinked-title": "Není propojený účet RetroAchievements",
+  "empty-unsynced-hint": "Otevři profil a v části RetroAchievements stiskni Synchronizovat.",
+  "empty-unsynced-title": "Zatím nic nesynchronizováno",
+  "filter-all-games": "Všechny hry",
+  "filter-game": "Hra",
+  "game-achievements-n": "{n} úspěch | {n} úspěchů",
+  "go-to-profile": "Otevřít profil",
+  "load-error": "Úspěchy se nepodařilo načíst",
+  "open-game": "Otevřít {name}",
+  "points-label": "Body",
+  "sort-catalog": "Pořadí katalogu",
+  "sort-date": "Datum",
+  "sort-other": "Ostatní"
+}

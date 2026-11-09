@@ -402,6 +402,7 @@ const activeTab = computed({
             v-if="activeTab === 'achievements'"
             :metadata="raMetadata"
             :earned-achievement-ids="earnedAchievementIds"
+            :background-url="resolvedCover"
           />
           <SaveDataTab v-if="activeTab === 'save-data'" :rom="currentRom" />
           <PatcherTab v-if="activeTab === 'patcher'" :rom="currentRom" />

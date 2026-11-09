@@ -3,6 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 
+export type { AchievementGameSchema } from './models/AchievementGameSchema';
+export type { AchievementTypeCountsSchema } from './models/AchievementTypeCountsSchema';
 export type { ActionKey } from './models/ActionKey';
 export type { ActivityEntrySchema } from './models/ActivityEntrySchema';
 export type { AddFirmwareResponse } from './models/AddFirmwareResponse';
@@ -64,6 +66,7 @@ export type { Body_update_state_labels_api_states__id__labels_put } from './mode
 export type { Body_update_state_visibility_api_states__id__visibility_put } from './models/Body_update_state_visibility_api_states__id__visibility_put';
 export type { Body_upload_memory_card_version_api_memory_cards__id__versions_post } from './models/Body_upload_memory_card_version_api_memory_cards__id__versions_post';
 export type { BulkOperationResponse } from './models/BulkOperationResponse';
+export type { CatalogAchievementSchema } from './models/CatalogAchievementSchema';
 export type { ClaimStreamingSessionRequest } from './models/ClaimStreamingSessionRequest';
 export type { CleanupTaskMeta } from './models/CleanupTaskMeta';
 export type { CleanupTaskStatusResponse } from './models/CleanupTaskStatusResponse';
@@ -110,6 +113,7 @@ export type { DeviceUpdatePayload } from './models/DeviceUpdatePayload';
 export type { DocMetaSchema } from './models/DocMetaSchema';
 export type { DocSource } from './models/DocSource';
 export type { EarnedAchievement } from './models/EarnedAchievement';
+export type { EarnedAchievementsSchema } from './models/EarnedAchievementsSchema';
 export type { EjsControls } from './models/EjsControls';
 export type { EjsControlsButton } from './models/EjsControlsButton';
 export type { EmailChannelCreatePayload } from './models/EmailChannelCreatePayload';

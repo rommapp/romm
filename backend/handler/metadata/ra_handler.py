@@ -1,7 +1,8 @@
 import json
 import os
 import time
-from typing import Annotated, NotRequired, TypedDict, cast
+from collections.abc import Callable, Mapping, Sequence
+from typing import Annotated, Any, NotRequired, TypedDict, cast
 
 import pydash
 from anyio import Path as AnyioPath
@@ -66,6 +67,12 @@ class RAMetadata(TypedDict):
     achievements: list[RAGameRomAchievement]
     # The ROM's RA hash is one RetroAchievements lists for this game.
     hash_match: NotRequired[bool]
+    # ImageIcon path from the API, e.g. /Images/047227.png. Not the game id.
+    image_icon: NotRequired[str]
+    # Title, in-game and box art. Same path shape. Empty string: asked, none.
+    image_title: NotRequired[str]
+    image_ingame: NotRequired[str]
+    image_box_art: NotRequired[str]
 
 
 class RAGameRom(BaseRom):
@@ -119,7 +126,7 @@ def extract_metadata_from_rom_details(
     publishers = pydash.compact([rom_details.get("Publisher", None)])
     developers = pydash.compact([rom_details.get("Developer", None)])
 
-    return RAMetadata(
+    metadata = RAMetadata(
         first_release_date=parse_release_timestamp(),
         genres=pydash.compact([rom_details.get("Genre", None)]),
         companies=[*publishers, *developers],
@@ -145,6 +152,21 @@ def extract_metadata_from_rom_details(
         ],
         hash_match=hash_match,
     )
+    # Local import: this module is loaded while the metadata package initializes.
+    from handler.metadata.earned_achievements import ra_art_paths, ra_image_icon_path
+
+    icon = ra_image_icon_path(rom_details.get("ImageIcon"))
+    if icon:
+        metadata["image_icon"] = icon
+    art = ra_art_paths(rom_details)
+    if art:
+        if art["image_title"]:
+            metadata["image_title"] = art["image_title"]
+        if art["image_ingame"]:
+            metadata["image_ingame"] = art["image_ingame"]
+        if art["image_box_art"]:
+            metadata["image_box_art"] = art["image_box_art"]
+    return metadata
 
 
 class RAHandler(MetadataHandler):
@@ -449,6 +471,280 @@ class RAHandler(MetadataHandler):
             total=len(game_progressions),
             results=game_progressions,
         )
+
+    async def persist_missing_image_icons(self) -> dict[int, str]:
+        """Save each library game's ImageIcon from the same reply as its screen art."""
+        from handler.database import db_rom_handler
+
+        sources = db_rom_handler.get_library_achievement_sources()
+        platform_ids: list[int] = []
+        seen_platforms: set[int] = set()
+        for source in sources:
+            ra_id = source.get("ra_id")
+            platform_id = source.get("platform_id")
+            if (
+                isinstance(ra_id, int)
+                and not isinstance(ra_id, bool)
+                and isinstance(platform_id, int)
+                and platform_id not in seen_platforms
+            ):
+                seen_platforms.add(platform_id)
+                platform_ids.append(platform_id)
+        cached = await self._icons_from_hash_caches(platform_ids)
+        return await self.fill_missing_media(
+            sources,
+            db_rom_handler.set_ra_image_icons,
+            db_rom_handler.set_ra_game_art,
+            cached,
+        )
+
+    async def fill_missing_media(
+        self,
+        sources: Sequence[Mapping[str, Any]],
+        save_icons: Callable[[Mapping[int, str]], object],
+        save_art: Callable[[Mapping[int, Mapping[str, str]]], object],
+        cached: Mapping[int, str] | None = None,
+    ) -> dict[int, str]:
+        """Resolve ImageIcon and screen art with one lookup per game still missing either."""
+        from handler.metadata.earned_achievements import (
+            ra_art_paths,
+            ra_image_icon_path,
+            stored_ra_art,
+        )
+
+        icons: dict[int, str | None] = {}
+        arts: dict[int, dict[str, str] | None] = {}
+        for source in sources:
+            ra_id = source.get("ra_id")
+            if isinstance(ra_id, bool) or not isinstance(ra_id, int) or ra_id <= 0:
+                continue
+            raw_icon = source.get("image_icon")
+            path = "" if raw_icon == "" else ra_image_icon_path(raw_icon)
+            if not path and cached:
+                path = ra_image_icon_path(cached.get(ra_id))
+            if path:
+                icons[ra_id] = path
+            elif raw_icon == "" and not icons.get(ra_id):
+                icons[ra_id] = ""
+            else:
+                icons.setdefault(ra_id, None)
+            record = stored_ra_art(source)
+            if record is not None:
+                arts[ra_id] = record
+            else:
+                arts.setdefault(ra_id, None)
+
+        known_icons = {
+            ra_id: path for ra_id, path in icons.items() if path is not None
+        }
+        if known_icons:
+            save_icons(known_icons)
+        known_arts = {ra_id: art for ra_id, art in arts.items() if art is not None}
+        if known_arts:
+            save_art(known_arts)
+
+        missing = [
+            ra_id
+            for ra_id in icons
+            if icons[ra_id] is None or arts.get(ra_id) is None
+        ]
+        fetched_icons: dict[int, str] = {}
+        fetched_arts: dict[int, dict[str, str]] = {}
+        if missing and self.is_enabled():
+            empty_art = {
+                "image_title": "",
+                "image_ingame": "",
+                "image_box_art": "",
+            }
+            for ra_id in missing:
+                try:
+                    details = await self.ra_service.get_game(ra_id)
+                except Exception:
+                    log.warning(
+                        "RetroAchievements media lookup failed for game %s", ra_id
+                    )
+                    continue
+                if not isinstance(details, dict):
+                    if icons[ra_id] is None:
+                        fetched_icons[ra_id] = ""
+                    if arts.get(ra_id) is None:
+                        fetched_arts[ra_id] = empty_art
+                    continue
+                if icons[ra_id] is None:
+                    fetched_icons[ra_id] = (
+                        ra_image_icon_path(details.get("ImageIcon")) or ""
+                    )
+                if arts.get(ra_id) is None:
+                    fetched_arts[ra_id] = ra_art_paths(details) or empty_art
+            if fetched_icons:
+                save_icons(fetched_icons)
+            if fetched_arts:
+                save_art(fetched_arts)
+        elif missing:
+            log.warning(
+                "RetroAchievements media lookup skipped: API key is not configured"
+            )
+
+        resolved = dict(known_icons)
+        resolved.update(fetched_icons)
+        return {ra_id: path for ra_id, path in resolved.items() if path}
+
+    async def fill_image_icons(
+        self,
+        sources: Sequence[Mapping[str, Any]],
+        save: Callable[[Mapping[int, str]], object],
+        cached: Mapping[int, str] | None = None,
+    ) -> dict[int, str]:
+        """Resolve ImageIcon paths and hand new ones to ``save``."""
+        from handler.metadata.earned_achievements import ra_image_icon_path
+
+        by_game: dict[int, str | None] = {}
+        for source in sources:
+            ra_id = source.get("ra_id")
+            if isinstance(ra_id, bool) or not isinstance(ra_id, int) or ra_id <= 0:
+                continue
+            path = ra_image_icon_path(source.get("image_icon"))
+            if path is None and cached:
+                path = ra_image_icon_path(cached.get(ra_id))
+            if path:
+                by_game[ra_id] = path
+            else:
+                by_game.setdefault(ra_id, None)
+
+        known = {ra_id: path for ra_id, path in by_game.items() if path}
+        if known:
+            save(known)
+
+        missing = [ra_id for ra_id, path in by_game.items() if not path]
+        fetched: dict[int, str] = {}
+        if missing and self.is_enabled():
+            for ra_id in missing:
+                path = await self._image_icon_from_api(ra_id)
+                if path:
+                    fetched[ra_id] = path
+            if fetched:
+                save(fetched)
+        elif missing:
+            log.warning(
+                "RetroAchievements icon lookup skipped: API key is not configured"
+            )
+        return {**known, **fetched}
+
+    async def _image_icon_from_api(self, ra_id: int) -> str | None:
+        from handler.metadata.earned_achievements import ra_image_icon_path
+
+        try:
+            details = await self.ra_service.get_game(ra_id)
+        except Exception:
+            log.warning("RetroAchievements icon lookup failed for game %s", ra_id)
+            return None
+        if not isinstance(details, dict):
+            return None
+        return ra_image_icon_path(details.get("ImageIcon"))
+
+    async def persist_missing_game_art(self) -> dict[int, dict[str, str]]:
+        """Save each library game's title, in-game and box art once."""
+        from handler.database import db_rom_handler
+
+        sources = db_rom_handler.get_library_achievement_sources()
+        return await self.fill_game_art(sources, db_rom_handler.set_ra_game_art)
+
+    async def fill_game_art(
+        self,
+        sources: Sequence[Mapping[str, Any]],
+        save: Callable[[Mapping[int, Mapping[str, str]]], object],
+    ) -> dict[int, dict[str, str]]:
+        """Resolve title, in-game and box art. The filename comes from the reply, not the game id."""
+        from handler.metadata.earned_achievements import stored_ra_art
+
+        by_game: dict[int, dict[str, str] | None] = {}
+        incomplete: set[int] = set()
+        for source in sources:
+            ra_id = source.get("ra_id")
+            if isinstance(ra_id, bool) or not isinstance(ra_id, int) or ra_id <= 0:
+                continue
+            record = stored_ra_art(source)
+            if record is not None:
+                by_game[ra_id] = record
+            else:
+                incomplete.add(ra_id)
+                by_game.setdefault(ra_id, None)
+
+        known = {ra_id: art for ra_id, art in by_game.items() if art is not None}
+        pending_copy = {
+            ra_id: known[ra_id] for ra_id in incomplete if ra_id in known
+        }
+        if pending_copy:
+            save(pending_copy)
+
+        missing = [ra_id for ra_id, art in by_game.items() if art is None]
+        fetched: dict[int, dict[str, str]] = {}
+        if missing and self.is_enabled():
+            for ra_id in missing:
+                art = await self._game_art_from_api(ra_id)
+                if art is not None:
+                    fetched[ra_id] = art
+            if fetched:
+                save(fetched)
+        elif missing:
+            log.warning(
+                "RetroAchievements art lookup skipped: API key is not configured"
+            )
+        return {**known, **fetched}
+
+    async def _game_art_from_api(self, ra_id: int) -> dict[str, str] | None:
+        from handler.metadata.earned_achievements import ra_art_paths
+
+        try:
+            details = await self.ra_service.get_game(ra_id)
+        except Exception:
+            log.warning("RetroAchievements art lookup failed for game %s", ra_id)
+            return None
+        # An unknown id comes back empty. Record that so the page does not ask again.
+        if not isinstance(details, dict):
+            return {"image_title": "", "image_ingame": "", "image_box_art": ""}
+        return ra_art_paths(details)
+
+    async def _icons_from_hash_caches(
+        self, platform_ids: Sequence[int]
+    ) -> dict[int, str]:
+        """ImageIcon paths already stored inside a platform hash cache."""
+        from handler.metadata.earned_achievements import ra_image_icon_path
+
+        found: dict[int, str] = {}
+        seen: set[int] = set()
+        for platform_id in platform_ids:
+            if platform_id in seen:
+                continue
+            seen.add(platform_id)
+            if not await self._exists_cache_file(platform_id):
+                continue
+            file_path = self._get_hashes_file_path(platform_id)
+            try:
+                raw = await fs_resource_handler.read_file(file_path)
+                payload = json.loads(raw.decode("utf-8"))
+            except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+                log.warning(
+                    "Couldn't read the RetroAchievements hash cache for platform %s: %s",
+                    platform_id,
+                    type(exc).__name__,
+                )
+                continue
+            if not isinstance(payload, dict):
+                continue
+            for value in payload.values():
+                if not isinstance(value, dict):
+                    continue
+                game_id = value.get("ID")
+                path = ra_image_icon_path(value.get("ImageIcon"))
+                if (
+                    path
+                    and isinstance(game_id, int)
+                    and not isinstance(game_id, bool)
+                    and game_id > 0
+                ):
+                    found[game_id] = path
+        return found
 
 
 class SlugToRAId(TypedDict):

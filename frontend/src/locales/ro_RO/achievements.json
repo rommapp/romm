@@ -1,0 +1,20 @@
+{
+  "counter-total": "Total",
+  "earned-on": "Obținut la {date}",
+  "empty-earned-hint": "Încă nu există realizări obținute în jocurile din această bibliotecă. Când deblochezi una și sincronizezi din nou, apare aici.",
+  "empty-earned-title": "Nicio realizare obținută încă",
+  "empty-unlinked-hint": "Deschide profilul, la RetroAchievements introdu numele de utilizator și apasă Salvează. Salvarea pornește și sincronizarea.",
+  "empty-unlinked-title": "Niciun cont RetroAchievements asociat",
+  "empty-unsynced-hint": "Deschide profilul și, la RetroAchievements, apasă Sincronizează.",
+  "empty-unsynced-title": "Încă nu s-a sincronizat nimic",
+  "filter-all-games": "Toate jocurile",
+  "filter-game": "Joc",
+  "game-achievements-n": "{n} realizare | {n} realizări",
+  "go-to-profile": "Deschide profilul",
+  "load-error": "Realizările nu au putut fi încărcate",
+  "open-game": "Deschide {name}",
+  "points-label": "Puncte",
+  "sort-catalog": "Ordinea catalogului",
+  "sort-date": "Dată",
+  "sort-other": "Altele"
+}
