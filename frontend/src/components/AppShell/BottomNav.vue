@@ -7,6 +7,7 @@
 //
 // Mount-gated on the breakpoint ref (not `display: none`) so the router
 // links never sit hidden-but-focusable in the tab order on larger viewports.
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import { useNavDestinations } from "@/composables/useNavDestinations";
@@ -16,10 +17,9 @@ const { t } = useI18n();
 const { smAndDown } = useBreakpoint();
 const { destinations, activeId } = useNavDestinations();
 
-// The active tab shows the filled glyph, like a native tab bar.
-function tabIcon(icon: string, active: boolean): string {
-  return active ? icon.replace(/-outline$/, "") : icon;
-}
+const activeIcons = computed(
+  () => new Map(destinations.value.map((d) => [d.id, d.activeIcon])),
+);
 
 // Sticky avoids a Safari bug where fixed elements can get stuck after scrolling.
 </script>
@@ -35,7 +35,7 @@ function tabIcon(icon: string, active: boolean): string {
       >
         <template #item="{ item, active }">
           <RIcon
-            :icon="tabIcon(item.icon ?? '', active)"
+            :icon="active ? activeIcons.get(item.id) : item.icon"
             :size="26"
             class="r-bottom-nav__icon"
             :class="`r-bottom-nav__icon--${item.id}`"
@@ -118,6 +118,12 @@ function tabIcon(icon: string, active: boolean): string {
     var(--r-color-fg)
   );
   font-weight: var(--r-font-weight-semibold);
+}
+
+/* Mirrors the shared glass bar: reduced motion drops the costly blur. */
+:global(html.r-reduced-motion) .r-bottom-nav__group.r-segmented-control--tab {
+  background: var(--r-glass-bar-bg);
+  backdrop-filter: var(--r-glass-bar-filter);
 }
 
 /* Touch has no hover; the press scale is the only feedback needed. */

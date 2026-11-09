@@ -21,6 +21,8 @@ export interface NavDestination {
   // still name each link to screen readers / focus rings.
   ariaLabel: string;
   icon: string;
+  /** Filled glyph the bottom tab bar shows on the active tab. */
+  activeIcon: string;
   to: string;
 }
 
@@ -32,13 +34,32 @@ export const NAV_TARGETS: readonly { id: NavDestinationId; to: string }[] = [
   { id: "search", to: "/search" },
 ];
 
-const NAV_META: Record<NavDestinationId, { labelKey: string; icon: string }> = {
-  home: { labelKey: "common.home", icon: "mdi-home-outline" },
-  platforms: { labelKey: "common.platforms", icon: "mdi-controller" },
+const NAV_META: Record<
+  NavDestinationId,
+  { labelKey: string; icon: string; activeIcon: string }
+> = {
+  home: {
+    labelKey: "common.home",
+    icon: "mdi-home-outline",
+    activeIcon: "mdi-home",
+  },
+  platforms: {
+    labelKey: "common.platforms",
+    icon: "mdi-controller",
+    activeIcon: "mdi-controller",
+  },
   // Same glyph GameCard uses for its "add to collection" action:
   // keeps the icon stable across every generic "Collections" surface.
-  collections: { labelKey: "common.collections", icon: "mdi-bookmark-outline" },
-  search: { labelKey: "common.search", icon: "mdi-magnify" },
+  collections: {
+    labelKey: "common.collections",
+    icon: "mdi-bookmark-outline",
+    activeIcon: "mdi-bookmark",
+  },
+  search: {
+    labelKey: "common.search",
+    icon: "mdi-magnify",
+    activeIcon: "mdi-magnify",
+  },
 };
 
 // `path` is `base` itself or a page under it, so "/platform-x" isn't.
@@ -68,9 +89,9 @@ export function useNavDestinations(): {
 
   const destinations = computed<NavDestination[]>(() =>
     NAV_TARGETS.map(({ id, to }) => {
-      const { labelKey, icon } = NAV_META[id];
+      const { labelKey, icon, activeIcon } = NAV_META[id];
       const label = t(labelKey);
-      return { id, label, ariaLabel: label, icon, to };
+      return { id, label, ariaLabel: label, icon, activeIcon, to };
     }),
   );
 
