@@ -138,7 +138,10 @@ export function usePadRafFn(fn: () => void): void {
   const raf = useRafFn(fn, { immediate: hasUsablePad() });
   useEventListener(window, "gamepadconnected", raf.resume);
   useEventListener(window, "gamepaddisconnected", () => {
-    if (!hasUsablePad()) raf.pause();
+    if (hasUsablePad()) return;
+    // A last tick sees no pad, so anything held, like the exit chord, resets.
+    fn();
+    raf.pause();
   });
 }
 

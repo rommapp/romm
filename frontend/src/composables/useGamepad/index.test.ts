@@ -439,6 +439,25 @@ describe("useGamepad", () => {
       expect(chords).toBe(0);
     });
 
+    it("starts the hold over after the pad disconnects mid-hold", () => {
+      // Arrange
+      pads = [padHolding(...CHORD)];
+      stepAt(0);
+      stepAt(1000);
+      pads = [];
+      now.mockReturnValue(1000 + 1050);
+      window.dispatchEvent(new Event("gamepaddisconnected"));
+      pads = [padHolding(...CHORD)];
+      window.dispatchEvent(new Event("gamepadconnected"));
+
+      // Act
+      stepAt(1100);
+      stepAt(1100 + EXIT_CHORD_HOLD_MS - 1);
+
+      // Assert
+      expect(chords).toBe(0);
+    });
+
     it("ignores a disconnected pad's stale buttons", () => {
       // Firefox keeps disconnected entries in getGamepads() (#3851).
       pads = [{ ...padHolding(...CHORD), connected: false }];
