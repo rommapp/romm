@@ -1,9 +1,4 @@
-"""Join earned RetroAchievements with the achievement catalog stored on ROMs.
-
-``ra_progression`` only records badge id and date. Title, points and the badge
-image live on ``Rom.ra_metadata``, matched the same way as the per-game tab:
-``EarnedAchievement.id`` equals ``RAGameRomAchievement.badge_id``.
-"""
+"""Join stored RetroAchievements progress with the catalog saved on each ROM."""
 
 from __future__ import annotations
 
@@ -134,12 +129,7 @@ def build_earned_achievements(
     ra_progression: dict[str, Any] | None,
     roms: Sequence[Mapping[str, Any]],
 ) -> EarnedAchievementsPayload:
-    """Earned achievements that match a library ROM.
-
-    An account with no RetroAchievements username, or one that has never
-    synced, comes back with an empty list and the matching flags. Nothing
-    here is invented: a badge with no catalog entry is left out.
-    """
+    """Earned badges that match a library ROM, or an empty list when nothing is synced."""
     if not (ra_username or "").strip():
         return {"linked": False, "synced": False, "items": []}
 
@@ -293,11 +283,7 @@ def _add_counts(total: AchievementTypeCounts, extra: AchievementTypeCounts) -> N
 
 
 def ra_image_icon_path(value: object) -> str | None:
-    """RetroAchievements ``ImageIcon`` path, such as ``/Images/047227.png``.
-
-    The game id is not the filename. A missing or unfamiliar value stays empty
-    so the list can show a neutral box instead of another game's art.
-    """
+    """RetroAchievements image path, which is not the game id padded into a filename."""
     if not isinstance(value, str):
         return None
     text = value.strip()
@@ -336,12 +322,7 @@ _RA_ART_FIELDS = {
 
 
 def ra_art_paths(details: Mapping[str, Any] | None) -> dict[str, str] | None:
-    """Paths for ``ImageTitle``, ``ImageIngame`` and ``ImageBoxArt``.
-
-    A reply from RetroAchievements has all three keys. An image the game
-    does not publish is an empty string, so the next read does not ask
-    again. A failed request is None. The filename is the path in the reply.
-    """
+    """Title, in-game and box paths from one reply. An empty string means none was published."""
     if not isinstance(details, dict):
         return None
     paths: dict[str, str] = {}
@@ -395,11 +376,7 @@ def _library_cover(path: object, updated_at: object) -> str | None:
 def _group_covers(
     roms: Sequence[Mapping[str, Any]],
 ) -> tuple[str | None, str | None, str | None]:
-    """Large cover, small cover and remote cover for the first ROM that has one.
-
-    The open game prefers its own files. A sibling supplies them only when
-    the catalog ROM has none, so the backdrop still has art.
-    """
+    """Large, small and remote cover. A sibling supplies one when the catalog ROM has none."""
     for rom in roms:
         large = _library_cover(rom.get("path_cover_l"), rom.get("updated_at"))
         small = _library_cover(rom.get("path_cover_s"), rom.get("updated_at"))
@@ -463,12 +440,7 @@ def build_achievement_overview(
     ra_progression: dict[str, Any] | None,
     roms: Sequence[Mapping[str, Any]],
 ) -> AchievementOverview:
-    """One row per library game that has a RetroAchievements catalog.
-
-    Games with nothing earned stay in the list at 0%. Locked badges are the
-    catalog entries missing from the sync. Counts are that join: no rarity
-    tiers and no points that the catalog does not store.
-    """
+    """One row per library game with a catalog, including games still at 0%."""
     if not (ra_username or "").strip():
         return _empty_overview(linked=False, synced=False)
 

@@ -45,7 +45,7 @@ class AchievementGameSchema(BaseModel):
 
 
 class EarnedAchievementsSchema(BaseModel):
-    """Library RetroAchievements progress, including games still at 0%."""
+    """RetroAchievements progress for the visible library, including games still at 0%."""
 
     linked: bool
     synced: bool

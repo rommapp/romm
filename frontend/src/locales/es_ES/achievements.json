@@ -1,4 +1,5 @@
 {
+  "counter-total": "Total",
   "earned-on": "Obtenido el {date}",
   "empty-earned-hint": "Todavía no hay logros obtenidos en juegos de esta biblioteca. Cuando desbloquees alguno y vuelvas a sincronizar, aparecerán aquí.",
   "empty-earned-title": "Todavía no hay logros obtenidos",
@@ -13,7 +14,6 @@
   "load-error": "No se pudieron cargar los logros",
   "open-game": "Abrir {name}",
   "points-label": "Puntos",
-  "counter-total": "Total",
   "sort-catalog": "Orden del catálogo",
   "sort-date": "Fecha",
   "sort-other": "Otros"

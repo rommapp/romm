@@ -1,12 +1,23 @@
 import { ref } from "vue";
+import api from "@/services/api";
 import type {
+  AchievementGameSchema as AchievementGame,
+  AchievementTypeCountsSchema as AchievementTypeCounts,
   Body_add_user_api_users_post as AddUserInput,
   Body_create_user_from_invite_api_users_register_post as RegisterUserInput,
   Body_refresh_retro_achievements_api_users__id__ra_refresh_post as RefreshRetroAchievementsInput,
+  CatalogAchievementSchema as CatalogAchievement,
+  EarnedAchievementsSchema as EarnedAchievementsResponse,
   InviteLinkSchema,
   UserSchema,
 } from "@/__generated__";
-import api from "@/services/api";
+
+export type {
+  AchievementGame,
+  AchievementTypeCounts,
+  CatalogAchievement,
+  EarnedAchievementsResponse,
+};
 
 export const userApi = api;
 
@@ -97,60 +108,6 @@ async function deleteUser(user: UserSchema) {
   return api.delete(`/users/${user.id}`);
 }
 
-export type AchievementTypeCounts = {
-  progression: number;
-  missable: number;
-  win_condition: number;
-  other: number;
-};
-
-export type CatalogAchievement = {
-  id: string;
-  title: string | null;
-  description: string | null;
-  points: number | null;
-  badge_url: string | null;
-  badge_path: string | null;
-  badge_url_lock: string | null;
-  badge_path_lock: string | null;
-  type: string | null;
-  display_order: number | null;
-  earned: boolean;
-  earned_at: string | null;
-};
-
-export type AchievementGame = {
-  rom_id: number;
-  name: string;
-  platform_name: string | null;
-  platform_slug: string | null;
-  platform_fs_slug: string | null;
-  cover_url: string | null;
-  path_cover_large: string | null;
-  path_cover_small: string | null;
-  url_cover: string | null;
-  title_url: string | null;
-  ingame_url: string | null;
-  box_art_url: string | null;
-  earned: number;
-  total: number;
-  points_earned: number;
-  points_total: number;
-  earned_by_type: AchievementTypeCounts;
-  achievements: CatalogAchievement[];
-};
-
-export type EarnedAchievementsResponse = {
-  linked: boolean;
-  synced: boolean;
-  earned: number;
-  total: number;
-  points_earned: number;
-  points_total: number;
-  earned_by_type: AchievementTypeCounts;
-  games: AchievementGame[];
-};
-
 async function fetchEarnedAchievements() {
   return api.get<EarnedAchievementsResponse>("/users/me/earned-achievements");
 }
@@ -161,6 +118,17 @@ const earnedAchievementsFailed = ref(false);
 const earnedAchievementsPayload = ref<EarnedAchievementsResponse | null>(null);
 let earnedAchievementsFetchedAt = 0;
 let earnedAchievementsInFlight: Promise<void> | null = null;
+let earnedAchievementsGeneration = 0;
+
+export function resetEarnedAchievements(): void {
+  earnedAchievementsGeneration += 1;
+  earnedAchievementsLoading.value = false;
+  earnedAchievementsRefreshing.value = false;
+  earnedAchievementsFailed.value = false;
+  earnedAchievementsPayload.value = null;
+  earnedAchievementsFetchedAt = 0;
+  earnedAchievementsInFlight = null;
+}
 
 export function useEarnedAchievementsState() {
   return {
@@ -173,6 +141,7 @@ export function useEarnedAchievementsState() {
 }
 
 export async function loadEarnedAchievements(silent = false): Promise<void> {
+  const generation = earnedAchievementsGeneration;
   if (earnedAchievementsInFlight) return earnedAchievementsInFlight;
   if (silent && Date.now() - earnedAchievementsFetchedAt < 1500) return;
   const keepContent = silent && earnedAchievementsPayload.value !== null;
@@ -184,14 +153,18 @@ export async function loadEarnedAchievements(silent = false): Promise<void> {
   }
   earnedAchievementsInFlight = (async () => {
     try {
-      earnedAchievementsPayload.value = (await fetchEarnedAchievements()).data;
+      const { data } = await fetchEarnedAchievements();
+      if (generation !== earnedAchievementsGeneration) return;
+      earnedAchievementsPayload.value = data;
       earnedAchievementsFailed.value = false;
     } catch {
+      if (generation !== earnedAchievementsGeneration) return;
       if (!keepContent || earnedAchievementsPayload.value == null) {
         earnedAchievementsFailed.value = true;
         earnedAchievementsPayload.value = null;
       }
     } finally {
+      if (generation !== earnedAchievementsGeneration) return;
       earnedAchievementsLoading.value = false;
       earnedAchievementsRefreshing.value = false;
       earnedAchievementsInFlight = null;

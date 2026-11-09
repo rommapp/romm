@@ -21,6 +21,7 @@ import PageHeader from "@/components/shared/PageHeader.vue";
 import PlatformIcon from "@/components/shared/PlatformIcon.vue";
 import IndexShell from "@/components/shared/IndexShell.vue";
 import { useBackgroundArt } from "@/composables/useBackgroundArt";
+import { useGridNav } from "@/composables/useGridNav";
 import { useLoadingPhase } from "@/composables/useLoadingPhase";
 import {
   pendingMorphName,
@@ -61,6 +62,8 @@ const { morphTransition } = useViewTransition();
 
 const { loading, refreshing, failed, payload, load } =
   useEarnedAchievementsState();
+const gridRoot = ref<HTMLElement | null>(null);
+useGridNav(gridRoot, { cellSelector: ".r-v2-ach__row" });
 const sortKey = ref("catalog");
 const brokenCovers = ref<Record<number, true>>({});
 const remoteArt = ref<Record<string, true>>({});
@@ -509,9 +512,18 @@ onMounted(() => {
       </li>
     </ul>
 
-    <ul v-else-if="phase === 'content'" class="r-v2-ach__games">
+    <ul
+      v-else-if="phase === 'content'"
+      ref="gridRoot"
+      class="r-v2-ach__games"
+    >
       <li v-for="game in games" :key="game.rom_id">
-        <button type="button" class="r-v2-ach__row" @click="onRowClick($event, game)">
+        <button
+          type="button"
+          class="r-v2-ach__row"
+          :data-focus-key="`achievement-${game.rom_id}`"
+          @click="onRowClick($event, game)"
+        >
           <span class="r-v2-ach__game">
             <span
               class="r-v2-ach__cover"

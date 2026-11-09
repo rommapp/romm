@@ -872,3 +872,56 @@ class TestGameArt:
 
         get_game.assert_not_awaited()
         assert arts == {}
+
+
+class TestMissingMedia:
+    async def test_one_reply_stores_the_icon_and_the_screen_art(
+        self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch
+    ):
+        saved_icons: list[dict[int, str]] = []
+        saved_arts: list[dict[int, dict[str, str]]] = []
+        get_game = AsyncMock(
+            return_value={
+                "ImageIcon": "/Images/027033.png",
+                "ImageTitle": "/Images/131676.png",
+                "ImageIngame": "/Images/131677.png",
+                "ImageBoxArt": "/Images/046985.png",
+            }
+        )
+        monkeypatch.setattr(ra_handler, "RETROACHIEVEMENTS_API_KEY", "present")
+        monkeypatch.setattr(handler.ra_service, "get_game", get_game)
+
+        icons = await handler.fill_missing_media(
+            [{"ra_id": 11388}],
+            saved_icons.append,
+            saved_arts.append,
+        )
+
+        get_game.assert_awaited_once_with(11388)
+        assert icons == {11388: "/Images/027033.png"}
+        assert saved_icons == [{11388: "/Images/027033.png"}]
+        assert saved_arts[0][11388]["image_title"] == "/Images/131676.png"
+        assert f"/Images/{11388:06d}.png" not in saved_arts[0][11388].values()
+
+    async def test_stored_icon_and_art_are_not_fetched_again(
+        self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch
+    ):
+        get_game = AsyncMock()
+        monkeypatch.setattr(ra_handler, "RETROACHIEVEMENTS_API_KEY", "present")
+        monkeypatch.setattr(handler.ra_service, "get_game", get_game)
+
+        await handler.fill_missing_media(
+            [
+                {
+                    "ra_id": 42,
+                    "image_icon": "",
+                    "image_title": "",
+                    "image_ingame": "",
+                    "image_box_art": "",
+                }
+            ],
+            lambda _icons: None,
+            lambda _arts: None,
+        )
+
+        get_game.assert_not_awaited()

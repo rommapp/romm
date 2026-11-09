@@ -1,6 +1,5 @@
 import asyncio
 import json
-from types import SimpleNamespace
 from typing import Annotated, Any, Final, cast
 
 from fastapi import Body, Form, HTTPException
@@ -14,6 +13,7 @@ from endpoints.permissions import emit_permissions_changed
 from endpoints.responses.earned_achievement import EarnedAchievementsSchema
 from endpoints.responses.identity import InviteLinkSchema, UserSchema
 from exceptions.database_exceptions import LastAdminError
+from handler.achievements_handler import library_overview
 from handler.audit_handler import (
     AuditActor,
     AuditTarget,
@@ -28,7 +28,6 @@ from handler.auth.dependencies import assert_admin_for_admin, get_permissions
 from handler.database import (
     db_client_token_handler,
     db_device_handler,
-    db_rom_handler,
     db_user_handler,
 )
 from handler.device_install import device_install_handler
@@ -38,7 +37,6 @@ from handler.filesystem.assets_handler import (
     validate_image_upload,
 )
 from handler.metadata import meta_ra_handler
-from handler.metadata.earned_achievements import build_achievement_overview
 from handler.metadata.ra_handler import RAUserProgression
 from handler.notification_handler import notify
 from handler.socket_handler import close_client_token_sockets
@@ -400,51 +398,10 @@ def get_current_user(request: Request) -> UserSchema | None:
     summary="RetroAchievements progress",
 )
 async def get_earned_achievements(request: Request) -> EarnedAchievementsSchema:
-    """Library RetroAchievements progress for the signed-in user.
-
-    Every visible ROM with a catalog is included, including games at 0%.
-    Locked rows are catalog badges the sync has not awarded. A user with no
-    RetroAchievements username, or one who has not synced yet, gets an empty
-    game list plus the flags the page uses for its empty state.
-
-    Title, in-game and box art are read once from RetroAchievements and stored
-    on the ROM. Later loads use those paths.
-    """
-    user = request.user
-    progression = user.ra_progression if isinstance(user.ra_progression, dict) else None
-    linked = bool((user.ra_username or "").strip())
-    synced = linked and isinstance(progression, dict) and "results" in progression
-    visible: list[dict[str, Any]] = []
-    if synced:
-        perms = get_permissions(request)
-        visible = [
-            source
-            for source in db_rom_handler.get_library_achievement_sources()
-            if perms.can_see_rom(
-                SimpleNamespace(
-                    id=source["id"],
-                    platform_id=source["platform_id"],
-                    min_age=source["min_age"],
-                )
-            )
-        ]
-        arts = await meta_ra_handler.fill_game_art(
-            visible,
-            db_rom_handler.set_ra_game_art,
-        )
-        for source in visible:
-            ra_id = source.get("ra_id")
-            if isinstance(ra_id, bool) or not isinstance(ra_id, int):
-                continue
-            art = arts.get(ra_id)
-            if art:
-                source.update(art)
+    """RetroAchievements progress for the games this user is allowed to see."""
+    perms = get_permissions(request)
     return EarnedAchievementsSchema.model_validate(
-        build_achievement_overview(
-            ra_username=user.ra_username,
-            ra_progression=progression,
-            roms=visible,
-        )
+        await library_overview(request.user, perms.can_see_rom)
     )
 
 

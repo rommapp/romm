@@ -996,11 +996,7 @@ class DBRomsHandler(DBBaseHandler):
         *,
         session: Session = INJECTED_SESSION,
     ) -> list[dict[str, Any]]:
-        """ROM fields the earned-achievements page joins onto progression.
-
-        One query for the games the user has already unlocked something in.
-        The gallery relationship graph stays unloaded.
-        """
+        """ROM fields joined onto progression for games with an unlock."""
         if not ra_ids:
             return []
 
@@ -1048,11 +1044,7 @@ class DBRomsHandler(DBBaseHandler):
         *,
         session: Session = INJECTED_SESSION,
     ) -> list[dict[str, Any]]:
-        """Every ROM that RetroAchievements has matched, cover included.
-
-        The achievements page needs games still at 0%, so this is not limited
-        to ids already present in the user's sync.
-        """
+        """Every RetroAchievements-matched ROM, including games still at 0%."""
         rows = session.execute(
             select(
                 Rom.id,
@@ -1117,11 +1109,7 @@ class DBRomsHandler(DBBaseHandler):
         *,
         session: Session = INJECTED_SESSION,
     ) -> int:
-        """Merge an ImageIcon path into ``ra_metadata`` for each game id.
-
-        Other metadata, including the achievement catalog, stays as it is.
-        A ROM that already stores the same path is left untouched.
-        """
+        """Merge an ImageIcon path into ``ra_metadata``, leaving other keys as they are."""
         if not icons:
             return 0
 
@@ -1136,7 +1124,9 @@ class DBRomsHandler(DBBaseHandler):
             if isinstance(ra_id, bool) or not isinstance(ra_id, int):
                 continue
             path = icons.get(ra_id)
-            if (
+            if path == "":
+                pass
+            elif (
                 not isinstance(path, str)
                 or not path.startswith("/Images/")
                 or not path.endswith(".png")
@@ -1163,12 +1153,7 @@ class DBRomsHandler(DBBaseHandler):
         *,
         session: Session = INJECTED_SESSION,
     ) -> int:
-        """Merge title, in-game and box-art paths into ``ra_metadata``.
-
-        An empty string means RetroAchievements has no image for that slot.
-        The achievement catalog and every other key stay as they are. A ROM
-        that already stores the same paths is left untouched.
-        """
+        """Merge title, in-game and box-art paths into ``ra_metadata``. An empty string means none was published."""
         if not arts:
             return 0
 
