@@ -105,6 +105,7 @@
     "postcss": "^8.5.23",
     "sirv": "^3.0.2",
     "storybook": "^10.6.2",
+    "storybook-addon-pseudo-states": "^10.6.5",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3",
     "vite": "^8.3.4",
