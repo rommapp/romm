@@ -35,6 +35,12 @@ describe("useRightStickScroll", () => {
   });
 
   function setup() {
+    const mounted = mountHost();
+    window.dispatchEvent(new Event("gamepadconnected"));
+    return mounted;
+  }
+
+  function mountHost() {
     const el = document.createElement("div");
     const host = mount(
       defineComponent({
@@ -46,6 +52,17 @@ describe("useRightStickScroll", () => {
     );
     return { el, host };
   }
+
+  it("does not poll until a pad connects", () => {
+    // Arrange
+    pads = [];
+
+    // Act
+    mountHost();
+
+    // Assert
+    expect(frame).toBeNull();
+  });
 
   it("scrolls by the stick's deflection every frame", () => {
     const { el } = setup();

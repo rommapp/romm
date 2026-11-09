@@ -12,8 +12,8 @@
 //   * SCROLL_PER_FRAME: pixels scrolled at full stick deflection per
 //     frame; at 60fps full-up gives ~1500 px/s, which matches the feel
 //     of "page down via dpad" without overshoot.
-import { useRafFn } from "@vueuse/core";
 import type { Ref } from "vue";
+import { usePadRafFn } from "@/composables/useGamepad";
 import { readRightStick } from "@/utils/gamepad";
 
 const DEADZONE = 0.15;
@@ -22,7 +22,7 @@ const SCROLL_PER_FRAME = 25;
 export function useRightStickScroll(elRef: Ref<HTMLElement | null>) {
   if (typeof navigator === "undefined" || !navigator.getGamepads) return;
 
-  useRafFn(() => {
+  usePadRafFn(() => {
     const el = elRef.value;
     if (!el) return;
     const { x, y } = readRightStick();

@@ -41,7 +41,11 @@ import {
 } from "@/composables/useNavDestinations";
 import { hasOpenEscapable } from "@/lib/overlays/RDialog/escapeStack.js";
 import storePlaying from "@/stores/playing";
-import { isUsablePad, padActivationTarget } from "@/utils/gamepad";
+import {
+  hasUsablePad,
+  isUsablePad,
+  padActivationTarget,
+} from "@/utils/gamepad";
 
 // Routes where useGamepad's built-in actions (back, activate, section
 // nav, user menu) must NOT fire, so every button stays inspectable in
@@ -126,6 +130,16 @@ const padEvents = new WeakSet<Event>();
 /** True when `event` is a key useGamepad dispatched for the pad. */
 export function isPadEvent(event: Event): boolean {
   return padEvents.has(event);
+}
+
+/** Runs `fn` every frame only while a pad is connected, so a page without
+ * one produces no frames. Chrome reports a pad after its first press. */
+export function usePadRafFn(fn: () => void): void {
+  const raf = useRafFn(fn, { immediate: hasUsablePad() });
+  useEventListener(window, "gamepadconnected", raf.resume);
+  useEventListener(window, "gamepaddisconnected", () => {
+    if (!hasUsablePad()) raf.pause();
+  });
 }
 
 // Other mappings don't guarantee the Back/Start indices.
@@ -369,7 +383,7 @@ export function useGamepad() {
       }
     };
 
-    useRafFn(loop);
+    usePadRafFn(loop);
 
     onBeforeUnmount(() => {
       installed = false;

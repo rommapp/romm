@@ -394,6 +394,7 @@ describe("useGamepad", () => {
       now = vi.spyOn(performance, "now").mockReturnValue(1000);
       window.addEventListener("gamepad:exitchord", onChord);
       installOnMouse(() => pads);
+      window.dispatchEvent(new Event("gamepadconnected"));
       storePlaying().setPlaying(true);
     });
 
