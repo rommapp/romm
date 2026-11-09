@@ -190,8 +190,11 @@ def read_tar_file(file_path: Path) -> Iterator[bytes]:
 
 
 def _is_tarball(file_path: Path) -> bool:
+    # `is_tarfile` accepts any zero-filled opening as an empty tar, which a
+    # compressed disc image can start with, so require a first member.
     try:
-        return tarfile.is_tarfile(file_path)
+        with tarfile.open(file_path, "r:*") as f:
+            return f.next() is not None
     except tarfile.TarError, OSError, EOFError, zlib.error, lzma.LZMAError:
         return False
 
@@ -238,8 +241,9 @@ def hash_largest_member(
 ) -> bool:
     """Stream a compressed file's content (its largest member) through `fn_hash_update`.
 
-    Returns False if the file is not a known archive or can't be read in full,
-    in which case `fn_hash_update` may already have seen part of it.
+    Returns:
+        False if the file is not a known archive or can't be read in full, in
+        which case `fn_hash_update` may already have seen part of it.
     """
     archive_format = detect_archive_format(file_path)
     if archive_format is None:

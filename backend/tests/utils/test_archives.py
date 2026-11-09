@@ -732,6 +732,17 @@ class TestHashLargestMember:
         assert _hash_content(path) == ROM
 
     @pytest.mark.parametrize(
+        ("name", "compress"),
+        [("disc.iso.gz", gzip.compress), ("disc.iso.bz2", bz2.compress)],
+    )
+    def test_a_zero_filled_opening_is_not_a_tarball(self, tmp_path, name, compress):
+        image = bytes(4096) + ROM
+        path = tmp_path / name
+        path.write_bytes(compress(image))
+
+        assert _hash_content(path) == image
+
+    @pytest.mark.parametrize(
         ("data", "mime"),
         [
             (gzip.compress(TARBALL), "application/gzip"),
