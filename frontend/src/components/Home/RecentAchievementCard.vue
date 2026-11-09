@@ -4,10 +4,11 @@
 // the piece that morphs into the achievements page, same as a platform icon.
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
-import { ROUTES } from "@/plugins/router";
 import { useBackgroundArt } from "@/composables/useBackgroundArt";
 import { useViewTransition } from "@/composables/useViewTransition";
 import { useWebpSupport } from "@/composables/useWebpSupport";
+import { RImage, RSkeletonBlock } from "@/lib";
+import { ROUTES } from "@/plugins/router";
 
 export interface RecentAchievementItem {
   id: string;
@@ -35,7 +36,8 @@ const iconBroken = ref(false);
 
 const badgeSrc = computed(() => {
   if (badgeBroken.value) return "";
-  if (!useRemoteBadge.value && props.item.badgePath) return props.item.badgePath;
+  if (!useRemoteBadge.value && props.item.badgePath)
+    return props.item.badgePath;
   return props.item.badgeUrl ?? "";
 });
 
@@ -88,22 +90,33 @@ function open() {
     @focus="onHighlight"
   >
     <span class="r-ach-card__art">
-      <img
-        v-if="badgeSrc"
-        :src="badgeSrc"
-        alt=""
-        @error="onBadgeError"
-      />
-      <span
-        v-if="showGameIcon"
-        ref="gameIconEl"
-        class="r-ach-card__game-icon"
-      >
-        <img
+      <span v-if="badgeSrc" class="r-ach-card__badge">
+        <RImage
+          :src="badgeSrc"
+          alt=""
+          width="100%"
+          height="100%"
+          contain
+          @error="onBadgeError"
+        >
+          <template #loading>
+            <RSkeletonBlock width="100%" height="100%" rounded="lg" />
+          </template>
+        </RImage>
+      </span>
+      <span v-if="showGameIcon" ref="gameIconEl" class="r-ach-card__game-icon">
+        <RImage
           :src="item.gameIconUrl ?? ''"
           alt=""
+          width="100%"
+          height="100%"
+          cover
           @error="iconBroken = true"
-        />
+        >
+          <template #loading>
+            <RSkeletonBlock width="100%" height="100%" rounded="none" />
+          </template>
+        </RImage>
       </span>
     </span>
     <span v-if="item.title" class="r-ach-card__title">{{ item.title }}</span>
@@ -141,11 +154,24 @@ function open() {
   transition: transform var(--r-motion-fast);
 }
 
-.r-ach-card__art img {
+.r-ach-card__badge {
+  position: absolute;
+  left: 11%;
+  top: 11%;
   width: 78%;
   height: 78%;
-  object-fit: contain;
+}
+
+.r-ach-card__badge :deep(.r-image) {
   display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.r-ach-card__art :deep(.r-image__layer > .r-skeleton),
+.r-ach-card__game-icon :deep(.r-image__layer > .r-skeleton) {
+  position: absolute;
+  inset: 0;
 }
 
 .r-ach-card__game-icon {
@@ -162,10 +188,9 @@ function open() {
   box-shadow: 0 0 0 1px var(--r-color-border);
 }
 
-.r-ach-card__game-icon img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.r-ach-card__game-icon :deep(.r-image) {
+  position: absolute;
+  inset: 0;
 }
 
 html:not([data-input="pad"]) .r-ach-card:hover .r-ach-card__art,

@@ -4,22 +4,13 @@
 // Opening a game keeps the RetroAchievements icon beside the name and paints
 // that ROM's cover on the shared backdrop. Counts are RetroAchievements
 // types and points. Metals are not invented.
-import { RBtn, RChip, REmptyState, RIcon, RSelect, RSkeletonBlock } from "@/lib";
 import { useEventListener } from "@vueuse/core";
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import { ROUTES } from "@/plugins/router";
-import {
-  type AchievementGame,
-  type AchievementTypeCounts,
-  type CatalogAchievement,
-  useEarnedAchievementsState,
-} from "@/services/api/user";
-import storeAuth from "@/stores/auth";
+import IndexShell from "@/components/shared/IndexShell.vue";
 import PageHeader from "@/components/shared/PageHeader.vue";
 import PlatformIcon from "@/components/shared/PlatformIcon.vue";
-import IndexShell from "@/components/shared/IndexShell.vue";
 import { useBackgroundArt } from "@/composables/useBackgroundArt";
 import { useGridNav } from "@/composables/useGridNav";
 import { useLoadingPhase } from "@/composables/useLoadingPhase";
@@ -28,6 +19,23 @@ import {
   useViewTransition,
 } from "@/composables/useViewTransition";
 import { useWebpSupport } from "@/composables/useWebpSupport";
+import {
+  RBtn,
+  RChip,
+  REmptyState,
+  RIcon,
+  RImage,
+  RSelect,
+  RSkeletonBlock,
+} from "@/lib";
+import { ROUTES } from "@/plugins/router";
+import {
+  type AchievementGame,
+  type AchievementTypeCounts,
+  type CatalogAchievement,
+  useEarnedAchievementsState,
+} from "@/services/api/user";
+import storeAuth from "@/stores/auth";
 
 const TYPE_COLUMNS = [
   {
@@ -130,12 +138,17 @@ const visibleAchievements = computed(() => {
     );
   } else if (sortKey.value === "type") {
     list.sort(
-      (a, b) => typeRank(a) - typeRank(b) || byTitle(a).localeCompare(byTitle(b)),
+      (a, b) =>
+        typeRank(a) - typeRank(b) || byTitle(a).localeCompare(byTitle(b)),
     );
   } else if (sortKey.value === "date") {
     list.sort((a, b) => {
       if (a.earned_at && b.earned_at) {
-        return a.earned_at < b.earned_at ? 1 : a.earned_at > b.earned_at ? -1 : 0;
+        return a.earned_at < b.earned_at
+          ? 1
+          : a.earned_at > b.earned_at
+            ? -1
+            : 0;
       }
       if (a.earned_at) return -1;
       if (b.earned_at) return 1;
@@ -255,7 +268,10 @@ function onRowClick(event: MouseEvent, game: AchievementGame) {
   openGame(game, cover instanceof HTMLElement ? cover : null);
 }
 
-function counterLabel(counts: AchievementTypeCounts, key: keyof AchievementTypeCounts) {
+function counterLabel(
+  counts: AchievementTypeCounts,
+  key: keyof AchievementTypeCounts,
+) {
   const column = TYPE_COLUMNS.find((entry) => entry.key === key);
   return column ? `${t(column.label)} ${counts[key]}` : String(counts[key]);
 }
@@ -280,16 +296,27 @@ onMounted(() => {
         <div class="r-v2-ach__detail-top">
           <span
             class="r-v2-ach__icon"
-            :style="{ viewTransitionName: achievementIconName(selectedGame.rom_id) }"
+            :style="{
+              viewTransitionName: achievementIconName(selectedGame.rom_id),
+            }"
           >
-            <img
-              v-if="selectedGame.cover_url && !brokenCovers[selectedGame.rom_id]"
+            <RImage
+              v-if="
+                selectedGame.cover_url && !brokenCovers[selectedGame.rom_id]
+              "
               :src="selectedGame.cover_url"
               alt=""
+              width="100%"
+              height="100%"
+              cover
               @error="
                 brokenCovers = { ...brokenCovers, [selectedGame.rom_id]: true }
               "
-            />
+            >
+              <template #loading>
+                <RSkeletonBlock width="100%" height="100%" rounded="none" />
+              </template>
+            </RImage>
             <RIcon v-else icon="mdi-image-outline" :size="22" />
           </span>
           <div class="r-v2-ach__detail-name">
@@ -369,7 +396,10 @@ onMounted(() => {
       </header>
 
       <div v-else-if="phase === 'content' && payload" class="r-v2-ach__head">
-        <PageHeader :title="t('common.achievements')" class="r-v2-ach__page-title">
+        <PageHeader
+          :title="t('common.achievements')"
+          class="r-v2-ach__page-title"
+        >
           <template #count>
             <div class="r-v2-ach__level">
               <span class="r-v2-ach__medal" aria-hidden="true">
@@ -379,29 +409,32 @@ onMounted(() => {
                 <span class="r-v2-ach__level-value">
                   {{ formatCount(payload.points_earned) }}
                 </span>
-                <span class="r-v2-ach__k">{{ t("achievements.points-label") }}</span>
+                <span class="r-v2-ach__k">{{
+                  t("achievements.points-label")
+                }}</span>
               </span>
             </div>
           </template>
         </PageHeader>
         <div class="r-v2-ach__total">
           <span class="r-v2-ach__k">{{ t("achievements.counter-total") }}</span>
-          <span class="r-v2-ach__total-value">{{ formatCount(payload.earned) }}</span>
+          <span class="r-v2-ach__total-value">{{
+            formatCount(payload.earned)
+          }}</span>
         </div>
-          <span
-            v-for="column in TYPE_COLUMNS"
-            :key="column.key"
-            class="r-v2-ach__count r-v2-ach__count--head"
-            :class="[
-              `r-v2-ach__count--${column.key}`,
-              {
-                'r-v2-ach__count--zero':
-                  payload.earned_by_type[column.key] === 0,
-              },
-            ]"
-            :title="t(column.label)"
-            :aria-label="counterLabel(payload.earned_by_type, column.key)"
-          >
+        <span
+          v-for="column in TYPE_COLUMNS"
+          :key="column.key"
+          class="r-v2-ach__count r-v2-ach__count--head"
+          :class="[
+            `r-v2-ach__count--${column.key}`,
+            {
+              'r-v2-ach__count--zero': payload.earned_by_type[column.key] === 0,
+            },
+          ]"
+          :title="t(column.label)"
+          :aria-label="counterLabel(payload.earned_by_type, column.key)"
+        >
           <RIcon :icon="column.icon" :size="16" />
           <span>{{ payload.earned_by_type[column.key] }}</span>
         </span>
@@ -453,7 +486,11 @@ onMounted(() => {
       :hint="t('achievements.empty-unlinked-hint')"
     >
       <template v-if="profileTo" #actions>
-        <RBtn color="primary" prepend-icon="mdi-account-outline" :to="profileTo">
+        <RBtn
+          color="primary"
+          prepend-icon="mdi-account-outline"
+          :to="profileTo"
+        >
           {{ t("achievements.go-to-profile") }}
         </RBtn>
       </template>
@@ -466,7 +503,11 @@ onMounted(() => {
       :hint="t('achievements.empty-unsynced-hint')"
     >
       <template v-if="profileTo" #actions>
-        <RBtn color="primary" prepend-icon="mdi-account-outline" :to="profileTo">
+        <RBtn
+          color="primary"
+          prepend-icon="mdi-account-outline"
+          :to="profileTo"
+        >
           {{ t("achievements.go-to-profile") }}
         </RBtn>
       </template>
@@ -490,13 +531,20 @@ onMounted(() => {
           class="r-v2-ach__art"
           :class="{ 'r-v2-ach__art--fallback': !showArt(item) }"
         >
-          <img
+          <RImage
             v-if="showArt(item)"
             :src="artSrc(item)"
             alt=""
-            loading="lazy"
+            width="100%"
+            height="100%"
+            contain
+            lazy
             @error="onArtError(item)"
-          />
+          >
+            <template #loading>
+              <RSkeletonBlock width="100%" height="100%" rounded="none" />
+            </template>
+          </RImage>
           <RIcon v-else icon="mdi-trophy" :size="36" color="romm-gold" />
           <span v-if="!item.earned" class="r-v2-ach__lock" aria-hidden="true">
             <RIcon icon="mdi-lock" :size="20" />
@@ -512,11 +560,7 @@ onMounted(() => {
       </li>
     </ul>
 
-    <ul
-      v-else-if="phase === 'content'"
-      ref="gridRoot"
-      class="r-v2-ach__games"
-    >
+    <ul v-else-if="phase === 'content'" ref="gridRoot" class="r-v2-ach__games">
       <li v-for="game in games" :key="game.rom_id">
         <button
           type="button"
@@ -533,12 +577,20 @@ onMounted(() => {
                   : undefined
               "
             >
-              <img
+              <RImage
                 v-if="game.cover_url && !brokenCovers[game.rom_id]"
                 :src="game.cover_url"
                 alt=""
+                width="100%"
+                height="100%"
+                contain
+                lazy
                 @error="brokenCovers = { ...brokenCovers, [game.rom_id]: true }"
-              />
+              >
+                <template #loading>
+                  <RSkeletonBlock width="100%" height="100%" rounded="none" />
+                </template>
+              </RImage>
               <RIcon v-else icon="mdi-image-outline" :size="20" />
             </span>
             <span class="r-v2-ach__game-text">
@@ -572,7 +624,9 @@ onMounted(() => {
             class="r-v2-ach__count"
             :class="[
               `r-v2-ach__count--${column.key}`,
-              { 'r-v2-ach__count--zero': game.earned_by_type[column.key] === 0 },
+              {
+                'r-v2-ach__count--zero': game.earned_by_type[column.key] === 0,
+              },
             ]"
             :title="t(column.label)"
             :aria-label="counterLabel(game.earned_by_type, column.key)"
@@ -796,6 +850,7 @@ onMounted(() => {
 }
 
 .r-v2-ach__cover {
+  position: relative;
   width: 56px;
   height: 56px;
   flex: 0 0 auto;
@@ -807,19 +862,18 @@ onMounted(() => {
   color: var(--r-color-fg-muted);
 }
 
-.r-v2-ach__cover img,
-.r-v2-ach__art img {
-  width: 100%;
-  height: 100%;
-  display: block;
+.r-v2-ach__cover :deep(.r-image),
+.r-v2-ach__icon :deep(.r-image),
+.r-v2-ach__art :deep(.r-image) {
+  position: absolute;
+  inset: 0;
 }
 
-.r-v2-ach__cover img {
-  object-fit: contain;
-}
-
-.r-v2-ach__art img {
-  object-fit: contain;
+.r-v2-ach__cover :deep(.r-image__layer > .r-skeleton),
+.r-v2-ach__icon :deep(.r-image__layer > .r-skeleton),
+.r-v2-ach__art :deep(.r-image__layer > .r-skeleton) {
+  position: absolute;
+  inset: 0;
 }
 
 .r-v2-ach__game-text {
@@ -871,6 +925,7 @@ onMounted(() => {
 }
 
 .r-v2-ach__icon {
+  position: relative;
   width: 72px;
   height: 72px;
   flex: 0 0 auto;
@@ -881,13 +936,6 @@ onMounted(() => {
   background: var(--r-color-surface);
   color: var(--r-color-fg-muted);
   box-shadow: 0 0 0 1px var(--r-color-border);
-}
-
-.r-v2-ach__icon img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
 }
 
 .r-v2-ach__detail-name {
@@ -967,7 +1015,7 @@ onMounted(() => {
   background: color-mix(in srgb, var(--r-color-brand-primary) 16%, transparent);
 }
 
-.r-v2-ach__card--locked .r-v2-ach__art img {
+.r-v2-ach__card--locked .r-v2-ach__art :deep(.r-image--loaded .r-image__image) {
   filter: grayscale(1);
   opacity: 0.7;
 }
