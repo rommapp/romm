@@ -54,19 +54,14 @@ from models.rom import (
 from utils import switch
 from utils.archives import (
     ArchiveReadError,
-    detect_mime_type,
     extract_chd_hash,
-    hash_largest_7z_member,
+    hash_largest_member,
     is_chd_file,
     read_7z_archive_files,
     read_basic_file,
-    read_bz2_file,
-    read_gz_file,
     read_rar_archive_files,
     read_tar_archive_files,
-    read_tar_file,
     read_zip_archive_files,
-    read_zip_file,
 )
 from utils.filesystem import COMPRESSED_FILE_SUFFIXES, iter_files
 from utils.hashing import crc32_to_hex
@@ -1197,10 +1192,7 @@ class FSRomsHandler(FSHandler):
         Callers that don't need one pass no accumulators, because a second pass
         over a chunk costs as much as the first.
         """
-        extension = Path(file_path).suffix.lower()
         try:
-            file_type = detect_mime_type(file_path)
-
             crc_c = 0
             md5_h = hashlib.md5(usedforsecurity=False)
             sha1_h = hashlib.sha1(usedforsecurity=False)
@@ -1218,39 +1210,18 @@ class FSRomsHandler(FSHandler):
                     rom_sha1_h.update(chunk)
                     rom_crc_c = binascii.crc32(chunk, rom_crc_c)
 
-            if extension == ".zip" or file_type == "application/zip":
-                for chunk in read_zip_file(file_path):
-                    update_hashes(chunk)
-
-            elif extension == ".tar" or file_type == "application/x-tar":
-                for chunk in read_tar_file(file_path):
-                    update_hashes(chunk)
-
-            elif extension == ".gz" or file_type == "application/x-gzip":
-                for chunk in read_gz_file(file_path):
-                    update_hashes(chunk)
-
-            elif extension == ".7z" or file_type == "application/x-7z-compressed":
-                # A failed extraction may have fed part of the member already,
-                # so the raw-archive fallback starts from the hashers' prior state.
-                snapshot = (
-                    crc_c,
-                    rom_crc_c,
-                    md5_h.copy(),
-                    sha1_h.copy(),
-                    rom_md5_h.copy() if accumulate else rom_md5_h,
-                    rom_sha1_h.copy() if accumulate else rom_sha1_h,
-                )
-                if not hash_largest_7z_member(file_path, update_hashes):
-                    crc_c, rom_crc_c, md5_h, sha1_h, rom_md5_h, rom_sha1_h = snapshot
-                    for chunk in read_basic_file(file_path):
-                        update_hashes(chunk)
-
-            elif extension == ".bz2" or file_type == "application/x-bzip2":
-                for chunk in read_bz2_file(file_path):
-                    update_hashes(chunk)
-
-            else:
+            # A failed read may have fed part of the member already, so the
+            # raw-file fallback starts from the hashers' prior state.
+            snapshot = (
+                crc_c,
+                rom_crc_c,
+                md5_h.copy(),
+                sha1_h.copy(),
+                rom_md5_h.copy() if accumulate else rom_md5_h,
+                rom_sha1_h.copy() if accumulate else rom_sha1_h,
+            )
+            if not hash_largest_member(file_path, update_hashes):
+                crc_c, rom_crc_c, md5_h, sha1_h, rom_md5_h, rom_sha1_h = snapshot
                 for chunk in read_basic_file(file_path):
                     update_hashes(chunk)
 

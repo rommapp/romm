@@ -1,9 +1,11 @@
 import binascii
+import gzip
 import hashlib
 import os
 import shutil
 import struct
 import tempfile
+import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
@@ -1430,6 +1432,34 @@ class TestFSRomsHandler:
             (rom_dir / "sub", "c.bin"),
         ]
 
+    def test_plain_gzip_hashes_its_content(self, handler: FSRomsHandler, tmp_path):
+        content = b"Plain gzip ROM content" * 32
+        archive = tmp_path / "game.gb.gz"
+        archive.write_bytes(gzip.compress(content))
+
+        crc_c, _, md5_h, _, sha1_h, _ = handler._calculate_rom_hashes(archive)
+
+        assert crc_c == binascii.crc32(content)
+        assert md5_h.hexdigest() == hashlib.md5(content).hexdigest()
+        assert sha1_h.hexdigest() == hashlib.sha1(content).hexdigest()
+
+    def test_empty_zip_hashes_the_raw_archive(self, handler: FSRomsHandler, tmp_path):
+        archive = tmp_path / "empty.zip"
+        with zipfile.ZipFile(archive, "w"):
+            pass
+        archive_bytes = archive.read_bytes()
+
+        rom_sha1_h = hashlib.sha1(b"earlier file", usedforsecurity=False)
+        _, _, _, _, sha1_h, rom_sha1_h = handler._calculate_rom_hashes(
+            archive, 0, hashlib.md5(usedforsecurity=False), rom_sha1_h
+        )
+
+        assert sha1_h.hexdigest() == hashlib.sha1(archive_bytes).hexdigest()
+        assert (
+            rom_sha1_h.hexdigest()
+            == hashlib.sha1(b"earlier file" + archive_bytes).hexdigest()
+        )
+
     def test_failed_7z_extraction_hashes_only_the_raw_archive(
         self, handler: FSRomsHandler, tmp_path
     ):
@@ -1448,7 +1478,7 @@ class TestFSRomsHandler:
         rom_crc_c = binascii.crc32(b"earlier file")
 
         with patch(
-            "handler.filesystem.roms_handler.hash_largest_7z_member",
+            "utils.archives.hash_largest_7z_member",
             side_effect=_partial_then_fail,
         ):
             crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (

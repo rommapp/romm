@@ -2,6 +2,9 @@
 
 import bz2
 import fnmatch
+import gzip
+import io
+import lzma
 import os
 import re
 import subprocess
@@ -38,16 +41,36 @@ _MTREE_OCTAL_ESCAPE: Final = re.compile(rb"\\([0-7]{3})")
 # the character that follows it.
 _BSDTAR_GLOB_METACHARACTERS: Final = frozenset("\\*?[]")
 
-# Known compressed file MIME types
-COMPRESSED_MIME_TYPES: Final = frozenset(
-    (
-        "application/x-7z-compressed",
-        "application/x-bzip2",
-        "application/x-gzip",
-        "application/x-tar",
-        "application/zip",
-    )
+ArchiveFormat = Literal["zip", "tar", "gzip", "bz2", "xz", "7z"]
+
+# Longest suffix first, so a .tar.gz is not taken for a plain .gz.
+ARCHIVE_FORMAT_BY_SUFFIX: Final[tuple[tuple[str, ArchiveFormat], ...]] = (
+    (".tar.gz", "tar"),
+    (".tar.bz2", "tar"),
+    (".tar.xz", "tar"),
+    (".tgz", "tar"),
+    (".tbz2", "tar"),
+    (".txz", "tar"),
+    (".tar", "tar"),
+    (".zip", "zip"),
+    (".gz", "gzip"),
+    (".bz2", "bz2"),
+    (".xz", "xz"),
+    (".7z", "7z"),
 )
+
+# Current libmagic reports gzip as application/gzip, older releases as x-gzip.
+ARCHIVE_FORMAT_BY_MIME: Final[dict[str, ArchiveFormat]] = {
+    "application/zip": "zip",
+    "application/x-tar": "tar",
+    "application/gzip": "gzip",
+    "application/x-gzip": "gzip",
+    "application/x-bzip2": "bz2",
+    "application/x-xz": "xz",
+    "application/x-7z-compressed": "7z",
+}
+
+COMPRESSED_MIME_TYPES: Final = frozenset(ARCHIVE_FORMAT_BY_MIME)
 
 # CHD (Compressed Hunks of Data) v5 format constants
 # See: https://github.com/mamedev/mame/blob/master/src/lib/util/chd.h
@@ -120,42 +143,116 @@ def read_basic_file(file_path: os.PathLike[str]) -> Iterator[bytes]:
             yield chunk
 
 
-def read_zip_file(file: str | os.PathLike[str] | IO[bytes]) -> Iterator[bytes]:
+def detect_archive_format(file_path: Path) -> ArchiveFormat | None:
+    """Pick an archive format by suffix, then by libmagic MIME type."""
+    name = file_path.name.lower()
+    for suffix, archive_format in ARCHIVE_FORMAT_BY_SUFFIX:
+        if name.endswith(suffix):
+            return archive_format
+    return ARCHIVE_FORMAT_BY_MIME.get(detect_mime_type(file_path))
+
+
+def read_zip_file(file_path: Path) -> Iterator[bytes]:
+    """Stream the largest zip member, raising `ArchiveReadError` if it can't be read."""
     try:
-        with zipfile.ZipFile(file, "r") as z:
-            # Find the biggest file in the archive
-            largest_file = max(z.infolist(), key=lambda x: x.file_size)
+        with zipfile.ZipFile(file_path, "r") as z:
+            largest_file = max(
+                (info for info in z.infolist() if not info.is_dir()),
+                key=lambda x: x.file_size,
+                default=None,
+            )
+            if largest_file is None:
+                raise ArchiveReadError(f"Zip {file_path} has no members")
             with z.open(largest_file, "r") as f:
-                while chunk := f.read(FILE_READ_CHUNK_SIZE):
-                    yield chunk
-    except zipfile.BadZipFile, RuntimeError, OSError:
-        if isinstance(file, Path):
-            for chunk in read_basic_file(file):
-                yield chunk
+                yield from _iter_chunks(f, file_path, largest_file.filename)
+    except (zipfile.BadZipFile, RuntimeError, OSError, NotImplementedError) as e:
+        raise ArchiveReadError(f"Error reading zip {file_path}: {e}") from e
 
 
-def read_tar_file(
-    file_path: Path, mode: Literal["r", "r:*", "r:", "r:gz", "r:bz2", "r:xz"] = "r"
-) -> Iterator[bytes]:
+def read_tar_file(file_path: Path) -> Iterator[bytes]:
+    """Stream the largest tar member, raising `ArchiveReadError` if it can't be read."""
     try:
-        with tarfile.open(file_path, mode) as f:
-            regular_files = [member for member in f.getmembers() if member.isfile()]
-
-            # Find the largest file among regular files only
-            largest_file = max(regular_files, key=lambda x: x.size)
+        with tarfile.open(file_path, "r:*") as f:
+            largest_file = max(
+                (member for member in f.getmembers() if member.isfile()),
+                key=lambda x: x.size,
+                default=None,
+            )
+            if largest_file is None:
+                raise ArchiveReadError(f"Tar {file_path} has no members")
             ef = f.extractfile(largest_file)
             if ef is None:
-                return
+                raise ArchiveReadError(f"Can't extract {largest_file.name}")
             with ef:
-                while chunk := ef.read(FILE_READ_CHUNK_SIZE):
-                    yield chunk
-    except tarfile.ReadError:
-        for chunk in read_basic_file(file_path):
-            yield chunk
+                yield from _iter_chunks(ef, file_path, largest_file.name)
+    except (tarfile.TarError, OSError, EOFError, zlib.error, lzma.LZMAError) as e:
+        raise ArchiveReadError(f"Error reading tar {file_path}: {e}") from e
+
+
+def _is_tarball(file_path: Path) -> bool:
+    try:
+        return tarfile.is_tarfile(file_path)
+    except tarfile.TarError, OSError, EOFError, zlib.error, lzma.LZMAError:
+        return False
+
+
+def _read_compressed_stream(
+    file_path: Path, opener: Callable[[Path], io.BufferedIOBase]
+) -> Iterator[bytes]:
+    # A tarball under a single-stream suffix (game.gb.gz) hashes like a .tar.gz.
+    if _is_tarball(file_path):
+        yield from read_tar_file(file_path)
+        return
+    try:
+        with opener(file_path) as f:
+            yield from _iter_chunks(f, file_path, file_path.name)
+    except (OSError, EOFError, lzma.LZMAError) as e:
+        raise ArchiveReadError(f"Error reading {file_path}: {e}") from e
 
 
 def read_gz_file(file_path: Path) -> Iterator[bytes]:
-    return read_tar_file(file_path, "r:gz")
+    return _read_compressed_stream(file_path, gzip.GzipFile)
+
+
+def read_bz2_file(file_path: Path) -> Iterator[bytes]:
+    return _read_compressed_stream(file_path, bz2.BZ2File)
+
+
+def read_xz_file(file_path: Path) -> Iterator[bytes]:
+    return _read_compressed_stream(file_path, lzma.LZMAFile)
+
+
+LARGEST_MEMBER_READERS: Final[
+    dict[ArchiveFormat, Callable[[Path], Iterator[bytes]]]
+] = {
+    "zip": read_zip_file,
+    "tar": read_tar_file,
+    "gzip": read_gz_file,
+    "bz2": read_bz2_file,
+    "xz": read_xz_file,
+}
+
+
+def hash_largest_member(
+    file_path: Path, fn_hash_update: Callable[[bytes | bytearray], None]
+) -> bool:
+    """Stream a compressed file's content (its largest member) through `fn_hash_update`.
+
+    Returns False if the file is not a known archive or can't be read in full,
+    in which case `fn_hash_update` may already have seen part of it.
+    """
+    archive_format = detect_archive_format(file_path)
+    if archive_format is None:
+        return False
+    if archive_format == "7z":
+        return hash_largest_7z_member(file_path, fn_hash_update)
+    try:
+        for chunk in LARGEST_MEMBER_READERS[archive_format](file_path):
+            fn_hash_update(chunk)
+    except ArchiveReadError as e:
+        log.warning(f"{e}. Hashing the file itself instead.")
+        return False
+    return True
 
 
 def hash_largest_7z_member(
@@ -250,17 +347,9 @@ def hash_largest_7z_member(
         return False
 
 
-def read_bz2_file(file_path: Path) -> Iterator[bytes]:
-    try:
-        with bz2.BZ2File(file_path, "rb") as f:
-            while chunk := f.read(FILE_READ_CHUNK_SIZE):
-                yield chunk
-    except EOFError:
-        for chunk in read_basic_file(file_path):
-            yield chunk
-
-
-def _iter_chunks(reader: IO[bytes], file_path: Path, name: str) -> Iterator[bytes]:
+def _iter_chunks(
+    reader: IO[bytes] | io.BufferedIOBase, file_path: Path, name: str
+) -> Iterator[bytes]:
     """Stream a member's bytes, raising `ArchiveReadError` if it can't be read.
 
     Chunks are consumed by the caller, outside the reader's own error
@@ -274,6 +363,7 @@ def _iter_chunks(reader: IO[bytes], file_path: Path, name: str) -> Iterator[byte
         zipfile.BadZipFile,
         tarfile.TarError,
         zlib.error,
+        lzma.LZMAError,
         EOFError,
         OSError,
     ) as e:

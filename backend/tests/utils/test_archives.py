@@ -1,5 +1,8 @@
+import bz2
+import gzip
 import hashlib
 import io
+import lzma
 import shutil
 import struct
 import subprocess
@@ -659,12 +662,112 @@ class TestReadTarFile:
 
         assert b"".join(archives.read_tar_file(path)) == b"L" * 64
 
-    def test_member_without_a_stream_yields_nothing(self, tmp_path):
+    def test_member_without_a_stream_raises(self, tmp_path):
         path = tmp_path / "game.tar"
         self._write_tar(path, {"game.bin": b"G" * 16})
 
-        with patch.object(tarfile.TarFile, "extractfile", return_value=None):
-            assert list(archives.read_tar_file(path)) == []
+        with (
+            patch.object(tarfile.TarFile, "extractfile", return_value=None),
+            pytest.raises(archives.ArchiveReadError),
+        ):
+            list(archives.read_tar_file(path))
+
+
+ROM = b"Tetris ROM bytes " * 64
+
+
+def _tar_bytes(members: dict[str, bytes]) -> bytes:
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w") as tf:
+        for name, data in members.items():
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+    return buf.getvalue()
+
+
+def _zip_bytes(members: dict[str, bytes]) -> bytes:
+    ensure_zipfile_writable()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for name, data in members.items():
+            z.writestr(name, data)
+    return buf.getvalue()
+
+
+def _hash_content(path: Path) -> bytes | None:
+    chunks: list[bytes] = []
+    if not archives.hash_largest_member(path, lambda c: chunks.append(bytes(c))):
+        return None
+    return b"".join(chunks)
+
+
+class TestHashLargestMember:
+    """Every compressed format hashes its content, never its compressed bytes
+    (GitHub issue #5328)."""
+
+    TARBALL = _tar_bytes({"small.txt": b"readme", "game.gb": ROM})
+
+    @pytest.mark.parametrize(
+        ("name", "data"),
+        [
+            ("game.zip", _zip_bytes({"small.txt": b"readme", "game.gb": ROM})),
+            ("game.tar", TARBALL),
+            ("game.tar.gz", gzip.compress(TARBALL)),
+            ("game.tgz", gzip.compress(TARBALL)),
+            ("game.tar.bz2", bz2.compress(TARBALL)),
+            ("game.tbz2", bz2.compress(TARBALL)),
+            ("game.tar.xz", lzma.compress(TARBALL)),
+            ("game.txz", lzma.compress(TARBALL)),
+            ("game.gb.gz", gzip.compress(ROM)),
+            ("game.gb.bz2", bz2.compress(ROM)),
+            ("game.gb.xz", lzma.compress(ROM)),
+            ("tarball.gz", gzip.compress(TARBALL)),
+        ],
+    )
+    def test_hashes_the_content(self, tmp_path, name, data):
+        path = tmp_path / name
+        path.write_bytes(data)
+
+        assert _hash_content(path) == ROM
+
+    @pytest.mark.parametrize(
+        ("data", "mime"),
+        [
+            (gzip.compress(TARBALL), "application/gzip"),
+            (gzip.compress(ROM), "application/x-gzip"),
+            (lzma.compress(ROM), "application/x-xz"),
+        ],
+    )
+    def test_detects_the_format_by_mime_type(self, tmp_path, data, mime):
+        path = tmp_path / "game.bin"
+        path.write_bytes(data)
+
+        with patch.object(archives, "detect_mime_type", return_value=mime):
+            assert _hash_content(path) == ROM
+
+    @pytest.mark.parametrize(
+        ("name", "data"),
+        [
+            ("empty.zip", _zip_bytes({})),
+            ("empty.tar", _tar_bytes({})),
+            ("empty.tar.gz", gzip.compress(_tar_bytes({}))),
+            ("corrupt.zip", b"PK\x03\x04 not a zip"),
+            ("corrupt.gz", gzip.compress(ROM)[:40]),
+            ("corrupt.xz", lzma.compress(ROM)[:40]),
+        ],
+    )
+    def test_empty_or_unreadable_archive_reports_failure(self, tmp_path, name, data):
+        path = tmp_path / name
+        path.write_bytes(data)
+
+        assert _hash_content(path) is None
+
+    def test_plain_file_is_not_an_archive(self, tmp_path):
+        path = tmp_path / "game.gb"
+        path.write_bytes(ROM)
+
+        assert _hash_content(path) is None
 
 
 class TestZipUndecodableCompression:
