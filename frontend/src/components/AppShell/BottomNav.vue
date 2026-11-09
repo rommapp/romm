@@ -4,7 +4,7 @@
 import { useI18n } from "vue-i18n";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import {
-  NAV_ACTIVE_ICONS,
+  NAV_FILLED_ICONS,
   useNavDestinations,
 } from "@/composables/useNavDestinations";
 import { RIcon, RSegmentedControl } from "@/lib";
@@ -25,9 +25,9 @@ const { destinations, activeId } = useNavDestinations();
         variant="tab"
         class="r-bottom-nav__group"
       >
-        <template #item="{ item, active }">
+        <template #item="{ item }">
           <RIcon
-            :icon="(active && NAV_ACTIVE_ICONS[item.id]) || item.icon"
+            :icon="NAV_FILLED_ICONS[item.id] ?? item.icon"
             :size="28"
             :class="{
               'r-bottom-nav__icon--controller': item.icon === 'mdi-controller',

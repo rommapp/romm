@@ -10,14 +10,14 @@ vi.mock("@/composables/useBreakpoint", () => ({
 }));
 
 describe("BottomNav", () => {
-  it("shows the active glyph only on the active tab", () => {
+  it("uses the filled glyph on every tab", () => {
     const wrapper = mount(BottomNav, {
       global: { stubs: { RouterLink: { template: "<a><slot /></a>" } } },
     });
     const icons = wrapper.findAll(".r-icon").map((i) => i.classes());
 
-    expect(icons[0]).toContain("mdi-home-outline");
+    expect(icons.flat().filter((c) => c.endsWith("-outline"))).toEqual([]);
+    expect(icons[0]).toContain("mdi-home");
     expect(icons[2]).toContain("mdi-bookmark");
-    expect(icons[2]).not.toContain("mdi-bookmark-outline");
   });
 });
