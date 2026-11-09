@@ -28,7 +28,7 @@ const { destinations, activeId } = useNavDestinations();
         <template #item="{ item, active }">
           <RIcon
             :icon="(active && NAV_ACTIVE_ICONS[item.id]) || item.icon"
-            :size="26"
+            :size="28"
             :class="{
               'r-bottom-nav__icon--controller': item.icon === 'mdi-controller',
             }"
@@ -63,7 +63,7 @@ const { destinations, activeId } = useNavDestinations();
   pointer-events: none;
 }
 
-/* saturate() keeps the colour of the content behind visible through the blur. */
+/* A dense frost, so busy cover art behind doesn't compete with the labels. */
 .r-bottom-nav__group.r-segmented-control--tab {
   pointer-events: auto;
   flex: 1;
@@ -71,8 +71,8 @@ const { destinations, activeId } = useNavDestinations();
   max-width: var(--r-bottom-nav-max-w);
   padding: 5px;
   gap: 0;
-  background: color-mix(in srgb, var(--r-color-bg) 42%, transparent);
-  backdrop-filter: blur(24px) saturate(190%);
+  background: color-mix(in srgb, var(--r-color-bg) 62%, transparent);
+  backdrop-filter: blur(24px);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, white 28%, transparent),
     inset 0 -1px 0 color-mix(in srgb, white 6%, transparent),
@@ -135,7 +135,7 @@ html.r-reduced-motion .r-bottom-nav__group.r-segmented-control--tab {
 .r-bottom-nav__label {
   max-width: 100%;
   overflow: hidden;
-  font-size: var(--r-font-size-xs);
+  font-size: var(--r-font-size-sm);
   line-height: 1.2;
   letter-spacing: 0.01em;
   text-overflow: ellipsis;
