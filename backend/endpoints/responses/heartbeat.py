@@ -32,6 +32,7 @@ class MetadataSourcesDict(TypedDict):
 
 class FilesystemDict(TypedDict):
     FS_PLATFORMS: list[str]
+    FS_PLATFORM_SLUGS: dict[str, str]
     TITLE_ID_EXTRACTION_ENABLED: bool
 
 
@@ -98,6 +99,7 @@ class HeartbeatResponse(TypedDict):
 
 class SetupExistingPlatform(TypedDict):
     fs_slug: str
+    slug: str
     rom_count: int
 
 

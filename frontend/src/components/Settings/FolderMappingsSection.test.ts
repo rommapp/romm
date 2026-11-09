@@ -46,6 +46,12 @@ vi.mock("@/composables/usePlatformIconCache", () => ({
 
 const N64 = { id: 1, slug: "n64", name: "Nintendo 64", display_name: "N64" };
 const PS2 = { id: 2, slug: "ps2", name: "PlayStation 2", display_name: "PS2" };
+const NGC = {
+  id: 3,
+  slug: "ngc",
+  name: "Nintendo GameCube",
+  display_name: "GameCube",
+};
 
 // Exposes the built rows and renders the Platform cell the edit actions hang off.
 const RTableStub = {
@@ -55,9 +61,13 @@ const RTableStub = {
     '<div><slot v-for="row in items" name="cell.platform" :row="row" /></div>',
 };
 
-async function mountWith(folders: string[]) {
+async function mountWith(
+  folders: string[],
+  folderSlugs: Record<string, string> = {},
+) {
   const heartbeat = storeHeartbeat();
   heartbeat.value.FILESYSTEM.FS_PLATFORMS = folders;
+  heartbeat.value.FILESYSTEM.FS_PLATFORM_SLUGS = folderSlugs;
   vi.spyOn(heartbeat, "fetchHeartbeat").mockResolvedValue(heartbeat.value);
 
   const wrapper = mount(FolderMappingsSection, {
@@ -123,10 +133,33 @@ describe("FolderMappingsSection", () => {
     expect(rows[0]).toMatchObject({ slug: "ps2", type: "variant" });
   });
 
-  it("marks a folder matching a platform slug as auto-detected whatever its case", async () => {
-    const { rows } = await mountWith(["PS2"]);
+  it("marks a folder the backend resolves to a platform as auto-detected", async () => {
+    const { rows } = await mountWith(["PS2"], { PS2: "ps2" });
 
     expect(rows[0]).toMatchObject({ slug: "ps2", type: "auto" });
+  });
+
+  it("marks a built-in alias folder as auto-detected", async () => {
+    getSupportedPlatforms.mockResolvedValue({ data: [N64, PS2, NGC] });
+
+    const { rows } = await mountWith(["gamecube", "unknown"], {
+      gamecube: "ngc",
+    });
+
+    expect(rows).toEqual([
+      {
+        fsSlug: "gamecube",
+        slug: "ngc",
+        displayName: "GameCube",
+        type: "auto",
+      },
+      {
+        fsSlug: "unknown",
+        slug: undefined,
+        displayName: undefined,
+        type: null,
+      },
+    ]);
   });
 
   // A bare add on a folder that already has a binding is a no-op server-side.

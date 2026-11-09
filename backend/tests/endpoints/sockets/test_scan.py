@@ -3095,7 +3095,7 @@ def identify_harness(mocker):
     config.SKIP_HASH_CALCULATION = False
     config.SKIP_TITLE_ID_EXTRACTION = False
     config.EMBED_SWITCH_TITLE_IDS = False
-    mocker.patch.object(config_manager, "get_config", return_value=config)
+    get_config = mocker.patch.object(config_manager, "get_config", return_value=config)
 
     scan_rom = mocker.patch.object(
         scan_module, "scan_rom", AsyncMock(return_value=MagicMock(is_identified=False))
@@ -3133,6 +3133,7 @@ def identify_harness(mocker):
         roms_ids: list[int],
         socket_manager: AsyncMock | None = None,
         scan_stats: AsyncMock | None = None,
+        cnfg: MagicMock | None = None,
     ) -> None:
         fs_rom: FSRom = {
             "fs_name": "Game",
@@ -3157,9 +3158,12 @@ def identify_harness(mocker):
             socket_manager=socket_manager or AsyncMock(),
             scan_stats=scan_stats or AsyncMock(),
             scanned_rom_ids=set(),
+            cnfg=cnfg,
         )
 
     return SimpleNamespace(
+        config=config,
+        get_config=get_config,
         db=db,
         scan_rom=scan_rom,
         get_rom_files=get_rom_files,
@@ -3187,7 +3191,7 @@ class TestIdentifyRomFiles:
             scan_stats=scan_stats,
         )
 
-        identify_harness.refresh.assert_awaited_once_with(rom)
+        identify_harness.refresh.assert_awaited_once_with(rom, identify_harness.config)
         identify_harness.scan_rom.assert_not_called()
         identify_harness.db.add_rom.assert_not_called()
         scan_stats.increment.assert_awaited_once_with(
@@ -3196,6 +3200,15 @@ class TestIdentifyRomFiles:
         identify_harness.db.get_rom_simple.assert_called_once_with(rom.id)
         socket_manager.emit.assert_awaited_once()
         assert socket_manager.emit.await_args.args[0] == "scan:scanning_rom"
+
+    async def test_a_passed_config_is_not_reloaded(self, identify_harness):
+        rom = identify_harness.existing_rom()
+        cnfg = MagicMock()
+
+        await identify_harness.run(rom, ScanType.QUICK, [], cnfg=cnfg)
+
+        identify_harness.refresh.assert_awaited_once_with(rom, cnfg)
+        identify_harness.get_config.assert_not_called()
 
     async def test_unchanged_rom_emits_nothing(self, identify_harness):
         identify_harness.refresh.return_value = RomFilesRefresh(

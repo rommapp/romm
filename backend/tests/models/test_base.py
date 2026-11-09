@@ -2,7 +2,7 @@ import pytest
 
 from config.config_manager import config_manager as cm
 from models.assets import Save
-from models.base import compute_file_name_parts
+from models.base import compute_file_name_parts, compute_title_file_names
 from models.firmware import Firmware
 from models.rom import Rom, compute_name_sort_key
 
@@ -27,6 +27,39 @@ def test_compute_file_name_parts(file_name, no_tags, no_ext, extension):
     assert parts.no_tags == no_tags
     assert parts.no_ext == no_ext
     assert parts.extension == extension
+
+
+@pytest.mark.parametrize(
+    ("file_name", "title_file_names"),
+    [
+        (
+            "Sonic Wings 2 ~ Aero Fighters 2 (World) (En,Ja).chd",
+            [
+                "Sonic Wings 2 (World) (En,Ja).chd",
+                "Aero Fighters 2 (World) (En,Ja).chd",
+            ],
+        ),
+        (
+            "Dunk Dream ~ Street Slam ~ Street Hoop (World).zip",
+            [
+                "Dunk Dream (World).zip",
+                "Street Slam (World).zip",
+                "Street Hoop (World).zip",
+            ],
+        ),
+        ("Mickey Mouse ~ Egg", ["Mickey Mouse", "Egg"]),
+        ("Aero Fighters 2 (World).chd", []),
+        ("Puzzle Bobble ~ Puzzle Bobble (Japan).zip", ["Puzzle Bobble (Japan).zip"]),
+        ("A ~ B ~ C ~ D ~ E ~ F.zip", ["A.zip", "B.zip", "C.zip", "D.zip"]),
+        # A tag naming the compilation's titles leaves the game's title whole
+        (
+            "Sonic The Hedgehog 2 (World) (Rev B) (Sonic Compilation ~ Sonic Classics).md",
+            [],
+        ),
+    ],
+)
+def test_compute_title_file_names(file_name, title_file_names):
+    assert compute_title_file_names(file_name) == title_file_names
 
 
 @pytest.mark.parametrize(

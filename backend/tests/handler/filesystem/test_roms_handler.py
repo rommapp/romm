@@ -331,6 +331,29 @@ class TestFSRomsHandler:
         assert parsed.languages == ["English"]
         assert parsed.other_tags == ["Translation"]
 
+    def test_parse_tags_reads_brazilian_portuguese(self, handler: FSRomsHandler):
+        assert handler.parse_tags("Game (USA) (Pt-BR).rom").languages == [
+            "Brazilian Portuguese"
+        ]
+        assert handler.parse_tags("Game (pt-br).rom").languages == [
+            "Brazilian Portuguese"
+        ]
+
+    def test_parse_tags_reads_a_regional_translation_code(self, handler: FSRomsHandler):
+        """The variant after the code names a different language than the code."""
+        parsed = handler.parse_tags("Game (USA) (T-Pt-BR).rom")
+
+        assert parsed.languages == ["Brazilian Portuguese"]
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_reads_a_versioned_regional_translation(
+        self, handler: FSRomsHandler
+    ):
+        parsed = handler.parse_tags("Game (USA) [T+Pt-BR1.1_Grp].rom")
+
+        assert parsed.languages == ["Brazilian Portuguese"]
+        assert parsed.other_tags == ["Translation"]
+
     def test_parse_tags_reads_a_non_iso_translation_code(self, handler: FSRomsHandler):
         """Ge, Sp, Du, Gr and Jp are not ISO codes but do name a language."""
         parsed = handler.parse_tags("Game (Japan) [T+Ge].sfc")
