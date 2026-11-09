@@ -1,5 +1,6 @@
 """Maps the core ids RomM's web player matches saves on (e.g. "snes9x") to RetroArch's folder names (e.g. "Snes9x")."""
 
+from utils.arcade_platforms import ARCADE_SET_PLATFORMS, MAME_SHORTNAME_PLATFORMS
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 # The table follows github.com/Covin90/romm-retroarch-sync.
@@ -110,7 +111,7 @@ def retroarch_aliases(romm_emulator: str | None) -> tuple[str | None, ...]:
 _SNES = frozenset({UPS.SNES, UPS.SFAM, UPS.SATELLAVIEW, UPS.SUFAMI_TURBO})
 _NES = frozenset({UPS.NES, UPS.FAMICOM, UPS.FDS})
 _GB = frozenset({UPS.GB, UPS.GBC})
-_ARCADE = frozenset({UPS.ARCADE, UPS.NEOGEOAES, UPS.NEOGEOMVS})
+_FINALBURN = ARCADE_SET_PLATFORMS | {UPS.NEOGEOAES, UPS.NEOGEOMVS}
 
 # What each core folder runs, so a game name several platforms share resolves
 # to the copy that core could have played.
@@ -140,9 +141,9 @@ PLATFORMS_BY_RETROARCH_DIR: dict[str, frozenset[str]] = {
     "ParaLLEl N64": frozenset({UPS.N64}),
     "Beetle Saturn": frozenset({UPS.SATURN}),
     "Kronos": frozenset({UPS.SATURN}),
-    "MAME": _ARCADE,
-    "FBNeo": _ARCADE,
-    "FB Alpha": _ARCADE,
+    "MAME": MAME_SHORTNAME_PLATFORMS,
+    "FBNeo": _FINALBURN,
+    "FB Alpha": _FINALBURN,
     "PCSX2": frozenset({UPS.PS2}),
     "Play!": frozenset({UPS.PS2}),
     "Dolphin": frozenset({UPS.NGC, UPS.WII}),

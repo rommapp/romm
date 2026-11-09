@@ -1676,6 +1676,18 @@ class TestRetroArchSyncCorePlatforms:
         [save] = self._saves(admin_user)
         assert save.rom_id == psx_rom.id
 
+    def test_every_rom_a_core_runs_stays_in_id_order(self, client, admin_user: User):
+        mame_rom = make_rom(make_platform("mame"), "sf2")
+        make_rom(make_platform("neogeomvs"), "sf2")
+
+        response = client.put(
+            "/api/sync/retroarch/saves/MAME/sf2.srm", content=b"data", auth=ADMIN_AUTH
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        [save] = self._saves(admin_user)
+        assert save.rom_id == mame_rom.id
+
     def test_an_unknown_core_keeps_the_first_rom_by_id(
         self, client, admin_user: User, saturn_rom: Rom, psx_platform: Platform
     ):
