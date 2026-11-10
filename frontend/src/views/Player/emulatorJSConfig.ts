@@ -10,6 +10,7 @@ import {
   getControlSchemeForPlatform,
   getDownloadPath,
   getSupportedEJSCores,
+  type EJSCoresMaps,
 } from "@/utils";
 import { firmwareExternalFiles } from "@/utils/playerFirmware";
 
@@ -128,6 +129,8 @@ export interface EjsConfigInput {
   bios: FirmwareSchema | null;
   firmware: FirmwareSchema[];
   loadStateLabel?: string | undefined;
+  /** The heartbeat's `EMULATION`, which carries the core maps. */
+  emulation: EJSCoresMaps;
   config: Pick<
     ConfigResponse,
     | "EJS_DEBUG"
@@ -152,6 +155,7 @@ export function buildEjsConfig(input: EjsConfigInput): EjsConfig {
   const { rom, config, t } = input;
   const supportedCores = getSupportedEJSCores(
     rom.platform_slug,
+    input.emulation,
     config.EJS_NETPLAY_ENABLED,
   );
   const core =

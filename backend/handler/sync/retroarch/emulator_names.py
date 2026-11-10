@@ -1,6 +1,12 @@
 """Maps the core ids RomM's web player matches saves on (e.g. "snes9x") to RetroArch's folder names (e.g. "Snes9x")."""
 
+from collections import defaultdict
+
 from utils.arcade_platforms import ARCADE_SET_PLATFORMS, MAME_SHORTNAME_PLATFORMS
+from utils.emulatorjs_cores import (
+    EJS_CORES_BY_PLATFORM,
+    EJS_NIGHTLY_CORES_BY_PLATFORM,
+)
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 # The table follows github.com/Covin90/romm-retroarch-sync.
@@ -41,7 +47,7 @@ RETROARCH_DIR_BY_ROMM_EMULATOR: dict[str, str] = {
     "kronos": "Kronos",
     # Arcade / Neo Geo
     "mame": "MAME",
-    "fbneo": "FBNeo",
+    "fbneo": "FinalBurn Neo",
     "fbalpha": "FB Alpha",
     # PlayStation 2 / GameCube
     "pcsx2": "PCSX2",
@@ -58,7 +64,7 @@ RETROARCH_DIR_BY_ROMM_EMULATOR: dict[str, str] = {
     "beetle_pce": "Beetle PCE",
     "beetle_pce_fast": "Beetle PCE Fast",
     # Other common cores
-    "dosbox_pure": "DOSBox-Pure",
+    "dosbox_pure": "DOSBox-pure",
     "scummvm": "ScummVM",
     "ppsspp": "PPSSPP",
     "desmume": "DeSmuME",
@@ -113,70 +119,62 @@ _NES = frozenset({UPS.NES, UPS.FAMICOM, UPS.FDS})
 _GB = frozenset({UPS.GB, UPS.GBC})
 _FINALBURN = ARCADE_SET_PLATFORMS | {UPS.NEOGEOAES, UPS.NEOGEOMVS}
 
-# What each core folder runs, so a game name several platforms share resolves
-# to the copy that core could have played.
-PLATFORMS_BY_RETROARCH_DIR: dict[str, frozenset[str]] = {
-    "Snes9x": _SNES,
+# What RetroArch runs a core on beyond the platforms the web player offers it for.
+RETROARCH_PLATFORMS_BY_ROMM_EMULATOR: dict[str, frozenset[str]] = {
+    "snes9x": _SNES,
     "bsnes": _SNES,
-    "Mesen-S": _SNES,
-    "Nestopia": _NES,
-    "FCEUmm": _NES,
-    "Mesen": _NES,
-    "Beetle PSX": frozenset({UPS.PSX}),
-    "Beetle PSX HW": frozenset({UPS.PSX}),
-    "PCSX-ReARMed": frozenset({UPS.PSX}),
-    "SwanStation": frozenset({UPS.PSX}),
-    "Gambatte": _GB,
-    "SameBoy": _GB,
-    "TGB Dual": _GB,
-    "mGBA": _GB | {UPS.GBA},
-    "VBA Next": frozenset({UPS.GBA}),
-    "VBA-M": _GB | {UPS.GBA},
-    "Genesis Plus GX": frozenset(
-        {UPS.GENESIS, UPS.SMS, UPS.GAMEGEAR, UPS.SEGACD, UPS.SG1000}
+    "mesen-s": _SNES,
+    "mesen": _NES,
+    "mednafen_psx": frozenset({UPS.PSX}),
+    "swanstation": frozenset({UPS.PSX}),
+    "sameboy": _GB,
+    "tgbdual": _GB,
+    "vba_next": frozenset({UPS.GBA}),
+    "vbam": _GB | {UPS.GBA},
+    "genesis_plus_gx": frozenset({UPS.SG1000}),
+    "blastem": frozenset({UPS.GENESIS}),
+    "picodrive": frozenset(
+        {UPS.GENESIS, UPS.SMS, UPS.SEGACD32, UPS.PICO, UPS.SEGA_PICO}
     ),
-    "BlastEm": frozenset({UPS.GENESIS}),
-    "PicoDrive": frozenset(
-        {
-            UPS.GENESIS,
-            UPS.SMS,
-            UPS.SEGACD,
-            UPS.SEGA32,
-            UPS.SEGACD32,
-            UPS.PICO,
-            UPS.SEGA_PICO,
-        }
-    ),
-    "Mupen64Plus-Next": frozenset({UPS.N64, UPS.N64DD}),
-    "ParaLLEl N64": frozenset({UPS.N64}),
-    "Beetle Saturn": frozenset({UPS.SATURN}),
-    "Kronos": frozenset({UPS.SATURN, UPS.STV}),
-    "MAME": MAME_SHORTNAME_PLATFORMS,
-    "FBNeo": _FINALBURN,
-    # FBNeo's RetroArch library name, the folder a RetroArch client syncs it under.
-    "FinalBurn Neo": _FINALBURN,
-    "FB Alpha": _FINALBURN,
-    "PCSX2": frozenset({UPS.PS2}),
-    "Play!": frozenset({UPS.PS2}),
-    "Dolphin": frozenset({UPS.NGC, UPS.WII}),
-    "Flycast": frozenset({UPS.DC, UPS.NAOMI, UPS.NAOMI2, UPS.NAOMIGD, UPS.ATOMISWAVE}),
-    "Redream": frozenset({UPS.DC}),
-    "Stella": frozenset({UPS.ATARI2600}),
-    "Beetle PCE": frozenset({UPS.TG16, UPS.TURBOGRAFX_CD, UPS.SUPERGRAFX}),
-    "Beetle PCE Fast": frozenset({UPS.TG16, UPS.TURBOGRAFX_CD}),
-    "DOSBox-Pure": frozenset({UPS.DOS}),
-    "ScummVM": frozenset({UPS.SCUMMVM}),
-    "PPSSPP": frozenset({UPS.PSP, UPS.PSP_MINIS}),
-    "DeSmuME": frozenset({UPS.NDS}),
-    "melonDS": frozenset({UPS.NDS, UPS.NINTENDO_DSI}),
-    "Citra": frozenset({UPS.N3DS, UPS.NEW_NINTENDON3DS}),
+    "mupen64plus_next": frozenset({UPS.N64DD}),
+    "mednafen_saturn": frozenset({UPS.SATURN}),
+    "kronos": frozenset({UPS.SATURN, UPS.STV}),
+    "mame": MAME_SHORTNAME_PLATFORMS,
+    "fbneo": _FINALBURN,
+    "fbalpha": _FINALBURN,
+    "pcsx2": frozenset({UPS.PS2}),
+    "play": frozenset({UPS.PS2}),
+    "dolphin": frozenset({UPS.NGC, UPS.WII}),
+    "flycast": frozenset({UPS.DC, UPS.NAOMI, UPS.NAOMI2, UPS.NAOMIGD, UPS.ATOMISWAVE}),
+    "redream": frozenset({UPS.DC}),
+    "stella": frozenset({UPS.ATARI2600}),
+    "mednafen_pce_fast": frozenset({UPS.TG16, UPS.TURBOGRAFX_CD}),
+    "scummvm": frozenset({UPS.SCUMMVM}),
+    "ppsspp": frozenset({UPS.PSP_MINIS}),
+    "citra": frozenset({UPS.N3DS, UPS.NEW_NINTENDON3DS}),
 }
 
 
+def _platforms_by_romm_emulator() -> dict[str, frozenset[str]]:
+    platforms: defaultdict[str, set[str]] = defaultdict(set)
+    for cores_by_platform in (EJS_CORES_BY_PLATFORM, EJS_NIGHTLY_CORES_BY_PLATFORM):
+        for platform, cores in cores_by_platform.items():
+            for core in cores:
+                platforms[core].add(platform)
+    for core, extra in RETROARCH_PLATFORMS_BY_ROMM_EMULATOR.items():
+        platforms[core] |= extra
+    return {core: frozenset(slugs) for core, slugs in platforms.items()}
+
+
+PLATFORMS_BY_ROMM_EMULATOR = _platforms_by_romm_emulator()
+
+
 def core_platforms(romm_emulator: str | None) -> frozenset[str]:
-    """The platform slugs an `emulator`'s core runs, empty when unknown."""
-    if not romm_emulator:
-        return frozenset()
-    return PLATFORMS_BY_RETROARCH_DIR.get(
-        to_retroarch_dir_name(romm_emulator), frozenset()
+    """The platform slugs the core an `emulator` names runs, across its aliases, empty when unknown."""
+    return frozenset().union(
+        *(
+            PLATFORMS_BY_ROMM_EMULATOR.get(alias, frozenset())
+            for alias in retroarch_aliases(romm_emulator)
+            if alias
+        )
     )

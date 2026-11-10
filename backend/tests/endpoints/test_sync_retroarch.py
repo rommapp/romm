@@ -31,7 +31,6 @@ from handler.redis_handler import async_cache
 from handler.sync.retroarch import psp, sync_handler
 from handler.sync.retroarch.device import CLIENT_DEVICE_IDENTIFIER
 from handler.sync.retroarch.emulator_names import (
-    PLATFORMS_BY_RETROARCH_DIR,
     RETROARCH_DIR_BY_ROMM_EMULATOR,
     core_platforms,
     retroarch_aliases,
@@ -223,9 +222,7 @@ class TestRetroArchSyncEmulatorNames:
         assert retroarch_aliases("retroarduous") == ("retroarduous",)
 
     def test_every_core_folder_lists_its_platforms(self):
-        assert set(RETROARCH_DIR_BY_ROMM_EMULATOR.values()) <= set(
-            PLATFORMS_BY_RETROARCH_DIR
-        )
+        assert all(map(core_platforms, RETROARCH_DIR_BY_ROMM_EMULATOR))
 
     @pytest.mark.parametrize(
         ("emulator", "platforms"),
@@ -233,6 +230,9 @@ class TestRetroArchSyncEmulatorNames:
             ("mednafen_psx_hw", {"psx"}),
             ("Beetle PSX HW", {"psx"}),
             ("FinalBurn Neo", core_platforms("fbneo")),
+            ("DOSBox-pure", {"dos"}),
+            ("stella2014", {"atari2600", "atari-2600-plus"}),
+            ("melonDS", {"nds", "nintendo-ds-lite", "nintendo-dsi", "nintendo-dsi-xl"}),
             ("retroarduous", set()),
             (None, set()),
         ],
@@ -1637,16 +1637,35 @@ class TestRetroArchSyncRomFileNames:
 
         assert response.status_code == status.HTTP_409_CONFLICT
 
-    def test_a_state_named_after_a_disc_matches_no_rom(
-        self, client, admin_user: User, disc_folder_rom: Rom
+    @_mock_asset_md5()
+    def test_states_named_after_discs_keep_a_slot_per_disc(
+        self,
+        _asset_md5: mock.AsyncMock,
+        client,
+        admin_user: User,
+        disc_folder_rom: Rom,
     ):
-        response = client.put(
-            "/api/sync/retroarch/states/Snes9x/Some%20Game%20(USA)%20(Disc%201).state",
-            content=b"data",
-            auth=ADMIN_AUTH,
-        )
+        urls = [
+            f"/api/sync/retroarch/states/Snes9x/Some%20Game%20(USA)%20(Disc%20{disc}).state"
+            for disc in (1, 2)
+        ]
+        for url, content in zip(urls, (b"one", b"two"), strict=True):
+            response = client.put(url, content=content, auth=ADMIN_AUTH)
+            assert response.status_code == status.HTTP_201_CREATED
 
-        assert response.status_code == status.HTTP_409_CONFLICT
+        states = db_state_handler.get_states(
+            user_id=admin_user.id, visibility=UNRESTRICTED
+        )
+        assert {state.rom_id for state in states} == {disc_folder_rom.id}
+        assert [client.get(url, auth=ADMIN_AUTH).content for url in urls] == [
+            b"one",
+            b"two",
+        ]
+        manifest = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+        assert sorted(asset["path"] for asset in manifest.json()) == [
+            "states/Snes9x/Some Game (USA) (Disc 1).state",
+            "states/Snes9x/Some Game (USA) (Disc 2).state",
+        ]
 
 
 @pytest.mark.usefixtures("version_names")
@@ -1695,9 +1714,8 @@ class TestRetroArchSyncCorePlatforms:
         )
         assert state.rom_id == psx_rom.id
 
-    def test_a_file_on_the_cores_platform_beats_a_rom_name_elsewhere(
-        self, client, admin_user: User, saturn_rom: Rom, psx_platform: Platform
-    ):
+    def _disc_folder_rom(self, psx_platform: Platform) -> Rom:
+        """A PS1 folder game "Road Rash" holding "Road Rash (USA).cue"."""
         psx_rom = make_rom(psx_platform, "Road Rash", fs_extension="")
         db_rom_handler.add_rom_file(
             RomFile(
@@ -1707,6 +1725,12 @@ class TestRetroArchSyncCorePlatforms:
                 file_size_bytes=1,
             )
         )
+        return psx_rom
+
+    def test_a_file_on_the_cores_platform_beats_a_rom_name_elsewhere(
+        self, client, admin_user: User, saturn_rom: Rom, psx_platform: Platform
+    ):
+        psx_rom = self._disc_folder_rom(psx_platform)
 
         response = client.put(self.PSX_SAVE_URL, content=b"data", auth=ADMIN_AUTH)
 
@@ -1809,6 +1833,56 @@ class TestRetroArchSyncCorePlatforms:
             "saves/Beetle PSX HW/Road Rash (USA).srm",
             "saves/Beetle Saturn/Road Rash (USA).srm",
         ]
+
+    @_mock_asset_md5()
+    def test_a_state_named_after_a_disc_file_follows_its_save(
+        self,
+        _asset_md5: mock.AsyncMock,
+        client,
+        admin_user: User,
+        saturn_rom: Rom,
+        psx_platform: Platform,
+    ):
+        psx_rom = self._disc_folder_rom(psx_platform)
+        state_url = (
+            "/api/sync/retroarch/states/Beetle%20PSX%20HW/Road%20Rash%20(USA).state"
+        )
+
+        client.put(self.PSX_SAVE_URL, content=b"save", auth=ADMIN_AUTH)
+        response = client.put(state_url, content=b"state", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_201_CREATED
+        [state] = db_state_handler.get_states(
+            user_id=admin_user.id, visibility=UNRESTRICTED
+        )
+        assert state.rom_id == psx_rom.id
+        [save] = self._saves(admin_user)
+        assert save.rom_id == psx_rom.id
+        assert client.get(state_url, auth=ADMIN_AUTH).content == b"state"
+        manifest = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+        assert sorted(asset["path"] for asset in manifest.json()) == [
+            "saves/Beetle PSX HW/Road Rash (USA).srm",
+            "states/Beetle PSX HW/Road Rash (USA).state",
+        ]
+
+    def test_a_psp_serial_resolves_to_the_psp_rom(
+        self, monkeypatch: pytest.MonkeyPatch, client, admin_user: User
+    ):
+        make_rom(make_platform("psx"), "Ridge Racer (USA)")
+        psp_rom = make_rom(make_platform("psp"), "Ridge Racer (USA)")
+        monkeypatch.setattr(
+            psp, "SYNC_RETROARCH_PSP_SERIAL_MAP", {"TEST12345": "Ridge Racer (USA)"}
+        )
+
+        response = client.put(
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        [save] = self._saves(admin_user)
+        assert save.rom_id == psp_rom.id
 
 
 def test_uploads_in_the_same_second_keep_both_versions(

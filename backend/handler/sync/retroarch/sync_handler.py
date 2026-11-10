@@ -191,19 +191,54 @@ def newest_per_key[A: (Save, State), K: Hashable](
     return latest
 
 
-def _state_slot_key(state: State) -> tuple[int, str | None, str]:
-    return (
-        state.rom_id,
-        retroarch_folder(state.emulator),
-        state_slot_suffix(state.file_name),
+StateSlotKey = tuple[int, str | None, str | None, str]
+# (rom id, casefolded game name) pairs whose name is one of that ROM's files.
+DiscNames = frozenset[tuple[int, str]]
+
+
+def state_game_name(file_name: str) -> str:
+    """The game name a stored or requested state file name carries."""
+    return game_name_from_file_name("states", strip_datetime_tag(file_name))
+
+
+def disc_names(roms_and_names: Iterable[tuple[Rom, str]]) -> DiscNames:
+    """The game names that name one of their ROM's files rather than the ROM itself."""
+    names = {name for rom, name in roms_and_names if not is_rom_name(rom, name)}
+    if not names:
+        return frozenset()
+    return frozenset(
+        (rom.id, os.path.splitext(file_name)[0].casefold())
+        for file_name, rom in db_rom_handler.get_roms_by_file_name_prefixes(
+            f"{name}." for name in names
+        )
     )
 
 
+def _slot_key(
+    rom_id: int, emulator: str | None, file_name: str, discs: DiscNames
+) -> StateSlotKey:
+    # A state named after a disc keeps a slot of its own, as RetroArch names
+    # each disc's states apart; any other name shares the ROM's slot.
+    folded = state_game_name(file_name).casefold()
+    return (
+        rom_id,
+        retroarch_folder(emulator),
+        folded if (rom_id, folded) in discs else None,
+        state_slot_suffix(file_name),
+    )
+
+
+def _state_slot_key(state: State, discs: DiscNames = frozenset()) -> StateSlotKey:
+    return _slot_key(state.rom_id, state.emulator, state.file_name, discs)
+
+
 def group_states_by_slot(
-    states: Iterable[State],
-) -> dict[tuple[int, str | None, str], State]:
-    """The newest state in each (rom, core folder, slot) bucket, preferring one on disk."""
-    return newest_per_key(states, _state_slot_key, rank=on_disk_recency_key)
+    states: Iterable[State], discs: DiscNames = frozenset()
+) -> dict[StateSlotKey, State]:
+    """The newest state in each (rom, core folder, disc, slot) bucket, preferring one on disk."""
+    return newest_per_key(
+        states, partial(_state_slot_key, discs=discs), rank=on_disk_recency_key
+    )
 
 
 def canonical_state_file_name(rom: Rom, slot_suffix: str) -> str:
@@ -214,15 +249,16 @@ def canonical_state_file_name(rom: Rom, slot_suffix: str) -> str:
 def states_in_slot(
     user: User, rom: Rom, emulator: str | None, requested_file_name: str
 ) -> list[State]:
-    """Every state, under any alias, in the slot a canonical name points at."""
-    key = (rom.id, retroarch_folder(emulator), state_slot_suffix(requested_file_name))
-    return [
-        state
-        for state in db_state_handler.get_states(
-            user_id=user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
-        )
-        if _state_slot_key(state) == key
-    ]
+    """Every state, under any alias, in the slot a requested name points at."""
+    states = db_state_handler.get_states(
+        user_id=user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+    )
+    discs = disc_names(
+        (rom, state_game_name(name))
+        for name in [requested_file_name, *(state.file_name for state in states)]
+    )
+    key = _slot_key(rom.id, emulator, requested_file_name, discs)
+    return [state for state in states if _state_slot_key(state, discs) == key]
 
 
 class SlotStates(NamedTuple):
@@ -897,17 +933,35 @@ def _manifest_assets(
         for head in head_by_folder.values()
         if can_see(head.rom)
     ] + [(save.file_name, save) for save in unslotted.values() if can_see(save.rom)]
-    listed_states = (
+    all_states = (
         [
-            (state.emulator, canonical_state_file_name(state.rom, slot_suffix), state)
-            for (_rom_id, _folder, slot_suffix), state in group_states_by_slot(
-                db_state_handler.get_states(user_id=user.id, visibility=UNRESTRICTED)
-            ).items()
+            state
+            for state in db_state_handler.get_states(
+                user_id=user.id, visibility=UNRESTRICTED
+            )
             if not state.missing_from_fs and can_see(state.rom)
         ]
         if tree != "saves"
         else []
     )
+    discs = disc_names(
+        (state.rom, state_game_name(state.file_name)) for state in all_states
+    )
+    # A disc's slot is listed under that disc's name, any other under the ROM's.
+    listed_states = [
+        (
+            state.emulator,
+            (
+                f"{state_game_name(state.file_name)}.{slot_suffix}"
+                if disc
+                else canonical_state_file_name(state.rom, slot_suffix)
+            ),
+            state,
+        )
+        for (_rom_id, _folder, disc, slot_suffix), state in group_states_by_slot(
+            all_states, discs
+        ).items()
+    ]
 
     # A path carries no platform, so only the ROM that GET/PUT/DELETE would
     # resolve it to may claim it; a same-named ROM elsewhere would shadow it.
@@ -920,7 +974,7 @@ def _manifest_assets(
             names_by_core[core_platforms(emulator)].add(
                 game_name_from_file_name(kind, file_name)
             )
-        return resolve_roms(names_by_core, can_see, by_file_name=kind == "saves")
+        return resolve_roms(names_by_core, can_see, by_file_name=True)
 
     owners: dict[AssetKind, dict[frozenset[str], dict[str, Rom]]] = {
         "saves": resolve_owners(

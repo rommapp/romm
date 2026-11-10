@@ -127,13 +127,12 @@ def _rom_visibility(request: Request) -> Callable[[Rom], bool]:
 
 async def _resolve_rom(request: Request, parsed: RetroArchSyncPath) -> Rom | None:
     game_name = sync_handler.game_name_from_file_name(parsed.kind, parsed.file_name)
-    # States are advertised under the ROM's own name, so only saves may name a file.
     return await asyncio.to_thread(
         sync_handler.resolve_rom,
         game_name,
         _rom_visibility(request),
         emulator=parsed.emulator,
-        by_file_name=parsed.kind == "saves",
+        by_file_name=True,
     )
 
 

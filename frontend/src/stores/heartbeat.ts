@@ -49,6 +49,8 @@ const defaultHeartbeat: Heartbeat = {
     DISABLE_JSDOS: false,
     DISABLE_PICO8: false,
     DISABLE_EASYRPG: false,
+    EJS_CORES: {},
+    EJS_NIGHTLY_CORES: {},
   },
   FRONTEND: {
     DISABLE_USERPASS_LOGIN: false,

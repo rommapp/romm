@@ -72,6 +72,7 @@ from handler.redis_handler import sync_cache
 from handler.scan.sources import MetadataSource
 from logger.logger import log
 from utils import get_git_branch, get_version
+from utils.emulatorjs_cores import EJS_CORES_BY_PLATFORM, EJS_NIGHTLY_CORES_BY_PLATFORM
 from utils.platform_aliases import (
     resolve_builtin_platform_slug,
     resolve_platform_slug,
@@ -184,6 +185,8 @@ async def heartbeat() -> HeartbeatResponse:
             "DISABLE_JSDOS": DISABLE_JSDOS,
             "DISABLE_PICO8": DISABLE_PICO8,
             "DISABLE_EASYRPG": DISABLE_EASYRPG,
+            "EJS_CORES": EJS_CORES_BY_PLATFORM,
+            "EJS_NIGHTLY_CORES": EJS_NIGHTLY_CORES_BY_PLATFORM,
         },
         "FRONTEND": {
             "DISABLE_USERPASS_LOGIN": DISABLE_USERPASS_LOGIN,
