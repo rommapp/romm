@@ -106,6 +106,12 @@ DUMP_TAG_KEYS = {field: f"dump_{field}" for field in PROVIDER_ALL_TAG_FIELDS}
 NAME_CLAIM_KEY = "name"
 
 
+def kept_title(blob: Any) -> str | None:
+    """The title a source's blob keeps, or None when it keeps none or a non-string."""
+    title = blob.get(NAME_CLAIM_KEY) if isinstance(blob, dict) else None
+    return title if isinstance(title, str) else None
+
+
 def _always(_entity: Any) -> bool:
     return True
 

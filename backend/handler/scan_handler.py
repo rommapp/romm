@@ -463,7 +463,7 @@ async def scan_rom(
     record_dump_tags(metadata_handlers)
     record_name_claims(metadata_handlers)
 
-    priority_ordered, hash_claims = order_merge_sources(
+    priority_ordered, hash_claims, ordered = order_merge_sources(
         apply_sources, scene_locked, metadata_handlers, rom_attrs
     )
 
@@ -477,7 +477,7 @@ async def scan_rom(
         ScanType.UPDATE,
         ScanType.HASHES,
     ):
-        settle_name(rom_attrs, rom, metadata_handlers, scene_locked)
+        settle_name(rom_attrs, rom, metadata_handlers, ordered, scene_locked)
         keep_base_fields(rom_attrs, rom)
 
     # Use PICO-8 cartridge PNG as cover art if no cover is set.

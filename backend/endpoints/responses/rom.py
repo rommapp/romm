@@ -37,7 +37,7 @@ from handler.metadata.pouet_handler import PouetMetadata
 from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
 from handler.metadata.steam_handler import SteamMetadata
-from handler.scan.sources import NAME_CLAIM_KEY
+from handler.scan.sources import NAME_CLAIM_KEY, kept_title
 from models.collection import Collection, SmartCollection
 from models.rom import (
     PROVIDER_METADATA_COLUMNS,
@@ -209,8 +209,7 @@ def clean_metadata_name_lists(
     return {
         key: facet_names(value) if key in keys and value is not None else value
         for key, value in metadata.items()
-        # A hand edit can store any JSON as the kept title, which must be text.
-        if key != NAME_CLAIM_KEY or isinstance(value, str)
+        if key != NAME_CLAIM_KEY or kept_title(metadata) is not None
     }
 
 

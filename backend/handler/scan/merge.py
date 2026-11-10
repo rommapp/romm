@@ -25,6 +25,7 @@ from handler.scan.sources import (
     MetadataSource,
     ScanType,
     get_priority_ordered_metadata_sources,
+    kept_title,
 )
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -399,11 +400,11 @@ def record_name_claims(metadata_handlers: dict[MetadataSource, dict[str, Any]]) 
     ]
     for fields in metadata_handlers.values():
         handler = fields["handler"]
-        title = {NAME_CLAIM_KEY: handler.get("name") or ""}
+        title = handler.get("name") or ""
         # Hasheous fills IGDB's columns too. A match without metadata stays one
         # an unmatched scan retries, so it isn't handed a blob just for the title.
         stamped = {
-            metadata_field: {**blob, **title}
+            metadata_field: {**blob, NAME_CLAIM_KEY: title}
             for id_field, metadata_field in columns
             if handler.get(id_field)
             and isinstance(blob := handler.get(metadata_field), dict)
@@ -413,43 +414,42 @@ def record_name_claims(metadata_handlers: dict[MetadataSource, dict[str, Any]]) 
             fields["handler"] = {**handler, **stamped}
 
 
-def kept_title(blob: Any) -> str | None:
-    """The title a source's stored blob holds, or None when it holds none."""
-    # A hand edit of the raw metadata can store any JSON; only a string counts.
-    title = blob.get(NAME_CLAIM_KEY) if isinstance(blob, dict) else None
-    return title if isinstance(title, str) else None
-
-
 def settle_name(
     rom_attrs: dict[str, Any],
     rom: Rom,
     metadata_handlers: dict[MetadataSource, dict[str, Any]],
+    ordered: list[MetadataSource],
     scene_locked: bool,
 ) -> None:
-    """Name the ROM after the highest-priority source that has named it."""
+    """Name the ROM after the highest-priority source that has named it.
+
+    Args:
+        ordered: Every handler's source in metadata priority order.
+    """
     claims: dict[MetadataSource, str | None] = {}
     for source, fields in metadata_handlers.items():
+        handler = fields["handler"]
         metadata_field = fields["metadata_field"]
         id_field = fields["id_field"]
         if not metadata_field:
             continue
-        matched_id = rom_attrs.get(id_field)
-        if fields["handler"].get(id_field):
-            claims[source] = fields["handler"].get("name") or ""
+        if handler.get(id_field):
+            claims[source] = handler.get("name") or ""
         # An id another source wrote this scan is that source's claim, not a
         # match the row already held.
-        elif matched_id and matched_id == getattr(rom, id_field, None):
+        elif (matched_id := rom_attrs.get(id_field)) and matched_id == getattr(
+            rom, id_field, None
+        ):
             claims[source] = kept_title(rom_attrs.get(metadata_field))
 
-    allowed = scene_apply_sources(list(claims), scene_locked=scene_locked)
-    for source in get_priority_ordered_metadata_sources(allowed, "metadata"):
+    allowed = set(scene_apply_sources(list(claims), scene_locked=scene_locked))
+    for source in ordered:
+        if source not in allowed:
+            continue
         claim = claims[source]
         # A matched source whose title isn't known outranks the rest.
-        if claim is None:
-            rom_attrs["name"] = rom.name
-            return
-        if claim:
-            rom_attrs["name"] = claim
+        if claim is None or claim:
+            rom_attrs["name"] = rom.name if claim is None else claim
             return
 
 
@@ -458,12 +458,22 @@ def order_merge_sources(
     scene_locked: bool,
     metadata_handlers: dict[MetadataSource, dict[str, Any]],
     rom_attrs: dict[str, Any],
-) -> tuple[list[MetadataSource], list[tuple[dict[str, list[str]], bool]]]:
-    """The sources to merge in priority order, and the hash-matched sources' tag claims."""
-    # One ordering pass for both lists, since each one rereads config.yml.
+) -> tuple[
+    list[MetadataSource],
+    list[tuple[dict[str, list[str]], bool]],
+    list[MetadataSource],
+]:
+    """Order the scan's sources by metadata priority.
+
+    Returns:
+        The sources to merge, the hash-matched sources' tag claims, and every
+        handler's source, each in priority order.
+    """
+    # One ordering pass for all three lists, since each one rereads config.yml.
     hash_sources = [] if scene_locked else list(HASH_MATCHED_TAG_SOURCES)
     ordered = get_priority_ordered_metadata_sources(
-        list(dict.fromkeys([*apply_sources, *hash_sources])), "metadata"
+        list(dict.fromkeys([*apply_sources, *hash_sources, *metadata_handlers])),
+        "metadata",
     )
     priority_ordered = [source for source in ordered if source in apply_sources]
     hash_claims = [
@@ -471,7 +481,7 @@ def order_merge_sources(
         for source in ordered
         if source in hash_sources
     ]
-    return priority_ordered, hash_claims
+    return priority_ordered, hash_claims, ordered
 
 
 def apply_metadata_priority(
@@ -555,17 +565,10 @@ def apply_artwork_priority(
 
 def keep_base_fields(rom_attrs: dict[str, Any], rom: Rom) -> None:
     """Hold the stored name, summary and locked artwork against a refresh."""
-    # A ROM's name defaults to a filename-derived placeholder when first
-    # created. Treat that placeholder as "no name" so a freshly matched provider
-    # name replaces it (while preserving user-edited names).
     fs_name_no_tags = fs_rom_handler.get_file_name_with_no_tags(rom_attrs["fs_name"])
-    # Both the existing name and the seeded rom_attrs name can hold the
-    # placeholder. Discard either when it's a placeholder so the parsed
-    # filename fallback can win.
-    # The stored no-tags name is the placeholder the ROM's name was seeded from.
+    # Filename placeholders and titles a source gave aren't the user's, so a
+    # matched or better-ranked title may replace them; any other name is kept.
     placeholders = (None, "", rom.fs_name, fs_name_no_tags, rom.fs_name_no_tags)
-    # A title a source gave, on this scan or an earlier one, is no more the
-    # user's than the filename is, so a better-ranked source can replace it.
     claimed = {
         kept_title(blob)
         for column in PROVIDER_METADATA_COLUMNS

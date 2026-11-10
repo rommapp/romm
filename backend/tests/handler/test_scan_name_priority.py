@@ -17,20 +17,23 @@ from models.rom import Rom
 
 FS_NAME = "Mario Kart 64 (USA).z64"
 TITLE = "Mario Kart 64"
+HLTB_TITLE = "Mario Kart 8"
+LAUNCHBOX_BLOB = {"first_release_date": 851990400}
+HLTB_BLOB = {"main_story": 150000}
 
 LAUNCHBOX = LaunchboxRom(
     launchbox_id=266,
-    name="Mario Kart 64",
-    launchbox_metadata=cast(LaunchboxMetadata, {"first_release_date": 851990400}),
+    name=TITLE,
+    launchbox_metadata=cast(LaunchboxMetadata, LAUNCHBOX_BLOB),
 )
 HLTB_GUESS = HLTBRom(
     hltb_id=9999,
-    name="Mario Kart 8",
-    hltb_metadata=HLTBMetadata(main_story=150000),
+    name=HLTB_TITLE,
+    hltb_metadata=cast(HLTBMetadata, HLTB_BLOB),
 )
 HASHEOUS_HIT = HasheousRom(
     hasheous_id=77,
-    name="Mario Kart 64",
+    name=TITLE,
     igdb_id=1234,
     tgdb_id=None,
     hasheous_metadata=cast(HasheousMetadata, {"tosec_match": True}),
@@ -39,7 +42,6 @@ HASHEOUS_HIT = HasheousRom(
 
 @pytest.fixture
 def lookups() -> Iterator[SimpleNamespace]:
-    """Patch the LaunchBox and HowLongToBeat lookups."""
     with (
         patch(
             "handler.scan.lookups.resolve_launchbox_rom",
@@ -65,65 +67,69 @@ async def _scan(
     return await run_scan(platform, rom, scan_type=scan_type, metadata_sources=sources)
 
 
-async def test_a_lower_ranked_source_does_not_rename_a_game(lookups):
+@pytest.mark.parametrize(
+    "launchbox_metadata",
+    [
+        pytest.param({**LAUNCHBOX_BLOB, "name": TITLE}, id="title-kept"),
+        # A source whose title isn't on record may outrank the newcomer.
+        pytest.param(LAUNCHBOX_BLOB, id="stored-before-titles-were-kept"),
+    ],
+)
+async def test_a_lower_ranked_source_does_not_rename_a_game(
+    lookups, launchbox_metadata
+):
     result = await _scan(
         TITLE,
         ScanType.UNMATCHED,
         [MetadataSource.HLTB],
         launchbox_id=266,
-        launchbox_metadata={"first_release_date": 851990400, "name": "Mario Kart 64"},
+        launchbox_metadata=launchbox_metadata,
     )
 
     assert result.hltb_id == 9999
-    assert result.name == "Mario Kart 64"
-
-
-async def test_a_match_stored_before_titles_were_kept_holds_the_name(lookups):
-    """A source whose title isn't on record may outrank the newcomer."""
-    result = await _scan(
-        TITLE,
-        ScanType.UNMATCHED,
-        [MetadataSource.HLTB],
-        launchbox_id=266,
-        launchbox_metadata={"first_release_date": 851990400},
-    )
-
-    assert result.name == "Mario Kart 64"
+    assert result.name == TITLE
 
 
 async def test_a_higher_ranked_source_replaces_a_lower_ranked_title(lookups):
     """The order is the other way round: HowLongToBeat named it first."""
     result = await _scan(
-        "Mario Kart 8",
+        HLTB_TITLE,
         ScanType.UNMATCHED,
         [MetadataSource.LAUNCHBOX],
         hltb_id=9999,
-        hltb_metadata={"main_story": 150000, "name": "Mario Kart 8"},
+        hltb_metadata={**HLTB_BLOB, "name": HLTB_TITLE},
     )
 
     assert result.launchbox_id == 266
-    assert result.name == "Mario Kart 64"
+    assert result.name == TITLE
 
 
-async def test_an_update_settles_on_the_higher_ranked_title(lookups):
+@pytest.mark.parametrize(
+    "hltb_metadata",
+    [
+        pytest.param({**HLTB_BLOB, "name": HLTB_TITLE}, id="title-kept"),
+        pytest.param(HLTB_BLOB, id="stored-before-titles-were-kept"),
+    ],
+)
+async def test_an_update_settles_on_the_higher_ranked_title(lookups, hltb_metadata):
     result = await _scan(
-        "Mario Kart 8",
+        HLTB_TITLE,
         ScanType.UPDATE,
         [MetadataSource.LAUNCHBOX, MetadataSource.HLTB],
         launchbox_id=266,
-        launchbox_metadata={"first_release_date": 851990400},
+        launchbox_metadata=LAUNCHBOX_BLOB,
         hltb_id=9999,
-        hltb_metadata={"main_story": 150000, "name": "Mario Kart 8"},
+        hltb_metadata=hltb_metadata,
     )
 
-    assert result.name == "Mario Kart 64"
+    assert result.name == TITLE
 
 
 async def test_each_answering_source_keeps_its_title(lookups):
     result = await _scan(TITLE, ScanType.UNMATCHED, [MetadataSource.HLTB])
 
     assert result.hltb_metadata is not None
-    assert result.hltb_metadata["name"] == "Mario Kart 8"
+    assert result.hltb_metadata["name"] == HLTB_TITLE
 
 
 async def test_a_name_the_user_typed_is_kept(lookups):
@@ -132,9 +138,9 @@ async def test_a_name_the_user_typed_is_kept(lookups):
         ScanType.UPDATE,
         [MetadataSource.LAUNCHBOX, MetadataSource.HLTB],
         launchbox_id=266,
-        launchbox_metadata={"first_release_date": 851990400, "name": "Mario Kart 64"},
+        launchbox_metadata={**LAUNCHBOX_BLOB, "name": TITLE},
         hltb_id=9999,
-        hltb_metadata={"main_story": 150000, "name": "Mario Kart 8"},
+        hltb_metadata={**HLTB_BLOB, "name": HLTB_TITLE},
     )
 
     assert result.name == "MK64"
@@ -143,29 +149,15 @@ async def test_a_name_the_user_typed_is_kept(lookups):
 async def test_a_lone_source_still_replaces_the_placeholder(lookups):
     result = await _scan(FS_NAME, ScanType.UNMATCHED, [MetadataSource.HLTB])
 
-    assert result.name == "Mario Kart 8"
+    assert result.name == HLTB_TITLE
 
 
 async def test_a_match_without_metadata_gets_no_blob(lookups):
     """An unmatched scan retries a source whose blob is empty, so none is made."""
-    lookups.hltb_by_name.return_value = HLTBRom(hltb_id=9999, name="Mario Kart 8")
+    lookups.hltb_by_name.return_value = HLTBRom(hltb_id=9999, name=HLTB_TITLE)
     result = await _scan(TITLE, ScanType.UNMATCHED, [MetadataSource.HLTB])
 
     assert not result.hltb_metadata
-
-
-async def test_an_update_repairs_a_name_stored_before_titles_were_kept(lookups):
-    result = await _scan(
-        "Mario Kart 8",
-        ScanType.UPDATE,
-        [MetadataSource.LAUNCHBOX, MetadataSource.HLTB],
-        launchbox_id=266,
-        launchbox_metadata={"first_release_date": 851990400},
-        hltb_id=9999,
-        hltb_metadata={"main_story": 150000},
-    )
-
-    assert result.name == "Mario Kart 64"
 
 
 async def _scan_hasheous(igdb_game: HasheousRom) -> Rom:
@@ -197,7 +189,7 @@ async def test_an_igdb_id_hasheous_gives_doesnt_hold_the_placeholder():
     result = await _scan_hasheous(HASHEOUS_HIT)
 
     assert result.igdb_id == 1234
-    assert result.name == "Mario Kart 64"
+    assert result.name == TITLE
 
 
 async def test_igdb_metadata_hasheous_gives_keeps_its_title():
@@ -206,9 +198,9 @@ async def test_igdb_metadata_hasheous_gives_keeps_its_title():
         HasheousRom({**HASHEOUS_HIT, "igdb_metadata": igdb_metadata})
     )
 
-    assert result.name == "Mario Kart 64"
+    assert result.name == TITLE
     assert result.igdb_metadata is not None
-    assert result.igdb_metadata["name"] == "Mario Kart 64"
+    assert result.igdb_metadata["name"] == TITLE
 
 
 async def test_a_hand_edited_title_that_isnt_text_is_ignored(lookups):
@@ -218,7 +210,7 @@ async def test_a_hand_edited_title_that_isnt_text_is_ignored(lookups):
         ScanType.UNMATCHED,
         [MetadataSource.HLTB],
         launchbox_id=266,
-        launchbox_metadata={"first_release_date": 851990400, "name": ["Mario"]},
+        launchbox_metadata={**LAUNCHBOX_BLOB, "name": ["Mario"]},
     )
 
-    assert result.name == "Mario Kart 64"
+    assert result.name == TITLE
