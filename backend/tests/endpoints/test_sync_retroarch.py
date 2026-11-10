@@ -1773,6 +1773,43 @@ class TestRetroArchSyncCorePlatforms:
             {"path": "saves/Beetle PSX HW/Road Rash (USA).srm", "hash": EMPTY_MD5}
         ]
 
+    @_mock_asset_md5()
+    def test_manifest_lists_each_cores_save_of_a_shared_name(
+        self,
+        _asset_md5: mock.AsyncMock,
+        client,
+        admin_user: User,
+        saturn_rom: Rom,
+        psx_platform: Platform,
+    ):
+        psx_rom = make_rom(psx_platform, "Road Rash (USA)")
+        for rom, emulator in (
+            (psx_rom, "mednafen_psx_hw"),
+            (saturn_rom, "beetle_saturn"),
+        ):
+            make_save(
+                rom,
+                admin_user,
+                "Road Rash (USA).srm",
+                file_path=fs_asset_handler.build_saves_file_path(
+                    user=admin_user,
+                    platform_fs_slug=rom.platform_fs_slug,
+                    rom_id=rom.id,
+                    emulator=emulator,
+                ),
+                file_size_bytes=4,
+                emulator=emulator,
+                slot=None,
+            )
+
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert sorted(asset["path"] for asset in response.json()) == [
+            "saves/Beetle PSX HW/Road Rash (USA).srm",
+            "saves/Beetle Saturn/Road Rash (USA).srm",
+        ]
+
 
 def test_uploads_in_the_same_second_keep_both_versions(
     client, admin_user: User, rom: Rom
