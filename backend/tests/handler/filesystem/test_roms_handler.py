@@ -1,9 +1,11 @@
 import binascii
+import gzip
 import hashlib
 import os
 import shutil
 import struct
 import tempfile
+import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
@@ -27,6 +29,7 @@ from handler.filesystem.base_handler import (
     REGIONS_BY_SHORTCODE,
 )
 from handler.filesystem.roms_handler import (
+    ARCHIVE_READERS,
     FileHash,
     FSRomsHandler,
     _TitleIdSource,
@@ -36,7 +39,11 @@ from handler.filesystem.roms_handler import (
 )
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, SaveTargetLayout
-from utils.archives import extract_chd_hash
+from utils.archives import (
+    LARGEST_MEMBER_READERS,
+    ArchiveReadError,
+    extract_chd_hash,
+)
 
 
 class TestFSRomsHandler:
@@ -1392,7 +1399,7 @@ class TestFSRomsHandler:
             ).hexdigest()
 
             # Test the hash calculation method
-            crc_result, _, md5_result, _, sha1_result, _ = (
+            crc_result, _, md5_result, _, sha1_result, _, _ = (
                 handler._calculate_rom_hashes(
                     test_file,
                     0,
@@ -1430,6 +1437,78 @@ class TestFSRomsHandler:
             (rom_dir / "sub", "c.bin"),
         ]
 
+    def test_plain_gzip_hashes_its_content(self, handler: FSRomsHandler, tmp_path):
+        content = b"Plain gzip ROM content" * 32
+        archive = tmp_path / "game.gb.gz"
+        archive.write_bytes(gzip.compress(content))
+
+        crc_c, _, md5_h, _, sha1_h, _, _ = handler._calculate_rom_hashes(archive)
+
+        assert crc_c == binascii.crc32(content)
+        assert md5_h.hexdigest() == hashlib.md5(content).hexdigest()
+        assert sha1_h.hexdigest() == hashlib.sha1(content).hexdigest()
+
+    @pytest.mark.parametrize("name", ["game.gb", "game.zip", "game.chd"])
+    def test_detects_the_mime_type_once(
+        self, handler: FSRomsHandler, tmp_path, name: str
+    ):
+        rom = tmp_path / name
+        rom.write_bytes(b"not really a " + name.encode())
+
+        with (
+            patch(
+                "handler.filesystem.roms_handler.detect_mime_type", return_value=""
+            ) as detect,
+            patch("utils.archives.detect_mime_type") as inner_detect,
+        ):
+            handler._calculate_rom_hashes(rom)
+
+        detect.assert_called_once_with(rom)
+        inner_detect.assert_not_called()
+
+    def test_reads_the_embedded_chd_hash(self, handler: FSRomsHandler, tmp_path):
+        rom = tmp_path / "game.chd"
+        rom.write_bytes(b"not a real chd")
+
+        with patch(
+            "handler.filesystem.roms_handler.extract_chd_hash", return_value="ab" * 20
+        ):
+            *_, chd_sha1_hash = handler._calculate_rom_hashes(rom)
+
+        assert chd_sha1_hash == "ab" * 20
+
+    def test_archive_readers_cover_every_multi_member_suffix(self):
+        assert set(ARCHIVE_READERS) == {
+            ".zip",
+            ".tar",
+            ".tar.gz",
+            ".tgz",
+            ".tar.bz2",
+            ".tbz2",
+            ".tar.xz",
+            ".txz",
+            ".7z",
+            ".rar",
+        }
+
+    def test_empty_zip_hashes_the_raw_archive(self, handler: FSRomsHandler, tmp_path):
+        reload_zipfile()
+        archive = tmp_path / "empty.zip"
+        with zipfile.ZipFile(archive, "w"):
+            pass
+        archive_bytes = archive.read_bytes()
+
+        rom_sha1_h = hashlib.sha1(b"earlier file", usedforsecurity=False)
+        _, _, _, _, sha1_h, rom_sha1_h, _ = handler._calculate_rom_hashes(
+            archive, 0, hashlib.md5(usedforsecurity=False), rom_sha1_h
+        )
+
+        assert sha1_h.hexdigest() == hashlib.sha1(archive_bytes).hexdigest()
+        assert (
+            rom_sha1_h.hexdigest()
+            == hashlib.sha1(b"earlier file" + archive_bytes).hexdigest()
+        )
+
     def test_failed_7z_extraction_hashes_only_the_raw_archive(
         self, handler: FSRomsHandler, tmp_path
     ):
@@ -1439,19 +1518,19 @@ class TestFSRomsHandler:
         archive = tmp_path / "game.7z"
         archive.write_bytes(archive_bytes)
 
-        def _partial_then_fail(_path, fn_hash_update):
-            fn_hash_update(b"partial inner member bytes")
-            return False
+        def _partial_then_fail(path):
+            def _chunks():
+                yield b"partial inner member bytes"
+                raise ArchiveReadError(f"Extraction of {path} failed")
+
+            yield _chunks()
 
         rom_md5_h = hashlib.md5(b"earlier file", usedforsecurity=False)
         rom_sha1_h = hashlib.sha1(b"earlier file", usedforsecurity=False)
         rom_crc_c = binascii.crc32(b"earlier file")
 
-        with patch(
-            "handler.filesystem.roms_handler.hash_largest_7z_member",
-            side_effect=_partial_then_fail,
-        ):
-            crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
+        with patch.dict(LARGEST_MEMBER_READERS, {"7z": _partial_then_fail}):
+            crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h, _ = (
                 handler._calculate_rom_hashes(archive, rom_crc_c, rom_md5_h, rom_sha1_h)
             )
 
