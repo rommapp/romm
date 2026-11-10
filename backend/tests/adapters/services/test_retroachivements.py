@@ -2,7 +2,7 @@ import asyncio
 import json
 from collections.abc import AsyncIterator
 from typing import Any, cast
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import aiohttp
 import pytest
@@ -536,7 +536,7 @@ class TestAgainstAServer:
         ]
 
         assert await service.get_achievement_of_the_week() == {"ok": 1}
-        assert [c.args[0] for c in no_backoff.await_args_list] == [2, 4, 8, 16]
+        assert no_backoff.await_args_list == [call(2), call(4), call(8), call(16)]
 
     async def test_a_failed_retry_is_unavailable(
         self,

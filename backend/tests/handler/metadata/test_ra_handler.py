@@ -529,6 +529,15 @@ def _completion(game_id: int, **overrides: object) -> dict[str, object]:
     }
 
 
+def _refuse_after_one(game_progress: AsyncMock) -> None:
+    """Answer the next detail request, then refuse the one after."""
+    game_progress.reset_mock()
+    game_progress.side_effect = [
+        game_progress.return_value,
+        HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE),
+    ]
+
+
 class TestUserProgression:
     @pytest.fixture
     def completion(
@@ -710,12 +719,7 @@ class TestUserProgression:
         completion[:] = [_completion(i, NumAwarded=3) for i in (1, 2, 3)] + [
             _completion(4)
         ]
-        game_progress.reset_mock()
-        reply = game_progress.return_value
-        game_progress.side_effect = [
-            reply,
-            HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE),
-        ]
+        _refuse_after_one(game_progress)
 
         progression = await handler.get_user_progression("me", previous)
 
@@ -753,12 +757,7 @@ class TestUserProgression:
     ):
         completion.extend([_completion(1), _completion(2)])
         previous = await handler.get_user_progression("me")
-        game_progress.reset_mock()
-        reply = game_progress.return_value
-        game_progress.side_effect = [
-            reply,
-            HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE),
-        ]
+        _refuse_after_one(game_progress)
 
         progression = await handler.get_user_progression(
             "me", previous, refresh_all=True

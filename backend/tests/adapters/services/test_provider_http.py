@@ -1,7 +1,7 @@
 import asyncio
 from datetime import UTC, datetime, timedelta
 from email.utils import format_datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, call
 
 import aiohttp
 import pytest
@@ -90,7 +90,7 @@ async def test_each_rate_limit_doubles_the_backoff(no_backoff: AsyncMock):
     result, _ = await _send(_status(429), _status(429), _status(429), "ok", attempts=4)
 
     assert result == "ok"
-    assert [c.args[0] for c in no_backoff.await_args_list] == [2, 4, 8]
+    assert no_backoff.await_args_list == [call(2), call(4), call(8)]
 
 
 @pytest.mark.parametrize(

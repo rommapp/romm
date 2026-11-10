@@ -11,6 +11,7 @@ import aiohttp
 from fastapi import HTTPException, status
 
 from logger.logger import log
+from utils.datetime import to_utc
 
 RATE_LIMIT_BACKOFF_SECONDS: Final[float] = 2
 # Bounds a provider's Retry-After so one reply can't stall a request for long.
@@ -25,28 +26,31 @@ def unavailable(provider: str) -> HTTPException:
     )
 
 
-def _retry_after_seconds(value: str) -> float | None:
+def _retry_after_seconds(value: str | None) -> float | None:
     """Seconds to wait from a Retry-After header, in seconds or HTTP-date form."""
+    if value is None:
+        return None
     try:
         seconds = float(value)
     except ValueError:
-        try:
-            when = parsedate_to_datetime(value)
-        except (TypeError, ValueError):
-            return None
-        if when.tzinfo is None:
-            when = when.replace(tzinfo=UTC)
-        # A date already past means the provider is ready now.
-        return max((when - datetime.now(UTC)).total_seconds(), 0)
-    return seconds if seconds >= 0 else None
+        pass
+    else:
+        return seconds if seconds >= 0 else None
+    try:
+        when = to_utc(parsedate_to_datetime(value))
+    except ValueError:
+        return None
+    # A date already past means the provider is ready now.
+    return max((when - datetime.now(UTC)).total_seconds(), 0)
 
 
 def _rate_limit_delay(
     exc: aiohttp.ClientResponseError, backoff: float, attempt: int
 ) -> float:
     """The provider's Retry-After when it sends one, else a doubling backoff."""
-    retry_after = exc.headers.get("Retry-After") if exc.headers else None
-    seconds = _retry_after_seconds(retry_after) if retry_after is not None else None
+    seconds = _retry_after_seconds(
+        exc.headers.get("Retry-After") if exc.headers else None
+    )
     if seconds is not None:
         return min(seconds, MAX_RETRY_AFTER_SECONDS)
     return backoff * 2.0 ** (attempt - 1)

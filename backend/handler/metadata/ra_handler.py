@@ -392,13 +392,8 @@ class RAHandler(MetadataHandler):
             highest_award_kind = rom.get("HighestAwardKind", None)
 
             game_current_progression = current_progression_by_game_id.get(rom_game_id)
-            # The completion row's award kind is current even when the stored
-            # entry is reused or kept for a game RA refuses to detail.
-            if (
-                game_current_progression
-                and game_current_progression.get("highest_award_kind")
-                != highest_award_kind
-            ):
+            # The completion row's award kind is current even when the stored entry is reused.
+            if game_current_progression:
                 game_current_progression = cast(
                     RAUserGameProgression,
                     {
@@ -428,7 +423,6 @@ class RAHandler(MetadataHandler):
 
             earned_achievements: list[EarnedAchievement] = []
             if rom_game_id:
-                result = None
                 if not refused:
                     try:
                         result = await self.ra_service.get_user_game_progress(
