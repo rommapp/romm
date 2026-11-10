@@ -1,14 +1,16 @@
+import subprocess
+import sys
 from itertools import count
 from unittest.mock import MagicMock, PropertyMock
 
 import pytest
-import watcher as watcher_module
 from rq.exceptions import DeserializationError
 from rq.job import Job
 from watcher import EventType, get_pending_scan_coverage, process_changes
 
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager, parse_structure_template
+from handler import scan_jobs as scan_jobs_module
 from handler.database import db_platform_handler
 from handler.metadata import meta_igdb_handler
 from handler.redis_handler import scan_queue
@@ -41,8 +43,25 @@ def scheduled_rescan_job() -> MagicMock:
 
 def patch_pending_jobs(mocker, *jobs):
     return mocker.patch.object(
-        watcher_module, "get_pending_scan_jobs", return_value=list(jobs)
+        scan_jobs_module, "get_pending_scan_jobs", return_value=list(jobs)
     )
+
+
+def test_importing_the_watcher_skips_the_heavy_modules():
+    # Arrange
+    heavy = ("handler.database", "handler.scan.sources", "endpoints.sockets.scan")
+    script = (
+        "import sys, watcher; "
+        f"print('LOADED:' + ','.join(m for m in {heavy!r} if m in sys.modules))"
+    )
+
+    # Act
+    result = subprocess.run(
+        [sys.executable, "-c", script], capture_output=True, text=True, check=True
+    )
+
+    # Assert
+    assert "LOADED:" in result.stdout.splitlines()
 
 
 class TestPendingScanCoverage:
