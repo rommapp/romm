@@ -127,6 +127,8 @@ export type { GenericTaskStatusResponse } from './models/GenericTaskStatusRespon
 export type { GrantSchema } from './models/GrantSchema';
 export type { GrantSchemaIO } from './models/GrantSchemaIO';
 export type { GroupedTasksDict } from './models/GroupedTasksDict';
+export type { HealthLiveResponse } from './models/HealthLiveResponse';
+export type { HealthReadyResponse } from './models/HealthReadyResponse';
 export type { HeartbeatResponse } from './models/HeartbeatResponse';
 export type { HiddenEntitiesSchema } from './models/HiddenEntitiesSchema';
 export type { HiddenEntityCreate } from './models/HiddenEntityCreate';
