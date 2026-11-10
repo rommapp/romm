@@ -48,14 +48,18 @@ export function defaultResumeSelection(
   compatibleStates: readonly StateSchema[],
   thisDeviceId: string | null = null,
 ): ResumeSelection {
+  const latest = newestOfEither(
+    saves,
+    ownStates(compatibleStates, thisDeviceId),
+  );
+  if (latest) {
+    return latest.kind === "state"
+      ? pickState(latest.asset)
+      : pickSave(latest.asset);
+  }
   // Another device's state still beats starting from nothing.
-  const latest =
-    newestOfEither(saves, ownStates(compatibleStates, thisDeviceId)) ??
-    newestOfEither([], compatibleStates);
-  if (!latest) return { save: null, state: null };
-  return latest.kind === "state"
-    ? pickState(latest.asset)
-    : pickSave(latest.asset);
+  const fallback = newest(compatibleStates);
+  return fallback ? pickState(fallback) : { save: null, state: null };
 }
 
 /** A picked save is the boot source, so any armed state is disarmed. */

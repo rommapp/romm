@@ -41,6 +41,14 @@ def upgrade() -> None:
             sa.Column("origin_device_id", column_type, nullable=True),
             if_not_exists=True,
         )
+        if collation is not None:
+            # Fixes a column a previous run created before failing on the FK.
+            batch_op.alter_column(
+                "origin_device_id",
+                existing_type=sa.String(length=255),
+                type_=column_type,
+                existing_nullable=True,
+            )
         batch_op.create_index(
             "ix_states_origin_device_id", ["origin_device_id"], if_not_exists=True
         )
