@@ -106,45 +106,6 @@ describe("defaultResumeSelection", () => {
       });
     });
   });
-
-  describe("when only the save names its device", () => {
-    const fromDevice = (origin_device_id: string, updated_at: string) =>
-      saveFixture({ id: 1, updated_at, origin_device_id });
-
-    it("boots another device's save over an untagged state from the same quit", () => {
-      const saves = [fromDevice("tv", "2026-09-05T10:00:00Z")];
-      const states = [state(9, "2026-09-05T10:00:03Z")];
-
-      expect(defaultResumeSelection(saves, states, "browser")).toEqual({
-        save: saves[0],
-        state: null,
-      });
-      expect(defaultResumeSelection(saves, states, null)).toEqual({
-        save: saves[0],
-        state: null,
-      });
-    });
-
-    it("keeps this browser's own state on a tie with its save", () => {
-      const saves = [fromDevice("browser", "2026-09-05T10:00:00Z")];
-      const states = [state(9, "2026-09-05T10:00:00Z")];
-
-      expect(defaultResumeSelection(saves, states, "browser")).toEqual({
-        save: null,
-        state: states[0],
-      });
-    });
-
-    it("arms a state written well after another device's save", () => {
-      const saves = [fromDevice("tv", "2026-09-05T10:00:00Z")];
-      const states = [state(9, "2026-09-05T10:00:06Z")];
-
-      expect(defaultResumeSelection(saves, states, "browser")).toEqual({
-        save: null,
-        state: states[0],
-      });
-    });
-  });
 });
 
 describe("pickSave", () => {
@@ -194,24 +155,34 @@ describe("newerThanPick", () => {
     });
   });
 
-  it("stays quiet about a state from the same quit as the picked save", () => {
+  it("stays quiet about another device's newer state", () => {
     const saves = [at(1, "2026-09-05T10:00:00Z")];
-    const states = [stateAt(9, "2026-09-05T10:00:02Z")];
+    const states = [
+      stateFixture({
+        id: 9,
+        updated_at: "2026-09-05T10:00:01Z",
+        origin_device_id: "tv",
+      }),
+    ];
 
-    expect(newerThanPick(saves, states, pickSave(saves[0]!))).toBe(null);
+    expect(newerThanPick(saves, states, pickSave(saves[0]!), "browser")).toBe(
+      null,
+    );
   });
 
-  it("still warns about a newer save beside a same-quit state", () => {
-    const saves = [
-      at(1, "2026-09-05T10:00:00Z"),
-      at(2, "2026-09-05T10:00:02Z"),
+  it("warns about this browser's newer state", () => {
+    const saves = [at(1, "2026-09-05T10:00:00Z")];
+    const states = [
+      stateFixture({
+        id: 9,
+        updated_at: "2026-09-05T11:00:00Z",
+        origin_device_id: "browser",
+      }),
     ];
-    const states = [stateAt(9, "2026-09-05T10:00:03Z")];
 
-    expect(newerThanPick(saves, states, pickSave(saves[0]!))).toEqual({
-      kind: "save",
-      asset: saves[1],
-    });
+    expect(
+      newerThanPick(saves, states, pickSave(saves[0]!), "browser"),
+    ).toEqual({ kind: "state", asset: states[0] });
   });
 
   it("stays quiet when the pick is the latest progress or nothing is picked", () => {

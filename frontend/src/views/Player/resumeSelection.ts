@@ -25,31 +25,14 @@ function newestOfEither(
   return save && { kind: "save", asset: save };
 }
 
-// Server timestamps of a save and a state uploaded together by one quit.
-const SAME_QUIT_WINDOW_MS = 5_000;
-
-function writtenTogether(save: SaveSchema, state: StateSchema): boolean {
-  const gap = Date.parse(state.updated_at) - Date.parse(save.updated_at);
-  return Math.abs(gap) <= SAME_QUIT_WINDOW_MS;
-}
-
-/**
- * Whether another device's core likely wrote this state, so it may not load here.
- *
- * Args:
- *   newestSave: an untagged state written with another device's save is
- *     taken to come from that device.
- */
-function fromAnotherDevice(
-  state: StateSchema,
-  newestSave: SaveSchema | null,
+// A state another device's core wrote may not load here.
+function ownStates(
+  compatibleStates: readonly StateSchema[],
   thisDeviceId: string | null,
-): boolean {
-  if (state.origin_device_id) return state.origin_device_id !== thisDeviceId;
-  return (
-    !!newestSave?.origin_device_id &&
-    newestSave.origin_device_id !== thisDeviceId &&
-    writtenTogether(newestSave, state)
+): StateSchema[] {
+  return compatibleStates.filter(
+    (state) =>
+      !state.origin_device_id || state.origin_device_id === thisDeviceId,
   );
 }
 
@@ -64,13 +47,10 @@ export function defaultResumeSelection(
   compatibleStates: readonly StateSchema[],
   thisDeviceId: string | null = null,
 ): ResumeSelection {
-  const save = newest(saves);
-  const ownStates = compatibleStates.filter(
-    (state) => !fromAnotherDevice(state, save, thisDeviceId),
-  );
   // Another device's state still beats starting from nothing.
   const latest =
-    newestOfEither(saves, ownStates) ?? newestOfEither([], compatibleStates);
+    newestOfEither(saves, ownStates(compatibleStates, thisDeviceId)) ??
+    newestOfEither([], compatibleStates);
   if (!latest) return { save: null, state: null };
   return latest.kind === "state"
     ? pickState(latest.asset)
@@ -88,29 +68,22 @@ export function pickState(state: StateSchema): ResumeSelection {
 }
 
 /**
- * The newest save or compatible state when it postdates what boots, so the
- * user can be warned before older progress rolls the newer back.
+ * The newest save or this device's compatible state when it postdates what
+ * boots, so the user can be warned before older progress rolls the newer back.
  */
 export function newerThanPick(
   saves: readonly SaveSchema[],
   compatibleStates: readonly StateSchema[],
   selection: ResumeSelection,
+  thisDeviceId: string | null = null,
 ): NewerAsset | null {
   const picked = selection.state ?? selection.save;
   if (!picked) return null;
-  const candidate = newestOfEither(saves, compatibleStates);
-  if (!candidate || candidate.asset.updated_at <= picked.updated_at)
-    return null;
-  // A state from the same quit as the picked save holds no newer progress.
-  if (
-    candidate.kind === "state" &&
-    selection.save &&
-    writtenTogether(selection.save, candidate.asset)
-  ) {
-    const save = newest(saves);
-    return save && save.updated_at > picked.updated_at
-      ? { kind: "save", asset: save }
-      : null;
-  }
-  return candidate;
+  const candidate = newestOfEither(
+    saves,
+    ownStates(compatibleStates, thisDeviceId),
+  );
+  return candidate && candidate.asset.updated_at > picked.updated_at
+    ? candidate
+    : null;
 }

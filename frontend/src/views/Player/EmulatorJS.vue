@@ -742,6 +742,7 @@ const newerAsset = computed(() =>
     rom.value?.user_saves ?? [],
     compatibleStates.value,
     resume.value,
+    thisDeviceId(),
   ),
 );
 function bootFromNewer() {
