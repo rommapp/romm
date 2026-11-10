@@ -45,8 +45,10 @@ from handler.streaming.config import ResolvedContainer
 from handler.streaming.session_store import set_session_disc
 from handler.sync.retroarch.emulator_names import retroarch_aliases
 from handler.sync.retroarch.sync_handler import (
+    disc_names,
     emulator_from_dir_name,
     group_states_by_slot,
+    state_game_name,
 )
 from logger.logger import log
 from models.assets import EMULATOR_MAX_LENGTH, State
@@ -560,13 +562,15 @@ async def prune_state_history(
     )
     stale = states[limit:]
     if stale:
+        rom_states = db_state_handler.get_states(
+            user_id=user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
+        discs = disc_names(
+            (rom, state_game_name(state.file_name)) for state in rom_states
+        )
         served = {
             state.id
-            for state in group_states_by_slot(
-                db_state_handler.get_states(
-                    user_id=user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
-                )
-            ).values()
+            for state in group_states_by_slot(rom_states, discs).values()
             if not state.missing_from_fs
         }
         stale = [state for state in stale if state.id not in served]

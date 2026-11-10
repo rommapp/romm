@@ -74,6 +74,7 @@ import romApi from "@/services/api/rom";
 import { AUTOSAVE_SLOT, SAVE_SLOT_MAX_LENGTH } from "@/services/api/save";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
+import storeHeartbeat from "@/stores/heartbeat";
 import { useNativeStore } from "@/stores/native";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -141,6 +142,7 @@ const snackbar = useSnackbar();
 const emitter = inject<Emitter<Events>>("emitter");
 const authStore = storeAuth();
 const configStore = storeConfig();
+const heartbeatStore = storeHeartbeat();
 const nativeStore = useNativeStore();
 const { fullscreenOnPlay } = useFullscreenPref();
 useFullscreenFallback();
@@ -164,6 +166,7 @@ const supportedCores = computed<string[]>(() =>
     ? [
         ...getSupportedEJSCores(
           rom.value.platform_slug,
+          heartbeatStore.value.EMULATION,
           configStore.config.EJS_NETPLAY_ENABLED,
         ),
       ]

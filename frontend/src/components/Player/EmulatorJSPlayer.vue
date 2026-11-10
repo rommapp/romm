@@ -278,6 +278,7 @@ applyEjsGlobals(
     bios: props.bios,
     firmware: props.firmware,
     loadStateLabel: props.loadStateLabel,
+    emulation: heartbeatStore.value.EMULATION,
     config: configStore.config,
     coreOptions: (core) => configStore.getEJSCoreOptions(core),
     controls: configStore.getEJSControls(props.core),

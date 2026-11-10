@@ -42,6 +42,8 @@ class EmulationDict(TypedDict):
     DISABLE_JSDOS: bool
     DISABLE_PICO8: bool
     DISABLE_EASYRPG: bool
+    EJS_CORES: dict[str, list[str]]
+    EJS_NIGHTLY_CORES: dict[str, list[str]]
 
 
 class FrontendDict(TypedDict):

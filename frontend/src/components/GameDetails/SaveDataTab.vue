@@ -47,6 +47,7 @@ import saveApi from "@/services/api/save";
 import stateApi from "@/services/api/state";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
+import storeHeartbeat from "@/stores/heartbeat";
 import { getSupportedEJSCores } from "@/utils";
 import { emulatorKey, type AssetType } from "@/utils/assets";
 import { errorMessage } from "@/utils/errorMessage";
@@ -75,6 +76,7 @@ const subTab = useSubtabQuery<Subtab>(
 
 const authStore = storeAuth();
 const configStore = storeConfig();
+const heartbeatStore = storeHeartbeat();
 const { user } = storeToRefs(authStore);
 const myId = computed(() => user.value?.id ?? null);
 
@@ -134,6 +136,7 @@ const uploadCores = computed(() => {
   const cores = new Map<string, string>();
   const offered = getSupportedEJSCores(
     props.rom.platform_slug,
+    heartbeatStore.value.EMULATION,
     configStore.config.EJS_NETPLAY_ENABLED,
   );
   const carried = [...mySaves.value, ...myStates.value].map(

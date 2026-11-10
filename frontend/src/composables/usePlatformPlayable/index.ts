@@ -63,7 +63,10 @@ function resolveEmulator(
   if (isPico8EmulationSupported(slug, heartbeat, config)) return "pico8";
   if (isEasyRpgEmulationSupported(slug, heartbeat, config)) return "easyrpg";
   if (!isEJSEmulationSupported(slug, heartbeat, config)) return null;
-  const cores = getSupportedEJSCores(resolvePlatformSlug(slug, config));
+  const cores = getSupportedEJSCores(
+    resolvePlatformSlug(slug, config),
+    heartbeat.EMULATION,
+  );
   if (cores.includes("dosbox_pure")) return "dosbox";
   return "emulatorjs";
 }

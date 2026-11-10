@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { ejsCoresFixture } from "@/utils/ejsCores.fixtures";
 import { firmwareFixture } from "@/utils/firmware.fixtures";
 import { detailedRomFixture } from "@/utils/rom.fixtures";
 import {
@@ -24,6 +25,7 @@ function input(overrides: Partial<EjsConfigInput> = {}): EjsConfigInput {
     disc: null,
     bios: null,
     firmware: [],
+    emulation: ejsCoresFixture(),
     config: {
       EJS_DEBUG: false,
       EJS_CACHE_LIMIT: null,

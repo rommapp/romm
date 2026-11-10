@@ -235,7 +235,8 @@ def _resolve_rom(
     serial = _derive_serial(save_folder)
     mapped_title = SYNC_RETROARCH_PSP_SERIAL_MAP.get(serial)
     if mapped_title:
-        rom = sync_handler.resolve_rom(mapped_title, can_see)
+        # A SAVEDATA folder is PPSSPP's layout, whatever core folder holds it.
+        rom = sync_handler.resolve_rom(mapped_title, can_see, emulator="ppsspp")
         if rom:
             return rom
         log.warning(
