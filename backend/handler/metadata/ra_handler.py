@@ -391,9 +391,24 @@ class RAHandler(MetadataHandler):
             rom_game_id = rom.get("GameID")
             highest_award_kind = rom.get("HighestAwardKind", None)
 
+            game_current_progression = current_progression_by_game_id.get(rom_game_id)
+            # The completion row's award kind is current even when the stored
+            # entry is reused or kept for a game RA refuses to detail.
+            if (
+                game_current_progression
+                and game_current_progression.get("highest_award_kind")
+                != highest_award_kind
+            ):
+                game_current_progression = cast(
+                    RAUserGameProgression,
+                    {
+                        **game_current_progression,
+                        "highest_award_kind": highest_award_kind,
+                    },
+                )
+
             # If we have current progression data, and number of awarded achievements and most
             # recent awarded date match, then we can skip fetching progression details.
-            game_current_progression = current_progression_by_game_id.get(rom_game_id)
             if (
                 not refresh_all
                 and game_current_progression
@@ -408,18 +423,6 @@ class RAHandler(MetadataHandler):
                 and rom["MostRecentAwardedDate"]
                 == game_current_progression.get("most_recent_awarded_date")
             ):
-                # Always keep highest_award_kind up-to-date even for cached progressions
-                if (
-                    game_current_progression.get("highest_award_kind")
-                    != highest_award_kind
-                ):
-                    game_current_progression = cast(
-                        RAUserGameProgression,
-                        {
-                            **game_current_progression,
-                            "highest_award_kind": highest_award_kind,
-                        },
-                    )
                 game_progressions.append(game_current_progression)
                 continue
 

@@ -193,6 +193,28 @@ def test_an_empty_ra_username_unlinks_the_profile(
     assert unlinked and unlinked.ra_progression == {}
 
 
+@pytest.mark.parametrize(
+    ("submitted", "kept"), [("other_profile", False), ("retro_viewer", True)]
+)
+def test_only_a_new_ra_username_drops_the_synced_progression(
+    client, access_token: str, viewer_user: User, submitted: str, kept: bool
+):
+    stored = {"total": 0, "results": []}
+    db_user_handler.update_user(
+        viewer_user.id, {"ra_username": "retro_viewer", "ra_progression": stored}
+    )
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"ra_username": submitted},
+        headers=_bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    updated = db_user_handler.get_user(viewer_user.id)
+    assert updated and updated.ra_progression == (stored if kept else {})
+
+
 def test_a_refresh_running_while_the_profile_is_unlinked_keeps_it_unlinked(
     client, access_token: str, viewer_user: User, mocker
 ):

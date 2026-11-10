@@ -563,10 +563,12 @@ async def update_user(
     if form_data.enabled is not None and request.user.id != id:
         cleaned_data["enabled"] = form_data.enabled
 
+    # The synced progression belongs to the previously linked profile.
     if ra_username:
         cleaned_data["ra_username"] = ra_username
+        if ra_username != db_user.ra_username:
+            cleaned_data["ra_progression"] = {}
     elif ra_username == "" and db_user.ra_username:
-        # The synced progression belongs to the unlinked profile.
         cleaned_data["ra_username"] = None
         cleaned_data["ra_progression"] = {}
 

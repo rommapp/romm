@@ -3,6 +3,8 @@
 import asyncio
 import http
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from typing import Final
 
 import aiohttp
@@ -23,19 +25,30 @@ def unavailable(provider: str) -> HTTPException:
     )
 
 
+def _retry_after_seconds(value: str) -> float | None:
+    """Seconds to wait from a Retry-After header, in seconds or HTTP-date form."""
+    try:
+        seconds = float(value)
+    except ValueError:
+        try:
+            when = parsedate_to_datetime(value)
+        except (TypeError, ValueError):
+            return None
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=UTC)
+        # A date already past means the provider is ready now.
+        return max((when - datetime.now(UTC)).total_seconds(), 0)
+    return seconds if seconds >= 0 else None
+
+
 def _rate_limit_delay(
     exc: aiohttp.ClientResponseError, backoff: float, attempt: int
 ) -> float:
     """The provider's Retry-After when it sends one, else a doubling backoff."""
     retry_after = exc.headers.get("Retry-After") if exc.headers else None
-    if retry_after is not None:
-        try:
-            seconds = float(retry_after)
-        except ValueError:
-            pass
-        else:
-            if seconds >= 0:
-                return min(seconds, MAX_RETRY_AFTER_SECONDS)
+    seconds = _retry_after_seconds(retry_after) if retry_after is not None else None
+    if seconds is not None:
+        return min(seconds, MAX_RETRY_AFTER_SECONDS)
     return backoff * 2.0 ** (attempt - 1)
 
 
@@ -54,7 +67,8 @@ async def send_with_retries[T](
     """Send a request, retrying a timeout or a 429 (after its Retry-After or a doubling backoff).
 
     Args:
-        rate_limit_attempts: Attempts a run of 429s may use, `attempts` by default.
+        rate_limit_attempts: Attempts allowed when the latest reply is a 429,
+            `attempts` by default; earlier timeouts count toward them.
         retry_on_status: Decides whether another error status earns a retry.
 
     Raises:
@@ -62,7 +76,8 @@ async def send_with_retries[T](
         TimeoutError: The last attempt timed out.
         aiohttp.ClientResponseError: An error status that earns no retry.
     """
-    rate_limit_attempts = rate_limit_attempts or attempts
+    if rate_limit_attempts is None:
+        rate_limit_attempts = attempts
     for attempt in range(1, max(attempts, rate_limit_attempts) + 1):
         try:
             return await send()

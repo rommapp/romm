@@ -1,4 +1,6 @@
 import asyncio
+from datetime import UTC, datetime, timedelta
+from email.utils import format_datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import aiohttp
@@ -102,6 +104,25 @@ async def test_a_rate_limit_waits_for_retry_after(
     await _send(_status(429, {"Retry-After": retry_after}), "ok")
 
     no_backoff.assert_awaited_once_with(delay)
+
+
+@pytest.mark.parametrize(
+    ("offset", "low", "high"), [(30, 25, 30), (-30, 0, 0)], ids=["future", "past"]
+)
+async def test_a_rate_limit_waits_for_a_retry_after_date(
+    no_backoff: AsyncMock, offset: int, low: float, high: float
+):
+    when = format_datetime(datetime.now(UTC) + timedelta(seconds=offset), usegmt=True)
+
+    await _send(_status(429, {"Retry-After": when}), "ok")
+
+    [delay] = [c.args[0] for c in no_backoff.await_args_list]
+    assert low <= delay <= high
+
+
+async def test_zero_rate_limit_attempts_do_not_retry_a_rate_limit():
+    with pytest.raises(aiohttp.ClientResponseError):
+        await _send(_status(429), "ok", rate_limit_attempts=0)
 
 
 @pytest.mark.parametrize("retry_after", ["soon", "-1"])

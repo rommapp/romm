@@ -726,6 +726,25 @@ class TestUserProgression:
             (3, 2),
         ]
 
+    async def test_a_refused_game_still_takes_its_current_award_kind(
+        self,
+        handler: RAHandler,
+        completion: list[dict[str, object]],
+        game_progress: AsyncMock,
+    ):
+        completion.append(_completion(1))
+        previous = await handler.get_user_progression("me")
+        completion[:] = [
+            _completion(1, NumAwarded=3, HighestAwardKind="beaten-softcore")
+        ]
+        game_progress.side_effect = HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        progression = await handler.get_user_progression("me", previous)
+
+        [kept] = progression["results"]
+        assert kept["num_awarded"] == 2
+        assert kept["highest_award_kind"] == "beaten-softcore"
+
     async def test_a_full_refresh_rereads_unchanged_games_and_keeps_refused_ones(
         self,
         handler: RAHandler,
