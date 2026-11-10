@@ -230,6 +230,73 @@ class TestFSResourcesHandler:
         assert not handler.cover_exists(rom, CoverSize.SMALL)
         assert not handler.cover_exists(rom, CoverSize.BIG)
 
+    async def test_native_icon_storage_replaces_and_removes_the_image(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+
+        def png_bytes(color: tuple[int, int, int, int]) -> bytes:
+            output = BytesIO()
+            Image.new("RGBA", (2, 3), color).save(output, format="PNG")
+            return output.getvalue()
+
+        path = await handler.store_native_icon(rom, png_bytes((255, 0, 0, 255)))
+        assert path == "roms/1/1/icon.png"
+        assert path is not None
+        stored_path = tmp_path / path
+        assert stored_path.is_file()
+
+        assert await handler.store_native_icon(rom, png_bytes((0, 0, 255, 255))) == path
+        with Image.open(stored_path) as img:
+            assert img.getpixel((0, 0)) == (0, 0, 255, 255)
+
+        await handler.remove_native_icon(rom)
+        assert not stored_path.exists()
+        await handler.remove_native_icon(rom)
+
+    async def test_native_icon_rejects_invalid_or_empty_images(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+        assert await handler.store_native_icon(rom, b"not a png") is None
+        assert await handler.store_native_icon(rom, None) is None
+        assert not (tmp_path / "roms/1/1/icon.png").exists()
+
+    async def test_native_icon_rejects_non_png_and_oversized_images(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+        jpeg = BytesIO()
+        Image.new("RGB", (1, 1)).save(jpeg, format="JPEG")
+        assert await handler.store_native_icon(rom, jpeg.getvalue()) is None
+
+        png = BytesIO()
+        Image.new("RGBA", (1, 1)).save(png, format="PNG")
+        with patch(
+            "handler.filesystem.resources_handler.is_oversized_cover",
+            return_value=True,
+        ):
+            assert await handler.store_native_icon(rom, png.getvalue()) is None
+
+    async def test_native_icon_rejects_corrupt_pixel_data(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+        output = BytesIO()
+        Image.new("RGBA", (2, 2), (255, 0, 0, 255)).save(output, format="PNG")
+        png = output.getvalue()
+        idat = png.index(b"IDAT")
+        length = struct.unpack(">I", png[idat - 4 : idat])[0]
+        bad_chunk = b"IDAT" + b"broken" * (length // 6 + 1)
+        corrupt = (
+            png[: idat - 4]
+            + struct.pack(">I", len(bad_chunk) - 4)
+            + bad_chunk
+            + struct.pack(">I", zlib.crc32(bad_chunk))
+            + png[idat + 4 + length + 4 :]
+        )
+        assert await handler.store_native_icon(rom, corrupt) is None
+
     def test_cover_exists_with_existing_covers(self, handler: FSResourcesHandler):
         """Test cover_exists with existing covers from the test data"""
         # Use existing test data structure - check directories that might exist

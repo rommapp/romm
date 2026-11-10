@@ -2799,7 +2799,11 @@ class DBRomsHandler(DBBaseHandler):
         """
         # Title ids rom-converto didn't read this pass are reusable only when
         # they still describe the same content.
-        keep_converto = scanned.converto_read_at is None and _same_content(row, scanned)
+        keep_converto = (
+            scanned.converto_read_at is None
+            and not scanned._native_icon_retry
+            and _same_content(row, scanned)
+        )
         _copy_scanned_columns(
             scanned,
             row,

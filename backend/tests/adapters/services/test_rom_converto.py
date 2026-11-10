@@ -194,6 +194,7 @@ class TestReadInfos:
                     "full": {
                         "application_title_id_hex": "0100ABCD12345000",
                         "title_version": 65536,
+                        "control": {"icon": {"png_bytes": list(_FAKE_PNG)}},
                     },
                 },
             },
@@ -221,7 +222,9 @@ class TestReadInfos:
         assert listed == ["/roms/game.nsp", "/roms/junk.bin"]
         assert infos == {
             Path("/roms/game.nsp"): RomConvertoInfo(
-                title_id="0100ABCD12345000", title_version=65536
+                title_id="0100ABCD12345000",
+                title_version=65536,
+                icon_png=_FAKE_PNG,
             ),
             Path("/roms/junk.bin"): None,
         }
@@ -832,6 +835,69 @@ class TestParseInfo:
     )
     def test_parse_info(self, payload: dict[str, Any], expected: RomConvertoInfo):
         assert rom_converto._parse_info(payload) == expected
+
+
+class TestNativeIconPayload:
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {"icon": {"png_bytes": list(_FAKE_PNG)}},
+            {"image": {"png_bytes": list(_FAKE_PNG)}},
+            {"banner_image": {"png_bytes": list(_FAKE_PNG)}},
+            {"small_icon": {"png_bytes": list(_FAKE_PNG)}},
+            {"full": {"control": {"icon": {"png_bytes": list(_FAKE_PNG)}}}},
+            {"banner": {"icon": {"png_bytes": list(_FAKE_PNG)}}},
+            {"content": {"icon": {"png_bytes": list(_FAKE_PNG)}}},
+        ],
+    )
+    def test_reads_supported_image_shapes(self, payload: dict[str, Any]):
+        assert rom_converto._native_icon(payload) == _FAKE_PNG
+
+    def test_prefers_the_full_size_icon(self):
+        payload = {
+            "small_icon": {"png_bytes": list(_FAKE_PNG + b"small")},
+            "icon": {"png_bytes": list(_FAKE_PNG)},
+        }
+        assert rom_converto._native_icon(payload) == _FAKE_PNG
+
+    def test_full_size_icon_wins_across_nesting_levels(self):
+        payload = {
+            "small_icon": {"png_bytes": list(_FAKE_PNG + b"small")},
+            "full": {"control": {"icon": {"png_bytes": list(_FAKE_PNG)}}},
+        }
+        assert rom_converto._native_icon(payload) == _FAKE_PNG
+
+    def test_xbe_icon_precedes_xex_regardless_of_payload_order(self):
+        payload = {
+            "xex": {"icon": {"png_bytes": list(_FAKE_PNG + b"xex")}},
+            "xbe": {"icon": {"png_bytes": list(_FAKE_PNG)}},
+        }
+        assert rom_converto._native_icon(payload) == _FAKE_PNG
+
+    @pytest.mark.parametrize(
+        "image",
+        [
+            None,
+            {"png_bytes": "not-a-list"},
+            {"png_bytes": []},
+            {"png_bytes": [-1]},
+            {"png_bytes": [256]},
+            {"png_bytes": [None]},
+        ],
+    )
+    def test_rejects_invalid_image_data(self, image: Any):
+        assert rom_converto._native_icon({"icon": image}) is None
+
+    def test_rejects_oversized_image_data(self):
+        with patch.object(rom_converto, "MAX_NATIVE_ICON_BYTES", 4):
+            assert (
+                rom_converto._native_icon({"icon": {"png_bytes": [0, 0, 0, 0, 0]}})
+                is None
+            )
+
+    def test_does_not_use_background_art(self):
+        payload = {"background": {"png_bytes": list(_FAKE_PNG)}}
+        assert rom_converto._native_icon(payload) is None
 
 
 class TestConvert:

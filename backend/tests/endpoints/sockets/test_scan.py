@@ -54,6 +54,7 @@ from handler.filesystem import fs_firmware_handler, fs_platform_handler, fs_rom_
 from handler.filesystem.roms_handler import (
     FSRom,
     FSRomsHandler,
+    NativeIconResult,
     ParsedRomFiles,
     ParsedTags,
 )
@@ -1110,6 +1111,34 @@ def make_fs_rom(fs_name: str, fs_path: str = "test/roms") -> FSRom:
         "sha1_hash": "",
         "ra_hash": "",
     }
+
+
+async def test_native_icon_is_carried_and_persisted_during_a_hash_scan(mocker):
+    icon = NativeIconResult(b"png")
+    db, platform = patch_identify_rom(
+        mocker,
+        parsed=ParsedRomFiles(
+            rom_files=[],
+            crc_hash="",
+            md5_hash="",
+            sha1_hash="",
+            ra_hash="",
+            icon=icon,
+        ),
+        roms_fs_structure="switch/roms",
+        name_with_no_tags="game",
+        platform_slug="switch",
+    )
+    db.add_rom.return_value.is_identified = True
+    persist = mocker.patch.object(scan_module, "persist_native_icon", AsyncMock())
+    emit = mocker.patch.object(scan_module, "emit_scanning_rom", AsyncMock())
+    fs_rom = make_fs_rom("game.nsp")
+
+    await run_identify_rom(platform, fs_rom)
+
+    assert fs_rom["icon"] == icon
+    persist.assert_awaited_once_with(db.add_rom.return_value, icon)
+    emit.assert_awaited_once()
 
 
 async def test_a_rescan_keeps_the_stored_placeholder_of_an_unchanged_file(mocker):

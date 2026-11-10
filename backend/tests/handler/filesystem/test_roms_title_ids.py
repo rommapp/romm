@@ -9,7 +9,11 @@ import pytest
 from adapters.services.rom_converto import RomConvertoInfo, rom_converto_service
 from adapters.services.sigil import SigilExtractionResult
 from config.config_manager import Config, ConvertoConfig
-from handler.filesystem.roms_handler import FSRom, FSRomsHandler, _rom_level_identity
+from handler.filesystem.roms_handler import (
+    FSRom,
+    FSRomsHandler,
+    _rom_level_identity,
+)
 from handler.scan.sources import ScanType
 from handler.scan_handler import scan_rom
 from models.platform import Platform
@@ -73,7 +77,7 @@ class TestReadConvertoInfos:
         path = Path("/romm/library/psx/roms/game.chd")
         _patch_service(mocker, mocker.AsyncMock(return_value={path: None}))
 
-        assert not await handler._read_converto_infos([(path, rom_file)])
+        assert await handler._read_converto_infos([(path, rom_file)]) == {path: None}
 
         assert rom_file.converto_read_at is not None
         assert rom_file.title_id is None
@@ -470,6 +474,179 @@ class TestGetRomFilesWithConverto:
         assert by_name["Game (Disc 1).iso"].title_id == "SLUS-10001"
         assert by_name["Game (Disc 1).iso"].converto_read_at is not None
         assert by_name["Game (Disc 2).iso"].converto_read_at is None
+
+    @pytest.mark.asyncio
+    async def test_icon_comes_from_the_primary_disc(self, scan_env, mocker):
+        disc1 = scan_env.rom_dir / "Game (Disc 1).iso"
+        disc2 = scan_env.rom_dir / "Game (Disc 2).iso"
+        mocker.patch.object(
+            rom_converto_service,
+            "read_infos",
+            mocker.AsyncMock(
+                return_value={
+                    disc1: _info(title_id="SLUS-00001", icon_png=b"disc-1"),
+                    disc2: _info(title_id="SLUS-00002", icon_png=b"disc-2"),
+                }
+            ),
+        )
+
+        parsed = await scan_env.handler.get_rom_files(
+            scan_env.rom, calculate_hashes=False
+        )
+
+        assert parsed.icon is not None and parsed.icon.png == b"disc-1"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("extract_title_ids", [True, False])
+    async def test_switch_icon_comes_from_the_base_game(
+        self, scan_env, mocker, extract_title_ids: bool
+    ):
+        scan_env.rom.platform = Platform(
+            name="Nintendo Switch", slug="switch", fs_slug="switch"
+        )
+        update = scan_env.rom_dir / "Game (Disc 1).iso"
+        base = scan_env.rom_dir / "Game (Disc 2).iso"
+        mocker.patch.object(
+            rom_converto_service,
+            "read_infos",
+            mocker.AsyncMock(
+                return_value={
+                    update: _info(title_id="0100ABCD12340800", icon_png=b"update"),
+                    base: _info(title_id="0100ABCD12340000", icon_png=b"base"),
+                }
+            ),
+        )
+
+        parsed = await scan_env.handler.get_rom_files(
+            scan_env.rom,
+            calculate_hashes=False,
+            extract_title_ids=extract_title_ids,
+        )
+
+        if extract_title_ids:
+            assert parsed.identity.title_id == "0100ABCD12340000"
+        assert parsed.icon is not None and parsed.icon.png == b"base"
+
+    @pytest.mark.asyncio
+    async def test_changed_secondary_disc_keeps_the_primary_icon_result_unset(
+        self, scan_env, mocker
+    ):
+        disc1 = scan_env.rom_dir / "Game (Disc 1).iso"
+        disc2 = scan_env.rom_dir / "Game (Disc 2).iso"
+        mocker.patch.object(
+            rom_converto_service,
+            "read_infos",
+            mocker.AsyncMock(
+                return_value={
+                    disc1: _info(title_id="SLUS-00001", icon_png=b"disc-1"),
+                    disc2: _info(title_id="SLUS-00002", icon_png=b"disc-2"),
+                }
+            ),
+        )
+        first = await scan_env.handler.get_rom_files(
+            scan_env.rom, calculate_hashes=False
+        )
+        by_name = {f.file_name: f for f in first.rom_files}
+        by_name["Game (Disc 2).iso"].converto_read_at = None
+        mocker.patch.object(
+            rom_converto_service,
+            "read_infos",
+            mocker.AsyncMock(
+                return_value={disc2: _info(title_id="SLUS-00002", icon_png=b"changed")}
+            ),
+        )
+
+        rescan = await scan_env.handler.get_rom_files(
+            scan_env.rom, calculate_hashes=False, existing_files=first.rom_files
+        )
+
+        assert rescan.icon is None
+
+    @pytest.mark.asyncio
+    async def test_no_icon_and_a_failed_read_are_distinct(self, scan_env, mocker):
+        disc1 = scan_env.rom_dir / "Game (Disc 1).iso"
+        disc2 = scan_env.rom_dir / "Game (Disc 2).iso"
+        mocker.patch.object(
+            rom_converto_service,
+            "read_infos",
+            mocker.AsyncMock(
+                return_value={
+                    disc1: _info(title_id="SLUS-00001", icon_png=None),
+                    disc2: _info(title_id="SLUS-00002", icon_png=b"disc-2"),
+                }
+            ),
+        )
+
+        no_icon = await scan_env.handler.get_rom_files(
+            scan_env.rom, calculate_hashes=False
+        )
+        assert no_icon.icon is not None and no_icon.icon.png is None
+
+        for rom_file in no_icon.rom_files:
+            rom_file.converto_read_at = None
+        mocker.patch.object(
+            rom_converto_service,
+            "read_infos",
+            mocker.AsyncMock(return_value={}),
+        )
+        failed = await scan_env.handler.get_rom_files(
+            scan_env.rom,
+            calculate_hashes=False,
+            existing_files=no_icon.rom_files,
+        )
+        assert failed.icon is None
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("extract_title_ids", [True, False])
+    @pytest.mark.parametrize("nested_primary", [False, True])
+    async def test_a_promoted_secondary_is_read_before_replacing_the_icon(
+        self, scan_env, mocker, extract_title_ids: bool, nested_primary: bool
+    ):
+        disc1 = (
+            scan_env.rom_dir / "nested" / "Game (Disc 1).iso"
+            if nested_primary
+            else scan_env.rom_dir / "Game (Disc 1).iso"
+        )
+        if nested_primary:
+            disc1.parent.mkdir()
+            disc1.write_bytes(b"rom-bytes")
+        disc2 = scan_env.rom_dir / "Game (Disc 2).iso"
+        mocker.patch.object(
+            rom_converto_service,
+            "read_infos",
+            mocker.AsyncMock(
+                return_value={
+                    disc1: _info(title_id="SLUS-00001", icon_png=b"disc-1"),
+                    disc2: _info(title_id="SLUS-00001", icon_png=b"disc-2"),
+                }
+            ),
+        )
+        first = await scan_env.handler.get_rom_files(
+            scan_env.rom,
+            calculate_hashes=False,
+            extract_title_ids=extract_title_ids,
+        )
+        scan_env.rom.title_id = first.identity.title_id
+        disc1.unlink()
+        read_promoted = mocker.patch.object(
+            rom_converto_service,
+            "read_infos",
+            mocker.AsyncMock(
+                return_value={disc2: _info(title_id="SLUS-00001", icon_png=b"disc-2")}
+            ),
+        )
+
+        promoted = await scan_env.handler.get_rom_files(
+            scan_env.rom,
+            calculate_hashes=False,
+            existing_files=first.rom_files,
+            extract_title_ids=extract_title_ids,
+        )
+
+        if extract_title_ids:
+            assert promoted.identity.title_id == "SLUS-00001"
+        assert promoted.icon is not None and promoted.icon.png == b"disc-2"
+        read_promoted.assert_awaited()
 
 
 @pytest.mark.parametrize(

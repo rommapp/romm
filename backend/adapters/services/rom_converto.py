@@ -5,7 +5,7 @@ import os
 import re
 import shutil
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import batched
 from pathlib import Path
 from typing import Any, Final
@@ -51,6 +51,7 @@ CUE_EXT: Final = ".cue"
 
 # Bounds one run's output, which carries every file's embedded images as JSON.
 INFO_RUN_MAX_FILES: Final = 64
+MAX_NATIVE_ICON_BYTES: Final = 256 * 1024
 
 _PSP_TITLE_ID_PATTERN: Final[re.Pattern[str]] = re.compile(r"[A-Z]{4}[0-9]{5}")
 
@@ -82,6 +83,7 @@ class RomConvertoInfo:
     # extractor can fill `Rom.title_id` interchangeably.
     title_id: str | None = None
     title_version: int | None = None
+    icon_png: bytes | None = None
 
 
 @dataclass(frozen=True)
@@ -477,6 +479,37 @@ def _parse_info(payload: dict[str, Any]) -> RomConvertoInfo:
     )
 
 
+def _png_bytes(image: Any) -> bytes | None:
+    if not isinstance(image, dict):
+        return None
+    values = image.get("png_bytes")
+    if (
+        not isinstance(values, list)
+        or not values
+        or len(values) > MAX_NATIVE_ICON_BYTES
+    ):
+        return None
+    try:
+        return bytes(values)
+    except (TypeError, ValueError):
+        return None
+
+
+def _native_icon(
+    payload: dict[str, Any], keys: tuple[str, ...] = ("icon", "image", "banner_image")
+) -> bytes | None:
+    for key in keys:
+        if icon := _png_bytes(payload.get(key)):
+            return icon
+    for key in ("content", "full", "xbe", "xex", "banner", "control"):
+        nested = payload.get(key)
+        if isinstance(nested, dict) and (icon := _native_icon(nested, keys)):
+            return icon
+    if keys == ("icon", "image", "banner_image"):
+        return _native_icon(payload, ("small_icon",))
+    return None
+
+
 class RomConvertoService:
     """Service to inspect and convert ROMs using the rom-converto CLI."""
 
@@ -587,7 +620,10 @@ class RomConvertoService:
                 continue
             payload = record.get("info")
             if record.get("ok") and isinstance(payload, dict):
-                infos[Path(str(record.get("path")))] = _parse_info(payload)
+                info = _parse_info(payload)
+                infos[Path(str(record.get("path")))] = replace(
+                    info, icon_png=_native_icon(payload)
+                )
             else:
                 # Only an explicit miss is a read; a malformed record is retried.
                 if record.get("ok") is False:

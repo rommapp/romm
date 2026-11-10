@@ -83,6 +83,7 @@ from handler.scan_handler import (
     build_hashless_fs_rom,
     download_rom_resources,
     emit_scanning_rom,
+    persist_native_icon,
     persist_soundtrack_cover,
     scan_firmware,
     scan_platform,
@@ -583,6 +584,7 @@ async def _rebuild_rom_files(
             "sha1_hash": parsed.sha1_hash,
             "ra_hash": parsed.ra_hash,
             "identity": parsed.identity,
+            "icon": parsed.icon,
         }
     )
     if renamed_rom_fs_name:
@@ -792,6 +794,7 @@ async def _identify_rom(
 
     _added_rom = db_rom_handler.add_rom(scanned_rom)
     scanned_rom_ids.add(_added_rom.id)
+    await persist_native_icon(_added_rom, fs_rom.get("icon"))
 
     if _added_rom.is_identified:
         await emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)

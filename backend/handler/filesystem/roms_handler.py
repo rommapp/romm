@@ -14,6 +14,7 @@ from typing import Any, Final, NotRequired, TypedDict
 
 from adapters.services.rom_converto import (
     CONVERTO_PLATFORM_SLUGS,
+    RomConvertoInfo,
     rom_converto_service,
 )
 from adapters.services.sigil import (
@@ -124,6 +125,7 @@ class FSRom(TypedDict):
     sha1_hash: str
     ra_hash: str
     identity: NotRequired[RomIdentity]
+    icon: NotRequired["NativeIconResult | None"]
 
 
 def build_empty_fs_rom(fs_name: str, fs_path: str, *, flat: bool) -> FSRom:
@@ -244,6 +246,14 @@ class TitleIdEmbedCandidate:
 
 
 @dataclass(frozen=True)
+class NativeIconResult:
+    # None is an authoritative no-icon result. A missing NativeIconResult means
+    # the primary file was not freshly read and the stored icon must be kept.
+    png: bytes | None
+    source: RomFile | None = None
+
+
+@dataclass(frozen=True)
 class ParsedRomFiles:
     rom_files: list[RomFile]
     crc_hash: str
@@ -254,6 +264,7 @@ class ParsedRomFiles:
     # which case the hashes above are the stored ones rather than recomputed.
     top_level_changed: bool = True
     identity: RomIdentity = field(default_factory=RomIdentity)
+    icon: NativeIconResult | None = None
     # Files whose name can carry their Switch title id. Renaming is a separate
     # step (`embed_switch_title_ids`) so parsing stays a read.
     embed_candidates: list[TitleIdEmbedCandidate] = field(default_factory=list)
@@ -688,21 +699,19 @@ class FSRomsHandler(FSHandler):
             and await rom_converto_service.is_enabled()
         )
 
-    async def _read_converto_infos(self, sources: list[tuple[Path, RomFile]]) -> bool:
-        """Write title ids onto recognized files and mark stored rows it couldn't read.
-
-        Returns:
-            Whether any file was recognized.
-        """
+    async def _read_converto_infos(
+        self, sources: list[tuple[Path, RomFile]]
+    ) -> dict[Path, RomConvertoInfo | None]:
+        """Write title ids and return the fresh outcome for each inspected path."""
         if not sources:
-            return False
+            return {}
         infos = await rom_converto_service.read_infos([p for p, _ in sources])
         read_at = datetime.now(timezone.utc)
-        recognized = False
         for path, rom_file in sources:
             if path not in infos:
                 continue
             info = infos[path]
+            rom_file._native_icon_retry = False
             if info is None:
                 # A stored row already carries its ids, so the mark can't blank one.
                 if rom_file.id is not None:
@@ -711,8 +720,54 @@ class FSRomsHandler(FSHandler):
             rom_file.title_id = info.title_id
             rom_file.title_version = info.title_version
             rom_file.converto_read_at = read_at
-            recognized = True
-        return recognized
+        return infos
+
+    async def _native_icon_result(
+        self,
+        rom_files: list[RomFile],
+        platform_slug: str,
+        title_id: str | None,
+        file_membership_changed: bool,
+        converto_active: bool,
+        infos: Mapping[Path, RomConvertoInfo | None],
+        abs_fs_path: Path,
+        rel_roms_path: str,
+    ) -> NativeIconResult | None:
+        ordered = sorted(rom_files, key=_rom_file_order)
+        primary = None
+        if platform_slug in SWITCH_PLATFORM_SLUGS:
+            primary = next(
+                (
+                    f
+                    for f in ordered
+                    if f.title_id and switch.is_base_title_id(f.title_id)
+                ),
+                None,
+            )
+        if primary is None and title_id:
+            primary = next((f for f in ordered if f.title_id == title_id), None)
+        if primary is None:
+            primary = next(
+                (f for f in ordered if f.title_id), ordered[0] if ordered else None
+            )
+        if primary is None:
+            return None
+
+        path = abs_fs_path / Path(primary.full_path).relative_to(rel_roms_path)
+        fresh_infos = dict(infos)
+        if (
+            converto_active
+            and file_membership_changed
+            and primary.converto_read_at is not None
+            and path not in fresh_infos
+        ):
+            # A changed file set can promote an already-read secondary, which
+            # still needs a fresh result before its icon replaces the old one.
+            fresh_infos.update(await self._read_converto_infos([(path, primary)]))
+        if path not in fresh_infos:
+            return None
+        info = fresh_infos[path]
+        return NativeIconResult(info.icon_png if info is not None else None, primary)
 
     async def get_rom_files(
         self,
@@ -1104,7 +1159,8 @@ class FSRomsHandler(FSHandler):
                 rom_file.category,
             )
         ]
-        converto_recognized = await self._read_converto_infos(converto_sources)
+        converto_infos = await self._read_converto_infos(converto_sources)
+        converto_recognized = any(info is not None for info in converto_infos.values())
 
         # Same bytes parse to the same ids, and the stored rows already hold
         # what an earlier parse settled, categories included.
@@ -1161,6 +1217,29 @@ class FSRomsHandler(FSHandler):
             sha1_hash = rom.sha1_hash or ""
             ra_hash = rom.ra_hash or ""
 
+        identity = (
+            RomIdentity.from_rom(rom)
+            if reuse_title_ids
+            else _rom_level_identity(
+                rom.platform_slug,
+                sigil_extractions,
+                rom_files if converto_active and extract_title_ids else [],
+                RomIdentity.from_rom(rom),
+            )
+        )
+        file_membership_changed = existing_by_key is not None and {
+            rom_file_key(rom_file) for rom_file in rom_files
+        } != set(existing_by_key)
+        icon = await self._native_icon_result(
+            rom_files,
+            rom.platform_slug,
+            identity.title_id,
+            file_membership_changed,
+            converto_active,
+            converto_infos,
+            abs_fs_path,
+            rel_roms_path,
+        )
         return ParsedRomFiles(
             rom_files=rom_files,
             crc_hash=crc_hash,
@@ -1168,18 +1247,8 @@ class FSRomsHandler(FSHandler):
             sha1_hash=sha1_hash,
             ra_hash=ra_hash,
             top_level_changed=top_level_changed,
-            # rom-converto's file ids stand in only when extraction ran, so a
-            # pass that skipped it can't blank the save target sigil wrote.
-            identity=(
-                RomIdentity.from_rom(rom)
-                if reuse_title_ids
-                else _rom_level_identity(
-                    rom.platform_slug,
-                    sigil_extractions,
-                    rom_files if converto_active and extract_title_ids else [],
-                    RomIdentity.from_rom(rom),
-                )
-            ),
+            identity=identity,
+            icon=icon,
             embed_candidates=embed_candidates,
         )
 
