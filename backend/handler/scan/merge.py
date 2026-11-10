@@ -389,21 +389,28 @@ def record_dump_tags(metadata_handlers: dict[MetadataSource, dict[str, Any]]) ->
 
 
 def record_name_claims(metadata_handlers: dict[MetadataSource, dict[str, Any]]) -> None:
-    """Copy the title each answering source gave into its own blob."""
+    """Copy the title each answering source gave into every blob it fills."""
     # The row's name can't say which source it came from, and a scan only hears
     # from the sources it consults.
+    columns = [
+        (fields["id_field"], fields["metadata_field"])
+        for fields in metadata_handlers.values()
+        if fields["metadata_field"]
+    ]
     for fields in metadata_handlers.values():
         handler = fields["handler"]
-        metadata_field = fields["metadata_field"]
-        if not metadata_field or not handler.get(fields["id_field"]):
-            continue
-        blob = handler.get(metadata_field)
-        # A match without metadata stays one an unmatched scan retries, so it
-        # isn't handed a blob just to hold the title.
-        if not isinstance(blob, dict) or not blob:
-            continue
-        claim = {NAME_CLAIM_KEY: handler.get("name") or ""}
-        fields["handler"] = {**handler, metadata_field: {**blob, **claim}}
+        title = {NAME_CLAIM_KEY: handler.get("name") or ""}
+        # Hasheous fills IGDB's columns too. A match without metadata stays one
+        # an unmatched scan retries, so it isn't handed a blob just for the title.
+        stamped = {
+            metadata_field: {**blob, **title}
+            for id_field, metadata_field in columns
+            if handler.get(id_field)
+            and isinstance(blob := handler.get(metadata_field), dict)
+            and blob
+        }
+        if stamped:
+            fields["handler"] = {**handler, **stamped}
 
 
 def kept_title(blob: Any) -> str | None:
@@ -423,11 +430,15 @@ def settle_name(
     claims: dict[MetadataSource, str | None] = {}
     for source, fields in metadata_handlers.items():
         metadata_field = fields["metadata_field"]
+        id_field = fields["id_field"]
         if not metadata_field:
             continue
-        if fields["handler"].get(fields["id_field"]):
+        matched_id = rom_attrs.get(id_field)
+        if fields["handler"].get(id_field):
             claims[source] = fields["handler"].get("name") or ""
-        elif rom_attrs.get(fields["id_field"]):
+        # An id another source wrote this scan is that source's claim, not a
+        # match the row already held.
+        elif matched_id and matched_id == getattr(rom, id_field, None):
             claims[source] = kept_title(rom_attrs.get(metadata_field))
 
     allowed = scene_apply_sources(list(claims), scene_locked=scene_locked)
@@ -553,10 +564,12 @@ def keep_base_fields(rom_attrs: dict[str, Any], rom: Rom) -> None:
     # filename fallback can win.
     # The stored no-tags name is the placeholder the ROM's name was seeded from.
     placeholders = (None, "", rom.fs_name, fs_name_no_tags, rom.fs_name_no_tags)
-    # A title a source gave is no more the user's than the filename is, so a
-    # better-ranked source can still replace it.
+    # A title a source gave, on this scan or an earlier one, is no more the
+    # user's than the filename is, so a better-ranked source can replace it.
     claimed = {
-        kept_title(getattr(rom, column, None)) for column in PROVIDER_METADATA_COLUMNS
+        kept_title(blob)
+        for column in PROVIDER_METADATA_COLUMNS
+        for blob in (getattr(rom, column, None), rom_attrs.get(column))
     }
     existing_name = None if rom.name in (*placeholders, *claimed) else rom.name
     matched_name = rom_attrs.get("name")

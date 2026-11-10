@@ -1,10 +1,4 @@
-"""How a refresh names a ROM when it consults only some of the ROM's sources.
-
-`scan.priority.metadata` ranks the sources for the title. An unmatched scan asks
-only the sources a ROM lacks, so its own pick would follow the order the scans
-ran in: LaunchBox's "Mario Kart 64", then an unmatched HowLongToBeat scan that
-guesses "Mario Kart 8", would leave the lower-ranked guess as the name.
-"""
+"""How a refresh names a ROM when it consults only some of the ROM's sources."""
 
 from collections.abc import Iterator
 from types import SimpleNamespace
@@ -14,7 +8,9 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from tests.handler.scan_stubs import add_n64_platform, add_rom, run_scan
 
+from handler.metadata.hasheous_handler import HasheousMetadata, HasheousRom
 from handler.metadata.hltb_handler import HLTBMetadata, HLTBRom
+from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.launchbox_handler.types import LaunchboxMetadata, LaunchboxRom
 from handler.scan.sources import MetadataSource, ScanType
 from models.rom import Rom
@@ -31,6 +27,13 @@ HLTB_GUESS = HLTBRom(
     hltb_id=9999,
     name="Mario Kart 8",
     hltb_metadata=HLTBMetadata(main_story=150000),
+)
+HASHEOUS_HIT = HasheousRom(
+    hasheous_id=77,
+    name="Mario Kart 64",
+    igdb_id=1234,
+    tgdb_id=None,
+    hasheous_metadata=cast(HasheousMetadata, {"tosec_match": True}),
 )
 
 
@@ -149,6 +152,63 @@ async def test_a_match_without_metadata_gets_no_blob(lookups):
     result = await _scan(TITLE, ScanType.UNMATCHED, [MetadataSource.HLTB])
 
     assert not result.hltb_metadata
+
+
+async def test_an_update_repairs_a_name_stored_before_titles_were_kept(lookups):
+    result = await _scan(
+        "Mario Kart 8",
+        ScanType.UPDATE,
+        [MetadataSource.LAUNCHBOX, MetadataSource.HLTB],
+        launchbox_id=266,
+        launchbox_metadata={"first_release_date": 851990400},
+        hltb_id=9999,
+        hltb_metadata={"main_story": 150000},
+    )
+
+    assert result.name == "Mario Kart 64"
+
+
+async def _scan_hasheous(igdb_game: HasheousRom) -> Rom:
+    """An unmatched Hasheous-only scan, where Hasheous fills IGDB's columns."""
+    platform = add_n64_platform(hasheous_id=64)
+    rom = add_rom(platform, "mk64 (USA).z64", "mk64")
+    with (
+        patch(
+            "handler.scan.lookups.meta_hasheous_handler.is_enabled", return_value=True
+        ),
+        patch(
+            "handler.scan.lookups.meta_hasheous_handler.lookup_rom",
+            new=AsyncMock(return_value=(HASHEOUS_HIT, True)),
+        ),
+        patch(
+            "handler.scan.lookups.meta_hasheous_handler.get_igdb_game",
+            new=AsyncMock(return_value=igdb_game),
+        ),
+    ):
+        return await run_scan(
+            platform,
+            rom,
+            scan_type=ScanType.UNMATCHED,
+            metadata_sources=[MetadataSource.HASHEOUS],
+        )
+
+
+async def test_an_igdb_id_hasheous_gives_doesnt_hold_the_placeholder():
+    result = await _scan_hasheous(HASHEOUS_HIT)
+
+    assert result.igdb_id == 1234
+    assert result.name == "Mario Kart 64"
+
+
+async def test_igdb_metadata_hasheous_gives_keeps_its_title():
+    igdb_metadata = cast(IGDBMetadata, {"total_rating": "90"})
+    result = await _scan_hasheous(
+        HasheousRom({**HASHEOUS_HIT, "igdb_metadata": igdb_metadata})
+    )
+
+    assert result.name == "Mario Kart 64"
+    assert result.igdb_metadata is not None
+    assert result.igdb_metadata["name"] == "Mario Kart 64"
 
 
 async def test_a_hand_edited_title_that_isnt_text_is_ignored(lookups):
