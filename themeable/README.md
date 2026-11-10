@@ -137,10 +137,10 @@ The repository has two long-lived branches. `upstream` is a clean copy of RomM: 
 
 To adopt a release by hand, work on a branch and let `main` receive it only as an approved merge, as [`GUIDELINES.md`](GUIDELINES.md) requires:
 
-1. Create a release branch for the new version from `main`, for example `release/3.0.0-5.5.0` for RomM 5.5.0, and merge the release tag into it, keeping `main`'s root `docker-compose.yml` if it conflicts. `themeable-upstream/<tag>` branches belong to the workflow, so don't create one by hand.
+1. Create a release branch for the new version from `main`, for example `release/3.0.0-5.5.0` for RomM 5.5.0, and merge the release tag into it, keeping `main`'s root `docker-compose.yml` if it conflicts, and add the release's plan as `docs/plans/<version>.md`. `themeable-upstream/<tag>` branches belong to the workflow, so don't create one by hand.
 2. Run `npm run check-upstream` for the report of added, removed and renamed tokens and artwork, and any pack, hook or patch that would break.
 3. Record token renames in `catalog/token-aliases.json` (`{"--r-old": "--r-new"}`); packs using an old name keep compiling, with a warning.
-4. Run `npm run catalog` and `npm run example`, set `ROMM_VERSION` and the compose file's image tag to the release, raise the major version in `package.json` (resetting the other two numbers to 0), push the branch and open a pull request to `main`. Its checks run on the pull request, and merging it, with the owner's approval, publishes the image.
+4. Run `npm run catalog` and `npm run example`, set `ROMM_VERSION` and the compose file's image tag to the release, raise the major version in `package.json` (resetting the other two numbers to 0), commit the changes, push the branch and open a pull request to `main`. Its checks run on the pull request, and merging it, with the owner's approval, publishes the image.
 
 ## Developing the module
 
