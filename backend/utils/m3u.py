@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+from collections.abc import Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -142,6 +143,11 @@ def listing_playlist(disc: Path) -> str | None:
             elif any(_path_key(path) == target for path in candidates):
                 return playlist.name
     return None
+
+
+def has_playlist(files: Iterable[RomFile]) -> bool:
+    """Whether any of the files is an .m3u playlist."""
+    return any(f.file_extension.lower() == "m3u" for f in files)
 
 
 def playlist_files(files: list[RomFile]) -> list[RomFile]:

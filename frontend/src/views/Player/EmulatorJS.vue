@@ -253,6 +253,10 @@ const discItems = computed<{ title: string; value: DiscSelection }[]>(() => [
   })),
 ]);
 
+const bootRomFileIds = computed(() =>
+  bootFileIds(selectedDisc.value, rom.value?.files ?? []),
+);
+
 // The hero cover is the shared GameCover (same component as gallery +
 // details). We keep a lightweight `useCoverArt` here only to know whether
 // the active style is alt-art, so the purple glow can be dropped for a
@@ -1086,7 +1090,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
         :bios="selectedFirmware"
         :firmware="firmwareOptions"
         :core="selectedCore"
-        :file-ids="bootFileIds(selectedDisc, rom.files)"
+        :file-ids="bootRomFileIds"
       />
       <!-- Bezel overlay drawn around the game canvas. Purely decorative and
            click-through, so pointer events reach the emulator underneath. In

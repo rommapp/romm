@@ -7,9 +7,9 @@
 // as a generic "Network Error" (issue #3938). Validate the saved id against the
 // rom's current files before using it, and report when it must be forgotten.
 //
-// Asking the download endpoint for no file in particular instead returns every
-// file zipped with a generated .m3u, which EmulatorJS boots with its in-game
-// disc switcher (issue #3985). That choice is stored as `ALL_DISCS`.
+// Asking the download endpoint for the base game's files together returns them
+// zipped with a generated .m3u when they carry none, which EmulatorJS boots with
+// its in-game disc switcher (issue #3985). That choice is stored as `ALL_DISCS`.
 import type { RomFileCategory } from "@/__generated__";
 import { userStorage } from "@/composables/useUserLocalStorage";
 import { isPatchFile } from "@/utils/romPatch";
@@ -43,8 +43,8 @@ function isBootableFile(file: DiscFile): boolean {
   return !file.category || !NON_BOOTABLE_CATEGORIES.includes(file.category);
 }
 
-// Top-level files carry no category; one in a translations/, hacks/ or similar
-// folder is a variant that boots only when picked.
+// A file outside any category folder (or in game/) is the base game; one in a
+// translations/, hacks/ or similar folder is a variant that boots only when picked.
 function isBaseGameFile(file: DiscFile): boolean {
   return (!file.category || file.category === "game") && !isPatchFile(file);
 }

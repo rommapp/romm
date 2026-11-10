@@ -171,7 +171,7 @@ from utils.conversion_cache import (
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import check_filename_length, sanitize_filename
 from utils.hashing import crc32_to_hex
-from utils.m3u import generate_m3u_content, playlist_files
+from utils.m3u import generate_m3u_content, has_playlist, playlist_files
 from utils.nginx import (
     FileRedirectResponse,
     ZipContentLine,
@@ -1732,7 +1732,7 @@ async def get_rom_content(
 
     m3u_files = playlist_files(files)
     # A variant's playlist does not list the base discs, so only served files count.
-    has_m3u = any(f.file_extension.lower() == "m3u" for f in files)
+    has_m3u = has_playlist(files)
 
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
