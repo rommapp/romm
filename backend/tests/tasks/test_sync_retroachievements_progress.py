@@ -10,13 +10,18 @@ from handler.database import db_rom_handler, db_user_handler
 from handler.database.roms_handler import DBRomsHandler
 from handler.database.users_handler import DBUsersHandler
 from handler.metadata.ra_handler import RAHandler
+from handler.socket_handler import socket_handler
 from models.rom import RomUserStatus
 from models.user import User
 from tasks.scheduled.sync_retroachievements_progress import (
+    RA_SYNCED_EVENT,
     SyncRetroAchievementsProgressTask,
     _get_rom_user_status_from_ra_award_kind,
+    _sync_and_report,
     _sync_user_progress_by_id,
 )
+
+JOB_PATH = "tasks.scheduled.sync_retroachievements_progress"
 
 
 @pytest.fixture
@@ -357,3 +362,32 @@ class TestSyncUserProgressJob:
         await _sync_user_progress_by_id(viewer_user.id)
 
         get_progression.assert_not_called()
+
+    async def test_a_full_refresh_rereads_every_game(self, viewer_user, mocker):
+        stored = {"total": 1, "results": [{"rom_ra_id": 7}]}
+        db_user_handler.update_user(
+            viewer_user.id, {"ra_username": "player", "ra_progression": stored}
+        )
+        get_progression = mocker.patch.object(
+            RAHandler,
+            "get_user_progression",
+            return_value={"total": 0, "results": []},
+        )
+
+        await _sync_user_progress_by_id(viewer_user.id, refresh_all=True)
+
+        get_progression.assert_awaited_once_with(
+            "player", current_progression=stored, refresh_all=True
+        )
+
+    @pytest.mark.parametrize("fails", [False, True], ids=["synced", "sync_failed"])
+    async def test_the_outcome_reaches_the_users_tabs(self, mocker, fails: bool):
+        mocker.patch(
+            f"{JOB_PATH}._sync_user_progress_by_id",
+            side_effect=RuntimeError("RetroAchievements is down") if fails else None,
+        )
+        emit = mocker.patch.object(socket_handler, "emit_to_user")
+
+        await _sync_and_report(3, refresh_all=False)
+
+        emit.assert_awaited_once_with(3, RA_SYNCED_EVENT, {"ok": not fails})

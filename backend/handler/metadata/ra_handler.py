@@ -9,7 +9,10 @@ from fastapi import HTTPException
 from pydantic import Field
 
 from adapters.services.provider_http import unavailable
-from adapters.services.retroachievements import RetroAchievementsService
+from adapters.services.retroachievements import (
+    RARequestRejectedError,
+    RetroAchievementsService,
+)
 from adapters.services.retroachievements_types import (
     RAGameExtendedDetails,
 )
@@ -371,11 +374,11 @@ class RAHandler(MetadataHandler):
 
         Args:
             current_progression: stored progression; unchanged games reuse it,
-                and games RA refuses to detail keep it.
+                and games RA fails to detail keep it.
             refresh_all: re-read every game's details, even unchanged ones.
         """
         game_progressions: list[RAUserGameProgression] = []
-        refused = False
+        ra_unavailable = False
         current_progression_by_game_id: dict[int | None, RAUserGameProgression] = {}
         if current_progression:
             current_progression_by_game_id = {
@@ -423,21 +426,31 @@ class RAHandler(MetadataHandler):
 
             earned_achievements: list[EarnedAchievement] = []
             if rom_game_id:
-                if not refused:
+                result = None
+                failed = ra_unavailable
+                if not ra_unavailable:
                     try:
                         result = await self.ra_service.get_user_game_progress(
                             username=username,
                             game_id=rom_game_id,
                         )
-                    except HTTPException as exc:
+                    except RARequestRejectedError as exc:
                         log.warning(
                             "RetroAchievements refused progress for game %s, "
+                            "keeping its stored progress: %s",
+                            rom_game_id,
+                            exc.detail,
+                        )
+                        failed = True
+                    except HTTPException as exc:
+                        log.warning(
+                            "RetroAchievements is unavailable at game %s, "
                             "deferring the remaining games to the next sync: %s",
                             rom_game_id,
                             exc.detail,
                         )
-                        refused = True
-                if refused:
+                        failed = ra_unavailable = True
+                if failed:
                     if game_current_progression:
                         game_progressions.append(game_current_progression)
                     continue

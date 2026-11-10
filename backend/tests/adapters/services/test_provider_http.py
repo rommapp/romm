@@ -143,6 +143,40 @@ async def test_rate_limits_get_their_own_attempts():
     assert send.await_count == 4
 
 
+async def test_timeouts_leave_rate_limits_their_whole_budget(no_backoff: AsyncMock):
+    result, send = await _send(
+        TimeoutError(), _status(429), _status(429), "ok", rate_limit_attempts=3
+    )
+
+    assert result == "ok"
+    assert send.await_count == 4
+    assert no_backoff.await_args_list == [call(2), call(4)]
+
+
+async def test_rate_limits_leave_timeouts_their_whole_budget():
+    result, _ = await _send(
+        _status(429), TimeoutError(), "ok", attempts=2, rate_limit_attempts=2
+    )
+
+    assert result == "ok"
+
+
+async def test_on_rate_limit_hears_each_wait():
+    heard = MagicMock()
+    send = AsyncMock(side_effect=[_status(429), _status(429), "ok"])
+
+    await send_with_retries(
+        send,
+        provider="Test",
+        url="u",
+        rate_limit_attempts=3,
+        backoff=0,
+        on_rate_limit=heard,
+    )
+
+    assert heard.call_args_list == [call(0), call(0)]
+
+
 async def test_rate_limit_attempts_leave_timeouts_their_own_budget():
     with pytest.raises(TimeoutError):
         await _send(

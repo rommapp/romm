@@ -25,9 +25,41 @@ from utils.rate_limiter import RateLimiter
 # RetroAchievements does not publish a fixed limit, try to stay
 # within the "fair burst" allowance the API documents
 RA_MAX_REQUESTS_PER_SECOND: Final[float] = 4
+RA_MIN_REQUESTS_PER_SECOND: Final[float] = 0.5
+# Pace regained per request that goes through after a 429 halved it.
+RA_RECOVERY_REQUESTS_PER_SECOND: Final[float] = 0.25
 _rate_limiter = RateLimiter(RA_MAX_REQUESTS_PER_SECOND)
-# A progress sync sends one request per game, so ride out a throttled burst.
-RA_RATE_LIMIT_ATTEMPTS: Final[int] = 5
+# A progress sync sends one request per game, so its requests ride out a throttled burst.
+RA_SYNC_RATE_LIMIT_ATTEMPTS: Final[int] = 5
+# Status codes that mean RA itself is unavailable, not that it refused this request.
+RA_UNAVAILABLE_STATUSES: Final = frozenset(
+    {
+        status.HTTP_429_TOO_MANY_REQUESTS,
+        status.HTTP_502_BAD_GATEWAY,
+        status.HTTP_503_SERVICE_UNAVAILABLE,
+        status.HTTP_504_GATEWAY_TIMEOUT,
+    }
+)
+
+
+class RARequestRejectedError(HTTPException):
+    """RA answered this one request with an error or an unreadable reply."""
+
+
+def _throttle(delay: float) -> None:
+    """Hold every RA request through a 429's wait, then resume at half the pace."""
+    _rate_limiter.hold(delay)
+    _rate_limiter.set_requests_per_second(
+        max(_rate_limiter.requests_per_second / 2, RA_MIN_REQUESTS_PER_SECOND)
+    )
+
+
+def _recover() -> None:
+    pace = _rate_limiter.requests_per_second
+    if pace < RA_MAX_REQUESTS_PER_SECOND:
+        _rate_limiter.set_requests_per_second(
+            min(pace + RA_RECOVERY_REQUESTS_PER_SECOND, RA_MAX_REQUESTS_PER_SECOND)
+        )
 
 
 async def auth_middleware(
@@ -41,9 +73,13 @@ async def auth_middleware(
     return await handler(req)
 
 
-def _failed(reason: object) -> HTTPException:
+def _failed(reason: Exception) -> HTTPException:
     log.error("RetroAchievements request failed: %s", reason)
-    return HTTPException(
+    rejected = isinstance(reason, json.JSONDecodeError) or (
+        isinstance(reason, aiohttp.ClientResponseError)
+        and reason.status not in RA_UNAVAILABLE_STATUSES
+    )
+    return (RARequestRejectedError if rejected else HTTPException)(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         detail="RetroAchievements did not answer the request, try again later",
     )
@@ -69,12 +105,20 @@ class RetroAchievementsService:
         self.url = yarl.URL(base_url or "https://retroachievements.org/API")
 
     async def _request[T](
-        self, url: str, tp: type[T], request_timeout: float = 120
+        self,
+        url: str,
+        tp: type[T],
+        request_timeout: float = 120,
+        rate_limit_attempts: int | None = None,
     ) -> T | None:
         """Fetch one endpoint, raising a 503 when the request fails.
 
         Returns:
             The decoded reply, or None when RA has no such entity.
+
+        Raises:
+            RARequestRejectedError: RA refused this request but is up.
+            HTTPException: RA is unavailable or throttling.
         """
         source = f"RetroAchievements {yarl.URL(url).name}"
         aiohttp_session = ctx_aiohttp_session.get()
@@ -93,6 +137,7 @@ class RetroAchievementsService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
+            _recover()
             return _parse(tp, await res.read(), source=source)
 
         try:
@@ -100,7 +145,8 @@ class RetroAchievementsService:
                 send,
                 provider="RetroAchievements",
                 url=url,
-                rate_limit_attempts=RA_RATE_LIMIT_ATTEMPTS,
+                rate_limit_attempts=rate_limit_attempts,
+                on_rate_limit=_throttle,
             )
         except (
             aiohttp.ClientResponseError,
@@ -175,7 +221,11 @@ class RetroAchievementsService:
         url = self.url.joinpath("API_GetUserCompletionProgress.php").with_query(
             **params
         )
-        return await self._request(str(url), RAUserCompletionProgress)
+        return await self._request(
+            str(url),
+            RAUserCompletionProgress,
+            rate_limit_attempts=RA_SYNC_RATE_LIMIT_ATTEMPTS,
+        )
 
     async def iter_user_completion_progress(
         self,
@@ -225,4 +275,8 @@ class RetroAchievementsService:
         url = self.url.joinpath("API_GetGameInfoAndUserProgress.php").with_query(
             **params
         )
-        return await self._request(str(url), RAGameInfoAndUserProgress)
+        return await self._request(
+            str(url),
+            RAGameInfoAndUserProgress,
+            rate_limit_attempts=RA_SYNC_RATE_LIMIT_ATTEMPTS,
+        )

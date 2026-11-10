@@ -12,6 +12,7 @@ import pytest
 from fastapi import HTTPException, status
 from tests.timezones import local_timezone
 
+from adapters.services.retroachievements import RARequestRejectedError
 from adapters.services.retroachievements_types import RAGameExtendedDetails
 from handler.filesystem import fs_resource_handler
 from handler.metadata import ra_handler
@@ -728,6 +729,29 @@ class TestUserProgression:
             (1, 3),
             (2, 2),
             (3, 2),
+        ]
+
+    async def test_a_rejected_game_keeps_its_progress_and_the_rest_are_read(
+        self,
+        handler: RAHandler,
+        completion: list[dict[str, object]],
+        game_progress: AsyncMock,
+    ):
+        completion.extend([_completion(1), _completion(2)])
+        previous = await handler.get_user_progression("me")
+        completion[:] = [_completion(i, NumAwarded=3) for i in (1, 2)]
+        game_progress.reset_mock()
+        game_progress.side_effect = [
+            RARequestRejectedError(status.HTTP_503_SERVICE_UNAVAILABLE),
+            game_progress.return_value,
+        ]
+
+        progression = await handler.get_user_progression("me", previous)
+
+        assert game_progress.await_count == 2
+        assert [(g["rom_ra_id"], g["num_awarded"]) for g in progression["results"]] == [
+            (1, 2),
+            (2, 3),
         ]
 
     async def test_a_refused_game_still_takes_its_current_award_kind(

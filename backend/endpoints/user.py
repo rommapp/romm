@@ -1,6 +1,6 @@
 import asyncio
 import json
-from typing import Annotated, Any, Final, cast
+from typing import Annotated, Any, Final
 
 from fastapi import Body, Form, HTTPException
 from fastapi import Path as PathVar
@@ -34,9 +34,8 @@ from handler.filesystem.assets_handler import (
     build_asset_file_response,
     validate_image_upload,
 )
-from handler.metadata import meta_ra_handler
-from handler.metadata.ra_handler import RAUserProgression
 from handler.notification_handler import notify
+from handler.play_session_handler import queue_ra_progress_sync
 from handler.socket_handler import close_client_token_sockets
 from logger.logger import log
 from models.audit_event import AuditAction
@@ -718,9 +717,12 @@ async def delete_user(
     router.post,
     "/{id}/ra/refresh",
     [Scope.ME_WRITE],
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_202_ACCEPTED,
     summary="Refresh RetroAchievements",
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_503_SERVICE_UNAVAILABLE: {},
+    },
 )
 async def refresh_retro_achievements(
     request: Request,
@@ -733,7 +735,7 @@ async def refresh_retro_achievements(
         ),
     ] = False,
 ) -> None:
-    """Refresh RetroAchievements progression data for a user."""
+    """Queue a refresh of a user's RetroAchievements progression; `ra:synced` reports when it ends."""
     user = db_user_handler.get_user(id)
     if user:
         _assert_can_manage_user(request, user)
@@ -743,10 +745,9 @@ async def refresh_retro_achievements(
             detail="User does not have a RetroAchievements username set",
         )
 
-    user_progression = await meta_ra_handler.get_user_progression(
-        user.ra_username,
-        current_progression=cast(RAUserProgression | None, user.ra_progression),
-        refresh_all=not incremental,
-    )
-    db_user_handler.set_ra_progression(id, user.ra_username, user_progression)
+    if not queue_ra_progress_sync(id, refresh_all=not incremental):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Couldn't queue the RetroAchievements sync, try again later",
+        )
     return None
