@@ -143,10 +143,12 @@ export async function saveState({
   rom,
   stateFile,
   screenshotFile,
+  deviceId,
 }: {
   rom: DetailedRom;
   stateFile: ArrayBuffer;
   screenshotFile?: ArrayBuffer | undefined;
+  deviceId?: string | undefined;
 }): Promise<StateUpload> {
   // A zero-length buffer means the core failed to serialize its state (a torn
   // read from a running threaded core). Refuse to upload it so a broken
@@ -170,6 +172,7 @@ export async function saveState({
     bytes: stateFile,
     screenshotBytes: screenshotFile,
     emulator: window.EJS_core,
+    deviceId,
     capturedAt: capturedAt.getTime(),
   });
   // Nothing gets through while the server is down; the held state goes once
@@ -180,6 +183,7 @@ export async function saveState({
     const uploadedStates = await stateApi.uploadStates({
       rom: rom,
       emulator: window.EJS_core,
+      deviceId,
       statesToUpload: [
         sessionStateFiles(rom, capturedAt, stateFile, screenshotFile),
       ],

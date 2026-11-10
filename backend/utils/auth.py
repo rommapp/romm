@@ -8,7 +8,7 @@ from starlette.requests import HTTPConnection
 from ua_parser import Result as UAResult
 from ua_parser import parse as parse_ua
 
-from handler.auth.constants import SESSION_COOKIE_NAME
+from handler.auth.constants import SESSION_COOKIE_NAME, Scope
 from handler.database import db_device_handler
 from handler.redis_handler import async_cache
 from logger.formatter import CYAN
@@ -55,6 +55,22 @@ def require_device(
             detail="Only the device itself can do this",
         )
     return device
+
+
+def resolve_device(
+    request: Request,
+    device_id: str | None,
+    required_scope: Scope | None = None,
+) -> Device | None:
+    """The caller's device a sync request names, None when it names none."""
+    if not device_id:
+        return None
+
+    scopes = request.auth.scopes
+    if required_scope and scopes and required_scope not in scopes:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    return require_device(request, device_id)
 
 
 def request_client_token_id(conn: HTTPConnection) -> int | None:
