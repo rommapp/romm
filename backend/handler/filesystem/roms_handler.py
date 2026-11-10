@@ -1200,17 +1200,16 @@ class FSRomsHandler(FSHandler):
                     rom_crc_c = binascii.crc32(chunk, rom_crc_c)
 
             # A failed read may have fed part of the member already, so the
-            # raw-file fallback starts from the hashers' prior state.
-            snapshot = (
-                crc_c,
-                rom_crc_c,
-                md5_h.copy(),
-                sha1_h.copy(),
-                rom_md5_h.copy() if accumulate else rom_md5_h,
-                rom_sha1_h.copy() if accumulate else rom_sha1_h,
+            # raw-file fallback starts over from the ROM accumulators' prior state.
+            rom_snapshot = (
+                (rom_crc_c, rom_md5_h.copy(), rom_sha1_h.copy()) if accumulate else None
             )
             if not hash_largest_member(file_path, update_hashes):
-                crc_c, rom_crc_c, md5_h, sha1_h, rom_md5_h, rom_sha1_h = snapshot
+                crc_c = 0
+                md5_h = hashlib.md5(usedforsecurity=False)
+                sha1_h = hashlib.sha1(usedforsecurity=False)
+                if rom_snapshot:
+                    rom_crc_c, rom_md5_h, rom_sha1_h = rom_snapshot
                 for chunk in read_basic_file(file_path):
                     update_hashes(chunk)
 

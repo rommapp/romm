@@ -72,6 +72,15 @@ ARCHIVE_FORMAT_BY_MIME: Final[dict[str, ArchiveFormat]] = {
 
 COMPRESSED_MIME_TYPES: Final = frozenset(ARCHIVE_FORMAT_BY_MIME)
 
+# What tarfile and the stream decompressors raise on a damaged or foreign file.
+_DECOMPRESS_ERRORS: Final = (
+    tarfile.TarError,
+    OSError,
+    EOFError,
+    zlib.error,
+    lzma.LZMAError,
+)
+
 # CHD (Compressed Hunks of Data) v5 format constants
 # See: https://github.com/mamedev/mame/blob/master/src/lib/util/chd.h
 CHD_SIGNATURE: Final = b"MComprHD"
@@ -163,16 +172,14 @@ def read_zip_file(file_path: Path) -> Iterator[bytes]:
             )
             if largest_file is None:
                 raise ArchiveReadError(f"Zip {file_path} has no members")
-            with z.open(largest_file, "r") as f:
-                yield from _iter_chunks(f, file_path, largest_file.filename)
-    except (
-        zipfile.BadZipFile,
-        RuntimeError,
-        OSError,
-        NotImplementedError,
-        ValueError,
-    ) as e:
+            if _undecodable_zip_method(z, [largest_file]) is None:
+                with z.open(largest_file, "r") as f:
+                    yield from _iter_chunks(f, file_path, largest_file.filename)
+                return
+    except (zipfile.BadZipFile, RuntimeError, OSError, ValueError) as e:
         raise ArchiveReadError(f"Error reading zip {file_path}: {e}") from e
+    # zipfile can't decode every compression method, and 7zz reads them all.
+    yield from read_7z_file(file_path)
 
 
 def read_tar_file(file_path: Path) -> Iterator[bytes]:
@@ -191,7 +198,7 @@ def read_tar_file(file_path: Path) -> Iterator[bytes]:
                 raise ArchiveReadError(f"Can't extract {largest_file.name}")
             with ef:
                 yield from _iter_chunks(ef, file_path, largest_file.name)
-    except (tarfile.TarError, OSError, EOFError, zlib.error, lzma.LZMAError) as e:
+    except _DECOMPRESS_ERRORS as e:
         raise ArchiveReadError(f"Error reading tar {file_path}: {e}") from e
 
 
@@ -201,7 +208,7 @@ def _is_tarball(file_path: Path) -> bool:
     try:
         with tarfile.open(file_path, "r:*") as f:
             return f.next() is not None
-    except tarfile.TarError, OSError, EOFError, zlib.error, lzma.LZMAError:
+    except _DECOMPRESS_ERRORS:
         return False
 
 
@@ -215,7 +222,7 @@ def _read_compressed_stream(
     try:
         with opener(file_path) as f:
             yield from _iter_chunks(f, file_path, file_path.name)
-    except (OSError, EOFError, lzma.LZMAError) as e:
+    except _DECOMPRESS_ERRORS as e:
         raise ArchiveReadError(f"Error reading {file_path}: {e}") from e
 
 
@@ -231,6 +238,17 @@ def read_xz_file(file_path: Path) -> Iterator[bytes]:
     return _read_compressed_stream(file_path, lzma.LZMAFile)
 
 
+def read_7z_file(file_path: Path) -> Iterator[bytes]:
+    """Stream the largest member through 7zz, raising `ArchiveReadError` if it can't be read."""
+    largest_file = max(
+        _list_archive_file_members(file_path), key=lambda e: e[1], default=None
+    )
+    if largest_file is None:
+        raise ArchiveReadError(f"Archive {file_path} has no members")
+    for _name, _size, chunks in _stream_archive_members(file_path, [largest_file]):
+        yield from chunks
+
+
 LARGEST_MEMBER_READERS: Final[
     dict[ArchiveFormat, Callable[[Path], Iterator[bytes]]]
 ] = {
@@ -239,6 +257,7 @@ LARGEST_MEMBER_READERS: Final[
     "gzip": read_gz_file,
     "bz2": read_bz2_file,
     "xz": read_xz_file,
+    "7z": read_7z_file,
 }
 
 
@@ -255,114 +274,17 @@ def hash_largest_member(
     archive_format = detect_archive_format(file_path)
     if archive_format is None:
         return False
-    if archive_format == "7z":
-        return hash_largest_7z_member(file_path, fn_hash_update)
     has_content = False
     try:
         for chunk in LARGEST_MEMBER_READERS[archive_format](file_path):
             has_content = True
             fn_hash_update(chunk)
     except ArchiveReadError as e:
-        # zipfile can't decode every compression method, and 7zz reads them all.
-        if archive_format == "zip" and isinstance(e.__cause__, NotImplementedError):
-            return hash_largest_7z_member(file_path, fn_hash_update)
         log.warning(f"{e}. Hashing the file itself instead.")
         return False
     # Empty content would leave a non-empty file with blank hashes, which an
     # incremental scan reads as changed every time.
     return has_content
-
-
-def hash_largest_7z_member(
-    file_path: Path,
-    fn_hash_update: Callable[[bytes | bytearray], None],
-) -> bool:
-    """Stream the largest member of a 7z archive through `fn_hash_update`.
-
-    Returns True on success, False if listing/extraction fails or times out,
-    in which case `fn_hash_update` may already have seen part of the member.
-    """
-    try:
-        result = subprocess.run(
-            [SEVEN_ZIP_PATH, "l", "-slt", "-ba", str(file_path)],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=SEVEN_ZIP_TIMEOUT,
-            shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
-        )
-
-        largest_file = None
-        largest_size = 0
-        current_file = None
-        current_size = 0
-
-        for line in result.stdout.split("\n"):
-            line = line.lstrip()
-            if line.startswith("Path = "):
-                current_file = line.split(" = ", 1)[1]
-            elif line.startswith("Size = "):
-                try:
-                    current_size = int(line.split(" = ")[1].strip())
-                except ValueError:
-                    current_size = 0
-            elif line.startswith("Attributes = "):
-                attrs = line.split(" = ")[1].strip()
-                if current_file and not attrs.startswith("D"):
-                    if current_size > largest_size:
-                        largest_size = current_size
-                        largest_file = current_file
-
-        if not largest_file:
-            return False
-
-        log.debug(f"Extracting {largest_file} from {file_path}...")
-
-        deadline = time.monotonic() + SEVEN_ZIP_TIMEOUT
-
-        with (
-            subprocess.Popen(
-                [
-                    SEVEN_ZIP_PATH,
-                    "e",
-                    str(file_path),
-                    "-so",
-                    "-y",
-                    "-spd",
-                    "--",
-                    largest_file,
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
-            ) as process,
-            _kill_at_deadline(process, deadline) as expired,
-        ):
-            if process.stdout:
-                while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
-                    if time.monotonic() > deadline:
-                        process.terminate()
-                        log.error("7z extraction timed out")
-                        return False
-                    fn_hash_update(chunk)
-
-        if expired.is_set():
-            log.error("7z extraction stalled and was killed at the timeout")
-            return False
-
-        if process.returncode != 0:
-            log.error(f"7z extraction failed with return code {process.returncode}")
-            return False
-
-        return True
-
-    except (
-        subprocess.TimeoutExpired,
-        subprocess.CalledProcessError,
-        FileNotFoundError,
-    ) as e:
-        log.error(f"Error processing 7z file: {e}")
-        return False
 
 
 def _iter_chunks(

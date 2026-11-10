@@ -38,7 +38,11 @@ from handler.filesystem.roms_handler import (
 )
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, SaveTargetLayout
-from utils.archives import extract_chd_hash
+from utils.archives import (
+    LARGEST_MEMBER_READERS,
+    ArchiveReadError,
+    extract_chd_hash,
+)
 
 
 class TestFSRomsHandler:
@@ -1444,6 +1448,7 @@ class TestFSRomsHandler:
         assert sha1_h.hexdigest() == hashlib.sha1(content).hexdigest()
 
     def test_empty_zip_hashes_the_raw_archive(self, handler: FSRomsHandler, tmp_path):
+        reload_zipfile()
         archive = tmp_path / "empty.zip"
         with zipfile.ZipFile(archive, "w"):
             pass
@@ -1469,18 +1474,15 @@ class TestFSRomsHandler:
         archive = tmp_path / "game.7z"
         archive.write_bytes(archive_bytes)
 
-        def _partial_then_fail(_path, fn_hash_update):
-            fn_hash_update(b"partial inner member bytes")
-            return False
+        def _partial_then_fail(path):
+            yield b"partial inner member bytes"
+            raise ArchiveReadError(f"Extraction of {path} failed")
 
         rom_md5_h = hashlib.md5(b"earlier file", usedforsecurity=False)
         rom_sha1_h = hashlib.sha1(b"earlier file", usedforsecurity=False)
         rom_crc_c = binascii.crc32(b"earlier file")
 
-        with patch(
-            "utils.archives.hash_largest_7z_member",
-            side_effect=_partial_then_fail,
-        ):
+        with patch.dict(LARGEST_MEMBER_READERS, {"7z": _partial_then_fail}):
             crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
                 handler._calculate_rom_hashes(archive, rom_crc_c, rom_md5_h, rom_sha1_h)
             )

@@ -158,7 +158,7 @@ def test_largest_member_hashing_terminates_switches_before_the_member():
         patch.object(subprocess, "run", return_value=listing),
         patch.object(subprocess, "Popen", popen),
     ):
-        assert archives.hash_largest_7z_member(Path("/fake/game.7z"), MagicMock())
+        assert b"".join(archives.read_7z_file(Path("/fake/game.7z"))) == b"data"
 
     command = popen.call_args[0][0]
     assert command[-2:] == ["--", "-x"]
@@ -192,7 +192,8 @@ class TestStalledExtractorIsKilled:
     @pytest.mark.usefixtures("stalling_7zz")
     def test_largest_member_hashing_fails(self):
         start = time.monotonic()
-        assert not archives.hash_largest_7z_member(Path("/fake/game.7z"), MagicMock())
+        with pytest.raises(archives.ArchiveReadError, match="timed out"):
+            list(archives.read_7z_file(Path("/fake/game.7z")))
         assert time.monotonic() - start < 10
 
     @pytest.mark.usefixtures("stalling_7zz")
@@ -568,12 +569,7 @@ class TestZipAndTarReadFailures:
     """
 
     def _write_zip(self, path: Path, members: dict[str, bytes]) -> None:
-        # Importing `archives` patches zipfile for Enhanced Deflate, which
-        # leaves the writer unusable until this is called.
-        ensure_zipfile_writable()
-        with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as z:
-            for name, data in members.items():
-                z.writestr(name, data)
+        path.write_bytes(_zip_bytes(members, zipfile.ZIP_STORED))
 
     def test_unopenable_zip_raises(self, tmp_path):
         path = tmp_path / "game.zip"
@@ -650,11 +646,7 @@ class TestZipAndTarReadFailures:
 
 class TestReadTarFile:
     def _write_tar(self, path: Path, members: dict[str, bytes]) -> None:
-        with tarfile.open(path, "w") as tf:
-            for name, data in members.items():
-                info = tarfile.TarInfo(name)
-                info.size = len(data)
-                tf.addfile(info, io.BytesIO(data))
+        path.write_bytes(_tar_bytes(members))
 
     def test_streams_the_largest_member(self, tmp_path):
         path = tmp_path / "game.tar"
@@ -674,6 +666,7 @@ class TestReadTarFile:
 
 
 ROM = b"Tetris ROM bytes " * 64
+DEFLATE64_METHOD = 9
 
 
 def _tar_bytes(members: dict[str, bytes]) -> bytes:
@@ -686,13 +679,32 @@ def _tar_bytes(members: dict[str, bytes]) -> bytes:
     return buf.getvalue()
 
 
-def _zip_bytes(members: dict[str, bytes]) -> bytes:
+def _zip_bytes(
+    members: dict[str, bytes], compression: int = zipfile.ZIP_DEFLATED
+) -> bytes:
+    # Importing `archives` patches zipfile for Enhanced Deflate, which
+    # leaves the writer unusable until this is called.
     ensure_zipfile_writable()
     buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+    with zipfile.ZipFile(buf, "w", compression) as z:
         for name, data in members.items():
             z.writestr(name, data)
     return buf.getvalue()
+
+
+def _write_zip_with_method(
+    path: Path, members: dict[str, bytes], stamped: frozenset[str], method: int
+) -> None:
+    """Write a stored zip, then relabel the `stamped` members' compression method."""
+    raw = bytearray(_zip_bytes(members, zipfile.ZIP_STORED))
+    for name in stamped:
+        encoded = name.encode()
+        # The name follows a 30-byte local header and a 46-byte central one.
+        local = raw.index(encoded, raw.index(b"PK\x03\x04")) - 30
+        struct.pack_into("<H", raw, local + 8, method)
+        central = raw.index(encoded, raw.index(b"PK\x01\x02")) - 46
+        struct.pack_into("<H", raw, central + 10, method)
+    path.write_bytes(bytes(raw))
 
 
 def _hash_content(path: Path) -> bytes | None:
@@ -782,15 +794,11 @@ class TestHashLargestMember:
         assert _hash_content(path) is None
 
     def test_corrupt_deflate64_member_reports_failure(self, tmp_path):
-        ensure_zipfile_writable()
         path = tmp_path / "game.zip"
-        with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as z:
-            # A reserved deflate block type, so inflate64 rejects the stream.
-            z.writestr("game.gb", b"\xff" * 64)
-        raw = bytearray(path.read_bytes())
-        struct.pack_into("<H", raw, raw.index(b"PK\x03\x04") + 8, 9)
-        struct.pack_into("<H", raw, raw.index(b"PK\x01\x02") + 10, 9)
-        path.write_bytes(bytes(raw))
+        # A reserved deflate block type, so inflate64 rejects the stream.
+        _write_zip_with_method(
+            path, {"game.gb": b"\xff" * 64}, frozenset({"game.gb"}), DEFLATE64_METHOD
+        )
 
         assert _hash_content(path) is None
 
@@ -811,20 +819,7 @@ class TestZipUndecodableCompression:
     def _write_zip(
         self, path: Path, members: dict[str, bytes], stamped: frozenset[str]
     ) -> None:
-        ensure_zipfile_writable()
-        with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as z:
-            for name, data in members.items():
-                z.writestr(name, data)
-
-        raw = bytearray(path.read_bytes())
-        for name in stamped:
-            encoded = name.encode()
-            # The name follows a 30-byte local header and a 46-byte central one.
-            local = raw.index(encoded, raw.index(b"PK\x03\x04")) - 30
-            struct.pack_into("<H", raw, local + 8, self.UNASSIGNED_METHOD)
-            central = raw.index(encoded, raw.index(b"PK\x01\x02")) - 46
-            struct.pack_into("<H", raw, central + 10, self.UNASSIGNED_METHOD)
-        path.write_bytes(bytes(raw))
+        _write_zip_with_method(path, members, stamped, self.UNASSIGNED_METHOD)
 
     def test_stamped_zip_is_rejected_by_zipfile(self, tmp_path):
         path = tmp_path / "game.zip"
@@ -857,12 +852,8 @@ class TestZipUndecodableCompression:
         path = tmp_path / "game.zip"
         self._write_zip(path, {"game.bin": b"G" * 64}, frozenset({"game.bin"}))
 
-        def _stream_member(_path, fn_hash_update):
-            fn_hash_update(b"G" * 64)
-            return True
-
         with patch.object(
-            archives, "hash_largest_7z_member", side_effect=_stream_member
+            archives, "read_7z_file", return_value=iter([b"G" * 64])
         ) as seven_zip:
             assert _hash_content(path) == b"G" * 64
 
