@@ -165,7 +165,13 @@ def read_zip_file(file_path: Path) -> Iterator[bytes]:
                 raise ArchiveReadError(f"Zip {file_path} has no members")
             with z.open(largest_file, "r") as f:
                 yield from _iter_chunks(f, file_path, largest_file.filename)
-    except (zipfile.BadZipFile, RuntimeError, OSError, NotImplementedError) as e:
+    except (
+        zipfile.BadZipFile,
+        RuntimeError,
+        OSError,
+        NotImplementedError,
+        ValueError,
+    ) as e:
         raise ArchiveReadError(f"Error reading zip {file_path}: {e}") from e
 
 
@@ -190,7 +196,7 @@ def read_tar_file(file_path: Path) -> Iterator[bytes]:
 
 
 def _is_tarball(file_path: Path) -> bool:
-    # `is_tarfile` accepts any zero-filled opening as an empty tar, which a
+    # tarfile opens a zero-filled first block as an empty archive, which a
     # compressed disc image can start with, so require a first member.
     try:
         with tarfile.open(file_path, "r:*") as f:
@@ -242,21 +248,29 @@ def hash_largest_member(
     """Stream a compressed file's content (its largest member) through `fn_hash_update`.
 
     Returns:
-        False if the file is not a known archive or can't be read in full, in
-        which case `fn_hash_update` may already have seen part of it.
+        False if the file is not a known archive, holds no content, or can't be
+        read in full, in which case `fn_hash_update` may already have seen part
+        of it.
     """
     archive_format = detect_archive_format(file_path)
     if archive_format is None:
         return False
     if archive_format == "7z":
         return hash_largest_7z_member(file_path, fn_hash_update)
+    has_content = False
     try:
         for chunk in LARGEST_MEMBER_READERS[archive_format](file_path):
+            has_content = True
             fn_hash_update(chunk)
     except ArchiveReadError as e:
+        # zipfile can't decode every compression method, and 7zz reads them all.
+        if archive_format == "zip" and isinstance(e.__cause__, NotImplementedError):
+            return hash_largest_7z_member(file_path, fn_hash_update)
         log.warning(f"{e}. Hashing the file itself instead.")
         return False
-    return True
+    # Empty content would leave a non-empty file with blank hashes, which an
+    # incremental scan reads as changed every time.
+    return has_content
 
 
 def hash_largest_7z_member(
@@ -370,6 +384,8 @@ def _iter_chunks(
         lzma.LZMAError,
         EOFError,
         OSError,
+        # inflate64 reports a corrupt Deflate64 stream as a ValueError.
+        ValueError,
     ) as e:
         raise ArchiveReadError(f"Error reading {name} from {file_path}: {e}") from e
 
@@ -425,7 +441,7 @@ def read_zip_archive_files(
                     with z.open(entry, "r") as f:
                         yield name, entry.file_size, _iter_chunks(f, file_path, name)
                 return
-    except (zipfile.BadZipFile, RuntimeError, OSError) as e:
+    except (zipfile.BadZipFile, RuntimeError, OSError, ValueError) as e:
         raise ArchiveReadError(f"Error reading zip {file_path}: {e}") from e
 
     log.debug(

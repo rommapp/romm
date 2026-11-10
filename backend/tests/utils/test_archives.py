@@ -733,7 +733,11 @@ class TestHashLargestMember:
 
     @pytest.mark.parametrize(
         ("name", "compress"),
-        [("disc.iso.gz", gzip.compress), ("disc.iso.bz2", bz2.compress)],
+        [
+            ("disc.iso.gz", gzip.compress),
+            ("disc.iso.bz2", bz2.compress),
+            ("disc.iso.xz", lzma.compress),
+        ],
     )
     def test_a_zero_filled_opening_is_not_a_tarball(self, tmp_path, name, compress):
         image = bytes(4096) + ROM
@@ -763,6 +767,9 @@ class TestHashLargestMember:
             ("empty.zip", _zip_bytes({})),
             ("empty.tar", _tar_bytes({})),
             ("empty.tar.gz", gzip.compress(_tar_bytes({}))),
+            ("empty-member.zip", _zip_bytes({"game.gb": b""})),
+            ("empty-stream.gb.gz", gzip.compress(b"")),
+            ("empty-stream.gb.xz", lzma.compress(b"")),
             ("corrupt.zip", b"PK\x03\x04 not a zip"),
             ("corrupt.gz", gzip.compress(ROM)[:40]),
             ("corrupt.xz", lzma.compress(ROM)[:40]),
@@ -771,6 +778,19 @@ class TestHashLargestMember:
     def test_empty_or_unreadable_archive_reports_failure(self, tmp_path, name, data):
         path = tmp_path / name
         path.write_bytes(data)
+
+        assert _hash_content(path) is None
+
+    def test_corrupt_deflate64_member_reports_failure(self, tmp_path):
+        ensure_zipfile_writable()
+        path = tmp_path / "game.zip"
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as z:
+            # A reserved deflate block type, so inflate64 rejects the stream.
+            z.writestr("game.gb", b"\xff" * 64)
+        raw = bytearray(path.read_bytes())
+        struct.pack_into("<H", raw, raw.index(b"PK\x03\x04") + 8, 9)
+        struct.pack_into("<H", raw, raw.index(b"PK\x01\x02") + 10, 9)
+        path.write_bytes(bytes(raw))
 
         assert _hash_content(path) is None
 
@@ -832,6 +852,21 @@ class TestZipUndecodableCompression:
         extract_args = popen.call_args[0][0]
         assert extract_args[:3] == [archives.SEVEN_ZIP_PATH, "e", str(path)]
         assert "game.bin" in extract_args
+
+    def test_undecodable_largest_member_hashes_through_7zz(self, tmp_path):
+        path = tmp_path / "game.zip"
+        self._write_zip(path, {"game.bin": b"G" * 64}, frozenset({"game.bin"}))
+
+        def _stream_member(_path, fn_hash_update):
+            fn_hash_update(b"G" * 64)
+            return True
+
+        with patch.object(
+            archives, "hash_largest_7z_member", side_effect=_stream_member
+        ) as seven_zip:
+            assert _hash_content(path) == b"G" * 64
+
+        seven_zip.assert_called_once()
 
     def test_mixed_methods_do_not_split_the_read(self, tmp_path):
         """Splitting the read between zipfile and 7zz would double-count the composite hash."""

@@ -5,7 +5,6 @@ import hashlib
 import os
 import re
 import struct
-import zlib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
@@ -881,28 +880,23 @@ class FSRomsHandler(FSHandler):
                     continue
 
                 if hashable_platform:
-                    try:
-                        if is_top_level:
-                            # Include this file in the main ROM hash calculation
-                            crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
-                                await asyncio.to_thread(
-                                    self._calculate_rom_hashes,
-                                    abs_file_path,
-                                    rom_crc_c,
-                                    rom_md5_h,
-                                    rom_sha1_h,
-                                )
-                            )
-                        else:
-                            # Calculate individual file hash only
-                            crc_c, _, md5_h, _, sha1_h, _ = await asyncio.to_thread(
+                    if is_top_level:
+                        # Include this file in the main ROM hash calculation
+                        crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
+                            await asyncio.to_thread(
                                 self._calculate_rom_hashes,
                                 abs_file_path,
+                                rom_crc_c,
+                                rom_md5_h,
+                                rom_sha1_h,
                             )
-                    except zlib.error:
-                        crc_c = 0
-                        md5_h = hashlib.md5(usedforsecurity=False)
-                        sha1_h = hashlib.sha1(usedforsecurity=False)
+                        )
+                    else:
+                        # Calculate individual file hash only
+                        crc_c, _, md5_h, _, sha1_h, _ = await asyncio.to_thread(
+                            self._calculate_rom_hashes,
+                            abs_file_path,
+                        )
 
                     file_hash = _make_file_hash(
                         crc_c,
@@ -1018,8 +1012,8 @@ class FSRomsHandler(FSHandler):
                 # Empty, malformed, unreadable, or all-excluded archive: hash the archive
                 # file's raw bytes. We avoid `_calculate_rom_hashes` here because
                 # it would decompress based on extension and end up hashing the
-                # largest internal member, not the archive itself, and would
-                # crash on an empty zip. `archive_members` stays None.
+                # largest internal member, not the archive itself.
+                # `archive_members` stays None.
                 def _hash_raw_archive(crc: int) -> int:
                     for chunk in read_basic_file(rom_dir):
                         crc = binascii.crc32(chunk, crc)
@@ -1040,15 +1034,10 @@ class FSRomsHandler(FSHandler):
                 )
         else:
             if hashable_platform:
-                try:
-                    crc_c, _, md5_h, _, sha1_h, _ = await asyncio.to_thread(
-                        self._calculate_rom_hashes,
-                        Path(abs_fs_path, rom.fs_name),
-                    )
-                except zlib.error:
-                    crc_c = 0
-                    md5_h = hashlib.md5(usedforsecurity=False)
-                    sha1_h = hashlib.sha1(usedforsecurity=False)
+                crc_c, _, md5_h, _, sha1_h, _ = await asyncio.to_thread(
+                    self._calculate_rom_hashes,
+                    Path(abs_fs_path, rom.fs_name),
+                )
 
                 # A single-file ROM spans exactly one file, so its ROM-level
                 # hashes are that file's hashes.
