@@ -447,7 +447,7 @@ def settle_name(
         if source not in allowed:
             continue
         claim = claims[source]
-        # A matched source whose title isn't known outranks the rest.
+        # A matched source whose title isn't known holds the stored name.
         if claim is None or claim:
             rom_attrs["name"] = rom.name if claim is None else claim
             return
