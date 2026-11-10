@@ -65,11 +65,53 @@ describe("defaultResumeSelection", () => {
     });
   });
 
-  describe("when the save names its device", () => {
+  describe("when the state names its device", () => {
+    const stateFrom = (
+      id: number,
+      origin_device_id: string,
+      updated_at: string,
+    ) => stateFixture({ id, updated_at, origin_device_id });
+
+    it("skips another device's state for older progress of this browser", () => {
+      const saves = [save(1, "2026-09-05T09:00:00Z")];
+      const states = [
+        stateFrom(8, "browser", "2026-09-05T08:00:00Z"),
+        stateFrom(9, "tv", "2026-09-05T11:00:00Z"),
+      ];
+
+      expect(defaultResumeSelection(saves, states, "browser")).toEqual({
+        save: saves[0],
+        state: null,
+      });
+    });
+
+    it("arms this browser's own newest state", () => {
+      const states = [
+        stateFrom(8, "tv", "2026-09-05T08:00:00Z"),
+        stateFrom(9, "browser", "2026-09-05T11:00:00Z"),
+      ];
+
+      expect(defaultResumeSelection([], states, "browser")).toEqual({
+        save: null,
+        state: states[1],
+      });
+    });
+
+    it("falls back to another device's state when nothing else exists", () => {
+      const states = [stateFrom(9, "tv", "2026-09-05T11:00:00Z")];
+
+      expect(defaultResumeSelection([], states, "browser")).toEqual({
+        save: null,
+        state: states[0],
+      });
+    });
+  });
+
+  describe("when only the save names its device", () => {
     const fromDevice = (origin_device_id: string, updated_at: string) =>
       saveFixture({ id: 1, updated_at, origin_device_id });
 
-    it("boots another device's save over a state from the same quit", () => {
+    it("boots another device's save over an untagged state from the same quit", () => {
       const saves = [fromDevice("tv", "2026-09-05T10:00:00Z")];
       const states = [state(9, "2026-09-05T10:00:03Z")];
 

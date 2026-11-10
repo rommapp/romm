@@ -1028,6 +1028,17 @@ describe("saveState", () => {
     expect(pendingAssetMocks.clear).toHaveBeenCalledWith(held.id);
   });
 
+  it("names this browser's device on the upload and the held copy", async () => {
+    await saveState({ rom, stateFile: bytes, deviceId: "browser" });
+
+    expect(stateApiMocks.uploadStates.mock.calls[0]![0]).toMatchObject({
+      deviceId: "browser",
+    });
+    expect(pendingAssetMocks.write.mock.calls[0]![0]).toMatchObject({
+      deviceId: "browser",
+    });
+  });
+
   it("keeps a state the server refused", async () => {
     stateApiMocks.uploadStates.mockResolvedValue([
       { status: "rejected", reason: new Error("offline") },

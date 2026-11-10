@@ -3,7 +3,7 @@ import { newest } from "@/utils/assets";
 
 // What the player boots from and where progress is written back. A state
 // restores the whole machine, SRAM included, so it wins a tie at boot unless
-// another device wrote the save (see defaultResumeSelection).
+// another device wrote it (see defaultResumeSelection).
 export interface ResumeSelection {
   save: SaveSchema | null;
   state: StateSchema | null;
@@ -34,6 +34,26 @@ function writtenTogether(save: SaveSchema, state: StateSchema): boolean {
 }
 
 /**
+ * Whether another device's core likely wrote this state, so it may not load here.
+ *
+ * Args:
+ *   newestSave: an untagged state written with another device's save is
+ *     taken to come from that device.
+ */
+function fromAnotherDevice(
+  state: StateSchema,
+  newestSave: SaveSchema | null,
+  thisDeviceId: string | null,
+): boolean {
+  if (state.origin_device_id) return state.origin_device_id !== thisDeviceId;
+  return (
+    !!newestSave?.origin_device_id &&
+    newestSave.origin_device_id !== thisDeviceId &&
+    writtenTogether(newestSave, state)
+  );
+}
+
+/**
  * The newest save or compatible state, whichever is later; never both.
  *
  * Args:
@@ -44,19 +64,14 @@ export function defaultResumeSelection(
   compatibleStates: readonly StateSchema[],
   thisDeviceId: string | null = null,
 ): ResumeSelection {
-  const latest = newestOfEither(saves, compatibleStates);
-  if (!latest) return { save: null, state: null };
-  // States record no device, so one written with another device's save likely
-  // came from that device's core, which may not load here.
   const save = newest(saves);
-  if (
-    latest.kind === "state" &&
-    save?.origin_device_id &&
-    save.origin_device_id !== thisDeviceId &&
-    writtenTogether(save, latest.asset)
-  ) {
-    return pickSave(save);
-  }
+  const ownStates = compatibleStates.filter(
+    (state) => !fromAnotherDevice(state, save, thisDeviceId),
+  );
+  // Another device's state still beats starting from nothing.
+  const latest =
+    newestOfEither(saves, ownStates) ?? newestOfEither([], compatibleStates);
+  if (!latest) return { save: null, state: null };
   return latest.kind === "state"
     ? pickState(latest.asset)
     : pickSave(latest.asset);

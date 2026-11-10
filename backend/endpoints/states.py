@@ -30,6 +30,7 @@ from logger.logger import log
 from models.assets import EMULATOR_MAX_LENGTH, State
 from models.base import FILE_NAME_MAX_LENGTH
 from utils.assets import normalize_asset_labels
+from utils.auth import resolve_device
 from utils.router import APIRouter
 from utils.uploads import (
     check_asset_upload_size,
@@ -65,11 +66,16 @@ async def add_state(
     request: Request,
     rom_id: int,
     emulator: Annotated[str | None, Query(max_length=EMULATOR_MAX_LENGTH)] = None,
+    device_id: Annotated[
+        str | None, Query(description="The uploading device, recorded as its origin.")
+    ] = None,
     stateFile: UploadFile = STATE_FILE_UPLOAD,
     screenshotFile: UploadFile | None = STATE_SCREENSHOT_UPLOAD,
 ) -> StateSchema:
     check_asset_upload_size(stateFile, "State file")
     check_asset_upload_size(screenshotFile, "Screenshot file")
+
+    device = resolve_device(request, device_id, Scope.DEVICES_WRITE)
 
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
@@ -97,7 +103,12 @@ async def add_state(
     )
 
     db_state = await store_state_file(
-        request.user, rom, emulator, stateFile, sanitized_state_filename
+        request.user,
+        rom,
+        emulator,
+        stateFile,
+        sanitized_state_filename,
+        fields={"origin_device_id": device.id if device else None},
     )
 
     if screenshotFile and sanitized_screenshot_filename:
@@ -214,11 +225,17 @@ def download_state(request: Request, id: int) -> FileResponse:
 async def update_state(
     request: Request,
     id: int,
+    device_id: Annotated[
+        str | None,
+        Query(description="The device writing new content, recorded as its origin."),
+    ] = None,
     stateFile: UploadFile | None = STATE_FILE_UPDATE,
     screenshotFile: UploadFile | None = STATE_SCREENSHOT_UPDATE,
 ) -> StateSchema:
     check_asset_upload_size(stateFile, "State file")
     check_asset_upload_size(screenshotFile, "Screenshot file")
+
+    device = resolve_device(request, device_id, Scope.DEVICES_WRITE)
 
     db_state = owned_rom_asset_or_404(
         request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
@@ -241,6 +258,9 @@ async def update_state(
                 "content_hash": await fs_asset_handler.compute_content_hash(
                     db_state.full_path
                 ),
+                # The origin follows the content, so a client naming no device
+                # leaves it unknown rather than credited to the previous writer.
+                "origin_device_id": device.id if device else None,
             },
         )
     if screenshotFile and sanitized_screenshot_filename:

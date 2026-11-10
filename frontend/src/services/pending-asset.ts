@@ -44,7 +44,7 @@ export interface PendingAsset {
   /** Saves only: the slot the session was writing to. */
   slot?: string | undefined;
   emulator?: string;
-  /** Saves only: the device the session was playing on. */
+  /** The device the session was playing on. */
   deviceId?: string | undefined;
   capturedAt: number;
 }
@@ -310,6 +310,7 @@ async function uploadState(
   const [uploaded] = await stateApi.uploadStates({
     rom,
     emulator: entry.emulator,
+    deviceId: entry.deviceId,
     statesToUpload: [
       sessionStateFiles(
         rom,

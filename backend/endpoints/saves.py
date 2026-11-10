@@ -43,7 +43,7 @@ from models.base import FILE_NAME_MAX_LENGTH
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from utils.assets import normalize_asset_labels
-from utils.auth import require_device, token_device_id
+from utils.auth import resolve_device, token_device_id
 from utils.datetime import to_utc
 from utils.router import APIRouter
 from utils.uploads import (
@@ -124,21 +124,6 @@ def _slot_retention(autocleanup: bool, autocleanup_limit: int) -> int | None:
     return min(limits, default=None)
 
 
-def _resolve_device(
-    request: Request,
-    device_id: str | None,
-    required_scope: Scope | None = None,
-) -> Device | None:
-    if not device_id:
-        return None
-
-    scopes = request.auth.scopes
-    if required_scope and scopes and required_scope not in scopes:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-
-    return require_device(request, device_id)
-
-
 def _record_device_sync(
     device_id: str, save: Save, user_id: int, client_hash: str | None = None
 ) -> None:
@@ -202,7 +187,7 @@ async def add_save(
     autocleanup_limit = max(1, min(autocleanup_limit, MAX_AUTOCLEANUP_LIMIT))
     keep = _slot_retention(autocleanup, autocleanup_limit)
 
-    device = _resolve_device(request, device_id, Scope.DEVICES_WRITE)
+    device = resolve_device(request, device_id, Scope.DEVICES_WRITE)
 
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
@@ -463,7 +448,7 @@ def get_saves(
     slot: str | None = None,
 ) -> list[SaveSchema]:
     """Retrieve saves for the current user."""
-    device = _resolve_device(request, device_id, Scope.DEVICES_READ)
+    device = resolve_device(request, device_id, Scope.DEVICES_READ)
 
     saves = db_save_handler.get_saves(
         user_id=request.user.id,
@@ -521,7 +506,7 @@ def get_saves_summary(request: Request, rom_id: int) -> SaveSummarySchema:
 @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
 def get_save(request: Request, id: int, device_id: str | None = None) -> SaveSchema:
     """Retrieve a save by ID."""
-    device = _resolve_device(request, device_id, Scope.DEVICES_READ)
+    device = resolve_device(request, device_id, Scope.DEVICES_READ)
 
     save = owned_rom_asset_or_404(
         request, db_save_handler.get_save_by_id(id), f"Save with ID {id} not found"
@@ -539,7 +524,7 @@ def download_save(
     optimistic: bool = True,
 ) -> FileResponse:
     """Download a save file."""
-    device = _resolve_device(request, device_id, Scope.DEVICES_READ)
+    device = resolve_device(request, device_id, Scope.DEVICES_READ)
 
     # Owner can download any of their saves; everyone else only public ones.
     save = db_save_handler.get_save_by_id(id)
@@ -594,7 +579,7 @@ def confirm_download(
         request, db_save_handler.get_save_by_id(id), f"Save with ID {id} not found"
     )
 
-    device = _resolve_device(request, device_id)
+    device = resolve_device(request, device_id)
     synced_at, server_hash = save.updated_at, save.content_hash
     served = db_device_save_sync_handler.get_sync(device_id=device_id, save_id=save.id)
     if served and served.last_sync_server_hash and not served.last_sync_hash:
@@ -629,7 +614,7 @@ async def update_save(
     check_asset_upload_size(saveFile, "Save file")
     check_asset_upload_size(screenshotFile, "Screenshot file")
 
-    device = _resolve_device(request, device_id, Scope.DEVICES_WRITE)
+    device = resolve_device(request, device_id, Scope.DEVICES_WRITE)
 
     db_save = owned_rom_asset_or_404(
         request, db_save_handler.get_save_by_id(id), f"Save with ID {id} not found"
@@ -870,7 +855,7 @@ def track_save(
         request, db_save_handler.get_save_by_id(id), f"Save with ID {id} not found"
     )
 
-    device = _resolve_device(request, device_id)
+    device = resolve_device(request, device_id)
     db_device_save_sync_handler.set_untracked(
         device_id=device_id, save_id=id, untracked=False
     )
@@ -889,7 +874,7 @@ def untrack_save(
         request, db_save_handler.get_save_by_id(id), f"Save with ID {id} not found"
     )
 
-    device = _resolve_device(request, device_id)
+    device = resolve_device(request, device_id)
     db_device_save_sync_handler.set_untracked(
         device_id=device_id, save_id=id, untracked=True
     )
