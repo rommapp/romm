@@ -1,5 +1,6 @@
 import asyncio
 import binascii
+import copy
 import fnmatch
 import hashlib
 import os
@@ -9,7 +10,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Final, NotRequired, TypedDict
+from typing import Any, Final, NotRequired, Self, TypedDict
 
 from adapters.services.rom_converto import (
     CONVERTO_PLATFORM_SLUGS,
@@ -53,6 +54,7 @@ from models.rom import (
 from utils import switch
 from utils.archives import (
     ArchiveReadError,
+    detect_mime_type,
     extract_chd_hash,
     hash_largest_member,
     is_chd_file,
@@ -62,7 +64,11 @@ from utils.archives import (
     read_tar_archive_files,
     read_zip_archive_files,
 )
-from utils.filesystem import COMPRESSED_FILE_SUFFIXES, iter_files
+from utils.filesystem import (
+    ARCHIVE_FORMAT_BY_SUFFIX,
+    COMPRESSED_FILE_SUFFIXES,
+    iter_files,
+)
 from utils.hashing import crc32_to_hex
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
@@ -166,23 +172,49 @@ DEFAULT_CRC_C = 0
 DEFAULT_MD5_H_DIGEST = hashlib.md5(usedforsecurity=False).digest()
 DEFAULT_SHA1_H_DIGEST = hashlib.sha1(usedforsecurity=False).digest()
 
+_MULTI_MEMBER_READERS: Final = {
+    "zip": read_zip_archive_files,
+    "tar": read_tar_archive_files,
+    "7z": read_7z_archive_files,
+    "rar": read_rar_archive_files,
+}
+
 ARCHIVE_READERS = {
-    ".zip": read_zip_archive_files,
-    ".tar": read_tar_archive_files,
-    ".tar.gz": read_tar_archive_files,
-    ".tgz": read_tar_archive_files,
-    ".tar.bz2": read_tar_archive_files,
-    ".tbz2": read_tar_archive_files,
-    ".tar.xz": read_tar_archive_files,
-    ".txz": read_tar_archive_files,
-    ".7z": read_7z_archive_files,
-    ".rar": read_rar_archive_files,
+    suffix: _MULTI_MEMBER_READERS[archive_format]
+    for suffix, archive_format in ARCHIVE_FORMAT_BY_SUFFIX
+    if archive_format in _MULTI_MEMBER_READERS
 }
 
 
-def _chd_sha1_hash(file_path: Path) -> str:
-    """Return the embedded CHD v5 raw+meta SHA-1, or "" for non-CHD files."""
-    return extract_chd_hash(file_path) if is_chd_file(file_path) else ""
+class _FileHashers:
+    """One file's hashers, plus the ROM-level accumulators its bytes also feed."""
+
+    def __init__(self, rom_crc_c: int, rom_md5_h: Any, rom_sha1_h: Any) -> None:
+        self.crc_c = 0
+        self.md5_h: Any = hashlib.md5(usedforsecurity=False)
+        self.sha1_h: Any = hashlib.sha1(usedforsecurity=False)
+        self.accumulate = rom_md5_h is not None and rom_sha1_h is not None
+        self.rom_crc_c = rom_crc_c
+        self.rom_md5_h = rom_md5_h
+        self.rom_sha1_h = rom_sha1_h
+
+    def update(self, chunk: bytes | bytearray, /) -> None:
+        self.md5_h.update(chunk)
+        self.sha1_h.update(chunk)
+        self.crc_c = binascii.crc32(chunk, self.crc_c)
+        if self.accumulate:
+            self.rom_md5_h.update(chunk)
+            self.rom_sha1_h.update(chunk)
+            self.rom_crc_c = binascii.crc32(chunk, self.rom_crc_c)
+
+    def copy(self) -> Self:
+        other = copy.copy(self)
+        other.md5_h = self.md5_h.copy()
+        other.sha1_h = self.sha1_h.copy()
+        if self.accumulate:
+            other.rom_md5_h = self.rom_md5_h.copy()
+            other.rom_sha1_h = self.rom_sha1_h.copy()
+        return other
 
 
 def _make_file_hash(
@@ -882,27 +914,32 @@ class FSRomsHandler(FSHandler):
                 if hashable_platform:
                     if is_top_level:
                         # Include this file in the main ROM hash calculation
-                        crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
-                            await asyncio.to_thread(
-                                self._calculate_rom_hashes,
-                                abs_file_path,
-                                rom_crc_c,
-                                rom_md5_h,
-                                rom_sha1_h,
-                            )
+                        (
+                            crc_c,
+                            rom_crc_c,
+                            md5_h,
+                            rom_md5_h,
+                            sha1_h,
+                            rom_sha1_h,
+                            chd_sha1_hash,
+                        ) = await asyncio.to_thread(
+                            self._calculate_rom_hashes,
+                            abs_file_path,
+                            rom_crc_c,
+                            rom_md5_h,
+                            rom_sha1_h,
                         )
                     else:
                         # Calculate individual file hash only
-                        crc_c, _, md5_h, _, sha1_h, _ = await asyncio.to_thread(
-                            self._calculate_rom_hashes,
-                            abs_file_path,
+                        crc_c, _, md5_h, _, sha1_h, _, chd_sha1_hash = (
+                            await asyncio.to_thread(
+                                self._calculate_rom_hashes,
+                                abs_file_path,
+                            )
                         )
 
                     file_hash = _make_file_hash(
-                        crc_c,
-                        md5_h,
-                        sha1_h,
-                        chd_sha1_hash=_chd_sha1_hash(abs_file_path),
+                        crc_c, md5_h, sha1_h, chd_sha1_hash=chd_sha1_hash
                     )
                 else:
                     file_hash = FileHash(
@@ -1034,7 +1071,7 @@ class FSRomsHandler(FSHandler):
                 )
         else:
             if hashable_platform:
-                crc_c, _, md5_h, _, sha1_h, _ = await asyncio.to_thread(
+                crc_c, _, md5_h, _, sha1_h, _, chd_sha1_hash = await asyncio.to_thread(
                     self._calculate_rom_hashes,
                     Path(abs_fs_path, rom.fs_name),
                 )
@@ -1053,10 +1090,7 @@ class FSRomsHandler(FSHandler):
                         )
 
                 file_hash = _make_file_hash(
-                    crc_c,
-                    md5_h,
-                    sha1_h,
-                    chd_sha1_hash=_chd_sha1_hash(rom_dir),
+                    crc_c, md5_h, sha1_h, chd_sha1_hash=chd_sha1_hash
                 )
             else:
                 file_hash = FileHash(
@@ -1173,47 +1207,39 @@ class FSRomsHandler(FSHandler):
         rom_crc_c: int = 0,
         rom_md5_h: Any = None,
         rom_sha1_h: Any = None,
-    ) -> tuple[int, int, Any, Any, Any, Any]:
+    ) -> tuple[int, int, Any, Any, Any, Any, str]:
         """Hash one file, optionally folding its bytes into ROM-level accumulators.
 
         A ROM-level hash spans every top-level file of a multi-file ROM, so it
         can only be built by feeding each file through a second set of hashers.
         Callers that don't need one pass no accumulators, because a second pass
         over a chunk costs as much as the first.
+
+        Returns:
+            The file's and ROM-level hashes, then the embedded CHD SHA-1 ("" for
+            a non-CHD file).
         """
         try:
-            crc_c = 0
-            md5_h = hashlib.md5(usedforsecurity=False)
-            sha1_h = hashlib.sha1(usedforsecurity=False)
-            accumulate = rom_md5_h is not None and rom_sha1_h is not None
-
-            def update_hashes(chunk: bytes | bytearray) -> None:
-                nonlocal crc_c, rom_crc_c
-
-                md5_h.update(chunk)
-                sha1_h.update(chunk)
-                crc_c = binascii.crc32(chunk, crc_c)
-
-                if accumulate:
-                    rom_md5_h.update(chunk)
-                    rom_sha1_h.update(chunk)
-                    rom_crc_c = binascii.crc32(chunk, rom_crc_c)
-
-            # A failed read may have fed part of the member already, so the
-            # raw-file fallback starts over from the ROM accumulators' prior state.
-            rom_snapshot = (
-                (rom_crc_c, rom_md5_h.copy(), rom_sha1_h.copy()) if accumulate else None
+            mime_type = detect_mime_type(file_path)
+            chd_sha1_hash = (
+                extract_chd_hash(file_path) if is_chd_file(file_path, mime_type) else ""
             )
-            if not hash_largest_member(file_path, update_hashes):
-                crc_c = 0
-                md5_h = hashlib.md5(usedforsecurity=False)
-                sha1_h = hashlib.sha1(usedforsecurity=False)
-                if rom_snapshot:
-                    rom_crc_c, rom_md5_h, rom_sha1_h = rom_snapshot
+            hashers = _FileHashers(rom_crc_c, rom_md5_h, rom_sha1_h)
+            fed = hash_largest_member(file_path, hashers, mime_type)
+            if fed is None:
+                fed = hashers
                 for chunk in read_basic_file(file_path):
-                    update_hashes(chunk)
+                    fed.update(chunk)
 
-            return crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h
+            return (
+                fed.crc_c,
+                fed.rom_crc_c,
+                fed.md5_h,
+                fed.rom_md5_h,
+                fed.sha1_h,
+                fed.rom_sha1_h,
+                chd_sha1_hash,
+            )
         except FileNotFoundError, PermissionError:
             return (
                 0,
@@ -1222,6 +1248,7 @@ class FSRomsHandler(FSHandler):
                 rom_md5_h,
                 hashlib.sha1(usedforsecurity=False),
                 rom_sha1_h,
+                "",
             )
 
     async def _discover_structured_roms(
