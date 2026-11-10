@@ -37,7 +37,8 @@ function ownStates(
 }
 
 /**
- * The newest save or compatible state, whichever is later; never both.
+ * The newest save or this device's compatible state, whichever is later;
+ * never both.
  *
  * Args:
  *   thisDeviceId: this browser's sync device, if it registered one.

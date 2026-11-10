@@ -106,6 +106,22 @@ describe("defaultResumeSelection", () => {
       });
     });
   });
+
+  it("counts an untagged state as this browser's beside another device's save", () => {
+    const saves = [
+      saveFixture({
+        id: 1,
+        updated_at: "2026-09-05T10:00:00Z",
+        origin_device_id: "tv",
+      }),
+    ];
+    const states = [state(9, "2026-09-05T10:00:00Z")];
+
+    expect(defaultResumeSelection(saves, states, "browser")).toEqual({
+      save: null,
+      state: states[0],
+    });
+  });
 });
 
 describe("pickSave", () => {
@@ -160,7 +176,7 @@ describe("newerThanPick", () => {
     const states = [
       stateFixture({
         id: 9,
-        updated_at: "2026-09-05T10:00:01Z",
+        updated_at: "2026-09-05T11:00:00Z",
         origin_device_id: "tv",
       }),
     ];
