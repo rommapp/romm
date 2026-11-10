@@ -40,7 +40,6 @@ def _retry_after_seconds(value: str | None) -> float | None:
         when = to_utc(parsedate_to_datetime(value))
     except ValueError:
         return None
-    # A date already past means the provider is ready now.
     return max((when - datetime.now(UTC)).total_seconds(), 0)
 
 
