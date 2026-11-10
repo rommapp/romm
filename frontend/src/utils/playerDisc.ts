@@ -33,7 +33,6 @@ const NON_BOOTABLE_CATEGORIES: readonly RomFileCategory[] = [
   "walkthrough",
   "screenshot",
   "soundtrack",
-  "patch",
   "cheat",
 ];
 
@@ -46,18 +45,20 @@ function isBootableFile(file: DiscFile): boolean {
 // A file outside any category folder (or in game/) is the base game; one in a
 // translations/, hacks/ or similar folder is a variant that boots only when picked.
 function isBaseGameFile(file: DiscFile): boolean {
-  return (!file.category || file.category === "game") && !isPatchFile(file);
+  return !file.category || file.category === "game";
 }
 
-// Falls back to every file when the rom is nothing but variants.
-function baseGameFiles<T extends DiscFile>(files: readonly T[]): readonly T[] {
-  const base = files.filter(isBaseGameFile);
-  return base.length > 0 ? base : files;
+// The files ALL_DISCS boots, falling back to every bootable file when the rom
+// is nothing but variants.
+function allDiscFiles<T extends DiscFile>(files: readonly T[]): readonly T[] {
+  const bootable = bootableFiles(files);
+  const base = bootable.filter(isBaseGameFile);
+  return base.length > 0 ? base : bootable;
 }
 
 /** Whether the base game spans several files that can boot together. */
 export function offersAllDiscs(files: readonly DiscFile[]): boolean {
-  return baseGameFiles(bootableFiles(files)).length > 1;
+  return allDiscFiles(files).length > 1;
 }
 
 // Falls back to every file when media is all the rom has, so the player is
@@ -122,7 +123,7 @@ function isDescriptorFile(file: DiscFile): boolean {
 // A set carrying a playlist or disc sheet only boots whole; anything else boots
 // one file to avoid pulling hundreds of unused MB.
 export function defaultDisc(files: readonly DiscFile[]): DiscSelection {
-  const base = baseGameFiles(bootableFiles(files));
+  const base = allDiscFiles(files);
   if (base.length > 1 && base.some(isDescriptorFile)) return ALL_DISCS;
   return base[0]?.id ?? null;
 }
@@ -137,12 +138,11 @@ export function bootFileIds(
   disc: DiscSelection,
   files: readonly DiscFile[],
 ): number[] {
-  if (typeof disc === "number") return [disc];
+  const id = bootDiscId(disc);
+  if (id !== null) return [id];
   if (disc !== ALL_DISCS) return [];
-  const base = files.filter(isBaseGameFile);
-  return base.length > 0 && base.length < files.length
-    ? base.map((f) => f.id)
-    : [];
+  const set = allDiscFiles(files);
+  return set.length < files.length ? set.map((f) => f.id) : [];
 }
 
 // v1's <Player> owns `player:<romId>:disc` and clears it whenever it is handed
