@@ -530,25 +530,22 @@ function onViewportRangeChange(range: { first: number; last: number }) {
   void scheduleFetchSync(range);
 }
 
-// Rows kept rendered beyond the viewport. Adaptive so the rendered CARD count
-// stays bounded regardless of how many columns fit: a fixed row overscan on a
-// wide screen (~9 cards/row) mounts hundreds of off-screen cards, and each
-// card is an expensive subtree (cover + hover overlay + shared game actions).
-// We target a roughly constant overscan-card budget per side, clamped so a
-// single-column phone keeps enough rows for smooth scrolling without
-// overshooting. List rows are one item each → a flat row count is fine.
-const GRID_OVERSCAN_CARDS = 60;
-const virtualOverscan = computed(() =>
-  layout.value === "list"
-    ? 12
-    : Math.min(
-        20,
-        Math.max(
-          4,
-          Math.round(GRID_OVERSCAN_CARDS / Math.max(1, columns.value)),
-        ),
-      ),
-);
+// A budget in cards, not rows: every mounted card is restyled each frame, so a
+// row count would cost far more on wide screens than on phones.
+const GRID_OVERSCAN_CARDS = 12;
+const GRID_OVERSCAN_MIN_ROWS = 2;
+const GRID_OVERSCAN_MAX_ROWS = 20;
+const LIST_OVERSCAN_ROWS = 12;
+
+const virtualOverscan = computed(() => {
+  if (layout.value === "list") return LIST_OVERSCAN_ROWS;
+
+  const cardsPerRow = Math.max(1, columns.value);
+  const rows = Math.round(GRID_OVERSCAN_CARDS / cardsPerRow);
+  if (rows < GRID_OVERSCAN_MIN_ROWS) return GRID_OVERSCAN_MIN_ROWS;
+  if (rows > GRID_OVERSCAN_MAX_ROWS) return GRID_OVERSCAN_MAX_ROWS;
+  return rows;
+});
 
 // ── Debug overlay bridge ────────────────────────────────────────────
 // Publish the virtual scroller's window stats so the global DebugOverlay
