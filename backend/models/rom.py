@@ -521,10 +521,12 @@ class RomFile(BaseModel):
         return self.rom.full_path in (self.full_path, self.file_path)
 
     def file_name_for_download(self, hidden_folder: bool = False) -> str:
-        # This needs a trailing slash in the path to work!
-        return self.full_path.replace(
-            f"{self.rom.full_path}/", ".hidden/" if hidden_folder else ""
-        )
+        rom_dir = f"{self.rom.full_path}/"
+        if self.full_path.startswith(rom_dir):
+            prefix = ".hidden/" if hidden_folder else ""
+            return prefix + self.full_path.removeprefix(rom_dir)
+        # A standalone playlist's discs keep the paths its entries name.
+        return self.full_path.removeprefix(f"{self.rom.fs_path}/")
 
     def __repr__(self) -> str:
         return f"{self.file_name} ({self.id} -> {self.rom_id})"

@@ -34,8 +34,8 @@ from tasks.scheduled.convert_images_to_webp import ConversionStats
 from tasks.tasks import Task
 from utils.context import initialize_context
 from utils.filesystem import LINK_FALLBACK_ERRNOS, TEMP_FILE_PREFIX
+from utils.m3u import PLAYLIST_EXT
 
-_PLAYLIST_EXT: Final = ".m3u"
 _CONVERT_STAGE_PREFIX: Final = f"{TEMP_FILE_PREFIX}convert_"
 
 
@@ -70,7 +70,7 @@ def _rewritten_playlists(folder: Path, renames: dict[str, str]) -> dict[Path, st
     """The playlists in `folder` that name a renamed file, with their new text."""
     rewrites: dict[Path, str] = {}
     for playlist in folder.iterdir():
-        if playlist.suffix.lower() != _PLAYLIST_EXT or not playlist.is_file():
+        if playlist.suffix.lower() != PLAYLIST_EXT or not playlist.is_file():
             continue
         lines = playlist.read_text(encoding="utf-8-sig", errors="replace").splitlines()
         rewritten = [_renamed_entry(line, renames) for line in lines]
