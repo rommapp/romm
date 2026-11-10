@@ -193,8 +193,7 @@ class State(RomAsset):
     content_hash: Mapped[str | None] = mapped_column(
         String(length=CONTENT_HASH_MAX_LENGTH), nullable=True, default=None
     )
-    # The device that wrote the current content; NULL when the client named
-    # none, which every state stored before devices were recorded did.
+    # The device that wrote the current content; NULL when the client named none.
     origin_device_id: Mapped[str | None] = mapped_column(
         String(length=255),
         ForeignKey("devices.id", ondelete="SET NULL"),
