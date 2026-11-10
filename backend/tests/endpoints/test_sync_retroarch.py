@@ -31,6 +31,9 @@ from handler.redis_handler import async_cache
 from handler.sync.retroarch import psp, sync_handler
 from handler.sync.retroarch.device import CLIENT_DEVICE_IDENTIFIER
 from handler.sync.retroarch.emulator_names import (
+    PLATFORMS_BY_RETROARCH_DIR,
+    RETROARCH_DIR_BY_ROMM_EMULATOR,
+    core_platforms,
     retroarch_aliases,
     to_retroarch_dir_name,
     to_romm_emulator,
@@ -218,6 +221,24 @@ class TestRetroArchSyncEmulatorNames:
 
     def test_a_core_outside_the_table_is_its_only_alias(self):
         assert retroarch_aliases("retroarduous") == ("retroarduous",)
+
+    def test_every_core_folder_lists_its_platforms(self):
+        assert set(RETROARCH_DIR_BY_ROMM_EMULATOR.values()) <= set(
+            PLATFORMS_BY_RETROARCH_DIR
+        )
+
+    @pytest.mark.parametrize(
+        ("emulator", "platforms"),
+        [
+            ("mednafen_psx_hw", {"psx"}),
+            ("Beetle PSX HW", {"psx"}),
+            ("FinalBurn Neo", core_platforms("fbneo")),
+            ("retroarduous", set()),
+            (None, set()),
+        ],
+    )
+    def test_core_platforms(self, emulator: str | None, platforms: set[str]):
+        assert core_platforms(emulator) == platforms
 
 
 class TestRetroArchSyncPathParsing:
@@ -1656,6 +1677,23 @@ class TestRetroArchSyncCorePlatforms:
         [save] = self._saves(admin_user)
         assert save.rom_id == psx_rom.id
         assert client.get(self.PSX_SAVE_URL, auth=ADMIN_AUTH).content == b"data"
+
+    def test_state_upload_goes_to_the_rom_on_the_cores_platform(
+        self, client, admin_user: User, saturn_rom: Rom, psx_platform: Platform
+    ):
+        psx_rom = make_rom(psx_platform, "Road Rash (USA)")
+
+        response = client.put(
+            "/api/sync/retroarch/states/Beetle%20PSX%20HW/Road%20Rash%20(USA).state",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        [state] = db_state_handler.get_states(
+            user_id=admin_user.id, visibility=UNRESTRICTED
+        )
+        assert state.rom_id == psx_rom.id
 
     def test_a_file_on_the_cores_platform_beats_a_rom_name_elsewhere(
         self, client, admin_user: User, saturn_rom: Rom, psx_platform: Platform

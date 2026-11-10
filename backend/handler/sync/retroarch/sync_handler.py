@@ -730,18 +730,17 @@ def resolve_roms(
     game_names: Iterable[str],
     can_see: Callable[[Rom], bool],
     *,
-    emulator: str | None = None,
+    platforms: Collection[str] = frozenset(),
     by_file_name: bool = False,
 ) -> dict[str, Rom]:
-    """The ROM each game name belongs to, the first visible one by id when ambiguous.
+    """The ROM each game name belongs to, one on `platforms` first, then the first visible one by id.
 
     Args:
-        emulator: The core the client synced through. A name several platforms
-            share resolves to a ROM on a platform that core runs.
-        by_file_name: Also resolve a name no ROM carries to the ROM owning a file
-            of that name, such as one disc in a multi-disc game folder.
+        platforms: What the client's core runs, from `core_platforms`.
+        by_file_name: Also resolve a name no ROM on `platforms` carries to the
+            ROM owning a file of that name, such as one disc in a multi-disc
+            game folder.
     """
-    platforms = core_platforms(emulator)
     names = set(game_names)
     resolved = _match_names(
         names,
@@ -787,8 +786,12 @@ def resolve_rom(
     emulator: str | None = None,
     by_file_name: bool = False,
 ) -> Rom | None:
+    """`game_name`'s ROM, preferring one on a platform `emulator`'s core runs."""
     return resolve_roms(
-        [game_name], can_see, emulator=emulator, by_file_name=by_file_name
+        [game_name],
+        can_see,
+        platforms=core_platforms(emulator),
+        by_file_name=by_file_name,
     ).get(game_name)
 
 
@@ -909,14 +912,17 @@ def _manifest_assets(
     def resolve_owners(
         kind: AssetKind, paths: Iterable[tuple[str | None, str]]
     ) -> dict[OwnerKey, Rom]:
-        names_by_emulator: defaultdict[str | None, set[str]] = defaultdict(set)
+        # Cores running the same platforms resolve alike, so they share a lookup.
+        names_by_core: defaultdict[frozenset[str], set[str]] = defaultdict(set)
         for emulator, file_name in paths:
-            names_by_emulator[emulator].add(game_name_from_file_name(kind, file_name))
+            names_by_core[core_platforms(emulator)].add(
+                game_name_from_file_name(kind, file_name)
+            )
         return {
-            (kind, core_platforms(emulator), name): rom
-            for emulator, names in names_by_emulator.items()
+            (kind, platforms, name): rom
+            for platforms, names in names_by_core.items()
             for name, rom in resolve_roms(
-                names, can_see, emulator=emulator, by_file_name=kind == "saves"
+                names, can_see, platforms=platforms, by_file_name=kind == "saves"
             ).items()
         }
 

@@ -136,28 +136,40 @@ PLATFORMS_BY_RETROARCH_DIR: dict[str, frozenset[str]] = {
         {UPS.GENESIS, UPS.SMS, UPS.GAMEGEAR, UPS.SEGACD, UPS.SG1000}
     ),
     "BlastEm": frozenset({UPS.GENESIS}),
-    "PicoDrive": frozenset({UPS.GENESIS, UPS.SMS, UPS.SEGACD, UPS.SEGA32}),
-    "Mupen64Plus-Next": frozenset({UPS.N64}),
+    "PicoDrive": frozenset(
+        {
+            UPS.GENESIS,
+            UPS.SMS,
+            UPS.SEGACD,
+            UPS.SEGA32,
+            UPS.SEGACD32,
+            UPS.PICO,
+            UPS.SEGA_PICO,
+        }
+    ),
+    "Mupen64Plus-Next": frozenset({UPS.N64, UPS.N64DD}),
     "ParaLLEl N64": frozenset({UPS.N64}),
     "Beetle Saturn": frozenset({UPS.SATURN}),
-    "Kronos": frozenset({UPS.SATURN}),
+    "Kronos": frozenset({UPS.SATURN, UPS.STV}),
     "MAME": MAME_SHORTNAME_PLATFORMS,
     "FBNeo": _FINALBURN,
+    # FBNeo's RetroArch library name, the folder a RetroArch client syncs it under.
+    "FinalBurn Neo": _FINALBURN,
     "FB Alpha": _FINALBURN,
     "PCSX2": frozenset({UPS.PS2}),
     "Play!": frozenset({UPS.PS2}),
     "Dolphin": frozenset({UPS.NGC, UPS.WII}),
-    "Flycast": frozenset({UPS.DC}),
+    "Flycast": frozenset({UPS.DC, UPS.NAOMI, UPS.NAOMI2, UPS.NAOMIGD, UPS.ATOMISWAVE}),
     "Redream": frozenset({UPS.DC}),
     "Stella": frozenset({UPS.ATARI2600}),
     "Beetle PCE": frozenset({UPS.TG16, UPS.TURBOGRAFX_CD, UPS.SUPERGRAFX}),
     "Beetle PCE Fast": frozenset({UPS.TG16, UPS.TURBOGRAFX_CD}),
     "DOSBox-Pure": frozenset({UPS.DOS}),
     "ScummVM": frozenset({UPS.SCUMMVM}),
-    "PPSSPP": frozenset({UPS.PSP}),
+    "PPSSPP": frozenset({UPS.PSP, UPS.PSP_MINIS}),
     "DeSmuME": frozenset({UPS.NDS}),
-    "melonDS": frozenset({UPS.NDS}),
-    "Citra": frozenset({UPS.N3DS}),
+    "melonDS": frozenset({UPS.NDS, UPS.NINTENDO_DSI}),
+    "Citra": frozenset({UPS.N3DS, UPS.NEW_NINTENDON3DS}),
 }
 
 
