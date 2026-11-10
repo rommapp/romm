@@ -77,6 +77,29 @@ class TestRateLimiter:
 
         assert sleeps == [pytest.approx(1.0, abs=0.05)]
 
+    async def test_a_hold_delays_the_next_grant(self, monkeypatch):
+        sleeps = _record_sleeps(monkeypatch)
+        limiter = RateLimiter(requests_per_second=4)
+
+        limiter.hold(3)
+        await limiter.acquire()
+        await limiter.acquire()
+
+        assert sleeps == [
+            pytest.approx(3.0, abs=0.05),
+            pytest.approx(3.25, abs=0.05),
+        ]
+
+    async def test_a_hold_shorter_than_the_queue_changes_nothing(self, monkeypatch):
+        sleeps = _record_sleeps(monkeypatch)
+        limiter = RateLimiter(requests_per_second=1)
+
+        await limiter.acquire()
+        limiter.hold(0.5)
+        await limiter.acquire()
+
+        assert sleeps == [pytest.approx(1.0, abs=0.05)]
+
     @pytest.mark.parametrize("rate", [0, -1, -0.5])
     def test_setting_non_positive_rate_raises(self, rate):
         limiter = RateLimiter(requests_per_second=4)

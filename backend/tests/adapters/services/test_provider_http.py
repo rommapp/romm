@@ -1,17 +1,25 @@
 import asyncio
-from unittest.mock import AsyncMock, MagicMock
+from datetime import UTC, datetime, timedelta
+from email.utils import format_datetime
+from unittest.mock import AsyncMock, MagicMock, call
 
 import aiohttp
 import pytest
 from fastapi import HTTPException, status
+from multidict import CIMultiDict
 
 from adapters.services import provider_http
 from adapters.services.provider_http import send_with_retries, unavailable
 
 
-def _status(code: int) -> aiohttp.ClientResponseError:
+def _status(
+    code: int, headers: dict[str, str] | None = None
+) -> aiohttp.ClientResponseError:
     return aiohttp.ClientResponseError(
-        request_info=MagicMock(), history=(), status=code
+        request_info=MagicMock(),
+        history=(),
+        status=code,
+        headers=CIMultiDict(headers) if headers else None,
     )
 
 
@@ -23,11 +31,19 @@ def no_backoff(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
 
 
 async def _send(
-    *outcomes: object, attempts: int = 2, backoff: float = 2
+    *outcomes: object,
+    attempts: int = 2,
+    rate_limit_attempts: int | None = None,
+    backoff: float = 2,
 ) -> tuple[object, AsyncMock]:
     send = AsyncMock(side_effect=list(outcomes))
     result = await send_with_retries(
-        send, provider="Test", url="u", attempts=attempts, backoff=backoff
+        send,
+        provider="Test",
+        url="u",
+        attempts=attempts,
+        rate_limit_attempts=rate_limit_attempts,
+        backoff=backoff,
     )
     return result, send
 
@@ -68,6 +84,104 @@ async def test_a_rate_limit_backs_off_before_retrying(no_backoff: AsyncMock):
 
     assert result == "ok"
     no_backoff.assert_awaited_once_with(5)
+
+
+async def test_each_rate_limit_doubles_the_backoff(no_backoff: AsyncMock):
+    result, _ = await _send(_status(429), _status(429), _status(429), "ok", attempts=4)
+
+    assert result == "ok"
+    assert no_backoff.await_args_list == [call(2), call(4), call(8)]
+
+
+@pytest.mark.parametrize(
+    ("retry_after", "delay"),
+    [("7", 7), ("0", 0), ("3600", provider_http.MAX_RETRY_AFTER_SECONDS)],
+    ids=["seconds", "now", "capped"],
+)
+async def test_a_rate_limit_waits_for_retry_after(
+    no_backoff: AsyncMock, retry_after: str, delay: float
+):
+    await _send(_status(429, {"Retry-After": retry_after}), "ok")
+
+    no_backoff.assert_awaited_once_with(delay)
+
+
+@pytest.mark.parametrize(
+    ("offset", "low", "high"), [(30, 25, 30), (-30, 0, 0)], ids=["future", "past"]
+)
+async def test_a_rate_limit_waits_for_a_retry_after_date(
+    no_backoff: AsyncMock, offset: int, low: float, high: float
+):
+    when = format_datetime(datetime.now(UTC) + timedelta(seconds=offset), usegmt=True)
+
+    await _send(_status(429, {"Retry-After": when}), "ok")
+
+    [delay] = [c.args[0] for c in no_backoff.await_args_list]
+    assert low <= delay <= high
+
+
+async def test_zero_rate_limit_attempts_do_not_retry_a_rate_limit():
+    with pytest.raises(aiohttp.ClientResponseError):
+        await _send(_status(429), "ok", rate_limit_attempts=0)
+
+
+@pytest.mark.parametrize("retry_after", ["soon", "-1"])
+async def test_an_unreadable_retry_after_falls_back_to_the_backoff(
+    no_backoff: AsyncMock, retry_after: str
+):
+    await _send(_status(429, {"Retry-After": retry_after}), "ok", backoff=5)
+
+    no_backoff.assert_awaited_once_with(5)
+
+
+async def test_rate_limits_get_their_own_attempts():
+    result, send = await _send(
+        _status(429), _status(429), _status(429), "ok", rate_limit_attempts=4
+    )
+
+    assert result == "ok"
+    assert send.await_count == 4
+
+
+async def test_timeouts_leave_rate_limits_their_whole_budget(no_backoff: AsyncMock):
+    result, send = await _send(
+        TimeoutError(), _status(429), _status(429), "ok", rate_limit_attempts=3
+    )
+
+    assert result == "ok"
+    assert send.await_count == 4
+    assert no_backoff.await_args_list == [call(2), call(4)]
+
+
+async def test_rate_limits_leave_timeouts_their_whole_budget():
+    result, _ = await _send(
+        _status(429), TimeoutError(), "ok", attempts=2, rate_limit_attempts=2
+    )
+
+    assert result == "ok"
+
+
+async def test_on_rate_limit_hears_each_wait():
+    heard = MagicMock()
+    send = AsyncMock(side_effect=[_status(429), _status(429), "ok"])
+
+    await send_with_retries(
+        send,
+        provider="Test",
+        url="u",
+        rate_limit_attempts=3,
+        backoff=0,
+        on_rate_limit=heard,
+    )
+
+    assert heard.call_args_list == [call(0), call(0)]
+
+
+async def test_rate_limit_attempts_leave_timeouts_their_own_budget():
+    with pytest.raises(TimeoutError):
+        await _send(
+            TimeoutError(), TimeoutError(), "ok", attempts=2, rate_limit_attempts=4
+        )
 
 
 async def test_the_last_rate_limit_is_raised():

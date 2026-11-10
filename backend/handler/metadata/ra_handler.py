@@ -5,10 +5,14 @@ from typing import Annotated, NotRequired, TypedDict, cast
 
 import pydash
 from anyio import Path as AnyioPath
+from fastapi import HTTPException
 from pydantic import Field
 
 from adapters.services.provider_http import unavailable
-from adapters.services.retroachievements import RetroAchievementsService
+from adapters.services.retroachievements import (
+    RARequestRejectedError,
+    RetroAchievementsService,
+)
 from adapters.services.retroachievements_types import (
     RAGameExtendedDetails,
 )
@@ -363,28 +367,49 @@ class RAHandler(MetadataHandler):
         self,
         username: str,
         current_progression: RAUserProgression | None = None,
+        *,
+        refresh_all: bool = False,
     ) -> RAUserProgression:
         """Retrieves the user's RetroAchievements progression.
 
-        If `current_progression` is provided, it will only incrementally update the
-        progression based on new achievements since the last check.
+        Args:
+            current_progression: stored progression; unchanged games reuse it,
+                and games RA fails to detail keep it.
+            refresh_all: re-read every game's details, even unchanged ones.
         """
         game_progressions: list[RAUserGameProgression] = []
+        ra_unavailable = False
         current_progression_by_game_id: dict[int | None, RAUserGameProgression] = {}
         if current_progression:
             current_progression_by_game_id = {
                 p["rom_ra_id"]: p for p in current_progression.get("results", [])
             }
 
-        async for rom in self.ra_service.iter_user_completion_progress(username):
+        # Every page is read before any detail request, so a throttled page
+        # fails the sync before details are fetched and thrown away.
+        completion = [
+            rom async for rom in self.ra_service.iter_user_completion_progress(username)
+        ]
+        for rom in completion:
             rom_game_id = rom.get("GameID")
             highest_award_kind = rom.get("HighestAwardKind", None)
 
+            game_current_progression = current_progression_by_game_id.get(rom_game_id)
+            # The completion row's award kind is current even when the stored entry is reused.
+            if game_current_progression:
+                game_current_progression = cast(
+                    RAUserGameProgression,
+                    {
+                        **game_current_progression,
+                        "highest_award_kind": highest_award_kind,
+                    },
+                )
+
             # If we have current progression data, and number of awarded achievements and most
             # recent awarded date match, then we can skip fetching progression details.
-            game_current_progression = current_progression_by_game_id.get(rom_game_id)
             if (
-                game_current_progression
+                not refresh_all
+                and game_current_progression
                 # Entries stored before `ra_id` existed are read again to gain it.
                 and all(
                     "ra_id" in e
@@ -396,27 +421,39 @@ class RAHandler(MetadataHandler):
                 and rom["MostRecentAwardedDate"]
                 == game_current_progression.get("most_recent_awarded_date")
             ):
-                # Always keep highest_award_kind up-to-date even for cached progressions
-                if (
-                    game_current_progression.get("highest_award_kind")
-                    != highest_award_kind
-                ):
-                    game_current_progression = cast(
-                        RAUserGameProgression,
-                        {
-                            **game_current_progression,
-                            "highest_award_kind": highest_award_kind,
-                        },
-                    )
                 game_progressions.append(game_current_progression)
                 continue
 
             earned_achievements: list[EarnedAchievement] = []
             if rom_game_id:
-                result = await self.ra_service.get_user_game_progress(
-                    username=username,
-                    game_id=rom_game_id,
-                )
+                result = None
+                failed = ra_unavailable
+                if not ra_unavailable:
+                    try:
+                        result = await self.ra_service.get_user_game_progress(
+                            username=username,
+                            game_id=rom_game_id,
+                        )
+                    except RARequestRejectedError as exc:
+                        log.warning(
+                            "RetroAchievements refused progress for game %s, "
+                            "keeping its stored progress: %s",
+                            rom_game_id,
+                            exc.detail,
+                        )
+                        failed = True
+                    except HTTPException as exc:
+                        log.warning(
+                            "RetroAchievements is unavailable at game %s, "
+                            "deferring the remaining games to the next sync: %s",
+                            rom_game_id,
+                            exc.detail,
+                        )
+                        failed = ra_unavailable = True
+                if failed:
+                    if game_current_progression:
+                        game_progressions.append(game_current_progression)
+                    continue
                 achievements = result.get("Achievements", {}) if result else {}
                 for achievement in achievements.values():
                     badge_name = achievement.get("BadgeName")

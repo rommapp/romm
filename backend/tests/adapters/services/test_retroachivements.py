@@ -2,7 +2,7 @@ import asyncio
 import json
 from collections.abc import AsyncIterator
 from typing import Any, cast
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import aiohttp
 import pytest
@@ -18,11 +18,23 @@ from tests.adapters.services.scripted_server import (
 
 from adapters.services import retroachievements
 from adapters.services.retroachievements import (
+    RARequestRejectedError,
     RetroAchievementsService,
     auth_middleware,
 )
+from utils.rate_limiter import RateLimiter
 
 INVALID_GAME_ID = 999999
+
+
+@pytest.fixture(autouse=True)
+def fresh_rate_limiter(monkeypatch: pytest.MonkeyPatch) -> RateLimiter:
+    """A limiter per test that never waits, since a 429 throttles the shared one."""
+    limiter = RateLimiter(retroachievements.RA_MAX_REQUESTS_PER_SECOND)
+    monkeypatch.setattr(limiter, "acquire", AsyncMock())
+    monkeypatch.setattr(retroachievements, "_rate_limiter", limiter)
+    return limiter
+
 
 # RA sends null credits for games without them, such as homebrew and hacks.
 UNCREDITED_GAME = {
@@ -524,6 +536,89 @@ class TestAgainstAServer:
         assert await service.get_achievement_of_the_week() == {"ok": 1}
         no_backoff.assert_awaited_once_with(2)
 
+    async def test_a_sync_request_rides_out_a_rate_limited_burst(
+        self,
+        ra_server: tuple[ScriptedServer, RetroAchievementsService],
+        no_backoff: AsyncMock,
+    ):
+        fake, service = ra_server
+        fake.replies["API_GetUserCompletionProgress.php"] = [
+            *[(429, {})] * (retroachievements.RA_SYNC_RATE_LIMIT_ATTEMPTS - 1),
+            (200, {"Count": 1, "Total": 1, "Results": [_progress(1)]}),
+        ]
+
+        page = await service.get_user_completion_progress("me")
+
+        assert page is not None and page["Total"] == 1
+        assert no_backoff.await_args_list == [call(2), call(4), call(8), call(16)]
+
+    async def test_other_requests_keep_the_default_rate_limit_attempts(
+        self,
+        ra_server: tuple[ScriptedServer, RetroAchievementsService],
+        no_backoff: AsyncMock,
+    ):
+        fake, service = ra_server
+        fake.replies["API_GetAchievementOfTheWeek.php"] = [
+            (429, {}),
+            (429, {}),
+            (200, {"ok": 1}),
+        ]
+
+        with pytest.raises(HTTPException):
+            await service.get_achievement_of_the_week()
+
+        assert len(fake.requests) == 2
+
+    @pytest.mark.parametrize(
+        ("reply", "rejected"),
+        [
+            ((500, {}), True),
+            ((404, {}), True),
+            ((200, b"<html>"), True),
+            ((502, {}), False),
+            ((429, {}), False),
+        ],
+        ids=["server_error", "not_found", "not_json", "bad_gateway", "throttled"],
+    )
+    async def test_only_a_refusal_of_the_request_itself_is_rejected(
+        self,
+        ra_server: tuple[ScriptedServer, RetroAchievementsService],
+        no_backoff: AsyncMock,
+        reply: Reply,
+        rejected: bool,
+    ):
+        fake, service = ra_server
+        fake.replies["API_GetAchievementOfTheWeek.php"] = [reply, reply]
+
+        with pytest.raises(HTTPException) as exc:
+            await service.get_achievement_of_the_week()
+
+        assert isinstance(exc.value, RARequestRejectedError) is rejected
+        assert exc.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+    async def test_a_rate_limit_holds_and_slows_every_request(
+        self,
+        ra_server: tuple[ScriptedServer, RetroAchievementsService],
+        no_backoff: AsyncMock,
+        fresh_rate_limiter: RateLimiter,
+        mocker,
+    ):
+        fake, service = ra_server
+        fake.replies["API_GetAchievementOfTheWeek.php"] = [
+            (429, {}),
+            (200, {"ok": 1}),
+        ]
+        hold = mocker.spy(fresh_rate_limiter, "hold")
+
+        await service.get_achievement_of_the_week()
+
+        hold.assert_called_once_with(2)
+        # Halved by the 429, then stepped back up by the retry that went through.
+        assert fresh_rate_limiter.requests_per_second == (
+            retroachievements.RA_MAX_REQUESTS_PER_SECOND / 2
+            + retroachievements.RA_RECOVERY_REQUESTS_PER_SECOND
+        )
+
     async def test_a_failed_retry_is_unavailable(
         self,
         ra_server: tuple[ScriptedServer, RetroAchievementsService],
@@ -604,3 +699,24 @@ class TestAgainstAServer:
         fake.replies["API_GetUserCompletionProgress.php"] = [(200, b"[]")]
 
         assert [r async for r in service.iter_user_completion_progress("nobody")] == []
+
+
+class TestThrottlePace:
+    async def test_throttling_stops_at_the_floor(self, fresh_rate_limiter: RateLimiter):
+        for _ in range(10):
+            retroachievements._throttle(0)
+
+        assert (
+            fresh_rate_limiter.requests_per_second
+            == retroachievements.RA_MIN_REQUESTS_PER_SECOND
+        )
+
+    async def test_recovery_stops_at_the_cap(self, fresh_rate_limiter: RateLimiter):
+        retroachievements._throttle(0)
+        for _ in range(100):
+            retroachievements._recover()
+
+        assert (
+            fresh_rate_limiter.requests_per_second
+            == retroachievements.RA_MAX_REQUESTS_PER_SECOND
+        )
