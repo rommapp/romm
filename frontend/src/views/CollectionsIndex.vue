@@ -507,7 +507,7 @@ const showList = computed(
       <REmptyState
         v-else-if="phase === 'empty'"
         icon="mdi-bookmark-outline"
-        :title="t('collection.no-collections-yet-detail')"
+        :hint="t('collection.no-collections-yet-detail')"
       />
 
       <REmptyState
