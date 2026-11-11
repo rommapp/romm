@@ -130,10 +130,11 @@ range has env var or API changes. Both blocks are `<details>` collapsed by
 default, so they cost a casual reader nothing, and the maintainer deletes them
 when a release doesn't want them. Leave out a block that would be empty.
 
-**A patch release skips all of it**, stable or prerelease. Under roughly eight
+**A patch release skips the rest**, stable or prerelease. Under roughly eight
 PRs with no `feat:`, publish a single flat `## What's Changed` list plus the
-changelog link, the way `4.9.1-beta.1` and `4.9.1` both did. Do not manufacture
-Highlights for a bugfix release.
+changelog link, the way `4.9.1-beta.1` and `4.9.1` both did, keeping
+`## Technical changes` above it when the range has env var or API changes. Do
+not manufacture Highlights for a bugfix release.
 
 ## 5. Section rules
 

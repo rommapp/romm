@@ -29,10 +29,10 @@ then keeps New Contributors and the changelog link.
 <details>
   <summary>🌎 ENVIRONMENT VARIABLES</summary>
 
-| variable           | default         | description                                |
-| ------------------ | --------------- | ------------------------------------------ |
-| NEW_ENV_VAR        | `-`             | <what it does, and whether it is required> |
-| ⚠️ CHANGED_ENV_VAR | `<new default>` | <what changed; ⚠️ if an upgrader must act> |
+| variable           | default         | description                                        |
+| ------------------ | --------------- | -------------------------------------------------- |
+| NEW_ENV_VAR        | `-`             | <what it does, and whether it is required> (#NNNN) |
+| ⚠️ CHANGED_ENV_VAR | `<new default>` | <what changed; ⚠️ if an upgrader must act> (#NNNN) |
 
 </details>
 
