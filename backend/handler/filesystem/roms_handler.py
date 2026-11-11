@@ -234,7 +234,8 @@ def _make_file_hash(
 GENERIC_TAG_REGEX = re.compile(r"\(([^)]+)\)|\[([^]]+)\]")
 VERSION_TAG_REGEX = re.compile(r"^(?:version|ver|v)(?:[\s._-](.*)|([.\d].*))", re.I)
 REGION_TAG_REGEX = re.compile(r"^reg[\s|-](.*)$", re.I)
-REVISION_TAG_REGEX = re.compile(r"^rev[\s|-](.*)$", re.I)
+# GoodTools writes a revision with no separator, as "(REV01)".
+REVISION_TAG_REGEX = re.compile(r"^rev(?:[\s|-](.*)|(\d.*))$", re.I)
 
 # A fan translation, as GoodTools ("[T+Eng1.1_RPGe]"), TOSEC ("[tr fr]") and
 # plainer sets ("(Translation)") write it. Anchored, so "Trainer" is not one.
@@ -566,7 +567,7 @@ class FSRomsHandler(FSHandler):
             # Revision prefix
             revision_match = REVISION_TAG_REGEX.match(raw_tag)
             if revision_match:
-                revision = revision_match[1]
+                revision = revision_match[1] or revision_match[2] or ""
                 continue
 
             # Anything else
