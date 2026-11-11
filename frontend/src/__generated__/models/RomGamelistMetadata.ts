@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { ScanClaims } from './ScanClaims';
 export type RomGamelistMetadata = {
     box2d_url?: (string | null);
     box2d_back_url?: (string | null);
@@ -17,7 +18,7 @@ export type RomGamelistMetadata = {
     thumbnail_url?: (string | null);
     title_screen_url?: (string | null);
     video_url?: (string | null);
-    name?: string;
+    scan_claims?: ScanClaims;
     rating?: (number | null);
     first_release_date?: (string | null);
     sort_name?: (string | null);

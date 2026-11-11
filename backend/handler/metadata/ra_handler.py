@@ -27,6 +27,7 @@ from utils.platform_slugs import fill_duplicate_slugs
 from .base_handler import (
     BaseRom,
     MetadataHandler,
+    ScanClaims,
     provider_tag_regex,
     tag_id_from_filename,
 )
@@ -66,8 +67,8 @@ class RAMetadata(TypedDict):
     achievements: list[RAGameRomAchievement]
     # The ROM's RA hash is one RetroAchievements lists for this game.
     hash_match: NotRequired[bool]
-    # The title this source gave the game, kept by the scan.
-    name: NotRequired[str]
+    # The base fields this source gave the game, kept by the scan.
+    scan_claims: NotRequired[ScanClaims]
 
 
 class RAGameRom(BaseRom):

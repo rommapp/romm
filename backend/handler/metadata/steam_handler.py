@@ -19,6 +19,7 @@ from .base_handler import (
     CoverResource,
     CoverResult,
     MetadataHandler,
+    ScanClaims,
     provider_tag_regex,
     tag_id_from_filename,
 )
@@ -78,8 +79,8 @@ class SteamMetadata(TypedDict):
     website: NotRequired[str]
     is_free: NotRequired[bool]
     required_age: NotRequired[int]
-    # The title this source gave the game, kept by the scan.
-    name: NotRequired[str]
+    # The base fields this source gave the game, kept by the scan.
+    scan_claims: NotRequired[ScanClaims]
 
 
 class SteamRom(BaseRom):

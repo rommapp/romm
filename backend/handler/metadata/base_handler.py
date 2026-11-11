@@ -80,6 +80,15 @@ def tag_id_from_filename(tag_regex: re.Pattern[str], fs_name: str) -> int | None
     return int_or_none(match.group(1)) if match else None
 
 
+class ScanClaims(TypedDict, total=False):
+    """The base fields a source gave the game, kept in its blob by the scan."""
+
+    name: str
+    slug: str
+    url_cover: str
+    url_screenshots: list[str]
+
+
 class BaseRom(TypedDict):
     name: NotRequired[str]
     name_sort_key: NotRequired[str | None]

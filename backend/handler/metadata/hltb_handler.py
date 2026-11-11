@@ -31,7 +31,7 @@ from utils.platform_slugs import fill_duplicate_slugs
 from utils.rate_limiter import RateLimiter
 from utils.update_hltb_api_url import discover_hltb_endpoint
 
-from .base_handler import BaseRom, MetadataHandler
+from .base_handler import BaseRom, MetadataHandler, ScanClaims
 
 DASH_COLON_REGEX = re.compile(r"\s?-\s")
 # The game page ships its record as JSON in the Next.js hydration payload. The
@@ -105,8 +105,8 @@ class HLTBMetadata(TypedDict):
     review_count: NotRequired[int]
     popularity: NotRequired[int]
     completions: NotRequired[int]
-    # The title this source gave the game, kept by the scan.
-    name: NotRequired[str]
+    # The base fields this source gave the game, kept by the scan.
+    scan_claims: NotRequired[ScanClaims]
 
 
 class HLTBRom(BaseRom):

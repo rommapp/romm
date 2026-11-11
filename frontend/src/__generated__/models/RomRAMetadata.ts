@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { RAGameRomAchievement } from './RAGameRomAchievement';
+import type { ScanClaims } from './ScanClaims';
 export type RomRAMetadata = {
     first_release_date?: (number | null);
     genres?: Array<string>;
@@ -11,6 +12,6 @@ export type RomRAMetadata = {
     developers?: Array<string>;
     achievements?: Array<RAGameRomAchievement>;
     hash_match?: boolean;
-    name?: string;
+    scan_claims?: ScanClaims;
 };
 

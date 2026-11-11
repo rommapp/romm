@@ -3,7 +3,7 @@
 import enum
 from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass
-from typing import Any, Final
+from typing import Any, Final, cast
 
 from config.config_manager import config_manager as cm
 from handler.metadata import (
@@ -24,6 +24,7 @@ from handler.metadata import (
     meta_steam_handler,
     meta_tgdb_handler,
 )
+from handler.metadata.base_handler import ScanClaims
 from handler.metadata.flashpoint_handler import FLASHPOINT_PLATFORM_LIST
 from handler.metadata.hasheous_handler import HASHEOUS_PLATFORM_LIST
 from handler.metadata.hltb_handler import HLTB_PLATFORM_LIST
@@ -102,14 +103,34 @@ PROVIDER_ALL_TAG_FIELDS = PROVIDER_TAG_FIELDS + PROVIDER_MERGED_TAG_FIELDS
 DUMP_TAG_KEYS = {field: f"dump_{field}" for field in PROVIDER_ALL_TAG_FIELDS}
 
 
-# Where every source's blob keeps the title it gave the game.
-NAME_CLAIM_KEY = "name"
+# Where every source's blob keeps the base fields it gave the game.
+SCAN_CLAIMS_KEY = "scan_claims"
+
+# Each claimed field, and the priority list that ranks the sources for it.
+CLAIMED_FIELDS: Final = {
+    "name": "metadata",
+    "slug": "metadata",
+    "url_cover": "url_cover",
+    "url_screenshots": "url_screenshots",
+}
 
 
-def kept_title(blob: Any) -> str | None:
-    """The title a source's blob keeps, or None when it keeps none or a non-string."""
-    title = blob.get(NAME_CLAIM_KEY) if isinstance(blob, dict) else None
-    return title if isinstance(title, str) else None
+def _valid_claim(field: str, value: Any) -> bool:
+    if field == "url_screenshots":
+        return isinstance(value, list) and all(isinstance(url, str) for url in value)
+    return isinstance(value, str)
+
+
+def kept_claims(blob: Any) -> ScanClaims | None:
+    """The base fields a source's blob keeps, or None when it keeps no record."""
+    # A hand edit of the raw metadata can store any JSON; only well-typed claims count.
+    claims = blob.get(SCAN_CLAIMS_KEY) if isinstance(blob, dict) else None
+    if not isinstance(claims, dict):
+        return None
+    kept = {field: claims[field] for field in CLAIMED_FIELDS if field in claims}
+    if not all(_valid_claim(field, value) for field, value in kept.items()):
+        return None
+    return cast(ScanClaims, kept)
 
 
 def _always(_entity: Any) -> bool:

@@ -1,4 +1,4 @@
-"""How a refresh names a ROM when it consults only some of the ROM's sources."""
+"""How a refresh sets a ROM's base fields when it consults only some of its sources."""
 
 from collections.abc import Iterator
 from types import SimpleNamespace
@@ -20,15 +20,21 @@ TITLE = "Mario Kart 64"
 HLTB_TITLE = "Mario Kart 8"
 LAUNCHBOX_BLOB = {"first_release_date": 851990400}
 HLTB_BLOB = {"main_story": 150000}
+LAUNCHBOX_COVER = "https://images.launchbox-app.com/mk64-cover.png"
+LAUNCHBOX_SHOTS = ["https://images.launchbox-app.com/mk64-shot.png"]
+HLTB_COVER = "https://howlongtobeat.com/games/mk8.jpg"
 
 LAUNCHBOX = LaunchboxRom(
     launchbox_id=266,
     name=TITLE,
+    url_cover=LAUNCHBOX_COVER,
+    url_screenshots=LAUNCHBOX_SHOTS,
     launchbox_metadata=cast(LaunchboxMetadata, LAUNCHBOX_BLOB),
 )
 HLTB_GUESS = HLTBRom(
     hltb_id=9999,
     name=HLTB_TITLE,
+    url_cover=HLTB_COVER,
     hltb_metadata=cast(HLTBMetadata, HLTB_BLOB),
 )
 HASHEOUS_HIT = HasheousRom(
@@ -70,7 +76,9 @@ async def _scan(
 @pytest.mark.parametrize(
     "launchbox_metadata",
     [
-        pytest.param({**LAUNCHBOX_BLOB, "name": TITLE}, id="title-kept"),
+        pytest.param(
+            {**LAUNCHBOX_BLOB, "scan_claims": {"name": TITLE}}, id="title-kept"
+        ),
         # A source whose title isn't on record may outrank the newcomer.
         pytest.param(LAUNCHBOX_BLOB, id="stored-before-titles-were-kept"),
     ],
@@ -97,7 +105,7 @@ async def test_a_higher_ranked_source_replaces_a_lower_ranked_title(lookups):
         ScanType.UNMATCHED,
         [MetadataSource.LAUNCHBOX],
         hltb_id=9999,
-        hltb_metadata={**HLTB_BLOB, "name": HLTB_TITLE},
+        hltb_metadata={**HLTB_BLOB, "scan_claims": {"name": HLTB_TITLE}},
     )
 
     assert result.launchbox_id == 266
@@ -107,7 +115,9 @@ async def test_a_higher_ranked_source_replaces_a_lower_ranked_title(lookups):
 @pytest.mark.parametrize(
     "hltb_metadata",
     [
-        pytest.param({**HLTB_BLOB, "name": HLTB_TITLE}, id="title-kept"),
+        pytest.param(
+            {**HLTB_BLOB, "scan_claims": {"name": HLTB_TITLE}}, id="title-kept"
+        ),
         pytest.param(HLTB_BLOB, id="stored-before-titles-were-kept"),
     ],
 )
@@ -129,7 +139,10 @@ async def test_each_answering_source_keeps_its_title(lookups):
     result = await _scan(TITLE, ScanType.UNMATCHED, [MetadataSource.HLTB])
 
     assert result.hltb_metadata is not None
-    assert result.hltb_metadata["name"] == HLTB_TITLE
+    assert result.hltb_metadata["scan_claims"] == {
+        "name": HLTB_TITLE,
+        "url_cover": HLTB_COVER,
+    }
 
 
 async def test_a_name_the_user_typed_is_kept(lookups):
@@ -138,9 +151,9 @@ async def test_a_name_the_user_typed_is_kept(lookups):
         ScanType.UPDATE,
         [MetadataSource.LAUNCHBOX, MetadataSource.HLTB],
         launchbox_id=266,
-        launchbox_metadata={**LAUNCHBOX_BLOB, "name": TITLE},
+        launchbox_metadata={**LAUNCHBOX_BLOB, "scan_claims": {"name": TITLE}},
         hltb_id=9999,
-        hltb_metadata={**HLTB_BLOB, "name": HLTB_TITLE},
+        hltb_metadata={**HLTB_BLOB, "scan_claims": {"name": HLTB_TITLE}},
     )
 
     assert result.name == "MK64"
@@ -200,7 +213,7 @@ async def test_igdb_metadata_hasheous_gives_keeps_its_title():
 
     assert result.name == TITLE
     assert result.igdb_metadata is not None
-    assert result.igdb_metadata["name"] == TITLE
+    assert result.igdb_metadata["scan_claims"]["name"] == TITLE
 
 
 async def test_a_hand_edited_title_that_isnt_text_is_ignored(lookups):
@@ -210,7 +223,75 @@ async def test_a_hand_edited_title_that_isnt_text_is_ignored(lookups):
         ScanType.UNMATCHED,
         [MetadataSource.HLTB],
         launchbox_id=266,
-        launchbox_metadata={**LAUNCHBOX_BLOB, "name": ["Mario"]},
+        launchbox_metadata={**LAUNCHBOX_BLOB, "scan_claims": {"name": ["Mario"]}},
     )
 
     assert result.name == TITLE
+
+
+async def test_a_lower_ranked_source_does_not_replace_the_artwork(lookups):
+    result = await _scan(
+        TITLE,
+        ScanType.UNMATCHED,
+        [MetadataSource.HLTB],
+        url_cover=LAUNCHBOX_COVER,
+        url_screenshots=LAUNCHBOX_SHOTS,
+        launchbox_id=266,
+        launchbox_metadata={
+            **LAUNCHBOX_BLOB,
+            "scan_claims": {
+                "name": TITLE,
+                "url_cover": LAUNCHBOX_COVER,
+                "url_screenshots": LAUNCHBOX_SHOTS,
+            },
+        },
+    )
+
+    assert result.hltb_id == 9999
+    assert result.url_cover == LAUNCHBOX_COVER
+    assert result.url_screenshots == LAUNCHBOX_SHOTS
+
+
+async def test_a_higher_ranked_source_replaces_a_lower_ranked_cover(lookups):
+    result = await _scan(
+        HLTB_TITLE,
+        ScanType.UNMATCHED,
+        [MetadataSource.LAUNCHBOX],
+        url_cover=HLTB_COVER,
+        hltb_id=9999,
+        hltb_metadata={
+            **HLTB_BLOB,
+            "scan_claims": {"name": HLTB_TITLE, "url_cover": HLTB_COVER},
+        },
+    )
+
+    assert result.url_cover == LAUNCHBOX_COVER
+    assert result.url_screenshots == LAUNCHBOX_SHOTS
+
+
+async def test_a_lower_ranked_source_fills_artwork_the_higher_one_lacks(lookups):
+    result = await _scan(
+        TITLE,
+        ScanType.UNMATCHED,
+        [MetadataSource.HLTB],
+        launchbox_id=266,
+        launchbox_metadata={**LAUNCHBOX_BLOB, "scan_claims": {"name": TITLE}},
+    )
+
+    assert result.name == TITLE
+    assert result.url_cover == HLTB_COVER
+
+
+async def test_a_match_without_claims_on_record_holds_only_a_stored_value(lookups):
+    """An older match keeps the stored cover, but an empty slot still fills."""
+    result = await _scan(
+        TITLE,
+        ScanType.UNMATCHED,
+        [MetadataSource.HLTB],
+        url_cover="",
+        launchbox_id=266,
+        launchbox_metadata=LAUNCHBOX_BLOB,
+    )
+
+    assert result.name == TITLE
+    assert result.url_cover == HLTB_COVER

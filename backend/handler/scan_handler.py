@@ -58,13 +58,14 @@ from handler.scan.merge import (
     follow_demozoo_link,
     keep_base_fields,
     merge_tags,
+    order_artwork_sources,
     order_merge_sources,
     record_dump_tags,
-    record_name_claims,
+    record_scan_claims,
     reset_rematched_sources,
     resolve_scene_lock,
     seed_rom_attrs,
-    settle_name,
+    settle_claims,
     splice_scene_summaries,
 )
 from handler.scan.sources import LOGGER_MODULE_NAME, MetadataSource, ScanType
@@ -461,7 +462,7 @@ async def scan_rom(
         )
 
     record_dump_tags(metadata_handlers)
-    record_name_claims(metadata_handlers)
+    record_scan_claims(metadata_handlers)
 
     priority_ordered, hash_claims, ordered = order_merge_sources(
         apply_sources, scene_locked, metadata_handlers, rom_attrs
@@ -469,7 +470,8 @@ async def scan_rom(
 
     apply_metadata_priority(rom_attrs, metadata_handlers, priority_ordered)
     merge_tags(rom_attrs, metadata_handlers, priority_ordered, hash_claims)
-    apply_artwork_priority(rom_attrs, metadata_handlers, apply_sources)
+    artwork_orders = order_artwork_sources(list(metadata_handlers))
+    apply_artwork_priority(rom_attrs, metadata_handlers, apply_sources, artwork_orders)
 
     # Don't overwrite existing base fields on update, unmatched and hashes scans
     if not newly_added and scan_type in (
@@ -477,7 +479,13 @@ async def scan_rom(
         ScanType.UPDATE,
         ScanType.HASHES,
     ):
-        settle_name(rom_attrs, rom, metadata_handlers, ordered, scene_locked)
+        settle_claims(
+            rom_attrs,
+            rom,
+            metadata_handlers,
+            {"metadata": ordered, **artwork_orders},
+            scene_locked,
+        )
         keep_base_fields(rom_attrs, rom)
 
     # Use PICO-8 cartridge PNG as cover art if no cover is set.

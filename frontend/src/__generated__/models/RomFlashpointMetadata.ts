@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { ScanClaims } from './ScanClaims';
 export type RomFlashpointMetadata = {
     franchises?: Array<string>;
     companies?: Array<string>;
@@ -15,6 +16,6 @@ export type RomFlashpointMetadata = {
     version?: (string | null);
     language?: (string | null);
     notes?: (string | null);
-    name?: string;
+    scan_claims?: ScanClaims;
 };
 

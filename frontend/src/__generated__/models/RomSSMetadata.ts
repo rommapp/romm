@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { ScanClaims } from './ScanClaims';
 import type { SSAgeRating } from './SSAgeRating';
 import type { SSPhysicalDisc } from './SSPhysicalDisc';
 export type RomSSMetadata = {
@@ -53,6 +54,6 @@ export type RomSSMetadata = {
     dump_regions?: Array<string>;
     dump_languages?: Array<string>;
     dump_tags?: Array<string>;
-    name?: string;
+    scan_claims?: ScanClaims;
 };
 

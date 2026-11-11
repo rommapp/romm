@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { ScanClaims } from './ScanClaims';
 export type RomHLTBMetadata = {
     main_story?: number;
     main_story_count?: number;
@@ -16,6 +17,6 @@ export type RomHLTBMetadata = {
     review_count?: number;
     popularity?: number;
     completions?: number;
-    name?: string;
+    scan_claims?: ScanClaims;
 };
 

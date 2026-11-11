@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { PouetCredit } from './PouetCredit';
+import type { ScanClaims } from './ScanClaims';
 export type RomPouetMetadata = {
     types?: Array<string>;
     groups?: Array<string>;
@@ -21,6 +22,6 @@ export type RomPouetMetadata = {
     genres?: Array<string>;
     companies?: Array<string>;
     download_urls?: Array<string>;
-    name?: string;
+    scan_claims?: ScanClaims;
 };
 
