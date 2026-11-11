@@ -46,7 +46,7 @@
 //     the correct store state before its first render.
 //   * Platforms are looked up by ID against `platformsStore`. If the
 //     store isn't populated yet, the lookup retries when platforms load.
-import debounce from "lodash/debounce";
+import { debounce } from "es-toolkit";
 import { storeToRefs } from "pinia";
 import { onMounted, onScopeDispose, watch } from "vue";
 import { type LocationQueryValue, useRoute, useRouter } from "vue-router";

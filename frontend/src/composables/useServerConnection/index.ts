@@ -18,7 +18,7 @@
 // `install()` runs once for the app's lifetime (idempotent). The banner calls
 // `useServerConnection()` in its <script setup>, which both returns the
 // reactive `isOffline` flag and triggers the install.
-import debounce from "lodash/debounce";
+import { debounce } from "es-toolkit";
 import { computed, effectScope, watch } from "vue";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlaying from "@/stores/playing";

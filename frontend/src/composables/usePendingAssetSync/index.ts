@@ -1,7 +1,7 @@
 // Hands the server what the browser still holds, from anywhere in the app: at
 // launch the picker is already drawn, so it would land behind the user's pick.
 import { useTimeoutFn } from "@vueuse/core";
-import uniqBy from "lodash/uniqBy";
+import { uniqBy } from "es-toolkit";
 import { onScopeDispose, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";

@@ -27,7 +27,9 @@
 // `useSocketEvent` is the typed subscription wrapper that auto-cleans up
 // on unmount; since AppLayout never unmounts during normal use the
 // listeners effectively live for the session.
-import debounce from "lodash/debounce";
+import { debounce } from "es-toolkit";
+// The core debounce has no maxWait, which refreshGallery needs.
+import debounceWithMaxWait from "es-toolkit/compat/debounce";
 import type { Emitter } from "mitt";
 import { inject, watch } from "vue";
 import type { ScanStats, ScanTaskStatusResponse } from "@/__generated__";
@@ -104,7 +106,7 @@ export function installScanLifecycle() {
   // A new ROM emits several times, and a platform event can rebuild the live
   // log between those emits, so each new ROM is counted once by id.
   const countedNewRomIds = new Set<number>();
-  const refreshGallery = debounce(
+  const refreshGallery = debounceWithMaxWait(
     () => {
       galleryRomsStore.invalidateWindows();
       void galleryRomsStore.fetchInitialMetadata();

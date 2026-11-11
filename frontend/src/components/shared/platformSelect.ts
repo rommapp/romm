@@ -1,5 +1,4 @@
-import partition from "lodash/partition";
-import sortBy from "lodash/sortBy";
+import { partition, sortBy } from "es-toolkit";
 import type { Platform } from "@/stores/platforms";
 
 /** `rom_count > 0` first, then empty; each block sorted by `display_name`. */
@@ -9,7 +8,7 @@ export const promotePlatformsWithGamesFirst = <
   platforms: T[],
 ): { promoted: T[]; remaining: T[] } => {
   const [promoted, remaining] = partition(
-    sortBy(platforms, (p) => p.display_name),
+    sortBy(platforms, [(p) => p.display_name]),
     (p) => p.rom_count > 0,
   );
   return { promoted, remaining };

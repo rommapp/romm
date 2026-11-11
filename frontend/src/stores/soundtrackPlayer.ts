@@ -1,4 +1,4 @@
-import throttle from "lodash/throttle";
+import { throttle } from "es-toolkit";
 import { defineStore } from "pinia";
 import { computed, ref, shallowRef } from "vue";
 import type { TrackMetaSchema } from "@/__generated__";
@@ -155,7 +155,7 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
       currentTime.value = t;
     },
     200,
-    { leading: true, trailing: true },
+    { edges: ["leading", "trailing"] },
   );
 
   function reportCurrentTime(t: number) {

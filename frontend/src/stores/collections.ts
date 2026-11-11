@@ -1,5 +1,5 @@
 import axios from "axios";
-import uniqBy from "lodash/uniqBy";
+import { uniqBy } from "es-toolkit";
 import { defineStore } from "pinia";
 import type {
   CollectionSchema,
@@ -63,19 +63,22 @@ export default defineStore("collections", {
   },
   actions: {
     _reorderCollections() {
-      this.allCollections = uniqBy(this.allCollections, "id").sort((a, b) => {
-        return a.name.localeCompare(b.name);
-      });
-    },
-    _reorderVirtualCollection() {
-      this.virtualCollections = uniqBy(this.virtualCollections, "id").sort(
+      this.allCollections = uniqBy(this.allCollections, (c) => c.id).sort(
         (a, b) => {
           return a.name.localeCompare(b.name);
         },
       );
     },
+    _reorderVirtualCollection() {
+      this.virtualCollections = uniqBy(
+        this.virtualCollections,
+        (c) => c.id,
+      ).sort((a, b) => {
+        return a.name.localeCompare(b.name);
+      });
+    },
     _reorderSmartCollections() {
-      this.smartCollections = uniqBy(this.smartCollections, "id").sort(
+      this.smartCollections = uniqBy(this.smartCollections, (c) => c.id).sort(
         (a, b) => {
           return a.name.localeCompare(b.name);
         },

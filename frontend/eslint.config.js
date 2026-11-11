@@ -167,15 +167,25 @@ export default withVueTs(
       "no-restricted-imports": [
         "error",
         {
-          // The bare package is one CommonJS file, so it ships whole.
           paths: [
             {
               name: "lodash",
               message:
-                'Import the one method, e.g. "lodash/debounce", so the build ships only that.',
+                'Use es-toolkit, e.g. import { debounce } from "es-toolkit".',
+            },
+            {
+              // The compat barrel carries lodash's string shorthands, which ship the iteratee code.
+              name: "es-toolkit/compat",
+              message:
+                'Use "es-toolkit", or one compat function by path (e.g. "es-toolkit/compat/debounce") when only lodash\'s option exists there.',
             },
           ],
           patterns: [
+            {
+              regex: "^lodash/",
+              message:
+                'Use es-toolkit, e.g. import { debounce } from "es-toolkit".',
+            },
             {
               // Any subpath except a stylesheet.
               regex: "^md-editor-v3/(?!.*\\.css$)",

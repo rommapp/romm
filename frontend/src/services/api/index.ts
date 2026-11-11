@@ -1,6 +1,6 @@
 import axios, { type AxiosError } from "axios";
+import { debounce } from "es-toolkit";
 import { default as Cookies } from "js-cookie";
-import debounce from "lodash/debounce";
 import { isAuthExemptRoute, ROUTES } from "@/plugins/routeNames";
 
 const api = axios.create({
