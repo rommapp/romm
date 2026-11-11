@@ -158,6 +158,7 @@ if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
         cookie_name="romm_csrftoken",
         secret=ROMM_AUTH_SECRET_KEY,
         cookie_secure=ROMM_SESSION_SECURE_COOKIE,
+        cookieless_urls=[re.compile(r"^/api/health/")],
         exempt_urls=[
             re.compile(r"^/api/token.*"),
             re.compile(r"^/api/client-tokens/exchange"),

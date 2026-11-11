@@ -35,6 +35,9 @@ def _get_env_set(var: str, fallback: str | None = None) -> frozenset[str]:
 
 ROMM_BASE_URL: Final[str] = _get_env("ROMM_BASE_URL", "http://0.0.0.0")
 ROMM_PORT: Final[int] = safe_int(_get_env("ROMM_PORT"), 8080)
+ROMM_METRICS_ENABLED: Final[bool] = _get_env(
+    "ROMM_METRICS_ENABLED", "false"
+).lower() in ("1", "true", "yes")
 
 # GUNICORN
 DEV_MODE: Final[bool] = safe_str_to_bool(_get_env("DEV_MODE"))

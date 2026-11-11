@@ -29,6 +29,7 @@ class CSRFMiddleware:
         *,
         required_urls: Optional[list[Pattern[str]]] = None,
         exempt_urls: Optional[list[Pattern[str]]] = None,
+        cookieless_urls: Optional[list[Pattern[str]]] = None,
         sensitive_cookies: Optional[set[str]] = None,
         safe_methods: Optional[set[str]] = None,
         cookie_name: str = "csrftoken",
@@ -47,6 +48,7 @@ class CSRFMiddleware:
         self.secret = secret
         self.required_urls = required_urls
         self.exempt_urls = exempt_urls
+        self.cookieless_urls = cookieless_urls
         self.sensitive_cookies = sensitive_cookies
         self.safe_methods = safe_methods
         self.cookie_name = cookie_name
@@ -101,6 +103,10 @@ class CSRFMiddleware:
             return
 
         request = Request(scope)
+        if self._url_is_cookieless(request.url):
+            await send(message)
+            return
+
         csrf_cookie = request.cookies.get(self.cookie_name)
         current_user_id = request.user.id if request.user.is_authenticated else None
 
@@ -136,6 +142,11 @@ class CSRFMiddleware:
             if required_url.match(url.path):
                 return True
         return False
+
+    def _url_is_cookieless(self, url: URL) -> bool:
+        if not self.cookieless_urls:
+            return False
+        return any(pattern.match(url.path) for pattern in self.cookieless_urls)
 
     def _url_is_exempt(self, url: URL) -> bool:
         if not self.exempt_urls:
