@@ -646,8 +646,9 @@ function collectionCovers(c: {
 .r-home__header {
   padding: 16px var(--r-row-pad) 18px;
 }
-/* The widget bar's own 16px top padding makes up the rest of the 24px. */
-.r-home__header:has(+ .r-widget-bar) {
+/* The widget bar's own 16px top padding makes up the rest of the 24px. An
+   empty bar stays mounted but hidden, so it only counts with cards in it. */
+.r-home__header:has(+ .r-widget-bar > *) {
   padding-bottom: 2px;
 }
 html[data-bp~="xs"] .r-home__header {
