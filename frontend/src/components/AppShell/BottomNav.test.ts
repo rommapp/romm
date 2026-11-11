@@ -4,7 +4,10 @@ import { ref } from "vue";
 import BottomNav from "./BottomNav.vue";
 
 type AfterEach = (to: unknown, from: unknown, failure?: unknown) => void;
-const settled: { fn: AfterEach | null; onError: (() => void) | null } = {
+const settled: {
+  fn: AfterEach | null;
+  onError: ((error: unknown, to: { path: string }) => void) | null;
+} = {
   fn: null,
   onError: null,
 };
@@ -18,7 +21,7 @@ vi.mock("vue-router", () => ({
       settled.fn = fn;
       return () => {};
     },
-    onError: (fn: () => void) => {
+    onError: (fn: (error: unknown, to: { path: string }) => void) => {
       settled.onError = fn;
       return () => {};
     },
@@ -118,9 +121,34 @@ describe("BottomNav", () => {
     const tabs = wrapper.findAll(".r-segmented-control__btn");
 
     await tabs[1]?.trigger("click");
-    settled.onError?.();
+    settled.onError?.(new Error("chunk"), { path: "/platforms" });
     await wrapper.vm.$nextTick();
 
     expect(tabs[2]?.classes()).toContain("r-segmented-control__btn--active");
+  });
+
+  it("follows a tap on the active tab made while another navigation is pending", async () => {
+    const wrapper = mountNav();
+    const tabs = wrapper.findAll(".r-segmented-control__btn");
+
+    await tabs[1]?.trigger("click");
+    await tabs[2]?.trigger("click");
+
+    expect(tabs[2]?.classes()).toContain("r-segmented-control__btn--active");
+    expect(tabs[1]?.classes()).not.toContain(
+      "r-segmented-control__btn--active",
+    );
+  });
+
+  it("ignores errors from a navigation a newer tap superseded", async () => {
+    const wrapper = mountNav();
+    const tabs = wrapper.findAll(".r-segmented-control__btn");
+
+    await tabs[1]?.trigger("click");
+    await tabs[3]?.trigger("click");
+    settled.onError?.(new Error("chunk"), { path: "/platforms" });
+    await wrapper.vm.$nextTick();
+
+    expect(tabs[3]?.classes()).toContain("r-segmented-control__btn--active");
   });
 });

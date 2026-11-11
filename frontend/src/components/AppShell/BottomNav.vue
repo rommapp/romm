@@ -11,6 +11,7 @@ import {
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import {
   NAV_FILLED_ICONS,
+  navDestinationAt,
   useNavDestinations,
 } from "@/composables/useNavDestinations";
 import type { NavDestinationId } from "@/composables/useNavDestinations";
@@ -32,7 +33,7 @@ function onTap(event: MouseEvent) {
     ?.closest("a")
     ?.getAttribute("href");
   const tapped = destinations.value.find((d) => d.to === href);
-  if (tapped && tapped.id !== activeId.value) pendingId.value = tapped.id;
+  if (tapped) pendingId.value = tapped.id;
 }
 
 // A cancelled navigation was superseded by a newer tap, which settles on its own.
@@ -40,9 +41,9 @@ const stopSettled = router.afterEach((_to, _from, failure) => {
   if (isNavigationFailure(failure, NavigationFailureType.cancelled)) return;
   pendingId.value = null;
 });
-// Errors such as a rejected lazy import skip afterEach.
-const stopOnError = router.onError(() => {
-  pendingId.value = null;
+// Errors such as a rejected lazy import skip afterEach; superseded navigations are ignored.
+const stopOnError = router.onError((_error, to) => {
+  if (navDestinationAt(to.path) === pendingId.value) pendingId.value = null;
 });
 onBeforeUnmount(() => {
   stopSettled();
