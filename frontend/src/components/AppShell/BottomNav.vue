@@ -85,8 +85,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   justify-content: flex-end;
   pointer-events: none;
-  /* Under the top bar (100): above it, this page-tall box covers the top edge,
-     and iOS Safari then stops extending the bar's glass behind the status bar. */
+  /* Below the top bar (100), or iOS Safari won't tint the status bar from it. */
   z-index: 99;
 }
 

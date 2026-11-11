@@ -55,8 +55,7 @@ const anyEnabled = computed(() => orderedWidgets.value.length > 0);
   /* Extra bottom padding so the rail breathes before the first
      CardRow underneath (Continue playing / Recently added). */
   padding: 16px var(--r-row-pad) 24px;
-  /* The scroller clips at its padding box, so the top padding is room for
-     the cards' focus rings; the margin keeps it from pushing the rail down. */
+  /* The top padding is focus-ring room inside the scroller, not space above it. */
   margin-top: -16px;
   overflow-x: auto;
   overflow-y: visible;
