@@ -4,7 +4,7 @@ import type { TrackMetaSchema } from "@/__generated__";
 import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 import type { DetailedRom } from "@/stores/roms";
 import { FRONTEND_RESOURCES_PATH, isCDBasedSystem, shuffled } from "@/utils";
-import { throttle } from "@/utils/timing";
+import { throttle } from "@/utils/throttle";
 
 const volumeStorage = useUserLocalStorage<number>("soundtrack.volume", 1);
 const mutedStorage = useUserLocalStorage<boolean>("soundtrack.muted", false);

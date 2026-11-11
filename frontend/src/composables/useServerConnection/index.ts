@@ -18,10 +18,10 @@
 // `install()` runs once for the app's lifetime (idempotent). The banner calls
 // `useServerConnection()` in its <script setup>, which both returns the
 // reactive `isOffline` flag and triggers the install.
+import { useDebounceFn } from "@vueuse/core";
 import { computed, effectScope, watch } from "vue";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlaying from "@/stores/playing";
-import { debounce } from "@/utils/timing";
 
 // While online, probe only occasionally: a network blip shouldn't rush to
 // flag the backend as down. Passive interceptor events still flip us offline
@@ -60,10 +60,10 @@ function install() {
   document.addEventListener("backend-offline", () =>
     heartbeat.setConnected(false),
   );
-  const confirmHealth = debounce(() => {
+  const confirmHealth = useDebounceFn(() => {
     void heartbeat.fetchHeartbeat({ timeout: HEARTBEAT_TIMEOUT_MS });
   }, 300);
-  document.addEventListener("backend-suspect", () => confirmHealth());
+  document.addEventListener("backend-suspect", () => void confirmHealth());
 
   // Recovery: refresh the page on a real reconnect. Run in a detached effect
   // scope so the watcher lives for the app's lifetime rather than the banner's

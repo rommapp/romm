@@ -1,7 +1,7 @@
+import { useDebounceFn } from "@vueuse/core";
 import axios, { type AxiosError } from "axios";
 import { default as Cookies } from "js-cookie";
 import { isAuthExemptRoute, ROUTES } from "@/plugins/routeNames";
-import { debounce } from "@/utils/timing";
 
 const api = axios.create({
   // This will keep the url query params on refresh
@@ -32,7 +32,7 @@ const api = axios.create({
 
 const inflightRequests = new Set();
 
-const networkQuiesced = debounce(() => {
+const networkQuiesced = useDebounceFn(() => {
   // The trailing call can outlive the DOM (test teardown), so don't assume it.
   if (typeof document === "undefined") return;
   document.dispatchEvent(new CustomEvent("network-quiesced"));
@@ -62,7 +62,7 @@ api.interceptors.response.use(
 
     // If there are no more inflight requests, fetch app-wide data
     if (inflightRequests.size === 0) {
-      networkQuiesced();
+      void networkQuiesced();
     }
 
     return response;
@@ -73,7 +73,7 @@ api.interceptors.response.use(
     // fire once the network goes quiet.
     inflightRequests.delete(error.config?.url);
     if (inflightRequests.size === 0) {
-      networkQuiesced();
+      void networkQuiesced();
     }
 
     // Canceled requests (AbortController / `signal`) are routine here (gallery /
