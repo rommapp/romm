@@ -255,6 +255,20 @@ class TestFSRomsHandler:
         parsed_tags = handler.parse_tags(fs_name)
         assert parsed_tags.version == "2"
 
+    def test_parse_tags_revision_without_separator(self, handler: FSRomsHandler):
+        """GoodTools writes a revision with no separator, as "(REV01)"."""
+        parsed_tags = handler.parse_tags("Sonic The Hedgehog (W) (REV01) [!].gen")
+        assert parsed_tags.revision == "01"
+        assert parsed_tags.other_tags == ["!"]
+
+        assert handler.parse_tags("Game (USA) (Rev1).rom").revision == "1"
+        assert handler.parse_tags("Game (USA) (Rev1.1).rom").revision == "1.1"
+
+        # Only a digit right after "Rev" makes it a revision.
+        parsed_tags = handler.parse_tags("Game (Revenge) (RevB).rom")
+        assert parsed_tags.revision == ""
+        assert parsed_tags.other_tags == ["Revenge", "RevB"]
+
     def test_parse_tags_non_version_tags_starting_with_v(self, handler: FSRomsHandler):
         """Test parse_tags keeps non-version tags starting with v as generic tags"""
         fs_name = "Rom [2026] [Variation].rom"
