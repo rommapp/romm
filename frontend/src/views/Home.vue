@@ -641,10 +641,14 @@ function collectionCovers(c: {
   gap: 6px;
 }
 
-/* Lines the title up with the index views' (IndexShell's 32px / 16px top).
-   No bottom padding: the first section brings its own 16px. */
+/* Matches the index views: title at IndexShell's 32px / 16px top, and the
+   first section 24px under the divider (padding plus the 6px column gap). */
 .r-home__header {
-  padding: 16px var(--r-row-pad) 0;
+  padding: 16px var(--r-row-pad) 18px;
+}
+/* The widget bar's own 16px top padding makes up the rest of the 24px. */
+.r-home__header:has(+ .r-widget-bar) {
+  padding-bottom: 2px;
 }
 html[data-bp~="xs"] .r-home__header {
   padding-top: 0;
