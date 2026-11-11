@@ -3,24 +3,28 @@ import { describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import BottomNav from "./BottomNav.vue";
 
-const settled: { fn: (() => void) | null } = { fn: null };
+type AfterEach = (to: unknown, from: unknown, failure?: unknown) => void;
+const settled: { fn: AfterEach | null } = { fn: null };
+const cancelled = { cancelled: true };
 
 vi.mock("vue-i18n");
 vi.mock("vue-router", () => ({
   useRoute: () => ({ path: "/collections" }),
   useRouter: () => ({
-    afterEach: (fn: () => void) => {
+    afterEach: (fn: AfterEach) => {
       settled.fn = fn;
       return () => {};
     },
   }),
+  isNavigationFailure: (failure: unknown) => failure === cancelled,
+  NavigationFailureType: { cancelled: 8 },
 }));
 vi.mock("@/composables/useBreakpoint", () => ({
   useBreakpoint: () => ({ smAndDown: ref(true) }),
 }));
 
 const RouterLink = {
-  props: ["to"],
+  props: { to: String },
   template: '<a :href="to"><slot /></a>',
 };
 
@@ -73,9 +77,32 @@ describe("BottomNav", () => {
     const tabs = wrapper.findAll(".r-segmented-control__btn");
 
     await tabs[1]?.trigger("click");
-    settled.fn?.();
+    settled.fn?.({}, {});
     await wrapper.vm.$nextTick();
 
     expect(tabs[2]?.classes()).toContain("r-segmented-control__btn--active");
+  });
+
+  it("ignores modified clicks that open in a new tab", async () => {
+    const wrapper = mountNav();
+    const tabs = wrapper.findAll(".r-segmented-control__btn");
+
+    await tabs[1]?.trigger("click", { ctrlKey: true });
+    await tabs[3]?.trigger("click", { metaKey: true });
+
+    expect(tabs[2]?.classes()).toContain("r-segmented-control__btn--active");
+    expect(tabs[1]?.attributes("aria-current")).toBeUndefined();
+  });
+
+  it("keeps the latest tap highlighted when an older navigation is cancelled", async () => {
+    const wrapper = mountNav();
+    const tabs = wrapper.findAll(".r-segmented-control__btn");
+
+    await tabs[1]?.trigger("click");
+    await tabs[3]?.trigger("click");
+    settled.fn?.({}, {}, cancelled);
+    await wrapper.vm.$nextTick();
+
+    expect(tabs[3]?.classes()).toContain("r-segmented-control__btn--active");
   });
 });

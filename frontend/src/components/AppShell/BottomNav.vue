@@ -3,7 +3,11 @@
 // Mount-gated (not `display: none`) so hidden links never take focus.
 import { computed, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
+import {
+  isNavigationFailure,
+  NavigationFailureType,
+  useRouter,
+} from "vue-router";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import {
   NAV_FILLED_ICONS,
@@ -17,13 +21,13 @@ const { smAndDown } = useBreakpoint();
 const { destinations, activeId } = useNavDestinations();
 const router = useRouter();
 
-// The route only changes after the lazy view chunk loads and the view
-// transition is captured, so the tapped tab is highlighted right away and
-// handed back to the route once navigation settles (or fails).
+// The route updates only after the lazy view loads and the view transition is captured.
 const pendingId = ref<NavDestinationId | null>(null);
 const shownId = computed(() => pendingId.value ?? activeId.value);
 
 function onTap(event: MouseEvent) {
+  // RouterLink leaves these clicks to the browser, so no navigation follows.
+  if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
   const href = (event.target as HTMLElement | null)
     ?.closest("a")
     ?.getAttribute("href");
@@ -31,7 +35,9 @@ function onTap(event: MouseEvent) {
   if (tapped && tapped.id !== activeId.value) pendingId.value = tapped.id;
 }
 
-const stopSettled = router.afterEach(() => {
+// A cancelled navigation was superseded by a newer tap, which settles on its own.
+const stopSettled = router.afterEach((_to, _from, failure) => {
+  if (isNavigationFailure(failure, NavigationFailureType.cancelled)) return;
   pendingId.value = null;
 });
 onBeforeUnmount(stopSettled);
