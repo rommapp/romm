@@ -1,10 +1,10 @@
+import { useThrottleFn } from "@vueuse/core";
 import { defineStore } from "pinia";
 import { computed, ref, shallowRef } from "vue";
 import type { TrackMetaSchema } from "@/__generated__";
 import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 import type { DetailedRom } from "@/stores/roms";
 import { FRONTEND_RESOURCES_PATH, isCDBasedSystem, shuffled } from "@/utils";
-import { throttle } from "@/utils/throttle";
 
 const volumeStorage = useUserLocalStorage<number>("soundtrack.volume", 1);
 const mutedStorage = useUserLocalStorage<boolean>("soundtrack.muted", false);
@@ -150,12 +150,15 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
     if (el) el.muted = muted.value;
   }
 
-  const setCurrentTimeThrottled = throttle((t: number) => {
-    currentTime.value = t;
+  // Bumped on play/stop so a trailing throttled write from the previous
+  // track can't overwrite the reset time.
+  let timeEpoch = 0;
+  const setCurrentTimeThrottled = useThrottleFn((t: number, epoch: number) => {
+    if (epoch === timeEpoch) currentTime.value = t;
   }, 200);
 
   function reportCurrentTime(t: number) {
-    setCurrentTimeThrottled(t);
+    void setCurrentTimeThrottled(t, timeEpoch);
   }
 
   function setPlaying(v: boolean) {
@@ -241,9 +244,7 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
 
   function play(t: PlayerTrack, m: PlayerMeta) {
     pendingResume.value = null;
-    // Drop any buffered time-update from the previous track so the slider
-    // doesn't briefly snap to an old value before `timeupdate` fires.
-    setCurrentTimeThrottled.cancel();
+    timeEpoch++;
     track.value = t;
     meta.value = m;
     currentTime.value = 0;
@@ -278,7 +279,7 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
   }
 
   function stop() {
-    setCurrentTimeThrottled.cancel();
+    timeEpoch++;
     // The mini player unloads the source once `track` clears.
     audioRef.value?.pause();
     track.value = null;
