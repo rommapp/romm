@@ -3,15 +3,10 @@
 // Mount-gated (not `display: none`) so hidden links never take focus.
 import { computed, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import {
-  isNavigationFailure,
-  NavigationFailureType,
-  useRouter,
-} from "vue-router";
+import { useRouter } from "vue-router";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import {
   NAV_FILLED_ICONS,
-  navDestinationAt,
   useNavDestinations,
 } from "@/composables/useNavDestinations";
 import type { NavDestinationId } from "@/composables/useNavDestinations";
@@ -36,16 +31,19 @@ function onTap(event: MouseEvent) {
   if (tapped) pendingId.value = tapped.id;
 }
 
-// A cancelled navigation was superseded by a newer tap, which settles on its own.
-const stopSettled = router.afterEach((_to, _from, failure) => {
-  if (isNavigationFailure(failure, NavigationFailureType.cancelled)) return;
-  pendingId.value = null;
+// Only the latest navigation may clear the highlight; a superseded one finishes on its own.
+let latestPath: string | null = null;
+const stopTracking = router.beforeEach((to) => {
+  latestPath = to.fullPath;
 });
-// Errors such as a rejected lazy import skip afterEach; superseded navigations are ignored.
-const stopOnError = router.onError((_error, to) => {
-  if (navDestinationAt(to.path) === pendingId.value) pendingId.value = null;
-});
+const settle = (to: { fullPath: string }) => {
+  if (to.fullPath === latestPath) pendingId.value = null;
+};
+const stopSettled = router.afterEach((to) => settle(to));
+// Errors such as a rejected lazy import skip afterEach.
+const stopOnError = router.onError((_error, to) => settle(to));
 onBeforeUnmount(() => {
+  stopTracking();
   stopSettled();
   stopOnError();
 });

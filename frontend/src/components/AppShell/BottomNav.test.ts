@@ -3,31 +3,30 @@ import { describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import BottomNav from "./BottomNav.vue";
 
-type AfterEach = (to: unknown, from: unknown, failure?: unknown) => void;
-const settled: {
-  fn: AfterEach | null;
-  onError: ((error: unknown, to: { path: string }) => void) | null;
-} = {
-  fn: null,
-  onError: null,
-};
-const cancelled = { cancelled: true };
+type Target = { fullPath: string };
+const hooks: {
+  before: ((to: Target) => void) | null;
+  after: ((to: Target) => void) | null;
+  onError: ((error: unknown, to: Target) => void) | null;
+} = { before: null, after: null, onError: null };
 
 vi.mock("vue-i18n");
 vi.mock("vue-router", () => ({
   useRoute: () => ({ path: "/collections" }),
   useRouter: () => ({
-    afterEach: (fn: AfterEach) => {
-      settled.fn = fn;
+    beforeEach: (fn: (to: Target) => void) => {
+      hooks.before = fn;
       return () => {};
     },
-    onError: (fn: (error: unknown, to: { path: string }) => void) => {
-      settled.onError = fn;
+    afterEach: (fn: (to: Target) => void) => {
+      hooks.after = fn;
+      return () => {};
+    },
+    onError: (fn: (error: unknown, to: Target) => void) => {
+      hooks.onError = fn;
       return () => {};
     },
   }),
-  isNavigationFailure: (failure: unknown) => failure === cancelled,
-  NavigationFailureType: { cancelled: 8 },
 }));
 vi.mock("@/composables/useBreakpoint", () => ({
   useBreakpoint: () => ({ smAndDown: ref(true) }),
@@ -87,7 +86,8 @@ describe("BottomNav", () => {
     const tabs = wrapper.findAll(".r-segmented-control__btn");
 
     await tabs[1]?.trigger("click");
-    settled.fn?.({}, {});
+    hooks.before?.({ fullPath: "/platforms" });
+    hooks.after?.({ fullPath: "/platforms" });
     await wrapper.vm.$nextTick();
 
     expect(tabs[2]?.classes()).toContain("r-segmented-control__btn--active");
@@ -104,29 +104,6 @@ describe("BottomNav", () => {
     expect(tabs[1]?.attributes("aria-current")).toBeUndefined();
   });
 
-  it("keeps the latest tap highlighted when an older navigation is cancelled", async () => {
-    const wrapper = mountNav();
-    const tabs = wrapper.findAll(".r-segmented-control__btn");
-
-    await tabs[1]?.trigger("click");
-    await tabs[3]?.trigger("click");
-    settled.fn?.({}, {}, cancelled);
-    await wrapper.vm.$nextTick();
-
-    expect(tabs[3]?.classes()).toContain("r-segmented-control__btn--active");
-  });
-
-  it("hands the highlight back when navigation errors", async () => {
-    const wrapper = mountNav();
-    const tabs = wrapper.findAll(".r-segmented-control__btn");
-
-    await tabs[1]?.trigger("click");
-    settled.onError?.(new Error("chunk"), { path: "/platforms" });
-    await wrapper.vm.$nextTick();
-
-    expect(tabs[2]?.classes()).toContain("r-segmented-control__btn--active");
-  });
-
   it("follows a tap on the active tab made while another navigation is pending", async () => {
     const wrapper = mountNav();
     const tabs = wrapper.findAll(".r-segmented-control__btn");
@@ -140,15 +117,57 @@ describe("BottomNav", () => {
     );
   });
 
+  it("keeps the latest tap highlighted when an older navigation settles", async () => {
+    const wrapper = mountNav();
+    const tabs = wrapper.findAll(".r-segmented-control__btn");
+
+    await tabs[1]?.trigger("click");
+    hooks.before?.({ fullPath: "/platforms" });
+    await tabs[3]?.trigger("click");
+    hooks.before?.({ fullPath: "/search" });
+    hooks.after?.({ fullPath: "/platforms" });
+    await wrapper.vm.$nextTick();
+
+    expect(tabs[3]?.classes()).toContain("r-segmented-control__btn--active");
+  });
+
+  it("hands the highlight back when the latest navigation errors", async () => {
+    const wrapper = mountNav();
+    const tabs = wrapper.findAll(".r-segmented-control__btn");
+
+    await tabs[1]?.trigger("click");
+    hooks.before?.({ fullPath: "/platforms" });
+    hooks.onError?.(new Error("chunk"), { fullPath: "/platforms" });
+    await wrapper.vm.$nextTick();
+
+    expect(tabs[2]?.classes()).toContain("r-segmented-control__btn--active");
+  });
+
   it("ignores errors from a navigation a newer tap superseded", async () => {
     const wrapper = mountNav();
     const tabs = wrapper.findAll(".r-segmented-control__btn");
 
     await tabs[1]?.trigger("click");
+    hooks.before?.({ fullPath: "/platforms" });
     await tabs[3]?.trigger("click");
-    settled.onError?.(new Error("chunk"), { path: "/platforms" });
+    hooks.before?.({ fullPath: "/search" });
+    hooks.onError?.(new Error("chunk"), { fullPath: "/platforms" });
     await wrapper.vm.$nextTick();
 
     expect(tabs[3]?.classes()).toContain("r-segmented-control__btn--active");
+  });
+
+  it("hands the highlight back when a navigation started outside the bar fails", async () => {
+    const wrapper = mountNav();
+    const tabs = wrapper.findAll(".r-segmented-control__btn");
+
+    await tabs[1]?.trigger("click");
+    hooks.before?.({ fullPath: "/platforms" });
+    hooks.before?.({ fullPath: "/rom/1" });
+    hooks.after?.({ fullPath: "/platforms" });
+    hooks.onError?.(new Error("chunk"), { fullPath: "/rom/1" });
+    await wrapper.vm.$nextTick();
+
+    expect(tabs[2]?.classes()).toContain("r-segmented-control__btn--active");
   });
 });
