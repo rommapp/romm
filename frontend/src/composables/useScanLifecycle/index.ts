@@ -27,7 +27,7 @@
 // `useSocketEvent` is the typed subscription wrapper that auto-cleans up
 // on unmount; since AppLayout never unmounts during normal use the
 // listeners effectively live for the session.
-import { debounce } from "lodash";
+import debounce from "lodash/debounce";
 import type { Emitter } from "mitt";
 import { inject, watch } from "vue";
 import type { ScanStats, ScanTaskStatusResponse } from "@/__generated__";

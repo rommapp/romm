@@ -1,4 +1,5 @@
-import { sortBy, partition } from "lodash";
+import partition from "lodash/partition";
+import sortBy from "lodash/sortBy";
 import type { Platform } from "@/stores/platforms";
 
 /** `rom_count > 0` first, then empty; each block sorted by `display_name`. */

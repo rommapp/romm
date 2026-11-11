@@ -1,5 +1,5 @@
 import axios from "axios";
-import { uniqBy } from "lodash";
+import uniqBy from "lodash/uniqBy";
 import { defineStore } from "pinia";
 import type {
   CollectionSchema,

@@ -167,6 +167,14 @@ export default withVueTs(
       "no-restricted-imports": [
         "error",
         {
+          // The bare package is one CommonJS file, so it ships whole.
+          paths: [
+            {
+              name: "lodash",
+              message:
+                'Import the one method, e.g. "lodash/debounce", so the build ships only that.',
+            },
+          ],
           patterns: [
             {
               // Any subpath except a stylesheet.

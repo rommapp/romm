@@ -1,4 +1,4 @@
-import { debounce } from "lodash";
+import debounce from "lodash/debounce";
 import { computed, effectScope, onScopeDispose, ref } from "vue";
 import { useSocketEvent } from "@/composables/useSocketEvent";
 import socket from "@/services/socket";

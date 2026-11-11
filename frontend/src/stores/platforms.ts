@@ -1,4 +1,4 @@
-import { uniqBy } from "lodash";
+import uniqBy from "lodash/uniqBy";
 import { defineStore } from "pinia";
 import type { PlatformSchema } from "@/__generated__";
 import platformApi from "@/services/api/platform";
