@@ -394,6 +394,7 @@ describe("useGamepad", () => {
       now = vi.spyOn(performance, "now").mockReturnValue(1000);
       window.addEventListener("gamepad:exitchord", onChord);
       installOnMouse(() => pads);
+      window.dispatchEvent(new Event("gamepadconnected"));
       storePlaying().setPlaying(true);
     });
 
@@ -435,6 +436,24 @@ describe("useGamepad", () => {
       stepAt(1100);
       stepAt(1100 + EXIT_CHORD_HOLD_MS - 1);
 
+      expect(chords).toBe(0);
+    });
+
+    it("starts the hold over after the pad disconnects mid-hold", () => {
+      // Arrange
+      pads = [padHolding(...CHORD)];
+      stepAt(0);
+      stepAt(1000);
+      pads = [];
+      window.dispatchEvent(new Event("gamepaddisconnected"));
+      pads = [padHolding(...CHORD)];
+      window.dispatchEvent(new Event("gamepadconnected"));
+
+      // Act
+      stepAt(1100);
+      stepAt(1100 + EXIT_CHORD_HOLD_MS - 1);
+
+      // Assert
       expect(chords).toBe(0);
     });
 

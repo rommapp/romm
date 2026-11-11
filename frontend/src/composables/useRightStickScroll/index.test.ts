@@ -44,6 +44,7 @@ describe("useRightStickScroll", () => {
         },
       }),
     );
+    window.dispatchEvent(new Event("gamepadconnected"));
     return { el, host };
   }
 
