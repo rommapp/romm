@@ -44,7 +44,7 @@ import { useLoadingPhase } from "@/composables/useLoadingPhase";
 import { usePlatformPlayableChecker } from "@/composables/usePlatformPlayable";
 import { useRouteQueryParam } from "@/composables/useRouteQueryParam";
 import { useTileSearchUrl } from "@/composables/useTileSearchUrl";
-import { RDivider, REmptyState, RLetterHeading, RSkeletonBlock } from "@/lib";
+import { REmptyState, RLetterHeading, RSkeletonBlock } from "@/lib";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import {
   type FacetOption,
@@ -635,7 +635,6 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
   >
     <template #header>
       <PageHeader :title="t('common.platforms')" :count="totalCount" />
-      <RDivider class="r-pidx__header-divider" />
     </template>
 
     <template #toolbar>
@@ -766,12 +765,6 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
 </template>
 
 <style scoped>
-/* Mirror the gallery shell's header→toolbar separator so the visual
-   rhythm matches Search / Platform / Collection ROM views. */
-.r-pidx__header-divider {
-  margin-bottom: 16px;
-}
-
 .r-pidx__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));

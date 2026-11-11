@@ -36,13 +36,7 @@ import { useRouteQueryParam } from "@/composables/useRouteQueryParam";
 import { useTileSearchUrl } from "@/composables/useTileSearchUrl";
 import { useUISettings } from "@/composables/useUISettings";
 import { useWebpSupport } from "@/composables/useWebpSupport";
-import {
-  RDivider,
-  REmptyState,
-  RLetterHeading,
-  RSkeletonBlock,
-  RIcon,
-} from "@/lib";
+import { REmptyState, RLetterHeading, RSkeletonBlock, RIcon } from "@/lib";
 import storeCollections, {
   type Collection,
   type SmartCollection,
@@ -451,7 +445,6 @@ const showList = computed(
   <IndexShell :list-mode="showList" :list-label="t('common.collections')">
     <template #header>
       <PageHeader :title="t('common.collections')" :count="totalCount" />
-      <RDivider class="r-cidx__header-divider" />
     </template>
 
     <template #toolbar>
@@ -635,12 +628,6 @@ const showList = computed(
 </template>
 
 <style scoped>
-/* Mirror the gallery shell's header→toolbar separator so the visual
-   rhythm matches Search / Platform / Collection ROM views. */
-.r-cidx__header-divider {
-  margin-bottom: 16px;
-}
-
 .r-cidx__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
