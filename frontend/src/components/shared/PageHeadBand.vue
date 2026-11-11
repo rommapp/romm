@@ -1,7 +1,6 @@
 <script setup lang="ts">
-// PageHeadBand: the band at the top of a page. It wraps the page's header
-// (a PageHeader, PlatformHead, ...) with the divider under it and the space
-// around both, so every page puts its title and first content in one place.
+// Owns the space above a page's header, its divider and the gap below, so
+// every page puts its title and first content in the same place.
 import { RDivider } from "@/lib";
 
 defineOptions({ inheritAttrs: false });
