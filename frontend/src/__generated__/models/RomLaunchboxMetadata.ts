@@ -3,7 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { LaunchboxImage } from './LaunchboxImage';
-import type { ScanClaims } from './ScanClaims';
 export type RomLaunchboxMetadata = {
     first_release_date?: (number | null);
     max_players?: number;
@@ -29,6 +28,5 @@ export type RomLaunchboxMetadata = {
     box2d_side_path?: (string | null);
     box3d_path?: (string | null);
     video_path?: (string | null);
-    scan_claims?: ScanClaims;
 };
 

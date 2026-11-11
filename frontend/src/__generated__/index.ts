@@ -255,7 +255,6 @@ export type { SaveStateRequest } from './models/SaveStateRequest';
 export type { SaveStateResponse } from './models/SaveStateResponse';
 export type { SaveSummarySchema } from './models/SaveSummarySchema';
 export type { SaveTargetLayout } from './models/SaveTargetLayout';
-export type { ScanClaims } from './models/ScanClaims';
 export type { ScanPayload } from './models/ScanPayload';
 export type { ScanSettingsPayload } from './models/ScanSettingsPayload';
 export type { ScanStats } from './models/ScanStats';

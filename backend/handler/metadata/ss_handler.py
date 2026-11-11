@@ -50,7 +50,6 @@ from .base_handler import (
     BaseRom,
     IndexedFormatPlatforms,
     MetadataHandler,
-    ScanClaims,
     provider_tag_regex,
     restore_sensitive_query_params,
     strip_sensitive_query_params,
@@ -355,8 +354,6 @@ class SSMetadata(SSMetadataMedia):
     dump_regions: NotRequired[list[str]]
     dump_languages: NotRequired[list[str]]
     dump_tags: NotRequired[list[str]]
-    # The base fields this source gave the game, kept by the scan.
-    scan_claims: NotRequired[ScanClaims]
 
 
 class SSRom(BaseRom):

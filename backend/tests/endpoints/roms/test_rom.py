@@ -1166,22 +1166,39 @@ def test_update_rom_stores_names_from_raw_metadata_objects(
     }
 
 
+@pytest.mark.parametrize(
+    ("igdb_id", "kept"),
+    [
+        pytest.param(MOCK_IGDB_ID, {"name": "Mario Kart 64"}, id="same-match"),
+        pytest.param(MOCK_IGDB_ID + 1, None, id="new-match"),
+    ],
+)
 @patch.object(FSRomsHandler, "rename_fs_rom")
 @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
-def test_update_rom_drops_scan_claims_that_are_not_well_typed(
+def test_update_rom_keeps_scan_claims_only_while_the_match_stands(
     _get_rom_by_id_mock: AsyncMock,
     _rename_fs_rom_mock: AsyncMock,
     client: TestClient,
     access_token: str,
     rom: Rom,
+    igdb_id: int,
+    kept: dict[str, str] | None,
 ):
+    db_rom_handler.update_rom(
+        rom.id,
+        {
+            "igdb_id": MOCK_IGDB_ID,
+            "igdb_metadata": {"scan_claims": {"name": "Mario Kart 64"}},
+        },
+    )
+
     response = client.put(
         f"/api/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
         data={
-            "igdb_id": str(MOCK_IGDB_ID),
+            "igdb_id": str(igdb_id),
             "raw_igdb_metadata": json.dumps(
-                {"scan_claims": {"name": None}, "youtube_video_id": "x"}
+                {"scan_claims": {"name": "Forged"}, "youtube_video_id": "x"}
             ),
         },
     )
@@ -1189,14 +1206,20 @@ def test_update_rom_drops_scan_claims_that_are_not_well_typed(
 
     stored = db_rom_handler.get_rom(rom.id)
     assert stored is not None
-    assert stored.igdb_metadata == {"youtube_video_id": "x"}
+    assert stored.igdb_metadata is not None
+    assert stored.igdb_metadata.get("scan_claims") == kept
+    assert stored.igdb_metadata["youtube_video_id"] == "x"
 
 
-def test_get_rom_serves_scan_claims_that_are_not_well_typed(
-    client: TestClient, access_token: str, rom: Rom
-):
+def test_get_rom_hides_scan_claims(client: TestClient, access_token: str, rom: Rom):
     db_rom_handler.update_rom(
-        rom.id, {"igdb_metadata": {"scan_claims": {"name": ["Mario"]}}}
+        rom.id,
+        {
+            "igdb_metadata": {
+                "scan_claims": {"name": "Mario Kart 64"},
+                "youtube_video_id": "x",
+            }
+        },
     )
 
     response = client.get(
@@ -1204,7 +1227,7 @@ def test_get_rom_serves_scan_claims_that_are_not_well_typed(
     )
 
     assert response.status_code == status.HTTP_200_OK
-    assert "scan_claims" not in response.json()["igdb_metadata"]
+    assert response.json()["igdb_metadata"] == {"youtube_video_id": "x"}
 
 
 @pytest.mark.parametrize("form_key", ["raw_igdb_metadata", "raw_manual_metadata"])

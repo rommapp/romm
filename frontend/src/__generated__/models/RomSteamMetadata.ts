@@ -2,7 +2,6 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { ScanClaims } from './ScanClaims';
 import type { SteamPlatforms } from './SteamPlatforms';
 export type RomSteamMetadata = {
     total_rating?: string;
@@ -18,6 +17,5 @@ export type RomSteamMetadata = {
     website?: string;
     is_free?: boolean;
     required_age?: number;
-    scan_claims?: ScanClaims;
 };
 

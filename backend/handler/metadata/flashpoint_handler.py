@@ -14,7 +14,7 @@ from utils.html_text import html_to_text
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.platform_slugs import fill_duplicate_slugs
 
-from .base_handler import HTTPX_REQUEST_ERRORS, MetadataHandler, ScanClaims
+from .base_handler import HTTPX_REQUEST_ERRORS, MetadataHandler
 
 
 class FlashpointPlatform(TypedDict):
@@ -57,8 +57,6 @@ class FlashpointMetadata(TypedDict):
     version: str | None
     language: str | None
     notes: str | None
-    # The base fields this source gave the game, kept by the scan.
-    scan_claims: NotRequired[ScanClaims]
 
 
 class FlashpointRom(TypedDict):

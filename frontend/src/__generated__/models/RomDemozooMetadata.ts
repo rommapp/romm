@@ -3,7 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { DemozooCredit } from './DemozooCredit';
-import type { ScanClaims } from './ScanClaims';
 export type RomDemozooMetadata = {
     types?: Array<string>;
     groups?: Array<string>;
@@ -25,6 +24,5 @@ export type RomDemozooMetadata = {
     genres?: Array<string>;
     collections?: Array<string>;
     download_urls?: Array<string>;
-    scan_claims?: ScanClaims;
 };
 

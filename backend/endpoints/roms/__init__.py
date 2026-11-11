@@ -126,7 +126,12 @@ from handler.metadata.ss_handler import (
 )
 from handler.recommendation import similar_roms
 from handler.rom_conversion import promote_single_file_to_folder
-from handler.scan.sources import RESCAN_RULES, MetadataSource, ScanType
+from handler.scan.sources import (
+    RESCAN_RULES,
+    SCAN_CLAIMS_KEY,
+    MetadataSource,
+    ScanType,
+)
 from handler.scan_handler import (
     MEDIA_PROVIDERS,
     build_hashless_fs_rom,
@@ -2233,6 +2238,18 @@ async def update_rom(
                 confine_provider_media(
                     raw_metadata, getattr(rom, f"{provider}_metadata"), rom, form_key
                 )
+            stored = getattr(rom, f"{provider}_metadata")
+            # The scan's claims are hidden from the editor, so they outlive an edit
+            # for as long as the match stands.
+            if (
+                cleaned_data[f"{provider}_id"] == getattr(rom, f"{provider}_id")
+                and isinstance(stored, dict)
+                and SCAN_CLAIMS_KEY in stored
+            ):
+                raw_metadata = {
+                    **raw_metadata,
+                    SCAN_CLAIMS_KEY: stored[SCAN_CLAIMS_KEY],
+                }
             cleaned_data[f"{provider}_metadata"] = raw_metadata
     raw_manual_metadata = parse_raw_metadata(form_data, "raw_manual_metadata")
     if raw_manual_metadata is not None:

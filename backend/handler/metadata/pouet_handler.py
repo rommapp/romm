@@ -23,7 +23,6 @@ from utils.rate_limiter import RateLimiter
 from .base_handler import (
     BaseRom,
     MetadataHandler,
-    ScanClaims,
     provider_tag_regex,
     tag_id_from_filename,
 )
@@ -67,8 +66,6 @@ class PouetMetadata(TypedDict, total=False):
     genres: list[str]
     companies: list[str]
     download_urls: list[str]
-    # The base fields this source gave the game, kept by the scan.
-    scan_claims: ScanClaims
 
 
 class PouetRom(BaseRom):

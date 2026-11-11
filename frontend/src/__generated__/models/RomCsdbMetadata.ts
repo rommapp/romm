@@ -3,7 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { CsdbCredit } from './CsdbCredit';
-import type { ScanClaims } from './ScanClaims';
 export type RomCsdbMetadata = {
     types?: Array<string>;
     groups?: Array<string>;
@@ -14,6 +13,5 @@ export type RomCsdbMetadata = {
     companies?: Array<string>;
     genres?: Array<string>;
     download_urls?: Array<string>;
-    scan_claims?: ScanClaims;
 };
 

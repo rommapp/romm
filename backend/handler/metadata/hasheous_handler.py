@@ -24,7 +24,7 @@ from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.platform_slugs import fill_duplicate_slugs
 
-from .base_handler import BaseRom, MetadataHandler, ScanClaims
+from .base_handler import BaseRom, MetadataHandler
 from .igdb_handler import (
     IGDB_AGE_RATINGS,
     IGDBMetadata,
@@ -47,8 +47,6 @@ class HasheousMetadata(TypedDict):
     dump_regions: NotRequired[list[str]]
     dump_languages: NotRequired[list[str]]
     dump_tags: NotRequired[list[str]]
-    # The base fields this source gave the game, kept by the scan.
-    scan_claims: NotRequired[ScanClaims]
 
 
 class HasheousPlatform(TypedDict):

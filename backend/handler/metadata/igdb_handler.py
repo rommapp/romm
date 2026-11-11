@@ -34,7 +34,6 @@ from .base_handler import (
     BaseRom,
     IndexedFormatPlatforms,
     MetadataHandler,
-    ScanClaims,
     provider_tag_regex,
     tag_id_from_filename,
 )
@@ -152,8 +151,6 @@ class IGDBMetadata(TypedDict):
     expanded_games: list[IGDBRelatedGame]
     ports: list[IGDBRelatedGame]
     similar_games: list[IGDBRelatedGame]
-    # The base fields this source gave the game, kept by the scan.
-    scan_claims: NotRequired[ScanClaims]
 
 
 class IGDBRom(BaseRom):

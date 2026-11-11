@@ -2,7 +2,6 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { ScanClaims } from './ScanClaims';
 export type RomHasheousMetadata = {
     tosec_match?: boolean;
     mame_arcade_match?: boolean;
@@ -17,6 +16,5 @@ export type RomHasheousMetadata = {
     dump_regions?: Array<string>;
     dump_languages?: Array<string>;
     dump_tags?: Array<string>;
-    scan_claims?: ScanClaims;
 };
 

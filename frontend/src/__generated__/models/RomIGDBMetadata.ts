@@ -6,7 +6,6 @@ import type { IGDBAgeRating } from './IGDBAgeRating';
 import type { IGDBMetadataMultiplayerMode } from './IGDBMetadataMultiplayerMode';
 import type { IGDBMetadataPlatform } from './IGDBMetadataPlatform';
 import type { IGDBRelatedGame } from './IGDBRelatedGame';
-import type { ScanClaims } from './ScanClaims';
 export type RomIGDBMetadata = {
     total_rating?: (string | null);
     total_rating_count?: (number | null);
@@ -35,6 +34,5 @@ export type RomIGDBMetadata = {
     expanded_games?: Array<IGDBRelatedGame>;
     ports?: Array<IGDBRelatedGame>;
     similar_games?: Array<IGDBRelatedGame>;
-    scan_claims?: ScanClaims;
 };
 

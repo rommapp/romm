@@ -18,7 +18,6 @@ from .base_handler import (
     BaseRom,
     IndexedFormatPlatforms,
     MetadataHandler,
-    ScanClaims,
     provider_tag_regex,
     tag_id_from_filename,
 )
@@ -55,8 +54,6 @@ class MobyMetadata(TypedDict):
     genres: list[str]
     alternate_titles: list[str]
     platforms: list[MobyMetadataPlatform]
-    # The base fields this source gave the game, kept by the scan.
-    scan_claims: NotRequired[ScanClaims]
 
 
 class MobyGamesRom(BaseRom):

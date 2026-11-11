@@ -3,7 +3,7 @@
 import enum
 from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass
-from typing import Any, Final, cast
+from typing import Any, Final, TypedDict, cast
 
 from config.config_manager import config_manager as cm
 from handler.metadata import (
@@ -24,7 +24,6 @@ from handler.metadata import (
     meta_steam_handler,
     meta_tgdb_handler,
 )
-from handler.metadata.base_handler import ScanClaims
 from handler.metadata.flashpoint_handler import FLASHPOINT_PLATFORM_LIST
 from handler.metadata.hasheous_handler import HASHEOUS_PLATFORM_LIST
 from handler.metadata.hltb_handler import HLTB_PLATFORM_LIST
@@ -103,8 +102,17 @@ PROVIDER_ALL_TAG_FIELDS = PROVIDER_TAG_FIELDS + PROVIDER_MERGED_TAG_FIELDS
 DUMP_TAG_KEYS = {field: f"dump_{field}" for field in PROVIDER_ALL_TAG_FIELDS}
 
 
-# Where every source's blob keeps the base fields it gave the game.
+# Where every source's blob keeps the base fields it gave the game. The scan owns
+# it, so responses leave it out and a raw metadata edit can't replace it.
 SCAN_CLAIMS_KEY = "scan_claims"
+
+
+class ScanClaims(TypedDict, total=False):
+    name: str
+    slug: str
+    url_cover: str
+    url_screenshots: list[str]
+
 
 # Each claimed field, and the priority list that ranks the sources for it.
 CLAIMED_FIELDS: Final = {

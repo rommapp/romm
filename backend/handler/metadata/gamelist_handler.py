@@ -21,7 +21,7 @@ from models.platform import Platform
 from models.rom import Rom, compute_name_sort_key
 from utils.filesystem import join_rel_path, rel_platform_folder
 
-from .base_handler import BaseRom, MetadataHandler, ScanClaims
+from .base_handler import BaseRom, MetadataHandler
 
 # https://github.com/Aloshi/EmulationStation/blob/master/GAMELISTS.md#reference
 
@@ -58,9 +58,6 @@ class GamelistMetadataMedia(TypedDict):
     thumbnail_url: str | None
     title_screen_url: str | None
     video_url: str | None
-    # The base fields this source gave the game, kept by the scan. Declared here
-    # because the metadata is built by unpacking the media.
-    scan_claims: NotRequired[ScanClaims]
 
 
 class GamelistMetadata(GamelistMetadataMedia):
