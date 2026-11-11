@@ -1,17 +1,52 @@
 <script setup lang="ts">
 // Primary-nav tab bar on sm-and-down, where AppNav drops its centre pill.
 // Mount-gated (not `display: none`) so hidden links never take focus.
+import { computed, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import {
   NAV_FILLED_ICONS,
   useNavDestinations,
 } from "@/composables/useNavDestinations";
+import type { NavDestinationId } from "@/composables/useNavDestinations";
 import { RIcon, RSegmentedControl } from "@/lib";
 
 const { t } = useI18n();
 const { smAndDown } = useBreakpoint();
 const { destinations, activeId } = useNavDestinations();
+const router = useRouter();
+
+// The route updates only after the lazy view loads and the view transition is captured.
+const pendingId = ref<NavDestinationId | null>(null);
+const shownId = computed(() => pendingId.value ?? activeId.value);
+
+function onTap(event: MouseEvent) {
+  // RouterLink leaves these clicks to the browser, so no navigation follows.
+  if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+  const href = (event.target as HTMLElement | null)
+    ?.closest("a")
+    ?.getAttribute("href");
+  const tapped = destinations.value.find((d) => d.to === href);
+  if (tapped) pendingId.value = tapped.id;
+}
+
+// Only the latest navigation may clear the highlight; a superseded one finishes on its own.
+let latestPath: string | null = null;
+const stopTracking = router.beforeEach((to) => {
+  latestPath = to.fullPath;
+});
+const settle = (to: { fullPath: string }) => {
+  if (to.fullPath === latestPath) pendingId.value = null;
+};
+const stopSettled = router.afterEach((to) => settle(to));
+// Errors such as a rejected lazy import skip afterEach.
+const stopOnError = router.onError((_error, to) => settle(to));
+onBeforeUnmount(() => {
+  stopTracking();
+  stopSettled();
+  stopOnError();
+});
 
 // Sticky avoids a Safari bug where fixed elements can get stuck after scrolling.
 </script>
@@ -20,10 +55,11 @@ const { destinations, activeId } = useNavDestinations();
   <div v-if="smAndDown" class="r-bottom-nav-anchor">
     <nav class="r-bottom-nav" :aria-label="t('common.primary-navigation')">
       <RSegmentedControl
-        :model-value="activeId"
+        :model-value="shownId"
         :items="destinations"
         variant="tab"
         class="r-bottom-nav__group"
+        @click="onTap"
       >
         <template #item="{ item }">
           <RIcon
@@ -98,6 +134,7 @@ const { destinations, activeId } = useNavDestinations();
   gap: 2px;
   min-height: 52px;
   padding: 4px 2px;
+  touch-action: manipulation;
 }
 
 .r-bottom-nav__group.r-segmented-control--tab
