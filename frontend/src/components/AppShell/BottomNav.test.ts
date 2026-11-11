@@ -51,6 +51,23 @@ describe("BottomNav", () => {
     );
   });
 
+  it("marks only the active tab as the current page", async () => {
+    const wrapper = mountNav();
+    const tabs = wrapper.findAll(".r-segmented-control__btn");
+
+    expect(tabs.map((t) => t.attributes("aria-current"))).toEqual([
+      undefined,
+      undefined,
+      "page",
+      undefined,
+    ]);
+
+    await tabs[1]?.trigger("click");
+
+    expect(tabs[1]?.attributes("aria-current")).toBe("page");
+    expect(tabs[2]?.attributes("aria-current")).toBeUndefined();
+  });
+
   it("hands the highlight back to the route once navigation settles", async () => {
     const wrapper = mountNav();
     const tabs = wrapper.findAll(".r-segmented-control__btn");
