@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import { gamepadFixture } from "@/utils/gamepad.fixtures";
 import { usePadRafFn } from "./index";
@@ -13,6 +13,7 @@ describe("usePadRafFn", () => {
     frame = null;
     pads = [];
     ticks = 0;
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
       frame = cb;
       return 1;
@@ -24,6 +25,10 @@ describe("usePadRafFn", () => {
       value: () => pads,
       configurable: true,
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   function mountHost() {
@@ -63,6 +68,32 @@ describe("usePadRafFn", () => {
 
     // Act
     window.dispatchEvent(new Event("gamepadconnected"));
+
+    // Assert
+    expect(frame).not.toBeNull();
+  });
+
+  it("starts polling when a pad appears without a connect event", () => {
+    // Arrange
+    mountHost();
+    pads = [gamepadFixture()];
+
+    // Act
+    vi.advanceTimersByTime(1000);
+
+    // Assert
+    expect(frame).not.toBeNull();
+  });
+
+  it("probes again after the last pad disconnects", () => {
+    // Arrange
+    mountHost();
+    window.dispatchEvent(new Event("gamepadconnected"));
+    window.dispatchEvent(new Event("gamepaddisconnected"));
+    pads = [gamepadFixture()];
+
+    // Act
+    vi.advanceTimersByTime(1000);
 
     // Assert
     expect(frame).not.toBeNull();
