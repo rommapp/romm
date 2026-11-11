@@ -20,6 +20,7 @@ import LiveSessionCard from "@/components/Home/LiveSessionCard.vue";
 import WidgetBar from "@/components/Home/Widgets/WidgetBar.vue";
 import PlatformTile from "@/components/Platforms/PlatformTile.vue";
 import CardRow from "@/components/shared/CardRow.vue";
+import PageHeader from "@/components/shared/PageHeader.vue";
 import RecommendationReason from "@/components/shared/RecommendationReason.vue";
 import { useGridNav } from "@/composables/useGridNav";
 import { useLoadingPhase } from "@/composables/useLoadingPhase";
@@ -277,6 +278,11 @@ function collectionCovers(c: {
 
 <template>
   <div ref="gridRoot" class="r-home">
+    <div class="r-home__header">
+      <PageHeader :title="t('common.home')" />
+      <RDivider />
+    </div>
+
     <!-- Empty library state, shown when nothing has been ingested
          yet. Hides every section underneath so the user lands on a
          decision (upload vs scan), not on a row of skeletons. -->
@@ -633,6 +639,15 @@ function collectionCovers(c: {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* Lines the title up with the index views' (IndexShell's 32px / 16px top).
+   No bottom padding: the first section brings its own 16px. */
+.r-home__header {
+  padding: 16px var(--r-row-pad) 0;
+}
+html[data-bp~="xs"] .r-home__header {
+  padding-top: 0;
 }
 
 .r-home__empty {
