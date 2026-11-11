@@ -1,4 +1,6 @@
-"""Add channels, snapshots and their bank, and the content columns they need.
+"""Add channels, snapshots and their bank, the content columns they need, and
+the per-file identity sigil reads for a restore, then file every slotted save
+under a channel named after its slot.
 
 Revision ID: 0161_save_channels
 Revises: 0160_state_origin_device
@@ -6,13 +8,16 @@ Create Date: 2026-10-05 00:00:00.000000
 
 """
 
-from datetime import datetime
+import uuid
+from datetime import datetime, timezone
 
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import ENUM
 
-from utils.database import is_postgresql
+from handler.snapshots.legacy import channel_label, sync_file
+from models.rom import RomFile, RomFileCategory
+from utils.database import CustomJSON, is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0161_save_channels"
@@ -87,7 +92,7 @@ def _relink_rom(table: str, ondelete: str, nullable: bool) -> None:
     )
 
 
-def upgrade() -> None:
+def _add_channels() -> None:
     conn = op.get_bind()
     if is_postgresql(conn):
         for name, values in ENUMS.items():
@@ -326,7 +331,7 @@ def upgrade() -> None:
                 )
 
 
-def downgrade() -> None:
+def _drop_channels() -> None:
     conn = op.get_bind()
     inspector = sa.inspect(conn)
 
@@ -387,3 +392,139 @@ def downgrade() -> None:
     if is_postgresql(conn):
         for name, values in ENUMS.items():
             ENUM(*values, name=name).drop(conn, checkfirst=True)
+
+
+def _sigil_identity_columns() -> list[sa.Column]:
+    return [
+        sa.Column("raw_serial", sa.String(length=100), nullable=True),
+        sa.Column("sigil_features", sa.BigInteger(), nullable=True),
+        sa.Column("n64_header", sa.String(length=100), nullable=True),
+        sa.Column("n64_md5", sa.String(length=100), nullable=True),
+        sa.Column("n64_md5_n64", sa.String(length=100), nullable=True),
+        sa.Column("playlist_title_ids", CustomJSON(), nullable=True),
+    ]
+
+
+def _add_sigil_identity() -> None:
+    with op.batch_alter_table("rom_files", schema=None) as batch_op:
+        for column in _sigil_identity_columns():
+            batch_op.add_column(column, if_not_exists=True)
+
+
+def _drop_sigil_identity() -> None:
+    with op.batch_alter_table("rom_files", schema=None) as batch_op:
+        for column in reversed(_sigil_identity_columns()):
+            batch_op.drop_column(column.name, if_exists=True)
+
+
+def _rom_files(conn: sa.Connection, rom_id: int) -> list[RomFile]:
+    rows = conn.execute(
+        sa.text(
+            "SELECT file_name, file_size_bytes, sha1_hash, category, missing_from_fs "
+            "FROM rom_files WHERE rom_id = :rom_id"
+        ),
+        {"rom_id": rom_id},
+    )
+    return [
+        RomFile(
+            file_name=row.file_name,
+            file_size_bytes=row.file_size_bytes,
+            sha1_hash=row.sha1_hash,
+            category=RomFileCategory[row.category] if row.category else None,
+            missing_from_fs=bool(row.missing_from_fs),
+        )
+        for row in rows
+    ]
+
+
+def _link_slots_to_channels() -> None:
+    conn = op.get_bind()
+    # Only saves not yet linked, so a run that died partway resumes.
+    groups = conn.execute(
+        sa.text(
+            "SELECT DISTINCT s.user_id, s.rom_id, s.slot, r.platform_id "
+            "FROM saves s JOIN roms r ON r.id = s.rom_id "
+            "WHERE s.slot IS NOT NULL AND s.channel_id IS NULL"
+        )
+    ).all()
+
+    channels: dict[tuple[int, int, str], uuid.UUID] = {}
+    for user_id, rom_id, slot, platform_id in groups:
+        label = channel_label(slot)
+        rom_file = sync_file(_rom_files(conn, rom_id))
+        if label is None or rom_file is None:
+            continue
+        key = (user_id, rom_id, label.lower())
+        channel_id = (
+            channels.get(key)
+            or conn.execute(
+                sa.text(
+                    "SELECT id FROM channels WHERE user_id = :user_id "
+                    "AND rom_id = :rom_id AND LOWER(label) = LOWER(:label) "
+                    "ORDER BY created_at"
+                ),
+                {"user_id": user_id, "rom_id": rom_id, "label": label},
+            ).scalar()
+        )
+        if channel_id is None:
+            channel_id = uuid.uuid7()
+            now = datetime.now(timezone.utc)
+            conn.execute(
+                sa.insert(
+                    sa.table(
+                        "channels",
+                        sa.column("id", sa.Uuid()),
+                        sa.column("user_id"),
+                        sa.column("rom_id"),
+                        sa.column("platform_id"),
+                        sa.column("target_file_hash"),
+                        sa.column("target_file_name"),
+                        sa.column("target_file_size"),
+                        sa.column("label"),
+                        sa.column("created_at"),
+                        sa.column("updated_at"),
+                    )
+                ).values(
+                    id=channel_id,
+                    user_id=user_id,
+                    rom_id=rom_id,
+                    platform_id=platform_id,
+                    target_file_hash=rom_file.sha1_hash or None,
+                    target_file_name=rom_file.file_name,
+                    target_file_size=rom_file.file_size_bytes,
+                    label=label,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+        channels[key] = uuid.UUID(str(channel_id))
+        conn.execute(
+            sa.update(
+                sa.table(
+                    "saves",
+                    sa.column("user_id"),
+                    sa.column("rom_id"),
+                    sa.column("slot"),
+                    sa.column("channel_id", sa.Uuid()),
+                )
+            )
+            .where(
+                sa.column("user_id") == user_id,
+                sa.column("rom_id") == rom_id,
+                sa.column("slot") == slot,
+                sa.column("channel_id").is_(None),
+            )
+            .values(channel_id=channels[key])
+        )
+
+
+def upgrade() -> None:
+    _add_channels()
+    _add_sigil_identity()
+    _link_slots_to_channels()
+
+
+def downgrade() -> None:
+    # Dropping the channels unlinks the saves filed under them.
+    _drop_sigil_identity()
+    _drop_channels()

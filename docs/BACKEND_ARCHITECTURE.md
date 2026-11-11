@@ -884,26 +884,24 @@ Token format: `rmm_` + 64 hex chars (32-byte random)
 
 80+ migration scripts in `alembic/versions/`. Key milestones:
 
-| Migration      | Description                               |
-| -------------- | ----------------------------------------- |
-| `0009`         | Models refactor                           |
-| `0014`, `0019` | Asset filesystem refactoring              |
-| `0020`         | Added created_at/updated_at to all tables |
-| `0021`         | ROM user associations                     |
-| `0022`         | Collection system                         |
-| `0023`         | Column nullability constraints            |
-| `0024`         | Sibling ROM database views                |
-| `0025`         | ROM hash tracking                         |
-| `0064`         | Performance indexes on updated_at         |
-| `0068`         | Device + device_save_sync tables          |
-| `0072`         | Client tokens table                       |
-| `0149`, `0150` | ROM fs_name lookup indexes                |
-| `0151`         | State content hash                        |
-| `0152`         | Cross-user smart collection scopes        |
-| `0153`         | Play permissions                          |
-| `0161`         | Save channels and snapshots               |
-| `0162`         | Slotted saves filed under channels        |
-| `0163`         | ROM file sigil identity                   |
+| Migration      | Description                                 |
+| -------------- | ------------------------------------------- |
+| `0009`         | Models refactor                             |
+| `0014`, `0019` | Asset filesystem refactoring                |
+| `0020`         | Added created_at/updated_at to all tables   |
+| `0021`         | ROM user associations                       |
+| `0022`         | Collection system                           |
+| `0023`         | Column nullability constraints              |
+| `0024`         | Sibling ROM database views                  |
+| `0025`         | ROM hash tracking                           |
+| `0064`         | Performance indexes on updated_at           |
+| `0068`         | Device + device_save_sync tables            |
+| `0072`         | Client tokens table                         |
+| `0149`, `0150` | ROM fs_name lookup indexes                  |
+| `0151`         | State content hash                          |
+| `0152`         | Cross-user smart collection scopes          |
+| `0153`         | Play permissions                            |
+| `0161`         | Save channels, snapshots and sigil identity |
 
 Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/PostgreSQL.
 

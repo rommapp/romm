@@ -268,7 +268,7 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0161_save_channels.py", "saves"),
         ("0161_save_channels.py", "states"),
         ("0161_save_channels.py", "screenshots"),
-        ("0163_rom_file_sigil_identity.py", "rom_files"),
+        ("0161_save_channels.py", "rom_files"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -549,7 +549,7 @@ def test_the_rom_file_title_ids_revision_reverses_and_replays():
 
 def test_the_save_channels_revision_reverses_and_replays():
     migration = _load_migration("0161_save_channels.py")
-    tables = ("saves", "states", "screenshots")
+    tables = ("saves", "states", "screenshots", "rom_files")
     created = (
         "channels",
         "snapshots",
@@ -567,6 +567,15 @@ def test_the_save_channels_revision_reverses_and_replays():
             assert not has_column(connection, "saves", "identity_hash")
             assert not has_column(connection, "states", "emulator_version")
             assert not has_column(connection, "screenshots", "save_id")
+            for column in (
+                "raw_serial",
+                "sigil_features",
+                "n64_header",
+                "n64_md5",
+                "n64_md5_n64",
+                "playlist_title_ids",
+            ):
+                assert not has_column(connection, "rom_files", column)
 
             migration.downgrade()
             migration.upgrade()
@@ -577,10 +586,10 @@ def test_the_save_channels_revision_reverses_and_replays():
     assert after == before
 
 
-def test_the_slot_link_revision_files_slotted_saves_under_channels(
+def test_the_save_channels_revision_files_slotted_saves_under_channels(
     rom: Rom, admin_user: User
 ):
-    migration = _load_migration("0162_link_slots_to_channels.py")
+    migration = _load_migration("0161_save_channels.py")
     db_rom_handler.add_rom_file(
         RomFile(rom_id=rom.id, file_name="game.sfc", file_path="p", file_size_bytes=8)
     )
@@ -621,30 +630,6 @@ def test_the_slot_link_revision_files_slotted_saves_under_channels(
         backup.id: None,
     }
     assert channels == 2
-
-
-def test_the_rom_file_sigil_identity_revision_reverses_and_replays():
-    migration = _load_migration("0163_rom_file_sigil_identity.py")
-
-    with sync_engine.begin() as connection:
-        before = _schema_of(connection, "rom_files")
-        with Operations.context(MigrationContext.configure(connection)):
-            migration.downgrade()
-            for column in (
-                "raw_serial",
-                "sigil_features",
-                "n64_header",
-                "n64_md5",
-                "n64_md5_n64",
-                "playlist_title_ids",
-            ):
-                assert not has_column(connection, "rom_files", column)
-
-            migration.downgrade()
-            migration.upgrade()
-            migration.upgrade()
-
-        assert _schema_of(connection, "rom_files") == before
 
 
 def test_the_age_limits_revision_reverses_replays_and_fills(platform: Platform):
