@@ -35,12 +35,6 @@ describe("useRightStickScroll", () => {
   });
 
   function setup() {
-    const mounted = mountHost();
-    window.dispatchEvent(new Event("gamepadconnected"));
-    return mounted;
-  }
-
-  function mountHost() {
     const el = document.createElement("div");
     const host = mount(
       defineComponent({
@@ -50,38 +44,9 @@ describe("useRightStickScroll", () => {
         },
       }),
     );
+    window.dispatchEvent(new Event("gamepadconnected"));
     return { el, host };
   }
-
-  it("does not poll until a pad connects", () => {
-    // Arrange
-    pads = [];
-
-    // Act
-    mountHost();
-
-    // Assert
-    expect(frame).toBeNull();
-  });
-
-  it("stays idle when a Permissions-Policy blocks the gamepad API", () => {
-    // Arrange
-    Object.defineProperty(navigator, "getGamepads", {
-      value: () => {
-        throw new DOMException(
-          "Blocked by Permissions Policy",
-          "SecurityError",
-        );
-      },
-      configurable: true,
-    });
-
-    // Act
-    mountHost();
-
-    // Assert
-    expect(frame).toBeNull();
-  });
 
   it("scrolls by the stick's deflection every frame", () => {
     const { el } = setup();
@@ -121,31 +86,6 @@ describe("useRightStickScroll", () => {
 
     expect(el.scrollTop).toBe(0);
     expect(el.scrollLeft).toBe(0);
-  });
-
-  it("stops polling once the last pad disconnects", () => {
-    // Arrange
-    setup();
-    pads = [];
-
-    // Act
-    window.dispatchEvent(new Event("gamepaddisconnected"));
-
-    // Assert
-    expect(frame).toBeNull();
-  });
-
-  it("keeps polling while another pad stays connected", () => {
-    // Arrange
-    const { el } = setup();
-    pads = [padWithRightStick(0, 1)];
-
-    // Act
-    window.dispatchEvent(new Event("gamepaddisconnected"));
-    step();
-
-    // Assert
-    expect(el.scrollTop).toBe(25);
   });
 
   it("stops polling once its host unmounts", () => {

@@ -31,7 +31,7 @@
 //     a pad exit by listening for it.
 //   * Controller-test screen (ACTIONS_DISABLED_PATHS): built-in actions
 //     are muted so every button can be pressed and inspected in place.
-import { useEventListener, useRafFn } from "@vueuse/core";
+import { useEventListener } from "@vueuse/core";
 import { nextTick, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useInputModality } from "@/composables/useInputModality";
@@ -39,6 +39,7 @@ import {
   NAV_TARGETS,
   navDestinationAt,
 } from "@/composables/useNavDestinations";
+import { usePadRafFn } from "@/composables/usePadRafFn";
 import { hasOpenEscapable } from "@/lib/overlays/RDialog/escapeStack.js";
 import storePlaying from "@/stores/playing";
 import {
@@ -130,19 +131,6 @@ const padEvents = new WeakSet<Event>();
 /** True when `event` is a key useGamepad dispatched for the pad. */
 export function isPadEvent(event: Event): boolean {
   return padEvents.has(event);
-}
-
-/** Runs `fn` every frame only while a pad is connected (Chrome reports one
- * after its first press). */
-export function usePadRafFn(fn: () => void): void {
-  const raf = useRafFn(fn, { immediate: hasUsablePad() });
-  useEventListener(window, "gamepadconnected", raf.resume);
-  useEventListener(window, "gamepaddisconnected", () => {
-    if (hasUsablePad()) return;
-    // A last tick with no pad lets go of a held exit chord.
-    fn();
-    raf.pause();
-  });
 }
 
 // Other mappings don't guarantee the Back/Start indices.
@@ -260,6 +248,12 @@ export function useGamepad() {
 
     const onAnyInput = () => setModality("pad");
     useEventListener(window, "gamepadconnected", () => setModality("pad"));
+    // Polling pauses with the last pad gone, so release its held chord here.
+    useEventListener(window, "gamepaddisconnected", () => {
+      if (hasUsablePad()) return;
+      chordHeldSince = null;
+      chordFired = false;
+    });
 
     // A pad already exposed at install lets grid-nav autofocus land before a
     // first press; a pad Chrome still hides is caught by gamepadconnected.

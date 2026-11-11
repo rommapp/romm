@@ -13,7 +13,7 @@
 //     frame; at 60fps full-up gives ~1500 px/s, which matches the feel
 //     of "page down via dpad" without overshoot.
 import type { Ref } from "vue";
-import { usePadRafFn } from "@/composables/useGamepad";
+import { usePadRafFn } from "@/composables/usePadRafFn";
 import { readRightStick } from "@/utils/gamepad";
 
 const DEADZONE = 0.15;
