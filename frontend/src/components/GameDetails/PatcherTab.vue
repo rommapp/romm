@@ -31,11 +31,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeUpload from "@/stores/upload";
 import { formatBytes } from "@/utils";
-import {
-  SUPPORTED_PATCH_EXTENSIONS,
-  fileExtension,
-  isPatchFile,
-} from "@/utils/romPatch";
+import { fileExtension } from "@/utils/romFiles";
 
 const props = defineProps<{ rom: DetailedRomSchema }>();
 
@@ -55,7 +51,10 @@ const selectedArchiveMemberName = ref<string | null>(null);
 // stored); picking either clears the other.
 const uploadedPatch = ref<File | null>(null);
 
-const acceptAttr = SUPPORTED_PATCH_EXTENSIONS.join(",");
+const patchExtensions = computed(
+  () => heartbeat.value.ROM_PATCHER.SUPPORTED_EXTENSIONS,
+);
+const acceptAttr = computed(() => patchExtensions.value.join(","));
 
 const downloadLocally = ref(true);
 // Uploading the patched ROM back into RomM needs write access. Viewers
@@ -84,7 +83,9 @@ const statusMessage = ref<string | null>(null);
 const baseFiles = computed(() =>
   props.rom.files.filter((f) => f.category === "game"),
 );
-const patchFiles = computed(() => props.rom.files.filter(isPatchFile));
+const patchFiles = computed(() =>
+  props.rom.files.filter((f) => f.category === "patch"),
+);
 const hasLibraryPatches = computed(() => patchFiles.value.length > 0);
 
 const activePatchName = computed(
@@ -94,9 +95,12 @@ const hasPatch = computed(
   () => !!uploadedPatch.value || !!selectedPatchFile.value,
 );
 
-const romExtension = computed(() =>
-  selectedRomFile.value ? fileExtension(selectedRomFile.value.file_name) : "",
-);
+const romExtension = computed(() => {
+  const ext = selectedRomFile.value
+    ? fileExtension(selectedRomFile.value.file_name)
+    : "";
+  return ext ? `.${ext}` : "";
+});
 
 const archiveMembers = computed(() =>
   romExtension.value === ".zip"
@@ -462,7 +466,7 @@ const applyLabel = computed(() => {
             </template>
             <div class="r-patch__formats-list">
               <span
-                v-for="format in SUPPORTED_PATCH_EXTENSIONS"
+                v-for="format in patchExtensions"
                 :key="format"
                 class="r-patch__format-chip"
               >

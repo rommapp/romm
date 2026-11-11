@@ -113,7 +113,7 @@ from models.permission import (
     UserPermissionOverride,
 )
 from models.platform import Platform
-from models.rom import Rom, RomFile, SaveTargetLayout
+from models.rom import Rom, RomFile, RomFileCategory, SaveTargetLayout
 from models.user import Role, User
 from utils.memory_cards import content_hash_of_bytes
 from utils.zip_cache import ensure_zipfile_writable
@@ -13782,6 +13782,32 @@ def test_claim_boots_the_picked_disc_of_a_set_without_a_playlist(client, access_
     kwargs = run_launch_mock.call_args.kwargs
     assert kwargs["start_disc_id"] is None
     assert kwargs["rom_path"] == f"{LIBRARY_BASE_PATH}/{disc.full_path}"
+
+
+def test_claim_boots_a_translated_disc_on_its_own(client, access_token):
+    """The base game's playlist does not list a translation, so no tray reaches it."""
+    rom = _rom_on("dc")
+    _add_rom_file(rom, "Game.m3u")
+    _add_rom_file(rom, "Game (Disc 1).chd")
+    translated = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="Game (Disc 1) (T-Es).chd",
+            file_path=f"{rom.fs_path}/{rom.fs_name}/translations",
+            file_size_bytes=1,
+            category=RomFileCategory.TRANSLATION,
+        )
+    )
+    run_launch_mock = AsyncMock()
+    with (
+        _streaming(_tray_container(rom)),
+        patch("handler.streaming.launch.run_launch", run_launch_mock),
+    ):
+        r = _claim_disc(client, access_token, rom.id, translated.id)
+    assert r.status_code == 202
+    kwargs = run_launch_mock.call_args.kwargs
+    assert kwargs["start_disc_id"] is None
+    assert kwargs["rom_path"] == f"{LIBRARY_BASE_PATH}/{translated.full_path}"
 
 
 @pytest.mark.parametrize("own_file", [True, False])

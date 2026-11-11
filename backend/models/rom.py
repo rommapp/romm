@@ -54,7 +54,6 @@ from models.base import (
 from utils import valid_youtube_id
 from utils.age_ratings import MIN_AGE_SOURCE_COLUMNS, compute_min_age
 from utils.database import CustomJSON, is_non_blank
-from utils.m3u import has_playlist
 
 # Max length of the precomputed natural-sort key column.
 NAME_SORT_KEY_MAX_LENGTH = 500
@@ -1313,11 +1312,11 @@ class Rom(BaseModel):
         return not self.is_physical and not self.missing_from_fs
 
     def has_m3u_file(self) -> bool:
-        """
-        Check if the ROM has an M3U file associated with it.
-        This is used for multi-disc games.
-        """
-        return has_playlist(self.files)
+        """Whether the base game's discs come with their own .m3u playlist."""
+        # utils.m3u imports this module.
+        from utils.m3u import has_playlist, playlist_set
+
+        return has_playlist(playlist_set(self.files))
 
     # Metadata fields
     @property

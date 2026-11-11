@@ -78,6 +78,7 @@ from utils.platform_aliases import (
 )
 from utils.platforms import get_supported_platforms
 from utils.rate_limit import enforce_rate_limit, get_client_ip
+from utils.rom_patcher import SUPPORTED_PATCH_EXTENSIONS
 from utils.router import APIRouter
 
 # The endpoint is unauthenticated, and every probe passes through the provider's
@@ -205,6 +206,7 @@ async def heartbeat() -> HeartbeatResponse:
             "EXCLUDED_PLATFORM_SLUGS": sorted(DEVICE_INSTALL_EXCLUDED_PLATFORM_SLUGS),
         },
         "CONVERTO": {"ENABLED": await rom_converto_service.is_enabled()},
+        "ROM_PATCHER": {"SUPPORTED_EXTENSIONS": sorted(SUPPORTED_PATCH_EXTENSIONS)},
         "TASKS": {
             "ENABLE_SCHEDULED_RESCAN": ENABLE_SCHEDULED_RESCAN,
             "SCHEDULED_RESCAN_CRON": SCHEDULED_RESCAN_CRON,

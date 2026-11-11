@@ -97,6 +97,7 @@ import {
   bootDiscId,
   type DiscSelection,
 } from "@/utils/playerDisc";
+import { fileExtension } from "@/utils/romFiles";
 
 type PlayerState = "idle" | "loading" | "playing" | "error" | "exited";
 type ErrorType =
@@ -268,10 +269,6 @@ const capabilities = computed(() =>
 const supportsStates = computed(
   () => capabilities.value.maxSlots > 0 || capabilities.value.hasAutosave,
 );
-
-function fileExtension(name: string): string {
-  return name.split(".").pop()?.toLowerCase() ?? "";
-}
 
 // Mirrors the backend's Rom.has_m3u_file(): the emulator's disc-swap menu
 // only exists for multi-disc sets that ship a playlist.

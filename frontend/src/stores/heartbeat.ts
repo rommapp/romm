@@ -72,6 +72,9 @@ const defaultHeartbeat: Heartbeat = {
   CONVERTO: {
     ENABLED: false,
   },
+  ROM_PATCHER: {
+    SUPPORTED_EXTENSIONS: [],
+  },
   TASKS: {
     ENABLE_SCHEDULED_RESCAN: false,
     SCHEDULED_RESCAN_CRON: "",

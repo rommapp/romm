@@ -12,7 +12,7 @@
 // its in-game disc switcher (issue #3985). That choice is stored as `ALL_DISCS`.
 import type { RomFileCategory } from "@/__generated__";
 import { userStorage } from "@/composables/useUserLocalStorage";
-import { isPatchFile } from "@/utils/romPatch";
+import { fileExtension } from "@/utils/romFiles";
 
 export const ALL_DISCS = "all";
 
@@ -33,11 +33,11 @@ const NON_BOOTABLE_CATEGORIES: readonly RomFileCategory[] = [
   "walkthrough",
   "screenshot",
   "soundtrack",
+  "patch",
   "cheat",
 ];
 
 function isBootableFile(file: DiscFile): boolean {
-  if (isPatchFile(file)) return false;
   // A file scanned before categories existed carries none, so absence boots.
   return !file.category || !NON_BOOTABLE_CATEGORIES.includes(file.category);
 }
@@ -116,8 +116,10 @@ export function selectableDiscFiles<T extends DiscFile>(
 const DESCRIPTOR_EXTENSIONS: readonly string[] = ["cue", "gdi", "ccd", "mds"];
 
 function isDescriptorFile(file: DiscFile): boolean {
-  const extension = file.file_name.toLowerCase().split(".").pop() ?? "";
-  return isM3uFile(file) || DESCRIPTOR_EXTENSIONS.includes(extension);
+  return (
+    isM3uFile(file) ||
+    DESCRIPTOR_EXTENSIONS.includes(fileExtension(file.file_name))
+  );
 }
 
 // A set carrying a playlist or disc sheet only boots whole; anything else boots

@@ -240,6 +240,7 @@ export type { RomIGDBMetadata } from './models/RomIGDBMetadata';
 export type { RomLaunchboxMetadata } from './models/RomLaunchboxMetadata';
 export type { RomMetadataSchema } from './models/RomMetadataSchema';
 export type { RomMobyMetadata } from './models/RomMobyMetadata';
+export type { RomPatcherDict } from './models/RomPatcherDict';
 export type { RomPouetMetadata } from './models/RomPouetMetadata';
 export type { RomRAMetadata } from './models/RomRAMetadata';
 export type { RomSSMetadata } from './models/RomSSMetadata';

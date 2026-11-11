@@ -308,13 +308,13 @@ describe("a rom with translated or hacked variants", () => {
   const multiDisc = [tDisc1, tDisc2, tPlaylist, disc1, disc2, playlist];
 
   const cartridge = file(10, "Mother 3 (Japan).gba");
-  const upsPatch = file(11, "Mother 3 (Japan) (T-Es).ups", "translation");
-  const bpsPatch = file(12, "Mother 3 (Japan) (T-Es).BPS", "translation");
+  const upsPatch = file(11, "Mother 3 (Japan) (T-Es).ups", "patch");
+  const bpsPatch = file(12, "Mother 3 (Japan) (T-Es).BPS", "patch");
 
   const hacked = file(20, "Game (Hack).gba", "hack");
   const plain = file(21, "Game.gba");
 
-  it("never boots a patch file, whatever folder it sits in", () => {
+  it("never boots a patch file", () => {
     expect(bootableFiles([upsPatch, bpsPatch, cartridge])).toEqual([cartridge]);
     expect(defaultDisc([upsPatch, bpsPatch, cartridge])).toBe(10);
   });

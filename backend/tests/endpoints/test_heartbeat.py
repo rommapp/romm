@@ -66,6 +66,7 @@ def test_heartbeat(client):
     assert isinstance(oidc["RP_INITIATED_LOGOUT"], bool)
 
     assert isinstance(heartbeat["CONVERTO"]["ENABLED"], bool)
+    assert ".bps" in heartbeat["ROM_PATCHER"]["SUPPORTED_EXTENSIONS"]
 
 
 def test_heartbeat_maps_folders_to_builtin_slugs(client):
