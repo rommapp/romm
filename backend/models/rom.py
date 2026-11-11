@@ -1312,11 +1312,11 @@ class Rom(BaseModel):
         return not self.is_physical and not self.missing_from_fs
 
     def has_m3u_file(self) -> bool:
-        """
-        Check if the ROM has an M3U file associated with it.
-        This is used for multi-disc games.
-        """
-        return any(file.file_extension.lower() == "m3u" for file in self.files)
+        """Whether the base game's discs come with their own .m3u playlist."""
+        # utils.m3u imports this module.
+        from utils.m3u import has_playlist, playlist_set
+
+        return has_playlist(playlist_set(self.files))
 
     # Metadata fields
     @property

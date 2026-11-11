@@ -125,7 +125,8 @@ export interface EjsConfigInput {
   rom: DetailedRom;
   /** The core the player picked, if any; an unsupported one falls back. */
   core: string | null;
-  disc: number | null;
+  /** The files to boot, or none for the whole rom. */
+  fileIds: number[];
   bios: FirmwareSchema | null;
   firmware: FirmwareSchema[];
   loadStateLabel?: string | undefined;
@@ -169,7 +170,7 @@ export function buildEjsConfig(input: EjsConfigInput): EjsConfig {
     EJS_gameID: rom.id,
     EJS_gameUrl: getDownloadPath({
       rom,
-      fileIDs: input.disc ? [input.disc] : [],
+      fileIDs: input.fileIds,
       purpose: "play",
     }),
     EJS_biosUrl: input.bios

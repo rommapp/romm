@@ -7,11 +7,12 @@
 // as a generic "Network Error" (issue #3938). Validate the saved id against the
 // rom's current files before using it, and report when it must be forgotten.
 //
-// Asking the download endpoint for no file in particular instead returns every
-// file zipped with a generated .m3u, which EmulatorJS boots with its in-game
-// disc switcher (issue #3985). That choice is stored as `ALL_DISCS`.
+// Asking the download endpoint for the base game's files together returns them
+// zipped with a generated .m3u when they carry none, which EmulatorJS boots with
+// its in-game disc switcher (issue #3985). That choice is stored as `ALL_DISCS`.
 import type { RomFileCategory } from "@/__generated__";
 import { userStorage } from "@/composables/useUserLocalStorage";
+import { fileExtension } from "@/utils/romFiles";
 
 export const ALL_DISCS = "all";
 
@@ -41,6 +42,25 @@ function isBootableFile(file: DiscFile): boolean {
   return !file.category || !NON_BOOTABLE_CATEGORIES.includes(file.category);
 }
 
+// A file outside any category folder (or in game/) is the base game; one in a
+// translations/, hacks/ or similar folder is a variant that boots only when picked.
+function isBaseGameFile(file: DiscFile): boolean {
+  return !file.category || file.category === "game";
+}
+
+// The files ALL_DISCS boots, falling back to every bootable file when the rom
+// is nothing but variants.
+function allDiscFiles<T extends DiscFile>(files: readonly T[]): readonly T[] {
+  const bootable = bootableFiles(files);
+  const base = bootable.filter(isBaseGameFile);
+  return base.length > 0 ? base : bootable;
+}
+
+/** Whether the base game spans several files that can boot together. */
+export function offersAllDiscs(files: readonly DiscFile[]): boolean {
+  return allDiscFiles(files).length > 1;
+}
+
 // Falls back to every file when media is all the rom has, so the player is
 // never left with nothing to boot.
 export function bootableFiles<T extends DiscFile>(
@@ -62,8 +82,7 @@ export function resolveStoredDisc(
   files: readonly DiscFile[],
 ): ResolvedDisc {
   if (storedDisc === ALL_DISCS) {
-    // Nothing left to boot together once the rom is down to a single file.
-    return files.length > 1
+    return offersAllDiscs(files)
       ? { disc: ALL_DISCS, stale: false }
       : { disc: defaultDisc(files), stale: true };
   }
@@ -85,7 +104,11 @@ export function resolveStoredDisc(
 export function selectableDiscFiles<T extends DiscFile>(
   files: readonly T[],
 ): readonly T[] {
-  return bootableFiles(files).filter((f) => !isM3uFile(f));
+  const discs = bootableFiles(files).filter((f) => !isM3uFile(f));
+  return [
+    ...discs.filter(isBaseGameFile),
+    ...discs.filter((f) => !isBaseGameFile(f)),
+  ];
 }
 
 // Sheets that point at sibling track files, so neither the sheet nor a track
@@ -93,20 +116,35 @@ export function selectableDiscFiles<T extends DiscFile>(
 const DESCRIPTOR_EXTENSIONS: readonly string[] = ["cue", "gdi", "ccd", "mds"];
 
 function isDescriptorFile(file: DiscFile): boolean {
-  const extension = file.file_name.toLowerCase().split(".").pop() ?? "";
-  return isM3uFile(file) || DESCRIPTOR_EXTENSIONS.includes(extension);
+  return (
+    isM3uFile(file) ||
+    DESCRIPTOR_EXTENSIONS.includes(fileExtension(file.file_name))
+  );
 }
 
 // A set carrying a playlist or disc sheet only boots whole; anything else boots
 // one file to avoid pulling hundreds of unused MB.
 export function defaultDisc(files: readonly DiscFile[]): DiscSelection {
-  if (files.length > 1 && files.some(isDescriptorFile)) return ALL_DISCS;
-  return bootableFiles(files)[0]?.id ?? null;
+  const base = allDiscFiles(files);
+  if (base.length > 1 && base.some(isDescriptorFile)) return ALL_DISCS;
+  return base[0]?.id ?? null;
 }
 
 // The file id to download, or null to download the rom whole.
 export function bootDiscId(disc: DiscSelection): number | null {
   return typeof disc === "number" ? disc : null;
+}
+
+/** The file ids to download, or none for the rom whole; ALL_DISCS is the base set alone. */
+export function bootFileIds(
+  disc: DiscSelection,
+  files: readonly DiscFile[],
+): number[] {
+  const id = bootDiscId(disc);
+  if (id !== null) return [id];
+  if (disc !== ALL_DISCS) return [];
+  const set = allDiscFiles(files);
+  return set.length < files.length ? set.map((f) => f.id) : [];
 }
 
 // v1's <Player> owns `player:<romId>:disc` and clears it whenever it is handed

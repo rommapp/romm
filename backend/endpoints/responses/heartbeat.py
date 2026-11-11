@@ -75,6 +75,10 @@ class ConvertoDict(TypedDict):
     ENABLED: bool
 
 
+class RomPatcherDict(TypedDict):
+    SUPPORTED_EXTENSIONS: list[str]
+
+
 class TasksDict(TypedDict):
     ENABLE_SCHEDULED_RESCAN: bool
     SCHEDULED_RESCAN_CRON: str
@@ -96,6 +100,7 @@ class HeartbeatResponse(TypedDict):
     NOTIFICATIONS: NotificationsDict
     DEVICE_INSTALL: DeviceInstallDict
     CONVERTO: ConvertoDict
+    ROM_PATCHER: RomPatcherDict
     TASKS: TasksDict
 
 

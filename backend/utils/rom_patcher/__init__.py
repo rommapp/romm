@@ -4,6 +4,7 @@ from .patcher import (
     PatcherError,
     PatcherInputError,
     apply_patch,
+    is_patch_file_name,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "PatcherError",
     "PatcherInputError",
     "apply_patch",
+    "is_patch_file_name",
 ]

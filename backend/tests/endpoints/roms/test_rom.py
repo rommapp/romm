@@ -1,4 +1,6 @@
 import json
+import re
+from base64 import b64decode
 from collections.abc import Iterator
 from datetime import datetime, timezone
 from typing import Any, cast
@@ -40,6 +42,7 @@ from models.rom import (
     PINNED_MEDIA_MAX_ITEMS,
     Rom,
     RomFile,
+    RomFileCategory,
     compute_name_sort_key,
 )
 from models.user import User
@@ -258,6 +261,87 @@ def test_download_multi_file_rom_content(
     assert "disc1.bin" in body
     assert "disc2.bin" in body
     assert f"{multi_file_rom.fs_name}.m3u" in body
+
+
+def test_download_selected_files_generates_playlist_beside_a_variant_one(
+    client: TestClient, access_token: str, multi_file_rom: Rom
+):
+    """A translation's .m3u does not list the base discs, so the base set gets its own."""
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=multi_file_rom.id,
+            file_name="Game (T-Es).m3u",
+            file_path=f"{multi_file_rom.fs_path}/{multi_file_rom.fs_name}/translations",
+            file_size_bytes=1,
+            category=RomFileCategory.TRANSLATION,
+        )
+    )
+    base_ids = ",".join(str(f.id) for f in multi_file_rom.files)
+
+    response = client.get(
+        f"/api/roms/{multi_file_rom.id}/content/{multi_file_rom.fs_name}",
+        params={"file_ids": base_ids},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    body = response.text
+    assert "Game (T-Es).m3u" not in body
+    assert f"{multi_file_rom.fs_name}.m3u" in body
+
+
+def _add_manual(rom: Rom, file_name: str) -> RomFile:
+    return db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name=file_name,
+            file_path=f"{rom.fs_path}/{rom.fs_name}/manuals",
+            file_size_bytes=1,
+            category=RomFileCategory.MANUAL,
+        )
+    )
+
+
+def _generated_playlist(body: str) -> str | None:
+    match = re.search(r"/decode\?value=(\S+) ", body)
+    return b64decode(unquote(match.group(1))).decode() if match else None
+
+
+def test_download_selected_media_carries_no_playlist(
+    client: TestClient, access_token: str, multi_file_rom: Rom
+):
+    manuals = [
+        _add_manual(multi_file_rom, "Manual.pdf"),
+        _add_manual(multi_file_rom, "Guide.pdf"),
+    ]
+
+    response = client.get(
+        f"/api/roms/{multi_file_rom.id}/content/{multi_file_rom.fs_name}",
+        params={"file_ids": ",".join(str(f.id) for f in manuals)},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert ".m3u" not in response.text
+
+
+def test_download_selected_disc_and_manual_lists_only_the_disc(
+    client: TestClient, access_token: str, multi_file_rom: Rom
+):
+    manual = _add_manual(multi_file_rom, "Manual.pdf")
+    disc = next(f for f in multi_file_rom.files if f.file_name == "disc1.bin")
+
+    response = client.get(
+        f"/api/roms/{multi_file_rom.id}/content/{multi_file_rom.fs_name}",
+        params={"file_ids": f"{disc.id},{manual.id}"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    playlist = _generated_playlist(response.text)
+    assert playlist is not None
+    assert "disc1.bin" in playlist
+    assert "Manual.pdf" not in playlist
 
 
 def test_download_roms_by_platform(
@@ -917,6 +1001,29 @@ def test_get_romfile_nested_file_is_not_top_level(
     assert body["is_top_level"] is False
     # Only a top-level file picks up the game-file default.
     assert body["category"] is None
+
+
+def test_get_romfile_reads_a_patch_format_as_a_patch(
+    client: TestClient, access_token: str, rom: Rom
+):
+    # A row scanned before patch formats were classified keeps its folder's category.
+    patch_file = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="Game (T-Es).ips",
+            file_path=f"{rom.fs_path}/{rom.fs_name}/translations",
+            file_size_bytes=10,
+            category=RomFileCategory.TRANSLATION,
+        )
+    )
+
+    response = client.get(
+        f"/api/roms/{patch_file.id}/files",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["category"] == "patch"
 
 
 @patch.object(FSRomsHandler, "rename_fs_rom")

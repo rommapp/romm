@@ -131,7 +131,7 @@ from handler.streaming.session_store import (
 from logger.logger import log
 from models.assets import MemoryCard, MemoryCardVersion, Save, State
 from models.rom import Rom
-from utils.m3u import playlist_files
+from utils.m3u import disc_files, playlist_files
 from utils.router import APIRouter
 
 router = APIRouter(prefix="/streaming", tags=["streaming"])
@@ -912,7 +912,7 @@ async def claim_session(
     start_disc = None
     if req.disc_file_id is not None:
         start_disc = next(
-            (f for f in playlist_files(rom.files) if f.id == req.disc_file_id), None
+            (f for f in disc_files(rom.files) if f.id == req.disc_file_id), None
         )
         if start_disc is None:
             raise HTTPException(
@@ -1040,14 +1040,18 @@ async def claim_session(
         start_disc_id = None
         booted_disc_id = None
         if start_disc is not None:
-            if container.capabilities["supports_disc_swap"] and rom.has_m3u_file():
+            if (
+                container.capabilities["supports_disc_swap"]
+                and rom.has_m3u_file()
+                and start_disc.id in _swappable_disc_file_ids(rom)
+            ):
                 start_disc_id = start_disc.id
             else:
                 # No swap can follow, so a resumed state's own disc boots instead.
                 state_disc = next(
                     (
                         f
-                        for f in playlist_files(rom.files)
+                        for f in disc_files(rom.files)
                         if resume_state is not None
                         and f.id == resume_state.disc_file_id
                     ),

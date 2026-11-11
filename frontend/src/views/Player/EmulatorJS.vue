@@ -92,8 +92,9 @@ import {
 } from "@/utils/playerBezel";
 import {
   ALL_DISCS,
-  bootDiscId,
+  bootFileIds,
   bootableFiles,
+  offersAllDiscs,
   rememberDisc,
   resolveRememberedDisc,
   selectableDiscFiles,
@@ -249,12 +250,18 @@ const {
 const bootableRomFiles = computed(() => bootableFiles(rom.value?.files ?? []));
 
 const discItems = computed<{ title: string; value: DiscSelection }[]>(() => [
-  { title: t("play.all-discs"), value: ALL_DISCS },
+  ...(offersAllDiscs(bootableRomFiles.value)
+    ? [{ title: t("play.all-discs"), value: ALL_DISCS as DiscSelection }]
+    : []),
   ...selectableDiscFiles(rom.value?.files ?? []).map((f) => ({
     title: f.file_name,
     value: f.id,
   })),
 ]);
+
+const bootRomFileIds = computed(() =>
+  bootFileIds(selectedDisc.value, rom.value?.files ?? []),
+);
 
 // The hero cover is the shared GameCover (same component as gallery +
 // details). We keep a lightweight `useCoverArt` here only to know whether
@@ -1097,7 +1104,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
         :bios="selectedFirmware"
         :firmware="firmwareOptions"
         :core="selectedCore"
-        :disc="bootDiscId(selectedDisc)"
+        :file-ids="bootRomFileIds"
       />
       <!-- Bezel overlay drawn around the game canvas. Purely decorative and
            click-through, so pointer events reach the emulator underneath. In

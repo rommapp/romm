@@ -51,6 +51,7 @@ from models.rom import (
 )
 from utils.conversion_cache import offered_download_formats
 from utils.facets import facet_names
+from utils.rom_patcher import is_patch_file_name
 
 from .base import BaseModel, UTCDatetime
 
@@ -321,7 +322,10 @@ class RomFileSchema(BaseModel):
 
     @model_validator(mode="after")
     def default_category_for_non_nested(self) -> RomFileSchema:
-        if self.category is None and self.is_top_level:
+        # Rows scanned before patch formats were classified still carry their folder's.
+        if is_patch_file_name(self.file_name):
+            self.category = RomFileCategory.PATCH
+        elif self.category is None and self.is_top_level:
             self.category = RomFileCategory.GAME
         return self
 
