@@ -223,6 +223,11 @@ onBeforeUnmount(() => {
 
     <div class="r-app-shell__body">
       <AppNav v-if="!playingStore.stageActive" />
+      <div
+        v-if="!playingStore.stageActive"
+        class="r-app-shell__status-tint"
+        aria-hidden="true"
+      />
       <main id="r-main" class="r-app-shell__main" tabindex="-1">
         <router-view />
       </main>
@@ -269,6 +274,25 @@ onBeforeUnmount(() => {
      spans the viewport even when the content is shorter than the screen. */
   min-height: 100vh;
   min-height: 100dvh;
+}
+
+/* iOS Safari 26 tints its status bar from a fixed element at the top of the
+   page; without one, a scrolled page shows through it. */
+.r-app-shell__status-tint {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  z-index: 101;
+  background-color: var(--r-color-bg);
+  pointer-events: none;
+}
+@supports (-webkit-touch-callout: none) {
+  .r-app-shell__status-tint {
+    display: block;
+  }
 }
 
 .r-app-shell__main {
