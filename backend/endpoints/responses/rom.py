@@ -37,6 +37,7 @@ from handler.metadata.pouet_handler import PouetMetadata
 from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
 from handler.metadata.steam_handler import SteamMetadata
+from handler.scan.sources import SCAN_CLAIMS_KEY
 from models.collection import Collection, SmartCollection
 from models.rom import (
     PROVIDER_METADATA_COLUMNS,
@@ -209,6 +210,7 @@ def clean_metadata_name_lists(
     return {
         key: facet_names(value) if key in keys and value is not None else value
         for key, value in metadata.items()
+        if key != SCAN_CLAIMS_KEY
     }
 
 
