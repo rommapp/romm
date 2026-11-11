@@ -3,21 +3,62 @@ import { describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import BottomNav from "./BottomNav.vue";
 
+const settled: { fn: (() => void) | null } = { fn: null };
+
 vi.mock("vue-i18n");
-vi.mock("vue-router", () => ({ useRoute: () => ({ path: "/collections" }) }));
+vi.mock("vue-router", () => ({
+  useRoute: () => ({ path: "/collections" }),
+  useRouter: () => ({
+    afterEach: (fn: () => void) => {
+      settled.fn = fn;
+      return () => {};
+    },
+  }),
+}));
 vi.mock("@/composables/useBreakpoint", () => ({
   useBreakpoint: () => ({ smAndDown: ref(true) }),
 }));
 
+const RouterLink = {
+  props: ["to"],
+  template: '<a :href="to"><slot /></a>',
+};
+
+function mountNav() {
+  return mount(BottomNav, { global: { stubs: { RouterLink } } });
+}
+
 describe("BottomNav", () => {
   it("uses the filled glyph on every tab", () => {
-    const wrapper = mount(BottomNav, {
-      global: { stubs: { RouterLink: { template: "<a><slot /></a>" } } },
-    });
+    const wrapper = mountNav();
     const icons = wrapper.findAll(".r-icon").map((i) => i.classes());
 
     expect(icons.flat().filter((c) => c.endsWith("-outline"))).toEqual([]);
     expect(icons[0]).toContain("mdi-home");
     expect(icons[2]).toContain("mdi-bookmark");
+  });
+
+  it("highlights a tapped tab before the route changes", async () => {
+    const wrapper = mountNav();
+    const tabs = wrapper.findAll(".r-segmented-control__btn");
+    expect(tabs[2]?.classes()).toContain("r-segmented-control__btn--active");
+
+    await tabs[1]?.trigger("click");
+
+    expect(tabs[1]?.classes()).toContain("r-segmented-control__btn--active");
+    expect(tabs[2]?.classes()).not.toContain(
+      "r-segmented-control__btn--active",
+    );
+  });
+
+  it("hands the highlight back to the route once navigation settles", async () => {
+    const wrapper = mountNav();
+    const tabs = wrapper.findAll(".r-segmented-control__btn");
+
+    await tabs[1]?.trigger("click");
+    settled.fn?.();
+    await wrapper.vm.$nextTick();
+
+    expect(tabs[2]?.classes()).toContain("r-segmented-control__btn--active");
   });
 });

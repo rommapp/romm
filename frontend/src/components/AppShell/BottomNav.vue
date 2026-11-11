@@ -1,17 +1,40 @@
 <script setup lang="ts">
 // Primary-nav tab bar on sm-and-down, where AppNav drops its centre pill.
 // Mount-gated (not `display: none`) so hidden links never take focus.
+import { computed, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import {
   NAV_FILLED_ICONS,
   useNavDestinations,
 } from "@/composables/useNavDestinations";
+import type { NavDestinationId } from "@/composables/useNavDestinations";
 import { RIcon, RSegmentedControl } from "@/lib";
 
 const { t } = useI18n();
 const { smAndDown } = useBreakpoint();
 const { destinations, activeId } = useNavDestinations();
+const router = useRouter();
+
+// The route only changes after the lazy view chunk loads and the view
+// transition is captured, so the tapped tab is highlighted right away and
+// handed back to the route once navigation settles (or fails).
+const pendingId = ref<NavDestinationId | null>(null);
+const shownId = computed(() => pendingId.value ?? activeId.value);
+
+function onTap(event: MouseEvent) {
+  const href = (event.target as HTMLElement | null)
+    ?.closest("a")
+    ?.getAttribute("href");
+  const tapped = destinations.value.find((d) => d.to === href);
+  if (tapped && tapped.id !== activeId.value) pendingId.value = tapped.id;
+}
+
+const stopSettled = router.afterEach(() => {
+  pendingId.value = null;
+});
+onBeforeUnmount(stopSettled);
 
 // Sticky avoids a Safari bug where fixed elements can get stuck after scrolling.
 </script>
@@ -20,10 +43,11 @@ const { destinations, activeId } = useNavDestinations();
   <div v-if="smAndDown" class="r-bottom-nav-anchor">
     <nav class="r-bottom-nav" :aria-label="t('common.primary-navigation')">
       <RSegmentedControl
-        :model-value="activeId"
+        :model-value="shownId"
         :items="destinations"
         variant="tab"
         class="r-bottom-nav__group"
+        @click="onTap"
       >
         <template #item="{ item }">
           <RIcon
@@ -98,6 +122,7 @@ const { destinations, activeId } = useNavDestinations();
   gap: 2px;
   min-height: 52px;
   padding: 4px 2px;
+  touch-action: manipulation;
 }
 
 .r-bottom-nav__group.r-segmented-control--tab
