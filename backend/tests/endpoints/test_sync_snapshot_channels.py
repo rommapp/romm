@@ -448,6 +448,35 @@ async def test_a_channel_outside_the_rom_scope_is_not_offered(
     assert response.json()["operations"] == []
 
 
+@pytest.mark.parametrize("listed", [False, True])
+async def test_a_channel_on_a_hidden_rom_is_not_offered(
+    client: TestClient,
+    editor_access_token: str,
+    editor_user: User,
+    rom: Rom,
+    game_file: RomFile,
+    listed: bool,
+):
+    from handler.database.base_handler import sync_session
+    from models.permission import HiddenEntity, PermEntity
+
+    device = db_device_handler.add_device(
+        Device(id="editor-legacy", user_id=editor_user.id, sync_enabled=True)
+    )
+    await snapshot_push(editor_user, rom, game_file)
+    with sync_session.begin() as session:
+        session.add(
+            HiddenEntity(
+                entity=PermEntity.ROMS, entity_id=rom.id, user_id=editor_user.id
+            )
+        )
+
+    saves = [client_save(rom, LEGACY)] if listed else []
+    operations = negotiate(client, editor_access_token, device, saves)
+
+    assert all(op["save_id"] is None for op in operations)
+
+
 @pytest.mark.parametrize("restore_unlisted,offered", [(False, False), (True, True)])
 async def test_a_current_the_device_held_and_dropped_stays_deleted(
     client: TestClient,
@@ -545,6 +574,29 @@ async def test_a_deduplicated_legacy_upload_becomes_the_current(
     current = db_snapshot_handler.get_snapshot(channel.current_snapshot_id)
     assert current is not None
     assert current.save_id == first["id"]
+
+
+async def test_an_adopted_public_upload_follows_its_private_channel(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    rom: Rom,
+    game_file: RomFile,
+    legacy_device: Device,
+):
+    pushed = await snapshot_push(admin_user, rom, game_file)
+    synced_to(legacy_device, held_save(pushed))
+    first = upload(client, access_token, rom, legacy_device, LEGACY).json()
+    upload(client, access_token, rom, legacy_device, b"moved-on")
+    # Shared before sync held it, which the sharing route no longer allows.
+    db_save_handler.update_save(first["id"], {"is_public": True}, touch=False)
+
+    response = upload(client, access_token, rom, legacy_device, LEGACY)
+
+    assert response.status_code == status.HTTP_200_OK
+    adopted = db_save_handler.get_save(user_id=admin_user.id, id=first["id"])
+    assert adopted is not None
+    assert adopted.is_public is False
 
 
 async def test_a_legacy_device_behind_the_snapshots_is_sent_back_to_negotiate(

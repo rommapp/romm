@@ -1689,6 +1689,32 @@ def test_a_push_into_a_shared_channel_on_a_hidden_rom_is_not_found(
     assert response.json()["detail"] == "Channel not found"
 
 
+def test_an_own_channel_on_a_hidden_rom_answers_like_a_missing_one(
+    client: TestClient,
+    editor_headers: dict[str, str],
+    game_file: RomFile,
+    rom: Rom,
+    editor_user: User,
+):
+    from models.permission import HiddenEntity, PermEntity
+
+    body = first_push(client, editor_headers, game_file)
+    with sync_session.begin() as session:
+        session.add(
+            HiddenEntity(
+                entity=PermEntity.ROMS, entity_id=rom.id, user_id=editor_user.id
+            )
+        )
+    path = f"/api/channels/{body['channel']['id']}"
+
+    renamed = client.patch(path, json={"label": "seen"}, headers=editor_headers)
+    deleted = client.delete(path, headers=editor_headers)
+
+    assert renamed.status_code == status.HTTP_404_NOT_FOUND
+    assert deleted.status_code == status.HTTP_404_NOT_FOUND
+    assert db_snapshot_handler.get_channel(uuid.UUID(body["channel"]["id"]))
+
+
 def test_a_save_names_exactly_one_source(
     client: TestClient, headers: dict[str, str], game_file: RomFile
 ):

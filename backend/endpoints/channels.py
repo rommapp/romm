@@ -15,6 +15,7 @@ from endpoints.snapshots import (
     readable_channel,
     request_device,
     required_device,
+    rom_hidden,
     visible_rom_file,
 )
 from handler.auth.constants import Scope
@@ -22,7 +23,6 @@ from handler.database import db_snapshot_handler
 from handler.snapshots import retention
 from handler.snapshots.file_key import FileKey
 from models.channel import CHANNEL_LABEL_MAX_LENGTH, Channel
-from models.user import User
 from utils.router import APIRouter
 
 router = APIRouter(prefix="/channels", tags=["channels"])
@@ -52,9 +52,13 @@ def _not_found() -> HTTPException:
     )
 
 
-def _owned_or_404(id: uuid.UUID, user: User) -> Channel:
+def _owned_or_404(request: Request, id: uuid.UUID) -> Channel:
     channel = db_snapshot_handler.get_channel(id)
-    if channel is None or channel.user_id != user.id:
+    if (
+        channel is None
+        or channel.user_id != request.user.id
+        or rom_hidden(request, channel.rom_id)
+    ):
         raise _not_found()
     return channel
 
@@ -123,7 +127,7 @@ def update_channel(
     request: Request, id: uuid.UUID, payload: ChannelUpdatePayload
 ) -> ChannelSchema:
     """Rename a channel or open it to every user. Owner only."""
-    channel = _owned_or_404(id, request.user)
+    channel = _owned_or_404(request, id)
     changes = payload.model_dump(exclude_none=True)
     if changes:
         channel = db_snapshot_handler.update_channel(channel.id, changes)
@@ -136,7 +140,7 @@ def attach_channel(
 ) -> ChannelSchema:
     """Attach a channel whose ROM was removed to a file of the same platform.
     Owner only."""
-    channel = _owned_or_404(id, request.user)
+    channel = _owned_or_404(request, id)
     if channel.rom_id is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -183,6 +187,6 @@ def clear_held(
 async def delete_channel(request: Request, id: uuid.UUID) -> None:
     """Delete a channel. Its current and pinned snapshots stay as archival backups,
     except on a detached channel, whose ROM is gone, which keeps nothing."""
-    channel = _owned_or_404(id, request.user)
+    channel = _owned_or_404(request, id)
     released = db_snapshot_handler.delete_channel(channel.id)
     await retention.discard_content(released)

@@ -271,6 +271,29 @@ def test_a_read_only_token_can_hold_and_clear(
     assert sync(device.id, first["channel"]["id"]) is None
 
 
+def test_a_bound_token_cannot_hold_for_another_device(
+    client: TestClient,
+    headers: dict[str, str],
+    admin_user: User,
+    game_file: RomFile,
+    device: Device,
+):
+    other = db_device_handler.add_device(Device(id="loki", user_id=admin_user.id))
+    first = start(client, headers, game_file)
+    _, raw = make_device_token(
+        admin_user, device.id, scopes=f"{DEVICE_SCOPES} devices.write"
+    )
+
+    response = client.get(
+        f"/api/snapshots/{first['id']}",
+        params={"hold": True, "device_id": other.id},
+        headers={"Authorization": f"Bearer {raw}"},
+    )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert sync(other.id, first["channel"]["id"]) is None
+
+
 def test_held_by_lists_only_the_viewers_devices(
     client: TestClient,
     headers: dict[str, str],

@@ -300,6 +300,11 @@ def negotiate_sync(
     slot_keys = {(rom_id, slot) for rom_id, slot in server_save_map if slot}
     slot_keys |= {(s.rom_id, s.slot) for s in payload.saves if s.slot}
     slot_keys |= db_snapshot_handler.channel_slots(request.user.id, rom_id_scope)
+    # A channel on a hidden ROM negotiates as if the ROM didn't exist.
+    hidden_slot_rom_ids = db_rom_handler.get_hidden_rom_ids_among(
+        [rom_id for rom_id, _ in slot_keys], visibility
+    )
+    slot_keys = {key for key in slot_keys if key[0] not in hidden_slot_rom_ids}
     heads: dict[tuple[int, str | None], SlotHead] = dict(
         db_snapshot_handler.slot_heads(
             request.user.id, slot_keys, payload.emulators, payload.cores

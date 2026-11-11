@@ -803,7 +803,9 @@ def _commit(
     session.add(snapshot)
     session.flush()
 
-    if (channel is not None and channel.is_public) or snapshot.is_public:
+    # An adopted legacy row may carry its own sharing, which the snapshot now decides.
+    shared = (channel is not None and channel.is_public) or snapshot.is_public
+    if shared or write.adopt_save is not None:
         db_snapshot_handler.sync_content_visibility(
             [snapshot.save_id] if snapshot.save_id else [],
             [entry.state_id for entry in snapshot.states],

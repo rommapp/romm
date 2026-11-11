@@ -23,6 +23,7 @@ from adapters.services.sigil_restore import (
     SharedContainerRequired,
     SigilRefusal,
 )
+from endpoints.saves import MAX_COMPANIONS
 from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
@@ -193,6 +194,45 @@ class TestGetWithCore:
         self, client, headers, psx_save: Save, stored_game, restore, option: str
     ):
         response = _get(client, psx_save, headers, f"core=duckstation&option={option}")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        restore.assert_not_awaited()
+
+    @pytest.mark.parametrize(
+        "query", ["profile=..", "profile=a/b", "profile=a%5Cb", "option=path:../x"]
+    )
+    def test_a_profile_or_option_value_that_is_not_one_segment_is_refused(
+        self, client, headers, psx_save: Save, stored_game, restore, query: str
+    ):
+        response = _get(client, psx_save, headers, f"core=duckstation&{query}")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        restore.assert_not_awaited()
+
+    def test_companions_are_read_once_each_and_capped(
+        self,
+        client,
+        headers,
+        psx_rom: Rom,
+        psx_save: Save,
+        admin_user: User,
+        stored_game,
+        restore,
+    ):
+        prequel = _stored(make_save(psx_rom, admin_user, "Prequel.srm"), b"prequel")
+        repeated = "&".join([f"companion={prequel.id}"] * (MAX_COMPANIONS + 1))
+
+        response = _get(client, psx_save, headers, f"core=duckstation&{repeated}")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [c.unit for c in _awaited_args(restore)[3]] == [b"prequel"]
+
+    def test_more_companions_than_the_cap_are_refused(
+        self, client, headers, psx_save: Save, stored_game, restore
+    ):
+        ids = "&".join(f"companion={i}" for i in range(1, MAX_COMPANIONS + 2))
+
+        response = _get(client, psx_save, headers, f"core=duckstation&{ids}")
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         restore.assert_not_awaited()

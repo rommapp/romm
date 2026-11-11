@@ -228,7 +228,10 @@ def download_state(request: Request, id: int) -> FileResponse:
     """Download a state file. Owner can download any of their states; everyone
     else only public ones."""
     state = db_state_handler.get_state_by_id(id)
-    if not state or (state.user_id != request.user.id and not state.is_public):
+    # Another user's detached state has no ROM left to check visibility against.
+    if not state or (
+        state.user_id != request.user.id and (not state.is_public or state.rom is None)
+    ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"State with ID {id} not found",

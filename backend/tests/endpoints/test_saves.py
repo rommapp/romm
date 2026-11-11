@@ -2997,6 +2997,18 @@ class TestSaveDownload:
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
+    def test_another_users_detached_public_save_is_not_served(
+        self, client, viewer_access_token: str, save: Save
+    ):
+        db_save_handler.update_save(save.id, {"is_public": True, "rom_id": None})
+
+        response = client.get(
+            f"/api/saves/{save.id}/content",
+            headers={"Authorization": f"Bearer {viewer_access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
     def test_hidden_platform_masks_public_save_download(
         self,
         client,

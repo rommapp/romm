@@ -644,7 +644,10 @@ def get_save(request: Request, id: int, device_id: str | None = None) -> SaveSch
 def _readable_save_or_404(request: Request, id: int) -> Save:
     """The save, when the caller owns it or it is public and its ROM is visible."""
     save = db_save_handler.get_save_by_id(id)
-    if not save or (save.user_id != request.user.id and not save.is_public):
+    # Another user's detached save has no ROM left to check visibility against.
+    if not save or (
+        save.user_id != request.user.id and (not save.is_public or save.rom is None)
+    ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Save with ID {id} not found",
@@ -706,12 +709,22 @@ def _parse_options(option: Sequence[str]) -> dict[str, str]:
     return options
 
 
+# Each companion is read whole, so one request can't pull in an unbounded number.
+MAX_COMPANIONS: Final = 8
+
+
 def _companions(
     request: Request, companion_ids: Sequence[int]
 ) -> list[tuple[Save, Path]]:
     """Each companion save with its stored file, under the same read rules as a download."""
+    unique_ids = list(dict.fromkeys(companion_ids))
+    if len(unique_ids) > MAX_COMPANIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"At most {MAX_COMPANIONS} companion saves",
+        )
     companions: list[tuple[Save, Path]] = []
-    for companion_id in companion_ids:
+    for companion_id in unique_ids:
         save = _readable_save_or_404(request, companion_id)
         companions.append((save, _stored_save_path(save)))
     return companions
@@ -785,6 +798,10 @@ def _convertible_rom_or_400(save: Save) -> Rom | None:
         raise _restore_error(exc) from exc
 
 
+def _is_path_segment(value: str) -> bool:
+    return value not in (".", "..") and not any(c in value for c in "/\\\x00")
+
+
 async def _restore_for_core(
     request: Request,
     save: Save,
@@ -796,6 +813,13 @@ async def _restore_for_core(
     companion_ids: Sequence[int],
     restore: Restore,
 ) -> RestoredSave:
+    # Sigil builds save paths from these, and doesn't confine its reads to the save root.
+    for value in (profile, *options.values()):
+        if value is not None and not _is_path_segment(value):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"{value!r} is not a valid profile or option value",
+            )
     companions = _companions(request, companion_ids)
     try:
         return await restore_for_core(

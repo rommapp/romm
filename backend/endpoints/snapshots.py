@@ -64,7 +64,11 @@ from models.device import Device
 from models.rom import Rom, RomFile
 from models.snapshot import STATE_SLOT_MAX_LENGTH, Snapshot, SnapshotKind
 from models.user import User
-from utils.auth import create_or_find_web_device, token_device_id
+from utils.auth import (
+    create_or_find_web_device,
+    require_token_device,
+    token_device_id,
+)
 from utils.router import APIRouter
 from utils.uploads import check_asset_upload_size, check_emulator_folder_name
 
@@ -242,6 +246,7 @@ def _own_device(request: Request, device_id: str | None) -> Device | None:
     `devices.write` unless it is the device the client token is bound to."""
     if device_id is None:
         return None
+    require_token_device(request, device_id)
     if Scope.DEVICES_WRITE not in request.auth.scopes and device_id != token_device_id(
         request
     ):
@@ -604,7 +609,7 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
     source: Save | None = None
     if payload.save and payload.save.copy_of is not None:
         source = db_save_handler.get_save(user_id=viewer.id, id=payload.save.copy_of)
-        if source is None:
+        if source is None or rom_hidden(request, source.rom_id):
             raise _not_found("Save")
         try:
             copied, parts[SAVE_PART] = await copy_part(
