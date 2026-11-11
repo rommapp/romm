@@ -445,7 +445,6 @@ describe("useGamepad", () => {
       stepAt(0);
       stepAt(1000);
       pads = [];
-      now.mockReturnValue(1000 + 1050);
       window.dispatchEvent(new Event("gamepaddisconnected"));
       pads = [padHolding(...CHORD)];
       window.dispatchEvent(new Event("gamepadconnected"));

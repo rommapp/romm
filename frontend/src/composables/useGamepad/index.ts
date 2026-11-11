@@ -132,14 +132,14 @@ export function isPadEvent(event: Event): boolean {
   return padEvents.has(event);
 }
 
-/** Runs `fn` every frame only while a pad is connected, so a page without
- * one produces no frames. Chrome reports a pad after its first press. */
+/** Runs `fn` every frame only while a pad is connected (Chrome reports one
+ * after its first press). */
 export function usePadRafFn(fn: () => void): void {
   const raf = useRafFn(fn, { immediate: hasUsablePad() });
   useEventListener(window, "gamepadconnected", raf.resume);
   useEventListener(window, "gamepaddisconnected", () => {
     if (hasUsablePad()) return;
-    // A last tick sees no pad, so anything held, like the exit chord, resets.
+    // A last tick with no pad lets go of a held exit chord.
     fn();
     raf.pause();
   });
@@ -253,7 +253,6 @@ export function useGamepad() {
 
     const states: Record<string, PadState> = {};
     const { setModality } = useInputModality();
-    let everSawPad = false;
     let chordHeldSince: number | null = null;
     // Cleared only on release, so a chord still held after its dialog is
     // cancelled doesn't reopen it.
@@ -262,30 +261,13 @@ export function useGamepad() {
     const onAnyInput = () => setModality("pad");
     useEventListener(window, "gamepadconnected", () => setModality("pad"));
 
-    // Initial poll: if the browser already exposes a pad at install time
-    // (Firefox, or Chrome on a reload where a pad was previously used),
-    // flip modality immediately so the grid-nav autofocus can land without
-    // waiting for a first press. Chrome hides pads until first interaction
-    // for privacy; in that case this no-ops and the gamepadconnected event
-    // or first button press takes over.
-    function detectPadPresence() {
-      const list = navigator.getGamepads?.() ?? [];
-      const hasPad = Array.from(list).some((p) => isUsablePad(p));
-      if (hasPad && !everSawPad) {
-        everSawPad = true;
-        setModality("pad");
-      }
-    }
-    detectPadPresence();
+    // A pad already exposed at install lets grid-nav autofocus land before a
+    // first press; a pad Chrome still hides is caught by gamepadconnected.
+    if (hasUsablePad()) setModality("pad");
 
     const loop = () => {
       const pads = navigator.getGamepads?.() ?? [];
       const t = performance.now();
-
-      // Keep checking while no pad has been seen yet: covers the case
-      // where a pad appears partway through the session (plugged in
-      // mid-browse, or Chrome exposes it once the user moves a stick).
-      if (!everSawPad) detectPadPresence();
 
       // While a game is running (or launching) the emulator owns the pad
       // directly. Translating presses into navigation here would, for
