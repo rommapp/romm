@@ -22,7 +22,7 @@
   "name-placeholder": "コレクション名",
   "no-collections-search": "「{query}」に一致するコレクションはありません。",
   "no-collections-yet": "コレクションはまだありません。",
-  "no-collections-yet-detail": "コレクションはまだありません。ゲームをお気に入りに追加するか、任意のROMのアクションバーから作成してください。",
+  "no-collections-yet-detail": "ゲームをお気に入りに追加するか、任意のROMのアクションバーから作成してください。",
   "not-found": "コレクションが見つかりません。",
   "save-as-smart": "スマートコレクションとして保存",
   "search-collection": "コレクションを検索",
