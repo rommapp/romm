@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import { romFixture } from "@/utils/rom.fixtures";
 import useSoundtrackPlayer, {
@@ -182,5 +182,85 @@ describe("session restore", () => {
 
     expect(player.session).toBeNull();
     expect(player.pendingResume).toBeNull();
+  });
+});
+
+describe("reportCurrentTime throttling", () => {
+  const track = {
+    romId: 1,
+    fileId: 2,
+    fileName: "02 Theme.mp3",
+    url: "/theme.mp3",
+  };
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("applies the leading report and then the latest queued one", () => {
+    const player = useSoundtrackPlayer();
+    player.play(track, {});
+    player.reportCurrentTime(1);
+    player.reportCurrentTime(2);
+    player.reportCurrentTime(3);
+    expect(player.currentTime).toBe(1);
+
+    vi.advanceTimersByTime(200);
+    expect(player.currentTime).toBe(3);
+  });
+
+  it("drops a queued report when another track plays", () => {
+    const player = useSoundtrackPlayer();
+    player.play(track, {});
+    player.reportCurrentTime(1);
+    player.reportCurrentTime(50);
+    player.play(track, {});
+
+    vi.advanceTimersByTime(200);
+    expect(player.currentTime).toBe(0);
+  });
+
+  it("drops a queued report on stop", () => {
+    const player = useSoundtrackPlayer();
+    player.play(track, {});
+    player.reportCurrentTime(1);
+    player.reportCurrentTime(50);
+    player.stop();
+
+    vi.advanceTimersByTime(200);
+    expect(player.currentTime).toBe(0);
+  });
+
+  it("keeps the restored position over a queued report", () => {
+    const player = useSoundtrackPlayer();
+    player.play(track, {});
+    player.reportCurrentTime(1);
+    player.reportCurrentTime(50);
+    player.restore({
+      track,
+      meta: {},
+      playlist: [track],
+      originalPlaylist: [track],
+      isShuffled: false,
+      playlistMeta: {},
+      activePlaylistRomId: null,
+      position: 42,
+      wasPlaying: false,
+    });
+
+    vi.advanceTimersByTime(200);
+    expect(player.currentTime).toBe(42);
+  });
+
+  it("still applies reports for the new track", () => {
+    const player = useSoundtrackPlayer();
+    player.play(track, {});
+    player.reportCurrentTime(1);
+    player.reportCurrentTime(50);
+    player.play(track, {});
+    vi.advanceTimersByTime(200);
+
+    player.reportCurrentTime(7);
+    vi.advanceTimersByTime(200);
+    expect(player.currentTime).toBe(7);
   });
 });
