@@ -437,6 +437,9 @@ if [[ ${ENABLE_SYNC_PUSH_PULL,,} =~ ${TRUTHY_PATTERN} ]] && ! mkdir -p "${sync_s
 	ENABLE_SYNC_PUSH_PULL="false"
 fi
 
+# Unset means on, so streaming keeps working by default.
+streaming_worker_enabled="${ENABLE_STREAMING_WORKER:-true}"
+
 # main loop
 while ! ((exited)); do
 	watchdog_process_pid gunicorn
@@ -448,7 +451,10 @@ while ! ((exited)); do
 
 	watchdog_process_pid rq_scan_worker
 
-	watchdog_process_pid rq_streaming_worker
+	# only run the streaming worker if enabled
+	if [[ ${streaming_worker_enabled,,} =~ ${TRUTHY_PATTERN} ]]; then
+		watchdog_process_pid rq_streaming_worker
+	fi
 
 	# only start the watcher if enabled
 	if [[ ${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,,} =~ ${TRUTHY_PATTERN} ]]; then
