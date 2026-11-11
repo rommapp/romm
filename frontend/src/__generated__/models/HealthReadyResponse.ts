@@ -2,11 +2,15 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { LibraryCheck } from './LibraryCheck';
+import type { ReadyCheck } from './ReadyCheck';
+import type { ResourcesCheck } from './ResourcesCheck';
 export type HealthReadyResponse = {
-    database: boolean;
-    valkey: boolean;
-    worker: boolean;
-    library: boolean;
-    resources: boolean;
+    database: ReadyCheck;
+    valkey: ReadyCheck;
+    worker: ReadyCheck;
+    migration: ReadyCheck;
+    library: LibraryCheck;
+    resources: ResourcesCheck;
 };
 
