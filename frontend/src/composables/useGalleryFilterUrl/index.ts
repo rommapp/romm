@@ -46,7 +46,7 @@
 //     the correct store state before its first render.
 //   * Platforms are looked up by ID against `platformsStore`. If the
 //     store isn't populated yet, the lookup retries when platforms load.
-import { debounce } from "lodash";
+import { useDebounceFn } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { onMounted, onScopeDispose, watch } from "vue";
 import { type LocationQueryValue, useRoute, useRouter } from "vue-router";
@@ -464,7 +464,7 @@ export function useGalleryFilterUrl() {
       syncQueryParam(router, key, value);
     }
   }
-  const pushDebounced = debounce(pushToUrl, 250);
+  const pushDebounced = useDebounceFn(pushToUrl, 250);
   // Once the gallery is gone its store state no longer describes the URL.
   onScopeDispose(() => pushDebounced.cancel());
 
