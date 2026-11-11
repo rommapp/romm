@@ -40,7 +40,14 @@ const stopSettled = router.afterEach((_to, _from, failure) => {
   if (isNavigationFailure(failure, NavigationFailureType.cancelled)) return;
   pendingId.value = null;
 });
-onBeforeUnmount(stopSettled);
+// Errors such as a rejected lazy import skip afterEach.
+const stopOnError = router.onError(() => {
+  pendingId.value = null;
+});
+onBeforeUnmount(() => {
+  stopSettled();
+  stopOnError();
+});
 
 // Sticky avoids a Safari bug where fixed elements can get stuck after scrolling.
 </script>

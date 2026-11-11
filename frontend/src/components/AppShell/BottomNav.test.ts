@@ -4,7 +4,10 @@ import { ref } from "vue";
 import BottomNav from "./BottomNav.vue";
 
 type AfterEach = (to: unknown, from: unknown, failure?: unknown) => void;
-const settled: { fn: AfterEach | null } = { fn: null };
+const settled: { fn: AfterEach | null; onError: (() => void) | null } = {
+  fn: null,
+  onError: null,
+};
 const cancelled = { cancelled: true };
 
 vi.mock("vue-i18n");
@@ -13,6 +16,10 @@ vi.mock("vue-router", () => ({
   useRouter: () => ({
     afterEach: (fn: AfterEach) => {
       settled.fn = fn;
+      return () => {};
+    },
+    onError: (fn: () => void) => {
+      settled.onError = fn;
       return () => {};
     },
   }),
@@ -104,5 +111,16 @@ describe("BottomNav", () => {
     await wrapper.vm.$nextTick();
 
     expect(tabs[3]?.classes()).toContain("r-segmented-control__btn--active");
+  });
+
+  it("hands the highlight back when navigation errors", async () => {
+    const wrapper = mountNav();
+    const tabs = wrapper.findAll(".r-segmented-control__btn");
+
+    await tabs[1]?.trigger("click");
+    settled.onError?.();
+    await wrapper.vm.$nextTick();
+
+    expect(tabs[2]?.classes()).toContain("r-segmented-control__btn--active");
   });
 });
