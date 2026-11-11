@@ -2,11 +2,11 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from handler import metadata
-from handler.scan_handler import (
+from handler.scan.merge import scene_apply_sources
+from handler.scan.sources import (
     MetadataSource,
     get_enabled_metadata_sources,
     get_priority_ordered_metadata_sources,
-    scene_apply_sources,
 )
 
 

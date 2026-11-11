@@ -76,6 +76,10 @@ import { useGridNav } from "@/composables/useGridNav";
 import { useListExpansion } from "@/composables/useListExpansion";
 import { usePinnedToolbar } from "@/composables/usePinnedToolbar";
 import { useResponsiveColumns } from "@/composables/useResponsiveColumns";
+import {
+  RESULT_ID_ATTR,
+  useResultsTransition,
+} from "@/composables/useResultsTransition";
 import { useUISettings } from "@/composables/useUISettings";
 import { useVirtualScrollDebug } from "@/composables/useVirtualScrollDebug";
 import { useWebpSupport } from "@/composables/useWebpSupport";
@@ -181,7 +185,6 @@ const {
   selectedPlayerCounts,
   selectedMetadataProviders,
   selectedTags,
-  selectedReleaseTypes,
   selectedStatuses,
   genresLogic,
   franchisesLogic,
@@ -195,7 +198,6 @@ const {
   playerCountsLogic,
   metadataProvidersLogic,
   tagsLogic,
-  releaseTypesLogic,
   statusesLogic,
   selectedLengthMinHours,
   selectedLengthMaxHours,
@@ -235,7 +237,6 @@ const filterActiveCount = computed(() => {
     selectedPlayerCounts,
     selectedMetadataProviders,
     selectedTags,
-    selectedReleaseTypes,
     selectedStatuses,
   ]) {
     if (arr.value.length > 0) n += 1;
@@ -278,7 +279,6 @@ watch(
     selectedPlayerCounts,
     selectedMetadataProviders,
     selectedTags,
-    selectedReleaseTypes,
     selectedStatuses,
     genresLogic,
     franchisesLogic,
@@ -292,21 +292,19 @@ watch(
     playerCountsLogic,
     metadataProvidersLogic,
     tagsLogic,
-    releaseTypesLogic,
     statusesLogic,
     selectedLengthMinHours,
     selectedLengthMaxHours,
   ],
   () => {
-    galleryRoms.invalidateWindows();
-    void galleryRoms.fetchInitialMetadata();
+    void galleryRoms.refreshResults(commitRefresh);
   },
   { deep: true },
 );
 
 const { supportsWebp } = useWebpSupport();
 
-const { total, reorderTotal, charIndex, initialFetching, orderBy, orderDir } =
+const { total, charIndex, initialFetching, refreshing, orderBy, orderDir } =
   storeToRefs(galleryRoms);
 
 const { groupBy, layout, toolbarPosition } = useGalleryMode();
@@ -372,14 +370,9 @@ const listMinWidth = computed(
 // Compact list rows (phones / tablets) open one detail panel at a time; the
 // virtualiser reads the same position to give that row its taller slot.
 const listExpansion = useListExpansion();
+// A new result puts another game at the open panel's position.
 watch(
-  [
-    layout,
-    smAndDown,
-    () => galleryRoms.total,
-    () => galleryRoms.orderBy,
-    () => galleryRoms.orderDir,
-  ],
+  [layout, smAndDown, () => galleryRoms.resultEpoch],
   listExpansion.collapse,
 );
 
@@ -409,15 +402,23 @@ useGridNav(sectionEl, {
   revealEdge,
 });
 
+// A known result, empty included, stays on screen through a refresh.
 const loadingInitial = computed(
-  () => initialFetching.value && total.value === 0,
+  () =>
+    (initialFetching.value || refreshing.value) &&
+    total.value === 0 &&
+    !galleryRoms.metadataLoaded,
 );
 
 const notFoundRef = computed(() => props.notFound);
 // An empty result under a search or filters says why, not that the view is empty.
 const emptyMessageRef = computed(() => {
-  if (searchTerm.value) {
-    return t("rom.no-games-match-query", { query: searchTerm.value });
+  // Names the search the displayed result answers, not one still loading.
+  const shownTerm = galleryRoms.resultParams
+    ? galleryRoms.resultParams.searchTerm
+    : searchTerm.value;
+  if (shownTerm) {
+    return t("rom.no-games-match-query", { query: shownTerm });
   }
   if (filterActiveCount.value > 0) return t("rom.no-games-match-filters");
   return props.emptyMessage;
@@ -438,7 +439,6 @@ const { virtualItems, letterToIndex, availableLetters, getItemHeight } =
     notFound: notFoundRef,
     notFoundMessage: notFoundMessageRef,
     skeletonRowCount: props.skeletonRowCount,
-    skeletonTotal: reorderTotal,
     cardHeight,
     rowWidth: usableWidth,
     gap: CARD_GAP_PX,
@@ -667,11 +667,17 @@ const scheduleFetchSync = useDebounceFn(syncFetches, FETCH_DEBOUNCE_MS);
 // search invalidate), drop the pending debounced sync. The store's
 // `invalidateWindows` / `resetGallery` already aborts every in-flight
 // request, so we just clear local state.
-watch(virtualItems, () => {
+watch(virtualItems, async (_items, _prev, onCleanup) => {
   scheduleFetchSync.cancel();
   // Re-sync against the current viewport so visible rows in the new
   // context start fetching immediately (no debounce: items just
   // changed, the user is staring at skeletons).
+  let superseded = false;
+  onCleanup(() => (superseded = true));
+  // Lets a scroll reset in the same swap report its range first.
+  await nextTick();
+  // A rerun owns the sync, and an unmount already aborted the fetches.
+  if (superseded) return;
   syncFetches(viewportRange.value);
 });
 
@@ -688,13 +694,43 @@ function anchorLetter(letter: string, smooth: boolean) {
   scrollToItem(idx, smooth);
 }
 
-function scrollToItem(idx: number, smooth: boolean) {
-  // The section runs under the top bar, so rows land below it in either dock.
-  const stickyOffset =
+// The section runs under the top bar, so rows land below it in either dock.
+function stickyOffset(): number {
+  return (
     navHeight.value +
     toolbarHeight.value +
-    (layout.value === "list" ? LIST_HEADER_HEIGHT_PX : 0);
-  scrollerRef.value?.scrollToIndex(idx, { smooth, stickyOffset });
+    (layout.value === "list" ? LIST_HEADER_HEIGHT_PX : 0)
+  );
+}
+
+function scrollToItem(idx: number, smooth: boolean) {
+  scrollerRef.value?.scrollToIndex(idx, {
+    smooth,
+    stickyOffset: stickyOffset(),
+  });
+}
+
+// Content scrolls under the phone bottom nav, which only renders below md.
+const bottomChromeHeight = useCssLength(
+  "calc(var(--r-bottom-nav-h) + var(--r-safe-b))",
+);
+
+const resultsTransition = useResultsTransition({
+  container: () => scrollerRef.value?.containerEl ?? null,
+  visibleTop: stickyOffset,
+  visibleBottom: () =>
+    window.innerHeight - (smAndDown.value ? bottomChromeHeight.value : 0),
+  rows: () => layout.value === "list",
+});
+
+function commitRefresh(apply: () => boolean): Promise<void> {
+  return resultsTransition.run(() => {
+    if (!apply()) return false;
+    endLetterJump();
+    // A new result reads from its first row, not the old scroll depth.
+    scrollerRef.value?.scrollTo(0);
+    return true;
+  });
 }
 
 function scrollToLetter(letter: string) {
@@ -774,8 +810,7 @@ const sortOptions = computed(() => getSortOptions(props.showPlatformColumn));
 // initial URL hydration runs before this watch is set up, so it does
 // not echo here.
 watch([orderBy, orderDir], () => {
-  galleryRoms.invalidateWindows({ reorder: true });
-  void galleryRoms.fetchInitialMetadata();
+  void galleryRoms.refreshResults(commitRefresh);
 });
 
 // ── Scroll restoration ─────────────────────────────────────────────
@@ -864,8 +899,10 @@ onBeforeUnmount(() => {
 });
 
 // ── Slot helpers ────────────────────────────────────────────────────
+// Read the map directly: the store action's wrapper is a cost per call, and
+// each card calls this several times per render.
 function getRomAt(p: number) {
-  return galleryRoms.getRomAt(p);
+  return galleryRoms.byPosition.get(p) ?? null;
 }
 
 function rowPositions(row: {
@@ -888,6 +925,8 @@ const asEmpty = (i: GalleryItem) => i as EmptyItem;
 const asListRow = (i: GalleryItem) => i as ListRowItem;
 const asSkeletonRow = (i: GalleryItem) => i as SkeletonRowItem;
 const itemKind = (i: GalleryItem) => i.kind;
+const listRowRomId = (i: GalleryItem) =>
+  i.kind === "list-row" ? getRomAt(i.position)?.id : undefined;
 
 // The desktop list header is the grid's first row; the compact one is a
 // toolbar above the grid.
@@ -904,7 +943,9 @@ const gridAttrs = computed(() => {
     role: "grid",
     "aria-label": t("common.games"),
     "aria-multiselectable": true,
-    "aria-busy": !loaded && !items.some((i) => i.kind === "empty"),
+    "aria-busy":
+      refreshing.value || (!loaded && !items.some((i) => i.kind === "empty")),
+    "data-stale": refreshing.value || undefined,
     "aria-rowcount": items.length + (listHeaderInGrid.value ? 1 : 0),
     "aria-colcount": listHeaderInGrid.value
       ? getListColumns(props.showPlatformColumn).length
@@ -1100,6 +1141,7 @@ defineExpose({
         <div
           class="r-shell__item"
           v-bind="itemAttrs(item as GalleryItem, index)"
+          :[RESULT_ID_ATTR]="listRowRomId(item as GalleryItem)"
         >
           <RLetterHeading
             v-if="itemKind(item as GalleryItem) === 'letter-header'"
@@ -1113,13 +1155,14 @@ defineExpose({
           >
             <div
               v-for="(p, slotIdx) in rowPositions(asRow(item as GalleryItem))"
-              :key="p"
+              :key="`${p}-${getRomAt(p)?.id ?? 'sk'}`"
               role="gridcell"
               class="r-shell__cell"
               :aria-selected="getRomAt(p) ? isRomSelected(p) : undefined"
             >
               <GameCard
                 v-if="getRomAt(p)"
+                :[RESULT_ID_ATTR]="getRomAt(p)!.id"
                 class="r-card-fade"
                 :style="{ '--card-fade-i': slotIdx }"
                 :rom="getRomAt(p)!"
@@ -1379,6 +1422,16 @@ html[data-bp~="md-and-up"] .r-shell__list-header {
 }
 .r-shell__cell > * {
   flex-shrink: 0;
+}
+
+/* Stale results fade only when a refetch outlasts the delay, so a quick
+   one never flickers. */
+.r-shell__scroller :deep(.r-virtual-scroller__body) {
+  transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-shell__scroller :deep(.r-virtual-scroller__body[data-stale]) {
+  opacity: 0.6;
+  transition-delay: 150ms;
 }
 
 /* Card reveal animation (.r-card-fade) lives in global.css, shared

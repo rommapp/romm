@@ -18,7 +18,7 @@ import { defineStore } from "pinia";
 import type { SimpleRomSchema } from "@/__generated__/";
 import type { CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import { userStorage } from "@/composables/useUserLocalStorage";
-import romApi from "@/services/api/rom";
+import romApi, { type GetRomsParams } from "@/services/api/rom";
 import {
   type Collection,
   type SmartCollection,
@@ -99,8 +99,9 @@ const SKIP_AGGREGATES = { ...NO_SIDECARS, withTotal: false };
 
 // In-flight `AbortController`s keyed by request: `window:${offset}`
 // for a windowed fetch, `bootstrap` for the lightweight metadata
-// bootstrap. Lives outside store state so Pinia doesn't
-// try to proxy native abort objects (which break under reactivity).
+// bootstrap, `refresh` for a filter refetch. Lives outside store state so
+// Pinia doesn't try to proxy native abort objects (which break under
+// reactivity).
 // `invalidateWindows()` / `resetGallery()` abort every pending request,
 // so a fast-typed search box or a platform-switch mid-load doesn't
 // leave server work going for results we'll throw away.
@@ -221,9 +222,11 @@ interface State {
    * so each missing file shows as its own row, never collapsed. */
   currentSearch: boolean;
   total: number;
-  // The count a re-sort is refetching (null when unknown). A new order can't
-  // change it, so the bootstrap skeleton paints that many instead of a page.
-  reorderTotal: number | null;
+  // The request the displayed result was built from. Fetches for more of it
+  // reuse this, so they stay consistent while a refresh for new filters runs.
+  resultParams: RequestParams | null;
+  // Bumped whenever a different result replaces the displayed one.
+  resultEpoch: number;
   charIndex: Record<string, number>;
   romIdIndex: number[];
   byPosition: Map<number, SimpleRom>;
@@ -242,6 +245,9 @@ interface State {
   metadataLoaded: boolean;
   // True while a whole-result select-all fetch is in flight.
   selectingAll: boolean;
+  // True while `refreshResults` refetches: the previous result stays on
+  // screen until the new first page replaces it.
+  refreshing: boolean;
   // Whether the last answer to an unset sort came back in relevance order,
   // which the backend signals with no letter positions. Kept across refetches.
   relevanceLed: boolean;
@@ -258,7 +264,8 @@ const defaults = (): State => ({
   currentSmartCollection: null,
   currentSearch: false,
   total: 0,
-  reorderTotal: null,
+  resultParams: null,
+  resultEpoch: 0,
   charIndex: {},
   romIdIndex: [],
   byPosition: new Map(),
@@ -268,10 +275,13 @@ const defaults = (): State => ({
   initialFetching: false,
   metadataLoaded: false,
   selectingAll: false,
+  refreshing: false,
   relevanceLed: false,
   orderBy: DEFAULT_ORDER_BY,
   orderDir: DEFAULT_ORDER_DIR,
 });
+
+type RequestParams = Omit<GetRomsParams, "signal">;
 
 function alignToWindow(offset: number): number {
   return Math.floor(offset / WINDOW_SIZE) * WINDOW_SIZE;
@@ -353,7 +363,8 @@ export default defineStore("v2GalleryRoms", {
       this.currentSmartCollection = null;
       this.currentSearch = false;
       this.total = 0;
-      this.reorderTotal = null;
+      this.resultParams = null;
+      this.resultEpoch++;
       this.charIndex = {};
       this.romIdIndex = [];
       this.byPosition = new Map();
@@ -363,16 +374,16 @@ export default defineStore("v2GalleryRoms", {
       this.initialFetching = false;
       this.metadataLoaded = false;
       this.selectingAll = false;
+      this.refreshing = false;
       this.relevanceLed = false;
     },
 
-    /** Drop the loaded windows but keep the gallery context; `reorder`
-     * keeps the known result count as `reorderTotal`. */
-    invalidateWindows({ reorder = false } = {}) {
+    /** Drop the loaded windows but keep the gallery context. */
+    invalidateWindows() {
       abortAllInFlight();
-      if (!reorder) this.reorderTotal = null;
-      else if (this.metadataLoaded) this.reorderTotal = this.total;
       this.total = 0;
+      this.resultParams = null;
+      this.resultEpoch++;
       this.charIndex = {};
       this.romIdIndex = [];
       this.byPosition = new Map();
@@ -382,6 +393,88 @@ export default defineStore("v2GalleryRoms", {
       this.initialFetching = false;
       this.metadataLoaded = false;
       this.selectingAll = false;
+      this.refreshing = false;
+    },
+
+    /** Refetch the first page and its metadata in one request, keeping the
+     * previous result on screen until it swaps in whole.
+     *
+     * Args:
+     *   commit: Runs the swap, e.g. inside a view transition. The swap is a
+     *     no-op, returning false, once a newer refresh supersedes it.
+     *
+     * Returns:
+     *   Whether the new result was applied (false when superseded). */
+    async refreshResults(
+      commit: (apply: () => boolean) => void | Promise<void> = (apply) => {
+        apply();
+      },
+    ): Promise<boolean> {
+      const ctrlKey = "refresh";
+      inFlightControllers.get(ctrlKey)?.abort();
+      this.refreshing = true;
+
+      const galleryFilter = storeGalleryFilter();
+      const platformsStore = storePlatforms();
+      const params = this._buildRequestParams(galleryFilter, 0);
+      const controller = new AbortController();
+      inFlightControllers.set(ctrlKey, controller);
+      // A newer refresh or any context switch replaces or drops this entry.
+      const isCurrent = () => inFlightControllers.get(ctrlKey) === controller;
+
+      try {
+        const response = await romApi.getRoms({
+          ...params,
+          signal: controller.signal,
+        });
+        if (!isCurrent()) return false;
+        const data = response.data;
+        let applied = false;
+        await commit(() => {
+          if (!isCurrent()) return false;
+          // Window and select-all fetches for the old result end with it.
+          abortAllInFlight();
+          this.pendingWindows = new Set();
+          this.failedWindows = new Set();
+          this.initialFetching = false;
+          this.selectingAll = false;
+          const next = new Map<number, SimpleRom>();
+          data.items.forEach((rom, i) => next.set(i, rom));
+          this.charIndex = {};
+          this.romIdIndex = [];
+          this._applyMetadata(data, galleryFilter, platformsStore);
+          this.byPosition = next;
+          this.loadedWindows = new Set([0]);
+          this.resultParams = { ...params };
+          this.resultEpoch++;
+          this.refreshing = false;
+          applied = true;
+          return true;
+        });
+        return applied;
+      } catch (err) {
+        if (axios.isCancel(err)) return false;
+        if (!isCurrent()) return false;
+        console.error("[v2GalleryRoms] refresh fetch failed", err);
+        // The skeleton path's window retries take over.
+        this.invalidateWindows();
+        void this.fetchInitialMetadata();
+        return false;
+      } finally {
+        if (isCurrent()) {
+          inFlightControllers.delete(ctrlKey);
+          this.refreshing = false;
+        }
+      }
+    },
+
+    /** The displayed result's request at `offset`, snapshotting the live
+     * filters when no result is displayed yet. */
+    _resultRequest(offset: number): RequestParams {
+      if (!this.resultParams) {
+        this.resultParams = this._buildRequestParams(storeGalleryFilter(), 0);
+      }
+      return { ...this.resultParams, offset };
     },
 
     _shouldGroupRoms(): boolean {
@@ -434,7 +527,6 @@ export default defineStore("v2GalleryRoms", {
         selectedPlayerCounts: galleryFilter.selectedPlayerCounts,
         selectedMetadataProviders: galleryFilter.selectedMetadataProviders,
         selectedTags: galleryFilter.selectedTags,
-        selectedReleaseTypes: galleryFilter.selectedReleaseTypes,
         selectedStatuses: galleryFilter.selectedStatuses,
         genresLogic: galleryFilter.genresLogic,
         franchisesLogic: galleryFilter.franchisesLogic,
@@ -449,7 +541,6 @@ export default defineStore("v2GalleryRoms", {
         playerCountsLogic: galleryFilter.playerCountsLogic,
         metadataProvidersLogic: galleryFilter.metadataProvidersLogic,
         tagsLogic: galleryFilter.tagsLogic,
-        releaseTypesLogic: galleryFilter.releaseTypesLogic,
         hltbMainStoryMin: playtimeHoursToSeconds(
           galleryFilter.selectedLengthMinHours,
         ),
@@ -505,7 +596,6 @@ export default defineStore("v2GalleryRoms", {
         galleryFilter.setFilterLanguages(data.filter_values.languages);
         galleryFilter.setFilterPlayerCounts(data.filter_values.player_counts);
         galleryFilter.setFilterTags(data.filter_values.tags);
-        galleryFilter.setFilterReleaseTypes(data.filter_values.release_types);
       }
       this.metadataLoaded = true;
     },
@@ -527,12 +617,13 @@ export default defineStore("v2GalleryRoms", {
     async fetchInitialMetadata(sidecars: SidecarOptions = {}): Promise<void> {
       if (this.metadataLoaded) return;
       if (this.initialFetching) return;
+      if (this.refreshing) return;
 
       this.initialFetching = true;
 
       const galleryFilter = storeGalleryFilter();
       const platformsStore = storePlatforms();
-      const params = this._buildRequestParams(galleryFilter, 0);
+      const params = this._resultRequest(0);
       const ctrlKey = "bootstrap";
       const controller = new AbortController();
       inFlightControllers.set(ctrlKey, controller);
@@ -595,7 +686,7 @@ export default defineStore("v2GalleryRoms", {
 
       const galleryFilter = storeGalleryFilter();
       const platformsStore = storePlatforms();
-      const params = this._buildRequestParams(galleryFilter, offset);
+      const params = this._resultRequest(offset);
       const ctrlKey = `window:${offset}`;
       const controller = new AbortController();
       inFlightControllers.set(ctrlKey, controller);
@@ -717,8 +808,7 @@ export default defineStore("v2GalleryRoms", {
       // The filters only scope the query on the gallery view; anywhere
       // else the params would silently describe the whole library.
       if (!this.onGalleryView) return null;
-      const galleryFilter = storeGalleryFilter();
-      const params = this._buildRequestParams(galleryFilter, 0);
+      const params = this._resultRequest(0);
       const ctrlKey = "select-all";
       // A re-trigger supersedes the previous run.
       inFlightControllers.get(ctrlKey)?.abort();
@@ -810,6 +900,11 @@ export default defineStore("v2GalleryRoms", {
      * navigating away mid-scroll doesn't leave downloads running; a
      * return to the same gallery still reuses `loadedWindows`. */
     abortInFlight() {
+      // An unfinished refresh leaves the old result under the new filters.
+      if (this.refreshing) {
+        this.invalidateWindows();
+        return;
+      }
       abortAllInFlight();
       this.pendingWindows = new Set();
       this.initialFetching = false;

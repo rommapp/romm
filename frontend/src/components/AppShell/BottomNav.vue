@@ -1,27 +1,52 @@
 <script setup lang="ts">
-// BottomNav: the primary-navigation pill, relocated to the bottom edge
-// on phones (xs) so the four destinations sit within thumb reach. AppNav
-// drops its centre pill on xs in turn (see AppNav.vue).
-//
-// This is the SAME RSliderBtnGroup tab pill the top nav uses (same glass
-// surface, same border, same sliding active indicator), just pinned to
-// the bottom and stretched full-width. No bespoke nav surface and no
-// alternate layout, so the brand look and feel stay identical top vs
-// bottom. Routing and universal input (keyboard / gamepad roving,
-// modality-gated focus rings) come from the primitive unchanged.
-//
-// Shown on `sm-and-down` (phones + small tablets / landscape), where the
-// top nav drops its centre pill. Mount-gated on the breakpoint ref (not
-// `display: none`) so the four router-links never sit hidden-but-focusable
-// in the tab order on larger viewports.
+// Primary-nav tab bar on sm-and-down, where AppNav drops its centre pill.
+// Mount-gated (not `display: none`) so hidden links never take focus.
+import { computed, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import { useBreakpoint } from "@/composables/useBreakpoint";
-import { useNavDestinations } from "@/composables/useNavDestinations";
-import { RSliderBtnGroup } from "@/lib";
+import {
+  NAV_FILLED_ICONS,
+  useNavDestinations,
+} from "@/composables/useNavDestinations";
+import type { NavDestinationId } from "@/composables/useNavDestinations";
+import { RIcon, RSegmentedControl } from "@/lib";
 
 const { t } = useI18n();
 const { smAndDown } = useBreakpoint();
 const { destinations, activeId } = useNavDestinations();
+const router = useRouter();
+
+// The route updates only after the lazy view loads and the view transition is captured.
+const pendingId = ref<NavDestinationId | null>(null);
+const shownId = computed(() => pendingId.value ?? activeId.value);
+
+function onTap(event: MouseEvent) {
+  // RouterLink leaves these clicks to the browser, so no navigation follows.
+  if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+  const href = (event.target as HTMLElement | null)
+    ?.closest("a")
+    ?.getAttribute("href");
+  const tapped = destinations.value.find((d) => d.to === href);
+  if (tapped) pendingId.value = tapped.id;
+}
+
+// Only the latest navigation may clear the highlight; a superseded one finishes on its own.
+let latestPath: string | null = null;
+const stopTracking = router.beforeEach((to) => {
+  latestPath = to.fullPath;
+});
+const settle = (to: { fullPath: string }) => {
+  if (to.fullPath === latestPath) pendingId.value = null;
+};
+const stopSettled = router.afterEach((to) => settle(to));
+// Errors such as a rejected lazy import skip afterEach.
+const stopOnError = router.onError((_error, to) => settle(to));
+onBeforeUnmount(() => {
+  stopTracking();
+  stopSettled();
+  stopOnError();
+});
 
 // Sticky avoids a Safari bug where fixed elements can get stuck after scrolling.
 </script>
@@ -29,18 +54,30 @@ const { destinations, activeId } = useNavDestinations();
 <template>
   <div v-if="smAndDown" class="r-bottom-nav-anchor">
     <nav class="r-bottom-nav" :aria-label="t('common.primary-navigation')">
-      <RSliderBtnGroup
-        :model-value="activeId"
+      <RSegmentedControl
+        :model-value="shownId"
         :items="destinations"
         variant="tab"
         class="r-bottom-nav__group"
-      />
+        @click="onTap"
+      >
+        <template #item="{ item }">
+          <RIcon
+            :icon="NAV_FILLED_ICONS[item.id] ?? item.icon"
+            :size="28"
+            :class="{
+              'r-bottom-nav__icon--controller': item.icon === 'mdi-controller',
+            }"
+          />
+          <span class="r-bottom-nav__label">{{ item.label }}</span>
+        </template>
+      </RSegmentedControl>
     </nav>
   </div>
 </template>
 
 <style scoped>
-/* Matches .r-app-shell__body's height without adding to it; flex-end anchors the pill to sticky's bottom. */
+/* Matches .r-app-shell__body's height without adding to it; flex-end anchors the bar to sticky's bottom. */
 .r-bottom-nav-anchor {
   position: absolute;
   inset: 0;
@@ -51,12 +88,8 @@ const { destinations, activeId } = useNavDestinations();
   z-index: 100;
 }
 
-/* Transparent: the pill itself carries the glass surface (tab variant),
-   so it reads as a floating control matching the top nav. Side gutters
-   follow the responsive `--r-row-pad`; the safe-area inset keeps the pill
-   above a notched phone's home indicator. `pointer-events: none` on the
-   strip + `auto` on the pill so taps in the transparent gutters fall
-   through. */
+/* Transparent strip; taps in its gutters fall through to the page. The
+   safe-area inset keeps the bar above a notched phone's home indicator. */
 .r-bottom-nav {
   position: sticky;
   bottom: 0;
@@ -66,34 +99,83 @@ const { destinations, activeId } = useNavDestinations();
   pointer-events: none;
 }
 
-/* Fill the strip width reliably (an inline-flex element ignores
-   `width: 100%` in some flex contexts; `flex: 1` doesn't). border-box so
-   the pill's own padding + border stay inside that width. */
-.r-bottom-nav__group {
+/* A dense frost, so busy cover art behind doesn't compete with the labels. */
+.r-bottom-nav__group.r-segmented-control--tab {
   pointer-events: auto;
   flex: 1;
   box-sizing: border-box;
-  /* Cap the pill on large tablets so it stays thumb-sized; the strip's
-     `justify-content: center` keeps it centred once capped. */
   max-width: var(--r-bottom-nav-max-w);
+  padding: 5px;
+  gap: 0;
+  background: color-mix(in srgb, var(--r-color-bg) 62%, transparent);
+  backdrop-filter: blur(24px);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 28%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, white 6%, transparent),
+    inset 0 0 18px color-mix(in srgb, white 5%, transparent),
+    var(--r-elev-2),
+    var(--r-elev-1);
 }
 
-/* Each destination stretches to an equal quarter of the pill so the
-   active indicator spans its full cell and reaches close to the pill's
-   rounded background edges, and keeps doing so as the viewport widens,
-   instead of leaving the items bunched in the centre. The indicator sits
-   inside the pill's 4px padding, so even with sub-pixel cell rounding it
-   never grazes the border. */
-.r-bottom-nav__group :deep(.r-slider-btn-group__btn) {
+/* A translucent capsule, so the tinted icon + label carry the selection. */
+.r-bottom-nav__group.r-segmented-control--tab.r-segmented-control--horizontal
+  :deep(.r-segmented-control__indicator) {
+  top: 5px;
+  bottom: 5px;
+  background: var(--r-color-surface-hover);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 12%, transparent);
+}
+
+.r-bottom-nav__group.r-segmented-control--tab :deep(.r-segmented-control__btn) {
   flex: 1;
+  min-width: 0;
+  flex-direction: column;
   justify-content: center;
+  gap: 2px;
+  min-height: 52px;
+  padding: 4px 2px;
+  touch-action: manipulation;
 }
 
-/* Icon-only on phones: four full-width inline labels won't fit, and the
-   icon-only treatment matches the top-nav-on-xs precedent. The
-   router-link `aria-label` (set by RSliderBtnGroup from each item's
-   `ariaLabel`) stays the source of accessible naming. */
-.r-bottom-nav__group :deep(.r-slider-btn-group__label) {
-  display: none;
+.r-bottom-nav__group.r-segmented-control--tab
+  :deep(.r-segmented-control__btn--active),
+.r-bottom-nav__group.r-segmented-control--tab
+  :deep(.r-segmented-control__btn--active:hover) {
+  /* Pulled toward fg so the tint stays legible over a warm backdrop. */
+  color: color-mix(
+    in srgb,
+    var(--r-color-brand-primary) 75%,
+    var(--r-color-fg)
+  );
+}
+
+/* Mirrors the shared glass bar: reduced motion drops the costly blur. */
+html.r-reduced-motion .r-bottom-nav__group.r-segmented-control--tab {
+  background: var(--r-glass-bar-bg);
+  backdrop-filter: var(--r-glass-bar-filter);
+}
+
+/* No hover fill on the bar; the primitive's press scale gives the feedback. */
+.r-bottom-nav__group.r-segmented-control--tab
+  :deep(
+    .r-segmented-control__btn:hover:not(.r-segmented-control__btn--active)
+  ) {
+  background: transparent;
+}
+
+/* The controller glyph is wide and short and sits low in its box, so it
+   is scaled and lifted to match the others' optical height and centre. */
+.r-bottom-nav__icon--controller {
+  transform: translateY(-1.3px) scale(1.2);
+}
+
+.r-bottom-nav__label {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: var(--r-font-size-sm);
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

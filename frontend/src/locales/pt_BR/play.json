@@ -93,7 +93,7 @@
   "memory-card-erase-keyword": "ERASE",
   "memory-card-hint": "O cartão mais recente é carregado por padrão. O progresso é sincronizado ao sair.",
   "memory-card-import-adopt": "Importar este cartão",
-  "memory-card-import-body": "Este contêiner já tem um cartão de memória com {count} arquivo(s) de salvamento. Deseja importá-lo para a sua biblioteca ou começar com um cartão novo?",
+  "memory-card-import-body": "Este contêiner já tem um cartão de memória com {count} arquivo de salvamento. Deseja importá-lo para a sua biblioteca ou começar com um cartão novo? | Este contêiner já tem um cartão de memória com {count} arquivos de salvamento. Deseja importá-lo para a sua biblioteca ou começar com um cartão novo?",
   "memory-card-import-discard": "Começar do zero",
   "memory-card-import-discard-body": "O cartão de memória deste contêiner será apagado. Nada do que estiver salvo nele poderá ser recuperado.",
   "memory-card-import-discard-confirm": "Apagar e começar do zero",

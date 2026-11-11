@@ -132,8 +132,7 @@ describe("AnniversaryWidget", () => {
     await flushPromises();
 
     expect(getRoms).not.toHaveBeenCalled();
-    expect(wrapper.text()).toContain("home.widget-anniversaries-empty");
-    expect(loadingOf(wrapper)).toBe("false");
+    expect(wrapper.find("section").exists()).toBe(false);
   });
 
   it("shows the oldest anniversary first, with the years elapsed", async () => {
@@ -273,13 +272,31 @@ describe("AnniversaryWidget", () => {
     expect(arrows(wrapper).next.attributes("data-loading")).toBe("false");
   });
 
-  it("shows the empty copy when the day has no anniversaries", async () => {
+  it("hides the card when the day has no anniversaries", async () => {
     getRoms.mockResolvedValue(page([]));
 
     const wrapper = mountWidget();
     await flushPromises();
 
-    expect(wrapper.text()).toContain("home.widget-anniversaries-empty");
+    expect(wrapper.find("section").exists()).toBe(false);
+  });
+
+  it("brings the card back when the next day has anniversaries", async () => {
+    getRoms
+      .mockResolvedValueOnce(page([]))
+      .mockResolvedValueOnce(
+        page([rom(1, "Super Metroid", releasedOn(2005, 9, 9))]),
+      );
+
+    const wrapper = mountWidget();
+    await flushPromises();
+    expect(wrapper.find("section").exists()).toBe(false);
+
+    vi.setSystemTime(new Date(2026, 8, 9, 0, 0, 30));
+    await vi.advanceTimersByTimeAsync(60_000);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Super Metroid");
   });
 
   it("shows the error copy when the request fails", async () => {
@@ -387,16 +404,16 @@ describe("AnniversaryWidget", () => {
     await vi.advanceTimersByTimeAsync(60_000);
 
     // The superseded request settling must not report the new day's request
-    // as finished, or the card claims an empty day while it is still loading.
+    // as finished, or the card shows yesterday's game while it is still loading.
     yesterday.settle(page([rom(1, "Chrono Trigger", releasedOn(1995, 9, 8))]));
     await flushPromises();
 
     expect(loadingOf(wrapper)).toBe("true");
-    expect(wrapper.text()).not.toContain("home.widget-anniversaries-empty");
+    expect(wrapper.text()).not.toContain("Chrono Trigger");
 
     today.settle(page([]));
     await flushPromises();
 
-    expect(loadingOf(wrapper)).toBe("false");
+    expect(wrapper.find("section").exists()).toBe(false);
   });
 });

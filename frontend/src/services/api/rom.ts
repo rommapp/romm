@@ -207,7 +207,6 @@ export interface GetRomsParams {
   selectedPlayerCounts?: string[] | null;
   selectedMetadataProviders?: string[] | null;
   selectedTags?: string[] | null;
-  selectedReleaseTypes?: string[] | null;
   selectedStatuses?: string[] | null;
   // HowLongToBeat main-story bounds, in seconds (the unit the backend stores).
   hltbMainStoryMin?: number | null;
@@ -226,7 +225,6 @@ export interface GetRomsParams {
   playerCountsLogic?: string | null;
   metadataProvidersLogic?: string | null;
   tagsLogic?: string | null;
-  releaseTypesLogic?: string | null;
   /** Days of the year the rom released on, as "M-D". Matches any year. */
   releasedDays?: string[] | null;
   /** Exclusive upper bound on the years `releasedDays` matches. */
@@ -274,7 +272,6 @@ export function buildGetRomsQuery({
   selectedPlayerCounts = null,
   selectedMetadataProviders = null,
   selectedTags = null,
-  selectedReleaseTypes = null,
   selectedStatuses = null,
   hltbMainStoryMin = null,
   hltbMainStoryMax = null,
@@ -292,7 +289,6 @@ export function buildGetRomsQuery({
   playerCountsLogic = null,
   metadataProvidersLogic = null,
   tagsLogic = null,
-  releaseTypesLogic = null,
   releasedDays = null,
   releasedBeforeYear = null,
   withCharIndex = undefined,
@@ -359,10 +355,6 @@ export function buildGetRomsQuery({
         ? selectedMetadataProviders
         : undefined,
     tags: selectedTags && selectedTags.length > 0 ? selectedTags : undefined,
-    release_types:
-      selectedReleaseTypes && selectedReleaseTypes.length > 0
-        ? selectedReleaseTypes
-        : undefined,
     // Logic operators
     genres_logic:
       selectedGenres && selectedGenres.length > 0
@@ -414,10 +406,6 @@ export function buildGetRomsQuery({
         : undefined,
     tags_logic:
       selectedTags && selectedTags.length > 0 ? tagsLogic || "any" : undefined,
-    release_types_logic:
-      selectedReleaseTypes && selectedReleaseTypes.length > 0
-        ? releaseTypesLogic || "any"
-        : undefined,
     ...(hltbMainStoryMin !== null
       ? { hltb_main_story_min: hltbMainStoryMin }
       : {}),
@@ -490,9 +478,8 @@ async function getRecentPlayedRoms() {
   });
 }
 
-// Two rows of cards at typical widths, so the section doesn't push the rest
-// of the overview below the fold.
-export const SIMILAR_ROMS_LIMIT = 6;
+// IGDB's similar games list contains up to 10 entries.
+export const SIMILAR_ROMS_LIMIT = 10;
 export const RECOMMENDED_ROMS_LIMIT = 15;
 
 /** Library games similar to this one, from the precomputed similarity index. */

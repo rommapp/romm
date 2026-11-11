@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from sqlalchemy import case, distinct, func, select
 from sqlalchemy.orm import Session
-from sqlalchemy.sql.elements import ColumnElement
 
 from decorators.database import INJECTED_SESSION, begin_session
 from endpoints.responses.stats import MetadataCoverageItem, RegionBreakdownItem
 from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
-from models.assets import Save, Screenshot, State
+from models.assets import RomAsset, Save, Screenshot, State
 from models.rom import (
     METADATA_SOURCE_FACET_COLUMNS,
     Rom,
@@ -17,15 +16,6 @@ from models.rom import (
 from utils.database import is_non_blank
 
 from .base_handler import DBBaseHandler
-
-
-def _facets_clauses(visibility: RomVisibilityFilter) -> list[ColumnElement[bool]]:
-    """`visibility` over the `roms_facets` mirror, so it needs no join to `roms`."""
-    return visibility.clauses(
-        platform_id_col=RomFacets.platform_id,
-        rom_id_col=RomFacets.rom_id,
-        min_age_col=RomFacets.min_age,
-    )
 
 
 class DBStatsHandler(DBBaseHandler):
@@ -52,26 +42,39 @@ class DBStatsHandler(DBBaseHandler):
         query = select(func.count()).select_from(Rom).where(*visibility.clauses())
         return session.scalar(query) or 0
 
+    @staticmethod
+    def _asset_count(
+        session: Session, model: type[RomAsset], visibility: RomVisibilityFilter
+    ) -> int:
+        """Count every user's `model` rows whose ROM `visibility` keeps."""
+        query = visibility.restrict(
+            select(func.count()).select_from(model), model.rom_id
+        )
+        return session.scalar(query) or 0
+
     @begin_session
     def get_saves_count(
         self,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
         session: Session = INJECTED_SESSION,
     ) -> int:
-        return session.scalar(select(func.count()).select_from(Save)) or 0
+        return self._asset_count(session, Save, visibility)
 
     @begin_session
     def get_states_count(
         self,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
         session: Session = INJECTED_SESSION,
     ) -> int:
-        return session.scalar(select(func.count()).select_from(State)) or 0
+        return self._asset_count(session, State, visibility)
 
     @begin_session
     def get_screenshots_count(
         self,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
         session: Session = INJECTED_SESSION,
     ) -> int:
-        return session.scalar(select(func.count()).select_from(Screenshot)) or 0
+        return self._asset_count(session, Screenshot, visibility)
 
     @begin_session
     def get_total_filesize(
@@ -105,7 +108,7 @@ class DBStatsHandler(DBBaseHandler):
                 ),
             )
             .select_from(RomFacets)
-            .where(*_facets_clauses(visibility))
+            .where(*visibility.facets_clauses())
             .group_by(RomFacets.platform_id)
         ).all()
 
@@ -131,7 +134,7 @@ class DBStatsHandler(DBBaseHandler):
         """
         rows = session.execute(
             select(RomFacets.platform_id, RomFacets.regions).where(
-                RomFacets.regions.is_not(None), *_facets_clauses(visibility)
+                RomFacets.regions.is_not(None), *visibility.facets_clauses()
             )
         ).all()
 

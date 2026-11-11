@@ -30,6 +30,7 @@ from models.permission import PermAction, PermEntity
 from models.user import Role
 
 if TYPE_CHECKING:
+    from models.assets import Save, Screenshot, State
     from models.firmware import Firmware
     from models.platform import Platform
     from models.rom import Rom, RomInstallTarget, RomVisibility, RomVisibilityLabel
@@ -136,6 +137,17 @@ def assert_rom_visible(
                 status_code=status.HTTP_404_NOT_FOUND, detail=not_found_detail
             )
         raise RomNotFoundInDatabaseException(rom.id)
+
+
+def owned_rom_asset_or_404[A: (Save, State, Screenshot)](
+    request: Request, asset: A | None, detail: str
+) -> A:
+    """`asset` when the caller owns it and sees its ROM, else 404 with `detail`.
+    A detached asset, whose ROM was deleted, answers like a missing one."""
+    if not asset or asset.user_id != request.user.id or asset.rom is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+    assert_rom_visible(request, asset.rom, not_found_detail=detail)
+    return asset
 
 
 def assert_platform_visible(

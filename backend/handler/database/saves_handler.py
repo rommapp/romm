@@ -9,9 +9,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
 from decorators.database import INJECTED_SESSION, begin_session
+from handler.auth.rom_visibility import RomVisibilityFilter
 from models.assets import SAVE_SLOT_VERSIONS_INDEX, Save, SaveLineage
 from models.base import utc_now, with_file_name_parts
-from models.rom import Rom
+from models.rom import RomFacets
 from utils.datetime import to_utc
 from utils.sql_dialect import force_index_on_mysql
 
@@ -155,9 +156,9 @@ class DBSavesHandler(DBBaseHandler):
         file_name: str,
         session: Session = INJECTED_SESSION,
     ) -> Sequence[Save]:
-        """Every save named ``file_name`` in any of ``file_paths``."""
+        """Every save named ``file_name``, in any case, in any of ``file_paths``."""
         return session.scalars(
-            _at_paths_query(user_id, rom_id, file_paths, file_name)
+            _at_paths_query(user_id, rom_id, file_paths, file_name, ignore_case=True)
         ).all()
 
     @begin_session
@@ -238,6 +239,8 @@ class DBSavesHandler(DBBaseHandler):
         lineages: Collection[SaveLineage] | None = None,
         order_by: Literal["updated_at", "created_at"] | None = None,
         order_dir: Literal["asc", "desc"] = "desc",
+        *,
+        visibility: RomVisibilityFilter,
     ) -> Select[Save]:
         # A save whose ROM was deleted waits to be reattached; no legacy flow reads it.
         query = select(Save).filter_by(user_id=user_id).where(Save.rom_id.is_not(None))
@@ -247,9 +250,11 @@ class DBSavesHandler(DBBaseHandler):
             query = query.filter(Save.rom_id.in_(rom_ids))
 
         if platform_id:
-            query = query.join(Rom, Save.rom_id == Rom.id).filter(
-                Rom.platform_id == platform_id
+            query = query.join(RomFacets, RomFacets.rom_id == Save.rom_id).where(
+                RomFacets.platform_id == platform_id, *visibility.facets_clauses()
             )
+        else:
+            query = visibility.restrict(query, Save.rom_id)
 
         if slot is not None:
             # `with_unslotted` widens `slot` to also keep saves outside any slot.
@@ -295,6 +300,8 @@ class DBSavesHandler(DBBaseHandler):
         lineages: Collection[SaveLineage] | None = None,
         order_by: Literal["updated_at", "created_at"] | None = None,
         order_dir: Literal["asc", "desc"] = "desc",
+        *,
+        visibility: RomVisibilityFilter,
         session: Session = INJECTED_SESSION,
     ) -> Sequence[Save]:
         query = self._saves_query(
@@ -309,6 +316,7 @@ class DBSavesHandler(DBBaseHandler):
             lineages=lineages,
             order_by=order_by,
             order_dir=order_dir,
+            visibility=visibility,
         )
         return session.scalars(query).all()
 
@@ -322,6 +330,8 @@ class DBSavesHandler(DBBaseHandler):
         slot_not_null: bool = False,
         order_by: Literal["updated_at", "created_at"] | None = None,
         order_dir: Literal["asc", "desc"] = "desc",
+        *,
+        visibility: RomVisibilityFilter,
         session: Session = INJECTED_SESSION,
     ) -> list[int]:
         """Ids only, so no `Save` is built and no eager rom or user join fires."""
@@ -333,6 +343,7 @@ class DBSavesHandler(DBBaseHandler):
             slot_not_null=slot_not_null,
             order_by=order_by,
             order_dir=order_dir,
+            visibility=visibility,
         )
         return list(session.scalars(query.with_only_columns(Save.id)).all())
 
@@ -689,13 +700,23 @@ class DBSavesHandler(DBBaseHandler):
 
 
 def _at_paths_query(
-    user_id: int, rom_id: int, file_paths: Collection[str], file_name: str
+    user_id: int,
+    rom_id: int,
+    file_paths: Collection[str],
+    file_name: str,
+    ignore_case: bool = False,
 ) -> Select[Save]:
+    # Explicit lower() since PostgreSQL compares case-sensitively and MariaDB doesn't.
+    name_matches = (
+        func.lower(Save.file_name) == file_name.lower()
+        if ignore_case
+        else Save.file_name == file_name
+    )
     return select(Save).where(
         Save.user_id == user_id,
         Save.rom_id == rom_id,
         Save.file_path.in_(file_paths),
-        Save.file_name == file_name,
+        name_matches,
     )
 
 

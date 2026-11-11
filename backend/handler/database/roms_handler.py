@@ -44,6 +44,7 @@ from sqlalchemy.orm import (
     selectinload,
     undefer,
 )
+from sqlalchemy.orm.interfaces import ORMOption
 from sqlalchemy.sql.dml import Insert
 from sqlalchemy.sql.elements import ColumnElement, UnaryExpression
 from sqlalchemy.sql.selectable import Select
@@ -99,22 +100,24 @@ from models.rom import (
 )
 from utils import get_version
 from utils.age_ratings import MIN_AGE_SOURCE_COLUMNS, compute_min_age
+from utils.arcade_platforms import PLAYABLE_ARCADE_SET_PLATFORMS
 from utils.database import (
     ROMS_SEARCH_FULLTEXT_COLUMNS,
     SORTABLE_NULLABLE_ROM_COLUMNS,
     epoch_ms_in_ranges,
+    exact_collation,
     is_non_blank,
     is_postgresql,
     release_day_ranges,
     rom_unset_flag_column,
 )
+from utils.facets import facet_names
 from utils.fulltext import (
     FULLTEXT_TOKEN_REGEX,
     fulltext_settings,
     split_fulltext_words,
 )
 from utils.platform_slugs import UniversalPlatformSlug as UPS
-from utils.release_types import RELEASE_TYPE_SOURCE_COLUMNS, compute_release_types
 from utils.sql_dialect import (
     Analyze,
     DialectCase,
@@ -136,7 +139,7 @@ EJS_SUPPORTED_PLATFORMS = [
     UPS.AMIGA,
     UPS.AMIGA_CD,
     UPS.AMIGA_CD32,
-    UPS.ARCADE,
+    *sorted(PLAYABLE_ARCADE_SET_PLATFORMS),
     UPS.NEOGEOAES,
     UPS.NEOGEOMVS,
     UPS.ATARI2600,
@@ -316,15 +319,6 @@ def _search_relevance(phrases: Sequence[str]) -> ColumnElement[Any]:
     )
 
 
-# (column, the columns it is computed from, how) for the `roms` columns a
-# mapper event keeps in sync, which `update_rom` has to recompute itself.
-_DERIVED_ROM_COLUMNS: tuple[
-    tuple[str, tuple[str, ...], Callable[[Mapping[str, Any]], Any]], ...
-] = (
-    ("min_age", MIN_AGE_SOURCE_COLUMNS, compute_min_age),
-    ("release_types", RELEASE_TYPE_SOURCE_COLUMNS, compute_release_types),
-)
-
 # Filter dropdowns read the narrow `roms_facets` mirror instead of `roms`,
 # whose rows carry the raw metadata blobs. Keys are `RomFiltersDict` fields.
 _FILTER_JSON_COLUMNS = {
@@ -339,7 +333,6 @@ _FILTER_JSON_COLUMNS = {
     "regions": RomFacets.regions,
     "languages": RomFacets.languages,
     "tags": RomFacets.tags,
-    "release_types": RomFacets.release_types,
 }
 # Cast to text in SQL: PostgreSQL's driver would otherwise decode JSONB itself.
 _FILTER_VALUES_SELECT = select(
@@ -577,25 +570,24 @@ def _region_rank() -> ColumnElement[Any]:
     )
 
 
-def _prerelease_rank() -> ColumnElement[Any]:
-    """Rank pre-release dumps after full releases within a sibling group.
+# "(" then any tag, so "(Demo)", "(Beta 2)" and "(Prototype)" match and a title that
+# merely contains "demo" does not.
+_PRERELEASE_PATTERN = (
+    rf"\(({'|'.join(re.escape(tag) for tag in PRERELEASE_FILENAME_TAGS)})"
+)
 
-    Matched with a case-insensitive LIKE over the filename rather than against
-    the parsed `tags` column, which keeps whatever casing the dumper used, and
-    which the dedup window's covering index does not carry.
-    """
-    return case(
-        (
-            or_(
-                *[
-                    Rom.fs_name_no_ext.ilike(f"%({tag}%")
-                    for tag in PRERELEASE_FILENAME_TAGS
-                ]
-            ),
-            1,
+
+def _prerelease_rank() -> ColumnElement[Any]:
+    """Rank pre-release dumps after full releases within a sibling group."""
+    # The filename: `tags` keeps the dumper's casing and the covering index lacks it.
+    # One regex beats a LOWER() per ILIKE on MariaDB; PostgreSQL's ILIKEs are faster.
+    is_prerelease = DialectCase(
+        postgresql=or_(
+            *[Rom.fs_name_no_ext.ilike(f"%({tag}%") for tag in PRERELEASE_FILENAME_TAGS]
         ),
-        else_=0,
+        mysql=Rom.fs_name_no_ext.regexp_match(_PRERELEASE_PATTERN, flags="i"),
     )
+    return case((is_prerelease, 1), else_=0)
 
 
 # The RomUser column types whose MIN/MAX matches ORDER BY semantics on every
@@ -650,8 +642,8 @@ def _resolve_gallery_sort_key(order_by: str, user_id: int | None) -> _GallerySor
             return _GallerySortKey(metadata_column, "rom_metadata", nullable=True)
 
     column = rom_column if rom_column is not None else Rom.name
-    # Use indexed `name_sort_key` to have fast access to names without
-    # articles (the, a, an) and leading digits. The key is derived from
+    # Use indexed `name_sort_key` to have fast access to names without the
+    # leading articles `sorting.articles` names. The key is derived from
     # `name` at write time, or holds a custom override when one is set.
     if column is Rom.name:
         column = Rom.name_sort_key
@@ -667,12 +659,67 @@ def sorts_by_rom_user_column(order_by: str, user_id: int) -> bool:
 INJECTED_ROM_QUERY = typing_cast(RomSelect, None)
 
 
+def _rom_card_loaders(
+    *,
+    files: bool = True,
+    file_meta: bool = True,
+    file_stats: bool = True,
+    siblings: bool = True,
+    notes: bool = True,
+) -> list[ORMOption]:
+    """The loads `SimpleRomSchema` reads, each optional part switched by its flag."""
+    options: list[ORMOption] = [
+        selectinload(Rom.platform),
+        selectinload(Rom.rom_users).options(
+            raiseload(RomUser.rom), raiseload(RomUser.user)
+        ),
+        selectinload(Rom.metadatum).options(raiseload(RomMetadata.rom)),
+    ]
+    if files:
+        rom_backref = joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
+        options.append(
+            selectinload(Rom.files).options(
+                rom_backref,
+                selectinload(RomFile.track_meta),
+                selectinload(RomFile.doc_meta),
+            )
+            if file_meta
+            else selectinload(Rom.files).options(rom_backref)
+        )
+    if file_stats:
+        options += [
+            undefer(Rom.multi_file),
+            undefer(Rom.top_level_file_count),
+            undefer(Rom.has_soundtrack),
+            undefer(Rom.is_easyrpg_game),
+        ]
+    if siblings:
+        options.append(
+            selectinload(Rom.sibling_roms).options(
+                raiseload(Rom.platform),
+                raiseload(Rom.metadatum),
+                # is_main_sibling needs each sibling's RomUser (`lazy="raise"`).
+                selectinload(Rom.rom_users).options(
+                    raiseload(RomUser.rom), raiseload(RomUser.user)
+                ),
+                load_only(
+                    *ROM_VISIBILITY_COLUMNS,
+                    Rom.name,
+                    Rom.fs_name_no_tags,
+                    Rom.fs_name_no_ext,
+                ),
+            )
+        )
+    if notes:
+        options.append(selectinload(Rom.notes))
+    return options
+
+
 def with_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         kwargs["query"] = select(Rom).options(
-            # Ensure platform is loaded for main ROM objects
-            selectinload(Rom.platform),
+            *_rom_card_loaders(),
             selectinload(Rom.saves).options(
                 raiseload(Save.rom),
                 raiseload(Save.user),
@@ -684,39 +731,7 @@ def with_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
             selectinload(Rom.screenshots).options(
                 raiseload(Screenshot.rom),
             ),
-            selectinload(Rom.rom_users).options(
-                raiseload(RomUser.rom), raiseload(RomUser.user)
-            ),
-            selectinload(Rom.metadatum).options(raiseload(RomMetadata.rom)),
-            # Multi-file downloads, 3DS QR codes, and metadata matching
-            selectinload(Rom.files).options(
-                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
-                selectinload(RomFile.track_meta),
-                selectinload(RomFile.doc_meta),
-            ),
-            selectinload(Rom.sibling_roms).options(
-                raiseload(Rom.platform),
-                raiseload(Rom.metadatum),
-                # Per-sibling is_main_sibling resolution for the
-                # SiblingRomSchema needs each sibling's RomUser for the
-                # request user; the relationship is `lazy="raise"`, so
-                # it has to be eager-loaded here.
-                selectinload(Rom.rom_users).options(
-                    raiseload(RomUser.rom), raiseload(RomUser.user)
-                ),
-                load_only(
-                    *ROM_VISIBILITY_COLUMNS,
-                    Rom.name,
-                    Rom.fs_name_no_tags,
-                    Rom.fs_name_no_ext,
-                ),
-            ),
             selectinload(Rom.collections),
-            selectinload(Rom.notes),
-            undefer(Rom.multi_file),
-            undefer(Rom.top_level_file_count),
-            undefer(Rom.has_soundtrack),
-            undefer(Rom.is_easyrpg_game),
         )
         return func(*args, **kwargs)
 
@@ -724,49 +739,11 @@ def with_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
 
 
 def with_simple_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
-    """Lightweight eager-load for the `SimpleRomSchema` (v2 gallery card).
-
-    Loads only the relationships `SimpleRomSchema` serializes (rom_users,
-    files, sibling_roms + their rom_users, notes) and the deferred file-count
-    columns, skipping the `saves` / `states` / `screenshots` / `collections`
-    arrays that `with_details` pulls for the detail view. Keeps per-card
-    hydration cheap on low-power hosts.
-    """
+    """Eager-load only what the `SimpleRomSchema` (v2 gallery card) serializes."""
 
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-        kwargs["query"] = select(Rom).options(
-            selectinload(Rom.platform),
-            selectinload(Rom.rom_users).options(
-                raiseload(RomUser.rom), raiseload(RomUser.user)
-            ),
-            selectinload(Rom.metadatum).options(raiseload(RomMetadata.rom)),
-            selectinload(Rom.files).options(
-                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
-                selectinload(RomFile.track_meta),
-                selectinload(RomFile.doc_meta),
-            ),
-            selectinload(Rom.sibling_roms).options(
-                raiseload(Rom.platform),
-                raiseload(Rom.metadatum),
-                # Per-sibling is_main_sibling resolution needs each sibling's
-                # RomUser (relationship is `lazy="raise"`).
-                selectinload(Rom.rom_users).options(
-                    raiseload(RomUser.rom), raiseload(RomUser.user)
-                ),
-                load_only(
-                    *ROM_VISIBILITY_COLUMNS,
-                    Rom.name,
-                    Rom.fs_name_no_tags,
-                    Rom.fs_name_no_ext,
-                ),
-            ),
-            selectinload(Rom.notes),
-            undefer(Rom.multi_file),
-            undefer(Rom.top_level_file_count),
-            undefer(Rom.has_soundtrack),
-            undefer(Rom.is_easyrpg_game),
-        )
+        kwargs["query"] = select(Rom).options(*_rom_card_loaders())
         return func(*args, **kwargs)
 
     return wrapper
@@ -1566,15 +1543,12 @@ class DBRomsHandler(DBBaseHandler):
         updated_after: datetime | None = None,
         released_days: Sequence[tuple[int, int]] | None = None,
         released_before_year: int | None = None,
-        include_file_stats: bool = False,
         include_files: bool = False,
         include_related: bool = True,
-        include_siblings: bool = True,
-        include_notes: bool = True,
         visibility: RomVisibilityFilter = UNRESTRICTED,
         session: Session = INJECTED_SESSION,
     ) -> S:
-        from handler.scan_handler import MetadataSource
+        from handler.scan.sources import MetadataSource
 
         filters = filters or RomFilterParams()
         order_dir = order_dir.lower()
@@ -1583,52 +1557,10 @@ class DBRomsHandler(DBBaseHandler):
         # include_related=False: loader options can't apply without an entity.
         if include_related:
             query = query.options(
-                # Ensure platform is loaded for main ROM objects
-                selectinload(Rom.platform),
-                # Display properties for the current user (last_played)
-                selectinload(Rom.rom_users).options(
-                    raiseload(RomUser.rom), raiseload(RomUser.user)
-                ),
-                # Sort table by metadata (first_release_date)
-                selectinload(Rom.metadatum).options(raiseload(RomMetadata.rom)),
-            )
-
-            # Show sibling rom badges on cards
-            if include_siblings:
-                query = query.options(
-                    selectinload(Rom.sibling_roms).options(
-                        raiseload(Rom.platform),
-                        raiseload(Rom.metadatum),
-                        # is_main_sibling needs each sibling's RomUser.
-                        selectinload(Rom.rom_users).options(
-                            raiseload(RomUser.rom), raiseload(RomUser.user)
-                        ),
-                    )
+                # Feeds read the files for download paths, never their metadata.
+                *_rom_card_loaders(
+                    files=include_files, file_meta=False, file_stats=False
                 )
-
-            # Notes indicator on cards
-            if include_notes:
-                query = query.options(selectinload(Rom.notes))
-
-        # Only load files (and the RomFile.rom backref needed by `is_top_level` /
-        # `file_name_for_download`) when the caller iterates them, e.g. the
-        # feed endpoints. The gallery/list and filter-value paths serialize
-        # SimpleRomSchema without files, so they skip this entirely.
-        if include_files:
-            query = query.options(
-                selectinload(Rom.files).options(
-                    joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
-                )
-            )
-
-        # Correlated subqueries and only undefer when the caller serializes the
-        # gallery-card flags. Feeds and filter-value lookups don't need them.
-        if include_file_stats:
-            query = query.options(
-                undefer(Rom.multi_file),
-                undefer(Rom.top_level_file_count),
-                undefer(Rom.has_soundtrack),
-                undefer(Rom.is_easyrpg_game),
             )
 
         # Handle platform filtering - platform filtering always uses OR logic since ROMs belong to only one platform
@@ -2013,6 +1945,28 @@ class DBRomsHandler(DBBaseHandler):
 
         return query.order_by(*order_clauses), sort_key
 
+    def get_page_rows_query(
+        self,
+        page_ids: Sequence[int],
+        *,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
+        include_file_stats: bool = False,
+    ) -> RomSelect:
+        """The rows of one page, loaded by id with none of the filters re-run."""
+        # Visibility is re-checked in case a cached id index predates a rule change.
+        return (
+            select(Rom)
+            .where(Rom.id.in_(page_ids), *visibility.clauses())
+            .options(
+                *_rom_card_loaders(
+                    files=False,
+                    file_stats=include_file_stats,
+                    siblings=False,
+                    notes=False,
+                )
+            )
+        )
+
     def _scoped_roms_query(
         self,
         *,
@@ -2319,21 +2273,49 @@ class DBRomsHandler(DBBaseHandler):
         return sorted(roms, key=lambda rom: rom.id)
 
     @begin_session
+    def get_roms_by_file_name_prefixes(
+        self,
+        prefixes: Iterable[str],
+        session: Session = INJECTED_SESSION,
+    ) -> list[tuple[str, Rom]]:
+        """Each file whose name starts with one of `prefixes`, in any case, with its ROM.
+
+        Returns:
+            (file name, owning ROM) pairs, in ROM id order.
+        """
+        unique = list(dict.fromkeys(prefixes))
+        rows: list[tuple[str, Rom]] = []
+        for batch in batched(unique, 100, strict=False):
+            rows += session.execute(
+                select(RomFile.file_name, Rom)
+                .join(Rom, Rom.id == RomFile.rom_id)
+                .options(selectinload(Rom.platform))
+                .where(
+                    or_(
+                        *(
+                            RomFile.file_name.istartswith(prefix, autoescape=True)
+                            for prefix in batch
+                        )
+                    )
+                )
+            ).all()
+
+        return sorted(rows, key=lambda row: (row[1].id, row[0]))
+
+    @begin_session
     def update_rom(
         self,
         id: int,
         data: dict[str, Any],
         session: Session = INJECTED_SESSION,
     ) -> Rom:
+        if "name_sort_key" in data and "name_sort_key_custom" not in data:
+            # A key written without saying otherwise is the caller's own choice.
+            data = {**data, "name_sort_key_custom": data["name_sort_key"] is not None}
         if "name" in data and "name_sort_key" not in data:
-            # Re-derive the key from the new name, but only when the stored key
-            # is still the derived value (i.e. not a manual override). Mirrors
-            # the `@validates` logic, which the bulk update() bypasses.
-            existing = session.get_one(Rom, id)
-            if (
-                existing.name_sort_key is None
-                or existing.name_sort_key == compute_name_sort_key(existing.name)
-            ):
+            # Re-derive the key from the new name unless it is a custom one.
+            # Mirrors the `@validates` logic, which the bulk update() bypasses.
+            if not session.get_one(Rom, id).name_sort_key_custom:
                 data = {**data, "name_sort_key": compute_name_sort_key(data["name"])}
 
         if data.keys() & SEARCH_TITLE_COLUMNS:
@@ -2350,12 +2332,12 @@ class DBRomsHandler(DBBaseHandler):
                 ),
             }
 
-        for target, source_columns, compute in _DERIVED_ROM_COLUMNS:
-            if not data.keys() & source_columns:
-                continue
+        if data.keys() & MIN_AGE_SOURCE_COLUMNS:
             # The bulk update() skips the mapper event that keeps this in sync.
-            missing = [c for c in source_columns if c not in data]
-            sources: dict[str, Any] = {c: data[c] for c in source_columns if c in data}
+            missing = [c for c in MIN_AGE_SOURCE_COLUMNS if c not in data]
+            sources: dict[str, Any] = {
+                c: data[c] for c in MIN_AGE_SOURCE_COLUMNS if c in data
+            }
             if missing:
                 sources |= (
                     session.execute(
@@ -2364,7 +2346,7 @@ class DBRomsHandler(DBBaseHandler):
                     .one()
                     ._asdict()
                 )
-            data = {**data, target: compute(sources)}
+            data = {**data, "min_age": compute_min_age(sources)}
 
         if "fs_name" in data:
             parts = compute_file_name_parts(data["fs_name"])
@@ -2480,6 +2462,56 @@ class DBRomsHandler(DBBaseHandler):
                 .values(missing_from_fs=False)
                 .execution_options(synchronize_session="evaluate")
             )
+
+    @begin_session
+    def get_sort_keys_after_id(
+        self,
+        after_id: int,
+        limit: int,
+        session: Session = INJECTED_SESSION,
+    ) -> list[tuple[int, str | None, str | None, bool]]:
+        """A page of `(id, name, name_sort_key, name_sort_key_custom)` after `after_id`."""
+        rows = session.execute(
+            select(Rom.id, Rom.name, Rom.name_sort_key, Rom.name_sort_key_custom)
+            .where(Rom.id > after_id)
+            .order_by(Rom.id)
+            .limit(limit)
+        ).all()
+        return [(rom_id, name, key, custom) for rom_id, name, key, custom in rows]
+
+    @begin_session
+    def replace_derived_sort_keys(
+        self,
+        replacements: Mapping[int, tuple[str | None, str]],
+        session: Session = INJECTED_SESSION,
+    ) -> int:
+        """Re-derive sort keys, each only while its name is the one it was derived from.
+
+        Args:
+            replacements: ROM id to its (name, new sort key).
+
+        Returns:
+            How many keys were replaced.
+        """
+        replaced = 0
+        # Exact, so an accent-only rename still counts as a change of name.
+        collation = exact_collation(session.get_bind())
+        stored_name = Rom.name.collate(collation) if collation else Rom.name
+        for rom_id, (name, new) in replacements.items():
+            same_name = stored_name.is_(None) if name is None else stored_name == name
+            replaced += affected_rows(
+                session.execute(
+                    update(Rom)
+                    .where(
+                        Rom.id == rom_id, same_name, Rom.name_sort_key_custom.is_(False)
+                    )
+                    .values(name_sort_key=new)
+                    .execution_options(synchronize_session=False)
+                )
+            )
+        if replaced:
+            session.info[FILTER_VALUES_BUMP_KEY] = True
+        return replaced
 
     @begin_session
     def mark_missing_roms(
@@ -3978,8 +4010,8 @@ class DBRomsHandler(DBBaseHandler):
         for name, column_texts in zip(_FILTER_JSON_COLUMNS, texts, strict=True):
             items: set[str] = set()
             for text in column_texts:
-                if text and (value := json.loads(text)):
-                    items.update(value)
+                if text:
+                    items.update(facet_names(json.loads(text)))
             filters[name] = sorted(items)
         return typing_cast(RomFiltersDict, filters)
 
@@ -4040,9 +4072,10 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def get_rom_filters(
         self,
+        visibility: RomVisibilityFilter,
         session: Session = INJECTED_SESSION,
     ) -> RomFiltersDict:
-        """
-        Returns all filter values across all ROM metadata
-        """
-        return self._collect_filter_values(session, _FILTER_VALUES_SELECT)
+        """Every filter value across the ROMs `visibility` lets the caller see."""
+        return self._collect_filter_values(
+            session, _FILTER_VALUES_SELECT.where(*visibility.facets_clauses())
+        )

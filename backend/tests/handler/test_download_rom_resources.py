@@ -7,7 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from tests.concurrency_stubs import InFlight
 
-from handler.scan_handler import MetadataSource, download_rom_resources
+from handler.scan.sources import MetadataSource
+from handler.scan_handler import download_rom_resources
 from models.rom import Rom
 
 
@@ -42,6 +43,7 @@ def resources() -> Iterator[SimpleNamespace]:
         "get_rom_screenshots": AsyncMock(return_value=[]),
         "store_metadata_media": AsyncMock(return_value=False),
         "remove_stale_media": AsyncMock(return_value=None),
+        "remove_screenshots_past": AsyncMock(return_value=None),
         "store_ra_badge": AsyncMock(return_value=None),
     }
     with (
@@ -142,7 +144,7 @@ async def test_stale_media_is_compared_across_providers_before_any_stores(
     resources.remove_stale_media.assert_awaited_once_with(
         [previous_ss, None, None],
         [rom.ss_metadata, rom.gamelist_metadata, rom.launchbox_metadata],
-        [],
+        [[], [], ()],
     )
     assert calls == ["remove", "store", "store"]
 
@@ -170,6 +172,8 @@ async def test_a_provider_outside_the_scan_still_counts_toward_stale_media(
     current = resources.remove_stale_media.await_args
     assert current is not None
     assert current.args[1] == [rom.ss_metadata, rom.gamelist_metadata, None]
+    # Its claims count, but it fetches nothing again.
+    assert current.args[2] == [[], (), ()]
 
 
 @pytest.mark.asyncio
@@ -177,6 +181,36 @@ async def test_a_new_rom_has_no_stale_media(resources: SimpleNamespace):
     await _download(_rom(), [MetadataSource.SS])
 
     resources.remove_stale_media.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_screenshots_past_the_list_go_after_the_paths_are_saved(
+    resources: SimpleNamespace,
+):
+    rom = _rom()
+    rom.url_screenshots = ["http://x/a.jpg"]
+    calls: list[str] = []
+    resources.update_rom.side_effect = lambda *_args: calls.append("save")
+    resources.remove_screenshots_past.side_effect = lambda *_args: calls.append("prune")
+
+    await _download(rom, [])
+
+    resources.remove_screenshots_past.assert_awaited_once_with(rom, 1)
+    assert calls == ["save", "prune"]
+
+
+@pytest.mark.asyncio
+async def test_screenshots_stay_when_the_paths_are_not_saved(
+    resources: SimpleNamespace,
+):
+    rom = _rom()
+    rom.url_screenshots = ["http://x/a.jpg"]
+    resources.get_cover.side_effect = OSError("cover")
+
+    with pytest.raises(OSError):
+        await _download(rom, [])
+
+    resources.remove_screenshots_past.assert_not_awaited()
 
 
 @pytest.mark.parametrize(

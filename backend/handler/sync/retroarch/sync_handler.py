@@ -13,6 +13,7 @@ from collections.abc import (
     Collection,
     Hashable,
     Iterable,
+    Mapping,
     Sequence,
 )
 from dataclasses import dataclass
@@ -24,6 +25,7 @@ from fastapi import UploadFile
 
 from config import MAX_SAVES_PER_SLOT
 from handler.asset_store import prune_save_slot, reserve_version_name
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
     db_rom_handler,
     db_save_handler,
@@ -39,6 +41,7 @@ from handler.snapshots.bridge import hold_legacy_upload
 from handler.snapshots.legacy import may_load
 from handler.sync.retroarch import psp
 from handler.sync.retroarch.emulator_names import (
+    core_platforms,
     retroarch_aliases,
     to_retroarch_dir_name,
     to_romm_emulator,
@@ -188,19 +191,54 @@ def newest_per_key[A: (Save, State), K: Hashable](
     return latest
 
 
-def _state_slot_key(state: State) -> tuple[int, str | None, str]:
-    return (
-        state.attached_rom_id,
-        retroarch_folder(state.emulator),
-        state_slot_suffix(state.file_name),
+StateSlotKey = tuple[int, str | None, str | None, str]
+# (rom id, casefolded game name) pairs whose name is one of that ROM's files.
+DiscNames = frozenset[tuple[int, str]]
+
+
+def state_game_name(file_name: str) -> str:
+    """The game name a stored or requested state file name carries."""
+    return game_name_from_file_name("states", strip_datetime_tag(file_name))
+
+
+def disc_names(roms_and_names: Iterable[tuple[Rom, str]]) -> DiscNames:
+    """The game names that name one of their ROM's files rather than the ROM itself."""
+    names = {name for rom, name in roms_and_names if not is_rom_name(rom, name)}
+    if not names:
+        return frozenset()
+    return frozenset(
+        (rom.id, os.path.splitext(file_name)[0].casefold())
+        for file_name, rom in db_rom_handler.get_roms_by_file_name_prefixes(
+            f"{name}." for name in names
+        )
     )
 
 
+def _slot_key(
+    rom_id: int, emulator: str | None, file_name: str, discs: DiscNames
+) -> StateSlotKey:
+    # A state named after a disc keeps a slot of its own, as RetroArch names
+    # each disc's states apart; any other name shares the ROM's slot.
+    folded = state_game_name(file_name).casefold()
+    return (
+        rom_id,
+        retroarch_folder(emulator),
+        folded if (rom_id, folded) in discs else None,
+        state_slot_suffix(file_name),
+    )
+
+
+def _state_slot_key(state: State, discs: DiscNames = frozenset()) -> StateSlotKey:
+    return _slot_key(state.attached_rom_id, state.emulator, state.file_name, discs)
+
+
 def group_states_by_slot(
-    states: Iterable[State],
-) -> dict[tuple[int, str | None, str], State]:
-    """The newest state in each (rom, core folder, slot) bucket, preferring one on disk."""
-    return newest_per_key(states, _state_slot_key, rank=on_disk_recency_key)
+    states: Iterable[State], discs: DiscNames = frozenset()
+) -> dict[StateSlotKey, State]:
+    """The newest state in each (rom, core folder, disc, slot) bucket, preferring one on disk."""
+    return newest_per_key(
+        states, partial(_state_slot_key, discs=discs), rank=on_disk_recency_key
+    )
 
 
 def canonical_state_file_name(rom: Rom, slot_suffix: str) -> str:
@@ -211,13 +249,16 @@ def canonical_state_file_name(rom: Rom, slot_suffix: str) -> str:
 def states_in_slot(
     user: User, rom: Rom, emulator: str | None, requested_file_name: str
 ) -> list[State]:
-    """Every state, under any alias, in the slot a canonical name points at."""
-    key = (rom.id, retroarch_folder(emulator), state_slot_suffix(requested_file_name))
-    return [
-        state
-        for state in db_state_handler.get_states(user_id=user.id, rom_ids=[rom.id])
-        if _state_slot_key(state) == key
-    ]
+    """Every state, under any alias, in the slot a requested name points at."""
+    states = db_state_handler.get_states(
+        user_id=user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+    )
+    discs = disc_names(
+        (rom, state_game_name(name))
+        for name in [requested_file_name, *(state.file_name for state in states)]
+    )
+    key = _slot_key(rom.id, emulator, requested_file_name, discs)
+    return [state for state in states if _state_slot_key(state, discs) == key]
 
 
 class SlotStates(NamedTuple):
@@ -280,8 +321,12 @@ async def check_against_capture(slot: SlotStates, body: UploadFile) -> CaptureCh
 SLOTTED_SAVE_EXTENSION = "srm"
 
 
-def save_lineage(emulator: str | None, file_name: str) -> SaveLineage | None:
+def save_lineage(rom: Rom, emulator: str | None, file_name: str) -> SaveLineage | None:
     """The `autosave` lineage a RetroArch save path maps to, or None for an unslotted file."""
+    # A lineage holds one save per ROM and core, so saves named after the ROM's
+    # files (one per disc) stay unslotted to keep each under its own path.
+    if not is_rom_name(rom, game_name_from_file_name("saves", file_name)):
+        return None
     lineage = SaveLineage.of(emulator, file_name)
     return lineage if lineage.file_extension == SLOTTED_SAVE_EXTENSION else None
 
@@ -289,10 +334,10 @@ def save_lineage(emulator: str | None, file_name: str) -> SaveLineage | None:
 def advertised_save_name(save: Save) -> str:
     """A version's name without its tag when that still names its ROM, else RetroArch's name for it."""
     name = strip_datetime_tag(save.file_name)
-    rom_name = save.attached_rom.fs_name_no_ext
-    if game_name_from_file_name("saves", name).lower() == rom_name.lower():
+    rom = save.attached_rom
+    if is_rom_name(rom, game_name_from_file_name("saves", name)):
         return name
-    return f"{rom_name}{os.path.splitext(name)[1]}"
+    return f"{rom.fs_name_no_ext}{os.path.splitext(name)[1]}"
 
 
 def _unslotted_saves_at(
@@ -390,7 +435,7 @@ def resolve_save(
 ) -> Save | None:
     """The save a RetroArch path serves: its channel's current or newest `autosave`
     version, else the unslotted save there."""
-    lineage = save_lineage(emulator, requested_file_name)
+    lineage = save_lineage(rom, emulator, requested_file_name)
     head = served_head(user, rom, lineage) if lineage else None
     return head or _unslotted_save_at(user, rom, emulator, requested_file_name)
 
@@ -399,7 +444,7 @@ def saves_at_path(
     user: User, rom: Rom, emulator: str | None, requested_file_name: str
 ) -> list[Save]:
     """Every save a RetroArch path covers, so deleting it leaves nothing to resurface."""
-    lineage = save_lineage(emulator, requested_file_name)
+    lineage = save_lineage(rom, emulator, requested_file_name)
     if not lineage:
         return _unslotted_saves_at(user, rom, emulator, requested_file_name)
 
@@ -412,6 +457,7 @@ def saves_at_path(
             slot=AUTOSAVE_SLOT,
             with_unslotted=True,
             lineages=alias_lineages(lineage),
+            visibility=UNRESTRICTED,
         )
         # The manifest hides unslotted ones behind the head, so whatever their
         # case they would resurface once the versions go.
@@ -439,7 +485,7 @@ async def store_save(
         ValueError: The timestamped version name is too long.
         SaveHeld: The unslotted file it names belongs to a sync channel.
     """
-    lineage = save_lineage(emulator, requested_file_name)
+    lineage = save_lineage(rom, emulator, requested_file_name)
     if not lineage:
         return await _store_unslotted_save(
             user, rom, emulator, requested_file_name, body
@@ -447,7 +493,7 @@ async def store_save(
 
     served = await asyncio.to_thread(served_head, user, rom, lineage)
     # A re-sent file adds no version, so it can't push real history past the cap.
-    content_hash = hash_save_content(body.file)
+    content_hash = await asyncio.to_thread(hash_save_content, body.file)
     if served and content_hash and content_hash == served.content_hash:
         return "unchanged"
 
@@ -479,11 +525,13 @@ async def _store_unslotted_save(
         _unslotted_save_at, user, rom, emulator, file_name
     )
     replaced_hash = None
-    # Written where the existing row points, so it keeps tracking the bytes.
+    # Written where the existing row points, so it keeps tracking the bytes even
+    # when the lookup matched it under a different case.
     if existing:
         if await asyncio.to_thread(db_snapshot_handler.is_asset_frozen, existing):
             raise SaveHeld(existing.file_name)
         emulator = existing.emulator
+        file_name = existing.file_name
         replaced_hash = await fs_asset_handler.unrecorded_hash(existing)
     asset_path = build_asset_file_path(user, rom, "saves", emulator)
     await fs_asset_handler.write_file(file=body, path=asset_path, filename=file_name)
@@ -738,25 +786,100 @@ async def build_blob_manifest_entries(user: User) -> list[dict[str, str]]:
     ]
 
 
-def resolve_roms(
-    game_names: Iterable[str], can_see: Callable[[Rom], bool]
+def _match_names(
+    names: Collection[str],
+    candidates: Iterable[tuple[str, Rom]],
+    platforms: Collection[str],
 ) -> dict[str, Rom]:
-    """The ROM each game name belongs to, the first visible one by id when ambiguous."""
-    names = set(game_names)
-    exact: dict[str, Rom] = {}
-    # The lookup ignores case, so the client's exact spelling wins a tie.
-    folded: dict[str, Rom] = {}
-    for rom in db_rom_handler.get_roms_by_fs_names_no_ext(names):
-        if can_see(rom):
-            exact.setdefault(rom.fs_name_no_ext, rom)
-            folded.setdefault(rom.fs_name_no_ext.casefold(), rom)
+    """Each name's ROM: one on `platforms` first, then the client's exact spelling, then the first offered."""
+    names_by_folded: defaultdict[str, list[str]] = defaultdict(list)
+    for name in names:
+        names_by_folded[name.casefold()].append(name)
 
-    resolved = {name: exact.get(name) or folded.get(name.casefold()) for name in names}
-    return {name: rom for name, rom in resolved.items() if rom}
+    best: dict[str, tuple[tuple[bool, bool], Rom]] = {}
+    for candidate_name, rom in candidates:
+        for name in names_by_folded.get(candidate_name.casefold(), ()):
+            rank = (rom.platform_slug not in platforms, candidate_name != name)
+            if name not in best or rank < best[name][0]:
+                best[name] = (rank, rom)
+    return {name: rom for name, (_, rom) in best.items()}
 
 
-def resolve_rom(game_name: str, can_see: Callable[[Rom], bool]) -> Rom | None:
-    return resolve_roms([game_name], can_see).get(game_name)
+def resolve_roms(
+    names_by_platforms: Mapping[frozenset[str], Collection[str]],
+    can_see: Callable[[Rom], bool],
+    *,
+    by_file_name: bool = False,
+) -> dict[frozenset[str], dict[str, Rom]]:
+    """The ROM each game name belongs to, one on its core's platforms first, then the first visible one by id.
+
+    Args:
+        names_by_platforms: Game names keyed by what the client's core runs,
+            from `core_platforms`. Every group shares one fetch.
+        by_file_name: Also resolve a name no ROM on its platforms carries to the
+            ROM owning a file of that name, such as one disc in a multi-disc
+            game folder.
+    """
+    all_names = set().union(*names_by_platforms.values())
+    by_name = [
+        (rom.fs_name_no_ext, rom)
+        for rom in db_rom_handler.get_roms_by_fs_names_no_ext(all_names)
+        if can_see(rom)
+    ]
+    resolved = {
+        platforms: _match_names(names, by_name, platforms)
+        for platforms, names in names_by_platforms.items()
+    }
+    off_core = {
+        platforms: {
+            name
+            for name in names
+            if name not in resolved[platforms]
+            or (platforms and resolved[platforms][name].platform_slug not in platforms)
+        }
+        for platforms, names in names_by_platforms.items()
+    }
+    pending = set().union(*off_core.values())
+    if not (by_file_name and pending):
+        return resolved
+
+    folded = {name.casefold() for name in pending}
+    by_file = [
+        (stem, rom)
+        for file_name, rom in db_rom_handler.get_roms_by_file_name_prefixes(
+            f"{name}." for name in pending
+        )
+        # The prefix also matches longer names such as `<name>.v2.bin`.
+        if (stem := os.path.splitext(file_name)[0]).casefold() in folded
+        and can_see(rom)
+    ]
+    for platforms, names in off_core.items():
+        matched = resolved[platforms]
+        matched |= {
+            name: rom
+            for name, rom in _match_names(names, by_file, platforms).items()
+            if name not in matched or rom.platform_slug in platforms
+        }
+    return resolved
+
+
+def resolve_rom(
+    game_name: str,
+    can_see: Callable[[Rom], bool],
+    *,
+    emulator: str | None = None,
+    by_file_name: bool = False,
+) -> Rom | None:
+    """`game_name`'s ROM, preferring one on a platform `emulator`'s core runs."""
+    platforms = core_platforms(emulator)
+    return resolve_roms({platforms: [game_name]}, can_see, by_file_name=by_file_name)[
+        platforms
+    ].get(game_name)
+
+
+def is_rom_name(rom: Rom, game_name: str) -> bool:
+    """Whether `game_name` is the ROM's own name rather than one of its files'."""
+    return game_name.casefold() == rom.fs_name_no_ext.casefold()
 
 
 def _mark_missing_from_fs(asset: Save | State | Screenshot) -> None:
@@ -824,7 +947,9 @@ def _manifest_assets(
     saves: Sequence[Save] = []
     heads: Sequence[Save] = []
     if tree != "states":
-        saves = db_save_handler.get_saves(user_id=user.id, slot_is_null=True)
+        saves = db_save_handler.get_saves(
+            user_id=user.id, slot_is_null=True, visibility=UNRESTRICTED
+        )
         heads = db_save_handler.get_lineage_heads(
             user_id=user.id, slot=AUTOSAVE_SLOT, file_extension=SLOTTED_SAVE_EXTENSION
         )
@@ -839,7 +964,7 @@ def _manifest_assets(
             if not save.missing_from_fs
             and not psp.is_psp_bundle_file_name(save.file_name)
             and not (
-                save_lineage(save.emulator, save.file_name)
+                save_lineage(save.attached_rom, save.emulator, save.file_name)
                 and (save.attached_rom_id, retroarch_folder(save.emulator))
                 in head_by_folder
             )
@@ -865,44 +990,78 @@ def _manifest_assets(
         for save in unslotted.values()
         if can_see(save.attached_rom)
     ]
-    listed_states = (
+    all_states = (
         [
-            (
-                state.emulator,
-                canonical_state_file_name(state.attached_rom, slot_suffix),
-                state,
+            state
+            for state in db_state_handler.get_states(
+                user_id=user.id, visibility=UNRESTRICTED
             )
-            for (_rom_id, _folder, slot_suffix), state in group_states_by_slot(
-                db_state_handler.get_states(user_id=user.id)
-            ).items()
             if not state.missing_from_fs and can_see(state.attached_rom)
         ]
         if tree != "saves"
         else []
     )
+    discs = disc_names(
+        (state.attached_rom, state_game_name(state.file_name)) for state in all_states
+    )
+    # A disc's slot is listed under that disc's name, any other under the ROM's.
+    listed_states = [
+        (
+            state.emulator,
+            (
+                f"{state_game_name(state.file_name)}.{slot_suffix}"
+                if disc
+                else canonical_state_file_name(state.attached_rom, slot_suffix)
+            ),
+            state,
+        )
+        for (_rom_id, _folder, disc, slot_suffix), state in group_states_by_slot(
+            all_states, discs
+        ).items()
+    ]
 
     # A path carries no platform, so only the ROM that GET/PUT/DELETE would
     # resolve it to may claim it; a same-named ROM elsewhere would shadow it.
-    owners = resolve_roms(
-        [game_name_from_file_name("saves", name) for name, _, _ in listed_saves]
-        + [game_name_from_file_name("states", name) for _, name, _ in listed_states],
-        can_see,
-    )
+    def resolve_owners(
+        kind: AssetKind, paths: Iterable[tuple[str | None, str]]
+    ) -> dict[frozenset[str], dict[str, Rom]]:
+        # Cores running the same platforms resolve alike, so they share a group.
+        names_by_core: defaultdict[frozenset[str], set[str]] = defaultdict(set)
+        for emulator, file_name in paths:
+            names_by_core[core_platforms(emulator)].add(
+                game_name_from_file_name(kind, file_name)
+            )
+        return resolve_roms(names_by_core, can_see, by_file_name=True)
 
-    def is_addressable(rom: Rom, kind: AssetKind, file_name: str) -> bool:
-        owner = owners.get(game_name_from_file_name(kind, file_name))
+    owners: dict[AssetKind, dict[frozenset[str], dict[str, Rom]]] = {
+        "saves": resolve_owners(
+            "saves", ((emulator, name) for name, emulator, _ in listed_saves)
+        ),
+        "states": resolve_owners(
+            "states", ((emulator, name) for emulator, name, _ in listed_states)
+        ),
+    }
+
+    def is_addressable(
+        rom: Rom, kind: AssetKind, emulator: str | None, file_name: str
+    ) -> bool:
+        owner = (
+            owners[kind]
+            .get(core_platforms(emulator), {})
+            .get(game_name_from_file_name(kind, file_name))
+        )
         return owner is not None and owner.id == rom.id
 
     assets = [
         ManifestAsset(build_retroarch_sync_path("saves", emulator, name), save)
         for name, emulator, save in listed_saves
-        if is_addressable(save.attached_rom, "saves", name)
+        if is_addressable(save.attached_rom, "saves", emulator, name)
     ]
 
     addressable_states = [
         (emulator, file_name, state)
         for emulator, file_name, state in listed_states
-        if is_addressable(state.attached_rom, "states", file_name)
+        if is_addressable(state.attached_rom, "states", emulator, file_name)
     ]
     screenshots = state_screenshots(user, [state for _, _, state in addressable_states])
     for emulator, file_name, state in addressable_states:

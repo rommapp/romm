@@ -1,6 +1,6 @@
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent } from "vue";
+import { defineComponent, h, ref } from "vue";
 import { useInputModality } from "@/composables/useInputModality";
 import {
   popEscapable,
@@ -199,6 +199,135 @@ describe("useGamepad", () => {
     });
   });
 
+  describe("A", () => {
+    afterEach(() => {
+      document.body.innerHTML = "";
+    });
+
+    function focusField(html: string) {
+      document.body.innerHTML = html;
+      const field = document.querySelector<HTMLElement>("[data-field]")!;
+      field.focus();
+      return field;
+    }
+
+    it("clicks the focused control", async () => {
+      const field = focusField("<button data-field>Go</button>");
+      const click = vi.fn();
+      field.addEventListener("click", click);
+
+      installOnMouse(padHolding(PAD_BUTTON.a));
+      step();
+      await flushPromises();
+
+      expect(click).toHaveBeenCalledOnce();
+    });
+
+    it("leaves a text field alone", async () => {
+      const field = focusField("<input data-field />");
+      const click = vi.fn();
+      field.addEventListener("click", click);
+
+      installOnMouse(padHolding(PAD_BUTTON.a));
+      step();
+      await flushPromises();
+
+      expect(click).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["button", "button", "</button>"],
+      ["search field", "input", ""],
+    ])(
+      "picks the active option of an open %s combobox",
+      async (_, tag, close) => {
+        const field = focusField(
+          `<${tag} data-field role="combobox" aria-expanded="true" aria-activedescendant="opt-2">${close}` +
+            '<ul role="listbox"><li id="opt-1" role="option">1</li><li id="opt-2" role="option">2</li></ul>',
+        );
+        const picked = vi.fn();
+        document.getElementById("opt-2")!.addEventListener("click", picked);
+        const fieldClick = vi.fn();
+        field.addEventListener("click", fieldClick);
+
+        installOnMouse(padHolding(PAD_BUTTON.a));
+        step();
+        await flushPromises();
+
+        expect(picked).toHaveBeenCalledOnce();
+        expect(fieldClick).not.toHaveBeenCalled();
+      },
+    );
+
+    it("clicks a closed combobox itself", async () => {
+      const field = focusField(
+        '<button data-field role="combobox" aria-expanded="false" aria-activedescendant="opt-1"></button>' +
+          '<li id="opt-1" role="option">1</li>',
+      );
+      const click = vi.fn();
+      field.addEventListener("click", click);
+
+      installOnMouse(padHolding(PAD_BUTTON.a));
+      step();
+      await flushPromises();
+
+      expect(click).toHaveBeenCalledOnce();
+    });
+
+    it.each([
+      ["checkbox", '<input data-field type="checkbox" />'],
+      ["read-only field", '<input data-field readonly value="Mar 15, 2024" />'],
+    ])("clicks a focused %s", async (_, html) => {
+      const field = focusField(html);
+      const click = vi.fn();
+      field.addEventListener("click", click);
+
+      installOnMouse(padHolding(PAD_BUTTON.a));
+      step();
+      await flushPromises();
+
+      expect(click).toHaveBeenCalledOnce();
+    });
+
+    it("picks the option a D-pad press in the same poll moved to", async () => {
+      const active = ref(1);
+      const picked = vi.fn();
+      mount(
+        defineComponent(() => () => [
+          h("button", {
+            "data-field": "",
+            role: "combobox",
+            "aria-expanded": "true",
+            "aria-activedescendant": `opt-${active.value}`,
+            onKeydown: (e: KeyboardEvent) => {
+              if (e.key === "ArrowDown") active.value += 1;
+            },
+          }),
+          [1, 2].map((n) =>
+            h("li", {
+              id: `opt-${n}`,
+              role: "option",
+              onClick: () => picked(n),
+            }),
+          ),
+        ]),
+        { attachTo: document.body },
+      );
+      document.querySelector<HTMLElement>("[data-field]")!.focus();
+      // Settle into pad mode first, so the press is the only pending update.
+      let pad = padHolding();
+      installOnMouse(() => [pad]);
+      setModality("pad");
+      await flushPromises();
+
+      pad = padHolding(PAD_BUTTON.a, PAD_BUTTON["dpad-down"]);
+      step();
+      await flushPromises();
+
+      expect(picked.mock.calls).toEqual([[2]]);
+    });
+  });
+
   describe("B", () => {
     it("goes back when nothing claims the Escape it sends", () => {
       installOnMouse(padHolding(PAD_BUTTON.b));
@@ -265,6 +394,7 @@ describe("useGamepad", () => {
       now = vi.spyOn(performance, "now").mockReturnValue(1000);
       window.addEventListener("gamepad:exitchord", onChord);
       installOnMouse(() => pads);
+      window.dispatchEvent(new Event("gamepadconnected"));
       storePlaying().setPlaying(true);
     });
 
@@ -306,6 +436,24 @@ describe("useGamepad", () => {
       stepAt(1100);
       stepAt(1100 + EXIT_CHORD_HOLD_MS - 1);
 
+      expect(chords).toBe(0);
+    });
+
+    it("starts the hold over after the pad disconnects mid-hold", () => {
+      // Arrange
+      pads = [padHolding(...CHORD)];
+      stepAt(0);
+      stepAt(1000);
+      pads = [];
+      window.dispatchEvent(new Event("gamepaddisconnected"));
+      pads = [padHolding(...CHORD)];
+      window.dispatchEvent(new Event("gamepadconnected"));
+
+      // Act
+      stepAt(1100);
+      stepAt(1100 + EXIT_CHORD_HOLD_MS - 1);
+
+      // Assert
       expect(chords).toBe(0);
     });
 

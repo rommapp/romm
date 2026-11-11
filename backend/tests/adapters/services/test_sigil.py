@@ -1,3 +1,4 @@
+import asyncio
 import types
 from pathlib import Path
 from unittest.mock import Mock
@@ -6,6 +7,7 @@ import pytest
 
 import adapters.services.sigil as sigil_adapter
 from adapters.services.sigil import SigilExtractionResult, SigilService
+from logger.formatter import highlight as hl
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from utils.platform_slugs import UniversalPlatformSlug as UPS
@@ -17,16 +19,20 @@ class FakeSigilError(Exception):
         self.code = code
 
 
-class FakeNotFoundError(FakeSigilError): ...
+class FakeNotFoundError(FakeSigilError):
+    pass
 
 
-class FakeUnsupportedFormatError(FakeSigilError): ...
+class FakeUnsupportedFormatError(FakeSigilError):
+    pass
 
 
-class FakeIOError(FakeSigilError): ...
+class FakeIOError(FakeSigilError):
+    pass
 
 
-class FakeNeedsKeyError(FakeSigilError): ...
+class FakeNeedsKeyError(FakeSigilError):
+    pass
 
 
 def make_fake_sigil(extract: Mock) -> types.SimpleNamespace:
@@ -205,39 +211,45 @@ class TestSigilService:
     @pytest.mark.parametrize(
         "error",
         [
-            FakeNotFoundError(-5),
-            FakeUnsupportedFormatError(-4),
-            FakeIOError(-2),
-            FakeNeedsKeyError(-6),
+            pytest.param(FakeNotFoundError(-5), id="not-found"),
+            pytest.param(FakeUnsupportedFormatError(-4), id="unsupported-format"),
+            pytest.param(FakeIOError(-2), id="short-file"),
+            pytest.param(FakeNeedsKeyError(-6), id="needs-key"),
         ],
     )
-    async def test_routine_sigil_error_returns_none_quietly(
-        self, service: SigilService, monkeypatch, error: FakeSigilError
+    async def test_routine_sigil_error_returns_none(
+        self, service: SigilService, monkeypatch, mocker, error: FakeSigilError
     ):
         extract = Mock(side_effect=error)
         monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
-        log_error = patch_log_error(monkeypatch)
+        log = mocker.patch.object(sigil_adapter, "log")
 
         result = await service.extract_title_id(UPS.PSX, "/roms/psx/game.bin")
 
         assert result is None
-        log_error.assert_not_called()
+        log.debug.assert_called_once()
+        log.error.assert_not_called()
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        "error", [OSError("native crash"), FakeSigilError(-7)], ids=["os", "crypto"]
+        "error",
+        [
+            pytest.param(OSError("native crash"), id="native-crash"),
+            pytest.param(FakeSigilError(-2), id="io-error"),
+        ],
     )
-    async def test_unexpected_error_returns_none_and_is_logged(
-        self, service: SigilService, monkeypatch, error: Exception
+    async def test_unexpected_error_returns_none(
+        self, service: SigilService, monkeypatch, mocker, error: Exception
     ):
         extract = Mock(side_effect=error)
         monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
-        log_error = patch_log_error(monkeypatch)
+        log = mocker.patch.object(sigil_adapter, "log")
 
         result = await service.extract_title_id(UPS.PS2, "/roms/ps2/game.iso")
 
         assert result is None
-        log_error.assert_called_once()
+        log.error.assert_called_once()
+        log.debug.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_playlist_is_its_first_disc_and_lists_every_discs_id(
@@ -603,3 +615,64 @@ def write_gdi_disc(
         f'3 45000 4 2352 "{tracks[2]}" 0\n'
     )
     return sheet
+
+
+class TestScanSummary:
+    @pytest.mark.asyncio
+    async def test_counts_encrypted_files_once_per_scan(self, monkeypatch, mocker):
+        extract = Mock(side_effect=FakeNeedsKeyError(-6))
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+        log = mocker.patch.object(sigil_adapter, "log")
+        service = SigilService()
+
+        sigil_adapter.begin_scan()
+        await service.extract_title_id(UPS.SWITCH, "/roms/switch/a.nsp")
+        await service.extract_title_id(UPS.SWITCH, "/roms/switch/a.nsp")
+        await service.extract_title_id(UPS.SWITCH, "/roms/switch/b.xci")
+        sigil_adapter.log_scan_summary()
+
+        log.info.assert_called_once()
+        assert "2" in log.info.call_args.args[0]
+
+    @pytest.mark.asyncio
+    async def test_new_scan_drops_the_last_count(self, monkeypatch, mocker):
+        extract = Mock(side_effect=FakeNeedsKeyError(-6))
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+        log = mocker.patch.object(sigil_adapter, "log")
+
+        sigil_adapter.begin_scan()
+        await SigilService().extract_title_id(UPS.SWITCH, "/roms/switch/a.nsp")
+        sigil_adapter.begin_scan()
+        sigil_adapter.log_scan_summary()
+
+        log.info.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_overlapping_scans_keep_their_own_count(self, monkeypatch, mocker):
+        extract = Mock(side_effect=FakeNeedsKeyError(-6))
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+        log = mocker.patch.object(sigil_adapter, "log")
+        first_scanned = asyncio.Event()
+        second_began = asyncio.Event()
+
+        async def first_scan() -> None:
+            sigil_adapter.begin_scan()
+            await SigilService().extract_title_id(UPS.SWITCH, "/roms/switch/a.nsp")
+            first_scanned.set()
+            await second_began.wait()
+            sigil_adapter.log_scan_summary()
+
+        async def second_scan() -> None:
+            await first_scanned.wait()
+            sigil_adapter.begin_scan()
+            second_began.set()
+            for name in ("b.nsp", "c.nsp", "d.xci"):
+                await SigilService().extract_title_id(
+                    UPS.SWITCH, f"/roms/switch/{name}"
+                )
+            sigil_adapter.log_scan_summary()
+
+        await asyncio.gather(first_scan(), second_scan())
+
+        counts = sorted(call.args[0].split(" ")[0] for call in log.info.call_args_list)
+        assert counts == [hl("1"), hl("3")]

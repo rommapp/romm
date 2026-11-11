@@ -13,6 +13,10 @@ export const colorBrand = {
   primary: "#8B74E8",
   primaryHover: "#A18FFF",
   primaryPressed: "#6043C8",
+  // Fill under on-primary text: `primary` is tuned as text on the page and
+  // gives white text only 3.6:1 as a fill.
+  primarySolid: "#7459E3",
+  onPrimary: "#FFFFFF",
   // Secondary mirrors v1's secondary purple for chips / inactive bits.
   secondary: "#9E8CD6",
   secondaryHover: "#EBE7FA",
@@ -47,6 +51,7 @@ export const colorBrandLight = {
   primary: "#553E98",
   primaryHover: "#452788",
   primaryPressed: "#371F69",
+  primarySolid: "#553E98",
   secondary: "#6E5CA8",
   accent: "#A85530",
   // Rating stars (RRating) read as bright neon gold on dark; on the light
@@ -394,11 +399,9 @@ export const layout = {
   // Pills in the top bar's right cluster (scan indicator, mini player, user
   // menu) share one height so they line up.
   navPillHeight: "38px",
-  // Fixed bottom tab bar shown on phones (xs). Mirrors navHeight so the
-  // top and bottom chrome read as a matched pair. Consumed as
-  // `--r-bottom-nav-h` to reserve space in AppLayout and offset the
-  // gallery scroll height on mobile.
-  bottomNavHeight: "58px",
+  // Bottom tab bar on sm-and-down: the 64px pill plus 8px gutters above and
+  // below. Layouts reserve it as `--r-bottom-nav-h` (safe-area inset excluded).
+  bottomNavHeight: "80px",
   // Cap for the bottom tab bar pill so it stays thumb-sized on large
   // tablets (the sm range reaches 959px) instead of stretching the four
   // destinations edge-to-edge. Below this width the pill just fills the

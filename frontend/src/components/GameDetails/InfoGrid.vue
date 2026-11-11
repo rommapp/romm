@@ -25,8 +25,6 @@ export type InfoGridSection = {
   /** Gallery filter these items map to. Set it to make the chips
    *  clickable pivots into a filtered search. */
   filter?: FilterType;
-  /** Display text for an item that is a slug; the link keeps the raw item. */
-  itemTitle?: (item: string) => string;
 };
 
 const props = defineProps<{ sections: InfoGridSection[] }>();
@@ -57,11 +55,9 @@ const visible = () => props.sections.filter((s) => s.items.length > 0);
             :to="searchLocation(section.filter, item)"
             class="r-det-infogrid__chip r-det-infogrid__chip--link"
           >
-            {{ section.itemTitle?.(item) ?? item }}
+            {{ item }}
           </router-link>
-          <span v-else class="r-det-infogrid__chip">
-            {{ section.itemTitle?.(item) ?? item }}
-          </span>
+          <span v-else class="r-det-infogrid__chip">{{ item }}</span>
         </template>
       </div>
     </div>

@@ -2,13 +2,12 @@ import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
 import RTextField from "@/lib/forms/RTextField/RTextField.vue";
 import RBtn from "@/lib/primitives/RBtn/RBtn.vue";
-import { a11yTodoRules, CONTRAST_TODO_PARAMETERS } from "@/utils/storyA11y";
+import { a11yTodoRules } from "@/utils/storyA11y";
 import RDrawer from "./RDrawer.vue";
 
 const meta: Meta<typeof RDrawer> = {
   title: "Overlays/RDrawer",
   component: RDrawer,
-  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     side: { control: "inline-radio", options: ["left", "right"] },
     width: { control: "text" },

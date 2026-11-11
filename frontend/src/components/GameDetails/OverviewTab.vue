@@ -41,7 +41,7 @@ import { PROVIDERS, providerId } from "@/components/GameDetails/providers";
 import { usePinnedMedia } from "@/composables/usePinnedMedia";
 import { useUISettings } from "@/composables/useUISettings";
 import { useWebpSupport } from "@/composables/useWebpSupport";
-import { RBtn, RIcon } from "@/lib";
+import { RBtn, RIcon, RSegmentedControl } from "@/lib";
 import storeCollections from "@/stores/collections";
 import type { DetailedRom } from "@/stores/roms";
 import { collectionCoverList } from "@/utils/collectionCovers";
@@ -58,6 +58,7 @@ const props = defineProps<{
   hltb: RomHLTBMetadata | null | undefined;
   lastPlayed: string | null;
   revision: string | null;
+  version: string | null;
   expansions: IGDBRelatedGame[];
   dlcs: IGDBRelatedGame[];
   remakes: IGDBRelatedGame[];
@@ -66,9 +67,26 @@ const props = defineProps<{
   similarRoms: SimilarRomSchema[];
 }>();
 
+// CSS keeps a bare CR as a space, so CRLF and classic Mac CR both become LF.
+const summaryText = computed(() => props.summary?.replace(/\r\n?/g, "\n"));
+
 // The same preference hides the "Recommended for you" row on Home: the
 // feature is switched off everywhere at once, not per surface.
-const { showRecommendations } = useUISettings();
+const { showRecommendations, similarGamesSource } = useUISettings();
+
+const similarGamesSources = [
+  { id: "romm", label: "RomM" },
+  { id: "igdb", label: "IGDB" },
+];
+
+const igdbSimilarGames = computed(
+  () => props.rom.igdb_metadata?.similar_games ?? [],
+);
+const hasSimilarGames = computed(
+  () =>
+    showRecommendations.value &&
+    (props.similarRoms.length > 0 || igdbSimilarGames.value.length > 0),
+);
 
 const visibleSimilarRoms = computed(() =>
   showRecommendations.value ? props.similarRoms : [],
@@ -145,7 +163,7 @@ const hasRelated = computed(
       props.remakes.length +
       props.remasters.length +
       props.ports.length +
-      visibleSimilarRoms.value.length >
+      Number(hasSimilarGames.value) >
     0,
 );
 
@@ -197,21 +215,30 @@ const coverSource = computed(() => {
 <template>
   <section class="overview-tab">
     <!-- 1. Summary -->
-    <p v-if="summary" class="overview-tab__summary">{{ summary }}</p>
+    <p v-if="summaryText" class="overview-tab__summary">{{ summaryText }}</p>
 
-    <!-- 2. Per-ROM fact rows (left-labelled). Revision, Last played +
-         the per-game characteristics (Players, Age rating, RomM
+    <!-- 2. Per-ROM fact rows (left-labelled). Revision, Version, Last
+         played + the per-game characteristics (Players, Age rating, RomM
          collections) get a row each so each fact can render its own
          semantic widget instead of being flattened to a chip list. -->
     <div
       v-if="
-        revision || lastPlayed || hasQuickFacts || userCollectionTiles.length
+        revision ||
+        version ||
+        lastPlayed ||
+        hasQuickFacts ||
+        userCollectionTiles.length
       "
       class="overview-tab__facts"
     >
       <div v-if="revision" class="overview-tab__row">
         <div class="overview-tab__label">{{ t("rom.revision") }}</div>
         <div class="overview-tab__field">{{ revision }}</div>
+      </div>
+
+      <div v-if="version" class="overview-tab__row">
+        <div class="overview-tab__label">{{ t("rom.version") }}</div>
+        <div class="overview-tab__field">{{ version }}</div>
       </div>
 
       <div v-if="lastPlayed" class="overview-tab__row">
@@ -342,12 +369,37 @@ const coverSource = computed(() => {
         </h4>
         <RelatedGamesGrid title="" :items="ports" />
       </div>
-      <div v-if="visibleSimilarRoms.length" class="overview-tab__section">
-        <h4 class="overview-tab__section-heading">
-          <RIcon icon="mdi-shape-outline" size="14" />
-          {{ t("recommendations.similar-games") }}
-        </h4>
-        <SimilarGamesGrid :items="visibleSimilarRoms" :webp="supportsWebp" />
+      <div v-if="hasSimilarGames" class="overview-tab__section">
+        <div class="overview-tab__section-head">
+          <h4 class="overview-tab__section-heading">
+            <RIcon icon="mdi-shape-outline" size="14" />
+            {{ t("recommendations.similar-games") }}
+          </h4>
+          <RSegmentedControl
+            v-model="similarGamesSource"
+            class="overview-tab__source"
+            :items="similarGamesSources"
+            :aria-label="t('recommendations.similar-games')"
+            variant="tab"
+            size="x-small"
+          />
+        </div>
+        <template v-if="similarGamesSource === 'igdb'">
+          <RelatedGamesGrid
+            v-if="igdbSimilarGames.length"
+            title=""
+            :items="igdbSimilarGames"
+          />
+          <p v-else class="overview-tab__empty">{{ t("common.no-results") }}</p>
+        </template>
+        <template v-else>
+          <SimilarGamesGrid
+            v-if="visibleSimilarRoms.length"
+            :items="visibleSimilarRoms"
+            :webp="supportsWebp"
+          />
+          <p v-else class="overview-tab__empty">{{ t("common.no-results") }}</p>
+        </template>
       </div>
     </template>
 
@@ -397,6 +449,7 @@ const coverSource = computed(() => {
   font-size: 13.5px;
   line-height: 1.7;
   color: var(--r-color-fg-secondary);
+  white-space: pre-line;
   margin: 0;
 }
 .overview-tab__summary--muted {
@@ -500,6 +553,10 @@ const coverSource = computed(() => {
   justify-content: space-between;
   gap: 8px;
 }
+.overview-tab__source {
+  flex-shrink: 0;
+}
+
 .overview-tab__empty {
   margin: 0;
   font-size: 13px;

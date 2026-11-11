@@ -101,6 +101,20 @@ class TestUpdateRomDerivedColumns:
         assert updated.name == "The New Name 2"
         assert updated.name_sort_key == "pinned"
 
+    def test_renaming_rederives_a_stale_key_that_is_not_custom(self, rom: Rom):
+        db_rom_handler.update_rom(
+            rom.id, {"name_sort_key": "hard arcade", "name_sort_key_custom": False}
+        )
+
+        updated = db_rom_handler.update_rom(rom.id, {"name": "Die Hard Trilogy"})
+
+        assert updated.name_sort_key == "die hard trilogy"
+
+    def test_an_explicit_key_is_custom(self, rom: Rom):
+        updated = db_rom_handler.update_rom(rom.id, {"name_sort_key": "zelda"})
+
+        assert updated.name_sort_key_custom
+
     def test_update_metadata_resyncs_min_age(self, rom: Rom):
         rated = db_rom_handler.update_rom(
             rom.id,
@@ -126,29 +140,6 @@ class TestUpdateRomDerivedColumns:
             stored = session.get_one(Rom, rom.id)
             stored.igdb_metadata = {"age_ratings": []}
         assert db_rom_handler.get_rom(rom.id).min_age is None  # type: ignore[union-attr]
-
-    def test_update_resyncs_release_types(self, rom: Rom):
-        tagged = db_rom_handler.update_rom(
-            rom.id, {"tags": ["Hack"], "regions": ["Unlicensed"]}
-        )
-        assert tagged.release_types == ["hack", "unlicensed"]
-
-        # The tags the caller left out come from the stored row.
-        overridden = db_rom_handler.update_rom(
-            rom.id, {"manual_metadata": {"release_types": ["randomizer"]}}
-        )
-        assert overridden.release_types == ["randomizer"]
-
-    def test_release_types_are_set_on_insert_and_on_orm_update(
-        self, platform: Platform
-    ):
-        rom = make_rom(platform, "Tagged", tags=["Proto"])
-        assert rom.release_types == ["prototype"]
-
-        with sync_session.begin() as session:
-            stored = session.get_one(Rom, rom.id)
-            stored.tags = []
-        assert db_rom_handler.get_rom(rom.id).release_types == []  # type: ignore[union-attr]
 
 
 class TestAddRomMergesScannedTags:
@@ -255,6 +246,21 @@ class TestUniquePlatformFullPath:
         second = make_rom(other, "Patched Game", fs_extension="gba")
 
         assert first.id != second.id
+
+
+class TestGetRomsByFileNamePrefixes:
+    def test_matches_a_prefix_in_another_case(self, rom: Rom, rom_file: RomFile):
+        assert [
+            (file_name, owner.id)
+            for file_name, owner in db_rom_handler.get_roms_by_file_name_prefixes(
+                ["TEST_ROM."]
+            )
+        ] == [("test_rom.zip", rom.id)]
+
+    def test_treats_like_wildcards_literally(self, rom: Rom, rom_file: RomFile):
+        assert (
+            db_rom_handler.get_roms_by_file_name_prefixes(["test%", "test_rom_"]) == []
+        )
 
 
 class TestGetRomsByFsNamesNoExt:

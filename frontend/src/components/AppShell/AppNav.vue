@@ -20,10 +20,12 @@ import NowPlayingPill from "@/components/Soundtrack/NowPlayingPill.vue";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import { useNavDestinations } from "@/composables/useNavDestinations";
 import { useNavGlass } from "@/composables/useNavGlass";
-import { RSliderBtnGroup, RImg } from "@/lib";
+import { useNavTitle } from "@/composables/useNavTitle";
+import { RSegmentedControl, RImage } from "@/lib";
 
 defineOptions({ inheritAttrs: false });
 
+const { navEl, collapsedTitle } = useNavTitle();
 const { t } = useI18n();
 const { smAndDown } = useBreakpoint();
 
@@ -45,6 +47,7 @@ const scrolled = computed(
 
 <template>
   <header
+    ref="navEl"
     class="r-nav-bar"
     :class="{
       'r-nav-bar--scrolled': scrolled,
@@ -54,14 +57,14 @@ const scrolled = computed(
   >
     <nav class="r-nav">
       <router-link to="/" class="r-nav__logo" :aria-label="t('common.home')">
-        <RImg
+        <RImage
           src="/assets/isotipo.svg"
           alt="RomM isotipo"
           aria-hidden="true"
           class="r-nav__logo-mark"
           :width="32"
         />
-        <RImg
+        <RImage
           src="/assets/logotipo.svg"
           alt="RomM logotipo"
           aria-hidden="true"
@@ -70,8 +73,16 @@ const scrolled = computed(
         />
       </router-link>
 
+      <span
+        v-if="smAndDown"
+        class="r-nav__title"
+        :class="{ 'r-nav__title--visible': collapsedTitle }"
+        aria-hidden="true"
+        >{{ collapsedTitle }}</span
+      >
+
       <div class="r-nav__center">
-        <RSliderBtnGroup
+        <RSegmentedControl
           :model-value="activeTab"
           :items="tabs"
           variant="tab"
@@ -152,7 +163,10 @@ const scrolled = computed(
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  padding: 0 var(--r-row-pad);
+  /* The bar stops short of a gallery's scrollbar; the right pad gives that
+     width back so the pill and user menu hold still across routes. */
+  padding: 0 max(0px, var(--r-row-pad) - var(--r-shell-scrollbar-w, 0px)) 0
+    var(--r-row-pad);
   gap: 0;
 }
 
@@ -200,17 +214,9 @@ const scrolled = computed(
   justify-self: end;
 }
 
-/* On sm-and-down (phones + small tablets / landscape, <960px) the four
-   primary destinations move to the bottom tab bar (BottomNav), so the
-   centre pill is dropped from the top nav and the bar keeps only the
-   logo (far left) + user cluster (far right). With just those two
-   children, collapse to a 2-column grid so the cluster tracks the right
-   edge; the default `1fr auto 1fr` would auto-place it into the now-
-   empty centre column instead of the trailing one. The gutter follows
-   `--r-row-pad` (20px sm, 14px xs) so logo + user line up with the Home
-   sections' content edge. */
+/* Primary destinations move to BottomNav on phones and small tablets. */
 html[data-bp~="sm-and-down"] .r-nav {
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
 }
 html[data-bp~="sm-and-down"] .r-nav__center {
   display: none;
@@ -223,5 +229,27 @@ html[data-bp~="xs"] .r-nav__logo-word {
 }
 html[data-bp~="xs"] .r-nav__right {
   gap: var(--r-space-2);
+}
+
+.r-nav__title {
+  min-width: 0;
+  padding: 0 var(--r-space-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  color: var(--r-color-fg-heading);
+  font-size: var(--r-font-size-lg);
+  font-weight: var(--r-font-weight-bold);
+  opacity: 0;
+  transition: opacity var(--r-motion-med) var(--r-motion-ease-out);
+}
+.r-nav__title--visible {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .r-nav__title {
+    transition: none;
+  }
 }
 </style>

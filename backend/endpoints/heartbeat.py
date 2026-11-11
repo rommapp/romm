@@ -48,6 +48,7 @@ from endpoints.responses.heartbeat import (
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.auth.base_handler import reset_link_base_url
 from handler.auth.constants import Scope
+from handler.auth.dependencies import get_rom_visibility_filter
 from handler.database import db_stats_handler, db_user_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata import (
@@ -70,11 +71,17 @@ from handler.metadata import (
     meta_tgdb_handler,
 )
 from handler.redis_handler import sync_cache
-from handler.scan_handler import MetadataSource
+from handler.scan.sources import MetadataSource
 from logger.logger import log
 from utils import get_git_branch, get_version
+from utils.emulatorjs_cores import EJS_CORES_BY_PLATFORM, EJS_NIGHTLY_CORES_BY_PLATFORM
+from utils.platform_aliases import (
+    resolve_builtin_platform_slug,
+    resolve_platform_slug,
+)
 from utils.platforms import get_supported_platforms
 from utils.rate_limit import enforce_rate_limit, get_client_ip
+from utils.rom_patcher import SUPPORTED_PATCH_EXTENSIONS
 from utils.router import APIRouter
 
 # The endpoint is unauthenticated, and every probe passes through the provider's
@@ -104,6 +111,7 @@ async def heartbeat() -> HeartbeatResponse:
     title_id_extraction_enabled = (
         SigilService.is_enabled() and not cm.get_config().SKIP_TITLE_ID_EXTRACTION
     )
+    fs_platforms = await fs_platform_handler.get_platforms()
 
     igdb_enabled = meta_igdb_handler.is_enabled()
     flashpoint_enabled = meta_flashpoint_handler.is_enabled()
@@ -166,7 +174,12 @@ async def heartbeat() -> HeartbeatResponse:
             "LIBRETRO_API_ENABLED": libretro_enabled,
         },
         "FILESYSTEM": {
-            "FS_PLATFORMS": await fs_platform_handler.get_platforms(),
+            "FS_PLATFORMS": fs_platforms,
+            "FS_PLATFORM_SLUGS": {
+                fs_slug: slug
+                for fs_slug in fs_platforms
+                if (slug := resolve_builtin_platform_slug(fs_slug))
+            },
             "TITLE_ID_EXTRACTION_ENABLED": title_id_extraction_enabled,
         },
         "EMULATION": {
@@ -175,6 +188,8 @@ async def heartbeat() -> HeartbeatResponse:
             "DISABLE_JSDOS": DISABLE_JSDOS,
             "DISABLE_PICO8": DISABLE_PICO8,
             "DISABLE_EASYRPG": DISABLE_EASYRPG,
+            "EJS_CORES": EJS_CORES_BY_PLATFORM,
+            "EJS_NIGHTLY_CORES": EJS_NIGHTLY_CORES_BY_PLATFORM,
         },
         "FRONTEND": {
             "DISABLE_USERPASS_LOGIN": DISABLE_USERPASS_LOGIN,
@@ -201,6 +216,7 @@ async def heartbeat() -> HeartbeatResponse:
             "SNAPSHOT_RETENTION": SNAPSHOT_RETENTION,
             "SNAPSHOT_BRANCH_LIFETIME_DAYS": SNAPSHOT_BRANCH_LIFETIME_DAYS,
         },
+        "ROM_PATCHER": {"SUPPORTED_EXTENSIONS": sorted(SUPPORTED_PATCH_EXTENSIONS)},
         "TASKS": {
             "ENABLE_SCHEDULED_RESCAN": ENABLE_SCHEDULED_RESCAN,
             "SCHEDULED_RESCAN_CRON": SCHEDULED_RESCAN_CRON,
@@ -313,6 +329,7 @@ async def get_setup_library_info(request: Request) -> SetupLibraryResponse:
         )
 
     library_ready = fs_platform_handler.library_structure_exists()
+    config = cm.get_config()
 
     # The per-platform rom counts below are a first-run hint, so a fresh
     # instance can show what RomM already sees on disk. Once the database
@@ -321,9 +338,11 @@ async def get_setup_library_info(request: Request) -> SetupLibraryResponse:
     if db_stats_handler.get_roms_count() > 0:
         return {
             "library_ready": library_ready,
-            "library_structure": cm.get_config().default_structure_pattern,
+            "library_structure": config.default_structure_pattern,
             "existing_platforms": [],
-            "supported_platforms": get_supported_platforms(),
+            "supported_platforms": get_supported_platforms(
+                get_rom_visibility_filter(request)
+            ),
         }
 
     # Get existing platforms from filesystem
@@ -365,16 +384,17 @@ async def get_setup_library_info(request: Request) -> SetupLibraryResponse:
             existing_platforms.append(
                 {
                     "fs_slug": fs_slug,
+                    "slug": resolve_platform_slug(fs_slug, config),
                     "rom_count": rom_count,
                 }
             )
 
     # Get all supported platforms with metadata
-    supported_platforms = get_supported_platforms()
+    supported_platforms = get_supported_platforms(get_rom_visibility_filter(request))
 
     return {
         "library_ready": library_ready,
-        "library_structure": cm.get_config().default_structure_pattern,
+        "library_structure": config.default_structure_pattern,
         "existing_platforms": existing_platforms,
         "supported_platforms": supported_platforms,
     }

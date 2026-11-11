@@ -55,10 +55,12 @@ async function uploadStates({
   rom,
   statesToUpload,
   emulator,
+  deviceId,
 }: {
   rom: Pick<DetailedRomSchema, "id">;
   statesToUpload: StateUploadInput[];
   emulator?: string | undefined;
+  deviceId?: string | undefined;
 }) {
   const promises = statesToUpload.map(({ stateFile, screenshotFile }) => {
     const formData = buildFormInput<StateUploadInput>([
@@ -72,7 +74,7 @@ async function uploadStates({
           headers: {
             "Content-Type": "multipart/form-data",
           },
-          params: { rom_id: rom.id, emulator },
+          params: { rom_id: rom.id, emulator, device_id: deviceId },
         })
         .then(({ data }) => {
           resolve(data);

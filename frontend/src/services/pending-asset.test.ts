@@ -261,7 +261,12 @@ describe("syncPendingAssets", () => {
   });
 
   it("hands a held state over under the name of its capture", async () => {
-    queue({ id: "state:taken", kind: "state", screenshotBytes: shot });
+    queue({
+      id: "state:taken",
+      kind: "state",
+      screenshotBytes: shot,
+      deviceId: "browser",
+    });
 
     await expect(syncPendingAssets()).resolves.toEqual({
       synced: [
@@ -270,7 +275,9 @@ describe("syncPendingAssets", () => {
       dropped: [],
     });
 
-    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0]![0];
+    const { statesToUpload, deviceId } =
+      stateApiMocks.uploadStates.mock.calls[0]![0];
+    expect(deviceId).toBe("browser");
     expect(statesToUpload[0].stateFile.name).toBe(
       "game [2024-05-06 12-38-09-010].state",
     );

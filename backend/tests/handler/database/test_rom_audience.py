@@ -1,4 +1,5 @@
-"""`get_rom_audience` answers what `resolve_permissions` does, user by user."""
+"""`get_rom_audience` and `get_user_visibilities` answer what `resolve_permissions`
+does, user by user."""
 
 from collections.abc import Iterator
 
@@ -131,6 +132,28 @@ def test_matches_the_resolver_for_every_user_and_rom(
         assert db_permission_handler.get_rom_audience(visibility) == _resolved(
             visibility
         ), rom.name
+
+
+def test_user_visibilities_match_the_resolver(
+    admin_user: User, platform: Platform, roms: list[Rom], default_age_limit: None
+):
+    rated, unrated, _mature, elsewhere = roms
+    strict = _group("Strict", hide_unrated=True)
+    _hide(PermEntity.ROMS, rated.id, group_id=strict)
+    _hide(PermEntity.PLATFORMS, platform.id, group_id=strict)
+    in_strict = _user("in_strict", permission_group_id=strict)
+    own_hides = _user("own_hides", age_limit=18)
+    _hide(PermEntity.ROMS, unrated.id, user_id=own_hides.id)
+    _hide(PermEntity.PLATFORMS, elsewhere.platform_id, user_id=own_hides.id)
+    _user("disabled", enabled=False)
+
+    users = [admin_user, in_strict, own_hides, _user("defaulted")]
+    assert db_permission_handler.get_user_visibilities() == {
+        user.id: resolve_permissions(user).rom_visibility for user in users
+    }
+    assert db_permission_handler.get_user_visibilities([own_hides.id]) == {
+        own_hides.id: resolve_permissions(own_hides).rom_visibility
+    }
 
 
 def test_a_group_less_user_follows_an_unrestricted_default(

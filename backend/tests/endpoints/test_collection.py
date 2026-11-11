@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import status
+from tests.utils.test_images import jxl_image_bytes
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth.base_handler import oauth_handler
@@ -170,6 +171,18 @@ class TestRenameCollection:
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["name"] == "TEST COLLECTION"
+
+    @pytest.mark.parametrize("rom_ids", ["5", "null", '{"1": 1}', '["1"]', "[1"])
+    def test_rom_ids_must_be_a_list_of_ids(
+        self, client, access_token: str, collection: Collection, rom_ids: str
+    ):
+        response = client.put(
+            f"/api/collections/{collection.id}",
+            data={"rom_ids": rom_ids},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_taken_smart_collection_name_returns_conflict(
         self, client, access_token: str, admin_user: User
@@ -636,7 +649,7 @@ class TestArtworkUpload:
             headers={"Authorization": f"Bearer {access_token}"},
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "PNG, JPEG, WebP, or GIF" in response.json()["detail"]
+        assert "PNG, JPEG, WebP, GIF, or JPEG XL" in response.json()["detail"]
 
     @patch.object(
         FSResourcesHandler,
@@ -661,6 +674,30 @@ class TestArtworkUpload:
         _, _, file_ext = store_artwork_mock.call_args.args
         assert file_ext == "png"
 
+    @patch.object(
+        FSResourcesHandler,
+        "store_artwork",
+        new_callable=AsyncMock,
+        return_value=("path/to/big.png", "path/to/small.png"),
+    )
+    def test_add_collection_accepts_jpeg_xl_artwork_as_png(
+        self,
+        store_artwork_mock: AsyncMock,
+        client,
+        access_token: str,
+    ):
+        response = client.post(
+            "/api/collections",
+            data={"name": "JPEG XL Cover Collection"},
+            files={"artwork": ("cover.jxl", jxl_image_bytes(), "image/jxl")},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        call_args = store_artwork_mock.call_args
+        assert call_args is not None
+        _, _, file_ext = call_args.args
+        assert file_ext == "png"
+
     def test_update_collection_rejects_non_image_artwork(
         self, client, access_token: str, collection: Collection
     ):
@@ -671,7 +708,7 @@ class TestArtworkUpload:
             headers={"Authorization": f"Bearer {access_token}"},
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "PNG, JPEG, WebP, or GIF" in response.json()["detail"]
+        assert "PNG, JPEG, WebP, GIF, or JPEG XL" in response.json()["detail"]
 
     @patch.object(
         FSResourcesHandler,
@@ -696,6 +733,77 @@ class TestArtworkUpload:
         assert store_artwork_mock.called
         _, _, file_ext = store_artwork_mock.call_args.args
         assert file_ext == "png"
+
+
+class TestLocalFileCoverUrl:
+    @pytest.mark.parametrize(
+        "url_cover", ["file://n64/cover.png", "launchbox-file://Images/a.png"]
+    )
+    @patch.object(FSResourcesHandler, "get_cover", new_callable=AsyncMock)
+    def test_add_collection_rejects_local_file_url(
+        self,
+        get_cover_mock: AsyncMock,
+        client,
+        access_token: str,
+        admin_user: User,
+        url_cover: str,
+    ):
+        response = client.post(
+            "/api/collections",
+            data={"name": "Local Cover Collection", "url_cover": url_cover},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        get_cover_mock.assert_not_awaited()
+        assert (
+            db_collection_handler.get_collection_by_name(
+                "Local Cover Collection", admin_user.id
+            )
+            is None
+        )
+
+    @pytest.mark.parametrize(
+        "url_cover", ["file://n64/cover.png", "LAUNCHBOX-FILE://Images/a.png"]
+    )
+    @patch.object(FSResourcesHandler, "get_cover", new_callable=AsyncMock)
+    def test_update_collection_rejects_local_file_url(
+        self,
+        get_cover_mock: AsyncMock,
+        client,
+        access_token: str,
+        collection: Collection,
+        url_cover: str,
+    ):
+        response = client.put(
+            f"/api/collections/{collection.id}",
+            data={"rom_ids": "[]", "url_cover": url_cover},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        get_cover_mock.assert_not_awaited()
+        refreshed = db_collection_handler.get_collection(collection.id)
+        assert refreshed is not None
+        assert refreshed.url_cover == collection.url_cover
+
+    @patch.object(
+        FSResourcesHandler,
+        "get_cover",
+        new_callable=AsyncMock,
+        return_value=("small.png", "big.png"),
+    )
+    def test_add_collection_accepts_remote_url(
+        self, get_cover_mock: AsyncMock, client, access_token: str
+    ):
+        response = client.post(
+            "/api/collections",
+            data={
+                "name": "Remote Cover Collection",
+                "url_cover": "https://example.com/cover.png",
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        get_cover_mock.assert_awaited_once()
 
 
 class TestSmartCollectionEndpoints:
@@ -740,6 +848,40 @@ class TestSmartCollectionEndpoints:
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["rom_ids"] == [rom.id]
+
+    @pytest.mark.parametrize("criteria", ["[]", "1", '"x"', "null"])
+    def test_non_object_criteria_are_rejected(
+        self, client, access_token: str, admin_user: User, criteria: str
+    ):
+        created = client.post(
+            "/api/collections/smart",
+            data={"name": "Broken", "is_public": "true", "filter_criteria": criteria},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert created.status_code == status.HTTP_400_BAD_REQUEST
+
+        smart_collection = db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name="Valid",
+                description="",
+                user_id=admin_user.id,
+                filter_criteria={},
+                is_public=True,
+            )
+        )
+        updated = client.put(
+            f"/api/collections/smart/{smart_collection.id}",
+            data={"filter_criteria": criteria},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert updated.status_code == status.HTTP_400_BAD_REQUEST
+
+        listed = client.get(
+            "/api/collections/smart",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert listed.status_code == status.HTTP_200_OK
+        assert [c["name"] for c in listed.json()] == ["Valid"]
 
     def test_reading_a_smart_collection_does_not_touch_it(
         self, client, access_token: str, admin_user: User, rom: Rom

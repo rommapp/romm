@@ -12,6 +12,7 @@ import pytest
 from fastapi import HTTPException, status
 from tests.timezones import local_timezone
 
+from adapters.services.retroachievements import RARequestRejectedError
 from adapters.services.retroachievements_types import RAGameExtendedDetails
 from handler.filesystem import fs_resource_handler
 from handler.metadata import ra_handler
@@ -529,6 +530,15 @@ def _completion(game_id: int, **overrides: object) -> dict[str, object]:
     }
 
 
+def _refuse_after_one(game_progress: AsyncMock) -> None:
+    """Answer the next detail request, then refuse the one after."""
+    game_progress.reset_mock()
+    game_progress.side_effect = [
+        game_progress.return_value,
+        HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE),
+    ]
+
+
 class TestUserProgression:
     @pytest.fixture
     def completion(
@@ -552,13 +562,14 @@ class TestUserProgression:
         call = AsyncMock(
             return_value={
                 "Achievements": {
-                    "1": {"BadgeName": "a", "DateEarned": "2026-01-01"},
+                    "1": {"ID": 1, "BadgeName": "a", "DateEarned": "2026-01-01"},
                     "2": {
+                        "ID": 2,
                         "BadgeName": "b",
                         "DateEarned": "2026-01-02",
                         "DateEarnedHardcore": "2026-01-02",
                     },
-                    "3": {"BadgeName": "c"},
+                    "3": {"ID": 3, "BadgeName": "c"},
                 }
             }
         )
@@ -586,9 +597,10 @@ class TestUserProgression:
                     "most_recent_awarded_date": "2026-01-02T00:00:00+00:00",
                     "highest_award_kind": "beaten-softcore",
                     "earned_achievements": [
-                        {"id": "a", "date": "2026-01-01"},
+                        {"id": "a", "ra_id": 1, "date": "2026-01-01"},
                         {
                             "id": "b",
+                            "ra_id": 2,
                             "date": "2026-01-02",
                             "date_hardcore": "2026-01-02",
                         },
@@ -615,6 +627,47 @@ class TestUserProgression:
         [game] = progression["results"]
         assert game["highest_award_kind"] == "mastered"
         assert len(game["earned_achievements"]) == 2
+
+    async def test_achievements_sharing_a_badge_are_each_earned(
+        self,
+        handler: RAHandler,
+        completion: list[dict[str, object]],
+        game_progress: AsyncMock,
+    ):
+        completion.append(_completion(42))
+        game_progress.return_value = {
+            "Achievements": {
+                str(ra_id): {
+                    "ID": ra_id,
+                    "BadgeName": "217206",
+                    "DateEarned": "2026-01-01",
+                }
+                for ra_id in (95204, 95207, 95217)
+            }
+        }
+
+        progression = await handler.get_user_progression("me")
+
+        earned = progression["results"][0]["earned_achievements"]
+        assert sorted(e["ra_id"] for e in earned) == [95204, 95207, 95217]
+
+    async def test_a_game_stored_without_achievement_ids_is_read_again(
+        self,
+        handler: RAHandler,
+        completion: list[dict[str, object]],
+        game_progress: AsyncMock,
+    ):
+        completion.append(_completion(42))
+        previous = await handler.get_user_progression("me")
+        for entry in previous["results"][0]["earned_achievements"]:
+            del entry["ra_id"]
+        game_progress.reset_mock()
+
+        progression = await handler.get_user_progression("me", previous)
+
+        game_progress.assert_awaited_once()
+        earned = progression["results"][0]["earned_achievements"]
+        assert [e["ra_id"] for e in earned] == [1, 2]
 
     @pytest.mark.parametrize(
         "change",
@@ -655,3 +708,103 @@ class TestUserProgression:
         progression = await handler.get_user_progression("me")
 
         assert progression["results"][0]["earned_achievements"] == []
+
+    async def test_a_refusal_keeps_what_was_read_and_defers_the_rest(
+        self,
+        handler: RAHandler,
+        completion: list[dict[str, object]],
+        game_progress: AsyncMock,
+    ):
+        completion.extend([_completion(1), _completion(2), _completion(3)])
+        previous = await handler.get_user_progression("me")
+        completion[:] = [_completion(i, NumAwarded=3) for i in (1, 2, 3)] + [
+            _completion(4)
+        ]
+        _refuse_after_one(game_progress)
+
+        progression = await handler.get_user_progression("me", previous)
+
+        assert game_progress.await_count == 2
+        assert [(g["rom_ra_id"], g["num_awarded"]) for g in progression["results"]] == [
+            (1, 3),
+            (2, 2),
+            (3, 2),
+        ]
+
+    async def test_a_rejected_game_keeps_its_progress_and_the_rest_are_read(
+        self,
+        handler: RAHandler,
+        completion: list[dict[str, object]],
+        game_progress: AsyncMock,
+    ):
+        completion.extend([_completion(1), _completion(2)])
+        previous = await handler.get_user_progression("me")
+        completion[:] = [_completion(i, NumAwarded=3) for i in (1, 2)]
+        game_progress.reset_mock()
+        game_progress.side_effect = [
+            RARequestRejectedError(status.HTTP_503_SERVICE_UNAVAILABLE),
+            game_progress.return_value,
+        ]
+
+        progression = await handler.get_user_progression("me", previous)
+
+        assert game_progress.await_count == 2
+        assert [(g["rom_ra_id"], g["num_awarded"]) for g in progression["results"]] == [
+            (1, 2),
+            (2, 3),
+        ]
+
+    async def test_a_refused_game_still_takes_its_current_award_kind(
+        self,
+        handler: RAHandler,
+        completion: list[dict[str, object]],
+        game_progress: AsyncMock,
+    ):
+        completion.append(_completion(1))
+        previous = await handler.get_user_progression("me")
+        completion[:] = [
+            _completion(1, NumAwarded=3, HighestAwardKind="beaten-softcore")
+        ]
+        game_progress.side_effect = HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        progression = await handler.get_user_progression("me", previous)
+
+        [kept] = progression["results"]
+        assert kept["num_awarded"] == 2
+        assert kept["highest_award_kind"] == "beaten-softcore"
+
+    async def test_a_full_refresh_rereads_unchanged_games_and_keeps_refused_ones(
+        self,
+        handler: RAHandler,
+        completion: list[dict[str, object]],
+        game_progress: AsyncMock,
+    ):
+        completion.extend([_completion(1), _completion(2)])
+        previous = await handler.get_user_progression("me")
+        _refuse_after_one(game_progress)
+
+        progression = await handler.get_user_progression(
+            "me", previous, refresh_all=True
+        )
+
+        assert game_progress.await_count == 2
+        assert progression["results"] == previous["results"]
+
+    async def test_a_failed_page_fails_before_any_details_are_read(
+        self,
+        handler: RAHandler,
+        monkeypatch: pytest.MonkeyPatch,
+        game_progress: AsyncMock,
+    ):
+        async def iterate(_username: str) -> AsyncIterator[dict[str, object]]:
+            yield _completion(1)
+            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        monkeypatch.setattr(
+            handler.ra_service, "iter_user_completion_progress", iterate
+        )
+
+        with pytest.raises(HTTPException):
+            await handler.get_user_progression("me")
+
+        game_progress.assert_not_awaited()

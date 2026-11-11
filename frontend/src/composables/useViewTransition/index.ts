@@ -59,7 +59,12 @@ export const pendingMorphName = ref<string | null>(null);
 // transition starting from `beforeResolve`.
 let forwardTransitionActive = false;
 
-function isSupported(): boolean {
+/** True while a forward or back morph owns the page's view transition. */
+export function isMorphRunning(): boolean {
+  return forwardTransitionActive || pendingMorphName.value !== null;
+}
+
+export function isSupported(): boolean {
   return (
     typeof document !== "undefined" &&
     typeof document.startViewTransition === "function"

@@ -294,7 +294,10 @@ class SSRFProtectedSyncBackend(NetworkBackend):
         return self._inner.connect_unix_socket(path, timeout, socket_options)
 
 
-def install_async_ssrf_protection(client: typing.Any) -> None:
+def install_async_ssrf_protection(
+    client: typing.Any,
+    allowlist: frozenset[tuple[str, int]] = INTERNAL_ORIGIN_ALLOWLIST,
+) -> None:
     """Wrap the client's default transport so SSRF validation runs at connect time.
 
     httpx does not expose `network_backend` through its public transport
@@ -302,7 +305,9 @@ def install_async_ssrf_protection(client: typing.Any) -> None:
     """
     pool = client._transport._pool
     if not isinstance(pool._network_backend, SSRFProtectedAsyncBackend):
-        pool._network_backend = SSRFProtectedAsyncBackend(inner=pool._network_backend)
+        pool._network_backend = SSRFProtectedAsyncBackend(
+            inner=pool._network_backend, allowlist=allowlist
+        )
 
 
 def install_sync_ssrf_protection(client: typing.Any) -> None:

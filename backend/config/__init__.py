@@ -272,6 +272,57 @@ OIDC_RP_INITIATED_LOGOUT: Final[bool] = safe_str_to_bool(
 )
 OIDC_END_SESSION_ENDPOINT: Final[str] = _get_env("OIDC_END_SESSION_ENDPOINT", "")
 
+# Authlib lets these override its per-request values, which would pin state,
+# nonce or PKCE and undo their protection, or break the callback.
+OIDC_RESERVED_AUTH_PARAMS: Final = frozenset(
+    {
+        "client_id",
+        "code_challenge",
+        "code_challenge_method",
+        "code_verifier",
+        "nonce",
+        "redirect_uri",
+        "response_mode",
+        "response_type",
+        "scope",
+        "state",
+    }
+)
+
+
+def parse_oidc_auth_params(raw: str) -> dict[str, str]:
+    """Parse a JSON object of extra OIDC authorization request parameters."""
+    if not raw:
+        return {}
+    try:
+        params = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"OIDC_AUTH_PARAMS is not valid JSON: {exc}") from exc
+    if not isinstance(params, dict):
+        raise ValueError("OIDC_AUTH_PARAMS must be a JSON object")
+
+    reserved = sorted(OIDC_RESERVED_AUTH_PARAMS & params.keys())
+    if reserved:
+        raise ValueError(
+            f"OIDC_AUTH_PARAMS cannot set {', '.join(reserved)}, RomM manages them"
+        )
+    # bool is an int subclass, but "True" is not a value any provider expects
+    invalid = sorted(
+        key
+        for key, value in params.items()
+        if isinstance(value, bool) or not isinstance(value, (str, int))
+    )
+    if invalid:
+        raise ValueError(
+            f"OIDC_AUTH_PARAMS values must be strings or integers: {', '.join(invalid)}"
+        )
+    return {key: str(value) for key, value in params.items()}
+
+
+OIDC_AUTH_PARAMS: Final[dict[str, str]] = parse_oidc_auth_params(
+    _get_env("OIDC_AUTH_PARAMS", "")
+)
+
 # SCANS
 SCAN_TIMEOUT: Final[int] = safe_int(_get_env("SCAN_TIMEOUT"), 60 * 60 * 4)  # 4 hours
 SCAN_WORKERS: Final[int] = max(1, safe_int(_get_env("SCAN_WORKERS"), 4))

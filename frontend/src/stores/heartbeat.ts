@@ -40,6 +40,7 @@ const defaultHeartbeat: Heartbeat = {
   },
   FILESYSTEM: {
     FS_PLATFORMS: [],
+    FS_PLATFORM_SLUGS: {},
     TITLE_ID_EXTRACTION_ENABLED: false,
   },
   EMULATION: {
@@ -48,6 +49,8 @@ const defaultHeartbeat: Heartbeat = {
     DISABLE_JSDOS: false,
     DISABLE_PICO8: false,
     DISABLE_EASYRPG: false,
+    EJS_CORES: {},
+    EJS_NIGHTLY_CORES: {},
   },
   FRONTEND: {
     DISABLE_USERPASS_LOGIN: false,
@@ -75,6 +78,9 @@ const defaultHeartbeat: Heartbeat = {
     SNAPSHOTS: false,
     SNAPSHOT_RETENTION: 10,
     SNAPSHOT_BRANCH_LIFETIME_DAYS: 30,
+  },
+  ROM_PATCHER: {
+    SUPPORTED_EXTENSIONS: [],
   },
   TASKS: {
     ENABLE_SCHEDULED_RESCAN: false,

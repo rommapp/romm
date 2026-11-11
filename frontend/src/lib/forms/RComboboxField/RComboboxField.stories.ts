@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import { expect, userEvent } from "storybook/test";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 import { ref } from "vue";
 import { RBtn, RForm } from "@/lib";
 import { CONTRAST_TODO_PARAMETERS } from "@/utils/storyA11y";
@@ -235,4 +235,51 @@ export const NonRemovable: Story = {
       </div>
     `,
   }),
+};
+
+export const KeyboardSuggestions: Story = {
+  name: "Keyboard suggestions (play)",
+  render: () => ({
+    components: { RComboboxField },
+    setup: () => ({
+      value: ref<string[]>([]),
+      items: ["Single player", "Multiplayer", "Co-operative"],
+    }),
+    template: `
+      <div style="width:320px;padding:24px">
+        <RComboboxField v-model="value" :items="items" label="Game modes" prefix-label="stacked" />
+      </div>
+    `,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const input = await within(canvasElement).findByRole("combobox", {
+      name: "Game modes",
+    });
+    const active = () =>
+      document.getElementById(
+        input.getAttribute("aria-activedescendant") ?? "",
+      );
+
+    await step("Arrow Down marks the active suggestion", async () => {
+      await userEvent.click(input);
+      await waitFor(() =>
+        expect(input).toHaveAttribute("aria-expanded", "true"),
+      );
+      const listbox = document.getElementById(
+        input.getAttribute("aria-controls") ?? "",
+      );
+      await expect(listbox).toHaveAttribute("role", "listbox");
+      await expect(listbox).toHaveAccessibleName("Game modes");
+      await userEvent.keyboard("{ArrowDown}{ArrowDown}");
+      await expect(active()).toHaveTextContent("Multiplayer");
+      await expect(active()).toHaveAttribute("role", "option");
+      await expect(active()?.parentElement).toBe(listbox);
+    });
+
+    await step("Enter commits it as a chip", async () => {
+      await userEvent.keyboard("{Enter}");
+      await expect(canvasElement).toHaveTextContent("Multiplayer");
+      await expect(input).not.toHaveAttribute("aria-activedescendant");
+    });
+  },
 };

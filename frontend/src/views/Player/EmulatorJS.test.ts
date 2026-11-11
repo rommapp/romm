@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { SnapshotSchema } from "@/__generated__";
 import AssetPreview from "@/components/Player/AssetPreview.vue";
-import { RAlert, RBtn, RSelect, RSliderBtnGroup } from "@/lib";
+import { RAlert, RBtn, RSelect, RSegmentedControl } from "@/lib";
 import type { DetailedRom } from "@/stores/roms";
 import { propOf } from "@/test-utils/propOf";
 import type { Events } from "@/types/emitter";
@@ -704,7 +704,7 @@ describe("EmulatorJS launch screen, booting a snapshot", () => {
 
     const wrapper = await launchScreen();
     await wrapper
-      .findComponent(RSliderBtnGroup)
+      .findComponent(RSegmentedControl)
       .vm.$emit("update:modelValue", "save");
     const slot = wrapper
       .findAllComponents(RSelect)

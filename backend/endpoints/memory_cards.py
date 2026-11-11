@@ -15,6 +15,7 @@ from endpoints.responses.memory_cards import (
     UserMemoryCardSchema,
 )
 from handler.auth.constants import Scope
+from handler.auth.dependencies import get_rom_visibility_filter
 from handler.database import db_memory_card_handler, db_platform_handler
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import build_asset_file_response
@@ -55,11 +56,15 @@ class MemoryCardCreatePayload(PydanticBaseModel):
     is_public: bool = False
 
 
-def _card_or_404(card_id: int, user_id: int) -> MemoryCard:
+def _card_or_404(request: Request, card_id: int) -> MemoryCard:
     """Fetch a card the caller may read: their own, or another user's public
     one. Everything else is a 404 (never reveal a private card exists)."""
     card = db_memory_card_handler.get_card_by_id(card_id)
-    if not card or (card.user_id != user_id and not card.is_public):
+    if (
+        not card
+        or (card.user_id != request.user.id and not card.is_public)
+        or card.platform_id in get_rom_visibility_filter(request).hidden_platform_ids
+    ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Memory card with ID {card_id} not found",
@@ -67,11 +72,14 @@ def _card_or_404(card_id: int, user_id: int) -> MemoryCard:
     return card
 
 
-def _owned_card_or_404(card_id: int, user_id: int) -> MemoryCard:
+def _owned_card_or_404(request: Request, card_id: int) -> MemoryCard:
     """Fetch a card the caller owns, for mutations. A card owned by someone
     else is a 404, matching how states scope writes to the owner."""
-    card = db_memory_card_handler.get_card(user_id=user_id, id=card_id)
-    if not card:
+    card = db_memory_card_handler.get_card(user_id=request.user.id, id=card_id)
+    if (
+        not card
+        or card.platform_id in get_rom_visibility_filter(request).hidden_platform_ids
+    ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Memory card with ID {card_id} not found",
@@ -110,13 +118,16 @@ def add_memory_card(
             detail=f"Not a valid emulator name: {emulator}",
         )
 
-    if payload.platform_id is not None and not db_platform_handler.get_platform(
-        payload.platform_id
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Platform with ID {payload.platform_id} not found",
-        )
+    if payload.platform_id is not None:
+        platform = db_platform_handler.get_platform(payload.platform_id)
+        if (
+            not platform
+            or platform.id in get_rom_visibility_filter(request).hidden_platform_ids
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Platform with ID {payload.platform_id} not found",
+            )
 
     card = db_memory_card_handler.add_card(
         MemoryCard(
@@ -137,7 +148,9 @@ def get_memory_cards(
     request: Request, emulator: str | None = None
 ) -> list[MemoryCardSchema]:
     """The caller's own cards, newest-synced first, optionally one emulator."""
-    cards = db_memory_card_handler.get_cards(request.user.id, emulator)
+    cards = db_memory_card_handler.get_cards(
+        request.user.id, emulator, visibility=get_rom_visibility_filter(request)
+    )
     return [MemoryCardSchema.model_validate(card) for card in cards]
 
 
@@ -149,7 +162,9 @@ def get_shared_memory_cards(
     public ones. Browsing and download only: mounting a card at claim is
     owner-scoped, so the picker lists the caller's own cards instead."""
     cards = db_memory_card_handler.get_shared_cards(
-        emulator=emulator, user_id=request.user.id
+        emulator=emulator,
+        user_id=request.user.id,
+        visibility=get_rom_visibility_filter(request),
     )
     return [
         UserMemoryCardSchema.model_validate(
@@ -217,7 +232,7 @@ def download_memory_card_version(request: Request, id: int) -> FileResponse:
             detail=f"Memory card version with ID {id} not found",
         )
     # Reuse the card visibility check on the parent.
-    _card_or_404(version.memory_card_id, request.user.id)
+    _card_or_404(request, version.memory_card_id)
 
     return build_asset_file_response(
         _version_file_or_404(version), filename=version.file_name
@@ -236,7 +251,7 @@ def download_memory_card(request: Request, id: int) -> FileResponse:
     This is the newest version, which is also what the next claim hydrates onto
     a container, so what comes down here is what the emulator would boot with.
     A card that has never been synced has nothing to serve and 404s."""
-    _card_or_404(id, request.user.id)
+    _card_or_404(request, id)
 
     version = db_memory_card_handler.get_latest_version(id)
     if not version:
@@ -273,7 +288,7 @@ async def upload_memory_card_version(
     would notice until hydrate pushed it and the emulator rejected the card.
     """
     check_asset_upload_size(cardFile, "Memory card file")
-    card = _owned_card_or_404(id, request.user.id)
+    card = _owned_card_or_404(request, id)
 
     content = await cardFile.read(MEMORY_CARD_MAX_BYTES + 1)
     if len(content) > MEMORY_CARD_MAX_BYTES:
@@ -305,7 +320,7 @@ async def upload_memory_card_version(
 @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
 def get_memory_card(request: Request, id: int) -> MemoryCardSchema:
     """A single card: the caller's own or another user's public one."""
-    card = _card_or_404(id, request.user.id)
+    card = _card_or_404(request, id)
     return MemoryCardSchema.model_validate(card)
 
 
@@ -332,7 +347,7 @@ def get_memory_card_versions(
     request: Request, id: int
 ) -> list[MemoryCardVersionSchema]:
     """A card's snapshot history, newest first."""
-    _card_or_404(id, request.user.id)
+    _card_or_404(request, id)
     versions = db_memory_card_handler.get_versions(id)
     return [
         MemoryCardVersionSchema.model_validate(v).model_copy(
@@ -354,7 +369,7 @@ def rename_memory_card(
     name: Annotated[str, Body(embed=True, max_length=MEMORY_CARD_NAME_MAX_LENGTH)],
 ) -> MemoryCardSchema:
     """Rename a card (owner only)."""
-    _owned_card_or_404(id, request.user.id)
+    _owned_card_or_404(request, id)
     cleaned = name.strip()
     if not cleaned:
         raise HTTPException(
@@ -377,7 +392,7 @@ def update_memory_card_visibility(
 ) -> MemoryCardSchema:
     """Toggle a card's public/private visibility (owner only). Sharing is
     one-way: a recipient's writes go to their own card, never back to this one."""
-    _owned_card_or_404(id, request.user.id)
+    _owned_card_or_404(request, id)
     return MemoryCardSchema.model_validate(
         _apply_card_update(id, {"is_public": is_public})
     )
@@ -413,9 +428,7 @@ async def delete_memory_cards(
     # Resolve every card up front: deletion is irreversible and spans one
     # transaction per card, so a bad id in the batch must fail before the
     # first archive is removed rather than half way through.
-    owned = [
-        (card_id, _owned_card_or_404(card_id, request.user.id)) for card_id in cards
-    ]
+    owned = [(card_id, _owned_card_or_404(request, card_id)) for card_id in cards]
 
     for card_id, card in owned:
         # The delete reports the archives that went with it, so the removal list

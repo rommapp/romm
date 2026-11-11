@@ -3,6 +3,7 @@ from typing import Any
 
 from sqlalchemy import inspect as sa_inspect
 
+from config.config_manager import Config
 from config.config_manager import config_manager as cm
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
@@ -63,33 +64,35 @@ def loaded_rom_files(rom: Rom) -> list[RomFile]:
     return db_rom_handler.rom_files_for_rom_id(rom.id)
 
 
-async def refresh_rom_files(rom: Rom) -> RomFilesRefresh:
+async def refresh_rom_files(rom: Rom, cnfg: Config | None = None) -> RomFilesRefresh:
     """Reconcile a ROM's file rows with what is on disk, keeping the stored
     hashes of files whose size and mtime are unchanged.
 
     Args:
         rom: A persisted ROM whose folder or file exists on disk.
+        cnfg: The config to read, so a scan can load it once.
     Returns:
         What changed, so callers can report it.
     """
     async with redis_lock(
         f"rom_files_refresh:{rom.id}", timeout_seconds=REFRESH_LOCK_TIMEOUT_SECONDS
     ):
-        return await _refresh(rom)
+        return await _refresh(rom, cnfg or cm.get_config())
 
 
-async def _refresh(rom: Rom) -> RomFilesRefresh:
+async def _refresh(rom: Rom, cnfg: Config) -> RomFilesRefresh:
     existing = loaded_rom_files(rom)
     # Extraction can settle a reused row's category, title id and read time in
     # place, so that row is compared against the values it was loaded with.
     reused_state = {id(f): _extracted_state(f) for f in existing}
-    cnfg = cm.get_config()
     calculate_hashes = not cnfg.SKIP_HASH_CALCULATION
     parsed = await fs_rom_handler.get_rom_files(
         rom,
         calculate_hashes=calculate_hashes,
         extract_title_ids=not cnfg.SKIP_TITLE_ID_EXTRACTION,
         existing_files=existing,
+        reuse_title_ids=True,
+        cnfg=cnfg,
     )
     if existing and not parsed.rom_files:
         # A mount that dropped out would otherwise read as every file deleted.

@@ -29,7 +29,7 @@ from exceptions.endpoint_exceptions import (
     RomNotFoundInDatabaseException,
 )
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
+from handler.auth.dependencies import assert_rom_visible, get_rom_visibility_filter
 from handler.database import db_device_handler, db_rom_handler
 from handler.device_install import (
     InstallRequestNotFoundError,
@@ -46,7 +46,7 @@ from handler.notification_handler import notify
 from logger.logger import log
 from models.device import Device
 from models.notification import NotificationKind, NotificationLevel
-from utils.auth import token_device_id
+from utils.auth import require_device, token_reaches_device
 from utils.router import APIRouter
 
 router = APIRouter()
@@ -72,25 +72,6 @@ class InstallRequestUpdatePayload(BaseModel):
                 f"A device reports one of {', '.join(sorted(DEVICE_REPORTS))}"
             )
         return value
-
-
-def _require_device(
-    request: Request, device_id: str, device_only: bool = False
-) -> Device:
-    """The caller's device, 404 when not theirs and 403 under ``device_only`` for another caller."""
-    bound_device_id = token_device_id(request)
-    owned = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
-    if owned is None or bound_device_id not in (None, device_id):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device with ID {device_id} not found",
-        )
-    if device_only and bound_device_id != device_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the device itself can do this",
-        )
-    return owned
 
 
 async def _require_request(request: Request, device_id: str, request_id: str) -> None:
@@ -122,8 +103,18 @@ def _install_errors() -> Iterator[None]:
         ) from exc
 
 
-async def _notify_outcome(install: InstallRequestSchema, device: Device) -> None:
+def _hidden_rom_ids(request: Request, installs: list[InstallRequestSchema]) -> set[int]:
+    return db_rom_handler.get_hidden_rom_ids_among(
+        [install.rom_id for install in installs], get_rom_visibility_filter(request)
+    )
+
+
+async def _notify_outcome(
+    request: Request, install: InstallRequestSchema, device: Device
+) -> None:
     rom = db_rom_handler.get_rom_visibility_label(install.rom_id)
+    # The reporting device acts as `install.user_id`, so the visibility is theirs.
+    hidden = rom is not None and not get_rom_visibility_filter(request).allows(rom)
     failed = install.status == InstallStatus.FAILED
     await notify(
         install.user_id,
@@ -134,8 +125,8 @@ async def _notify_outcome(install: InstallRequestSchema, device: Device) -> None
         ),
         NotificationLevel.ERROR if failed else NotificationLevel.SUCCESS,
         {
-            "rom_id": install.rom_id,
-            "rom_name": (rom.name or rom.fs_name) if rom else None,
+            "rom_id": None if hidden else install.rom_id,
+            "rom_name": (rom.name or rom.fs_name) if rom and not hidden else None,
             "device_name": device.name or device.hostname,
             "status": install.status,
             "reason": install.reason,
@@ -154,7 +145,9 @@ async def get_online_devices(request: Request) -> list[str]:
     if not DEVICE_INSTALL_ENABLED:
         raise DeviceInstallDisabledException()
     device_ids = [
-        device.id for device in db_device_handler.get_devices(user_id=request.user.id)
+        device.id
+        for device in db_device_handler.get_devices(user_id=request.user.id)
+        if token_reaches_device(request, device.id)
     ]
     return await online_device_ids(device_ids)
 
@@ -180,7 +173,7 @@ async def create_install_request(
     """Queue a rom for install on a device, returning a live request for the same pair with 200."""
     if not DEVICE_INSTALL_ENABLED:
         raise DeviceInstallDisabledException()
-    device = _require_device(request, device_id)
+    device = require_device(request, device_id)
     if not accepts_remote_install(device.capabilities):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -247,9 +240,11 @@ async def list_install_requests(
     """The device's pending and taken requests, oldest first."""
     if not DEVICE_INSTALL_ENABLED:
         raise DeviceInstallDisabledException()
-    _require_device(request, device_id)
+    require_device(request, device_id)
 
-    return await device_install_handler.list_for_device(device_id)
+    installs = await device_install_handler.list_for_device(device_id)
+    hidden = _hidden_rom_ids(request, installs)
+    return [install for install in installs if install.rom_id not in hidden]
 
 
 @protected_route(
@@ -269,10 +264,16 @@ async def claim_install_requests(
     """Take every pending request and return all the device holds taken, oldest first."""
     if not DEVICE_INSTALL_ENABLED:
         raise DeviceInstallDisabledException()
-    _require_device(request, device_id, device_only=True)
+    require_device(request, device_id, device_only=True)
 
+    # A request is only queued for a visible ROM, so one hidden later stays pending.
+    hidden: set[int] = set()
+    if not get_rom_visibility_filter(request).is_unrestricted:
+        hidden = _hidden_rom_ids(
+            request, await device_install_handler.list_for_device(device_id)
+        )
     with _install_errors():
-        claim = await device_install_handler.claim(device_id)
+        claim = await device_install_handler.claim(device_id, skip_rom_ids=hidden)
 
     await mark_claimed(device_id)
     await asyncio.gather(*(emit_install_updated(i) for i in claim.newly_taken))
@@ -298,7 +299,7 @@ async def update_install_request(
     """The device reports the outcome of a request it has taken, which ends the request."""
     if not DEVICE_INSTALL_ENABLED:
         raise DeviceInstallDisabledException()
-    device = _require_device(request, device_id, device_only=True)
+    device = require_device(request, device_id, device_only=True)
     await _require_request(request, device_id, request_id)
 
     with _install_errors():
@@ -307,7 +308,7 @@ async def update_install_request(
         )
 
     await emit_install_updated(ended)
-    await _notify_outcome(ended, device)
+    await _notify_outcome(request, ended, device)
     return ended
 
 
@@ -325,7 +326,7 @@ async def cancel_install_request(
     """Cancel a request still pending or taken; one already ended is a 404."""
     if not DEVICE_INSTALL_ENABLED:
         raise DeviceInstallDisabledException()
-    _require_device(request, device_id)
+    require_device(request, device_id)
     await _require_request(request, device_id, request_id)
 
     with _install_errors():

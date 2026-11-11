@@ -1,7 +1,6 @@
 // Hands the server what the browser still holds, from anywhere in the app: at
 // launch the picker is already drawn, so it would land behind the user's pick.
 import { useTimeoutFn } from "@vueuse/core";
-import { uniqBy } from "lodash";
 import { onScopeDispose, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
@@ -17,6 +16,7 @@ import {
   type SyncedAsset,
 } from "@/services/pending-asset";
 import storePlaying from "@/stores/playing";
+import { uniqueBy } from "@/utils/uniqueBy";
 
 // Long enough that a server that is up but refusing the upload is not hammered.
 const RETRY_MS = 30_000;
@@ -34,7 +34,7 @@ const REFUSED_MESSAGE: Record<PendingAssetKind, string> = {
 // A session that queued several captures owes the player one line per game,
 // not one per capture.
 function firstPerGame<T extends SyncedAsset>(assets: T[]): T[] {
-  return uniqBy(
+  return uniqueBy(
     assets,
     (asset) => `${asset.kind}:${asset.romId}:${Boolean(asset.archived)}`,
   );

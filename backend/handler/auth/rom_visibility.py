@@ -5,13 +5,13 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Final, Protocol
+from typing import Any, Final, Protocol
 
-from sqlalchemy import and_, not_, or_
+from sqlalchemy import Select, and_, not_, or_
 from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql.elements import ColumnElement
 
-from models.rom import Rom
+from models.rom import Rom, RomFacets
 
 
 class VisibilityColumns(Protocol):
@@ -66,11 +66,53 @@ class RomVisibilityFilter:
             clauses.append(rom_id_col.not_in(self.hidden_rom_ids))
         return clauses
 
-    def row_hidden_clause(self) -> ColumnElement[bool] | None:
-        """WHERE clause matching the `roms` rows a rule other than a direct hide
-        keeps out, or None when no such rule applies."""
-        clauses = self._row_clauses(Rom.platform_id, Rom.min_age)
+    def facets_clauses(self) -> list[ColumnElement[bool]]:
+        """`clauses()` over the `roms_facets` mirror, so it needs no join to `roms`."""
+        return list(self._facets_clauses)
+
+    @cached_property
+    def _facets_clauses(self) -> tuple[ColumnElement[bool], ...]:
+        # Built once, so the statements of one request share the hidden-id binds.
+        return tuple(
+            self.clauses(
+                rom_id_col=RomFacets.rom_id,
+                platform_id_col=RomFacets.platform_id,
+                min_age_col=RomFacets.min_age,
+            )
+        )
+
+    def restrict[S: Select[*tuple[Any, ...]]](
+        self,
+        query: S,
+        rom_id_col: InstrumentedAttribute[int] | InstrumentedAttribute[int | None],
+    ) -> S:
+        """Narrow `query` to the rows whose `rom_id_col` ROM is visible."""
+        if self.is_unrestricted:
+            return query
+        return query.join(RomFacets, RomFacets.rom_id == rom_id_col).where(
+            *self._facets_clauses
+        )
+
+    def row_hidden_clause(
+        self,
+        *,
+        platform_id_col: InstrumentedAttribute[int] = Rom.platform_id,
+        min_age_col: InstrumentedAttribute[int | None] = Rom.min_age,
+    ) -> ColumnElement[bool] | None:
+        """WHERE clause matching the rows a rule other than a direct hide keeps
+        out, or None when no such rule applies."""
+        clauses = self._row_clauses(platform_id_col, min_age_col)
         return not_(and_(*clauses)) if clauses else None
+
+    def hidden_on_visible_platforms_clause(self) -> ColumnElement[bool] | None:
+        """WHERE clause matching the `roms` rows hidden directly or by the age rule,
+        or None when neither applies; hidden platforms are left to the caller."""
+        clauses: list[ColumnElement[bool]] = []
+        if self.hidden_rom_ids:
+            clauses.append(Rom.id.in_(self.hidden_rom_ids))
+        if self.has_age_rule:
+            clauses.append(self._age_hidden_clause(Rom.min_age))
+        return or_(*clauses) if clauses else None
 
     def _row_clauses(
         self,
@@ -94,6 +136,16 @@ class RomVisibilityFilter:
         if self.hide_unrated_roms:
             return and_(min_age_col.is_not(None), min_age_col <= self.age_limit)
         return or_(min_age_col.is_(None), min_age_col <= self.age_limit)
+
+    def _age_hidden_clause(
+        self, min_age_col: InstrumentedAttribute[int | None]
+    ) -> ColumnElement[bool]:
+        """The negation of `_age_clause`, spelled as ranges an index on `min_age` serves."""
+        if self.age_limit is None:
+            return min_age_col.is_(None)
+        if self.hide_unrated_roms:
+            return or_(min_age_col.is_(None), min_age_col > self.age_limit)
+        return min_age_col > self.age_limit
 
     @cached_property
     def allows(self) -> Callable[[VisibilityColumns], bool]:

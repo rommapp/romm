@@ -84,6 +84,23 @@
       "matchManagers": ["npm", "pep621"],
       "matchUpdateTypes": ["major"],
       "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Dockerfile base images take digest updates only: ALPINE_VERSION is part of all three tags, so a version move is a deliberate edit to both Dockerfiles.",
+      "matchManagers": ["custom.regex"],
+      "matchDepNames": ["alpine", "python", "node"],
+      "matchFileNames": ["Dockerfile", "docker/Dockerfile"],
+      "matchUpdateTypes": ["major", "minor", "patch"],
+      "enabled": false
+    },
+    {
+      "matchManagers": ["custom.regex"],
+      "matchDepNames": ["alpine", "python", "node"],
+      "matchFileNames": ["Dockerfile", "docker/Dockerfile"],
+      "matchUpdateTypes": ["digest"],
+      "groupName": "docker base images",
+      "description": "Docker Hub reports no release date for a digest, so the week-long wait would hold these rebuilds forever. They are official images rebuilt for security patches, and the PR still needs a merge.",
+      "minimumReleaseAgeBehaviour": "timestamp-optional"
     }
   ],
   "customManagers": [
@@ -104,6 +121,47 @@
         "- id: trunk\\s+ref: (?<currentValue>v[^\\s]+)\\s+uri: https://github\\.com/(?<depName>trunk-io/plugins)\\s"
       ],
       "datasourceTemplate": "github-tags"
+    },
+    {
+      "description": "The alpine base image digest in the Dockerfiles, kept in ARGs the dockerfile manager can't resolve.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "matchStringsStrategy": "combination",
+      "matchStrings": [
+        "ARG ALPINE_VERSION=(?<alpine>\\S+)\\n",
+        "ARG ALPINE_DIGEST=(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker",
+      "depNameTemplate": "alpine",
+      "currentValueTemplate": "{{{alpine}}}"
+    },
+    {
+      "description": "The python base image digest in the Dockerfiles, kept in ARGs the dockerfile manager can't resolve.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "matchStringsStrategy": "combination",
+      "matchStrings": [
+        "ARG ALPINE_VERSION=(?<alpine>\\S+)\\n",
+        "ARG PYTHON_VERSION=(?<python>\\S+)\\n",
+        "ARG PYTHON_ALPINE_DIGEST=(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker",
+      "depNameTemplate": "python",
+      "currentValueTemplate": "{{{python}}}-alpine{{{alpine}}}"
+    },
+    {
+      "description": "The node base image digest in the Dockerfiles, kept in ARGs the dockerfile manager can't resolve.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "matchStringsStrategy": "combination",
+      "matchStrings": [
+        "ARG ALPINE_VERSION=(?<alpine>\\S+)\\n",
+        "ARG NODE_VERSION=(?<node>\\S+)\\n",
+        "ARG NODE_ALPINE_DIGEST=(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker",
+      "depNameTemplate": "node",
+      "currentValueTemplate": "{{{node}}}-alpine{{{alpine}}}"
     }
   ]
 }

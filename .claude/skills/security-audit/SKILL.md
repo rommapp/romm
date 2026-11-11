@@ -88,6 +88,18 @@ git shortlog -sne $RANGE                              # distinct authors + count
 
 Every author should be a plausible contributor. author≠committer with committer `noreply@github.com` is normal (squash-merge/bot). An unknown human committer overriding another author's commit is not.
 
+**Reverted fixes, reach, and tests** for each security-sensitive change (auth, scopes, ownership, file ops, validation):
+
+```bash
+git log --oneline -S'<removed line>' "${RANGE#*..}" -- <file>   # which commit added a line the range deletes
+git grep -nw '<changed symbol>' "${RANGE#*..}" -- backend frontend/src ':(exclude)backend/tests'   # where it is referenced
+git diff --name-only $RANGE -- backend/tests 'frontend/src/*.test.ts' 'frontend/src/*.spec.ts'   # tests the range adds or changes
+```
+
+- A deleted check that arrived in a fix, security commit, or GHSA is a reintroduced bug until proven otherwise.
+- Count callers rather than guessing: read the matches and drop definitions, imports and comments, then follow aliases. A weakened helper used by 40 endpoints outranks one used by a single route.
+- Changed sensitive code with no test covering it (`backend/<area>/x.py` → `backend/tests/<area>/test_x.py`) is `needs attention`, not proof of malice.
+
 ---
 
 ## 3. Fan out deep review
@@ -106,7 +118,7 @@ Prompt each agent to: assume legit-until-proven, cite `file:line`, say concretel
 
 ## 4. Judge, then verdict
 
-For each candidate finding, decide reachability before calling it: Is the input attacker-controlled or admin-config/DB-derived? Is the endpoint authed and scoped? Does the tainted value actually reach a sink? A scary-looking sink fed only by trusted server-side data is benign, say so.
+For each candidate finding, decide reachability before calling it: Is the input attacker-controlled or admin-config/DB-derived? Is the endpoint authed and scoped? Does the tainted value actually reach a sink? A scary-looking sink fed only by trusted server-side data is benign, say so. Rank real findings by caller count and test coverage too: wide reach with no test is the most urgent.
 
 Deliver one consolidated verdict:
 

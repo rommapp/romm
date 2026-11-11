@@ -29,6 +29,7 @@ import {
   watchEffect,
 } from "vue";
 import { useChromeLabels } from "@/lib/a11y/chromeLabels";
+import { TONE_MAP } from "@/lib/style/tokenMaps";
 import { focusFromInput } from "@/utils/autofocus";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RProgressCircular from "../../primitives/RProgressCircular/RProgressCircular.vue";
@@ -201,20 +202,6 @@ const inputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(null);
 const fieldId = `r-tf-${getCurrentInstance()?.uid ?? Math.random().toString(36).slice(2)}`;
 
 // ── Tone resolver: same vocabulary as the rest of the lib ─────
-const TONE_MAP: Record<string, string> = {
-  primary: "var(--r-color-brand-primary)",
-  secondary: "var(--r-color-brand-secondary)",
-  accent: "var(--r-color-brand-accent)",
-  success: "var(--r-color-success)",
-  warning: "var(--r-color-warning)",
-  danger: "var(--r-color-danger)",
-  error: "var(--r-color-danger)",
-  info: "var(--r-color-info)",
-  "romm-red": "var(--r-color-romm-red)",
-  "romm-green": "var(--r-color-romm-green)",
-  "romm-blue": "var(--r-color-romm-blue)",
-  "romm-gold": "var(--r-color-romm-gold)",
-};
 const resolvedColor = computed<string>(
   () => TONE_MAP[props.color] ?? props.color ?? TONE_MAP.primary,
 );

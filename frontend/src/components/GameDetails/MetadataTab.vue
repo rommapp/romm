@@ -13,7 +13,7 @@ import ProviderGrid from "@/components/GameDetails/ProviderGrid.vue";
 import HashChip from "@/components/shared/HashChip.vue";
 import { RTag } from "@/lib";
 import type { DetailedRom } from "@/stores/roms";
-import { formatBytes } from "@/utils";
+import { formatBytes, isSwitchSystem } from "@/utils";
 import { VERIFICATION_DATABASES } from "@/utils/romVerification";
 
 defineOptions({ inheritAttrs: false });
@@ -22,7 +22,7 @@ const props = defineProps<{ rom: DetailedRom }>();
 
 const { t } = useI18n();
 
-type Row = { label: string; value: string };
+type Row = { label: string; value: string; hint?: string };
 
 const fileRows = computed<Row[]>(() => {
   const r = props.rom;
@@ -31,7 +31,16 @@ const fileRows = computed<Row[]>(() => {
     { label: t("rom.filename"), value: r.fs_name },
     { label: t("common.size"), value: size },
   ];
-  if (r.title_id) rows.push({ label: t("rom.title-id"), value: r.title_id });
+  if (r.title_id) {
+    rows.push({ label: t("rom.title-id"), value: r.title_id });
+  } else if (isSwitchSystem(r.platform_slug)) {
+    // Most retail Switch dumps are encrypted, and RomM never reads the keys.
+    rows.push({
+      label: t("rom.title-id"),
+      value: "—",
+      hint: t("rom.title-id-missing-switch"),
+    });
+  }
   if (r.save_target)
     rows.push({ label: t("rom.save-target"), value: r.save_target });
   return rows;
@@ -103,6 +112,7 @@ const downloadUrls = computed(() => {
         <div v-for="row in fileRows" :key="row.label" class="metadata-tab__row">
           <div class="metadata-tab__label">{{ row.label }}</div>
           <div class="metadata-tab__value">{{ row.value }}</div>
+          <div v-if="row.hint" class="metadata-tab__hint">{{ row.hint }}</div>
         </div>
       </div>
     </section>
@@ -195,6 +205,11 @@ const downloadUrls = computed(() => {
   font-size: 13px;
   color: var(--r-color-fg-secondary);
   word-break: break-all;
+}
+
+.metadata-tab__hint {
+  font-size: 12px;
+  color: var(--r-color-fg-muted);
 }
 
 /* Hashes & Verification: inline row, wraps when narrow. */

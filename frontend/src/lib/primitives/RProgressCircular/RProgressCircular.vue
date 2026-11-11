@@ -20,6 +20,7 @@
 // Default slot: overlay content centred over the ring (percentage
 // text, status icon). Lives outside the SVG so it isn't rotated.
 import { computed, getCurrentInstance, useSlots } from "vue";
+import { TONE_MAP } from "@/lib/style/tokenMaps";
 
 defineOptions({ inheritAttrs: false });
 
@@ -57,21 +58,6 @@ const decorative = computed(
   () => props.indeterminate && !props.label && !hasSlotContent.value,
 );
 const contentId = `r-pc-label-${getCurrentInstance()?.uid ?? ""}`;
-
-const TONE_MAP: Record<string, string> = {
-  primary: "var(--r-color-brand-primary)",
-  secondary: "var(--r-color-brand-secondary)",
-  accent: "var(--r-color-brand-accent)",
-  success: "var(--r-color-success)",
-  warning: "var(--r-color-warning)",
-  danger: "var(--r-color-danger)",
-  error: "var(--r-color-danger)",
-  info: "var(--r-color-info)",
-  "romm-red": "var(--r-color-romm-red)",
-  "romm-green": "var(--r-color-romm-green)",
-  "romm-blue": "var(--r-color-romm-blue)",
-  "romm-gold": "var(--r-color-romm-gold)",
-};
 
 const resolvedColor = computed<string>(
   () => TONE_MAP[props.color] ?? props.color ?? TONE_MAP.primary,

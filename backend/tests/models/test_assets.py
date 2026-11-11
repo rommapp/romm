@@ -35,6 +35,6 @@ def test_losing_the_disc_file_does_not_take_the_state_with_it(
 
     db_rom_handler.delete_rom_file(disc.id)
 
-    survivor = db_state_handler.get_state(user_id=state.user_id, id=state.id)
+    survivor = db_state_handler.get_state_by_id(state.id)
     assert survivor is not None
     assert survivor.disc_file_id is None

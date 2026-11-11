@@ -11,7 +11,7 @@ import pytest
 from tests.handler.scan_stubs import add_n64_platform, add_rom, run_scan
 
 from handler.metadata.hltb_handler import HLTBMetadata, HLTBRom
-from handler.scan_handler import MetadataSource, ScanType
+from handler.scan.sources import MetadataSource, ScanType
 from models.rom import Rom
 
 FS_NAME = "Mario Kart 64 (USA).z64"
@@ -25,11 +25,11 @@ def lookups():
     """Patch both HowLongToBeat lookups, defaulting each to a miss."""
     with (
         patch(
-            "handler.scan_handler.meta_hltb_handler.get_rom_by_id",
+            "handler.scan.lookups.meta_hltb_handler.get_rom_by_id",
             new=AsyncMock(return_value=NO_MATCH),
         ) as by_id,
         patch(
-            "handler.scan_handler.meta_hltb_handler.get_rom",
+            "handler.scan.lookups.meta_hltb_handler.get_rom",
             new=AsyncMock(return_value=NO_MATCH),
         ) as by_name,
     ):

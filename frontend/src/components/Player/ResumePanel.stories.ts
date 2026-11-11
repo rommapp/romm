@@ -3,8 +3,8 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { computed, ref } from "vue";
 import type { SaveSchema, StateSchema } from "@/__generated__";
-import { RCard, RSliderBtnGroup } from "@/lib";
-import type { SliderBtnGroupItem } from "@/lib/primitives/RSliderBtnGroup/types";
+import { RCard, RSegmentedControl } from "@/lib";
+import type { SegmentedControlItem } from "@/lib/primitives/RSegmentedControl/types";
 import { makeSave, manyStates } from "@/utils/saveStates.fixtures";
 import { CONTRAST_TODO_PARAMETERS } from "@/utils/storyA11y";
 import AssetList from "../shared/AssetList.vue";
@@ -65,7 +65,13 @@ function renderPanel(
   selectFirst = true,
 ) {
   return {
-    components: { AssetList, AssetPreview, AssetStrip, RCard, RSliderBtnGroup },
+    components: {
+      AssetList,
+      AssetPreview,
+      AssetStrip,
+      RCard,
+      RSegmentedControl,
+    },
     setup() {
       const activeTab = ref<AssetTab>(tab);
       const first = (list: { id: number }[]) =>
@@ -73,7 +79,7 @@ function renderPanel(
       const selectedSaveId = ref<number | null>(first(saves));
       const selectedStateId = ref<number | null>(first(states));
 
-      const tabs = computed<SliderBtnGroupItem<AssetTab>[]>(() => [
+      const tabs = computed<SegmentedControlItem<AssetTab>[]>(() => [
         {
           id: "save",
           label: `Saves${saves.length ? ` · ${saves.length}` : ""}`,
@@ -147,7 +153,7 @@ function renderPanel(
         "
       >
         <div style="padding:14px 14px 0;display:flex;justify-content:center">
-          <RSliderBtnGroup
+          <RSegmentedControl
             variant="tab"
             :model-value="activeTab"
             :items="tabs"

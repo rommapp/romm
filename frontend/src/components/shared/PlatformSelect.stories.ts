@@ -3,7 +3,7 @@ import { expect, userEvent, within, waitFor } from "storybook/test";
 import { ref } from "vue";
 import type { Platform } from "@/stores/platforms";
 import { platformFixture } from "@/utils/platform.fixtures";
-import { a11yTodoRules, CONTRAST_TODO_PARAMETERS } from "@/utils/storyA11y";
+import { a11yTodoRules } from "@/utils/storyA11y";
 import PlatformSelect from "./PlatformSelect.vue";
 import {
   formatPlatformRomCount,
@@ -134,7 +134,7 @@ const OPEN_PANEL_A11Y_TODO = a11yTodoRules(
 const meta: Meta<typeof PlatformSelect<number | null>> = {
   title: "Shared/PlatformSelect",
   component: PlatformSelect as never,
-  parameters: { ...CONTRAST_TODO_PARAMETERS, layout: "padded" },
+  parameters: { layout: "padded" },
   decorators: [
     () => ({
       template: `<div style="width:min(360px,100%);padding-top:8px"><story /></div>`,

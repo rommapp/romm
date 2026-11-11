@@ -88,7 +88,7 @@ describe("MatchRomDialog", () => {
           MatchRomBodyGrid,
           RTextField: true,
           RSelect: true,
-          RSliderBtnGroup: true,
+          RSegmentedControl: true,
           RIcon: true,
           RSpinner: true,
           RTooltip: true,

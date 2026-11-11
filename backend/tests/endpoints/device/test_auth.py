@@ -533,7 +533,22 @@ class TestToken:
         data = resp.json()
         assert data["access_token"].startswith("rmm_")
         assert data["device_id"] == approve.json()["device_id"]
+        token = db_client_token_handler.get_token(token_id=data["id"])
+        assert token is not None
+        assert token.device_id == data["device_id"]
         assert set(data["scopes"]) == {"roms.read", "roms.user.write"}
+
+    def test_issued_token_revokes_itself_by_id(self, client, access_token: str):
+        body = _authorize(client)
+        _approve(client, access_token, body["user_code"], approved_scopes=["roms.read"])
+        creds = _poll_token(client, body["device_code"]).json()
+
+        resp = client.delete(
+            f"/api/client-tokens/{creds['id']}",
+            headers={"Authorization": f"Bearer {creds['access_token']}"},
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        assert db_client_token_handler.get_token(token_id=creds["id"]) is None
 
     def test_one_shot_second_poll_returns_expired_token(
         self, client, access_token: str
@@ -663,7 +678,7 @@ class TestBoundTokenInference:
         sessions = list_resp.json()
         assert any(s.get("device_id") == creds["device_id"] for s in sessions)
 
-    def test_explicit_device_id_wins_over_bound(
+    def test_bound_token_cannot_attribute_to_another_device(
         self,
         client: TestClient,
         access_token: str,
@@ -676,7 +691,7 @@ class TestBoundTokenInference:
         )
         other = db_device_handler.add_device(
             Device(
-                id="explicit-wins-device",
+                id="other-device",
                 user_id=admin_user.id,
                 name="Second",
             )
@@ -690,14 +705,7 @@ class TestBoundTokenInference:
                 "sessions": [{"rom_id": 1, **_recent_times(60, 15)}],
             },
         )
-        assert resp.status_code == status.HTTP_201_CREATED
-
-        list_resp = client.get(
-            f"/api/play-sessions?device_id={other.id}",
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-        assert list_resp.status_code == status.HTTP_200_OK
-        assert len(list_resp.json()) >= 1
+        assert resp.status_code == status.HTTP_404_NOT_FOUND
 
     def test_unbound_legacy_token_attaches_sessions_with_null_device(
         self,

@@ -26,6 +26,7 @@ from utils.conversion_cache import (
     FAILED_FILE,
     PARTIAL_DIR,
     SERVE_GRACE_SECONDS,
+    SERVED_FILE,
     FormatOutcome,
     FormatResolution,
     converted_file_path,
@@ -123,14 +124,16 @@ class TestGetOrConvert:
         assert convert_outputs == []
         assert not any(cache_root.iterdir())
 
-    async def test_cache_hit_returns_path_and_refreshes_mtime(
+    async def test_cache_hit_returns_path_and_records_the_serve(
         self, cache_root, convert_outputs
     ):
         f = _rom_file()
         final = _seed_cached(f, age_seconds=3600)
+        mtime = final.stat().st_mtime
 
         assert await get_or_convert(1, f, "psp", "chd") == final
-        assert final.stat().st_mtime > time.time() - 60
+        assert final.stat().st_mtime == mtime
+        assert (final.parent / SERVED_FILE).stat().st_mtime > time.time() - 60
         assert convert_outputs == []
 
     async def test_oversized_conversion_returns_none_without_converting(
@@ -568,12 +571,17 @@ class TestGetCachedConverted:
         assert get_cached_converted(1, f, "psp", "chd") is None
 
     @pytest.mark.parametrize("touch", [False, True])
-    def test_returns_the_copy_refreshing_mtime_only_when_asked(self, cache_root, touch):
+    def test_returns_the_copy_recording_the_serve_only_when_asked(
+        self, cache_root, touch
+    ):
         f = _rom_file()
         final = _seed_cached(f, age_seconds=3600)
+        mtime = final.stat().st_mtime
 
         assert get_cached_converted(1, f, "psp", "chd", touch=touch) == final
-        assert (final.stat().st_mtime > time.time() - 60) is touch
+        # nginx derives the ETag from the copy's mtime, so serving must not change it.
+        assert final.stat().st_mtime == mtime
+        assert (final.parent / SERVED_FILE).exists() is touch
 
     @pytest.mark.parametrize(
         "touch",
@@ -599,7 +607,7 @@ class TestGetCachedConverted:
     def test_touch_failure_still_serves_the_copy(self, cache_root, mocker, error):
         f = _rom_file()
         final = _seed_cached(f)
-        mocker.patch("os.utime", side_effect=error)
+        mocker.patch.object(Path, "touch", side_effect=error)
 
         assert get_cached_converted(1, f, "psp", "chd", touch=True) == final
         assert final.read_bytes() == b"cached"
@@ -711,6 +719,24 @@ class TestCleanupStaleConversions:
         assert not expired.parent.exists()
         assert fresh.exists()
 
+    def test_a_recent_serve_keeps_an_old_copy(self, cache_root):
+        f = _rom_file()
+        final = _seed_cached(f, age_seconds=25 * 3600)
+        assert get_cached_converted(1, f, "psp", "chd", touch=True) == final
+
+        assert conversion_cache.cleanup_stale_conversions() == 0
+        assert final.read_bytes() == b"cached"
+
+    def test_deletes_an_expired_copy_with_its_served_marker(self, cache_root):
+        final = _seed_cached(_rom_file(), age_seconds=26 * 3600)
+        marker = final.parent / SERVED_FILE
+        marker.touch()
+        served = time.time() - 25 * 3600
+        os.utime(marker, (served, served))
+
+        assert conversion_cache.cleanup_stale_conversions() == 1
+        assert not final.parent.exists()
+
     def test_removes_partial_outputs_from_a_kept_dir(self, cache_root):
         final = _seed_cached(_rom_file())
         partial = _partial_path(final)
@@ -788,6 +814,25 @@ class TestCleanupStaleConversions:
         assert not dirs["old"].exists()
         assert dirs["mid"].exists()
         assert dirs["new"].exists()
+
+    def test_size_eviction_orders_by_last_serve(self, cache_root, converto, mocker):
+        converto.cache_max_size_gb = 1
+        mocker.patch.object(conversion_cache, "BYTES_PER_GB", 100)
+        older = _seed_cached(_rom_file(file_name="older.iso"))
+        older.write_bytes(b"x" * 40)
+        os.utime(older, (time.time() - 300, time.time() - 300))
+        served = _seed_cached(_rom_file(file_name="served.iso"))
+        served.write_bytes(b"x" * 40)
+        os.utime(served, (time.time() - 400, time.time() - 400))
+        (served.parent / SERVED_FILE).touch()
+        newer = _seed_cached(_rom_file(file_name="newer.iso"))
+        newer.write_bytes(b"x" * 40)
+        os.utime(newer, (time.time() - 200, time.time() - 200))
+
+        assert conversion_cache.cleanup_stale_conversions() == 1
+        assert not older.parent.exists()
+        assert served.exists()
+        assert newer.exists()
 
     @pytest.mark.parametrize(
         "reserve_bytes",

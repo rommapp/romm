@@ -1,7 +1,10 @@
 import asyncio
+import zipfile
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from tests._zipfile_shim import reload_zipfile
 
 from adapters.services.rahasher import (
     PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID,
@@ -12,6 +15,23 @@ from adapters.services.rahasher import (
     _pick_ra_file,
 )
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+
+
+def _write_zip(
+    path: Path,
+    entries: list[str],
+    compression: int = zipfile.ZIP_STORED,
+    payload: bytes = b"rom-bytes",
+) -> Path:
+    """Write a zip of `entries`, where a trailing slash makes a directory."""
+    reload_zipfile()
+    with zipfile.ZipFile(path, "w", compression=compression) as z:
+        for name in entries:
+            if name.endswith("/"):
+                z.mkdir(name)
+            else:
+                z.writestr(name, payload)
+    return path
 
 
 class TestRAHasherValidHashRegex:
@@ -281,11 +301,12 @@ class TestRAHasherArchiveSkip:
 
     @pytest.mark.asyncio
     async def test_does_not_skip_archive_for_cartridge_platform(
-        self, service: RAHasherService
+        self, service: RAHasherService, tmp_path: Path
     ):
         """Cartridge platforms (e.g. NES) support buffer hash; don't skip."""
         assert UPS.NES not in RA_BUFFER_HASH_UNSUPPORTED
         nes_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.NES]
+        archive = _write_zip(tmp_path / "game.zip", ["game.nes"])
 
         mock_proc = AsyncMock()
         mock_proc.wait.return_value = 0
@@ -296,7 +317,7 @@ class TestRAHasherArchiveSkip:
             "asyncio.create_subprocess_exec", return_value=mock_proc
         ) as mock_subprocess:
             result = await service.calculate_hash(
-                {"ra_id": nes_id, "slug": "nes"}, "/path/to/game.zip"
+                {"ra_id": nes_id, "slug": "nes"}, str(archive)
             )
 
         assert result == "a1b2c3d4e5f6789012345678901234ab"
@@ -359,10 +380,8 @@ class TestRAHasherArchiveSkip:
         """Cartridge platforms: folder with archives should hash the largest archive directly."""
         assert UPS.GBA not in RA_BUFFER_HASH_UNSUPPORTED
         platform_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.GBA]
-        small = tmp_path / "small.zip"
-        large = tmp_path / "large.zip"
-        small.write_bytes(b"s" * 100)
-        large.write_bytes(b"l" * 500)
+        _write_zip(tmp_path / "small.zip", ["small.gba"], payload=b"s" * 100)
+        large = _write_zip(tmp_path / "large.zip", ["large.gba"], payload=b"l" * 500)
 
         mock_proc = AsyncMock()
         mock_proc.wait.return_value = 0
@@ -1154,10 +1173,11 @@ class TestRAHasherArchiveExtraction:
 
     @pytest.mark.asyncio
     async def test_zip_archive_still_handed_to_rahasher_directly(
-        self, service: RAHasherService
+        self, service: RAHasherService, tmp_path: Path
     ):
-        """RAHasher decompresses .zip natively; no extraction round-trip."""
+        """RAHasher decompresses a single-entry .zip natively; no extraction round-trip."""
         gba_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.GBA]
+        archive = _write_zip(tmp_path / "game.zip", ["game.gba"])
 
         mock_proc = AsyncMock()
         mock_proc.wait.return_value = 0
@@ -1173,13 +1193,69 @@ class TestRAHasherArchiveExtraction:
             ) as mock_subprocess,
         ):
             result = await service.calculate_hash(
-                {"ra_id": gba_id, "slug": "gba"}, "/roms/gba/game.zip"
+                {"ra_id": gba_id, "slug": "gba"}, str(archive)
             )
 
         assert result == "a1b2c3d4e5f6789012345678901234ab"
         extractor.assert_not_called()
         call_args = mock_subprocess.call_args[0]
-        assert "/roms/gba/game.zip" in call_args
+        assert str(archive) in call_args
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "entries, compression",
+        [
+            pytest.param(
+                ["Fatal Fury (USA).md", "readme.txt"],
+                zipfile.ZIP_DEFLATED,
+                id="extra-file",
+            ),
+            pytest.param(
+                ["Fatal Fury (USA)/", "Fatal Fury (USA)/Fatal Fury (USA).md"],
+                zipfile.ZIP_DEFLATED,
+                id="directory-entry",
+            ),
+            pytest.param(
+                ["Fatal Fury (USA).md"], zipfile.ZIP_BZIP2, id="unsupported-method"
+            ),
+        ],
+    )
+    async def test_zip_rahasher_cant_read_is_extracted(
+        self,
+        service: RAHasherService,
+        tmp_path: Path,
+        entries: list[str],
+        compression: int,
+    ):
+        """RAHasher hashes a multi-entry zip whole and fails on non-deflate
+        methods, so those zips go through extraction like any other archive."""
+        genesis_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.GENESIS]
+        archive = _write_zip(tmp_path / "Fatal Fury (USA).zip", entries, compression)
+        extractor = self._fake_extractor("Fatal Fury (USA).md")
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with (
+            patch(
+                "adapters.services.rahasher.extract_largest_archive_member",
+                extractor,
+            ),
+            patch(
+                "asyncio.create_subprocess_exec", return_value=mock_proc
+            ) as mock_subprocess,
+        ):
+            result = await service.calculate_hash(
+                {"ra_id": genesis_id, "slug": "genesis"}, str(archive)
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        extractor.assert_called_once()
+        call_args = mock_subprocess.call_args[0]
+        assert any(str(a).endswith("Fatal Fury (USA).md") for a in call_args)
+        assert str(archive) not in call_args
 
     @pytest.mark.asyncio
     async def test_extraction_failure_returns_empty_hash_without_rahasher(

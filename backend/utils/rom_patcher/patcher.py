@@ -46,6 +46,12 @@ SUPPORTED_PATCH_EXTENSIONS = frozenset(
     )
 )
 
+
+def is_patch_file_name(file_name: str) -> bool:
+    """Whether a file name carries a supported patch format's extension."""
+    return Path(file_name).suffix.lower() in SUPPORTED_PATCH_EXTENSIONS
+
+
 # Bound concurrent operations because each Node subprocess loads a full ROM.
 _patch_semaphore = asyncio.Semaphore(ROM_PATCHER_MAX_CONCURRENCY)
 

@@ -6,6 +6,7 @@ import re
 import stat
 import threading
 import zipfile
+from collections.abc import Iterator
 from dataclasses import dataclass
 from mimetypes import guess_type
 from pathlib import Path
@@ -19,7 +20,10 @@ from config import ASSETS_BASE_PATH
 from logger.logger import log
 from models.assets import SaveShape
 from models.user import User
-from utils.media_types import IMAGE_EXT_BY_MIME_TYPE
+from utils.media_types import (
+    CONVERTED_IMAGE_EXT_BY_MIME_TYPE,
+    IMAGE_EXT_BY_MIME_TYPE,
+)
 
 from .base_handler import FSHandler
 
@@ -33,14 +37,14 @@ if TYPE_CHECKING:
 _MIME_DETECTOR = magic.Magic(mime=True)
 _MIME_DETECTOR_LOCK = threading.Lock()
 
-# A zip entry's declared size is attacker-controlled, so entries are hashed in
-# chunks against this ceiling rather than read whole. Sized well above any real
-# memory card or save archive.
-MAX_DECOMPRESSED_ENTRY_BYTES = 512 * 1024 * 1024
-# What an uploaded save archive may expand to in all, and hold, by its own
-# declaration; a lying entry still hits the per-entry ceiling while hashing.
+# A zip's declared sizes can lie, so entries are hashed in chunks against these
+# ceilings. The byte budget spans the whole archive, not each entry.
+MAX_DECOMPRESSED_ARCHIVE_BYTES = 512 * 1024 * 1024
+MAX_ARCHIVE_ENTRIES = 10_000
+_ZIP_READ_CHUNK_BYTES = 64 * 1024
+# What an uploaded save archive may expand to in all, by its own declaration;
+# a lying entry still hits the decompressed budget while hashing.
 MAX_ARCHIVE_EXPANDED_BYTES = 4 * 1024 * 1024 * 1024
-MAX_ARCHIVE_ENTRIES = 65536
 
 _DRIVE_PREFIX = re.compile(r"^[A-Za-z]:")
 
@@ -163,23 +167,43 @@ def check_upload_archive(upload: UploadFile | None, label: str) -> None:
         ) from exc
 
 
-def hash_zip_entry(zf: zipfile.ZipFile, name: str) -> str:
-    """md5 of one zip entry, streamed so a compression bomb cannot exhaust memory."""
-    hash_obj = hashlib.md5(usedforsecurity=False)
+class ArchiveTooLarge(ValueError):
+    """A zip archive that decompresses past the budget it is read against."""
+
+
+def iter_zip_entry(
+    zf: zipfile.ZipFile,
+    entry: str | zipfile.ZipInfo,
+    budget: int,
+    chunk_size: int = _ZIP_READ_CHUNK_BYTES,
+) -> Iterator[bytes]:
+    """Stream one entry's decompressed bytes, raising ArchiveTooLarge past ``budget``."""
     read = 0
-    with zf.open(name, "r") as entry:
-        while chunk := entry.read(8192):
+    with zf.open(entry, "r") as stream:
+        while chunk := stream.read(chunk_size):
             read += len(chunk)
-            if read > MAX_DECOMPRESSED_ENTRY_BYTES:
-                raise ValueError(
-                    f"zip entry {name} exceeds the decompressed size limit"
-                )
+            if read > budget:
+                raise ArchiveTooLarge("zip archive exceeds the decompressed size limit")
+            yield chunk
+
+
+def _entry_hashes(zf: zipfile.ZipFile, names: list[str]) -> list[tuple[str, str]]:
+    """Each named entry's md5, read against one decompressed budget."""
+    if len(zf.infolist()) > MAX_ARCHIVE_ENTRIES:
+        raise ArchiveTooLarge(f"zip archive has over {MAX_ARCHIVE_ENTRIES} entries")
+    budget = MAX_DECOMPRESSED_ARCHIVE_BYTES
+    hashes = []
+    for name in names:
+        hash_obj = hashlib.md5(usedforsecurity=False)
+        for chunk in iter_zip_entry(zf, name, budget):
+            budget -= len(chunk)
             hash_obj.update(chunk)
-    return hash_obj.hexdigest()
+        hashes.append((name, hash_obj.hexdigest()))
+    return hashes
 
 
-def _combined_hash(zf: zipfile.ZipFile, names: list[str]) -> str:
-    combined = "\n".join(f"{name}:{hash_zip_entry(zf, name)}" for name in names)
+def _combined_hash(hashes: list[tuple[str, str]]) -> str:
+    combined = "\n".join(f"{name}:{digest}" for name, digest in hashes)
     return hashlib.md5(combined.encode(), usedforsecurity=False).hexdigest()
 
 
@@ -191,7 +215,7 @@ def hash_zip_contents(zf: zipfile.ZipFile) -> str:
     """md5 of a zip archive's contents, keyed by sorted entry name and each
     entry's own hash. Shared by disk-path and in-memory hashing so both agree
     on a card or save archive's dedup hash."""
-    return _combined_hash(zf, _file_entries(zf))
+    return _combined_hash(_entry_hashes(zf, _file_entries(zf)))
 
 
 def is_clock_member(name: str) -> bool:
@@ -203,9 +227,10 @@ def zip_identity_hash(zf: zipfile.ZipFile) -> str:
     """Sigil's identity hash of a unit archive: its content hash without the
     clock members, or the one remaining member's own hash."""
     names = [name for name in _file_entries(zf) if not is_clock_member(name)]
-    if len(names) == 1:
-        return hash_zip_entry(zf, names[0])
-    return _combined_hash(zf, names)
+    hashes = _entry_hashes(zf, names)
+    if len(hashes) == 1:
+        return hashes[0][1]
+    return _combined_hash(hashes)
 
 
 def hash_save_content(content: IO[bytes]) -> str | None:
@@ -237,13 +262,19 @@ def hash_save_file(path: str | os.PathLike[str]) -> str | None:
         return None
 
 
-def validate_image_upload(upload: UploadFile, *, label: str = "Image") -> str:
+def validate_image_upload(
+    upload: UploadFile, *, label: str = "Image", allow_converted: bool = False
+) -> str:
     """Validate that an uploaded file is one of the safe image types.
 
     Sniffs the leading bytes with libmagic and returns the trusted extension
     matching the detected MIME type. Raises HTTPException(400) if the file
     is not a recognized image, or if MIME sniffing fails.
     Leaves the file cursor at 0.
+
+    Args:
+        allow_converted: Also accept the types artwork storage re-encodes
+            (JPEG XL), returning the extension they are re-encoded to.
     """
     upload.file.seek(0)
     header = upload.file.read(4096)
@@ -260,11 +291,18 @@ def validate_image_upload(upload: UploadFile, *, label: str = "Image") -> str:
         ) from exc
 
     safe_extension = IMAGE_EXT_BY_MIME_TYPE.get(detected_mime)
+    if not safe_extension and allow_converted:
+        safe_extension = CONVERTED_IMAGE_EXT_BY_MIME_TYPE.get(detected_mime)
     if not safe_extension:
+        accepted = (
+            "PNG, JPEG, WebP, GIF, or JPEG XL"
+            if allow_converted
+            else "PNG, JPEG, WebP, or GIF"
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                f"{label} must be a PNG, JPEG, WebP, or GIF image "
+                f"{label} must be a {accepted} image "
                 f"(detected {detected_mime or 'unknown type'})"
             ),
         )

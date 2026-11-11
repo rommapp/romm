@@ -18,8 +18,10 @@ from rq.timeouts import JobTimeoutException
 from sqlalchemy.exc import IntegrityError
 
 from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
+from adapters.services.sigil import begin_scan as begin_sigil_scan
+from adapters.services.sigil import log_scan_summary as log_sigil_scan_summary
 from config import DEV_MODE, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
-from config.config_manager import MetadataMediaType
+from config.config_manager import Config
 from config.config_manager import config_manager as cm
 from endpoints.responses.platform import PlatformSchema
 from endpoints.sockets.activity import get_authenticated_user
@@ -45,7 +47,6 @@ from handler.database import (
 from handler.filesystem import (
     fs_firmware_handler,
     fs_platform_handler,
-    fs_resource_handler,
     fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom, ParsedRomFiles
@@ -70,14 +71,18 @@ from handler.redis_handler import (
     scan_queue,
 )
 from handler.rom_files import loaded_rom_files, refresh_rom_files
-from handler.scan_handler import (
+from handler.scan.merge import fs_rom_file_attrs
+from handler.scan.sources import (
+    RESCAN_RULES,
     MetadataSource,
     ScanType,
+    get_enabled_metadata_sources,
+    should_consult,
+)
+from handler.scan_handler import (
     build_hashless_fs_rom,
     download_rom_resources,
     emit_scanning_rom,
-    fs_rom_file_attrs,
-    get_enabled_metadata_sources,
     persist_soundtrack_cover,
     scan_firmware,
     scan_platform,
@@ -374,6 +379,7 @@ async def _identify_firmware(
 
 def should_scan_rom(
     scan_type: ScanType,
+    platform: Platform,
     rom: Rom | None,
     roms_ids: list[int],
     metadata_sources: list[str],
@@ -382,6 +388,7 @@ def should_scan_rom(
 
     Args:
         scan_type (ScanType): Type of scan to be performed.
+        platform (Platform): The platform the rom belongs to.
         rom (Rom | None): The rom to be scanned.
         roms_ids (list[int]): List of selected roms to be scanned.
         metadata_sources (list[str]): List of metadata sources to be used.
@@ -401,26 +408,21 @@ def should_scan_rom(
         or (scan_type == ScanType.COMPLETE)
         # Hashes rescan should scan all roms to update the hashes
         or (scan_type == ScanType.HASHES)
+        # Update and unmatched scans only pick a rom some selected source will refresh
         or (
             rom
-            and (
-                # Update scan should scan ROMs identified by the selected metadata sources
-                (
-                    scan_type == ScanType.UPDATE
-                    and rom.is_identified
-                    and any(
-                        getattr(rom, f"{source}_id", None)
-                        for source in metadata_sources
-                    )
+            and scan_type in (ScanType.UPDATE, ScanType.UNMATCHED)
+            and any(
+                should_consult(
+                    MetadataSource(source),
+                    scan_type=scan_type,
+                    rom=rom,
+                    platform=platform,
+                    newly_added=False,
+                    metadata_sources=metadata_sources,
                 )
-                # Unmatched scan should scan ROMs that are not identified by the selected metadata sources
-                or (
-                    scan_type == ScanType.UNMATCHED
-                    and any(
-                        not getattr(rom, f"{source}_id", None)
-                        for source in metadata_sources
-                    )
-                )
+                for source in metadata_sources
+                if source in RESCAN_RULES
             )
         )
     )
@@ -558,6 +560,7 @@ async def _rebuild_rom_files(
     extract_title_ids: bool,
     embed_title_ids: bool,
     existing_files: Sequence[RomFile] | None = None,
+    cnfg: Config | None = None,
 ) -> ParsedRomFiles:
     """Re-read a rom's files onto `fs_rom`, embedding title ids when enabled."""
     parsed = await fs_rom_handler.get_rom_files(
@@ -565,6 +568,7 @@ async def _rebuild_rom_files(
         calculate_hashes=calculate_hashes,
         extract_title_ids=extract_title_ids,
         existing_files=existing_files,
+        cnfg=cnfg,
     )
 
     renamed_rom_fs_name = (
@@ -604,15 +608,19 @@ async def _identify_rom(
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
     scanned_rom_ids: set[int],
+    cnfg: Config | None = None,
 ) -> None:
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
         return
 
+    # Each load re-reads config.yml, so a library scan passes one in.
+    cnfg = cnfg or cm.get_config()
+
     # A quick scan only reconciles an existing entry's files with disk, so it
     # needs none of the metadata prelude below.
     if rom is not None and scan_type == ScanType.QUICK:
-        refreshed = await refresh_rom_files(rom)
+        refreshed = await refresh_rom_files(rom, cnfg)
         await scan_stats.increment(
             socket_manager=socket_manager,
             scanned_roms=1,
@@ -651,7 +659,6 @@ async def _identify_rom(
         "url_screenshots": [],
     }
 
-    cnfg = cm.get_config()
     calculate_hashes = not cnfg.SKIP_HASH_CALCULATION
     extract_title_ids = not cnfg.SKIP_TITLE_ID_EXTRACTION
     embed_title_ids = cnfg.EMBED_SWITCH_TITLE_IDS
@@ -674,6 +681,7 @@ async def _identify_rom(
             calculate_hashes=calculate_hashes,
             extract_title_ids=extract_title_ids,
             embed_title_ids=embed_title_ids,
+            cnfg=cnfg,
         )
         # The new-entry insert reads its name from rom_attrs, not fs_rom.
         rom_attrs["fs_name"] = fs_rom["fs_name"]
@@ -751,44 +759,17 @@ async def _identify_rom(
             extract_title_ids=extract_title_ids
             and _should_extract_title_ids(scan_type, rom),
             embed_title_ids=embed_title_ids,
+            cnfg=cnfg,
             existing_files=(
                 loaded_rom_files(rom)
                 if _should_hash_incrementally(scan_type, rom, roms_ids)
                 else None
             ),
         )
-        # Keep the in-memory rom's name matching the renamed file.
-        rom.fs_name = fs_rom["fs_name"]
-
-    # For a COMPLETE rescan, wipe all downloaded resources before re-fetching so
-    # stale files (e.g. a cover from the wrong region) can't be reused. The
-    # post-scan download steps below skip downloads when a file already exists or
-    # when the source URL is unchanged, so the on-disk files must be removed here.
-    if not newly_added and scan_type == ScanType.COMPLETE:
-        try:
-            await fs_resource_handler.remove_cover(rom)
-        except FileNotFoundError:
-            pass
-
-        try:
-            await fs_resource_handler.remove_manual(rom)
-        except FileNotFoundError:
-            pass
-
-        try:
-            await fs_resource_handler.remove_directory(
-                f"{rom.fs_resources_path}/screenshots"
-            )
-        except FileNotFoundError:
-            pass
-
-        for media_type in MetadataMediaType:
-            try:
-                await fs_resource_handler.remove_media_resources_path(
-                    platform.id, rom.id, media_type
-                )
-            except FileNotFoundError:
-                pass
+        # Keep the in-memory rom's name matching the renamed file. Setting it
+        # re-derives the stored placeholder name, so only on a real rename.
+        if rom.fs_name != fs_rom["fs_name"]:
+            rom.fs_name = fs_rom["fs_name"]
 
     log.debug(f"Scanning {rom.fs_name}...")
     scanned_rom = await scan_rom(
@@ -1065,6 +1046,7 @@ async def _identify_platform(
 
     # Create semaphore to limit concurrent ROM scanning
     scan_semaphore = asyncio.Semaphore(SCAN_WORKERS)
+    cnfg = cm.get_config()
 
     async def scan_rom_with_semaphore(fs_rom: FSRom, rom: Rom | None) -> None:
         """Scan a single ROM with semaphore limiting"""
@@ -1080,6 +1062,7 @@ async def _identify_platform(
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
                 scanned_rom_ids=scanned_rom_ids,
+                cnfg=cnfg,
             )
 
     for fs_roms_batch in batched(fs_roms, 200, strict=False):
@@ -1103,6 +1086,7 @@ async def _identify_platform(
                 restored_roms.append(rom)
             if should_scan_rom(
                 scan_type=scan_type,
+                platform=platform,
                 rom=rom,
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
@@ -1260,6 +1244,7 @@ async def scan_platforms(
     # overlap, and resetting would drop the other scan's limits and skips.
     if MetadataSource.SS in metadata_sources:
         await begin_ss_scan()
+    begin_sigil_scan()
 
     fs_platforms: list[str] = []
     if not roms_ids:
@@ -1424,6 +1409,7 @@ async def scan_platforms(
 
         if MetadataSource.SS in metadata_sources:
             log_ss_scan_summary()
+        log_sigil_scan_summary()
 
         log.info(f"{emoji.EMOJI_CHECK_MARK} Scan completed")
 

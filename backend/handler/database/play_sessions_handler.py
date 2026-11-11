@@ -5,7 +5,9 @@ from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from decorators.database import INJECTED_SESSION, begin_session
+from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
 from models.play_session import PlaySession
+from models.rom import Rom
 
 from .base_handler import DBBaseHandler, affected_rows
 
@@ -75,14 +77,21 @@ class DBPlaySessionsHandler(DBBaseHandler):
         end_before: datetime | None = None,
         limit: int | None = 50,
         offset: int = 0,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
         session: Session = INJECTED_SESSION,
     ) -> Sequence[PlaySession]:
         stmt = select(PlaySession).filter_by(user_id=user_id)
 
+        if not visibility.is_unrestricted:
+            # Before the slice, so hidden sessions can't shorten a page.
+            stmt = stmt.outerjoin(Rom, PlaySession.rom_id == Rom.id).where(
+                or_(PlaySession.rom_id.is_(None), and_(*visibility.clauses()))
+            )
+
         if rom_id is not None:
-            stmt = stmt.filter_by(rom_id=rom_id)
+            stmt = stmt.where(PlaySession.rom_id == rom_id)
         if device_id is not None:
-            stmt = stmt.filter_by(device_id=device_id)
+            stmt = stmt.where(PlaySession.device_id == device_id)
         if start_after is not None:
             stmt = stmt.where(PlaySession.start_time >= start_after)
         if end_before is not None:

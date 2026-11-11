@@ -1,9 +1,11 @@
 import binascii
+import gzip
 import hashlib
 import os
 import shutil
 import struct
 import tempfile
+import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
@@ -15,12 +17,19 @@ from tests._zipfile_shim import reload_zipfile
 
 from adapters.services.sigil import SigilExtractionResult
 from config import LIBRARY_BASE_PATH
-from config.config_manager import DEFAULT_EXCLUDED_EXTENSIONS, Config, ConvertoConfig
+from config.config_manager import (
+    DEFAULT_EXCLUDED_EXTENSIONS,
+    DEFAULT_EXCLUDED_FILES,
+    DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
+    Config,
+    ConvertoConfig,
+)
 from handler.filesystem.base_handler import (
     LANGUAGES_BY_SHORTCODE,
     REGIONS_BY_SHORTCODE,
 )
 from handler.filesystem.roms_handler import (
+    ARCHIVE_READERS,
     FileHash,
     FSRomsHandler,
     _TitleIdSource,
@@ -30,7 +39,11 @@ from handler.filesystem.roms_handler import (
 )
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, SaveTargetLayout
-from utils.archives import extract_chd_hash
+from utils.archives import (
+    LARGEST_MEMBER_READERS,
+    ArchiveReadError,
+    extract_chd_hash,
+)
 
 
 class TestFSRomsHandler:
@@ -242,6 +255,20 @@ class TestFSRomsHandler:
         parsed_tags = handler.parse_tags(fs_name)
         assert parsed_tags.version == "2"
 
+    def test_parse_tags_revision_without_separator(self, handler: FSRomsHandler):
+        """GoodTools writes a revision with no separator, as "(REV01)"."""
+        parsed_tags = handler.parse_tags("Sonic The Hedgehog (W) (REV01) [!].gen")
+        assert parsed_tags.revision == "01"
+        assert parsed_tags.other_tags == ["!"]
+
+        assert handler.parse_tags("Game (USA) (Rev1).rom").revision == "1"
+        assert handler.parse_tags("Game (USA) (Rev1.1).rom").revision == "1.1"
+
+        # Only a digit right after "Rev" makes it a revision.
+        parsed_tags = handler.parse_tags("Game (Revenge) (RevB).rom")
+        assert parsed_tags.revision == ""
+        assert parsed_tags.other_tags == ["Revenge", "RevB"]
+
     def test_parse_tags_non_version_tags_starting_with_v(self, handler: FSRomsHandler):
         """Test parse_tags keeps non-version tags starting with v as generic tags"""
         fs_name = "Rom [2026] [Variation].rom"
@@ -323,6 +350,29 @@ class TestFSRomsHandler:
         parsed = handler.parse_tags("Game (Japan) [T-En].sfc")
 
         assert parsed.languages == ["English"]
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_reads_brazilian_portuguese(self, handler: FSRomsHandler):
+        assert handler.parse_tags("Game (USA) (Pt-BR).rom").languages == [
+            "Brazilian Portuguese"
+        ]
+        assert handler.parse_tags("Game (pt-br).rom").languages == [
+            "Brazilian Portuguese"
+        ]
+
+    def test_parse_tags_reads_a_regional_translation_code(self, handler: FSRomsHandler):
+        """The variant after the code names a different language than the code."""
+        parsed = handler.parse_tags("Game (USA) (T-Pt-BR).rom")
+
+        assert parsed.languages == ["Brazilian Portuguese"]
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_reads_a_versioned_regional_translation(
+        self, handler: FSRomsHandler
+    ):
+        parsed = handler.parse_tags("Game (USA) [T+Pt-BR1.1_Grp].rom")
+
+        assert parsed.languages == ["Brazilian Portuguese"]
         assert parsed.other_tags == ["Translation"]
 
     def test_parse_tags_reads_a_non_iso_translation_code(self, handler: FSRomsHandler):
@@ -488,6 +538,33 @@ class TestFSRomsHandler:
             result = handler.exclude_multi_roms(roms)
             assert result == roms
 
+    def test_default_exclusions_skip_esde_media_and_appledouble(
+        self, handler: FSRomsHandler
+    ):
+        config = Config(
+            EXCLUDED_PLATFORMS=[],
+            EXCLUDED_SINGLE_EXT=[],
+            EXCLUDED_SINGLE_FILES=[],
+            EXCLUDED_MULTI_FILES=list(DEFAULT_EXCLUDED_MULTI_FILE_DIRS),
+            EXCLUDED_MULTI_PARTS_EXT=[],
+            EXCLUDED_MULTI_PARTS_FILES=list(DEFAULT_EXCLUDED_FILES),
+            PLATFORMS_BINDING={},
+            PLATFORMS_VERSIONS={},
+            STRUCTURE_TEMPLATES={
+                "default": "{platform}/roms/{game}",
+                "firmware": "{platform}/bios",
+            },
+        )
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+
+            assert handler.exclude_multi_roms(
+                ["Game (Disc 1)", "media", "downloaded_media"]
+            ) == ["Game (Disc 1)"]
+            assert handler.is_excluded_multi_part("._track01.bin", config)
+            assert not handler.is_excluded_multi_part("track01.bin", config)
+
     def test_exclude_multi_roms_drops_hidden_folders(
         self, handler: FSRomsHandler, config
     ):
@@ -590,6 +667,27 @@ class TestFSRomsHandler:
             # Clean up
             if test_file.exists():
                 test_file.unlink()
+
+    @pytest.mark.parametrize("folder", ["", "translations"])
+    def test_build_rom_file_files_a_patch_format_as_a_patch(
+        self, rom_multi: Rom, handler: FSRomsHandler, folder: str
+    ):
+        rom_path = Path(rom_multi.full_path, folder)
+        file_name = "Game (T-Es).UPS"
+        os.makedirs(handler.base_path / rom_path, exist_ok=True)
+        test_file = handler.base_path / rom_path / file_name
+        test_file.write_bytes(b"UPS1")
+        file_hash = FileHash(
+            {"crc_hash": "", "md5_hash": "", "sha1_hash": "", "chd_sha1_hash": ""}
+        )
+
+        try:
+            rom_file = handler._build_rom_file(
+                rom_multi, rom_path, file_name, file_hash
+            )
+            assert rom_file.category == RomFileCategory.PATCH
+        finally:
+            test_file.unlink()
 
     @pytest.mark.asyncio
     async def test_get_roms(self, handler: FSRomsHandler, platform, config):
@@ -1336,7 +1434,7 @@ class TestFSRomsHandler:
             ).hexdigest()
 
             # Test the hash calculation method
-            crc_result, _, md5_result, _, sha1_result, _ = (
+            crc_result, _, md5_result, _, sha1_result, _, _ = (
                 handler._calculate_rom_hashes(
                     test_file,
                     0,
@@ -1354,6 +1452,98 @@ class TestFSRomsHandler:
             if test_file.exists():
                 test_file.unlink()
 
+    def test_list_rom_dir_sorts_regardless_of_listing_order(
+        self, handler: FSRomsHandler, config, tmp_path
+    ):
+        rom_dir = tmp_path / "Order Test (World)"
+        (rom_dir / "sub").mkdir(parents=True)
+        for name in ("a.bin", "b.bin", "sub/c.bin"):
+            (rom_dir / name).write_bytes(b"x")
+        listing = [(rom_dir, "b.bin"), (rom_dir / "sub", "c.bin"), (rom_dir, "a.bin")]
+
+        with patch(
+            "handler.filesystem.roms_handler.iter_files", return_value=iter(listing)
+        ):
+            entries = handler._list_rom_dir(rom_dir, config)
+
+        assert [(p, n) for p, n, _ in entries] == [
+            (rom_dir, "a.bin"),
+            (rom_dir, "b.bin"),
+            (rom_dir / "sub", "c.bin"),
+        ]
+
+    def test_plain_gzip_hashes_its_content(self, handler: FSRomsHandler, tmp_path):
+        content = b"Plain gzip ROM content" * 32
+        archive = tmp_path / "game.gb.gz"
+        archive.write_bytes(gzip.compress(content))
+
+        crc_c, _, md5_h, _, sha1_h, _, _ = handler._calculate_rom_hashes(archive)
+
+        assert crc_c == binascii.crc32(content)
+        assert md5_h.hexdigest() == hashlib.md5(content).hexdigest()
+        assert sha1_h.hexdigest() == hashlib.sha1(content).hexdigest()
+
+    @pytest.mark.parametrize("name", ["game.gb", "game.zip", "game.chd"])
+    def test_detects_the_mime_type_once(
+        self, handler: FSRomsHandler, tmp_path, name: str
+    ):
+        rom = tmp_path / name
+        rom.write_bytes(b"not really a " + name.encode())
+
+        with (
+            patch(
+                "handler.filesystem.roms_handler.detect_mime_type", return_value=""
+            ) as detect,
+            patch("utils.archives.detect_mime_type") as inner_detect,
+        ):
+            handler._calculate_rom_hashes(rom)
+
+        detect.assert_called_once_with(rom)
+        inner_detect.assert_not_called()
+
+    def test_reads_the_embedded_chd_hash(self, handler: FSRomsHandler, tmp_path):
+        rom = tmp_path / "game.chd"
+        rom.write_bytes(b"not a real chd")
+
+        with patch(
+            "handler.filesystem.roms_handler.extract_chd_hash", return_value="ab" * 20
+        ):
+            *_, chd_sha1_hash = handler._calculate_rom_hashes(rom)
+
+        assert chd_sha1_hash == "ab" * 20
+
+    def test_archive_readers_cover_every_multi_member_suffix(self):
+        assert set(ARCHIVE_READERS) == {
+            ".zip",
+            ".tar",
+            ".tar.gz",
+            ".tgz",
+            ".tar.bz2",
+            ".tbz2",
+            ".tar.xz",
+            ".txz",
+            ".7z",
+            ".rar",
+        }
+
+    def test_empty_zip_hashes_the_raw_archive(self, handler: FSRomsHandler, tmp_path):
+        reload_zipfile()
+        archive = tmp_path / "empty.zip"
+        with zipfile.ZipFile(archive, "w"):
+            pass
+        archive_bytes = archive.read_bytes()
+
+        rom_sha1_h = hashlib.sha1(b"earlier file", usedforsecurity=False)
+        _, _, _, _, sha1_h, rom_sha1_h, _ = handler._calculate_rom_hashes(
+            archive, 0, hashlib.md5(usedforsecurity=False), rom_sha1_h
+        )
+
+        assert sha1_h.hexdigest() == hashlib.sha1(archive_bytes).hexdigest()
+        assert (
+            rom_sha1_h.hexdigest()
+            == hashlib.sha1(b"earlier file" + archive_bytes).hexdigest()
+        )
+
     def test_failed_7z_extraction_hashes_only_the_raw_archive(
         self, handler: FSRomsHandler, tmp_path
     ):
@@ -1363,19 +1553,19 @@ class TestFSRomsHandler:
         archive = tmp_path / "game.7z"
         archive.write_bytes(archive_bytes)
 
-        def _partial_then_fail(_path, fn_hash_update):
-            fn_hash_update(b"partial inner member bytes")
-            return False
+        def _partial_then_fail(path):
+            def _chunks():
+                yield b"partial inner member bytes"
+                raise ArchiveReadError(f"Extraction of {path} failed")
+
+            yield _chunks()
 
         rom_md5_h = hashlib.md5(b"earlier file", usedforsecurity=False)
         rom_sha1_h = hashlib.sha1(b"earlier file", usedforsecurity=False)
         rom_crc_c = binascii.crc32(b"earlier file")
 
-        with patch(
-            "handler.filesystem.roms_handler.hash_largest_7z_member",
-            side_effect=_partial_then_fail,
-        ):
-            crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
+        with patch.dict(LARGEST_MEMBER_READERS, {"7z": _partial_then_fail}):
+            crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h, _ = (
                 handler._calculate_rom_hashes(archive, rom_crc_c, rom_md5_h, rom_sha1_h)
             )
 
@@ -2179,6 +2369,26 @@ class TestSigilTitleIdExtraction:
 
         # Only the ROM file itself is worth a native parse.
         assert mock_extract.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_sidecar_files_are_not_read(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_multi_part_rom(
+            tmp_path,
+            PS2_PLATFORM,
+            "Game",
+            ["Game.cue", "Game.bin", "Game.SBI", "readme.txt", "Game.nfo"],
+        )
+
+        mock_extract = AsyncMock(return_value=None)
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            await handler.get_rom_files(rom)
+
+        read = [Path(call.args[1]).name for call in mock_extract.await_args_list]
+        assert read == ["Game.bin"]
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -3335,7 +3545,8 @@ class TestIncrementalRomFiles:
 
         new = next(f for f in parsed.rom_files if f.file_name == "new.ips")
         assert new.file_path == f"{self.ROM_DIR}/hack/v2"
-        assert new.category == RomFileCategory.HACK
+        # A patch format is a patch whatever folder it sits in.
+        assert new.category == RomFileCategory.PATCH
         assert (
             new.md5_hash == hashlib.md5(b"new patch", usedforsecurity=False).hexdigest()
         )
@@ -3584,3 +3795,52 @@ class TestIncrementalRomFiles:
 
     def test_upload_temp_files_are_excluded_by_default(self):
         assert "assembling" in DEFAULT_EXCLUDED_EXTENSIONS
+
+
+@pytest.mark.parametrize(
+    ("file_path", "file_name", "moved_path", "moved_name"),
+    [
+        # A single-file rom is the file itself.
+        ("n64/roms", "Game.z64", "n64/roms", "Renamed.z64"),
+        # A folder's files keep their names, even one named after the folder.
+        (
+            "n64/roms/Game.z64",
+            "Game.z64 (Disc 1).bin",
+            "n64/roms/Renamed.z64",
+            "Game.z64 (Disc 1).bin",
+        ),
+        (
+            "n64/roms/Game.z64/extras",
+            "Game.z64.txt",
+            "n64/roms/Renamed.z64/extras",
+            "Game.z64.txt",
+        ),
+    ],
+)
+def test_moved_file_location_follows_the_rename_on_disk(
+    file_path: str, file_name: str, moved_path: str, moved_name: str
+):
+    file = RomFile(file_path=file_path, file_name=file_name)
+    assert FSRomsHandler.moved_file_location(
+        file, "n64/roms", "Game.z64", "Renamed.z64"
+    ) == {
+        "file_name": moved_name,
+        "file_path": moved_path,
+    }
+
+
+def test_moved_file_location_skips_a_sibling_sharing_the_prefix():
+    file = RomFile(file_path="n64/roms/Game.z64 Deluxe", file_name="a.bin")
+    assert (
+        FSRomsHandler.moved_file_location(file, "n64/roms", "Game.z64", "Renamed.z64")
+        is None
+    )
+
+
+def test_moved_file_location_leaves_the_platform_path_alone():
+    """A rom named like its platform folder must not rewrite that folder."""
+    file = RomFile(file_path="n64/roms", file_name="n64")
+    assert FSRomsHandler.moved_file_location(file, "n64/roms", "n64", "N64 Game") == {
+        "file_name": "N64 Game",
+        "file_path": "n64/roms",
+    }

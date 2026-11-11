@@ -25,7 +25,7 @@ function mountViewer(
 ) {
   return mount(SnapshotViewer, {
     props: { target, saveOverTargets, playableCores },
-    global: { stubs: { RDrawer, RMenu, RImg: true, RTooltip: true } },
+    global: { stubs: { RDrawer, RMenu, RImage: true, RTooltip: true } },
   });
 }
 

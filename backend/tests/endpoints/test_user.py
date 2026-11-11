@@ -1,12 +1,15 @@
 import base64
 from datetime import timedelta
 
+import pytest
 from fastapi import status
 
+from endpoints import user as user_endpoints
 from exceptions.database_exceptions import LastAdminError
 from handler.auth.base_handler import auth_handler, oauth_handler
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.database import db_permission_handler, db_user_handler
+from handler.metadata import meta_ra_handler
 from models.permission import PermAction, PermEntity
 from models.user import Role, User
 
@@ -92,6 +95,19 @@ def test_admin_can_demote_another_admin(client, access_token: str, admin_user: U
     assert response.json()["role"] == Role.USER
 
 
+def test_a_role_only_edit_keeps_the_account_enabled(
+    client, access_token: str, viewer_user: User
+):
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"role": "admin"},
+        headers=_bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["enabled"] is True
+
+
 def test_rename_is_lowercased(client, access_token: str, viewer_user: User):
     response = client.put(
         f"/api/users/{viewer_user.id}",
@@ -156,6 +172,95 @@ def test_update_with_an_empty_email_clears_it(
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["email"] is None
+
+
+def test_an_empty_ra_username_unlinks_the_profile(
+    client, access_token: str, viewer_user: User
+):
+    db_user_handler.update_user(
+        viewer_user.id,
+        {"ra_username": "retro_viewer", "ra_progression": {"total": 3}},
+    )
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"ra_username": ""},
+        headers=_bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["ra_username"] is None
+    unlinked = db_user_handler.get_user(viewer_user.id)
+    assert unlinked and unlinked.ra_progression == {}
+
+
+@pytest.mark.parametrize(
+    ("submitted", "kept"), [("other_profile", False), ("retro_viewer", True)]
+)
+def test_only_a_new_ra_username_drops_the_synced_progression(
+    client, access_token: str, viewer_user: User, submitted: str, kept: bool
+):
+    stored = {"total": 0, "results": []}
+    db_user_handler.update_user(
+        viewer_user.id, {"ra_username": "retro_viewer", "ra_progression": stored}
+    )
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"ra_username": submitted},
+        headers=_bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    updated = db_user_handler.get_user(viewer_user.id)
+    assert updated and updated.ra_progression == (stored if kept else {})
+
+
+@pytest.mark.parametrize("incremental", [False, True])
+def test_a_refresh_queues_the_sync_in_the_background(
+    client, access_token: str, viewer_user: User, mocker, incremental: bool
+):
+    db_user_handler.update_user(viewer_user.id, {"ra_username": "retro_viewer"})
+    queue = mocker.patch.object(user_endpoints, "queue_ra_progress_sync")
+    fetch = mocker.patch.object(meta_ra_handler, "get_user_progression")
+
+    response = client.post(
+        f"/api/users/{viewer_user.id}/ra/refresh",
+        json={"incremental": incremental},
+        headers=_bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_202_ACCEPTED
+    queue.assert_called_once_with(viewer_user.id, refresh_all=not incremental)
+    fetch.assert_not_called()
+
+
+def test_a_refresh_that_cannot_be_queued_is_unavailable(
+    client, access_token: str, viewer_user: User, mocker
+):
+    db_user_handler.update_user(viewer_user.id, {"ra_username": "retro_viewer"})
+    mocker.patch.object(user_endpoints, "queue_ra_progress_sync", return_value=False)
+
+    response = client.post(
+        f"/api/users/{viewer_user.id}/ra/refresh", headers=_bearer(access_token)
+    )
+
+    assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+
+def test_an_omitted_ra_username_keeps_the_link(
+    client, access_token: str, viewer_user: User
+):
+    db_user_handler.update_user(viewer_user.id, {"ra_username": "retro_viewer"})
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"ui_settings": "{}"},
+        headers=_bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["ra_username"] == "retro_viewer"
 
 
 def test_update_to_a_short_password_is_rejected(

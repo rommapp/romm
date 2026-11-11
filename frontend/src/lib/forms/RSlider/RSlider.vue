@@ -14,6 +14,7 @@
 // `@end` fires on pointer release / blur: handy for commit-on-end
 // patterns where every intermediate `update:modelValue` is just preview.
 import { computed, ref } from "vue";
+import { TONE_MAP } from "@/lib/style/tokenMaps";
 
 defineOptions({ inheritAttrs: false });
 
@@ -62,20 +63,6 @@ const emit = defineEmits<{
   (e: "end", value: number): void;
 }>();
 
-const TONE_MAP: Record<string, string> = {
-  primary: "var(--r-color-brand-primary)",
-  secondary: "var(--r-color-brand-secondary)",
-  accent: "var(--r-color-brand-accent)",
-  success: "var(--r-color-success)",
-  warning: "var(--r-color-warning)",
-  danger: "var(--r-color-danger)",
-  error: "var(--r-color-danger)",
-  info: "var(--r-color-info)",
-  "romm-red": "var(--r-color-romm-red)",
-  "romm-green": "var(--r-color-romm-green)",
-  "romm-blue": "var(--r-color-romm-blue)",
-  "romm-gold": "var(--r-color-romm-gold)",
-};
 const accent = computed(() => {
   // 1. Keyword shorthands (`primary`, `success`, …) → mapped token.
   if (TONE_MAP[props.color]) return TONE_MAP[props.color];

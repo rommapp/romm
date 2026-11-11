@@ -9,7 +9,11 @@ from fastapi import status
 from sqlalchemy import select
 from tests.factories import make_save, make_screenshot, make_state
 
-from handler.database import db_screenshot_handler, db_state_handler
+from handler.database import (
+    db_device_handler,
+    db_screenshot_handler,
+    db_state_handler,
+)
 from handler.database.base_handler import sync_session
 from models.assets import (
     ASSET_LABEL_MAX_LENGTH,
@@ -19,6 +23,7 @@ from models.assets import (
     Screenshot,
     State,
 )
+from models.device import Device
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom
@@ -292,7 +297,7 @@ def test_reupload_updates_file_path_and_emulator(
 
     assert response.status_code == status.HTTP_200_OK
 
-    updated = db_state_handler.get_state(user_id=admin_user.id, id=existing.id)
+    updated = db_state_handler.get_state_by_id(existing.id)
     assert updated is not None
     assert updated.file_path == new_path
     assert updated.emulator == "new_emu"
@@ -460,7 +465,7 @@ def test_delete_state_removes_file_and_screenshot(
     )
 
     assert response.status_code == status.HTTP_200_OK
-    assert db_state_handler.get_state(user_id=admin_user.id, id=state.id) is None
+    assert db_state_handler.get_state_by_id(state.id) is None
     assert (
         db_screenshot_handler.get_screenshot(
             rom_id=rom.id,
@@ -1195,6 +1200,93 @@ def test_update_state_records_the_new_bytes_hash(
     )
 
     assert response.status_code == status.HTTP_200_OK
-    updated = db_state_handler.get_state(user_id=admin_user.id, id=state.id)
+    updated = db_state_handler.get_state_by_id(state.id)
     assert updated is not None
     assert updated.content_hash == "a" * 32
+
+
+class TestStateOriginDevice:
+    @pytest.fixture
+    def device(self, admin_user: User) -> Device:
+        return db_device_handler.add_device(
+            Device(id="state-origin-device", user_id=admin_user.id, name="Browser")
+        )
+
+    @mock.patch(
+        "handler.asset_store.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("handler.asset_store.scan_state", new_callable=mock.AsyncMock)
+    def test_upload_records_the_device(
+        self,
+        mock_scan,
+        _mock_write,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        device: Device,
+    ):
+        mock_scan.return_value = State(
+            file_name="game.state",
+            file_name_no_tags="game",
+            file_name_no_ext="game",
+            file_extension="state",
+            file_path=f"{platform.slug}/states",
+            file_size_bytes=6,
+        )
+
+        response = client.post(
+            f"/api/states?rom_id={rom.id}&device_id={device.id}",
+            files={"stateFile": ("game.state", b"STATE!", "application/octet-stream")},
+            headers=_auth(access_token),
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["origin_device_id"] == device.id
+
+    def test_upload_naming_another_users_device_is_refused(
+        self, client, access_token: str, rom: Rom, editor_user: User
+    ):
+        other = db_device_handler.add_device(
+            Device(id="someone-elses", user_id=editor_user.id, name="Theirs")
+        )
+
+        response = client.post(
+            f"/api/states?rom_id={rom.id}&device_id={other.id}",
+            files={"stateFile": ("game.state", b"STATE!", "application/octet-stream")},
+            headers=_auth(access_token),
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    @pytest.mark.parametrize("names_device", [True, False])
+    @mock.patch(
+        "endpoints.states.fs_asset_handler.compute_content_hash",
+        new_callable=mock.AsyncMock,
+        return_value="a" * 32,
+    )
+    @mock.patch(
+        "endpoints.states.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    def test_new_content_takes_the_writers_device(
+        self,
+        _mock_write,
+        _mock_hash,
+        client,
+        access_token: str,
+        state: State,
+        device: Device,
+        names_device: bool,
+    ):
+        db_state_handler.update_state(state.id, {"origin_device_id": device.id})
+        query = f"?device_id={device.id}" if names_device else ""
+
+        response = client.put(
+            f"/api/states/{state.id}{query}",
+            files={"stateFile": (state.file_name, b"NEW", "application/octet-stream")},
+            headers=_auth(access_token),
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        expected = device.id if names_device else None
+        assert response.json()["origin_device_id"] == expected

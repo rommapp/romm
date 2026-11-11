@@ -211,6 +211,20 @@ class TestIncrementOperationsCompleted:
         assert result is not None
         assert result.operations_completed == 3
 
+    def test_skips_another_devices_session(self, admin_user: User):
+        device = db_device_handler.add_device(
+            Device(id="inc-dev-2", user_id=admin_user.id)
+        )
+        session = db_sync_session_handler.create_session(device.id, admin_user.id)
+
+        db_sync_session_handler.increment_operations_completed(
+            session.id, admin_user.id, device_id="someone-else"
+        )
+
+        result = db_sync_session_handler.get_session(session.id, admin_user.id)
+        assert result is not None
+        assert result.operations_completed == 0
+
     def test_noop_on_nonexistent_session(self, admin_user: User):
         db_sync_session_handler.increment_operations_completed(999999, admin_user.id)
 

@@ -16,7 +16,6 @@ from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.auth.permissions import ResolvedPermissions
 from handler.database import (
-    db_platform_handler,
     db_screenshot_handler,
     db_snapshot_handler,
     db_state_handler,
@@ -128,10 +127,14 @@ def _rom_visibility(request: Request) -> Callable[[Rom], bool]:
     return lambda rom: get_permissions(request).can_see_rom(rom)
 
 
-async def _resolve_rom(request: Request, kind: AssetKind, file_name: str) -> Rom | None:
-    game_name = sync_handler.game_name_from_file_name(kind, file_name)
+async def _resolve_rom(request: Request, parsed: RetroArchSyncPath) -> Rom | None:
+    game_name = sync_handler.game_name_from_file_name(parsed.kind, parsed.file_name)
     return await asyncio.to_thread(
-        sync_handler.resolve_rom, game_name, _rom_visibility(request)
+        sync_handler.resolve_rom,
+        game_name,
+        _rom_visibility(request),
+        emulator=parsed.emulator,
+        by_file_name=True,
     )
 
 
@@ -327,12 +330,8 @@ def _rom_file_propfind_entry(slug: str, file: browser.RomFile) -> browser.Propfi
 def _platform_listing(
     slug: str, depth: int, permissions: ResolvedPermissions
 ) -> list[browser.PropfindEntry] | None:
-    platform = db_platform_handler.get_platform_by_fs_slug(slug)
-    if (
-        not platform
-        or platform.rom_count == 0
-        or not permissions.can_see_platform(platform.id)
-    ):
+    platform = browser.find_platform(slug, permissions)
+    if not platform:
         return None
 
     self_entry = _collection_entry(f"roms/{slug}", platform.name)
@@ -452,7 +451,7 @@ async def retroarch_sync_get(request: Request, file_path: str) -> Response:
     if not parsed:
         return _empty(status.HTTP_404_NOT_FOUND)
 
-    rom = await _resolve_rom(request, parsed.kind, parsed.file_name)
+    rom = await _resolve_rom(request, parsed)
     if not rom:
         return _empty(status.HTTP_404_NOT_FOUND)
 
@@ -536,7 +535,7 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
     except ValueError:
         return _empty(status.HTTP_409_CONFLICT)
 
-    rom = await _resolve_rom(request, parsed.kind, file_name)
+    rom = await _resolve_rom(request, parsed)
     if not rom:
         log.warning(f"Cloud sync upload {hl(file_path)} matches no ROM in the library")
         return _empty(status.HTTP_409_CONFLICT)
@@ -746,7 +745,7 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
     if not parsed:
         return _empty(status.HTTP_404_NOT_FOUND)
 
-    rom = await _resolve_rom(request, parsed.kind, parsed.file_name)
+    rom = await _resolve_rom(request, parsed)
     if not rom:
         return _empty(status.HTTP_404_NOT_FOUND)
 

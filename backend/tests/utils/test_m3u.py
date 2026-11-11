@@ -2,11 +2,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from models.rom import RomFileCategory
 from utils.m3u import (
+    disc_files,
     disc_number,
     first_playlist_entry,
     generate_m3u_content,
     listing_playlist,
+    needs_generated_playlist,
     playlist_discs,
     playlist_files,
 )
@@ -217,12 +220,58 @@ class TestPlaylistDiscs:
         assert playlist_discs(tmp_path / "missing.m3u") == []
 
 
-def _make_file(name: str, extension: str, download_name: str | None = None):
+def _make_file(
+    name: str,
+    extension: str,
+    download_name: str | None = None,
+    category: RomFileCategory | None = None,
+):
     f = MagicMock()
     f.file_extension = extension
     f.file_name = name
+    f.category = category
     f.file_name_for_download.return_value = download_name or name
     return f
+
+
+class TestBaseGamePlaylist:
+    disc1 = _make_file("Game (Disc 1).chd", "chd")
+    disc2 = _make_file("Game (Disc 2).chd", "chd")
+    playlist = _make_file("Game.m3u", "m3u")
+    t_disc1 = _make_file(
+        "Game (Disc 1) (T-Es).chd", "chd", category=RomFileCategory.TRANSLATION
+    )
+    t_playlist = _make_file(
+        "Game (T-Es).m3u", "m3u", category=RomFileCategory.TRANSLATION
+    )
+    patch = _make_file("Game (T-Es).ups", "ups", category=RomFileCategory.TRANSLATION)
+    manual = _make_file("Manual.pdf", "pdf", category=RomFileCategory.MANUAL)
+
+    def test_playlist_lists_the_base_discs_only(self):
+        files = [self.t_disc1, self.patch, self.manual, self.disc1, self.disc2]
+        assert playlist_files(files) == [self.disc1, self.disc2]
+
+    def test_a_variant_disc_still_boots_on_its_own(self):
+        files = [self.t_disc1, self.patch, self.manual, self.disc1]
+        assert set(disc_files(files)) == {self.disc1, self.t_disc1}
+
+    def test_a_variant_set_alone_gets_its_own_playlist(self):
+        assert playlist_files([self.t_disc1, self.patch]) == [self.t_disc1]
+
+    def test_a_variant_playlist_does_not_cover_the_base_discs(self):
+        files = [self.disc1, self.disc2, self.t_disc1, self.t_playlist]
+        assert needs_generated_playlist(files)
+
+    def test_the_base_playlist_is_not_doubled(self):
+        assert not needs_generated_playlist([self.disc1, self.disc2, self.playlist])
+
+    def test_media_alone_gets_no_playlist(self):
+        guide = _make_file("Guide.pdf", "pdf", category=RomFileCategory.MANUAL)
+        assert not needs_generated_playlist([self.manual, guide])
+
+    def test_a_patch_at_the_root_is_never_a_disc(self):
+        root_patch = _make_file("Game.ips", "ips")
+        assert playlist_files([root_patch, self.disc1]) == [self.disc1]
 
 
 class TestGenerateM3uContent:

@@ -146,10 +146,10 @@ const syntheticRom = computed<SimpleRom>(() => ({
   is_unidentified: false,
   is_identified: false,
   revision: null,
+  version: null,
   regions: [],
   languages: [],
   tags: [],
-  release_types: [],
   crc_hash: null,
   md5_hash: null,
   sha1_hash: null,
@@ -236,8 +236,8 @@ function onClick(e: MouseEvent) {
   font-weight: var(--r-font-weight-bold);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  background: var(--r-color-brand-primary);
-  color: var(--r-color-overlay-fg);
+  background: var(--r-color-brand-primary-solid);
+  color: var(--r-color-brand-on-primary);
   backdrop-filter: blur(4px);
   box-shadow: 0 1px 4px color-mix(in srgb, black 45%, transparent);
 }

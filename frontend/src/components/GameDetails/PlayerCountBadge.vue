@@ -15,6 +15,7 @@
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { RIcon } from "@/lib";
+import { searchLocation } from "@/utils/searchLocation";
 
 defineOptions({ inheritAttrs: false });
 
@@ -46,15 +47,17 @@ const label = computed(() => {
 </script>
 
 <template>
-  <div class="player-count">
+  <!-- The player count filter is an exact match, so pass the stored string as-is. -->
+  <router-link class="player-count" :to="searchLocation('playerCounts', value)">
     <RIcon :icon="icon" size="16" class="player-count__icon" />
     <span class="player-count__label">{{ label }}</span>
-  </div>
+  </router-link>
 </template>
 
 <style scoped>
 .player-count {
   display: inline-flex;
+  text-decoration: none;
   align-items: center;
   gap: 8px;
   padding: 5px 12px 5px 10px;
@@ -63,6 +66,15 @@ const label = computed(() => {
   border-radius: var(--r-radius-pill);
   font-size: 12px;
   color: var(--r-color-fg-secondary);
+  transition:
+    color var(--r-motion-fast) var(--r-motion-ease-out),
+    border-color var(--r-motion-fast) var(--r-motion-ease-out),
+    background var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.player-count:hover {
+  color: var(--r-color-fg);
+  border-color: var(--r-color-brand-primary);
+  background: var(--r-color-surface-hover);
 }
 .player-count__icon {
   color: var(--r-color-brand-primary);

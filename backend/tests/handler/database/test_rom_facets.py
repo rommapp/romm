@@ -11,6 +11,7 @@ from sqlalchemy import String, select
 from sqlalchemy.engine import CursorResult, ExecutionContext
 from tests.factories import make_rom
 
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import db_rom_handler, roms_handler
 from handler.database.base_handler import sync_session
 from models.platform import Platform
@@ -42,13 +43,6 @@ class TestRomFacets:
         facets = _facets(rom.id)
         assert facets is not None
         assert facets.min_age == 15
-
-    def test_release_types_mirror_the_rom(self, rom: Rom):
-        db_rom_handler.update_rom(rom.id, {"tags": ["Translation"]})
-
-        facets = _facets(rom.id)
-        assert facets is not None
-        assert facets.release_types == ["translation"]
 
     def test_update_mirrors_derived_and_raw_values(self, rom: Rom):
         db_rom_handler.update_rom(
@@ -122,7 +116,7 @@ class TestRomFacets:
         assert facets.publishers == ["Atari"]
         assert facets.developers == ["Artech Studios"]
 
-        filters = db_rom_handler.get_rom_filters()
+        filters = db_rom_handler.get_rom_filters(UNRESTRICTED)
         assert "Atari" in filters["publishers"]
         assert "Artech Studios" in filters["developers"]
 
@@ -161,7 +155,7 @@ class TestRomFacets:
             rom.id, {"igdb_metadata": {"genres": ["Puzzle"]}, "languages": ["En"]}
         )
 
-        filters = db_rom_handler.get_rom_filters()
+        filters = db_rom_handler.get_rom_filters(UNRESTRICTED)
         assert "Puzzle" in filters["genres"]
         assert "En" in filters["languages"]
 
@@ -182,7 +176,7 @@ class TestRomFacets:
         )
         make_rom(platform, "test_rom_5", slug="test_rom_slug_5")
 
-        filters = db_rom_handler.get_rom_filters()
+        filters = db_rom_handler.get_rom_filters(UNRESTRICTED)
         assert filters["genres"] == ["Action", "Puzzle", "RPG"]
         assert filters["platforms"] == [platform.id]
 
@@ -194,7 +188,7 @@ class TestRomFacets:
             second_rom.id, {"igdb_metadata": {"genres": ["Action"]}}
         )
 
-        assert "Action" in db_rom_handler.get_rom_filters()["genres"]
+        assert "Action" in db_rom_handler.get_rom_filters(UNRESTRICTED)["genres"]
 
     def test_filter_values_free_the_cursor_without_the_gc(self, rom: Rom):
         # A cursor left for the cyclic GC is finalized on whichever thread
@@ -206,7 +200,7 @@ class TestRomFacets:
         gc.set_debug(gc.DEBUG_SAVEALL)
         garbage_start = len(gc.garbage)
         try:
-            db_rom_handler.get_rom_filters()
+            db_rom_handler.get_rom_filters(UNRESTRICTED)
             gc.collect()
             # The execution context owns the DBAPI cursor, so check it as well.
             leaked = [

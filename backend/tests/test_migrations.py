@@ -5,7 +5,6 @@ not the other goes unnoticed until autogenerate proposes dropping it.
 """
 
 import importlib.util
-import json
 import re
 from pathlib import Path
 from types import ModuleType
@@ -22,6 +21,7 @@ from sqlalchemy.sql.schema import NULL_UNSPECIFIED
 from tests.factories import make_platform, make_rom, make_save
 
 import models
+from config.config_manager import config_manager as cm
 from handler.database import db_collection_handler, db_rom_handler
 from handler.database.base_handler import sync_engine
 from models.base import BaseModel
@@ -229,11 +229,6 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         _load_migration(filename).upgrade()
 
 
-# The latest revision to rebuild the roms_facets triggers. Replaying an earlier
-# one narrows them to its own column list, so a test that does replays this one.
-FACET_TRIGGERS_REVISION = "0155_rom_release_types.py"
-
-
 # None of these is touched by a later revision, so replaying one over the
 # migrated schema has to leave that schema exactly as it found it.
 @pytest.mark.parametrize(
@@ -264,17 +259,16 @@ FACET_TRIGGERS_REVISION = "0155_rom_release_types.py"
         ("0148_rom_age_limits.py", "permission_groups"),
         ("0148_rom_age_limits.py", "users"),
         ("0151_state_content_hash.py", "states"),
-        ("0155_rom_release_types.py", "roms"),
-        ("0155_rom_release_types.py", "roms_facets"),
-        ("0156_save_channels.py", "channels"),
-        ("0156_save_channels.py", "snapshots"),
-        ("0156_save_channels.py", "snapshot_states"),
-        ("0156_save_channels.py", "snapshot_pins"),
-        ("0156_save_channels.py", "device_channel_sync"),
-        ("0156_save_channels.py", "saves"),
-        ("0156_save_channels.py", "states"),
-        ("0156_save_channels.py", "screenshots"),
-        ("0158_rom_file_sigil_identity.py", "rom_files"),
+        ("0157_rom_custom_sort_key_flag.py", "roms"),
+        ("0161_save_channels.py", "channels"),
+        ("0161_save_channels.py", "snapshots"),
+        ("0161_save_channels.py", "snapshot_states"),
+        ("0161_save_channels.py", "snapshot_pins"),
+        ("0161_save_channels.py", "device_channel_sync"),
+        ("0161_save_channels.py", "saves"),
+        ("0161_save_channels.py", "states"),
+        ("0161_save_channels.py", "screenshots"),
+        ("0163_rom_file_sigil_identity.py", "rom_files"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -285,7 +279,48 @@ def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
         _replay(connection, filename)
 
         assert _schema_of(connection, table) == before
-        _replay(connection, FACET_TRIGGERS_REVISION)
+
+
+def test_the_rom_file_category_revision_adds_game_to_an_enum_made_without_it():
+    """0062 upgrades a romfilecategory enum that has no GAME value."""
+    migration = _load_migration("0062_rom_file_category_enum.py")
+
+    with sync_engine.connect() as connection:
+        if not is_postgresql(connection):
+            pytest.skip("only PostgreSQL keeps the enum as a type of its own")
+
+        # A schema of its own, so the shared enum and table stay as migrated.
+        connection.execute(sa.text("CREATE SCHEMA pre_game_category"))
+        connection.execute(sa.text("SET search_path TO pre_game_category"))
+        connection.execute(
+            sa.text(
+                "CREATE TYPE romfilecategory AS ENUM ('DLC', 'HACK', 'MANUAL',"
+                " 'PATCH', 'UPDATE', 'MOD', 'DEMO', 'TRANSLATION', 'PROTOTYPE')"
+            )
+        )
+        connection.execute(sa.text("CREATE TABLE rom_files (category romfilecategory)"))
+        connection.execute(sa.text("INSERT INTO rom_files VALUES ('DLC')"))
+        connection.commit()
+        try:
+            context = MigrationContext.configure(connection)
+            with Operations.context(context), context.begin_transaction():
+                migration.upgrade()
+
+            labels: str = connection.execute(
+                sa.text("SELECT enum_range(NULL::romfilecategory)::text")
+            ).scalar_one()
+            category: str = connection.execute(
+                sa.text("SELECT category::text FROM rom_files")
+            ).scalar_one()
+        finally:
+            connection.rollback()
+            connection.execute(sa.text("RESET search_path"))
+            connection.execute(sa.text("DROP SCHEMA pre_game_category CASCADE"))
+            connection.commit()
+
+    # GAME lands ahead of DLC, where a fresh install has it.
+    assert labels.startswith("{GAME,DLC,")
+    assert category == "DLC"
 
 
 def test_the_play_session_sync_link_revision_reverses_and_replays():
@@ -513,7 +548,7 @@ def test_the_rom_file_title_ids_revision_reverses_and_replays():
 
 
 def test_the_save_channels_revision_reverses_and_replays():
-    migration = _load_migration("0156_save_channels.py")
+    migration = _load_migration("0161_save_channels.py")
     tables = ("saves", "states", "screenshots")
     created = (
         "channels",
@@ -545,7 +580,7 @@ def test_the_save_channels_revision_reverses_and_replays():
 def test_the_slot_link_revision_files_slotted_saves_under_channels(
     rom: Rom, admin_user: User
 ):
-    migration = _load_migration("0157_link_slots_to_channels.py")
+    migration = _load_migration("0162_link_slots_to_channels.py")
     db_rom_handler.add_rom_file(
         RomFile(rom_id=rom.id, file_name="game.sfc", file_path="p", file_size_bytes=8)
     )
@@ -589,7 +624,7 @@ def test_the_slot_link_revision_files_slotted_saves_under_channels(
 
 
 def test_the_rom_file_sigil_identity_revision_reverses_and_replays():
-    migration = _load_migration("0158_rom_file_sigil_identity.py")
+    migration = _load_migration("0163_rom_file_sigil_identity.py")
 
     with sync_engine.begin() as connection:
         before = _schema_of(connection, "rom_files")
@@ -615,6 +650,7 @@ def test_the_rom_file_sigil_identity_revision_reverses_and_replays():
 def test_the_age_limits_revision_reverses_replays_and_fills(platform: Platform):
     """0148 rates existing ROMs and keeps mirroring the rating into roms_facets."""
     migration = _load_migration("0148_rom_age_limits.py")
+    min_age_index = _load_migration("0156_roms_platform_min_age_index.py")
     rated = make_rom(
         platform,
         "Rated",
@@ -635,6 +671,7 @@ def test_the_age_limits_revision_reverses_replays_and_fills(platform: Platform):
     with sync_engine.begin() as connection:
         before = {table: _schema_of(connection, table) for table in tables}
         with Operations.context(MigrationContext.configure(connection)):
+            min_age_index.downgrade()
             migration.downgrade()
             assert not has_column(connection, "roms", "min_age")
             assert not has_column(connection, "users", "age_limit")
@@ -642,7 +679,7 @@ def test_the_age_limits_revision_reverses_replays_and_fills(platform: Platform):
 
             migration.upgrade()
             migration.upgrade()
-            _load_migration(FACET_TRIGGERS_REVISION).upgrade()
+            min_age_index.upgrade()
 
         assert ages(connection, "roms", "id") == {rated.id: 16, unrated.id: None}
         assert ages(connection, "roms_facets", "rom_id") == {
@@ -658,59 +695,6 @@ def test_the_age_limits_revision_reverses_replays_and_fills(platform: Platform):
     )
     with sync_engine.connect() as connection:
         assert ages(connection, "roms_facets", "rom_id")[unrated.id] == 7
-
-
-def test_the_release_types_revision_reverses_replays_and_fills(platform: Platform):
-    """0155 types existing ROMs from their tags and mirrors them into roms_facets."""
-    migration = _load_migration(FACET_TRIGGERS_REVISION)
-    hack = make_rom(platform, "Hack", tags=["Hack"], regions=["Unlicensed"])
-    retail = make_rom(platform, "Retail", tags=["Rev 1"])
-    # A manual list outlives the downgrade, and the replay has to keep honoring it.
-    overridden = make_rom(
-        platform,
-        "Overridden",
-        tags=["Hack"],
-        manual_metadata={"release_types": ["randomizer"]},
-    )
-
-    def types(connection: sa.Connection, table: str, key: str) -> dict[int, Any]:
-        rows = connection.execute(
-            sa.text(
-                f"SELECT {key}, release_types FROM {table} WHERE {key} IN (:a, :b, :c)"
-            ),  # nosec B608
-            {"a": hack.id, "b": retail.id, "c": overridden.id},
-        )
-        # PostgreSQL's driver decodes JSON itself; MariaDB's hands back text.
-        return {
-            rom_id: value if isinstance(value, list) else json.loads(value)
-            for rom_id, value in rows
-        }
-
-    tables = ("roms", "roms_facets")
-    with sync_engine.begin() as connection:
-        before = {table: _schema_of(connection, table) for table in tables}
-        with Operations.context(MigrationContext.configure(connection)):
-            migration.downgrade()
-            assert not has_column(connection, "roms", "release_types")
-            assert not has_column(connection, "roms_facets", "release_types")
-            migration.downgrade()
-
-            migration.upgrade()
-            migration.upgrade()
-
-        expected = {
-            hack.id: ["hack", "unlicensed"],
-            retail.id: [],
-            overridden.id: ["randomizer"],
-        }
-        assert types(connection, "roms", "id") == expected
-        assert types(connection, "roms_facets", "rom_id") == expected
-        assert {table: _schema_of(connection, table) for table in tables} == before
-
-    # The rebuilt triggers still mirror a later write.
-    db_rom_handler.update_rom(retail.id, {"tags": ["Proto"]})
-    with sync_engine.connect() as connection:
-        assert types(connection, "roms_facets", "rom_id")[retail.id] == ["prototype"]
 
 
 def _slot_collations(connection: sa.Connection) -> dict[str, str | None]:
@@ -1295,6 +1279,43 @@ def test_the_sibling_platform_names_revision_renames_only_the_stale_name():
     }
 
 
+def test_the_retired_arcade_slugs_revision_moves_boards_to_arcade_and_back():
+    migration = _load_migration("0155_retired_arcade_slugs.py")
+    for slug, fs_slug in (
+        ("cps2", "cps2"),
+        ("CPS3", "CPS3"),
+        ("system16", "sega16"),
+        ("arcade", "arcade"),
+        ("snes", "snes"),
+    ):
+        make_platform(slug, fs_slug=fs_slug)
+
+    def slugs(connection: sa.Connection) -> set[tuple[str, str]]:
+        return set(connection.execute(sa.text("SELECT fs_slug, slug FROM platforms")))
+
+    with sync_engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+            upgraded = slugs(connection)
+            migration.downgrade()
+            downgraded = slugs(connection)
+
+    assert upgraded == {
+        ("cps2", "arcade"),
+        ("CPS3", "arcade"),
+        ("sega16", "arcade"),
+        ("arcade", "arcade"),
+        ("snes", "snes"),
+    }
+    assert downgraded == {
+        ("cps2", "cps2"),
+        ("CPS3", "cps3"),
+        ("sega16", "arcade"),
+        ("arcade", "arcade"),
+        ("snes", "snes"),
+    }
+
+
 _GROUPS = sa.table(
     "permission_groups",
     sa.column("id", sa.Integer),
@@ -1466,3 +1487,50 @@ def test_the_ownerless_own_only_revision_keeps_each_rows_access(admin_user: User
         ("logs", "read", False, False),
         ("devices", "write", True, True),
     }
+
+
+def test_the_custom_sort_key_revision_flags_keys_no_name_derives(
+    platform: Platform,
+):
+    """0157 marks a key custom when the legacy rule would not derive it."""
+    migration = _load_migration("0157_rom_custom_sort_key_flag.py")
+    derived = make_rom(platform, "Die Hard Arcade")
+    english = make_rom(platform, "Die Siedler")
+    custom = make_rom(platform, "Le Mans 24 Hours")
+
+    with sync_engine.begin() as connection:
+        connection.execute(
+            sa.text("UPDATE roms SET name_sort_key = :key WHERE id = :id"),
+            [
+                # Derived by the multilingual rule, and by 0084's English one.
+                {"id": derived.id, "key": "hard arcade"},
+                {"id": english.id, "key": "die siedler"},
+                {"id": custom.id, "key": "mans le 000000000024 hours"},
+            ],
+        )
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            migration.upgrade()
+
+        flags: dict[int, bool] = dict(
+            connection.execute(
+                sa.text(
+                    "SELECT id, name_sort_key_custom FROM roms WHERE id IN (:a, :b, :c)"
+                ),
+                {"a": derived.id, "b": english.id, "c": custom.id},
+            ).all()
+        )
+    assert not flags[derived.id]
+    assert not flags[english.id]
+    assert flags[custom.id]
+
+
+def test_the_sort_key_backfill_keeps_its_original_rule(mocker):
+    """0084 fills keys the way it always has, whatever the configured articles."""
+    migration = _load_migration("0084_add_roms_search_index.py")
+    mocker.patch.object(cm.config, "SORT_ARTICLES", ["der", "die", "das"])
+
+    assert migration._sort_key("Die Hard Arcade") == "die hard arcade"
+    assert (
+        migration._sort_key("The Legend of Zelda 2") == "legend of zelda 000000000002"
+    )

@@ -57,7 +57,11 @@ from endpoints.responses.streaming import (
     VolumeResponse,
 )
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible, is_scoped_admin
+from handler.auth.dependencies import (
+    assert_rom_visible,
+    get_rom_visibility_filter,
+    is_scoped_admin,
+)
 from handler.database import (
     db_container_adoption_handler,
     db_rom_handler,
@@ -99,6 +103,7 @@ from handler.streaming.protocol import room_url_on
 from handler.streaming.session_store import (
     STREAMING_SESSION_DRAIN_SECONDS,
     STREAMING_SESSION_TTL_SECONDS,
+    StreamingSession,
     StreamingSessionContended,
     claim_drain_marker,
     claim_gate,
@@ -126,7 +131,7 @@ from handler.streaming.session_store import (
 from logger.logger import log
 from models.assets import MemoryCard, MemoryCardVersion, Save, State
 from models.rom import Rom
-from utils.m3u import playlist_files
+from utils.m3u import disc_files, playlist_files
 from utils.router import APIRouter
 
 router = APIRouter(prefix="/streaming", tags=["streaming"])
@@ -149,6 +154,8 @@ class ClaimStreamingSessionRequest(BaseModel):
     # card has never been adopted. "adopt" keeps it, "discard" wipes it, and
     # "discard" doubles as the override for a card that could not be read.
     card_import: Literal["adopt", "discard"] | None = None
+    # Optional disc of a multi-disc set to start on, one of its playlist entries.
+    disc_file_id: Annotated[int, Field(ge=1)] | None = None
     # Decided on the launch screen and fixed for the session. True advertises
     # the session on GET /sessions/joinable and tells the room to show its
     # comms surface while the host is still alone.
@@ -438,7 +445,7 @@ async def get_state_picks(request: Request, rom_id: int) -> StreamStatePicksSche
 async def _win_container(
     request: Request,
     candidates: list[ResolvedContainer],
-    session: dict[str, Any],
+    session: StreamingSession,
     platform: str,
 ) -> ResolvedContainer:
     """Reserve one of the platform's containers for this claim.
@@ -469,7 +476,7 @@ async def _win_container(
 async def _reserve_container(
     request: Request,
     candidates: list[ResolvedContainer],
-    session: dict[str, Any],
+    session: StreamingSession,
     platform: str,
 ) -> ResolvedContainer:
     """Walk the platform's containers and claim the first one available."""
@@ -552,20 +559,21 @@ async def _reserve_container(
 
     # A drain marker names no holder, so the holder comes from a live session,
     # while `draining` still says a container is about to come free.
-    snapshots = [
+    snapshots: list[StreamingSession] = [
         snapshot or {}
         for snapshot in await asyncio.gather(
             *(get_session(candidate.key) for candidate in candidates)
         )
     ]
     draining = any(snapshot.get("draining") for snapshot in snapshots)
+    no_holder: StreamingSession = {}
     holder = next(
         (
             snapshot
             for snapshot in snapshots
             if snapshot and not snapshot.get("draining")
         ),
-        {},
+        no_holder,
     )
     if draining:
         message = "The previous session is still shutting down, try again shortly"
@@ -589,7 +597,7 @@ class _ClaimUndo:
     """What `claim_session` releases if the claim fails before the launch."""
 
     session_key: str
-    session: dict[str, Any]
+    session: StreamingSession
     blank_card_id: int | None = None
 
 
@@ -898,7 +906,18 @@ async def claim_session(
             request.user.id,
             reference.emulator,
             req.memory_card_id,
+            get_rom_visibility_filter(request),
         )
+
+    start_disc = None
+    if req.disc_file_id is not None:
+        start_disc = next(
+            (f for f in disc_files(rom.files) if f.id == req.disc_file_id), None
+        )
+        if start_disc is None:
+            raise HTTPException(
+                status_code=400, detail="File is not a disc of this ROM"
+            )
 
     # A broker with no join route cannot seat a second viewer, so recording
     # the flag there would advertise a session every Join would 409 on.
@@ -914,7 +933,7 @@ async def claim_session(
     gui_language = languages.gui_language(request.user)
 
     now = datetime.now(timezone.utc).isoformat()
-    session = {
+    session: StreamingSession = {
         # Unique per claim, and safe to put in a filename. The webstation
         # broker names its exit archive after it, so the pull can tell this
         # session's saves from one an earlier pull failed to collect.
@@ -1016,6 +1035,31 @@ async def claim_session(
         # that is valid inside that container.
         library_base = container.library_path
         rom_path = f"{library_base}/{rom.full_path}"
+        # The tray can only step through a playlist the emulator loaded, so a
+        # container without one boots the picked disc on its own.
+        start_disc_id = None
+        booted_disc_id = None
+        if start_disc is not None:
+            if (
+                container.capabilities["supports_disc_swap"]
+                and rom.has_m3u_file()
+                and start_disc.id in _swappable_disc_file_ids(rom)
+            ):
+                start_disc_id = start_disc.id
+            else:
+                # No swap can follow, so a resumed state's own disc boots instead.
+                state_disc = next(
+                    (
+                        f
+                        for f in disc_files(rom.files)
+                        if resume_state is not None
+                        and f.id == resume_state.disc_file_id
+                    ),
+                    None,
+                )
+                boot_disc = state_disc or start_disc
+                rom_path = f"{library_base}/{boot_disc.full_path}"
+                booted_disc_id = boot_disc.id
 
         # Nothing beats for the player until the stream is up, and on a slow
         # container these steps can outlast the window after which a claim is stale.
@@ -1093,6 +1137,8 @@ async def claim_session(
         memory_card_synced=memory_card is not None,
         multiplayer=multiplayer,
         blank_card_id=undo.blank_card_id,
+        start_disc_id=start_disc_id,
+        booted_disc_id=booted_disc_id,
     )
 
     return LaunchingSessionSchema(
@@ -1151,8 +1197,7 @@ async def save_and_exit_session(
     if safe_to_wipe:
         await memory_cards.wipe_session_card(container)
 
-    await lifecycle.record_play_session(session)
-    await lifecycle.clear_session_activity(session_key, session)
+    await lifecycle.close_session_record(session_key, session)
     # Before the key goes, so a claim that wins it next waits for the pull.
     await lifecycle.start_exit_save_pull(container, session, settled=settled)
 
@@ -1679,7 +1724,7 @@ async def claim_desktop_session(
 
     session_key = container.key
     now = datetime.now(timezone.utc).isoformat()
-    session = {
+    session: StreamingSession = {
         "user_id": request.user.id,
         "broker_session_id": secrets.token_hex(8),
         # No ROM and no card. Teardown reads both and skips the save pull, the
@@ -1725,8 +1770,9 @@ async def claim_desktop_session(
             emulator="desktop",
             gui_language=languages.gui_language(request.user),
         )
-    except Exception:
-        # Activation failed, free the claim so the container isn't wedged.
+    except BaseException:
+        # A cancelled request must free the claim too, or the container is
+        # wedged until the TTL lapses.
         await lifecycle.abort_claim(session_key, session)
         raise
 
@@ -1838,38 +1884,21 @@ async def force_release_all(
     # deleting only the Redis keys would leave the games running.
     grouped = containers_by_key()
 
-    async def _teardown(key: str | bytes, container_key: str) -> None:
-        # Read before the teardown so the displaced player can be identified
-        # even when the container config has since been removed.
+    async def _teardown(container_key: str) -> None:
         session = await get_session(container_key)
         container = container_for_session(
             grouped, container_key, session.get("platform") if session else None
         )
-
-        # All of it runs while the claim still guards the container and before
-        # the key is deleted.
-        try:
+        if session is None:
+            # The row went between the scan and the read; stop the emulator
+            # anyway rather than leave it running.
             if container is not None:
-                # Best-effort; a broker error must not abort the sweep.
-                if session is None:
-                    # The row went between the scan and the read; stop the
-                    # emulator anyway rather than leave it running.
-                    await asyncio.to_thread(commands.stop, container)
-                else:
-                    stopped = await lifecycle.quiesce_container(container, session)
-                    # Credit playtime to the session's owner, not the admin.
-                    await lifecycle.record_play_session(session)
-                    await lifecycle.clear_session_activity(container_key, session)
-                    await lifecycle.collect_exit_state(
-                        container, session, stopped.state_slot
-                    )
-                    await lifecycle.start_exit_save_pull(
-                        container, session, settled=stopped.settled
-                    )
-
-            # Note who ended it before the key goes, so the player's next poll
-            # can explain the stream vanishing.
-            if session is not None:
+                await asyncio.to_thread(commands.stop, container)
+            return
+        if container is None:
+            # The config is gone, so there is nothing to stop. Still tell the
+            # player why the stream vanished, and free the key.
+            try:
                 await record_termination(
                     session,
                     container_key,
@@ -1877,10 +1906,20 @@ async def force_release_all(
                     reason=reason,
                     ended_by_user_id=request.user.id,
                 )
-        finally:
-            # The sweep answered "released", so the key goes even when a step
-            # above raised; a phantom claim would block every later claim.
-            await async_cache.delete(key)
+                await lifecycle.close_session_record(container_key, session)
+            finally:
+                await release_own_session(container_key, session)
+            return
+        # Same teardown as releasing one session from the admin panel.
+        await lifecycle.teardown_released_session(
+            container,
+            session,
+            container_key,
+            container.platform,
+            acting_user_id=request.user.id,
+            acting_username=request.user.username,
+            reason=reason,
+        )
 
     released = []
     teardowns = []
@@ -1892,7 +1931,7 @@ async def force_release_all(
         if marker is not None and marker.get("draining"):
             continue
         released.append(container_key)
-        teardowns.append(_teardown(session_redis_key(container_key), container_key))
+        teardowns.append(_teardown(container_key))
 
     # Tear down concurrently so one slow or stuck broker cannot serialize the
     # whole sweep behind its timeout.

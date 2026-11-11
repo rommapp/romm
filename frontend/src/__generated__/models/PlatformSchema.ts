@@ -26,6 +26,7 @@ export type PlatformSchema = {
     flashpoint_id?: (number | null);
     category?: (string | null);
     generation?: (number | null);
+    first_release_year?: (number | null);
     family_name?: (string | null);
     family_slug?: (string | null);
     url?: (string | null);

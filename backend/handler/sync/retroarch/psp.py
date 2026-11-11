@@ -23,6 +23,7 @@ from typing import Literal
 from redis.exceptions import RedisError
 
 from config import SYNC_RETROARCH_PSP_SERIAL_MAP
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
     db_platform_handler,
     db_rom_handler,
@@ -142,6 +143,7 @@ def _find_bundle_by_folder(
         user_id=user.id,
         slot_is_null=True,
         file_name_prefix=_bundle_base_name(save_folder).removesuffix(".zip"),
+        visibility=UNRESTRICTED,
     )
     return _latest_bundles_by_folder(saves, can_see).get(save_folder)
 
@@ -239,7 +241,8 @@ def _resolve_rom(
     serial = _derive_serial(save_folder)
     mapped_title = SYNC_RETROARCH_PSP_SERIAL_MAP.get(serial)
     if mapped_title:
-        rom = sync_handler.resolve_rom(mapped_title, can_see)
+        # A SAVEDATA folder is PPSSPP's layout, whatever core folder holds it.
+        rom = sync_handler.resolve_rom(mapped_title, can_see, emulator="ppsspp")
         if rom:
             return rom
         log.warning(

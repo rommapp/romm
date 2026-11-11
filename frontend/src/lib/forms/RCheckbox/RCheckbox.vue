@@ -28,6 +28,7 @@
 // box; a state with an `icon` shows that mdi glyph (otherwise the check
 // tick), all with the same draw-in / pop flourish the check uses.
 import { computed, onMounted, ref, useSlots, watch } from "vue";
+import { TONE_MAP } from "@/lib/style/tokenMaps";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import type { RCheckboxState } from "./types";
 
@@ -134,20 +135,6 @@ function onChange(evt: Event) {
 }
 
 // ── Tone resolver ──────────────────────────────────────────────
-const TONE_MAP: Record<string, string> = {
-  primary: "var(--r-color-brand-primary)",
-  secondary: "var(--r-color-brand-secondary)",
-  accent: "var(--r-color-brand-accent)",
-  success: "var(--r-color-success)",
-  warning: "var(--r-color-warning)",
-  danger: "var(--r-color-danger)",
-  error: "var(--r-color-danger)",
-  info: "var(--r-color-info)",
-  "romm-red": "var(--r-color-romm-red)",
-  "romm-green": "var(--r-color-romm-green)",
-  "romm-blue": "var(--r-color-romm-blue)",
-  "romm-gold": "var(--r-color-romm-gold)",
-};
 const resolvedColor = computed<string>(
   () => TONE_MAP[props.color] ?? props.color ?? TONE_MAP.primary,
 );

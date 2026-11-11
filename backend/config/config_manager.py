@@ -264,6 +264,9 @@ def _platform_first_layout(folder: str) -> bool | None:
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config"
 ROMM_USER_CONFIG_FILE: Final = f"{ROMM_USER_CONFIG_PATH}/config.yml"
 SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
+# Leading words dropped from a title when sorting it, unless `sorting.articles`
+# names others.
+DEFAULT_SORT_ARTICLES: Final = ["the", "a", "an"]
 DEFAULT_EXCLUDED_EXTENSIONS: Final = [
     "db",
     "tmp",
@@ -275,6 +278,8 @@ DEFAULT_EXCLUDED_EXTENSIONS: Final = [
     ROM_UPLOAD_ASSEMBLING_EXT,
 ]
 DEFAULT_EXCLUDED_FILES: Final = [
+    # macOS AppleDouble metadata, written beside files on SMB and exFAT shares
+    "._*",
     ".DS_Store",
     ".localized",
     ".Trashes",
@@ -317,10 +322,16 @@ PLATFORM_MEDIA_DIRS: Final = {
     "title_screen": "titlescreens",
     "video": "videos",
 }
+# ES-DE's own media roots, which hold the per-type folders above.
+ESDE_MEDIA_ROOT_DIRS: Final = ["media", "downloaded_media"]
 # Folders inside a platform that are never a multi-file ROM (a ROM whose parts
 # live in a directory). Scraper media output lands here, so it is skipped too.
 DEFAULT_EXCLUDED_MULTI_FILE_DIRS: Final = sorted(
-    {*DEFAULT_EXCLUDED_PLATFORM_DIRS, *PLATFORM_MEDIA_DIRS.values()}
+    {
+        *DEFAULT_EXCLUDED_PLATFORM_DIRS,
+        *PLATFORM_MEDIA_DIRS.values(),
+        *ESDE_MEDIA_ROOT_DIRS,
+    }
 )
 
 
@@ -390,7 +401,7 @@ VALID_GAMELIST_IMAGE_TYPES = frozenset(
 )
 
 # Valid provider slugs for scan.priority.* lists. Mirrors
-# handler.scan_handler.MetadataSource, which can't be imported here without a
+# handler.scan.sources.MetadataSource, which can't be imported here without a
 # circular import; test_config_loader guards against drift.
 VALID_SCAN_PRIORITY_SOURCES = frozenset(
     {
@@ -537,6 +548,7 @@ class Config:
     SCAN_REGION_PRIORITY: list[str]
     SCAN_REGION_MODE: str
     SCAN_LANGUAGE_PRIORITY: list[str]
+    SORT_ARTICLES: list[str]
     SCAN_MEDIA: list[str]
     GAMELIST_MEDIA_THUMBNAIL: MetadataMediaType
     GAMELIST_MEDIA_IMAGE: MetadataMediaType
@@ -890,6 +902,9 @@ class ConfigManager:
                 "scan.priority.language",
                 ["en"],
             ),
+            SORT_ARTICLES=get_nested(
+                self._raw_config, "sorting.articles", DEFAULT_SORT_ARTICLES
+            ),
             SCAN_MEDIA=get_nested(
                 self._raw_config,
                 "scan.media",
@@ -1126,6 +1141,16 @@ class ConfigManager:
 
     def _validate_config(self) -> None:
         """Validates the config.yml file"""
+        articles = self.config.SORT_ARTICLES
+        if not isinstance(articles, list) or not all(
+            isinstance(article, str) for article in articles
+        ):
+            log.critical("Invalid config.yml: sorting.articles must be a list of words")
+            sys.exit(3)
+        self.config.SORT_ARTICLES = [
+            article.strip().lower() for article in articles if article.strip()
+        ]
+
         if not isinstance(self.config.GAMELIST_AUTO_EXPORT_ON_SCAN, bool):
             log.critical("Invalid config.yml: scan.gamelist.export must be a boolean")
             sys.exit(3)
@@ -1491,6 +1516,7 @@ class ConfigManager:
                 "settings": self.config.EJS_SETTINGS,
                 "controls": self._format_ejs_controls_for_yaml(),
             },
+            "sorting": {"articles": self.config.SORT_ARTICLES},
             "scan": {
                 "priority": {
                     "metadata": self.config.SCAN_METADATA_PRIORITY,

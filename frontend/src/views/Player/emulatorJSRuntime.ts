@@ -2,7 +2,10 @@ import Bowser from "bowser";
 import { type Body_add_state_api_states_post as AddStateInput } from "@/__generated__";
 import { type PendingAsset } from "@/services/pending-asset";
 import { buildFormInput } from "@/utils/formData";
-import { keepArcadeBiosWhole } from "@/utils/playerFirmware";
+import {
+  keepArcadeBiosWhole,
+  pointSystemDirectoryAtFirmware,
+} from "@/utils/playerFirmware";
 import { bytesEqual } from "@/utils/saveSync/hash";
 
 /** Tears the emulator down once, however many owners ask. */
@@ -411,10 +414,26 @@ export function installEJSDefaultOptionsTrap() {
       lookUpGamepadsByBrowserIndex(value);
       replayConnectedGamepads(value);
       keepArcadeBiosWhole(value);
+      pointSystemDirectoryAtFirmware(value);
+      writeArrayBuffersAsBytes();
       applyOnlyEnabledCheats(value);
       skipDiskSelectionBeforeStart(value);
     },
   });
+}
+
+// 4.2.3 writes EJS_externalFiles downloads as an ArrayBuffer, which Emscripten's
+// FS.writeFile rejects after creating an empty file. Nightly has no global class.
+/** Hands EmulatorJS 4.2.3 file writes to the virtual FS as bytes. */
+export function writeArrayBuffersAsBytes() {
+  const proto = window.EJS_GameManager?.prototype;
+  if (!proto || proto.__rommBytesPatched) return;
+  const writeFile = proto.writeFile;
+  proto.writeFile = function (path, data) {
+    const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
+    return writeFile.call(this, path, bytes);
+  };
+  proto.__rommBytesPatched = true;
 }
 
 /** Points EmulatorJS netplay at RomM's mounted Socket.IO server. */

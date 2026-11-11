@@ -6,6 +6,6 @@
     "rom-patcher": "github:marcrobledo/RomPatcher.js#v3.2.1"
   },
   "engines": {
-    "node": "24"
+    "node": "26"
   }
 }

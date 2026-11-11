@@ -152,6 +152,7 @@ class StateSchema(BaseAsset, AssetAnnotations, ManagedAsset):
     core: str | None = None
     is_public: bool = False
     screenshot: ScreenshotSchema | None
+    origin_device_id: str | None = None
 
 
 class UserStateSchema(StateSchema):

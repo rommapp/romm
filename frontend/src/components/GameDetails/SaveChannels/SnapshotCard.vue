@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RChip, RIcon, RImg } from "@/lib";
+import { RChip, RIcon, RImage } from "@/lib";
 
 export interface CardBadge {
   label: string;
@@ -45,7 +45,7 @@ const emit = defineEmits<{ open: [] }>();
     :aria-current="current ? 'true' : undefined"
     @click="emit('open')"
   >
-    <RImg
+    <RImage
       v-if="thumbnail"
       class="r-snapshot-card__thumb"
       :src="thumbnail"

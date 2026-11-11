@@ -24,6 +24,7 @@ from handler.metadata import (
     meta_ra_handler,
     meta_ss_handler,
 )
+from handler.metadata.platform_names import resolve_platform_name
 from utils.platform_slugs import UniversalPlatformSlug
 
 
@@ -58,15 +59,7 @@ if __name__ == "__main__":
         libretro_platform = meta_libretro_handler.get_platform(slug_lower)
 
         supported_platforms[slug_lower] = {
-            "name": igdb_platform.get("name", None)
-            or moby_platform.get("name", None)
-            or ss_platform.get("name", None)
-            or launchbox_platform.get("name", None)
-            or hasheous_platform.get("name", None)
-            or ra_platform.get("name", None)
-            or flashpoint_platform.get("name", None)
-            or hltb_platform.get("name", None)
-            or slug_lower.replace("-", " ").title(),
+            "name": resolve_platform_name(slug_lower),
             "folder": slug_lower,
             "igdb_slug": igdb_platform.get("igdb_slug", None),
             "moby_slug": moby_platform.get("moby_slug", None),

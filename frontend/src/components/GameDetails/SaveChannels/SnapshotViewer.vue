@@ -7,7 +7,7 @@ import type {
   SnapshotSchema,
 } from "@/__generated__";
 import { useDeviceLabel } from "@/composables/useDeviceLabel";
-import { RBtn, RChip, RDrawer, RIcon, RImg, RMenu, RMenuItem } from "@/lib";
+import { RBtn, RChip, RDrawer, RIcon, RImage, RMenu, RMenuItem } from "@/lib";
 import { formatRelativeDate } from "@/utils";
 import { emulatorKey } from "@/utils/assets";
 import {
@@ -241,7 +241,7 @@ const overflow = computed(() => actions.value.slice(1));
     </template>
 
     <div v-if="target" class="r-snapshot-viewer">
-      <RImg v-if="heroSrc" class="r-snapshot-viewer__hero" :src="heroSrc" />
+      <RImage v-if="heroSrc" class="r-snapshot-viewer__hero" :src="heroSrc" />
 
       <div class="r-snapshot-viewer__badges">
         <RChip
@@ -288,7 +288,7 @@ const overflow = computed(() => actions.value.slice(1));
               :key="slot"
               class="r-snapshot-viewer__slot"
             >
-              <RImg
+              <RImage
                 v-if="state.screenshot"
                 class="r-snapshot-viewer__slot-thumb"
                 :src="state.screenshot.download_path"

@@ -9,11 +9,12 @@ The `frontend-*` skills in `.claude/skills/` hold the detailed rules. **Read the
 ## Commands (`cd frontend`)
 
 ```bash
-npm install                         # install (Node 24)
+npm install                         # install (Node 26)
 npm run dev                         # dev server :3000
 npm run typecheck                   # vue-tsc --build: the app, the Node tooling and the e2e suite
 npm run typecheck:scripts           # Node only: scripts/, eslint-plugin-romm/, tool configs, the e2e suite
 npm run test                        # vitest (+ Storybook play() and a11y tests in Chromium)
+npm run test:coverage               # the same, with a v8 coverage report in coverage/ (open index.html)
 npm run test:e2e                    # playwright, see e2e/README.md
 npm run build                       # production build
 npm run generate                    # regenerate types from backend OpenAPI (backend must be running)

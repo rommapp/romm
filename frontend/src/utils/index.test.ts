@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
 import type { Config } from "@/stores/config";
 import type { Heartbeat } from "@/stores/heartbeat";
+import { ejsCoresFixture } from "./ejsCores.fixtures";
 import {
+  getSupportedEJSCores,
+  isArcadeSystem,
   isEasyRpgEmulationSupported,
   isEasyRpgGame,
   isJsDosBundle,
   isJsDosEmulationSupported,
   isPico8EmulationSupported,
   isPico8Rom,
+  languageToEmoji,
 } from "./index";
 import { romFixture } from "./rom.fixtures";
 
@@ -21,6 +25,7 @@ function makeHeartbeat(
       DISABLE_JSDOS: false,
       DISABLE_PICO8: false,
       DISABLE_EASYRPG: false,
+      ...ejsCoresFixture(),
       ...emulation,
     },
   } as Heartbeat;
@@ -160,5 +165,46 @@ describe("EasyRPG support", () => {
     expect(isEasyRpgGame(romFixture({ is_easyrpg_game: true }))).toBe(true);
     expect(isEasyRpgGame(romFixture({ is_easyrpg_game: false }))).toBe(false);
     expect(isEasyRpgGame(null)).toBe(false);
+  });
+});
+
+describe("getSupportedEJSCores", () => {
+  const maps = ejsCoresFixture();
+
+  it("reads the platform's cores from the served map, in any case", () => {
+    expect(getSupportedEJSCores("PSX", maps)).toEqual([
+      "pcsx_rearmed",
+      "mednafen_psx_hw",
+    ]);
+  });
+
+  it("layers the nightly cores on when netplay is on", () => {
+    expect(getSupportedEJSCores("snes", maps)).toEqual(["snes9x"]);
+    expect(getSupportedEJSCores("snes", maps, true)).toEqual([
+      "snes9x",
+      "bsnes",
+    ]);
+    expect(getSupportedEJSCores("3ds", maps)).toEqual([]);
+    expect(getSupportedEJSCores("3ds", maps, true)).toEqual(["azahar"]);
+  });
+
+  it("offers no core for a platform the map leaves out", () => {
+    expect(getSupportedEJSCores("naomi", maps)).toEqual([]);
+  });
+});
+
+describe("arcade platforms", () => {
+  it("treats every arcade board as arcade hardware", () => {
+    expect(isArcadeSystem("naomi")).toBe(true);
+    expect(isArcadeSystem("model2")).toBe(true);
+    expect(isArcadeSystem("snes")).toBe(false);
+  });
+});
+
+describe("languageToEmoji", () => {
+  it("tells Brazilian from European Portuguese", () => {
+    expect(languageToEmoji("Brazilian Portuguese")).toBe("🇧🇷");
+    expect(languageToEmoji("pt-BR")).toBe("🇧🇷");
+    expect(languageToEmoji("Portuguese")).toBe("🇵🇹");
   });
 });

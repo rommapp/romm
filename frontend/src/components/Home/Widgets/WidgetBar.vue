@@ -62,4 +62,9 @@ const anyEnabled = computed(() => orderedWidgets.value.length > 0);
 .r-widget-bar::-webkit-scrollbar {
   display: none;
 }
+/* A widget can hide its own card (Anniversaries on an empty day) while staying
+   mounted, so a rail with no cards collapses rather than leaving its padding. */
+.r-widget-bar:not(:has(> *)) {
+  display: none;
+}
 </style>

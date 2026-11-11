@@ -30,11 +30,8 @@ from handler.metadata.moby_handler import MobyGamesRom
 from handler.metadata.sgdb_handler import SGDBRom
 from handler.metadata.ss_handler import SSRom
 from handler.metadata.steam_handler import SteamRom
-from handler.scan_handler import (
-    MetadataSource,
-    get_main_platform_igdb_id,
-    get_priority_ordered_metadata_sources,
-)
+from handler.scan.lookups import get_main_platform_igdb_id
+from handler.scan.sources import MetadataSource, get_priority_ordered_metadata_sources
 from logger.formatter import BLUE, CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log

@@ -33,6 +33,7 @@ from fastapi import HTTPException
 
 from config import STREAMING_STATE_HISTORY_LIMIT
 from handler.asset_store import release_thumbnail, store_screenshot, store_state_file
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
     db_rom_handler,
     db_snapshot_handler,
@@ -45,8 +46,10 @@ from handler.streaming.config import ResolvedContainer
 from handler.streaming.session_store import set_session_disc
 from handler.sync.retroarch.emulator_names import retroarch_aliases
 from handler.sync.retroarch.sync_handler import (
+    disc_names,
     emulator_from_dir_name,
     group_states_by_slot,
+    state_game_name,
 )
 from logger.logger import log
 from models.assets import EMULATOR_MAX_LENGTH, State
@@ -464,7 +467,9 @@ def user_states_for_emulator(
     """
     states = [
         s
-        for s in db_state_handler.get_states(user_id=user_id, rom_ids=[rom_id])
+        for s in db_state_handler.get_states(
+            user_id=user_id, rom_ids=[rom_id], visibility=UNRESTRICTED
+        )
         if is_native_state(s, emulator, core)
     ]
     # Ties on id, because updated_at only has second resolution: two captures
@@ -562,11 +567,15 @@ async def prune_state_history(
     states = [s for s in states if s.id not in frozen]
     stale = states[limit:]
     if stale:
+        rom_states = db_state_handler.get_states(
+            user_id=user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
+        discs = disc_names(
+            (rom, state_game_name(state.file_name)) for state in rom_states
+        )
         served = {
             state.id
-            for state in group_states_by_slot(
-                db_state_handler.get_states(user_id=user.id, rom_ids=[rom.id])
-            ).values()
+            for state in group_states_by_slot(rom_states, discs).values()
             if not state.missing_from_fs
         }
         stale = [state for state in stale if state.id not in served]
@@ -838,7 +847,7 @@ async def restore_session_disc(
     file_id: int,
     broker_session_id: str | None = None,
 ) -> bool:
-    """Background task: put back the disc a resumed state was captured on.
+    """Background task: switch to the disc a resumed state or the player names.
 
     The launch always mounts the ROM folder so the emulator loads the playlist
     and starts on the first disc; anything else would boot a bare image the

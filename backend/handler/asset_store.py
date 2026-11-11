@@ -15,6 +15,7 @@ from typing import Any, BinaryIO, TypeAlias, cast
 
 from fastapi import HTTPException, UploadFile, status
 
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
     db_save_handler,
     db_screenshot_handler,
@@ -378,10 +379,10 @@ async def rename_asset[AssetT: (Save, State)](asset: AssetT, file_name: str) -> 
             detail=f"{asset.file_name} has no ROM to rename it under",
         )
     saves: Sequence[Save] = db_save_handler.get_saves(
-        user_id=asset.user_id, rom_ids=[rom_id]
+        user_id=asset.user_id, rom_ids=[rom_id], visibility=UNRESTRICTED
     )
     states: Sequence[State] = db_state_handler.get_states(
-        user_id=asset.user_id, rom_ids=[rom_id]
+        user_id=asset.user_id, rom_ids=[rom_id], visibility=UNRESTRICTED
     )
     everything: list[Save | State] = [*saves, *states]
     others = [a for a in everything if not _is_same(a, asset)]

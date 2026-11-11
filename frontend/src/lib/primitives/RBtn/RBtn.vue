@@ -33,6 +33,7 @@
 import { computed, ref, useSlots } from "vue";
 import { RouterLink, type RouteLocationRaw } from "vue-router";
 import { useDelayedFlag } from "@/composables/useDelayedFlag";
+import { ROUNDED_MAP, TONE_MAP, solidFill } from "@/lib/style/tokenMaps";
 import RTooltip from "../../structural/RTooltip/RTooltip.vue";
 import RIcon from "../RIcon/RIcon.vue";
 import RProgressCircular from "../RProgressCircular/RProgressCircular.vue";
@@ -86,7 +87,7 @@ interface Props {
   /** Paints the lib's `--r-color-bg-elevated` token behind the button.
    *  Composes with any variant: use it when the button needs to read
    *  as "raised on a tinted pill" rather than "transparent on the page",
-   *  so it visually aligns with adjacent segmented `RSliderBtnGroup`
+   *  so it visually aligns with adjacent segmented `RSegmentedControl`
    *  surfaces (e.g., toolbar icon buttons next to sliders). */
   surface?: boolean;
   /** Toggle state. Defined → `aria-pressed`; true → translucent tint. */
@@ -178,20 +179,6 @@ const resolvedVariant = computed(() =>
 );
 
 // ── Tone resolver ────────────────────────────────────────────────
-const TONE_MAP: Record<string, string> = {
-  primary: "var(--r-color-brand-primary)",
-  secondary: "var(--r-color-brand-secondary)",
-  accent: "var(--r-color-brand-accent)",
-  success: "var(--r-color-success)",
-  warning: "var(--r-color-warning)",
-  danger: "var(--r-color-danger)",
-  error: "var(--r-color-danger)",
-  info: "var(--r-color-info)",
-  "romm-red": "var(--r-color-romm-red)",
-  "romm-green": "var(--r-color-romm-green)",
-  "romm-blue": "var(--r-color-romm-blue)",
-  "romm-gold": "var(--r-color-romm-gold)",
-};
 const resolvedColor = computed<string | undefined>(() => {
   const c = props.color ?? (props.active ? "primary" : undefined);
   if (!c) return undefined;
@@ -199,16 +186,6 @@ const resolvedColor = computed<string | undefined>(() => {
 });
 
 // ── Rounded resolver ─────────────────────────────────────────────
-const ROUNDED_MAP: Record<string, string> = {
-  "0": "0",
-  sm: "4px",
-  md: "8px",
-  lg: "12px",
-  xl: "16px",
-  full: "999px",
-  pill: "999px",
-  circle: "50%",
-};
 const resolvedRounded = computed<string>(() => {
   const r = props.rounded;
   if (r === undefined || r === null || r === "") return "8px";
@@ -312,6 +289,7 @@ const spinnerSize = computed(() => {
     :style="{
       borderRadius: resolvedRounded,
       '--r-btn-color': resolvedColor,
+      '--r-btn-solid': resolvedColor && solidFill(resolvedColor),
     }"
     @pointerdown="onPointerDown"
     @keydown="onKeyDown"
@@ -448,6 +426,11 @@ const spinnerSize = computed(() => {
 }
 .r-btn:active:not(.r-btn--disabled, :disabled)::before {
   opacity: 0.18;
+}
+/* Filled colours carry white text, which a lightening overlay would wash out. */
+.r-btn--flat.r-btn--has-color::before,
+.r-btn--elevated.r-btn--has-color::before {
+  background: black;
 }
 
 /* ── Focus ─────────────────────────────────────────────────────────
@@ -638,7 +621,7 @@ const spinnerSize = computed(() => {
 
 /* ── Variant: flat, solid fill ────────────────────────────────── */
 .r-btn--flat.r-btn--has-color {
-  background: var(--r-btn-color);
+  background: var(--r-btn-solid);
   color: white;
 }
 .r-btn--flat:not(.r-btn--has-color) {
@@ -648,7 +631,7 @@ const spinnerSize = computed(() => {
 
 /* ── Variant: elevated, solid + shadow ────────────────────────── */
 .r-btn--elevated.r-btn--has-color {
-  background: var(--r-btn-color);
+  background: var(--r-btn-solid);
   color: white;
   box-shadow: 0 2px 6px color-mix(in srgb, black 22%, transparent);
 }

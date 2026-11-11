@@ -10,13 +10,15 @@ from endpoints import client_tokens as client_tokens_endpoints
 from handler.auth.base_handler import auth_handler, oauth_handler
 from handler.database import (
     db_client_token_handler,
+    db_device_handler,
     db_permission_handler,
     db_user_handler,
 )
 from handler.redis_handler import sync_cache
 from models.client_token import ClientToken
+from models.device import Device
 from models.permission import PermAction, PermEntity
-from models.user import Role
+from models.user import Role, User
 
 
 @pytest.fixture
@@ -408,6 +410,49 @@ class TestClientTokenScopeCeiling:
             headers={"Authorization": f"Bearer {viewer_access_token}"},
         )
         assert response.status_code == status.HTTP_200_OK
+
+
+class TestClientTokenSelfRevoke:
+    def test_a_token_revokes_itself_without_me_write(self, client, admin_user):
+        token, raw = make_device_token(admin_user, None, scopes="roms.read")
+
+        response = client.delete(
+            f"/api/client-tokens/{token.id}",
+            headers={"Authorization": f"Bearer {raw}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert db_client_token_handler.get_token(token_id=token.id) is None
+        after = client.get("/api/platforms", headers={"Authorization": f"Bearer {raw}"})
+        assert after.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_a_token_with_me_write_revokes_a_sibling(self, client, admin_user):
+        _, raw = make_device_token(admin_user, None, scopes="me.write roms.read")
+        sibling, _ = make_device_token(admin_user, None, scopes="roms.read")
+
+        response = client.delete(
+            f"/api/client-tokens/{sibling.id}",
+            headers={"Authorization": f"Bearer {raw}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert db_client_token_handler.get_token(token_id=sibling.id) is None
+
+    def test_a_token_cannot_revoke_a_sibling_without_me_write(self, client, admin_user):
+        _, raw = make_device_token(admin_user, None, scopes="roms.read")
+        sibling, _ = make_device_token(admin_user, None, scopes="roms.read")
+
+        response = client.delete(
+            f"/api/client-tokens/{sibling.id}",
+            headers={"Authorization": f"Bearer {raw}"},
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert db_client_token_handler.get_token(token_id=sibling.id)
+
+    def test_an_anonymous_caller_is_unauthorized(self, client, admin_user):
+        token, _ = make_device_token(admin_user, None, scopes="roms.read")
+
+        response = client.delete(f"/api/client-tokens/{token.id}")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert db_client_token_handler.get_token(token_id=token.id)
 
 
 class TestClientTokenUserIsolation:
@@ -841,6 +886,17 @@ class TestRevocationClosesDeviceSockets:
         assert response.status_code == status.HTTP_200_OK
         close.assert_awaited_once_with([token_id])
 
+    def test_a_token_revoking_itself(self, client, admin_user, close):
+        token, raw = make_device_token(admin_user, None, scopes="devices.read")
+
+        response = client.delete(
+            f"/api/client-tokens/{token.id}",
+            headers={"Authorization": f"Bearer {raw}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        close.assert_awaited_once_with([token.id])
+
     def test_regenerating_a_token(self, client, headers, token_id, close):
         response = client.put(
             f"/api/client-tokens/{token_id}/regenerate", headers=headers
@@ -880,3 +936,61 @@ class TestRevocationClosesDeviceSockets:
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
         close.assert_not_awaited()
+
+
+class TestDeviceBoundTokenManagement:
+    @pytest.fixture
+    def bound_headers(self, admin_user: User) -> dict[str, str]:
+        for device_id in ("deck", "tv-box"):
+            db_device_handler.add_device(Device(id=device_id, user_id=admin_user.id))
+        _, raw = make_device_token(admin_user, "deck", scopes="me.read me.write")
+        return {"Authorization": f"Bearer {raw}"}
+
+    def test_cannot_create_a_token(self, client, bound_headers):
+        response = client.post(
+            "/api/client-tokens",
+            json={"name": "Unbound", "scopes": ["me.read"]},
+            headers=bound_headers,
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    @pytest.mark.parametrize("device_id", ["tv-box", None])
+    @pytest.mark.parametrize(
+        "method, path",
+        [
+            ("put", "/api/client-tokens/{id}/regenerate"),
+            ("post", "/api/client-tokens/{id}/pair"),
+            ("delete", "/api/client-tokens/{id}"),
+        ],
+    )
+    def test_another_devices_or_an_unbound_token_is_not_found(
+        self,
+        client,
+        admin_user: User,
+        bound_headers,
+        device_id: str | None,
+        method: str,
+        path: str,
+    ):
+        target, _ = make_device_token(admin_user, device_id, scopes="me.read")
+
+        response = client.request(
+            method, path.format(id=target.id), headers=bound_headers
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        stored = db_client_token_handler.get_token(token_id=target.id)
+        assert stored is not None
+        assert stored.hashed_token == target.hashed_token
+
+    def test_regenerates_a_token_of_its_own_device(
+        self, client, admin_user: User, bound_headers
+    ):
+        sibling, _ = make_device_token(admin_user, "deck", scopes="me.read")
+
+        response = client.put(
+            f"/api/client-tokens/{sibling.id}/regenerate", headers=bound_headers
+        )
+
+        assert response.status_code == status.HTTP_200_OK

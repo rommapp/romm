@@ -14,7 +14,7 @@ import type { AdminUserDraft } from "@/components/Auth/SetupStepAdmin.vue";
 import SetupStepMetadata from "@/components/Auth/SetupStepMetadata.vue";
 import SetupStepPlatforms from "@/components/Auth/SetupStepPlatforms.vue";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RIcon, RImg, RSpinner, RSteps } from "@/lib";
+import { RBtn, RIcon, RImage, RSpinner, RSteps } from "@/lib";
 import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
 import setupApi from "@/services/api/setup";
@@ -205,7 +205,7 @@ onMounted(loadLibraryInfo);
 <template>
   <div class="r-setup">
     <header class="r-setup__header">
-      <RImg
+      <RImage
         src="/assets/isotipo.svg"
         :width="56"
         class="r-setup__logo"

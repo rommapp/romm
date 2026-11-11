@@ -278,6 +278,13 @@ class State(ChannelContent):
     core_version: Mapped[str | None] = mapped_column(
         String(length=EMULATOR_VERSION_MAX_LENGTH), default=None
     )
+    # The device that wrote the current content; NULL when the client named none.
+    origin_device_id: Mapped[str | None] = mapped_column(
+        String(length=255),
+        ForeignKey("devices.id", ondelete="SET NULL"),
+        default=None,
+        index=True,
+    )
 
     rom: Mapped[Rom | None] = relationship(lazy="joined", back_populates="states")
     user: Mapped[User] = relationship(lazy="joined", back_populates="states")

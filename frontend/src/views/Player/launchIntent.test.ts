@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
+import type { SaveSchema, StateSchema } from "@/__generated__";
 import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
+import { firmwareFixture } from "@/utils/firmware.fixtures";
 import { existingSlot, NEW_SLOT_CHOICE } from "@/utils/saveSlots";
 import {
   isLaunchIntent,
@@ -30,13 +31,9 @@ function makeState(overrides: Partial<StateSchema> = {}): StateSchema {
   });
 }
 
-function makeFirmware(overrides: Partial<FirmwareSchema> = {}): FirmwareSchema {
-  return { id: 12, file_name: "bios.bin", ...overrides } as FirmwareSchema;
-}
-
 const save = makeSave();
 const state = makeState();
-const firmware = makeFirmware();
+const firmware = firmwareFixture({ id: 12, file_name: "bios.bin" });
 
 const OPTIONS: LaunchOptions = {
   saves: [save],

@@ -1,11 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import { CONTRAST_TODO_PARAMETERS } from "@/utils/storyA11y";
 import RDivider from "./RDivider.vue";
 
 const meta: Meta<typeof RDivider> = {
   title: "Primitives/RDivider",
   component: RDivider,
-  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     thickness: { control: "text" },
   },
@@ -181,7 +179,7 @@ export const ConsumerOverride: Story = {
       <div style="width:320px;display:flex;flex-direction:column;gap:8px;padding:24px;background:var(--r-color-bg);border-radius:12px">
         <div style="height:40px;background:var(--r-color-surface);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--r-color-fg-muted)">Username field</div>
         <div style="height:40px;background:var(--r-color-surface);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--r-color-fg-muted)">Password field</div>
-        <div style="height:36px;border-radius:6px;background:var(--r-color-brand-primary);color:white;display:flex;align-items:center;justify-content:center;font-weight:600">Sign in</div>
+        <div style="height:36px;border-radius:6px;background:var(--r-color-brand-primary-solid);color:var(--r-color-brand-on-primary);display:flex;align-items:center;justify-content:center;font-weight:600">Sign in</div>
         <RDivider style="margin: 12px 0; color: var(--r-color-fg-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;">
           or
         </RDivider>

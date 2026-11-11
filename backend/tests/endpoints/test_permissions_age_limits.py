@@ -184,6 +184,18 @@ class TestEnforcement:
         detail = client.get(f"/api/roms/{mature.id}", headers=_auth(viewer_user))
         assert detail.status_code == status.HTTP_404_NOT_FOUND
 
+    def test_a_limited_user_does_not_count_roms_above_it_on_the_platform(
+        self, client, headers, viewer_user: User, platform: Platform
+    ):
+        make_esrb_rated_rom(platform, "Mature", "M")
+        make_esrb_rated_rom(platform, "Everyone", "E")
+        gid = _make_kids_group(client, headers, age_limit=12)["id"]
+        _join(client, headers, viewer_user, gid)
+
+        body = client.get(f"/api/platforms/{platform.id}", headers=_auth(viewer_user))
+
+        assert body.json()["rom_count"] == 1
+
     def test_a_limit_change_reaches_the_cached_gallery(
         self, client, headers, viewer_user: User, platform: Platform
     ):

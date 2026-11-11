@@ -7,7 +7,7 @@ import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useEmitterEvent } from "@/composables/useEmitterEvent";
 import { useVersionDisplay } from "@/composables/useVersionDisplay";
-import { RDialog, RIcon, RImg, RTooltip } from "@/lib";
+import { RDialog, RIcon, RImage, RTooltip } from "@/lib";
 
 defineOptions({ inheritAttrs: false });
 
@@ -96,7 +96,7 @@ watch(() => links.value.map((link) => link.value), measure, { flush: "post" });
           class="r-about__tile"
         >
           <div class="r-about__icon">
-            <RImg
+            <RImage
               v-if="link.isotipo"
               src="/assets/isotipo.svg"
               alt="RomM"

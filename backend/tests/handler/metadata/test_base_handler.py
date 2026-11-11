@@ -32,6 +32,7 @@ from handler.metadata.base_handler import (
     tag_id_from_filename,
 )
 from handler.redis_handler import async_cache
+from models.platform import Platform
 from models.rom import Rom
 from tasks.scheduled.update_switch_titledb import (
     SWITCH_PRODUCT_ID_KEY,
@@ -483,9 +484,7 @@ class TestMetadataHandlerMethods:
 
 
 class TestResolveIndexedTitle:
-    PLATFORMS = IndexedFormatPlatforms(
-        ps1=1, ps2=2, psp=3, switch=4, arcade=(5, 6), scummvm=7
-    )
+    PLATFORMS = IndexedFormatPlatforms(ps1=1, ps2=2, psp=3, switch=4, scummvm=7)
 
     @pytest.fixture
     def handler(self) -> MetadataHandler:
@@ -497,10 +496,12 @@ class TestResolveIndexedTitle:
         fs_name: str,
         platform_id: int,
         platforms: IndexedFormatPlatforms = PLATFORMS,
+        slug: str | None = None,
     ) -> tuple[str, BaseRom]:
         fallback_rom = BaseRom()
+        platform = Platform(slug=slug, fs_slug=slug) if slug else None
         term = await handler._resolve_indexed_title(
-            Rom(fs_name=fs_name),
+            Rom(fs_name=fs_name, platform=platform),
             fs_name,
             "original",
             platform_id,
@@ -516,7 +517,6 @@ class TestResolveIndexedTitle:
             ("Crash [SCUS-94900].bin", 1, "_ps1_serial_format"),
             ("Ridge Racer [SLUS-01234].iso", 2, "_ps2_serial_format"),
             ("Lumines [ULUS-10046].iso", 3, "_psp_serial_format"),
-            ("pacman.zip", 6, "_mame_format"),
             ("monkey1.scummvm", 7, "_scummvm_format"),
         ],
     )
@@ -529,6 +529,32 @@ class TestResolveIndexedTitle:
 
         assert term == "Indexed Title"
         assert fallback_rom == BaseRom(name="Indexed Title")
+
+    @pytest.mark.parametrize("slug", ["arcade", "fbneo", "naomi", "neogeomvs"])
+    @pytest.mark.asyncio
+    async def test_a_mame_shortname_platform_resolves_the_set_title(
+        self, handler: MetadataHandler, slug: str
+    ):
+        with patch.object(handler, "_mame_format", AsyncMock(return_value="Pac-Man")):
+            term, fallback_rom = await self._resolve(
+                handler, "pacman.zip", 99, slug=slug
+            )
+
+        assert term == "Pac-Man"
+        assert fallback_rom == BaseRom(name="Pac-Man")
+
+    @pytest.mark.parametrize(
+        "slug", ["daphne", "singe", "type-x", "lindbergh", "teknoparrot"]
+    )
+    @pytest.mark.asyncio
+    async def test_an_arcade_platform_with_its_own_set_names_is_left_alone(
+        self, handler: MetadataHandler, slug: str
+    ):
+        with patch.object(handler, "_mame_format", new_callable=AsyncMock) as fmt:
+            term, _ = await self._resolve(handler, "ace.zip", 99, slug=slug)
+
+        fmt.assert_not_called()
+        assert term == "original"
 
     @pytest.mark.asyncio
     async def test_switch_entry_fills_the_fallback(self, handler: MetadataHandler):
@@ -573,7 +599,7 @@ class TestResolveIndexedTitle:
 
     @pytest.mark.asyncio
     async def test_provider_without_scummvm_skips_it(self, handler: MetadataHandler):
-        platforms = IndexedFormatPlatforms(ps1=1, ps2=2, psp=3, switch=4, arcade=())
+        platforms = IndexedFormatPlatforms(ps1=1, ps2=2, psp=3, switch=4)
         with patch.object(handler, "_scummvm_format", new_callable=AsyncMock) as fmt:
             term, _ = await self._resolve(handler, "monkey1", 7, platforms)
 

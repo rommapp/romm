@@ -44,12 +44,22 @@ The easiest way to start is with the [Quick Start Guide][docs-quick-start-guide]
 
 Prefer a hosted deploy over wiring up the stack yourself?
 
-<p align="center">
-  <a href="https://www.hostg.xyz/aff_c?offer_id=815&amp;aff_id=243561&amp;url_id=6779" target="_blank" rel="noopener noreferrer"><img src=".github/resources/hostinger-badge.svg" alt="Deploy on Hostinger" width="250" height="58" /></a>
-  <br />Starting at <b>$6.49/mo</b> · <a href="https://docs.romm.app/latest/install/hostinger/">Setup guide</a>
-</p>
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <a href="https://www.hostg.xyz/aff_c?offer_id=815&amp;aff_id=243561&amp;url_id=6779" target="_blank" rel="noopener noreferrer"><img src=".github/resources/hostinger-badge.svg" alt="Deploy on Hostinger" width="250" height="58" /></a>
+        <br />Starting at <b>$6.49/mo</b> · <a href="https://docs.romm.app/latest/install/hostinger/">Setup guide</a>
+      </td>
+      <td align="center">
+        <a href="https://corehost.io/p/romm" target="_blank" rel="noopener noreferrer"><img src=".github/resources/corehost-badge.svg" alt="Deploy on CoreHost" width="250" height="58" /></a>
+        <br />Starting at <b>$2.30/mo</b> · <a href="https://docs.romm.app/latest/install/corehost/">Setup guide</a>
+      </td>
+    </tr>
+  </table>
+</div>
 
-<sub><i>Deployment and infrastructure support for this install is handled by Hostinger. Prices are indicative and may not reflect current offerings. Signups through the link above send a share of the revenue back to us, which helps fund the project.</i></sub>
+<sub><i>Deployment and infrastructure support for these installs is handled by Hostinger and CoreHost. Prices are indicative and may not reflect current offerings. Both send a share of the revenue back to us, which helps fund the project.</i></sub>
 
 ## Official apps
 
@@ -100,6 +110,7 @@ Here are some cool projects maintained by members of our community. Please note 
 - [RetroVault][retrovault]: Native macOS library and player by [@kennethreitz](https://github.com/kennethreitz)
 - [romm-client][romm-client]: Desktop client by [@chaun14](https://github.com/chaun14)
 - [RomMate][rommate]: Desktop app for browsing your collection by [@brenoprata10](https://github.com/brenoprata10)
+- [RomP][romp]: Desktop player for Windows, macOS and Linux that runs each game in its own sandbox by [@RompEmu](https://github.com/RompEmu)
 
 ### Handhelds and Steam Deck
 
@@ -109,10 +120,13 @@ Here are some cool projects maintained by members of our community. Please note 
 - [Tender][romm-tender]: Decky Loader plugin with library and save sync for Steam Deck by [@danielcopper](https://github.com/danielcopper)
 - [Vita RomM][vita-romm]: PS Vita homebrew client for browsing and downloading games by [@denkacn](https://github.com/denkacn)
 
+### Consoles
+
+- [RommPS][rommps]: Client for jailbroken PS5s with game downloads and save sync by [@s0liton](https://github.com/s0liton)
+
 ### Sync
 
 - [RetroArch Sync][romm-retroarch-sync]: Sync RetroArch library with RomM by [@Covin90](https://github.com/Covin90)
-- [Syncthing sync][syncthing-sync]: Small tool to push a Syncthing library to RomM by [@amn-96](https://github.com/amn-96)
 
 ### Integrations
 
@@ -182,7 +196,6 @@ Here are a few projects that we think you might like:
 [romm-tender]: https://github.com/danielcopper/romm-tender
 [playnite-app]: https://github.com/rommapp/playnite-plugin
 [ggrequestz]: https://github.com/XTREEMMAK/ggrequestz
-[syncthing-sync]: https://github.com/amn-96/romm_syncthing_sync
 [romm-client]: https://github.com/chaun14/romm-client
 [romm-retroarch-sync]: https://github.com/Covin90/romm-retroarch-sync
 [rommate]: https://github.com/brenoprata10/rommate
@@ -197,4 +210,6 @@ Here are a few projects that we think you might like:
 [konsoru]: https://github.com/FabianZettl/konsoru-launcher-releases
 [grout]: https://github.com/rommapp/grout
 [romm-ios-app]: https://github.com/ilyas-hallak/romm-ios-app
+[romp]: https://github.com/RompEmu/RomP
+[rommps]: https://github.com/s0liton/RommPS
 [argosy-launcher]: https://github.com/rommapp/argosy-launcher

@@ -22,7 +22,7 @@ describe("ScanPlatformRow", () => {
       global: {
         stubs: {
           RouterLink: { template: "<a><slot /></a>" },
-          RImg: true,
+          RImage: true,
           RTooltip,
         },
       },

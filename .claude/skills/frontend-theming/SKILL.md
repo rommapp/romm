@@ -63,13 +63,14 @@ Outside `src/tokens/index.ts` (the source-of-truth TS module) and the generated 
 - Backdrop scrims (`global.css`) → `color-mix(in srgb, var(--r-color-bg) X%, transparent)`.
 - Status tints → `color-mix(in srgb, var(--r-color-status-base-{success,warning,danger,info}) X%, transparent)`.
 - Brand-tinted backgrounds (selected rows, focus rings) → `color-mix(in srgb, var(--r-color-brand-primary) X%, transparent)`.
+- Text on a solid brand fill (filled buttons, selected days, active steps) → fill with `--r-color-brand-primary-solid` and colour the text `--r-color-brand-on-primary`. `--r-color-brand-primary` is tuned as text on the page and gives white text only 3.6:1 as a fill. Primitives with a `color` prop get this from `solidFill()` in `lib/style/tokenMaps.ts`.
 - Black/white shadows → `color-mix(in srgb, black X%, transparent)` (CSS named color, not a hex literal).
 - Metadata-provider chips → `--r-color-provider-*`. Player canvas → `--r-color-canvas-bg`, `--r-color-canvas-bg-deep`.
 - Emphasis pill (always-white-on-dark "Play" CTA over cover art) → `--r-color-overlay-emphasis-bg/-fg/-bg-hover`.
 
 If a literal would otherwise be needed, the answer is: **add a token** (steps above), then consume via `var(--r-color-...)` or the named export.
 
-`romm/no-color-literal` (ESLint, `frontend/eslint-plugin-romm/`) flags hex and color-function literals in SFC `<style>` blocks under `src/v2`. It does not see `.css` files, stories' inline styles, or colors in TS strings.
+`romm/no-color-literal` (ESLint, `frontend/eslint-plugin-romm/`) flags hex and color-function literals in SFC `<style>` blocks under `src/`. It does not see `.css` files, stories' inline styles, or colors in TS strings.
 
 ## Style conventions
 

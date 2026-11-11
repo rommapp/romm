@@ -9,7 +9,7 @@
 //     setup / caveat pills; the status chip joins the pill row.
 // Surface-specific state styling (e.g. the wizard's "available" tint)
 // stays in the consumer, keyed on a data-* attr it passes through.
-import { RIcon, RImg, RTag } from "@/lib";
+import { RIcon, RImage, RTag } from "@/lib";
 import type { ProviderCardStatus } from "./types";
 
 defineOptions({ inheritAttrs: false });
@@ -64,7 +64,7 @@ defineSlots<{
     <header class="r-provider-card__header">
       <div class="r-provider-card__logo">
         <!-- Decorative: the name sits right next to it. -->
-        <RImg :src="logo" alt="" width="100%" height="100%" contain />
+        <RImage :src="logo" alt="" width="100%" height="100%" contain />
       </div>
       <div class="r-provider-card__head-text">
         <component :is="nameTag" class="r-provider-card__name">

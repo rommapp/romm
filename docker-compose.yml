@@ -55,7 +55,7 @@ services:
       - "3306:3306"
 
   romm-valkey-dev:
-    image: valkey/valkey:9.0.6
+    image: valkey/valkey:9.0.7
     container_name: romm-valkey-dev
     restart: unless-stopped
     env_file: .env

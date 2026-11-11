@@ -3,7 +3,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { ChannelSchema, SaveSchema } from "@/__generated__";
 import { useDeviceLabel } from "@/composables/useDeviceLabel";
-import { RChip, RIcon, RImg } from "@/lib";
+import { RChip, RIcon, RImage } from "@/lib";
 import { formatRelativeDate } from "@/utils";
 
 defineOptions({ inheritAttrs: false });
@@ -64,7 +64,7 @@ const subtitle = computed(() => {
         v-if="depth > 1"
         class="r-channel-tile__sheet r-channel-tile__sheet--1"
       />
-      <RImg
+      <RImage
         v-if="thumbnail"
         class="r-channel-tile__thumb"
         :src="thumbnail"

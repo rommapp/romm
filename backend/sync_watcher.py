@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from typing import cast
 
 from config import ENABLE_SYNC_FOLDER_WATCHER
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
@@ -230,6 +231,7 @@ def _process_incoming_file(
         user_id=device.user_id,
         platform_id=platform.id,
         slot_not_null=True,
+        visibility=UNRESTRICTED,
     )
 
     matched_save = None

@@ -34,6 +34,7 @@ class PlatformSchema(BaseModel):
     flashpoint_id: int | None = None
     category: str | None = None
     generation: int | None = None
+    first_release_year: int | None = None
     family_name: str | None = None
     family_slug: str | None = None
     url: str | None = None

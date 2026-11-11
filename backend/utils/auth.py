@@ -3,12 +3,12 @@ from datetime import datetime, timezone
 from http.cookies import SimpleCookie
 from typing import Any, cast
 
-from fastapi import Request
+from fastapi import HTTPException, Request, status
 from starlette.requests import HTTPConnection
 from ua_parser import Result as UAResult
 from ua_parser import parse as parse_ua
 
-from handler.auth.constants import SESSION_COOKIE_NAME
+from handler.auth.constants import SESSION_COOKIE_NAME, Scope
 from handler.database import db_device_handler
 from handler.redis_handler import async_cache
 from logger.formatter import CYAN
@@ -22,6 +22,60 @@ from utils import json_module
 def token_device_id(conn: HTTPConnection) -> str | None:
     """The device the request's client token is bound to, if any."""
     return getattr(conn.state, "device_id", None)
+
+
+def token_reaches_device(conn: HTTPConnection, device_id: str | None) -> bool:
+    """Whether the request's client token may act on this device; unbound ones reach all."""
+    return token_device_id(conn) in (None, device_id)
+
+
+def require_token_device(conn: HTTPConnection, device_id: str) -> None:
+    """Hide every other device from a client token bound to one, as a 404."""
+    if not token_reaches_device(conn, device_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Device with ID {device_id} not found",
+        )
+
+
+def require_device(
+    request: Request, device_id: str, device_only: bool = False
+) -> Device:
+    """The caller's device, 404 when not theirs and 403 under ``device_only`` for another caller."""
+    require_token_device(request, device_id)
+    device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
+    if device is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Device with ID {device_id} not found",
+        )
+    if device_only and token_device_id(request) != device_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the device itself can do this",
+        )
+    return device
+
+
+def resolve_device(
+    request: Request,
+    device_id: str | None,
+    required_scope: Scope | None = None,
+) -> Device | None:
+    """The caller's device a sync request names, None when it names none."""
+    if not device_id:
+        return None
+
+    scopes = request.auth.scopes
+    if required_scope and scopes and required_scope not in scopes:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    return require_device(request, device_id)
+
+
+def request_client_token_id(conn: HTTPConnection) -> int | None:
+    """The id of the client token that authenticated the request, if any."""
+    return getattr(conn.state, "client_token_id", None)
 
 
 def current_device_id(conn: HTTPConnection) -> str | None:

@@ -2,12 +2,11 @@ from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.orm import Session
 
 from decorators.database import INJECTED_SESSION, begin_session
 from models.device import Device, SyncMode
-from utils.datetime import to_utc
 
 from .base_handler import DBBaseHandler
 
@@ -158,18 +157,18 @@ class DBDevicesHandler(DBBaseHandler):
         request. Mirrors the debounce used by ClientToken.update_last_used.
         """
         now = datetime.now(timezone.utc)
-        device = session.get(Device, device_id)
-        if device is None:
-            return
-
-        if device.last_seen and (now - to_utc(device.last_seen)) < LAST_SEEN_DEBOUNCE:
-            return
-
+        # Debounced in the WHERE clause, so concurrent bumps have no earlier read to race.
         session.execute(
             update(Device)
-            .where(Device.id == device_id)
+            .where(
+                Device.id == device_id,
+                or_(
+                    Device.last_seen.is_(None),
+                    Device.last_seen < now - LAST_SEEN_DEBOUNCE,
+                ),
+            )
             .values(last_seen=now)
-            .execution_options(synchronize_session="evaluate")
+            .execution_options(synchronize_session=False)
         )
 
     @begin_session

@@ -1,13 +1,18 @@
 import json
 import os
 import time
-from typing import NotRequired, TypedDict, cast
+from typing import Annotated, NotRequired, TypedDict, cast
 
 import pydash
 from anyio import Path as AnyioPath
+from fastapi import HTTPException
+from pydantic import Field
 
 from adapters.services.provider_http import unavailable
-from adapters.services.retroachievements import RetroAchievementsService
+from adapters.services.retroachievements import (
+    RARequestRejectedError,
+    RetroAchievementsService,
+)
 from adapters.services.retroachievements_types import (
     RAGameExtendedDetails,
 )
@@ -18,6 +23,7 @@ from config import (
 from handler.filesystem import fs_resource_handler
 from logger.logger import log
 from models.rom import Rom
+from utils.arcade_platforms import ARCADE_SET_PLATFORMS, arcade_fallbacks
 from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.platform_slugs import fill_duplicate_slugs
@@ -72,7 +78,14 @@ class RAGameRom(BaseRom):
 
 
 class EarnedAchievement(TypedDict):
-    id: str
+    id: Annotated[
+        str,
+        Field(
+            description="The badge name, which several achievements can share. Use `ra_id`.",
+            deprecated=True,
+        ),
+    ]
+    ra_id: NotRequired[int]
     date: str
     date_hardcore: NotRequired[str]
 
@@ -354,55 +367,93 @@ class RAHandler(MetadataHandler):
         self,
         username: str,
         current_progression: RAUserProgression | None = None,
+        *,
+        refresh_all: bool = False,
     ) -> RAUserProgression:
         """Retrieves the user's RetroAchievements progression.
 
-        If `current_progression` is provided, it will only incrementally update the
-        progression based on new achievements since the last check.
+        Args:
+            current_progression: stored progression; unchanged games reuse it,
+                and games RA fails to detail keep it.
+            refresh_all: re-read every game's details, even unchanged ones.
         """
         game_progressions: list[RAUserGameProgression] = []
+        ra_unavailable = False
         current_progression_by_game_id: dict[int | None, RAUserGameProgression] = {}
         if current_progression:
             current_progression_by_game_id = {
                 p["rom_ra_id"]: p for p in current_progression.get("results", [])
             }
 
-        async for rom in self.ra_service.iter_user_completion_progress(username):
+        # Every page is read before any detail request, so a throttled page
+        # fails the sync before details are fetched and thrown away.
+        completion = [
+            rom async for rom in self.ra_service.iter_user_completion_progress(username)
+        ]
+        for rom in completion:
             rom_game_id = rom.get("GameID")
             highest_award_kind = rom.get("HighestAwardKind", None)
 
+            game_current_progression = current_progression_by_game_id.get(rom_game_id)
+            # The completion row's award kind is current even when the stored entry is reused.
+            if game_current_progression:
+                game_current_progression = cast(
+                    RAUserGameProgression,
+                    {
+                        **game_current_progression,
+                        "highest_award_kind": highest_award_kind,
+                    },
+                )
+
             # If we have current progression data, and number of awarded achievements and most
             # recent awarded date match, then we can skip fetching progression details.
-            game_current_progression = current_progression_by_game_id.get(rom_game_id)
             if (
-                game_current_progression
+                not refresh_all
+                and game_current_progression
+                # Entries stored before `ra_id` existed are read again to gain it.
+                and all(
+                    "ra_id" in e
+                    for e in game_current_progression.get("earned_achievements", [])
+                )
                 and rom["NumAwarded"] == game_current_progression.get("num_awarded")
                 and rom["NumAwardedHardcore"]
                 == game_current_progression.get("num_awarded_hardcore")
                 and rom["MostRecentAwardedDate"]
                 == game_current_progression.get("most_recent_awarded_date")
             ):
-                # Always keep highest_award_kind up-to-date even for cached progressions
-                if (
-                    game_current_progression.get("highest_award_kind")
-                    != highest_award_kind
-                ):
-                    game_current_progression = cast(
-                        RAUserGameProgression,
-                        {
-                            **game_current_progression,
-                            "highest_award_kind": highest_award_kind,
-                        },
-                    )
                 game_progressions.append(game_current_progression)
                 continue
 
             earned_achievements: list[EarnedAchievement] = []
             if rom_game_id:
-                result = await self.ra_service.get_user_game_progress(
-                    username=username,
-                    game_id=rom_game_id,
-                )
+                result = None
+                failed = ra_unavailable
+                if not ra_unavailable:
+                    try:
+                        result = await self.ra_service.get_user_game_progress(
+                            username=username,
+                            game_id=rom_game_id,
+                        )
+                    except RARequestRejectedError as exc:
+                        log.warning(
+                            "RetroAchievements refused progress for game %s, "
+                            "keeping its stored progress: %s",
+                            rom_game_id,
+                            exc.detail,
+                        )
+                        failed = True
+                    except HTTPException as exc:
+                        log.warning(
+                            "RetroAchievements is unavailable at game %s, "
+                            "deferring the remaining games to the next sync: %s",
+                            rom_game_id,
+                            exc.detail,
+                        )
+                        failed = ra_unavailable = True
+                if failed:
+                    if game_current_progression:
+                        game_progressions.append(game_current_progression)
+                    continue
                 achievements = result.get("Achievements", {}) if result else {}
                 for achievement in achievements.values():
                     badge_name = achievement.get("BadgeName")
@@ -413,6 +464,8 @@ class RAHandler(MetadataHandler):
                             id=badge_name,
                             date=date_earned,
                         )
+                        if achievement.get("ID") is not None:
+                            earned_achievement["ra_id"] = achievement["ID"]
                         if date_earned_hardcore:
                             earned_achievement["date_hardcore"] = date_earned_hardcore
                         earned_achievements.append(earned_achievement)
@@ -517,8 +570,7 @@ RA_PLATFORM_LIST: dict[UPS, SlugToRAId] = {
     UPS.WONDERSWAN: {"id": 53, "name": "WonderSwan"},
     UPS.WONDERSWAN_COLOR: {"id": 53, "name": "WonderSwan Color"},
 }
+# RetroAchievements hashes only MAME and FinalBurn sets, by filename.
+RA_PLATFORM_LIST |= arcade_fallbacks(RA_PLATFORM_LIST, ARCADE_SET_PLATFORMS)
 
 fill_duplicate_slugs(RA_PLATFORM_LIST)
-
-# Reverse lookup
-RA_ID_TO_SLUG = {v["id"]: k for k, v in RA_PLATFORM_LIST.items()}

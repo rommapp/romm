@@ -6,20 +6,27 @@ to its roms, admins are unaffected, and delete requires a delete grant even when
 the coarse write scope is present.
 """
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi import status
-from tests.factories import make_rom
+from tests.factories import make_platform, make_rom, make_save, make_state
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import roms as rom_endpoints
 from endpoints.roms import walkthrough as walkthrough_endpoints
 from handler.auth.base_handler import oauth_handler
-from handler.database import db_collection_handler, db_rom_handler, db_user_handler
+from handler.database import (
+    db_collection_handler,
+    db_device_handler,
+    db_play_session_handler,
+    db_rom_handler,
+    db_user_handler,
+)
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler
-from models.collection import SmartCollection
+from models.collection import Collection, SmartCollection
+from models.device import Device
 from models.permission import (
     HiddenEntity,
     PermAction,
@@ -27,6 +34,7 @@ from models.permission import (
     PermissionGroup,
     PermissionGroupGrant,
 )
+from models.play_session import PlaySession
 from models.rom import RomFile, RomFileCategory
 from utils.gamelist_exporter import GamelistExporter
 from utils.pegasus_exporter import PegasusExporter
@@ -145,6 +153,243 @@ def test_hidden_rom_is_dropped_from_a_smart_collection_and_its_count(
     body = resp.json()
     assert body["rom_ids"] == [second_rom.id]
     assert body["rom_count"] == 1
+
+
+def test_hidden_rom_is_left_out_of_its_platforms_counts(
+    client, viewer_user, admin_user, platform
+):
+    make_rom(platform, "shown", fs_size_bytes=100)
+    hidden = make_rom(platform, "hidden", fs_size_bytes=50)
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    detail = client.get(
+        f"/api/platforms/{platform.id}", headers=_auth(viewer_user)
+    ).json()
+    listed = next(
+        p
+        for p in client.get("/api/platforms", headers=_auth(viewer_user)).json()
+        if p["id"] == platform.id
+    )
+    admin = client.get(
+        f"/api/platforms/{platform.id}", headers=_auth(admin_user)
+    ).json()
+
+    for body in (detail, listed):
+        assert (body["rom_count"], body["fs_size_bytes"]) == (1, 100)
+    assert (admin["rom_count"], admin["fs_size_bytes"]) == (2, 150)
+
+
+def test_platform_update_answers_with_the_editors_counts(client, editor_user, platform):
+    make_rom(platform, "shown", fs_size_bytes=100)
+    hidden = make_rom(platform, "hidden", fs_size_bytes=50)
+    _hide(PermEntity.ROMS, hidden.id, editor_user.id)
+
+    response = client.put(
+        f"/api/platforms/{platform.id}",
+        headers=_auth(editor_user),
+        json={"custom_name": "Renamed"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    body = response.json()
+    assert (body["rom_count"], body["fs_size_bytes"]) == (1, 100)
+
+
+def test_supported_platforms_count_only_visible_roms(client, viewer_user):
+    shown = make_platform("n64")
+    make_rom(shown, "shown", fs_size_bytes=100)
+    _hide(
+        PermEntity.ROMS, make_rom(shown, "hidden", fs_size_bytes=50).id, viewer_user.id
+    )
+    hidden_platform = make_platform("snes")
+    make_rom(hidden_platform, "on a hidden platform")
+    _hide(PermEntity.PLATFORMS, hidden_platform.id, viewer_user.id)
+
+    supported = {
+        p["slug"]: p
+        for p in client.get(
+            "/api/platforms/supported", headers=_auth(viewer_user)
+        ).json()
+    }
+
+    assert (supported["n64"]["rom_count"], supported["n64"]["fs_size_bytes"]) == (
+        1,
+        100,
+    )
+    assert (supported["snes"]["id"], supported["snes"]["rom_count"]) == (-1, 0)
+
+
+def test_retroarch_skips_a_platform_whose_roms_are_all_hidden(
+    client, editor_user, rom, platform
+):
+    _hide(PermEntity.ROMS, rom.id, editor_user.id)
+    auth = ("test_editor", "test_editor_password")
+
+    listing = client.request("PROPFIND", "/api/sync/retroarch/roms/", auth=auth)
+    folder = client.request(
+        "PROPFIND", f"/api/sync/retroarch/roms/{platform.fs_slug}/", auth=auth
+    )
+
+    assert listing.status_code == 207
+    assert f"/roms/{platform.fs_slug}/" not in listing.text
+    assert folder.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_platform_with_only_hidden_roms_counts_none(client, viewer_user, platform):
+    hidden = make_rom(platform, "hidden", fs_size_bytes=50)
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    body = client.get(
+        f"/api/platforms/{platform.id}", headers=_auth(viewer_user)
+    ).json()
+
+    assert (body["rom_count"], body["fs_size_bytes"]) == (0, 0)
+
+
+def _rom_with_cover(platform, name, **overrides):
+    rom = make_rom(platform, name, **overrides)
+    return db_rom_handler.update_rom(
+        rom.id,
+        {
+            "path_cover_s": f"{rom.fs_resources_path}/cover/small.png",
+            "path_cover_l": f"{rom.fs_resources_path}/cover/big.png",
+        },
+    )
+
+
+def _cover_rom_ids(body):
+    """The rom ids in a collection's small and large cover URLs, sorted."""
+    return tuple(
+        sorted(int(url.split("/")[-3]) for url in body[key])
+        for key in ("path_covers_small", "path_covers_large")
+    )
+
+
+def test_hidden_rom_is_dropped_from_a_collections_covers(
+    client, viewer_user, admin_user, platform
+):
+    shown = _rom_with_cover(platform, "shown")
+    hidden = _rom_with_cover(platform, "hidden")
+    collection = db_collection_handler.add_collection(
+        Collection(name="Mixed", description="", user_id=admin_user.id, is_public=True)
+    )
+    db_collection_handler.add_roms_to_collection(collection.id, [shown.id, hidden.id])
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    detail = client.get(
+        f"/api/collections/{collection.id}", headers=_auth(viewer_user)
+    ).json()
+    listed = next(
+        c
+        for c in client.get("/api/collections", headers=_auth(viewer_user)).json()
+        if c["id"] == collection.id
+    )
+
+    for body in (detail, listed):
+        assert _cover_rom_ids(body) == ([shown.id], [shown.id])
+
+
+def test_hidden_rom_is_dropped_from_a_smart_collections_covers(
+    client, viewer_user, admin_user, platform
+):
+    shown = _rom_with_cover(platform, "shown")
+    hidden = _rom_with_cover(platform, "hidden")
+    smart = db_collection_handler.add_smart_collection(
+        SmartCollection(
+            name="Everything",
+            description="",
+            user_id=admin_user.id,
+            is_public=True,
+            filter_criteria={"platform_ids": [platform.id]},
+        )
+    )
+    db_collection_handler.refresh_smart_collection(smart.id)
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    body = client.get(
+        f"/api/collections/smart/{smart.id}", headers=_auth(viewer_user)
+    ).json()
+
+    assert _cover_rom_ids(body) == ([shown.id], [shown.id])
+
+
+def test_hidden_rom_is_dropped_from_a_virtual_collections_covers(
+    client, viewer_user, platform
+):
+    roms = [
+        _rom_with_cover(platform, name, manual_metadata={"franchises": ["Grow"]})
+        for name in ("first", "second", "third")
+    ]
+    _hide(PermEntity.ROMS, roms[0].id, viewer_user.id)
+
+    body = next(
+        c
+        for c in client.get(
+            "/api/collections/virtual?type=franchise", headers=_auth(viewer_user)
+        ).json()
+        if c["name"] == "Grow"
+    )
+
+    visible = sorted(rom.id for rom in roms[1:])
+    assert _cover_rom_ids(body) == (visible, visible)
+
+
+def _member_ids(collection_id):
+    collection = db_collection_handler.get_collection(collection_id)
+    assert collection is not None
+    return set(collection.rom_ids)
+
+
+def test_hidden_rom_cannot_be_added_to_a_collection(client, viewer_user, platform):
+    hidden = _rom_with_cover(platform, "hidden")
+    own = db_collection_handler.add_collection(
+        Collection(name="Mine", description="", user_id=viewer_user.id)
+    )
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    body = client.post(
+        f"/api/collections/{own.id}/roms",
+        headers=_auth(viewer_user),
+        json={"rom_ids": [hidden.id]},
+    ).json()
+
+    assert body["rom_ids"] == []
+    assert _cover_rom_ids(body) == ([], [])
+    assert _member_ids(own.id) == set()
+
+
+def test_hidden_member_survives_a_collection_update(client, viewer_user, rom, platform):
+    hidden = make_rom(platform, "hidden")
+    own = db_collection_handler.add_collection(
+        Collection(name="Mine", description="", user_id=viewer_user.id)
+    )
+    db_collection_handler.add_roms_to_collection(own.id, [rom.id, hidden.id])
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    body = client.put(
+        f"/api/collections/{own.id}",
+        headers=_auth(viewer_user),
+        data={"rom_ids": f"[{rom.id}]", "name": "Renamed"},
+    ).json()
+
+    assert body["rom_ids"] == [rom.id]
+    assert _member_ids(own.id) == {rom.id, hidden.id}
+
+
+def test_hidden_rom_cannot_be_put_into_a_collection(client, viewer_user, platform):
+    hidden = make_rom(platform, "hidden")
+    own = db_collection_handler.add_collection(
+        Collection(name="Mine", description="", user_id=viewer_user.id)
+    )
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    client.put(
+        f"/api/collections/{own.id}",
+        headers=_auth(viewer_user),
+        data={"rom_ids": f"[{hidden.id}]"},
+    )
+
+    assert _member_ids(own.id) == set()
 
 
 def test_hidden_platform_cascades_to_its_roms(client, viewer_user, rom, platform):
@@ -435,3 +680,133 @@ def test_delete_requires_delete_grant_even_with_write_scope(
 def test_admin_can_delete_platform(client, admin_user, platform):
     resp = client.delete(f"/api/platforms/{platform.id}", headers=_auth(admin_user))
     assert resp.status_code == status.HTTP_200_OK
+
+
+def test_rom_filters_leave_out_hidden_platforms(client, viewer_user, platform, rom):
+    hidden_platform = make_platform("snes")
+    make_rom(hidden_platform, "on a hidden platform")
+    _hide(PermEntity.PLATFORMS, hidden_platform.id, viewer_user.id)
+
+    response = client.get("/api/roms/filters", headers=_auth(viewer_user))
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["platforms"] == [platform.id]
+
+
+def test_own_save_on_a_hidden_rom_is_404(client, viewer_user, rom):
+    save = make_save(rom, viewer_user, "hidden.sav")
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+
+    response = client.get(f"/api/saves/{save.id}", headers=_auth(viewer_user))
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_own_state_on_a_hidden_rom_is_404(client, viewer_user, rom):
+    state = make_state(rom, viewer_user, "hidden.state")
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+
+    response = client.get(f"/api/states/{state.id}", headers=_auth(viewer_user))
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_play_sessions_on_hidden_roms_are_left_out(client, viewer_user, platform, rom):
+    hidden = make_rom(platform, "hidden")
+    start = datetime.now(timezone.utc) - timedelta(hours=2)
+    db_play_session_handler.add_sessions(
+        [
+            PlaySession(
+                user_id=viewer_user.id,
+                rom_id=rom_id,
+                start_time=start,
+                end_time=start + timedelta(minutes=30),
+                duration_ms=30 * 60 * 1000,
+            )
+            for rom_id in (rom.id, hidden.id)
+        ]
+    )
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    response = client.get("/api/play-sessions", headers=_auth(viewer_user))
+
+    assert response.status_code == status.HTTP_200_OK
+    assert [s["rom_id"] for s in response.json()] == [rom.id]
+
+
+@pytest.mark.parametrize("by", ["rom_id", "device_id"])
+def test_filtered_play_sessions_skip_hidden_roms(
+    client, viewer_user, platform, rom, by
+):
+    hidden = make_rom(platform, "hidden")
+    device = db_device_handler.add_device(
+        Device(id="handheld", user_id=viewer_user.id, name="Handheld")
+    )
+    start = datetime.now(timezone.utc) - timedelta(hours=2)
+    db_play_session_handler.add_sessions(
+        [
+            PlaySession(
+                user_id=viewer_user.id,
+                rom_id=rom_id,
+                device_id=device.id,
+                start_time=start,
+                end_time=start + timedelta(minutes=30),
+                duration_ms=30 * 60 * 1000,
+            )
+            for rom_id in (rom.id, hidden.id)
+        ]
+    )
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+    params = {"rom_id": rom.id} if by == "rom_id" else {"device_id": device.id}
+
+    response = client.get(
+        "/api/play-sessions", params=params, headers=_auth(viewer_user)
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert [s["rom_id"] for s in response.json()] == [rom.id]
+
+
+def test_hidden_play_sessions_do_not_shorten_a_page(client, viewer_user, platform, rom):
+    hidden = make_rom(platform, "hidden")
+    now = datetime.now(timezone.utc)
+    # The newest session is on the hidden ROM, so a slice taken first comes back empty.
+    db_play_session_handler.add_sessions(
+        [
+            PlaySession(
+                user_id=viewer_user.id,
+                rom_id=rom_id,
+                start_time=now - timedelta(hours=hours_ago),
+                end_time=now - timedelta(hours=hours_ago) + timedelta(minutes=30),
+                duration_ms=30 * 60 * 1000,
+            )
+            for rom_id, hours_ago in ((hidden.id, 1), (rom.id, 2))
+        ]
+    )
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    response = client.get(
+        "/api/play-sessions", params={"limit": 1}, headers=_auth(viewer_user)
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert [s["rom_id"] for s in response.json()] == [rom.id]
+
+
+def test_hidden_member_survives_a_removal(client, viewer_user, rom, platform):
+    hidden = make_rom(platform, "hidden")
+    own = db_collection_handler.add_collection(
+        Collection(name="Mine", description="", user_id=viewer_user.id)
+    )
+    db_collection_handler.add_roms_to_collection(own.id, [rom.id, hidden.id])
+    _hide(PermEntity.ROMS, hidden.id, viewer_user.id)
+
+    response = client.request(
+        "DELETE",
+        f"/api/collections/{own.id}/roms",
+        headers=_auth(viewer_user),
+        json={"rom_ids": [rom.id, hidden.id]},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert _member_ids(own.id) == {hidden.id}

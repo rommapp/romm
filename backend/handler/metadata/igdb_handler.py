@@ -3,7 +3,7 @@ from typing import Any, Final, NotRequired, TypedDict, cast
 
 import httpx2
 import pydash
-from fastapi import status
+from fastapi import HTTPException, status
 
 from adapters.services.igdb import (
     IGDB_PLATFORM_FAMILIES,
@@ -11,6 +11,7 @@ from adapters.services.igdb import (
     IGDB_PLATFORM_VERSIONS,
     IGDB_SIBLING_PLATFORMS,
     IGDBService,
+    PlatformDiscovery,
     SlugToIGDB,
 )
 from adapters.services.igdb_types import (
@@ -25,6 +26,7 @@ from handler.filesystem.base_handler import region_name_to_provider_shortcode
 from handler.redis_handler import async_cache
 from logger.logger import log
 from models.rom import Rom
+from utils.arcade_platforms import ARCADE_PLATFORMS
 from utils.context import ctx_httpx_client
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
@@ -40,17 +42,11 @@ PS1_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.PSX]["id"]
 PS2_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.PS2]["id"]
 PSP_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.PSP]["id"]
 SWITCH_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.SWITCH]["id"]
-ARCADE_IGDB_IDS: Final = [
-    IGDB_PLATFORM_LIST[UPS.ARCADE]["id"],
-    IGDB_PLATFORM_LIST[UPS.NEOGEOAES]["id"],
-    IGDB_PLATFORM_LIST[UPS.NEOGEOMVS]["id"],
-]
 IGDB_INDEXED_FORMAT_PLATFORMS: Final = IndexedFormatPlatforms(
     ps1=PS1_IGDB_ID,
     ps2=PS2_IGDB_ID,
     psp=PSP_IGDB_ID,
     switch=SWITCH_IGDB_ID,
-    arcade=ARCADE_IGDB_IDS,
     scummvm=IGDB_PLATFORM_LIST[UPS.SCUMMVM]["id"],
 )
 
@@ -777,6 +773,43 @@ class IGDBHandler(MetadataHandler):
         return await self._heartbeat("IGDB API", probe)
 
     def get_platform(self, slug: str) -> IGDBPlatform:
+        platform = self._base_platform(slug)
+        if platform["slug"] in IGDB_PLATFORM_FAMILIES:
+            family = IGDB_PLATFORM_FAMILIES[UPS(platform["slug"])]
+            platform["family_name"] = family["family_name"]
+            platform["family_slug"] = family["family_slug"]
+        return platform
+
+    async def get_platform_discovery(self, slug: str) -> PlatformDiscovery:
+        """Look up the exact revision when the folder represents a hardware variant."""
+        if not self.is_enabled():
+            return PlatformDiscovery()
+        version = IGDB_PLATFORM_VERSIONS.get(slug)
+        platform = (
+            IGDB_PLATFORM_LIST.get(UPS(slug)) if slug in IGDB_PLATFORM_LIST else None
+        )
+        if version is None and platform is None:
+            return PlatformDiscovery()
+        platform_id = version["id"] if version else platform["id"] if platform else None
+        if platform_id is None:
+            return PlatformDiscovery()
+        try:
+            details = await self.igdb_service.platform_discovery(
+                platform_id, version=version is not None
+            )
+            if logo := details.get("url_logo"):
+                logo = self.normalize_cover_url(logo).replace("/t_thumb/", "/t_720p/")
+                if logo.startswith("https://images.igdb.com/") and logo.endswith(
+                    ".jpg"
+                ):
+                    logo = logo.removesuffix(".jpg") + ".png"
+                details["url_logo"] = logo
+            return details
+        except HTTPException:
+            log.warning("IGDB platform discovery unavailable for %s", slug)
+            return PlatformDiscovery()
+
+    def _base_platform(self, slug: str) -> IGDBPlatform:
         if slug in IGDB_PLATFORM_LIST:
             platform = IGDB_PLATFORM_LIST[UPS(slug)]
             # A duplicate of a family-less IGDB platform takes its family from IGDB_PLATFORM_FAMILIES.
@@ -814,16 +847,20 @@ class IGDBHandler(MetadataHandler):
                 ),
             )
 
+        # IGDB files every arcade game under Arcade. A provider that knows the
+        # board supplies the name, so it doesn't read "Arcade".
+        if slug in ARCADE_PLATFORMS:
+            arcade = self._base_platform(UPS.ARCADE)
+            arcade["slug"] = slug
+            arcade.pop("name", None)
+            return arcade
+
         unlisted_platform = IGDBPlatform(igdb_id=None, slug=slug)
         if slug in IGDB_SIBLING_PLATFORMS:
             sibling = IGDB_PLATFORM_LIST[IGDB_SIBLING_PLATFORMS[UPS(slug)]]
             unlisted_platform["category"] = sibling["category"]
             unlisted_platform["family_name"] = sibling["family_name"]
             unlisted_platform["family_slug"] = sibling["family_slug"]
-        if slug in IGDB_PLATFORM_FAMILIES:
-            family = IGDB_PLATFORM_FAMILIES[UPS(slug)]
-            unlisted_platform["family_name"] = family["family_name"]
-            unlisted_platform["family_slug"] = family["family_slug"]
 
         return unlisted_platform
 

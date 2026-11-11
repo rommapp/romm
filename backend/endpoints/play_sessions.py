@@ -16,7 +16,7 @@ from handler.auth.dependencies import get_permissions
 from handler.database import db_play_session_handler
 from handler.play_session_handler import ingest_play_sessions as _ingest
 from logger.logger import log
-from utils.auth import token_device_id
+from utils.auth import require_token_device, token_device_id
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -25,6 +25,14 @@ router = APIRouter(
 )
 
 MAX_BATCH_SIZE = 100
+
+
+def assert_batch_size(count: int) -> None:
+    if count > MAX_BATCH_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Batch size exceeds maximum of {MAX_BATCH_SIZE}",
+        )
 
 
 class PlaySessionEntry(BaseModel):
@@ -60,12 +68,10 @@ def ingest_play_sessions(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Payload must contain at least one session",
         )
-    if len(payload.sessions) > MAX_BATCH_SIZE:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Batch size exceeds maximum of {MAX_BATCH_SIZE}",
-        )
+    assert_batch_size(len(payload.sessions))
 
+    if payload.device_id:
+        require_token_device(request, payload.device_id)
     device_id = payload.device_id or token_device_id(request)
 
     summary = _ingest(
@@ -122,6 +128,7 @@ def get_play_sessions(
         end_before=end_before,
         limit=page.limit if start_after is None and end_before is None else None,
         offset=page.offset,
+        visibility=get_permissions(request).rom_visibility,
     )
     return [PlaySessionSchema.model_validate(s) for s in sessions]
 

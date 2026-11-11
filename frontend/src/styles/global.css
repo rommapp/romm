@@ -139,8 +139,8 @@ html:not([data-input])
 }
 
 .r-app ::selection {
-  background-color: var(--r-color-brand-primary);
-  color: var(--r-color-overlay-fg);
+  background-color: var(--r-color-brand-primary-solid);
+  color: var(--r-color-brand-on-primary);
 }
 
 /* Hide the mouse cursor when the user is driving the UI with a gamepad:
@@ -504,6 +504,77 @@ html.r-reduced-motion {
     to {
       opacity: 1;
     }
+  }
+}
+
+/* Result swap (useResultsTransition): only the named cards animate, so
+   the page stays interactive underneath. */
+html.r-results-vt {
+  view-transition-name: none;
+}
+/* Other morph names (a header's platform icon) would fly in with the scroll
+   reset. `data-result-id` is RESULT_ID_ATTR in useResultsTransition. */
+html.r-results-vt :not([data-result-id]) {
+  view-transition-name: none !important;
+}
+html.r-results-vt::view-transition {
+  pointer-events: none;
+}
+html.r-results-vt::view-transition-group(*) {
+  animation-duration: 420ms;
+  animation-timing-function: var(--r-motion-ease-out);
+}
+html.r-results-vt::view-transition-old(*) {
+  animation: r-results-out var(--r-motion-med) var(--r-motion-ease-out) both;
+}
+html.r-results-vt::view-transition-new(*) {
+  animation: r-results-in var(--r-motion-slow) var(--r-motion-ease-out) both;
+}
+html.r-results-vt::view-transition-old(*):only-child {
+  animation: r-results-exit var(--r-motion-med) var(--r-motion-ease-out) both;
+}
+/* Rows share full-width text slots: a leaving row clears before an
+   arrival fades in (per-row delays come from the composable). */
+html.r-results-vt--rows::view-transition-old(*):only-child {
+  animation: r-results-out 120ms var(--r-motion-ease-out) both;
+}
+html.r-results-vt--rows::view-transition-new(*):only-child {
+  animation: r-results-row-in 240ms var(--r-motion-ease-out) both;
+}
+@keyframes r-results-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes r-results-out {
+  from {
+    opacity: var(--r-results-vt-from, 1);
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes r-results-in {
+  from {
+    opacity: var(--r-results-vt-from, 1);
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes r-results-exit {
+  from {
+    opacity: var(--r-results-vt-from, 1);
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.88);
   }
 }
 

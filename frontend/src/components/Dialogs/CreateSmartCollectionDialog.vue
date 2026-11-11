@@ -113,8 +113,6 @@ const openHandler = () => {
       selectedLengthMaxHours: galleryFilter.selectedLengthMaxHours,
       selectedTags: galleryFilter.selectedTags,
       tagsLogic: galleryFilter.tagsLogic,
-      selectedReleaseTypes: galleryFilter.selectedReleaseTypes,
-      releaseTypesLogic: galleryFilter.releaseTypesLogic,
       selectedStatuses: galleryFilter.selectedStatuses,
       statusesLogic: galleryFilter.statusesLogic,
     },

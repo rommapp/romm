@@ -36,6 +36,7 @@ from endpoints.streaming import platform_capabilities
 from handler import asset_store
 from handler.activity_handler import activity_handler
 from handler.auth.base_handler import oauth_handler
+from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
 from handler.database import (
     db_container_adoption_handler,
     db_memory_card_handler,
@@ -89,6 +90,7 @@ from handler.streaming.protocol import protocol_for
 from handler.streaming.session_store import (
     STREAMING_SESSION_DRAIN_SECONDS,
     STREAMING_SESSION_TTL_SECONDS,
+    StreamingSession,
     StreamingSessionContended,
     release_own_session,
 )
@@ -111,7 +113,7 @@ from models.permission import (
     UserPermissionOverride,
 )
 from models.platform import Platform
-from models.rom import Rom, RomFile, SaveTargetLayout
+from models.rom import Rom, RomFile, RomFileCategory, SaveTargetLayout
 from models.user import Role, User
 from utils.memory_cards import content_hash_of_bytes
 from utils.uploads import apply_datetime_tag
@@ -277,11 +279,11 @@ def _auth(token):
     return {"Authorization": f"Bearer {token}"}
 
 
-def _load_session(key: str) -> dict[str, Any]:
+def _load_session(key: str) -> StreamingSession:
     """The session stored at `key`, failing the test if nothing is there."""
     raw = asyncio.run(async_cache.get(key))
     assert raw is not None, f"no session stored at {key}"
-    return cast(dict[str, Any], json.loads(raw))
+    return cast(StreamingSession, json.loads(raw))
 
 
 def _claim(client, token, rom_id, state_id=None, save_id=None):
@@ -341,6 +343,32 @@ def test_get_config_warns_on_missing_platform(client, access_token, caplog):
     assert response.status_code == 200
     assert response.json()["containers"] == []
     assert "missing platform/host" in caplog.text
+
+
+def test_a_container_broker_secret_overrides_the_env_secret():
+    """Containers with different BROKER_SECRETs each authenticate with their own."""
+    with patch("handler.streaming.config.STREAMING_BROKER_SECRET", "from-env"):
+        container = resolve_entry({**_webstation(), "broker_secret": "from-config"})
+    assert container is not None
+    assert container.broker_secret == "from-config"
+
+
+@pytest.mark.parametrize(
+    "configured", [{}, {"broker_secret": None}, {"broker_secret": ""}]
+)
+def test_a_container_without_a_broker_secret_falls_back_to_the_env_secret(configured):
+    with patch("handler.streaming.config.STREAMING_BROKER_SECRET", "from-env"):
+        container = resolve_entry({**_webstation(), **configured})
+    assert container is not None
+    assert container.broker_secret == "from-env"
+
+
+def test_a_blank_broker_secret_with_no_env_secret_sends_none():
+    """A bare `broker_secret:` key is YAML null, not the secret "None"."""
+    with patch("handler.streaming.config.STREAMING_BROKER_SECRET", ""):
+        container = resolve_entry({**_webstation(), "broker_secret": None})
+    assert container is not None
+    assert container.broker_secret == ""
 
 
 def test_a_config_warning_does_not_print_the_broker_secret(
@@ -411,6 +439,26 @@ def test_get_config_ships_capabilities_for_a_retroarch_platform(client, access_t
     caps = r.json()["containers"][0]["capabilities"]
     assert caps["has_autosave"] is True
     assert caps["autosave_slot"] == 10
+
+
+def test_get_config_ships_capabilities_for_a_ppsspp_container(client, access_token):
+    """A psp: ppsspp container ships and accepts the broker's one working state slot."""
+    container = {
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "platforms": {"psp": "ppsspp"},
+    }
+    with _streaming(container):
+        r = client.get("/api/streaming/config", headers=_auth(access_token))
+        streaming._assert_valid_slot("psp", 10)
+        with pytest.raises(HTTPException):
+            streaming._assert_valid_slot("psp", 3)
+    assert r.status_code == 200
+    caps = r.json()["containers"][0]["capabilities"]
+    assert caps["max_slots"] == 0
+    assert caps["has_autosave"] is True
+    assert caps["autosave_slot"] == 10
+    assert caps["has_memory_card"] is False
 
 
 def _picks(client, token, rom: Rom, platform: str, spec=None, core=None):
@@ -3151,6 +3199,28 @@ def test_desktop_frees_the_claim_when_activation_fails(client, access_token):
         assert _session_raw(container) is None
 
 
+def test_desktop_frees_the_claim_when_activation_is_cancelled(client, access_token):
+    """A cancellation is not an Exception, so a narrower catch would leak it."""
+    with _streaming(_webstation()):
+        container = _first_container("ps2")
+        key = _key_of(container)
+        with (
+            patch(
+                "handler.streaming.webstation.activate",
+                side_effect=asyncio.CancelledError,
+            ) as activate,
+            # Starlette's middleware surfaces the cancellation as its own error.
+            pytest.raises(RuntimeError),
+        ):
+            client.post(
+                "/api/streaming/desktop",
+                json={"container": key},
+                headers=_auth(access_token),
+            )
+        activate.assert_called_once()
+        assert _session_raw(container) is None
+
+
 def test_releasing_a_desktop_session_syncs_nothing_to_the_library(client, access_token):
     """No ROM means no saves, no states and no playtime to credit, so teardown
     must stop at stopping the emulator."""
@@ -4493,6 +4563,86 @@ def test_force_release_all_stops_brokers(client, access_token, rom: Rom):
     assert stop_broker.call_count == 1
 
 
+def test_force_release_all_leaves_its_notice_before_the_stop(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """The sweep tears down like a single admin release, so the displaced tab's
+    poll finds the notice while the container drains."""
+    container = _container_for(rom)
+    seen: list[dict[str, Any] | None] = []
+
+    with _streaming(container):
+        _claim_ok(client, viewer_access_token, rom.id)
+        owner = json.loads(_session_raw(container))["user_id"]
+
+        async def capture(*args, **kwargs):
+            seen.append(await session_store.get_termination(_key_of(container), owner))
+            return commands.StopOutcome()
+
+        with patch(
+            "handler.streaming.lifecycle.quiesce_container",
+            new=AsyncMock(side_effect=capture),
+        ):
+            client.delete(
+                "/api/streaming/sessions",
+                params={"reason": "server restart"},
+                headers=_auth(access_token),
+            )
+    assert seen and seen[0] is not None
+    assert seen[0]["reason"] == "server restart"
+
+
+def test_force_release_all_without_a_config_leaves_a_newer_claim(
+    client, access_token, rom: Rom
+):
+    """With nothing to stop, the sweep still frees the key, but only while it
+    holds the session it read, never a claim that replaced it."""
+    container = _container_for(rom)
+    key = _key_of(container)
+    newer = _session_at(session_store.session_redis_key(key), user_id=99)
+
+    async def reclaimed(session, *args, **kwargs):
+        await async_cache.set(
+            session_store.session_redis_key(key),
+            json.dumps({**newer, "claimed_at": "2026-02-02T00:00:00+00:00"}),
+        )
+
+    with (
+        _streaming(),
+        patch(
+            "endpoints.streaming.record_termination",
+            new=AsyncMock(side_effect=reclaimed),
+        ),
+    ):
+        r = client.delete("/api/streaming/sessions", headers=_auth(access_token))
+    assert r.status_code == 200
+    assert _load_session(session_store.session_redis_key(key))["claimed_at"] == (
+        "2026-02-02T00:00:00+00:00"
+    )
+
+
+def test_force_release_all_without_a_config_clears_the_activity(
+    client, access_token, rom: Rom
+):
+    key = _key_of(_container_for(rom))
+    session = _session_at(session_store.session_redis_key(key), user_id=99)
+
+    with (
+        _streaming(),
+        patch(
+            "handler.streaming.lifecycle.clear_session_activity", new=AsyncMock()
+        ) as cleared,
+        patch(
+            "handler.streaming.lifecycle.record_play_session", new=AsyncMock()
+        ) as recorded,
+    ):
+        r = client.delete("/api/streaming/sessions", headers=_auth(access_token))
+    assert r.status_code == 200
+    cleared.assert_awaited_once_with(key, session)
+    recorded.assert_awaited_once_with(session)
+    assert asyncio.run(async_cache.get(session_store.session_redis_key(key))) is None
+
+
 # ── Save-state sync ───────────────────────────────────────────────────────────
 
 
@@ -4789,9 +4939,12 @@ def test_save_and_exit_without_a_rom_drains_only_briefly(
     assert 0 < ttl <= STREAMING_SESSION_DRAIN_SECONDS
 
 
-def _session_at(key: str, **fields) -> dict[str, Any]:
+def _session_at(key: str, **fields) -> StreamingSession:
     """Put a session on the key and hand back the claim a route would hold."""
-    session = {"user_id": 1, "claimed_at": "2026-01-01T00:00:00+00:00", **fields}
+    session = cast(
+        StreamingSession,
+        {"user_id": 1, "claimed_at": "2026-01-01T00:00:00+00:00", **fields},
+    )
     asyncio.run(
         async_cache.set(key, json.dumps(session), ex=STREAMING_SESSION_TTL_SECONDS)
     )
@@ -4906,7 +5059,8 @@ def test_a_corrupt_session_key_is_dropped_rather_than_wedging_the_container():
     try:
         asyncio.run(async_cache.set(key, "not a session"))
         assert (
-            asyncio.run(session_store.mutate_session("cas-corrupt", {"a": 1})) is None
+            asyncio.run(session_store.mutate_session("cas-corrupt", {"user_id": 1}))
+            is None
         )
         assert asyncio.run(async_cache.get(key)) is None
 
@@ -5396,7 +5550,7 @@ def test_a_streamed_state_is_the_one_cloud_sync_serves_for_its_slot(
         "Game.20261008-153825000000.state.auto",
         "mgba",
         core="mgba",
-        updated_at=datetime(2099, 1, 1, tzinfo=timezone.utc),
+        updated_at=datetime.now(timezone.utc) + timedelta(days=365),
     )
 
     served = retroarch_sync.resolve_state_by_slot(
@@ -5531,7 +5685,7 @@ def test_hydrate_pushes_a_newer_cloud_synced_state_of_the_booted_core(
         admin_user,
         "Game.state.auto",
         "bsnes",
-        updated_at=datetime(2099, 1, 1, tzinfo=timezone.utc),
+        updated_at=datetime.now(timezone.utc) + timedelta(days=365),
     )
     push = _hydrate_core(
         rom, admin_user, "retroarch:bsnes", states.StateCore("bsnes", False)
@@ -5597,7 +5751,9 @@ def test_a_streamed_state_is_filed_where_cloud_sync_files_its_core(
             )
         )
 
-    [stored] = db_state_handler.get_states(user_id=admin_user.id, rom_ids=[rom.id])
+    [stored] = db_state_handler.get_states(
+        user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+    )
     assert (stored.emulator, stored.core) == (folder, core)
     assert re.fullmatch(r"Game\.\d{8}-\d{12}\.state", stored.file_name)
 
@@ -5813,7 +5969,7 @@ def test_an_unhashed_state_gets_its_hash_once_read(rom: Rom, admin_user: User):
         asyncio.run(
             states.stored_copy(admin_user.id, rom.id, "retroarch", b"other-bytes")
         )
-    row = db_state_handler.get_state(user_id=admin_user.id, id=state.id)
+    row = db_state_handler.get_state_by_id(state.id)
     assert row is not None
     assert row.content_hash == content_hash_of_bytes(content)
     assert row.updated_at == before.updated_at
@@ -5877,7 +6033,9 @@ def test_prune_state_history_drops_oldest_past_limit(rom: Rom, admin_user: User)
     remove.assert_awaited_once()
     remaining = {
         s.file_name
-        for s in db_state_handler.get_states(user_id=admin_user.id, rom_ids=[rom.id])
+        for s in db_state_handler.get_states(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
     }
     assert remaining == {
         "Game.20260102-000000000000.01.p2s",
@@ -5903,7 +6061,10 @@ def _prune_to_one(rom: Rom, user: User) -> set[int]:
     ):
         asyncio.run(states.prune_state_history(user, rom, "retroarch"))
     return {
-        s.id for s in db_state_handler.get_states(user_id=user.id, rom_ids=[rom.id])
+        s.id
+        for s in db_state_handler.get_states(
+            user_id=user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
     }
 
 
@@ -6287,7 +6448,9 @@ def test_pull_saves_stores_new_archive(rom: Rom, admin_user: User):
         )
     assert ok is True
     wf.assert_awaited_once()
-    stored = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+    stored = db_save_handler.get_saves(
+        user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+    )
     assert any(s.emulator == "pcsx2" and s.content_hash == "hash-a" for s in stored)
 
 
@@ -6310,7 +6473,9 @@ def test_pull_saves_dedups_identical_archive(rom: Rom, admin_user: User):
         )
     assert ok is True
     rm.assert_awaited_once()
-    stored = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+    stored = db_save_handler.get_saves(
+        user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+    )
     hashes = [s.content_hash for s in stored if s.emulator == "pcsx2"]
     assert hashes == ["dup-hash"]
 
@@ -6413,7 +6578,11 @@ def _pull_exit(
 
 
 def _stored_saves(rom: Rom, user: User) -> list[Save]:
-    return list(db_save_handler.get_saves(user_id=user.id, rom_ids=[rom.id]))
+    return list(
+        db_save_handler.get_saves(
+            user_id=user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
+    )
 
 
 @pytest.mark.parametrize(
@@ -8582,7 +8751,11 @@ def test_run_launch_sends_rom_identity_fields(rom: Rom, admin_user: User):
     rom.save_target = "SLUS-12345"
     rom.save_target_layout = SaveTargetLayout.FOLDER_EXACT
     activate = MagicMock(return_value={"url": "/room/x"})
-    session = {"broker_session_id": "s1", "claimed_at": "t1", "user_id": admin_user.id}
+    session: StreamingSession = {
+        "broker_session_id": "s1",
+        "claimed_at": "t1",
+        "user_id": admin_user.id,
+    }
     with (
         patch("handler.streaming.launch.webstation.activate", activate),
         patch("handler.streaming.launch.lifecycle.hold_session_claim", new=AsyncMock()),
@@ -8640,7 +8813,11 @@ def test_run_launch_pushes_refusals_when_the_broker_refuses_an_import(
         docs=None,
     )
     activate = MagicMock(side_effect=broker.ImportRefusedError([refusal], 2))
-    session = {"broker_session_id": "s1", "claimed_at": "t1", "user_id": admin_user.id}
+    session: StreamingSession = {
+        "broker_session_id": "s1",
+        "claimed_at": "t1",
+        "user_id": admin_user.id,
+    }
     pushed = AsyncMock()
     with (
         patch("handler.streaming.launch.webstation.activate", activate),
@@ -8738,7 +8915,11 @@ def test_run_launch_skips_the_state_push_when_resuming_via_import(
     pushed through the ordinary state-file PUT."""
     state = _add_state(rom, admin_user, "Game.00.dolphin", "dolphin")
     activate = MagicMock(return_value={"url": "/room/x"})
-    session = {"broker_session_id": "s1", "claimed_at": "t1", "user_id": admin_user.id}
+    session: StreamingSession = {
+        "broker_session_id": "s1",
+        "claimed_at": "t1",
+        "user_id": admin_user.id,
+    }
     push_resume = AsyncMock()
     with (
         patch("handler.streaming.launch.webstation.activate", activate),
@@ -8788,7 +8969,11 @@ def test_run_launch_sends_no_resume_slot_when_the_import_was_lost(
     broker load that slot anyway, from whatever the archive does carry."""
     state = _add_state(rom, admin_user, "Game.00.dolphin", "dolphin")
     activate = MagicMock(return_value={"url": "/room/x"})
-    session = {"broker_session_id": "s1", "claimed_at": "t1", "user_id": admin_user.id}
+    session: StreamingSession = {
+        "broker_session_id": "s1",
+        "claimed_at": "t1",
+        "user_id": admin_user.id,
+    }
     push_resume = AsyncMock()
     with (
         patch("handler.streaming.launch.webstation.activate", activate),
@@ -9343,7 +9528,7 @@ def test_an_earlier_pull_finishing_leaves_a_later_exits_mark(
     while it runs, and its finishing must not let a claim past the later pull."""
     entry = _container_for(rom)
     container = _resolved(entry)
-    session = {"user_id": admin_user.id, "rom_id": rom.id}
+    session: StreamingSession = {"user_id": admin_user.id, "rom_id": rom.id}
 
     async def scenario() -> tuple[bool, bool]:
         with (
@@ -9370,7 +9555,7 @@ def test_an_exit_save_pull_runs_on_the_streaming_worker(
 ):
     """A web restart would otherwise cut a pull short and park the next claim."""
     container = _resolved(_container_for(rom))
-    session = {
+    session: StreamingSession = {
         "user_id": admin_user.id,
         "rom_id": rom.id,
         "broker_session_id": "b1",
@@ -9406,7 +9591,7 @@ def test_an_exit_save_pull_runs_on_the_streaming_worker(
 
 
 def test_a_queued_exit_save_pull_hands_on_the_disc(admin_user: User, rom: Rom):
-    session = {"user_id": admin_user.id, "rom_id": rom.id}
+    session: StreamingSession = {"user_id": admin_user.id, "rom_id": rom.id}
 
     async def scenario() -> AsyncMock:
         container = _resolved(_container_for(rom))
@@ -9441,7 +9626,7 @@ def test_a_pull_that_cannot_be_queued_lets_the_next_claim_through(
     admin_user: User, rom: Rom, exit_pull_queue: MagicMock
 ):
     container = _resolved(_container_for(rom))
-    session = {"user_id": admin_user.id, "rom_id": rom.id}
+    session: StreamingSession = {"user_id": admin_user.id, "rom_id": rom.id}
     exit_pull_queue.enqueue.side_effect = ConnectionError("redis went away")
 
     async def scenario() -> bool:
@@ -9455,7 +9640,7 @@ def test_a_pull_that_cannot_be_queued_lets_the_next_claim_through(
 def test_a_queued_pull_for_a_container_no_longer_configured_clears_its_mark(
     admin_user: User, rom: Rom
 ):
-    session = {"user_id": admin_user.id, "rom_id": rom.id}
+    session: StreamingSession = {"user_id": admin_user.id, "rom_id": rom.id}
 
     async def scenario() -> tuple[bool, AsyncMock]:
         container = _resolved(_container_for(rom))
@@ -10597,12 +10782,18 @@ def _mc_claim(client, token, rom_id, memory_card_id=None, card_import=None):
     return client.post("/api/streaming/sessions", json=body, headers=_auth(token))
 
 
-def _make_card(user: User, emulator="pcsx2", name="My PS2 card", is_public=False):
+def _make_card(
+    user: User,
+    emulator="pcsx2",
+    name="My PS2 card",
+    is_public=False,
+    platform_id: int | None = None,
+):
     return db_memory_card_handler.add_card(
         MemoryCard(
             user_id=user.id,
             emulator=emulator,
-            platform_id=None,
+            platform_id=platform_id,
             name=name,
             slot=1,
             is_public=is_public,
@@ -10626,7 +10817,7 @@ def _card_version(card_id: int, file_name: str, content_hash: str | None):
 
 def test_resolve_memory_card_explicit_owned(admin_user: User):
     card = _make_card(admin_user)
-    resolved = memory_cards.resolve_card(admin_user.id, "pcsx2", card.id)
+    resolved = memory_cards.resolve_card(admin_user.id, "pcsx2", card.id, UNRESTRICTED)
     assert resolved is not None
     assert resolved.id == card.id
 
@@ -10634,7 +10825,7 @@ def test_resolve_memory_card_explicit_owned(admin_user: User):
 def test_resolve_memory_card_wrong_emulator_404(admin_user: User):
     card = _make_card(admin_user, emulator="dolphin")
     with pytest.raises(HTTPException) as exc:
-        memory_cards.resolve_card(admin_user.id, "pcsx2", card.id)
+        memory_cards.resolve_card(admin_user.id, "pcsx2", card.id, UNRESTRICTED)
     assert exc.value.status_code == 404
 
 
@@ -10642,8 +10833,20 @@ def test_resolve_memory_card_foreign_id_404(admin_user: User, viewer_user: User)
     """An id owned by another user is not resolvable, even if public."""
     card = _make_card(viewer_user, is_public=True)
     with pytest.raises(HTTPException) as exc:
-        memory_cards.resolve_card(admin_user.id, "pcsx2", card.id)
+        memory_cards.resolve_card(admin_user.id, "pcsx2", card.id, UNRESTRICTED)
     assert exc.value.status_code == 404
+
+
+def test_resolve_memory_card_on_a_hidden_platform_is_not_mounted(
+    admin_user: User, platform: Platform
+):
+    card = _make_card(admin_user, platform_id=platform.id)
+    hidden = RomVisibilityFilter(hidden_platform_ids=frozenset({platform.id}))
+
+    with pytest.raises(HTTPException) as exc:
+        memory_cards.resolve_card(admin_user.id, "pcsx2", card.id, hidden)
+    assert exc.value.status_code == 404
+    assert memory_cards.resolve_card(admin_user.id, "pcsx2", None, hidden) is None
 
 
 def test_resolve_memory_card_default_most_recent(admin_user: User):
@@ -10656,7 +10859,7 @@ def test_resolve_memory_card_default_most_recent(admin_user: User):
     db_memory_card_handler.update_card(
         newer.id, {"updated_at": datetime(2026, 6, 1, tzinfo=timezone.utc)}
     )
-    resolved = memory_cards.resolve_card(admin_user.id, "pcsx2", None)
+    resolved = memory_cards.resolve_card(admin_user.id, "pcsx2", None, UNRESTRICTED)
     assert resolved is not None
     assert resolved.id == newer.id
 
@@ -10664,9 +10867,19 @@ def test_resolve_memory_card_default_most_recent(admin_user: User):
 def test_resolve_memory_card_none_when_user_has_no_card(admin_user: User):
     """Resolution never creates rows; a cardless user resolves to None so the
     claim path can defer creation until the claim is won."""
-    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
-    assert memory_cards.resolve_card(admin_user.id, "pcsx2", None) is None
-    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+    assert (
+        db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+        == []
+    )
+    assert memory_cards.resolve_card(admin_user.id, "pcsx2", None, UNRESTRICTED) is None
+    assert (
+        db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+        == []
+    )
 
 
 def test_create_blank_memory_card(admin_user: User, rom: Rom):
@@ -11373,7 +11586,12 @@ def test_claim_aborts_when_card_hydration_fails(
     """A failed card hydration must free the claim and return 502, never launch
     a container that could still hold the previous player's card. The blank card
     auto-created for this claim must be cleaned up so an aborted claim leaks none."""
-    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+    assert (
+        db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+        == []
+    )
     with _streaming(_mc_container_for(rom)):
         with (
             patch("handler.streaming.commands.launch") as launch,
@@ -11392,7 +11610,12 @@ def test_claim_aborts_when_card_hydration_fails(
         asyncio.run(session_store.get_session(_key_of(_mc_container_for(rom)))) is None
     )
     # No orphan blank card survives the aborted claim.
-    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+    assert (
+        db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+        == []
+    )
 
 
 def test_claim_aborts_on_an_unexpected_error_after_the_blank_card(
@@ -11415,7 +11638,12 @@ def test_claim_aborts_on_an_unexpected_error_after_the_blank_card(
     assert (
         asyncio.run(session_store.get_session(_key_of(_mc_container_for(rom)))) is None
     )
-    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+    assert (
+        db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+        == []
+    )
 
 
 def test_claim_aborts_on_an_unexpected_error_keeps_the_players_card(
@@ -11438,9 +11666,12 @@ def test_claim_aborts_on_an_unexpected_error_keeps_the_players_card(
     assert (
         asyncio.run(session_store.get_session(_key_of(_mc_container_for(rom)))) is None
     )
-    assert [c.id for c in db_memory_card_handler.get_cards(admin_user.id, "pcsx2")] == [
-        card.id
-    ]
+    assert [
+        c.id
+        for c in db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+    ] == [card.id]
 
 
 def test_claim_releases_once_on_an_http_error_from_a_step(
@@ -11469,7 +11700,12 @@ def test_claim_releases_once_on_an_http_error_from_a_step(
     assert (
         asyncio.run(session_store.get_session(_key_of(_mc_container_for(rom)))) is None
     )
-    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+    assert (
+        db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+        == []
+    )
 
 
 def test_claim_releases_once_when_card_hydration_fails(
@@ -11493,7 +11729,12 @@ def test_claim_releases_once_when_card_hydration_fails(
             r = _mc_claim(client, access_token, rom.id)
     assert r.status_code == 502
     abort_claim.assert_awaited_once()
-    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+    assert (
+        db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+        == []
+    )
 
 
 def test_claim_aborted_after_adopt_keeps_the_adopted_card(
@@ -11517,7 +11758,9 @@ def test_claim_aborted_after_adopt_keeps_the_adopted_card(
             _mc_claim(client, access_token, rom.id, card_import="adopt")
 
         assert asyncio.run(session_store.get_session(_key_of(container))) is None
-        cards = db_memory_card_handler.get_cards(admin_user.id, "pcsx2")
+        cards = db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
         assert len(cards) == 1
         assert db_memory_card_handler.get_latest_version(cards[0].id) is not None
 
@@ -11534,9 +11777,12 @@ def test_claim_aborted_after_adopt_keeps_the_adopted_card(
     assert r.status_code == 202
     fetch.assert_not_called()
     assert push.call_args[0][1] == card_bytes
-    assert [c.id for c in db_memory_card_handler.get_cards(admin_user.id, "pcsx2")] == [
-        cards[0].id
-    ]
+    assert [
+        c.id
+        for c in db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+    ] == [cards[0].id]
 
 
 def test_save_and_exit_evacuates_card(client, access_token, rom: Rom):
@@ -11702,10 +11948,20 @@ def test_lost_claim_race_does_not_create_blank_card(
             _spawns_nothing(),
         ):
             assert _mc_claim(client, access_token, rom.id).status_code == 202
-            assert db_memory_card_handler.get_cards(viewer_user.id, "pcsx2") == []
+            assert (
+                db_memory_card_handler.get_cards(
+                    viewer_user.id, "pcsx2", visibility=UNRESTRICTED
+                )
+                == []
+            )
             r = _mc_claim(client, viewer_access_token, rom.id)
     assert r.status_code == 409
-    assert db_memory_card_handler.get_cards(viewer_user.id, "pcsx2") == []
+    assert (
+        db_memory_card_handler.get_cards(
+            viewer_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+        == []
+    )
 
 
 # ── First-claim card adoption ─────────────────────────────────────────────────
@@ -11870,7 +12126,9 @@ def test_adopt_stores_the_container_card_as_version_one(
     assert push.call_args[0][1] != memory_cards.EMPTY_CARD
     adoption = db_container_adoption_handler.get_adoption(_key_of(container))
     assert adoption is not None and adoption.outcome == "adopt"
-    cards = db_memory_card_handler.get_cards(admin_user.id, "pcsx2")
+    cards = db_memory_card_handler.get_cards(
+        admin_user.id, "pcsx2", visibility=UNRESTRICTED
+    )
     assert len(cards) == 1
     assert db_memory_card_handler.get_latest_version(cards[0].id) is not None
 
@@ -11938,7 +12196,12 @@ def test_failed_adopt_aborts_the_claim_without_wiping(
     launch.assert_not_called()
     # Nothing is recorded, so the next claim asks again instead of wiping.
     assert db_container_adoption_handler.get_adoption(_key_of(container)) is None
-    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+    assert (
+        db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+        == []
+    )
     assert asyncio.run(session_store.get_session(_key_of(container))) is None
 
 
@@ -12034,7 +12297,12 @@ def test_adopt_with_unreadable_card_aborts_without_recording(
     launch.assert_not_called()
     # No decision recorded, so the next claim asks again instead of wiping.
     assert db_container_adoption_handler.get_adoption(_key_of(container)) is None
-    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+    assert (
+        db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+        == []
+    )
     assert asyncio.run(session_store.get_session(_key_of(container))) is None
 
 
@@ -12056,7 +12324,12 @@ def test_adopt_with_absent_card_aborts_without_recording(
     push.assert_not_called()
     launch.assert_not_called()
     assert db_container_adoption_handler.get_adoption(_key_of(container)) is None
-    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+    assert (
+        db_memory_card_handler.get_cards(
+            admin_user.id, "pcsx2", visibility=UNRESTRICTED
+        )
+        == []
+    )
     assert asyncio.run(session_store.get_session(_key_of(container))) is None
 
 
@@ -12194,7 +12467,7 @@ def test_record_play_session_stores_duration(admin_user: User, rom: Rom):
     """A finished streaming session is recorded as playtime and updates the
     ROM's last_played, keyed off the stored claim timestamp."""
     start = datetime.now(timezone.utc) - timedelta(minutes=10)
-    session = {
+    session: StreamingSession = {
         "user_id": admin_user.id,
         "rom_id": rom.id,
         "claimed_at": start.isoformat(),
@@ -12210,7 +12483,7 @@ def test_record_play_session_stores_duration(admin_user: User, rom: Rom):
 
 def test_record_play_session_skips_accidental_short_session(admin_user: User, rom: Rom):
     """A claim released almost immediately is noise, not playtime."""
-    session = {
+    session: StreamingSession = {
         "user_id": admin_user.id,
         "rom_id": rom.id,
         "claimed_at": datetime.now(timezone.utc).isoformat(),
@@ -13447,6 +13720,249 @@ def test_resuming_a_state_with_no_disc_swaps_nothing(
 
     assert r.status_code == 202
     restore.assert_not_called()
+
+
+# ── claim: starting disc ────────────────────────────────────────────────────
+
+
+def _claim_disc(client, token, rom_id, disc_file_id):
+    return client.post(
+        "/api/streaming/sessions",
+        json={"rom_id": rom_id, "disc_file_id": disc_file_id},
+        headers=_auth(token),
+    )
+
+
+def test_claim_starts_on_the_picked_disc_through_the_tray(client, access_token):
+    rom = _rom_on("dc")
+    _add_rom_file(rom, "Game.m3u")
+    _add_rom_file(rom, "Game (Disc 1).chd")
+    disc = _add_rom_file(rom, "Game (Disc 2).chd")
+    run_launch_mock = AsyncMock()
+    with (
+        _streaming(_tray_container(rom)),
+        patch("handler.streaming.launch.run_launch", run_launch_mock),
+    ):
+        r = _claim_disc(client, access_token, rom.id, disc.id)
+    assert r.status_code == 202
+    kwargs = run_launch_mock.call_args.kwargs
+    assert kwargs["start_disc_id"] == disc.id
+    assert kwargs["rom_path"] == f"{LIBRARY_BASE_PATH}/{rom.full_path}"
+
+
+def test_claim_boots_the_picked_disc_where_no_tray_can_reach_it(client, access_token):
+    rom = _rom_on("dc")
+    _add_rom_file(rom, "Game.m3u")
+    _add_rom_file(rom, "Game (Disc 1).chd")
+    disc = _add_rom_file(rom, "Game (Disc 2).chd")
+    run_launch_mock = AsyncMock()
+    with (
+        _streaming(_container_for(rom)),
+        patch("handler.streaming.launch.run_launch", run_launch_mock),
+    ):
+        r = _claim_disc(client, access_token, rom.id, disc.id)
+    assert r.status_code == 202
+    kwargs = run_launch_mock.call_args.kwargs
+    assert kwargs["start_disc_id"] is None
+    assert kwargs["rom_path"] == f"{LIBRARY_BASE_PATH}/{disc.full_path}"
+
+
+def test_claim_boots_the_picked_disc_of_a_set_without_a_playlist(client, access_token):
+    """The tray steps through a loaded playlist, which a set with no .m3u never
+    gives the emulator."""
+    rom = _rom_on("dc")
+    _add_rom_file(rom, "Game (Disc 1).chd")
+    disc = _add_rom_file(rom, "Game (Disc 2).chd")
+    run_launch_mock = AsyncMock()
+    with (
+        _streaming(_tray_container(rom)),
+        patch("handler.streaming.launch.run_launch", run_launch_mock),
+    ):
+        r = _claim_disc(client, access_token, rom.id, disc.id)
+    assert r.status_code == 202
+    kwargs = run_launch_mock.call_args.kwargs
+    assert kwargs["start_disc_id"] is None
+    assert kwargs["rom_path"] == f"{LIBRARY_BASE_PATH}/{disc.full_path}"
+
+
+def test_claim_boots_a_translated_disc_on_its_own(client, access_token):
+    """The base game's playlist does not list a translation, so no tray reaches it."""
+    rom = _rom_on("dc")
+    _add_rom_file(rom, "Game.m3u")
+    _add_rom_file(rom, "Game (Disc 1).chd")
+    translated = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="Game (Disc 1) (T-Es).chd",
+            file_path=f"{rom.fs_path}/{rom.fs_name}/translations",
+            file_size_bytes=1,
+            category=RomFileCategory.TRANSLATION,
+        )
+    )
+    run_launch_mock = AsyncMock()
+    with (
+        _streaming(_tray_container(rom)),
+        patch("handler.streaming.launch.run_launch", run_launch_mock),
+    ):
+        r = _claim_disc(client, access_token, rom.id, translated.id)
+    assert r.status_code == 202
+    kwargs = run_launch_mock.call_args.kwargs
+    assert kwargs["start_disc_id"] is None
+    assert kwargs["rom_path"] == f"{LIBRARY_BASE_PATH}/{translated.full_path}"
+
+
+@pytest.mark.parametrize("own_file", [True, False])
+def test_claim_refuses_a_disc_that_is_not_one_of_the_roms(
+    client, access_token, rom: Rom, own_file: bool
+):
+    streamed = _rom_on("dc")
+    playlist = _add_rom_file(streamed, "Game.m3u")
+    _add_rom_file(streamed, "Game (Disc 1).chd")
+    stranger = _add_rom_file(rom, "Other.chd")
+    container = _tray_container(streamed)
+    run_launch_mock = AsyncMock()
+    with (
+        _streaming(container),
+        patch("handler.streaming.launch.run_launch", run_launch_mock),
+    ):
+        r = _claim_disc(
+            client, access_token, streamed.id, (playlist if own_file else stranger).id
+        )
+    assert r.status_code == 400
+    run_launch_mock.assert_not_called()
+    assert not asyncio.run(
+        async_cache.exists(session_store.session_redis_key(_key_of(container)))
+    )
+
+
+def _run_launch_restoring(
+    rom: Rom,
+    user: User,
+    *,
+    start_disc_id: int | None,
+    resume_disc_id: int | None = None,
+    booted_disc_id: int | None = None,
+    set_disc: AsyncMock | None = None,
+) -> MagicMock:
+    """Run a launch and return the stand-in for the disc restore it spawns."""
+    resume_state = (
+        cast(State, MagicMock(disc_file_id=resume_disc_id))
+        if resume_disc_id is not None
+        else None
+    )
+    session: StreamingSession = {
+        "broker_session_id": "s1",
+        "claimed_at": "t1",
+        "user_id": user.id,
+    }
+    restore = MagicMock()
+    with (
+        patch(
+            "handler.streaming.launch.webstation.activate",
+            MagicMock(return_value={"url": "/room/x"}),
+        ),
+        patch("handler.streaming.launch.lifecycle.hold_session_claim", new=AsyncMock()),
+        patch(
+            "handler.streaming.launch.lifecycle.publish_session_activity",
+            new=AsyncMock(),
+        ),
+        patch("handler.streaming.launch.stamp_launched", new=AsyncMock()),
+        patch("handler.streaming.launch.push_to_user", new=AsyncMock()),
+        patch("handler.streaming.launch.background.spawn_sync_task"),
+        patch(
+            "handler.streaming.launch.states.hydrate_states_to_broker", new=MagicMock()
+        ),
+        patch("handler.streaming.launch.states.restore_session_disc", restore),
+        patch("handler.streaming.launch.set_session_disc", set_disc or AsyncMock()),
+    ):
+        asyncio.run(
+            launch.run_launch(
+                container=_resolved(_tray_container(rom)),
+                session_key="k1",
+                session=session,
+                user=user,
+                rom=rom,
+                platform=rom.platform_slug,
+                rom_name=rom.name or rom.fs_name_no_ext,
+                rom_path="rom/path",
+                rom_language=None,
+                gui_language=None,
+                archive_path=None,
+                resume_state=resume_state,
+                resume_slot=None,
+                resume_pushed=resume_state is not None,
+                resume_after_launch=False,
+                resume_import="none",
+                memory_card_synced=False,
+                multiplayer=False,
+                blank_card_id=None,
+                start_disc_id=start_disc_id,
+                booted_disc_id=booted_disc_id,
+            )
+        )
+    return restore
+
+
+def test_run_launch_swaps_to_the_picked_disc(admin_user: User):
+    rom = _rom_on("dc")
+    restore = _run_launch_restoring(rom, admin_user, start_disc_id=42)
+    restore.assert_called_once()
+    assert restore.call_args.kwargs["file_id"] == 42
+
+
+def test_run_launch_resumes_on_the_states_disc_over_the_pick(admin_user: User):
+    """A state only loads on the disc it was captured on."""
+    rom = _rom_on("dc")
+    restore = _run_launch_restoring(
+        rom, admin_user, start_disc_id=42, resume_disc_id=43
+    )
+    restore.assert_called_once()
+    assert restore.call_args.kwargs["file_id"] == 43
+
+
+def test_run_launch_leaves_the_first_disc_without_a_pick(admin_user: User):
+    rom = _rom_on("dc")
+    restore = _run_launch_restoring(rom, admin_user, start_disc_id=None)
+    restore.assert_not_called()
+
+
+def test_claim_boots_the_resumed_states_disc_where_no_tray_can_reach_it(
+    client, access_token, admin_user: User
+):
+    """No swap can follow a direct boot, so the state's disc wins up front."""
+    rom = _rom_on("dc")
+    _add_rom_file(rom, "Game.m3u")
+    state_disc = _add_rom_file(rom, "Game (Disc 1).chd")
+    picked = _add_rom_file(rom, "Game (Disc 2).chd")
+    state = _add_state(rom, admin_user, "Game.state", "retroarch")
+    db_state_handler.update_state(state.id, {"disc_file_id": state_disc.id})
+    run_launch_mock = AsyncMock()
+    with (
+        _streaming({**_container_for(rom), "emulator": "retroarch"}),
+        patch("handler.streaming.states.push_resume_state", return_value=True),
+        patch("handler.streaming.launch.run_launch", run_launch_mock),
+    ):
+        r = client.post(
+            "/api/streaming/sessions",
+            json={"rom_id": rom.id, "disc_file_id": picked.id, "state_id": state.id},
+            headers=_auth(access_token),
+        )
+    assert r.status_code == 202
+    kwargs = run_launch_mock.call_args.kwargs
+    assert kwargs["rom_path"] == f"{LIBRARY_BASE_PATH}/{state_disc.full_path}"
+    assert kwargs["booted_disc_id"] == state_disc.id
+
+
+def test_run_launch_records_a_directly_booted_disc_without_a_swap(
+    admin_user: User,
+):
+    rom = _rom_on("dc")
+    set_disc = AsyncMock()
+    restore = _run_launch_restoring(
+        rom, admin_user, start_disc_id=None, booted_disc_id=42, set_disc=set_disc
+    )
+    restore.assert_not_called()
+    set_disc.assert_awaited_once_with("k1", 42, "s1")
 
 
 # ── _restore_session_disc (direct) ──────────────────────────────────────────

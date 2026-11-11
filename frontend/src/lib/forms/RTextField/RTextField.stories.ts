@@ -2,13 +2,11 @@ import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
 import RBtn from "@/lib/primitives/RBtn/RBtn.vue";
-import { CONTRAST_TODO_PARAMETERS } from "@/utils/storyA11y";
 import RTextField from "./RTextField.vue";
 
 const meta: Meta<typeof RTextField> = {
   title: "Forms/RTextField",
   component: RTextField,
-  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     variant: {
       control: "inline-radio",

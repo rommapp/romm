@@ -8,7 +8,7 @@
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useWebpSupport } from "@/composables/useWebpSupport";
-import { RImg, RTag, RTooltip } from "@/lib";
+import { RImage, RTag, RTooltip } from "@/lib";
 import { ROUTES } from "@/plugins/router";
 import type { SimpleRom } from "@/stores/roms";
 import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
@@ -77,7 +77,7 @@ function coverFor(rom: SimpleRom): string {
     :to="{ name: ROUTES.ROM, params: { rom: props.rom.id } }"
     class="r-scan-platform__rom"
   >
-    <RImg
+    <RImage
       :src="coverFor(props.rom)"
       :alt="displayName"
       :width="36"

@@ -11,10 +11,12 @@ import asyncssh
 from anyio import Path as AnyioPath
 from anyio import open_file
 
+from handler.auth.rom_visibility import RomVisibilityFilter
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
+    db_permission_handler,
     db_platform_handler,
     db_save_handler,
     db_sync_session_handler,
@@ -70,6 +72,15 @@ async def _sync_device(device: Device, session_id: int | None = None) -> dict[st
     if not sync_config.get("ssh_host"):
         log.warning(f"Push-pull device {device.id} has no ssh_host configured")
         return {"device_id": device.id, "status": "error", "message": "No ssh_host"}
+    visibility = db_permission_handler.get_user_visibilities([device.user_id]).get(
+        device.user_id
+    )
+    if visibility is None:
+        log.warning(
+            f"Push-pull: owner {device.user_id} of device {device.id} "
+            "is missing or disabled"
+        )
+        return {"device_id": device.id, "status": "error", "message": "No owner"}
 
     from endpoints.sockets.sync import (
         emit_sync_completed,
@@ -147,7 +158,11 @@ async def _sync_device(device: Device, session_id: int | None = None) -> dict[st
         for remote_save in remote_saves:
             try:
                 action = await _process_remote_save(
-                    device, conn, remote_save, session_id=sync_session.id
+                    device,
+                    conn,
+                    remote_save,
+                    session_id=sync_session.id,
+                    visibility=visibility,
                 )
                 if action != "skipped":
                     completed += 1
@@ -169,7 +184,7 @@ async def _sync_device(device: Device, session_id: int | None = None) -> dict[st
             )
 
         pushed, push_failed = await _push_missing_saves(
-            device, conn, remote_saves, save_directories
+            device, conn, remote_saves, save_directories, visibility=visibility
         )
         completed += pushed
         failed += push_failed
@@ -226,6 +241,7 @@ async def _process_remote_save(
     conn: asyncssh.SSHClientConnection,
     remote_save: RemoteSaveInfo,
     session_id: int,
+    visibility: RomVisibilityFilter,
 ) -> str:
     """Process a single remote save file. Returns action taken."""
     from endpoints.sockets.sync import emit_sync_conflict
@@ -241,7 +257,10 @@ async def _process_remote_save(
     # null-slot saves are web-UI / archival uploads and must never be paired
     # with a device push. Filter in SQL so archival rows never load.
     saves = db_save_handler.get_saves(
-        user_id=device.user_id, platform_id=platform.id, slot_not_null=True
+        user_id=device.user_id,
+        platform_id=platform.id,
+        slot_not_null=True,
+        visibility=visibility,
     )
     matched_save = None
     for save in saves:
@@ -382,6 +401,8 @@ async def _push_missing_saves(
     conn: asyncssh.SSHClientConnection,
     remote_saves: list[RemoteSaveInfo],
     save_directories: list[dict[str, Any]],
+    *,
+    visibility: RomVisibilityFilter,
 ) -> tuple[int, int]:
     """Push server saves that are missing from the device; returns (pushed, failed)."""
     ssh_sync_handler = get_ssh_sync_handler()
@@ -409,7 +430,10 @@ async def _push_missing_saves(
         # web-UI / archival uploads and must never be pushed to a device.
         # Filter in SQL so archival rows never load.
         server_saves = db_save_handler.get_saves(
-            user_id=device.user_id, platform_id=platform.id, slot_not_null=True
+            user_id=device.user_id,
+            platform_id=platform.id,
+            slot_not_null=True,
+            visibility=visibility,
         )
 
         remote_set = remote_files.get(platform_slug, set())

@@ -18,7 +18,11 @@ from handler.asset_store import (
     store_state_file,
 )
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
+from handler.auth.dependencies import (
+    assert_rom_visible,
+    get_rom_visibility_filter,
+    owned_rom_asset_or_404,
+)
 from handler.database import (
     db_rom_handler,
     db_screenshot_handler,
@@ -36,6 +40,7 @@ from logger.logger import log
 from models.assets import EMULATOR_MAX_LENGTH, EMULATOR_VERSION_MAX_LENGTH, State
 from models.base import FILE_NAME_MAX_LENGTH
 from utils.assets import normalize_asset_labels
+from utils.auth import resolve_device
 from utils.router import APIRouter
 from utils.uploads import (
     check_asset_upload_size,
@@ -52,16 +57,6 @@ async def _delete_state(state: State) -> None:
     db_state_handler.delete_state(state.id)
     await remove_asset_file(state.full_path, "State file")
     await release_thumbnail(screenshot)
-
-
-def _owned_state_or_404(id: int, user_id: int) -> State:
-    state = db_state_handler.get_state(user_id=user_id, id=id)
-    if not state:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"State with ID {id} not found",
-        )
-    return state
 
 
 router = APIRouter(
@@ -96,12 +91,17 @@ async def add_state(
     core_version: Annotated[
         str | None, Query(max_length=EMULATOR_VERSION_MAX_LENGTH)
     ] = None,
+    device_id: Annotated[
+        str | None, Query(description="The uploading device, recorded as its origin.")
+    ] = None,
     stateFile: UploadFile = STATE_FILE_UPLOAD,
     screenshotFile: UploadFile | None = STATE_SCREENSHOT_UPLOAD,
 ) -> StateSchema:
     check_asset_upload_size(stateFile, "State file")
     check_asset_upload_size(screenshotFile, "Screenshot file")
     check_upload_archive(stateFile, "State file")
+
+    device = resolve_device(request, device_id, Scope.DEVICES_WRITE)
 
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
@@ -132,6 +132,7 @@ async def add_state(
         "emulator_version": emulator_version,
         "core": core,
         "core_version": core_version,
+        "origin_device_id": device.id if device else None,
     }
     db_state = await store_state_file(
         request.user,
@@ -190,6 +191,7 @@ def get_states(
         user_id=request.user.id,
         rom_ids=narrow_rom_id_scope(rom_id, rom_ids),
         platform_id=platform_id,
+        visibility=get_rom_visibility_filter(request),
     )
 
     return [StateSchema.model_validate(state) for state in states]
@@ -207,17 +209,16 @@ def get_state_identifiers(
     Returns:
         list[int]: List of state IDs
     """
-    return db_state_handler.get_state_ids(user_id=request.user.id)
+    return db_state_handler.get_state_ids(
+        user_id=request.user.id, visibility=get_rom_visibility_filter(request)
+    )
 
 
 @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
 def get_state(request: Request, id: int) -> StateSchema:
-    state = db_state_handler.get_state(user_id=request.user.id, id=id)
-
-    if not state:
-        error = f"State with ID {id} not found"
-        log.error(error)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+    state = owned_rom_asset_or_404(
+        request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
+    )
 
     return StateSchema.model_validate(state)
 
@@ -261,6 +262,10 @@ def download_state(request: Request, id: int) -> FileResponse:
 async def update_state(
     request: Request,
     id: int,
+    device_id: Annotated[
+        str | None,
+        Query(description="The device writing new content, recorded as its origin."),
+    ] = None,
     stateFile: UploadFile | None = STATE_FILE_UPDATE,
     screenshotFile: UploadFile | None = STATE_SCREENSHOT_UPDATE,
 ) -> StateSchema:
@@ -268,11 +273,11 @@ async def update_state(
     check_asset_upload_size(screenshotFile, "Screenshot file")
     check_upload_archive(stateFile, "State file")
 
-    db_state = db_state_handler.get_state(user_id=request.user.id, id=id)
-    if not db_state:
-        error = f"State with ID {id} not found"
-        log.error(error)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+    device = resolve_device(request, device_id, Scope.DEVICES_WRITE)
+
+    db_state = owned_rom_asset_or_404(
+        request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
+    )
     if stateFile:
         assert_backup(db_state)
 
@@ -293,6 +298,9 @@ async def update_state(
                 "content_hash": await fs_asset_handler.compute_content_hash(
                     db_state.full_path
                 ),
+                # The origin follows the content, so a client naming no device
+                # leaves it unknown rather than credited to the previous writer.
+                "origin_device_id": device.id if device else None,
             },
         )
     if screenshotFile and sanitized_screenshot_filename:
@@ -330,7 +338,9 @@ def update_state_visibility(
 ) -> StateSchema:
     """Toggle a state's public/private visibility (owner only). A state a
     channel holds is shared with the channel."""
-    state = _owned_state_or_404(id, request.user.id)
+    state = owned_rom_asset_or_404(
+        request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
+    )
     assert_backup(state)
 
     updated = db_state_handler.update_state(id, {"is_public": is_public}, touch=False)
@@ -361,7 +371,9 @@ def update_state_favorite(
     is_favorite: Annotated[bool, Body(embed=True)],
 ) -> StateSchema:
     """Favorite a state, sorting it ahead of the rest (owner only)."""
-    _owned_state_or_404(id, request.user.id)
+    owned_rom_asset_or_404(
+        request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
+    )
 
     return StateSchema.model_validate(
         db_state_handler.update_state(id, {"is_favorite": is_favorite}, touch=False)
@@ -380,7 +392,9 @@ def update_state_labels(
     labels: Annotated[list[str], Body(embed=True)],
 ) -> StateSchema:
     """Replace a state's free-text labels (owner only)."""
-    _owned_state_or_404(id, request.user.id)
+    owned_rom_asset_or_404(
+        request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
+    )
 
     return StateSchema.model_validate(
         db_state_handler.update_state(
@@ -405,7 +419,9 @@ async def rename_state(
     file_name: Annotated[str, Body(embed=True, max_length=FILE_NAME_MAX_LENGTH)],
 ) -> StateSchema:
     """Rename a state's file, its screenshot following along (owner only)."""
-    state = _owned_state_or_404(id, request.user.id)
+    state = owned_rom_asset_or_404(
+        request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
+    )
 
     return StateSchema.model_validate(await rename_asset(state, file_name))
 
@@ -438,15 +454,18 @@ async def delete_states(
     affected_rom_ids: set[int] = set()
     frozen = db_snapshot_handler.get_frozen_state_ids(states)
 
-    for state_id in states:
-        state = db_state_handler.get_state(user_id=request.user.id, id=state_id)
-        if not state:
-            error = f"State with ID {state_id} not found"
-            log.error(error)
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-        if state.id in frozen:
-            raise frozen_conflict(state)
-
+    # Resolved up front, so a bad id fails the batch before anything is removed.
+    owned = [
+        owned_rom_asset_or_404(
+            request,
+            db_state_handler.get_state_by_id(state_id),
+            f"State with ID {state_id} not found",
+        )
+        for state_id in states
+    ]
+    if held := next((state for state in owned if state.id in frozen), None):
+        raise frozen_conflict(held)
+    for state in owned:
         affected_rom_ids.add(state.attached_rom_id)
         log.info(
             f"Deleting state {hl(state.file_name)} [{state.attached_rom.platform_slug}] from filesystem"

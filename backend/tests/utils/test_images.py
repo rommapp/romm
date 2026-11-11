@@ -1,10 +1,18 @@
+import struct
+import zlib
 from io import BytesIO
 from typing import Any
 
 import pytest
 from PIL import Image
 
-from utils.images import frame_durations, is_animated, webp_loop
+from utils.images import (
+    MAX_COVER_PIXELS,
+    frame_durations,
+    is_animated,
+    is_oversized_cover,
+    webp_loop,
+)
 
 FRAME_SIZE = (60, 90)
 FRAME_COLORS = ("red", "green", "blue")
@@ -40,6 +48,25 @@ def animated_image_bytes(
     )
 
 
+def jxl_image_bytes(size: tuple[int, int] = FRAME_SIZE) -> bytes:
+    """A still JPEG XL image, encoded through the plugin utils.images registers."""
+    buf = BytesIO()
+    Image.new("RGB", size, "red").save(buf, format="JXL")
+    return buf.getvalue()
+
+
+def png_header_bytes(width: int, height: int) -> bytes:
+    """A PNG that declares width x height but holds no pixel data."""
+    ihdr = b"IHDR" + struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + struct.pack(">I", len(ihdr) - 4)
+        + ihdr
+        + struct.pack(">I", zlib.crc32(ihdr))
+        + b"\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+
+
 def truncated_animation_bytes(fmt: str) -> bytes:
     """An animation with its last frame cut short."""
     return animated_image_bytes(fmt)[:-40]
@@ -57,8 +84,18 @@ def growing_canvas_gif() -> bytes:
     return parts[0][:-1] + parts[1][frames_start:]
 
 
+class TestIsOversizedCover:
+    def test_header_past_the_limit(self):
+        with Image.open(BytesIO(png_header_bytes(10000, 8000))) as img:
+            assert is_oversized_cover(img)
+
+    def test_header_at_the_limit(self):
+        with Image.open(BytesIO(png_header_bytes(MAX_COVER_PIXELS, 1))) as img:
+            assert not is_oversized_cover(img)
+
+
 class TestIsAnimated:
-    @pytest.mark.parametrize("fmt", ["GIF", "PNG", "WEBP"])
+    @pytest.mark.parametrize("fmt", ["GIF", "PNG", "WEBP", "AVIF"])
     def test_multi_frame_image(self, fmt: str):
         with Image.open(BytesIO(animated_image_bytes(fmt))) as img:
             assert is_animated(img)
@@ -86,7 +123,7 @@ class TestIsAnimated:
 
 
 class TestFrameDurations:
-    @pytest.mark.parametrize("fmt", ["GIF", "PNG", "WEBP"])
+    @pytest.mark.parametrize("fmt", ["GIF", "PNG", "WEBP", "AVIF"])
     def test_reads_each_frame(self, fmt: str):
         with Image.open(BytesIO(animated_image_bytes(fmt))) as img:
             assert frame_durations(img) == DURATIONS
@@ -145,3 +182,9 @@ class TestWebpLoop:
         data = animated_image_bytes(fmt, [100, 100], loop=loop)
         with Image.open(BytesIO(data)) as img:
             assert webp_loop(img) == expected
+
+
+def test_jpeg_xl_decodes_once_utils_images_is_imported():
+    with Image.open(BytesIO(jxl_image_bytes())) as img:
+        assert img.format == "JXL"
+        assert img.size == FRAME_SIZE

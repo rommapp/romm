@@ -26,10 +26,11 @@ import { useFetchState } from "@/composables/useFetchState";
 import { useIsAlive } from "@/composables/useIsAlive";
 import { useRomSync } from "@/composables/useRomSync";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RSliderBtnGroup } from "@/lib";
-import type { SliderBtnGroupItem } from "@/lib";
+import { RBtn, RSegmentedControl } from "@/lib";
+import type { SegmentedControlItem } from "@/lib";
 import snapshotApi, { type SnapshotManifest } from "@/services/api/snapshot";
 import storeConfig from "@/stores/config";
+import storeHeartbeat from "@/stores/heartbeat";
 import { getSupportedEJSCores } from "@/utils";
 import { errorMessage } from "@/utils/errorMessage";
 import { playerPath } from "@/utils/playerPath";
@@ -72,10 +73,11 @@ const confirm = useConfirm();
 const { refetchRom } = useRomSync();
 const router = useRouter();
 const configStore = storeConfig();
+const heartbeatStore = storeHeartbeat();
 const alive = useIsAlive();
 
 const view = ref<View>("tiles");
-const viewItems = computed<SliderBtnGroupItem<View>[]>(() => [
+const viewItems = computed<SegmentedControlItem<View>[]>(() => [
   {
     id: "tiles",
     icon: "mdi-view-grid-outline",
@@ -191,6 +193,7 @@ const playableCores = computed(() =>
     ? [
         ...getSupportedEJSCores(
           props.rom.platform_slug,
+          heartbeatStore.value.EMULATION,
           configStore.config.EJS_NETPLAY_ENABLED,
         ),
       ]
@@ -518,7 +521,7 @@ async function deleteChannel() {
     <header class="r-channels__head">
       <h4 class="r-channels__title">{{ t("channels.section") }}</h4>
       <div class="r-channels__tools">
-        <RSliderBtnGroup
+        <RSegmentedControl
           v-model="view"
           :items="viewItems"
           :aria-label="t('channels.view-label')"

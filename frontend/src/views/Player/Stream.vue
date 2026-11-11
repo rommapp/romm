@@ -10,7 +10,7 @@
 //      the emulator carries both.
 //   3. Session: where the game runs and any claim errors (occupied /
 //      not configured / server).
-//   4. Aside: memory card picker + fullscreen-on-play.
+//   4. Aside: memory card picker, starting disc + fullscreen-on-play.
 //
 // The running state is a fixed stage hosting the Selkies iframe with an
 // auto-hiding control bar (volume, save/load state, fullscreen, exit).
@@ -64,12 +64,12 @@ import {
   RIcon,
   RSelect,
   RSlider,
-  RSliderBtnGroup,
+  RSegmentedControl,
   RSpinner,
   RSwitch,
   RTooltip,
 } from "@/lib";
-import type { SliderBtnGroupItem } from "@/lib/primitives/RSliderBtnGroup/types";
+import type { SegmentedControlItem } from "@/lib/primitives/RSegmentedControl/types";
 import romApi from "@/services/api/rom";
 import streamingApi, {
   type ContainerBusyDetail,
@@ -91,7 +91,13 @@ import {
   useStreamingStore,
 } from "@/stores/streaming";
 import { emulatorKey } from "@/utils/assets";
-import { bootableFiles } from "@/utils/playerDisc";
+import {
+  ALL_DISCS,
+  bootableFiles,
+  bootDiscId,
+  type DiscSelection,
+} from "@/utils/playerDisc";
+import { fileExtension } from "@/utils/romFiles";
 
 type PlayerState = "idle" | "loading" | "playing" | "error" | "exited";
 type ErrorType =
@@ -133,6 +139,8 @@ const showCardImport = ref(false);
 const showDiscSwap = ref(false);
 const selectedDisc = ref<number | null>(null);
 const isSwappingDisc = ref(false);
+// ALL_DISCS leaves the backend to mount the whole set on its first disc.
+const startDisc = ref<DiscSelection>(ALL_DISCS);
 
 const gameRunning = computed(() => playerState.value === "playing");
 useStageActive(gameRunning);
@@ -262,10 +270,6 @@ const supportsStates = computed(
   () => capabilities.value.maxSlots > 0 || capabilities.value.hasAutosave,
 );
 
-function fileExtension(name: string): string {
-  return name.split(".").pop()?.toLowerCase() ?? "";
-}
-
 // Mirrors the backend's Rom.has_m3u_file(): the emulator's disc-swap menu
 // only exists for multi-disc sets that ship a playlist.
 const hasM3uFile = computed(() =>
@@ -285,6 +289,13 @@ const discOptions = computed(() => {
   const listed = cueFiles.length > 0 ? cueFiles : files;
   return listed.map((f) => ({ title: f.file_name, value: f.id }));
 });
+
+const startDiscItems = computed<{ title: string; value: DiscSelection }[]>(
+  () => [
+    { title: t("play.all-discs"), value: ALL_DISCS },
+    ...discOptions.value,
+  ],
+);
 
 // A rom with a single swappable disc has nothing to swap to, whatever the
 // platform can do.
@@ -495,7 +506,7 @@ function setResumeTab(id: ResumeTab): void {
   resumeTab.value = id;
 }
 
-const resumeTabs = computed<SliderBtnGroupItem<ResumeTab>[]>(() => [
+const resumeTabs = computed<SegmentedControlItem<ResumeTab>[]>(() => [
   {
     id: "state",
     label: t("common.states"),
@@ -985,6 +996,7 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
           : undefined,
         cardImport,
         multiplayerOnPlay.value,
+        bootDiscId(startDisc.value) ?? undefined,
       );
       claimedContainer.value = launching.container;
       heldContainer.value = container.value;
@@ -1519,7 +1531,7 @@ onBeforeUnmount(() => {
           class="r-stream__panel-head"
           :class="{ 'r-stream__panel-head--label': !showResumeTabs }"
         >
-          <RSliderBtnGroup
+          <RSegmentedControl
             v-if="showResumeTabs"
             variant="tab"
             :model-value="activeResumeTab"
@@ -1687,6 +1699,16 @@ onBeforeUnmount(() => {
             <span>{{ t("common.settings") }}</span>
           </div>
           <div class="r-stream__setup-body">
+            <RSelect
+              v-if="discOptions.length > 1 && !isJoining"
+              v-model="startDisc"
+              variant="outlined"
+              density="comfortable"
+              prepend-inner-icon="mdi-disc"
+              hide-details
+              :label="t('rom.file')"
+              :items="startDiscItems"
+            />
             <RSwitch
               v-model="fullscreenOnPlay"
               :label="t('play.full-screen')"

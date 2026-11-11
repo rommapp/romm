@@ -38,7 +38,10 @@ import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
 import { useStreamingStore } from "@/stores/streaming";
 import { toBrowserLocale } from "@/utils";
-import { releaseTypeLabelKey } from "@/utils/releaseTypes";
+import {
+  earnedAchievementKeys,
+  isAchievementEarned,
+} from "@/utils/achievements";
 import { isRomVerified } from "@/utils/romVerification";
 import { patchQuery } from "@/utils/routeQuery";
 import { saveDataCounts } from "@/utils/snapshots";
@@ -166,7 +169,6 @@ const collections = computed(
 const regions = computed(() => currentRom.value?.regions ?? []);
 const languages = computed(() => currentRom.value?.languages ?? []);
 const tags = computed(() => currentRom.value?.tags ?? []);
-const releaseTypes = computed(() => currentRom.value?.release_types ?? []);
 
 const verified = computed(() =>
   currentRom.value ? isRomVerified(currentRom.value) : false,
@@ -217,12 +219,6 @@ const showMergedCompanies = computed(
 const overviewSections = computed<InfoGridSection[]>(() => [
   { label: t("rom.genres"), items: genres.value, filter: "genres" },
   {
-    label: t("rom.release-types"),
-    items: releaseTypes.value,
-    filter: "releaseTypes",
-    itemTitle: (item) => t(releaseTypeLabelKey(item), item),
-  },
-  {
     label: t("rom.developers"),
     items: developers.value,
     filter: "developers",
@@ -246,8 +242,9 @@ const overviewSections = computed<InfoGridSection[]>(() => [
 ]);
 
 const playerCount = computed<string | null>(() => {
+  // Untrimmed: the badge's search pivot must match the stored value exactly.
   const pc = currentRom.value?.metadatum?.player_count;
-  return pc ? pc.trim() : null;
+  return pc?.trim() ? pc : null;
 });
 const userCollections = computed(
   () => currentRom.value?.user_collections ?? [],
@@ -258,25 +255,26 @@ const achievementsTotal = computed(
   () => raMetadata.value?.achievements?.length ?? 0,
 );
 
-// User's earned-achievements for this ROM. Same shape as v1: locate the
-// matching `RAUserGameProgression` in the auth user's bundle by
-// `rom_ra_id`, then index its `earned_achievements` by `id`
-// (== achievement.badge_id) so the tab can do O(1) per-row lookups.
+// The auth user's earned achievements for this ROM, keyed for O(1) per-row lookups.
 const earnedAchievementIds = computed<ReadonlySet<string>>(() => {
   const romRaId = currentRom.value?.ra_id;
   if (!romRaId) return new Set<string>();
   const progression = authStore.user?.ra_progression?.results?.find(
     (r) => r.rom_ra_id === romRaId,
   );
-  return new Set((progression?.earned_achievements ?? []).map((e) => e.id));
+  return earnedAchievementKeys(progression?.earned_achievements ?? []);
 });
-const achievementsEarned = computed(() => earnedAchievementIds.value.size);
+const achievementsEarned = computed(
+  () =>
+    (raMetadata.value?.achievements ?? []).filter((a) =>
+      isAchievementEarned(a, earnedAchievementIds.value),
+    ).length,
+);
 
 const igdb = computed(() => currentRom.value?.igdb_metadata ?? null);
 
-// Similar games come from the server-side recommendations index rather than
-// `igdb_metadata.similar_games`, which is mostly titles the server doesn't
-// hold and absent entirely for anything IGDB never matched.
+// The RomM similar games source: the server-side recommendations index. The
+// IGDB source reads `igdb_metadata.similar_games` directly in OverviewTab.
 const similarRoms = ref<SimilarRomSchema[]>([]);
 
 // Keyed on the id rather than the ROM: the cached record is replaced wholesale
@@ -395,6 +393,7 @@ const activeTab = computed({
             :hltb="currentRom.hltb_metadata"
             :last-played="lastPlayed"
             :revision="currentRom.revision ?? null"
+            :version="currentRom.version ?? null"
             :expansions="expansions"
             :dlcs="dlcs"
             :remakes="remakes"

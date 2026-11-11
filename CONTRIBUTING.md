@@ -37,7 +37,7 @@ If you would like to contribute to the project's [documentation](https://docs.ro
 
 ## Adding Translations
 
-If you would like to translate the project into another language, create a new folder under the `frontend/src/locales` directory, and follow the existing language files as a template. Once you've created the new language file, open a pull request to add it to the project.
+If you would like to translate the project into another language, create a new folder under the `frontend/src/locales` directory, and follow the existing language files as a template. Add the language's name, written in that language, to `LOCALE_NAMES` in `frontend/src/stores/language.ts`. Once you've created the new language file, open a pull request to add it to the project.
 
 ## How to Contribute Code
 

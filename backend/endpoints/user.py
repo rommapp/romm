@@ -1,6 +1,6 @@
 import asyncio
 import json
-from typing import Annotated, Any, Final, cast
+from typing import Annotated, Any, Final
 
 from fastapi import Body, Form, HTTPException
 from fastapi import Path as PathVar
@@ -34,9 +34,8 @@ from handler.filesystem.assets_handler import (
     build_asset_file_response,
     validate_image_upload,
 )
-from handler.metadata import meta_ra_handler
-from handler.metadata.ra_handler import RAUserProgression
 from handler.notification_handler import notify
+from handler.play_session_handler import queue_ra_progress_sync
 from handler.socket_handler import close_client_token_sockets
 from logger.logger import log
 from models.audit_event import AuditAction
@@ -81,6 +80,15 @@ def _record_user_edit(
         if field in changed:
             data[field] = change(before, after, field)
     record(AuditAction.USER_EDIT, request, AuditTarget.of_user(after), data)
+
+
+async def _submitted_value(
+    request: Request, name: str, parsed: str | None
+) -> str | None:
+    """Return a form-model field, keeping a submitted "" the model reads as absent."""
+    if parsed is None and (await request.form()).get(name) == "":
+        return ""
+    return parsed
 
 
 async def _verify_account_holder(
@@ -458,6 +466,9 @@ async def update_user(
 
     _assert_can_manage_user(request, db_user)
 
+    email = await _submitted_value(request, "email", form_data.email)
+    ra_username = await _submitted_value(request, "ra_username", form_data.ra_username)
+
     # Usernames and emails match case-insensitively, so a case-only edit is no change.
     new_username = (
         form_data.username
@@ -465,9 +476,8 @@ async def update_user(
         else None
     )
     new_email = (
-        form_data.email
-        if form_data.email is not None
-        and form_data.email.lower() != (db_user.email or "").lower()
+        email
+        if email is not None and email.lower() != (db_user.email or "").lower()
         else None
     )
 
@@ -552,8 +562,14 @@ async def update_user(
     if form_data.enabled is not None and request.user.id != id:
         cleaned_data["enabled"] = form_data.enabled
 
-    if form_data.ra_username:
-        cleaned_data["ra_username"] = form_data.ra_username
+    # The synced progression belongs to the previously linked profile.
+    if ra_username:
+        cleaned_data["ra_username"] = ra_username
+        if ra_username != db_user.ra_username:
+            cleaned_data["ra_progression"] = {}
+    elif ra_username == "" and db_user.ra_username:
+        cleaned_data["ra_username"] = None
+        cleaned_data["ra_progression"] = {}
 
     if form_data.ui_settings is not None:
         try:
@@ -678,6 +694,8 @@ async def delete_user(
             status_code=400, detail="You cannot delete the last admin user"
         ) from exc
     await close_client_token_sockets(token_ids)
+    # Keyed by username, so they would otherwise pass for whoever takes it next.
+    await auth_handler.revoke_committed_credentials(user.username)
     for device_id in device_ids:
         await device_install_handler.discard_for_device(device_id)
     record(
@@ -699,9 +717,12 @@ async def delete_user(
     router.post,
     "/{id}/ra/refresh",
     [Scope.ME_WRITE],
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_202_ACCEPTED,
     summary="Refresh RetroAchievements",
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_503_SERVICE_UNAVAILABLE: {},
+    },
 )
 async def refresh_retro_achievements(
     request: Request,
@@ -714,7 +735,7 @@ async def refresh_retro_achievements(
         ),
     ] = False,
 ) -> None:
-    """Refresh RetroAchievements progression data for a user."""
+    """Queue a refresh of a user's RetroAchievements progression; `ra:synced` reports when it ends."""
     user = db_user_handler.get_user(id)
     if user:
         _assert_can_manage_user(request, user)
@@ -724,16 +745,9 @@ async def refresh_retro_achievements(
             detail="User does not have a RetroAchievements username set",
         )
 
-    user_progression = await meta_ra_handler.get_user_progression(
-        user.ra_username,
-        current_progression=(
-            cast(RAUserProgression | None, user.ra_progression) if incremental else None
-        ),
-    )
-    db_user_handler.update_user(
-        id,
-        {
-            "ra_progression": user_progression,
-        },
-    )
+    if not queue_ra_progress_sync(id, refresh_all=not incremental):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Couldn't queue the RetroAchievements sync, try again later",
+        )
     return None
