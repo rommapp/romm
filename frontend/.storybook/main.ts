@@ -7,6 +7,7 @@ const config: StorybookConfig = {
     "@storybook/addon-a11y",
     "@storybook/addon-themes",
     "@storybook/addon-vitest",
+    "storybook-addon-pseudo-states",
   ],
   framework: {
     name: "@storybook/vue3-vite",
