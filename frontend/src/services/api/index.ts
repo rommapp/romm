@@ -1,7 +1,7 @@
 import axios, { type AxiosError } from "axios";
 import { default as Cookies } from "js-cookie";
-import { debounce } from "lodash";
 import { isAuthExemptRoute, ROUTES } from "@/plugins/routeNames";
+import { debounce } from "@/utils/timing";
 
 const api = axios.create({
   // This will keep the url query params on refresh

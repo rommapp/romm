@@ -1,7 +1,7 @@
-import { debounce } from "lodash";
 import { computed, effectScope, onScopeDispose, ref } from "vue";
 import { useSocketEvent } from "@/composables/useSocketEvent";
 import socket from "@/services/socket";
+import { debounce } from "@/utils/timing";
 
 const UPGRADE_RECHECK_MS = 2500;
 

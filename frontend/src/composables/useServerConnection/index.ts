@@ -18,10 +18,10 @@
 // `install()` runs once for the app's lifetime (idempotent). The banner calls
 // `useServerConnection()` in its <script setup>, which both returns the
 // reactive `isOffline` flag and triggers the install.
-import { debounce } from "lodash";
 import { computed, effectScope, watch } from "vue";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlaying from "@/stores/playing";
+import { debounce } from "@/utils/timing";
 
 // While online, probe only occasionally: a network blip shouldn't rush to
 // flag the backend as down. Passive interceptor events still flip us offline

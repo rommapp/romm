@@ -27,7 +27,6 @@
 // `useSocketEvent` is the typed subscription wrapper that auto-cleans up
 // on unmount; since AppLayout never unmounts during normal use the
 // listeners effectively live for the session.
-import { debounce } from "lodash";
 import type { Emitter } from "mitt";
 import { inject, watch } from "vue";
 import type { ScanStats, ScanTaskStatusResponse } from "@/__generated__";
@@ -41,6 +40,7 @@ import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning, { type ScanningPlatform } from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
+import { debounce } from "@/utils/timing";
 
 /** `scan:scanning_rom` payload; `is_new` marks a ROM this scan added. */
 type ScanningRom = SimpleRom & { is_new: boolean };

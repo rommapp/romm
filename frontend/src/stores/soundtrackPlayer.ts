@@ -1,10 +1,10 @@
-import { throttle } from "lodash";
 import { defineStore } from "pinia";
 import { computed, ref, shallowRef } from "vue";
 import type { TrackMetaSchema } from "@/__generated__";
 import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 import type { DetailedRom } from "@/stores/roms";
 import { FRONTEND_RESOURCES_PATH, isCDBasedSystem, shuffled } from "@/utils";
+import { throttle } from "@/utils/timing";
 
 const volumeStorage = useUserLocalStorage<number>("soundtrack.volume", 1);
 const mutedStorage = useUserLocalStorage<boolean>("soundtrack.muted", false);
@@ -150,13 +150,9 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
     if (el) el.muted = muted.value;
   }
 
-  const setCurrentTimeThrottled = throttle(
-    (t: number) => {
-      currentTime.value = t;
-    },
-    200,
-    { leading: true, trailing: true },
-  );
+  const setCurrentTimeThrottled = throttle((t: number) => {
+    currentTime.value = t;
+  }, 200);
 
   function reportCurrentTime(t: number) {
     setCurrentTimeThrottled(t);
