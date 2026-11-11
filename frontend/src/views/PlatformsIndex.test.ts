@@ -32,8 +32,11 @@ vi.mock("@/lib", () => ({
     template: "<h2>{{ label }}</h2>",
   }),
   REmptyState: defineComponent({
-    props: { title: { type: String, default: "" } },
-    template: '<div class="empty-state">{{ title }}</div>',
+    props: {
+      title: { type: String, default: "" },
+      hint: { type: String, default: "" },
+    },
+    template: '<div class="empty-state">{{ title }} {{ hint }}</div>',
   }),
   RSkeletonBlock: defineComponent({ template: "<div />" }),
 }));
@@ -193,6 +196,7 @@ describe("PlatformsIndex", () => {
     const wrapper = mount(PlatformsIndex);
 
     expect(wrapper.text()).toContain("platform.no-platforms-with-games");
+    expect(wrapper.text()).toContain("platform.no-platforms-with-games-hint");
   });
 
   // Inside the desktop shell a platform with no in-browser core and no
