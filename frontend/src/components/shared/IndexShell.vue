@@ -13,8 +13,8 @@
 // No virtualisation (small datasets), no AlphaStrip, no selection bar.
 //
 // Slot contract:
-//   * `#header`:     view-supplied header (PageHeader / divider / …).
-//                     Scrolls away with content.
+//   * `#header`:     view-supplied header (a PageHeader), set in the
+//                     shared PageHeadBand. Scrolls away with content.
 //   * `#toolbar`:    toolbar content (GalleryToolbar), pinned under the
 //                     top bar.
 //   * `#listHeader`: list-mode column header (PlatformListHeader /
@@ -22,6 +22,7 @@
 //   * `#listRows`:   list-mode rows, in one table with the header.
 //                     Both list slots render only when `listMode` is true.
 //   * default:       index content (grid / panels / loading and empty states).
+import PageHeadBand from "@/components/shared/PageHeadBand.vue";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import { usePinnedToolbar } from "@/composables/usePinnedToolbar";
 
@@ -53,9 +54,9 @@ const { smAndDown } = useBreakpoint();
     :style="{ '--r-idx-shell-toolbar-h': `${toolbarHeight}px` }"
   >
     <!-- One stable box, so the toolbar's observer sees the header grow. -->
-    <div>
+    <PageHeadBand followed-by="toolbar">
       <slot name="header" />
-    </div>
+    </PageHeadBand>
 
     <div :ref="bindSentinel" aria-hidden="true" />
     <div
@@ -88,10 +89,10 @@ const { smAndDown } = useBreakpoint();
 /* Plain document flow: <main> clears the top bar and, on phones, the bottom
    tab bar. */
 .r-idx-shell {
-  padding: 32px var(--r-row-pad) 60px;
+  padding: 0 var(--r-row-pad) 60px;
 }
 html[data-bp~="xs"] .r-idx-shell {
-  padding: 16px 14px 24px;
+  padding: 0 14px 24px;
 }
 
 /* List column header: sticky just below the pinned toolbar, and under it

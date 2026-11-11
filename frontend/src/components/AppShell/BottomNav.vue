@@ -85,7 +85,8 @@ onBeforeUnmount(() => {
   flex-direction: column;
   justify-content: flex-end;
   pointer-events: none;
-  z-index: 100;
+  /* Below the top bar (100), or iOS Safari won't tint the status bar from it. */
+  z-index: 99;
 }
 
 /* Transparent strip; taps in its gutters fall through to the page. The
