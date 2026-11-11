@@ -130,7 +130,7 @@ function snapshotSession(): SnapshotSession | null {
     emulatorVersion: window.EJS_emulator?.ejs_version ?? null,
     snapshot: bootedSnapshot,
     save: loadedSave,
-    slot: loadedSave?.slot || props.saveSlot || AUTOSAVE_SLOT,
+    slot: currentSlot() ?? AUTOSAVE_SLOT,
   });
   session = target ? new SnapshotSession(target, deviceIDRef.value) : null;
   return session;
@@ -153,7 +153,7 @@ function saveFileOf(bytes: ArrayBuffer, screenshot?: ArrayBuffer): SessionFile {
 let refreshingAssets: Promise<void> | null = null;
 let refreshAgain = false;
 let romAssetsStale = false;
-/** Re-reads the rom's saves and states for the picker, once more for writes that land mid-read. */
+/** Re-reads the rom's saves and states for the picker, again for writes landing mid-read. */
 function refreshRomAssets(): Promise<void> {
   if (refreshingAssets) {
     refreshAgain = true;
@@ -515,7 +515,10 @@ function displayMessage(
   snackbar.show(tone, message, { icon, timeout: duration });
 }
 
-/** Polls until the core is up, since heavy cores boot slowly and a state applied too early leaves a black screen. */
+/**
+ * Polls until the core is up: heavy cores boot slowly, and a state applied too
+ * early leaves a black screen.
+ */
 async function waitForGameManager(timeoutMs = 5000): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -603,8 +606,6 @@ function uninstallAutoSaveSync() {
   stopSavePolling?.();
   stopSavePolling = null;
 }
-// A save written right before Quit or a back navigation has not had its two
-// ticks yet, so leaving the player uploads whatever the server lacks.
 /** The emulator auto-sync watches, when it is still the running one. */
 function autoSyncedEmulator() {
   const emulator = window.EJS_emulator;
@@ -622,6 +623,8 @@ function unsyncedSave(
     ? saveFile
     : null;
 }
+// A save written right before Quit or a back navigation has not had its two
+// ticks yet, so leaving the player uploads whatever the server lacks.
 async function flushPendingSave() {
   const emulator = autoSyncedEmulator();
   if (!emulator) return;
@@ -651,7 +654,10 @@ onBeforeRouteLeave(async () => {
 // A v2 shell that leaves by replacing the document aborts the navigation, so
 // the guard above never runs and the flush has to be asked for. Idempotent.
 defineExpose({ flushPendingSave });
-/** An unsynced save goes out on `pagehide` via keepalive (64 KB cap); `beforeunload` prompts first, the only way to keep a bigger one. */
+/**
+ * An unsynced save goes out on `pagehide` via keepalive (64 KB cap).
+ * `beforeunload` prompts first, the only way to keep a bigger one.
+ */
 let unloadSave: Uint8Array | null = null;
 function onBeforeUnload(event: BeforeUnloadEvent) {
   // A close cancelled earlier leaves the bytes it captured behind.
@@ -862,7 +868,8 @@ window.EJS_onGameStart = () => {
   }
 
   if (props.state) holdBackUntilStateApplied();
-  /** While the game runs, every key goes to it, "/" included. Set here so every entry point turns global hotkeys off. */
+  // While the game runs every key goes to it, "/" included. Set here so every
+  // entry point turns global hotkeys off.
   playing.value = true;
 
   // Install netplay overrides synchronously, before any await below, so they

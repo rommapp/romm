@@ -7,12 +7,13 @@ from handler.snapshots.file_key import FileKey
 from models.assets import AUTOSAVE_SLOT, Save
 from models.channel import DEFAULT_CHANNEL_LABEL
 from models.rom import RomFile, RomFileCategory
+from utils.m3u import DESCRIPTOR_EXTENSIONS
 from utils.uploads import DATETIME_TAG_PATTERN
 
 # The slot names clients have used for the save a game makes on its own.
 DEFAULT_SLOTS: Final = frozenset({AUTOSAVE_SLOT, "default"})
 # The file an emulator loads from a multi-file disc set, ahead of its tracks.
-LOADER_EXTENSIONS: Final = frozenset({"cue", "gdi", "ccd", "mds", "toc"})
+LOADER_EXTENSIONS: Final = DESCRIPTOR_EXTENSIONS | {"toc"}
 # Slots some clients used to file states as saves; they map to no channel.
 STATE_SLOT_PREFIX: Final = "state_"
 

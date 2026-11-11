@@ -12,10 +12,10 @@ from endpoints.responses.snapshots import (
 )
 from endpoints.snapshots import (
     FEED_DEVICE_DESCRIPTION,
-    readable_channel,
+    channels_on_files,
+    readable_channel_or_404,
     request_device,
     required_device,
-    rom_hidden,
     visible_rom_file,
 )
 from handler.auth.constants import Scope
@@ -46,23 +46,6 @@ class ChannelAttachPayload(BaseModel):
     rom_file_id: int
 
 
-def _not_found() -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND, detail="Channel not found"
-    )
-
-
-def _owned_or_404(request: Request, id: uuid.UUID) -> Channel:
-    channel = db_snapshot_handler.get_channel(id)
-    if (
-        channel is None
-        or channel.user_id != request.user.id
-        or rom_hidden(request, channel.rom_id)
-    ):
-        raise _not_found()
-    return channel
-
-
 @protected_route(router.get, "", [Scope.ASSETS_READ])
 def get_channels(
     request: Request,
@@ -78,19 +61,7 @@ def get_channels(
     viewer = request.user
     device = request_device(request, device_id)
     channels: dict[uuid.UUID, Channel] = {}
-    fed: dict[uuid.UUID, Channel] = {}
-    for file_id in rom_file_id or []:
-        rom_file, rom = visible_rom_file(request, file_id)
-        for channel in db_snapshot_handler.get_channels_for_file(
-            viewer.id, rom.platform_id, FileKey.of_file(rom_file)
-        ):
-            if readable_channel(request, channel):
-                fed[channel.id] = channel
-    for id in channel_id or []:
-        extra = db_snapshot_handler.get_channel(id)
-        if extra is None or not readable_channel(request, extra):
-            raise _not_found()
-        fed[extra.id] = extra
+    fed = channels_on_files(request, rom_file_id or [], channel_id or [])
     if detached_platform_id is not None:
         for channel in db_snapshot_handler.get_detached_channels(
             viewer.id, detached_platform_id
@@ -127,7 +98,7 @@ def update_channel(
     request: Request, id: uuid.UUID, payload: ChannelUpdatePayload
 ) -> ChannelSchema:
     """Rename a channel or open it to every user. Owner only."""
-    channel = _owned_or_404(request, id)
+    channel = readable_channel_or_404(request, id, owner_only=True)
     changes = payload.model_dump(exclude_none=True)
     if changes:
         channel = db_snapshot_handler.update_channel(channel.id, changes)
@@ -140,7 +111,7 @@ def attach_channel(
 ) -> ChannelSchema:
     """Attach a channel whose ROM was removed to a file of the same platform.
     Owner only."""
-    channel = _owned_or_404(request, id)
+    channel = readable_channel_or_404(request, id, owner_only=True)
     if channel.rom_id is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -175,9 +146,7 @@ def clear_held(
     """Forget what the device holds in the channel and the current it knows,
     so its next push without `expected_current_id` expects its parent."""
     device = required_device(request, device_id)
-    channel = db_snapshot_handler.get_channel(id)
-    if channel is None or not readable_channel(request, channel):
-        raise _not_found()
+    channel = readable_channel_or_404(request, id)
     db_snapshot_handler.clear_device_sync(device.id, channel.id)
 
 
@@ -187,6 +156,6 @@ def clear_held(
 async def delete_channel(request: Request, id: uuid.UUID) -> None:
     """Delete a channel. Its current and pinned snapshots stay as archival backups,
     except on a detached channel, whose ROM is gone, which keeps nothing."""
-    channel = _owned_or_404(request, id)
+    channel = readable_channel_or_404(request, id, owner_only=True)
     released = db_snapshot_handler.delete_channel(channel.id)
     await retention.discard_content(released)

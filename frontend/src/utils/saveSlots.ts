@@ -2,6 +2,7 @@ import type { SaveSchema } from "@/__generated__";
 import i18n from "@/locales";
 import { AUTOSAVE_SLOT } from "@/services/api/save";
 import { channelLabelForSlot, DEFAULT_CHANNEL_LABEL } from "@/utils/snapshots";
+import { uniqueBy } from "@/utils/uniqueBy";
 
 /** The slot of the newest slotted save, where progress should keep going. */
 export function preferredSlot(
@@ -37,15 +38,14 @@ export function slotChoices(
   saves: readonly Pick<SaveSchema, "slot">[],
   channelLabels: readonly string[] = [],
 ): SlotChoice[] {
-  const named = new Map<string, string>();
-  for (const name of [...saves.map((save) => save.slot), ...channelLabels]) {
-    if (!name || channelLabelForSlot(name) === DEFAULT_CHANNEL_LABEL) continue;
-    if (!named.has(name.toLowerCase())) named.set(name.toLowerCase(), name);
-  }
-  return [
-    NEW_SLOT_CHOICE,
-    ...[AUTOSAVE_SLOT, ...named.values()].map(existingSlot),
-  ];
+  const named = uniqueBy(
+    [...saves.map((save) => save.slot), ...channelLabels].filter(
+      (name): name is string =>
+        !!name && channelLabelForSlot(name) !== DEFAULT_CHANNEL_LABEL,
+    ),
+    (name) => name.toLowerCase(),
+  );
+  return [NEW_SLOT_CHOICE, ...[AUTOSAVE_SLOT, ...named].map(existingSlot)];
 }
 
 /** Pickers set the new-slot entry apart from the slots that already exist. */

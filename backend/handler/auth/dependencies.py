@@ -150,6 +150,20 @@ def owned_rom_asset_or_404[A: (Save, State, Screenshot)](
     return asset
 
 
+def readable_rom_asset_or_404[A: (Save, State)](
+    request: Request, asset: A | None, detail: str
+) -> A:
+    """`asset` when the caller owns it, or it is public and its ROM is visible to
+    them, else 404 with `detail`. Another user's detached asset has no ROM to check."""
+    if not asset or (
+        asset.user_id != request.user.id and (not asset.is_public or asset.rom is None)
+    ):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+    if asset.rom is not None:
+        assert_rom_visible(request, asset.rom, not_found_detail=detail)
+    return asset
+
+
 def assert_platform_visible(
     request: Request, platform: Platform, *, not_found_detail: str | None = None
 ) -> None:

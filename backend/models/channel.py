@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import BigInteger, ForeignKey, Index, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from models.assets import SAVE_SLOT_MAX_LENGTH
 from models.base import FILE_NAME_MAX_LENGTH, BaseModel
 from models.rom import ROM_SHA1_MAX_LENGTH
 
@@ -13,7 +14,8 @@ if TYPE_CHECKING:
     from models.snapshot import Snapshot
     from models.user import User
 
-CHANNEL_LABEL_MAX_LENGTH = 255
+# A legacy slot becomes a channel label and back, so they share a limit.
+CHANNEL_LABEL_MAX_LENGTH = SAVE_SLOT_MAX_LENGTH
 DEFAULT_CHANNEL_LABEL = "default"
 
 

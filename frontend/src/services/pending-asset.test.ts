@@ -78,7 +78,9 @@ describe("pendingAssetId", () => {
   // Plain http on a LAN address is not a secure context, and there
   // `crypto.randomUUID` does not exist at all.
   it("still hands out distinct ids without randomUUID", () => {
-    vi.stubGlobal("crypto", {});
+    vi.stubGlobal("crypto", {
+      getRandomValues: crypto.getRandomValues.bind(crypto),
+    });
 
     const first = pendingAssetId(7);
     const second = pendingAssetId(7);

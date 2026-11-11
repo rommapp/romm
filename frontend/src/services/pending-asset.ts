@@ -23,6 +23,7 @@ import {
   type SentPush,
   type SnapshotPush,
 } from "@/utils/saveSync/snapshotSession";
+import { uuidv7 } from "@/utils/uuid";
 
 const DB_NAME = "romm-player";
 const DB_VERSION = 6;
@@ -64,13 +65,9 @@ interface HeldKey {
   capturedAt: number;
 }
 
-// `crypto.randomUUID` needs a secure context, which plain http on a LAN address
-// is not. The id only has to be unique within a browser.
+// The id only has to be unique within a browser.
 export function randomToken(): string {
-  const webCrypto = globalThis.crypto;
-  if (typeof webCrypto?.randomUUID === "function")
-    return webCrypto.randomUUID();
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return uuidv7();
 }
 
 /** A key of its own for one capture, so no other can write over it. */

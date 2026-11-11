@@ -22,6 +22,7 @@ from handler.auth.dependencies import (
     assert_rom_visible,
     get_rom_visibility_filter,
     owned_rom_asset_or_404,
+    readable_rom_asset_or_404,
 )
 from handler.database import (
     db_rom_handler,
@@ -227,22 +228,9 @@ def get_state(request: Request, id: int) -> StateSchema:
 def download_state(request: Request, id: int) -> FileResponse:
     """Download a state file. Owner can download any of their states; everyone
     else only public ones."""
-    state = db_state_handler.get_state_by_id(id)
-    # Another user's detached state has no ROM left to check visibility against.
-    if not state or (
-        state.user_id != request.user.id and (not state.is_public or state.rom is None)
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"State with ID {id} not found",
-        )
-
-    # Sharing must not override the hidden-ROM/platform policy: a state on a ROM
-    # hidden from the caller stays 404-masked, just like the ROM itself.
-    if state.rom is not None:
-        assert_rom_visible(
-            request, state.rom, not_found_detail=f"State with ID {id} not found"
-        )
+    state = readable_rom_asset_or_404(
+        request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
+    )
 
     try:
         file_path = fs_asset_handler.validate_path(state.full_path)

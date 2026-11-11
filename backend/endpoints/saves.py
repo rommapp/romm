@@ -60,6 +60,7 @@ from handler.auth.dependencies import (
     assert_rom_visible,
     get_rom_visibility_filter,
     owned_rom_asset_or_404,
+    readable_rom_asset_or_404,
 )
 from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
@@ -215,15 +216,18 @@ def _slot_moved_on(
         )
         if base is not None:
             return base != head.snapshot_id
-    # The caller already checked the ROM is visible.
-    slot_saves = db_save_handler.get_saves(
-        user_id=user_id,
-        rom_ids=[rom_id],
-        slot=slot,
-        order_by="updated_at",
-        visibility=UNRESTRICTED,
-    )
-    latest = head.save if head else (slot_saves[0] if slot_saves else None)
+    if head:
+        latest: Save | None = head.save
+    else:
+        # The caller already checked the ROM is visible.
+        slot_saves = db_save_handler.get_saves(
+            user_id=user_id,
+            rom_ids=[rom_id],
+            slot=slot,
+            order_by="updated_at",
+            visibility=UNRESTRICTED,
+        )
+        latest = slot_saves[0] if slot_saves else None
     if latest is None:
         return False
     sync = db_device_save_sync_handler.get_sync(device_id=device_id, save_id=latest.id)
@@ -642,24 +646,9 @@ def get_save(request: Request, id: int, device_id: str | None = None) -> SaveSch
 
 
 def _readable_save_or_404(request: Request, id: int) -> Save:
-    """The save, when the caller owns it or it is public and its ROM is visible."""
-    save = db_save_handler.get_save_by_id(id)
-    # Another user's detached save has no ROM left to check visibility against.
-    if not save or (
-        save.user_id != request.user.id and (not save.is_public or save.rom is None)
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Save with ID {id} not found",
-        )
-
-    # Sharing must not override the hidden-ROM/platform policy: a save on a ROM
-    # hidden from the caller stays 404-masked, just like the ROM itself.
-    if save.rom is not None:
-        assert_rom_visible(
-            request, save.rom, not_found_detail=f"Save with ID {id} not found"
-        )
-    return save
+    return readable_rom_asset_or_404(
+        request, db_save_handler.get_save_by_id(id), f"Save with ID {id} not found"
+    )
 
 
 def _stored_save_path(save: Save) -> Path:

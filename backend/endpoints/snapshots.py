@@ -1,6 +1,7 @@
 import json
 import re
 import uuid
+from collections.abc import Iterable
 from typing import Annotated, Any, Self
 
 from fastapi import HTTPException, Query, Request, status
@@ -64,11 +65,7 @@ from models.device import Device
 from models.rom import Rom, RomFile
 from models.snapshot import STATE_SLOT_MAX_LENGTH, Snapshot, SnapshotKind
 from models.user import User
-from utils.auth import (
-    create_or_find_web_device,
-    require_token_device,
-    token_device_id,
-)
+from utils.auth import create_or_find_web_device, require_device, token_device_id
 from utils.router import APIRouter
 from utils.uploads import check_asset_upload_size, check_emulator_folder_name
 
@@ -208,6 +205,41 @@ def readable_channel(request: Request, channel: Channel) -> bool:
     )
 
 
+def readable_channel_or_404(
+    request: Request, id: uuid.UUID, owner_only: bool = False
+) -> Channel:
+    channel = db_snapshot_handler.get_channel(id)
+    if (
+        channel is None
+        or not readable_channel(request, channel)
+        or (owner_only and channel.user_id != request.user.id)
+    ):
+        raise _not_found("Channel")
+    return channel
+
+
+def channels_on_files(
+    request: Request, rom_file_ids: Iterable[int], channel_ids: Iterable[uuid.UUID]
+) -> dict[uuid.UUID, Channel]:
+    """The caller's readable channels on the named files, plus those named by id."""
+    channels: dict[uuid.UUID, Channel] = {}
+    file_ids = list(dict.fromkeys(rom_file_ids))
+    files = {f.id: f for f in db_rom_handler.get_rom_files_by_ids(file_ids)}
+    for file_id in file_ids:
+        found = files.get(file_id)
+        rom_file, rom = _visible_rom_file_or_404(
+            request, found, found.rom if found else None
+        )
+        for channel in db_snapshot_handler.get_channels_for_file(
+            request.user.id, rom.platform_id, FileKey.of_file(rom_file)
+        ):
+            if readable_channel(request, channel):
+                channels[channel.id] = channel
+    for id in channel_ids:
+        channels[id] = readable_channel_or_404(request, id)
+    return channels
+
+
 def _readable_snapshot_or_404(
     request: Request, id: int
 ) -> tuple[Snapshot, Channel | None]:
@@ -246,15 +278,11 @@ def _own_device(request: Request, device_id: str | None) -> Device | None:
     `devices.write` unless it is the device the client token is bound to."""
     if device_id is None:
         return None
-    require_token_device(request, device_id)
     if Scope.DEVICES_WRITE not in request.auth.scopes and device_id != token_device_id(
         request
     ):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-    device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
-    if device is None:
-        raise _not_found("Device")
-    return device
+    return require_device(request, device_id)
 
 
 def request_device(request: Request, device_id: str | None) -> Device | None:
@@ -297,24 +325,9 @@ def get_snapshots(
     viewer = request.user
     device = request_device(request, device_id)
     if current:
-        channels: dict[uuid.UUID, Channel] = {}
-        file_ids = list(dict.fromkeys(rom_file_id or []))
-        files = {f.id: f for f in db_rom_handler.get_rom_files_by_ids(file_ids)}
-        for file_id in file_ids:
-            found = files.get(file_id)
-            rom_file, rom = _visible_rom_file_or_404(
-                request, found, found.rom if found else None
-            )
-            for channel in db_snapshot_handler.get_channels_for_file(
-                viewer.id, rom.platform_id, FileKey.of_file(rom_file)
-            ):
-                if readable_channel(request, channel):
-                    channels[channel.id] = channel
-        if channel_id is not None:
-            extra = db_snapshot_handler.get_channel(channel_id)
-            if extra is None or not readable_channel(request, extra):
-                raise _not_found("Channel")
-            channels[extra.id] = extra
+        channels = channels_on_files(
+            request, rom_file_id or [], [channel_id] if channel_id else []
+        )
         currents = db_snapshot_handler.get_snapshots(
             {c.current_snapshot_id for c in channels.values() if c.current_snapshot_id}
         )
@@ -338,9 +351,7 @@ def get_snapshots(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="History needs a channel_id",
         )
-    history = db_snapshot_handler.get_channel(channel_id)
-    if history is None or not readable_channel(request, history):
-        raise _not_found("Channel")
+    history = readable_channel_or_404(request, channel_id)
     try:
         before_id = int(cursor) if cursor else None
     except ValueError:
@@ -392,10 +403,7 @@ def get_snapshot(
 def _assert_shape(is_zip: bool, shape: SaveShape) -> None:
     """A SINGLE save travels raw; MULTI and FOLDER travel as a zip."""
     if is_zip != (shape != SaveShape.SINGLE):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail={"save": f"the bytes are not a {shape.value} unit"},
-        )
+        raise _unprocessable("save", f"the bytes are not a {shape.value} unit")
 
 
 def _unprocessable(key: str, reason: str) -> HTTPException:
@@ -512,14 +520,13 @@ def _clone_origin(
     request: Request,
     parent: Snapshot | None,
     parts: dict[str, UploadPart],
-    copied: SaveEntry | None,
-    copied_from: str | None,
+    source: Save | None,
 ) -> str:
     """The device a push with no device attributes its snapshot to: the
     caller's device that wrote the bytes it copies or reuses, else the web UI."""
-    if copied is not None:
-        if copied_from:
-            return copied_from
+    if source is not None:
+        if source.origin_device_id:
+            return source.origin_device_id
     elif (
         all(part.content is None for part in parts.values())
         and parent is not None
@@ -605,7 +612,6 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
             raise _unprocessable("save", str(exc)) from exc
 
     copied: SaveEntry | None = None
-    copied_from: str | None = None
     source: Save | None = None
     if payload.save and payload.save.copy_of is not None:
         source = db_save_handler.get_save(user_id=viewer.id, id=payload.save.copy_of)
@@ -617,7 +623,6 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
             )
         except FileNotFoundError as exc:
             raise _not_found("Save file") from exc
-        copied_from = source.origin_device_id
 
     write = SnapshotWrite(
         author=viewer,
@@ -640,9 +645,7 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
         ),
         device_id=device.id if device else None,
         origin_device_id=(
-            device.id
-            if device
-            else _clone_origin(request, parent, parts, copied, copied_from)
+            device.id if device else _clone_origin(request, parent, parts, source)
         ),
         parts=parts,
     )
@@ -657,9 +660,7 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
         raise _not_found(exc.what.capitalize()) from exc
     except (FileMismatch, ContentMismatch, LabelRequired) as exc:
         field = "rom_file_id" if isinstance(exc, FileMismatch) else "manifest"
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail={field: str(exc)}
-        ) from exc
+        raise _unprocessable(field, str(exc)) from exc
     except HardcoreDowngrade:
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT, content={"hardcore_downgrade": True}

@@ -218,7 +218,9 @@ async def _clock_only(write: SnapshotWrite, plan: _Plan, current: Snapshot) -> b
         or held.resolved().bank != plan.resolved.bank
     ):
         return False
-    plan.sent_save_identity = await identity_hash(part_bytes(sent))
+    plan.sent_save_identity = await identity_hash(
+        await asyncio.to_thread(part_bytes, sent)
+    )
     return plan.sent_save_identity == held.save.identity_hash
 
 

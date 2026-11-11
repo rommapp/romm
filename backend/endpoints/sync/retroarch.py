@@ -146,7 +146,13 @@ def _is_held(asset: Save | State | Screenshot | None) -> bool:
 
 
 def _unheld[A: (Save, State)](assets: Sequence[A]) -> list[A]:
-    return [asset for asset in assets if not _is_held(asset)]
+    ids = [asset.id for asset in assets]
+    held = (
+        db_snapshot_handler.get_frozen_state_ids(ids)
+        if assets and isinstance(assets[0], State)
+        else db_snapshot_handler.get_frozen_save_ids(ids)
+    )
+    return [asset for asset in assets if asset.id not in held]
 
 
 async def _get_asset(

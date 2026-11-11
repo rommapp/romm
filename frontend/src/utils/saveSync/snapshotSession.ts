@@ -33,7 +33,7 @@ export interface SnapshotTarget {
   emulatorVersion: string | null;
 }
 
-export interface SessionTargetInput {
+interface SessionTargetInput {
   rom: {
     channel_file_id: number | null;
     user_channels: readonly ChannelSchema[];
@@ -122,7 +122,7 @@ export interface SessionFile {
 }
 
 /** A file a push sends, under its part key. */
-export type PushFile = SessionFile & { key: string };
+type PushFile = SessionFile & { key: string };
 
 /** Everything one push sends, ready to send now or to hold for later. */
 export interface SnapshotPush {
@@ -150,8 +150,12 @@ export type PushOutcome =
       reason: "moved" | "hardcore";
     };
 
-function pushFile(key: string, file: SessionFile): PushFile {
-  return { key, ...file };
+function requestOf(push: SnapshotPush) {
+  return {
+    manifest: push.manifest,
+    parts: partsOf(push.files),
+    deviceId: push.deviceId,
+  };
 }
 
 function partsOf(files: readonly PushFile[]): SnapshotPart[] {
@@ -204,7 +208,7 @@ export function buildPush(
     const hash = hashOf(save);
     if (content.kind === "save" || hash !== target.saveHash) {
       manifest.save = { hash, shape: "SINGLE", format: "native" };
-      files.push(pushFile(SAVE_PART, save));
+      files.push({ key: SAVE_PART, ...save });
     }
   }
   if (content.kind === "state") {
@@ -214,7 +218,7 @@ export function buildPush(
         [content.slot]: hashOf(content.state),
       },
     };
-    files.push(pushFile(statePart(target.core, content.slot), content.state));
+    files.push({ key: statePart(target.core, content.slot), ...content.state });
   }
   return { manifest, files, deviceId };
 }
@@ -308,11 +312,7 @@ export async function sendPush(push: SnapshotPush): Promise<PushOutcome> {
   let reason: "moved" | "hardcore" = "moved";
   for (let fallbacks = 0; ; fallbacks++) {
     try {
-      const { data } = await snapshotApi.pushSnapshot({
-        manifest: attempt.manifest,
-        parts: partsOf(attempt.files),
-        deviceId: attempt.deviceId,
-      });
+      const { data } = await snapshotApi.pushSnapshot(requestOf(attempt));
       return { kind: "current", snapshot: data };
     } catch (error) {
       const conflict = conflictOf(error);
@@ -382,11 +382,7 @@ export function chainPush(
 
 /** `sendPush` while the page unloads; false when it is too big to go. */
 export function sendPushOnUnload(push: SnapshotPush): boolean {
-  return snapshotApi.sendSnapshotOnUnload({
-    manifest: push.manifest,
-    parts: partsOf(push.files),
-    deviceId: push.deviceId,
-  });
+  return snapshotApi.sendSnapshotOnUnload(requestOf(push));
 }
 
 /**

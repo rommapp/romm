@@ -1,5 +1,6 @@
 """A whole memory card pushed as one game's save, cut down to that game's saves."""
 
+import asyncio
 from dataclasses import replace
 
 from adapters.services.sigil import SIGIL_RESTORE_PLATFORM_SLUGS, SigilService
@@ -51,7 +52,7 @@ async def own_saves_only(write: SnapshotWrite) -> SnapshotWrite:
         )
         return write
     content_path = write.rom_file.file_name if write.rom_file else write.rom.fs_name
-    card = part_bytes(part.content)
+    card = await asyncio.to_thread(part_bytes, part.content)
     try:
         found = await game_card(card, game, content_path)
     except CardSplitError as exc:
