@@ -23,14 +23,12 @@ import {
   useDebounceFn,
   useEventListener,
   useIntersectionObserver,
-  useResizeObserver,
 } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import {
   computed,
   nextTick,
   onBeforeUnmount,
-  onMounted,
   ref,
   watch,
   watchEffect,
@@ -56,6 +54,7 @@ import {
   type ListSortKey,
 } from "@/components/Gallery/listColumns";
 import { GameCard, GameCardSkeleton } from "@/components/GameCard";
+import ViewportShell from "@/components/shared/ViewportShell.vue";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import { coverRatio, isBoxartStyle } from "@/composables/useCoverArt";
 import { useCssLength } from "@/composables/useCssLength";
@@ -315,7 +314,8 @@ const { groupBy, layout, toolbarPosition } = useGalleryMode();
 //            (108 on xs, 158 otherwise) so the JS row-chunking and the
 //            CSS grid `minmax(--r-card-art-w, 1fr)` stay in lock-step.
 const { xs, smAndDown } = useBreakpoint();
-const sectionEl = ref<HTMLElement | null>(null);
+const viewportShell = ref<InstanceType<typeof ViewportShell> | null>(null);
+const sectionEl = computed(() => viewportShell.value?.el ?? null);
 const navHeight = useCssLength("var(--r-nav-h)");
 const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
 const scrollerEl = computed(() => scrollerRef.value?.containerEl ?? null);
@@ -328,9 +328,6 @@ const stripVisible = computed(() => !smAndDown.value && lettersSupported.value);
 const jumpMenuVisible = computed(
   () => smAndDown.value && lettersSupported.value,
 );
-// The scroller's classic scrollbar gutter (0 for overlay scrollbars), which
-// the rows and the strip both have to clear.
-const scrollbarWidth = ref(0);
 // Card-art width reference (matches GameCard's `--r-card-art-w`); sets the
 // fixed card HEIGHT (a 2/3 cover at this width). Real width follows the ratio.
 const CARD_GAP_PX = 12;
@@ -447,20 +444,6 @@ const { virtualItems, letterToIndex, availableLetters, getItemHeight } =
     listSettledDetail: listExpansion.settledPanelHeight,
     fallbackRatio: coverAspectRatio,
   });
-
-useResizeObserver(scrollerEl, () => {
-  const el = scrollerEl.value;
-  if (el) scrollbarWidth.value = el.offsetWidth - el.clientWidth;
-});
-// Published on <html> so the fixed top bar can stop short of the scrollbar,
-// which it would otherwise cover.
-const SCROLLBAR_W_VAR = "--r-shell-scrollbar-w";
-watch(scrollbarWidth, (w) => {
-  document.documentElement.style.setProperty(SCROLLBAR_W_VAR, `${w}px`);
-});
-onBeforeUnmount(() => {
-  document.documentElement.style.removeProperty(SCROLLBAR_W_VAR);
-});
 
 // Where the open row sits in the packed list. Recomputed when a row opens or
 // the list re-packs, never on the animation's frames.
@@ -863,18 +846,6 @@ function onShellKey(e: KeyboardEvent) {
   }
 }
 
-// Gallery owns its own internal scroll (the RVirtualScroller). The
-// section is sized to one viewport exactly, but pixel-rounding
-// or transient layout shifts can still produce a stray 1-2px document
-// overflow → a phantom doc scrollbar competing with the virtualizer.
-// Locking the body's overflow while the shell is mounted guarantees
-// the only scrollbar visible on gallery routes is the virtualizer's.
-let prevBodyOverflow: string | null = null;
-
-onMounted(() => {
-  prevBodyOverflow = document.body.style.overflow;
-  document.body.style.overflow = "hidden";
-});
 useEventListener(window, "keydown", onShellKey);
 
 onBeforeUnmount(() => {
@@ -893,9 +864,6 @@ onBeforeUnmount(() => {
   // Drop the debug stats so the overlay doesn't show stale gallery numbers
   // on the next (non-gallery) route.
   virtualDebug.clear();
-  // Restore body overflow so non-gallery routes scroll normally.
-  document.body.style.overflow = prevBodyOverflow ?? "";
-  prevBodyOverflow = null;
 });
 
 // ── Slot helpers ────────────────────────────────────────────────────
@@ -1000,8 +968,9 @@ defineExpose({
 </script>
 
 <template>
-  <section
-    ref="sectionEl"
+  <ViewportShell
+    ref="viewportShell"
+    :scroller="scrollerEl"
     class="r-shell"
     :class="{
       'r-shell--list': layout === 'list',
@@ -1291,7 +1260,7 @@ defineExpose({
          (favorite, collections, download, refresh, delete). Stays
          outside the scroller so it never scrolls away. -->
     <SelectionBar />
-  </section>
+  </ViewportShell>
 </template>
 
 <style scoped>
@@ -1305,40 +1274,8 @@ defineExpose({
   --r-shell-edge-r: calc(var(--r-shell-scrollbar-w, 0px) + var(--r-safe-r));
   /* Lets the strip (a sibling) animate against the scroller's scroll. */
   timeline-scope: --r-shell-scroll;
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-  /* Explicit viewport-relative height instead of `height: 100%`.
-     The parent `<main>` is a flex item, and percentage heights on
-     descendants of flex-computed boxes don't always resolve in every
-     browser / stacking context; when they fail to resolve the
-     section becomes content-sized, the scroller inside ends up with
-     `height: auto`, and overflow-y stops doing anything because
-     there's nothing to overflow. A viewport height bypasses that
-     fragility entirely. `dvh` (not `vh`) so the section
-     matches the mobile visible viewport instead of the larger address-bar-
-     hidden one, which would otherwise spill below the fold. */
-  height: 100vh;
-  height: 100dvh;
-  /* Run up under the fixed top bar (<main> reserves its height with a top
-     padding) so the header and cards scroll behind its glass, like Home. */
-  margin-top: calc(-1 * var(--r-nav-h));
-  /* Out of the app shell's safe-area padding to the screen edges, so the pinned
-     glass spans them; the scroller pads back in. */
-  margin-inline: calc(-1 * var(--r-safe-l)) calc(-1 * var(--r-safe-r));
-  position: relative;
 }
 
-/* On sm-and-down the section keeps its full-viewport height so cards
-   scroll UNDER the translucent bottom tab bar (the glass effect). The layout
-   <main> adds a bottom padding for the bar (natural-flow views need it);
-   cancel it here with a matching negative margin so this full-height section
-   doesn't push the document past one viewport; otherwise a second, global
-   scroll stacks on top of the internal one. The scroller's bottom spacer
-   (below) lifts the last row clear of the bar. */
-html[data-bp~="sm-and-down"] .r-shell {
-  margin-bottom: calc(-1 * (var(--r-bottom-nav-h) + var(--r-safe-b)));
-}
 /* No strip to leave room for: phones and tablets jump from the toolbar, and
    a sort the letters can't address has no jump at all. */
 .r-shell--no-strip {

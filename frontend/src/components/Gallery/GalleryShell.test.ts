@@ -39,7 +39,7 @@ describe("GalleryShell re-sort", () => {
     await router.push("/search");
     const wrapper = shallowMount(GalleryShell, {
       props: { hasHeader: false, searchPlaceholder: "", emptyMessage: "" },
-      global: { plugins: [router] },
+      global: { plugins: [router], stubs: { ViewportShell: false } },
     });
     await flushPromises();
     galleryRoms.total = 2;
@@ -70,7 +70,7 @@ describe("GalleryShell empty result", () => {
     await router.push("/search?search=zzz");
     const wrapper = shallowMount(GalleryShell, {
       props: { hasHeader: false, searchPlaceholder: "", emptyMessage: "" },
-      global: { plugins: [router] },
+      global: { plugins: [router], stubs: { ViewportShell: false } },
     });
     await flushPromises();
     galleryRoms._resultRequest(0);
@@ -115,6 +115,7 @@ describe("GalleryShell search refresh", () => {
       global: {
         plugins: [router],
         stubs: {
+          ViewportShell: false,
           // Renders every item, so the list rows exist without a viewport.
           RVirtualScroller: {
             props: { items: { type: Array, required: true } },
