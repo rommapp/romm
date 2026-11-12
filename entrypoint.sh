@@ -59,6 +59,16 @@ if [[ -z ${ROMM_AUTH_SECRET_KEY-} ]]; then
 	export ROMM_AUTH_SECRET_KEY
 fi
 
+# Read before the backend starts: its startup can rewrite config.yml.
+streaming_worker_enabled="false"
+if (cd /app/backend && uv run python -c "
+import sys
+from config.config_manager import config_manager
+sys.exit(0 if config_manager.get_config().STREAMING_ENABLED else 1)
+" >/dev/null 2>&1); then
+	streaming_worker_enabled="true"
+fi
+
 # Start all services in the background
 echo "Starting backend..."
 cd /app/backend
@@ -124,13 +134,8 @@ echo "Starting RQ scan worker..."
 start_rq_worker rq_scan_worker RomMWorker scans
 
 # Streaming teardowns get a worker of their own, see STREAMING_QUEUE_NAME. It
-# preloads the reaper, which runs every minute when streaming is on, so it only
-# starts when config.yml enables streaming.
-if (cd /app/backend && uv run python -c "
-import sys
-from config.config_manager import config_manager
-sys.exit(0 if config_manager.get_config().STREAMING_ENABLED else 1)
-" >/dev/null 2>&1); then
+# preloads the reaper, which runs every minute when streaming is on.
+if [[ ${streaming_worker_enabled} == "true" ]]; then
 	echo "Starting RQ streaming worker..."
 	start_rq_worker rq_streaming_worker PreloadingWorker streaming
 fi
