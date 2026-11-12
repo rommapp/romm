@@ -46,6 +46,7 @@ from tasks.registry import enqueue_task
 from tasks.scheduled.update_switch_titledb import SWITCH_TITLEDB_STORE
 from utils.cache import conditionally_set_cache, drop_stale_cache_store
 from utils.context import initialize_context
+from utils.platform_aliases import unknown_binding_warnings
 from utils.sentry import init_sentry
 
 tracer = trace.get_tracer(__name__)
@@ -208,6 +209,11 @@ def _drop_legacy_scheduler_state() -> None:
         log.exception("Failed to clear the old scheduler's leftovers")
 
 
+def _warn_about_unknown_platform_bindings() -> None:
+    for warning in unknown_binding_warnings(cm.get_config()):
+        log.warning(warning)
+
+
 @tracer.start_as_current_span("main")
 async def main() -> None:
     """Run startup tasks."""
@@ -217,6 +223,7 @@ async def main() -> None:
 
         cm.migrate_retired_filesystem_keys()
         cm.check_library_layout()
+        _warn_about_unknown_platform_bindings()
 
         if SMTP_HOST and SMTP_SECURITY not in SMTP_SECURITY_MODES:
             log.warning(
