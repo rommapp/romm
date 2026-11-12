@@ -123,7 +123,6 @@ html[data-bp~="xs"] .r-bottom-nav {
     inset 0 1px 0 color-mix(in srgb, white 28%, transparent),
     inset 0 -1px 0 color-mix(in srgb, white 6%, transparent),
     inset 0 0 18px color-mix(in srgb, white 5%, transparent),
-    var(--r-elev-2),
     var(--r-elev-1);
 }
 
