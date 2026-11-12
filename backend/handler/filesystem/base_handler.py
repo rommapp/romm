@@ -319,14 +319,23 @@ _LANGUAGE_BY_PROVIDER_ALIAS = {
 }
 
 # Region shortcodes a filename can also carry, as TOSEC and similar sets write
-# them ("(US)", "(JP)"). Added once both language vocabularies are known, and
-# only for a code neither claims: "(De)" is German, and "(Tr)" marks a
-# translation rather than Turkey (issue #3026).
+# them ("(US)", "(JP)"), and the full country names No-Intro writes
+# ("(Poland)"). Added once both language vocabularies are known, and only for
+# a spelling neither claims: "(De)" is German, and "(Tr)" marks a translation
+# rather than Turkey (issue #3026).
 _REGION_BY_ALIAS.update(
     {
         code: names[0]
         for code, names in _REGION_NAMES_BY_PROVIDER_SHORTCODE.items()
         if code not in _LANGUAGE_BY_ALIAS and code not in _LANGUAGE_BY_PROVIDER_ALIAS
+    }
+)
+_REGION_BY_ALIAS.update(
+    {
+        name.lower(): name
+        for name in REGION_NAME_TO_PROVIDER_SHORTCODE
+        if name.lower() not in _LANGUAGE_BY_ALIAS
+        and name.lower() not in _LANGUAGE_BY_PROVIDER_ALIAS
     }
 )
 
