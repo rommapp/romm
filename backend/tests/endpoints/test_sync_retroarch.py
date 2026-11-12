@@ -2488,7 +2488,7 @@ class TestRetroArchSyncHeldState:
         "endpoints.sync.retroarch.fs_asset_handler.write_file",
         new_callable=mock.AsyncMock,
     )
-    def test_an_upload_onto_a_held_unslotted_save_is_a_conflict(
+    def test_an_upload_onto_a_held_unslotted_save_is_locked(
         self,
         mock_write_file: mock.AsyncMock,
         client,
@@ -2512,7 +2512,7 @@ class TestRetroArchSyncHeldState:
             auth=ADMIN_AUTH,
         )
 
-        assert response.status_code == status.HTTP_409_CONFLICT
+        assert response.status_code == status.HTTP_423_LOCKED
         mock_write_file.assert_not_awaited()
 
     def test_an_upload_onto_a_held_save_ram_adds_a_version_beside_it(
@@ -2550,7 +2550,7 @@ class TestRetroArchSyncHeldState:
             auth=ADMIN_AUTH,
         )
 
-        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.status_code == status.HTTP_423_LOCKED
         mock_remove_file.assert_not_awaited()
         assert db_state_handler.get_state(user_id=admin_user.id, id=held.id)
 
@@ -2573,7 +2573,7 @@ class TestRetroArchSyncHeldState:
             auth=ADMIN_AUTH,
         )
 
-        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.status_code == status.HTTP_423_LOCKED
         mock_remove_file.assert_not_awaited()
         assert db_save_handler.get_save(user_id=admin_user.id, id=synced_save.id)
 

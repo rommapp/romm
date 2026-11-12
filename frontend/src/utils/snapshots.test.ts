@@ -165,4 +165,10 @@ describe("channelLabelForSlot", () => {
   it("files autosave under the default channel", () => {
     expect(channelLabelForSlot("Autosave")).toBe("default");
   });
+
+  it("files a state slot or a blank one under no channel", () => {
+    expect(channelLabelForSlot("state_1")).toBeNull();
+    expect(channelLabelForSlot("State_Quick [2026-01-01_00-00-00]")).toBeNull();
+    expect(channelLabelForSlot(" [2026-01-01_00-00-00]")).toBeNull();
+  });
 });

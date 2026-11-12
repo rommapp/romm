@@ -711,8 +711,10 @@ async def _put_save(request: Request, rom: Rom, parsed: RetroArchSyncPath) -> Re
             stored = await sync_handler.store_save(
                 request.user, rom, parsed.emulator, parsed.file_name, body
             )
-        except ValueError, sync_handler.SaveHeld:
+        except ValueError:
             return _empty(status.HTTP_409_CONFLICT)
+        except sync_handler.SaveHeld:
+            return _empty(status.HTTP_423_LOCKED)
 
     return _empty(
         status.HTTP_201_CREATED if stored == "created" else status.HTTP_204_NO_CONTENT
@@ -755,17 +757,20 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
     if not rom:
         return _empty(status.HTTP_404_NOT_FOUND)
 
-    # A save or state a sync channel holds stays; RetroArch only reads it.
+    # A save or state a sync channel holds stays, answered as locked (WebDAV's 423).
     if parsed.kind == "saves":
-        saves = await asyncio.to_thread(
-            lambda: _unheld(
-                sync_handler.saves_at_path(
-                    request.user, rom, parsed.emulator, parsed.file_name
-                )
-            )
+        at_path = await asyncio.to_thread(
+            sync_handler.saves_at_path,
+            request.user,
+            rom,
+            parsed.emulator,
+            parsed.file_name,
         )
-        if not saves:
+        if not at_path:
             return _empty(status.HTTP_404_NOT_FOUND)
+        saves = await asyncio.to_thread(_unheld, at_path)
+        if not saves:
+            return _empty(status.HTTP_423_LOCKED)
 
         log.info(f"Cloud sync delete {hl(parsed.file_name)} [{rom.platform_slug}]")
         for save in saves:
@@ -805,7 +810,7 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
     )
     removable = await asyncio.to_thread(_unheld, slot.own)
     if not removable and slot.served_capture is None:
-        return _empty(status.HTTP_404_NOT_FOUND)
+        return _empty(status.HTTP_423_LOCKED if slot.own else status.HTTP_404_NOT_FOUND)
 
     log.info(f"Cloud sync delete {hl(parsed.file_name)} [{rom.platform_slug}]")
     for state in removable:

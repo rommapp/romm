@@ -40,8 +40,10 @@ export function slotChoices(
 ): SlotChoice[] {
   const named = uniqueBy(
     [...saves.map((save) => save.slot), ...channelLabels].filter(
-      (name): name is string =>
-        !!name && channelLabelForSlot(name) !== DEFAULT_CHANNEL_LABEL,
+      (name): name is string => {
+        const label = name ? channelLabelForSlot(name) : null;
+        return label !== null && label !== DEFAULT_CHANNEL_LABEL;
+      },
     ),
     (name) => name.toLowerCase(),
   );

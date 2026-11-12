@@ -1093,11 +1093,15 @@ without a current, keep the timestamp comparison (`compare_save_state`).
 | PUT    | `/snapshots/{id}/devices/{device_id}` | ASSETS_READ  | Record the snapshot a device applied, as `hold=true` does; a device other than the token's takes DEVICES_WRITE                          |
 | GET    | `/channels`                           | ASSETS_READ  | Channels on `rom_file_id`s, empty ones included, with current; `detached_platform_id` lists the caller's channels whose ROM was removed |
 | POST   | `/channels`                           | ASSETS_WRITE | Create an empty channel on a ROM file                                                                                                   |
-| PATCH  | `/channels/{id}`                      | ASSETS_WRITE | Rename or share a channel (owner only)                                                                                                  |
+| PATCH  | `/channels/{id}`                      | ASSETS_WRITE | Rename or share a channel (owner only); sharing lets every user read and push into it                                                   |
 | POST   | `/channels/{id}/attach`               | ASSETS_WRITE | Attach a detached channel to a file on its platform (owner only)                                                                        |
 | DELETE | `/channels/{id}/held`                 | ASSETS_READ  | Clear the device's held snapshot and known current in the channel                                                                       |
 | DELETE | `/channels/{id}`                      | ASSETS_WRITE | Delete; current and owner-pinned snapshots stay as archival, except on a detached channel, which keeps nothing                          |
 
+- **Sharing:** a shared (`is_public`) channel is readable and writable by every user
+  on the server. Anyone with ASSETS_WRITE can push into it; the snapshot belongs to
+  the channel owner and records the pusher as `author_user_id`. Content reuse by hash
+  only looks inside the channel, so a pusher can't pull in the owner's other saves.
 - **Writes:** every snapshot goes through `handler.snapshots.write.write_snapshot`,
   which locks the channel row, checks `expected_current_id` (a stale push is kept as a
   branch and answered 409) and applies the hardcore-downgrade guard. A push that adds
@@ -1189,8 +1193,9 @@ World`), so a name shared across platforms resolves to the lowest visible ROM id
   touched. Other files (`.rtc`, core-specific saves) and PSP bundles stay single
   unslotted saves, overwritten in place.
 - **Held rows:** a save or state a channel snapshot holds is never rewritten or
-  deleted. A PUT over a held unslotted save returns 409, a state or PSP bundle
-  upload writes a new copy beside it, and a DELETE skips it.
+  deleted. A PUT over a held unslotted save returns 423, a state or PSP bundle
+  upload writes a new copy beside it, and a DELETE skips it, answering 423 when
+  only held rows are at the path.
 - **Version names:** `reserve_version_name` moves a taken tag on a second and
   claims it in Redis, so concurrent or same-second uploads from any endpoint
   never share a file. Every slot prune is scoped to the uploaded save's lineage.

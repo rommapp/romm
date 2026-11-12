@@ -17,12 +17,15 @@ const DEFAULT_SLOTS = new Set([AUTOSAVE_SLOT, "default"]);
 const DATETIME_TAG_PATTERN =
   / \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(?:-\d{3})?\]/g;
 
-/** The channel a save slot files into, as the backend's `channel_label` maps it. */
-export function channelLabelForSlot(slot: string): string {
+/** The backend's `legacy.STATE_SLOT_PREFIX`. */
+const STATE_SLOT_PREFIX = "state_";
+
+/** The channel a save slot files into, or null for none, as the backend's `channel_label` maps it. */
+export function channelLabelForSlot(slot: string): string | null {
   const label = slot.replace(DATETIME_TAG_PATTERN, "").trim();
-  return !label || DEFAULT_SLOTS.has(label.toLowerCase())
-    ? DEFAULT_CHANNEL_LABEL
-    : label;
+  const folded = label.toLowerCase();
+  if (!label || folded.startsWith(STATE_SLOT_PREFIX)) return null;
+  return DEFAULT_SLOTS.has(folded) ? DEFAULT_CHANNEL_LABEL : label;
 }
 
 /** The state slot a snapshot client boots from by default. */

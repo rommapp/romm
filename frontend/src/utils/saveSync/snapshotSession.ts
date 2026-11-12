@@ -87,7 +87,7 @@ export function sessionTarget({
     };
   }
 
-  const label = channelLabelForSlot(slot);
+  const slotLabel = channelLabelForSlot(slot);
   const channel =
     (save?.channel_id
       ? ownChannel(rom.user_channels, (c) => c.id === save.channel_id)
@@ -96,16 +96,18 @@ export function sessionTarget({
       rom.user_channels,
       (c) =>
         c.rom_file_id === rom.channel_file_id &&
-        c.label.toLowerCase() === label.toLowerCase(),
+        c.label.toLowerCase() === slotLabel?.toLowerCase(),
     );
+  const label = channel?.label ?? slotLabel;
   const romFileId = channel?.rom_file_id ?? rom.channel_file_id;
-  if (romFileId == null) return null;
+  // A slot that files under no channel, as legacy uploads treat it, gets no session.
+  if (romFileId == null || label === null) return null;
   const current = channel?.current ?? null;
   return {
     ...ran,
     romFileId,
     channelId: channel?.id ?? uuidv7(),
-    label: channel?.label ?? label,
+    label,
     expectedCurrentId: channel?.current_snapshot_id ?? null,
     parentSnapshotId: null,
     bank: current ? bankOf(current) : {},
