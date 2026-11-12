@@ -5,7 +5,6 @@ from typing import Any
 
 import pytest
 from tests.utils.nup_builder import (
-    FLAG_STANDALONE_UPDATE,
     KIND_ADDON,
     KIND_BASE,
     KIND_SYSTEM,
@@ -16,6 +15,8 @@ from tests.utils.nup_builder import (
 )
 
 from utils.nup import (
+    FLAG_STANDALONE_UPDATE,
+    MAX_PACKAGE_COUNT,
     MAX_TOC_SIZE,
     NupError,
     NupHeader,
@@ -170,6 +171,7 @@ class TestRejects:
             ("toc_hash", "hash mismatch"),
             ("file_size", "actual size"),
             ("toc_size_cap", f"exceeds {MAX_TOC_SIZE}"),
+            ("package_count_cap", f"exceeds {MAX_PACKAGE_COUNT}"),
             ("meta_oob", "meta block"),
         ],
     )

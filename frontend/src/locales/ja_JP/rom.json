@@ -451,7 +451,7 @@
   "tab-notes": "ノート",
   "tab-overview": "概要",
   "title-id": "タイトルID",
-  "title-id-missing-nup": "この NUP ファイルのヘッダーを読み取れませんでした。ファイルが不完全か破損している可能性があります。",
+  "title-id-missing-nup": "この NUP ファイルからは Title ID が読み取られていません。Title ID の抽出が無効になっているか、ファイルが不完全または破損している可能性があります。",
   "title-id-missing-switch": "RomM は Switch のファイルを復号しないため、暗号化されたダンプには Title ID が付きません。復号済みのダンプ、またはキーを持つクライアントならこのゲームを識別できます。",
   "tracks-n": "{n}件のトラック | {n}件のトラック",
   "tracks-summary": "{count}件のトラック · {duration}",

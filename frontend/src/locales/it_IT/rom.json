@@ -451,7 +451,7 @@
   "tab-notes": "Note",
   "tab-overview": "Panoramica",
   "title-id": "ID titolo",
-  "title-id-missing-nup": "Impossibile leggere l'intestazione di questo file NUP. Il file potrebbe essere incompleto o danneggiato.",
+  "title-id-missing-nup": "Nessun Title ID è stato letto da questo file NUP. L'estrazione del Title ID potrebbe essere disattivata, oppure il file potrebbe essere incompleto o danneggiato.",
   "title-id-missing-switch": "RomM non decifra i file Switch, quindi i dump cifrati non ottengono un Title ID. Dump decifrati, o un client con le tue chiavi, possono identificare questo gioco.",
   "tracks-n": "{n} traccia | {n} tracce",
   "tracks-summary": "{count} tracce · {duration}",

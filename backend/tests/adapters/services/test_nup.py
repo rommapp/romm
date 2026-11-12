@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 from tests.utils.nup_builder import (
-    FLAG_STANDALONE_UPDATE,
     KIND_ADDON,
+    KIND_ADDON_UPDATE,
     KIND_BASE,
     KIND_SYSTEM,
     KIND_UPDATE,
@@ -14,6 +14,7 @@ from tests.utils.nup_builder import (
 import adapters.services.nup as nup_adapter
 from adapters.services.nup import NupService
 from adapters.services.sigil import SigilExtractionResult
+from utils.nup import FLAG_STANDALONE_UPDATE
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 S1_BASE = 0x0100ABCD12340000
@@ -71,6 +72,17 @@ class TestNupService:
                     0x10000,
                 ),
                 id="dlc-only",
+            ),
+            pytest.param(
+                [Pkg(0x0100ABCD12341003, KIND_ADDON_UPDATE, 0x20000)],
+                SigilExtractionResult(
+                    "0100ABCD12341003",
+                    "0100ABCD12340000",
+                    "folder-exact",
+                    "addon",
+                    0x20000,
+                ),
+                id="dlc-update-only",
             ),
             pytest.param(
                 [Pkg(0x0100000000000809, KIND_SYSTEM, 5)],

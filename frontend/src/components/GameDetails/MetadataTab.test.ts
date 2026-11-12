@@ -91,7 +91,7 @@ describe("MetadataTab Switch title id", () => {
   });
 
   it.each(["nup", "NUP"])(
-    "says a .%s file's header was unreadable instead",
+    "gives a .%s file its own explanation",
     (fs_extension) => {
       const body = text(
         rom({ platform_slug: "switch-2", title_id: null, fs_extension }),

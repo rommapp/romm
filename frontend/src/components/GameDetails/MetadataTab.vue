@@ -35,7 +35,7 @@ const fileRows = computed<Row[]>(() => {
     rows.push({ label: t("rom.title-id"), value: r.title_id });
   } else if (isSwitchSystem(r.platform_slug)) {
     // Most retail Switch dumps are encrypted, and RomM never reads the keys.
-    // NUP files are decrypted, so a missing id there means an unreadable header.
+    // NUP files are decrypted, so the encryption explanation does not apply.
     const isNup = r.fs_extension.toLowerCase() === "nup";
     rows.push({
       label: t("rom.title-id"),

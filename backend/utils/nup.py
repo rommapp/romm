@@ -1,8 +1,4 @@
-"""Reads the package records of a NUP container, a decrypted Switch dump format.
-
-Validates the container as NUP SPEC section 6.1 requires and reads only the superblock
-and table of contents, never the file contents. Spec: https://github.com/a55uka/nup
-"""
+"""Reads the package records of a NUP container (https://github.com/a55uka/nup)."""
 
 import hashlib
 import os
@@ -15,6 +11,8 @@ TOC_MAGIC: Final = b"TOC\x01"
 HEADER_SIZE: Final = 0x80
 # Far above any real dump's table of contents; checked before allocating.
 MAX_TOC_SIZE: Final = 256 * 1024 * 1024
+# Bounds the records built; a title family has about 8k at most (4k DLC plus updates).
+MAX_PACKAGE_COUNT: Final = 0x10000
 
 KIND_NAMES: Final = ("base", "update", "addon", "addon_update", "system")
 CODEC_COUNT: Final = 2
@@ -24,11 +22,11 @@ FLAG_STANDALONE_UPDATE: Final = 0x01
 # Title ids whose top byte is 0x04 are Switch 2 programs.
 SWITCH_2_PLATFORM_BYTE: Final = 0x04
 
-_SUPER: Final = struct.Struct("<4sHHQQ32sQQII16s32s")
-_TOC_HEAD: Final = struct.Struct("<4sIQQQQQ")
-_PKG: Final = struct.Struct("<QIIIIBBHIQI20x")
-_DIR: Final = struct.Struct("<IIIIQ")
-_FILE: Final = struct.Struct("<IIQQQ32sBBH12x")
+SUPERBLOCK: Final = struct.Struct("<4sHHQQ32sQQII16s32s")
+TOC_HEAD: Final = struct.Struct("<4sIQQQQQ")
+PACKAGE_RECORD: Final = struct.Struct("<QIIIIBBHIQI20x")
+DIR_RECORD: Final = struct.Struct("<IIIIQ")
+FILE_RECORD: Final = struct.Struct("<IIQQQ32sBBH12x")
 
 
 class NupError(ValueError):
@@ -82,10 +80,7 @@ def looks_like_nup(head: bytes) -> bool:
 
 
 def read_header(path: str | os.PathLike[str]) -> NupHeader:
-    """Validate the container at `path` and return its package records.
-
-    Raises NupError for an invalid container; OSError passes through unchanged.
-    """
+    """Return the package records of the container at `path`, or raise NupError."""
     with open(path, "rb") as fh:
         real_size = os.fstat(fh.fileno()).st_size
         head = fh.read(HEADER_SIZE)
@@ -104,7 +99,7 @@ def read_header(path: str | os.PathLike[str]) -> NupHeader:
             flags,
             _uuid,
             reserved,
-        ) = _SUPER.unpack(head)
+        ) = SUPERBLOCK.unpack(head)
 
         if magic[:3] != MAGIC[:3]:
             raise NupError("not a NUP container")
@@ -112,6 +107,8 @@ def read_header(path: str | os.PathLike[str]) -> NupHeader:
             raise NupError(f"unsupported major version {magic[3]}")
         if toc_size > MAX_TOC_SIZE:
             raise NupError(f"TOC size {toc_size} exceeds {MAX_TOC_SIZE}")
+        if package_count > MAX_PACKAGE_COUNT:
+            raise NupError(f"package count {package_count} exceeds {MAX_PACKAGE_COUNT}")
         if header_size < HEADER_SIZE:
             raise NupError(f"header size {header_size:#x} below {HEADER_SIZE:#x}")
         if toc_offset != header_size:
@@ -126,7 +123,7 @@ def read_header(path: str | os.PathLike[str]) -> NupHeader:
             raise NupError(f"unknown superblock flags {flags:#x}")
         if any(reserved):
             raise NupError("superblock reserved bytes not zero")
-        if toc_size < _TOC_HEAD.size + package_count * _PKG.size:
+        if toc_size < TOC_HEAD.size + package_count * PACKAGE_RECORD.size:
             raise NupError("TOC too small for its packages")
 
         fh.seek(toc_offset)
@@ -144,17 +141,17 @@ def _parse_toc(
     toc: bytes, package_count: int, file_size: int, blob_offset: int
 ) -> NupHeader:
     magic, pkg_count, dir_count, file_count, pool_off, pool_size, _reserved = (
-        _TOC_HEAD.unpack_from(toc, 0)
+        TOC_HEAD.unpack_from(toc, 0)
     )
     if magic != TOC_MAGIC:
         raise NupError("bad TOC magic")
     if pkg_count != package_count:
         raise NupError("package count differs between superblock and TOC")
     records_end = (
-        _TOC_HEAD.size
-        + pkg_count * _PKG.size
-        + dir_count * _DIR.size
-        + file_count * _FILE.size
+        TOC_HEAD.size
+        + pkg_count * PACKAGE_RECORD.size
+        + dir_count * DIR_RECORD.size
+        + file_count * FILE_RECORD.size
     )
     if records_end > len(toc):
         raise NupError("TOC truncated")
@@ -165,7 +162,7 @@ def _parse_toc(
     slot_total = (pool_off - records_end) // 4
 
     packages: list[NupPackage] = []
-    pos = _TOC_HEAD.size
+    pos = TOC_HEAD.size
     for index in range(pkg_count):
         (
             title_id,
@@ -179,8 +176,8 @@ def _parse_toc(
             reserved2,
             meta_offset,
             meta_size,
-        ) = _PKG.unpack_from(toc, pos)
-        pos += _PKG.size
+        ) = PACKAGE_RECORD.unpack_from(toc, pos)
+        pos += PACKAGE_RECORD.size
         if kind >= len(KIND_NAMES):
             raise NupError(f"package {index}: unknown kind {kind}")
         if reserved1 or reserved2:
@@ -203,8 +200,8 @@ def _parse_toc(
         )
 
     used_slots = 0
-    for name_off, name_len, first_child, child_count, _r in _DIR.iter_unpack(
-        toc[pos : pos + dir_count * _DIR.size]
+    for name_off, name_len, first_child, child_count, _r in DIR_RECORD.iter_unpack(
+        toc[pos : pos + dir_count * DIR_RECORD.size]
     ):
         if name_off + name_len > pool_size:
             raise NupError("directory name outside the string pool")
@@ -213,9 +210,11 @@ def _parse_toc(
         used_slots += child_count
     if used_slots != slot_total:
         raise NupError("directory child counts do not match the children array")
-    pos += dir_count * _DIR.size
+    pos += dir_count * DIR_RECORD.size
 
-    for record in _FILE.iter_unpack(toc[pos : pos + file_count * _FILE.size]):
+    for record in FILE_RECORD.iter_unpack(
+        toc[pos : pos + file_count * FILE_RECORD.size]
+    ):
         name_off, name_len, size, ext_off, ext_size, _sha, codec, codec_flags, _r = (
             record
         )

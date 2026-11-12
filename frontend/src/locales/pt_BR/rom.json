@@ -451,7 +451,7 @@
   "tab-notes": "Notas",
   "tab-overview": "Visão geral",
   "title-id": "ID do título",
-  "title-id-missing-nup": "Não foi possível ler o cabeçalho deste arquivo NUP. O arquivo pode estar incompleto ou corrompido.",
+  "title-id-missing-nup": "Nenhum Title ID foi lido deste arquivo NUP. A extração de Title ID pode estar desativada, ou o arquivo pode estar incompleto ou corrompido.",
   "title-id-missing-switch": "O RomM não descriptografa arquivos de Switch, então dumps criptografados não recebem Title ID. Dumps descriptografados, ou um cliente com suas chaves, podem identificar este jogo.",
   "tracks-n": "{n} faixa | {n} faixas",
   "tracks-summary": "{count} faixas · {duration}",

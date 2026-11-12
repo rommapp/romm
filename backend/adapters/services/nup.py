@@ -14,6 +14,7 @@ NUP_CONTENT_TYPES: Final[dict[str, str]] = {
     "base": "application",
     "update": "patch",
     "addon": "addon",
+    "addon_update": "addon",
 }
 
 

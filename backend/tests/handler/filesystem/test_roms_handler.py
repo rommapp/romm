@@ -14,7 +14,13 @@ import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 from tests._zipfile_shim import reload_zipfile
-from tests.utils.nup_builder import KIND_ADDON, KIND_UPDATE, Pkg, build_nup
+from tests.utils.nup_builder import (
+    KIND_ADDON,
+    KIND_ADDON_UPDATE,
+    KIND_UPDATE,
+    Pkg,
+    build_nup,
+)
 
 from adapters.services.sigil import SigilExtractionResult
 from config import LIBRARY_BASE_PATH
@@ -2757,11 +2763,14 @@ class TestSigilTitleIdExtraction:
         assert parsed.identity.save_target_layout == SaveTargetLayout.FOLDER_EXACT
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "kind", [KIND_ADDON, KIND_ADDON_UPDATE], ids=["dlc", "dlc-update"]
+    )
     async def test_dlc_nup_settles_category_and_base_identity(
-        self, tmp_path: Path, sigil_config: Config
+        self, tmp_path: Path, sigil_config: Config, kind: int
     ):
         handler = make_sigil_handler(tmp_path)
-        data = build_nup([Pkg(0x0100ABCD12341001, KIND_ADDON, 0x10000)])
+        data = build_nup([Pkg(0x0100ABCD12341001, kind, 0x10000)])
         rom = make_nup_rom(tmp_path, SWITCH_PLATFORM, "Game DLC.nup", data)
 
         with patch(SIGIL_PATCH_TARGET, AsyncMock(return_value=None)):

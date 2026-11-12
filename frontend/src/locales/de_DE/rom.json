@@ -451,7 +451,7 @@
   "tab-notes": "Notizen",
   "tab-overview": "Übersicht",
   "title-id": "Titel-ID",
-  "title-id-missing-nup": "Der Header dieser NUP-Datei konnte nicht gelesen werden. Die Datei ist möglicherweise unvollständig oder beschädigt.",
+  "title-id-missing-nup": "Aus dieser NUP-Datei wurde keine Title-ID gelesen. Möglicherweise ist das Auslesen der Title-ID deaktiviert, oder die Datei ist unvollständig oder beschädigt.",
   "title-id-missing-switch": "RomM entschlüsselt keine Switch-Dateien, daher erhalten verschlüsselte Dumps keine Title-ID. Entschlüsselte Dumps oder ein Client mit deinen Schlüsseln können dieses Spiel identifizieren.",
   "tracks-n": "{n} Track | {n} Tracks",
   "tracks-summary": "{count} Tracks · {duration}",
