@@ -547,6 +547,12 @@ class TestOfferedDownloadFormats:
             == []
         )
 
+    @pytest.mark.parametrize("platform", ["switch", "switch-2"])
+    def test_nothing_for_a_nup(self, platform: str):
+        files = [_rom_file(file_name="game.nup")]
+
+        assert offered_download_formats(platform, files, self._request()) == []
+
     def test_nothing_for_several_files(self):
         files = [_rom_file(file_name="a.chd"), _rom_file(file_name="b.chd")]
 
