@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final, NotRequired, Self, TypedDict
 
+from adapters.services.nup import NupService
 from adapters.services.rom_converto import (
     CONVERTO_PLATFORM_SLUGS,
     rom_converto_service,
@@ -801,6 +802,7 @@ class FSRomsHandler(FSHandler):
         embed_candidates: list[TitleIdEmbedCandidate] = []
         title_id_sources: list[_TitleIdSource] = []
         sigil_service = SigilService()
+        nup_service = NupService()
 
         def _record_title_id_source(path: Path, rom_file: RomFile) -> None:
             """Queue a file for extraction when sigil can read a title id from it."""
@@ -809,9 +811,15 @@ class FSRomsHandler(FSHandler):
 
         async def _extract_title_id(source: _TitleIdSource) -> None:
             """Read the source's title id, recording it and any category it settles."""
-            extraction = await sigil_service.extract_title_id(
-                rom.platform_slug, str(source.path)
-            )
+            # NUP containers hold decrypted dumps; their header names the title.
+            if is_switch and source.path.suffix.lower() == ".nup":
+                extraction = await nup_service.extract_title_id(
+                    rom.platform_slug, str(source.path)
+                )
+            else:
+                extraction = await sigil_service.extract_title_id(
+                    rom.platform_slug, str(source.path)
+                )
             if extraction is None:
                 return
             if source.rom_file.title_id and source.rom_file.converto_read_at:
