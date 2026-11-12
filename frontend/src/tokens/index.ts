@@ -167,9 +167,6 @@ export const colorDark = {
   // background art. Light theme drops it (transparent): a dark blurred halo
   // under dark-on-light text just smudges.
   titleShadow: "rgba(0, 0, 0, 0.5)",
-  // Floating-bar drop shadow: wide and faint, so the bar lifts without a
-  // dark edge. Dark needs more to read at all.
-  barShadow: "rgba(0, 0, 0, 0.35)",
 } as const;
 
 export const colorLight = {
@@ -218,7 +215,6 @@ export const colorLight = {
   // Detail-page title shadow: none on light (a dark blurred halo under the
   // dark-on-light title just smudges; the calm light backdrop needs no lift).
   titleShadow: "transparent",
-  barShadow: "rgba(0, 0, 0, 0.08)",
 } as const;
 
 // Cover-overlay surfaces: fixed dark glass values that never theme-flip.
