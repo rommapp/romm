@@ -3,8 +3,10 @@ import pytest
 from adapters.services.igdb import IGDB_PLATFORM_LIST
 from adapters.services.rahasher import PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID
 from handler.metadata.hasheous_handler import HASHEOUS_PLATFORM_LIST
+from handler.metadata.hltb_handler import HLTB_PLATFORM_LIST
 from handler.metadata.launchbox_handler.platforms import LAUNCHBOX_PLATFORM_LIST
 from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST
+from handler.metadata.platform_names import resolve_platform_name
 from handler.metadata.ra_handler import RA_PLATFORM_LIST
 from handler.metadata.ss_handler import SCREENSAVER_PLATFORM_LIST
 from handler.metadata.tgdb_handler import TGDB_PLATFORM_LIST
@@ -49,3 +51,20 @@ def test_keeps_both_entries_when_both_are_listed():
 def test_provider_lists_cover_both_slugs_or_neither(platforms: dict[UPS, object]):
     for slug, duplicate in DUPLICATE_PLATFORM_SLUGS:
         assert (slug in platforms) == (duplicate in platforms)
+
+
+def test_abc_800_is_its_own_platform_apart_from_the_abc_80():
+    assert UPS.ABC_800.value == "abc-800"
+    assert UPS.ABC_800 != UPS.ABC_80
+    assert HASHEOUS_PLATFORM_LIST[UPS.ABC_800]["id"] == 278114
+    assert resolve_platform_name(UPS.ABC_800.value) == "Luxor ABC 800"
+    assert resolve_platform_name(UPS.ABC_80.value) == "ABC 80"
+
+
+def test_playstation_mobile_is_named_and_mapped_where_providers_list_it():
+    assert UPS.PLAYSTATION_MOBILE.value == "playstation-mobile"
+    assert HASHEOUS_PLATFORM_LIST[UPS.PLAYSTATION_MOBILE]["id"] == 314213
+    assert HLTB_PLATFORM_LIST[UPS.PLAYSTATION_MOBILE]["name"] == "PlayStation Mobile"
+    assert resolve_platform_name(UPS.PLAYSTATION_MOBILE.value) == (
+        "Sony PlayStation Mobile"
+    )

@@ -11,6 +11,7 @@ from typing import Final
 class UniversalPlatformSlug(enum.StrEnum):
     _3DO = "3do"
     ABC_80 = "abc-80"
+    ABC_800 = "abc-800"
     ACORN_ARCHIMEDES = "acorn-archimedes"
     ACORN_ELECTRON = "acorn-electron"
     ACPC = "acpc"
@@ -324,6 +325,7 @@ class UniversalPlatformSlug(enum.StrEnum):
     PLATO = "plato"
     PLAYDATE = "playdate"
     PLAYDIA = "playdia"
+    PLAYSTATION_MOBILE = "playstation-mobile"
     PLAYSTATION_NOW = "playstation-now"
     PLEX_ARCADE = "plex-arcade"
     PLUG_AND_PLAY = "plug-and-play"
