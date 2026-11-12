@@ -571,6 +571,26 @@ class FSRomsHandler(FSHandler):
                 revision = revision_match[1] or revision_match[2] or ""
                 continue
 
+            # TOSEC joins countries or languages with hyphens. Keep unknown
+            # compounds intact rather than extracting a partial match.
+            parts = raw_tag.split("-")
+            if len(parts) > 1:
+                compound_regions = [
+                    region for part in parts if (region := normalize_region(part))
+                ]
+                if len(compound_regions) == len(parts):
+                    regions.extend(compound_regions)
+                    continue
+
+                compound_languages = [
+                    language
+                    for part in parts
+                    if (language := normalize_language(part))
+                ]
+                if len(compound_languages) == len(parts):
+                    languages.extend(compound_languages)
+                    continue
+
             # Anything else
             other_tags.append(raw_tag)
 

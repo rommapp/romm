@@ -164,6 +164,37 @@ class TestFSRomsHandler:
         assert "French" in parsed_tags.languages
         assert "Test" in parsed_tags.other_tags
 
+    @pytest.mark.parametrize(
+        "tag, regions, languages, other_tags",
+        [
+            ("EU-US", ["Europe", "USA"], [], []),
+            ("en-fr", [], ["English", "French"], []),
+            ("EU-US, en-fr", ["Europe", "USA"], ["English", "French"], []),
+            ("Pt-BR", [], ["Brazilian Portuguese"], []),
+            ("En-US", [], [], ["En-US"]),
+            ("EU-unknown", [], [], ["EU-unknown"]),
+            ("en-unknown", [], [], ["en-unknown"]),
+            ("EU-en", [], [], ["EU-en"]),
+            ("EU-", [], [], ["EU-"]),
+        ],
+    )
+    def test_parse_tags_tosec_compound_tags(
+        self, handler: FSRomsHandler, tag, regions, languages, other_tags
+    ):
+        parsed = handler.parse_tags(f"Game (1986)(Devstudio)({tag}).tap")
+
+        assert parsed.regions == regions
+        assert parsed.languages == languages
+        assert parsed.other_tags == ["1986", "Devstudio", *other_tags]
+
+    def test_parse_tags_hyphenated_special_tags(self, handler: FSRomsHandler):
+        parsed = handler.parse_tags("Game (Rev-1)[Reg-US][T-En].tap")
+
+        assert parsed.revision == "1"
+        assert parsed.regions == ["USA"]
+        assert parsed.languages == ["English"]
+        assert parsed.other_tags == ["Translation"]
+
     def test_parse_tags_complex_tags(self, handler: FSRomsHandler):
         """Test parse_tags with complex tag structures"""
         fs_name = "Game (Europe) (En,De,Fr,Es,It) (Rev A) [Reg-PAL] [Beta].rom"
