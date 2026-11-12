@@ -5,6 +5,7 @@ import {
   stubStartViewTransition,
 } from "@/test-utils/viewTransition";
 import {
+  dropSupersededSkip,
   isTransitionSkipped,
   settleSkippedTransition,
   skipTransitionTo,
@@ -85,6 +86,25 @@ describe("skipTransitionTo", () => {
     expect(isTransitionSkipped({ fullPath: "/platforms" })).toBe(true);
 
     settleSkippedTransition({ fullPath: "/platforms" });
+    expect(isTransitionSkipped({ fullPath: "/platforms" })).toBe(false);
+  });
+});
+
+describe("dropSupersededSkip", () => {
+  it("keeps the skip for its own navigation", () => {
+    skipTransitionTo("/platforms");
+    dropSupersededSkip({ fullPath: "/platforms" });
+
+    expect(isTransitionSkipped({ fullPath: "/platforms" })).toBe(true);
+    settleSkippedTransition({ fullPath: "/platforms" });
+  });
+
+  it("drops the skip when the navigation is redirected elsewhere", () => {
+    skipTransitionTo("/platforms");
+    dropSupersededSkip({ fullPath: "/platforms" });
+    dropSupersededSkip({ fullPath: "/login?next=/platforms" });
+    settleSkippedTransition({ fullPath: "/login?next=/platforms" });
+
     expect(isTransitionSkipped({ fullPath: "/platforms" })).toBe(false);
   });
 });

@@ -19,6 +19,11 @@ export function isTransitionSkipped(to: { fullPath: string }): boolean {
   return to.fullPath === instantPath;
 }
 
+/** Drops the skip when a navigation elsewhere (a redirect included) supersedes it. */
+export function dropSupersededSkip(to: { fullPath: string }): void {
+  if (to.fullPath !== instantPath) instantPath = null;
+}
+
 /** Drops the skip once its navigation has ended, however it ended. */
 export function settleSkippedTransition(to: { fullPath: string }): void {
   if (to.fullPath === instantPath) instantPath = null;

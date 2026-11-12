@@ -15,6 +15,7 @@ import {
   type RouteName,
 } from "@/plugins/routeNames";
 import {
+  dropSupersededSkip,
   isTransitionSkipped,
   settleSkippedTransition,
   startViewTransition,
@@ -523,6 +524,7 @@ router.beforeResolve(async (to, from) => {
   await viewTransition.captured;
 });
 
+router.beforeEach((to) => dropSupersededSkip(to));
 router.afterEach((to) => settleSkippedTransition(to));
 router.onError((_error, to) => settleSkippedTransition(to));
 
