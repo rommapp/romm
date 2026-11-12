@@ -17,7 +17,6 @@ import {
 import {
   dropSupersededSkip,
   isTransitionSkipped,
-  settleSkippedTransition,
   startViewTransition,
 } from "@/plugins/transition";
 import {
@@ -524,8 +523,8 @@ router.beforeResolve(async (to, from) => {
   await viewTransition.captured;
 });
 
+// The mark outlives its navigation: it only matches the page already shown,
+// and the next navigation anywhere else drops it before any guard reads it.
 router.beforeEach((to) => dropSupersededSkip(to));
-router.afterEach((to) => settleSkippedTransition(to));
-router.onError((_error, to) => settleSkippedTransition(to));
 
 export default router;

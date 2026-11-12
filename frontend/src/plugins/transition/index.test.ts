@@ -7,7 +7,6 @@ import {
 import {
   dropSupersededSkip,
   isTransitionSkipped,
-  settleSkippedTransition,
   skipTransitionTo,
   startViewTransition,
 } from "./index";
@@ -76,34 +75,35 @@ describe("startViewTransition", () => {
 });
 
 describe("skipTransitionTo", () => {
-  it("skips only the marked path until its navigation settles", () => {
+  afterEach(() => dropSupersededSkip({ fullPath: "/elsewhere" }));
+
+  it("skips only the marked path", () => {
     skipTransitionTo("/platforms");
 
     expect(isTransitionSkipped({ fullPath: "/platforms" })).toBe(true);
     expect(isTransitionSkipped({ fullPath: "/search" })).toBe(false);
-
-    settleSkippedTransition({ fullPath: "/search" });
-    expect(isTransitionSkipped({ fullPath: "/platforms" })).toBe(true);
-
-    settleSkippedTransition({ fullPath: "/platforms" });
-    expect(isTransitionSkipped({ fullPath: "/platforms" })).toBe(false);
   });
-});
 
-describe("dropSupersededSkip", () => {
-  it("keeps the skip for its own navigation", () => {
+  it("keeps the skip through its own navigation", () => {
     skipTransitionTo("/platforms");
     dropSupersededSkip({ fullPath: "/platforms" });
 
     expect(isTransitionSkipped({ fullPath: "/platforms" })).toBe(true);
-    settleSkippedTransition({ fullPath: "/platforms" });
+  });
+
+  it("keeps a repeat tap's skip when its earlier navigation is cancelled", () => {
+    skipTransitionTo("/platforms");
+    dropSupersededSkip({ fullPath: "/platforms" });
+    skipTransitionTo("/platforms");
+    dropSupersededSkip({ fullPath: "/platforms" });
+
+    expect(isTransitionSkipped({ fullPath: "/platforms" })).toBe(true);
   });
 
   it("drops the skip when the navigation is redirected elsewhere", () => {
     skipTransitionTo("/platforms");
     dropSupersededSkip({ fullPath: "/platforms" });
     dropSupersededSkip({ fullPath: "/login?next=/platforms" });
-    settleSkippedTransition({ fullPath: "/login?next=/platforms" });
 
     expect(isTransitionSkipped({ fullPath: "/platforms" })).toBe(false);
   });

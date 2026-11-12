@@ -24,11 +24,6 @@ export function dropSupersededSkip(to: { fullPath: string }): void {
   if (to.fullPath !== instantPath) instantPath = null;
 }
 
-/** Drops the skip once its navigation has ended, however it ended. */
-export function settleSkippedTransition(to: { fullPath: string }): void {
-  if (to.fullPath === instantPath) instantPath = null;
-}
-
 // A transition the browser preempts is skipped, which rejects `ready` with
 // AbortError. Rethrow anything else so real transition failures stay visible.
 export function absorbPreemptionSkip(ready: Promise<void>): Promise<void> {

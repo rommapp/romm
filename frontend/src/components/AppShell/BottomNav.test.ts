@@ -1,10 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
-import {
-  isTransitionSkipped,
-  settleSkippedTransition,
-} from "@/plugins/transition";
+import { dropSupersededSkip, isTransitionSkipped } from "@/plugins/transition";
 import BottomNav from "./BottomNav.vue";
 
 type Target = { fullPath: string };
@@ -107,12 +104,13 @@ describe("BottomNav", () => {
   it("skips the view transition before RouterLink navigates", async () => {
     const wrapper = mountNav();
     const tabs = wrapper.findAll(".r-segmented-control__btn");
+    dropSupersededSkip({ fullPath: "/elsewhere" });
     skippedAtNavigation.length = 0;
 
     await tabs[1]?.trigger("click");
 
     expect(skippedAtNavigation).toEqual([true]);
-    settleSkippedTransition({ fullPath: "/platforms" });
+    dropSupersededSkip({ fullPath: "/elsewhere" });
   });
 
   it("ignores modified clicks that open in a new tab", async () => {
