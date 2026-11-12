@@ -133,9 +133,8 @@ def compare_on_channel(
     position: ChannelPosition,
     removed_at: Mapping[str, datetime] | None = None,
 ) -> SyncComparisonResult | None:
-    """Decide a client save from its slot's channel history, or None when the
-    history can't: no client hash, or a version the channel never held from a
-    device with no record in it."""
+    """Decide a client save from its slot's channel history, or None without a
+    client hash or for an unknown version from a device the channel never saw."""
     if not client_hash:
         return None
     if client_hash == position.current_hash:
