@@ -1049,3 +1049,31 @@ async def test_search_games_propagates_an_unreachable_hltb():
         pytest.raises(HTTPException),
     ):
         await handler.search_games("Chrono Trigger", "snes")
+
+
+@pytest.mark.parametrize(
+    ("platform_slug", "values"),
+    [
+        ("psp", ["PlayStation Portable"]),
+        # HowLongToBeat lists PlayStation VR games under PlayStation 4.
+        ("psvr", ["PlayStation 4"]),
+        ("not-a-platform", []),
+    ],
+)
+async def test_search_games_filters_by_the_roms_platform(platform_slug, values):
+    """HowLongToBeat ignores a platform sent as a bare name, so "gran turismo"
+    for the PSP came back with the PlayStation game first."""
+    handler = _handler()
+
+    with patch.object(
+        handler, "_request", new_callable=AsyncMock, return_value={"data": []}
+    ) as request:
+        await handler.search_games("gran turismo", platform_slug)
+
+    await_args = request.await_args
+    assert await_args is not None
+    payload = await_args.args[1]
+    assert payload["searchOptions"]["games"]["platform"] == {
+        "mode": "include",
+        "values": values,
+    }
