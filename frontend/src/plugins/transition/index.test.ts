@@ -4,7 +4,12 @@ import {
   skippedReady,
   stubStartViewTransition,
 } from "@/test-utils/viewTransition";
-import { startViewTransition } from "./index";
+import {
+  dropSupersededSkip,
+  isTransitionSkipped,
+  skipTransitionTo,
+  startViewTransition,
+} from "./index";
 
 afterEach(() => {
   Reflect.deleteProperty(document, "startViewTransition");
@@ -66,5 +71,40 @@ describe("startViewTransition", () => {
       const transition = startViewTransition();
       await transition.captured;
     });
+  });
+});
+
+describe("skipTransitionTo", () => {
+  afterEach(() => dropSupersededSkip({ fullPath: "/elsewhere" }));
+
+  it("skips only the marked path", () => {
+    skipTransitionTo("/platforms");
+
+    expect(isTransitionSkipped({ fullPath: "/platforms" })).toBe(true);
+    expect(isTransitionSkipped({ fullPath: "/search" })).toBe(false);
+  });
+
+  it("keeps the skip through its own navigation", () => {
+    skipTransitionTo("/platforms");
+    dropSupersededSkip({ fullPath: "/platforms" });
+
+    expect(isTransitionSkipped({ fullPath: "/platforms" })).toBe(true);
+  });
+
+  it("keeps a repeat tap's skip when its earlier navigation is cancelled", () => {
+    skipTransitionTo("/platforms");
+    dropSupersededSkip({ fullPath: "/platforms" });
+    skipTransitionTo("/platforms");
+    dropSupersededSkip({ fullPath: "/platforms" });
+
+    expect(isTransitionSkipped({ fullPath: "/platforms" })).toBe(true);
+  });
+
+  it("drops the skip when the navigation is redirected elsewhere", () => {
+    skipTransitionTo("/platforms");
+    dropSupersededSkip({ fullPath: "/platforms" });
+    dropSupersededSkip({ fullPath: "/login?next=/platforms" });
+
+    expect(isTransitionSkipped({ fullPath: "/platforms" })).toBe(false);
   });
 });

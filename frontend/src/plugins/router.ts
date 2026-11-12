@@ -14,7 +14,11 @@ import {
   ROUTES,
   type RouteName,
 } from "@/plugins/routeNames";
-import { startViewTransition } from "@/plugins/transition";
+import {
+  dropSupersededSkip,
+  isTransitionSkipped,
+  startViewTransition,
+} from "@/plugins/transition";
 import {
   notFoundComponent,
   routeLayouts,
@@ -514,9 +518,13 @@ router.beforeResolve(async (to, from) => {
   // snapshot every `view-transition-name` element (like the details cover)
   // into the browser's top layer for the crossfade, briefly floating it over
   // the fixed navbar. Skip them: matching `scrollBehavior` above.
-  if (to.path === from.path) return;
+  if (to.path === from.path || isTransitionSkipped(to)) return;
   const viewTransition = startViewTransition();
   await viewTransition.captured;
 });
+
+// The mark outlives its navigation: it only matches the page already shown,
+// and the next navigation anywhere else drops it before any guard reads it.
+router.beforeEach((to) => dropSupersededSkip(to));
 
 export default router;
