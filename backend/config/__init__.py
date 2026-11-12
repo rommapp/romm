@@ -503,10 +503,6 @@ TINFOIL_WELCOME_MESSAGE: Final[str] = _get_env(
 )
 
 # EMULATOR STREAMING
-# Off saves the streaming worker process; streaming then stops working.
-ENABLE_STREAMING_WORKER: Final[bool] = safe_str_to_bool(
-    _get_env("ENABLE_STREAMING_WORKER", "true")
-)
 STREAMING_BROKER_SECRET: Final[str] = _get_env("STREAMING_BROKER_SECRET", "")
 STREAMING_SAVE_TIMEOUT: Final[int] = safe_int(
     _get_env("STREAMING_SAVE_TIMEOUT"), 45

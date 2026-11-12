@@ -22,7 +22,6 @@ from config import (
     DB_PORT,
     DB_QUERY_JSON,
     DB_USER,
-    ENABLE_STREAMING_WORKER,
     LIBRARY_BASE_PATH,
     ROM_UPLOAD_ASSEMBLING_EXT,
     ROMM_BASE_PATH,
@@ -1411,12 +1410,6 @@ class ConfigManager:
         if not isinstance(self.config.STREAMING_CONTAINERS, list):
             log.critical("Invalid config.yml: streaming.containers must be a list")
             sys.exit(3)
-
-        if self.config.STREAMING_ENABLED and not ENABLE_STREAMING_WORKER:
-            log.warning(
-                "streaming.enabled is set but ENABLE_STREAMING_WORKER is false: "
-                "streaming's background jobs will not run."
-            )
 
         legacy_containers = [
             container
