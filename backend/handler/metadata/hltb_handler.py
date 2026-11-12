@@ -774,7 +774,7 @@ HLTB_PLATFORM_LIST: dict[UPS, SlugToHLTBPlatform] = {
     UPS.COLECOVISION: {"name": "ColecoVision", "slug": "colecovision", "count": 105},
     UPS.C64: {"name": "Commodore 64", "slug": "commodore-64", "count": 1227},
     UPS.CPET: {"name": "Commodore PET", "slug": "commodore-pet", "count": 11},
-    UPS.C_PLUS_4: {"name": "Commodore VIC-20", "slug": "commodore-vic20", "count": 52},
+    UPS.VIC_20: {"name": "Commodore VIC-20", "slug": "commodore-vic20", "count": 52},
     UPS.DC: {"name": "Dreamcast", "slug": "dreamcast", "count": 465},
     UPS.EVERCADE: {"name": "Evercade", "slug": "evercade", "count": 10},
     UPS.FM_TOWNS: {"name": "FM Towns", "slug": "fm-towns", "count": 190},

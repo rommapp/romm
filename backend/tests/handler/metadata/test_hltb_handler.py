@@ -1057,6 +1057,9 @@ async def test_search_games_propagates_an_unreachable_hltb():
         ("psp", ["PlayStation Portable"]),
         # HowLongToBeat lists PlayStation VR games under PlayStation 4.
         ("psvr", ["PlayStation 4"]),
+        ("vic-20", ["Commodore VIC-20"]),
+        # HowLongToBeat has no Plus/4, so it isn't searched as another computer.
+        ("c-plus-4", []),
         ("not-a-platform", []),
     ],
 )
