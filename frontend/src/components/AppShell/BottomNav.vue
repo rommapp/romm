@@ -104,13 +104,18 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
+/* A narrower gutter than the page's, so four labels fit on a 320px phone. */
+html[data-bp~="xs"] .r-bottom-nav {
+  padding-inline: 10px;
+}
+
 /* A dense frost, so busy cover art behind doesn't compete with the labels. */
 .r-bottom-nav__group.r-segmented-control--tab {
   pointer-events: auto;
   flex: 1;
   box-sizing: border-box;
   max-width: var(--r-bottom-nav-max-w);
-  padding: 5px;
+  padding: 4px;
   gap: 0;
   background: color-mix(in srgb, var(--r-color-bg) 62%, transparent);
   backdrop-filter: blur(24px);
@@ -125,8 +130,8 @@ onBeforeUnmount(() => {
 /* A translucent capsule, so the tinted icon + label carry the selection. */
 .r-bottom-nav__group.r-segmented-control--tab.r-segmented-control--horizontal
   :deep(.r-segmented-control__indicator) {
-  top: 5px;
-  bottom: 5px;
+  top: 4px;
+  bottom: 4px;
   background: var(--r-color-surface-hover);
   box-shadow: inset 0 1px 0 color-mix(in srgb, white 12%, transparent);
 }
@@ -138,8 +143,9 @@ onBeforeUnmount(() => {
   justify-content: center;
   gap: 2px;
   min-height: 52px;
-  padding: 4px 2px;
+  padding: 4px 6px;
   touch-action: manipulation;
+  container-type: inline-size;
 }
 
 .r-bottom-nav__group.r-segmented-control--tab
@@ -174,12 +180,12 @@ html.r-reduced-motion .r-bottom-nav__group.r-segmented-control--tab {
   transform: translateY(-1.3px) scale(1.2);
 }
 
+/* Shrinks toward 10px on the narrowest phones so the labels still fit. */
 .r-bottom-nav__label {
   max-width: 100%;
   overflow: hidden;
-  font-size: var(--r-font-size-sm);
+  font-size: clamp(10px, 16.5cqi, var(--r-font-size-sm));
   line-height: 1.2;
-  letter-spacing: 0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
