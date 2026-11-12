@@ -227,6 +227,7 @@ html.r-app {
   );
   --r-color-switch-knob-on: light-dark(rgba(255, 255, 255, 0.95), #111117);
   --r-color-title-shadow: light-dark(transparent, rgba(0, 0, 0, 0.5));
+  --r-color-bar-shadow: light-dark(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.35));
   --r-color-success: light-dark(#15a34a, #4ade80);
   --r-color-warning: light-dark(#ca8a04, #fbbf24);
   --r-color-danger: light-dark(#dc2626, #ff5050);
