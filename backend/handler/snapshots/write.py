@@ -207,7 +207,7 @@ def _content(write: SnapshotWrite, key: str) -> AssetContent | None:
 
 
 async def _clock_only(write: SnapshotWrite, plan: _Plan, current: Snapshot) -> bool:
-    """Whether the push differs from `current` only in its save's clock."""
+    """Whether the push differs from `current` only in its save's clock, in the same shape and format."""
     sent = _content(write, SAVE_PART)
     if plan.resolved.save is None or sent is None:
         return False
@@ -215,6 +215,8 @@ async def _clock_only(write: SnapshotWrite, plan: _Plan, current: Snapshot) -> b
     if (
         held.save is None
         or not held.save.identity_hash
+        or (held.save.shape, held.save.format)
+        != (plan.resolved.save.shape, plan.resolved.save.format)
         or held.resolved().bank != plan.resolved.bank
     ):
         return False

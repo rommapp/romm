@@ -932,6 +932,32 @@ async def test_a_clock_only_change_is_no_new_snapshot(
         assert stored_files(_assets_dir) == files_before
 
 
+async def test_the_same_save_in_another_form_makes_a_new_current(
+    admin_user: User, rom: Rom, hashed_file: RomFile
+):
+    first_archive, first_entry = neutral_unit(SRAM, b"tick")
+    first = await push_unit(
+        admin_user, rom, hashed_file, first_archive, first_entry, None
+    )
+
+    result = await write_snapshot(
+        push(
+            admin_user,
+            rom,
+            hashed_file,
+            Manifest(save=save_entry(fmt=SaveFormat.NATIVE)),
+            expected=first.snapshot.id,
+            channel_id=first.snapshot.channel_id,
+            parts={SAVE_PART: part(SRAM, "game.srm")},
+        )
+    )
+
+    with sync_session() as session:
+        save = session.get_one(Save, result.snapshot.save_id)
+    assert result.outcome == Outcome.CREATED
+    assert (save.shape, save.format) == (SaveShape.SINGLE, SaveFormat.NATIVE)
+
+
 async def test_checking_for_a_clock_only_change_leaves_an_upload_readable(
     admin_user: User, rom: Rom, hashed_file: RomFile
 ):
