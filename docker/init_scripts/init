@@ -437,6 +437,16 @@ if [[ ${ENABLE_SYNC_PUSH_PULL,,} =~ ${TRUTHY_PATTERN} ]] && ! mkdir -p "${sync_s
 	ENABLE_SYNC_PUSH_PULL="false"
 fi
 
+# The streaming worker only runs when config.yml enables streaming.
+streaming_worker_enabled="false"
+if PYTHONPATH="/backend:${PYTHONPATH-}" python3 -c "
+import sys
+from config.config_manager import config_manager
+sys.exit(0 if config_manager.get_config().STREAMING_ENABLED else 1)
+" >/dev/null 2>&1; then
+	streaming_worker_enabled="true"
+fi
+
 # main loop
 while ! ((exited)); do
 	watchdog_process_pid gunicorn
@@ -448,7 +458,9 @@ while ! ((exited)); do
 
 	watchdog_process_pid rq_scan_worker
 
-	watchdog_process_pid rq_streaming_worker
+	if [[ ${streaming_worker_enabled} == "true" ]]; then
+		watchdog_process_pid rq_streaming_worker
+	fi
 
 	# only start the watcher if enabled
 	if [[ ${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,,} =~ ${TRUTHY_PATTERN} ]]; then
