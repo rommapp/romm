@@ -1704,7 +1704,7 @@ the device's live requests.
 | `default_queue`   | Standard background work                       |
 | `low_prio_queue`  | Cleanups, conversions, metadata refreshes      |
 | `scan_queue`      | Library scans, consumed by a worker of its own |
-| `streaming_queue` | Session reaper and exit save pulls, own worker |
+| `streaming_queue` | Reaper, exit saves; worker if streaming is on  |
 
 ### Scheduled Tasks
 

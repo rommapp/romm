@@ -124,9 +124,16 @@ echo "Starting RQ scan worker..."
 start_rq_worker rq_scan_worker RomMWorker scans
 
 # Streaming teardowns get a worker of their own, see STREAMING_QUEUE_NAME. It
-# preloads the reaper, which runs every minute when streaming is on.
-echo "Starting RQ streaming worker..."
-start_rq_worker rq_streaming_worker PreloadingWorker streaming
+# preloads the reaper, which runs every minute when streaming is on, so it only
+# starts when config.yml enables streaming.
+if (cd /app/backend && uv run python -c "
+import sys
+from config.config_manager import config_manager
+sys.exit(0 if config_manager.get_config().STREAMING_ENABLED else 1)
+" >/dev/null 2>&1); then
+	echo "Starting RQ streaming worker..."
+	start_rq_worker rq_streaming_worker PreloadingWorker streaming
+fi
 
 echo "Starting watcher..."
 watchfiles \
