@@ -11,6 +11,7 @@ import {
 } from "@/composables/useNavDestinations";
 import type { NavDestinationId } from "@/composables/useNavDestinations";
 import { RIcon, RSegmentedControl } from "@/lib";
+import { skipTransitionTo } from "@/plugins/transition";
 
 const { t } = useI18n();
 const { smAndDown } = useBreakpoint();
@@ -21,6 +22,7 @@ const router = useRouter();
 const pendingId = ref<NavDestinationId | null>(null);
 const shownId = computed(() => pendingId.value ?? activeId.value);
 
+// Runs in the capture phase: a loaded view navigates inside RouterLink's own handler.
 function onTap(event: MouseEvent) {
   // RouterLink leaves these clicks to the browser, so no navigation follows.
   if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
@@ -28,7 +30,9 @@ function onTap(event: MouseEvent) {
     ?.closest("a")
     ?.getAttribute("href");
   const tapped = destinations.value.find((d) => d.to === href);
-  if (tapped) pendingId.value = tapped.id;
+  if (!tapped) return;
+  pendingId.value = tapped.id;
+  skipTransitionTo(tapped.to);
 }
 
 // Only the latest navigation may clear the highlight; a superseded one finishes on its own.
@@ -59,7 +63,7 @@ onBeforeUnmount(() => {
         :items="destinations"
         variant="tab"
         class="r-bottom-nav__group"
-        @click="onTap"
+        @click.capture="onTap"
       >
         <template #item="{ item }">
           <RIcon

@@ -6,6 +6,24 @@ interface ViewTransition {
   skipTransition: () => void;
 }
 
+// A running view transition swallows every tap, so a tab-bar tap swaps the
+// view instantly (as native tab bars do) to keep the next tap live.
+let instantPath: string | null = null;
+
+/** Skip the view transition of the next navigation to `fullPath`. */
+export function skipTransitionTo(fullPath: string): void {
+  instantPath = fullPath;
+}
+
+export function isTransitionSkipped(to: { fullPath: string }): boolean {
+  return to.fullPath === instantPath;
+}
+
+/** Drops the skip once its navigation has ended, however it ended. */
+export function settleSkippedTransition(to: { fullPath: string }): void {
+  if (to.fullPath === instantPath) instantPath = null;
+}
+
 // A transition the browser preempts is skipped, which rejects `ready` with
 // AbortError. Rethrow anything else so real transition failures stay visible.
 export function absorbPreemptionSkip(ready: Promise<void>): Promise<void> {

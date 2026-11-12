@@ -14,7 +14,11 @@ import {
   ROUTES,
   type RouteName,
 } from "@/plugins/routeNames";
-import { startViewTransition } from "@/plugins/transition";
+import {
+  isTransitionSkipped,
+  settleSkippedTransition,
+  startViewTransition,
+} from "@/plugins/transition";
 import {
   notFoundComponent,
   routeLayouts,
@@ -514,9 +518,12 @@ router.beforeResolve(async (to, from) => {
   // snapshot every `view-transition-name` element (like the details cover)
   // into the browser's top layer for the crossfade, briefly floating it over
   // the fixed navbar. Skip them: matching `scrollBehavior` above.
-  if (to.path === from.path) return;
+  if (to.path === from.path || isTransitionSkipped(to)) return;
   const viewTransition = startViewTransition();
   await viewTransition.captured;
 });
+
+router.afterEach((to) => settleSkippedTransition(to));
+router.onError((_error, to) => settleSkippedTransition(to));
 
 export default router;

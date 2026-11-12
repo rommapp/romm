@@ -4,7 +4,12 @@ import {
   skippedReady,
   stubStartViewTransition,
 } from "@/test-utils/viewTransition";
-import { startViewTransition } from "./index";
+import {
+  isTransitionSkipped,
+  settleSkippedTransition,
+  skipTransitionTo,
+  startViewTransition,
+} from "./index";
 
 afterEach(() => {
   Reflect.deleteProperty(document, "startViewTransition");
@@ -66,5 +71,20 @@ describe("startViewTransition", () => {
       const transition = startViewTransition();
       await transition.captured;
     });
+  });
+});
+
+describe("skipTransitionTo", () => {
+  it("skips only the marked path until its navigation settles", () => {
+    skipTransitionTo("/platforms");
+
+    expect(isTransitionSkipped({ fullPath: "/platforms" })).toBe(true);
+    expect(isTransitionSkipped({ fullPath: "/search" })).toBe(false);
+
+    settleSkippedTransition({ fullPath: "/search" });
+    expect(isTransitionSkipped({ fullPath: "/platforms" })).toBe(true);
+
+    settleSkippedTransition({ fullPath: "/platforms" });
+    expect(isTransitionSkipped({ fullPath: "/platforms" })).toBe(false);
   });
 });

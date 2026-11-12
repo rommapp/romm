@@ -26,7 +26,10 @@ import { nextTick, ref } from "vue";
 import type { RouteLocationNormalized, Router } from "vue-router";
 import { useReducedMotion } from "@/composables/useReducedMotion";
 import { ROUTES } from "@/plugins/router";
-import { absorbPreemptionSkip } from "@/plugins/transition";
+import {
+  absorbPreemptionSkip,
+  isTransitionSkipped,
+} from "@/plugins/transition";
 
 // Routes that paint a `rom-cover-<id>` hero, so any pair of them can morph.
 const MORPH_ROM_ROUTES: ReadonlySet<string> = new Set([
@@ -166,7 +169,7 @@ function morphNameForRoute(route: RouteLocationNormalized): string | null {
 // don't fight over `document.startViewTransition`.
 export function installBackMorph(router: Router): () => void {
   const removeGuard = router.beforeResolve(async (to, from) => {
-    if (forwardTransitionActive) return true;
+    if (forwardTransitionActive || isTransitionSkipped(to)) return true;
     if (!isSupported() || useReducedMotion().enabled.value) return true;
     // No morph between two views of the same kind (e.g. /platform/A →
     // /platform/B): that would compete with the in-route transition
