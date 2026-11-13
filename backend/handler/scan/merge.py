@@ -153,6 +153,7 @@ def seed_rom_attrs(
             {
                 "path_cover_s": rom.path_cover_s,
                 "path_cover_l": rom.path_cover_l,
+                "path_icon": rom.path_icon,
                 "path_screenshots": rom.path_screenshots,
                 "path_manual": rom.path_manual,
             }

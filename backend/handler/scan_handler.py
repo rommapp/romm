@@ -13,7 +13,11 @@ from handler.filesystem import (
     fs_resource_handler,
     fs_rom_handler,
 )
-from handler.filesystem.roms_handler import FSRom, build_empty_fs_rom
+from handler.filesystem.roms_handler import (
+    FSRom,
+    NativeIconResult,
+    build_empty_fs_rom,
+)
 from handler.metadata import (
     meta_csdb_handler,
     meta_flashpoint_handler,
@@ -144,6 +148,36 @@ def persist_soundtrack_cover(rom_file: RomFile, rom: Rom) -> None:
         db_rom_handler.upsert_track_meta(
             rom_file.id, rom.id, {"has_embedded_cover": False}
         )
+
+
+def _retry_native_icon(result: NativeIconResult) -> None:
+    source = result.source
+    if source is None:
+        return
+    source.converto_read_at = None
+    source._native_icon_retry = True
+    if source.id is not None:
+        db_rom_handler.update_rom_file(source.id, {"converto_read_at": None})
+
+
+async def persist_native_icon(rom: Rom, result: NativeIconResult | None) -> None:
+    if result is None:
+        return
+    try:
+        if result.png is None:
+            if rom.path_icon:
+                await fs_resource_handler.remove_native_icon(rom)
+                rom.path_icon = None
+                db_rom_handler.update_rom(rom.id, {"path_icon": None})
+            return
+
+        path = await fs_resource_handler.store_native_icon(rom, result.png)
+    except OSError:
+        _retry_native_icon(result)
+        return
+    if path:
+        rom.path_icon = path
+        db_rom_handler.update_rom(rom.id, {"path_icon": path})
 
 
 async def scan_platform(

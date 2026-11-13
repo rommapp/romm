@@ -219,6 +219,32 @@ class FSResourcesHandler(FSHandler):
     def get_platform_resources_path(self, platform_id: int) -> str:
         return os.path.join("roms", str(platform_id))
 
+    async def store_native_icon(self, rom: Rom, icon_png: bytes | None) -> str | None:
+        if not icon_png:
+            return None
+        try:
+            with Image.open(BytesIO(icon_png)) as img:
+                if img.format != "PNG" or is_oversized_cover(img):
+                    return None
+                img.load()
+        except IMAGE_DECODE_ERRORS as exc:
+            log.warning(f"Invalid native icon for ROM {rom.id}: {exc}")
+            return None
+
+        try:
+            await self.write_file(
+                icon_png, path=rom.fs_resources_path, filename="icon.png"
+            )
+        except OSError as exc:
+            log.error(f"Unable to store native icon for ROM {rom.id}: {exc}")
+            raise
+        return f"{rom.fs_resources_path}/icon.png"
+
+    async def remove_native_icon(self, rom: Rom) -> None:
+        icon_path = f"{rom.fs_resources_path}/icon.png"
+        if await self.file_exists(icon_path):
+            await self.remove_file(icon_path)
+
     # Cover art
     def cover_exists(self, entity: Rom | Collection, size: CoverSize) -> bool:
         """Check if rom cover exists in filesystem

@@ -446,6 +446,7 @@ class RomFile(BaseModel):
     converto_read_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True), default=None
     )
+    _native_icon_retry: bool = False
     archive_members: Mapped[list[RomArchiveMember] | None] = mapped_column(
         CustomJSON(), default=None, nullable=True
     )
@@ -1036,6 +1037,7 @@ class Rom(BaseModel):
 
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")
     path_cover_l: Mapped[str | None] = mapped_column(Text, default="")
+    path_icon: Mapped[str | None] = mapped_column(Text, default=None)
     url_cover: Mapped[str | None] = mapped_column(
         Text, default="", doc="URL to cover image stored in IGDB"
     )

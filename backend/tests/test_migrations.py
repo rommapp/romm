@@ -260,6 +260,7 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0148_rom_age_limits.py", "users"),
         ("0151_state_content_hash.py", "states"),
         ("0157_rom_custom_sort_key_flag.py", "roms"),
+        ("0161_rom_native_icons.py", "roms"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -1414,6 +1415,34 @@ def test_the_custom_sort_key_revision_flags_keys_no_name_derives(
     assert not flags[derived.id]
     assert not flags[english.id]
     assert flags[custom.id]
+
+
+def test_the_native_icon_revision_queues_backfill_and_replays(rom_file):
+    migration = _load_migration("0161_rom_native_icons.py")
+
+    with sync_engine.begin() as connection:
+        connection.execute(
+            sa.text("UPDATE rom_files SET converto_read_at = CURRENT_TIMESTAMP")
+        )
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+
+        assert (
+            connection.execute(
+                sa.text("SELECT converto_read_at FROM rom_files WHERE id = :id"),
+                {"id": rom_file.id},
+            ).scalar_one()
+            is None
+        )
+        assert has_column(connection, "roms", "path_icon")
+
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+        assert not has_column(connection, "roms", "path_icon")
+
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+        assert has_column(connection, "roms", "path_icon")
 
 
 def test_the_sort_key_backfill_keeps_its_original_rule(mocker):

@@ -118,6 +118,20 @@ def test_get_rom_simple(client: TestClient, access_token: str, rom: Rom):
     assert "all_user_notes" not in body
 
 
+def test_rom_responses_include_the_optional_native_icon_path(
+    client: TestClient, access_token: str, rom: Rom
+):
+    path = f"roms/{rom.platform_id}/{rom.id}/icon.png"
+    db_rom_handler.update_rom(rom.id, {"path_icon": path})
+
+    for endpoint in (f"/api/roms/{rom.id}", f"/api/roms/{rom.id}/simple"):
+        response = client.get(
+            endpoint, headers={"Authorization": f"Bearer {access_token}"}
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["path_icon"] == path
+
+
 def test_get_rom_simple_missing_returns_404(client: TestClient, access_token: str):
     response = client.get(
         "/api/roms/999999/simple",

@@ -530,6 +530,7 @@ PLAIN_COLUMNS: list[sa.Column[Any]] = [
         nullable=False,
         server_default=sa.false(),
     ),
+    sa.Column("path_icon", sa.Text(), nullable=True),
 ]
 
 

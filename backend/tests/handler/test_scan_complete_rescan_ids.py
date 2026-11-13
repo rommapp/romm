@@ -245,6 +245,7 @@ async def test_a_complete_rescan_keeps_artwork_no_source_replaces():
         url_cover="https://example.com/cover.png",
         path_cover_s="roms/1/1/cover/small.png",
         path_cover_l="roms/1/1/cover/big.png",
+        path_icon="roms/1/1/icon.png",
         path_manual="roms/1/1/manual/1.pdf",
         path_screenshots=["roms/1/1/screenshots/0.jpg"],
     )
@@ -252,6 +253,7 @@ async def test_a_complete_rescan_keeps_artwork_no_source_replaces():
     assert saved.url_cover == ""
     assert saved.path_cover_s == "roms/1/1/cover/small.png"
     assert saved.path_cover_l == "roms/1/1/cover/big.png"
+    assert saved.path_icon == "roms/1/1/icon.png"
     assert saved.path_manual == "roms/1/1/manual/1.pdf"
     assert saved.path_screenshots == ["roms/1/1/screenshots/0.jpg"]
 

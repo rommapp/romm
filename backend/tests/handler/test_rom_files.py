@@ -2,6 +2,7 @@ import hashlib
 import os
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -15,7 +16,11 @@ from adapters.services.rom_converto import (
 from adapters.services.sigil import SigilExtractionResult, SigilService
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
-from handler.filesystem.roms_handler import ParsedRomFiles, category_for_path_parts
+from handler.filesystem.roms_handler import (
+    NativeIconResult,
+    ParsedRomFiles,
+    category_for_path_parts,
+)
 from handler.rom_files import refresh_rom_files
 from models.platform import Platform
 from models.rom import (
@@ -604,3 +609,36 @@ async def test_a_switch_file_sigil_cannot_read_keeps_its_stored_category(
     extract_title_id.assert_awaited()
     assert not result.changed
     assert {f.category for f in _reload(rom.id).files} == {RomFileCategory.DLC}
+
+
+async def test_refresh_persists_a_native_icon_before_syncing_new_rows(mocker):
+    rom = Rom(id=123, fs_name="game.iso", fs_path="psx/roms", fs_size_bytes=1)
+    source = RomFile(file_name="game.iso", file_path="psx/roms", file_size_bytes=1)
+    icon = NativeIconResult(b"png", source)
+    parsed = ParsedRomFiles(
+        rom_files=[source],
+        crc_hash="",
+        md5_hash="",
+        sha1_hash="",
+        ra_hash="",
+        top_level_changed=False,
+        icon=icon,
+    )
+    mocker.patch("handler.rom_files.loaded_rom_files", return_value=[])
+    mocker.patch.object(fs_rom_handler, "get_rom_files", AsyncMock(return_value=parsed))
+    order: list[str] = []
+    persist = mocker.patch(
+        "handler.rom_files.persist_native_icon",
+        AsyncMock(side_effect=lambda *_: order.append("icon")),
+    )
+
+    def sync_files(*_):
+        order.append("sync")
+        return SimpleNamespace(orphaned_cover_paths=[], files=[source])
+
+    mocker.patch.object(db_rom_handler, "sync_rom_files", side_effect=sync_files)
+
+    await refresh_rom_files(rom)
+
+    persist.assert_awaited_once_with(rom, icon)
+    assert order == ["icon", "sync"]

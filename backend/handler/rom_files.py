@@ -9,7 +9,7 @@ from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.filesystem.roms_handler import RomFileKey, rom_file_key
 from handler.redis_handler import redis_lock
-from handler.scan_handler import persist_soundtrack_cover
+from handler.scan_handler import persist_native_icon, persist_soundtrack_cover
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom, RomFile, RomIdentity
@@ -106,6 +106,7 @@ async def _refresh(rom: Rom, cnfg: Config) -> RomFilesRefresh:
         (updated_keys if key in existing_keys else new_keys).add(key)
     removed_keys = existing_keys - {rom_file_key(f) for f in parsed.rom_files}
 
+    await persist_native_icon(rom, parsed.icon)
     if new_keys or updated_keys or removed_keys:
         synced = db_rom_handler.sync_rom_files(rom.id, parsed.rom_files)
         for cover_path in synced.orphaned_cover_paths:

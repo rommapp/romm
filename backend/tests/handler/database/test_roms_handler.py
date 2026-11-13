@@ -621,6 +621,19 @@ class TestSyncRomFiles:
         assert {column: getattr(stored, column) for column in metadata} == expected
         assert (stored.converto_read_at is not None) == (keep_metadata or inspected)
 
+    def test_icon_storage_retry_overrides_same_content_preservation(self, rom: Rom):
+        initial = _scanned_file(rom, "a.bin")
+        initial.converto_read_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        (first,) = _sync(rom, [initial])
+
+        retry = _scanned_file(rom, "a.bin")
+        retry._native_icon_retry = True
+        db_rom_handler.sync_rom_files(rom.id, [retry])
+
+        stored = db_rom_handler.get_rom_file_by_id(first.id)
+        assert stored is not None
+        assert stored.converto_read_at is None
+
     @pytest.mark.parametrize(
         ("stored_mtime", "scanned_mtime", "matching_hashes"),
         [
