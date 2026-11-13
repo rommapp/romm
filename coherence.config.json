@@ -1,0 +1,41 @@
+{
+  "name": "romm",
+  "language": ["python", "typescript"],
+  "ignore": [
+    "node_modules",
+    "__pycache__",
+    "frontend/src/__generated__",
+    "frontend/assets",
+    "frontend/public",
+    "backend/alembic/versions",
+    "backend/romm_test",
+    "backend/tests/handler/cassettes",
+    "backend/tests/tasks/fixtures",
+    "backend/tests/config/fixtures",
+    "backend/tests/utils/fixtures",
+    "CODE_OF_CONDUCT.md"
+  ],
+  "wellKnown": [
+    "apprise",
+    "playwright",
+    "trunk",
+    "discord",
+    "storybook",
+    "switch"
+  ],
+  "tests": [
+    {
+      "language": "python",
+      "cwd": "backend",
+      "test": "uv run pytest -q -k {filter}",
+      "testJson": "uv run pytest -q -k {filter} --junitxml={out}",
+      "testFilterForm": "pytest"
+    },
+    {
+      "language": "typescript",
+      "cwd": "frontend",
+      "test": "npx vitest run -t {filter}",
+      "testJson": "npx vitest run -t {filter} --reporter=json --outputFile={out}"
+    }
+  ]
+}

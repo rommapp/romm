@@ -17,6 +17,82 @@
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/cloud-setup.sh\""
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx --prefix \"$CLAUDE_PROJECT_DIR/frontend\" --no -- coherence hook SessionStart",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx --prefix \"$CLAUDE_PROJECT_DIR/frontend\" --no -- coherence hook SubagentStart",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx --prefix \"$CLAUDE_PROJECT_DIR/frontend\" --no -- coherence hook UserPromptSubmit",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write|MultiEdit|NotebookEdit|PowerShell|Monitor",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx --prefix \"$CLAUDE_PROJECT_DIR/frontend\" --no -- coherence hook PreToolUse",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx --prefix \"$CLAUDE_PROJECT_DIR/frontend\" --no -- coherence hook PostToolUse",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx --prefix \"$CLAUDE_PROJECT_DIR/frontend\" --no -- coherence hook Stop",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx --prefix \"$CLAUDE_PROJECT_DIR/frontend\" --no -- coherence hook SubagentStop",
+            "timeout": 60
+          }
+        ]
       }
     ]
   },

@@ -1,0 +1,76 @@
+# Coherence on every pull request, written by coherence ci install.
+# Mode comment: findings never fail the job; one comment on the pull request carries the report and is updated on every push. The job fails only when Coherence itself did not finish.
+name: Coherence
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+# A newer push to the same pull request replaces a run still going.
+concurrency:
+  group: coherence-${{ github.ref }}
+  cancel-in-progress: true
+
+# CI never sends telemetry or asks the registry for a newer release, whatever a config on the runner says.
+env:
+  COHERENCE_TELEMETRY: "0"
+  DO_NOT_TRACK: "1"
+  COHERENCE_NO_UPDATE_CHECK: "1"
+
+jobs:
+  coherence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # Full history: a practice's pitfalls may cite commits, and the spec check confirms each exists.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: frontend/.nvmrc
+
+      # The lockfile install brings Coherence and, as its optional dependencies, the language servers it asks.
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+
+      # Coherence is a frontend dev dependency, while the project root (coherence.config.json) is the repository top.
+      # Exit 1 is findings, which the report carries; any other exit is Coherence itself breaking.
+      - name: Spec check
+        run: npx --prefix frontend --no -- coherence spec --check || [ $? -eq 1 ]
+
+      - name: Chokepoints
+        run: npx --prefix frontend --no -- coherence run --form chokepoint --no-server --session "ci-${{ github.run_id }}" --agent ci || [ $? -eq 1 ]
+
+      # The report fails the job when the run is missing or a chokepoint could not be checked; it is written either way.
+      - name: Report
+        id: report
+        run: |
+          status=0
+          npx --prefix frontend --no -- coherence ci report --session "ci-${{ github.run_id }}" > "$RUNNER_TEMP/coherence-report.md" || status=$?
+          cat "$RUNNER_TEMP/coherence-report.md" >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      # One comment, found by its marker and updated in place. A pull request from a fork gets a read-only token: the report stays in the job summary, and a warning says so.
+      - name: Comment
+        if: ${{ !cancelled() && steps.report.outcome != 'skipped' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          body="$RUNNER_TEMP/coherence-report.md"
+          if [ ! -s "$body" ]; then echo "::warning::Coherence wrote no report, so none was posted"; exit 0; fi
+          ids=$(gh api --paginate "repos/$REPO/issues/$PR/comments" --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- coherence-report -->"))) | .id')
+          id=${ids%%$'\n'*}
+          if [ -n "$id" ]; then
+            gh api --method PATCH "repos/$REPO/issues/comments/$id" -F body=@"$body" > /dev/null || echo "::warning::the Coherence report comment could not be updated; the report is in the job summary"
+          else
+            gh api --method POST "repos/$REPO/issues/$PR/comments" -F body=@"$body" > /dev/null || echo "::warning::the Coherence report could not be posted (a pull request from a fork gets a read-only token); the report is in the job summary"
+          fi
