@@ -1,7 +1,9 @@
 """Sweeps over every registered route, so a new route can't skip auth or visibility."""
 
+import inspect
 import re
 from collections.abc import Iterable, Iterator
+from types import FunctionType
 from typing import Any, cast
 
 from fastapi import status
@@ -13,7 +15,7 @@ from sqlalchemy import delete
 from starlette.routing import BaseRoute
 from tests.endpoints.test_permissions_visibility import _auth, _hide
 
-from decorators.auth import oauth2_password_bearer
+from decorators.auth import _requires_scopes, oauth2_password_bearer
 from handler.database import db_user_handler
 from handler.database.base_handler import sync_session
 from models.permission import HiddenEntity, PermEntity
@@ -76,11 +78,16 @@ def _api_routes() -> list[tuple[str, APIRoute]]:
 
 
 def _is_protected(route: APIRoute) -> bool:
-    # The bearer dependency never rejects; the scope guard it carries does.
-    return any(
+    # The bearer dependency only documents the scopes; the endpoint's
+    # _requires_scopes wrapper is what rejects, so both must be present.
+    declared = any(
         dep.dependency is oauth2_password_bearer and getattr(dep, "scopes", None)
         for dep in route.dependencies
     )
+    endpoint = cast(FunctionType, route.endpoint)
+    if not endpoint.__code__.co_qualname.startswith(f"{_requires_scopes.__name__}."):
+        return False
+    return declared and bool(inspect.getclosurevars(endpoint).nonlocals.get("scopes"))
 
 
 def test_every_api_route_requires_auth_or_is_listed_public():
@@ -94,7 +101,7 @@ def test_every_api_route_requires_auth_or_is_listed_public():
 
 MISSING_ID = 987654321
 _ENTITY_PATH = re.compile(
-    r"^/api/(roms|platforms|firmware|activity/rom)/\{(id|rom_id)\}"
+    r"^/api/(roms|platforms|firmware|activity/rom|streaming/states)/\{(id|rom_id)\}"
 )
 # Routes whose `{id}` is a RomFile id rather than a Rom id.
 _ROM_FILE_PATHS = frozenset(
@@ -105,7 +112,15 @@ _ROM_FILE_PATHS = frozenset(
     }
 )
 _OTHER_PARAMS = {"note_id": "1", "file_name": "x", "path": "x"}
-_ROM_SEGMENTS = ("roms", "activity/rom")
+_ROM_SEGMENTS = ("roms", "activity/rom", "streaming/states")
+# Answers that come before the entity lookup, so hidden and missing match vacuously.
+_NOT_REACHED = frozenset(
+    {
+        status.HTTP_401_UNAUTHORIZED,
+        status.HTTP_403_FORBIDDEN,
+        status.HTTP_422_UNPROCESSABLE_CONTENT,
+    }
+)
 
 
 def _entity_routes(segments: tuple[str, ...]) -> list[tuple[str, str, str]]:
@@ -154,8 +169,10 @@ def _leaks(client, headers, routes, ids: dict[str, int], file_id: int) -> list[s
         hidden = _request(client, headers, method, hidden_url, file_id)
         missing_url = _fill(path, MISSING_ID, file_id)
         missing = _request(client, headers, method, missing_url, file_id)
-        if hidden.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT:
-            leaks.append(f"{method} {path}: 422, never reached the visibility check")
+        if hidden.status_code in _NOT_REACHED:
+            leaks.append(
+                f"{method} {path}: {hidden.status_code}, never reached the visibility check"
+            )
         elif hidden.status_code != missing.status_code or _normalized(
             hidden, hidden_id
         ) != _normalized(missing, MISSING_ID):

@@ -27,8 +27,8 @@
     {
       "language": "python",
       "cwd": "backend",
-      "test": "uv run pytest -q -k {filter}",
-      "testJson": "uv run pytest -q -k {filter} --junitxml={out}",
+      "test": "ROMM_TEST_DB_TAG=\"${ROMM_TEST_DB_TAG:-coherence_$$}\" uv run pytest -q -k {filter}",
+      "testJson": "ROMM_TEST_DB_TAG=\"${ROMM_TEST_DB_TAG:-coherence_$$}\" uv run pytest -q -k {filter} --junitxml={out}",
       "testFilterForm": "pytest"
     },
     {

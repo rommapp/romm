@@ -1,4 +1,4 @@
-# Coherence on every pull request, written by coherence ci install.
+# Coherence on every pull request, from Coherence's ci template with the install in frontend/.
 # Mode comment: findings never fail the job; one comment on the pull request carries the report and is updated on every push. The job fails only when Coherence itself did not finish.
 name: Coherence
 
@@ -22,7 +22,7 @@ env:
 
 jobs:
   coherence:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       # Full history: a practice's pitfalls may cite commits, and the spec check confirms each exists.
@@ -31,14 +31,9 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version-file: frontend/.nvmrc
-
       # The lockfile install brings Coherence and, as its optional dependencies, the language servers it asks.
-      - name: Install
-        working-directory: frontend
-        run: npm ci
+      - name: Set up the frontend
+        uses: ./.github/actions/setup-frontend
 
       # Coherence is a frontend dev dependency, while the project root (coherence.config.json) is the repository top.
       # Exit 1 is findings, which the report carries; any other exit is Coherence itself breaking.
