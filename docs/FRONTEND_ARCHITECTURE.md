@@ -90,12 +90,12 @@ Stale chunks after a redeploy are handled once, by a guarded reload on `vite:pre
 
 ## 4. Routing
 
-Routes are declared in `plugins/router.ts`, named in `plugins/routeNames.ts` (`ROUTES`), and bound to lazy components in `router/routes.ts`. Three layouts:
+Routes are declared in `plugins/router.ts`, named in `plugins/routeNames.ts` (`ROUTES`), and bound to lazy components in `router/routes.ts`; read those for the current list. Three layouts:
 
-- `auth`: `/setup`, `/login`, `/register`, `/reset-password`.
-- `main` (`AppLayout`): home, `/search`, `/music/:mode?`, `/platform/:platform`, the three collection kinds (`/collection/:collection`, `/collection/virtual/:collection`, `/collection/smart/:collection`), `/platforms`, `/collections`, and the ROM routes: `/rom/:rom` plus one player route per engine (`ejs`, `jsdos`, `pico8`, `easyrpg`, `ruffle`, `stream`) and `/stream/desktop`.
-- `settings` (`SettingsLayout`, nested in `main`, the sidebar and content-panel shell): `/scan`, `/upload`, `/activity`, `/notifications`, `/user/:user`, `/controller-debug`, and the settings pages `user-interface`, `library-management`, `scan-settings`, `conversion-settings`, `metadata-sources`, `client-api-tokens`, `devices`, `administration`, `server-stats`, `logs`.
-- `/pair` and `/pair/device` for device pairing.
+- `auth`: setup, login, registration and password reset.
+- `main` (`AppLayout`): home, search, music, the platform and collection galleries, and the ROM routes: `/rom/:rom` plus one player route per engine (section 10).
+- `settings` (`SettingsLayout`, nested in `main`, the sidebar and content-panel shell): scan, upload, activity, notifications, profiles and the settings pages.
+- Device pairing sits outside the layouts, under `/pair`.
 
 The global `beforeEach` guard:
 
@@ -109,14 +109,7 @@ The global `beforeEach` guard:
 
 ## 5. State: Pinia stores
 
-| Area               | Stores                                                                                                                        |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| Session and server | `auth`, `users`, `heartbeat` (server state, setup and feature flags), `config`, `permissions`, `permissionGroups`, `language` |
-| Library            | `platforms`, `collections`, `galleryRoms`, `galleryFilter`, `gallerySelection`, `roms`, `formatConversions`                   |
-| Playing            | `playing` (a game is running), `streaming`, `soundtrackPlayer`, `musicFavorites`, `native`                                    |
-| Background work    | `scanning`, `upload`, `tasks`, `activity`                                                                                     |
-| Notifications      | `notifications` (snackbars), `notificationInbox`                                                                              |
-| Navigation         | `navigation` (drawers, collapsed main bar), `scrollRestoration`, `focusRestoration`                                           |
+One store per concern lives in `stores/`: session and server state (`auth`, `heartbeat`, `config`, `permissions`), the library (`platforms`, `collections`, the gallery stores, `roms`), playing, background work (`scanning`, `upload`, `tasks`), notifications and navigation.
 
 Two worth knowing:
 
@@ -192,7 +185,7 @@ Each engine has a view under `views/Player/` and its own route:
 
 ## 11. Internationalization
 
-All user-visible text is a message key, written `t("namespace.key")`. Locale files are `src/locales/<locale>/<namespace>.json` (namespaces: `activity`, `audit`, `collection`, `common`, `emptyStates`, `gallery`, `home`, `login`, `logs`, `notifications`, `patcher`, `platform`, `play`, `recommendations`, `rom`, `scan`, `settings`, `setup`). `en_US` is the source and the fallback; every key must exist in every locale in the same change, and keys stay sorted. `src/locales/index.ts` loads one locale's namespaces lazily with `import.meta.glob`, and the browser language picks the default (exact region first, then language). Two CI scripts enforce parity and ordering: `check_i18n_locales.py` and `check_i18n_sorted.py`. See the `frontend-i18n` skill.
+All user-visible text is a message key, written `t("namespace.key")`. Locale files are `src/locales/<locale>/<namespace>.json`, one namespace per feature area. `en_US` is the source and the fallback; every key must exist in every locale in the same change, and keys stay sorted. `src/locales/index.ts` loads one locale's namespaces lazily with `import.meta.glob`, and the browser language picks the default (exact region first, then language). Two CI scripts enforce parity and ordering: `check_i18n_locales.py` and `check_i18n_sorted.py`. See the `frontend-i18n` skill.
 
 ## 12. Types
 
@@ -202,7 +195,7 @@ All user-visible text is a message key, written `t("namespace.key")`. Locale fil
 
 ## 13. Build, test and tooling
 
-**Scripts** (`frontend/package.json`): `dev`, `build`, `preview`, `typecheck` (`vue-tsc --build`, which covers the app, the Node tooling and the e2e suite), `generate`, `build:tokens`, `test`, `storybook`, `storybook:test`, `test:e2e`.
+**Scripts** live in `frontend/package.json`, and `frontend/AGENTS.md` explains the common ones. `typecheck` (`vue-tsc --build`) covers the app, the Node tooling and the e2e suite.
 
 **Vite** (`vite.config.js`): the Vue plugin, PWA, and project plugins from `scripts/` (`precompress` for static assets, `playerIsolationHeaders`, `previewAssets`, `platformIconManifest`, `trimMdiIcons`). The dev server proxies `/api`, `/ws`, `/netplay` and `/openapi.json` to the backend (`DEV_PORT` or `DEV_PROXY_TARGET`).
 
@@ -210,7 +203,7 @@ All user-visible text is a message key, written `t("namespace.key")`. Locale fil
 
 - `app`: unit and component tests (`src/**/*.test.ts`).
 - `storybook`: every story in headless Chromium, with `play()` interactions and an axe pass (layout enabled, so colour contrast is checked) on each.
-- `eslint-plugin-romm`: the custom lint rules (`no-color-literal`, `no-layout-media-query`, `no-safe-area-env`, `no-unscoped-local-storage`).
+- `eslint-plugin-romm`: the repo's custom lint rules, one file each under `eslint-plugin-romm/rules/`.
 
 `e2e/` holds the Playwright suite (smoke loads, auth, ROM actions, an axe check per page); see `e2e/README.md`.
 
