@@ -244,7 +244,7 @@ Every model inherits `BaseModel` (`models/base.py`), which adds `created_at` and
 - A **rom** owns its files, aggregated metadata and notes, and relates to sibling roms.
 - A **user** owns saves, states and screenshots (each tied to a rom), per-rom user data, collections, devices, client tokens and play sessions.
 - **Collections** come in three kinds: hand-picked (`collections_roms`), smart (saved filters) and virtual (a view over metadata).
-- **Permission groups** hold entity and action grants; hidden entities and age limits are per user.
+- **Permission groups** hold entity and action grants, hidden entities and age settings. A user adds their own grant overrides and hidden entities, and their age settings replace the group's when set.
 
 Every schema change ships as an Alembic migration in `alembic/versions/`.
 
@@ -331,7 +331,7 @@ A rom or platform hidden from a user, directly or by age limit, must be unreacha
 
 - A single fetch calls `assert_rom_visible`, `assert_platform_visible` or `assert_firmware_visible`. Each raises a 404, never a 403, so a hidden entity reads as a missing one.
 - A list query filters by the caller's `RomVisibilityFilter` in SQL, before any limit. Handler queries take the filter as a required argument, and a system caller passes `UNRESTRICTED` explicitly.
-- A save, state or screenshot goes through `owned_rom_asset_or_404`: it reaches its owner, or another user only when it is public, and either way only while the caller can see its rom.
+- A save, state or screenshot reached only by its owner goes through `owned_rom_asset_or_404`. A download that also serves public assets checks owner-or-public itself, then calls `assert_rom_visible`, so sharing never overrides rom visibility.
 - A socket broadcast goes to the rom's audience only.
 
 Files under `/assets/romm/resources/` are served by nginx without auth and are out of scope.
