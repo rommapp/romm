@@ -8,7 +8,7 @@ The frontend talks to the backend over `/api/*` (REST) and `/ws` (Socket.IO). Ty
 
 ## Deep-dive references
 
-- **`docs/BACKEND_ARCHITECTURE.md`** - directory map, ER diagram, every endpoint, auth/scopes, tasks.
+- **`docs/BACKEND_ARCHITECTURE.md`** - layers, request flow, auth and visibility model, scanning, sockets, tasks. Routes, columns and env vars live in the code it points to.
 - **`docs/FRONTEND_ARCHITECTURE.md`** - routing, stores, services, theming, build tooling.
 - **`DEVELOPER_SETUP.md`** - Docker and manual local setup (mock library, `.env`, services).
 - **`CONTRIBUTING.md`** - contribution flow, **AI-assistance disclosure**, translations.
