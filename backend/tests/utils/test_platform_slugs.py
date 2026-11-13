@@ -55,7 +55,6 @@ def test_provider_lists_cover_both_slugs_or_neither(platforms: dict[UPS, object]
 
 def test_abc_800_is_its_own_platform_apart_from_the_abc_80():
     assert UPS.ABC_800.value == "abc-800"
-    assert UPS.ABC_800 != UPS.ABC_80
     assert HASHEOUS_PLATFORM_LIST[UPS.ABC_800]["id"] == 278114
     assert resolve_platform_name(UPS.ABC_800.value) == "Luxor ABC 800"
     assert resolve_platform_name(UPS.ABC_80.value) == "ABC 80"
