@@ -2,6 +2,7 @@
 
 import re
 from collections.abc import Iterable, Iterator
+from typing import Any, cast
 
 from fastapi import status
 from fastapi.routing import APIRoute
@@ -53,7 +54,8 @@ def _walk(routes: Iterable[BaseRoute], prefix: str) -> Iterator[tuple[str, APIRo
         if isinstance(route, APIRoute):
             yield prefix + route.path, route
         elif (context := getattr(route, "include_context", None)) is not None:
-            yield from _walk(route.original_router.routes, prefix + context.prefix)
+            router = cast(Any, route).original_router
+            yield from _walk(router.routes, prefix + context.prefix)
 
 
 def _api_routes() -> list[tuple[str, APIRoute]]:
@@ -68,7 +70,7 @@ def _is_protected(route: APIRoute) -> bool:
 
 def test_every_api_route_requires_auth_or_is_listed_public():
     unguarded = sorted(
-        f"{','.join(sorted(route.methods))} {path} -> {_handler_name(route)}"
+        f"{','.join(sorted(route.methods or ()))} {path} -> {_handler_name(route)}"
         for path, route in _api_routes()
         if not _is_protected(route) and _handler_name(route) not in PUBLIC_API_HANDLERS
     )
@@ -90,7 +92,7 @@ def _entity_routes(segments: tuple[str, ...]) -> list[tuple[str, str, str]]:
         match = _ENTITY_PATH.match(path)
         if path.endswith("/") or not match or match.group(1) not in segments:
             continue
-        for method in route.methods:
+        for method in route.methods or ():
             found.add((match.group(1), method, path))
     assert found, f"no route keyed on {segments}; the sweep would pass vacuously"
     return sorted(found)
