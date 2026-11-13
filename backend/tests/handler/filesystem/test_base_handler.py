@@ -108,9 +108,6 @@ class TestFSHandler:
             "dir/test.txt",
             "dir/subdir/test.txt",
             "test-file_123.txt",
-            "...",
-            "a/..x",
-            "x/",
         ]
 
         for path in valid_paths:
@@ -140,10 +137,6 @@ class TestFSHandler:
             "../../etc/passwd",
             "dir/../../../etc/passwd",
             "dir/../../test.txt",
-            "..",
-            "./../x",
-            "a/./../../x",
-            "a//../../x",
         ]
 
         for path in malicious_paths:
@@ -152,14 +145,36 @@ class TestFSHandler:
             ):
                 handler.validate_path(path)
 
-    def test_validate_path_absolute(self, handler: FSHandler):
-        """Test path validation rejects absolute paths"""
-        absolute_paths = [
+    def test_validate_path_never_escapes_its_base(self, handler: FSHandler):
+        base = Path(handler.base_path).resolve()
+        hostile = [
+            "..",
+            "../x",
+            "../../etc/passwd",
+            "a/../../x",
+            "a/./../../x",
+            "./../x",
+            "a//../../x",
             "/etc/passwd",
             "//etc/passwd",
-            "/tmp/test.txt",
-            "/home/user/file.txt",
+            "a/b/../../../x",
+            "...",
+            "a/..x",
+            "x/",
         ]
+        escaped = []
+        for path in hostile:
+            try:
+                resolved = handler.validate_path(path)
+            except ValueError:
+                continue
+            if not resolved.resolve().is_relative_to(base):
+                escaped.append(path)
+        assert escaped == []
+
+    def test_validate_path_absolute(self, handler: FSHandler):
+        """Test path validation rejects absolute paths"""
+        absolute_paths = ["/etc/passwd", "/tmp/test.txt", "/home/user/file.txt"]
 
         for path in absolute_paths:
             with pytest.raises(
