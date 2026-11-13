@@ -2,6 +2,7 @@ import re
 
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.auth_helpers import bearer
 
 from handler.database import (
     db_collection_handler,
@@ -13,10 +14,6 @@ from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
-
-
-def _headers(access_token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {access_token}"}
 
 
 def _flat(statement: str) -> str:
@@ -83,7 +80,7 @@ def test_save_identifiers_does_not_load_the_roms_it_points_at(
     executed_statements: list[str],
 ) -> None:
     executed_statements.clear()
-    response = client.get("/api/saves/identifiers", headers=_headers(access_token))
+    response = client.get("/api/saves/identifiers", headers=bearer(access_token))
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == [save.id]
@@ -98,7 +95,7 @@ def test_state_identifiers_does_not_load_the_roms_it_points_at(
     executed_statements: list[str],
 ) -> None:
     executed_statements.clear()
-    response = client.get("/api/states/identifiers", headers=_headers(access_token))
+    response = client.get("/api/states/identifiers", headers=bearer(access_token))
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == [state.id]
@@ -115,7 +112,7 @@ def test_firmware_identifiers_selects_only_the_id_column(
 ) -> None:
     """`list_firmware_ids` selects only `Firmware.id`, so no platform join can fire."""
     executed_statements.clear()
-    response = client.get("/api/firmware/identifiers", headers=_headers(access_token))
+    response = client.get("/api/firmware/identifiers", headers=bearer(access_token))
 
     assert response.status_code == status.HTTP_200_OK
     assert sorted(response.json()) == sorted([firmware.id, missing_firmware.id])
@@ -132,7 +129,7 @@ def test_platform_identifiers_does_not_load_the_firmware_it_ignores(
 ) -> None:
     """`with_firmware` eager-loads every firmware row for the listed platforms."""
     executed_statements.clear()
-    response = client.get("/api/platforms/identifiers", headers=_headers(access_token))
+    response = client.get("/api/platforms/identifiers", headers=bearer(access_token))
 
     assert response.status_code == status.HTTP_200_OK
     assert sorted(response.json()) == sorted([platform.id, other_platform.id])
@@ -156,7 +153,7 @@ def test_smart_collection_identifiers_does_not_load_the_owner(
 
     executed_statements.clear()
     response = client.get(
-        "/api/collections/smart/identifiers", headers=_headers(access_token)
+        "/api/collections/smart/identifiers", headers=bearer(access_token)
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -176,9 +173,7 @@ def test_collection_identifiers_does_not_load_the_roms_or_the_owner(
     )
 
     executed_statements.clear()
-    response = client.get(
-        "/api/collections/identifiers", headers=_headers(access_token)
-    )
+    response = client.get("/api/collections/identifiers", headers=bearer(access_token))
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == [collection.id]
@@ -202,7 +197,7 @@ def test_rom_note_identifiers_does_not_load_the_roms_it_points_at(
 
     executed_statements.clear()
     response = client.get(
-        f"/api/roms/{rom.id}/notes/identifiers", headers=_headers(access_token)
+        f"/api/roms/{rom.id}/notes/identifiers", headers=bearer(access_token)
     )
 
     assert response.status_code == status.HTTP_200_OK

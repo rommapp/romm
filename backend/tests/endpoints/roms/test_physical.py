@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.auth_helpers import bearer
 
 from handler.database import db_rom_handler
 from models.platform import Platform
@@ -29,10 +30,6 @@ async def _fake_scan_rom(*, rom: Rom, platform: Platform, fs_rom, **kwargs) -> R
     )
 
 
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
-
-
 @patch("endpoints.roms.download_rom_resources", new_callable=AsyncMock)
 @patch("endpoints.roms.scan_rom", side_effect=_fake_scan_rom)
 def test_create_physical_rom_by_name(
@@ -44,7 +41,7 @@ def test_create_physical_rom_by_name(
 ):
     response = client.post(
         "/api/roms/physical",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         json={"platform_id": platform.id, "name": "Sonic the Hedgehog"},
     )
     assert response.status_code == status.HTTP_200_OK
@@ -75,13 +72,13 @@ def test_physical_rom_content_is_not_downloadable(
 ):
     created = client.post(
         "/api/roms/physical",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         json={"platform_id": platform.id, "name": "Sonic the Hedgehog"},
     )
     rom_id = created.json()["id"]
 
     response = client.get(
-        f"/api/roms/{rom_id}/content/sonic.zip", headers=_auth(access_token)
+        f"/api/roms/{rom_id}/content/sonic.zip", headers=bearer(access_token)
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -103,7 +100,7 @@ def test_create_physical_rom_by_upc_resolves_title(
 ):
     response = client.post(
         "/api/roms/physical",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         json={"platform_id": platform.id, "upc": "012345678905"},
     )
     assert response.status_code == status.HTTP_200_OK
@@ -127,7 +124,7 @@ def test_create_physical_rom_unresolved_upc_returns_400(
 ):
     response = client.post(
         "/api/roms/physical",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         json={"platform_id": platform.id, "upc": "000000000000"},
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -138,7 +135,7 @@ def test_create_physical_rom_requires_name_or_upc(
 ):
     response = client.post(
         "/api/roms/physical",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         json={"platform_id": platform.id},
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -149,7 +146,7 @@ def test_create_physical_rom_unknown_platform_returns_404(
 ):
     response = client.post(
         "/api/roms/physical",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         json={"platform_id": 999999, "name": "Sonic"},
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -165,9 +162,11 @@ def test_create_physical_rom_duplicate_name_returns_409(
     platform: Platform,
 ):
     payload = {"platform_id": platform.id, "name": "Sonic"}
-    first = client.post("/api/roms/physical", headers=_auth(access_token), json=payload)
+    first = client.post(
+        "/api/roms/physical", headers=bearer(access_token), json=payload
+    )
     second = client.post(
-        "/api/roms/physical", headers=_auth(access_token), json=payload
+        "/api/roms/physical", headers=bearer(access_token), json=payload
     )
 
     assert first.status_code == status.HTTP_200_OK
@@ -192,7 +191,7 @@ def test_create_physical_rom_rolls_back_a_failed_enrichment(
     payload = {"platform_id": platform.id, "name": "Sonic"}
 
     with pytest.raises(RuntimeError):
-        client.post("/api/roms/physical", headers=_auth(access_token), json=payload)
+        client.post("/api/roms/physical", headers=bearer(access_token), json=payload)
 
     assert (
         db_rom_handler.get_roms_by_fs_name(platform_id=platform.id, fs_names=["Sonic"])
@@ -202,7 +201,7 @@ def test_create_physical_rom_rolls_back_a_failed_enrichment(
     # The retry is what the rollback is for.
     with patch("endpoints.roms.scan_rom", side_effect=_fake_scan_rom):
         retry = client.post(
-            "/api/roms/physical", headers=_auth(access_token), json=payload
+            "/api/roms/physical", headers=bearer(access_token), json=payload
         )
     assert retry.status_code == status.HTTP_200_OK
 
@@ -220,13 +219,13 @@ def test_roms_listing_physical_filter(
     """`?physical=` is what the v2 gallery's physical filter sends."""
     create = client.post(
         "/api/roms/physical",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         json={"platform_id": platform.id, "name": "Sonic"},
     )
     physical_id = create.json()["id"]
 
     def ids(query: str) -> set[int]:
-        resp = client.get(f"/api/roms?{query}", headers=_auth(access_token))
+        resp = client.get(f"/api/roms?{query}", headers=bearer(access_token))
         assert resp.status_code == status.HTTP_200_OK
         return {item["id"] for item in resp.json()["items"]}
 
@@ -240,7 +239,7 @@ def test_create_physical_rom_requires_write_scope(
 ):
     response = client.post(
         "/api/roms/physical",
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
         json={"platform_id": platform.id, "name": "Sonic"},
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -258,14 +257,14 @@ def test_physical_rom_intermingles_in_listing(
 ):
     create = client.post(
         "/api/roms/physical",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         json={"platform_id": platform.id, "name": "Sonic"},
     )
     physical_id = create.json()["id"]
 
     listing = client.get(
         f"/api/roms?platform_id={platform.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert listing.status_code == status.HTTP_200_OK
     ids = {item["id"] for item in listing.json()["items"]}

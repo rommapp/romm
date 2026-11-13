@@ -6,6 +6,7 @@ from unittest import mock
 import pytest
 from fastapi import status
 from tests._zipfile_shim import reload_zipfile
+from tests.auth_helpers import bearer
 
 from handler.database import db_memory_card_handler
 from handler.filesystem import fs_asset_handler
@@ -14,11 +15,6 @@ from models.platform import Platform
 from models.user import User
 from utils.memory_cards import content_hash_of_bytes, store_memory_card_version
 
-
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
-
-
 # --- Create ---
 
 
@@ -26,7 +22,7 @@ def test_create_memory_card(client, access_token: str, platform: Platform):
     response = client.post(
         "/api/memory-cards",
         json={"name": "My Card", "emulator": "pcsx2", "platform_id": platform.id},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
@@ -41,7 +37,7 @@ def test_create_memory_card_without_platform(client, access_token: str):
     response = client.post(
         "/api/memory-cards",
         json={"name": "No Platform", "emulator": "pcsx2"},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["platform_id"] is None
@@ -51,7 +47,7 @@ def test_create_memory_card_blank_name_rejected(client, access_token: str):
     response = client.post(
         "/api/memory-cards",
         json={"name": "   ", "emulator": "pcsx2"},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
@@ -67,7 +63,7 @@ def test_create_memory_card_unsafe_emulator_rejected(
     response = client.post(
         "/api/memory-cards",
         json={"name": "Card", "emulator": emulator},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
@@ -76,7 +72,7 @@ def test_create_memory_card_unknown_platform_rejected(client, access_token: str)
     response = client.post(
         "/api/memory-cards",
         json={"name": "Card", "emulator": "pcsx2", "platform_id": 99999},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -85,7 +81,7 @@ def test_create_memory_card_unknown_platform_rejected(client, access_token: str)
 
 
 def test_list_own_memory_cards(client, access_token: str, memory_card: MemoryCard):
-    response = client.get("/api/memory-cards", headers=_auth(access_token))
+    response = client.get("/api/memory-cards", headers=bearer(access_token))
     assert response.status_code == status.HTTP_200_OK
     ids = [c["id"] for c in response.json()]
     assert memory_card.id in ids
@@ -95,13 +91,13 @@ def test_list_memory_cards_filtered_by_emulator(
     client, access_token: str, memory_card: MemoryCard
 ):
     matching = client.get(
-        "/api/memory-cards?emulator=pcsx2", headers=_auth(access_token)
+        "/api/memory-cards?emulator=pcsx2", headers=bearer(access_token)
     )
     assert matching.status_code == status.HTTP_200_OK
     assert [c["id"] for c in matching.json()] == [memory_card.id]
 
     other = client.get(
-        "/api/memory-cards?emulator=dolphin", headers=_auth(access_token)
+        "/api/memory-cards?emulator=dolphin", headers=bearer(access_token)
     )
     assert other.status_code == status.HTTP_200_OK
     assert other.json() == []
@@ -110,7 +106,7 @@ def test_list_memory_cards_filtered_by_emulator(
 def test_list_does_not_show_another_users_private_card(
     client, viewer_access_token: str, memory_card: MemoryCard
 ):
-    response = client.get("/api/memory-cards", headers=_auth(viewer_access_token))
+    response = client.get("/api/memory-cards", headers=bearer(viewer_access_token))
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == []
 
@@ -123,7 +119,7 @@ def test_shared_lists_own_and_public_cards(
 ):
     # Private card of another user is not visible.
     hidden = client.get(
-        "/api/memory-cards/shared?emulator=pcsx2", headers=_auth(viewer_access_token)
+        "/api/memory-cards/shared?emulator=pcsx2", headers=bearer(viewer_access_token)
     )
     assert hidden.status_code == status.HTTP_200_OK
     assert hidden.json() == []
@@ -131,7 +127,7 @@ def test_shared_lists_own_and_public_cards(
     # Once public, it shows up enriched with the owner's username.
     db_memory_card_handler.update_card(memory_card.id, {"is_public": True})
     shared = client.get(
-        "/api/memory-cards/shared?emulator=pcsx2", headers=_auth(viewer_access_token)
+        "/api/memory-cards/shared?emulator=pcsx2", headers=bearer(viewer_access_token)
     )
     assert shared.status_code == status.HTTP_200_OK
     body = shared.json()
@@ -145,7 +141,7 @@ def test_shared_lists_own_and_public_cards(
 
 def test_get_own_memory_card(client, access_token: str, memory_card: MemoryCard):
     response = client.get(
-        f"/api/memory-cards/{memory_card.id}", headers=_auth(access_token)
+        f"/api/memory-cards/{memory_card.id}", headers=bearer(access_token)
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["id"] == memory_card.id
@@ -155,7 +151,7 @@ def test_get_other_users_private_card_is_404(
     client, viewer_access_token: str, memory_card: MemoryCard
 ):
     response = client.get(
-        f"/api/memory-cards/{memory_card.id}", headers=_auth(viewer_access_token)
+        f"/api/memory-cards/{memory_card.id}", headers=bearer(viewer_access_token)
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -165,14 +161,14 @@ def test_get_other_users_public_card(
 ):
     db_memory_card_handler.update_card(memory_card.id, {"is_public": True})
     response = client.get(
-        f"/api/memory-cards/{memory_card.id}", headers=_auth(viewer_access_token)
+        f"/api/memory-cards/{memory_card.id}", headers=bearer(viewer_access_token)
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["id"] == memory_card.id
 
 
 def test_get_missing_memory_card_is_404(client, access_token: str):
-    response = client.get("/api/memory-cards/99999", headers=_auth(access_token))
+    response = client.get("/api/memory-cards/99999", headers=bearer(access_token))
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
@@ -186,7 +182,7 @@ def test_list_memory_card_versions(
     memory_card_version: MemoryCardVersion,
 ):
     response = client.get(
-        f"/api/memory-cards/{memory_card.id}/versions", headers=_auth(access_token)
+        f"/api/memory-cards/{memory_card.id}/versions", headers=bearer(access_token)
     )
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
@@ -212,7 +208,7 @@ def test_version_listing_flags_an_archive_that_is_gone(
     mock_validate_path.return_value = tmp_path / "not-there.zip"
 
     response = client.get(
-        f"/api/memory-cards/{memory_card.id}/versions", headers=_auth(access_token)
+        f"/api/memory-cards/{memory_card.id}/versions", headers=bearer(access_token)
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json()[0]["missing_from_fs"] is True
@@ -236,7 +232,7 @@ def test_version_listing_clears_the_flag_when_the_archive_is_back(
     mock_validate_path.return_value = restored
 
     response = client.get(
-        f"/api/memory-cards/{memory_card.id}/versions", headers=_auth(access_token)
+        f"/api/memory-cards/{memory_card.id}/versions", headers=bearer(access_token)
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json()[0]["missing_from_fs"] is False
@@ -259,7 +255,7 @@ def test_owner_downloads_version_content(
 
     response = client.get(
         f"/api/memory-cards/versions/{memory_card_version.id}/content",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.content == b"CARD_ZIP"
@@ -270,7 +266,7 @@ def test_other_user_cannot_download_private_version(
 ):
     response = client.get(
         f"/api/memory-cards/versions/{memory_card_version.id}/content",
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -291,7 +287,7 @@ def test_other_user_downloads_public_version(
 
     response = client.get(
         f"/api/memory-cards/versions/{memory_card_version.id}/content",
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.content == b"SHARED_CARD"
@@ -299,7 +295,7 @@ def test_other_user_downloads_public_version(
 
 def test_download_missing_version_is_404(client, access_token: str):
     response = client.get(
-        "/api/memory-cards/versions/99999/content", headers=_auth(access_token)
+        "/api/memory-cards/versions/99999/content", headers=bearer(access_token)
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -321,7 +317,7 @@ def test_owner_downloads_current_card_content(
     mock_validate_path.return_value = test_file
 
     response = client.get(
-        f"/api/memory-cards/{memory_card.id}/content", headers=_auth(access_token)
+        f"/api/memory-cards/{memory_card.id}/content", headers=bearer(access_token)
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.content == b"CURRENT_CARD"
@@ -344,7 +340,7 @@ def test_download_serves_the_newest_version(
     mock_validate_path.return_value = test_file
 
     response = client.get(
-        f"/api/memory-cards/{memory_card.id}/content", headers=_auth(access_token)
+        f"/api/memory-cards/{memory_card.id}/content", headers=bearer(access_token)
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.headers["content-disposition"].endswith(f'"{newest.file_name}"')
@@ -354,7 +350,7 @@ def test_download_card_without_versions_is_404(
     client, access_token: str, memory_card: MemoryCard
 ):
     response = client.get(
-        f"/api/memory-cards/{memory_card.id}/content", headers=_auth(access_token)
+        f"/api/memory-cards/{memory_card.id}/content", headers=bearer(access_token)
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -367,7 +363,7 @@ def test_other_user_cannot_download_private_card_content(
 ):
     response = client.get(
         f"/api/memory-cards/{memory_card.id}/content",
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -388,7 +384,7 @@ def test_other_user_downloads_public_card_content(
 
     response = client.get(
         f"/api/memory-cards/{memory_card.id}/content",
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.content == b"SHARED_CARD"
@@ -444,7 +440,7 @@ def test_upload_memory_card_version(client, access_token: str, memory_card: Memo
         response = client.post(
             f"/api/memory-cards/{memory_card.id}/versions",
             files={"cardFile": ("card.zip", content, "application/zip")},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
     assert response.status_code == status.HTTP_200_OK
@@ -474,7 +470,7 @@ def test_upload_of_already_stored_content_still_becomes_newest(
         response = client.post(
             f"/api/memory-cards/{memory_card.id}/versions",
             files={"cardFile": ("card.zip", content, "application/zip")},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
     assert response.status_code == status.HTTP_200_OK
@@ -490,7 +486,7 @@ def test_upload_non_zip_is_rejected(client, access_token: str, memory_card: Memo
         files={
             "cardFile": ("Mcd001.ps2", b"raw card image", "application/octet-stream")
         },
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
@@ -517,7 +513,7 @@ def test_upload_with_an_escaping_entry_is_rejected(
         response = client.post(
             f"/api/memory-cards/{memory_card.id}/versions",
             files={"cardFile": ("card.zip", content, "application/zip")},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -544,7 +540,7 @@ def test_upload_with_a_symlink_entry_is_rejected(
         response = client.post(
             f"/api/memory-cards/{memory_card.id}/versions",
             files={"cardFile": ("card.zip", buf.getvalue(), "application/zip")},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -569,7 +565,7 @@ def test_upload_that_unpacks_past_the_cap_is_rejected(
         response = client.post(
             f"/api/memory-cards/{memory_card.id}/versions",
             files={"cardFile": ("card.zip", content, "application/zip")},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -593,7 +589,7 @@ def test_upload_whose_entries_only_add_up_past_the_cap_is_rejected(
         response = client.post(
             f"/api/memory-cards/{memory_card.id}/versions",
             files={"cardFile": ("card.zip", content, "application/zip")},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -609,7 +605,7 @@ def test_upload_to_another_users_card_is_404(
     response = client.post(
         f"/api/memory-cards/{memory_card.id}/versions",
         files={"cardFile": ("card.zip", _zip_bytes({"a": b"b"}), "application/zip")},
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -621,7 +617,7 @@ def test_rename_memory_card(client, access_token: str, memory_card: MemoryCard):
     response = client.put(
         f"/api/memory-cards/{memory_card.id}",
         json={"name": "Renamed"},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["name"] == "Renamed"
@@ -631,7 +627,7 @@ def test_rename_blank_name_rejected(client, access_token: str, memory_card: Memo
     response = client.put(
         f"/api/memory-cards/{memory_card.id}",
         json={"name": "   "},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
@@ -642,7 +638,7 @@ def test_other_user_cannot_rename_card(
     response = client.put(
         f"/api/memory-cards/{memory_card.id}",
         json={"name": "Hijacked"},
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -654,7 +650,7 @@ def test_toggle_visibility(client, access_token: str, memory_card: MemoryCard):
     response = client.put(
         f"/api/memory-cards/{memory_card.id}/visibility",
         json={"is_public": True},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["is_public"] is True
@@ -669,7 +665,7 @@ def test_other_user_cannot_change_visibility(
     response = client.put(
         f"/api/memory-cards/{memory_card.id}/visibility",
         json={"is_public": True},
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -688,7 +684,7 @@ def test_delete_own_card(
     response = client.post(
         "/api/memory-cards/delete",
         json={"cards": [memory_card.id]},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == [memory_card.id]
@@ -703,7 +699,7 @@ def test_delete_empty_list_rejected(client, access_token: str):
     response = client.post(
         "/api/memory-cards/delete",
         json={"cards": []},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
@@ -720,7 +716,7 @@ def test_delete_batch_with_a_bad_id_deletes_nothing(
     response = client.post(
         "/api/memory-cards/delete",
         json={"cards": [memory_card.id, 999999]},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
     mock_remove_file.assert_not_awaited()
@@ -754,7 +750,7 @@ def test_delete_survives_an_archive_that_will_not_budge(
     response = client.post(
         "/api/memory-cards/delete",
         json={"cards": [memory_card.id, second.id]},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert response.status_code == status.HTTP_200_OK
     assert db_memory_card_handler.get_card_by_id(memory_card.id) is None
@@ -768,7 +764,7 @@ def test_other_user_cannot_delete_card(
     response = client.post(
         "/api/memory-cards/delete",
         json={"cards": [memory_card.id]},
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
     # The card survives the rejected delete.
@@ -884,7 +880,7 @@ def test_create_memory_card_overlong_field_rejected(
     client, access_token: str, payload: dict[str, str]
 ):
     response = client.post(
-        "/api/memory-cards", json=payload, headers=_auth(access_token)
+        "/api/memory-cards", json=payload, headers=bearer(access_token)
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
@@ -895,7 +891,7 @@ def test_rename_overlong_name_rejected(
     response = client.put(
         f"/api/memory-cards/{memory_card.id}",
         json={"name": "x" * 256},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 

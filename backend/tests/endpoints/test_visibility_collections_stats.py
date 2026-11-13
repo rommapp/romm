@@ -1,39 +1,20 @@
 """Hidden and age-limited ROMs stay out of virtual collections and stats totals."""
 
-from datetime import timedelta
 from typing import Any
 
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from sqlalchemy import update
+from tests.auth_helpers import hide, user_headers
 from tests.factories import make_rom, make_save, make_screenshot, make_state
 
-from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
-from handler.auth.base_handler import oauth_handler
 from handler.database.base_handler import sync_session
 from models.collection import VirtualCollection
-from models.permission import HiddenEntity, PermEntity
+from models.permission import PermEntity
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
-
-
-def _auth(user: User) -> dict[str, str]:
-    token = oauth_handler.create_access_token(
-        data={
-            "sub": user.username,
-            "iss": "romm:oauth",
-            "scopes": " ".join(user.oauth_scopes),
-        },
-        expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
-    )
-    return {"Authorization": f"Bearer {token}"}
-
-
-def _hide(entity: PermEntity, entity_id: int, user: User) -> None:
-    with sync_session.begin() as session:
-        session.add(HiddenEntity(entity=entity, entity_id=entity_id, user_id=user.id))
 
 
 def _genre_roms(platform: Platform, genre: str, count: int) -> list[Rom]:
@@ -50,7 +31,7 @@ def _genre_id(name: str) -> str:
 def _genres(client: TestClient, user: User, **params: Any) -> dict[str, Any]:
     resp = client.get(
         "/api/collections/virtual",
-        headers=_auth(user),
+        headers=user_headers(user),
         params={"type": "genre", **params},
     )
     assert resp.status_code == status.HTTP_200_OK
@@ -72,8 +53,8 @@ class TestVirtualCollections:
             "Bbb Partial": _genre_roms(platform, "Bbb Partial", 4),
             "Ccc Visible": _genre_roms(platform, "Ccc Visible", 3),
         }
-        _hide(PermEntity.PLATFORMS, other_platform.id, viewer_user)
-        _hide(PermEntity.ROMS, library["Bbb Partial"][0].id, viewer_user)
+        hide(PermEntity.PLATFORMS, other_platform.id, user_id=viewer_user.id)
+        hide(PermEntity.ROMS, library["Bbb Partial"][0].id, user_id=viewer_user.id)
         return library
 
     def test_the_list_holds_only_visible_members(self, client, viewer_user, library):
@@ -91,7 +72,7 @@ class TestVirtualCollections:
 
     def test_one_visible_member_keeps_a_collection(self, client, viewer_user, library):
         for rom in library["Ccc Visible"][1:]:
-            _hide(PermEntity.ROMS, rom.id, viewer_user)
+            hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
 
         assert _genres(client, viewer_user)["Ccc Visible"]["rom_count"] == 1
 
@@ -103,7 +84,7 @@ class TestVirtualCollections:
             make_rom(platform, f"rpg {index}", manual_metadata={"genres": [genre]})
             for index, genre in enumerate(["Rpg", "Rpg", "Rpg", "RPG"])
         ]
-        _hide(PermEntity.ROMS, roms[0].id, viewer_user)
+        hide(PermEntity.ROMS, roms[0].id, user_id=viewer_user.id)
 
         every = _genres(client, admin_user)
         shown = _genres(client, viewer_user)
@@ -120,7 +101,7 @@ class TestVirtualCollections:
 
     def test_identifiers_skip_hidden_collections(self, client, viewer_user, library):
         resp = client.get(
-            "/api/collections/virtual/identifiers", headers=_auth(viewer_user)
+            "/api/collections/virtual/identifiers", headers=user_headers(viewer_user)
         )
 
         assert resp.status_code == status.HTTP_200_OK
@@ -130,7 +111,7 @@ class TestVirtualCollections:
     def test_a_hidden_collection_reads_as_missing(self, client, viewer_user, library):
         resp = client.get(
             f"/api/collections/virtual/{_genre_id('Aaa Hidden')}",
-            headers=_auth(viewer_user),
+            headers=user_headers(viewer_user),
         )
 
         assert resp.status_code == status.HTTP_404_NOT_FOUND
@@ -140,7 +121,7 @@ class TestVirtualCollections:
     ):
         resp = client.get(
             f"/api/collections/virtual/{_genre_id('Bbb Partial')}",
-            headers=_auth(viewer_user),
+            headers=user_headers(viewer_user),
         )
 
         assert resp.status_code == status.HTTP_200_OK
@@ -159,7 +140,7 @@ class TestVirtualCollections:
         assert _genres(client, viewer_user) == {}
         resp = client.get(
             f"/api/collections/virtual/{_genre_id('Ccc Visible')}",
-            headers=_auth(viewer_user),
+            headers=user_headers(viewer_user),
         )
         assert resp.status_code == status.HTTP_404_NOT_FOUND
 
@@ -174,11 +155,11 @@ def test_stats_asset_totals_skip_hidden_roms(
         make_save(rom, admin_user, f"{rom.name}.sav")
         make_state(rom, editor_user, f"{rom.name}.state")
         make_screenshot(rom, admin_user, f"{rom.name}.png")
-    _hide(PermEntity.ROMS, hidden.id, viewer_user)
-    _hide(PermEntity.PLATFORMS, other_platform.id, viewer_user)
+    hide(PermEntity.ROMS, hidden.id, user_id=viewer_user.id)
+    hide(PermEntity.PLATFORMS, other_platform.id, user_id=viewer_user.id)
 
-    viewer_stats = client.get("/api/stats", headers=_auth(viewer_user)).json()
-    admin_stats = client.get("/api/stats", headers=_auth(admin_user)).json()
+    viewer_stats = client.get("/api/stats", headers=user_headers(viewer_user)).json()
+    admin_stats = client.get("/api/stats", headers=user_headers(admin_user)).json()
 
     assert [viewer_stats[key] for key in ("SAVES", "STATES", "SCREENSHOTS")] == [
         1,

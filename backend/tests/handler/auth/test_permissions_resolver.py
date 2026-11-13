@@ -7,13 +7,13 @@ entities, and the KIOSK_MODE anonymous-visitor cap.
 """
 
 import pytest
+from tests.auth_helpers import hide
 
 from handler.auth.constants import EDIT_SCOPES, FULL_SCOPES, READ_SCOPES, WRITE_SCOPES
 from handler.auth.permissions import resolve_permissions
 from handler.database import db_user_handler
 from handler.database.base_handler import sync_session
 from models.permission import (
-    HiddenEntity,
     PermAction,
     PermEntity,
     PermissionGroup,
@@ -68,15 +68,6 @@ def _add_override(user_id, entity, action, *, granted, own_only=False):
                 action=action,
                 granted=granted,
                 own_only=own_only,
-            )
-        )
-
-
-def _hide(entity, entity_id, *, user_id=None, group_id=None):
-    with sync_session.begin() as s:
-        s.add(
-            HiddenEntity(
-                entity=entity, entity_id=entity_id, user_id=user_id, group_id=group_id
             )
         )
 
@@ -189,8 +180,8 @@ def test_own_only_requires_ownership(viewer_user):
 
 
 def test_user_hidden_platform_and_rom_cascade(viewer_user):
-    _hide(PermEntity.PLATFORMS, 5, user_id=viewer_user.id)
-    _hide(PermEntity.ROMS, 99, user_id=viewer_user.id)
+    hide(PermEntity.PLATFORMS, 5, user_id=viewer_user.id)
+    hide(PermEntity.ROMS, 99, user_id=viewer_user.id)
     perms = resolve_permissions(viewer_user)
     assert perms.hidden_platform_ids == frozenset({5})
     assert perms.hidden_rom_ids == frozenset({99})
@@ -205,14 +196,14 @@ def test_user_hidden_platform_and_rom_cascade(viewer_user):
 def test_group_hidden_applies_to_members(viewer_user):
     gid = _make_group("kids", [(PermEntity.ROMS, PermAction.READ, False)])
     user = _set_group(viewer_user, gid)
-    _hide(PermEntity.PLATFORMS, 7, group_id=gid)
+    hide(PermEntity.PLATFORMS, 7, group_id=gid)
     perms = resolve_permissions(user)
     assert 7 in perms.hidden_platform_ids
     assert not perms.can_see_platform(7)
 
 
 def test_admin_sees_everything_despite_hides(admin_user):
-    _hide(PermEntity.PLATFORMS, 5, user_id=admin_user.id)
+    hide(PermEntity.PLATFORMS, 5, user_id=admin_user.id)
     perms = resolve_permissions(admin_user)
     assert perms.can_see_platform(5)
 

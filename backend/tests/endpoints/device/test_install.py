@@ -3,17 +3,17 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import status
+from tests.auth_helpers import hide
 from tests.factories import make_device_token, make_platform, make_rom
 
 from endpoints.device import install as device_install
 from endpoints.responses.device.install import InstallRequestSchema, InstallStatus
 from handler.database import db_device_handler, db_rom_handler
-from handler.database.base_handler import sync_session
 from handler.device_install import device_install_handler
 from handler.redis_handler import sync_cache
 from models.device import Device
 from models.notification import NotificationKind, NotificationLevel
-from models.permission import HiddenEntity, PermEntity
+from models.permission import PermEntity
 from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
 
@@ -76,11 +76,6 @@ def editor_device(editor_user: User) -> Device:
             capabilities=REMOTE_INSTALL,
         )
     )
-
-
-def _hide_rom(rom: Rom, user: User) -> None:
-    with sync_session.begin() as s:
-        s.add(HiddenEntity(entity=PermEntity.ROMS, entity_id=rom.id, user_id=user.id))
 
 
 def _add_file(
@@ -209,7 +204,7 @@ class TestCreate:
     def test_a_hidden_rom_is_not_found(
         self, client, editor_headers, editor_device, editor_user, rom, rom_files, emits
     ):
-        _hide_rom(rom, editor_user)
+        hide(PermEntity.ROMS, rom.id, user_id=editor_user.id)
 
         response = _create(client, editor_headers, rom.id, device_id=editor_device.id)
 

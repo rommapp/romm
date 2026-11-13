@@ -3,6 +3,7 @@ from typing import Any
 
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.auth_helpers import bearer
 
 from handler.auth.base_handler import oauth_handler
 from handler.database import db_audit_event_handler, db_user_handler
@@ -32,10 +33,6 @@ def _add(
     return event
 
 
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
-
-
 def _ids(response) -> list[int]:
     return [event["id"] for event in response.json()["items"]]
 
@@ -48,7 +45,7 @@ class TestAdminReadsEveryone:
         newer = _add(admin_user, AuditAction.ROM_EDIT, minutes_ago=1)
         system = _add(None, AuditAction.SCAN_START, minutes_ago=3)
 
-        response = client.get("/api/audit-events", headers=_auth(access_token))
+        response = client.get("/api/audit-events", headers=bearer(access_token))
 
         assert response.status_code == status.HTTP_200_OK
         body = response.json()
@@ -69,7 +66,7 @@ class TestAdminReadsEveryone:
         response = client.get(
             "/api/audit-events",
             params={"actor_id": viewer_user.id},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert _ids(response) == [theirs.id]
@@ -90,7 +87,7 @@ class TestAdminReadsEveryone:
             expires_delta=timedelta(minutes=5),
         )
 
-        response = client.get("/api/audit-events", headers=_auth(token))
+        response = client.get("/api/audit-events", headers=bearer(token))
 
         assert _ids(response) == [own.id]
 
@@ -105,7 +102,7 @@ class TestNonAdminReadsOwn:
         response = client.get(
             "/api/audit-events",
             params={"actor_id": admin_user.id},
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -126,7 +123,7 @@ class TestFilters:
         response = client.get(
             "/api/audit-events",
             params={"category": "consumption"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert _ids(response) == [play.id]
@@ -138,7 +135,7 @@ class TestFilters:
         response = client.get(
             "/api/audit-events",
             params={"category": "consumption", "action": "rom.edit"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert _ids(response) == []
@@ -157,7 +154,7 @@ class TestFilters:
                 "since": (now - timedelta(minutes=90)).isoformat(),
                 "until": (now - timedelta(minutes=30)).isoformat(),
             },
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert _ids(response) == [inside.id]
@@ -172,18 +169,18 @@ class TestFilters:
         viewer = client.get(
             "/api/audit-events",
             params={"search": "VIEWER"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         target = client.get(
             "/api/audit-events",
             params={"search": "zelda"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         address = client.get(
             "/api/audit-events",
             params={"search": "192.168.1"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert _ids(viewer) == [by_viewer.id]
@@ -199,12 +196,12 @@ class TestFilters:
         percent = client.get(
             "/api/audit-events",
             params={"search": "100%"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         underscore = client.get(
             "/api/audit-events",
             params={"search": "1_0"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert _ids(percent) == [full_run.id]
@@ -218,13 +215,13 @@ class TestFilters:
         first = client.get(
             "/api/audit-events",
             params={"limit": 1},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         _add(admin_user)
         second = client.get(
             "/api/audit-events",
             params={"limit": 1, "offset": 1, "max_id": first.json()["max_id"]},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert _ids(first) == [newest.id]
@@ -237,7 +234,7 @@ def test_an_event_outlives_its_actor(client, access_token, viewer_user):
     event = _add(viewer_user)
     db_user_handler.delete_user(viewer_user.id)
 
-    response = client.get("/api/audit-events", headers=_auth(access_token))
+    response = client.get("/api/audit-events", headers=bearer(access_token))
 
     [item] = response.json()["items"]
     assert item["id"] == event.id

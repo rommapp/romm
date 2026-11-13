@@ -1,33 +1,19 @@
 """Age limits end to end: the admin API that sets them and the routes they hide ROMs from."""
 
-from datetime import timedelta
 from typing import Any
 
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.auth_helpers import user_headers
 from tests.factories import make_esrb_rated_rom, make_rom
 
-from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
-from handler.auth.base_handler import oauth_handler
 from handler.auth.permissions import resolve_permissions
 from handler.database import db_permission_handler, db_user_handler
 from handler.database.base_handler import sync_session
 from models.permission import PermissionGroup
 from models.platform import Platform
 from models.user import User
-
-
-def _auth(user: User) -> dict[str, str]:
-    token = oauth_handler.create_access_token(
-        data={
-            "sub": user.username,
-            "iss": "romm:oauth",
-            "scopes": " ".join(user.oauth_scopes),
-        },
-        expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
-    )
-    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture(autouse=True)
@@ -71,7 +57,7 @@ def _join(
 
 
 def _listed_ids(client: TestClient, user: User) -> list[int]:
-    listing = client.get("/api/roms", headers=_auth(user))
+    listing = client.get("/api/roms", headers=user_headers(user))
     assert listing.status_code == status.HTTP_200_OK
     ids: list[int] = listing.json()["rom_id_index"]
     return ids
@@ -181,7 +167,7 @@ class TestEnforcement:
         assert everyone.id in ids
         assert mature.id not in ids
 
-        detail = client.get(f"/api/roms/{mature.id}", headers=_auth(viewer_user))
+        detail = client.get(f"/api/roms/{mature.id}", headers=user_headers(viewer_user))
         assert detail.status_code == status.HTTP_404_NOT_FOUND
 
     def test_a_limited_user_does_not_count_roms_above_it_on_the_platform(
@@ -192,7 +178,9 @@ class TestEnforcement:
         gid = _make_kids_group(client, headers, age_limit=12)["id"]
         _join(client, headers, viewer_user, gid)
 
-        body = client.get(f"/api/platforms/{platform.id}", headers=_auth(viewer_user))
+        body = client.get(
+            f"/api/platforms/{platform.id}", headers=user_headers(viewer_user)
+        )
 
         assert body.json()["rom_count"] == 1
 

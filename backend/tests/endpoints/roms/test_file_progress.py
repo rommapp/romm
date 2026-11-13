@@ -3,6 +3,7 @@ from datetime import timedelta
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.auth_helpers import bearer
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth.base_handler import oauth_handler
@@ -10,10 +11,6 @@ from handler.auth.constants import Scope
 from handler.database import db_rom_handler
 from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
-
-
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture
@@ -37,7 +34,7 @@ def test_get_progress_defaults_to_zero(
 ):
     response = client.get(
         f"/api/roms/{game_folder_rom.id}/files/{walkthrough_file.id}/progress",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
@@ -53,7 +50,7 @@ def test_put_then_get_progress_roundtrip(
 ):
     put = client.put(
         f"/api/roms/{game_folder_rom.id}/files/{walkthrough_file.id}/progress",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         json={"progress": 0.42, "last_page": 3, "finished": False},
     )
     assert put.status_code == status.HTTP_200_OK
@@ -62,7 +59,7 @@ def test_put_then_get_progress_roundtrip(
 
     got = client.get(
         f"/api/roms/{game_folder_rom.id}/files/{walkthrough_file.id}/progress",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert got.json()["progress"] == pytest.approx(0.42)
     assert got.json()["last_page"] == 3
@@ -76,7 +73,7 @@ def test_put_progress_clamps_out_of_range(
 ):
     put = client.put(
         f"/api/roms/{game_folder_rom.id}/files/{walkthrough_file.id}/progress",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         json={"progress": 5.0},
     )
     assert put.status_code == status.HTTP_200_OK
@@ -92,7 +89,7 @@ def test_put_progress_rejects_oversized_last_page(
     """Out of range must be a 400, not an integer-column overflow at insert."""
     put = client.put(
         f"/api/roms/{game_folder_rom.id}/files/{walkthrough_file.id}/progress",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         json={"last_page": 2**40},
     )
     assert put.status_code == status.HTTP_400_BAD_REQUEST
@@ -120,7 +117,7 @@ def test_put_progress_requires_the_self_service_write_scope(
 
     put = client.put(
         f"/api/roms/{game_folder_rom.id}/files/{walkthrough_file.id}/progress",
-        headers=_auth(read_only),
+        headers=bearer(read_only),
         json={"progress": 0.5},
     )
     assert put.status_code == status.HTTP_403_FORBIDDEN
@@ -128,7 +125,7 @@ def test_put_progress_requires_the_self_service_write_scope(
     # The read scope is still enough to read progress back.
     got = client.get(
         f"/api/roms/{game_folder_rom.id}/files/{walkthrough_file.id}/progress",
-        headers=_auth(read_only),
+        headers=bearer(read_only),
     )
     assert got.status_code == status.HTTP_200_OK
 
@@ -143,7 +140,7 @@ def test_progress_rejects_non_document_file(
     )[0]
     response = client.put(
         f"/api/roms/{game_folder_rom.id}/files/{game_file.id}/progress",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         json={"progress": 0.5},
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND

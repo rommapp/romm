@@ -19,6 +19,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from main import app
 from sqlalchemy import update
+from tests.auth_helpers import bearer, hide
 from tests.factories import (
     make_platform,
     make_rom,
@@ -105,7 +106,6 @@ from models.assets import (
 )
 from models.notification import NotificationKind
 from models.permission import (
-    HiddenEntity,
     PermAction,
     PermEntity,
     PermissionGroup,
@@ -119,11 +119,6 @@ from utils.memory_cards import content_hash_of_bytes
 from utils.zip_cache import ensure_zipfile_writable
 
 # ── Fixtures / helpers ────────────────────────────────────────────────────────
-
-
-def _hide(entity: PermEntity, entity_id: int, user_id: int) -> None:
-    with sync_session.begin() as s:
-        s.add(HiddenEntity(entity=entity, entity_id=entity_id, user_id=user_id))
 
 
 def _reads(body: bytes):
@@ -274,10 +269,6 @@ def _add_rom_file(rom: Rom, file_name: str) -> RomFile:
     )
 
 
-def _auth(token):
-    return {"Authorization": f"Bearer {token}"}
-
-
 def _load_session(key: str) -> StreamingSession:
     """The session stored at `key`, failing the test if nothing is there."""
     raw = asyncio.run(async_cache.get(key))
@@ -291,7 +282,7 @@ def _claim(client, token, rom_id, state_id=None, save_id=None):
         body["state_id"] = state_id
     if save_id is not None:
         body["save_id"] = save_id
-    return client.post("/api/streaming/sessions", json=body, headers=_auth(token))
+    return client.post("/api/streaming/sessions", json=body, headers=bearer(token))
 
 
 @contextmanager
@@ -335,7 +326,7 @@ def test_get_config_warns_on_missing_platform(client, access_token, caplog):
         with _streaming(bad_container):
             with caplog.at_level(logging.WARNING, logger="romm"):
                 response = client.get(
-                    "/api/streaming/config", headers=_auth(access_token)
+                    "/api/streaming/config", headers=bearer(access_token)
                 )
     finally:
         romm_logger.removeHandler(caplog.handler)
@@ -385,7 +376,7 @@ def test_a_config_warning_does_not_print_the_broker_secret(
     try:
         with _streaming(bad_container):
             with caplog.at_level(logging.WARNING, logger="romm"):
-                client.get("/api/streaming/config", headers=_auth(access_token))
+                client.get("/api/streaming/config", headers=bearer(access_token))
     finally:
         romm_logger.removeHandler(caplog.handler)
 
@@ -399,7 +390,7 @@ def test_get_config_ships_platform_capabilities(client, access_token):
     they are not a second hardcoded copy."""
     container = {"platform": "ps2", "host": "http://192.168.1.10:3000"}
     with _streaming(container):
-        r = client.get("/api/streaming/config", headers=_auth(access_token))
+        r = client.get("/api/streaming/config", headers=bearer(access_token))
     assert r.status_code == 200
     assert r.json()["containers"][0]["capabilities"] == {
         "max_slots": 9,
@@ -415,7 +406,7 @@ def test_get_config_ships_the_emulator_labels(client, access_token):
     """Saves and states are tagged with the emulator that wrote them, so the
     display names ride along rather than being copied into the frontend."""
     with _streaming({"platform": "ps2", "host": "http://192.168.1.10:3000"}):
-        r = client.get("/api/streaming/config", headers=_auth(access_token))
+        r = client.get("/api/streaming/config", headers=bearer(access_token))
     labels = r.json()["emulator_labels"]
     assert labels["pcsx2"] == "PCSX2"
     assert labels["play"] == "Play!"
@@ -433,7 +424,7 @@ def test_get_config_ships_capabilities_for_a_retroarch_platform(client, access_t
         "platforms": {"psp": "retroarch"},
     }
     with _streaming(container):
-        r = client.get("/api/streaming/config", headers=_auth(access_token))
+        r = client.get("/api/streaming/config", headers=bearer(access_token))
     assert r.status_code == 200
     caps = r.json()["containers"][0]["capabilities"]
     assert caps["has_autosave"] is True
@@ -448,7 +439,7 @@ def test_get_config_ships_capabilities_for_a_ppsspp_container(client, access_tok
         "platforms": {"psp": "ppsspp"},
     }
     with _streaming(container):
-        r = client.get("/api/streaming/config", headers=_auth(access_token))
+        r = client.get("/api/streaming/config", headers=bearer(access_token))
         streaming._assert_valid_slot("psp", 10)
         with pytest.raises(HTTPException):
             streaming._assert_valid_slot("psp", 3)
@@ -469,7 +460,7 @@ def _picks(client, token, rom: Rom, platform: str, spec=None, core=None):
             ),
             patch("handler.streaming.states.state_core_for", return_value=core),
         ):
-            return client.get(f"/api/streaming/states/{rom.id}", headers=_auth(token))
+            return client.get(f"/api/streaming/states/{rom.id}", headers=bearer(token))
 
 
 _STATE_IMPORT = webstation.ImportSpec(frozenset({"state"}), "push", 9)
@@ -611,13 +602,13 @@ def test_state_picks_list_states_newest_first(
 def test_state_picks_hide_a_hidden_rom(
     client, viewer_access_token, viewer_user: User, rom: Rom
 ):
-    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
     assert _picks(client, viewer_access_token, rom, "pcsx2").status_code == 404
 
 
 def test_state_picks_404_without_a_container(client, access_token, rom: Rom):
     with _streaming(_webstation(platforms={"snes": "retroarch"})):
-        r = client.get(f"/api/streaming/states/{rom.id}", headers=_auth(access_token))
+        r = client.get(f"/api/streaming/states/{rom.id}", headers=bearer(access_token))
     assert r.status_code == 404
 
 
@@ -640,7 +631,7 @@ def test_state_picks_ask_the_broker_its_spec_and_core_at_once(
             ),
         ):
             r = client.get(
-                f"/api/streaming/states/{rom.id}", headers=_auth(access_token)
+                f"/api/streaming/states/{rom.id}", headers=bearer(access_token)
             )
     assert r.status_code == 200
 
@@ -655,7 +646,7 @@ def test_config_leaves_the_state_rules_to_the_picks(client, access_token):
             patch("handler.streaming.webstation.default_core") as default_core,
         ):
             body = client.get(
-                "/api/streaming/config", headers=_auth(access_token)
+                "/api/streaming/config", headers=bearer(access_token)
             ).json()
     default_core.assert_not_called()
     assert "state_core" not in body["containers"][0]
@@ -674,7 +665,7 @@ def test_config_asks_every_platform_at_once(client, access_token):
         with patch(
             "handler.streaming.webstation.require_import_spec", side_effect=meet
         ):
-            r = client.get("/api/streaming/config", headers=_auth(access_token))
+            r = client.get("/api/streaming/config", headers=bearer(access_token))
     assert r.status_code == 200
     assert len(r.json()["containers"]) == len(platforms)
 
@@ -706,7 +697,7 @@ def test_overlapping_configs_share_each_broker_check(client, access_token):
         ):
             loads = [
                 pages.submit(
-                    client.get, "/api/streaming/config", headers=_auth(access_token)
+                    client.get, "/api/streaming/config", headers=bearer(access_token)
                 )
                 for _ in range(2)
             ]
@@ -730,7 +721,7 @@ def test_get_config_labels_each_platform_by_its_emulator(client, access_token):
         },
     }
     with _streaming(container):
-        r = client.get("/api/streaming/config", headers=_auth(access_token))
+        r = client.get("/api/streaming/config", headers=bearer(access_token))
     assert r.status_code == 200
     by_platform = {c["platform"]: c for c in r.json()["containers"]}
     assert by_platform["wii"]["label"] == "Dolphin"
@@ -1002,7 +993,7 @@ def test_get_config_reports_memory_card_support(client, access_token, rom: Rom):
     plain = _container_for(rom)
     syncing = {**_container_for(rom), "platform": "ps2", "memory_card_sync": True}
     with _streaming(plain, syncing):
-        response = client.get("/api/streaming/config", headers=_auth(access_token))
+        response = client.get("/api/streaming/config", headers=bearer(access_token))
     assert response.status_code == 200
     containers = response.json()["containers"]
     supported = {c["platform"]: c["supports_memory_cards"] for c in containers}
@@ -1026,7 +1017,7 @@ def test_get_config_reports_save_picker_support(client, access_token, rom: Rom):
     }
     legacy = {**_container_for(rom), "platform": "gba", "emulator": "retroarch"}
     with _streaming(clearing, keeping, legacy):
-        response = client.get("/api/streaming/config", headers=_auth(access_token))
+        response = client.get("/api/streaming/config", headers=bearer(access_token))
     assert response.status_code == 200
     supported = {
         c["platform"]: c["supports_save_picker"] for c in response.json()["containers"]
@@ -1056,7 +1047,7 @@ def test_get_config_reports_the_foreign_picks_each_broker_imports(
         with patch(
             "handler.streaming.webstation.require_import_spec", side_effect=answer
         ):
-            response = client.get("/api/streaming/config", headers=_auth(access_token))
+            response = client.get("/api/streaming/config", headers=bearer(access_token))
     assert response.status_code == 200
     kinds = {c["platform"]: c["import_kinds"] for c in response.json()["containers"]}
     assert kinds[rom.platform_slug] == ["save", "state"]
@@ -1099,7 +1090,7 @@ def test_clears_stale_saves_overrides_the_emulator_default(client, access_token,
         "clears_stale_saves": False,
     }
     with _streaming(turned_on, turned_off):
-        response = client.get("/api/streaming/config", headers=_auth(access_token))
+        response = client.get("/api/streaming/config", headers=bearer(access_token))
     assert response.status_code == 200
     supported = {
         c["platform"]: c["supports_save_picker"] for c in response.json()["containers"]
@@ -1195,7 +1186,7 @@ def test_get_config_ships_whether_a_container_takes_live_states(client, access_t
         "platforms": {"psx": "duckstation", "gba": "retroarch"},
     }
     with _streaming(container):
-        r = client.get("/api/streaming/config", headers=_auth(access_token))
+        r = client.get("/api/streaming/config", headers=bearer(access_token))
     assert r.status_code == 200
     by_platform = {c["platform"]: c for c in r.json()["containers"]}
     assert by_platform["psx"]["supports_live_states"] is False
@@ -1260,7 +1251,7 @@ def test_memory_card_sync_ignored_on_a_platform_without_a_card(client, access_to
         "memory_card_sync": True,
     }
     with _streaming(container):
-        response = client.get("/api/streaming/config", headers=_auth(access_token))
+        response = client.get("/api/streaming/config", headers=bearer(access_token))
     assert response.status_code == 200
     assert response.json()["containers"][0]["supports_memory_cards"] is False
 
@@ -1296,7 +1287,7 @@ def test_memory_card_sync_honoured_on_a_platform_with_a_card(client, access_toke
         "memory_card_sync": True,
     }
     with _streaming(container):
-        response = client.get("/api/streaming/config", headers=_auth(access_token))
+        response = client.get("/api/streaming/config", headers=bearer(access_token))
     assert response.status_code == 200
     assert response.json()["containers"][0]["supports_memory_cards"] is True
 
@@ -1306,10 +1297,10 @@ def test_get_config_hides_a_hidden_platform(
 ):
     """The entry carries the platform's label and capabilities, so a platform
     an admin hid from this user must not be listed."""
-    _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
+    hide(PermEntity.PLATFORMS, platform.id, user_id=viewer_user.id)
     with _streaming(_container_for(rom)):
         response = client.get(
-            "/api/streaming/config", headers=_auth(viewer_access_token)
+            "/api/streaming/config", headers=bearer(viewer_access_token)
         )
     assert response.status_code == 200
     assert response.json()["containers"] == []
@@ -1320,7 +1311,7 @@ def test_get_config_keeps_a_platform_the_caller_can_see(
 ):
     with _streaming(_container_for(rom)):
         response = client.get(
-            "/api/streaming/config", headers=_auth(viewer_access_token)
+            "/api/streaming/config", headers=bearer(viewer_access_token)
         )
     assert response.status_code == 200
     listed = [c["platform"] for c in response.json()["containers"]]
@@ -1335,13 +1326,13 @@ def test_get_config_offers_disc_swap_only_on_a_webstation_container(
     legacy = {"platform": "dc", "host": "http://192.168.1.10:3000"}
     with _streaming(legacy):
         legacy_caps = client.get(
-            "/api/streaming/config", headers=_auth(access_token)
+            "/api/streaming/config", headers=bearer(access_token)
         ).json()["containers"][0]["capabilities"]
 
     tray = {**legacy, "protocol": "webstation"}
     with _streaming(tray):
         ws_caps = client.get(
-            "/api/streaming/config", headers=_auth(access_token)
+            "/api/streaming/config", headers=bearer(access_token)
         ).json()["containers"][0]["capabilities"]
 
     assert legacy_caps["supports_disc_swap"] is False
@@ -1352,7 +1343,7 @@ def test_get_config_leaves_out_a_container_no_claim_can_reach(client, access_tok
     """A host with no scheme resolves to no key, so every claim on it fails and
     listing it would put a Play button on a platform that can never stream."""
     with _streaming({"platform": "ps2", "host": "192.168.1.10:3000"}):
-        response = client.get("/api/streaming/config", headers=_auth(access_token))
+        response = client.get("/api/streaming/config", headers=bearer(access_token))
     assert response.status_code == 200
     assert response.json()["containers"] == []
 
@@ -1364,7 +1355,7 @@ def test_get_config_lists_a_platform_once_whatever_the_case(client, access_token
         {"platform": "PS2", "host": "http://box-a:3000"},
         {"platform": "ps2", "host": "http://box-b:3000"},
     ):
-        response = client.get("/api/streaming/config", headers=_auth(access_token))
+        response = client.get("/api/streaming/config", headers=bearer(access_token))
     assert response.status_code == 200
     assert len(response.json()["containers"]) == 1
 
@@ -1466,7 +1457,7 @@ def test_nested_platforms_ship_one_config_row_each(client, access_token):
     """The frontend reads capabilities per platform, so expansion must reach
     /config rather than stopping at the claim path."""
     with _streaming(_nested()):
-        r = client.get("/api/streaming/config", headers=_auth(access_token))
+        r = client.get("/api/streaming/config", headers=bearer(access_token))
     assert r.status_code == 200
     rows = {c["platform"]: c for c in r.json()["containers"]}
     assert set(rows) == {"ps2", "ngc"}
@@ -1478,7 +1469,7 @@ def test_config_keeps_one_row_per_platform(client, access_token):
     """Two containers serving the same platform are a pool, not two choices.
     The claim picks which one serves, so /config must not offer both."""
     with _streaming(_nested(), _nested(host="http://192.168.1.11:3000")):
-        r = client.get("/api/streaming/config", headers=_auth(access_token))
+        r = client.get("/api/streaming/config", headers=bearer(access_token))
     assert r.status_code == 200
     platforms = [c["platform"] for c in r.json()["containers"]]
     assert sorted(platforms) == ["ngc", "ps2"]
@@ -1734,7 +1725,7 @@ def test_claim_hidden_rom_is_404_masked(
 ):
     """A user with roms.read cannot claim a session for a ROM hidden from them;
     the launch must be 404-masked before any broker call."""
-    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
     with _streaming(_container_for(rom)):
         # If the visibility check were missing this would 200 and launch.
         with patch("handler.streaming.commands.launch") as call_broker:
@@ -1747,7 +1738,7 @@ def test_claim_rom_on_hidden_platform_is_404_masked(
     client, viewer_access_token, viewer_user: User, rom: Rom, platform: Platform
 ):
     """Hiding the parent platform cascades: its ROMs cannot be streamed either."""
-    _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
+    hide(PermEntity.PLATFORMS, platform.id, user_id=viewer_user.id)
     with _streaming(_container_for(rom)):
         with patch("handler.streaming.commands.launch") as call_broker:
             r = _claim(client, viewer_access_token, rom.id)
@@ -1810,7 +1801,7 @@ async def test_claim_sets_session_ttl(access_token, rom: Rom):
                 r = await ac.post(
                     "/api/streaming/sessions",
                     json={"rom_id": rom.id},
-                    headers=_auth(access_token),
+                    headers=bearer(access_token),
                 )
     assert r.status_code == 202
     key = session_store.session_redis_key(_key_of(_container_for(rom)))
@@ -1873,7 +1864,7 @@ async def test_concurrent_claim_only_one_succeeds(access_token, rom: Rom):
             async with httpx2.AsyncClient(
                 transport=httpx2.ASGITransport(app=app), base_url="http://test"
             ) as ac:
-                headers = _auth(access_token)
+                headers = bearer(access_token)
                 r1, r2 = await asyncio.gather(
                     ac.post(
                         "/api/streaming/sessions",
@@ -1908,7 +1899,7 @@ def _volume(client, token, platform: str, level: int = 42, params=None):
         f"/api/streaming/sessions/{platform}/volume",
         json={"level": level},
         params=params,
-        headers=_auth(token),
+        headers=bearer(token),
     )
 
 
@@ -2052,7 +2043,7 @@ def test_status_does_not_report_a_session_on_another_platform(client, access_tok
     with _streaming(_nested()):
         assert _claim_ok(client, access_token, ps2_rom.id).status_code == 202
         r = client.get(
-            "/api/streaming/sessions/ngc/status", headers=_auth(access_token)
+            "/api/streaming/sessions/ngc/status", headers=bearer(access_token)
         )
     assert r.status_code == 200
     assert r.json()["status"] == "ended"
@@ -2258,7 +2249,7 @@ def test_a_control_for_a_replaced_claim_never_reaches_the_broker(
                 f"/api/streaming/sessions/{rom.platform_slug}/{route}",
                 json=body,
                 params={"claimed_at": "2020-01-01T00:00:00+00:00"},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.status_code == 404
     broker.assert_not_called()
@@ -2276,7 +2267,7 @@ def test_admin_release_names_the_container(
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
                 params={"container": _key_of(_pool_member(rom, 1))},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.status_code == 200
     assert r.json()["status"] == "released"
@@ -2291,7 +2282,7 @@ def test_admin_release_rejects_a_container_that_serves_another_platform(
         r = client.delete(
             f"/api/streaming/sessions/{rom.platform_slug}",
             params={"container": "http://192.168.9.9:8000"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
     assert r.status_code == 404
 
@@ -2323,7 +2314,7 @@ def test_admin_release_ends_a_session_on_a_container_in_a_later_pool(
             r = client.delete(
                 "/api/streaming/sessions/ps2",
                 params={"container": key},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         assert r.status_code == 200
         assert r.json()["status"] == "released"
@@ -2343,7 +2334,7 @@ def test_heartbeat_naming_the_container_refreshes_a_desktop_in_a_later_pool(
         r = client.post(
             "/api/streaming/sessions/ps2/heartbeat",
             params={"container": key},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         session = json.loads(_session_raw(later))
     assert r.status_code == 200
@@ -2365,13 +2356,13 @@ def test_heartbeat_naming_a_released_container_reports_ended(client, access_toke
             released = client.delete(
                 "/api/streaming/sessions/ps2",
                 params={"container": key},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         assert released.status_code == 200
         r = client.post(
             "/api/streaming/sessions/ps2/heartbeat",
             params={"container": key},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
     assert r.status_code == 200
     assert r.json()["status"] == "ended"
@@ -2388,7 +2379,7 @@ def test_heartbeat_naming_a_container_leaves_another_users_session_alone(
         r = client.post(
             "/api/streaming/sessions/ps2/heartbeat",
             params={"container": key},
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
         session = json.loads(_session_raw(later))
     assert r.status_code == 200
@@ -2408,11 +2399,11 @@ def test_status_finds_the_termination_on_whichever_container_held_it(
             client.delete(
                 "/api/streaming/sessions",
                 params={"reason": "maintenance"},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         r = client.get(
             f"/api/streaming/sessions/{rom.platform_slug}/status",
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
     assert r.status_code == 200
     assert r.json()["status"] == "ended"
@@ -2430,12 +2421,12 @@ def test_status_does_not_report_a_desktop_notice_to_a_game_poll(client, access_t
             ended = client.delete(
                 "/api/streaming/sessions/ps2",
                 params={"container": key, "reason": "patching the host"},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         assert ended.status_code == 200
         r = client.get(
             f"/api/streaming/sessions/{ps2_rom.platform_slug}/status",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
     assert r.status_code == 200
     assert r.json()["status"] == "ended"
@@ -2452,12 +2443,12 @@ def test_a_desktop_beat_still_learns_why_its_claim_ended(client, access_token):
             client.delete(
                 "/api/streaming/sessions/ps2",
                 params={"container": key, "reason": "patching the host"},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         r = client.post(
             "/api/streaming/sessions/ps2/heartbeat",
             params={"container": key},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
     assert r.json()["status"] == "ended"
     notice = r.json()["termination"]
@@ -2476,13 +2467,13 @@ def test_status_does_not_report_a_notice_from_another_platform(client, access_to
             client.delete(
                 "/api/streaming/sessions/ngc",
                 params={"reason": "patching the host"},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         r = client.get(
-            "/api/streaming/sessions/ps2/status", headers=_auth(access_token)
+            "/api/streaming/sessions/ps2/status", headers=bearer(access_token)
         )
         ngc = client.get(
-            "/api/streaming/sessions/ngc/status", headers=_auth(access_token)
+            "/api/streaming/sessions/ngc/status", headers=bearer(access_token)
         )
     assert r.json()["status"] == "ended"
     assert r.json()["termination"] is None
@@ -2499,7 +2490,7 @@ def test_heartbeat_refreshes_the_session_on_the_container_that_holds_it(
         before = json.loads(_session_raw(_pool_member(rom, 1)))["last_seen"]
         r = client.post(
             f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
         after = json.loads(_session_raw(_pool_member(rom, 1)))["last_seen"]
     assert r.json()["status"] == "active"
@@ -2859,7 +2850,7 @@ def _webstation(**overrides):
 
 
 def _containers(client, token):
-    return client.get("/api/streaming/containers", headers=_auth(token))
+    return client.get("/api/streaming/containers", headers=bearer(token))
 
 
 def _desktop(client, token, container_key: str, url="/streaming/room/abc"):
@@ -2870,7 +2861,7 @@ def _desktop(client, token, container_key: str, url="/streaming/room/abc"):
         response = client.post(
             "/api/streaming/desktop",
             json={"container": container_key},
-            headers=_auth(token),
+            headers=bearer(token),
         )
     return response, activate
 
@@ -3089,7 +3080,7 @@ def test_an_unnamed_heartbeat_skips_the_callers_desktop(
             patch("handler.streaming.background.spawn_sync_task"),
         ):
             client.delete(
-                "/api/streaming/sessions/ps2", headers=_auth(viewer_access_token)
+                "/api/streaming/sessions/ps2", headers=bearer(viewer_access_token)
             )
         assert (
             _desktop(client, access_token, _key_of(_webstation()))[0].status_code == 200
@@ -3099,7 +3090,7 @@ def test_an_unnamed_heartbeat_skips_the_callers_desktop(
         desktop_before = json.loads(_session_raw(_webstation()))["last_seen"]
         game_before = json.loads(_session_raw(second))["last_seen"]
         r = client.post(
-            "/api/streaming/sessions/ps2/heartbeat", headers=_auth(access_token)
+            "/api/streaming/sessions/ps2/heartbeat", headers=bearer(access_token)
         )
         desktop_after = json.loads(_session_raw(_webstation()))["last_seen"]
         game_after = json.loads(_session_raw(second))["last_seen"]
@@ -3116,7 +3107,7 @@ def test_an_unnamed_release_leaves_the_callers_desktop_alone(client, access_toke
         assert _desktop(client, access_token, key)[0].status_code == 200
         with _stub_stop():
             r = client.delete(
-                "/api/streaming/sessions/ps2", headers=_auth(access_token)
+                "/api/streaming/sessions/ps2", headers=bearer(access_token)
             )
         session = asyncio.run(session_store.get_session(key))
     assert r.json()["status"] == "not_found"
@@ -3133,7 +3124,7 @@ def test_an_unnamed_release_leaves_another_platforms_session_alone(
         assert _claim_ok(client, access_token, ps2_rom.id).status_code == 202
         with _stub_stop():
             r = client.delete(
-                "/api/streaming/sessions/ngc", headers=_auth(access_token)
+                "/api/streaming/sessions/ngc", headers=bearer(access_token)
             )
         session = asyncio.run(session_store.get_session(_key_of(_nested())))
     assert r.json()["status"] == "not_found"
@@ -3151,7 +3142,7 @@ def test_an_unnamed_heartbeat_leaves_another_platforms_session_alone(
         _age_session_on(_nested(), 120)
         before = json.loads(_session_raw(_nested()))["last_seen"]
         r = client.post(
-            "/api/streaming/sessions/ngc/heartbeat", headers=_auth(access_token)
+            "/api/streaming/sessions/ngc/heartbeat", headers=bearer(access_token)
         )
         after = json.loads(_session_raw(_nested()))["last_seen"]
     assert r.json()["status"] == "ended"
@@ -3192,7 +3183,7 @@ def test_desktop_frees_the_claim_when_activation_fails(client, access_token):
             response = client.post(
                 "/api/streaming/desktop",
                 json={"container": key},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         assert response.status_code == 503
         assert _session_raw(container) is None
@@ -3214,7 +3205,7 @@ def test_desktop_frees_the_claim_when_activation_is_cancelled(client, access_tok
             client.post(
                 "/api/streaming/desktop",
                 json={"container": key},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         activate.assert_called_once()
         assert _session_raw(container) is None
@@ -3233,7 +3224,7 @@ def test_releasing_a_desktop_session_syncs_nothing_to_the_library(client, access
             response = client.delete(
                 f"/api/streaming/sessions/{container.platform}",
                 params={"container": _key_of(container)},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert response.status_code == 200
     stop.assert_called_once()
@@ -3247,7 +3238,7 @@ def test_the_admin_session_list_flags_a_desktop(client, access_token):
     with _streaming(_webstation()):
         key = _key_of(_first_container("ps2"))
         assert _desktop(client, access_token, key)[0].status_code == 200
-        response = client.get("/api/streaming/sessions", headers=_auth(access_token))
+        response = client.get("/api/streaming/sessions", headers=bearer(access_token))
     session = response.json()["sessions"][0]
     assert session["desktop"] is True
     assert session["rom_name"] is None
@@ -3257,7 +3248,7 @@ def test_webstation_capabilities_match_the_platform_table(client, access_token):
     """The webstation broker serves the same slots and the same whole-card route
     as the per-emulator ps2 mod, so nothing about it is special-cased."""
     with _streaming(_webstation()):
-        response = client.get("/api/streaming/config", headers=_auth(access_token))
+        response = client.get("/api/streaming/config", headers=bearer(access_token))
     assert response.status_code == 200
     rows = {c["platform"]: c["capabilities"] for c in response.json()["containers"]}
     assert rows["ps2"] == streaming.platform_capabilities("ps2")
@@ -3541,7 +3532,7 @@ def test_heartbeat_refreshes_last_seen(client, access_token, rom: Rom):
         _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
         r = client.post(
             f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
     assert r.status_code == 200
     assert r.json()["status"] == "active"
@@ -3560,7 +3551,7 @@ def test_a_heartbeat_for_a_replaced_claim_reports_ended(client, access_token, ro
         r = client.post(
             f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
             params={"claimed_at": "2020-01-01T00:00:00+00:00"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         after = json.loads(_session_raw(_container_for(rom)))["last_seen"]
     assert r.status_code == 200
@@ -3577,7 +3568,7 @@ def test_a_heartbeat_naming_its_own_claim_still_refreshes_it(
         r = client.post(
             f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
             params={"claimed_at": claimed_at},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         session = json.loads(_session_raw(_container_for(rom)))
     assert r.json()["status"] == "active"
@@ -3603,7 +3594,7 @@ def test_heartbeat_racing_a_teardown_reports_ended(client, access_token, rom: Ro
         with patch.object(access, "find_session_for_user", find_then_drop):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.status_code == 200
     assert r.json()["status"] == "ended"
@@ -3635,7 +3626,7 @@ def test_heartbeat_for_a_session_reassigned_mid_request_reports_ended(
         with patch.object(access, "find_session_for_user", find_then_reassign):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         after = json.loads(_session_raw(container))["last_seen"]
     assert r.status_code == 200
@@ -3670,7 +3661,7 @@ def test_heartbeat_for_a_claim_restamped_mid_request_reports_ended(
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
                 params={"claimed_at": claimed_at},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         after = json.loads(_session_raw(container))["last_seen"]
     assert r.status_code == 200
@@ -3691,7 +3682,7 @@ def test_heartbeat_does_not_revive_a_draining_session(client, access_token, rom:
 
         r = client.post(
             f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
     assert r.status_code == 200
     assert r.json()["status"] == "ended"
@@ -3717,7 +3708,7 @@ def test_heartbeat_keeps_a_disc_swap_that_landed_first(client, access_token, rom
         with patch.object(access, "find_session_for_user", find_then_swap):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         session = _load_session(key)
 
@@ -3751,7 +3742,7 @@ def test_heartbeat_without_session_reports_ended(client, access_token, rom: Rom)
     with _streaming(_container_for(rom)):
         r = client.post(
             f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
     assert r.status_code == 200
     assert r.json()["status"] == "ended"
@@ -3767,7 +3758,7 @@ def test_heartbeat_by_other_user_reports_ended(
         _claim_ok(client, access_token, rom.id)
         r = client.post(
             f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
     assert r.status_code == 200
     assert r.json()["status"] == "ended"
@@ -3777,7 +3768,7 @@ def test_heartbeat_for_unknown_platform_returns_404(client, access_token, rom: R
     with _streaming(_container_for(rom)):
         r = client.post(
             "/api/streaming/sessions/not-a-platform/heartbeat",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
     assert r.status_code == 404
 
@@ -3791,7 +3782,7 @@ def test_status_reports_active_for_owner(client, access_token, rom: Rom):
         _claim_ok(client, access_token, rom.id)
         r = client.get(
             f"/api/streaming/sessions/{rom.platform_slug}/status",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
     assert r.status_code == 200
     assert r.json() == {
@@ -3813,7 +3804,7 @@ def test_status_carries_the_room_the_launch_answered_with(client, access_token):
     with _streaming(container):
         assert _claim_webstation_ok(client, access_token, rom.id).status_code == 202
         r = client.get(
-            "/api/streaming/sessions/ps2/status", headers=_auth(access_token)
+            "/api/streaming/sessions/ps2/status", headers=bearer(access_token)
         )
     assert r.status_code == 200
     assert r.json()["host"].endswith("/room/x")
@@ -3839,7 +3830,7 @@ def test_status_does_not_refresh_the_session(client, access_token, rom: Rom):
         _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
         client.get(
             f"/api/streaming/sessions/{rom.platform_slug}/status",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
     key = session_store.session_redis_key(_key_of(_container_for(rom)))
     session = _load_session(key)
@@ -3858,7 +3849,7 @@ def test_status_for_a_replaced_claim_reports_ended(client, access_token, rom: Ro
         r = client.get(
             f"/api/streaming/sessions/{rom.platform_slug}/status",
             params={"claimed_at": first.json()["claimed_at"]},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
     assert r.status_code == 200
     assert r.json()["status"] == "ended"
@@ -3874,12 +3865,12 @@ def test_admin_release_leaves_termination_notice(
         released = client.delete(
             f"/api/streaming/sessions/{rom.platform_slug}",
             params={"reason": "maintenance window"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         assert released.status_code == 200
         r = client.get(
             f"/api/streaming/sessions/{rom.platform_slug}/status",
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
     assert r.status_code == 200
     body = r.json()
@@ -3898,7 +3889,7 @@ def test_admin_release_notifies_the_displaced_player(
         client.delete(
             f"/api/streaming/sessions/{rom.platform_slug}",
             params={"reason": "maintenance window"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
     [notification] = db_notification_handler.get_notifications(viewer_user.id)
@@ -3920,11 +3911,11 @@ def test_heartbeat_carries_termination_notice(
         client.delete(
             f"/api/streaming/sessions/{rom.platform_slug}",
             params={"reason": "patching the host"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         r = client.post(
             f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
     assert r.status_code == 200
     body = r.json()
@@ -3942,11 +3933,11 @@ def test_a_termination_notice_names_the_container_it_ended(
         client.delete(
             f"/api/streaming/sessions/{rom.platform_slug}",
             params={"reason": "maintenance window"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         r = client.get(
             f"/api/streaming/sessions/{rom.platform_slug}/status",
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
     notice = r.json()["termination"]
     assert notice["container"] == _key_of(_container_for(rom))
@@ -3962,11 +3953,11 @@ def test_a_termination_notice_names_the_claim_it_ended(
         claimed_at = _claim_ok(client, viewer_access_token, rom.id).json()["claimed_at"]
         client.delete(
             f"/api/streaming/sessions/{rom.platform_slug}",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         r = client.get(
             f"/api/streaming/sessions/{rom.platform_slug}/status",
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
     assert r.json()["termination"]["claimed_at"] == claimed_at
 
@@ -3981,12 +3972,12 @@ def test_status_does_not_report_the_notice_of_another_claim(
         client.delete(
             f"/api/streaming/sessions/{rom.platform_slug}",
             params={"reason": "maintenance window"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         r = client.get(
             f"/api/streaming/sessions/{rom.platform_slug}/status",
             params={"claimed_at": "2026-09-17T10:05:00+00:00"},
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
     assert r.json()["status"] == "ended"
     assert r.json()["termination"] is None
@@ -4017,7 +4008,7 @@ def test_a_termination_notice_lands_before_the_drain(
             client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
                 params={"reason": "maintenance window"},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert seen and seen[0] is not None
     assert seen[0]["reason"] == "maintenance window"
@@ -4059,12 +4050,12 @@ def test_force_release_all_leaves_termination_notice(
         swept = client.delete(
             "/api/streaming/sessions",
             params={"reason": "server restart"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         assert swept.status_code == 200
         r = client.get(
             f"/api/streaming/sessions/{rom.platform_slug}/status",
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
     assert r.json()["termination"]["reason"] == "server restart"
 
@@ -4078,11 +4069,11 @@ def test_self_release_leaves_no_termination_notice(
         _claim_ok(client, access_token, rom.id)
         client.delete(
             f"/api/streaming/sessions/{rom.platform_slug}",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         r = client.get(
             f"/api/streaming/sessions/{rom.platform_slug}/status",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
     assert r.json()["termination"] is None
     assert db_notification_handler.get_notifications(admin_user.id) == []
@@ -4097,11 +4088,11 @@ def test_admin_release_of_own_session_leaves_notice(client, access_token, rom: R
         client.delete(
             f"/api/streaming/sessions/{rom.platform_slug}",
             params={"reason": "clearing the container"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         r = client.get(
             f"/api/streaming/sessions/{rom.platform_slug}/status",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
     body = r.json()
     assert body["status"] == "ended"
@@ -4119,11 +4110,11 @@ def test_admin_release_with_blank_reason_still_names_the_admin(
         client.delete(
             f"/api/streaming/sessions/{rom.platform_slug}",
             params={"reason": ""},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         r = client.get(
             f"/api/streaming/sessions/{rom.platform_slug}/status",
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
     body = r.json()
     assert body["termination"]["ended_by"]
@@ -4140,12 +4131,12 @@ def test_reclaim_clears_termination_notice(
         client.delete(
             f"/api/streaming/sessions/{rom.platform_slug}",
             params={"reason": "maintenance window"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         _claim_ok(client, viewer_access_token, rom.id)
         r = client.post(
             f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
     assert r.json()["status"] == "active"
 
@@ -4174,7 +4165,7 @@ def test_status_reports_the_extraction_phase_during_a_launch(client, access_toke
             return_value={"extraction_phase": "extracting_pkg"},
         ):
             r = client.get(
-                "/api/streaming/sessions/ps2/status", headers=_auth(access_token)
+                "/api/streaming/sessions/ps2/status", headers=bearer(access_token)
             )
     assert r.status_code == 200
     assert r.json()["extraction_phase"] == "extracting_pkg"
@@ -4193,7 +4184,7 @@ def test_status_reports_no_phase_before_the_broker_starts_unpacking(
             "handler.streaming.broker.request_safe", return_value={"active": True}
         ):
             r = client.get(
-                "/api/streaming/sessions/ps2/status", headers=_auth(access_token)
+                "/api/streaming/sessions/ps2/status", headers=bearer(access_token)
             )
     assert r.json()["extraction_phase"] is None
 
@@ -4206,7 +4197,7 @@ def test_status_stops_asking_the_broker_once_the_launch_returned(client, access_
         _claim_webstation_ok(client, access_token, ps2_rom.id)
         with patch("handler.streaming.broker.request_safe") as broker:
             r = client.get(
-                "/api/streaming/sessions/ps2/status", headers=_auth(access_token)
+                "/api/streaming/sessions/ps2/status", headers=bearer(access_token)
             )
     assert r.json()["status"] == "active"
     assert r.json()["extraction_phase"] is None
@@ -4224,7 +4215,7 @@ def test_status_on_a_legacy_container_never_asks_for_a_phase(
         with patch("handler.streaming.broker.request_safe") as broker:
             r = client.get(
                 f"/api/streaming/sessions/{rom.platform_slug}/status",
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.json()["status"] == "active"
     assert r.json()["extraction_phase"] is None
@@ -4241,7 +4232,7 @@ def test_release_uses_container_key_not_platform(client, access_token, rom: Rom)
         with _stub_stop():
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.status_code == 200
     assert r.json()["status"] == "released"
@@ -4258,7 +4249,7 @@ def test_a_release_for_a_replaced_claim_leaves_the_session(
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
                 params={"claimed_at": "2020-01-01T00:00:00+00:00"},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         session = asyncio.run(session_store.get_session(_key_of(_container_for(rom))))
     assert r.status_code == 200
@@ -4276,7 +4267,7 @@ def test_a_release_naming_its_own_claim_still_ends_the_session(
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
                 params={"claimed_at": claimed_at},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.json()["status"] == "released"
     stop.assert_called_once()
@@ -4296,7 +4287,7 @@ def test_a_release_for_a_claim_another_player_took_over_is_a_no_op(
                     "container": _key_of(_container_for(rom)),
                     "claimed_at": "2020-01-01T00:00:00+00:00",
                 },
-                headers=_auth(viewer_access_token),
+                headers=bearer(viewer_access_token),
             )
     assert r.status_code == 200
     assert r.json()["status"] == "not_found"
@@ -4314,7 +4305,7 @@ def test_an_unnamed_release_for_a_claim_another_player_took_over_is_a_no_op(
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
                 params={"claimed_at": "2020-01-01T00:00:00+00:00"},
-                headers=_auth(viewer_access_token),
+                headers=bearer(viewer_access_token),
             )
     assert r.status_code == 200
     assert r.json()["status"] == "not_found"
@@ -4330,7 +4321,7 @@ def test_release_by_other_user_is_forbidden(
         r_claim = _claim_ok(client, access_token, rom.id)
         r = client.delete(
             f"/api/streaming/sessions/{rom.platform_slug}",
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
     assert r_claim.status_code == 202
     assert r.status_code == 403
@@ -4344,7 +4335,7 @@ def test_save_state_by_other_user_is_forbidden(
         r = client.post(
             f"/api/streaming/sessions/{rom.platform_slug}/save-state",
             json={"slot": 1},
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
     assert r.status_code == 403
 
@@ -4387,7 +4378,7 @@ def test_save_and_exit_releases_session_once_the_state_is_pulled(
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
                 json={"slot": 0, "wait": True},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
             # Still held: the state has not come back out of the container yet.
             held = _claim_ok(client, access_token, rom.id)
@@ -4417,7 +4408,7 @@ def test_a_save_and_exit_for_a_replaced_claim_leaves_the_session(
                     "claimed_at": "2020-01-01T00:00:00+00:00",
                 },
                 json={"slot": 0, "wait": True},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         session = asyncio.run(session_store.get_session(_key_of(_container_for(rom))))
     assert r.status_code == 200
@@ -4442,7 +4433,7 @@ def test_a_save_and_exit_naming_its_own_claim_still_ends_the_session(
                     "claimed_at": claimed_at,
                 },
                 json={"slot": 0, "wait": True},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.json()["status"] == "ok"
     save_and_exit.assert_called_once()
@@ -4464,7 +4455,7 @@ def test_a_named_save_and_exit_leaves_another_platforms_session_alone(
                 "/api/streaming/sessions/ngc/save-and-exit",
                 params={"container": _key_of(_nested())},
                 json={"slot": 0, "wait": True},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         session = asyncio.run(session_store.get_session(_key_of(_nested())))
     assert r.json()["status"] == "not_found"
@@ -4487,7 +4478,7 @@ def test_a_named_save_and_exit_leaves_a_desktop_alone(client, access_token):
                 "/api/streaming/sessions/ps2/save-and-exit",
                 params={"container": key},
                 json={"slot": 0, "wait": True},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         session = asyncio.run(session_store.get_session(key))
     assert r.json()["status"] == "not_found"
@@ -4505,7 +4496,7 @@ def test_a_save_and_exit_with_nothing_active_is_a_no_op(client, access_token, ro
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
                 json={"slot": 0, "wait": True},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.status_code == 200
     assert r.json()["status"] == "not_found"
@@ -4525,7 +4516,7 @@ def test_save_and_exit_failure_still_releases_session(client, access_token, rom:
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
                 json={"slot": 0, "wait": True},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         r2 = _claim_ok(client, access_token, rom.id)
     assert r.status_code == 200
@@ -4546,7 +4537,7 @@ def test_save_and_exit_rejects_a_slot_the_platform_lacks(client, access_token):
             r = client.post(
                 "/api/streaming/sessions/ngc/save-and-exit",
                 json={"slot": 9, "wait": True},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.status_code == 422
     broker.assert_not_called()
@@ -4557,7 +4548,7 @@ def test_force_release_all_stops_brokers(client, access_token, rom: Rom):
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with _stub_stop() as stop_broker:
-            r = client.delete("/api/streaming/sessions", headers=_auth(access_token))
+            r = client.delete("/api/streaming/sessions", headers=bearer(access_token))
     assert r.status_code == 200
     assert stop_broker.call_count == 1
 
@@ -4585,7 +4576,7 @@ def test_force_release_all_leaves_its_notice_before_the_stop(
             client.delete(
                 "/api/streaming/sessions",
                 params={"reason": "server restart"},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert seen and seen[0] is not None
     assert seen[0]["reason"] == "server restart"
@@ -4613,7 +4604,7 @@ def test_force_release_all_without_a_config_leaves_a_newer_claim(
             new=AsyncMock(side_effect=reclaimed),
         ),
     ):
-        r = client.delete("/api/streaming/sessions", headers=_auth(access_token))
+        r = client.delete("/api/streaming/sessions", headers=bearer(access_token))
     assert r.status_code == 200
     assert _load_session(session_store.session_redis_key(key))["claimed_at"] == (
         "2026-02-02T00:00:00+00:00"
@@ -4635,7 +4626,7 @@ def test_force_release_all_without_a_config_clears_the_activity(
             "handler.streaming.lifecycle.record_play_session", new=AsyncMock()
         ) as recorded,
     ):
-        r = client.delete("/api/streaming/sessions", headers=_auth(access_token))
+        r = client.delete("/api/streaming/sessions", headers=bearer(access_token))
     assert r.status_code == 200
     cleared.assert_awaited_once_with(key, session)
     recorded.assert_awaited_once_with(session)
@@ -4654,7 +4645,7 @@ def test_save_state_rejects_slot_above_platform_max(client, access_token):
         r = client.post(
             "/api/streaming/sessions/ngc/save-state",
             json={"slot": 9},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
     assert r.status_code == 422
 
@@ -4668,7 +4659,7 @@ def test_save_state_allows_platform_autosave_slot(client, access_token):
             r = client.post(
                 "/api/streaming/sessions/ngc/save-state",
                 json={"slot": 8},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.status_code == 200
     assert r.json()["slot"] == 8
@@ -4683,7 +4674,7 @@ def test_load_state_allows_platform_autosave_slot(client, access_token):
             r = client.post(
                 "/api/streaming/sessions/wii/load-state",
                 json={"slot": 8},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.status_code == 200
     assert r.json()["loaded"] is True
@@ -4697,7 +4688,7 @@ def test_load_state_rejects_slot_between_max_and_autosave(client, access_token):
         r = client.post(
             "/api/streaming/sessions/ngc/load-state",
             json={"slot": 9},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
     assert r.status_code == 422
 
@@ -4793,7 +4784,7 @@ def test_save_state_spawns_library_pull(client, access_token):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-state",
                 json={"slot": 3},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.status_code == 200
     spawn.assert_called_once()
@@ -4822,7 +4813,7 @@ def test_save_and_exit_pulls_broker_effective_slot(client, access_token, rom: Ro
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
                 json={"slot": 0, "wait": True},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.status_code == 200
     # One spawn for the state pull, one for the in-game save pull.
@@ -4854,7 +4845,7 @@ def test_save_and_exit_failed_blocking_save_skips_state_pull(
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
                 json={"slot": 0, "wait": True},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
             spawn.assert_called_once()
             asyncio.run(spawn.call_args[0][0])
@@ -4885,7 +4876,7 @@ def test_save_and_exit_holds_the_container_until_the_state_is_pulled(
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
                 json={"slot": 0, "wait": False},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         # The drain key briefly holds the container.
         r2 = _claim_ok(client, access_token, rom.id)
@@ -4930,7 +4921,7 @@ def test_save_and_exit_without_a_rom_drains_only_briefly(
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
                 json={"slot": 0, "wait": False},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.status_code == 200
     spawn.assert_not_called()
@@ -9031,7 +9022,7 @@ def test_release_spawns_saves_pull(client, access_token, rom: Rom):
         ):
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
             spawn.assert_called_once()
             asyncio.run(spawn.call_args[0][0])
@@ -9078,7 +9069,7 @@ def test_a_claim_behind_an_exit_waits_for_that_exits_saves(
         ):
             client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         with (
             patch(
@@ -9117,7 +9108,7 @@ def test_a_release_marks_its_save_pull_before_stopping_the_emulator(
         ):
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         spawn.call_args[0][0].close()
     assert r.status_code == 200
@@ -9171,7 +9162,7 @@ def test_a_release_that_fails_before_its_pull_leaves_nothing_pending(
         ):
             client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     spawn.assert_not_called()
     assert asyncio.run(_save_pull_pending(admin_user.id, rom.id)) is False
@@ -9243,7 +9234,7 @@ def test_a_webstation_exit_that_changed_no_saves_lets_the_next_claim_straight_th
         ):
             client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         (pull,) = (
             c.args[0]
@@ -9273,7 +9264,7 @@ def test_a_webstation_exit_that_never_answered_keeps_asking(
         ):
             client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
             _run_exit_pulls(spawn)
     assert fetch.call_count == broker.PULL_ATTEMPTS
@@ -9315,7 +9306,7 @@ def test_a_webstation_save_and_exit_takes_one_answer_only_once_its_exit_answers(
             client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
                 json={"slot": 0, "wait": wait},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
             _run_exit_pulls(spawn)
     assert fetch.call_count == attempts
@@ -9337,7 +9328,7 @@ def test_a_release_keeps_asking_while_the_emulator_flushes(
         ):
             client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
             _run_exit_pulls(spawn)
     assert fetch.call_count == broker.PULL_ATTEMPTS
@@ -9382,7 +9373,7 @@ def test_a_force_release_keeps_asking_while_the_emulator_flushes(
                 "handler.streaming.saves.fetch_save_archive", return_value=None
             ) as fetch,
         ):
-            client.delete("/api/streaming/sessions", headers=_auth(access_token))
+            client.delete("/api/streaming/sessions", headers=bearer(access_token))
             _run_exit_pulls(spawn)
     assert fetch.call_count == broker.PULL_ATTEMPTS
 
@@ -9421,7 +9412,7 @@ def test_a_blocking_save_and_exit_takes_one_answer_only_once_the_broker_confirms
             client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
                 json={"slot": 0, "wait": True},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
             _run_exit_pulls(spawn)
     assert fetch.call_count == attempts
@@ -9451,7 +9442,7 @@ def test_a_background_save_and_exit_keeps_asking_while_the_emulator_writes(
             client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
                 json={"slot": 0, "wait": False},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
             _run_exit_pulls(spawn)
     assert fetch.call_count == broker.PULL_ATTEMPTS
@@ -9483,7 +9474,7 @@ def test_save_and_exit_marks_the_save_pull_before_giving_up_the_key(
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
                 json={"slot": 0, "wait": True},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         asyncio.run(async_cache.delete(key))
     assert r.status_code == 200
@@ -10661,7 +10652,7 @@ def test_releasing_a_webstation_session_pulls_the_exit_state(
         ):
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.status_code == 200
     pull.assert_awaited_once()
@@ -10695,7 +10686,7 @@ def test_releasing_without_saving_files_no_state(client, access_token, rom: Rom)
         ):
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}?save=false",
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.status_code == 200
     assert stop.call_args[0][1] is False
@@ -10722,7 +10713,7 @@ def test_list_sessions_requires_auth(client):
 
 
 def test_list_sessions_requires_admin(client, viewer_access_token):
-    r = client.get("/api/streaming/sessions", headers=_auth(viewer_access_token))
+    r = client.get("/api/streaming/sessions", headers=bearer(viewer_access_token))
     assert r.status_code == 403
 
 
@@ -10732,7 +10723,7 @@ def test_list_sessions_returns_enriched_entries(
     """The admin list carries platform, rom and username for the release UI."""
     with _streaming(_container_for(rom)):
         _claim_ok(client, viewer_access_token, rom.id)
-        r = client.get("/api/streaming/sessions", headers=_auth(access_token))
+        r = client.get("/api/streaming/sessions", headers=bearer(access_token))
     assert r.status_code == 200
     sessions = r.json()["sessions"]
     assert len(sessions) == 1
@@ -10753,7 +10744,7 @@ def test_admin_can_release_other_users_session(
         with _stub_stop() as stop:
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.status_code == 200
     assert r.json()["status"] == "released"
@@ -10778,7 +10769,7 @@ def _mc_claim(client, token, rom_id, memory_card_id=None, card_import=None):
         body["memory_card_id"] = memory_card_id
     if card_import is not None:
         body["card_import"] = card_import
-    return client.post("/api/streaming/sessions", json=body, headers=_auth(token))
+    return client.post("/api/streaming/sessions", json=body, headers=bearer(token))
 
 
 def _make_card(
@@ -11815,7 +11806,7 @@ def test_save_and_exit_evacuates_card(client, access_token, rom: Rom):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
                 json={},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.status_code == 200
     evac.assert_awaited_once()
@@ -11849,7 +11840,7 @@ def test_release_evacuates_card(client, access_token, rom: Rom):
         ):
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.status_code == 200
     stop.assert_called_once()
@@ -11886,7 +11877,7 @@ def test_release_frees_the_claim_when_teardown_raises(client, access_token, rom:
         ):
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.status_code == 200
     assert asyncio.run(session_store.get_session(_key_of(container))) is None
@@ -11924,7 +11915,7 @@ def test_save_and_exit_wait_false_forces_blocking_on_card_sync(
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
                 json={"wait": False},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.status_code == 200
     assert save.call_args.kwargs["wait"] is True
@@ -12536,7 +12527,7 @@ def test_releasing_a_session_takes_it_off_the_activity_board(
         with _stub_stop():
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.status_code == 200
     assert _activity_entry(container, admin_user) is None
@@ -12630,7 +12621,7 @@ def _ra_claim(client, token, rom: Rom, value, reply: dict[str, Any]):
             client.post(
                 "/api/streaming/sessions",
                 json={"rom_id": rom.id},
-                headers=_auth(token),
+                headers=bearer(token),
             )
     activate = next(
         c for c in request.call_args_list if c.args[1].endswith("/activate")
@@ -12664,11 +12655,11 @@ def test_status_warns_a_tab_that_missed_launch_ready_of_its_core(
             client.post(
                 "/api/streaming/sessions",
                 json={"rom_id": rom.id},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
             r = client.get(
                 f"/api/streaming/sessions/{rom.platform_slug}/status",
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.json()["core"] == "bsnes"
     assert r.json()["core_tier"] == "untested"
@@ -12795,7 +12786,7 @@ def test_a_desktop_on_a_container_with_a_core_boots_no_core(client, access_token
             response = client.post(
                 "/api/streaming/desktop",
                 json={"container": _key_of(container)},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert response.status_code == 200
     exit_session.assert_not_called()
@@ -12824,7 +12815,7 @@ def _claim_multiplayer(client, token, rom_id, multiplayer=True):
         return client.post(
             "/api/streaming/sessions",
             json={"rom_id": rom_id, "multiplayer": multiplayer},
-            headers=_auth(token),
+            headers=bearer(token),
         )
 
 
@@ -12847,7 +12838,7 @@ def test_the_activate_body_carries_the_multiplayer_flag(client, access_token, ro
             client.post(
                 "/api/streaming/sessions",
                 json={"rom_id": rom.id, "multiplayer": True},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
 
     assert request.call_args.kwargs["body"]["multiplayer"] is True
@@ -12862,7 +12853,7 @@ def _activate_body(client, token, rom: Rom) -> dict[str, Any]:
             client.post(
                 "/api/streaming/sessions",
                 json={"rom_id": rom.id},
-                headers=_auth(token),
+                headers=bearer(token),
             )
     return cast(dict[str, Any], request.call_args.kwargs["body"])
 
@@ -12970,7 +12961,7 @@ def test_a_claim_is_solo_unless_asked_otherwise(client, access_token, rom: Rom):
 def _joinable(client, token, rom_id=None):
     params = {} if rom_id is None else {"rom_id": rom_id}
     return client.get(
-        "/api/streaming/sessions/joinable", params=params, headers=_auth(token)
+        "/api/streaming/sessions/joinable", params=params, headers=bearer(token)
     )
 
 
@@ -13104,7 +13095,7 @@ def test_joinable_hides_a_session_whose_rom_is_hidden(
 ):
     """The listing leaks rom_name and host_username, so a ROM the caller
     cannot see must not appear in it."""
-    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
     container = _ws_for(rom)
     with _streaming(container):
         _claim_multiplayer(client, access_token, rom.id)
@@ -13116,7 +13107,7 @@ def test_joinable_hides_a_session_whose_rom_is_hidden(
 def test_joinable_hides_a_session_on_a_hidden_platform(
     client, access_token, viewer_access_token, viewer_user: User, rom: Rom, platform
 ):
-    _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
+    hide(PermEntity.PLATFORMS, platform.id, user_id=viewer_user.id)
     container = _ws_for(rom)
     with _streaming(container):
         _claim_multiplayer(client, access_token, rom.id)
@@ -13133,7 +13124,7 @@ def _join(client, token, platform, container=None):
     return client.post(
         f"/api/streaming/sessions/{platform}/join",
         params=params,
-        headers=_auth(token),
+        headers=bearer(token),
     )
 
 
@@ -13172,7 +13163,7 @@ def test_joining_a_hidden_rom_is_404_masked(
 ):
     """Joining streams the host's ROM, so it needs the same visibility policy
     the claim route enforces; masked as the not-found so nothing leaks."""
-    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
     with _streaming(_ws_for(rom)):
         _claim_multiplayer(client, access_token, rom.id)
         with patch("handler.streaming.webstation.join") as join_broker:
@@ -13185,7 +13176,7 @@ def test_joining_a_hidden_rom_is_404_masked(
 def test_joining_a_rom_on_a_hidden_platform_is_404_masked(
     client, access_token, viewer_access_token, viewer_user: User, rom: Rom, platform
 ):
-    _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
+    hide(PermEntity.PLATFORMS, platform.id, user_id=viewer_user.id)
     with _streaming(_ws_for(rom)):
         _claim_multiplayer(client, access_token, rom.id)
         with patch("handler.streaming.webstation.join") as join_broker:
@@ -13226,7 +13217,7 @@ def test_joining_walks_past_a_session_whose_rom_is_hidden(
 ):
     """A hidden ROM earlier in the pool is not the caller's answer, so it must
     not mask the joinable session behind it."""
-    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
     with _streaming(_ws_pool_member(rom, 0), _ws_pool_member(rom, 1)):
         _claim_multiplayer(client, access_token, rom.id)
         _claim_multiplayer(client, editor_access_token, second_rom.id)
@@ -13513,7 +13504,7 @@ def test_swap_disc_calls_the_broker_and_records_the_disc(client, access_token):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
                 json={"file_id": disc.id},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         raw = _session_raw(container)
     assert r.status_code == 200
@@ -13536,7 +13527,7 @@ def test_swap_disc_reports_a_broker_failure(client, access_token):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
                 json={"file_id": disc.id},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         raw = _session_raw(container)
     assert r.status_code == 502
@@ -13551,7 +13542,7 @@ def test_swap_disc_refuses_a_file_from_another_rom(client, access_token, rom):
         r = client.post(
             f"/api/streaming/sessions/{streamed.platform_slug}/swap-disc",
             json={"file_id": stranger.id},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
     assert r.status_code == 404
 
@@ -13568,7 +13559,7 @@ def test_swap_disc_refuses_the_m3u_playlist(client, access_token):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
                 json={"file_id": playlist.id},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.status_code == 400
     swap.assert_not_called()
@@ -13586,7 +13577,7 @@ def test_swap_disc_refuses_a_raw_track_when_cues_are_present(client, access_toke
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
                 json={"file_id": track.id},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.status_code == 400
     swap.assert_not_called()
@@ -13602,7 +13593,7 @@ def test_swap_disc_by_other_user_is_forbidden(
         r = client.post(
             f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
             json={"file_id": disc.id},
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
     assert r.status_code == 403
 
@@ -13614,7 +13605,7 @@ def test_swap_disc_needs_a_session(client, access_token):
         r = client.post(
             f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
             json={"file_id": disc.id},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
     assert r.status_code == 404
 
@@ -13627,7 +13618,7 @@ def test_swap_disc_rejects_a_platform_with_no_tray(client, access_token):
         r = client.post(
             f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
             json={"file_id": disc.id},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
     assert r.status_code == 400
 
@@ -13644,7 +13635,7 @@ def test_swap_disc_rejects_a_container_with_no_tray_route(client, access_token):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
                 json={"file_id": disc.id},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert r.status_code == 400
     swap.assert_not_called()
@@ -13662,7 +13653,7 @@ def test_a_state_captured_after_a_swap_records_the_disc(client, access_token):
             client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/swap-disc",
                 json={"file_id": disc.id},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
         with (
             patch("handler.streaming.commands.save_state", return_value=True),
@@ -13674,7 +13665,7 @@ def test_a_state_captured_after_a_swap_records_the_disc(client, access_token):
             client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-state",
                 json={"slot": 10},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
             )
     assert pull.call_args.kwargs["disc_file_id"] == disc.id
 
@@ -13728,7 +13719,7 @@ def _claim_disc(client, token, rom_id, disc_file_id):
     return client.post(
         "/api/streaming/sessions",
         json={"rom_id": rom_id, "disc_file_id": disc_file_id},
-        headers=_auth(token),
+        headers=bearer(token),
     )
 
 
@@ -13944,7 +13935,7 @@ def test_claim_boots_the_resumed_states_disc_where_no_tray_can_reach_it(
         r = client.post(
             "/api/streaming/sessions",
             json={"rom_id": rom.id, "disc_file_id": picked.id, "state_id": state.id},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
     assert r.status_code == 202
     kwargs = run_launch_mock.call_args.kwargs
@@ -14113,7 +14104,7 @@ def test_get_config_is_disabled_without_streaming_read(
     _override_streaming(viewer_user, PermAction.READ)
     with _streaming(_container_for(rom)):
         response = client.get(
-            "/api/streaming/config", headers=_auth(viewer_access_token)
+            "/api/streaming/config", headers=bearer(viewer_access_token)
         )
     assert response.status_code == 200
     assert response.json()["enabled"] is False
@@ -14147,7 +14138,7 @@ def test_get_config_is_disabled_for_a_group_without_streaming(
     )
     with _streaming(_container_for(rom)):
         response = client.get(
-            "/api/streaming/config", headers=_auth(_access_token(guest))
+            "/api/streaming/config", headers=bearer(_access_token(guest))
         )
     assert response.json()["enabled"] is False
 
@@ -14156,7 +14147,7 @@ def test_get_config_keeps_streaming_for_an_admin_with_no_grants(
     client, access_token, rom: Rom
 ):
     with _streaming(_container_for(rom)):
-        response = client.get("/api/streaming/config", headers=_auth(access_token))
+        response = client.get("/api/streaming/config", headers=bearer(access_token))
     assert response.json()["enabled"] is True
 
 
@@ -14181,7 +14172,9 @@ def test_an_own_only_streaming_grant_counts(
         viewer_user, PermAction.READ, PermAction.WRITE, granted=True, own_only=True
     )
     with _streaming(_container_for(rom)):
-        config = client.get("/api/streaming/config", headers=_auth(viewer_access_token))
+        config = client.get(
+            "/api/streaming/config", headers=bearer(viewer_access_token)
+        )
         r = _claim_ok(client, viewer_access_token, rom.id)
     assert config.json()["enabled"] is True
     assert r.status_code == 202
@@ -14258,7 +14251,7 @@ def test_a_revoked_player_can_still_leave_their_session(
         with _stub_stop():
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
-                headers=_auth(viewer_access_token),
+                headers=bearer(viewer_access_token),
             )
     assert r.status_code == 200
     assert r.json()["status"] == "released"

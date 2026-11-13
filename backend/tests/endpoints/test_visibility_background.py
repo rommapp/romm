@@ -10,11 +10,11 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.auth_helpers import hide, user_headers
 from tests.endpoints.test_music import (  # noqa: F401
     _track_id,
     music_library,
 )
-from tests.endpoints.test_permissions_visibility import _auth, _hide
 from tests.factories import make_device_token, make_platform, make_rom, make_save
 from tests.handler.recommendation.test_builder import make_rom as make_rated_rom
 
@@ -35,7 +35,7 @@ def _negotiate(
     response = client.post(
         "/api/sync/negotiate",
         json={"device_id": device_id, "saves": saves},
-        headers=_auth(user),
+        headers=user_headers(user),
     )
     assert response.status_code == status.HTTP_200_OK, response.text
     body: dict[str, Any] = response.json()
@@ -55,7 +55,7 @@ class TestSyncNegotiate:
         shown = make_save(
             second_rom, viewer_user, "shown.sav", slot="autosave", content_hash="s1"
         )
-        _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+        hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
 
         offered = _negotiate(client, viewer_user, device.id, [])
         assert [op["save_id"] for op in offered["operations"]] == [shown.id]
@@ -118,7 +118,7 @@ class TestDeviceInstalls:
         response = client.post(
             "/api/devices/vis-install/installs",
             json={"rom_id": rom.id},
-            headers=_auth(editor_user),
+            headers=user_headers(editor_user),
         )
         assert response.status_code == status.HTTP_201_CREATED, response.text
         return str(response.json()["id"])
@@ -128,7 +128,7 @@ class TestDeviceInstalls:
     ):
         hidden_id = self._queue(client, editor_user, rom)
         shown_id = self._queue(client, editor_user, second_rom)
-        _hide(PermEntity.ROMS, rom.id, editor_user.id)
+        hide(PermEntity.ROMS, rom.id, user_id=editor_user.id)
 
         listed = client.get("/api/devices/vis-install/installs", headers=device_headers)
         claimed = client.post(
@@ -145,7 +145,7 @@ class TestDeviceInstalls:
     ):
         request_id = self._queue(client, editor_user, rom)
         client.post("/api/devices/vis-install/installs/claim", headers=device_headers)
-        _hide(PermEntity.ROMS, rom.id, editor_user.id)
+        hide(PermEntity.ROMS, rom.id, user_id=editor_user.id)
 
         response = client.put(
             f"/api/devices/vis-install/installs/{request_id}",
@@ -181,9 +181,9 @@ def test_a_hidden_seed_is_not_named(client, viewer_user: User, platform: Platfor
         rom_user.id, {"rating": 10, "last_played": datetime.now(timezone.utc)}
     )
     invalidate_cached_feed(viewer_user.id)
-    _hide(PermEntity.ROMS, seed.id, viewer_user.id)
+    hide(PermEntity.ROMS, seed.id, user_id=viewer_user.id)
 
-    body = client.get("/api/recommendations", headers=_auth(viewer_user)).json()
+    body = client.get("/api/recommendations", headers=user_headers(viewer_user)).json()
 
     assert body
     assert all(
@@ -211,11 +211,13 @@ def test_a_playlists_track_count_leaves_out_hidden_tracks(
         },
         headers=admin,
     )
-    _hide(PermEntity.PLATFORMS, music_library["platform_b"].id, editor_user.id)
+    hide(PermEntity.PLATFORMS, music_library["platform_b"].id, user_id=editor_user.id)
 
-    listed = client.get("/api/music/playlists", headers=_auth(editor_user)).json()
+    listed = client.get(
+        "/api/music/playlists", headers=user_headers(editor_user)
+    ).json()
     detail = client.get(
-        f"/api/music/playlists/{playlist_id}", headers=_auth(editor_user)
+        f"/api/music/playlists/{playlist_id}", headers=user_headers(editor_user)
     ).json()
 
     assert [p["track_count"] for p in listed] == [1]
@@ -226,9 +228,9 @@ def test_setup_library_lists_a_hidden_platform_as_unknown(
     client, viewer_user: User, rom: Rom
 ):
     hidden = make_platform("snes")
-    _hide(PermEntity.PLATFORMS, hidden.id, viewer_user.id)
+    hide(PermEntity.PLATFORMS, hidden.id, user_id=viewer_user.id)
 
-    response = client.get("/api/setup/library", headers=_auth(viewer_user))
+    response = client.get("/api/setup/library", headers=user_headers(viewer_user))
 
     assert response.status_code == status.HTTP_200_OK
     supported = {p["slug"]: p for p in response.json()["supported_platforms"]}
@@ -237,9 +239,11 @@ def test_setup_library_lists_a_hidden_platform_as_unknown(
 
 class TestFeeds:
     def test_a_hidden_platform_reads_as_missing(self, client, viewer_user: User):
-        missing = client.get("/api/feeds/kekatsu/nds", headers=_auth(viewer_user))
-        _hide(PermEntity.PLATFORMS, make_platform("nds").id, viewer_user.id)
-        hidden = client.get("/api/feeds/kekatsu/nds", headers=_auth(viewer_user))
+        missing = client.get(
+            "/api/feeds/kekatsu/nds", headers=user_headers(viewer_user)
+        )
+        hide(PermEntity.PLATFORMS, make_platform("nds").id, user_id=viewer_user.id)
+        hidden = client.get("/api/feeds/kekatsu/nds", headers=user_headers(viewer_user))
 
         assert hidden.status_code == status.HTTP_404_NOT_FOUND
         assert hidden.json() == missing.json()
@@ -249,9 +253,11 @@ class TestFeeds:
     ):
         hidden = make_platform("nds")
         make_platform("nds", fs_slug="nintendo-ds")
-        _hide(PermEntity.PLATFORMS, hidden.id, viewer_user.id)
+        hide(PermEntity.PLATFORMS, hidden.id, user_id=viewer_user.id)
 
-        response = client.get("/api/feeds/kekatsu/nds", headers=_auth(viewer_user))
+        response = client.get(
+            "/api/feeds/kekatsu/nds", headers=user_headers(viewer_user)
+        )
 
         assert response.status_code == status.HTTP_200_OK
 
@@ -260,10 +266,10 @@ class TestFeeds:
     ):
         switch = make_platform("switch")
         make_rom(switch, "Zelda", fs_extension="nsp")
-        _hide(PermEntity.PLATFORMS, switch.id, viewer_user.id)
+        hide(PermEntity.PLATFORMS, switch.id, user_id=viewer_user.id)
 
         body = client.get(
-            "/api/feeds/tinfoil?slug=switch", headers=_auth(viewer_user)
+            "/api/feeds/tinfoil?slug=switch", headers=user_headers(viewer_user)
         ).json()
 
         assert body["error"] == "Nintendo Switch platform not found"
