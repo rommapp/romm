@@ -1,9 +1,7 @@
 """Sweeps over every registered route, so a new route can't skip auth or visibility."""
 
-import inspect
 import re
 from collections.abc import Iterable, Iterator
-from types import FunctionType
 from typing import Any, cast
 
 from fastapi import status
@@ -15,7 +13,7 @@ from sqlalchemy import delete
 from starlette.routing import BaseRoute
 from tests.endpoints.test_permissions_visibility import _auth, _hide
 
-from decorators.auth import _requires_scopes, oauth2_password_bearer
+from decorators.auth import oauth2_password_bearer
 from handler.database import db_user_handler
 from handler.database.base_handler import sync_session
 from models.permission import HiddenEntity, PermEntity
@@ -78,16 +76,12 @@ def _api_routes() -> list[tuple[str, APIRoute]]:
 
 
 def _is_protected(route: APIRoute) -> bool:
-    # The bearer dependency only documents the scopes; the endpoint's
-    # _requires_scopes wrapper is what rejects, so both must be present.
+    # The bearer dependency only documents the scopes; the scope guard's wrapper rejects.
     declared = any(
         dep.dependency is oauth2_password_bearer and getattr(dep, "scopes", None)
         for dep in route.dependencies
     )
-    endpoint = cast(FunctionType, route.endpoint)
-    if not endpoint.__code__.co_qualname.startswith(f"{_requires_scopes.__name__}."):
-        return False
-    return declared and bool(inspect.getclosurevars(endpoint).nonlocals.get("scopes"))
+    return declared and bool(getattr(route.endpoint, "required_scopes", None))
 
 
 def test_every_api_route_requires_auth_or_is_listed_public():
@@ -100,8 +94,11 @@ def test_every_api_route_requires_auth_or_is_listed_public():
 
 
 MISSING_ID = 987654321
+_ROM_SEGMENTS = ("roms", "activity/rom", "streaming/states")
+_PLATFORM_SEGMENTS = ("platforms", "firmware")
 _ENTITY_PATH = re.compile(
-    r"^/api/(roms|platforms|firmware|activity/rom|streaming/states)/\{(id|rom_id)\}"
+    rf"^/api/({'|'.join(map(re.escape, _ROM_SEGMENTS + _PLATFORM_SEGMENTS))})"
+    r"/\{(id|rom_id)\}"
 )
 # Routes whose `{id}` is a RomFile id rather than a Rom id.
 _ROM_FILE_PATHS = frozenset(
@@ -112,7 +109,6 @@ _ROM_FILE_PATHS = frozenset(
     }
 )
 _OTHER_PARAMS = {"note_id": "1", "file_name": "x", "path": "x"}
-_ROM_SEGMENTS = ("roms", "activity/rom", "streaming/states")
 # Answers that come before the entity lookup, so hidden and missing match vacuously.
 _NOT_REACHED = frozenset(
     {
@@ -122,22 +118,30 @@ _NOT_REACHED = frozenset(
     }
 )
 
+# A response's status code and its body with the requested id masked.
+Answer = tuple[int, str]
 
-def _entity_routes(segments: tuple[str, ...]) -> list[tuple[str, str, str]]:
+
+def _entity_routes(segments: Iterable[str]) -> list[tuple[str, str, str]]:
+    wanted = set(segments)
     found = set()
     for path, route in _api_routes():
         match = _ENTITY_PATH.match(path)
-        if path.endswith("/") or not match or match.group(1) not in segments:
+        if path.endswith("/") or not match or match.group(1) not in wanted:
             continue
         for method in route.methods or ():
             found.add((match.group(1), method, path))
-    assert found, f"no route keyed on {segments}; the sweep would pass vacuously"
+    assert found, f"no route keyed on {wanted}; the sweep would pass vacuously"
     return sorted(found)
 
 
 def _fill(path: str, entity_id: int, file_id: int) -> str:
-    path = re.sub(r"\{(id|rom_id)\}", str(entity_id), path, count=1)
-    params = {**_OTHER_PARAMS, "file_id": str(file_id)}
+    params = {
+        **_OTHER_PARAMS,
+        "id": str(entity_id),
+        "rom_id": str(entity_id),
+        "file_id": str(file_id),
+    }
     return re.sub(r"\{(\w+)(:path)?\}", lambda m: params[m.group(1)], path)
 
 
@@ -157,28 +161,39 @@ def _request(
     )
 
 
-def _normalized(response: Response, entity_id: int) -> str:
-    return re.sub(rf"\b{entity_id}\b", "<id>", response.text)
+def _answer(
+    client: TestClient,
+    headers: dict[str, str],
+    method: str,
+    path: str,
+    entity_id: int,
+    file_id: int,
+) -> Answer:
+    url = _fill(path, entity_id, file_id)
+    response = _request(client, headers, method, url, file_id)
+    return response.status_code, re.sub(rf"\b{entity_id}\b", "<id>", response.text)
 
 
-def _leaks(client, headers, routes, ids: dict[str, int], file_id: int) -> list[str]:
+def _leaks(
+    client: TestClient,
+    headers: dict[str, str],
+    ids: dict[str, int],
+    file_id: int,
+    missing: dict[tuple[str, str], Answer],
+) -> list[str]:
     leaks = []
-    for segment, method, path in routes:
+    for segment, method, path in _entity_routes(ids):
         hidden_id = file_id if path in _ROM_FILE_PATHS else ids[segment]
-        hidden_url = _fill(path, hidden_id, file_id)
-        hidden = _request(client, headers, method, hidden_url, file_id)
-        missing_url = _fill(path, MISSING_ID, file_id)
-        missing = _request(client, headers, method, missing_url, file_id)
-        if hidden.status_code in _NOT_REACHED:
+        hidden = _answer(client, headers, method, path, hidden_id, file_id)
+        expected = missing[method, path]
+        if hidden[0] in _NOT_REACHED:
             leaks.append(
-                f"{method} {path}: {hidden.status_code}, never reached the visibility check"
+                f"{method} {path}: {hidden[0]}, never reached the visibility check"
             )
-        elif hidden.status_code != missing.status_code or _normalized(
-            hidden, hidden_id
-        ) != _normalized(missing, MISSING_ID):
+        elif hidden != expected:
             leaks.append(
-                f"{method} {path}: {hidden.status_code} {hidden.text[:80]!r}"
-                f" vs {missing.status_code} {missing.text[:80]!r}"
+                f"{method} {path}: {hidden[0]} {hidden[1][:80]!r}"
+                f" vs {expected[0]} {expected[1][:80]!r}"
             )
     return leaks
 
@@ -193,33 +208,29 @@ def test_every_entity_route_answers_a_hidden_id_like_a_missing_one(
 ):
     """A hidden rom, platform or firmware is indistinguishable from one that doesn't exist."""
     headers = _auth(editor_user)
-    rom_routes = _entity_routes(_ROM_SEGMENTS)
     rom_ids = dict.fromkeys(_ROM_SEGMENTS, rom.id)
+    all_ids = {**rom_ids, "platforms": rom.platform_id, "firmware": firmware.id}
+    # A missing id answers the same whatever is hidden, so ask once per route.
+    missing = {
+        (method, path): _answer(client, headers, method, path, MISSING_ID, rom_file.id)
+        for _, method, path in _entity_routes(all_ids)
+    }
+
+    def sweep(label: str, ids: dict[str, int]) -> list[str]:
+        return [
+            f"{label}: {leak}"
+            for leak in _leaks(client, headers, ids, rom_file.id, missing)
+        ]
 
     _hide(PermEntity.ROMS, rom.id, editor_user.id)
-    leaks = [
-        f"rom hidden: {leak}"
-        for leak in _leaks(client, headers, rom_routes, rom_ids, rom_file.id)
-    ]
+    leaks = sweep("rom hidden", rom_ids)
     _unhide_all(editor_user.id)
 
     _hide(PermEntity.PLATFORMS, rom.platform_id, editor_user.id)
-    leaks += [
-        f"platform hidden: {leak}"
-        for leak in _leaks(client, headers, rom_routes, rom_ids, rom_file.id)
-    ]
-    platform_ids = {"platforms": rom.platform_id, "firmware": firmware.id}
-    platform_routes = _entity_routes(("platforms", "firmware"))
-    leaks += [
-        f"platform hidden: {leak}"
-        for leak in _leaks(client, headers, platform_routes, platform_ids, rom_file.id)
-    ]
+    leaks += sweep("platform hidden", all_ids)
     _unhide_all(editor_user.id)
 
     db_user_handler.update_user(editor_user.id, {"hide_unrated_roms": True})
-    leaks += [
-        f"unrated hidden: {leak}"
-        for leak in _leaks(client, headers, rom_routes, rom_ids, rom_file.id)
-    ]
+    leaks += sweep("unrated hidden", rom_ids)
 
     assert leaks == []
