@@ -22,7 +22,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx --prefix \"$CLAUDE_PROJECT_DIR/frontend\" --no -- coherence hook SessionStart",
+            "command": "test ! -x \"$CLAUDE_PROJECT_DIR/frontend/node_modules/.bin/coherence\" || \"$CLAUDE_PROJECT_DIR/frontend/node_modules/.bin/coherence\" hook SessionStart",
             "timeout": 60
           }
         ]
@@ -33,7 +33,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx --prefix \"$CLAUDE_PROJECT_DIR/frontend\" --no -- coherence hook SubagentStart",
+            "command": "test ! -x \"$CLAUDE_PROJECT_DIR/frontend/node_modules/.bin/coherence\" || \"$CLAUDE_PROJECT_DIR/frontend/node_modules/.bin/coherence\" hook SubagentStart",
             "timeout": 60
           }
         ]
@@ -44,7 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx --prefix \"$CLAUDE_PROJECT_DIR/frontend\" --no -- coherence hook UserPromptSubmit",
+            "command": "test ! -x \"$CLAUDE_PROJECT_DIR/frontend/node_modules/.bin/coherence\" || \"$CLAUDE_PROJECT_DIR/frontend/node_modules/.bin/coherence\" hook UserPromptSubmit",
             "timeout": 60
           }
         ]
@@ -56,7 +56,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx --prefix \"$CLAUDE_PROJECT_DIR/frontend\" --no -- coherence hook PreToolUse",
+            "command": "test ! -x \"$CLAUDE_PROJECT_DIR/frontend/node_modules/.bin/coherence\" || \"$CLAUDE_PROJECT_DIR/frontend/node_modules/.bin/coherence\" hook PreToolUse",
             "timeout": 60
           }
         ]
@@ -67,7 +67,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx --prefix \"$CLAUDE_PROJECT_DIR/frontend\" --no -- coherence hook PostToolUse",
+            "command": "test ! -x \"$CLAUDE_PROJECT_DIR/frontend/node_modules/.bin/coherence\" || \"$CLAUDE_PROJECT_DIR/frontend/node_modules/.bin/coherence\" hook PostToolUse",
             "timeout": 60
           }
         ]
@@ -78,7 +78,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx --prefix \"$CLAUDE_PROJECT_DIR/frontend\" --no -- coherence hook Stop",
+            "command": "test ! -x \"$CLAUDE_PROJECT_DIR/frontend/node_modules/.bin/coherence\" || \"$CLAUDE_PROJECT_DIR/frontend/node_modules/.bin/coherence\" hook Stop",
             "timeout": 60
           }
         ]
@@ -89,7 +89,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx --prefix \"$CLAUDE_PROJECT_DIR/frontend\" --no -- coherence hook SubagentStop",
+            "command": "test ! -x \"$CLAUDE_PROJECT_DIR/frontend/node_modules/.bin/coherence\" || \"$CLAUDE_PROJECT_DIR/frontend/node_modules/.bin/coherence\" hook SubagentStop",
             "timeout": 60
           }
         ]
