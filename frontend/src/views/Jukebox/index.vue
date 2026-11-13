@@ -3,11 +3,12 @@
 // screen to one of the three mode components.
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import PageHeadBand from "@/components/shared/PageHeadBand.vue";
 import PageHeader from "@/components/shared/PageHeader.vue";
 import { useCan } from "@/composables/useCan";
 import { useJukeboxUrlState } from "@/composables/useJukeboxUrlState";
 import { useSoundtrackActions } from "@/composables/useSoundtrackActions";
-import { RBtn, RChip, RDivider } from "@/lib";
+import { RBtn, RChip } from "@/lib";
 import musicApi, { type MusicTrackFilters } from "@/services/api/music";
 import {
   JUKEBOX_MODE_LABEL_KEYS,
@@ -157,7 +158,7 @@ async function deleteSoundtrack(fileId: number, romId: number) {
 
 <template>
   <section class="jukebox">
-    <div class="jukebox__header">
+    <PageHeadBand followed-by="panes" class="jukebox__header">
       <PageHeader :title="headerTitle" class="jukebox__title">
         <template v-if="mode !== 'home'" #prepend>
           <RBtn
@@ -172,8 +173,7 @@ async function deleteSoundtrack(fileId: number, romId: number) {
           <RChip size="x-small" color="primary">{{ t("common.beta") }}</RChip>
         </template>
       </PageHeader>
-      <RDivider />
-    </div>
+    </PageHeadBand>
 
     <HomeMode v-if="mode === 'home'" @open="openMode" />
 
@@ -215,7 +215,6 @@ async function deleteSoundtrack(fileId: number, romId: number) {
 /* The divider under the title runs edge to edge; only the title is inset. */
 .jukebox__header {
   grid-column: 1 / -1;
-  padding-top: var(--r-space-6);
 }
 
 .jukebox__title {

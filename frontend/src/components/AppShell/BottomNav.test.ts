@@ -1,6 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import { ref } from "vue";
+import { defineComponent, ref } from "vue";
+import { dropSupersededSkip, isTransitionSkipped } from "@/plugins/transition";
 import BottomNav from "./BottomNav.vue";
 
 type Target = { fullPath: string };
@@ -32,10 +33,17 @@ vi.mock("@/composables/useBreakpoint", () => ({
   useBreakpoint: () => ({ smAndDown: ref(true) }),
 }));
 
-const RouterLink = {
-  props: { to: String },
-  template: '<a :href="to"><slot /></a>',
-};
+// Records what the router would see when RouterLink navigates on click.
+const skippedAtNavigation: boolean[] = [];
+const RouterLink = defineComponent({
+  props: { to: { type: String, required: true } },
+  setup(props) {
+    const navigate = () =>
+      skippedAtNavigation.push(isTransitionSkipped({ fullPath: props.to }));
+    return { navigate };
+  },
+  template: '<a :href="to" @click="navigate"><slot /></a>',
+});
 
 function mountNav() {
   return mount(BottomNav, { global: { stubs: { RouterLink } } });
@@ -91,6 +99,18 @@ describe("BottomNav", () => {
     await wrapper.vm.$nextTick();
 
     expect(tabs[2]?.classes()).toContain("r-segmented-control__btn--active");
+  });
+
+  it("skips the view transition before RouterLink navigates", async () => {
+    const wrapper = mountNav();
+    const tabs = wrapper.findAll(".r-segmented-control__btn");
+    dropSupersededSkip({ fullPath: "/elsewhere" });
+    skippedAtNavigation.length = 0;
+
+    await tabs[1]?.trigger("click");
+
+    expect(skippedAtNavigation).toEqual([true]);
+    dropSupersededSkip({ fullPath: "/elsewhere" });
   });
 
   it("ignores modified clicks that open in a new tab", async () => {

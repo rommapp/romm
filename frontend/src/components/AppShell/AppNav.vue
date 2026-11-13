@@ -119,7 +119,9 @@ const scrolled = computed(
   z-index: 100;
   height: var(--r-nav-h);
   padding: var(--r-safe-t) var(--r-safe-r) 0 var(--r-safe-l);
-  background: transparent;
+  /* Solid only in iOS browser tabs (global.css): Safari tints the status bar
+     from this element's own colour and keeps it once seen. */
+  background: var(--r-nav-bar-solid-bg, transparent);
   border-bottom: 1px solid transparent;
   transition: border-color var(--r-motion-med) var(--r-motion-ease-out);
 }
