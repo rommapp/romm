@@ -11,10 +11,13 @@ from starlette.responses import FileResponse
 from config import DEV_MODE, DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from endpoints.responses.rom import RomFileSchema, RomFileUserSchema
-from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.audit_handler import AuditTarget, record, record_download
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_can, assert_rom_visible, get_permissions
+from handler.auth.dependencies import (
+    assert_can,
+    get_permissions,
+    visible_rom_or_404,
+)
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
 from logger.formatter import BLUE
@@ -41,17 +44,17 @@ MAX_LAST_PAGE = 2**31 - 1
 
 @protected_route(
     router.get,
-    "/{id}/files",
+    "/{file_id}/files",
     [Scope.ROMS_READ],
     responses={status.HTTP_404_NOT_FOUND: {}},
 )
 async def get_romfile(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
+    file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
 ) -> RomFileSchema:
     """Retrieve a rom file by ID."""
 
-    file = db_rom_handler.get_rom_file_by_id(id)
+    file = db_rom_handler.get_rom_file_by_id(file_id)
     if not file:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -60,13 +63,9 @@ async def get_romfile(
 
     # Resolve back to the parent rom and enforce its visibility, so a file
     # belonging to a hidden rom can't be read by direct RomFile.id.
-    rom = db_rom_handler.get_rom_visibility(file.rom_id)
-    if not rom:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="File not found",
-        )
-    assert_rom_visible(request, rom, not_found_detail="File not found")
+    visible_rom_or_404(
+        request, db_rom_handler.get_rom_visibility(file.rom_id), "File not found"
+    )
 
     return RomFileSchema.model_validate(file)
 
@@ -78,13 +77,13 @@ def _rom_target(rom_id: int) -> AuditTarget | None:
 
 @protected_route(
     router.get,
-    "/{id}/files/content/{file_name}",
+    "/{file_id}/files/content/{file_name}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
     responses={status.HTTP_404_NOT_FOUND: {}},
 )
 async def get_romfile_content(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
+    file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
     file_name: Annotated[str, PathVar(description="File name to download")],
 ) -> Response:
     """Download a rom file."""
@@ -93,7 +92,7 @@ async def get_romfile_content(
         request.user.username if request.user.is_authenticated else "unknown"
     )
 
-    file = db_rom_handler.get_rom_file_by_id(id)
+    file = db_rom_handler.get_rom_file_by_id(file_id)
     if not file:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -102,13 +101,9 @@ async def get_romfile_content(
 
     # 404-mask file bytes of roms hidden from the caller: resolve the parent
     # rom and apply its visibility before serving any content.
-    rom = db_rom_handler.get_rom_visibility(file.rom_id)
-    if not rom:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="File not found",
-        )
-    assert_rom_visible(request, rom, not_found_detail="File not found")
+    visible_rom_or_404(
+        request, db_rom_handler.get_rom_visibility(file.rom_id), "File not found"
+    )
 
     log.info(
         f"User {hl(current_username, color=BLUE)} is downloading {hl(file.file_name)}"
@@ -202,11 +197,9 @@ async def delete_rom_file(
     # guard keeps them off the game files themselves.
     assert_can(get_permissions(request), PermEntity.ROMS, PermAction.DELETE)
 
-    rom = db_rom_handler.get_rom_visibility_label(rom_id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(rom_id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(
+        request, db_rom_handler.get_rom_visibility_label(rom_id), rom_id
+    )
 
     rom_file = db_rom_handler.get_rom_file_by_id(file_id)
     if not rom_file or rom_file.rom_id != rom.id:
@@ -251,10 +244,7 @@ def _assert_document_file(
     rom_id: int, file_id: int, request: Request
 ) -> RomFileCategory:
     """Resolve a document-category file, enforcing parent-rom visibility."""
-    rom = db_rom_handler.get_rom_visibility(rom_id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(rom_id)
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom_visibility(rom_id), rom_id)
 
     rom_file = db_rom_handler.get_rom_file_by_id(file_id)
     if (

@@ -11,7 +11,6 @@ from decorators.auth import protected_route
 from endpoints.responses.assets import SaveSchema, SaveSummarySchema, SlotSummarySchema
 from endpoints.responses.device import DeviceSyncSchema
 from endpoints.roms import refresh_affected_smart_collections
-from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.asset_store import (
     prune_save_slot,
     remove_save,
@@ -23,6 +22,7 @@ from handler.auth.dependencies import (
     assert_rom_visible,
     get_rom_visibility_filter,
     owned_rom_asset_or_404,
+    visible_rom_or_404,
 )
 from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
@@ -189,11 +189,7 @@ async def add_save(
 
     device = resolve_device(request, device_id, Scope.DEVICES_WRITE)
 
-    rom = db_rom_handler.get_rom(rom_id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(rom_id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(rom_id), rom_id)
 
     if not saveFile.filename:
         log.error("Save file has no filename")

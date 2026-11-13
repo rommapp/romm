@@ -58,9 +58,9 @@ from endpoints.responses.streaming import (
 )
 from handler.auth.constants import Scope
 from handler.auth.dependencies import (
-    assert_rom_visible,
     get_rom_visibility_filter,
     is_scoped_admin,
+    visible_rom_or_404,
 )
 from handler.database import (
     db_container_adoption_handler,
@@ -403,10 +403,7 @@ def _streamable_rom(
 ) -> tuple[Rom, list[ResolvedContainer]]:
     """The ROM and the containers serving its platform, else a 404 (the same one
     for a hidden ROM, so its id can't launch it)."""
-    rom = db_rom_handler.get_rom(rom_id)
-    if rom is None:
-        raise HTTPException(status_code=404, detail="ROM not found")
-    assert_rom_visible(request, rom, not_found_detail="ROM not found")
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(rom_id), "ROM not found")
     platform = rom.platform_slug
     candidates = containers_for_platform(platform)
     if not candidates:

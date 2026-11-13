@@ -20,6 +20,7 @@ from handler.auth.dependencies import (
     assert_rom_visible,
     get_rom_visibility_filter,
     owned_rom_asset_or_404,
+    visible_rom_or_404,
 )
 from handler.database import db_rom_handler, db_screenshot_handler, db_state_handler
 from handler.filesystem import fs_asset_handler
@@ -77,11 +78,7 @@ async def add_state(
 
     device = resolve_device(request, device_id, Scope.DEVICES_WRITE)
 
-    rom = db_rom_handler.get_rom(rom_id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(rom_id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(rom_id), rom_id)
 
     if not stateFile.filename:
         log.error("State file has no filename")
@@ -125,9 +122,10 @@ async def add_state(
     )
 
     # Refetch the rom to get updated states
-    rom = db_rom_handler.get_rom(rom_id)
-    if not rom:
+    refreshed = db_rom_handler.get_rom(rom_id)
+    if not refreshed:
         raise RomNotFoundInDatabaseException(rom_id)
+    rom = refreshed
 
     refresh_affected_smart_collections([rom.id], membership_only=True)
 

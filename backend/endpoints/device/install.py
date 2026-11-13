@@ -26,10 +26,12 @@ from endpoints.sockets.devices import (
 )
 from exceptions.endpoint_exceptions import (
     DeviceInstallDisabledException,
-    RomNotFoundInDatabaseException,
 )
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible, get_rom_visibility_filter
+from handler.auth.dependencies import (
+    get_rom_visibility_filter,
+    visible_rom_or_404,
+)
 from handler.database import db_device_handler, db_rom_handler
 from handler.device_install import (
     InstallRequestNotFoundError,
@@ -180,10 +182,9 @@ async def create_install_request(
             detail=f"Device {device_id} does not accept remote installs",
         )
 
-    rom = db_rom_handler.get_rom_install_target(payload.rom_id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(payload.rom_id)
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(
+        request, db_rom_handler.get_rom_install_target(payload.rom_id), payload.rom_id
+    )
 
     if not is_installable_platform(rom.platform_slug):
         raise HTTPException(
