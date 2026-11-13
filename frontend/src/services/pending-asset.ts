@@ -65,14 +65,9 @@ interface HeldKey {
   capturedAt: number;
 }
 
-// The id only has to be unique within a browser.
-export function randomToken(): string {
-  return uuidv7();
-}
-
 /** A key of its own for one capture, so no other can write over it. */
 export function pendingAssetId(romId: number): string {
-  return `${romId}:${randomToken()}`;
+  return `${romId}:${uuidv7()}`;
 }
 
 // The rows are the player's unsynced progress, so an upgrade keeps them: it
