@@ -4,15 +4,21 @@ from typing import Final
 import aiohttp
 import yarl
 from aiohttp.client import ClientTimeout
+from fastapi import HTTPException
 
 from adapters.services.provider_http import send_with_retries
 from adapters.services.response_validation import parse_response
 from adapters.services.steam_types import (
     SteamAppDetails,
     SteamAppDetailsEnvelope,
+    SteamGlobalAchievementPercent,
+    SteamGlobalAchievementPercentagesResponse,
+    SteamSchemaAchievement,
+    SteamSchemaForGameResponse,
     SteamStoreSearchItem,
     SteamStoreSearchResponse,
 )
+from config import STEAM_API_KEY
 from logger.logger import log
 from utils import get_version
 from utils.context import ctx_aiohttp_session
@@ -24,6 +30,10 @@ STEAM_MAX_REQUESTS_PER_SECOND: Final[float] = 0.6
 STEAM_MAX_REQUEST_ATTEMPTS: Final[int] = 3
 STEAM_RATE_LIMIT_BACKOFF_SECONDS: Final[float] = 5
 _rate_limiter = RateLimiter(STEAM_MAX_REQUESTS_PER_SECOND)
+
+# The Web API allows 100,000 calls a day per key, with no documented burst limit.
+STEAM_WEB_API_MAX_REQUESTS_PER_SECOND: Final[float] = 4
+_web_api_rate_limiter = RateLimiter(STEAM_WEB_API_MAX_REQUESTS_PER_SECOND)
 
 # Undocumented conventions, so an app can have no asset at these URLs.
 STEAM_LIBRARY_CAPSULE_URL = (
@@ -179,3 +189,88 @@ class SteamService:
             return None
 
         return asset_url if res.status == 200 else None
+
+
+async def web_api_key_middleware(
+    req: aiohttp.ClientRequest, handler: aiohttp.ClientHandlerType
+) -> aiohttp.ClientResponse:
+    """Add the key after the URL is logged, so it never reaches the logs."""
+    req.url = req.url.update_query({"key": STEAM_API_KEY or ""})
+    return await handler(req)
+
+
+class SteamWebApiService:
+    """Service to interact with the keyed Steam Web API.
+
+    Reference: https://partner.steamgames.com/doc/webapi/ISteamUserStats
+    """
+
+    def __init__(self, base_url: str | None = None) -> None:
+        self.url = yarl.URL(base_url or "https://api.steampowered.com")
+
+    async def _request[T](
+        self, url: yarl.URL, tp: type[T], request_timeout: int = 60
+    ) -> T | None:
+        aiohttp_session = ctx_aiohttp_session.get()
+
+        async def send() -> T | None:
+            await _web_api_rate_limiter.acquire()
+            log.debug("Steam Web API request: URL=%s", url)
+            res = await aiohttp_session.get(
+                url,
+                headers={"user-agent": f"RomM/{get_version()}"},
+                middlewares=(web_api_key_middleware,),
+                timeout=ClientTimeout(total=request_timeout),
+            )
+            res.raise_for_status()
+            # The path ends in the method name, then its version.
+            return parse_response(
+                tp, await res.read(), source=f"Steam Web API {url.parent.parent.name}"
+            )
+
+        try:
+            return await send_with_retries(
+                send,
+                provider="Steam Web API",
+                url=str(url),
+                attempts=STEAM_MAX_REQUEST_ATTEMPTS,
+                backoff=STEAM_RATE_LIMIT_BACKOFF_SECONDS,
+            )
+        except TimeoutError:
+            log.debug("Request to URL=%s timed out on every attempt", url)
+            return None
+        # A connection failure arrives as the 503 `send_with_retries` raises.
+        except (aiohttp.ClientError, HTTPException) as exc:
+            log.error(exc)
+            return None
+        # Also a body that is not UTF-8, which `json` raises as a UnicodeDecodeError.
+        except ValueError as exc:
+            log.error("Error decoding JSON response from Steam Web API: %s", exc)
+            return None
+
+    async def get_schema_achievements(
+        self, app_id: int, *, language: str = "english"
+    ) -> list[SteamSchemaAchievement]:
+        """The app's achievements in the developer's order, empty if none or unreadable."""
+        url = self.url.joinpath("ISteamUserStats/GetSchemaForGame/v2/").with_query(
+            appid=str(app_id), l=language
+        )
+        response = await self._request(url, SteamSchemaForGameResponse)
+        if not response:
+            return []
+
+        stats = response.get("game", {}).get("availableGameStats", {})
+        return stats.get("achievements") or []
+
+    async def get_global_achievement_percentages(
+        self, app_id: int
+    ) -> list[SteamGlobalAchievementPercent]:
+        """The share of players holding each achievement, empty if unreadable."""
+        url = self.url.joinpath(
+            "ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/"
+        ).with_query(gameid=str(app_id))
+        response = await self._request(url, SteamGlobalAchievementPercentagesResponse)
+        if not response:
+            return []
+
+        return response.get("achievementpercentages", {}).get("achievements") or []

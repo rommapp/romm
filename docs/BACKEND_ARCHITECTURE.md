@@ -275,7 +275,7 @@ backend/
 │       ├── sgdb_handler.py          # SteamGridDB
 │       ├── ra_handler.py            # RetroAchievements
 │       ├── hltb_handler.py          # HowLongToBeat
-│       ├── steam_handler.py         # Steam storefront (PC platforms)
+│       ├── steam_handler.py         # Steam storefront + Web API achievements (PC platforms)
 │       ├── hasheous_handler.py      # Hasheous hash-based lookup
 │       ├── tgdb_handler.py          # TheGamesDB
 │       ├── flashpoint_handler.py    # Flashpoint archive
@@ -1395,22 +1395,22 @@ Each entity has a dedicated handler providing CRUD operations:
 
 Each external provider has a handler that normalizes data into a common format:
 
-| Handler              | Provider          | Key Data                                   |
-| -------------------- | ----------------- | ------------------------------------------ |
-| `igdb_handler`       | IGDB              | Game info, covers, screenshots, franchises |
-| `moby_handler`       | MobyGames         | Publisher, genre classification            |
-| `ss_handler`         | ScreenScraper     | Regional metadata, box art, manuals        |
-| `sgdb_handler`       | SteamGridDB       | Grid artwork, logos, icons                 |
-| `ra_handler`         | RetroAchievements | Achievements, user progression             |
-| `hltb_handler`       | HowLongToBeat     | Playtime estimates                         |
-| `steam_handler`      | Steam             | PC store metadata, capsule art             |
-| `hasheous_handler`   | Hasheous          | Hash-based ROM identification              |
-| `tgdb_handler`       | TheGamesDB        | Alternative metadata                       |
-| `flashpoint_handler` | Flashpoint        | Browser game archive                       |
-| `gamelist_handler`   | gamelist.xml      | ES-DE format parser                        |
-| `libretro_handler`   | Libretro          | Libretro thumbnails DB                     |
-| `playmatch_handler`  | PlayMatch         | Game matching algorithm                    |
-| `launchbox_handler/` | LaunchBox         | Local + remote database, media             |
+| Handler              | Provider          | Key Data                                     |
+| -------------------- | ----------------- | -------------------------------------------- |
+| `igdb_handler`       | IGDB              | Game info, covers, screenshots, franchises   |
+| `moby_handler`       | MobyGames         | Publisher, genre classification              |
+| `ss_handler`         | ScreenScraper     | Regional metadata, box art, manuals          |
+| `sgdb_handler`       | SteamGridDB       | Grid artwork, logos, icons                   |
+| `ra_handler`         | RetroAchievements | Achievements, user progression               |
+| `hltb_handler`       | HowLongToBeat     | Playtime estimates                           |
+| `steam_handler`      | Steam             | PC store metadata, capsule art, achievements |
+| `hasheous_handler`   | Hasheous          | Hash-based ROM identification                |
+| `tgdb_handler`       | TheGamesDB        | Alternative metadata                         |
+| `flashpoint_handler` | Flashpoint        | Browser game archive                         |
+| `gamelist_handler`   | gamelist.xml      | ES-DE format parser                          |
+| `libretro_handler`   | Libretro          | Libretro thumbnails DB                       |
+| `playmatch_handler`  | PlayMatch         | Game matching algorithm                      |
+| `launchbox_handler/` | LaunchBox         | Local + remote database, media               |
 
 **Priority system:** Metadata sources are queried in configurable priority order. First match wins for each field, with manual overrides taking highest priority.
 
@@ -1952,13 +1952,14 @@ Falls back to `FakeRedis` in test mode.
 
 #### API Keys
 
-| Variable                                        | Description       |
-| ----------------------------------------------- | ----------------- |
-| `IGDB_CLIENT_ID` + `IGDB_CLIENT_SECRET`         | IGDB (via Twitch) |
-| `MOBYGAMES_API_KEY`                             | MobyGames         |
-| `SCREENSCRAPER_USER` + `SCREENSCRAPER_PASSWORD` | ScreenScraper     |
-| `STEAMGRIDDB_API_KEY`                           | SteamGridDB       |
-| `RETROACHIEVEMENTS_API_KEY`                     | RetroAchievements |
+| Variable                                        | Description                  |
+| ----------------------------------------------- | ---------------------------- |
+| `IGDB_CLIENT_ID` + `IGDB_CLIENT_SECRET`         | IGDB (via Twitch)            |
+| `MOBYGAMES_API_KEY`                             | MobyGames                    |
+| `SCREENSCRAPER_USER` + `SCREENSCRAPER_PASSWORD` | ScreenScraper                |
+| `STEAMGRIDDB_API_KEY`                           | SteamGridDB                  |
+| `RETROACHIEVEMENTS_API_KEY`                     | RetroAchievements            |
+| `STEAM_API_KEY`                                 | Steam Web API (achievements) |
 
 #### Feature Toggles
 

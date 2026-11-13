@@ -1,3 +1,4 @@
+import math
 import re
 import subprocess  # trunk-ignore(bandit/B404): only used by get_git_branch, argv is hardcoded
 import uuid
@@ -68,6 +69,15 @@ def int_or_none(value: Any) -> int | None:
         return int(value)
     except TypeError, ValueError:
         return None
+
+
+def float_or_none(value: Any) -> float | None:
+    """A finite float, or None when it is not one, since JSON holds no NaN or infinity."""
+    try:
+        number = float(value)
+    except TypeError, ValueError:
+        return None
+    return number if math.isfinite(number) else None
 
 
 def valid_youtube_id(value: Any) -> str | None:
