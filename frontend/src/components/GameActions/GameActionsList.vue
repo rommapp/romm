@@ -89,6 +89,12 @@ function run(fn: () => void | Promise<void>) {
     icon="mdi-rocket-launch-outline"
     @click="run(actions.openInFlashpoint)"
   />
+  <RMenuItem
+    v-if="actions.canOpenInSteam.value"
+    :label="t('rom.open-in-steam')"
+    icon="mdi-steam"
+    @click="run(actions.openInSteam)"
+  />
 
   <RDivider />
 
