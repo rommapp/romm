@@ -76,8 +76,6 @@ class ConvertoDict(TypedDict):
 
 
 class SaveSyncDict(TypedDict):
-    # True when the server speaks /api/snapshots and /api/channels.
-    SNAPSHOTS: bool
     SNAPSHOT_RETENTION: int
     SNAPSHOT_BRANCH_LIFETIME_DAYS: int
 

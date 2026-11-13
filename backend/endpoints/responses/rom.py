@@ -691,12 +691,11 @@ class DetailedRomSchema(RomSchema):
     user_states: list[StateSchema]
     all_user_saves: list[UserSaveSchema]
     all_user_states: list[UserStateSchema]
-    # The caller's save channels on this ROM, then other users' public ones.
+    # The caller's own first, then other users' public ones.
     user_channels: list[ChannelSchema]
-    # The file a new save channel on this ROM keys to.
+    # The file a new channel on this ROM keys to.
     channel_file_id: int | None
-    # The caller's saves on this ROM a snapshot holds; the rest filed under a
-    # channel are an older client's slot uploads.
+    # Channel-filed saves missing here are legacy slot uploads.
     snapshot_save_ids: list[int]
     user_screenshots: list[ScreenshotSchema]
     all_user_screenshots: list[UserScreenshotSchema]

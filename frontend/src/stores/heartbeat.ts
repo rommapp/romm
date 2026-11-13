@@ -75,7 +75,6 @@ const defaultHeartbeat: Heartbeat = {
     ENABLED: false,
   },
   SAVE_SYNC: {
-    SNAPSHOTS: false,
     SNAPSHOT_RETENTION: 10,
     SNAPSHOT_BRANCH_LIFETIME_DAYS: 30,
   },

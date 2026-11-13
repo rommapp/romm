@@ -3,7 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type SaveSyncDict = {
-    SNAPSHOTS: boolean;
     SNAPSHOT_RETENTION: number;
     SNAPSHOT_BRANCH_LIFETIME_DAYS: number;
 };

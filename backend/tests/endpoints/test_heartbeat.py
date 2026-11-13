@@ -71,7 +71,6 @@ def test_heartbeat(client):
     assert ".bps" in heartbeat["ROM_PATCHER"]["SUPPORTED_EXTENSIONS"]
 
     assert heartbeat["SAVE_SYNC"] == {
-        "SNAPSHOTS": True,
         "SNAPSHOT_RETENTION": 10,
         "SNAPSHOT_BRANCH_LIFETIME_DAYS": 30,
     }

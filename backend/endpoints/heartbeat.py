@@ -212,7 +212,6 @@ async def heartbeat() -> HeartbeatResponse:
         },
         "CONVERTO": {"ENABLED": await rom_converto_service.is_enabled()},
         "SAVE_SYNC": {
-            "SNAPSHOTS": True,
             "SNAPSHOT_RETENTION": SNAPSHOT_RETENTION,
             "SNAPSHOT_BRANCH_LIFETIME_DAYS": SNAPSHOT_BRANCH_LIFETIME_DAYS,
         },
