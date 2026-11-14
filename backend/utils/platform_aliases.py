@@ -4,6 +4,7 @@ import difflib
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Final
 
+from adapters.services.igdb import IGDB_PLATFORM_VERSIONS
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 if TYPE_CHECKING:
@@ -184,7 +185,7 @@ def resolve_builtin_platform_slug(fs_slug: str) -> str | None:
     return slug if slug in UPS else None
 
 
-# Every name a binding can use: RomM slugs and the folder aliases they accept.
+# The names suggested for an unknown binding: RomM slugs and their folder aliases.
 _KNOWN_PLATFORM_NAMES: Final[list[str]] = sorted({*UPS, *PLATFORM_FS_ALIASES})
 
 
@@ -193,7 +194,7 @@ def unknown_binding_warning(fs_slug: str, config: Config) -> str | None:
 
     Returns:
         A warning naming the binding and the closest known slugs, or None when
-        the folder is unbound or bound to a known slug or alias.
+        the folder is unbound or bound to a known slug, alias or IGDB version.
     """
     key = fs_slug.lower()
     if bound := config.PLATFORMS_BINDING.get(key):
@@ -203,7 +204,10 @@ def unknown_binding_warning(fs_slug: str, config: Config) -> str | None:
     else:
         return None
 
-    if resolve_builtin_platform_slug(bound) is not None:
+    if (
+        resolve_builtin_platform_slug(bound) is not None
+        or bound in IGDB_PLATFORM_VERSIONS
+    ):
         return None
 
     closest = difflib.get_close_matches(bound.lower(), _KNOWN_PLATFORM_NAMES)

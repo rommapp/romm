@@ -210,7 +210,7 @@ def _drop_legacy_scheduler_state() -> None:
 
 
 def _warn_about_unknown_platform_bindings() -> None:
-    for warning in unknown_binding_warnings(cm.get_config()):
+    for warning in unknown_binding_warnings(cm.config):
         log.warning(warning)
 
 

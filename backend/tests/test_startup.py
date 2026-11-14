@@ -268,7 +268,7 @@ def test_warns_about_each_binding_to_an_unknown_platform(mocker):
         PLATFORMS_BINDING={"snes-test": "snse", "nintendo-snes": "snes"},
         PLATFORMS_VERSIONS={"cube": "gamcube"},
     )
-    mocker.patch.object(startup.cm, "get_config", return_value=config)
+    mocker.patch.object(startup.cm, "config", config)
     log = mocker.patch.object(startup, "log")
 
     startup._warn_about_unknown_platform_bindings()

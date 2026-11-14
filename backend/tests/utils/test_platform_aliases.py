@@ -147,6 +147,7 @@ def test_leaves_out_the_suggestion_when_nothing_is_close():
         ({"nintendo-snes": "snes"}, {}, "nintendo-snes"),
         ({"easyrpg-2000": "easyrpg"}, {}, "easyrpg-2000"),
         ({}, {"sega": "Mastersystem"}, "sega"),
+        ({"a1200": "amiga-a-1200"}, {}, "a1200"),
         ({}, {}, "my-homebrew"),
         # The binding wins over the version, so only it is checked.
         ({"gamecube": "arcade"}, {"gamecube": "gamcube"}, "gamecube"),
