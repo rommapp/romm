@@ -17,7 +17,7 @@ from utils.datetime import to_utc
 from utils.sql_dialect import force_index_on_mysql
 
 from .base_handler import DBBaseHandler, affected_rows
-from .deleted_assets_handler import DBDeletedAssetsHandler
+from .deleted_assets_handler import db_deleted_asset_handler
 from .snapshots_handler import (
     channel_for_slot,
     held_save_ids,
@@ -25,7 +25,6 @@ from .snapshots_handler import (
     release_backup,
 )
 
-_deleted_assets = DBDeletedAssetsHandler()
 # What identifies a version in its slot, for recording it when it leaves.
 _VERSION_COLUMNS = (Save.user_id, Save.rom_id, Save.slot, Save.content_hash)
 _SLOT_MOVE_ATTEMPTS = 3
@@ -602,7 +601,7 @@ class DBSavesHandler(DBBaseHandler):
             if (content_hash := row.content_hash or fallback_hashes.get(row.id))
         ]
         if lost:
-            _deleted_assets.record_deletions(
+            db_deleted_asset_handler.record_deletions(
                 user_id, rom_id, slot, lost, session=session
             )
         # One row at a time: MariaDB's `id IN (...)` plan deadlocks concurrent prunes.
@@ -739,8 +738,8 @@ def _loses_version(version: Row[*tuple[Any, ...]], data: dict[str, Any]) -> bool
 def _lock_slot(user_id: int, rom_id: int, slot: str, session: Session) -> None:
     """Ensure the slot has a record, then lock it before any of its rows."""
     # One order everywhere, the record before the rows, so removals never deadlock.
-    _deleted_assets.ensure_record(user_id, rom_id, slot)
-    _deleted_assets.lock_record(user_id, rom_id, slot, session)
+    db_deleted_asset_handler.ensure_record(user_id, rom_id, slot)
+    db_deleted_asset_handler.lock_record(user_id, rom_id, slot, session)
 
 
 def _record_loss(
@@ -749,7 +748,7 @@ def _record_loss(
     """Remember a version leaving its slot, in the transaction that removes it."""
     content_hash = version.content_hash or content_hash
     if version.slot and content_hash:
-        _deleted_assets.record_deletion(
+        db_deleted_asset_handler.record_deletion(
             version.user_id,
             version.rom_id,
             version.slot,

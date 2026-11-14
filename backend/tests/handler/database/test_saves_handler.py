@@ -1376,7 +1376,7 @@ class TestDBSavesHandlerRecordsLostVersions:
         """A second checkout per removal would starve the pool under load."""
         save = self._add(admin_user, rom, "pooled", "autosave", "pooled")
         checked_out: dict[str, int] = {}
-        deleted_assets = saves_handler_module._deleted_assets
+        deleted_assets = db_deleted_asset_handler
         ensure, record = deleted_assets.ensure_record, deleted_assets.record_deletions
 
         def spy(name: str, wrapped: Callable[..., Any]) -> Callable[..., Any]:

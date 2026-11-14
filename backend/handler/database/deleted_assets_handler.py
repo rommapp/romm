@@ -168,3 +168,7 @@ class DBDeletedAssetsHandler(DBBaseHandler):
             .filter_by(user_id=user_id)
             .filter(DeletedAsset.rom_id.in_(rom_ids))
         ).all()
+
+
+# Built here, not in the package, so sibling handlers share the one instance.
+db_deleted_asset_handler = DBDeletedAssetsHandler()
