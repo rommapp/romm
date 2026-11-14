@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import difflib
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Final
 
+from adapters.services.igdb import IGDB_PLATFORM_VERSIONS
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 if TYPE_CHECKING:
@@ -183,12 +185,62 @@ def resolve_builtin_platform_slug(fs_slug: str) -> str | None:
     return slug if slug in UPS else None
 
 
+def _platform_binding(key: str, config: Config) -> tuple[str, str] | None:
+    """Return the config key and name a folder is bound to, binding before version."""
+    if bound := config.PLATFORMS_BINDING.get(key):
+        return "system.platforms", bound
+    if bound := config.PLATFORMS_VERSIONS.get(key):
+        return "system.versions", bound
+    return None
+
+
+# The names suggested for an unknown binding: RomM slugs and their folder aliases.
+_KNOWN_PLATFORM_NAMES: Final[list[str]] = sorted({*UPS, *PLATFORM_FS_ALIASES})
+
+
+def unknown_binding_warning(fs_slug: str, config: Config) -> str | None:
+    """Build the warning for a folder bound in config.yml to an unknown name.
+
+    Returns:
+        A warning naming the binding and the closest known slugs, or None when
+        the folder is unbound or bound to a known slug, alias or IGDB version.
+    """
+    key = fs_slug.lower()
+    binding = _platform_binding(key, config)
+    if binding is None:
+        return None
+
+    config_key, bound = binding
+    if (
+        resolve_builtin_platform_slug(bound) is not None
+        or bound in IGDB_PLATFORM_VERSIONS
+    ):
+        return None
+
+    closest = difflib.get_close_matches(bound.lower(), _KNOWN_PLATFORM_NAMES)
+    suggestion = f" Did you mean {', '.join(closest)}?" if closest else ""
+    return (
+        f"config.yml {config_key}.{key} is {bound}, which is not a known "
+        f"platform slug or alias, so the folder becomes a custom platform."
+        f"{suggestion}"
+    )
+
+
+def unknown_binding_warnings(config: Config) -> list[str]:
+    """List the warning for every folder bound in config.yml to an unknown name."""
+    folders = sorted({*config.PLATFORMS_BINDING, *config.PLATFORMS_VERSIONS})
+    return [
+        warning
+        for folder in folders
+        if (warning := unknown_binding_warning(folder, config)) is not None
+    ]
+
+
 def resolve_platform_slug(fs_slug: str, config: Config) -> str:
     """Resolve a platform folder name to a RomM platform slug."""
-    key = fs_slug.lower()
-    bound = config.PLATFORMS_BINDING.get(key) or config.PLATFORMS_VERSIONS.get(key)
+    binding = _platform_binding(fs_slug.lower(), config)
     # A bound name resolves like a folder name, so it may be an alias too.
-    return _to_slug(bound or fs_slug)
+    return _to_slug(binding[1] if binding else fs_slug)
 
 
 def resolve_fs_slug(slug: str, config: Config) -> str | None:
