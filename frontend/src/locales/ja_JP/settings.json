@@ -538,6 +538,8 @@
   "widget-library-stats-desc": "ライブラリの数値概要：ゲーム、プラットフォーム、お気に入りなど。",
   "widget-library-stats-extended": "拡張（セーブ、ステート、スクリーンショット、ディスク）",
   "widget-library-stats-mode": "ライブラリ統計の詳細",
+  "widget-playing-now": "プレイ中",
+  "widget-playing-now-desc": "誰かが今プレイしているゲームを表示し、アクティブなセッションへリンクします。誰もプレイしていないときは非表示になります。",
   "widget-random-pick": "ランダムピック",
   "widget-random-pick-desc": "ライブラリからランダムな ROM を提案します。引き直しボタンで再抽選できます。",
   "widget-reorder-drag": "ドラッグして並べ替え"
