@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import Sequence
-from contextlib import AsyncExitStack
+from collections.abc import Iterator, Sequence
+from contextlib import AsyncExitStack, contextmanager
 from dataclasses import dataclass
 from itertools import batched
 from typing import Any, Final
@@ -126,6 +126,9 @@ def scan_job_meta(scan_type: ScanType) -> dict[str, Any]:
 # reported a second time from the outside.
 SCAN_REPORTED_META_KEY: Final = "reported_terminal_event"
 
+# The files the scan is reading right now, so a killed worker can be traced to one.
+SCAN_IN_FLIGHT_META_KEY: Final = "files_in_flight"
+
 # How to word the end of a scan that never got to report itself.
 _SCAN_FAILURE_REASONS: Final[dict[type[BaseException], str]] = {
     AbandonedJobError: "the worker running it stopped unexpectedly",
@@ -145,6 +148,25 @@ def _scan_reported_itself(job: Job) -> bool:
         return False
 
 
+@contextmanager
+def _scanning_file(path: str) -> Iterator[None]:
+    """Keep `path` in the job meta while the scan reads it."""
+    job = get_current_job()
+    if job is None:
+        yield
+        return
+
+    # The ROM coroutines share this dict on one thread, so no lock is needed.
+    def publish(paths: set[str]) -> None:
+        update_job_meta({SCAN_IN_FLIGHT_META_KEY: sorted(paths)})
+
+    publish(set(job.meta.get(SCAN_IN_FLIGHT_META_KEY) or []) | {path})
+    try:
+        yield
+    finally:
+        publish(set(job.meta.get(SCAN_IN_FLIGHT_META_KEY) or []) - {path})
+
+
 def report_scan_failure(
     job: Job,
     connection: Redis,
@@ -161,7 +183,10 @@ def report_scan_failure(
         return
 
     reason = _SCAN_FAILURE_REASONS.get(exc_type, "it stopped unexpectedly")
-    log.warning(f"{emoji.EMOJI_STOP_SIGN} Scan {job.id} is over: {reason}")
+    # Only the log names the files: clients get the reason, and may not see them.
+    in_flight = job.meta.get(SCAN_IN_FLIGHT_META_KEY) or []
+    scanning = f", while scanning {', '.join(in_flight)}" if in_flight else ""
+    log.warning(f"{emoji.EMOJI_STOP_SIGN} Scan {job.id} is over: {reason}{scanning}")
     started_by_user_id = (get_job_kwargs(job) or {}).get("started_by_user_id")
 
     async def report() -> None:
@@ -881,18 +906,21 @@ async def _scan_selected_roms(
                 )
                 return
 
-            await _identify_rom(
-                platform=platform,
-                fs_rom=build_hashless_fs_rom(rom.fs_name, rom.fs_path, flat=is_flat),
-                rom=rom,
-                scan_type=scan_type,
-                roms_ids=roms_ids,
-                metadata_sources=metadata_sources,
-                launchbox_remote_enabled=launchbox_remote_enabled,
-                socket_manager=socket_manager,
-                scan_stats=scan_stats,
-                scanned_rom_ids=scanned_rom_ids,
-            )
+            with _scanning_file(rom.full_path):
+                await _identify_rom(
+                    platform=platform,
+                    fs_rom=build_hashless_fs_rom(
+                        rom.fs_name, rom.fs_path, flat=is_flat
+                    ),
+                    rom=rom,
+                    scan_type=scan_type,
+                    roms_ids=roms_ids,
+                    metadata_sources=metadata_sources,
+                    launchbox_remote_enabled=launchbox_remote_enabled,
+                    socket_manager=socket_manager,
+                    scan_stats=scan_stats,
+                    scanned_rom_ids=scanned_rom_ids,
+                )
 
     results = await asyncio.gather(
         *[scan_rom_with_semaphore(rom) for rom in roms], return_exceptions=True
@@ -1051,19 +1079,20 @@ async def _identify_platform(
     async def scan_rom_with_semaphore(fs_rom: FSRom, rom: Rom | None) -> None:
         """Scan a single ROM with semaphore limiting"""
         async with scan_semaphore:
-            await _identify_rom(
-                platform=platform,
-                fs_rom=fs_rom,
-                rom=rom,
-                scan_type=scan_type,
-                roms_ids=roms_ids,
-                metadata_sources=metadata_sources,
-                launchbox_remote_enabled=launchbox_remote_enabled,
-                socket_manager=socket_manager,
-                scan_stats=scan_stats,
-                scanned_rom_ids=scanned_rom_ids,
-                cnfg=cnfg,
-            )
+            with _scanning_file(f"{fs_rom['fs_path']}/{fs_rom['fs_name']}"):
+                await _identify_rom(
+                    platform=platform,
+                    fs_rom=fs_rom,
+                    rom=rom,
+                    scan_type=scan_type,
+                    roms_ids=roms_ids,
+                    metadata_sources=metadata_sources,
+                    launchbox_remote_enabled=launchbox_remote_enabled,
+                    socket_manager=socket_manager,
+                    scan_stats=scan_stats,
+                    scanned_rom_ids=scanned_rom_ids,
+                    cnfg=cnfg,
+                )
 
     for fs_roms_batch in batched(fs_roms, 200, strict=False):
         # Key matches on the rom's full path (fs_path/fs_name), not just the

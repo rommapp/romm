@@ -1508,6 +1508,61 @@ class TestIdentifyPlatformMarksMissingBeforeScan:
         assert "mark_missing" in calls and "identify" in calls
         assert calls.index("mark_missing") < calls.index("identify")
 
+    async def test_lists_the_file_in_the_job_meta_while_scanning_it(self, mocker):
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(return_value=None))
+        )
+        platform = Platform(name="Test", slug="test", fs_slug="test")
+        platform.id = 1
+        platform.missing_from_fs = False
+        db_platform = mocker.patch.object(scan_module, "db_platform_handler")
+        db_platform.get_platform_by_fs_slug.return_value = platform
+        mocker.patch.object(
+            scan_module, "scan_platform", AsyncMock(return_value=platform)
+        )
+        mocker.patch.object(
+            PlatformSchema,
+            "model_validate",
+            return_value=Mock(model_dump=Mock(return_value={})),
+        )
+        mocker.patch.object(
+            fs_firmware_handler, "get_firmware", AsyncMock(return_value=[])
+        )
+        mocker.patch.object(
+            fs_rom_handler,
+            "get_roms",
+            AsyncMock(return_value=[make_fs_rom("Broken.chd", "test/roms")]),
+        )
+        db_rom = mocker.patch.object(scan_module, "db_rom_handler")
+        db_rom.get_roms_by_fs_name.return_value = {}
+        db_rom.mark_missing_roms.return_value = []
+        db_firmware = mocker.patch.object(scan_module, "db_firmware_handler")
+        db_firmware.mark_missing_firmware.return_value = []
+        job = make_job(SCAN_PLATFORMS_FUNC)
+        mocker.patch.object(scan_module, "get_current_job", return_value=job)
+        mocker.patch.object(scan_module, "update_job_meta", side_effect=job.meta.update)
+        seen: list[list[str]] = []
+
+        async def fake_identify(**kwargs):
+            seen.append(list(job.meta[scan_module.SCAN_IN_FLIGHT_META_KEY]))
+
+        mocker.patch.object(scan_module, "_identify_rom", side_effect=fake_identify)
+
+        await scan_module._identify_platform(
+            platform_slug="test",
+            scan_type=ScanType.QUICK,
+            fs_platforms=["test"],
+            roms_ids=[],
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            socket_manager=AsyncMock(),
+            scan_stats=AsyncMock(),
+            scanned_rom_ids=set(),
+        )
+
+        assert seen == [["test/roms/Broken.chd"]]
+        assert job.meta[scan_module.SCAN_IN_FLIGHT_META_KEY] == []
+
 
 class TestIdentifyPlatformSupersededFolders:
     """A missing entry whose path is an ancestor of a discovered ROM is flagged as superseded."""
@@ -2076,6 +2131,39 @@ class TestScanSelectedRoms:
         db_rom.mark_missing_roms.assert_not_called()
         db_rom.get_missing_rom_ids.assert_not_called()
         db_rom.bulk_mark_present.assert_not_called()
+
+    async def test_lists_the_rom_in_the_job_meta_while_scanning_it(
+        self, mocker, platform, rom
+    ):
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(return_value=None))
+        )
+        mocker.patch.object(fs_rom_handler, "file_exists", AsyncMock(return_value=True))
+        mocker.patch.object(scan_module, "db_rom_handler")
+        job = make_job(SCAN_PLATFORMS_FUNC)
+        mocker.patch.object(scan_module, "get_current_job", return_value=job)
+        mocker.patch.object(scan_module, "update_job_meta", side_effect=job.meta.update)
+        seen: list[list[str]] = []
+
+        async def fake_identify(**kwargs):
+            seen.append(list(job.meta[scan_module.SCAN_IN_FLIGHT_META_KEY]))
+
+        mocker.patch.object(scan_module, "_identify_rom", side_effect=fake_identify)
+
+        await _scan_selected_roms(
+            platform=platform,
+            roms=[rom],
+            scan_type=ScanType.COMPLETE,
+            roms_ids=[rom.id],
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            socket_manager=AsyncMock(),
+            scan_stats=AsyncMock(),
+            scanned_rom_ids=set(),
+        )
+
+        assert seen == [["roms/test/Game.zip"]]
+        assert job.meta[scan_module.SCAN_IN_FLIGHT_META_KEY] == []
 
     async def test_reads_only_the_selected_roms_gamelist_entries(
         self, mocker, platform, rom
@@ -3025,6 +3113,25 @@ class TestReportScanFailure:
             None, "the worker running it stopped unexpectedly"
         )
 
+    def test_logs_the_files_the_scan_was_reading(self, emit, mocker):
+        mock_log = mocker.patch.object(scan_module, "log")
+        job = make_job(
+            SCAN_PLATFORMS_FUNC,
+            meta={scan_module.SCAN_IN_FLIGHT_META_KEY: ["ps2/A.chd", "ps2/B.chd"]},
+        )
+
+        scan_module.report_scan_failure(
+            job, MagicMock(), AbandonedJobError, AbandonedJobError("boom"), None
+        )
+
+        logged = mock_log.warning.call_args.args[0]
+        assert logged.endswith(
+            "the worker running it stopped unexpectedly, "
+            "while scanning ps2/A.chd, ps2/B.chd"
+        )
+        # The clients may not be allowed to see those ROMs.
+        assert emit.await_args.args[1] == "the worker running it stopped unexpectedly"
+
     def test_swallows_a_report_that_cannot_be_sent(self, emit):
         # RQ re-raises out of the registry sweep that calls this, which would
         # leave the abandoned scans in the registry and stop the worker.
@@ -3033,6 +3140,44 @@ class TestReportScanFailure:
         self.report(AbandonedJobError)
 
         emit.assert_called_once()
+
+
+class TestScanningFile:
+    """The job meta lists the files a scan is reading, for a killed worker's report."""
+
+    @pytest.fixture
+    def job(self, mocker):
+        job = make_job(SCAN_PLATFORMS_FUNC)
+        mocker.patch.object(scan_module, "get_current_job", return_value=job)
+        mocker.patch.object(scan_module, "update_job_meta", side_effect=job.meta.update)
+        return job
+
+    def in_flight(self, job) -> list[str]:
+        return job.meta[scan_module.SCAN_IN_FLIGHT_META_KEY]
+
+    def test_lists_each_file_until_its_scan_ends(self, job):
+        with scan_module._scanning_file("ps2/A.chd"):
+            with scan_module._scanning_file("ps2/B.chd"):
+                assert self.in_flight(job) == ["ps2/A.chd", "ps2/B.chd"]
+            assert self.in_flight(job) == ["ps2/A.chd"]
+
+        assert self.in_flight(job) == []
+
+    def test_drops_a_file_whose_scan_raised(self, job):
+        with pytest.raises(RuntimeError):
+            with scan_module._scanning_file("ps2/A.chd"):
+                raise RuntimeError("boom")
+
+        assert self.in_flight(job) == []
+
+    def test_does_nothing_outside_a_job(self, mocker):
+        mocker.patch.object(scan_module, "get_current_job", return_value=None)
+        update_job_meta = mocker.patch.object(scan_module, "update_job_meta")
+
+        with scan_module._scanning_file("ps2/A.chd"):
+            pass
+
+        update_job_meta.assert_not_called()
 
 
 def test_scan_stats_reports_file_counters():
