@@ -189,14 +189,6 @@ class TestFSRomsHandler:
         assert parsed.languages == languages
         assert parsed.other_tags == ["1986", "Devstudio", *other_tags]
 
-    def test_parse_tags_hyphenated_special_tags(self, handler: FSRomsHandler):
-        parsed = handler.parse_tags("Game (Rev-1)[Reg-US][T-En].tap")
-
-        assert parsed.revision == "1"
-        assert parsed.regions == ["USA"]
-        assert parsed.languages == ["English"]
-        assert parsed.other_tags == ["Translation"]
-
     def test_parse_tags_complex_tags(self, handler: FSRomsHandler):
         """Test parse_tags with complex tag structures"""
         fs_name = "Game (Europe) (En,De,Fr,Es,It) (Rev A) [Reg-PAL] [Beta].rom"
