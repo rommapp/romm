@@ -33,6 +33,8 @@ from config import (
     SCHEDULED_RESCAN_CRON,
     SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
+    SNAPSHOT_BRANCH_LIFETIME_DAYS,
+    SNAPSHOT_RETENTION,
     YOUTUBE_BASE_URL,
 )
 from config.config_manager import config_manager as cm
@@ -209,6 +211,10 @@ async def heartbeat() -> HeartbeatResponse:
             "EXCLUDED_PLATFORM_SLUGS": sorted(DEVICE_INSTALL_EXCLUDED_PLATFORM_SLUGS),
         },
         "CONVERTO": {"ENABLED": await rom_converto_service.is_enabled()},
+        "SAVE_SYNC": {
+            "SNAPSHOT_RETENTION": SNAPSHOT_RETENTION,
+            "SNAPSHOT_BRANCH_LIFETIME_DAYS": SNAPSHOT_BRANCH_LIFETIME_DAYS,
+        },
         "ROM_PATCHER": {"SUPPORTED_EXTENSIONS": sorted(SUPPORTED_PATCH_EXTENSIONS)},
         "TASKS": {
             "ENABLE_SCHEDULED_RESCAN": ENABLE_SCHEDULED_RESCAN,

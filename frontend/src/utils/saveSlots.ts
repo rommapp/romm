@@ -1,6 +1,8 @@
 import type { SaveSchema } from "@/__generated__";
 import i18n from "@/locales";
 import { AUTOSAVE_SLOT } from "@/services/api/save";
+import { channelLabelForSlot, DEFAULT_CHANNEL_LABEL } from "@/utils/snapshots";
+import { uniqueBy } from "@/utils/uniqueBy";
 
 /** The slot of the newest slotted save, where progress should keep going. */
 export function preferredSlot(
@@ -28,17 +30,24 @@ export function isSlotChoice(value: unknown): value is SlotChoice {
   );
 }
 
-/** The entry for a new slot first, then autosave and every slot in use. */
+/**
+ * The entry for a new slot first, then autosave and every slot or channel in
+ * use. Names that file into the default channel fold into autosave.
+ */
 export function slotChoices(
   saves: readonly Pick<SaveSchema, "slot">[],
+  channelLabels: readonly string[] = [],
 ): SlotChoice[] {
-  const named = saves
-    .map((save) => save.slot)
-    .filter((slot): slot is string => !!slot && slot !== AUTOSAVE_SLOT);
-  return [
-    NEW_SLOT_CHOICE,
-    ...[AUTOSAVE_SLOT, ...new Set(named)].map(existingSlot),
-  ];
+  const named = uniqueBy(
+    [...saves.map((save) => save.slot), ...channelLabels].filter(
+      (name): name is string => {
+        const label = name ? channelLabelForSlot(name) : null;
+        return label !== null && label !== DEFAULT_CHANNEL_LABEL;
+      },
+    ),
+    (name) => name.toLowerCase(),
+  );
+  return [NEW_SLOT_CHOICE, ...[AUTOSAVE_SLOT, ...named].map(existingSlot)];
 }
 
 /** Pickers set the new-slot entry apart from the slots that already exist. */
@@ -59,6 +68,18 @@ export function slotChoiceKey(choice: SlotChoice): string {
 export function chosenSlot(choice: SlotChoice, newSlotName: string): string {
   if (choice.kind === "existing") return choice.slot;
   return newSlotName.trim() || AUTOSAVE_SLOT;
+}
+
+/** The slot name a channel goes by, with the default channel as autosave. */
+export function slotNameForChannel(label: string): string {
+  return channelLabelForSlot(label) === DEFAULT_CHANNEL_LABEL
+    ? AUTOSAVE_SLOT
+    : label;
+}
+
+/** The choice that files into a channel. */
+export function slotForChannel(label: string): SlotChoice {
+  return existingSlot(slotNameForChannel(label));
 }
 
 /** A slotted save fixes the write slot; an archive leaves the choice as is. */

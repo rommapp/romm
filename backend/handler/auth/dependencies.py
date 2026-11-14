@@ -159,10 +159,25 @@ def visible_rom_or_404[R: (Rom, RomVisibility, RomVisibilityLabel, RomInstallTar
 def owned_rom_asset_or_404[A: (Save, State, Screenshot)](
     request: Request, asset: A | None, detail: str
 ) -> A:
-    """`asset` when the caller owns it and sees its ROM, else 404 with `detail`."""
-    if not asset or asset.user_id != request.user.id:
+    """`asset` when the caller owns it and sees its ROM, else 404 with `detail`.
+    A detached asset, whose ROM was deleted, answers like a missing one."""
+    if not asset or asset.user_id != request.user.id or asset.rom is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
     assert_rom_visible(request, asset.rom, not_found_detail=detail)
+    return asset
+
+
+def readable_rom_asset_or_404[A: (Save, State)](
+    request: Request, asset: A | None, detail: str
+) -> A:
+    """`asset` when the caller owns it, or it is public and its ROM is visible to
+    them, else 404 with `detail`. Another user's detached asset has no ROM to check."""
+    if not asset or (
+        asset.user_id != request.user.id and (not asset.is_public or asset.rom is None)
+    ):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+    if asset.rom is not None:
+        assert_rom_visible(request, asset.rom, not_found_detail=detail)
     return asset
 
 

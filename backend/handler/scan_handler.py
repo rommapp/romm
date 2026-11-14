@@ -85,6 +85,7 @@ from utils.platform_aliases import (
     resolve_fs_folder,
     resolve_fs_slug,
     resolve_platform_slug,
+    unknown_binding_warning,
 )
 
 # Sentinel folder for manually-added physical games; it never exists on disk.
@@ -178,6 +179,9 @@ async def scan_platform(
             platform_attrs["fs_slug"] = known_folder
 
     platform_attrs["slug"] = resolve_platform_slug(fs_slug, cnfg)
+    binding_warning = unknown_binding_warning(fs_slug, cnfg)
+    if binding_warning:
+        log.warning(binding_warning, extra=LOGGER_MODULE_NAME)
 
     igdb_platform = meta_igdb_handler.get_platform(platform_attrs["slug"])
     moby_platform = meta_moby_handler.get_platform(platform_attrs["slug"])

@@ -1,13 +1,15 @@
 import asyncio
+from collections.abc import Iterable
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.rom import Rom, RomFile, RomFileCategory
 from utils.filesystem import COMPRESSED_FILE_SUFFIXES
-from utils.m3u import first_playlist_entry
+from utils.m3u import first_playlist_entry, playlist_discs
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 try:
@@ -15,7 +17,8 @@ try:
 except ImportError:
     sigil = None
 
-SIGIL_PLATFORM_SLUGS: Final[dict[str, str]] = {
+# The platforms sigil reads a title id or save identity from at scan time.
+SIGIL_EXTRACT_PLATFORM_SLUGS: Final[dict[str, str]] = {
     UPS.PSP: "psp",
     UPS.PSX: "psx",
     UPS.PS2: "ps2",
@@ -30,11 +33,64 @@ SIGIL_PLATFORM_SLUGS: Final[dict[str, str]] = {
     UPS.PS3: "ps3",
     UPS.XBOX: "xbox",
     UPS.XBOX360: "xbox360",
+    UPS.N64: "n64",
+    UPS.GB: "gb",
+    UPS.GBC: "gbc",
 }
+
+# Sigil reads these titles but can't collect or restore their saves.
+_EXTRACT_ONLY_PLATFORM_SLUGS: Final = frozenset({UPS.XBOX, UPS.XBOX360})
+
+# The platforms sigil collects and restores saves for. Saturn and Sega CD saves
+# carry no title id, so sigil restores them without one.
+SIGIL_RESTORE_PLATFORM_SLUGS: Final[dict[str, str]] = {
+    **{
+        slug: sigil_slug
+        for slug, sigil_slug in SIGIL_EXTRACT_PLATFORM_SLUGS.items()
+        if slug not in _EXTRACT_ONLY_PLATFORM_SLUGS
+    },
+    UPS.SATURN: "saturn",
+    UPS.SEGACD: "segacd",
+}
+
+# Cartridge platforms with no sigil converter, whose stored save is already the
+# file every emulator for them reads.
+NATIVE_SAVE_PLATFORM_SLUGS: Final = frozenset(
+    {
+        UPS.NES,
+        UPS.FAMICOM,
+        UPS.SNES,
+        UPS.SFAM,
+        UPS.GENESIS,
+        UPS.SMS,
+        UPS.GAMEGEAR,
+        UPS.SEGA32,
+        UPS.GBA,
+        UPS.NDS,
+    }
+)
 
 # The Switch family in RomM's own terms. Its headers need prod.keys to decrypt,
 # and it is the only family whose files may carry their title id in the filename.
 SWITCH_PLATFORM_SLUGS: Final = frozenset({UPS.SWITCH, UPS.SWITCH_2})
+
+
+# The SigilResult fields a scan stores on each RomFile, by column.
+_SIGIL_RESULT_COLUMNS: Final[dict[str, str]] = {
+    "raw_serial": "raw_serial",
+    "sigil_features": "features",
+    "n64_header": "n64_header",
+    "n64_md5": "n64_md5",
+    "n64_md5_n64": "n64_md5_n64",
+}
+# Every RomFile column a sigil read sets.
+SIGIL_FILE_COLUMNS: Final = (*_SIGIL_RESULT_COLUMNS, "playlist_title_ids")
+
+
+def sigil_binding() -> Any:
+    """The `sigil` module, or None when this build has no binding."""
+    return sigil
+
 
 # Files the current scan skipped because RomM holds no keys for their headers.
 # A context var, so scans overlapping in one process (DEV_MODE) keep their own.
@@ -66,6 +122,38 @@ class SigilExtractionResult:
     usage: str
     content_type: str | None = None
     version: int | None = None
+    raw_serial: str = ""
+    features: int = 0
+    n64_header: str = ""
+    n64_md5: str = ""
+    n64_md5_n64: str = ""
+    # Each listed disc's title id, disc 1 first, when the file read is a playlist.
+    playlist_title_ids: tuple[str, ...] | None = None
+
+    def file_columns(self) -> dict[str, Any]:
+        """The `SIGIL_FILE_COLUMNS` values this read stores, None where it read nothing."""
+        columns: dict[str, Any] = {
+            column: getattr(self, field) or None
+            for column, field in _SIGIL_RESULT_COLUMNS.items()
+        }
+        # 0 records a read that found no features, so a stored game can tell it
+        # apart from a file sigil never read.
+        columns["sigil_features"] = self.features
+        columns["playlist_title_ids"] = (
+            list(self.playlist_title_ids)
+            if self.playlist_title_ids is not None
+            else None
+        )
+        return columns
+
+
+@dataclass(frozen=True)
+class SigilGame:
+    """A ROM's game as sigil's collect and restore take it."""
+
+    result: "sigil.SigilResult"
+    # Every id the game's saves may carry: each disc's title id, disc 1 first.
+    game_ids: tuple[str, ...]
 
 
 class SigilService:
@@ -89,23 +177,38 @@ class SigilService:
         if sigil is None:
             return None
 
-        sigil_slug = SIGIL_PLATFORM_SLUGS.get(platform_slug)
+        sigil_slug = SIGIL_EXTRACT_PLATFORM_SLUGS.get(platform_slug)
         if sigil_slug is None:
             return None
 
-        # A playlist is identified by its first disc.
-        if file_path.lower().endswith(".m3u"):
-            entry = await asyncio.to_thread(first_playlist_entry, Path(file_path))
-            if entry is None:
-                return None
-            file_path = str(entry)
+        if not file_path.lower().endswith(".m3u"):
+            result = await self._extract(sigil_slug, file_path)
+            return self._extraction(result) if result else None
 
+        # A playlist is identified by its first disc, and lists the rest.
+        playlist = Path(file_path)
+        entry = await asyncio.to_thread(first_playlist_entry, playlist)
+        if entry is None:
+            return None
+        result = await self._extract(sigil_slug, str(entry))
+        if result is None:
+            return None
+        title_ids = [result.title_id]
+        for disc in await asyncio.to_thread(playlist_discs, playlist):
+            if disc != entry and (other := await self._extract(sigil_slug, str(disc))):
+                title_ids.append(other.title_id)
+        return replace(
+            self._extraction(result),
+            playlist_title_ids=tuple(t for t in title_ids if t),
+        )
+
+    @staticmethod
+    async def _extract(sigil_slug: str, file_path: str) -> "sigil.SigilResult | None":
         # Sigil reads a binary, never the container holding one.
         if file_path.lower().endswith(COMPRESSED_FILE_SUFFIXES):
             return None
-
         try:
-            result = await asyncio.to_thread(
+            return await asyncio.to_thread(
                 sigil.extract, file_path, platform=sigil_slug, filename_fallback=False
             )
         # A Switch header RomM holds no keys for, reported in the scan summary.
@@ -114,10 +217,12 @@ class SigilService:
                 paths.add(file_path)
             log.debug(f"Sigil found no title id for {file_path}: {exc}")
             return None
-        # Expected for arbitrary library files: no title id or a format sigil can't parse.
+        # Expected for arbitrary library files: no title id, a format sigil
+        # can't parse, or a truncated file.
         except (
             sigil.SigilNotFoundError,
             sigil.SigilUnsupportedFormatError,
+            sigil.SigilIOError,
         ) as exc:
             log.debug(f"Sigil found no title id for {file_path}: {exc}")
             return None
@@ -125,6 +230,8 @@ class SigilService:
             log.error(f"Sigil extraction failed for {file_path}: {exc}")
             return None
 
+    @staticmethod
+    def _extraction(result: "sigil.SigilResult") -> SigilExtractionResult:
         raw_content_type = getattr(result, "switch_content_type", None)
         content_type = (
             raw_content_type if raw_content_type not in (None, "", "unknown") else None
@@ -139,4 +246,53 @@ class SigilService:
             # Version 0 is a valid base-game version, so keep the int as-is;
             # a missing field (non-Switch, older binding) maps to None.
             version=getattr(result, "title_version", None),
+            **{
+                field: getattr(result, field)
+                for field in _SIGIL_RESULT_COLUMNS.values()
+            },
+        )
+
+    @staticmethod
+    def stored_game(rom: Rom, rom_files: Iterable[RomFile]) -> SigilGame | None:
+        """The game sigil identified at scan time, from the columns of the file
+        holding the ROM's title id; None without the binding or a restorable platform.
+        """
+        sigil_slug = SIGIL_RESTORE_PLATFORM_SLUGS.get(rom.platform_slug)
+        if sigil is None or sigil_slug is None:
+            return None
+
+        own_files = sorted(
+            (f for f in rom_files if f.category in (None, RomFileCategory.GAME)),
+            key=lambda f: f.listing_order,
+        )
+        source = next(
+            (
+                f
+                for f in own_files
+                if f.sigil_features is not None
+                and (f.title_id or None) == (rom.title_id or None)
+            ),
+            None,
+        )
+        game_ids = dict.fromkeys(
+            title_id
+            for title_id in (
+                rom.title_id,
+                *(f.title_id for f in own_files),
+                *(t for f in own_files for t in f.playlist_title_ids or ()),
+            )
+            if title_id
+        )
+        stored = {
+            field: (getattr(source, column) if source else None) or ""
+            for column, field in _SIGIL_RESULT_COLUMNS.items()
+        }
+        return SigilGame(
+            result=sigil.SigilResult.persisted(
+                platform=sigil_slug,
+                title_id=rom.title_id or "",
+                save_id=rom.save_target or "",
+                **{**stored, "features": stored["features"] or 0},
+            ),
+            game_ids=tuple(game_ids),
         )

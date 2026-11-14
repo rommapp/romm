@@ -10,6 +10,7 @@ from tests.factories import make_platform, make_rom
 from tests.handler.scan_stubs import add_n64_platform, add_rom
 
 from adapters.services.screenscraper import ScreenScraperRateLimitError
+from config.config_manager import Config, config_manager
 from handler.database import db_rom_handler
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
@@ -97,6 +98,25 @@ async def test_scan_platform_keeps_missing_folder_unless_alias_exists(
             platform = await scan_platform("gbc", fs_platforms)
 
     assert platform.fs_slug == expected_fs_slug
+
+
+async def test_scan_platform_warns_about_a_binding_to_an_unknown_name(caplog):
+    config = Config(PLATFORMS_BINDING={"snes-test": "snse"}, PLATFORMS_VERSIONS={})
+    with (
+        patch.object(config_manager, "get_config", return_value=config),
+        patch.object(
+            meta_igdb_handler,
+            "get_platform_discovery",
+            new_callable=AsyncMock,
+            return_value={},
+        ),
+        _capture_romm_logs(caplog),
+    ):
+        async with initialize_context():
+            platform = await scan_platform("snes-test", ["snes-test"])
+
+    assert platform.slug == "snse"
+    assert "system.platforms.snes-test is snse" in strip_ansi(caplog.text)
 
 
 @pytest.mark.vcr

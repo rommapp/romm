@@ -164,6 +164,24 @@ class TestFSRomsHandler:
         assert "French" in parsed_tags.languages
         assert "Test" in parsed_tags.other_tags
 
+    @pytest.mark.parametrize(
+        "fs_name,regions",
+        [
+            ("Game (Denmark).zip", ["Denmark"]),
+            ("Game (Czech Republic).zip", ["Czech Republic"]),
+            ("Game (Poland).zip", ["Poland"]),
+            ("Game (Europe, Poland).zip", ["Europe", "Poland"]),
+        ],
+    )
+    def test_parse_tags_full_country_name_is_a_region(
+        self, handler: FSRomsHandler, fs_name: str, regions: list[str]
+    ):
+        """No-Intro writes full country names, which are regions, not tags."""
+        parsed_tags = handler.parse_tags(fs_name)
+
+        assert parsed_tags.regions == regions
+        assert parsed_tags.other_tags == []
+
     def test_parse_tags_complex_tags(self, handler: FSRomsHandler):
         """Test parse_tags with complex tag structures"""
         fs_name = "Game (Europe) (En,De,Fr,Es,It) (Rev A) [Reg-PAL] [Beta].rom"
@@ -2490,8 +2508,10 @@ class TestSigilTitleIdExtraction:
         [
             # Not a platform sigil covers.
             (
-                Platform(name="Nintendo 64", slug="n64", fs_slug="n64"),
-                "Game.z64",
+                Platform(
+                    name="Nintendo Entertainment System", slug="nes", fs_slug="nes"
+                ),
+                "Game.nes",
                 False,
                 True,
             ),

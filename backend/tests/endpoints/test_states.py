@@ -87,6 +87,17 @@ def test_hidden_rom_masks_public_state_download(
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
+def test_another_users_detached_public_state_is_not_served(
+    client, viewer_access_token: str, state: State
+):
+    db_state_handler.update_state(state.id, {"is_public": True, "rom_id": None})
+
+    response = client.get(
+        f"/api/states/{state.id}/content", headers=bearer(viewer_access_token)
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
 def test_hidden_platform_masks_public_state_download(
     client,
     viewer_access_token: str,

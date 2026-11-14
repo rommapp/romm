@@ -3,9 +3,14 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
+import pytest
+
 from handler.sync.comparison import (
+    ChannelPosition,
+    SyncAction,
     SyncComparisonResult,
     compare_missing_server_save,
+    compare_on_channel,
     compare_save_state,
     roms_to_check_for_removals,
 )
@@ -360,3 +365,74 @@ class TestRomsToCheckForRemovals:
         ]
 
         assert roms_to_check_for_removals(client_saves, current) == {2, 3}
+
+
+CLIENT_TS = datetime(2026, 1, 5, tzinfo=timezone.utc)
+CURRENT_ID = 3
+
+
+def position(device_base_id: int | None = CURRENT_ID) -> ChannelPosition:
+    """A channel whose line held `old` then `current`, with `branch` kept beside it."""
+    return ChannelPosition(
+        current_id=CURRENT_ID,
+        current_hash="current",
+        current_hashes=frozenset({"old", "current"}),
+        branch_hashes=frozenset({"branch"}),
+        device_base_id=device_base_id,
+    )
+
+
+class TestCompareOnChannel:
+    @pytest.mark.parametrize(
+        "client_hash,device_base_id,action",
+        [
+            ("current", CURRENT_ID, "no_op"),
+            ("current", 1, "no_op"),
+            ("current", None, "no_op"),
+            ("old", CURRENT_ID, "download"),
+            ("old", None, "download"),
+            ("branch", CURRENT_ID, "conflict"),
+            ("branch", None, "conflict"),
+            ("unknown", CURRENT_ID, "upload"),
+            ("unknown", 1, "conflict"),
+        ],
+    )
+    def test_the_channel_history_decides(
+        self, client_hash: str, device_base_id: int | None, action: SyncAction
+    ):
+        result = compare_on_channel(
+            client_hash=client_hash,
+            client_updated_at=CLIENT_TS,
+            position=position(device_base_id),
+        )
+
+        assert result is not None
+        assert result.action == action
+
+    @pytest.mark.parametrize(
+        "client_hash,device_base_id",
+        [(None, CURRENT_ID), ("", CURRENT_ID), ("unknown", None)],
+        ids=["no-hash", "empty-hash", "unknown-without-record"],
+    )
+    def test_undecided_without_a_hash_or_a_record(
+        self, client_hash: str | None, device_base_id: int | None
+    ):
+        assert (
+            compare_on_channel(
+                client_hash=client_hash,
+                client_updated_at=CLIENT_TS,
+                position=position(device_base_id),
+            )
+            is None
+        )
+
+    def test_a_version_the_slot_lost_is_downloaded_over(self):
+        result = compare_on_channel(
+            client_hash="pruned",
+            client_updated_at=CLIENT_TS,
+            position=position(),
+            removed_at={"pruned": datetime(2026, 1, 6, tzinfo=timezone.utc)},
+        )
+
+        assert result is not None
+        assert result.action == "download"
