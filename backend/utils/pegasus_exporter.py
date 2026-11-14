@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Final
+from urllib.parse import quote
 
 from fastapi import Request
 
@@ -395,9 +396,10 @@ class PegasusExporter:
                 raise ValueError(
                     "Request object must be provided for non-local exports"
                 )
-            lines.append(
-                f"file: {request.url_for('get_rom_content', id=rom.id, file_name=rom.fs_name)}"
+            content_url = request.url_for(
+                "get_rom_content", id=rom.id, file_name=quote(rom.fs_name, safe="")
             )
+            lines.append(f"file: {content_url}")
 
         # Sort title (use fs_name_no_tags if different from name)
         if rom.name and rom.fs_name_no_tags and rom.name != rom.fs_name_no_tags:

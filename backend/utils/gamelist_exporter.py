@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Final
+from urllib.parse import quote
 from xml.etree.ElementTree import (  # trunk-ignore(bandit/B405)
     Element,
     ParseError,
@@ -259,7 +260,7 @@ class GamelistExporter:
                 request.url_for(
                     "get_rom_content",
                     id=rom.id,
-                    file_name=rom.fs_name,
+                    file_name=quote(rom.fs_name, safe=""),
                 )
             )
 
