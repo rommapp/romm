@@ -583,15 +583,22 @@ class FSRomsHandler(FSHandler):
                 revision = revision_match[1] or revision_match[2] or ""
                 continue
 
-            # Keep unknown compounds intact rather than extracting a partial match.
+            # Same precedence as a single tag, so "Nl-No" reads as languages.
+            # Unknown compounds stay intact rather than yielding a partial match.
             if TOSEC_COMPOUND_TAG_REGEX.match(raw_tag):
                 parts = raw_tag.split("-")
-                if compound_regions := _resolve_every(parts, normalize_region):
-                    regions.extend(compound_regions)
-                    continue
-                if compound_languages := _resolve_every(parts, normalize_language):
-                    languages.extend(compound_languages)
-                    continue
+                for resolve, target in (
+                    (REGIONS_BY_SHORTCODE.get, regions),
+                    (LANGUAGES_BY_SHORTCODE.get, languages),
+                    (normalize_region, regions),
+                    (normalize_language, languages),
+                ):
+                    if resolved := _resolve_every(parts, resolve):
+                        target.extend(resolved)
+                        break
+                else:
+                    other_tags.append(raw_tag)
+                continue
 
             # Anything else
             other_tags.append(raw_tag)

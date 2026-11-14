@@ -176,6 +176,8 @@ class TestFSRomsHandler:
             ("en-zz", [], [], ["en-zz"]),
             ("EU-en", [], [], ["EU-en"]),
             ("EU-", [], [], ["EU-"]),
+            ("Nl-No", [], ["Dutch", "Norwegian"], []),
+            ("NL-NO", ["Netherlands", "Norway"], [], []),
             ("SW-R", [], [], ["SW-R"]),
             ("T-Br", [], [], ["T-Br"]),
         ],
