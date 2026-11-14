@@ -217,9 +217,8 @@ ARG JSDOS_SHA256=6cd8a379556ada7da8a6a49d3ba2fde1783ce3e481c1cd645e13ebc83419a5b
 ADD --checksum=sha256:${JSDOS_SHA256} \
     "https://github.com/caiiiycuk/js-dos/releases/download/v${JSDOS_VERSION}/release.zip" \
     /downloads/jsdos.zip
-# The bundled index.html is a js-dos demo page that would be served unauthenticated;
-# source maps, Emscripten symbol files, type declarations and the opt-in DOSBox-X
-# debugger build are unused at runtime.
+# index.html is a demo page that would be served unauthenticated; source maps, symbols,
+# type declarations and the opt-in DOSBox-X debugger build are unused at runtime.
 RUN unzip -o /downloads/jsdos.zip -d /jsdos && \
     rm -rf /jsdos/dist/index.html /jsdos/dist/emulators/types && \
     find /jsdos/dist \( -name '*.map' -o -name '*.symbols' -o -name '*-dbg.*' \) -exec rm -f {} +
