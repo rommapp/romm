@@ -25,6 +25,7 @@ from handler.metadata import (
     meta_playmatch_handler,
     meta_pouet_handler,
     meta_ra_handler,
+    meta_rawg_handler,
     meta_sgdb_handler,
     meta_ss_handler,
     meta_steam_handler,
@@ -46,6 +47,7 @@ from handler.metadata.playmatch_handler import (
 )
 from handler.metadata.pouet_handler import PouetRom
 from handler.metadata.ra_handler import RAGameRom
+from handler.metadata.rawg_handler import RAWGRom
 from handler.metadata.sgdb_handler import SGDBRom
 from handler.metadata.ss_handler import (
     ScreenScraperExhaustedError,
@@ -416,6 +418,19 @@ class RomLookups:
             )
 
         return SteamRom(steam_id=None)
+
+    async def fetch_rawg_rom(self) -> RAWGRom:
+        if self.attempts(MetadataSource.RAWG):
+            rawg_id = self.stored_id(MetadataSource.RAWG)
+            if rawg_id:
+                return await meta_rawg_handler.get_rom_by_id(rawg_id)
+
+            platform = meta_rawg_handler.get_platform(self.platform.slug)
+            return await meta_rawg_handler.get_rom(
+                self.rom_attrs["fs_name"], platform["rawg_slug"] or ""
+            )
+
+        return RAWGRom(rawg_id=None)
 
     async def fetch_moby_rom(self, playmatch_rom: PlaymatchRomMatch) -> MobyGamesRom:
         if self.platform.moby_id and self.attempts(MetadataSource.MOBY):

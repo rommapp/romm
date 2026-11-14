@@ -15,6 +15,7 @@ from .moby_handler import MobyGamesHandler
 from .playmatch_handler import PlaymatchHandler
 from .pouet_handler import PouetHandler, pouet_id_from_location
 from .ra_handler import RAHandler
+from .rawg_handler import RAWGHandler
 from .sgdb_handler import SGDBBaseHandler
 from .ss_handler import SSHandler
 from .steam_handler import SteamHandler
@@ -34,6 +35,7 @@ meta_tgdb_handler = TGDBHandler()
 meta_flashpoint_handler = FlashpointHandler()
 meta_gamelist_handler = GamelistHandler()
 meta_hltb_handler = HLTBHandler()
+meta_rawg_handler = RAWGHandler()
 meta_demozoo_handler = DemozooHandler()
 meta_pouet_handler = PouetHandler()
 meta_csdb_handler = CsdbHandler()

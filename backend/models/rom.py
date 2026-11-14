@@ -80,6 +80,7 @@ PROVIDER_METADATA_COLUMNS: Final = (
     "pouet_metadata",
     "csdb_metadata",
     "steam_metadata",
+    "rawg_metadata",
     "gamelist_metadata",
 )
 
@@ -753,6 +754,7 @@ class RomFacets(BaseModel):
     pouet_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     csdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     steam_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    rawg_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     gamelist_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
     libretro_id: Mapped[str | None] = mapped_column(String(length=64), default=None)
     min_age: Mapped[int | None] = mapped_column(Integer(), default=None)
@@ -850,6 +852,7 @@ class Rom(BaseModel):
     pouet_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     csdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     steam_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    rawg_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     gamelist_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
     libretro_id: Mapped[str | None] = mapped_column(String(length=64), default=None)
 
@@ -939,6 +942,7 @@ class Rom(BaseModel):
         Index("idx_roms_pouet_id", "pouet_id"),
         Index("idx_roms_csdb_id", "csdb_id"),
         Index("idx_roms_steam_id", "steam_id"),
+        Index("idx_roms_rawg_id", "rawg_id"),
         Index("idx_roms_gamelist_id", "gamelist_id"),
         Index("idx_roms_libretro_id", "libretro_id"),
         Index("idx_roms_title_id", "title_id"),
@@ -1002,6 +1006,9 @@ class Rom(BaseModel):
         CustomJSON(), default=dict
     )
     steam_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    rawg_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
     gamelist_metadata: Mapped[dict[str, Any] | None] = mapped_column(
@@ -1569,6 +1576,7 @@ METADATA_SOURCE_COLUMNS: dict[str, InstrumentedAttribute[Any]] = {
     "pouet": Rom.pouet_id,
     "csdb": Rom.csdb_id,
     "steam": Rom.steam_id,
+    "rawg": Rom.rawg_id,
     "gamelist": Rom.gamelist_id,
     "libretro": Rom.libretro_id,
 }
@@ -1596,6 +1604,7 @@ METADATA_SOURCE_FACET_COLUMNS: dict[str, InstrumentedAttribute[Any]] = {
     "pouet": RomFacets.pouet_id,
     "csdb": RomFacets.csdb_id,
     "steam": RomFacets.steam_id,
+    "rawg": RomFacets.rawg_id,
     "gamelist": RomFacets.gamelist_id,
     "libretro": RomFacets.libretro_id,
 }

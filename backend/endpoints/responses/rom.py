@@ -403,6 +403,7 @@ class RomSchema(BaseModel):
     pouet_id: int | None
     csdb_id: int | None
     steam_id: int | None
+    rawg_id: int | None = None
     gamelist_id: str | None
     libretro_id: str | None
 
