@@ -199,7 +199,7 @@ _KNOWN_PLATFORM_NAMES: Final[list[str]] = sorted({*UPS, *PLATFORM_FS_ALIASES})
 
 
 def unknown_binding_warning(fs_slug: str, config: Config) -> str | None:
-    """Say that a folder is bound in config.yml to a name RomM doesn't know.
+    """Build the warning for a folder bound in config.yml to an unknown name.
 
     Returns:
         A warning naming the binding and the closest known slugs, or None when
@@ -227,7 +227,7 @@ def unknown_binding_warning(fs_slug: str, config: Config) -> str | None:
 
 
 def unknown_binding_warnings(config: Config) -> list[str]:
-    """Warn about every folder bound in config.yml to a name RomM doesn't know."""
+    """List the warning for every folder bound in config.yml to an unknown name."""
     folders = sorted({*config.PLATFORMS_BINDING, *config.PLATFORMS_VERSIONS})
     return [
         warning
