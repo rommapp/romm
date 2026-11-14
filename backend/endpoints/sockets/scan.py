@@ -93,6 +93,7 @@ from handler.scan_jobs import (
     get_queued_scan_jobs,
     get_running_scan_job,
     get_scheduled_scan_jobs,
+    scan_job_meta,
 )
 from handler.socket_handler import socket_handler
 from logger.formatter import BLUE, LIGHTYELLOW
@@ -104,7 +105,7 @@ from models.notification import NotificationKind, NotificationLevel
 from models.platform import Platform
 from models.rom import Rom, RomFile
 from models.user import User
-from tasks.tasks import TaskType, update_job_meta
+from tasks.tasks import update_job_meta
 from utils import emoji
 from utils.audio_tags import remove_persisted_cover
 from utils.context import initialize_context
@@ -112,14 +113,6 @@ from utils.gamelist_exporter import GamelistExporter
 from utils.pegasus_exporter import PegasusExporter
 
 STOP_SCAN_FLAG: Final = "scan:stop"
-
-
-def scan_job_meta(scan_type: ScanType) -> dict[str, Any]:
-    """What a scan job carries so a client can tell which scan is running."""
-    return {
-        "task_name": f"{scan_type.value.replace('_', ' ').title()} Scan",
-        "task_type": TaskType.SCAN.value,
-    }
 
 
 # Set on the job by `finish`, so a scan that reports its own end is not

@@ -3,7 +3,7 @@
 from collections.abc import Iterable
 from datetime import datetime, timedelta, timezone
 from itertools import chain
-from typing import Final
+from typing import TYPE_CHECKING, Any, Final
 
 from rq import Worker
 from rq.job import Job, JobStatus
@@ -24,9 +24,22 @@ from handler.redis_handler import (
 from logger.logger import log
 from tasks.tasks import TaskType
 
+if TYPE_CHECKING:
+    from handler.scan.sources import ScanType
+
 # The name RQ records for a directly enqueued scan, kept in step with the
 # function by a test rather than an import, which would be a cycle.
 SCAN_PLATFORMS_FUNC: Final = "endpoints.sockets.scan.scan_platforms"
+REPORT_SCAN_FAILURE_FUNC: Final = "endpoints.sockets.scan.report_scan_failure"
+
+
+def scan_job_meta(scan_type: "ScanType") -> dict[str, Any]:
+    """What a scan job carries so a client can tell which scan is running."""
+    return {
+        "task_name": f"{scan_type.value.replace('_', ' ').title()} Scan",
+        "task_type": TaskType.SCAN.value,
+    }
+
 
 # A delayed watcher scan this far past due was left behind by an instance that
 # was not running, and the change it reacted to has long since settled.

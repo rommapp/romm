@@ -52,6 +52,7 @@ from handler.redis_handler import (
     redis_client,
     scan_queue,
 )
+from handler.scan_jobs import REPORT_SCAN_FAILURE_FUNC
 from handler.streaming.config import HOLD_CEILING_SECONDS, streaming_enabled
 from tasks.tasks import Task, TaskSpec, TaskType, run_task_by_name
 
@@ -409,5 +410,5 @@ def enqueue_scheduled_scan(name: str) -> str:
         The id of the enqueued scan job.
     """
     # By path, so the dispatch job doesn't load the scan stack to reference it.
-    on_failure = Callback("endpoints.sockets.scan.report_scan_failure")
+    on_failure = Callback(REPORT_SCAN_FAILURE_FUNC)
     return enqueue_task(name, queue=scan_queue, on_failure=on_failure).id
