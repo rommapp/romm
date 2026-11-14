@@ -194,7 +194,7 @@ def validate_email(email: str) -> None:
         log.error(msg)
         raise ValidationError(msg, "Email")
 
-    if not EMAIL_PATTERN.match(email):
+    if not EMAIL_PATTERN.fullmatch(email):
         msg = "Invalid email format"
         log.error(f"Validation failed: {msg} for email: {email}")
         raise ValidationError(msg, "Email")
