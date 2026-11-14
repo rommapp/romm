@@ -6,7 +6,7 @@ import hashlib
 import os
 import re
 import struct
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -250,6 +250,18 @@ TRANSLATION_TAG_REGEX = re.compile(
 
 # The regional variant that opens a GoodTools patch ("-BR" in "T+Pt-BR1.1_Grp").
 TRANSLATION_VARIANT_REGEX = re.compile(r"^-([a-z]{2})(?![a-z])", re.I)
+
+# TOSEC joins two-letter country or language codes with hyphens ("(EU-US)",
+# "(en-fr)"). Single letters stay out: "(SW-R)" is a TOSEC copyright status.
+TOSEC_COMPOUND_TAG_REGEX = re.compile(r"^[a-z]{2}(?:-[a-z]{2})+$", re.I)
+
+
+def _resolve_every(
+    parts: Sequence[str], resolve: Callable[[str], str | None]
+) -> list[str]:
+    """Resolve every part, or none of them when any part names nothing."""
+    resolved = [name for part in parts if (name := resolve(part))]
+    return resolved if len(resolved) == len(parts) else []
 
 
 @dataclass(frozen=True)
@@ -571,23 +583,13 @@ class FSRomsHandler(FSHandler):
                 revision = revision_match[1] or revision_match[2] or ""
                 continue
 
-            # TOSEC joins countries or languages with hyphens. Keep unknown
-            # compounds intact rather than extracting a partial match.
-            parts = raw_tag.split("-")
-            if len(parts) > 1:
-                compound_regions = [
-                    region for part in parts if (region := normalize_region(part))
-                ]
-                if len(compound_regions) == len(parts):
+            # Keep unknown compounds intact rather than extracting a partial match.
+            if TOSEC_COMPOUND_TAG_REGEX.match(raw_tag):
+                parts = raw_tag.split("-")
+                if compound_regions := _resolve_every(parts, normalize_region):
                     regions.extend(compound_regions)
                     continue
-
-                compound_languages = [
-                    language
-                    for part in parts
-                    if (language := normalize_language(part))
-                ]
-                if len(compound_languages) == len(parts):
+                if compound_languages := _resolve_every(parts, normalize_language):
                     languages.extend(compound_languages)
                     continue
 

@@ -176,6 +176,8 @@ class TestFSRomsHandler:
             ("en-zz", [], [], ["en-zz"]),
             ("EU-en", [], [], ["EU-en"]),
             ("EU-", [], [], ["EU-"]),
+            ("SW-R", [], [], ["SW-R"]),
+            ("T-Br", [], [], ["T-Br"]),
         ],
     )
     def test_parse_tags_tosec_compound_tags(
