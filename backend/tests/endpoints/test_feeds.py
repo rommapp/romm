@@ -126,6 +126,19 @@ def test_tinfoil_feed(
     assert body["files"][0]["size"] > 0
 
 
+def test_tinfoil_feed_leaves_out_nup_files(
+    client: TestClient, access_token: str, platform: Platform, rom: Rom
+):
+    _make_switch_rom(platform, rom, "Test Switch.nup")
+
+    response = client.get(
+        "/api/feeds/tinfoil?slug=switch",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["files"] == []
+
+
 def test_tinfoil_feed_accepts_basic_auth(
     client: TestClient, viewer_user: User, platform: Platform, rom: Rom
 ):

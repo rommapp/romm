@@ -14,6 +14,13 @@ import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 from tests._zipfile_shim import reload_zipfile
+from tests.utils.nup_builder import (
+    KIND_ADDON,
+    KIND_ADDON_UPDATE,
+    KIND_UPDATE,
+    Pkg,
+    build_nup,
+)
 
 from adapters.services.sigil import SigilExtractionResult
 from config import LIBRARY_BASE_PATH
@@ -2119,6 +2126,7 @@ class TestFSRomsHandler:
 
 
 SIGIL_PATCH_TARGET = "adapters.services.sigil.SigilService.extract_title_id"
+NUP_PATCH_TARGET = "adapters.services.nup.NupService.extract_title_id"
 
 SWITCH_PLATFORM = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
 PS2_PLATFORM = Platform(name="PlayStation 2", slug="ps2", fs_slug="ps2")
@@ -2188,6 +2196,20 @@ def make_multi_part_rom(
         fs_path=f"{platform.fs_slug}/roms",
         platform=platform,
     )
+
+
+SWITCH_2_PLATFORM = Platform(
+    name="Nintendo Switch 2", slug="switch-2", fs_slug="switch-2"
+)
+S2_NUP = build_nup(
+    [Pkg(0x040074A01BF12000), Pkg(0x040074A01BF12000, KIND_UPDATE, 0x70000)]
+)
+
+
+def make_nup_rom(tmp_path: Path, platform: Platform, fs_name: str, data: bytes) -> Rom:
+    rom = make_single_file_rom(tmp_path, platform, fs_name)
+    (tmp_path / platform.fs_slug / "roms" / fs_name).write_bytes(data)
+    return rom
 
 
 async def switch_family_extract(
@@ -2722,6 +2744,88 @@ class TestSigilTitleIdExtraction:
         )
         assert parsed.identity.title_id is not None
 
+    @pytest.mark.asyncio
+    async def test_nup_is_read_from_its_header_not_sigil(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_nup_rom(tmp_path, SWITCH_2_PLATFORM, "Game.nup", S2_NUP)
+        mock_extract = AsyncMock(return_value=None)
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            parsed = await handler.get_rom_files(rom)
+
+        mock_extract.assert_not_awaited()
+        rom_file = parsed.rom_files[0]
+        assert rom_file.title_id == "040074A01BF12000"
+        assert rom_file.title_version == 0x70000
+        assert rom_file.category == RomFileCategory.GAME
+        assert parsed.identity.title_id == "040074A01BF12000"
+        assert parsed.identity.save_target == "040074A01BF12000"
+        assert parsed.identity.save_target_layout == SaveTargetLayout.FOLDER_EXACT
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "kind", [KIND_ADDON, KIND_ADDON_UPDATE], ids=["dlc", "dlc-update"]
+    )
+    async def test_dlc_nup_settles_category_and_base_identity(
+        self, tmp_path: Path, sigil_config: Config, kind: int
+    ):
+        handler = make_sigil_handler(tmp_path)
+        data = build_nup([Pkg(0x0100ABCD12341001, kind, 0x10000)])
+        rom = make_nup_rom(tmp_path, SWITCH_PLATFORM, "Game DLC.nup", data)
+
+        with patch(SIGIL_PATCH_TARGET, AsyncMock(return_value=None)):
+            parsed = await handler.get_rom_files(rom)
+
+        assert parsed.rom_files[0].category == RomFileCategory.DLC
+        assert parsed.rom_files[0].title_id == "0100ABCD12341001"
+        assert parsed.identity.title_id == "0100ABCD12340000"
+        assert parsed.identity.save_target == "0100ABCD12340000"
+
+    @pytest.mark.asyncio
+    async def test_nup_is_read_without_the_sigil_binding(
+        self, tmp_path: Path, sigil_config: Config, monkeypatch
+    ):
+        monkeypatch.setattr("adapters.services.sigil.sigil", None)
+        handler = make_sigil_handler(tmp_path)
+        rom = make_nup_rom(tmp_path, SWITCH_2_PLATFORM, "Game.nup", S2_NUP)
+
+        parsed = await handler.get_rom_files(rom)
+
+        assert parsed.rom_files[0].title_id == "040074A01BF12000"
+        assert parsed.identity.title_id == "040074A01BF12000"
+
+    @pytest.mark.asyncio
+    async def test_invalid_nup_leaves_no_title_id(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        data = build_nup([Pkg(0x040074A01BF12000)], corrupt="toc_hash")
+        rom = make_nup_rom(tmp_path, SWITCH_2_PLATFORM, "Game.nup", data)
+        mock_extract = AsyncMock(return_value=None)
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            parsed = await handler.get_rom_files(rom)
+
+        mock_extract.assert_not_awaited()
+        assert parsed.rom_files[0].title_id is None
+        assert parsed.identity.title_id is None
+
+    @pytest.mark.asyncio
+    async def test_nup_is_not_read_when_extraction_is_turned_off(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_nup_rom(tmp_path, SWITCH_2_PLATFORM, "Game.nup", S2_NUP)
+        nup_extract = AsyncMock(return_value=None)
+
+        with patch(NUP_PATCH_TARGET, nup_extract):
+            parsed = await handler.get_rom_files(rom, extract_title_ids=False)
+
+        nup_extract.assert_not_awaited()
+        assert parsed.rom_files[0].title_id is None
+
 
 class TestEmbedSwitchTitleIdInName:
     """The rename helper that embeds a Switch title id into a filename."""
@@ -2868,6 +2972,20 @@ class TestSwitchTitleIdEmbedding:
         assert parsed.rom_files[0].file_path == "switch/roms"
         assert (tmp_path / "switch/roms" / new_name).exists()
         assert not (tmp_path / "switch/roms/Moonlighter.xci").exists()
+
+    @pytest.mark.asyncio
+    async def test_nup_renamed_from_its_header(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_nup_rom(tmp_path, SWITCH_2_PLATFORM, "Bananza.nup", S2_NUP)
+
+        parsed = await handler.get_rom_files(rom)
+        renamed_rom_fs_name = await handler.embed_switch_title_ids(parsed)
+
+        new_name = "Bananza [040074A01BF12000][v458752].nup"
+        assert renamed_rom_fs_name == new_name
+        assert (tmp_path / "switch-2/roms" / new_name).exists()
 
     @pytest.mark.asyncio
     async def test_non_switch_platform_offers_no_candidates(

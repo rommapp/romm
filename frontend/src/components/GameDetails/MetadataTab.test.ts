@@ -90,6 +90,27 @@ describe("MetadataTab Switch title id", () => {
     );
   });
 
+  it.each(["nup", "NUP"])(
+    "gives a .%s file its own explanation",
+    (fs_extension) => {
+      const body = text(
+        rom({ platform_slug: "switch-2", title_id: null, fs_extension }),
+      );
+
+      expect(body).toContain("rom.title-id-missing-nup");
+      expect(body).not.toContain("rom.title-id-missing-switch");
+    },
+  );
+
+  it("keeps the Switch explanation for other formats", () => {
+    const body = text(
+      rom({ platform_slug: "switch", title_id: null, fs_extension: "nsp" }),
+    );
+
+    expect(body).toContain("rom.title-id-missing-switch");
+    expect(body).not.toContain("rom.title-id-missing-nup");
+  });
+
   it("shows no explanation once the title id is known", () => {
     const body = text(
       rom({ platform_slug: "switch", title_id: "0100ABCD12340000" }),
