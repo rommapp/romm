@@ -185,6 +185,15 @@ def resolve_builtin_platform_slug(fs_slug: str) -> str | None:
     return slug if slug in UPS else None
 
 
+def _platform_binding(key: str, config: Config) -> tuple[str, str] | None:
+    """Return the config key and name a folder is bound to, binding before version."""
+    if bound := config.PLATFORMS_BINDING.get(key):
+        return "system.platforms", bound
+    if bound := config.PLATFORMS_VERSIONS.get(key):
+        return "system.versions", bound
+    return None
+
+
 # The names suggested for an unknown binding: RomM slugs and their folder aliases.
 _KNOWN_PLATFORM_NAMES: Final[list[str]] = sorted({*UPS, *PLATFORM_FS_ALIASES})
 
@@ -197,13 +206,11 @@ def unknown_binding_warning(fs_slug: str, config: Config) -> str | None:
         the folder is unbound or bound to a known slug, alias or IGDB version.
     """
     key = fs_slug.lower()
-    if bound := config.PLATFORMS_BINDING.get(key):
-        config_key = "system.platforms"
-    elif bound := config.PLATFORMS_VERSIONS.get(key):
-        config_key = "system.versions"
-    else:
+    binding = _platform_binding(key, config)
+    if binding is None:
         return None
 
+    config_key, bound = binding
     if (
         resolve_builtin_platform_slug(bound) is not None
         or bound in IGDB_PLATFORM_VERSIONS
@@ -231,10 +238,9 @@ def unknown_binding_warnings(config: Config) -> list[str]:
 
 def resolve_platform_slug(fs_slug: str, config: Config) -> str:
     """Resolve a platform folder name to a RomM platform slug."""
-    key = fs_slug.lower()
-    bound = config.PLATFORMS_BINDING.get(key) or config.PLATFORMS_VERSIONS.get(key)
+    binding = _platform_binding(fs_slug.lower(), config)
     # A bound name resolves like a folder name, so it may be an alias too.
-    return _to_slug(bound or fs_slug)
+    return _to_slug(binding[1] if binding else fs_slug)
 
 
 def resolve_fs_slug(slug: str, config: Config) -> str | None:
