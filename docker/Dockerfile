@@ -379,6 +379,10 @@ VOLUME ["/romm", "/redis-data"]
 EXPOSE 8080 6379/tcp
 WORKDIR /romm
 
+# Shell form, so ROMM_PORT expands at probe time.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD wget -q -O /dev/null "http://127.0.0.1:${ROMM_PORT:-8080}/api/health/ready"
+
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["/init"]
 
