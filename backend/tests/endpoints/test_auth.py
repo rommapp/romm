@@ -263,6 +263,26 @@ def test_oidc_callback_for_a_disabled_user_is_unauthorized(
     assert (event.action, event.data["reason"]) == ("auth.login_failed", "disabled")
 
 
+def test_oidc_login_survives_an_unreachable_discovery_document(client: TestClient):
+    fake_oauth = mock.MagicMock()
+    fake_oauth.openid.authorize_redirect = mock.AsyncMock(
+        side_effect=httpx2.HTTPStatusError(
+            "404 Not Found",
+            request=httpx2.Request("GET", "https://idp.example/.well-known"),
+            response=httpx2.Response(404),
+        )
+    )
+    with (
+        mock.patch("endpoints.auth.OIDC_ENABLED", True),
+        mock.patch("endpoints.auth.oauth", fake_oauth),
+    ):
+        response = client.get("/api/login/openid", follow_redirects=False)
+
+    # Same landing as a rejected callback: no 500, and no autologin loop
+    assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT
+    assert response.headers["location"] == "/login?bypass_autologin=true"
+
+
 @pytest.mark.parametrize("path", ["/api/login/openid", "/api/oauth/openid"])
 def test_oidc_endpoints_refuse_when_oidc_is_disabled(client: TestClient, path: str):
     with mock.patch("endpoints.auth.OIDC_ENABLED", False):
