@@ -92,28 +92,6 @@ def sigil_binding() -> Any:
     return sigil
 
 
-def _is_routine_error(exc: Exception) -> bool:
-    """Whether the error is routine for an arbitrary library file: no title id,
-    an unparsed format, a truncated file or missing keys."""
-    return sigil is not None and isinstance(
-        exc,
-        (
-            sigil.SigilNotFoundError,
-            sigil.SigilUnsupportedFormatError,
-            sigil.SigilIOError,
-            sigil.SigilNeedsKeyError,
-        ),
-    )
-
-
-@dataclass(frozen=True)
-class SigilUnitMember:
-    """One file of an unpacked save unit, as sigil hashes it."""
-
-    name: str
-    is_clock: bool
-
-
 # Files the current scan skipped because RomM holds no keys for their headers.
 # A context var, so scans overlapping in one process (DEV_MODE) keep their own.
 _needs_key_paths: ContextVar[set[str] | None] = ContextVar(
@@ -191,43 +169,6 @@ class SigilService:
         """
         return sigil is not None
 
-    def unit_identity_hash(
-        self, root: Path, members: list[SigilUnitMember], archived: bool
-    ) -> str | None:
-        """Sigil's identity hash of a save unit unpacked under `root`, or None
-        without the binding or when sigil can't read it.
-
-        Args:
-            archived: whether the unit travels as a zip; a lone raw file doesn't.
-        """
-        if sigil is None or not members:
-            return None
-        unit = sigil.SigilSaveUnit(
-            key=root.name,
-            shape="multi" if archived else "single",
-            members=tuple(
-                sigil.SigilSaveMember(
-                    path=member.name,
-                    entry=member.name,
-                    role="rtc" if member.is_clock else "primary",
-                    present=True,
-                )
-                for member in sorted(members, key=lambda m: m.name)
-            ),
-            expected=(),
-            unkeyed=(),
-            artifact=root.name,
-            content_hash="",
-            identity_hash="",
-        )
-        try:
-            hashed = sigil.hash_saves(unit, root)
-        except Exception as exc:
-            log.error(f"Sigil could not hash the save unit under {root}: {exc}")
-            return None
-        identity: str = hashed.identity_hash
-        return identity
-
     async def extract_title_id(
         self,
         platform_slug: str,
@@ -276,18 +217,17 @@ class SigilService:
                 paths.add(file_path)
             log.debug(f"Sigil found no title id for {file_path}: {exc}")
             return None
-        # Expected for arbitrary library files: no title id or a format sigil can't parse.
+        # Expected for arbitrary library files: no title id, a format sigil
+        # can't parse, or a truncated file.
         except (
             sigil.SigilNotFoundError,
             sigil.SigilUnsupportedFormatError,
+            sigil.SigilIOError,
         ) as exc:
             log.debug(f"Sigil found no title id for {file_path}: {exc}")
             return None
         except Exception as exc:
-            if _is_routine_error(exc):
-                log.debug(f"Sigil found no title id for {file_path}: {exc}")
-            else:
-                log.error(f"Sigil extraction failed for {file_path}: {exc}")
+            log.error(f"Sigil extraction failed for {file_path}: {exc}")
             return None
 
     @staticmethod

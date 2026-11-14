@@ -7,6 +7,7 @@ import {
   preferredSlot,
   slotChoiceKey,
   slotChoices,
+  slotForChannel,
   slotForSave,
 } from "./saveSlots";
 
@@ -107,13 +108,11 @@ describe("slotForSave", () => {
     );
     expect(slotForSave(save(2), NEW_SLOT_CHOICE)).toBe(NEW_SLOT_CHOICE);
   });
+});
 
-  it("follows the channel that holds a save with no slot", () => {
-    expect(slotForSave(save(3), NEW_SLOT_CHOICE, "Hard mode")).toEqual(
-      existingSlot("Hard mode"),
-    );
-    expect(slotForSave(save(4), NEW_SLOT_CHOICE, "default")).toEqual(
-      existingSlot("autosave"),
-    );
+describe("slotForChannel", () => {
+  it("names a channel's slot, with the default channel as autosave", () => {
+    expect(slotForChannel("Hard mode")).toEqual(existingSlot("Hard mode"));
+    expect(slotForChannel("default")).toEqual(existingSlot("autosave"));
   });
 });

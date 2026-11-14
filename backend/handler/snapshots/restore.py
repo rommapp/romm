@@ -1,7 +1,7 @@
 """A stored save restored as the files one emulator core reads, through sigil."""
 
 import asyncio
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Final
 
@@ -13,18 +13,15 @@ from adapters.services.sigil import (
 )
 from adapters.services.sigil_restore import (
     RestoreCompanion,
-    RestoredSave,
+    RestoredFiles,
     RestoreTarget,
+    merge_into_container,
+    restore_per_game,
 )
 from handler.database import db_rom_handler, db_snapshot_handler
 from handler.snapshots.legacy import sync_file
 from models.assets import Save, SaveShape
 from models.rom import Rom, RomFile
-
-Restore = Callable[
-    [bytes, SigilGame, RestoreTarget, list[RestoreCompanion]],
-    Awaitable[RestoredSave],
-]
 
 # Units that travel as an archive, which no core reads as its save file.
 _ARCHIVED_SHAPES: Final = frozenset({SaveShape.MULTI, SaveShape.FOLDER})
@@ -119,12 +116,14 @@ async def restore_for_core(
     options: Mapping[str, str],
     profile: str | None,
     companions: Sequence[tuple[Save, Path]],
-    restore: Restore,
-) -> RestoredSave:
-    """The save at `file_path` restored for `core` by `restore`.
+    container: tuple[str, bytes] | None = None,
+) -> RestoredFiles:
+    """The save at `file_path` restored for `core`.
 
     Args:
         companions: each companion save the caller may read, with its stored file.
+        container: the client's own card or volume to merge into, by its path
+            under the save root. Left out, the restore fills an empty save root.
 
     Raises:
         NotConvertible: sigil restores no saves for a game's platform.
@@ -140,4 +139,9 @@ async def restore_for_core(
         content_path=_content_path(save, rom, rom_files),
     )
     unit = await asyncio.to_thread(file_path.read_bytes)
-    return await restore(unit, game, target, restored_companions)
+    if container is None:
+        return await restore_per_game(unit, game, target, restored_companions)
+    container_path, content = container
+    return await merge_into_container(
+        unit, game, target, container_path, content, restored_companions
+    )

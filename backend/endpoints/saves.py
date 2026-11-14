@@ -1,7 +1,8 @@
 import io
 import os
 import zipfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Annotated, Any, Final
@@ -9,8 +10,8 @@ from urllib.parse import quote
 
 from fastapi import (
     Body,
+    Depends,
     File,
-    Form,
     HTTPException,
     Query,
     Request,
@@ -19,21 +20,16 @@ from fastapi import (
     status,
 )
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field, ValidationError
 
-from adapters.services.sigil import SigilGame, SigilService
+from adapters.services.sigil import SigilService
 from adapters.services.sigil_restore import (
     ContainerMismatch,
     RefusalCode,
-    RestoreCompanion,
-    RestoredSave,
-    RestoreTarget,
+    RestoredFiles,
     SaveRestoreError,
     SharedContainerRequired,
     SigilRefusal,
-    merge_into_container,
     restore_layouts,
-    restore_per_game,
 )
 from config import MAX_AUTOCLEANUP_LIMIT, MAX_SAVES_PER_SLOT
 from decorators.auth import protected_route
@@ -48,7 +44,7 @@ from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.asset_store import (
     assert_backup,
-    frozen_conflict,
+    assert_backups,
     prune_save_slot,
     remove_save,
     rename_asset,
@@ -79,7 +75,6 @@ from handler.snapshots.bridge import hold_legacy_upload
 from handler.snapshots.restore import (
     ConversionUnavailable,
     NotConvertible,
-    Restore,
     convertible_rom,
     restore_for_core,
     restore_platform,
@@ -685,9 +680,51 @@ def _record_download(
         _increment_session_counter(request, session_id)
 
 
-def _parse_options(option: Sequence[str]) -> dict[str, str]:
+def _is_path_segment(value: str) -> bool:
+    return value not in (".", "..") and not any(c in value for c in "/\\\x00")
+
+
+@dataclass(frozen=True)
+class ConversionParams:
+    """The emulator a save is converted for."""
+
+    core: str | None
+    options: dict[str, str]
+    profile: str | None
+    companions: list[int]
+
+
+def conversion_params(
+    core: Annotated[
+        str | None,
+        Query(
+            max_length=EMULATOR_MAX_LENGTH,
+            description=(
+                "A sigil layout id (libretro core name or emulator id). The save "
+                "comes back as the files that emulator reads."
+            ),
+        ),
+    ] = None,
+    option: Annotated[
+        list[str] | None,
+        Query(
+            description="An emulator option that changes the save's shape, as key:value. Repeatable."
+        ),
+    ] = None,
+    profile: Annotated[
+        str | None,
+        Query(
+            max_length=FILE_NAME_MAX_LENGTH,
+            description="The user profile whose account save to write.",
+        ),
+    ] = None,
+    companion: Annotated[
+        list[int] | None,
+        Query(description="A save whose game this game reads saves of. Repeatable."),
+    ] = None,
+) -> ConversionParams:
     options: dict[str, str] = {}
-    for item in option:
+    for item in option or []:
         key, separator, value = item.partition(":")
         if not separator or not key:
             raise HTTPException(
@@ -695,7 +732,14 @@ def _parse_options(option: Sequence[str]) -> dict[str, str]:
                 detail=f"Option {item!r} isn't in the form key:value",
             )
         options[key] = value
-    return options
+    # Sigil builds save paths from these, and doesn't confine its reads to the save root.
+    for named in (profile, *options.values()):
+        if named is not None and not _is_path_segment(named):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"{named!r} is not a valid profile or option value",
+            )
+    return ConversionParams(core, options, profile, companion or [])
 
 
 # Each companion is read whole, so one request can't pull in an unbounded number.
@@ -719,15 +763,10 @@ def _companions(
     return companions
 
 
+# Every other refusal is content sigil can't restore, a 422.
 _REFUSAL_STATUS: Final[dict[RefusalCode, int]] = {
     RefusalCode.CONFLICT: status.HTTP_409_CONFLICT,
     RefusalCode.UNCOLLECTED: status.HTTP_409_CONFLICT,
-    RefusalCode.EXISTS: status.HTTP_422_UNPROCESSABLE_CONTENT,
-    RefusalCode.DAMAGED: status.HTTP_422_UNPROCESSABLE_CONTENT,
-    RefusalCode.REGION: status.HTTP_422_UNPROCESSABLE_CONTENT,
-    RefusalCode.NO_SPACE: status.HTTP_422_UNPROCESSABLE_CONTENT,
-    RefusalCode.NOT_FOUND: status.HTTP_422_UNPROCESSABLE_CONTENT,
-    RefusalCode.UNSUPPORTED_FORMAT: status.HTTP_422_UNPROCESSABLE_CONTENT,
     RefusalCode.NO_TARGET: status.HTTP_400_BAD_REQUEST,
     RefusalCode.AMBIGUOUS: status.HTTP_400_BAD_REQUEST,
     RefusalCode.INVALID_ARG: status.HTTP_400_BAD_REQUEST,
@@ -745,7 +784,9 @@ def _restore_error(exc: Exception) -> HTTPException:
         )
     if isinstance(exc, SigilRefusal):
         return HTTPException(
-            status_code=_REFUSAL_STATUS[exc.code],
+            status_code=_REFUSAL_STATUS.get(
+                exc.code, status.HTTP_422_UNPROCESSABLE_CONTENT
+            ),
             detail={
                 "error": exc.code.value,
                 "message": str(exc),
@@ -787,48 +828,35 @@ def _convertible_rom_or_400(save: Save) -> Rom | None:
         raise _restore_error(exc) from exc
 
 
-def _is_path_segment(value: str) -> bool:
-    return value not in (".", "..") and not any(c in value for c in "/\\\x00")
-
-
 async def _restore_for_core(
     request: Request,
     save: Save,
     rom: Rom,
     file_path: Path,
     core: str,
-    options: Mapping[str, str],
-    profile: str | None,
-    companion_ids: Sequence[int],
-    restore: Restore,
-) -> RestoredSave:
-    # Sigil builds save paths from these, and doesn't confine its reads to the save root.
-    for value in (profile, *options.values()):
-        if value is not None and not _is_path_segment(value):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"{value!r} is not a valid profile or option value",
-            )
-    companions = _companions(request, companion_ids)
+    conversion: ConversionParams,
+    container: tuple[str, bytes] | None = None,
+) -> RestoredFiles:
+    companions = _companions(request, conversion.companions)
     try:
         return await restore_for_core(
             save,
             rom,
             file_path,
             core=core,
-            options=options,
-            profile=profile,
+            options=conversion.options,
+            profile=conversion.profile,
             companions=companions,
-            restore=restore,
+            container=container,
         )
     except (NotConvertible, ConversionUnavailable, SaveRestoreError) as exc:
         raise _restore_error(exc) from exc
 
 
-def _restored_response(restored: RestoredSave, save: Save) -> Response:
+def _restored_response(restored: RestoredFiles, save: Save) -> Response:
     """One file raw, named by `X-Save-Path`; several as a zip of save-root paths."""
-    if len(restored.files) == 1:
-        ((path, data),) = restored.files.items()
+    if len(restored) == 1:
+        ((path, data),) = restored.items()
         return Response(
             content=data,
             media_type="application/octet-stream",
@@ -841,7 +869,7 @@ def _restored_response(restored: RestoredSave, save: Save) -> Response:
     ensure_zipfile_writable()
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        for path, data in sorted(restored.files.items()):
+        for path, data in sorted(restored.items()):
             zf.writestr(path, data)
     return Response(
         content=buffer.getvalue(),
@@ -872,69 +900,29 @@ _DOWNLOAD_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
 async def download_save(
     request: Request,
     id: int,
+    conversion: Annotated[ConversionParams, Depends(conversion_params)],
     device_id: str | None = None,
     session_id: int | None = None,
     optimistic: bool = True,
-    core: Annotated[
-        str | None,
-        Query(
-            max_length=EMULATOR_MAX_LENGTH,
-            description=(
-                "A sigil layout id (libretro core name or emulator id). The save "
-                "comes back as the files that emulator reads, for a per-game target."
-            ),
-        ),
-    ] = None,
-    option: Annotated[
-        list[str] | None,
-        Query(
-            description="An emulator option that changes the save's shape, as key:value. Repeatable."
-        ),
-    ] = None,
-    profile: Annotated[
-        str | None, Query(description="The user profile whose account save to write.")
-    ] = None,
-    companion: Annotated[
-        list[int] | None,
-        Query(description="A save whose game this game reads saves of. Repeatable."),
-    ] = None,
 ) -> Response:
-    """Download a save, or with `core` the files that emulator reads, one raw with its path in `X-Save-Path` or several zipped."""
+    """Download a save, or with `core` the files that emulator reads for a per-game target, one raw with its path in `X-Save-Path` or several zipped."""
     device = resolve_device(request, device_id, Scope.DEVICES_READ)
     save = _readable_save_or_404(request, id)
     file_path = _stored_save_path(save)
 
+    core = conversion.core
     rom = _convertible_rom_or_400(save) if core is not None else None
     response: Response
     if core is None or rom is None:
         response = FileResponse(path=str(file_path), filename=save.file_name)
     else:
-        options = _parse_options(option or [])
         restored = await _restore_for_core(
-            request,
-            save,
-            rom,
-            file_path,
-            core,
-            options,
-            profile,
-            companion or [],
-            restore_per_game,
+            request, save, rom, file_path, core, conversion
         )
         response = _restored_response(restored, save)
 
     _record_download(request, save, device, session_id, optimistic)
     return response
-
-
-class SaveConversionPayload(BaseModel):
-    """What a client's emulator reads, and where its container sits."""
-
-    core: str = Field(max_length=EMULATOR_MAX_LENGTH)
-    options: dict[str, str] = Field(default_factory=dict)
-    profile: str | None = None
-    container_path: str = Field(max_length=FILE_PATH_MAX_LENGTH)
-    companions: list[int] = Field(default_factory=list)
 
 
 @protected_route(
@@ -949,14 +937,12 @@ class SaveConversionPayload(BaseModel):
 async def merge_save_into_container(
     request: Request,
     id: int,
-    payload: Annotated[
+    conversion: Annotated[ConversionParams, Depends(conversion_params)],
+    container_path: Annotated[
         str,
-        Form(
-            alias="request",
-            description=(
-                "JSON: core, options, profile, container_path (relative to the "
-                "save root) and companions (save ids)."
-            ),
+        Query(
+            max_length=FILE_PATH_MAX_LENGTH,
+            description="Where the container sits, relative to the save root.",
         ),
     ],
     container: Annotated[
@@ -968,14 +954,11 @@ async def merge_save_into_container(
     optimistic: bool = True,
 ) -> Response:
     """Merge a save into the card or volume the client sent, changing only that game's saves, and return it."""
-    try:
-        conversion = SaveConversionPayload.model_validate_json(payload)
-    except ValidationError as exc:
+    if conversion.core is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=exc.errors(include_url=False, include_context=False),
-        ) from exc
-    container_path = conversion.container_path
+            detail="A merge names the core it is for",
+        )
     if not container_path or leaves_save_folder(container_path):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -996,26 +979,14 @@ async def merge_save_into_container(
         _record_download(request, save, device, session_id, optimistic)
         return FileResponse(path=str(file_path), filename=save.file_name)
 
-    async def merge(
-        unit: bytes,
-        game: SigilGame,
-        target: RestoreTarget,
-        companions: list[RestoreCompanion],
-    ) -> RestoredSave:
-        return await merge_into_container(
-            unit, game, target, container_path, content, companions
-        )
-
     restored = await _restore_for_core(
         request,
         save,
         rom,
         file_path,
         conversion.core,
-        conversion.options,
-        conversion.profile,
-        conversion.companions,
-        merge,
+        conversion,
+        (container_path, content),
     )
 
     _record_download(request, save, device, session_id, optimistic)
@@ -1257,8 +1228,6 @@ async def delete_saves(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
     affected_rom_ids: set[int] = set()
-    frozen = db_snapshot_handler.get_frozen_save_ids(saves)
-
     # Resolved up front, so a bad id fails the batch before anything is removed.
     owned = [
         owned_rom_asset_or_404(
@@ -1268,8 +1237,7 @@ async def delete_saves(
         )
         for save_id in saves
     ]
-    if held := next((save for save in owned if save.id in frozen), None):
-        raise frozen_conflict(held)
+    assert_backups(owned)
     for save in owned:
         affected_rom_ids.add(save.attached_rom_id)
         log.info(

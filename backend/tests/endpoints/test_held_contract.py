@@ -100,7 +100,7 @@ def follow(
         headers,
         game_file,
         data,
-        channel_id=after["channel"]["id"],
+        channel_id=after["channel_id"],
         expected_current_id=after["id"],
     )
     assert response.status_code == status.HTTP_201_CREATED, response.text
@@ -140,7 +140,6 @@ def assert_conflict(response: Response, current_id: int, reason: str) -> Snapsho
     assert body["current"]["id"] == current_id
     assert body["current"]["digest"]
     assert body["branch"]["kind"] == "branch"
-    assert body["branch"]["channel"]["current_snapshot_id"] == current_id
     assert body["reason"] == reason
     return body
 
@@ -157,7 +156,7 @@ def test_a_push_holds_the_current_it_created(
 ):
     first = start(client, bound, game_file)
     second = push(
-        client, bound, game_file, b"next", channel_id=first["channel"]["id"]
+        client, bound, game_file, b"next", channel_id=first["channel_id"]
     ).json()
 
     assert second["kind"] == "channel"
@@ -175,9 +174,7 @@ def test_a_push_that_branches_holds_the_branch(
     first = start(client, bound, game_file)
     follow(client, headers, game_file, first, b"elsewhere")
 
-    response = push(
-        client, bound, game_file, b"mine", channel_id=first["channel"]["id"]
-    )
+    response = push(client, bound, game_file, b"mine", channel_id=first["channel_id"])
     branch = response.json()["branch"]
 
     assert held_by(client, headers, branch["id"]) == [device.id]
@@ -196,7 +193,7 @@ def test_a_plain_fetch_holds_nothing(
     for snapshot in (first, second):
         assert client.get(f"/api/snapshots/{snapshot['id']}", headers=bound).is_success
 
-    assert sync(device.id, first["channel"]["id"]) is None
+    assert sync(device.id, first["channel_id"]) is None
     assert held_by(client, headers, first["id"]) == []
     assert held_by(client, headers, second["id"]) == []
 
@@ -241,13 +238,11 @@ def test_clearing_held_leaves_the_device_holding_nothing(
 ):
     first = start(client, bound, game_file)
 
-    response = client.delete(
-        f"/api/channels/{first['channel']['id']}/held", headers=bound
-    )
+    response = client.delete(f"/api/channels/{first['channel_id']}/held", headers=bound)
 
     assert response.status_code == status.HTTP_204_NO_CONTENT
     assert held_by(client, headers, first["id"]) == []
-    assert sync(device.id, first["channel"]["id"]) is None
+    assert sync(device.id, first["channel_id"]) is None
 
 
 def test_a_read_only_token_can_hold_and_clear(
@@ -263,12 +258,12 @@ def test_a_read_only_token_can_hold_and_clear(
 
     held = hold(client, read_only, first["id"])
     cleared = client.delete(
-        f"/api/channels/{first['channel']['id']}/held", headers=read_only
+        f"/api/channels/{first['channel_id']}/held", headers=read_only
     )
 
     assert held.status_code == status.HTTP_200_OK
     assert cleared.status_code == status.HTTP_204_NO_CONTENT
-    assert sync(device.id, first["channel"]["id"]) is None
+    assert sync(device.id, first["channel_id"]) is None
 
 
 def test_a_bound_token_cannot_hold_for_another_device(
@@ -291,7 +286,7 @@ def test_a_bound_token_cannot_hold_for_another_device(
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
-    assert sync(other.id, first["channel"]["id"]) is None
+    assert sync(other.id, first["channel_id"]) is None
 
 
 def test_held_by_lists_only_the_viewers_devices(
@@ -305,7 +300,7 @@ def test_held_by_lists_only_the_viewers_devices(
 ):
     first = start(client, bound, game_file)
     client.patch(
-        f"/api/channels/{first['channel']['id']}",
+        f"/api/channels/{first['channel_id']}",
         json={"is_public": True},
         headers=headers,
     )
@@ -322,7 +317,7 @@ def test_held_by_lists_only_the_viewers_devices(
 # Latest known
 
 
-@pytest.mark.parametrize("listing", ["channels", "current", "history"])
+@pytest.mark.parametrize("listing", ["channels", "history"])
 def test_listing_records_the_latest_known_and_keeps_what_is_held(
     client: TestClient,
     headers: dict[str, str],
@@ -332,11 +327,10 @@ def test_listing_records_the_latest_known_and_keeps_what_is_held(
     listing: str,
 ):
     first = start(client, bound, game_file)
-    channel_id = first["channel"]["id"]
+    channel_id = first["channel_id"]
     second = follow(client, headers, game_file, first, b"elsewhere")
     path, params = {
         "channels": ("/api/channels", {"rom_file_id": game_file.id}),
-        "current": ("/api/snapshots", {"rom_file_id": game_file.id, "current": True}),
         "history": ("/api/snapshots", {"channel_id": channel_id}),
     }[listing]
 
@@ -361,11 +355,11 @@ def test_a_history_page_past_the_newest_records_nothing(
 
     client.get(
         "/api/snapshots",
-        params={"channel_id": third["channel"]["id"], "cursor": str(second["id"])},
+        params={"channel_id": third["channel_id"], "cursor": str(second["id"])},
         headers=bound,
     )
 
-    assert sync(device.id, third["channel"]["id"]) is None
+    assert sync(device.id, third["channel_id"]) is None
 
 
 def test_a_branching_push_records_the_current_it_missed(
@@ -378,8 +372,8 @@ def test_a_branching_push_records_the_current_it_missed(
     first = start(client, bound, game_file)
     second = follow(client, headers, game_file, first, b"elsewhere")
 
-    push(client, bound, game_file, b"mine", channel_id=first["channel"]["id"])
-    recorded = sync(device.id, first["channel"]["id"])
+    push(client, bound, game_file, b"mine", channel_id=first["channel_id"])
+    recorded = sync(device.id, first["channel_id"])
 
     assert recorded is not None
     assert recorded.latest_known_id == second["id"]
@@ -395,7 +389,7 @@ def test_holding_an_older_snapshot_records_the_current_as_latest_known(
     first, second = chain(client, headers, game_file, 2)
 
     hold(client, bound, first["id"])
-    recorded = sync(device.id, first["channel"]["id"])
+    recorded = sync(device.id, first["channel_id"])
 
     assert recorded is not None
     assert recorded.latest_known_id == second["id"]
@@ -410,9 +404,7 @@ def test_a_push_after_holding_an_older_snapshot_becomes_the_current(
     first, second = chain(client, headers, game_file, 2)
     hold(client, bound, first["id"])
 
-    response = push(
-        client, bound, game_file, b"older", channel_id=first["channel"]["id"]
-    )
+    response = push(client, bound, game_file, b"older", channel_id=first["channel_id"])
 
     assert response.status_code == status.HTTP_201_CREATED, response.text
     assert response.json()["parent_snapshot_id"] == first["id"]
@@ -427,15 +419,10 @@ def test_listing_never_changes_what_is_held(
 ):
     first, second = chain(client, headers, game_file, 2)
     hold(client, bound, first["id"])
-    before = sync(device.id, first["channel"]["id"])
+    before = sync(device.id, first["channel_id"])
 
     client.get("/api/channels", params={"rom_file_id": game_file.id}, headers=bound)
-    client.get(
-        "/api/snapshots",
-        params={"rom_file_id": game_file.id, "current": True},
-        headers=bound,
-    )
-    after = sync(device.id, first["channel"]["id"])
+    after = sync(device.id, first["channel_id"])
 
     assert before is not None and after is not None
     assert after.base_snapshot_id == first["id"]
@@ -453,15 +440,13 @@ def test_known_same_held_same_becomes_the_current(
 ):
     first = start(client, bound, game_file)
 
-    response = push(
-        client, bound, game_file, b"next", channel_id=first["channel"]["id"]
-    )
+    response = push(client, bound, game_file, b"next", channel_id=first["channel_id"])
 
     assert response.status_code == status.HTTP_201_CREATED, response.text
     body = response.json()
     assert body["kind"] == "channel"
     assert body["parent_snapshot_id"] == first["id"]
-    assert body["channel"]["current_snapshot_id"] == body["id"]
+    assert body["kind"] == "channel"
 
 
 def test_known_same_held_older_becomes_the_current_keeping_the_replaced(
@@ -471,7 +456,7 @@ def test_known_same_held_older_becomes_the_current_keeping_the_replaced(
     game_file: RomFile,
 ):
     first, second = chain(client, headers, game_file, 2)
-    channel_id = first["channel"]["id"]
+    channel_id = first["channel_id"]
     client.get("/api/snapshots", params={"channel_id": channel_id}, headers=bound)
     hold(client, bound, first["id"])
 
@@ -480,7 +465,7 @@ def test_known_same_held_older_becomes_the_current_keeping_the_replaced(
     assert response.status_code == status.HTTP_201_CREATED, response.text
     body = response.json()
     assert body["parent_snapshot_id"] == first["id"]
-    assert body["channel"]["current_snapshot_id"] == body["id"]
+    assert body["kind"] == "channel"
     history = client.get(
         "/api/snapshots", params={"channel_id": channel_id}, headers=headers
     ).json()
@@ -496,9 +481,7 @@ def test_known_different_held_same_is_a_moved_branch(
     first = start(client, bound, game_file)
     second = follow(client, headers, game_file, first, b"elsewhere")
 
-    response = push(
-        client, bound, game_file, b"mine", channel_id=first["channel"]["id"]
-    )
+    response = push(client, bound, game_file, b"mine", channel_id=first["channel_id"])
 
     body = assert_conflict(response, second["id"], "moved")
     assert body["branch"]["parent_snapshot_id"] == first["id"]
@@ -511,7 +494,7 @@ def test_known_different_held_older_is_a_moved_from_older_branch(
     game_file: RomFile,
 ):
     first, second = chain(client, headers, game_file, 2)
-    channel_id = first["channel"]["id"]
+    channel_id = first["channel_id"]
     client.get("/api/snapshots", params={"channel_id": channel_id}, headers=bound)
     hold(client, bound, first["id"])
     third = follow(client, headers, game_file, second, b"elsewhere")
@@ -530,19 +513,19 @@ def test_with_no_sync_record_a_parent_on_the_current_becomes_the_current(
     device: Device,
 ):
     _, second = chain(client, headers, game_file, 2)
-    assert sync(device.id, second["channel"]["id"]) is None
+    assert sync(device.id, second["channel_id"]) is None
 
     response = push(
         client,
         bound,
         game_file,
         b"next",
-        channel_id=second["channel"]["id"],
+        channel_id=second["channel_id"],
         parent_snapshot_id=second["id"],
     )
 
     assert response.status_code == status.HTTP_201_CREATED, response.text
-    assert response.json()["channel"]["current_snapshot_id"] == response.json()["id"]
+    assert response.json()["kind"] == "channel"
 
 
 @pytest.mark.parametrize("parent", ["older", "none"])
@@ -557,7 +540,7 @@ def test_with_no_sync_record_any_other_parent_lands_as_a_branch(
     fields = {"parent_snapshot_id": first["id"]} if parent == "older" else {}
 
     response = push(
-        client, bound, game_file, b"next", channel_id=first["channel"]["id"], **fields
+        client, bound, game_file, b"next", channel_id=first["channel_id"], **fields
     )
 
     assert response.status_code == status.HTTP_409_CONFLICT, response.text
@@ -581,7 +564,7 @@ def test_an_explicit_stale_expected_overrides_a_device_on_the_current(
         bound,
         game_file,
         b"mine",
-        channel_id=first["channel"]["id"],
+        channel_id=first["channel_id"],
         expected_current_id=first["id"],
     )
 
@@ -603,7 +586,7 @@ def test_an_explicit_current_expected_overrides_a_device_that_missed_a_push(
         bound,
         game_file,
         b"mine",
-        channel_id=first["channel"]["id"],
+        channel_id=first["channel_id"],
         expected_current_id=second["id"],
     )
 
@@ -632,7 +615,7 @@ def test_retention_prunes_a_held_unpinned_snapshot_and_the_device_holds_nothing(
     device: Device,
 ):
     first = start(client, bound, game_file)
-    channel_id = first["channel"]["id"]
+    channel_id = first["channel_id"]
     second = follow(client, headers, game_file, first, b"two")
     third = follow(client, headers, game_file, second, b"three")
 
@@ -664,7 +647,7 @@ def test_after_a_prune_a_parent_on_the_current_becomes_the_current(
         bound,
         game_file,
         b"mine",
-        channel_id=first["channel"]["id"],
+        channel_id=first["channel_id"],
         parent_snapshot_id=third["id"],
     )
 
@@ -700,7 +683,7 @@ def test_another_readers_pin_keeps_a_snapshot_until_unsharing_drops_it(
     game_file: RomFile,
 ):
     first = start(client, headers, game_file)
-    channel_path = f"/api/channels/{first['channel']['id']}"
+    channel_path = f"/api/channels/{first['channel_id']}"
     client.patch(channel_path, json={"is_public": True}, headers=headers)
     pinned = client.patch(
         f"/api/snapshots/{first['id']}",

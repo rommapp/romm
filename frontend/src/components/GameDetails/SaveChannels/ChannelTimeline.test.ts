@@ -53,8 +53,8 @@ describe("ChannelTimeline", () => {
 
     expect(labels).toEqual([
       "Main · channels.legacy-save",
-      "Speedrun",
-      "Main",
+      "Speedrun · channels.current",
+      "Main · channels.current",
       "Main",
     ]);
   });

@@ -12,7 +12,6 @@ from models.base import BaseModel
 from models.rom import ROM_SHA1_MAX_LENGTH, TITLE_ID_MAX_LENGTH
 
 if TYPE_CHECKING:
-    from models.assets import Save, State
     from models.channel import Channel
 
 SNAPSHOT_DIGEST_LENGTH = 64
@@ -39,9 +38,8 @@ class Snapshot(BaseModel):
 
     __tablename__ = "snapshots"
     __table_args__ = (
-        Index("ix_snapshots_channel_created", "channel_id", "created_at"),
-        Index("ix_snapshots_channel_digest", "channel_id", "digest"),
-        Index("ix_snapshots_user_rom_kind", "user_id", "rom_id", "kind"),
+        Index("ix_snapshots_channel_id", "channel_id"),
+        Index("ix_snapshots_user_id", "user_id"),
         Index("ix_snapshots_author_user_id", "author_user_id"),
         Index("ix_snapshots_rom_id", "rom_id"),
         Index("ix_snapshots_parent_snapshot_id", "parent_snapshot_id"),
@@ -86,10 +84,6 @@ class Snapshot(BaseModel):
         default=None,
     )
 
-    channel: Mapped[Channel | None] = relationship(
-        foreign_keys=[channel_id], lazy="raise"
-    )
-    save: Mapped[Save | None] = relationship(lazy="raise")
     states: Mapped[list[SnapshotState]] = relationship(
         back_populates="snapshot",
         cascade="all, delete-orphan",
@@ -127,7 +121,6 @@ class SnapshotState(BaseModel):
     state_id: Mapped[int] = mapped_column(ForeignKey("states.id", ondelete="RESTRICT"))
 
     snapshot: Mapped[Snapshot] = relationship(back_populates="states", lazy="raise")
-    state: Mapped[State] = relationship(lazy="raise")
 
 
 class SnapshotPin(BaseModel):

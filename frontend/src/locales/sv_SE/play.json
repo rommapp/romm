@@ -180,7 +180,6 @@
   "save-data-none-note": "Spela och spara sedan i spelet. Uppgifterna synkroniseras när sessionen avslutas.",
   "save-data-note": "Återställs till konsolen före start. Läs in filen från spelets egen meny.",
   "save-data-synced": "Synkroniserad",
-  "save-kept-apart": "Den sparfil för {game} som hölls kvar sparades separat eftersom platsen har nyare framsteg från en annan enhet",
   "save-kept-for-later": "Sparfilen behålls i den här webbläsaren och synkroniseras senare",
   "save-loaded": "Sparfilen lästes in från servern",
   "save-not-kept": "Sparfilen kunde inte synkroniseras och kan inte behållas till senare i den här webbläsaren",

@@ -7,6 +7,7 @@ from typing import Any
 from sqlalchemy import (
     ColumnElement,
     Exists,
+    Insert,
     and_,
     delete,
     exists,
@@ -15,6 +16,8 @@ from sqlalchemy import (
     select,
     update,
 )
+from sqlalchemy.dialects import mysql as sa_mysql
+from sqlalchemy.dialects import postgresql as sa_pg
 from sqlalchemy.orm import Session
 
 from decorators.database import INJECTED_SESSION, begin_session
@@ -32,7 +35,7 @@ from models.device import Device
 from models.device_channel_sync import DeviceChannelSync
 from models.rom import Rom, RomFile
 from models.snapshot import Snapshot, SnapshotKind, SnapshotPin, SnapshotState
-from utils.sql_dialect import Upsert
+from utils.database import is_postgresql
 
 from .base_handler import DBBaseHandler
 
@@ -239,13 +242,48 @@ _FREEZING_KINDS = (SnapshotKind.CHANNEL, SnapshotKind.BRANCH)
 _PINNED = exists().where(SnapshotPin.snapshot_id == Snapshot.id)
 
 
-def held_save_ids(session: Session, save_ids: Collection[int]) -> set[int]:
-    if not save_ids:
+def _held_ids(
+    session: Session,
+    model: type[Save | State],
+    ids: Collection[int],
+    kinds: Sequence[SnapshotKind] | None = None,
+) -> set[int]:
+    """Which of these save or state rows a snapshot holds, of `kinds` when given."""
+    if not ids:
         return set()
-    held = session.scalars(
-        select(Snapshot.save_id).where(Snapshot.save_id.in_(save_ids)).distinct()
-    ).all()
-    return {save_id for save_id in held if save_id is not None}
+    query = (
+        select(Snapshot.save_id).where(Snapshot.save_id.in_(ids))
+        if model is Save
+        else select(SnapshotState.state_id)
+        .join(Snapshot, SnapshotState.snapshot_id == Snapshot.id)
+        .where(SnapshotState.state_id.in_(ids))
+    )
+    if kinds is not None:
+        query = query.where(Snapshot.kind.in_(kinds))
+    return {id for id in session.scalars(query.distinct()).all() if id is not None}
+
+
+def _upsert_device_sync(
+    session: Session, rows: Sequence[Mapping[str, Any]], update: Sequence[str]
+) -> None:
+    """Insert device sync rows, setting `update` from the new row where one exists."""
+    upsert: Insert
+    if is_postgresql(session.get_bind()):
+        pg_insert = sa_pg.insert(DeviceChannelSync).values(rows)
+        upsert = pg_insert.on_conflict_do_update(
+            index_elements=["device_id", "channel_id"],
+            set_={name: pg_insert.excluded[name] for name in update},
+        )
+    else:
+        mysql_insert = sa_mysql.insert(DeviceChannelSync).values(rows)
+        upsert = mysql_insert.on_duplicate_key_update(
+            {name: mysql_insert.inserted[name] for name in update}
+        )
+    session.execute(upsert)
+
+
+def held_save_ids(session: Session, save_ids: Collection[int]) -> set[int]:
+    return _held_ids(session, Save, save_ids)
 
 
 def _held_by_hash[ContentT: (Save, State)](
@@ -1147,17 +1185,19 @@ class DBSnapshotsHandler(DBBaseHandler):
         now = datetime.now(timezone.utc)
         channel = session.get(Channel, channel_id)
         current = channel.current_snapshot_id if channel is not None else None
-        session.execute(
-            Upsert(
-                DeviceChannelSync,
-                ["base_snapshot_id", "synced_at", "latest_known_id", "updated_at"],
-            ).values(
-                device_id=device_id,
-                channel_id=channel_id,
-                base_snapshot_id=snapshot_id,
-                synced_at=now,
-                latest_known_id=current,
-            )
+        _upsert_device_sync(
+            session,
+            [
+                {
+                    "device_id": device_id,
+                    "channel_id": channel_id,
+                    "base_snapshot_id": snapshot_id,
+                    "synced_at": now,
+                    "latest_known_id": current,
+                    "updated_at": now,
+                }
+            ],
+            ["base_snapshot_id", "synced_at", "latest_known_id", "updated_at"],
         )
         self._touch_device(session, device_id, now)
 
@@ -1173,19 +1213,20 @@ class DBSnapshotsHandler(DBBaseHandler):
         if not currents:
             return
         now = datetime.now(timezone.utc)
-        session.execute(
-            Upsert(DeviceChannelSync, ["latest_known_id", "updated_at"]).values(
-                [
-                    {
-                        "device_id": device_id,
-                        "channel_id": channel_id,
-                        # A new row holds nothing; synced_at only needs a value.
-                        "synced_at": now,
-                        "latest_known_id": current_id,
-                    }
-                    for channel_id, current_id in currents.items()
-                ]
-            )
+        _upsert_device_sync(
+            session,
+            [
+                {
+                    "device_id": device_id,
+                    "channel_id": channel_id,
+                    # A new row holds nothing; synced_at only needs a value.
+                    "synced_at": now,
+                    "latest_known_id": current_id,
+                    "updated_at": now,
+                }
+                for channel_id, current_id in currents.items()
+            ],
+            ["latest_known_id", "updated_at"],
         )
         self._touch_device(session, device_id, now)
 
@@ -1228,62 +1269,27 @@ class DBSnapshotsHandler(DBBaseHandler):
         """Which of these saves a snapshot holds."""
         return held_save_ids(session, save_ids)
 
-    @begin_session
-    def is_frozen(
-        self,
-        save_id: int | None = None,
-        state_id: int | None = None,
-        session: Session = INJECTED_SESSION,
-    ) -> bool:
-        """Whether a channel or branch snapshot holds the row, so its bytes must not change."""
-        if save_id is None:
-            return bool(
-                state_id is not None
-                and self.get_frozen_state_ids([state_id], session=session)
-            )
-        query = select(Snapshot.id).where(
-            Snapshot.kind.in_(_FREEZING_KINDS), Snapshot.save_id == save_id
-        )
-        return session.scalar(query.limit(1)) is not None
-
     def is_asset_frozen(self, asset: Save | State) -> bool:
-        """`is_frozen` for a save or state row."""
-        if isinstance(asset, Save):
-            return self.is_frozen(save_id=asset.id)
-        return self.is_frozen(state_id=asset.id)
+        """Whether a channel or branch snapshot holds the row, so its bytes must not change."""
+        return bool(self.get_frozen_ids([asset]))  # type: ignore[arg-type]
+
+    def get_frozen_ids(self, assets: Sequence[Save] | Sequence[State]) -> set[int]:
+        """The ids of the saves, or of the states, a channel or branch snapshot holds."""
+        ids = [asset.id for asset in assets]
+        if assets and isinstance(assets[0], State):
+            return self.get_frozen_state_ids(ids)
+        return self.get_frozen_save_ids(ids)
 
     @begin_session
     def get_frozen_save_ids(
         self, save_ids: Collection[int], session: Session = INJECTED_SESSION
     ) -> set[int]:
         """Which of these saves a channel or branch snapshot holds."""
-        if not save_ids:
-            return set()
-        frozen = session.scalars(
-            select(Snapshot.save_id)
-            .where(
-                Snapshot.kind.in_(_FREEZING_KINDS),
-                Snapshot.save_id.in_(save_ids),
-            )
-            .distinct()
-        ).all()
-        return {save_id for save_id in frozen if save_id is not None}
+        return _held_ids(session, Save, save_ids, _FREEZING_KINDS)
 
     @begin_session
     def get_frozen_state_ids(
         self, state_ids: Collection[int], session: Session = INJECTED_SESSION
     ) -> set[int]:
         """Which of these states a channel or branch snapshot holds."""
-        if not state_ids:
-            return set()
-        return set(
-            session.scalars(
-                select(SnapshotState.state_id)
-                .join(Snapshot, SnapshotState.snapshot_id == Snapshot.id)
-                .where(
-                    Snapshot.kind.in_(_FREEZING_KINDS),
-                    SnapshotState.state_id.in_(state_ids),
-                )
-                .distinct()
-            ).all()
-        )
+        return _held_ids(session, State, state_ids, _FREEZING_KINDS)

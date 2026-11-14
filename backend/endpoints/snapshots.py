@@ -1,3 +1,4 @@
+import asyncio
 import json
 import re
 import uuid
@@ -31,8 +32,12 @@ from handler.database import (
     db_save_handler,
     db_snapshot_handler,
 )
-from handler.filesystem.assets_handler import UnsafeArchive, check_upload
-from handler.snapshots.clone import copy_part
+from handler.filesystem import fs_asset_handler
+from handler.filesystem.assets_handler import (
+    UnsafeArchive,
+    check_upload,
+    save_shape_of,
+)
 from handler.snapshots.file_key import FileKey
 from handler.snapshots.manifest import CARRY, Manifest, SaveEntry
 from handler.snapshots.neutral import NeutralUnitRejected, check_neutral_unit
@@ -51,6 +56,7 @@ from handler.snapshots.write import (
     SnapshotWrite,
     UploadPart,
     WriteResult,
+    copied_part,
     write_snapshot,
 )
 from models.assets import (
@@ -313,44 +319,15 @@ def required_device(request: Request, device_id: str | None) -> Device:
 @protected_route(router.get, "", [Scope.ASSETS_READ])
 def get_snapshots(
     request: Request,
-    rom_file_id: Annotated[list[int] | None, Query()] = None,
-    channel_id: uuid.UUID | None = None,
-    current: bool = False,
+    channel_id: uuid.UUID,
     save_target: str | None = None,
     limit: Annotated[int, Query(ge=1, le=HISTORY_PAGE_MAX)] = 50,
     cursor: str | None = None,
     device_id: Annotated[str | None, Query(description=FEED_DEVICE_DESCRIPTION)] = None,
 ) -> list[SnapshotSchema]:
-    """Each channel's current on the named files, or one channel's history, recording each current listed as the device's latest known."""
+    """One channel's history, newest first. A first page that shows the current records it as the device's latest known."""
     viewer = request.user
     device = request_device(request, device_id)
-    if current:
-        channels = channels_on_files(
-            request, rom_file_id or [], [channel_id] if channel_id else []
-        )
-        currents = db_snapshot_handler.get_snapshots(
-            {c.current_snapshot_id for c in channels.values() if c.current_snapshot_id}
-        )
-        listed = [
-            (currents[c.current_snapshot_id], c)
-            for c in channels.values()
-            if c.current_snapshot_id in currents
-            and (
-                save_target is None
-                or currents[c.current_snapshot_id].save_target == save_target
-            )
-        ]
-        if device is not None:
-            db_snapshot_handler.record_device_seen(
-                device.id, {c.id: snapshot.id for snapshot, c in listed}
-            )
-        return build_snapshot_schemas(listed, viewer)
-
-    if channel_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="History needs a channel_id",
-        )
     history = readable_channel_or_404(request, channel_id)
     try:
         before_id = int(cursor) if cursor else None
@@ -372,7 +349,7 @@ def get_snapshots(
         db_snapshot_handler.record_device_seen(
             device.id, {history.id: history.current_snapshot_id}
         )
-    return build_snapshot_schemas([(snapshot, history) for snapshot in page], viewer)
+    return build_snapshot_schemas(page, viewer)
 
 
 @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
@@ -397,7 +374,7 @@ def get_snapshot(
     snapshot, channel = _readable_snapshot_or_404(request, id)
     if device is not None and channel is not None:
         db_snapshot_handler.record_device_base(device.id, channel.id, snapshot.id)
-    return build_snapshot_schema(snapshot, channel, request.user)
+    return build_snapshot_schema(snapshot, request.user)
 
 
 def _assert_shape(is_zip: bool, shape: SaveShape) -> None:
@@ -510,15 +487,9 @@ def _named_parent(payload: ManifestPayload) -> Snapshot | None:
     return db_snapshot_handler.get_snapshot(parent_id) if parent_id else None
 
 
-def _assert_parent_visible(request: Request, parent: Snapshot | None) -> None:
-    """404 for a parent on a ROM hidden from the caller, as reading it would be."""
-    if parent is not None and rom_hidden(request, parent.rom_id):
-        raise _not_found("Parent snapshot")
-
-
 def _clone_origin(
     request: Request,
-    parent: Snapshot | None,
+    payload: ManifestPayload,
     parts: dict[str, UploadPart],
     source: Save | None,
 ) -> str:
@@ -527,30 +498,26 @@ def _clone_origin(
     if source is not None:
         if source.origin_device_id:
             return source.origin_device_id
-    elif (
-        all(part.content is None for part in parts.values())
-        and parent is not None
-        and parent.origin_device_id
-        and db_device_handler.get_device(
-            device_id=parent.origin_device_id, user_id=request.user.id
-        )
-    ):
-        return parent.origin_device_id
+    elif all(part.content is None for part in parts.values()):
+        parent = _named_parent(payload)
+        if (
+            parent is not None
+            and parent.origin_device_id
+            and db_device_handler.get_device(
+                device_id=parent.origin_device_id, user_id=request.user.id
+            )
+        ):
+            return parent.origin_device_id
     return create_or_find_web_device(request, request.user).id
 
 
 def _respond(result: WriteResult, viewer: User) -> JSONResponse:
-    channel = (
-        db_snapshot_handler.get_channel(result.snapshot.channel_id)
-        if result.snapshot.channel_id
-        else None
-    )
-    body = build_snapshot_schema(result.snapshot, channel, viewer)
+    body = build_snapshot_schema(result.snapshot, viewer)
     if result.outcome == Outcome.BRANCHED:
         assert result.conflict is not None, "a branched write names its conflict"
         conflict = SnapshotConflictSchema(
             current=(
-                build_snapshot_schema(result.current, channel, viewer)
+                build_snapshot_schema(result.current, viewer)
                 if result.current
                 else None
             ),
@@ -589,15 +556,6 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
     payload, parts, save_members = await _read_push(request)
     check_emulator_folder_name(payload.emulator)
     rom_file, rom = visible_rom_file(request, payload.rom_file_id)
-    target = (
-        db_snapshot_handler.get_channel(payload.channel_id)
-        if payload.channel_id
-        else None
-    )
-    if target is not None and rom_hidden(request, target.rom_id):
-        raise _not_found("Channel")
-    parent = _named_parent(payload)
-    _assert_parent_visible(request, parent)
     save_part = parts.get(SAVE_PART)
     if (
         payload.save
@@ -617,17 +575,25 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
         source = db_save_handler.get_save(user_id=viewer.id, id=payload.save.copy_of)
         if source is None or rom_hidden(request, source.rom_id):
             raise _not_found("Save")
-        try:
-            copied, parts[SAVE_PART] = await copy_part(
-                source, payload.save.shape, payload.save.format
-            )
-        except FileNotFoundError as exc:
-            raise _not_found("Save file") from exc
+        content_hash = await fs_asset_handler.compute_content_hash(source.full_path)
+        if content_hash is None:
+            raise _not_found("Save file")
+        copied = SaveEntry(
+            hash=content_hash,
+            shape=payload.save.shape
+            or await asyncio.to_thread(
+                save_shape_of, fs_asset_handler.validate_path(source.full_path)
+            ),
+            format=payload.save.format or SaveFormat.NATIVE,
+        )
+        # A copy, so a legacy writer overwriting `source` in place never touches the snapshot's bytes.
+        parts[SAVE_PART] = await copied_part(source)
 
     write = SnapshotWrite(
         author=viewer,
         rom=rom,
         rom_file=rom_file,
+        visibility=get_rom_visibility_filter(request),
         manifest=payload.to_manifest(copied, source),
         channel=ChannelTarget(
             expected_current_id=(
@@ -645,7 +611,7 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
         ),
         device_id=device.id if device else None,
         origin_device_id=(
-            device.id if device else _clone_origin(request, parent, parts, source)
+            device.id if device else _clone_origin(request, payload, parts, source)
         ),
         parts=parts,
     )
@@ -693,19 +659,4 @@ def update_snapshot(
         snapshot = db_snapshot_handler.update_snapshot(
             snapshot.id, {"is_public": payload.is_public}
         )
-    return build_snapshot_schema(snapshot, channel, viewer)
-
-
-@protected_route(
-    router.put,
-    "/{id}/devices/{device_id}",
-    [Scope.ASSETS_READ],
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-def report_applied(request: Request, id: int, device_id: str) -> None:
-    """Hold a snapshot the device already has, as `GET /snapshots/{id}?hold=true` does."""
-    device = _own_device(request, device_id)
-    snapshot, channel = _readable_snapshot_or_404(request, id)
-    if device is None or channel is None:
-        raise _not_found()
-    db_snapshot_handler.record_device_base(device.id, channel.id, snapshot.id)
+    return build_snapshot_schema(snapshot, viewer)

@@ -82,15 +82,10 @@ export function slotForChannel(label: string): SlotChoice {
   return existingSlot(slotNameForChannel(label));
 }
 
-/**
- * A slotted save, or one a channel holds, fixes the write slot; an archive
- * leaves the choice as is.
- */
+/** A slotted save fixes the write slot; an archive leaves the choice as is. */
 export function slotForSave(
   save: Pick<SaveSchema, "slot">,
   current: SlotChoice,
-  channelLabel?: string | null,
 ): SlotChoice {
-  if (save.slot) return existingSlot(save.slot);
-  return channelLabel ? slotForChannel(channelLabel) : current;
+  return save.slot ? existingSlot(save.slot) : current;
 }

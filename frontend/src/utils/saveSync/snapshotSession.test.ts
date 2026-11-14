@@ -4,13 +4,12 @@ import { responseError } from "@/test-utils/serverError";
 import { saveContentHash } from "@/utils/saveSync/hash";
 import {
   channelFixture,
-  channelRefFixture,
   snapshotFixture,
   bankStateFixture,
 } from "@/utils/snapshots.fixtures";
 import {
   buildPush,
-  chainPush,
+  heldPushSender,
   sendPush,
   sessionTarget,
   SnapshotSession,
@@ -63,7 +62,7 @@ describe("sessionTarget", () => {
     const channel = channelFixture({ current_snapshot_id: 50 });
     const booted = snapshotFixture({
       id: 30,
-      channel: channelRefFixture(channel),
+      channel_id: channel.id,
     });
 
     const result = sessionTarget({
@@ -218,35 +217,52 @@ describe("buildPush", () => {
   });
 });
 
-describe("chainPush", () => {
-  const held = buildPush(target, { kind: "save", save: file(SRAM) });
+describe("heldPushSender", () => {
+  const content: SnapshotContent = { kind: "save", save: file(SRAM) };
+  const sentManifest = (call: number) =>
+    api.pushSnapshot.mock.calls[call]![0].manifest;
 
-  it("builds on the branch the push before it was kept as", () => {
+  beforeEach(() => {
+    api.pushSnapshot.mockReset();
+  });
+
+  it("expects the current the push held before it made", async () => {
+    api.pushSnapshot
+      .mockResolvedValueOnce({ data: snapshotFixture({ id: 43 }) })
+      .mockResolvedValueOnce({ data: snapshotFixture({ id: 44 }) });
+    const send = heldPushSender();
+
+    await send({ target, content });
+    await send({ target, content });
+
+    expect(sentManifest(1)).toMatchObject({ expected_current_id: 43 });
+    expect(sentManifest(1)).not.toHaveProperty("parent_snapshot_id");
+  });
+
+  it("builds on the branch the push held before it was kept as", async () => {
     const branch = snapshotFixture({ id: 60, kind: "branch" });
+    api.pushSnapshot
+      .mockRejectedValueOnce(conflict({ current: { id: 55 }, branch }))
+      .mockResolvedValueOnce({ data: snapshotFixture({ id: 61 }) });
+    const send = heldPushSender();
 
-    const chained = chainPush(held, {
-      push: held,
-      outcome: { kind: "branched", snapshot: branch, reason: "moved" },
-    });
+    await send({ target, content });
+    await send({ target, content });
 
-    expect(chained.manifest).toMatchObject({
+    expect(sentManifest(1)).toMatchObject({
       expected_current_id: 42,
       parent_snapshot_id: 60,
     });
   });
 
-  it("leaves a push held on another base as it was", () => {
-    const other = buildPush(
-      { ...target, expectedCurrentId: 50 },
-      { kind: "save", save: file(SRAM) },
-    );
+  it("sends a push held on another base as it was held", async () => {
+    api.pushSnapshot.mockResolvedValue({ data: snapshotFixture({ id: 43 }) });
+    const send = heldPushSender();
 
-    const chained = chainPush(other, {
-      push: held,
-      outcome: { kind: "current", snapshot: snapshotFixture({ id: 43 }) },
-    });
+    await send({ target, content });
+    await send({ target: { ...target, expectedCurrentId: 50 }, content });
 
-    expect(chained).toBe(other);
+    expect(sentManifest(1)).toMatchObject({ expected_current_id: 50 });
   });
 });
 
@@ -317,12 +333,12 @@ describe("SnapshotSession", () => {
     const session = new SnapshotSession(fresh);
     const content: SnapshotContent = { kind: "save", save: file(SRAM) };
 
-    const held = [session.build(content), session.build(content)];
+    const held = [session.hold(content), session.hold(content)];
     await expect(session.push(content)).rejects.toThrow("offline");
 
     const sent = api.pushSnapshot.mock.calls[0]![0].manifest.channel_id;
     expect(sent).toMatch(UUID_V7);
-    expect(held.map((push) => push.manifest.channel_id)).toEqual([sent, sent]);
+    expect(held.map((push) => push.target.channelId)).toEqual([sent, sent]);
   });
 
   it("keeps building on its target after a failed push", async () => {

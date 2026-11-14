@@ -6,6 +6,10 @@ import pendingAssetStore, {
   syncPendingAssets,
   type PendingAsset,
 } from "@/services/pending-asset";
+import type {
+  HeldPush,
+  SnapshotTarget,
+} from "@/utils/saveSync/snapshotSession";
 import { bankStateFixture, snapshotFixture } from "@/utils/snapshots.fixtures";
 
 const auth = vi.hoisted(() => ({ userId: 1 as number | null }));
@@ -13,24 +17,26 @@ vi.mock("@/stores/auth", () => ({
   default: () => ({ user: auth.userId === null ? null : { id: auth.userId } }),
 }));
 
-const romApiMocks = vi.hoisted(() => ({ getRom: vi.fn() }));
-const saveApiMocks = vi.hoisted(() => ({ uploadSaves: vi.fn() }));
-const stateApiMocks = vi.hoisted(() => ({ uploadStates: vi.fn() }));
-
-vi.mock("@/services/api/rom", () => ({ default: romApiMocks }));
-vi.mock("@/services/api/save", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/services/api/save")>()),
-  default: saveApiMocks,
-}));
-vi.mock("@/services/api/state", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/services/api/state")>()),
-  default: stateApiMocks,
-}));
 const snapshotApiMocks = vi.hoisted(() => ({ pushSnapshot: vi.fn() }));
 vi.mock("@/services/api/snapshot", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/services/api/snapshot")>()),
   default: snapshotApiMocks,
 }));
+
+const target: SnapshotTarget = {
+  romFileId: 7,
+  channelId: "chan",
+  label: "default",
+  expectedCurrentId: 42,
+  parentSnapshotId: null,
+  bank: { mgba: { auto: "a1" } },
+  saveHash: null,
+  core: "mgba",
+  emulatorVersion: null,
+};
+
+/** A row as stored, which one held before channels has no push on. */
+type StoredRow = Omit<PendingAsset, "held"> & { held?: HeldPush };
 
 // happy-dom ships no IndexedDB, which is also what a locked-down origin or a
 // private window looks like. Losing the frame must never cost the player a save.
@@ -47,7 +53,13 @@ describe("pendingAssetStore without IndexedDB", () => {
         kind: "save",
         romId: 1,
         romName: "Game",
-        bytes: new Uint8Array([1, 2, 3]).buffer,
+        held: {
+          target,
+          content: {
+            kind: "save",
+            save: { bytes: new ArrayBuffer(3), fileName: "game.srm" },
+          },
+        },
         capturedAt: 0,
       }),
     ).resolves.toBe(false);
@@ -92,7 +104,7 @@ describe("pendingAssetId", () => {
 
 // The sliver of IndexedDB the store uses, in memory, so the retry itself can
 // be exercised rather than only its unavailable-storage fallback.
-function installFakeIndexedDB(rows: Map<string, PendingAsset>) {
+function installFakeIndexedDB(rows: Map<string, StoredRow>) {
   type Request = { result?: unknown; onsuccess?: () => void };
   type Transaction = { oncomplete?: () => void };
 
@@ -109,7 +121,7 @@ function installFakeIndexedDB(rows: Map<string, PendingAsset>) {
   // The owner index holds a row only when every part of its key is set, and
   // walks them in key order, a game's captures oldest first.
   function keyCursor(transaction: Transaction): Request {
-    const key = (row: PendingAsset) =>
+    const key = (row: StoredRow) =>
       [row.userId, row.kind, row.romId, row.capturedAt] as (number | string)[];
     const indexed = [...rows.values()]
       .filter((row) => row.userId != null)
@@ -142,7 +154,7 @@ function installFakeIndexedDB(rows: Map<string, PendingAsset>) {
       createIndex: () => undefined,
       deleteIndex: () => undefined,
       get: (id: string) => settle(transaction, rows.get(id)),
-      put: (entry: PendingAsset) => {
+      put: (entry: StoredRow) => {
         rows.set(entry.id, entry);
         return settle(transaction, entry.id);
       },
@@ -194,21 +206,44 @@ function refusal(status?: number, detail?: string, body?: string) {
 }
 
 describe("syncPendingAssets", () => {
-  let rows: Map<string, PendingAsset>;
-  const bytes = new Uint8Array([1, 2, 3]).buffer;
-  const shot = new Uint8Array([9, 9]).buffer;
+  let rows: Map<string, StoredRow>;
+
+  function heldSave(byte = 1, base: Partial<SnapshotTarget> = {}): HeldPush {
+    return {
+      target: { ...target, ...base },
+      content: {
+        kind: "save",
+        save: { bytes: new Uint8Array([byte]).buffer, fileName: "game.srm" },
+      },
+      deviceId: "device-1",
+    };
+  }
+
+  function heldState(slot: string): HeldPush {
+    return {
+      target,
+      content: {
+        kind: "state",
+        slot,
+        state: {
+          bytes: new Uint8Array([7, slot.length]).buffer,
+          fileName: "game.state",
+        },
+        save: null,
+      },
+    };
+  }
 
   // The ids are unique per test: a row the server has taken is remembered for
   // the lifetime of the module, which is what stops it syncing twice.
-  function queue(entry: Partial<PendingAsset> & { id: string }) {
-    const row: PendingAsset = {
+  function queue(entry: Partial<StoredRow> & { id: string }) {
+    const row: StoredRow = {
       kind: "save",
       userId: 1,
       romId: 1,
       romName: "Held Game",
-      fsNameNoExt: "game",
       cover: "cover.png",
-      bytes,
+      held: heldSave(),
       capturedAt: Date.parse("2024-05-06T07:08:09.010Z"),
       ...entry,
     };
@@ -216,33 +251,27 @@ describe("syncPendingAssets", () => {
     return row;
   }
 
+  const sentManifests = () =>
+    snapshotApiMocks.pushSnapshot.mock.calls.map(
+      ([request]) => request.manifest,
+    );
+
   beforeEach(() => {
-    // Names carry the capture's local time, so a zone off UTC pins that.
-    vi.stubEnv("TZ", "Asia/Kolkata");
     rows = new Map();
     auth.userId = 1;
     installFakeIndexedDB(rows);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    romApiMocks.getRom.mockResolvedValue({
-      data: {
-        id: 1,
-        name: "Game",
-        fs_name_no_ext: "game",
-        path_cover_small: "cover.png",
-      },
+    snapshotApiMocks.pushSnapshot.mockResolvedValue({
+      data: snapshotFixture({ id: 43 }),
     });
-    saveApiMocks.uploadSaves.mockResolvedValue([{ status: "fulfilled" }]);
-    stateApiMocks.uploadStates.mockResolvedValue([{ status: "fulfilled" }]);
   });
 
   afterEach(() => {
-    romApiMocks.getRom.mockReset();
-    saveApiMocks.uploadSaves.mockReset();
-    stateApiMocks.uploadStates.mockReset();
+    snapshotApiMocks.pushSnapshot.mockReset();
   });
 
-  it("hands a held save to the slot it was written for", async () => {
-    queue({ id: "save:taken", slot: "main_quest", screenshotBytes: shot });
+  it("pushes a held save onto the base it was held on", async () => {
+    queue({ id: "save:taken" });
 
     await expect(syncPendingAssets()).resolves.toEqual({
       synced: [
@@ -251,76 +280,19 @@ describe("syncPendingAssets", () => {
       dropped: [],
     });
 
-    const request = saveApiMocks.uploadSaves.mock.calls[0]![0];
-    expect(request).toMatchObject({
-      slot: "main_quest",
-      autocleanup: false,
-      overwrite: false,
-    });
-    expect(request.contentHash).toMatch(/^[0-9a-f]{32}$/);
-    expect(request.savesToUpload[0].screenshotFile.name).toBe("game.png");
-    expect(rows.size).toBe(0);
-  });
-
-  it("hands a held state over under the name of its capture", async () => {
-    queue({
-      id: "state:taken",
-      kind: "state",
-      screenshotBytes: shot,
-      deviceId: "browser",
-    });
-
-    await expect(syncPendingAssets()).resolves.toEqual({
-      synced: [
-        { kind: "state", romId: 1, name: "Held Game", cover: "cover.png" },
-      ],
-      dropped: [],
-    });
-
-    const { statesToUpload, deviceId } =
-      stateApiMocks.uploadStates.mock.calls[0]![0];
-    expect(deviceId).toBe("browser");
-    expect(statesToUpload[0].stateFile.name).toBe(
-      "game [2024-05-06 12-38-09-010].state",
-    );
-    expect(statesToUpload[0].screenshotFile.name).toBe(
-      "game [2024-05-06 12-38-09-010].png",
-    );
-    expect(rows.size).toBe(0);
-  });
-
-  it("sends a held snapshot push as it was recorded", async () => {
-    const push = {
-      manifest: { rom_file_id: 7, expected_current_id: 42, label: "default" },
-      files: [{ key: "state:mgba:0", bytes, fileName: "game.state" }],
-      deviceId: "device-1",
-    };
-    snapshotApiMocks.pushSnapshot.mockResolvedValue({ data: {} });
-    queue({ id: "push:taken", kind: "state", push });
-
-    await expect(syncPendingAssets()).resolves.toMatchObject({
-      synced: [{ kind: "state", romId: 1 }],
-      dropped: [],
-    });
-
     const request = snapshotApiMocks.pushSnapshot.mock.calls[0]![0];
-    expect(request.manifest).toEqual(push.manifest);
+    expect(request.manifest).toMatchObject({
+      rom_file_id: 7,
+      channel_id: "chan",
+      expected_current_id: 42,
+      save: { shape: "SINGLE", format: "native" },
+    });
     expect(request.deviceId).toBe("device-1");
-    expect(request.parts[0].file.name).toBe("game.state");
-    expect(stateApiMocks.uploadStates).not.toHaveBeenCalled();
+    expect(request.parts[0].file.name).toBe("game.srm");
     expect(rows.size).toBe(0);
   });
 
   it("chains pushes held on one base onto what the last one made", async () => {
-    const base = {
-      rom_file_id: 7,
-      channel_id: "chan",
-      expected_current_id: 42,
-    };
-    const statePush = (slot: string, hash: string) => ({
-      manifest: { ...base, states: { mgba: { auto: "a1", [slot]: hash } } },
-      files: [{ key: `state:mgba:${slot}`, bytes, fileName: "game.state" }],
-    });
     const states = {
       mgba: { auto: bankStateFixture("a1"), "1": bankStateFixture("h1") },
     };
@@ -332,47 +304,42 @@ describe("syncPendingAssets", () => {
       id: "chain:first",
       kind: "state",
       capturedAt: 1_000,
-      push: statePush("1", "h1"),
+      held: heldState("1"),
     });
-    queue({
-      id: "chain:save",
-      capturedAt: 2_000,
-      push: { manifest: base, files: [] },
-    });
+    queue({ id: "chain:save", capturedAt: 2_000 });
     queue({
       id: "chain:last",
       kind: "state",
       capturedAt: 3_000,
-      push: statePush("2", "h2"),
+      held: heldState("2"),
     });
 
     await syncPendingAssets();
 
-    const manifests = snapshotApiMocks.pushSnapshot.mock.calls.map(
-      ([request]) => request.manifest,
-    );
-    expect(manifests[0]).toEqual(statePush("1", "h1").manifest);
-    expect(manifests[1]).toEqual({ ...base, expected_current_id: 50 });
-    expect(manifests[2]).toEqual({
-      ...base,
+    const manifests = sentManifests();
+    expect(manifests[0]).toMatchObject({
+      expected_current_id: 42,
+      states: { mgba: { auto: "a1", "1": expect.any(String) } },
+    });
+    expect(manifests[1]).toMatchObject({ expected_current_id: 50 });
+    expect(manifests[1]).not.toHaveProperty("states");
+    expect(manifests[2]).toMatchObject({
       expected_current_id: 51,
-      states: { mgba: { auto: "a1", "1": "h1", "2": "h2" } },
+      states: { mgba: { auto: "a1", "1": "h1", "2": expect.any(String) } },
     });
   });
 
-  it("holds on to a snapshot push the server could not take", async () => {
-    snapshotApiMocks.pushSnapshot.mockRejectedValue(refusal(500));
+  it("sends a push held on another base as it was held", async () => {
+    queue({ id: "base:first", capturedAt: 1_000 });
     queue({
-      id: "push:kept",
-      push: {
-        manifest: { rom_file_id: 7, expected_current_id: 42 },
-        files: [],
-      },
+      id: "base:other",
+      capturedAt: 2_000,
+      held: heldSave(2, { expectedCurrentId: 60 }),
     });
 
     await syncPendingAssets();
 
-    expect(rows.size).toBe(1);
+    expect(sentManifests().map((m) => m.expected_current_id)).toEqual([42, 60]);
   });
 
   // A server that is down or failing has not judged the asset, so it keeps it.
@@ -381,9 +348,7 @@ describe("syncPendingAssets", () => {
     ["a server that is failing", refusal(500)],
     ["a session that has expired", refusal(401)],
   ])("holds on through %s", async (_label, reason) => {
-    stateApiMocks.uploadStates.mockResolvedValue([
-      { status: "rejected", reason },
-    ]);
+    snapshotApiMocks.pushSnapshot.mockRejectedValue(reason);
     queue({ id: `state:kept:${Math.random()}`, kind: "state" });
 
     await expect(syncPendingAssets()).resolves.toMatchObject({
@@ -396,11 +361,12 @@ describe("syncPendingAssets", () => {
   });
 
   // Retrying a refusal for the rest of time would only nag the player about
-  // progress that is never going through.
+  // progress that is never going through. The rom may be gone by then, so the
+  // name stored with the row is all there is to go on.
   it("drops what the server refused for good and says why", async () => {
-    stateApiMocks.uploadStates.mockResolvedValue([
-      { status: "rejected", reason: refusal(409, "Slot has a newer save") },
-    ]);
+    snapshotApiMocks.pushSnapshot.mockRejectedValue(
+      refusal(404, "Rom file not found"),
+    );
     queue({ id: "state:refused", kind: "state" });
 
     await expect(syncPendingAssets()).resolves.toEqual({
@@ -411,39 +377,13 @@ describe("syncPendingAssets", () => {
           romId: 1,
           name: "Held Game",
           cover: "cover.png",
-          reason: "Slot has a newer save",
+          reason: "Rom file not found",
         },
       ],
     });
 
     expect(rows.size).toBe(0);
     await expect(hasPendingAssets()).resolves.toBe(false);
-  });
-
-  // The rom is gone, so the name stored with the row is all there is to go on.
-  it("names a game the server no longer knows from the row itself", async () => {
-    saveApiMocks.uploadSaves.mockResolvedValue([
-      { status: "rejected", reason: refusal(404, "Rom not found") },
-    ]);
-    queue({ id: "save:orphan" });
-
-    await expect(syncPendingAssets()).resolves.toMatchObject({
-      dropped: [{ name: "Held Game", reason: "Rom not found" }],
-    });
-
-    expect(romApiMocks.getRom).not.toHaveBeenCalled();
-    expect(rows.size).toBe(0);
-  });
-
-  // A row from before the stem was stored asks the rom for it instead.
-  it("names an older row's files after the rom it belongs to", async () => {
-    delete queue({ id: "save:older", screenshotBytes: shot }).fsNameNoExt;
-
-    await syncPendingAssets();
-
-    expect(romApiMocks.getRom).toHaveBeenCalledWith({ romId: 1 });
-    const request = saveApiMocks.uploadSaves.mock.calls[0]![0];
-    expect(request.savesToUpload[0].screenshotFile.name).toBe("game.png");
   });
 
   // A browser is shared, and progress captured by one account is not another's
@@ -458,7 +398,7 @@ describe("syncPendingAssets", () => {
     await expect(pendingAssetKinds(1)).resolves.toEqual(new Set());
     await expect(hasPendingAssets()).resolves.toBe(false);
 
-    expect(saveApiMocks.uploadSaves).not.toHaveBeenCalled();
+    expect(snapshotApiMocks.pushSnapshot).not.toHaveBeenCalled();
     expect(rows.size).toBe(1);
   });
 
@@ -469,7 +409,7 @@ describe("syncPendingAssets", () => {
         kind: "save",
         romId: 1,
         romName: "Game",
-        bytes,
+        held: heldSave(),
         capturedAt: 0,
       }),
     ).resolves.toBe(true);
@@ -479,12 +419,9 @@ describe("syncPendingAssets", () => {
 
   // The interceptor fetches a fresh token for this one, so the next pass works.
   it("keeps a save the server turned down over its CSRF token", async () => {
-    saveApiMocks.uploadSaves.mockResolvedValue([
-      {
-        status: "rejected",
-        reason: refusal(403, undefined, "CSRF token missing"),
-      },
-    ]);
+    snapshotApiMocks.pushSnapshot.mockRejectedValue(
+      refusal(403, undefined, "CSRF token missing"),
+    );
     queue({ id: "save:csrf" });
 
     await expect(syncPendingAssets()).resolves.toMatchObject({ dropped: [] });
@@ -492,49 +429,41 @@ describe("syncPendingAssets", () => {
     expect(rows.size).toBe(1);
   });
 
-  it("drops a row that holds no bytes rather than uploading nothing", async () => {
-    queue({ id: "save:empty", bytes: new ArrayBuffer(0) });
+  it("drops a row held before channels, which names no base to push onto", async () => {
+    delete queue({ id: "save:legacy" }).held;
 
     await expect(syncPendingAssets()).resolves.toEqual({
       synced: [],
       dropped: [],
     });
 
-    expect(saveApiMocks.uploadSaves).not.toHaveBeenCalled();
+    expect(snapshotApiMocks.pushSnapshot).not.toHaveBeenCalled();
     expect(rows.size).toBe(0);
   });
 
   // A running session owns its own save, so the caller can ask for the rest.
   it("hands over only the kinds it was asked for", async () => {
     queue({ id: "save:not-asked" });
-    queue({ id: "state:asked", kind: "state" });
+    queue({ id: "state:asked", kind: "state", held: heldState("1") });
 
     await expect(syncPendingAssets(["state"])).resolves.toMatchObject({
       synced: [{ kind: "state" }],
     });
 
-    expect(saveApiMocks.uploadSaves).not.toHaveBeenCalled();
+    expect(snapshotApiMocks.pushSnapshot).toHaveBeenCalledTimes(1);
     expect([...rows.keys()]).toEqual(["save:not-asked"]);
   });
 
-  // The newest capture has to land last, or the slot's newest version is stale.
+  // The newest capture has to land last, or the channel's current is stale.
   it("hands a game's captures over oldest first", async () => {
-    queue({
-      id: "save:captured-last",
-      capturedAt: 2_000,
-      bytes: new Uint8Array([2]).buffer,
-    });
-    queue({
-      id: "save:captured-first",
-      capturedAt: 1_000,
-      bytes: new Uint8Array([1]).buffer,
-    });
+    queue({ id: "save:captured-last", capturedAt: 2_000, held: heldSave(2) });
+    queue({ id: "save:captured-first", capturedAt: 1_000, held: heldSave(1) });
 
     await syncPendingAssets();
 
     const uploaded = await Promise.all(
-      saveApiMocks.uploadSaves.mock.calls.map(async ([request]) => {
-        const file: File = request.savesToUpload[0].saveFile;
+      snapshotApiMocks.pushSnapshot.mock.calls.map(async ([request]) => {
+        const file: File = request.parts[0].file;
         return new Uint8Array(await file.arrayBuffer())[0];
       }),
     );
@@ -545,48 +474,15 @@ describe("syncPendingAssets", () => {
   it("stops a pass once the account that started it is gone", async () => {
     queue({ id: "save:first", capturedAt: 1 });
     queue({ id: "save:second", capturedAt: 2 });
-    saveApiMocks.uploadSaves.mockImplementation(() => {
+    snapshotApiMocks.pushSnapshot.mockImplementation(() => {
       auth.userId = 2;
-      return Promise.resolve([{ status: "fulfilled" }]);
+      return Promise.resolve({ data: snapshotFixture({ id: 43 }) });
     });
 
     await syncPendingAssets();
 
-    expect(saveApiMocks.uploadSaves).toHaveBeenCalledTimes(1);
+    expect(snapshotApiMocks.pushSnapshot).toHaveBeenCalledTimes(1);
     expect(rows.has("save:second")).toBe(true);
-  });
-
-  // Newer progress from another device holds the slot; neither copy is lost.
-  it("keeps a save the slot refuses as a separate save", async () => {
-    saveApiMocks.uploadSaves
-      .mockResolvedValueOnce([
-        { status: "rejected", reason: refusal(409, "Slot has a newer save") },
-      ])
-      .mockResolvedValueOnce([{ status: "fulfilled" }]);
-    queue({ id: "save:conflict", slot: "autosave", screenshotBytes: shot });
-
-    await expect(syncPendingAssets()).resolves.toEqual({
-      synced: [
-        {
-          kind: "save",
-          romId: 1,
-          name: "Held Game",
-          cover: "cover.png",
-          archived: true,
-        },
-      ],
-      dropped: [],
-    });
-
-    const archive = saveApiMocks.uploadSaves.mock.calls[1]![0];
-    expect(archive.slot).toBeUndefined();
-    expect(archive.savesToUpload[0].saveFile.name).toBe(
-      "game [2024-05-06 12-38-09-010].srm",
-    );
-    expect(archive.savesToUpload[0].screenshotFile.name).toBe(
-      "game [2024-05-06 12-38-09-010].png",
-    );
-    expect(rows.size).toBe(0);
   });
 
   it("reports both kinds a rom is still owed", async () => {

@@ -2,16 +2,11 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from sqlalchemy import TIMESTAMP, ForeignKey, Index, String, Uuid
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import BaseModel
-
-if TYPE_CHECKING:
-    from models.channel import Channel
-    from models.device import Device
 
 
 class DeviceChannelSync(BaseModel):
@@ -43,6 +38,3 @@ class DeviceChannelSync(BaseModel):
     latest_known_id: Mapped[int | None] = mapped_column(
         ForeignKey("snapshots.id", ondelete="SET NULL"), default=None
     )
-
-    device: Mapped[Device] = relationship(lazy="raise")
-    channel: Mapped[Channel] = relationship(lazy="raise")

@@ -29,10 +29,7 @@ import {
   sessionScreenshotFile,
 } from "@/services/api/save";
 import syncApi from "@/services/api/sync";
-import pendingAssetStore, {
-  pendingAssetId,
-  type PendingAsset,
-} from "@/services/pending-asset";
+import pendingAssetStore, { pendingAssetId } from "@/services/pending-asset";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -229,7 +226,7 @@ let saveLoading = false;
 let inFlightSave: Uint8Array | null = null;
 // Progress the server has not taken yet, kept in the browser with the frame
 // from when the game wrote it, so a later retry pictures that moment.
-let pendingSave: PendingAsset | null = null;
+let pendingSave: SessionFile | null = null;
 // A private window keeps nothing, and a notice must not promise it did.
 let pendingSaveKept = false;
 // One row per session: a save an earlier session never got through still owes
@@ -238,30 +235,35 @@ const pendingSaveId = pendingAssetId(romRef.value.id);
 function currentSlot(): string | undefined {
   return loadedSave?.slot || props.saveSlot || undefined;
 }
-async function rememberPendingSave(
-  saveBytes: ArrayBuffer,
-  screenshotBytes?: ArrayBuffer,
-) {
-  const push = snapshotSession()?.build({
-    kind: "save",
-    save: saveFileOf(saveBytes, screenshotBytes),
-  });
-  pendingSave = {
-    id: pendingSaveId,
-    kind: "save",
+/**
+ * Keeps `content` in the browser until the server takes it.
+ *
+ * Returns:
+ *   Whether it was kept, which takes a channel to push it into later.
+ */
+async function holdForLater(
+  id: string,
+  kind: "save" | "state",
+  content: SnapshotContent,
+): Promise<boolean> {
+  const writer = snapshotSession();
+  if (!writer) return false;
+  return pendingAssetStore.write({
+    id,
+    kind,
     romId: romRef.value.id,
     romName: romRef.value.name ?? romRef.value.fs_name_no_ext,
-    fsNameNoExt: romRef.value.fs_name_no_ext,
     cover: romRef.value.path_cover_small,
-    bytes: saveBytes,
-    screenshotBytes,
-    slot: currentSlot(),
-    emulator: window.EJS_core,
-    deviceId: deviceIDRef.value,
-    push,
+    held: writer.hold(content),
     capturedAt: Date.now(),
-  };
-  pendingSaveKept = await pendingAssetStore.write(pendingSave);
+  });
+}
+async function rememberPendingSave(save: SessionFile) {
+  pendingSave = save;
+  pendingSaveKept = await holdForLater(pendingSaveId, "save", {
+    kind: "save",
+    save,
+  });
 }
 async function forgetPendingSave() {
   pendingSave = null;
@@ -301,16 +303,14 @@ function writeSave(
       // Held before the attempt and dropped once taken, so no path uploads
       // without a copy; held bytes keep their frame and are not written again.
       const held = heldFor(pendingSave, bytes);
-      const screenshotFile = held?.screenshotBytes ?? file.screenshotFile;
-      if (!held || held.screenshotBytes !== screenshotFile) {
-        await rememberPendingSave(file.saveFile, screenshotFile);
+      const screenshotFile = held?.screenshot ?? file.screenshotFile;
+      const save = saveFileOf(file.saveFile, screenshotFile);
+      if (!held || held.screenshot !== screenshotFile) {
+        await rememberPendingSave(save);
       }
       // Nothing gets through while the server is down; the held bytes go once
       // it is back.
-      const written = await sendContent({
-        kind: "save",
-        save: saveFileOf(file.saveFile, screenshotFile),
-      });
+      const written = await sendContent({ kind: "save", save });
       if (written && generation === saveGeneration) {
         saveTracker.markUploaded(bytes);
       }
@@ -355,7 +355,6 @@ async function writeState({
   }
   await saveWrite;
   await deviceReady;
-  const capturedAt = new Date();
   const sram = saveFile?.byteLength ? toArrayBuffer(saveFile) : null;
   const content: SnapshotContent = {
     kind: "state",
@@ -371,20 +370,7 @@ async function writeState({
     save: sram ? saveFileOf(sram) : null,
   };
   const pendingId = pendingAssetId(romRef.value.id);
-  const kept = await pendingAssetStore.write({
-    id: pendingId,
-    kind: "state",
-    romId: romRef.value.id,
-    romName: romRef.value.name ?? romRef.value.fs_name_no_ext,
-    fsNameNoExt: romRef.value.fs_name_no_ext,
-    cover: romRef.value.path_cover_small,
-    bytes: stateFile,
-    screenshotBytes: screenshotFile,
-    emulator: window.EJS_core,
-    deviceId: deviceIDRef.value,
-    push: snapshotSession()?.build(content),
-    capturedAt: capturedAt.getTime(),
-  });
+  const kept = await holdForLater(pendingId, "state", content);
   const written = await sendContent(content);
   if (!written) return { written, kept };
   await pendingAssetStore.clear(pendingId);

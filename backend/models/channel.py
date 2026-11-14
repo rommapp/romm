@@ -1,18 +1,13 @@
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING
 
 from sqlalchemy import BigInteger, ForeignKey, Index, String, Uuid
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from models.assets import SAVE_SLOT_MAX_LENGTH
 from models.base import FILE_NAME_MAX_LENGTH, BaseModel
 from models.rom import ROM_SHA1_MAX_LENGTH
-
-if TYPE_CHECKING:
-    from models.snapshot import Snapshot
-    from models.user import User
 
 # A legacy slot becomes a channel label and back, so they share a limit.
 CHANNEL_LABEL_MAX_LENGTH = SAVE_SLOT_MAX_LENGTH
@@ -62,8 +57,3 @@ class Channel(BaseModel):
     )
     is_hardcore: Mapped[bool] = mapped_column(default=False)
     is_public: Mapped[bool] = mapped_column(default=False)
-
-    user: Mapped[User] = relationship(lazy="raise")
-    current_snapshot: Mapped[Snapshot | None] = relationship(
-        foreign_keys=[current_snapshot_id], lazy="raise", post_update=True
-    )

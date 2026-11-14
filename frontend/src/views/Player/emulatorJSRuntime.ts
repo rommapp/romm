@@ -1,12 +1,12 @@
 import Bowser from "bowser";
 import { type Body_add_state_api_states_post as AddStateInput } from "@/__generated__";
-import { type PendingAsset } from "@/services/pending-asset";
 import { buildFormInput } from "@/utils/formData";
 import {
   keepArcadeBiosWhole,
   pointSystemDirectoryAtFirmware,
 } from "@/utils/playerFirmware";
 import { bytesEqual } from "@/utils/saveSync/hash";
+import type { SessionFile } from "@/utils/saveSync/snapshotSession";
 
 /** Tears the emulator down once, however many owners ask. */
 export function exitEmulatorOnce() {
@@ -85,18 +85,16 @@ export async function resolveScreenshot(
 }
 
 /**
- * The held row, when it holds these exact bytes.
+ * The held save, when it holds these exact bytes.
  *
  * Returns:
- *   The row, or null when there is none or the bytes have moved on since.
+ *   The save, or null when there is none or the bytes have moved on since.
  */
 export function heldFor(
-  pending: PendingAsset | null,
+  held: SessionFile | null,
   bytes: Uint8Array,
-): PendingAsset | null {
-  return pending && bytesEqual(new Uint8Array(pending.bytes), bytes)
-    ? pending
-    : null;
+): SessionFile | null {
+  return held && bytesEqual(new Uint8Array(held.bytes), bytes) ? held : null;
 }
 
 /** Console-mode state upload; without a picture there is no screenshot part. */

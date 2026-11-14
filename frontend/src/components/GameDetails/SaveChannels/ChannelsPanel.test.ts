@@ -5,7 +5,6 @@ import type { ChannelSchema, SaveSchema } from "@/__generated__";
 import ChannelFan from "@/components/GameDetails/SaveChannels/ChannelFan.vue";
 import ChannelLabelDialog from "@/components/GameDetails/SaveChannels/ChannelLabelDialog.vue";
 import ChannelTile from "@/components/GameDetails/SaveChannels/ChannelTile.vue";
-import DeleteChannelDialog from "@/components/GameDetails/SaveChannels/DeleteChannelDialog.vue";
 import SnapshotViewer from "@/components/GameDetails/SaveChannels/SnapshotViewer.vue";
 import snapshotApi from "@/services/api/snapshot";
 import { saveFixture } from "@/utils/assets.fixtures";
@@ -254,48 +253,46 @@ describe("ChannelsPanel", () => {
     await flushPromises();
     wrapper.findComponent(ChannelFan).vm.$emit("delete");
     await flushPromises();
-    return wrapper.findComponent(DeleteChannelDialog);
   }
 
-  it("deletes a channel from inside its confirmation", async () => {
+  it("deletes a channel once its label is typed back", async () => {
     const channel = channelFixture({ label: "Main" });
     const legacy = saveFixture({
       id: 6,
       channel_id: channel.id,
       slot: "autosave",
     });
+    confirm.mockResolvedValue(true);
     api.deleteChannel.mockResolvedValue({} as never);
     const wrapper = mountPanel([channel], [legacy]);
 
-    const dialog = await askToDelete(wrapper);
+    await askToDelete(wrapper);
 
-    expect(dialog.props()).toMatchObject({
-      channel,
-      body: 'channels.delete-body:{"pinned":0,"legacy":1}',
-    });
-    expect(api.deleteChannel).not.toHaveBeenCalled();
-    await dialog.props("onConfirm")();
-    await flushPromises();
-
+    expect(confirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: 'channels.delete-body:{"pinned":0,"legacy":1}',
+        tone: "danger",
+        requireTyped: "Main",
+      }),
+    );
     expect(api.deleteChannel).toHaveBeenCalledWith({ id: channel.id });
-    expect(dialog.props("channel")).toBeNull();
+    expect(wrapper.findComponent(ChannelFan).exists()).toBe(false);
     expect(snackbar.success).toHaveBeenCalledWith(
       "channels.deleted",
       expect.anything(),
     );
   });
 
-  it("keeps the confirmation open when the delete fails", async () => {
+  it("reports a delete that fails", async () => {
     const channel = channelFixture();
+    confirm.mockResolvedValue(true);
     api.deleteChannel.mockRejectedValue(new Error("offline"));
     const wrapper = mountPanel([channel]);
 
-    const dialog = await askToDelete(wrapper);
-    await expect(dialog.props("onConfirm")()).rejects.toThrow("offline");
-    await flushPromises();
+    await askToDelete(wrapper);
 
-    expect(dialog.props("channel")).toEqual(channel);
     expect(snackbar.error).toHaveBeenCalled();
+    expect(wrapper.findComponent(ChannelFan).exists()).toBe(true);
   });
 
   it("counts no slotted upload a snapshot already holds as legacy", async () => {
@@ -305,25 +302,26 @@ describe("ChannelsPanel", () => {
       channel_id: channel.id,
       slot: "autosave",
     });
+    confirm.mockResolvedValue(false);
     const wrapper = mountPanel([channel], [adopted], [adopted.id]);
 
-    const dialog = await askToDelete(wrapper);
+    await askToDelete(wrapper);
 
     expect(wrapper.findComponent(ChannelFan).props("legacySaves")).toEqual([]);
-    expect(dialog.props("body")).toBe(
-      'channels.delete-body:{"pinned":0,"legacy":0}',
+    expect(confirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: 'channels.delete-body:{"pinned":0,"legacy":0}',
+      }),
     );
   });
 
   it("leaves the channel when the delete is canceled", async () => {
     const channel = channelFixture();
+    confirm.mockResolvedValue(false);
     const wrapper = mountPanel([channel]);
 
-    const dialog = await askToDelete(wrapper);
-    dialog.vm.$emit("close");
-    await flushPromises();
+    await askToDelete(wrapper);
 
-    expect(dialog.props("channel")).toBeNull();
     expect(api.deleteChannel).not.toHaveBeenCalled();
   });
 

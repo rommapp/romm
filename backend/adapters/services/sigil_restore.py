@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+import re
 import tempfile
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -37,20 +38,14 @@ class RefusalCode(StrEnum):
     OTHER = "OTHER"
 
 
-_REFUSAL_CLASSES: Final[Mapping[str, RefusalCode]] = {
-    "SigilConflictError": RefusalCode.CONFLICT,
-    "SigilUncollectedError": RefusalCode.UNCOLLECTED,
-    "SigilExistsError": RefusalCode.EXISTS,
-    "SigilDamagedError": RefusalCode.DAMAGED,
-    "SigilRegionError": RefusalCode.REGION,
-    "SigilNoSpaceError": RefusalCode.NO_SPACE,
-    "SigilNotFoundError": RefusalCode.NOT_FOUND,
-    "SigilUnsupportedFormatError": RefusalCode.UNSUPPORTED_FORMAT,
-    "SigilNoTargetError": RefusalCode.NO_TARGET,
-    "SigilAmbiguousError": RefusalCode.AMBIGUOUS,
-    "SigilInvalidArgError": RefusalCode.INVALID_ARG,
-    "SigilIOError": RefusalCode.IO,
-}
+_WORD_START: Final = re.compile(r"(?<=[a-z])(?=[A-Z])")
+
+
+def _refusal_code(exc: Exception) -> RefusalCode:
+    """The code a sigil error class is named after: `SigilNoSpaceError` is `NO_SPACE`."""
+    name = type(exc).__name__.removeprefix("Sigil").removesuffix("Error")
+    code = _WORD_START.sub("_", name).upper()
+    return RefusalCode.__members__.get(code, RefusalCode.OTHER)
 
 
 @dataclass(frozen=True)
@@ -82,11 +77,8 @@ class RestoreProfile:
     name: str
 
 
-@dataclass(frozen=True)
-class RestoredSave:
-    """The files a restore produced, by path relative to the emulator's save root."""
-
-    files: Mapping[str, bytes]
+# The files a restore produced, by path relative to the emulator's save root.
+RestoredFiles = dict[str, bytes]
 
 
 class SaveRestoreError(Exception):
@@ -150,7 +142,7 @@ def _binding() -> Any:
 
 
 def _refusal(exc: Exception, companions: Sequence[RestoreCompanion]) -> SigilRefusal:
-    code = _REFUSAL_CLASSES.get(type(exc).__name__, RefusalCode.OTHER)
+    code = _refusal_code(exc)
     message = str(exc)
     if code is RefusalCode.INVALID_ARG and companions:
         message = (
@@ -179,6 +171,17 @@ def _sync_kwargs(game: SigilGame, target: RestoreTarget, root: Path) -> dict[str
         "game_ids": game.game_ids,
         "profile": target.profile,
     }
+
+
+def _locate(binding: Any, game: SigilGame, target: RestoreTarget, root: Path) -> Any:
+    return binding.locate_saves(
+        game.result,
+        target.core,
+        target.content_path,
+        save_root=root,
+        options=dict(target.options),
+        profile=target.profile,
+    )
 
 
 def _restore(
@@ -214,7 +217,7 @@ def _restore_per_game(
     game: SigilGame,
     target: RestoreTarget,
     companions: Sequence[RestoreCompanion],
-) -> RestoredSave:
+) -> RestoredFiles:
     binding = _binding()
     with tempfile.TemporaryDirectory(prefix="romm-restore-") as tmp:
         root = Path(tmp)
@@ -223,14 +226,7 @@ def _restore_per_game(
         if not written:
             raise SigilRefusal(RefusalCode.NOT_FOUND, "The restore wrote no files")
         try:
-            located = binding.locate_saves(
-                game.result,
-                target.core,
-                target.content_path,
-                save_root=root,
-                options=dict(target.options),
-                profile=target.profile,
-            )
+            located = _locate(binding, game, target, root)
         except binding.SigilError as exc:
             raise _refusal(exc, companions) from exc
         # `unkeyed` holds the shared files under the root: what restore wrote
@@ -238,7 +234,7 @@ def _restore_per_game(
         shared = sorted(set(written) & set(located.unkeyed))
         if shared:
             raise SharedContainerRequired(shared[0])
-        return RestoredSave({path: (root / path).read_bytes() for path in written})
+        return {path: (root / path).read_bytes() for path in written}
 
 
 def _unit_save_names(unit: bytes, scratch: Path) -> list[str]:
@@ -299,7 +295,7 @@ def _merge_into_container(
     companions: Sequence[RestoreCompanion],
     container_path: str,
     container: bytes,
-) -> RestoredSave:
+) -> RestoredFiles:
     binding = _binding()
     with tempfile.TemporaryDirectory(prefix="romm-restore-") as tmp:
         root = Path(tmp, "root")
@@ -314,14 +310,7 @@ def _merge_into_container(
         os.utime(sent, ns=(0, 0))
 
         try:
-            located = binding.locate_saves(
-                game.result,
-                target.core,
-                target.content_path,
-                save_root=root,
-                options=dict(target.options),
-                profile=target.profile,
-            )
+            located = _locate(binding, game, target, root)
             if game.result.platform in VOLUME_PLATFORMS:
                 # A managed merge would drop every other game's saves on the volume.
                 seen = binding.collect(
@@ -364,7 +353,7 @@ def _merge_into_container(
                     target.core,
                 ),
             )
-        return RestoredSave({container_path: sent.read_bytes()})
+        return {container_path: sent.read_bytes()}
 
 
 async def restore_per_game(
@@ -372,7 +361,7 @@ async def restore_per_game(
     game: SigilGame,
     target: RestoreTarget,
     companions: Sequence[RestoreCompanion] = (),
-) -> RestoredSave:
+) -> RestoredFiles:
     """Restore a unit into an empty save root and return what lands there.
 
     Raises:
@@ -389,7 +378,7 @@ async def merge_into_container(
     container_path: str,
     container: bytes,
     companions: Sequence[RestoreCompanion] = (),
-) -> RestoredSave:
+) -> RestoredFiles:
     """Merge a unit into the client's own card or volume and return it rewritten.
 
     Args:

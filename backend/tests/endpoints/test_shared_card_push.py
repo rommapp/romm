@@ -107,7 +107,7 @@ def push(
         "emulator": "duckstation",
     }
     if previous:
-        body["channel_id"] = previous["channel"]["id"]
+        body["channel_id"] = previous["channel_id"]
     else:
         body["label"] = label
     return client.post(
@@ -161,10 +161,10 @@ def test_another_games_change_on_the_card_leaves_the_channel_unchanged(
     again = push(
         client, headers, cross_file, whole_card(other_fill=0x44), previous=first
     )
-    channel = db_snapshot_handler.get_channel(first["channel"]["id"])
+    channel = db_snapshot_handler.get_channel(first["channel_id"])
     history = client.get(
         "/api/snapshots",
-        params={"channel_id": first["channel"]["id"]},
+        params={"channel_id": first["channel_id"]},
         headers=headers,
     ).json()
 
@@ -184,7 +184,7 @@ def test_the_games_change_on_the_card_makes_a_snapshot(
     )
 
     assert second["id"] != first["id"]
-    assert second["channel"]["current_snapshot_id"] == second["id"]
+    assert second["kind"] == "channel"
     assert stored(client, headers, second)[PS1_BLOCK : PS1_BLOCK + 1] == b"\x22"
 
 
@@ -402,7 +402,7 @@ def test_another_user_reading_a_shared_channel_gets_the_games_saves_alone(
 ):
     body = created(push(client, headers, cross_file, whole_card()))
     client.patch(
-        f"/api/channels/{body['channel']['id']}",
+        f"/api/channels/{body['channel_id']}",
         json={"is_public": True},
         headers=headers,
     )
@@ -467,6 +467,6 @@ def test_two_cards_with_the_same_saves_of_the_game_share_one_stored_save(
 
     second = created(push(client, headers, cross_file, other_card, label="two"))
 
-    assert second["channel"]["id"] != first["channel"]["id"]
+    assert second["channel_id"] != first["channel_id"]
     assert second["save"]["content_hash"] == first["save"]["content_hash"]
     assert second["save"]["id"] == first["save"]["id"]

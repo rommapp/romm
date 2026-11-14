@@ -138,20 +138,9 @@ async def _resolve_rom(request: Request, parsed: RetroArchSyncPath) -> Rom | Non
     )
 
 
-def _is_held(asset: Save | State | Screenshot | None) -> bool:
-    """Whether a sync channel holds the row: RetroArch reads it but never changes it."""
-    if isinstance(asset, (Save, State)):
-        return db_snapshot_handler.is_asset_frozen(asset)
-    return False
-
-
 def _unheld[A: (Save, State)](assets: Sequence[A]) -> list[A]:
-    ids = [asset.id for asset in assets]
-    held = (
-        db_snapshot_handler.get_frozen_state_ids(ids)
-        if assets and isinstance(assets[0], State)
-        else db_snapshot_handler.get_frozen_save_ids(ids)
-    )
+    """The rows no sync channel holds: RetroArch reads a held row but never changes it."""
+    held = db_snapshot_handler.get_frozen_ids(assets)
     return [asset for asset in assets if asset.id not in held]
 
 
@@ -605,7 +594,9 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
         file_name,
     )
     matched = slot.own_head
-    held = await asyncio.to_thread(_is_held, matched)
+    held = matched is not None and await asyncio.to_thread(
+        db_snapshot_handler.is_asset_frozen, matched
+    )
     existing = None if held else matched
     write_file_name = existing.file_name if existing else file_name
     emulator = existing.emulator if existing else parsed.emulator

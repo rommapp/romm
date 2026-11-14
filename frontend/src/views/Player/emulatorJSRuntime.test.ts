@@ -914,13 +914,9 @@ describe("resolveScreenshot", () => {
 
 describe("heldFor", () => {
   const held = (bytes: ArrayBuffer) => ({
-    id: "1:a",
-    kind: "save" as const,
-    romId: 1,
-    romName: "Game",
     bytes,
-    screenshotBytes: new Uint8Array([9, 9]).buffer,
-    capturedAt: 0,
+    fileName: "game.srm",
+    screenshot: new Uint8Array([9, 9]).buffer,
   });
 
   it("hands back the row holding these exact bytes", () => {

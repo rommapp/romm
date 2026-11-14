@@ -26,20 +26,6 @@ class DBStatesHandler(DBBaseHandler):
         return session.merge(state)
 
     @begin_session
-    def get_state(
-        self,
-        user_id: int,
-        id: int,
-        session: Session = INJECTED_SESSION,
-    ) -> State | None:
-        return session.scalar(
-            select(State)
-            .filter_by(user_id=user_id, id=id)
-            .where(State.rom_id.is_not(None))
-            .limit(1)
-        )
-
-    @begin_session
     def get_state_by_filename(
         self,
         user_id: int,

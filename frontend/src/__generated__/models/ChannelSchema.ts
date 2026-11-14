@@ -3,9 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { SnapshotSchema } from './SnapshotSchema';
-/**
- * A channel with its current snapshot, null while the channel is empty.
- */
 export type ChannelSchema = {
     id: string;
     label: string;

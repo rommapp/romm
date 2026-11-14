@@ -2,7 +2,6 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { ChannelRefSchema } from './ChannelRefSchema';
 import type { DeviceRefSchema } from './DeviceRefSchema';
 import type { HeldBySchema } from './HeldBySchema';
 import type { ScreenshotRefSchema } from './ScreenshotRefSchema';
@@ -14,7 +13,7 @@ export type SnapshotSchema = {
     digest: string;
     kind: SnapshotKind;
     parent_snapshot_id: (number | null);
-    channel: (ChannelRefSchema | null);
+    channel_id: (string | null);
     author_user_id: (number | null);
     device: (DeviceRefSchema | null);
     emulator: (string | null);

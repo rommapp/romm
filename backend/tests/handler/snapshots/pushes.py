@@ -6,6 +6,7 @@ from pathlib import Path
 
 from sqlalchemy import func, select
 
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_asset_handler
 from handler.snapshots.manifest import Manifest, SaveEntry
@@ -60,6 +61,7 @@ def push(
         author=user,
         rom=rom,
         rom_file=rom_file,
+        visibility=UNRESTRICTED,
         manifest=manifest,
         channel=ChannelTarget(expected_current_id=expected, id=channel_id, label=label),
         parts=parts or {},

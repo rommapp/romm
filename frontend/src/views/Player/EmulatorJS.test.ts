@@ -14,7 +14,6 @@ import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
 import { detailedRomFixture, romFileFixture } from "@/utils/rom.fixtures";
 import {
   channelFixture,
-  channelRefFixture,
   snapshotFixture,
   bankStateFixture,
 } from "@/utils/snapshots.fixtures";
@@ -669,7 +668,7 @@ describe("EmulatorJS launch screen, booting a snapshot", () => {
   function snapshot(over: Partial<SnapshotSchema> = {}): SnapshotSchema {
     return snapshotFixture({
       id: 30,
-      channel: channelRefFixture(channel),
+      channel_id: channel.id,
       states: {
         snes9x: {
           auto: bankStateFixture("a1b2", { id: 7 }),
@@ -754,7 +753,7 @@ describe("EmulatorJS launch screen, booting a snapshot", () => {
   it("refuses a snapshot from a channel that is not the user's", async () => {
     mocks.getSnapshot.mockResolvedValue({
       data: snapshot({
-        channel: channelRefFixture(channelFixture({ id: "theirs" })),
+        channel_id: channelFixture({ id: "theirs" }).id,
       }),
     });
 

@@ -1,5 +1,5 @@
 import uuid
-from collections.abc import Collection, Sequence
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from pydantic import Field
@@ -28,21 +28,6 @@ class DeviceRefSchema(BaseModel):
     name: str | None
     client: str | None
     is_own: bool
-
-
-class ChannelRefSchema(BaseModel):
-    id: uuid.UUID
-    label: str
-    is_public: bool
-    is_hardcore: bool
-    is_own: bool
-    owner_username: str
-    current_snapshot_id: int | None
-    rom_id: int | None
-    # The ROM file the channel is keyed to today, when the library still has it.
-    rom_file_id: int | None
-    created_at: UTCDatetime
-    updated_at: UTCDatetime
 
 
 class ScreenshotRefSchema(BaseModel):
@@ -87,7 +72,7 @@ class SnapshotSchema(BaseModel):
     digest: str
     kind: SnapshotKind
     parent_snapshot_id: int | None
-    channel: ChannelRefSchema | None
+    channel_id: uuid.UUID | None
     author_user_id: int | None
     device: DeviceRefSchema | None
     emulator: str | None
@@ -107,9 +92,20 @@ class SnapshotSchema(BaseModel):
     thumbnail: ScreenshotRefSchema | None
 
 
-class ChannelSchema(ChannelRefSchema):
-    """A channel with its current snapshot, null while the channel is empty."""
-
+class ChannelSchema(BaseModel):
+    id: uuid.UUID
+    label: str
+    is_public: bool
+    is_hardcore: bool
+    is_own: bool
+    owner_username: str
+    current_snapshot_id: int | None
+    rom_id: int | None
+    # The ROM file the channel is keyed to today, when the library still has it.
+    rom_file_id: int | None
+    created_at: UTCDatetime
+    updated_at: UTCDatetime
+    # Null while the channel is empty.
     current: SnapshotSchema | None
     snapshot_count: int
 
@@ -140,87 +136,37 @@ def device_ref(device: Device | None, viewer: User) -> DeviceRefSchema | None:
     )
 
 
-def channel_refs(
-    channels: Collection[Channel], viewer: User
-) -> dict[uuid.UUID, ChannelRefSchema]:
-    """Each channel's ref by channel id, in a fixed number of queries."""
-    from handler.database import db_snapshot_handler, db_user_handler
-
-    rom_files = db_snapshot_handler.get_channel_files(channels)
-    others = {c.user_id for c in channels if c.user_id != viewer.id}
-    usernames = {viewer.id: viewer.username} | {
-        user.id: user.username
-        for user in (
-            db_user_handler.get_users(ids=others, only_fields=[User.id, User.username])
-            if others
-            else []
-        )
-    }
-    return {
-        channel.id: ChannelRefSchema(
-            id=channel.id,
-            label=channel.label,
-            is_public=channel.is_public,
-            is_hardcore=channel.is_hardcore,
-            is_own=channel.user_id == viewer.id,
-            owner_username=usernames.get(channel.user_id, ""),
-            current_snapshot_id=channel.current_snapshot_id,
-            rom_id=channel.rom_id,
-            rom_file_id=(rom_files[channel.id].id if channel.id in rom_files else None),
-            created_at=channel.created_at,
-            updated_at=channel.updated_at,
-        )
-        for channel in channels
-    }
-
-
 def _screenshot_ref(screenshot: Screenshot | None) -> ScreenshotRefSchema | None:
     if screenshot is None:
         return None
     return ScreenshotRefSchema(id=screenshot.id, download_path=screenshot.download_path)
 
 
-def build_snapshot_schema(
-    snapshot: Snapshot, channel: Channel | None, viewer: User
-) -> SnapshotSchema:
-    return build_snapshot_schemas([(snapshot, channel)], viewer)[0]
+def build_snapshot_schema(snapshot: Snapshot, viewer: User) -> SnapshotSchema:
+    return build_snapshot_schemas([snapshot], viewer)[0]
 
 
 def build_snapshot_schemas(
-    snapshots: Sequence[tuple[Snapshot, Channel | None]],
-    viewer: User,
-    refs: dict[uuid.UUID, ChannelRefSchema] | None = None,
+    snapshots: Sequence[Snapshot], viewer: User
 ) -> list[SnapshotSchema]:
-    """Each snapshot's schema, with its channel, in a fixed number of queries
-    however many snapshots there are.
-
-    Args:
-        refs: channel refs the caller already built, by channel id.
-    """
+    """Each snapshot's schema, in a fixed number of queries however many
+    snapshots there are."""
     from handler.database import db_snapshot_handler
 
-    refs = dict(refs or {})
-
-    contents = db_snapshot_handler.get_stored_contents([s for s, _ in snapshots])
+    ids = [s.id for s in snapshots]
+    contents = db_snapshot_handler.get_stored_contents(snapshots)
     save_shots, state_shots = db_snapshot_handler.get_thumbnails(
         [c.save.id for c in contents.values() if c.save],
         [state.id for c in contents.values() for state in c.state_rows],
     )
     devices = db_snapshot_handler.get_devices(
-        {s.origin_device_id for s, _ in snapshots if s.origin_device_id}
+        {s.origin_device_id for s in snapshots if s.origin_device_id}
     )
-    holders = db_snapshot_handler.get_holders_by_snapshot(
-        [s.id for s, _ in snapshots], viewer.id
-    )
-    pin_counts, my_pins = db_snapshot_handler.get_pins(
-        [s.id for s, _ in snapshots], viewer.id
-    )
-    unbuilt = {c.id: c for _, c in snapshots if c is not None and c.id not in refs}
-    refs.update(channel_refs(unbuilt.values(), viewer))
+    holders = db_snapshot_handler.get_holders_by_snapshot(ids, viewer.id)
+    pin_counts, my_pins = db_snapshot_handler.get_pins(ids, viewer.id)
     return [
         _snapshot_schema(
             snapshot,
-            refs[channel.id] if channel else None,
             contents[snapshot.id],
             save_shots,
             state_shots,
@@ -229,13 +175,12 @@ def build_snapshot_schemas(
             (snapshot.id in my_pins, pin_counts.get(snapshot.id, 0)),
             viewer,
         )
-        for snapshot, channel in snapshots
+        for snapshot in snapshots
     ]
 
 
 def _snapshot_schema(
     snapshot: Snapshot,
-    channel: ChannelRefSchema | None,
     content: "StoredContent",
     save_shots: dict[int, Screenshot],
     state_shots: dict[int, Screenshot],
@@ -257,7 +202,7 @@ def _snapshot_schema(
         digest=f"{DIGEST_PREFIX}{snapshot.digest}",
         kind=snapshot.kind,
         parent_snapshot_id=snapshot.parent_snapshot_id,
-        channel=channel,
+        channel_id=snapshot.channel_id,
         author_user_id=snapshot.author_user_id,
         device=device_ref(origin, viewer),
         emulator=snapshot.emulator,
@@ -326,29 +271,39 @@ def build_channel_schemas(
 ) -> list[ChannelSchema]:
     """Each channel's schema with its current snapshot, batched like
     `build_snapshot_schemas`."""
-    from handler.database import db_snapshot_handler
+    from handler.database import db_snapshot_handler, db_user_handler
 
     currents = db_snapshot_handler.get_snapshots(
         {c.current_snapshot_id for c in channels if c.current_snapshot_id}
     )
-    counts = db_snapshot_handler.count_snapshots_by_channel([c.id for c in channels])
-    refs = channel_refs(channels, viewer)
-    with_current = [
-        (currents[c.current_snapshot_id], c)
-        for c in channels
-        if c.current_snapshot_id in currents
-    ]
     schemas = {
-        snapshot.id: schema
-        for (snapshot, _), schema in zip(
-            with_current,
-            build_snapshot_schemas(with_current, viewer, refs),
-            strict=True,
+        schema.id: schema
+        for schema in build_snapshot_schemas(list(currents.values()), viewer)
+    }
+    counts = db_snapshot_handler.count_snapshots_by_channel([c.id for c in channels])
+    rom_files = db_snapshot_handler.get_channel_files(channels)
+    others = {c.user_id for c in channels if c.user_id != viewer.id}
+    usernames = {viewer.id: viewer.username} | {
+        user.id: user.username
+        for user in (
+            db_user_handler.get_users(ids=others, only_fields=[User.id, User.username])
+            if others
+            else []
         )
     }
     return [
         ChannelSchema(
-            **refs[c.id].model_dump(),
+            id=c.id,
+            label=c.label,
+            is_public=c.is_public,
+            is_hardcore=c.is_hardcore,
+            is_own=c.user_id == viewer.id,
+            owner_username=usernames.get(c.user_id, ""),
+            current_snapshot_id=c.current_snapshot_id,
+            rom_id=c.rom_id,
+            rom_file_id=rom_files[c.id].id if c.id in rom_files else None,
+            created_at=c.created_at,
+            updated_at=c.updated_at,
             current=(
                 schemas.get(c.current_snapshot_id) if c.current_snapshot_id else None
             ),

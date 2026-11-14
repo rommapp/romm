@@ -570,8 +570,8 @@ class TestBaselineInProcessRemoteSave:
             patch("tasks.sync_push_pull_task.compare_save_state") as mock_cmp,
             patch("tasks.sync_push_pull_task.fs_asset_handler") as mock_assets,
             patch(
-                "handler.database.db_snapshot_handler.is_frozen",
-                return_value=True,
+                "handler.database.db_snapshot_handler.get_frozen_save_ids",
+                return_value={1},
             ),
             patch(
                 "endpoints.sockets.sync.emit_sync_conflict", new_callable=AsyncMock

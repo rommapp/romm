@@ -229,8 +229,8 @@ async def test_a_per_game_ps1_card_is_built_from_nothing(binding, tmp_path: Path
         unit, game, target("duckstation", "Chrono Cross.cue", Card1Type="PerGame")
     )
 
-    assert list(restored.files) == ["memcards/SLUS-01041_1.mcd"]
-    saves = card_saves(binding, restored.files["memcards/SLUS-01041_1.mcd"], tmp_path)
+    assert list(restored) == ["memcards/SLUS-01041_1.mcd"]
+    saves = card_saves(binding, restored["memcards/SLUS-01041_1.mcd"], tmp_path)
     assert saves == {"BASLUSP01041CROSS": bytes([0x11]) * PS1_BLOCK}
 
 
@@ -282,8 +282,8 @@ async def test_a_ps1_shared_card_merge_keeps_another_games_save(
         sent,
     )
 
-    assert list(restored.files) == ["pcsx-card1.mcd"]
-    saves = card_saves(binding, restored.files["pcsx-card1.mcd"], tmp_path)
+    assert list(restored) == ["pcsx-card1.mcd"]
+    saves = card_saves(binding, restored["pcsx-card1.mcd"], tmp_path)
     assert saves == {
         "BASLUSP01041CROSS": bytes([0x11]) * PS1_BLOCK,
         "BASLUS-00067OTHER": bytes([0x33]) * PS1_BLOCK,
@@ -310,7 +310,7 @@ async def test_a_segacd_volume_merge_replaces_only_the_games_save(
         unit, game, target("genesis_plus_gx", "Lunar (USA).cue"), "scd_U.brm", sent
     )
 
-    saves = card_saves(binding, restored.files["scd_U.brm"], tmp_path)
+    saves = card_saves(binding, restored["scd_U.brm"], tmp_path)
     assert saves == {
         "OTHER_GAME1": bytes([0x33]) * SEGACD_BLOCK,
         "LUNAR_SAVE1": bytes([0x11]) * SEGACD_BLOCK,
@@ -347,7 +347,7 @@ async def test_a_segacd_volume_of_another_region_is_refused(binding, tmp_path: P
         "scd_E.brm",
         sent,
     )
-    assert set(card_saves(binding, forced.files["scd_E.brm"], tmp_path)) == {
+    assert set(card_saves(binding, forced["scd_E.brm"], tmp_path)) == {
         "OTHER_GAME1",
         "LUNAR_SAVE1",
     }
@@ -402,7 +402,7 @@ async def test_a_shared_saturn_volume_merge_replaces_a_companions_old_save(
     )
 
     saves = saturn_saves(
-        binding, restored.files["mednafen_saturn_libretro_shared.bkr"], tmp_path
+        binding, restored["mednafen_saturn_libretro_shared.bkr"], tmp_path
     )
     assert saves == {
         "RAYMAN_NTS": bytes([0x11]) * SATURN_DATA,
@@ -442,7 +442,7 @@ async def test_a_wii_unit_is_restored_under_its_title_category(
 
     restored = await restore_per_game(buffer.getvalue(), game, target(core, "Game.rvz"))
 
-    assert restored.files == {written: b"wii save"}
+    assert restored == {written: b"wii save"}
 
 
 def test_layouts_name_the_region_option(binding):
@@ -484,9 +484,9 @@ async def test_a_gb_clock_is_written_in_the_cores_format(
 
     restored = await restore_per_game(unit, game, target(core, "game.gbc"))
 
-    assert {path: len(data) for path, data in restored.files.items()} == sizes
-    primary = next(path for path in restored.files if not path.endswith(".rtc"))
-    assert restored.files[primary][: len(ram)] == ram
+    assert {path: len(data) for path, data in restored.items()} == sizes
+    primary = next(path for path in restored if not path.endswith(".rtc"))
+    assert restored[primary][: len(ram)] == ram
 
 
 @pytest.mark.asyncio

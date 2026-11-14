@@ -1,13 +1,12 @@
 import io
 import zipfile
-from unittest.mock import patch
+from pathlib import Path
 
 import pytest
 from tests._zipfile_shim import reload_zipfile
 from tests.handler.snapshots.pushes import md5
 
-from adapters.services import sigil as sigil_service
-from adapters.services.sigil import SigilService
+from handler.filesystem.assets_handler import is_clock_member
 from handler.snapshots import hashing
 
 UNITS: dict[str, dict[str, bytes]] = {
@@ -28,54 +27,47 @@ def _zip(members: dict[str, bytes]) -> bytes:
     return buffer.getvalue()
 
 
-def _without_binding():
-    return patch.object(sigil_service, "sigil", None)
+def _by_sigil(sigil, members: dict[str, bytes], root: Path) -> str:
+    for name, data in members.items():
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / name).write_bytes(data)
+    unit = sigil.SigilSaveUnit(
+        key=root.name,
+        shape="multi",
+        members=tuple(
+            sigil.SigilSaveMember(
+                path=name,
+                entry=name,
+                role="rtc" if is_clock_member(name) else "primary",
+                present=True,
+            )
+            for name in sorted(members)
+        ),
+        expected=(),
+        unkeyed=(),
+        artifact=root.name,
+        content_hash="",
+        identity_hash="",
+    )
+    identity: str = sigil.hash_saves(unit, root).identity_hash
+    return identity
 
 
 @pytest.mark.parametrize("members", UNITS.values(), ids=UNITS.keys())
-async def test_sigil_and_the_fallback_agree(members: dict[str, bytes]):
-    pytest.importorskip("sigil")
-    content = _zip(members)
-    answers: list[str | None] = []
-    real = hashing._sigil.unit_identity_hash
+async def test_the_hash_is_the_one_sigil_gives(members: dict[str, bytes], tmp_path):
+    sigil = pytest.importorskip("sigil")
 
-    def record(*args, **kwargs):
-        answers.append(real(*args, **kwargs))
-        return answers[-1]
-
-    with patch.object(hashing._sigil, "unit_identity_hash", side_effect=record):
-        by_sigil = await hashing.identity_hash(content)
-    with _without_binding():
-        by_fallback = await hashing.identity_hash(content)
-
-    assert answers and answers[0] is not None
-    assert by_sigil == by_fallback
+    assert await hashing.identity_hash(_zip(members)) == _by_sigil(
+        sigil, members, tmp_path
+    )
 
 
-async def test_sigil_hashes_a_raw_file_as_itself():
-    pytest.importorskip("sigil")
-
+async def test_a_raw_file_hashes_as_itself():
     assert await hashing.identity_hash(b"only") == md5(b"only")
 
 
-async def test_a_unit_past_the_unpack_limit_never_reaches_disk():
-    content = _zip(UNITS["neutral clock"])
-    with (
-        patch.object(hashing, "SIGIL_UNPACK_MAX_BYTES", 2),
-        patch.object(SigilService, "is_enabled", return_value=True),
-        patch.object(hashing._sigil, "unit_identity_hash") as unit_identity_hash,
-        patch.object(zipfile.ZipFile, "extract") as extract,
-    ):
-        identity = await hashing.identity_hash(content)
-
-    unit_identity_hash.assert_not_called()
-    extract.assert_not_called()
-    assert identity == md5(b"sram")
-
-
-async def test_without_the_binding_the_clock_is_left_out():
-    with _without_binding():
-        identity = await hashing.identity_hash(_zip(UNITS["neutral clock"]))
+async def test_the_clock_is_left_out():
+    identity = await hashing.identity_hash(_zip(UNITS["neutral clock"]))
 
     assert identity == md5(b"sram")
 

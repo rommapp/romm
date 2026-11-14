@@ -22,7 +22,7 @@ def for_held_save(result: SyncComparisonResult, save_id: int) -> SyncComparisonR
     never changes in place: the device's newer copy waits as a conflict."""
     from handler.database import db_snapshot_handler
 
-    if result.action == "upload" and db_snapshot_handler.is_frozen(save_id=save_id):
+    if result.action == "upload" and db_snapshot_handler.get_frozen_save_ids([save_id]):
         return SyncComparisonResult("conflict", HELD_SAVE_REASON)
     return result
 

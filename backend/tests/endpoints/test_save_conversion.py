@@ -1,13 +1,13 @@
 """GET and POST /api/saves/{id}/content with a core, with sigil itself mocked."""
 
 import io
-import json
 import zipfile
 from collections.abc import Iterator
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 from unittest import mock
+from urllib.parse import parse_qsl
 
 import pytest
 from fastapi import status
@@ -18,7 +18,6 @@ from adapters.services.sigil import SigilGame
 from adapters.services.sigil_restore import (
     ContainerMismatch,
     RefusalCode,
-    RestoredSave,
     RestoreProfile,
     SharedContainerRequired,
     SigilRefusal,
@@ -110,10 +109,8 @@ def stored_game() -> Iterator[mock.Mock]:
 @pytest.fixture
 def restore() -> Iterator[mock.AsyncMock]:
     with mock.patch(
-        "endpoints.saves.restore_per_game",
-        new=mock.AsyncMock(
-            return_value=RestoredSave({"memcards/Chrono Cross (USA)_1.mcd": b"card"})
-        ),
+        "handler.snapshots.restore.restore_per_game",
+        new=mock.AsyncMock(return_value={"memcards/Chrono Cross (USA)_1.mcd": b"card"}),
     ) as patched:
         yield patched
 
@@ -121,8 +118,8 @@ def restore() -> Iterator[mock.AsyncMock]:
 @pytest.fixture
 def merge() -> Iterator[mock.AsyncMock]:
     with mock.patch(
-        "endpoints.saves.merge_into_container",
-        new=mock.AsyncMock(return_value=RestoredSave({"pcsx-card1.mcd": b"merged"})),
+        "handler.snapshots.restore.merge_into_container",
+        new=mock.AsyncMock(return_value={"pcsx-card1.mcd": b"merged"}),
     ) as patched:
         yield patched
 
@@ -141,18 +138,28 @@ def _post(
     client: TestClient,
     save: Save,
     headers: dict[str, str],
-    request: dict[str, object] | str | None = None,
+    request: dict[str, Any] | None = None,
     container: bytes | None = b"card bytes",
     query: str = "",
 ):
     if request is None:
         request = {"core": "pcsx_rearmed", "container_path": "pcsx-card1.mcd"}
-    data = {"request": request if isinstance(request, str) else json.dumps(request)}
+    params: list[tuple[str, str | int | float | bool | None]] = [
+        (key, request[key])
+        for key in ("core", "container_path", "profile")
+        if request.get(key) is not None
+    ]
+    params += [
+        ("option", f"{key}:{value}")
+        for key, value in request.get("options", {}).items()
+    ]
+    params += [("companion", str(id)) for id in request.get("companions", [])]
+    params += parse_qsl(query)
     files = {"container": ("card.mcd", container)} if container is not None else None
     return client.post(
-        f"/api/saves/{save.id}/content?{query}",
+        f"/api/saves/{save.id}/content",
         headers=headers,
-        data=data,
+        params=params,
         files=files,
     )
 
@@ -463,7 +470,7 @@ class TestGetWithCore:
     def test_several_files_come_back_as_a_zip_of_save_paths(
         self, client, headers, psx_save: Save, stored_game, restore
     ):
-        restore.return_value = RestoredSave({"game.srm": b"ram", "game.rtc": b"clock"})
+        restore.return_value = {"game.srm": b"ram", "game.rtc": b"clock"}
 
         response = _get(client, psx_save, headers, "core=gambatte")
 
@@ -710,12 +717,12 @@ class TestPostContainer:
         merge.assert_not_awaited()
 
     @pytest.mark.parametrize(
-        "request_part", ["{not json", json.dumps({"core": "pcsx_rearmed"})]
+        "named", [{"core": "pcsx_rearmed"}, {"container_path": "pcsx-card1.mcd"}]
     )
-    def test_a_malformed_request_part_is_unprocessable(
-        self, client, headers, psx_save: Save, stored_game, merge, request_part: str
+    def test_a_merge_without_its_core_or_container_path_is_unprocessable(
+        self, client, headers, psx_save: Save, stored_game, merge, named: dict[str, str]
     ):
-        response = _post(client, psx_save, headers, request_part)
+        response = _post(client, psx_save, headers, named)
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
         merge.assert_not_awaited()

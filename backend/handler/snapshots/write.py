@@ -11,8 +11,14 @@ from fastapi import UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from handler.asset_store import AssetContent, remove_asset_file
+from handler.asset_store import (
+    AssetContent,
+    remove_asset_file,
+    reserve_version_name,
+)
+from handler.auth.rom_visibility import RomVisibilityFilter
 from handler.database import (
+    db_rom_handler,
     db_save_handler,
     db_snapshot_handler,
     db_state_handler,
@@ -36,11 +42,7 @@ from models.channel import Channel
 from models.rom import Rom, RomFile
 from models.snapshot import ConflictReason, Snapshot, SnapshotKind, SnapshotState
 from models.user import User
-from utils.uploads import (
-    apply_datetime_tag,
-    sanitize_asset_filename,
-    strip_datetime_tag,
-)
+from utils.uploads import sanitize_asset_filename, strip_datetime_tag
 
 SAVE_PART = "save"
 
@@ -63,7 +65,6 @@ class ContentMissing(SnapshotWriteError):
 class ContentMismatch(SnapshotWriteError):
     def __init__(self, key: str):
         super().__init__(f"{key} does not hash to the manifest's value")
-        self.key = key
 
 
 class NotVisible(SnapshotWriteError):
@@ -123,9 +124,10 @@ class SnapshotWrite:
     author: User
     rom: Rom
     manifest: Manifest
-    # None writes an archival snapshot, which moves no pointer.
-    channel: ChannelTarget | None
-    rom_file: RomFile | None = None
+    channel: ChannelTarget
+    rom_file: RomFile
+    # Hides the channel and the parent on a ROM the author may not see.
+    visibility: RomVisibilityFilter
     # Left out, the parent is the current the push expects.
     parent_snapshot_id: int | None | Literal[Carry.PARENT] = CARRY
     # The device recorded as holding the new snapshot.
@@ -133,7 +135,6 @@ class SnapshotWrite:
     # The device that wrote the bytes, when not `device_id`: a clone keeps its source's.
     origin_device_id: str | None = None
     parts: Mapping[str, UploadPart] = field(default_factory=dict)
-    is_public: bool = False
     # A legacy row, held by no snapshot yet, to hold as the save.
     adopt_save: Save | None = None
 
@@ -231,7 +232,7 @@ def _expected_and_parent(
 ) -> tuple[int | None, int | None]:
     """The current the push expects and the parent it builds on, inferred from
     the device's held and latest known snapshots when the push omits them."""
-    expected = write.channel.expected_current_id if write.channel else None
+    expected = write.channel.expected_current_id
     named = write.parent_snapshot_id
     if not isinstance(expected, Infer):
         return expected, expected if isinstance(named, Carry) else named
@@ -270,24 +271,26 @@ async def _hash_unhashed(content: StoredContent) -> None:
             )
 
 
-def _check_visible(channel: Channel, author: User) -> None:
-    if channel.user_id != author.id and not channel.is_public:
+def _rom_hidden(write: SnapshotWrite, rom_id: int | None) -> bool:
+    return rom_id is not None and bool(
+        db_rom_handler.get_hidden_rom_ids_among([rom_id], write.visibility)
+    )
+
+
+def _check_visible(channel: Channel, write: SnapshotWrite) -> None:
+    owned = channel.user_id == write.author.id
+    if not (owned or channel.is_public) or _rom_hidden(write, channel.rom_id):
         raise NotVisible("channel")
 
 
 def _target_channel(write: SnapshotWrite) -> Channel | None:
     target = write.channel
-    if target is None:
-        return None
-    if write.rom_file is None:
-        raise ValueError("a channel push names its ROM file")
-
     channel = db_snapshot_handler.get_channel(target.id) if target.id else None
     if channel is None:
         if not target.label:
             raise LabelRequired("a new channel needs a label")
         return None
-    _check_visible(channel, write.author)
+    _check_visible(channel, write)
     if not FileKey.of_channel(channel).matches(FileKey.of_file(write.rom_file)):
         raise FileMismatch("the ROM file does not match the channel's")
     return channel
@@ -314,7 +317,11 @@ async def _plan(write: SnapshotWrite, match_current: bool = True) -> _Plan:
             if parent and parent.channel_id
             else None
         )
-        if parent is None or not parent.readable_by(write.author.id, parent_channel):
+        if (
+            parent is None
+            or not parent.readable_by(write.author.id, parent_channel)
+            or _rom_hidden(write, parent.rom_id)
+        ):
             raise NotVisible("parent snapshot")
         parent_content = db_snapshot_handler.get_stored_content(parent)
         await _hash_unhashed(parent_content)
@@ -435,22 +442,6 @@ async def copied_part(row: Save | State) -> UploadPart:
     )
 
 
-async def _reserve_tagged_name(folder: str, file_name: str, plan: _Plan) -> str:
-    """`file_name` tagged with the time now, created empty in `folder` so no
-    concurrent push can take the same name."""
-    await fs_asset_handler.make_directory(folder)
-    while True:
-        tagged = sanitize_asset_filename(apply_datetime_tag(file_name), "content")
-        path = fs_asset_handler.validate_path(f"{folder}/{tagged}")
-        try:
-            await asyncio.to_thread(path.touch, exist_ok=False)
-        except FileExistsError:
-            await asyncio.sleep(0.001)
-            continue
-        plan.written_paths.append(f"{folder}/{tagged}")
-        return tagged
-
-
 async def _store_part(
     write: SnapshotWrite,
     plan: _Plan,
@@ -474,9 +465,16 @@ async def _store_part(
         rom_id=write.rom.id,
         emulator=write.manifest.emulator,
     )
-    file_name = await _reserve_tagged_name(
-        folder, sanitize_asset_filename(part.file_name, "content"), plan
+    file_name = sanitize_asset_filename(
+        await reserve_version_name(
+            plan.owner.id,
+            write.rom.id,
+            folder,
+            sanitize_asset_filename(part.file_name, "content"),
+        ),
+        "content",
     )
+    plan.written_paths.append(f"{folder}/{file_name}")
     await fs_asset_handler.write_file(
         file=part.content, path=folder, filename=file_name
     )
@@ -657,20 +655,18 @@ async def _store_parts(write: SnapshotWrite, plan: _Plan) -> list[_StoredFile]:
 
 def _lock_or_create_channel(
     write: SnapshotWrite, plan: _Plan, session: Session
-) -> Channel | None:
+) -> Channel:
     target = write.channel
-    if target is None:
-        return None
     if target.id is not None:
         channel = db_snapshot_handler.lock_channel(target.id, session=session)
         if channel is not None:
             # The owner may have unshared the channel since the plan read it.
-            _check_visible(channel, write.author)
+            _check_visible(channel, write)
             return channel
     if plan.channel is not None:
         # Deleted since the plan read it.
         raise NotVisible("channel")
-    assert write.rom_file is not None and target.label
+    assert target.label, "the plan refused a new channel with no label"
     channel = FileKey.of_file(write.rom_file).new_channel(
         write.author.id,
         write.rom.id,
@@ -719,6 +715,15 @@ def _locked_ids(
     )
 
 
+def _record_held(
+    write: SnapshotWrite, channel: Channel, snapshot: Snapshot, session: Session
+) -> None:
+    if write.device_id:
+        db_snapshot_handler.record_device_base(
+            write.device_id, channel.id, snapshot.id, session=session
+        )
+
+
 def _commit(
     write: SnapshotWrite,
     plan: _Plan,
@@ -731,39 +736,33 @@ def _commit(
     digest = plan.resolved.digest
     current = (
         session.get(Snapshot, channel.current_snapshot_id)
-        if channel and channel.current_snapshot_id
+        if channel.current_snapshot_id
         else None
     )
 
     if plan.unchanged and (current is None or current.id != plan.same_as):
         raise _CurrentMoved
     if (
-        channel is not None
-        and current is not None
+        current is not None
         and current.is_hardcore == write.manifest.is_hardcore
         and (plan.unchanged or current.digest == digest)
     ):
-        if write.device_id:
-            db_snapshot_handler.record_device_base(
-                write.device_id, channel.id, current.id, session=session
-            )
+        _record_held(write, channel, current, session)
         return WriteResult(snapshot=current, outcome=Outcome.UNCHANGED, current=current)
 
-    kind = SnapshotKind.ARCHIVAL
-    if channel is not None:
-        stale = channel.current_snapshot_id != plan.expected_current_id
-        kind = SnapshotKind.BRANCH if stale else SnapshotKind.CHANNEL
-        if (
-            kind == SnapshotKind.CHANNEL
-            and channel.is_hardcore
-            and not write.manifest.is_hardcore
-            and not write.manifest.approve_hardcore_downgrade
-        ):
-            raise HardcoreDowngrade("the channel's current save is hardcore")
+    stale = channel.current_snapshot_id != plan.expected_current_id
+    kind = SnapshotKind.BRANCH if stale else SnapshotKind.CHANNEL
+    if (
+        kind == SnapshotKind.CHANNEL
+        and channel.is_hardcore
+        and not write.manifest.is_hardcore
+        and not write.manifest.approve_hardcore_downgrade
+    ):
+        raise HardcoreDowngrade("the channel's current save is hardcore")
 
     _hold_planned_rows(plan, session)
     for file in stored:
-        file.row.channel_id = channel.id if channel else None
+        file.row.channel_id = channel.id
         session.add(file.row)
     session.flush()
     for file in stored:
@@ -783,17 +782,12 @@ def _commit(
         user_id=plan.owner.id,
         author_user_id=write.author.id,
         rom_id=write.rom.id,
-        channel_id=channel.id if channel else None,
+        channel_id=channel.id,
         parent_snapshot_id=plan.parent.id if plan.parent else None,
         kind=kind,
-        is_public=write.is_public if kind == SnapshotKind.ARCHIVAL else False,
         save_id=plan.saves[resolved.save.hash].id if resolved.save else None,
         digest=digest,
-        rom_sha1=(
-            channel.target_file_hash
-            if channel
-            else write.rom_file.sha1_hash if write.rom_file else None
-        ),
+        rom_sha1=channel.target_file_hash,
         is_hardcore=write.manifest.is_hardcore,
         save_target=write.rom.save_target,
         emulator=write.manifest.emulator,
@@ -808,22 +802,16 @@ def _commit(
     session.flush()
 
     # An adopted legacy row may carry its own sharing, which the snapshot now decides.
-    shared = (channel is not None and channel.is_public) or snapshot.is_public
-    if shared or write.adopt_save is not None:
+    if channel.is_public or write.adopt_save is not None:
         db_snapshot_handler.sync_content_visibility(
             [snapshot.save_id] if snapshot.save_id else [],
             [entry.state_id for entry in snapshot.states],
             session=session,
         )
 
-    if channel is None:
-        return WriteResult(snapshot=snapshot, outcome=Outcome.CREATED, current=None)
+    # After a branch the device plays on from it, and the 409 tells it the current it missed.
+    _record_held(write, channel, snapshot, session)
     if kind == SnapshotKind.BRANCH:
-        # The device plays on from its branch, and the 409 tells it the current it missed.
-        if write.device_id:
-            db_snapshot_handler.record_device_base(
-                write.device_id, channel.id, snapshot.id, session=session
-            )
         parent_id = plan.parent.id if plan.parent else None
         from_older = (
             parent_id is not None
@@ -841,10 +829,6 @@ def _commit(
 
     channel.current_snapshot_id = snapshot.id
     channel.is_hardcore = write.manifest.is_hardcore
-    if write.device_id:
-        db_snapshot_handler.record_device_base(
-            write.device_id, channel.id, snapshot.id, session=session
-        )
     return WriteResult(snapshot=snapshot, outcome=Outcome.CREATED, current=snapshot)
 
 

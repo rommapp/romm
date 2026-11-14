@@ -23,6 +23,7 @@ from tests.handler.snapshots.pushes import (
     stored_files,
 )
 
+from handler import asset_store
 from handler.database import db_snapshot_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_asset_handler
@@ -513,24 +514,6 @@ async def test_a_push_from_another_file_is_refused(
         )
 
 
-async def test_an_archival_write_moves_no_pointer(admin_user: User, rom: Rom):
-    result = await write_snapshot(
-        SnapshotWrite(
-            author=admin_user,
-            rom=rom,
-            manifest=Manifest(save=save_entry(fmt=SaveFormat.NATIVE)),
-            channel=None,
-            parts={SAVE_PART: part(SRAM)},
-            is_public=True,
-        )
-    )
-
-    assert result.snapshot.kind == SnapshotKind.ARCHIVAL
-    assert result.snapshot.channel_id is None
-    assert result.snapshot.is_public
-    assert count(Channel) == 0
-
-
 async def test_the_same_bytes_in_another_channel_reuse_one_row(
     admin_user: User, rom: Rom, hashed_file: RomFile
 ):
@@ -558,11 +541,11 @@ async def test_same_named_parts_tagged_on_one_millisecond_keep_their_own_bytes(
 ):
     calls = iter(range(100))
 
-    def one_tick_per_two_calls(file_name: str) -> str:
+    def one_tick_per_two_calls(file_name: str, at: datetime | None = None) -> str:
         stem, extension = file_name.rsplit(".", 1)
         return f"{stem} [2026-01-01_00-00-00-{next(calls) // 2:03d}].{extension}"
 
-    monkeypatch.setattr(write_module, "apply_datetime_tag", one_tick_per_two_calls)
+    monkeypatch.setattr(asset_store, "apply_datetime_tag", one_tick_per_two_calls)
 
     await write_snapshot(
         push(
@@ -588,11 +571,11 @@ async def test_concurrent_pushes_tagged_on_one_millisecond_keep_their_own_files(
 ):
     calls = iter(range(100))
 
-    def one_tick_per_two_calls(file_name: str) -> str:
+    def one_tick_per_two_calls(file_name: str, at: datetime | None = None) -> str:
         stem, extension = file_name.rsplit(".", 1)
         return f"{stem} [2026-01-01_00-00-00-{next(calls) // 2:03d}].{extension}"
 
-    monkeypatch.setattr(write_module, "apply_datetime_tag", one_tick_per_two_calls)
+    monkeypatch.setattr(asset_store, "apply_datetime_tag", one_tick_per_two_calls)
     write_file = fs_asset_handler.write_file
     raced: list[bool] = []
     rivals: list[WriteResult] = []

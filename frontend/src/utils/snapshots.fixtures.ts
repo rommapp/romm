@@ -1,5 +1,4 @@
 import type {
-  ChannelRefSchema,
   ChannelSchema,
   DeviceRefSchema,
   SnapshotSchema,
@@ -46,7 +45,7 @@ export function snapshotFixture(
     digest: "sha256:7c1e",
     kind: "channel",
     parent_snapshot_id: 41,
-    channel: null,
+    channel_id: null,
     author_user_id: 1,
     device: ownDevice,
     emulator: "argosy",
@@ -78,12 +77,6 @@ export function snapshotFixture(
     thumbnail: null,
     ...over,
   };
-}
-
-/** A channel as a snapshot names it. */
-export function channelRefFixture(channel: ChannelSchema): ChannelRefSchema {
-  const { current: _current, snapshot_count: _count, ...ref } = channel;
-  return ref;
 }
 
 export function channelFixture(

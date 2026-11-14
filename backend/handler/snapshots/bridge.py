@@ -1,5 +1,6 @@
 """Keeps legacy slot uploads and snapshot pushes on one line per channel."""
 
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
     db_save_handler,
     db_screenshot_handler,
@@ -27,7 +28,8 @@ async def hold_legacy_upload(
 ) -> None:
     """Make a legacy slot upload its channel's current, carrying the states forward.
     A hardcore channel, a neutral current, or one `may_load` rules out stays legacy."""
-    if save.channel_id is None or not save.content_hash:
+    content_hash = save.content_hash
+    if save.channel_id is None or not content_hash:
         return
     channel = db_snapshot_handler.get_channel(save.channel_id)
     if channel is None or channel.current_snapshot_id is None or channel.is_hardcore:
@@ -65,10 +67,11 @@ async def hold_legacy_upload(
                 author=user,
                 rom=rom,
                 rom_file=rom_file,
+                visibility=UNRESTRICTED,
                 manifest=Manifest(
                     save=SaveEntry(
-                        hash=save.content_hash or "",
-                        shape=save.shape or save_shape_of(path),
+                        hash=content_hash,
+                        shape=save.shape,
                         format=SaveFormat.NATIVE,
                     ),
                     emulator=save.emulator,

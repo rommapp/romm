@@ -67,7 +67,6 @@ export type { Body_upload_memory_card_version_api_memory_cards__id__versions_pos
 export type { BulkOperationResponse } from './models/BulkOperationResponse';
 export type { ChannelAttachPayload } from './models/ChannelAttachPayload';
 export type { ChannelCreatePayload } from './models/ChannelCreatePayload';
-export type { ChannelRefSchema } from './models/ChannelRefSchema';
 export type { ChannelSchema } from './models/ChannelSchema';
 export type { ChannelUpdatePayload } from './models/ChannelUpdatePayload';
 export type { ClaimStreamingSessionRequest } from './models/ClaimStreamingSessionRequest';

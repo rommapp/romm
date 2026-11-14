@@ -173,9 +173,8 @@ def _add_channels() -> None:
     )
     with op.batch_alter_table("snapshots") as batch_op:
         for name, columns in (
-            ("ix_snapshots_channel_created", ["channel_id", "created_at"]),
-            ("ix_snapshots_channel_digest", ["channel_id", "digest"]),
-            ("ix_snapshots_user_rom_kind", ["user_id", "rom_id", "kind"]),
+            ("ix_snapshots_channel_id", ["channel_id"]),
+            ("ix_snapshots_user_id", ["user_id"]),
             ("ix_snapshots_author_user_id", ["author_user_id"]),
             ("ix_snapshots_rom_id", ["rom_id"]),
             ("ix_snapshots_parent_snapshot_id", ["parent_snapshot_id"]),

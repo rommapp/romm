@@ -2448,7 +2448,7 @@ class TestRetroArchSyncHeldState:
         assert response.status_code == status.HTTP_201_CREATED
         mock_write_file.assert_awaited_once()
         assert mock_write_file.call_args.kwargs["filename"] == "test_rom.state"
-        kept = db_state_handler.get_state(user_id=admin_user.id, id=held.id)
+        kept = db_state_handler.get_state_by_id(held.id)
         assert kept is not None and kept.file_size_bytes == 4
 
     @mock.patch(
@@ -2552,7 +2552,7 @@ class TestRetroArchSyncHeldState:
 
         assert response.status_code == status.HTTP_423_LOCKED
         mock_remove_file.assert_not_awaited()
-        assert db_state_handler.get_state(user_id=admin_user.id, id=held.id)
+        assert db_state_handler.get_state_by_id(held.id)
 
     @mock.patch(
         "handler.asset_store.fs_asset_handler.remove_file",
@@ -2790,8 +2790,8 @@ class TestRetroArchSyncPsp:
         held_hash = held.content_hash
 
         with mock.patch(
-            "handler.database.db_snapshot_handler.is_frozen",
-            side_effect=lambda **kw: kw.get("save_id") == held.id,
+            "handler.database.db_snapshot_handler.get_frozen_save_ids",
+            side_effect=lambda ids: set(ids) & {held.id},
         ):
             response = client.put(
                 f"{save_path}/SAVE.BIN", content=b"second", auth=ADMIN_AUTH

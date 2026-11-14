@@ -904,7 +904,7 @@ async def test_a_legacy_state_upload_records_its_core(
     )
 
     assert response.status_code == status.HTTP_200_OK
-    state = db_state_handler.get_state(user_id=admin_user.id, id=response.json()["id"])
+    state = db_state_handler.get_state_by_id(response.json()["id"])
     assert state is not None
     assert (state.emulator_version, state.core, state.core_version) == (
         "1.21",

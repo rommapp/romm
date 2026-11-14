@@ -53,6 +53,14 @@ export function ownChannelLabels(
   );
 }
 
+/** The user's own channel with this id. */
+export function ownChannel(
+  channels: readonly ChannelSchema[] | undefined,
+  id: string | null | undefined,
+): ChannelSchema | undefined {
+  return id ? channels?.find((c) => c.is_own && c.id === id) : undefined;
+}
+
 /** A save or state no channel holds, which the user manages freely. */
 export function isBackup(asset: { channel_id?: string | null }): boolean {
   return !asset.channel_id;

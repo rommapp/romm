@@ -115,7 +115,11 @@ import {
 } from "@/utils/saveSlots";
 import { cachedBrowserDeviceId } from "@/utils/saveSync/browserDevice";
 import { isJsResource, loadScript } from "@/utils/scriptLoader";
-import { AUTO_STATE_SLOT, ownChannelLabels } from "@/utils/snapshots";
+import {
+  AUTO_STATE_SLOT,
+  ownChannel as findOwnChannel,
+  ownChannelLabels,
+} from "@/utils/snapshots";
 import { exitEmulatorOnce } from "@/views/Player/emulatorJSRuntime";
 import { rememberCore, resolveRememberedCore } from "./coreStorage";
 import {
@@ -545,20 +549,17 @@ async function applyLaunchIntent(intent: LaunchIntent) {
 }
 
 function ownChannel(id: string | null | undefined) {
-  return id
-    ? rom.value?.user_channels.find((c) => c.is_own && c.id === id)
-    : undefined;
+  return findOwnChannel(rom.value?.user_channels, id);
 }
 
-// A slotted save fixes the write slot, and it stays put for the session
-// even when a state later displaces the save.
+// A save in a channel or a slot fixes where the session writes, and it stays
+// put for the session even when a state later displaces the save.
 function selectSave(save: SaveSchema) {
   resume.value = pickSave(save);
-  slotChoice.value = slotForSave(
-    save,
-    slotChoice.value,
-    ownChannel(save.channel_id)?.label,
-  );
+  const channel = ownChannel(save.channel_id);
+  slotChoice.value = channel
+    ? slotForChannel(channel.label)
+    : slotForSave(save, slotChoice.value);
   isSavesTabSelected.value = true;
   if (save.id !== bootSnapshot.value?.save?.id) bootSnapshot.value = null;
 }
@@ -582,7 +583,7 @@ function selectState(state: StateSchema) {
 async function fetchSnapshot(id: number): Promise<SnapshotSchema | null> {
   try {
     const { data } = await snapshotApi.getSnapshot({ id });
-    return ownChannel(data.channel?.id) ? data : null;
+    return ownChannel(data.channel_id) ? data : null;
   } catch (error) {
     console.error("[Play] Could not read the snapshot:", error);
     return null;
@@ -633,7 +634,7 @@ async function bootFromSnapshot(snapshotId: number, stateId: number | null) {
   } else if (save) {
     selectSave(save);
   }
-  const channel = ownChannel(snapshot.channel?.id);
+  const channel = ownChannel(snapshot.channel_id);
   if (channel) slotChoice.value = slotForChannel(channel.label);
 }
 
@@ -645,7 +646,7 @@ function queryId(value: unknown): number | null {
 /** The channel a booted snapshot rewinds when the session saves, if it is not the current. */
 const rewoundChannel = computed(() => {
   const snapshot = bootSnapshot.value;
-  const channel = ownChannel(snapshot?.channel?.id);
+  const channel = ownChannel(snapshot?.channel_id);
   return snapshot && channel && channel.current_snapshot_id !== snapshot.id
     ? channel.label
     : null;
@@ -869,9 +870,9 @@ const channelLabels = computed(() =>
 );
 const boundSlot = computed(
   () =>
-    ownChannel(bootSnapshot.value?.channel?.id)?.label ||
-    resume.value.save?.slot ||
+    ownChannel(bootSnapshot.value?.channel_id)?.label ||
     ownChannel(resume.value.save?.channel_id)?.label ||
+    resume.value.save?.slot ||
     null,
 );
 const slotItems = computed(() =>

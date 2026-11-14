@@ -8,6 +8,7 @@ import type {
 } from "@/__generated__";
 import { useDeviceLabel } from "@/composables/useDeviceLabel";
 import { formatRelativeDate } from "@/utils";
+import { snapshotBadges } from "@/utils/snapshots";
 
 defineOptions({ inheritAttrs: false });
 
@@ -67,26 +68,29 @@ const colorByChannel = computed(
 );
 
 const nodes = computed<Node[]>(() => {
-  const unplaced = props.channels.flatMap((channel, lane) => [
-    ...(props.histories[channel.id] ?? []).map((snapshot) => ({
-      key: `s-${snapshot.id}`,
+  const unplaced = props.channels.flatMap((channel, lane) => {
+    const shared = {
       lane,
       color: colorByChannel.value.get(channel.id)!,
       channel,
-      snapshot,
-      save: null,
-      at: Date.parse(snapshot.created_at),
-    })),
-    ...(props.legacySaves[channel.id] ?? []).map((save) => ({
-      key: `l-${save.id}`,
-      lane,
-      color: colorByChannel.value.get(channel.id)!,
-      channel,
-      snapshot: null,
-      save,
-      at: Date.parse(save.updated_at),
-    })),
-  ]);
+    };
+    return [
+      ...(props.histories[channel.id] ?? []).map((snapshot) => ({
+        ...shared,
+        key: `s-${snapshot.id}`,
+        snapshot,
+        save: null,
+        at: Date.parse(snapshot.created_at),
+      })),
+      ...(props.legacySaves[channel.id] ?? []).map((save) => ({
+        ...shared,
+        key: `l-${save.id}`,
+        snapshot: null,
+        save,
+        at: Date.parse(save.updated_at),
+      })),
+    ];
+  });
   return unplaced
     .sort((a, b) => b.at - a.at)
     .map((node, row) => ({
@@ -158,11 +162,10 @@ const edges = computed(() =>
 );
 
 function headline(node: Node): string {
-  const parts = [node.channel.label];
-  if (node.snapshot?.kind === "branch") parts.push(t("channels.branch"));
-  if (node.snapshot?.pin_count) parts.push(t("channels.pinned"));
-  if (node.save) parts.push(t("channels.legacy-save"));
-  return parts.join(" · ");
+  const tags = node.snapshot
+    ? snapshotBadges(node.snapshot, node.channel, t).map((b) => b.label)
+    : [t("channels.legacy-save")];
+  return [node.channel.label, ...tags].join(" · ");
 }
 
 function detail(node: Node): string {

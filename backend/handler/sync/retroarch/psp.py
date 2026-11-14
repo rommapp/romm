@@ -481,7 +481,7 @@ async def put_psp_file(
 
         if existing is None:
             await _add_bundle(user, info, rom, merged)
-        elif db_snapshot_handler.is_frozen(save_id=existing.id):
+        elif db_snapshot_handler.is_asset_frozen(existing):
             # A sync channel holds the bundle, so the merge becomes a bundle of
             # its own beside it, as RetroArch's other writes do.
             await _add_bundle(
@@ -562,7 +562,7 @@ async def delete_psp_file(
             return
 
         del entries[info.file_name]
-        if db_snapshot_handler.is_frozen(save_id=bundle.id):
+        if db_snapshot_handler.is_asset_frozen(bundle):
             if entries:
                 await _add_bundle(
                     user, info, bundle.attached_rom, entries, beside_held=True

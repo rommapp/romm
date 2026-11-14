@@ -13,7 +13,7 @@ import snapshotApi, {
   type SnapshotPart,
 } from "@/services/api/snapshot";
 import { saveContentHash } from "@/utils/saveSync/hash";
-import { bankOf, channelLabelForSlot } from "@/utils/snapshots";
+import { bankOf, channelLabelForSlot, ownChannel } from "@/utils/snapshots";
 import { uuidv7 } from "@/utils/uuid";
 
 /** Where a session's pushes land, and the snapshot they build on. */
@@ -48,13 +48,6 @@ interface SessionTargetInput {
   slot: string;
 }
 
-function ownChannel(
-  channels: readonly ChannelSchema[],
-  match: (channel: ChannelSchema) => boolean,
-): ChannelSchema | undefined {
-  return channels.find((channel) => channel.is_own && match(channel));
-}
-
 /**
  * The channel a session writes to: the booted snapshot's, else the booted
  * save's, else the one its slot names on the ROM's channel file.
@@ -71,9 +64,7 @@ export function sessionTarget({
   slot,
 }: SessionTargetInput): SnapshotTarget | null {
   const ran = { core, emulatorVersion };
-  const booted = snapshot?.channel
-    ? ownChannel(rom.user_channels, (c) => c.id === snapshot.channel?.id)
-    : undefined;
+  const booted = ownChannel(rom.user_channels, snapshot?.channel_id);
   if (snapshot && booted?.rom_file_id != null) {
     return {
       ...ran,
@@ -89,12 +80,10 @@ export function sessionTarget({
 
   const slotLabel = channelLabelForSlot(slot);
   const channel =
-    (save?.channel_id
-      ? ownChannel(rom.user_channels, (c) => c.id === save.channel_id)
-      : undefined) ??
-    ownChannel(
-      rom.user_channels,
+    ownChannel(rom.user_channels, save?.channel_id) ??
+    rom.user_channels.find(
       (c) =>
+        c.is_own &&
         c.rom_file_id === rom.channel_file_id &&
         c.label.toLowerCase() === slotLabel?.toLowerCase(),
     );
@@ -126,7 +115,7 @@ export interface SessionFile {
 /** A file a push sends, under its part key. */
 type PushFile = SessionFile & { key: string };
 
-/** Everything one push sends, ready to send now or to hold for later. */
+/** Everything one push sends. */
 export interface SnapshotPush {
   manifest: SnapshotManifest;
   files: PushFile[];
@@ -172,16 +161,8 @@ function partsOf(files: readonly PushFile[]): SnapshotPart[] {
   }));
 }
 
-/** Hashes by buffer, since holding a push and then sending it builds it twice. */
-const hashes = new WeakMap<ArrayBuffer, string>();
-
 function hashOf(file: SessionFile): string {
-  let hash = hashes.get(file.bytes);
-  if (hash === undefined) {
-    hash = saveContentHash(new Uint8Array(file.bytes));
-    hashes.set(file.bytes, hash);
-  }
-  return hash;
+  return saveContentHash(new Uint8Array(file.bytes));
 }
 
 /** The push `content` makes on top of `target`. */
@@ -330,58 +311,6 @@ export async function sendPush(push: SnapshotPush): Promise<PushOutcome> {
   }
 }
 
-/** A held push the server took, and what it made of it. */
-export interface SentPush {
-  push: SnapshotPush;
-  outcome: PushOutcome;
-}
-
-function sameBase(a: SnapshotManifest, b: SnapshotManifest): boolean {
-  return (
-    a.channel_id === b.channel_id &&
-    a.expected_current_id === b.expected_current_id &&
-    a.parent_snapshot_id === b.parent_snapshot_id
-  );
-}
-
-/**
- * A held push rebuilt on the snapshot the held push before it made, so pushes
- * held while offline chain like a live session's instead of branching.
- *
- * Returns:
- *   `push` unchanged when `previous` was built on another base.
- */
-export function chainPush(
-  push: SnapshotPush,
-  previous: SentPush,
-): SnapshotPush {
-  if (!sameBase(push.manifest, previous.push.manifest)) return push;
-  const { kind, snapshot } = previous.outcome;
-  const { parent_snapshot_id: _, states, ...rest } = push.manifest;
-  const manifest: SnapshotManifest =
-    kind === "current"
-      ? { ...rest, expected_current_id: snapshot.id }
-      : { ...rest, parent_snapshot_id: snapshot.id };
-  if (states) {
-    const bank = bankOf(snapshot);
-    const written = new Set(push.files.map((file) => file.key));
-    manifest.states = Object.fromEntries(
-      Object.entries(states).map(([core, slots]) => [
-        core,
-        {
-          ...bank[core],
-          ...Object.fromEntries(
-            Object.entries(slots).filter(([slot]) =>
-              written.has(statePart(core, slot)),
-            ),
-          ),
-        },
-      ]),
-    );
-  }
-  return { ...push, manifest };
-}
-
 /** `sendPush` while the page unloads; false when it is too big to go. */
 export function sendPushOnUnload(push: SnapshotPush): boolean {
   return snapshotApi.sendSnapshotOnUnload(requestOf(push));
@@ -401,9 +330,14 @@ export class SnapshotSession {
     this.deviceId = deviceId;
   }
 
-  /** The push `content` would make now, to hold before it is sent. */
+  /** The push `content` would make now. */
   build(content: SnapshotContent): SnapshotPush {
     return buildPush(this.target, content, this.deviceId);
+  }
+
+  /** `content` with the base it is written on, to keep until the server takes it. */
+  hold(content: SnapshotContent): HeldPush {
+    return { target: this.target, content, deviceId: this.deviceId };
   }
 
   /** Sends `content` once the pushes before it are done. */
@@ -420,7 +354,7 @@ export class SnapshotSession {
   private advance({ kind, snapshot }: PushOutcome) {
     const next: SnapshotTarget = {
       ...this.target,
-      channelId: snapshot.channel?.id ?? this.target.channelId,
+      channelId: snapshot.channel_id ?? this.target.channelId,
       bank: bankOf(snapshot),
       saveHash: snapshot.save?.content_hash ?? null,
     };
@@ -432,4 +366,40 @@ export class SnapshotSession {
     }
     this.target = next;
   }
+}
+
+/** A write the server has not taken, with the base its session had then. */
+export interface HeldPush {
+  target: SnapshotTarget;
+  content: SnapshotContent;
+  deviceId?: string | undefined;
+}
+
+function sameBase(a: SnapshotTarget, b: SnapshotTarget): boolean {
+  return (
+    a.channelId === b.channelId &&
+    a.expectedCurrentId === b.expectedCurrentId &&
+    a.parentSnapshotId === b.parentSnapshotId
+  );
+}
+
+/**
+ * Sends held pushes oldest first. Ones held on the same base go through one
+ * session, so they chain like a live session's instead of branching.
+ */
+export function heldPushSender(): (held: HeldPush) => Promise<PushOutcome> {
+  const sessions = new Map<
+    string,
+    { base: SnapshotTarget; session: SnapshotSession }
+  >();
+  return (held) => {
+    const { target } = held;
+    const last = sessions.get(target.channelId);
+    const session =
+      last && sameBase(last.base, target)
+        ? last.session
+        : new SnapshotSession(target, held.deviceId);
+    sessions.set(target.channelId, { base: target, session });
+    return session.push(held.content);
+  };
 }

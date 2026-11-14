@@ -10,7 +10,7 @@ from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.asset_store import (
     assert_backup,
-    frozen_conflict,
+    assert_backups,
     release_thumbnail,
     remove_asset_file,
     rename_asset,
@@ -27,7 +27,6 @@ from handler.auth.dependencies import (
 from handler.database import (
     db_rom_handler,
     db_screenshot_handler,
-    db_snapshot_handler,
     db_state_handler,
 )
 from handler.filesystem import fs_asset_handler
@@ -443,8 +442,6 @@ async def delete_states(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
     affected_rom_ids: set[int] = set()
-    frozen = db_snapshot_handler.get_frozen_state_ids(states)
-
     # Resolved up front, so a bad id fails the batch before anything is removed.
     owned = [
         owned_rom_asset_or_404(
@@ -454,8 +451,7 @@ async def delete_states(
         )
         for state_id in states
     ]
-    if held := next((state for state in owned if state.id in frozen), None):
-        raise frozen_conflict(held)
+    assert_backups(owned)
     for state in owned:
         affected_rom_ids.add(state.attached_rom_id)
         log.info(

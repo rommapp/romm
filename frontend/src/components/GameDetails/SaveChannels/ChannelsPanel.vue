@@ -16,7 +16,6 @@ import ChannelLabelDialog, {
 } from "@/components/GameDetails/SaveChannels/ChannelLabelDialog.vue";
 import ChannelTile from "@/components/GameDetails/SaveChannels/ChannelTile.vue";
 import ChannelTimeline from "@/components/GameDetails/SaveChannels/ChannelTimeline.vue";
-import DeleteChannelDialog from "@/components/GameDetails/SaveChannels/DeleteChannelDialog.vue";
 import SnapshotViewer, {
   type ViewerTarget,
 } from "@/components/GameDetails/SaveChannels/SnapshotViewer.vue";
@@ -57,7 +56,7 @@ const props = withDefaults(
     channels: ChannelSchema[];
     /** The viewer's own saves on this ROM, legacy-linked ones and backups. */
     saves: SaveSchema[];
-    /** Own channels get the New channel button and the view toggle. */
+    /** Own channels get the New channel button and the detached list. */
     own?: boolean;
   }>(),
   { own: false },
@@ -489,27 +488,25 @@ async function toggleShare(channel: ChannelSchema) {
   }
 }
 
-const deleting = ref<ChannelSchema | null>(null);
-const deleteBody = computed(() => {
-  const channel = deleting.value;
-  if (!channel) return "";
-  return t("channels.delete-body", {
-    pinned: (histories[channel.id] ?? []).filter((s) => s.is_pinned).length,
-    legacy: legacySaves.value[channel.id]?.length ?? 0,
+async function deleteChannel(channel: ChannelSchema) {
+  const ok = await confirm({
+    title: t("channels.delete-title", { label: channel.label }),
+    body: t("channels.delete-body", {
+      pinned: (histories[channel.id] ?? []).filter((s) => s.is_pinned).length,
+      legacy: legacySaves.value[channel.id]?.length ?? 0,
+    }),
+    confirmText: t("channels.delete"),
+    tone: "danger",
+    requireTyped: channel.label,
   });
-});
-
-async function deleteChannel() {
-  const channel = deleting.value;
-  if (!channel) return;
+  if (!ok || !alive.value) return;
   try {
     await snapshotApi.deleteChannel({ id: channel.id });
   } catch (error) {
     if (alive.value) reportFailure(error);
-    throw error;
+    return;
   }
   if (!alive.value) return;
-  deleting.value = null;
   expandedId.value = null;
   snackbar.success(t("channels.deleted"), { icon: "mdi-check-bold" });
   await refresh();
@@ -556,7 +553,7 @@ async function deleteChannel() {
           @open-save="openSave(channel, $event)"
           @rename="labelMode = { kind: 'rename', channel }"
           @toggle-share="toggleShare(channel)"
-          @delete="deleting = channel"
+          @delete="deleteChannel(channel)"
           @load-more="loadHistory(channel, true)"
         />
         <ChannelTile
@@ -629,13 +626,6 @@ async function deleteChannel() {
       :busy="busy"
       @update:model-value="!$event && (labelMode = null)"
       @submit="submitLabel"
-    />
-
-    <DeleteChannelDialog
-      :channel="deleting"
-      :body="deleteBody"
-      :on-confirm="deleteChannel"
-      @close="deleting = null"
     />
   </div>
 </template>

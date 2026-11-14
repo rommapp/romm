@@ -56,8 +56,8 @@ async def reserve_version_name(
     Raises:
         RuntimeError: No free name within a minute of now.
     """
-    # Tags resolve to the second and repeat when clocks go back, so a taken name
-    # moves on a second, and the Redis claim keeps concurrent uploads apart.
+    # Tags repeat when clocks go back, so a taken name moves on a second, and the
+    # Redis claim keeps concurrent uploads apart.
     start = datetime.now()
     for offset in range(_VERSION_NAME_ATTEMPTS):
         name = apply_datetime_tag(file_name, start + timedelta(seconds=offset))
@@ -215,8 +215,14 @@ async def release_thumbnail(screenshot: Screenshot | None) -> None:
 
 def assert_backup(asset: Save | State) -> None:
     """409 when sync manages the row: only a new snapshot changes or drops it."""
-    if db_snapshot_handler.is_asset_frozen(asset):
-        raise frozen_conflict(asset)
+    assert_backups([asset])  # type: ignore[arg-type]
+
+
+def assert_backups(assets: Sequence[Save] | Sequence[State]) -> None:
+    """`assert_backup` for a batch, checked before any of it changes."""
+    frozen = db_snapshot_handler.get_frozen_ids(assets)
+    if held := next((asset for asset in assets if asset.id in frozen), None):
+        raise frozen_conflict(held)
 
 
 def frozen_conflict(asset: Save | State) -> HTTPException:

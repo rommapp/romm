@@ -14,6 +14,7 @@ from tests._zipfile_shim import reload_zipfile
 from tests.factories import make_device_token, make_rom
 from tests.handler.snapshots.pushes import SRAM, md5
 
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
     db_device_handler,
     db_rom_handler,
@@ -26,6 +27,7 @@ from handler.filesystem import fs_asset_handler
 from handler.snapshots.manifest import Manifest, SaveEntry
 from handler.snapshots.write import (
     SAVE_PART,
+    ChannelTarget,
     SnapshotWrite,
     UploadPart,
     state_part,
@@ -36,6 +38,7 @@ from models.device import Device
 from models.device_channel_sync import DeviceChannelSync
 from models.platform import Platform
 from models.rom import Rom, RomFile
+from models.snapshot import Snapshot, SnapshotKind
 from models.user import User
 
 STATE = b"state-bytes"
@@ -122,9 +125,12 @@ def test_a_push_creates_the_channel_and_returns_the_snapshot(
 
     assert body["digest"].startswith("sha256:")
     assert body["kind"] == "channel"
-    assert body["channel"]["label"] == "default"
-    assert body["channel"]["rom_file_id"] == game_file.id
-    assert body["channel"]["current_snapshot_id"] == body["id"]
+    [channel] = client.get(
+        "/api/channels", params={"channel_id": body["channel_id"]}, headers=headers
+    ).json()
+    assert channel["label"] == "default"
+    assert channel["rom_file_id"] == game_file.id
+    assert channel["current_snapshot_id"] == body["id"]
     assert body["device"] == {
         "id": "odin",
         "name": "Odin",
@@ -177,7 +183,7 @@ def test_pushing_current_again_returns_it_unchanged(
         client,
         headers,
         manifest(
-            game_file, channel_id=body["channel"]["id"], expected_current_id=body["id"]
+            game_file, channel_id=body["channel_id"], expected_current_id=body["id"]
         ),
     )
 
@@ -189,7 +195,7 @@ def test_a_stale_push_is_a_conflict_kept_as_a_branch(
     client: TestClient, headers: dict[str, str], game_file: RomFile
 ):
     body = first_push(client, headers, game_file)
-    channel_id = body["channel"]["id"]
+    channel_id = body["channel_id"]
     newer = b"newer"
     second = post(
         client,
@@ -241,7 +247,7 @@ def test_a_softcore_push_over_hardcore_asks_for_approval(
         headers,
         manifest(
             game_file,
-            channel_id=hardcore["channel"]["id"],
+            channel_id=hardcore["channel_id"],
             expected_current_id=hardcore["id"],
             save=save_entry(softcore),
         ),
@@ -265,7 +271,7 @@ def test_a_push_from_another_file_is_unprocessable(
         headers,
         {
             "rom_file_id": rom_file.id,
-            "channel_id": body["channel"]["id"],
+            "channel_id": body["channel_id"],
             "expected_current_id": body["id"],
         },
     )
@@ -305,7 +311,7 @@ def test_a_clock_only_push_is_unchanged_and_progress_keeps_its_bytes(
         )
 
     first = push_unit(*_neutral_unit(SRAM, b"tick"), None).json()
-    extra = {"channel_id": first["channel"]["id"]}
+    extra = {"channel_id": first["channel_id"]}
     clock_only = push_unit(*_neutral_unit(SRAM, b"tock"), first["id"], **extra)
     progress_archive, progress_hash = _neutral_unit(b"more", b"tock")
     progress = push_unit(progress_archive, progress_hash, first["id"], **extra)
@@ -459,7 +465,7 @@ def test_a_device_must_be_the_callers_own(
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
-def test_the_current_listing_returns_each_channel_on_the_file(
+def test_the_channel_listing_returns_each_current_on_the_file(
     client: TestClient, headers: dict[str, str], game_file: RomFile
 ):
     first = first_push(client, headers, game_file)
@@ -471,20 +477,21 @@ def test_the_current_listing_returns_each_channel_on_the_file(
     ).json()
 
     response = client.get(
-        "/api/snapshots",
-        params={"rom_file_id": game_file.id, "current": True},
-        headers=headers,
+        "/api/channels", params={"rom_file_id": game_file.id}, headers=headers
     )
 
     assert response.status_code == status.HTTP_200_OK
-    assert {item["id"] for item in response.json()} == {first["id"], second["id"]}
+    assert {item["current"]["id"] for item in response.json()} == {
+        first["id"],
+        second["id"],
+    }
 
 
 def test_history_lists_newest_first_and_pages(
     client: TestClient, headers: dict[str, str], game_file: RomFile
 ):
     first = first_push(client, headers, game_file)
-    channel_id = first["channel"]["id"]
+    channel_id = first["channel_id"]
     second = post(
         client,
         headers,
@@ -521,7 +528,7 @@ def test_another_user_sees_a_private_channel_as_missing(
     snapshot = client.get(f"/api/snapshots/{body['id']}", headers=editor_headers)
     history = client.get(
         "/api/snapshots",
-        params={"channel_id": body["channel"]["id"]},
+        params={"channel_id": body["channel_id"]},
         headers=editor_headers,
     )
 
@@ -538,7 +545,7 @@ def test_a_public_channel_masks_the_owners_device_and_serves_its_content(
 ):
     body = first_push(client, headers, game_file, device_id=device.id)
     shared = client.patch(
-        f"/api/channels/{body['channel']['id']}",
+        f"/api/channels/{body['channel_id']}",
         json={"is_public": True},
         headers=headers,
     )
@@ -549,7 +556,12 @@ def test_a_public_channel_masks_the_owners_device_and_serves_its_content(
 
     assert seen["device"] == {"id": None, "name": None, "client": None, "is_own": False}
     assert seen["held_by"] == []
-    assert seen["channel"]["is_own"] is False
+    [channel] = client.get(
+        "/api/channels",
+        params={"channel_id": seen["channel_id"]},
+        headers=editor_headers,
+    ).json()
+    assert channel["is_own"] is False
     assert content.status_code == status.HTTP_200_OK
 
 
@@ -561,7 +573,7 @@ def test_sharing_a_channel_serves_its_thumbnails_until_it_is_unshared(
     device: Device,
 ):
     body = first_push(client, headers, game_file, device_id=device.id)
-    channel_url = f"/api/channels/{body['channel']['id']}"
+    channel_url = f"/api/channels/{body['channel_id']}"
 
     client.patch(channel_url, json={"is_public": True}, headers=headers)
     thumbnail = client.get(
@@ -583,7 +595,7 @@ def test_a_screenshot_added_to_shared_content_is_served_to_others(
 ):
     body = first_push(client, headers, game_file)
     client.patch(
-        f"/api/channels/{body['channel']['id']}",
+        f"/api/channels/{body['channel_id']}",
         json={"is_public": True},
         headers=headers,
     )
@@ -593,7 +605,7 @@ def test_a_screenshot_added_to_shared_content_is_served_to_others(
         headers,
         manifest(
             game_file,
-            channel_id=body["channel"]["id"],
+            channel_id=body["channel_id"],
             expected_current_id=body["id"],
             save=save_entry(),
         ),
@@ -632,7 +644,7 @@ def test_a_screenshot_alone_attaches_to_a_held_neutral_save(
         headers,
         manifest(
             game_file,
-            channel_id=body["channel"]["id"],
+            channel_id=body["channel_id"],
             expected_current_id=body["id"],
             save=save_entry(),
         ),
@@ -654,7 +666,7 @@ def test_a_push_that_expects_nothing_of_a_channel_lands_as_a_branch(
         headers,
         manifest(
             game_file,
-            channel_id=body["channel"]["id"],
+            channel_id=body["channel_id"],
             save=save_entry(other),
         ),
         {"save": ("game.srm", other)},
@@ -692,7 +704,7 @@ def test_only_the_owner_renames_or_shares_a_channel(
     game_file: RomFile,
 ):
     body = first_push(client, headers, game_file)
-    path = f"/api/channels/{body['channel']['id']}"
+    path = f"/api/channels/{body['channel_id']}"
 
     renamed = client.patch(path, json={"label": "Hard mode"}, headers=headers)
     foreign = client.patch(path, json={"label": "Mine now"}, headers=editor_headers)
@@ -705,7 +717,7 @@ def test_deleting_a_channel_keeps_its_current_and_pins_as_backups(
     client: TestClient, headers: dict[str, str], game_file: RomFile
 ):
     first = first_push(client, headers, game_file)
-    channel_id = first["channel"]["id"]
+    channel_id = first["channel_id"]
     second = post(
         client,
         headers,
@@ -781,32 +793,60 @@ def test_a_managed_save_is_flagged_and_refuses_direct_changes(
         headers=headers,
     )
 
-    assert [save["channel_id"] for save in listed] == [body["channel"]["id"]]
-    assert detail["all_user_saves"][0]["channel_id"] == body["channel"]["id"]
-    assert detail["all_user_states"][0]["channel_id"] == body["channel"]["id"]
+    assert [save["channel_id"] for save in listed] == [body["channel_id"]]
+    assert detail["all_user_saves"][0]["channel_id"] == body["channel_id"]
+    assert detail["all_user_states"][0]["channel_id"] == body["channel_id"]
     assert replaced.status_code == status.HTTP_409_CONFLICT
     assert deleted.status_code == status.HTTP_409_CONFLICT
     assert state_deleted.status_code == status.HTTP_409_CONFLICT
     assert renamed.status_code == status.HTTP_200_OK
 
 
-async def test_a_backup_is_replaced_and_deleted_with_its_archival_snapshot(
-    client: TestClient, headers: dict[str, str], admin_user: User, rom: Rom
-):
-    archived = await write_snapshot(
+async def archive(
+    user: User,
+    rom: Rom,
+    rom_file: RomFile,
+    manifest: Manifest,
+    parts: dict[str, UploadPart],
+) -> Snapshot:
+    """An archival snapshot: the current of a channel that was then deleted."""
+    pushed = await write_snapshot(
         SnapshotWrite(
-            author=admin_user,
+            author=user,
             rom=rom,
-            manifest=Manifest(
-                save=SaveEntry(
-                    hash=md5(SRAM), shape=SaveShape.SINGLE, format=SaveFormat.NATIVE
-                )
-            ),
-            channel=None,
-            parts={SAVE_PART: UploadPart(content=SRAM, file_name="backup.srm")},
+            rom_file=rom_file,
+            visibility=UNRESTRICTED,
+            manifest=manifest,
+            channel=ChannelTarget(expected_current_id=None, label="backup"),
+            parts=parts,
         )
     )
-    save_id = archived.snapshot.save_id
+    assert pushed.snapshot.channel_id is not None
+    db_snapshot_handler.delete_channel(pushed.snapshot.channel_id)
+    archived = db_snapshot_handler.get_snapshot(pushed.snapshot.id)
+    assert archived is not None and archived.kind == SnapshotKind.ARCHIVAL
+    return archived
+
+
+async def test_a_backup_is_replaced_and_deleted_with_its_archival_snapshot(
+    client: TestClient,
+    headers: dict[str, str],
+    admin_user: User,
+    rom: Rom,
+    game_file: RomFile,
+):
+    archived = await archive(
+        admin_user,
+        rom,
+        game_file,
+        Manifest(
+            save=SaveEntry(
+                hash=md5(SRAM), shape=SaveShape.SINGLE, format=SaveFormat.NATIVE
+            )
+        ),
+        {SAVE_PART: UploadPart(content=SRAM, file_name="backup.srm")},
+    )
+    save_id = archived.save_id
     listed = client.get("/api/saves", params={"rom_id": rom.id}, headers=headers).json()
 
     replaced = client.put(
@@ -814,78 +854,78 @@ async def test_a_backup_is_replaced_and_deleted_with_its_archival_snapshot(
         files={"saveFile": ("backup.srm", b"fixed")},
         headers=headers,
     )
-    snapshot = db_snapshot_handler.get_snapshot(archived.snapshot.id)
+    snapshot = db_snapshot_handler.get_snapshot(archived.id)
     deleted = client.post(
         "/api/saves/delete", json={"saves": [save_id]}, headers=headers
     )
 
     assert listed[0]["channel_id"] is None
     assert replaced.status_code == status.HTTP_200_OK
-    assert snapshot is not None and snapshot.digest != archived.snapshot.digest
+    assert snapshot is not None and snapshot.digest != archived.digest
     assert deleted.status_code == status.HTTP_200_OK
-    assert db_snapshot_handler.get_snapshot(archived.snapshot.id) is None
+    assert db_snapshot_handler.get_snapshot(archived.id) is None
 
 
 async def test_any_writer_of_a_backups_bytes_refreshes_its_archival_digest(
-    admin_user: User, rom: Rom
+    admin_user: User, rom: Rom, game_file: RomFile
 ):
-    archived = await write_snapshot(
-        SnapshotWrite(
-            author=admin_user,
-            rom=rom,
-            manifest=Manifest(
-                save=SaveEntry(
-                    hash=md5(SRAM), shape=SaveShape.SINGLE, format=SaveFormat.NATIVE
-                ),
-                states={"snes9x": {"auto": md5(STATE)}},
+    archived = await archive(
+        admin_user,
+        rom,
+        game_file,
+        Manifest(
+            save=SaveEntry(
+                hash=md5(SRAM), shape=SaveShape.SINGLE, format=SaveFormat.NATIVE
             ),
-            channel=None,
-            parts={
-                SAVE_PART: UploadPart(content=SRAM, file_name="backup.srm"),
-                state_part("snes9x", "auto"): UploadPart(
-                    content=STATE, file_name="backup.state"
-                ),
-            },
-        )
+            states={"snes9x": {"auto": md5(STATE)}},
+        ),
+        {
+            SAVE_PART: UploadPart(content=SRAM, file_name="backup.srm"),
+            state_part("snes9x", "auto"): UploadPart(
+                content=STATE, file_name="backup.state"
+            ),
+        },
     )
-    snapshot_id = archived.snapshot.id
-    save_id = archived.snapshot.save_id
+    snapshot_id = archived.id
+    save_id = archived.save_id
     assert save_id is not None
-    [state] = db_snapshot_handler.get_stored_content(archived.snapshot).state_rows
+    [state] = db_snapshot_handler.get_stored_content(archived).state_rows
 
     db_save_handler.update_save(save_id, {"content_hash": md5(b"synced save")})
     after_save = db_snapshot_handler.get_snapshot(snapshot_id)
     db_state_handler.update_state(state.id, {"content_hash": md5(b"synced state")})
     after_state = db_snapshot_handler.get_snapshot(snapshot_id)
 
-    assert after_save is not None and after_save.digest != archived.snapshot.digest
+    assert after_save is not None and after_save.digest != archived.digest
     assert after_state is not None and after_state.digest != after_save.digest
 
 
 async def test_deleting_a_backup_removes_its_linked_screenshot(
-    client: TestClient, headers: dict[str, str], admin_user: User, rom: Rom
+    client: TestClient,
+    headers: dict[str, str],
+    admin_user: User,
+    rom: Rom,
+    game_file: RomFile,
 ):
-    archived = await write_snapshot(
-        SnapshotWrite(
-            author=admin_user,
-            rom=rom,
-            manifest=Manifest(
-                save=SaveEntry(
-                    hash=md5(SRAM), shape=SaveShape.SINGLE, format=SaveFormat.NATIVE
-                )
-            ),
-            channel=None,
-            parts={
-                SAVE_PART: UploadPart(
-                    content=SRAM,
-                    file_name="backup.srm",
-                    screenshot=b"png",
-                    screenshot_name="backup.png",
-                )
-            },
-        )
+    archived = await archive(
+        admin_user,
+        rom,
+        game_file,
+        Manifest(
+            save=SaveEntry(
+                hash=md5(SRAM), shape=SaveShape.SINGLE, format=SaveFormat.NATIVE
+            )
+        ),
+        {
+            SAVE_PART: UploadPart(
+                content=SRAM,
+                file_name="backup.srm",
+                screenshot=b"png",
+                screenshot_name="backup.png",
+            )
+        },
     )
-    save_id = archived.snapshot.save_id
+    save_id = archived.save_id
     assert save_id is not None
     shots, _ = db_snapshot_handler.get_thumbnails([save_id], [])
     shot_path = fs_asset_handler.validate_path(shots[save_id].full_path)
@@ -900,30 +940,28 @@ async def test_deleting_a_backup_removes_its_linked_screenshot(
 
 
 async def test_deleting_a_backup_state_removes_its_linked_screenshot(
-    client: TestClient, headers: dict[str, str], admin_user: User, rom: Rom
+    client: TestClient,
+    headers: dict[str, str],
+    admin_user: User,
+    rom: Rom,
+    game_file: RomFile,
 ):
     part = state_part("snes9x", "0")
-    archived = await write_snapshot(
-        SnapshotWrite(
-            author=admin_user,
-            rom=rom,
-            manifest=Manifest(save=None, states={"snes9x": {"0": md5(STATE)}}),
-            channel=None,
-            parts={
-                part: UploadPart(
-                    content=STATE,
-                    file_name="backup.state",
-                    screenshot=b"png",
-                    screenshot_name="backup.png",
-                )
-            },
-        )
+    archived = await archive(
+        admin_user,
+        rom,
+        game_file,
+        Manifest(save=None, states={"snes9x": {"0": md5(STATE)}}),
+        {
+            part: UploadPart(
+                content=STATE,
+                file_name="backup.state",
+                screenshot=b"png",
+                screenshot_name="backup.png",
+            )
+        },
     )
-    [entry] = (
-        db_snapshot_handler.get_stored_content(archived.snapshot)
-        .states["snes9x"]
-        .values()
-    )
+    [entry] = db_snapshot_handler.get_stored_content(archived).states["snes9x"].values()
     _, shots = db_snapshot_handler.get_thumbnails([], [entry.id])
     shot_path = fs_asset_handler.validate_path(shots[entry.id].full_path)
     assert shot_path.exists()
@@ -940,7 +978,7 @@ def test_deleting_the_rom_detaches_its_channel_and_keeps_the_saves(
     client: TestClient, headers: dict[str, str], game_file: RomFile, rom: Rom
 ):
     body = first_push(client, headers, game_file)
-    channel_id = body["channel"]["id"]
+    channel_id = body["channel_id"]
 
     db_rom_handler.delete_rom(rom.id)
 
@@ -966,7 +1004,7 @@ def test_a_detached_channel_is_listed_and_attached_to_a_file_by_hand(
     from tests.factories import make_platform, make_rom
 
     body = first_push(client, headers, game_file)
-    channel_id = body["channel"]["id"]
+    channel_id = body["channel_id"]
     platform_id = rom.platform_id
     db_rom_handler.delete_rom(rom.id)
     readded = make_rom(rom.platform, "Game (Rev 1)")
@@ -1051,20 +1089,6 @@ def test_the_rom_names_the_saves_its_snapshots_hold(
     assert detail["snapshot_save_ids"] == [body["save"]["id"]]
 
 
-def test_a_device_reports_the_snapshot_it_applied(
-    client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
-):
-    body = first_push(client, headers, game_file)
-
-    response = client.put(
-        f"/api/snapshots/{body['id']}/devices/{device.id}", headers=headers
-    )
-    seen = client.get(f"/api/snapshots/{body['id']}", headers=headers).json()
-
-    assert response.status_code == status.HTTP_204_NO_CONTENT
-    assert [held["device"]["id"] for held in seen["held_by"]] == [device.id]
-
-
 @pytest.mark.parametrize(("hold", "recorded"), [(True, True), (False, False)])
 def test_fetching_a_snapshot_for_a_device_records_it_only_to_hold(
     client: TestClient,
@@ -1091,14 +1115,18 @@ def test_fetching_a_snapshot_for_a_device_records_it_only_to_hold(
     assert stored is not None and (stored.last_seen is not None) == recorded
 
 
-def test_a_push_or_report_for_a_device_marks_it_seen(
+def test_a_push_or_hold_for_a_device_marks_it_seen(
     client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
 ):
     body = first_push(client, headers, game_file, device_id=device.id)
     pushed = db_device_handler.get_device(device_id=device.id, user_id=device.user_id)
     assert pushed is not None and pushed.last_seen is not None
 
-    client.put(f"/api/snapshots/{body['id']}/devices/{device.id}", headers=headers)
+    client.get(
+        f"/api/snapshots/{body['id']}",
+        params={"device_id": device.id, "hold": True},
+        headers=headers,
+    )
     reported = db_device_handler.get_device(device_id=device.id, user_id=device.user_id)
 
     assert reported is not None and reported.last_seen is not None
@@ -1124,9 +1152,7 @@ def test_an_empty_channel_is_created_and_listed(
         "/api/channels", params={"rom_file_id": game_file.id}, headers=headers
     ).json()
     snapshots = client.get(
-        "/api/snapshots",
-        params={"rom_file_id": game_file.id, "current": True},
-        headers=headers,
+        "/api/snapshots", params={"channel_id": client_id}, headers=headers
     ).json()
 
     assert created.status_code == status.HTTP_201_CREATED
@@ -1156,7 +1182,7 @@ def test_the_first_push_lands_in_a_precreated_channel(
     )
 
     assert pushed.status_code == status.HTTP_201_CREATED
-    assert pushed.json()["channel"]["label"] == "New game"
+    assert pushed.json()["channel_id"] == channel["id"]
 
 
 def test_the_rom_detail_lists_own_and_public_channels(
@@ -1168,7 +1194,7 @@ def test_the_rom_detail_lists_own_and_public_channels(
 ):
     mine = first_push(client, headers, game_file)
     client.patch(
-        f"/api/channels/{mine['channel']['id']}",
+        f"/api/channels/{mine['channel_id']}",
         json={"is_public": True},
         headers=headers,
     )
@@ -1182,11 +1208,11 @@ def test_the_rom_detail_lists_own_and_public_channels(
     own_view = client.get(f"/api/roms/{rom.id}", headers=headers).json()
     editor_view = client.get(f"/api/roms/{rom.id}", headers=editor_headers).json()
 
-    assert [c["id"] for c in own_view["user_channels"]] == [mine["channel"]["id"]]
+    assert [c["id"] for c in own_view["user_channels"]] == [mine["channel_id"]]
     editor_channels = {c["id"]: c["is_own"] for c in editor_view["user_channels"]}
     assert editor_channels == {
-        theirs_private["channel"]["id"]: True,
-        mine["channel"]["id"]: False,
+        theirs_private["channel_id"]: True,
+        mine["channel_id"]: False,
     }
     shared = next(c for c in editor_view["user_channels"] if not c["is_own"])
     assert shared["current"]["id"] == mine["id"]
@@ -1356,7 +1382,7 @@ def test_restoring_from_the_web_keeps_the_source_device(
     client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
 ):
     first = first_push(client, headers, game_file, device_id=device.id)
-    channel_id = first["channel"]["id"]
+    channel_id = first["channel_id"]
     second = post(
         client,
         headers,
@@ -1413,7 +1439,7 @@ def test_attributing_a_push_to_a_device_takes_devices_write(
 
 def _share(client: TestClient, headers: dict[str, str], body: dict[str, Any]) -> None:
     client.patch(
-        f"/api/channels/{body['channel']['id']}",
+        f"/api/channels/{body['channel_id']}",
         json={"is_public": True},
         headers=headers,
     )
@@ -1474,7 +1500,7 @@ def test_only_the_owner_shares_an_archival_snapshot(
 ):
     body = first_push(client, headers, game_file)
     _share(client, headers, body)
-    client.delete(f"/api/channels/{body['channel']['id']}", headers=headers)
+    client.delete(f"/api/channels/{body['channel_id']}", headers=headers)
     path = f"/api/snapshots/{body['id']}"
 
     response = client.patch(path, json={"is_public": False}, headers=editor_headers)
@@ -1495,7 +1521,7 @@ def test_unsharing_a_channel_drops_every_pin_but_the_owners(
     client.patch(path, json={"is_pinned": True}, headers=headers)
 
     client.patch(
-        f"/api/channels/{body['channel']['id']}",
+        f"/api/channels/{body['channel_id']}",
         json={"is_public": False},
         headers=headers,
     )
@@ -1521,7 +1547,7 @@ def test_unsharing_a_channel_cuts_off_what_another_user_pushed_into_it(
         editor_headers,
         manifest(
             game_file,
-            channel_id=shared["channel"]["id"],
+            channel_id=shared["channel_id"],
             expected_current_id=shared["id"],
             save=save_entry(b"editor progress"),
         ),
@@ -1529,7 +1555,7 @@ def test_unsharing_a_channel_cuts_off_what_another_user_pushed_into_it(
     ).json()
 
     client.patch(
-        f"/api/channels/{shared['channel']['id']}",
+        f"/api/channels/{shared['channel_id']}",
         json={"is_public": False},
         headers=headers,
     )
@@ -1563,7 +1589,7 @@ def test_a_push_into_a_shared_channel_cannot_name_the_owners_private_content(
         editor_headers,
         manifest(
             game_file,
-            channel_id=shared["channel"]["id"],
+            channel_id=shared["channel_id"],
             expected_current_id=shared["id"],
             save=save_entry(secret),
         ),
@@ -1596,7 +1622,7 @@ def test_a_shared_channel_on_a_hidden_rom_stays_hidden(
     snapshot = client.get(f"/api/snapshots/{body['id']}", headers=editor_headers)
     history = client.get(
         "/api/snapshots",
-        params={"channel_id": body["channel"]["id"]},
+        params={"channel_id": body["channel_id"]},
         headers=editor_headers,
     )
 
@@ -1679,7 +1705,7 @@ def test_a_push_into_a_shared_channel_on_a_hidden_rom_is_not_found(
         editor_headers,
         manifest(
             same_dump,
-            channel_id=shared["channel"]["id"],
+            channel_id=shared["channel_id"],
             parent_snapshot_id=None,
             expected_current_id=None,
         ),
@@ -1705,14 +1731,14 @@ def test_an_own_channel_on_a_hidden_rom_answers_like_a_missing_one(
                 entity=PermEntity.ROMS, entity_id=rom.id, user_id=editor_user.id
             )
         )
-    path = f"/api/channels/{body['channel']['id']}"
+    path = f"/api/channels/{body['channel_id']}"
 
     renamed = client.patch(path, json={"label": "seen"}, headers=editor_headers)
     deleted = client.delete(path, headers=editor_headers)
 
     assert renamed.status_code == status.HTTP_404_NOT_FOUND
     assert deleted.status_code == status.HTTP_404_NOT_FOUND
-    assert db_snapshot_handler.get_channel(uuid.UUID(body["channel"]["id"]))
+    assert db_snapshot_handler.get_channel(uuid.UUID(body["channel_id"]))
 
 
 def test_a_save_names_exactly_one_source(
@@ -1809,7 +1835,7 @@ def test_a_push_without_expected_on_the_current_lands_on_top(
         headers,
         game_file,
         b"next",
-        channel_id=first["channel"]["id"],
+        channel_id=first["channel_id"],
         parent_snapshot_id=first["id"],
     )
 
@@ -1824,7 +1850,7 @@ def test_a_push_without_expected_parent_or_device_branches(
     first = first_push(client, headers, game_file)
 
     response = push_save(
-        client, headers, game_file, b"next", channel_id=first["channel"]["id"]
+        client, headers, game_file, b"next", channel_id=first["channel_id"]
     )
 
     assert response.status_code == status.HTTP_409_CONFLICT
@@ -1835,7 +1861,7 @@ def test_a_device_fed_since_the_current_pushes_on_top(
     client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
 ):
     first = first_push(client, headers, game_file)
-    channel_id = first["channel"]["id"]
+    channel_id = first["channel_id"]
     feed(client, headers, channel_id, device.id)
 
     response = push_save(
@@ -1850,7 +1876,7 @@ def test_a_push_after_another_devices_unseen_push_branches(
     client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
 ):
     first = first_push(client, headers, game_file, device_id=device.id)
-    channel_id = first["channel"]["id"]
+    channel_id = first["channel_id"]
     feed(client, headers, channel_id, device.id)
     elsewhere = push_save(
         client,
@@ -1884,7 +1910,7 @@ def chain(
                 headers,
                 game_file,
                 f"step-{step}".encode(),
-                channel_id=pushed[0]["channel"]["id"],
+                channel_id=pushed[0]["channel_id"],
                 expected_current_id=pushed[-1]["id"],
             ).json()
         )
@@ -1911,7 +1937,7 @@ def test_the_parent_defaults_to_the_held_snapshot(
         game_file,
         b"next",
         device_id=device.id,
-        channel_id=first["channel"]["id"],
+        channel_id=first["channel_id"],
     )
 
     assert response.status_code == status.HTTP_201_CREATED, response.text
@@ -1922,7 +1948,7 @@ def test_an_older_held_snapshot_overrides_the_known_current(
     client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
 ):
     first, second = chain(client, headers, game_file, 2)
-    channel_id = first["channel"]["id"]
+    channel_id = first["channel_id"]
     feed(client, headers, channel_id, device.id)
     hold(client, headers, first["id"], device.id)
 
@@ -1933,7 +1959,7 @@ def test_an_older_held_snapshot_overrides_the_known_current(
     assert response.status_code == status.HTTP_201_CREATED, response.text
     body = response.json()
     assert body["parent_snapshot_id"] == first["id"]
-    assert body["channel"]["current_snapshot_id"] == body["id"]
+    assert body["kind"] == "channel"
     history = feed(client, headers, channel_id).json()
     assert second["id"] in [snapshot["id"] for snapshot in history]
 
@@ -1942,7 +1968,7 @@ def test_an_older_held_snapshot_after_the_channel_moved_branches_from_older(
     client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
 ):
     first, second = chain(client, headers, game_file, 2)
-    channel_id = first["channel"]["id"]
+    channel_id = first["channel_id"]
     feed(client, headers, channel_id, device.id)
     hold(client, headers, first["id"], device.id)
     push_save(
@@ -1973,7 +1999,7 @@ def test_an_explicit_expected_with_an_older_parent_after_a_move_branches_from_ol
         headers,
         game_file,
         b"older",
-        channel_id=first["channel"]["id"],
+        channel_id=first["channel_id"],
         expected_current_id=second["id"],
         parent_snapshot_id=first["id"],
     )
@@ -1986,8 +2012,8 @@ def test_after_a_conflict_the_next_inferred_push_lands_on_top(
     client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
 ):
     first = first_push(client, headers, game_file, device_id=device.id)
-    channel_id = first["channel"]["id"]
-    elsewhere = push_save(
+    channel_id = first["channel_id"]
+    push_save(
         client,
         headers,
         game_file,
@@ -2010,7 +2036,7 @@ def test_after_a_conflict_the_next_inferred_push_lands_on_top(
 
     assert response.status_code == status.HTTP_201_CREATED, response.text
     assert response.json()["parent_snapshot_id"] == branched["id"]
-    assert response.json()["channel"]["current_snapshot_id"] != elsewhere["id"]
+    assert response.json()["kind"] == "channel"
 
 
 @pytest.mark.parametrize("current", [True, False], ids=["current", "history"])
@@ -2022,7 +2048,7 @@ def test_a_feed_fetch_records_the_known_current_and_keeps_what_is_held(
     current: bool,
 ):
     first = first_push(client, headers, game_file, device_id=device.id)
-    channel_id = first["channel"]["id"]
+    channel_id = first["channel_id"]
     backdate_sync(device.id, channel_id)
     before = device_sync(device.id, channel_id)
     held_since = client.get(f"/api/snapshots/{first['id']}", headers=headers).json()[
@@ -2038,11 +2064,9 @@ def test_a_feed_fetch_records_the_known_current_and_keeps_what_is_held(
     ).json()
 
     fetched = client.get(
-        "/api/snapshots",
+        "/api/channels" if current else "/api/snapshots",
         params=(
-            {"rom_file_id": game_file.id, "current": True}
-            if current
-            else {"channel_id": channel_id}
+            {"rom_file_id": game_file.id} if current else {"channel_id": channel_id}
         )
         | {"device_id": device.id},
         headers=headers,
@@ -2063,7 +2087,7 @@ def test_a_history_page_after_a_cursor_records_no_sync(
     client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
 ):
     first = first_push(client, headers, game_file)
-    channel_id = first["channel"]["id"]
+    channel_id = first["channel_id"]
     branch = push_save(
         client,
         headers,
@@ -2089,7 +2113,7 @@ def test_listing_channels_for_a_device_records_a_sync(
         params={"rom_file_id": game_file.id, "device_id": device.id},
         headers=headers,
     )
-    sync = device_sync(device.id, first["channel"]["id"])
+    sync = device_sync(device.id, first["channel_id"])
 
     assert response.status_code == status.HTTP_200_OK
     assert sync is not None
@@ -2105,7 +2129,7 @@ def test_a_bound_token_feeds_and_pushes_on_top_as_its_device(
     device: Device,
 ):
     first = first_push(client, headers, game_file)
-    channel_id = first["channel"]["id"]
+    channel_id = first["channel_id"]
     feed(client, device_token_headers, channel_id)
 
     response = push_save(
@@ -2127,7 +2151,7 @@ def test_a_bound_token_push_after_an_unseen_push_branches(
     device: Device,
 ):
     first = first_push(client, headers, game_file)
-    channel_id = first["channel"]["id"]
+    channel_id = first["channel_id"]
     feed(client, device_token_headers, channel_id)
     elsewhere = push_save(
         client,
@@ -2150,7 +2174,7 @@ def test_an_explicit_null_expected_on_a_channel_with_a_current_branches(
     client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
 ):
     first = first_push(client, headers, game_file)
-    channel_id = first["channel"]["id"]
+    channel_id = first["channel_id"]
     feed(client, headers, channel_id, device.id)
 
     response = push_save(
@@ -2170,7 +2194,7 @@ def test_an_explicit_stale_expected_beats_a_fresh_device_sync(
     client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
 ):
     first = first_push(client, headers, game_file)
-    channel_id = first["channel"]["id"]
+    channel_id = first["channel_id"]
     push_save(
         client,
         headers,
@@ -2198,7 +2222,7 @@ def test_an_explicit_expected_with_an_older_parent_lands_on_top(
     client: TestClient, headers: dict[str, str], game_file: RomFile
 ):
     first = first_push(client, headers, game_file)
-    channel_id = first["channel"]["id"]
+    channel_id = first["channel_id"]
     second = push_save(
         client,
         headers,
@@ -2235,7 +2259,7 @@ def test_a_push_without_expected_on_another_channels_parent_branches(
         headers,
         game_file,
         b"next",
-        channel_id=first["channel"]["id"],
+        channel_id=first["channel_id"],
         parent_snapshot_id=other["id"],
     )
 
@@ -2256,7 +2280,7 @@ def test_fetching_a_snapshot_with_a_bound_token_records_nothing(
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["held_by"] == []
-    assert device_sync(device.id, first["channel"]["id"]) is None
+    assert device_sync(device.id, first["channel_id"]) is None
 
 
 def test_holding_with_a_bound_token_records_its_device(
@@ -2273,7 +2297,7 @@ def test_holding_with_a_bound_token_records_its_device(
         params={"hold": True},
         headers=device_token_headers,
     )
-    sync = device_sync(device.id, first["channel"]["id"])
+    sync = device_sync(device.id, first["channel_id"])
 
     assert response.status_code == status.HTTP_200_OK
     assert [held["device"]["id"] for held in response.json()["held_by"]] == [device.id]
@@ -2307,7 +2331,7 @@ def test_holding_the_current_then_an_older_one_overrides_on_top(
         game_file,
         b"older",
         device_id=device.id,
-        channel_id=first["channel"]["id"],
+        channel_id=first["channel_id"],
     )
 
     assert response.status_code == status.HTTP_201_CREATED, response.text
@@ -2322,7 +2346,7 @@ def test_clearing_what_a_device_holds_falls_back_to_the_parent(
     device: Device,
 ):
     first = first_push(client, headers, game_file, device_id=device.id)
-    channel_id = first["channel"]["id"]
+    channel_id = first["channel_id"]
 
     cleared = client.delete(
         f"/api/channels/{channel_id}/held", headers=device_token_headers
@@ -2347,7 +2371,7 @@ def test_clearing_without_a_device_is_a_bad_request(
     first = first_push(client, headers, game_file)
 
     response = client.delete(
-        f"/api/channels/{first['channel']['id']}/held", headers=headers
+        f"/api/channels/{first['channel_id']}/held", headers=headers
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -2368,7 +2392,7 @@ def test_clearing_on_another_users_private_channel_is_not_found(
     )
 
     response = client.delete(
-        f"/api/channels/{first['channel']['id']}/held",
+        f"/api/channels/{first['channel_id']}/held",
         headers={"Authorization": f"Bearer {raw}"},
     )
 

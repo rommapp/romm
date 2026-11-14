@@ -106,14 +106,12 @@ def unpack_save_unit(
     unit: bytes,
     root: Path,
     *,
-    max_total_bytes: int | None = None,
     max_entry_bytes: int | None = None,
 ) -> UnpackedUnit:
     """Write a save unit's files under `root`: a zip's safe entries by name, else the raw unit.
 
     Raises:
-        UnsafeArchive: `check_zip` refuses the zip, or its entries declare more
-            than `max_total_bytes` in all.
+        UnsafeArchive: `check_zip` refuses the zip.
     """
     if not zipfile.is_zipfile(io.BytesIO(unit)):
         (root / RAW_UNIT_NAME).write_bytes(unit)
@@ -124,9 +122,6 @@ def unpack_save_unit(
             for name in check_zip(zf)
             if max_entry_bytes is None or zf.getinfo(name).file_size <= max_entry_bytes
         ]
-        expanded = sum(zf.getinfo(name).file_size for name in names)
-        if max_total_bytes is not None and expanded > max_total_bytes:
-            raise UnsafeArchive(f"the unit expands past {max_total_bytes} bytes")
         for name in names:
             zf.extract(name, root)
     return UnpackedUnit(names, archived=True)
