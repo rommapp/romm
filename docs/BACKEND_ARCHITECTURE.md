@@ -243,6 +243,7 @@ Every model inherits `BaseModel` (`models/base.py`), which adds `created_at` and
 - A **platform** owns its **roms** and its **firmware**.
 - A **rom** owns its files, aggregated metadata and notes, and relates to sibling roms.
 - A **user** owns saves, states and screenshots (each tied to a rom), per-rom user data, collections, devices, client tokens and play sessions.
+- A **channel** is one playthrough of one ROM file, keyed by its SHA-1 (or name and size when unhashed). It points at its current **snapshot**, a fixed save plus a bank of states (`snapshot_states`); earlier snapshots form its history and stale pushes become branches. Devices record the snapshot they hold per channel (`device_channel_sync`), and pins keep a snapshot from pruning.
 - **Collections** come in three kinds: hand-picked (`collections_roms`), smart (saved filters) and virtual (a view over metadata).
 - **Permission groups** hold entity and action grants, hidden entities and age settings. A user adds their own grant overrides and hidden entities, and their age settings replace the group's when set.
 
@@ -411,6 +412,16 @@ Tracks per-user playtime events ingested from clients (web player, console mode,
 
 Coordinates save/state synchronization between devices using three sync modes (`API`, `FILE_TRANSFER`, `PUSH_PULL`). `SyncSession` tracks the lifecycle of a push/pull operation, including optional SSH-based file transfer (`SYNC_SSH_*`). Endpoints live in `endpoints/sync/__init__.py`.
 
+### 7.6a Save Channels and Snapshots (`handler/snapshots/`)
+
+Clients opt into snapshots by pushing to `/api/snapshots`; a slotted upload through `/saves` files the save under the slot's channel with no snapshot. Saves and states a snapshot holds are immutable: writes to them through the legacy routes answer 409 (423 over WebDAV).
+
+- **Writes:** every snapshot goes through `write.write_snapshot`, which locks the channel row and checks the expected current. A stale push is kept as a branch and answered 409 (`moved`, or `moved_from_older` when its parent is older than the current). A push without an explicit expected current infers it from its parent, the device's held snapshot, or the current the device last learned. A push that adds no progress answers unchanged. Hardcore channels refuse a softcore current.
+- **Legacy bridge:** once a channel has a current, legacy clients join it (`bridge.py`). Negotiate decides a slot from the channel's history and the snapshot the device holds: a save matching an earlier current is behind, one matching a branch conflicts, and an unknown one uploads from a device on the current and conflicts from one on an older snapshot. A slotted upload becomes the next current and carries the parent's states. Hardcore channels and neutral current saves stay out.
+- **Sharing:** a public channel is readable and writable by every user. The snapshot belongs to the channel owner and records the pusher as author; content reuse by hash only looks inside the channel, so a pusher can't pull in the owner's other saves.
+- **Shared cards and uploads:** a PS1, PS2 or GameCube memory card holding other games' saves is cut to the game's neutral unit before the write (`shared_card.py`), and identity hashes, the digest and reuse all use that unit. Every uploaded zip passes `check_zip`, and a neutral unit also passes `check_neutral_unit`.
+- **Retention:** each push keeps the channel's newest `SNAPSHOT_RETENTION`, and the `prune_snapshots` task drops old branches. Pruning deletes the content rows only pruned snapshots held. Deleting a channel keeps its current and owner-pinned snapshots as archival; an archival snapshot whose ROM was removed returns when a scan finds a file with its `rom_sha1`.
+
 ### 7.7 RetroArch Cloud Sync (`/api/sync/retroarch`)
 
 A minimal WebDAV surface for RetroArch's Cloud Sync driver, which diffs a JSON
@@ -432,13 +443,21 @@ Saves and states live under `saves/` and `states/`; `config/`, `thumbnails/` and
   a path across them. A PUT stores new assets under the folder's canonical id
   and rewrites an existing one under its own.
 - **Save slots:** a `.srm` path maps to the `autosave` versions of its ROM and
-  core, and serves the newest under the client's spelling of the game (or the
-  ROM's name). An unslotted save at that path serves only until one exists. A
-  PUT whose bytes differ from the newest adds a version and prunes that lineage
-  (emulator and extension) to `MAX_SAVES_PER_SLOT`. A DELETE removes every
+  core, listed under the client's spelling of the game (or the ROM's name).
+  Once a version exists, the path serves the `default` channel's current save
+  when it is native and `may_load` for that core, else the newest version. An
+  unslotted save at that path serves only until a version exists. A PUT whose
+  bytes differ from the save the path serves adds a version, which files under the
+  `default` channel and becomes its next snapshot through `hold_legacy_upload`,
+  then prunes that lineage (emulator and extension) to `MAX_SAVES_PER_SLOT`.
+  A DELETE removes every
   `autosave` version of it plus the unslotted save. Named slots are never
   touched. Other files (`.rtc`, core-specific saves) and PSP bundles stay single
   unslotted saves, overwritten in place.
+- **Held rows:** a save or state a channel snapshot holds is never rewritten or
+  deleted. A PUT over a held unslotted save returns 423, a state or PSP bundle
+  upload writes a new copy beside it, and a DELETE skips it, answering 423 when
+  only held rows are at the path.
 - **Version names:** `reserve_version_name` moves a taken tag on a second and
   claims it in Redis, so concurrent or same-second uploads from any endpoint
   never share a file. Every slot prune is scoped to the uploaded save's lineage.

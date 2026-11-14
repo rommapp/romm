@@ -9,6 +9,8 @@ from endpoints.responses.assets import StateSchema
 from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.asset_store import (
+    assert_backup,
+    assert_backups,
     release_thumbnail,
     remove_asset_file,
     rename_asset,
@@ -20,14 +22,22 @@ from handler.auth.dependencies import (
     assert_rom_visible,
     get_rom_visibility_filter,
     owned_rom_asset_or_404,
+    readable_rom_asset_or_404,
 )
-from handler.database import db_rom_handler, db_screenshot_handler, db_state_handler
+from handler.database import (
+    db_rom_handler,
+    db_screenshot_handler,
+    db_state_handler,
+)
 from handler.filesystem import fs_asset_handler
-from handler.filesystem.assets_handler import build_asset_file_response
+from handler.filesystem.assets_handler import (
+    build_asset_file_response,
+    check_upload_archive,
+)
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.assets import EMULATOR_MAX_LENGTH, State
+from models.assets import EMULATOR_MAX_LENGTH, EMULATOR_VERSION_MAX_LENGTH, State
 from models.base import FILE_NAME_MAX_LENGTH
 from utils.assets import normalize_asset_labels
 from utils.auth import resolve_device
@@ -42,9 +52,11 @@ from utils.validation import RomIdScope, narrow_rom_id_scope
 
 async def _delete_state(state: State) -> None:
     """Drop a state row with its file and screenshot."""
+    # Read first: a screenshot linked by `state_id` goes with the row.
+    screenshot = state.screenshot
     db_state_handler.delete_state(state.id)
     await remove_asset_file(state.full_path, "State file")
-    await release_thumbnail(state.screenshot)
+    await release_thumbnail(screenshot)
 
 
 router = APIRouter(
@@ -66,6 +78,19 @@ async def add_state(
     request: Request,
     rom_id: int,
     emulator: Annotated[str | None, Query(max_length=EMULATOR_MAX_LENGTH)] = None,
+    emulator_version: Annotated[
+        str | None, Query(max_length=EMULATOR_VERSION_MAX_LENGTH)
+    ] = None,
+    core: Annotated[
+        str | None,
+        Query(
+            max_length=EMULATOR_MAX_LENGTH,
+            description="The libretro core that wrote the state, when one did.",
+        ),
+    ] = None,
+    core_version: Annotated[
+        str | None, Query(max_length=EMULATOR_VERSION_MAX_LENGTH)
+    ] = None,
     device_id: Annotated[
         str | None, Query(description="The uploading device, recorded as its origin.")
     ] = None,
@@ -74,6 +99,7 @@ async def add_state(
 ) -> StateSchema:
     check_asset_upload_size(stateFile, "State file")
     check_asset_upload_size(screenshotFile, "Screenshot file")
+    check_upload_archive(stateFile, "State file")
 
     device = resolve_device(request, device_id, Scope.DEVICES_WRITE)
 
@@ -102,18 +128,28 @@ async def add_state(
         f"Uploading state {hl(sanitized_state_filename)} for {hl(str(rom.name), color=BLUE)}"
     )
 
+    reported = {
+        "emulator_version": emulator_version,
+        "core": core,
+        "core_version": core_version,
+        "origin_device_id": device.id if device else None,
+    }
     db_state = await store_state_file(
         request.user,
         rom,
         emulator,
         stateFile,
         sanitized_state_filename,
-        fields={"origin_device_id": device.id if device else None},
+        {key: value for key, value in reported.items() if value is not None},
     )
 
     if screenshotFile and sanitized_screenshot_filename:
         await store_screenshot(
-            request.user, rom, screenshotFile, sanitized_screenshot_filename
+            request.user,
+            rom,
+            screenshotFile,
+            sanitized_screenshot_filename,
+            is_public=db_state.is_public,
         )
 
     # Set the last played time for the current user
@@ -191,17 +227,8 @@ def get_state(request: Request, id: int) -> StateSchema:
 def download_state(request: Request, id: int) -> FileResponse:
     """Download a state file. Owner can download any of their states; everyone
     else only public ones."""
-    state = db_state_handler.get_state_by_id(id)
-    if not state or (state.user_id != request.user.id and not state.is_public):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"State with ID {id} not found",
-        )
-
-    # Sharing must not override the hidden-ROM/platform policy: a state on a ROM
-    # hidden from the caller stays 404-masked, just like the ROM itself.
-    assert_rom_visible(
-        request, state.rom, not_found_detail=f"State with ID {id} not found"
+    state = readable_rom_asset_or_404(
+        request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
     )
 
     try:
@@ -234,12 +261,15 @@ async def update_state(
 ) -> StateSchema:
     check_asset_upload_size(stateFile, "State file")
     check_asset_upload_size(screenshotFile, "Screenshot file")
+    check_upload_archive(stateFile, "State file")
 
     device = resolve_device(request, device_id, Scope.DEVICES_WRITE)
 
     db_state = owned_rom_asset_or_404(
         request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
     )
+    if stateFile:
+        assert_backup(db_state)
 
     sanitized_screenshot_filename = (
         sanitize_asset_filename(screenshotFile.filename, "screenshot")
@@ -266,15 +296,17 @@ async def update_state(
     if screenshotFile and sanitized_screenshot_filename:
         await store_screenshot(
             request.user,
-            db_state.rom,
+            db_state.attached_rom,
             screenshotFile,
             sanitized_screenshot_filename,
+            is_public=db_state.is_public,
         )
 
     # Set the last played time for the current user
-    rom_user = db_rom_handler.get_rom_user(db_state.rom_id, request.user.id)
+    rom_id = db_state.attached_rom_id
+    rom_user = db_rom_handler.get_rom_user(rom_id, request.user.id)
     if not rom_user:
-        rom_user = db_rom_handler.add_rom_user(db_state.rom_id, request.user.id)
+        rom_user = db_rom_handler.add_rom_user(rom_id, request.user.id)
     db_rom_handler.update_rom_user(
         rom_user.id, {"last_played": datetime.now(timezone.utc)}
     )
@@ -294,10 +326,12 @@ def update_state_visibility(
     id: int,
     is_public: Annotated[bool, Body(embed=True)],
 ) -> StateSchema:
-    """Toggle a state's public/private visibility (owner only)."""
+    """Toggle a state's public/private visibility (owner only). A state a
+    channel holds is shared with the channel."""
     state = owned_rom_asset_or_404(
         request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
     )
+    assert_backup(state)
 
     updated = db_state_handler.update_state(id, {"is_public": is_public}, touch=False)
 
@@ -309,7 +343,8 @@ def update_state_visibility(
         )
 
     # Sharing a state exposes it to every other user's `has_states` filter.
-    refresh_affected_smart_collections([state.rom_id], membership_only=True)
+    if state.rom_id is not None:
+        refresh_affected_smart_collections([state.rom_id], membership_only=True)
 
     return StateSchema.model_validate(updated)
 
@@ -407,7 +442,6 @@ async def delete_states(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
     affected_rom_ids: set[int] = set()
-
     # Resolved up front, so a bad id fails the batch before anything is removed.
     owned = [
         owned_rom_asset_or_404(
@@ -417,10 +451,11 @@ async def delete_states(
         )
         for state_id in states
     ]
+    assert_backups(owned)
     for state in owned:
-        affected_rom_ids.add(state.rom_id)
+        affected_rom_ids.add(state.attached_rom_id)
         log.info(
-            f"Deleting state {hl(state.file_name)} [{state.rom.platform_slug}] from filesystem"
+            f"Deleting state {hl(state.file_name)} [{state.attached_rom.platform_slug}] from filesystem"
         )
         await _delete_state(state)
 

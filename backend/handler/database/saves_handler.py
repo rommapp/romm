@@ -17,9 +17,14 @@ from utils.datetime import to_utc
 from utils.sql_dialect import force_index_on_mysql
 
 from .base_handler import DBBaseHandler, affected_rows
-from .deleted_assets_handler import DBDeletedAssetsHandler
+from .deleted_assets_handler import db_deleted_asset_handler
+from .snapshots_handler import (
+    channel_for_slot,
+    held_save_ids,
+    refresh_backup_digests,
+    release_backup,
+)
 
-_deleted_assets = DBDeletedAssetsHandler()
 # What identifies a version in its slot, for recording it when it leaves.
 _VERSION_COLUMNS = (Save.user_id, Save.rom_id, Save.slot, Save.content_hash)
 _SLOT_MOVE_ATTEMPTS = 3
@@ -86,6 +91,11 @@ class DBSavesHandler(DBBaseHandler):
         save: Save,
         session: Session = INJECTED_SESSION,
     ) -> Save:
+        # A slotted upload is a client's save, filed under the slot's channel.
+        if save.slot and save.channel_id is None and save.rom_id is not None:
+            save.channel_id = channel_for_slot(
+                session, save.user_id, save.rom_id, save.slot
+            )
         return session.merge(save)
 
     @begin_session
@@ -95,7 +105,12 @@ class DBSavesHandler(DBBaseHandler):
         id: int,
         session: Session = INJECTED_SESSION,
     ) -> Save | None:
-        return session.scalar(select(Save).filter_by(user_id=user_id, id=id).limit(1))
+        return session.scalar(
+            select(Save)
+            .filter_by(user_id=user_id, id=id)
+            .where(Save.rom_id.is_not(None))
+            .limit(1)
+        )
 
     @begin_session
     def get_save_by_filename(
@@ -230,7 +245,8 @@ class DBSavesHandler(DBBaseHandler):
         *,
         visibility: RomVisibilityFilter,
     ) -> Select[Save]:
-        query = select(Save).filter_by(user_id=user_id)
+        # A save whose ROM was deleted waits to be reattached; no legacy flow reads it.
+        query = select(Save).filter_by(user_id=user_id).where(Save.rom_id.is_not(None))
 
         # An empty collection is an explicit empty scope, not an absent filter.
         if rom_ids is not None:
@@ -390,7 +406,7 @@ class DBSavesHandler(DBBaseHandler):
         latest: dict[int, Save] = {}
         for save in saves:
             # Saves come newest-first, so the first one seen per ROM wins.
-            latest.setdefault(save.rom_id, save)
+            latest.setdefault(save.attached_rom_id, save)
         return latest
 
     @begin_session
@@ -435,11 +451,26 @@ class DBSavesHandler(DBBaseHandler):
             replaced_hash: What the version held, for a row that never hashed it.
         """
         data = with_file_name_parts(data)
+        if "content_hash" in data:
+            # Derived from the bytes, so new bytes leave it unknown until recomputed.
+            data = {"identity_hash": None, **data}
         if "content_hash" in data or "slot" in data:
             current = self._lock_for_removal(id, session)
             if current and _loses_version(current, data):
                 _record_loss(current, session, replaced_hash)
-        return self._write(id, data, touch, session)
+        if "slot" in data and "channel_id" not in data:
+            owner = session.execute(
+                select(Save.user_id, Save.rom_id).where(Save.id == id)
+            ).one()
+            data["channel_id"] = (
+                channel_for_slot(session, owner.user_id, owner.rom_id, data["slot"])
+                if data["slot"] and owner.rom_id is not None
+                else None
+            )
+        save = self._write(id, data, touch, session)
+        if "content_hash" in data:
+            refresh_backup_digests(session, save_id=id)
+        return save
 
     @begin_session
     def promote_to_slot_head(
@@ -551,6 +582,10 @@ class DBSavesHandler(DBBaseHandler):
                 past_keep, Save, SAVE_SLOT_VERSIONS_INDEX
             ).with_for_update()
         ).all()
+        # Snapshot retention owns a version a snapshot holds. Read apart from
+        # the locking read, which MariaDB refuses to mix with an unlocked table.
+        held = held_save_ids(session, [row.id for row in rows])
+        rows = [row for row in rows if row.id not in held]
         fallback_hashes = fallback_hashes or {}
         unhashed = [
             row
@@ -566,7 +601,7 @@ class DBSavesHandler(DBBaseHandler):
             if (content_hash := row.content_hash or fallback_hashes.get(row.id))
         ]
         if lost:
-            _deleted_assets.record_deletions(
+            db_deleted_asset_handler.record_deletions(
                 user_id, rom_id, slot, lost, session=session
             )
         # One row at a time: MariaDB's `id IN (...)` plan deadlocks concurrent prunes.
@@ -594,7 +629,8 @@ class DBSavesHandler(DBBaseHandler):
         content_hash: str | None = None,
         session: Session = INJECTED_SESSION,
     ) -> None:
-        """Delete a save, recording the version its slot loses.
+        """Delete a save, releasing it from archival snapshots and recording the
+        version its slot loses.
 
         Args:
             content_hash: What the version held, for a row that never hashed it.
@@ -602,6 +638,7 @@ class DBSavesHandler(DBBaseHandler):
         current = self._lock_for_removal(id, session)
         if current:
             _record_loss(current, session, content_hash)
+        release_backup(session, save_id=id)
         session.execute(
             delete(Save)
             .where(Save.id == id)
@@ -701,8 +738,8 @@ def _loses_version(version: Row[*tuple[Any, ...]], data: dict[str, Any]) -> bool
 def _lock_slot(user_id: int, rom_id: int, slot: str, session: Session) -> None:
     """Ensure the slot has a record, then lock it before any of its rows."""
     # One order everywhere, the record before the rows, so removals never deadlock.
-    _deleted_assets.ensure_record(user_id, rom_id, slot)
-    _deleted_assets.lock_record(user_id, rom_id, slot, session)
+    db_deleted_asset_handler.ensure_record(user_id, rom_id, slot)
+    db_deleted_asset_handler.lock_record(user_id, rom_id, slot, session)
 
 
 def _record_loss(
@@ -711,7 +748,7 @@ def _record_loss(
     """Remember a version leaving its slot, in the transaction that removes it."""
     content_hash = version.content_hash or content_hash
     if version.slot and content_hash:
-        _deleted_assets.record_deletion(
+        db_deleted_asset_handler.record_deletion(
             version.user_id,
             version.rom_id,
             version.slot,

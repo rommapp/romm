@@ -11,16 +11,25 @@ import {
 } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, useRouter } from "vue-router";
-import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
+import type {
+  FirmwareSchema,
+  SaveSchema,
+  SnapshotSchema,
+  StateSchema,
+} from "@/__generated__";
+import { useEmitterEvent } from "@/composables/useEmitterEvent";
 import { useSnackbar, type SnackbarTone } from "@/composables/useSnackbar";
 import { userStorage } from "@/composables/useUserLocalStorage";
 import { ROUTES } from "@/plugins/router";
-import { saveApi as api } from "@/services/api/save";
+import romApi from "@/services/api/rom";
+import {
+  AUTOSAVE_SLOT,
+  saveApi as api,
+  sessionSaveFile,
+  sessionScreenshotFile,
+} from "@/services/api/save";
 import syncApi from "@/services/api/sync";
-import pendingAssetStore, {
-  pendingAssetId,
-  type PendingAsset,
-} from "@/services/pending-asset";
+import pendingAssetStore, { pendingAssetId } from "@/services/pending-asset";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -28,23 +37,29 @@ import storeLanguage from "@/stores/language";
 import storePlaying from "@/stores/playing";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { newest } from "@/utils/assets";
 import { leaveFullscreen } from "@/utils/playerFullscreen";
 import { browserDeviceId } from "@/utils/saveSync/browserDevice";
 import { bytesEqual, saveContentHash } from "@/utils/saveSync/hash";
 import { createRetryBackoff } from "@/utils/saveSync/retryBackoff";
 import {
+  sendPushOnUnload,
+  sessionTarget,
+  SnapshotSession,
+  type PushOutcome,
+  type SessionFile,
+  type SnapshotContent,
+} from "@/utils/saveSync/snapshotSession";
+import { AUTO_STATE_SLOT, MANUAL_STATE_SLOT } from "@/utils/snapshots";
+import {
   applyEjsGlobals,
   buildEjsConfig,
 } from "@/views/Player/emulatorJSConfig";
 import {
-  saveSave,
   captureScreenshot,
   dumpSaveFile,
   exitEmulatorOnce,
   heldFor,
   resolveScreenshot,
-  saveState,
   bootEmulatorJSSave,
   loadEmulatorJSSave,
   loadEmulatorJSState,
@@ -58,7 +73,6 @@ import {
   labelContextMenuButton,
   createSaveSyncTracker,
   pollSaveFiles,
-  saveSaveOnUnload,
   toArrayBuffer,
 } from "@/views/Player/emulatorJSRuntime";
 
@@ -82,14 +96,16 @@ const props = defineProps<{
   fileIds: number[];
   /** Slot for new saves when the loaded save has none; defaults to autosave. */
   saveSlot?: string | null;
+  /** The snapshot the session boots, which its writes build on. */
+  snapshot?: SnapshotSchema | null;
   /** Load State button label; the shell names the picker it opens. */
   loadStateLabel?: string;
 }>();
 const romRef = ref<DetailedRom>(props.rom);
-// The save the session booted from, and the version this session has written
-// so far. Loading a save resets the version so the next write opens a new one.
 let loadedSave: SaveSchema | null = props.save;
-const sessionSaveRef = ref<SaveSchema | null>(null);
+let bootedSnapshot: SnapshotSchema | null = props.snapshot ?? null;
+let session: SnapshotSession | null = null;
+let announcedBranch = false;
 // This browser's own sync device: the login's device is shared by every
 // browser behind one address. Undefined when the account cannot have one.
 const deviceIDRef = ref<string | undefined>(undefined);
@@ -102,15 +118,99 @@ const deviceReady = (async () => {
     console.error("Registering this browser as a sync device failed", error);
   }
 })();
-// Writes that continue the slot's current version are refused when another
-// device moved the slot on since; any other boot source was picked on purpose.
-function continuesSlotHead(): boolean {
-  const slot = loadedSave?.slot;
-  if (!slot) return false;
-  const head = newest(
-    romRef.value.user_saves.filter((save) => save.slot === slot),
+/** The session's writer, made once the core it runs is known. */
+function snapshotSession(): SnapshotSession | null {
+  if (session) return session;
+  const target = sessionTarget({
+    rom: romRef.value,
+    core: window.EJS_core,
+    emulatorVersion: window.EJS_emulator?.ejs_version ?? null,
+    snapshot: bootedSnapshot,
+    save: loadedSave,
+    slot: currentSlot() ?? AUTOSAVE_SLOT,
+  });
+  session = target ? new SnapshotSession(target, deviceIDRef.value) : null;
+  return session;
+}
+function retargetSession(save: SaveSchema) {
+  loadedSave = save;
+  bootedSnapshot = null;
+  session = null;
+}
+function saveFileOf(bytes: ArrayBuffer, screenshot?: ArrayBuffer): SessionFile {
+  return {
+    bytes,
+    fileName: sessionSaveFile(romRef.value, null, bytes).name,
+    screenshot,
+    screenshotName: screenshot
+      ? sessionScreenshotFile(romRef.value, null, screenshot).name
+      : undefined,
+  };
+}
+let refreshingAssets: Promise<void> | null = null;
+let refreshAgain = false;
+let romAssetsStale = false;
+/** Re-reads the rom's saves and states for the picker, again for writes landing mid-read. */
+function refreshRomAssets(): Promise<void> {
+  if (refreshingAssets) {
+    refreshAgain = true;
+    return refreshingAssets;
+  }
+  refreshingAssets = (async () => {
+    do {
+      refreshAgain = false;
+      romAssetsStale = false;
+      try {
+        const { data } = await romApi.getRom({ romId: romRef.value.id });
+        romRef.value.user_saves = data.user_saves;
+        romRef.value.user_states = data.user_states;
+        romRef.value.user_channels = data.user_channels;
+        romsStore.update(romRef.value);
+      } catch (error) {
+        romAssetsStale = true;
+        console.error("Re-reading the rom's saves failed", error);
+      }
+    } while (refreshAgain && !disposed);
+  })().finally(() => {
+    refreshingAssets = null;
+  });
+  return refreshingAssets;
+}
+/** Pushes only mark the assets stale, so the SRAM poll does not refetch the rom on every write. */
+function refreshStaleRomAssets() {
+  if (romAssetsStale) void refreshRomAssets();
+}
+function announceBranch(outcome: PushOutcome) {
+  if (outcome.kind !== "branched" || announcedBranch) return;
+  announcedBranch = true;
+  snackbar.warning(
+    t(
+      outcome.reason === "hardcore"
+        ? "play.session-branched-hardcore"
+        : "play.session-branched",
+      { days: heartbeatStore.value.SAVE_SYNC.SNAPSHOT_BRANCH_LIFETIME_DAYS },
+    ),
+    { persist: true },
   );
-  return head?.id === loadedSave?.id;
+}
+/**
+ * Sends `content` through the session, holding nothing itself.
+ *
+ * Returns:
+ *   Whether the server took it, as the channel's current or as a branch.
+ */
+async function sendContent(content: SnapshotContent): Promise<boolean> {
+  const writer = snapshotSession();
+  if (!writer || !heartbeatStore.connected) return false;
+  try {
+    const outcome = await writer.push(content);
+    announceBranch(outcome);
+    romAssetsStale = true;
+    return true;
+  } catch (error) {
+    console.error("Snapshot push failed", error);
+    return false;
+  }
 }
 // Bytes the server already holds, so forced writes can skip an unchanged SRAM.
 const saveTracker = createSaveSyncTracker();
@@ -126,7 +226,7 @@ let saveLoading = false;
 let inFlightSave: Uint8Array | null = null;
 // Progress the server has not taken yet, kept in the browser with the frame
 // from when the game wrote it, so a later retry pictures that moment.
-let pendingSave: PendingAsset | null = null;
+let pendingSave: SessionFile | null = null;
 // A private window keeps nothing, and a notice must not promise it did.
 let pendingSaveKept = false;
 // One row per session: a save an earlier session never got through still owes
@@ -135,25 +235,35 @@ const pendingSaveId = pendingAssetId(romRef.value.id);
 function currentSlot(): string | undefined {
   return loadedSave?.slot || props.saveSlot || undefined;
 }
-async function rememberPendingSave(
-  saveBytes: ArrayBuffer,
-  screenshotBytes?: ArrayBuffer,
-) {
-  pendingSave = {
-    id: pendingSaveId,
-    kind: "save",
+/**
+ * Keeps `content` in the browser until the server takes it.
+ *
+ * Returns:
+ *   Whether it was kept, which takes a channel to push it into later.
+ */
+async function holdForLater(
+  id: string,
+  kind: "save" | "state",
+  content: SnapshotContent,
+): Promise<boolean> {
+  const writer = snapshotSession();
+  if (!writer) return false;
+  return pendingAssetStore.write({
+    id,
+    kind,
     romId: romRef.value.id,
     romName: romRef.value.name ?? romRef.value.fs_name_no_ext,
-    fsNameNoExt: romRef.value.fs_name_no_ext,
     cover: romRef.value.path_cover_small,
-    bytes: saveBytes,
-    screenshotBytes,
-    slot: currentSlot(),
-    emulator: window.EJS_core,
-    deviceId: deviceIDRef.value,
+    held: writer.hold(content),
     capturedAt: Date.now(),
-  };
-  pendingSaveKept = await pendingAssetStore.write(pendingSave);
+  });
+}
+async function rememberPendingSave(save: SessionFile) {
+  pendingSave = save;
+  pendingSaveKept = await holdForLater(pendingSaveId, "save", {
+    kind: "save",
+    save,
+  });
 }
 async function forgetPendingSave() {
   pendingSave = null;
@@ -182,62 +292,90 @@ function announceHeldBack(kind: "save" | "state", kept: boolean) {
 function writeSave(
   file: { saveFile: ArrayBuffer; screenshotFile?: ArrayBuffer | undefined },
   generation = saveGeneration,
-): Promise<SaveSchema | null> {
-  if (saveLoading) return Promise.resolve(null);
+): Promise<boolean> {
+  if (saveLoading) return Promise.resolve(false);
   const write = saveWrite.then(async () => {
     await deviceReady;
-    if (generation !== saveGeneration) return null;
+    if (generation !== saveGeneration) return false;
     const bytes = new Uint8Array(file.saveFile);
     inFlightSave = bytes;
     try {
       // Held before the attempt and dropped once taken, so no path uploads
       // without a copy; held bytes keep their frame and are not written again.
       const held = heldFor(pendingSave, bytes);
-      const screenshotFile = held?.screenshotBytes ?? file.screenshotFile;
-      if (!held || held.screenshotBytes !== screenshotFile) {
-        await rememberPendingSave(file.saveFile, screenshotFile);
+      const screenshotFile = held?.screenshot ?? file.screenshotFile;
+      const save = saveFileOf(file.saveFile, screenshotFile);
+      if (!held || held.screenshot !== screenshotFile) {
+        await rememberPendingSave(save);
       }
       // Nothing gets through while the server is down; the held bytes go once
       // it is back.
-      if (!heartbeatStore.connected) return null;
-      const save = await saveSave({
-        rom: romRef.value,
-        save: sessionSaveRef.value,
-        deviceId: deviceIDRef.value,
-        slot: currentSlot(),
-        guarded: !!deviceIDRef.value && continuesSlotHead(),
-        saveFile: file.saveFile,
-        screenshotFile,
-      });
-      if (save && generation === saveGeneration) {
-        sessionSaveRef.value = save;
+      const written = await sendContent({ kind: "save", save });
+      if (written && generation === saveGeneration) {
         saveTracker.markUploaded(bytes);
       }
-      if (save) await forgetPendingSave();
-      return save;
+      if (written) await forgetPendingSave();
+      return written;
     } finally {
       inFlightSave = null;
     }
   });
-  saveWrite = write.catch(() => null);
+  saveWrite = write.catch(() => false);
   return write;
 }
-// Forced writes (Sync save, Save & Quit) wait for the queue, then skip only when
-// no version was opened yet and the SRAM still matches a slotted server save.
 async function writeSaveIfChanged(file: {
   saveFile: ArrayBuffer;
   screenshotFile?: ArrayBuffer | undefined;
 }): Promise<boolean> {
   const generation = saveGeneration;
   await saveWrite;
-  if (
-    !sessionSaveRef.value &&
-    loadedSave?.slot &&
-    saveTracker.isUploaded(new Uint8Array(file.saveFile))
-  ) {
-    return true;
+  if (saveTracker.isUploaded(new Uint8Array(file.saveFile))) return true;
+  return writeSave(file, generation);
+}
+/**
+ * Writes a state into `slot` of the session's core, with the SRAM beside it
+ * when the parent holds another. Held in the browser until the server takes it.
+ */
+async function writeState({
+  slot,
+  stateFile,
+  screenshotFile,
+  saveFile,
+}: {
+  slot: string;
+  stateFile: ArrayBuffer;
+  screenshotFile?: ArrayBuffer | undefined;
+  saveFile: Uint8Array | null;
+}): Promise<{ written: boolean; kept: boolean }> {
+  // A zero-length buffer is a torn read from a running threaded core, which
+  // must never replace a good state.
+  if (!stateFile.byteLength) {
+    console.error("Refusing to upload empty state file");
+    return { written: false, kept: false };
   }
-  return (await writeSave(file, generation)) !== null;
+  await saveWrite;
+  await deviceReady;
+  const sram = saveFile?.byteLength ? toArrayBuffer(saveFile) : null;
+  const content: SnapshotContent = {
+    kind: "state",
+    slot,
+    state: {
+      bytes: stateFile,
+      fileName: `${romRef.value.fs_name_no_ext.trim()}.state`,
+      screenshot: screenshotFile,
+      screenshotName: screenshotFile
+        ? sessionScreenshotFile(romRef.value, null, screenshotFile).name
+        : undefined,
+    },
+    save: sram ? saveFileOf(sram) : null,
+  };
+  const pendingId = pendingAssetId(romRef.value.id);
+  const kept = await holdForLater(pendingId, "state", content);
+  const written = await sendContent(content);
+  if (!written) return { written, kept };
+  await pendingAssetStore.clear(pendingId);
+  if (saveFile?.byteLength) saveTracker.markUploaded(saveFile);
+  return { written, kept: false };
 }
 // A state restores the machine mid-scene: its frames, sound and SRAM on the way
 // there are not the moment the player picked, so all three are held back.
@@ -331,18 +469,16 @@ onMounted(() => {
   } else {
     userStorage.removeItem(`player:${romRef.value.id}:disc`);
   }
-
-  emitter?.on("saveSelected", switchSave);
-  emitter?.on("stateSelected", loadState);
 });
+useEmitterEvent("saveSelected", (save) => void switchSave(save));
+useEmitterEvent("stateSelected", (state) => void loadState(state));
 
-onBeforeUnmount(async () => {
+onBeforeUnmount(() => {
   disposed = true;
   window.removeEventListener("beforeunload", onBeforeUnload);
   window.removeEventListener("pagehide", onPageHide);
   uninstallAutoSaveSync();
-  emitter?.off("saveSelected", switchSave);
-  emitter?.off("stateSelected", loadState);
+  refreshStaleRomAssets();
   exitEmulatorOnce();
   fullScreen.value = false;
   playing.value = false;
@@ -365,10 +501,10 @@ function displayMessage(
   snackbar.show(tone, message, { icon, timeout: duration });
 }
 
-// Poll until EmulatorJS' gameManager is ready to accept save/state
-// injection. A fixed delay is unreliable: heavier/threaded cores (SNES with
-// enhancement chips, N64, DS) need longer than a few ms to boot, and applying
-// a state before the core is ready leaves it broken (black screen).
+/**
+ * Polls until the core is up: heavy cores boot slowly, and a state applied too
+ * early leaves a black screen.
+ */
 async function waitForGameManager(timeoutMs = 5000): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -383,9 +519,7 @@ async function waitForGameManager(timeoutMs = 5000): Promise<boolean> {
 // before loadState takes cleanly, and RetroArch applies it off its task queue.
 const STATE_APPLY_SETTLE_MS = 500;
 
-// Periodic save upload on the "saveSaveFiles" tick that pollSaveFiles fires
-// (see createSaveSyncTracker). EmulatorJS has no `off`: the handler stays
-// subscribed and this slot is what tells it the component still owns it.
+/** EmulatorJS has no `off`, so this tells the still-subscribed tick handler the component owns it. */
 let autoSaveSyncEmulator: object | null = null;
 let stopSavePolling: (() => void) | null = null;
 // The boot path awaits before installing, so it may land after unmount.
@@ -422,14 +556,13 @@ function installAutoSaveSync() {
       const screenshotFile = heldFor(pendingSave, saveFile)
         ? undefined
         : await captureScreenshot();
-      const save = await writeSave({
+      const written = await writeSave({
         saveFile: toArrayBuffer(saveFile),
         screenshotFile,
       });
-      if (save) {
+      if (written) {
         retryBackoff.reset();
         heldBackSave = null;
-        romsStore.update(romRef.value);
         displayMessage(t("play.save-synced"), {
           duration: 3000,
           tone: "success",
@@ -459,31 +592,42 @@ function uninstallAutoSaveSync() {
   stopSavePolling?.();
   stopSavePolling = null;
 }
+/** The emulator auto-sync watches, when it is still the running one. */
+function autoSyncedEmulator() {
+  const emulator = window.EJS_emulator;
+  return autoSaveSyncEmulator && autoSaveSyncEmulator === emulator
+    ? emulator
+    : null;
+}
+/** The core's SRAM when it holds bytes the server lacks. */
+function unsyncedSave(
+  emulator: typeof window.EJS_emulator,
+  flush?: boolean,
+): Uint8Array | null {
+  const saveFile: Uint8Array | null = emulator.gameManager.getSaveFile(flush);
+  return saveFile?.byteLength && saveTracker.hasChanges(saveFile)
+    ? saveFile
+    : null;
+}
 // A save written right before Quit or a back navigation has not had its two
 // ticks yet, so leaving the player uploads whatever the server lacks.
 async function flushPendingSave() {
-  const emulator = window.EJS_emulator;
-  if (!autoSaveSyncEmulator || autoSaveSyncEmulator !== emulator) return;
+  const emulator = autoSyncedEmulator();
+  if (!emulator) return;
   uninstallAutoSaveSync();
   // A save the tick has not held yet takes its frame now, while the game still
   // runs; bytes the tick already held keep the one taken when it wrote them.
-  const unsynced: Uint8Array | null = emulator.gameManager.getSaveFile(false);
+  const unsynced = unsyncedSave(emulator, false);
   const screenshotFile =
-    unsynced?.byteLength &&
-    saveTracker.hasChanges(unsynced) &&
-    !heldFor(pendingSave, unsynced)
+    unsynced && !heldFor(pendingSave, unsynced)
       ? await captureScreenshot()
       : undefined;
   emulator.pause();
   await new Promise((resolve) => setTimeout(resolve, 50));
-  const saveFile: Uint8Array | null = emulator.gameManager.getSaveFile();
-  if (!saveFile?.byteLength || !saveTracker.hasChanges(saveFile)) return;
+  const saveFile = unsyncedSave(emulator);
+  if (!saveFile) return;
   try {
-    if (
-      await writeSave({ saveFile: toArrayBuffer(saveFile), screenshotFile })
-    ) {
-      romsStore.update(romRef.value);
-    }
+    await writeSave({ saveFile: toArrayBuffer(saveFile), screenshotFile });
   } catch (error) {
     console.error("Save sync on exit failed", error);
   }
@@ -496,19 +640,18 @@ onBeforeRouteLeave(async () => {
 // A v2 shell that leaves by replacing the document aborts the navigation, so
 // the guard above never runs and the flush has to be asked for. Idempotent.
 defineExpose({ flushPendingSave });
-// Closing the tab cancels requests in flight, so a save the tick has not
-// uploaded goes out on `pagehide` with fetch keepalive, which the browser caps
-// at 64 KB. `beforeunload` asks first while one is pending: for a bigger save
-// that prompt is the only way to keep it.
+/**
+ * An unsynced save goes out on `pagehide` via keepalive (64 KB cap).
+ * `beforeunload` prompts first, the only way to keep a bigger one.
+ */
 let unloadSave: Uint8Array | null = null;
 function onBeforeUnload(event: BeforeUnloadEvent) {
   // A close cancelled earlier leaves the bytes it captured behind.
   unloadSave = null;
-  const emulator = window.EJS_emulator;
-  if (!autoSaveSyncEmulator || autoSaveSyncEmulator !== emulator) return;
-  if (saveLoading) return;
-  const saveFile: Uint8Array | null = emulator.gameManager.getSaveFile();
-  if (!saveFile?.byteLength || !saveTracker.hasChanges(saveFile)) return;
+  const emulator = autoSyncedEmulator();
+  if (!emulator || saveLoading) return;
+  const saveFile = unsyncedSave(emulator);
+  if (!saveFile) return;
   unloadSave = saveFile;
   // EmulatorJS tears the core down on this event, and a cancelled close has
   // to keep the game running.
@@ -522,13 +665,11 @@ function onPageHide() {
   // These bytes are already on the wire: a second POST would only open a
   // duplicate version.
   if (inFlightSave && bytesEqual(inFlightSave, unloadSave)) return;
-  saveSaveOnUnload({
-    rom: romRef.value,
-    save: sessionSaveRef.value,
-    saveFile: toArrayBuffer(unloadSave),
-    deviceId: deviceIDRef.value,
-    slot: currentSlot(),
+  const push = snapshotSession()?.build({
+    kind: "save",
+    save: saveFileOf(toArrayBuffer(unloadSave)),
   });
+  if (push) sendPushOnUnload(push);
 }
 
 // Saves management
@@ -563,8 +704,7 @@ async function loadSave(
         });
     }
     // Writes follow the picked save only once its bytes are in the core.
-    loadedSave = save;
-    sessionSaveRef.value = null;
+    if (save.id !== loadedSave?.id) retargetSession(save);
     saveTracker.seed(bytes);
     displayMessage(t("play.save-loaded"), {
       duration: 3000,
@@ -579,19 +719,14 @@ async function loadSave(
 // Progress the tick has not taken yet belongs to the save being left, so it
 // goes out (or is held) before a switch replaces the SRAM.
 async function uploadUnsyncedSave() {
-  const emulator = window.EJS_emulator;
-  if (!autoSaveSyncEmulator || autoSaveSyncEmulator !== emulator) return;
-  const saveFile: Uint8Array | null = emulator.gameManager.getSaveFile();
-  if (!saveFile?.byteLength || !saveTracker.hasChanges(saveFile)) return;
+  const emulator = autoSyncedEmulator();
+  const saveFile = emulator ? unsyncedSave(emulator) : null;
+  if (!saveFile) return;
   const screenshotFile = heldFor(pendingSave, saveFile)
     ? undefined
     : await captureScreenshot();
   try {
-    if (
-      await writeSave({ saveFile: toArrayBuffer(saveFile), screenshotFile })
-    ) {
-      romsStore.update(romRef.value);
-    }
+    await writeSave({ saveFile: toArrayBuffer(saveFile), screenshotFile });
   } catch (error) {
     console.error("Save sync before switching failed", error);
   }
@@ -615,9 +750,12 @@ async function switchSave(save: SaveSchema) {
 }
 
 // Sync save, offered when auto-sync is off: the tick's upload, on demand.
-window.EJS_onSaveSave = async function ({
+async function syncSaveOnDemand({
   save: saveFile,
   screenshot: emulatorScreenshot,
+}: {
+  save: ArrayBuffer;
+  screenshot: ArrayBuffer;
 }) {
   if (!saveFile?.byteLength) {
     displayMessage(t("play.save-data-none"), { duration: 3000 });
@@ -625,7 +763,6 @@ window.EJS_onSaveSave = async function ({
   }
   const screenshotFile = await resolveScreenshot(emulatorScreenshot);
   const synced = await writeSaveIfChanged({ saveFile, screenshotFile });
-  romsStore.update(romRef.value);
   if (synced) {
     displayMessage(t("play.save-synced"), {
       duration: 4000,
@@ -635,7 +772,8 @@ window.EJS_onSaveSave = async function ({
   } else if (heldFor(pendingSave, new Uint8Array(saveFile))) {
     announceHeldBack("save", pendingSaveKept);
   }
-};
+}
+window.EJS_onSaveSave = (args) => void syncSaveOnDemand(args);
 
 // States management
 // Every way a state arrives goes through here: the SRAM it restores becomes the
@@ -668,32 +806,33 @@ async function loadState(state: StateSchema) {
   }
 }
 
-// Answers with the save/state picker.
-window.EJS_onLoadState = async function () {
+window.EJS_onLoadState = function () {
   window.EJS_emulator.pause();
   window.EJS_emulator.toggleFullscreen(false);
+  refreshStaleRomAssets();
   emitter?.emit("selectStateDialog", romRef.value);
 };
 
-window.EJS_onSaveState = async function ({
+async function saveStateFromMenu({
   state: stateFile,
   screenshot: emulatorScreenshot,
+}: {
+  state: ArrayBuffer;
+  screenshot?: ArrayBuffer;
 }) {
   const screenshotFile = await resolveScreenshot(emulatorScreenshot);
-  const { state, kept } = await saveState({
-    rom: romRef.value,
+  const { written, kept } = await writeState({
+    slot: MANUAL_STATE_SLOT,
     stateFile,
     screenshotFile,
-    deviceId: deviceIDRef.value,
+    saveFile: dumpSaveFile(),
   });
   window.EJS_emulator.storage.states.put(
     window.EJS_emulator.getBaseFileName() + ".state",
     stateFile,
   );
 
-  romsStore.update(romRef.value);
-
-  if (state) {
+  if (written) {
     displayMessage(t("play.state-synced"), {
       duration: 4000,
       tone: "success",
@@ -702,9 +841,10 @@ window.EJS_onSaveState = async function ({
   } else {
     announceHeldBack("state", kept);
   }
-};
+}
+window.EJS_onSaveState = (args) => void saveStateFromMenu(args);
 
-window.EJS_onGameStart = async () => {
+window.EJS_onGameStart = () => {
   // EmulatorJS' own notices (its browser save-state slots) go through the
   // same host, so nothing of ours is overwritten by one of theirs.
   const emulator = window.EJS_emulator;
@@ -714,10 +854,8 @@ window.EJS_onGameStart = async () => {
   }
 
   if (props.state) holdBackUntilStateApplied();
-  // The emulator now owns the keyboard: every key, "/" included, belongs to
-  // the game (a DOS prompt typing "mount A / -t floppy" must not reach the
-  // global hotkeys). Callers flag this at launch too, but taking it from the
-  // emulator's own start hook keeps the flag true for any entry point.
+  // While the game runs every key goes to it, "/" included. Set here so every
+  // entry point turns global hotkeys off.
   playing.value = true;
 
   // Install netplay overrides synchronously, before any await below, so they
@@ -802,52 +940,45 @@ window.EJS_onGameStart = async () => {
   });
 
   const exitEmulation = createExitEmulationButton(t("play.quit"));
-  exitEmulation.addEventListener("click", async () => {
-    if (!romRef.value || !window.EJS_emulator) return immediateExit();
-    await flushPendingSave();
-    romsStore.update(romRef.value);
-    immediateExit();
-  });
+  exitEmulation.addEventListener("click", () => void quitAfterFlush());
 
-  const saveAndQuit = createSaveQuitButton(t("play.save-and-quit"));
-  saveAndQuit.addEventListener("click", async () => {
-    uninstallAutoSaveSync();
-    if (!romRef.value || !window.EJS_emulator) return immediateExit();
-
-    // Capture first (EmulatorJS reads the live canvas), then pause: a running
-    // threaded core (SNES, N64) tears the state it serializes.
-    const screenshotFile = await captureScreenshot();
-    window.EJS_emulator.pause();
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const stateFile = window.EJS_emulator.gameManager.getState();
-    // Null for a game without SRAM, which has no save to write at all.
-    const saveFile: Uint8Array | null =
-      window.EJS_emulator.gameManager.getSaveFile();
-
-    // Different endpoints, so both go at once. The save takes the frame just
-    // captured unless the server already holds these bytes with their own.
-    await Promise.all([
-      saveState({
-        rom: romRef.value,
-        stateFile,
-        screenshotFile,
-        deviceId: deviceIDRef.value,
-      }),
-      saveFile?.byteLength
-        ? writeSaveIfChanged({
-            saveFile: toArrayBuffer(saveFile),
-            screenshotFile: saveTracker.isUploaded(saveFile)
-              ? undefined
-              : screenshotFile,
-          })
-        : undefined,
-    ]);
-
-    romsStore.update(romRef.value);
-    immediateExit();
-  });
+  const saveAndQuitButton = createSaveQuitButton(t("play.save-and-quit"));
+  saveAndQuitButton.addEventListener("click", () => void saveAndQuit());
 };
+
+async function quitAfterFlush() {
+  if (!romRef.value || !window.EJS_emulator) return immediateExit();
+  await flushPendingSave();
+  romsStore.update(romRef.value);
+  immediateExit();
+}
+
+async function saveAndQuit() {
+  uninstallAutoSaveSync();
+  if (!romRef.value || !window.EJS_emulator) return immediateExit();
+
+  // Capture first (EmulatorJS reads the live canvas), then pause: a running
+  // threaded core (SNES, N64) tears the state it serializes.
+  const screenshotFile = await captureScreenshot();
+  window.EJS_emulator.pause();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  const stateFile = window.EJS_emulator.gameManager.getState();
+  // Null for a game without SRAM, which has no save to write at all.
+  const saveFile: Uint8Array | null =
+    window.EJS_emulator.gameManager.getSaveFile();
+
+  const { written } = await writeState({
+    slot: AUTO_STATE_SLOT,
+    stateFile,
+    screenshotFile,
+    saveFile,
+  });
+  if (written && saveFile?.byteLength) await forgetPendingSave();
+
+  await refreshingAssets;
+  immediateExit();
+}
 
 function immediateExit() {
   // Play-session recording is owned by the v2 player shell (usePlaySession);
@@ -868,33 +999,9 @@ onUnmounted(() => {
 <template>
   <div id="game" />
   <div v-if="applyingState" class="ejs-state-cover" aria-hidden="true" />
-  <div v-if="rom.ss_metadata?.bezel_path" class="ejs-bezel" aria-hidden="true">
-    <img
-      :src="rom.ss_metadata.bezel_path"
-      alt=""
-      class="ejs-bezel__img"
-      draggable="false"
-      style="height: 100vh; max-height: 100%; width: auto; object-fit: cover"
-    />
-  </div>
 </template>
 
 <style>
-.ejs-bezel {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.ejs-bezel__img {
-  user-select: none;
-}
-
 /* Up until a state has been applied: the core has to render frames for the
    load to take, and they picture a scene the player did not ask for. */
 .ejs-state-cover {

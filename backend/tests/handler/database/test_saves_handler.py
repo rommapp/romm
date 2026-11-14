@@ -299,7 +299,7 @@ class TestDBSavesHandlerPlatformFiltering:
         assert retrieved_save.file_name == "test_save.sav"
 
         # Verify the save is associated with the correct platform through ROM
-        assert retrieved_save.rom.platform_id == platform.id
+        assert retrieved_save.attached_rom.platform_id == platform.id
 
 
 class TestDBSavesHandlerSlotFiltering:
@@ -1376,7 +1376,7 @@ class TestDBSavesHandlerRecordsLostVersions:
         """A second checkout per removal would starve the pool under load."""
         save = self._add(admin_user, rom, "pooled", "autosave", "pooled")
         checked_out: dict[str, int] = {}
-        deleted_assets = saves_handler_module._deleted_assets
+        deleted_assets = db_deleted_asset_handler
         ensure, record = deleted_assets.ensure_record, deleted_assets.record_deletions
 
         def spy(name: str, wrapped: Callable[..., Any]) -> Callable[..., Any]:
@@ -1484,6 +1484,17 @@ def _writes_save_rows(node: ast.Call) -> bool:
     if any(isinstance(arg, ast.Name) and arg.id == "Save" for arg in node.args):
         return True
     return isinstance(func, ast.Attribute) and "query(Save)" in ast.unparse(func.value)
+
+
+def test_new_bytes_leave_the_identity_hash_unknown(admin_user: User, rom: Rom):
+    save = make_save(rom, admin_user, "game.sav", content_hash="old")
+    db_save_handler.update_save(save.id, {"identity_hash": "old-identity"})
+
+    relabelled = db_save_handler.update_save(save.id, {"emulator": "mgba"})
+    rewritten = db_save_handler.update_save(save.id, {"content_hash": "new"})
+
+    assert relabelled.identity_hash == "old-identity"
+    assert rewritten.identity_hash is None
 
 
 def test_only_the_saves_handler_writes_save_rows():

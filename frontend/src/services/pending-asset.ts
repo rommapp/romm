@@ -3,20 +3,16 @@
 import axios from "axios";
 import type { SaveSchema } from "@/__generated__";
 import { isCsrfFailure } from "@/services/api";
-import romApi from "@/services/api/rom";
-import saveApi, {
-  AUTOSAVE_SLOT,
-  sessionSaveFile,
-  sessionScreenshotFile,
-} from "@/services/api/save";
-import stateApi, {
-  sessionStateFiles,
-  sessionStateName,
-} from "@/services/api/state";
+import saveApi from "@/services/api/save";
+import { sessionStateName } from "@/services/api/state";
 import storeAuth from "@/stores/auth";
 import { errorMessage } from "@/utils/errorMessage";
 import { openDb } from "@/utils/idb";
-import { saveContentHash } from "@/utils/saveSync/hash";
+import {
+  heldPushSender,
+  type HeldPush,
+} from "@/utils/saveSync/snapshotSession";
+import { uuidv7 } from "@/utils/uuid";
 
 const DB_NAME = "romm-player";
 const DB_VERSION = 6;
@@ -36,37 +32,25 @@ export interface PendingAsset {
   romId: number;
   /** Named at capture time, so a rom the server no longer has can still be announced. */
   romName: string;
-  /** The rom's file stem, which names the files a retry uploads. */
-  fsNameNoExt?: string;
   cover?: string | null;
-  bytes: ArrayBuffer;
-  screenshotBytes?: ArrayBuffer | undefined;
-  /** Saves only: the slot the session was writing to. */
-  slot?: string | undefined;
-  emulator?: string;
-  /** The device the session was playing on. */
-  deviceId?: string | undefined;
+  /** What the capture wrote, and the channel base it goes on. */
+  held: HeldPush;
   capturedAt: number;
 }
+
+/** A row as the browser returns it; one from before channels holds no push. */
+type StoredAsset = Omit<PendingAsset, "held"> & { held?: HeldPush };
 
 interface HeldKey {
   id: string;
   kind: PendingAssetKind;
   romId: number;
-}
-
-// `crypto.randomUUID` needs a secure context, which plain http on a LAN address
-// is not. The id only has to be unique within a browser.
-export function randomToken(): string {
-  const webCrypto = globalThis.crypto;
-  if (typeof webCrypto?.randomUUID === "function")
-    return webCrypto.randomUUID();
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  capturedAt: number;
 }
 
 /** A key of its own for one capture, so no other can write over it. */
 export function pendingAssetId(romId: number): string {
-  return `${romId}:${randomToken()}`;
+  return `${romId}:${uuidv7()}`;
 }
 
 // The rows are the player's unsynced progress, so an upgrade keeps them: it
@@ -150,20 +134,21 @@ async function heldKeys(
     request.onsuccess = () => {
       const cursor = request.result;
       if (!cursor) return;
-      const [owner, kind, romId] = cursor.key as [
+      const [owner, kind, romId, capturedAt] = cursor.key as [
         number,
         PendingAssetKind,
+        number,
         number,
       ];
       const id = cursor.primaryKey as string;
       if (owner === userId && kinds.includes(kind) && !accepted.has(id)) {
-        held.push({ id, kind, romId });
+        held.push({ id, kind, romId, capturedAt });
       }
       cursor.continue();
     };
     return request;
   });
-  return held;
+  return held.sort((a, b) => a.capturedAt - b.capturedAt);
 }
 
 const pendingAssetStore = {
@@ -194,16 +179,6 @@ export async function pendingAssetKinds(
   return new Set(
     held.filter((row) => row.romId === romId).map((row) => row.kind),
   );
-}
-
-// An older row carries no file stem, so the rom is asked for its own.
-async function uploadTarget(
-  entry: PendingAsset,
-): Promise<{ id: number; fs_name_no_ext: string }> {
-  if (entry.fsNameNoExt) {
-    return { id: entry.romId, fs_name_no_ext: entry.fsNameNoExt };
-  }
-  return (await romApi.getRom({ romId: entry.romId })).data;
 }
 
 // A slot already holding newer progress from another device.
@@ -256,73 +231,6 @@ export async function uploadArchivedSave({
   return uploaded;
 }
 
-function archiveSave(
-  entry: PendingAsset,
-  rom: { id: number; fs_name_no_ext: string },
-): Promise<PromiseSettledResult<SaveSchema> | undefined> {
-  return uploadArchivedSave({
-    rom,
-    emulator: entry.emulator,
-    deviceId: entry.deviceId,
-    capturedAt: new Date(entry.capturedAt),
-    bytes: entry.bytes,
-    screenshotBytes: entry.screenshotBytes,
-  });
-}
-
-async function uploadSave(
-  entry: PendingAsset,
-  rom: { id: number; fs_name_no_ext: string },
-): Promise<{
-  upload?: PromiseSettledResult<unknown> | undefined;
-  archived?: true;
-}> {
-  const slot = entry.slot ?? AUTOSAVE_SLOT;
-  const [uploaded] = await saveApi.uploadSaves({
-    rom,
-    emulator: entry.emulator,
-    deviceId: entry.deviceId,
-    slot,
-    autocleanup: slot === AUTOSAVE_SLOT,
-    // The dedupe is the point: a retry of bytes the server already has must
-    // return that version, not mint another one.
-    overwrite: false,
-    contentHash: saveContentHash(new Uint8Array(entry.bytes)),
-    savesToUpload: [
-      {
-        saveFile: sessionSaveFile(rom, null, entry.bytes),
-        screenshotFile: entry.screenshotBytes
-          ? sessionScreenshotFile(rom, null, entry.screenshotBytes)
-          : undefined,
-      },
-    ],
-  });
-  if (!isSlotConflict(uploaded)) return { upload: uploaded };
-  return { upload: await archiveSave(entry, rom), archived: true };
-}
-
-async function uploadState(
-  entry: PendingAsset,
-  rom: { id: number; fs_name_no_ext: string },
-): Promise<PromiseSettledResult<unknown> | undefined> {
-  // The backend files a state under the row already at that name, so pinning
-  // the name to the capture has a retry update it rather than duplicate it.
-  const [uploaded] = await stateApi.uploadStates({
-    rom,
-    emulator: entry.emulator,
-    deviceId: entry.deviceId,
-    statesToUpload: [
-      sessionStateFiles(
-        rom,
-        new Date(entry.capturedAt),
-        entry.bytes,
-        entry.screenshotBytes,
-      ),
-    ],
-  });
-  return uploaded;
-}
-
 // A server that is failing, a network that is down and an expired session all
 // deserve another pass; anything else the server answers with is its verdict.
 const RETRYABLE_STATUSES = new Set([401, 408, 425, 429]);
@@ -343,7 +251,7 @@ function permanentRefusal(error: unknown): string | null {
 }
 
 // A row the server has answered for, taken or refused, is no longer owed.
-async function settle(entry: PendingAsset): Promise<SyncedAsset> {
+async function settle(entry: StoredAsset): Promise<SyncedAsset> {
   accepted.add(entry.id);
   await pendingAssetStore.clear(entry.id);
   return {
@@ -354,28 +262,22 @@ async function settle(entry: PendingAsset): Promise<SyncedAsset> {
   };
 }
 
+/**
+ * Args:
+ *   send: The pass's sender, which chains pushes held on the same base.
+ */
 async function uploadPendingAsset(
-  entry: PendingAsset,
+  entry: StoredAsset,
+  send: ReturnType<typeof heldPushSender>,
 ): Promise<SyncedAsset | DroppedAsset | null> {
-  if (!entry.bytes?.byteLength) {
+  if (!entry.held) {
     await pendingAssetStore.clear(entry.id);
     return null;
   }
 
   try {
-    const rom = await uploadTarget(entry);
-    const { upload, archived } =
-      entry.kind === "state"
-        ? { upload: await uploadState(entry, rom), archived: undefined }
-        : await uploadSave(entry, rom);
-    if (upload?.status === "fulfilled") {
-      const synced = await settle(entry);
-      return archived ? { ...synced, archived } : synced;
-    }
-    // A refusal is judged in the same place as a request that never landed.
-    throw upload?.status === "rejected"
-      ? upload.reason
-      : new Error("The server returned no upload result");
+    await send(entry.held);
+    return await settle(entry);
   } catch (error) {
     const reason = permanentRefusal(error);
     if (reason) return { ...(await settle(entry)), reason };
@@ -390,8 +292,6 @@ export interface SyncedAsset {
   romId: number;
   name: string;
   cover?: string | null | undefined;
-  /** Kept as a separate save, its slot holding newer progress from another device. */
-  archived?: true;
 }
 
 /** One the server refused for good, and dropped from the browser. */
@@ -420,15 +320,16 @@ export async function syncPendingAssets(
   const synced: SyncedAsset[] = [];
   const dropped: DroppedAsset[] = [];
   const owner = currentUserId();
+  const send = heldPushSender();
   // One row at a time, so a queue of large states is never all in memory.
   for (const { id } of await heldKeys(kinds)) {
     // Signing out mid-pass must not hand the rest to whoever signs in next.
     if (currentUserId() !== owner) break;
-    const entry = await withStore<PendingAsset>("readonly", (store) =>
+    const entry = await withStore<StoredAsset>("readonly", (store) =>
       store.get(id),
     );
     if (!entry || entry.userId !== owner) continue;
-    const outcome = await uploadPendingAsset(entry);
+    const outcome = await uploadPendingAsset(entry, send);
     if (!outcome) continue;
     if ("reason" in outcome) dropped.push(outcome);
     else synced.push(outcome);

@@ -24,6 +24,7 @@ from endpoints.responses.assets import (
     UserScreenshotSchema,
     UserStateSchema,
 )
+from endpoints.responses.snapshots import ChannelSchema, build_channel_schemas
 from handler.metadata.csdb_handler import CsdbMetadata
 from handler.metadata.demozoo_handler import DemozooMetadata
 from handler.metadata.flashpoint_handler import FlashpointMetadata
@@ -38,6 +39,7 @@ from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
 from handler.metadata.steam_handler import SteamMetadata
 from handler.scan.sources import SCAN_CLAIMS_KEY
+from handler.snapshots.legacy import sync_file
 from models.collection import Collection, SmartCollection
 from models.rom import (
     PROVIDER_METADATA_COLUMNS,
@@ -689,6 +691,12 @@ class DetailedRomSchema(RomSchema):
     user_states: list[StateSchema]
     all_user_saves: list[UserSaveSchema]
     all_user_states: list[UserStateSchema]
+    # The caller's own first, then other users' public ones.
+    user_channels: list[ChannelSchema]
+    # The file a new channel on this ROM keys to.
+    channel_file_id: int | None
+    # Channel-filed saves missing here are legacy slot uploads.
+    snapshot_save_ids: list[int]
     user_screenshots: list[ScreenshotSchema]
     all_user_screenshots: list[UserScreenshotSchema]
     user_collections: list[UserCollectionSchema]
@@ -816,6 +824,19 @@ class DetailedRomSchema(RomSchema):
             )
             for s in shared_states
         ]
+
+        from handler.database import db_snapshot_handler
+
+        db_rom.user_channels = build_channel_schemas(  # type: ignore[attr-defined]
+            db_snapshot_handler.get_channels_for_rom(db_rom.id, user_id), request.user
+        )
+        channel_file = sync_file(db_rom.files)
+        db_rom.channel_file_id = channel_file.id if channel_file else None  # type: ignore[attr-defined]
+        db_rom.snapshot_save_ids = sorted(  # type: ignore[attr-defined]
+            db_snapshot_handler.get_held_save_ids(
+                [save.id for save in db_rom.user_saves]  # type: ignore[attr-defined]
+            )
+        )
 
         return cls.model_validate(db_rom)
 

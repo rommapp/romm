@@ -70,6 +70,11 @@ def test_heartbeat(client):
     assert isinstance(heartbeat["CONVERTO"]["ENABLED"], bool)
     assert ".bps" in heartbeat["ROM_PATCHER"]["SUPPORTED_EXTENSIONS"]
 
+    assert heartbeat["SAVE_SYNC"] == {
+        "SNAPSHOT_RETENTION": 10,
+        "SNAPSHOT_BRANCH_LIFETIME_DAYS": 30,
+    }
+
 
 def test_heartbeat_maps_folders_to_builtin_slugs(client):
     with patch(

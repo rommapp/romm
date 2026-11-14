@@ -46,6 +46,7 @@ const SELECTION: LaunchSelection = {
   firmware,
   slot: existingSlot("slot-2"),
   customSlot: "",
+  snapshotId: 30,
 };
 
 const INTENT: LaunchIntent = {
@@ -54,6 +55,7 @@ const INTENT: LaunchIntent = {
   firmwareId: 12,
   slot: existingSlot("slot-2"),
   customSlot: "",
+  snapshotId: 30,
 };
 
 const EMPTY: LaunchSelection = {
@@ -61,6 +63,7 @@ const EMPTY: LaunchSelection = {
   firmware: null,
   slot: { kind: "new" },
   customSlot: "my slot",
+  snapshotId: null,
 };
 
 describe("launchIntentFor", () => {
@@ -81,6 +84,7 @@ describe("launchIntentFor", () => {
       firmwareId: null,
       slot: { kind: "new" },
       customSlot: "my slot",
+      snapshotId: null,
     });
   });
 });
@@ -136,6 +140,7 @@ describe("isLaunchIntent", () => {
     ["nothing", null],
     ["another shape", { core: "snes9x" }],
     ["a string id", { ...INTENT, saveId: "3" }],
+    ["a string snapshot id", { ...INTENT, snapshotId: "30" }],
     ["a bare slot name", { ...INTENT, slot: "slot-2" }],
     ["a missing slot name", { ...INTENT, customSlot: undefined }],
   ])("rejects %s", (_label, value) => {

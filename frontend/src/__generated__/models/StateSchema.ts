@@ -4,6 +4,7 @@
 /* eslint-disable */
 import type { ScreenshotSchema } from './ScreenshotSchema';
 export type StateSchema = {
+    channel_id?: (string | null);
     is_favorite?: boolean;
     labels?: Array<string>;
     id: number;
