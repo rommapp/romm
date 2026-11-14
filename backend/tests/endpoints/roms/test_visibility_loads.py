@@ -3,11 +3,11 @@
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.auth_helpers import bearer, hide
 from tests.factories import make_rom
 
 from handler.database import db_rom_handler
-from handler.database.base_handler import sync_session
-from models.permission import HiddenEntity, PermEntity
+from models.permission import PermEntity
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
@@ -45,10 +45,6 @@ DELETE_ROUTES = {
 }
 
 
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
-
-
 def _rom_lookup(statements: list[str], prefix: str, count: int = 1) -> None:
     """Assert exactly `count` statement prefixes match."""
     flat = [" ".join(statement.split()) for statement in statements]
@@ -70,11 +66,6 @@ def _add_file(rom: Rom, category: RomFileCategory) -> RomFile:
     )
 
 
-def _hide(rom_id: int, user_id: int) -> None:
-    with sync_session.begin() as s:
-        s.add(HiddenEntity(entity=PermEntity.ROMS, entity_id=rom_id, user_id=user_id))
-
-
 def test_props_updates_resolve_the_rom_without_the_related_load(
     client: TestClient,
     access_token: str,
@@ -83,7 +74,7 @@ def test_props_updates_resolve_the_rom_without_the_related_load(
 ) -> None:
     executed_statements.clear()
     response = client.put(
-        f"/api/roms/{rom.id}/props", headers=_auth(access_token), json={"hidden": True}
+        f"/api/roms/{rom.id}/props", headers=bearer(access_token), json={"hidden": True}
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -100,7 +91,7 @@ def test_soundtrack_metadata_resolves_the_rom_without_the_related_load(
 
     executed_statements.clear()
     response = client.get(
-        f"/api/roms/{rom.id}/soundtracks/metadata", headers=_auth(access_token)
+        f"/api/roms/{rom.id}/soundtracks/metadata", headers=bearer(access_token)
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -117,7 +108,7 @@ def test_file_progress_resolves_the_rom_without_the_related_load(
 
     executed_statements.clear()
     response = client.get(
-        f"/api/roms/{rom.id}/files/{manual.id}/progress", headers=_auth(access_token)
+        f"/api/roms/{rom.id}/files/{manual.id}/progress", headers=bearer(access_token)
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -137,7 +128,7 @@ def test_delete_rom_file_resolves_the_rom_without_the_related_load(
     executed_statements.clear()
     response = client.delete(
         DELETE_ROUTES[category].format(rom_id=rom.id, file_id=rom_file.id),
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -154,7 +145,7 @@ def test_delete_game_file_resolves_the_rom_without_the_related_load(
 
     executed_statements.clear()
     response = client.delete(
-        f"/api/roms/{rom.id}/files/{rom_file.id}", headers=_auth(access_token)
+        f"/api/roms/{rom.id}/files/{rom_file.id}", headers=bearer(access_token)
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -177,7 +168,7 @@ def test_bulk_delete_resolves_each_rom_without_the_related_load(
     executed_statements.clear()
     response = client.post(
         "/api/roms/delete",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         json={"roms": [r.id for r in targets], "delete_from_fs": []},
     )
 
@@ -195,11 +186,11 @@ def test_hidden_rom_file_read_resolves_the_rom_without_the_related_load(
     executed_statements: list[str],
 ) -> None:
     rom_file = _add_file(rom, RomFileCategory.GAME)
-    _hide(rom.id, viewer_user.id)
+    hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
 
     executed_statements.clear()
     response = client.get(
-        f"/api/roms/{rom_file.id}/files", headers=_auth(viewer_access_token)
+        f"/api/roms/{rom_file.id}/files", headers=bearer(viewer_access_token)
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -214,12 +205,12 @@ def test_hidden_rom_file_content_resolves_the_rom_without_the_related_load(
     executed_statements: list[str],
 ) -> None:
     rom_file = _add_file(rom, RomFileCategory.GAME)
-    _hide(rom.id, viewer_user.id)
+    hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
 
     executed_statements.clear()
     response = client.get(
         f"/api/roms/{rom_file.id}/files/content/bulk.bin",
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
         follow_redirects=False,
     )
 

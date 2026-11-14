@@ -4,6 +4,7 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from tests.audit_events import recorded_events
+from tests.auth_helpers import bearer
 
 from config.config_manager import config_manager as cm
 from handler.database import (
@@ -16,10 +17,6 @@ from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
-
-
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
 
 
 def _collection(user: User, *, favorite: bool = False) -> Collection:
@@ -40,7 +37,7 @@ class TestRomUpdate:
     ):
         response = client.put(
             f"/api/roms/{rom.id}",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
             data={"name": "Metroid"},
         )
 
@@ -56,7 +53,7 @@ class TestRomUpdate:
     ):
         client.put(
             f"/api/roms/{rom.id}",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
             data={"sgdb_id": "4242"},
         )
 
@@ -69,7 +66,7 @@ class TestRomUpdate:
     ):
         client.put(
             f"/api/roms/{rom.id}",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
             data={"name": "test_rom"},
         )
 
@@ -83,7 +80,7 @@ class TestRomUpdate:
         client.put(
             f"/api/roms/{rom.id}",
             params={"unmatch_metadata": True},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         [event] = recorded_events()
@@ -94,7 +91,7 @@ class TestRomUpdate:
 def test_a_deleted_rom_keeps_its_name(client: TestClient, access_token: str, rom: Rom):
     response = client.post(
         "/api/roms/delete",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         json={"roms": [rom.id]},
     )
 
@@ -114,7 +111,7 @@ def test_a_rom_whose_resources_stay_behind_is_still_deleted(
 
     response = client.post(
         "/api/roms/delete",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         json={"roms": [rom.id]},
     )
 
@@ -132,7 +129,7 @@ def test_a_firmware_file_left_on_disk_is_not_deleted_from_it(
 
     client.post(
         "/api/firmware/delete",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         json={"firmware": [firmware.id], "delete_from_fs": [firmware.id]},
     )
 
@@ -146,7 +143,7 @@ def test_a_platform_rename_is_an_edit(
 ):
     client.put(
         f"/api/platforms/{platform.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         json={"custom_name": "Famicom"},
     )
 
@@ -160,7 +157,7 @@ def test_a_config_change_names_its_setting(client: TestClient, access_token: str
     with patch.object(cm, "add_exclusion"):
         client.post(
             "/api/config/exclude",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
             json={
                 "exclusion_type": "EXCLUDED_SINGLE_FILES",
                 "exclusion_value": "README.txt",
@@ -182,7 +179,7 @@ class TestCollections:
         client.post(
             "/api/collections",
             data={"name": "Shelf"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         [event] = recorded_events()
@@ -197,7 +194,7 @@ class TestCollections:
         client.post(
             f"/api/collections/{collection.id}/roms",
             json={"rom_ids": [rom.id]},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         [event] = recorded_events()
@@ -221,7 +218,7 @@ class TestCollections:
             method.upper(),
             f"/api/collections/{collection.id}/roms",
             json={"rom_ids": [rom.id] if method == "post" else [999999]},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert recorded_events() == []
@@ -241,7 +238,7 @@ class TestCollections:
             method.upper(),
             f"/api/collections/{favorites.id}/roms",
             json={"rom_ids": [rom.id]},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert recorded_events() == []

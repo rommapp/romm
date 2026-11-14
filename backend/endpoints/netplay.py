@@ -3,9 +3,12 @@ from typing import Dict, TypedDict
 from fastapi import Request
 
 from decorators.auth import protected_route
-from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible, can_access, get_permissions
+from handler.auth.dependencies import (
+    can_access,
+    get_permissions,
+    visible_rom_or_404,
+)
 from handler.database import db_rom_handler
 from handler.netplay_handler import NetplayRoom, netplay_handler
 from models.permission import PermAction, PermEntity
@@ -51,11 +54,7 @@ class RoomsResponse(TypedDict):
 
 @protected_route(router.get, "/list", [Scope.ROMS_READ])
 async def get_rooms(request: Request, game_id: int) -> Dict[str, RoomsResponse]:
-    rom = db_rom_handler.get_rom_visibility(game_id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(game_id)
-
-    assert_rom_visible(request, rom)
+    visible_rom_or_404(request, db_rom_handler.get_rom_visibility(game_id), game_id)
 
     # Empty rather than 403, like the streaming joinable list.
     if not can_access(get_permissions(request), PermEntity.EMULATION, PermAction.READ):

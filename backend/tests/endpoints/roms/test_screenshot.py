@@ -3,15 +3,12 @@ from pathlib import Path
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.auth_helpers import bearer
 
 from handler.database import db_rom_handler
 from models.rom import Rom, RomFile, RomFileCategory
 
 PNG_BYTES = b"\x89PNG\r\n\x1a\n fake png payload"
-
-
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture
@@ -33,7 +30,7 @@ def test_upload_screenshot_success(
 ):
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/screenshots",
-        headers={**_auth(access_token), "x-upload-filename": "shot1.png"},
+        headers={**bearer(access_token), "x-upload-filename": "shot1.png"},
         files={"shot1.png": ("shot1.png", PNG_BYTES, "image/png")},
     )
 
@@ -62,7 +59,7 @@ def test_upload_screenshot_upserts_on_reupload(
     for _ in range(2):
         response = client.post(
             f"/api/roms/{game_folder_rom.id}/screenshots",
-            headers={**_auth(access_token), "x-upload-filename": "shot1.png"},
+            headers={**bearer(access_token), "x-upload-filename": "shot1.png"},
             files={"shot1.png": ("shot1.png", PNG_BYTES, "image/png")},
         )
         assert response.status_code == status.HTTP_201_CREATED
@@ -86,7 +83,7 @@ def test_upload_screenshot_rejects_invalid_extension(
 ):
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/screenshots",
-        headers={**_auth(access_token), "x-upload-filename": "notes.txt"},
+        headers={**bearer(access_token), "x-upload-filename": "notes.txt"},
         files={"notes.txt": ("notes.txt", b"not an image", "text/plain")},
     )
 
@@ -116,7 +113,7 @@ def test_delete_screenshot_success(
 
     response = client.delete(
         f"/api/roms/{game_folder_rom.id}/screenshots/{shot.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -143,7 +140,7 @@ def test_delete_screenshot_wrong_rom_returns_404(
 
     response = client.delete(
         f"/api/roms/{rom.id}/screenshots/{shot.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -167,7 +164,7 @@ def test_delete_screenshot_wrong_category_returns_404(
 
     response = client.delete(
         f"/api/roms/{game_folder_rom.id}/screenshots/{not_screenshot.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND

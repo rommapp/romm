@@ -6,6 +6,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from pytest_mock import MockerFixture
 from streaming_form_data import StreamingFormDataParser
+from tests.auth_helpers import bearer
 
 from handler.database import db_rom_handler
 from handler.filesystem import fs_resource_handler
@@ -13,10 +14,6 @@ from models.rom import Rom, RomFile, RomFileCategory
 
 PDF_BYTES = b"%PDF-1.4\n%mock pdf\n%%EOF"
 MD_BYTES = b"# Manual\n\nSome **markdown** content.\n"
-
-
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture
@@ -57,7 +54,7 @@ def test_upload_manual_to_resources_success(
 ):
     response = client.post(
         f"/api/roms/{rom.id}/manuals",
-        headers={**_auth(access_token), "x-upload-filename": "manual.pdf"},
+        headers={**bearer(access_token), "x-upload-filename": "manual.pdf"},
         files={"manual.pdf": ("manual.pdf", PDF_BYTES, "application/pdf")},
     )
 
@@ -79,7 +76,7 @@ def test_upload_markdown_manual_to_resources_preserves_extension(
 ):
     response = client.post(
         f"/api/roms/{rom.id}/manuals",
-        headers={**_auth(access_token), "x-upload-filename": "README.md"},
+        headers={**bearer(access_token), "x-upload-filename": "README.md"},
         files={"README.md": ("README.md", MD_BYTES, "text/markdown")},
     )
 
@@ -100,7 +97,7 @@ def test_upload_manual_to_resources_rejects_unsupported_extension(
 ):
     response = client.post(
         f"/api/roms/{rom.id}/manuals",
-        headers={**_auth(access_token), "x-upload-filename": "manual.exe"},
+        headers={**bearer(access_token), "x-upload-filename": "manual.exe"},
         files={
             "manual.exe": ("manual.exe", b"not allowed", "application/octet-stream")
         },
@@ -122,7 +119,7 @@ def test_upload_manual_to_resources_drops_stale_other_extension(
 
     response = client.post(
         f"/api/roms/{rom.id}/manuals",
-        headers={**_auth(access_token), "x-upload-filename": "README.md"},
+        headers={**bearer(access_token), "x-upload-filename": "README.md"},
         files={"README.md": ("README.md", MD_BYTES, "text/markdown")},
     )
 
@@ -147,7 +144,7 @@ def test_upload_manual_to_resources_failure_keeps_other_extension(
 
     response = client.post(
         f"/api/roms/{rom.id}/manuals",
-        headers={**_auth(access_token), "x-upload-filename": "README.md"},
+        headers={**bearer(access_token), "x-upload-filename": "README.md"},
         files={"README.md": ("README.md", MD_BYTES, "text/markdown")},
     )
 
@@ -163,7 +160,7 @@ def test_upload_manual_to_resources_rom_not_found(
 ):
     response = client.post(
         "/api/roms/999999/manuals",
-        headers={**_auth(access_token), "x-upload-filename": "manual.pdf"},
+        headers={**bearer(access_token), "x-upload-filename": "manual.pdf"},
         files={"manual.pdf": ("manual.pdf", PDF_BYTES, "application/pdf")},
     )
 
@@ -181,7 +178,7 @@ def test_upload_manual_to_folder_success(
 ):
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/manuals/files",
-        headers={**_auth(access_token), "x-upload-filename": "english.pdf"},
+        headers={**bearer(access_token), "x-upload-filename": "english.pdf"},
         files={"english.pdf": ("english.pdf", PDF_BYTES, "application/pdf")},
     )
 
@@ -208,7 +205,7 @@ def test_upload_manual_to_folder_upserts_on_reupload(
     for _ in range(2):
         response = client.post(
             f"/api/roms/{game_folder_rom.id}/manuals/files",
-            headers={**_auth(access_token), "x-upload-filename": "english.pdf"},
+            headers={**bearer(access_token), "x-upload-filename": "english.pdf"},
             files={"english.pdf": ("english.pdf", PDF_BYTES, "application/pdf")},
         )
         assert response.status_code == status.HTTP_201_CREATED
@@ -230,7 +227,7 @@ def test_upload_manual_to_folder_rejects_non_pdf(
 ):
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/manuals/files",
-        headers={**_auth(access_token), "x-upload-filename": "manual.exe"},
+        headers={**bearer(access_token), "x-upload-filename": "manual.exe"},
         files={"manual.exe": ("manual.exe", b"not a pdf", "application/octet-stream")},
     )
 
@@ -248,7 +245,7 @@ def test_redownload_manual_no_url(
 ):
     response = client.post(
         f"/api/roms/{rom.id}/manuals/redownload",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -277,7 +274,7 @@ def test_redownload_manual_success(
 
     response = client.post(
         f"/api/roms/{rom.id}/manuals/redownload",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -304,7 +301,7 @@ def test_delete_manual_no_manual_returns_404(
 
     response = client.delete(
         f"/api/roms/{rom.id}/manuals",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -330,7 +327,7 @@ def test_delete_manual_success(
 
     response = client.delete(
         f"/api/roms/{rom.id}/manuals",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -365,7 +362,7 @@ def test_delete_manual_file_success(
 
     response = client.delete(
         f"/api/roms/{game_folder_rom.id}/manuals/files/{manual_file.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -392,7 +389,7 @@ def test_delete_manual_file_wrong_rom_returns_404(
 
     response = client.delete(
         f"/api/roms/{rom.id}/manuals/files/{manual_file.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -416,7 +413,7 @@ def test_delete_manual_file_wrong_category_returns_404(
 
     response = client.delete(
         f"/api/roms/{game_folder_rom.id}/manuals/files/{not_manual.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -434,7 +431,7 @@ def test_upload_manual_to_resources_forbidden_viewer(
     response = client.post(
         f"/api/roms/{rom.id}/manuals",
         headers={
-            **_auth(viewer_access_token),
+            **bearer(viewer_access_token),
             "x-upload-filename": "manual.pdf",
         },
         files={"manual.pdf": ("manual.pdf", PDF_BYTES, "application/pdf")},
@@ -451,7 +448,7 @@ def test_upload_manual_to_folder_forbidden_viewer(
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/manuals/files",
         headers={
-            **_auth(viewer_access_token),
+            **bearer(viewer_access_token),
             "x-upload-filename": "english.pdf",
         },
         files={"english.pdf": ("english.pdf", PDF_BYTES, "application/pdf")},
@@ -466,7 +463,7 @@ def test_redownload_manual_forbidden_viewer(
 ):
     response = client.post(
         f"/api/roms/{rom.id}/manuals/redownload",
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
 
@@ -489,7 +486,7 @@ def test_delete_manual_file_forbidden_viewer(
 
     response = client.delete(
         f"/api/roms/{game_folder_rom.id}/manuals/files/{manual_file.id}",
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
 
@@ -505,7 +502,7 @@ def test_upload_manual_file_rejects_dotdot_filename(
 ):
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/manuals/files",
-        headers={**_auth(access_token), "x-upload-filename": ".."},
+        headers={**bearer(access_token), "x-upload-filename": ".."},
         files={"..": ("..", PDF_BYTES, "application/pdf")},
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -521,7 +518,7 @@ def test_upload_manual_file_rejects_path_components(
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/manuals/files",
         headers={
-            **_auth(access_token),
+            **bearer(access_token),
             "x-upload-filename": "../../evil.pdf",
         },
         files={"../../evil.pdf": ("evil.pdf", PDF_BYTES, "application/pdf")},
@@ -550,7 +547,7 @@ def test_delete_manual_file_tolerates_missing_disk_file(
 
     response = client.delete(
         f"/api/roms/{game_folder_rom.id}/manuals/files/{manual_file.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK

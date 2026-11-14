@@ -36,7 +36,7 @@ export type { Body_delete_roms_api_roms_delete_post } from './models/Body_delete
 export type { Body_delete_saves_api_saves_delete_post } from './models/Body_delete_saves_api_saves_delete_post';
 export type { Body_delete_states_api_states_delete_post } from './models/Body_delete_states_api_states_delete_post';
 export type { Body_merge_save_into_container_api_saves__id__content_post } from './models/Body_merge_save_into_container_api_saves__id__content_post';
-export type { Body_patch_rom_api_roms__id__patch_post } from './models/Body_patch_rom_api_roms__id__patch_post';
+export type { Body_patch_rom_api_roms__file_id__patch_post } from './models/Body_patch_rom_api_roms__file_id__patch_post';
 export type { Body_refresh_retro_achievements_api_users__id__ra_refresh_post } from './models/Body_refresh_retro_achievements_api_users__id__ra_refresh_post';
 export type { Body_remove_hidden_entity_api_permissions_hidden_delete } from './models/Body_remove_hidden_entity_api_permissions_hidden_delete';
 export type { Body_rename_memory_card_api_memory_cards__id__put } from './models/Body_rename_memory_card_api_memory_cards__id__put';

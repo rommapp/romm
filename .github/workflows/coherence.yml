@@ -1,0 +1,69 @@
+# Adapted from Coherence's ci template, with the install in frontend/.
+# Findings never fail the job; it fails only when Coherence itself did not finish.
+name: Coherence
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: coherence-${{ github.ref }}
+  cancel-in-progress: true
+
+# No telemetry or update check, whatever a config on the runner says.
+env:
+  COHERENCE_TELEMETRY: "0"
+  DO_NOT_TRACK: "1"
+  COHERENCE_NO_UPDATE_CHECK: "1"
+
+jobs:
+  coherence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      # Full history: the spec check confirms each commit a practice cites exists.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Set up the frontend
+        uses: ./.github/actions/setup-frontend
+
+      # Coherence installs in frontend/ but runs from the repository root.
+      # Exit 1 is findings, which the report carries; any other exit is a crash.
+      - name: Spec check
+        run: npx --prefix frontend --no -- coherence spec --check || [ $? -eq 1 ]
+
+      - name: Chokepoints
+        run: npx --prefix frontend --no -- coherence run --form chokepoint --no-server --session "ci-${{ github.run_id }}" --agent ci || [ $? -eq 1 ]
+
+      # Fails the job when the run is missing or a chokepoint could not be checked.
+      - name: Report
+        id: report
+        run: |
+          status=0
+          npx --prefix frontend --no -- coherence ci report --session "ci-${{ github.run_id }}" > "$RUNNER_TEMP/coherence-report.md" || status=$?
+          cat "$RUNNER_TEMP/coherence-report.md" >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      # Updates one comment in place; a fork's read-only token leaves the report in the job summary.
+      - name: Comment
+        if: ${{ !cancelled() && steps.report.outcome != 'skipped' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          body="$RUNNER_TEMP/coherence-report.md"
+          if [ ! -s "$body" ]; then echo "::warning::Coherence wrote no report, so none was posted"; exit 0; fi
+          ids=$(gh api --paginate "repos/$REPO/issues/$PR/comments" --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- coherence-report -->"))) | .id')
+          id=${ids%%$'\n'*}
+          if [ -n "$id" ]; then
+            gh api --method PATCH "repos/$REPO/issues/comments/$id" -F body=@"$body" > /dev/null || echo "::warning::the Coherence report comment could not be updated; the report is in the job summary"
+          else
+            gh api --method POST "repos/$REPO/issues/$PR/comments" -F body=@"$body" > /dev/null || echo "::warning::the Coherence report could not be posted (a pull request from a fork gets a read-only token); the report is in the job summary"
+          fi

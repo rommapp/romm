@@ -12,13 +12,12 @@ from fastapi.responses import Response
 
 from decorators.auth import protected_route
 from endpoints.roms.upload import receive_rom_file
-from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import (
     RomAlreadyExistsException,
     RomListedByPlaylistException,
 )
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
+from handler.auth.dependencies import visible_rom_or_404
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.rom_conversion import assert_promotable, promote_single_file_to_folder
@@ -80,11 +79,7 @@ async def add_rom_walkthrough_file(
 ) -> Response:
     """Upload a walkthrough document into the ROM's own walkthrough/ subfolder."""
 
-    rom = db_rom_handler.get_rom(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(id), id)
 
     rom_file = await receive_rom_file(
         request, rom, CATEGORY_UPLOAD_FOLDERS[RomFileCategory.WALKTHROUGH], filename
@@ -122,11 +117,7 @@ async def add_rom_gamefaqs_walkthrough(
     The remote page is reduced to plain text on ingest; no HTML is persisted.
     """
 
-    rom = db_rom_handler.get_rom(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(id), id)
 
     url = (body.get("url") or "").strip()
     try:
@@ -238,11 +229,7 @@ async def delete_rom_walkthrough_file(
 ) -> Response:
     """Delete a single walkthrough file from a ROM's walkthrough/ subfolder."""
 
-    rom = db_rom_handler.get_rom_visibility_label(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom_visibility_label(id), id)
 
     rom_file = db_rom_handler.get_rom_file_by_id(file_id)
     if (

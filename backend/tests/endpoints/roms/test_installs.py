@@ -1,12 +1,12 @@
 import asyncio
 
 from fastapi import status
+from tests.auth_helpers import hide
 
 from endpoints.responses.device.install import InstallRequestSchema
 from endpoints.roms import installs
-from handler.database.base_handler import sync_session
 from handler.device_install import device_install_handler
-from models.permission import HiddenEntity, PermEntity
+from models.permission import PermEntity
 from models.rom import Rom
 from models.user import User
 
@@ -18,11 +18,6 @@ def _queue(user: User, rom: Rom, device_id: str) -> InstallRequestSchema:
         )
     )
     return request
-
-
-def _hide_rom(rom: Rom, user: User) -> None:
-    with sync_session.begin() as s:
-        s.add(HiddenEntity(entity=PermEntity.ROMS, entity_id=rom.id, user_id=user.id))
 
 
 class TestRomInstalls:
@@ -57,7 +52,7 @@ class TestRomInstalls:
         assert response.json() == []
 
     def test_a_hidden_rom_is_not_found(self, client, editor_headers, editor_user, rom):
-        _hide_rom(rom, editor_user)
+        hide(PermEntity.ROMS, rom.id, user_id=editor_user.id)
 
         response = client.get(f"/api/roms/{rom.id}/installs", headers=editor_headers)
 

@@ -79,6 +79,12 @@ lint:
         - frontend/src/components/**/*.vue
         - frontend/src/console/**/*.vue
         - frontend/src/layouts/**/*.vue
+    # Coherence parses its spec and practice grammar itself; Prettier escapes its
+    # globs and identifiers, and practices take no heading.
+    - linters: [prettier, markdownlint]
+      paths:
+        - "**/*.spec.md"
+        - "**/*.practice.md"
     # Translated strings trip checkov's entropy secret check ("Klient-API-token");
     # trufflehog still scans these files for real secrets.
     - linters: [checkov]

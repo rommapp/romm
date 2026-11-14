@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from tests.auth_helpers import hide
 from tests.factories import make_esrb_rated_rom, make_save
 
 from endpoints.sockets import sync as sync_sockets
@@ -18,11 +19,10 @@ from handler.database import (
     db_sync_session_handler,
     db_user_handler,
 )
-from handler.database.base_handler import sync_session
 from handler.sync.ssh_handler import RemoteSaveInfo
 from models.assets import Save
 from models.device import Device, SyncMode
-from models.permission import HiddenEntity, PermEntity
+from models.permission import PermEntity
 from models.platform import Platform
 from models.rom import Rom
 from models.sync_session import SyncSessionStatus
@@ -1006,18 +1006,11 @@ class TestRomsHiddenFromTheOwner:
         mocker.patch.object(push_pull, "fs_asset_handler")
         return handler
 
-    @staticmethod
-    def _hide(rom: Rom, user: User) -> None:
-        with sync_session.begin() as s:
-            s.add(
-                HiddenEntity(entity=PermEntity.ROMS, entity_id=rom.id, user_id=user.id)
-            )
-
     async def test_a_hidden_roms_save_is_not_pulled(
         self, device: Device, viewer_user: User, rom: Rom, platform: Platform, ssh
     ):
         save = make_save(rom, viewer_user, "hidden.sav", slot="autosave")
-        self._hide(rom, viewer_user)
+        hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
         remote_save = RemoteSaveInfo(
             path=f"/remote/{save.file_name}",
             file_name=save.file_name,
@@ -1041,7 +1034,7 @@ class TestRomsHiddenFromTheOwner:
         self, device: Device, viewer_user: User, rom: Rom, platform: Platform, ssh
     ):
         make_save(rom, viewer_user, "hidden.sav", slot="autosave")
-        self._hide(rom, viewer_user)
+        hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
 
         pushed = await _push_missing_saves(
             device,

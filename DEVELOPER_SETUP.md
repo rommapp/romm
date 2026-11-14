@@ -2,6 +2,8 @@
 
 # Setting up RomM for development
 
+On Windows, develop inside [WSL](https://learn.microsoft.com/windows/wsl/install). The frontend dev dependencies include `@posthog/coherence`, which installs only on Linux and macOS, so `npm install` fails on native Windows.
+
 ## Option 1: Using Docker
 
 If you prefer to use Docker for development, you can set up RomM using the provided Docker Compose configuration. This method simplifies the setup process by encapsulating all dependencies within Docker containers.

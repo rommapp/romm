@@ -139,6 +139,23 @@ def assert_rom_visible(
         raise RomNotFoundInDatabaseException(rom.id)
 
 
+def visible_rom_or_404[R: (Rom, RomVisibility, RomVisibilityLabel, RomInstallTarget)](
+    request: Request, rom: R | None, not_found: int | str
+) -> R:
+    """`rom` when it exists and the caller sees it, else one 404 for both cases.
+
+    Args:
+        not_found: the rom id for the standard not-found, or a bespoke 404 detail.
+    """
+    detail = not_found if isinstance(not_found, str) else None
+    if rom is None:
+        if isinstance(not_found, str):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=not_found)
+        raise RomNotFoundInDatabaseException(not_found)
+    assert_rom_visible(request, rom, not_found_detail=detail)
+    return rom
+
+
 def owned_rom_asset_or_404[A: (Save, State, Screenshot)](
     request: Request, asset: A | None, detail: str
 ) -> A:
@@ -181,6 +198,23 @@ def assert_platform_visible(
         raise PlatformNotFoundInDatabaseException(platform.id)
 
 
+def visible_platform_or_404(
+    request: Request, platform: Platform | None, not_found: int | str
+) -> Platform:
+    """`platform` when it exists and the caller sees it, else one 404 for both cases.
+
+    Args:
+        not_found: the platform id for the standard not-found, or a bespoke 404 detail.
+    """
+    detail = not_found if isinstance(not_found, str) else None
+    if platform is None:
+        if isinstance(not_found, str):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=not_found)
+        raise PlatformNotFoundInDatabaseException(not_found)
+    assert_platform_visible(request, platform, not_found_detail=detail)
+    return platform
+
+
 def assert_firmware_visible(request: Request, firmware: Firmware) -> None:
     """Raise 404 when the firmware's platform is hidden (firmware inherits it)."""
     if request.user.is_authenticated and not get_permissions(request).can_see_platform(
@@ -190,3 +224,16 @@ def assert_firmware_visible(request: Request, firmware: Firmware) -> None:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Firmware with ID {firmware.id} not found",
         )
+
+
+def visible_firmware_or_404(
+    request: Request, firmware: Firmware | None, firmware_id: int
+) -> Firmware:
+    """`firmware` when it exists and the caller sees its platform, else one 404."""
+    if firmware is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Firmware with ID {firmware_id} not found",
+        )
+    assert_firmware_visible(request, firmware)
+    return firmware

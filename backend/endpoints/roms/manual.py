@@ -11,9 +11,8 @@ from streaming_form_data.targets import FileTarget, NullTarget
 
 from decorators.auth import protected_route
 from endpoints.roms.upload import receive_rom_file
-from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
+from handler.auth.dependencies import visible_rom_or_404
 from handler.database import db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.resources_handler import ALLOWED_MANUAL_EXTENSIONS
@@ -52,11 +51,7 @@ async def add_rom_manuals(
 ) -> Response:
     """Upload manuals for a rom."""
 
-    rom = db_rom_handler.get_rom(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(id), id)
 
     if not _is_allowed_manual_file(filename):
         raise HTTPException(
@@ -146,11 +141,7 @@ async def redownload_rom_manual(
 ) -> Response:
     """Re-download a rom's manual from its scraped URL (e.g. screenscraper.fr)."""
 
-    rom = db_rom_handler.get_rom(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(id), id)
 
     if not rom.url_manual:
         raise HTTPException(
@@ -209,11 +200,7 @@ async def add_rom_manual_file(
 ) -> Response:
     """Upload a manual document into the ROM's own manual/ subfolder."""
 
-    rom = db_rom_handler.get_rom(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(id), id)
 
     await receive_rom_file(
         request, rom, CATEGORY_UPLOAD_FOLDERS[RomFileCategory.MANUAL], filename
@@ -235,11 +222,7 @@ async def delete_rom_manual_file(
 ) -> Response:
     """Delete a single manual file from a ROM's manual/ subfolder."""
 
-    rom = db_rom_handler.get_rom_visibility_label(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom_visibility_label(id), id)
 
     rom_file = db_rom_handler.get_rom_file_by_id(file_id)
     if (
@@ -290,11 +273,7 @@ async def delete_rom_manuals(
 ) -> Response:
     """Delete manuals for a rom."""
 
-    rom = db_rom_handler.get_rom(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(id), id)
 
     if not fs_resource_handler.manual_exists(rom):
         raise HTTPException(

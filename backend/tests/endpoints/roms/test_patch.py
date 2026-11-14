@@ -10,24 +10,20 @@ import pytest
 from anyio import Path as AnyioPath
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.auth_helpers import bearer, hide, user_headers
 from tests.rom_patcher_stubs import APPEND_PATCH, install_fake_node
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints.roms import patch as patch_endpoint
 from handler.auth.base_handler import oauth_handler
 from handler.database import db_rom_handler
-from handler.database.base_handler import sync_session
 from handler.filesystem import fs_rom_handler
-from models.permission import HiddenEntity, PermEntity
+from models.permission import PermEntity
 from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
 from utils.nginx import content_disposition
 from utils.rom_patcher import PatcherInputError
 from utils.zip_cache import ensure_zipfile_writable
-
-
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
 
 
 def _patch_file(rom: Rom) -> RomFile:
@@ -68,7 +64,7 @@ def test_patch_rom_passes_archive_member_and_validation_header(
 
     response = client.post(
         f"/api/roms/{rom_file.id}/patch",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         data={
             "patch_file_id": str(patch_file.id),
             "archive_member_name": "roms/game.sfc",
@@ -98,7 +94,7 @@ def test_patch_rom_returns_bad_request_for_invalid_archive(
 
     response = client.post(
         f"/api/roms/{rom_file.id}/patch",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         data={"patch_file_id": str(patch_file.id)},
     )
 
@@ -170,25 +166,6 @@ def _file(
     )
 
 
-def _hide(rom: Rom, user: User) -> None:
-    with sync_session.begin() as session:
-        session.add(
-            HiddenEntity(entity=PermEntity.ROMS, entity_id=rom.id, user_id=user.id)
-        )
-
-
-def _user_auth(user: User) -> dict[str, str]:
-    token = oauth_handler.create_access_token(
-        data={
-            "sub": user.username,
-            "iss": "romm:oauth",
-            "scopes": " ".join(user.oauth_scopes),
-        },
-        expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
-    )
-    return _auth(token)
-
-
 class TestPatchingALibraryFile:
     def test_returns_the_patched_rom(
         self,
@@ -204,7 +181,7 @@ class TestPatchingALibraryFile:
 
         response = client.post(
             f"/api/roms/{game.id}/patch",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
             data={"patch_file_id": str(patch.id)},
         )
 
@@ -231,7 +208,7 @@ class TestPatchingALibraryFile:
 
         response = client.post(
             f"/api/roms/{game.id}/patch",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
             data={"patch_file_id": str(patch.id), "output_file_name": "My Hack.bin"},
         )
 
@@ -258,7 +235,7 @@ class TestPatchingALibraryFile:
 
         response = client.post(
             f"/api/roms/{game.id}/patch",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
             data={"patch_file_id": str(patch.id), "archive_member_name": "game.sfc"},
         )
 
@@ -282,7 +259,7 @@ class TestPatchingWithAnUpload:
 
         response = client.post(
             f"/api/roms/{game.id}/patch",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
             files={"patch_file": ("fix.ips", b"+upload")},
         )
 
@@ -322,7 +299,7 @@ class TestPatchingWithAnUpload:
 
         response = client.post(
             f"/api/roms/{game.id}/patch",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
             files={"patch_file": (name, content)},
         )
 
@@ -347,7 +324,7 @@ class TestRejections:
 
         response = client.post(
             f"/api/roms/{game.id}/patch",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
             data={"patch_file_id": str(patch.id)} if both else {},
             files={"patch_file": ("fix.ips", b"+upload")} if both else None,
         )
@@ -362,7 +339,7 @@ class TestRejections:
     ):
         response = client.post(
             "/api/roms/999999/patch",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
             files={"patch_file": ("fix.ips", b"+upload")},
         )
 
@@ -373,11 +350,11 @@ class TestRejections:
         self, client: TestClient, viewer_user: User, rom: Rom, library: Path
     ):
         game = _file(library, rom, "game.sfc", b"rom")
-        _hide(rom, viewer_user)
+        hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
 
         response = client.post(
             f"/api/roms/{game.id}/patch",
-            headers=_user_auth(viewer_user),
+            headers=user_headers(viewer_user),
             files={"patch_file": ("fix.ips", b"+upload")},
         )
 
@@ -391,7 +368,7 @@ class TestRejections:
 
         response = client.post(
             f"/api/roms/{game.id}/patch",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
             files={"patch_file": ("fix.ips", b"+upload")},
         )
 
@@ -413,7 +390,7 @@ class TestRejections:
 
         response = client.post(
             f"/api/roms/{game.id}/patch",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
             files={"patch_file": ("fix.ips", b"+")},
         )
 
@@ -431,7 +408,7 @@ class TestRejections:
 
         response = client.post(
             f"/api/roms/{game.id}/patch",
-            headers=_auth(token),
+            headers=bearer(token),
             files={"patch_file": ("fix.ips", b"+upload")},
         )
 
@@ -458,7 +435,7 @@ class TestLibraryPatchRejections:
     ):
         game = _file(library, rom, "game.sfc", b"rom")
 
-        response = self._post(client, _auth(access_token), game, 999_999)
+        response = self._post(client, bearer(access_token), game, 999_999)
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert response.json()["detail"] == "Patch file with id 999999 not found"
@@ -477,9 +454,9 @@ class TestLibraryPatchRejections:
         patch = _file(
             library, second_rom, "translation.bps", b"+patch", RomFileCategory.PATCH
         )
-        _hide(second_rom, viewer_user)
+        hide(PermEntity.ROMS, second_rom.id, user_id=viewer_user.id)
 
-        response = self._post(client, _user_auth(viewer_user), game, patch.id)
+        response = self._post(client, user_headers(viewer_user), game, patch.id)
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert response.json()["detail"] == f"Patch file with id {patch.id} not found"
@@ -497,7 +474,7 @@ class TestLibraryPatchRejections:
             missing_from_fs=True,
         )
 
-        response = self._post(client, _auth(access_token), game, patch.id)
+        response = self._post(client, bearer(access_token), game, patch.id)
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert response.json()["detail"] == (
@@ -510,7 +487,7 @@ class TestLibraryPatchRejections:
         game = _file(library, rom, "game.sfc", b"rom")
         manual = _file(library, rom, "manual.pdf", b"%PDF")
 
-        response = self._post(client, _auth(access_token), game, manual.id)
+        response = self._post(client, bearer(access_token), game, manual.id)
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.json()["detail"].startswith("Unsupported patch format '.pdf'")
@@ -527,7 +504,7 @@ class TestLibraryPatchRejections:
         game = _file(library, rom, "game.sfc", b"rom")
         patch = _file(library, rom, "translation.bps", b"+patch", RomFileCategory.PATCH)
 
-        response = self._post(client, _auth(access_token), game, patch.id)
+        response = self._post(client, bearer(access_token), game, patch.id)
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.json()["detail"].startswith("Patch file is too large to patch")
@@ -556,7 +533,7 @@ class TestPatcherFailures:
 
         response = client.post(
             f"/api/roms/{game.id}/patch",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
             files={"patch_file": ("fix.ips", b"+upload")},
         )
 
@@ -582,7 +559,7 @@ class TestPatcherFailures:
 
         response = client.post(
             f"/api/roms/{game.id}/patch",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
             files={"patch_file": ("fix.ips", b"+upload")},
         )
 

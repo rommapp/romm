@@ -10,6 +10,7 @@ from unittest import mock
 import pytest
 from fastapi import status
 from sqlalchemy import update
+from tests.auth_helpers import hide
 from tests.factories import make_device_token, make_save, make_screenshot, make_state
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
@@ -36,7 +37,7 @@ from models.assets import (
 )
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
-from models.permission import HiddenEntity, PermEntity
+from models.permission import PermEntity
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
@@ -44,11 +45,6 @@ from utils import uploads
 from utils.datetime import to_utc
 from utils.uploads import DATETIME_TAG_PATTERN, apply_datetime_tag
 from utils.validation import MAX_ROM_IDS_PER_QUERY
-
-
-def _hide(entity: PermEntity, entity_id: int, user_id: int) -> None:
-    with sync_session.begin() as s:
-        s.add(HiddenEntity(entity=entity, entity_id=entity_id, user_id=user_id))
 
 
 @pytest.fixture
@@ -2988,7 +2984,7 @@ class TestSaveDownload:
         # A public save on a ROM hidden from the caller must stay 404-masked;
         # sharing cannot override the hidden-resource boundary.
         db_save_handler.update_save(save.id, {"is_public": True})
-        _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+        hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
 
         response = client.get(
             f"/api/saves/{save.id}/content",
@@ -3019,7 +3015,7 @@ class TestSaveDownload:
     ):
         # Hiding the parent platform cascades to its saves as well.
         db_save_handler.update_save(save.id, {"is_public": True})
-        _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
+        hide(PermEntity.PLATFORMS, platform.id, user_id=viewer_user.id)
 
         response = client.get(
             f"/api/saves/{save.id}/content",
@@ -4904,7 +4900,7 @@ def test_update_save_rejects_a_screenshot_name_over_255_bytes_before_writing(
 def test_hidden_rom_masks_save_upload(
     mock_write, client, viewer_access_token: str, viewer_user: User, rom: Rom
 ):
-    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
 
     response = client.post(
         f"/api/saves?rom_id={rom.id}",
