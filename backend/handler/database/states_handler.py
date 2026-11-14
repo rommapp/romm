@@ -11,9 +11,7 @@ from models.base import with_file_name_parts
 from models.rom import RomFacets
 
 from .base_handler import DBBaseHandler
-from .snapshots_handler import DBSnapshotsHandler
-
-_snapshots = DBSnapshotsHandler()
+from .snapshots_handler import refresh_backup_digests, release_backup
 
 
 class DBStatesHandler(DBBaseHandler):
@@ -157,7 +155,7 @@ class DBStatesHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
         if "content_hash" in data:
-            _snapshots.refresh_backup_digests(state_id=id, session=session)
+            refresh_backup_digests(session, state_id=id)
         return session.scalars(select(State).filter_by(id=id)).one()
 
     @begin_session
@@ -183,7 +181,7 @@ class DBStatesHandler(DBBaseHandler):
         session: Session = INJECTED_SESSION,
     ) -> None:
         """Delete a state, releasing it from archival snapshots."""
-        _snapshots.release_backup(state_id=id, session=session)
+        release_backup(session, state_id=id)
         session.execute(
             delete(State)
             .where(State.id == id)

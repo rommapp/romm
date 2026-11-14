@@ -192,6 +192,86 @@ def reattach_archival_snapshots(
         _reattach(session, Snapshot.id.in_(ids), rom_id)
 
 
+def _stored_contents(
+    session: Session, snapshots: Sequence[Snapshot]
+) -> dict[int, StoredContent]:
+    """Each snapshot's content rows, in two queries however many there are."""
+    save_ids = {s.save_id for s in snapshots if s.save_id is not None}
+    saves = (
+        {
+            save.id: save
+            for save in session.scalars(select(Save).where(Save.id.in_(save_ids))).all()
+        }
+        if save_ids
+        else {}
+    )
+    contents = {
+        s.id: StoredContent(save=saves.get(s.save_id) if s.save_id else None)
+        for s in snapshots
+    }
+    if not contents:
+        return contents
+    rows = session.execute(
+        select(SnapshotState, State)
+        .join(State, SnapshotState.state_id == State.id)
+        .where(SnapshotState.snapshot_id.in_(contents.keys()))
+    ).all()
+    for entry, state in rows:
+        contents[entry.snapshot_id].states.setdefault(entry.core, {})[
+            entry.slot
+        ] = state
+    return contents
+
+
+def _archival_holding(
+    session: Session, save_id: int | None, state_id: int | None
+) -> Sequence[Snapshot]:
+    query = select(Snapshot).where(Snapshot.kind == SnapshotKind.ARCHIVAL)
+    if save_id is not None:
+        return session.scalars(query.where(Snapshot.save_id == save_id)).all()
+    return session.scalars(
+        query.join(SnapshotState, SnapshotState.snapshot_id == Snapshot.id).where(
+            SnapshotState.state_id == state_id
+        )
+    ).all()
+
+
+def release_backup(
+    session: Session, save_id: int | None = None, state_id: int | None = None
+) -> None:
+    """Take a backup row out of the archival snapshots holding it, so it can be
+    deleted. A snapshot left with nothing is deleted with it."""
+    for snapshot in _archival_holding(session, save_id, state_id):
+        if save_id is not None:
+            snapshot.save_id = None
+        else:
+            session.execute(
+                delete(SnapshotState).where(
+                    SnapshotState.snapshot_id == snapshot.id,
+                    SnapshotState.state_id == state_id,
+                )
+            )
+        session.flush()
+        session.refresh(snapshot)
+        content = _stored_contents(session, [snapshot])[snapshot.id]
+        if content.save is None and not content.states:
+            session.delete(snapshot)
+        else:
+            snapshot.digest = content.resolved().digest
+    session.flush()
+
+
+def refresh_backup_digests(
+    session: Session, save_id: int | None = None, state_id: int | None = None
+) -> None:
+    """Recompute the digest of each archival snapshot holding a backup whose bytes changed."""
+    for snapshot in _archival_holding(session, save_id, state_id):
+        snapshot.digest = (
+            _stored_contents(session, [snapshot])[snapshot.id].resolved().digest
+        )
+    session.flush()
+
+
 def channel_for_slot(
     session: Session, user_id: int, rom_id: int, slot: str, create: bool = True
 ) -> uuid.UUID | None:
@@ -501,34 +581,7 @@ class DBSnapshotsHandler(DBBaseHandler):
     def get_stored_contents(
         self, snapshots: Sequence[Snapshot], session: Session = INJECTED_SESSION
     ) -> dict[int, StoredContent]:
-        """Each snapshot's content rows, in two queries however many there are."""
-        save_ids = {s.save_id for s in snapshots if s.save_id is not None}
-        saves = (
-            {
-                save.id: save
-                for save in session.scalars(
-                    select(Save).where(Save.id.in_(save_ids))
-                ).all()
-            }
-            if save_ids
-            else {}
-        )
-        contents = {
-            s.id: StoredContent(save=saves.get(s.save_id) if s.save_id else None)
-            for s in snapshots
-        }
-        if not contents:
-            return contents
-        rows = session.execute(
-            select(SnapshotState, State)
-            .join(State, SnapshotState.state_id == State.id)
-            .where(SnapshotState.snapshot_id.in_(contents.keys()))
-        ).all()
-        for entry, state in rows:
-            contents[entry.snapshot_id].states.setdefault(entry.core, {})[
-                entry.slot
-            ] = state
-        return contents
+        return _stored_contents(session, snapshots)
 
     @begin_session
     def get_saves_by_hash(
@@ -906,60 +959,6 @@ class DBSnapshotsHandler(DBBaseHandler):
             ).all()
         )
         return {i for i in save_ids if i is not None}, state_ids
-
-    def _archival_holding(
-        self, session: Session, save_id: int | None, state_id: int | None
-    ) -> Sequence[Snapshot]:
-        query = select(Snapshot).where(Snapshot.kind == SnapshotKind.ARCHIVAL)
-        if save_id is not None:
-            return session.scalars(query.where(Snapshot.save_id == save_id)).all()
-        return session.scalars(
-            query.join(SnapshotState, SnapshotState.snapshot_id == Snapshot.id).where(
-                SnapshotState.state_id == state_id
-            )
-        ).all()
-
-    @begin_session
-    def release_backup(
-        self,
-        save_id: int | None = None,
-        state_id: int | None = None,
-        session: Session = INJECTED_SESSION,
-    ) -> None:
-        """Take a backup row out of the archival snapshots holding it, so it can be
-        deleted. A snapshot left with nothing is deleted with it."""
-        for snapshot in self._archival_holding(session, save_id, state_id):
-            if save_id is not None:
-                snapshot.save_id = None
-            else:
-                session.execute(
-                    delete(SnapshotState).where(
-                        SnapshotState.snapshot_id == snapshot.id,
-                        SnapshotState.state_id == state_id,
-                    )
-                )
-            session.flush()
-            session.refresh(snapshot)
-            content = self.get_stored_content(snapshot, session=session)
-            if content.save is None and not content.states:
-                session.delete(snapshot)
-            else:
-                snapshot.digest = content.resolved().digest
-        session.flush()
-
-    @begin_session
-    def refresh_backup_digests(
-        self,
-        save_id: int | None = None,
-        state_id: int | None = None,
-        session: Session = INJECTED_SESSION,
-    ) -> None:
-        """Recompute the digest of each archival snapshot holding a backup whose bytes changed."""
-        for snapshot in self._archival_holding(session, save_id, state_id):
-            snapshot.digest = (
-                self.get_stored_content(snapshot, session=session).resolved().digest
-            )
-        session.flush()
 
     def _delete_snapshots(
         self, session: Session, ids: Sequence[int]
