@@ -318,11 +318,8 @@ _LANGUAGE_BY_PROVIDER_ALIAS = {
     **{code: name for code, name in PROVIDER_LANGUAGES},
 }
 
-# Region shortcodes a filename can also carry, as TOSEC and similar sets write
-# them ("(US)", "(JP)"), and the full country names No-Intro writes
-# ("(Poland)"). Added once both language vocabularies are known, and only for
-# a spelling neither claims: "(De)" is German, and "(Tr)" marks a translation
-# rather than Turkey (issue #3026).
+# Region codes ("(US)") and full country names ("(Poland)") count only when no
+# language claims them: "(De)" is German, "(Tr)" is a translation (#3026).
 _REGION_BY_ALIAS.update(
     {
         code: names[0]
