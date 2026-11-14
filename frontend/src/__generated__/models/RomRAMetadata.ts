@@ -10,6 +10,7 @@ export type RomRAMetadata = {
     publishers?: Array<string>;
     developers?: Array<string>;
     achievements?: Array<RAGameRomAchievement>;
+    num_distinct_players?: (number | null);
     hash_match?: boolean;
 };
 
