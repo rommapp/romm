@@ -259,7 +259,7 @@ TOSEC_COMPOUND_TAG_REGEX = re.compile(r"^[a-z]{2}(?:-[a-z]{2})+$", re.I)
 def _resolve_every(
     parts: Sequence[str], resolve: Callable[[str], str | None]
 ) -> list[str]:
-    """Resolve every part, or none of them when any part names nothing."""
+    """Resolve every part, or return nothing if any part is unrecognized."""
     resolved = [name for part in parts if (name := resolve(part))]
     return resolved if len(resolved) == len(parts) else []
 
