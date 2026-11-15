@@ -216,6 +216,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="r-app-shell">
     <BackgroundArt
+      v-if="!playingStore.stageActive"
       :layer-a="layerA"
       :layer-b="layerB"
       :active-layer="activeLayer"
