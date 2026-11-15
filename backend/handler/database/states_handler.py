@@ -11,6 +11,7 @@ from models.base import with_file_name_parts
 from models.rom import RomFacets
 
 from .base_handler import DBBaseHandler
+from .snapshots_handler import refresh_backup_digests, release_backup
 
 
 class DBStatesHandler(DBBaseHandler):
@@ -44,7 +45,10 @@ class DBStatesHandler(DBBaseHandler):
         *,
         visibility: RomVisibilityFilter,
     ) -> Select[State]:
-        query = select(State).filter_by(user_id=user_id)
+        # A state whose ROM was deleted waits to be reattached; no legacy flow reads it.
+        query = (
+            select(State).filter_by(user_id=user_id).where(State.rom_id.is_not(None))
+        )
 
         # An empty collection is an explicit empty scope, not an absent filter.
         if rom_ids is not None:
@@ -150,6 +154,8 @@ class DBStatesHandler(DBBaseHandler):
             .values(**values)
             .execution_options(synchronize_session="evaluate")
         )
+        if "content_hash" in data:
+            refresh_backup_digests(session, state_id=id)
         return session.scalars(select(State).filter_by(id=id)).one()
 
     @begin_session
@@ -174,6 +180,8 @@ class DBStatesHandler(DBBaseHandler):
         id: int,
         session: Session = INJECTED_SESSION,
     ) -> None:
+        """Delete a state, releasing it from archival snapshots."""
+        release_backup(session, state_id=id)
         session.execute(
             delete(State)
             .where(State.id == id)

@@ -7,13 +7,13 @@ import type {
   NotificationSchema,
 } from "@/__generated__";
 import notificationApi from "@/services/api/notification";
+import { uuidv7 } from "@/utils/uuid";
 
 // Bumped by reset(), so a list requested for the previous user is dropped.
 let generation = 0;
 
-// Marks what this tab sends, so its push stays quiet. Math.random, as
-// crypto.randomUUID needs a secure context and RomM is often served over http.
-const TAB_ID = Math.random().toString(36).slice(2);
+// Marks what this tab sends, so its push stays quiet.
+const TAB_ID = uuidv7();
 
 // No ids stands for every notification, as it does in the API.
 type NotificationIds = NotificationIdsPayload["ids"];

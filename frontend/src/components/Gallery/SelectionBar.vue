@@ -598,7 +598,7 @@ function clear() {
   left: 50%;
   bottom: max(24px, var(--r-safe-b));
   transform: translateX(-50%);
-  /* Above the bottom tab bar (z 100) so the multi-select bar floats over
+  /* Above the bottom tab bar (z 99) so the multi-select bar floats over
      it on mobile instead of being painted behind it; still below dialogs
      (z 2400) so a confirm opened from a selection covers it. */
   z-index: 101;

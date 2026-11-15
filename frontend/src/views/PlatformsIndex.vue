@@ -44,7 +44,7 @@ import { useLoadingPhase } from "@/composables/useLoadingPhase";
 import { usePlatformPlayableChecker } from "@/composables/usePlatformPlayable";
 import { useRouteQueryParam } from "@/composables/useRouteQueryParam";
 import { useTileSearchUrl } from "@/composables/useTileSearchUrl";
-import { RDivider, REmptyState, RLetterHeading, RSkeletonBlock } from "@/lib";
+import { REmptyState, RLetterHeading, RSkeletonBlock } from "@/lib";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import {
   type FacetOption,
@@ -473,11 +473,19 @@ const noResults = computed(
     allPlatforms.value.length > 0 &&
     filtered.value.length === 0,
 );
-const noResultsMessage = computed(() => {
-  if (hasFacetSelection.value) return t("platform.no-platforms-filters");
-  return searchTerm.value.trim()
-    ? t("platform.no-platforms-search", { query: searchTerm.value })
-    : t("platform.no-platforms-with-games");
+const noResultsMessage = computed<{ title: string; hint?: string }>(() => {
+  if (hasFacetSelection.value) {
+    return { title: t("platform.no-platforms-filters") };
+  }
+  if (searchTerm.value.trim()) {
+    return {
+      title: t("platform.no-platforms-search", { query: searchTerm.value }),
+    };
+  }
+  return {
+    title: t("platform.no-platforms-with-games"),
+    hint: t("platform.no-platforms-with-games-hint"),
+  };
 });
 
 // Generic bucket: every grouping computed produces the same shape so
@@ -635,7 +643,6 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
   >
     <template #header>
       <PageHeader :title="t('common.platforms')" :count="totalCount" />
-      <RDivider class="r-pidx__header-divider" />
     </template>
 
     <template #toolbar>
@@ -705,12 +712,14 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
         v-else-if="phase === 'empty'"
         icon="mdi-gamepad-variant-outline"
         :title="t('platform.no-platforms-empty')"
+        :hint="t('platform.no-platforms-empty-hint')"
       />
 
       <REmptyState
         v-else-if="noResults"
         icon="mdi-magnify-close"
-        :title="noResultsMessage"
+        :title="noResultsMessage.title"
+        :hint="noResultsMessage.hint"
       />
 
       <!-- List mode: IndexShell renders the rows with the header. -->
@@ -766,12 +775,6 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
 </template>
 
 <style scoped>
-/* Mirror the gallery shell's header→toolbar separator so the visual
-   rhythm matches Search / Platform / Collection ROM views. */
-.r-pidx__header-divider {
-  margin-bottom: 16px;
-}
-
 .r-pidx__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));

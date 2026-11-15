@@ -54,6 +54,8 @@ def test_heartbeat(client):
     assert isinstance(emulation["DISABLE_JSDOS"], bool)
     assert isinstance(emulation["DISABLE_PICO8"], bool)
     assert isinstance(emulation["DISABLE_EASYRPG"], bool)
+    assert emulation["EJS_CORES"]["psx"] == ["pcsx_rearmed", "mednafen_psx_hw"]
+    assert "azahar" in emulation["EJS_NIGHTLY_CORES"]["3ds"]
 
     assert "FRONTEND" in heartbeat
     frontend = heartbeat["FRONTEND"]
@@ -66,6 +68,12 @@ def test_heartbeat(client):
     assert isinstance(oidc["RP_INITIATED_LOGOUT"], bool)
 
     assert isinstance(heartbeat["CONVERTO"]["ENABLED"], bool)
+    assert ".bps" in heartbeat["ROM_PATCHER"]["SUPPORTED_EXTENSIONS"]
+
+    assert heartbeat["SAVE_SYNC"] == {
+        "SNAPSHOT_RETENTION": 10,
+        "SNAPSHOT_BRANCH_LIFETIME_DAYS": 30,
+    }
 
 
 def test_heartbeat_maps_folders_to_builtin_slugs(client):

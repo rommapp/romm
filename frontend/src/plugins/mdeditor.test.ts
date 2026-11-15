@@ -5,7 +5,8 @@ import { describe, expect, it, vi } from "vitest";
 
 async function render(markdown: string): Promise<HTMLElement> {
   const wrapper = mount(MdPreview, {
-    props: { id: "mdeditor-test", modelValue: markdown },
+    // Skip image zoom: its debounced document lookup can outlive the test environment.
+    props: { id: "mdeditor-test", modelValue: markdown, noImgZoomIn: true },
     attachTo: document.body,
   });
   await vi.waitFor(() => {

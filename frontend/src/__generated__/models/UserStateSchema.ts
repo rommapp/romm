@@ -8,6 +8,7 @@ import type { ScreenshotSchema } from './ScreenshotSchema';
  * Community) view. Mirrors UserScreenshotSchema.
  */
 export type UserStateSchema = {
+    channel_id?: (string | null);
     is_favorite?: boolean;
     labels?: Array<string>;
     id: number;
@@ -28,6 +29,7 @@ export type UserStateSchema = {
     core?: (string | null);
     is_public?: boolean;
     screenshot: (ScreenshotSchema | null);
+    origin_device_id?: (string | null);
     username: string;
     user_avatar_path?: string;
     user_updated_at?: (string | null);

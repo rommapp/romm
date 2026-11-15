@@ -23,7 +23,7 @@ dependencies = [
   "bcrypt ~= 5.0",
   "certifi >= 2026.10.19",
   "colorama ~= 0.4",
-  "croniter ~= 6.2",
+  "croniter ~= 7.0",
   "cryptography>=49,<51",
   "defusedxml ~= 0.7",
   "fastapi[standard-no-fastapi-cloud-cli] ~=0.162.0",
@@ -145,9 +145,9 @@ package = false
 # A range, so Dependabot's bundled uv passes; docker/Dockerfile and ./Dockerfile pin the exact version.
 required-version = ">=0.13.4,<0.14"
 exclude-newer = "7 days"
-# Security fixes newer than the cooldown: certifi 2026.10.19 (eMudhra distrust), pillow 13.0.0
-# (GHSA-8g5g-8vmr-9782). Drop each once it ages past the cooldown.
-exclude-newer-package = { certifi = false, pillow = false }
+# Exempt from the cooldown: certifi 2026.10.19 (eMudhra distrust), pillow 13.0.0
+# (GHSA-8g5g-8vmr-9782), croniter 7.0.0. Drop each once it ages past the cooldown.
+exclude-newer-package = { certifi = false, croniter = false, pillow = false }
 
 [tool.ty.environment]
 root = ["./backend"]

@@ -56,6 +56,7 @@ import {
   type ListSortKey,
 } from "@/components/Gallery/listColumns";
 import { GameCard, GameCardSkeleton } from "@/components/GameCard";
+import PageHeadBand from "@/components/shared/PageHeadBand.vue";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import { coverRatio, isBoxartStyle } from "@/composables/useCoverArt";
 import { useCssLength } from "@/composables/useCssLength";
@@ -83,7 +84,7 @@ import {
 import { useUISettings } from "@/composables/useUISettings";
 import { useVirtualScrollDebug } from "@/composables/useVirtualScrollDebug";
 import { useWebpSupport } from "@/composables/useWebpSupport";
-import { RDivider, REmptyState, RLetterHeading, RVirtualScroller } from "@/lib";
+import { REmptyState, RLetterHeading, RVirtualScroller } from "@/lib";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryRoms, {
   DEFAULT_ORDER_BY,
@@ -143,8 +144,8 @@ const props = withDefaults(defineProps<Props>(), {
 defineSlots<{
   /** View-specific header (InfoPanel / PageHeader / etc). Rendered in
    * the scroller's `#prepend` slot, so it scrolls naturally with the rest
-   * of the content. Must NOT carry a divider of its own; the shell
-   * paints the single divider at the bottom of the prepend band. */
+   * of the content. Must NOT carry a divider of its own; the shell sets it
+   * in a PageHeadBand, which paints the divider. */
   header(): unknown;
 }>();
 
@@ -1038,12 +1039,13 @@ defineExpose({
            scroller's flow: the header scrolls away under the top bar, and
            the toolbar pins right below the top bar as a glass strip. -->
       <template #prepend>
-        <template v-if="hasHeader">
-          <div class="r-shell__header">
-            <slot name="header" />
-          </div>
-          <RDivider class="r-shell__header-divider" />
-        </template>
+        <PageHeadBand
+          v-if="hasHeader"
+          class="r-shell__header"
+          :followed-by="toolbarPosition === 'header' ? 'toolbar' : 'content'"
+        >
+          <slot name="header" />
+        </PageHeadBand>
         <div v-else class="r-shell__nav-spacer" />
 
         <template v-if="toolbarPosition === 'header'">
@@ -1386,21 +1388,14 @@ html[data-bp~="md-and-up"] .r-shell__list-header {
   width: 100%;
 }
 
-/* Header band: `display: flow-root` establishes a new block-formatting
-   context so child margins don't collapse out visually. */
+/* The scroller starts under the top bar, so the band clears it. */
 .r-shell__header {
-  display: flow-root;
-  padding-top: calc(var(--r-nav-h) + 32px);
+  --r-page-head-band-offset: var(--r-nav-h);
 }
 /* Without a header this clears the top bar instead; the scroller's padding
    can't, as it would also offset the sticky toolbar. */
 .r-shell__nav-spacer {
   height: var(--r-nav-h);
-}
-
-/* Divider between header and toolbar; scrolls away with the header. */
-.r-shell__header-divider {
-  margin-bottom: 16px;
 }
 
 /* Flow-packed wrapping row: same-height, natural-width cards. The packer
@@ -1441,21 +1436,19 @@ html[data-bp~="md-and-up"] .r-shell__list-header {
   padding: var(--r-space-6) 0;
 }
 
-/* Only the rows share their width with the strip column; the header, the
-   divider and the toolbar run to the right edge over it. */
+/* Only the rows share their width with the strip column; the header band
+   and the toolbar run to the right edge over it. */
 .r-shell__header,
-.r-shell__header-divider,
 .r-shell__toolbar {
   margin-right: calc(-1 * var(--r-shell-strip));
 }
 
 /* When the list scrolls horizontally (columns wider than the viewport), the
-   page chrome (view header, divider and in-flow toolbar) belongs to the
+   page chrome (header band and in-flow toolbar) belongs to the
    page, not the table, so pin them to the left (`left: 0`). They stay in place
    while only the column header and rows scroll sideways. `left` engages only
    while the scroller has horizontal overflow, i.e. in list mode. */
 .r-shell--list .r-shell__header,
-.r-shell--list .r-shell__header-divider,
 .r-shell--list .r-shell__toolbar {
   position: sticky;
   left: 0;
@@ -1562,9 +1555,6 @@ html[data-bp~="sm-and-down"] .r-shell__scroller::after {
   content: "";
   display: block;
   height: calc(var(--r-bottom-nav-h) + var(--r-safe-b) + 24px);
-}
-html[data-bp~="xs"] .r-shell__header {
-  padding-top: calc(var(--r-nav-h) + 16px);
 }
 html[data-bp~="xs"] .r-shell__row {
   gap: 12px;

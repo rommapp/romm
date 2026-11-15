@@ -7,9 +7,14 @@ from unittest import mock
 import pytest
 from fastapi import status
 from sqlalchemy import select
+from tests.auth_helpers import bearer, hide
 from tests.factories import make_save, make_screenshot, make_state
 
-from handler.database import db_screenshot_handler, db_state_handler
+from handler.database import (
+    db_device_handler,
+    db_screenshot_handler,
+    db_state_handler,
+)
 from handler.database.base_handler import sync_session
 from models.assets import (
     ASSET_LABEL_MAX_LENGTH,
@@ -19,21 +24,13 @@ from models.assets import (
     Screenshot,
     State,
 )
-from models.permission import HiddenEntity, PermEntity
+from models.device import Device
+from models.permission import PermEntity
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
 from utils import uploads
 from utils.validation import MAX_ROM_IDS_PER_QUERY
-
-
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
-
-
-def _hide(entity: PermEntity, entity_id: int, user_id: int) -> None:
-    with sync_session.begin() as s:
-        s.add(HiddenEntity(entity=entity, entity_id=entity_id, user_id=user_id))
 
 
 @mock.patch("endpoints.states.fs_asset_handler.validate_path")
@@ -45,7 +42,7 @@ def test_owner_downloads_own_state(
     mock_validate_path.return_value = test_file
 
     response = client.get(
-        f"/api/states/{state.id}/content", headers=_auth(access_token)
+        f"/api/states/{state.id}/content", headers=bearer(access_token)
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.content == b"STATE_DATA"
@@ -55,7 +52,7 @@ def test_other_user_cannot_download_private_state(
     client, viewer_access_token: str, state: State
 ):
     response = client.get(
-        f"/api/states/{state.id}/content", headers=_auth(viewer_access_token)
+        f"/api/states/{state.id}/content", headers=bearer(viewer_access_token)
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -70,7 +67,7 @@ def test_other_user_downloads_public_state(
     mock_validate_path.return_value = test_file
 
     response = client.get(
-        f"/api/states/{state.id}/content", headers=_auth(viewer_access_token)
+        f"/api/states/{state.id}/content", headers=bearer(viewer_access_token)
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.content == b"SHARED_STATE"
@@ -82,10 +79,21 @@ def test_hidden_rom_masks_public_state_download(
     # A public state on a ROM hidden from the caller must stay 404-masked;
     # sharing cannot override the hidden-resource boundary.
     db_state_handler.update_state(state.id, {"is_public": True})
-    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
 
     response = client.get(
-        f"/api/states/{state.id}/content", headers=_auth(viewer_access_token)
+        f"/api/states/{state.id}/content", headers=bearer(viewer_access_token)
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_another_users_detached_public_state_is_not_served(
+    client, viewer_access_token: str, state: State
+):
+    db_state_handler.update_state(state.id, {"is_public": True, "rom_id": None})
+
+    response = client.get(
+        f"/api/states/{state.id}/content", headers=bearer(viewer_access_token)
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -99,16 +107,16 @@ def test_hidden_platform_masks_public_state_download(
 ):
     # Hiding the parent platform cascades to its states as well.
     db_state_handler.update_state(state.id, {"is_public": True})
-    _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
+    hide(PermEntity.PLATFORMS, platform.id, user_id=viewer_user.id)
 
     response = client.get(
-        f"/api/states/{state.id}/content", headers=_auth(viewer_access_token)
+        f"/api/states/{state.id}/content", headers=bearer(viewer_access_token)
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_download_state_not_found(client, access_token: str):
-    response = client.get("/api/states/99999/content", headers=_auth(access_token))
+    response = client.get("/api/states/99999/content", headers=bearer(access_token))
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
@@ -127,7 +135,7 @@ def test_sharing_state_syncs_thumbnail_visibility(
     response = client.put(
         f"/api/states/{state.id}/visibility",
         json={"is_public": True},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["is_public"] is True
@@ -154,7 +162,7 @@ def test_add_state_rejects_oversized_uploads(
         response = client.post(
             f"/api/states?rom_id={rom.id}",
             files=files,
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
     assert response.status_code == status.HTTP_413_CONTENT_TOO_LARGE
@@ -173,7 +181,7 @@ def test_add_state_rejects_emulator_that_is_not_one_folder(
         "/api/states",
         params={"rom_id": rom.id, "emulator": emulator},
         files={"stateFile": ("game.state", b"STATE!", "application/octet-stream")},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -185,7 +193,7 @@ def test_add_state_rejects_overlong_emulator(client, access_token: str, rom: Rom
         "/api/states",
         params={"rom_id": rom.id, "emulator": "e" * (EMULATOR_MAX_LENGTH + 1)},
         files={"stateFile": ("game.state", b"STATE!", "application/octet-stream")},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -205,12 +213,12 @@ def test_hidden_rom_masks_state_upload(
 ):
     # Uploading onto a ROM hidden from the caller is 404-masked the same way
     # downloading from one is, and nothing reaches disk.
-    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
 
     response = client.post(
         f"/api/states?rom_id={rom.id}",
         files={"stateFile": ("game.state", b"STATE!", "application/octet-stream")},
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -231,12 +239,12 @@ def test_hidden_platform_masks_state_upload(
     platform: Platform,
 ):
     # Hiding the parent platform cascades to uploads against its ROMs.
-    _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
+    hide(PermEntity.PLATFORMS, platform.id, user_id=viewer_user.id)
 
     response = client.post(
         f"/api/states?rom_id={rom.id}",
         files={"stateFile": ("game.state", b"STATE!", "application/octet-stream")},
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -287,7 +295,7 @@ def test_reupload_updates_file_path_and_emulator(
     response = client.post(
         f"/api/states?rom_id={rom.id}&emulator=new_emu",
         files={"stateFile": ("game.state", b"NEW STATE", "application/octet-stream")},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -336,7 +344,7 @@ def test_kiosk_mode_lets_logged_in_user_upload_state(
         response = client.post(
             f"/api/states?rom_id={rom.id}",
             files={"stateFile": ("game.state", b"STATE!", "application/octet-stream")},
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
 
     assert response.status_code == status.HTTP_200_OK
@@ -359,7 +367,7 @@ class TestRomIdsScope:
         self, client, access_token: str, rom: Rom, state: State, second_state: State
     ):
         response = client.get(
-            f"/api/states?rom_ids={rom.id}", headers=_auth(access_token)
+            f"/api/states?rom_ids={rom.id}", headers=bearer(access_token)
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -376,7 +384,7 @@ class TestRomIdsScope:
     ):
         response = client.get(
             f"/api/states?rom_ids={rom.id}&rom_ids={second_rom.id}",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -387,7 +395,7 @@ class TestRomIdsScope:
     ):
         response = client.get(
             f"/api/states?rom_ids={rom.id}&rom_ids={rom.id}",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -396,7 +404,7 @@ class TestRomIdsScope:
     def test_omitted_returns_all_states(
         self, client, access_token: str, state: State, second_state: State
     ):
-        response = client.get("/api/states", headers=_auth(access_token))
+        response = client.get("/api/states", headers=bearer(access_token))
 
         assert response.status_code == status.HTTP_200_OK
         assert {item["id"] for item in response.json()} == {state.id, second_state.id}
@@ -412,7 +420,7 @@ class TestRomIdsScope:
     ):
         response = client.get(
             f"/api/states?rom_id={rom.id}&rom_ids={second_rom.id}",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -420,14 +428,14 @@ class TestRomIdsScope:
 
     def test_rejects_non_integer_ids(self, client, access_token: str):
         response = client.get(
-            "/api/states?rom_ids=1&rom_ids=abc", headers=_auth(access_token)
+            "/api/states?rom_ids=1&rom_ids=abc", headers=bearer(access_token)
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_rejects_non_positive_ids(self, client, access_token: str):
         response = client.get(
-            "/api/states?rom_ids=1&rom_ids=0", headers=_auth(access_token)
+            "/api/states?rom_ids=1&rom_ids=0", headers=bearer(access_token)
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -435,7 +443,7 @@ class TestRomIdsScope:
     def test_rejects_scope_over_the_limit(self, client, access_token: str):
         rom_ids = "&".join(f"rom_ids={i}" for i in range(1, MAX_ROM_IDS_PER_QUERY + 2))
 
-        response = client.get(f"/api/states?{rom_ids}", headers=_auth(access_token))
+        response = client.get(f"/api/states?{rom_ids}", headers=bearer(access_token))
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
@@ -456,7 +464,7 @@ def test_delete_state_removes_file_and_screenshot(
     response = client.post(
         "/api/states/delete",
         json={"states": [state.id]},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -489,7 +497,7 @@ class TestStateDeleteThumbnail:
 
     def _delete(self, client, token: str, state_id: int):
         return client.post(
-            "/api/states/delete", json={"states": [state_id]}, headers=_auth(token)
+            "/api/states/delete", json={"states": [state_id]}, headers=bearer(token)
         )
 
     def test_a_thumbnail_a_save_still_shows_stays(
@@ -565,7 +573,7 @@ class TestStateFavoritesAndLabels:
         response = client.put(
             f"/api/states/{state.id}/favorite",
             json={"is_favorite": True},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["is_favorite"] is True
@@ -573,7 +581,7 @@ class TestStateFavoritesAndLabels:
         response = client.put(
             f"/api/states/{state.id}/favorite",
             json={"is_favorite": False},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["is_favorite"] is False
@@ -587,7 +595,7 @@ class TestStateFavoritesAndLabels:
         response = client.put(
             f"/api/states/{state.id}/labels",
             json={"labels": ["100% run", "before the boss"]},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["labels"] == ["100% run", "before the boss"]
@@ -602,13 +610,13 @@ class TestStateFavoritesAndLabels:
         client.put(
             f"/api/states/{state.id}/labels",
             json={"labels": ["100% run", "seed 42"]},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         response = client.put(
             f"/api/states/{state.id}/labels",
             json={"labels": ["speedrun"]},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["labels"] == ["speedrun"]
@@ -616,7 +624,7 @@ class TestStateFavoritesAndLabels:
         response = client.put(
             f"/api/states/{state.id}/labels",
             json={"labels": []},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["labels"] == []
@@ -630,7 +638,7 @@ class TestStateFavoritesAndLabels:
         response = client.put(
             f"/api/states/{state.id}/labels",
             json={"labels": ["  100% run  ", "   ", "", "seed 42"]},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["labels"] == ["100% run", "seed 42"]
@@ -644,7 +652,7 @@ class TestStateFavoritesAndLabels:
         response = client.put(
             f"/api/states/{state.id}/labels",
             json={"labels": ["Run", "run", "RUN", "Seed"]},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         assert response.status_code == status.HTTP_200_OK
         # The first spelling wins, and the order the client sent survives.
@@ -659,13 +667,13 @@ class TestStateFavoritesAndLabels:
         client.put(
             f"/api/states/{state.id}/labels",
             json={"labels": ["seed 42"]},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         response = client.put(
             f"/api/states/{state.id}/labels",
             json={"labels": ["ok", "x" * (ASSET_LABEL_MAX_LENGTH + 1)]},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
@@ -679,13 +687,13 @@ class TestStateFavoritesAndLabels:
         client.put(
             f"/api/states/{state.id}/labels",
             json={"labels": ["seed 42"]},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         response = client.put(
             f"/api/states/{state.id}/labels",
             json={"labels": [f"run {i}" for i in range(ASSET_LABELS_MAX + 1)]},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
@@ -707,17 +715,17 @@ class TestStateFavoritesAndLabels:
         client.put(
             f"/api/states/{state.id}/favorite",
             json={"is_favorite": True},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         client.put(
             f"/api/states/{state.id}/labels",
             json={"labels": ["seed 42"]},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         client.put(
             f"/api/states/{state.id}/visibility",
             json={"is_public": True},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         # Annotating is not a write to the state's bytes, and the lists order
@@ -735,7 +743,7 @@ class TestStateFavoritesAndLabels:
         response = client.put(
             f"/api/states/{state.id}/favorite",
             json={"is_favorite": True},
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -748,13 +756,13 @@ class TestStateFavoritesAndLabels:
         client.put(
             f"/api/states/{state.id}/labels",
             json={"labels": ["mine"]},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         response = client.put(
             f"/api/states/{state.id}/labels",
             json={"labels": ["not mine"]},
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -767,7 +775,7 @@ class TestStateFavoritesAndLabels:
         response = client.put(
             "/api/states/99999/favorite",
             json={"is_favorite": True},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -777,7 +785,7 @@ class TestStateFavoritesAndLabels:
         response = client.put(
             "/api/states/99999/labels",
             json={"labels": ["ghost"]},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -839,7 +847,7 @@ class TestStateRename:
         return client.put(
             f"/api/states/{state_id}/file-name",
             json={"file_name": file_name},
-            headers=_auth(token),
+            headers=bearer(token),
         )
 
     def test_renaming_moves_the_file_and_its_screenshot(
@@ -1134,7 +1142,7 @@ def test_upload_state_over_255_bytes_rejected(client, access_token: str, rom: Ro
         files={
             "stateFile": ("あ" * 86 + ".state", b"state", "application/octet-stream")
         },
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
@@ -1152,7 +1160,7 @@ def test_add_state_rejects_a_screenshot_name_over_255_bytes_before_storing(
             "stateFile": ("game.state", b"STATE!", "application/octet-stream"),
             "screenshotFile": ("あ" * 86 + ".png", b"png", "image/png"),
         },
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -1172,7 +1180,7 @@ def test_update_state_rejects_a_screenshot_name_over_255_bytes_before_writing(
             "stateFile": (state.file_name, b"STATE!", "application/octet-stream"),
             "screenshotFile": ("あ" * 86 + ".png", b"png", "image/png"),
         },
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -1191,10 +1199,97 @@ def test_update_state_records_the_new_bytes_hash(
     response = client.put(
         f"/api/states/{state.id}",
         files={"stateFile": (state.file_name, b"STATE!", "application/octet-stream")},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
     updated = db_state_handler.get_state_by_id(state.id)
     assert updated is not None
     assert updated.content_hash == "a" * 32
+
+
+class TestStateOriginDevice:
+    @pytest.fixture
+    def device(self, admin_user: User) -> Device:
+        return db_device_handler.add_device(
+            Device(id="state-origin-device", user_id=admin_user.id, name="Browser")
+        )
+
+    @mock.patch(
+        "handler.asset_store.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("handler.asset_store.scan_state", new_callable=mock.AsyncMock)
+    def test_upload_records_the_device(
+        self,
+        mock_scan,
+        _mock_write,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        device: Device,
+    ):
+        mock_scan.return_value = State(
+            file_name="game.state",
+            file_name_no_tags="game",
+            file_name_no_ext="game",
+            file_extension="state",
+            file_path=f"{platform.slug}/states",
+            file_size_bytes=6,
+        )
+
+        response = client.post(
+            f"/api/states?rom_id={rom.id}&device_id={device.id}",
+            files={"stateFile": ("game.state", b"STATE!", "application/octet-stream")},
+            headers=bearer(access_token),
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["origin_device_id"] == device.id
+
+    def test_upload_naming_another_users_device_is_refused(
+        self, client, access_token: str, rom: Rom, editor_user: User
+    ):
+        other = db_device_handler.add_device(
+            Device(id="someone-elses", user_id=editor_user.id, name="Theirs")
+        )
+
+        response = client.post(
+            f"/api/states?rom_id={rom.id}&device_id={other.id}",
+            files={"stateFile": ("game.state", b"STATE!", "application/octet-stream")},
+            headers=bearer(access_token),
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    @pytest.mark.parametrize("names_device", [True, False])
+    @mock.patch(
+        "endpoints.states.fs_asset_handler.compute_content_hash",
+        new_callable=mock.AsyncMock,
+        return_value="a" * 32,
+    )
+    @mock.patch(
+        "endpoints.states.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    def test_new_content_takes_the_writers_device(
+        self,
+        _mock_write,
+        _mock_hash,
+        client,
+        access_token: str,
+        state: State,
+        device: Device,
+        names_device: bool,
+    ):
+        db_state_handler.update_state(state.id, {"origin_device_id": device.id})
+        query = f"?device_id={device.id}" if names_device else ""
+
+        response = client.put(
+            f"/api/states/{state.id}{query}",
+            files={"stateFile": (state.file_name, b"NEW", "application/octet-stream")},
+            headers=bearer(access_token),
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        expected = device.id if names_device else None
+        assert response.json()["origin_device_id"] == expected

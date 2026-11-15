@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from tests.auth_helpers import hide
 from tests.factories import make_esrb_rated_rom, make_save
 
 from endpoints.sockets import sync as sync_sockets
@@ -18,11 +19,10 @@ from handler.database import (
     db_sync_session_handler,
     db_user_handler,
 )
-from handler.database.base_handler import sync_session
 from handler.sync.ssh_handler import RemoteSaveInfo
 from models.assets import Save
 from models.device import Device, SyncMode
-from models.permission import HiddenEntity, PermEntity
+from models.permission import PermEntity
 from models.platform import Platform
 from models.rom import Rom
 from models.sync_session import SyncSessionStatus
@@ -254,7 +254,7 @@ class TestNullSlotLeakInProcessRemoteSave:
             save.id, {"updated_at": datetime(2020, 1, 1, tzinfo=timezone.utc)}
         )
         db_deleted_asset_handler.record_deletion(
-            admin_user.id, save.rom_id, save.slot, "removed_here"
+            admin_user.id, save.attached_rom_id, save.slot, "removed_here"
         )
         remote_save = RemoteSaveInfo(
             path=f"/remote/{platform.fs_slug}/{save.file_name}",
@@ -554,6 +554,45 @@ class TestBaselineInProcessRemoteSave:
         assert sync is not None
         assert sync.last_sync_hash == "remote_now"
         assert sync.last_sync_server_hash == "remote_now"
+
+    async def test_a_newer_remote_copy_of_a_held_save_is_a_conflict(
+        self,
+        device: Device,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+        local_save_file: str,
+    ):
+        self._save(admin_user, rom, platform, "server_old")
+
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler") as mock_handler,
+            patch("tasks.sync_push_pull_task.compare_save_state") as mock_cmp,
+            patch("tasks.sync_push_pull_task.fs_asset_handler") as mock_assets,
+            patch(
+                "handler.database.db_snapshot_handler.get_frozen_save_ids",
+                return_value={1},
+            ),
+            patch(
+                "endpoints.sockets.sync.emit_sync_conflict", new_callable=AsyncMock
+            ) as emit_conflict,
+        ):
+            mock_assets.write_file = AsyncMock()
+            mock_handler.return_value = self._ssh(local_save_file, "remote_now")
+            mock_cmp.return_value = MagicMock(action="upload", reason=None)
+            outcome = await _process_remote_save(
+                device,
+                conn=MagicMock(),
+                remote_save=self._remote(platform),
+                session_id=1,
+                visibility=UNRESTRICTED,
+            )
+
+        assert outcome == "conflict"
+        mock_assets.write_file.assert_not_called()
+        assert emit_conflict.call_args.kwargs["reason"] == (
+            "the save belongs to a sync channel"
+        )
 
     async def test_download_records_the_pushed_file_as_both_halves(
         self,
@@ -967,18 +1006,11 @@ class TestRomsHiddenFromTheOwner:
         mocker.patch.object(push_pull, "fs_asset_handler")
         return handler
 
-    @staticmethod
-    def _hide(rom: Rom, user: User) -> None:
-        with sync_session.begin() as s:
-            s.add(
-                HiddenEntity(entity=PermEntity.ROMS, entity_id=rom.id, user_id=user.id)
-            )
-
     async def test_a_hidden_roms_save_is_not_pulled(
         self, device: Device, viewer_user: User, rom: Rom, platform: Platform, ssh
     ):
         save = make_save(rom, viewer_user, "hidden.sav", slot="autosave")
-        self._hide(rom, viewer_user)
+        hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
         remote_save = RemoteSaveInfo(
             path=f"/remote/{save.file_name}",
             file_name=save.file_name,
@@ -1002,7 +1034,7 @@ class TestRomsHiddenFromTheOwner:
         self, device: Device, viewer_user: User, rom: Rom, platform: Platform, ssh
     ):
         make_save(rom, viewer_user, "hidden.sav", slot="autosave")
-        self._hide(rom, viewer_user)
+        hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
 
         pushed = await _push_missing_saves(
             device,

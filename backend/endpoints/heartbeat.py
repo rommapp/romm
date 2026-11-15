@@ -33,6 +33,8 @@ from config import (
     SCHEDULED_RESCAN_CRON,
     SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
+    SNAPSHOT_BRANCH_LIFETIME_DAYS,
+    SNAPSHOT_RETENTION,
     YOUTUBE_BASE_URL,
 )
 from config.config_manager import config_manager as cm
@@ -72,12 +74,14 @@ from handler.redis_handler import sync_cache
 from handler.scan.sources import MetadataSource
 from logger.logger import log
 from utils import get_git_branch, get_version
+from utils.emulatorjs_cores import EJS_CORES_BY_PLATFORM, EJS_NIGHTLY_CORES_BY_PLATFORM
 from utils.platform_aliases import (
     resolve_builtin_platform_slug,
     resolve_platform_slug,
 )
 from utils.platforms import get_supported_platforms
 from utils.rate_limit import enforce_rate_limit, get_client_ip
+from utils.rom_patcher import SUPPORTED_PATCH_EXTENSIONS
 from utils.router import APIRouter
 
 # The endpoint is unauthenticated, and every probe passes through the provider's
@@ -184,6 +188,8 @@ async def heartbeat() -> HeartbeatResponse:
             "DISABLE_JSDOS": DISABLE_JSDOS,
             "DISABLE_PICO8": DISABLE_PICO8,
             "DISABLE_EASYRPG": DISABLE_EASYRPG,
+            "EJS_CORES": EJS_CORES_BY_PLATFORM,
+            "EJS_NIGHTLY_CORES": EJS_NIGHTLY_CORES_BY_PLATFORM,
         },
         "FRONTEND": {
             "DISABLE_USERPASS_LOGIN": DISABLE_USERPASS_LOGIN,
@@ -205,6 +211,11 @@ async def heartbeat() -> HeartbeatResponse:
             "EXCLUDED_PLATFORM_SLUGS": sorted(DEVICE_INSTALL_EXCLUDED_PLATFORM_SLUGS),
         },
         "CONVERTO": {"ENABLED": await rom_converto_service.is_enabled()},
+        "SAVE_SYNC": {
+            "SNAPSHOT_RETENTION": SNAPSHOT_RETENTION,
+            "SNAPSHOT_BRANCH_LIFETIME_DAYS": SNAPSHOT_BRANCH_LIFETIME_DAYS,
+        },
+        "ROM_PATCHER": {"SUPPORTED_EXTENSIONS": sorted(SUPPORTED_PATCH_EXTENSIONS)},
         "TASKS": {
             "ENABLE_SCHEDULED_RESCAN": ENABLE_SCHEDULED_RESCAN,
             "SCHEDULED_RESCAN_CRON": SCHEDULED_RESCAN_CRON,

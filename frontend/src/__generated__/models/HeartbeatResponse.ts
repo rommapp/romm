@@ -10,6 +10,8 @@ import type { FrontendDict } from './FrontendDict';
 import type { MetadataSourcesDict } from './MetadataSourcesDict';
 import type { NotificationsDict } from './NotificationsDict';
 import type { OIDCDict } from './OIDCDict';
+import type { RomPatcherDict } from './RomPatcherDict';
+import type { SaveSyncDict } from './SaveSyncDict';
 import type { SystemDict } from './SystemDict';
 import type { TasksDict } from './TasksDict';
 export type HeartbeatResponse = {
@@ -22,6 +24,8 @@ export type HeartbeatResponse = {
     NOTIFICATIONS: NotificationsDict;
     DEVICE_INSTALL: DeviceInstallDict;
     CONVERTO: ConvertoDict;
+    SAVE_SYNC: SaveSyncDict;
+    ROM_PATCHER: RomPatcherDict;
     TASKS: TasksDict;
 };
 

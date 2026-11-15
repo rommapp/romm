@@ -124,7 +124,10 @@ class TestPlaySessionIngest:
             enqueue.assert_not_called()
         else:
             enqueue.assert_called_once()
-            assert enqueue.call_args.kwargs["kwargs"] == {"user_id": admin_user.id}
+            assert enqueue.call_args.kwargs["kwargs"] == {
+                "user_id": admin_user.id,
+                "refresh_all": False,
+            }
             assert enqueue.call_args.kwargs["unique"] is True
 
     def test_a_queued_progress_sync_is_not_queued_twice(

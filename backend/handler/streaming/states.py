@@ -36,6 +36,7 @@ from handler.asset_store import release_thumbnail, store_screenshot, store_state
 from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
     db_rom_handler,
+    db_snapshot_handler,
     db_state_handler,
     db_user_handler,
 )
@@ -45,8 +46,10 @@ from handler.streaming.config import ResolvedContainer
 from handler.streaming.session_store import set_session_disc
 from handler.sync.retroarch.emulator_names import retroarch_aliases
 from handler.sync.retroarch.sync_handler import (
+    disc_names,
     emulator_from_dir_name,
     group_states_by_slot,
+    state_game_name,
 )
 from logger.logger import log
 from models.assets import EMULATOR_MAX_LENGTH, State
@@ -291,7 +294,7 @@ def fetch_state_screenshot(container: ResolvedContainer, slot: int) -> bytes | N
 
 
 async def store_state_screenshot(
-    user: User, rom: Rom, state_filename: str, image: bytes
+    user: User, rom: Rom, state_filename: str, image: bytes, is_public: bool = False
 ) -> None:
     """Bind a thumbnail to a state so the resume picker shows the right frame.
 
@@ -310,6 +313,7 @@ async def store_state_screenshot(
         rom,
         image,
         sanitize_filename(f"{os.path.splitext(state_filename)[0]}.png"),
+        is_public=is_public,
     )
 
 
@@ -558,15 +562,20 @@ async def prune_state_history(
         if history is not None
         else user_states_for_emulator(user.id, rom.id, emulator)
     )
+    # A state a channel snapshot holds belongs to that channel's retention.
+    frozen = db_snapshot_handler.get_frozen_state_ids([s.id for s in states])
+    states = [s for s in states if s.id not in frozen]
     stale = states[limit:]
     if stale:
+        rom_states = db_state_handler.get_states(
+            user_id=user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
+        discs = disc_names(
+            (rom, state_game_name(state.file_name)) for state in rom_states
+        )
         served = {
             state.id
-            for state in group_states_by_slot(
-                db_state_handler.get_states(
-                    user_id=user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
-                )
-            ).values()
+            for state in group_states_by_slot(rom_states, discs).values()
             if not state.missing_from_fs
         }
         stale = [state for state in stale if state.id not in served]
@@ -647,7 +656,9 @@ async def store_state_asset(
     # Best-effort: a missing or unreadable screenshot must not fail the sync.
     if screenshot is not None:
         try:
-            await store_state_screenshot(user, rom, stamped, screenshot)
+            await store_state_screenshot(
+                user, rom, stamped, screenshot, is_public=stored.is_public
+            )
         except Exception:
             log.exception("failed to store state screenshot for %s", stamped)
 

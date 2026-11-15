@@ -9,6 +9,7 @@ import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import SettingsSection from "@/components/Settings/SettingsSection.vue";
 import { useSnackbar } from "@/composables/useSnackbar";
+import { useSocketEvent } from "@/composables/useSocketEvent";
 import { RBtn, RTag, RTextField } from "@/lib";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
@@ -28,6 +29,15 @@ watch(
     username.value = next ?? "";
   },
 );
+
+// The sync runs as a background job, so its outcome arrives over the socket.
+useSocketEvent<{ ok: boolean }>("ra:synced", ({ ok }) => {
+  if (ok) {
+    void auth.fetchCurrentUser();
+  } else {
+    snackbar.error(t("settings.ra-sync-failed"), { icon: "mdi-close-circle" });
+  }
+});
 
 const linkedUsername = computed(() => auth.user?.ra_username ?? "");
 const isLinked = computed(() => linkedUsername.value.length > 0);

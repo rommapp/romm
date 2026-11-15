@@ -37,7 +37,7 @@ _UPLOAD_CHUNK_SIZE = 1024 * 1024
 
 @protected_route(
     router.post,
-    "/{id}/patch",
+    "/{file_id}/patch",
     [Scope.ROMS_READ],
     responses={
         status.HTTP_400_BAD_REQUEST: {},
@@ -47,7 +47,9 @@ _UPLOAD_CHUNK_SIZE = 1024 * 1024
 )
 async def patch_rom(
     request: Request,
-    id: Annotated[int, PathVar(description="ROM file ID (the base game file).", ge=1)],
+    file_id: Annotated[
+        int, PathVar(description="ROM file ID (the base game file).", ge=1)
+    ],
     patch_file_id: Annotated[
         int | None,
         Form(description="ID of a library patch file (RomFile) to apply."),
@@ -89,18 +91,18 @@ async def patch_rom(
 
     perms = get_permissions(request)
 
-    rom_file = db_rom_handler.get_rom_file_by_id(id)
+    rom_file = db_rom_handler.get_rom_file_by_id(file_id)
     if not rom_file:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"ROM file with id {id} not found",
+            detail=f"ROM file with id {file_id} not found",
         )
     # 404-mask file bytes of roms hidden from the caller.
     base_rom = db_rom_handler.get_rom(rom_file.rom_id)
     if not base_rom or not perms.can_see_rom(base_rom):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"ROM file with id {id} not found",
+            detail=f"ROM file with id {file_id} not found",
         )
     if rom_file.missing_from_fs:
         raise HTTPException(

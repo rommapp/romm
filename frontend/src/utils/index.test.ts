@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Config } from "@/stores/config";
 import type { Heartbeat } from "@/stores/heartbeat";
+import { ejsCoresFixture } from "./ejsCores.fixtures";
 import {
   getSupportedEJSCores,
   isArcadeSystem,
@@ -24,6 +25,7 @@ function makeHeartbeat(
       DISABLE_JSDOS: false,
       DISABLE_PICO8: false,
       DISABLE_EASYRPG: false,
+      ...ejsCoresFixture(),
       ...emulation,
     },
   } as Heartbeat;
@@ -166,23 +168,32 @@ describe("EasyRPG support", () => {
   });
 });
 
-describe("arcade platforms", () => {
-  it("offers each emulator family the cores that run its sets", () => {
-    expect(getSupportedEJSCores("mame")).toEqual(["mame2003_plus", "mame2003"]);
-    expect(getSupportedEJSCores("fbneo")).toEqual(["fbneo"]);
-    expect(getSupportedEJSCores("fba")).toEqual([
-      "fbneo",
-      "fbalpha2012_cps1",
-      "fbalpha2012_cps2",
+describe("getSupportedEJSCores", () => {
+  const maps = ejsCoresFixture();
+
+  it("reads the platform's cores from the served map, in any case", () => {
+    expect(getSupportedEJSCores("PSX", maps)).toEqual([
+      "pcsx_rearmed",
+      "mednafen_psx_hw",
     ]);
-    expect(getSupportedEJSCores("arcade")).toContain("fbneo");
   });
 
-  it("offers no core for a board EmulatorJS can't run", () => {
-    expect(getSupportedEJSCores("naomi")).toEqual([]);
-    expect(getSupportedEJSCores("mame-advmame")).toEqual([]);
+  it("layers the nightly cores on when netplay is on", () => {
+    expect(getSupportedEJSCores("snes", maps)).toEqual(["snes9x"]);
+    expect(getSupportedEJSCores("snes", maps, true)).toEqual([
+      "snes9x",
+      "bsnes",
+    ]);
+    expect(getSupportedEJSCores("3ds", maps)).toEqual([]);
+    expect(getSupportedEJSCores("3ds", maps, true)).toEqual(["azahar"]);
   });
 
+  it("offers no core for a platform the map leaves out", () => {
+    expect(getSupportedEJSCores("naomi", maps)).toEqual([]);
+  });
+});
+
+describe("arcade platforms", () => {
   it("treats every arcade board as arcade hardware", () => {
     expect(isArcadeSystem("naomi")).toBe(true);
     expect(isArcadeSystem("model2")).toBe(true);

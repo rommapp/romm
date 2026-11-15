@@ -90,7 +90,12 @@ def build_search_payload(search_term: str, platform_name: str) -> dict[str, Any]
         "searchOptions": {
             "games": {
                 "userId": 0,
-                "platform": platform_name,
+                # HowLongToBeat ignores a platform sent as a bare name; its site sends
+                # this filter. An empty list searches every platform.
+                "platform": {
+                    "mode": "include",
+                    "values": [platform_name] if platform_name else [],
+                },
                 "sortCategory": "popular",
                 "rangeCategory": "main",
                 "rangeTime": {"min": None, "max": None},

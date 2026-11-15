@@ -13,6 +13,7 @@ import {
   onNativeLaunchState,
 } from "@/services/native";
 import storeConfig from "@/stores/config";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
 import type {
   LaunchState,
@@ -50,6 +51,7 @@ export interface NativeLaunchChoice {
  *  and are never cached beyond the session: they describe the user's machine. */
 export const useNativeStore = defineStore("native", () => {
   const configStore = storeConfig();
+  const heartbeatStore = storeHeartbeat();
 
   /** Whether the page is running inside the shell at all. */
   const available = ref(isNativeShell());
@@ -220,6 +222,7 @@ export const useNativeStore = defineStore("native", () => {
         platformSlug: slug,
         cores: getSupportedEJSCores(
           resolvePlatformSlug(slug, configStore.config),
+          heartbeatStore.value.EMULATION,
         ),
       })),
     );
@@ -242,6 +245,7 @@ export const useNativeStore = defineStore("native", () => {
   function coresFor(rom: SimpleRom, chosen?: string | null): string[] {
     const supported = getSupportedEJSCores(
       resolvePlatformSlug(rom.platform_slug, configStore.config),
+      heartbeatStore.value.EMULATION,
     );
     if (!chosen) return supported;
     return [chosen, ...supported.filter((core) => core !== chosen)];

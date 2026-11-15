@@ -4,12 +4,13 @@ does, user by user."""
 from collections.abc import Iterator
 
 import pytest
+from tests.auth_helpers import hide
 from tests.factories import make_esrb_rated_rom, make_rom
 
 from handler.auth.permissions import resolve_permissions
 from handler.database import db_permission_handler, db_rom_handler, db_user_handler
 from handler.database.base_handler import sync_session
-from models.permission import HiddenEntity, PermEntity, PermissionGroup
+from models.permission import PermEntity, PermissionGroup
 from models.platform import Platform
 from models.rom import Rom, RomVisibility
 from models.user import Role, User
@@ -59,21 +60,6 @@ def _user(name: str, **fields: object) -> User:
     )
 
 
-def _hide(
-    entity: PermEntity,
-    entity_id: int,
-    *,
-    user_id: int | None = None,
-    group_id: int | None = None,
-) -> None:
-    with sync_session.begin() as session:
-        session.add(
-            HiddenEntity(
-                entity=entity, entity_id=entity_id, user_id=user_id, group_id=group_id
-            )
-        )
-
-
 def _visibility(rom: Rom) -> RomVisibility:
     visibility = db_rom_handler.get_rom_visibility(rom.id)
     assert visibility is not None
@@ -109,8 +95,8 @@ def test_matches_the_resolver_for_every_user_and_rom(
     teen = _group("Teen", age_limit=12)
     hides_platform = _group("No platform", age_limit=12)
     strict = _group("Strict", hide_unrated=True)
-    _hide(PermEntity.ROMS, rated.id, group_id=hides_rom)
-    _hide(PermEntity.PLATFORMS, platform.id, group_id=hides_platform)
+    hide(PermEntity.ROMS, rated.id, group_id=hides_rom)
+    hide(PermEntity.PLATFORMS, platform.id, group_id=hides_platform)
 
     _user("defaulted")
     _user("older_than_default", age_limit=18)
@@ -123,9 +109,9 @@ def test_matches_the_resolver_for_every_user_and_rom(
     _user("unrated_hidden_alone", hide_unrated_roms=True)
     _user("disabled", enabled=False)
     own_hides = _user("own_hides")
-    _hide(PermEntity.ROMS, unrated.id, user_id=own_hides.id)
-    _hide(PermEntity.PLATFORMS, elsewhere.platform_id, user_id=own_hides.id)
-    _hide(PermEntity.ROMS, rated.id, user_id=admin_user.id)
+    hide(PermEntity.ROMS, unrated.id, user_id=own_hides.id)
+    hide(PermEntity.PLATFORMS, elsewhere.platform_id, user_id=own_hides.id)
+    hide(PermEntity.ROMS, rated.id, user_id=admin_user.id)
 
     for rom in roms:
         visibility = _visibility(rom)
@@ -139,12 +125,12 @@ def test_user_visibilities_match_the_resolver(
 ):
     rated, unrated, _mature, elsewhere = roms
     strict = _group("Strict", hide_unrated=True)
-    _hide(PermEntity.ROMS, rated.id, group_id=strict)
-    _hide(PermEntity.PLATFORMS, platform.id, group_id=strict)
+    hide(PermEntity.ROMS, rated.id, group_id=strict)
+    hide(PermEntity.PLATFORMS, platform.id, group_id=strict)
     in_strict = _user("in_strict", permission_group_id=strict)
     own_hides = _user("own_hides", age_limit=18)
-    _hide(PermEntity.ROMS, unrated.id, user_id=own_hides.id)
-    _hide(PermEntity.PLATFORMS, elsewhere.platform_id, user_id=own_hides.id)
+    hide(PermEntity.ROMS, unrated.id, user_id=own_hides.id)
+    hide(PermEntity.PLATFORMS, elsewhere.platform_id, user_id=own_hides.id)
     _user("disabled", enabled=False)
 
     users = [admin_user, in_strict, own_hides, _user("defaulted")]

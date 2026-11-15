@@ -10,7 +10,9 @@
 // shell paints the divider between hero and toolbar so the three
 // gallery views (Platform / Collection / Search) share one separator
 // regardless of which header sits above it.
+import { ref } from "vue";
 import { useAnimatedNumber } from "@/composables/useAnimatedNumber";
+import { useCollapsingTitle } from "@/composables/useNavTitle";
 import { RTag } from "@/lib";
 
 defineOptions({ inheritAttrs: false });
@@ -26,13 +28,15 @@ const props = withDefaults(
 // A numeric count rolls up to its value; a string one (a range, a label) is
 // printed as it comes.
 const countText = useAnimatedNumber(() => props.count);
+const headingEl = ref<HTMLElement | null>(null);
+useCollapsingTitle(headingEl, () => props.title);
 </script>
 
 <template>
   <header v-bind="$attrs" class="page-header">
     <div class="page-header__title-wrap">
       <slot name="prepend" />
-      <h1 class="page-header__title">
+      <h1 ref="headingEl" class="page-header__title">
         {{ title }}
       </h1>
       <slot name="count">

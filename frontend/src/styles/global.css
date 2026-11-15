@@ -340,6 +340,17 @@ html.r-reduced-motion {
   --r-glass-bar-bg: var(--r-color-bg);
   --r-glass-bar-filter: none;
 }
+/* An iOS browser tab (WebKit-only property, not an installed app) fills the
+   status-bar strip with a flat copy of the top bar's colour, so it's solid. */
+@supports (-webkit-touch-callout: none) {
+  @media (display-mode: browser) {
+    .r-app {
+      --r-glass-bar-bg: var(--r-color-bg);
+      --r-glass-bar-filter: none;
+      --r-nav-bar-solid-bg: var(--r-color-bg);
+    }
+  }
+}
 
 /* Toolbar pinned under the top bar (usePinnedToolbar). Once `--pinned`, its
    glass also covers the top bar, which drops its own: one surface. */

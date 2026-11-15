@@ -18,9 +18,9 @@ from handler.audit_handler import (
 from handler.auth.constants import Scope
 from handler.auth.dependencies import (
     assert_can,
-    assert_firmware_visible,
-    assert_platform_visible,
     get_permissions,
+    visible_firmware_or_404,
+    visible_platform_or_404,
 )
 from handler.database import db_firmware_handler, db_platform_handler
 from handler.filesystem import fs_firmware_handler
@@ -59,17 +59,11 @@ async def add_firmware(
         AddFirmwareResponse: Standard message response
     """
 
-    db_platform = db_platform_handler.get_platform(platform_id)
-    if not db_platform:
-        error = f"Platform with ID {platform_id} not found"
-        log.error(error)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-
     # Platform-hide cascades to firmware; 404-mask uploads to hidden platforms.
-    assert_platform_visible(
+    db_platform = visible_platform_or_404(
         request,
-        db_platform,
-        not_found_detail=f"Platform with ID {platform_id} not found",
+        db_platform_handler.get_platform(platform_id),
+        f"Platform with ID {platform_id} not found",
     )
 
     # write_file stores each upload under its sanitized basename, so the lookup,
@@ -213,13 +207,9 @@ def get_firmware(request: Request, id: int) -> FirmwareSchema:
     Returns:
         FirmwareSchema: Firmware stored in the database
     """
-    firmware = db_firmware_handler.get_firmware(id)
-    if not firmware:
-        error = f"Firmware with ID {id} not found"
-        log.error(error)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-
-    assert_firmware_visible(request, firmware)
+    firmware = visible_firmware_or_404(
+        request, db_firmware_handler.get_firmware(id), id
+    )
 
     return FirmwareSchema.model_validate(firmware)
 
@@ -235,13 +225,9 @@ def _resolve_firmware_content(request: Request, id: int) -> tuple[Firmware, Path
         tuple[Firmware, Path]: The firmware row and its absolute path on disk
     """
 
-    firmware = db_firmware_handler.get_firmware(id)
-    if not firmware:
-        error = f"Firmware with ID {id} not found"
-        log.error(error)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-
-    assert_firmware_visible(request, firmware)
+    firmware = visible_firmware_or_404(
+        request, db_firmware_handler.get_firmware(id), id
+    )
 
     firmware_path = fs_firmware_handler.validate_path(firmware.full_path)
     # A row can outlive its file: the scan marks it missing, or it was moved

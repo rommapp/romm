@@ -1,7 +1,7 @@
 import { isAxiosError } from "axios";
 import Bowser from "bowser";
 import syncApi from "@/services/api/sync";
-import { randomToken } from "@/services/pending-asset";
+import { uuidv7 } from "@/utils/uuid";
 
 // One id per browser profile, sent as the device's hostname so registering
 // again finds the same device instead of adding one.
@@ -29,7 +29,7 @@ function writeStorage(key: string, value: string) {
 function browserId(): string {
   const stored = readStorage(BROWSER_ID_KEY);
   if (stored) return stored;
-  const id = randomToken();
+  const id = uuidv7();
   writeStorage(BROWSER_ID_KEY, id);
   return id;
 }
