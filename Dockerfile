@@ -125,18 +125,18 @@ ADD --checksum=sha256:${RUFFLE_SHA256} \
     /downloads/ruffle.zip
 RUN 7zz x -y /downloads/ruffle.zip -o/emulators/ruffle
 
-ARG JSDOS_VERSION=8.4.1
-ARG JSDOS_SHA256=26118692bbb180aec78ec1697eb1ea6b28ff410101870cfa3e68309914c7eaa6
+ARG JSDOS_VERSION=8.5.4
+ARG JSDOS_SHA256=6cd8a379556ada7da8a6a49d3ba2fde1783ce3e481c1cd645e13ebc83419a5b8
 
 ADD --checksum=sha256:${JSDOS_SHA256} \
     "https://github.com/caiiiycuk/js-dos/releases/download/v${JSDOS_VERSION}/release.zip" \
     /downloads/jsdos.zip
-# The bundled index.html is a js-dos demo page that would be served unauthenticated;
-# source maps, Emscripten symbol files and type declarations are unused at runtime.
+# index.html is a demo page that would be served unauthenticated; source maps, symbols,
+# type declarations and the opt-in DOSBox-X debugger build are unused at runtime.
 RUN 7zz x -y /downloads/jsdos.zip -o/tmp/jsdos \
     && mv /tmp/jsdos/dist /emulators/jsdos \
     && rm -rf /emulators/jsdos/index.html /emulators/jsdos/emulators/types \
-    && find /emulators/jsdos \( -name '*.map' -o -name '*.symbols' \) -exec rm -f {} +
+    && find /emulators/jsdos \( -name '*.map' -o -name '*.symbols' -o -name '*-dbg.*' \) -exec rm -f {} +
 
 # FAKE-08 (MIT) publishes no web build, so these come from p3a (Apache-2.0),
 # which compiled them. Pinned by commit and checksum: that tree has no tags.
