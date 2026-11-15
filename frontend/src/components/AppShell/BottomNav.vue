@@ -48,9 +48,8 @@ function onTap(event: MouseEvent) {
   if (tapped) markTap(tapped);
 }
 
-// A running view transition (opening a game, going back) hit-tests every tap
-// to <html>, so the tab under the finger is found by position instead.
-// An open overlay may be what was tapped, so the bar under it stays inert.
+// A running view transition hit-tests taps to <html>, so the tab is found by
+// position; under an open overlay the tap may be the overlay's, so it is left.
 function onRootTap(event: MouseEvent) {
   if (event.target !== document.documentElement || isModified(event)) return;
   if (isUnderOpenEscapable(navEl.value)) return;
