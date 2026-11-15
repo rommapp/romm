@@ -10,11 +10,13 @@ const hooks: {
   after: ((to: Target) => void) | null;
   onError: ((error: unknown, to: Target) => void) | null;
 } = { before: null, after: null, onError: null };
+const pushed: string[] = [];
 
 vi.mock("vue-i18n");
 vi.mock("vue-router", () => ({
   useRoute: () => ({ path: "/collections" }),
   useRouter: () => ({
+    push: (to: string) => pushed.push(to),
     beforeEach: (fn: (to: Target) => void) => {
       hooks.before = fn;
       return () => {};
@@ -46,7 +48,20 @@ const RouterLink = defineComponent({
 });
 
 function mountNav() {
-  return mount(BottomNav, { global: { stubs: { RouterLink } } });
+  return mount(BottomNav, {
+    attachTo: document.body,
+    global: { stubs: { RouterLink } },
+  });
+}
+
+// Taps on <html> where a view transition sends them, at the centre of `el`.
+function tapRootOver(el: Element | undefined) {
+  vi.spyOn(el!, "getBoundingClientRect").mockReturnValue(
+    new DOMRect(100, 700, 80, 52),
+  );
+  document.documentElement.dispatchEvent(
+    new MouseEvent("click", { bubbles: true, clientX: 140, clientY: 726 }),
+  );
 }
 
 describe("BottomNav", () => {
@@ -189,5 +204,32 @@ describe("BottomNav", () => {
     await wrapper.vm.$nextTick();
 
     expect(tabs[2]?.classes()).toContain("r-segmented-control__btn--active");
+  });
+
+  it("follows a tab tap that a running view transition sent to <html>", async () => {
+    const wrapper = mountNav();
+    const tabs = wrapper.findAll(".r-segmented-control__btn");
+    pushed.length = 0;
+
+    tapRootOver(tabs[1]?.element);
+    await wrapper.vm.$nextTick();
+
+    expect(pushed).toEqual(["/platforms"]);
+    expect(isTransitionSkipped({ fullPath: "/platforms" })).toBe(true);
+    expect(tabs[1]?.classes()).toContain("r-segmented-control__btn--active");
+    dropSupersededSkip({ fullPath: "/elsewhere" });
+    wrapper.unmount();
+  });
+
+  it("ignores a tap on <html> outside every tab", () => {
+    const wrapper = mountNav();
+    pushed.length = 0;
+
+    document.documentElement.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, clientX: 5, clientY: 5 }),
+    );
+
+    expect(pushed).toEqual([]);
+    wrapper.unmount();
   });
 });
