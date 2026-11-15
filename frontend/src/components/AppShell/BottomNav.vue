@@ -15,6 +15,7 @@ import type {
   NavDestinationId,
 } from "@/composables/useNavDestinations";
 import { RIcon, RSegmentedControl } from "@/lib";
+import { isUnderOpenEscapable } from "@/lib/overlays/RDialog/escapeStack";
 import { skipTransitionTo } from "@/plugins/transition";
 
 const { t } = useI18n();
@@ -49,8 +50,10 @@ function onTap(event: MouseEvent) {
 
 // A running view transition (opening a game, going back) hit-tests every tap
 // to <html>, so the tab under the finger is found by position instead.
+// An open overlay may be what was tapped, so the bar under it stays inert.
 function onRootTap(event: MouseEvent) {
   if (event.target !== document.documentElement || isModified(event)) return;
+  if (isUnderOpenEscapable(navEl.value)) return;
   const { clientX: x, clientY: y } = event;
   const link = Array.from(navEl.value?.querySelectorAll("a") ?? []).find(
     (a) => {

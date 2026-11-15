@@ -1,7 +1,12 @@
 import { mount } from "@vue/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
+import {
+  popEscapable,
+  pushEscapable,
+} from "@/lib/overlays/RDialog/escapeStack";
 import { dropSupersededSkip, isTransitionSkipped } from "@/plugins/transition";
+import { stubActiveViewTransition } from "@/test-utils/viewTransition";
 import BottomNav from "./BottomNav.vue";
 
 type Target = { fullPath: string };
@@ -65,6 +70,11 @@ function tapRootOver(el: Element | undefined) {
 }
 
 describe("BottomNav", () => {
+  afterEach(() => {
+    delete (document as { activeViewTransition?: unknown })
+      .activeViewTransition;
+  });
+
   it("uses the filled glyph on every tab", () => {
     const wrapper = mountNav();
     const icons = wrapper.findAll(".r-icon").map((i) => i.classes());
@@ -209,11 +219,13 @@ describe("BottomNav", () => {
   it("follows a tab tap that a running view transition sent to <html>", async () => {
     const wrapper = mountNav();
     const tabs = wrapper.findAll(".r-segmented-control__btn");
+    const skipTransition = stubActiveViewTransition();
     pushed.length = 0;
 
     tapRootOver(tabs[1]?.element);
     await wrapper.vm.$nextTick();
 
+    expect(skipTransition).toHaveBeenCalledOnce();
     expect(pushed).toEqual(["/platforms"]);
     expect(isTransitionSkipped({ fullPath: "/platforms" })).toBe(true);
     expect(tabs[1]?.classes()).toContain("r-segmented-control__btn--active");
@@ -223,13 +235,36 @@ describe("BottomNav", () => {
 
   it("ignores a tap on <html> outside every tab", () => {
     const wrapper = mountNav();
+    const skipTransition = stubActiveViewTransition();
     pushed.length = 0;
 
     document.documentElement.dispatchEvent(
       new MouseEvent("click", { bubbles: true, clientX: 5, clientY: 5 }),
     );
 
+    expect(skipTransition).not.toHaveBeenCalled();
     expect(pushed).toEqual([]);
+    wrapper.unmount();
+  });
+
+  it("leaves a tap over a tab to the overlay covering the bar", () => {
+    const wrapper = mountNav();
+    const tabs = wrapper.findAll(".r-segmented-control__btn");
+    const skipTransition = stubActiveViewTransition();
+    const panel = document.createElement("div");
+    const sheet = { close: vi.fn(), persistent: true, panel: () => panel };
+    pushEscapable(sheet);
+    pushed.length = 0;
+
+    try {
+      tapRootOver(tabs[1]?.element);
+    } finally {
+      popEscapable(sheet);
+    }
+
+    expect(pushed).toEqual([]);
+    expect(skipTransition).not.toHaveBeenCalled();
+    expect(sheet.close).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 });
