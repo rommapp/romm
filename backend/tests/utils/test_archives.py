@@ -412,7 +412,7 @@ class TestRarArchives:
         )
 
         with patch.object(subprocess, "run", return_value=listing) as run:
-            members = archives._list_rar_file_members(Path("/fake/game.rar"))
+            members = archives.list_rar_file_members(Path("/fake/game.rar"))
 
         # The archive-root "./" prefix is not part of the stored member name.
         assert members == [("game.gba", 500), ("readme.txt", 12)]
@@ -431,7 +431,7 @@ class TestRarArchives:
         )
 
         with patch.object(subprocess, "run", return_value=listing):
-            members = archives._list_rar_file_members(Path("/fake/game.rar"))
+            members = archives.list_rar_file_members(Path("/fake/game.rar"))
 
         assert members == [("subdir/game.gba", 500)]
 
@@ -445,7 +445,7 @@ class TestRarArchives:
         )
 
         with patch.object(subprocess, "run", return_value=listing):
-            members = archives._list_rar_file_members(Path("/fake/game.rar"))
+            members = archives.list_rar_file_members(Path("/fake/game.rar"))
 
         assert members == [("café #1\\x.gba", 500)]
 
@@ -459,7 +459,7 @@ class TestRarArchives:
             ),
             patch.object(log, "error") as log_error,
         ):
-            members = archives._list_rar_file_members(Path("/fake/game.rar"))
+            members = archives.list_rar_file_members(Path("/fake/game.rar"))
 
         assert members == []
         log_error.assert_called_once()

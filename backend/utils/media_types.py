@@ -30,6 +30,9 @@ ALLOWED_IMAGE_EXTENSIONS = frozenset(
 SCREENSHOT_UPLOAD_EXTENSIONS = ALLOWED_IMAGE_EXTENSIONS - {".jxl"}
 ALLOWED_VIDEO_EXTENSIONS = frozenset({".mp4", ".webm", ".ogv", ".mov", ".m4v"})
 ALLOWED_DOCUMENT_EXTENSIONS = frozenset({".pdf", ".md", ".txt", ".html", ".htm"})
+# Image docs (comic book archives of page images) are never served whole
+# inline; the reader fetches their pages one image at a time.
+IMAGE_DOC_EXTENSIONS = frozenset({".cbz", ".cbr"})
 
 # Document extensions that are HTML. Nothing sanitizes them on the way in, so
 # they require a sandboxing CSP when served inline.
@@ -98,6 +101,12 @@ def is_allowed_document_file(file_name: str) -> bool:
     """Whether a library file is a manual document the browser can render inline."""
     ext = os.path.splitext(file_name)[1].lower()
     return ext in ALLOWED_DOCUMENT_EXTENSIONS
+
+
+def is_image_doc_file(file_name: str) -> bool:
+    """Whether a document is an image doc, read page by page."""
+    ext = os.path.splitext(file_name)[1].lower()
+    return ext in IMAGE_DOC_EXTENSIONS
 
 
 def is_allowed_media_file(file_name: str) -> bool:

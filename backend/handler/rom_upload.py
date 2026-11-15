@@ -16,7 +16,11 @@ from handler.rom_files import refresh_rom_files
 from logger.logger import log
 from models.rom import DocSource, Rom, RomFile, RomFileCategory
 from utils.audio_tags import SOUNDTRACK_EXTENSIONS
-from utils.media_types import ALLOWED_DOCUMENT_EXTENSIONS, ALLOWED_IMAGE_EXTENSIONS
+from utils.media_types import (
+    ALLOWED_DOCUMENT_EXTENSIONS,
+    ALLOWED_IMAGE_EXTENSIONS,
+    IMAGE_DOC_EXTENSIONS,
+)
 
 # The folder each media route uploads into. The scanner maps these names back to
 # the category, so a file landing here is registered the same way a scan would.
@@ -32,7 +36,10 @@ CATEGORY_UPLOAD_FOLDERS: dict[RomFileCategory, str] = {
 # tab could never show is refused before it lands.
 CATEGORY_FILE_TYPES: dict[RomFileCategory, tuple[str, frozenset[str]]] = {
     RomFileCategory.MANUAL: ("manual", ALLOWED_MANUAL_EXTENSIONS),
-    RomFileCategory.WALKTHROUGH: ("walkthrough", ALLOWED_DOCUMENT_EXTENSIONS),
+    RomFileCategory.WALKTHROUGH: (
+        "walkthrough",
+        ALLOWED_DOCUMENT_EXTENSIONS | IMAGE_DOC_EXTENSIONS,
+    ),
     RomFileCategory.SCREENSHOT: ("image", ALLOWED_IMAGE_EXTENSIONS),
     RomFileCategory.SOUNDTRACK: ("audio", SOUNDTRACK_EXTENSIONS),
 }

@@ -301,6 +301,10 @@ class RomFileUserSchema(BaseModel):
     last_read_at: UTCDatetime | None = None
 
 
+class ImageDocPagesSchema(BaseModel):
+    count: int
+
+
 class RomFileSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
