@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Primary-nav tab bar on sm-and-down, where AppNav drops its centre pill.
 // Mount-gated (not `display: none`) so hidden links never take focus.
+import { useEventListener } from "@vueuse/core";
 import { computed, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
@@ -9,8 +10,12 @@ import {
   NAV_FILLED_ICONS,
   useNavDestinations,
 } from "@/composables/useNavDestinations";
-import type { NavDestinationId } from "@/composables/useNavDestinations";
+import type {
+  NavDestination,
+  NavDestinationId,
+} from "@/composables/useNavDestinations";
 import { RIcon, RSegmentedControl } from "@/lib";
+import { isUnderOpenEscapable } from "@/lib/overlays/RDialog/escapeStack";
 import { skipTransitionTo } from "@/plugins/transition";
 
 const { t } = useI18n();
@@ -22,18 +27,48 @@ const router = useRouter();
 const pendingId = ref<NavDestinationId | null>(null);
 const shownId = computed(() => pendingId.value ?? activeId.value);
 
+const navEl = ref<HTMLElement | null>(null);
+
+// RouterLink leaves these clicks to the browser, so no navigation follows.
+const isModified = (event: MouseEvent) =>
+  event.ctrlKey || event.metaKey || event.shiftKey || event.altKey;
+
+function markTap(tapped: NavDestination) {
+  pendingId.value = tapped.id;
+  skipTransitionTo(tapped.to);
+}
+
 // Runs in the capture phase: a loaded view navigates inside RouterLink's own handler.
 function onTap(event: MouseEvent) {
-  // RouterLink leaves these clicks to the browser, so no navigation follows.
-  if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+  if (isModified(event)) return;
   const href = (event.target as HTMLElement | null)
     ?.closest("a")
     ?.getAttribute("href");
   const tapped = destinations.value.find((d) => d.to === href);
-  if (!tapped) return;
-  pendingId.value = tapped.id;
-  skipTransitionTo(tapped.to);
+  if (tapped) markTap(tapped);
 }
+
+// A running view transition hit-tests taps to <html>, so the tab is found by
+// position; under an open overlay the tap may be the overlay's, so it is left.
+function onRootTap(event: MouseEvent) {
+  if (event.target !== document.documentElement || isModified(event)) return;
+  if (isUnderOpenEscapable(navEl.value)) return;
+  const { clientX: x, clientY: y } = event;
+  const link = Array.from(navEl.value?.querySelectorAll("a") ?? []).find(
+    (a) => {
+      const r = a.getBoundingClientRect();
+      return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+    },
+  );
+  const tapped = destinations.value.find(
+    (d) => d.to === link?.getAttribute("href"),
+  );
+  if (!tapped) return;
+  markTap(tapped);
+  document.activeViewTransition?.skipTransition();
+  void router.push(tapped.to);
+}
+useEventListener(document, "click", onRootTap, { capture: true });
 
 // Only the latest navigation may clear the highlight; a superseded one finishes on its own.
 let latestPath: string | null = null;
@@ -57,7 +92,11 @@ onBeforeUnmount(() => {
 
 <template>
   <div v-if="smAndDown" class="r-bottom-nav-anchor">
-    <nav class="r-bottom-nav" :aria-label="t('common.primary-navigation')">
+    <nav
+      ref="navEl"
+      class="r-bottom-nav"
+      :aria-label="t('common.primary-navigation')"
+    >
       <RSegmentedControl
         :model-value="shownId"
         :items="destinations"
