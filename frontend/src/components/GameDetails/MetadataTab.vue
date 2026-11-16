@@ -223,7 +223,7 @@ const downloadUrls = computed(() => {
 
 /* A miss dims like an unlinked provider below, so it can't read as verified. */
 .metadata-tab__verification--miss {
-  opacity: 0.55;
+  opacity: var(--r-opacity-inactive);
 }
 
 .metadata-tab__downloads {

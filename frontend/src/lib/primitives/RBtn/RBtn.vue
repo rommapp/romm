@@ -720,7 +720,7 @@ const spinnerSize = computed(() => {
 }
 .r-btn--disabled:not(.r-btn--loading),
 .r-btn:disabled:not(.r-btn--loading) {
-  opacity: 0.55;
+  opacity: var(--r-opacity-inactive);
 }
 
 .r-btn--flat.r-btn--has-color.r-btn--disabled,

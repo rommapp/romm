@@ -32,6 +32,7 @@ import {
   colorStatusLight,
   lineHeight,
   motion,
+  opacity,
   radius,
   space,
   zIndex,
@@ -169,6 +170,7 @@ const SHARED: Entry[] = [
   ...entriesFor(radius, "radius", "--r-radius"),
   ...entriesFor(elevation, "elevation", "--r-elev"),
   ...entriesFor(motion, "motion", "--r-motion"),
+  ...entriesFor(opacity, "opacity", "--r-opacity"),
   // Default focus ring width is the mouse value; key/pad override below.
   ["--r-focus-ring-width", focus.ringWidthMouse],
   ["--r-focus-ring-offset", focus.ringOffset],
