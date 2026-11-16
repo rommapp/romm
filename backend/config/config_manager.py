@@ -14,7 +14,10 @@ import yaml
 from sqlalchemy import URL
 from yaml.loader import SafeLoader
 
-from adapters.services.rom_converto import normalize_platform_formats
+from adapters.services.rom_converto import (
+    KEYED_PLATFORM_SLUGS,
+    normalize_platform_formats,
+)
 from config import (
     DB_HOST,
     DB_NAME,
@@ -1445,12 +1448,19 @@ class ConfigManager:
                 )
                 sys.exit(3)
 
+        platform_formats = self._validated_platform_map(
+            self.config.CONVERTO.platform_formats or {}, "converto.platform_formats"
+        )
+        # Switch targets are never offered, so a saved one is ignored instead of fatal.
+        for slug in KEYED_PLATFORM_SLUGS & platform_formats.keys():
+            log.warning(
+                f"Ignoring converto.platform_formats.{slug}: {hl(slug)} conversions "
+                "need console keys, which RomM never uses"
+            )
+            del platform_formats[slug]
         try:
             self.config.CONVERTO.platform_formats = normalize_platform_formats(
-                self._validated_platform_map(
-                    self.config.CONVERTO.platform_formats or {},
-                    "converto.platform_formats",
-                )
+                platform_formats
             )
         except ValueError as exc:
             log.critical(f"Invalid config.yml: converto.platform_formats: {exc}")
