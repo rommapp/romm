@@ -57,13 +57,10 @@ def test_involvements_are_optional():
 
 
 def test_neo_geo_mvs_has_a_hasheous_platform():
-    # Arrange
     handler = HasheousHandler()
 
-    # Act
     platform = handler.get_platform("neogeomvs")
 
-    # Assert
     assert platform["hasheous_id"] == 96
     assert platform["igdb_id"] == 79
 
