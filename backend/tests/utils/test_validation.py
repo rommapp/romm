@@ -188,6 +188,18 @@ class TestValidateEmail:
             validate_email("@domain.com")
         assert True
 
+    def test_trailing_newline_email_fails(self):
+        """`$` matches before a final newline, so the whole string must match."""
+        # Arrange
+        email = "user@example.com\n"
+
+        # Act
+        with pytest.raises(ValidationError) as exc_info:
+            validate_email(email)
+
+        # Assert
+        assert "Invalid email format" in exc_info.value.message
+
     def test_invalid_non_ascii_email(self):
         """Test that emails with non-ASCII characters fail validation."""
         with pytest.raises(ValidationError) as exc_info:
