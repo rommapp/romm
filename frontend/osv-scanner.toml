@@ -4,3 +4,17 @@
 id = "GHSA-vfj7-8cjw-p6xm"
 ignoreUntil = 2027-04-05
 reason = "Dev-only lint dependency with fixed glob patterns; no fixed braces release."
+
+# Only reached through vite-plugin-pwa > workbox-build > @rollup/plugin-node-resolve,
+# which deep-merges its own frozen defaults. deepmerge has no patched release.
+[[IgnoredVulns]]
+id = "GHSA-gcqx-w48m-w2h4"
+ignoreUntil = 2027-05-16
+reason = "Build-time dependency that only merges constant defaults; no fixed deepmerge release."
+
+# Reached through workbox-build (glob ^11) and @vue/test-utils > js-beautify
+# (glob ^13). Neither passes an AbortSignal, and the fix is only in glob 14.
+[[IgnoredVulns]]
+id = "GHSA-3g3m-2fjr-6pw4"
+ignoreUntil = 2027-05-16
+reason = "Dev-only callers never abort a walk; the fix needs glob 14, outside both dependents' ranges."
