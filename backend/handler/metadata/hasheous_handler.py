@@ -1168,6 +1168,14 @@ HASHEOUS_PLATFORM_LIST: dict[UPS, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
+    UPS.NEOGEOMVS: {
+        "id": 96,
+        "igdb_id": 79,
+        "igdb_slug": "neogeomvs",
+        "name": "Neo Geo MVS",
+        "ra_id": 27,
+        "tgdb_id": None,
+    },
     UPS.NES: {
         "id": 68,
         "igdb_id": 18,
