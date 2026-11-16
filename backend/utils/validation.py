@@ -114,7 +114,7 @@ def validate_username(username: str) -> None:
         log.error(msg)
         raise ValidationError(msg, "Username")
 
-    if not USERNAME_PATTERN.match(username):
+    if not USERNAME_PATTERN.fullmatch(username):
         msg = "Username can only contain letters, numbers, underscores, and hyphens"
         log.error(f"Validation failed: {msg} for username: {username}")
         raise ValidationError(msg, "Username")

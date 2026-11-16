@@ -70,6 +70,15 @@ class TestValidateUsername:
             validate_username("ab")
         assert "at least 3 characters" in exc_info.value.message
 
+    def test_trailing_newline_username_fails(self):
+        """`$` matches before a final newline, so the whole string must match."""
+        username = "player1\n"
+
+        with pytest.raises(ValidationError) as exc_info:
+            validate_username(username)
+
+        assert "can only contain" in exc_info.value.message
+
     def test_invalid_long_username(self):
         """Test that long usernames fail validation."""
         long_username = "a" * 256
