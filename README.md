@@ -172,6 +172,14 @@ Here are a few projects that we think you might like:
 - [NextUI](https://nextui.loveretro.games/): MinUI-based custom firmware for TrimUI handhelds
 - [RetroAchievements](https://retroachievements.org/): Achievements for retro games
 
+## Disclaimer
+
+RomM is a library manager and player. It does not include, distribute, or link to ROMs, BIOS, firmware, or decryption keys.
+
+- Only use files you legally own and dumped yourself, and follow the laws where you live.
+- The project does not condone piracy. Requests for or links to copyrighted material are not allowed in any project space (see the [Code of Conduct](CODE_OF_CONDUCT.md)).
+- Nintendo, Sony, Sega, and other trademarks belong to their respective owners and are used only to describe compatibility. RomM is not affiliated with or endorsed by any of them.
+
 <!-- docs links -->
 
 [docs-quick-start-guide]: https://docs.romm.app/latest/Getting-Started/Quick-Start-Guide/
