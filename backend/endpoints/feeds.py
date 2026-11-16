@@ -59,16 +59,7 @@ from utils.archives import is_compressed_file
 from utils.datetime import format_utc
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.router import APIRouter
-
-
-def generate_rom_download_url(request: Request, rom: Rom) -> str:
-    return str(
-        request.url_for(
-            "get_rom_content",
-            id=rom.id,
-            file_name=quote(rom.fs_name, safe="/"),
-        )
-    )
+from utils.urls import generate_rom_download_url
 
 
 def generate_romfile_download_url(request: Request, file: RomFile) -> str:

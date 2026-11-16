@@ -1,8 +1,25 @@
 import ipaddress
+from typing import TYPE_CHECKING
+from urllib.parse import quote
 
 import yarl
+from fastapi import Request
 
 import config
+
+if TYPE_CHECKING:
+    from models.rom import Rom
+
+
+def generate_rom_download_url(request: Request, rom: "Rom") -> str:
+    """The ROM's content URL, with its filename encoded as a path segment."""
+    return str(
+        request.url_for(
+            "get_rom_content",
+            id=rom.id,
+            file_name=quote(rom.fs_name, safe="/"),
+        )
+    )
 
 
 def is_shareable_host(host: str) -> bool:
