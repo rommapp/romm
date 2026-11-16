@@ -46,8 +46,8 @@ We have zero tolerance for piracy. In any community space, you may not:
 - Explain or hint at how or where to obtain them
 - Post screenshots, logs, or file listings that show or name pirated sources
 
-Moderators remove such content and may warn or ban the author without prior
-warning, regardless of the Enforcement Guidelines below.
+Moderators remove these posts and may ban the author on the first offense,
+skipping the steps in the Enforcement Guidelines below.
 
 ## Enforcement Responsibilities
 
