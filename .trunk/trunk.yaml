@@ -33,28 +33,28 @@ lint:
   enabled:
     - zizmor@1.32.0
     # pinact 5 accepts only --format, but the Trunk plugin release passes -format.
-    - pinact@4.1.1
+    - pinact@5.0.2
     - dotenv-linter@4.0.0
     - hadolint@2.15.1
     - markdownlint@0.50.0
-    - eslint@10.14.0
+    - eslint@10.15.0
     - actionlint@1.7.12
     - bandit@1.9.4
     - black@26.10.1
-    - checkov@3.4.3
+    - checkov@3.4.5
     - git-diff-check
     - isort@9.0.2
     - osv-scanner@2.7.1
-    - prettier@3.9.10:
+    - prettier@3.10.1:
         packages:
           - "@trivago/prettier-plugin-sort-imports@6.0.2"
           - "@vue/compiler-sfc@3.5.45"
-    - ruff@0.17.4
+    - ruff@0.17.5
     - shellcheck@0.11.0
     - shfmt@3.14.1
     - taplo@0.10.0
     - trivy@0.76.2
-    - trufflehog@3.99.8
+    - trufflehog@3.99.9
     - yamllint@1.38.0
   ignore:
     - linters: [ALL]
