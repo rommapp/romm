@@ -1,0 +1,22 @@
+# Fly.io config for pull request previews, deployed by .github/workflows/preview.yml,
+# which passes the app name and image.
+primary_region = "iad"
+
+[http_service]
+internal_port = 8080
+force_https = true
+# A stopped machine boots from a clean root filesystem and re-seeds (about a minute).
+auto_stop_machines = "stop"
+auto_start_machines = true
+min_machines_running = 0
+
+[[http_service.checks]]
+grace_period = "180s"
+interval = "30s"
+timeout = "5s"
+method = "GET"
+path = "/api/heartbeat"
+
+[[vm]]
+size = "shared-cpu-1x"
+memory = "1gb"

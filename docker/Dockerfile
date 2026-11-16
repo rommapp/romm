@@ -391,3 +391,25 @@ COPY --from=emulator-stage /jsdos/dist /var/www/html/assets/jsdos
 COPY --from=emulator-stage /fake08 /var/www/html/assets/pico8
 COPY --from=emulator-stage /easyrpg /var/www/html/assets/easyrpg
 
+
+
+# PREVIEW IMAGE
+# A self-contained pull request preview: bundles PostgreSQL and seeds a dummy
+# library on boot. Never published as a release image.
+FROM full-image AS preview-image
+ARG POSTGRES_MAJOR=18
+RUN apk add --no-cache \
+    "postgresql${POSTGRES_MAJOR}" \
+    "postgresql${POSTGRES_MAJOR}-client" \
+    "postgresql${POSTGRES_MAJOR}-contrib"
+
+ENV ROMM_DB_DRIVER=postgresql \
+    DB_HOST=127.0.0.1 \
+    DB_PORT=5432 \
+    DB_NAME=romm \
+    DB_USER=romm \
+    WEB_SERVER_CONCURRENCY=2
+
+COPY ./docker/preview/preview-entrypoint.sh /preview-entrypoint.sh
+ENTRYPOINT ["/preview-entrypoint.sh"]
+CMD ["/init"]
