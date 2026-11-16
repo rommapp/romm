@@ -1011,3 +1011,22 @@ file: Disks/Set A/Cosmic Osmo/disk1.2mg
             "Disks/Set A",
             "Disks",
         }
+
+
+def test_non_local_export_encodes_the_filename_in_the_file_line(admin_user: User):
+    platform = make_platform("snes", name="Super Nintendo")
+    rom = make_rom(platform, "Game #1?", fs_extension="zip")
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+    request = MagicMock()
+    request.url_for.side_effect = lambda _name, **params: (
+        f"http://romm.test/api/roms/{params['id']}/content/{params['file_name']}"
+    )
+
+    content = PegasusExporter(local_export=False).export_platform_to_pegasus(
+        platform.id, request=request
+    )
+
+    assert (
+        f"file: http://romm.test/api/roms/{rom.id}/content/Game%20%231%3F.zip"
+        in content
+    )

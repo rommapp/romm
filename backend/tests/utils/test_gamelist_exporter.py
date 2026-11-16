@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from os.path import isabs
 from pathlib import Path
+from unittest.mock import MagicMock
 from xml.etree.ElementTree import fromstring
 
 import pytest
@@ -1024,3 +1025,21 @@ async def test_export_platform_to_file_matches_existing_entries_by_path(
         "./USA/Zany Golf (USA).2mg": ("true", None),
         "./Disks/Set A/Zany Golf (USA).2mg": (None, "9"),
     }
+
+
+def test_non_local_export_encodes_the_filename_in_the_path(admin_user: User):
+    platform = make_platform("snes", name="Super Nintendo")
+    rom = make_rom(platform, "Game #1?", fs_extension="zip")
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+    request = MagicMock()
+    request.url_for.side_effect = lambda _name, **params: (
+        f"http://romm.test/api/roms/{params['id']}/content/{params['file_name']}"
+    )
+
+    xml_str = GamelistExporter(local_export=False).export_platform_to_xml(
+        platform.id, request=request
+    )
+
+    path = fromstring(xml_str).find("game/path")
+    assert path is not None
+    assert path.text == f"http://romm.test/api/roms/{rom.id}/content/Game%20%231%3F.zip"
