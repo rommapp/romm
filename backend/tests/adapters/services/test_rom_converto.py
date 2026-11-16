@@ -13,6 +13,7 @@ import pytest
 from adapters.services import rom_converto
 from adapters.services.rom_converto import (
     CONVERTO_PLATFORM_SLUGS,
+    KEYED_LIBRARY_TARGETS,
     KEYED_PLATFORM_SLUGS,
     LIBRARY_TARGETS_BY_PLATFORM,
     OPERATIONS,
@@ -971,7 +972,14 @@ class TestResolveOperation:
             ("ngc", "rvz", "Game.iso", ("dol", "compress"), ".iso", "Game.rvz"),
             ("wii", "wbfs", "Game.rvz", ("rvl", "decompress"), ".rvz", "Game.wbfs"),
             ("3ds", "z3ds", "Game.3ds", ("ctr", "compress"), ".3ds", "Game.zcci"),
-            ("3ds", "cci", "My Game.CIA", ("ctr", "convert"), ".cia", "My Game.cci"),
+            (
+                "3ds",
+                "cci",
+                "My Game.ZCCI",
+                ("ctr", "decompress"),
+                ".zcci",
+                "My Game.cci",
+            ),
             ("psp", "chd", "Game.ISO", ("chd", "compress"), ".iso", "Game.chd"),
         ],
     )
@@ -995,6 +1003,8 @@ class TestResolveOperation:
         ("platform", "target", "file_name"),
         [
             pytest.param("psp", "iso", "Game.iso", id="already-in-target-format"),
+            pytest.param("wii", "rvz", "Game.iso", id="wii-rvz-needs-keys"),
+            pytest.param("3ds", "cci", "Game.cia", id="3ds-convert-needs-keys"),
             pytest.param("psx", "iso", "Game.chd", id="cd-chd-has-no-extract"),
             pytest.param("psx", "iso", "Game.cue", id="psx-cue-can-have-audio"),
             pytest.param("saturn", "iso", "Game.cue", id="saturn-cue-can-have-audio"),
@@ -1073,6 +1083,19 @@ class TestNoConsoleKeys:
             op.argv
             for op in OPERATIONS
             if op.argv[0] == "nx" or op.platforms & KEYED_PLATFORM_SLUGS
+        ]
+
+    def test_no_operation_writes_a_keyed_target(self):
+        assert not [
+            op.argv
+            for op in OPERATIONS
+            for slug in op.platforms
+            if op.target in KEYED_LIBRARY_TARGETS.get(slug, frozenset())
+        ]
+        assert not [
+            op.argv
+            for op in OPERATIONS
+            if op.argv[1] == "convert" and op.argv[0] == "ctr"
         ]
 
     def test_keyed_platforms_are_never_inspected(self):

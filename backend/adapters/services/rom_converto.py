@@ -21,6 +21,11 @@ from utils.platform_slugs import UniversalPlatformSlug as UPS
 # Platforms whose content the CLI only reads with console keys, which RomM never uses.
 KEYED_PLATFORM_SLUGS: Final[frozenset[str]] = frozenset({UPS.SWITCH, UPS.SWITCH_2})
 
+# Library targets the CLI can only write by decrypting with console keys.
+KEYED_LIBRARY_TARGETS: Final[dict[str, frozenset[str]]] = {
+    UPS.WII: frozenset({"rvz"}),
+}
+
 # Wider than the conversion targets: `info` only reads headers, so every
 # platform it can pull a title id or serial from without keys counts.
 CONVERTO_PLATFORM_SLUGS: Final[frozenset[str]] = frozenset(
@@ -123,18 +128,17 @@ def _op(
 _DVD_PLATFORMS = {UPS.PSP, UPS.PS2}
 _CD_PLATFORMS = {UPS.PSX, UPS.SATURN, UPS.SEGACD, UPS.DC}
 
-# The CLI's single-file format conversions. Decrypt/encrypt, anything needing
-# console keys (all Switch `nx` commands) and directory-shaped operations
-# (Wii U packs, `extract`, Xbox 360 GoD) are left out.
+# The CLI's single-file format conversions. The image ships a CLI built without
+# embedded console keys, so anything that decrypts (Switch `nx`, 3DS CIA/CCI
+# convert, Wii RVZ compress/migrate) is left out, as are directory-shaped
+# operations (Wii U packs, `extract`, Xbox 360 GoD).
 OPERATIONS: Final[tuple[Operation, ...]] = (
     # 3DS
     _op("z3ds", {UPS.N3DS}, "ctr compress", ".cia", ".zcia"),
     _op("z3ds", {UPS.N3DS}, "ctr compress", ".cci .3ds", ".zcci"),
     _op("z3ds", {UPS.N3DS}, "ctr compress", ".cxi", ".zcxi"),
     _op("cia", {UPS.N3DS}, "ctr decompress", ".zcia", ".cia"),
-    _op("cia", {UPS.N3DS}, "ctr convert", ".3ds .cci", ".cia"),
     _op("cci", {UPS.N3DS}, "ctr decompress", ".zcci", ".cci"),
-    _op("cci", {UPS.N3DS}, "ctr convert", ".cia", ".cci"),
     # Sony discs
     _op("iso", _DVD_PLATFORMS, "cso decompress", ".cso .zso .dax", ".iso"),
     # CD-mode CHDs extract to .bin/.cue, so only DVD platforms get this.
@@ -151,8 +155,6 @@ OPERATIONS: Final[tuple[Operation, ...]] = (
     _op("rvz", {UPS.NGC}, "dol compress", ".iso .gcm", ".rvz"),
     _op("rvz", {UPS.NGC}, "dol migrate", ".gcz .nkit.iso .nkit.gcz", ".rvz"),
     _op("iso", {UPS.NGC}, "dol decompress", ".rvz", ".iso"),
-    _op("rvz", {UPS.WII}, "rvl compress", ".iso .wbfs", ".rvz"),
-    _op("rvz", {UPS.WII}, "rvl migrate", ".wia .gcz .nkit.iso .nkit.gcz", ".rvz"),
     _op("iso", {UPS.WII}, "rvl decompress", ".rvz", ".iso"),
     _op("wbfs", {UPS.WII}, "rvl decompress", ".rvz", ".wbfs"),
     # Xbox

@@ -15,6 +15,7 @@ from sqlalchemy import URL
 from yaml.loader import SafeLoader
 
 from adapters.services.rom_converto import (
+    KEYED_LIBRARY_TARGETS,
     KEYED_PLATFORM_SLUGS,
     normalize_platform_formats,
 )
@@ -1451,13 +1452,16 @@ class ConfigManager:
         platform_formats = self._validated_platform_map(
             self.config.CONVERTO.platform_formats or {}, "converto.platform_formats"
         )
-        # Switch targets are never offered, so a saved one is ignored instead of fatal.
-        for slug in KEYED_PLATFORM_SLUGS & platform_formats.keys():
-            log.warning(
-                f"Ignoring converto.platform_formats.{slug}: {hl(slug)} conversions "
-                "need console keys, which RomM never uses"
-            )
-            del platform_formats[slug]
+        # Targets that need console keys are never offered, so a saved one is
+        # ignored instead of fatal.
+        for slug, target in list(platform_formats.items()):
+            keyed_targets = KEYED_LIBRARY_TARGETS.get(slug, frozenset())
+            if slug in KEYED_PLATFORM_SLUGS or str(target).lower() in keyed_targets:
+                log.warning(
+                    f"Ignoring converto.platform_formats.{slug}: {hl(target)} "
+                    "conversions need console keys, which RomM never uses"
+                )
+                del platform_formats[slug]
         try:
             self.config.CONVERTO.platform_formats = normalize_platform_formats(
                 platform_formats

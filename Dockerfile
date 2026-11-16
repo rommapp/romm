@@ -1,7 +1,6 @@
 # syntax=docker/dockerfile:1
 # trunk-ignore-all(trivy)
 # trunk-ignore-all(checkov)
-# trunk-ignore-all(hadolint/DL4006)
 # The stages mirror docker/Dockerfile, which pins Alpine rather than each apk package.
 # trunk-ignore-all(hadolint/DL3003,hadolint/DL3013,hadolint/DL3018)
 
@@ -9,6 +8,8 @@
 # match production. Keep these pins in sync with its ARGUMENT DECLARATIONS.
 ARG ALPINE_VERSION=3.24
 ARG ALPINE_DIGEST=sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
+ARG RUST_VERSION=1.100
+ARG RUST_ALPINE_DIGEST=sha256:de1e0058543a81ed7b046629167db587c67a94bdf37cce14eb27f0ec83baaffb
 # Pins the base image tag, so it cannot read .python-version; keep the two in sync.
 ARG PYTHON_VERSION=3.14
 ARG PYTHON_ALPINE_DIGEST=sha256:a18b20ad69e74df6cf6d2e1b1a260d7a1ecf5380fd83b310f83ba88c461cf894
@@ -87,19 +88,26 @@ RUN cmake -B ./build-python -S . -DSIGIL_BUILD_CLI=OFF -DSIGIL_BUILD_TESTS=OFF &
     cp ./sigil/*.py ./sigil/_sigil.*.so /sigil-pkg/
 
 
-# Keep the version and both sums in sync with docker/Dockerfile.
-FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS rom-converto-fetch
-ARG TARGETARCH
-ARG ROM_CONVERTO_VERSION=v0.24.0
-RUN case "${TARGETARCH}" in \
-        amd64) rc="linux-x64-musl"; sum="67964054931f7e74848bfe7b54ff1f0cacdc25596c29e3a79876f76e0f2407a8" ;; \
-        arm64) rc="linux-arm64-musl"; sum="60f9dc0fe7c3e3355c840c5e21c2b65b770b74ba78567aec7a2e5f846b8087ce" ;; \
-        *) echo "unsupported TARGETARCH: ${TARGETARCH}" && exit 1 ;; \
-    esac && \
-    wget -qO /rom-converto \
-        "https://github.com/DevYukine/rom-converto/releases/download/${ROM_CONVERTO_VERSION}/rom-converto-cli-${rc}" && \
-    echo "${sum}  /rom-converto" | sha256sum -c - && \
-    chmod 0755 /rom-converto
+# Keep the commit in sync with docker/Dockerfile.
+# Built from source without the `embedded-keys` feature, so the image carries
+# no console keys. The pin is on the fork until DevYukine/rom-converto#44 lands.
+FROM rust:${RUST_VERSION}-alpine${ALPINE_VERSION}@${RUST_ALPINE_DIGEST} AS rom-converto-build
+RUN apk add --no-cache \
+    clang \
+    clang-dev \
+    cmake \
+    g++ \
+    linux-headers \
+    make \
+    musl-dev \
+    perl
+ARG ROM_CONVERTO_COMMIT=c58a77f482a3e4e75925fc262215f1bc8de94536
+# checkov:skip=CKV_DOCKER_4:the ADD below is a Git URL pinned to a commit
+ADD "https://github.com/gantoine/rom-converto.git#${ROM_CONVERTO_COMMIT}" /rom-converto-src
+WORKDIR /rom-converto-src
+RUN CARGO_PROFILE_RELEASE_STRIP=true \
+    cargo build --locked --release -p rom-converto-cli --no-default-features && \
+    install -m 0755 ./target/release/rom-converto /rom-converto
 
 
 # Browser player runtimes. Keep the pins in sync with the emulator stage of docker/Dockerfile.
@@ -209,7 +217,7 @@ RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
 COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
-COPY --from=rom-converto-fetch /rom-converto /usr/bin/rom-converto
+COPY --from=rom-converto-build /rom-converto /usr/bin/rom-converto
 
 # Install frontend dependencies
 COPY frontend/package*.json /app/frontend/
