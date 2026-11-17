@@ -182,19 +182,36 @@ function nextFrame(): Promise<void> {
   });
 }
 
+/** Where each returned item goes. An offset window fills its positions in
+ * order; a window by id places each item at its id's slot, so an id the
+ * backend left out (hidden or deleted) leaves a gap instead of shifting
+ * every card after it. */
+function windowPlacements(
+  items: SimpleRom[],
+  offset: number,
+  windowIds: number[] | null,
+): [number, SimpleRom][] {
+  if (windowIds === null) {
+    return items.map((item, j) => [offset + j, item]);
+  }
+  const positionOf = new Map(windowIds.map((id, j) => [id, offset + j]));
+  return items.flatMap((item): [number, SimpleRom][] => {
+    const position = positionOf.get(item.id);
+    return position === undefined ? [] : [[position, item]];
+  });
+}
+
 async function applyItemsBatched(
   byPosition: Map<number, SimpleRom>,
-  items: SimpleRom[],
-  baseOffset: number,
+  placements: [number, SimpleRom][],
   isStillRelevant: () => boolean,
 ): Promise<void> {
-  for (let i = 0; i < items.length; i += APPLY_BATCH_SIZE) {
+  for (let i = 0; i < placements.length; i += APPLY_BATCH_SIZE) {
     if (!isStillRelevant()) return;
-    const end = Math.min(i + APPLY_BATCH_SIZE, items.length);
-    for (let j = i; j < end; j++) {
-      byPosition.set(baseOffset + j, items[j]!);
+    for (const [position, item] of placements.slice(i, i + APPLY_BATCH_SIZE)) {
+      byPosition.set(position, item);
     }
-    if (end < items.length) await nextFrame();
+    if (i + APPLY_BATCH_SIZE < placements.length) await nextFrame();
   }
 }
 
@@ -703,11 +720,19 @@ export default defineStore("v2GalleryRoms", {
       // another name for a total the bootstrap already gave us, so opt out of
       // that too and keep the window fetch to just its page of covers.
       const withAggregations = !this.metadataLoaded;
+      // Once the bootstrap has handed over the ordered ids, a window names
+      // its own slice, so the backend loads those rows without ranking the
+      // set again. Surfaces that opt out of the id index stay on offsets.
+      const windowIds =
+        !withAggregations && this.romIdIndex.length > 0
+          ? this.romIdIndex.slice(offset, offset + WINDOW_SIZE)
+          : null;
 
       try {
         const response = await romApi.getRoms({
           ...params,
           ...(withAggregations ? {} : SKIP_AGGREGATES),
+          ...(windowIds !== null ? { romIds: windowIds } : {}),
           signal: controller.signal,
         });
         // Re-check identity: invalidateWindows / resetGallery / a context
@@ -746,8 +771,7 @@ export default defineStore("v2GalleryRoms", {
         // row (8 items) so input dispatches between paints.
         await applyItemsBatched(
           this.byPosition,
-          data.items,
-          offset,
+          windowPlacements(data.items, offset, windowIds),
           () => inFlightControllers.get(ctrlKey) === controller,
         );
 
