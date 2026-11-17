@@ -131,6 +131,22 @@ class DBUsersHandler(DBBaseHandler):
         return session.scalars(select(User).filter_by(id=id)).one()
 
     @begin_session
+    def trust_email(
+        self,
+        id: int,
+        email: str,
+        session: Session = INJECTED_SESSION,
+    ) -> bool:
+        """Mark the user's email trusted only if it is still `email`."""
+        query = self.filter(update(User), ids=[id], emails=[email])
+        result = session.execute(
+            query.values(email_trusted=True).execution_options(
+                synchronize_session=False
+            )
+        )
+        return affected_rows(result) > 0
+
+    @begin_session
     def set_ra_progression(
         self,
         id: int,

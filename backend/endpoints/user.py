@@ -550,10 +550,16 @@ async def update_user(
 
         cleaned_data["email"] = new_email.lower() or None
 
-    # Saving a user's email as an admin vouches for it, even when unchanged.
     by_admin = is_scoped_admin(request, Scope.USERS_WRITE)
-    if new_email is not None or (by_admin and email and not db_user.email_trusted):
+    if new_email is not None:
         cleaned_data["email_trusted"] = by_admin
+    # Saving an unchanged email as an admin vouches for it, but only for the
+    # address the admin saw, in case the user changed it meanwhile.
+    vouch_for = (
+        email
+        if by_admin and new_email is None and email and not db_user.email_trusted
+        else None
+    )
 
     # You can't change your own role
     if form_data.role and request.user.id != id:
@@ -648,6 +654,9 @@ async def update_user(
             await close_client_token_sockets(
                 db_client_token_handler.get_token_ids_by_users([id])
             )
+
+    if vouch_for:
+        db_user_handler.trust_email(id, vouch_for)
 
     before = db_user
     db_user = db_user_handler.get_user(id)

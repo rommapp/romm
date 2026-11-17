@@ -731,6 +731,33 @@ def test_an_admin_saving_a_users_email_trusts_it(
     assert updated and updated.email_trusted
 
 
+def test_an_admin_vouches_only_for_the_email_they_saved(
+    client, access_token: str, viewer_user: User, mocker
+):
+    db_user_handler.update_user(viewer_user.id, {"email": "viewer@example.com"})
+    stale = db_user_handler.get_user(viewer_user.id)
+    # The user changes their email after the admin's request has read the old one.
+    db_user_handler.update_user(viewer_user.id, {"email": "taken@example.com"})
+    get_user = db_user_handler.get_user
+    reads = iter([stale])
+    mocker.patch.object(
+        db_user_handler,
+        "get_user",
+        side_effect=lambda id: next(reads, None) or get_user(id),
+    )
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"email": "viewer@example.com"},
+        headers=bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    current = get_user(viewer_user.id)
+    assert current and current.email == "taken@example.com"
+    assert not current.email_trusted
+
+
 def test_a_password_less_account_cannot_set_a_password_with_a_token(
     client, viewer_access_token: str, viewer_user: User
 ):
