@@ -11,6 +11,7 @@ import pytest
 from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
+from tests.auth_helpers import hide
 from tests.factories import make_rom
 from tests.utils.test_images import png_header_bytes
 
@@ -18,7 +19,6 @@ from config.config_manager import MetadataMediaType
 from endpoints.responses.rom import PROVIDER_METADATA_FIELDS
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.database import db_collection_handler, db_rom_handler
-from handler.database.base_handler import sync_session
 from handler.database.rom_filters import RomFiltersDict
 from handler.filesystem.resources_handler import FSResourcesHandler
 from handler.filesystem.roms_handler import FSRomsHandler
@@ -35,7 +35,7 @@ from handler.metadata.ra_handler import RAGameRom, RAHandler
 from handler.metadata.ss_handler import SSHandler, SSRom
 from handler.metadata.steam_handler import SteamHandler, SteamRom
 from models.collection import Collection, SmartCollection
-from models.permission import HiddenEntity, PermEntity
+from models.permission import PermEntity
 from models.platform import Platform
 from models.rom import (
     PINNED_MEDIA_KEY_MAX_LENGTH,
@@ -914,11 +914,6 @@ def test_get_rom_content_missing_rom_returns_404(client: TestClient, access_toke
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
-def _hide_rom_for_user(rom_id: int, user_id: int) -> None:
-    with sync_session.begin() as s:
-        s.add(HiddenEntity(entity=PermEntity.ROMS, entity_id=rom_id, user_id=user_id))
-
-
 def test_get_romfile_content_visible_rom(
     client: TestClient, viewer_access_token: str, rom: Rom, rom_file
 ):
@@ -937,7 +932,7 @@ def test_get_romfile_content_hidden_rom_returns_404(
 ):
     # A file belonging to a hidden rom must 404 even by direct RomFile.id,
     # matching the ROM-level content endpoint (visibility-bypass regression).
-    _hide_rom_for_user(rom.id, viewer_user.id)
+    hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
     response = client.get(
         f"/api/roms/{rom_file.id}/files/content/whatever.bin",
         headers={"Authorization": f"Bearer {viewer_access_token}"},
@@ -950,7 +945,7 @@ def test_get_romfile_hidden_rom_returns_404(
     client: TestClient, viewer_access_token: str, viewer_user, rom: Rom, rom_file
 ):
     # The file metadata endpoint must not leak files of a hidden rom either.
-    _hide_rom_for_user(rom.id, viewer_user.id)
+    hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
     response = client.get(
         f"/api/roms/{rom_file.id}/files",
         headers={"Authorization": f"Bearer {viewer_access_token}"},

@@ -75,6 +75,11 @@ class ConvertoDict(TypedDict):
     ENABLED: bool
 
 
+class SaveSyncDict(TypedDict):
+    SNAPSHOT_RETENTION: int
+    SNAPSHOT_BRANCH_LIFETIME_DAYS: int
+
+
 class RomPatcherDict(TypedDict):
     SUPPORTED_EXTENSIONS: list[str]
 
@@ -100,6 +105,7 @@ class HeartbeatResponse(TypedDict):
     NOTIFICATIONS: NotificationsDict
     DEVICE_INSTALL: DeviceInstallDict
     CONVERTO: ConvertoDict
+    SAVE_SYNC: SaveSyncDict
     ROM_PATCHER: RomPatcherDict
     TASKS: TasksDict
 

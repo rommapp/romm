@@ -2,25 +2,15 @@ from io import BytesIO
 from unittest import mock
 
 from fastapi import status
+from tests.auth_helpers import bearer, hide
 from tests.factories import make_screenshot
 
 from handler.database import db_screenshot_handler
-from handler.database.base_handler import sync_session
 from models.assets import Screenshot
-from models.permission import HiddenEntity, PermEntity
+from models.permission import PermEntity
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
-
-
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
-
-
-def _hide(entity: PermEntity, entity_id: int, user_id: int) -> None:
-    with sync_session.begin() as s:
-        s.add(HiddenEntity(entity=entity, entity_id=entity_id, user_id=user_id))
-
 
 # ---------- POST /api/screenshots ----------
 
@@ -50,7 +40,7 @@ def test_upload_gallery_screenshot_sets_flags(
     response = client.post(
         f"/api/screenshots?rom_id={rom.id}",
         files={"screenshotFile": ("shot1.png", BytesIO(b"img"), "image/png")},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -73,7 +63,7 @@ def test_upload_rejects_a_jpeg_xl_screenshot(
     response = client.post(
         f"/api/screenshots?rom_id={rom.id}",
         files={"screenshotFile": ("shot.jxl", BytesIO(b"\xff\x0a"), "image/jxl")},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -95,7 +85,7 @@ def test_upload_rejects_invalid_extension(
     response = client.post(
         f"/api/screenshots?rom_id={rom.id}",
         files={"screenshotFile": ("notes.txt", BytesIO(b"nope"), "text/plain")},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -114,7 +104,7 @@ def test_upload_rejects_a_name_over_255_bytes(
     response = client.post(
         f"/api/screenshots?rom_id={rom.id}",
         files={"screenshotFile": ("あ" * 86 + ".png", BytesIO(b"png"), "image/png")},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -129,7 +119,7 @@ def test_update_visibility_owner(client, access_token: str, screenshot: Screensh
     response = client.put(
         f"/api/screenshots/{screenshot.id}",
         json={"is_public": True},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -150,7 +140,7 @@ def test_update_visibility_other_user_returns_404(
     response = client.put(
         f"/api/screenshots/{others.id}",
         json={"is_public": True},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -170,7 +160,7 @@ def test_delete_screenshot_owner(
 ):
     response = client.delete(
         f"/api/screenshots/{screenshot.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -191,7 +181,7 @@ def test_delete_screenshot_other_user_returns_404(
 
     response = client.delete(
         f"/api/screenshots/{others.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -260,7 +250,7 @@ def test_owner_downloads_own_screenshot(
     mock_validate_path.return_value = test_file
 
     response = client.get(
-        f"/api/screenshots/{screenshot.id}/content", headers=_auth(access_token)
+        f"/api/screenshots/{screenshot.id}/content", headers=bearer(access_token)
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.content == b"SHOT_DATA"
@@ -277,7 +267,7 @@ def test_other_user_cannot_download_private_screenshot(
     )
     response = client.get(
         f"/api/screenshots/{screenshot.id}/content",
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -300,7 +290,7 @@ def test_other_user_downloads_public_screenshot(
 
     response = client.get(
         f"/api/screenshots/{screenshot.id}/content",
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.content == b"SHARED_SHOT"
@@ -318,11 +308,11 @@ def test_hidden_rom_masks_public_screenshot_download(
     screenshot = _add_screenshot(
         rom, admin_user, "shot", is_gallery=True, is_public=True
     )
-    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
 
     response = client.get(
         f"/api/screenshots/{screenshot.id}/content",
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -339,17 +329,19 @@ def test_hidden_platform_masks_public_screenshot_download(
     screenshot = _add_screenshot(
         rom, admin_user, "shot", is_gallery=True, is_public=True
     )
-    _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
+    hide(PermEntity.PLATFORMS, platform.id, user_id=viewer_user.id)
 
     response = client.get(
         f"/api/screenshots/{screenshot.id}/content",
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_download_screenshot_not_found(client, access_token: str):
-    response = client.get("/api/screenshots/99999/content", headers=_auth(access_token))
+    response = client.get(
+        "/api/screenshots/99999/content", headers=bearer(access_token)
+    )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
@@ -359,12 +351,12 @@ def test_download_screenshot_not_found(client, access_token: str):
 def test_hidden_rom_masks_screenshot_upload(
     mock_write, client, viewer_access_token: str, viewer_user: User, rom: Rom
 ):
-    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
 
     response = client.post(
         f"/api/screenshots?rom_id={rom.id}",
         files={"screenshotFile": ("shot.png", BytesIO(b"png"), "image/png")},
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND

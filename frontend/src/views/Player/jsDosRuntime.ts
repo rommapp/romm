@@ -6,7 +6,7 @@ import { isJsResource, loadScript } from "@/utils/scriptLoader";
 export const LOCAL_BASE = "/assets/jsdos";
 // Fallback for slim images and the dev server, pinned to the image's
 // JSDOS_VERSION. jsDelivr sends the CORP the player's COEP needs.
-export const CDN_BASE = "https://cdn.jsdelivr.net/npm/js-dos@8.4.1/dist";
+export const CDN_BASE = "https://cdn.jsdelivr.net/npm/js-dos@8.5.4/dist";
 
 let pending: Promise<string> | null = null;
 // A retry after a failed script load would otherwise stack a second stylesheet.

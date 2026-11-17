@@ -11,6 +11,8 @@ from utils.platform_aliases import (
     resolve_fs_folder,
     resolve_fs_slug,
     resolve_platform_slug,
+    unknown_binding_warning,
+    unknown_binding_warnings,
 )
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
@@ -112,6 +114,62 @@ def test_binding_and_version_win_over_alias():
 
     both = _config(bindings={"gamecube": "arcade"}, versions={"gamecube": "wii"})
     assert resolve_platform_slug("gamecube", both) == "arcade"
+
+
+def test_warns_about_a_binding_to_an_unknown_name():
+    config = _config(bindings={"snes-test": "snse"})
+
+    warning = unknown_binding_warning("SNES-Test", config)
+
+    assert warning is not None
+    assert "system.platforms.snes-test is snse" in warning
+    assert warning.endswith("Did you mean snes, singe?")
+
+
+def test_warns_about_a_version_to_an_unknown_name():
+    warning = unknown_binding_warning("cube", _config(versions={"cube": "gamcube"}))
+
+    assert warning is not None
+    assert "system.versions.cube is gamcube" in warning
+    assert "gamecube" in warning
+
+
+def test_leaves_out_the_suggestion_when_nothing_is_close():
+    warning = unknown_binding_warning("mine", _config(bindings={"mine": "qqqqqq"}))
+
+    assert warning is not None
+    assert "Did you mean" not in warning
+
+
+@pytest.mark.parametrize(
+    ("bindings", "versions", "folder"),
+    [
+        ({"nintendo-snes": "snes"}, {}, "nintendo-snes"),
+        ({"easyrpg-2000": "easyrpg"}, {}, "easyrpg-2000"),
+        ({}, {"sega": "Mastersystem"}, "sega"),
+        ({"a1200": "amiga-a-1200"}, {}, "a1200"),
+        ({}, {}, "my-homebrew"),
+        # The binding wins over the version, so only it is checked.
+        ({"gamecube": "arcade"}, {"gamecube": "gamcube"}, "gamecube"),
+    ],
+)
+def test_no_warning_for_known_names_or_unbound_folders(
+    bindings: dict[str, str], versions: dict[str, str], folder: str
+):
+    assert unknown_binding_warning(folder, _config(bindings, versions)) is None
+
+
+def test_lists_a_warning_for_each_unknown_binding():
+    config = _config(
+        bindings={"snes-test": "snse", "nintendo-snes": "snes"},
+        versions={"cube": "gamcube"},
+    )
+
+    warnings = unknown_binding_warnings(config)
+
+    assert len(warnings) == 2
+    assert "system.versions.cube" in warnings[0]
+    assert "system.platforms.snes-test" in warnings[1]
 
 
 def test_resolution_is_case_insensitive():

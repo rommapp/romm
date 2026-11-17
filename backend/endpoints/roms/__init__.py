@@ -79,10 +79,10 @@ from handler.audit_handler import (
 from handler.auth.constants import Scope
 from handler.auth.dependencies import (
     assert_can,
-    assert_platform_visible,
-    assert_rom_visible,
     get_permissions,
     get_rom_visibility_filter,
+    visible_platform_or_404,
+    visible_rom_or_404,
 )
 from handler.database import (
     db_collection_handler,
@@ -1319,14 +1319,7 @@ def get_rom_by_metadata_provider(
         hltb_id=hltb_id,
         steam_id=steam_id,
     )
-
-    not_found_detail = "ROM not found with given metadata IDs"
-    if not rom:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=not_found_detail
-        )
-
-    assert_rom_visible(request, rom, not_found_detail=not_found_detail)
+    rom = visible_rom_or_404(request, rom, "ROM not found with given metadata IDs")
 
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
@@ -1358,14 +1351,9 @@ def get_rom_by_hash(
         sha1_hash=sha1_hash,
         ra_hash=ra_hash,
     )
-
-    not_found_detail = "No ROM or file found with given hash values"
-    if not rom:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=not_found_detail
-        )
-
-    assert_rom_visible(request, rom, not_found_detail=not_found_detail)
+    rom = visible_rom_or_404(
+        request, rom, "No ROM or file found with given hash values"
+    )
 
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
@@ -1395,12 +1383,7 @@ def get_rom_simple(
     fetched on user-driven detail interactions (game details page, quick-
     note dialog open, achievements panel)."""
 
-    rom = db_rom_handler.get_rom_simple(id)
-
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom_simple(id), id)
 
     return SimpleRomSchema.from_orm_with_request(rom, request)
 
@@ -1424,12 +1407,7 @@ def get_similar_roms(
     games every result is a title the server actually holds.
     """
 
-    rom = db_rom_handler.get_rom_simple(id)
-
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    visible_rom_or_404(request, db_rom_handler.get_rom_simple(id), id)
 
     return [
         SimilarRomSchema(
@@ -1453,12 +1431,7 @@ def get_rom(
 ) -> DetailedRomSchema:
     """Retrieve a rom by ID."""
 
-    rom = db_rom_handler.get_rom(id)
-
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(id), id)
 
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
@@ -1560,12 +1533,7 @@ async def head_rom_content(
 ) -> Response:
     """Retrieve head information for a rom file download."""
 
-    rom = db_rom_handler.get_rom(id)
-
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(id), id)
 
     files = rom.files
     if file_ids:
@@ -1674,12 +1642,7 @@ async def get_rom_content(
     current_username = (
         request.user.username if request.user.is_authenticated else "unknown"
     )
-    rom = db_rom_handler.get_rom(id)
-
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(id), id)
 
     if not rom.has_file_on_disk:
         raise HTTPException(
@@ -1902,16 +1865,12 @@ async def create_physical_rom(
     form_data: Annotated[PhysicalRomCreateForm, Body()],
 ) -> DetailedRomSchema:
     """Manually add a physical game and auto-link its metadata (a single quick scan)."""
-    platform = db_platform_handler.get_platform(form_data.platform_id)
-    not_found_detail = f"Platform with id {form_data.platform_id} not found"
-    if not platform:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=not_found_detail
-        )
-
-    # A platform hidden from the caller must not accept writes; mask it as
-    # not-found so its existence stays concealed.
-    assert_platform_visible(request, platform, not_found_detail=not_found_detail)
+    # A platform hidden from the caller must not accept writes.
+    platform = visible_platform_or_404(
+        request,
+        db_platform_handler.get_platform(form_data.platform_id),
+        f"Platform with id {form_data.platform_id} not found",
+    )
 
     match_name = (form_data.name or "").strip()
     if not match_name and form_data.upc:
@@ -2154,12 +2113,7 @@ async def update_rom(
     ] = False,
 ) -> DetailedRomSchema:
     """Update a rom."""
-    rom = db_rom_handler.get_rom(id)
-
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(id), id)
 
     if unmatch_metadata:
         unmatched = {f: getattr(rom, f) for f in UNMATCH_ID_FIELDS if getattr(rom, f)}
@@ -2191,9 +2145,10 @@ async def update_rom(
             },
         )
 
-        rom = db_rom_handler.get_rom(id)
-        if not rom:
+        refreshed = db_rom_handler.get_rom(id)
+        if not refreshed:
             raise RomNotFoundInDatabaseException(id)
+        rom = refreshed
 
         db_rom_handler.invalidate_filter_values_cache()
         refresh_affected_smart_collections([id])
@@ -2485,11 +2440,11 @@ async def update_rom(
                 db_rom_handler.update_rom_file(file.id, moved)
 
     # Refetch the rom from the database
-    before = rom
-    rom = db_rom_handler.get_rom(id)
-    if not rom:
+    refreshed = db_rom_handler.get_rom(id)
+    if not refreshed:
         raise RomNotFoundInDatabaseException(id)
-    _record_rom_update(request, before, rom)
+    _record_rom_update(request, rom, refreshed)
+    rom = refreshed
 
     if meta_playmatch_handler.is_manual_match(form_data.model_fields_set):
         fire_and_forget(meta_playmatch_handler.submit_manual_match_suggestion(rom))
@@ -2518,11 +2473,7 @@ async def convert_rom_to_folder(
     the ROM is already folder-based. Returns 409 on a folder-name collision, or
     when an .m3u beside the file lists it.
     """
-    rom = db_rom_handler.get_rom(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(id), id)
 
     try:
         rom = await promote_single_file_to_folder(rom)
@@ -2672,12 +2623,7 @@ async def update_rom_user(
     ] = False,
 ) -> RomUserSchema:
     """Update rom data associated to the current user."""
-    rom = db_rom_handler.get_rom_visibility(id)
-
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    visible_rom_or_404(request, db_rom_handler.get_rom_visibility(id), id)
 
     db_rom_user = db_rom_handler.get_rom_user(
         id, request.user.id
@@ -2740,12 +2686,7 @@ async def update_rom_identity(
     data: Annotated[RomIdentityData, Body()],
 ) -> DetailedRomSchema:
     """Store binary identity a client extracted from a ROM the scan cannot read."""
-    rom = db_rom_handler.get_rom(id)
-
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(id), id)
 
     cleaned_data = data.model_dump(exclude_unset=True)
 

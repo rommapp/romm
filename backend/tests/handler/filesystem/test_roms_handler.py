@@ -164,6 +164,51 @@ class TestFSRomsHandler:
         assert "French" in parsed_tags.languages
         assert "Test" in parsed_tags.other_tags
 
+    @pytest.mark.parametrize(
+        "tag, regions, languages, other_tags",
+        [
+            ("EU-US", ["Europe", "USA"], [], []),
+            ("en-fr", [], ["English", "French"], []),
+            ("EU-US, en-fr", ["Europe", "USA"], ["English", "French"], []),
+            ("Pt-BR", [], ["Brazilian Portuguese"], []),
+            ("En-US", [], [], ["En-US"]),
+            ("EU-XX", [], [], ["EU-XX"]),
+            ("en-zz", [], [], ["en-zz"]),
+            ("EU-en", [], [], ["EU-en"]),
+            ("EU-", [], [], ["EU-"]),
+            ("Nl-No", [], ["Dutch", "Norwegian"], []),
+            ("NL-NO", ["Netherlands", "Norway"], [], []),
+            ("SW-R", [], [], ["SW-R"]),
+            ("T-Br", [], [], ["T-Br"]),
+        ],
+    )
+    def test_parse_tags_tosec_compound_tags(
+        self, handler: FSRomsHandler, tag, regions, languages, other_tags
+    ):
+        parsed = handler.parse_tags(f"Game (1986)(Devstudio)({tag}).tap")
+
+        assert parsed.regions == regions
+        assert parsed.languages == languages
+        assert parsed.other_tags == ["1986", "Devstudio", *other_tags]
+
+    @pytest.mark.parametrize(
+        "fs_name,regions",
+        [
+            ("Game (Denmark).zip", ["Denmark"]),
+            ("Game (Czech Republic).zip", ["Czech Republic"]),
+            ("Game (Poland).zip", ["Poland"]),
+            ("Game (Europe, Poland).zip", ["Europe", "Poland"]),
+        ],
+    )
+    def test_parse_tags_full_country_name_is_a_region(
+        self, handler: FSRomsHandler, fs_name: str, regions: list[str]
+    ):
+        """No-Intro writes full country names, which are regions, not tags."""
+        parsed_tags = handler.parse_tags(fs_name)
+
+        assert parsed_tags.regions == regions
+        assert parsed_tags.other_tags == []
+
     def test_parse_tags_complex_tags(self, handler: FSRomsHandler):
         """Test parse_tags with complex tag structures"""
         fs_name = "Game (Europe) (En,De,Fr,Es,It) (Rev A) [Reg-PAL] [Beta].rom"
@@ -2490,8 +2535,10 @@ class TestSigilTitleIdExtraction:
         [
             # Not a platform sigil covers.
             (
-                Platform(name="Nintendo 64", slug="n64", fs_slug="n64"),
-                "Game.z64",
+                Platform(
+                    name="Nintendo Entertainment System", slug="nes", fs_slug="nes"
+                ),
+                "Game.nes",
                 False,
                 True,
             ),

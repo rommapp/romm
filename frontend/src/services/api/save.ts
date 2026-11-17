@@ -1,11 +1,10 @@
-import { default as Cookies } from "js-cookie";
 import type {
   Body_add_save_api_saves_post as AddSaveInput,
   Body_update_save_api_saves__id__put as UpdateSaveInput,
   DetailedRomSchema,
   SaveSchema,
 } from "@/__generated__";
-import api from "@/services/api";
+import api, { keepaliveFormHeaders } from "@/services/api";
 import { buildFormInput } from "@/utils/formData";
 
 export const saveApi = api;
@@ -177,13 +176,12 @@ function sendSaveOnUnload({
         method: "POST",
         params: saveVersionQuery({ overwrite: true, ...version }),
       };
-  const csrfToken = Cookies.get("romm_csrftoken");
   void fetch(api.getUri(request), {
     method: request.method,
     body: saveFormData(saveFile),
     keepalive: true,
     credentials: "same-origin",
-    ...(csrfToken ? { headers: { "x-csrftoken": csrfToken } } : {}),
+    headers: keepaliveFormHeaders(),
   }).catch(() => undefined);
   return true;
 }

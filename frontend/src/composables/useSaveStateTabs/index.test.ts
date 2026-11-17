@@ -35,6 +35,17 @@ describe("useSaveStateTabs", () => {
     ]);
   });
 
+  it("matches a state by its core over the emulator that ran it", () => {
+    const fromArgosy = stateFixture({
+      id: 3,
+      emulator: "argosy",
+      core: "mgba",
+    });
+    const { compatibleStates } = useSaveStateTabs([], [fromArgosy], "mgba");
+
+    expect(compatibleStates.value).toEqual([fromArgosy]);
+  });
+
   it("counts compatible states over the total for a mixed list", () => {
     const { tabs, allStatesCompatible } = useSaveStateTabs(
       [],

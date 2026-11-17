@@ -9,9 +9,11 @@ from starlette.responses import FileResponse
 
 from config import DEV_MODE, DISABLE_EASYRPG
 from decorators.auth import protected_route
-from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible, get_permissions
+from handler.auth.dependencies import (
+    get_permissions,
+    visible_rom_or_404,
+)
 from handler.database import db_rom_handler
 from handler.easyrpg import INDEX_FILE, RTP_WEB_PATH, easyrpg_handler
 from handler.filesystem import fs_rom_handler
@@ -58,11 +60,7 @@ async def get_easyrpg_file(
         )
 
     # The player fetches every asset through here, so the full rom is never loaded.
-    rom = db_rom_handler.get_rom_visibility(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    visible_rom_or_404(request, db_rom_handler.get_rom_visibility(id), id)
 
     game_files = easyrpg_handler.game_files(db_rom_handler.present_rom_file_paths(id))
     if not easyrpg_handler.is_game(game_files):

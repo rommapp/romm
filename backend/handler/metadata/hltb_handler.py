@@ -843,6 +843,11 @@ HLTB_PLATFORM_LIST: dict[UPS, SlugToHLTBPlatform] = {
     UPS.PSVITA: {"name": "PlayStation Vita", "slug": "playstation-vita", "count": 1289},
     UPS.PLAYDATE: {"name": "Playdate", "slug": "playdate", "count": 128},
     UPS.PLUG_AND_PLAY: {"name": "Plug & Play", "slug": "plug-and-play", "count": 18},
+    UPS.PLAYSTATION_MOBILE: {
+        "name": "PlayStation Mobile",
+        "slug": "playstation-mobile",
+        "count": 1,
+    },
     UPS.SG1000: {"name": "SG-1000", "slug": "sg-1000", "count": 75},
     UPS.SEGA32: {"name": "Sega 32X", "slug": "sega-32x", "count": 42},
     UPS.SEGACD: {"name": "Sega CD", "slug": "sega-cd", "count": 209},

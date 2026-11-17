@@ -3,7 +3,7 @@
 import asyncio
 import os
 import uuid
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import asynccontextmanager, suppress
 from tempfile import SpooledTemporaryFile
 from urllib.parse import quote
@@ -17,6 +17,7 @@ from handler.auth.dependencies import get_permissions
 from handler.auth.permissions import ResolvedPermissions
 from handler.database import (
     db_screenshot_handler,
+    db_snapshot_handler,
     db_state_handler,
 )
 from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
@@ -37,6 +38,7 @@ from models.assets import Save, Screenshot, State
 from models.rom import Rom
 from models.user import User
 from utils.filesystem import check_filename_length, sanitize_filename
+from utils.uploads import apply_datetime_tag
 
 router = APIRouter(prefix="/retroarch")
 
@@ -134,6 +136,12 @@ async def _resolve_rom(request: Request, parsed: RetroArchSyncPath) -> Rom | Non
         emulator=parsed.emulator,
         by_file_name=True,
     )
+
+
+def _unheld[A: (Save, State)](assets: Sequence[A]) -> list[A]:
+    """The rows no sync channel holds: RetroArch reads a held row but never changes it."""
+    held = db_snapshot_handler.get_frozen_ids(assets)
+    return [asset for asset in assets if asset.id not in held]
 
 
 async def _get_asset(
@@ -585,12 +593,27 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
         parsed.emulator,
         file_name,
     )
-    existing = slot.own_head
+    matched = slot.own_head
+    held = matched is not None and await asyncio.to_thread(
+        db_snapshot_handler.is_asset_frozen, matched
+    )
+    existing = None if held else matched
     write_file_name = existing.file_name if existing else file_name
     emulator = existing.emulator if existing else parsed.emulator
     asset_path = sync_handler.build_asset_file_path(
         request.user, rom, parsed.kind, emulator
     )
+    if (
+        held
+        and matched is not None
+        and (matched.file_path, matched.file_name) == (asset_path, write_file_name)
+    ):
+        # The write would land on the held row's own file.
+        write_file_name = apply_datetime_tag(file_name)
+        try:
+            check_filename_length(write_file_name)
+        except ValueError:
+            return _empty(status.HTTP_409_CONFLICT)
 
     async with _request_body(request) as body:
         content_hash, is_copy = await sync_handler.check_against_capture(slot, body)
@@ -681,6 +704,8 @@ async def _put_save(request: Request, rom: Rom, parsed: RetroArchSyncPath) -> Re
             )
         except ValueError:
             return _empty(status.HTTP_409_CONFLICT)
+        except sync_handler.SaveHeld:
+            return _empty(status.HTTP_423_LOCKED)
 
     return _empty(
         status.HTTP_201_CREATED if stored == "created" else status.HTTP_204_NO_CONTENT
@@ -723,16 +748,20 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
     if not rom:
         return _empty(status.HTTP_404_NOT_FOUND)
 
+    # A save or state a sync channel holds stays, answered as locked (WebDAV's 423).
     if parsed.kind == "saves":
-        saves = await asyncio.to_thread(
+        at_path = await asyncio.to_thread(
             sync_handler.saves_at_path,
             request.user,
             rom,
             parsed.emulator,
             parsed.file_name,
         )
-        if not saves:
+        if not at_path:
             return _empty(status.HTTP_404_NOT_FOUND)
+        saves = await asyncio.to_thread(_unheld, at_path)
+        if not saves:
+            return _empty(status.HTTP_423_LOCKED)
 
         log.info(f"Cloud sync delete {hl(parsed.file_name)} [{rom.platform_slug}]")
         for save in saves:
@@ -762,7 +791,7 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
         return _empty(status.HTTP_204_NO_CONTENT)
 
     # Every alias in the slot goes, or an older one would resurface at this path.
-    # Captures stay, so the newest of them is served here next.
+    # Captures and held states stay, so the newest of them is served here next.
     slot = await asyncio.to_thread(
         sync_handler.slot_states,
         request.user,
@@ -770,11 +799,12 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
         parsed.emulator,
         parsed.file_name,
     )
-    if slot.served is None:
-        return _empty(status.HTTP_404_NOT_FOUND)
+    removable = await asyncio.to_thread(_unheld, slot.own)
+    if not removable and slot.served_capture is None:
+        return _empty(status.HTTP_423_LOCKED if slot.own else status.HTTP_404_NOT_FOUND)
 
     log.info(f"Cloud sync delete {hl(parsed.file_name)} [{rom.platform_slug}]")
-    for state in slot.own:
+    for state in removable:
         await asyncio.to_thread(db_state_handler.delete_state, state.id)
         with suppress(FileNotFoundError):
             await fs_asset_handler.remove_file(file_path=state.full_path)

@@ -10,6 +10,7 @@ from utils.m3u import (
     generate_m3u_content,
     listing_playlist,
     needs_generated_playlist,
+    playlist_discs,
     playlist_files,
 )
 
@@ -199,6 +200,24 @@ class TestFirstPlaylistEntry:
         m3u.write_text("#EXTM3U\n\n")
 
         assert first_playlist_entry(m3u) is None
+
+
+class TestPlaylistDiscs:
+    def test_lists_each_disc_on_disk_in_playlist_order(self, tmp_path):
+        disc2 = tmp_path / "Game (Disc 2).chd"
+        disc2.write_bytes(b"x")
+        disc1 = tmp_path / "Multi" / "Game (Disc 1).chd"
+        disc1.parent.mkdir()
+        disc1.write_bytes(b"x")
+        m3u = tmp_path / "Game.m3u"
+        m3u.write_text(
+            "#EXTM3U\nGame (Disc 2).chd\nMulti\\Game (Disc 1).chd\nGame (Disc 3).chd\n"
+        )
+
+        assert playlist_discs(m3u) == [disc2, disc1]
+
+    def test_an_unreadable_playlist_lists_nothing(self, tmp_path):
+        assert playlist_discs(tmp_path / "missing.m3u") == []
 
 
 def _make_file(

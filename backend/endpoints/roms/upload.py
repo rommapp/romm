@@ -16,14 +16,16 @@ from streaming_form_data.targets import FileTarget, NullTarget
 
 from config import ROM_UPLOAD_TMP_BASE, ROM_UPLOAD_TTL
 from decorators.auth import protected_route
-from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import (
     RomAlreadyExistsException,
     RomListedByPlaylistException,
 )
 from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible, get_permissions
+from handler.auth.dependencies import (
+    get_permissions,
+    visible_rom_or_404,
+)
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.redis_handler import async_cache
@@ -138,10 +140,7 @@ def _get_upload_platform(request: Request, platform_id: int) -> Platform:
 
 
 def _get_upload_rom(request: Request, rom_id: int, platform_id: int) -> Rom:
-    rom = db_rom_handler.get_rom_simple(rom_id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(rom_id)
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom_simple(rom_id), rom_id)
     if rom.platform_id != platform_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
