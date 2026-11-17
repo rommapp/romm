@@ -381,6 +381,38 @@ describe("galleryRoms windowed fetch", () => {
       expect(store.loadedWindows.has(0)).toBe(true);
     });
 
+    it("doesn't refetch the first window while it's still being placed", async () => {
+      // Arrange
+      const frames: FrameRequestCallback[] = [];
+      vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+        frames.push(cb);
+        return frames.length;
+      });
+      getRoms.mockResolvedValueOnce({
+        data: {
+          total: 200,
+          items: ids.slice(0, 72).map((id) => romFixture({ id })),
+          char_index: {},
+          rom_id_index: ids,
+        },
+      });
+      const store = storeGalleryRoms();
+      const booting = store.fetchInitialMetadata();
+      await flushPromises();
+
+      // Act
+      store.syncVisibleWindows([0]);
+      while (frames.length > 0) {
+        frames.shift()?.(0);
+        await flushPromises();
+      }
+      await booting;
+
+      // Assert
+      expect(getRoms).toHaveBeenCalledTimes(1);
+      expect(store.loadedWindows.has(0)).toBe(true);
+    });
+
     it("lets a second caller wait for the bootstrap in flight", async () => {
       // Arrange
       const boot = deferred();

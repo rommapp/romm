@@ -671,18 +671,23 @@ export default defineStore("v2GalleryRoms", {
           sidecars,
         );
         staleListRefreshed = false;
-        // The first window came with it; keep it when it's complete.
+        // The first window came with it; keep it when it's complete. Pending
+        // while it's placed, so a viewport sync between frames won't refetch it.
         const firstIds = this.romIdIndex.slice(0, WINDOW_SIZE);
         if (
           firstIds.length > 0 &&
           response.data.items.length === firstIds.length
         ) {
+          this.pendingWindows.add(0);
           await applyItemsBatched(
             this.byPosition,
             windowPlacements(response.data.items, 0, firstIds),
             isCurrent,
           );
-          if (isCurrent()) this.loadedWindows.add(0);
+          if (isCurrent()) {
+            this.pendingWindows.delete(0);
+            this.loadedWindows.add(0);
+          }
         }
       } catch (err) {
         if (axios.isCancel(err)) return;
