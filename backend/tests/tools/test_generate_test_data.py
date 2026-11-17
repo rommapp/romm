@@ -1,3 +1,4 @@
+import random
 import sys
 from collections.abc import Callable
 from datetime import datetime, tzinfo
@@ -130,3 +131,54 @@ def test_a_cache_failure_still_reports_the_saved_seed(
     assert "could not rotate the gallery cache" in captured.err
     assert "Done in" in captured.out
     assert len(rows) == 24
+
+
+def _facts(seed: int) -> dict[str, Any]:
+    return generate_test_data.make_facts(random.Random(seed), {})
+
+
+def _without_provider_metadata(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {k: v for k, v in row.items() if k not in ("igdb_metadata", "ss_metadata")}
+        for row in rows
+    ]
+
+
+def test_metadata_extras_never_shift_the_rows(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    seeded = _rom_rows(monkeypatch, tmp_path / "seeded")
+    monkeypatch.setattr(
+        generate_test_data, "extra_rng", lambda _: random.Random(0)  # nosec B311
+    )
+
+    reseeded = _rom_rows(monkeypatch, tmp_path / "reseeded")
+
+    assert _without_provider_metadata(seeded) == _without_provider_metadata(reseeded)
+
+
+def test_ss_metadata_links_every_media_kind() -> None:
+    metadata = generate_test_data.build_ss_metadata(random.Random(1), _facts(1))
+
+    for kind in generate_test_data.SS_MEDIA_KINDS:
+        assert metadata[f"{kind}_url"].startswith("https://")
+        has_path = kind not in generate_test_data.SS_URL_ONLY_KINDS
+        assert (f"{kind}_path" in metadata) == has_path
+
+
+def test_list_lengths_follow_the_measured_shape() -> None:
+    rng = random.Random(7)
+    least, p50, _, _, top = generate_test_data.LIST_SHAPES["igdb.keywords"]
+
+    lengths = sorted(
+        generate_test_data.sample_length(rng, "igdb.keywords") for _ in range(4000)
+    )
+
+    assert least <= lengths[0] and lengths[-1] <= top
+    assert abs(lengths[len(lengths) // 2] - p50) <= 1
+
+
+def test_igdb_metadata_always_has_ten_similar_games() -> None:
+    metadata = generate_test_data.build_igdb_metadata(random.Random(3), _facts(3))
+
+    assert len(metadata["similar_games"]) == 10

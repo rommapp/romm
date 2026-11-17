@@ -379,10 +379,50 @@ EXTENSIONS_BY_SLUG: dict[str, list[str]] = {
 
 DISC_HINTS = ("ps", "dc", "saturn", "cd", "ngc", "wii", "psp", "3do", "cdi")
 
+KEYWORDS = [
+    "boss fight", "pixel art", "side-scrolling", "time limit", "power-ups",
+    "high score", "save point", "password system", "multiple endings",
+    "dungeon", "level selection", "unlockable content", "wall jump",
+    "difficulty level", "invincibility", "secret area", "sequel", "spin-off",
+]  # fmt: skip
+IGDB_PLATFORM_NAMES = [p["name"] for p in IGDB_PLATFORM_LIST.values()]
+# (least, p50, p90, p99, max) list lengths, measured 2026-11-17 on one
+# 9,172-game library.
+LIST_SHAPES: dict[str, tuple[int, int, int, int, int]] = {
+    "igdb.alternative_names": (0, 2, 6, 11, 16),
+    "igdb.keywords": (0, 5, 26, 80, 213),
+    "igdb.platforms": (0, 2, 5, 10, 17),
+    "ss.alternative_names": (0, 3, 4, 8, 12),
+}
+SS_MEDIA_KINDS = ("bezel", "box2d", "box2d_side", "box2d_back", "box3d", "fanart",
+                  "fullbox", "logo", "manual", "marquee", "miximage", "miximage_v2",
+                  "physical", "screenshot", "steamgrid", "title_screen", "video",
+                  "video_normalized")  # fmt: skip
+# Linked by ScreenScraper but never downloaded, so no `<kind>_path`.
+SS_URL_ONLY_KINDS = {"fullbox", "manual", "screenshot", "steamgrid"}
+
 
 # ---------------------------------------------------------------------------
 # Small helpers.
 # ---------------------------------------------------------------------------
+
+
+def sample_length(rng: random.Random, key: str) -> int:
+    """A list length whose percentiles match `LIST_SHAPES[key]`."""
+    least, p50, p90, p99, top = LIST_SHAPES[key]
+    u = rng.random()
+    if u < 0.5:
+        return rng.randint(least, p50)
+    if u < 0.9:
+        return rng.randint(p50, p90)
+    if u < 0.99:
+        return rng.randint(p90, p99)
+    return rng.randint(p99, top)
+
+
+def extra_rng(f: dict[str, Any]) -> random.Random:
+    """A per-game stream for metadata, so the main stream and rows never shift."""
+    return random.Random(f["slug"])  # nosec B311
 
 
 def rand_hex(rng: random.Random, nbytes: int) -> str:
@@ -507,15 +547,32 @@ def _cover_url(rng: random.Random) -> str:
     )
 
 
-def build_igdb_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]:
+def _similar_game(rng: random.Random) -> dict[str, Any]:
     return {
+        "id": rng.randint(1, 300000),
+        "name": make_title(rng),
+        "slug": slugify(make_title(rng)),
+        "type": "similar",
+        "cover_url": _cover_url(rng),
+    }
+
+
+def build_igdb_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]:
+    more = extra_rng(f)
+    metadata: dict[str, Any] = {
         "total_rating": str(f["rating"]),
         "aggregated_rating": str(round(f["rating"] - rng.uniform(0, 8), 2)),
         "first_release_date": f["release_ts"],
         "youtube_video_id": rand_hex(rng, 6),
         "genres": f["genres"],
+        "keywords": [
+            more.choice(KEYWORDS) for _ in range(sample_length(more, "igdb.keywords"))
+        ],
         "franchises": f["franchises"],
-        "alternative_names": [f["title"].split(":")[0]],
+        "alternative_names": [
+            f"{f['title']} ({more.choice(REGIONS)})"
+            for _ in range(sample_length(more, "igdb.alternative_names"))
+        ],
         "collections": [f["franchises"][0]] if f["franchises"] else [],
         "companies": f["companies"],
         "game_modes": f["game_modes"],
@@ -527,7 +584,10 @@ def build_igdb_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]
             }
             for r in f["age_ratings"]
         ],
-        "platforms": [],
+        "platforms": [
+            {"igdb_id": more.randint(1, 500), "name": more.choice(IGDB_PLATFORM_NAMES)}
+            for _ in range(sample_length(more, "igdb.platforms"))
+        ],
         "multiplayer_modes": [],
         "player_count": f["player_count"],
         "expansions": [],
@@ -536,17 +596,12 @@ def build_igdb_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]
         "remakes": [],
         "expanded_games": [],
         "ports": [],
-        "similar_games": [
-            {
-                "id": rng.randint(1, 300000),
-                "name": make_title(rng),
-                "slug": slugify(make_title(rng)),
-                "type": "similar",
-                "cover_url": _cover_url(rng),
-            }
-            for _ in range(rng.randint(0, 4))
-        ],
+        "similar_games": [_similar_game(rng) for _ in range(rng.randint(0, 4))],
     }
+    # IGDB always returns ten.
+    similar_games = metadata["similar_games"]
+    similar_games += [_similar_game(more) for _ in range(10 - len(similar_games))]
+    return metadata
 
 
 def build_moby_metadata(
@@ -565,10 +620,25 @@ def build_moby_metadata(
 
 
 def build_ss_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]:
+    more = extra_rng(f)
+    game_id, system_id = rng.randint(1, 999999), rng.randint(1, 999999)
+    media_url = (
+        "https://neoclone.screenscraper.fr/api2/mediaJeu.php?softname=romm"
+        f"&systemeid={system_id}&jeuid={game_id}&media="
+    )
     return {
+        **{f"{kind}_url": f"{media_url}{kind}(wor)" for kind in SS_MEDIA_KINDS},
+        **{
+            f"{kind}_path": None
+            for kind in SS_MEDIA_KINDS
+            if kind not in SS_URL_ONLY_KINDS
+        },
         "ss_score": str(round(f["rating"] / 10, 1)),
         "first_release_date": f["release_ts"],
-        "alternative_names": [f["title"].split(":")[0]],
+        "alternative_names": [
+            f"{f['title']} ({more.choice(REGIONS)})"
+            for _ in range(sample_length(more, "ss.alternative_names"))
+        ],
         "age_ratings": [
             {"rating": r.split(":")[1], "category": r.split(":")[0]}
             for r in f["age_ratings"]
@@ -578,8 +648,6 @@ def build_ss_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]:
         "game_modes": f["game_modes"],
         "genres": f["genres"],
         "player_count": f["player_count"],
-        "box2d_url": f"https://www.screenscraper.fr/image.php?gameid={rng.randint(1, 999999)}",
-        "screenshot_url": f"https://www.screenscraper.fr/image.php?gameid={rng.randint(1, 999999)}",
     }
 
 
