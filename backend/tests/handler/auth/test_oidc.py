@@ -897,6 +897,26 @@ async def test_oidc_login_follows_an_email_change_at_the_provider(
     assert user.email_trusted
 
 
+async def test_oidc_login_trusts_the_email_the_provider_confirms_for_a_linked_account(
+    mock_oidc_enabled,
+    mock_oidc_allow_registration_disabled,
+    mock_token,
+    mock_discovery,
+):
+    existing = _add_user(
+        "testuser", "test@example.com", oidc_sub="sub-1", email_trusted=False
+    )
+    mock_token["userinfo"]["sub"] = "sub-1"
+
+    user, _ = await OpenIDHandler().get_current_active_user_from_openid_token(
+        mock_token
+    )
+
+    assert user is not None
+    assert user.id == existing.id
+    assert user.email_trusted
+
+
 async def test_oidc_login_refuses_to_link_an_account_by_an_untrusted_email(
     mocker, mock_oidc_enabled, mock_token, mock_discovery
 ):

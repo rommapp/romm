@@ -831,6 +831,8 @@ class OpenIDHandler:
                         hl(user.username, color=CYAN),
                         hl(email, color=CYAN),
                     )
+            elif matched_by_identity and not user.email_trusted:
+                updates["email_trusted"] = True
             if claims_provided and user.role != role:
                 updates["role"] = role
 

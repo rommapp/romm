@@ -136,3 +136,21 @@ class TestUpdateLastActive:
         user.set_last_active()
 
         assert executed_statements == []
+
+
+class TestTrustEmail:
+    def test_trusts_the_email_the_user_still_holds(self, viewer_user: User):
+        db_user_handler.update_user(viewer_user.id, {"email": "viewer@example.com"})
+
+        assert db_user_handler.trust_email(viewer_user.id, "Viewer@Example.com")
+
+        current = db_user_handler.get_user(viewer_user.id)
+        assert current and current.email_trusted
+
+    def test_leaves_a_changed_email_untrusted(self, viewer_user: User):
+        db_user_handler.update_user(viewer_user.id, {"email": "taken@example.com"})
+
+        assert not db_user_handler.trust_email(viewer_user.id, "viewer@example.com")
+
+        current = db_user_handler.get_user(viewer_user.id)
+        assert current and not current.email_trusted

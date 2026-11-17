@@ -17,7 +17,8 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Existing accounts keep linking by email as before; new ones start untrusted.
+    # Existing accounts start trusted so a pending first OIDC sign-in still links
+    # them by email; new ones start untrusted.
     with op.batch_alter_table("users", schema=None) as batch_op:
         batch_op.add_column(
             sa.Column(

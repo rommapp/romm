@@ -531,6 +531,7 @@ async def update_user(
             auth_handler.get_password_hash, form_data.password
         )
 
+    by_admin = is_scoped_admin(request, Scope.USERS_WRITE)
     if new_email is not None:
         try:
             validate_email(new_email)
@@ -549,10 +550,8 @@ async def update_user(
             )
 
         cleaned_data["email"] = new_email.lower() or None
-
-    by_admin = is_scoped_admin(request, Scope.USERS_WRITE)
-    if new_email is not None:
         cleaned_data["email_trusted"] = by_admin
+
     # Saving an unchanged email as an admin vouches for it, but only for the
     # address the admin saw, in case the user changed it meanwhile.
     vouch_for = (

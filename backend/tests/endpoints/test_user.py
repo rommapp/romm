@@ -699,6 +699,9 @@ def test_an_email_a_user_sets_for_themselves_is_not_trusted(
 def test_an_email_a_delegated_user_manager_sets_is_not_trusted(
     client, admin_user: User, viewer_user: User, editor_user: User
 ):
+    db_user_handler.update_user(
+        editor_user.id, {"email": "old-editor@example.com", "email_trusted": True}
+    )
     token = _delegated_user_manager_token(viewer_user)
 
     response = client.put(
@@ -710,6 +713,27 @@ def test_an_email_a_delegated_user_manager_sets_is_not_trusted(
     assert response.status_code == status.HTTP_200_OK
     updated = db_user_handler.get_user(editor_user.id)
     assert updated and not updated.email_trusted
+
+
+def test_a_user_a_delegated_user_manager_creates_has_an_untrusted_email(
+    client, admin_user: User, viewer_user: User
+):
+    token = _delegated_user_manager_token(viewer_user)
+
+    response = client.post(
+        "/api/users",
+        json={
+            "username": "managed_user",
+            "email": "managed@example.com",
+            "password": "a-good-password",
+            "role": Role.USER.value,
+        },
+        headers=bearer(token),
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED
+    created = db_user_handler.get_user(response.json()["id"])
+    assert created and not created.email_trusted
 
 
 @pytest.mark.parametrize(
