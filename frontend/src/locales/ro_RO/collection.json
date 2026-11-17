@@ -1,4 +1,6 @@
 {
+  "by-author": "de {author}",
+  "by-me": "a mea",
   "collection-deleted": "Colecția „{name}” a fost ștearsă",
   "cover": "Copertă",
   "create-collection": "Creează colecție",
@@ -24,6 +26,8 @@
   "no-collections-yet": "Nicio colecție încă.",
   "no-collections-yet-detail": "Adaugă un joc la favorite sau creează una din bara de acțiuni a oricărui ROM.",
   "not-found": "Colecția nu a fost găsită.",
+  "open-to-members": "Oricine poate adăuga jocuri",
+  "open-to-members-hint": "Oricine vede această colecție poate adăuga și elimina jocuri. Doar tu o poți redenumi, partaja sau șterge.",
   "save-as-smart": "Salvează ca colecție inteligentă",
   "search-collection": "Caută în colecție",
   "settings": "Setări",

@@ -1,4 +1,6 @@
 {
+  "by-author": "av {author}",
+  "by-me": "av mig",
   "collection-deleted": "Samlingen ”{name}” togs bort",
   "cover": "Omslagsbild",
   "create-collection": "Skapa samling",
@@ -24,6 +26,8 @@
   "no-collections-yet": "Inga samlingar ännu.",
   "no-collections-yet-detail": "Favoritmarkera ett spel eller skapa en samling från åtgärdsfältet för en ROM-fil.",
   "not-found": "Samlingen hittades inte.",
+  "open-to-members": "Alla kan lägga till spel",
+  "open-to-members-hint": "Alla som ser samlingen kan lägga till och ta bort spel. Bara du kan byta namn på, dela eller radera den.",
   "save-as-smart": "Spara som smart samling",
   "search-collection": "Sök samling",
   "settings": "Inställningar",

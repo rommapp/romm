@@ -1,4 +1,6 @@
 {
+  "by-author": "de {author}",
+  "by-me": "minha",
   "collection-deleted": "Coleção \"{name}\" excluída",
   "cover": "Imagem da capa",
   "create-collection": "Criar coleção",
@@ -24,6 +26,8 @@
   "no-collections-yet": "Ainda não há coleções.",
   "no-collections-yet-detail": "Adicione um jogo aos favoritos ou crie uma pela barra de ações de qualquer ROM.",
   "not-found": "Coleção não encontrada.",
+  "open-to-members": "Qualquer pessoa pode adicionar jogos",
+  "open-to-members-hint": "Quem vê esta coleção pode adicionar e remover jogos. Só você pode renomear, compartilhar ou excluir.",
   "save-as-smart": "Salvar como coleção inteligente",
   "search-collection": "Buscar coleção",
   "settings": "Configurações",

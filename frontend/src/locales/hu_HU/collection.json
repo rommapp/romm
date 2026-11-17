@@ -1,4 +1,6 @@
 {
+  "by-author": "{author} gyűjteménye",
+  "by-me": "saját",
   "collection-deleted": "A(z) „{name}” gyűjtemény törölve",
   "cover": "Borítókép",
   "create-collection": "Gyűjtemény létrehozása",
@@ -24,6 +26,8 @@
   "no-collections-yet": "Még nincsenek gyűjtemények.",
   "no-collections-yet-detail": "Jelölj meg egy játékot kedvencként, vagy hozz létre egyet bármelyik ROM műveletsávjából.",
   "not-found": "A gyűjtemény nem található.",
+  "open-to-members": "Bárki hozzáadhat játékokat",
+  "open-to-members-hint": "Aki látja ezt a gyűjteményt, játékokat adhat hozzá és távolíthat el belőle. Csak te nevezheted át, oszthatod meg vagy törölheted.",
   "save-as-smart": "Mentés intelligens gyűjteményként",
   "search-collection": "Gyűjtemény keresése",
   "settings": "Beállítások",

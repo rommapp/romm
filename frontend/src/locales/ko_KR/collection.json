@@ -1,4 +1,6 @@
 {
+  "by-author": "{author} 님",
+  "by-me": "나",
   "collection-deleted": "모음집 \"{name}\"을(를) 삭제했습니다",
   "cover": "커버 이미지",
   "create-collection": "모음집 생성",
@@ -24,6 +26,8 @@
   "no-collections-yet": "아직 모음집이 없습니다.",
   "no-collections-yet-detail": "게임을 즐겨찾기에 추가하거나 ROM의 작업 표시줄에서 모음집을 만드세요.",
   "not-found": "모음집을 찾을 수 없습니다.",
+  "open-to-members": "누구나 게임 추가 가능",
+  "open-to-members-hint": "이 모음집을 볼 수 있는 사람은 누구나 게임을 추가하고 제거할 수 있습니다. 이름 변경, 공유, 삭제는 본인만 할 수 있습니다.",
   "save-as-smart": "스마트 모음집으로 저장",
   "search-collection": "모음집에서 찾기",
   "settings": "설정",

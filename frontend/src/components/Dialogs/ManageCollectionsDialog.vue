@@ -31,6 +31,7 @@ import { useSnackbar } from "@/composables/useSnackbar";
 import { useWebpSupport } from "@/composables/useWebpSupport";
 import { RDialog, RDivider } from "@/lib";
 import collectionApi from "@/services/api/collection";
+import storeAuth from "@/stores/auth";
 import storeCollections, {
   type Collection,
   type CollectionType,
@@ -46,6 +47,7 @@ const { t } = useI18n();
 const { mdAndUp } = useBreakpoint();
 const show = ref(false);
 const collectionsStore = storeCollections();
+const authStore = storeAuth();
 const galleryRomsStore = storeGalleryRoms();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
@@ -204,7 +206,9 @@ const subtitle = computed(() => {
   return "";
 });
 
-const ownedCollections = computed(() => collectionsStore.ownedCollections);
+const editableCollections = computed(
+  () => collectionsStore.editableCollections,
+);
 
 // Header cover thumbnail: single-rom invocations get the game's cover
 // alongside the title (same `<GameCard size="xs" decorative>` shape
@@ -267,13 +271,18 @@ function closeDialog() {
         @cancel="resetCreate"
       />
 
-      <RDivider v-if="ownedCollections.length > 0" full-width />
+      <RDivider v-if="editableCollections.length > 0" full-width />
 
       <!-- Existing collection rows: instant toggle, no commit step. -->
-      <ul v-if="ownedCollections.length" class="r-mng-coll__list">
-        <li v-for="collection in ownedCollections" :key="collection.id">
+      <ul v-if="editableCollections.length" class="r-mng-coll__list">
+        <li v-for="collection in editableCollections" :key="collection.id">
           <CollectionPickerRow
             :name="collection.name"
+            :author="
+              collection.user_id === authStore.user?.id
+                ? null
+                : collection.owner_username
+            "
             :count="collection.rom_count"
             :covers="coversFor(collection)"
             :state="membershipState(collection)"

@@ -1,4 +1,6 @@
 {
+  "by-author": "par {author}",
+  "by-me": "par moi",
   "collection-deleted": "Collection « {name} » supprimée",
   "cover": "Jaquette",
   "create-collection": "Créer une collection",
@@ -24,6 +26,8 @@
   "no-collections-yet": "Aucune collection pour le moment.",
   "no-collections-yet-detail": "Ajoutez un jeu aux favoris ou créez-en une depuis la barre d'actions de n'importe quelle ROM.",
   "not-found": "Collection introuvable.",
+  "open-to-members": "Tout le monde peut ajouter des jeux",
+  "open-to-members-hint": "Toute personne qui voit cette collection peut y ajouter et retirer des jeux. Vous seul pouvez la renommer, la partager ou la supprimer.",
   "save-as-smart": "Enregistrer comme collection intelligente",
   "search-collection": "Recherche dans la collection",
   "settings": "Paramètres",

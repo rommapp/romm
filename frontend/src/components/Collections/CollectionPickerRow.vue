@@ -5,6 +5,7 @@
 // Click toggles; parent owns the pending/checked state and handles the
 // API round-trip.
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import CollectionMosaic from "@/components/Collections/CollectionMosaic.vue";
 import PublicBadge from "@/components/shared/PublicBadge.vue";
 import { RIcon } from "@/lib";
@@ -13,6 +14,8 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   name: string;
+  /** Another member's username for their open collection; null for your own. */
+  author: string | null;
   count: number;
   covers: string[];
   /** Membership state of the row against the current selection:
@@ -37,6 +40,8 @@ const props = withDefaults(defineProps<Props>(), {
 defineEmits<{
   (e: "toggle"): void;
 }>();
+
+const { t } = useI18n();
 
 const rowStyle = computed(() => ({
   "--tile-w": `${props.tileSize}px`,
@@ -66,7 +71,12 @@ const isFull = computed(() => props.state === "all");
       <CollectionMosaic :covers="covers" radius="6px" />
       <PublicBadge v-if="isPublic" class="pick-row__public" />
     </span>
-    <span class="pick-row__name">{{ name }}</span>
+    <span class="pick-row__name">
+      {{ name }}
+      <span v-if="author" class="pick-row__author">
+        {{ t("collection.by-author", { author }) }}
+      </span>
+    </span>
     <span class="pick-row__count">{{ count }}</span>
     <span class="pick-row__tick" aria-hidden="true">
       <RIcon
@@ -124,6 +134,11 @@ const isFull = computed(() => props.state === "all");
   left: 4px;
 }
 
+.pick-row__author {
+  color: var(--r-color-fg-secondary);
+  font-size: var(--r-font-size-sm);
+  font-weight: var(--r-font-weight-regular);
+}
 .pick-row__name {
   min-width: 0;
   font-size: 14px;

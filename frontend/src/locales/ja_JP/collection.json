@@ -1,4 +1,6 @@
 {
+  "by-author": "{author} 作成",
+  "by-me": "自分",
   "collection-deleted": "コレクション「{name}」を削除しました",
   "cover": "カバーアート",
   "create-collection": "コレクションを作成",
@@ -24,6 +26,8 @@
   "no-collections-yet": "コレクションはまだありません。",
   "no-collections-yet-detail": "ゲームをお気に入りに追加するか、任意のROMのアクションバーから作成してください。",
   "not-found": "コレクションが見つかりません。",
+  "open-to-members": "誰でもゲームを追加可能",
+  "open-to-members-hint": "このコレクションを見られる人は誰でもゲームを追加・削除できます。名前の変更、共有、削除はあなただけが行えます。",
   "save-as-smart": "スマートコレクションとして保存",
   "search-collection": "コレクションを検索",
   "settings": "設定",
