@@ -258,20 +258,16 @@ describe("galleryRoms windowed fetch", () => {
   describe("windows by id", () => {
     const ids = Array.from({ length: 200 }, (_, i) => 1000 + i);
 
+    // The first call is the bootstrap, without its first window, so window 0
+    // still loads by id.
     function bootstrapThen(window: (params: { romIds?: number[] }) => unknown) {
-      getRoms.mockImplementation(
-        (params: { limit?: number; romIds?: number[] }) =>
-          params.limit === 1
-            ? Promise.resolve({
-                data: {
-                  total: 200,
-                  items: [],
-                  char_index: {},
-                  rom_id_index: ids,
-                },
-              })
-            : Promise.resolve(window(params)),
-      );
+      getRoms
+        .mockResolvedValueOnce({
+          data: { total: 200, items: [], char_index: {}, rom_id_index: ids },
+        })
+        .mockImplementation((params: { romIds?: number[] }) =>
+          Promise.resolve(window(params)),
+        );
     }
 
     it("asks for its slice of the bootstrap's id list", async () => {
@@ -311,7 +307,7 @@ describe("galleryRoms windowed fetch", () => {
 
       // Assert
       expect(callsBeforeIds).toBe(1);
-      expect(getRoms.mock.calls[0]![0].limit).toBe(1);
+      expect(getRoms.mock.calls[0]![0].romIds).toBeUndefined();
       expect(getRoms.mock.calls[1]![0].romIds).toEqual(ids.slice(72, 144));
     });
 
@@ -356,11 +352,58 @@ describe("galleryRoms windowed fetch", () => {
       await flushPromises();
 
       // Assert
-      const refreshes = getRoms.mock.calls.filter(
-        (c) => !c[0].romIds && c[0].limit !== 1,
-      );
-      expect(refreshes).toHaveLength(1);
+      const afterBootstrap = getRoms.mock.calls.slice(1);
+      expect(afterBootstrap.filter((c) => !c[0].romIds)).toHaveLength(1);
       expect(store.refreshing).toBe(true);
+    });
+
+    it("places the bootstrap's first window and doesn't fetch it again", async () => {
+      // Arrange
+      getRoms.mockResolvedValueOnce({
+        data: {
+          total: 200,
+          items: ids.slice(0, 72).map((id) => romFixture({ id })),
+          char_index: {},
+          rom_id_index: ids,
+        },
+      });
+      const store = storeGalleryRoms();
+
+      // Act
+      await store.fetchInitialMetadata();
+      store.syncVisibleWindows([0, 40]);
+      await flushPromises();
+
+      // Assert
+      expect(getRoms).toHaveBeenCalledTimes(1);
+      expect(getRoms.mock.calls[0]![0].limit).toBe(72);
+      expect(store.byPosition.get(40)?.id).toBe(ids[40]);
+      expect(store.loadedWindows.has(0)).toBe(true);
+    });
+
+    it("lets a second caller wait for the bootstrap in flight", async () => {
+      // Arrange
+      const boot = deferred();
+      getRoms.mockImplementationOnce(() => boot.promise);
+      const store = storeGalleryRoms();
+      const first = store.fetchInitialMetadata();
+
+      // Act
+      let secondDone = false;
+      const second = store.fetchInitialMetadata().then(() => {
+        secondDone = true;
+      });
+      await flushPromises();
+      const doneBeforeData = secondDone;
+      boot.resolve({
+        data: { total: 200, items: [], char_index: {}, rom_id_index: ids },
+      });
+      await Promise.all([first, second]);
+
+      // Assert
+      expect(getRoms).toHaveBeenCalledTimes(1);
+      expect(doneBeforeData).toBe(false);
+      expect(store.metadataLoaded).toBe(true);
     });
   });
 

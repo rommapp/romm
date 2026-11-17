@@ -145,6 +145,9 @@ const queuedWindows: number[] = [];
 // One stale-list refresh per gallery context, so a lasting mismatch can't loop.
 let staleListRefreshed = false;
 
+// The bootstrap in flight, so a second caller waits for it instead of racing.
+let bootstrapInFlight: Promise<void> | null = null;
+
 function clearQueue() {
   queuedWindows.length = 0;
 }
@@ -335,6 +338,15 @@ export default defineStore("v2GalleryRoms", {
   actions: {
     setCurrentPlatform(platform: Platform | null) {
       this.currentPlatform = platform;
+    },
+    /** Scope the gallery to `platform`, keeping it when already there, and
+     * start (or join) its bootstrap. */
+    openPlatform(platform: Platform): Promise<void> {
+      if (this.currentPlatform?.id !== platform.id) {
+        this.resetGallery();
+        this.setCurrentPlatform(platform);
+      }
+      return this.fetchInitialMetadata();
     },
     setCurrentCollection(collection: Collection | null) {
       this.currentCollection = collection;
@@ -620,25 +632,19 @@ export default defineStore("v2GalleryRoms", {
       this.metadataLoaded = true;
     },
 
-    /** Lightweight bootstrap: fetch only the gallery's metadata (total,
-     * char_index, rom_id_index, filter_values) without loading any
-     * items. Sizes the virtualiser (via `total`) before any window
-     * lands, so both layouts can render skeleton rows immediately and
-     * then hydrate them through the viewport-driven `fetchWindowAt`
-     * sync.
+    /** Bootstrap: the gallery's metadata (total, char_index, rom_id_index,
+     * filter_values) plus its first window, in one request. A caller that
+     * arrives while it's in flight waits for the same request.
      *
-     * The backend's `limit` minimum is 1, so we still pay for one
-     * `SimpleRomSchema` build server-side, but the item is discarded
-     * client-side.
-     *
-     * `sidecars` opts out of the aggregates the caller doesn't render; the
-     * backend then serves `total` from a plain COUNT instead of a full
-     * ordered id scan. */
-    async fetchInitialMetadata(sidecars: SidecarOptions = {}): Promise<void> {
-      if (this.metadataLoaded) return;
-      if (this.initialFetching) return;
-      if (this.refreshing) return;
+     * `sidecars` opts out of the aggregates the caller doesn't render. */
+    fetchInitialMetadata(sidecars: SidecarOptions = {}): Promise<void> {
+      if (this.metadataLoaded || this.refreshing) return Promise.resolve();
+      if (this.initialFetching && bootstrapInFlight) return bootstrapInFlight;
+      bootstrapInFlight = this._bootstrap(sidecars);
+      return bootstrapInFlight;
+    },
 
+    async _bootstrap(sidecars: SidecarOptions): Promise<void> {
       this.initialFetching = true;
 
       const galleryFilter = storeGalleryFilter();
@@ -652,14 +658,12 @@ export default defineStore("v2GalleryRoms", {
         const response = await romApi.getRoms({
           ...params,
           ...sidecars,
-          limit: 1,
+          limit: WINDOW_SIZE,
           signal: controller.signal,
         });
-        // Re-check that this bootstrap is still the relevant one:
-        // invalidateWindows / resetGallery may have aborted us and a
-        // newer bootstrap may have replaced our entry under the same key.
-        // Identity comparison avoids applying stale metadata in that race.
-        if (inFlightControllers.get(ctrlKey) !== controller) return;
+        // A reset or a newer bootstrap may have replaced this one meanwhile.
+        const isCurrent = () => inFlightControllers.get(ctrlKey) === controller;
+        if (!isCurrent()) return;
         this._applyMetadata(
           response.data,
           galleryFilter,
@@ -667,6 +671,19 @@ export default defineStore("v2GalleryRoms", {
           sidecars,
         );
         staleListRefreshed = false;
+        // The first window came with it; keep it when it's complete.
+        const firstIds = this.romIdIndex.slice(0, WINDOW_SIZE);
+        if (
+          firstIds.length > 0 &&
+          response.data.items.length === firstIds.length
+        ) {
+          await applyItemsBatched(
+            this.byPosition,
+            windowPlacements(response.data.items, 0, firstIds),
+            isCurrent,
+          );
+          if (isCurrent()) this.loadedWindows.add(0);
+        }
       } catch (err) {
         if (axios.isCancel(err)) return;
         console.error("[v2GalleryRoms] bootstrap fetch failed", err);
