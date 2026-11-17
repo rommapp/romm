@@ -7,6 +7,7 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryRoms from "@/stores/galleryRoms";
 import { romFixture } from "@/utils/rom.fixtures";
 import GalleryShell from "./GalleryShell.vue";
+import GalleryToolbar from "./GalleryToolbar.vue";
 import GameListRow from "./GameListRow.vue";
 
 const { getRoms } = vi.hoisted(() => ({ getRoms: vi.fn() }));
@@ -138,5 +139,72 @@ describe("GalleryShell search refresh", () => {
 
     expect(galleryRoms.getRomAt(0)?.id).toBe(3);
     expect(firstRow().props("expanded")).toBe(false);
+  });
+});
+
+describe("GalleryShell search result count", () => {
+  async function mountShell(scopeTotal?: number) {
+    getRoms.mockImplementation(() => new Promise(() => {}));
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: "/platform/1", component: { template: "<div />" } }],
+    });
+    await router.push("/platform/1");
+    const wrapper = shallowMount(GalleryShell, {
+      props: {
+        hasHeader: false,
+        searchPlaceholder: "",
+        emptyMessage: "",
+        scopeTotal,
+      },
+      global: {
+        plugins: [router],
+        stubs: {
+          RVirtualScroller: { template: `<div><slot name="prepend" /></div>` },
+        },
+      },
+    });
+    await flushPromises();
+    const galleryRoms = storeGalleryRoms();
+    galleryRoms.total = 12;
+    galleryRoms.metadataLoaded = true;
+    await flushPromises();
+    return () =>
+      wrapper.findComponent(GalleryToolbar).props("searchSuffix") as
+        string | undefined;
+  }
+
+  it("hides the count while nothing narrows the gallery", async () => {
+    const suffix = await mountShell(627);
+
+    expect(suffix()).toBeUndefined();
+  });
+
+  it("shows the count against the scope total once a search narrows it", async () => {
+    const suffix = await mountShell(627);
+
+    storeGalleryFilter().searchTerm = "astral";
+    await flushPromises();
+
+    expect(suffix()).toContain('"count":12');
+    expect(suffix()).toContain('"total":627');
+  });
+
+  it("shows the count once a filter narrows the gallery", async () => {
+    const suffix = await mountShell(627);
+
+    storeGalleryFilter().filterFavorites = true;
+    await flushPromises();
+
+    expect(suffix()).toContain('"count":12');
+  });
+
+  it("hides the count on a gallery without a scope total", async () => {
+    const suffix = await mountShell();
+
+    storeGalleryFilter().searchTerm = "astral";
+    await flushPromises();
+
+    expect(suffix()).toBeUndefined();
   });
 });
