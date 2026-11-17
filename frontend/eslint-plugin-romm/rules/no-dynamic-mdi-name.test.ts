@@ -1,11 +1,7 @@
 import rule from "./no-dynamic-mdi-name.js";
-import { ruleTester } from "./testing";
+import { ruleTester, sfcTemplate } from "./testing";
 
 const dynamic = { messageId: "dynamic" };
-const sfc = (template: string) => ({
-  code: `<script setup lang="ts"></script>\n<template>${template}</template>\n`,
-  filename: "A.vue",
-});
 
 ruleTester.run("no-dynamic-mdi-name", rule, {
   valid: [
@@ -14,10 +10,12 @@ ruleTester.run("no-dynamic-mdi-name", rule, {
     "const label = `${count} items`;",
     "const cls = `mdi-home ${tone}`;",
     'const cls = "mdi-home " + tone;',
+    'const cls = "mdi-home" + " " + tone;',
     'const icons = { ok: "mdi-check", bad: "mdi-close" }; const icon = icons[kind];',
     "const url = `/api/amdi-${id}`;",
-    sfc('<RIcon icon="mdi-home" />'),
-    sfc("<RIcon :icon=\"ok ? 'mdi-check' : 'mdi-close'\" />"),
+    "const key = `my_mdi-${id}`;",
+    sfcTemplate('<RIcon icon="mdi-home" />'),
+    sfcTemplate("<RIcon :icon=\"ok ? 'mdi-check' : 'mdi-close'\" />"),
   ],
   invalid: [
     { code: "const icon = `mdi-${name}`;", errors: [dynamic] },
@@ -28,7 +26,13 @@ ruleTester.run("no-dynamic-mdi-name", rule, {
     { code: 'const icon = "mdi-" + "home";', errors: [dynamic] },
     { code: 'const icon = "mdi-home-" + state;', errors: [dynamic] },
     { code: 'const icon = "mdi-" + name + "-outline";', errors: [dynamic] },
-    { ...sfc('<RIcon :icon="`mdi-${name}`" />'), errors: [dynamic] },
-    { ...sfc("<RIcon :icon=\"'mdi-' + name\" />"), errors: [dynamic] },
+    { code: 'const icon = base + " mdi-" + name;', errors: [dynamic] },
+    { code: "const icon = `mdi-` + name;", errors: [dynamic] },
+    { ...sfcTemplate('<RIcon :icon="`mdi-${name}`" />'), errors: [dynamic] },
+    { ...sfcTemplate("<RIcon :icon=\"'mdi-' + name\" />"), errors: [dynamic] },
+    {
+      ...sfcTemplate("<RIcon :icon=\"base + ' mdi-' + name\" />"),
+      errors: [dynamic],
+    },
   ],
 });

@@ -23,3 +23,13 @@ export function sfc(style: string): { code: string; filename: string } {
     filename: "A.vue",
   };
 }
+
+export function sfcTemplate(template: string): {
+  code: string;
+  filename: string;
+} {
+  return {
+    code: `<script setup lang="ts"></script>\n<template>${template}</template>\n`,
+    filename: "A.vue",
+  };
+}

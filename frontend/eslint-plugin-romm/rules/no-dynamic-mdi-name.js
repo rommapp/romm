@@ -1,7 +1,9 @@
 // @ts-check
 
 // An icon name cut off right where a value is appended, such as "mdi-" or "mdi-home-".
-const PARTIAL_NAME = /(?:^|[^a-z0-9-])mdi-[a-z0-9-]*$/;
+const PARTIAL_NAME = /(?:^|[^\w-])mdi-[a-z0-9-]*$/;
+// Appended text that ends the name before it, as in "mdi-home" + " " + tone.
+const NAME_END = /^[^a-z0-9-]/;
 
 /**
  * @param {import("estree").Node} node
@@ -9,6 +11,24 @@ const PARTIAL_NAME = /(?:^|[^a-z0-9-])mdi-[a-z0-9-]*$/;
  */
 function isStringLiteral(node) {
   return node.type === "Literal" && typeof node.value === "string";
+}
+
+/**
+ * The static text at one end of a concatenated string, or "" when that end is a runtime value.
+ * @param {import("estree").Node} node
+ * @param {"start" | "end"} side
+ * @returns {string}
+ */
+function edgeText(node, side) {
+  if (isStringLiteral(node)) return node.value;
+  if (node.type === "TemplateLiteral") {
+    const quasi = side === "start" ? node.quasis[0] : node.quasis.at(-1);
+    return quasi?.value.cooked ?? "";
+  }
+  if (node.type === "BinaryExpression" && node.operator === "+") {
+    return edgeText(side === "start" ? node.left : node.right, side);
+  }
+  return "";
 }
 
 /** @type {import("eslint").Rule.RuleModule} */
@@ -38,10 +58,10 @@ export default {
       },
       /** @param {import("estree").BinaryExpression} node */
       BinaryExpression(node) {
-        if (node.operator !== "+") return;
         if (
-          isStringLiteral(node.left) &&
-          PARTIAL_NAME.test(String(node.left.value))
+          node.operator === "+" &&
+          PARTIAL_NAME.test(edgeText(node.left, "end")) &&
+          !NAME_END.test(edgeText(node.right, "start"))
         ) {
           context.report({ node, messageId: "dynamic" });
         }
