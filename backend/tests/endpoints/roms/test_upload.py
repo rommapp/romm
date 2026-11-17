@@ -630,6 +630,41 @@ def test_start_into_rom_rejects_path_in_filename(
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
+@pytest.mark.parametrize(
+    "target",
+    [
+        {"filename": "Game\nlaunch: evil.zip"},
+        {"filename": "Game\r.zip"},
+        {"filename": "Game\t.zip"},
+        {"filename": "game.zip", "folder": "hack\nlaunch: evil"},
+    ],
+)
+def test_start_rejects_control_characters(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    rom_upload_fs: Path,
+    target: dict[str, str],
+):
+    rom = _folder_rom(platform, admin_user, rom_upload_fs, {"game.bin": b"game"})
+
+    response = client.post(
+        "/api/roms/upload/start",
+        headers={
+            **bearer(access_token),
+            "x-upload-platform": str(rom.platform_id),
+            "x-upload-filename": "game.zip",
+            "x-upload-total-size": "3",
+            "x-upload-total-chunks": "1",
+        },
+        json={"rom_id": rom.id, **target},
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "control characters" in response.json()["detail"]
+
+
 @pytest.mark.parametrize("filename", ["notes.tmp", ".DS_Store"])
 def test_start_into_rom_rejects_names_the_scanner_ignores(
     client: TestClient,

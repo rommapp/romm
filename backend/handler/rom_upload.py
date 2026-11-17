@@ -16,6 +16,7 @@ from handler.rom_files import refresh_rom_files
 from logger.logger import log
 from models.rom import DocSource, Rom, RomFile, RomFileCategory
 from utils.audio_tags import SOUNDTRACK_EXTENSIONS
+from utils.filesystem import CONTROL_CHARS
 from utils.media_types import ALLOWED_DOCUMENT_EXTENSIONS, ALLOWED_IMAGE_EXTENSIONS
 
 # The folder each media route uploads into. The scanner maps these names back to
@@ -66,6 +67,10 @@ def sanitize_upload_filename(filename: str) -> str:
         safe_filename = fs_rom_handler._sanitize_filename(filename)
     except ValueError as exc:
         raise UploadRejectedException(f"Invalid upload filename: {exc}") from exc
+    if CONTROL_CHARS.search(safe_filename):
+        raise UploadRejectedException(
+            "Upload filename must not contain control characters"
+        )
     if safe_filename != filename:
         raise UploadRejectedException(
             "Upload filename must be a plain file name, not a path"
@@ -89,6 +94,10 @@ def parse_upload_folder(folder: str) -> str:
             safe_segment = fs_rom_handler._sanitize_filename(segment)
         except ValueError as exc:
             raise UploadRejectedException(f"Invalid upload folder: {exc}") from exc
+        if CONTROL_CHARS.search(safe_segment):
+            raise UploadRejectedException(
+                "Upload folder must not contain control characters"
+            )
         if safe_segment != segment:
             raise UploadRejectedException(
                 "Upload folder must be a relative path inside the game folder"

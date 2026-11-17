@@ -447,7 +447,7 @@ class PegasusExporter:
         # Asset references (relative paths to asset files)
         if exported_assets:
             for asset_key, rel_path in exported_assets.items():
-                lines.append(f"assets.{asset_key}: {rel_path}")
+                lines.append(f"assets.{asset_key}: {single_line(rel_path)}")
 
         # RomM-specific extensions (x-* fields)
         if rom.regions:
