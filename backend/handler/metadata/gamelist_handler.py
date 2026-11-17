@@ -4,6 +4,7 @@ import uuid
 from collections.abc import Callable, Collection, Iterator
 from pathlib import Path
 from typing import Final, Literal, NotRequired, TypedDict
+from urllib.parse import unquote, urlsplit
 from xml.etree.ElementTree import Element  # trunk-ignore(bandit/B405)
 
 import pydash
@@ -153,8 +154,19 @@ XML_TAG_MAP: Final[dict[MediaUrlKey, str]] = {
 }
 
 
+def _url_file_name(raw_path: str) -> str | None:
+    """The decoded last segment of an http(s) <path>, as a URL export writes it."""
+    parts = urlsplit(raw_path)
+    if parts.scheme not in ("http", "https"):
+        return None
+    return unquote(parts.path.rsplit("/", 1)[-1])
+
+
 def gamelist_path_to_filename(raw_path: str) -> str:
     """Return the filename a gamelist <path> refers to, without the `./` prefix."""
+    url_name = _url_file_name(raw_path)
+    if url_name is not None:
+        return url_name
     return os.path.basename(raw_path.removeprefix("./"))
 
 
@@ -162,8 +174,12 @@ def gamelist_path_to_rel_path(raw_path: str) -> str:
     """Return a gamelist <path> as a path relative to the gamelist file itself.
 
     Unlike the filename alone, this tells two identically named roms in different
-    folders apart, which a custom library structure allows.
+    folders apart, which a custom library structure allows. A URL only carries
+    the filename.
     """
+    url_name = _url_file_name(raw_path)
+    if url_name is not None:
+        return url_name
     return raw_path.removeprefix("./").strip("/")
 
 

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import ipaddress
-from typing import TYPE_CHECKING
-from urllib.parse import quote
+import re
+from typing import TYPE_CHECKING, Final
+from urllib.parse import quote, urlsplit
 
 import yarl
 from fastapi import Request
@@ -11,6 +12,9 @@ import config
 
 if TYPE_CHECKING:
     from models.rom import Rom, RomFile
+
+# The tail of the get_rom_content route, matched whatever host or root path served it.
+ROM_CONTENT_PATH_RE: Final = re.compile(r"/api/roms/(\d+)/content/[^/]*$")
 
 
 def is_shareable_host(host: str) -> bool:
@@ -51,3 +55,12 @@ def romfile_content_url(request: Request, file: RomFile) -> str:
             "get_romfile_content", id=file.id, file_name=quote(file.file_name, safe="")
         )
     )
+
+
+def rom_id_from_content_url(value: str) -> int | None:
+    """The ROM id in a URL `rom_content_url` built, or None for anything else."""
+    parts = urlsplit(value)
+    if parts.scheme not in ("http", "https"):
+        return None
+    match = ROM_CONTENT_PATH_RE.search(parts.path)
+    return int(match.group(1)) if match else None
