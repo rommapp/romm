@@ -318,6 +318,78 @@ describe("galleryRoms windowed fetch", () => {
     expect(store.total).toBe(300);
   });
 
+  describe("windows by id", () => {
+    const ids = Array.from({ length: 200 }, (_, i) => 1000 + i);
+
+    function bootstrapThen(window: (params: { romIds?: number[] }) => unknown) {
+      getRoms.mockImplementation(
+        (params: { limit?: number; romIds?: number[] }) =>
+          params.limit === 1
+            ? Promise.resolve({
+                data: {
+                  total: 200,
+                  items: [],
+                  char_index: {},
+                  rom_id_index: ids,
+                },
+              })
+            : Promise.resolve(window(params)),
+      );
+    }
+
+    it("asks for its slice of the bootstrap's id list", async () => {
+      // Arrange
+      bootstrapThen(() => windowResponse(null));
+      const store = storeGalleryRoms();
+      await store.fetchInitialMetadata();
+
+      // Act
+      store.syncVisibleWindows([72]);
+      await flushPromises();
+
+      // Assert
+      const windowCall = getRoms.mock.calls.find((c) => c[0].romIds);
+      expect(windowCall?.[0].romIds).toEqual(ids.slice(72, 144));
+    });
+
+    it("asks by offset while no id list has loaded", async () => {
+      // Arrange
+      getRoms.mockResolvedValue(windowResponse(300));
+      const store = storeGalleryRoms();
+
+      // Act
+      store.syncVisibleWindows([0]);
+      await flushPromises();
+
+      // Assert
+      expect(getRoms.mock.calls[0]![0].romIds).toBeUndefined();
+      expect(getRoms.mock.calls[0]![0].offset).toBe(0);
+    });
+
+    it("leaves a gap for an id the backend left out, without shifting the rest", async () => {
+      // Arrange
+      bootstrapThen((params) =>
+        windowResponse(
+          null,
+          (params.romIds ?? [])
+            .filter((id) => id !== ids[73])
+            .map((id) => romFixture({ id })),
+        ),
+      );
+      const store = storeGalleryRoms();
+      await store.fetchInitialMetadata();
+
+      // Act
+      store.syncVisibleWindows([72]);
+      await flushPromises();
+
+      // Assert
+      expect(store.byPosition.get(72)?.id).toBe(ids[72]);
+      expect(store.byPosition.has(73)).toBe(false);
+      expect(store.byPosition.get(74)?.id).toBe(ids[74]);
+    });
+  });
+
   it("does not mark a window loaded when the context is invalidated mid-apply", async () => {
     // Controllable frame yield so we can interleave a context switch between
     // the batched-apply's frames.
