@@ -17,7 +17,7 @@ from handler.auth.dependencies import (
     get_rom_visibility_filter,
     visible_platform_or_404,
 )
-from handler.database import db_platform_handler
+from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_platform_handler
 from handler.scan_handler import scan_platform
 from logger.formatter import BLUE
@@ -213,6 +213,8 @@ async def delete_platform(
         f"Deleting {hl(platform.name, color=BLUE)} [{hl(platform.fs_slug)}] from database"
     )
     db_platform_handler.delete_platform(id)
+    # Its roms leave the cached gallery id lists, which pages are sliced from.
+    db_rom_handler.invalidate_filter_values_cache()
     record(
         AuditAction.PLATFORM_DELETE,
         request,

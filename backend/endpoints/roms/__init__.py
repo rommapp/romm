@@ -297,6 +297,8 @@ def build_grouped_page_cache_key(
     base_key = build_unscoped_sidecar_cache_key(
         user_id, order_by, order_dir, True, True
     )
+    # A None base would drop the user from the key and share one user's list.
+    assert base_key is not None
     platforms_part = ",".join(str(p) for p in sorted(set(platform_ids)))
     return f"{base_key}:p{platforms_part}"
 
@@ -822,25 +824,37 @@ def get_roms(
         include_related=False,
     )
 
-    # Cache only the fully unscoped library scan: the sidecar cache key encodes
-    # user/order/grouping but not the filters, so anything that narrows `query`
-    # has to gate caching or a narrowed list leaks under the shared "all" key.
+    # Cache only the unscoped library scan (and a grouped platform-only set,
+    # keyed by its platforms): the sidecar cache key encodes user/order/grouping
+    # but not the filters, so anything that narrows `query` has to gate caching
+    # or a narrowed list leaks under the shared "all" key.
     #
     # The filter-value list is gated on the scope alone: it is computed with
     # only the scope applied, so a filter it never applies cannot stale it.
     is_unscoped_scope = not filters.has_scope()
-    is_unscoped = (
-        is_unscoped_scope
-        and not filters.has_filters()
-        and not updated_after
-        and not parsed_released_days
+    is_unfiltered = (
+        not filters.has_filters() and not updated_after and not parsed_released_days
     )
+    is_unscoped = is_unscoped_scope and is_unfiltered
 
     # One key for both ordered sidecars: the same request must not read the
     # char index and the id index under different per-user versions.
     sidecar_cache_key = build_unscoped_sidecar_cache_key(
         request.user.id, order_by, order_dir, filters.group_by_meta_id, is_unscoped
     )
+
+    # The grouping window spans the whole set even for one page, so a grouped
+    # platform-only set caches its sidecars too, under a key naming the platforms.
+    if (
+        sidecar_cache_key is None
+        and filters.group_by_meta_id
+        and filters.platform_ids
+        and is_unfiltered
+        and not filters.model_copy(update={"platform_ids": None}).has_scope()
+    ):
+        sidecar_cache_key = build_grouped_page_cache_key(
+            request.user.id, order_by, order_dir, filters.platform_ids
+        )
 
     # Get the char index for the roms. Relevance order has no letter runs.
     char_index_dict = {}
@@ -891,36 +905,16 @@ def get_roms(
 
     # The full ordered id list backs virtual scroll, so it's computed over the
     # whole result set. Callers that only need a page (e.g. the home rails) opt
-    # out with with_rom_id_index=false and avoid the full-library scan.
-    rom_id_index: list[int] = []
-    if with_rom_id_index:
-        rom_id_index = db_rom_handler.get_rom_id_index(
+    # out with with_rom_id_index=false and avoid the full-library scan, except
+    # on a grouped set, whose page reads the cached list the index request wrote.
+    id_index: list[int] | None = None
+    if with_rom_id_index or (
+        filters.group_by_meta_id and sidecar_cache_key is not None
+    ):
+        id_index = db_rom_handler.get_rom_id_index(
             query=query, cache_key=sidecar_cache_key
         )
-
-    # The grouping window spans the whole library, so a grouped page without
-    # the index slices the cached id list instead of running it per page.
-    paged_id_index: list[int] | None = None
-    if filters.group_by_meta_id and not with_rom_id_index:
-        page_cache_key = sidecar_cache_key
-        is_platform_only = (
-            bool(filters.platform_ids)
-            and not filters.search_term
-            and filters.collection_id is None
-            and filters.virtual_collection_id is None
-            and filters.smart_collection_id is None
-            and not filters.has_filters()
-            and not updated_after
-            and not parsed_released_days
-        )
-        if page_cache_key is None and is_platform_only:
-            page_cache_key = build_grouped_page_cache_key(
-                request.user.id, order_by, order_dir, filters.platform_ids or []
-            )
-        if page_cache_key is not None:
-            paged_id_index = db_rom_handler.get_rom_id_index(
-                query=query, cache_key=page_cache_key
-            )
+    rom_id_index = id_index if with_rom_id_index and id_index is not None else []
 
     # Hydrate the requested page and its additional data
     with sync_session.begin() as session:
@@ -970,11 +964,9 @@ def get_roms(
             ]
 
         def resolve_total() -> int | None:
-            if with_rom_id_index:
+            if id_index is not None:
                 # The index already spans the result set, so the count is free.
-                return len(rom_id_index)
-            if paged_id_index is not None:
-                return len(paged_id_index) if with_total else None
+                return len(id_index) if with_rom_id_index or with_total else None
             # Without the index the count is its own scan of the filtered set,
             # so a caller scrolling a gallery it already sized opts out.
             return (
@@ -983,10 +975,8 @@ def get_roms(
                 else None
             )
 
-        if with_rom_id_index:
-            page_ids = list(rom_id_index[params.offset : params.offset + params.limit])
-        elif paged_id_index is not None:
-            page_ids = paged_id_index[params.offset : params.offset + params.limit]
+        if id_index is not None:
+            page_ids = id_index[params.offset : params.offset + params.limit]
         else:
             # Ordering the entity itself carries every JSON metadata blob
             # through the sort, for a page that keeps `limit` of them.

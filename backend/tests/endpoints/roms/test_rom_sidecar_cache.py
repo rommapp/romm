@@ -21,7 +21,9 @@ These tests pin the split gate:
      globally,
   5. grouped sets key on a per-user sibling version moved only by
      main-sibling picks, and filter values use one order-free per-user
-     entry.
+     entry,
+  6. grouped pages slice the cached id list, which a grouped platform-only
+     set also caches, under a key naming its platforms.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -475,6 +477,70 @@ def test_grouped_platform_page_slices_its_own_index(
     assert _page_ids(body) == [second_rom.id, rom.id]
 
 
+def test_grouped_platform_index_shares_the_page_key(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    rom: Rom,
+    second_rom: Rom,
+):
+    """The index request, its char index and the pages read one cached key."""
+    page_key = build_grouped_page_cache_key(admin_user.id, "", "asc", [platform.id])
+    _seed_rom_id_index(page_key, [second_rom.id, rom.id])
+    version = _filter_values_cache_version()
+    _store_versioned_cache(
+        _char_index_redis_key(page_key, version), version, [["Z", 41]]
+    )
+
+    body = _get_roms(
+        client, access_token, group_by_meta_id=True, platform_ids=platform.id
+    )
+
+    assert body["rom_id_index"] == [second_rom.id, rom.id]
+    assert body["total"] == 2
+    assert body["char_index"] == {"Z": 41}
+
+
+def test_grouped_platform_page_with_another_scope_stays_live(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    rom: Rom,
+):
+    """A search on top of the platforms narrows the set past the cached list."""
+    page_key = build_grouped_page_cache_key(admin_user.id, "", "asc", [platform.id])
+    _seed_rom_id_index(page_key, [424242])
+
+    body = _get_roms(
+        client,
+        access_token,
+        **GROUPED_PAGE,
+        platform_ids=platform.id,
+        search_term="test_rom",
+    )
+
+    assert _page_ids(body) == [rom.id]
+
+
+def test_platform_delete_bumps_the_global_version(
+    client: TestClient, access_token: str, admin_user: User, platform: Platform
+):
+    """Grouped pages slice the cached list, so deleting a platform's roms drops it."""
+    redis_key = _seed_rom_id_index(_unscoped_key(admin_user.id, group=True), [424242])
+    old_version = _filter_values_cache_version()
+
+    response = client.delete(
+        f"/api/platforms/{platform.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    assert int(_filter_values_cache_version()) == int(old_version) + 1
+    assert sync_cache.get(redis_key) is None
+
+
 def test_grouped_page_with_a_row_filter_stays_live(
     client: TestClient, access_token: str, admin_user: User, missing_rom: Rom
 ):
@@ -498,7 +564,7 @@ def test_grouped_page_with_a_row_filter_stays_live(
     assert _page_ids(body) == [missing_rom.id]
 
 
-def test_ungrouped_page_does_not_read_the_grouped_index(
+def test_ungrouped_page_does_not_read_the_cached_index(
     client: TestClient, access_token: str, admin_user: User, rom: Rom
 ):
     """Without grouping a page is a plain indexed query and stays live."""
