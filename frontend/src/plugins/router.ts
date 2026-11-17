@@ -26,7 +26,10 @@ import {
 } from "@/router/routes";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
+import storeGalleryFilter from "@/stores/galleryFilter";
+import storeGalleryRoms from "@/stores/galleryRoms";
 import storeHeartbeat from "@/stores/heartbeat";
+import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import type { User } from "@/stores/users";
 
@@ -130,6 +133,22 @@ const routes = [
         path: "platform/:platform",
         name: ROUTES.PLATFORM,
         component: routeComponent(ROUTES.PLATFORM),
+        // Start the gallery's first request while the page's code loads.
+        // Only for a plain link: URL or leftover filters apply in the page.
+        beforeEnter: ((to) => {
+          const galleryFilter = storeGalleryFilter();
+          const platform = storePlatforms().allPlatforms.find(
+            (p) => p.id === Number(to.params.platform),
+          );
+          if (
+            platform &&
+            Object.keys(to.query).length === 0 &&
+            !galleryFilter.isFiltered() &&
+            !galleryFilter.searchTerm
+          ) {
+            void storeGalleryRoms().openPlatform(platform);
+          }
+        }) as NavigationGuardWithThis<undefined>,
       },
       {
         path: "collection/:collection",

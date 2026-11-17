@@ -286,13 +286,8 @@ async function loadForId(platformId: number) {
     return;
   }
   notFound.value = false;
-  if (currentPlatform.value?.id !== cached.id) {
-    galleryRoms.resetGallery();
-    galleryRoms.setCurrentPlatform(cached);
-  }
-  // Bootstrap metadata only; grid (shell viewport-sync) and list
-  // (GameListRow's onMounted) both hydrate rows per-position from here.
-  await galleryRoms.fetchInitialMetadata();
+  // Joins the bootstrap the route guard may already have started.
+  await galleryRoms.openPlatform(cached);
   await nextTick();
   shellRef.value?.applyRestoredScroll();
   // Refresh the platform record in the background so the Firmware
