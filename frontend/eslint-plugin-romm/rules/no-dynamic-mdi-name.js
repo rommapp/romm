@@ -19,7 +19,7 @@ export default {
     schema: [],
     messages: {
       dynamic:
-        "Name every icon in full (a lookup object of `mdi-*` strings): the build drops glyphs for icon names it cannot find in src/.",
+        "Name every icon in full (a lookup object of `mdi-*` strings): the build drops the CSS of icon names it cannot find in src/.",
     },
   },
   create(context) {
