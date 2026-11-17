@@ -248,7 +248,10 @@ class TestRetroArchSyncEmulatorNames:
             ("DOSBox-pure", {"dos"}),
             ("stella2014", {"atari2600", "atari-2600-plus"}),
             ("melonDS", {"nds", "nintendo-ds-lite", "nintendo-dsi", "nintendo-dsi-xl"}),
-            ("melonDS DS", {"nds", "nintendo-ds-lite", "nintendo-dsi", "nintendo-dsi-xl"}),
+            (
+                "melonDS DS",
+                {"nds", "nintendo-ds-lite", "nintendo-dsi", "nintendo-dsi-xl"},
+            ),
             ("retroarduous", set()),
             (None, set()),
         ],
