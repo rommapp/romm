@@ -79,7 +79,7 @@ describe("MissingGamesSection", () => {
   // The tab renders no filter drawer, no A-Z strip and drives its scroller
   // off `total` alone, so asking for those sidecars costs three whole-library
   // scans and displays two of them nowhere (issue #3992).
-  it("bootstraps without the sidecars it does not render", async () => {
+  it("bootstraps with only the id list its windows load from", async () => {
     mountSection();
     await flushPromises();
 
@@ -88,7 +88,7 @@ describe("MissingGamesSection", () => {
     expect(params.filterMissing).toBe(true);
     expect(params.withCharIndex).toBe(false);
     expect(params.withFilterValues).toBe(false);
-    expect(params.withRomIdIndex).toBe(false);
+    expect(params.withRomIdIndex).toBeUndefined();
   });
 
   it("keeps the sidecars off when the sort order changes", async () => {
@@ -105,7 +105,7 @@ describe("MissingGamesSection", () => {
     expect(params.orderBy).toBe("fs_size_bytes");
     expect(params.withCharIndex).toBe(false);
     expect(params.withFilterValues).toBe(false);
-    expect(params.withRomIdIndex).toBe(false);
+    expect(params.withRomIdIndex).toBeUndefined();
   });
 
   it("tells why the server refused the cleanup", async () => {

@@ -53,7 +53,7 @@ import {
 } from "@/lib";
 import taskApi from "@/services/api/task";
 import storeGalleryFilter from "@/stores/galleryFilter";
-import storeGalleryRoms, { NO_SIDECARS } from "@/stores/galleryRoms";
+import storeGalleryRoms, { ID_LIST_ONLY } from "@/stores/galleryRoms";
 import storeGallerySelection from "@/stores/gallerySelection";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import { errorMessage } from "@/utils/errorMessage";
@@ -117,7 +117,7 @@ const selectedPlatformIds = computed<number[]>({
       .filter((p): p is Platform => !!p);
     galleryFilter.setSelectedFilterPlatforms(next);
     galleryRoms.invalidateWindows();
-    void galleryRoms.fetchInitialMetadata(NO_SIDECARS);
+    void galleryRoms.fetchInitialMetadata(ID_LIST_ONLY);
   },
 });
 
@@ -218,7 +218,7 @@ function onListSort({ key, dir }: { key: ListSortKey; dir: "asc" | "desc" }) {
   galleryRoms.setOrderBy(key);
   galleryRoms.setOrderDir(dir);
   galleryRoms.invalidateWindows();
-  void galleryRoms.fetchInitialMetadata(NO_SIDECARS);
+  void galleryRoms.fetchInitialMetadata(ID_LIST_ONLY);
 }
 
 // Viewport-driven windowed fetch. Unlike the real gallery this section
@@ -292,7 +292,7 @@ async function cleanupAll() {
     snackbar.success(t("settings.cleanup-queued"));
     if (await awaitTask(data.task_id)) {
       galleryRoms.invalidateWindows();
-      await galleryRoms.fetchInitialMetadata(NO_SIDECARS);
+      await galleryRoms.fetchInitialMetadata(ID_LIST_ONLY);
     }
   } catch (err) {
     snackbar.error(
@@ -312,7 +312,7 @@ onMounted(() => {
   galleryRoms.setOrderBy("name");
   galleryRoms.setOrderDir("asc");
   bootstrapped.value = true;
-  void galleryRoms.fetchInitialMetadata(NO_SIDECARS);
+  void galleryRoms.fetchInitialMetadata(ID_LIST_ONLY);
 });
 
 onBeforeUnmount(() => {
