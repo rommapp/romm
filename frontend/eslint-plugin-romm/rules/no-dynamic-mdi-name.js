@@ -35,7 +35,7 @@ export default {
       },
       /** @param {import("estree").BinaryExpression} node */
       BinaryExpression(node) {
-        if (node.operator !== "+" || isStringLiteral(node.right)) return;
+        if (node.operator !== "+") return;
         if (
           isStringLiteral(node.left) &&
           PARTIAL_NAME.test(String(node.left.value))
