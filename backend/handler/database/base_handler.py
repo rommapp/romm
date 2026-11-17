@@ -3,6 +3,7 @@ import logging
 import time
 from typing import Any, cast
 
+import orjson
 from sqlalchemy import Connection, CursorResult, Result, create_engine, event
 from sqlalchemy.orm import sessionmaker
 
@@ -18,6 +19,8 @@ sync_engine = create_engine(
     pool_pre_ping=True,
     pool_recycle=DB_POOL_RECYCLE_SECONDS,
     echo=False,
+    # JSON columns are read on every gallery window; orjson decodes ~3x faster.
+    json_deserializer=orjson.loads,
 )
 sync_session = sessionmaker(bind=sync_engine, expire_on_commit=False)
 
