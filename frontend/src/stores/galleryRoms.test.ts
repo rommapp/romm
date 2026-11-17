@@ -48,6 +48,14 @@ async function withIdList() {
   return store;
 }
 
+// A window that returns every game it asked for.
+function fullWindow(params: { romIds: number[] }) {
+  return windowResponse(
+    null,
+    params.romIds.map((id) => ({ id })),
+  );
+}
+
 function windowStarts(): number[] {
   return getRoms.mock.calls.map((c) => c[0].romIds[0]).sort((a, b) => a - b);
 }
@@ -76,7 +84,7 @@ describe("galleryRoms windowed fetch", () => {
 
   it("collapses many visible positions into one request per 72-item window", async () => {
     const store = await withIdList();
-    getRoms.mockImplementation(() => Promise.resolve(windowResponse()));
+    getRoms.mockImplementation((params) => Promise.resolve(fullWindow(params)));
 
     store.syncVisibleWindows([0, 5, 40, 71]);
 
@@ -96,10 +104,10 @@ describe("galleryRoms windowed fetch", () => {
 
   it("caps concurrent window fetches and drains the queue as slots free up", async () => {
     const store = await withIdList();
-    const pending = new Map<number, Deferred>();
+    const pending = new Map<number, () => void>();
     getRoms.mockImplementation((params: { romIds: number[] }) => {
       const d = deferred();
-      pending.set(params.romIds[0] ?? 0, d);
+      pending.set(params.romIds[0] ?? 0, () => d.resolve(fullWindow(params)));
       return d.promise;
     });
 
@@ -109,7 +117,7 @@ describe("galleryRoms windowed fetch", () => {
     expect(getRoms).toHaveBeenCalledTimes(4);
 
     for (const start of [1, 73, 145, 217]) {
-      pending.get(start)?.resolve(windowResponse());
+      pending.get(start)?.();
     }
     await flushPromises();
 
@@ -120,12 +128,12 @@ describe("galleryRoms windowed fetch", () => {
   it("does not exceed the cap even as queued windows drain", async () => {
     let inFlight = 0;
     let peak = 0;
-    const pending: Deferred[] = [];
-    getRoms.mockImplementation(() => {
+    const pending: (() => void)[] = [];
+    getRoms.mockImplementation((params: { romIds: number[] }) => {
       inFlight++;
       peak = Math.max(peak, inFlight);
       const d = deferred();
-      pending.push(d);
+      pending.push(() => d.resolve(fullWindow(params)));
       return d.promise.finally(() => {
         inFlight--;
       });
@@ -138,7 +146,7 @@ describe("galleryRoms windowed fetch", () => {
     // Drain by resolving windows one at a time; the peak in-flight count must
     // never pass the cap of 4.
     while (pending.length > 0) {
-      pending.shift()?.resolve(windowResponse());
+      pending.shift()?.();
       await flushPromises();
     }
 
@@ -307,16 +315,23 @@ describe("galleryRoms windowed fetch", () => {
       expect(getRoms.mock.calls[1]![0].romIds).toEqual(ids.slice(72, 144));
     });
 
+    // A window short of ids answers by id; the stale-list refresh stays pending.
+    function shortWindows(missing: number[]) {
+      bootstrapThen((params) =>
+        params.romIds
+          ? windowResponse(
+              null,
+              params.romIds
+                .filter((id) => !missing.includes(id))
+                .map((id) => romFixture({ id })),
+            )
+          : deferred().promise,
+      );
+    }
+
     it("leaves a gap for an id the backend left out, without shifting the rest", async () => {
       // Arrange
-      bootstrapThen((params) =>
-        windowResponse(
-          null,
-          (params.romIds ?? [])
-            .filter((id) => id !== ids[73])
-            .map((id) => romFixture({ id })),
-        ),
-      );
+      shortWindows([ids[73] ?? 0]);
       const store = storeGalleryRoms();
       await store.fetchInitialMetadata();
 
@@ -328,6 +343,24 @@ describe("galleryRoms windowed fetch", () => {
       expect(store.byPosition.get(72)?.id).toBe(ids[72]);
       expect(store.byPosition.has(73)).toBe(false);
       expect(store.byPosition.get(74)?.id).toBe(ids[74]);
+    });
+
+    it("refreshes a stale id list once when a window comes back short", async () => {
+      // Arrange
+      shortWindows([ids[10] ?? 0, ids[80] ?? 0]);
+      const store = storeGalleryRoms();
+      await store.fetchInitialMetadata();
+
+      // Act
+      store.syncVisibleWindows([0, 72]);
+      await flushPromises();
+
+      // Assert
+      const refreshes = getRoms.mock.calls.filter(
+        (c) => !c[0].romIds && c[0].limit !== 1,
+      );
+      expect(refreshes).toHaveLength(1);
+      expect(store.refreshing).toBe(true);
     });
   });
 

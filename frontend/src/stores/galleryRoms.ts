@@ -142,6 +142,9 @@ function clearRetry(offset: number) {
 const MAX_CONCURRENT_WINDOWS = 4;
 const queuedWindows: number[] = [];
 
+// One stale-list refresh per gallery context, so a lasting mismatch can't loop.
+let staleListRefreshed = false;
+
 function clearQueue() {
   queuedWindows.length = 0;
 }
@@ -663,6 +666,7 @@ export default defineStore("v2GalleryRoms", {
           platformsStore,
           sidecars,
         );
+        staleListRefreshed = false;
       } catch (err) {
         if (axios.isCancel(err)) return;
         console.error("[v2GalleryRoms] bootstrap fetch failed", err);
@@ -726,6 +730,15 @@ export default defineStore("v2GalleryRoms", {
 
         this.loadedWindows.add(offset);
         clearRetry(offset);
+        // A missing id means the list is stale (hidden or deleted since):
+        // swap in a fresh one without blanking the page.
+        if (
+          response.data.items.length < windowIds.length &&
+          !staleListRefreshed
+        ) {
+          staleListRefreshed = true;
+          void this.refreshResults();
+        }
       } catch (err) {
         if (axios.isCancel(err)) return;
         if (inFlightControllers.get(ctrlKey) !== controller) return;
