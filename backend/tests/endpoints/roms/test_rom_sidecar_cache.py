@@ -33,6 +33,7 @@ from fastapi.testclient import TestClient
 from tests.factories import make_rom
 
 from endpoints.roms import (
+    build_grouped_page_cache_key,
     build_unscoped_filter_values_cache_key,
     build_unscoped_sidecar_cache_key,
 )
@@ -414,3 +415,95 @@ def test_hidden_write_still_bumps_the_global_version(
 
     assert int(_filter_values_cache_version()) == int(old_version) + 1
     assert sync_cache.get(redis_key) is None
+
+
+def _page_ids(body: dict[str, Any]) -> list[int]:
+    return [item["id"] for item in body["items"]]
+
+
+GROUPED_PAGE = {"group_by_meta_id": True, "with_rom_id_index": False}
+
+
+def test_grouped_page_slices_the_cached_unscoped_index(
+    client: TestClient, access_token: str, admin_user: User, rom: Rom, second_rom: Rom
+):
+    """A grouped page without the index follows the cached id list."""
+    _seed_rom_id_index(
+        _unscoped_key(admin_user.id, group=True), [second_rom.id, rom.id]
+    )
+
+    body = _get_roms(client, access_token, **GROUPED_PAGE, with_total=True)
+
+    assert _page_ids(body) == [second_rom.id, rom.id]
+    assert body["total"] == 2
+    assert body["rom_id_index"] == []
+
+    body = _get_roms(client, access_token, **GROUPED_PAGE, limit=1, offset=1)
+    assert _page_ids(body) == [rom.id]
+
+
+def test_grouped_page_writes_the_unscoped_index(
+    client: TestClient, access_token: str, admin_user: User, rom: Rom
+):
+    """The first grouped page warms the entry the following pages read."""
+    version = _filter_values_cache_version()
+    redis_key = _rom_id_index_redis_key(
+        _unscoped_key(admin_user.id, group=True), version
+    )
+    assert sync_cache.get(redis_key) is None
+
+    body = _get_roms(client, access_token, **GROUPED_PAGE)
+
+    assert _page_ids(body) == [rom.id]
+    assert sync_cache.get(redis_key) is not None
+
+
+def test_grouped_platform_page_slices_its_own_index(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    rom: Rom,
+    second_rom: Rom,
+):
+    """A platform-only grouped page caches under a key naming its platforms."""
+    page_key = build_grouped_page_cache_key(admin_user.id, "", "asc", [platform.id])
+    _seed_rom_id_index(page_key, [second_rom.id, rom.id])
+
+    body = _get_roms(client, access_token, **GROUPED_PAGE, platform_ids=platform.id)
+
+    assert _page_ids(body) == [second_rom.id, rom.id]
+
+
+def test_grouped_page_with_a_row_filter_stays_live(
+    client: TestClient, access_token: str, admin_user: User, missing_rom: Rom
+):
+    """A row filter narrows the set, so neither cached list may answer it."""
+    _seed_rom_id_index(_unscoped_key(admin_user.id, group=True), [424242])
+    platform_key = build_grouped_page_cache_key(
+        admin_user.id, "", "asc", [missing_rom.platform_id]
+    )
+    _seed_rom_id_index(platform_key, [424242])
+
+    body = _get_roms(client, access_token, **GROUPED_PAGE, missing=True)
+    assert _page_ids(body) == [missing_rom.id]
+
+    body = _get_roms(
+        client,
+        access_token,
+        **GROUPED_PAGE,
+        missing=True,
+        platform_ids=missing_rom.platform_id,
+    )
+    assert _page_ids(body) == [missing_rom.id]
+
+
+def test_ungrouped_page_does_not_read_the_grouped_index(
+    client: TestClient, access_token: str, admin_user: User, rom: Rom
+):
+    """Without grouping a page is a plain indexed query and stays live."""
+    _seed_rom_id_index(_unscoped_key(admin_user.id), [424242])
+
+    body = _get_roms(client, access_token, with_rom_id_index=False)
+
+    assert _page_ids(body) == [rom.id]
