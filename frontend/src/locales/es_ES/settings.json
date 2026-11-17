@@ -55,6 +55,8 @@
   "config-file-not-writable-title": "¡Archivo de configuración no escribible!",
   "config-file-parse-error-desc": "The config.yml file has a syntax error, so RomM is running with default settings and ignoring your configuration. Fix the error and restart RomM to apply your settings. Details: {error}",
   "config-file-parse-error-title": "Configuration file could not be parsed!",
+  "confirm-email": "Confirmar este correo",
+  "confirm-email-hint": "Sin confirmar. Un primer inicio de sesión mediante el proveedor de identidad no puede vincular esta cuenta hasta que confirmes que el correo pertenece a este usuario.",
   "confirm-protected-launch": "Confirmar el inicio de juegos archivados",
   "confirm-protected-launch-desc": "Preguntar antes de iniciar un juego marcado como Abandonado o Nunca jugar.",
   "controller-debug": "Depuración del mando",

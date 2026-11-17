@@ -78,6 +78,7 @@
   "field-custom-name": "名称",
   "field-description": "描述",
   "field-email": "电子邮件",
+  "field-email-trusted": "邮箱确认",
   "field-enabled": "已启用",
   "field-fs-name": "文件名称",
   "field-is-public": "可见性",

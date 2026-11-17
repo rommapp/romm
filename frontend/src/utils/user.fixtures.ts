@@ -12,6 +12,7 @@ export function userFixture(overrides: Partial<UserSchema> = {}): UserSchema {
     oauth_scopes: [],
     has_password: true,
     email_managed_by_oidc: false,
+    email_trusted: true,
     avatar_path: "",
     last_login: null,
     last_active: null,

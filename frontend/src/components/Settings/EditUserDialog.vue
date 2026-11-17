@@ -17,6 +17,7 @@ import permissionsApi from "@/services/api/permissions";
 import platformApi from "@/services/api/platform";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
+import storeHeartbeat from "@/stores/heartbeat";
 import storePermissionGroups from "@/stores/permissionGroups";
 import type { Platform } from "@/stores/platforms";
 import storeUsers from "@/stores/users";
@@ -34,6 +35,7 @@ defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 const auth = storeAuth();
+const heartbeat = storeHeartbeat();
 const usersStore = storeUsers();
 const groupsStore = storePermissionGroups();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -44,6 +46,8 @@ const submitting = ref(false);
 const user = ref<UserItem | null>(null);
 const confirmPassword = ref("");
 const currentPassword = ref("");
+const savedEmail = ref<string | null>(null);
+const confirmEmail = ref(false);
 const imagePreviewUrl = useObjectUrl(() => user.value?.avatar);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
@@ -101,6 +105,18 @@ const emailLocked = computed(
   () => editingSelf.value && !!auth.user?.email_managed_by_oidc,
 );
 
+// A first OIDC sign-in links an account by email only once an admin confirms
+// it. A changed email is trusted on save, so the switch covers the saved one.
+const canConfirmEmail = computed(
+  () =>
+    heartbeat.value.OIDC.ENABLED &&
+    auth.user?.role === "admin" &&
+    !!user.value &&
+    !user.value.email_trusted &&
+    !!savedEmail.value &&
+    (user.value.email ?? "").toLowerCase() === savedEmail.value.toLowerCase(),
+);
+
 const requiresCurrentPassword = computed(
   () =>
     editingSelf.value &&
@@ -134,6 +150,8 @@ async function open(toEdit: Events["showEditUserDialog"]) {
   user.value = { ...toEdit, password: "", avatar: undefined };
   confirmPassword.value = "";
   currentPassword.value = "";
+  savedEmail.value = toEdit.email;
+  confirmEmail.value = false;
   isAdmin.value = toEdit.role === "admin";
   showAdvanced.value = false;
   accessLoaded.value = false;
@@ -305,6 +323,10 @@ async function save() {
       current_password: requiresCurrentPassword.value
         ? currentPassword.value
         : undefined,
+      confirm_email:
+        confirmEmail.value && canConfirmEmail.value
+          ? (savedEmail.value ?? undefined)
+          : undefined,
     });
 
     let nextUser = data;
@@ -422,6 +444,15 @@ function close() {
               {{ t("settings.email") }}
             </template>
           </RTextField>
+          <div v-if="canConfirmEmail" class="r-user-dialog__confirm-email">
+            <RSwitch
+              v-model="confirmEmail"
+              :label="t('settings.confirm-email')"
+            />
+            <span class="r-user-dialog__hint">
+              {{ t("settings.confirm-email-hint") }}
+            </span>
+          </div>
           <RTextField
             v-if="requiresCurrentPassword"
             v-model="currentPassword"
@@ -664,6 +695,11 @@ html[data-bp~="xs"] .r-user-dialog__edit-grid {
   align-items: baseline;
   gap: 12px;
   flex-wrap: wrap;
+}
+.r-user-dialog__confirm-email {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 .r-user-dialog__field {
   display: flex;

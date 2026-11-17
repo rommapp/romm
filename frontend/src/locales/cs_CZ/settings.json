@@ -55,6 +55,8 @@
   "config-file-not-writable-title": "Konfigurační soubor nelze zapisovat!",
   "config-file-parse-error-desc": "The config.yml file has a syntax error, so RomM is running with default settings and ignoring your configuration. Fix the error and restart RomM to apply your settings. Details: {error}",
   "config-file-parse-error-title": "Configuration file could not be parsed!",
+  "confirm-email": "Potvrdit tento e-mail",
+  "confirm-email-hint": "Nepotvrzeno. První přihlášení přes poskytovatele identity nemůže propojit tento účet, dokud nepotvrdíte, že e-mail patří tomuto uživateli.",
   "confirm-protected-launch": "Potvrzovat spuštění odložených her",
   "confirm-protected-launch-desc": "Zeptat se před spuštěním hry označené jako Opuštěno nebo Nikdy nebudu hrát.",
   "controller-debug": "Ladění ovladače",

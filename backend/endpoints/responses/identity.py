@@ -29,6 +29,7 @@ class UserSchema(BaseModel):
     oauth_scopes: list[str]
     has_password: bool
     email_managed_by_oidc: bool
+    email_trusted: bool
     avatar_path: str
     last_login: UTCDatetime | None
     last_active: UTCDatetime | None

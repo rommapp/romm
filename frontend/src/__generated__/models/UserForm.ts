@@ -7,6 +7,7 @@ export type UserForm = {
     password?: (string | null);
     current_password?: (string | null);
     email?: (string | null);
+    confirm_email?: (string | null);
     role?: (string | null);
     enabled?: (boolean | null);
     ra_username?: (string | null);

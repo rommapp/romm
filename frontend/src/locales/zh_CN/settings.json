@@ -55,6 +55,8 @@
   "config-file-not-writable-title": "配置文件不可写！",
   "config-file-parse-error-desc": "config.yml 文件存在语法错误，因此 RomM 正在使用默认设置运行并忽略您的配置。请修正该错误并重启 RomM 以应用您的设置。详情：{error}",
   "config-file-parse-error-title": "无法解析配置文件！",
+  "confirm-email": "确认此邮箱",
+  "confirm-email-hint": "未确认。在你确认该邮箱属于此用户之前，通过身份提供商的首次登录无法关联此账户。",
   "confirm-protected-launch": "确认启动已搁置的游戏",
   "confirm-protected-launch-desc": "在启动标记为“已搁置”或“不玩”的游戏前进行确认。",
   "controller-debug": "手柄调试",

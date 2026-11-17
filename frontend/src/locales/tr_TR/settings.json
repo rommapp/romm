@@ -55,6 +55,8 @@
   "config-file-not-writable-title": "Yapılandırma dosyası yazılabilir değil!",
   "config-file-parse-error-desc": "The config.yml file has a syntax error, so RomM is running with default settings and ignoring your configuration. Fix the error and restart RomM to apply your settings. Details: {error}",
   "config-file-parse-error-title": "Configuration file could not be parsed!",
+  "confirm-email": "Bu e-postayı onayla",
+  "confirm-email-hint": "Onaylanmadı. Kimlik sağlayıcı üzerinden ilk giriş, e-postanın bu kullanıcıya ait olduğunu onaylayana kadar bu hesaba bağlanamaz.",
   "confirm-protected-launch": "Ertelenen oyunların başlatılmasını onayla",
   "confirm-protected-launch-desc": "Bırakıldı veya Hiç Oynanmayacak olarak işaretlediğiniz bir oyunu başlatmadan önce sorun.",
   "controller-debug": "Oyun kumandası hata ayıklama",

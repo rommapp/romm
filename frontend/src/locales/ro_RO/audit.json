@@ -78,6 +78,7 @@
   "field-custom-name": "nume",
   "field-description": "descriere",
   "field-email": "email",
+  "field-email-trusted": "confirmarea e-mailului",
   "field-enabled": "activat",
   "field-fs-name": "nume fișier",
   "field-is-public": "vizibilitate",

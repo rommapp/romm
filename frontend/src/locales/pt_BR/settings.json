@@ -55,6 +55,8 @@
   "config-file-not-writable-title": "Arquivo de configuração não gravável!",
   "config-file-parse-error-desc": "O arquivo config.yml contém um erro de sintaxe, então o RomM está sendo executado com as configurações padrão e ignorando a sua configuração. Corrija o erro e reinicie o RomM para aplicar suas configurações. Detalhes: {error}",
   "config-file-parse-error-title": "Não foi possível interpretar o arquivo de configuração!",
+  "confirm-email": "Confirmar este e-mail",
+  "confirm-email-hint": "Não confirmado. Um primeiro login pelo provedor de identidade não pode vincular esta conta até você confirmar que o e-mail pertence a este usuário.",
   "confirm-protected-launch": "Confirmar a inicialização de jogos arquivados",
   "confirm-protected-launch-desc": "Perguntar antes de iniciar um jogo marcado como Abandonado ou Nunca jogar.",
   "controller-debug": "Depuração do controle",

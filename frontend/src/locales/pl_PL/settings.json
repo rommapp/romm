@@ -55,6 +55,8 @@
   "config-file-not-writable-title": "Plik konfiguracyjny nie do zapisu!",
   "config-file-parse-error-desc": "The config.yml file has a syntax error, so RomM is running with default settings and ignoring your configuration. Fix the error and restart RomM to apply your settings. Details: {error}",
   "config-file-parse-error-title": "Configuration file could not be parsed!",
+  "confirm-email": "Potwierdź ten e-mail",
+  "confirm-email-hint": "Niepotwierdzony. Pierwsze logowanie przez dostawcę tożsamości nie połączy tego konta, dopóki nie potwierdzisz, że e-mail należy do tego użytkownika.",
   "confirm-protected-launch": "Potwierdzaj uruchamianie odłożonych gier",
   "confirm-protected-launch-desc": "Pytaj przed uruchomieniem gry oznaczonej jako Porzucone lub Nigdy nie gram.",
   "controller-debug": "Debugowanie kontrolera",

@@ -78,6 +78,7 @@
   "field-custom-name": "név",
   "field-description": "leírás",
   "field-email": "e-mail",
+  "field-email-trusted": "e-mail megerősítése",
   "field-enabled": "engedélyezve",
   "field-fs-name": "fájlnév",
   "field-is-public": "láthatóság",

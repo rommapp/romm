@@ -78,6 +78,7 @@
   "field-custom-name": "ad",
   "field-description": "açıklama",
   "field-email": "e-posta",
+  "field-email-trusted": "e-posta onayı",
   "field-enabled": "etkin",
   "field-fs-name": "dosya adı",
   "field-is-public": "görünürlük",

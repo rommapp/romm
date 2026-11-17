@@ -59,6 +59,7 @@ router = APIRouter(
 _USER_EDIT_AUDIT_FIELDS: Final = (
     "username",
     "email",
+    "email_trusted",
     "hashed_password",
     "role",
     "enabled",
@@ -552,13 +553,21 @@ async def update_user(
         cleaned_data["email"] = new_email.lower() or None
         cleaned_data["email_trusted"] = by_admin
 
-    # Saving an unchanged email as an admin vouches for it, but only for the
-    # address the admin saw, in case the user changed it meanwhile.
-    vouch_for = (
-        email
-        if by_admin and new_email is None and email and not db_user.email_trusted
-        else None
-    )
+    confirm_email = form_data.confirm_email if new_email is None else None
+    if confirm_email and not by_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only an administrator can confirm an email",
+        )
+    confirmed = False
+    if confirm_email and not db_user.email_trusted:
+        # Matched against the stored row, in case the user changed it meanwhile.
+        if not db_user_handler.trust_email(id, confirm_email):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="The user's email changed. Reload it and confirm again.",
+            )
+        confirmed = True
 
     # You can't change your own role
     if form_data.role and request.user.id != id:
@@ -654,8 +663,8 @@ async def update_user(
                 db_client_token_handler.get_token_ids_by_users([id])
             )
 
-    if vouch_for:
-        db_user_handler.trust_email(id, vouch_for)
+    if confirmed:
+        cleaned_data["email_trusted"] = True
 
     before = db_user
     db_user = db_user_handler.get_user(id)

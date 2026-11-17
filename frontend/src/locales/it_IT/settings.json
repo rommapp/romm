@@ -55,6 +55,8 @@
   "config-file-not-writable-title": "File di configurazione non scrivibile!",
   "config-file-parse-error-desc": "Il file config.yml ha un errore di sintassi, quindi RomM sta ignorando la tua configurazione e sta usando le impostazioni di default. Sistema l'errore e riavvia RomM per applicare le tue impostazioni. Dettagli: {error}",
   "config-file-parse-error-title": "Non è stato possibile parsare il file di configurazione!",
+  "confirm-email": "Conferma questa email",
+  "confirm-email-hint": "Non confermata. Un primo accesso tramite il provider di identità non può collegare questo account finché non confermi che l'email appartiene a questo utente.",
   "confirm-protected-launch": "Conferma l'avvio dei giochi accantonati",
   "confirm-protected-launch-desc": "Chiedi conferma prima di avviare un gioco contrassegnato come Abbandonato o Mai giocare.",
   "controller-debug": "Debug controller",

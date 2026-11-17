@@ -1,9 +1,10 @@
 import { type VueWrapper, flushPromises, mount } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { UserPermissionsSchema } from "@/__generated__";
-import { RTextField } from "@/lib";
+import type { UserPermissionsSchema, UserSchema } from "@/__generated__";
+import { RSwitch, RTextField } from "@/lib";
 import storeAuth from "@/stores/auth";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import { userFixture } from "@/utils/user.fixtures";
 import AgeLimitFields from "./AgeLimitFields.vue";
@@ -92,8 +93,8 @@ async function mountDialog(role: "admin" | "user" = "admin") {
       },
     },
   });
-  const open = (id = 4) => {
-    emitter.emit("showEditUserDialog", userFixture({ id, role }));
+  const open = (id = 4, overrides: Partial<UserSchema> = {}) => {
+    emitter.emit("showEditUserDialog", userFixture({ id, role, ...overrides }));
     return flushPromises();
   };
   await open();
@@ -394,5 +395,68 @@ describe("EditUserDialog OIDC email", () => {
     const { wrapper } = await mountDialog();
 
     expect(emailField(wrapper)?.props("readonly")).toBe(false);
+  });
+});
+
+describe("EditUserDialog email confirmation", () => {
+  const unconfirmed = { email: "invitee@example.com", email_trusted: false };
+  const confirmSwitch = (wrapper: VueWrapper) =>
+    wrapper
+      .findAllComponents(RSwitch)
+      .find((s) => s.props("label") === "settings.confirm-email");
+
+  beforeEach(() => {
+    const heartbeat = storeHeartbeat();
+    heartbeat.value = {
+      ...heartbeat.value,
+      OIDC: { ...heartbeat.value.OIDC, ENABLED: true },
+    };
+    storeAuth().setCurrentUser(userFixture({ id: 1 }));
+    updateUser.mockResolvedValue({ data: userFixture({ id: 4 }) });
+  });
+
+  async function save(wrapper: VueWrapper) {
+    const apply = wrapper
+      .findAll("button")
+      .find((b) => b.text() === "common.apply");
+    await apply?.trigger("click");
+    await flushPromises();
+  }
+
+  it("confirms the saved email only when the admin turns the switch on", async () => {
+    const { wrapper, open } = await mountDialog();
+    await open(4, unconfirmed);
+
+    await save(wrapper);
+    expect(updateUser.mock.lastCall?.[0].confirm_email).toBeUndefined();
+
+    await open(4, unconfirmed);
+    confirmSwitch(wrapper)?.vm.$emit("update:modelValue", true);
+    await save(wrapper);
+    expect(updateUser.mock.lastCall?.[0].confirm_email).toBe(
+      "invitee@example.com",
+    );
+  });
+
+  it("hides the switch once the email is edited", async () => {
+    const { wrapper, open } = await mountDialog();
+    await open(4, unconfirmed);
+    expect(confirmSwitch(wrapper)).toBeDefined();
+
+    const email = wrapper
+      .findAllComponents(RTextField)
+      .find((f) => f.props("type") === "email");
+    email?.vm.$emit("update:modelValue", "other@example.com");
+    await flushPromises();
+
+    expect(confirmSwitch(wrapper)).toBeUndefined();
+  });
+
+  it("hides the switch from a delegated user manager", async () => {
+    storeAuth().setCurrentUser(userFixture({ id: 1, role: "user" }));
+    const { wrapper, open } = await mountDialog();
+    await open(4, unconfirmed);
+
+    expect(confirmSwitch(wrapper)).toBeUndefined();
   });
 });
