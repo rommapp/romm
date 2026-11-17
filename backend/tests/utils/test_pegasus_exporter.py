@@ -313,6 +313,38 @@ class TestExportMetadata:
         assert "  ." in content
         assert "  Third line." in content
 
+    def test_line_breaks_cannot_add_fields(self, admin_user: User):
+        platform = make_platform(
+            "my-homebrew", name="Homebrew", custom_name="Homebrew\nlaunch: evil"
+        )
+        rom = make_rom(
+            platform,
+            "Innocent Game\nlaunch: /tmp/pwned.sh",
+            fs_stem="innocent",
+            fs_extension="nes",
+        )
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "manual_metadata": {
+                    "developers": ["Dev\r\nlaunch: dev"],
+                    "publishers": ["Pub launch: pub"],
+                    "genres": ["Action\rlaunch: genre"],
+                }
+            },
+        )
+
+        content = PegasusExporter(local_export=True).export_platform_to_pegasus(
+            platform.id, request=None
+        )
+        blocks = parse_pegasus(content)
+        assert all("launch" not in block.keys() for block in blocks)
+        assert "collection: Homebrew launch: evil" in content
+        assert "game: Innocent Game launch: /tmp/pwned.sh" in content
+        assert "developer: Dev launch: dev" in content
+        assert "publisher: Pub launch: pub" in content
+        assert "genre: Action launch: genre" in content
+
 
 class TestFormatHelpers:
     def test_format_rating(self):
