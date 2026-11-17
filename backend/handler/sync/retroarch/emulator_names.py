@@ -69,6 +69,8 @@ RETROARCH_DIR_BY_ROMM_EMULATOR: dict[str, str] = {
     "ppsspp": "PPSSPP",
     "desmume": "DeSmuME",
     "melonds": "melonDS",
+    "melondsds": "melonDS DS",
+    "melonds_ds": "melonDS DS",
     "citra": "Citra",
 }
 
