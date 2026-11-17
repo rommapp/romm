@@ -41,8 +41,8 @@ Examples of unacceptable behavior include:
 
 We have zero tolerance for piracy. In any community space, you may not:
 
-- Request, share, or link to ROMs, BIOS, firmware, or decryption keys you
-  don't own
+- Request, share, or link to copyrighted ROMs, BIOS, firmware, or decryption
+  keys
 - Explain or hint at how or where to obtain them
 - Post screenshots, logs, or file listings that show or name pirated sources
 
