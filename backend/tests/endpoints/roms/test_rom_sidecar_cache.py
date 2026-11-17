@@ -22,8 +22,9 @@ These tests pin the split gate:
   5. grouped sets key on a per-user sibling version moved only by
      main-sibling picks, and filter values use one order-free per-user
      entry,
-  6. grouped pages slice the cached id list, which a grouped platform-only
-     set also caches, under a key naming its platforms.
+  6. grouped pages read their window of the id list the index request
+     cached, which a grouped single-platform set also caches, under a key
+     naming its platform.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -42,12 +43,14 @@ from endpoints.roms import (
 from handler.database import db_rom_handler
 from handler.database.roms_handler import (
     _char_index_redis_key,
+    _filter_values_cache_keys_key,
     _filter_values_cache_version,
     _filter_values_redis_key,
     _rom_id_index_redis_key,
     _store_versioned_cache,
+    _store_versioned_id_list,
 )
-from handler.redis_handler import sync_cache
+from handler.redis_handler import as_text, sync_cache
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
@@ -89,7 +92,7 @@ def _unscoped_key(
 
 def _platform_key(user_id: int, platform_id: int) -> str:
     """The sidecar key for a grouped, default-ordered platform gallery."""
-    return build_grouped_page_cache_key(user_id, "", "asc", [platform_id])
+    return build_grouped_page_cache_key(user_id, "", "asc", platform_id)
 
 
 def _filter_values_key(user_id: int) -> str:
@@ -108,7 +111,7 @@ def _seed_filter_values(user_id: int) -> str:
 def _seed_rom_id_index(cache_key: str, ids: list[int]) -> str:
     version = _filter_values_cache_version()
     redis_key = _rom_id_index_redis_key(cache_key, version)
-    _store_versioned_cache(redis_key, version, ids)
+    _store_versioned_id_list(redis_key, version, ids)
     return redis_key
 
 
@@ -392,7 +395,7 @@ def test_rom_user_write_keeps_name_sorted_entry(
 
     body = _get_roms(client, access_token)
     assert body["rom_id_index"] == [424242]
-    assert sync_cache.get(redis_key) is not None
+    assert sync_cache.exists(redis_key)
 
 
 def test_rom_user_write_leaves_other_users_sorted_entries_alone(
@@ -407,7 +410,7 @@ def test_rom_user_write_leaves_other_users_sorted_entries_alone(
     _put_props(client, access_token, rom.id, update_last_played=True)
 
     assert _unscoped_key(other_user_id, "last_played", "desc") == other_key
-    assert sync_cache.get(other_redis_key) is not None
+    assert sync_cache.exists(other_redis_key)
     assert _unscoped_key(admin_user.id, "last_played", "desc") != writer_key
 
 
@@ -421,7 +424,7 @@ def test_hidden_write_still_bumps_the_global_version(
     _put_props(client, access_token, rom.id, body={"hidden": True})
 
     assert int(_filter_values_cache_version()) == int(old_version) + 1
-    assert sync_cache.get(redis_key) is None
+    assert not sync_cache.exists(redis_key)
 
 
 def _page_ids(body: dict[str, Any]) -> list[int]:
@@ -449,20 +452,23 @@ def test_grouped_page_slices_the_cached_unscoped_index(
     assert _page_ids(body) == [rom.id]
 
 
-def test_grouped_page_writes_the_unscoped_index(
+def test_grouped_page_miss_stays_live_and_writes_nothing(
     client: TestClient, access_token: str, admin_user: User, rom: Rom
 ):
-    """The first grouped page warms the entry the following pages read."""
+    """Only the index request builds the cached list; a page miss runs live."""
     version = _filter_values_cache_version()
     redis_key = _rom_id_index_redis_key(
         _unscoped_key(admin_user.id, group=True), version
     )
-    assert sync_cache.get(redis_key) is None
 
-    body = _get_roms(client, access_token, **GROUPED_PAGE)
+    body = _get_roms(client, access_token, **GROUPED_PAGE, with_total=True)
 
     assert _page_ids(body) == [rom.id]
-    assert sync_cache.get(redis_key) is not None
+    assert body["total"] == 1
+    assert not sync_cache.exists(redis_key)
+
+    _get_roms(client, access_token, group_by_meta_id=True)
+    assert [int(i) for i in sync_cache.lrange(redis_key, 0, -1)] == [rom.id]
 
 
 def test_grouped_platform_index_shares_the_page_key(
@@ -515,6 +521,25 @@ def test_grouped_platform_page_with_another_scope_stays_live(
     assert _page_ids(body) == [rom.id]
 
 
+@pytest.mark.parametrize("platform_count", [2, 0])
+def test_grouped_index_skips_unbounded_platform_keys(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    other_platform: Platform,
+    rom: Rom,
+    platform_count: int,
+):
+    """Multi-platform sets and empty lists (e.g. an unknown id) are not cached."""
+    platform_ids = [platform.id, other_platform.id] if platform_count else [999999]
+    version = _filter_values_cache_version()
+
+    _get_roms(client, access_token, group_by_meta_id=True, platform_ids=platform_ids)
+
+    cached_keys = sync_cache.smembers(_filter_values_cache_keys_key(version))
+    assert not [key for key in cached_keys if "rom_id_list" in as_text(key)]
+
+
 def test_platform_delete_bumps_the_global_version(
     client: TestClient, access_token: str, admin_user: User, platform: Platform
 ):
@@ -529,7 +554,7 @@ def test_platform_delete_bumps_the_global_version(
     assert response.status_code == status.HTTP_200_OK
 
     assert int(_filter_values_cache_version()) == int(old_version) + 1
-    assert sync_cache.get(redis_key) is None
+    assert not sync_cache.exists(redis_key)
 
 
 def test_grouped_page_with_a_row_filter_stays_live(

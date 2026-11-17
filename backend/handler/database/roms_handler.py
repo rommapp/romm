@@ -506,7 +506,40 @@ def _char_index_redis_key(cache_key: str, version: str) -> str:
 
 
 def _rom_id_index_redis_key(cache_key: str, version: str) -> str:
-    return _sidecar_redis_key("rom_id_index", cache_key, version)
+    return _sidecar_redis_key("rom_id_list", cache_key, version)
+
+
+# Bounds the arguments of each RPUSH that writes a cached id list.
+ROM_ID_LIST_PUSH_CHUNK = 10_000
+
+
+def _store_versioned_id_list(redis_key: str, version: str, ids: list[int]) -> None:
+    """Like `_store_versioned_cache`, as a Redis list a page can range over.
+
+    An empty list is not stored, since Redis has no empty list to tell it from a miss.
+    """
+    if not ids:
+        return
+    version_keys_set = _filter_values_cache_keys_key(version)
+    with sync_cache.pipeline() as pipe:
+        try:
+            pipe.watch(ROM_FILTERS_CACHE_VERSION_KEY)
+            current_version = (
+                _cache_value_to_str(pipe.get(ROM_FILTERS_CACHE_VERSION_KEY)) or "0"
+            )
+            if current_version != version:
+                pipe.unwatch()
+            else:
+                pipe.multi()
+                pipe.delete(redis_key)
+                for start in range(0, len(ids), ROM_ID_LIST_PUSH_CHUNK):
+                    pipe.rpush(redis_key, *ids[start : start + ROM_ID_LIST_PUSH_CHUNK])
+                pipe.expire(redis_key, ROM_FILTERS_CACHE_TTL)
+                pipe.sadd(version_keys_set, redis_key)
+                pipe.expire(version_keys_set, ROM_FILTERS_CACHE_TTL)
+                pipe.execute()
+        except WatchError:
+            pass
 
 
 def _store_versioned_cache(redis_key: str, version: str, result: Any) -> None:
@@ -2116,26 +2149,42 @@ class DBRomsHandler(DBBaseHandler):
         """Return every matching rom id in query order.
 
         The list backs the gallery's virtual scroll, so it spans the whole
-        result set (not a page) and is recomputed on every request. Building it
-        runs the sibling-dedup window over the full library, so the unscoped
-        case is memoised under the same versioned cache as the other gallery
-        sidecars.
+        result set (not a page). Building it can run the sibling-dedup window
+        over the full set, so a keyed list is memoised under the same versioned
+        cache as the other gallery sidecars.
         """
         redis_key: str | None = None
         version: str | None = None
         if cache_key:
             version = _filter_values_cache_version()
             redis_key = _rom_id_index_redis_key(cache_key, version)
-            cached = sync_cache.get(redis_key)
-            if cached is not None:
-                rom_ids: list[int] = json.loads(cached)
-                return rom_ids
+            cached = sync_cache.lrange(redis_key, 0, -1)
+            if cached:
+                return [int(rom_id) for rom_id in cached]
 
         ids = list(session.scalars(query.with_only_columns(Rom.id)).all())
 
         if redis_key is not None and version is not None:
-            _store_versioned_cache(redis_key, version, ids)
+            _store_versioned_id_list(redis_key, version, ids)
         return ids
+
+    @staticmethod
+    def get_cached_rom_id_page(
+        cache_key: str, offset: int, limit: int
+    ) -> tuple[list[int], int] | None:
+        """One window of a cached id list and the list's length, without building it.
+
+        Returns:
+            None on a miss; only `get_rom_id_index` writes the list.
+        """
+        redis_key = _rom_id_index_redis_key(cache_key, _filter_values_cache_version())
+        with sync_cache.pipeline(transaction=False) as pipe:
+            pipe.lrange(redis_key, offset, offset + limit - 1)
+            pipe.llen(redis_key)
+            window, length = pipe.execute()
+        if not length:
+            return None
+        return [int(rom_id) for rom_id in window], int(length)
 
     @begin_session
     def get_rom_count(
@@ -2413,6 +2462,7 @@ class DBRomsHandler(DBBaseHandler):
             .where(Rom.id == id)
             .execution_options(synchronize_session="evaluate")
         )
+        session.info[FILTER_VALUES_BUMP_KEY] = True
 
     @begin_session
     def get_missing_rom_ids(
