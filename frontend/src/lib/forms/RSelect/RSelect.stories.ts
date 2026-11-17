@@ -373,7 +373,7 @@ export const ChipSlotIconOnly: Story = {
           <template #chip="{ item }">
             <span style="display:inline-flex;align-items:center;gap:6px">
               <RIcon
-                :icon="item.value === 'psx' ? 'mdi-playstation' : item.value === 'snes' ? 'mdi-nintendo-switch' : item.value === 'n64' ? 'mdi-nintendo-game-boy' : 'mdi-gamepad-square-outline'"
+                :icon="item.value === 'psx' ? 'mdi-sony-playstation' : item.value === 'snes' ? 'mdi-nintendo-switch' : item.value === 'n64' ? 'mdi-nintendo-game-boy' : 'mdi-gamepad-square-outline'"
                 size="x-small"
               />
               <span style="font-size:11px">{{ item.title }}</span>

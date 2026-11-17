@@ -1,6 +1,12 @@
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { trimIconCss, usedIconNames } from "../scripts/trimMdiIcons";
+import {
+  trimIconCss,
+  unknownIconNames,
+  usedIconNames,
+} from "../scripts/trimMdiIcons";
 
 const MDI_CSS = readFileSync(
   "node_modules/@mdi/font/css/materialdesignicons.css",
@@ -23,5 +29,36 @@ describe("usedIconNames", () => {
     const used = usedIconNames(".");
 
     expect(used).toContain("mdi-magnify");
+  });
+});
+
+describe("unknownIconNames", () => {
+  it("reports names built at runtime or missing from @mdi/font", () => {
+    const root = mkdtempSync(join(tmpdir(), "mdi-"));
+    mkdirSync(join(root, "src"));
+    writeFileSync(
+      join(root, "src", "a.ts"),
+      [
+        'const a = "mdi-account mdi-spin";',
+        'const b = "mdi-" + name;',
+        "const c = `mdi-home-${state}`;",
+        'const d = "mdi-not-an-icon";',
+        "const e = `amdi-${id} my_mdi-${id}`;",
+      ].join("\n"),
+    );
+    writeFileSync(
+      join(root, "src", "a.test.ts"),
+      "expect(x).toMatch(/^mdi-/);",
+    );
+
+    expect(unknownIconNames(root, MDI_CSS)).toEqual([
+      join("src", "a.ts") + ":2 mdi-",
+      join("src", "a.ts") + ":3 mdi-home-",
+      join("src", "a.ts") + ":4 mdi-not-an-icon",
+    ]);
+  });
+
+  it("finds none in src", () => {
+    expect(unknownIconNames(".", MDI_CSS)).toEqual([]);
   });
 });
