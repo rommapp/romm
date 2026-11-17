@@ -149,7 +149,7 @@ def test_rename_with_trailing_control_characters_is_rejected(
     response = client.put(
         f"/api/users/{viewer_user.id}",
         data={"username": f"renamed_viewer{suffix}"},
-        headers=_bearer(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -178,7 +178,7 @@ def test_update_email_with_trailing_control_characters_is_rejected(
     response = client.put(
         f"/api/users/{viewer_user.id}",
         data={"email": f"viewer@example.com{suffix}"},
-        headers=_bearer(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
