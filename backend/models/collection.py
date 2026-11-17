@@ -4,7 +4,7 @@ import base64
 import json
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy import ForeignKey, Index, String, Text, UniqueConstraint, false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from config import FRONTEND_RESOURCES_PATH
@@ -28,6 +28,8 @@ class Collection(BaseModel):
     name: Mapped[str] = mapped_column(String(length=COLLECTION_NAME_MAX_LENGTH))
     description: Mapped[str | None] = mapped_column(Text)
     is_public: Mapped[bool] = mapped_column(default=False)
+    # Lets anyone who sees a public collection add and remove its games.
+    is_open: Mapped[bool] = mapped_column(default=False, server_default=false())
     is_favorite: Mapped[bool] = mapped_column(default=False)
     path_cover_l: Mapped[str | None] = mapped_column(Text, default="")
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")
@@ -49,6 +51,10 @@ class Collection(BaseModel):
     @property
     def owner_username(self) -> str:
         return self.user.username
+
+    def accepts_games_from(self, user_id: int) -> bool:
+        """Whether a user may add or remove this collection's games."""
+        return self.user_id == user_id or (self.is_open and self.is_public)
 
     @property
     def rom_ids(self) -> list[int]:
