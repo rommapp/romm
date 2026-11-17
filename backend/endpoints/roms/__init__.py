@@ -278,6 +278,12 @@ def build_unscoped_sidecar_cache_key(
     if not is_unscoped:
         return None
 
+    return _sidecar_cache_key(user_id, order_by, order_dir, group_by_meta_id)
+
+
+def _sidecar_cache_key(
+    user_id: int, order_by: str, order_dir: str, group_by_meta_id: bool
+) -> str:
     user_part = f"u{user_id}"
     if sorts_by_rom_user_column(order_by, user_id):
         user_part = f"{user_part}.{user_sort_cache_version(user_id)}"
@@ -293,13 +299,9 @@ def build_grouped_page_cache_key(
     order_dir: str,
     platform_ids: list[int],
 ) -> str:
-    """Cache key for the id list a grouped, platform-only gallery pages from."""
-    base_key = build_unscoped_sidecar_cache_key(
-        user_id, order_by, order_dir, True, True
-    )
-    # A None base would drop the user from the key and share one user's list.
-    assert base_key is not None
+    """Cache key for the sidecars of a grouped, platform-only gallery."""
     platforms_part = ",".join(str(p) for p in sorted(set(platform_ids)))
+    base_key = _sidecar_cache_key(user_id, order_by, order_dir, True)
     return f"{base_key}:p{platforms_part}"
 
 
@@ -839,21 +841,18 @@ def get_roms(
 
     # One key for both ordered sidecars: the same request must not read the
     # char index and the id index under different per-user versions.
-    sidecar_cache_key = build_unscoped_sidecar_cache_key(
-        request.user.id, order_by, order_dir, filters.group_by_meta_id, is_unscoped
-    )
-
     # The grouping window spans the whole set even for one page, so a grouped
     # platform-only set caches its sidecars too, under a key naming the platforms.
-    if (
-        sidecar_cache_key is None
-        and filters.group_by_meta_id
-        and filters.platform_ids
-        and is_unfiltered
-        and not filters.model_copy(update={"platform_ids": None}).has_scope()
+    sidecar_cache_key: str | None = None
+    if is_unscoped:
+        sidecar_cache_key = build_unscoped_sidecar_cache_key(
+            request.user.id, order_by, order_dir, filters.group_by_meta_id, True
+        )
+    elif (
+        filters.group_by_meta_id and is_unfiltered and filters.has_only_platform_scope()
     ):
         sidecar_cache_key = build_grouped_page_cache_key(
-            request.user.id, order_by, order_dir, filters.platform_ids
+            request.user.id, order_by, order_dir, filters.platform_ids or []
         )
 
     # Get the char index for the roms. Relevance order has no letter runs.
@@ -914,7 +913,7 @@ def get_roms(
         id_index = db_rom_handler.get_rom_id_index(
             query=query, cache_key=sidecar_cache_key
         )
-    rom_id_index = id_index if with_rom_id_index and id_index is not None else []
+    rom_id_index = (id_index or []) if with_rom_id_index else []
 
     # Hydrate the requested page and its additional data
     with sync_session.begin() as session:
@@ -964,16 +963,13 @@ def get_roms(
             ]
 
         def resolve_total() -> int | None:
+            # A caller scrolling a gallery it already sized opts out of the count.
+            if not (with_total or with_rom_id_index):
+                return None
             if id_index is not None:
                 # The index already spans the result set, so the count is free.
-                return len(id_index) if with_rom_id_index or with_total else None
-            # Without the index the count is its own scan of the filtered set,
-            # so a caller scrolling a gallery it already sized opts out.
-            return (
-                db_rom_handler.get_rom_count(query=query, session=session)
-                if with_total
-                else None
-            )
+                return len(id_index)
+            return db_rom_handler.get_rom_count(query=query, session=session)
 
         if id_index is not None:
             page_ids = id_index[params.offset : params.offset + params.limit]
@@ -1009,7 +1005,7 @@ def get_roms(
             limit=params.limit,
             offset=params.offset,
             char_index=char_index_dict,
-            rom_id_index=list(rom_id_index),
+            rom_id_index=rom_id_index,
             filter_values=filter_values,
         )
 

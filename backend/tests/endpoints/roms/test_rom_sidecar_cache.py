@@ -87,6 +87,11 @@ def _unscoped_key(
     return key
 
 
+def _platform_key(user_id: int, platform_id: int) -> str:
+    """The sidecar key for a grouped, default-ordered platform gallery."""
+    return build_grouped_page_cache_key(user_id, "", "asc", [platform_id])
+
+
 def _filter_values_key(user_id: int) -> str:
     key = build_unscoped_filter_values_cache_key(user_id, True)
     assert key is not None
@@ -460,23 +465,6 @@ def test_grouped_page_writes_the_unscoped_index(
     assert sync_cache.get(redis_key) is not None
 
 
-def test_grouped_platform_page_slices_its_own_index(
-    client: TestClient,
-    access_token: str,
-    admin_user: User,
-    platform: Platform,
-    rom: Rom,
-    second_rom: Rom,
-):
-    """A platform-only grouped page caches under a key naming its platforms."""
-    page_key = build_grouped_page_cache_key(admin_user.id, "", "asc", [platform.id])
-    _seed_rom_id_index(page_key, [second_rom.id, rom.id])
-
-    body = _get_roms(client, access_token, **GROUPED_PAGE, platform_ids=platform.id)
-
-    assert _page_ids(body) == [second_rom.id, rom.id]
-
-
 def test_grouped_platform_index_shares_the_page_key(
     client: TestClient,
     access_token: str,
@@ -486,7 +474,7 @@ def test_grouped_platform_index_shares_the_page_key(
     second_rom: Rom,
 ):
     """The index request, its char index and the pages read one cached key."""
-    page_key = build_grouped_page_cache_key(admin_user.id, "", "asc", [platform.id])
+    page_key = _platform_key(admin_user.id, platform.id)
     _seed_rom_id_index(page_key, [second_rom.id, rom.id])
     version = _filter_values_cache_version()
     _store_versioned_cache(
@@ -501,6 +489,9 @@ def test_grouped_platform_index_shares_the_page_key(
     assert body["total"] == 2
     assert body["char_index"] == {"Z": 41}
 
+    body = _get_roms(client, access_token, **GROUPED_PAGE, platform_ids=platform.id)
+    assert _page_ids(body) == [second_rom.id, rom.id]
+
 
 def test_grouped_platform_page_with_another_scope_stays_live(
     client: TestClient,
@@ -510,7 +501,7 @@ def test_grouped_platform_page_with_another_scope_stays_live(
     rom: Rom,
 ):
     """A search on top of the platforms narrows the set past the cached list."""
-    page_key = build_grouped_page_cache_key(admin_user.id, "", "asc", [platform.id])
+    page_key = _platform_key(admin_user.id, platform.id)
     _seed_rom_id_index(page_key, [424242])
 
     body = _get_roms(
@@ -546,9 +537,7 @@ def test_grouped_page_with_a_row_filter_stays_live(
 ):
     """A row filter narrows the set, so neither cached list may answer it."""
     _seed_rom_id_index(_unscoped_key(admin_user.id, group=True), [424242])
-    platform_key = build_grouped_page_cache_key(
-        admin_user.id, "", "asc", [missing_rom.platform_id]
-    )
+    platform_key = _platform_key(admin_user.id, missing_rom.platform_id)
     _seed_rom_id_index(platform_key, [424242])
 
     body = _get_roms(client, access_token, **GROUPED_PAGE, missing=True)

@@ -412,6 +412,12 @@ class RomFilterParams(BaseModel):
         """Whether anything picks a slice of the library smaller than all of it."""
         return any(getattr(self, field) for field in _SCOPE_FIELDS)
 
+    def has_only_platform_scope(self) -> bool:
+        """Whether platforms are the only scope picked."""
+        return bool(self.platform_ids) and not any(
+            getattr(self, field) for field in _SCOPE_FIELDS if field != "platform_ids"
+        )
+
     def has_filters(self) -> bool:
         """Whether anything narrows the results within that slice.
 
