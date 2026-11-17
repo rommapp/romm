@@ -59,16 +59,7 @@ from utils.archives import is_compressed_file
 from utils.datetime import format_utc
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.router import APIRouter
-
-
-def generate_rom_download_url(request: Request, rom: Rom) -> str:
-    return str(
-        request.url_for(
-            "get_rom_content",
-            id=rom.id,
-            file_name=quote(rom.fs_name, safe="/"),
-        )
-    )
+from utils.urls import rom_content_url
 
 
 def generate_romfile_download_url(request: Request, file: RomFile) -> str:
@@ -138,7 +129,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
             **HAS_FILE_ON_DISK_FILTERS,
         )
         for rom in roms:
-            download_url = generate_rom_download_url(request, rom)
+            download_url = rom_content_url(request, rom)
             category_item = WebrcadeFeedItemSchema(
                 title=rom.name or rom.fs_name_no_tags,
                 description=rom.summary or "",
@@ -744,7 +735,7 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
     txt_lines.append("\t")
 
     for rom in roms:
-        download_url = generate_rom_download_url(request, rom)
+        download_url = rom_content_url(request, rom)
 
         # Generate box art URL if cover exists
         box_art_url = ""

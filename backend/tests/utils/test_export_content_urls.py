@@ -6,7 +6,6 @@ from fastapi import Request
 from starlette.routing import Route, Router
 from tests.factories import make_platform, make_rom
 
-from models.user import User
 from utils.gamelist_exporter import GamelistExporter
 from utils.pegasus_exporter import PegasusExporter
 
@@ -24,7 +23,6 @@ from utils.pegasus_exporter import PegasusExporter
     ],
 )
 def test_export_content_filename(
-    admin_user: User,
     export_format: str,
     local_export: bool,
     fs_name: str,
@@ -42,7 +40,7 @@ def test_export_content_filename(
             "router": Router(
                 [
                     Route(
-                        "/api/roms/{id}/content/{file_name:path}",
+                        "/api/roms/{id}/content/{file_name}",
                         lambda _: None,
                         name="get_rom_content",
                     )

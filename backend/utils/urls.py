@@ -1,8 +1,16 @@
+from __future__ import annotations
+
 import ipaddress
+from typing import TYPE_CHECKING
+from urllib.parse import quote
 
 import yarl
+from fastapi import Request
 
 import config
+
+if TYPE_CHECKING:
+    from models.rom import Rom
 
 
 def is_shareable_host(host: str) -> bool:
@@ -24,3 +32,13 @@ def get_public_base_url() -> str | None:
     if not is_shareable_host(url.host):
         return None
     return str(url).rstrip("/")
+
+
+def rom_content_url(request: Request, rom: Rom) -> str:
+    """Absolute download URL for `rom`, its file name percent-encoded."""
+    # url_for inserts path params verbatim, so a `#`, `?` or `%` would break it.
+    return str(
+        request.url_for(
+            "get_rom_content", id=rom.id, file_name=quote(rom.fs_name, safe="")
+        )
+    )

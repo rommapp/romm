@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Final
-from urllib.parse import quote
 
 from fastapi import Request
 
@@ -14,6 +13,7 @@ from models.rom import HAS_FILE_ON_DISK_FILTERS, Rom
 from utils.datetime import format_utc
 from utils.filesystem import join_rel_path, place_export_asset, rel_platform_folder
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.urls import rom_content_url
 
 # Map RomM platform slugs to canonical Pegasus (collection name, shortname) pairs.
 # Source: https://www.pegasus-frontend.org/docs/user-guide/meta-files/
@@ -396,10 +396,7 @@ class PegasusExporter:
                 raise ValueError(
                     "Request object must be provided for non-local exports"
                 )
-            content_url = request.url_for(
-                "get_rom_content", id=rom.id, file_name=quote(rom.fs_name, safe="")
-            )
-            lines.append(f"file: {content_url}")
+            lines.append(f"file: {rom_content_url(request, rom)}")
 
         # Sort title (use fs_name_no_tags if different from name)
         if rom.name and rom.fs_name_no_tags and rom.name != rom.fs_name_no_tags:

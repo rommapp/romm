@@ -3,7 +3,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Final
-from urllib.parse import quote
 from xml.etree.ElementTree import (  # trunk-ignore(bandit/B405)
     Element,
     ParseError,
@@ -27,6 +26,7 @@ from logger.logger import log
 from models.rom import HAS_FILE_ON_DISK_FILTERS, Rom
 from utils.datetime import format_utc
 from utils.filesystem import join_rel_path, place_export_asset, rel_platform_folder
+from utils.urls import rom_content_url
 
 # Each tag maps to the assets it can take, best first. RetroBat reads some of the
 # same media under its own names (cartridge, titleshot, mix), hence the repeats.
@@ -256,13 +256,7 @@ class GamelistExporter:
                 raise ValueError(
                     "Request object must be provided for non-local exports"
                 )
-            SubElement(game, "path").text = str(
-                request.url_for(
-                    "get_rom_content",
-                    id=rom.id,
-                    file_name=quote(rom.fs_name, safe=""),
-                )
-            )
+            SubElement(game, "path").text = rom_content_url(request, rom)
 
         SubElement(game, "name").text = rom.name or rom.fs_name
 
