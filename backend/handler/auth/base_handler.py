@@ -1,3 +1,4 @@
+import functools
 import hashlib
 import secrets
 import uuid
@@ -126,6 +127,11 @@ def _bcrypt_secret(password: str) -> bytes:
     return password.encode()[:BCRYPT_MAX_SECRET_BYTES]
 
 
+@functools.cache
+def _dummy_password_hash() -> str:
+    return bcrypt.hashpw(secrets.token_bytes(32), bcrypt.gensalt()).decode()
+
+
 class AuthHandler:
     def __init__(self) -> None:
         self.reset_passwd_token_expires_in_minutes = 10
@@ -159,6 +165,8 @@ class AuthHandler:
 
         user = db_user_handler.get_user_by_username(username)
         if not user:
+            # Hash anyway so the response time can't tell whether the user exists.
+            self.verify_password(password, _dummy_password_hash())
             return None
 
         if not self.verify_password(password, user.hashed_password):

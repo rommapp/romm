@@ -2,6 +2,7 @@ import threading
 from base64 import b64encode
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 from fastapi import status
@@ -68,6 +69,20 @@ def test_authenticate_user(admin_user: User):
 
     assert current_user
     assert current_user.id == admin_user.id
+
+
+def test_authenticate_user_unknown_username_checks_a_hash():
+    with patch.object(
+        auth_handler, "verify_password", wraps=auth_handler.verify_password
+    ) as verify_password:
+        assert auth_handler.authenticate_user("no_such_user", "password") is None
+
+    verify_password.assert_called_once()
+    assert verify_password.call_args.args[0] == "password"
+
+
+def test_authenticate_user_wrong_password(admin_user: User):
+    assert auth_handler.authenticate_user("test_admin", "wrong_password") is None
 
 
 async def test_get_current_active_user_from_session(editor_user: User):
