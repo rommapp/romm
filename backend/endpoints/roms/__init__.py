@@ -651,6 +651,9 @@ class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
     filter_values: RomFiltersDict
 
 
+# The most roms one `rom_ids` window may name.
+ROM_IDS_WINDOW_MAX: Final = 256
+
 # Month 1-12 and day 1-31, so a match is already a calendar day.
 RELEASED_DAY_REGEX = re.compile(r"^(0?[1-9]|1[0-2])-(0?[1-9]|[12]\d|3[01])$")
 
@@ -776,25 +779,23 @@ def get_roms(
         Query(description="Whether to include each rom's file entries."),
     ] = False,
     rom_ids: Annotated[
-        list[int] | None,
+        list[Annotated[int, Field(ge=1)]] | None,
         Query(
             description=(
                 "Load exactly these roms, in this order, instead of ranking a page:"
-                " a window the caller sliced from `rom_id_index`. At most `limit`"
-                " ids; ids the caller can't see, or that no longer exist, are left"
-                " out. The sidecars and the total are skipped."
-            )
+                " a window the caller sliced from `rom_id_index`. Repeat the"
+                f" parameter, 1 to {ROM_IDS_WINDOW_MAX} positive ids. Ids the caller"
+                " can't see, or that no longer exist, are left out. The sidecars and"
+                " the total are skipped, and `offset` and `limit` are ignored."
+            ),
+            min_length=1,
+            max_length=ROM_IDS_WINDOW_MAX,
         ),
     ] = None,
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve roms."""
     perms = get_permissions(request)
     if rom_ids is not None:
-        if len(rom_ids) > params.limit:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=f"rom_ids takes at most {params.limit} ids",
-            )
         # The caller already holds the ordered list, so nothing spans the set.
         with_char_index = with_filter_values = with_rom_id_index = with_total = False
     parsed_released_days = parse_released_days(released_days)
