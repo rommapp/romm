@@ -821,6 +821,49 @@ def test_an_admin_confirms_only_the_email_they_saw(
     assert not current.enabled
 
 
+def test_a_confirmation_racing_an_email_change_is_refused(
+    client, access_token: str, viewer_user: User, mocker
+):
+    db_user_handler.update_user(viewer_user.id, {"email": "viewer@example.com"})
+    stale = db_user_handler.get_user(viewer_user.id)
+    # The user changes their email after the admin's request has read the old one.
+    db_user_handler.update_user(viewer_user.id, {"email": "taken@example.com"})
+    get_user = db_user_handler.get_user
+    reads = iter([stale])
+    mocker.patch.object(
+        db_user_handler,
+        "get_user",
+        side_effect=lambda id: next(reads, None) or get_user(id),
+    )
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"confirm_email": "viewer@example.com"},
+        headers=bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    current = get_user(viewer_user.id)
+    assert current and current.email == "taken@example.com"
+    assert not current.email_trusted
+
+
+def test_a_refused_edit_does_not_confirm_the_email(
+    client, access_token: str, viewer_user: User
+):
+    db_user_handler.update_user(viewer_user.id, {"email": "viewer@example.com"})
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"confirm_email": "viewer@example.com", "ui_settings": "[]"},
+        headers=bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    current = db_user_handler.get_user(viewer_user.id)
+    assert current and not current.email_trusted
+
+
 def test_a_password_less_account_cannot_set_a_password_with_a_token(
     client, viewer_access_token: str, viewer_user: User
 ):

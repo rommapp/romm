@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from exceptions.database_exceptions import LastAdminError
+from exceptions.database_exceptions import EmailChangedError, LastAdminError
 from handler.database import db_user_handler
 from handler.database.base_handler import sync_session
 from models.user import Role, User
@@ -138,19 +138,40 @@ class TestUpdateLastActive:
         assert executed_statements == []
 
 
-class TestTrustEmail:
-    def test_trusts_the_email_the_user_still_holds(self, viewer_user: User):
+class TestUpdateUserEmailTrust:
+    def test_a_new_email_is_untrusted_unless_the_caller_vouches(
+        self, viewer_user: User
+    ):
+        db_user_handler.update_user(
+            viewer_user.id, {"email": "old@example.com", "email_trusted": True}
+        )
+
+        updated = db_user_handler.update_user(
+            viewer_user.id, {"email": "new@example.com"}
+        )
+
+        assert not updated.email_trusted
+
+    def test_writes_when_the_expected_email_still_matches(self, viewer_user: User):
         db_user_handler.update_user(viewer_user.id, {"email": "viewer@example.com"})
 
-        assert db_user_handler.trust_email(viewer_user.id, "Viewer@Example.com")
+        updated = db_user_handler.update_user(
+            viewer_user.id,
+            {"email_trusted": True},
+            expected_email="Viewer@Example.com",
+        )
 
-        current = db_user_handler.get_user(viewer_user.id)
-        assert current and current.email_trusted
+        assert updated.email_trusted
 
-    def test_leaves_a_changed_email_untrusted(self, viewer_user: User):
+    def test_refuses_when_the_email_changed(self, viewer_user: User):
         db_user_handler.update_user(viewer_user.id, {"email": "taken@example.com"})
 
-        assert not db_user_handler.trust_email(viewer_user.id, "viewer@example.com")
+        with pytest.raises(EmailChangedError):
+            db_user_handler.update_user(
+                viewer_user.id,
+                {"email_trusted": True},
+                expected_email="viewer@example.com",
+            )
 
         current = db_user_handler.get_user(viewer_user.id)
         assert current and not current.email_trusted

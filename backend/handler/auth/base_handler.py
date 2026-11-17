@@ -327,6 +327,7 @@ class AuthHandler:
         data: dict[str, Any],
         revoke_sessions_for: str | None = None,
         keep_an_admin: bool = False,
+        expected_email: str | None = None,
     ) -> None:
         """
         Write an update to a user, revoking the account's sessions and OAuth
@@ -338,6 +339,8 @@ class AuthHandler:
                 are keyed by, or None to write without revoking.
             keep_an_admin (bool): Refuse, with LastAdminError, a role change
                 that would leave no admin.
+            expected_email (str | None): Refuse, with EmailChangedError, an
+                update to a user whose email no longer matches.
         """
         from handler.database import db_user_handler
         from handler.database.base_handler import sync_session
@@ -354,7 +357,9 @@ class AuthHandler:
                 # rather than committing it with the account's sessions left live.
                 await self._revoke_user_credentials(revoke_sessions_for)
 
-            db_user_handler.update_user(user_id, data, session=session)
+            db_user_handler.update_user(
+                user_id, data, expected_email=expected_email, session=session
+            )
 
         if revoke_sessions_for:
             # After it, for a login the old password was still good for.

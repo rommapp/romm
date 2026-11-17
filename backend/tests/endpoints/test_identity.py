@@ -99,8 +99,6 @@ def test_get_user(client, access_token: str, editor_user: User):
 def test_get_user_avatar(
     mock_validate_path, client, viewer_access_token: str, admin_user: User, tmp_path
 ):
-    from handler.database import db_user_handler
-
     db_user_handler.update_user(
         admin_user.id,
         {"avatar_path": f"users/{admin_user.fs_safe_folder_name}/profile/avatar.png"},
@@ -405,7 +403,6 @@ def test_an_invitee_chosen_email_is_not_trusted(client, access_token: str):
 
 def test_overlapping_registrations_spend_one_invite_once(client, access_token: str):
     """Two registrations racing on one invite must not both create an account."""
-    from handler.database import db_user_handler
 
     token = _invite_token(client, access_token)
     # Hold each request at the token check until the other arrives, so the only

@@ -112,6 +112,20 @@ async function pick(
   await input.trigger("change");
 }
 
+function apply(wrapper: VueWrapper) {
+  return wrapper.findAll("button").find((b) => b.text() === "common.apply");
+}
+
+async function save(wrapper: VueWrapper) {
+  await apply(wrapper)?.trigger("click");
+  await flushPromises();
+}
+
+const emailField = (wrapper: VueWrapper) =>
+  wrapper
+    .findAllComponents(RTextField)
+    .find((f) => f.props("type") === "email");
+
 describe("EditUserDialog avatar preview", () => {
   let urls = 0;
 
@@ -156,14 +170,6 @@ describe("EditUserDialog age settings", () => {
     });
     updateUserPermissions.mockResolvedValue({ data: {} });
   });
-
-  async function save(wrapper: VueWrapper) {
-    const apply = wrapper
-      .findAll("button")
-      .find((b) => b.text() === "common.apply");
-    await apply?.trigger("click");
-    await flushPromises();
-  }
 
   it("sends the age settings only once they change", async () => {
     const { wrapper } = await mountDialog("user");
@@ -319,10 +325,6 @@ describe("EditUserDialog current password", () => {
     await flushPromises();
   }
 
-  function apply(wrapper: VueWrapper) {
-    return wrapper.findAll("button").find((b) => b.text() === "common.apply");
-  }
-
   it("asks for it when changing your own password", async () => {
     storeAuth().setCurrentUser(userFixture({ id: 4 }));
     const { wrapper } = await mountDialog();
@@ -374,11 +376,6 @@ describe("EditUserDialog current password", () => {
 });
 
 describe("EditUserDialog OIDC email", () => {
-  const emailField = (wrapper: VueWrapper) =>
-    wrapper
-      .findAllComponents(RTextField)
-      .find((f) => f.props("type") === "email");
-
   it("locks your own email when the identity provider manages it", async () => {
     storeAuth().setCurrentUser(
       userFixture({ id: 4, email_managed_by_oidc: true }),
@@ -415,14 +412,6 @@ describe("EditUserDialog email confirmation", () => {
     updateUser.mockResolvedValue({ data: userFixture({ id: 4 }) });
   });
 
-  async function save(wrapper: VueWrapper) {
-    const apply = wrapper
-      .findAll("button")
-      .find((b) => b.text() === "common.apply");
-    await apply?.trigger("click");
-    await flushPromises();
-  }
-
   it("confirms the saved email only when the admin turns the switch on", async () => {
     const { wrapper, open } = await mountDialog();
     await open(4, unconfirmed);
@@ -443,10 +432,7 @@ describe("EditUserDialog email confirmation", () => {
     await open(4, unconfirmed);
     expect(confirmSwitch(wrapper)).toBeDefined();
 
-    const email = wrapper
-      .findAllComponents(RTextField)
-      .find((f) => f.props("type") === "email");
-    email?.vm.$emit("update:modelValue", "other@example.com");
+    emailField(wrapper)?.vm.$emit("update:modelValue", "other@example.com");
     await flushPromises();
 
     expect(confirmSwitch(wrapper)).toBeUndefined();
