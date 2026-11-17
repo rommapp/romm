@@ -171,6 +171,7 @@ class TestRetroArchSyncEmulatorNames:
         ("retroarch_dir_name", "romm_emulator"),
         [
             ("Snes9x", "snes9x"),
+            ("melonDS DS", "melondsds"),
             ("Genesis Plus GX", "genesis_plus_gx"),
             ("PCSX-ReARMed", "pcsx_rearmed"),
             # The web player stores the Beetle cores under their mednafen ids.
@@ -205,6 +206,8 @@ class TestRetroArchSyncEmulatorNames:
         ("romm_emulator", "retroarch_dir_name"),
         [
             ("snes9x", "Snes9x"),
+            ("melondsds", "melonDS DS"),
+            ("melonds_ds", "melonDS DS"),
             ("genesis_plus_gx", "Genesis Plus GX"),
             ("pcsx_rearmed", "PCSX-ReARMed"),
             # A core outside the table round-trips unchanged rather than
@@ -226,6 +229,10 @@ class TestRetroArchSyncEmulatorNames:
             "mednafen_psx_hw",
         )
 
+    @pytest.mark.parametrize("emulator", ["melondsds", "melonds_ds", "melonDS DS"])
+    def test_melonds_ds_aliases(self, emulator):
+        assert retroarch_aliases(emulator) == ("melonDS DS", "melonds_ds", "melondsds")
+
     def test_a_core_outside_the_table_is_its_only_alias(self):
         assert retroarch_aliases("retroarduous") == ("retroarduous",)
 
@@ -241,6 +248,10 @@ class TestRetroArchSyncEmulatorNames:
             ("DOSBox-pure", {"dos"}),
             ("stella2014", {"atari2600", "atari-2600-plus"}),
             ("melonDS", {"nds", "nintendo-ds-lite", "nintendo-dsi", "nintendo-dsi-xl"}),
+            (
+                "melonDS DS",
+                {"nds", "nintendo-ds-lite", "nintendo-dsi", "nintendo-dsi-xl"},
+            ),
             ("retroarduous", set()),
             (None, set()),
         ],

@@ -5692,7 +5692,9 @@ def test_hydrate_pushes_a_newer_cloud_synced_state_of_the_booted_core(
     [
         # Cloud Sync files RetroArch's "mGBA" folder under the web player's id.
         ("mgba", "mGBA", "mgba"),
-        ("melondsds", "melonDS DS", "melonDS DS"),
+        ("melondsds", "melonDS DS", "melondsds"),
+        # A folder Cloud Sync doesn't know is filed under its own name.
+        ("mednafen_lynx", "Beetle Lynx", "Beetle Lynx"),
         # A broker too old to name the folder leaves the core id.
         ("melondsds", None, "melondsds"),
         ("melondsds", "", "melondsds"),
@@ -5715,13 +5717,17 @@ def test_other_emulators_file_under_the_emulator():
 
 @pytest.mark.parametrize(
     ("core", "library_name", "folder"),
-    [("mgba", None, "mgba"), ("melondsds", "melonDS DS", "melonDS DS")],
+    [
+        ("mgba", None, "mgba"),
+        ("melondsds", "melonDS DS", "melondsds"),
+        ("mednafen_lynx", "Beetle Lynx", "Beetle Lynx"),
+    ],
 )
 def test_a_streamed_state_is_filed_where_cloud_sync_files_its_core(
     rom: Rom, admin_user: User, core, library_name, folder
 ):
     """Clients file states under the core's folder, named after RetroArch's
-    library name, which for melonDS DS is not its core id."""
+    library name, which for an unmapped core is not its core id."""
 
     async def scanned(**kwargs: Any) -> State:
         return _state_for(rom, admin_user, kwargs["file_name"], kwargs["emulator"])
@@ -6579,7 +6585,8 @@ def _stored_saves(rom: Rom, user: User) -> list[Save]:
 @pytest.mark.parametrize(
     ("core", "library_name", "folder", "recorded"),
     [
-        ("melondsds", "melonDS DS", "melonDS DS", "melonDS DS"),
+        ("melondsds", "melonDS DS", "melondsds", "melonDS DS"),
+        ("mednafen_lynx", "Beetle Lynx", "Beetle Lynx", "Beetle Lynx"),
         ("mgba", "mGBA", "mgba", "mGBA"),
         ("melondsds", None, "melondsds", None),
         ("melondsds", "bad/name", "melondsds", "bad/name"),
