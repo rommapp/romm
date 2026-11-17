@@ -153,6 +153,9 @@ RETROARCH_PLATFORMS_BY_ROMM_EMULATOR: dict[str, frozenset[str]] = {
     "mednafen_pce_fast": frozenset({UPS.TG16, UPS.TURBOGRAFX_CD}),
     "scummvm": frozenset({UPS.SCUMMVM}),
     "ppsspp": frozenset({UPS.PSP_MINIS}),
+    "melondsds": frozenset(
+        {"nds", "nintendo-ds-lite", "nintendo-dsi", "nintendo-dsi-xl"}
+    ),
     "citra": frozenset({UPS.N3DS, UPS.NEW_NINTENDON3DS}),
 }
 
