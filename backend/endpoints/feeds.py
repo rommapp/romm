@@ -75,7 +75,7 @@ def generate_romfile_download_url(request: Request, file: RomFile) -> str:
     return str(
         request.url_for(
             "get_romfile_content",
-            id=file.id,
+            file_id=file.id,
             file_name=quote(file.file_name, safe="/"),
         )
     )

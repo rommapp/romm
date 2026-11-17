@@ -26,7 +26,7 @@ def test_delete_saves(client, access_token, save):
     assert not any(
         record.content_hashes
         for record in db_deleted_asset_handler.get_deletions(
-            user_id=save.user_id, rom_ids=[save.rom_id]
+            user_id=save.user_id, rom_ids=[save.attached_rom_id]
         )
     )
 
@@ -49,7 +49,7 @@ def test_delete_saves_hashes_a_save_that_never_recorded_one(
     assert response.status_code == status.HTTP_200_OK
     compute_content_hash.assert_awaited_once_with(save.full_path)
     [record] = db_deleted_asset_handler.get_deletions(
-        user_id=save.user_id, rom_ids=[save.rom_id]
+        user_id=save.user_id, rom_ids=[save.attached_rom_id]
     )
     assert record.content_hashes == ["deadbeef"]
 

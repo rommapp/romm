@@ -7,6 +7,7 @@ from authlib.common.errors import AuthlibBaseError
 from fastapi import BackgroundTasks, Body, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.security.http import HTTPBasic, HTTPBasicCredentials
+from httpx2 import HTTPError
 from joserfc.errors import JoseError
 
 from config import (
@@ -359,10 +360,20 @@ async def login_via_openid(request: Request) -> RedirectResponse:
     if not oauth.openid:
         raise OIDCNotConfiguredException
 
-    return cast(
-        RedirectResponse,
-        await oauth.openid.authorize_redirect(request, OIDC_REDIRECT_URI),
-    )
+    # Authlib fetches the provider's discovery document here, so a wrong
+    # OIDC_SERVER_APPLICATION_URL surfaces as an HTTP error
+    try:
+        return cast(
+            RedirectResponse,
+            await oauth.openid.authorize_redirect(request, OIDC_REDIRECT_URI),
+        )
+    except HTTPError as exc:
+        log.error(
+            f"OIDC provider discovery failed, check OIDC_SERVER_APPLICATION_URL: {exc!r}"
+        )
+        # Without the bypass, OIDC autologin would send the failure straight
+        # back here and loop
+        return RedirectResponse(url="/login?bypass_autologin=true")
 
 
 @router.get("/oauth/openid")

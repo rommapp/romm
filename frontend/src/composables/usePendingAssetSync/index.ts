@@ -34,10 +34,7 @@ const REFUSED_MESSAGE: Record<PendingAssetKind, string> = {
 // A session that queued several captures owes the player one line per game,
 // not one per capture.
 function firstPerGame<T extends SyncedAsset>(assets: T[]): T[] {
-  return uniqueBy(
-    assets,
-    (asset) => `${asset.kind}:${asset.romId}:${Boolean(asset.archived)}`,
-  );
+  return uniqueBy(assets, (asset) => `${asset.kind}:${asset.romId}`);
 }
 
 const DRAIN_LOCK = "romm-pending-assets";
@@ -80,13 +77,6 @@ export function installPendingAssetSync() {
 
   function announce(synced: SyncedAsset[]) {
     for (const asset of firstPerGame(synced)) {
-      if (asset.archived) {
-        snackbar.warning(t("play.save-kept-apart", { game: asset.name }), {
-          image: asset.cover,
-          timeout: 8000,
-        });
-        continue;
-      }
       snackbar.success(t(SYNCED_MESSAGE[asset.kind], { game: asset.name }), {
         image: asset.cover,
         timeout: 5000,

@@ -2,6 +2,7 @@
 
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.auth_helpers import bearer
 
 from handler.database import db_rom_handler
 from models.rom import Rom
@@ -25,10 +26,6 @@ EAGER_TABLES = (
 # Truncated at the bind placeholder: MariaDB renders `?` and psycopg
 # `%(id_1)s::INTEGER`, and CI runs both.
 ROM_LOOKUP = "SELECT roms.id, roms.platform_id, roms.min_age FROM roms WHERE roms.id ="
-
-
-def _auth(access_token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {access_token}"}
 
 
 def _flat(statements: list[str]) -> list[str]:
@@ -60,7 +57,7 @@ def test_note_identifiers_resolves_the_rom_without_the_related_load(
 
     executed_statements.clear()
     response = client.get(
-        f"/api/roms/{rom.id}/notes/identifiers", headers=_auth(access_token)
+        f"/api/roms/{rom.id}/notes/identifiers", headers=bearer(access_token)
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -78,7 +75,7 @@ def test_create_note_resolves_the_rom_without_the_related_load(
     executed_statements.clear()
     response = client.post(
         f"/api/roms/{rom.id}/notes",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         json={"title": "from the test"},
     )
 
@@ -101,7 +98,7 @@ def test_update_note_resolves_the_rom_without_the_related_load(
     executed_statements.clear()
     response = client.put(
         f"/api/roms/{rom.id}/notes/{note['id']}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         json={"content": "after"},
     )
 

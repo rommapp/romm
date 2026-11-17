@@ -8,9 +8,8 @@ from fastapi.responses import Response
 from decorators.auth import protected_route
 from endpoints.responses.rom import SoundtrackTrackMetaSchema, TrackMetaSchema
 from endpoints.roms.upload import receive_rom_file
-from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
+from handler.auth.dependencies import visible_rom_or_404
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.rom_upload import CATEGORY_UPLOAD_FOLDERS
@@ -36,11 +35,7 @@ async def get_rom_soundtrack_metadata(
 ) -> list[SoundtrackTrackMetaSchema]:
     """Return compact audio metadata for every soundtrack file of a ROM."""
 
-    rom = db_rom_handler.get_rom_visibility(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom_visibility(id), id)
 
     tracks = db_rom_handler.get_rom_files_by_category(
         rom_id=rom.id, category=RomFileCategory.SOUNDTRACK
@@ -79,11 +74,7 @@ async def add_rom_soundtracks(
 ) -> Response:
     """Upload a soundtrack audio file into the ROM's soundtrack/ subfolder."""
 
-    rom = db_rom_handler.get_rom(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(id), id)
 
     await receive_rom_file(
         request, rom, CATEGORY_UPLOAD_FOLDERS[RomFileCategory.SOUNDTRACK], filename
@@ -105,11 +96,7 @@ async def delete_rom_soundtrack(
 ) -> Response:
     """Delete a single soundtrack file from a ROM."""
 
-    rom = db_rom_handler.get_rom_visibility_label(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom_visibility_label(id), id)
 
     rom_file = db_rom_handler.get_rom_file_by_id(file_id)
     if (

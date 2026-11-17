@@ -101,6 +101,14 @@
       "groupName": "docker base images",
       "description": "Docker Hub reports no release date for a digest, so the week-long wait would hold these rebuilds forever. They are official images rebuilt for security patches, and the PR still needs a merge.",
       "minimumReleaseAgeBehaviour": "timestamp-optional"
+    },
+    {
+      "description": "Renovate can't hash the release zip, so JSDOS_SHA256 is updated by hand in the PR; the Docker Image Check fails until it is.",
+      "matchManagers": ["custom.regex"],
+      "matchDepNames": ["caiiiycuk/js-dos"],
+      "prBodyNotes": [
+        "**Update `JSDOS_SHA256` in `Dockerfile` and `docker/Dockerfile` before merging:** `curl -sL https://github.com/caiiiycuk/js-dos/releases/download/v{{{newVersion}}}/release.zip | shasum -a 256`. Also check the release for new files to strip (see the `find` in the js-dos stage)."
+      ]
     }
   ],
   "customManagers": [
@@ -162,6 +170,21 @@
       "datasourceTemplate": "docker",
       "depNameTemplate": "node",
       "currentValueTemplate": "{{{node}}}-alpine{{{alpine}}}"
+    },
+    {
+      "description": "The js-dos release the Dockerfiles bundle and the jsDelivr fallback the player loads, which must stay on the same version.",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/(^|/)Dockerfile$/",
+        "/^frontend/src/views/Player/jsDosRuntime\\.ts$/"
+      ],
+      "matchStrings": [
+        "ARG JSDOS_VERSION=(?<currentValue>\\S+)",
+        "cdn\\.jsdelivr\\.net/npm/js-dos@(?<currentValue>[^/]+)/dist"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "caiiiycuk/js-dos",
+      "extractVersionTemplate": "^v(?<version>\\d+\\.\\d+\\.\\d+)$"
     }
   ]
 }

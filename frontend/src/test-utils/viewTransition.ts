@@ -25,3 +25,13 @@ export function stubStartViewTransition(ready: Promise<void>) {
   });
   return finished;
 }
+
+/** Stubs a running transition as `document.activeViewTransition`; returns its `skipTransition` spy. */
+export function stubActiveViewTransition() {
+  const skipTransition = vi.fn();
+  Object.defineProperty(document, "activeViewTransition", {
+    configurable: true,
+    value: { skipTransition },
+  });
+  return skipTransition;
+}

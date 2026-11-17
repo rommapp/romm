@@ -1,0 +1,11 @@
+# Written by Coherence; hooks uninstall removes it while it holds only this.
+# Each record store is one append-only JSONL file per session, and its
+# readers order records by content: two branches that appended to one
+# session's file merge with both sides' lines (merge=union), never a
+# conflict. GitHub folds the records in a pull request's diff.
+journal/*.jsonl merge=union
+journal/** linguist-generated=true
+runs/*.jsonl merge=union
+runs/** linguist-generated=true
+work/*.jsonl merge=union
+work/** linguist-generated=true

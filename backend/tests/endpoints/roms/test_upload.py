@@ -8,6 +8,7 @@ from uuid import UUID
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.auth_helpers import bearer
 from tests.factories import make_platform, make_rom
 from tests.redis_stubs import fail_expire, record_pipelines
 
@@ -48,10 +49,6 @@ def upload_fs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     return {"uploads_tmp": uploads_tmp, "final_dir": final_dir}
 
 
-def _auth_headers(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
-
-
 def _start_upload(
     client: TestClient,
     token: str,
@@ -64,7 +61,7 @@ def _start_upload(
     return client.post(
         "/api/roms/upload/start",
         headers={
-            **_auth_headers(token),
+            **bearer(token),
             "x-upload-platform": str(platform_id),
             "x-upload-filename": filename,
             "x-upload-total-size": str(total_size),
@@ -115,17 +112,17 @@ def test_upload_chunk_complete_success(
 
     first = client.put(
         f"/api/roms/upload/{upload_id}",
-        headers={**_auth_headers(access_token), "x-chunk-index": "0"},
+        headers={**bearer(access_token), "x-chunk-index": "0"},
         content=b"ABCDEF",
     )
     second = client.put(
         f"/api/roms/upload/{upload_id}",
-        headers={**_auth_headers(access_token), "x-chunk-index": "1"},
+        headers={**bearer(access_token), "x-chunk-index": "1"},
         content=b"GHIJK",
     )
     complete = client.post(
         f"/api/roms/upload/{upload_id}/complete",
-        headers=_auth_headers(access_token),
+        headers=bearer(access_token),
     )
 
     assert first.json() == {"received": 1, "total": 2}
@@ -156,7 +153,7 @@ def test_upload_empty_file_without_chunks(
 
     complete = client.post(
         f"/api/roms/upload/{upload_id}/complete",
-        headers=_auth_headers(access_token),
+        headers=bearer(access_token),
     )
 
     assert complete.status_code == status.HTTP_201_CREATED
@@ -189,7 +186,7 @@ def test_start_with_chunks_that_do_not_match_the_size_returns_400(
 def test_upload_chunk_invalid_upload_id(client: TestClient, access_token: str):
     response = client.put(
         "/api/roms/upload/not-a-uuid",
-        headers={**_auth_headers(access_token), "x-chunk-index": "0"},
+        headers={**bearer(access_token), "x-chunk-index": "0"},
         content=b"chunk",
     )
 
@@ -209,7 +206,7 @@ def test_upload_chunk_forbidden_user(
 
     response = client.put(
         f"/api/roms/upload/{upload_id}",
-        headers={**_auth_headers(editor_access_token), "x-chunk-index": "0"},
+        headers={**bearer(editor_access_token), "x-chunk-index": "0"},
         content=b"ABCDEF",
     )
 
@@ -237,7 +234,7 @@ def test_upload_chunk_oversized_returns_413(
 
     response = client.put(
         f"/api/roms/upload/{upload_id}",
-        headers={**_auth_headers(access_token), "x-chunk-index": "0"},
+        headers={**bearer(access_token), "x-chunk-index": "0"},
         content=b"1234567",
     )
 
@@ -256,12 +253,12 @@ def test_complete_missing_chunks_returns_400(
 
     upload_response = client.put(
         f"/api/roms/upload/{upload_id}",
-        headers={**_auth_headers(access_token), "x-chunk-index": "0"},
+        headers={**bearer(access_token), "x-chunk-index": "0"},
         content=b"ABCDEF",
     )
     complete_response = client.post(
         f"/api/roms/upload/{upload_id}/complete",
-        headers=_auth_headers(access_token),
+        headers=bearer(access_token),
     )
 
     assert upload_response.status_code == status.HTTP_200_OK
@@ -291,12 +288,12 @@ def test_complete_after_the_platform_is_hidden_returns_400(
 
     client.put(
         f"/api/roms/upload/{upload_id}",
-        headers={**_auth_headers(editor_access_token), "x-chunk-index": "0"},
+        headers={**bearer(editor_access_token), "x-chunk-index": "0"},
         content=b"ABCDEF",
     )
     complete_response = client.post(
         f"/api/roms/upload/{upload_id}/complete",
-        headers=_auth_headers(editor_access_token),
+        headers=bearer(editor_access_token),
     )
 
     assert complete_response.status_code == status.HTTP_400_BAD_REQUEST
@@ -308,7 +305,7 @@ def test_complete_after_the_platform_is_hidden_returns_400(
 def test_complete_invalid_upload_id(client: TestClient, access_token: str):
     response = client.post(
         "/api/roms/upload/not-a-uuid/complete",
-        headers=_auth_headers(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -326,7 +323,7 @@ def test_cancel_upload_cleans_temp_files(
 
     upload_response = client.put(
         f"/api/roms/upload/{upload_id}",
-        headers={**_auth_headers(access_token), "x-chunk-index": "0"},
+        headers={**bearer(access_token), "x-chunk-index": "0"},
         content=b"ABCDEF",
     )
     chunk_path = upload_fs["uploads_tmp"] / upload_id / "00000"
@@ -334,7 +331,7 @@ def test_cancel_upload_cleans_temp_files(
 
     cancel_response = client.post(
         f"/api/roms/upload/{upload_id}/cancel",
-        headers=_auth_headers(access_token),
+        headers=bearer(access_token),
     )
 
     assert upload_response.status_code == status.HTTP_200_OK
@@ -364,9 +361,7 @@ def test_cancel_closes_the_session_before_removing_its_files(
 
     monkeypatch.setattr(upload_endpoint, "_cleanup_tmp", cleanup)
 
-    client.post(
-        f"/api/roms/upload/{upload_id}/cancel", headers=_auth_headers(access_token)
-    )
+    client.post(f"/api/roms/upload/{upload_id}/cancel", headers=bearer(access_token))
 
     assert session_open_during_cleanup == [False]
 
@@ -388,7 +383,7 @@ def test_a_chunk_written_while_the_upload_is_cancelled_returns_404(
 
     response = client.put(
         f"/api/roms/upload/{upload_id}",
-        headers={**_auth_headers(access_token), "x-chunk-index": "0"},
+        headers={**bearer(access_token), "x-chunk-index": "0"},
         content=b"ABCDEF",
     )
 
@@ -405,7 +400,7 @@ def test_an_uploaded_chunk_set_expires(
 
     client.put(
         f"/api/roms/upload/{upload_id}",
-        headers={**_auth_headers(access_token), "x-chunk-index": "0"},
+        headers={**bearer(access_token), "x-chunk-index": "0"},
         content=b"ABCDEF",
     )
 
@@ -424,7 +419,7 @@ def test_a_chunk_is_recorded_in_one_transaction(
 
     client.put(
         f"/api/roms/upload/{upload_id}",
-        headers={**_auth_headers(access_token), "x-chunk-index": "0"},
+        headers={**bearer(access_token), "x-chunk-index": "0"},
         content=b"ABCDEF",
     )
 
@@ -444,7 +439,7 @@ def test_a_failed_chunk_record_leaves_no_set_without_a_ttl(
     with pytest.raises(ConnectionError):
         client.put(
             f"/api/roms/upload/{upload_id}",
-            headers={**_auth_headers(access_token), "x-chunk-index": "0"},
+            headers={**bearer(access_token), "x-chunk-index": "0"},
             content=b"ABCDEF",
         )
 
@@ -462,11 +457,11 @@ def test_complete_after_cancel_returns_404(
 
     cancel_response = client.post(
         f"/api/roms/upload/{upload_id}/cancel",
-        headers=_auth_headers(access_token),
+        headers=bearer(access_token),
     )
     complete_response = client.post(
         f"/api/roms/upload/{upload_id}/complete",
-        headers=_auth_headers(access_token),
+        headers=bearer(access_token),
     )
 
     assert cancel_response.status_code == status.HTTP_204_NO_CONTENT
@@ -561,7 +556,7 @@ def _start_into_rom(
     return client.post(
         "/api/roms/upload/start",
         headers={
-            **_auth_headers(token),
+            **bearer(token),
             "x-upload-platform": str(platform_id or rom.platform_id),
             "x-upload-filename": filename,
             "x-upload-total-size": str(total_size),
@@ -594,13 +589,11 @@ def _upload_into_rom(
     upload_id = start.json()["upload_id"]
     put = client.put(
         f"/api/roms/upload/{upload_id}",
-        headers={**_auth_headers(token), "x-chunk-index": "0"},
+        headers={**bearer(token), "x-chunk-index": "0"},
         content=data,
     )
     assert put.status_code == status.HTTP_200_OK
-    return client.post(
-        f"/api/roms/upload/{upload_id}/complete", headers=_auth_headers(token)
-    )
+    return client.post(f"/api/roms/upload/{upload_id}/complete", headers=bearer(token))
 
 
 @pytest.mark.parametrize("folder", ["../x", "/abs", "a/../b", ".", "a//b", "a\\b"])
@@ -688,7 +681,7 @@ def test_start_into_unknown_rom_returns_404(
     response = client.post(
         "/api/roms/upload/start",
         headers={
-            **_auth_headers(access_token),
+            **bearer(access_token),
             "x-upload-platform": str(platform.id),
             "x-upload-filename": "fix.ips",
             "x-upload-total-size": "3",
@@ -863,13 +856,13 @@ def test_complete_after_destination_appeared_returns_409(
     upload_id = start.json()["upload_id"]
     client.put(
         f"/api/roms/upload/{upload_id}",
-        headers={**_auth_headers(access_token), "x-chunk-index": "0"},
+        headers={**bearer(access_token), "x-chunk-index": "0"},
         content=b"late",
     )
     _write(rom_upload_fs, f"{rom.fs_path}/{ROM_FOLDER}/late.bin", b"raced")
 
     response = client.post(
-        f"/api/roms/upload/{upload_id}/complete", headers=_auth_headers(access_token)
+        f"/api/roms/upload/{upload_id}/complete", headers=bearer(access_token)
     )
 
     assert response.status_code == status.HTTP_409_CONFLICT
@@ -933,13 +926,13 @@ def test_complete_collision_does_not_promote_a_single_file_rom(
     upload_id = start.json()["upload_id"]
     client.put(
         f"/api/roms/upload/{upload_id}",
-        headers={**_auth_headers(access_token), "x-chunk-index": "0"},
+        headers={**bearer(access_token), "x-chunk-index": "0"},
         content=b"notes",
     )
     _write(rom_upload_fs, f"{rom.fs_path}/solo/notes.txt", b"raced")
 
     response = client.post(
-        f"/api/roms/upload/{upload_id}/complete", headers=_auth_headers(access_token)
+        f"/api/roms/upload/{upload_id}/complete", headers=bearer(access_token)
     )
 
     assert response.status_code == status.HTTP_409_CONFLICT
@@ -964,7 +957,7 @@ def test_start_takes_the_filename_from_the_body_over_the_header(
     start = client.post(
         "/api/roms/upload/start",
         headers={
-            **_auth_headers(access_token),
+            **bearer(access_token),
             "x-upload-platform": str(rom.platform_id),
             "x-upload-filename": "Relax%20%EF%BD%9C%20432Hz.mp3",
             "x-upload-total-size": "5",
@@ -976,11 +969,11 @@ def test_start_takes_the_filename_from_the_body_over_the_header(
     upload_id = start.json()["upload_id"]
     client.put(
         f"/api/roms/upload/{upload_id}",
-        headers={**_auth_headers(access_token), "x-chunk-index": "0"},
+        headers={**bearer(access_token), "x-chunk-index": "0"},
         content=b"audio",
     )
     complete = client.post(
-        f"/api/roms/upload/{upload_id}/complete", headers=_auth_headers(access_token)
+        f"/api/roms/upload/{upload_id}/complete", headers=bearer(access_token)
     )
 
     assert complete.status_code == status.HTTP_201_CREATED, complete.json()
@@ -1024,7 +1017,7 @@ def test_start_rejects_an_empty_body_filename(
     response = client.post(
         "/api/roms/upload/start",
         headers={
-            **_auth_headers(access_token),
+            **bearer(access_token),
             "x-upload-platform": str(rom.platform_id),
             "x-upload-filename": "fallback.bin",
             "x-upload-total-size": "3",

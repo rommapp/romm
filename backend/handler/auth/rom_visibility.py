@@ -82,7 +82,9 @@ class RomVisibilityFilter:
         )
 
     def restrict[S: Select[*tuple[Any, ...]]](
-        self, query: S, rom_id_col: InstrumentedAttribute[int]
+        self,
+        query: S,
+        rom_id_col: InstrumentedAttribute[int] | InstrumentedAttribute[int | None],
     ) -> S:
         """Narrow `query` to the rows whose `rom_id_col` ROM is visible."""
         if self.is_unrestricted:

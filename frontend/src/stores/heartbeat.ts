@@ -74,6 +74,10 @@ const defaultHeartbeat: Heartbeat = {
   CONVERTO: {
     ENABLED: false,
   },
+  SAVE_SYNC: {
+    SNAPSHOT_RETENTION: 10,
+    SNAPSHOT_BRANCH_LIFETIME_DAYS: 30,
+  },
   ROM_PATCHER: {
     SUPPORTED_EXTENSIONS: [],
   },

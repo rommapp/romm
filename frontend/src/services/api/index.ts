@@ -169,10 +169,12 @@ export default api;
 // page that is going away, and it does not run the request interceptor above,
 // so the CSRF header that interceptor sets has to be built by hand here.
 export function keepaliveHeaders(): Record<string, string> {
-  return {
-    "Content-Type": "application/json",
-    "x-csrftoken": Cookies.get("romm_csrftoken") ?? "",
-  };
+  return { "Content-Type": "application/json", ...keepaliveFormHeaders() };
+}
+
+/** `keepaliveHeaders` for a FormData body, whose multipart content type the browser sets. */
+export function keepaliveFormHeaders(): Record<string, string> {
+  return { "x-csrftoken": Cookies.get("romm_csrftoken") ?? "" };
 }
 
 /** Whether the backend turned a request down over its CSRF token, not its user. */
