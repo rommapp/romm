@@ -178,7 +178,7 @@ Here are a few projects that we think you might like:
 > RomM is a library manager and player. It does not include, distribute, or link to ROMs, BIOS, firmware, or decryption keys.
 >
 > - Only use files you legally own and dumped yourself, and follow the laws where you live.
-> - **The project does not condone piracy.** Requests for or links to copyrighted material are not allowed in any project space (see the [Code of Conduct](CODE_OF_CONDUCT.md)).
+> - **The project does not condone piracy.** Requests for or links to copyrighted material are not allowed in any project space.
 > - All trademarks belong to their respective owners and are used only to describe compatibility.
 
 <!-- docs links -->
