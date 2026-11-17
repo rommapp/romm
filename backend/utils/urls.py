@@ -52,7 +52,9 @@ def romfile_content_url(request: Request, file: RomFile) -> str:
     """Absolute download URL for one file of a ROM, its name percent-encoded."""
     return str(
         request.url_for(
-            "get_romfile_content", file_id=file.id, file_name=quote(file.file_name, safe="")
+            "get_romfile_content",
+            file_id=file.id,
+            file_name=quote(file.file_name, safe=""),
         )
     )
 
