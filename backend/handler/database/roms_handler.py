@@ -38,12 +38,14 @@ from sqlalchemy.orm import (
     Mapper,
     QueryableAttribute,
     Session,
+    defer,
     joinedload,
     load_only,
     raiseload,
     selectinload,
     undefer,
 )
+from sqlalchemy.orm.attributes import set_committed_value
 from sqlalchemy.orm.interfaces import ORMOption
 from sqlalchemy.sql.dml import Insert
 from sqlalchemy.sql.elements import ColumnElement, UnaryExpression
@@ -72,6 +74,7 @@ from models.platform import Platform
 from models.rom import (
     ALTERNATIVE_NAME_SOURCES,
     METADATA_SOURCE_FACET_COLUMNS,
+    PROVIDER_METADATA_COLUMNS,
     ROM_IS_IDENTIFIED,
     ROM_VISIBILITY_COLUMNS,
     SEARCH_TITLE_COLUMNS,
@@ -1951,8 +1954,13 @@ class DBRomsHandler(DBBaseHandler):
         *,
         visibility: RomVisibilityFilter = UNRESTRICTED,
         include_file_stats: bool = False,
+        provider_columns: Sequence[str] = PROVIDER_METADATA_COLUMNS,
     ) -> RomSelect:
-        """The rows of one page, loaded by id with none of the filters re-run."""
+        """The rows of one page, loaded by id with none of the filters re-run.
+
+        Provider metadata columns not in `provider_columns` are left unread; pass
+        the loaded rows to `blank_unread_provider_columns` before reading them.
+        """
         # Visibility is re-checked in case a cached id index predates a rule change.
         return (
             select(Rom)
@@ -1963,9 +1971,25 @@ class DBRomsHandler(DBBaseHandler):
                     file_stats=include_file_stats,
                     siblings=False,
                     notes=False,
-                )
+                ),
+                *(
+                    defer(getattr(Rom, column))
+                    for column in PROVIDER_METADATA_COLUMNS
+                    if column not in provider_columns
+                ),
             )
         )
+
+    @staticmethod
+    def blank_unread_provider_columns(
+        roms: Iterable[Rom], provider_columns: Sequence[str]
+    ) -> None:
+        """Mark the unread provider columns empty, so reading them neither
+        queries nor counts as a change to write."""
+        unread = [c for c in PROVIDER_METADATA_COLUMNS if c not in provider_columns]
+        for rom in roms:
+            for column in unread:
+                set_committed_value(rom, column, None)
 
     def _scoped_roms_query(
         self,

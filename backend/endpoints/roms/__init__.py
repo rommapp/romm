@@ -148,6 +148,8 @@ from models.audit_event import AuditAction, AuditTargetType
 from models.collection import Collection, SmartCollection, VirtualCollection
 from models.permission import PermAction, PermEntity
 from models.rom import (
+    CARD_PROVIDER_METADATA_COLUMNS,
+    DERIVED_FIELD_PROVIDER_METADATA_COLUMNS,
     HAS_FILE_ON_DISK_FILTERS,
     METADATA_SOURCE_COLUMNS,
     PINNED_MEDIA_KEY_MAX_LENGTH,
@@ -786,7 +788,9 @@ def get_roms(
                 " a window the caller sliced from `rom_id_index`. Repeat the"
                 f" parameter, 1 to {ROM_IDS_WINDOW_MAX} positive ids. Ids the caller"
                 " can't see, or that no longer exist, are left out. The sidecars and"
-                " the total are skipped, and `offset` and `limit` are ignored."
+                " the total are skipped, and `offset` and `limit` are ignored. Only"
+                " the providers a gallery card reads come back: ScreenScraper,"
+                " LaunchBox, gamelist, HowLongToBeat, Hasheous and RetroAchievements."
             ),
             min_length=1,
             max_length=ROM_IDS_WINDOW_MAX,
@@ -981,13 +985,24 @@ def get_roms(
         if page_ids:
             # The ids already passed the filters and the sibling grouping, so the
             # rows load without re-running either.
+            # Read only the providers the response shows: a card's, all of them,
+            # or, without provider metadata, those its derived fields need.
+            provider_columns: tuple[str, ...] = DERIVED_FIELD_PROVIDER_METADATA_COLUMNS
+            if with_provider_metadata:
+                provider_columns = (
+                    CARD_PROVIDER_METADATA_COLUMNS
+                    if rom_ids is not None
+                    else PROVIDER_METADATA_COLUMNS
+                )
             page_rows = session.scalars(
                 db_rom_handler.get_page_rows_query(
                     page_ids,
                     visibility=perms.rom_visibility,
                     include_file_stats=not with_files,
+                    provider_columns=provider_columns,
                 )
             ).all()
+            db_rom_handler.blank_unread_provider_columns(page_rows, provider_columns)
             rows_by_id = {rom.id: rom for rom in page_rows}
             page_items = [rows_by_id[i] for i in page_ids if i in rows_by_id]
         else:

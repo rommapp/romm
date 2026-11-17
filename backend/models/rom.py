@@ -83,6 +83,27 @@ PROVIDER_METADATA_COLUMNS: Final = (
     "gamelist_metadata",
 )
 
+# What the schema's derived fields read: alternative names, video, YouTube id.
+DERIVED_FIELD_PROVIDER_METADATA_COLUMNS: Final = (
+    "igdb_metadata",
+    "moby_metadata",
+    "ss_metadata",
+    "gamelist_metadata",
+    "launchbox_metadata",
+    "demozoo_metadata",
+    "pouet_metadata",
+)
+
+# What a gallery card reads: alt art and video, playtime, verification badges.
+CARD_PROVIDER_METADATA_COLUMNS: Final = (
+    "ss_metadata",
+    "launchbox_metadata",
+    "gamelist_metadata",
+    "hltb_metadata",
+    "hasheous_metadata",
+    "ra_metadata",
+)
+
 # (metadata column, key) of each provider's alternative titles.
 PROVIDER_ALTERNATIVE_NAME_SOURCES = (
     ("igdb_metadata", "alternative_names"),

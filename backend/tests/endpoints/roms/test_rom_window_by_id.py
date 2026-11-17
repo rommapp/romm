@@ -145,3 +145,57 @@ def test_an_invalid_window_is_refused(
     # Assert
     assert code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert any("rom_ids" in error["loc"] for error in body["detail"])
+
+
+def test_a_window_by_id_carries_only_the_card_providers(
+    client: TestClient, access_token: str, platform: Platform
+):
+    # Arrange
+    rom = make_rom(
+        platform,
+        "carded",
+        igdb_metadata={"youtube_video_id": "abc"},
+        ss_metadata={"video_path": "roms/1/video.mp4"},
+    )
+
+    # Act
+    _, page = _get(
+        client, {"Authorization": f"Bearer {access_token}"}, rom_ids=[rom.id]
+    )
+
+    # Assert
+    item = page["items"][0]
+    assert item["igdb_metadata"] is None
+    assert item["ss_metadata"] is not None
+    assert item["path_video"] == "roms/1/video.mp4"
+
+
+def test_without_provider_metadata_only_derived_fields_columns_are_read(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    executed_statements: list[str],
+):
+    # Arrange
+    rom = make_rom(
+        platform,
+        "bare",
+        ss_metadata={"video_path": "roms/1/v.mp4"},
+        ra_metadata={"achievements": [], "hash_match": True},
+    )
+    before = len(executed_statements)
+
+    # Act
+    _, page = _get(
+        client,
+        {"Authorization": f"Bearer {access_token}"},
+        rom_ids=[rom.id],
+        with_provider_metadata="false",
+    )
+
+    # Assert
+    assert page["items"][0]["path_video"] == "roms/1/v.mp4"
+    assert page["items"][0]["ss_metadata"] is None
+    rom_selects = [s for s in executed_statements[before:] if "FROM roms" in s]
+    assert rom_selects
+    assert not any("ra_metadata" in s for s in rom_selects)
