@@ -111,7 +111,7 @@ function toggle() {
 
 .r-toggle-row--disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+  opacity: var(--r-opacity-inactive);
 }
 
 .r-toggle-row__info {

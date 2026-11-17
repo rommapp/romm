@@ -814,7 +814,7 @@ function onAppendInnerClick(evt: MouseEvent) {
   -webkit-text-fill-color: var(--r-color-fg-muted);
 }
 .r-text-field--disabled {
-  opacity: 0.55;
+  opacity: var(--r-opacity-inactive);
   cursor: not-allowed;
 }
 .r-text-field--disabled .r-text-field__input {
