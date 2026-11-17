@@ -39,6 +39,12 @@ def create_test_app() -> Starlette:
         await RedisSessionMiddleware.clear_user_sessions(USERNAME)
         return JSONResponse({"ok": True})
 
+    async def stale(request: Request) -> JSONResponse:
+        """Finish after a concurrent login rotated this request's session away."""
+        sync_cache.delete(f"session:{request.session['session_id']}")
+        request.session["touched"] = True
+        return JSONResponse({"ok": True})
+
     async def whoami(request: Request) -> JSONResponse:
         return JSONResponse(
             {"sub": request.session.get("sub"), "state": request.session.get("state")}
@@ -53,6 +59,7 @@ def create_test_app() -> Starlette:
             Route("/login", login, methods=["POST"]),
             Route("/login_other", login_other, methods=["POST"]),
             Route("/remember", remember, methods=["POST"]),
+            Route("/stale", stale, methods=["POST"]),
             Route("/revoke", revoke, methods=["POST"]),
             Route("/whoami", whoami, methods=["GET"]),
             Route("/logout", logout, methods=["POST"]),
@@ -127,6 +134,16 @@ class TestRedisSessionMiddleware:
         second_id = client.post("/login").cookies[SESSION_COOKIE_NAME]
 
         assert second_id == first_id
+
+    def test_a_request_outliving_its_rotated_session_keeps_the_new_cookie(
+        self,
+    ) -> None:
+        client = TestClient(create_test_app())
+        client.post("/remember")
+
+        response = client.post("/stale")
+
+        assert "set-cookie" not in response.headers
 
     def test_logging_out_forgets_the_session(self) -> None:
         client = TestClient(create_test_app())

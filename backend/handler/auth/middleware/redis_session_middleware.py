@@ -108,10 +108,9 @@ class RedisSessionMiddleware:
                             )
 
                         header_value = f"{self.session_cookie}={session_id}; path=/; Max-Age={self.max_age}; {self.security_flags}"
-                    else:
-                        header_value = f"{self.session_cookie}=null; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; {self.security_flags}"
-
-                    headers.append("Set-Cookie", header_value)
+                        headers.append("Set-Cookie", header_value)
+                    # A failed refresh leaves the cookie alone, since the browser
+                    # may already hold the id a concurrent login rotated into.
                 elif session_id:
                     await self._delete_session(session_id, initial_user_id)
 
