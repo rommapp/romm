@@ -37,7 +37,6 @@ import type { RTabNavItem } from "@/lib";
 import { ROUTES } from "@/plugins/router";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
-import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryRoms from "@/stores/galleryRoms";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import { useStreamingStore } from "@/stores/streaming";
@@ -50,7 +49,6 @@ const route = useRoute();
 const router = useRouter();
 const platformsStore = storePlatforms();
 const galleryRoms = storeGalleryRoms();
-const galleryFilter = storeGalleryFilter();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const streamingStore = useStreamingStore();
@@ -153,9 +151,6 @@ const platformStats = computed<StatRow[]>(() => {
     },
     { label: t("platform.on-disk"), value: formatBytes(p.fs_size_bytes ?? 0) },
   ];
-  if (galleryFilter.isFiltered() || galleryFilter.searchTerm) {
-    rows.splice(1, 0, { label: t("platform.shown"), value: total.value });
-  }
   // Firmware whose file is gone can't be booted, so it isn't worth a stat.
   const usableFirmware = (p.firmware ?? []).filter((f) => !f.missing_from_fs);
   if (usableFirmware.length) {

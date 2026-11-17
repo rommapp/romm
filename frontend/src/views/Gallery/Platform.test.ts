@@ -2,7 +2,6 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
-import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryRoms from "@/stores/galleryRoms";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import type { SimpleRom } from "@/stores/roms";
@@ -88,12 +87,8 @@ vi.mock("@/components/Gallery/GalleryShell.vue", () => ({
 
 vi.mock("@/components/Gallery/PlatformHead.vue", () => ({
   default: defineComponent({
-    props: { stats: { type: Array, default: () => [] } },
     emits: ["random"],
-    template: `<header>
-      <span v-for="s in stats" :key="s.label" class="stat">{{ s.label }}={{ s.value }}</span>
-      <button class="random" @click="$emit('random')" />
-    </header>`,
+    template: `<header><button class="random" @click="$emit('random')" /></header>`,
   }),
 }));
 
@@ -374,41 +369,5 @@ describe("Platform view query-only navigation", () => {
     await navigateQueryOnly({ orderBy: "fs_size_bytes", orderDir: "desc" });
 
     expect(getPlatform).not.toHaveBeenCalled();
-  });
-});
-
-describe("Platform view shown count", () => {
-  beforeEach(() => {
-    routeState.name = "platform";
-    routeState.path = "/platform/1";
-    routeState.params = { platform: "1" };
-    routeGuards.length = 0;
-    getPlatform.mockImplementation((id: number) =>
-      Promise.resolve({ data: platform(id) }),
-    );
-    getRoms.mockResolvedValue({ data: { items: [], total: 0 } });
-    storeGalleryFilter().reset();
-  });
-
-  function stats(wrapper: Awaited<ReturnType<typeof mountView>>) {
-    return wrapper.findAll(".stat").map((s) => s.text());
-  }
-
-  it("shows only the library total while nothing is filtered", async () => {
-    const wrapper = await mountView();
-
-    const shown = stats(wrapper);
-
-    expect(shown.some((s) => s.startsWith("platform.shown"))).toBe(false);
-  });
-
-  it("adds the shown count once a search narrows the list", async () => {
-    const wrapper = await mountView();
-    storeGalleryRoms().total = 12;
-
-    storeGalleryFilter().searchTerm = "chrono";
-    await flushPromises();
-
-    expect(stats(wrapper)).toContain("platform.shown=12");
   });
 });

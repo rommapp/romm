@@ -99,11 +99,11 @@ const props = withDefaults(
      *  CollectionsIndex for the kind + visibility filters. Each renders as
      *  an inline slider (≥ sm) and mirrors into the kebab menu below it. */
     segmentFilters?: SegmentFilter[];
-    /** Show the filter button (sits left of the view cluster). When set,
-     *  the button emits `click:filter` and renders a badge of the count.
-     *  Gallery views pass through the count from the filter store. */
+    /** Show the filter button (sits left of the view cluster). It emits
+     *  `click:filter`. */
     showFilter?: boolean;
-    filterActiveCount?: number;
+    /** Number on the filter button's badge; `null` hides the badge. */
+    filterBadge?: number | null;
   }>(),
   {
     position: "header",
@@ -125,7 +125,7 @@ const props = withDefaults(
     autofocusSearch: false,
     segmentFilters: () => [],
     showFilter: false,
-    filterActiveCount: 0,
+    filterBadge: null,
   },
 );
 
@@ -301,12 +301,13 @@ const { smAndUp } = useBreakpoint();
     <!-- eslint-enable vuejs-accessibility/no-autofocus -->
 
     <!-- Filter button: sits flush against the search field. Same disc
-         shape as the kebab (outlined icon-only RBtn); the active-count
-         chip is `RBadge` anchored top-end, slightly overlapping the disc. -->
+         shape as the kebab (outlined icon-only RBtn); the count chip is
+         `RBadge` anchored top-end, slightly overlapping the disc. -->
     <RBadge
       v-if="showFilter"
-      :model-value="filterActiveCount > 0"
-      :content="filterActiveCount"
+      :model-value="filterBadge !== null"
+      :content="filterBadge ?? undefined"
+      :max="999"
       color="primary"
       :inset="3"
     >

@@ -7,6 +7,7 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryRoms from "@/stores/galleryRoms";
 import { romFixture } from "@/utils/rom.fixtures";
 import GalleryShell from "./GalleryShell.vue";
+import GalleryToolbar from "./GalleryToolbar.vue";
 import GameListRow from "./GameListRow.vue";
 
 const { getRoms } = vi.hoisted(() => ({ getRoms: vi.fn() }));
@@ -138,5 +139,55 @@ describe("GalleryShell search refresh", () => {
 
     expect(galleryRoms.getRomAt(0)?.id).toBe(3);
     expect(firstRow().props("expanded")).toBe(false);
+  });
+});
+
+describe("GalleryShell filter badge", () => {
+  async function mountShell() {
+    getRoms.mockImplementation(() => new Promise(() => {}));
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: "/platform/1", component: { template: "<div />" } }],
+    });
+    await router.push("/platform/1");
+    const wrapper = shallowMount(GalleryShell, {
+      props: { hasHeader: false, searchPlaceholder: "", emptyMessage: "" },
+      global: {
+        plugins: [router],
+        stubs: {
+          RVirtualScroller: { template: `<div><slot name="prepend" /></div>` },
+        },
+      },
+    });
+    await flushPromises();
+    const galleryRoms = storeGalleryRoms();
+    galleryRoms.total = 12;
+    galleryRoms.metadataLoaded = true;
+    await flushPromises();
+    return () => wrapper.findComponent(GalleryToolbar).props("filterBadge");
+  }
+
+  it("hides the count while nothing narrows the gallery", async () => {
+    const badge = await mountShell();
+
+    expect(badge()).toBeNull();
+  });
+
+  it("shows the result count once a search narrows the gallery", async () => {
+    const badge = await mountShell();
+
+    storeGalleryFilter().searchTerm = "chrono";
+    await flushPromises();
+
+    expect(badge()).toBe(12);
+  });
+
+  it("shows the result count once a filter narrows the gallery", async () => {
+    const badge = await mountShell();
+
+    storeGalleryFilter().filterFavorites = true;
+    await flushPromises();
+
+    expect(badge()).toBe(12);
   });
 });

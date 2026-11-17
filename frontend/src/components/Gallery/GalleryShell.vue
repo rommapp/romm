@@ -308,6 +308,14 @@ const { supportsWebp } = useWebpSupport();
 const { total, charIndex, initialFetching, refreshing, orderBy, orderDir } =
   storeToRefs(galleryRoms);
 
+// A narrowed gallery shows its result count on the filter button.
+const filterBadge = computed(() =>
+  (filterActiveCount.value > 0 || searchTerm.value) &&
+  galleryRoms.metadataLoaded
+    ? total.value
+    : null,
+);
+
 const { groupBy, layout, toolbarPosition } = useGalleryMode();
 
 // Rows pack into the scroller's content box, already inside its gutters, strip
@@ -1069,7 +1077,7 @@ defineExpose({
               :search-placeholder="searchPlaceholder"
               :autofocus-search="autofocusSearch"
               show-filter
-              :filter-active-count="filterActiveCount"
+              :filter-badge="filterBadge"
               @update:group-by="groupBy = $event"
               @update:layout="layout = $event"
               @update:sort-dir="galleryRoms.setOrderDir"
@@ -1262,7 +1270,7 @@ defineExpose({
       :unsorted-label="unsortedLabel"
       :unsorted="galleryRoms.effectiveOrderBy === null"
       show-filter
-      :filter-active-count="filterActiveCount"
+      :filter-badge="filterBadge"
       @update:group-by="groupBy = $event"
       @update:layout="layout = $event"
       @update:sort-dir="galleryRoms.setOrderDir"

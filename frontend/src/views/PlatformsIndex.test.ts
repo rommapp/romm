@@ -43,7 +43,7 @@ vi.mock("@/lib", () => ({
 
 vi.mock("@/components/Gallery/GalleryToolbar.vue", () => ({
   default: defineComponent({
-    props: { filterActiveCount: { type: Number, default: 0 } },
+    props: { filterBadge: { type: Number, default: null } },
     template: "<div />",
   }),
 }));
@@ -510,9 +510,9 @@ describe("PlatformsIndex", () => {
 
       const wrapper = mount(PlatformsIndex);
 
-      expect(
-        wrapper.findComponent(GalleryToolbar).props("filterActiveCount"),
-      ).toBe(2);
+      expect(wrapper.findComponent(GalleryToolbar).props("filterBadge")).toBe(
+        2,
+      );
     });
 
     it("says the filters matched nothing", () => {
