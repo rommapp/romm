@@ -1,3 +1,4 @@
+import functools
 import hashlib
 import secrets
 import uuid
@@ -126,6 +127,11 @@ def _bcrypt_secret(password: str) -> bytes:
     return password.encode()[:BCRYPT_MAX_SECRET_BYTES]
 
 
+@functools.cache
+def _dummy_password_hash() -> str:
+    return bcrypt.hashpw(secrets.token_bytes(32), bcrypt.gensalt()).decode()
+
+
 class AuthHandler:
     def __init__(self) -> None:
         self.reset_passwd_token_expires_in_minutes = 10
@@ -139,15 +145,16 @@ class AuthHandler:
         return hashlib.sha256(raw.encode()).hexdigest()
 
     def verify_password(self, plain_password: str, hashed_password: str | None) -> bool:
-        if not hashed_password:
-            return False
-        try:
-            return bcrypt.checkpw(
-                _bcrypt_secret(plain_password), hashed_password.encode()
-            )
-        except ValueError:
-            # OIDC-provisioned accounts hold a placeholder, not a bcrypt hash.
-            return False
+        secret = _bcrypt_secret(plain_password)
+        if hashed_password:
+            try:
+                return bcrypt.checkpw(secret, hashed_password.encode())
+            except ValueError:
+                # OIDC-provisioned accounts hold a placeholder, not a bcrypt hash.
+                pass
+        # Hash anyway so the response time can't tell an unusable hash from a real one.
+        bcrypt.checkpw(secret, _dummy_password_hash().encode())
+        return False
 
     def get_password_hash(self, password: str) -> str:
         return bcrypt.hashpw(_bcrypt_secret(password), bcrypt.gensalt()).decode()
@@ -159,6 +166,8 @@ class AuthHandler:
 
         user = db_user_handler.get_user_by_username(username)
         if not user:
+            # Still hash so the response time can't tell whether the user exists.
+            self.verify_password(password, None)
             return None
 
         if not self.verify_password(password, user.hashed_password):
