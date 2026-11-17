@@ -1,17 +1,10 @@
 // @ts-check
 
 // An icon name cut off right where a value is appended, such as "mdi-" or "mdi-home-".
+// Keep [a-z0-9-] in step with ICON_NAME in scripts/trimMdiIcons.ts.
 const PARTIAL_NAME = /(?:^|[^\w-])mdi-[a-z0-9-]*$/;
 // Appended text that ends the name before it, as in "mdi-home" + " " + tone.
 const NAME_END = /^[^a-z0-9-]/;
-
-/**
- * @param {import("estree").Node} node
- * @returns {node is import("estree").SimpleLiteral & { value: string }}
- */
-function isStringLiteral(node) {
-  return node.type === "Literal" && typeof node.value === "string";
-}
 
 /**
  * The static text at one end of a concatenated string, or "" when that end is a runtime value.
@@ -20,7 +13,9 @@ function isStringLiteral(node) {
  * @returns {string}
  */
 function edgeText(node, side) {
-  if (isStringLiteral(node)) return node.value;
+  if (node.type === "Literal" && typeof node.value === "string") {
+    return node.value;
+  }
   if (node.type === "TemplateLiteral") {
     const quasi = side === "start" ? node.quasis[0] : node.quasis.at(-1);
     return quasi?.value.cooked ?? "";
