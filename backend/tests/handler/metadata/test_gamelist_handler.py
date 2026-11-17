@@ -16,6 +16,8 @@ from handler.metadata.gamelist_handler import (
     build_media_file_index,
     extract_media_from_gamelist_rom,
     extract_metadata_from_gamelist_rom,
+    gamelist_path_to_filename,
+    gamelist_path_to_rel_path,
     populate_rom_specific_paths,
 )
 from models.platform import Platform
@@ -894,3 +896,21 @@ def test_parse_gamelist_xml_keeps_a_sort_names_leading_article(
         roms_data = GamelistHandler()._parse_gamelist_xml(gamelist_path, platform)
 
     assert roms_data["test-rom.zip"].get("name_sort_key") == "the simpsons"
+
+
+@pytest.mark.parametrize(
+    ("raw_path", "rel_path", "filename"),
+    [
+        ("./Hacks/Game (USA).sfc", "Hacks/Game (USA).sfc", "Game (USA).sfc"),
+        (
+            "https://example.test/api/roms/7/content/Game%20%28USA%29%20%231.sfc",
+            "Game (USA) #1.sfc",
+            "Game (USA) #1.sfc",
+        ),
+    ],
+)
+def test_gamelist_path_helpers_decode_content_urls(
+    raw_path: str, rel_path: str, filename: str
+) -> None:
+    assert gamelist_path_to_rel_path(raw_path) == rel_path
+    assert gamelist_path_to_filename(raw_path) == filename

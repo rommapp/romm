@@ -5,7 +5,6 @@ from collections import Counter
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Annotated, Any
-from urllib.parse import quote
 
 from fastapi import HTTPException
 from fastapi import Path as PathVar
@@ -59,27 +58,7 @@ from utils.archives import is_compressed_file
 from utils.datetime import format_utc
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.router import APIRouter
-
-
-def generate_rom_download_url(request: Request, rom: Rom) -> str:
-    return str(
-        request.url_for(
-            "get_rom_content",
-            id=rom.id,
-            file_name=quote(rom.fs_name, safe="/"),
-        )
-    )
-
-
-def generate_romfile_download_url(request: Request, file: RomFile) -> str:
-    return str(
-        request.url_for(
-            "get_romfile_content",
-            file_id=file.id,
-            file_name=quote(file.file_name, safe="/"),
-        )
-    )
-
+from utils.urls import rom_content_url, romfile_content_url
 
 router = APIRouter(
     prefix="/feeds",
@@ -138,7 +117,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
             **HAS_FILE_ON_DISK_FILTERS,
         )
         for rom in roms:
-            download_url = generate_rom_download_url(request, rom)
+            download_url = rom_content_url(request, rom)
             category_item = WebrcadeFeedItemSchema(
                 title=rom.name or rom.fs_name_no_tags,
                 description=rom.summary or "",
@@ -254,7 +233,7 @@ async def tinfoil_index_feed(
     return TinfoilFeedSchema(
         files=[
             TinfoilFeedFileSchema(
-                url=generate_romfile_download_url(request, rom_file),
+                url=romfile_content_url(request, rom_file),
                 size=rom_file.file_size_bytes,
             )
             for rom in roms
@@ -311,7 +290,7 @@ def get_rap_data(request: Request, rom: Rom) -> tuple[str, str]:
     for file in rom.files:
         if file.file_extension.lower() == "rap":
             rap_hash = file.sha1_hash or ""
-            rap_download_url = generate_romfile_download_url(request, file)
+            rap_download_url = romfile_content_url(request, file)
             return rap_hash, rap_download_url
 
     return "", ""
@@ -375,7 +354,7 @@ def pkgi_ps3_feed(
                 continue
 
             content_id = generate_content_id(file)
-            download_url = generate_romfile_download_url(request, file)
+            download_url = romfile_content_url(request, file)
 
             # Validate the item schema
             pkgi_item = PKGiFeedPS3ItemSchema(
@@ -450,7 +429,7 @@ def pkgi_psvita_feed(
                 continue
 
             content_id = generate_content_id(file)
-            download_url = generate_romfile_download_url(request, file)
+            download_url = romfile_content_url(request, file)
 
             pkgi_item = PKGiFeedPSVitaItemSchema(
                 contentid=content_id,
@@ -526,7 +505,7 @@ def pkgi_psp_feed(
                 continue
 
             content_id = generate_content_id(file)
-            download_url = generate_romfile_download_url(request, file)
+            download_url = romfile_content_url(request, file)
 
             # Validate the item schema
             pkgi_item = PKGiFeedPSPItemSchema(
@@ -696,7 +675,7 @@ def fpkgi_feed(
             if category_filter and category != category_filter:
                 continue
 
-            download_url = generate_romfile_download_url(request, file)
+            download_url = romfile_content_url(request, file)
             response_data[download_url] = FPKGiFeedItemSchema(
                 name=item_names[file.id],
                 size=file.file_size_bytes,
@@ -744,7 +723,7 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
     txt_lines.append("\t")
 
     for rom in roms:
-        download_url = generate_rom_download_url(request, rom)
+        download_url = rom_content_url(request, rom)
 
         # Generate box art URL if cover exists
         box_art_url = ""
@@ -811,7 +790,7 @@ def pkgj_psp_games_feed(request: Request) -> Response:
             if not validate_pkgi_file(file, RomFileCategory.GAME):
                 continue
 
-            download_url = generate_romfile_download_url(request, file)
+            download_url = romfile_content_url(request, file)
             content_id = generate_content_id(file)
             last_modified = format_pkgj_datetime(file.updated_at)
 
@@ -875,7 +854,7 @@ def pkgj_psp_dlcs_feed(request: Request) -> Response:
             if not validate_pkgi_file(file, RomFileCategory.DLC):
                 continue
 
-            download_url = generate_romfile_download_url(request, file)
+            download_url = romfile_content_url(request, file)
             content_id = generate_content_id(file)
             last_modified = format_pkgj_datetime(file.updated_at)
 
@@ -936,7 +915,7 @@ def pkgj_psv_games_feed(request: Request) -> Response:
             if not validate_pkgi_file(file, RomFileCategory.GAME):
                 continue
 
-            download_url = generate_romfile_download_url(request, file)
+            download_url = romfile_content_url(request, file)
             content_id = generate_content_id(file)
             last_modified = format_pkgj_datetime(file.updated_at)
 
@@ -1001,7 +980,7 @@ def pkgj_psv_dlcs_feed(request: Request) -> Response:
             if not validate_pkgi_file(file, RomFileCategory.DLC):
                 continue
 
-            download_url = generate_romfile_download_url(request, file)
+            download_url = romfile_content_url(request, file)
             content_id = generate_content_id(file)
             last_modified = format_pkgj_datetime(file.updated_at)
 
@@ -1058,7 +1037,7 @@ def pkgj_psx_games_feed(request: Request) -> Response:
             if not validate_pkgi_file(file, RomFileCategory.GAME):
                 continue
 
-            download_url = generate_romfile_download_url(request, file)
+            download_url = romfile_content_url(request, file)
             content_id = generate_content_id(file)
             last_modified = format_pkgj_datetime(file.updated_at)
 

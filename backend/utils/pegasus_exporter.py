@@ -5,6 +5,7 @@ from typing import Final
 from fastapi import Request
 
 from config.config_manager import PLATFORM_MEDIA_DIRS
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_platform_handler, fs_resource_handler
 from logger.logger import log
@@ -13,6 +14,7 @@ from models.rom import HAS_FILE_ON_DISK_FILTERS, Rom
 from utils.datetime import format_utc
 from utils.filesystem import join_rel_path, place_export_asset, rel_platform_folder
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.urls import rom_content_url, rom_id_from_content_url
 
 # Map RomM platform slugs to canonical Pegasus (collection name, shortname) pairs.
 # Source: https://www.pegasus-frontend.org/docs/user-guide/meta-files/
@@ -209,6 +211,13 @@ class PegasusBlock:
     def lines(self, skip: frozenset[str] | set[str] = frozenset()) -> list[str]:
         return [line for key, lines in self.fields if key not in skip for line in lines]
 
+    def content_url_rom_id(self) -> int | None:
+        """The ROM id in the block's `file:` when that is a RomM content URL."""
+        for key, lines in self.fields:
+            if key == "file":
+                return rom_id_from_content_url(lines[0].partition(":")[2].strip())
+        return None
+
     def file_paths(self) -> set[str]:
         """Each listed path, plus the folders holding it.
 
@@ -395,9 +404,7 @@ class PegasusExporter:
                 raise ValueError(
                     "Request object must be provided for non-local exports"
                 )
-            lines.append(
-                f"file: {request.url_for('get_rom_content', id=rom.id, file_name=rom.fs_name)}"
-            )
+            lines.append(f"file: {rom_content_url(request, rom)}")
 
         # Sort title (use fs_name_no_tags if different from name)
         if rom.name and rom.fs_name_no_tags and rom.name != rom.fs_name_no_tags:
@@ -472,7 +479,9 @@ class PegasusExporter:
             raise ValueError(f"Platform with ID {platform_id} not found")
 
         roms = db_rom_handler.get_roms_scalar(
-            platform_ids=[platform_id], **HAS_FILE_ON_DISK_FILTERS
+            platform_ids=[platform_id],
+            visibility=UNRESTRICTED,
+            **HAS_FILE_ON_DISK_FILTERS,
         )
 
         existing = existing or ExistingPegasus()
@@ -482,6 +491,11 @@ class PegasusExporter:
             for index, game in enumerate(existing.games)
             for path in game.file_paths()
         }
+        game_index_by_rom_id: dict[int, int] = {}
+        for index, game in enumerate(existing.games):
+            rom_id = game.content_url_rom_id()
+            if rom_id is not None:
+                game_index_by_rom_id.setdefault(rom_id, index)
         platform_fs_path = fs_platform_handler.get_platform_fs_structure(
             platform.fs_slug
         )
@@ -530,9 +544,13 @@ class PegasusExporter:
             entry_lines = entry.splitlines()
 
             existing_game = unmatched_games.pop(
-                game_index_by_path.get(join_rel_path(rel_folder, rom.fs_name), -1),
-                None,
+                game_index_by_rom_id.get(rom.id, -1), None
             )
+            if existing_game is None:
+                existing_game = unmatched_games.pop(
+                    game_index_by_path.get(join_rel_path(rel_folder, rom.fs_name), -1),
+                    None,
+                )
             if existing_game is not None:
                 emitted_keys = parse_pegasus(entry)[-1].keys()
                 entry_lines.extend(existing_game.lines(skip=emitted_keys))
