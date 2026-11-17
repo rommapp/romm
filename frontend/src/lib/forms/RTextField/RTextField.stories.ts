@@ -273,6 +273,7 @@ export const WithSuffix: Story = {
       <div style="width:360px">
         <RTextField
           v-model="value"
+          label="Search"
           prepend-inner-icon="mdi-magnify"
           suffix="16 of 627"
           clearable
