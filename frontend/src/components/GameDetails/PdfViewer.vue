@@ -8,11 +8,13 @@
 //     wires controls by `id`, so raw buttons keep that contract while
 //     the v2 visual is owned by our scoped CSS.
 import { useResizeObserver } from "@vueuse/core";
-import { computed, ref, useTemplateRef } from "vue";
+import { computed, ref, useTemplateRef, watch } from "vue";
 import VuePdfApp from "vue3-pdf-app";
 import { useI18n } from "vue-i18n";
+import ViewerZoomControls from "@/components/GameDetails/ViewerZoomControls.vue";
 import { useReadingProgress } from "@/composables/useReadingProgress";
 import { useThemeMode } from "@/composables/useThemeMode";
+import { useViewerZoom } from "@/composables/useViewerZoom";
 import { RIcon, RProgressLinear, RTooltip } from "@/lib";
 
 const props = defineProps<{
@@ -79,18 +81,70 @@ const { progress, restore, setPage, suppressWhileRestoring } =
 type PdfApp = {
   page: number;
   pagesCount: number;
+  pdfViewer: { currentScale: number; currentScaleValue: string };
   eventBus: {
-    on: (
-      event: string,
+    on(
+      event: "pagechanging",
       handler: (payload: { pageNumber: number }) => void,
-    ) => void;
+    ): void;
+    on(
+      event: "scalechanging",
+      handler: (payload: { scale: number; presetValue?: string }) => void,
+    ): void;
   };
 };
 
+// ---------- Zoom ----------
+// pdf.js fits a page itself through its scale presets; any other zoom is a
+// numeric scale over the fitted one.
+const { fit, zoom, canZoomIn, canZoomOut, zoomIn, zoomOut, toggleFit } =
+  useViewerZoom("ui.pdfFit", "width");
+const fitPreset = computed(() =>
+  fit.value === "page" ? "page-fit" : "page-width",
+);
+
+let pdfApplication: PdfApp | null = null;
+let fitScale = 1;
+let applyingScale = false;
+// Set when pdf.js zoomed on its own (Ctrl+wheel), so the zoom watcher only
+// follows it instead of applying it back.
+let followingPdfScale = false;
+
+function applyScale() {
+  const viewer = pdfApplication?.pdfViewer;
+  if (!viewer) return;
+  applyingScale = true;
+  viewer.currentScaleValue = fitPreset.value;
+  fitScale = viewer.currentScale;
+  if (zoom.value !== 1) viewer.currentScale = fitScale * zoom.value;
+  applyingScale = false;
+}
+
+watch([fit, zoom], () => {
+  if (followingPdfScale) {
+    followingPdfScale = false;
+    return;
+  }
+  applyScale();
+});
+
 async function onPagesRendered(pdfApp: PdfApp) {
+  pdfApplication = pdfApp;
   pdfApp.eventBus.on("pagechanging", ({ pageNumber }) => {
     setPage(pageNumber, pdfApp.pagesCount);
   });
+  pdfApp.eventBus.on("scalechanging", ({ scale, presetValue }) => {
+    if (applyingScale) return;
+    // A preset scale is pdf.js refitting (the pane resized), not a zoom.
+    if (presetValue === fitPreset.value) {
+      fitScale = scale;
+      return;
+    }
+    if (fitScale <= 0) return;
+    followingPdfScale = zoom.value !== scale / fitScale;
+    zoom.value = scale / fitScale;
+  });
+  applyScale();
 
   // The viewer is already interactive while the saved position is in flight,
   // so a page the user turned to in the meantime wins over the restore.
@@ -191,31 +245,19 @@ async function onPagesRendered(pdfApp: PdfApp) {
 
       <span class="r-pdfv__spacer" />
 
-      <RTooltip :text="t('common.zoom-out')">
-        <template #activator="{ props: activator }">
-          <button
-            :id="ids.zoomOut"
-            v-bind="activator"
-            type="button"
-            class="r-pdfv__btn"
-          >
-            <RIcon icon="mdi-magnify-minus-outline" size="18" />
-          </button>
-        </template>
-      </RTooltip>
-
-      <RTooltip :text="t('common.zoom-in')">
-        <template #activator="{ props: activator }">
-          <button
-            :id="ids.zoomIn"
-            v-bind="activator"
-            type="button"
-            class="r-pdfv__btn"
-          >
-            <RIcon icon="mdi-magnify-plus-outline" size="18" />
-          </button>
-        </template>
-      </RTooltip>
+      <!-- vue3-pdf-app wires its own zoom steps to these ids; the visible
+           controls zoom through useViewerZoom instead. -->
+      <button :id="ids.zoomOut" type="button" hidden tabindex="-1" />
+      <button :id="ids.zoomIn" type="button" hidden tabindex="-1" />
+      <ViewerZoomControls
+        :zoom="zoom"
+        :fit="fit"
+        :can-zoom-in="canZoomIn"
+        :can-zoom-out="canZoomOut"
+        @zoom-in="zoomIn"
+        @zoom-out="zoomOut"
+        @toggle-fit="toggleFit"
+      />
 
       <span class="r-pdfv__spacer" />
 
@@ -274,6 +316,7 @@ async function onPagesRendered(pdfApp: PdfApp) {
         :id-config="ids"
         :config="{ toolbar: false }"
         :theme="pdfTheme"
+        :page-scale="fitPreset"
         :pdf="pdfUrl"
         class="r-pdfv__app"
         @pages-rendered="onPagesRendered"

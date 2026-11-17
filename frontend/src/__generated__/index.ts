@@ -144,6 +144,7 @@ export type { IGDBAgeRating } from './models/IGDBAgeRating';
 export type { IGDBMetadataMultiplayerMode } from './models/IGDBMetadataMultiplayerMode';
 export type { IGDBMetadataPlatform } from './models/IGDBMetadataPlatform';
 export type { IGDBRelatedGame } from './models/IGDBRelatedGame';
+export type { ImageDocPagesSchema } from './models/ImageDocPagesSchema';
 export type { ImportRefusalSchema } from './models/ImportRefusalSchema';
 export type { InstallRequestCreatePayload } from './models/InstallRequestCreatePayload';
 export type { InstallRequestSchema } from './models/InstallRequestSchema';

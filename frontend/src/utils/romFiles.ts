@@ -24,3 +24,30 @@ export function versionedResourceUrl(
 ): string {
   return `${FRONTEND_RESOURCES_PATH}/${path}?v=${encodeURIComponent(romUpdatedAt)}`;
 }
+
+const IMAGE_DOC_EXTENSIONS: ReadonlySet<string> = new Set(["cbz", "cbr"]);
+
+/** Whether a document is an image doc (.cbz/.cbr), paged by ImageDocViewer. */
+export function isImageDoc(name: string): boolean {
+  return IMAGE_DOC_EXTENSIONS.has(fileExtension(name.split("?")[0] ?? ""));
+}
+
+/** API path (below `/api`) of an image doc's pages: a rom file's, or the ROM's
+ *  scraped manual's when there is no file. */
+export function imageDocPagesPath(
+  romId: number,
+  fileId: number | null,
+): string {
+  return fileId == null
+    ? `/roms/${romId}/manuals/pages`
+    : `/roms/${romId}/files/${fileId}/pages`;
+}
+
+/** Image URL of an image doc's 1-based page, keyed on the document's version. */
+export function imageDocPageUrl(
+  pagesPath: string,
+  page: number,
+  version: string,
+): string {
+  return `/api${pagesPath}/${page}?v=${encodeURIComponent(version)}`;
+}

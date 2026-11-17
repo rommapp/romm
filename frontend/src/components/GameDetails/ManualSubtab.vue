@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // ManualSubtab: the Media tab's Manual panel. Surfaces the scraped primary
 // manual plus any manual-category files sitting in the ROM folder, picking the
-// viewer (PDF or Markdown) by extension. An entry selector appears when more
-// than one manual exists. The panel doubles as a drag-and-drop upload target.
+// viewer (PDF, Markdown, text or image doc) by extension. An entry selector
+// appears when more than one manual exists. The panel doubles as a
+// drag-and-drop upload target.
 //
 // Like ArtworkSubtab, it owns its own scroll (flex column filling the Media
 // tab's content height) so the viewer keeps its internal scroll and switching
@@ -18,8 +19,16 @@ import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { errorMessage } from "@/utils/errorMessage";
-import { versionedResourceUrl, versionedRomFileUrl } from "@/utils/romFiles";
+import {
+  imageDocPagesPath,
+  isImageDoc,
+  versionedResourceUrl,
+  versionedRomFileUrl,
+} from "@/utils/romFiles";
 
+const ImageDocViewer = defineAsyncComponent(
+  () => import("@/components/GameDetails/ImageDocViewer.vue"),
+);
 const PdfViewer = defineAsyncComponent(
   () => import("@/components/GameDetails/PdfViewer.vue"),
 );
@@ -53,16 +62,18 @@ type ManualEntry = {
   id: string;
   label: string;
   url: string;
+  fileName: string;
+  /** Cache key of the document's image doc pages. */
+  version: string;
   isPrimary: boolean;
   /** Backing rom file, absent for the scraped manual (a resource, not a file),
    *  which is what reading progress is keyed on. */
   fileId: number | null;
-  // Manuals can be PDF, Markdown, or plain text; the viewer is picked by
-  // extension.
-  kind: "pdf" | "md" | "text";
+  kind: "pdf" | "md" | "text" | "image-doc";
 };
 
 const kindFor = (name: string): ManualEntry["kind"] => {
+  if (isImageDoc(name)) return "image-doc";
   if (/\.md$/i.test(name)) return "md";
   if (/\.(txt|html?|htm)$/i.test(name)) return "text";
   return "pdf";
@@ -75,6 +86,8 @@ const manualEntries = computed<ManualEntry[]>(() => {
       id: "primary",
       label: t("rom.scraped-manual"),
       url: versionedResourceUrl(props.rom.path_manual, props.rom.updated_at),
+      fileName: props.rom.path_manual.split("/").pop() ?? "",
+      version: props.rom.updated_at,
       isPrimary: true,
       fileId: null,
       kind: kindFor(props.rom.path_manual),
@@ -86,6 +99,8 @@ const manualEntries = computed<ManualEntry[]>(() => {
         id: `file-${file.id}`,
         label: file.file_name.replace(/\.[^.]+$/, ""),
         url: versionedRomFileUrl(file),
+        fileName: file.file_name,
+        version: file.updated_at,
         isPrimary: false,
         fileId: file.id,
         kind: kindFor(file.file_name),
@@ -219,7 +234,7 @@ function requestDeleteManual() {
       :hint="t('common.dropzone-hint')"
       :active-title="t('common.dropzone-drag-over')"
       :input-label="t('rom.upload-manual')"
-      accept="application/pdf,.md,.txt"
+      accept="application/pdf,.md,.txt,.cbz,.cbr"
       multiple
       @files="handleManualFiles"
     >
@@ -244,7 +259,7 @@ function requestDeleteManual() {
       class="r-manual__fill"
       :release-label="t('common.dropzone-drag-over')"
       :input-label="t('rom.upload-manual')"
-      accept="application/pdf,.md,.txt"
+      accept="application/pdf,.md,.txt,.cbz,.cbr"
       multiple
       @files="handleManualFiles"
     >
@@ -269,6 +284,21 @@ function requestDeleteManual() {
           :file-id="selectedManual.fileId ?? undefined"
           :deletable="canEdit"
           @delete="requestDeleteManual"
+        />
+        <ImageDocViewer
+          v-else-if="selectedManual.kind === 'image-doc'"
+          :key="selectedManual.id"
+          :pages-path="imageDocPagesPath(rom.id, selectedManual.fileId)"
+          :version="selectedManual.version"
+          :download-url="selectedManual.url"
+          :file-name="selectedManual.fileName"
+          :rom-id="rom.id"
+          :file-id="selectedManual.fileId ?? undefined"
+          :deletable="canEdit"
+          :redownloadable="canEdit && !!rom.url_manual"
+          :redownloading="redownloadingManual"
+          @delete="requestDeleteManual"
+          @redownload="redownloadManual"
         />
         <PdfViewer
           v-else-if="pdfActive"

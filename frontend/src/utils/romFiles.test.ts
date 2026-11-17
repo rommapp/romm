@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { RomFileSchema } from "@/__generated__";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import {
+  imageDocPagesPath,
+  imageDocPageUrl,
+  isImageDoc,
   romFileUrl,
   versionedResourceUrl,
   versionedRomFileUrl,
@@ -55,5 +58,30 @@ describe("versionedResourceUrl", () => {
     ).toBe(
       `${FRONTEND_RESOURCES_PATH}/roms/1/2/logo/logo.png?v=2024-02-03T04%3A05%3A06`,
     );
+  });
+});
+
+describe("isImageDoc", () => {
+  it("matches image docs by extension, ignoring case and a query", () => {
+    expect(isImageDoc("issue.cbz")).toBe(true);
+    expect(isImageDoc("Issue.CBR")).toBe(true);
+    expect(isImageDoc("roms/1/manual/1.cbz?v=2024")).toBe(true);
+    expect(isImageDoc("manual.pdf")).toBe(false);
+    expect(isImageDoc("cbz")).toBe(false);
+  });
+});
+
+describe("imageDocPagesPath", () => {
+  it("targets the rom file, or the scraped manual without one", () => {
+    expect(imageDocPagesPath(3, 9)).toBe("/roms/3/files/9/pages");
+    expect(imageDocPagesPath(3, null)).toBe("/roms/3/manuals/pages");
+  });
+});
+
+describe("imageDocPageUrl", () => {
+  it("prefixes the API root and keys the page on the version", () => {
+    expect(
+      imageDocPageUrl("/roms/3/files/9/pages", 4, "2024-02-03T04:05:06+00:00"),
+    ).toBe("/api/roms/3/files/9/pages/4?v=2024-02-03T04%3A05%3A06%2B00%3A00");
   });
 });

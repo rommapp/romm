@@ -645,7 +645,7 @@ def read_rar_archive_files(
     """
     entries = [
         (name, size)
-        for name, size in _list_rar_file_members(file_path)
+        for name, size in list_rar_file_members(file_path)
         if not _is_member_excluded(name, excluded_names, excluded_exts)
     ]
     yield from _stream_archive_members(file_path, entries)
@@ -673,7 +673,7 @@ def _unescape_mtree_path(raw: bytes) -> str:
     return unescaped.decode("utf-8", errors="surrogateescape")
 
 
-def _list_rar_file_members(file_path: Path) -> list[tuple[str, int]]:
+def list_rar_file_members(file_path: Path) -> list[tuple[str, int]]:
     """List `(member_path, size)` for every file member of a RAR archive.
 
     Rewriting the archive as an mtree listing on stdout is libarchive's only
@@ -728,16 +728,54 @@ def _list_rar_file_members(file_path: Path) -> list[tuple[str, int]]:
     return entries
 
 
+def _bsdtar_member_command(file_path: Path, member: str) -> list[str]:
+    return [BSDTAR_PATH, "-xOf", str(file_path), "--", _bsdtar_member_pattern(member)]
+
+
+def read_rar_member(file_path: Path, member: str, max_bytes: int) -> bytes:
+    """Read one RAR member into memory through bsdtar.
+
+    Raises `ArchiveReadError` if it fails, times out or exceeds `max_bytes`.
+    """
+    deadline = _read_deadline()
+    buffer = bytearray()
+    try:
+        with subprocess.Popen(
+            _bsdtar_member_command(file_path, member),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            shell=False,  # trunk-ignore(bandit/B603): bsdtar path is hardcoded, args are validated
+        ) as process:
+            assert process.stdout is not None
+            with _kill_at_deadline(process, deadline) as expired:
+                while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
+                    buffer += chunk
+                    if len(buffer) > max_bytes:
+                        process.kill()
+                        raise ArchiveReadError(
+                            f"{member} in {file_path} exceeds {max_bytes} bytes"
+                        )
+            if expired.is_set():
+                raise ArchiveReadError(
+                    f"Reading {member} from {file_path} timed out after "
+                    f"{SEVEN_ZIP_TIMEOUT}s"
+                )
+        if process.returncode != 0:
+            raise ArchiveReadError(
+                f"Extraction of {member} from {file_path} failed "
+                f"with code {process.returncode}"
+            )
+    except OSError as e:
+        raise ArchiveReadError(
+            f"Error extracting {member} from {file_path}: {e}"
+        ) from e
+    return bytes(buffer)
+
+
 def _archive_member_command(file_path: Path, member: str) -> list[str]:
     """Build the command streaming a single archive member to stdout."""
     if _is_rar_archive(file_path):
-        return [
-            BSDTAR_PATH,
-            "-xOf",
-            str(file_path),
-            "--",
-            _bsdtar_member_pattern(member),
-        ]
+        return _bsdtar_member_command(file_path, member)
 
     # "-spd" disables wildcard matching so a member name containing "*" or "?"
     # can't select other members; "--" stops switch parsing so one starting
@@ -753,7 +791,7 @@ def _list_archive_file_members(file_path: Path) -> list[tuple[str, int]]:
     and only dropped when its attributes mark it as a directory.
     """
     if _is_rar_archive(file_path):
-        return _list_rar_file_members(file_path)
+        return list_rar_file_members(file_path)
 
     try:
         result = subprocess.run(

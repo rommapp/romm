@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import Header, HTTPException
@@ -10,6 +11,8 @@ from streaming_form_data import StreamingFormDataParser
 from streaming_form_data.targets import FileTarget, NullTarget
 
 from decorators.auth import protected_route
+from endpoints.responses.rom import ImageDocPagesSchema
+from endpoints.roms.image_doc_pages import image_doc_page_response, image_doc_pages
 from endpoints.roms.upload import receive_rom_file
 from handler.auth.constants import Scope
 from handler.auth.dependencies import visible_rom_or_404
@@ -21,6 +24,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import RomFileCategory
+from utils.media_types import is_image_doc_file
 from utils.router import APIRouter
 
 router = APIRouter()
@@ -175,6 +179,53 @@ async def redownload_rom_manual(
         ) from exc
 
     return Response()
+
+
+def _image_doc_manual_location(request: Request, id: int) -> Path:
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(id), id)
+    if not rom.path_manual or not is_image_doc_file(rom.path_manual):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="The ROM's manual is not an image doc",
+        )
+    return fs_resource_handler.validate_path(rom.path_manual)
+
+
+@protected_route(
+    router.get,
+    "/{id}/manuals/pages",
+    [Scope.ROMS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {},
+    },
+)
+async def get_rom_manual_pages(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+) -> ImageDocPagesSchema:
+    """Count the pages of a ROM's image doc (.cbz/.cbr) manual."""
+
+    return await image_doc_pages(_image_doc_manual_location(request, id))
+
+
+@protected_route(
+    router.get,
+    "/{id}/manuals/pages/{page}",
+    [Scope.ROMS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {},
+    },
+)
+async def get_rom_manual_page(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    page: Annotated[int, PathVar(description="1-based page number.", ge=1)],
+) -> Response:
+    """Serve one page image of a ROM's image doc (.cbz/.cbr) manual."""
+
+    return await image_doc_page_response(_image_doc_manual_location(request, id), page)
 
 
 @protected_route(

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // WalkthroughSubtab: the Media tab's Walkthrough panel. Surfaces
 // walkthrough-category files (uploaded, or fetched from a GameFAQs guide URL),
-// picking the viewer (PDF / Markdown / Text) by extension. Mirrors
-// ManualSubtab's chrome, plus an "add from GameFAQs URL" affordance.
+// picking the viewer (PDF / Markdown / Text / image doc) by extension.
+// Mirrors ManualSubtab's chrome, plus an "add from GameFAQs URL" affordance.
 import axios from "axios";
 import { computed, defineAsyncComponent, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -17,8 +17,15 @@ import { useSnackbar } from "@/composables/useSnackbar";
 import { RBtn, RDropzone, RSelect, RTextField } from "@/lib";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
-import { versionedRomFileUrl } from "@/utils/romFiles";
+import {
+  imageDocPagesPath,
+  isImageDoc,
+  versionedRomFileUrl,
+} from "@/utils/romFiles";
 
+const ImageDocViewer = defineAsyncComponent(
+  () => import("@/components/GameDetails/ImageDocViewer.vue"),
+);
 const PdfViewer = defineAsyncComponent(
   () => import("@/components/GameDetails/PdfViewer.vue"),
 );
@@ -38,12 +45,14 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-type ViewerKind = "pdf" | "md" | "text";
+type ViewerKind = "pdf" | "md" | "text" | "image-doc";
 type WalkthroughEntry = {
   id: string;
   fileId: number;
   label: string;
   url: string;
+  fileName: string;
+  version: string;
   kind: ViewerKind;
 };
 
@@ -67,6 +76,7 @@ const { t } = useI18n();
 const canEdit = useCan("rom.edit");
 
 function kindFor(name: string): ViewerKind {
+  if (isImageDoc(name)) return "image-doc";
   if (/\.md$/i.test(name)) return "md";
   if (/\.(txt|html?|htm)$/i.test(name)) return "text";
   return "pdf";
@@ -82,6 +92,8 @@ const entries = computed<WalkthroughEntry[]>(() => {
       // Prefer the scraped guide title when present, else the file name.
       label: file.doc_meta?.title ?? file.file_name.replace(/\.[^.]+$/, ""),
       url: versionedRomFileUrl(file),
+      fileName: file.file_name,
+      version: file.updated_at,
       kind: kindFor(file.file_name),
     });
   }
@@ -240,7 +252,7 @@ async function requestDelete() {
       :hint="t('common.dropzone-hint')"
       :active-title="t('common.dropzone-drag-over')"
       :input-label="t('rom.upload-walkthrough')"
-      accept="application/pdf,.md,.txt,.html,.htm"
+      accept="application/pdf,.md,.txt,.html,.htm,.cbz,.cbr"
       multiple
       @files="handleFiles"
     />
@@ -253,7 +265,7 @@ async function requestDelete() {
       :disabled="!canEdit"
       :release-label="t('common.dropzone-drag-over')"
       :input-label="t('rom.upload-walkthrough')"
-      accept="application/pdf,.md,.txt,.html,.htm"
+      accept="application/pdf,.md,.txt,.html,.htm,.cbz,.cbr"
       multiple
       @files="handleFiles"
     >
@@ -271,6 +283,18 @@ async function requestDelete() {
           v-else-if="selected.kind === 'text'"
           :key="`${selected.id}-${rom.updated_at}-txt`"
           :url="selected.url"
+          :rom-id="rom.id"
+          :file-id="selected.fileId"
+          :deletable="canEdit"
+          @delete="requestDelete"
+        />
+        <ImageDocViewer
+          v-else-if="selected.kind === 'image-doc'"
+          :key="selected.id"
+          :pages-path="imageDocPagesPath(rom.id, selected.fileId)"
+          :version="selected.version"
+          :download-url="selected.url"
+          :file-name="selected.fileName"
           :rom-id="rom.id"
           :file-id="selected.fileId"
           :deletable="canEdit"

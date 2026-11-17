@@ -33,13 +33,14 @@ from utils.images import (
     is_oversized_cover,
     webp_loop,
 )
+from utils.media_types import IMAGE_DOC_EXTENSIONS
 from utils.rate_limiter import ConcurrencyLimiter
 
 from .base_handler import CoverSize, FSHandler
 
 LOCAL_FILE_SCHEMES = ("file://", "launchbox-file://")
 
-ALLOWED_MANUAL_EXTENSIONS = frozenset({".pdf", ".md", ".txt"})
+ALLOWED_MANUAL_EXTENSIONS = frozenset({".pdf", ".md", ".txt"}) | IMAGE_DOC_EXTENSIONS
 
 # An achievement set runs to hundreds of badges, so they are fetched a few at a
 # time across every scan rather than all at once.

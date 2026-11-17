@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from pathlib import Path as FsPath
 from typing import Annotated, Any
 
 from anyio import Path
@@ -10,7 +11,12 @@ from starlette.responses import FileResponse
 
 from config import DEV_MODE, DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
-from endpoints.responses.rom import RomFileSchema, RomFileUserSchema
+from endpoints.responses.rom import (
+    ImageDocPagesSchema,
+    RomFileSchema,
+    RomFileUserSchema,
+)
+from endpoints.roms.image_doc_pages import image_doc_page_response, image_doc_pages
 from handler.audit_handler import AuditTarget, record, record_download
 from handler.auth.constants import Scope
 from handler.auth.dependencies import (
@@ -25,13 +31,14 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.audit_event import AuditAction
 from models.permission import PermAction, PermEntity
-from models.rom import DOCUMENT_CATEGORIES, RomFileCategory
+from models.rom import DOCUMENT_CATEGORIES, RomFile, RomFileCategory
 from utils.audio_tags import guess_audio_media_type
 from utils.media_types import (
     guess_media_file_type,
     is_allowed_document_file,
     is_allowed_media_file,
     is_html_document_file,
+    is_image_doc_file,
 )
 from utils.nginx import FileRedirectResponse
 from utils.router import APIRouter
@@ -240,9 +247,7 @@ async def delete_rom_file(
     return Response()
 
 
-def _assert_document_file(
-    rom_id: int, file_id: int, request: Request
-) -> RomFileCategory:
+def _assert_document_file(rom_id: int, file_id: int, request: Request) -> RomFile:
     """Resolve a document-category file, enforcing parent-rom visibility."""
     rom = visible_rom_or_404(request, db_rom_handler.get_rom_visibility(rom_id), rom_id)
 
@@ -256,7 +261,58 @@ def _assert_document_file(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document file not found",
         )
-    return rom_file.category
+    return rom_file
+
+
+def _image_doc_file_location(rom_id: int, file_id: int, request: Request) -> FsPath:
+    rom_file = _assert_document_file(rom_id, file_id, request)
+    if not is_image_doc_file(rom_file.file_name):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document file is not an image doc",
+        )
+    return fs_rom_handler.validate_path(rom_file.full_path)
+
+
+@protected_route(
+    router.get,
+    "/{rom_id}/files/{file_id}/pages",
+    [Scope.ROMS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {},
+    },
+)
+async def get_rom_file_pages(
+    request: Request,
+    rom_id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
+) -> ImageDocPagesSchema:
+    """Count the pages of an image doc (.cbz/.cbr) document file."""
+
+    return await image_doc_pages(_image_doc_file_location(rom_id, file_id, request))
+
+
+@protected_route(
+    router.get,
+    "/{rom_id}/files/{file_id}/pages/{page}",
+    [Scope.ROMS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {},
+    },
+)
+async def get_rom_file_page(
+    request: Request,
+    rom_id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
+    page: Annotated[int, PathVar(description="1-based page number.", ge=1)],
+) -> Response:
+    """Serve one page image of an image doc (.cbz/.cbr) document file."""
+
+    return await image_doc_page_response(
+        _image_doc_file_location(rom_id, file_id, request), page
+    )
 
 
 @protected_route(

@@ -4,6 +4,7 @@ import type {
   Body_delete_roms_api_roms_delete_post as DeleteRomsInput,
   Body_update_rom_api_roms__id__put as UpdateRomInput,
   BulkOperationResponse,
+  ImageDocPagesSchema,
   DetailedRomSchema,
   ManualMetadata,
   PhysicalRomCreateForm,
@@ -958,6 +959,10 @@ async function addGamefaqsWalkthrough({
   return api.post(`/roms/${romId}/walkthroughs/gamefaqs`, { url });
 }
 
+async function getImageDocPageCount({ pagesPath }: { pagesPath: string }) {
+  return api.get<ImageDocPagesSchema>(pagesPath);
+}
+
 async function getFileProgress({
   romId,
   fileId,
@@ -1113,6 +1118,7 @@ export default {
   deleteRomFile,
   deleteWalkthroughFile,
   addGamefaqsWalkthrough,
+  getImageDocPageCount,
   getFileProgress,
   updateFileProgress,
   uploadSoundtracks,
