@@ -87,6 +87,13 @@ class TestValidateUsername:
             validate_username("user.name")
         assert True
 
+    @pytest.mark.parametrize("suffix", ["\n", "\r\n", "\t"])
+    def test_trailing_control_characters_are_rejected(self, suffix):
+        with pytest.raises(ValidationError) as exc_info:
+            validate_username(f"username{suffix}")
+        assert "letters, numbers, underscores, and hyphens" in exc_info.value.message
+        assert exc_info.value.field_name == "Username"
+
     def test_invalid_non_ascii_username(self):
         """Test that usernames with non-ASCII characters fail validation."""
         with pytest.raises(ValidationError) as exc_info:
@@ -187,6 +194,13 @@ class TestValidateEmail:
         with pytest.raises(ValidationError) as exc_info:
             validate_email("@domain.com")
         assert True
+
+    @pytest.mark.parametrize("suffix", ["\n", "\r\n", "\t"])
+    def test_trailing_control_characters_are_rejected(self, suffix):
+        with pytest.raises(ValidationError) as exc_info:
+            validate_email(f"user@example.com{suffix}")
+        assert exc_info.value.message == "Invalid email format"
+        assert exc_info.value.field_name == "Email"
 
     def test_invalid_non_ascii_email(self):
         """Test that emails with non-ASCII characters fail validation."""

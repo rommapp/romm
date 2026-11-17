@@ -7,6 +7,7 @@
   "firmware-selected-count": "已選擇 {count} 個",
   "jump-to": "跳至 {letter}",
   "jump-to-letter": "跳至字母",
+  "results-of-total": "{count} / {total}",
   "selection-clear": "清除選擇",
   "selection-collections": "管理收藏庫",
   "selection-delete": "刪除",

@@ -22,7 +22,7 @@
   "name-placeholder": "Nom de la collection",
   "no-collections-search": "Aucune collection ne correspond à « {query} ».",
   "no-collections-yet": "Aucune collection pour le moment.",
-  "no-collections-yet-detail": "Vous n'avez encore aucune collection. Ajoutez un jeu aux favoris ou créez-en une depuis la barre d'actions de n'importe quelle ROM.",
+  "no-collections-yet-detail": "Ajoutez un jeu aux favoris ou créez-en une depuis la barre d'actions de n'importe quelle ROM.",
   "not-found": "Collection introuvable.",
   "save-as-smart": "Enregistrer comme collection intelligente",
   "search-collection": "Recherche dans la collection",

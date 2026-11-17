@@ -13,7 +13,7 @@
     <a href="https://trendshift.io/repositories/14133?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-14133" target="_blank" rel="noopener noreferrer"><img src=".github/resources/trendshift-badge.svg" alt="Trendshift" width="250" height="58"/></a>
     <a href="https://news.ycombinator.com/item?id=44247964" target="_blank" rel="noopener noreferrer"><img src=".github/resources/hackernews-badge.svg" width="250px" alt="hackernews badge"></a>
     <br />
-    <a href="https://selfh.st/survey/2025-results/" target="_blank" rel="noopener noreferrer"><img src=".github/resources/selfhst-badge.svg" width="250px" alt="selfh.st badge"></a>
+    <a href="https://selfh.st/survey/2026-results/#favorite-software" target="_blank" rel="noopener noreferrer"><img src=".github/resources/selfhst-badge.svg" width="250px" alt="selfh.st badge"></a>
     <a href="https://discord.gg/invite/romm" target="_blank" rel="noopener noreferrer"><img src=".github/resources/discord-badge.svg" alt="Discord" width="250" height="58"/></a>
   </div>
 </div>
@@ -171,6 +171,15 @@ Here are a few projects that we think you might like:
 - [MelonLoader](https://melonloader.co/): Universal mod loader for Unity games
 - [NextUI](https://nextui.loveretro.games/): MinUI-based custom firmware for TrimUI handhelds
 - [RetroAchievements](https://retroachievements.org/): Achievements for retro games
+
+## Disclaimer
+
+> [!NOTE]
+> RomM is a library manager and player. It does not include, distribute, or link to ROMs, BIOS, firmware, or decryption keys.
+>
+> - Only use files you have the right to use, such as your own dumps, homebrew, or freeware, and follow the laws where you live.
+> - **The project does not condone piracy.** Requests for or links to copyrighted material are not allowed in any project space.
+> - All trademarks belong to their respective owners and are used only to describe compatibility.
 
 <!-- docs links -->
 

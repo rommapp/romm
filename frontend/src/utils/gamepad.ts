@@ -6,6 +6,15 @@ export function isUsablePad(pad: Gamepad | null): pad is Gamepad {
   return pad !== null && pad.connected;
 }
 
+export function hasUsablePad(): boolean {
+  try {
+    return Array.from(navigator.getGamepads?.() ?? []).some(isUsablePad);
+  } catch {
+    // Throws when a Permissions-Policy blocks the gamepad feature.
+    return false;
+  }
+}
+
 /** The right stick's strongest deflection on each axis across usable pads. */
 export function readRightStick(): { x: number; y: number } {
   let x = 0;

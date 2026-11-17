@@ -7,9 +7,12 @@ from fastapi.responses import FileResponse, Response
 
 from decorators.auth import protected_route
 from endpoints.responses.assets import ScreenshotSchema
-from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible, owned_rom_asset_or_404
+from handler.auth.dependencies import (
+    assert_rom_visible,
+    owned_rom_asset_or_404,
+    visible_rom_or_404,
+)
 from handler.database import db_rom_handler, db_screenshot_handler
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import build_asset_file_response
@@ -46,11 +49,7 @@ async def add_screenshot(
     """
     check_asset_upload_size(screenshotFile, "Screenshot file")
 
-    rom = db_rom_handler.get_rom(id=rom_id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(rom_id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(id=rom_id), rom_id)
 
     current_user = request.user
     log.info(f"Uploading screenshot to {hl(str(rom.name), color=BLUE)}")

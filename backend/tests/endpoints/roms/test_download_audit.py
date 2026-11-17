@@ -1,6 +1,7 @@
 from fastapi import status
 from fastapi.testclient import TestClient
 from tests.audit_events import recorded_events
+from tests.auth_helpers import bearer
 
 from endpoints import roms as rom_endpoints
 from handler.database import (
@@ -14,10 +15,6 @@ from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
 
 
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
-
-
 class TestRomContent:
     def test_a_download_is_recorded_once(
         self, client: TestClient, access_token: str, rom: Rom, rom_file: RomFile
@@ -25,7 +22,7 @@ class TestRomContent:
         for _ in range(2):
             response = client.get(
                 f"/api/roms/{rom.id}/content/test_rom.zip",
-                headers=_auth(access_token),
+                headers=bearer(access_token),
                 follow_redirects=False,
             )
             assert response.status_code == status.HTTP_200_OK
@@ -43,7 +40,7 @@ class TestRomContent:
             response = client.get(
                 f"/api/roms/{rom.id}/content/test_rom.zip",
                 params={"purpose": purpose},
-                headers=_auth(access_token),
+                headers=bearer(access_token),
                 follow_redirects=False,
             )
             assert response.status_code == status.HTTP_200_OK
@@ -65,7 +62,7 @@ class TestRomContent:
 
         response = client.get(
             f"/api/roms/{rom.id}/content/test_rom.zip",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
             follow_redirects=False,
         )
 
@@ -77,7 +74,7 @@ class TestRomContent:
     ):
         client.get(
             f"/api/roms/{rom.id}/content/test_rom.zip",
-            headers={**_auth(access_token), "Range": "bytes=1024-"},
+            headers={**bearer(access_token), "Range": "bytes=1024-"},
             follow_redirects=False,
         )
 
@@ -88,7 +85,7 @@ class TestRomContent:
     ):
         client.head(
             f"/api/roms/{rom.id}/content/test_rom.zip",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
             follow_redirects=False,
         )
 
@@ -108,7 +105,7 @@ class TestRomContent:
 
         response = client.get(
             f"/api/roms/{rom.id}/content/test_rom.zip",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
             follow_redirects=False,
         )
 
@@ -134,7 +131,7 @@ class TestRomFileContent:
 
         client.get(
             f"/api/roms/{file.id}/files/content/game.bin",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         [event] = recorded_events()
@@ -148,7 +145,7 @@ class TestRomFileContent:
 
         client.get(
             f"/api/roms/{file.id}/files/content/manual.pdf",
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert recorded_events() == []
@@ -160,7 +157,7 @@ def test_a_bulk_download_is_one_event_on_its_platform(
     response = client.get(
         "/api/roms/download",
         params={"platform_id": platform.id},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -191,7 +188,7 @@ def test_someone_elses_private_collection_is_not_downloaded(
     response = client.get(
         "/api/roms/download",
         params={"collection_id": private.id},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == 404

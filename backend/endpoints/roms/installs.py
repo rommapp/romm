@@ -8,10 +8,9 @@ from decorators.auth import protected_route
 from endpoints.responses.device.install import InstallRequestSchema
 from exceptions.endpoint_exceptions import (
     DeviceInstallDisabledException,
-    RomNotFoundInDatabaseException,
 )
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
+from handler.auth.dependencies import visible_rom_or_404
 from handler.database import db_rom_handler
 from handler.device_install import device_install_handler
 from utils.router import APIRouter
@@ -33,9 +32,6 @@ async def get_rom_installs(
     if not DEVICE_INSTALL_ENABLED:
         raise DeviceInstallDisabledException()
 
-    rom = db_rom_handler.get_rom_visibility(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-    assert_rom_visible(request, rom)
+    visible_rom_or_404(request, db_rom_handler.get_rom_visibility(id), id)
 
     return await device_install_handler.list_for_rom(request.user.id, id)

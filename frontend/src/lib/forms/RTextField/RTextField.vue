@@ -109,6 +109,9 @@ interface Props {
    *  pairs with the field's value. The `#subtitle` slot wins over the
    *  prop when both are provided; use the slot to drop in an icon. */
   subtitle?: string | undefined;
+  /** Muted text after the value, before any append adornment (a unit, a
+   *  result count). Single-line only. */
+  suffix?: string | undefined;
   /** Wires the native input as a combobox owning a popup, putting the role
    *  on the input rather than the outer element (a `<label>` when this field
    *  owns its visible label). Single-line only: `role="combobox"` is not
@@ -160,6 +163,7 @@ const props = withDefaults(defineProps<Props>(), {
   rows: 4,
   mono: false,
   subtitle: undefined,
+  suffix: undefined,
   popup: undefined,
 });
 
@@ -522,6 +526,10 @@ function onAppendInnerClick(evt: MouseEvent) {
       />
       <!-- eslint-enable vuejs-accessibility/no-autofocus -->
 
+      <span v-if="suffix && !multiline" class="r-text-field__suffix">{{
+        suffix
+      }}</span>
+
       <!-- Append-inner adornment (right of the input). Loading +
            clearable take priority over user content. Interactive when
            a parent listens to `click:append-inner`. -->
@@ -814,7 +822,7 @@ function onAppendInnerClick(evt: MouseEvent) {
   -webkit-text-fill-color: var(--r-color-fg-muted);
 }
 .r-text-field--disabled {
-  opacity: 0.55;
+  opacity: var(--r-opacity-inactive);
   cursor: not-allowed;
 }
 .r-text-field--disabled .r-text-field__input {
@@ -893,6 +901,16 @@ function onAppendInnerClick(evt: MouseEvent) {
 .r-text-field__field:has(.r-text-field__adornment--append)
   .r-text-field__input {
   padding-inline-end: 6px;
+}
+
+/* ── Suffix ────────────────────────────────────────────────────── */
+.r-text-field__suffix {
+  flex-shrink: 0;
+  padding-inline-end: 6px;
+  color: var(--r-color-fg-muted);
+  font-size: var(--r-font-size-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* ── Adornments ────────────────────────────────────────────────── */

@@ -737,7 +737,7 @@ const showDetails = computed(
 
 /* Disabled. */
 .r-combobox-field--disabled {
-  opacity: 0.55;
+  opacity: var(--r-opacity-inactive);
   cursor: not-allowed;
 }
 .r-combobox-field--disabled .r-combobox-field__field {

@@ -8,5 +8,7 @@ export type EmulationDict = {
     DISABLE_JSDOS: boolean;
     DISABLE_PICO8: boolean;
     DISABLE_EASYRPG: boolean;
+    EJS_CORES: Record<string, Array<string>>;
+    EJS_NIGHTLY_CORES: Record<string, Array<string>>;
 };
 

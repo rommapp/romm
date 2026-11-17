@@ -7,6 +7,7 @@
   "firmware-selected-count": "{count} sélectionné(s)",
   "jump-to": "Aller à {letter}",
   "jump-to-letter": "Aller à la lettre",
+  "results-of-total": "{count} sur {total}",
   "selection-clear": "Effacer la sélection",
   "selection-collections": "Gérer les collections",
   "selection-delete": "Supprimer",

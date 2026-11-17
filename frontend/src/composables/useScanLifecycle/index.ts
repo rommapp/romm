@@ -27,7 +27,7 @@
 // `useSocketEvent` is the typed subscription wrapper that auto-cleans up
 // on unmount; since AppLayout never unmounts during normal use the
 // listeners effectively live for the session.
-import { debounce } from "lodash";
+import { useDebounceFn } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { inject, watch } from "vue";
 import type { ScanStats, ScanTaskStatusResponse } from "@/__generated__";
@@ -104,7 +104,7 @@ export function installScanLifecycle() {
   // A new ROM emits several times, and a platform event can rebuild the live
   // log between those emits, so each new ROM is counted once by id.
   const countedNewRomIds = new Set<number>();
-  const refreshGallery = debounce(
+  const refreshGallery = useDebounceFn(
     () => {
       galleryRomsStore.invalidateWindows();
       void galleryRomsStore.fetchInitialMetadata();
@@ -112,7 +112,7 @@ export function installScanLifecycle() {
     250,
     { maxWait: 1000 },
   );
-  const processRomUpdates = debounce(() => {
+  const processRomUpdates = useDebounceFn(() => {
     if (romUpdateQueue.length === 0) return;
     const updates = romUpdateQueue.splice(0, romUpdateQueue.length);
     updates.forEach(({ is_new: isNew, ...rom }) => {
@@ -137,7 +137,7 @@ export function installScanLifecycle() {
       // If the user is currently looking at the gallery of the platform
       // being scanned, refresh from the server to preserve sorting/filtering.
       if (galleryRomsStore.currentPlatform?.id === rom.platform_id) {
-        refreshGallery();
+        void refreshGallery();
       }
 
       let scannedPlatform = scanningStore.scanningPlatforms.find(
@@ -177,7 +177,7 @@ export function installScanLifecycle() {
   useSocketEvent<ScanningRom>("scan:scanning_rom", (rom) => {
     scanningStore.setScanning(true);
     romUpdateQueue.push(rom);
-    processRomUpdates();
+    void processRomUpdates();
   });
 
   // Stats are the only event a scan emits continuously: `scanning_platform`

@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "concepts": [
+    {
+      "name": "rom",
+      "definition": "A game file or multi-file game folder on disk under a platform's folder in the library, tracked as a Rom row with its metadata, and hidden from users by visibility rules."
+    },
+    {
+      "name": "platform",
+      "definition": "A gaming system (console, handheld, computer or arcade) whose folder in the library holds its roms and firmware, matched to metadata providers by its slug."
+    },
+    {
+      "name": "firmware",
+      "definition": "A BIOS or system file a platform's emulator needs, stored in the platform's firmware folder and linked to that platform."
+    },
+    {
+      "name": "library",
+      "definition": "The folder tree on disk that RomM scans: one folder per platform, each holding roms and firmware, in one of the supported layouts."
+    },
+    {
+      "name": "scan",
+      "definition": "The background task that walks the library, creates or updates platforms, roms and firmware, and fetches their metadata from the enabled providers."
+    },
+    {
+      "name": "collection",
+      "definition": "A user-defined group of roms, either a hand-picked list, a smart collection built from saved filters, or a virtual collection derived from metadata."
+    },
+    {
+      "name": "save",
+      "definition": "A game save file a user uploaded or synced for one rom, owned by that user and optionally tracked per device."
+    },
+    {
+      "name": "screenshot",
+      "definition": "An image of a rom captured by a user during play, owned by that user; metadata provider screenshots are rom media, not this concept."
+    },
+    {
+      "name": "device",
+      "definition": "A client a user registered (a handheld, a frontend app, RetroArch) that syncs saves and play sessions with RomM, identified by a fingerprint."
+    }
+  ]
+}

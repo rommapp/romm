@@ -1,4 +1,6 @@
 import json
+import re
+from base64 import b64decode
 from collections.abc import Iterator
 from datetime import datetime, timezone
 from typing import Any, cast
@@ -9,6 +11,7 @@ import pytest
 from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
+from tests.auth_helpers import hide
 from tests.factories import make_rom
 from tests.utils.test_images import png_header_bytes
 
@@ -16,7 +19,6 @@ from config.config_manager import MetadataMediaType
 from endpoints.responses.rom import PROVIDER_METADATA_FIELDS
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.database import db_collection_handler, db_rom_handler
-from handler.database.base_handler import sync_session
 from handler.database.rom_filters import RomFiltersDict
 from handler.filesystem.resources_handler import FSResourcesHandler
 from handler.filesystem.roms_handler import FSRomsHandler
@@ -33,13 +35,14 @@ from handler.metadata.ra_handler import RAGameRom, RAHandler
 from handler.metadata.ss_handler import SSHandler, SSRom
 from handler.metadata.steam_handler import SteamHandler, SteamRom
 from models.collection import Collection, SmartCollection
-from models.permission import HiddenEntity, PermEntity
+from models.permission import PermEntity
 from models.platform import Platform
 from models.rom import (
     PINNED_MEDIA_KEY_MAX_LENGTH,
     PINNED_MEDIA_MAX_ITEMS,
     Rom,
     RomFile,
+    RomFileCategory,
     compute_name_sort_key,
 )
 from models.user import User
@@ -258,6 +261,87 @@ def test_download_multi_file_rom_content(
     assert "disc1.bin" in body
     assert "disc2.bin" in body
     assert f"{multi_file_rom.fs_name}.m3u" in body
+
+
+def test_download_selected_files_generates_playlist_beside_a_variant_one(
+    client: TestClient, access_token: str, multi_file_rom: Rom
+):
+    """A translation's .m3u does not list the base discs, so the base set gets its own."""
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=multi_file_rom.id,
+            file_name="Game (T-Es).m3u",
+            file_path=f"{multi_file_rom.fs_path}/{multi_file_rom.fs_name}/translations",
+            file_size_bytes=1,
+            category=RomFileCategory.TRANSLATION,
+        )
+    )
+    base_ids = ",".join(str(f.id) for f in multi_file_rom.files)
+
+    response = client.get(
+        f"/api/roms/{multi_file_rom.id}/content/{multi_file_rom.fs_name}",
+        params={"file_ids": base_ids},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    body = response.text
+    assert "Game (T-Es).m3u" not in body
+    assert f"{multi_file_rom.fs_name}.m3u" in body
+
+
+def _add_manual(rom: Rom, file_name: str) -> RomFile:
+    return db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name=file_name,
+            file_path=f"{rom.fs_path}/{rom.fs_name}/manuals",
+            file_size_bytes=1,
+            category=RomFileCategory.MANUAL,
+        )
+    )
+
+
+def _generated_playlist(body: str) -> str | None:
+    match = re.search(r"/decode\?value=(\S+) ", body)
+    return b64decode(unquote(match.group(1))).decode() if match else None
+
+
+def test_download_selected_media_carries_no_playlist(
+    client: TestClient, access_token: str, multi_file_rom: Rom
+):
+    manuals = [
+        _add_manual(multi_file_rom, "Manual.pdf"),
+        _add_manual(multi_file_rom, "Guide.pdf"),
+    ]
+
+    response = client.get(
+        f"/api/roms/{multi_file_rom.id}/content/{multi_file_rom.fs_name}",
+        params={"file_ids": ",".join(str(f.id) for f in manuals)},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert ".m3u" not in response.text
+
+
+def test_download_selected_disc_and_manual_lists_only_the_disc(
+    client: TestClient, access_token: str, multi_file_rom: Rom
+):
+    manual = _add_manual(multi_file_rom, "Manual.pdf")
+    disc = next(f for f in multi_file_rom.files if f.file_name == "disc1.bin")
+
+    response = client.get(
+        f"/api/roms/{multi_file_rom.id}/content/{multi_file_rom.fs_name}",
+        params={"file_ids": f"{disc.id},{manual.id}"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    playlist = _generated_playlist(response.text)
+    assert playlist is not None
+    assert "disc1.bin" in playlist
+    assert "Manual.pdf" not in playlist
 
 
 def test_download_roms_by_platform(
@@ -830,11 +914,6 @@ def test_get_rom_content_missing_rom_returns_404(client: TestClient, access_toke
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
-def _hide_rom_for_user(rom_id: int, user_id: int) -> None:
-    with sync_session.begin() as s:
-        s.add(HiddenEntity(entity=PermEntity.ROMS, entity_id=rom_id, user_id=user_id))
-
-
 def test_get_romfile_content_visible_rom(
     client: TestClient, viewer_access_token: str, rom: Rom, rom_file
 ):
@@ -853,7 +932,7 @@ def test_get_romfile_content_hidden_rom_returns_404(
 ):
     # A file belonging to a hidden rom must 404 even by direct RomFile.id,
     # matching the ROM-level content endpoint (visibility-bypass regression).
-    _hide_rom_for_user(rom.id, viewer_user.id)
+    hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
     response = client.get(
         f"/api/roms/{rom_file.id}/files/content/whatever.bin",
         headers={"Authorization": f"Bearer {viewer_access_token}"},
@@ -866,7 +945,7 @@ def test_get_romfile_hidden_rom_returns_404(
     client: TestClient, viewer_access_token: str, viewer_user, rom: Rom, rom_file
 ):
     # The file metadata endpoint must not leak files of a hidden rom either.
-    _hide_rom_for_user(rom.id, viewer_user.id)
+    hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
     response = client.get(
         f"/api/roms/{rom_file.id}/files",
         headers={"Authorization": f"Bearer {viewer_access_token}"},
@@ -917,6 +996,29 @@ def test_get_romfile_nested_file_is_not_top_level(
     assert body["is_top_level"] is False
     # Only a top-level file picks up the game-file default.
     assert body["category"] is None
+
+
+def test_get_romfile_reads_a_patch_format_as_a_patch(
+    client: TestClient, access_token: str, rom: Rom
+):
+    # A row scanned before patch formats were classified keeps its folder's category.
+    patch_file = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="Game (T-Es).ips",
+            file_path=f"{rom.fs_path}/{rom.fs_name}/translations",
+            file_size_bytes=10,
+            category=RomFileCategory.TRANSLATION,
+        )
+    )
+
+    response = client.get(
+        f"/api/roms/{patch_file.id}/files",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["category"] == "patch"
 
 
 @patch.object(FSRomsHandler, "rename_fs_rom")
@@ -1164,6 +1266,70 @@ def test_update_rom_stores_names_from_raw_metadata_objects(
         "genres": ["RPG", "Action"],
         "youtube_video_id": "dQw4w9WgXcQ",
     }
+
+
+@pytest.mark.parametrize(
+    ("igdb_id", "kept"),
+    [
+        pytest.param(MOCK_IGDB_ID, {"name": "Mario Kart 64"}, id="same-match"),
+        pytest.param(MOCK_IGDB_ID + 1, None, id="new-match"),
+    ],
+)
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_keeps_scan_claims_only_while_the_match_stands(
+    _get_rom_by_id_mock: AsyncMock,
+    _rename_fs_rom_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    igdb_id: int,
+    kept: dict[str, str] | None,
+):
+    db_rom_handler.update_rom(
+        rom.id,
+        {
+            "igdb_id": MOCK_IGDB_ID,
+            "igdb_metadata": {"scan_claims": {"name": "Mario Kart 64"}},
+        },
+    )
+
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={
+            "igdb_id": str(igdb_id),
+            "raw_igdb_metadata": json.dumps(
+                {"scan_claims": {"name": "Forged"}, "youtube_video_id": "x"}
+            ),
+        },
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    stored = db_rom_handler.get_rom(rom.id)
+    assert stored is not None
+    assert stored.igdb_metadata is not None
+    assert stored.igdb_metadata.get("scan_claims") == kept
+    assert stored.igdb_metadata["youtube_video_id"] == "x"
+
+
+def test_get_rom_hides_scan_claims(client: TestClient, access_token: str, rom: Rom):
+    db_rom_handler.update_rom(
+        rom.id,
+        {
+            "igdb_metadata": {
+                "scan_claims": {"name": "Mario Kart 64"},
+                "youtube_video_id": "x",
+            }
+        },
+    )
+
+    response = client.get(
+        f"/api/roms/{rom.id}", headers={"Authorization": f"Bearer {access_token}"}
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["igdb_metadata"] == {"youtube_video_id": "x"}
 
 
 @pytest.mark.parametrize("form_key", ["raw_igdb_metadata", "raw_manual_metadata"])

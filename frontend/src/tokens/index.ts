@@ -368,6 +368,12 @@ export const motion = {
   easeBack: "cubic-bezier(0.34, 1.56, 0.64, 1)",
 } as const;
 
+// Dims something that is present but not in effect: a disabled control,
+// an unlinked provider, a locked achievement, an unmatched hash source.
+export const opacity = {
+  inactive: "0.55",
+} as const;
+
 export const focus = {
   ringWidthMouse: "2px",
   ringWidthKey: "2.5px",
@@ -493,6 +499,7 @@ export const tokens = {
   radius,
   elevation,
   motion,
+  opacity,
   focus,
   layout,
   zIndex,

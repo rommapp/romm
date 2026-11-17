@@ -7,6 +7,7 @@ import startup
 from rq.exceptions import DuplicateJobError, NoSuchJobError
 from rq.job import JOB_ID_PATTERN, Job, JobStatus
 
+from config.config_manager import config_manager
 from handler.database import db_save_handler
 from handler.metadata.launchbox_handler.types import LAUNCHBOX_METADATA_STORE
 from handler.redis_handler import default_queue, high_prio_queue, low_prio_queue
@@ -260,3 +261,18 @@ class TestRebuildOutdatedMetadataStores:
         await startup._rebuild_outdated_metadata_stores()
 
         enqueue_task.assert_not_called()
+
+
+def test_warns_about_each_binding_to_an_unknown_platform(mocker):
+    warnings = mocker.patch.object(
+        startup, "unknown_binding_warnings", return_value=["first", "second"]
+    )
+    log = mocker.patch.object(startup, "log")
+
+    startup._warn_about_unknown_platform_bindings()
+
+    warnings.assert_called_once_with(config_manager.config)
+    assert [call.args[0] for call in log.warning.call_args_list] == [
+        "first",
+        "second",
+    ]

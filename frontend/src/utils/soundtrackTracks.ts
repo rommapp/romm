@@ -4,7 +4,7 @@ import type { MusicTrackSchema, TrackMetaSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import type { PlayerMeta } from "@/stores/soundtrackPlayer";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
-import { romFileUrl } from "@/utils/romFiles";
+import { fileExtension, romFileUrl } from "@/utils/romFiles";
 
 export interface PanelTrack {
   /** `rom_file_id`: unique across the catalog. */
@@ -37,11 +37,6 @@ const AUDIO_EXTS = new Set([
 const CHIPTUNE_EXTS = new Set(["gym", "spc", "vgm", "vgz"]);
 const COVER_EXTS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
 
-export function getExt(name: string): string {
-  const dot = name.lastIndexOf(".");
-  return dot === -1 ? "" : name.slice(dot + 1).toLowerCase();
-}
-
 /** The file picker filter for soundtrack uploads. */
 export const SOUNDTRACK_ACCEPT = [
   "audio/*",
@@ -49,16 +44,16 @@ export const SOUNDTRACK_ACCEPT = [
 ].join(",");
 
 export function isAudioFile(name: string): boolean {
-  const ext = getExt(name);
+  const ext = fileExtension(name);
   return AUDIO_EXTS.has(ext) || CHIPTUNE_EXTS.has(ext);
 }
 
 export function isChiptuneFile(name: string): boolean {
-  return CHIPTUNE_EXTS.has(getExt(name));
+  return CHIPTUNE_EXTS.has(fileExtension(name));
 }
 
 export function isCoverFile(name: string): boolean {
-  return COVER_EXTS.has(getExt(name));
+  return COVER_EXTS.has(fileExtension(name));
 }
 
 function resourceUrl(path: string | null | undefined): string | undefined {

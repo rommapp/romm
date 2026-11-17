@@ -1,4 +1,4 @@
-import { debounce } from "lodash";
+import { useDebounceFn } from "@vueuse/core";
 import { computed, effectScope, onScopeDispose, ref } from "vue";
 import { useSocketEvent } from "@/composables/useSocketEvent";
 import socket from "@/services/socket";
@@ -49,12 +49,14 @@ function install() {
       setTimeout(() => syncDegradedFromTransport(), UPGRADE_RECHECK_MS);
     };
 
-    const onConnectError = debounce(() => {
+    const onConnectError = useDebounceFn(() => {
       websocketDegraded.value = true;
     }, 300);
 
     useSocketEvent("connect", onConnect, { connect: false });
-    useSocketEvent("connect_error", onConnectError, { connect: false });
+    useSocketEvent("connect_error", () => void onConnectError(), {
+      connect: false,
+    });
 
     onScopeDispose(clearEngineUpgradeListener);
 

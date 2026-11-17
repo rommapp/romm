@@ -16,6 +16,7 @@ from handler.auth.middleware.redis_session_middleware import RedisSessionMiddlew
 from handler.redis_handler import sync_cache
 
 USERNAME = "user_1"
+OTHER_USERNAME = "user_2"
 
 
 def create_test_app() -> Starlette:
@@ -24,13 +25,30 @@ def create_test_app() -> Starlette:
         request.session["sub"] = USERNAME
         return JSONResponse({"ok": True})
 
+    async def login_other(request: Request) -> JSONResponse:
+        request.session["iss"] = "romm:auth"
+        request.session["sub"] = OTHER_USERNAME
+        return JSONResponse({"ok": True})
+
+    async def remember(request: Request) -> JSONResponse:
+        request.session["state"] = "pending"
+        return JSONResponse({"ok": True})
+
     async def revoke(request: Request) -> JSONResponse:
         """Revoke the caller's sessions while their own request is in flight."""
         await RedisSessionMiddleware.clear_user_sessions(USERNAME)
         return JSONResponse({"ok": True})
 
+    async def stale(request: Request) -> JSONResponse:
+        """Finish after a concurrent login rotated this request's session away."""
+        sync_cache.delete(f"session:{request.session['session_id']}")
+        request.session["touched"] = True
+        return JSONResponse({"ok": True})
+
     async def whoami(request: Request) -> JSONResponse:
-        return JSONResponse({"sub": request.session.get("sub")})
+        return JSONResponse(
+            {"sub": request.session.get("sub"), "state": request.session.get("state")}
+        )
 
     async def logout(request: Request) -> JSONResponse:
         request.session.clear()
@@ -39,6 +57,9 @@ def create_test_app() -> Starlette:
     return Starlette(
         routes=[
             Route("/login", login, methods=["POST"]),
+            Route("/login_other", login_other, methods=["POST"]),
+            Route("/remember", remember, methods=["POST"]),
+            Route("/stale", stale, methods=["POST"]),
             Route("/revoke", revoke, methods=["POST"]),
             Route("/whoami", whoami, methods=["GET"]),
             Route("/logout", logout, methods=["POST"]),
@@ -77,6 +98,52 @@ class TestRedisSessionMiddleware:
         response = client.post("/login")
 
         assert response.cookies[SESSION_COOKIE_NAME] != "not-a-real-session"
+
+    def test_logging_in_over_another_users_session_gets_a_fresh_id(self) -> None:
+        attacker = TestClient(create_test_app())
+        planted_id = attacker.post("/login_other").cookies[SESSION_COOKIE_NAME]
+        victim = TestClient(create_test_app())
+        victim.cookies.set(SESSION_COOKIE_NAME, planted_id)
+
+        victim_id = victim.post("/login").cookies[SESSION_COOKIE_NAME]
+
+        assert victim_id != planted_id
+        assert not sync_cache.exists(f"session:{planted_id}")
+        assert planted_id.encode() not in sync_cache.smembers(
+            f"user_sessions:{OTHER_USERNAME}"
+        )
+        assert attacker.get("/whoami").json()["sub"] is None
+        assert victim.get("/whoami").json()["sub"] == USERNAME
+
+    def test_logging_in_over_an_anonymous_session_keeps_its_data_under_a_fresh_id(
+        self,
+    ) -> None:
+        client = TestClient(create_test_app())
+        anonymous_id = client.post("/remember").cookies[SESSION_COOKIE_NAME]
+
+        login_id = client.post("/login").cookies[SESSION_COOKIE_NAME]
+
+        assert login_id != anonymous_id
+        assert not sync_cache.exists(f"session:{anonymous_id}")
+        assert client.get("/whoami").json() == {"sub": USERNAME, "state": "pending"}
+
+    def test_logging_in_again_as_the_same_user_keeps_the_id(self) -> None:
+        client = TestClient(create_test_app())
+        first_id = client.post("/login").cookies[SESSION_COOKIE_NAME]
+
+        second_id = client.post("/login").cookies[SESSION_COOKIE_NAME]
+
+        assert second_id == first_id
+
+    def test_a_request_outliving_its_rotated_session_keeps_the_new_cookie(
+        self,
+    ) -> None:
+        client = TestClient(create_test_app())
+        client.post("/remember")
+
+        response = client.post("/stale")
+
+        assert "set-cookie" not in response.headers
 
     def test_logging_out_forgets_the_session(self) -> None:
         client = TestClient(create_test_app())
@@ -119,6 +186,18 @@ class TestRevokedSessionsCloseTheirSockets:
         phone.post("/revoke")
 
         assert ids <= set(close_login_sessions.await_args.args[0])
+
+    def test_logging_in_over_another_users_session_closes_its_sockets(
+        self, close_login_sessions
+    ) -> None:
+        attacker = TestClient(create_test_app())
+        planted_id = attacker.post("/login_other").cookies[SESSION_COOKIE_NAME]
+        victim = TestClient(create_test_app())
+        victim.cookies.set(SESSION_COOKIE_NAME, planted_id)
+
+        victim.post("/login")
+
+        close_login_sessions.assert_awaited_once_with([planted_id])
 
     def test_a_cookie_for_a_gone_session_closes_nothing(
         self, close_login_sessions

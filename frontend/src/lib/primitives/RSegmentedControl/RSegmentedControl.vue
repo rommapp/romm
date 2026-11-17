@@ -216,6 +216,7 @@ function showBadge(badge: SegmentedControlItem<T>["badge"]): boolean {
         class="r-segmented-control__btn"
         :class="{ 'r-segmented-control__btn--active': item.id === modelValue }"
         :aria-label="item.ariaLabel"
+        :aria-current="item.id === modelValue ? 'page' : undefined"
       >
         <RTooltip
           v-if="item.title"

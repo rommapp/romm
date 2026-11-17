@@ -56,6 +56,7 @@ import {
   type ListSortKey,
 } from "@/components/Gallery/listColumns";
 import { GameCard, GameCardSkeleton } from "@/components/GameCard";
+import PageHeadBand from "@/components/shared/PageHeadBand.vue";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import { coverRatio, isBoxartStyle } from "@/composables/useCoverArt";
 import { useCssLength } from "@/composables/useCssLength";
@@ -83,7 +84,7 @@ import {
 import { useUISettings } from "@/composables/useUISettings";
 import { useVirtualScrollDebug } from "@/composables/useVirtualScrollDebug";
 import { useWebpSupport } from "@/composables/useWebpSupport";
-import { RDivider, REmptyState, RLetterHeading, RVirtualScroller } from "@/lib";
+import { REmptyState, RLetterHeading, RVirtualScroller } from "@/lib";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryRoms, {
   DEFAULT_ORDER_BY,
@@ -126,6 +127,9 @@ interface Props {
   /** Sort applied while the URL names none. `null` orders by search
    * relevance (Search). */
   defaultOrderBy?: GalleryOrderKey | null;
+  /** Game count of the unfiltered gallery, shown against the result count
+   *  while a search or filter narrows it. Unset hides the count. */
+  scopeTotal?: number | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -138,13 +142,14 @@ const props = withDefaults(defineProps<Props>(), {
   showPlatformsInFilter: true,
   showPlatformColumn: true,
   defaultOrderBy: DEFAULT_ORDER_BY,
+  scopeTotal: undefined,
 });
 
 defineSlots<{
   /** View-specific header (InfoPanel / PageHeader / etc). Rendered in
    * the scroller's `#prepend` slot, so it scrolls naturally with the rest
-   * of the content. Must NOT carry a divider of its own; the shell
-   * paints the single divider at the bottom of the prepend band. */
+   * of the content. Must NOT carry a divider of its own; the shell sets it
+   * in a PageHeadBand, which paints the divider. */
   header(): unknown;
 }>();
 
@@ -306,6 +311,18 @@ const { supportsWebp } = useWebpSupport();
 
 const { total, charIndex, initialFetching, refreshing, orderBy, orderDir } =
   storeToRefs(galleryRoms);
+
+// A narrowed gallery shows how many of its games match inside the search field.
+const searchSuffix = computed(() =>
+  props.scopeTotal !== undefined &&
+  (filterActiveCount.value > 0 || searchTerm.value) &&
+  galleryRoms.metadataLoaded
+    ? t("gallery.results-of-total", {
+        count: total.value,
+        total: props.scopeTotal,
+      })
+    : undefined,
+);
 
 const { groupBy, layout, toolbarPosition } = useGalleryMode();
 
@@ -1038,12 +1055,13 @@ defineExpose({
            scroller's flow: the header scrolls away under the top bar, and
            the toolbar pins right below the top bar as a glass strip. -->
       <template #prepend>
-        <template v-if="hasHeader">
-          <div class="r-shell__header">
-            <slot name="header" />
-          </div>
-          <RDivider class="r-shell__header-divider" />
-        </template>
+        <PageHeadBand
+          v-if="hasHeader"
+          class="r-shell__header"
+          :followed-by="toolbarPosition === 'header' ? 'toolbar' : 'content'"
+        >
+          <slot name="header" />
+        </PageHeadBand>
         <div v-else class="r-shell__nav-spacer" />
 
         <template v-if="toolbarPosition === 'header'">
@@ -1065,6 +1083,7 @@ defineExpose({
               show-search
               :search="searchInput"
               :search-placeholder="searchPlaceholder"
+              :search-suffix="searchSuffix"
               :autofocus-search="autofocusSearch"
               show-filter
               :filter-active-count="filterActiveCount"
@@ -1303,6 +1322,12 @@ defineExpose({
   --r-shell-strip: calc(var(--r-alpha-strip-w) + var(--r-alpha-strip-gap));
   /* Where the right-anchored overlays sit: clear of the scrollbar and the inset. */
   --r-shell-edge-r: calc(var(--r-shell-scrollbar-w, 0px) + var(--r-safe-r));
+  /* The right gutter less the scrollbar it sits beside, so content ends where
+     the top bar and the document-scrolled pages do. */
+  --r-shell-pad-r: max(
+    0px,
+    calc(var(--r-gutter-r) - var(--r-shell-scrollbar-w, 0px))
+  );
   /* Lets the strip (a sibling) animate against the scroller's scroll. */
   timeline-scope: --r-shell-scroll;
   flex: 1;
@@ -1352,6 +1377,8 @@ html[data-bp~="sm-and-down"] .r-shell {
    class name is load-bearing in here. */
 html[data-bp~="sm-and-down"] .r-shell {
   --r-list-bleed: var(--r-row-pad);
+  /* The rows bleed by the full gutter, so a narrower pad would overflow it. */
+  --r-shell-pad-r: var(--r-gutter-r);
 }
 html[data-bp~="sm-and-down"] .r-shell__list-header {
   margin-inline: calc(-1 * var(--r-list-bleed, 0px));
@@ -1378,7 +1405,7 @@ html[data-bp~="md-and-up"] .r-shell__list-header {
   /* A stable gutter keeps the row packing from shifting when the content
      starts or stops overflowing. */
   scrollbar-gutter: stable;
-  padding: 0 calc(var(--r-gutter-r) + var(--r-shell-strip)) 60px
+  padding: 0 calc(var(--r-shell-pad-r) + var(--r-shell-strip)) 60px
     var(--r-gutter-l);
 }
 
@@ -1386,21 +1413,14 @@ html[data-bp~="md-and-up"] .r-shell__list-header {
   width: 100%;
 }
 
-/* Header band: `display: flow-root` establishes a new block-formatting
-   context so child margins don't collapse out visually. */
+/* The scroller starts under the top bar, so the band clears it. */
 .r-shell__header {
-  display: flow-root;
-  padding-top: calc(var(--r-nav-h) + 32px);
+  --r-page-head-band-offset: var(--r-nav-h);
 }
 /* Without a header this clears the top bar instead; the scroller's padding
    can't, as it would also offset the sticky toolbar. */
 .r-shell__nav-spacer {
   height: var(--r-nav-h);
-}
-
-/* Divider between header and toolbar; scrolls away with the header. */
-.r-shell__header-divider {
-  margin-bottom: 16px;
 }
 
 /* Flow-packed wrapping row: same-height, natural-width cards. The packer
@@ -1441,21 +1461,19 @@ html[data-bp~="md-and-up"] .r-shell__list-header {
   padding: var(--r-space-6) 0;
 }
 
-/* Only the rows share their width with the strip column; the header, the
-   divider and the toolbar run to the right edge over it. */
+/* Only the rows share their width with the strip column; the header band
+   and the toolbar run to the right edge over it. */
 .r-shell__header,
-.r-shell__header-divider,
 .r-shell__toolbar {
   margin-right: calc(-1 * var(--r-shell-strip));
 }
 
 /* When the list scrolls horizontally (columns wider than the viewport), the
-   page chrome (view header, divider and in-flow toolbar) belongs to the
+   page chrome (header band and in-flow toolbar) belongs to the
    page, not the table, so pin them to the left (`left: 0`). They stay in place
    while only the column header and rows scroll sideways. `left` engages only
    while the scroller has horizontal overflow, i.e. in list mode. */
 .r-shell--list .r-shell__header,
-.r-shell--list .r-shell__header-divider,
 .r-shell--list .r-shell__toolbar {
   position: sticky;
   left: 0;
@@ -1470,7 +1488,7 @@ html[data-bp~="md-and-up"] .r-shell__list-header {
 }
 /* Its pinned glass also runs under the strip column, out to the right edge. */
 .r-shell__list-header::before {
-  right: calc(-1 * (var(--r-gutter-r) + var(--r-shell-strip)));
+  right: calc(-1 * (var(--r-shell-pad-r) + var(--r-shell-strip)));
 }
 
 /* The strip overlays the scroller's right gutter from the pinned toolbar's
@@ -1536,7 +1554,7 @@ html[data-bp~="md-and-up"] .r-shell__list-header {
 }
 /* No strip: line up with the cards' right edge instead. */
 .r-shell--no-strip .r-shell__back-to-top {
-  right: calc(var(--r-row-pad) + var(--r-shell-edge-r));
+  right: calc(var(--r-shell-scrollbar-w, 0px) + var(--r-shell-pad-r));
 }
 html[data-bp~="sm-and-down"] .r-shell__back-to-top {
   bottom: calc(var(--r-bottom-nav-h) + var(--r-safe-b) + var(--r-space-4));
@@ -1562,9 +1580,6 @@ html[data-bp~="sm-and-down"] .r-shell__scroller::after {
   content: "";
   display: block;
   height: calc(var(--r-bottom-nav-h) + var(--r-safe-b) + 24px);
-}
-html[data-bp~="xs"] .r-shell__header {
-  padding-top: calc(var(--r-nav-h) + 16px);
 }
 html[data-bp~="xs"] .r-shell__row {
   gap: 12px;

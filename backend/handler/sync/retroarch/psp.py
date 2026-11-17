@@ -24,7 +24,12 @@ from redis.exceptions import RedisError
 
 from config import SYNC_RETROARCH_PSP_SERIAL_MAP
 from handler.auth.rom_visibility import UNRESTRICTED
-from handler.database import db_platform_handler, db_rom_handler, db_save_handler
+from handler.database import (
+    db_platform_handler,
+    db_rom_handler,
+    db_save_handler,
+    db_snapshot_handler,
+)
 from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
 from handler.redis_handler import async_cache
 from handler.sync.retroarch import sync_handler
@@ -34,6 +39,7 @@ from models.assets import Save
 from models.rom import Rom
 from models.user import User
 from utils.memory_cards import content_hash_of_bytes
+from utils.uploads import apply_datetime_tag
 from utils.zip_cache import ensure_zipfile_writable
 
 _IGNORED_CATEGORY = "SYSTEM"
@@ -45,6 +51,11 @@ _PENDING_CATEGORY = "psp_pending"
 # not one, and inflating it on every manifest build would exhaust memory.
 _BUNDLE_MAX_MEMBERS = 64
 BUNDLE_MAX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024
+
+# A PSP save's PARAM.SFO is under 5 KiB and its TITLE field holds 128 bytes, so
+# anything larger is crafted, and a longer title would become a huge ROM search.
+_SFO_MAX_BYTES = 64 * 1024
+_SFO_TITLE_MAX_LENGTH = 128
 
 _BUNDLE_FOLDER_PATTERN = re.compile(r"^PSP-(.+?)(?: \[.*])?\.zip$")
 
@@ -119,7 +130,7 @@ def _latest_bundles_by_folder(
     latest: dict[str, Save] = {}
     for save in saves:
         save_folder = _bundle_folder(save.file_name)
-        if save_folder is None or not can_see(save.rom):
+        if save_folder is None or not can_see(save.attached_rom):
             continue
         current = latest.get(save_folder)
         if current is None or sync_handler.recency_key(save) > sync_handler.recency_key(
@@ -160,6 +171,8 @@ def parse_sfo(data: bytes) -> dict[str, str | int]:
     """
     if len(data) < 20 or data[0:4] != b"\x00PSF":
         raise ValueError("Not a PARAM.SFO file (bad magic)")
+    if len(data) > _SFO_MAX_BYTES:
+        raise ValueError(f"PARAM.SFO file too large ({len(data)} bytes)")
 
     try:
         return _parse_sfo_tables(data)
@@ -235,7 +248,8 @@ def _resolve_rom(
     serial = _derive_serial(save_folder)
     mapped_title = SYNC_RETROARCH_PSP_SERIAL_MAP.get(serial)
     if mapped_title:
-        rom = sync_handler.resolve_rom(mapped_title, can_see)
+        # A SAVEDATA folder is PPSSPP's layout, whatever core folder holds it.
+        rom = sync_handler.resolve_rom(mapped_title, can_see, emulator="ppsspp")
         if rom:
             return rom
         log.warning(
@@ -372,6 +386,9 @@ async def _resolve_folder_rom(
             log.warning(f"Failed to parse PARAM.SFO: {exc}")
         else:
             sfo_title = title if isinstance(title, str) else None
+            if sfo_title and len(sfo_title) > _SFO_TITLE_MAX_LENGTH:
+                log.warning(f"Ignoring PARAM.SFO TITLE of {len(sfo_title)} characters")
+                sfo_title = None
 
     rom = await asyncio.to_thread(_resolve_rom, info.save_folder, sfo_title, can_see)
     if rom:
@@ -394,8 +411,18 @@ async def _resolve_folder_rom(
 
 
 async def _add_bundle(
-    user: User, info: PspFilePath, rom: Rom, entries: dict[str, bytes]
+    user: User,
+    info: PspFilePath,
+    rom: Rom,
+    entries: dict[str, bytes],
+    beside_held: bool = False,
 ) -> None:
+    """Write a new bundle for the folder.
+
+    Args:
+        beside_held: a sync channel holds the folder's bundle, so this one takes
+            a tagged name and never lands on that bundle's file.
+    """
     bundle_path = fs_asset_handler.build_saves_file_path(
         user=user,
         platform_fs_slug=rom.platform.fs_slug,
@@ -403,6 +430,8 @@ async def _add_bundle(
         emulator=info.emulator,
     )
     bundle_name = _bundle_base_name(info.save_folder)
+    if beside_held:
+        bundle_name = apply_datetime_tag(bundle_name)
     zip_bytes = await asyncio.to_thread(_write_bundle, entries)
     await fs_asset_handler.write_file(
         file=zip_bytes, path=bundle_path, filename=bundle_name
@@ -460,10 +489,16 @@ async def put_psp_file(
         if _exceeds_bundle_limits([len(data) for data in merged.values()]):
             raise PspBundleInvalid(info.save_folder)
 
-        if existing:
-            await _rewrite_bundle(existing, merged)
-        else:
+        if existing is None:
             await _add_bundle(user, info, rom, merged)
+        elif db_snapshot_handler.is_asset_frozen(existing):
+            # A sync channel holds the bundle, so the merge becomes a bundle of
+            # its own beside it, as RetroArch's other writes do.
+            await _add_bundle(
+                user, info, existing.attached_rom, merged, beside_held=True
+            )
+        else:
+            await _rewrite_bundle(existing, merged)
 
         await _drop_pending(pending_dir, pending_names)
 
@@ -537,6 +572,12 @@ async def delete_psp_file(
             return
 
         del entries[info.file_name]
+        if db_snapshot_handler.is_asset_frozen(bundle):
+            if entries:
+                await _add_bundle(
+                    user, info, bundle.attached_rom, entries, beside_held=True
+                )
+            return
         if entries:
             await _rewrite_bundle(bundle, entries)
             return

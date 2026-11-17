@@ -125,6 +125,7 @@ def _requires_scopes(
                     raise_auth_error(request)
                 return await func(*args, **kwargs)
 
+            async_wrapper.required_scopes = tuple(scopes)  # type: ignore[attr-defined]
             return async_wrapper  # type: ignore[return-value]
 
         @functools.wraps(func)
@@ -135,6 +136,7 @@ def _requires_scopes(
                 raise_auth_error(request)
             return func(*args, **kwargs)
 
+        sync_wrapper.required_scopes = tuple(scopes)  # type: ignore[attr-defined]
         return sync_wrapper  # type: ignore[return-value]
 
     return decorator
