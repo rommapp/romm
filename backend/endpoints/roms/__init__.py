@@ -775,9 +775,28 @@ def get_roms(
         bool,
         Query(description="Whether to include each rom's file entries."),
     ] = False,
+    rom_ids: Annotated[
+        list[int] | None,
+        Query(
+            description=(
+                "Load exactly these roms, in this order, instead of ranking a page:"
+                " a window the caller sliced from `rom_id_index`. At most `limit`"
+                " ids; ids the caller can't see, or that no longer exist, are left"
+                " out. The sidecars and the total are skipped."
+            )
+        ),
+    ] = None,
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve roms."""
     perms = get_permissions(request)
+    if rom_ids is not None:
+        if len(rom_ids) > params.limit:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"rom_ids takes at most {params.limit} ids",
+            )
+        # The caller already holds the ordered list, so nothing spans the set.
+        with_char_index = with_filter_values = with_rom_id_index = with_total = False
     parsed_released_days = parse_released_days(released_days)
 
     # Normalised once so the query layer and every cache key agree on case.
@@ -943,7 +962,9 @@ def get_roms(
                 else None
             )
 
-        if with_rom_id_index:
+        if rom_ids is not None:
+            page_ids = list(rom_ids)
+        elif with_rom_id_index:
             page_ids = list(rom_id_index[params.offset : params.offset + params.limit])
         else:
             # Ordering the entity itself carries every JSON metadata blob
