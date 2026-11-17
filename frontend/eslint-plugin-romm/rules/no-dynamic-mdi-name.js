@@ -3,7 +3,10 @@
 // An icon name cut off right where a value is appended, such as "mdi-" or "mdi-home-".
 const PARTIAL_NAME = /(?:^|[^a-z0-9-])mdi-[a-z0-9-]*$/;
 
-/** @param {import("estree").Node} node */
+/**
+ * @param {import("estree").Node} node
+ * @returns {node is import("estree").SimpleLiteral & { value: string }}
+ */
 function isStringLiteral(node) {
   return node.type === "Literal" && typeof node.value === "string";
 }
