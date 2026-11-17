@@ -1,5 +1,4 @@
-# Reached through workbox-build (glob ^11, no patched 11.x) and @vue/test-utils >
-# js-beautify (glob 13.0.7, patched but still inside the advisory's range).
+# Reached through workbox-build (glob ^11) and @vue/test-utils > js-beautify (glob ^13).
 [[IgnoredVulns]]
 id = "GHSA-3g3m-2fjr-6pw4"
 effectiveUntil = 2027-05-16
