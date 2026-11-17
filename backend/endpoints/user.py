@@ -22,7 +22,7 @@ from handler.audit_handler import (
 )
 from handler.auth.base_handler import auth_handler
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_admin_for_admin
+from handler.auth.dependencies import assert_admin_for_admin, is_scoped_admin
 from handler.database import (
     db_client_token_handler,
     db_device_handler,
@@ -202,6 +202,7 @@ def add_user(
         username=username.lower(),
         hashed_password=auth_handler.get_password_hash(password),
         email=email.lower() or None,
+        email_trusted=not admins_exist or is_scoped_admin(request, Scope.USERS_WRITE),
         role=coerced_role,
     )
 
@@ -548,6 +549,11 @@ async def update_user(
             )
 
         cleaned_data["email"] = new_email.lower() or None
+
+    # Saving a user's email as an admin vouches for it, even when unchanged.
+    by_admin = is_scoped_admin(request, Scope.USERS_WRITE)
+    if new_email is not None or (by_admin and email and not db_user.email_trusted):
+        cleaned_data["email_trusted"] = by_admin
 
     # You can't change your own role
     if form_data.role and request.user.id != id:

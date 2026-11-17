@@ -26,6 +26,7 @@ from handler.auth.middleware.redis_session_middleware import RedisSessionMiddlew
 from handler.database import (
     db_device_handler,
     db_notification_handler,
+    db_user_handler,
 )
 from handler.database.users_handler import DBUsersHandler
 from handler.device_install import device_install_handler
@@ -155,6 +156,8 @@ def test_add_user_from_admin_user(client, access_token: str, new_user_role: Role
     user = response.json()
     assert user["username"] == "new_user"
     assert user["role"] == new_user_role.value
+    created = db_user_handler.get_user(user["id"])
+    assert created and created.email_trusted
 
 
 @pytest.mark.parametrize(
@@ -382,6 +385,22 @@ def test_a_rejected_registration_leaves_the_invite_usable(
         },
     )
     assert response.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_an_invitee_chosen_email_is_not_trusted(client, access_token: str):
+    response = client.post(
+        "/api/users/register",
+        json={
+            "username": "test_invitee",
+            "email": "invitee@example.com",
+            "password": "a-good-password",
+            "token": _invite_token(client, access_token),
+        },
+    )
+
+    assert response.status_code == HTTPStatus.CREATED
+    created = db_user_handler.get_user(response.json()["id"])
+    assert created and not created.email_trusted
 
 
 def test_overlapping_registrations_spend_one_invite_once(client, access_token: str):

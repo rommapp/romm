@@ -675,6 +675,62 @@ def test_admin_changes_an_oidc_linked_users_email(
     assert response.json()["email"] == "fixed@example.com"
 
 
+def test_an_email_a_user_sets_for_themselves_is_not_trusted(
+    client, viewer_access_token: str, viewer_user: User
+):
+    db_user_handler.update_user(
+        viewer_user.id, {"email": "viewer@example.com", "email_trusted": True}
+    )
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={
+            "email": "someone-else@example.com",
+            "current_password": "test_viewer_password",
+        },
+        headers=bearer(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    updated = db_user_handler.get_user(viewer_user.id)
+    assert updated and not updated.email_trusted
+
+
+def test_an_email_a_delegated_user_manager_sets_is_not_trusted(
+    client, admin_user: User, viewer_user: User, editor_user: User
+):
+    token = _delegated_user_manager_token(viewer_user)
+
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"email": "editor@example.com"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    updated = db_user_handler.get_user(editor_user.id)
+    assert updated and not updated.email_trusted
+
+
+@pytest.mark.parametrize(
+    "email", ["viewer@example.com", "new@example.com"], ids=["unchanged", "changed"]
+)
+def test_an_admin_saving_a_users_email_trusts_it(
+    client, access_token: str, viewer_user: User, email: str
+):
+    db_user_handler.update_user(viewer_user.id, {"email": "viewer@example.com"})
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"email": email},
+        headers=bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    updated = db_user_handler.get_user(viewer_user.id)
+    assert updated and updated.email_trusted
+
+
 def test_a_password_less_account_cannot_set_a_password_with_a_token(
     client, viewer_access_token: str, viewer_user: User
 ):

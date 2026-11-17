@@ -835,12 +835,14 @@ def _add_user(
     oidc_sub: str | None = None,
     oidc_issuer: str | None = ISSUER,
     enabled: bool = True,
+    email_trusted: bool = True,
 ) -> User:
     return db_user_handler.add_user(
         User(
             username=username,
             hashed_password="",
             email=email,
+            email_trusted=email_trusted,
             oidc_issuer=oidc_issuer if oidc_sub else None,
             oidc_sub=oidc_sub,
             enabled=enabled,
@@ -879,7 +881,9 @@ async def test_oidc_login_follows_an_email_change_at_the_provider(
     mock_token,
     mock_discovery,
 ):
-    existing = _add_user("testuser", "old@example.com", oidc_sub="sub-1")
+    existing = _add_user(
+        "testuser", "old@example.com", oidc_sub="sub-1", email_trusted=False
+    )
     mock_token["userinfo"]["sub"] = "sub-1"
     mock_token["userinfo"]["email"] = "new@example.com"
 
@@ -890,6 +894,26 @@ async def test_oidc_login_follows_an_email_change_at_the_provider(
     assert user is not None
     assert user.id == existing.id
     assert user.email == "new@example.com"
+    assert user.email_trusted
+
+
+async def test_oidc_login_refuses_to_link_an_account_by_an_untrusted_email(
+    mocker, mock_oidc_enabled, mock_token, mock_discovery
+):
+    mocker.patch("handler.auth.base_handler.OIDC_CLAIM_ROLES", "roles")
+    mocker.patch("handler.auth.base_handler.OIDC_ROLE_ADMIN", frozenset({"admin"}))
+    existing = _add_user("claimant", "test@example.com", email_trusted=False)
+    mock_token["userinfo"]["sub"] = "sub-1"
+    mock_token["userinfo"]["roles"] = ["admin"]
+
+    with pytest.raises(HTTPException) as exc:
+        await OpenIDHandler().get_current_active_user_from_openid_token(mock_token)
+
+    assert exc.value.status_code == 403
+    unchanged = db_user_handler.get_user(existing.id)
+    assert unchanged is not None
+    assert unchanged.oidc_sub is None
+    assert unchanged.role == Role.USER
 
 
 async def test_oidc_login_keeps_the_email_when_another_user_holds_the_new_one(
@@ -1007,6 +1031,7 @@ async def test_oidc_registration_stores_the_identity(
 
     assert user is not None
     assert user.oidc_sub == "sub-1"
+    assert user.email_trusted
     assert db_user_handler.get_user_by_oidc_identity(ISSUER, "sub-1") is not None
 
 

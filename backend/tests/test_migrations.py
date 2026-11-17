@@ -269,6 +269,7 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0161_save_channels.py", "states"),
         ("0161_save_channels.py", "screenshots"),
         ("0161_save_channels.py", "rom_files"),
+        ("0162_user_email_trusted.py", "users"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
