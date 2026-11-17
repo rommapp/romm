@@ -76,6 +76,16 @@ jobs:
           sync-args: --extra test
           apt-packages: 7zip
 
+      # The ROM patcher tests run the real patcher.js, which needs RomPatcher.js.
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: frontend/.nvmrc
+
+      - name: Install the ROM patcher dependencies
+        working-directory: backend/utils/rom_patcher
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
       - name: Initiate MariaDB database
         if: matrix.db == 'mariadb'
         env:

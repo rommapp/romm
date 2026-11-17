@@ -1,6 +1,9 @@
 import json
 import os
+import shutil
+import struct
 import zipfile
+import zlib
 from collections.abc import Awaitable, Callable, Iterator
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -17,6 +20,10 @@ from utils.rom_patcher import (
     apply_patch,
 )
 from utils.rom_patcher import patcher as rom_patcher
+from utils.rom_patcher.patcher import (
+    MIN_PATCH_OUTPUT_GROWTH_BYTES,
+    max_patch_output_size,
+)
 from utils.zip_cache import ensure_zipfile_writable
 
 
@@ -45,6 +52,23 @@ def _fake_patcher(
         return validated
 
     return patch
+
+
+@pytest.mark.parametrize(
+    ("rom_size", "cap", "expected"),
+    [
+        (4, 4 * 1024**3, 4 + MIN_PATCH_OUTPUT_GROWTH_BYTES),
+        (512 * 1024**2, 4 * 1024**3, 1024 * 1024**2),
+        (3 * 1024**3, 4 * 1024**3, 4 * 1024**3),
+    ],
+    ids=["small_rom_grows_by_the_minimum", "large_rom_doubles", "global_cap"],
+)
+def test_max_patch_output_size(
+    monkeypatch: pytest.MonkeyPatch, rom_size: int, cap: int, expected: int
+):
+    monkeypatch.setattr(rom_patcher, "ROM_PATCHER_MAX_FILE_SIZE_BYTES", cap)
+
+    assert max_patch_output_size(rom_size) == expected
 
 
 def test_supported_patch_extensions_include_xdelta():
@@ -378,7 +402,7 @@ class TestPatcherProcess:
         patch.write_bytes(b"+patch")
         return rom, patch, tmp_path / "out" / "patched.sfc"
 
-    async def test_runs_the_patcher_script_on_the_three_paths(
+    async def test_runs_the_patcher_script_on_the_paths_and_output_cap(
         self,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
@@ -397,7 +421,32 @@ class TestPatcherProcess:
 
         assert output.read_bytes() == b"rom+patch"
         argv = json.loads((tmp_path / "argv.json").read_text())
-        assert argv == [str(PATCHER_SCRIPT), str(rom), str(patch), str(output)]
+        assert argv == [
+            str(PATCHER_SCRIPT),
+            str(rom),
+            str(patch),
+            str(output),
+            str(max_patch_output_size(len(b"rom"))),
+        ]
+
+    async def test_an_output_over_the_cap_is_an_input_error(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        files: tuple[Path, Path, Path],
+    ):
+        rom, patch, output = files
+        install_fake_node(
+            tmp_path,
+            monkeypatch,
+            """
+            sys.stderr.write(json.dumps({"error": "declares 2147483647 bytes"}))
+            sys.exit(3)
+            """,
+        )
+
+        with pytest.raises(PatcherInputError, match="too large"):
+            await apply_patch(rom, patch, output)
 
     @pytest.mark.parametrize(
         "stdout",
@@ -548,6 +597,60 @@ class TestPatcherProcess:
             "patched.zip",
             "translation.bps",
         ]
+
+
+def _ups_number(value: int) -> bytes:
+    encoded = bytearray()
+    while True:
+        low = value & 0x7F
+        value >>= 7
+        if value == 0:
+            encoded.append(0x80 | low)
+            return bytes(encoded)
+        encoded.append(low)
+        value -= 1
+
+
+def _ups_patch(source: bytes, target_size: int, target: bytes) -> bytes:
+    """A UPS patch with no records, declaring ``target_size`` as its output."""
+    body = b"UPS1" + _ups_number(len(source)) + _ups_number(target_size)
+    body += struct.pack("<II", zlib.crc32(source), zlib.crc32(target))
+    return body + struct.pack("<I", zlib.crc32(body))
+
+
+@pytest.mark.skipif(
+    shutil.which("node") is None
+    or not (
+        (PATCHER_SCRIPT.parent / "rom-patcher-js").exists()
+        or (PATCHER_SCRIPT.parent / "node_modules" / "rom-patcher").exists()
+    ),
+    reason="needs node and RomPatcher.js (npm ci in utils/rom_patcher)",
+)
+class TestRealPatcher:
+    """patcher.js with the real RomPatcher.js, as the size guard lives there."""
+
+    async def test_a_patch_declaring_a_huge_output_is_rejected(self, tmp_path: Path):
+        rom = tmp_path / "game.bin"
+        patch = tmp_path / "bomb.ups"
+        output = tmp_path / "patched.bin"
+        rom.write_bytes(b"ABCD")
+        patch.write_bytes(_ups_patch(b"ABCD", 2**31 - 1, b""))
+
+        with pytest.raises(PatcherInputError, match="too large"):
+            await apply_patch(rom, patch, output)
+
+        assert not output.exists()
+
+    async def test_a_patch_growing_the_rom_within_the_cap_applies(self, tmp_path: Path):
+        rom = tmp_path / "game.bin"
+        patch = tmp_path / "expand.ups"
+        output = tmp_path / "patched.bin"
+        rom.write_bytes(b"ABCD")
+        patch.write_bytes(_ups_patch(b"ABCD", 6, b"ABCD\0\0"))
+
+        assert await apply_patch(rom, patch, output) is True
+
+        assert output.read_bytes() == b"ABCD\0\0"
 
 
 @pytest.mark.asyncio
