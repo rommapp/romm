@@ -398,7 +398,7 @@ SS_MEDIA_KINDS = ("bezel", "box2d", "box2d_side", "box2d_back", "box3d", "fanart
                   "fullbox", "logo", "manual", "marquee", "miximage", "miximage_v2",
                   "physical", "screenshot", "steamgrid", "title_screen", "video",
                   "video_normalized")  # fmt: skip
-# Linked by ScreenScraper but never downloaded, so no `<kind>_path`.
+# Stored as a url only, with no `<kind>_path` key.
 SS_URL_ONLY_KINDS = {"fullbox", "manual", "screenshot", "steamgrid"}
 
 
@@ -598,7 +598,7 @@ def build_igdb_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]
         "ports": [],
         "similar_games": [_similar_game(rng) for _ in range(rng.randint(0, 4))],
     }
-    # IGDB always returns ten.
+    # Every measured IGDB match had ten.
     similar_games = metadata["similar_games"]
     similar_games += [_similar_game(more) for _ in range(10 - len(similar_games))]
     return metadata

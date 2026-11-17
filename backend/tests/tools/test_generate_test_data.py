@@ -148,9 +148,7 @@ def test_metadata_extras_never_shift_the_rows(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     seeded = _rom_rows(monkeypatch, tmp_path / "seeded")
-    monkeypatch.setattr(
-        generate_test_data, "extra_rng", lambda _: random.Random(0)  # nosec B311
-    )
+    monkeypatch.setattr(generate_test_data, "extra_rng", lambda _: random.Random(0))
 
     reseeded = _rom_rows(monkeypatch, tmp_path / "reseeded")
 
