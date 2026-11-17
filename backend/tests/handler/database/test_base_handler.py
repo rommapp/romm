@@ -1,6 +1,8 @@
+import math
+
 import pytest
 
-from handler.database.base_handler import read_committed, sync_engine
+from handler.database.base_handler import load_json, read_committed, sync_engine
 
 
 class _Cursor:
@@ -58,3 +60,28 @@ def test_read_committed_unless_statement_binlog(
     set_isolation = "SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED"
     assert (set_isolation in cursor.executed) is sets_it
     assert connection.committed
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ('{"genres": ["RPG"]}', {"genres": ["RPG"]}),
+        (b'{"rating": 81.5}', {"rating": 81.5}),
+        ('{"score": 1e400}', {"score": math.inf}),
+    ],
+    ids=["text", "bytes", "past float range"],
+)
+def test_load_json_decodes_what_json_accepts(raw: str | bytes, expected: object):
+    # Act
+    loaded = load_json(raw)
+
+    # Assert
+    assert loaded == expected
+
+
+def test_load_json_keeps_nan_that_orjson_refuses():
+    # Act
+    loaded = load_json('{"score": NaN}')
+
+    # Assert
+    assert math.isnan(loaded["score"])
