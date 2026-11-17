@@ -2,8 +2,9 @@ import threading
 from base64 import b64encode
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+import bcrypt
 import pytest
 from fastapi import status
 from fastapi.exceptions import HTTPException
@@ -71,14 +72,31 @@ def test_authenticate_user(admin_user: User):
     assert current_user.id == admin_user.id
 
 
-def test_authenticate_user_unknown_username_checks_a_hash():
-    with patch.object(
-        auth_handler, "verify_password", wraps=auth_handler.verify_password
-    ) as verify_password:
+def _assert_ran_real_bcrypt_check(checkpw: MagicMock) -> None:
+    # A placeholder hash is rejected before bcrypt runs, so check the last call.
+    hashed = checkpw.call_args.args[1]
+    assert bcrypt.checkpw(b"probe", hashed) is False
+
+
+def test_authenticate_user_unknown_username_runs_bcrypt():
+    with patch.object(bcrypt, "checkpw", wraps=bcrypt.checkpw) as checkpw:
         assert auth_handler.authenticate_user("no_such_user", "password") is None
 
-    verify_password.assert_called_once()
-    assert verify_password.call_args.args[0] == "password"
+    _assert_ran_real_bcrypt_check(checkpw)
+
+
+@pytest.mark.parametrize(
+    "stored_hash", ["3f2b1c7e-0c1d-4f5a-9a2b-8e7d6c5b4a39", "", None]
+)
+def test_authenticate_user_unusable_hash_runs_bcrypt(
+    admin_user: User, stored_hash: str | None
+):
+    db_user_handler.update_user(admin_user.id, {"hashed_password": stored_hash})
+
+    with patch.object(bcrypt, "checkpw", wraps=bcrypt.checkpw) as checkpw:
+        assert auth_handler.authenticate_user("test_admin", stored_hash or "") is None
+
+    _assert_ran_real_bcrypt_check(checkpw)
 
 
 def test_authenticate_user_wrong_password(admin_user: User):
