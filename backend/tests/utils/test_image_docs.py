@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from tests._zipfile_shim import reload_zipfile
 
 from utils import archives, image_docs
 from utils.image_docs import (
@@ -15,6 +16,7 @@ from utils.image_docs import (
 
 
 def _make_cbz(path: Path, members: dict[str, bytes]) -> Path:
+    reload_zipfile()
     with zipfile.ZipFile(path, "w") as archive:
         for name, data in members.items():
             archive.writestr(name, data)
@@ -97,6 +99,17 @@ class TestReadImageDocPage:
     ):
         monkeypatch.setattr(image_docs, "MAX_IMAGE_DOC_PAGE_BYTES", 4)
         path = _make_cbz(tmp_path / "issue.cbz", {"a.jpg": b"too big"})
+
+        with pytest.raises(ImageDocError):
+            read_image_doc_page(path, 1)
+
+    def test_encrypted_page_is_an_archive_error(self, tmp_path: Path):
+        path = tmp_path / "issue.cbz"
+        reload_zipfile()
+        with zipfile.ZipFile(path, "w") as archive:
+            archive.writestr("a.jpg", b"secret")
+            # zipfile can't encrypt, but the flag alone makes it ask for a password.
+            archive.infolist()[0].flag_bits |= 0x1
 
         with pytest.raises(ImageDocError):
             read_image_doc_page(path, 1)

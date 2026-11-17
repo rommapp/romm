@@ -5,6 +5,7 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from pytest_mock import MockerFixture
+from tests._zipfile_shim import reload_zipfile
 from tests.auth_helpers import bearer, hide, user_headers
 
 from handler.database import db_rom_handler
@@ -19,6 +20,7 @@ PAGES = {"02.png": b"\x89PNG second", "01.jpg": b"\xff\xd8 first"}
 
 def _write_cbz(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    reload_zipfile()
     with zipfile.ZipFile(path, "w") as archive:
         for name, data in PAGES.items():
             archive.writestr(name, data)

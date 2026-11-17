@@ -1,7 +1,5 @@
 <script setup lang="ts">
-// ImageDocViewer (v2): pages through an image doc (a .cbz/.cbr archive of page
-// images) one image at a time, with the same chrome as PdfViewer. The backend
-// lists and extracts the pages, so the archive itself never has to download.
+// The backend serves pages one at a time, so the archive never has to download.
 import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import ViewerZoomControls from "@/components/GameDetails/ViewerZoomControls.vue";
@@ -365,13 +363,12 @@ function onTurnKeydown(event: KeyboardEvent) {
             @load="onImageLoad"
             @error="onImageError"
           />
-          <!-- Bare hit zones over each half of the page: no chrome to draw, so
-               RBtn's sizing and ripple would only need undoing. -->
+          <!-- aria-disabled, not disabled: they hold focus for the page keys. -->
           <button
             type="button"
             class="r-imgdoc__turn r-imgdoc__turn--prev"
             :aria-label="t('common.previous-page')"
-            :disabled="page <= 1"
+            :aria-disabled="page <= 1"
             @click="goTo(page - 1)"
             @keydown="onTurnKeydown"
           />
@@ -379,7 +376,7 @@ function onTurnKeydown(event: KeyboardEvent) {
             type="button"
             class="r-imgdoc__turn r-imgdoc__turn--next"
             :aria-label="t('common.next-page')"
-            :disabled="page >= pageCount"
+            :aria-disabled="page >= pageCount"
             @click="goTo(page + 1)"
             @keydown="onTurnKeydown"
           />
@@ -488,7 +485,7 @@ html[data-bp~="xs"] .r-imgdoc__step {
   /* The stage clips overflow, so the global focus ring is drawn inside. */
   outline-offset: -3px;
 }
-.r-imgdoc__turn:disabled {
+.r-imgdoc__turn[aria-disabled="true"] {
   cursor: default;
 }
 .r-imgdoc__turn--prev {

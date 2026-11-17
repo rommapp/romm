@@ -87,6 +87,24 @@ describe("ImageDocViewer", () => {
     expect(atEnd.defaultPrevented).toBe(false);
   });
 
+  it("keeps the turn zones focusable at either end so the keys still work", async () => {
+    const wrapper = mountViewer();
+    await flushPromises();
+    const prev = wrapper.find(".r-imgdoc__turn--prev");
+    const next = wrapper.find(".r-imgdoc__turn--next");
+
+    expect(prev.attributes("disabled")).toBeUndefined();
+    expect(prev.attributes("aria-disabled")).toBe("true");
+
+    await next.trigger("keydown", { key: "End" });
+    expect(next.attributes("disabled")).toBeUndefined();
+    expect(next.attributes("aria-disabled")).toBe("true");
+
+    await next.trigger("keydown", { key: "ArrowLeft" });
+    expect(pageSrc(wrapper)).toBe("/api/roms/1/files/5/pages/2?v=v1");
+    expect(next.attributes("aria-disabled")).toBe("false");
+  });
+
   it("turns back by clicking the left half of the page", async () => {
     progress.restore.mockResolvedValue({ progress: 0.66, lastPage: 2 });
     const wrapper = mountViewer();

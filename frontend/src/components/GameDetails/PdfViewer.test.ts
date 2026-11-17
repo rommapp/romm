@@ -7,7 +7,7 @@ vi.mock("vue-i18n");
 vi.mock("vue3-pdf-app", () => ({
   default: {
     name: "VuePdfApp",
-    props: ["pageScale"],
+    props: { pageScale: String },
     emits: ["pages-rendered"],
     template: `<div class="pdf-app-stub" :data-scale="pageScale" />`,
   },

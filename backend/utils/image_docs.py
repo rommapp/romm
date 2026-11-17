@@ -80,7 +80,14 @@ def _read_zip_member(path: Path, member: str) -> bytes:
                 raise ImageDocError(f"{member} in {path} is too large")
             with archive.open(info) as handle:
                 data = handle.read(MAX_IMAGE_DOC_PAGE_BYTES + 1)
-    except (zipfile.BadZipFile, KeyError, NotImplementedError, OSError) as exc:
+    # zipfile raises RuntimeError for an encrypted member, having no password.
+    except (
+        zipfile.BadZipFile,
+        KeyError,
+        NotImplementedError,
+        OSError,
+        RuntimeError,
+    ) as exc:
         raise ImageDocError(f"Error reading {member} from {path}: {exc}") from exc
     # The header's size can lie; the bytes actually inflated can't.
     if len(data) > MAX_IMAGE_DOC_PAGE_BYTES:
