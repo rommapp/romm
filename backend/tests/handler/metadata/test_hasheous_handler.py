@@ -56,6 +56,15 @@ def test_involvements_are_optional():
     assert metadata["developers"] == []
 
 
+def test_neo_geo_mvs_has_a_hasheous_platform():
+    handler = HasheousHandler()
+
+    platform = handler.get_platform("neogeomvs")
+
+    assert platform["hasheous_id"] == 96
+    assert platform["igdb_id"] == 79
+
+
 def test_alternative_names_hold_every_title_the_proxy_returns():
     # Shaped as the proxy answers for IGDB game 427; a localization may have no name.
     metadata = extract_metadata_from_igdb_rom(
