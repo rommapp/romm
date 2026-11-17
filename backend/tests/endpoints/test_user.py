@@ -145,6 +145,21 @@ def test_rename_to_an_invalid_username_is_rejected(
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
+@pytest.mark.parametrize("suffix", ["\n", "\r\n", "\t"])
+def test_rename_with_trailing_control_characters_is_rejected(
+    client, access_token: str, viewer_user: User, suffix: str
+):
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"username": f"renamed_viewer{suffix}"},
+        headers=_bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    unchanged = db_user_handler.get_user(viewer_user.id)
+    assert unchanged and unchanged.username == "test_viewer"
+
+
 def test_update_to_a_taken_email_is_rejected(
     client, access_token: str, viewer_user: User, editor_user: User
 ):

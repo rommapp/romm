@@ -87,6 +87,13 @@ class TestValidateUsername:
             validate_username("user.name")
         assert True
 
+    @pytest.mark.parametrize("suffix", ["\n", "\r\n", "\t"])
+    def test_trailing_control_characters_are_rejected(self, suffix):
+        with pytest.raises(ValidationError) as exc_info:
+            validate_username(f"username{suffix}")
+        assert "letters, numbers, underscores, and hyphens" in exc_info.value.message
+        assert exc_info.value.field_name == "Username"
+
     def test_invalid_non_ascii_username(self):
         """Test that usernames with non-ASCII characters fail validation."""
         with pytest.raises(ValidationError) as exc_info:
