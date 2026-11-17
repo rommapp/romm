@@ -7,12 +7,13 @@
  * a patch file to a ROM file, writing the result to an output path.
  *
  * Usage:
- *   node patcher.js <rom_path> <patch_path> <output_path>
+ *   node patcher.js <rom_path> <patch_path> <output_path> <max_output_bytes>
  *
  * Exit codes:
  *   0 - success
  *   1 - usage / argument error
  *   2 - patching error
+ *   3 - the patch declares an output larger than max_output_bytes
  */
 
 const path = require("path");
@@ -34,7 +35,9 @@ function resolveRomPatcherBase() {
 const ROM_PATCHER_BASE = resolveRomPatcherBase();
 
 // Load the library (sets globals that RomPatcher.js expects)
-require(path.join(ROM_PATCHER_BASE, "modules", "BinFile.js"));
+const BaseBinFile = require(
+  path.join(ROM_PATCHER_BASE, "modules", "BinFile.js"),
+);
 require(path.join(ROM_PATCHER_BASE, "modules", "HashCalculator.js"));
 require(path.join(ROM_PATCHER_BASE, "modules", "RomPatcher.format.aps_gba.js"));
 require(path.join(ROM_PATCHER_BASE, "modules", "RomPatcher.format.aps_n64.js"));
@@ -49,12 +52,31 @@ require(path.join(ROM_PATCHER_BASE, "modules", "RomPatcher.format.vcdiff.js"));
 const RomPatcher = require(path.join(ROM_PATCHER_BASE, "RomPatcher.js"));
 
 const args = process.argv.slice(2);
-if (args.length !== 3) {
-  console.error("Usage: node patcher.js <rom_path> <patch_path> <output_path>");
+const maxOutputBytes = Number(args[3]);
+if (args.length !== 4 || !Number.isSafeInteger(maxOutputBytes)) {
+  console.error(
+    "Usage: node patcher.js <rom_path> <patch_path> <output_path> <max_output_bytes>",
+  );
   process.exit(1);
 }
 
 const [romPath, patchPath, outputPath] = args;
+
+class OutputTooLargeError extends Error {}
+
+// Every format allocates its output with `new BinFile(size)` from a size read
+// out of the patch, so a tiny patch can otherwise demand gigabytes.
+globalThis.BinFile = new Proxy(BaseBinFile, {
+  construct(target, ctorArgs, newTarget) {
+    const [source] = ctorArgs;
+    if (typeof source === "number" && source > maxOutputBytes) {
+      throw new OutputTooLargeError(
+        `The patch declares an output of ${source} bytes (max ${maxOutputBytes})`,
+      );
+    }
+    return Reflect.construct(target, ctorArgs, newTarget);
+  },
+});
 
 try {
   // Validate input files exist
@@ -115,5 +137,5 @@ try {
   console.error(
     JSON.stringify({ success: false, error: err.message || String(err) }),
   );
-  process.exit(2);
+  process.exit(err instanceof OutputTooLargeError ? 3 : 2);
 }

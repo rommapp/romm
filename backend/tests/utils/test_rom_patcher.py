@@ -17,6 +17,10 @@ from utils.rom_patcher import (
     apply_patch,
 )
 from utils.rom_patcher import patcher as rom_patcher
+from utils.rom_patcher.patcher import (
+    MIN_PATCH_OUTPUT_GROWTH_BYTES,
+    max_patch_output_size,
+)
 from utils.zip_cache import ensure_zipfile_writable
 
 
@@ -45,6 +49,23 @@ def _fake_patcher(
         return validated
 
     return patch
+
+
+@pytest.mark.parametrize(
+    ("rom_size", "cap", "expected"),
+    [
+        (4, 4 * 1024**3, 4 + MIN_PATCH_OUTPUT_GROWTH_BYTES),
+        (512 * 1024**2, 4 * 1024**3, 1024 * 1024**2),
+        (3 * 1024**3, 4 * 1024**3, 4 * 1024**3),
+    ],
+    ids=["small_rom_grows_by_the_minimum", "large_rom_doubles", "global_cap"],
+)
+def test_max_patch_output_size(
+    monkeypatch: pytest.MonkeyPatch, rom_size: int, cap: int, expected: int
+):
+    monkeypatch.setattr(rom_patcher, "ROM_PATCHER_MAX_FILE_SIZE_BYTES", cap)
+
+    assert max_patch_output_size(rom_size) == expected
 
 
 def test_supported_patch_extensions_include_xdelta():
@@ -378,7 +399,7 @@ class TestPatcherProcess:
         patch.write_bytes(b"+patch")
         return rom, patch, tmp_path / "out" / "patched.sfc"
 
-    async def test_runs_the_patcher_script_on_the_three_paths(
+    async def test_runs_the_patcher_script_on_the_paths_and_output_cap(
         self,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
@@ -397,7 +418,32 @@ class TestPatcherProcess:
 
         assert output.read_bytes() == b"rom+patch"
         argv = json.loads((tmp_path / "argv.json").read_text())
-        assert argv == [str(PATCHER_SCRIPT), str(rom), str(patch), str(output)]
+        assert argv == [
+            str(PATCHER_SCRIPT),
+            str(rom),
+            str(patch),
+            str(output),
+            str(max_patch_output_size(len(b"rom"))),
+        ]
+
+    async def test_an_output_over_the_cap_is_an_input_error(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        files: tuple[Path, Path, Path],
+    ):
+        rom, patch, output = files
+        install_fake_node(
+            tmp_path,
+            monkeypatch,
+            """
+            sys.stderr.write(json.dumps({"error": "declares 2147483647 bytes"}))
+            sys.exit(3)
+            """,
+        )
+
+        with pytest.raises(PatcherInputError, match="too large"):
+            await apply_patch(rom, patch, output)
 
     @pytest.mark.parametrize(
         "stdout",
