@@ -244,6 +244,11 @@ class PegasusBlock:
         return paths
 
 
+def single_line(value: object) -> str:
+    """Fold line breaks into spaces so a value cannot start a new Pegasus field."""
+    return " ".join(str(value).splitlines()).strip()
+
+
 def parse_pegasus(content: str) -> list[PegasusBlock]:
     """Split metadata.pegasus.txt into blocks, the first holding any preamble."""
     blocks = [PegasusBlock("preamble")]
@@ -394,11 +399,11 @@ class PegasusExporter:
         lines: list[str] = []
 
         # Game title (required)
-        lines.append(f"game: {rom.name or rom.fs_name}")
+        lines.append(f"game: {single_line(rom.name or rom.fs_name)}")
 
         # File path
         if self.local_export:
-            lines.append(f"file: {join_rel_path(rel_folder, rom.fs_name)}")
+            lines.append(f"file: {single_line(join_rel_path(rel_folder, rom.fs_name))}")
         else:
             if request is None:
                 raise ValueError(
@@ -408,29 +413,29 @@ class PegasusExporter:
 
         # Sort title (use fs_name_no_tags if different from name)
         if rom.name and rom.fs_name_no_tags and rom.name != rom.fs_name_no_tags:
-            lines.append(f"sort-by: {rom.fs_name_no_tags}")
+            lines.append(f"sort-by: {single_line(rom.fs_name_no_tags)}")
 
         if rom.metadatum:
             developer = rom.metadatum.primary_developer
             publisher = rom.metadatum.primary_publisher
             if developer:
-                lines.append(f"developer: {developer}")
+                lines.append(f"developer: {single_line(developer)}")
             if publisher:
-                lines.append(f"publisher: {publisher}")
+                lines.append(f"publisher: {single_line(publisher)}")
 
         # Genres
         if rom.metadatum and rom.metadatum.genres:
             for genre in rom.metadatum.genres:
-                lines.append(f"genre: {genre}")
+                lines.append(f"genre: {single_line(genre)}")
 
         # Tags (rom tags like region, language info)
         if rom.tags:
             for tag in rom.tags:
-                lines.append(f"tag: {tag}")
+                lines.append(f"tag: {single_line(tag)}")
 
         # Player count
         if rom.metadatum and rom.metadatum.player_count:
-            lines.append(f"players: {rom.metadatum.player_count}")
+            lines.append(f"players: {single_line(rom.metadatum.player_count)}")
 
         # Summary / description
         if rom.summary:
@@ -449,14 +454,14 @@ class PegasusExporter:
         # Asset references (relative paths to asset files)
         if exported_assets:
             for asset_key, rel_path in exported_assets.items():
-                lines.append(f"assets.{asset_key}: {rel_path}")
+                lines.append(f"assets.{asset_key}: {single_line(rel_path)}")
 
         # RomM-specific extensions (x-* fields)
         if rom.regions:
-            lines.append(f"x-region: {', '.join(rom.regions)}")
+            lines.append(f"x-region: {single_line(', '.join(rom.regions))}")
 
         if rom.languages:
-            lines.append(f"x-language: {', '.join(rom.languages)}")
+            lines.append(f"x-language: {single_line(', '.join(rom.languages))}")
 
         lines.append(f"x-romm-id: {rom.id}")
 
@@ -502,8 +507,8 @@ class PegasusExporter:
 
         lines: list[str] = list(existing.preamble)
         collection_name, shortname = self._resolve_collection(platform)
-        lines.append(f"collection: {collection_name}")
-        lines.append(f"shortname: {shortname}")
+        lines.append(f"collection: {single_line(collection_name)}")
+        lines.append(f"shortname: {single_line(shortname)}")
         if existing.header is not None:
             lines.extend(existing.header.lines(skip=COLLECTION_HEADER_KEYS))
         lines.append("")
