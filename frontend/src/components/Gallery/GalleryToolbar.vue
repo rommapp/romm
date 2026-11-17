@@ -92,6 +92,8 @@ const props = withDefaults(
     showSearch?: boolean;
     search?: string;
     searchPlaceholder?: string;
+    /** Muted text inside the search field, after the query (the result count). */
+    searchSuffix?: string | undefined;
     /** Ask for the search field to take focus on mount. Only honoured on
      *  precise-pointer, non-gamepad devices (see `autofocusSearchField`). */
     autofocusSearch?: boolean;
@@ -99,11 +101,11 @@ const props = withDefaults(
      *  CollectionsIndex for the kind + visibility filters. Each renders as
      *  an inline slider (≥ sm) and mirrors into the kebab menu below it. */
     segmentFilters?: SegmentFilter[];
-    /** Show the filter button (sits left of the view cluster). It emits
-     *  `click:filter`. */
+    /** Show the filter button (sits left of the view cluster). When set,
+     *  the button emits `click:filter` and renders a badge of the count.
+     *  Gallery views pass through the count from the filter store. */
     showFilter?: boolean;
-    /** Number on the filter button's badge; `null` hides the badge. */
-    filterBadge?: number | null;
+    filterActiveCount?: number;
   }>(),
   {
     position: "header",
@@ -122,10 +124,11 @@ const props = withDefaults(
     showSearch: false,
     search: "",
     searchPlaceholder: "",
+    searchSuffix: undefined,
     autofocusSearch: false,
     segmentFilters: () => [],
     showFilter: false,
-    filterBadge: null,
+    filterActiveCount: 0,
   },
 );
 
@@ -286,6 +289,7 @@ const { smAndUp } = useBreakpoint();
       v-if="showSearch"
       :model-value="search"
       :placeholder="effectiveSearchPlaceholder"
+      :suffix="searchSuffix"
       density="comfortable"
       prefix-label="inline"
       clearable
@@ -301,13 +305,12 @@ const { smAndUp } = useBreakpoint();
     <!-- eslint-enable vuejs-accessibility/no-autofocus -->
 
     <!-- Filter button: sits flush against the search field. Same disc
-         shape as the kebab (outlined icon-only RBtn); the count chip is
-         `RBadge` anchored top-end, slightly overlapping the disc. -->
+         shape as the kebab (outlined icon-only RBtn); the active-count
+         chip is `RBadge` anchored top-end, slightly overlapping the disc. -->
     <RBadge
       v-if="showFilter"
-      :model-value="filterBadge !== null"
-      :content="filterBadge ?? undefined"
-      :max="999"
+      :model-value="filterActiveCount > 0"
+      :content="filterActiveCount"
       color="primary"
       :inset="3"
     >

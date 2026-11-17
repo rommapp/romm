@@ -142,8 +142,8 @@ describe("GalleryShell search refresh", () => {
   });
 });
 
-describe("GalleryShell filter badge", () => {
-  async function mountShell() {
+describe("GalleryShell search result count", () => {
+  async function mountShell(scopeTotal?: number) {
     getRoms.mockImplementation(() => new Promise(() => {}));
     const router = createRouter({
       history: createMemoryHistory(),
@@ -151,7 +151,12 @@ describe("GalleryShell filter badge", () => {
     });
     await router.push("/platform/1");
     const wrapper = shallowMount(GalleryShell, {
-      props: { hasHeader: false, searchPlaceholder: "", emptyMessage: "" },
+      props: {
+        hasHeader: false,
+        searchPlaceholder: "",
+        emptyMessage: "",
+        scopeTotal,
+      },
       global: {
         plugins: [router],
         stubs: {
@@ -164,30 +169,42 @@ describe("GalleryShell filter badge", () => {
     galleryRoms.total = 12;
     galleryRoms.metadataLoaded = true;
     await flushPromises();
-    return () => wrapper.findComponent(GalleryToolbar).props("filterBadge");
+    return () =>
+      wrapper.findComponent(GalleryToolbar).props("searchSuffix") as
+        string | undefined;
   }
 
   it("hides the count while nothing narrows the gallery", async () => {
-    const badge = await mountShell();
+    const suffix = await mountShell(627);
 
-    expect(badge()).toBeNull();
+    expect(suffix()).toBeUndefined();
   });
 
-  it("shows the result count once a search narrows the gallery", async () => {
-    const badge = await mountShell();
+  it("shows the count against the scope total once a search narrows it", async () => {
+    const suffix = await mountShell(627);
 
-    storeGalleryFilter().searchTerm = "chrono";
+    storeGalleryFilter().searchTerm = "astral";
     await flushPromises();
 
-    expect(badge()).toBe(12);
+    expect(suffix()).toContain('"count":12');
+    expect(suffix()).toContain('"total":627');
   });
 
-  it("shows the result count once a filter narrows the gallery", async () => {
-    const badge = await mountShell();
+  it("shows the count once a filter narrows the gallery", async () => {
+    const suffix = await mountShell(627);
 
     storeGalleryFilter().filterFavorites = true;
     await flushPromises();
 
-    expect(badge()).toBe(12);
+    expect(suffix()).toContain('"count":12');
+  });
+
+  it("hides the count on a gallery without a scope total", async () => {
+    const suffix = await mountShell();
+
+    storeGalleryFilter().searchTerm = "astral";
+    await flushPromises();
+
+    expect(suffix()).toBeUndefined();
   });
 });

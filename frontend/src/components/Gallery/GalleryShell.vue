@@ -127,6 +127,9 @@ interface Props {
   /** Sort applied while the URL names none. `null` orders by search
    * relevance (Search). */
   defaultOrderBy?: GalleryOrderKey | null;
+  /** Game count of the unfiltered gallery, shown against the result count
+   *  while a search or filter narrows it. Unset hides the count. */
+  scopeTotal?: number | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -139,6 +142,7 @@ const props = withDefaults(defineProps<Props>(), {
   showPlatformsInFilter: true,
   showPlatformColumn: true,
   defaultOrderBy: DEFAULT_ORDER_BY,
+  scopeTotal: undefined,
 });
 
 defineSlots<{
@@ -308,12 +312,16 @@ const { supportsWebp } = useWebpSupport();
 const { total, charIndex, initialFetching, refreshing, orderBy, orderDir } =
   storeToRefs(galleryRoms);
 
-// A narrowed gallery shows its result count on the filter button.
-const filterBadge = computed(() =>
+// A narrowed gallery shows how many of its games match inside the search field.
+const searchSuffix = computed(() =>
+  props.scopeTotal !== undefined &&
   (filterActiveCount.value > 0 || searchTerm.value) &&
   galleryRoms.metadataLoaded
-    ? total.value
-    : null,
+    ? t("gallery.results-of-total", {
+        count: total.value,
+        total: props.scopeTotal,
+      })
+    : undefined,
 );
 
 const { groupBy, layout, toolbarPosition } = useGalleryMode();
@@ -1075,9 +1083,10 @@ defineExpose({
               show-search
               :search="searchInput"
               :search-placeholder="searchPlaceholder"
+              :search-suffix="searchSuffix"
               :autofocus-search="autofocusSearch"
               show-filter
-              :filter-badge="filterBadge"
+              :filter-active-count="filterActiveCount"
               @update:group-by="groupBy = $event"
               @update:layout="layout = $event"
               @update:sort-dir="galleryRoms.setOrderDir"
@@ -1270,7 +1279,7 @@ defineExpose({
       :unsorted-label="unsortedLabel"
       :unsorted="galleryRoms.effectiveOrderBy === null"
       show-filter
-      :filter-badge="filterBadge"
+      :filter-active-count="filterActiveCount"
       @update:group-by="groupBy = $event"
       @update:layout="layout = $event"
       @update:sort-dir="galleryRoms.setOrderDir"

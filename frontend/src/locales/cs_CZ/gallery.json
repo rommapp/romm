@@ -7,6 +7,7 @@
   "firmware-selected-count": "{count} vybráno",
   "jump-to": "Přejít na {letter}",
   "jump-to-letter": "Přejít na písmeno",
+  "results-of-total": "{count} z {total}",
   "selection-clear": "Zrušit výběr",
   "selection-collections": "Spravovat kolekce",
   "selection-delete": "Smazat",

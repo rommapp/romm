@@ -654,7 +654,7 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
         :group-by-items="platformGroupByItems"
         :segment-filters="segmentFilters"
         show-filter
-        :filter-badge="activeFacetCount || null"
+        :filter-active-count="activeFacetCount"
         show-search
         :search-placeholder="t('platform.search-placeholder')"
         @update:group-by="groupBy = $event"

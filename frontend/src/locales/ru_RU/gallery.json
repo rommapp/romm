@@ -7,6 +7,7 @@
   "firmware-selected-count": "{count} выбрано",
   "jump-to": "Перейти к {letter}",
   "jump-to-letter": "Перейти к букве",
+  "results-of-total": "{count} из {total}",
   "selection-clear": "Очистить выбор",
   "selection-collections": "Управление коллекциями",
   "selection-delete": "Удалить",
