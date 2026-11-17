@@ -4,8 +4,11 @@ from pathlib import Path
 
 import pytest
 
+from handler.sync.retroarch import psp
 from handler.sync.retroarch.psp import (
     _BUNDLE_MAX_MEMBERS,
+    _SFO_MAX_BYTES,
+    _SFO_TITLE_MAX_LENGTH,
     PspFilePath,
     _bundle_folder,
     _load_bundle_entries,
@@ -158,3 +161,36 @@ class TestParseSfo:
         header = b"\x00PSF" + struct.pack("<IIII", 0x0101, 20, 20, 1000)
         with pytest.raises(ValueError):
             parse_sfo(header)
+
+    def test_rejects_an_oversized_file(self):
+        sfo = _build_fake_sfo({"TITLE": "x " * _SFO_MAX_BYTES})
+        with pytest.raises(ValueError):
+            parse_sfo(sfo)
+
+
+class TestResolveFolderRom:
+    INFO = PspFilePath(
+        emulator="ppsspp", save_folder="ULUS10336DATA0", file_name="PARAM.SFO"
+    )
+
+    @pytest.mark.parametrize(
+        ("title", "expected"),
+        [
+            ("CRISIS CORE", "CRISIS CORE"),
+            ("x" * _SFO_TITLE_MAX_LENGTH, "x" * _SFO_TITLE_MAX_LENGTH),
+            ("x" * (_SFO_TITLE_MAX_LENGTH + 1), None),
+        ],
+    )
+    async def test_searches_only_by_a_title_that_fits_the_field(
+        self, mocker, title: str, expected: str | None
+    ):
+        rom = object()
+        resolve = mocker.patch.object(psp, "_resolve_rom", return_value=rom)
+
+        resolved = await psp._resolve_folder_rom(
+            self.INFO, _build_fake_sfo({"TITLE": title}), "pending", lambda _: True
+        )
+
+        assert resolved is rom
+        resolve.assert_called_once()
+        assert resolve.call_args.args[1] == expected
