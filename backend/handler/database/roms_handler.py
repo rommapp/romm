@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from typing import Any, Literal, NamedTuple
 from typing import cast as typing_cast
 
+from redis import Redis
 from redis.exceptions import WatchError
 from sqlalchemy import (
     ColumnExpressionArgument,
@@ -471,6 +472,12 @@ def _filter_values_cache_version() -> str:
 
 def _filter_values_cache_keys_key(version: str) -> str:
     return f"filter_values:keys:v{version}"
+
+
+def count_gallery_cache_entries(client: Redis) -> int:
+    """How many gallery sidecar entries the current cache version holds."""
+    version = _cache_value_to_str(client.get(ROM_FILTERS_CACHE_VERSION_KEY)) or "0"
+    return int(client.scard(_filter_values_cache_keys_key(version)))
 
 
 def _user_sort_version_key(user_id: int) -> str:

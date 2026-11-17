@@ -50,10 +50,22 @@ class DatabaseStatus(TypedDict):
     error: CheckError | None
 
 
+class ValkeyMemory(TypedDict):
+    used_bytes: int
+    peak_bytes: int
+    # 0 when Valkey has no limit.
+    max_bytes: int
+    max_policy: str
+    evicted_keys: int
+    gallery_cache_entries: int
+
+
 class ValkeyStatus(TypedDict):
     ok: bool
     latency_ms: int
     error: CheckError | None
+    # Null when Valkey couldn't be read.
+    memory: ValkeyMemory | None
 
 
 class WorkerStatus(TypedDict):

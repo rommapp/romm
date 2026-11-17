@@ -26,9 +26,11 @@ from endpoints.responses.health import (
     MigrationStatus,
     ReadyCheck,
     ResourcesCheck,
+    ValkeyMemory,
     ValkeyStatus,
     WorkerStatus,
 )
+from handler.database.roms_handler import count_gallery_cache_entries
 from handler.redis_handler import (
     REDIS_CLIENT_OPTIONS,
     SCAN_QUEUE_NAME,
@@ -121,6 +123,15 @@ def metrics_text() -> str:
         f'{report[name]["latency_ms"] / 1000}'
         for name in ("database", "valkey", "worker", "migration")
     ]
+    if (memory := report["valkey"]["memory"]) is not None:
+        lines += [
+            f"romm_valkey_used_memory_bytes {memory['used_bytes']}",
+            f"romm_valkey_peak_memory_bytes {memory['peak_bytes']}",
+            f"romm_valkey_max_memory_bytes {memory['max_bytes']}",
+            f'romm_valkey_max_memory_policy{{policy="{memory["max_policy"]}"}} 1',
+            f"romm_valkey_evicted_keys_total {memory['evicted_keys']}",
+            f"romm_gallery_cache_entries {memory['gallery_cache_entries']}",
+        ]
     workers = report["worker"]
     lines.append(f"romm_workers {workers['workers']}")
     lines += [
@@ -162,9 +173,32 @@ def _valkey_check() -> ValkeyStatus:
     started = perf_counter()
     try:
         ok = bool(_probe_redis.ping())
+        latency_ms = _since(started)
+        memory = _valkey_memory()
     except RedisError as exc:
-        return {"ok": False, "latency_ms": _since(started), "error": _error_kind(exc)}
-    return {"ok": ok, "latency_ms": _since(started), "error": None}
+        return {
+            "ok": False,
+            "latency_ms": _since(started),
+            "error": _error_kind(exc),
+            "memory": None,
+        }
+    return {"ok": ok, "latency_ms": latency_ms, "error": None, "memory": memory}
+
+
+def _valkey_memory() -> ValkeyMemory:
+    # INFO and SCARD are constant-time, so this stays cheap enough to poll.
+    with _probe_redis.pipeline(transaction=False) as pipe:
+        pipe.info("memory")
+        pipe.info("stats")
+        memory, stats = pipe.execute()
+    return {
+        "used_bytes": int(memory["used_memory"]),
+        "peak_bytes": int(memory["used_memory_peak"]),
+        "max_bytes": int(memory["maxmemory"]),
+        "max_policy": str(memory["maxmemory_policy"]),
+        "evicted_keys": int(stats["evicted_keys"]),
+        "gallery_cache_entries": count_gallery_cache_entries(_probe_redis),
+    }
 
 
 def _count_workers() -> int:

@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from fastapi import status
 from redis.exceptions import ConnectionError as RedisConnectionError
@@ -198,3 +198,71 @@ def test_probe_connections_give_up_quickly():
     # Assert
     assert kwargs["socket_timeout"] == PROBE_TIMEOUT_SECONDS
     assert kwargs["socket_connect_timeout"] == PROBE_TIMEOUT_SECONDS
+
+
+_INFO_MEMORY = {
+    "used_memory": 41_231_360,
+    "used_memory_peak": 52_428_800,
+    "maxmemory": 0,
+    "maxmemory_policy": "noeviction",
+}
+_INFO_STATS = {"evicted_keys": 0}
+
+
+def _stub_valkey_info():
+    pipe = MagicMock()
+    pipe.__enter__.return_value.execute.return_value = [_INFO_MEMORY, _INFO_STATS]
+    return patch("handler.health_handler._probe_redis.pipeline", return_value=pipe)
+
+
+def test_status_reports_valkey_memory_to_an_admin(client, headers):
+    # Arrange
+    with (
+        _stub_valkey_info(),
+        patch("handler.health_handler.count_gallery_cache_entries", return_value=7),
+    ):
+        # Act
+        response = client.get("/api/health/status", headers=headers)
+
+    # Assert
+    assert response.json()["valkey"]["memory"] == {
+        "used_bytes": 41_231_360,
+        "peak_bytes": 52_428_800,
+        "max_bytes": 0,
+        "max_policy": "noeviction",
+        "evicted_keys": 0,
+        "gallery_cache_entries": 7,
+    }
+
+
+def test_status_reports_no_memory_when_valkey_is_down(client, headers):
+    # Arrange
+    with patch(
+        "handler.health_handler._probe_redis.ping",
+        side_effect=RedisConnectionError(),
+    ):
+        # Act
+        response = client.get("/api/health/status", headers=headers)
+
+    # Assert
+    assert response.json()["valkey"]["ok"] is False
+    assert response.json()["valkey"]["memory"] is None
+
+
+def test_metrics_text_lists_valkey_memory():
+    # Arrange
+    from handler.health_handler import metrics_text
+
+    with (
+        _stub_valkey_info(),
+        patch("handler.health_handler.count_gallery_cache_entries", return_value=7),
+    ):
+        # Act
+        text = metrics_text()
+
+    # Assert
+    assert "romm_valkey_used_memory_bytes 41231360" in text
+    assert "romm_valkey_max_memory_bytes 0" in text
+    assert 'romm_valkey_max_memory_policy{policy="noeviction"} 1' in text
+    assert "romm_valkey_evicted_keys_total 0" in text
+    assert "romm_gallery_cache_entries 7" in text

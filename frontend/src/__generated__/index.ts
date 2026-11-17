@@ -352,6 +352,7 @@ export type { UserSchema } from './models/UserSchema';
 export type { UserScreenshotSchema } from './models/UserScreenshotSchema';
 export type { UserStateSchema } from './models/UserStateSchema';
 export type { ValidationError } from './models/ValidationError';
+export type { ValkeyMemory } from './models/ValkeyMemory';
 export type { ValkeyStatus } from './models/ValkeyStatus';
 export type { VirtualCollectionSchema } from './models/VirtualCollectionSchema';
 export type { VolumeRequest } from './models/VolumeRequest';

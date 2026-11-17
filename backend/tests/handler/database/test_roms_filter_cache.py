@@ -30,6 +30,7 @@ from handler.database.roms_handler import (
     _filter_values_redis_key,
     _rom_id_index_redis_key,
     _store_versioned_cache,
+    count_gallery_cache_entries,
     user_sibling_cache_version,
     user_sort_cache_version,
 )
@@ -115,6 +116,21 @@ class TestStoreVersionedCache:
         assert (
             sync_cache.smembers(_filter_values_cache_keys_key(stale_version)) == set()
         )
+
+    def test_counts_only_the_current_version_entries(self):
+        # Arrange
+        version = _filter_values_cache_version()
+        _store_versioned_cache(f"filter_values:a:v{version}", version, {})
+        _store_versioned_cache(f"filter_values:b:v{version}", version, {})
+        db_rom_handler.invalidate_filter_values_cache()
+        current = _filter_values_cache_version()
+        _store_versioned_cache(f"filter_values:c:v{current}", current, {})
+
+        # Act
+        count = count_gallery_cache_entries(sync_cache)
+
+        # Assert
+        assert count == 1
 
 
 class TestCacheHitMatchesMiss:
