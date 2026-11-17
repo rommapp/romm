@@ -1809,6 +1809,8 @@ def _wipe(conn: Connection) -> None:
         "rom_notes",
         "rom_user",
         "screenshots",
+        # Holds saves and states back with RESTRICT; its pins and states cascade.
+        "snapshots",
         "states",
         "saves",
         "track_meta",
