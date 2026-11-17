@@ -841,13 +841,13 @@ def get_roms(
 
     # One key for both ordered sidecars: the same request must not read the
     # char index and the id index under different per-user versions.
-    # The grouping window spans the whole set even for one page, so a grouped
-    # platform-only set caches its sidecars too, under a key naming the platforms.
     sidecar_cache_key: str | None = None
     if is_unscoped:
         sidecar_cache_key = build_unscoped_sidecar_cache_key(
             request.user.id, order_by, order_dir, filters.group_by_meta_id, True
         )
+    # The grouping window spans the whole set even for one page, so a grouped
+    # platform-only set is cached too, under a key naming its platforms.
     elif (
         filters.group_by_meta_id and is_unfiltered and filters.has_only_platform_scope()
     ):
