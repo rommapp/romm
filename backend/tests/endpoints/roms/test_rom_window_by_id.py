@@ -1,10 +1,12 @@
 from typing import Any, cast
 
+import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from tests.auth_helpers import hide, user_headers
 from tests.factories import make_rom
 
+from endpoints.roms import ROM_IDS_WINDOW_MAX
 from handler.database import db_rom_handler
 from models.permission import PermEntity
 from models.platform import Platform
@@ -104,14 +106,42 @@ def test_a_deleted_rom_is_left_out_of_a_window_by_id(
     assert _ids(page) == [kept.id]
 
 
-def test_more_ids_than_the_limit_are_refused(client: TestClient, access_token: str):
+def test_the_window_holds_up_to_256_ids_whatever_the_limit(
+    client: TestClient, access_token: str, platform: Platform
+):
+    # Arrange
+    rom = make_rom(platform, "only")
+    wanted = [rom.id, *range(10_000_000, 10_000_255)]
+
     # Act
-    code, _ = _get(
-        client,
-        {"Authorization": f"Bearer {access_token}"},
-        rom_ids=[1, 2, 3],
-        limit=2,
+    code, page = _get(
+        client, {"Authorization": f"Bearer {access_token}"}, rom_ids=wanted, limit=2
+    )
+
+    # Assert
+    assert len(wanted) == ROM_IDS_WINDOW_MAX
+    assert code == status.HTTP_200_OK
+    assert _ids(page) == [rom.id]
+
+
+@pytest.mark.parametrize(
+    "rom_ids",
+    [
+        list(range(1, ROM_IDS_WINDOW_MAX + 2)),
+        [0],
+        [-5],
+        ["abc"],
+    ],
+    ids=["257 ids", "zero", "negative", "not a number"],
+)
+def test_an_invalid_window_is_refused(
+    client: TestClient, access_token: str, rom_ids: list[Any]
+):
+    # Act
+    code, body = _get(
+        client, {"Authorization": f"Bearer {access_token}"}, rom_ids=rom_ids
     )
 
     # Assert
     assert code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert any("rom_ids" in error["loc"] for error in body["detail"])
