@@ -287,7 +287,7 @@ class TestGetWithCore:
 
         assert _awaited_args(restore)[2].content_path == "Chrono Cross (USA).bin"
 
-    @pytest.mark.parametrize("slug", ["nes", "snes", "genesis", "gba"])
+    @pytest.mark.parametrize("slug", ["nes", "snes", "gba"])
     def test_a_platform_without_a_converter_serves_the_stored_file(
         self, client, headers, admin_user: User, restore, slug: str
     ):
@@ -364,6 +364,34 @@ class TestGetWithCore:
 
         assert response.status_code == status.HTTP_200_OK
         assert _awaited_args(restore)[2].core == "desmume"
+
+    @pytest.mark.parametrize(
+        ("slug", "core"),
+        [
+            ("genesis", "picodrive"),
+            ("sega32", "picodrive"),
+            ("sms", "genesis_plus_gx"),
+            ("gamegear", "genesis_plus_gx"),
+        ],
+    )
+    def test_a_sega_cart_save_converts_for_the_core(
+        self,
+        client,
+        headers,
+        admin_user: User,
+        stored_game,
+        restore,
+        slug: str,
+        core: str,
+    ):
+        save = _stored(
+            make_save(_rom_on(slug, "Game", admin_user), admin_user, "Game.srm")
+        )
+
+        response = _get(client, save, headers, f"core={core}")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert _awaited_args(restore)[2].core == core
 
     @pytest.mark.parametrize("slug", ["neogeoaes", "turbografx-cd", "unknown"])
     def test_a_platform_sigil_does_not_sync_is_refused(
