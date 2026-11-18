@@ -41,8 +41,8 @@ SIGIL_EXTRACT_PLATFORM_SLUGS: Final[dict[str, str]] = {
 # Sigil reads these titles but can't collect or restore their saves.
 _EXTRACT_ONLY_PLATFORM_SLUGS: Final = frozenset({UPS.XBOX, UPS.XBOX360})
 
-# The platforms sigil collects and restores saves for. Saturn and Sega CD saves
-# carry no title id, so sigil restores them without one.
+# The platforms sigil collects and restores saves for. Saturn, Sega CD and DS
+# saves carry no title id, so sigil restores them without one.
 SIGIL_RESTORE_PLATFORM_SLUGS: Final[dict[str, str]] = {
     **{
         slug: sigil_slug
@@ -51,6 +51,7 @@ SIGIL_RESTORE_PLATFORM_SLUGS: Final[dict[str, str]] = {
     },
     UPS.SATURN: "saturn",
     UPS.SEGACD: "segacd",
+    UPS.NDS: "nds",
 }
 
 # Cartridge platforms with no sigil converter, whose stored save is already the
@@ -66,7 +67,6 @@ NATIVE_SAVE_PLATFORM_SLUGS: Final = frozenset(
         UPS.GAMEGEAR,
         UPS.SEGA32,
         UPS.GBA,
-        UPS.NDS,
     }
 )
 
