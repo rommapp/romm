@@ -35,6 +35,7 @@ def test_a_platforms_neutral_names_pass(
         ("gb", SaveShape.MULTI, ["Pokemon Red.srm", "clock.rtc"]),
         ("nds", SaveShape.SINGLE, ["Mario Kart DS.dsv"]),
         ("nds", SaveShape.MULTI, ["Mario Kart DS.srm"]),
+        ("nds", SaveShape.SINGLE, ["saves/Mario Kart DS.srm"]),
         ("snes", SaveShape.SINGLE, ["Game.srm"]),
         ("gba", SaveShape.MULTI, ["save.sram", "Pokemon.rtc"]),
         ("gba", SaveShape.MULTI, ["Pokemon Emerald.srm", "clock.rtc"]),
