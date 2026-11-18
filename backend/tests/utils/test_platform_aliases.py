@@ -82,7 +82,6 @@ def test_resolves_easyrpg_to_rpg_maker():
         ("cave3rd", UPS.ARCADE),
         ("exowin9x", UPS.WIN9X),
         ("quake", UPS.QUAKE),
-        ("2ship", UPS._2SHIP),
         # RetroBat system names and folders that differ from Batocera's
         ("gw", UPS.G_AND_W),
         ("casloopy", UPS.CASIO_LOOPY),

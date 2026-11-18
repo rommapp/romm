@@ -21,11 +21,11 @@ def test_a_port_searches_under_its_host_but_keeps_its_name():
         SCREENSAVER_PLATFORM_LIST[UPS.DOS]["id"]
     )
     assert SCREENSAVER_PLATFORM_LIST[UPS.QUAKE]["name"] == "Quake"
-    assert (
-        MOBYGAMES_PLATFORM_LIST[UPS.SOH]["id"] == MOBYGAMES_PLATFORM_LIST[UPS.N64]["id"]
+    assert MOBYGAMES_PLATFORM_LIST[UPS.SONIC3_AIR]["id"] == (
+        MOBYGAMES_PLATFORM_LIST[UPS.GENESIS]["id"]
     )
-    assert LAUNCHBOX_PLATFORM_LIST[UPS.OPENGOAL]["id"] == (
-        LAUNCHBOX_PLATFORM_LIST[UPS.PS2]["id"]
+    assert LAUNCHBOX_PLATFORM_LIST[UPS.HALFLIFE]["id"] == (
+        LAUNCHBOX_PLATFORM_LIST[UPS.WIN]["id"]
     )
 
     igdb = meta_igdb_handler.get_platform(UPS.QUAKE.value)
@@ -52,4 +52,4 @@ def test_a_providers_own_entry_wins_over_the_host():
 
 def test_a_port_is_not_matched_by_hash_against_its_host():
     """A port's files are not the original game's, so hash providers skip it."""
-    assert UPS.SOH not in RA_PLATFORM_LIST
+    assert UPS.SONIC3_AIR not in RA_PLATFORM_LIST
