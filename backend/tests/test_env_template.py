@@ -10,6 +10,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_MODULE = REPO_ROOT / "backend" / "config" / "__init__.py"
 ENV_TEMPLATE = REPO_ROOT / "env.template"
 
+# The dev container only mounts backend/, so env.template isn't there.
+pytestmark = pytest.mark.skipif(
+    not ENV_TEMPLATE.exists(), reason="env.template is not in this checkout"
+)
+
 ENV_READERS = {"_get_env", "_get_env_list", "_get_env_set"}
 # Set by pytest itself, not by users.
 NOT_USER_SETTINGS = {"PYTEST_VERSION"}
@@ -39,23 +44,14 @@ def _env_vars_in_template() -> set[str]:
     return names
 
 
-# The dev container only mounts backend/, so env.template isn't there.
-@pytest.mark.skipif(
-    not ENV_TEMPLATE.exists(), reason="env.template is not in this checkout"
-)
 def test_env_template_lists_every_env_var_the_config_reads() -> None:
     missing = _env_vars_read_by_config() - _env_vars_in_template()
     assert not missing, f"env.template is missing {sorted(missing)}"
 
 
 # Docker Compose reads `KEY=  # comment` as the value "# comment".
-@pytest.mark.skipif(
-    not ENV_TEMPLATE.exists(), reason="env.template is not in this checkout"
-)
 def test_env_template_quotes_empty_values() -> None:
-    unquoted = [
-        line.partition("=")[0]
-        for line in ENV_TEMPLATE.read_text().splitlines()
-        if re.match(r"^[A-Z][A-Z0-9_]*=\s+#", line)
-    ]
+    unquoted = re.findall(
+        r"^([A-Z][A-Z0-9_]*)=[ \t]*#", ENV_TEMPLATE.read_text(), re.MULTILINE
+    )
     assert not unquoted, f'env.template leaves {unquoted} empty without ""'
