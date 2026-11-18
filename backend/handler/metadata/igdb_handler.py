@@ -29,6 +29,7 @@ from models.rom import Rom
 from utils.arcade_platforms import ARCADE_PLATFORMS
 from utils.context import ctx_httpx_client
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.unlisted_platforms import UNLISTED_PLATFORMS
 
 from .base_handler import (
     BaseRom,
@@ -56,9 +57,10 @@ IGDB_INDEXED_FORMAT_PLATFORMS: Final = IndexedFormatPlatforms(
 # Map each platform to its twin so searches can include both.
 # See https://github.com/rommapp/romm/issues/3462.
 SNES_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.SNES]["id"]
-SUPER_FAMICOM_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.SFAM]["id"]
+# RomM files Famicom and Super Famicom folders under NES and SNES.
+SUPER_FAMICOM_IGDB_ID: Final = 58
 NES_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.NES]["id"]
-FAMICOM_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.FAMICOM]["id"]
+FAMICOM_IGDB_ID: Final = 99
 
 IGDB_REGIONAL_TWIN_PLATFORMS: Final[dict[int, int]] = {
     SNES_IGDB_ID: SUPER_FAMICOM_IGDB_ID,
@@ -854,6 +856,13 @@ class IGDBHandler(MetadataHandler):
             arcade["slug"] = slug
             arcade.pop("name", None)
             return arcade
+
+        unlisted = UNLISTED_PLATFORMS.get(UPS(slug)) if slug in UPS else None
+        if unlisted and unlisted.host in IGDB_PLATFORM_LIST:
+            host = self._base_platform(unlisted.host)
+            host["slug"] = slug
+            host["name"] = unlisted.name
+            return host
 
         unlisted_platform = IGDBPlatform(igdb_id=None, slug=slug)
         if slug in IGDB_SIBLING_PLATFORMS:

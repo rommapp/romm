@@ -45,6 +45,7 @@ from utils.datetime import parse_utc_timestamp
 from utils.html_text import html_to_text
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.platform_slugs import fill_duplicate_slugs
+from utils.unlisted_platforms import host_fallbacks
 
 from .base_handler import (
     BaseRom,
@@ -1173,6 +1174,12 @@ class SlugToSSId(TypedDict):
 
 
 SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
+    UPS.EPOCH_CASSETTE_VISION: {"id": 300, "name": "Cassette Vision"},
+    UPS.FPINBALL: {"id": 199, "name": "Future Pinball"},
+    UPS.LOWRESNX: {"id": 244, "name": "LowRes NX"},
+    UPS.LUTRO: {"id": 206, "name": "Lutro"},
+    UPS.SOLARUS: {"id": 223, "name": "Solarus"},
+    UPS.VIRCON32: {"id": 272, "name": "Vircon32"},
     UPS._3DO: {
         "id": 29,
         "name": "3DO",
@@ -1369,7 +1376,6 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
         "name": "Atari 7800",
         "alternative_names": ["A7800", "7800"],
     },
-    UPS.ATARI800: {"id": 43, "name": "Atari 800"},
     UPS.ATARI_XEGS: {"id": 43, "name": "Atari XEGS"},
     UPS.ATARI8BIT: {"id": 43, "name": "Atari 8bit"},
     UPS.ATARI_JAGUAR_CD: {
@@ -1707,7 +1713,6 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     },
     UPS.NGAGE: {"id": 30, "name": "N-Gage", "alternative_names": ["Nokia N-Gage"]},
     UPS.NES: {"id": 3, "name": "NES"},
-    UPS.FAMICOM: {"id": 3, "name": "Famicom"},
     UPS.FDS: {
         "id": 106,
         "name": "Famicom",
@@ -1789,7 +1794,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     },
     UPS.PC_FX: {"id": 72, "name": "PC-FX", "alternative_names": ["NEC PC-FX"]},
     UPS.PEGASUS: {"id": 83, "name": "Aamber Pegasus"},
-    UPS.PICO: {"id": 234, "name": "Pico-8"},
+    UPS.PICO_8: {"id": 234, "name": "Pico-8"},
     UPS.PINBALL: {"id": 197, "name": "Pinball", "alternative_names": ["Flipper"]},
     UPS.POCKET_CHALLENGE_V2: {
         "id": 237,
@@ -1944,7 +1949,6 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
         ],
     },
     UPS.SNES: {"id": 4, "name": "Super Nintendo"},
-    UPS.SFAM: {"id": 4, "name": "Super Famicom"},
     UPS.SATELLAVIEW: {
         "id": 107,
         "name": "Satellaview",
@@ -2098,6 +2102,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
 }
 
 fill_duplicate_slugs(SCREENSAVER_PLATFORM_LIST)
+SCREENSAVER_PLATFORM_LIST |= host_fallbacks(SCREENSAVER_PLATFORM_LIST)
 
 SS_INDEXED_FORMAT_PLATFORMS: Final = IndexedFormatPlatforms(
     ps1=PS1_SS_ID,

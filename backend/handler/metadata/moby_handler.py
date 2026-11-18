@@ -13,6 +13,7 @@ from utils.arcade_platforms import arcade_fallbacks
 from utils.html_text import html_to_text
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.platform_slugs import fill_duplicate_slugs
+from utils.unlisted_platforms import host_fallbacks
 
 from .base_handler import (
     BaseRom,
@@ -593,11 +594,6 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
         "name": "Channel F",
         "slug": "channel-f",
     },
-    UPS.FAMICOM: {
-        "id": 22,
-        "name": "Family Computer",
-        "slug": "famicom",
-    },
     UPS.FM_7: {"id": 126, "name": "FM-7", "slug": "fm-7"},
     UPS.FM_TOWNS: {"id": 102, "name": "FM Towns", "slug": "fmtowns"},
     UPS.FRED_COSMAC: {
@@ -929,7 +925,7 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
     UPS.OUYA: {"id": 144, "name": "Ouya", "slug": "ouya"},
     UPS.PALM_OS: {"id": 65, "name": "Palm OS", "slug": "palmos"},
     UPS.PANDORA: {"id": 308, "name": "Pandora", "slug": "pandora"},
-    UPS.PC_6001: {"id": 149, "name": "PC-6001", "slug": "pc-6001"},
+    UPS.NEC_PC_6000_SERIES: {"id": 149, "name": "PC-6001", "slug": "pc-6001"},
     UPS.PC_8000: {"id": 201, "name": "PC-8000", "slug": "pc-8000"},
     UPS.PC_8800_SERIES: {
         "id": 94,
@@ -1037,7 +1033,6 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
         "name": "Xbox Series X/S",
         "slug": "xbox-series",
     },
-    UPS.SFAM: {"id": 15, "name": "Super Famicom", "slug": "snes"},
     UPS.SG1000: {"id": 114, "name": "SG-1000", "slug": "sg-1000"},
     UPS.SHARP_MZ_80B20002500: {
         "id": 182,
@@ -1331,6 +1326,7 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
     UPS.ZX81: {"id": 119, "name": "ZX81", "slug": "zx81"},
 }
 MOBYGAMES_PLATFORM_LIST |= arcade_fallbacks(MOBYGAMES_PLATFORM_LIST)
+MOBYGAMES_PLATFORM_LIST |= host_fallbacks(MOBYGAMES_PLATFORM_LIST)
 
 fill_duplicate_slugs(MOBYGAMES_PLATFORM_LIST)
 

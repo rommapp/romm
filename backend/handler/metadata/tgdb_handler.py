@@ -4,6 +4,7 @@ from config import TGDB_API_ENABLED
 from utils.arcade_platforms import arcade_fallbacks
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.platform_slugs import fill_duplicate_slugs
+from utils.unlisted_platforms import host_fallbacks
 
 from .base_handler import MetadataHandler
 
@@ -316,7 +317,7 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
         "summary": "The Atari 7800 ProSystem, or simply the Atari 7800, is a video game console re-released by Atari Corporation in January 1986. The original release had occurred two years earlier under Atari Inc. The 7800 had originally been designed to replace Atari Inc.'s Atari 5200 in 1984, but was temporarily shelved due to the sale of the company after the video game crash. In January 1986, the 7800 was again released and would compete that year with the Nintendo Entertainment System and the Sega Master System. It had simple digital joysticks; it was almost fully backward-compatible with the Atari 2600(and was the first console to have backward compatibility without the use of additional modules); and it was considered affordable at a price of US$140.",
         "url_logo": "https://cdn.thegamesdb.net/images/original/platform/boxart/27-1.jpg",
     },
-    UPS.ATARI800: {
+    UPS.ATARI8BIT: {
         "id": 4943,
         "name": "Atari 800",
         "manufacturer": "Atari",
@@ -2268,5 +2269,6 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
     },
 }
 TGDB_PLATFORM_LIST |= arcade_fallbacks(TGDB_PLATFORM_LIST)
+TGDB_PLATFORM_LIST |= host_fallbacks(TGDB_PLATFORM_LIST)
 
 fill_duplicate_slugs(TGDB_PLATFORM_LIST)

@@ -3,6 +3,7 @@ from typing import TypedDict
 from utils.arcade_platforms import arcade_fallbacks
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.platform_slugs import fill_duplicate_slugs
+from utils.unlisted_platforms import host_fallbacks
 
 from .types import LaunchboxPlatform
 
@@ -46,7 +47,7 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
     UPS.ATARI2600: {"id": 6, "name": "Atari 2600"},
     UPS.ATARI5200: {"id": 7, "name": "Atari 5200"},
     UPS.ATARI7800: {"id": 8, "name": "Atari 7800"},
-    UPS.ATARI800: {"id": 102, "name": "Atari 800"},
+    UPS.ATARI8BIT: {"id": 102, "name": "Atari 800"},
     UPS.ATMOS: {"id": 64, "name": "Oric Atmos"},
     UPS.ATOM: {"id": 107, "name": "Acorn Atom"},
     UPS.BBCMICRO: {"id": 59, "name": "BBC Microcomputer System"},
@@ -83,7 +84,6 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
         "id": 58,
         "name": "Fairchild Channel F",
     },
-    UPS.FAMICOM: {"id": 27, "name": "Nintendo Entertainment System"},
     UPS.FDS: {"id": 157, "name": "Nintendo Famicom Disk System"},
     UPS.FM_7: {"id": 186, "name": "Fujitsu FM-7"},
     UPS.FM_TOWNS: {"id": 124, "name": "Fujitsu FM Towns Marty"},
@@ -144,7 +144,7 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
     UPS.PEGASUS: {"id": 174, "name": "Aamber Pegasus"},
     UPS.PHILIPS_CD_I: {"id": 37, "name": "Philips CD-i"},
     UPS.PHILIPS_VG_5000: {"id": 140, "name": "Philips VG 5000"},
-    UPS.PICO: {"id": 220, "name": "PICO-8"},
+    UPS.PICO_8: {"id": 220, "name": "PICO-8"},
     UPS.PINBALL: {"id": 151, "name": "Pinball"},
     UPS.POCKETSTATION: {"id": 203, "name": "Sony PocketStation"},
     UPS.POKEMON_MINI: {"id": 195, "name": "Nintendo Pokemon Mini"},
@@ -167,7 +167,6 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
     UPS.SEGACD: {"id": 39, "name": "Sega CD"},
     UPS.SEGACD32: {"id": 173, "name": "Sega CD 32X"},
     UPS.SERIES_X_S: {"id": 222, "name": "Microsoft Xbox Series X/S"},
-    UPS.SFAM: {"id": 53, "name": "Super Nintendo Entertainment System"},
     UPS.SG1000: {"id": 80, "name": "Sega SG-1000"},
     UPS.SHARP_MZ_80B20002500: {"id": 205, "name": "Sharp MZ-2500"},
     UPS.SHARP_X68000: {"id": 128, "name": "Sharp X68000"},
@@ -202,7 +201,10 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
     UPS.VIC_20: {"id": 122, "name": "Commodore VIC-20"},
     UPS.VIDEOPAC_G7400: {"id": 141, "name": "Philips Videopac+"},
     UPS.VIRTUALBOY: {"id": 32, "name": "Nintendo Virtual Boy"},
-    UPS.VMU: {"id": 144, "name": "Sega Dreamcast VMU"},
+    UPS.VISUAL_MEMORY_UNIT_SLASH_VISUAL_MEMORY_SYSTEM: {
+        "id": 144,
+        "name": "Sega Dreamcast VMU",
+    },
     UPS.VSMILE: {"id": 221, "name": "VTech V.Smile"},
     UPS.SUPERVISION: {"id": 153, "name": "Watara Supervision"},
     UPS.WII: {"id": 33, "name": "Nintendo Wii"},
@@ -222,6 +224,7 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
     UPS.ZXS: {"id": 46, "name": "Sinclair ZX Spectrum"},
 }
 LAUNCHBOX_PLATFORM_LIST |= arcade_fallbacks(LAUNCHBOX_PLATFORM_LIST)
+LAUNCHBOX_PLATFORM_LIST |= host_fallbacks(LAUNCHBOX_PLATFORM_LIST)
 
 fill_duplicate_slugs(LAUNCHBOX_PLATFORM_LIST)
 

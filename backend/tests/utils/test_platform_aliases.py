@@ -48,9 +48,6 @@ def test_resolves_frontend_folder_names():
 
 def test_folder_without_alias_passes_through():
     config = _config()
-    # atari800 is a Batocera folder name that is also a RomM slug, so it can
-    # only be remapped through a config binding.
-    assert resolve_platform_slug("atari800", config) == "atari800"
     assert resolve_platform_slug("my-custom-folder", config) == "my-custom-folder"
 
 
@@ -68,11 +65,32 @@ def test_resolves_easyrpg_to_rpg_maker():
     assert resolve_fs_slug(UPS.RPG_MAKER.value, _config()) == "easyrpg"
 
 
-@pytest.mark.parametrize("folder", ["sgb", "sgb-msu1"])
-def test_super_game_boy_folders_stay_unidentified(folder: str):
-    """ES-DE and Batocera use sgb for the Super Game Boy, which has no RomM slug."""
-    assert resolve_builtin_platform_slug(folder) is None
-    assert resolve_platform_slug(folder, _config()) == folder
+@pytest.mark.parametrize(
+    ("folder", "slug"),
+    [
+        ("sgb", UPS.GB),
+        ("sgb-msu1", UPS.GB),
+        ("pico", UPS.SEGA_PICO),
+        ("pico8", UPS.PICO_8),
+        ("famicom", UPS.NES),
+        ("sfc", UPS.SNES),
+        ("sfam", UPS.SNES),
+        ("atari800", UPS.ATARI8BIT),
+        ("pc60", UPS.NEC_PC_6000_SERIES),
+        ("vemulator", UPS.VISUAL_MEMORY_UNIT_SLASH_VISUAL_MEMORY_SYSTEM),
+        ("mz2000", UPS.SHARP_MZ_80B20002500),
+        ("cave3rd", UPS.ARCADE),
+        ("exowin9x", UPS.WIN9X),
+        ("quake", UPS.QUAKE),
+        ("2ship", UPS._2SHIP),
+        # RetroBat system names and folders that differ from Batocera's
+        ("gw", UPS.G_AND_W),
+        ("casloopy", UPS.CASIO_LOOPY),
+        ("pb", UPS.POWERBOMBERMAN),
+    ],
+)
+def test_resolves_batocera_and_retrobat_systems(folder: str, slug: UPS):
+    assert resolve_builtin_platform_slug(folder) == slug.value
 
 
 @pytest.mark.parametrize(
@@ -123,7 +141,7 @@ def test_warns_about_a_binding_to_an_unknown_name():
 
     assert warning is not None
     assert "system.platforms.snes-test is snse" in warning
-    assert warning.endswith("Did you mean snes, singe?")
+    assert warning.endswith("Did you mean snes, singe, bstone?")
 
 
 def test_warns_about_a_version_to_an_unknown_name():

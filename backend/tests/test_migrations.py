@@ -1519,3 +1519,49 @@ def test_the_sort_key_backfill_keeps_its_original_rule(mocker):
     assert (
         migration._sort_key("The Legend of Zelda 2") == "legend of zelda 000000000002"
     )
+
+
+def test_the_merge_platform_slugs_revision_keeps_pico_8_folders_and_reverses(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    migration = _load_migration("0162_merge_platform_slugs.py")
+    for slug, fs_slug in (
+        ("pico", "pico"),
+        ("pico", "pico8"),
+        ("famicom", "famicom"),
+        ("sfam", "sfc"),
+        ("atari800", "atari800"),
+        ("snes", "snes"),
+    ):
+        make_platform(slug, fs_slug=fs_slug)
+    bindings: dict[str, str] = {}
+    monkeypatch.setattr(cm, "add_platform_binding", bindings.__setitem__)
+
+    def slugs(connection: sa.Connection) -> set[tuple[str, str]]:
+        return set(connection.execute(sa.text("SELECT fs_slug, slug FROM platforms")))
+
+    with sync_engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+            upgraded = slugs(connection)
+            migration.downgrade()
+            downgraded = slugs(connection)
+
+    assert upgraded == {
+        ("pico", "pico-8"),
+        ("pico8", "pico-8"),
+        ("famicom", "nes"),
+        ("sfc", "snes"),
+        ("atari800", "atari8bit"),
+        ("snes", "snes"),
+    }
+    # Only the folder that now resolves to the Sega Pico needs a binding.
+    assert bindings == {"pico": "pico-8"}
+    assert downgraded == {
+        ("pico", "pico"),
+        ("pico8", "pico"),
+        ("famicom", "famicom"),
+        ("sfc", "sfam"),
+        ("atari800", "atari800"),
+        ("snes", "snes"),
+    }

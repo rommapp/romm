@@ -15,6 +15,7 @@ from handler.metadata import (
     meta_tgdb_handler,
 )
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.unlisted_platforms import UNLISTED_PLATFORMS
 
 # Providers in the order a platform's name is resolved from them.
 _NAME_PROVIDERS = (
@@ -47,8 +48,10 @@ def _provider_names(slug: str) -> list[str]:
 
 @functools.cache
 def resolve_platform_name(slug: str) -> str:
-    """The first provider's name for the platform, else the slug in title case."""
-    return next(iter(_provider_names(slug)), slug.replace("-", " ").title())
+    """The first provider's name for the platform, else its own, else the slug in title case."""
+    unlisted = UNLISTED_PLATFORMS.get(UPS(slug)) if slug in UPS else None
+    fallback = unlisted.name if unlisted else slug.replace("-", " ").title()
+    return next(iter(_provider_names(slug)), fallback)
 
 
 @functools.cache

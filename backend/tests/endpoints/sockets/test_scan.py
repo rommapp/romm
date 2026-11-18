@@ -2413,7 +2413,7 @@ class TestGetPico8CoverUrl:
 
     def test_returns_file_url_for_pico8_cartridge(self, handler: FSRomsHandler):
         url = handler.get_pico8_cover_url(
-            platform_slug=UPS.PICO,
+            platform_slug=UPS.PICO_8,
             fs_name="mygame.p8.png",
             fs_path="pico/roms",
         )
@@ -2431,7 +2431,7 @@ class TestGetPico8CoverUrl:
     def test_returns_none_for_plain_p8_text_file(self, handler: FSRomsHandler):
         """Plain .p8 files are text-only and have no embedded PNG image."""
         url = handler.get_pico8_cover_url(
-            platform_slug=UPS.PICO,
+            platform_slug=UPS.PICO_8,
             fs_name="mygame.p8",
             fs_path="pico/roms",
         )
@@ -2439,7 +2439,7 @@ class TestGetPico8CoverUrl:
 
     def test_returns_none_for_unrelated_extension(self, handler: FSRomsHandler):
         url = handler.get_pico8_cover_url(
-            platform_slug=UPS.PICO,
+            platform_slug=UPS.PICO_8,
             fs_name="mygame.zip",
             fs_path="pico/roms",
         )
@@ -2447,7 +2447,7 @@ class TestGetPico8CoverUrl:
 
     def test_url_starts_with_file_scheme(self, handler: FSRomsHandler):
         url = handler.get_pico8_cover_url(
-            platform_slug=UPS.PICO,
+            platform_slug=UPS.PICO_8,
             fs_name="cart.p8.png",
             fs_path="pico/roms",
         )
@@ -2458,7 +2458,7 @@ class TestGetPico8CoverUrl:
         fs_path = "pico/roms"
         fs_name = "celeste.p8.png"
         url = handler.get_pico8_cover_url(
-            platform_slug=UPS.PICO,
+            platform_slug=UPS.PICO_8,
             fs_name=fs_name,
             fs_path=fs_path,
         )
