@@ -38,6 +38,7 @@ from handler.streaming.protocol import (
     protocol_for,
 )
 from logger.logger import log
+from utils.platform_aliases import RETIRED_PLATFORM_SLUGS
 
 # How long work may keep a marker or claim alive, so a wedged step cannot
 # reserve a container indefinitely.
@@ -93,7 +94,6 @@ _RETROARCH_CORE_NAMES: dict[str, str] = {
     "colecovision": "Gearcoleco",
     "dc": "Flycast",
     "dos": "DOSBox Pure",
-    "famicom": "Mesen",
     "fds": "Mesen",
     "gamegear": "Genesis Plus GX",
     "gb": "Gambatte",
@@ -120,7 +120,6 @@ _RETROARCH_CORE_NAMES: dict[str, str] = {
     "saturn": "Yaba Sanshiro",
     "sega32": "PicoDrive",
     "segacd": "Genesis Plus GX",
-    "sfam": "Snes9x",
     "sg1000": "Genesis Plus GX",
     "sms": "Genesis Plus GX",
     "snes": "Snes9x",
@@ -470,7 +469,7 @@ def _platform_entries(entry: dict[str, Any]) -> list[tuple[dict[str, Any], str]]
                 log.warning("container platform '%s' %s, skipping", platform, problem)
                 return []
             entry = {**entry, "core": entry["core"].strip()}
-        return [(entry, platform)]
+        return [(entry, _current_slug(platform))]
 
     if not isinstance(platforms, dict):
         log.warning(
@@ -502,8 +501,13 @@ def _platform_entries(entry: dict[str, Any]) -> list[tuple[dict[str, Any], str]]
             continue
         row = _platform_overrides(base, platform.strip(), options)
         if row is not None:
-            rows.append((row, platform.strip()))
+            rows.append((row, _current_slug(platform.strip())))
     return rows
+
+
+def _current_slug(platform: str) -> str:
+    retired = RETIRED_PLATFORM_SLUGS.get(platform.lower())
+    return retired.value if retired else platform
 
 
 def _platform_overrides(

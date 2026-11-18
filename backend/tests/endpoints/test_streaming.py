@@ -13419,6 +13419,19 @@ def test_expand_platform_block_overrides_container_defaults():
     assert by_platform["snes"].memory_card_sync is False
 
 
+def test_expand_maps_a_retired_slug_to_the_platform_it_merged_into():
+    expanded = _expand(
+        {
+            "host": "http://box:3010",
+            "platforms": {"sfam": "retroarch", "famicom": "retroarch"},
+        }
+    )
+    flat = _expand({"host": "http://box:3010", "platform": "atari800"})
+
+    assert sorted(row.platform for row in expanded) == ["nes", "snes"]
+    assert [row.platform for row in flat] == ["atari8bit"]
+
+
 def test_expand_platform_block_without_an_emulator_is_skipped():
     """The emulator names the state and card namespace, so a block that omits
     it is dropped rather than guessed, and its siblings still expand."""

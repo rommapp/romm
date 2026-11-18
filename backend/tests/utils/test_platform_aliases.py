@@ -7,6 +7,8 @@ from config.config_manager import Config
 from utils.platform_aliases import (
     PLATFORM_FS_ALIASES,
     PLATFORM_SLUG_FOLDERS,
+    RETIRED_PLATFORM_SLUGS,
+    SIBLING_FOLDERS,
     resolve_builtin_platform_slug,
     resolve_fs_folder,
     resolve_fs_slug,
@@ -227,6 +229,17 @@ def test_two_folders_differing_only_by_case_each_resolve_to_themselves():
 def test_reverse_map_agrees_with_alias_table():
     for slug, fs_slug in PLATFORM_SLUG_FOLDERS.items():
         assert PLATFORM_FS_ALIASES[fs_slug].value == slug
+
+
+@pytest.mark.parametrize("slug", [UPS.NES, UPS.NDS, UPS.MAME, UPS.DOS, UPS.GBA])
+def test_a_sibling_folder_never_stands_in_for_its_platform(slug: UPS):
+    assert slug.value not in PLATFORM_SLUG_FOLDERS
+
+
+def test_sibling_folders_and_retired_slugs_are_aliases():
+    assert SIBLING_FOLDERS <= PLATFORM_FS_ALIASES.keys()
+    for old_slug, slug in RETIRED_PLATFORM_SLUGS.items():
+        assert PLATFORM_FS_ALIASES[old_slug] == slug
 
 
 @pytest.mark.parametrize("config_file", EXAMPLE_CONFIGS, ids=lambda p: p.name)

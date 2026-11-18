@@ -192,10 +192,46 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
 }
 
 
+# Alias folders holding a regional, multiplayer or collection subset of a
+# platform whose own slug is also a folder, so they never stand in for it.
+SIBLING_FOLDERS: Final = frozenset(
+    {
+        "exodos",
+        "exowin3x",
+        "exowin9x",
+        "famicom",
+        "gb2players",
+        "gba2players",
+        "gbc2players",
+        "hbmame",
+        "megacdjp",
+        "megadrive-msu",
+        "megadrivejp",
+        "msu-md",
+        "ndsmultiplayer",
+        "sfam",
+        "sfc",
+        "sgb",
+        "sgb-msu1",
+        "snes-msu1",
+    }
+)
+
+# Slugs merged into another platform, which config written for them still names.
+RETIRED_PLATFORM_SLUGS: Final[dict[str, UPS]] = {
+    "atari800": UPS.ATARI8BIT,
+    "famicom": UPS.NES,
+    "pc-6001": UPS.NEC_PC_6000_SERIES,
+    "sfam": UPS.SNES,
+    "vmu": UPS.VISUAL_MEMORY_UNIT_SLASH_VISUAL_MEMORY_SYSTEM,
+}
+
+
 def _unambiguous_folders() -> dict[str, str]:
     folders_by_slug: dict[UPS, list[str]] = {}
     for fs_slug, slug in PLATFORM_FS_ALIASES.items():
-        folders_by_slug.setdefault(slug, []).append(fs_slug)
+        if fs_slug not in SIBLING_FOLDERS:
+            folders_by_slug.setdefault(slug, []).append(fs_slug)
 
     return {
         slug.value: folders[0]

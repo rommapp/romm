@@ -1624,7 +1624,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
     },
     UPS.NES: {
         "abbreviation": "NES",
-        "alternative_name": "NES",
+        "alternative_name": "NES, Famicom, Family Computer",
         "category": "Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -2362,7 +2362,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
     },
     UPS.SNES: {
         "abbreviation": "SNES",
-        "alternative_name": "SNES, Super Nintendo",
+        "alternative_name": "SNES, Super Nintendo, Super Famicom, SFC",
         "category": "Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
