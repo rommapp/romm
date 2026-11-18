@@ -356,6 +356,29 @@ def test_a_neutral_save_with_foreign_member_names_is_unprocessable(
     assert "Pokemon Red.srm" in response.json()["detail"]["save"]
 
 
+def test_a_neutral_single_unit_named_as_sigil_names_it_is_written(
+    client: TestClient,
+    headers: dict[str, str],
+    game_file: RomFile,
+    rom: Rom,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from handler.snapshots import neutral
+
+    monkeypatch.setitem(
+        neutral.NEUTRAL_FORMS, rom.platform_slug, neutral.NEUTRAL_FORMS["gb"]
+    )
+
+    response = post(
+        client,
+        headers,
+        manifest(game_file, label="default", save=save_entry()),
+        {"save": ("Pokemon Red.srm", SRAM)},
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED, response.text
+
+
 def test_an_archive_escaping_its_folder_is_unprocessable(
     client: TestClient, headers: dict[str, str], game_file: RomFile, rom: Rom
 ):

@@ -18,19 +18,33 @@ class _Form:
     allowed: re.Pattern[str]
     # At least one present member must match this; `allowed` when unset.
     required: re.Pattern[str] | None = None
+    # Another name a SINGLE unit's one file may carry: sigil names a cart's
+    # single-file unit after the content, `{stem}.srm`.
+    single: re.Pattern[str] | None = None
 
     @property
     def primary(self) -> re.Pattern[str]:
         return self.required or self.allowed
+
+    def single_name(self, name: str, shape: SaveShape) -> bool:
+        return bool(
+            shape == SaveShape.SINGLE and self.single and self.single.fullmatch(name)
+        )
 
 
 def _names(*names: str) -> re.Pattern[str]:
     return re.compile("|".join(re.escape(name) for name in names))
 
 
+_SIGIL_SINGLE = re.compile(r".+\.srm")
+
 _BATTERY = _Form(_names("save.sram"))
 _CLOCKED = _Form(_names("save.sram", "clock.rtc"), _names("save.sram"))
+_GAME_BOY = _Form(
+    _names("save.sram", "clock.rtc"), _names("save.sram"), single=_SIGIL_SINGLE
+)
 _RAW = _Form(_names("save.raw"))
+_DS = _Form(_names("save.raw"), single=_SIGIL_SINGLE)
 _BACKUP_RAM = _Form(_names("backup.ram", "cart.ram"))
 
 NEUTRAL_FORMS: Final[dict[str, _Form]] = {
@@ -42,11 +56,11 @@ NEUTRAL_FORMS: Final[dict[str, _Form]] = {
     UPS.SMS: _BATTERY,
     UPS.GAMEGEAR: _BATTERY,
     UPS.SEGA32: _BATTERY,
-    UPS.GB: _CLOCKED,
-    UPS.GBC: _CLOCKED,
+    UPS.GB: _GAME_BOY,
+    UPS.GBC: _GAME_BOY,
     UPS.GBA: _CLOCKED,
     UPS.N64: _Form(_names("eeprom", "pak1", "pak2", "pak3", "pak4", "sram", "flash")),
-    UPS.NDS: _RAW,
+    UPS.NDS: _DS,
     UPS.JAGUAR: _RAW,
     UPS.LYNX: _RAW,
     UPS.NEO_GEO_POCKET: _RAW,
@@ -82,12 +96,19 @@ def check_neutral_unit(
     form = NEUTRAL_FORMS.get(platform_slug)
     if form is None:
         return
-    strays = sorted(name for name in members if not form.allowed.fullmatch(name))
+    strays = sorted(
+        name
+        for name in members
+        if not form.allowed.fullmatch(name) and not form.single_name(name, shape)
+    )
     if strays:
         raise NeutralUnitRejected(
             f"{', '.join(strays)} isn't a neutral member name for {platform_slug}"
         )
-    if not any(form.primary.fullmatch(name) for name in members):
+    if not any(
+        form.primary.fullmatch(name) or form.single_name(name, shape)
+        for name in members
+    ):
         raise NeutralUnitRejected(f"the unit holds no save for {platform_slug}")
     if shape == SaveShape.SINGLE and len(members) != 1:
         raise NeutralUnitRejected("a SINGLE unit holds exactly one member")
