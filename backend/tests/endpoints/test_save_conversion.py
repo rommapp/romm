@@ -56,12 +56,11 @@ def _stored(save: Save, data: bytes = UNIT) -> Save:
     return save
 
 
-def _neutral_gba_unit() -> bytes:
+def _neutral_snes_unit() -> bytes:
     ensure_zipfile_writable()
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as zf:
         zf.writestr("save.sram", b"battery")
-        zf.writestr("clock.rtc", b"clock")
     return buffer.getvalue()
 
 
@@ -287,7 +286,7 @@ class TestGetWithCore:
 
         assert _awaited_args(restore)[2].content_path == "Chrono Cross (USA).bin"
 
-    @pytest.mark.parametrize("slug", ["nes", "snes", "genesis", "gba"])
+    @pytest.mark.parametrize("slug", ["nes", "snes", "genesis"])
     def test_a_platform_without_a_converter_serves_the_stored_file(
         self, client, headers, admin_user: User, restore, slug: str
     ):
@@ -306,7 +305,7 @@ class TestGetWithCore:
     ):
         save = _stored(
             make_save(
-                _rom_on("gba", "Game", admin_user),
+                _rom_on("snes", "Game", admin_user),
                 admin_user,
                 "save.sram",
                 shape=SaveShape.SINGLE,
@@ -314,7 +313,7 @@ class TestGetWithCore:
             )
         )
 
-        response = _get(client, save, headers, "core=mgba")
+        response = _get(client, save, headers, "core=snes9x")
 
         assert response.status_code == status.HTTP_200_OK
         assert response.content == UNIT
@@ -326,19 +325,19 @@ class TestGetWithCore:
     ):
         save = _stored(
             make_save(
-                _rom_on("gba", "Game", admin_user),
+                _rom_on("snes", "Game", admin_user),
                 admin_user,
                 "save.zip",
                 shape=shape,
                 format=SaveFormat.NEUTRAL,
             ),
-            _neutral_gba_unit(),
+            _neutral_snes_unit(),
         )
 
-        response = _get(client, save, headers, "core=mgba")
+        response = _get(client, save, headers, "core=snes9x")
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "gba" in response.json()["detail"]
+        assert "snes" in response.json()["detail"]
         restore.assert_not_awaited()
 
     def test_a_wii_save_converts_for_dolphin(
@@ -364,6 +363,18 @@ class TestGetWithCore:
 
         assert response.status_code == status.HTTP_200_OK
         assert _awaited_args(restore)[2].core == "desmume"
+
+    def test_a_gba_save_converts_for_gpsp(
+        self, client, headers, admin_user: User, stored_game, restore
+    ):
+        save = _stored(
+            make_save(_rom_on("gba", "Game", admin_user), admin_user, "Game.srm")
+        )
+
+        response = _get(client, save, headers, "core=gpsp")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert _awaited_args(restore)[2].core == "gpsp"
 
     @pytest.mark.parametrize("slug", ["neogeoaes", "turbografx-cd", "unknown"])
     def test_a_platform_sigil_does_not_sync_is_refused(
@@ -786,13 +797,13 @@ class TestPostContainer:
     ):
         save = _stored(
             make_save(
-                _rom_on("gba", "Game", admin_user),
+                _rom_on("snes", "Game", admin_user),
                 admin_user,
                 "save.zip",
                 shape=SaveShape.MULTI,
                 format=SaveFormat.NEUTRAL,
             ),
-            _neutral_gba_unit(),
+            _neutral_snes_unit(),
         )
 
         response = _post(client, save, headers)

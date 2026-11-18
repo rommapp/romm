@@ -144,6 +144,20 @@ class TestSigilService:
         assert extract.call_args.kwargs["platform"] == sigil_slug
 
     @pytest.mark.asyncio
+    async def test_reads_a_gba_carts_save_chip_and_clock(
+        self, service: SigilService, monkeypatch
+    ):
+        # sigil's FEATURE_RTC | FEATURE_GBA_FLASH1M, as it reads Pokemon Emerald
+        extract = Mock(return_value=make_result(title_id="", save_id="", features=17))
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+
+        result = await service.extract_title_id(UPS.GBA, "/roms/gba/game.gba")
+
+        assert result is not None
+        assert (result.title_id, result.features) == ("", 17)
+        assert extract.call_args.kwargs["platform"] == "gba"
+
+    @pytest.mark.asyncio
     async def test_successful_extraction_maps_fields(
         self, service: SigilService, monkeypatch
     ):
@@ -487,6 +501,7 @@ class TestStoredGame:
         ("slug", "sigil_slug"),
         [
             (UPS.GBC, "gbc"),
+            (UPS.GBA, "gba"),
             (UPS.SATURN, "saturn"),
             (UPS.SEGACD, "segacd"),
             (UPS.NDS, "nds"),

@@ -36,6 +36,7 @@ SIGIL_EXTRACT_PLATFORM_SLUGS: Final[dict[str, str]] = {
     UPS.N64: "n64",
     UPS.GB: "gb",
     UPS.GBC: "gbc",
+    UPS.GBA: "gba",
 }
 
 # Sigil reads these titles but can't collect or restore their saves.
@@ -66,7 +67,6 @@ NATIVE_SAVE_PLATFORM_SLUGS: Final = frozenset(
         UPS.SMS,
         UPS.GAMEGEAR,
         UPS.SEGA32,
-        UPS.GBA,
     }
 )
 
