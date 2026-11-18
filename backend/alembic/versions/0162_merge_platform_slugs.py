@@ -20,7 +20,8 @@ depends_on = None
 
 PICO_8_OLD_SLUG = "pico"
 PICO_8_SLUG = "pico-8"
-# The names that resolve to PICO-8 at this revision, frozen against later alias edits.
+# The names and binding rule that resolve to PICO-8 at this revision, frozen
+# against later alias edits.
 PICO_8_NAMES = frozenset({PICO_8_SLUG, "pico8"})
 
 # Each old slug and the slug that replaces it.
