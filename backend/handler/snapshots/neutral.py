@@ -36,7 +36,7 @@ def _names(*names: str) -> re.Pattern[str]:
     return re.compile("|".join(re.escape(name) for name in names))
 
 
-_SIGIL_SINGLE = re.compile(r".+\.srm")
+_SIGIL_SINGLE = re.compile(r"[^/]+\.srm")
 
 _BATTERY = _Form(_names("save.sram"))
 _SEGA_CART = _Form(_names("save.sram"), single=_SIGIL_SINGLE)
