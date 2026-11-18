@@ -3,7 +3,6 @@ from typing import TypedDict
 from utils.arcade_platforms import arcade_fallbacks
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.platform_slugs import fill_duplicate_slugs
-from utils.unlisted_platforms import host_fallbacks
 
 from .types import LaunchboxPlatform
 
@@ -224,7 +223,6 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
     UPS.ZXS: {"id": 46, "name": "Sinclair ZX Spectrum"},
 }
 LAUNCHBOX_PLATFORM_LIST |= arcade_fallbacks(LAUNCHBOX_PLATFORM_LIST)
-LAUNCHBOX_PLATFORM_LIST |= host_fallbacks(LAUNCHBOX_PLATFORM_LIST)
 
 fill_duplicate_slugs(LAUNCHBOX_PLATFORM_LIST)
 

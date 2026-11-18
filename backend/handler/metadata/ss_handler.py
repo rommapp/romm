@@ -45,7 +45,6 @@ from utils.datetime import parse_utc_timestamp
 from utils.html_text import html_to_text
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.platform_slugs import fill_duplicate_slugs
-from utils.unlisted_platforms import host_fallbacks
 
 from .base_handler import (
     BaseRom,
@@ -2102,7 +2101,6 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
 }
 
 fill_duplicate_slugs(SCREENSAVER_PLATFORM_LIST)
-SCREENSAVER_PLATFORM_LIST |= host_fallbacks(SCREENSAVER_PLATFORM_LIST)
 
 SS_INDEXED_FORMAT_PLATFORMS: Final = IndexedFormatPlatforms(
     ps1=PS1_SS_ID,

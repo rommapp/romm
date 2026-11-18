@@ -29,7 +29,6 @@ from utils.hltb_search import (
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.platform_slugs import fill_duplicate_slugs
 from utils.rate_limiter import RateLimiter
-from utils.unlisted_platforms import host_fallbacks
 from utils.update_hltb_api_url import discover_hltb_endpoint
 
 from .base_handler import BaseRom, MetadataHandler
@@ -886,6 +885,5 @@ HLTB_PLATFORM_LIST: dict[UPS, SlugToHLTBPlatform] = {
     UPS.ZEEBO: {"name": "Zeebo", "slug": "zeebo", "count": 9},
 }
 HLTB_PLATFORM_LIST |= arcade_fallbacks(HLTB_PLATFORM_LIST)
-HLTB_PLATFORM_LIST |= host_fallbacks(HLTB_PLATFORM_LIST)
 
 fill_duplicate_slugs(HLTB_PLATFORM_LIST)

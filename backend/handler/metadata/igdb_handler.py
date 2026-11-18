@@ -29,7 +29,6 @@ from models.rom import Rom
 from utils.arcade_platforms import ARCADE_PLATFORMS
 from utils.context import ctx_httpx_client
 from utils.platform_slugs import UniversalPlatformSlug as UPS
-from utils.unlisted_platforms import UNLISTED_PLATFORMS
 
 from .base_handler import (
     BaseRom,
@@ -856,13 +855,6 @@ class IGDBHandler(MetadataHandler):
             arcade["slug"] = slug
             arcade.pop("name", None)
             return arcade
-
-        unlisted = UNLISTED_PLATFORMS.get(UPS(slug)) if slug in UPS else None
-        if unlisted and unlisted.host in IGDB_PLATFORM_LIST:
-            host = self._base_platform(unlisted.host)
-            host["slug"] = slug
-            host["name"] = unlisted.name
-            return host
 
         unlisted_platform = IGDBPlatform(igdb_id=None, slug=slug)
         if slug in IGDB_SIBLING_PLATFORMS:
