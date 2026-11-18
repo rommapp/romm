@@ -813,6 +813,26 @@ class TestRetroArchSyncCopy:
         assert client.get(backups[1], auth=ADMIN_AUTH).content == b"settings"
         assert client.get(backups[2], auth=ADMIN_AUTH).content == b"settings"
 
+    def test_zero_retention_keeps_every_backup(self, client, admin_user, monkeypatch):
+        monkeypatch.setattr(
+            "handler.filesystem.retroarch_sync_handler.MAX_SAVES_PER_SLOT", 0
+        )
+        path = "/api/sync/retroarch/config/retroarch.cfg"
+        backups = [
+            f"/api/sync/retroarch/deleted/config/retroarch.cfg-261118-12000{i}"
+            for i in range(3)
+        ]
+        assert client.put(path, content=b"settings", auth=ADMIN_AUTH).status_code == 201
+        for backup in backups:
+            assert (
+                client.request(
+                    "COPY", path, headers={"Destination": backup}, auth=ADMIN_AUTH
+                ).status_code
+                == 201
+            )
+        for backup in backups:
+            assert client.get(backup, auth=ADMIN_AUTH).content == b"settings"
+
     def test_state_missing_from_disk_is_a_missing_source(
         self, client, synced_state: State
     ):

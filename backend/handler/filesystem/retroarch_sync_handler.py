@@ -2,6 +2,7 @@
 thumbnails/ and system/."""
 
 import asyncio
+import fcntl
 import os
 import re
 import shutil
@@ -64,26 +65,29 @@ def _copy_backup(source: Path, target: Path, overwrite: bool) -> bool | None:
             try:
                 shutil.copyfileobj(source_file, staged)
                 staged.close()
+                # Other workers publish and prune in the same folder.
+                lock_fd = os.open(target.parent, os.O_RDONLY)
                 try:
-                    os.link(temp_path, target)
-                    replaced = False
-                except FileExistsError:
-                    if not overwrite:
-                        raise
+                    fcntl.flock(lock_fd, fcntl.LOCK_EX)
+                    replaced = target.exists()
+                    if replaced and not overwrite:
+                        raise FileExistsError(target)
                     os.replace(temp_path, target)
-                    replaced = True
-                older = sorted(
-                    (
-                        file
-                        for file in target.parent.iterdir()
-                        if file != target
-                        and re.fullmatch(r"[0-9]{6}-[0-9]{6}", file.name)
-                    ),
-                    key=lambda file: file.name,
-                    reverse=True,
-                )
-                for file in older[max(1, MAX_SAVES_PER_SLOT) - 1 :]:
-                    file.unlink(missing_ok=True)
+                    if MAX_SAVES_PER_SLOT:
+                        older = sorted(
+                            (
+                                file
+                                for file in target.parent.iterdir()
+                                if file != target
+                                and re.fullmatch(r"[0-9]{6}-[0-9]{6}", file.name)
+                            ),
+                            key=lambda file: file.name,
+                            reverse=True,
+                        )
+                        for file in older[MAX_SAVES_PER_SLOT - 1 :]:
+                            file.unlink(missing_ok=True)
+                finally:
+                    os.close(lock_fd)
                 return replaced
             finally:
                 temp_path.unlink(missing_ok=True)
