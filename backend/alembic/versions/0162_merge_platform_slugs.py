@@ -24,7 +24,6 @@ PICO_8_SLUG = "pico-8"
 # against later alias edits.
 PICO_8_NAMES = frozenset({PICO_8_SLUG, "pico8"})
 
-# Each old slug and the slug that replaces it.
 OLD_SLUGS_TO_NEW = {
     PICO_8_OLD_SLUG: PICO_8_SLUG,
     "famicom": "nes",

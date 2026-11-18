@@ -56,7 +56,7 @@ IGDB_INDEXED_FORMAT_PLATFORMS: Final = IndexedFormatPlatforms(
 # Map each platform to its twin so searches can include both.
 # See https://github.com/rommapp/romm/issues/3462.
 SNES_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.SNES]["id"]
-# RomM files Famicom and Super Famicom folders under NES and SNES.
+# Famicom and Super Famicom folders are filed under NES and SNES, so these have no list entry.
 SUPER_FAMICOM_IGDB_ID: Final = 58
 NES_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.NES]["id"]
 FAMICOM_IGDB_ID: Final = 99
