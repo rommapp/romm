@@ -9,8 +9,9 @@ Create Date: 2026-11-18 00:00:00.000000
 import sqlalchemy as sa
 from alembic import op
 
+from config.config_manager import Config
 from config.config_manager import config_manager as cm
-from utils.platform_aliases import resolve_builtin_platform_slug
+from exceptions.config_exceptions import ConfigNotWritableException
 
 revision = "0162_merge_platform_slugs"
 down_revision = "0161_save_channels"
@@ -19,6 +20,8 @@ depends_on = None
 
 PICO_8_OLD_SLUG = "pico"
 PICO_8_SLUG = "pico-8"
+# The names that resolve to PICO-8 at this revision, frozen against later alias edits.
+PICO_8_NAMES = frozenset({PICO_8_SLUG, "pico8"})
 
 # Each old slug and the slug that replaces it.
 OLD_SLUGS_TO_NEW = {
@@ -32,27 +35,35 @@ OLD_SLUGS_TO_NEW = {
 
 
 def _pico_8_folders(connection: sa.Connection) -> list[str]:
-    """Folders filed as PICO-8 whose name no longer resolves to it on its own."""
     rows = connection.execute(
         sa.text("SELECT fs_slug FROM platforms WHERE LOWER(slug) = :slug"),
         {"slug": PICO_8_OLD_SLUG},
     )
-    return [
-        fs_slug
-        for (fs_slug,) in rows
-        if resolve_builtin_platform_slug(fs_slug) != PICO_8_SLUG
-    ]
+    return [fs_slug for (fs_slug,) in rows]
+
+
+def _resolved_name(fs_slug: str, config: Config) -> str:
+    """The name a folder resolves through: its binding, its version, or itself."""
+    key = fs_slug.lower()
+    bound = config.PLATFORMS_BINDING.get(key) or config.PLATFORMS_VERSIONS.get(key)
+    return (bound or fs_slug).lower()
+
+
+def _bind(fs_slug: str, slug: str) -> None:
+    try:
+        cm.add_platform_binding(fs_slug, slug)
+    except (OSError, ConfigNotWritableException) as e:
+        print(f"Error binding {fs_slug} to {slug}, add it to config.yml: {e}")
 
 
 def upgrade() -> None:
     connection = op.get_bind()
+    config = cm.get_config()
 
     # `pico` now names the Sega Pico, so keep these folders filed as PICO-8.
     for fs_slug in _pico_8_folders(connection):
-        try:
-            cm.add_platform_binding(fs_slug, PICO_8_SLUG)
-        except OSError as e:
-            print(f"Error binding {fs_slug} to {PICO_8_SLUG}: {e}")
+        if _resolved_name(fs_slug, config) not in PICO_8_NAMES:
+            _bind(fs_slug, PICO_8_SLUG)
 
     for old_slug, new_slug in OLD_SLUGS_TO_NEW.items():
         connection.execute(
@@ -75,10 +86,15 @@ def downgrade() -> None:
             {"old_slug": old_slug, "new_slug": new_slug},
         )
 
+    config = cm.get_config()
     for fs_slug in _pico_8_folders(connection):
-        if cm.get_config().PLATFORMS_BINDING.get(fs_slug.lower()) != PICO_8_SLUG:
+        if config.PLATFORMS_BINDING.get(fs_slug.lower()) != PICO_8_SLUG:
+            continue
+        # A folder named pico resolves to it unbound; any other was bound to it.
+        if fs_slug.lower() != PICO_8_OLD_SLUG:
+            _bind(fs_slug, PICO_8_OLD_SLUG)
             continue
         try:
             cm.remove_platform_binding(fs_slug)
-        except OSError as e:
+        except (OSError, ConfigNotWritableException) as e:
             print(f"Error removing the {PICO_8_SLUG} binding for {fs_slug}: {e}")

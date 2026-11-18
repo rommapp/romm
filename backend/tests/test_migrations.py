@@ -7,7 +7,7 @@ not the other goes unnoticed until autogenerate proposes dropping it.
 import importlib.util
 import re
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import alembic.config
@@ -1528,14 +1528,22 @@ def test_the_merge_platform_slugs_revision_keeps_pico_8_folders_and_reverses(
     for slug, fs_slug in (
         ("pico", "pico"),
         ("pico", "pico8"),
+        ("pico", "pico-8"),
         ("famicom", "famicom"),
         ("sfam", "sfc"),
         ("atari800", "atari800"),
+        ("pc-6001", "pc-6001"),
+        ("vmu", "vmu"),
         ("snes", "snes"),
     ):
         make_platform(slug, fs_slug=fs_slug)
-    bindings: dict[str, str] = {}
+    # pico8 reaches PICO-8 through a binding to pico, which now names the Sega
+    # Pico; pico-8 is a stale row whose binding is gone.
+    bindings = {"pico8": "pico"}
+    config = SimpleNamespace(PLATFORMS_BINDING=bindings, PLATFORMS_VERSIONS={})
+    monkeypatch.setattr(cm, "get_config", lambda: config)
     monkeypatch.setattr(cm, "add_platform_binding", bindings.__setitem__)
+    monkeypatch.setattr(cm, "remove_platform_binding", bindings.pop)
 
     def slugs(connection: sa.Connection) -> set[tuple[str, str]]:
         return set(connection.execute(sa.text("SELECT fs_slug, slug FROM platforms")))
@@ -1544,24 +1552,31 @@ def test_the_merge_platform_slugs_revision_keeps_pico_8_folders_and_reverses(
         with Operations.context(MigrationContext.configure(connection)):
             migration.upgrade()
             upgraded = slugs(connection)
+            upgraded_bindings = dict(bindings)
             migration.downgrade()
             downgraded = slugs(connection)
 
     assert upgraded == {
         ("pico", "pico-8"),
         ("pico8", "pico-8"),
+        ("pico-8", "pico-8"),
         ("famicom", "nes"),
         ("sfc", "snes"),
         ("atari800", "atari8bit"),
+        ("pc-6001", "nec-pc-6000-series"),
+        ("vmu", "visual-memory-unit-slash-visual-memory-system"),
         ("snes", "snes"),
     }
-    # Only the folder that now resolves to the Sega Pico needs a binding.
-    assert bindings == {"pico": "pico-8"}
+    assert upgraded_bindings == {"pico": "pico-8", "pico8": "pico-8"}
     assert downgraded == {
         ("pico", "pico"),
         ("pico8", "pico"),
+        ("pico-8", "pico"),
         ("famicom", "famicom"),
         ("sfc", "sfam"),
         ("atari800", "atari800"),
+        ("pc-6001", "pc-6001"),
+        ("vmu", "vmu"),
         ("snes", "snes"),
     }
+    assert bindings == {"pico8": "pico"}

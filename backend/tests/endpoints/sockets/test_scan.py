@@ -1122,9 +1122,9 @@ async def test_a_rescan_keeps_the_stored_placeholder_of_an_unchanged_file(mocker
         ),
         roms_fs_structure="pico/roms",
         name_with_no_tags="celeste",
-        platform_slug="pico",
+        platform_slug=UPS.PICO_8,
     )
-    platform = Platform(name="pico", slug="pico", fs_slug="pico")
+    platform = Platform(name="PICO-8", slug=UPS.PICO_8, fs_slug="pico")
     platform.id = 1
     rom = Rom(fs_name="celeste.p8.png", fs_path="pico/roms", platform_id=1)
     rom.id = 7
