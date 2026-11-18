@@ -6,7 +6,7 @@ import uuid
 from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import asynccontextmanager, suppress
 from tempfile import SpooledTemporaryFile
-from urllib.parse import quote
+from urllib.parse import quote, unquote, urlsplit
 
 from fastapi import APIRouter, Request, Response, UploadFile, status
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -42,7 +42,9 @@ from utils.uploads import apply_datetime_tag
 
 router = APIRouter(prefix="/retroarch")
 
-ALLOWED_METHODS = "OPTIONS, PROPFIND, GET, HEAD, PUT, DELETE, MKCOL, MOVE, LOCK, UNLOCK"
+ALLOWED_METHODS = (
+    "OPTIONS, PROPFIND, GET, HEAD, PUT, DELETE, MKCOL, MOVE, COPY, LOCK, UNLOCK"
+)
 
 # Starlette's own threshold for spooling a multipart upload to disk.
 _BODY_MEMORY_MAX_BYTES = 1024 * 1024
@@ -147,7 +149,14 @@ def _unheld[A: (Save, State)](assets: Sequence[A]) -> list[A]:
 async def _get_asset(
     user: User, rom: Rom, parsed: RetroArchSyncPath
 ) -> Save | State | Screenshot | None:
-    return await asyncio.to_thread(_find_asset, user, rom, parsed)
+    asset = await asyncio.to_thread(_find_asset, user, rom, parsed)
+    while (
+        asset
+        and not asset.missing_from_fs
+        and await asyncio.to_thread(sync_handler.flag_if_missing, asset)
+    ):
+        asset = await asyncio.to_thread(_find_asset, user, rom, parsed)
+    return asset
 
 
 def _find_asset(
@@ -400,6 +409,18 @@ async def retroarch_sync_get(request: Request, file_path: str) -> Response:
     if denied:
         return denied
 
+    if backup_source := sync_handler.backup_source_path(file_path):
+        rom = None
+        if parsed_backup := sync_handler.parse_retroarch_sync_path(backup_source):
+            rom = await _resolve_rom(request, parsed_backup)
+            if not rom:
+                return _empty(status.HTTP_404_NOT_FOUND)
+        return _serve(
+            fs_retroarch_sync_handler,
+            sync_handler.user_backup_path(request.user, rom, file_path),
+            os.path.basename(file_path),
+        )
+
     if file_path.strip("/") == MANIFEST_FILE_NAME:
         await asyncio.to_thread(touch_retroarch_device, request.user)
         manifest = await sync_handler.build_manifest(
@@ -451,17 +472,75 @@ async def retroarch_sync_get(request: Request, file_path: str) -> Response:
         return _empty(status.HTTP_404_NOT_FOUND)
 
     asset = await _get_asset(request.user, rom, parsed)
-    # A file deleted outside RomM hides any older asset at this path until flagged.
-    while (
-        asset
-        and not asset.missing_from_fs
-        and await asyncio.to_thread(sync_handler.flag_if_missing, asset)
-    ):
-        asset = await _get_asset(request.user, rom, parsed)
     if not asset:
         return _empty(status.HTTP_404_NOT_FOUND)
 
     return _serve(fs_asset_handler, asset.full_path, asset.file_name)
+
+
+def _backup_destination(request: Request, source: str) -> str | None:
+    try:
+        destination = urlsplit(request.headers.get("Destination", ""))
+        path = unquote(destination.path, errors="strict")
+    except ValueError:
+        return None
+    if destination.query or destination.fragment:
+        return None
+    if destination.scheme or destination.netloc:
+        if (
+            destination.scheme not in {"http", "https"}
+            or destination.netloc.casefold() != request.url.netloc.casefold()
+        ):
+            return None
+    prefix = request.url_for("retroarch_sync_get", file_path="").path
+    if not path.startswith(prefix):
+        return None
+    backup = path[len(prefix) :]
+    return backup if sync_handler.backup_source_path(backup) == source else None
+
+
+@router.api_route("/{file_path:path}", methods=["COPY"], include_in_schema=False)
+async def retroarch_sync_copy(request: Request, file_path: str) -> Response:
+    """Copy a save or state to its timestamped RetroArch backup path."""
+    denied = _authorize(request, Scope.ASSETS_WRITE) or _authorize(
+        request, Scope.ASSETS_READ
+    )
+    if denied:
+        return denied
+
+    backup = _backup_destination(request, file_path)
+    overwrite = request.headers.get("Overwrite", "T")
+    if backup is None or overwrite not in {"T", "F"}:
+        return _empty(status.HTTP_400_BAD_REQUEST)
+    rom = None
+    if blob := sync_handler.parse_retroarch_sync_blob_path(file_path):
+        handler: FSHandler = fs_retroarch_sync_handler
+        source = sync_handler.user_blob_path(request.user, blob)
+    else:
+        parsed = sync_handler.parse_retroarch_sync_path(file_path)
+        if not parsed or not (rom := await _resolve_rom(request, parsed)):
+            return _empty(status.HTTP_404_NOT_FOUND)
+        asset = await _get_asset(request.user, rom, parsed)
+        if not asset:
+            return _empty(status.HTTP_404_NOT_FOUND)
+        handler = fs_asset_handler
+        source = asset.full_path
+
+    try:
+        if not await handler.file_exists(source):
+            return _empty(status.HTTP_404_NOT_FOUND)
+        replaced = await fs_retroarch_sync_handler.copy_backup(
+            handler.validate_path(source),
+            sync_handler.user_backup_path(request.user, rom, backup),
+            overwrite=overwrite == "T",
+        )
+    except FileExistsError:
+        return _empty(status.HTTP_412_PRECONDITION_FAILED)
+    except ValueError:
+        return _empty(status.HTTP_409_CONFLICT)
+    if replaced is None:
+        return _empty(status.HTTP_409_CONFLICT)
+    return _empty(status.HTTP_204_NO_CONTENT if replaced else status.HTTP_201_CREATED)
 
 
 @router.api_route("/{file_path:path}", methods=["PUT"], include_in_schema=False)

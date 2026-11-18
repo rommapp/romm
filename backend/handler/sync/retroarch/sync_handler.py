@@ -128,6 +128,20 @@ def parse_retroarch_sync_path(path: str) -> RetroArchSyncPath | None:
     return RetroArchSyncPath(kind=kind, emulator=emulator, file_name=segments[-1])
 
 
+def backup_source_path(path: str) -> str | None:
+    """Return the source asset path of a timestamped RetroArch backup."""
+    match = re.fullmatch(r"deleted/(.+)-[0-9]{6}-[0-9]{6}", path)
+    if not match or "\\" in path:
+        return None
+    source = match[1]
+    segments = split_segments(source)
+    if not segments or source != "/".join(segments):
+        return None
+    if parse_retroarch_sync_path(source) or parse_retroarch_sync_blob_path(source):
+        return source
+    return None
+
+
 def is_state_screenshot_path(file_name: str) -> bool:
     """Whether a `states/...` file is the `<state file name>.png` RetroArch syncs."""
     return file_name.lower().endswith(".png")
@@ -718,6 +732,12 @@ def parse_retroarch_sync_blob_path(path: str) -> str | None:
 def user_blob_path(user: User, blob_path: str) -> str:
     """Where a parsed blob path lives under the assets root, namespaced by user."""
     return f"{fs_asset_handler.user_folder_path(user)}/retroarch/{blob_path}"
+
+
+def user_backup_path(user: User, rom: Rom | None, backup_path: str) -> str:
+    source, day, clock = backup_path.rsplit("-", 2)
+    namespace = f"roms/{rom.id}" if rom else "blobs"
+    return user_blob_path(user, f"backups/{namespace}/{source}/{day}-{clock}")
 
 
 def _decoded(value: str | bytes | None) -> str | None:
