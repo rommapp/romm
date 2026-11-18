@@ -137,3 +137,64 @@ def card_entries(binding: ModuleType, data: bytes) -> dict[str, str]:
         path.write_bytes(data)
         listing = binding.list_card(path)
     return {entry.name: entry.owner_id for entry in listing.entries}
+
+
+XBOX_DRIVE_E = 0xABE80000
+XBOX_DRIVE_E_SIZE = 0x131F00000
+
+
+def xbox_drive() -> bytes:
+    """A blank Xbox hard-disk image as xemu keeps one: an 8 GiB qcow2 image
+    holding a FATX partition E: with an empty root directory."""
+    cluster = 0x10000
+    per_l2 = cluster // 8
+    size = 0x200000000
+    fat_bytes = ((XBOX_DRIVE_E_SIZE // 0x4000 + 1) * 4 + 0xFFF) & ~0xFFF
+    root = XBOX_DRIVE_E + 0x1000 + fat_bytes
+    guest: dict[int, bytearray] = {}
+
+    def put(offset: int, data: bytes) -> None:
+        at = offset % cluster
+        guest.setdefault(offset // cluster, bytearray(cluster))[
+            at : at + len(data)
+        ] = data
+
+    superblock = b"FATX" + struct.pack("<III", 0x0D03A0, 32, 1) + b"\x00\x00"
+    put(XBOX_DRIVE_E, superblock + b"\xff" * (0x1000 - len(superblock)))
+    put(XBOX_DRIVE_E + 0x1000, struct.pack("<II", 0xFFFFFFF8, 0xFFFFFFFF))
+    put(root, b"\xff" * 0x4000)
+
+    # The header, the refcount table and its one block, the L1 table, one L2
+    # table, then the drive's clusters.
+    refcount_table, refcount_block, l1, l2, data = (n * cluster for n in range(1, 6))
+    image = bytearray(data + len(guest) * cluster)
+    for n, (index, content) in enumerate(sorted(guest.items())):
+        host = data + n * cluster
+        image[host : host + cluster] = content
+        struct.pack_into(">Q", image, l2 + (index % per_l2) * 8, host | 1 << 63)
+    struct.pack_into(
+        ">Q", image, l1 + (XBOX_DRIVE_E // cluster // per_l2) * 8, l2 | 1 << 63
+    )
+    struct.pack_into(">Q", image, refcount_table, refcount_block)
+    for n in range(len(image) // cluster):
+        struct.pack_into(">H", image, refcount_block + n * 2, 1)
+    struct.pack_into(
+        ">IIQIIQIIQQIIQ",
+        image,
+        0,
+        0x514649FB,
+        3,
+        0,
+        0,
+        16,
+        size,
+        0,
+        size // (cluster * per_l2),
+        l1,
+        refcount_table,
+        1,
+        0,
+        0,
+    )
+    struct.pack_into(">QQQII", image, 72, 0, 0, 0, 4, 104)
+    return bytes(image)

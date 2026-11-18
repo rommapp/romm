@@ -15,6 +15,7 @@ from tests.sigil_cards import (
     SATURN_DATA_OFFSET,
     ps1_card,
     saturn_volume,
+    xbox_drive,
 )
 
 from adapters.services.sigil import SigilGame
@@ -288,6 +289,138 @@ async def test_a_ps1_shared_card_merge_keeps_another_games_save(
         "BASLUSP01041CROSS": bytes([0x11]) * PS1_BLOCK,
         "BASLUS-00067OTHER": bytes([0x33]) * PS1_BLOCK,
     }
+
+
+def xbox_game(binding: ModuleType, title_id: str, save_id: str) -> SigilGame:
+    return SigilGame(
+        result=binding.SigilResult.persisted("xbox", title_id, save_id, 0),
+        game_ids=(title_id,),
+    )
+
+
+def xbox_unit(save_id: str, files: dict[str, bytes]) -> bytes:
+    """A game's save folders zipped as they sit on the drive's E:."""
+    reload_zipfile()
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_STORED) as archive:
+        for name, data in files.items():
+            archive.writestr(f"UDATA/{save_id.lower()}/{name}", data)
+    return out.getvalue()
+
+
+def xbox_saves(
+    binding: ModuleType, game: SigilGame, image: bytes, tmp_path: Path
+) -> dict[str, bytes]:
+    """The game's files on a drive image, as sigil collects them off it."""
+    root = tmp_path / f"read-{game.result.save_id}"
+    root.mkdir(exist_ok=True)
+    (root / "xbox_hdd.qcow2").write_bytes(image)
+    unit = binding.collect(
+        game.result, "xemu", "Game.iso", root, options={"hdd_path": "xbox_hdd.qcow2"}
+    ).data
+    if unit is None:
+        return {}
+    with zipfile.ZipFile(io.BytesIO(unit)) as archive:
+        return {name: archive.read(name) for name in archive.namelist()}
+
+
+@pytest.mark.asyncio
+async def test_an_xbox_save_names_the_drive_image_the_client_must_send(binding):
+    halo = xbox_game(binding, "MS-004", "4D530004")
+    unit = xbox_unit("4D530004", {"0A1B2C3D4E5F/blam.sav": b"checkpoint"})
+
+    with pytest.raises(SharedContainerRequired) as excinfo:
+        await restore_per_game(
+            unit, halo, target("xemu", "Halo (USA).iso", hdd_path="/games/my.qcow2")
+        )
+
+    assert excinfo.value.container_path == "my.qcow2"
+
+    with pytest.raises(SharedContainerRequired) as excinfo:
+        await restore_per_game(unit, halo, target("x1box", "Halo (USA).iso"))
+
+    assert excinfo.value.container_path == "hdd.img"
+
+
+@pytest.mark.asyncio
+async def test_an_xbox_save_for_xemu_needs_the_drive_images_path(binding):
+    """xemu has no default drive image, so a request that names none is told to."""
+    halo = xbox_game(binding, "MS-004", "4D530004")
+    unit = xbox_unit("4D530004", {"0A1B2C3D4E5F/blam.sav": b"checkpoint"})
+
+    with pytest.raises(SigilRefusal) as excinfo:
+        await restore_per_game(unit, halo, target("xemu", "Halo (USA).iso"))
+
+    assert excinfo.value.code is RefusalCode.INVALID_ARG
+    assert "hdd_path" in str(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_an_xbox_drive_merge_changes_only_the_games_saves(
+    binding, tmp_path: Path
+):
+    halo = xbox_game(binding, "MS-004", "4D530004")
+    flatout = xbox_game(binding, "EM-009", "454D0009")
+    theirs = {"1A3F1B2E4ADD/options.sav": bytes(range(256)) * 200}
+    sent = await merge_into_container(
+        xbox_unit("454D0009", theirs),
+        flatout,
+        target("xemu", "FlatOut (USA).iso"),
+        "xbox_hdd.qcow2",
+        xbox_drive(),
+    )
+    old = {"0A1B2C3D4E5F/blam.sav": b"an older checkpoint", "TitleMeta.xbx": b"Halo"}
+    sent = await merge_into_container(
+        xbox_unit("4D530004", old),
+        halo,
+        target("xemu", "Halo (USA).iso"),
+        "xbox_hdd.qcow2",
+        sent["xbox_hdd.qcow2"],
+    )
+    new = {"0A1B2C3D4E5F/blam.sav": b"checkpoint" * 5000}
+
+    restored = await merge_into_container(
+        xbox_unit("4D530004", new),
+        halo,
+        target("xemu", "Halo (USA).iso"),
+        "xbox_hdd.qcow2",
+        sent["xbox_hdd.qcow2"],
+    )
+
+    assert list(restored) == ["xbox_hdd.qcow2"]
+    image = restored["xbox_hdd.qcow2"]
+    # The client names its image by sending it, whatever it is called.
+    renamed = await merge_into_container(
+        xbox_unit("4D530004", new),
+        halo,
+        target("xemu", "Halo (USA).iso"),
+        "my drive.qcow2",
+        sent["xbox_hdd.qcow2"],
+    )
+    assert renamed == {"my drive.qcow2": image}
+    assert xbox_saves(binding, halo, image, tmp_path) == {
+        f"UDATA/4d530004/{name}": data for name, data in new.items()
+    }
+    assert xbox_saves(binding, flatout, image, tmp_path) == {
+        f"UDATA/454d0009/{name}": data for name, data in theirs.items()
+    }
+
+
+@pytest.mark.asyncio
+async def test_a_file_that_is_no_xbox_drive_is_refused_as_damaged(binding):
+    halo = xbox_game(binding, "MS-004", "4D530004")
+
+    with pytest.raises(SigilRefusal) as excinfo:
+        await merge_into_container(
+            xbox_unit("4D530004", {"0A1B2C3D4E5F/blam.sav": b"checkpoint"}),
+            halo,
+            target("xemu", "Halo (USA).iso"),
+            "xbox_hdd.qcow2",
+            b"not a drive image",
+        )
+
+    assert excinfo.value.code is RefusalCode.DAMAGED
+    assert excinfo.value.problem == "xbox_hdd.qcow2"
 
 
 @pytest.mark.asyncio
