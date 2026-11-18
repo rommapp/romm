@@ -7,7 +7,6 @@ from config.config_manager import Config
 from utils.platform_aliases import (
     PLATFORM_FS_ALIASES,
     PLATFORM_SLUG_FOLDERS,
-    RETIRED_PLATFORM_SLUGS,
     SIBLING_FOLDERS,
     resolve_builtin_platform_slug,
     resolve_fs_folder,
@@ -16,6 +15,7 @@ from utils.platform_aliases import (
     unknown_binding_warning,
     unknown_binding_warnings,
 )
+from utils.platform_slugs import RETIRED_PLATFORM_SLUGS
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 EXAMPLE_CONFIGS = sorted((Path(__file__).parents[3] / "examples").glob("config.*.yml"))

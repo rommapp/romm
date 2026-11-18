@@ -217,15 +217,6 @@ SIBLING_FOLDERS: Final = frozenset(
     }
 )
 
-# Slugs merged into another platform, which config written for them still names.
-RETIRED_PLATFORM_SLUGS: Final[dict[str, UPS]] = {
-    "atari800": UPS.ATARI8BIT,
-    "famicom": UPS.NES,
-    "pc-6001": UPS.NEC_PC_6000_SERIES,
-    "sfam": UPS.SNES,
-    "vmu": UPS.VISUAL_MEMORY_UNIT_SLASH_VISUAL_MEMORY_SYSTEM,
-}
-
 
 def _unambiguous_folders() -> dict[str, str]:
     folders_by_slug: dict[UPS, list[str]] = {}

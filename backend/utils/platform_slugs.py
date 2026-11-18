@@ -573,6 +573,16 @@ DUPLICATE_PLATFORM_SLUGS: Final[
 )
 
 
+# Slugs merged into another platform, which config written for them still names.
+RETIRED_PLATFORM_SLUGS: Final[dict[str, UniversalPlatformSlug]] = {
+    "atari800": UniversalPlatformSlug.ATARI8BIT,
+    "famicom": UniversalPlatformSlug.NES,
+    "pc-6001": UniversalPlatformSlug.NEC_PC_6000_SERIES,
+    "sfam": UniversalPlatformSlug.SNES,
+    "vmu": UniversalPlatformSlug.VISUAL_MEMORY_UNIT_SLASH_VISUAL_MEMORY_SYSTEM,
+}
+
+
 def fill_duplicate_slugs[T](platforms: dict[UniversalPlatformSlug, T]) -> None:
     """Give each duplicate slug the entry of the other when only one is listed."""
     for slug, duplicate in DUPLICATE_PLATFORM_SLUGS:

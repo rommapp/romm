@@ -38,7 +38,7 @@ from handler.streaming.protocol import (
     protocol_for,
 )
 from logger.logger import log
-from utils.platform_aliases import RETIRED_PLATFORM_SLUGS
+from utils.platform_slugs import RETIRED_PLATFORM_SLUGS
 
 # How long work may keep a marker or claim alive, so a wedged step cannot
 # reserve a container indefinitely.
