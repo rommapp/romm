@@ -39,6 +39,7 @@ def _names(*names: str) -> re.Pattern[str]:
 _SIGIL_SINGLE = re.compile(r".+\.srm")
 
 _BATTERY = _Form(_names("save.sram"))
+_SEGA_CART = _Form(_names("save.sram"), single=_SIGIL_SINGLE)
 _CLOCKED = _Form(_names("save.sram", "clock.rtc"), _names("save.sram"))
 _GAME_BOY = _Form(
     _names("save.sram", "clock.rtc"), _names("save.sram"), single=_SIGIL_SINGLE
@@ -52,10 +53,10 @@ NEUTRAL_FORMS: Final[dict[str, _Form]] = {
     UPS.FAMICOM: _BATTERY,
     UPS.SNES: _BATTERY,
     UPS.SFAM: _BATTERY,
-    UPS.GENESIS: _BATTERY,
-    UPS.SMS: _BATTERY,
-    UPS.GAMEGEAR: _BATTERY,
-    UPS.SEGA32: _BATTERY,
+    UPS.GENESIS: _SEGA_CART,
+    UPS.SMS: _SEGA_CART,
+    UPS.GAMEGEAR: _SEGA_CART,
+    UPS.SEGA32: _SEGA_CART,
     UPS.GB: _GAME_BOY,
     UPS.GBC: _GAME_BOY,
     UPS.GBA: _CLOCKED,

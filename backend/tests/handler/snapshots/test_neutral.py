@@ -18,6 +18,12 @@ from models.assets import SaveShape
         ("saturn", SaveShape.MULTI, ["backup.ram", "cart.ram"]),
         ("dc", SaveShape.MULTI, ["vmu_A1.bin", "vmu_B2.bin"]),
         ("psx", SaveShape.SINGLE, ["anything.mcd"]),
+        ("genesis", SaveShape.SINGLE, ["Sonic The Hedgehog 3 (USA).srm"]),
+        ("genesis", SaveShape.SINGLE, ["save.sram"]),
+        ("sega32", SaveShape.SINGLE, ["36 Great Holes (Europe).srm"]),
+        ("sms", SaveShape.SINGLE, ["Phantasy Star (USA, Europe).srm"]),
+        ("gamegear", SaveShape.SINGLE, ["Defenders of Oasis (USA, Europe).srm"]),
+        ("gamegear", SaveShape.MULTI, ["save.sram"]),
     ],
 )
 def test_a_platforms_neutral_names_pass(
@@ -40,6 +46,11 @@ def test_a_platforms_neutral_names_pass(
         ("dc", SaveShape.MULTI, ["vmu_E1.bin"]),
         ("fds", SaveShape.SINGLE, ["save.sram"]),
         ("arcade", SaveShape.SINGLE, ["nvram"]),
+        ("genesis", SaveShape.SINGLE, ["Sonic.sav"]),
+        ("genesis", SaveShape.MULTI, ["Sonic.srm"]),
+        ("gamegear", SaveShape.MULTI, ["save.sram", "clock.rtc"]),
+        ("sms", SaveShape.SINGLE, ["Game.srm", "save.sram"]),
+        ("nes", SaveShape.SINGLE, ["Zelda.srm"]),
     ],
 )
 def test_other_names_are_refused(platform: str, shape: SaveShape, members: list[str]):
