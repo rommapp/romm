@@ -1,6 +1,7 @@
-"""Guards that env.template, which generates the docs' env var reference, lists every setting."""
+"""Guards env.template, which generates the docs' env var reference and seeds users' .env."""
 
 import ast
+import re
 from pathlib import Path
 
 import pytest
@@ -45,3 +46,16 @@ def _env_vars_in_template() -> set[str]:
 def test_env_template_lists_every_env_var_the_config_reads() -> None:
     missing = _env_vars_read_by_config() - _env_vars_in_template()
     assert not missing, f"env.template is missing {sorted(missing)}"
+
+
+# Docker Compose reads `KEY=  # comment` as the value "# comment".
+@pytest.mark.skipif(
+    not ENV_TEMPLATE.exists(), reason="env.template is not in this checkout"
+)
+def test_env_template_quotes_empty_values() -> None:
+    unquoted = [
+        line.partition("=")[0]
+        for line in ENV_TEMPLATE.read_text().splitlines()
+        if re.match(r"^[A-Z][A-Z0-9_]*=\s+#", line)
+    ]
+    assert not unquoted, f'env.template leaves {unquoted} empty without ""'
