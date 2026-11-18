@@ -353,6 +353,21 @@ class TestGetWithCore:
         assert response.status_code == status.HTTP_200_OK
         assert _awaited_args(restore)[2].core == "dolphin"
 
+    def test_an_xbox_360_save_converts_for_xenia_under_the_profile_asked(
+        self, client, headers, admin_user: User, stored_game, restore
+    ):
+        save = _stored(
+            make_save(_rom_on("xbox360", "Game", admin_user), admin_user, "g.zip")
+        )
+
+        response = _get(
+            client, save, headers, "core=xenia_canary&profile=E030000043414231"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        target = _awaited_args(restore)[2]
+        assert (target.core, target.profile) == ("xenia_canary", "E030000043414231")
+
     @pytest.mark.parametrize("slug", ["neogeoaes", "turbografx-cd", "unknown"])
     def test_a_platform_sigil_does_not_sync_is_refused(
         self, client, headers, admin_user: User, restore, slug: str
@@ -583,6 +598,17 @@ class TestLayouts:
         assert response.json()[0]["id"] == "libretro"
         assert rows["dolphin"]["platform"] == "wii"
         assert rows["dolphin_standalone"]["platform"] == "wii"
+
+    def test_the_binding_reports_xbox_360s_xenia_rows(self, client, headers):
+        pytest.importorskip("sigil")
+
+        response = client.get("/api/saves/layouts?platform=xbox360", headers=headers)
+
+        assert response.status_code == status.HTTP_200_OK
+        rows = {row["id"]: row for row in response.json()}
+        for core in ("xenia", "xenia_canary", "xenia_edge", "xendroid"):
+            assert rows[core]["platform"] == "xbox360"
+            assert rows[core]["profiles"] is True
 
 
 class TestCompanionVisibility:
