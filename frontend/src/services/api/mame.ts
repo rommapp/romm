@@ -1,4 +1,8 @@
-import type { MameIndexStatus, TaskExecutionResponse } from "@/__generated__";
+import type {
+  MameIndexStatus,
+  MameMatchPayload,
+  TaskExecutionResponse,
+} from "@/__generated__";
 import api from "@/services/api";
 import taskApi from "@/services/api/task";
 
@@ -29,4 +33,12 @@ async function updateIndex(url?: string) {
   return data;
 }
 
-export default { getIndexStatus, uploadIndex, updateIndex };
+async function matchPlatform(payload: MameMatchPayload) {
+  const { data } = await api.post<TaskExecutionResponse>(
+    "/mame/match",
+    payload,
+  );
+  return data;
+}
+
+export default { getIndexStatus, uploadIndex, updateIndex, matchPlatform };

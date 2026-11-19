@@ -206,6 +206,13 @@ const {
   statusesLogic,
   selectedLengthMinHours,
   selectedLengthMaxHours,
+  filterMameMechanical,
+  selectedMameSetTypes,
+  selectedMameStatuses,
+  selectedMameDrivers,
+  mameSetTypesLogic,
+  mameStatusesLogic,
+  mameDriversLogic,
 } = storeToRefs(galleryFilterStore);
 
 // Drawer open state, bound to FilterDrawer via v-model.
@@ -228,6 +235,7 @@ const filterActiveCount = computed(() => {
   if (filterSaves.value !== null) n += 1;
   if (filterStates.value !== null) n += 1;
   if (filterSoundtrack.value !== null) n += 1;
+  if (filterMameMechanical.value !== null) n += 1;
   if (selectedPlatforms.value.length > 0) n += 1;
   for (const arr of [
     selectedGenres,
@@ -243,6 +251,9 @@ const filterActiveCount = computed(() => {
     selectedMetadataProviders,
     selectedTags,
     selectedStatuses,
+    selectedMameSetTypes,
+    selectedMameStatuses,
+    selectedMameDrivers,
   ]) {
     if (arr.value.length > 0) n += 1;
   }
@@ -300,6 +311,13 @@ watch(
     statusesLogic,
     selectedLengthMinHours,
     selectedLengthMaxHours,
+    filterMameMechanical,
+    selectedMameSetTypes,
+    selectedMameStatuses,
+    selectedMameDrivers,
+    mameSetTypesLogic,
+    mameStatusesLogic,
+    mameDriversLogic,
   ],
   () => {
     void galleryRoms.refreshResults(commitRefresh);

@@ -49,6 +49,7 @@ const props = defineProps<{
   /** Permission flags */
   canEdit: boolean;
   canScan: boolean;
+  canMameMatch?: boolean;
   canDownload: boolean;
   /** Spinner on the random-game button while the parent resolves the ROM. */
   randomLoading?: boolean;
@@ -57,6 +58,7 @@ const props = defineProps<{
   labels: {
     upload: string;
     scan: string;
+    mameMatch: string;
     random: string;
     download: string;
     addPhysical: string;
@@ -67,6 +69,7 @@ defineEmits<{
   (e: "update:tab", v: string): void;
   (e: "upload"): void;
   (e: "scan"): void;
+  (e: "mame-match"): void;
   (e: "random"): void;
   (e: "download"): void;
   (e: "add-physical"): void;
@@ -227,6 +230,16 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
         :aria-label="labels.scan"
         :tooltip="labels.scan"
         @click="$emit('scan')"
+      />
+      <RBtn
+        v-if="canMameMatch"
+        variant="outlined"
+        surface
+        icon="mdi-slot-machine-outline"
+        rounded="circle"
+        :aria-label="labels.mameMatch"
+        :tooltip="labels.mameMatch"
+        @click="$emit('mame-match')"
       />
     </template>
   </InfoPanel>

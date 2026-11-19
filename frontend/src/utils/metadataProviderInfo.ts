@@ -144,18 +144,6 @@ export const METADATA_PROVIDER_INFO: readonly MetadataProviderInfo[] = [
     subtitleKey: "settings.metadata-subtitle-completion",
   },
   {
-    key: "mame",
-    name: "MAME",
-    logo: "/assets/scrappers/mame.svg",
-    website: "https://www.mamedev.org",
-    docsUrl: "https://github.com/mamedev/mame/releases",
-    requiresKey: false,
-    enabledFlag: "MAME_API_ENABLED",
-    descKey: "setup.provider-mame-desc",
-    setupKey: "setup.provider-mame-setup",
-    subtitleKey: "settings.metadata-subtitle-arcade",
-  },
-  {
     key: "demozoo",
     name: "Demozoo",
     logo: "/assets/scrappers/demozoo.png",

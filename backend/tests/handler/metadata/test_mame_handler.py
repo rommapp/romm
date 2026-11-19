@@ -2,11 +2,9 @@
 
 import io
 import json
-from types import SimpleNamespace
-from typing import Any, cast
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
-import pytest
 
 from handler.metadata.mame_handler import (
     MameHandler,
@@ -15,7 +13,6 @@ from handler.metadata.mame_handler import (
     year_epoch,
 )
 from handler.metadata.mame_index import iter_listxml
-from models.platform import Platform
 
 LISTXML = b"""<?xml version="1.0"?>
 <mame build="0.289 (mame0289)">
@@ -90,12 +87,7 @@ def test_set_name_and_year():
     assert year_epoch(None) is None
 
 
-@pytest.fixture
-def arcade() -> Platform:
-    return cast(Platform, SimpleNamespace(slug="arcade"))
-
-
-async def test_get_rom_from_loaded_index(arcade):
+async def test_match_machine_from_loaded_index():
     machines = _machines()
     with (
         patch(
@@ -111,7 +103,7 @@ async def test_get_rom_from_loaded_index(arcade):
             AsyncMock(return_value=json.dumps({"genre": "Fighter"})),
         ),
     ):
-        rom = await MameHandler().get_rom("sfiiia.zip", arcade)
+        rom = await MameHandler().match_machine("sfiiia.zip")
 
     assert rom["mame_id"] == "sfiii"
     assert rom["name"] == "Street Fighter III: New Generation (Asia 970204)"
@@ -126,7 +118,7 @@ async def test_get_rom_from_loaded_index(arcade):
     assert metadata["mame_build"] == "0.289 (mame0289)"
 
 
-async def test_get_rom_falls_back_to_bundled_index(arcade):
+async def test_match_machine_falls_back_to_bundled_index():
     fixture = {"description": "Street Fighter II", "cloneof": None, "year": "1991"}
     with (
         patch(
@@ -137,7 +129,7 @@ async def test_get_rom_falls_back_to_bundled_index(arcade):
             AsyncMock(return_value=json.dumps(fixture)),
         ),
     ):
-        rom = await MameHandler().get_rom("sf2.zip", arcade)
+        rom = await MameHandler().match_machine("sf2.zip")
 
     assert rom["mame_id"] == "sf2"
     assert rom["name"] == "Street Fighter II"
@@ -146,7 +138,7 @@ async def test_get_rom_falls_back_to_bundled_index(arcade):
     assert "sourcefile" not in rom["mame_metadata"]
 
 
-async def test_get_rom_misses(arcade):
+async def test_match_machine_misses():
     with (
         patch(
             "handler.metadata.mame_handler.get_machine", AsyncMock(return_value=None)
@@ -156,11 +148,4 @@ async def test_get_rom_misses(arcade):
             AsyncMock(return_value=None),
         ),
     ):
-        assert (await MameHandler().get_rom("nothere.zip", arcade))["mame_id"] is None
-
-
-async def test_get_rom_skips_other_platforms():
-    rom = await MameHandler().get_rom(
-        "sf2.zip", cast(Platform, SimpleNamespace(slug="snes"))
-    )
-    assert rom["mame_id"] is None
+        assert (await MameHandler().match_machine("nothere.zip"))["mame_id"] is None

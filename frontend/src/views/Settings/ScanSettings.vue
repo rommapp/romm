@@ -51,12 +51,10 @@ const PROVIDER_LABELS = {
   gamelist: "ES-DE gamelist",
   libretro: "Libretro",
   playmatch: "Playmatch",
-  mame: "MAME",
 };
 const toSources = (keys: (keyof typeof PROVIDER_LABELS)[]) =>
   keys.map((value) => ({ value, label: PROVIDER_LABELS[value] }));
 const METADATA_SOURCES = toSources([
-  "mame",
   "igdb",
   "moby",
   "ss",

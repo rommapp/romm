@@ -10,6 +10,7 @@ from config import TASK_RESULT_TTL
 from endpoints.sockets.scan import report_scan_failure
 from exceptions.task_exceptions import TaskNotFoundException
 from tasks.registry import (
+    INTERNAL_TASKS,
     MANUAL_TASKS,
     SCHEDULED_TASKS,
     enqueue_scheduled_scan,
@@ -24,7 +25,9 @@ from tasks.tasks import PeriodicTask, Task, run_task_by_name
 class TestRegistry:
     """A job payload carries only a name, so the catalog has to resolve it."""
 
-    @pytest.mark.parametrize("name", sorted(SCHEDULED_TASKS | MANUAL_TASKS))
+    @pytest.mark.parametrize(
+        "name", sorted(SCHEDULED_TASKS | MANUAL_TASKS | INTERNAL_TASKS)
+    )
     def test_every_name_resolves_to_a_task_built_from_its_spec(self, name: str):
         task = get_task(name)
 
@@ -33,6 +36,7 @@ class TestRegistry:
 
     def test_a_name_is_never_registered_twice(self):
         assert not SCHEDULED_TASKS.keys() & MANUAL_TASKS.keys()
+        assert not INTERNAL_TASKS.keys() & (SCHEDULED_TASKS.keys() | MANUAL_TASKS.keys())
 
     def test_scheduled_tasks_can_be_scheduled(self):
         for name in SCHEDULED_TASKS:

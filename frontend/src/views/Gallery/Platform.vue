@@ -23,6 +23,7 @@ import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import FirmwareTab from "@/components/Gallery/FirmwareTab.vue";
 import GalleryShell from "@/components/Gallery/GalleryShell.vue";
 import GalleryTabShell from "@/components/Gallery/GalleryTabShell.vue";
+import MameMatchDialog from "@/components/Gallery/MameMatchDialog.vue";
 import PlatformHead from "@/components/Gallery/PlatformHead.vue";
 import ScanPlatformDialog from "@/components/Gallery/ScanPlatformDialog.vue";
 import SettingsTab from "@/components/Gallery/SettingsTab.vue";
@@ -42,7 +43,7 @@ import storePlatforms, { type Platform } from "@/stores/platforms";
 import { useStreamingStore } from "@/stores/streaming";
 import type { Events } from "@/types/emitter";
 import type { StatRow } from "@/types/stats";
-import { formatBytes } from "@/utils";
+import { MAME_SET_SYSTEMS, formatBytes } from "@/utils";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -63,6 +64,13 @@ usePageTitle(() =>
 );
 const deleting = ref(false);
 const scanOpen = ref(false);
+const mameMatchOpen = ref(false);
+const canMameMatch = computed(
+  () =>
+    canScan.value &&
+    !!currentPlatform.value &&
+    MAME_SET_SYSTEMS.has(currentPlatform.value.slug),
+);
 const randomLoading = ref(false);
 
 // Permissions: `useCan` is reactive against the grants store, so the
@@ -117,6 +125,7 @@ watch(
 const headLabels = computed(() => ({
   upload: t("platform.upload-roms"),
   scan: t("platform.scan-platform"),
+  mameMatch: t("platform.mame-match"),
   random: t("platform.random-rom"),
   download: t("platform.download-platform"),
   addPhysical: t("rom.add-physical-game"),
@@ -465,12 +474,14 @@ async function onDelete() {
         :providers="providerChips"
         :can-edit="canEditPlatform"
         :can-scan="canScan"
+        :can-mame-match="canMameMatch"
         :can-download="canDownload"
         :random-loading="randomLoading"
         :labels="headLabels"
         @update:tab="onTabChange"
         @upload="onUploadRoms"
         @scan="onScan"
+        @mame-match="mameMatchOpen = true"
         @add-physical="onAddPhysical"
         @random="onRandomGame"
         @download="onDownload"
@@ -492,12 +503,14 @@ async function onDelete() {
         :providers="providerChips"
         :can-edit="canEditPlatform"
         :can-scan="canScan"
+        :can-mame-match="canMameMatch"
         :can-download="canDownload"
         :random-loading="randomLoading"
         :labels="headLabels"
         @update:tab="onTabChange"
         @upload="onUploadRoms"
         @scan="onScan"
+        @mame-match="mameMatchOpen = true"
         @add-physical="onAddPhysical"
         @random="onRandomGame"
         @download="onDownload"
@@ -525,6 +538,11 @@ async function onDelete() {
   <ScanPlatformDialog
     v-if="currentPlatform"
     v-model="scanOpen"
+    :platform="currentPlatform"
+  />
+  <MameMatchDialog
+    v-if="currentPlatform && canMameMatch"
+    v-model="mameMatchOpen"
     :platform="currentPlatform"
   />
 </template>

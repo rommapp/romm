@@ -60,8 +60,6 @@
   "provider-launchbox-caveat": "按精确文件名匹配；需要本地 XML 索引。",
   "provider-launchbox-desc": "社区元数据、封面图和截图。",
   "provider-launchbox-setup": "设置 LAUNCHBOX_API_ENABLED=true 和 ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA=true。",
-  "provider-mame-desc": "Full set titles, parent/clone grouping and MAME filters for arcade sets.",
-  "provider-mame-setup": "Always on. Load a MAME listxml in Settings, Metadata sources, for every set's details.",
   "provider-moby-caveat": "该 API 为付费功能。",
   "provider-moby-desc": "目录、备选封面图和截图。",
   "provider-moby-setup": "需要 MobyGames 账户。设置 MOBYGAMES_API_KEY。",

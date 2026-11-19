@@ -60,8 +60,6 @@
   "provider-launchbox-caveat": "Asociază după numele exact al fișierului; necesită indexul XML local.",
   "provider-launchbox-desc": "Metadate, coperți și capturi de ecran din comunitate.",
   "provider-launchbox-setup": "Setează LAUNCHBOX_API_ENABLED=true și ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA=true.",
-  "provider-mame-desc": "Full set titles, parent/clone grouping and MAME filters for arcade sets.",
-  "provider-mame-setup": "Always on. Load a MAME listxml in Settings, Metadata sources, for every set's details.",
   "provider-moby-caveat": "API-ul este o funcție plătită.",
   "provider-moby-desc": "Catalog, coperți alternative și capturi de ecran.",
   "provider-moby-setup": "Necesită un cont MobyGames. Setează MOBYGAMES_API_KEY.",

@@ -165,6 +165,7 @@ export type { LoadStateResponse } from './models/LoadStateResponse';
 export type { LogEntrySchema } from './models/LogEntrySchema';
 export type { MameIndexInfo } from './models/MameIndexInfo';
 export type { MameIndexStatus } from './models/MameIndexStatus';
+export type { MameMatchPayload } from './models/MameMatchPayload';
 export type { ManualMetadata } from './models/ManualMetadata';
 export type { MemoryCardCreatePayload } from './models/MemoryCardCreatePayload';
 export type { MemoryCardImportRequired } from './models/MemoryCardImportRequired';

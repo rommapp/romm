@@ -100,6 +100,10 @@ vi.mock("@/components/Gallery/ScanPlatformDialog.vue", () => ({
   default: defineComponent({ template: "<div />" }),
 }));
 
+vi.mock("@/components/Gallery/MameMatchDialog.vue", () => ({
+  default: defineComponent({ template: "<div />" }),
+}));
+
 vi.mock("@/components/Gallery/SettingsTab.vue", () => ({
   default: defineComponent({ template: "<div />" }),
 }));

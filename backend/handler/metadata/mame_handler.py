@@ -4,8 +4,6 @@ from datetime import UTC, datetime
 from typing import Any, Literal, NotRequired, TypedDict
 
 from handler.redis_handler import async_cache
-from models.platform import Platform
-from utils.arcade_platforms import MAME_SHORTNAME_PLATFORMS
 
 from .base_handler import MAME_XML_KEY, BaseRom, MetadataHandler
 from .mame_index import MameMachine, get_index_info, get_machine
@@ -80,20 +78,18 @@ def _from_fixture(set_name: str, entry: dict[str, Any]) -> MameMachine:
 
 
 class MameHandler(MetadataHandler):
-    """MAME's own data for arcade sets, from the loaded listxml or the bundled index."""
+    """Matches arcade sets against the loaded MAME index, or the bundled one."""
 
     @classmethod
     def is_enabled(cls) -> bool:
-        # The bundled index is always there, so the source always works.
+        # The bundled index is always there, so sets always match.
         return True
 
     async def heartbeat(self) -> bool:
         return True
 
-    async def get_rom(self, fs_name: str, platform: Platform) -> MameRom:
-        if platform.slug not in MAME_SHORTNAME_PLATFORMS:
-            return MameRom(mame_id=None)
-
+    async def match_machine(self, fs_name: str) -> MameRom:
+        """The machine whose set name is the file's, from the listxml or the bundled index."""
         set_name = set_name_of(fs_name)
         fixture = await _fixture_entry(set_name)
         machine = await get_machine(set_name)

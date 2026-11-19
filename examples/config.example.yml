@@ -110,8 +110,7 @@
 #   priority:
 #     # Below are the default priority values used
 #     metadata: # Top-level metadata source priority
-#       - mame # MAME machine index (highest priority, arcade sets only)
-#       - igdb # IGDB
+#       - igdb # IGDB (highest priority)
 #       - moby # MobyGames
 #       - ss # Screenscraper
 #       - ra # RetroAchievements

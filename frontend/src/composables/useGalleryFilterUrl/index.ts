@@ -36,6 +36,10 @@
 //   ?metadataProviders=…&metadataProvidersLogic=…
 //   ?tags=…&tagsLogic=…
 //   ?lengthMin=…&lengthMax=…   (HowLongToBeat main story, in hours)
+//   ?mameSetTypes=…&mameSetTypesLogic=…
+//   ?mameStatuses=…&mameStatusesLogic=…
+//   ?mameDrivers=…&mameDriversLogic=…
+//   ?mameMechanical=true|false
 //
 // Direction notes:
 //   * URL → store fires on every `route.query` change (browser back /
@@ -147,6 +151,13 @@ export function useGalleryFilterUrl() {
     metadataProvidersLogic,
     tagsLogic,
     statusesLogic,
+    filterMameMechanical,
+    selectedMameSetTypes,
+    selectedMameStatuses,
+    selectedMameDrivers,
+    mameSetTypesLogic,
+    mameStatusesLogic,
+    mameDriversLogic,
   } = storeToRefs(filter);
 
   // ── URL → store ──────────────────────────────────────────────
@@ -200,6 +211,13 @@ export function useGalleryFilterUrl() {
       statusesLogic: qLogic(q.statusesLogic),
       lengthMin: qHours(q.lengthMin),
       lengthMax: qHours(q.lengthMax),
+      mameSetTypes: qList(q.mameSetTypes),
+      mameSetTypesLogic: qLogic(q.mameSetTypesLogic),
+      mameStatuses: qList(q.mameStatuses),
+      mameStatusesLogic: qLogic(q.mameStatusesLogic),
+      mameDrivers: qList(q.mameDrivers),
+      mameDriversLogic: qLogic(q.mameDriversLogic),
+      mameMechanical: qBool(q.mameMechanical),
     };
 
     if (url.search !== searchTerm.value) searchTerm.value = url.search;
@@ -314,6 +332,30 @@ export function useGalleryFilterUrl() {
       filter.setSelectedFilterStatuses(url.statuses);
     if (url.statusesLogic && url.statusesLogic !== statusesLogic.value)
       filter.setStatusesLogic(url.statusesLogic);
+
+    if (!eqStrArr(url.mameSetTypes, selectedMameSetTypes.value))
+      filter.setSelectedFilterMameSetTypes(url.mameSetTypes);
+    if (
+      url.mameSetTypesLogic &&
+      url.mameSetTypesLogic !== mameSetTypesLogic.value
+    )
+      filter.setMameSetTypesLogic(url.mameSetTypesLogic);
+
+    if (!eqStrArr(url.mameStatuses, selectedMameStatuses.value))
+      filter.setSelectedFilterMameStatuses(url.mameStatuses);
+    if (
+      url.mameStatusesLogic &&
+      url.mameStatusesLogic !== mameStatusesLogic.value
+    )
+      filter.setMameStatusesLogic(url.mameStatusesLogic);
+
+    if (!eqStrArr(url.mameDrivers, selectedMameDrivers.value))
+      filter.setSelectedFilterMameDrivers(url.mameDrivers);
+    if (url.mameDriversLogic && url.mameDriversLogic !== mameDriversLogic.value)
+      filter.setMameDriversLogic(url.mameDriversLogic);
+
+    if (url.mameMechanical !== filterMameMechanical.value)
+      filter.setFilterMameMechanical(url.mameMechanical);
 
     if (
       url.lengthMin !== selectedLengthMinHours.value ||
@@ -458,6 +500,23 @@ export function useGalleryFilterUrl() {
         : String(selectedLengthMaxHours.value),
     );
 
+    setList("mameSetTypes", selectedMameSetTypes.value);
+    setOrDelete(
+      "mameSetTypesLogic",
+      selectedMameSetTypes.value.length > 0 ? mameSetTypesLogic.value : null,
+    );
+    setList("mameStatuses", selectedMameStatuses.value);
+    setOrDelete(
+      "mameStatusesLogic",
+      selectedMameStatuses.value.length > 0 ? mameStatusesLogic.value : null,
+    );
+    setList("mameDrivers", selectedMameDrivers.value);
+    setOrDelete(
+      "mameDriversLogic",
+      selectedMameDrivers.value.length > 0 ? mameDriversLogic.value : null,
+    );
+    setBool("mameMechanical", filterMameMechanical.value);
+
     // Only changed keys are written, so a write held back by a same-page
     // navigation can't restore values that navigation replaced.
     for (const [key, value] of Object.entries(patch)) {
@@ -515,6 +574,13 @@ export function useGalleryFilterUrl() {
       statusesLogic,
       selectedLengthMinHours,
       selectedLengthMaxHours,
+      filterMameMechanical,
+      selectedMameSetTypes,
+      mameSetTypesLogic,
+      selectedMameStatuses,
+      mameStatusesLogic,
+      selectedMameDrivers,
+      mameDriversLogic,
     ],
     () => pushDebounced(),
     { deep: true },

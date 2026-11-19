@@ -60,8 +60,6 @@
   "provider-launchbox-caveat": "정확한 파일 이름으로 일치시키며, 로컬 XML 인덱스가 필요합니다.",
   "provider-launchbox-desc": "커뮤니티 메타데이터, 커버 이미지, 스크린샷.",
   "provider-launchbox-setup": "LAUNCHBOX_API_ENABLED=true 및 ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA=true를 설정하세요.",
-  "provider-mame-desc": "Full set titles, parent/clone grouping and MAME filters for arcade sets.",
-  "provider-mame-setup": "Always on. Load a MAME listxml in Settings, Metadata sources, for every set's details.",
   "provider-moby-caveat": "API는 유료 기능입니다.",
   "provider-moby-desc": "카탈로그, 대체 커버 이미지, 스크린샷.",
   "provider-moby-setup": "MobyGames 계정이 필요합니다. MOBYGAMES_API_KEY를 설정하세요.",

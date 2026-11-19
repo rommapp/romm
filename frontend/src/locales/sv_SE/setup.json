@@ -60,8 +60,6 @@
   "provider-launchbox-caveat": "Matchar exakt filnamn och kräver det lokala XML-indexet.",
   "provider-launchbox-desc": "Metadata från gemenskapen, omslagsbilder och skärmbilder.",
   "provider-launchbox-setup": "Ange LAUNCHBOX_API_ENABLED=true och ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA=true.",
-  "provider-mame-desc": "Full set titles, parent/clone grouping and MAME filters for arcade sets.",
-  "provider-mame-setup": "Always on. Load a MAME listxml in Settings, Metadata sources, for every set's details.",
   "provider-moby-caveat": "API:t är en betalfunktion.",
   "provider-moby-desc": "Katalog, alternativa omslagsbilder och skärmbilder.",
   "provider-moby-setup": "Kräver ett MobyGames-konto. Ange MOBYGAMES_API_KEY.",

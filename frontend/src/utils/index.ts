@@ -839,6 +839,28 @@ export function isArcadeSystem(platformSlug: string): boolean {
   return ARCADE_SYSTEMS.has(platformSlug.toLowerCase());
 }
 
+// Mirrors the backend's MAME_SHORTNAME_PLATFORMS: arcade platforms whose
+// file names are MAME set names, the ones a MAME match accepts.
+export const MAME_SET_SYSTEMS = new Set([
+  "arcade",
+  "atomiswave",
+  "fba",
+  "fbneo",
+  "gaelco",
+  "hikaru",
+  "mame",
+  "mame-advmame",
+  "model2",
+  "model3",
+  "namco2x6",
+  "naomi",
+  "naomi2",
+  "naomigd",
+  "neogeoaes",
+  "neogeomvs",
+  "stv",
+]);
+
 // Mirrors the backend's SWITCH_PLATFORM_SLUGS.
 const SWITCH_SYSTEMS = new Set(["switch", "switch-2"]);
 

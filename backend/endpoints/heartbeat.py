@@ -61,7 +61,6 @@ from handler.metadata import (
     meta_igdb_handler,
     meta_launchbox_handler,
     meta_libretro_handler,
-    meta_mame_handler,
     meta_moby_handler,
     meta_playmatch_handler,
     meta_pouet_handler,
@@ -173,7 +172,6 @@ async def heartbeat() -> HeartbeatResponse:
             "CSDB_API_ENABLED": csdb_enabled,
             "STEAM_API_ENABLED": steam_enabled,
             "LIBRETRO_API_ENABLED": libretro_enabled,
-            "MAME_API_ENABLED": meta_mame_handler.is_enabled(),
         },
         "FILESYSTEM": {
             "FS_PLATFORMS": fs_platforms,
@@ -299,8 +297,6 @@ async def _probe_metadata_source(metadata_source: MetadataSource) -> bool:
             return await meta_gamelist_handler.heartbeat()
         case MetadataSource.LIBRETRO:
             return await meta_libretro_handler.heartbeat()
-        case MetadataSource.MAME:
-            return await meta_mame_handler.heartbeat()
         case _:
             return False
 

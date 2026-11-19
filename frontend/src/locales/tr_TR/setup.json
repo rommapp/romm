@@ -60,8 +60,6 @@
   "provider-launchbox-caveat": "Tam dosya adıyla eşleşir; yerel XML dizinini gerektirir.",
   "provider-launchbox-desc": "Topluluk meta verileri, kapak görselleri ve ekran görüntüleri.",
   "provider-launchbox-setup": "LAUNCHBOX_API_ENABLED=true ve ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA=true ayarlayın.",
-  "provider-mame-desc": "Full set titles, parent/clone grouping and MAME filters for arcade sets.",
-  "provider-mame-setup": "Always on. Load a MAME listxml in Settings, Metadata sources, for every set's details.",
   "provider-moby-caveat": "API ücretli bir özelliktir.",
   "provider-moby-desc": "Katalog, alternatif kapak görselleri ve ekran görüntüleri.",
   "provider-moby-setup": "MobyGames hesabı gerektirir. MOBYGAMES_API_KEY ayarlayın.",

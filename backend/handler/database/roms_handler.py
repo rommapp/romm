@@ -1780,7 +1780,7 @@ class DBRomsHandler(DBBaseHandler):
             # elsewhere still groups under the parent set.
             partition_key = func.coalesce(
                 _create_metadata_id_case(
-                    MetadataSource.MAME,
+                    "mame",
                     base_subquery.c.mame_id,
                     base_subquery.c.platform_id,
                 ),

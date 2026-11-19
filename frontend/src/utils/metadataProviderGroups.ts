@@ -20,6 +20,7 @@ export const METADATA_PROVIDER_GROUPS = {
   ra: "specialised",
   sgdb: "specialised",
   hltb: "specialised",
+  // Matched from an arcade platform's page, not by a scan.
   mame: "specialised",
   hasheous: "proxy",
   playmatch: "proxy",

@@ -106,8 +106,11 @@ describe("metadata provider surfaces", () => {
     expect(generalProviders.value.map((o) => o.value).sort()).toEqual(
       providerKeysInGroup("catalog").sort(),
     );
+    // MAME matches from an arcade platform's page, never in a scan.
     expect(specificProviders.value.map((o) => o.value).sort()).toEqual(
-      providerKeysInGroup("specialised").sort(),
+      providerKeysInGroup("specialised")
+        .filter((key) => key !== "mame")
+        .sort(),
     );
   });
 

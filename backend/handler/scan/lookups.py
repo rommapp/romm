@@ -21,7 +21,6 @@ from handler.metadata import (
     meta_igdb_handler,
     meta_launchbox_handler,
     meta_libretro_handler,
-    meta_mame_handler,
     meta_moby_handler,
     meta_playmatch_handler,
     meta_pouet_handler,
@@ -40,7 +39,6 @@ from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
 from handler.metadata.launchbox_handler.types import LaunchboxRom
 from handler.metadata.libretro_handler import LibretroRom
-from handler.metadata.mame_handler import MameRom
 from handler.metadata.moby_handler import MobyGamesRom
 from handler.metadata.playmatch_handler import (
     PLAYMATCH_SUPPORTED_SOURCES,
@@ -360,14 +358,6 @@ class RomLookups:
             )
 
         return LibretroRom(libretro_id=None)
-
-    async def fetch_mame_rom(self) -> MameRom:
-        if self.attempts(MetadataSource.MAME):
-            return await meta_mame_handler.get_rom(
-                self.rom_attrs["fs_name"], self.platform
-            )
-
-        return MameRom(mame_id=None)
 
     async def fetch_hltb_rom(self) -> HLTBRom:
         if self.attempts(MetadataSource.HLTB):

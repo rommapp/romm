@@ -15,7 +15,6 @@ from handler.metadata import (
     meta_igdb_handler,
     meta_launchbox_handler,
     meta_libretro_handler,
-    meta_mame_handler,
     meta_moby_handler,
     meta_playmatch_handler,
     meta_pouet_handler,
@@ -36,7 +35,6 @@ from handler.metadata.ss_handler import SCREENSAVER_PLATFORM_LIST
 from handler.metadata.steam_handler import STEAM_PLATFORMS
 from models.platform import Platform
 from models.rom import Rom
-from utils.arcade_platforms import MAME_SHORTNAME_PLATFORMS
 
 LOGGER_MODULE_NAME = {"module_name": "scan"}
 
@@ -70,7 +68,6 @@ class MetadataSource(enum.StrEnum):
     GAMELIST = "gamelist"  # ES-DE gamelist.xml
     LIBRETRO = "libretro"  # Libretro thumbnails
     PLAYMATCH = "playmatch"  # Playmatch
-    MAME = "mame"  # MAME machine index
 
 
 # Demozoo / Pouët identify a production, not a retail game. Game catalogs
@@ -231,11 +228,6 @@ RESCAN_RULES: Final[Mapping[MetadataSource, RescanRule]] = {
         None,
         platform_supported=lambda p: p.slug in LIBRETRO_PLATFORM_LIST,
     ),
-    MetadataSource.MAME: RescanRule(
-        "mame_id",
-        "mame_metadata",
-        platform_supported=lambda p: p.slug in MAME_SHORTNAME_PLATFORMS,
-    ),
 }
 
 
@@ -348,6 +340,5 @@ def get_enabled_metadata_sources() -> list[str]:
         MetadataSource.STEAM: meta_steam_handler,
         MetadataSource.TGDB: meta_tgdb_handler,
         MetadataSource.LIBRETRO: meta_libretro_handler,
-        MetadataSource.MAME: meta_mame_handler,
     }
     return [source for source, handler in handlers.items() if handler.is_enabled()]

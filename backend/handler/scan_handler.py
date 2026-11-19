@@ -37,7 +37,6 @@ from handler.metadata.hltb_handler import HLTBRom
 from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.launchbox_handler.types import LaunchboxRom
 from handler.metadata.libretro_handler import LibretroRom
-from handler.metadata.mame_handler import MameRom
 from handler.metadata.moby_handler import MobyGamesRom
 from handler.metadata.platform_names import resolve_platform_name
 from handler.metadata.pouet_handler import PouetRom
@@ -427,7 +426,6 @@ async def scan_rom(
             lookups.fetch_libretro_rom(),
             LibretroRom(libretro_id=None),
         ),
-        (MetadataSource.MAME, lookups.fetch_mame_rom(), MameRom(mame_id=None)),
     )
     fetch_results = await asyncio.gather(
         *(coro for _, coro, _ in provider_fetches), return_exceptions=True

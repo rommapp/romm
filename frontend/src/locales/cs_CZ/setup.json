@@ -60,8 +60,6 @@
   "provider-launchbox-caveat": "Spáruje podle přesného názvu souboru; vyžaduje lokální XML index.",
   "provider-launchbox-desc": "Komunitní metadata, obaly a screenshoty.",
   "provider-launchbox-setup": "Nastavte LAUNCHBOX_API_ENABLED=true a ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA=true.",
-  "provider-mame-desc": "Full set titles, parent/clone grouping and MAME filters for arcade sets.",
-  "provider-mame-setup": "Always on. Load a MAME listxml in Settings, Metadata sources, for every set's details.",
   "provider-moby-caveat": "API je placená funkce.",
   "provider-moby-desc": "Katalog, alternativní obaly a screenshoty.",
   "provider-moby-setup": "Vyžaduje účet MobyGames. Nastavte MOBYGAMES_API_KEY.",

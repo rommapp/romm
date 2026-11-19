@@ -60,8 +60,6 @@
   "provider-launchbox-caveat": "ファイル名の完全一致でマッチ。ローカルのXMLインデックスが必要です。",
   "provider-launchbox-desc": "コミュニティメタデータ、カバーアート、スクリーンショット。",
   "provider-launchbox-setup": "LAUNCHBOX_API_ENABLED=trueとENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA=trueを設定してください。",
-  "provider-mame-desc": "Full set titles, parent/clone grouping and MAME filters for arcade sets.",
-  "provider-mame-setup": "Always on. Load a MAME listxml in Settings, Metadata sources, for every set's details.",
   "provider-moby-caveat": "APIは有料機能です。",
   "provider-moby-desc": "カタログ、別のカバーアート、スクリーンショット。",
   "provider-moby-setup": "MobyGamesアカウントが必要です。MOBYGAMES_API_KEYを設定してください。",

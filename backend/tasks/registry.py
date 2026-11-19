@@ -111,6 +111,14 @@ UPDATE_MAME_INDEX_SPEC: Final = TaskSpec(
     timeout=max(TASK_TIMEOUT, 30 * 60),
 )
 
+MATCH_MAME_PLATFORM_SPEC: Final = TaskSpec(
+    implementation="tasks.manual.match_mame_platform.match_mame_platform_task",
+    title="MAME match",
+    description="Matches a platform's games against the loaded MAME index",
+    task_type=TaskType.UPDATE,
+    timeout=SCAN_TIMEOUT,
+)
+
 BUILD_RECOMMENDATIONS_SPEC: Final = TaskSpec(
     implementation="tasks.scheduled.build_recommendations.build_recommendations_task",
     title="Build recommendations index",
@@ -348,9 +356,18 @@ MANUAL_TASKS: Final[dict[str, TaskSpec]] = {
 }
 
 
+# Tasks that take arguments only their own endpoint knows how to supply, so
+# the task list never offers to run them bare.
+INTERNAL_TASKS: Final[dict[str, TaskSpec]] = {
+    "match_mame_platform": MATCH_MAME_PLATFORM_SPEC,
+}
+
+
 def get_task_spec(name: str) -> TaskSpec | None:
     """Look up what is known of a task by the name it is addressed by."""
-    return SCHEDULED_TASKS.get(name) or MANUAL_TASKS.get(name)
+    return (
+        SCHEDULED_TASKS.get(name) or MANUAL_TASKS.get(name) or INTERNAL_TASKS.get(name)
+    )
 
 
 def get_task(name: str) -> Task | None:

@@ -60,8 +60,6 @@
   "provider-launchbox-caveat": "Correspond par nom de fichier exact ; nécessite l'index XML local.",
   "provider-launchbox-desc": "Métadonnées communautaires, jaquettes et captures d'écran.",
   "provider-launchbox-setup": "Définissez LAUNCHBOX_API_ENABLED=true et ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA=true.",
-  "provider-mame-desc": "Full set titles, parent/clone grouping and MAME filters for arcade sets.",
-  "provider-mame-setup": "Always on. Load a MAME listxml in Settings, Metadata sources, for every set's details.",
   "provider-moby-caveat": "L'API est une fonctionnalité payante.",
   "provider-moby-desc": "Catalogue, jaquettes alternatives et captures d'écran.",
   "provider-moby-setup": "Nécessite un compte MobyGames. Définissez MOBYGAMES_API_KEY.",
