@@ -326,6 +326,7 @@ DETAILS = {
     "Publisher": "Pub",
     "Developer": "Dev",
     "Genre": None,
+    "NumDistinctPlayers": 25,
     "Achievements": {
         "1": {
             "ID": 1,
@@ -401,6 +402,15 @@ class TestHelpers:
 
         assert metadata["first_release_date"] is None
 
+    def test_a_missing_player_count_is_none(self):
+        details = cast(RAGameExtendedDetails, {"Achievements": {}})
+
+        metadata = ra_handler.extract_metadata_from_rom_details(
+            _rom(), details, hash_match=False
+        )
+
+        assert metadata["num_distinct_players"] is None
+
     def test_metadata_carries_credits_and_achievement_badges(self):
         metadata = ra_handler.extract_metadata_from_rom_details(
             _rom(), cast(RAGameExtendedDetails, DETAILS), hash_match=True
@@ -410,6 +420,7 @@ class TestHelpers:
         assert metadata["publishers"] == ["Pub"]
         assert metadata["developers"] == ["Dev"]
         assert metadata["companies"] == ["Pub", "Dev"]
+        assert metadata["num_distinct_players"] == 25
         [achievement] = metadata["achievements"]
         badges = fs_resource_handler.get_ra_badges_path(3, 7)
         assert achievement == {

@@ -68,6 +68,8 @@ class RAMetadata(TypedDict):
     publishers: list[str]
     developers: list[str]
     achievements: list[RAGameRomAchievement]
+    # RetroAchievements' player count for the game, the base of unlock rates.
+    num_distinct_players: int | None
     # The ROM's RA hash is one RetroAchievements lists for this game.
     hash_match: NotRequired[bool]
 
@@ -147,6 +149,7 @@ def extract_metadata_from_rom_details(
             )
             for achievement in rom_details.get("Achievements", {}).values()
         ],
+        num_distinct_players=rom_details.get("NumDistinctPlayers", None),
         hash_match=hash_match,
     )
 
