@@ -19,7 +19,7 @@ ARG ALPINE_VERSION=3.24
 ARG ALPINE_DIGEST=sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
 # Pins the base image tag, so it cannot read ../.python-version; keep the two in sync.
 ARG PYTHON_VERSION=3.14
-ARG PYTHON_ALPINE_DIGEST=sha256:a18b20ad69e74df6cf6d2e1b1a260d7a1ecf5380fd83b310f83ba88c461cf894
+ARG PYTHON_ALPINE_DIGEST=sha256:5862d971d1f0ae26b258cefa4e893556b1d3aba81bd2ff30888704ad378bab67
 # Build stages get pip from CPython's bundled ensurepip, which lags pip's security releases.
 ARG PIP_VERSION=26.2.2
 ARG NODE_VERSION=26.13
