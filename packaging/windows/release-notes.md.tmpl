@@ -1,0 +1,36 @@
+<!-- romm-windows:start -->
+
+## Windows (WSL2, experimental)
+
+RomM can run on Windows 10 2004+ and Windows 11 (x64) as a WSL2 distro, without Docker Desktop. Download both files into the same folder:
+
+| File | SHA-256 |
+| --- | --- |
+| `RomM-@VERSION@.ps1` | `@PS1_SHA256@` |
+| `romm-wsl-@VERSION@.tar.gz` | `@ROOTFS_SHA256@` |
+
+**First install**
+
+1. If WSL isn't set up yet, run `wsl --install --no-distribution` in PowerShell **as administrator**, then restart Windows.
+2. In a normal PowerShell window in the download folder, using your own ROM folder for `-Library`:
+
+   ```powershell
+   Unblock-File .\RomM-@VERSION@.ps1
+   powershell -ExecutionPolicy Bypass -File .\RomM-@VERSION@.ps1 install -Library 'D:\Games\ROMs'
+   powershell -ExecutionPolicy Bypass -File .\RomM-@VERSION@.ps1 open
+   ```
+
+   RomM opens at `http://localhost:8080`. If that port is taken, add `-Port 8090` to `install`. The library folder follows the [folder structure](https://docs.romm.app/latest/Getting-Started/Folder-Structure/) and is mounted in place, never copied.
+
+**Updating from an earlier version**
+
+```powershell
+Unblock-File .\RomM-@VERSION@.ps1
+powershell -ExecutionPolicy Bypass -File .\RomM-@VERSION@.ps1 upgrade
+```
+
+`upgrade` keeps your database, saves, states, covers and settings. Use the new script for `start`, `stop`, `status` and `logs` from then on. Settings live in `%LOCALAPPDATA%\RomM\romm.env`.
+
+To check the downloads came from this repository's release workflow: `gh attestation verify romm-wsl-@VERSION@.tar.gz --repo rommapp/romm`.
+
+<!-- romm-windows:end -->
