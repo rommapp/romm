@@ -736,9 +736,10 @@ def user_blob_path(user: User, blob_path: str) -> str:
 
 
 def user_backup_path(user: User, rom: Rom | None, backup_path: str) -> str:
-    source, day, clock = backup_path.rsplit("-", 2)
+    """Where a backup that `backup_source_path` accepted is stored for `user`."""
+    source, stamp = backup_path.removeprefix("deleted/")[:-14], backup_path[-13:]
     namespace = f"roms/{rom.id}" if rom else "blobs"
-    return user_blob_path(user, f"backups/{namespace}/{source}/{day}-{clock}")
+    return user_blob_path(user, f"backups/{namespace}/{source}/{stamp}")
 
 
 def _decoded(value: str | bytes | None) -> str | None:

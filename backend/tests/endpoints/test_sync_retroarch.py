@@ -787,35 +787,14 @@ class TestRetroArchSyncCopy:
         )
         assert client.get(self.path, auth=ADMIN_AUTH).content == b"first"
 
-    def test_config_backups_are_bounded(self, client, admin_user, monkeypatch):
+    @pytest.mark.parametrize(
+        "retention, kept", [(2, [False, True, True]), (0, [True, True, True])]
+    )
+    def test_config_backup_retention(
+        self, client, admin_user, monkeypatch, retention, kept
+    ):
         monkeypatch.setattr(
-            "handler.filesystem.retroarch_sync_handler.MAX_SAVES_PER_SLOT", 2
-        )
-        path = "/api/sync/retroarch/config/retroarch.cfg"
-        backups = [
-            f"/api/sync/retroarch/deleted/config/retroarch.cfg-261118-12000{i}"
-            for i in range(3)
-        ]
-        headers = {"Destination": backups[0]}
-        assert (
-            client.request("COPY", path, headers=headers, auth=ADMIN_AUTH).status_code
-            == 404
-        )
-        assert client.put(path, content=b"settings", auth=ADMIN_AUTH).status_code == 201
-        for backup in backups:
-            assert (
-                client.request(
-                    "COPY", path, headers={"Destination": backup}, auth=ADMIN_AUTH
-                ).status_code
-                == 201
-            )
-        assert client.get(backups[0], auth=ADMIN_AUTH).status_code == 404
-        assert client.get(backups[1], auth=ADMIN_AUTH).content == b"settings"
-        assert client.get(backups[2], auth=ADMIN_AUTH).content == b"settings"
-
-    def test_zero_retention_keeps_every_backup(self, client, admin_user, monkeypatch):
-        monkeypatch.setattr(
-            "handler.filesystem.retroarch_sync_handler.MAX_SAVES_PER_SLOT", 0
+            "handler.filesystem.retroarch_sync_handler.MAX_SAVES_PER_SLOT", retention
         )
         path = "/api/sync/retroarch/config/retroarch.cfg"
         backups = [
@@ -830,8 +809,12 @@ class TestRetroArchSyncCopy:
                 ).status_code
                 == 201
             )
-        for backup in backups:
-            assert client.get(backup, auth=ADMIN_AUTH).content == b"settings"
+        for backup, is_kept in zip(backups, kept, strict=True):
+            response = client.get(backup, auth=ADMIN_AUTH)
+            if is_kept:
+                assert response.content == b"settings"
+            else:
+                assert response.status_code == 404
 
     def test_state_missing_from_disk_is_a_missing_source(
         self, client, synced_state: State

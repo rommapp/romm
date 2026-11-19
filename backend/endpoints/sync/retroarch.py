@@ -563,10 +563,14 @@ async def retroarch_sync_copy(request: Request, file_path: str) -> Response:
         handler = fs_asset_handler
 
     try:
-        if not await handler.file_exists(source):
-            return _empty(status.HTTP_404_NOT_FOUND)
+        source_path = handler.validate_path(source)
+    except ValueError:
+        return _empty(status.HTTP_404_NOT_FOUND)
+    if not await asyncio.to_thread(source_path.is_file):
+        return _empty(status.HTTP_404_NOT_FOUND)
+    try:
         replaced = await fs_retroarch_sync_handler.copy_backup(
-            handler.validate_path(source),
+            source_path,
             sync_handler.user_backup_path(request.user, rom, backup),
             overwrite=overwrite == "T",
         )

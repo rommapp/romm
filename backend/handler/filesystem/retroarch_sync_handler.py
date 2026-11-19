@@ -12,7 +12,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from config import ASSETS_BASE_PATH, MAX_SAVES_PER_SLOT
-from utils.filesystem import TEMP_FILE_PREFIX, iter_files
+from utils.filesystem import SERVED_FILE_MODE, TEMP_FILE_PREFIX, iter_files
 
 from .base_handler import FSHandler
 
@@ -71,6 +71,7 @@ def _copy_backup(source: Path, target: Path, overwrite: bool) -> bool | None:
             try:
                 shutil.copyfileobj(source_file, staged)
                 staged.close()
+                os.chmod(temp_path, SERVED_FILE_MODE)
                 # Other workers publish and prune in the same folder.
                 lock_fd = os.open(
                     target.parent / _BACKUP_LOCK_NAME, os.O_RDWR | os.O_CREAT, 0o600
