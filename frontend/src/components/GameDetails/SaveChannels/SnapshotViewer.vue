@@ -97,7 +97,7 @@ interface DetailRow {
   /** Several values stack one per line. */
   value: string | string[];
   mono?: boolean;
-  tooltip?: string;
+  tooltip?: string | undefined;
 }
 
 function withVersion(name: string, version: string | null): string {
@@ -107,24 +107,29 @@ function withVersion(name: string, version: string | null): string {
 /** The core with its emulator, e.g. "mupen64plus_next (libretro)", or just the emulator. */
 const coreLabel = computed(() => {
   const saved = snapshot.value?.save;
-  const emulatorName = saved?.emulator ?? snapshot.value?.emulator;
-  const emulator = emulatorName
-    ? withVersion(emulatorName, saved?.emulator_version ?? null)
-    : "";
+  const name = saved?.emulator || snapshot.value?.emulator;
+  // The save's version describes the save's emulator, not the snapshot's.
+  const version = saved?.emulator ? saved.emulator_version : null;
+  const emulator = name ? withVersion(name, version) : "";
   if (!saved?.core) return emulator;
+  if (emulatorKey(name) === emulatorKey(saved.core)) {
+    return withVersion(saved.core, saved.core_version ?? version);
+  }
   const core = withVersion(saved.core, saved.core_version);
-  return emulator && emulatorName !== saved.core
-    ? `${core} (${emulator})`
-    : core;
+  return emulator ? `${core} (${emulator})` : core;
 });
 
 /** The stored name carries the server's datetime tag; devices receive it without. */
-function fileRow(file: { file_name: string; file_size_bytes: number }) {
+function fileRow(file: {
+  file_name: string;
+  file_size_bytes: number;
+}): DetailRow {
+  const name = stripDatetimeTag(file.file_name);
   return {
     label: t("channels.file"),
-    value: `${stripDatetimeTag(file.file_name)} · ${formatBytes(file.file_size_bytes)}`,
+    value: `${name} · ${formatBytes(file.file_size_bytes)}`,
     mono: true,
-    tooltip: file.file_name,
+    tooltip: name === file.file_name ? undefined : file.file_name,
   };
 }
 
@@ -334,6 +339,7 @@ const overflow = computed(() => actions.value.slice(1));
               activator="parent"
               :text="row.tooltip"
               location="top start"
+              open-on-tap
             />
           </dd>
         </template>

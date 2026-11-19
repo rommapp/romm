@@ -338,6 +338,48 @@ describe("SnapshotViewer", () => {
     );
   });
 
+  it("names a core that is its own emulator once, keeping a version", () => {
+    const save = {
+      ...older.save!,
+      emulator: "mgba",
+      emulator_version: "0.10.3",
+      core: "mGBA",
+      core_version: null,
+    };
+    const wrapper = mountViewer({
+      kind: "snapshot",
+      channel: channelFixture(),
+      snapshot: snapshotFixture({ save }),
+    });
+
+    expect(detailRows(wrapper)["channels.core"]?.text()).toBe("mGBA 0.10.3");
+  });
+
+  it("gives the snapshot's emulator no version from a save without one", () => {
+    const save = { ...older.save!, emulator: null, emulator_version: "1.19" };
+    const wrapper = mountViewer({
+      kind: "snapshot",
+      channel: channelFixture(),
+      snapshot: snapshotFixture({ save, emulator: "argosy" }),
+    });
+
+    expect(detailRows(wrapper)["channels.core"]?.text()).toBe("argosy");
+  });
+
+  it("offers no hover name when the save carries no datetime tag", () => {
+    const wrapper = mountViewer({
+      kind: "snapshot",
+      channel: channelFixture(),
+      snapshot: snapshotFixture({
+        save: { ...older.save!, file_name: "save.srm" },
+      }),
+    });
+
+    const file = detailRows(wrapper)["channels.file"]!;
+    expect(file.findComponent({ name: "RTooltip" }).exists()).toBe(false);
+    expect(file.attributes("tabindex")).toBeUndefined();
+  });
+
   it("falls back to the snapshot's emulator without a save", () => {
     const wrapper = mountViewer({
       kind: "snapshot",
