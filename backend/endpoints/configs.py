@@ -1,6 +1,8 @@
 from typing import Annotated
 
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException
+from fastapi import Path as PathVar
+from fastapi import Request, status
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from adapters.services.rom_converto import (
@@ -245,7 +247,12 @@ async def add_platform_binding(
 
 
 @protected_route(router.delete, "/system/platforms/{fs_slug}", [Scope.PLATFORMS_WRITE])
-async def delete_platform_binding(request: Request, fs_slug: str) -> None:
+async def delete_platform_binding(
+    request: Request,
+    fs_slug: Annotated[
+        str, PathVar(description="The name of the platform's folder in the library.")
+    ],
+) -> None:
     """Delete platform binding from the configuration"""
 
     try:
@@ -279,7 +286,12 @@ async def add_platform_version(
 
 
 @protected_route(router.delete, "/system/versions/{fs_slug}", [Scope.PLATFORMS_WRITE])
-async def delete_platform_version(request: Request, fs_slug: str) -> None:
+async def delete_platform_version(
+    request: Request,
+    fs_slug: Annotated[
+        str, PathVar(description="The name of the platform's folder in the library.")
+    ],
+) -> None:
     """Delete platform version from the configuration"""
 
     try:
@@ -316,7 +328,13 @@ async def add_exclusion(request: Request, payload: ExclusionPayload) -> None:
     [Scope.PLATFORMS_WRITE],
 )
 async def delete_exclusion(
-    request: Request, exclusion_type: ExclusionType, exclusion_value: str
+    request: Request,
+    exclusion_type: Annotated[
+        ExclusionType, PathVar(description="The kind of exclusion to remove.")
+    ],
+    exclusion_value: Annotated[
+        str, PathVar(description="The value to remove from that list.")
+    ],
 ) -> None:
     """Delete platform binding from the configuration"""
 

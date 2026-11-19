@@ -85,9 +85,17 @@ class EarnedAchievement(TypedDict):
             deprecated=True,
         ),
     ]
-    ra_id: NotRequired[int]
-    date: str
-    date_hardcore: NotRequired[str]
+    ra_id: NotRequired[
+        Annotated[
+            int, Field(description="The RetroAchievements ID of the achievement.")
+        ]
+    ]
+    date: Annotated[str, Field(description="When the achievement was earned.")]
+    date_hardcore: NotRequired[
+        Annotated[
+            str, Field(description="When the achievement was earned in hardcore mode.")
+        ]
+    ]
 
 
 class RAUserGameProgression(TypedDict):

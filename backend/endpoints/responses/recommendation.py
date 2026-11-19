@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
-
+from endpoints.responses.base import BaseModel
 from endpoints.responses.rom import SimpleRomSchema
 from handler.recommendation.scoring import Facet
 
@@ -14,7 +13,9 @@ class SimilarityReasonSchema(BaseModel):
     """
 
     facet: Facet
+    """The kind of thing the two games share, such as `franchise`."""
     value: str
+    """What they share. Empty for facets with no value of their own."""
 
 
 class SimilarRomSchema(BaseModel):

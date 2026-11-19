@@ -24,7 +24,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Annotated, Any, Literal, NamedTuple
 
-from fastapi import BackgroundTasks, Body, HTTPException, Query, Request
+from fastapi import BackgroundTasks, Body, HTTPException
+from fastapi import Path as PathVar
+from fastapi import Query, Request
 from pydantic import BaseModel, Field
 
 from decorators.auth import protected_route
@@ -197,9 +199,32 @@ CLAIMED_AT_MAX_LENGTH = 64
 
 # A claim is named by its container and the stamp it was taken at.
 ContainerQuery = Annotated[
-    str | None, Query(alias="container", max_length=CONTAINER_NAME_MAX_LENGTH)
+    str | None,
+    Query(
+        alias="container",
+        max_length=CONTAINER_NAME_MAX_LENGTH,
+        description=(
+            "The key of the container, as returned when the session was"
+            " claimed. Required to act on another user's session, or when"
+            " several sessions are active. Otherwise the server finds your own."
+        ),
+    ),
 ]
-ClaimedAtQuery = Annotated[str | None, Query(max_length=CLAIMED_AT_MAX_LENGTH)]
+ClaimedAtQuery = Annotated[
+    str | None,
+    Query(
+        max_length=CLAIMED_AT_MAX_LENGTH,
+        description=(
+            "The `claimed_at` value returned when the session was claimed. The"
+            " request is ignored if another claim has replaced it. Omit it to"
+            " act on whatever is running."
+        ),
+    ),
+]
+PlatformPath = Annotated[
+    str, PathVar(description="The slug of the platform, such as `snes`.")
+]
+RomIdPath = Annotated[int, PathVar(description="Rom internal id.")]
 
 
 class DesktopStreamingSessionRequest(BaseModel):
@@ -415,7 +440,9 @@ def _streamable_rom(
 
 
 @protected_route(router.get, "/states/{rom_id}", [Scope.ROMS_READ, Scope.ASSETS_READ])
-async def get_state_picks(request: Request, rom_id: int) -> StreamStatePicksSchema:
+async def get_state_picks(
+    request: Request, rom_id: RomIdPath
+) -> StreamStatePicksSchema:
     """The ROM's states the resume picker offers, checked as the claim checks a
     pick; 404 when the ROM is hidden or missing, or no container serves it."""
     rom, candidates = _streamable_rom(request, rom_id)
@@ -1152,7 +1179,7 @@ async def claim_session(
 )
 async def save_and_exit_session(
     request: Request,
-    platform: str,
+    platform: PlatformPath,
     req: Annotated[SaveAndExitRequest, Body()],
     container_key: ContainerQuery = None,
     claimed_at: ClaimedAtQuery = None,
@@ -1274,7 +1301,7 @@ async def save_and_exit_session(
 @protected_route(router.post, "/sessions/{platform}/heartbeat", [Scope.ROMS_USER_WRITE])
 async def heartbeat_session(
     request: Request,
-    platform: str,
+    platform: PlatformPath,
     container_key: ContainerQuery = None,
     claimed_at: ClaimedAtQuery = None,
 ) -> SessionStatusSchema:
@@ -1339,7 +1366,7 @@ async def heartbeat_session(
 @protected_route(router.get, "/sessions/{platform}/status", [Scope.ROMS_READ])
 async def session_status(
     request: Request,
-    platform: str,
+    platform: PlatformPath,
     claimed_at: ClaimedAtQuery = None,
 ) -> SessionStatusSchema:
     """Does the caller still hold this platform's session?
@@ -1359,8 +1386,15 @@ async def session_status(
 @protected_route(router.post, "/sessions/{platform}/join", [Scope.ROMS_READ])
 async def join_session(
     request: Request,
-    platform: str,
-    container: str | None = Query(default=None),
+    platform: PlatformPath,
+    container: str | None = Query(
+        default=None,
+        description=(
+            "The key of the container hosting the session. Unset, the first"
+            " joinable session on the platform is used. The host must have"
+            " enabled multiplayer, or the request returns 403."
+        ),
+    ),
 ) -> JoinedSessionSchema:
     """Join a multiplayer session someone else is hosting.
 
@@ -1436,7 +1470,7 @@ async def join_session(
 @protected_route(router.post, "/sessions/{platform}/volume", [Scope.ROMS_USER_WRITE])
 async def set_volume(
     request: Request,
-    platform: str,
+    platform: PlatformPath,
     req: Annotated[VolumeRequest, Body()],
     container_key: ContainerQuery = None,
     claimed_at: ClaimedAtQuery = None,
@@ -1457,7 +1491,7 @@ async def set_volume(
 @protected_route(router.post, "/sessions/{platform}/mute", [Scope.ROMS_USER_WRITE])
 async def set_mute(
     request: Request,
-    platform: str,
+    platform: PlatformPath,
     req: Annotated[MuteRequest, Body()],
     container_key: ContainerQuery = None,
     claimed_at: ClaimedAtQuery = None,
@@ -1480,7 +1514,7 @@ async def set_mute(
 )
 async def save_state(
     request: Request,
-    platform: str,
+    platform: PlatformPath,
     req: Annotated[SaveStateRequest, Body()],
     container_key: ContainerQuery = None,
     claimed_at: ClaimedAtQuery = None,
@@ -1523,7 +1557,7 @@ async def save_state(
 )
 async def load_state(
     request: Request,
-    platform: str,
+    platform: PlatformPath,
     req: Annotated[LoadStateRequest, Body()],
     container_key: ContainerQuery = None,
     claimed_at: ClaimedAtQuery = None,
@@ -1545,7 +1579,7 @@ async def load_state(
 @protected_route(router.post, "/sessions/{platform}/swap-disc", [Scope.ROMS_USER_WRITE])
 async def swap_disc(
     request: Request,
-    platform: str,
+    platform: PlatformPath,
     req: Annotated[SwapDiscRequest, Body()],
     container_key: ContainerQuery = None,
     claimed_at: ClaimedAtQuery = None,
@@ -1592,12 +1626,22 @@ async def swap_disc(
 @protected_route(router.delete, "/sessions/{platform}", [Scope.ROMS_USER_WRITE])
 async def release_session(
     request: Request,
-    platform: str,
+    platform: PlatformPath,
     background_tasks: BackgroundTasks,
-    reason: str | None = Query(default=None, max_length=200),
+    reason: str | None = Query(
+        default=None,
+        max_length=200,
+        description="Why an admin is ending another player's session. The player sees this text.",
+    ),
     container_key: ContainerQuery = None,
     claimed_at: ClaimedAtQuery = None,
-    save: bool = Query(default=True),
+    save: bool = Query(
+        default=True,
+        description=(
+            "Whether to save the game before releasing. Defaults to true. Set"
+            " it to false when a player leaves without saving."
+        ),
+    ),
 ) -> ReleaseSessionResponse:
     """Release a session and tell the broker to stop the emulator.
 
@@ -1789,7 +1833,10 @@ async def claim_desktop_session(
 
 @protected_route(router.get, "/sessions/joinable", [Scope.ROMS_READ])
 async def list_joinable_sessions(
-    request: Request, rom_id: int | None = Query(default=None, ge=1)
+    request: Request,
+    rom_id: int | None = Query(
+        default=None, ge=1, description="Only sessions playing this rom."
+    ),
 ) -> JoinableSessionsResponse:
     """Active multiplayer sessions any user may ask to join.
 
@@ -1868,7 +1915,12 @@ async def list_sessions(request: Request) -> AdminSessionsResponse:
 
 @protected_route(router.delete, "/sessions", [Scope.ROMS_USER_WRITE])
 async def force_release_all(
-    request: Request, reason: str | None = Query(default=None, max_length=200)
+    request: Request,
+    reason: str | None = Query(
+        default=None,
+        max_length=200,
+        description="Why the sessions are ending. Every displaced player sees this text, with the admin's name.",
+    ),
 ) -> ForceReleaseResponse:
     """Admin, force-release all active sessions.
 

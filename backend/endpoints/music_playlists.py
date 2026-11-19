@@ -88,6 +88,7 @@ def get_playlists(request: Request) -> list[MusicPlaylistSchema]:
 def add_playlist(
     request: Request, payload: MusicPlaylistCreateRequest
 ) -> MusicPlaylistSchema:
+    """Create a playlist. A name you already use for another playlist is rejected."""
     if db_music_playlist_handler.get_playlist_by_name(payload.name, request.user.id):
         raise MusicPlaylistAlreadyExistsException(payload.name)
     try:
@@ -109,6 +110,7 @@ def get_playlist(
     request: Request,
     id: Annotated[int, PathVar(description="Playlist internal id.", ge=1)],
 ) -> MusicPlaylistSchema:
+    """Get one of your playlists, or another user's public playlist."""
     playlist = _get_visible_playlist(request, id)
     counts = db_music_playlist_handler.get_playlist_track_counts(
         [playlist.id], get_permissions(request).rom_visibility
@@ -122,6 +124,10 @@ def update_playlist(
     id: Annotated[int, PathVar(description="Playlist internal id.", ge=1)],
     payload: MusicPlaylistUpdateRequest,
 ) -> MusicPlaylistSchema:
+    """Update one of your playlists. Only the fields sent change.
+
+    A name you already use for another playlist is rejected.
+    """
     playlist = _get_owned_playlist(request, id)
     data = payload.model_dump(exclude_unset=True, exclude_none=True)
     if "description" in payload.model_fields_set:
@@ -150,6 +156,7 @@ def delete_playlist(
     request: Request,
     id: Annotated[int, PathVar(description="Playlist internal id.", ge=1)],
 ) -> Response:
+    """Delete one of your playlists."""
     _get_owned_playlist(request, id)
     db_music_playlist_handler.delete_playlist(id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -204,6 +211,7 @@ def remove_playlist_tracks(
     id: Annotated[int, PathVar(description="Playlist internal id.", ge=1)],
     payload: MusicTrackIdsPayload,
 ) -> dict[str, Any]:
+    """Remove tracks from one of your playlists."""
     playlist = _get_owned_playlist(request, id)
     perms = get_permissions(request)
     rom_file_ids = resolve_track_ids(payload.rom_file_ids, perms)

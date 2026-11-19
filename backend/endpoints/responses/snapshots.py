@@ -64,7 +64,9 @@ class SnapshotStateSchema(BaseModel):
 
 class HeldBySchema(BaseModel):
     device: DeviceRefSchema
+    """The device that holds the snapshot."""
     synced_at: UTCDatetime
+    """When the device last synced to the snapshot."""
 
 
 class SnapshotSchema(BaseModel):
@@ -116,7 +118,9 @@ class MissingContentSchema(BaseModel):
 
 class SnapshotConflictSchema(BaseModel):
     current: SnapshotSchema | None
+    """The channel's current snapshot."""
     branch: SnapshotSchema
+    """The snapshot the push stored as a branch."""
     reason: ConflictReason = Field(
         description=(
             "`moved`: the channel moved on from the current the push built on. "

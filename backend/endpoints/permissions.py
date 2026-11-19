@@ -1,7 +1,9 @@
 import asyncio
 from typing import Annotated, Any
 
-from fastapi import Body, HTTPException, Request, status
+from fastapi import Body, HTTPException
+from fastapi import Path as PathVar
+from fastapi import Request, status
 
 from decorators.auth import protected_route
 from endpoints.responses.permission import (
@@ -207,7 +209,9 @@ async def create_permission_group(
     responses={status.HTTP_404_NOT_FOUND: {}},
 )
 async def update_permission_group(
-    request: Request, id: int, body: PermissionGroupUpdate
+    request: Request,
+    id: Annotated[int, PathVar(description="The ID of the permission group.")],
+    body: PermissionGroupUpdate,
 ) -> PermissionGroupSchema:
     """Update a permission group (name/description/default/grants)."""
     assert_admin(request)
@@ -269,7 +273,10 @@ async def update_permission_group(
     [Scope.USERS_WRITE],
     responses={status.HTTP_404_NOT_FOUND: {}},
 )
-async def delete_permission_group(request: Request, id: int) -> None:
+async def delete_permission_group(
+    request: Request,
+    id: Annotated[int, PathVar(description="The ID of the permission group.")],
+) -> None:
     """Delete a permission group. Members fall back to the default group."""
     assert_admin(request)
     group = db_permission_handler.get_group(id)
@@ -330,7 +337,10 @@ def _user_permissions(
     [Scope.USERS_READ],
     responses={status.HTTP_404_NOT_FOUND: {}},
 )
-def get_user_permissions(request: Request, user_id: int) -> UserPermissionsSchema:
+def get_user_permissions(
+    request: Request,
+    user_id: Annotated[int, PathVar(description="The ID of the user.")],
+) -> UserPermissionsSchema:
     """A user's group membership, per-user overrides and hidden entities."""
     assert_admin(request)
     user = db_user_handler.get_user(user_id)
@@ -351,7 +361,9 @@ def get_user_permissions(request: Request, user_id: int) -> UserPermissionsSchem
     responses={status.HTTP_404_NOT_FOUND: {}},
 )
 async def update_user_permissions(
-    request: Request, user_id: int, body: UserPermissionsUpdate
+    request: Request,
+    user_id: Annotated[int, PathVar(description="The ID of the user.")],
+    body: UserPermissionsUpdate,
 ) -> UserPermissionsSchema:
     """Assign a user's group and/or replace their per-user overrides."""
     assert_admin(request)
@@ -446,10 +458,32 @@ async def add_hidden_entity(
 )
 async def remove_hidden_entity(
     request: Request,
-    entity: Annotated[PermEntity, Body(embed=True)],
-    entity_id: Annotated[int, Body(embed=True)],
-    user_id: Annotated[int | None, Body(embed=True)] = None,
-    group_id: Annotated[int | None, Body(embed=True)] = None,
+    entity: Annotated[
+        PermEntity, Body(embed=True, description="The kind of entity to unhide.")
+    ],
+    entity_id: Annotated[
+        int, Body(embed=True, description="The ID of the entity to unhide.")
+    ],
+    user_id: Annotated[
+        int | None,
+        Body(
+            embed=True,
+            description=(
+                "The user it was hidden from. Set exactly one of `user_id` and"
+                " `group_id`."
+            ),
+        ),
+    ] = None,
+    group_id: Annotated[
+        int | None,
+        Body(
+            embed=True,
+            description=(
+                "The group it was hidden from. Set exactly one of `user_id` and"
+                " `group_id`."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Un-hide an entity for a user OR a group."""
     assert_admin(request)

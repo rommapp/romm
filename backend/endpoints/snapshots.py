@@ -5,7 +5,9 @@ import uuid
 from collections.abc import Iterable
 from typing import Annotated, Any, Self
 
-from fastapi import HTTPException, Query, Request, status
+from fastapi import HTTPException
+from fastapi import Path as PathVar
+from fastapi import Query, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import (
     BaseModel,
@@ -83,6 +85,7 @@ FEED_DEVICE_DESCRIPTION = (
     "current for a device records it as the current the device knows, which a "
     "push without `expected_current_id` expects. Naming one takes `devices.write`."
 )
+SnapshotIdPath = Annotated[int, PathVar(description="Snapshot internal id.")]
 SCREENSHOT_SUFFIX = ":screenshot"
 SAVE_SCREENSHOT_PART = "save_screenshot"
 STATE_PART_PATTERN = re.compile(r"^state:([^:]+):([^:]+)$")
@@ -319,10 +322,39 @@ def required_device(request: Request, device_id: str | None) -> Device:
 @protected_route(router.get, "", [Scope.ASSETS_READ])
 def get_snapshots(
     request: Request,
-    channel_id: uuid.UUID,
-    save_target: str | None = None,
-    limit: Annotated[int, Query(ge=1, le=HISTORY_PAGE_MAX)] = 50,
-    cursor: str | None = None,
+    channel_id: Annotated[
+        uuid.UUID,
+        Query(
+            description=(
+                "The ID of the channel whose history to list. A channel is one"
+                " playthrough of one rom file."
+            )
+        ),
+    ],
+    save_target: Annotated[
+        str | None,
+        Query(description="Only list snapshots with this exact save target."),
+    ] = None,
+    limit: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=HISTORY_PAGE_MAX,
+            description=(
+                f"The number of snapshots per page, from 1 to {HISTORY_PAGE_MAX},"
+                " such as 20. Defaults to 50."
+            ),
+        ),
+    ] = 50,
+    cursor: Annotated[
+        str | None,
+        Query(
+            description=(
+                "The ID of the last snapshot on the previous page. The response"
+                " holds the snapshots older than it. Omit it for the first page."
+            )
+        ),
+    ] = None,
     device_id: Annotated[str | None, Query(description=FEED_DEVICE_DESCRIPTION)] = None,
 ) -> list[SnapshotSchema]:
     """One channel's history, newest first. A first page that shows the current records it as the device's latest known."""
@@ -355,7 +387,7 @@ def get_snapshots(
 @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
 def get_snapshot(
     request: Request,
-    id: int,
+    id: SnapshotIdPath,
     device_id: Annotated[
         str | None,
         Query(
@@ -549,7 +581,19 @@ def _respond(result: WriteResult, viewer: User) -> JSONResponse:
         status.HTTP_409_CONFLICT: {"model": SnapshotConflictSchema},
     },
 )
-async def push_snapshot(request: Request, device_id: str | None = None) -> JSONResponse:
+async def push_snapshot(
+    request: Request,
+    device_id: Annotated[
+        str | None,
+        Query(
+            description=(
+                "The ID of the device pushing the snapshot. Defaults to the"
+                " device bound to the client token. Any other device needs the"
+                " `devices.write` scope."
+            )
+        ),
+    ] = None,
+) -> JSONResponse:
     """Write a snapshot into a channel: a `manifest` part plus `save`, `state:<core>:<slot>` and screenshot parts for hashes the server lacks."""
     viewer = request.user
     device = request_device(request, device_id)
@@ -636,7 +680,7 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
 
 @protected_route(router.patch, "/{id}", [Scope.ASSETS_WRITE])
 def update_snapshot(
-    request: Request, id: int, payload: SnapshotUpdatePayload
+    request: Request, id: SnapshotIdPath, payload: SnapshotUpdatePayload
 ) -> SnapshotSchema:
     """Pin or unpin a snapshot for the caller, which any reader may do, or share
     an archival one, which only its owner may do."""

@@ -48,14 +48,18 @@ class NotificationCreatePayload(BaseModel):
     """A notification sent through the API, shown with its own title and body."""
 
     title: str = Field(min_length=1, max_length=NOTIFICATION_TITLE_MAX_LENGTH)
+    """The title of the notification."""
     body: str | None = Field(default=None, max_length=NOTIFICATION_BODY_MAX_LENGTH)
+    """The text of the notification."""
     level: NotificationLevel = NotificationLevel.INFO
+    """The level of the notification: `info`, `success`, `warning` or `error`. Defaults to `info`."""
     # Lets a client tell its own notifications apart, e.g. `argosy.sync_done`.
     kind: str = Field(
         default=NotificationKind.CUSTOM,
         max_length=NOTIFICATION_KIND_MAX_LENGTH,
         pattern=r"^[a-z0-9][a-z0-9_.:-]*$",
     )
+    """A label a client uses to tell its own notifications apart, such as `my_app.sync_done`."""
     link: str | None = Field(
         default=None,
         max_length=NOTIFICATION_LINK_MAX_LENGTH,
@@ -68,6 +72,7 @@ class NotificationCreatePayload(BaseModel):
         description="A Material Design Icons name, such as `mdi-sync`.",
     )
     data: dict[str, Any] = Field(default_factory=dict)
+    """Extra data attached to the notification."""
     recipients: list[int] | Literal["admins", "all"] | None = Field(
         default=None,
         description="User ids, `admins` or `all`; only an admin may notify "

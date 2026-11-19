@@ -3,7 +3,9 @@ from collections import Counter
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import BackgroundTasks, Depends, HTTPException, Request, status
+from fastapi import BackgroundTasks, Depends, HTTPException
+from fastapi import Path as PathVar
+from fastapi import Query, Request, status
 from pydantic import Field
 
 from decorators.auth import protected_route
@@ -529,7 +531,7 @@ def negotiate_sync(
 @protected_route(router.post, "/sessions/{session_id}/complete", [Scope.DEVICES_WRITE])
 def complete_sync_session(
     request: Request,
-    session_id: int,
+    session_id: Annotated[int, PathVar(description="The ID of the sync session.")],
     payload: SyncCompletePayload,
 ) -> SyncCompleteResponse:
     """Mark a sync session as completed, optionally ingesting play sessions."""
@@ -603,7 +605,9 @@ def complete_sync_session(
 def get_sync_sessions(
     request: Request,
     page: Annotated[PageParams, Depends(PAGE_QUERY)],
-    device_id: str | None = None,
+    device_id: Annotated[
+        str | None, Query(description="Only sessions for this device.")
+    ] = None,
 ) -> list[SyncSessionSchema]:
     """List sync sessions for the current user."""
     if device_id is not None:
@@ -620,7 +624,7 @@ def get_sync_sessions(
 @protected_route(router.get, "/sessions/{session_id}", [Scope.DEVICES_READ])
 def get_sync_session(
     request: Request,
-    session_id: int,
+    session_id: Annotated[int, PathVar(description="The ID of the sync session.")],
 ) -> SyncSessionSchema:
     """Get a specific sync session."""
     return SyncSessionSchema.model_validate(_require_sync_session(request, session_id))
@@ -632,7 +636,7 @@ def get_sync_session(
 @protected_route(router.post, "/devices/{device_id}/push-pull", [Scope.DEVICES_WRITE])
 def trigger_push_pull(
     request: Request,
-    device_id: str,
+    device_id: Annotated[str, PathVar(description="The ID of the device.")],
 ) -> SyncSessionSchema:
     """Manually trigger a push-pull sync for a specific device."""
     device = require_device(request, device_id)

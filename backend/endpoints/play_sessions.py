@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException
+from fastapi import Path as PathVar
+from fastapi import Query, Request, status
 from pydantic import BaseModel, Field, model_validator
 
 from decorators.auth import protected_route
@@ -63,6 +65,11 @@ def ingest_play_sessions(
     request: Request,
     payload: PlaySessionIngestPayload,
 ) -> PlaySessionIngestResponse:
+    """Record a batch of play sessions reported by a client.
+
+    The batch needs at least one session, and its size is limited. Sessions
+    belong to the payload's `device_id`, or else to the client token's device.
+    """
     if not payload.sessions:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -110,11 +117,36 @@ def ingest_play_sessions(
 def get_play_sessions(
     request: Request,
     page: Annotated[PageParams, Depends(PAGE_QUERY)],
-    rom_id: int | None = None,
-    device_id: str | None = None,
-    start_after: datetime | None = None,
-    end_before: datetime | None = None,
+    rom_id: Annotated[
+        int | None, Query(description="Only sessions for this rom.")
+    ] = None,
+    device_id: Annotated[
+        str | None, Query(description="Only sessions from this device.")
+    ] = None,
+    start_after: Annotated[
+        datetime | None,
+        Query(
+            description=(
+                "Only sessions that started at or after this time. With this or"
+                " `end_before`, paging is off and every match is returned."
+            )
+        ),
+    ] = None,
+    end_before: Annotated[
+        datetime | None,
+        Query(
+            description=(
+                "Only sessions that started at or before this time. It filters"
+                " on the start time, not the end time."
+            )
+        ),
+    ] = None,
 ) -> list[PlaySessionSchema]:
+    """List the caller's play sessions.
+
+    A client may read its own device's sessions with `roms.user.read`. Any other
+    device needs the `devices.read` scope.
+    """
     # A device-bound client may read its own device with roms.user.read alone.
     if (
         device_id is None or device_id != token_device_id(request)
@@ -139,7 +171,11 @@ def get_play_sessions(
     [Scope.ROMS_USER_WRITE],
     status_code=status.HTTP_204_NO_CONTENT,
 )
-def delete_play_session(request: Request, session_id: int) -> None:
+def delete_play_session(
+    request: Request,
+    session_id: int = PathVar(description="The ID of the play session."),
+) -> None:
+    """Delete one of the caller's play sessions."""
     deleted = db_play_session_handler.delete_session(
         session_id=session_id, user_id=request.user.id
     )

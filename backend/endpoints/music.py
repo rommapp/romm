@@ -205,14 +205,38 @@ def get_music_artists(
     request: Request,
     params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[str | None, Query(description="Typeahead on artist.")] = None,
-    album: Annotated[str | None, Query()] = None,
-    genre: Annotated[str | None, Query()] = None,
-    platform_ids: Annotated[list[int] | None, Query()] = None,
-    year: Annotated[int | None, Query()] = None,
-    min_duration: Annotated[float | None, Query()] = None,
-    max_duration: Annotated[float | None, Query()] = None,
+    album: Annotated[
+        str | None, Query(description="Only include tracks from this album.")
+    ] = None,
+    genre: Annotated[
+        str | None, Query(description="Only include tracks with this genre tag.")
+    ] = None,
+    platform_ids: Annotated[
+        list[int] | None,
+        Query(
+            description=(
+                "Only include tracks from games on this platform. Repeat the"
+                " parameter for several platforms."
+            )
+        ),
+    ] = None,
+    year: Annotated[
+        int | None,
+        Query(description="Only include tracks from this year, as tagged on the file."),
+    ] = None,
+    min_duration: Annotated[
+        float | None,
+        Query(description="Only include tracks at least this long, in seconds."),
+    ] = None,
+    max_duration: Annotated[
+        float | None,
+        Query(description="Only include tracks at most this long, in seconds."),
+    ] = None,
     order_by: Annotated[str, Query(description="count or value.")] = "count",
-    order_dir: Annotated[str, Query()] = "desc",
+    order_dir: Annotated[
+        str,
+        Query(description="The sort direction, `asc` or `desc`. Defaults to `desc`."),
+    ] = "desc",
 ) -> MusicPage[FacetValueSchema]:
     """Distinct artists (with counts); both a browse list and a typeahead."""
     return _facet_page(
@@ -237,14 +261,38 @@ def get_music_albums(
     request: Request,
     params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[str | None, Query(description="Typeahead on album.")] = None,
-    artist: Annotated[str | None, Query()] = None,
-    genre: Annotated[str | None, Query()] = None,
-    platform_ids: Annotated[list[int] | None, Query()] = None,
-    year: Annotated[int | None, Query()] = None,
-    min_duration: Annotated[float | None, Query()] = None,
-    max_duration: Annotated[float | None, Query()] = None,
+    artist: Annotated[
+        str | None, Query(description="Only include tracks by this artist.")
+    ] = None,
+    genre: Annotated[
+        str | None, Query(description="Only include tracks with this genre tag.")
+    ] = None,
+    platform_ids: Annotated[
+        list[int] | None,
+        Query(
+            description=(
+                "Only include tracks from games on this platform. Repeat the"
+                " parameter for several platforms."
+            )
+        ),
+    ] = None,
+    year: Annotated[
+        int | None,
+        Query(description="Only include tracks from this year, as tagged on the file."),
+    ] = None,
+    min_duration: Annotated[
+        float | None,
+        Query(description="Only include tracks at least this long, in seconds."),
+    ] = None,
+    max_duration: Annotated[
+        float | None,
+        Query(description="Only include tracks at most this long, in seconds."),
+    ] = None,
     order_by: Annotated[str, Query(description="count or value.")] = "count",
-    order_dir: Annotated[str, Query()] = "desc",
+    order_dir: Annotated[
+        str,
+        Query(description="The sort direction, `asc` or `desc`. Defaults to `desc`."),
+    ] = "desc",
 ) -> MusicPage[FacetValueSchema]:
     """Distinct albums (with counts); both a browse list and a typeahead."""
     return _facet_page(
@@ -269,14 +317,38 @@ def get_music_genres(
     request: Request,
     params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[str | None, Query(description="Typeahead on genre.")] = None,
-    artist: Annotated[str | None, Query()] = None,
-    album: Annotated[str | None, Query()] = None,
-    platform_ids: Annotated[list[int] | None, Query()] = None,
-    year: Annotated[int | None, Query()] = None,
-    min_duration: Annotated[float | None, Query()] = None,
-    max_duration: Annotated[float | None, Query()] = None,
+    artist: Annotated[
+        str | None, Query(description="Only include tracks by this artist.")
+    ] = None,
+    album: Annotated[
+        str | None, Query(description="Only include tracks from this album.")
+    ] = None,
+    platform_ids: Annotated[
+        list[int] | None,
+        Query(
+            description=(
+                "Only include tracks from games on this platform. Repeat the"
+                " parameter for several platforms."
+            )
+        ),
+    ] = None,
+    year: Annotated[
+        int | None,
+        Query(description="Only include tracks from this year, as tagged on the file."),
+    ] = None,
+    min_duration: Annotated[
+        float | None,
+        Query(description="Only include tracks at least this long, in seconds."),
+    ] = None,
+    max_duration: Annotated[
+        float | None,
+        Query(description="Only include tracks at most this long, in seconds."),
+    ] = None,
     order_by: Annotated[str, Query(description="count or value.")] = "count",
-    order_dir: Annotated[str, Query()] = "desc",
+    order_dir: Annotated[
+        str,
+        Query(description="The sort direction, `asc` or `desc`. Defaults to `desc`."),
+    ] = "desc",
 ) -> MusicPage[FacetValueSchema]:
     """Distinct genres (with counts); both a browse list and a typeahead."""
     return _facet_page(
@@ -301,14 +373,37 @@ def get_music_years(
     request: Request,
     params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[str | None, Query(description="Typeahead on year.")] = None,
-    artist: Annotated[str | None, Query()] = None,
-    album: Annotated[str | None, Query()] = None,
-    genre: Annotated[str | None, Query()] = None,
-    platform_ids: Annotated[list[int] | None, Query()] = None,
-    min_duration: Annotated[float | None, Query()] = None,
-    max_duration: Annotated[float | None, Query()] = None,
+    artist: Annotated[
+        str | None, Query(description="Only include tracks by this artist.")
+    ] = None,
+    album: Annotated[
+        str | None, Query(description="Only include tracks from this album.")
+    ] = None,
+    genre: Annotated[
+        str | None, Query(description="Only include tracks with this genre tag.")
+    ] = None,
+    platform_ids: Annotated[
+        list[int] | None,
+        Query(
+            description=(
+                "Only include tracks from games on this platform. Repeat the"
+                " parameter for several platforms."
+            )
+        ),
+    ] = None,
+    min_duration: Annotated[
+        float | None,
+        Query(description="Only include tracks at least this long, in seconds."),
+    ] = None,
+    max_duration: Annotated[
+        float | None,
+        Query(description="Only include tracks at most this long, in seconds."),
+    ] = None,
     order_by: Annotated[str, Query(description="count or value.")] = "count",
-    order_dir: Annotated[str, Query()] = "desc",
+    order_dir: Annotated[
+        str,
+        Query(description="The sort direction, `asc` or `desc`. Defaults to `desc`."),
+    ] = "desc",
 ) -> MusicPage[FacetValueSchema]:
     """Distinct years (with counts); both a browse list and a typeahead."""
     return _facet_page(
@@ -335,17 +430,57 @@ def get_music_game_genres(
     search: Annotated[
         str | None, Query(description="Typeahead on the game's genre.")
     ] = None,
-    artist: Annotated[str | None, Query()] = None,
-    album: Annotated[str | None, Query()] = None,
-    genre: Annotated[str | None, Query()] = None,
-    platform_ids: Annotated[list[int] | None, Query()] = None,
-    year: Annotated[int | None, Query()] = None,
-    min_year: Annotated[int | None, Query()] = None,
-    max_year: Annotated[int | None, Query()] = None,
-    min_duration: Annotated[float | None, Query()] = None,
-    max_duration: Annotated[float | None, Query()] = None,
+    artist: Annotated[
+        str | None, Query(description="Only include tracks by this artist.")
+    ] = None,
+    album: Annotated[
+        str | None, Query(description="Only include tracks from this album.")
+    ] = None,
+    genre: Annotated[
+        str | None, Query(description="Only include tracks with this genre tag.")
+    ] = None,
+    platform_ids: Annotated[
+        list[int] | None,
+        Query(
+            description=(
+                "Only include tracks from games on this platform. Repeat the"
+                " parameter for several platforms."
+            )
+        ),
+    ] = None,
+    year: Annotated[
+        int | None,
+        Query(description="Only include tracks from this year, as tagged on the file."),
+    ] = None,
+    min_year: Annotated[
+        int | None,
+        Query(
+            description=(
+                "Only include tracks from this year or later, as tagged on the file."
+            )
+        ),
+    ] = None,
+    max_year: Annotated[
+        int | None,
+        Query(
+            description=(
+                "Only include tracks from this year or earlier, as tagged on the file."
+            )
+        ),
+    ] = None,
+    min_duration: Annotated[
+        float | None,
+        Query(description="Only include tracks at least this long, in seconds."),
+    ] = None,
+    max_duration: Annotated[
+        float | None,
+        Query(description="Only include tracks at most this long, in seconds."),
+    ] = None,
     order_by: Annotated[str, Query(description="count or value.")] = "count",
-    order_dir: Annotated[str, Query()] = "desc",
+    order_dir: Annotated[
+        str,
+        Query(description="The sort direction, `asc` or `desc`. Defaults to `desc`."),
+    ] = "desc",
 ) -> MusicPage[FacetValueSchema]:
     """Distinct genres of the *games* the tracks belong to, with counts.
 
@@ -378,17 +513,52 @@ def get_music_platforms(
     request: Request,
     params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[str | None, Query(description="Typeahead on platform.")] = None,
-    artist: Annotated[str | None, Query()] = None,
-    album: Annotated[str | None, Query()] = None,
-    genre: Annotated[str | None, Query()] = None,
-    game_genre: Annotated[str | None, Query()] = None,
-    year: Annotated[int | None, Query()] = None,
-    min_year: Annotated[int | None, Query()] = None,
-    max_year: Annotated[int | None, Query()] = None,
-    min_duration: Annotated[float | None, Query()] = None,
-    max_duration: Annotated[float | None, Query()] = None,
+    artist: Annotated[
+        str | None, Query(description="Only include tracks by this artist.")
+    ] = None,
+    album: Annotated[
+        str | None, Query(description="Only include tracks from this album.")
+    ] = None,
+    genre: Annotated[
+        str | None, Query(description="Only include tracks with this genre tag.")
+    ] = None,
+    game_genre: Annotated[
+        str | None,
+        Query(description="Only include tracks from games of this genre."),
+    ] = None,
+    year: Annotated[
+        int | None,
+        Query(description="Only include tracks from this year, as tagged on the file."),
+    ] = None,
+    min_year: Annotated[
+        int | None,
+        Query(
+            description=(
+                "Only include tracks from this year or later, as tagged on the file."
+            )
+        ),
+    ] = None,
+    max_year: Annotated[
+        int | None,
+        Query(
+            description=(
+                "Only include tracks from this year or earlier, as tagged on the file."
+            )
+        ),
+    ] = None,
+    min_duration: Annotated[
+        float | None,
+        Query(description="Only include tracks at least this long, in seconds."),
+    ] = None,
+    max_duration: Annotated[
+        float | None,
+        Query(description="Only include tracks at most this long, in seconds."),
+    ] = None,
     order_by: Annotated[str, Query(description="count or value.")] = "value",
-    order_dir: Annotated[str, Query()] = "asc",
+    order_dir: Annotated[
+        str,
+        Query(description="The sort direction, `asc` or `desc`. Defaults to `asc`."),
+    ] = "asc",
 ) -> MusicPage[MusicPlatformFacetSchema]:
     """Platforms that have soundtrack tracks, with per-platform counts."""
     perms = get_permissions(request)
@@ -420,18 +590,61 @@ def get_music_games(
     search: Annotated[
         str | None, Query(description="Substring match on game/title/artist/album.")
     ] = None,
-    artist: Annotated[str | None, Query()] = None,
-    album: Annotated[str | None, Query()] = None,
-    genre: Annotated[str | None, Query()] = None,
-    game_genre: Annotated[str | None, Query()] = None,
-    platform_ids: Annotated[list[int] | None, Query()] = None,
-    year: Annotated[int | None, Query()] = None,
-    min_year: Annotated[int | None, Query()] = None,
-    max_year: Annotated[int | None, Query()] = None,
-    min_duration: Annotated[float | None, Query()] = None,
-    max_duration: Annotated[float | None, Query()] = None,
+    artist: Annotated[
+        str | None, Query(description="Only include tracks by this artist.")
+    ] = None,
+    album: Annotated[
+        str | None, Query(description="Only include tracks from this album.")
+    ] = None,
+    genre: Annotated[
+        str | None, Query(description="Only include tracks with this genre tag.")
+    ] = None,
+    game_genre: Annotated[
+        str | None,
+        Query(description="Only include tracks from games of this genre."),
+    ] = None,
+    platform_ids: Annotated[
+        list[int] | None,
+        Query(
+            description=(
+                "Only include tracks from games on this platform. Repeat the"
+                " parameter for several platforms."
+            )
+        ),
+    ] = None,
+    year: Annotated[
+        int | None,
+        Query(description="Only include tracks from this year, as tagged on the file."),
+    ] = None,
+    min_year: Annotated[
+        int | None,
+        Query(
+            description=(
+                "Only include tracks from this year or later, as tagged on the file."
+            )
+        ),
+    ] = None,
+    max_year: Annotated[
+        int | None,
+        Query(
+            description=(
+                "Only include tracks from this year or earlier, as tagged on the file."
+            )
+        ),
+    ] = None,
+    min_duration: Annotated[
+        float | None,
+        Query(description="Only include tracks at least this long, in seconds."),
+    ] = None,
+    max_duration: Annotated[
+        float | None,
+        Query(description="Only include tracks at most this long, in seconds."),
+    ] = None,
     order_by: Annotated[str, Query(description="count or value.")] = "value",
-    order_dir: Annotated[str, Query()] = "asc",
+    order_dir: Annotated[
+        str,
+        Query(description="The sort direction, `asc` or `desc`. Defaults to `asc`."),
+    ] = "asc",
 ) -> MusicPage[MusicGameFacetSchema]:
     """Games that have soundtrack tracks -- the jukebox's album list."""
     perms = get_permissions(request)

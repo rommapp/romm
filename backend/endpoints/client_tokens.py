@@ -1,6 +1,8 @@
 import json
 
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException
+from fastapi import Path as PathVar
+from fastapi import Request, status
 from pydantic import BaseModel, Field
 
 from decorators.auth import protected_route, raise_auth_error
@@ -58,6 +60,12 @@ def create_token(
     request: Request,
     payload: ClientTokenCreatePayload,
 ) -> ClientTokenCreateSchema:
+    """Create a client token. Its scopes cannot exceed the caller's.
+
+    The response includes the token's secret, which cannot be retrieved later. A
+    device-bound token cannot create tokens, and each user can hold a limited
+    number.
+    """
     if token_device_id(request) is not None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -91,12 +99,16 @@ def create_token(
 
 @protected_route(router.get, "", [Scope.ME_READ])
 def list_tokens(request: Request) -> list[ClientTokenSchema]:
+    """List the caller's client tokens."""
     tokens = db_client_token_handler.get_tokens_by_user(request.user.id)
     return [build_schema(t) for t in tokens]
 
 
 @protected_route(router.delete, "/{token_id}")
-async def delete_token(request: Request, token_id: int) -> None:
+async def delete_token(
+    request: Request,
+    token_id: int = PathVar(description="The ID of the client token."),
+) -> None:
     """Revoke one of the caller's tokens; a client token can always revoke itself."""
     is_self_revoke = token_id == request_client_token_id(request)
     if not is_self_revoke and Scope.ME_WRITE not in request.auth.scopes:
@@ -121,7 +133,15 @@ async def delete_token(request: Request, token_id: int) -> None:
 
 
 @protected_route(router.put, "/{token_id}/regenerate", [Scope.ME_WRITE])
-async def regenerate_token(request: Request, token_id: int) -> ClientTokenCreateSchema:
+async def regenerate_token(
+    request: Request,
+    token_id: int = PathVar(description="The ID of the client token."),
+) -> ClientTokenCreateSchema:
+    """Replace a token's secret with a new one.
+
+    The old secret stops working. The response includes the new one, which cannot
+    be retrieved later.
+    """
     existing = db_client_token_handler.get_token(
         token_id=token_id, user_id=request.user.id
     )
@@ -152,7 +172,14 @@ async def regenerate_token(request: Request, token_id: int) -> ClientTokenCreate
 
 
 @protected_route(router.post, "/{token_id}/pair", [Scope.ME_WRITE])
-def pair_token(request: Request, token_id: int) -> ClientTokenPairSchema:
+def pair_token(
+    request: Request,
+    token_id: int = PathVar(description="The ID of the client token."),
+) -> ClientTokenPairSchema:
+    """Create a pairing code for a token. The code works once.
+
+    `expires_in` gives its lifetime in seconds.
+    """
     token = db_client_token_handler.get_token(
         token_id=token_id, user_id=request.user.id
     )
@@ -178,7 +205,12 @@ def pair_token(request: Request, token_id: int) -> ClientTokenPairSchema:
     "/pair/{code}/status",
     status_code=status.HTTP_200_OK,
 )
-def pair_status(code: str) -> None:
+def pair_status(
+    code: str = PathVar(
+        description="The pairing code. Dashes and letter case are ignored."
+    ),
+) -> None:
+    """Check whether a pairing code is valid. Returns 404 for an unknown or expired code."""
     normalized = code.replace("-", "").upper()
     redis_key = f"pair:{normalized}"
     if not sync_cache.exists(redis_key):
@@ -190,6 +222,10 @@ async def exchange_pair_code(
     request: Request,
     payload: ClientTokenExchangePayload,
 ) -> ClientTokenCreateSchema:
+    """Exchange a pairing code for a new secret for its token.
+
+    The code is used up, and the token's previous secret is replaced.
+    """
     token = exchange(request, payload.code)
     await close_client_token_sockets([token.id])
     return token
@@ -197,12 +233,17 @@ async def exchange_pair_code(
 
 @protected_route(router.get, "/all", [Scope.USERS_READ])
 def list_all_tokens(request: Request) -> list[ClientTokenAdminSchema]:
+    """List every user's client tokens."""
     tokens = db_client_token_handler.get_all_tokens()
     return [build_admin_schema(t) for t in tokens]
 
 
 @protected_route(router.delete, "/{token_id}/admin", [Scope.USERS_WRITE])
-async def admin_delete_token(request: Request, token_id: int) -> None:
+async def admin_delete_token(
+    request: Request,
+    token_id: int = PathVar(description="The ID of the client token."),
+) -> None:
+    """Revoke any user's client token. Only an admin can revoke an admin's token."""
     token = db_client_token_handler.get_token(token_id=token_id)
     if token is not None:
         assert_admin_for_admin(

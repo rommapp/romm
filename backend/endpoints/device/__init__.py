@@ -2,7 +2,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import Annotated, Any
 
-from fastapi import HTTPException, Request, Response, status
+from fastapi import HTTPException
+from fastapi import Path as PathVar
+from fastapi import Request, Response, status
 from pydantic import (
     BaseModel,
     Field,
@@ -81,12 +83,21 @@ class DeviceUpdatePayload(BaseModel):
     capabilities: DeviceCapabilities | None = None
 
 
+DeviceIdPath = Annotated[str, PathVar(description="The ID of the device.")]
+
+
 @protected_route(router.post, "", [Scope.DEVICES_WRITE])
 def register_device(
     request: Request,
     response: Response,
     payload: DeviceCreatePayload,
 ) -> DeviceCreateResponse:
+    """Register a device. Returns 201 with the new device's ID.
+
+    Devices with the same MAC address, hostname and platform count as one device.
+    Unless `allow_duplicate` is set, a second registration returns 409, or 200
+    with the existing device when `allow_existing` is set.
+    """
     existing_device = None
     if not payload.allow_duplicate:
         existing_device = db_device_handler.get_device_by_fingerprint(
@@ -173,6 +184,7 @@ def register_device(
 
 @protected_route(router.get, "", [Scope.DEVICES_READ])
 def get_devices(request: Request) -> list[DeviceSchema]:
+    """List the caller's devices that the client token can reach."""
     devices = db_device_handler.get_devices(user_id=request.user.id)
     return [
         DeviceSchema.model_validate(device)
@@ -182,7 +194,8 @@ def get_devices(request: Request) -> list[DeviceSchema]:
 
 
 @protected_route(router.get, "/{device_id}", [Scope.DEVICES_READ])
-def get_device(request: Request, device_id: str) -> DeviceSchema:
+def get_device(request: Request, device_id: DeviceIdPath) -> DeviceSchema:
+    """Get one of the caller's devices."""
     device = require_device(request, device_id)
     return DeviceSchema.model_validate(device)
 
@@ -190,9 +203,10 @@ def get_device(request: Request, device_id: str) -> DeviceSchema:
 @protected_route(router.put, "/{device_id}", [Scope.DEVICES_WRITE])
 def update_device(
     request: Request,
-    device_id: str,
+    device_id: DeviceIdPath,
     payload: DeviceUpdatePayload,
 ) -> DeviceSchema:
+    """Update a device. Only the fields sent change."""
     device: Device | None = require_device(request, device_id)
 
     update_data = payload.model_dump(exclude_unset=True)
@@ -212,7 +226,8 @@ def update_device(
     [Scope.DEVICES_WRITE],
     status_code=status.HTTP_204_NO_CONTENT,
 )
-async def delete_device(request: Request, device_id: str) -> None:
+async def delete_device(request: Request, device_id: DeviceIdPath) -> None:
+    """Delete a device. The client tokens bound to it are deleted with it."""
     require_device(request, device_id)
 
     tokens = db_client_token_handler.get_tokens_by_device(device_id)

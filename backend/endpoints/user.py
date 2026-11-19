@@ -4,7 +4,7 @@ from typing import Annotated, Any, Final
 
 from fastapi import Body, Form, HTTPException
 from fastapi import Path as PathVar
-from fastapi import Request, status
+from fastapi import Query, Request, status
 from fastapi.responses import FileResponse
 
 from decorators.auth import protected_route
@@ -223,7 +223,25 @@ def add_user(
     status_code=status.HTTP_201_CREATED,
 )
 def create_invite_link(
-    request: Request, role: str, expiration: int | None = None
+    request: Request,
+    role: Annotated[
+        str,
+        Query(
+            description=(
+                "The role of the invited user: `user` or `admin`. Only an admin"
+                " can invite an admin, unless no admin exists yet."
+            )
+        ),
+    ],
+    expiration: Annotated[
+        int | None,
+        Query(
+            description=(
+                "The lifetime of the link, in seconds. Defaults to"
+                " `INVITE_TOKEN_EXPIRY_SECONDS`, which is 600 unless changed."
+            )
+        ),
+    ] = None,
 ) -> InviteLinkSchema:
     """Create an invite link for a user.
 
@@ -389,7 +407,9 @@ def get_current_user(request: Request) -> UserSchema | None:
 
 
 @protected_route(router.get, "/{id}", [Scope.USERS_READ])
-def get_user(request: Request, id: int) -> UserSchema:
+def get_user(
+    request: Request, id: Annotated[int, PathVar(description="User internal id.")]
+) -> UserSchema:
     """Get user endpoint
 
     Args:
@@ -441,7 +461,9 @@ def get_user_avatar(
 
 @protected_route(router.put, "/{id}", [Scope.ME_WRITE])
 async def update_user(
-    request: Request, id: int, form_data: Annotated[UserForm, Form()]
+    request: Request,
+    id: Annotated[int, PathVar(description="User internal id.")],
+    form_data: Annotated[UserForm, Form()],
 ) -> UserSchema:
     """Update user endpoint
 

@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import Body, File, HTTPException
 from fastapi import Path as PathVar
-from fastapi import Request, UploadFile, status
+from fastapi import Query, Request, UploadFile, status
 from fastapi.responses import FileResponse, Response
 
 from decorators.auth import protected_route
@@ -38,7 +38,7 @@ SCREENSHOT_FILE_UPLOAD = File(..., description="Screenshot file to upload.")
 @protected_route(router.post, "", [Scope.ASSETS_WRITE])
 async def add_screenshot(
     request: Request,
-    rom_id: int,
+    rom_id: Annotated[int, Query(description="Rom internal id.")],
     screenshotFile: UploadFile = SCREENSHOT_FILE_UPLOAD,
 ) -> ScreenshotSchema:
     """Upload a per-user gallery screenshot for a ROM.
@@ -167,7 +167,10 @@ def download_screenshot(
 async def update_screenshot(
     request: Request,
     id: Annotated[int, PathVar(description="Screenshot internal id.", ge=1)],
-    is_public: Annotated[bool, Body(embed=True)],
+    is_public: Annotated[
+        bool,
+        Body(embed=True, description="Whether other users can see the screenshot."),
+    ],
 ) -> ScreenshotSchema:
     """Toggle a gallery screenshot's public/private visibility (owner only)."""
     owned_rom_asset_or_404(

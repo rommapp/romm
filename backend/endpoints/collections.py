@@ -142,14 +142,49 @@ def _check_criteria_collection(
         raise CollectionNotFoundInDatabaseException(collection_id)
 
 
+CollectionIdPath = Annotated[int, PathVar(description="Collection internal id.")]
+SmartCollectionIdPath = Annotated[
+    int, PathVar(description="Smart collection internal id.")
+]
+VirtualCollectionIdPath = Annotated[
+    str,
+    PathVar(
+        description="Virtual collection id, as `GET /collections/virtual` returns it."
+    ),
+]
+IsPublicCreateQuery = Annotated[
+    bool | None,
+    Query(description="Whether other users can see the collection. Defaults to false."),
+]
+IsPublicUpdateQuery = Annotated[
+    bool | None,
+    Query(
+        description=(
+            "Whether other users can see the collection. Unset keeps the"
+            " current value."
+        )
+    ),
+]
+IsFavoriteQuery = Annotated[
+    bool | None,
+    Query(description="Whether the collection is a favorite. Defaults to false."),
+]
+COLLECTION_NAME_FORM = "The name of the collection."
+COLLECTION_DESCRIPTION_FORM = "The description of the collection."
+
+
 @protected_route(router.post, "", [Scope.COLLECTIONS_WRITE])
 async def add_collection(
     request: Request,
-    is_public: bool | None = None,
-    is_favorite: bool | None = None,
+    is_public: IsPublicCreateQuery = None,
+    is_favorite: IsFavoriteQuery = None,
     artwork: UploadFile | None = COLLECTION_ARTWORK_FILE,
-    name: str = Form(default="", max_length=COLLECTION_NAME_MAX_LENGTH),
-    description: str = Form(default=""),
+    name: str = Form(
+        default="",
+        max_length=COLLECTION_NAME_MAX_LENGTH,
+        description=COLLECTION_NAME_FORM,
+    ),
+    description: str = Form(default="", description=COLLECTION_DESCRIPTION_FORM),
     url_cover: str = Form(
         default="", description="Remote URL to fetch and use as cover artwork."
     ),
@@ -222,9 +257,13 @@ async def add_collection(
 @protected_route(router.post, "/smart", [Scope.COLLECTIONS_WRITE])
 async def add_smart_collection(
     request: Request,
-    is_public: bool | None = None,
-    name: str = Form(default="", max_length=COLLECTION_NAME_MAX_LENGTH),
-    description: str = Form(default=""),
+    is_public: IsPublicCreateQuery = None,
+    name: str = Form(
+        default="",
+        max_length=COLLECTION_NAME_MAX_LENGTH,
+        description=COLLECTION_NAME_FORM,
+    ),
+    description: str = Form(default="", description=COLLECTION_DESCRIPTION_FORM),
     filter_criteria: str = Form(
         default="{}",
         description="Smart collection filters as a JSON string.",
@@ -319,8 +358,25 @@ def get_collection_identifiers(
 @protected_route(router.get, "/virtual", [Scope.COLLECTIONS_READ])
 def get_virtual_collections(
     request: Request,
-    type: str,
-    limit: int | None = None,
+    type: Annotated[
+        str,
+        Query(
+            description=(
+                "The kind of collection: `genre`, `franchise`, `collection`,"
+                " `mode`, `company` or `all`. The library's metadata generates"
+                " them, one per distinct value."
+            )
+        ),
+    ],
+    limit: Annotated[
+        int | None,
+        Query(
+            description=(
+                "The maximum number of collections to return, sorted by name."
+                " Unset returns all of them."
+            )
+        ),
+    ] = None,
 ) -> list[VirtualCollectionSchema]:
     """Get virtual collections endpoint
 
@@ -406,7 +462,7 @@ def get_smart_collection_identifiers(
 
 
 @protected_route(router.get, "/{id}", [Scope.COLLECTIONS_READ])
-def get_collection(request: Request, id: int) -> CollectionSchema:
+def get_collection(request: Request, id: CollectionIdPath) -> CollectionSchema:
     """Get collections endpoint
 
     Args:
@@ -430,7 +486,9 @@ def get_collection(request: Request, id: int) -> CollectionSchema:
 
 
 @protected_route(router.get, "/virtual/{id}", [Scope.COLLECTIONS_READ])
-def get_virtual_collection(request: Request, id: str) -> VirtualCollectionSchema:
+def get_virtual_collection(
+    request: Request, id: VirtualCollectionIdPath
+) -> VirtualCollectionSchema:
     """Get virtual collections endpoint
 
     Args:
@@ -451,7 +509,9 @@ def get_virtual_collection(request: Request, id: str) -> VirtualCollectionSchema
 
 
 @protected_route(router.get, "/smart/{id}", [Scope.COLLECTIONS_READ])
-def get_smart_collection(request: Request, id: int) -> SmartCollectionSchema:
+def get_smart_collection(
+    request: Request, id: SmartCollectionIdPath
+) -> SmartCollectionSchema:
     """Get smart collection endpoint
 
     Args:
@@ -477,16 +537,26 @@ def get_smart_collection(request: Request, id: int) -> SmartCollectionSchema:
 @protected_route(router.put, "/{id}", [Scope.COLLECTIONS_WRITE])
 async def update_collection(
     request: Request,
-    id: int,
-    remove_cover: bool = False,
-    is_public: bool | None = None,
+    id: CollectionIdPath,
+    remove_cover: Annotated[
+        bool,
+        Query(description="Whether to delete the cover and its URL."),
+    ] = False,
+    is_public: IsPublicUpdateQuery = None,
     artwork: UploadFile | None = COLLECTION_ARTWORK_FILE,
     rom_ids: str = Form(
         ...,
         description="Collection ROM IDs as a JSON array string (e.g. [1,2,3]).",
     ),
-    name: str | None = Form(default=None, max_length=COLLECTION_NAME_MAX_LENGTH),
-    description: str | None = Form(default=None),
+    name: str | None = Form(
+        default=None,
+        max_length=COLLECTION_NAME_MAX_LENGTH,
+        description="The new name. Unset keeps the current name.",
+    ),
+    description: str | None = Form(
+        default=None,
+        description="The new description. Unset keeps the current description.",
+    ),
     url_cover: str | None = Form(default=None, description="Updated remote cover URL."),
 ) -> CollectionSchema:
     """Update collection endpoint
@@ -625,8 +695,11 @@ async def update_collection(
 )
 def update_collection_visibility(
     request: Request,
-    id: int,
-    is_public: Annotated[bool, Body(embed=True)],
+    id: CollectionIdPath,
+    is_public: Annotated[
+        bool,
+        Body(embed=True, description="Whether other users can see the collection."),
+    ],
 ) -> CollectionSchema:
     """Share or unshare a collection (owner only), leaving its games and cover."""
     collection = db_collection_handler.get_collection(id)
@@ -654,7 +727,7 @@ class CollectionRomsPayload(PydanticBaseModel):
 @protected_route(router.post, "/{id}/roms", [Scope.COLLECTIONS_WRITE])
 async def add_roms_to_collection(
     request: Request,
-    id: int,
+    id: CollectionIdPath,
     payload: CollectionRomsPayload,
 ) -> CollectionSchema:
     """Atomically add ROMs to a collection without replacing the full list.
@@ -694,7 +767,7 @@ async def add_roms_to_collection(
 @protected_route(router.delete, "/{id}/roms", [Scope.COLLECTIONS_WRITE])
 async def remove_roms_from_collection(
     request: Request,
-    id: int,
+    id: CollectionIdPath,
     payload: CollectionRomsPayload,
 ) -> CollectionSchema:
     """Atomically remove ROMs from a collection without replacing the full list.
@@ -735,10 +808,17 @@ async def remove_roms_from_collection(
 @protected_route(router.put, "/smart/{id}", [Scope.COLLECTIONS_WRITE])
 async def update_smart_collection(
     request: Request,
-    id: int,
-    is_public: bool | None = None,
-    name: str | None = Form(default=None, max_length=COLLECTION_NAME_MAX_LENGTH),
-    description: str | None = Form(default=None),
+    id: SmartCollectionIdPath,
+    is_public: IsPublicUpdateQuery = None,
+    name: str | None = Form(
+        default=None,
+        max_length=COLLECTION_NAME_MAX_LENGTH,
+        description="The new name. Unset keeps the current name.",
+    ),
+    description: str | None = Form(
+        default=None,
+        description="The new description. Unset keeps the current description.",
+    ),
     filter_criteria: str | None = Form(
         default=None,
         description="Updated smart collection filters as a JSON string.",
@@ -811,8 +891,13 @@ async def update_smart_collection(
 )
 def update_smart_collection_visibility(
     request: Request,
-    id: int,
-    is_public: Annotated[bool, Body(embed=True)],
+    id: SmartCollectionIdPath,
+    is_public: Annotated[
+        bool,
+        Body(
+            embed=True, description="Whether other users can see the smart collection."
+        ),
+    ],
 ) -> SmartCollectionSchema:
     """Share or unshare a smart collection (owner only), leaving its filters."""
     smart_collection = db_collection_handler.get_smart_collection(id)

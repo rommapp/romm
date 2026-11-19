@@ -364,12 +364,24 @@ class RomUpdateForm(BaseModel):
     raw_manual_metadata: str | None = Field(
         default=None, description="Raw manual metadata as JSON string."
     )
-    name: str | None = None
-    name_sort_key: str | None = None
-    summary: str | None = None
-    fs_name: str | None = None
-    url_cover: str | None = None
-    url_manual: str | None = None
+    name: str | None = Field(default=None, description="The new display name.")
+    name_sort_key: str | None = Field(
+        default=None,
+        description="The sort key to use in place of one derived from the name.",
+    )
+    summary: str | None = Field(
+        default=None, description="The new description of the game."
+    )
+    fs_name: str | None = Field(
+        default=None, description="The new name of the file or folder."
+    )
+    url_cover: str | None = Field(default=None, description="The URL of a new cover.")
+    url_manual: str | None = Field(default=None, description="The URL of a new manual.")
+
+
+def _form_field(name: str) -> Any:
+    """A form parameter that reuses the description `RomUpdateForm` gives the field."""
+    return Form(default=None, description=RomUpdateForm.model_fields[name].description)
 
 
 MANUAL_METADATA_ADAPTER: Final = TypeAdapter(ManualMetadata)
@@ -468,39 +480,39 @@ class RomUserData(BaseModel):
 
 async def parse_rom_update_form(
     request: Request,
-    igdb_id: str | None = Form(default=None),
-    sgdb_id: str | None = Form(default=None),
-    moby_id: str | None = Form(default=None),
-    ss_id: str | None = Form(default=None),
-    ra_id: str | None = Form(default=None),
-    launchbox_id: str | None = Form(default=None),
-    hasheous_id: str | None = Form(default=None),
-    tgdb_id: str | None = Form(default=None),
-    flashpoint_id: str | None = Form(default=None),
-    hltb_id: str | None = Form(default=None),
-    demozoo_id: str | None = Form(default=None),
-    pouet_id: str | None = Form(default=None),
-    csdb_id: str | None = Form(default=None),
-    steam_id: str | None = Form(default=None),
-    libretro_id: str | None = Form(default=None),
-    raw_igdb_metadata: str | None = Form(default=None),
-    raw_moby_metadata: str | None = Form(default=None),
-    raw_ss_metadata: str | None = Form(default=None),
-    raw_launchbox_metadata: str | None = Form(default=None),
-    raw_hasheous_metadata: str | None = Form(default=None),
-    raw_flashpoint_metadata: str | None = Form(default=None),
-    raw_hltb_metadata: str | None = Form(default=None),
-    raw_demozoo_metadata: str | None = Form(default=None),
-    raw_pouet_metadata: str | None = Form(default=None),
-    raw_csdb_metadata: str | None = Form(default=None),
-    raw_steam_metadata: str | None = Form(default=None),
-    raw_manual_metadata: str | None = Form(default=None),
-    name: str | None = Form(default=None),
-    name_sort_key: str | None = Form(default=None),
-    summary: str | None = Form(default=None),
-    fs_name: str | None = Form(default=None),
-    url_cover: str | None = Form(default=None),
-    url_manual: str | None = Form(default=None),
+    igdb_id: str | None = _form_field("igdb_id"),
+    sgdb_id: str | None = _form_field("sgdb_id"),
+    moby_id: str | None = _form_field("moby_id"),
+    ss_id: str | None = _form_field("ss_id"),
+    ra_id: str | None = _form_field("ra_id"),
+    launchbox_id: str | None = _form_field("launchbox_id"),
+    hasheous_id: str | None = _form_field("hasheous_id"),
+    tgdb_id: str | None = _form_field("tgdb_id"),
+    flashpoint_id: str | None = _form_field("flashpoint_id"),
+    hltb_id: str | None = _form_field("hltb_id"),
+    demozoo_id: str | None = _form_field("demozoo_id"),
+    pouet_id: str | None = _form_field("pouet_id"),
+    csdb_id: str | None = _form_field("csdb_id"),
+    steam_id: str | None = _form_field("steam_id"),
+    libretro_id: str | None = _form_field("libretro_id"),
+    raw_igdb_metadata: str | None = _form_field("raw_igdb_metadata"),
+    raw_moby_metadata: str | None = _form_field("raw_moby_metadata"),
+    raw_ss_metadata: str | None = _form_field("raw_ss_metadata"),
+    raw_launchbox_metadata: str | None = _form_field("raw_launchbox_metadata"),
+    raw_hasheous_metadata: str | None = _form_field("raw_hasheous_metadata"),
+    raw_flashpoint_metadata: str | None = _form_field("raw_flashpoint_metadata"),
+    raw_hltb_metadata: str | None = _form_field("raw_hltb_metadata"),
+    raw_demozoo_metadata: str | None = _form_field("raw_demozoo_metadata"),
+    raw_pouet_metadata: str | None = _form_field("raw_pouet_metadata"),
+    raw_csdb_metadata: str | None = _form_field("raw_csdb_metadata"),
+    raw_steam_metadata: str | None = _form_field("raw_steam_metadata"),
+    raw_manual_metadata: str | None = _form_field("raw_manual_metadata"),
+    name: str | None = _form_field("name"),
+    name_sort_key: str | None = _form_field("name_sort_key"),
+    summary: str | None = _form_field("summary"),
+    fs_name: str | None = _form_field("fs_name"),
+    url_cover: str | None = _form_field("url_cover"),
+    url_manual: str | None = _form_field("url_manual"),
 ) -> RomUpdateForm:
     # Preserve "field was provided" behavior used by update logic.
     form_keys = set((await request.form()).keys())
@@ -663,9 +675,13 @@ def confine_provider_media(
 class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
     # Null when the caller opts out of the count with `with_total=false`.
     total: int | None = Field(ge=0)  # type: ignore[assignment]
+    """The number of roms across all pages. Null when `with_total` is false, unless `with_rom_id_index` is true."""
     char_index: dict[str, int]
+    """The position in the full ordered result where each first letter starts. Empty when `with_char_index` is false, the sort is not alphabetical, or a search ranks by relevance."""
     rom_id_index: list[int]
+    """The IDs of every matching rom, in order. Empty when `with_rom_id_index` is false."""
     filter_values: RomFiltersDict
+    """The options for the filter dropdowns. Every list is empty when `with_filter_values` is false."""
 
 
 # Month 1-12 and day 1-31, so a match is already a calendar day.
@@ -1382,6 +1398,11 @@ def get_rom_by_hash(
         str | None, Query(description="RetroAchievements hash value")
     ] = None,
 ) -> DetailedRomSchema:
+    """Find a rom by the hash of the rom or of one of its files.
+
+    At least one hash is required, or the response is 400. A hash that matches
+    nothing the caller can see returns 404.
+    """
     if not crc_hash and not md5_hash and not sha1_hash and not ra_hash:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1403,6 +1424,11 @@ def get_rom_by_hash(
 
 @protected_route(router.get, "/filters", [Scope.ROMS_READ])
 def get_rom_filters(request: Request) -> RomFiltersDict:
+    """List the values the filter dropdowns offer, across the whole library.
+
+    Only roms the caller can see count. No platform, collection or search
+    narrows the list.
+    """
     from handler.database import db_rom_handler
 
     return db_rom_handler.get_rom_filters(get_rom_visibility_filter(request))
