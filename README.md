@@ -106,7 +106,7 @@ Here are some cool projects maintained by members of our community. Please note 
 
 ### Desktop
 
-- [Freegosy][freegosy]: Cross-platform game manager with save sync by [@abduznik](https://github.com/abduznik)
+- [Freegosy][freegosy]: Cross-platform game manager with save sync by [@abduznik1](https://gitlab.com/abduznik1)
 - [RetroVault][retrovault]: Native macOS library and player by [@kennethreitz](https://github.com/kennethreitz)
 - [romm-client][romm-client]: Desktop client by [@chaun14](https://github.com/chaun14)
 - [RomMate][rommate]: Desktop app for browsing your collection by [@brenoprata10](https://github.com/brenoprata10)
@@ -208,7 +208,7 @@ Here are a few projects that we think you might like:
 [romm-client]: https://github.com/chaun14/romm-client
 [romm-retroarch-sync]: https://github.com/Covin90/romm-retroarch-sync
 [rommate]: https://github.com/brenoprata10/rommate
-[freegosy]: https://github.com/abduznik/freegosy
+[freegosy]: https://gitlab.com/abduznik1/Freegosy
 [rommulus]: https://github.com/DEV-DUFORD/rommulus
 [retrovault]: https://github.com/kennethreitz/RetroVault
 [gameflow-deck]: https://github.com/simeonradivoev/gameflow-deck
