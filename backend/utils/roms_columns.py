@@ -800,13 +800,19 @@ def mame_unfed_columns(conn: sa.Connection) -> list[GeneratedColumn]:
     """The chains MAME should feed whose stored definition does not read it yet."""
     pg = is_postgresql(conn)
     present = {column["name"]: column for column in sa.inspect(conn).get_columns(TABLE)}
+
+    def reads_mame(name: str) -> bool:
+        computed = present[name].get("computed")
+        return computed is not None and MAME_METADATA_COLUMN in str(
+            computed.get("sqltext", "")
+        )
+
     return [
         column
         for column in steam_fed_columns(pg, with_steam=True)
         if column.name in MAME_FED_COLUMNS
         and column.name in present
-        and MAME_METADATA_COLUMN
-        not in ((present[column.name].get("computed") or {}).get("sqltext") or "")
+        and not reads_mame(column.name)
     ]
 
 

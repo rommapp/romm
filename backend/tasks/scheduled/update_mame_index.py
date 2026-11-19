@@ -36,7 +36,7 @@ async def latest_listxml_url() -> str:
     response.raise_for_status()
     for asset in response.json().get("assets", []):
         if MAME_LISTXML_ASSET_RE.match(asset.get("name", "")):
-            return asset["browser_download_url"]
+            return str(asset["browser_download_url"])
     raise RuntimeError("MAME's latest release has no listxml zip")
 
 

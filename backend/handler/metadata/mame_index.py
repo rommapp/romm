@@ -8,7 +8,7 @@ import json
 import re
 from collections.abc import Iterator
 from datetime import UTC, datetime
-from typing import IO, Any, Final, NotRequired, TypedDict
+from typing import IO, Any, Final, NotRequired, TypedDict, cast
 
 from defusedxml import ElementTree as ET
 
@@ -62,7 +62,7 @@ class MameIndexInfo(TypedDict):
 
 
 def _flag(elem: Any, attr: str) -> bool:
-    return elem.get(attr) == "yes"
+    return bool(elem.get(attr) == "yes")
 
 
 def _text(elem: Any, tag: str) -> str | None:
@@ -140,7 +140,8 @@ async def write_index(
     await async_binary_cache.unlink(MAME_INDEX_STAGING_KEY)
     build = ""
     count = 0
-    batch: dict[str, bytes] = {}
+    # Any-keyed: redis-py's mapping type is invariant in its keys.
+    batch: dict[Any, bytes] = {}
     for build, machine in machines:
         batch[machine["name"].lower()] = encode(machine)
         if len(batch) >= WRITE_BATCH_SIZE:
@@ -176,7 +177,7 @@ async def get_index_info() -> MameIndexInfo | None:
     raw = await async_cache.get(MAME_INDEX_INFO_KEY)
     if not raw or not await is_index_loaded():
         return None
-    return json.loads(raw)
+    return cast(MameIndexInfo, json.loads(raw))
 
 
 async def get_machine(name: str) -> MameMachine | None:

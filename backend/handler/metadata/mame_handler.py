@@ -1,7 +1,7 @@
 import json
 import os
 from datetime import UTC, datetime
-from typing import Literal, NotRequired, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
 
 from handler.redis_handler import async_cache
 from models.platform import Platform
@@ -55,12 +55,12 @@ def set_type_of(machine: MameMachine) -> MameSetType:
     return "clone" if machine["cloneof"] else "parent"
 
 
-async def _fixture_entry(set_name: str) -> dict | None:
+async def _fixture_entry(set_name: str) -> dict[str, Any] | None:
     raw = await async_cache.hget(MAME_XML_KEY, set_name)
     return json.loads(raw) if raw else None
 
 
-def _from_fixture(set_name: str, entry: dict) -> MameMachine:
+def _from_fixture(set_name: str, entry: dict[str, Any]) -> MameMachine:
     """A bundled-index entry in the loaded index's shape; it has no flags or driver."""
     return MameMachine(
         name=set_name,
@@ -114,9 +114,14 @@ class MameHandler(MetadataHandler):
             info = await get_index_info()
             if info:
                 metadata["mame_build"] = info["build"]
-        for key in ("status", "sourcefile", "players", "year"):
-            if machine[key] is not None:  # type: ignore[literal-required]
-                metadata[key] = machine[key]  # type: ignore[literal-required]
+        if machine["status"]:
+            metadata["status"] = machine["status"]
+        if machine["sourcefile"]:
+            metadata["sourcefile"] = machine["sourcefile"]
+        if machine["players"] is not None:
+            metadata["players"] = machine["players"]
+        if machine["year"]:
+            metadata["year"] = machine["year"]
         if (release := year_epoch(machine["year"])) is not None:
             metadata["first_release_date"] = release
         if machine["manufacturer"]:

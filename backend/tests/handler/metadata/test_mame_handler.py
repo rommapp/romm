@@ -3,6 +3,7 @@
 import io
 import json
 from types import SimpleNamespace
+from typing import Any, cast
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -14,6 +15,7 @@ from handler.metadata.mame_handler import (
     year_epoch,
 )
 from handler.metadata.mame_index import iter_listxml
+from models.platform import Platform
 
 LISTXML = b"""<?xml version="1.0"?>
 <mame build="0.289 (mame0289)">
@@ -47,7 +49,7 @@ LISTXML = b"""<?xml version="1.0"?>
 """
 
 
-def _machines() -> dict:
+def _machines() -> dict[str, Any]:
     return {m["name"]: (build, m) for build, m in iter_listxml(io.BytesIO(LISTXML))}
 
 
@@ -89,8 +91,8 @@ def test_set_name_and_year():
 
 
 @pytest.fixture
-def arcade() -> SimpleNamespace:
-    return SimpleNamespace(slug="arcade")
+def arcade() -> Platform:
+    return cast(Platform, SimpleNamespace(slug="arcade"))
 
 
 async def test_get_rom_from_loaded_index(arcade):
@@ -158,5 +160,7 @@ async def test_get_rom_misses(arcade):
 
 
 async def test_get_rom_skips_other_platforms():
-    rom = await MameHandler().get_rom("sf2.zip", SimpleNamespace(slug="snes"))
+    rom = await MameHandler().get_rom(
+        "sf2.zip", cast(Platform, SimpleNamespace(slug="snes"))
+    )
     assert rom["mame_id"] is None
