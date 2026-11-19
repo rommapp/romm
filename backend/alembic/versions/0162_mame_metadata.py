@@ -299,7 +299,7 @@ def downgrade() -> None:
 
     _rebuild_cover_index(OLD_COVER_COLUMNS)
     _rebuild_identity_triggers(pg, _PROVIDERS_BEFORE)
-    op.execute(f"DELETE FROM {KEYS_TABLE} WHERE provider = 9")
+    op.execute(f"DELETE FROM {KEYS_TABLE} WHERE provider = 9")  # nosec B608
 
     _rebuild_facet_triggers(pg, _FACETS_BEFORE)
     present = column_names(conn, "roms_facets")

@@ -142,7 +142,8 @@ async def write_index(
     count = 0
     # Any-keyed: redis-py's mapping type is invariant in its keys.
     batch: dict[Any, bytes] = {}
-    for build, machine in machines:
+    for machine_build, machine in machines:
+        build = machine_build
         batch[machine["name"].lower()] = encode(machine)
         if len(batch) >= WRITE_BATCH_SIZE:
             await async_binary_cache.hset(MAME_INDEX_STAGING_KEY, mapping=batch)
