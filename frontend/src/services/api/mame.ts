@@ -1,7 +1,4 @@
-import type {
-  MameIndexStatus,
-  TaskExecutionResponse,
-} from "@/__generated__";
+import type { MameIndexStatus, TaskExecutionResponse } from "@/__generated__";
 import api from "@/services/api";
 import taskApi from "@/services/api/task";
 

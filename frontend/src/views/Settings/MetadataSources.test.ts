@@ -32,6 +32,11 @@ vi.mock("@/lib", () => ({
   }),
 }));
 
+// The MAME index card loads its own status; MameIndexSection.test.ts covers it.
+vi.mock("@/components/Settings/MameIndexSection.vue", () => ({
+  default: defineComponent({ template: "<div />" }),
+}));
+
 vi.mock("@/components/Settings/SettingsSection.vue", () => ({
   default: defineComponent({
     props: { title: { type: String, default: "" } },

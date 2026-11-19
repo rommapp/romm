@@ -13,6 +13,7 @@ import type { RomHasheousMetadata } from './RomHasheousMetadata';
 import type { RomHLTBMetadata } from './RomHLTBMetadata';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
 import type { RomLaunchboxMetadata } from './RomLaunchboxMetadata';
+import type { RomMameMetadata } from './RomMameMetadata';
 import type { RomMetadataSchema } from './RomMetadataSchema';
 import type { RomMobyMetadata } from './RomMobyMetadata';
 import type { RomPouetMetadata } from './RomPouetMetadata';
@@ -48,6 +49,7 @@ export type DetailedRomSchema = {
     steam_id: (number | null);
     gamelist_id: (string | null);
     libretro_id: (string | null);
+    mame_id: (string | null);
     platform_id: number;
     platform_slug: string;
     platform_fs_slug: string;
@@ -78,6 +80,7 @@ export type DetailedRomSchema = {
     csdb_metadata: (RomCsdbMetadata | null);
     steam_metadata: (RomSteamMetadata | null);
     gamelist_metadata: (RomGamelistMetadata | null);
+    mame_metadata: (RomMameMetadata | null);
     manual_metadata: (ManualMetadata | null);
     path_cover_small: (string | null);
     path_cover_large: (string | null);

@@ -21,5 +21,6 @@ export type MetadataSourcesDict = {
     CSDB_API_ENABLED: boolean;
     STEAM_API_ENABLED: boolean;
     LIBRETRO_API_ENABLED: boolean;
+    MAME_API_ENABLED: boolean;
 };
 

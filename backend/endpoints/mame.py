@@ -74,6 +74,4 @@ async def upload_mame_index(
         AuditTarget(AuditTargetType.TASK, TASK_NAME, UPDATE_MAME_INDEX_SPEC.title),
         {"job_id": job.id, "file": file.filename or ""},
     )
-    return _build_task_execution_response(
-        job, TASK_NAME, UPDATE_MAME_INDEX_SPEC.title
-    )
+    return _build_task_execution_response(job, TASK_NAME, UPDATE_MAME_INDEX_SPEC.title)

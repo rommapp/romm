@@ -25,6 +25,10 @@ vi.mock("@/services/api", () => ({
   default: { get: vi.fn().mockResolvedValue({ data: {} }) },
 }));
 
+vi.mock("@/components/Settings/MameIndexSection.vue", () => ({
+  default: defineComponent({ template: "<div />" }),
+}));
+
 vi.mock("@/lib", () => {
   const slotHost = (tag: string) =>
     defineComponent({ template: `<${tag}><slot /></${tag}>` });

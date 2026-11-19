@@ -71,6 +71,7 @@ _FACETS_BEFORE = (
     + [("min_age", "min_age")]
 )
 
+
 def _facet_columns() -> list[sa.Column]:
     # Fresh objects per call: a Column binds to the first table it joins.
     return [
@@ -80,6 +81,7 @@ def _facet_columns() -> list[sa.Column]:
         sa.Column("mame_driver", sa.String(length=100), nullable=True),
         sa.Column("mame_mechanical", sa.Boolean(), nullable=True),
     ]
+
 
 _FACETS_AFTER = _FACETS_BEFORE + [
     ("mame_id", "mame_id"),
@@ -231,7 +233,9 @@ def _backfill_mame_keys(pg: bool) -> None:
             f"INSERT INTO {KEYS_TABLE} ({_KEY_COLUMNS})\n{select}\nON CONFLICT DO NOTHING"  # nosec B608
         )
     else:
-        op.execute(f"INSERT IGNORE INTO {KEYS_TABLE} ({_KEY_COLUMNS})\n{select}")  # nosec B608
+        op.execute(
+            f"INSERT IGNORE INTO {KEYS_TABLE} ({_KEY_COLUMNS})\n{select}"
+        )  # nosec B608
 
 
 # ---------------------------------------------------------------------------

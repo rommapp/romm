@@ -15,6 +15,9 @@ export type RomFiltersDict = {
     regions: Array<string>;
     languages: Array<string>;
     tags: Array<string>;
+    mame_set_types?: Array<string>;
+    mame_statuses?: Array<string>;
+    mame_drivers?: Array<string>;
     platforms: Array<number>;
 };
 

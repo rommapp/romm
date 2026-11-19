@@ -272,8 +272,8 @@ const boolFilters: BoolFilterConfig[] = [
   },
   {
     label: t("platform.mame-mechanical"),
-    icon: "mdi-pinball",
-    yesIcon: "mdi-pinball",
+    icon: "mdi-slot-machine-outline",
+    yesIcon: "mdi-slot-machine-outline",
     noIcon: "mdi-gamepad-variant-outline",
     yesAria: t("platform.show-mame-mechanical-only"),
     noAria: t("platform.show-not-mame-mechanical-only"),

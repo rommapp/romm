@@ -35,8 +35,8 @@ from handler.metadata.ra_handler import RA_PLATFORM_LIST
 from handler.metadata.ss_handler import SCREENSAVER_PLATFORM_LIST
 from handler.metadata.steam_handler import STEAM_PLATFORMS
 from models.platform import Platform
-from utils.arcade_platforms import MAME_SHORTNAME_PLATFORMS
 from models.rom import Rom
+from utils.arcade_platforms import MAME_SHORTNAME_PLATFORMS
 
 LOGGER_MODULE_NAME = {"module_name": "scan"}
 

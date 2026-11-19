@@ -30,7 +30,9 @@ async function refresh() {
   } catch {
     status.value = null;
   }
-  if (status.value?.updating) pollTimer = setTimeout(refresh, POLL_MS);
+  if (status.value?.updating) {
+    pollTimer = setTimeout(() => void refresh(), POLL_MS);
+  }
 }
 
 async function run(action: () => Promise<unknown>) {
@@ -78,7 +80,9 @@ onBeforeUnmount(() => clearTimeout(pollTimer));
   >
     <div class="r-mame">
       <p class="r-mame__status" data-testid="mame-index-status">
-        <template v-if="updating">{{ t("settings.mame-index-updating") }}</template>
+        <template v-if="updating">{{
+          t("settings.mame-index-updating")
+        }}</template>
         <template v-else-if="status?.info">
           {{
             t("settings.mame-index-loaded", {
@@ -116,6 +120,7 @@ onBeforeUnmount(() => clearTimeout(pollTimer));
           ref="fileInput"
           type="file"
           accept=".xml,.zip"
+          :aria-label="t('settings.mame-index-upload')"
           hidden
           @change="onFile"
         />
