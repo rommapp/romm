@@ -42,6 +42,7 @@ import { usePinnedMedia } from "@/composables/usePinnedMedia";
 import { useUISettings } from "@/composables/useUISettings";
 import { useWebpSupport } from "@/composables/useWebpSupport";
 import { RBtn, RIcon, RSegmentedControl } from "@/lib";
+import storeAuth from "@/stores/auth";
 import storeCollections from "@/stores/collections";
 import type { DetailedRom } from "@/stores/roms";
 import { collectionCoverList } from "@/utils/collectionCovers";
@@ -118,6 +119,7 @@ const hasHltb = computed(() => {
 // the AppLayout fetch resolves).
 const { t } = useI18n();
 const collectionsStore = storeCollections();
+const authStore = storeAuth();
 const { supportsWebp, toWebp } = useWebpSupport();
 
 const pinnedMedia = computed(() => resolvePinnedMedia(props.rom));
@@ -134,6 +136,9 @@ type CollectionTileEntry = {
   link: string;
   kind: Kind;
   isPublic: boolean;
+  // Null until the collections store holds this collection.
+  author: string | null;
+  mine: boolean;
 };
 
 const userCollectionTiles = computed<CollectionTileEntry[]>(() =>
@@ -151,6 +156,8 @@ const userCollectionTiles = computed<CollectionTileEntry[]>(() =>
       link: c.is_smart ? `/collection/smart/${c.id}` : `/collection/${c.id}`,
       kind: c.is_smart ? "smart" : "regular",
       isPublic: full?.is_public ?? false,
+      author: full ? full.owner_username : null,
+      mine: full ? full.user_id === authStore.user?.id : false,
     };
   }),
 );
@@ -276,6 +283,8 @@ const coverSource = computed(() => {
             :covers="c.covers"
             :kind="c.kind"
             :is-public="c.isPublic"
+            :author="c.author"
+            :mine="c.mine"
             variant="row"
           />
         </div>

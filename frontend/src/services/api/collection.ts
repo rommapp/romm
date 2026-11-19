@@ -191,6 +191,18 @@ async function setCollectionVisibility({
   });
 }
 
+async function setCollectionOpen({
+  id,
+  isOpen,
+}: {
+  id: number;
+  isOpen: boolean;
+}) {
+  return api.put<Collection>(`/collections/${id}/visibility`, {
+    is_open: isOpen,
+  });
+}
+
 async function setSmartCollectionVisibility({
   id,
   isPublic,
@@ -219,5 +231,6 @@ export default {
   updateSmartCollection,
   deleteSmartCollection,
   setCollectionVisibility,
+  setCollectionOpen,
   setSmartCollectionVisibility,
 };

@@ -52,6 +52,13 @@ export default defineStore("collections", {
       const authStore = storeAuth();
       return allCollections.filter((c) => c.user_id === authStore.user?.id);
     },
+    // Mirrors the backend's `Collection.accepts_games_from`.
+    editableCollections: ({ allCollections }) => {
+      const authStore = storeAuth();
+      return allCollections.filter(
+        (c) => c.user_id === authStore.user?.id || (c.is_open && c.is_public),
+      );
+    },
     filteredVirtualCollections: ({ virtualCollections, filterText }) =>
       virtualCollections.filter((p) =>
         p.name.toLowerCase().includes(filterText.toLowerCase()),

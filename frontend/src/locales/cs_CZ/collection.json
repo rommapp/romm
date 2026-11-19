@@ -1,4 +1,6 @@
 {
+  "by-author": "od {author}",
+  "by-me": "ode mě",
   "collection-deleted": "Kolekce „{name}“ byla smazána",
   "cover": "Obal",
   "create-collection": "Vytvořit kolekci",
@@ -24,6 +26,8 @@
   "no-collections-yet": "Zatím žádné kolekce.",
   "no-collections-yet-detail": "Přidejte hru mezi oblíbené nebo vytvořte kolekci z lišty akcí libovolného ROM.",
   "not-found": "Kolekce nebyla nalezena.",
+  "open-to-members": "Hry může přidávat kdokoli",
+  "open-to-members-hint": "Kdokoli, kdo tuto kolekci vidí, do ní může přidávat a odebírat hry. Přejmenovat, sdílet nebo smazat ji můžete jen vy.",
   "save-as-smart": "Uložit jako chytrou kolekci",
   "search-collection": "Hledat kolekci",
   "settings": "Nastavení",

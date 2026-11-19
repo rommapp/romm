@@ -1,4 +1,6 @@
 {
+  "by-author": "{author} tarafından",
+  "by-me": "benim",
   "collection-deleted": "\"{name}\" koleksiyonu silindi",
   "cover": "Kapak tasarımı",
   "create-collection": "Koleksiyon oluştur",
@@ -24,6 +26,8 @@
   "no-collections-yet": "Henüz hiçbir koleksiyon yok.",
   "no-collections-yet-detail": "Bir oyunu favorilere ekleyin veya herhangi bir ROM'un işlem çubuğundan koleksiyon oluşturun.",
   "not-found": "Koleksiyon bulunamadı.",
+  "open-to-members": "Herkes oyun ekleyebilir",
+  "open-to-members-hint": "Bu koleksiyonu görebilen herkes oyun ekleyip çıkarabilir. Yalnızca siz yeniden adlandırabilir, paylaşabilir veya silebilirsiniz.",
   "save-as-smart": "Akıllı koleksiyon olarak kaydet",
   "search-collection": "Koleksiyon ara",
   "settings": "Ayarlar",

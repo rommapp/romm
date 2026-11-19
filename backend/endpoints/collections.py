@@ -531,6 +531,7 @@ async def update_collection(
         "is_public": is_public if is_public is not None else collection.is_public,
         "user_id": request.user.id,
     }
+    cleaned_data["is_open"] = collection.is_open and cleaned_data["is_public"]
 
     if remove_cover:
         cleaned_data.update(await fs_resource_handler.remove_cover(collection))
@@ -626,9 +627,14 @@ async def update_collection(
 def update_collection_visibility(
     request: Request,
     id: int,
-    is_public: Annotated[bool, Body(embed=True)],
+    is_public: Annotated[bool | None, Body(embed=True)] = None,
+    is_open: Annotated[
+        bool | None,
+        Body(embed=True, description="Let everyone who sees it add and remove games."),
+    ] = None,
 ) -> CollectionSchema:
-    """Share or unshare a collection (owner only), leaving its games and cover."""
+    """Share, unshare, open or close a collection (owner only), leaving its games
+    and cover. Unsharing also closes it, so sharing again never reopens it."""
     collection = db_collection_handler.get_collection(id)
     if not collection:
         raise CollectionNotFoundInDatabaseException(id)
@@ -636,10 +642,12 @@ def update_collection_visibility(
     if collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
 
+    public = collection.is_public if is_public is None else is_public
+    opened = collection.is_open if is_open is None else is_open
     updated_collection = db_collection_handler.update_collection(
-        id, {"is_public": is_public}
+        id, {"is_public": public, "is_open": opened and public}
     )
-    if collection.is_public != is_public:
+    if collection.is_public != public:
         refresh_scoped_smart_collections(id)
 
     return _hide_single_collection_roms(
@@ -671,7 +679,7 @@ async def add_roms_to_collection(
     if not collection:
         raise CollectionNotFoundInDatabaseException(id)
 
-    if collection.user_id != request.user.id:
+    if not collection.accepts_games_from(request.user.id):
         raise CollectionPermissionError(id)
 
     hidden = _hidden_rom_ids(request, payload.rom_ids)
@@ -711,7 +719,7 @@ async def remove_roms_from_collection(
     if not collection:
         raise CollectionNotFoundInDatabaseException(id)
 
-    if collection.user_id != request.user.id:
+    if not collection.accepts_games_from(request.user.id):
         raise CollectionPermissionError(id)
 
     # Members hidden from the caller stay, as in update_collection.

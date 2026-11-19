@@ -39,7 +39,7 @@ import VisibilitySwitch from "@/components/shared/VisibilitySwitch.vue";
 import { useEmitterEvent } from "@/composables/useEmitterEvent";
 import { useSnackbar } from "@/composables/useSnackbar";
 import { useWebpSupport } from "@/composables/useWebpSupport";
-import { RBtn, RChip, RIcon, RTag, RTextField } from "@/lib";
+import { RBtn, RChip, RIcon, RSwitch, RTag, RTextField } from "@/lib";
 import collectionApi, {
   type UpdatedCollection,
 } from "@/services/api/collection";
@@ -92,6 +92,8 @@ const form = ref({
   description: "",
 });
 const isPublic = ref(false);
+// Smart collections have no game list to edit, so only regular ones open.
+const isOpen = ref(false);
 const savingVisibility = ref(false);
 const pendingArtwork = ref<File | null>(null);
 const pendingUrlCover = ref<string | null>(null);
@@ -139,6 +141,7 @@ function snapshot(source: Collection | SmartCollection = props.collection) {
     description: c.description ?? "",
   };
   isPublic.value = c.is_public ?? false;
+  isOpen.value = "is_open" in c ? !!c.is_open : false;
   pendingArtwork.value = null;
   pendingUrlCover.value = null;
   removeCover.value = false;
@@ -349,8 +352,33 @@ async function setVisibility(next: boolean) {
             isPublic: next,
           });
     syncSaved(data, target);
+    if ("is_open" in data && isShowing(target)) isOpen.value = !!data.is_open;
   } catch (error) {
     if (isShowing(target)) isPublic.value = previous;
+    snackbar.error(
+      t("common.cant-update-visibility", { error: errorMessage(error) }),
+      { icon: "mdi-close-circle" },
+    );
+  } finally {
+    savingVisibility.value = false;
+  }
+}
+
+async function setOpen(next: boolean) {
+  if (!canEdit.value || savingVisibility.value || props.kind === "smart")
+    return;
+  const target = { kind: props.kind, id: props.collection.id };
+  const previous = isOpen.value;
+  isOpen.value = next;
+  savingVisibility.value = true;
+  try {
+    const { data } = await collectionApi.setCollectionOpen({
+      id: target.id,
+      isOpen: next,
+    });
+    syncSaved(data, target);
+  } catch (error) {
+    if (isShowing(target)) isOpen.value = previous;
     snackbar.error(
       t("common.cant-update-visibility", { error: errorMessage(error) }),
       { icon: "mdi-close-circle" },
@@ -456,6 +484,17 @@ async function setVisibility(next: boolean) {
             :disabled="!canEdit || savingVisibility || saving"
             @update:model-value="setVisibility"
           />
+        </div>
+        <div v-if="kind !== 'smart'" class="r-coll-set__open">
+          <RSwitch
+            :model-value="isOpen"
+            :label="t('collection.open-to-members')"
+            :disabled="!canEdit || !isPublic || savingVisibility || saving"
+            @update:model-value="setOpen"
+          />
+          <p class="r-coll-set__hint">
+            {{ t("collection.open-to-members-hint") }}
+          </p>
         </div>
         <div v-if="canEdit && dirty" class="r-coll-set__form-actions">
           <RBtn variant="text" :disabled="saving" @click="discard">
@@ -590,6 +629,16 @@ async function setVisibility(next: boolean) {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+.r-coll-set__open {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.r-coll-set__hint {
+  margin: 0;
+  color: var(--r-color-fg-secondary);
+  font-size: var(--r-font-size-sm);
 }
 .r-coll-set__form-actions {
   display: flex;

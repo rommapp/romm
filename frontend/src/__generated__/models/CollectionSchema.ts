@@ -20,6 +20,7 @@ export type CollectionSchema = {
     url_cover: (string | null);
     user_id: number;
     owner_username: string;
+    is_open?: boolean;
     readonly rom_count: number;
 };
 

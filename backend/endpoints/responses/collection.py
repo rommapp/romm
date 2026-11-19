@@ -37,6 +37,7 @@ class CollectionSchema(BaseCollectionSchema):
     url_cover: str | None
     user_id: int
     owner_username: str
+    is_open: bool = False
 
     @classmethod
     def for_user(

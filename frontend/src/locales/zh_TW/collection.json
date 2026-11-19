@@ -1,4 +1,6 @@
 {
+  "by-author": "{author} 建立",
+  "by-me": "我建立的",
   "collection-deleted": "已刪除收藏庫「{name}」",
   "cover": "封面圖片",
   "create-collection": "建立收藏庫",
@@ -24,6 +26,8 @@
   "no-collections-yet": "尚未有任何收藏庫。",
   "no-collections-yet-detail": "將遊戲加入喜好，或從任一 ROM 的操作列中建立一個。",
   "not-found": "找不到收藏庫。",
+  "open-to-members": "任何人都可新增遊戲",
+  "open-to-members-hint": "能看到此收藏庫的人都可以新增和移除遊戲。只有你可以重新命名、分享或刪除它。",
   "save-as-smart": "另存為智能收藏庫",
   "search-collection": "搜尋收藏庫",
   "settings": "設定",

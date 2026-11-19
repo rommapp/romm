@@ -36,6 +36,7 @@ import romApi, {
   RECOMMENDED_ROMS_LIMIT,
 } from "@/services/api/rom";
 import setupApi from "@/services/api/setup";
+import storeAuth from "@/stores/auth";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -47,6 +48,7 @@ const { t } = useI18n();
 const romsStore = storeRoms();
 const platformsStore = storePlatforms();
 const collectionsStore = storeCollections();
+const authStore = storeAuth();
 const { supportsWebp, toWebp } = useWebpSupport();
 const {
   showHomeWidgets,
@@ -575,6 +577,8 @@ function collectionCovers(c: {
             :rom-count="c.rom_count"
             :covers="collectionCovers(c)"
             :is-public="c.is_public ?? false"
+            :author="c.owner_username"
+            :mine="c.user_id === authStore.user?.id"
             variant="row"
           />
         </CardRow>
@@ -604,6 +608,8 @@ function collectionCovers(c: {
             :covers="collectionCovers(c)"
             kind="smart"
             :is-public="c.is_public ?? false"
+            :author="c.owner_username"
+            :mine="c.user_id === authStore.user?.id"
             variant="row"
           />
         </CardRow>
@@ -632,6 +638,8 @@ function collectionCovers(c: {
             :rom-count="c.rom_count"
             :covers="collectionCovers(c)"
             kind="virtual"
+            :author="null"
+            :mine="false"
             variant="row"
           />
         </CardRow>

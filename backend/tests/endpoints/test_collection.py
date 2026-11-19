@@ -1055,6 +1055,121 @@ class TestCollectionVisibility:
         assert refreshed.filter_criteria == criteria
 
 
+class TestOpenCollections:
+    """An open public collection takes games from anyone who sees it; everything
+    else about it stays with the owner."""
+
+    @staticmethod
+    def _set(collection: Collection, *, is_public: bool, is_open: bool) -> None:
+        db_collection_handler.update_collection(
+            collection.id, {"is_public": is_public, "is_open": is_open}
+        )
+
+    @pytest.mark.parametrize(
+        ("is_public", "is_open", "expected"),
+        [
+            (True, True, status.HTTP_200_OK),
+            (True, False, status.HTTP_403_FORBIDDEN),
+            (False, True, status.HTTP_403_FORBIDDEN),
+        ],
+    )
+    def test_another_user_adds_games_only_when_open_and_public(
+        self,
+        client,
+        other_user_token: str,
+        collection: Collection,
+        rom: Rom,
+        is_public: bool,
+        is_open: bool,
+        expected: int,
+    ):
+        self._set(collection, is_public=is_public, is_open=is_open)
+
+        response = client.post(
+            f"/api/collections/{collection.id}/roms",
+            json={"rom_ids": [rom.id]},
+            headers={"Authorization": f"Bearer {other_user_token}"},
+        )
+
+        assert response.status_code == expected
+
+    def test_another_user_removes_games_from_an_open_collection(
+        self, client, other_user_token: str, collection: Collection, rom: Rom
+    ):
+        db_collection_handler.update_collection(collection.id, {}, [rom.id])
+        self._set(collection, is_public=True, is_open=True)
+
+        response = client.request(
+            "DELETE",
+            f"/api/collections/{collection.id}/roms",
+            json={"rom_ids": [rom.id]},
+            headers={"Authorization": f"Bearer {other_user_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["rom_ids"] == []
+
+    def test_another_user_cannot_rename_or_close_an_open_collection(
+        self, client, other_user_token: str, collection: Collection
+    ):
+        self._set(collection, is_public=True, is_open=True)
+        headers = {"Authorization": f"Bearer {other_user_token}"}
+
+        rename = client.put(
+            f"/api/collections/{collection.id}",
+            data={"name": "Mine now", "rom_ids": "[]"},
+            headers=headers,
+        )
+        close = client.put(
+            f"/api/collections/{collection.id}/visibility",
+            json={"is_open": False},
+            headers=headers,
+        )
+
+        assert rename.status_code == status.HTTP_403_FORBIDDEN
+        assert close.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_the_owner_opens_and_closes_a_public_collection(
+        self, client, access_token: str, collection: Collection
+    ):
+        self._set(collection, is_public=True, is_open=False)
+        path = f"/api/collections/{collection.id}/visibility"
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        opened = client.put(path, json={"is_open": True}, headers=headers).json()
+        closed = client.put(path, json={"is_open": False}, headers=headers).json()
+
+        assert (opened["is_public"], opened["is_open"]) == (True, True)
+        assert (closed["is_public"], closed["is_open"]) == (True, False)
+
+    def test_unsharing_closes_and_sharing_again_stays_closed(
+        self, client, access_token: str, collection: Collection
+    ):
+        self._set(collection, is_public=True, is_open=True)
+        path = f"/api/collections/{collection.id}/visibility"
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        unshared = client.put(path, json={"is_public": False}, headers=headers).json()
+        reshared = client.put(path, json={"is_public": True}, headers=headers).json()
+
+        assert (unshared["is_public"], unshared["is_open"]) == (False, False)
+        assert (reshared["is_public"], reshared["is_open"]) == (True, False)
+
+    def test_a_private_collection_cannot_be_opened(
+        self, client, access_token: str, collection: Collection
+    ):
+        response = client.put(
+            f"/api/collections/{collection.id}/visibility",
+            json={"is_open": True},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert (response.json()["is_public"], response.json()["is_open"]) == (
+            False,
+            False,
+        )
+
+
 def _scope_to(
     collection: Collection, owner: User, is_public: bool = False
 ) -> SmartCollection:
