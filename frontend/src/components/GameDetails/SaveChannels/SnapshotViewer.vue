@@ -94,10 +94,10 @@ const heroSrc = computed(
 );
 interface DetailRow {
   label: string;
-  /** Several values stack one per line. */
-  value: string | string[];
+  /** Newlines stack values one per line. */
+  value: string;
   mono?: boolean;
-  tooltip?: string | undefined;
+  tooltip?: string;
 }
 
 function withVersion(name: string, version: string | null): string {
@@ -107,10 +107,10 @@ function withVersion(name: string, version: string | null): string {
 /** The core with its emulator, e.g. "mupen64plus_next (libretro)", or just the emulator. */
 const coreLabel = computed(() => {
   const saved = snapshot.value?.save;
-  const name = saved?.emulator || snapshot.value?.emulator;
+  const name = saved?.emulator || snapshot.value?.emulator || "";
   // The save's version describes the save's emulator, not the snapshot's.
   const version = saved?.emulator ? saved.emulator_version : null;
-  const emulator = name ? withVersion(name, version) : "";
+  const emulator = name && withVersion(name, version);
   if (!saved?.core) return emulator;
   if (emulatorKey(name) === emulatorKey(saved.core)) {
     return withVersion(saved.core, saved.core_version ?? version);
@@ -120,17 +120,17 @@ const coreLabel = computed(() => {
 });
 
 /** The stored name carries the server's datetime tag; devices receive it without. */
-function fileRow(file: {
-  file_name: string;
-  file_size_bytes: number;
-}): DetailRow {
+function fileRow(
+  file: Pick<SaveSchema, "file_name" | "file_size_bytes">,
+): DetailRow {
   const name = stripDatetimeTag(file.file_name);
-  return {
+  const row: DetailRow = {
     label: t("channels.file"),
     value: `${name} · ${formatBytes(file.file_size_bytes)}`,
     mono: true,
-    tooltip: name === file.file_name ? undefined : file.file_name,
   };
+  if (name !== file.file_name) row.tooltip = file.file_name;
+  return row;
 }
 
 const details = computed<DetailRow[]>(() => {
@@ -154,10 +154,12 @@ const details = computed<DetailRow[]>(() => {
     if (snap.save) rows.push(fileRow(snap.save));
     rows.push({
       label: t("channels.held-by"),
-      value: snap.held_by.map(
-        (held) =>
-          `${deviceLabel(held.device)} · ${formatRelativeDate(held.synced_at)}`,
-      ),
+      value: snap.held_by
+        .map(
+          (held) =>
+            `${deviceLabel(held.device)} · ${formatRelativeDate(held.synced_at)}`,
+        )
+        .join("\n"),
     });
   } else if (save.value) {
     rows.push(fileRow(save.value));
@@ -325,15 +327,7 @@ const overflow = computed(() => actions.value.slice(1));
             :class="{ 'r-snapshot-viewer__mono': row.mono }"
             :tabindex="row.tooltip ? 0 : undefined"
           >
-            <template v-if="Array.isArray(row.value)">
-              <span
-                v-for="(line, i) in row.value"
-                :key="i"
-                class="r-snapshot-viewer__line"
-                >{{ line }}</span
-              >
-            </template>
-            <template v-else>{{ row.value }}</template>
+            {{ row.value }}
             <RTooltip
               v-if="row.tooltip"
               activator="parent"
@@ -518,9 +512,7 @@ const overflow = computed(() => actions.value.slice(1));
 .r-snapshot-viewer__details dd {
   margin: 0;
   overflow-wrap: anywhere;
-}
-.r-snapshot-viewer__line {
-  display: block;
+  white-space: pre-line;
 }
 .r-snapshot-viewer__mono {
   font-family: var(--r-font-family-mono);

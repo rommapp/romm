@@ -319,51 +319,46 @@ describe("SnapshotViewer", () => {
     );
   });
 
-  it("names the core with its emulator and versions", () => {
-    const save = {
-      ...older.save!,
-      emulator: "libretro",
-      emulator_version: "1.19",
-      core: "mupen64plus_next",
-      core_version: "2.6",
-    };
-    const wrapper = mountViewer({
-      kind: "snapshot",
-      channel: channelFixture(),
-      snapshot: snapshotFixture({ save }),
-    });
-
-    expect(detailRows(wrapper)["channels.core"]?.text()).toBe(
+  it.each([
+    [
+      "with its emulator and versions",
+      {
+        emulator: "libretro",
+        emulator_version: "1.19",
+        core: "mupen64plus_next",
+        core_version: "2.6",
+      },
+      null,
       "mupen64plus_next 2.6 (libretro 1.19)",
-    );
-  });
-
-  it("names a core that is its own emulator once, keeping a version", () => {
-    const save = {
-      ...older.save!,
-      emulator: "mgba",
-      emulator_version: "0.10.3",
-      core: "mGBA",
-      core_version: null,
-    };
+    ],
+    [
+      "once when it is its own emulator, keeping a version",
+      {
+        emulator: "mgba",
+        emulator_version: "0.10.3",
+        core: "mGBA",
+        core_version: null,
+      },
+      null,
+      "mGBA 0.10.3",
+    ],
+    [
+      "by the snapshot's emulator, without the save's version",
+      { emulator: null, emulator_version: "1.19" },
+      "argosy",
+      "argosy",
+    ],
+  ])("names the core %s", (_, saveFields, emulator, expected) => {
     const wrapper = mountViewer({
       kind: "snapshot",
       channel: channelFixture(),
-      snapshot: snapshotFixture({ save }),
+      snapshot: snapshotFixture({
+        save: { ...older.save!, ...saveFields },
+        ...(emulator && { emulator }),
+      }),
     });
 
-    expect(detailRows(wrapper)["channels.core"]?.text()).toBe("mGBA 0.10.3");
-  });
-
-  it("gives the snapshot's emulator no version from a save without one", () => {
-    const save = { ...older.save!, emulator: null, emulator_version: "1.19" };
-    const wrapper = mountViewer({
-      kind: "snapshot",
-      channel: channelFixture(),
-      snapshot: snapshotFixture({ save, emulator: "argosy" }),
-    });
-
-    expect(detailRows(wrapper)["channels.core"]?.text()).toBe("argosy");
+    expect(detailRows(wrapper)["channels.core"]?.text()).toBe(expected);
   });
 
   it("offers no hover name when the save carries no datetime tag", () => {
@@ -407,9 +402,7 @@ describe("SnapshotViewer", () => {
       }),
     });
 
-    const lines = detailRows(wrapper)
-      ["channels.held-by"]!.findAll(".r-snapshot-viewer__line")
-      .map((l) => l.text());
+    const lines = detailRows(wrapper)["channels.held-by"]!.text().split("\n");
     expect(lines).toHaveLength(2);
     expect(lines[0]).toMatch(/^Odin 3 · .+ ago$/);
     expect(lines[1]).toMatch(/^Deck · /);
