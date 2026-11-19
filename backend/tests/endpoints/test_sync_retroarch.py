@@ -877,6 +877,117 @@ class TestRetroArchSyncCopy:
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
+    def test_destination_may_spell_out_the_default_port(self, client, admin_user, rom):
+        assert (
+            client.put(self.path, content=b"first", auth=ADMIN_AUTH).status_code == 201
+        )
+        headers = {"Destination": f"http://testserver:80{self.backup}"}
+        response = client.request("COPY", self.path, headers=headers, auth=ADMIN_AUTH)
+        assert response.status_code == status.HTTP_201_CREATED
+
+    def test_overwrite_header_is_case_insensitive(self, client, admin_user, rom):
+        assert (
+            client.put(self.path, content=b"first", auth=ADMIN_AUTH).status_code == 201
+        )
+        headers = {"Destination": self.backup, "Overwrite": "f"}
+        statuses = [
+            client.request("COPY", self.path, headers=headers, auth=ADMIN_AUTH)
+            for _ in range(2)
+        ]
+        assert [r.status_code for r in statuses] == [201, 412]
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SYSTEM/CACHE/shader.bin",
+        ],
+    )
+    def test_psp_member_lets_the_upload_proceed(self, client, admin_user, path):
+        backup = path.replace("retroarch/", "retroarch/deleted/", 1)
+        response = client.request(
+            "COPY",
+            path,
+            headers={"Destination": f"{backup}-261118-120000"},
+            auth=ADMIN_AUTH,
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_state_backup_keeps_the_bytes_an_upload_replaces(
+        self, client, admin_user: User, rom: Rom, states_path: str
+    ):
+        now = datetime.now(timezone.utc)
+        on_disk = fs_asset_handler.base_path / states_path
+        on_disk.mkdir(parents=True)
+        (on_disk / "test_rom.state").write_bytes(b"own")
+        capture_name = "test_rom.2026-10-08_12-00-00.state"
+        (on_disk / capture_name).write_bytes(b"capt")
+        factories.make_state(
+            rom,
+            admin_user,
+            "test_rom.state",
+            file_path=states_path,
+            file_size_bytes=3,
+            emulator="snes9x",
+            updated_at=now - timedelta(hours=2),
+        )
+        factories.make_state(
+            rom,
+            admin_user,
+            capture_name,
+            file_path=states_path,
+            file_size_bytes=4,
+            emulator="snes9x",
+            core="snes9x",
+            updated_at=now - timedelta(hours=1),
+        )
+        path = "/api/sync/retroarch/states/Snes9x/test_rom.state"
+        backup = (
+            "/api/sync/retroarch/deleted/states/Snes9x/test_rom.state-261118-120000"
+        )
+        assert client.get(path, auth=ADMIN_AUTH).content == b"capt"
+
+        response = client.request(
+            "COPY", path, headers={"Destination": backup}, auth=ADMIN_AUTH
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert client.get(backup, auth=ADMIN_AUTH).content == b"own"
+
+    def test_retention_follows_backup_age_not_its_name(
+        self, client, admin_user: User, monkeypatch
+    ):
+        monkeypatch.setattr(
+            "handler.filesystem.retroarch_sync_handler.MAX_SAVES_PER_SLOT", 2
+        )
+        path = "/api/sync/retroarch/config/retroarch.cfg"
+        stamps = ["261118-120002", "261118-120000", "261118-120001"]
+        assert client.put(path, content=b"settings", auth=ADMIN_AUTH).status_code == 201
+        for age, stamp in enumerate(stamps):
+            backup = f"deleted/config/retroarch.cfg-{stamp}"
+            assert (
+                client.request(
+                    "COPY",
+                    path,
+                    headers={"Destination": f"/api/sync/retroarch/{backup}"},
+                    auth=ADMIN_AUTH,
+                ).status_code
+                == 201
+            )
+            stored = fs_retroarch_sync_handler.validate_path(
+                sync_handler.user_backup_path(admin_user, None, backup)
+            )
+            os.utime(stored, ns=(age * 10**9, age * 10**9))
+
+        kept = [
+            client.get(
+                f"/api/sync/retroarch/deleted/config/retroarch.cfg-{stamp}",
+                auth=ADMIN_AUTH,
+            ).status_code
+            for stamp in stamps
+        ]
+        assert kept == [404, 200, 200]
+
 
 class TestRetroArchSyncUpload:
     def test_rejects_a_name_sanitizing_would_change(

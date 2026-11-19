@@ -35,6 +35,7 @@ from handler.database import (
 )
 from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
 from handler.filesystem.assets_handler import hash_save_content
+from handler.filesystem.retroarch_sync_handler import BACKUP_STAMP_PATTERN
 from handler.redis_handler import async_cache
 from handler.scan_handler import scan_save
 from handler.snapshots.bridge import hold_legacy_upload
@@ -130,7 +131,7 @@ def parse_retroarch_sync_path(path: str) -> RetroArchSyncPath | None:
 
 def backup_source_path(path: str) -> str | None:
     """Return the source asset path of a timestamped RetroArch backup."""
-    match = re.fullmatch(r"deleted/(.+)-[0-9]{6}-[0-9]{6}", path)
+    match = re.fullmatch(rf"deleted/(.+)-{BACKUP_STAMP_PATTERN}", path)
     if not match or "\\" in path:
         return None
     source = match[1]

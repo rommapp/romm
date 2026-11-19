@@ -16,6 +16,12 @@ from utils.filesystem import TEMP_FILE_PREFIX, iter_files
 
 from .base_handler import FSHandler
 
+# RetroArch names a backup after the client's local `%y%m%d-%H%M%S`.
+BACKUP_STAMP_PATTERN = r"[0-9]{6}-[0-9]{6}"
+_BACKUP_STAMP = re.compile(BACKUP_STAMP_PATTERN)
+# A regular file: NFS grants an exclusive flock() only on a file open for writing.
+_BACKUP_LOCK_NAME = ".romm_backup.lock"
+
 
 @dataclass(frozen=True)
 class BlobFile:
@@ -66,7 +72,9 @@ def _copy_backup(source: Path, target: Path, overwrite: bool) -> bool | None:
                 shutil.copyfileobj(source_file, staged)
                 staged.close()
                 # Other workers publish and prune in the same folder.
-                lock_fd = os.open(target.parent, os.O_RDONLY)
+                lock_fd = os.open(
+                    target.parent / _BACKUP_LOCK_NAME, os.O_RDWR | os.O_CREAT, 0o600
+                )
                 try:
                     fcntl.flock(lock_fd, fcntl.LOCK_EX)
                     replaced = target.exists()
@@ -74,14 +82,14 @@ def _copy_backup(source: Path, target: Path, overwrite: bool) -> bool | None:
                         raise FileExistsError(target)
                     os.replace(temp_path, target)
                     if MAX_SAVES_PER_SLOT:
+                        # By age, since each client stamps names in its own time zone.
                         older = sorted(
                             (
                                 file
                                 for file in target.parent.iterdir()
-                                if file != target
-                                and re.fullmatch(r"[0-9]{6}-[0-9]{6}", file.name)
+                                if file != target and _BACKUP_STAMP.fullmatch(file.name)
                             ),
-                            key=lambda file: file.name,
+                            key=lambda file: (file.stat().st_mtime_ns, file.name),
                             reverse=True,
                         )
                         for file in older[MAX_SAVES_PER_SLOT - 1 :]:

@@ -150,6 +150,7 @@ async def _get_asset(
     user: User, rom: Rom, parsed: RetroArchSyncPath
 ) -> Save | State | Screenshot | None:
     asset = await asyncio.to_thread(_find_asset, user, rom, parsed)
+    # A file deleted outside RomM hides any older asset at this path until flagged.
     while (
         asset
         and not asset.missing_from_fs
@@ -478,18 +479,23 @@ async def retroarch_sync_get(request: Request, file_path: str) -> Response:
     return _serve(fs_asset_handler, asset.full_path, asset.file_name)
 
 
+def _authority(host: str | None, port: int | None) -> tuple[str | None, int | None]:
+    # RetroArch's Host header drops 80 and 443 whatever the scheme.
+    return host, None if port in (80, 443) else port
+
+
 def _backup_destination(request: Request, source: str) -> str | None:
     try:
         destination = urlsplit(request.headers.get("Destination", ""))
         path = unquote(destination.path, errors="strict")
+        authority = _authority(destination.hostname, destination.port)
     except ValueError:
         return None
     if destination.query or destination.fragment:
         return None
     if destination.scheme or destination.netloc:
-        if (
-            destination.scheme not in {"http", "https"}
-            or destination.netloc.casefold() != request.url.netloc.casefold()
+        if destination.scheme not in {"http", "https"} or authority != _authority(
+            request.url.hostname, request.url.port
         ):
             return None
     prefix = request.url_for("retroarch_sync_get", file_path="").path
@@ -497,6 +503,32 @@ def _backup_destination(request: Request, source: str) -> str | None:
         return None
     backup = path[len(prefix) :]
     return backup if sync_handler.backup_source_path(backup) == source else None
+
+
+async def _replaced_asset_path(
+    user: User, rom: Rom, parsed: RetroArchSyncPath
+) -> str | None:
+    """The stored file an upload to `parsed` would write over."""
+    if parsed.kind == "saves":
+        save = await _get_asset(user, rom, parsed)
+        return save.full_path if save else None
+
+    # A slot can serve a stream capture, which an upload never writes over.
+    if parsed.is_state_screenshot:
+        target = await asyncio.to_thread(
+            sync_handler.screenshot_upload_target,
+            user,
+            rom,
+            parsed.emulator,
+            parsed.file_name,
+        )
+        screenshot_dir = sync_handler.state_screenshot_dir(user, rom, target.emulator)
+        return os.path.join(screenshot_dir, target.file_name)
+
+    slot = await asyncio.to_thread(
+        sync_handler.slot_states, user, rom, parsed.emulator, parsed.file_name
+    )
+    return slot.own_head.full_path if slot.own_head else None
 
 
 @router.api_route("/{file_path:path}", methods=["COPY"], include_in_schema=False)
@@ -508,11 +540,16 @@ async def retroarch_sync_copy(request: Request, file_path: str) -> Response:
     if denied:
         return denied
 
+    # A bundle member has no file to copy, and RetroArch uploads after a 404.
+    if psp.resolve_psp_path(file_path):
+        return _empty(status.HTTP_404_NOT_FOUND)
+
     backup = _backup_destination(request, file_path)
-    overwrite = request.headers.get("Overwrite", "T")
+    overwrite = request.headers.get("Overwrite", "T").strip().upper()
     if backup is None or overwrite not in {"T", "F"}:
         return _empty(status.HTTP_400_BAD_REQUEST)
     rom = None
+    source: str | None
     if blob := sync_handler.parse_retroarch_sync_blob_path(file_path):
         handler: FSHandler = fs_retroarch_sync_handler
         source = sync_handler.user_blob_path(request.user, blob)
@@ -520,11 +557,10 @@ async def retroarch_sync_copy(request: Request, file_path: str) -> Response:
         parsed = sync_handler.parse_retroarch_sync_path(file_path)
         if not parsed or not (rom := await _resolve_rom(request, parsed)):
             return _empty(status.HTTP_404_NOT_FOUND)
-        asset = await _get_asset(request.user, rom, parsed)
-        if not asset:
+        source = await _replaced_asset_path(request.user, rom, parsed)
+        if not source:
             return _empty(status.HTTP_404_NOT_FOUND)
         handler = fs_asset_handler
-        source = asset.full_path
 
     try:
         if not await handler.file_exists(source):
