@@ -32,9 +32,8 @@ watch(
 
 // The sync runs as a background job, so its outcome arrives over the socket.
 useSocketEvent<{ ok: boolean }>("ra:synced", ({ ok }) => {
-  if (ok) {
-    void auth.fetchCurrentUser();
-  } else {
+  void auth.fetchCurrentUser();
+  if (!ok) {
     snackbar.error(t("settings.ra-sync-failed"), { icon: "mdi-close-circle" });
   }
 });
@@ -66,6 +65,8 @@ async function saveAndSync() {
         id: auth.user.id,
         ra_username: trimmed,
       });
+      // The link is saved before the sync runs, so show it even if the sync fails.
+      await auth.fetchCurrentUser();
     }
     // Username change → full sync; same username → incremental refresh.
     await syncProfile(!usernameChanged);
