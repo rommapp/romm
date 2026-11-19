@@ -134,7 +134,7 @@ RUN apk add --no-cache \
     musl-dev
 
 # Keep this pin in sync with the dev image's SIGIL_VERSION in ../Dockerfile.
-ARG SIGIL_VERSION=85f88a85b7e8cfe5c685ec3cde100570c6ee6ed8
+ARG SIGIL_VERSION=79ade21c39e1cdabd8732e3bb93a47f47c08095b
 
 # checkov:skip=CKV_DOCKER_4:the ADD below is a Git URL pinned to a commit
 ADD "https://github.com/rommapp/argosy-sigil.git#${SIGIL_VERSION}" /argosy-sigil
