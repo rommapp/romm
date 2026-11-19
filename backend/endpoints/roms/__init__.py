@@ -729,16 +729,40 @@ def get_roms(
     params: Annotated[PageParams, Depends(PAGE_QUERY)],
     with_char_index: Annotated[
         bool,
-        Query(description="Whether to get the char index."),
+        Query(
+            description=(
+                "Whether to return `char_index`: a map from each first letter to"
+                " the position in the full result where it starts, for an A to Z"
+                ' jump bar. `{"A": 0, "B": 38}` means the first rom starting with'
+                " B is at position 38. It is empty when the sort is not"
+                " alphabetical or a search is ranked by relevance."
+            )
+        ),
     ] = True,
     with_filter_values: Annotated[
-        bool, Query(description="Whether to return filter values.")
+        bool,
+        Query(
+            description=(
+                "Whether to return `filter_values`: the options for the filter"
+                " dropdowns, as lists of the distinct genres, franchises,"
+                " collections, companies, publishers, developers, game modes, age"
+                " ratings, player counts, regions, languages, tags and platforms."
+                " They come from the roms in the current platform, collection or"
+                " search, and ignore the other filters, so choosing a filter never"
+                " empties its own list."
+            )
+        ),
     ] = True,
     with_rom_id_index: Annotated[
         bool,
         Query(
             description=(
-                "Whether to return the full ordered rom id index that backs virtual scroll."
+                "Whether to return `rom_id_index`: the IDs of every matching rom,"
+                " in result order. It gives a client the whole ordered list up"
+                " front, so it can size a scrollbar and load any part of the list"
+                " later. The page is then a slice of it, and `total` comes free."
+                " It grows with the result, so turn it off for small lists and for"
+                " loading the next page of a list you already hold."
             )
         ),
     ] = True,
@@ -746,10 +770,10 @@ def get_roms(
         bool,
         Query(
             description=(
-                "Whether to count the full result set. Set to false when the caller"
-                " already knows the total, e.g. paging through a gallery it has"
-                " sized; total then comes back null, unless the rom id index is"
-                " being built and already carries it."
+                "Whether to count every matching rom into `total`. Set it to false"
+                " when you already know the size, such as when loading the next"
+                " page of a list you have counted. `total` is then null, unless"
+                " `with_rom_id_index` is true, which gives the count for free."
             )
         ),
     ] = True,
@@ -757,9 +781,11 @@ def get_roms(
         bool,
         Query(
             description=(
-                "Whether to include each rom's provider metadata. When false, every"
-                " `*_metadata` object but `manual_metadata` comes back null, meaning"
-                " not requested rather than no match; `metadatum` is unaffected."
+                "Whether to include the raw metadata each provider returned, in"
+                " fields such as `igdb_metadata` and `ss_metadata`. Set it to"
+                " false for a lighter response. Those fields then come back null,"
+                " which means not requested, not no match. `manual_metadata` and"
+                " the merged `metadatum` are always included."
             )
         ),
     ] = True,
@@ -767,16 +793,19 @@ def get_roms(
         str,
         Query(
             description=(
-                "Field to order results by. Leave empty to order a search of "
-                "two or more words, or of at least three characters, by "
-                "relevance: exact name or alias matches first, then names "
-                "starting with the term, then phrase matches."
+                "The field to sort by, such as `name`, `created_at`,"
+                " `fs_size_bytes`, `first_release_date`, `average_rating` or"
+                " `last_played`. An unknown field sorts by name. Left empty, it"
+                " sorts by name too, except a search of two or more words, or of"
+                " at least three characters, which is ranked by relevance: exact"
+                " name or alias matches first, then names starting with the term,"
+                " then phrase matches."
             ),
         ),
     ] = "",
     order_dir: Annotated[
         str,
-        Query(description="Order direction, either 'asc' or 'desc'."),
+        Query(description="The sort direction, `asc` or `desc`. Defaults to `asc`."),
     ] = "asc",
     updated_after: Annotated[
         datetime | None,
@@ -806,7 +835,13 @@ def get_roms(
     ] = None,
     with_files: Annotated[
         bool,
-        Query(description="Whether to include each rom's file entries."),
+        Query(
+            description=(
+                "Whether to include each rom's `files`: the files that make it up,"
+                " with their sizes and hashes. Off by default, since lists rarely"
+                " need them."
+            )
+        ),
     ] = False,
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve roms."""

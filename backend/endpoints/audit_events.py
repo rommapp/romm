@@ -28,6 +28,7 @@ class AuditPage[T: BaseModel](LimitOffsetPage[T]):
     # Rows are ordered by when they happened, not by id, so later pages pin to
     # the highest id rather than to the first row's.
     max_id: int | None = None
+    """The highest event ID on the first page. Send it back as `max_id` to keep later pages on the same events."""
 
 
 @protected_route(router.get, "", [Scope.ME_READ])
@@ -46,8 +47,21 @@ def get_audit_events(
     category: Annotated[
         list[AuditCategory] | None, Query(description="Only actions in these groups.")
     ] = None,
-    target_type: Annotated[str | None, Query()] = None,
-    target_id: Annotated[str | None, Query()] = None,
+    target_type: Annotated[
+        str | None,
+        Query(
+            description=(
+                "Only events on this kind of target: `rom`, `platform`,"
+                " `firmware`, `collection`, `smart_collection`,"
+                " `virtual_collection`, `user`, `permission_group`,"
+                " `client_token`, `device`, `task` or `config`."
+            )
+        ),
+    ] = None,
+    target_id: Annotated[
+        str | None,
+        Query(description="Only events on the target with this ID."),
+    ] = None,
     since: Annotated[datetime | None, Query(description="Inclusive.")] = None,
     until: Annotated[datetime | None, Query(description="Exclusive.")] = None,
     search: Annotated[

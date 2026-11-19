@@ -122,7 +122,12 @@ class RomFilterParams(BaseModel):
 
     search_term: Annotated[
         str | None,
-        Field(description="Search term to filter roms."),
+        Field(
+            description=(
+                "Text to search for in rom names and alternative names. Only"
+                " matching roms are returned."
+            )
+        ),
     ] = None
     platform_ids: Annotated[
         list[int] | None,
@@ -197,7 +202,15 @@ class RomFilterParams(BaseModel):
     group_by_meta_id: Annotated[
         bool,
         Field(
-            description="Whether to group roms by metadata ID (IGDB / Moby / ScreenScraper / RetroAchievements / LaunchBox)."
+            description=(
+                "Whether to show one entry per game instead of one per file."
+                " Versions of the same game on a platform, such as other regions"
+                " or revisions, collapse into one entry: the one the user marked"
+                " as main, otherwise the best release. The others come back in"
+                " `sibling_roms`. A game is identified by its provider ID (IGDB,"
+                " ScreenScraper, MobyGames and the like), so roms with no match"
+                " are never grouped."
+            )
         ),
     ] = False
     genres: Annotated[

@@ -1,4 +1,6 @@
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException
+from fastapi import Path as PathVar
+from fastapi import Query, Request, status
 from pydantic import BaseModel, Field
 
 from decorators.auth import protected_route
@@ -50,7 +52,10 @@ async def get_all_activity(request: Request) -> list[ActivityEntrySchema]:
 
 
 @protected_route(router.get, "/rom/{rom_id}", [Scope.ROMS_USER_READ])
-async def get_rom_activity(request: Request, rom_id: int) -> list[ActivityEntrySchema]:
+async def get_rom_activity(
+    request: Request,
+    rom_id: int = PathVar(description="The internal ID of the rom."),
+) -> list[ActivityEntrySchema]:
     """Return all active play sessions for a specific ROM."""
     entries = await activity_handler.get_active_for_rom(rom_id)
     return _visible_activity(request, entries)
@@ -99,7 +104,12 @@ async def device_heartbeat(
     [Scope.ROMS_USER_WRITE],
     status_code=status.HTTP_204_NO_CONTENT,
 )
-async def clear_device_activity(request: Request, device_id: str) -> None:
+async def clear_device_activity(
+    request: Request,
+    device_id: str = Query(
+        description="The ID of the device whose active session to clear."
+    ),
+) -> None:
     """Immediately clear an active session for a device (e.g. on graceful exit)."""
     require_token_device(request, device_id)
     await activity_handler.publish_clear(request.user.id, device_id)

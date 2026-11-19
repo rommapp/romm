@@ -1,5 +1,6 @@
-from typing import Literal, TypedDict, Union
+from typing import Annotated, Literal, TypedDict, Union
 
+from pydantic import Field
 from rq.job import JobStatus
 
 from tasks.tasks import TaskType
@@ -101,54 +102,85 @@ TaskMeta = Union[
 ]
 
 
+TASK_META_DESCRIPTION = "Details specific to this kind of task."
+
+
 class TaskExecutionResponse(TypedDict):
     # None on scans started outside the catalog, by a client or the watcher.
-    task_key: str | None
-    task_name: str
-    task_id: str
+    task_key: Annotated[
+        str | None,
+        Field(
+            description=(
+                "The key of the task in the catalog. Null for scans started"
+                " outside the catalog, by a client or the watcher."
+            )
+        ),
+    ]
+    task_name: Annotated[str, Field(description="The name of the task.")]
+    task_id: Annotated[
+        str,
+        Field(description="The job ID, which `GET /tasks/{task_id}` takes."),
+    ]
     status: JobStatus
-    created_at: str | None
-    enqueued_at: str | None
+    created_at: Annotated[str | None, Field(description="When the job was created.")]
+    enqueued_at: Annotated[str | None, Field(description="When the job was queued.")]
 
 
 class BaseTaskStatusResponse(TaskExecutionResponse):
-    started_at: str | None
-    ended_at: str | None
+    started_at: Annotated[
+        str | None, Field(description="When the job started running.")
+    ]
+    ended_at: Annotated[str | None, Field(description="When the job finished.")]
 
 
 class ScanTaskStatusResponse(BaseTaskStatusResponse):
-    task_type: Literal[TaskType.SCAN]
-    meta: ScanTaskMeta
+    task_type: Annotated[
+        Literal[TaskType.SCAN], Field(description="The kind of task: `scan`.")
+    ]
+    meta: Annotated[ScanTaskMeta, Field(description=TASK_META_DESCRIPTION)]
 
 
 class ConversionTaskStatusResponse(BaseTaskStatusResponse):
-    task_type: Literal[TaskType.CONVERSION]
-    meta: ConversionTaskMeta
+    task_type: Annotated[
+        Literal[TaskType.CONVERSION],
+        Field(description="The kind of task: `conversion`."),
+    ]
+    meta: Annotated[ConversionTaskMeta, Field(description=TASK_META_DESCRIPTION)]
 
 
 class UpdateTaskStatusResponse(BaseTaskStatusResponse):
-    task_type: Literal[TaskType.UPDATE]
-    meta: UpdateTaskMeta
+    task_type: Annotated[
+        Literal[TaskType.UPDATE], Field(description="The kind of task: `update`.")
+    ]
+    meta: Annotated[UpdateTaskMeta, Field(description=TASK_META_DESCRIPTION)]
 
 
 class CleanupTaskStatusResponse(BaseTaskStatusResponse):
-    task_type: Literal[TaskType.CLEANUP]
-    meta: CleanupTaskMeta
+    task_type: Annotated[
+        Literal[TaskType.CLEANUP], Field(description="The kind of task: `cleanup`.")
+    ]
+    meta: Annotated[CleanupTaskMeta, Field(description=TASK_META_DESCRIPTION)]
 
 
 class SyncTaskStatusResponse(BaseTaskStatusResponse):
-    task_type: Literal[TaskType.SYNC]
-    meta: SyncTaskMeta
+    task_type: Annotated[
+        Literal[TaskType.SYNC], Field(description="The kind of task: `sync`.")
+    ]
+    meta: Annotated[SyncTaskMeta, Field(description=TASK_META_DESCRIPTION)]
 
 
 class WatcherTaskStatusResponse(BaseTaskStatusResponse):
-    task_type: Literal[TaskType.WATCHER]
-    meta: WatcherTaskMeta
+    task_type: Annotated[
+        Literal[TaskType.WATCHER], Field(description="The kind of task: `watcher`.")
+    ]
+    meta: Annotated[WatcherTaskMeta, Field(description=TASK_META_DESCRIPTION)]
 
 
 class GenericTaskStatusResponse(BaseTaskStatusResponse):
-    task_type: Literal[TaskType.GENERIC]
-    meta: GenericTaskMeta
+    task_type: Annotated[
+        Literal[TaskType.GENERIC], Field(description="The kind of task: `generic`.")
+    ]
+    meta: Annotated[GenericTaskMeta, Field(description=TASK_META_DESCRIPTION)]
 
 
 TaskStatusResponse = Union[
