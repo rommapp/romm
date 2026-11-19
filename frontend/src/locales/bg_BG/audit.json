@@ -78,6 +78,7 @@
   "field-custom-name": "име",
   "field-description": "описание",
   "field-email": "имейл",
+  "field-email-trusted": "потвърждение на имейл",
   "field-enabled": "активиран",
   "field-fs-name": "име на файл",
   "field-is-public": "видимост",

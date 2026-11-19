@@ -3,6 +3,7 @@ from datetime import timedelta
 
 import pytest
 from fastapi import status
+from tests.audit_events import recorded_events
 from tests.auth_helpers import bearer
 
 from endpoints import user as user_endpoints
@@ -704,6 +705,194 @@ def test_admin_changes_an_oidc_linked_users_email(
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["email"] == "fixed@example.com"
+
+
+def test_an_email_a_user_sets_for_themselves_is_not_trusted(
+    client, viewer_access_token: str, viewer_user: User
+):
+    db_user_handler.update_user(
+        viewer_user.id, {"email": "viewer@example.com", "email_trusted": True}
+    )
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={
+            "email": "someone-else@example.com",
+            "current_password": "test_viewer_password",
+        },
+        headers=bearer(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    updated = db_user_handler.get_user(viewer_user.id)
+    assert updated and not updated.email_trusted
+
+
+def test_an_email_a_delegated_user_manager_sets_is_not_trusted(
+    client, admin_user: User, viewer_user: User, editor_user: User
+):
+    db_user_handler.update_user(
+        editor_user.id, {"email": "old-editor@example.com", "email_trusted": True}
+    )
+    token = _delegated_user_manager_token(viewer_user)
+
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"email": "editor@example.com"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    updated = db_user_handler.get_user(editor_user.id)
+    assert updated and not updated.email_trusted
+
+
+def test_a_user_a_delegated_user_manager_creates_has_an_untrusted_email(
+    client, admin_user: User, viewer_user: User
+):
+    token = _delegated_user_manager_token(viewer_user)
+
+    response = client.post(
+        "/api/users",
+        json={
+            "username": "managed_user",
+            "email": "managed@example.com",
+            "password": "a-good-password",
+            "role": Role.USER.value,
+        },
+        headers=bearer(token),
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED
+    created = db_user_handler.get_user(response.json()["id"])
+    assert created and not created.email_trusted
+
+
+def test_an_admin_setting_a_new_email_trusts_it(
+    client, access_token: str, viewer_user: User
+):
+    db_user_handler.update_user(viewer_user.id, {"email": "viewer@example.com"})
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"email": "new@example.com"},
+        headers=bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["email_trusted"] is True
+
+
+def test_an_admin_save_that_resends_the_email_does_not_trust_it(
+    client, access_token: str, viewer_user: User
+):
+    db_user_handler.update_user(
+        viewer_user.id, {"email": "viewer@example.com", "enabled": False}
+    )
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"email": "viewer@example.com", "enabled": "true"},
+        headers=bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    updated = db_user_handler.get_user(viewer_user.id)
+    assert updated and updated.enabled and not updated.email_trusted
+
+
+def test_an_admin_confirms_a_users_email(client, access_token: str, viewer_user: User):
+    db_user_handler.update_user(viewer_user.id, {"email": "viewer@example.com"})
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"email": "viewer@example.com", "confirm_email": "Viewer@Example.com"},
+        headers=bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["email_trusted"] is True
+    edit = next(e for e in recorded_events() if e.action == "user.edit")
+    assert edit.data == {"changed": ["email_trusted"]}
+
+
+def test_a_delegated_user_manager_cannot_confirm_an_email(
+    client, admin_user: User, viewer_user: User, editor_user: User
+):
+    db_user_handler.update_user(editor_user.id, {"email": "editor@example.com"})
+    token = _delegated_user_manager_token(viewer_user)
+
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"confirm_email": "editor@example.com"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    updated = db_user_handler.get_user(editor_user.id)
+    assert updated and not updated.email_trusted
+
+
+def test_an_admin_confirms_only_the_email_they_saw(
+    client, access_token: str, viewer_user: User
+):
+    db_user_handler.update_user(
+        viewer_user.id, {"email": "taken@example.com", "enabled": False}
+    )
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"confirm_email": "viewer@example.com", "enabled": "true"},
+        headers=bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    current = db_user_handler.get_user(viewer_user.id)
+    assert current and not current.email_trusted
+    assert not current.enabled
+
+
+def test_a_confirmation_racing_an_email_change_is_refused(
+    client, access_token: str, viewer_user: User, mocker
+):
+    db_user_handler.update_user(viewer_user.id, {"email": "viewer@example.com"})
+    stale = db_user_handler.get_user(viewer_user.id)
+    # The user changes their email after the admin's request has read the old one.
+    db_user_handler.update_user(viewer_user.id, {"email": "taken@example.com"})
+    get_user = db_user_handler.get_user
+    reads = iter([stale])
+    mocker.patch.object(
+        db_user_handler,
+        "get_user",
+        side_effect=lambda id: next(reads, None) or get_user(id),
+    )
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"confirm_email": "viewer@example.com"},
+        headers=bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    current = get_user(viewer_user.id)
+    assert current and current.email == "taken@example.com"
+    assert not current.email_trusted
+
+
+def test_a_refused_edit_does_not_confirm_the_email(
+    client, access_token: str, viewer_user: User
+):
+    db_user_handler.update_user(viewer_user.id, {"email": "viewer@example.com"})
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"confirm_email": "viewer@example.com", "ui_settings": "[]"},
+        headers=bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    current = db_user_handler.get_user(viewer_user.id)
+    assert current and not current.email_trusted
 
 
 def test_a_password_less_account_cannot_set_a_password_with_a_token(

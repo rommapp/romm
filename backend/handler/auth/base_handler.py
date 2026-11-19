@@ -336,6 +336,7 @@ class AuthHandler:
         data: dict[str, Any],
         revoke_sessions_for: str | None = None,
         keep_an_admin: bool = False,
+        expected_email: str | None = None,
     ) -> None:
         """
         Write an update to a user, revoking the account's sessions and OAuth
@@ -347,6 +348,8 @@ class AuthHandler:
                 are keyed by, or None to write without revoking.
             keep_an_admin (bool): Refuse, with LastAdminError, a role change
                 that would leave no admin.
+            expected_email (str | None): Refuse, with EmailChangedError, an
+                update to a user whose email no longer matches.
         """
         from handler.database import db_user_handler
         from handler.database.base_handler import sync_session
@@ -363,7 +366,9 @@ class AuthHandler:
                 # rather than committing it with the account's sessions left live.
                 await self._revoke_user_credentials(revoke_sessions_for)
 
-            db_user_handler.update_user(user_id, data, session=session)
+            db_user_handler.update_user(
+                user_id, data, expected_email=expected_email, session=session
+            )
 
         if revoke_sessions_for:
             # After it, for a login the old password was still good for.
@@ -778,6 +783,18 @@ class OpenIDHandler:
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="This account is linked to a different identity at the provider. Please contact an administrator.",
                 )
+            # The user may have typed someone else's address, so only an email
+            # an admin or the provider set proves the account is theirs.
+            if user is not None and not user.email_trusted:
+                log.error(
+                    "Not linking %s to the OIDC identity of '%s': its email is unconfirmed",
+                    hl(user.username, color=CYAN),
+                    hl(email, color=CYAN),
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="An account with this email exists but an administrator has not confirmed its email. Please contact an administrator.",
+                )
 
         if user is None:
             if not OIDC_ALLOW_REGISTRATION:
@@ -798,6 +815,7 @@ class OpenIDHandler:
                 username=username,
                 hashed_password=str(uuid.uuid4()),
                 email=email,
+                email_trusted=True,
                 oidc_issuer=issuer if identity else None,
                 oidc_sub=sub if identity else None,
                 enabled=True,
@@ -820,12 +838,15 @@ class OpenIDHandler:
             if matched_by_identity and (user.email or "").lower() != email.lower():
                 if db_user_handler.get_user_by_email(email) is None:
                     updates["email"] = email
+                    updates["email_trusted"] = True
                 else:
                     log.warning(
                         "Not updating the email of %s: '%s' belongs to another user",
                         hl(user.username, color=CYAN),
                         hl(email, color=CYAN),
                     )
+            elif matched_by_identity and not user.email_trusted:
+                updates["email_trusted"] = True
             if claims_provided and user.role != role:
                 updates["role"] = role
 
@@ -842,7 +863,7 @@ class OpenIDHandler:
                         hl(user.username, color=CYAN),
                         hl(email, color=CYAN),
                     )
-                    del updates["email"]
+                    del updates["email"], updates["email_trusted"]
                     if updates:
                         user = db_user_handler.update_user(user.id, updates)
                 changed = [f for f in ("email", "role") if f in updates]

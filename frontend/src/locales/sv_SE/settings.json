@@ -55,6 +55,8 @@
   "config-file-not-writable-title": "Konfigurationsfilen är inte skrivbar.",
   "config-file-parse-error-desc": "Filen config.yml innehåller ett syntaxfel. RomM kör därför med standardinställningar och ignorerar din konfiguration. Rätta felet och starta om RomM för att använda dina inställningar. Information: {error}",
   "config-file-parse-error-title": "Kunde inte tolka konfigurationsfilen.",
+  "confirm-email": "Bekräfta den här e-postadressen",
+  "confirm-email-hint": "Inte bekräftad. En första inloggning via identitetsleverantören kan inte länka det här kontot förrän du bekräftar att e-postadressen tillhör den här användaren.",
   "confirm-protected-launch": "Bekräfta start av undanstoppade spel",
   "confirm-protected-launch-desc": "Fråga innan ett spel startas som du har markerat som Avslutad eller Spelar aldrig.",
   "controller-debug": "Felsökning av handkontroll",

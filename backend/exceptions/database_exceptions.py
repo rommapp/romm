@@ -9,6 +9,15 @@ class RomFileOwnerChangedError(Exception):
         return self.message
 
 
+class EmailChangedError(Exception):
+    def __init__(self, user_id: int) -> None:
+        self.message = f"User {user_id} no longer has the expected email"
+        super().__init__(self.message)
+
+    def __repr__(self) -> str:
+        return self.message
+
+
 class LastAdminError(Exception):
     def __init__(self, user_id: int) -> None:
         self.message = f"User {user_id} is the last admin"

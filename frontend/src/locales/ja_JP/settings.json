@@ -55,6 +55,8 @@
   "config-file-not-writable-title": "設定ファイルが書き込み不可です！",
   "config-file-parse-error-desc": "The config.yml file has a syntax error, so RomM is running with default settings and ignoring your configuration. Fix the error and restart RomM to apply your settings. Details: {error}",
   "config-file-parse-error-title": "Configuration file could not be parsed!",
+  "confirm-email": "このメールを確認済みにする",
+  "confirm-email-hint": "未確認です。メールがこのユーザーのものであると確認するまで、IDプロバイダー経由の初回サインインはこのアカウントにリンクできません。",
   "confirm-protected-launch": "棚上げしたゲームの起動を確認する",
   "confirm-protected-launch-desc": "「中断」または「プレイしない」に設定したゲームを起動する前に確認します。",
   "controller-debug": "コントローラーデバッグ",

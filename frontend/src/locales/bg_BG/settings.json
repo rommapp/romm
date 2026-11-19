@@ -55,6 +55,8 @@
   "config-file-not-writable-title": "Конфигурационният файл не е записваем!",
   "config-file-parse-error-desc": "The config.yml file has a syntax error, so RomM is running with default settings and ignoring your configuration. Fix the error and restart RomM to apply your settings. Details: {error}",
   "config-file-parse-error-title": "Configuration file could not be parsed!",
+  "confirm-email": "Потвърди този имейл",
+  "confirm-email-hint": "Непотвърден. Първо влизане чрез доставчика на самоличност не може да свърже този акаунт, докато не потвърдите, че имейлът принадлежи на този потребител.",
   "confirm-protected-launch": "Потвърждаване при стартиране на архивирани игри",
   "confirm-protected-launch-desc": "Питане преди стартиране на игра, отбелязана като „Изоставена“ или „Неиграна никога“.",
   "controller-debug": "Диагностика на контролера",

@@ -7,7 +7,7 @@ from sqlalchemy.orm import QueryableAttribute, Session, load_only
 from sqlalchemy.sql import Delete, Select, Update
 
 from decorators.database import INJECTED_SESSION, begin_session
-from exceptions.database_exceptions import LastAdminError
+from exceptions.database_exceptions import EmailChangedError, LastAdminError
 from models.snapshot import Snapshot
 from models.user import Role, User
 
@@ -118,16 +118,33 @@ class DBUsersHandler(DBBaseHandler):
         data: dict[str, Any],
         *,
         keep_an_admin: bool = False,
+        expected_email: str | None = None,
         session: Session = INJECTED_SESSION,
     ) -> User:
+        """Write `data` to the user.
+
+        Args:
+            keep_an_admin: Raise LastAdminError if the write would leave no admin.
+            expected_email: Raise EmailChangedError unless the stored email still
+                matches, so a confirmation applies only to the address it names.
+        """
         if keep_an_admin:
             self.refuse_removing_the_last_admin(id, data, session=session)
-        session.execute(
-            update(User)
-            .where(User.id == id)
-            .values(**data)
-            .execution_options(synchronize_session="evaluate")
+        # A new address is unconfirmed unless the caller vouches for it.
+        if "email" in data and "email_trusted" not in data:
+            data = {**data, "email_trusted": False}
+        query = self.filter(
+            update(User),
+            ids=[id],
+            emails=[expected_email] if expected_email is not None else (),
         )
+        # "evaluate" can't run the case-insensitive email match in Python.
+        sync = "evaluate" if expected_email is None else "fetch"
+        result = session.execute(
+            query.values(**data).execution_options(synchronize_session=sync)
+        )
+        if expected_email is not None and affected_rows(result) == 0:
+            raise EmailChangedError(id)
         return session.scalars(select(User).filter_by(id=id)).one()
 
     @begin_session

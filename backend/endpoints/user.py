@@ -11,7 +11,7 @@ from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.permissions import emit_permissions_changed
 from endpoints.responses.identity import InviteLinkSchema, UserSchema
-from exceptions.database_exceptions import LastAdminError
+from exceptions.database_exceptions import EmailChangedError, LastAdminError
 from handler.audit_handler import (
     AuditActor,
     AuditTarget,
@@ -22,7 +22,7 @@ from handler.audit_handler import (
 )
 from handler.auth.base_handler import auth_handler
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_admin_for_admin
+from handler.auth.dependencies import assert_admin_for_admin, is_scoped_admin
 from handler.database import (
     db_client_token_handler,
     db_device_handler,
@@ -55,10 +55,13 @@ router = APIRouter(
 )
 
 
+_EMAIL_CHANGED: Final = "The user's email changed. Reload it and confirm again."
+
 # What a user edit reports; ui_settings and avatars change too often to be news.
 _USER_EDIT_AUDIT_FIELDS: Final = (
     "username",
     "email",
+    "email_trusted",
     "hashed_password",
     "role",
     "enabled",
@@ -202,6 +205,7 @@ def add_user(
         username=username.lower(),
         hashed_password=auth_handler.get_password_hash(password),
         email=email.lower() or None,
+        email_trusted=not admins_exist or is_scoped_admin(request, Scope.USERS_WRITE),
         role=coerced_role,
     )
 
@@ -530,6 +534,7 @@ async def update_user(
             auth_handler.get_password_hash, form_data.password
         )
 
+    by_admin = is_scoped_admin(request, Scope.USERS_WRITE)
     if new_email is not None:
         try:
             validate_email(new_email)
@@ -548,6 +553,24 @@ async def update_user(
             )
 
         cleaned_data["email"] = new_email.lower() or None
+        cleaned_data["email_trusted"] = by_admin
+
+    confirm_email = form_data.confirm_email if new_email is None else None
+    if confirm_email and not by_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only an administrator can confirm an email",
+        )
+    # The confirmation names the address the admin saw, so a user who changed it
+    # meanwhile doesn't get the new one trusted.
+    expected_email = None
+    if confirm_email and not db_user.email_trusted:
+        if confirm_email.lower() != (db_user.email or "").lower():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail=_EMAIL_CHANGED
+            )
+        cleaned_data["email_trusted"] = True
+        expected_email = confirm_email
 
     # You can't change your own role
     if form_data.role and request.user.id != id:
@@ -616,7 +639,12 @@ async def update_user(
                 cleaned_data,
                 revoke_sessions_for=previous_username if creds_updated else None,
                 keep_an_admin=True,
+                expected_email=expected_email,
             )
+        except EmailChangedError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail=_EMAIL_CHANGED
+            ) from exc
         except LastAdminError as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

@@ -78,6 +78,7 @@
   "field-custom-name": "名稱",
   "field-description": "描述",
   "field-email": "電子郵件",
+  "field-email-trusted": "電子郵件確認",
   "field-enabled": "已啟用",
   "field-fs-name": "檔案名稱",
   "field-is-public": "可見性",

@@ -78,6 +78,7 @@
   "field-custom-name": "nome",
   "field-description": "descrição",
   "field-email": "e-mail",
+  "field-email-trusted": "confirmação do e-mail",
   "field-enabled": "habilitado",
   "field-fs-name": "nome do arquivo",
   "field-is-public": "visibilidade",

@@ -68,6 +68,7 @@ async function updateUser({
   avatar?: File;
   password?: string;
   current_password?: string | undefined;
+  confirm_email?: string | undefined;
 }) {
   return api.put<UserSchema>(
     `/users/${id}`,
@@ -77,6 +78,7 @@ async function updateUser({
       password: attrs.password,
       current_password: attrs.current_password,
       email: attrs.email,
+      confirm_email: attrs.confirm_email,
       enabled: attrs.enabled,
       role: attrs.role,
       ra_username: attrs.ra_username,

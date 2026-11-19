@@ -10,6 +10,8 @@ class UserForm(BaseModel):
     password: str | None = None
     current_password: str | None = None
     email: str | None = None
+    # The address an admin confirms; it must still be the user's current email.
+    confirm_email: str | None = None
     role: str | None = None
     enabled: bool | None = None
     ra_username: str | None = Field(default=None, max_length=TEXT_FIELD_LENGTH)

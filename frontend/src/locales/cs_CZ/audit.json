@@ -78,6 +78,7 @@
   "field-custom-name": "název",
   "field-description": "popis",
   "field-email": "e-mail",
+  "field-email-trusted": "potvrzení e-mailu",
   "field-enabled": "povoleno",
   "field-fs-name": "název souboru",
   "field-is-public": "viditelnost",

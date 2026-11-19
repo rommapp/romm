@@ -78,6 +78,7 @@
   "field-custom-name": "namn",
   "field-description": "beskrivning",
   "field-email": "e-post",
+  "field-email-trusted": "e-postbekräftelse",
   "field-enabled": "aktiverad",
   "field-fs-name": "filnamn",
   "field-is-public": "synlighet",

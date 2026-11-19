@@ -55,6 +55,8 @@
   "config-file-not-writable-title": "구성 파일을 쓸 수 없음!",
   "config-file-parse-error-desc": "The config.yml file has a syntax error, so RomM is running with default settings and ignoring your configuration. Fix the error and restart RomM to apply your settings. Details: {error}",
   "config-file-parse-error-title": "Configuration file could not be parsed!",
+  "confirm-email": "이 이메일 확인",
+  "confirm-email-hint": "확인되지 않았습니다. 이메일이 이 사용자의 것임을 확인하기 전까지는 ID 공급자를 통한 첫 로그인이 이 계정에 연결될 수 없습니다.",
   "confirm-protected-launch": "보류한 게임 실행 확인",
   "confirm-protected-launch-desc": "중단 또는 플레이 안 함으로 표시한 게임을 실행하기 전에 확인합니다.",
   "controller-debug": "컨트롤러 디버그",

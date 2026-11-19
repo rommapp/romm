@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from exceptions.database_exceptions import LastAdminError
+from exceptions.database_exceptions import EmailChangedError, LastAdminError
 from handler.database import db_user_handler
 from handler.database.base_handler import sync_session
 from models.user import Role, User
@@ -136,3 +136,42 @@ class TestUpdateLastActive:
         user.set_last_active()
 
         assert executed_statements == []
+
+
+class TestUpdateUserEmailTrust:
+    def test_a_new_email_is_untrusted_unless_the_caller_vouches(
+        self, viewer_user: User
+    ):
+        db_user_handler.update_user(
+            viewer_user.id, {"email": "old@example.com", "email_trusted": True}
+        )
+
+        updated = db_user_handler.update_user(
+            viewer_user.id, {"email": "new@example.com"}
+        )
+
+        assert not updated.email_trusted
+
+    def test_writes_when_the_expected_email_still_matches(self, viewer_user: User):
+        db_user_handler.update_user(viewer_user.id, {"email": "viewer@example.com"})
+
+        updated = db_user_handler.update_user(
+            viewer_user.id,
+            {"email_trusted": True},
+            expected_email="Viewer@Example.com",
+        )
+
+        assert updated.email_trusted
+
+    def test_refuses_when_the_email_changed(self, viewer_user: User):
+        db_user_handler.update_user(viewer_user.id, {"email": "taken@example.com"})
+
+        with pytest.raises(EmailChangedError):
+            db_user_handler.update_user(
+                viewer_user.id,
+                {"email_trusted": True},
+                expected_email="viewer@example.com",
+            )
+
+        current = db_user_handler.get_user(viewer_user.id)
+        assert current and not current.email_trusted

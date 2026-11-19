@@ -78,6 +78,7 @@
   "field-custom-name": "名前",
   "field-description": "説明",
   "field-email": "メール",
+  "field-email-trusted": "メールの確認",
   "field-enabled": "有効",
   "field-fs-name": "ファイル名",
   "field-is-public": "公開設定",

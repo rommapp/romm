@@ -55,6 +55,8 @@
   "config-file-not-writable-title": "組態檔案不可寫！",
   "config-file-parse-error-desc": "The config.yml file has a syntax error, so RomM is running with default settings and ignoring your configuration. Fix the error and restart RomM to apply your settings. Details: {error}",
   "config-file-parse-error-title": "Configuration file could not be parsed!",
+  "confirm-email": "確認此電子郵件",
+  "confirm-email-hint": "未確認。在你確認此電子郵件屬於該使用者之前，透過身分提供者的首次登入無法連結此帳戶。",
   "confirm-protected-launch": "確認啟動已擱置的遊戲",
   "confirm-protected-launch-desc": "在啟動標記為「已擱置」或「不玩」的遊戲前進行確認。",
   "controller-debug": "控制器除錯",

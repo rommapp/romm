@@ -4,7 +4,16 @@ import enum
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Final
 
-from sqlalchemy import TIMESTAMP, Boolean, Enum, ForeignKey, Index, Integer, String
+from sqlalchemy import (
+    TIMESTAMP,
+    Boolean,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    false,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from starlette.authentication import SimpleUser
 
@@ -64,6 +73,11 @@ class User(BaseModel, SimpleUser):
     )
     email: Mapped[str | None] = mapped_column(
         String(length=TEXT_FIELD_LENGTH), unique=True, index=True
+    )
+    # Set by an admin or the provider rather than chosen by the user, so a first
+    # OIDC sign-in may link the account by it.
+    email_trusted: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false()
     )
     # The provider's `iss` and `sub` claims: a stable identity that survives an
     # email change. Exact, since a `sub` is case-sensitive.

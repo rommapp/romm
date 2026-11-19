@@ -55,6 +55,8 @@
   "config-file-not-writable-title": "Fișierul de configurare nu este inscriptibil!",
   "config-file-parse-error-desc": "The config.yml file has a syntax error, so RomM is running with default settings and ignoring your configuration. Fix the error and restart RomM to apply your settings. Details: {error}",
   "config-file-parse-error-title": "Configuration file could not be parsed!",
+  "confirm-email": "Confirmă acest e-mail",
+  "confirm-email-hint": "Neconfirmat. O primă autentificare prin furnizorul de identitate nu poate lega acest cont până nu confirmi că e-mailul aparține acestui utilizator.",
   "confirm-protected-launch": "Confirmă pornirea jocurilor puse deoparte",
   "confirm-protected-launch-desc": "Întreabă înainte de a porni un joc marcat ca Abandonat sau Nu voi juca niciodată.",
   "controller-debug": "Depanare controller",

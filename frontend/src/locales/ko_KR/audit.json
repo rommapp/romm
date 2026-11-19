@@ -78,6 +78,7 @@
   "field-custom-name": "이름",
   "field-description": "설명",
   "field-email": "이메일",
+  "field-email-trusted": "이메일 확인",
   "field-enabled": "활성화됨",
   "field-fs-name": "파일 이름",
   "field-is-public": "공개 여부",
