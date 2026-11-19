@@ -14,7 +14,7 @@ holds the same values in a few MB. See `RomFacets`.
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Annotated, Any, TypedDict
+from typing import Annotated, Any, NotRequired, TypedDict
 
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import QueryableAttribute
@@ -81,9 +81,10 @@ class RomFiltersDict(TypedDict):
     regions: list[str]
     languages: list[str]
     tags: list[str]
-    mame_set_types: list[str]
-    mame_statuses: list[str]
-    mame_drivers: list[str]
+    # Optional so a filter list cached before these keys existed still validates.
+    mame_set_types: NotRequired[list[str]]
+    mame_statuses: NotRequired[list[str]]
+    mame_drivers: NotRequired[list[str]]
     platforms: list[int]
 
 

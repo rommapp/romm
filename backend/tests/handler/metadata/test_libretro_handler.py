@@ -257,6 +257,10 @@ async def test_get_rom_matches_a_mame_shortname_by_its_full_title(
             return_value=[],
         ),
         patch(
+            "handler.metadata.base_handler.get_mame_machine",
+            AsyncMock(return_value=None),
+        ),
+        patch(
             "handler.metadata.base_handler.async_cache.hget",
             AsyncMock(return_value=json.dumps(entry)),
         ) as mock_hget,

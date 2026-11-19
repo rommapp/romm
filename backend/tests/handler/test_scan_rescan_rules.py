@@ -23,6 +23,7 @@ COVERED_SLUG = {
     MetadataSource.HLTB: next(iter(HLTB_PLATFORM_LIST)),
     MetadataSource.LIBRETRO: next(iter(LIBRETRO_PLATFORM_LIST)),
     MetadataSource.STEAM: next(iter(STEAM_PLATFORMS)),
+    MetadataSource.MAME: "arcade",
 }
 
 
@@ -91,6 +92,7 @@ EXPECTED_COLUMNS: dict[MetadataSource, tuple[str, str | None]] = {
     MetadataSource.STEAM: ("steam_id", "steam_metadata"),
     MetadataSource.GAMELIST: ("gamelist_id", "gamelist_metadata"),
     MetadataSource.LIBRETRO: ("libretro_id", None),
+    MetadataSource.MAME: ("mame_id", "mame_metadata"),
 }
 
 

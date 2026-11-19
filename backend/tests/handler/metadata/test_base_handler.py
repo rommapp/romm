@@ -392,7 +392,13 @@ class TestMetadataHandlerMethods:
     @pytest.mark.asyncio
     async def test_mame_format_found(self, handler: MetadataHandler):
         """Test MAME format when entry is found."""
-        with patch.object(async_cache, "hget", new_callable=AsyncMock) as mock_hget:
+        with (
+            patch(
+                "handler.metadata.base_handler.get_mame_machine",
+                AsyncMock(return_value=None),
+            ),
+            patch.object(async_cache, "hget", new_callable=AsyncMock) as mock_hget,
+        ):
             mock_hget.return_value = json.dumps(
                 {"description": "Test MAME Game (Version 1.0)"}
             )

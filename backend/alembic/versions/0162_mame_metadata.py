@@ -71,13 +71,15 @@ _FACETS_BEFORE = (
     + [("min_age", "min_age")]
 )
 
-_FACET_COLUMNS = [
-    sa.Column("mame_id", sa.String(length=100), nullable=True),
-    sa.Column("mame_set_type", sa.String(length=16), nullable=True),
-    sa.Column("mame_status", sa.String(length=16), nullable=True),
-    sa.Column("mame_driver", sa.String(length=100), nullable=True),
-    sa.Column("mame_mechanical", sa.Boolean(), nullable=True),
-]
+def _facet_columns() -> list[sa.Column]:
+    # Fresh objects per call: a Column binds to the first table it joins.
+    return [
+        sa.Column("mame_id", sa.String(length=100), nullable=True),
+        sa.Column("mame_set_type", sa.String(length=16), nullable=True),
+        sa.Column("mame_status", sa.String(length=16), nullable=True),
+        sa.Column("mame_driver", sa.String(length=100), nullable=True),
+        sa.Column("mame_mechanical", sa.Boolean(), nullable=True),
+    ]
 
 _FACETS_AFTER = _FACETS_BEFORE + [
     ("mame_id", "mame_id"),
@@ -277,9 +279,9 @@ def upgrade() -> None:
         )
 
     present = column_names(conn, "roms_facets")
-    for column in _FACET_COLUMNS:
+    for column in _facet_columns():
         if column.name not in present:
-            op.add_column("roms_facets", column.copy())
+            op.add_column("roms_facets", column)
     _rebuild_facet_triggers(pg, _FACETS_AFTER)
 
     _rebuild_identity_triggers(pg, _PROVIDERS_AFTER)
@@ -297,7 +299,7 @@ def downgrade() -> None:
 
     _rebuild_facet_triggers(pg, _FACETS_BEFORE)
     present = column_names(conn, "roms_facets")
-    for column in _FACET_COLUMNS:
+    for column in _facet_columns():
         if column.name in present:
             op.drop_column("roms_facets", column.name)
 
