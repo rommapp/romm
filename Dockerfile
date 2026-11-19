@@ -75,7 +75,7 @@ RUN apk add --no-cache \
     make \
     musl-dev
 
-ARG SIGIL_VERSION=baa96b886b4f0ad7d4814886d5c475c4c442915a
+ARG SIGIL_VERSION=4980f6982cbf1d74a66590b5fc45ea32555a1f55
 ADD "https://github.com/rommapp/argosy-sigil.git#${SIGIL_VERSION}" /argosy-sigil
 WORKDIR /argosy-sigil
 RUN cmake -B ./build-python -S . -DSIGIL_BUILD_CLI=OFF -DSIGIL_BUILD_TESTS=OFF && \
