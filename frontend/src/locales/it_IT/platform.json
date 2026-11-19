@@ -53,7 +53,6 @@
   "mame-match-action-clear": "Rimuovi i dati MAME",
   "mame-match-action-match": "Abbina",
   "mame-match-clear-note": "I nomi assegnati da MAME restano finché non rinomini o riscansioni i giochi.",
-  "mame-match-done": "Abbinamento MAME completato",
   "mame-match-failed": "Abbinamento MAME non riuscito: {detail}",
   "mame-match-intro": "Assegna a ogni gioco il cui file è un set MAME titolo, anno, produttore, raggruppamento parent/clone e filtri del set. Gli altri giochi restano come sono.",
   "mame-match-no-index": "Nessun listxml caricato: viene usato l'elenco più piccolo incluso. Caricane uno in Impostazioni, Fonti metadati.",

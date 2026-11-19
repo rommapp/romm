@@ -80,18 +80,10 @@ function close() {
   emit("update:modelValue", false);
 }
 
-function finish(status: string) {
+// The task's own end notice tells the user how it went.
+function finish() {
   taskId.value = null;
   progress.value = null;
-  if (status === "finished") {
-    snackbar.success(t("platform.mame-match-done"), {
-      icon: "mdi-check-bold",
-    });
-  } else {
-    snackbar.error(t("platform.mame-match-failed", { detail: status }), {
-      icon: "mdi-close-circle",
-    });
-  }
   galleryRoms.invalidateWindows();
   void galleryRoms.fetchInitialMetadata();
   close();
@@ -107,7 +99,7 @@ async function poll() {
     };
     progress.value = meta.update_stats ?? progress.value;
     if (DONE.has(data.status)) {
-      finish(data.status);
+      finish();
       return;
     }
   } catch {
@@ -190,6 +182,8 @@ onBeforeUnmount(() => clearTimeout(pollTimer));
             v-model="action"
             :items="actionItems"
             :aria-label="t('platform.mame-match')"
+            variant="tab"
+            class="r-mame-match__action"
           />
 
           <template v-if="action === 'match'">
@@ -201,7 +195,10 @@ onBeforeUnmount(() => clearTimeout(pollTimer));
             >
               {{ t("platform.mame-match-no-index") }}
             </RAlert>
-            <RSwitch v-model="rename" :label="t('platform.mame-match-rename')" />
+            <RSwitch
+              v-model="rename"
+              :label="t('platform.mame-match-rename')"
+            />
           </template>
           <p v-else class="r-mame-match__note">
             {{ t("platform.mame-match-clear-note") }}
@@ -263,6 +260,9 @@ onBeforeUnmount(() => clearTimeout(pollTimer));
   margin: 0;
   font-size: 13px;
   color: var(--r-color-fg-muted);
+}
+.r-mame-match__action {
+  align-self: flex-start;
 }
 .r-mame-match__progress {
   margin: 0;

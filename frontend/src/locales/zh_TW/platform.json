@@ -53,7 +53,6 @@
   "mame-match-action-clear": "Remove MAME data",
   "mame-match-action-match": "Match",
   "mame-match-clear-note": "Names MAME gave stay until you rename or rescan the games.",
-  "mame-match-done": "MAME match finished",
   "mame-match-failed": "MAME match failed: {detail}",
   "mame-match-intro": "Gives each game whose file is a MAME set the set's title, year, manufacturer, parent/clone grouping and filters. Other games are left as they are.",
   "mame-match-no-index": "No listxml is loaded, so the smaller bundled list is used. Load one in Settings, Metadata sources.",
