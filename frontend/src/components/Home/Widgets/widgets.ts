@@ -7,16 +7,22 @@
 import type { Component } from "vue";
 import AnniversaryWidget from "./AnniversaryWidget.vue";
 import LibraryStatsWidget from "./LibraryStatsWidget.vue";
+import PlayingNowWidget from "./PlayingNowWidget.vue";
 import RandomPickWidget from "./RandomPickWidget.vue";
 
-export type WidgetId = "randomPick" | "anniversaries" | "libraryStats";
+export type WidgetId =
+  "randomPick" | "anniversaries" | "playingNow" | "libraryStats";
 
 export interface WidgetDef {
   id: WidgetId;
   /** The component to render. */
   component: Component;
   /** Key in `useUISettings` that controls visibility. */
-  enabledKey: "widgetRandomPick" | "widgetLibraryStats" | "widgetAnniversaries";
+  enabledKey:
+    | "widgetRandomPick"
+    | "widgetAnniversaries"
+    | "widgetPlayingNow"
+    | "widgetLibraryStats";
   /** i18n key for the user-facing label (settings reorder list). */
   labelKey: string;
   /** Optional MDI icon used in the reorder list. */
@@ -37,6 +43,13 @@ export const WIDGETS: readonly WidgetDef[] = [
     enabledKey: "widgetAnniversaries",
     labelKey: "settings.widget-anniversaries",
     icon: "mdi-calendar-star",
+  },
+  {
+    id: "playingNow",
+    component: PlayingNowWidget,
+    enabledKey: "widgetPlayingNow",
+    labelKey: "settings.widget-playing-now",
+    icon: "mdi-access-point",
   },
   {
     id: "libraryStats",

@@ -538,6 +538,8 @@
   "widget-library-stats-desc": "你的庫的數量概覽：遊戲、平台、收藏等。",
   "widget-library-stats-extended": "擴充（存檔、即時存檔、螢幕截圖、磁碟）",
   "widget-library-stats-mode": "庫統計詳情",
+  "widget-playing-now": "正在遊玩",
+  "widget-playing-now-desc": "顯示某人正在遊玩的遊戲，並連結到活躍工作階段。無人遊玩時隱藏。",
   "widget-random-pick": "隨機推薦",
   "widget-random-pick-desc": "從你的庫中隨機推薦一個 ROM，並提供重新抽取按鈕。",
   "widget-reorder-drag": "拖曳以重新排序"
