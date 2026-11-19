@@ -606,9 +606,10 @@ class TestLayouts:
 
         assert response.status_code == status.HTTP_200_OK
         rows = {row["id"]: row for row in response.json()}
-        for core in ("xenia", "xenia_canary", "xenia_edge", "xendroid"):
+        for core in ("xenia_canary", "xenia_edge", "xendroid"):
             assert rows[core]["platform"] == "xbox360"
             assert rows[core]["profiles"] is True
+        assert "xenia" not in rows
 
 
 class TestCompanionVisibility:
