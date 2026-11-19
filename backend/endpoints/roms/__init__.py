@@ -374,6 +374,9 @@ class RomUpdateForm(BaseModel):
 
 MANUAL_METADATA_ADAPTER: Final = TypeAdapter(ManualMetadata)
 
+# The most roms one `rom_ids` request may name.
+ROM_IDS_WINDOW_MAX: Final = 256
+
 # The provider ids the edit form sets; changing one rematches the rom.
 MATCH_ID_FIELDS: Final = tuple(
     f for f in RomUpdateForm.model_fields if f.endswith("_id")
@@ -792,9 +795,28 @@ def get_roms(
         bool,
         Query(description="Whether to include each rom's file entries."),
     ] = False,
+    rom_ids: Annotated[
+        list[Annotated[int, Field(ge=1)]] | None,
+        Query(
+            description=(
+                "Load exactly these roms, in this order, instead of a page: for"
+                " example the 72 a gallery just scrolled into view. Repeat the"
+                f" parameter, 1 to {ROM_IDS_WINDOW_MAX} positive ids. Ids the"
+                " caller can't see, or that no longer exist, are left out. The"
+                " filters, `offset` and `limit` are ignored, and the sidecars and"
+                " the total are skipped."
+            ),
+            min_length=1,
+            max_length=ROM_IDS_WINDOW_MAX,
+        ),
+    ] = None,
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
-    """Retrieve roms."""
+    """Retrieve a page of roms, or the roms named by `rom_ids`."""
     perms = get_permissions(request)
+    if rom_ids is not None:
+        # The caller already holds the ordered list, so nothing spans the set.
+        with_char_index = with_rom_id_index = with_total = False
+        with_filter_values = False
     parsed_released_days = parse_released_days(released_days)
 
     # Normalised once so the query layer and every cache key agree on case.
@@ -984,7 +1006,9 @@ def get_roms(
                 return cached_page[1]
             return db_rom_handler.get_rom_count(query=query, session=session)
 
-        if with_rom_id_index:
+        if rom_ids is not None:
+            page_ids = list(rom_ids)
+        elif with_rom_id_index:
             page_ids = rom_id_index[params.offset : params.offset + params.limit]
         elif cached_page is not None:
             page_ids = cached_page[0]
