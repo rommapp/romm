@@ -17,11 +17,6 @@ from config import (
     TASK_RESULT_TTL,
 )
 from config.config_manager import config_manager as cm
-from endpoints.sockets.scan import report_scan_failure, scan_job_meta, scan_platforms
-from handler.database import db_platform_handler
-from handler.redis_handler import get_job_kwargs, scan_queue
-from handler.scan.sources import ScanType, get_enabled_metadata_sources
-from handler.scan_jobs import get_pending_scan_jobs
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -67,11 +62,14 @@ def get_pending_scan_coverage() -> PendingScanCoverage:
         PendingScanCoverage: How many pending scans cover the whole library, and
             the platforms and folders the rest are scoped to.
     """
+    from handler import scan_jobs
+    from handler.redis_handler import get_job_kwargs
+
     full_library = 0
     platform_ids: set[int] = set()
     platform_fs_slugs: set[str] = set()
 
-    for job in get_pending_scan_jobs():
+    for job in scan_jobs.get_pending_scan_jobs():
         kwargs = get_job_kwargs(job)
         if kwargs is None:
             # Nothing is known about what an unreadable scan covers, and a
@@ -163,6 +161,18 @@ def process_changes(changes: Sequence[Change]) -> None:
             log.info("No valid filesystem slugs found in changes, exiting...")
             return
 
+        # Imported only once a change survives the filters: they cost ~70 MB.
+        from rq import Callback
+
+        from handler.database import db_platform_handler
+        from handler.redis_handler import scan_queue
+        from handler.scan.sources import ScanType, get_enabled_metadata_sources
+        from handler.scan_jobs import (
+            REPORT_SCAN_FAILURE_FUNC,
+            SCAN_PLATFORMS_FUNC,
+            scan_job_meta,
+        )
+
         metadata_sources = get_enabled_metadata_sources()
         if not metadata_sources:
             log.warning("No metadata sources enabled, skipping rescan")
@@ -179,11 +189,11 @@ def process_changes(changes: Sequence[Change]) -> None:
         def schedule_rescan(platform_ids: list[int], scan_type: ScanType) -> None:
             scan_queue.enqueue_in(
                 time_delta,
-                scan_platforms,
+                SCAN_PLATFORMS_FUNC,
                 platform_ids=platform_ids,
                 metadata_sources=metadata_sources,
                 scan_type=scan_type,
-                on_failure=report_scan_failure,
+                on_failure=Callback(REPORT_SCAN_FAILURE_FUNC),
                 job_timeout=SCAN_TIMEOUT,
                 result_ttl=TASK_RESULT_TTL,
                 meta=scan_job_meta(scan_type),

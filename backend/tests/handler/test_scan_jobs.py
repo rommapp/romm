@@ -10,7 +10,7 @@ from tests.scan_job_stubs import (
 )
 
 import handler.scan_jobs as scan_jobs
-from endpoints.sockets.scan import scan_platforms
+from endpoints.sockets.scan import report_scan_failure, scan_platforms
 from handler.redis_handler import low_prio_queue, scan_queue
 from handler.scan_jobs import SCAN_PLATFORMS_FUNC
 
@@ -20,6 +20,13 @@ def test_the_scan_func_name_matches_the_function():
     keep naming the function RQ actually records."""
     assert scan_jobs.SCAN_PLATFORMS_FUNC == (
         f"{scan_platforms.__module__}.{scan_platforms.__name__}"
+    )
+
+
+def test_the_failure_callback_name_matches_the_function():
+    # Assert
+    assert scan_jobs.REPORT_SCAN_FAILURE_FUNC == (
+        f"{report_scan_failure.__module__}.{report_scan_failure.__name__}"
     )
 
 
