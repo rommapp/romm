@@ -5,15 +5,42 @@
 import type { JobStatus } from './JobStatus';
 import type { ScanTaskMeta } from './ScanTaskMeta';
 export type ScanTaskStatusResponse = {
+    /**
+     * The key of the task in the catalog. Null for scans started outside the catalog, by a client or the watcher.
+     */
     task_key: (string | null);
+    /**
+     * The name of the task.
+     */
     task_name: string;
+    /**
+     * The job ID, which `GET /tasks/{task_id}` takes.
+     */
     task_id: string;
     status: JobStatus;
+    /**
+     * When the job was created.
+     */
     created_at: (string | null);
+    /**
+     * When the job was queued.
+     */
     enqueued_at: (string | null);
+    /**
+     * When the job started running.
+     */
     started_at: (string | null);
+    /**
+     * When the job finished.
+     */
     ended_at: (string | null);
+    /**
+     * The kind of task: `scan`.
+     */
     task_type: string;
+    /**
+     * Details specific to this kind of task.
+     */
     meta: ScanTaskMeta;
 };
 

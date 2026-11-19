@@ -3,6 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export type Body_update_smart_collection_visibility_api_collections_smart__id__visibility_put = {
+    /**
+     * Whether other users can see the smart collection.
+     */
     is_public: boolean;
 };
 

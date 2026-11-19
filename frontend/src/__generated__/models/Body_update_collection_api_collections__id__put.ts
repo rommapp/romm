@@ -11,7 +11,13 @@ export type Body_update_collection_api_collections__id__put = {
      * Collection ROM IDs as a JSON array string (e.g. [1,2,3]).
      */
     rom_ids: string;
+    /**
+     * The new name. Unset keeps the current name.
+     */
     name?: (string | null);
+    /**
+     * The new description. Unset keeps the current description.
+     */
     description?: (string | null);
     /**
      * Updated remote cover URL.

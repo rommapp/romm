@@ -4,7 +4,13 @@
 /* eslint-disable */
 import type { DeviceRefSchema } from './DeviceRefSchema';
 export type HeldBySchema = {
+    /**
+     * The device that holds the snapshot.
+     */
     device: DeviceRefSchema;
+    /**
+     * When the device last synced to the snapshot.
+     */
     synced_at: string;
 };
 

@@ -6,10 +6,25 @@ import type { NotificationChannelMinLevel } from './NotificationChannelMinLevel'
 import type { NotificationTopic } from './NotificationTopic';
 export type WebhookChannelCreatePayload = {
     min_level?: NotificationChannelMinLevel;
+    /**
+     * The topics the channel forwards. Null forwards every topic.
+     */
     topics?: (Array<NotificationTopic> | null);
+    /**
+     * The kind of channel.
+     */
     type: string;
+    /**
+     * The name of the channel.
+     */
     name: string;
+    /**
+     * The URL notifications are sent to.
+     */
     url: string;
+    /**
+     * The key the payload is signed with.
+     */
     secret?: (string | null);
 };
 

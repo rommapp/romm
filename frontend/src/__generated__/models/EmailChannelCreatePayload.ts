@@ -6,9 +6,21 @@ import type { NotificationChannelMinLevel } from './NotificationChannelMinLevel'
 import type { NotificationTopic } from './NotificationTopic';
 export type EmailChannelCreatePayload = {
     min_level?: NotificationChannelMinLevel;
+    /**
+     * The topics the channel forwards. Null forwards every topic.
+     */
     topics?: (Array<NotificationTopic> | null);
+    /**
+     * The kind of channel.
+     */
     type: string;
+    /**
+     * The name of the channel.
+     */
     name: string;
+    /**
+     * The email address notifications are sent to. A confirmation code is sent to it first.
+     */
     address: string;
 };
 

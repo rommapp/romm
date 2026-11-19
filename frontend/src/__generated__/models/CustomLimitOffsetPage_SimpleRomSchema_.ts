@@ -5,12 +5,33 @@
 import type { RomFiltersDict } from './RomFiltersDict';
 import type { SimpleRomSchema } from './SimpleRomSchema';
 export type CustomLimitOffsetPage_SimpleRomSchema_ = {
+    /**
+     * The items on this page.
+     */
     items: Array<SimpleRomSchema>;
+    /**
+     * The number of roms across all pages. Null when `with_total` is false, unless `with_rom_id_index` is true.
+     */
     total: (number | null);
+    /**
+     * The number of items per page, such as 72.
+     */
     limit: number;
+    /**
+     * The number of items skipped before this page. For example, 144 for the third page of 72.
+     */
     offset: number;
+    /**
+     * The position in the full ordered result where each first letter starts. Empty when `with_char_index` is false, the sort is not alphabetical, or a search ranks by relevance.
+     */
     char_index: Record<string, number>;
+    /**
+     * The IDs of every matching rom, in order. Empty when `with_rom_id_index` is false.
+     */
     rom_id_index: Array<number>;
+    /**
+     * The options for the filter dropdowns. Every list is empty when `with_filter_values` is false.
+     */
     filter_values: RomFiltersDict;
 };
 
