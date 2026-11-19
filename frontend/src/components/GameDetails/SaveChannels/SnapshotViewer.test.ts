@@ -6,6 +6,7 @@ import {
   channelFixture,
   snapshotFixture,
   bankStateFixture,
+  ownDevice,
 } from "@/utils/snapshots.fixtures";
 import SnapshotViewer, { type ViewerTarget } from "./SnapshotViewer.vue";
 
@@ -38,6 +39,13 @@ function button(wrapper: ReturnType<typeof mountViewer>, key: string) {
 
 function primaryLabel(wrapper: ReturnType<typeof mountViewer>) {
   return wrapper.find(".r-snapshot-viewer__primary").text();
+}
+
+/** The details list as label to value text. */
+function detailRows(wrapper: ReturnType<typeof mountViewer>) {
+  const labels = wrapper.findAll("dt").map((dt) => dt.text());
+  const values = wrapper.findAll("dd");
+  return Object.fromEntries(labels.map((l, i) => [l, values[i]!]));
 }
 
 const older = snapshotFixture({ id: 40 });
@@ -280,5 +288,109 @@ describe("SnapshotViewer", () => {
       older.save?.download_path,
       older.save?.file_name,
     ]);
+  });
+
+  it("shows the save's untagged name and size, with the stored name on hover", () => {
+    const wrapper = mountViewer({
+      kind: "snapshot",
+      channel: channelFixture(),
+      snapshot: older,
+    });
+
+    const file = detailRows(wrapper)["channels.file"]!;
+    expect(file.text()).toBe("save.srm · 8 KB");
+    expect(file.findComponent({ name: "RTooltip" }).props("text")).toBe(
+      older.save?.file_name,
+    );
+  });
+
+  it("strips the datetime tag from a legacy save's name", () => {
+    const wrapper = mountViewer({
+      kind: "save",
+      channel: channelFixture(),
+      save: saveFixture({
+        file_name: "Game [2026-01-01_00-00-00].srm",
+        file_size_bytes: 2048,
+      }),
+    });
+
+    expect(detailRows(wrapper)["channels.file"]?.text()).toBe(
+      "Game.srm · 2 KB",
+    );
+  });
+
+  it("names the core with its emulator and versions", () => {
+    const save = {
+      ...older.save!,
+      emulator: "libretro",
+      emulator_version: "1.19",
+      core: "mupen64plus_next",
+      core_version: "2.6",
+    };
+    const wrapper = mountViewer({
+      kind: "snapshot",
+      channel: channelFixture(),
+      snapshot: snapshotFixture({ save }),
+    });
+
+    expect(detailRows(wrapper)["channels.core"]?.text()).toBe(
+      "mupen64plus_next 2.6 (libretro 1.19)",
+    );
+  });
+
+  it("falls back to the snapshot's emulator without a save", () => {
+    const wrapper = mountViewer({
+      kind: "snapshot",
+      channel: channelFixture(),
+      snapshot: snapshotFixture({ save: null, emulator: "libretro" }),
+    });
+
+    const rows = detailRows(wrapper);
+    expect(rows["channels.core"]?.text()).toBe("libretro");
+    expect(rows["channels.file"]).toBeUndefined();
+  });
+
+  it("lists every device that holds the snapshot", () => {
+    const wrapper = mountViewer({
+      kind: "snapshot",
+      channel: channelFixture(),
+      snapshot: snapshotFixture({
+        held_by: [
+          { device: ownDevice, synced_at: older.created_at },
+          {
+            device: { ...ownDevice, id: "deck", name: "Deck" },
+            synced_at: older.created_at,
+          },
+        ],
+      }),
+    });
+
+    const lines = detailRows(wrapper)
+      ["channels.held-by"]!.findAll(".r-snapshot-viewer__line")
+      .map((l) => l.text());
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toMatch(/^Odin 3 · .+ ago$/);
+    expect(lines[1]).toMatch(/^Deck · /);
+  });
+
+  it("shows when the snapshot was saved and leaves out rows with no value", () => {
+    const wrapper = mountViewer({
+      kind: "snapshot",
+      channel: channelFixture(),
+      snapshot: snapshotFixture({
+        parent_snapshot_id: null,
+        emulator: null,
+        save: { ...older.save!, emulator: null, core: null },
+        held_by: [],
+      }),
+    });
+
+    const rows = detailRows(wrapper);
+    expect(rows["channels.saved"]?.text()).toBe(
+      new Date(older.created_at).toLocaleString("en-US"),
+    );
+    expect(rows["channels.parent"]).toBeUndefined();
+    expect(rows["channels.core"]).toBeUndefined();
+    expect(rows["channels.held-by"]).toBeUndefined();
   });
 });

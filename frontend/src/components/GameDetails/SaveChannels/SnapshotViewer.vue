@@ -7,13 +7,23 @@ import type {
   SnapshotSchema,
 } from "@/__generated__";
 import { useDeviceLabel } from "@/composables/useDeviceLabel";
-import { RBtn, RChip, RDrawer, RIcon, RImage, RMenu, RMenuItem } from "@/lib";
-import { formatRelativeDate } from "@/utils";
+import {
+  RBtn,
+  RChip,
+  RDrawer,
+  RIcon,
+  RImage,
+  RMenu,
+  RMenuItem,
+  RTooltip,
+} from "@/lib";
+import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
 import { emulatorKey } from "@/utils/assets";
 import {
   AUTO_STATE_SLOT,
   snapshotBadges,
   stateSlotLabel,
+  stripDatetimeTag,
 } from "@/utils/snapshots";
 
 /** What the drawer shows: a snapshot, or a save an older client filed without one. */
@@ -48,7 +58,7 @@ const emit = defineEmits<{
   download: [path: string, name: string];
 }>();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const deviceLabel = useDeviceLabel();
 
 const snapshot = computed(() =>
@@ -82,27 +92,72 @@ const heroSrc = computed(
     snapshot.value?.thumbnail?.download_path ??
     save.value?.screenshot?.download_path,
 );
-const details = computed<[string, string, boolean?][]>(() => {
-  const rows: [string, string, boolean?][] = [
-    [t("channels.channel"), channel.value?.label ?? ""],
+interface DetailRow {
+  label: string;
+  /** Several values stack one per line. */
+  value: string | string[];
+  mono?: boolean;
+  tooltip?: string;
+}
+
+function withVersion(name: string, version: string | null): string {
+  return version ? `${name} ${version}` : name;
+}
+
+/** The core with its emulator, e.g. "mupen64plus_next (libretro)", or just the emulator. */
+const coreLabel = computed(() => {
+  const saved = snapshot.value?.save;
+  const emulatorName = saved?.emulator ?? snapshot.value?.emulator;
+  const emulator = emulatorName
+    ? withVersion(emulatorName, saved?.emulator_version ?? null)
+    : "";
+  if (!saved?.core) return emulator;
+  const core = withVersion(saved.core, saved.core_version);
+  return emulator && emulatorName !== saved.core
+    ? `${core} (${emulator})`
+    : core;
+});
+
+/** The stored name carries the server's datetime tag; devices receive it without. */
+function fileRow(file: { file_name: string; file_size_bytes: number }) {
+  return {
+    label: t("channels.file"),
+    value: `${stripDatetimeTag(file.file_name)} · ${formatBytes(file.file_size_bytes)}`,
+    mono: true,
+    tooltip: file.file_name,
+  };
+}
+
+const details = computed<DetailRow[]>(() => {
+  const rows: DetailRow[] = [
+    { label: t("channels.channel"), value: channel.value?.label ?? "" },
   ];
-  if (snapshot.value) {
+  const snap = snapshot.value;
+  if (snap) {
     rows.push(
-      [t("channels.device"), deviceLabel(snapshot.value.device)],
-      [
-        t("channels.parent"),
-        snapshot.value.parent_snapshot_id
-          ? `#${snapshot.value.parent_snapshot_id}`
-          : "-",
-      ],
+      {
+        label: t("channels.saved"),
+        value: formatTimestamp(snap.created_at, locale.value),
+      },
+      { label: t("channels.device"), value: deviceLabel(snap.device) },
+      {
+        label: t("channels.parent"),
+        value: snap.parent_snapshot_id ? `#${snap.parent_snapshot_id}` : "",
+      },
+      { label: t("channels.core"), value: coreLabel.value, mono: true },
     );
-    if (snapshot.value.save) {
-      rows.push([t("channels.file"), snapshot.value.save.file_name, true]);
-    }
+    if (snap.save) rows.push(fileRow(snap.save));
+    rows.push({
+      label: t("channels.held-by"),
+      value: snap.held_by.map(
+        (held) =>
+          `${deviceLabel(held.device)} · ${formatRelativeDate(held.synced_at)}`,
+      ),
+    });
   } else if (save.value) {
-    rows.push([t("channels.file"), save.value.file_name, true]);
+    rows.push(fileRow(save.value));
   }
-  return rows;
+  return rows.filter((row) => row.value.length > 0);
 });
 /** Auto first, then numbered slots by number, then any other name. */
 function slotOrder(a: string, b: string): number {
@@ -259,9 +314,28 @@ const overflow = computed(() => actions.value.slice(1));
       </div>
 
       <dl class="r-snapshot-viewer__details">
-        <template v-for="[label, value, mono] in details" :key="label">
-          <dt>{{ label }}</dt>
-          <dd :class="{ 'r-snapshot-viewer__mono': mono }">{{ value }}</dd>
+        <template v-for="row in details" :key="row.label">
+          <dt>{{ row.label }}</dt>
+          <dd
+            :class="{ 'r-snapshot-viewer__mono': row.mono }"
+            :tabindex="row.tooltip ? 0 : undefined"
+          >
+            <template v-if="Array.isArray(row.value)">
+              <span
+                v-for="(line, i) in row.value"
+                :key="i"
+                class="r-snapshot-viewer__line"
+                >{{ line }}</span
+              >
+            </template>
+            <template v-else>{{ row.value }}</template>
+            <RTooltip
+              v-if="row.tooltip"
+              activator="parent"
+              :text="row.tooltip"
+              location="top start"
+            />
+          </dd>
         </template>
       </dl>
 
@@ -438,6 +512,9 @@ const overflow = computed(() => actions.value.slice(1));
 .r-snapshot-viewer__details dd {
   margin: 0;
   overflow-wrap: anywhere;
+}
+.r-snapshot-viewer__line {
+  display: block;
 }
 .r-snapshot-viewer__mono {
   font-family: var(--r-font-family-mono);

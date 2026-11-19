@@ -9,6 +9,7 @@ import {
   restoreManifest,
   saveDataCounts,
   snapshotBadges,
+  stripDatetimeTag,
   withoutStateManifest,
 } from "@/utils/snapshots";
 import {
@@ -170,5 +171,20 @@ describe("channelLabelForSlot", () => {
     expect(channelLabelForSlot("state_1")).toBeNull();
     expect(channelLabelForSlot("State_Quick [2026-01-01_00-00-00]")).toBeNull();
     expect(channelLabelForSlot(" [2026-01-01_00-00-00]")).toBeNull();
+  });
+});
+
+describe("stripDatetimeTag", () => {
+  it("drops the tag before the extension", () => {
+    expect(
+      stripDatetimeTag(
+        "Diddy Kong Racing (USA) (En,Fr) [2026-11-19_13-30-59-331].srm",
+      ),
+    ).toBe("Diddy Kong Racing (USA) (En,Fr).srm");
+    expect(stripDatetimeTag("save [2026-01-01_00-00-00].srm")).toBe("save.srm");
+  });
+
+  it("leaves an untagged name and other brackets alone", () => {
+    expect(stripDatetimeTag("Game (USA) [!].srm")).toBe("Game (USA) [!].srm");
   });
 });
