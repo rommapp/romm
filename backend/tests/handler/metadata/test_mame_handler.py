@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, patch
 
 from handler.metadata.mame_handler import (
     MameHandler,
+    game_name,
     set_name_of,
     set_type_of,
     year_epoch,
@@ -79,6 +80,18 @@ def test_set_types():
     assert set_type_of(machines["z80"][1]) == "device"
 
 
+def test_game_name_tags_parents_and_keeps_clones_whole():
+    assert game_name("Mortal Kombat II (rev L3.1)", "parent") == (
+        "Mortal Kombat II (parent)"
+    )
+    assert game_name("Pac-Man (Midway) (bootleg (set 1))", "parent") == (
+        "Pac-Man (parent)"
+    )
+    clone = "Street Fighter II': Champion Edition (Japan 920803)"
+    assert game_name(clone, "clone") == clone
+    assert game_name("Neo-Geo MV-6F", "bios") == "Neo-Geo MV-6F"
+
+
 def test_set_name_and_year():
     assert set_name_of("SFIIIA.zip") == "sfiiia"
     assert set_name_of("sfiii") == "sfiii"
@@ -132,7 +145,7 @@ async def test_match_machine_falls_back_to_bundled_index():
         rom = await MameHandler().match_machine("sf2.zip")
 
     assert rom["mame_id"] == "sf2"
-    assert rom["name"] == "Street Fighter II"
+    assert rom["name"] == "Street Fighter II (parent)"
     assert rom["mame_metadata"]["set_type"] == "parent"
     assert "is_mechanical" not in rom["mame_metadata"]
     assert "sourcefile" not in rom["mame_metadata"]

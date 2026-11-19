@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from datetime import UTC, datetime
 from typing import Any, Literal, NotRequired, TypedDict
 
@@ -43,6 +44,25 @@ def year_epoch(year: str | None) -> int | None:
     if not year or len(year) != 4 or not year.isdigit():
         return None
     return int(datetime(int(year), 1, 1, tzinfo=UTC).timestamp())
+
+
+_BRACKETED = re.compile(r"\s*\([^()]*\)")
+
+
+def game_name(description: str, set_type: MameSetType) -> str:
+    """The name a matched game takes: a parent's title tagged "(parent)", a clone's full one.
+
+    The parent's own bracketed details (region, date, revision) are dropped,
+    so it reads as the game its clones are versions of.
+    """
+    if set_type != "parent":
+        return description
+    title = description
+    # Inner groups first, so nested ones like "(bootleg (set 1))" go too.
+    while (stripped := _BRACKETED.sub("", title)) != title:
+        title = stripped
+    title = " ".join(title.split()) or description
+    return f"{title} (parent)"
 
 
 def set_type_of(machine: MameMachine) -> MameSetType:
@@ -130,6 +150,6 @@ class MameHandler(MetadataHandler):
         group = machine["cloneof"] if set_type == "clone" else set_name
         return MameRom(
             mame_id=group,
-            name=machine["description"],
+            name=game_name(machine["description"], set_type),
             mame_metadata=metadata,
         )
