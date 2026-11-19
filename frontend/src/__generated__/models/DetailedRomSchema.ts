@@ -160,7 +160,7 @@ export type DetailedRomSchema = {
      */
     summary: (string | null);
     /**
-     * Other titles the game is known by, merged from every matched provider.
+     * Other titles the game is known by, without the display name. The hand-set titles when there are any, otherwise those from IGDB, MobyGames and ScreenScraper.
      */
     alternative_names: Array<string>;
     /**
