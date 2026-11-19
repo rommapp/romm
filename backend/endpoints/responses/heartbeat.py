@@ -28,6 +28,7 @@ class MetadataSourcesDict(TypedDict):
     CSDB_API_ENABLED: bool
     STEAM_API_ENABLED: bool
     LIBRETRO_API_ENABLED: bool
+    MAME_API_ENABLED: bool
 
 
 class FilesystemDict(TypedDict):

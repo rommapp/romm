@@ -42,6 +42,7 @@ from endpoints.feeds import router as feeds_router
 from endpoints.firmware import router as firmware_router
 from endpoints.heartbeat import router as heartbeat_router
 from endpoints.logs import router as logs_router
+from endpoints.mame import router as mame_router
 from endpoints.memory_cards import router as memory_cards_router
 from endpoints.music import router as music_router
 from endpoints.music_playlists import router as music_playlists_router
@@ -137,6 +138,7 @@ app.add_middleware(
     max_size=MAX_ASSET_UPLOAD_SIZE_BYTES,
     paths=[
         re.compile(r"^/api/saves"),
+        re.compile(r"^/api/mame/index"),
         re.compile(r"^/api/states"),
         re.compile(r"^/api/screenshots"),
         re.compile(r"^/api/snapshots"),
@@ -211,6 +213,7 @@ app.include_router(snapshots_router, prefix="/api")
 app.include_router(channels_router, prefix="/api")
 app.include_router(sync_router, prefix="/api")
 app.include_router(tasks_router, prefix="/api")
+app.include_router(mame_router, prefix="/api")
 app.include_router(feeds_router, prefix="/api")
 app.include_router(configs_router, prefix="/api")
 app.include_router(stats_router, prefix="/api")

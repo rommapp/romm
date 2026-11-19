@@ -33,6 +33,7 @@ from handler.metadata.hasheous_handler import HasheousMetadata
 from handler.metadata.hltb_handler import HLTBMetadata
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.launchbox_handler.types import LaunchboxMetadata
+from handler.metadata.mame_handler import MameMetadata
 from handler.metadata.moby_handler import MobyMetadata
 from handler.metadata.pouet_handler import PouetMetadata
 from handler.metadata.ra_handler import RAMetadata
@@ -160,6 +161,11 @@ RomGamelistMetadata = TypedDict(  # type: ignore[misc]
     {k: NotRequired[v] for k, v in get_type_hints(GamelistMetadata).items()},
     total=False,
 )
+RomMameMetadata = TypedDict(  # type: ignore[misc]
+    "RomMameMetadata",
+    {k: NotRequired[v] for k, v in get_type_hints(MameMetadata).items()},
+    total=False,
+)
 ManualMetadata = TypedDict(
     "ManualMetadata",
     {
@@ -199,6 +205,7 @@ _METADATA_NAME_LIST_KEYS: Final = {
     "csdb_metadata": _name_list_keys(RomCsdbMetadata),
     "steam_metadata": _name_list_keys(RomSteamMetadata),
     "gamelist_metadata": _name_list_keys(RomGamelistMetadata),
+    "mame_metadata": _name_list_keys(RomMameMetadata),
     "manual_metadata": _name_list_keys(ManualMetadata),
     "merged_ra_metadata": _name_list_keys(RomRAMetadata),
 }
@@ -405,6 +412,7 @@ class RomSchema(BaseModel):
     steam_id: int | None
     gamelist_id: str | None
     libretro_id: str | None
+    mame_id: str | None
 
     platform_id: int
     platform_slug: str
@@ -440,6 +448,7 @@ class RomSchema(BaseModel):
     csdb_metadata: RomCsdbMetadata | None
     steam_metadata: RomSteamMetadata | None
     gamelist_metadata: RomGamelistMetadata | None
+    mame_metadata: RomMameMetadata | None
     manual_metadata: ManualMetadata | None
 
     path_cover_small: str | None

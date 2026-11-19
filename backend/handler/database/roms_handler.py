@@ -334,10 +334,17 @@ _FILTER_JSON_COLUMNS = {
     "languages": RomFacets.languages,
     "tags": RomFacets.tags,
 }
+# Single-value facets, offered as the distinct values present.
+_FILTER_SCALAR_COLUMNS = {
+    "mame_set_types": RomFacets.mame_set_type,
+    "mame_statuses": RomFacets.mame_status,
+    "mame_drivers": RomFacets.mame_driver,
+}
 # Cast to text in SQL: PostgreSQL's driver would otherwise decode JSONB itself.
 _FILTER_VALUES_SELECT = select(
     *(cast(column, Text) for column in _FILTER_JSON_COLUMNS.values()),
     RomFacets.player_count,
+    *(column for column in _FILTER_SCALAR_COLUMNS.values()),
     RomFacets.platform_id,
 )
 
@@ -1661,6 +1668,11 @@ class DBRomsHandler(DBBaseHandler):
         if filters.verified is not None:
             query = self._filter_by_verified(query, value=filters.verified)
 
+        if filters.mame_mechanical is not None:
+            query = query.filter(
+                Rom.generated_mame_mechanical.is_(filters.mame_mechanical)
+            )
+
         if filters.has_soundtrack is not None:
             query = (
                 query.filter(Rom.has_soundtrack)
@@ -1760,10 +1772,18 @@ class DBRomsHandler(DBBaseHandler):
                     Rom.tgdb_id,
                     Rom.flashpoint_id,
                     Rom.steam_id,
+                    Rom.mame_id,
                 )
                 .subquery()
             )
+            # MAME first: a clone matched to another game than its parent
+            # elsewhere still groups under the parent set.
             partition_key = func.coalesce(
+                _create_metadata_id_case(
+                    MetadataSource.MAME,
+                    base_subquery.c.mame_id,
+                    base_subquery.c.platform_id,
+                ),
                 _create_metadata_id_case(
                     MetadataSource.IGDB,
                     base_subquery.c.igdb_id,
@@ -4040,22 +4060,32 @@ class DBRomsHandler(DBBaseHandler):
         # Each distinct JSON text is parsed once, however many ROMs share it.
         texts: list[set[str | None]] = [set() for _ in _FILTER_JSON_COLUMNS]
         player_counts: set[str] = set()
+        scalars: list[set[str]] = [set() for _ in _FILTER_SCALAR_COLUMNS]
         platforms: set[int] = set()
+        json_count = len(_FILTER_JSON_COLUMNS)
         result = session.execute(
             statement, execution_options={"yield_per": _FILTER_VALUES_BATCH_SIZE}
         )
         for batch in result.partitions():
-            *json_columns, player_count_column, platform_column = zip(
-                *batch, strict=True
-            )
+            columns = list(zip(*batch, strict=True))
+            json_columns = columns[:json_count]
+            player_count_column = columns[json_count]
+            scalar_columns = columns[json_count + 1 : -1]
+            platform_column = columns[-1]
             for column, column_texts in zip(json_columns, texts, strict=True):
                 column_texts.update(column)
             player_counts.update(pc for pc in player_count_column if pc)
+            for column, values in zip(scalar_columns, scalars, strict=True):
+                values.update(value for value in column if value)
             platforms.update(platform_column)
 
         filters: dict[str, list[Any]] = {
             "player_counts": sorted(player_counts),
             "platforms": sorted(platforms),
+            **{
+                name: sorted(values)
+                for name, values in zip(_FILTER_SCALAR_COLUMNS, scalars, strict=True)
+            },
         }
         for name, column_texts in zip(_FILTER_JSON_COLUMNS, texts, strict=True):
             items: set[str] = set()

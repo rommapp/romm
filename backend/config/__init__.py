@@ -360,6 +360,13 @@ SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON: Final[str] = _get_env(
     "SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON",
     "0 4 * * *",  # At 4:00 AM every day
 )
+ENABLE_SCHEDULED_UPDATE_MAME_INDEX: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_UPDATE_MAME_INDEX")
+)
+SCHEDULED_UPDATE_MAME_INDEX_CRON: Final[str] = _get_env(
+    "SCHEDULED_UPDATE_MAME_INDEX_CRON",
+    "0 5 * * 0",  # At 5:00 AM every Sunday
+)
 ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP: Final[bool] = safe_str_to_bool(
     _get_env("ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP")
 )

@@ -14,6 +14,7 @@ from strsimpy.jaro_winkler import JaroWinkler
 
 from adapters.services.provider_http import unavailable
 from handler.dump_cache import hget_json
+from handler.metadata.mame_index import get_machine as get_mame_machine
 from handler.redis_handler import async_cache
 from logger.formatter import SENSITIVE_KEYS
 from logger.logger import log
@@ -110,6 +111,9 @@ def _fill_from_switch_entry(fallback_rom: BaseRom, index_entry: dict[str, Any]) 
 
 async def mame_title(shortname: str) -> str | None:
     """MAME's full title for a set, region and revision tags included."""
+    machine = await get_mame_machine(shortname)
+    if machine:
+        return machine["description"]
     entry = await async_cache.hget(MAME_XML_KEY, shortname)
     return json.loads(entry).get("description") if entry else None
 

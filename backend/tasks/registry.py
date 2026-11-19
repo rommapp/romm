@@ -21,6 +21,7 @@ from config import (
     ENABLE_SCHEDULED_RESCAN,
     ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC,
     ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
+    ENABLE_SCHEDULED_UPDATE_MAME_INDEX,
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
     ENABLE_SYNC_FOLDER_WATCHER,
     ENABLE_SYNC_PUSH_PULL,
@@ -38,6 +39,7 @@ from config import (
     SCHEDULED_RESCAN_CRON,
     SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON,
     SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
+    SCHEDULED_UPDATE_MAME_INDEX_CRON,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
     SNAPSHOT_BRANCH_LIFETIME_DAYS,
     SYNC_PUSH_PULL_CRON,
@@ -92,6 +94,21 @@ UPDATE_SWITCH_TITLEDB_SPEC: Final = TaskSpec(
     # The store lives only in the cache, and a rebuild that fails is not queued
     # again, so admins need a way to fill it with the cron off.
     manual_run_when_disabled=True,
+)
+
+UPDATE_MAME_INDEX_SPEC: Final = TaskSpec(
+    implementation="tasks.scheduled.update_mame_index.update_mame_index_task",
+    title="MAME index update",
+    description="Loads the MAME machine list from MAME's latest release",
+    task_type=TaskType.UPDATE,
+    enabled=ENABLE_SCHEDULED_UPDATE_MAME_INDEX,
+    cron_string=SCHEDULED_UPDATE_MAME_INDEX_CRON,
+    manual_run=True,
+    # The index lives only in the cache, so admins fill it with the cron off.
+    manual_run_when_disabled=True,
+    single_instance=True,
+    # Downloading and parsing a 250MB+ XML outlasts an ordinary task.
+    timeout=max(TASK_TIMEOUT, 30 * 60),
 )
 
 BUILD_RECOMMENDATIONS_SPEC: Final = TaskSpec(
@@ -305,6 +322,7 @@ SCHEDULED_TASKS: Final[dict[str, TaskSpec]] = {
     "scan_library": SCAN_LIBRARY_SPEC,
     "update_launchbox_metadata": UPDATE_LAUNCHBOX_METADATA_SPEC,
     "update_switch_titledb": UPDATE_SWITCH_TITLEDB_SPEC,
+    "update_mame_index": UPDATE_MAME_INDEX_SPEC,
     "build_recommendations": BUILD_RECOMMENDATIONS_SPEC,
     "convert_images_to_webp": CONVERT_IMAGES_TO_WEBP_SPEC,
     "cleanup_zip_cache": CLEANUP_ZIP_CACHE_SPEC,

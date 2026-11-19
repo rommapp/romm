@@ -190,6 +190,7 @@ def seed_rom_attrs(
                 "csdb_id": rom.csdb_id,
                 "steam_id": rom.steam_id,
                 "libretro_id": rom.libretro_id,
+                "mame_id": rom.mame_id,
                 **{c: getattr(rom, c) for c in PROVIDER_METADATA_COLUMNS},
             }
         )

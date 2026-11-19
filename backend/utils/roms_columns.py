@@ -59,6 +59,26 @@ SAVE_TARGET_LAYOUT_VALUES = (
 )
 
 STEAM_METADATA_COLUMN = "steam_metadata"
+MAME_METADATA_COLUMN = "mame_metadata"
+
+# The chains MAME's index feeds, after Steam: a set's other providers know it better.
+MAME_FED_COLUMNS = frozenset(
+    {
+        "generated_genres",
+        "generated_companies",
+        "generated_first_release_date",
+        "generated_first_release_date_unset",
+    }
+)
+_MAME_DATE = (MAME_METADATA_COLUMN, 1000)
+
+# (generated column, mame_metadata key, length) of the MAME filter values.
+MAME_TEXT_COLUMNS = [
+    ("generated_mame_set_type", "set_type", 16),
+    ("generated_mame_status", "status", 16),
+    ("generated_mame_driver", "sourcefile", 100),
+]
+MAME_MECHANICAL_COLUMN = "generated_mame_mechanical"
 
 # Provider precedence per array column, as 0098 and 0112 left it; 0123
 # appended Steam at the lowest precedence.
@@ -289,6 +309,7 @@ def _maria_first_release_date(with_steam: bool) -> str:
     branches.append(_maria_gamelist_date_branch())
     if with_steam:
         branches.append(_maria_int_date_branch(*_STEAM_DATE))
+        branches.append(_maria_int_date_branch(*_MAME_DATE))
     return "CASE\n    " + "\n    ".join(branches) + "\n    ELSE NULL END"
 
 
@@ -369,6 +390,7 @@ def _postgres_first_release_date(with_steam: bool) -> str:
     )
     if with_steam:
         branches.append(_postgres_int_date_branch(*_STEAM_DATE))
+        branches.append(_postgres_int_date_branch(*_MAME_DATE))
     return "CASE\n    " + "\n    ".join(branches) + "\n    ELSE NULL END"
 
 
@@ -409,6 +431,30 @@ def _postgres_hltb_main_story() -> str:
 _POSTGRES_PRIMARY_REGION = f"left(regions ->> 0, {PRIMARY_REGION_LENGTH})"
 
 
+def _mame_columns(pg: bool) -> list[GeneratedColumn]:
+    """The MAME set facts the gallery filters on, NULL for a non-MAME rom."""
+    src = MAME_METADATA_COLUMN
+    columns = []
+    for name, key, length in MAME_TEXT_COLUMNS:
+        if pg:
+            expression = f"left({src} ->> '{key}', {length})"
+        else:
+            expression = f"LEFT({_maria_text(src, f'$.{key}')}, {length})"
+        columns.append(GeneratedColumn(name, f"VARCHAR({length})", expression))
+    if pg:
+        mechanical = (
+            f"CASE WHEN {src} ? 'is_mechanical' "
+            f"THEN ({src} ->> 'is_mechanical') = 'true' ELSE NULL END"
+        )
+    else:
+        mechanical = (
+            f"CASE WHEN JSON_CONTAINS_PATH({src}, 'one', '$.is_mechanical') "
+            f"THEN {_maria_text(src, '$.is_mechanical')} = 'true' ELSE NULL END"
+        )
+    columns.append(GeneratedColumn(MAME_MECHANICAL_COLUMN, "BOOLEAN", mechanical))
+    return columns
+
+
 # ---------------------------------------------------------------------------
 # Catalog
 # ---------------------------------------------------------------------------
@@ -433,6 +479,8 @@ def steam_fed_columns(pg: bool, *, with_steam: bool) -> list[GeneratedColumn]:
     for name, sources in STEAM_FED_ARRAY_SOURCES.items():
         key = name[len("generated_") :]
         chain = sources + [STEAM_METADATA_COLUMN] if with_steam else sources
+        if with_steam and name in MAME_FED_COLUMNS:
+            chain = chain + [MAME_METADATA_COLUMN]
         columns.append(
             GeneratedColumn(name, "JSONB" if pg else "JSON", array_expr(key, chain))
         )
@@ -486,6 +534,7 @@ def generated_columns(pg: bool) -> list[GeneratedColumn]:
         ),
         hltb_main_story,
         hltb_main_story.unset_flag,
+        *_mame_columns(pg),
     ]
 
 
@@ -530,6 +579,8 @@ PLAIN_COLUMNS: list[sa.Column[Any]] = [
         nullable=False,
         server_default=sa.false(),
     ),
+    sa.Column("mame_id", sa.String(length=100)),
+    sa.Column(MAME_METADATA_COLUMN, CustomJSON()),
 ]
 
 
@@ -743,6 +794,20 @@ def ensure_roms_columns(conn: sa.Connection) -> None:
                 f"ALTER TABLE {TABLE} ALTER COLUMN {FULL_PATH_HASH_COLUMN} DROP DEFAULT"
             )
         )
+
+
+def mame_unfed_columns(conn: sa.Connection) -> list[GeneratedColumn]:
+    """The chains MAME should feed whose stored definition does not read it yet."""
+    pg = is_postgresql(conn)
+    present = {column["name"]: column for column in sa.inspect(conn).get_columns(TABLE)}
+    return [
+        column
+        for column in steam_fed_columns(pg, with_steam=True)
+        if column.name in MAME_FED_COLUMNS
+        and column.name in present
+        and MAME_METADATA_COLUMN
+        not in ((present[column.name].get("computed") or {}).get("sqltext") or "")
+    ]
 
 
 def drop_roms_columns(conn: sa.Connection) -> None:

@@ -884,6 +884,9 @@ def get_roms(
         regions=[],
         languages=[],
         tags=[],
+        mame_set_types=[],
+        mame_statuses=[],
+        mame_drivers=[],
         platforms=[],
     )
     if with_filter_values:

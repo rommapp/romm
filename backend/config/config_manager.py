@@ -422,6 +422,7 @@ VALID_SCAN_PRIORITY_SOURCES = frozenset(
         "gamelist",
         "libretro",
         "playmatch",
+        "mame",
     }
 )
 
@@ -843,6 +844,8 @@ class ConfigManager:
                 self._raw_config,
                 "scan.priority.metadata",
                 [
+                    # Only arcade sets match MAME, whose full set titles win there.
+                    "mame",
                     "igdb",
                     "moby",
                     "ss",

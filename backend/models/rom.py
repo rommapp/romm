@@ -81,6 +81,7 @@ PROVIDER_METADATA_COLUMNS: Final = (
     "csdb_metadata",
     "steam_metadata",
     "gamelist_metadata",
+    "mame_metadata",
 )
 
 # (metadata column, key) of each provider's alternative titles.
@@ -326,6 +327,7 @@ IDENTITY_ID_FIELDS: Final[tuple[str, ...]] = (
     "tgdb_id",
     "steam_id",
     "flashpoint_id",
+    "mame_id",
 )
 
 # Wide enough for the longest of those columns (`flashpoint_id`), since
@@ -755,7 +757,13 @@ class RomFacets(BaseModel):
     steam_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     gamelist_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
     libretro_id: Mapped[str | None] = mapped_column(String(length=64), default=None)
+    mame_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
     min_age: Mapped[int | None] = mapped_column(Integer(), default=None)
+
+    mame_set_type: Mapped[str | None] = mapped_column(String(length=16), default=None)
+    mame_status: Mapped[str | None] = mapped_column(String(length=16), default=None)
+    mame_driver: Mapped[str | None] = mapped_column(String(length=100), default=None)
+    mame_mechanical: Mapped[bool | None] = mapped_column(Boolean(), default=None)
 
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=func.now()
@@ -852,6 +860,8 @@ class Rom(BaseModel):
     steam_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     gamelist_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
     libretro_id: Mapped[str | None] = mapped_column(String(length=64), default=None)
+    # The parent set's short name, which a set's clones share.
+    mame_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
 
     __table_args__ = (
         # A custom library structure can hold the same file name in two folders,
@@ -884,6 +894,7 @@ class Rom(BaseModel):
             "tgdb_id",
             "flashpoint_id",
             "steam_id",
+            "mame_id",
             "fs_name_no_ext",
             "generated_primary_region",
             "id",
@@ -941,6 +952,7 @@ class Rom(BaseModel):
         Index("idx_roms_steam_id", "steam_id"),
         Index("idx_roms_gamelist_id", "gamelist_id"),
         Index("idx_roms_libretro_id", "libretro_id"),
+        Index("idx_roms_mame_id", "mame_id"),
         Index("idx_roms_title_id", "title_id"),
         # Searching the gallery by a hash digest
         Index("idx_roms_crc_hash", "crc_hash"),
@@ -1007,6 +1019,9 @@ class Rom(BaseModel):
     gamelist_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
+    mame_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
     manual_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
@@ -1055,6 +1070,32 @@ class Rom(BaseModel):
         server_onupdate=FetchedValue(),
     )
     generated_hltb_main_story_unset: Mapped[bool] = mapped_column(
+        Boolean(),
+        nullable=True,
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
+    )
+
+    # What MAME's index says of the set, NULL for any other rom.
+    generated_mame_set_type: Mapped[str | None] = mapped_column(
+        String(length=16),
+        nullable=True,
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
+    )
+    generated_mame_status: Mapped[str | None] = mapped_column(
+        String(length=16),
+        nullable=True,
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
+    )
+    generated_mame_driver: Mapped[str | None] = mapped_column(
+        String(length=100),
+        nullable=True,
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
+    )
+    generated_mame_mechanical: Mapped[bool | None] = mapped_column(
         Boolean(),
         nullable=True,
         server_default=FetchedValue(),
@@ -1571,6 +1612,7 @@ METADATA_SOURCE_COLUMNS: dict[str, InstrumentedAttribute[Any]] = {
     "steam": Rom.steam_id,
     "gamelist": Rom.gamelist_id,
     "libretro": Rom.libretro_id,
+    "mame": Rom.mame_id,
 }
 
 
@@ -1598,6 +1640,7 @@ METADATA_SOURCE_FACET_COLUMNS: dict[str, InstrumentedAttribute[Any]] = {
     "steam": RomFacets.steam_id,
     "gamelist": RomFacets.gamelist_id,
     "libretro": RomFacets.libretro_id,
+    "mame": RomFacets.mame_id,
 }
 
 

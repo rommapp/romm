@@ -11,6 +11,7 @@ from .hltb_handler import HLTBHandler
 from .igdb_handler import IGDBHandler
 from .launchbox_handler import LaunchboxHandler
 from .libretro_handler import LibretroHandler
+from .mame_handler import MameHandler
 from .moby_handler import MobyGamesHandler
 from .playmatch_handler import PlaymatchHandler
 from .pouet_handler import PouetHandler, pouet_id_from_location
@@ -29,6 +30,7 @@ meta_ra_handler = RAHandler()
 meta_playmatch_handler = PlaymatchHandler()
 meta_launchbox_handler = LaunchboxHandler()
 meta_libretro_handler = LibretroHandler()
+meta_mame_handler = MameHandler()
 meta_hasheous_handler = HasheousHandler()
 meta_tgdb_handler = TGDBHandler()
 meta_flashpoint_handler = FlashpointHandler()

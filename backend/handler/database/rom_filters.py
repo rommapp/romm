@@ -58,6 +58,9 @@ ROM_FILTER_SPECS: tuple[RomFilterSpec, ...] = (
     RomFilterSpec("player_counts", FilterKind.SCALAR_IN, RomFacets.player_count),
     RomFilterSpec("metadata_providers", FilterKind.PROVIDER_IDS),
     RomFilterSpec("tags", FilterKind.JSON_ARRAY, RomFacets.tags),
+    RomFilterSpec("mame_set_types", FilterKind.SCALAR_IN, RomFacets.mame_set_type),
+    RomFilterSpec("mame_statuses", FilterKind.SCALAR_IN, RomFacets.mame_status),
+    RomFilterSpec("mame_drivers", FilterKind.SCALAR_IN, RomFacets.mame_driver),
 )
 
 # `statuses` is absent above on purpose: it matches against RomUser, after the
@@ -78,6 +81,9 @@ class RomFiltersDict(TypedDict):
     regions: list[str]
     languages: list[str]
     tags: list[str]
+    mame_set_types: list[str]
+    mame_statuses: list[str]
+    mame_drivers: list[str]
     platforms: list[int]
 
 
@@ -269,7 +275,7 @@ class RomFilterParams(BaseModel):
     metadata_providers: Annotated[
         list[str] | None,
         Field(
-            description="Matched metadata provider (igdb, moby, ss, ra, launchbox, hasheous, flashpoint, hltb, demozoo, pouet, csdb, steam, gamelist, libretro). Multiple values are allowed by repeating the parameter, and results that match any of the values will be returned."
+            description="Matched metadata provider (igdb, moby, ss, ra, launchbox, hasheous, flashpoint, hltb, demozoo, pouet, csdb, steam, gamelist, libretro, mame). Multiple values are allowed by repeating the parameter, and results that match any of the values will be returned."
         ),
     ] = None
     tags: Annotated[
@@ -356,6 +362,48 @@ class RomFilterParams(BaseModel):
             description="Logic operator for tags filter: 'any' (OR), 'all' (AND) or 'none' (NOT)."
         ),
     ] = "any"
+    mame_set_types: Annotated[
+        list[str] | None,
+        Field(
+            description="MAME set type (parent, clone, bios, device), from the MAME index. Multiple values are allowed by repeating the parameter, and results that match any of the values will be returned."
+        ),
+    ] = None
+    mame_statuses: Annotated[
+        list[str] | None,
+        Field(
+            description="MAME emulation status (good, imperfect, preliminary), from the MAME index. Multiple values are allowed by repeating the parameter, and results that match any of the values will be returned."
+        ),
+    ] = None
+    mame_drivers: Annotated[
+        list[str] | None,
+        Field(
+            description="MAME source driver (e.g. cps3.cpp), from the MAME index. Multiple values are allowed by repeating the parameter, and results that match any of the values will be returned."
+        ),
+    ] = None
+    mame_set_types_logic: Annotated[
+        str,
+        Field(
+            description="Logic operator for MAME set types filter: 'any' (OR), 'all' (AND) or 'none' (NOT)."
+        ),
+    ] = "any"
+    mame_statuses_logic: Annotated[
+        str,
+        Field(
+            description="Logic operator for MAME statuses filter: 'any' (OR), 'all' (AND) or 'none' (NOT)."
+        ),
+    ] = "any"
+    mame_drivers_logic: Annotated[
+        str,
+        Field(
+            description="Logic operator for MAME drivers filter: 'any' (OR), 'all' (AND) or 'none' (NOT)."
+        ),
+    ] = "any"
+    mame_mechanical: Annotated[
+        bool | None,
+        Field(
+            description="Whether the rom is a mechanical MAME set, from the MAME index. Roms without MAME data are excluded either way."
+        ),
+    ] = None
     hltb_main_story_min: Annotated[
         int | None,
         Field(
