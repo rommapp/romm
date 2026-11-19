@@ -92,12 +92,7 @@ def register_device(
     response: Response,
     payload: DeviceCreatePayload,
 ) -> DeviceCreateResponse:
-    """Register a device. Returns 201 with the new device's ID.
-
-    Devices with the same MAC address, hostname and platform count as one device.
-    Unless `allow_duplicate` is set, a second registration returns 409, or 200
-    with the existing device when `allow_existing` is set.
-    """
+    """Register a device and return its ID. A repeat of the same MAC address, hostname and platform returns 409 unless `allow_existing` or `allow_duplicate` is set."""
     existing_device = None
     if not payload.allow_duplicate:
         existing_device = db_device_handler.get_device_by_fingerprint(

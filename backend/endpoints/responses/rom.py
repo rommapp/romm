@@ -509,7 +509,7 @@ class RomSchema(BaseModel):
 
     # Metadata fields
     alternative_names: list[str]
-    """Other titles the game is known by, merged from every matched provider."""
+    """Other titles the game is known by, without the display name. The hand-set titles when there are any, otherwise those from IGDB, MobyGames and ScreenScraper."""
     youtube_video_id: str | None
     """The ID of a YouTube video for the game, when a provider supplies one."""
     metadatum: RomMetadataSchema

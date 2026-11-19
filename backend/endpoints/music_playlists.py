@@ -124,10 +124,7 @@ def update_playlist(
     id: Annotated[int, PathVar(description="Playlist internal id.", ge=1)],
     payload: MusicPlaylistUpdateRequest,
 ) -> MusicPlaylistSchema:
-    """Update one of your playlists. Only the fields sent change.
-
-    A name you already use for another playlist is rejected.
-    """
+    """Update one of your playlists; only the fields sent change. A name you already use for another playlist is rejected."""
     playlist = _get_owned_playlist(request, id)
     data = payload.model_dump(exclude_unset=True, exclude_none=True)
     if "description" in payload.model_fields_set:

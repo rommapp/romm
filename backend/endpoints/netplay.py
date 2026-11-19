@@ -65,10 +65,7 @@ async def get_rooms(
         ),
     ],
 ) -> Dict[str, RoomsResponse]:
-    """List the open netplay rooms for a game.
-
-    The list is empty when the caller cannot use emulation.
-    """
+    """List the open netplay rooms for a game. The list is empty when the caller cannot use emulation."""
     visible_rom_or_404(request, db_rom_handler.get_rom_visibility(game_id), game_id)
 
     # Empty rather than 403, like the streaming joinable list.

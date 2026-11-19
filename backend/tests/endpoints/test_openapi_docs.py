@@ -1,20 +1,4 @@
-"""What the OpenAPI document tells a reader about the documented endpoints.
-
-Reads `app.openapi()`, the document Swagger, ReDoc and the generated frontend
-types come from, so it checks what readers see: inherited fields, parameters
-FastAPI derives and fields documented through attribute docstrings included.
-
-A parameter, schema field or operation counts as documented when it carries a
-non-blank description. Two rules keep the check passing while the rest of the
-API is documented:
-
-- Every parameter and operation of a router in `DOCUMENTED_ROUTERS` must be
-  documented. Add a router there once its parameters and operations are done.
-- A schema with any documented field must have all of them documented. A schema
-  nobody has started is skipped.
-
-A failure counts the gaps per group, then lists some.
-"""
+"""Checks that the OpenAPI document describes every parameter, operation and schema field."""
 
 from collections import Counter
 from typing import Any
@@ -22,11 +6,12 @@ from typing import Any
 import pytest
 from main import app
 
-HTTP_METHODS = ("get", "post", "put", "patch", "delete")
+HTTP_METHODS = ("get", "post", "put", "patch", "delete", "head")
 GROUPS_SHOWN = 30
 LINES_SHOWN = 20
 
-# The first path segment after `/api` for each router held to the rule.
+# Routers whose parameters and operations must all have a description, named by
+# the first path segment after `/api`. Add a router once it is done.
 DOCUMENTED_ROUTERS = frozenset(
     {
         "roms",
@@ -185,6 +170,7 @@ def test_every_operation_has_a_description(operations: list[Operation]):
     _assert_none(problems, "operations")
 
 
+# A schema with any described field must have all of them; untouched ones are skipped.
 def test_every_started_schema_is_fully_documented(
     spec: dict[str, Any], operations: list[Operation]
 ):

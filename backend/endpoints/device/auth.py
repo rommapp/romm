@@ -283,11 +283,7 @@ def approve(
 
 @protected_route(router.post, "/deny", [Scope.ME_WRITE])
 def deny(request: Request, payload: DeviceAuthDenyPayload) -> None:
-    """Deny a pending device authorization, so the device never gets a token.
-
-    Returns 404 for an unknown or expired code, and 410 for one already approved
-    or denied.
-    """
+    """Deny a pending device authorization. An unknown or expired code returns 404, and one already approved or denied returns 410."""
     normalized = normalize_user_code(payload.user_code)
     device_code = resolve_device_code_from_user_code(normalized)
     if device_code is None:

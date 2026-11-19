@@ -60,12 +60,7 @@ def create_token(
     request: Request,
     payload: ClientTokenCreatePayload,
 ) -> ClientTokenCreateSchema:
-    """Create a client token. Its scopes cannot exceed the caller's.
-
-    The response includes the token's secret, which cannot be retrieved later. A
-    device-bound token cannot create tokens, and each user can hold a limited
-    number.
-    """
+    """Create a client token with scopes no wider than the caller's. The response holds its secret, which cannot be retrieved later."""
     if token_device_id(request) is not None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -137,11 +132,7 @@ async def regenerate_token(
     request: Request,
     token_id: int = PathVar(description="The ID of the client token."),
 ) -> ClientTokenCreateSchema:
-    """Replace a token's secret with a new one.
-
-    The old secret stops working. The response includes the new one, which cannot
-    be retrieved later.
-    """
+    """Replace a token's secret. The old one stops working, and the new one is returned once."""
     existing = db_client_token_handler.get_token(
         token_id=token_id, user_id=request.user.id
     )
@@ -176,10 +167,7 @@ def pair_token(
     request: Request,
     token_id: int = PathVar(description="The ID of the client token."),
 ) -> ClientTokenPairSchema:
-    """Create a pairing code for a token. The code works once.
-
-    `expires_in` gives its lifetime in seconds.
-    """
+    """Create a pairing code for a token. It works once, and `expires_in` gives its lifetime in seconds."""
     token = db_client_token_handler.get_token(
         token_id=token_id, user_id=request.user.id
     )
@@ -222,10 +210,7 @@ async def exchange_pair_code(
     request: Request,
     payload: ClientTokenExchangePayload,
 ) -> ClientTokenCreateSchema:
-    """Exchange a pairing code for a new secret for its token.
-
-    The code is used up, and the token's previous secret is replaced.
-    """
+    """Exchange a pairing code for a new secret for its token. The code is used up and the previous secret is replaced."""
     token = exchange(request, payload.code)
     await close_client_token_sockets([token.id])
     return token

@@ -65,11 +65,7 @@ def ingest_play_sessions(
     request: Request,
     payload: PlaySessionIngestPayload,
 ) -> PlaySessionIngestResponse:
-    """Record a batch of play sessions reported by a client.
-
-    The batch needs at least one session, and its size is limited. Sessions
-    belong to the payload's `device_id`, or else to the client token's device.
-    """
+    """Record a batch of play sessions reported by a client. Sessions belong to the payload's `device_id`, or else to the client token's device."""
     if not payload.sessions:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -142,11 +138,7 @@ def get_play_sessions(
         ),
     ] = None,
 ) -> list[PlaySessionSchema]:
-    """List the caller's play sessions.
-
-    A client may read its own device's sessions with `roms.user.read`. Any other
-    device needs the `devices.read` scope.
-    """
+    """List the caller's play sessions. A client may read its own device's sessions with `roms.user.read`; any other device needs `devices.read`."""
     # A device-bound client may read its own device with roms.user.read alone.
     if (
         device_id is None or device_id != token_device_id(request)

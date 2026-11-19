@@ -1433,11 +1433,7 @@ def get_rom_by_hash(
         str | None, Query(description="RetroAchievements hash value")
     ] = None,
 ) -> DetailedRomSchema:
-    """Find a rom by the hash of the rom or of one of its files.
-
-    At least one hash is required, or the response is 400. A hash that matches
-    nothing the caller can see returns 404.
-    """
+    """Find a rom by the hash of the rom or one of its files. No hash returns 400, and a match the caller cannot see returns 404."""
     if not crc_hash and not md5_hash and not sha1_hash and not ra_hash:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1459,11 +1455,7 @@ def get_rom_by_hash(
 
 @protected_route(router.get, "/filters", [Scope.ROMS_READ])
 def get_rom_filters(request: Request) -> RomFiltersDict:
-    """List the values the filter dropdowns offer, across the whole library.
-
-    Only roms the caller can see count. No platform, collection or search
-    narrows the list.
-    """
+    """List the values the filter dropdowns offer across the whole library, counting only roms the caller can see."""
     from handler.database import db_rom_handler
 
     return db_rom_handler.get_rom_filters(get_rom_visibility_filter(request))
