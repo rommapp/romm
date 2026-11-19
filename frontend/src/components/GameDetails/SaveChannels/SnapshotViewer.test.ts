@@ -11,6 +11,7 @@ import {
 import SnapshotViewer, { type ViewerTarget } from "./SnapshotViewer.vue";
 
 vi.mock("vue-i18n");
+vi.mock("@/stores/streaming", () => import("@/test-utils/streamingStore"));
 
 const RDrawer = {
   template: `<div><slot name="header" /><slot /><slot name="footer" /></div>`,
@@ -341,6 +342,17 @@ describe("SnapshotViewer", () => {
       },
       null,
       "mGBA 0.10.3",
+    ],
+    [
+      "and its emulator by their display names",
+      {
+        emulator: "retroarch",
+        emulator_version: "1.19",
+        core: "play",
+        core_version: null,
+      },
+      null,
+      "Play! (RetroArch 1.19)",
     ],
     [
       "by the snapshot's emulator, without the save's version",

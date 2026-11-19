@@ -17,6 +17,7 @@ import {
   RMenuItem,
   RTooltip,
 } from "@/lib";
+import { useStreamingStore } from "@/stores/streaming";
 import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
 import { emulatorKey } from "@/utils/assets";
 import {
@@ -60,6 +61,7 @@ const emit = defineEmits<{
 
 const { t, locale } = useI18n();
 const deviceLabel = useDeviceLabel();
+const { emulatorLabel } = useStreamingStore();
 
 const snapshot = computed(() =>
   props.target?.kind === "snapshot" ? props.target.snapshot : null,
@@ -104,18 +106,19 @@ function withVersion(name: string, version: string | null): string {
   return version ? `${name} ${version}` : name;
 }
 
-/** The core with its emulator, e.g. "mupen64plus_next (libretro)", or just the emulator. */
+/** The core with its emulator, e.g. "Mupen64Plus-Next (RetroArch)", or just the emulator. */
 const coreLabel = computed(() => {
   const saved = snapshot.value?.save;
   const name = saved?.emulator || snapshot.value?.emulator || "";
   // The save's version describes the save's emulator, not the snapshot's.
   const version = saved?.emulator ? saved.emulator_version : null;
-  const emulator = name && withVersion(name, version);
+  const emulator = name && withVersion(emulatorLabel(name), version);
   if (!saved?.core) return emulator;
+  const coreName = emulatorLabel(saved.core);
   if (emulatorKey(name) === emulatorKey(saved.core)) {
-    return withVersion(saved.core, saved.core_version ?? version);
+    return withVersion(coreName, saved.core_version ?? version);
   }
-  const core = withVersion(saved.core, saved.core_version);
+  const core = withVersion(coreName, saved.core_version);
   return emulator ? `${core} (${emulator})` : core;
 });
 
@@ -149,7 +152,7 @@ const details = computed<DetailRow[]>(() => {
         label: t("channels.parent"),
         value: snap.parent_snapshot_id ? `#${snap.parent_snapshot_id}` : "",
       },
-      { label: t("channels.core"), value: coreLabel.value, mono: true },
+      { label: t("channels.core"), value: coreLabel.value },
     );
     if (snap.save) rows.push(fileRow(snap.save));
     rows.push({
