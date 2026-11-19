@@ -176,6 +176,30 @@ def test_list_lengths_follow_the_measured_shape() -> None:
     assert abs(lengths[len(lengths) // 2] - p50) <= 1
 
 
+def test_the_longest_keyword_list_holds_distinct_keywords() -> None:
+    top = generate_test_data.LIST_SHAPES["igdb.keywords"][-1]
+
+    assert len(set(generate_test_data.KEYWORDS)) >= top
+    keywords = random.Random(5).sample(generate_test_data.KEYWORDS, top)
+    assert len(set(keywords)) == top
+
+
+def test_a_wipe_clears_snapshots_before_the_saves_and_states_they_hold() -> None:
+    class _Recorder:
+        def __init__(self) -> None:
+            self.deleted: list[str] = []
+
+        def execute(self, statement: Any) -> None:
+            self.deleted.append(str(statement).removeprefix("DELETE FROM "))
+
+    conn = _Recorder()
+
+    generate_test_data._wipe(conn)  # type: ignore[arg-type]
+
+    assert conn.deleted.index("snapshots") < conn.deleted.index("states")
+    assert conn.deleted.index("snapshots") < conn.deleted.index("saves")
+
+
 def test_igdb_metadata_always_has_ten_similar_games() -> None:
     metadata = generate_test_data.build_igdb_metadata(random.Random(3), _facts(3))
 

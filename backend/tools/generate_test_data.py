@@ -379,12 +379,23 @@ EXTENSIONS_BY_SLUG: dict[str, list[str]] = {
 
 DISC_HINTS = ("ps", "dc", "saturn", "cd", "ngc", "wii", "psp", "3do", "cdi")
 
-KEYWORDS = [
+_KEYWORD_TOPICS = [
     "boss fight", "pixel art", "side-scrolling", "time limit", "power-ups",
     "high score", "save point", "password system", "multiple endings",
     "dungeon", "level selection", "unlockable content", "wall jump",
     "difficulty level", "invincibility", "secret area", "sequel", "spin-off",
 ]  # fmt: skip
+_KEYWORD_QUALIFIERS = [
+    "hidden", "timed", "optional", "scripted", "branching", "random", "classic",
+    "late-game", "early-game", "co-op", "bonus", "final", "chained", "layered",
+    "silent", "rare",
+]  # fmt: skip
+# Larger than the longest measured keyword list (213), so a draw without
+# replacement can fill it with distinct values.
+KEYWORDS = [
+    *_KEYWORD_TOPICS,
+    *(f"{q} {t}" for q in _KEYWORD_QUALIFIERS for t in _KEYWORD_TOPICS),
+]
 IGDB_PLATFORM_NAMES = [p["name"] for p in IGDB_PLATFORM_LIST.values()]
 # (least, p50, p90, p99, max) list lengths, measured 2026-11-17 on one
 # 9,172-game library.
@@ -565,9 +576,7 @@ def build_igdb_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]
         "first_release_date": f["release_ts"],
         "youtube_video_id": rand_hex(rng, 6),
         "genres": f["genres"],
-        "keywords": [
-            more.choice(KEYWORDS) for _ in range(sample_length(more, "igdb.keywords"))
-        ],
+        "keywords": more.sample(KEYWORDS, sample_length(more, "igdb.keywords")),
         "franchises": f["franchises"],
         "alternative_names": [
             f"{f['title']} ({more.choice(REGIONS)})"
