@@ -1,6 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeAuth from "@/stores/auth";
+import { userFixture } from "@/utils/user.fixtures";
 import RetroAchievementsSection from "./RetroAchievementsSection.vue";
 
 const {
@@ -45,7 +46,7 @@ beforeEach(() => {
   updateUser.mockReset();
   refreshRetroAchievements.mockReset();
   snackbarError.mockReset();
-  storeAuth().user = { id: 1, ra_username: "me" } as never;
+  storeAuth().user = userFixture({ id: 1, ra_username: "me" });
 });
 
 describe("RetroAchievementsSection", () => {
@@ -65,11 +66,15 @@ describe("RetroAchievementsSection", () => {
     expect(fetchCurrentUser).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the saved username before the sync finishes", async () => {
-    storeAuth().user = { id: 1, ra_username: null } as never;
-    fetchCurrentUser.mockResolvedValue({ data: { id: 1, ra_username: "me" } });
-    updateUser.mockResolvedValue({ data: { id: 1, ra_username: "me" } });
-    refreshRetroAchievements.mockResolvedValue(undefined);
+  it("keeps the saved username visible when the sync request fails", async () => {
+    storeAuth().user = userFixture({ id: 1, ra_username: null });
+    fetchCurrentUser.mockResolvedValue({
+      data: userFixture({ id: 1, ra_username: "me" }),
+    });
+    updateUser.mockResolvedValue({
+      data: userFixture({ id: 1, ra_username: "me" }),
+    });
+    refreshRetroAchievements.mockRejectedValue(new Error("429"));
     const wrapper = mount(RetroAchievementsSection);
 
     await wrapper.find("input").setValue("me");
@@ -81,6 +86,7 @@ describe("RetroAchievementsSection", () => {
       id: 1,
       incremental: false,
     });
+    expect(snackbarError).toHaveBeenCalled();
     expect(storeAuth().user?.ra_username).toBe("me");
   });
 });
