@@ -739,14 +739,26 @@ class TestRetroArchSyncStateScreenshots:
 
 
 class TestRetroArchSyncCopy:
-    path = "/api/sync/retroarch/saves/Snes9x/test_rom.srm"
-    backup = "/api/sync/retroarch/deleted/saves/Snes9x/test_rom.srm-261118-120000"
+    path = "/api/sync/retroarch/saves/Snes9x/test_rom.sav"
+    backup = "/api/sync/retroarch/deleted/saves/Snes9x/test_rom.sav-261118-120000"
+    config = "/api/sync/retroarch/config/retroarch.cfg"
+
+    def _put(self, client, path: str, content: bytes) -> None:
+        response = client.put(path, content=content, auth=ADMIN_AUTH)
+        assert response.status_code in (201, 204)
+
+    def _copy(self, client, path: str, destination: str, **headers: str) -> int:
+        response = client.request(
+            "COPY",
+            path,
+            headers={"Destination": destination, **headers},
+            auth=ADMIN_AUTH,
+        )
+        status_code: int = response.status_code
+        return status_code
 
     def test_first_upload_can_follow_a_missing_source(self, client, admin_user, rom):
-        copy = client.request(
-            "COPY", self.path, headers={"Destination": self.backup}, auth=ADMIN_AUTH
-        )
-        assert copy.status_code == status.HTTP_404_NOT_FOUND
+        assert self._copy(client, self.path, self.backup) == 404
         assert (
             client.put(self.path, content=b"first", auth=ADMIN_AUTH).status_code == 201
         )
@@ -754,25 +766,10 @@ class TestRetroArchSyncCopy:
     def test_previous_bytes_can_be_restored_after_replacement(
         self, client, admin_user, editor_user, rom
     ):
-        assert (
-            client.put(self.path, content=b"first", auth=ADMIN_AUTH).status_code == 201
-        )
-        headers = {"Destination": f"http://testserver{self.backup}", "Overwrite": "F"}
-        assert (
-            client.request(
-                "COPY", self.path, headers=headers, auth=ADMIN_AUTH
-            ).status_code
-            == 201
-        )
-        assert (
-            client.put(self.path, content=b"second", auth=ADMIN_AUTH).status_code == 201
-        )
-        assert (
-            client.request(
-                "COPY", self.path, headers=headers, auth=ADMIN_AUTH
-            ).status_code
-            == 412
-        )
+        self._put(client, self.path, b"first")
+        assert self._copy(client, self.path, self.backup, Overwrite="F") == 201
+        self._put(client, self.path, b"second")
+        assert self._copy(client, self.path, self.backup, Overwrite="F") == 412
         backup = client.get(self.backup, auth=ADMIN_AUTH)
         assert backup.status_code == 200 and backup.content == b"first"
         assert client.get(self.backup, auth=EDITOR_AUTH).status_code == 404
@@ -781,38 +778,41 @@ class TestRetroArchSyncCopy:
         )
         assert manifest.status_code == 200 and "deleted/" not in manifest.text
         assert client.get(self.path, auth=ADMIN_AUTH).content == b"second"
-        assert (
-            client.put(self.path, content=backup.content, auth=ADMIN_AUTH).status_code
-            == 201
-        )
+        self._put(client, self.path, backup.content)
         assert client.get(self.path, auth=ADMIN_AUTH).content == b"first"
+
+    def test_versioned_save_has_nothing_to_back_up(self, client, admin_user, rom):
+        path = "/api/sync/retroarch/saves/Snes9x/test_rom.srm"
+        backup = "/api/sync/retroarch/deleted/saves/Snes9x/test_rom.srm-261118-120000"
+        self._put(client, path, b"first")
+        assert self._copy(client, path, backup) == 404
 
     @pytest.mark.parametrize(
         "retention, kept", [(2, [False, True, True]), (0, [True, True, True])]
     )
-    def test_config_backup_retention(
+    def test_backup_retention_follows_age_not_name(
         self, client, admin_user, monkeypatch, retention, kept
     ):
         monkeypatch.setattr(
-            "handler.filesystem.retroarch_sync_handler.MAX_SAVES_PER_SLOT", retention
+            "handler.sync.retroarch.sync_handler.MAX_SAVES_PER_SLOT", retention
         )
-        path = "/api/sync/retroarch/config/retroarch.cfg"
+        # Stamped in each client's own time zone, so a newer one can sort first.
         backups = [
-            f"/api/sync/retroarch/deleted/config/retroarch.cfg-261118-12000{i}"
-            for i in range(3)
+            f"/api/sync/retroarch/deleted/config/retroarch.cfg-{stamp}"
+            for stamp in ("261118-120002", "261118-120000", "261118-120001")
         ]
-        assert client.put(path, content=b"settings", auth=ADMIN_AUTH).status_code == 201
-        for backup in backups:
-            assert (
-                client.request(
-                    "COPY", path, headers={"Destination": backup}, auth=ADMIN_AUTH
-                ).status_code
-                == 201
+        for age, backup in enumerate(backups):
+            self._put(client, self.config, f"v{age}".encode())
+            stored = fs_retroarch_sync_handler.validate_path(
+                sync_handler.user_blob_path(admin_user, "config/retroarch.cfg")
             )
-        for backup, is_kept in zip(backups, kept, strict=True):
+            os.utime(stored, ns=(age * 10**9, age * 10**9))
+            assert self._copy(client, self.config, backup) == 201
+
+        for age, (backup, is_kept) in enumerate(zip(backups, kept, strict=True)):
             response = client.get(backup, auth=ADMIN_AUTH)
             if is_kept:
-                assert response.content == b"settings"
+                assert response.content == f"v{age}".encode()
             else:
                 assert response.status_code == 404
 
@@ -820,64 +820,47 @@ class TestRetroArchSyncCopy:
         self, client, synced_state: State
     ):
         assert not fs_asset_handler.validate_path(synced_state.full_path).exists()
-        response = client.request(
-            "COPY",
-            "/api/sync/retroarch/states/Snes9x/test_rom.state",
-            headers={
-                "Destination": self.backup.replace(
-                    "saves/Snes9x/test_rom.srm", "states/Snes9x/test_rom.state"
-                )
-            },
-            auth=ADMIN_AUTH,
+        path = "/api/sync/retroarch/states/Snes9x/test_rom.state"
+        backup = (
+            "/api/sync/retroarch/deleted/states/Snes9x/test_rom.state-261118-120000"
         )
-        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert self._copy(client, path, backup) == 404
 
     def test_vanished_source_does_not_authorize_a_replacement(
         self, client, admin_user, rom, monkeypatch
     ):
-        assert (
-            client.put(self.path, content=b"first", auth=ADMIN_AUTH).status_code == 201
-        )
+        self._put(client, self.path, b"first")
         monkeypatch.setattr(
-            fs_retroarch_sync_handler, "copy_backup", mock.AsyncMock(return_value=None)
+            fs_retroarch_sync_handler,
+            "publish_backup",
+            mock.AsyncMock(return_value=None),
         )
-        response = client.request(
-            "COPY", self.path, headers={"Destination": self.backup}, auth=ADMIN_AUTH
-        )
-        assert response.status_code == status.HTTP_409_CONFLICT
+        assert self._copy(client, self.path, self.backup) == 409
 
     @pytest.mark.parametrize(
         "destination",
         [
-            "https://other.example/api/sync/retroarch/deleted/saves/Snes9x/test_rom.srm-261118-120000",
-            "/api/sync/retroarch/deleted/saves/Snes9x/%2e%2e/test_rom.srm-261118-120000",
-            "/api/sync/retroarch/deleted/saves/Snes9x/other.srm-261118-120000",
+            "/api/sync/retroarch/deleted/saves/Snes9x/%2e%2e/test_rom.sav-261118-120000",
+            "/api/sync/retroarch/deleted/saves/Snes9x/other.sav-261118-120000",
+            "/api/sync/retroarch/deleted/saves/Snes9x/test_rom.sav-261118",
         ],
     )
     def test_rejects_unrelated_destinations(self, client, admin_user, rom, destination):
-        response = client.request(
-            "COPY", self.path, headers={"Destination": destination}, auth=ADMIN_AUTH
-        )
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        self._put(client, self.path, b"first")
+        assert self._copy(client, self.path, destination) == 400
 
-    def test_destination_may_spell_out_the_default_port(self, client, admin_user, rom):
-        assert (
-            client.put(self.path, content=b"first", auth=ADMIN_AUTH).status_code == 201
-        )
-        headers = {"Destination": f"http://testserver:80{self.backup}"}
-        response = client.request("COPY", self.path, headers=headers, auth=ADMIN_AUTH)
-        assert response.status_code == status.HTTP_201_CREATED
+    def test_destination_behind_a_reverse_proxy(self, client, admin_user, rom):
+        self._put(client, self.path, b"first")
+        destination = f"https://romm.example:8443/romm{self.backup}"
+        assert self._copy(client, self.path, destination) == 201
+        assert client.get(self.backup, auth=ADMIN_AUTH).content == b"first"
 
     def test_overwrite_header_is_case_insensitive(self, client, admin_user, rom):
-        assert (
-            client.put(self.path, content=b"first", auth=ADMIN_AUTH).status_code == 201
-        )
-        headers = {"Destination": self.backup, "Overwrite": "f"}
+        self._put(client, self.path, b"first")
         statuses = [
-            client.request("COPY", self.path, headers=headers, auth=ADMIN_AUTH)
-            for _ in range(2)
+            self._copy(client, self.path, self.backup, Overwrite="f") for _ in range(2)
         ]
-        assert [r.status_code for r in statuses] == [201, 412]
+        assert statuses == [201, 412]
 
     @pytest.mark.parametrize(
         "path",
@@ -888,13 +871,7 @@ class TestRetroArchSyncCopy:
     )
     def test_psp_member_lets_the_upload_proceed(self, client, admin_user, path):
         backup = path.replace("retroarch/", "retroarch/deleted/", 1)
-        response = client.request(
-            "COPY",
-            path,
-            headers={"Destination": f"{backup}-261118-120000"},
-            auth=ADMIN_AUTH,
-        )
-        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert self._copy(client, path, f"{backup}-261118-120000") == 404
 
     def test_state_backup_keeps_the_bytes_an_upload_replaces(
         self, client, admin_user: User, rom: Rom, states_path: str
@@ -930,46 +907,57 @@ class TestRetroArchSyncCopy:
         )
         assert client.get(path, auth=ADMIN_AUTH).content == b"capt"
 
-        response = client.request(
-            "COPY", path, headers={"Destination": backup}, auth=ADMIN_AUTH
-        )
-
-        assert response.status_code == status.HTTP_201_CREATED
+        assert self._copy(client, path, backup) == 201
         assert client.get(backup, auth=ADMIN_AUTH).content == b"own"
 
-    def test_retention_follows_backup_age_not_its_name(
-        self, client, admin_user: User, monkeypatch
-    ):
-        monkeypatch.setattr(
-            "handler.filesystem.retroarch_sync_handler.MAX_SAVES_PER_SLOT", 2
-        )
-        path = "/api/sync/retroarch/config/retroarch.cfg"
-        stamps = ["261118-120002", "261118-120000", "261118-120001"]
-        assert client.put(path, content=b"settings", auth=ADMIN_AUTH).status_code == 201
-        for age, stamp in enumerate(stamps):
-            backup = f"deleted/config/retroarch.cfg-{stamp}"
-            assert (
-                client.request(
-                    "COPY",
-                    path,
-                    headers={"Destination": f"/api/sync/retroarch/{backup}"},
-                    auth=ADMIN_AUTH,
-                ).status_code
-                == 201
-            )
-            stored = fs_retroarch_sync_handler.validate_path(
-                sync_handler.user_backup_path(admin_user, None, backup)
-            )
-            os.utime(stored, ns=(age * 10**9, age * 10**9))
 
-        kept = [
-            client.get(
-                f"/api/sync/retroarch/deleted/config/retroarch.cfg-{stamp}",
-                auth=ADMIN_AUTH,
-            ).status_code
-            for stamp in stamps
-        ]
-        assert kept == [404, 200, 200]
+class TestRetroArchSyncMoveToDeleted:
+    config = "/api/sync/retroarch/config/retroarch.cfg"
+    config_backup = "/api/sync/retroarch/deleted/config/retroarch.cfg-261118-120000"
+
+    def test_config_is_backed_up_then_dropped(self, client, admin_user):
+        assert (
+            client.put(self.config, content=b"settings", auth=ADMIN_AUTH).status_code
+            == 201
+        )
+
+        response = client.request(
+            "MOVE",
+            self.config,
+            headers={"Destination": self.config_backup},
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert client.get(self.config, auth=ADMIN_AUTH).status_code == 404
+        assert client.get(self.config_backup, auth=ADMIN_AUTH).content == b"settings"
+
+    def test_versioned_save_keeps_the_served_bytes(self, client, admin_user, rom):
+        path = "/api/sync/retroarch/saves/Snes9x/test_rom.srm"
+        backup = "/api/sync/retroarch/deleted/saves/Snes9x/test_rom.srm-261118-120000"
+        assert client.put(path, content=b"progress", auth=ADMIN_AUTH).status_code == 201
+
+        response = client.request(
+            "MOVE", path, headers={"Destination": backup}, auth=ADMIN_AUTH
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert client.get(path, auth=ADMIN_AUTH).status_code == 404
+        assert client.get(backup, auth=ADMIN_AUTH).content == b"progress"
+
+    def test_existing_backup_without_overwrite_keeps_the_file(self, client, admin_user):
+        assert (
+            client.put(self.config, content=b"settings", auth=ADMIN_AUTH).status_code
+            == 201
+        )
+        headers = {"Destination": self.config_backup, "Overwrite": "F"}
+        copy = client.request("COPY", self.config, headers=headers, auth=ADMIN_AUTH)
+        assert copy.status_code == 201
+
+        response = client.request("MOVE", self.config, headers=headers, auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_412_PRECONDITION_FAILED
+        assert client.get(self.config, auth=ADMIN_AUTH).content == b"settings"
 
 
 class TestRetroArchSyncUpload:

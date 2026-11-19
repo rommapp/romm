@@ -4,22 +4,17 @@ thumbnails/ and system/."""
 import asyncio
 import fcntl
 import os
-import re
-import shutil
 import stat
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 
-from config import ASSETS_BASE_PATH, MAX_SAVES_PER_SLOT
-from utils.filesystem import SERVED_FILE_MODE, TEMP_FILE_PREFIX, iter_files
+from config import ASSETS_BASE_PATH
+from utils.filesystem import TEMP_FILE_PREFIX, iter_files, link_or_copy_file
 
 from .base_handler import FSHandler
 
-# RetroArch names a backup after the client's local `%y%m%d-%H%M%S`.
-BACKUP_STAMP_PATTERN = r"[0-9]{6}-[0-9]{6}"
-_BACKUP_STAMP = re.compile(BACKUP_STAMP_PATTERN)
-# A regular file: NFS grants an exclusive flock() only on a file open for writing.
 _BACKUP_LOCK_NAME = ".romm_backup.lock"
 
 
@@ -56,64 +51,65 @@ def _walk_files(root: Path) -> list[BlobFile]:
     return files
 
 
-def _copy_backup(source: Path, target: Path, overwrite: bool) -> bool | None:
+@contextmanager
+def _folder_lock(folder: Path) -> Iterator[None]:
+    """Hold an exclusive lock on `folder` across threads and worker processes."""
+    # A regular file: NFS grants an exclusive flock() only on a file open for writing.
+    fd = os.open(folder / _BACKUP_LOCK_NAME, os.O_RDWR | os.O_CREAT, 0o600)
     try:
-        source_file = source.open("rb")
-    except FileNotFoundError:
-        return None
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)
 
-    with source_file:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        with NamedTemporaryFile(
-            dir=target.parent, prefix=TEMP_FILE_PREFIX, delete=False
-        ) as staged:
-            temp_path = Path(staged.name)
-            try:
-                shutil.copyfileobj(source_file, staged)
-                staged.close()
-                os.chmod(temp_path, SERVED_FILE_MODE)
-                # Other workers publish and prune in the same folder.
-                lock_fd = os.open(
-                    target.parent / _BACKUP_LOCK_NAME, os.O_RDWR | os.O_CREAT, 0o600
-                )
-                try:
-                    fcntl.flock(lock_fd, fcntl.LOCK_EX)
-                    replaced = target.exists()
-                    if replaced and not overwrite:
-                        raise FileExistsError(target)
-                    os.replace(temp_path, target)
-                    if MAX_SAVES_PER_SLOT:
-                        # By age, since each client stamps names in its own time zone.
-                        older = sorted(
-                            (
-                                file
-                                for file in target.parent.iterdir()
-                                if file != target and _BACKUP_STAMP.fullmatch(file.name)
-                            ),
-                            key=lambda file: (file.stat().st_mtime_ns, file.name),
-                            reverse=True,
-                        )
-                        for file in older[MAX_SAVES_PER_SLOT - 1 :]:
-                            file.unlink(missing_ok=True)
-                finally:
-                    os.close(lock_fd)
-                return replaced
-            finally:
-                temp_path.unlink(missing_ok=True)
+
+def _publish_backup(
+    source: Path, target: Path, overwrite: bool, keep: int
+) -> bool | None:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with _folder_lock(target.parent):
+        replaced = target.exists()
+        if replaced and not overwrite:
+            raise FileExistsError(target)
+        # Assets are only ever replaced whole, so a hardlink keeps the old bytes.
+        try:
+            link_or_copy_file(source, target)
+        except FileNotFoundError:
+            return None
+        if keep:
+            older = sorted(
+                (
+                    file
+                    for file in target.parent.iterdir()
+                    if file != target and not file.name.startswith(".")
+                ),
+                key=lambda file: (file.stat().st_mtime_ns, file.name),
+                reverse=True,
+            )
+            for file in older[keep - 1 :]:
+                file.unlink(missing_ok=True)
+    return replaced
 
 
 class FSRetroArchSyncHandler(FSHandler):
     def __init__(self) -> None:
         super().__init__(base_path=ASSETS_BASE_PATH)
 
-    async def copy_backup(
-        self, source: Path, destination: str, *, overwrite: bool
+    async def publish_backup(
+        self, source: Path, destination: str, *, overwrite: bool, keep: int
     ) -> bool | None:
-        """Return whether the backup was replaced, or None if the source is missing."""
+        """Link or copy `source` to `destination`, keeping the `keep` newest siblings.
+
+        Returns:
+            Whether an existing backup was replaced, or None if `source` is gone.
+        """
         target = self.validate_path(destination)
+        # Spares the thread pool from threads blocked on the folder lock.
         lock = await self._get_file_lock(str(target.parent))
         async with lock:
-            return await asyncio.to_thread(_copy_backup, source, target, overwrite)
+            return await asyncio.to_thread(
+                _publish_backup, source, target, overwrite, keep
+            )
 
     async def list_blob_files(self, prefix: str) -> list[BlobFile]:
         """Every file under `prefix` (relative to the blob root), relative to `prefix` itself."""
