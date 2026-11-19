@@ -65,7 +65,6 @@ async function saveAndSync() {
         id: auth.user.id,
         ra_username: trimmed,
       });
-      // The link is saved before the sync runs, so show it even if the sync fails.
       await auth.fetchCurrentUser();
     }
     // Username change → full sync; same username → incremental refresh.
