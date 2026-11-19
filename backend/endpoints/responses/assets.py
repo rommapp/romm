@@ -150,6 +150,7 @@ class SaveLayoutSchema(BaseModel):
 class StateSchema(BaseAsset, AssetAnnotations, ManagedAsset):
     emulator: str | None
     core: str | None = None
+    content_hash: str | None = None
     is_public: bool = False
     screenshot: ScreenshotSchema | None
     origin_device_id: str | None = None

@@ -1,3 +1,4 @@
+import hashlib
 import os
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -360,6 +361,49 @@ def test_kiosk_mode_anonymous_visitor_cannot_upload_state(client, rom: Rom):
         )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_state_list_and_detail_send_the_content_hash(
+    client, access_token: str, rom: Rom, platform: Platform, admin_user: User
+):
+    state = make_state(
+        rom,
+        admin_user,
+        "hashed.state",
+        emulator="test_emulator",
+        file_path=f"{platform.slug}/states/test_emulator",
+        file_size_bytes=2,
+        content_hash="0123456789abcdef0123456789abcdef",
+    )
+
+    listed = client.get(f"/api/states?rom_id={rom.id}", headers=bearer(access_token))
+    single = client.get(f"/api/states/{state.id}", headers=bearer(access_token))
+
+    assert listed.status_code == status.HTTP_200_OK
+    assert [item["content_hash"] for item in listed.json()] == [
+        "0123456789abcdef0123456789abcdef"
+    ]
+    assert single.status_code == status.HTTP_200_OK
+    assert single.json()["content_hash"] == "0123456789abcdef0123456789abcdef"
+
+
+def test_uploaded_state_reports_the_hash_of_its_bytes(
+    client, access_token: str, rom: Rom, _isolated_assets_dir
+):
+    data = b"STATE BYTES"
+
+    uploaded = client.post(
+        f"/api/states?rom_id={rom.id}&emulator=test_emulator",
+        files={"stateFile": ("game.state", data, "application/octet-stream")},
+        headers=bearer(access_token),
+    )
+    assert uploaded.status_code == status.HTTP_200_OK
+
+    listed = client.get(f"/api/states?rom_id={rom.id}", headers=bearer(access_token))
+
+    expected = hashlib.md5(data, usedforsecurity=False).hexdigest()
+    assert uploaded.json()["content_hash"] == expected
+    assert [item["content_hash"] for item in listed.json()] == [expected]
 
 
 class TestRomIdsScope:

@@ -23,6 +23,7 @@ export type StateSchema = {
     updated_at: string;
     emulator: (string | null);
     core?: (string | null);
+    content_hash?: (string | null);
     is_public?: boolean;
     screenshot: (ScreenshotSchema | null);
     origin_device_id?: (string | null);
