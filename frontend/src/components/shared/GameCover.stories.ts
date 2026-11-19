@@ -23,6 +23,7 @@ const rom = romFixture({
   path_cover_large: large,
   ss_metadata: null,
   gamelist_metadata: null,
+  mame_metadata: null,
 });
 
 const meta: Meta<typeof GameCover> = {

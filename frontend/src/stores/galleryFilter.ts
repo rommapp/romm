@@ -51,6 +51,17 @@ const buildDefaultFilterState = () => ({
   filterMissing: null as boolean | null, // null = all, true = missing, false = not missing
   filterPhysical: null as boolean | null, // null = all, true = physical, false = has a file
   filterVerified: null as boolean | null, // null = all, true = verified, false = not verified
+  // MAME index facts: the values offered, the picks, and the mechanical switch.
+  filterMameSetTypes: [] as string[],
+  filterMameStatuses: [] as string[],
+  filterMameDrivers: [] as string[],
+  filterMameMechanical: null as boolean | null,
+  selectedMameSetTypes: [] as string[],
+  selectedMameStatuses: [] as string[],
+  selectedMameDrivers: [] as string[],
+  mameSetTypesLogic: "any" as FilterLogicOperator,
+  mameStatusesLogic: "any" as FilterLogicOperator,
+  mameDriversLogic: "any" as FilterLogicOperator,
   selectedPlatform: null as Platform | null,
   selectedPlatforms: [] as Platform[],
   selectedGenres: [] as string[],
@@ -128,6 +139,36 @@ export default defineStore("galleryFilter", {
     },
     setFilterTags(tags: string[] | null | undefined) {
       this.filterTags = tags ?? [];
+    },
+    setFilterMameValues(values: {
+      setTypes?: string[] | null | undefined;
+      statuses?: string[] | null | undefined;
+      drivers?: string[] | null | undefined;
+    }) {
+      this.filterMameSetTypes = values.setTypes ?? [];
+      this.filterMameStatuses = values.statuses ?? [];
+      this.filterMameDrivers = values.drivers ?? [];
+    },
+    setSelectedFilterMameSetTypes(values: string[]) {
+      this.selectedMameSetTypes = values;
+    },
+    setSelectedFilterMameStatuses(values: string[]) {
+      this.selectedMameStatuses = values;
+    },
+    setSelectedFilterMameDrivers(values: string[]) {
+      this.selectedMameDrivers = values;
+    },
+    setMameSetTypesLogic(logic: FilterLogicOperator) {
+      this.mameSetTypesLogic = logic;
+    },
+    setMameStatusesLogic(logic: FilterLogicOperator) {
+      this.mameStatusesLogic = logic;
+    },
+    setMameDriversLogic(logic: FilterLogicOperator) {
+      this.mameDriversLogic = logic;
+    },
+    setFilterMameMechanical(value: boolean | null) {
+      this.filterMameMechanical = value;
     },
     setSelectedFilterPlatform(platform: Platform) {
       this.selectedPlatform = platform
@@ -462,6 +503,10 @@ export default defineStore("galleryFilter", {
         this.filterMissing !== null ||
         this.filterPhysical !== null ||
         this.filterVerified !== null ||
+        this.filterMameMechanical !== null ||
+        this.selectedMameSetTypes.length > 0 ||
+        this.selectedMameStatuses.length > 0 ||
+        this.selectedMameDrivers.length > 0 ||
         this.selectedPlatform ||
         this.selectedPlatforms.length > 0 ||
         this.selectedGenres.length > 0 ||
@@ -513,6 +558,13 @@ export default defineStore("galleryFilter", {
       this.filterMissing = null;
       this.filterPhysical = null;
       this.filterVerified = null;
+      this.filterMameMechanical = null;
+      this.selectedMameSetTypes = [];
+      this.selectedMameStatuses = [];
+      this.selectedMameDrivers = [];
+      this.mameSetTypesLogic = "any";
+      this.mameStatusesLogic = "any";
+      this.mameDriversLogic = "any";
       // Reset logic operators to default
       this.genresLogic = "any";
       this.franchisesLogic = "any";

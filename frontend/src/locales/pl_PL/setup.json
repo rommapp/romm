@@ -60,6 +60,8 @@
   "provider-launchbox-caveat": "Dopasowuje po dokładnej nazwie pliku; wymaga lokalnego indeksu XML.",
   "provider-launchbox-desc": "Metadane społeczności, okładki i zrzuty ekranu.",
   "provider-launchbox-setup": "Ustaw LAUNCHBOX_API_ENABLED=true i ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA=true.",
+  "provider-mame-desc": "Full set titles, parent/clone grouping and MAME filters for arcade sets.",
+  "provider-mame-setup": "Always on. Load a MAME listxml in Settings, Metadata sources, for every set's details.",
   "provider-moby-caveat": "API jest funkcją płatną.",
   "provider-moby-desc": "Katalog, alternatywne okładki i zrzuty ekranu.",
   "provider-moby-setup": "Wymaga konta MobyGames. Ustaw MOBYGAMES_API_KEY.",

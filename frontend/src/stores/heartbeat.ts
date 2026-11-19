@@ -278,6 +278,12 @@ export default defineStore("heartbeat", {
             ? i18n.global.t("scan.disabled-by-admin")
             : "",
         },
+        {
+          name: "MAME",
+          value: "mame",
+          logo_path: "/assets/scrappers/mame.svg",
+          disabled: "",
+        },
       ];
     },
     getEnabledMetadataOptions(): MetadataOption[] {

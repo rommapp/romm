@@ -60,6 +60,8 @@
   "provider-launchbox-caveat": "Pontos fájlnév szerint egyeztet; szükséges a helyi XML index.",
   "provider-launchbox-desc": "Közösségi metaadatok, borítóképek és képernyőképek.",
   "provider-launchbox-setup": "Állítsd be a LAUNCHBOX_API_ENABLED=true és ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA=true értékeket.",
+  "provider-mame-desc": "Full set titles, parent/clone grouping and MAME filters for arcade sets.",
+  "provider-mame-setup": "Always on. Load a MAME listxml in Settings, Metadata sources, for every set's details.",
   "provider-moby-caveat": "Az API fizetős funkció.",
   "provider-moby-desc": "Katalógus, alternatív borítóképek és képernyőképek.",
   "provider-moby-setup": "MobyGames-fiók szükséges. Állítsd be a MOBYGAMES_API_KEY értéket.",

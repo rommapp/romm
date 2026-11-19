@@ -117,6 +117,16 @@ const {
   statusesLogic,
   selectedLengthMinHours,
   selectedLengthMaxHours,
+  filterMameSetTypes,
+  selectedMameSetTypes,
+  mameSetTypesLogic,
+  filterMameStatuses,
+  selectedMameStatuses,
+  mameStatusesLogic,
+  filterMameDrivers,
+  selectedMameDrivers,
+  mameDriversLogic,
+  filterMameMechanical,
 } = storeToRefs(filter);
 const { allPlatforms } = storeToRefs(platformsStore);
 
@@ -156,6 +166,8 @@ interface BoolFilterConfig {
   noAria: string;
   // The two-way ref of the underlying `boolean | null`.
   value: { value: boolean | null };
+  /** Shown only while the library has MAME data. */
+  mameOnly?: boolean;
 }
 
 const boolFilters: BoolFilterConfig[] = [
@@ -258,6 +270,16 @@ const boolFilters: BoolFilterConfig[] = [
     noAria: t("platform.show-no-soundtrack-only"),
     value: filterSoundtrack,
   },
+  {
+    label: t("platform.mame-mechanical"),
+    icon: "mdi-pinball",
+    yesIcon: "mdi-pinball",
+    noIcon: "mdi-gamepad-variant-outline",
+    yesAria: t("platform.show-mame-mechanical-only"),
+    noAria: t("platform.show-not-mame-mechanical-only"),
+    value: filterMameMechanical,
+    mameOnly: true,
+  },
 ];
 
 function setTri(cfg: BoolFilterConfig, v: TriValue) {
@@ -298,7 +320,14 @@ interface MultiConfig {
   setLogic: (logic: FilterLogicOperator) => void;
   /** Optional title transformer (Statuses use a friendly label). */
   toTitle?: (raw: string) => string;
+  /** Shown only while the library has MAME data. */
+  mameOnly?: boolean;
 }
+
+const mameSetTypeTitle = (raw: string): string =>
+  t(`platform.mame-set-type-${raw}`);
+const mameStatusTitle = (raw: string): string =>
+  t(`platform.mame-status-${raw}`);
 
 const statusTitle = (raw: string): string => {
   const entry = romStatusMap[raw as PlayingStatus];
@@ -404,6 +433,35 @@ const multiSections = computed<MultiConfig[]>(() => [
     toTitle: providerTitle,
   },
   {
+    label: t("platform.mame-set-type"),
+    icon: "mdi-file-tree-outline",
+    items: filterMameSetTypes,
+    selected: selectedMameSetTypes,
+    logic: mameSetTypesLogic,
+    setLogic: (l) => filter.setMameSetTypesLogic(l),
+    toTitle: mameSetTypeTitle,
+    mameOnly: true,
+  },
+  {
+    label: t("platform.mame-status"),
+    icon: "mdi-check-decagram-outline",
+    items: filterMameStatuses,
+    selected: selectedMameStatuses,
+    logic: mameStatusesLogic,
+    setLogic: (l) => filter.setMameStatusesLogic(l),
+    toTitle: mameStatusTitle,
+    mameOnly: true,
+  },
+  {
+    label: t("platform.mame-driver"),
+    icon: "mdi-chip",
+    items: filterMameDrivers,
+    selected: selectedMameDrivers,
+    logic: mameDriversLogic,
+    setLogic: (l) => filter.setMameDriversLogic(l),
+    mameOnly: true,
+  },
+  {
     label: t("platform.status"),
     icon: "mdi-flag-outline",
     items: filterStatuses,
@@ -413,6 +471,21 @@ const multiSections = computed<MultiConfig[]>(() => [
     toTitle: statusTitle,
   },
 ]);
+
+// A library without MAME data offers no MAME values, so those rows only
+// show while there is something to pick or a pick to undo.
+const hasMameData = computed(() => filterMameSetTypes.value.length > 0);
+const visibleBoolFilters = computed(() =>
+  boolFilters.filter(
+    (f) => !f.mameOnly || hasMameData.value || f.value.value !== null,
+  ),
+);
+const visibleMultiSections = computed(() =>
+  multiSections.value.filter(
+    (s) =>
+      !s.mameOnly || s.items.value.length > 0 || s.selected.value.length > 0,
+  ),
+);
 
 const LOGIC_ITEMS = computed(() => [
   {
@@ -546,7 +619,7 @@ function saveAsSmartCollection() {
       </h3>
       <div class="r-fd__bool-rows">
         <div
-          v-for="(cfg, idx) in boolFilters"
+          v-for="(cfg, idx) in visibleBoolFilters"
           :key="idx"
           class="r-fd__bool-row"
           :class="{ 'r-fd__bool-row--on': cfg.value.value !== null }"
@@ -589,7 +662,11 @@ function saveAsSmartCollection() {
     <section class="r-fd__section">
       <h3 class="r-fd__heading">{{ t("platform.tags") }}</h3>
       <div class="r-fd__multi-rows">
-        <div v-for="s in multiSections" :key="s.label" class="r-fd__multi-row">
+        <div
+          v-for="s in visibleMultiSections"
+          :key="s.label"
+          class="r-fd__multi-row"
+        >
           <RSelect
             :model-value="s.selected.value"
             :items="

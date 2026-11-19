@@ -23,6 +23,7 @@ function rom(over: Partial<SimpleRom>): SimpleRom {
     platform_slug: "snes",
     ss_metadata: null,
     gamelist_metadata: null,
+    mame_metadata: null,
   };
   return romFixture({ ...base, ...over });
 }

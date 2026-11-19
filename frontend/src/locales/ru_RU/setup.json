@@ -60,6 +60,8 @@
   "provider-launchbox-caveat": "Сопоставляет по точному имени файла; требуется локальный XML-индекс.",
   "provider-launchbox-desc": "Метаданные сообщества, обложки и скриншоты.",
   "provider-launchbox-setup": "Установите LAUNCHBOX_API_ENABLED=true и ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA=true.",
+  "provider-mame-desc": "Full set titles, parent/clone grouping and MAME filters for arcade sets.",
+  "provider-mame-setup": "Always on. Load a MAME listxml in Settings, Metadata sources, for every set's details.",
   "provider-moby-caveat": "API является платной возможностью.",
   "provider-moby-desc": "Каталог, альтернативные обложки и скриншоты.",
   "provider-moby-setup": "Требуется аккаунт MobyGames. Установите MOBYGAMES_API_KEY.",

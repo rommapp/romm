@@ -515,6 +515,13 @@ export default defineStore("v2GalleryRoms", {
         filterMissing: galleryFilter.filterMissing,
         filterPhysical: galleryFilter.filterPhysical,
         filterVerified: galleryFilter.filterVerified,
+        filterMameMechanical: galleryFilter.filterMameMechanical,
+        selectedMameSetTypes: galleryFilter.selectedMameSetTypes,
+        selectedMameStatuses: galleryFilter.selectedMameStatuses,
+        selectedMameDrivers: galleryFilter.selectedMameDrivers,
+        mameSetTypesLogic: galleryFilter.mameSetTypesLogic,
+        mameStatusesLogic: galleryFilter.mameStatusesLogic,
+        mameDriversLogic: galleryFilter.mameDriversLogic,
         selectedGenres: galleryFilter.selectedGenres,
         selectedFranchises: galleryFilter.selectedFranchises,
         selectedCollections: galleryFilter.selectedCollections,
@@ -596,6 +603,11 @@ export default defineStore("v2GalleryRoms", {
         galleryFilter.setFilterLanguages(data.filter_values.languages);
         galleryFilter.setFilterPlayerCounts(data.filter_values.player_counts);
         galleryFilter.setFilterTags(data.filter_values.tags);
+        galleryFilter.setFilterMameValues({
+          setTypes: data.filter_values.mame_set_types,
+          statuses: data.filter_values.mame_statuses,
+          drivers: data.filter_values.mame_drivers,
+        });
       }
       this.metadataLoaded = true;
     },

@@ -193,6 +193,7 @@ export interface GetRomsParams {
   filterMissing?: boolean | null;
   filterPhysical?: boolean | null;
   filterVerified?: boolean | null;
+  filterMameMechanical?: boolean | null;
   groupByMetaId?: boolean;
   // Multi-value filters
   selectedGenres?: string[] | null;
@@ -208,6 +209,12 @@ export interface GetRomsParams {
   selectedMetadataProviders?: string[] | null;
   selectedTags?: string[] | null;
   selectedStatuses?: string[] | null;
+  selectedMameSetTypes?: string[] | null;
+  selectedMameStatuses?: string[] | null;
+  selectedMameDrivers?: string[] | null;
+  mameSetTypesLogic?: string | null;
+  mameStatusesLogic?: string | null;
+  mameDriversLogic?: string | null;
   // HowLongToBeat main-story bounds, in seconds (the unit the backend stores).
   hltbMainStoryMin?: number | null;
   hltbMainStoryMax?: number | null;
@@ -259,6 +266,7 @@ export function buildGetRomsQuery({
   filterMissing = null,
   filterPhysical = null,
   filterVerified = null,
+  filterMameMechanical = null,
   groupByMetaId = false,
   selectedGenres = null,
   selectedFranchises = null,
@@ -273,6 +281,12 @@ export function buildGetRomsQuery({
   selectedMetadataProviders = null,
   selectedTags = null,
   selectedStatuses = null,
+  selectedMameSetTypes = null,
+  selectedMameStatuses = null,
+  selectedMameDrivers = null,
+  mameSetTypesLogic = null,
+  mameStatusesLogic = null,
+  mameDriversLogic = null,
   hltbMainStoryMin = null,
   hltbMainStoryMax = null,
   // Logic operators
@@ -355,6 +369,22 @@ export function buildGetRomsQuery({
         ? selectedMetadataProviders
         : undefined,
     tags: selectedTags && selectedTags.length > 0 ? selectedTags : undefined,
+    mame_set_types: selectedMameSetTypes?.length
+      ? selectedMameSetTypes
+      : undefined,
+    mame_statuses: selectedMameStatuses?.length
+      ? selectedMameStatuses
+      : undefined,
+    mame_drivers: selectedMameDrivers?.length ? selectedMameDrivers : undefined,
+    mame_set_types_logic: selectedMameSetTypes?.length
+      ? mameSetTypesLogic || "any"
+      : undefined,
+    mame_statuses_logic: selectedMameStatuses?.length
+      ? mameStatusesLogic || "any"
+      : undefined,
+    mame_drivers_logic: selectedMameDrivers?.length
+      ? mameDriversLogic || "any"
+      : undefined,
     // Logic operators
     genres_logic:
       selectedGenres && selectedGenres.length > 0
@@ -423,6 +453,9 @@ export function buildGetRomsQuery({
     ...(filterStates !== null ? { has_states: filterStates } : {}),
     ...(filterSoundtrack !== null ? { has_soundtrack: filterSoundtrack } : {}),
     ...(filterVerified !== null ? { verified: filterVerified } : {}),
+    ...(filterMameMechanical !== null
+      ? { mame_mechanical: filterMameMechanical }
+      : {}),
     released_days:
       releasedDays && releasedDays.length > 0 ? releasedDays : undefined,
     // Only meaningful alongside the days it bounds.

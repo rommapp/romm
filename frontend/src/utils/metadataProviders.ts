@@ -22,7 +22,8 @@ export type ProviderIdKey =
   | "csdb_id"
   | "steam_id"
   | "gamelist_id"
-  | "libretro_id";
+  | "libretro_id"
+  | "mame_id";
 
 export interface MetadataProvider {
   /** Field on `SimpleRom` that holds this provider's match id. */
@@ -109,6 +110,7 @@ export const METADATA_PROVIDERS: readonly MetadataProvider[] = [
     title: "Libretro match",
     logo: "libretro.png",
   },
+  { key: "mame_id", name: "MAME", title: "MAME match", logo: "mame.svg" },
 ];
 
 /** Filter slug (matching the backend MetadataSource) for a provider id key. */

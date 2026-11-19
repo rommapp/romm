@@ -20,6 +20,7 @@ export const METADATA_PROVIDER_GROUPS = {
   ra: "specialised",
   sgdb: "specialised",
   hltb: "specialised",
+  mame: "specialised",
   hasheous: "proxy",
   playmatch: "proxy",
 } as const satisfies Record<string, MetadataProviderGroup>;

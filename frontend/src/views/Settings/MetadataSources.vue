@@ -16,6 +16,7 @@
 // can explain why a valid account still gets refused.
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import MameIndexSection from "@/components/Settings/MameIndexSection.vue";
 import SettingsSection from "@/components/Settings/SettingsSection.vue";
 import MetadataProviderCard from "@/components/shared/MetadataProviderCard/MetadataProviderCard.vue";
 import type { ProviderCardStatus } from "@/components/shared/MetadataProviderCard/types";
@@ -201,6 +202,8 @@ onMounted(() => {
         </MetadataProviderCard>
       </div>
     </SettingsSection>
+
+    <MameIndexSection />
   </div>
 </template>
 
