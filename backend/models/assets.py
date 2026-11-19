@@ -88,7 +88,7 @@ class BaseAsset(FileNamePartsMixin, BaseModel):
         # `updated_at`, so the name joins the cache key.
         return (
             f"/api/{self.__tablename__}/{self.id}/content"
-            f"?timestamp={self.updated_at}&name={quote(self.file_name)}"
+            f"?timestamp={quote(str(self.updated_at))}&name={quote(self.file_name)}"
         )
 
 
@@ -382,5 +382,6 @@ class MemoryCardVersion(BaseAsset):
         # Served under the memory-cards router rather than the default
         # `/api/{tablename}/...`, keeping every card route in one namespace.
         return (
-            f"/api/memory-cards/versions/{self.id}/content?timestamp={self.updated_at}"
+            f"/api/memory-cards/versions/{self.id}/content"
+            f"?timestamp={quote(str(self.updated_at))}"
         )
