@@ -1,5 +1,18 @@
 import os
 import re
+from pathlib import Path
+
+
+def worktree_tag(start: Path) -> str:
+    """Name the linked git worktree (whose `.git` is a file) holding `start`, or ""."""
+    for folder in (start, *start.parents):
+        dot_git = folder / ".git"
+        if dot_git.is_file():
+            return folder.name[:40]
+        if dot_git.exists():
+            return ""
+    return ""
+
 
 # Tests must never inherit DB_NAME from the ambient environment (e.g. a
 # sourced .env pointing at a real dev/prod database) -- the autouse
@@ -16,6 +29,13 @@ import re
 #
 # ROMM_TEST_DB_TAG runs use temporary databases that tests/conftest.py drops at
 # session end; the `tmp_` prefix keeps them apart from the untagged worker names.
+# A linked worktree gets one by default, since another checkout's migrations on
+# the shared romm_test would break its runs.
+if not os.environ.get("ROMM_TEST_DB_TAG") and (
+    _worktree := worktree_tag(Path(__file__).resolve().parent)
+):
+    os.environ["ROMM_TEST_DB_TAG"] = _worktree
+
 _tag = re.sub(r"[^A-Za-z0-9_]", "_", os.environ.get("ROMM_TEST_DB_TAG", ""))
 _base = f"romm_test_tmp_{_tag}" if _tag else "romm_test"
 _xdist_worker = os.environ.get("PYTEST_XDIST_WORKER")
