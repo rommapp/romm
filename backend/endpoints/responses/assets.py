@@ -150,7 +150,13 @@ class SaveLayoutSchema(BaseModel):
 class StateSchema(BaseAsset, AssetAnnotations, ManagedAsset):
     emulator: str | None
     core: str | None = None
-    content_hash: str | None = None
+    content_hash: str | None = Field(
+        default=None,
+        description=(
+            "MD5 of the file's bytes, or for a zip, of its sorted `name:md5` entry "
+            "lines. Null for a state never hashed."
+        ),
+    )
     is_public: bool = False
     screenshot: ScreenshotSchema | None
     origin_device_id: str | None = None

@@ -363,7 +363,7 @@ def test_kiosk_mode_anonymous_visitor_cannot_upload_state(client, rom: Rom):
     assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
-def test_state_list_and_detail_send_the_content_hash(
+def test_state_list_detail_and_rom_detail_send_the_content_hash(
     client, access_token: str, rom: Rom, platform: Platform, admin_user: User
 ):
     state = make_state(
@@ -378,6 +378,7 @@ def test_state_list_and_detail_send_the_content_hash(
 
     listed = client.get(f"/api/states?rom_id={rom.id}", headers=bearer(access_token))
     single = client.get(f"/api/states/{state.id}", headers=bearer(access_token))
+    rom_detail = client.get(f"/api/roms/{rom.id}", headers=bearer(access_token))
 
     assert listed.status_code == status.HTTP_200_OK
     assert [item["content_hash"] for item in listed.json()] == [
@@ -385,9 +386,14 @@ def test_state_list_and_detail_send_the_content_hash(
     ]
     assert single.status_code == status.HTTP_200_OK
     assert single.json()["content_hash"] == "0123456789abcdef0123456789abcdef"
+    assert rom_detail.status_code == status.HTTP_200_OK
+    for key in ("user_states", "all_user_states"):
+        assert [item["content_hash"] for item in rom_detail.json()[key]] == [
+            "0123456789abcdef0123456789abcdef"
+        ]
 
 
-def test_uploaded_state_reports_the_hash_of_its_bytes(
+def test_uploaded_state_reports_its_content_hash(
     client, access_token: str, rom: Rom, _isolated_assets_dir
 ):
     data = b"STATE BYTES"
