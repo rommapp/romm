@@ -162,9 +162,9 @@ def test_rom_rows_carry_their_aliases_and_min_age(
     rows = _rom_rows(monkeypatch, tmp_path)
 
     aliased = next(r for r in rows if r["igdb_metadata"].get("alternative_names"))
+    search_titles = aliased["search_titles"].split(SEARCH_TITLE_SEPARATOR)
     for alias in aliased["igdb_metadata"]["alternative_names"]:
-        sep = SEARCH_TITLE_SEPARATOR
-        assert f"{sep}{fold_search_title(alias)}{sep}" in aliased["search_titles"]
+        assert fold_search_title(alias) in search_titles
     assert any(row["min_age"] is not None for row in rows)
 
 
@@ -173,7 +173,7 @@ def test_ss_metadata_links_every_media_kind() -> None:
 
     for kind in generate_test_data.SS_MEDIA_KINDS:
         assert metadata[f"{kind}_url"].startswith("https://")
-        has_path = kind not in generate_test_data.SS_URL_ONLY_KINDS
+        has_path = kind in generate_test_data.SS_PATH_KINDS
         assert (f"{kind}_path" in metadata) == has_path
 
 

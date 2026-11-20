@@ -74,7 +74,6 @@ from models.play_session import PlaySession  # noqa: E402
 # columns, so we populate those columns instead of inserting into the views.
 # `roms_facets` is a real table, but triggers on `roms` fill it in.
 from models.rom import (  # noqa: E402
-    ALTERNATIVE_NAME_SOURCES,
     Rom,
     RomFile,
     RomFileCategory,
@@ -88,7 +87,7 @@ from models.rom import (  # noqa: E402
 )
 from models.sync_session import SyncSession, SyncSessionStatus  # noqa: E402
 from models.user import Role, User  # noqa: E402
-from utils.age_ratings import MIN_AGE_SOURCE_COLUMNS, compute_min_age  # noqa: E402
+from utils.age_ratings import compute_min_age  # noqa: E402
 from utils.database import is_postgresql  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -417,9 +416,9 @@ _SS_MEDIA_KEYS = get_type_hints(SSMetadataMedia)
 SS_MEDIA_KINDS = tuple(
     key.removesuffix("_url") for key in _SS_MEDIA_KEYS if key.endswith("_url")
 )
-SS_URL_ONLY_KINDS = {
-    kind for kind in SS_MEDIA_KINDS if f"{kind}_path" not in _SS_MEDIA_KEYS
-}
+SS_PATH_KINDS = tuple(
+    kind for kind in SS_MEDIA_KINDS if f"{kind}_path" in _SS_MEDIA_KEYS
+)
 
 
 # ---------------------------------------------------------------------------
@@ -580,9 +579,22 @@ def _similar_game(rng: random.Random) -> dict[str, Any]:
     }
 
 
+def _similar_games(rng: random.Random, more: random.Random) -> list[dict[str, Any]]:
+    games = [_similar_game(rng) for _ in range(rng.randint(0, 4))]
+    # Every measured IGDB match had ten.
+    return games + [_similar_game(more) for _ in range(10 - len(games))]
+
+
+def _alternative_names(more: random.Random, f: dict[str, Any], shape: str) -> list[str]:
+    return [
+        f"{f['title']} ({more.choice(REGIONS)})"
+        for _ in range(sample_length(more, shape))
+    ]
+
+
 def build_igdb_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]:
     more = extra_rng(f, "igdb")
-    metadata: dict[str, Any] = {
+    return {
         "total_rating": str(f["rating"]),
         "aggregated_rating": str(round(f["rating"] - rng.uniform(0, 8), 2)),
         "first_release_date": f["release_ts"],
@@ -590,10 +602,7 @@ def build_igdb_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]
         "genres": f["genres"],
         "keywords": more.sample(KEYWORDS, sample_length(more, "igdb.keywords")),
         "franchises": f["franchises"],
-        "alternative_names": [
-            f"{f['title']} ({more.choice(REGIONS)})"
-            for _ in range(sample_length(more, "igdb.alternative_names"))
-        ],
+        "alternative_names": _alternative_names(more, f, "igdb.alternative_names"),
         "collections": [f["franchises"][0]] if f["franchises"] else [],
         "companies": f["companies"],
         "game_modes": f["game_modes"],
@@ -614,12 +623,8 @@ def build_igdb_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]
         "remakes": [],
         "expanded_games": [],
         "ports": [],
-        "similar_games": [_similar_game(rng) for _ in range(rng.randint(0, 4))],
+        "similar_games": _similar_games(rng, more),
     }
-    # Every measured IGDB match had ten.
-    similar_games = metadata["similar_games"]
-    similar_games += [_similar_game(more) for _ in range(10 - len(similar_games))]
-    return metadata
 
 
 def build_moby_metadata(
@@ -646,17 +651,10 @@ def build_ss_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]:
     )
     return {
         **{f"{kind}_url": f"{media_url}{kind}(wor)" for kind in SS_MEDIA_KINDS},
-        **{
-            f"{kind}_path": None
-            for kind in SS_MEDIA_KINDS
-            if kind not in SS_URL_ONLY_KINDS
-        },
+        **dict.fromkeys(f"{kind}_path" for kind in SS_PATH_KINDS),
         "ss_score": str(round(f["rating"] / 10, 1)),
         "first_release_date": f["release_ts"],
-        "alternative_names": [
-            f"{f['title']} ({more.choice(REGIONS)})"
-            for _ in range(sample_length(more, "ss.alternative_names"))
-        ],
+        "alternative_names": _alternative_names(more, f, "ss.alternative_names"),
         "age_ratings": [
             {"rating": r.split(":")[1], "category": r.split(":")[0]}
             for r in f["age_ratings"]
@@ -1343,13 +1341,8 @@ def _seed(args: argparse.Namespace, image_pool: ProcessPoolExecutor | None) -> i
             )
             # A Core insert skips the mapper events that fill these on the model.
             rom_row = rom_rows[-1]
-            rom_row["search_titles"] = compute_search_titles(
-                rom_row["name"],
-                {column: rom_row[column] for column, _ in ALTERNATIVE_NAME_SOURCES},
-            )
-            rom_row["min_age"] = compute_min_age(
-                {column: rom_row.get(column) for column in MIN_AGE_SOURCE_COLUMNS}
-            )
+            rom_row["search_titles"] = compute_search_titles(rom_row["name"], rom_row)
+            rom_row["min_age"] = compute_min_age(rom_row)
 
             # Rom files: one per disc, plus the occasional manual.
             n_files = rng.randint(2, 4) if multi_disc else 1
