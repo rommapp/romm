@@ -26,6 +26,14 @@ def test_follows_an_http_exception_subclass():
     assert statuses(sym) == {503}
 
 
+def test_follows_a_dependency_in_a_default():
+    assert _raised("tests.tools.route_errors_fixture", "route_with_a_default") == [409]
+
+
+def test_follows_a_dependency_in_an_annotated_alias():
+    assert _raised("tests.tools.route_errors_fixture", "route_with_an_alias") == [409]
+
+
 def test_ignores_an_unrelated_function_with_the_same_name():
     # `os.path.join` must not resolve to the streaming `join` helper, which can 502.
     assert 502 not in _raised("endpoints.heartbeat", "get_setup_library_info")

@@ -1,11 +1,4 @@
-"""Find the HTTP error statuses each route can raise, by static call-graph analysis.
-
-A call resolves through the module's imports, module-level instances (`db_rom_handler =
-DBRomsHandler()`), `self` and `cls`, and base classes. A call that does not resolve is
-skipped, so the result can miss a status but never invents one from a name collision.
-
-Usage, from backend/: `python -m tools.route_errors` prints each route's undocumented statuses.
-"""
+"""Find the HTTP error statuses each route can raise, by static call-graph analysis."""
 
 from __future__ import annotations
 
@@ -237,6 +230,32 @@ def _body_nodes(fn: ast.AST) -> list[ast.AST]:
 _memo: dict[Symbol, frozenset[int]] = {}
 
 
+def _dependency(node: ast.Call) -> ast.expr | None:
+    """The callable a `Depends(...)` or `Security(...)` call injects."""
+    func = node.func
+    name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", None)
+    if name not in ("Depends", "Security"):
+        return None
+    for kw in node.keywords:
+        if kw.arg == "dependency":
+            return kw.value
+    return node.args[0] if node.args else None
+
+
+def _annotation_names(fn: ast.AST) -> list[ast.Name]:
+    """Names in a function's parameter annotations, where `Annotated` aliases sit."""
+    if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return []
+    params = [*fn.args.posonlyargs, *fn.args.args, *fn.args.kwonlyargs]
+    return [
+        node
+        for param in params
+        if param.annotation is not None
+        for node in ast.walk(param.annotation)
+        if isinstance(node, ast.Name)
+    ]
+
+
 def statuses(sym: Symbol, stack: frozenset[Symbol] = frozenset()) -> frozenset[int]:
     """Error statuses a function, class constructor or value can raise."""
     if sym in _memo:
@@ -252,6 +271,11 @@ def statuses(sym: Symbol, stack: frozenset[Symbol] = frozenset()) -> frozenset[i
             code = _http_exception_status(value)
             if code:
                 found.add(code)
+        for node in ast.walk(value):
+            dependency = _dependency(node) if isinstance(node, ast.Call) else None
+            target = _resolve_expr(module, None, dependency) if dependency else None
+            if target and target[0] == "func":
+                found |= statuses(target, stack)
     elif kind == "class":
         init = _method(sym, "__init__")
         if init:
@@ -269,12 +293,22 @@ def statuses(sym: Symbol, stack: frozenset[Symbol] = frozenset()) -> frozenset[i
                     target = _resolve_expr(module, owner, node.func)
                     if target and target[0] != "module":
                         found |= statuses(target, stack)
+                    dependency = _dependency(node)
+                    target = (
+                        _resolve_expr(module, owner, dependency) if dependency else None
+                    )
+                    if target and target[0] == "func":
+                        found |= statuses(target, stack)
                 elif isinstance(node, ast.Raise) and isinstance(
                     node.exc, (ast.Name, ast.Attribute)
                 ):
                     target = _resolve_expr(module, owner, node.exc)
                     if target and target[0] in ("value", "class"):
                         found |= statuses(target, stack)
+            for name_node in _annotation_names(fn):
+                target = _resolve_expr(module, owner, name_node)
+                if target and target[0] == "value":
+                    found |= statuses(target, stack)
     result = frozenset(c for c in found if c >= 400)
     _memo[sym] = result
     return result
