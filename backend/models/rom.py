@@ -335,7 +335,6 @@ IDENTITY_PROVIDER_ID_LENGTH: Final = 100
 # The database file at the root of every RPG Maker 2000/2003 game folder.
 EASYRPG_GAME_DATABASE: Final = "rpg_rt.ldb"
 
-# The extension of the bundles js-dos boots.
 JSDOS_BUNDLE_EXTENSION: Final = ".jsdos"
 
 

@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   routerReplace: vi.fn(() => Promise.resolve()),
   confirm: vi.fn(),
   galleryRom: null as Record<string, unknown> | null,
+  jsDosBundleFileIds: vi.fn((): number[] => []),
   routeLeaveGuard: null as ((to: { fullPath: string }) => unknown) | null,
   setPlaying: vi.fn(),
   setStageActive: vi.fn(),
@@ -56,8 +57,9 @@ vi.mock("@/stores/roms", () => ({
 }));
 
 vi.mock("@/utils", () => ({
-  getDownloadPath: () => "/api/roms/1/content/game.jsdos",
-  jsDosBundleFileIds: () => [],
+  getDownloadPath: ({ fileIDs }: { fileIDs: number[] }) =>
+    `/api/roms/1/content/game.jsdos?file_ids=${fileIDs.join(",")}`,
+  jsDosBundleFileIds: mocks.jsDosBundleFileIds,
 }));
 
 vi.mock("@/components/shared/GameCover.vue", () => ({
@@ -136,6 +138,7 @@ beforeEach(() => {
   setIsolated(true);
   mocks.loadRuntime.mockResolvedValue(LOCAL_BASE);
   mocks.galleryRom = null;
+  mocks.jsDosBundleFileIds.mockReset().mockReturnValue([]);
   mocks.routeLeaveGuard = null;
   mocks.userId = 7;
   mocks.confirm.mockResolvedValue(false);
@@ -200,6 +203,16 @@ describe("JsDos runtime loading", () => {
 
     const options = vi.mocked(window.Dos!).mock.calls[0]![1];
     expect(options.pathPrefix).toBe(`${CDN_BASE}/emulators/`);
+    wrapper.unmount();
+  });
+
+  it("downloads only the bundle file of a folder ROM", async () => {
+    mocks.jsDosBundleFileIds.mockReturnValue([42]);
+    const wrapper = await mountPlayer(makeHandle());
+
+    expect(mocks.jsDosBundleFileIds).toHaveBeenCalledWith(rom);
+    const options = vi.mocked(window.Dos!).mock.calls[0]![1];
+    expect(options.url).toContain("file_ids=42");
     wrapper.unmount();
   });
 
