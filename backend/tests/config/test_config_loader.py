@@ -715,6 +715,28 @@ def test_null_converto_platform_formats_means_empty(tmp_path):
     assert ConfigManager(str(config_file)).config.CONVERTO.platform_formats == {}
 
 
+def test_a_saved_switch_format_is_dropped(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(
+        "converto:\n  platform_formats:\n    Switch: nsz\n    switch-2: xcz\n    psp: iso\n"
+    )
+
+    loader = ConfigManager(str(config_file))
+
+    assert loader.config.CONVERTO.platform_formats == {"psp": "iso"}
+
+
+def test_a_saved_wii_rvz_format_is_dropped(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(
+        "converto:\n  platform_formats:\n    wii: RVZ\n    ngc: rvz\n"
+    )
+
+    loader = ConfigManager(str(config_file))
+
+    assert loader.config.CONVERTO.platform_formats == {"ngc": "rvz"}
+
+
 def test_update_converto_settings_round_trip(tmp_path):
     config_file = tmp_path / "config.yml"
     config_file.write_text("converto:\n  cache_ttl_hours: 12\n")
