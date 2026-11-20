@@ -4,7 +4,7 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from tests.auth_helpers import hide, user_headers
-from tests.factories import make_rom
+from tests.factories import make_platform, make_rom
 
 from handler.database import db_rom_handler
 from models.permission import PermEntity
@@ -127,6 +127,22 @@ def test_a_hidden_rom_is_left_out_of_a_window_by_id(
 
     # Assert
     assert code == status.HTTP_200_OK
+    assert _ids(page) == [shown.id]
+
+
+def test_a_rom_on_a_hidden_platform_is_left_out_of_a_window_by_id(
+    client: TestClient, viewer_user: User, platform: Platform
+):
+    # Arrange
+    shown = make_rom(platform, "shown")
+    hidden_platform = make_platform("hidden-platform")
+    hidden = make_rom(hidden_platform, "hidden")
+    hide(PermEntity.PLATFORMS, hidden_platform.id, user_id=viewer_user.id)
+
+    # Act
+    _, page = _get(client, user_headers(viewer_user), rom_ids=[hidden.id, shown.id])
+
+    # Assert
     assert _ids(page) == [shown.id]
 
 
