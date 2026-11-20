@@ -18,7 +18,14 @@ router = APIRouter(
 MAX_LOG_LIMIT = LOG_BUFFER_SIZE
 
 
-@protected_route(router.get, "", [Scope.LOGS_READ])
+@protected_route(
+    router.get,
+    "",
+    [Scope.LOGS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "The logs viewer is disabled."}
+    },
+)
 async def get_logs(
     request: Request,
     limit: int = Query(
@@ -30,11 +37,7 @@ async def get_logs(
         ),
     ),
 ) -> list[LogEntrySchema]:
-    """Return the most recent backend log lines for backfill.
-
-    Returns:
-        list[LogEntrySchema]: Recent log lines, oldest-first.
-    """
+    """Return the most recent backend log lines, oldest first."""
     if DISABLE_LOGS_VIEWER:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Logs viewer is disabled"

@@ -32,7 +32,19 @@ def _assert_platforms_exportable(request: Request, platform_ids: List[int]) -> N
         )
 
 
-@protected_route(router.post, "/gamelist-xml", [Scope.PLATFORMS_WRITE])
+@protected_route(
+    router.post,
+    "/gamelist-xml",
+    [Scope.PLATFORMS_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No platform the caller can see has one of these IDs."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The export failed, or no file could be written."
+        },
+    },
+)
 async def export_gamelist_xml(
     request: Request,
     platform_ids: Annotated[
@@ -87,7 +99,19 @@ async def export_gamelist_xml(
         ) from e
 
 
-@protected_route(router.post, "/pegasus", [Scope.PLATFORMS_WRITE])
+@protected_route(
+    router.post,
+    "/pegasus",
+    [Scope.PLATFORMS_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No platform the caller can see has one of these IDs."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The export failed, or no file could be written."
+        },
+    },
+)
 async def export_pegasus(
     request: Request,
     platform_ids: Annotated[
