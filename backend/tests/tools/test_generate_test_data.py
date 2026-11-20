@@ -12,9 +12,11 @@ from tools import generate_test_data
 
 from handler.database import db_rom_handler
 from handler.database.base_handler import sync_engine
-from models.rom import Rom
+from models.rom import SEARCH_TITLE_SEPARATOR, Rom, fold_search_title
 
 IMAGE_FIELDS = {"path_cover_s", "path_cover_l", "path_screenshots"}
+# Drawn from the per-game metadata stream, or derived from what it draws.
+EXTRA_FIELDS = {"igdb_metadata", "ss_metadata", "search_titles"}
 
 
 class _FrozenDatetime(datetime):
@@ -33,7 +35,9 @@ def _rom_rows(
     """Run the seeder, recording rom rows instead of inserting anything."""
     rows: list[dict[str, Any]] = []
 
-    def record(conn: object, model: type, batch: list[dict[str, Any]]) -> None:
+    def record(
+        conn: object, model: type, batch: list[dict[str, Any]], chunk: int = 0
+    ) -> None:
         if model is Rom:
             rows.extend(batch)
 
@@ -137,22 +141,31 @@ def _facts(seed: int) -> dict[str, Any]:
     return generate_test_data.make_facts(random.Random(seed), {})
 
 
-def _without_provider_metadata(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [
-        {k: v for k, v in row.items() if k not in ("igdb_metadata", "ss_metadata")}
-        for row in rows
-    ]
+def _without_metadata_extras(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [{k: v for k, v in row.items() if k not in EXTRA_FIELDS} for row in rows]
 
 
 def test_metadata_extras_never_shift_the_rows(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     seeded = _rom_rows(monkeypatch, tmp_path / "seeded")
-    monkeypatch.setattr(generate_test_data, "extra_rng", lambda _: random.Random(0))
+    monkeypatch.setattr(generate_test_data, "extra_rng", lambda *_: random.Random(0))
 
     reseeded = _rom_rows(monkeypatch, tmp_path / "reseeded")
 
-    assert _without_provider_metadata(seeded) == _without_provider_metadata(reseeded)
+    assert _without_metadata_extras(seeded) == _without_metadata_extras(reseeded)
+
+
+def test_rom_rows_carry_their_aliases_and_min_age(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    rows = _rom_rows(monkeypatch, tmp_path)
+
+    aliased = next(r for r in rows if r["igdb_metadata"].get("alternative_names"))
+    for alias in aliased["igdb_metadata"]["alternative_names"]:
+        sep = SEARCH_TITLE_SEPARATOR
+        assert f"{sep}{fold_search_title(alias)}{sep}" in aliased["search_titles"]
+    assert any(row["min_age"] is not None for row in rows)
 
 
 def test_ss_metadata_links_every_media_kind() -> None:
@@ -178,10 +191,9 @@ def test_list_lengths_follow_the_measured_shape() -> None:
 
 def test_the_longest_keyword_list_holds_distinct_keywords() -> None:
     top = generate_test_data.LIST_SHAPES["igdb.keywords"][-1]
+    keywords = generate_test_data.KEYWORDS
 
-    assert len(set(generate_test_data.KEYWORDS)) >= top
-    keywords = random.Random(5).sample(generate_test_data.KEYWORDS, top)
-    assert len(set(keywords)) == top
+    assert len(set(keywords)) == len(keywords) >= top
 
 
 def test_a_wipe_clears_snapshots_before_the_saves_and_states_they_hold() -> None:

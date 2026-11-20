@@ -28,7 +28,7 @@ from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import ProcessPoolExecutor
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, get_type_hints
 
 # Allow running as `python3 tools/generate_test_data.py` from backend/.
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -50,7 +50,10 @@ from config import RESOURCES_BASE_PATH  # noqa: E402
 from handler.database import db_rom_handler  # noqa: E402
 from handler.database.base_handler import sync_engine  # noqa: E402
 from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST  # noqa: E402
-from handler.metadata.ss_handler import SCREENSAVER_PLATFORM_LIST  # noqa: E402
+from handler.metadata.ss_handler import (  # noqa: E402
+    SCREENSAVER_PLATFORM_LIST,
+    SSMetadataMedia,
+)
 from handler.recommendation import invalidate_all_cached_feeds  # noqa: E402
 from models.assets import Save, Screenshot, State  # noqa: E402
 from models.base import BaseModel, compute_file_name_parts  # noqa: E402
@@ -71,6 +74,7 @@ from models.play_session import PlaySession  # noqa: E402
 # columns, so we populate those columns instead of inserting into the views.
 # `roms_facets` is a real table, but triggers on `roms` fill it in.
 from models.rom import (  # noqa: E402
+    ALTERNATIVE_NAME_SOURCES,
     Rom,
     RomFile,
     RomFileCategory,
@@ -80,9 +84,11 @@ from models.rom import (  # noqa: E402
     TrackMeta,
     compute_full_path_hash,
     compute_name_sort_key,
+    compute_search_titles,
 )
 from models.sync_session import SyncSession, SyncSessionStatus  # noqa: E402
 from models.user import Role, User  # noqa: E402
+from utils.age_ratings import MIN_AGE_SOURCE_COLUMNS, compute_min_age  # noqa: E402
 from utils.database import is_postgresql  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -390,13 +396,15 @@ _KEYWORD_QUALIFIERS = [
     "late-game", "early-game", "co-op", "bonus", "final", "chained", "layered",
     "silent", "rare",
 ]  # fmt: skip
-# Larger than the longest measured keyword list (213), so a draw without
+# Larger than the longest keyword list in `LIST_SHAPES`, so a draw without
 # replacement can fill it with distinct values.
 KEYWORDS = [
     *_KEYWORD_TOPICS,
     *(f"{q} {t}" for q in _KEYWORD_QUALIFIERS for t in _KEYWORD_TOPICS),
 ]
-IGDB_PLATFORM_NAMES = [p["name"] for p in IGDB_PLATFORM_LIST.values()]
+IGDB_PLATFORMS = [
+    {"igdb_id": p["id"], "name": p["name"]} for p in IGDB_PLATFORM_LIST.values()
+]
 # (least, p50, p90, p99, max) list lengths, measured 2026-11-17 on one
 # 9,172-game library.
 LIST_SHAPES: dict[str, tuple[int, int, int, int, int]] = {
@@ -405,12 +413,13 @@ LIST_SHAPES: dict[str, tuple[int, int, int, int, int]] = {
     "igdb.platforms": (0, 2, 5, 10, 17),
     "ss.alternative_names": (0, 3, 4, 8, 12),
 }
-SS_MEDIA_KINDS = ("bezel", "box2d", "box2d_side", "box2d_back", "box3d", "fanart",
-                  "fullbox", "logo", "manual", "marquee", "miximage", "miximage_v2",
-                  "physical", "screenshot", "steamgrid", "title_screen", "video",
-                  "video_normalized")  # fmt: skip
-# Stored as a url only, with no `<kind>_path` key.
-SS_URL_ONLY_KINDS = {"fullbox", "manual", "screenshot", "steamgrid"}
+_SS_MEDIA_KEYS = get_type_hints(SSMetadataMedia)
+SS_MEDIA_KINDS = tuple(
+    key.removesuffix("_url") for key in _SS_MEDIA_KEYS if key.endswith("_url")
+)
+SS_URL_ONLY_KINDS = {
+    kind for kind in SS_MEDIA_KINDS if f"{kind}_path" not in _SS_MEDIA_KEYS
+}
 
 
 # ---------------------------------------------------------------------------
@@ -431,9 +440,12 @@ def sample_length(rng: random.Random, key: str) -> int:
     return rng.randint(p99, top)
 
 
-def extra_rng(f: dict[str, Any]) -> random.Random:
-    """A per-game stream for metadata, so the main stream and rows never shift."""
-    return random.Random(f["slug"])  # nosec B311
+def extra_rng(f: dict[str, Any], provider: str) -> random.Random:
+    """A per-game stream for one provider's metadata, so the main stream never shifts."""
+    # Facts come from the main stream, so this follows `--seed`, and siblings,
+    # which copy them, draw the same metadata.
+    key = f"{provider}:{f['slug']}:{f['release_ts']}:{f['rating']}"
+    return random.Random(key)  # nosec B311
 
 
 def rand_hex(rng: random.Random, nbytes: int) -> str:
@@ -569,7 +581,7 @@ def _similar_game(rng: random.Random) -> dict[str, Any]:
 
 
 def build_igdb_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]:
-    more = extra_rng(f)
+    more = extra_rng(f, "igdb")
     metadata: dict[str, Any] = {
         "total_rating": str(f["rating"]),
         "aggregated_rating": str(round(f["rating"] - rng.uniform(0, 8), 2)),
@@ -593,10 +605,7 @@ def build_igdb_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]
             }
             for r in f["age_ratings"]
         ],
-        "platforms": [
-            {"igdb_id": more.randint(1, 500), "name": more.choice(IGDB_PLATFORM_NAMES)}
-            for _ in range(sample_length(more, "igdb.platforms"))
-        ],
+        "platforms": more.sample(IGDB_PLATFORMS, sample_length(more, "igdb.platforms")),
         "multiplayer_modes": [],
         "player_count": f["player_count"],
         "expansions": [],
@@ -629,7 +638,7 @@ def build_moby_metadata(
 
 
 def build_ss_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]:
-    more = extra_rng(f)
+    more = extra_rng(f, "ss")
     game_id, system_id = rng.randint(1, 999999), rng.randint(1, 999999)
     media_url = (
         "https://neoclone.screenscraper.fr/api2/mediaJeu.php?softname=romm"
@@ -1332,6 +1341,15 @@ def _seed(args: argparse.Namespace, image_pool: ProcessPoolExecutor | None) -> i
                     "updated_at": created,
                 }
             )
+            # A Core insert skips the mapper events that fill these on the model.
+            rom_row = rom_rows[-1]
+            rom_row["search_titles"] = compute_search_titles(
+                rom_row["name"],
+                {column: rom_row[column] for column, _ in ALTERNATIVE_NAME_SOURCES},
+            )
+            rom_row["min_age"] = compute_min_age(
+                {column: rom_row.get(column) for column in MIN_AGE_SOURCE_COLUMNS}
+            )
 
             # Rom files: one per disc, plus the occasional manual.
             n_files = rng.randint(2, 4) if multi_disc else 1
@@ -1598,7 +1616,9 @@ def _seed(args: argparse.Namespace, image_pool: ProcessPoolExecutor | None) -> i
 
         if not args.dry_run:
             with sync_engine.begin() as conn:
-                bulk_insert(conn, Rom, rom_rows)
+                # Each rom row carries several KB of metadata JSON, and a
+                # 1000-row statement can drop the connection.
+                bulk_insert(conn, Rom, rom_rows, chunk=100)
                 bulk_insert(conn, RomFile, file_rows)
                 bulk_insert(conn, TrackMeta, track_rows)
                 bulk_insert(conn, RomUser, ru_rows)
