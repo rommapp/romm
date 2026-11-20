@@ -71,14 +71,34 @@ def get_notification_channels(request: Request) -> list[NotificationChannelSchem
     ]
 
 
-@protected_route(router.get, "/apprise-services", [Scope.ME_READ])
+@protected_route(
+    router.get,
+    "/apprise-services",
+    [Scope.ME_READ],
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": "The caller is not an admin."},
+    },
+)
 def get_apprise_services(request: Request) -> list[AppriseServiceSchema]:
     """Every service an admin's Apprise channel can go out on, with its fields."""
     assert_admin(request)
     return _apprise_catalog()
 
 
-@protected_route(router.post, "/apprise-services/parse", [Scope.ME_READ])
+@protected_route(
+    router.post,
+    "/apprise-services/parse",
+    [Scope.ME_READ],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "Apprise cannot read the URL, or the URL is for a service RomM does"
+                " not offer."
+            )
+        },
+        status.HTTP_403_FORBIDDEN: {"description": "The caller is not an admin."},
+    },
+)
 def parse_apprise_url(
     request: Request, payload: AppriseUrlPayload
 ) -> AppriseUrlFieldsSchema:
@@ -98,7 +118,30 @@ def _apprise_catalog() -> list[AppriseServiceSchema]:
     return [AppriseServiceSchema.from_service(s) for s in apprise_channel.services()]
 
 
-@protected_route(router.post, "", [Scope.ME_WRITE], status_code=status.HTTP_201_CREATED)
+@protected_route(
+    router.post,
+    "",
+    [Scope.ME_WRITE],
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "The channel's target is missing or invalid, email is not set up on"
+                " the server, a caller who is not an admin asks for an Apprise"
+                " channel, or the caller already has the maximum number of channels."
+            )
+        },
+        status.HTTP_429_TOO_MANY_REQUESTS: {
+            "description": (
+                "A confirmation code went to the caller or to this address less than"
+                " a minute ago."
+            )
+        },
+        status.HTTP_502_BAD_GATEWAY: {
+            "description": "The mail server could not send the confirmation code."
+        },
+    },
+)
 async def create_notification_channel(
     request: Request, payload: NotificationChannelCreatePayload
 ) -> NotificationChannelSchema:
@@ -116,7 +159,33 @@ async def create_notification_channel(
     return NotificationChannelSchema.from_channel(await _as_http(created))
 
 
-@protected_route(router.patch, "/{channel_id}", [Scope.ME_WRITE])
+@protected_route(
+    router.patch,
+    "/{channel_id}",
+    [Scope.ME_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "The new target is invalid, a new email address is given but email"
+                " is not set up on the server, a caller who is not an admin edits an"
+                " Apprise channel, or a webhook moves to another origin and keeps its"
+                " secret without sending it again."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no notification channel with this ID."
+        },
+        status.HTTP_429_TOO_MANY_REQUESTS: {
+            "description": (
+                "A confirmation code went to the caller or to this address less than"
+                " a minute ago."
+            )
+        },
+        status.HTTP_502_BAD_GATEWAY: {
+            "description": "The mail server could not send the confirmation code."
+        },
+    },
+)
 async def update_notification_channel(
     request: Request,
     channel_id: int,
@@ -167,7 +236,19 @@ def delete_notification_channel(request: Request, channel_id: int) -> None:
         )
 
 
-@protected_route(router.post, "/{channel_id}/test", [Scope.ME_WRITE])
+@protected_route(
+    router.post,
+    "/{channel_id}/test",
+    [Scope.ME_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The channel's email address is not confirmed yet."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no notification channel with this ID."
+        },
+    },
+)
 async def test_notification_channel(
     request: Request, channel_id: int
 ) -> NotificationChannelTestResult:
@@ -178,7 +259,22 @@ async def test_notification_channel(
     return NotificationChannelTestResult(ok=error is None, error=error)
 
 
-@protected_route(router.post, "/{channel_id}/confirm", [Scope.ME_WRITE])
+@protected_route(
+    router.post,
+    "/{channel_id}/confirm",
+    [Scope.ME_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "The code is wrong or has expired, or the channel has had too many"
+                " wrong attempts."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no notification channel with this ID."
+        },
+    },
+)
 async def confirm_notification_channel(
     request: Request,
     channel_id: int,
@@ -198,6 +294,26 @@ async def confirm_notification_channel(
     "/{channel_id}/resend-code",
     [Scope.ME_WRITE],
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "The channel is not an unconfirmed email channel, it has lost its"
+                " address, or email is not set up on the server."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no notification channel with this ID."
+        },
+        status.HTTP_429_TOO_MANY_REQUESTS: {
+            "description": (
+                "A confirmation code went to the caller or to this address less than"
+                " a minute ago."
+            )
+        },
+        status.HTTP_502_BAD_GATEWAY: {
+            "description": "The mail server could not send the confirmation code."
+        },
+    },
 )
 async def resend_notification_channel_code(request: Request, channel_id: int) -> None:
     """Send a new confirmation code to the channel's email address."""
