@@ -104,7 +104,6 @@ from utils.uploads import (
     sanitize_asset_filename,
 )
 from utils.validation import RomIdScope, narrow_rom_id_scope
-from utils.zip_cache import ensure_zipfile_writable
 
 
 def _build_save_schema(
@@ -860,8 +859,6 @@ def _restored_response(restored: RestoredFiles, save: Save) -> Response:
                 SAVE_PATH_HEADER: quote(path),
             },
         )
-    # `zipfile_inflate64`, imported for ROM archives, breaks `writestr()` until this runs.
-    ensure_zipfile_writable()
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         for path, data in sorted(restored.items()):
