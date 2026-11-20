@@ -39,8 +39,11 @@ dependencies = [
   "opentelemetry-instrumentation-httpx ~=0.66b2",
   "opentelemetry-instrumentation-redis ~=0.66b2",
   "opentelemetry-instrumentation-sqlalchemy ~=0.66b2",
+  "opentelemetry-instrumentation-system-metrics ~=0.66b2",
+  "opentelemetry-instrumentation-urllib ~=0.66b2",
   "pillow~=13.0",
   "pillow-jxl-plugin ~= 1.3",
+  "psutil ~= 7.0",
   "psycopg[c] ~= 3.2",
   "pydantic ~= 2.11",
   "pydash ~= 8.0",
@@ -72,6 +75,7 @@ dev = [
   "types-colorama ~= 0.4",
   "types-croniter ~= 6.2",
   "types-defusedxml ~= 0.7",
+  "types-psutil ~= 7.0",
   "types-pyyaml ~= 6.0",
 ]
 test = [
@@ -130,6 +134,8 @@ DEP002 = [ # DEP002 rule: Project should not contain unused dependencies
   "opentelemetry-instrumentation-httpx",
   "opentelemetry-instrumentation-redis",
   "opentelemetry-instrumentation-sqlalchemy",
+  "opentelemetry-instrumentation-system-metrics",
+  "opentelemetry-instrumentation-urllib",
   # Database drivers are used via SQLAlchemy.
   "psycopg",
   # Pytest plugins are used via pytest only.
