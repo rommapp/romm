@@ -25,16 +25,14 @@ def _ids(page: dict[str, Any]) -> list[int]:
 
 
 def test_a_window_by_id_keeps_the_order_given(
-    client: TestClient, access_token: str, platform: Platform
+    client: TestClient, headers: dict[str, str], platform: Platform
 ):
     # Arrange
     roms = [make_rom(platform, name) for name in ("alpha", "bravo", "charlie")]
     wanted = [roms[2].id, roms[0].id, roms[1].id]
 
     # Act
-    code, page = _get(
-        client, {"Authorization": f"Bearer {access_token}"}, rom_ids=wanted
-    )
+    code, page = _get(client, headers, rom_ids=wanted)
 
     # Assert
     assert code == status.HTTP_200_OK
@@ -46,7 +44,7 @@ def test_a_window_by_id_keeps_the_order_given(
 
 
 def test_a_repeated_id_is_loaded_once(
-    client: TestClient, access_token: str, platform: Platform
+    client: TestClient, headers: dict[str, str], platform: Platform
 ):
     # Arrange
     first, second = make_rom(platform, "india"), make_rom(platform, "juliett")
@@ -54,7 +52,7 @@ def test_a_repeated_id_is_loaded_once(
     # Act
     _, page = _get(
         client,
-        {"Authorization": f"Bearer {access_token}"},
+        headers,
         rom_ids=[second.id, first.id, second.id],
     )
 
@@ -64,7 +62,7 @@ def test_a_repeated_id_is_loaded_once(
 
 def test_a_window_by_id_skips_the_grouped_page_cache(
     client: TestClient,
-    access_token: str,
+    headers: dict[str, str],
     platform: Platform,
     monkeypatch: pytest.MonkeyPatch,
 ):
@@ -80,7 +78,7 @@ def test_a_window_by_id_skips_the_grouped_page_cache(
     # Act
     _, page = _get(
         client,
-        {"Authorization": f"Bearer {access_token}"},
+        headers,
         rom_ids=[rom.id],
         group_by_meta_id="true",
     )
@@ -91,12 +89,11 @@ def test_a_window_by_id_skips_the_grouped_page_cache(
 
 
 def test_a_window_by_id_matches_the_window_by_offset(
-    client: TestClient, access_token: str, platform: Platform
+    client: TestClient, headers: dict[str, str], platform: Platform
 ):
     # Arrange
     for name in ("delta", "echo", "foxtrot", "golf", "hotel"):
         make_rom(platform, name)
-    headers = {"Authorization": f"Bearer {access_token}"}
     _, first = _get(client, headers, order_by="name", limit=72)
     window = first["rom_id_index"][1:4]
 
@@ -134,7 +131,7 @@ def test_a_hidden_rom_is_left_out_of_a_window_by_id(
 
 
 def test_a_deleted_rom_is_left_out_of_a_window_by_id(
-    client: TestClient, access_token: str, platform: Platform
+    client: TestClient, headers: dict[str, str], platform: Platform
 ):
     # Arrange
     kept = make_rom(platform, "kept")
@@ -144,7 +141,7 @@ def test_a_deleted_rom_is_left_out_of_a_window_by_id(
     # Act
     _, page = _get(
         client,
-        {"Authorization": f"Bearer {access_token}"},
+        headers,
         rom_ids=[gone.id, kept.id],
     )
 
@@ -153,19 +150,16 @@ def test_a_deleted_rom_is_left_out_of_a_window_by_id(
 
 
 def test_the_window_holds_up_to_the_cap_whatever_the_limit(
-    client: TestClient, access_token: str, platform: Platform
+    client: TestClient, headers: dict[str, str], platform: Platform
 ):
     # Arrange
     rom = make_rom(platform, "only")
     wanted = [rom.id, *range(10_000_000, 10_000_000 + MAX_ROM_IDS_PER_QUERY - 1)]
 
     # Act
-    code, page = _get(
-        client, {"Authorization": f"Bearer {access_token}"}, rom_ids=wanted, limit=2
-    )
+    code, page = _get(client, headers, rom_ids=wanted, limit=2)
 
     # Assert
-    assert len(wanted) == MAX_ROM_IDS_PER_QUERY
     assert code == status.HTTP_200_OK
     assert _ids(page) == [rom.id]
 
@@ -181,12 +175,10 @@ def test_the_window_holds_up_to_the_cap_whatever_the_limit(
     ids=["over the cap", "zero", "negative", "not a number"],
 )
 def test_an_invalid_window_is_refused(
-    client: TestClient, access_token: str, rom_ids: list[Any]
+    client: TestClient, headers: dict[str, str], rom_ids: list[Any]
 ):
     # Act
-    code, body = _get(
-        client, {"Authorization": f"Bearer {access_token}"}, rom_ids=rom_ids
-    )
+    code, body = _get(client, headers, rom_ids=rom_ids)
 
     # Assert
     assert code == status.HTTP_422_UNPROCESSABLE_CONTENT

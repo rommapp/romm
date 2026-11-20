@@ -41,6 +41,7 @@ from pydantic import (
 )
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 from starlette.responses import FileResponse
 
 from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
@@ -798,24 +799,107 @@ def get_roms(
         RomIdScope,
         Query(
             description=(
-                "Load exactly these roms, in this order, instead of a page: for"
-                " example the 72 a gallery just scrolled into view. Repeat the"
-                f" parameter, up to {MAX_ROM_IDS_PER_QUERY} positive ids; a"
-                " repeated id is kept once. Ids the caller can't see, or that no"
-                " longer exist, are left out. The filters don't narrow the"
-                " window, `offset` and `limit` come back as 0 and the id count,"
-                " and the sidecars and the total are skipped."
+                "Load exactly these roms, in this order, instead of a page."
+                f" Repeat the parameter, up to {MAX_ROM_IDS_PER_QUERY} ids. Ids"
+                " the caller can't see, or that no longer exist, are left out."
+                " Filters don't narrow the result, the sidecars and the total"
+                " are skipped, and `offset` and `limit` come back as 0 and the"
+                " id count."
             ),
         ),
     ] = None,
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve a page of roms, or the roms named by `rom_ids`."""
     perms = get_permissions(request)
+
+    def _transform(session: Session, items: Sequence[Rom]) -> list[SimpleRomSchema]:
+        item_ids = [i.id for i in items]
+        files_by_rom = (
+            db_rom_handler.get_files_for_roms(item_ids, session=session)
+            if with_files
+            else {}
+        )
+        siblings_by_rom = db_rom_handler.get_siblings_for_roms(
+            item_ids,
+            user_id=request.user.id,
+            session=session,
+            visibility=perms.rom_visibility,
+        )
+        rom_ids_with_notes = db_rom_handler.get_rom_ids_with_notes(
+            item_ids, user_id=request.user.id, session=session
+        )
+        if with_files:
+            for item in items:
+                apply_file_stats(item, files_by_rom.get(item.id, []))
+
+        # Continue-playing rail
+        screenshot_by_rom: dict[int, str | None] = {}
+        if filters.last_played:
+            latest_saves = db_save_handler.get_latest_saves_for_roms(
+                user_id=request.user.id, rom_ids=item_ids, session=session
+            )
+            for item in items:
+                screenshot_by_rom[item.id] = continue_playing_screenshot(
+                    item, latest_saves.get(item.id)
+                )
+
+        return [
+            SimpleRomSchema.from_orm_with_request(
+                db_rom=item,
+                request=request,
+                files=files_by_rom.get(item.id, []),
+                siblings=siblings_by_rom.get(item.id, []),
+                screenshot_path=screenshot_by_rom.get(item.id),
+                has_notes=item.id in rom_ids_with_notes,
+                with_provider_metadata=with_provider_metadata,
+            )
+            for item in items
+        ]
+
+    def _hydrate(session: Session, page_ids: list[int]) -> list[SimpleRomSchema]:
+        if not page_ids:
+            return []
+        # The access check on caller-supplied ids; paged ids already passed the
+        # filters and the sibling grouping, so neither is re-run.
+        page_rows = session.scalars(
+            db_rom_handler.get_page_rows_query(
+                page_ids,
+                visibility=perms.rom_visibility,
+                include_file_stats=not with_files,
+            )
+        ).all()
+        rows_by_id = {rom.id: rom for rom in page_rows}
+        return _transform(session, [rows_by_id[i] for i in page_ids if i in rows_by_id])
+
+    empty_filter_values = RomFiltersDict(
+        genres=[],
+        franchises=[],
+        collections=[],
+        companies=[],
+        publishers=[],
+        developers=[],
+        game_modes=[],
+        age_ratings=[],
+        player_counts=[],
+        regions=[],
+        languages=[],
+        tags=[],
+        platforms=[],
+    )
+
     if rom_ids is not None:
         # The caller already holds the ordered list, so nothing spans the set.
-        with_char_index = with_rom_id_index = with_total = False
-        with_filter_values = False
-        params = PageParams(limit=len(rom_ids), offset=0)
+        with sync_session.begin() as session:
+            return CustomLimitOffsetPage(
+                items=_hydrate(session, rom_ids),
+                total=None,
+                limit=len(rom_ids),
+                offset=0,
+                char_index={},
+                rom_id_index=[],
+                filter_values=empty_filter_values,
+            )
+
     parsed_released_days = parse_released_days(released_days)
 
     # Normalised once so the query layer and every cache key agree on case.
@@ -855,10 +939,7 @@ def get_roms(
     # only the scope applied, so a filter it never applies cannot stale it.
     is_unscoped_scope = not filters.has_scope()
     is_unfiltered = (
-        rom_ids is None
-        and not filters.has_filters()
-        and not updated_after
-        and not parsed_released_days
+        not filters.has_filters() and not updated_after and not parsed_released_days
     )
     is_unscoped = is_unscoped_scope and is_unfiltered
 
@@ -895,21 +976,7 @@ def get_roms(
         )
         char_index_dict = {char: index for (char, index) in char_index}
 
-    filter_values = RomFiltersDict(
-        genres=[],
-        franchises=[],
-        collections=[],
-        companies=[],
-        publishers=[],
-        developers=[],
-        game_modes=[],
-        age_ratings=[],
-        player_counts=[],
-        regions=[],
-        languages=[],
-        tags=[],
-        platforms=[],
-    )
+    filter_values = empty_filter_values
     if with_filter_values:
         # We use the unfiltered query so applied filters don't affect the list
         filter_query = db_rom_handler.filter_roms(
@@ -953,50 +1020,6 @@ def get_roms(
     # Hydrate the requested page and its additional data
     with sync_session.begin() as session:
 
-        def _transform(items: Sequence[Rom]) -> list[SimpleRomSchema]:
-            item_ids = [i.id for i in items]
-            files_by_rom = (
-                db_rom_handler.get_files_for_roms(item_ids, session=session)
-                if with_files
-                else {}
-            )
-            siblings_by_rom = db_rom_handler.get_siblings_for_roms(
-                item_ids,
-                user_id=request.user.id,
-                session=session,
-                visibility=perms.rom_visibility,
-            )
-            rom_ids_with_notes = db_rom_handler.get_rom_ids_with_notes(
-                item_ids, user_id=request.user.id, session=session
-            )
-            if with_files:
-                for item in items:
-                    apply_file_stats(item, files_by_rom.get(item.id, []))
-
-            # Continue-playing rail
-            screenshot_by_rom: dict[int, str | None] = {}
-            if filters.last_played:
-                latest_saves = db_save_handler.get_latest_saves_for_roms(
-                    user_id=request.user.id, rom_ids=item_ids, session=session
-                )
-                for item in items:
-                    screenshot_by_rom[item.id] = continue_playing_screenshot(
-                        item, latest_saves.get(item.id)
-                    )
-
-            return [
-                SimpleRomSchema.from_orm_with_request(
-                    db_rom=item,
-                    request=request,
-                    files=files_by_rom.get(item.id, []),
-                    siblings=siblings_by_rom.get(item.id, []),
-                    screenshot_path=screenshot_by_rom.get(item.id),
-                    has_notes=item.id in rom_ids_with_notes,
-                    with_provider_metadata=with_provider_metadata,
-                )
-                for item in items
-            ]
-
         def resolve_total() -> int | None:
             if with_rom_id_index:
                 # The index already spans the result set, so the count is free.
@@ -1008,9 +1031,7 @@ def get_roms(
                 return cached_page[1]
             return db_rom_handler.get_rom_count(query=query, session=session)
 
-        if rom_ids is not None:
-            page_ids = list(rom_ids)
-        elif with_rom_id_index:
+        if with_rom_id_index:
             page_ids = rom_id_index[params.offset : params.offset + params.limit]
         elif cached_page is not None:
             page_ids = cached_page[0]
@@ -1025,23 +1046,8 @@ def get_roms(
                 ).all()
             )
 
-        if page_ids:
-            # Paged ids already passed the filters and the sibling grouping, so the
-            # rows load without re-running either. Visibility still gates `rom_ids`.
-            page_rows = session.scalars(
-                db_rom_handler.get_page_rows_query(
-                    page_ids,
-                    visibility=perms.rom_visibility,
-                    include_file_stats=not with_files,
-                )
-            ).all()
-            rows_by_id = {rom.id: rom for rom in page_rows}
-            page_items = [rows_by_id[i] for i in page_ids if i in rows_by_id]
-        else:
-            page_items = []
-
         return CustomLimitOffsetPage(
-            items=_transform(page_items),
+            items=_hydrate(session, page_ids),
             total=resolve_total(),
             limit=params.limit,
             offset=params.offset,
