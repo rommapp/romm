@@ -714,11 +714,7 @@ async def add_roms_to_collection(
     id: CollectionIdPath,
     payload: CollectionRomsPayload,
 ) -> CollectionSchema:
-    """Atomically add ROMs to a collection without replacing the full list.
-
-    Returns:
-        CollectionSchema: Updated collection
-    """
+    """Add roms to one of the caller's collections in one step, keeping the roms it already holds."""
     collection = _owned_or_error(request, db_collection_handler.get_collection(id), id)
 
     hidden = _hidden_rom_ids(request, payload.rom_ids)
@@ -744,11 +740,7 @@ async def remove_roms_from_collection(
     id: CollectionIdPath,
     payload: CollectionRomsPayload,
 ) -> CollectionSchema:
-    """Atomically remove ROMs from a collection without replacing the full list.
-
-    Returns:
-        CollectionSchema: Updated collection
-    """
+    """Remove roms from one of the caller's collections in one step, keeping the other roms it holds."""
     collection = _owned_or_error(request, db_collection_handler.get_collection(id), id)
 
     # Members hidden from the caller stay, as in update_collection.
@@ -788,11 +780,7 @@ async def update_smart_collection(
         description="Updated smart collection filters as a JSON string.",
     ),
 ) -> SmartCollectionSchema:
-    """Update smart collection endpoint
-
-    Returns:
-        SmartCollectionSchema: Updated smart collection
-    """
+    """Update one of the caller's smart collections. Fields left out of the request keep their current values."""
     smart_collection = _owned_or_error(
         request, db_collection_handler.get_smart_collection(id), id
     )
