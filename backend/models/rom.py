@@ -43,6 +43,7 @@ from sqlalchemy.orm import (
 )
 from sqlalchemy.orm.attributes import InstrumentedAttribute, set_committed_value
 from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.selectable import ScalarSelect
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import (
@@ -1408,6 +1409,25 @@ class Rom(BaseModel):
 # Revisit (real columns, JOIN/aggregate, or added indexes) if gallery latency regresses
 _rom_full_path = func.concat(Rom.fs_path, "/", Rom.fs_name)
 
+# The rom's own file, or a file directly inside the rom's folder
+_is_top_level_file = or_(
+    func.concat(RomFile.file_path, "/", RomFile.file_name) == _rom_full_path,
+    RomFile.file_path == _rom_full_path,
+)
+
+
+def _rom_has_present_file(*criteria: ColumnElement[bool]) -> ScalarSelect[bool]:
+    """Whether the rom has a file on disk matching every one of `criteria`."""
+    return (
+        select(RomFile.id)
+        .where(RomFile.rom_id == Rom.id, RomFile.missing_from_fs.is_(False), *criteria)
+        .correlate_except(RomFile)
+        .exists()
+        .select()
+        .scalar_subquery()
+    )
+
+
 Rom.multi_file = column_property(
     select(RomFile.id)
     .where(
@@ -1425,75 +1445,36 @@ Rom.multi_file = column_property(
 
 Rom.top_level_file_count = column_property(
     select(func.count(RomFile.id))
-    .where(
-        and_(
-            RomFile.rom_id == Rom.id,
-            or_(
-                func.concat(RomFile.file_path, "/", RomFile.file_name)
-                == _rom_full_path,
-                RomFile.file_path == _rom_full_path,
-            ),
-        )
-    )
+    .where(and_(RomFile.rom_id == Rom.id, _is_top_level_file))
     .correlate_except(RomFile)
     .scalar_subquery(),
     deferred=True,
 )
 
 Rom.is_easyrpg_game = column_property(
-    select(RomFile.id)
-    .where(
-        and_(
-            RomFile.rom_id == Rom.id,
-            RomFile.file_path == _rom_full_path,
-            func.lower(RomFile.file_name) == EASYRPG_GAME_DATABASE,
-            RomFile.missing_from_fs.is_(False),
-        )
-    )
-    .correlate_except(RomFile)
-    .exists()
-    .select()
-    .scalar_subquery(),
+    _rom_has_present_file(
+        RomFile.file_path == _rom_full_path,
+        func.lower(RomFile.file_name) == EASYRPG_GAME_DATABASE,
+    ),
     deferred=True,
 )
 
-# A bundle file on its own, or one directly inside the rom's folder.
 Rom.has_jsdos_bundle = column_property(
-    select(RomFile.id)
-    .where(
-        and_(
-            RomFile.rom_id == Rom.id,
-            or_(
-                func.concat(RomFile.file_path, "/", RomFile.file_name)
-                == _rom_full_path,
-                RomFile.file_path == _rom_full_path,
-            ),
-            func.lower(RomFile.file_name).like(f"%{JSDOS_BUNDLE_EXTENSION}"),
-            RomFile.missing_from_fs.is_(False),
-        )
-    )
-    .correlate_except(RomFile)
-    .exists()
-    .select()
-    .scalar_subquery(),
+    _rom_has_present_file(
+        _is_top_level_file,
+        func.lower(RomFile.file_name).like(f"%{JSDOS_BUNDLE_EXTENSION}"),
+    ),
     deferred=True,
 )
 
 
 def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
     """Fill the deferred file-stat columns from an already-loaded file list."""
+    top_level = [f for f in files if rom.full_path in (f.full_path, f.file_path)]
     set_committed_value(
         rom, "multi_file", any(f.file_path != rom.fs_path for f in files)
     )
-    set_committed_value(
-        rom,
-        "top_level_file_count",
-        sum(
-            1
-            for f in files
-            if f.full_path == rom.full_path or f.file_path == rom.full_path
-        ),
-    )
+    set_committed_value(rom, "top_level_file_count", len(top_level))
     set_committed_value(
         rom,
         "has_soundtrack",
@@ -1513,10 +1494,9 @@ def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
         rom,
         "has_jsdos_bundle",
         any(
-            (f.full_path == rom.full_path or f.file_path == rom.full_path)
-            and f.file_name.lower().endswith(JSDOS_BUNDLE_EXTENSION)
+            f.file_name.lower().endswith(JSDOS_BUNDLE_EXTENSION)
             and not f.missing_from_fs
-            for f in files
+            for f in top_level
         ),
     )
 

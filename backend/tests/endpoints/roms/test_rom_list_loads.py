@@ -192,40 +192,23 @@ def test_file_stats_match_between_derived_and_sql_paths(
 
 @pytest.mark.parametrize("with_files", [True, False])
 @pytest.mark.parametrize(
-    ("rom_fixture", "expected"), [("easyrpg_rom", True), ("folder_rom", False)]
-)
-def test_is_easyrpg_game_needs_a_top_level_game_database(
-    client: TestClient,
-    access_token: str,
-    platform: Platform,
-    rom_fixture: str,
-    expected: bool,
-    with_files: bool,
-    request: pytest.FixtureRequest,
-) -> None:
-    request.getfixturevalue(rom_fixture)
-
-    rom = _fetch_one(client, access_token, platform, with_files=with_files)
-
-    assert rom["is_easyrpg_game"] is expected
-
-
-@pytest.mark.parametrize("with_files", [True, False])
-@pytest.mark.parametrize(
-    ("rom_fixture", "expected"),
+    ("field", "rom_fixture", "expected"),
     [
-        ("jsdos_rom", True),
-        ("jsdos_folder_rom", True),
-        ("nested_jsdos_rom", False),
-        ("missing_jsdos_rom", False),
-        ("folder_rom", False),
-        ("flat_rom", False),
+        ("is_easyrpg_game", "easyrpg_rom", True),
+        ("is_easyrpg_game", "folder_rom", False),
+        ("has_jsdos_bundle", "jsdos_rom", True),
+        ("has_jsdos_bundle", "jsdos_folder_rom", True),
+        ("has_jsdos_bundle", "nested_jsdos_rom", False),
+        ("has_jsdos_bundle", "missing_jsdos_rom", False),
+        ("has_jsdos_bundle", "folder_rom", False),
+        ("has_jsdos_bundle", "flat_rom", False),
     ],
 )
-def test_has_jsdos_bundle_needs_a_top_level_bundle(
+def test_marker_file_flags_need_a_top_level_file(
     client: TestClient,
     access_token: str,
     platform: Platform,
+    field: str,
     rom_fixture: str,
     expected: bool,
     with_files: bool,
@@ -235,7 +218,7 @@ def test_has_jsdos_bundle_needs_a_top_level_bundle(
 
     rom = _fetch_one(client, access_token, platform, with_files=with_files)
 
-    assert rom["has_jsdos_bundle"] is expected
+    assert rom[field] is expected
 
 
 def test_with_files_query_count_does_not_scale_with_file_count(
