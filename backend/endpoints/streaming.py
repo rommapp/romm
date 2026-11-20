@@ -27,9 +27,10 @@ from typing import Annotated, Any, Literal, NamedTuple
 from fastapi import BackgroundTasks, Body, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Query, Request
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from endpoints.responses.streaming import (
     AdminContainerSchema,
     AdminContainersResponse,

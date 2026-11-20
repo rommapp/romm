@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import Annotated, Self
+from typing import Annotated, Final, Self
 
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ConfigDict, Field, PlainSerializer
@@ -18,26 +18,22 @@ def _serialize_utc_datetime(dt: datetime) -> str:
 UTCDatetime = Annotated[datetime, PlainSerializer(_serialize_utc_datetime)]
 
 
+# A string right after a field becomes its description in the OpenAPI schema.
+API_SCHEMA_CONFIG: Final = ConfigDict(use_attribute_docstrings=True)
+
+
 class BaseModel(PydanticBaseModel):
-    """Base response model for all API responses."""
+    """Base model for API request and response schemas."""
 
-    # A string right after a field becomes its description in the OpenAPI schema.
-    model_config = ConfigDict(use_attribute_docstrings=True)
+    model_config = API_SCHEMA_CONFIG
 
 
-class PageParams(PydanticBaseModel):
+class PageParams(BaseModel):
     # Temporarily high until every app paginates
-    limit: int = Field(
-        50,
-        ge=1,
-        le=10_000,
-        description="The number of items to return, such as 72. Defaults to 50. The maximum is 10,000.",
-    )
-    offset: int = Field(
-        0,
-        ge=0,
-        description="The number of items to skip. For example, 144 returns the third page of 72.",
-    )
+    limit: int = Field(50, ge=1, le=10_000)
+    """The number of items to return, such as 72. Defaults to 50. The maximum is 10,000."""
+    offset: int = Field(0, ge=0)
+    """The number of items to skip. For example, 144 returns the third page of 72."""
 
 
 PAGE_QUERY = as_query_dependency(PageParams)

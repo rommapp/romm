@@ -8,10 +8,11 @@ from typing import Annotated, Final
 from fastapi import HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, Response, status
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
 
 from config import DEVICE_INSTALL_ENABLED
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from endpoints.responses.device.install import (
     InstallReason,
     InstallRequestSchema,

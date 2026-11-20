@@ -34,7 +34,7 @@ from utils.media_types import (
     is_html_document_file,
 )
 from utils.nginx import FileRedirectResponse
-from utils.router import APIRouter
+from utils.router import APIRouter, RomIdPath
 
 router = APIRouter()
 
@@ -186,7 +186,7 @@ async def get_romfile_content(
 )
 async def delete_rom_file(
     request: Request,
-    rom_id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    rom_id: RomIdPath,
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
 ) -> Response:
     """Delete a single file from a ROM."""
@@ -267,7 +267,7 @@ def _assert_document_file(
 )
 async def get_rom_file_progress(
     request: Request,
-    rom_id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    rom_id: RomIdPath,
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
 ) -> RomFileUserSchema:
     """Get the current user's reading progress for a document file."""
@@ -299,7 +299,7 @@ async def get_rom_file_progress(
 )
 async def update_rom_file_progress(
     request: Request,
-    rom_id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    rom_id: RomIdPath,
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
     body: Annotated[dict[str, Any], Body()],
 ) -> RomFileUserSchema:

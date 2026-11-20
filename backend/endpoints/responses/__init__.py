@@ -1,8 +1,9 @@
 from typing import Annotated, Literal, TypedDict, Union
 
-from pydantic import Field
+from pydantic import Field, with_config
 from rq.job import JobStatus
 
+from endpoints.responses.base import API_SCHEMA_CONFIG
 from tasks.tasks import TaskType
 
 
@@ -102,9 +103,8 @@ TaskMeta = Union[
 ]
 
 
-TASK_META_DESCRIPTION = "Details specific to this kind of task."
-
-
+# A TypedDict reads attribute docstrings only from its own body, so the fields
+# the status responses inherit keep their descriptions on `Field`.
 class TaskExecutionResponse(TypedDict):
     task_key: Annotated[
         str | None,
@@ -132,54 +132,60 @@ class BaseTaskStatusResponse(TaskExecutionResponse):
     ended_at: Annotated[str | None, Field(description="When the job finished.")]
 
 
+@with_config(API_SCHEMA_CONFIG)
 class ScanTaskStatusResponse(BaseTaskStatusResponse):
-    task_type: Annotated[
-        Literal[TaskType.SCAN], Field(description="The kind of task: `scan`.")
-    ]
-    meta: Annotated[ScanTaskMeta, Field(description=TASK_META_DESCRIPTION)]
+    task_type: Literal[TaskType.SCAN]
+    """The kind of task: `scan`."""
+    meta: ScanTaskMeta
+    """Details specific to this kind of task."""
 
 
+@with_config(API_SCHEMA_CONFIG)
 class ConversionTaskStatusResponse(BaseTaskStatusResponse):
-    task_type: Annotated[
-        Literal[TaskType.CONVERSION],
-        Field(description="The kind of task: `conversion`."),
-    ]
-    meta: Annotated[ConversionTaskMeta, Field(description=TASK_META_DESCRIPTION)]
+    task_type: Literal[TaskType.CONVERSION]
+    """The kind of task: `conversion`."""
+    meta: ConversionTaskMeta
+    """Details specific to this kind of task."""
 
 
+@with_config(API_SCHEMA_CONFIG)
 class UpdateTaskStatusResponse(BaseTaskStatusResponse):
-    task_type: Annotated[
-        Literal[TaskType.UPDATE], Field(description="The kind of task: `update`.")
-    ]
-    meta: Annotated[UpdateTaskMeta, Field(description=TASK_META_DESCRIPTION)]
+    task_type: Literal[TaskType.UPDATE]
+    """The kind of task: `update`."""
+    meta: UpdateTaskMeta
+    """Details specific to this kind of task."""
 
 
+@with_config(API_SCHEMA_CONFIG)
 class CleanupTaskStatusResponse(BaseTaskStatusResponse):
-    task_type: Annotated[
-        Literal[TaskType.CLEANUP], Field(description="The kind of task: `cleanup`.")
-    ]
-    meta: Annotated[CleanupTaskMeta, Field(description=TASK_META_DESCRIPTION)]
+    task_type: Literal[TaskType.CLEANUP]
+    """The kind of task: `cleanup`."""
+    meta: CleanupTaskMeta
+    """Details specific to this kind of task."""
 
 
+@with_config(API_SCHEMA_CONFIG)
 class SyncTaskStatusResponse(BaseTaskStatusResponse):
-    task_type: Annotated[
-        Literal[TaskType.SYNC], Field(description="The kind of task: `sync`.")
-    ]
-    meta: Annotated[SyncTaskMeta, Field(description=TASK_META_DESCRIPTION)]
+    task_type: Literal[TaskType.SYNC]
+    """The kind of task: `sync`."""
+    meta: SyncTaskMeta
+    """Details specific to this kind of task."""
 
 
+@with_config(API_SCHEMA_CONFIG)
 class WatcherTaskStatusResponse(BaseTaskStatusResponse):
-    task_type: Annotated[
-        Literal[TaskType.WATCHER], Field(description="The kind of task: `watcher`.")
-    ]
-    meta: Annotated[WatcherTaskMeta, Field(description=TASK_META_DESCRIPTION)]
+    task_type: Literal[TaskType.WATCHER]
+    """The kind of task: `watcher`."""
+    meta: WatcherTaskMeta
+    """Details specific to this kind of task."""
 
 
+@with_config(API_SCHEMA_CONFIG)
 class GenericTaskStatusResponse(BaseTaskStatusResponse):
-    task_type: Annotated[
-        Literal[TaskType.GENERIC], Field(description="The kind of task: `generic`.")
-    ]
-    meta: Annotated[GenericTaskMeta, Field(description=TASK_META_DESCRIPTION)]
+    task_type: Literal[TaskType.GENERIC]
+    """The kind of task: `generic`."""
+    meta: GenericTaskMeta
+    """Details specific to this kind of task."""
 
 
 TaskStatusResponse = Union[

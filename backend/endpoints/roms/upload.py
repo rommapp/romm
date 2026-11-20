@@ -10,7 +10,7 @@ from anyio import open_file
 from fastapi import Header, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, status
-from pydantic import BaseModel, Field
+from pydantic import Field
 from starlette.requests import ClientDisconnect
 from starlette.responses import Response
 from streaming_form_data import StreamingFormDataParser
@@ -18,6 +18,7 @@ from streaming_form_data.targets import FileTarget, NullTarget
 
 from config import ROM_UPLOAD_TMP_BASE, ROM_UPLOAD_TTL
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from exceptions.fs_exceptions import (
     RomAlreadyExistsException,
     RomListedByPlaylistException,
@@ -289,23 +290,14 @@ class UploadTargetPayload(BaseModel):
     """Optional body of `/start`: upload into a ROM's folder instead of the
     platform folder, and name the file where the header cannot."""
 
-    rom_id: int | None = Field(
-        default=None,
-        ge=1,
-        description="Upload into this ROM's folder instead of the platform folder.",
-    )
-    folder: str = Field(
-        default="",
-        description="Subfolder inside the ROM's folder, relative and forward-slashed. Empty for the root.",
-    )
-    filename: str | None = Field(
-        default=None,
-        description="The file name. Takes precedence over the header, which cannot carry characters outside Latin-1.",
-    )
-    overwrite: bool = Field(
-        default=False,
-        description="Replace a file of the same name in the ROM's folder instead of refusing the upload.",
-    )
+    rom_id: int | None = Field(default=None, ge=1)
+    """Upload into this ROM's folder instead of the platform folder."""
+    folder: str = ""
+    """Subfolder inside the ROM's folder, relative and forward-slashed. Empty for the root."""
+    filename: str | None = None
+    """The file name. Takes precedence over the header, which cannot carry characters outside Latin-1."""
+    overwrite: bool = False
+    """Replace a file of the same name in the ROM's folder instead of refusing the upload."""
 
 
 @protected_route(

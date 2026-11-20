@@ -18,7 +18,8 @@ router = APIRouter(prefix="/audit-events", tags=["audit"])
 
 
 class AuditPageParams(PageParams):
-    limit: int = Field(50, ge=1, le=200, description="Page size limit")
+    limit: int = Field(50, ge=1, le=200)
+    """Page size limit"""
 
 
 AUDIT_PAGE_QUERY = as_query_dependency(AuditPageParams)

@@ -7,7 +7,7 @@ from fastapi import Path, Query
 from fastapi.types import DecoratedCallable
 from pydantic import BaseModel
 
-RomIdPath = Annotated[int, Path(description="Rom internal id.")]
+RomIdPath = Annotated[int, Path(description="Rom internal id.", ge=1)]
 RomIdQuery = Annotated[int, Query(description="Rom internal id.")]
 OrderDirQuery = Annotated[
     str, Query(description="The sort direction, `asc` or `desc`.")

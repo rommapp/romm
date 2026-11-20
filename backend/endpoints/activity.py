@@ -1,8 +1,9 @@
 from fastapi import HTTPException, Query, Request, status
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from decorators.auth import protected_route
 from endpoints.responses.activity import ActivityEntrySchema
+from endpoints.responses.base import BaseModel
 from handler.activity_handler import ActivityEntry, activity_handler
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions

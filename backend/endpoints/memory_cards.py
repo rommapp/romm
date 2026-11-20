@@ -7,10 +7,10 @@ from fastapi import Body, File, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
-from pydantic import BaseModel as PydanticBaseModel
 from pydantic import Field
 
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from endpoints.responses.memory_cards import (
     MemoryCardSchema,
     MemoryCardVersionSchema,
@@ -50,7 +50,7 @@ MEMORY_CARD_FILE_UPLOAD = File(..., description="Memory card archive to upload."
 EMULATOR_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]*$")
 
 
-class MemoryCardCreatePayload(PydanticBaseModel):
+class MemoryCardCreatePayload(BaseModel):
     name: str = Field(max_length=MEMORY_CARD_NAME_MAX_LENGTH)
     emulator: str = Field(max_length=EMULATOR_MAX_LENGTH)
     # Loose display hint only; never scopes lookup (see MemoryCard model).

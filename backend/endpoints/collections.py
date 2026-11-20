@@ -7,11 +7,11 @@ from typing import Annotated, Any, Final, TypeVar
 from fastapi import Body, File, Form, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Query, Request, UploadFile, status
-from pydantic import BaseModel as PydanticBaseModel
 from pydantic import TypeAdapter
 from pydantic import ValidationError as PydanticValidationError
 
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from endpoints.responses.collection import (
     CollectionSchema,
     SmartCollectionSchema,
@@ -709,7 +709,7 @@ def update_collection_visibility(
     )
 
 
-class CollectionRomsPayload(PydanticBaseModel):
+class CollectionRomsPayload(BaseModel):
     rom_ids: list[int]
 
 

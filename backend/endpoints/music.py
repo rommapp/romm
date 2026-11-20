@@ -1,10 +1,11 @@
 from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, Query, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel as PydanticBaseModel
+from pydantic import Field
 
 from decorators.auth import protected_route
-from endpoints.responses.base import LimitOffsetPage, PageParams
+from endpoints.responses.base import BaseModel, LimitOffsetPage, PageParams
 from endpoints.responses.music import (
     FacetValueSchema,
     MusicGameFacetSchema,
@@ -23,14 +24,15 @@ router = APIRouter(prefix="/music", tags=["music"])
 
 class MusicPageParams(PageParams):
     # Sized to the largest page the jukebox requests (a whole soundtrack).
-    limit: int = Field(50, ge=1, le=1_000, description="Page size limit")
+    limit: int = Field(50, ge=1, le=1_000)
+    """Page size limit"""
 
 
 MUSIC_PAGE_QUERY = as_query_dependency(MusicPageParams)
 
 
 # Its own class so the OpenAPI schema keeps the `MusicPage_*` names.
-class MusicPage[T: BaseModel](LimitOffsetPage[T]):
+class MusicPage[T: PydanticBaseModel](LimitOffsetPage[T]):
     pass
 
 
@@ -67,25 +69,32 @@ def resolve_track_ids(rom_file_ids: list[int], perms: ResolvedPermissions) -> li
 
 
 class MusicTrackFilters(BaseModel):
-    search: str | None = Field(
-        None, description="Substring match on title/artist/album."
-    )
-    artist: str | None = Field(None, description="Exact artist.")
-    album: str | None = Field(None, description="Exact album.")
-    genre: str | None = Field(None, description="Exact genre.")
-    game_genre: str | None = Field(None, description="Exact genre of the owning game.")
-    platform_ids: list[int] | None = Field(
-        None, description="Restrict to these platform ids."
-    )
-    year: int | None = Field(None, description="Exact release year.")
-    min_year: int | None = Field(None, description="Earliest release year, inclusive.")
-    max_year: int | None = Field(None, description="Latest release year, inclusive.")
-    min_duration: float | None = Field(None, description="Minimum duration in seconds.")
-    max_duration: float | None = Field(None, description="Maximum duration in seconds.")
-    order_by: str = Field(
-        "title", description="title/artist/album/duration/year/platform/added."
-    )
-    order_dir: str = Field("asc", description="asc or desc.")
+    search: str | None = None
+    """Substring match on title/artist/album."""
+    artist: str | None = None
+    """Exact artist."""
+    album: str | None = None
+    """Exact album."""
+    genre: str | None = None
+    """Exact genre."""
+    game_genre: str | None = None
+    """Exact genre of the owning game."""
+    platform_ids: list[int] | None = None
+    """Restrict to these platform ids."""
+    year: int | None = None
+    """Exact release year."""
+    min_year: int | None = None
+    """Earliest release year, inclusive."""
+    max_year: int | None = None
+    """Latest release year, inclusive."""
+    min_duration: float | None = None
+    """Minimum duration in seconds."""
+    max_duration: float | None = None
+    """Maximum duration in seconds."""
+    order_by: str = "title"
+    """title/artist/album/duration/year/platform/added."""
+    order_dir: str = "asc"
+    """asc or desc."""
 
 
 MUSIC_TRACK_FILTERS_QUERY = as_query_dependency(MusicTrackFilters)

@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, status
-from pydantic import BaseModel, Field, StringConstraints, field_validator
+from pydantic import Field, StringConstraints, field_validator
 
 from adapters.services.rom_converto import (
     LIBRARY_TARGETS_BY_PLATFORM,
@@ -24,6 +24,7 @@ from config.config_manager import (
 )
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from endpoints.responses.config import ConfigResponse
 from exceptions.config_exceptions import ConfigNotWritableException
 from handler.audit_handler import AuditTarget, record

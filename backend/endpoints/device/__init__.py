@@ -6,7 +6,6 @@ from fastapi import HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, Response, status
 from pydantic import (
-    BaseModel,
     Field,
     StrictBool,
     StringConstraints,
@@ -14,6 +13,7 @@ from pydantic import (
 )
 
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from endpoints.responses.device import DeviceCreateResponse, DeviceSchema
 from handler.auth.constants import Scope
 from handler.database import (

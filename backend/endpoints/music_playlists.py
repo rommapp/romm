@@ -3,7 +3,7 @@ from typing import Annotated, Any
 from fastapi import Depends, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Query, Request, Response, status
-from pydantic import BaseModel, Field
+from pydantic import Field
 from sqlalchemy.exc import IntegrityError
 
 from decorators.auth import protected_route
@@ -14,6 +14,7 @@ from endpoints.music import (
     MusicTrackIdsPayload,
     resolve_track_ids,
 )
+from endpoints.responses.base import BaseModel
 from endpoints.responses.music import MusicPlaylistSchema, MusicTrackSchema
 from exceptions.endpoint_exceptions import (
     MusicPlaylistAlreadyExistsException,

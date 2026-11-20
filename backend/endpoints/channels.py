@@ -4,9 +4,10 @@ from typing import Annotated
 from fastapi import HTTPException
 from fastapi import Path as PathVar
 from fastapi import Query, Request, status
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from endpoints.responses.snapshots import (
     ChannelSchema,
     build_channel_schema,

@@ -6,7 +6,7 @@ from typing import Annotated, NotRequired, TypedDict, cast
 import pydash
 from anyio import Path as AnyioPath
 from fastapi import HTTPException
-from pydantic import Field
+from pydantic import Field, with_config
 
 from adapters.services.provider_http import unavailable
 from adapters.services.retroachievements import (
@@ -20,6 +20,7 @@ from config import (
     REFRESH_RETROACHIEVEMENTS_CACHE_DAYS,
     RETROACHIEVEMENTS_API_KEY,
 )
+from endpoints.responses.base import API_SCHEMA_CONFIG
 from handler.filesystem import fs_resource_handler
 from logger.logger import log
 from models.rom import Rom
@@ -77,25 +78,16 @@ class RAGameRom(BaseRom):
     ra_metadata: NotRequired[RAMetadata]
 
 
+@with_config(API_SCHEMA_CONFIG)
 class EarnedAchievement(TypedDict):
-    id: Annotated[
-        str,
-        Field(
-            description="The badge name, which several achievements can share. Use `ra_id`.",
-            deprecated=True,
-        ),
-    ]
-    ra_id: NotRequired[
-        Annotated[
-            int, Field(description="The RetroAchievements ID of the achievement.")
-        ]
-    ]
-    date: Annotated[str, Field(description="When the achievement was earned.")]
-    date_hardcore: NotRequired[
-        Annotated[
-            str, Field(description="When the achievement was earned in hardcore mode.")
-        ]
-    ]
+    id: Annotated[str, Field(deprecated=True)]
+    """The badge name, which several achievements can share. Use `ra_id`."""
+    ra_id: NotRequired[int]
+    """The RetroAchievements ID of the achievement."""
+    date: str
+    """When the achievement was earned."""
+    date_hardcore: NotRequired[str]
+    """When the achievement was earned in hardcore mode."""
 
 
 class RAUserGameProgression(TypedDict):

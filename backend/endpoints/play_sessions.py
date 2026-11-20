@@ -4,10 +4,10 @@ from typing import Annotated
 from fastapi import Depends, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Query, Request, status
-from pydantic import BaseModel, Field, model_validator
+from pydantic import Field, model_validator
 
 from decorators.auth import protected_route
-from endpoints.responses.base import PAGE_QUERY, PageParams
+from endpoints.responses.base import PAGE_QUERY, BaseModel, PageParams
 from endpoints.responses.play_session import (
     PlaySessionIngestResponse,
     PlaySessionIngestResult,

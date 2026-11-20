@@ -59,24 +59,18 @@ class NotificationCreatePayload(BaseModel):
         pattern=r"^[a-z0-9][a-z0-9_.:-]*$",
     )
     """A label a client uses to tell its own notifications apart, such as `my_app.sync_done`."""
-    link: str | None = Field(
-        default=None,
-        max_length=NOTIFICATION_LINK_MAX_LENGTH,
-        description="A path inside RomM, such as `/rom/12`.",
-    )
+    link: str | None = Field(default=None, max_length=NOTIFICATION_LINK_MAX_LENGTH)
+    """A path inside RomM, such as `/rom/12`."""
     icon: str | None = Field(
         default=None,
         max_length=NOTIFICATION_ICON_MAX_LENGTH,
         pattern=r"^mdi-[a-z0-9-]+$",
-        description="A Material Design Icons name, such as `mdi-sync`.",
     )
+    """A Material Design Icons name, such as `mdi-sync`."""
     data: dict[str, Any] = Field(default_factory=dict)
     """Extra data attached to the notification."""
-    recipients: list[int] | Literal["admins", "all"] | None = Field(
-        default=None,
-        description="User ids, `admins` or `all`; only an admin may notify "
-        "anyone but themselves. Null notifies the caller.",
-    )
+    recipients: list[int] | Literal["admins", "all"] | None = None
+    """User ids, `admins` or `all`; only an admin may notify anyone but themselves. Null notifies the caller."""
 
     @field_validator("kind")
     @classmethod

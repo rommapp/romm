@@ -10,7 +10,6 @@ from fastapi import Path as PathVar
 from fastapi import Query, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import (
-    BaseModel,
     Field,
     StringConstraints,
     ValidationError,
@@ -19,6 +18,7 @@ from pydantic import (
 from starlette.datastructures import UploadFile
 
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from endpoints.responses.snapshots import (
     MissingContentSchema,
     SnapshotConflictSchema,
@@ -124,14 +124,8 @@ class ManifestPayload(BaseModel):
     label: str | None = Field(
         default=None, min_length=1, max_length=CHANNEL_LABEL_MAX_LENGTH
     )
-    expected_current_id: int | None = Field(
-        default=None,
-        description=(
-            "The current snapshot the push builds on; null expects an empty channel. "
-            "Left out, the push expects the latest current its device knows from a "
-            "feed, push or download, else its parent, else an empty channel."
-        ),
-    )
+    expected_current_id: int | None = None
+    """The current snapshot the push builds on; null expects an empty channel. Left out, the push expects the latest current its device knows from a feed, push or download, else its parent, else an empty channel."""
     parent_snapshot_id: int | None = None
     save: SaveEntryPayload | None = None
     states: dict[CoreName, dict[SlotName, ContentHash]] = {}
