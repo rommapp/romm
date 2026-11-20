@@ -148,9 +148,18 @@ async def update_notification_channel(
     return NotificationChannelSchema.from_channel(updated)
 
 
-@protected_route(router.delete, "/{channel_id}", [Scope.ME_WRITE])
+@protected_route(
+    router.delete,
+    "/{channel_id}",
+    [Scope.ME_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no notification channel with this ID."
+        }
+    },
+)
 def delete_notification_channel(request: Request, channel_id: int) -> None:
-    """Delete a notification channel. Returns 404 if it is not found."""
+    """Delete one of the caller's notification channels."""
     if not db_notification_channel_handler.delete_channel(channel_id, request.user.id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -193,13 +193,18 @@ def pair_token(
 @router.get(
     "/pair/{code}/status",
     status_code=status.HTTP_200_OK,
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The code is unknown or has expired."
+        }
+    },
 )
 def pair_status(
     code: str = PathVar(
         description="The pairing code. Dashes and letter case are ignored."
     ),
 ) -> None:
-    """Check whether a pairing code is valid. Returns 404 for an unknown or expired code."""
+    """Check whether a pairing code is valid."""
     normalized = code.replace("-", "").upper()
     redis_key = f"pair:{normalized}"
     if not sync_cache.exists(redis_key):

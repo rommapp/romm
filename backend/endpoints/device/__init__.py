@@ -81,13 +81,26 @@ class DeviceUpdatePayload(BaseModel):
     capabilities: DeviceCapabilities | None = None
 
 
-@protected_route(router.post, "", [Scope.DEVICES_WRITE])
+@protected_route(
+    router.post,
+    "",
+    [Scope.DEVICES_WRITE],
+    responses={
+        status.HTTP_409_CONFLICT: {
+            "description": (
+                "The caller already has a device with the same MAC address,"
+                " hostname and platform, and neither `allow_existing` nor"
+                " `allow_duplicate` is set."
+            )
+        }
+    },
+)
 def register_device(
     request: Request,
     response: Response,
     payload: DeviceCreatePayload,
 ) -> DeviceCreateResponse:
-    """Register a device and return its ID. Returns 409 if a device with the same MAC address, hostname and platform already exists, unless `allow_existing` or `allow_duplicate` is set."""
+    """Register a device and return its ID."""
     existing_device = None
     if not payload.allow_duplicate:
         existing_device = db_device_handler.get_device_by_fingerprint(

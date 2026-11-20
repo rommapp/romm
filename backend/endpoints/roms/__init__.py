@@ -1330,7 +1330,12 @@ def get_rom_by_metadata_provider(
     router.get,
     "/by-hash",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}, status.HTTP_400_BAD_REQUEST: {}},
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": "No hash is given."},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see matches the hashes."
+        },
+    },
 )
 def get_rom_by_hash(
     request: Request,
@@ -1341,7 +1346,7 @@ def get_rom_by_hash(
         str | None, Query(description="RetroAchievements hash value")
     ] = None,
 ) -> DetailedRomSchema:
-    """Find a rom by the hash of the rom or one of its files. Returns 400 if no hash is given, and 404 if the matching rom is hidden from the caller."""
+    """Find a rom by the hash of the rom or one of its files."""
     if not crc_hash and not md5_hash and not sha1_hash and not ra_hash:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

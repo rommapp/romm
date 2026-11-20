@@ -83,12 +83,21 @@ async def mark_notifications_read(
     )
 
 
-@protected_route(router.delete, "/{notification_id}", [Scope.ME_WRITE])
+@protected_route(
+    router.delete,
+    "/{notification_id}",
+    [Scope.ME_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no notification with this ID."
+        }
+    },
+)
 async def dismiss_notification(
     request: Request,
     notification_id: int,
 ) -> None:
-    """Dismiss one of the caller's notifications. Returns 404 if it is not found."""
+    """Dismiss one of the caller's notifications."""
     rows = db_notification_handler.delete_notifications(
         request.user.id, [notification_id]
     )
