@@ -688,6 +688,38 @@ class DBSnapshotsHandler(DBBaseHandler):
         return channel
 
     @begin_session
+    def move_channels(
+        self,
+        rom_id: int,
+        moves: Mapping[FileKey, FileKey],
+        session: Session = INJECTED_SESSION,
+    ) -> int:
+        """Key every user's channels on the ROM's replaced files to the files
+        that replaced them, keeping `updated_at`, which orders channels by play.
+
+        Args:
+            moves: Each replaced file's key, to the key of its replacement.
+        Returns:
+            How many channels moved.
+        """
+        if not moves:
+            return 0
+        moving: dict[FileKey, list[uuid.UUID]] = {}
+        for channel in session.scalars(select(Channel).where(Channel.rom_id == rom_id)):
+            key = FileKey.of_channel(channel)
+            new = next((new for old, new in moves.items() if key.matches(old)), None)
+            if new is not None:
+                moving.setdefault(new, []).append(channel.id)
+        for new, ids in moving.items():
+            session.execute(
+                update(Channel)
+                .where(Channel.id.in_(ids))
+                .values(**new.channel_columns(), updated_at=Channel.updated_at)
+                .execution_options(synchronize_session=False)
+            )
+        return sum(len(ids) for ids in moving.values())
+
+    @begin_session
     def count_snapshots_by_channel(
         self, channel_ids: Collection[uuid.UUID], session: Session = INJECTED_SESSION
     ) -> dict[uuid.UUID, int]:

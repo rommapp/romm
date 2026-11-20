@@ -23,9 +23,11 @@ from adapters.services.rom_converto import (
     rom_converto_service,
 )
 from config.config_manager import config_manager as cm
-from handler.database import db_platform_handler, db_rom_handler
+from handler.database import db_platform_handler, db_rom_handler, db_snapshot_handler
 from handler.filesystem import fs_rom_handler
 from handler.rom_files import refresh_rom_files
+from handler.snapshots.file_key import FileKey
+from handler.snapshots.legacy import sync_file
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom, RomFile, RomFileCategory
@@ -79,12 +81,17 @@ def _rewritten_playlists(folder: Path, renames: dict[str, str]) -> dict[Path, st
     return rewrites
 
 
-async def _rewrite_playlists(folder: Path, renames: dict[str, str]) -> None:
-    """Point each playlist entry for a converted file at its new name."""
+async def _rewrite_playlists(folder: Path, renames: dict[str, str]) -> list[Path]:
+    """Point each playlist entry for a converted file at its new name.
+
+    Returns:
+        The playlists rewritten.
+    """
     rewrites = await asyncio.to_thread(_rewritten_playlists, folder, renames)
     for playlist, text in rewrites.items():
         async with fs_rom_handler._atomic_write(playlist) as staged:
             await asyncio.to_thread(staged.write_text, text)
+    return list(rewrites)
 
 
 def _sources(src: Path, final: Path, input_ext: str) -> list[Path]:
@@ -162,6 +169,24 @@ def _names_taken(rom: Rom, names: list[str]) -> list[str]:
     return sorted(n for n in names if f"{rom.fs_path}/{n}" in owned)
 
 
+def _channel_moves(
+    before: list[RomFile], after: list[RomFile], replaced: dict[Path, Path]
+) -> dict[FileKey, FileKey]:
+    """Each replaced file's key, to the key of the file that replaced it."""
+    after_by_path = {fs_rom_handler.validate_path(f.full_path): f for f in after}
+    moves: dict[FileKey, FileKey] = {}
+    for rom_file in before:
+        new_path = replaced.get(fs_rom_handler.validate_path(rom_file.full_path))
+        new_file = after_by_path.get(new_path) if new_path else None
+        if new_file is not None:
+            moves[FileKey.of_file(rom_file)] = FileKey.of_file(new_file)
+    # Clients look a ROM's channels up on its sync file, which a conversion can change.
+    old_sync, new_sync = sync_file(before), sync_file(after)
+    if old_sync and new_sync and FileKey.of_file(old_sync) in moves:
+        moves[FileKey.of_file(old_sync)] = FileKey.of_file(new_sync)
+    return moves
+
+
 def _game_files(rom: Rom) -> list[RomFile]:
     return [
         f
@@ -229,13 +254,15 @@ class ConvertLibraryTask(Task):
         if not published:
             return
         renames = {src.name: final.name for src, final, _ in published}
+        replaced = {path: final for _, final, sources in published for path in sources}
         try:
             if single_file:
                 db_rom_handler.update_rom(rom.id, {"fs_name": renames[rom.fs_name]})
             else:
-                await _rewrite_playlists(
+                for playlist in await _rewrite_playlists(
                     fs_rom_handler.validate_path(rom.full_path), renames
-                )
+                ):
+                    replaced[playlist] = playlist
         except (OSError, SQLAlchemyError) as exc:
             log.warning(f"Kept the originals of {hl(rom.fs_name)}: {exc}")
             stats.failed += len(published)
@@ -253,6 +280,10 @@ class ConvertLibraryTask(Task):
         refreshed = db_rom_handler.get_rom(rom.id)
         if refreshed is not None:
             await refresh_rom_files(refreshed)
+            after = db_rom_handler.rom_files_for_rom_id(rom.id)
+            moves = _channel_moves(rom.files, after, replaced)
+            if moved := db_snapshot_handler.move_channels(rom.id, moves):
+                log.info(f"Moved {moved} save channels of {hl(refreshed.fs_name)}")
 
     @initialize_context()
     async def run(self, platform_id: int | None = None) -> dict[str, int]:

@@ -1,10 +1,14 @@
+import hashlib
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
+from sqlalchemy import update
 from sqlalchemy.exc import SQLAlchemyError
 from tests.factories import make_platform, make_rom
+from tests.handler.snapshots.pushes import first_push, part, push, save_entry
 
 from adapters.services.rom_converto import (
     RomConvertoOperationError,
@@ -12,8 +16,14 @@ from adapters.services.rom_converto import (
 )
 from config.config_manager import ConvertoConfig
 from config.config_manager import config_manager as cm
-from handler.database import db_rom_handler
-from handler.filesystem import fs_rom_handler
+from handler.database import db_rom_handler, db_snapshot_handler
+from handler.database.base_handler import sync_session
+from handler.filesystem import fs_asset_handler, fs_rom_handler
+from handler.snapshots.file_key import FileKey
+from handler.snapshots.legacy import sync_file
+from handler.snapshots.manifest import Manifest
+from handler.snapshots.write import SAVE_PART, Outcome, write_snapshot
+from models.channel import Channel
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
@@ -85,6 +95,7 @@ def _rom(
                 file_size_bytes=len(data),
                 last_modified=disk.stat().st_mtime,
                 category=RomFileCategory.GAME,
+                sha1_hash=hashlib.sha1(data, usedforsecurity=False).hexdigest(),
             )
         )
     refreshed = db_rom_handler.get_rom(rom.id)
@@ -100,6 +111,37 @@ def _reload(rom: Rom) -> Rom:
 
 async def _run(platform: Platform | None = None) -> dict[str, int]:
     return await ConvertLibraryTask().run(platform.id if platform else None)
+
+
+def _file(rom: Rom, file_name: str) -> RomFile:
+    return next(f for f in _reload(rom).files if f.file_name == file_name)
+
+
+def _channel(user: User, rom: Rom, file_name: str, label: str = "default") -> Channel:
+    return db_snapshot_handler.add_channel(
+        FileKey.of_file(_file(rom, file_name)).new_channel(
+            user.id, rom.id, rom.platform_id, label
+        )
+    )
+
+
+def _channel_file(channel: Channel) -> str | None:
+    """The name of the library file the channel is keyed to now, if any."""
+    stored = db_snapshot_handler.get_channel(channel.id)
+    assert stored is not None
+    rom_file = db_snapshot_handler.get_channel_file(stored)
+    return rom_file.file_name if rom_file else None
+
+
+def _listed(user: User, rom: Rom, file_name: str) -> list[str]:
+    """The labels of the user's channels a client finds for the file."""
+    key = FileKey.of_file(_file(rom, file_name))
+    return sorted(
+        c.label
+        for c in db_snapshot_handler.get_channels_for_file(
+            user.id, rom.platform_id, key
+        )
+    )
 
 
 async def test_a_single_file_rom_is_replaced_and_keeps_its_id(
@@ -394,3 +436,157 @@ async def test_nothing_runs_without_rom_converto(
 
     assert stats["converted"] == 0
     assert converted == []
+
+
+async def test_every_users_channels_follow_a_converted_file(
+    library: Path, admin_user: User, editor_user: User, converto, converted
+):
+    rom = _rom(library, admin_user, make_platform("psp"), {"game.iso": b"x" * 100})
+    ours = _channel(admin_user, rom, "game.iso")
+    theirs = _channel(editor_user, rom, "game.iso", "Second run")
+    with sync_session.begin() as session:
+        session.execute(
+            update(Channel).values(updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc))
+        )
+    played = db_snapshot_handler.get_channel(ours.id)
+
+    await _run()
+
+    assert _channel_file(ours) == _channel_file(theirs) == "game.chd"
+    assert _listed(admin_user, rom, "game.chd") == ["default"]
+    assert _listed(editor_user, rom, "game.chd") == ["Second run"]
+    # The move is no play, so the channel keeps its place in the user's list.
+    moved = db_snapshot_handler.get_channel(ours.id)
+    assert played is not None and moved is not None
+    assert moved.updated_at == played.updated_at
+
+
+async def test_a_push_into_a_converted_games_channel_is_accepted(
+    library: Path, tmp_path: Path, admin_user: User, converto, converted, monkeypatch
+):
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    monkeypatch.setattr(fs_asset_handler, "base_path", assets.resolve())
+    rom = _rom(library, admin_user, make_platform("psp"), {"game.iso": b"x" * 100})
+    first = await first_push(admin_user, rom, _file(rom, "game.iso"))
+
+    await _run()
+
+    later = b"later progress"
+    result = await write_snapshot(
+        push(
+            admin_user,
+            _reload(rom),
+            _file(rom, "game.chd"),
+            Manifest(save=save_entry(later)),
+            expected=first.snapshot.id,
+            channel_id=first.snapshot.channel_id,
+            parts={SAVE_PART: part(later)},
+        )
+    )
+
+    assert result.outcome == Outcome.CREATED
+    assert result.snapshot.channel_id == first.snapshot.channel_id
+    assert result.snapshot.parent_snapshot_id == first.snapshot.id
+
+
+async def test_each_disc_and_playlist_channel_follows_its_own_file(
+    library: Path, admin_user: User, converto, converted, mocker
+):
+    def convert(operation, src: Path, out: Path) -> None:
+        out.write_bytes(src.name.encode())
+
+    mocker.patch.object(rom_converto_service, "convert", AsyncMock(side_effect=convert))
+    rom = _rom(
+        library,
+        admin_user,
+        make_platform("psx"),
+        {
+            "game (Disc 1).cue": b'FILE "game (Disc 1).bin" BINARY\n',
+            "game (Disc 1).bin": b"1" * 50,
+            "game (Disc 2).cue": b'FILE "game (Disc 2).bin" BINARY\n',
+            "game (Disc 2).bin": b"2" * 50,
+            "game.m3u": b"game (Disc 1).cue\ngame (Disc 2).cue\n",
+        },
+        folder=True,
+    )
+    _channel(admin_user, rom, "game (Disc 1).cue")
+    _channel(admin_user, rom, "game (Disc 2).cue", "Disc 2 run")
+    _channel(admin_user, rom, "game.m3u", "Playlist run")
+
+    await _run()
+
+    after = _reload(rom)
+    assert sorted(f.file_name for f in after.files) == [
+        "game (Disc 1).chd",
+        "game (Disc 2).chd",
+        "game.m3u",
+    ]
+    assert _listed(admin_user, rom, "game (Disc 1).chd") == ["default"]
+    assert _listed(admin_user, rom, "game (Disc 2).chd") == ["Disc 2 run"]
+    assert _listed(admin_user, rom, "game.m3u") == ["Playlist run"]
+    chosen = sync_file(after.files)
+    assert chosen is not None and chosen.file_name == "game (Disc 1).chd"
+
+
+async def test_a_channel_on_the_sync_file_moves_to_the_roms_new_sync_file(
+    library: Path, admin_user: User, converto, converted
+):
+    # With the cue gone, name order picks the sync file, and this playlist sorts first.
+    rom = _rom(
+        library,
+        admin_user,
+        make_platform("psx"),
+        {
+            "game_disc1.cue": b'FILE "game_disc1.bin" BINARY\n',
+            "game_disc1.bin": b"x" * 50,
+            "game.m3u": b"game_disc1.cue\n",
+        },
+        folder=True,
+    )
+    _channel(admin_user, rom, "game_disc1.cue")
+
+    await _run()
+
+    chosen = sync_file(_reload(rom).files)
+    assert chosen is not None and chosen.file_name == "game.m3u"
+    assert _listed(admin_user, rom, "game.m3u") == ["default"]
+
+
+async def test_a_copy_of_the_file_in_another_rom_keeps_its_channels(
+    library: Path, admin_user: User, converto, converted
+):
+    psp = make_platform("psp")
+    rom = _rom(library, admin_user, psp, {"game.iso": b"x" * 100})
+    copy = make_rom(psp, "copy", fs_extension="iso")
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=copy.id,
+            file_name="copy.iso",
+            file_path=copy.fs_path,
+            file_size_bytes=100,
+            sha1_hash=_file(rom, "game.iso").sha1_hash,
+        )
+    )
+    kept = _channel(admin_user, copy, "copy.iso")
+
+    await _run()
+
+    stored = db_snapshot_handler.get_channel(kept.id)
+    assert stored is not None and FileKey.of_channel(stored) == FileKey.of_channel(kept)
+
+
+async def test_a_failed_conversion_leaves_the_channels_on_the_original(
+    library: Path, admin_user: User, converto, converted, mocker
+):
+    rom = _rom(library, admin_user, make_platform("psp"), {"game.iso": b"x"})
+    channel = _channel(admin_user, rom, "game.iso")
+    mocker.patch.object(
+        rom_converto_service,
+        "convert",
+        AsyncMock(side_effect=RomConvertoOperationError("boom")),
+    )
+
+    await _run()
+
+    assert _channel_file(channel) == "game.iso"
