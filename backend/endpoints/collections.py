@@ -167,12 +167,11 @@ COLLECTION_DESCRIPTION_FORM = "The description of the collection."
 ARTWORK_400 = "The cover URL is a local file URL, the artwork is not a PNG, JPEG, WebP, GIF or JPEG XL image, or its dimensions are too large."
 FILTER_CRITERIA_400 = "The filter criteria are not a JSON object."
 CRITERIA_COLLECTION_404 = "The filter criteria name a collection the caller cannot see."
-COLLECTION_404 = {"description": "No collection has this ID."}
-SMART_COLLECTION_404 = {"description": "No smart collection has this ID."}
-NOT_OWNER_403 = {"description": "The collection belongs to another user."}
-NOT_VISIBLE_403 = {
-    "description": "The collection belongs to another user and is not public."
+COLLECTION_404 = {"description": "No collection the caller can see has this ID."}
+SMART_COLLECTION_404 = {
+    "description": "No smart collection the caller can see has this ID."
 }
+NOT_OWNER_403 = {"description": "The collection is public, but another user owns it."}
 NAME_TAKEN_409 = {"description": "The caller already has a collection with this name."}
 SMART_NAME_TAKEN_409 = {
     "description": "The caller already has a smart collection with this name."
@@ -432,7 +431,6 @@ def get_smart_collection_identifiers(
     "/{id}",
     [Scope.COLLECTIONS_READ],
     responses={
-        status.HTTP_403_FORBIDDEN: NOT_VISIBLE_403,
         status.HTTP_404_NOT_FOUND: COLLECTION_404,
     },
 )
@@ -480,7 +478,6 @@ def get_virtual_collection(
     "/smart/{id}",
     [Scope.COLLECTIONS_READ],
     responses={
-        status.HTTP_403_FORBIDDEN: NOT_VISIBLE_403,
         status.HTTP_404_NOT_FOUND: SMART_COLLECTION_404,
     },
 )
