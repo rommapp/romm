@@ -121,6 +121,7 @@ lint:
     - name: prose-check
       files: [python, typescript, vue, json]
       description: Flags clipped sentences in comments and reader-facing text
+      runtime: python
       commands:
         - name: lint
           output: regex

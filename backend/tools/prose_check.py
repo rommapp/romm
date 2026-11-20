@@ -1,13 +1,5 @@
 #!/usr/bin/env python3
-"""Find the prose in source files and check it for clipped sentences.
-
-`extract` lists every prose unit (comment, docstring, API description, error
-detail, en_US locale string) as JSON lines, optionally only the units a git
-diff touches, so a reviewer can read them in batches. `check` runs the rules a
-regex can decide and prints `path:line:col: [rule] message` for Trunk.
-
-Stdlib only: Trunk runs it with its own Python runtime.
-"""
+"""Find the prose in source files and check it for clipped sentences."""
 
 import argparse
 import ast
@@ -23,6 +15,8 @@ from pathlib import Path
 
 # Keyword arguments whose string value is reader-facing text.
 TEXT_KEYWORDS = frozenset({"description", "detail", "summary", "help"})
+LOG_METHODS = frozenset({"debug", "info", "warning", "error", "exception", "critical"})
+SUFFIXES = frozenset({".py", ".ts", ".vue", ".js", ".mts", ".json"})
 # Comments that are tool syntax, not prose.
 DIRECTIVE = re.compile(
     r"^(noqa|type:|pragma|fmt:|isort:|nosec|pylint:|mypy:|ruff:|eslint|prettier-ignore|"
@@ -75,6 +69,7 @@ def _python_units(path: str, source: str) -> Iterator[Prose]:
         tree = ast.parse(source)
     except SyntaxError:
         return
+    raised = {id(n.exc) for n in ast.walk(tree) if isinstance(n, ast.Raise)}
     for node in ast.walk(tree):
         if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant):
             if isinstance(node.value.value, str):
@@ -86,6 +81,7 @@ def _python_units(path: str, source: str) -> Iterator[Prose]:
                     node.value.value,
                 )
         elif isinstance(node, ast.Call):
+            yield from _message_unit(path, node, raised)
             for kw in node.keywords:
                 if kw.arg not in TEXT_KEYWORDS:
                     continue
@@ -99,6 +95,20 @@ def _python_units(path: str, source: str) -> Iterator[Prose]:
                         text,
                     )
     yield from _merge_comments(path, _python_comments(source))
+
+
+def _message_unit(path: str, call: ast.Call, raised: set[int]) -> Iterator[Prose]:
+    """Yield the positional message of a raised exception or a logger call."""
+    if id(call) in raised:
+        kind = "error"
+    elif isinstance(call.func, ast.Attribute) and call.func.attr in LOG_METHODS:
+        kind = "log"
+    else:
+        return
+    text = _literal_text(call.args[0]) if call.args else ""
+    if text:
+        arg = call.args[0]
+        yield Prose(path, arg.lineno, arg.end_lineno or arg.lineno, kind, text)
 
 
 def _literal_text(node: ast.expr) -> str:
@@ -173,11 +183,40 @@ def _locale_units(path: str, source: str) -> Iterator[Prose]:
         data = json.loads(source)
     except json.JSONDecodeError:
         return
-    lines = source.splitlines()
+    lines = _string_lines(source)
     for key, value in _flatten(data):
-        needle = f'"{key.rsplit(".", 1)[-1]}":'
-        number = next((i for i, line in enumerate(lines, 1) if needle in line), 1)
+        number = lines.get(key, 1)
         yield Prose(path, number, number, f"locale:{key}", value)
+
+
+JSON_TOKEN = re.compile(r'"(?:[^"\\]|\\.)*"|[{}\[\],]')
+JSON_COLON = re.compile(r"\s*:")
+
+
+def _string_lines(source: str) -> dict[str, int]:
+    """Map each dotted key with a string value to the line that holds the value."""
+    found: dict[str, int] = {}
+    stack: list[str | None] = []
+    key: str | None = None
+    line, last = 1, 0
+    for match in JSON_TOKEN.finditer(source):
+        line += source.count("\n", last, match.start())
+        last = match.start()
+        piece = match.group()
+        if piece in ("{", "["):
+            stack.append(key)
+            key = None
+        elif piece in ("}", "]"):
+            if stack:
+                stack.pop()
+            key = None
+        elif piece == ",":
+            key = None
+        elif JSON_COLON.match(source, match.end()):
+            key = json.loads(piece)
+        elif key is not None:
+            found[".".join([k for k in stack if k is not None] + [key])] = line
+    return found
 
 
 def _flatten(data: object, prefix: str = "") -> Iterator[tuple[str, str]]:
@@ -229,13 +268,22 @@ def violations(unit: Prose) -> Iterator[tuple[Rule, int]]:
             yield rule, unit.line + offset
 
 
+def _files(paths: Iterable[str]) -> Iterator[Path]:
+    for name in paths:
+        path = Path(name)
+        if path.is_dir():
+            yield from sorted(
+                p for p in path.rglob("*") if p.suffix in SUFFIXES and p.is_file()
+            )
+        elif path.is_file():
+            yield path
+
+
 def _select(paths: Iterable[str], base: str | None) -> Iterator[Prose]:
     touched = added_lines(base) if base else None
     candidates = list(touched) if touched is not None and not paths else list(paths)
-    for name in candidates:
-        path = Path(name)
-        if not path.is_file():
-            continue
+    for path in _files(candidates):
+        name = path.as_posix()
         for unit in units(path):
             if touched is None or any(
                 n in touched.get(name, ()) for n in range(unit.line, unit.end_line + 1)
@@ -252,7 +300,7 @@ def main(argv: list[str] | None = None) -> int:
         metavar="BASE",
         help="Only units on lines added since BASE, such as `origin/master...`.",
     )
-    args = parser.parse_args(argv)
+    args = parser.parse_intermixed_args(argv)
 
     found = False
     for unit in _select(args.paths, args.diff):

@@ -100,6 +100,51 @@ def test_check_reports_path_line_and_rule(
     )
 
 
+def test_python_units_cover_raised_and_logged_messages(tmp_path: Path) -> None:
+    path = tmp_path / "module.py"
+    path.write_text(
+        'def f(log):\n    log.error("Scan failed.")\n'
+        '    print("Not prose.")\n    raise ValueError(f"No rom {log}.")\n'
+    )
+
+    found = {(unit.kind, unit.line, unit.text) for unit in units(path)}
+
+    assert found == {("log", 2, "Scan failed."), ("error", 4, "No rom {}.")}
+
+
+def test_locale_units_point_to_their_own_key(tmp_path: Path) -> None:
+    en_us = tmp_path / "frontend/src/locales/en_US"
+    en_us.mkdir(parents=True)
+    (en_us / "rom.json").write_text(
+        '{\n  "a": {\n    "hint": "A."\n  },\n  "b": {\n    "hint": "B."\n  }\n}\n'
+    )
+
+    found = [(u.kind, u.line) for u in units(en_us / "rom.json")]
+
+    assert found == [("locale:a.hint", 3), ("locale:b.hint", 6)]
+
+
+def test_extract_expands_directories(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "module.py").write_text("# A comment.\n")
+    (tmp_path / "pkg" / "notes.txt").write_text("# Not source.\n")
+
+    assert main(["extract", str(tmp_path)]) == 0
+    assert '"text": "A comment."' in capsys.readouterr().out
+
+
+def test_paths_may_follow_diff(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    path = tmp_path / "module.py"
+    path.write_text("# Left out, the default applies.\n")
+    monkeypatch.setattr(
+        "tools.prose_check.added_lines", lambda base: {path.as_posix(): {1}}
+    )
+
+    assert main(["check", "--diff", "origin/master...", str(path)]) == 1
+
+
 def test_check_passes_clean_files(tmp_path: Path) -> None:
     path = tmp_path / "module.py"
     path.write_text("# If left out, the default applies.\n")

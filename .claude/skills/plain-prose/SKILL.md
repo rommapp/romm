@@ -134,8 +134,8 @@ the API docs as plain text.
 flags first.
 
 **2. Extract the prose.** One JSON line per prose unit, with its path, line,
-kind (`comment`, `docstring`, `description`, `detail`, `locale:<key>`...) and
-text:
+kind (`comment`, `docstring`, `description`, `detail`, `error`, `log`,
+`locale:<key>`...) and text. A directory expands to the source files under it:
 
 ```bash
 python3 backend/tools/prose_check.py extract --diff origin/master... > /tmp/prose.jsonl
@@ -143,7 +143,7 @@ python3 backend/tools/prose_check.py extract backend/endpoints/roms/   # an area
 ```
 
 `--diff` keeps only the units that overlap lines added since the base. Give it
-paths too, to limit the diff to them.
+paths too, before or after the option, to limit the diff to them.
 
 **3. Review.** Read every unit against "What to fix". Up to about 150 units,
 do it yourself. Beyond that, split the JSONL into batches of about 100 by file,
@@ -168,6 +168,9 @@ For a codebase-wide pass, go one area at a time (a router, a component folder,
 a locale file), one PR each, so a reviewer can read the rewrites.
 
 ## Adding a rule to `prose_check`
+
+Keep the script stdlib only: Trunk runs it on the Python runtime pinned in
+`.trunk/trunk.yaml`, with no project dependencies installed.
 
 A regex rule fails CI, so it has to be right almost every time. Before adding
 one, run it over the whole codebase (`python3 backend/tools/prose_check.py
