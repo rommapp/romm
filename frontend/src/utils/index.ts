@@ -559,10 +559,11 @@ export function isJsDosBundle(rom: SimpleRom | null | undefined) {
 }
 
 /**
- * Pick the js-dos bundle to boot, so a folder isn't served as a zip.
+ * Pick the js-dos bundle to boot, so the server sends that file instead of
+ * zipping the folder.
  *
  * @param rom The ROM to boot.
- * @returns The bundle's file id, or none when the ROM has no bundle.
+ * @returns The bundle's file ID in a list, or an empty list if there is none.
  */
 export function jsDosBundleFileIds(rom: DetailedRom): number[] {
   const bundle = rom.files.find(
