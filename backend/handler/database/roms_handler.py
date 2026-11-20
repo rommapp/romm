@@ -1986,7 +1986,8 @@ class DBRomsHandler(DBBaseHandler):
         include_file_stats: bool = False,
     ) -> RomSelect:
         """The rows of one page, loaded by id with none of the filters re-run."""
-        # Visibility is re-checked in case a cached id index predates a rule change.
+        # The only access check on caller-supplied ids, and it also catches a
+        # cached id index that predates a rule change.
         return (
             select(Rom)
             .where(Rom.id.in_(page_ids), *visibility.clauses())

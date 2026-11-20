@@ -6,11 +6,11 @@ from fastapi.testclient import TestClient
 from tests.auth_helpers import hide, user_headers
 from tests.factories import make_rom
 
-from endpoints.roms import ROM_IDS_WINDOW_MAX
 from handler.database import db_rom_handler
 from models.permission import PermEntity
 from models.platform import Platform
 from models.user import User
+from utils.validation import MAX_ROM_IDS_PER_QUERY
 
 
 def _get(
@@ -42,6 +42,52 @@ def test_a_window_by_id_keeps_the_order_given(
     assert page["total"] is None
     assert page["rom_id_index"] == []
     assert page["char_index"] == {}
+    assert (page["offset"], page["limit"]) == (0, len(wanted))
+
+
+def test_a_repeated_id_is_loaded_once(
+    client: TestClient, access_token: str, platform: Platform
+):
+    # Arrange
+    first, second = make_rom(platform, "india"), make_rom(platform, "juliett")
+
+    # Act
+    _, page = _get(
+        client,
+        {"Authorization": f"Bearer {access_token}"},
+        rom_ids=[second.id, first.id, second.id],
+    )
+
+    # Assert
+    assert _ids(page) == [second.id, first.id]
+
+
+def test_a_window_by_id_skips_the_grouped_page_cache(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Arrange
+    rom = make_rom(platform, "kilo")
+    calls: list[str] = []
+    monkeypatch.setattr(
+        db_rom_handler,
+        "get_cached_rom_id_page",
+        lambda *args: calls.append("page"),
+    )
+
+    # Act
+    _, page = _get(
+        client,
+        {"Authorization": f"Bearer {access_token}"},
+        rom_ids=[rom.id],
+        group_by_meta_id="true",
+    )
+
+    # Assert
+    assert _ids(page) == [rom.id]
+    assert calls == []
 
 
 def test_a_window_by_id_matches_the_window_by_offset(
@@ -106,12 +152,12 @@ def test_a_deleted_rom_is_left_out_of_a_window_by_id(
     assert _ids(page) == [kept.id]
 
 
-def test_the_window_holds_up_to_256_ids_whatever_the_limit(
+def test_the_window_holds_up_to_the_cap_whatever_the_limit(
     client: TestClient, access_token: str, platform: Platform
 ):
     # Arrange
     rom = make_rom(platform, "only")
-    wanted = [rom.id, *range(10_000_000, 10_000_255)]
+    wanted = [rom.id, *range(10_000_000, 10_000_000 + MAX_ROM_IDS_PER_QUERY - 1)]
 
     # Act
     code, page = _get(
@@ -119,7 +165,7 @@ def test_the_window_holds_up_to_256_ids_whatever_the_limit(
     )
 
     # Assert
-    assert len(wanted) == ROM_IDS_WINDOW_MAX
+    assert len(wanted) == MAX_ROM_IDS_PER_QUERY
     assert code == status.HTTP_200_OK
     assert _ids(page) == [rom.id]
 
@@ -127,12 +173,12 @@ def test_the_window_holds_up_to_256_ids_whatever_the_limit(
 @pytest.mark.parametrize(
     "rom_ids",
     [
-        list(range(1, ROM_IDS_WINDOW_MAX + 2)),
+        list(range(1, MAX_ROM_IDS_PER_QUERY + 2)),
         [0],
         [-5],
         ["abc"],
     ],
-    ids=["257 ids", "zero", "negative", "not a number"],
+    ids=["over the cap", "zero", "negative", "not a number"],
 )
 def test_an_invalid_window_is_refused(
     client: TestClient, access_token: str, rom_ids: list[Any]
