@@ -2242,6 +2242,23 @@ class TestDownloadLimits:
         assert list((tmp_path / "roms/1/1/video").iterdir()) == []
 
     @pytest.mark.asyncio
+    async def test_gzipped_media_file_is_inflated(
+        self, handler: FSResourcesHandler, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+        rel = "roms/1/1/box2d_back/box2d_back.png"
+        png = _png_bytes()
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = _FakeHttpxClient(
+                _chunked_response(_gzip_chunks(png, 64), {"content-encoding": "gzip"})
+            )
+            stored = await handler.store_media_file("http://example.com/x.png", rel)
+
+        assert stored is True
+        assert (tmp_path / rel).read_bytes() == png
+
+    @pytest.mark.asyncio
     async def test_artwork_with_oversized_dimensions_is_refused(
         self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
     ):
