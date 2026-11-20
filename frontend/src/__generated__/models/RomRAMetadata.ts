@@ -11,5 +11,9 @@ export type RomRAMetadata = {
     developers?: Array<string>;
     achievements?: Array<RAGameRomAchievement>;
     hash_match?: boolean;
+    image_icon?: string;
+    image_title?: string;
+    image_ingame?: string;
+    image_box_art?: string;
 };
 

@@ -10,7 +10,7 @@
 // Default aspect is portrait (140/188, same ratio game covers use) so
 // collection artwork reads as cover-art, not a square thumbnail.
 import { computed } from "vue";
-import { RIcon } from "@/lib";
+import { RIcon, RImage, RSkeletonBlock } from "@/lib";
 
 defineOptions({ inheritAttrs: false });
 
@@ -52,22 +52,33 @@ const mosaicSlots = computed(() => {
       </div>
     </template>
     <template v-else-if="displayCovers.length === 1">
-      <img
-        :src="displayCovers[0] ?? undefined"
-        alt=""
-        loading="lazy"
-        decoding="async"
-      />
+      <div class="coll-mosaic__cell">
+        <RImage
+          :src="displayCovers[0]"
+          alt=""
+          width="100%"
+          height="100%"
+          cover
+          lazy
+        >
+          <template #loading>
+            <RSkeletonBlock width="100%" height="100%" rounded="none" />
+          </template>
+        </RImage>
+      </div>
     </template>
     <template v-else>
-      <img
+      <div
         v-for="(cover, i) in mosaicSlots"
         :key="`m-${i}`"
-        :src="cover"
-        alt=""
-        loading="lazy"
-        decoding="async"
-      />
+        class="coll-mosaic__cell"
+      >
+        <RImage :src="cover" alt="" width="100%" height="100%" cover lazy>
+          <template #loading>
+            <RSkeletonBlock width="100%" height="100%" rounded="none" />
+          </template>
+        </RImage>
+      </div>
     </template>
   </div>
 </template>
@@ -87,11 +98,20 @@ const mosaicSlots = computed(() => {
   grid-template-rows: 1fr;
 }
 
-.coll-mosaic img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
+.coll-mosaic__cell {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.coll-mosaic__cell :deep(.r-image) {
+  position: absolute;
+  inset: 0;
+}
+
+.coll-mosaic__cell :deep(.r-image__layer > .r-skeleton) {
+  position: absolute;
+  inset: 0;
 }
 
 .coll-mosaic__empty {

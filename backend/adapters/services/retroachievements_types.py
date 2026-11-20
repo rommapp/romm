@@ -50,6 +50,15 @@ class RAGameExtendedDetailsAchievement(TypedDict):
     type: RAGameAchievementType | None
 
 
+# https://api-docs.retroachievements.org/v1/get-game.html#response
+class RAGame(TypedDict):
+    Title: str
+    ImageIcon: str
+    ImageTitle: NotRequired[str]
+    ImageIngame: NotRequired[str]
+    ImageBoxArt: NotRequired[str]
+
+
 # https://api-docs.retroachievements.org/v1/get-game-extended.html#response
 class RAGameExtendedDetails(TypedDict):
     ID: int

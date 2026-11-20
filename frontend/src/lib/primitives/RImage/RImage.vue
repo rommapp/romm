@@ -17,7 +17,7 @@
 //
 // Fades in once loaded so the swap from placeholder → image doesn't
 // pop. Matches the motion vocabulary RSwitch / RIcon established.
-import { computed, ref, useSlots, watch } from "vue";
+import { computed, nextTick, onMounted, ref, useSlots, watch } from "vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -32,6 +32,8 @@ interface Props {
   contain?: boolean;
   /** CSS aspect-ratio on the wrapper. `"16/9"`, `"1/1"`, `1.78`. */
   aspectRatio?: string | number | undefined;
+  /** Defer the fetch until the image is near the viewport. */
+  lazy?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -42,6 +44,7 @@ const props = withDefaults(defineProps<Props>(), {
   cover: false,
   contain: false,
   aspectRatio: undefined,
+  lazy: false,
 });
 
 const emit = defineEmits<{
@@ -52,23 +55,49 @@ const emit = defineEmits<{
 const slots = useSlots();
 
 type LoadState = "loading" | "loaded" | "error";
-// Start in `loading` regardless of `src`: "no src yet" is a waiting
-// state (e.g. consumer is hydrating an async value), not an error.
-// `error` only flips after a failed network attempt.
-const state = ref<LoadState>("loading");
 
-// Reset to `loading` whenever src changes so a swap re-enters the
-// loading fade rather than flashing the previous image.
+// URLs that already decoded this session. A remount would otherwise
+// paint the loading slot for a file the browser still has in memory.
+const decodedSrcs = new Set<string>();
+
+const imgEl = ref<HTMLImageElement | null>(null);
+
+function initialState(src: string | undefined): LoadState {
+  // "No src yet" stays a waiting state (the consumer may still be
+  // hydrating it), not an error. `error` only flips after a failed fetch.
+  if (src && decodedSrcs.has(src)) return "loaded";
+  return "loading";
+}
+
+const state = ref<LoadState>(initialState(props.src));
+
+function markLoaded() {
+  if (state.value === "loaded") return;
+  if (props.src) decodedSrcs.add(props.src);
+  state.value = "loaded";
+  emit("load");
+}
+
+// A cached file can decode before the load listener binds. Lazy images
+// report `complete` early, so `naturalWidth === 0` still means not decoded.
+function settleIfDecoded() {
+  const el = imgEl.value;
+  if (!el || state.value !== "loading") return;
+  if (el.complete && el.naturalWidth > 0) markLoaded();
+}
+
 watch(
   () => props.src,
-  () => {
-    state.value = "loading";
+  (src) => {
+    state.value = initialState(src);
+    void nextTick(settleIfDecoded);
   },
 );
 
+onMounted(settleIfDecoded);
+
 function onLoad() {
-  state.value = "loaded";
-  emit("load");
+  markLoaded();
 }
 function onError() {
   state.value = "error";
@@ -107,10 +136,12 @@ const wrapperStyle = computed(() => ({
   >
     <img
       v-if="src && state !== 'error'"
+      ref="imgEl"
       :src="src"
       :alt="alt ?? ''"
       class="r-image__image"
       decoding="async"
+      :loading="lazy ? 'lazy' : 'eager'"
       @load="onLoad"
       @error="onError"
     />

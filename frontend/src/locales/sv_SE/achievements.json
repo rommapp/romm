@@ -1,0 +1,20 @@
+{
+  "counter-total": "Totalt",
+  "earned-on": "Uppnått {date}",
+  "empty-earned-hint": "Det finns inga uppnådda prestationer i spelen i det här biblioteket ännu. När du låser upp en och synkar igen visas den här.",
+  "empty-earned-title": "Inga prestationer uppnådda ännu",
+  "empty-unlinked-hint": "Öppna din profil, skriv ditt användarnamn under RetroAchievements och tryck på Spara. När du sparar startar synken också.",
+  "empty-unlinked-title": "Inget RetroAchievements-konto kopplat",
+  "empty-unsynced-hint": "Öppna din profil och tryck på Synka under RetroAchievements.",
+  "empty-unsynced-title": "Inget har synkats ännu",
+  "filter-all-games": "Alla spel",
+  "filter-game": "Spel",
+  "game-achievements-n": "{n} prestation | {n} prestationer",
+  "go-to-profile": "Öppna profil",
+  "load-error": "Kunde inte läsa in prestationer",
+  "open-game": "Öppna {name}",
+  "points-label": "Poäng",
+  "sort-catalog": "Katalogordning",
+  "sort-date": "Datum",
+  "sort-other": "Övriga"
+}

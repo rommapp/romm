@@ -134,6 +134,9 @@ api.interceptors.response.use(
       const params = new URLSearchParams(search);
       const fullPath = pathname + search;
 
+      const { resetEarnedAchievements } = await import("@/services/api/user");
+      resetEarnedAchievements();
+
       // Loaded lazily: a static import evaluates the router while this module
       // is still initialising, so `router` reads as undefined.
       const { default: router } = await import("@/plugins/router");

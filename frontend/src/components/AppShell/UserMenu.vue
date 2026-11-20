@@ -34,6 +34,7 @@ import {
 import { ROUTES } from "@/plugins/router";
 import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
+import { resetEarnedAchievements } from "@/services/api/user";
 import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -99,6 +100,7 @@ async function onLogout() {
   open.value = false;
   try {
     const { data } = await identityApi.logout();
+    resetEarnedAchievements();
     // The socket keeps the rooms it joined as this user until it reconnects.
     socket.disconnect();
     const oidcLogoutUrl = (data as { oidc_logout_url?: string })

@@ -14,12 +14,13 @@ import {
 } from "./index";
 
 vi.mock("@/plugins/router", () => ({
-  ROUTES: {
+    ROUTES: {
     ROM: "rom",
     EMULATORJS: "emulatorjs",
     JSDOS: "jsdos",
     PICO8: "pico8",
     RUFFLE: "ruffle",
+    ACHIEVEMENTS: "achievements",
   },
 }));
 
@@ -40,6 +41,11 @@ function routerWithBackMorph() {
       {
         path: "/platform/:platform",
         name: "platform",
+        component: { render: () => null },
+      },
+      {
+        path: "/achievements",
+        name: "achievements",
         component: { render: () => null },
       },
       { path: "/rom/:rom", name: "rom", component: { render: () => null } },
@@ -124,5 +130,15 @@ describe("installBackMorph", () => {
       await router.push("/platform/2");
       await router.push("/rom/18");
     });
+  });
+
+  it("morphs an achievement icon back into the list", async () => {
+    const finished = stubStartViewTransition(Promise.resolve());
+    const router = routerWithBackMorph();
+    await router.push("/achievements?rom=24");
+    await router.push("/achievements");
+    await finished;
+    await flushPromises();
+    expect(document.startViewTransition).toHaveBeenCalled();
   });
 });
