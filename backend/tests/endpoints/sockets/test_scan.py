@@ -69,6 +69,7 @@ from models.notification import NotificationKind, NotificationLevel
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, RomIdentity
 from utils.gamelist_exporter import GamelistExporter
+from utils.pegasus_exporter import PegasusExporter
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 # A platform IGDB and MobyGames both cover, so rescans can consult either.
@@ -453,11 +454,19 @@ class TestScanTotals:
 class TestScanAutoExport:
     """Auto-export after a scan only rewrites the platforms the scan covered."""
 
-    @pytest.fixture
-    def exported_ids(self, patched, mocker):
+    @pytest.fixture(
+        params=[
+            ("GAMELIST_AUTO_EXPORT_ON_SCAN", GamelistExporter),
+            ("PEGASUS_AUTO_EXPORT_ON_SCAN", PegasusExporter),
+        ],
+        ids=["gamelist", "pegasus"],
+    )
+    def exported_ids(self, request, patched, mocker):
+        flag, exporter = request.param
         config = MagicMock()
-        config.GAMELIST_AUTO_EXPORT_ON_SCAN = True
+        config.GAMELIST_AUTO_EXPORT_ON_SCAN = False
         config.PEGASUS_AUTO_EXPORT_ON_SCAN = False
+        setattr(config, flag, True)
         mocker.patch.object(config_manager, "get_config", return_value=config)
         existing = MagicMock(id=1, fs_slug="existing")
         # Read once before the scan and again after it has added the new folders.
@@ -474,7 +483,7 @@ class TestScanAutoExport:
             ],
         )
         export = mocker.patch.object(
-            GamelistExporter,
+            exporter,
             "export_platform_to_file",
             AsyncMock(return_value=True),
         )
