@@ -1,7 +1,6 @@
 import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from time import perf_counter
 from typing import Final
 
 from alembic.runtime.migration import MigrationContext
@@ -10,7 +9,7 @@ from redis import Redis
 from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import RedisError
 from redis.exceptions import TimeoutError as RedisTimeoutError
-from rq import Queue, worker_registration
+from rq import worker_registration
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.pool import NullPool
@@ -19,24 +18,12 @@ from config import LIBRARY_BASE_PATH, REDIS_URL, RESOURCES_BASE_PATH
 from config.config_manager import ConfigManager
 from endpoints.responses.health import (
     CheckError,
-    DatabaseStatus,
     HealthReadyResponse,
-    HealthStatusResponse,
     LibraryCheck,
-    MigrationStatus,
     ReadyCheck,
     ResourcesCheck,
-    ValkeyMemory,
-    ValkeyStatus,
-    WorkerStatus,
 )
-from handler.database.roms_handler import count_gallery_cache_entries
-from handler.redis_handler import (
-    REDIS_CLIENT_OPTIONS,
-    SCAN_QUEUE_NAME,
-    STREAMING_QUEUE_NAME,
-    QueuePrio,
-)
+from handler.redis_handler import REDIS_CLIENT_OPTIONS
 
 # Sized for a tailnet. The checks run in parallel, so this also bounds the probe.
 PROBE_TIMEOUT_SECONDS: Final = 5
@@ -47,12 +34,6 @@ _CONNECT_TIMEOUT_ARG: Final[dict[str, str]] = {
     "mysql+mysqlconnector": "connection_timeout",
     "postgresql+psycopg": "connect_timeout",
 }
-
-_QUEUE_NAMES: Final = (
-    *(prio.value for prio in QueuePrio),
-    SCAN_QUEUE_NAME,
-    STREAMING_QUEUE_NAME,
-)
 
 _BACKEND_DIR: Final = Path(__file__).resolve().parents[1]
 _SCRIPTS: Final = ScriptDirectory(str(_BACKEND_DIR / "alembic"))
@@ -78,18 +59,6 @@ _probe_redis = Redis.from_url(
 
 
 def ready_checks() -> HealthReadyResponse:
-    report = status_report()
-    return {
-        "database": _verdict(report["database"]),
-        "valkey": _verdict(report["valkey"]),
-        "worker": _verdict(report["worker"]),
-        "migration": _verdict(report["migration"]),
-        "library": report["library"],
-        "resources": report["resources"],
-    }
-
-
-def status_report() -> HealthStatusResponse:
     with ThreadPoolExecutor(max_workers=4) as pool:
         database = pool.submit(_database_check)
         valkey = pool.submit(_valkey_check)
@@ -105,52 +74,6 @@ def status_report() -> HealthStatusResponse:
         }
 
 
-def metrics_text() -> str:
-    report = status_report()
-    lines = [
-        f'romm_health_check_ok{{check="{name}"}} {int(report[name]["ok"])}'
-        for name in (
-            "database",
-            "valkey",
-            "worker",
-            "migration",
-            "library",
-            "resources",
-        )
-    ]
-    lines += [
-        f'romm_health_check_latency_seconds{{check="{name}"}} '
-        f'{report[name]["latency_ms"] / 1000}'
-        for name in ("database", "valkey", "worker", "migration")
-    ]
-    if (memory := report["valkey"]["memory"]) is not None:
-        lines += [
-            f"romm_valkey_used_memory_bytes {memory['used_bytes']}",
-            f"romm_valkey_peak_memory_bytes {memory['peak_bytes']}",
-            f"romm_valkey_max_memory_bytes {memory['max_bytes']}",
-            f'romm_valkey_max_memory_policy{{policy="{memory["max_policy"]}"}} 1',
-            f"romm_valkey_evicted_keys_total {memory['evicted_keys']}",
-            f"romm_gallery_cache_entries {memory['gallery_cache_entries']}",
-        ]
-    workers = report["worker"]
-    lines.append(f"romm_workers {workers['workers']}")
-    lines += [
-        f'romm_queue_depth{{queue="{queue}"}} {depth}'
-        for queue, depth in workers["queues"].items()
-    ]
-    return "\n".join(lines) + "\n"
-
-
-def _verdict(
-    check: DatabaseStatus | ValkeyStatus | WorkerStatus | MigrationStatus,
-) -> ReadyCheck:
-    return {"ok": check["ok"], "error": check["error"]}
-
-
-def _since(started: float) -> int:
-    return round((perf_counter() - started) * 1000)
-
-
 def _error_kind(exc: Exception) -> CheckError:
     if isinstance(exc, (TimeoutError, RedisTimeoutError)):
         return "timeout"
@@ -159,46 +82,21 @@ def _error_kind(exc: Exception) -> CheckError:
     return "error"
 
 
-def _database_check() -> DatabaseStatus:
-    started = perf_counter()
+def _database_check() -> ReadyCheck:
     try:
         with _probe_engine.connect() as connection:
             connection.execute(text("SELECT 1"))
     except SQLAlchemyError as exc:
-        return {"ok": False, "latency_ms": _since(started), "error": _error_kind(exc)}
-    return {"ok": True, "latency_ms": _since(started), "error": None}
+        return {"ok": False, "error": _error_kind(exc)}
+    return {"ok": True, "error": None}
 
 
-def _valkey_check() -> ValkeyStatus:
-    started = perf_counter()
+def _valkey_check() -> ReadyCheck:
     try:
-        ok = bool(_probe_redis.ping())
-        latency_ms = _since(started)
-        memory = _valkey_memory()
+        _probe_redis.ping()
     except RedisError as exc:
-        return {
-            "ok": False,
-            "latency_ms": _since(started),
-            "error": _error_kind(exc),
-            "memory": None,
-        }
-    return {"ok": ok, "latency_ms": latency_ms, "error": None, "memory": memory}
-
-
-def _valkey_memory() -> ValkeyMemory:
-    # INFO and SCARD are constant-time, so this stays cheap enough to poll.
-    with _probe_redis.pipeline(transaction=False) as pipe:
-        pipe.info("memory")
-        pipe.info("stats")
-        memory, stats = pipe.execute()
-    return {
-        "used_bytes": int(memory["used_memory"]),
-        "peak_bytes": int(memory["used_memory_peak"]),
-        "max_bytes": int(memory["maxmemory"]),
-        "max_policy": str(memory["maxmemory_policy"]),
-        "evicted_keys": int(stats["evicted_keys"]),
-        "gallery_cache_entries": count_gallery_cache_entries(_probe_redis),
-    }
+        return {"ok": False, "error": _error_kind(exc)}
+    return {"ok": True, "error": None}
 
 
 def _count_workers() -> int:
@@ -207,65 +105,26 @@ def _count_workers() -> int:
     return _probe_redis.exists(*keys) if keys else 0
 
 
-def _worker_check() -> WorkerStatus:
-    started = perf_counter()
+def _worker_check() -> ReadyCheck:
     try:
         workers = _count_workers()
-        queues = {
-            name: Queue(name, connection=_probe_redis).count for name in _QUEUE_NAMES
-        }
     except RedisError as exc:
-        return {
-            "ok": False,
-            "latency_ms": _since(started),
-            "error": _error_kind(exc),
-            "workers": 0,
-            "queues": {},
-        }
+        return {"ok": False, "error": _error_kind(exc)}
     if not workers:
-        return {
-            "ok": False,
-            "latency_ms": _since(started),
-            "error": "no_workers",
-            "workers": 0,
-            "queues": queues,
-        }
-    return {
-        "ok": True,
-        "latency_ms": _since(started),
-        "error": None,
-        "workers": workers,
-        "queues": queues,
-    }
+        return {"ok": False, "error": "no_workers"}
+    return {"ok": True, "error": None}
 
 
-def _migration_check() -> MigrationStatus:
-    started = perf_counter()
+def _migration_check() -> ReadyCheck:
     try:
         with _probe_engine.connect() as connection:
             current = MigrationContext.configure(connection).get_current_revision()
     except SQLAlchemyError as exc:
-        return {
-            "ok": False,
-            "latency_ms": _since(started),
-            "error": _error_kind(exc),
-            "current": None,
-            "head": _HEAD_REVISION,
-        }
-    error: CheckError | None
+        return {"ok": False, "error": _error_kind(exc)}
     if current == _HEAD_REVISION:
-        error = None
-    elif current is None or current in _KNOWN_REVISIONS:
-        error = "behind"
-    else:
-        error = "ahead"
-    return {
-        "ok": error is None,
-        "latency_ms": _since(started),
-        "error": error,
-        "current": current,
-        "head": _HEAD_REVISION,
-    }
+        return {"ok": True, "error": None}
+    behind = current is None or current in _KNOWN_REVISIONS
+    return {"ok": False, "error": "behind" if behind else "ahead"}
 
 
 def _library_check() -> LibraryCheck:

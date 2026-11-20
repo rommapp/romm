@@ -1,9 +1,7 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from fastapi import status
 from redis.exceptions import ConnectionError as RedisConnectionError
-
-from handler.health_handler import _QUEUE_NAMES
 
 CHECKS = {"database", "valkey", "worker", "migration", "library", "resources"}
 
@@ -14,15 +12,6 @@ def _healthy_ready(client):
         patch("handler.health_handler.os.access", return_value=True),
     ):
         return client.get("/api/health/ready")
-
-
-def test_live_answers_without_dependencies(client):
-    # Act
-    response = client.get("/api/health/live")
-
-    # Assert
-    assert response.status_code == status.HTTP_200_OK
-    assert response.json() == {"status": "ok"}
 
 
 def test_ready_when_every_check_passes(client):
@@ -112,51 +101,11 @@ def test_library_check_names_an_unreadable_folder(client):
     }
 
 
-def test_status_requires_a_login(client):
-    # Act
-    response = client.get("/api/health/status")
-
-    # Assert
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
-
-
-def test_status_shows_timings_and_queues_to_an_admin(client, headers):
-    # Act
-    response = client.get("/api/health/status", headers=headers)
-
-    # Assert
-    body = response.json()
-    assert response.status_code == status.HTTP_200_OK
-    assert "version" not in body
-    assert isinstance(body["database"]["latency_ms"], int)
-    assert set(body["worker"]["queues"]) == set(_QUEUE_NAMES)
-
-
-def test_metrics_is_off_by_default(client):
-    # Act
-    response = client.get("/api/health/metrics")
-
-    # Assert
-    assert response.status_code == status.HTTP_404_NOT_FOUND
-
-
-def test_metrics_text_lists_every_check():
-    # Arrange
-    from handler.health_handler import metrics_text
-
-    # Act
-    text = metrics_text()
-
-    # Assert
-    assert 'romm_health_check_ok{check="database"}' in text
-    assert 'romm_queue_depth{queue="scans"}' in text
-
-
 def test_timed_checks_run_side_by_side():
     # Arrange
     import time
 
-    from handler.health_handler import status_report
+    from handler.health_handler import ready_checks
 
     def slow(result):
         def run():
@@ -165,18 +114,17 @@ def test_timed_checks_run_side_by_side():
 
         return run
 
-    ok = {"ok": True, "latency_ms": 0, "error": None}
-    worker = {**ok, "workers": 1, "queues": {}}
+    ok = {"ok": True, "error": None}
     with (
         patch("handler.health_handler._database_check", slow(ok)),
         patch("handler.health_handler._valkey_check", slow(ok)),
-        patch("handler.health_handler._worker_check", slow(worker)),
+        patch("handler.health_handler._worker_check", slow(ok)),
         patch("handler.health_handler._migration_check", slow(ok)),
         patch("handler.health_handler.os.access", return_value=True),
     ):
         # Act
         started = time.perf_counter()
-        status_report()
+        ready_checks()
         elapsed = time.perf_counter() - started
 
     # Assert
@@ -198,71 +146,3 @@ def test_probe_connections_give_up_quickly():
     # Assert
     assert kwargs["socket_timeout"] == PROBE_TIMEOUT_SECONDS
     assert kwargs["socket_connect_timeout"] == PROBE_TIMEOUT_SECONDS
-
-
-_INFO_MEMORY = {
-    "used_memory": 41_231_360,
-    "used_memory_peak": 52_428_800,
-    "maxmemory": 0,
-    "maxmemory_policy": "noeviction",
-}
-_INFO_STATS = {"evicted_keys": 0}
-
-
-def _stub_valkey_info():
-    pipe = MagicMock()
-    pipe.__enter__.return_value.execute.return_value = [_INFO_MEMORY, _INFO_STATS]
-    return patch("handler.health_handler._probe_redis.pipeline", return_value=pipe)
-
-
-def test_status_reports_valkey_memory_to_an_admin(client, headers):
-    # Arrange
-    with (
-        _stub_valkey_info(),
-        patch("handler.health_handler.count_gallery_cache_entries", return_value=7),
-    ):
-        # Act
-        response = client.get("/api/health/status", headers=headers)
-
-    # Assert
-    assert response.json()["valkey"]["memory"] == {
-        "used_bytes": 41_231_360,
-        "peak_bytes": 52_428_800,
-        "max_bytes": 0,
-        "max_policy": "noeviction",
-        "evicted_keys": 0,
-        "gallery_cache_entries": 7,
-    }
-
-
-def test_status_reports_no_memory_when_valkey_is_down(client, headers):
-    # Arrange
-    with patch(
-        "handler.health_handler._probe_redis.ping",
-        side_effect=RedisConnectionError(),
-    ):
-        # Act
-        response = client.get("/api/health/status", headers=headers)
-
-    # Assert
-    assert response.json()["valkey"]["ok"] is False
-    assert response.json()["valkey"]["memory"] is None
-
-
-def test_metrics_text_lists_valkey_memory():
-    # Arrange
-    from handler.health_handler import metrics_text
-
-    with (
-        _stub_valkey_info(),
-        patch("handler.health_handler.count_gallery_cache_entries", return_value=7),
-    ):
-        # Act
-        text = metrics_text()
-
-    # Assert
-    assert "romm_valkey_used_memory_bytes 41231360" in text
-    assert "romm_valkey_max_memory_bytes 0" in text
-    assert 'romm_valkey_max_memory_policy{policy="noeviction"} 1' in text
-    assert "romm_valkey_evicted_keys_total 0" in text
-    assert "romm_gallery_cache_entries 7" in text
