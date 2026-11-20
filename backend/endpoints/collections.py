@@ -142,6 +142,27 @@ def _check_criteria_collection(
         raise CollectionNotFoundInDatabaseException(collection_id)
 
 
+def _visible_or_404[C: (Collection, SmartCollection)](
+    request: Request, collection: C | None, id: int
+) -> C:
+    """`collection` when it is the caller's or public, else one 404 for both cases."""
+    if not collection or (
+        collection.user_id != request.user.id and not collection.is_public
+    ):
+        raise CollectionNotFoundInDatabaseException(id)
+    return collection
+
+
+def _owned_or_error[C: (Collection, SmartCollection)](
+    request: Request, collection: C | None, id: int
+) -> C:
+    """`collection` when it is the caller's; 403 when it is only public."""
+    collection = _visible_or_404(request, collection, id)
+    if collection.user_id != request.user.id:
+        raise CollectionPermissionError(id)
+    return collection
+
+
 CollectionIdPath = Annotated[int, PathVar(description="The ID of the collection.")]
 SmartCollectionIdPath = Annotated[
     int, PathVar(description="The ID of the smart collection.")
@@ -462,12 +483,7 @@ def get_collection(request: Request, id: CollectionIdPath) -> CollectionSchema:
         CollectionSchema: Collection
     """
 
-    collection = db_collection_handler.get_collection(id)
-    if not collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    if collection.user_id != request.user.id and not collection.is_public:
-        raise CollectionPermissionError(id)
+    collection = _visible_or_404(request, db_collection_handler.get_collection(id), id)
 
     return _hide_single_collection_roms(
         CollectionSchema.model_validate(collection), request
@@ -503,12 +519,9 @@ def get_smart_collection(
         SmartCollectionSchema: Smart collection
     """
 
-    smart_collection = db_collection_handler.get_smart_collection(id)
-    if not smart_collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    if smart_collection.user_id != request.user.id and not smart_collection.is_public:
-        raise CollectionPermissionError(id)
+    smart_collection = _visible_or_404(
+        request, db_collection_handler.get_smart_collection(id), id
+    )
 
     return _hide_single_collection_roms(
         SmartCollectionSchema.model_validate(smart_collection), request
@@ -548,12 +561,7 @@ async def update_collection(
     Returns:
         CollectionSchema: Updated collection
     """
-    collection = db_collection_handler.get_collection(id)
-    if not collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    if collection.user_id != request.user.id:
-        raise CollectionPermissionError(id)
+    collection = _owned_or_error(request, db_collection_handler.get_collection(id), id)
     reject_local_file_url("url_cover", url_cover, collection.url_cover)
 
     if name is not None:
@@ -683,12 +691,7 @@ def update_collection_visibility(
     ],
 ) -> CollectionSchema:
     """Share or unshare a collection (owner only), leaving its games and cover."""
-    collection = db_collection_handler.get_collection(id)
-    if not collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    if collection.user_id != request.user.id:
-        raise CollectionPermissionError(id)
+    collection = _owned_or_error(request, db_collection_handler.get_collection(id), id)
 
     updated_collection = db_collection_handler.update_collection(
         id, {"is_public": is_public}
@@ -716,12 +719,7 @@ async def add_roms_to_collection(
     Returns:
         CollectionSchema: Updated collection
     """
-    collection = db_collection_handler.get_collection(id)
-    if not collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    if collection.user_id != request.user.id:
-        raise CollectionPermissionError(id)
+    collection = _owned_or_error(request, db_collection_handler.get_collection(id), id)
 
     hidden = _hidden_rom_ids(request, payload.rom_ids)
     rom_ids = [rid for rid in payload.rom_ids if rid not in hidden]
@@ -751,12 +749,7 @@ async def remove_roms_from_collection(
     Returns:
         CollectionSchema: Updated collection
     """
-    collection = db_collection_handler.get_collection(id)
-    if not collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    if collection.user_id != request.user.id:
-        raise CollectionPermissionError(id)
+    collection = _owned_or_error(request, db_collection_handler.get_collection(id), id)
 
     # Members hidden from the caller stay, as in update_collection.
     hidden = _hidden_rom_ids(request, payload.rom_ids)
@@ -800,12 +793,9 @@ async def update_smart_collection(
     Returns:
         SmartCollectionSchema: Updated smart collection
     """
-    smart_collection = db_collection_handler.get_smart_collection(id)
-    if not smart_collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    if smart_collection.user_id != request.user.id:
-        raise CollectionPermissionError(id)
+    smart_collection = _owned_or_error(
+        request, db_collection_handler.get_smart_collection(id), id
+    )
 
     if name is not None:
         namesake = db_collection_handler.get_smart_collection_by_name(
@@ -865,12 +855,7 @@ def update_smart_collection_visibility(
     ],
 ) -> SmartCollectionSchema:
     """Share or unshare a smart collection (owner only), leaving its filters."""
-    smart_collection = db_collection_handler.get_smart_collection(id)
-    if not smart_collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    if smart_collection.user_id != request.user.id:
-        raise CollectionPermissionError(id)
+    _owned_or_error(request, db_collection_handler.get_smart_collection(id), id)
 
     return _hide_single_collection_roms(
         SmartCollectionSchema.model_validate(
@@ -891,12 +876,7 @@ async def delete_collection(
     id: Annotated[int, PathVar(description="The ID of the collection.", ge=1)],
 ) -> None:
     """Delete a collection by ID."""
-    collection = db_collection_handler.get_collection(id)
-    if not collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    if collection.user_id != request.user.id:
-        raise CollectionPermissionError(id)
+    collection = _owned_or_error(request, db_collection_handler.get_collection(id), id)
 
     log.info(f"Deleting {hl(collection.name, color=BLUE)} from database")
     db_collection_handler.delete_collection(id)
@@ -922,12 +902,9 @@ async def delete_smart_collection(
     id: Annotated[int, PathVar(description="The ID of the smart collection.", ge=1)],
 ) -> None:
     """Delete a smart collection by ID."""
-    smart_collection = db_collection_handler.get_smart_collection(id)
-    if not smart_collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    if smart_collection.user_id != request.user.id:
-        raise CollectionPermissionError(id)
+    smart_collection = _owned_or_error(
+        request, db_collection_handler.get_smart_collection(id), id
+    )
 
     log.info(f"Deleting {hl(smart_collection.name, color=BLUE)} from database")
     db_collection_handler.delete_smart_collection(id)

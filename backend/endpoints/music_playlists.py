@@ -62,14 +62,12 @@ def _get_visible_playlist(request: Request, id: int) -> MusicPlaylist:
     if not playlist:
         raise MusicPlaylistNotFoundException(id)
     if playlist.user_id != request.user.id and not playlist.is_public:
-        raise MusicPlaylistPermissionError(id)
+        raise MusicPlaylistNotFoundException(id)
     return playlist
 
 
 def _get_owned_playlist(request: Request, id: int) -> MusicPlaylist:
-    playlist = db_music_playlist_handler.get_playlist(id)
-    if not playlist:
-        raise MusicPlaylistNotFoundException(id)
+    playlist = _get_visible_playlist(request, id)
     if playlist.user_id != request.user.id:
         raise MusicPlaylistPermissionError(id)
     return playlist

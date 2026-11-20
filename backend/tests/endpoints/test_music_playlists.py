@@ -117,7 +117,7 @@ def test_private_playlist_hidden_from_other_users(
         client.get(
             f"/api/music/playlists/{playlist_id}", headers=bearer(editor_access_token)
         ).status_code
-        == status.HTTP_403_FORBIDDEN
+        == status.HTTP_404_NOT_FOUND
     )
 
 
