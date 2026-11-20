@@ -65,6 +65,7 @@ async def run_launch(
     native_fallback: bool = False,
     start_disc_id: int | None = None,
     booted_disc_id: int | None = None,
+    restored_save_id: int | None = None,
 ) -> None:
     """Start the game, then tell the player's tabs where to find it.
 
@@ -77,6 +78,7 @@ async def run_launch(
         start_disc_id: the disc the player picked to start on, if any.
         booted_disc_id: the disc `rom_path` boots directly, recorded so states
             saved on it remember their disc.
+        restored_save_id: the native save archive `archive_path` restores.
     """
     # Nothing beats for the player until the stream is up, so without this the
     # next claimant reads the record as abandoned and tears the container down
@@ -126,9 +128,13 @@ async def run_launch(
                     raise
                 # The broker checks an import at activate, after the upload took it.
                 log.warning("default save refused, booting the newest archive: %s", exc)
-                archive_path = await saves.hydrate_saves_to_webstation(
-                    user.id, rom.id, container
+                restored = await asyncio.to_thread(
+                    saves.restorable_for, user.id, rom.id, container, None
                 )
+                archive_path = await saves.hydrate_saves_to_webstation(
+                    user.id, rom.id, container, restored
+                )
+                restored_save_id = restored.id if archive_path and restored else None
                 resume_on_activate = resume_on_activate and not (
                     container.resumes_from_archive and archive_path is None
                 )
@@ -182,7 +188,12 @@ async def run_launch(
         launch_result if isinstance(launch_result, dict) else None,
     )
     await stamp_launched(
-        session_key, session, host=host, core=container.core, core_tier=core_tier
+        session_key,
+        session,
+        host=host,
+        core=container.core,
+        core_tier=core_tier,
+        restored_save_id=restored_save_id,
     )
     await lifecycle.publish_session_activity(session_key, session)
 

@@ -54,6 +54,7 @@ from handler.filesystem import fs_asset_handler
 from handler.redis_handler import async_cache, sync_cache
 from handler.streaming import (
     access,
+    archive,
     broker,
     commands,
     imports,
@@ -6491,6 +6492,107 @@ def test_pull_saves_no_changes_returns_false(rom: Rom, admin_user: User):
     wf.assert_not_awaited()
 
 
+def _members(content: bytes) -> tuple[dict[str, bytes], dict[str, str]]:
+    """An archive's members by path, and the kind its manifest gives each."""
+    with zipfile.ZipFile(io.BytesIO(content)) as zf:
+        manifest = json.loads(zf.read(".broker-manifest.json"))
+        members = {n: zf.read(n) for n in zf.namelist() if n != ".broker-manifest.json"}
+    return members, {f["path"]: f["kind"] for f in manifest["files"]}
+
+
+def test_archive_overlay_keeps_the_base_files_the_top_leaves_out():
+    base = _exit_archive(
+        {
+            "data/save00": ("save", b"old0"),
+            "data/save01": ("save", b"old1"),
+            "state.bin": ("state", b"s1"),
+        }
+    )
+    top = _exit_archive(
+        {"data/save01": ("save", b"new1"), "state.bin": ("state", b"s2")}
+    )
+
+    members, kinds = _members(archive.overlay(base, top, 1024))
+
+    assert members == {
+        "data/save00": b"old0",
+        "data/save01": b"new1",
+        "state.bin": b"s2",
+    }
+    assert kinds == {"data/save00": "save", "data/save01": "save", "state.bin": "state"}
+
+
+def test_archive_overlay_refuses_a_merge_past_the_size_limit():
+    base = _exit_archive({"a": ("save", b"x" * 8)})
+    top = _exit_archive({"b": ("save", b"y" * 8)})
+
+    with pytest.raises(ValueError):
+        archive.overlay(base, top, 12)
+
+
+def _pull_over_base(
+    rom: Rom, user: User, base: Save | None, base_content: bytes, delta: bytes
+) -> bytes:
+    """Pull `delta` for a session that restored `base`, returning what was filed."""
+    container = _resolved({**_container_for(rom), "label": "PCSX2"})
+    scanned = _save_for(
+        rom, user, "Game [pcsx2 new].saves.zip", container.emulator, "merged"
+    )
+    with (
+        patch("handler.streaming.saves.fetch_save_archive", return_value=delta),
+        patch(
+            "handler.filesystem.fs_asset_handler.read_file",
+            new=AsyncMock(return_value=base_content),
+        ),
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
+        patch("handler.streaming.saves.scan_save", new=AsyncMock(return_value=scanned)),
+    ):
+        assert asyncio.run(
+            saves.pull_saves_to_library(
+                user.id,
+                rom.id,
+                container,
+                base_save_id=base.id if base is not None else None,
+            )
+        )
+    return wf.call_args.kwargs["file"]
+
+
+def test_pull_saves_merges_the_exit_delta_over_the_restored_archive(
+    rom: Rom, admin_user: User
+):
+    """A webstation exit holds only what changed, so a session that never saved
+    in game must not file an archive without the save it restored."""
+    emulator = _resolved({**_container_for(rom), "label": "PCSX2"}).emulator
+    base = _add_save(rom, admin_user, "Game [base].saves.zip", emulator, "base")
+    base_content = _exit_archive(
+        {"data/save00": ("save", b"old0"), "state.bin": ("state", b"s1")}
+    )
+    delta = _exit_archive({"state.bin": ("state", b"s2")})
+
+    filed = _pull_over_base(rom, admin_user, base, base_content, delta)
+
+    assert _members(filed)[0] == {"data/save00": b"old0", "state.bin": b"s2"}
+
+
+def test_pull_saves_files_the_delta_alone_without_a_restored_archive(
+    rom: Rom, admin_user: User
+):
+    delta = _exit_archive({"state.bin": ("state", b"s2")})
+
+    assert _pull_over_base(rom, admin_user, None, b"", delta) == delta
+
+
+def test_pull_saves_ignores_a_restored_archive_from_another_emulator(
+    rom: Rom, admin_user: User
+):
+    base = _add_save(rom, admin_user, "Game [base].saves.zip", "other-emu", "base")
+    base_content = _exit_archive({"data/save00": ("save", b"old0")})
+    delta = _exit_archive({"state.bin": ("state", b"s2")})
+
+    assert _pull_over_base(rom, admin_user, base, base_content, delta) == delta
+
+
 # ── A RetroArch exit filed as raw files ───────────────────────────────────────
 
 
@@ -7321,7 +7423,7 @@ def test_a_launch_with_no_pick_restores_the_archive_when_the_raw_save_fails_to_i
     assert resp.status_code == 202
     hydrate_import.assert_awaited_once()
     hydrate_native.assert_awaited_once()
-    assert hydrate_native.call_args.args[3] is None
+    assert hydrate_native.call_args.args[3].file_name.endswith(".saves.zip")
 
 
 def _refused_save(member: str) -> broker.ImportRefusedError:
@@ -7484,6 +7586,20 @@ def test_a_launch_with_no_pick_skips_a_raw_save_whose_file_is_missing(
     hydrate_import.assert_not_awaited()
     hydrate_native.assert_awaited_once()
     assert hydrate_native.call_args.args[3].id == zipped.id
+
+
+def test_a_launch_records_the_archive_it_restored_on_the_session(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """The exit pull merges the session's delta over this archive."""
+    zipped = _add_save(rom, admin_user, "GAME.ZIP", "retroarch", "h1")
+
+    resp, _hydrate_import, _hydrate_native, session = _claim_without_a_pick(
+        client, access_token, rom, None
+    )
+
+    assert resp.status_code == 202
+    assert json.loads(session)["restored_save_id"] == zipped.id
 
 
 def test_newest_restorable_skips_an_archive_whose_file_is_missing(
@@ -9559,6 +9675,7 @@ def test_an_exit_save_pull_runs_on_the_streaming_worker(
         "broker_session_id": "b1",
         "disc_file_id": 42,
         "disc_swaps": [{"file_id": 42, "at": "2026-10-07T12:00:00+00:00"}],
+        "restored_save_id": 7,
     }
     exit_pull_queue.enqueue.side_effect = None
 
@@ -9584,6 +9701,7 @@ def test_an_exit_save_pull_runs_on_the_streaming_worker(
         "disc_swaps": [
             session_store.DiscSwap(42, datetime(2026, 10, 7, 12, tzinfo=timezone.utc))
         ],
+        "base_save_id": 7,
     }
     assert kwargs["job_timeout"] == saves.SAVE_PULL_TTL_SECONDS
 

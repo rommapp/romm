@@ -1,8 +1,11 @@
 """Reading the zip archives a broker ships, and the manifest that labels their members."""
 
+import io
 import json
 import zipfile
 from typing import Any
+
+from utils.zip_cache import ensure_zipfile_writable
 
 MANIFEST_NAME = ".broker-manifest.json"
 MAX_MANIFEST_BYTES = 1024 * 1024
@@ -42,3 +45,45 @@ def manifest_files(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
         for f in (files if isinstance(files, list) else [])
         if isinstance(f, dict) and isinstance(f.get("path"), str)
     }
+
+
+def overlay(base: bytes, top: bytes, max_bytes: int) -> bytes:
+    """`base` with `top`'s members written over it, under one merged manifest.
+
+    Raises:
+        zipfile.BadZipFile: either side is not a zip.
+        ValueError: the merged members would expand past `max_bytes`.
+    """
+    members: dict[str, tuple[zipfile.ZipInfo, bytes]] = {}
+    labels: dict[str, dict[str, Any]] = {}
+    manifest: dict[str, Any] = {}
+    expanded = 0
+    for content in (base, top):
+        with zipfile.ZipFile(io.BytesIO(content)) as zf:
+            own = read_manifest(zf)
+            manifest = own or manifest
+            labels.update(manifest_files(own))
+            for info in zf.infolist():
+                if info.is_dir() or info.filename == MANIFEST_NAME:
+                    continue
+                replaced = members.pop(info.filename, None)
+                if replaced is not None:
+                    expanded -= replaced[0].file_size
+                expanded += info.file_size
+                if expanded > max_bytes:
+                    raise ValueError("merged archive exceeds its size limit")
+                members[info.filename] = (info, read_member(zf, info))
+
+    ensure_zipfile_writable()
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name, (info, data) in members.items():
+            entry = zipfile.ZipInfo(name, date_time=info.date_time)
+            entry.external_attr = info.external_attr
+            entry.flag_bits |= info.flag_bits & 0x800  # UTF-8 filename flag
+            entry.compress_type = zipfile.ZIP_DEFLATED
+            zf.writestr(entry, data)
+        if manifest or labels:
+            files = [labels[name] for name in members if name in labels]
+            zf.writestr(MANIFEST_NAME, json.dumps({**manifest, "files": files}))
+    return out.getvalue()

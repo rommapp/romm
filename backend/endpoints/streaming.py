@@ -816,10 +816,15 @@ async def _hydrate_saves(
         # last session ended on, which the card does not.
         # Best-effort: a failed upload just means the container keeps its own.
         try:
-            path = await saves.hydrate_saves_to_webstation(
-                request.user.id, rom.id, container, save
+            restored = await asyncio.to_thread(
+                saves.restorable_for, request.user.id, rom.id, container, save
             )
-            return imports.ImportHydration(path)
+            path = await saves.hydrate_saves_to_webstation(
+                request.user.id, rom.id, container, restored
+            )
+            return imports.ImportHydration(
+                path, restored_save_id=restored.id if path and restored else None
+            )
         except Exception:
             log.exception("save hydration failed, continuing launch")
     elif card is None:
@@ -1125,6 +1130,7 @@ async def claim_session(
         rom_language=rom_language,
         gui_language=gui_language,
         archive_path=hydrated.path,
+        restored_save_id=hydrated.restored_save_id,
         native_fallback=hydrated.native_fallback,
         resume_state=resume_state,
         resume_slot=resume_slot,

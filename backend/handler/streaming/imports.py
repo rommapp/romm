@@ -218,6 +218,8 @@ class ImportHydration(NamedTuple):
     state_imported: bool = False
     # The archive is a default save alone, so a refused import boots the newest archive.
     native_fallback: bool = False
+    # The native save archive the upload carries as its base.
+    restored_save_id: int | None = None
 
 
 async def hydrate_import_archive(
@@ -271,6 +273,7 @@ async def hydrate_import_archive(
         return ImportHydration()
 
     base: tuple[str, bytes] | None = None
+    base_save_id: int | None = None
     save_lost = save_is_foreign and not any(m.kind == "save" for m in members)
     if not save_is_foreign or (native_fallback and save_lost):
         native = (None if save_is_foreign else save) or await asyncio.to_thread(
@@ -278,6 +281,7 @@ async def hydrate_import_archive(
         )
         if native is not None:
             base = await saves.read_restorable_archive(native)
+            base_save_id = native.id if base is not None else None
 
     archive_bytes, carried = await asyncio.to_thread(
         build_import_archive, rom.id, base, members
@@ -287,4 +291,6 @@ async def hydrate_import_archive(
     )
     # A member whose inner zip held only junk never lands in `carried`.
     state_included = path is not None and any(f.get("kind") == "state" for f in carried)
-    return ImportHydration(path, state_included)
+    return ImportHydration(
+        path, state_included, restored_save_id=base_save_id if path else None
+    )

@@ -102,6 +102,8 @@ class StreamingSession(TypedDict, total=False):
     core_tier: str | None
     disc_file_id: int | None
     disc_swaps: list[StoredDiscSwap]
+    # The save archive the launch restored, which the exit's delta is merged over.
+    restored_save_id: int | None
     draining: bool
     drain_token: str
 
@@ -462,6 +464,7 @@ async def stamp_launched(
     host: str | None,
     core: str | None = None,
     core_tier: str | None = None,
+    restored_save_id: int | None = None,
 ) -> None:
     """Record that the activate returned, so the status poll stops asking the
     broker for an extraction phase.
@@ -479,6 +482,7 @@ async def stamp_launched(
             the push; None for a desktop, whose POST is the only reader.
         core, core_tier: the configured core and its tier, so that tab still
             hears the warning launch-ready carried.
+        restored_save_id: the save archive the activate restored.
     """
     try:
         await mutate_session(
@@ -487,6 +491,11 @@ async def stamp_launched(
                 "launched_at": datetime.now(timezone.utc).isoformat(),
                 **({"host": host} if host else {}),
                 **({"core": core, "core_tier": core_tier} if core_tier else {}),
+                **(
+                    {"restored_save_id": restored_save_id}
+                    if restored_save_id is not None
+                    else {}
+                ),
             },
             require=lambda current: same_claim(current, claim),
         )
