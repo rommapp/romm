@@ -2,9 +2,10 @@ import uuid
 from typing import Annotated
 
 from fastapi import HTTPException, Query, Request, status
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from endpoints.responses.snapshots import (
     ChannelSchema,
     build_channel_schema,
@@ -49,8 +50,25 @@ class ChannelAttachPayload(BaseModel):
 @protected_route(router.get, "", [Scope.ASSETS_READ])
 def get_channels(
     request: Request,
-    rom_file_id: Annotated[list[int] | None, Query()] = None,
-    channel_id: Annotated[list[uuid.UUID] | None, Query()] = None,
+    rom_file_id: Annotated[
+        list[int] | None,
+        Query(
+            description=(
+                "The ID of a rom file whose channels to list. Repeat the"
+                " parameter for several files. A file that is unknown or hidden"
+                " returns 404."
+            )
+        ),
+    ] = None,
+    channel_id: Annotated[
+        list[uuid.UUID] | None,
+        Query(
+            description=(
+                "The ID of a channel to include. Repeat the parameter for"
+                " several channels. A channel you cannot read returns 404."
+            )
+        ),
+    ] = None,
     detached_platform_id: Annotated[
         int | None,
         Query(description="Your channels on this platform whose ROM was removed."),
@@ -95,7 +113,9 @@ def create_channel(request: Request, payload: ChannelCreatePayload) -> ChannelSc
 
 @protected_route(router.patch, "/{id}", [Scope.ASSETS_WRITE])
 def update_channel(
-    request: Request, id: uuid.UUID, payload: ChannelUpdatePayload
+    request: Request,
+    id: uuid.UUID,
+    payload: ChannelUpdatePayload,
 ) -> ChannelSchema:
     """Rename a channel or open it to every user. Owner only."""
     channel = readable_channel_or_404(request, id, owner_only=True)
@@ -107,7 +127,9 @@ def update_channel(
 
 @protected_route(router.post, "/{id}/attach", [Scope.ASSETS_WRITE])
 def attach_channel(
-    request: Request, id: uuid.UUID, payload: ChannelAttachPayload
+    request: Request,
+    id: uuid.UUID,
+    payload: ChannelAttachPayload,
 ) -> ChannelSchema:
     """Attach a channel whose ROM was removed to a file of the same platform.
     Owner only."""
@@ -153,7 +175,10 @@ def clear_held(
 @protected_route(
     router.delete, "/{id}", [Scope.ASSETS_WRITE], status_code=status.HTTP_204_NO_CONTENT
 )
-async def delete_channel(request: Request, id: uuid.UUID) -> None:
+async def delete_channel(
+    request: Request,
+    id: uuid.UUID,
+) -> None:
     """Delete a channel. Its current and pinned snapshots stay as archival backups,
     except on a detached channel, whose ROM is gone, which keeps nothing."""
     channel = readable_channel_or_404(request, id, owner_only=True)

@@ -117,6 +117,7 @@ class MissingContentSchema(BaseModel):
 class SnapshotConflictSchema(BaseModel):
     current: SnapshotSchema | None
     branch: SnapshotSchema
+    """The pushed snapshot, which the server stored as a branch."""
     reason: ConflictReason = Field(
         description=(
             "`moved`: the channel moved on from the current the push built on. "

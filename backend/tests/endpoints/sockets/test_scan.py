@@ -68,6 +68,8 @@ from models.firmware import Firmware
 from models.notification import NotificationKind, NotificationLevel
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, RomIdentity
+from utils.gamelist_exporter import GamelistExporter
+from utils.pegasus_exporter import PegasusExporter
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 # A platform IGDB and MobyGames both cover, so rescans can consult either.
@@ -447,6 +449,61 @@ class TestScanTotals:
         # Only the selected folder is scanned, not every filesystem platform.
         assert result.total_platforms == 1
         assert result.total_roms == 100
+
+
+class TestScanAutoExport:
+    """Auto-export after a scan only rewrites the platforms the scan covered."""
+
+    @pytest.fixture(
+        params=[
+            ("GAMELIST_AUTO_EXPORT_ON_SCAN", GamelistExporter),
+            ("PEGASUS_AUTO_EXPORT_ON_SCAN", PegasusExporter),
+        ],
+        ids=["gamelist", "pegasus"],
+    )
+    def exported_ids(self, request, patched, mocker):
+        flag, exporter = request.param
+        config = MagicMock()
+        config.GAMELIST_AUTO_EXPORT_ON_SCAN = False
+        config.PEGASUS_AUTO_EXPORT_ON_SCAN = False
+        setattr(config, flag, True)
+        mocker.patch.object(config_manager, "get_config", return_value=config)
+        existing = MagicMock(id=1, fs_slug="existing")
+        # Read once before the scan and again after it has added the new folders.
+        mocker.patch.object(
+            db_platform_handler,
+            "get_platforms",
+            side_effect=[
+                [existing],
+                [
+                    existing,
+                    MagicMock(id=2, fs_slug="new1"),
+                    MagicMock(id=3, fs_slug="new2"),
+                ],
+            ],
+        )
+        export = mocker.patch.object(
+            exporter,
+            "export_platform_to_file",
+            AsyncMock(return_value=True),
+        )
+        return export
+
+    async def test_new_platforms_scan_skips_existing_platforms(self, exported_ids):
+        await scan_platforms(
+            platform_ids=[],
+            metadata_sources=[],
+            scan_type=ScanType.NEW_PLATFORMS,
+        )
+
+        assert sorted(c.args[0] for c in exported_ids.await_args_list) == [2, 3]
+
+    async def test_quick_scan_exports_every_scanned_platform(self, exported_ids):
+        await scan_platforms(
+            platform_ids=[], metadata_sources=[], scan_type=ScanType.QUICK
+        )
+
+        assert sorted(c.args[0] for c in exported_ids.await_args_list) == [1, 2, 3]
 
 
 class TestScreenScraperScanReporting:

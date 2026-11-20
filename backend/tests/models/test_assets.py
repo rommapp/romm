@@ -1,6 +1,39 @@
+from datetime import datetime, timezone
+from urllib.parse import parse_qs, urlsplit
+
+import pytest
+
 from handler.database import db_rom_handler, db_state_handler
-from models.assets import Save, Screenshot, State
+from models.assets import MemoryCardVersion, Save, Screenshot, State
 from models.rom import Rom
+
+UPDATED_AT = datetime(2026, 11, 19, 18, 30, 59, 331000, tzinfo=timezone.utc)
+
+
+@pytest.mark.parametrize(
+    "asset",
+    [
+        Save(id=1, file_name="Game (USA) [2026-11-19].srm", updated_at=UPDATED_AT),
+        State(id=2, file_name="Game (USA).state", updated_at=UPDATED_AT),
+        Screenshot(id=3, file_name="Game (USA).png", updated_at=UPDATED_AT),
+        MemoryCardVersion(id=4, file_name="card.zip", updated_at=UPDATED_AT),
+    ],
+    ids=lambda asset: type(asset).__name__,
+)
+def test_download_path_query_round_trips_the_timestamp(asset):
+    url = asset.download_path
+
+    assert " " not in url
+    assert "+" not in url
+    assert parse_qs(urlsplit(url).query)["timestamp"] == [str(UPDATED_AT)]
+
+
+def test_download_path_round_trips_the_file_name():
+    save = Save(id=1, file_name="Game (USA) [2026-11-19].srm", updated_at=UPDATED_AT)
+
+    query = parse_qs(urlsplit(save.download_path).query)
+
+    assert query["name"] == ["Game (USA) [2026-11-19].srm"]
 
 
 def test_save(save: Save):

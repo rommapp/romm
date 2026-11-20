@@ -1,7 +1,9 @@
 from datetime import datetime, timezone
-from typing import Any, Final, Mapping, cast
+from typing import Annotated, Any, Final, Mapping, cast
 
-from fastapi import Body, HTTPException, Request, status
+from fastapi import Body, HTTPException
+from fastapi import Path as PathVar
+from fastapi import Request, status
 from rq import Worker
 from rq.exceptions import NoSuchJobError
 from rq.job import Job, JobStatus
@@ -303,12 +305,15 @@ async def get_tasks_status(request: Request) -> list[TaskStatusResponse]:
 
 
 @protected_route(router.get, "/{task_id}", [Scope.TASKS_RUN])
-async def get_task_by_id(request: Request, task_id: str) -> TaskStatusResponse:
+async def get_task_by_id(
+    request: Request,
+    task_id: Annotated[
+        str,
+        PathVar(description="The job ID of the task, as returned when it started."),
+    ],
+) -> TaskStatusResponse:
     """Get the status of a task by its job ID.
 
-    Args:
-        request (Request): FastAPI Request object
-        task_id (str): Job ID of the task to retrieve status for
     Returns:
         TaskStatusResponse: Task status information
     """
@@ -329,7 +334,15 @@ TASK_KWARGS = Body(default=None)
 @protected_route(router.post, "/run/{task_name}", [Scope.TASKS_RUN])
 async def run_single_task(
     request: Request,
-    task_name: str,
+    task_name: Annotated[
+        str,
+        PathVar(
+            description=(
+                "The name of the task to run. An unknown name returns 404 with"
+                " the names that are available."
+            )
+        ),
+    ],
     task_kwargs: dict[str, Any] | None = TASK_KWARGS,
 ) -> TaskExecutionResponse:
     """Run a single task endpoint.

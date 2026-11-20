@@ -1088,6 +1088,23 @@ def test_update_rom_keeps_a_custom_sort_keys_leading_article(
     assert response.json()["name_sort_key"] == "the simpsons"
 
 
+def test_update_rom_leaves_unsent_fields_alone(
+    client: TestClient, access_token: str, rom: Rom
+):
+    db_rom_handler.update_rom(rom.id, {"steam_id": 620, "summary": "Portals."})
+
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"name_sort_key": "portal"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["steam_id"] == 620
+    assert body["summary"] == "Portals."
+
+
 @patch.object(FSRomsHandler, "rename_fs_rom")
 @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
 def test_update_rom_reparses_tags_on_fs_name_change(
