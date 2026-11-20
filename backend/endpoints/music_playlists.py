@@ -34,11 +34,8 @@ from utils.router import APIRouter
 
 router = APIRouter(prefix="/music/playlists", tags=["music"])
 
-PLAYLIST_404 = {"description": "No playlist has this ID."}
-NOT_OWNER_403 = {"description": "The playlist belongs to another user."}
-NOT_VISIBLE_403 = {
-    "description": "The playlist belongs to another user and is not public."
-}
+PLAYLIST_404 = {"description": "No playlist the caller can see has this ID."}
+NOT_OWNER_403 = {"description": "The playlist is public, but another user owns it."}
 
 
 class MusicPlaylistCreateRequest(BaseModel):
@@ -127,7 +124,6 @@ def add_playlist(
     "/{id}",
     [Scope.PLAYLISTS_READ],
     responses={
-        status.HTTP_403_FORBIDDEN: NOT_VISIBLE_403,
         status.HTTP_404_NOT_FOUND: PLAYLIST_404,
     },
 )
@@ -208,7 +204,6 @@ def delete_playlist(
     "/{id}/tracks",
     [Scope.PLAYLISTS_READ],
     responses={
-        status.HTTP_403_FORBIDDEN: NOT_VISIBLE_403,
         status.HTTP_404_NOT_FOUND: PLAYLIST_404,
     },
 )

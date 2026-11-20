@@ -184,7 +184,7 @@ def get_play_sessions(
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
         status.HTTP_404_NOT_FOUND: {
-            "description": "The caller has no play session with this ID."
+            "description": "The caller has no play session with this ID on a rom it can see."
         }
     },
 )
