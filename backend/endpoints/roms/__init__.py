@@ -693,7 +693,8 @@ def get_roms(
                 "Whether to include the raw metadata each provider returned, in"
                 " fields such as `igdb_metadata` and `ss_metadata`. Set it to"
                 " false for a lighter response. Those fields then come back null,"
-                " which means not requested, not no match. `manual_metadata` and"
+                " while a provider with no match gives an empty object."
+                " `manual_metadata` and"
                 " the merged `metadatum` are always included."
             )
         ),

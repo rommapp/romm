@@ -75,7 +75,7 @@ class ClientSaveState(BaseModel):
     file_name: str
     """Name of the save file on the client."""
     slot: str | None = None
-    """Save slot name. Saves are paired between client and server on (rom_id, slot), so provide a stable slot name (e.g. 'autosave') to keep a save in sync across negotiations. A null slot is treated as an archival, manual-upload save: it is never paired with slotted server saves, so a null-slot client save always negotiates as an 'upload' even when an identical file already exists on the server under a slot."""
+    """The save slot name. Client and server saves pair on (rom_id, slot), so a stable name such as `autosave` keeps a save in sync across negotiations. A null slot marks an archival, manual-upload save that never pairs with a slotted server save, so it always negotiates as an `upload`, even when the server holds an identical file in a slot."""
     emulator: str | None = None
     """Emulator that produced the save, if known."""
     content_hash: str | None = None
@@ -102,7 +102,7 @@ class SyncNegotiatePayload(BaseModel):
         ),
     )
     restore_unlisted: bool = False
-    """Offer every current server save the client did not list as a download, even one this device already synced. For clients that never delete saves themselves (such as a browser, whose storage can be evicted), so a missing save means lost rather than deleted."""
+    """Whether to offer every current server save the client did not list as a download, even one this device already synced. Set it on a client that never deletes saves itself, such as a browser whose storage can be evicted, where a missing save was lost and not deleted."""
     emulators: list[str] | None = None
     """Emulators whose saves this client can load. When provided, only server saves written by one of them are paired or offered, so a save from another emulator in the same slot is left alone."""
     cores: list[str] | None = None
