@@ -179,10 +179,6 @@ async def tinfoil_index_feed(
     """Get tinfoil custom index feed endpoint
     https://blawar.github.io/tinfoil/custom_index/
 
-    Args:
-        request (Request): Fastapi Request object
-        slug (str, optional): Platform slug. Defaults to "switch".
-
     Returns:
         TinfoilFeedSchema: Tinfoil feed object schema
     """
@@ -710,10 +706,6 @@ def kekatsu_ds_feed(
 ) -> Response:
     """Get Kekatsu DS feed endpoint
     https://github.com/cavv-dev/Kekatsu-DS
-
-    Args:
-        request (Request): Fastapi Request object
-        platform_slug (str): Platform slug (nds, nintendo-ds, ds, gba, etc.)
 
     Returns:
         Response: Text file with Kekatsu DS database format

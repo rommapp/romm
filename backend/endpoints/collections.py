@@ -466,10 +466,6 @@ def get_smart_collection_identifiers(
 def get_collection(request: Request, id: CollectionIdPath) -> CollectionSchema:
     """Get collections endpoint
 
-    Args:
-        request (Request): Fastapi Request object
-        id (int, optional): Collection id. Defaults to None.
-
     Returns:
         CollectionSchema: Collection
     """
@@ -492,10 +488,6 @@ def get_virtual_collection(
 ) -> VirtualCollectionSchema:
     """Get virtual collections endpoint
 
-    Args:
-        request (Request): Fastapi Request object
-        id (str): Virtual collection id
-
     Returns:
         VirtualCollectionSchema: Virtual collection
     """
@@ -514,10 +506,6 @@ def get_smart_collection(
     request: Request, id: SmartCollectionIdPath
 ) -> SmartCollectionSchema:
     """Get smart collection endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Smart collection id
 
     Returns:
         SmartCollectionSchema: Smart collection
@@ -733,11 +721,6 @@ async def add_roms_to_collection(
 ) -> CollectionSchema:
     """Atomically add ROMs to a collection without replacing the full list.
 
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Collection id
-        payload (CollectionRomsPayload): ROM IDs to add
-
     Returns:
         CollectionSchema: Updated collection
     """
@@ -772,11 +755,6 @@ async def remove_roms_from_collection(
     payload: CollectionRomsPayload,
 ) -> CollectionSchema:
     """Atomically remove ROMs from a collection without replacing the full list.
-
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Collection id
-        payload (CollectionRomsPayload): ROM IDs to remove
 
     Returns:
         CollectionSchema: Updated collection
@@ -826,10 +804,6 @@ async def update_smart_collection(
     ),
 ) -> SmartCollectionSchema:
     """Update smart collection endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Smart collection id
 
     Returns:
         SmartCollectionSchema: Updated smart collection

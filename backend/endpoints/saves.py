@@ -94,7 +94,7 @@ from utils.auth import resolve_device, token_device_id
 from utils.datetime import to_utc
 from utils.memory_cards import MEMORY_CARD_MAX_BYTES
 from utils.nginx import content_disposition
-from utils.router import APIRouter
+from utils.router import APIRouter, RomIdQuery
 from utils.uploads import (
     check_asset_upload_size,
     check_emulator_folder_name,
@@ -252,7 +252,6 @@ SAVE_PATH_HEADER: Final = "X-Save-Path"
 SAVE_SCREENSHOT_UPDATE = File(default=None, description="Updated screenshot file.")
 
 SaveIdPath = Annotated[int, PathVar(description="Save internal id.")]
-RomIdQuery = Annotated[int, Query(description="Rom internal id.")]
 DeviceIdReadQuery = Annotated[
     str | None,
     Query(

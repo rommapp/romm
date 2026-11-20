@@ -134,7 +134,7 @@ from logger.logger import log
 from models.assets import MemoryCard, MemoryCardVersion, Save, State
 from models.rom import Rom
 from utils.m3u import disc_files, playlist_files
-from utils.router import APIRouter
+from utils.router import APIRouter, RomIdPath
 
 router = APIRouter(prefix="/streaming", tags=["streaming"])
 
@@ -226,7 +226,6 @@ ClaimedAtQuery = Annotated[
 PlatformPath = Annotated[
     str, PathVar(description="The slug of the platform, such as `snes`.")
 ]
-RomIdPath = Annotated[int, PathVar(description="Rom internal id.")]
 
 
 class DesktopStreamingSessionRequest(BaseModel):

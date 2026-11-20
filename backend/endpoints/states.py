@@ -43,7 +43,7 @@ from models.assets import EMULATOR_MAX_LENGTH, EMULATOR_VERSION_MAX_LENGTH, Stat
 from models.base import FILE_NAME_MAX_LENGTH
 from utils.assets import normalize_asset_labels
 from utils.auth import resolve_device
-from utils.router import APIRouter
+from utils.router import APIRouter, RomIdQuery
 from utils.uploads import (
     check_asset_upload_size,
     check_emulator_folder_name,
@@ -81,7 +81,7 @@ StateIdPath = Annotated[int, PathVar(description="State internal id.")]
 @protected_route(router.post, "", [Scope.ASSETS_WRITE])
 async def add_state(
     request: Request,
-    rom_id: Annotated[int, Query(description="Rom internal id.")],
+    rom_id: RomIdQuery,
     emulator: Annotated[
         str | None,
         Query(

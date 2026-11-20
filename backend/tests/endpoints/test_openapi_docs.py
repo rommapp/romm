@@ -1,61 +1,11 @@
 """Checks that the OpenAPI document describes every parameter, operation and schema field."""
 
-from collections import Counter
 from typing import Any
 
 import pytest
 from main import app
 
 HTTP_METHODS = ("get", "post", "put", "patch", "delete", "head")
-GROUPS_SHOWN = 30
-LINES_SHOWN = 20
-
-# Routers whose parameters and operations must all have a description, named by
-# the first path segment after `/api`. Add a router once it is done.
-DOCUMENTED_ROUTERS = frozenset(
-    {
-        "roms",
-        "platforms",
-        "collections",
-        "users",
-        "saves",
-        "states",
-        "screenshots",
-        "channels",
-        "snapshots",
-        "streaming",
-        "devices",
-        "client-tokens",
-        "play-sessions",
-        "search",
-        "music",
-        "memory-cards",
-        "firmware",
-        "sync",
-        "config",
-        "feeds",
-        "notifications",
-        "notification-channels",
-        "permissions",
-        "tasks",
-        "activity",
-        "heartbeat",
-        "export",
-        "audit-events",
-        "recommendations",
-        "stats",
-        "logs",
-        "netplay",
-        "auth",
-        "login",
-        "logout",
-        "token",
-        "oauth",
-        "setup",
-        "forgot-password",
-        "reset-password",
-    }
-)
 
 Operation = tuple[str, str, dict[str, Any]]
 
@@ -87,17 +37,9 @@ def _reachable_schemas(roots: set[str], schemas: dict[str, Any]) -> set[str]:
     pending = set(roots)
     while pending:
         name = pending.pop()
-        if name in reached:
-            continue
         reached.add(name)
         pending |= _referenced_names(schemas[name]) - reached
     return reached
-
-
-def _router(path: str) -> str:
-    """The first segment after `/api`, which is the router that owns the path."""
-    segments = [part for part in path.split("/") if part]
-    return segments[1] if len(segments) > 1 and segments[0] == "api" else path
 
 
 @pytest.fixture(scope="module")
@@ -107,51 +49,32 @@ def spec() -> dict[str, Any]:
 
 @pytest.fixture(scope="module")
 def operations(spec: dict[str, Any]) -> list[Operation]:
-    """The operations of the routers in `DOCUMENTED_ROUTERS`."""
+    """The operations under `/api`."""
     return [
         (method.upper(), path, operation)
         for path, item in spec["paths"].items()
-        if _router(path) in DOCUMENTED_ROUTERS
+        if path.startswith("/api/")
         for method, operation in item.items()
         if method in HTTP_METHODS
     ]
 
 
-def _assert_none(problems: list[tuple[str, str]], what: str) -> None:
-    """Fail with the gaps counted per group, then the first few in full."""
-    per_group = Counter(group for group, _ in problems).most_common(GROUPS_SHOWN)
-    counts = ", ".join(f"{group} {count}" for group, count in per_group)
-    lines = "\n".join(f"  {line}" for _, line in problems[:LINES_SHOWN])
-    assert not problems, (
-        f"{len(problems)} {what} without a description.\n"
-        f"By group: {counts}\n{lines}"
+def _assert_none(problems: list[str], what: str) -> None:
+    assert not problems, f"{len(problems)} {what} without a description:\n" + "\n".join(
+        problems
     )
-
-
-def test_documented_routers_exist(spec: dict[str, Any]):
-    # Arrange
-    present = {_router(path) for path in spec["paths"]}
-
-    # Act
-    missing = sorted(DOCUMENTED_ROUTERS - present)
-
-    # Assert
-    assert missing == [], f"DOCUMENTED_ROUTERS names routers with no paths: {missing}"
 
 
 def test_every_parameter_has_a_description(operations: list[Operation]):
     # Arrange
-    problems: list[tuple[str, str]] = []
+    problems: list[str] = []
 
     # Act
     for method, path, operation in operations:
         for parameter in operation.get("parameters", []):
             if not (parameter.get("description") or "").strip():
                 problems.append(
-                    (
-                        _router(path),
-                        f"{method} {path}: {parameter['in']} `{parameter['name']}`",
-                    )
+                    f"{method} {path}: {parameter['in']} `{parameter['name']}`"
                 )
 
     # Assert
@@ -161,7 +84,7 @@ def test_every_parameter_has_a_description(operations: list[Operation]):
 def test_every_operation_has_a_description(operations: list[Operation]):
     # Arrange / Act
     problems = [
-        (_router(path), f"{method} {path}")
+        f"{method} {path}"
         for method, path, operation in operations
         if not (operation.get("description") or "").strip()
     ]
@@ -182,13 +105,13 @@ def test_every_started_schema_is_fully_documented(
         roots |= _referenced_names(operation.get("responses", {}))
 
     # Act
-    problems: list[tuple[str, str]] = []
+    problems: list[str] = []
     for name in sorted(_reachable_schemas(roots, schemas)):
         properties = schemas[name].get("properties", {})
         documented = [_is_documented(node, schemas) for node in properties.values()]
         if any(documented) and not all(documented):
             problems += [
-                (name, f"{name}.{field}")
+                f"{name}.{field}"
                 for field, node in properties.items()
                 if not _is_documented(node, schemas)
             ]

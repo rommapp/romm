@@ -45,6 +45,9 @@ router = APIRouter(
     tags=["permissions"],
 )
 
+GroupIdPath = Annotated[int, PathVar(description="The ID of the permission group.")]
+UserIdPath = Annotated[int, PathVar(description="The ID of the user.")]
+
 
 async def _broadcast_permissions_changed(user_id: int) -> None:
     try:
@@ -210,7 +213,7 @@ async def create_permission_group(
 )
 async def update_permission_group(
     request: Request,
-    id: Annotated[int, PathVar(description="The ID of the permission group.")],
+    id: GroupIdPath,
     body: PermissionGroupUpdate,
 ) -> PermissionGroupSchema:
     """Update a permission group (name/description/default/grants)."""
@@ -275,7 +278,7 @@ async def update_permission_group(
 )
 async def delete_permission_group(
     request: Request,
-    id: Annotated[int, PathVar(description="The ID of the permission group.")],
+    id: GroupIdPath,
 ) -> None:
     """Delete a permission group. Members fall back to the default group."""
     assert_admin(request)
@@ -339,7 +342,7 @@ def _user_permissions(
 )
 def get_user_permissions(
     request: Request,
-    user_id: Annotated[int, PathVar(description="The ID of the user.")],
+    user_id: UserIdPath,
 ) -> UserPermissionsSchema:
     """A user's group membership, per-user overrides and hidden entities."""
     assert_admin(request)
@@ -362,7 +365,7 @@ def get_user_permissions(
 )
 async def update_user_permissions(
     request: Request,
-    user_id: Annotated[int, PathVar(description="The ID of the user.")],
+    user_id: UserIdPath,
     body: UserPermissionsUpdate,
 ) -> UserPermissionsSchema:
     """Assign a user's group and/or replace their per-user overrides."""

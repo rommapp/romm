@@ -3,9 +3,15 @@ from collections.abc import Callable
 from typing import Annotated, Any
 
 from fastapi import APIRouter as FastAPIRouter
-from fastapi import Query
+from fastapi import Path, Query
 from fastapi.types import DecoratedCallable
 from pydantic import BaseModel
+
+RomIdPath = Annotated[int, Path(description="Rom internal id.")]
+RomIdQuery = Annotated[int, Query(description="Rom internal id.")]
+OrderDirQuery = Annotated[
+    str, Query(description="The sort direction, `asc` or `desc`.")
+]
 
 
 class APIRouter(FastAPIRouter):

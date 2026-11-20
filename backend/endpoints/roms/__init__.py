@@ -183,7 +183,7 @@ from utils.nginx import (
     ZipResponse,
     content_disposition,
 )
-from utils.router import APIRouter, as_query_dependency
+from utils.router import APIRouter, OrderDirQuery, as_query_dependency
 from utils.screenshots import continue_playing_screenshot
 from utils.validation import (
     ValidationError,
@@ -802,10 +802,7 @@ def get_roms(
             ),
         ),
     ] = "",
-    order_dir: Annotated[
-        str,
-        Query(description="The sort direction, `asc` or `desc`. Defaults to `asc`."),
-    ] = "asc",
+    order_dir: OrderDirQuery = "asc",
     updated_after: Annotated[
         datetime | None,
         Query(

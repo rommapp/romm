@@ -1,6 +1,4 @@
-from fastapi import HTTPException
-from fastapi import Path as PathVar
-from fastapi import Query, Request, status
+from fastapi import HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 
 from decorators.auth import protected_route
@@ -10,7 +8,7 @@ from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.database import db_device_handler, db_rom_handler
 from utils.auth import require_device, require_token_device
-from utils.router import APIRouter
+from utils.router import APIRouter, RomIdPath
 
 router = APIRouter(
     prefix="/activity",
@@ -54,7 +52,7 @@ async def get_all_activity(request: Request) -> list[ActivityEntrySchema]:
 @protected_route(router.get, "/rom/{rom_id}", [Scope.ROMS_USER_READ])
 async def get_rom_activity(
     request: Request,
-    rom_id: int = PathVar(description="The internal ID of the rom."),
+    rom_id: RomIdPath,
 ) -> list[ActivityEntrySchema]:
     """Return all active play sessions for a specific ROM."""
     entries = await activity_handler.get_active_for_rom(rom_id)

@@ -245,12 +245,6 @@ def create_invite_link(
 ) -> InviteLinkSchema:
     """Create an invite link for a user.
 
-    Args:
-        request (Request): FastAPI Request object
-        role (str): The role of the user
-        expiration (int | None): Token expiration in seconds. Defaults to
-            the INVITE_TOKEN_EXPIRY_SECONDS environment variable.
-
     Returns:
         InviteLinkSchema: Invite link
     """
@@ -466,11 +460,6 @@ async def update_user(
     form_data: Annotated[UserForm, Form()],
 ) -> UserSchema:
     """Update user endpoint
-
-    Args:
-        request (Request): Fastapi Requests object
-        user_id (int): User internal id
-        form_data (Annotated[UserUpdateForm, Depends): Form Data with user updated info
 
     Raises:
         HTTPException: User is not found in database

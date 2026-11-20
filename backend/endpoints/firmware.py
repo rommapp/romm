@@ -60,11 +60,6 @@ async def add_firmware(
 ) -> AddFirmwareResponse:
     """Upload firmware files endpoint
 
-    Args:
-        request (Request): Fastapi Request object
-        platform_slug (str): Slug of the platform where to upload the files
-        files (list[UploadFile], optional): List of files to upload
-
     Raises:
         HTTPException
 
@@ -215,10 +210,6 @@ def get_firmware_identifiers(
 def get_firmware(request: Request, id: FirmwareIdPath) -> FirmwareSchema:
     """Get firmware endpoint
 
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Firmware internal id
-
     Returns:
         FirmwareSchema: Firmware stored in the database
     """
@@ -265,11 +256,6 @@ def head_firmware_content(
 ) -> FileResponse:
     """Head firmware content endpoint
 
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Rom internal id
-        file_name (str): Required due to a bug in emulatorjs
-
     Returns:
         FileResponse: Returns the response with headers
     """
@@ -296,11 +282,6 @@ def get_firmware_content(
     file_name: FirmwareFileNamePath,
 ) -> FileResponse:
     """Download firmware endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Rom internal id
-        file_name (str): Required due to a bug in emulatorjs
 
     Returns:
         FileResponse: Returns the firmware file

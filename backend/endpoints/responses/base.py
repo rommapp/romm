@@ -43,9 +43,7 @@ class PageParams(PydanticBaseModel):
 PAGE_QUERY = as_query_dependency(PageParams)
 
 
-class LimitOffsetPage[T: PydanticBaseModel](PydanticBaseModel):
-    model_config = ConfigDict(use_attribute_docstrings=True)
-
+class LimitOffsetPage[T: PydanticBaseModel](BaseModel):
     items: Sequence[T]
     """The items on this page."""
     total: int = Field(ge=0)

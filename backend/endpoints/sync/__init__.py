@@ -9,6 +9,7 @@ from fastapi import Query, Request, status
 from pydantic import Field
 
 from decorators.auth import protected_route
+from endpoints.device import DeviceIdPath
 from endpoints.play_sessions import PlaySessionEntry, assert_batch_size
 from endpoints.responses.base import PAGE_QUERY, BaseModel, PageParams
 from endpoints.responses.play_session import (
@@ -69,6 +70,8 @@ router.include_router(retroarch_router)
 
 # A hung broker must not pin the background task forever.
 CONFLICT_NOTIFY_TIMEOUT_S = 2.0
+
+SessionIdPath = Annotated[int, PathVar(description="The ID of the sync session.")]
 
 
 class ClientSaveState(BaseModel):
@@ -531,7 +534,7 @@ def negotiate_sync(
 @protected_route(router.post, "/sessions/{session_id}/complete", [Scope.DEVICES_WRITE])
 def complete_sync_session(
     request: Request,
-    session_id: Annotated[int, PathVar(description="The ID of the sync session.")],
+    session_id: SessionIdPath,
     payload: SyncCompletePayload,
 ) -> SyncCompleteResponse:
     """Mark a sync session as completed, optionally ingesting play sessions."""
@@ -624,7 +627,7 @@ def get_sync_sessions(
 @protected_route(router.get, "/sessions/{session_id}", [Scope.DEVICES_READ])
 def get_sync_session(
     request: Request,
-    session_id: Annotated[int, PathVar(description="The ID of the sync session.")],
+    session_id: SessionIdPath,
 ) -> SyncSessionSchema:
     """Get a specific sync session."""
     return SyncSessionSchema.model_validate(_require_sync_session(request, session_id))
@@ -636,7 +639,7 @@ def get_sync_session(
 @protected_route(router.post, "/devices/{device_id}/push-pull", [Scope.DEVICES_WRITE])
 def trigger_push_pull(
     request: Request,
-    device_id: Annotated[str, PathVar(description="The ID of the device.")],
+    device_id: DeviceIdPath,
 ) -> SyncSessionSchema:
     """Manually trigger a push-pull sync for a specific device."""
     device = require_device(request, device_id)

@@ -314,9 +314,6 @@ async def get_task_by_id(
 ) -> TaskStatusResponse:
     """Get the status of a task by its job ID.
 
-    Args:
-        request (Request): FastAPI Request object
-        task_id (str): Job ID of the task to retrieve status for
     Returns:
         TaskStatusResponse: Task status information
     """

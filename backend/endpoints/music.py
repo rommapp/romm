@@ -16,7 +16,7 @@ from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.auth.permissions import ResolvedPermissions
 from handler.database import db_music_playlist_handler, db_rom_handler
-from utils.router import APIRouter, as_query_dependency
+from utils.router import APIRouter, OrderDirQuery, as_query_dependency
 
 router = APIRouter(prefix="/music", tags=["music"])
 
@@ -267,10 +267,7 @@ def get_music_artists(
     min_duration: MinDurationFilterQuery = None,
     max_duration: MaxDurationFilterQuery = None,
     order_by: Annotated[str, Query(description="count or value.")] = "count",
-    order_dir: Annotated[
-        str,
-        Query(description="The sort direction, `asc` or `desc`. Defaults to `desc`."),
-    ] = "desc",
+    order_dir: OrderDirQuery = "desc",
 ) -> MusicPage[FacetValueSchema]:
     """Distinct artists (with counts); both a browse list and a typeahead."""
     return _facet_page(
@@ -302,10 +299,7 @@ def get_music_albums(
     min_duration: MinDurationFilterQuery = None,
     max_duration: MaxDurationFilterQuery = None,
     order_by: Annotated[str, Query(description="count or value.")] = "count",
-    order_dir: Annotated[
-        str,
-        Query(description="The sort direction, `asc` or `desc`. Defaults to `desc`."),
-    ] = "desc",
+    order_dir: OrderDirQuery = "desc",
 ) -> MusicPage[FacetValueSchema]:
     """Distinct albums (with counts); both a browse list and a typeahead."""
     return _facet_page(
@@ -337,10 +331,7 @@ def get_music_genres(
     min_duration: MinDurationFilterQuery = None,
     max_duration: MaxDurationFilterQuery = None,
     order_by: Annotated[str, Query(description="count or value.")] = "count",
-    order_dir: Annotated[
-        str,
-        Query(description="The sort direction, `asc` or `desc`. Defaults to `desc`."),
-    ] = "desc",
+    order_dir: OrderDirQuery = "desc",
 ) -> MusicPage[FacetValueSchema]:
     """Distinct genres (with counts); both a browse list and a typeahead."""
     return _facet_page(
@@ -372,10 +363,7 @@ def get_music_years(
     min_duration: MinDurationFilterQuery = None,
     max_duration: MaxDurationFilterQuery = None,
     order_by: Annotated[str, Query(description="count or value.")] = "count",
-    order_dir: Annotated[
-        str,
-        Query(description="The sort direction, `asc` or `desc`. Defaults to `desc`."),
-    ] = "desc",
+    order_dir: OrderDirQuery = "desc",
 ) -> MusicPage[FacetValueSchema]:
     """Distinct years (with counts); both a browse list and a typeahead."""
     return _facet_page(
@@ -412,10 +400,7 @@ def get_music_game_genres(
     min_duration: MinDurationFilterQuery = None,
     max_duration: MaxDurationFilterQuery = None,
     order_by: Annotated[str, Query(description="count or value.")] = "count",
-    order_dir: Annotated[
-        str,
-        Query(description="The sort direction, `asc` or `desc`. Defaults to `desc`."),
-    ] = "desc",
+    order_dir: OrderDirQuery = "desc",
 ) -> MusicPage[FacetValueSchema]:
     """Distinct genres of the *games* the tracks belong to, with counts.
 
@@ -458,10 +443,7 @@ def get_music_platforms(
     min_duration: MinDurationFilterQuery = None,
     max_duration: MaxDurationFilterQuery = None,
     order_by: Annotated[str, Query(description="count or value.")] = "value",
-    order_dir: Annotated[
-        str,
-        Query(description="The sort direction, `asc` or `desc`. Defaults to `asc`."),
-    ] = "asc",
+    order_dir: OrderDirQuery = "asc",
 ) -> MusicPage[MusicPlatformFacetSchema]:
     """Platforms that have soundtrack tracks, with per-platform counts."""
     perms = get_permissions(request)
@@ -504,10 +486,7 @@ def get_music_games(
     min_duration: MinDurationFilterQuery = None,
     max_duration: MaxDurationFilterQuery = None,
     order_by: Annotated[str, Query(description="count or value.")] = "value",
-    order_dir: Annotated[
-        str,
-        Query(description="The sort direction, `asc` or `desc`. Defaults to `asc`."),
-    ] = "asc",
+    order_dir: OrderDirQuery = "asc",
 ) -> MusicPage[MusicGameFacetSchema]:
     """Games that have soundtrack tracks -- the jukebox's album list."""
     perms = get_permissions(request)

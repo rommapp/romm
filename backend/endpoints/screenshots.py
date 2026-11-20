@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import Body, File, HTTPException
 from fastapi import Path as PathVar
-from fastapi import Query, Request, UploadFile, status
+from fastapi import Request, UploadFile, status
 from fastapi.responses import FileResponse, Response
 
 from decorators.auth import protected_route
@@ -24,7 +24,7 @@ from utils.media_types import (
     SCREENSHOT_UPLOAD_EXTENSIONS,
     is_allowed_screenshot_upload,
 )
-from utils.router import APIRouter
+from utils.router import APIRouter, RomIdQuery
 from utils.uploads import check_asset_upload_size, sanitize_asset_filename
 
 router = APIRouter(
@@ -38,7 +38,7 @@ SCREENSHOT_FILE_UPLOAD = File(..., description="Screenshot file to upload.")
 @protected_route(router.post, "", [Scope.ASSETS_WRITE])
 async def add_screenshot(
     request: Request,
-    rom_id: Annotated[int, Query(description="Rom internal id.")],
+    rom_id: RomIdQuery,
     screenshotFile: UploadFile = SCREENSHOT_FILE_UPLOAD,
 ) -> ScreenshotSchema:
     """Upload a per-user gallery screenshot for a ROM.

@@ -48,6 +48,9 @@ class ChannelAttachPayload(BaseModel):
     rom_file_id: int
 
 
+ChannelIdPath = Annotated[uuid.UUID, PathVar(description="The ID of the channel.")]
+
+
 @protected_route(router.get, "", [Scope.ASSETS_READ])
 def get_channels(
     request: Request,
@@ -115,7 +118,7 @@ def create_channel(request: Request, payload: ChannelCreatePayload) -> ChannelSc
 @protected_route(router.patch, "/{id}", [Scope.ASSETS_WRITE])
 def update_channel(
     request: Request,
-    id: Annotated[uuid.UUID, PathVar(description="The ID of the channel.")],
+    id: ChannelIdPath,
     payload: ChannelUpdatePayload,
 ) -> ChannelSchema:
     """Rename a channel or open it to every user. Owner only."""
@@ -129,7 +132,7 @@ def update_channel(
 @protected_route(router.post, "/{id}/attach", [Scope.ASSETS_WRITE])
 def attach_channel(
     request: Request,
-    id: Annotated[uuid.UUID, PathVar(description="The ID of the channel.")],
+    id: ChannelIdPath,
     payload: ChannelAttachPayload,
 ) -> ChannelSchema:
     """Attach a channel whose ROM was removed to a file of the same platform.
@@ -158,7 +161,7 @@ def attach_channel(
 )
 def clear_held(
     request: Request,
-    id: Annotated[uuid.UUID, PathVar(description="The ID of the channel.")],
+    id: ChannelIdPath,
     device_id: Annotated[
         str | None,
         Query(
@@ -178,7 +181,7 @@ def clear_held(
 )
 async def delete_channel(
     request: Request,
-    id: Annotated[uuid.UUID, PathVar(description="The ID of the channel.")],
+    id: ChannelIdPath,
 ) -> None:
     """Delete a channel. Its current and pinned snapshots stay as archival backups,
     except on a detached channel, whose ROM is gone, which keeps nothing."""

@@ -31,10 +31,6 @@ async def get_logs(
 ) -> list[LogEntrySchema]:
     """Return the most recent backend log lines for backfill.
 
-    Args:
-        request (Request): FastAPI Request object.
-        limit (int): Maximum number of recent lines to return.
-
     Returns:
         list[LogEntrySchema]: Recent log lines, oldest-first.
     """

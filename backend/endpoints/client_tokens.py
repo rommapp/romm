@@ -1,4 +1,5 @@
 import json
+from typing import Annotated
 
 from fastapi import HTTPException
 from fastapi import Path as PathVar
@@ -43,6 +44,8 @@ router = APIRouter(
 )
 
 MAX_TOKENS_PER_USER = 25
+
+TokenIdPath = Annotated[int, PathVar(description="The ID of the client token.")]
 
 
 class ClientTokenCreatePayload(BaseModel):
@@ -102,7 +105,7 @@ def list_tokens(request: Request) -> list[ClientTokenSchema]:
 @protected_route(router.delete, "/{token_id}")
 async def delete_token(
     request: Request,
-    token_id: int = PathVar(description="The ID of the client token."),
+    token_id: TokenIdPath,
 ) -> None:
     """Revoke one of the caller's tokens; a client token can always revoke itself."""
     is_self_revoke = token_id == request_client_token_id(request)
@@ -130,7 +133,7 @@ async def delete_token(
 @protected_route(router.put, "/{token_id}/regenerate", [Scope.ME_WRITE])
 async def regenerate_token(
     request: Request,
-    token_id: int = PathVar(description="The ID of the client token."),
+    token_id: TokenIdPath,
 ) -> ClientTokenCreateSchema:
     """Replace a token's secret. The old one stops working, and the new one is returned once."""
     existing = db_client_token_handler.get_token(
@@ -165,7 +168,7 @@ async def regenerate_token(
 @protected_route(router.post, "/{token_id}/pair", [Scope.ME_WRITE])
 def pair_token(
     request: Request,
-    token_id: int = PathVar(description="The ID of the client token."),
+    token_id: TokenIdPath,
 ) -> ClientTokenPairSchema:
     """Create a pairing code for a token. It works once, and `expires_in` gives its lifetime in seconds."""
     token = db_client_token_handler.get_token(
@@ -226,7 +229,7 @@ def list_all_tokens(request: Request) -> list[ClientTokenAdminSchema]:
 @protected_route(router.delete, "/{token_id}/admin", [Scope.USERS_WRITE])
 async def admin_delete_token(
     request: Request,
-    token_id: int = PathVar(description="The ID of the client token."),
+    token_id: TokenIdPath,
 ) -> None:
     """Revoke any user's client token. Only an admin can revoke an admin's token."""
     token = db_client_token_handler.get_token(token_id=token_id)

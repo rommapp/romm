@@ -120,14 +120,6 @@ async def search_rom(
 ) -> list[SearchRomSchema]:
     """Search for rom in metadata providers
 
-    Args:
-        request (Request): FastAPI request
-        rom_id (int): Rom ID
-        source (str): Source of the rom
-        search_term (str, optional): Search term. Defaults to None.
-        search_by (str, optional): Search by name or ID. Defaults to "name".
-        search_extended (bool, optional): Search extended info. Defaults to False.
-
     Returns:
         list[SearchRomSchema]: List of matched roms
     """
