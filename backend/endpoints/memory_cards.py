@@ -272,9 +272,18 @@ def download_memory_card(request: Request, id: int) -> FileResponse:
     "/{id}/versions",
     [Scope.ASSETS_WRITE],
     responses={
-        status.HTTP_400_BAD_REQUEST: {},
-        status.HTTP_404_NOT_FOUND: {},
-        status.HTTP_413_CONTENT_TOO_LARGE: {},
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The file is not a zip in the layout the broker exchanges, such as a bare `.ps2` or `.raw` image."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no memory card with this ID."
+        },
+        status.HTTP_413_CONTENT_TOO_LARGE: {
+            "description": "The file is larger than the memory card size limit."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The version could not be stored."
+        },
     },
 )
 async def upload_memory_card_version(
@@ -282,12 +291,8 @@ async def upload_memory_card_version(
     id: int,
     cardFile: UploadFile = MEMORY_CARD_FILE_UPLOAD,
 ) -> MemoryCardVersionSchema:
-    """Store a card image the user supplied as the card's newest version, which
-    is what the next claim hydrates onto the container (owner only).
-
-    Only the zip layout the broker exchanges is accepted. A bare card image
-    (`.ps2`, `.raw`) is refused rather than stored, because nothing downstream
-    would notice until hydrate pushed it and the emulator rejected the card.
+    """Store a card image the owner supplied as the card's newest version, which
+    the next claim hydrates onto the container.
     """
     check_asset_upload_size(cardFile, "Memory card file")
     card = _owned_card_or_404(request, id)

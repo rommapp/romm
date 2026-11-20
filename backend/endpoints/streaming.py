@@ -436,12 +436,21 @@ def _streamable_rom(
     return rom, candidates
 
 
-@protected_route(router.get, "/states/{rom_id}", [Scope.ROMS_READ, Scope.ASSETS_READ])
+@protected_route(
+    router.get,
+    "/states/{rom_id}",
+    [Scope.ROMS_READ, Scope.ASSETS_READ],
+    responses={
+        404: {
+            "description": "No rom the caller can see has this ID, or no container serves its platform."
+        },
+    },
+)
 async def get_state_picks(
     request: Request, rom_id: RomIdPath
 ) -> StreamStatePicksSchema:
     """The ROM's states the resume picker offers, checked as the claim checks a
-    pick; 404 when the ROM is hidden or missing, or no container serves it."""
+    pick."""
     rom, candidates = _streamable_rom(request, rom_id)
     # The claim validates the pick against the pool's first container too.
     c = candidates[0]
@@ -863,8 +872,19 @@ async def _hydrate_saves(
     # The prompt for a card the container still holds is a real body the client
     # parses, so it is declared rather than left as an undocumented `detail`.
     responses={
-        409: {"model": ContainerBusyDetail},
-        428: {"model": MemoryCardImportRequired},
+        400: {"description": "The chosen disc is not a disc of this ROM."},
+        403: {"description": "The caller may not start a streaming session."},
+        404: {
+            "description": "No rom the caller can see has this ID, or no container serves its platform."
+        },
+        409: {
+            "model": ContainerBusyDetail,
+            "description": "Every container in the platform's first pool is occupied.",
+        },
+        428: {
+            "model": MemoryCardImportRequired,
+            "description": "The container holds a memory card that needs a decision first.",
+        },
     },
     status_code=202,
 )
@@ -885,9 +905,6 @@ async def claim_session(
 
     The ROM's filesystem path is derived server-side from its database row -
     the client only supplies a ROM id, never a path.
-    Returns 404 if the ROM doesn't exist or no container serves its platform.
-    Returns 409 if every container in the platform's first pool is occupied.
-    Returns 428 if the container's pre-existing memory card needs a decision.
     """
     access.assert_can_start_streaming(request)
 
@@ -1305,15 +1322,8 @@ async def heartbeat_session(
     """Refresh the liveness stamp the frontend beats every ~30s, without which the
     claim is abandoned after _STREAMING_SESSION_STALE_SECONDS for the next to take.
 
-    Args:
-        container_key: the claim to beat, needed for any desktop, or for a
-            container outside the platform's first pool.
-        claimed_at: the claim's stamp, so a tab that missed its own takeover does
-            not keep the claim that replaced it alive.
-
-    Returns:
-        `ended` rather than a 404 once the caller no longer holds the session, so
-        a force-released player learns why on the poll they already make.
+    Once the caller no longer holds the session, the response says `ended`
+    instead of failing, so a force-released player learns why on the next poll.
     """
     user_id = request.user.id
     # A named claim answers for itself, and naming the container is the only way
@@ -1380,7 +1390,18 @@ async def session_status(
     )
 
 
-@protected_route(router.post, "/sessions/{platform}/join", [Scope.ROMS_READ])
+@protected_route(
+    router.post,
+    "/sessions/{platform}/join",
+    [Scope.ROMS_READ],
+    responses={
+        403: {
+            "description": "The caller may not join sessions, or the session is not open for joining."
+        },
+        404: {"description": "The platform has no active session the caller can see."},
+        409: {"description": "The container does not support joining."},
+    },
+)
 async def join_session(
     request: Request,
     platform: str,
@@ -1735,7 +1756,19 @@ async def list_containers(request: Request) -> AdminContainersResponse:
     router.post,
     "/desktop",
     [Scope.ROMS_USER_WRITE],
-    responses={409: {"model": ContainerBusyDetail}},
+    responses={
+        400: {
+            "description": "The container's broker does not serve a desktop session."
+        },
+        403: {"description": "The caller is not an admin."},
+        404: {"description": "No container has this key."},
+        409: {
+            "model": ContainerBusyDetail,
+            "description": "The container is occupied.",
+        },
+        502: {"description": "The broker rejected the activation."},
+        503: {"description": "The broker is unreachable."},
+    },
 )
 async def claim_desktop_session(
     request: Request, req: Annotated[DesktopStreamingSessionRequest, Body()]
@@ -1746,9 +1779,6 @@ async def claim_desktop_session(
     inside the container that will run it. The desktop claims the same key
     under the same SET NX as a game, so it blocks players and a running game
     blocks it: only one thing can drive the container's display.
-
-    Returns 404 for an unknown container, 409 when it is occupied, 502/503 when
-    the broker rejects the activation or is unreachable.
     """
     if not is_scoped_admin(request, Scope.USERS_WRITE):
         raise HTTPException(status_code=403, detail="Forbidden")

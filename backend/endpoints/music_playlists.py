@@ -85,11 +85,20 @@ def get_playlists(request: Request) -> list[MusicPlaylistSchema]:
     return [_playlist_schema(p, counts.get(p.id, 0)) for p in playlists]
 
 
-@protected_route(router.post, "", [Scope.PLAYLISTS_WRITE])
+@protected_route(
+    router.post,
+    "",
+    [Scope.PLAYLISTS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "You already have a playlist with this name."
+        },
+    },
+)
 def add_playlist(
     request: Request, payload: MusicPlaylistCreateRequest
 ) -> MusicPlaylistSchema:
-    """Create a playlist. Fails if you already have a playlist with that name."""
+    """Create a playlist."""
     if db_music_playlist_handler.get_playlist_by_name(payload.name, request.user.id):
         raise MusicPlaylistAlreadyExistsException(payload.name)
     try:
@@ -119,13 +128,26 @@ def get_playlist(
     return _playlist_schema(playlist, counts.get(playlist.id, 0))
 
 
-@protected_route(router.put, "/{id}", [Scope.PLAYLISTS_WRITE])
+@protected_route(
+    router.put,
+    "/{id}",
+    [Scope.PLAYLISTS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "You already have another playlist with the new name."
+        },
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The playlist belongs to another user."
+        },
+        status.HTTP_404_NOT_FOUND: {"description": "No playlist has this ID."},
+    },
+)
 def update_playlist(
     request: Request,
     id: Annotated[int, PathVar(description="Playlist internal id.", ge=1)],
     payload: MusicPlaylistUpdateRequest,
 ) -> MusicPlaylistSchema:
-    """Update one of your playlists. Fields left out of the request keep their current values. Fails if you already have another playlist with the new name."""
+    """Update one of your playlists. Fields left out of the request keep their current values."""
     playlist = _get_owned_playlist(request, id)
     data = payload.model_dump(exclude_unset=True, exclude_none=True)
     if "description" in payload.model_fields_set:

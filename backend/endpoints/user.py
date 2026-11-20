@@ -453,21 +453,26 @@ def get_user_avatar(
     return build_asset_file_response(file_path)
 
 
-@protected_route(router.put, "/{id}", [Scope.ME_WRITE])
+@protected_route(
+    router.put,
+    "/{id}",
+    [Scope.ME_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "A field is invalid or already taken, the current password is missing, or the change would demote the last admin."
+        },
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The caller cannot manage this user, the current password is wrong, or the email is managed by the identity provider."
+        },
+        status.HTTP_404_NOT_FOUND: {"description": "No user has this ID."},
+    },
+)
 async def update_user(
     request: Request,
     id: Annotated[int, PathVar(description="The ID of the user.")],
     form_data: Annotated[UserForm, Form()],
 ) -> UserSchema:
-    """Update user endpoint
-
-    Raises:
-        HTTPException: User is not found in database
-        HTTPException: Username already in use by another user
-
-    Returns:
-        UserSchema: Updated user info
-    """
+    """Update a user. Changing your own username, password or email needs your current password."""
 
     db_user = db_user_handler.get_user(id)
     if not db_user:
@@ -670,21 +675,20 @@ async def update_user(
     "/{id}",
     [Scope.USERS_WRITE],
     responses={
-        status.HTTP_400_BAD_REQUEST: {},
-        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The user is the caller, or the last admin."
+        },
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The user is an admin, and the caller is not one."
+        },
+        status.HTTP_404_NOT_FOUND: {"description": "No user has this ID."},
     },
 )
 async def delete_user(
     request: Request,
     id: Annotated[int, PathVar(description="The ID of the user.", ge=1)],
 ) -> None:
-    """Delete a user by ID.
-
-    Raises:
-        HTTPException: User is not found in database
-        HTTPException: User deleting itself
-        HTTPException: User is the last admin user
-    """
+    """Delete a user by ID."""
 
     user = db_user_handler.get_user(id)
     if not user:

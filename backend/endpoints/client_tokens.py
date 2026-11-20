@@ -56,12 +56,25 @@ class ClientTokenExchangePayload(BaseModel):
     code: str
 
 
-@protected_route(router.post, "", [Scope.ME_WRITE], status_code=status.HTTP_201_CREATED)
+@protected_route(
+    router.post,
+    "",
+    [Scope.ME_WRITE],
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The caller already has the maximum number of tokens."
+        },
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The caller uses a device-bound token, or requests scopes it does not hold."
+        },
+    },
+)
 def create_token(
     request: Request,
     payload: ClientTokenCreatePayload,
 ) -> ClientTokenCreateSchema:
-    """Create a client token with scopes no wider than the caller's. The response contains the token's secret, which cannot be retrieved again."""
+    """Create a client token. The response contains the token's secret, which cannot be retrieved again."""
     if token_device_id(request) is not None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -163,7 +176,19 @@ async def regenerate_token(
     return build_create_schema(token, raw_token)
 
 
-@protected_route(router.post, "/{token_id}/pair", [Scope.ME_WRITE])
+@protected_route(
+    router.post,
+    "/{token_id}/pair",
+    [Scope.ME_WRITE],
+    responses={
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The token has scopes the caller no longer holds."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no token with this ID that it can see."
+        },
+    },
+)
 def pair_token(
     request: Request,
     token_id: int,
@@ -243,12 +268,22 @@ def list_all_tokens(request: Request) -> list[ClientTokenAdminSchema]:
     return [build_admin_schema(t) for t in tokens]
 
 
-@protected_route(router.delete, "/{token_id}/admin", [Scope.USERS_WRITE])
+@protected_route(
+    router.delete,
+    "/{token_id}/admin",
+    [Scope.USERS_WRITE],
+    responses={
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The token belongs to an admin, and the caller is not one."
+        },
+        status.HTTP_404_NOT_FOUND: {"description": "No token has this ID."},
+    },
+)
 async def admin_delete_token(
     request: Request,
     token_id: int,
 ) -> None:
-    """Revoke any user's client token. Only an admin can revoke an admin's token."""
+    """Revoke any user's client token."""
     token = db_client_token_handler.get_token(token_id=token_id)
     if token is not None:
         assert_admin_for_admin(

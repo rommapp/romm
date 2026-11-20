@@ -2465,8 +2465,12 @@ async def update_rom(
     "/{id}/convert-to-folder",
     [Scope.ROMS_WRITE],
     responses={
-        status.HTTP_404_NOT_FOUND: {},
-        status.HTTP_409_CONFLICT: {},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "A folder with the new name already exists, or an `.m3u` beside the file lists it."
+        },
     },
 )
 async def convert_rom_to_folder(
@@ -2476,8 +2480,7 @@ async def convert_rom_to_folder(
     """Promote a single-file ROM to a folder ROM in place.
 
     Keeps the same id and all relations; no rescan. A no-op (clean success) if
-    the ROM is already folder-based. Returns 409 on a folder-name collision, or
-    when an .m3u beside the file lists it.
+    the ROM is already folder-based.
     """
     rom = visible_rom_or_404(request, db_rom_handler.get_rom(id), id)
 
