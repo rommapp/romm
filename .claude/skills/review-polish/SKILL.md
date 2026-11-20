@@ -29,6 +29,9 @@ rationale, and it gets cut. Cut it yourself.
 an `Args:`/`Returns:` block when the signature needs it. If you wrote three or
 more lines of prose, you are explaining, not commenting.
 
+**Short, not clipped.** Each sentence that stays is complete: no "Unset, X",
+"X, else Y" or "Only the fields sent change". `plain-prose` has the patterns.
+
 **Delete outright:**
 
 - **Change history and migration notes.** "Replaces the manual pattern: ...",

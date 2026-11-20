@@ -1,6 +1,6 @@
 ---
 name: pr-ready
-description: Run the pre-submit gauntlet (security-audit, code-review, simplify, review-polish, humanizer) over a change before opening or merging a PR.
+description: Run the pre-submit gauntlet (security-audit, code-review, simplify, review-polish, plain-prose, humanizer) over a change before opening or merging a PR.
 argument-hint: "[PR number | branch | nothing for the current branch]"
 disable-model-invocation: true
 ---
@@ -78,8 +78,9 @@ unrelated first, so each step's edits stay attributable.
 3. **`simplify`**, after the correctness fixes so it can simplify those too.
 4. **`review-polish`**: its verification gate has to cover everything the
    earlier steps rewrote.
-5. **`humanizer`** last, over the prose `$BASE..HEAD` adds or changes (not
-   `$RANGE`, so it covers what steps 2 to 4 committed). See "Step 5 scope" below.
+5. **`plain-prose`, then `humanizer`**, last, over the prose `$BASE..HEAD` adds
+   or changes (not `$RANGE`, so it covers what steps 2 to 4 committed). See
+   "Step 5 scope" below.
 
 Commit after each step that changes files, naming the step in the message. A bad
 automated fix is then one `git revert` away instead of tangled with the other
@@ -99,7 +100,11 @@ run the steps in separate sessions against the same `$RANGE`.
 
 ## Step 5 scope
 
-Read `.claude/skills/humanizer/SKILL.md` and apply it rather than invoking the
+First apply `.claude/skills/plain-prose/SKILL.md` to the units
+`python3 backend/tools/prose_check.py extract --diff $BASE` lists. It covers the
+API descriptions and `en_US` strings that `humanizer` skips below.
+
+Then read `.claude/skills/humanizer/SKILL.md` and apply it rather than invoking the
 skill, since a personal install of the same name would load instead. In file
 mode it edits the Markdown paragraphs the range touches, and comments and
 docstrings on added lines. Skip locale files, paths in the `.trunk/trunk.yaml`
