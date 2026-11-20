@@ -18,7 +18,6 @@ from handler.streaming.config import ResolvedContainer, emulator_labels
 from logger.logger import log
 from models.assets import Save, State
 from models.rom import Rom
-from utils.zip_cache import ensure_zipfile_writable
 
 # Charged on each entry's expanded size, so a small, highly compressible
 # upload cannot inflate past the ceiling any stored save archive has.
@@ -156,7 +155,6 @@ def build_import_archive(
     Returns:
         The archive bytes, and the manifest's `files` list actually written.
     """
-    ensure_zipfile_writable()
     staged: _Staged = {}
     budget = _ArchiveBudget()
     if base is not None:

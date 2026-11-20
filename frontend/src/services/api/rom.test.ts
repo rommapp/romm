@@ -214,3 +214,22 @@ describe("getRoms game-length range", () => {
     expect(params.hltb_main_story_max).toBe(36000);
   });
 });
+
+describe("getRoms by id", () => {
+  beforeEach(() => {
+    get.mockReset();
+    get.mockResolvedValue({ data: {} });
+  });
+
+  it("sends the ids in order", async () => {
+    await romApi.getRoms({ romIds: [5, 3, 9] });
+
+    expect(get.mock.calls[0]![1].params.rom_ids).toEqual([5, 3, 9]);
+  });
+
+  it("leaves rom_ids out of a paged request", async () => {
+    await romApi.getRoms({ offset: 72 });
+
+    expect(get.mock.calls[0]![1].params.rom_ids).toBeUndefined();
+  });
+});

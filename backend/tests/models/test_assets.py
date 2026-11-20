@@ -25,11 +25,10 @@ def test_download_path_query_round_trips_the_timestamp(asset):
 
     assert " " not in url
     assert "+" not in url
-    query = parse_qs(urlsplit(url).query)
-    assert query["timestamp"] == [str(UPDATED_AT)]
+    assert parse_qs(urlsplit(url).query)["timestamp"] == [str(UPDATED_AT)]
 
 
-def test_download_path_keeps_the_file_name_query():
+def test_download_path_round_trips_the_file_name():
     save = Save(id=1, file_name="Game (USA) [2026-11-19].srm", updated_at=UPDATED_AT)
 
     query = parse_qs(urlsplit(save.download_path).query)

@@ -41,6 +41,7 @@ from pydantic import (
 )
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 from starlette.responses import FileResponse
 
 from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
@@ -145,7 +146,12 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.audit_event import AuditAction, AuditTargetType
-from models.collection import Collection, SmartCollection, VirtualCollection
+from models.collection import (
+    Collection,
+    SmartCollection,
+    VirtualCollection,
+    VirtualCollectionId,
+)
 from models.permission import PermAction, PermEntity
 from models.rom import (
     HAS_FILE_ON_DISK_FILTERS,
@@ -186,6 +192,8 @@ from utils.nginx import (
 from utils.router import APIRouter, as_query_dependency
 from utils.screenshots import continue_playing_screenshot
 from utils.validation import (
+    MAX_ROM_IDS_PER_QUERY,
+    RomIdScope,
     ValidationError,
     dedupe_in_order,
     parse_comma_separated_ids,
@@ -193,7 +201,6 @@ from utils.validation import (
 from utils.zip_cache import (
     BULK_CACHE_MAX_ROMS,
     ZipFileEntry,
-    ensure_zipfile_writable,
     get_bulk_namespace,
     get_cache_key,
     get_cached_zip,
@@ -792,9 +799,111 @@ def get_roms(
         bool,
         Query(description="Whether to include each rom's file entries."),
     ] = False,
+    rom_ids: Annotated[
+        RomIdScope,
+        Query(
+            description=(
+                "Load exactly these roms, in this order, instead of a page."
+                f" Repeat the parameter, up to {MAX_ROM_IDS_PER_QUERY} ids. Ids"
+                " the caller can't see, or that no longer exist, are left out."
+                " Filters don't narrow the result, the sidecars and the total"
+                " are skipped, and `offset` and `limit` come back as 0 and the"
+                " id count."
+            ),
+        ),
+    ] = None,
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
-    """Retrieve roms."""
+    """Retrieve a page of roms, or the roms named by `rom_ids`."""
     perms = get_permissions(request)
+
+    def _transform(session: Session, items: Sequence[Rom]) -> list[SimpleRomSchema]:
+        item_ids = [i.id for i in items]
+        files_by_rom = (
+            db_rom_handler.get_files_for_roms(item_ids, session=session)
+            if with_files
+            else {}
+        )
+        siblings_by_rom = db_rom_handler.get_siblings_for_roms(
+            item_ids,
+            user_id=request.user.id,
+            session=session,
+            visibility=perms.rom_visibility,
+        )
+        rom_ids_with_notes = db_rom_handler.get_rom_ids_with_notes(
+            item_ids, user_id=request.user.id, session=session
+        )
+        if with_files:
+            for item in items:
+                apply_file_stats(item, files_by_rom.get(item.id, []))
+
+        # Continue-playing rail
+        screenshot_by_rom: dict[int, str | None] = {}
+        if filters.last_played:
+            latest_saves = db_save_handler.get_latest_saves_for_roms(
+                user_id=request.user.id, rom_ids=item_ids, session=session
+            )
+            for item in items:
+                screenshot_by_rom[item.id] = continue_playing_screenshot(
+                    item, latest_saves.get(item.id)
+                )
+
+        return [
+            SimpleRomSchema.from_orm_with_request(
+                db_rom=item,
+                request=request,
+                files=files_by_rom.get(item.id, []),
+                siblings=siblings_by_rom.get(item.id, []),
+                screenshot_path=screenshot_by_rom.get(item.id),
+                has_notes=item.id in rom_ids_with_notes,
+                with_provider_metadata=with_provider_metadata,
+            )
+            for item in items
+        ]
+
+    def _hydrate(session: Session, page_ids: list[int]) -> list[SimpleRomSchema]:
+        if not page_ids:
+            return []
+        # The access check on caller-supplied ids; paged ids already passed the
+        # filters and the sibling grouping, so neither is re-run.
+        page_rows = session.scalars(
+            db_rom_handler.get_page_rows_query(
+                page_ids,
+                visibility=perms.rom_visibility,
+                include_file_stats=not with_files,
+            )
+        ).all()
+        rows_by_id = {rom.id: rom for rom in page_rows}
+        return _transform(session, [rows_by_id[i] for i in page_ids if i in rows_by_id])
+
+    empty_filter_values = RomFiltersDict(
+        genres=[],
+        franchises=[],
+        collections=[],
+        companies=[],
+        publishers=[],
+        developers=[],
+        game_modes=[],
+        age_ratings=[],
+        player_counts=[],
+        regions=[],
+        languages=[],
+        tags=[],
+        platforms=[],
+    )
+
+    if rom_ids is not None:
+        # The caller already holds the ordered list, so nothing spans the set.
+        with sync_session.begin() as session:
+            return CustomLimitOffsetPage(
+                items=_hydrate(session, rom_ids),
+                total=None,
+                limit=len(rom_ids),
+                offset=0,
+                char_index={},
+                rom_id_index=[],
+                filter_values=empty_filter_values,
+            )
+
     parsed_released_days = parse_released_days(released_days)
 
     # Normalised once so the query layer and every cache key agree on case.
@@ -871,21 +980,7 @@ def get_roms(
         )
         char_index_dict = {char: index for (char, index) in char_index}
 
-    filter_values = RomFiltersDict(
-        genres=[],
-        franchises=[],
-        collections=[],
-        companies=[],
-        publishers=[],
-        developers=[],
-        game_modes=[],
-        age_ratings=[],
-        player_counts=[],
-        regions=[],
-        languages=[],
-        tags=[],
-        platforms=[],
-    )
+    filter_values = empty_filter_values
     if with_filter_values:
         # We use the unfiltered query so applied filters don't affect the list
         filter_query = db_rom_handler.filter_roms(
@@ -929,50 +1024,6 @@ def get_roms(
     # Hydrate the requested page and its additional data
     with sync_session.begin() as session:
 
-        def _transform(items: Sequence[Rom]) -> list[SimpleRomSchema]:
-            rom_ids = [i.id for i in items]
-            files_by_rom = (
-                db_rom_handler.get_files_for_roms(rom_ids, session=session)
-                if with_files
-                else {}
-            )
-            siblings_by_rom = db_rom_handler.get_siblings_for_roms(
-                rom_ids,
-                user_id=request.user.id,
-                session=session,
-                visibility=perms.rom_visibility,
-            )
-            rom_ids_with_notes = db_rom_handler.get_rom_ids_with_notes(
-                rom_ids, user_id=request.user.id, session=session
-            )
-            if with_files:
-                for item in items:
-                    apply_file_stats(item, files_by_rom.get(item.id, []))
-
-            # Continue-playing rail
-            screenshot_by_rom: dict[int, str | None] = {}
-            if filters.last_played:
-                latest_saves = db_save_handler.get_latest_saves_for_roms(
-                    user_id=request.user.id, rom_ids=rom_ids, session=session
-                )
-                for item in items:
-                    screenshot_by_rom[item.id] = continue_playing_screenshot(
-                        item, latest_saves.get(item.id)
-                    )
-
-            return [
-                SimpleRomSchema.from_orm_with_request(
-                    db_rom=item,
-                    request=request,
-                    files=files_by_rom.get(item.id, []),
-                    siblings=siblings_by_rom.get(item.id, []),
-                    screenshot_path=screenshot_by_rom.get(item.id),
-                    has_notes=item.id in rom_ids_with_notes,
-                    with_provider_metadata=with_provider_metadata,
-                )
-                for item in items
-            ]
-
         def resolve_total() -> int | None:
             if with_rom_id_index:
                 # The index already spans the result set, so the count is free.
@@ -999,23 +1050,8 @@ def get_roms(
                 ).all()
             )
 
-        if page_ids:
-            # The ids already passed the filters and the sibling grouping, so the
-            # rows load without re-running either.
-            page_rows = session.scalars(
-                db_rom_handler.get_page_rows_query(
-                    page_ids,
-                    visibility=perms.rom_visibility,
-                    include_file_stats=not with_files,
-                )
-            ).all()
-            rows_by_id = {rom.id: rom for rom in page_rows}
-            page_items = [rows_by_id[i] for i in page_ids if i in rows_by_id]
-        else:
-            page_items = []
-
         return CustomLimitOffsetPage(
-            items=_transform(page_items),
+            items=_hydrate(session, page_ids),
             total=resolve_total(),
             limit=params.limit,
             offset=params.offset,
@@ -1054,7 +1090,7 @@ def get_random_rom(
         Query(description="Collection internal id.", ge=1),
     ] = None,
     virtual_collection_id: Annotated[
-        str | None,
+        VirtualCollectionId,
         Query(description="Virtual collection internal id."),
     ] = None,
     smart_collection_id: Annotated[
@@ -1149,7 +1185,7 @@ async def download_roms(
         Query(description="Download every ROM in this collection as a zip file.", ge=1),
     ] = None,
     virtual_collection_id: Annotated[
-        str | None,
+        VirtualCollectionId,
         Query(
             description="Download every ROM in this virtual collection as a zip file.",
         ),
@@ -1774,7 +1810,6 @@ async def get_rom_content(
             zip_buffer = BytesIO()
             now = datetime.now()
 
-            ensure_zipfile_writable()
             with ZipFile(zip_buffer, "w") as zip_file:
                 # Add content files
                 for file in files:
