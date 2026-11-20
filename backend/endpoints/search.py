@@ -352,9 +352,7 @@ async def search_rom(
 @protected_route(router.get, "/cover", [Scope.ROMS_READ])
 async def search_cover(
     request: Request,
-    search_term: Annotated[
-        str, Query(description="The game title to search cover art for.")
-    ] = "",
+    search_term: str = "",
 ) -> list[SearchCoverSchema]:
     """Search the cover art providers, in the configured cover priority order."""
     if not meta_sgdb_handler.is_enabled() and not meta_steam_handler.is_enabled():

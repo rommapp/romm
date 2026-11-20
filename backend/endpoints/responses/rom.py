@@ -241,25 +241,16 @@ class RomUserSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    """The internal ID of the record."""
     user_id: int
-    """The ID of the user."""
     rom_id: int
-    """The internal ID of the rom."""
     created_at: UTCDatetime
-    """When the record was created."""
     updated_at: UTCDatetime
-    """When the record last changed."""
     last_played: UTCDatetime | None
-    """When the user last played the rom."""
     is_main_sibling: bool
     """Whether the user chose this version as the main one of its game."""
     backlogged: bool
-    """Whether the rom is in the user's backlog."""
     now_playing: bool
-    """Whether the user is playing the rom now."""
     hidden: bool
-    """Whether the user hid the rom."""
     rating: int
     """The user's rating, from 0 to 10. 0 means unset."""
     difficulty: int
@@ -267,7 +258,6 @@ class RomUserSchema(BaseModel):
     completion: int
     """The user's completion percentage, from 0 to 100. 0 means unset."""
     status: RomUserStatus | None
-    """The user's play status: `incomplete`, `finished`, `completed_100`, `retired` or `never_playing`."""
     pinned_media: list[str] | None
     """The media keys pinned on the overview, in order. Null means the default selection."""
 
@@ -301,11 +291,8 @@ class DocMetaSchema(BaseModel):
 
     source: DocSource
     source_url: str | None = None
-    """The URL the document came from."""
     author: str | None = None
-    """The author of the document."""
     title: str | None = None
-    """The title of the document."""
 
 
 class RomFileUserSchema(BaseModel):
@@ -323,39 +310,26 @@ class RomFileSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    """The internal ID of the file."""
     rom_id: int
-    """The internal ID of the rom."""
     file_name: str
     """The file name, extension included."""
     file_path: str
     """The folder holding the file."""
     file_size_bytes: int
-    """The size of the file, in bytes."""
     full_path: str
-    """The path to the file on disk."""
     is_top_level: bool
-    """True when the file sits at the top level of the rom."""
     created_at: UTCDatetime
-    """When the record was created."""
     updated_at: UTCDatetime
-    """When the record last changed."""
     last_modified: UTCDatetime | None
     """When the file was last modified on disk."""
     crc_hash: str | None
-    """The CRC32 hash of the file."""
     md5_hash: str | None
-    """The MD5 hash of the file."""
     sha1_hash: str | None
-    """The SHA-1 hash of the file."""
     ra_hash: str | None
     """The hash RetroAchievements matches the file on."""
     chd_sha1_hash: str | None
-    """The CHD SHA-1 hash, for a CHD file."""
     archive_members: list[RomArchiveMember] | None
-    """The members of the archive, when the file is an archive."""
     category: RomFileCategory | None
-    """The category of the file, such as a manual or a soundtrack."""
     track_meta: TrackMetaSchema | None = None
     """The audio tags of a soundtrack file."""
     doc_meta: DocMetaSchema | None = None
@@ -384,27 +358,18 @@ class RomMetadataSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     rom_id: int
-    """The internal ID of the rom."""
     genres: list[str]
-    """The genres, merged from the matched providers."""
     franchises: list[str]
-    """The franchises, merged from the matched providers."""
     collections: list[str]
     """The game collections the title belongs to, merged from the matched providers."""
     companies: list[str]
-    """The companies involved, merged from the matched providers."""
     publishers: list[str]
-    """The publishers, merged from the matched providers."""
     developers: list[str]
-    """The developers, merged from the matched providers."""
     game_modes: list[str]
-    """The game modes, merged from the matched providers."""
     age_ratings: list[str]
-    """The age ratings, merged from the matched providers."""
     player_count: str
-    """The player count, as text."""
     first_release_date: int | None
-    """The first release date, as a timestamp."""
+    """The first release date, as a Unix timestamp in milliseconds."""
     average_rating: float | None
     """The average of the ratings the matched providers report."""
 
@@ -440,27 +405,17 @@ class RomSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    """The internal ID of the rom."""
     igdb_id: int | None
-    """The IGDB game ID. Null when IGDB has no match."""
     sgdb_id: int | None
     """The SteamGridDB game ID, used to find artwork."""
     moby_id: int | None
-    """The MobyGames game ID. Null when there is no match."""
     ss_id: int | None
-    """The ScreenScraper game ID. Null when there is no match."""
     ra_id: int | None
-    """The RetroAchievements game ID. Null when there is no match."""
     launchbox_id: int | None
-    """The LaunchBox database ID. Null when there is no match."""
     hasheous_id: int | None
-    """The Hasheous game ID. Null when there is no match."""
     tgdb_id: int | None
-    """The TheGamesDB game ID. Null when there is no match."""
     flashpoint_id: str | None
-    """The Flashpoint Project entry ID. Null when there is no match."""
     hltb_id: int | None
-    """The HowLongToBeat game ID. Null when there is no match."""
     demozoo_id: int | None
     """The Demozoo production ID, for demoscene releases."""
     pouet_id: int | None
@@ -468,20 +423,16 @@ class RomSchema(BaseModel):
     csdb_id: int | None
     """The CSDb release ID, for Commodore 64 releases."""
     steam_id: int | None
-    """The Steam app ID. Null when there is no match."""
     gamelist_id: str | None
     """A random ID generated for the ES-DE `gamelist.xml` entry when it was read."""
     libretro_id: str | None
     """The SHA-1 hash of the matched Libretro artwork's file name."""
 
     platform_id: int
-    """The internal ID of the platform."""
     platform_slug: str
-    """The platform's canonical slug, such as `snes`."""
     platform_fs_slug: str
     """The name of the platform's folder in the library."""
     platform_custom_name: str | None
-    """The name the user gave the platform. Null when they did not rename it."""
     platform_display_name: str
     """The custom name when set, otherwise the platform's own name."""
 
@@ -503,15 +454,12 @@ class RomSchema(BaseModel):
     name_sort_key: str | None
     """The key the gallery sorts by name: lowercase, without a leading article. `The Old Game` becomes `old game`."""
     slug: str | None
-    """The URL-friendly form of the name."""
     summary: str | None
-    """The description of the game."""
 
     # Metadata fields
     alternative_names: list[str]
     """Other titles the game is known by, without the display name. The hand-set titles when there are any, otherwise those from IGDB, MobyGames and ScreenScraper."""
     youtube_video_id: str | None
-    """The ID of a YouTube video for the game, when a provider supplies one."""
     metadatum: RomMetadataSchema
     """The metadata merged from every matched provider, used for filtering and sorting."""
     igdb_metadata: RomIGDBMetadata | None
@@ -549,11 +497,8 @@ class RomSchema(BaseModel):
     """The remote URL the cover was fetched from."""
 
     has_manual: bool
-    """Whether a manual is stored for the rom."""
     has_soundtrack: bool
-    """Whether the rom has soundtrack files."""
     path_manual: str | None
-    """The path to the stored manual."""
     url_manual: str | None
     """The remote URL the manual was fetched from."""
 
@@ -579,11 +524,8 @@ class RomSchema(BaseModel):
     """The other tags read from the file name."""
 
     crc_hash: str | None
-    """The CRC32 hash of the rom's content. Empty when it was not computed."""
     md5_hash: str | None
-    """The MD5 hash of the rom's content. Empty when it was not computed."""
     sha1_hash: str | None
-    """The SHA-1 hash of the rom's content. Empty when it was not computed."""
     ra_hash: str | None
     """The hash RetroAchievements matches the rom on. Empty when it was not computed."""
     title_id: str | None
@@ -604,9 +546,7 @@ class RomSchema(BaseModel):
     full_path: str
     """The `fs_path` and `fs_name` joined, relative to the library root."""
     created_at: UTCDatetime
-    """When the rom was added to the library."""
     updated_at: UTCDatetime
-    """When the rom's record last changed."""
     missing_from_fs: bool
     """True when the file or folder is gone from disk. The record stays until the missing-roms cleanup runs."""
     is_physical: bool
@@ -621,7 +561,7 @@ class RomSchema(BaseModel):
     rom_user: RomUserSchema
     """The current user's data for the rom, such as status and rating."""
     merged_screenshots: list[str]
-    """The paths of the stored screenshots."""
+    """The paths of the screenshots a scan stored from the metadata providers."""
     merged_ra_metadata: RomRAMetadata | None
     """The RetroAchievements metadata with its achievements sorted for display."""
 
@@ -679,9 +619,7 @@ class RomSchema(BaseModel):
 
 class SiblingRomSchema(BaseModel):
     id: int
-    """The internal ID of the rom."""
     name: str | None
-    """The display name of the rom."""
     fs_name_no_tags: str
     """The file name without its extension or any tags in parentheses or brackets."""
     fs_name_no_ext: str

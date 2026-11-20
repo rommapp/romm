@@ -366,17 +366,13 @@ class RomUpdateForm(BaseModel):
     raw_manual_metadata: str | None = None
     """Raw manual metadata as JSON string."""
     name: str | None = None
-    """The new display name."""
     name_sort_key: str | None = None
     """The sort key to use in place of one derived from the name."""
     summary: str | None = None
-    """The new description of the game."""
     fs_name: str | None = None
     """The new name of the file or folder."""
     url_cover: str | None = None
-    """The URL of a new cover."""
     url_manual: str | None = None
-    """The URL of a new manual."""
 
 
 MANUAL_METADATA_ADAPTER: Final = TypeAdapter(ManualMetadata)

@@ -171,10 +171,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
 )
 async def tinfoil_index_feed(
     request: Request,
-    slug: Annotated[
-        str,
-        Query(description="The slug of the platform to serve. Defaults to `switch`."),
-    ] = "switch",
+    slug: str = "switch",
 ) -> TinfoilFeedSchema:
     """Get tinfoil custom index feed endpoint
     https://blawar.github.io/tinfoil/custom_index/
@@ -617,7 +614,7 @@ def fpkgi_title_id(rom: Rom, files: list[RomFile]) -> str:
 )
 def fpkgi_feed(
     request: Request,
-    platform_slug: Annotated[str, PathVar(description="The slug of the platform.")],
+    platform_slug: str,
     content_type: Annotated[
         str | None,
         Query(
@@ -700,9 +697,7 @@ def fpkgi_feed(
 )
 def kekatsu_ds_feed(
     request: Request,
-    platform_slug: Annotated[
-        str, PathVar(description="The slug of the platform, such as `nds` or `gba`.")
-    ],
+    platform_slug: str,
 ) -> Response:
     """Get Kekatsu DS feed endpoint
     https://github.com/cavv-dev/Kekatsu-DS

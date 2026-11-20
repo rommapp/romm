@@ -41,11 +41,9 @@ PAGE_QUERY = as_query_dependency(PageParams)
 
 class LimitOffsetPage[T: PydanticBaseModel](BaseModel):
     items: Sequence[T]
-    """The items on this page."""
     total: int = Field(ge=0)
     """The number of items across all pages."""
     limit: int = Field(ge=1)
-    """The number of items per page, such as 72."""
     offset: int = Field(ge=0)
     """The number of items skipped before this page. For example, 144 for the third page of 72."""
 

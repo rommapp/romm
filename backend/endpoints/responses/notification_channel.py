@@ -56,13 +56,9 @@ def _check_address(address: str | None) -> str | None:
 
 class NotificationChannelSchema(BaseModel):
     id: int
-    """The internal ID of the channel."""
     type: NotificationChannelType
-    """The kind of channel: `apprise`, `webhook` or `email`."""
     name: str
-    """The name of the channel."""
     enabled: bool
-    """Whether notifications are sent on the channel."""
     min_level: NotificationChannelMinLevel
     topics: list[NotificationTopic] | None
     """The topics the channel forwards. Null forwards every topic."""
@@ -72,23 +68,17 @@ class NotificationChannelSchema(BaseModel):
     service: str | None
     """The Apprise service ID, for an Apprise channel."""
     service_name: str | None
-    """The display name of the Apprise service."""
     fields: dict[str, AppriseFieldValue] | None
     """The Apprise service's settings, without its secrets."""
     stored_secrets: list[str] | None
     """The names of the secret settings that are stored."""
     has_secret: bool
-    """Whether the channel has a secret stored."""
     confirmed: bool
     """Whether the channel is confirmed. A new email address has to be confirmed with a code first."""
     last_delivered_at: UTCDatetime | None
-    """When a notification was last delivered on the channel."""
     last_error: str | None
-    """The error from the last failed delivery, if any."""
     consecutive_failures: int
-    """The number of deliveries that failed in a row."""
     created_at: UTCDatetime
-    """When the channel was created."""
 
     @classmethod
     def from_channel(cls, channel: NotificationChannel) -> Self:
@@ -139,31 +129,22 @@ class _ChannelFilters(BaseModel):
 
 class AppriseChannelCreatePayload(_ChannelFilters):
     type: Literal["apprise"]
-    """The kind of channel."""
     name: ChannelName
-    """The name of the channel."""
     service: AppriseServiceId
-    """The Apprise service to send through."""
     fields: AppriseFields
-    """The settings of the Apprise service."""
 
 
 class WebhookChannelCreatePayload(_ChannelFilters):
     type: Literal["webhook"]
-    """The kind of channel."""
     name: ChannelName
-    """The name of the channel."""
     url: ChannelUrl
-    """The URL notifications are sent to."""
     secret: ChannelSecret | None = None
     """The key the payload is signed with."""
 
 
 class EmailChannelCreatePayload(_ChannelFilters):
     type: Literal["email"]
-    """The kind of channel."""
     name: ChannelName
-    """The name of the channel."""
     address: EmailAddress
     """The email address notifications are sent to. A confirmation code is sent to it first."""
 

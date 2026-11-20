@@ -3,9 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type Body_update_state_visibility_api_states__id__visibility_put = {
-    /**
-     * Whether other users can see the state.
-     */
     is_public: boolean;
 };
 

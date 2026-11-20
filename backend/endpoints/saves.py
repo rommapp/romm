@@ -316,7 +316,6 @@ async def add_save(
         str | None,
         Query(
             max_length=EMULATOR_VERSION_MAX_LENGTH,
-            description="The version of the emulator that wrote the save.",
         ),
     ] = None,
     core: Annotated[
@@ -330,7 +329,6 @@ async def add_save(
         str | None,
         Query(
             max_length=EMULATOR_VERSION_MAX_LENGTH,
-            description="The version of the core that wrote the save.",
         ),
     ] = None,
     slot: Annotated[
@@ -622,7 +620,7 @@ async def add_save(
 @protected_route(router.get, "", [Scope.ASSETS_READ])
 def get_saves(
     request: Request,
-    rom_id: Annotated[int | None, Query(description="Only saves for this rom.")] = None,
+    rom_id: int | None = None,
     rom_ids: Annotated[
         RomIdScope,
         Query(
@@ -633,11 +631,9 @@ def get_saves(
             ),
         ),
     ] = None,
-    platform_id: Annotated[
-        int | None, Query(description="Only saves for roms on this platform.")
-    ] = None,
+    platform_id: int | None = None,
     device_id: DeviceIdReadQuery = None,
-    slot: Annotated[str | None, Query(description="Only saves in this slot.")] = None,
+    slot: str | None = None,
 ) -> list[SaveSchema]:
     """Retrieve saves for the current user."""
     device = resolve_device(request, device_id, Scope.DEVICES_READ)
@@ -1091,13 +1087,10 @@ async def merge_save_into_container(
 def confirm_download(
     request: Request,
     id: SaveIdPath,
-    device_id: str = Body(
-        ..., embed=True, description="The ID of the device that downloaded the save."
-    ),
+    device_id: str = Body(..., embed=True),
     content_hash: str | None = Body(
         default=None,
         embed=True,
-        description="The hash of the file the device now holds.",
     ),
 ) -> SaveSchema:
     """Confirm a save was downloaded successfully."""
@@ -1212,7 +1205,7 @@ def update_save_visibility(
     id: SaveIdPath,
     is_public: Annotated[
         bool,
-        Body(embed=True, description="Whether other users can see the save."),
+        Body(embed=True),
     ],
 ) -> SaveSchema:
     """Toggle a save's public/private visibility (owner only). A save a channel
@@ -1249,7 +1242,7 @@ def update_save_favorite(
     id: SaveIdPath,
     is_favorite: Annotated[
         bool,
-        Body(embed=True, description="Whether the save is marked as a favorite."),
+        Body(embed=True),
     ],
 ) -> SaveSchema:
     """Favorite a save, sorting it ahead of the rest (owner only)."""
@@ -1309,7 +1302,6 @@ async def rename_save(
         Body(
             embed=True,
             max_length=FILE_NAME_MAX_LENGTH,
-            description="The new file name.",
         ),
     ],
 ) -> SaveSchema:
@@ -1373,9 +1365,7 @@ async def delete_saves(
 def track_save(
     request: Request,
     id: SaveIdPath,
-    device_id: str = Body(
-        ..., embed=True, description="The ID of the device to track the save on."
-    ),
+    device_id: str = Body(..., embed=True),
 ) -> SaveSchema:
     """Re-enable sync tracking for a save on a device."""
     save = owned_rom_asset_or_404(
@@ -1397,7 +1387,6 @@ def untrack_save(
     device_id: str = Body(
         ...,
         embed=True,
-        description="The ID of the device to stop tracking the save on.",
     ),
 ) -> SaveSchema:
     """Disable sync tracking for a save on a device."""

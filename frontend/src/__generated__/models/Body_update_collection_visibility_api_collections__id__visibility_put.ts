@@ -3,9 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type Body_update_collection_visibility_api_collections__id__visibility_put = {
-    /**
-     * Whether other users can see the collection.
-     */
     is_public: boolean;
 };
 

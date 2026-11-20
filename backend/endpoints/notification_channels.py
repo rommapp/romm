@@ -1,10 +1,8 @@
 from collections.abc import Awaitable
 from functools import cache
-from typing import Annotated, TypeVar
+from typing import TypeVar
 
-from fastapi import HTTPException
-from fastapi import Path as PathVar
-from fastapi import Request, status
+from fastapi import HTTPException, Request, status
 
 from decorators.auth import protected_route
 from endpoints.responses.notification_channel import (
@@ -64,11 +62,6 @@ async def _as_http(action: Awaitable[_T]) -> _T:
         ) from exc
 
 
-ChannelIdPath = Annotated[
-    int, PathVar(description="The ID of the notification channel.")
-]
-
-
 @protected_route(router.get, "", [Scope.ME_READ])
 def get_notification_channels(request: Request) -> list[NotificationChannelSchema]:
     """The caller's notification channels."""
@@ -126,7 +119,7 @@ async def create_notification_channel(
 @protected_route(router.patch, "/{channel_id}", [Scope.ME_WRITE])
 async def update_notification_channel(
     request: Request,
-    channel_id: ChannelIdPath,
+    channel_id: int,
     payload: NotificationChannelUpdatePayload,
 ) -> NotificationChannelSchema:
     """Change a channel; a new email address has to be confirmed again."""
@@ -156,7 +149,7 @@ async def update_notification_channel(
 
 
 @protected_route(router.delete, "/{channel_id}", [Scope.ME_WRITE])
-def delete_notification_channel(request: Request, channel_id: ChannelIdPath) -> None:
+def delete_notification_channel(request: Request, channel_id: int) -> None:
     """Delete a notification channel. Returns 404 if it is not found."""
     if not db_notification_channel_handler.delete_channel(channel_id, request.user.id):
         raise HTTPException(
@@ -167,7 +160,7 @@ def delete_notification_channel(request: Request, channel_id: ChannelIdPath) -> 
 
 @protected_route(router.post, "/{channel_id}/test", [Scope.ME_WRITE])
 async def test_notification_channel(
-    request: Request, channel_id: ChannelIdPath
+    request: Request, channel_id: int
 ) -> NotificationChannelTestResult:
     """Send a sample notification out on the channel right away."""
     error = await _as_http(
@@ -179,7 +172,7 @@ async def test_notification_channel(
 @protected_route(router.post, "/{channel_id}/confirm", [Scope.ME_WRITE])
 async def confirm_notification_channel(
     request: Request,
-    channel_id: ChannelIdPath,
+    channel_id: int,
     payload: NotificationChannelCodePayload,
 ) -> NotificationChannelSchema:
     """Confirm an email address with the code sent to it."""
@@ -197,8 +190,6 @@ async def confirm_notification_channel(
     [Scope.ME_WRITE],
     status_code=status.HTTP_204_NO_CONTENT,
 )
-async def resend_notification_channel_code(
-    request: Request, channel_id: ChannelIdPath
-) -> None:
+async def resend_notification_channel_code(request: Request, channel_id: int) -> None:
     """Send a new confirmation code to the channel's email address."""
     await _as_http(channels.resend_code(_get_or_404(channel_id, request.user)))

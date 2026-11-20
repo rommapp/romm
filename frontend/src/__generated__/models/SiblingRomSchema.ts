@@ -3,13 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type SiblingRomSchema = {
-    /**
-     * The internal ID of the rom.
-     */
     id: number;
-    /**
-     * The display name of the rom.
-     */
     name: (string | null);
     /**
      * The file name without its extension or any tags in parentheses or brackets.

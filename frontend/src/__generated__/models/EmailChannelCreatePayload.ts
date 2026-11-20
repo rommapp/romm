@@ -10,13 +10,7 @@ export type EmailChannelCreatePayload = {
      * The topics the channel forwards. Null forwards every topic.
      */
     topics?: (Array<NotificationTopic> | null);
-    /**
-     * The kind of channel.
-     */
     type: string;
-    /**
-     * The name of the channel.
-     */
     name: string;
     /**
      * The email address notifications are sent to. A confirmation code is sent to it first.

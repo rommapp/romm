@@ -3,9 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type Body_untrack_save_api_saves__id__untrack_post = {
-    /**
-     * The ID of the device to stop tracking the save on.
-     */
     device_id: string;
 };
 

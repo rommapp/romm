@@ -8,17 +8,8 @@ export type EarnedAchievement = {
      * @deprecated
      */
     id: string;
-    /**
-     * The RetroAchievements ID of the achievement.
-     */
     ra_id?: number;
-    /**
-     * When the achievement was earned.
-     */
     date: string;
-    /**
-     * When the achievement was earned in hardcore mode.
-     */
     date_hardcore?: string;
 };
 

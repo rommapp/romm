@@ -3,9 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type Body_rename_state_api_states__id__file_name_put = {
-    /**
-     * The new file name.
-     */
     file_name: string;
 };
 

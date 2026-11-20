@@ -5,9 +5,6 @@
 import type { ConflictReason } from './ConflictReason';
 import type { SnapshotSchema } from './SnapshotSchema';
 export type SnapshotConflictSchema = {
-    /**
-     * The channel's current snapshot.
-     */
     current: (SnapshotSchema | null);
     /**
      * The snapshot the push stored as a branch.

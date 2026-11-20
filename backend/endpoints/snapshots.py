@@ -325,19 +325,12 @@ def get_snapshots(
             )
         ),
     ],
-    save_target: Annotated[
-        str | None,
-        Query(description="Only list snapshots with this exact save target."),
-    ] = None,
+    save_target: str | None = None,
     limit: Annotated[
         int,
         Query(
             ge=1,
             le=HISTORY_PAGE_MAX,
-            description=(
-                f"The number of snapshots per page, from 1 to {HISTORY_PAGE_MAX},"
-                " such as 20. Defaults to 50."
-            ),
         ),
     ] = 50,
     cursor: Annotated[

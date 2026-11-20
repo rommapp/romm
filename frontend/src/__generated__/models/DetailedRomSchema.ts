@@ -31,49 +31,19 @@ import type { UserSaveSchema } from './UserSaveSchema';
 import type { UserScreenshotSchema } from './UserScreenshotSchema';
 import type { UserStateSchema } from './UserStateSchema';
 export type DetailedRomSchema = {
-    /**
-     * The internal ID of the rom.
-     */
     id: number;
-    /**
-     * The IGDB game ID. Null when IGDB has no match.
-     */
     igdb_id: (number | null);
     /**
      * The SteamGridDB game ID, used to find artwork.
      */
     sgdb_id: (number | null);
-    /**
-     * The MobyGames game ID. Null when there is no match.
-     */
     moby_id: (number | null);
-    /**
-     * The ScreenScraper game ID. Null when there is no match.
-     */
     ss_id: (number | null);
-    /**
-     * The RetroAchievements game ID. Null when there is no match.
-     */
     ra_id: (number | null);
-    /**
-     * The LaunchBox database ID. Null when there is no match.
-     */
     launchbox_id: (number | null);
-    /**
-     * The Hasheous game ID. Null when there is no match.
-     */
     hasheous_id: (number | null);
-    /**
-     * The TheGamesDB game ID. Null when there is no match.
-     */
     tgdb_id: (number | null);
-    /**
-     * The Flashpoint Project entry ID. Null when there is no match.
-     */
     flashpoint_id: (string | null);
-    /**
-     * The HowLongToBeat game ID. Null when there is no match.
-     */
     hltb_id: (number | null);
     /**
      * The Demozoo production ID, for demoscene releases.
@@ -87,9 +57,6 @@ export type DetailedRomSchema = {
      * The CSDb release ID, for Commodore 64 releases.
      */
     csdb_id: (number | null);
-    /**
-     * The Steam app ID. Null when there is no match.
-     */
     steam_id: (number | null);
     /**
      * A random ID generated for the ES-DE `gamelist.xml` entry when it was read.
@@ -99,21 +66,12 @@ export type DetailedRomSchema = {
      * The SHA-1 hash of the matched Libretro artwork's file name.
      */
     libretro_id: (string | null);
-    /**
-     * The internal ID of the platform.
-     */
     platform_id: number;
-    /**
-     * The platform's canonical slug, such as `snes`.
-     */
     platform_slug: string;
     /**
      * The name of the platform's folder in the library.
      */
     platform_fs_slug: string;
-    /**
-     * The name the user gave the platform. Null when they did not rename it.
-     */
     platform_custom_name: (string | null);
     /**
      * The custom name when set, otherwise the platform's own name.
@@ -151,21 +109,12 @@ export type DetailedRomSchema = {
      * The key the gallery sorts by name: lowercase, without a leading article. `The Old Game` becomes `old game`.
      */
     name_sort_key: (string | null);
-    /**
-     * The URL-friendly form of the name.
-     */
     slug: (string | null);
-    /**
-     * The description of the game.
-     */
     summary: (string | null);
     /**
      * Other titles the game is known by, without the display name. The hand-set titles when there are any, otherwise those from IGDB, MobyGames and ScreenScraper.
      */
     alternative_names: Array<string>;
-    /**
-     * The ID of a YouTube video for the game, when a provider supplies one.
-     */
     youtube_video_id: (string | null);
     /**
      * The metadata merged from every matched provider, used for filtering and sorting.
@@ -235,17 +184,8 @@ export type DetailedRomSchema = {
      * The remote URL the cover was fetched from.
      */
     url_cover: (string | null);
-    /**
-     * Whether a manual is stored for the rom.
-     */
     has_manual: boolean;
-    /**
-     * Whether the rom has soundtrack files.
-     */
     has_soundtrack: boolean;
-    /**
-     * The path to the stored manual.
-     */
     path_manual: (string | null);
     /**
      * The remote URL the manual was fetched from.
@@ -287,17 +227,8 @@ export type DetailedRomSchema = {
      * The other tags read from the file name.
      */
     tags: Array<string>;
-    /**
-     * The CRC32 hash of the rom's content. Empty when it was not computed.
-     */
     crc_hash: (string | null);
-    /**
-     * The MD5 hash of the rom's content. Empty when it was not computed.
-     */
     md5_hash: (string | null);
-    /**
-     * The SHA-1 hash of the rom's content. Empty when it was not computed.
-     */
     sha1_hash: (string | null);
     /**
      * The hash RetroAchievements matches the rom on. Empty when it was not computed.
@@ -335,13 +266,7 @@ export type DetailedRomSchema = {
      * The `fs_path` and `fs_name` joined, relative to the library root.
      */
     full_path: string;
-    /**
-     * When the rom was added to the library.
-     */
     created_at: string;
-    /**
-     * When the rom's record last changed.
-     */
     updated_at: string;
     /**
      * True when the file or folder is gone from disk. The record stays until the missing-roms cleanup runs.
@@ -368,7 +293,7 @@ export type DetailedRomSchema = {
      */
     rom_user: RomUserSchema;
     /**
-     * The paths of the stored screenshots.
+     * The paths of the screenshots a scan stored from the metadata providers.
      */
     merged_screenshots: Array<string>;
     /**

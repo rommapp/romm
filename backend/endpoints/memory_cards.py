@@ -3,9 +3,7 @@ import re
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import Body, File, HTTPException
-from fastapi import Path as PathVar
-from fastapi import Query, Request, UploadFile, status
+from fastapi import Body, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import Field
 
@@ -99,12 +97,6 @@ def _apply_card_update(card_id: int, data: dict[str, Any]) -> MemoryCard:
     return updated
 
 
-CardIdPath = Annotated[int, PathVar(description="The ID of the memory card.")]
-VersionIdPath = Annotated[
-    int, PathVar(description="The ID of the memory card version.")
-]
-
-
 @protected_route(router.post, "", [Scope.ASSETS_WRITE])
 def add_memory_card(
     request: Request,
@@ -154,9 +146,7 @@ def add_memory_card(
 @protected_route(router.get, "", [Scope.ASSETS_READ])
 def get_memory_cards(
     request: Request,
-    emulator: Annotated[
-        str | None, Query(description="Only cards for this emulator.")
-    ] = None,
+    emulator: str | None = None,
 ) -> list[MemoryCardSchema]:
     """The caller's own cards, newest-synced first, optionally one emulator."""
     cards = db_memory_card_handler.get_cards(
@@ -168,7 +158,7 @@ def get_memory_cards(
 @protected_route(router.get, "/shared", [Scope.ASSETS_READ])
 def get_shared_memory_cards(
     request: Request,
-    emulator: Annotated[str, Query(description="The emulator to list cards for.")],
+    emulator: str,
 ) -> list[UserMemoryCardSchema]:
     """Cards for an emulator visible to the caller: their own plus other users'
     public ones. Browsing and download only: mounting a card at claim is
@@ -234,7 +224,7 @@ def _version_file_or_404(version: MemoryCardVersion) -> Path:
     [Scope.ASSETS_READ],
     responses={status.HTTP_404_NOT_FOUND: {}},
 )
-def download_memory_card_version(request: Request, id: VersionIdPath) -> FileResponse:
+def download_memory_card_version(request: Request, id: int) -> FileResponse:
     """Download a version's card archive. Readable if the caller owns the parent
     card or it is public."""
     version = db_memory_card_handler.get_version_by_id(id)
@@ -257,7 +247,7 @@ def download_memory_card_version(request: Request, id: VersionIdPath) -> FileRes
     [Scope.ASSETS_READ],
     responses={status.HTTP_404_NOT_FOUND: {}},
 )
-def download_memory_card(request: Request, id: CardIdPath) -> FileResponse:
+def download_memory_card(request: Request, id: int) -> FileResponse:
     """Download the card as it stands now, without going through its history.
 
     This is the newest version, which is also what the next claim hydrates onto
@@ -289,7 +279,7 @@ def download_memory_card(request: Request, id: CardIdPath) -> FileResponse:
 )
 async def upload_memory_card_version(
     request: Request,
-    id: CardIdPath,
+    id: int,
     cardFile: UploadFile = MEMORY_CARD_FILE_UPLOAD,
 ) -> MemoryCardVersionSchema:
     """Store a card image the user supplied as the card's newest version, which
@@ -330,7 +320,7 @@ async def upload_memory_card_version(
 
 
 @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
-def get_memory_card(request: Request, id: CardIdPath) -> MemoryCardSchema:
+def get_memory_card(request: Request, id: int) -> MemoryCardSchema:
     """A single card: the caller's own or another user's public one."""
     card = _card_or_404(request, id)
     return MemoryCardSchema.model_validate(card)
@@ -356,7 +346,7 @@ def _reconcile_missing(version: MemoryCardVersion) -> bool:
 
 @protected_route(router.get, "/{id}/versions", [Scope.ASSETS_READ])
 def get_memory_card_versions(
-    request: Request, id: CardIdPath
+    request: Request, id: int
 ) -> list[MemoryCardVersionSchema]:
     """A card's snapshot history, newest first."""
     _card_or_404(request, id)
@@ -377,13 +367,12 @@ def get_memory_card_versions(
 )
 def rename_memory_card(
     request: Request,
-    id: CardIdPath,
+    id: int,
     name: Annotated[
         str,
         Body(
             embed=True,
             max_length=MEMORY_CARD_NAME_MAX_LENGTH,
-            description="The new name of the card.",
         ),
     ],
 ) -> MemoryCardSchema:
@@ -406,10 +395,10 @@ def rename_memory_card(
 )
 def update_memory_card_visibility(
     request: Request,
-    id: CardIdPath,
+    id: int,
     is_public: Annotated[
         bool,
-        Body(embed=True, description="Whether other users can see the card."),
+        Body(embed=True),
     ],
 ) -> MemoryCardSchema:
     """Toggle a card's public/private visibility (owner only). Sharing is

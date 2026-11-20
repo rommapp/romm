@@ -5,13 +5,7 @@
 import type { PermAction } from './PermAction';
 import type { PermEntity } from './PermEntity';
 export type OverrideSchemaIO = {
-    /**
-     * The kind of thing the override covers.
-     */
     entity: PermEntity;
-    /**
-     * The action the override applies to.
-     */
     action: PermAction;
     /**
      * True grants the action and false denies it.

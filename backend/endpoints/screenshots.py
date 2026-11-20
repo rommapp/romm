@@ -169,7 +169,7 @@ async def update_screenshot(
     id: Annotated[int, PathVar(description="Screenshot internal id.", ge=1)],
     is_public: Annotated[
         bool,
-        Body(embed=True, description="Whether other users can see the screenshot."),
+        Body(embed=True),
     ],
 ) -> ScreenshotSchema:
     """Toggle a gallery screenshot's public/private visibility (owner only)."""

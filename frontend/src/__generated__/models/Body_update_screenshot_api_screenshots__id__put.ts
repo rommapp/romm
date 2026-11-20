@@ -3,9 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type Body_update_screenshot_api_screenshots__id__put = {
-    /**
-     * Whether other users can see the screenshot.
-     */
     is_public: boolean;
 };
 

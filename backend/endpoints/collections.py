@@ -152,10 +152,6 @@ VirtualCollectionIdPath = Annotated[
         description="Virtual collection id, as `GET /collections/virtual` returns it."
     ),
 ]
-IsPublicCreateQuery = Annotated[
-    bool | None,
-    Query(description="Whether other users can see the collection. Defaults to false."),
-]
 IsPublicUpdateQuery = Annotated[
     bool | None,
     Query(
@@ -165,10 +161,6 @@ IsPublicUpdateQuery = Annotated[
         )
     ),
 ]
-IsFavoriteQuery = Annotated[
-    bool | None,
-    Query(description="Whether the collection is a favorite. Defaults to false."),
-]
 COLLECTION_NAME_FORM = "The name of the collection."
 COLLECTION_DESCRIPTION_FORM = "The description of the collection."
 
@@ -176,8 +168,8 @@ COLLECTION_DESCRIPTION_FORM = "The description of the collection."
 @protected_route(router.post, "", [Scope.COLLECTIONS_WRITE])
 async def add_collection(
     request: Request,
-    is_public: IsPublicCreateQuery = None,
-    is_favorite: IsFavoriteQuery = None,
+    is_public: bool | None = None,
+    is_favorite: bool | None = None,
     artwork: UploadFile | None = COLLECTION_ARTWORK_FILE,
     name: str = Form(
         default="",
@@ -257,7 +249,7 @@ async def add_collection(
 @protected_route(router.post, "/smart", [Scope.COLLECTIONS_WRITE])
 async def add_smart_collection(
     request: Request,
-    is_public: IsPublicCreateQuery = None,
+    is_public: bool | None = None,
     name: str = Form(
         default="",
         max_length=COLLECTION_NAME_MAX_LENGTH,
@@ -687,7 +679,7 @@ def update_collection_visibility(
     id: CollectionIdPath,
     is_public: Annotated[
         bool,
-        Body(embed=True, description="Whether other users can see the collection."),
+        Body(embed=True),
     ],
 ) -> CollectionSchema:
     """Share or unshare a collection (owner only), leaving its games and cover."""
@@ -869,9 +861,7 @@ def update_smart_collection_visibility(
     id: SmartCollectionIdPath,
     is_public: Annotated[
         bool,
-        Body(
-            embed=True, description="Whether other users can see the smart collection."
-        ),
+        Body(embed=True),
     ],
 ) -> SmartCollectionSchema:
     """Share or unshare a smart collection (owner only), leaving its filters."""

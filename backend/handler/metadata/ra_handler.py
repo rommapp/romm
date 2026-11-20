@@ -83,11 +83,8 @@ class EarnedAchievement(TypedDict):
     id: Annotated[str, Field(deprecated=True)]
     """The badge name, which several achievements can share. Use `ra_id`."""
     ra_id: NotRequired[int]
-    """The RetroAchievements ID of the achievement."""
     date: str
-    """When the achievement was earned."""
     date_hardcore: NotRequired[str]
-    """When the achievement was earned in hardcore mode."""
 
 
 class RAUserGameProgression(TypedDict):

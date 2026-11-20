@@ -7,9 +7,6 @@
  * value; a `default` of "" means the files need the option set.
  */
 export type SaveLayoutOptionSchema = {
-    /**
-     * The key of the option.
-     */
     key: string;
     /**
      * The allowed values. Empty for a free-form value.

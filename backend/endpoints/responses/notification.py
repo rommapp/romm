@@ -48,11 +48,8 @@ class NotificationCreatePayload(BaseModel):
     """A notification sent through the API, shown with its own title and body."""
 
     title: str = Field(min_length=1, max_length=NOTIFICATION_TITLE_MAX_LENGTH)
-    """The title of the notification."""
     body: str | None = Field(default=None, max_length=NOTIFICATION_BODY_MAX_LENGTH)
-    """The text of the notification."""
     level: NotificationLevel = NotificationLevel.INFO
-    """The level of the notification: `info`, `success`, `warning` or `error`. Defaults to `info`."""
     kind: str = Field(
         default=NotificationKind.CUSTOM,
         max_length=NOTIFICATION_KIND_MAX_LENGTH,
@@ -68,7 +65,6 @@ class NotificationCreatePayload(BaseModel):
     )
     """A Material Design Icons name, such as `mdi-sync`."""
     data: dict[str, Any] = Field(default_factory=dict)
-    """Extra data attached to the notification."""
     recipients: list[int] | Literal["admins", "all"] | None = None
     """User ids, `admins` or `all`; only an admin may notify anyone but themselves. Null notifies the caller."""
 

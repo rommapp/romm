@@ -3,41 +3,23 @@
 /* tslint:disable */
 /* eslint-disable */
 export type VirtualCollectionSchema = {
-    /**
-     * The name of the collection.
-     */
     name: string;
-    /**
-     * The description of the collection.
-     */
     description: string;
     /**
      * The IDs of the roms in the collection. Roms hidden from the caller are left out.
      */
     rom_ids: Array<number>;
-    /**
-     * The path to the small cover image.
-     */
     path_cover_small: (string | null);
-    /**
-     * The path to the large cover image.
-     */
     path_cover_large: (string | null);
     /**
-     * The paths to the small covers shown for the collection.
+     * The small covers of the roms in the collection, for a collage when `path_cover_small` is empty.
      */
     path_covers_small: Array<string>;
     /**
-     * The paths to the large covers shown for the collection.
+     * The large covers of the roms in the collection, for a collage when `path_cover_large` is empty.
      */
     path_covers_large: Array<string>;
-    /**
-     * Whether other users can see the collection.
-     */
     is_public?: boolean;
-    /**
-     * Whether the collection is marked as a favorite.
-     */
     is_favorite?: boolean;
     /**
      * Always true.
@@ -47,17 +29,8 @@ export type VirtualCollectionSchema = {
      * True for a smart collection, which its filters define.
      */
     is_smart?: boolean;
-    /**
-     * When the collection was created.
-     */
     created_at: string;
-    /**
-     * When the collection last changed.
-     */
     updated_at: string;
-    /**
-     * The ID of the virtual collection.
-     */
     id: string;
     /**
      * The kind of virtual collection: `genre`, `franchise`, `collection`, `mode`, `company`, `publisher` or `developer`.

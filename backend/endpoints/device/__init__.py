@@ -2,9 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Annotated, Any
 
-from fastapi import HTTPException
-from fastapi import Path as PathVar
-from fastapi import Request, Response, status
+from fastapi import HTTPException, Request, Response, status
 from pydantic import (
     Field,
     StrictBool,
@@ -81,9 +79,6 @@ class DeviceUpdatePayload(BaseModel):
     sync_mode: SyncMode | None = None
     sync_config: dict[str, Any] | None = None
     capabilities: DeviceCapabilities | None = None
-
-
-DeviceIdPath = Annotated[str, PathVar(description="The ID of the device.")]
 
 
 @protected_route(router.post, "", [Scope.DEVICES_WRITE])
@@ -189,7 +184,7 @@ def get_devices(request: Request) -> list[DeviceSchema]:
 
 
 @protected_route(router.get, "/{device_id}", [Scope.DEVICES_READ])
-def get_device(request: Request, device_id: DeviceIdPath) -> DeviceSchema:
+def get_device(request: Request, device_id: str) -> DeviceSchema:
     """Get one of the caller's devices."""
     device = require_device(request, device_id)
     return DeviceSchema.model_validate(device)
@@ -198,7 +193,7 @@ def get_device(request: Request, device_id: DeviceIdPath) -> DeviceSchema:
 @protected_route(router.put, "/{device_id}", [Scope.DEVICES_WRITE])
 def update_device(
     request: Request,
-    device_id: DeviceIdPath,
+    device_id: str,
     payload: DeviceUpdatePayload,
 ) -> DeviceSchema:
     """Update a device. Only the fields sent change."""
@@ -221,7 +216,7 @@ def update_device(
     [Scope.DEVICES_WRITE],
     status_code=status.HTTP_204_NO_CONTENT,
 )
-async def delete_device(request: Request, device_id: DeviceIdPath) -> None:
+async def delete_device(request: Request, device_id: str) -> None:
     """Delete a device. The client tokens bound to it are deleted with it."""
     require_device(request, device_id)
 

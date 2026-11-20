@@ -1,6 +1,4 @@
-from fastapi import HTTPException
-from fastapi import Path as PathVar
-from fastapi import Request, status
+from fastapi import HTTPException, Request, status
 
 from decorators.auth import protected_route
 from endpoints.responses.notification import (
@@ -88,7 +86,7 @@ async def mark_notifications_read(
 @protected_route(router.delete, "/{notification_id}", [Scope.ME_WRITE])
 async def dismiss_notification(
     request: Request,
-    notification_id: int = PathVar(description="The ID of the notification."),
+    notification_id: int,
 ) -> None:
     """Dismiss one of the caller's notifications. Returns 404 if it is not found."""
     rows = db_notification_handler.delete_notifications(

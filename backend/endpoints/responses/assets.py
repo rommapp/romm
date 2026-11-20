@@ -13,42 +13,30 @@ class BaseAsset(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    """The internal ID."""
     rom_id: int
-    """The internal ID of the rom."""
     user_id: int
-    """The ID of the user who owns it."""
     file_name: str
     """The file name, extension included."""
     file_name_no_tags: str
     """The file name without its extension or any tags in parentheses or brackets."""
     file_name_no_ext: str
-    """The file name without its extension."""
     file_extension: str
-    """The file extension."""
     file_path: str
     """The folder holding the file."""
     file_size_bytes: int
-    """The size of the file, in bytes."""
     full_path: str
-    """The path to the file on disk."""
     download_path: str
-    """The path to download the file from."""
 
     missing_from_fs: bool
-    """True when the file is no longer on disk."""
 
     created_at: UTCDatetime
-    """When the record was created."""
     updated_at: UTCDatetime
-    """When the record last changed."""
 
 
 class AssetAnnotations(BaseModel):
     """The owner-only annotations saves and states share."""
 
     is_favorite: bool = False
-    """Whether the owner marked it as a favorite."""
     labels: list[str] = []
     """The owner's free-text labels."""
 
@@ -69,7 +57,6 @@ class ScreenshotSchema(BaseAsset):
     is_gallery: bool = False
     """True for a screenshot shown in the gallery. Thumbnails captured with saves and states are not."""
     is_public: bool = False
-    """Whether other users can see the screenshot."""
 
 
 class UserScreenshotSchema(ScreenshotSchema):
@@ -77,12 +64,9 @@ class UserScreenshotSchema(ScreenshotSchema):
     community (My / Community) view. Mirrors UserNoteSchema."""
 
     username: str
-    """The username of the owner."""
     # Author identity for rendering an avatar next to community screenshots.
     user_avatar_path: str = ""
-    """The path to the owner's avatar."""
     user_updated_at: UTCDatetime | None = None
-    """When the owner's record last changed."""
 
 
 class ManagedAsset(BaseModel):
@@ -92,17 +76,11 @@ class ManagedAsset(BaseModel):
 
 class SaveSchema(BaseAsset, AssetAnnotations, ManagedAsset):
     emulator: str | None
-    """The emulator that wrote the save."""
     slot: str | None = None
-    """The slot the save belongs to. Null for a save without a slot."""
     content_hash: str | None = None
-    """The hash of the save file's content."""
     is_public: bool = False
-    """Whether other users can see the save."""
     screenshot: ScreenshotSchema | None
-    """The screenshot stored with the save."""
     origin_device_id: str | None = None
-    """The ID of the device the save came from."""
     device_syncs: list[DeviceSyncSchema] = []
     """The sync state of every device that synced the save, the named device first. Empty when the request names no device."""
 
@@ -131,28 +109,20 @@ class UserSaveSchema(SaveSchema):
     Community) view. Mirrors UserScreenshotSchema."""
 
     username: str
-    """The username of the owner."""
     # Author identity for rendering an avatar next to community saves.
     user_avatar_path: str = ""
-    """The path to the owner's avatar."""
     user_updated_at: UTCDatetime | None = None
-    """When the owner's record last changed."""
 
 
 class SlotSummarySchema(BaseModel):
     slot: str | None
-    """The slot name. Null for saves without a slot."""
     count: int
-    """The number of saves in the slot."""
     latest: SaveSchema
-    """The newest save in the slot."""
 
 
 class SaveSummarySchema(BaseModel):
     total_count: int
-    """The number of saves for the rom."""
     slots: list[SlotSummarySchema]
-    """A summary of each slot."""
 
 
 class SaveLayoutOptionSchema(BaseModel):
@@ -162,7 +132,6 @@ class SaveLayoutOptionSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     key: str
-    """The key of the option."""
     values: list[str]
     """The allowed values. Empty for a free-form value."""
     default: str
@@ -190,15 +159,11 @@ class SaveLayoutSchema(BaseModel):
 
 class StateSchema(BaseAsset, AssetAnnotations, ManagedAsset):
     emulator: str | None
-    """The emulator that wrote the state."""
     core: str | None = None
     """The libretro core that wrote the state."""
     is_public: bool = False
-    """Whether other users can see the state."""
     screenshot: ScreenshotSchema | None
-    """The screenshot stored with the state."""
     origin_device_id: str | None = None
-    """The ID of the device the state came from."""
 
 
 class UserStateSchema(StateSchema):
@@ -206,9 +171,6 @@ class UserStateSchema(StateSchema):
     Community) view. Mirrors UserScreenshotSchema."""
 
     username: str
-    """The username of the owner."""
     # Author identity for rendering an avatar next to community states.
     user_avatar_path: str = ""
-    """The path to the owner's avatar."""
     user_updated_at: UTCDatetime | None = None
-    """When the owner's record last changed."""

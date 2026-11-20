@@ -1,9 +1,7 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import Depends, HTTPException
-from fastapi import Path as PathVar
-from fastapi import Query, Request, status
+from fastapi import Depends, HTTPException, Query, Request, status
 from pydantic import Field, model_validator
 
 from decorators.auth import protected_route
@@ -113,12 +111,8 @@ def ingest_play_sessions(
 def get_play_sessions(
     request: Request,
     page: Annotated[PageParams, Depends(PAGE_QUERY)],
-    rom_id: Annotated[
-        int | None, Query(description="Only sessions for this rom.")
-    ] = None,
-    device_id: Annotated[
-        str | None, Query(description="Only sessions from this device.")
-    ] = None,
+    rom_id: int | None = None,
+    device_id: str | None = None,
     start_after: Annotated[
         datetime | None,
         Query(
@@ -166,7 +160,7 @@ def get_play_sessions(
 )
 def delete_play_session(
     request: Request,
-    session_id: int = PathVar(description="The ID of the play session."),
+    session_id: int,
 ) -> None:
     """Delete one of the caller's play sessions."""
     deleted = db_play_session_handler.delete_session(

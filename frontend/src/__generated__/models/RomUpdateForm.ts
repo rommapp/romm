@@ -111,29 +111,17 @@ export type RomUpdateForm = {
      * Raw manual metadata as JSON string.
      */
     raw_manual_metadata?: (string | null);
-    /**
-     * The new display name.
-     */
     name?: (string | null);
     /**
      * The sort key to use in place of one derived from the name.
      */
     name_sort_key?: (string | null);
-    /**
-     * The new description of the game.
-     */
     summary?: (string | null);
     /**
      * The new name of the file or folder.
      */
     fs_name?: (string | null);
-    /**
-     * The URL of a new cover.
-     */
     url_cover?: (string | null);
-    /**
-     * The URL of a new manual.
-     */
     url_manual?: (string | null);
 };
 

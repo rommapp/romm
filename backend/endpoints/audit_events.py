@@ -59,10 +59,7 @@ def get_audit_events(
             )
         ),
     ] = None,
-    target_id: Annotated[
-        str | None,
-        Query(description="Only events on the target with this ID."),
-    ] = None,
+    target_id: str | None = None,
     since: Annotated[datetime | None, Query(description="Inclusive.")] = None,
     until: Annotated[datetime | None, Query(description="Exclusive.")] = None,
     search: Annotated[

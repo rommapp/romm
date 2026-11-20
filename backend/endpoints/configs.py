@@ -330,12 +330,8 @@ async def add_exclusion(request: Request, payload: ExclusionPayload) -> None:
 )
 async def delete_exclusion(
     request: Request,
-    exclusion_type: Annotated[
-        ExclusionType, PathVar(description="The kind of exclusion to remove.")
-    ],
-    exclusion_value: Annotated[
-        str, PathVar(description="The value to remove from that list.")
-    ],
+    exclusion_type: ExclusionType,
+    exclusion_value: str,
 ) -> None:
     """Delete platform binding from the configuration"""
 

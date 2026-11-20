@@ -105,9 +105,7 @@ async def device_heartbeat(
 )
 async def clear_device_activity(
     request: Request,
-    device_id: str = Query(
-        description="The ID of the device whose active session to clear."
-    ),
+    device_id: str = Query(),
 ) -> None:
     """Immediately clear an active session for a device (e.g. on graceful exit)."""
     require_token_device(request, device_id)

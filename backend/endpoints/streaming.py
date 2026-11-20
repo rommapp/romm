@@ -24,9 +24,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Annotated, Any, Literal, NamedTuple
 
-from fastapi import BackgroundTasks, Body, HTTPException
-from fastapi import Path as PathVar
-from fastapi import Query, Request
+from fastapi import BackgroundTasks, Body, HTTPException, Query, Request
 from pydantic import Field
 
 from decorators.auth import protected_route
@@ -223,9 +221,6 @@ ClaimedAtQuery = Annotated[
             " act on whatever is running."
         ),
     ),
-]
-PlatformPath = Annotated[
-    str, PathVar(description="The slug of the platform, such as `snes`.")
 ]
 
 
@@ -1181,7 +1176,7 @@ async def claim_session(
 )
 async def save_and_exit_session(
     request: Request,
-    platform: PlatformPath,
+    platform: str,
     req: Annotated[SaveAndExitRequest, Body()],
     container_key: ContainerQuery = None,
     claimed_at: ClaimedAtQuery = None,
@@ -1303,7 +1298,7 @@ async def save_and_exit_session(
 @protected_route(router.post, "/sessions/{platform}/heartbeat", [Scope.ROMS_USER_WRITE])
 async def heartbeat_session(
     request: Request,
-    platform: PlatformPath,
+    platform: str,
     container_key: ContainerQuery = None,
     claimed_at: ClaimedAtQuery = None,
 ) -> SessionStatusSchema:
@@ -1368,7 +1363,7 @@ async def heartbeat_session(
 @protected_route(router.get, "/sessions/{platform}/status", [Scope.ROMS_READ])
 async def session_status(
     request: Request,
-    platform: PlatformPath,
+    platform: str,
     claimed_at: ClaimedAtQuery = None,
 ) -> SessionStatusSchema:
     """Does the caller still hold this platform's session?
@@ -1388,7 +1383,7 @@ async def session_status(
 @protected_route(router.post, "/sessions/{platform}/join", [Scope.ROMS_READ])
 async def join_session(
     request: Request,
-    platform: PlatformPath,
+    platform: str,
     container: str | None = Query(
         default=None,
         description=(
@@ -1472,7 +1467,7 @@ async def join_session(
 @protected_route(router.post, "/sessions/{platform}/volume", [Scope.ROMS_USER_WRITE])
 async def set_volume(
     request: Request,
-    platform: PlatformPath,
+    platform: str,
     req: Annotated[VolumeRequest, Body()],
     container_key: ContainerQuery = None,
     claimed_at: ClaimedAtQuery = None,
@@ -1493,7 +1488,7 @@ async def set_volume(
 @protected_route(router.post, "/sessions/{platform}/mute", [Scope.ROMS_USER_WRITE])
 async def set_mute(
     request: Request,
-    platform: PlatformPath,
+    platform: str,
     req: Annotated[MuteRequest, Body()],
     container_key: ContainerQuery = None,
     claimed_at: ClaimedAtQuery = None,
@@ -1516,7 +1511,7 @@ async def set_mute(
 )
 async def save_state(
     request: Request,
-    platform: PlatformPath,
+    platform: str,
     req: Annotated[SaveStateRequest, Body()],
     container_key: ContainerQuery = None,
     claimed_at: ClaimedAtQuery = None,
@@ -1559,7 +1554,7 @@ async def save_state(
 )
 async def load_state(
     request: Request,
-    platform: PlatformPath,
+    platform: str,
     req: Annotated[LoadStateRequest, Body()],
     container_key: ContainerQuery = None,
     claimed_at: ClaimedAtQuery = None,
@@ -1581,7 +1576,7 @@ async def load_state(
 @protected_route(router.post, "/sessions/{platform}/swap-disc", [Scope.ROMS_USER_WRITE])
 async def swap_disc(
     request: Request,
-    platform: PlatformPath,
+    platform: str,
     req: Annotated[SwapDiscRequest, Body()],
     container_key: ContainerQuery = None,
     claimed_at: ClaimedAtQuery = None,
@@ -1628,7 +1623,7 @@ async def swap_disc(
 @protected_route(router.delete, "/sessions/{platform}", [Scope.ROMS_USER_WRITE])
 async def release_session(
     request: Request,
-    platform: PlatformPath,
+    platform: str,
     background_tasks: BackgroundTasks,
     reason: str | None = Query(
         default=None,
@@ -1836,9 +1831,7 @@ async def claim_desktop_session(
 @protected_route(router.get, "/sessions/joinable", [Scope.ROMS_READ])
 async def list_joinable_sessions(
     request: Request,
-    rom_id: int | None = Query(
-        default=None, ge=1, description="Only sessions playing this rom."
-    ),
+    rom_id: int | None = Query(default=None, ge=1),
 ) -> JoinableSessionsResponse:
     """Active multiplayer sessions any user may ask to join.
 

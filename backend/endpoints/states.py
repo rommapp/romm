@@ -93,7 +93,6 @@ async def add_state(
         str | None,
         Query(
             max_length=EMULATOR_VERSION_MAX_LENGTH,
-            description="The version of the emulator that wrote the state.",
         ),
     ] = None,
     core: Annotated[
@@ -107,7 +106,6 @@ async def add_state(
         str | None,
         Query(
             max_length=EMULATOR_VERSION_MAX_LENGTH,
-            description="The version of the core that wrote the state.",
         ),
     ] = None,
     device_id: Annotated[
@@ -190,9 +188,7 @@ async def add_state(
 @protected_route(router.get, "", [Scope.ASSETS_READ])
 def get_states(
     request: Request,
-    rom_id: Annotated[
-        int | None, Query(description="Only states for this rom.")
-    ] = None,
+    rom_id: int | None = None,
     rom_ids: Annotated[
         RomIdScope,
         Query(
@@ -203,9 +199,7 @@ def get_states(
             ),
         ),
     ] = None,
-    platform_id: Annotated[
-        int | None, Query(description="Only states for roms on this platform.")
-    ] = None,
+    platform_id: int | None = None,
 ) -> list[StateSchema]:
     """Retrieve states for the current user."""
     states = db_state_handler.get_states(
@@ -349,7 +343,7 @@ def update_state_visibility(
     id: StateIdPath,
     is_public: Annotated[
         bool,
-        Body(embed=True, description="Whether other users can see the state."),
+        Body(embed=True),
     ],
 ) -> StateSchema:
     """Toggle a state's public/private visibility (owner only). A state a
@@ -386,7 +380,7 @@ def update_state_favorite(
     id: StateIdPath,
     is_favorite: Annotated[
         bool,
-        Body(embed=True, description="Whether the state is marked as a favorite."),
+        Body(embed=True),
     ],
 ) -> StateSchema:
     """Favorite a state, sorting it ahead of the rest (owner only)."""
@@ -446,7 +440,6 @@ async def rename_state(
         Body(
             embed=True,
             max_length=FILE_NAME_MAX_LENGTH,
-            description="The new file name.",
         ),
     ],
 ) -> StateSchema:

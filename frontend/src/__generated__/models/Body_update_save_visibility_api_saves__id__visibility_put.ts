@@ -3,9 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type Body_update_save_visibility_api_saves__id__visibility_put = {
-    /**
-     * Whether other users can see the save.
-     */
     is_public: boolean;
 };
 

@@ -10,21 +10,9 @@ export type AppriseChannelCreatePayload = {
      * The topics the channel forwards. Null forwards every topic.
      */
     topics?: (Array<NotificationTopic> | null);
-    /**
-     * The kind of channel.
-     */
     type: string;
-    /**
-     * The name of the channel.
-     */
     name: string;
-    /**
-     * The Apprise service to send through.
-     */
     service: string;
-    /**
-     * The settings of the Apprise service.
-     */
     fields: Record<string, (boolean | number | string | Array<string>)>;
 };
 

@@ -115,77 +115,61 @@ class TaskExecutionResponse(TypedDict):
             )
         ),
     ]
-    task_name: Annotated[str, Field(description="The name of the task.")]
+    task_name: str
     task_id: Annotated[
         str,
         Field(description="The job ID, which `GET /tasks/{task_id}` takes."),
     ]
     status: JobStatus
-    created_at: Annotated[str | None, Field(description="When the job was created.")]
-    enqueued_at: Annotated[str | None, Field(description="When the job was queued.")]
+    created_at: str | None
+    enqueued_at: str | None
 
 
 class BaseTaskStatusResponse(TaskExecutionResponse):
-    started_at: Annotated[
-        str | None, Field(description="When the job started running.")
-    ]
-    ended_at: Annotated[str | None, Field(description="When the job finished.")]
+    started_at: str | None
+    ended_at: str | None
 
 
 @with_config(API_SCHEMA_CONFIG)
 class ScanTaskStatusResponse(BaseTaskStatusResponse):
     task_type: Literal[TaskType.SCAN]
-    """The kind of task: `scan`."""
     meta: ScanTaskMeta
-    """Details specific to this kind of task."""
 
 
 @with_config(API_SCHEMA_CONFIG)
 class ConversionTaskStatusResponse(BaseTaskStatusResponse):
     task_type: Literal[TaskType.CONVERSION]
-    """The kind of task: `conversion`."""
     meta: ConversionTaskMeta
-    """Details specific to this kind of task."""
 
 
 @with_config(API_SCHEMA_CONFIG)
 class UpdateTaskStatusResponse(BaseTaskStatusResponse):
     task_type: Literal[TaskType.UPDATE]
-    """The kind of task: `update`."""
     meta: UpdateTaskMeta
-    """Details specific to this kind of task."""
 
 
 @with_config(API_SCHEMA_CONFIG)
 class CleanupTaskStatusResponse(BaseTaskStatusResponse):
     task_type: Literal[TaskType.CLEANUP]
-    """The kind of task: `cleanup`."""
     meta: CleanupTaskMeta
-    """Details specific to this kind of task."""
 
 
 @with_config(API_SCHEMA_CONFIG)
 class SyncTaskStatusResponse(BaseTaskStatusResponse):
     task_type: Literal[TaskType.SYNC]
-    """The kind of task: `sync`."""
     meta: SyncTaskMeta
-    """Details specific to this kind of task."""
 
 
 @with_config(API_SCHEMA_CONFIG)
 class WatcherTaskStatusResponse(BaseTaskStatusResponse):
     task_type: Literal[TaskType.WATCHER]
-    """The kind of task: `watcher`."""
     meta: WatcherTaskMeta
-    """Details specific to this kind of task."""
 
 
 @with_config(API_SCHEMA_CONFIG)
 class GenericTaskStatusResponse(BaseTaskStatusResponse):
     task_type: Literal[TaskType.GENERIC]
-    """The kind of task: `generic`."""
     meta: GenericTaskMeta
-    """Details specific to this kind of task."""
 
 
 TaskStatusResponse = Union[

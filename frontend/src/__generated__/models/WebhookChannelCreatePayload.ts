@@ -10,17 +10,8 @@ export type WebhookChannelCreatePayload = {
      * The topics the channel forwards. Null forwards every topic.
      */
     topics?: (Array<NotificationTopic> | null);
-    /**
-     * The kind of channel.
-     */
     type: string;
-    /**
-     * The name of the channel.
-     */
     name: string;
-    /**
-     * The URL notifications are sent to.
-     */
     url: string;
     /**
      * The key the payload is signed with.

@@ -170,9 +170,7 @@ class GrantSchemaIO(BaseModel):
     """A single (entity, action) grant on a group, with the own-only flag."""
 
     entity: PermEntity
-    """The kind of thing the grant covers."""
     action: PermAction
-    """The action the grant allows."""
     own_only: bool = False
     """Whether the grant covers only things the user owns."""
 
@@ -237,9 +235,7 @@ class PermissionGroupUpdate(BaseModel):
 
 class OverrideSchemaIO(BaseModel):
     entity: PermEntity
-    """The kind of thing the override covers."""
     action: PermAction
-    """The action the override applies to."""
     granted: bool
     """True grants the action and false denies it."""
     own_only: bool = False
@@ -248,16 +244,12 @@ class OverrideSchemaIO(BaseModel):
 
 class HiddenEntitySchema(BaseModel):
     entity: PermEntity
-    """The kind of entity that is hidden."""
     entity_id: int
-    """The ID of the hidden entity."""
 
 
 class HiddenEntityCreate(BaseModel):
     entity: PermEntity
-    """The kind of entity to hide."""
     entity_id: int
-    """The ID of the entity to hide."""
     # Exactly one principal must be set (validated by the endpoint).
     user_id: int | None = None
     """The user to hide it from. Set exactly one of `user_id` and `group_id`."""

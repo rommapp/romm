@@ -172,14 +172,6 @@ def remove_music_favorites(
     return {"removed": removed}
 
 
-ArtistFilterQuery = Annotated[
-    str | None,
-    Query(description="Only include tracks by this artist."),
-]
-AlbumFilterQuery = Annotated[
-    str | None,
-    Query(description="Only include tracks from this album."),
-]
 GenreFilterQuery = Annotated[
     str | None,
     Query(description="Only include tracks with this genre tag."),
@@ -269,7 +261,7 @@ def get_music_artists(
     request: Request,
     params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[str | None, Query(description="Typeahead on artist.")] = None,
-    album: AlbumFilterQuery = None,
+    album: str | None = None,
     genre: GenreFilterQuery = None,
     platform_ids: PlatformIdsFilterQuery = None,
     year: YearFilterQuery = None,
@@ -301,7 +293,7 @@ def get_music_albums(
     request: Request,
     params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[str | None, Query(description="Typeahead on album.")] = None,
-    artist: ArtistFilterQuery = None,
+    artist: str | None = None,
     genre: GenreFilterQuery = None,
     platform_ids: PlatformIdsFilterQuery = None,
     year: YearFilterQuery = None,
@@ -333,8 +325,8 @@ def get_music_genres(
     request: Request,
     params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[str | None, Query(description="Typeahead on genre.")] = None,
-    artist: ArtistFilterQuery = None,
-    album: AlbumFilterQuery = None,
+    artist: str | None = None,
+    album: str | None = None,
     platform_ids: PlatformIdsFilterQuery = None,
     year: YearFilterQuery = None,
     min_duration: MinDurationFilterQuery = None,
@@ -365,8 +357,8 @@ def get_music_years(
     request: Request,
     params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[str | None, Query(description="Typeahead on year.")] = None,
-    artist: ArtistFilterQuery = None,
-    album: AlbumFilterQuery = None,
+    artist: str | None = None,
+    album: str | None = None,
     genre: GenreFilterQuery = None,
     platform_ids: PlatformIdsFilterQuery = None,
     min_duration: MinDurationFilterQuery = None,
@@ -399,8 +391,8 @@ def get_music_game_genres(
     search: Annotated[
         str | None, Query(description="Typeahead on the game's genre.")
     ] = None,
-    artist: ArtistFilterQuery = None,
-    album: AlbumFilterQuery = None,
+    artist: str | None = None,
+    album: str | None = None,
     genre: GenreFilterQuery = None,
     platform_ids: PlatformIdsFilterQuery = None,
     year: YearFilterQuery = None,
@@ -442,8 +434,8 @@ def get_music_platforms(
     request: Request,
     params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[str | None, Query(description="Typeahead on platform.")] = None,
-    artist: ArtistFilterQuery = None,
-    album: AlbumFilterQuery = None,
+    artist: str | None = None,
+    album: str | None = None,
     genre: GenreFilterQuery = None,
     game_genre: GameGenreFilterQuery = None,
     year: YearFilterQuery = None,
@@ -484,8 +476,8 @@ def get_music_games(
     search: Annotated[
         str | None, Query(description="Substring match on game/title/artist/album.")
     ] = None,
-    artist: ArtistFilterQuery = None,
-    album: AlbumFilterQuery = None,
+    artist: str | None = None,
+    album: str | None = None,
     genre: GenreFilterQuery = None,
     game_genre: GameGenreFilterQuery = None,
     platform_ids: PlatformIdsFilterQuery = None,

@@ -1,9 +1,7 @@
 import asyncio
 from typing import Annotated, Any
 
-from fastapi import Body, HTTPException
-from fastapi import Path as PathVar
-from fastapi import Request, status
+from fastapi import Body, HTTPException, Request, status
 
 from decorators.auth import protected_route
 from endpoints.responses.permission import (
@@ -44,9 +42,6 @@ router = APIRouter(
     prefix="/permissions",
     tags=["permissions"],
 )
-
-GroupIdPath = Annotated[int, PathVar(description="The ID of the permission group.")]
-UserIdPath = Annotated[int, PathVar(description="The ID of the user.")]
 
 
 async def _broadcast_permissions_changed(user_id: int) -> None:
@@ -213,7 +208,7 @@ async def create_permission_group(
 )
 async def update_permission_group(
     request: Request,
-    id: GroupIdPath,
+    id: int,
     body: PermissionGroupUpdate,
 ) -> PermissionGroupSchema:
     """Update a permission group (name/description/default/grants)."""
@@ -278,7 +273,7 @@ async def update_permission_group(
 )
 async def delete_permission_group(
     request: Request,
-    id: GroupIdPath,
+    id: int,
 ) -> None:
     """Delete a permission group. Members fall back to the default group."""
     assert_admin(request)
@@ -342,7 +337,7 @@ def _user_permissions(
 )
 def get_user_permissions(
     request: Request,
-    user_id: UserIdPath,
+    user_id: int,
 ) -> UserPermissionsSchema:
     """A user's group membership, per-user overrides and hidden entities."""
     assert_admin(request)
@@ -365,7 +360,7 @@ def get_user_permissions(
 )
 async def update_user_permissions(
     request: Request,
-    user_id: UserIdPath,
+    user_id: int,
     body: UserPermissionsUpdate,
 ) -> UserPermissionsSchema:
     """Assign a user's group and/or replace their per-user overrides."""
@@ -461,12 +456,8 @@ async def add_hidden_entity(
 )
 async def remove_hidden_entity(
     request: Request,
-    entity: Annotated[
-        PermEntity, Body(embed=True, description="The kind of entity to unhide.")
-    ],
-    entity_id: Annotated[
-        int, Body(embed=True, description="The ID of the entity to unhide.")
-    ],
+    entity: Annotated[PermEntity, Body(embed=True)],
+    entity_id: Annotated[int, Body(embed=True)],
     user_id: Annotated[
         int | None,
         Body(

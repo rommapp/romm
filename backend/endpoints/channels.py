@@ -1,9 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import HTTPException
-from fastapi import Path as PathVar
-from fastapi import Query, Request, status
+from fastapi import HTTPException, Query, Request, status
 from pydantic import Field
 
 from decorators.auth import protected_route
@@ -47,9 +45,6 @@ class ChannelUpdatePayload(BaseModel):
 
 class ChannelAttachPayload(BaseModel):
     rom_file_id: int
-
-
-ChannelIdPath = Annotated[uuid.UUID, PathVar(description="The ID of the channel.")]
 
 
 @protected_route(router.get, "", [Scope.ASSETS_READ])
@@ -119,7 +114,7 @@ def create_channel(request: Request, payload: ChannelCreatePayload) -> ChannelSc
 @protected_route(router.patch, "/{id}", [Scope.ASSETS_WRITE])
 def update_channel(
     request: Request,
-    id: ChannelIdPath,
+    id: uuid.UUID,
     payload: ChannelUpdatePayload,
 ) -> ChannelSchema:
     """Rename a channel or open it to every user. Owner only."""
@@ -133,7 +128,7 @@ def update_channel(
 @protected_route(router.post, "/{id}/attach", [Scope.ASSETS_WRITE])
 def attach_channel(
     request: Request,
-    id: ChannelIdPath,
+    id: uuid.UUID,
     payload: ChannelAttachPayload,
 ) -> ChannelSchema:
     """Attach a channel whose ROM was removed to a file of the same platform.
@@ -162,7 +157,7 @@ def attach_channel(
 )
 def clear_held(
     request: Request,
-    id: ChannelIdPath,
+    id: uuid.UUID,
     device_id: Annotated[
         str | None,
         Query(
@@ -182,7 +177,7 @@ def clear_held(
 )
 async def delete_channel(
     request: Request,
-    id: ChannelIdPath,
+    id: uuid.UUID,
 ) -> None:
     """Delete a channel. Its current and pinned snapshots stay as archival backups,
     except on a detached channel, whose ROM is gone, which keeps nothing."""

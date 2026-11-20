@@ -53,9 +53,7 @@ FirmwareFileNamePath = Annotated[
 @protected_route(router.post, "", [Scope.FIRMWARE_WRITE])
 async def add_firmware(
     request: Request,
-    platform_id: Annotated[
-        int, Query(description="The internal ID of the platform the firmware is for.")
-    ],
+    platform_id: int,
     files: list[UploadFile] = File(...),  # noqa: B008
 ) -> AddFirmwareResponse:
     """Upload firmware files endpoint
@@ -157,9 +155,7 @@ async def add_firmware(
 @protected_route(router.get, "", [Scope.FIRMWARE_READ])
 def get_platform_firmware(
     request: Request,
-    platform_id: Annotated[
-        int | None, Query(description="Only firmware for this platform.")
-    ] = None,
+    platform_id: int | None = None,
     missing: Annotated[
         bool | None,
         Query(description="Whether the firmware is missing from the filesystem."),
