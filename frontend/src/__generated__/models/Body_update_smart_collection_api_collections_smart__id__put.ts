@@ -4,11 +4,11 @@
 /* eslint-disable */
 export type Body_update_smart_collection_api_collections_smart__id__put = {
     /**
-     * The new name. Unset keeps the current name.
+     * The new name. Leave it out to keep the current name.
      */
     name?: (string | null);
     /**
-     * The new description. Unset keeps the current description.
+     * The new description. Leave it out to keep the current description.
      */
     description?: (string | null);
     /**

@@ -41,11 +41,11 @@ router = APIRouter(
 )
 
 
-FirmwareIdPath = Annotated[int, PathVar(description="Firmware internal id.")]
+FirmwareIdPath = Annotated[int, PathVar(description="The ID of the firmware file.")]
 FirmwareFileNamePath = Annotated[
     str,
     PathVar(
-        description="A file name for the URL, required because of a bug in emulatorjs. The download keeps the firmware's own file name."
+        description="A file name to end the URL with, which EmulatorJS needs because of a bug. It does not change the name of the downloaded file."
     ),
 ]
 

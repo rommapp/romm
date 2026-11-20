@@ -85,7 +85,7 @@ FEED_DEVICE_DESCRIPTION = (
     "current for a device records it as the current the device knows, which a "
     "push without `expected_current_id` expects. Naming one takes `devices.write`."
 )
-SnapshotIdPath = Annotated[int, PathVar(description="Snapshot internal id.")]
+SnapshotIdPath = Annotated[int, PathVar(description="The ID of the snapshot.")]
 SCREENSHOT_SUFFIX = ":screenshot"
 SAVE_SCREENSHOT_PART = "save_screenshot"
 STATE_PART_PATTERN = re.compile(r"^state:([^:]+):([^:]+)$")
@@ -125,7 +125,7 @@ class ManifestPayload(BaseModel):
         default=None, min_length=1, max_length=CHANNEL_LABEL_MAX_LENGTH
     )
     expected_current_id: int | None = None
-    """The current snapshot the push builds on; null expects an empty channel. Left out, the push expects the latest current its device knows from a feed, push or download, else its parent, else an empty channel."""
+    """The ID of the snapshot the push expects to be the channel's current one. Null means the push expects an empty channel. If left out, the server uses the latest current snapshot the device has seen through a feed, push or download, or else `parent_snapshot_id`, or else expects an empty channel."""
     parent_snapshot_id: int | None = None
     save: SaveEntryPayload | None = None
     states: dict[CoreName, dict[SlotName, ContentHash]] = {}

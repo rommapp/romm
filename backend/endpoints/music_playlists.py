@@ -89,7 +89,7 @@ def get_playlists(request: Request) -> list[MusicPlaylistSchema]:
 def add_playlist(
     request: Request, payload: MusicPlaylistCreateRequest
 ) -> MusicPlaylistSchema:
-    """Create a playlist. A name you already use for another playlist is rejected."""
+    """Create a playlist. Fails if you already have a playlist with that name."""
     if db_music_playlist_handler.get_playlist_by_name(payload.name, request.user.id):
         raise MusicPlaylistAlreadyExistsException(payload.name)
     try:
@@ -125,7 +125,7 @@ def update_playlist(
     id: Annotated[int, PathVar(description="Playlist internal id.", ge=1)],
     payload: MusicPlaylistUpdateRequest,
 ) -> MusicPlaylistSchema:
-    """Update one of your playlists; only the fields sent change. A name you already use for another playlist is rejected."""
+    """Update one of your playlists. Fields left out of the request keep their current values. Fails if you already have another playlist with the new name."""
     playlist = _get_owned_playlist(request, id)
     data = payload.model_dump(exclude_unset=True, exclude_none=True)
     if "description" in payload.model_fields_set:

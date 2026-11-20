@@ -6,7 +6,7 @@ import type { DeviceSyncSchema } from './DeviceSyncSchema';
 import type { ScreenshotSchema } from './ScreenshotSchema';
 export type SaveSchema = {
     /**
-     * The ID of the sync channel the row was pushed into. Null means a backup the user manages.
+     * The ID of the sync channel this was pushed to. Null for a backup that the user manages themselves.
      */
     channel_id?: (string | null);
     is_favorite?: boolean;
@@ -44,7 +44,7 @@ export type SaveSchema = {
     screenshot: (ScreenshotSchema | null);
     origin_device_id?: (string | null);
     /**
-     * The sync state of every device that synced the save, the named device first. Empty when the request names no device.
+     * The sync state of each device that has synced the save, starting with the device given in `device_id`. Empty when the request has no `device_id`.
      */
     device_syncs?: Array<DeviceSyncSchema>;
 };

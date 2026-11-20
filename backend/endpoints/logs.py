@@ -24,8 +24,9 @@ async def get_logs(
     limit: int = Query(
         MAX_LOG_LIMIT,
         description=(
-            "The number of recent log lines to return. It is clamped to between 1"
-            " and the log buffer size, which is also the default."
+            "The number of recent log lines to return, from 1 up to the log buffer"
+            " size. Values outside that range are clamped. Defaults to the log"
+            " buffer size."
         ),
     ),
 ) -> list[LogEntrySchema]:

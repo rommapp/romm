@@ -16,7 +16,7 @@ export type CustomLimitOffsetPage_SimpleRomSchema_ = {
      */
     offset: number;
     /**
-     * The position in the full ordered result where each first letter starts. Empty when `with_char_index` is false, the sort is not alphabetical, or a search ranks by relevance.
+     * For each first letter, the position in the full result where roms starting with it begin. Empty when `with_char_index` is false, the sort is not alphabetical, or a search ranks by relevance.
      */
     char_index: Record<string, number>;
     /**

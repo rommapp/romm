@@ -6,7 +6,7 @@ import type { ConversionTaskMeta } from './ConversionTaskMeta';
 import type { JobStatus } from './JobStatus';
 export type ConversionTaskStatusResponse = {
     /**
-     * The key of the task in the catalog. Null for scans started outside the catalog, by a client or the watcher.
+     * The key of the task in the catalog. Null for scans that a client or the file watcher started outside the catalog.
      */
     task_key: (string | null);
     task_name: string;

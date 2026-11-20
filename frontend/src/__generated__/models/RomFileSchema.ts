@@ -30,7 +30,7 @@ export type RomFileSchema = {
     md5_hash: (string | null);
     sha1_hash: (string | null);
     /**
-     * The hash RetroAchievements matches the file on.
+     * The hash RetroAchievements uses to identify the file.
      */
     ra_hash: (string | null);
     chd_sha1_hash: (string | null);

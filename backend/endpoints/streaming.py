@@ -205,9 +205,9 @@ ContainerQuery = Annotated[
         description=(
             "The key of the container, as returned when the session was"
             " claimed. Required for a desktop session or a container outside"
-            " the platform's first pool. Unset, the server finds your own game"
-            " session in that pool, or for an admin the one other active"
-            " session, and returns 409 when there are several."
+            " the platform's first pool. If left out, the server picks your own"
+            " game session in that pool, or for an admin the only other active"
+            " session. It returns 409 if more than one session matches."
         ),
     ),
 ]
@@ -1387,8 +1387,8 @@ async def join_session(
     container: str | None = Query(
         default=None,
         description=(
-            "The key of the container hosting the session. Unset, the first"
-            " joinable session on the platform is used. The host must have"
+            "The key of the container hosting the session. If left out, the"
+            " first joinable session on the platform is used. The host must have"
             " enabled multiplayer, or the request returns 403."
         ),
     ),

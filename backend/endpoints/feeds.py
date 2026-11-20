@@ -768,7 +768,7 @@ def kekatsu_ds_feed(
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
 def pkgj_psp_games_feed(request: Request) -> Response:
-    """Get the PKGj feed of PlayStation Portable games as tab-separated text, or 404 if the platform is missing."""
+    """Get the PKGj feed of PlayStation Portable games as tab-separated text. Returns 404 if the library does not have the platform."""
     platform = _visible_platform_by_slug(request, UPS.PSP)
     if not platform:
         raise HTTPException(
@@ -833,7 +833,7 @@ def pkgj_psp_games_feed(request: Request) -> Response:
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
 def pkgj_psp_dlcs_feed(request: Request) -> Response:
-    """Get the PKGj feed of PlayStation Portable DLC as tab-separated text, or 404 if the platform is missing."""
+    """Get the PKGj feed of PlayStation Portable DLC as tab-separated text. Returns 404 if the library does not have the platform."""
     platform = _visible_platform_by_slug(request, UPS.PSP)
     if not platform:
         raise HTTPException(
@@ -896,7 +896,7 @@ def pkgj_psp_dlcs_feed(request: Request) -> Response:
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
 def pkgj_psv_games_feed(request: Request) -> Response:
-    """Get the PKGj feed of PlayStation Vita games as tab-separated text, or 404 if the platform is missing."""
+    """Get the PKGj feed of PlayStation Vita games as tab-separated text. Returns 404 if the library does not have the platform."""
     platform = _visible_platform_by_slug(request, UPS.PSVITA)
     if not platform:
         raise HTTPException(
@@ -962,7 +962,7 @@ def pkgj_psv_games_feed(request: Request) -> Response:
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
 def pkgj_psv_dlcs_feed(request: Request) -> Response:
-    """Get the PKGj feed of PlayStation Vita DLC as tab-separated text, or 404 if the platform is missing."""
+    """Get the PKGj feed of PlayStation Vita DLC as tab-separated text. Returns 404 if the library does not have the platform."""
     platform = _visible_platform_by_slug(request, UPS.PSVITA)
     if not platform:
         raise HTTPException(
@@ -1022,7 +1022,7 @@ def pkgj_psv_dlcs_feed(request: Request) -> Response:
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
 def pkgj_psx_games_feed(request: Request) -> Response:
-    """Get the PKGj feed of PlayStation games as tab-separated text, or 404 if the platform is missing."""
+    """Get the PKGj feed of PlayStation games as tab-separated text. Returns 404 if the library does not have the platform."""
     platform = _visible_platform_by_slug(request, UPS.PSX)
     if not platform:
         raise HTTPException(status_code=404, detail="PlayStation platform not found")

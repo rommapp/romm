@@ -15,7 +15,7 @@ class SimilarityReasonSchema(BaseModel):
     facet: Facet
     """The kind of thing the two games share, such as `franchise`."""
     value: str
-    """What they share. Empty for facets with no value of their own."""
+    """The shared value, such as the franchise name. Empty for facets that have no value."""
 
 
 class SimilarRomSchema(BaseModel):

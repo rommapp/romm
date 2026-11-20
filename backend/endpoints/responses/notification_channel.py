@@ -63,7 +63,7 @@ class NotificationChannelSchema(BaseModel):
     topics: list[NotificationTopic] | None
     """The topics the channel forwards. Null forwards every topic."""
     target: str
-    """Where the channel sends: the URL with its secrets hidden, or an email address."""
+    """Where the channel sends notifications: its URL with the secrets hidden, or an email address."""
     # An Apprise channel's; `fields` leaves its secrets out, `stored_secrets` names them.
     service: str | None
     """The Apprise service ID, for an Apprise channel."""
@@ -71,7 +71,7 @@ class NotificationChannelSchema(BaseModel):
     fields: dict[str, AppriseFieldValue] | None
     """The Apprise service's settings, without its secrets."""
     stored_secrets: list[str] | None
-    """The names of the secret settings that are stored."""
+    """The names of the secret settings that have a stored value."""
     has_secret: bool
     confirmed: bool
     """Whether the channel is confirmed. A new email address has to be confirmed with a code first."""

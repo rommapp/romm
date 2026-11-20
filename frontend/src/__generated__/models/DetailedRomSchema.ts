@@ -106,13 +106,13 @@ export type DetailedRomSchema = {
      */
     name: (string | null);
     /**
-     * The key the gallery sorts by name: lowercase, without a leading article. `The Old Game` becomes `old game`.
+     * The key used to sort by name: the name in lowercase, without a leading article. `The Old Game` becomes `old game`.
      */
     name_sort_key: (string | null);
     slug: (string | null);
     summary: (string | null);
     /**
-     * Other titles the game is known by, without the display name. The hand-set titles when there are any, otherwise those from IGDB, MobyGames and ScreenScraper.
+     * Other titles the game is known by, excluding the display name. If the user has set titles by hand, only those are used. Otherwise they come from IGDB, MobyGames and ScreenScraper.
      */
     alternative_names: Array<string>;
     youtube_video_id: (string | null);
@@ -192,11 +192,11 @@ export type DetailedRomSchema = {
      */
     url_manual: (string | null);
     /**
-     * The path to a video, from the first of ScreenScraper, ES-DE and LaunchBox metadata that has one.
+     * The path to a video, taken from the ScreenScraper, ES-DE or LaunchBox metadata, in that order of preference.
      */
     path_video: (string | null);
     /**
-     * True only while a scan is matching the rom.
+     * True while a scan is looking up metadata for the rom.
      */
     is_identifying?: boolean;
     /**
@@ -231,7 +231,7 @@ export type DetailedRomSchema = {
     md5_hash: (string | null);
     sha1_hash: (string | null);
     /**
-     * The hash RetroAchievements matches the rom on. Empty when it was not computed.
+     * The hash RetroAchievements uses to identify the rom. Empty if it has not been computed.
      */
     ra_hash: (string | null);
     /**
@@ -243,7 +243,7 @@ export type DetailedRomSchema = {
      */
     save_target: (string | null);
     /**
-     * How `save_target` applies: as one folder, one file, a folder prefix, a file prefix or a nested path.
+     * How to read `save_target`: as a single folder, a single file, a folder prefix, a file prefix or a nested path.
      */
     save_target_layout: (SaveTargetLayout | null);
     /**
@@ -259,11 +259,11 @@ export type DetailedRomSchema = {
      */
     has_multiple_files: boolean;
     /**
-     * True for a folder with an `rpg_rt.ldb` database, an RPG Maker 2000 or 2003 game.
+     * True for an RPG Maker 2000 or 2003 game: a folder containing an `rpg_rt.ldb` database.
      */
     is_easyrpg_game: boolean;
     /**
-     * The `fs_path` and `fs_name` joined, relative to the library root.
+     * The path of the file or folder relative to the library root: `fs_path` joined with `fs_name`.
      */
     full_path: string;
     created_at: string;
@@ -281,7 +281,7 @@ export type DetailedRomSchema = {
      */
     has_file_on_disk: boolean;
     /**
-     * The barcode of a physical game. It looks up the title when no name is given.
+     * The barcode of a physical game, used to look up its title when no name is given.
      */
     upc: (string | null);
     /**
@@ -293,7 +293,7 @@ export type DetailedRomSchema = {
      */
     rom_user: RomUserSchema;
     /**
-     * The paths of the screenshots a scan stored from the metadata providers.
+     * The paths of the screenshots a scan downloaded from the metadata providers.
      */
     merged_screenshots: Array<string>;
     /**
@@ -305,7 +305,7 @@ export type DetailedRomSchema = {
      */
     files: Array<RomFileSchema>;
     /**
-     * The other versions of this game on the platform, minus any the user cannot see.
+     * The other versions of this game on the platform, excluding any the user cannot see.
      */
     sibling_roms: Array<SiblingRomSchema>;
     /**
@@ -325,15 +325,15 @@ export type DetailedRomSchema = {
      */
     all_user_states: Array<UserStateSchema>;
     /**
-     * The caller's channels on the rom, then other users' public ones.
+     * The caller's sync channels for the rom, followed by other users' public channels.
      */
     user_channels: Array<ChannelSchema>;
     /**
-     * The ID of the file a new channel on this rom attaches to.
+     * The ID of the file that a new channel for this rom is attached to.
      */
     channel_file_id: (number | null);
     /**
-     * The IDs of the saves filed in a channel. A save not listed here is a legacy slot upload.
+     * The IDs of the saves that belong to a channel. Any save not listed here was uploaded to a slot the legacy way.
      */
     snapshot_save_ids: Array<number>;
     /**
@@ -345,7 +345,7 @@ export type DetailedRomSchema = {
      */
     all_user_screenshots: Array<UserScreenshotSchema>;
     /**
-     * The collections holding the rom that the caller can see: their own and other users' public ones, smart collections included.
+     * The collections containing the rom that the caller can see, both their own and other users' public ones, including smart collections.
      */
     user_collections: Array<UserCollectionSchema>;
     /**
@@ -353,7 +353,7 @@ export type DetailedRomSchema = {
      */
     all_user_notes: Array<UserNoteSchema>;
     /**
-     * The formats the caller can request for the rom's single file with `?format=`.
+     * The formats the caller can request with `?format=` when downloading the rom's file. Only set for roms with a single file.
      */
     download_formats: Array<string>;
 };

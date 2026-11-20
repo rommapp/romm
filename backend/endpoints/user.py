@@ -402,7 +402,7 @@ def get_current_user(request: Request) -> UserSchema | None:
 
 @protected_route(router.get, "/{id}", [Scope.USERS_READ])
 def get_user(
-    request: Request, id: Annotated[int, PathVar(description="User internal id.")]
+    request: Request, id: Annotated[int, PathVar(description="The ID of the user.")]
 ) -> UserSchema:
     """Get user endpoint
 
@@ -428,7 +428,7 @@ def get_user(
 )
 def get_user_avatar(
     request: Request,
-    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+    id: Annotated[int, PathVar(description="The ID of the user.", ge=1)],
 ) -> FileResponse:
     """Serve a user's avatar image. Avatars are public to any authenticated
     user (rendered next to community content, activity, and user lists)."""
@@ -456,7 +456,7 @@ def get_user_avatar(
 @protected_route(router.put, "/{id}", [Scope.ME_WRITE])
 async def update_user(
     request: Request,
-    id: Annotated[int, PathVar(description="User internal id.")],
+    id: Annotated[int, PathVar(description="The ID of the user.")],
     form_data: Annotated[UserForm, Form()],
 ) -> UserSchema:
     """Update user endpoint
@@ -676,7 +676,7 @@ async def update_user(
 )
 async def delete_user(
     request: Request,
-    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+    id: Annotated[int, PathVar(description="The ID of the user.", ge=1)],
 ) -> None:
     """Delete a user by ID.
 
@@ -737,7 +737,7 @@ async def delete_user(
 )
 async def refresh_retro_achievements(
     request: Request,
-    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+    id: Annotated[int, PathVar(description="The ID of the user.", ge=1)],
     incremental: Annotated[
         bool,
         Body(

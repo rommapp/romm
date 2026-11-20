@@ -9,7 +9,7 @@ import type { ScreenshotSchema } from './ScreenshotSchema';
  */
 export type UserStateSchema = {
     /**
-     * The ID of the sync channel the row was pushed into. Null means a backup the user manages.
+     * The ID of the sync channel this was pushed to. Null for a backup that the user manages themselves.
      */
     channel_id?: (string | null);
     is_favorite?: boolean;

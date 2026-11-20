@@ -19,7 +19,7 @@ router = APIRouter(prefix="/audit-events", tags=["audit"])
 
 class AuditPageParams(PageParams):
     limit: int = Field(50, ge=1, le=200)
-    """Page size limit"""
+    """The maximum number of events per page."""
 
 
 AUDIT_PAGE_QUERY = as_query_dependency(AuditPageParams)
@@ -29,7 +29,7 @@ class AuditPage[T: BaseModel](LimitOffsetPage[T]):
     # Rows are ordered by when they happened, not by id, so later pages pin to
     # the highest id rather than to the first row's.
     max_id: int | None = None
-    """The highest ID among the matching events. Send it back as `max_id` to keep later pages on the same events."""
+    """The highest ID among the matching events. Pass it as `max_id` when requesting later pages, so they page through the same set of events."""
 
 
 @protected_route(router.get, "", [Scope.ME_READ])

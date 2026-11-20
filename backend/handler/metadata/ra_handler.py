@@ -81,7 +81,7 @@ class RAGameRom(BaseRom):
 @with_config(API_SCHEMA_CONFIG)
 class EarnedAchievement(TypedDict):
     id: Annotated[str, Field(deprecated=True)]
-    """The badge name, which several achievements can share. Use `ra_id`."""
+    """The badge name. Several achievements can share one, so use `ra_id` to identify an achievement."""
     ra_id: NotRequired[int]
     date: str
     date_hardcore: NotRequired[str]

@@ -31,7 +31,7 @@ export type UserScreenshotSchema = {
     created_at: string;
     updated_at: string;
     /**
-     * True for a screenshot shown in the gallery. Thumbnails captured with saves and states are not.
+     * True for a screenshot shown in the gallery, and false for a thumbnail captured with a save or state.
      */
     is_gallery?: boolean;
     is_public?: boolean;

@@ -87,7 +87,7 @@ def register_device(
     response: Response,
     payload: DeviceCreatePayload,
 ) -> DeviceCreateResponse:
-    """Register a device and return its ID. A repeat of the same MAC address, hostname and platform returns 409 unless `allow_existing` or `allow_duplicate` is set."""
+    """Register a device and return its ID. Returns 409 if a device with the same MAC address, hostname and platform already exists, unless `allow_existing` or `allow_duplicate` is set."""
     existing_device = None
     if not payload.allow_duplicate:
         existing_device = db_device_handler.get_device_by_fingerprint(
@@ -174,7 +174,7 @@ def register_device(
 
 @protected_route(router.get, "", [Scope.DEVICES_READ])
 def get_devices(request: Request) -> list[DeviceSchema]:
-    """List the caller's devices that the client token can reach."""
+    """List the caller's devices that the client token has access to."""
     devices = db_device_handler.get_devices(user_id=request.user.id)
     return [
         DeviceSchema.model_validate(device)
@@ -196,7 +196,7 @@ def update_device(
     device_id: str,
     payload: DeviceUpdatePayload,
 ) -> DeviceSchema:
-    """Update a device. Only the fields sent change."""
+    """Update a device. Fields left out of the request keep their current values."""
     device: Device | None = require_device(request, device_id)
 
     update_data = payload.model_dump(exclude_unset=True)
@@ -217,7 +217,7 @@ def update_device(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_device(request: Request, device_id: str) -> None:
-    """Delete a device. The client tokens bound to it are deleted with it."""
+    """Delete a device and the client tokens bound to it."""
     require_device(request, device_id)
 
     tokens = db_client_token_handler.get_tokens_by_device(device_id)

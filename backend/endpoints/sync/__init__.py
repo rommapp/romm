@@ -106,7 +106,7 @@ class SyncNegotiatePayload(BaseModel):
     emulators: list[str] | None = None
     """Emulators whose saves this client can load. When provided, only server saves written by one of them are paired or offered, so a save from another emulator in the same slot is left alone."""
     cores: list[str] | None = None
-    """Libretro cores whose saves this client can load. A save from a snapshot client that names its core is offered only to a client listing that core, and is matched by emulator otherwise."""
+    """Libretro cores whose saves this client can load. A save from a snapshot client that recorded its core is only offered to clients that list that core. Other saves are matched by emulator."""
 
 
 # Its own class so the OpenAPI schema keeps the name clients generate from.

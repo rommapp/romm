@@ -97,13 +97,13 @@ export type SimpleRomSchema = {
      */
     name: (string | null);
     /**
-     * The key the gallery sorts by name: lowercase, without a leading article. `The Old Game` becomes `old game`.
+     * The key used to sort by name: the name in lowercase, without a leading article. `The Old Game` becomes `old game`.
      */
     name_sort_key: (string | null);
     slug: (string | null);
     summary: (string | null);
     /**
-     * Other titles the game is known by, without the display name. The hand-set titles when there are any, otherwise those from IGDB, MobyGames and ScreenScraper.
+     * Other titles the game is known by, excluding the display name. If the user has set titles by hand, only those are used. Otherwise they come from IGDB, MobyGames and ScreenScraper.
      */
     alternative_names: Array<string>;
     youtube_video_id: (string | null);
@@ -183,11 +183,11 @@ export type SimpleRomSchema = {
      */
     url_manual: (string | null);
     /**
-     * The path to a video, from the first of ScreenScraper, ES-DE and LaunchBox metadata that has one.
+     * The path to a video, taken from the ScreenScraper, ES-DE or LaunchBox metadata, in that order of preference.
      */
     path_video: (string | null);
     /**
-     * True only while a scan is matching the rom.
+     * True while a scan is looking up metadata for the rom.
      */
     is_identifying?: boolean;
     /**
@@ -222,7 +222,7 @@ export type SimpleRomSchema = {
     md5_hash: (string | null);
     sha1_hash: (string | null);
     /**
-     * The hash RetroAchievements matches the rom on. Empty when it was not computed.
+     * The hash RetroAchievements uses to identify the rom. Empty if it has not been computed.
      */
     ra_hash: (string | null);
     /**
@@ -234,7 +234,7 @@ export type SimpleRomSchema = {
      */
     save_target: (string | null);
     /**
-     * How `save_target` applies: as one folder, one file, a folder prefix, a file prefix or a nested path.
+     * How to read `save_target`: as a single folder, a single file, a folder prefix, a file prefix or a nested path.
      */
     save_target_layout: (SaveTargetLayout | null);
     /**
@@ -250,11 +250,11 @@ export type SimpleRomSchema = {
      */
     has_multiple_files: boolean;
     /**
-     * True for a folder with an `rpg_rt.ldb` database, an RPG Maker 2000 or 2003 game.
+     * True for an RPG Maker 2000 or 2003 game: a folder containing an `rpg_rt.ldb` database.
      */
     is_easyrpg_game: boolean;
     /**
-     * The `fs_path` and `fs_name` joined, relative to the library root.
+     * The path of the file or folder relative to the library root: `fs_path` joined with `fs_name`.
      */
     full_path: string;
     created_at: string;
@@ -272,7 +272,7 @@ export type SimpleRomSchema = {
      */
     has_file_on_disk: boolean;
     /**
-     * The barcode of a physical game. It looks up the title when no name is given.
+     * The barcode of a physical game, used to look up its title when no name is given.
      */
     upc: (string | null);
     /**
@@ -284,7 +284,7 @@ export type SimpleRomSchema = {
      */
     rom_user: RomUserSchema;
     /**
-     * The paths of the screenshots a scan stored from the metadata providers.
+     * The paths of the screenshots a scan downloaded from the metadata providers.
      */
     merged_screenshots: Array<string>;
     /**
@@ -296,11 +296,11 @@ export type SimpleRomSchema = {
      */
     files: Array<RomFileSchema>;
     /**
-     * The other versions of this game on the platform, minus any the user cannot see.
+     * The other versions of this game on the platform, excluding any the user cannot see.
      */
     sibling_roms: Array<SiblingRomSchema>;
     /**
-     * The "where you left off" image: the latest save's screenshot, else the title screen, else the first gameplay screenshot. Set only when `last_played` is true.
+     * An image of where the user left off: the screenshot of the latest save, or else the title screen, or else the first gameplay screenshot. Only set when `last_played` is true.
      */
     screenshot_path?: (string | null);
 };

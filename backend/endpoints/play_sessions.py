@@ -63,7 +63,7 @@ def ingest_play_sessions(
     request: Request,
     payload: PlaySessionIngestPayload,
 ) -> PlaySessionIngestResponse:
-    """Record a batch of play sessions reported by a client. Sessions belong to the payload's `device_id`, or else to the client token's device."""
+    """Record a batch of play sessions reported by a client. The sessions are recorded for the payload's `device_id`, or for the client token's device when it is not set."""
     if not payload.sessions:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -117,8 +117,8 @@ def get_play_sessions(
         datetime | None,
         Query(
             description=(
-                "Only sessions that started at or after this time. With this or"
-                " `end_before`, `limit` is ignored and every match after"
+                "Only sessions that started at or after this time. When this or"
+                " `end_before` is set, `limit` is ignored and every match after"
                 " `offset` is returned."
             )
         ),
@@ -127,8 +127,8 @@ def get_play_sessions(
         datetime | None,
         Query(
             description=(
-                "Only sessions that started at or before this time. It filters"
-                " on the start time, not the end time."
+                "Only sessions that started at or before this time. The end time"
+                " of a session is not considered."
             )
         ),
     ] = None,

@@ -18,15 +18,15 @@ class BaseCollectionSchema(BaseModel):
     path_cover_small: str | None
     path_cover_large: str | None
     path_covers_small: list[str]
-    """The small covers of the roms in the collection, for a collage when `path_cover_small` is empty."""
+    """The small covers of the roms in the collection, used to build a collage when `path_cover_small` is empty."""
     path_covers_large: list[str]
-    """The large covers of the roms in the collection, for a collage when `path_cover_large` is empty."""
+    """The large covers of the roms in the collection, used to build a collage when `path_cover_large` is empty."""
     is_public: bool = False
     is_favorite: bool = False
     is_virtual: bool = False
-    """True for a virtual collection, which the library's metadata generates."""
+    """True for a virtual collection, which is generated from the library's metadata."""
     is_smart: bool = False
-    """True for a smart collection, which its filters define."""
+    """True for a smart collection, whose roms are chosen by its filters."""
     created_at: UTCDatetime
     updated_at: UTCDatetime
 

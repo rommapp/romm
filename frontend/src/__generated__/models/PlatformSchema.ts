@@ -26,7 +26,7 @@ export type PlatformSchema = {
     hltb_slug: (string | null);
     libretro_slug: (string | null);
     /**
-     * The name the user gave the platform in place of its own.
+     * A custom name the user set for the platform.
      */
     custom_name?: (string | null);
     description?: (string | null);
@@ -81,7 +81,7 @@ export type PlatformSchema = {
      */
     readonly alternative_names: Array<string>;
     /**
-     * The number of firmware files, usable or not.
+     * The number of firmware files, whether usable or not.
      */
     readonly firmware_count: number;
 };

@@ -15,7 +15,7 @@ export type SimilarityReasonSchema = {
      */
     facet: Facet;
     /**
-     * What they share. Empty for facets with no value of their own.
+     * The shared value, such as the franchise name. Empty for facets that have no value.
      */
     value: string;
 };

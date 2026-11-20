@@ -27,7 +27,7 @@ class PlatformSchema(BaseModel):
     hltb_slug: str | None
     libretro_slug: str | None
     custom_name: str | None = None
-    """The name the user gave the platform in place of its own."""
+    """A custom name the user set for the platform."""
     description: str | None = None
     igdb_id: int | None = None
     sgdb_id: int | None = None
@@ -81,7 +81,7 @@ class PlatformSchema(BaseModel):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def firmware_count(self) -> int:
-        """The number of firmware files, usable or not."""
+        """The number of firmware files, whether usable or not."""
         return len(self.firmware)
 
     @field_validator("firmware")

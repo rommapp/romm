@@ -8,7 +8,7 @@ import type { SaveLayoutOptionSchema } from './SaveLayoutOptionSchema';
  */
 export type SaveLayoutSchema = {
     /**
-     * The ID of the layout. The content route takes it as `core`.
+     * The ID of the layout, which the content route takes as `core`.
      */
     id: string;
     /**
@@ -16,7 +16,7 @@ export type SaveLayoutSchema = {
      */
     platform: string;
     /**
-     * The core options the layout's files read.
+     * The core options that the layout's files depend on.
      */
     options: Array<SaveLayoutOptionSchema>;
     /**

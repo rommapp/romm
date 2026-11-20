@@ -251,13 +251,13 @@ SAVE_FILE_UPDATE = File(default=None, description="Updated save file content.")
 SAVE_PATH_HEADER: Final = "X-Save-Path"
 SAVE_SCREENSHOT_UPDATE = File(default=None, description="Updated screenshot file.")
 
-SaveIdPath = Annotated[int, PathVar(description="Save internal id.")]
+SaveIdPath = Annotated[int, PathVar(description="The ID of the save.")]
 DeviceIdReadQuery = Annotated[
     str | None,
     Query(
         description=(
             "The ID of a registered device. When set, each save lists the sync"
-            " state of every device that synced it, this one first."
+            " state of every device that has synced it, starting with this one."
         )
     ),
 ]
@@ -274,9 +274,9 @@ ContentHashQuery = Annotated[
     str | None,
     Query(
         description=(
-            "The hash of the device's copy of the file. With `device_id` and an"
-            " uploaded file, the server stores it as the device's last synced"
-            " hash."
+            "The hash of the device's copy of the file. When `device_id` is set"
+            " and a file is uploaded, the server stores it as the hash the"
+            " device last synced."
         )
     ),
 ]
@@ -293,9 +293,9 @@ OptimisticQuery = Annotated[
     bool,
     Query(
         description=(
-            "Whether to mark the device as holding this save when the download"
-            " starts. Defaults to true. Set it to false to wait for"
-            " `POST /saves/{id}/downloaded`. Needs `device_id`."
+            "Whether to mark the device as having this save as soon as the"
+            " download starts. Defaults to true. Set it to false to mark it"
+            " later with `POST /saves/{id}/downloaded`. Requires `device_id`."
         )
     ),
 ]
@@ -351,7 +351,7 @@ async def add_save(
         Query(
             description=(
                 "Whether to replace the stored save even if it changed since the"
-                " device last synced. Without it, a stale device gets a 409."
+                " device last synced. Otherwise, a device with an outdated copy gets a 409."
             )
         ),
     ] = False,

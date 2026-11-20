@@ -24,7 +24,7 @@ export type NotificationCreatePayload = {
     icon?: (string | null);
     data?: Record<string, any>;
     /**
-     * User ids, `admins` or `all`; only an admin may notify anyone but themselves. Null notifies the caller.
+     * Who to notify: a list of user IDs, `admins` or `all`. Null notifies only the caller. Only an admin can notify other users.
      */
     recipients?: (Array<number> | 'admins' | 'all' | null);
 };

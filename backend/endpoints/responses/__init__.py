@@ -110,8 +110,8 @@ class TaskExecutionResponse(TypedDict):
         str | None,
         Field(
             description=(
-                "The key of the task in the catalog. Null for scans started"
-                " outside the catalog, by a client or the watcher."
+                "The key of the task in the catalog. Null for scans that a client"
+                " or the file watcher started outside the catalog."
             )
         ),
     ]

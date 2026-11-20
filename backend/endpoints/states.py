@@ -75,7 +75,7 @@ STATE_FILE_UPDATE = File(default=None, description="Updated state file content."
 STATE_SCREENSHOT_UPDATE = File(default=None, description="Updated screenshot file.")
 
 
-StateIdPath = Annotated[int, PathVar(description="State internal id.")]
+StateIdPath = Annotated[int, PathVar(description="The ID of the state.")]
 
 
 @protected_route(router.post, "", [Scope.ASSETS_WRITE])

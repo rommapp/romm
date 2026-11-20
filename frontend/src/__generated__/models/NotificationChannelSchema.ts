@@ -16,7 +16,7 @@ export type NotificationChannelSchema = {
      */
     topics: (Array<NotificationTopic> | null);
     /**
-     * Where the channel sends: the URL with its secrets hidden, or an email address.
+     * Where the channel sends notifications: its URL with the secrets hidden, or an email address.
      */
     target: string;
     /**
@@ -29,7 +29,7 @@ export type NotificationChannelSchema = {
      */
     fields: (Record<string, (boolean | number | string | Array<string>)> | null);
     /**
-     * The names of the secret settings that are stored.
+     * The names of the secret settings that have a stored value.
      */
     stored_secrets: (Array<string> | null);
     has_secret: boolean;

@@ -7,7 +7,7 @@ import type { SnapshotSchema } from './SnapshotSchema';
 export type SnapshotConflictSchema = {
     current: (SnapshotSchema | null);
     /**
-     * The snapshot the push stored as a branch.
+     * The pushed snapshot, which the server stored as a branch.
      */
     branch: SnapshotSchema;
     /**

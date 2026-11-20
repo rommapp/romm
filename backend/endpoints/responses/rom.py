@@ -326,7 +326,7 @@ class RomFileSchema(BaseModel):
     md5_hash: str | None
     sha1_hash: str | None
     ra_hash: str | None
-    """The hash RetroAchievements matches the file on."""
+    """The hash RetroAchievements uses to identify the file."""
     chd_sha1_hash: str | None
     archive_members: list[RomArchiveMember] | None
     category: RomFileCategory | None
@@ -452,13 +452,13 @@ class RomSchema(BaseModel):
     name: str | None
     """The display name, from the matched metadata or the file name."""
     name_sort_key: str | None
-    """The key the gallery sorts by name: lowercase, without a leading article. `The Old Game` becomes `old game`."""
+    """The key used to sort by name: the name in lowercase, without a leading article. `The Old Game` becomes `old game`."""
     slug: str | None
     summary: str | None
 
     # Metadata fields
     alternative_names: list[str]
-    """Other titles the game is known by, without the display name. The hand-set titles when there are any, otherwise those from IGDB, MobyGames and ScreenScraper."""
+    """Other titles the game is known by, excluding the display name. If the user has set titles by hand, only those are used. Otherwise they come from IGDB, MobyGames and ScreenScraper."""
     youtube_video_id: str | None
     metadatum: RomMetadataSchema
     """The metadata merged from every matched provider, used for filtering and sorting."""
@@ -503,10 +503,10 @@ class RomSchema(BaseModel):
     """The remote URL the manual was fetched from."""
 
     path_video: str | None
-    """The path to a video, from the first of ScreenScraper, ES-DE and LaunchBox metadata that has one."""
+    """The path to a video, taken from the ScreenScraper, ES-DE or LaunchBox metadata, in that order of preference."""
 
     is_identifying: bool = False
-    """True only while a scan is matching the rom."""
+    """True while a scan is looking up metadata for the rom."""
     is_unidentified: bool
     """True when no provider has matched the rom."""
     is_identified: bool
@@ -527,13 +527,13 @@ class RomSchema(BaseModel):
     md5_hash: str | None
     sha1_hash: str | None
     ra_hash: str | None
-    """The hash RetroAchievements matches the rom on. Empty when it was not computed."""
+    """The hash RetroAchievements uses to identify the rom. Empty if it has not been computed."""
     title_id: str | None
     """The platform's own ID for the game, read from the rom file and normalized, such as `SLUS-20152`."""
     save_target: str | None
     """The on-disk name an emulator gives the game's saves: a file stem, a folder or a nested path."""
     save_target_layout: SaveTargetLayout | None
-    """How `save_target` applies: as one folder, one file, a folder prefix, a file prefix or a nested path."""
+    """How to read `save_target`: as a single folder, a single file, a folder prefix, a file prefix or a nested path."""
 
     has_simple_single_file: bool
     """True for a single file at the top level."""
@@ -542,9 +542,9 @@ class RomSchema(BaseModel):
     has_multiple_files: bool
     """True when more than one file or folder sits at the top level."""
     is_easyrpg_game: bool
-    """True for a folder with an `rpg_rt.ldb` database, an RPG Maker 2000 or 2003 game."""
+    """True for an RPG Maker 2000 or 2003 game: a folder containing an `rpg_rt.ldb` database."""
     full_path: str
-    """The `fs_path` and `fs_name` joined, relative to the library root."""
+    """The path of the file or folder relative to the library root: `fs_path` joined with `fs_name`."""
     created_at: UTCDatetime
     updated_at: UTCDatetime
     missing_from_fs: bool
@@ -554,14 +554,14 @@ class RomSchema(BaseModel):
     has_file_on_disk: bool
     """Whether a readable file backs the rom. False for physical games and for roms whose file is missing."""
     upc: str | None
-    """The barcode of a physical game. It looks up the title when no name is given."""
+    """The barcode of a physical game, used to look up its title when no name is given."""
     has_notes: bool
     """Whether the current user can see a note on the rom."""
 
     rom_user: RomUserSchema
     """The current user's data for the rom, such as status and rating."""
     merged_screenshots: list[str]
-    """The paths of the screenshots a scan stored from the metadata providers."""
+    """The paths of the screenshots a scan downloaded from the metadata providers."""
     merged_ra_metadata: RomRAMetadata | None
     """The RetroAchievements metadata with its achievements sorted for display."""
 
@@ -570,7 +570,7 @@ class RomSchema(BaseModel):
     sibling_roms: list[SiblingRomSchema] = Field(
         validation_alias="included_sibling_roms"
     )
-    """The other versions of this game on the platform, minus any the user cannot see."""
+    """The other versions of this game on the platform, excluding any the user cannot see."""
 
     # The filename parser stores "" when a name has no such tag.
     @field_validator("revision", "version")
@@ -677,7 +677,7 @@ PROVIDER_METADATA_FIELDS: Final = (
 
 class SimpleRomSchema(RomSchema):
     screenshot_path: str | None = None
-    """The "where you left off" image: the latest save's screenshot, else the title screen, else the first gameplay screenshot. Set only when `last_played` is true."""
+    """An image of where the user left off: the screenshot of the latest save, or else the title screen, or else the first gameplay screenshot. Only set when `last_played` is true."""
 
     @classmethod
     def from_orm_with_request(
@@ -780,21 +780,21 @@ class DetailedRomSchema(RomSchema):
     all_user_states: list[UserStateSchema]
     """The caller's own states and other users' public states, each with its owner's name and avatar."""
     user_channels: list[ChannelSchema]
-    """The caller's channels on the rom, then other users' public ones."""
+    """The caller's sync channels for the rom, followed by other users' public channels."""
     channel_file_id: int | None
-    """The ID of the file a new channel on this rom attaches to."""
+    """The ID of the file that a new channel for this rom is attached to."""
     snapshot_save_ids: list[int]
-    """The IDs of the saves filed in a channel. A save not listed here is a legacy slot upload."""
+    """The IDs of the saves that belong to a channel. Any save not listed here was uploaded to a slot the legacy way."""
     user_screenshots: list[ScreenshotSchema]
     """The caller's own screenshots for the rom."""
     all_user_screenshots: list[UserScreenshotSchema]
     """The gallery screenshots the caller can see: their own and other users' public ones. Thumbnails captured with saves and states are not included."""
     user_collections: list[UserCollectionSchema]
-    """The collections holding the rom that the caller can see: their own and other users' public ones, smart collections included."""
+    """The collections containing the rom that the caller can see, both their own and other users' public ones, including smart collections."""
     all_user_notes: list[UserNoteSchema]
     """The notes the caller can see, most recently updated first."""
     download_formats: list[str]
-    """The formats the caller can request for the rom's single file with `?format=`."""
+    """The formats the caller can request with `?format=` when downloading the rom's file. Only set for roms with a single file."""
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:

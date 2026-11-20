@@ -34,7 +34,7 @@ class StreamingContainerSchema(BaseModel):
     supports_save_picker: bool
     supports_live_states: bool
     import_kinds: list[Literal["save", "state"]]
-    """The kinds of picks from other emulators the broker can import. Empty when it declares none or cannot be asked."""
+    """The kinds of files from other emulators, saves or states, that the broker can import. Empty when the broker declares none or does not answer."""
 
 
 class StreamStatePicksSchema(BaseModel):

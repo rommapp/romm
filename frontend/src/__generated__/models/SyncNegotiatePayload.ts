@@ -25,7 +25,7 @@ export type SyncNegotiatePayload = {
      */
     emulators?: (Array<string> | null);
     /**
-     * Libretro cores whose saves this client can load. A save from a snapshot client that names its core is offered only to a client listing that core, and is matched by emulator otherwise.
+     * Libretro cores whose saves this client can load. A save from a snapshot client that recorded its core is only offered to clients that list that core. Other saves are matched by emulator.
      */
     cores?: (Array<string> | null);
 };

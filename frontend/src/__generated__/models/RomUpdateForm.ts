@@ -64,56 +64,56 @@ export type RomUpdateForm = {
      */
     libretro_id?: (string | null);
     /**
-     * Raw IGDB metadata as JSON string.
+     * Raw IGDB metadata, as a JSON string.
      */
     raw_igdb_metadata?: (string | null);
     /**
-     * Raw MobyGames metadata as JSON string.
+     * Raw MobyGames metadata, as a JSON string.
      */
     raw_moby_metadata?: (string | null);
     /**
-     * Raw ScreenScraper metadata as JSON string.
+     * Raw ScreenScraper metadata, as a JSON string.
      */
     raw_ss_metadata?: (string | null);
     /**
-     * Raw LaunchBox metadata as JSON string.
+     * Raw LaunchBox metadata, as a JSON string.
      */
     raw_launchbox_metadata?: (string | null);
     /**
-     * Raw Hasheous metadata as JSON string.
+     * Raw Hasheous metadata, as a JSON string.
      */
     raw_hasheous_metadata?: (string | null);
     /**
-     * Raw Flashpoint metadata as JSON string.
+     * Raw Flashpoint metadata, as a JSON string.
      */
     raw_flashpoint_metadata?: (string | null);
     /**
-     * Raw HowLongToBeat metadata as JSON string.
+     * Raw HowLongToBeat metadata, as a JSON string.
      */
     raw_hltb_metadata?: (string | null);
     /**
-     * Raw Demozoo metadata as JSON string.
+     * Raw Demozoo metadata, as a JSON string.
      */
     raw_demozoo_metadata?: (string | null);
     /**
-     * Raw Pouët metadata as JSON string.
+     * Raw Pouët metadata, as a JSON string.
      */
     raw_pouet_metadata?: (string | null);
     /**
-     * Raw CSDb metadata as JSON string.
+     * Raw CSDb metadata, as a JSON string.
      */
     raw_csdb_metadata?: (string | null);
     /**
-     * Raw Steam metadata as JSON string.
+     * Raw Steam metadata, as a JSON string.
      */
     raw_steam_metadata?: (string | null);
     /**
-     * Raw manual metadata as JSON string.
+     * Raw manual metadata, as a JSON string.
      */
     raw_manual_metadata?: (string | null);
     name?: (string | null);
     /**
-     * The sort key to use in place of one derived from the name.
+     * A custom sort key, used instead of the one derived from the name.
      */
     name_sort_key?: (string | null);
     summary?: (string | null);

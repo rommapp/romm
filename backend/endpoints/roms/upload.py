@@ -293,9 +293,9 @@ class UploadTargetPayload(BaseModel):
     rom_id: int | None = Field(default=None, ge=1)
     """Upload into this ROM's folder instead of the platform folder."""
     folder: str = ""
-    """Subfolder inside the ROM's folder, relative and forward-slashed. Empty for the root."""
+    """A subfolder of the ROM's folder, as a relative path with forward slashes. Empty for the ROM's folder itself."""
     filename: str | None = None
-    """The file name. Takes precedence over the header, which cannot carry characters outside Latin-1."""
+    """The file name. Overrides the `x-upload-filename` header, which can only hold Latin-1 characters."""
     overwrite: bool = False
     """Replace a file of the same name in the ROM's folder instead of refusing the upload."""
 
@@ -344,8 +344,8 @@ async def start_chunked_upload(
             ge=0,
             description=(
                 "The number of chunks the file is sent in. A 10 MB file sent in"
-                " 2 MB chunks has 5. Zero only for an empty file, which goes"
-                " straight to `/complete`."
+                " 2 MB chunks has 5. Zero only for an empty file, which skips the"
+                " chunk uploads and goes straight to `/complete`."
             ),
         ),
     ],
@@ -437,8 +437,8 @@ async def upload_chunk(
             alias="x-chunk-index",
             ge=0,
             description=(
-                "The zero-based position of this chunk. The body must be the"
-                " size that position expects."
+                "The zero-based position of this chunk. The request body must be"
+                " exactly the size expected at that position."
             ),
         ),
     ],

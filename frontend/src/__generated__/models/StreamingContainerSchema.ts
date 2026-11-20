@@ -22,7 +22,7 @@ export type StreamingContainerSchema = {
     supports_save_picker: boolean;
     supports_live_states: boolean;
     /**
-     * The kinds of picks from other emulators the broker can import. Empty when it declares none or cannot be asked.
+     * The kinds of files from other emulators, saves or states, that the broker can import. Empty when the broker declares none or does not answer.
      */
     import_kinds: Array<'save' | 'state'>;
 };

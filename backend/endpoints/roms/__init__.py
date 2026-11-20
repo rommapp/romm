@@ -342,32 +342,32 @@ class RomUpdateForm(BaseModel):
     libretro_id: str | None = None
     """Libretro thumbnail ID."""
     raw_igdb_metadata: str | None = None
-    """Raw IGDB metadata as JSON string."""
+    """Raw IGDB metadata, as a JSON string."""
     raw_moby_metadata: str | None = None
-    """Raw MobyGames metadata as JSON string."""
+    """Raw MobyGames metadata, as a JSON string."""
     raw_ss_metadata: str | None = None
-    """Raw ScreenScraper metadata as JSON string."""
+    """Raw ScreenScraper metadata, as a JSON string."""
     raw_launchbox_metadata: str | None = None
-    """Raw LaunchBox metadata as JSON string."""
+    """Raw LaunchBox metadata, as a JSON string."""
     raw_hasheous_metadata: str | None = None
-    """Raw Hasheous metadata as JSON string."""
+    """Raw Hasheous metadata, as a JSON string."""
     raw_flashpoint_metadata: str | None = None
-    """Raw Flashpoint metadata as JSON string."""
+    """Raw Flashpoint metadata, as a JSON string."""
     raw_hltb_metadata: str | None = None
-    """Raw HowLongToBeat metadata as JSON string."""
+    """Raw HowLongToBeat metadata, as a JSON string."""
     raw_demozoo_metadata: str | None = None
-    """Raw Demozoo metadata as JSON string."""
+    """Raw Demozoo metadata, as a JSON string."""
     raw_pouet_metadata: str | None = None
-    """Raw Pouët metadata as JSON string."""
+    """Raw Pouët metadata, as a JSON string."""
     raw_csdb_metadata: str | None = None
-    """Raw CSDb metadata as JSON string."""
+    """Raw CSDb metadata, as a JSON string."""
     raw_steam_metadata: str | None = None
-    """Raw Steam metadata as JSON string."""
+    """Raw Steam metadata, as a JSON string."""
     raw_manual_metadata: str | None = None
-    """Raw manual metadata as JSON string."""
+    """Raw manual metadata, as a JSON string."""
     name: str | None = None
     name_sort_key: str | None = None
-    """The sort key to use in place of one derived from the name."""
+    """A custom sort key, used instead of the one derived from the name."""
     summary: str | None = None
     fs_name: str | None = None
     """The new name of the file or folder."""
@@ -433,7 +433,7 @@ PinnedMediaKey = Annotated[
 
 class RomUserData(BaseModel):
     is_main_sibling: bool | None = None
-    """Whether this rom is the main sibling."""
+    """Whether this rom is the main version of its game."""
     backlogged: bool | None = None
     """Whether this rom is in the backlog."""
     now_playing: bool | None = None
@@ -451,7 +451,7 @@ class RomUserData(BaseModel):
     pinned_media: Annotated[
         list[PinnedMediaKey] | None, AfterValidator(dedupe_in_order)
     ] = Field(default=None, max_length=PINNED_MEDIA_MAX_ITEMS)
-    """Ordered media keys shown on the overview; null restores the default selection."""
+    """The media keys to show on the overview, in order. Null restores the default selection."""
 
 
 # A default keeps the body optional, since an edit may send only query flags.
@@ -586,7 +586,7 @@ class CustomLimitOffsetPage[T: PydanticBaseModel](LimitOffsetPage[T]):
     total: int | None = Field(ge=0)  # type: ignore[assignment]
     """The number of roms across all pages. Null when `with_total` is false, unless `with_rom_id_index` is true."""
     char_index: dict[str, int]
-    """The position in the full ordered result where each first letter starts. Empty when `with_char_index` is false, the sort is not alphabetical, or a search ranks by relevance."""
+    """For each first letter, the position in the full result where roms starting with it begin. Empty when `with_char_index` is false, the sort is not alphabetical, or a search ranks by relevance."""
     rom_id_index: list[int]
     """The IDs of every matching rom, in order. Empty when `with_rom_id_index` is false."""
     filter_values: RomFiltersDict
@@ -656,9 +656,9 @@ def get_roms(
                 " dropdowns, as lists of the distinct genres, franchises,"
                 " collections, companies, publishers, developers, game modes, age"
                 " ratings, player counts, regions, languages, tags and platforms."
-                " They come from the roms in the current platform, collection or"
-                " search, and ignore the other filters, so choosing a filter never"
-                " empties its own list."
+                " The values come from all roms in the current platform, collection"
+                " or search, ignoring the other filters, so selecting a value"
+                " never removes the other options from the same dropdown."
             )
         ),
     ] = True,
@@ -667,11 +667,12 @@ def get_roms(
         Query(
             description=(
                 "Whether to return `rom_id_index`: the IDs of every matching rom,"
-                " in result order. It gives a client the whole ordered list up"
-                " front, so it can size a scrollbar and load any part of the list"
-                " later. The page is then a slice of it, and `total` comes free."
-                " It grows with the result, so turn it off for small lists and for"
-                " loading the next page of a list you already hold."
+                " in result order. With the whole ordered list up front, a client"
+                " can size a scrollbar and fetch any part of the list later. The"
+                " returned page is a slice of that list, and `total` is filled in"
+                " at no extra cost. The list grows with the number of results, so"
+                " turn it off for small lists and when fetching the next page of a"
+                " list you already have."
             )
         ),
     ] = True,
@@ -679,10 +680,10 @@ def get_roms(
         bool,
         Query(
             description=(
-                "Whether to count every matching rom into `total`. Set it to false"
-                " when you already know the size, such as when loading the next"
-                " page of a list you have counted. `total` is then null, unless"
-                " `with_rom_id_index` is true, which gives the count for free."
+                "Whether to count the matching roms and return the count in `total`."
+                " Set it to false when you already know the count, such as when"
+                " fetching the next page of a list. `total` is then null, unless"
+                " `with_rom_id_index` is true, in which case it is filled in anyway."
             )
         ),
     ] = True,
@@ -690,12 +691,12 @@ def get_roms(
         bool,
         Query(
             description=(
-                "Whether to include the raw metadata each provider returned, in"
-                " fields such as `igdb_metadata` and `ss_metadata`. Set it to"
-                " false for a lighter response. Those fields then come back null,"
-                " while a provider with no match gives an empty object."
-                " `manual_metadata` and"
-                " the merged `metadatum` are always included."
+                "Whether to include the raw metadata from each provider, in fields"
+                " such as `igdb_metadata` and `ss_metadata`. Set it to false for a"
+                " smaller response. When false, those fields are null. When true,"
+                " a provider with no match gives an empty object."
+                " `manual_metadata` and the merged `metadatum` are always"
+                " included."
             )
         ),
     ] = True,
@@ -705,11 +706,11 @@ def get_roms(
             description=(
                 "The field to sort by, such as `name`, `created_at`,"
                 " `fs_size_bytes`, `first_release_date`, `average_rating` or"
-                " `last_played`. An unknown field sorts by name. Left empty, it"
-                " sorts by name too, except a search of two or more words, or of"
-                " at least three characters, which is ranked by relevance: exact"
-                " name or alias matches first, then names starting with the term,"
-                " then phrase matches."
+                " `last_played`. An unknown field sorts by name. When empty, results"
+                " are also sorted by name, except for a search of two or more"
+                " words or at least three characters, which is ranked by"
+                " relevance: exact name or alias matches first, then names that"
+                " start with the search term, then phrase matches."
             ),
         ),
     ] = "",
@@ -1340,7 +1341,7 @@ def get_rom_by_hash(
         str | None, Query(description="RetroAchievements hash value")
     ] = None,
 ) -> DetailedRomSchema:
-    """Find a rom by the hash of the rom or one of its files. No hash returns 400, and a match the caller cannot see returns 404."""
+    """Find a rom by the hash of the rom or one of its files. Returns 400 if no hash is given, and 404 if the matching rom is hidden from the caller."""
     if not crc_hash and not md5_hash and not sha1_hash and not ra_hash:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -2658,11 +2659,11 @@ class RomIdentityData(BaseModel):
     """Binary identity a client extracted for a ROM that RomM cannot read itself."""
 
     title_id: str | None = Field(default=None, max_length=TITLE_ID_MAX_LENGTH)
-    """Platform-native identity, e.g. 0100ABCD12340000 or SLUS-20152."""
+    """The game's ID on its own platform, such as `0100ABCD12340000` or `SLUS-20152`."""
     save_target: str | None = Field(default=None, max_length=TITLE_ID_MAX_LENGTH)
     """On-disk name the emulator gives this game's saves."""
     save_target_layout: SaveTargetLayout | None = None
-    """How to apply save_target when locating saves on disk."""
+    """How to read `save_target` when locating saves on disk."""
 
 
 @protected_route(

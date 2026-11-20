@@ -142,22 +142,22 @@ def _check_criteria_collection(
         raise CollectionNotFoundInDatabaseException(collection_id)
 
 
-CollectionIdPath = Annotated[int, PathVar(description="Collection internal id.")]
+CollectionIdPath = Annotated[int, PathVar(description="The ID of the collection.")]
 SmartCollectionIdPath = Annotated[
-    int, PathVar(description="Smart collection internal id.")
+    int, PathVar(description="The ID of the smart collection.")
 ]
 VirtualCollectionIdPath = Annotated[
     str,
     PathVar(
-        description="Virtual collection id, as `GET /collections/virtual` returns it."
+        description="The ID of the virtual collection, as returned by `GET /collections/virtual`."
     ),
 ]
 IsPublicUpdateQuery = Annotated[
     bool | None,
     Query(
         description=(
-            "Whether other users can see the collection. Unset keeps the"
-            " current value."
+            "Whether other users can see the collection. Leave it out to keep"
+            " the current setting."
         )
     ),
 ]
@@ -355,9 +355,9 @@ def get_virtual_collections(
         Query(
             description=(
                 "The kind of collection: `genre`, `franchise`, `collection`,"
-                " `mode`, `company`, `publisher`, `developer` or `all`. The"
-                " library's metadata generates"
-                " them, one per distinct value."
+                " `mode`, `company`, `publisher`, `developer` or `all`. Virtual"
+                " collections are generated from the library's metadata, one for"
+                " each distinct value."
             )
         ),
     ],
@@ -366,7 +366,7 @@ def get_virtual_collections(
         Query(
             description=(
                 "The maximum number of collections to return, sorted by name."
-                " Unset returns all of them."
+                " Leave it out to return all of them."
             )
         ),
     ] = None,
@@ -532,11 +532,11 @@ async def update_collection(
     name: str | None = Form(
         default=None,
         max_length=COLLECTION_NAME_MAX_LENGTH,
-        description="The new name. Unset keeps the current name.",
+        description="The new name. Leave it out to keep the current name.",
     ),
     description: str | None = Form(
         default=None,
-        description="The new description. Unset keeps the current description.",
+        description="The new description. Leave it out to keep the current description.",
     ),
     url_cover: str | None = Form(default=None, description="Updated remote cover URL."),
 ) -> CollectionSchema:
@@ -784,11 +784,11 @@ async def update_smart_collection(
     name: str | None = Form(
         default=None,
         max_length=COLLECTION_NAME_MAX_LENGTH,
-        description="The new name. Unset keeps the current name.",
+        description="The new name. Leave it out to keep the current name.",
     ),
     description: str | None = Form(
         default=None,
-        description="The new description. Unset keeps the current description.",
+        description="The new description. Leave it out to keep the current description.",
     ),
     filter_criteria: str | None = Form(
         default=None,
@@ -888,7 +888,7 @@ def update_smart_collection_visibility(
 )
 async def delete_collection(
     request: Request,
-    id: Annotated[int, PathVar(description="Collection internal id.", ge=1)],
+    id: Annotated[int, PathVar(description="The ID of the collection.", ge=1)],
 ) -> None:
     """Delete a collection by ID."""
     collection = db_collection_handler.get_collection(id)
@@ -919,7 +919,7 @@ async def delete_collection(
 )
 async def delete_smart_collection(
     request: Request,
-    id: Annotated[int, PathVar(description="Smart collection internal id.", ge=1)],
+    id: Annotated[int, PathVar(description="The ID of the smart collection.", ge=1)],
 ) -> None:
     """Delete a smart collection by ID."""
     smart_collection = db_collection_handler.get_smart_collection(id)

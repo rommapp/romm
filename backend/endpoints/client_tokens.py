@@ -61,7 +61,7 @@ def create_token(
     request: Request,
     payload: ClientTokenCreatePayload,
 ) -> ClientTokenCreateSchema:
-    """Create a client token with scopes no wider than the caller's. The response holds its secret, which cannot be retrieved later."""
+    """Create a client token with scopes no wider than the caller's. The response contains the token's secret, which cannot be retrieved again."""
     if token_device_id(request) is not None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -133,7 +133,7 @@ async def regenerate_token(
     request: Request,
     token_id: int,
 ) -> ClientTokenCreateSchema:
-    """Replace a token's secret. The old one stops working, and the new one is returned once."""
+    """Replace a token's secret. The old secret stops working, and the new one is shown only in this response."""
     existing = db_client_token_handler.get_token(
         token_id=token_id, user_id=request.user.id
     )
@@ -168,7 +168,7 @@ def pair_token(
     request: Request,
     token_id: int,
 ) -> ClientTokenPairSchema:
-    """Create a pairing code for a token. It works once, and `expires_in` gives its lifetime in seconds."""
+    """Create a single-use pairing code for a token. `expires_in` is the number of seconds the code stays valid."""
     token = db_client_token_handler.get_token(
         token_id=token_id, user_id=request.user.id
     )
@@ -211,7 +211,7 @@ async def exchange_pair_code(
     request: Request,
     payload: ClientTokenExchangePayload,
 ) -> ClientTokenCreateSchema:
-    """Exchange a pairing code for a new secret for its token. The code is used up and the previous secret is replaced."""
+    """Exchange a pairing code for a new secret for the token it was created for. The code cannot be used again, and the token's previous secret stops working."""
     token = exchange(request, payload.code)
     await close_client_token_sockets([token.id])
     return token

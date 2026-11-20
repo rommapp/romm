@@ -12,11 +12,11 @@ export type Body_update_collection_api_collections__id__put = {
      */
     rom_ids: string;
     /**
-     * The new name. Unset keeps the current name.
+     * The new name. Leave it out to keep the current name.
      */
     name?: (string | null);
     /**
-     * The new description. Unset keeps the current description.
+     * The new description. Leave it out to keep the current description.
      */
     description?: (string | null);
     /**

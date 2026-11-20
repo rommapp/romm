@@ -12,11 +12,11 @@ export type VirtualCollectionSchema = {
     path_cover_small: (string | null);
     path_cover_large: (string | null);
     /**
-     * The small covers of the roms in the collection, for a collage when `path_cover_small` is empty.
+     * The small covers of the roms in the collection, used to build a collage when `path_cover_small` is empty.
      */
     path_covers_small: Array<string>;
     /**
-     * The large covers of the roms in the collection, for a collage when `path_cover_large` is empty.
+     * The large covers of the roms in the collection, used to build a collage when `path_cover_large` is empty.
      */
     path_covers_large: Array<string>;
     is_public?: boolean;
@@ -26,7 +26,7 @@ export type VirtualCollectionSchema = {
      */
     is_virtual?: boolean;
     /**
-     * True for a smart collection, which its filters define.
+     * True for a smart collection, whose roms are chosen by its filters.
      */
     is_smart?: boolean;
     created_at: string;

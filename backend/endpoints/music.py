@@ -25,7 +25,7 @@ router = APIRouter(prefix="/music", tags=["music"])
 class MusicPageParams(PageParams):
     # Sized to the largest page the jukebox requests (a whole soundtrack).
     limit: int = Field(50, ge=1, le=1_000)
-    """Page size limit"""
+    """The maximum number of items per page."""
 
 
 MUSIC_PAGE_QUERY = as_query_dependency(MusicPageParams)
@@ -70,31 +70,31 @@ def resolve_track_ids(rom_file_ids: list[int], perms: ResolvedPermissions) -> li
 
 class MusicTrackFilters(BaseModel):
     search: str | None = None
-    """Substring match on title/artist/album."""
+    """Only tracks whose title, artist or album contains this text."""
     artist: str | None = None
-    """Exact artist."""
+    """Only tracks by this artist, matched exactly."""
     album: str | None = None
-    """Exact album."""
+    """Only tracks from this album, matched exactly."""
     genre: str | None = None
-    """Exact genre."""
+    """Only tracks with this genre, matched exactly."""
     game_genre: str | None = None
-    """Exact genre of the owning game."""
+    """Only tracks from games of this genre, matched exactly."""
     platform_ids: list[int] | None = None
-    """Restrict to these platform ids."""
+    """Only tracks from games on these platforms."""
     year: int | None = None
-    """Exact release year."""
+    """Only tracks from this release year."""
     min_year: int | None = None
-    """Earliest release year, inclusive."""
+    """Only tracks from this release year or later."""
     max_year: int | None = None
-    """Latest release year, inclusive."""
+    """Only tracks from this release year or earlier."""
     min_duration: float | None = None
-    """Minimum duration in seconds."""
+    """Only tracks at least this long, in seconds."""
     max_duration: float | None = None
-    """Maximum duration in seconds."""
+    """Only tracks at most this long, in seconds."""
     order_by: str = "title"
-    """title/artist/album/duration/year/platform/added."""
+    """The field to sort by: `title`, `artist`, `album`, `duration`, `year`, `platform` or `added`."""
     order_dir: str = "asc"
-    """asc or desc."""
+    """The sort direction, `asc` or `desc`."""
 
 
 MUSIC_TRACK_FILTERS_QUERY = as_query_dependency(MusicTrackFilters)

@@ -13,7 +13,7 @@ export type SaveLayoutOptionSchema = {
      */
     values: Array<string>;
     /**
-     * The default value. Empty means the files need the option set.
+     * The default value. Empty when the option has no default and must be set.
      */
     default: string;
 };
