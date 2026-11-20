@@ -156,10 +156,7 @@ def login(
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
 async def logout(request: Request) -> Optional[OIDCLogoutResponse]:
-    """End the session.
-
-    If OIDC RP-Initiated Logout is enabled and the session came from an OIDC sign-in, the response holds the provider's end-session URL to send the browser to.
-    """
+    """End the session. After an OIDC sign-in with RP-Initiated Logout enabled, the response holds the provider's end-session URL."""
 
     id_token = request.session.get("oidc_id_token")
     request.session.clear()

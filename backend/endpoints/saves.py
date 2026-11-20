@@ -90,7 +90,12 @@ from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from models.rom import Rom
 from utils.assets import normalize_asset_labels
-from utils.auth import resolve_device, token_device_id
+from utils.auth import (
+    DEVICE_READ_FORBIDDEN,
+    DEVICE_WRITE_FORBIDDEN,
+    resolve_device,
+    token_device_id,
+)
 from utils.datetime import to_utc
 from utils.memory_cards import MEMORY_CARD_MAX_BYTES
 from utils.nginx import content_disposition
@@ -304,10 +309,6 @@ OWNED_SAVE_OR_DEVICE_NOT_FOUND = (
     "The caller has no save with this ID that it can see, or no device with this"
     " `device_id`."
 )
-DEVICE_WRITE_FORBIDDEN = (
-    "The request sets `device_id` without the `devices.write` scope."
-)
-DEVICE_READ_FORBIDDEN = "The request sets `device_id` without the `devices.read` scope."
 SAVE_FILE_TOO_LARGE = "The save file or screenshot is larger than the server allows."
 CONVERSION_UNAVAILABLE = (
     "Save conversion is not available because this server lacks sigil."

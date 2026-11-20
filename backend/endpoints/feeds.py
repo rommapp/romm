@@ -169,10 +169,7 @@ async def tinfoil_index_feed(
     request: Request,
     slug: str = "switch",
 ) -> TinfoilFeedSchema:
-    """Get the Tinfoil custom index of a Nintendo Switch platform, as described at https://blawar.github.io/tinfoil/custom_index/.
-
-    If the caller can see no platform with `slug`, the index lists no files and carries an error message.
-    """
+    """Get the Tinfoil custom index (https://blawar.github.io/tinfoil/custom_index/) of a Nintendo Switch platform. When the caller can see no platform with `slug`, the index has no files and an error message."""
     switch = _visible_platform_by_slug(request, slug)
     if not switch:
         return TinfoilFeedSchema(
@@ -319,10 +316,7 @@ def pkgi_ps3_feed(
     request: Request,
     content_type: Annotated[str, PathVar(description="Content type")],
 ) -> Response:
-    """Get the PKGi PS3 database of PlayStation 3 files of one content type, as text.
-
-    The content type is `game`, `dlc`, `demo`, `update` or `patch`. See https://github.com/bucanero/pkgi-ps3.
-    """
+    """Get the PKGi PS3 database (https://github.com/bucanero/pkgi-ps3) of the PlayStation 3 files of one content type (`game`, `dlc`, `demo`, `update` or `patch`), as text."""
     ps3_platform = _visible_platform_by_slug(request, UPS.PS3)
     if not ps3_platform:
         raise HTTPException(status_code=404, detail="PlayStation 3 platform not found")
@@ -394,10 +388,7 @@ def pkgi_psvita_feed(
     request: Request,
     content_type: Annotated[str, PathVar(description="Content type")],
 ) -> Response:
-    """Get the PKGi database of PlayStation Vita files of one content type, as text.
-
-    The content type is a file category, such as `game` or `dlc`. See https://github.com/mmozeiko/pkgi.
-    """
+    """Get the PKGi database (https://github.com/mmozeiko/pkgi) of the PlayStation Vita files of one content type, a file category such as `game` or `dlc`, as text."""
     psvita_platform = _visible_platform_by_slug(request, UPS.PSVITA)
     if not psvita_platform:
         raise HTTPException(
@@ -468,10 +459,7 @@ def pkgi_psp_feed(
     request: Request,
     content_type: Annotated[str, PathVar(description="Content type")],
 ) -> Response:
-    """Get the PKGi PSP database of PlayStation Portable files of one content type, as text.
-
-    The content type is `game`, `dlc`, `demo`, `update` or `patch`. See https://github.com/bucanero/pkgi-psp.
-    """
+    """Get the PKGi PSP database (https://github.com/bucanero/pkgi-psp) of the PlayStation Portable files of one content type (`game`, `dlc`, `demo`, `update` or `patch`), as text."""
     psp_platform = _visible_platform_by_slug(request, UPS.PSP)
     if not psp_platform:
         raise HTTPException(
@@ -622,10 +610,7 @@ def fpkgi_feed(
         ),
     ] = None,
 ) -> Response:
-    """Get the FPKGi feed of a platform's `.pkg` files as JSON, as described at https://github.com/ItsJokerZz/FPKGi.
-
-    The platform is usually `ps4` or `ps5`.
-    """
+    """Get the FPKGi feed (https://github.com/ItsJokerZz/FPKGi) of a platform's `.pkg` files as JSON, usually for `ps4` or `ps5`."""
     platform = _visible_platform_by_slug(request, platform_slug)
     if not platform:
         raise HTTPException(
