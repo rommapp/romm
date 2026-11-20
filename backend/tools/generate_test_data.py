@@ -441,8 +441,8 @@ def sample_length(rng: random.Random, key: str) -> int:
 
 def extra_rng(f: dict[str, Any], provider: str) -> random.Random:
     """A per-game stream for one provider's metadata, so the main stream never shifts."""
-    # Facts come from the main stream, so this follows `--seed`, and siblings,
-    # which copy them, draw the same metadata.
+    # Keyed on facts the main stream drew, so it follows `--seed` and siblings
+    # (which copy those facts) get the same metadata.
     key = f"{provider}:{f['slug']}:{f['release_ts']}:{f['rating']}"
     return random.Random(key)  # nosec B311
 
