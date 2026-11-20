@@ -193,7 +193,6 @@ from utils.validation import (
 from utils.zip_cache import (
     BULK_CACHE_MAX_ROMS,
     ZipFileEntry,
-    ensure_zipfile_writable,
     get_bulk_namespace,
     get_cache_key,
     get_cached_zip,
@@ -1774,7 +1773,6 @@ async def get_rom_content(
             zip_buffer = BytesIO()
             now = datetime.now()
 
-            ensure_zipfile_writable()
             with ZipFile(zip_buffer, "w") as zip_file:
                 # Add content files
                 for file in files:
