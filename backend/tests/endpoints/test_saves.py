@@ -2920,6 +2920,29 @@ class TestSaveDownload:
         assert sync is None
 
     @mock.patch("endpoints.saves.fs_asset_handler.validate_path")
+    def test_download_save_through_its_download_path(
+        self,
+        mock_validate_path,
+        client,
+        access_token: str,
+        save: Save,
+        tmp_path,
+    ):
+        test_file = tmp_path / "test.sav"
+        test_file.write_bytes(b"save file content")
+        mock_validate_path.return_value = test_file
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        download_path = client.get(f"/api/saves/{save.id}", headers=headers).json()[
+            "download_path"
+        ]
+        response = client.get(download_path, headers=headers)
+
+        assert " " not in download_path
+        assert response.status_code == status.HTTP_200_OK
+        assert response.content == b"save file content"
+
+    @mock.patch("endpoints.saves.fs_asset_handler.validate_path")
     def test_download_save_with_device_returns_file(
         self,
         mock_validate_path,
