@@ -318,6 +318,63 @@ describe("galleryRoms windowed fetch", () => {
     expect(store.total).toBe(300);
   });
 
+  it("loads a window by id once the bootstrap holds the whole id index", async () => {
+    const index = Array.from({ length: 150 }, (_, i) => 1000 + i);
+    getRoms.mockImplementation(
+      (params: { limit?: number; romIds?: number[] }) => {
+        if (params.limit === 1) {
+          return Promise.resolve({
+            data: {
+              total: 150,
+              items: [],
+              char_index: {},
+              rom_id_index: index,
+            },
+          });
+        }
+        // The second id of the window went missing since the index was built.
+        const ids = (params.romIds ?? []).filter((id) => id !== index[73]);
+        return Promise.resolve(
+          windowResponse(
+            null,
+            ids.map((id) => romFixture({ id })),
+          ),
+        );
+      },
+    );
+    const store = storeGalleryRoms();
+
+    await store.fetchInitialMetadata();
+    store.syncVisibleWindows([72]);
+    await flushPromises();
+
+    const windowCall = getRoms.mock.calls.find((c) => c[0].romIds);
+    expect(windowCall?.[0].romIds).toEqual(index.slice(72, 144));
+    expect(store.byPosition.get(72)?.id).toBe(index[72]);
+    expect(store.byPosition.has(73)).toBe(false);
+    expect(store.byPosition.get(74)?.id).toBe(index[74]);
+  });
+
+  it("pages by offset when the id index doesn't cover the result", async () => {
+    getRoms.mockImplementation((params: { limit?: number }) =>
+      Promise.resolve(
+        params.limit === 1
+          ? {
+              data: { total: 500, items: [], char_index: {}, rom_id_index: [] },
+            }
+          : windowResponse(null),
+      ),
+    );
+    const store = storeGalleryRoms();
+
+    await store.fetchInitialMetadata();
+    store.syncVisibleWindows([72]);
+    await flushPromises();
+
+    const windowCall = getRoms.mock.calls.find((c) => c[0].offset === 72);
+    expect(windowCall?.[0].romIds).toBeUndefined();
+  });
+
   it("does not mark a window loaded when the context is invalidated mid-apply", async () => {
     // Controllable frame yield so we can interleave a context switch between
     // the batched-apply's frames.

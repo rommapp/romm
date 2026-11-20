@@ -233,6 +233,9 @@ export interface GetRomsParams {
   withFilterValues?: boolean;
   withRomIdIndex?: boolean;
   withTotal?: boolean;
+  /** Load exactly these roms, in this order; the backend skips the filtered
+   * query, the sidecars and the total. */
+  romIds?: number[] | null;
   // Cancel an in-flight request
   signal?: AbortSignal;
 }
@@ -295,6 +298,7 @@ export function buildGetRomsQuery({
   withFilterValues = undefined,
   withRomIdIndex = undefined,
   withTotal = undefined,
+  romIds = null,
 }: Omit<GetRomsParams, "signal">) {
   return {
     platform_ids:
@@ -436,6 +440,7 @@ export function buildGetRomsQuery({
       ? { with_rom_id_index: withRomIdIndex }
       : {}),
     ...(withTotal !== undefined ? { with_total: withTotal } : {}),
+    rom_ids: romIds && romIds.length > 0 ? romIds : undefined,
   };
 }
 
