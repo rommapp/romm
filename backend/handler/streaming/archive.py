@@ -5,8 +5,6 @@ import json
 import zipfile
 from typing import Any
 
-from utils.zip_cache import ensure_zipfile_writable
-
 MANIFEST_NAME = ".broker-manifest.json"
 MAX_MANIFEST_BYTES = 1024 * 1024
 _READ_CHUNK = 64 * 1024
@@ -74,7 +72,6 @@ def overlay(base: bytes, top: bytes, max_bytes: int) -> bytes:
                     raise ValueError("merged archive exceeds its size limit")
                 members[info.filename] = (info, read_member(zf, info))
 
-    ensure_zipfile_writable()
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
         for name, (info, data) in members.items():
