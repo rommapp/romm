@@ -64,10 +64,8 @@ class NotificationChannelSchema(BaseModel):
     enabled: bool
     """Whether notifications are sent on the channel."""
     min_level: NotificationChannelMinLevel
-    # None forwards every topic.
     topics: list[NotificationTopic] | None
     """The topics the channel forwards. Null forwards every topic."""
-    # The URL with its secrets hidden, or an email address.
     target: str
     """Where the channel sends: the URL with its secrets hidden, or an email address."""
     # An Apprise channel's; `fields` leaves its secrets out, `stored_secrets` names them.
@@ -157,7 +155,6 @@ class WebhookChannelCreatePayload(_ChannelFilters):
     """The name of the channel."""
     url: ChannelUrl
     """The URL notifications are sent to."""
-    # The key the payload is signed with.
     secret: ChannelSecret | None = None
     """The key the payload is signed with."""
 

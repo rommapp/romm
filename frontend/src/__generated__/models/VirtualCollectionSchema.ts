@@ -60,7 +60,7 @@ export type VirtualCollectionSchema = {
      */
     id: string;
     /**
-     * The kind of virtual collection: `genre`, `franchise`, `collection`, `mode` or `company`.
+     * The kind of virtual collection: `genre`, `franchise`, `collection`, `mode`, `company`, `publisher` or `developer`.
      */
     type: string;
     /**

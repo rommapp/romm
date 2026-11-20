@@ -53,7 +53,6 @@ class NotificationCreatePayload(BaseModel):
     """The text of the notification."""
     level: NotificationLevel = NotificationLevel.INFO
     """The level of the notification: `info`, `success`, `warning` or `error`. Defaults to `info`."""
-    # Lets a client tell its own notifications apart, e.g. `argosy.sync_done`.
     kind: str = Field(
         default=NotificationKind.CUSTOM,
         max_length=NOTIFICATION_KIND_MAX_LENGTH,

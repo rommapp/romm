@@ -124,7 +124,9 @@ class RomFilterParams(BaseModel):
         str | None,
         Field(
             description=(
-                "Text to search for in rom names and alternative names. Only"
+                "Text to search for in rom names, file names and alternative"
+                " names. A CRC, MD5 or SHA-1 hash also finds the rom by its own"
+                " or its files' hashes. Separate alternatives with `|`. Only"
                 " matching roms are returned."
             )
         ),

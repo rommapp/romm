@@ -28,7 +28,7 @@ class AuditPage[T: BaseModel](LimitOffsetPage[T]):
     # Rows are ordered by when they happened, not by id, so later pages pin to
     # the highest id rather than to the first row's.
     max_id: int | None = None
-    """The highest event ID on the first page. Send it back as `max_id` to keep later pages on the same events."""
+    """The highest ID among the matching events. Send it back as `max_id` to keep later pages on the same events."""
 
 
 @protected_route(router.get, "", [Scope.ME_READ])

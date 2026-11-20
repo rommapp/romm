@@ -673,7 +673,6 @@ def confine_provider_media(
 
 
 class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
-    # Null when the caller opts out of the count with `with_total=false`.
     total: int | None = Field(ge=0)  # type: ignore[assignment]
     """The number of roms across all pages. Null when `with_total` is false, unless `with_rom_id_index` is true."""
     char_index: dict[str, int]

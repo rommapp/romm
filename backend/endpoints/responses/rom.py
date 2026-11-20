@@ -515,29 +515,29 @@ class RomSchema(BaseModel):
     metadatum: RomMetadataSchema
     """The metadata merged from every matched provider, used for filtering and sorting."""
     igdb_metadata: RomIGDBMetadata | None
-    """The raw IGDB metadata. Null when there is no match, or when `with_provider_metadata` is false."""
+    """The raw IGDB metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
     moby_metadata: RomMobyMetadata | None
-    """The raw MobyGames metadata. Null when there is no match, or when `with_provider_metadata` is false."""
+    """The raw MobyGames metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
     ss_metadata: RomSSMetadata | None
-    """The raw ScreenScraper metadata. Null when there is no match, or when `with_provider_metadata` is false."""
+    """The raw ScreenScraper metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
     launchbox_metadata: RomLaunchboxMetadata | None
-    """The raw LaunchBox metadata. Null when there is no match, or when `with_provider_metadata` is false."""
+    """The raw LaunchBox metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
     hasheous_metadata: RomHasheousMetadata | None
-    """The raw Hasheous metadata. Null when there is no match, or when `with_provider_metadata` is false."""
+    """The raw Hasheous metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
     flashpoint_metadata: RomFlashpointMetadata | None
-    """The raw Flashpoint Project metadata. Null when there is no match, or when `with_provider_metadata` is false."""
+    """The raw Flashpoint Project metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
     hltb_metadata: RomHLTBMetadata | None
-    """The raw HowLongToBeat metadata. Null when there is no match, or when `with_provider_metadata` is false."""
+    """The raw HowLongToBeat metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
     demozoo_metadata: RomDemozooMetadata | None
-    """The raw Demozoo metadata. Null when there is no match, or when `with_provider_metadata` is false."""
+    """The raw Demozoo metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
     pouet_metadata: RomPouetMetadata | None
-    """The raw Pouët metadata. Null when there is no match, or when `with_provider_metadata` is false."""
+    """The raw Pouët metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
     csdb_metadata: RomCsdbMetadata | None
-    """The raw CSDb metadata. Null when there is no match, or when `with_provider_metadata` is false."""
+    """The raw CSDb metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
     steam_metadata: RomSteamMetadata | None
-    """The raw Steam metadata. Null when there is no match, or when `with_provider_metadata` is false."""
+    """The raw Steam metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
     gamelist_metadata: RomGamelistMetadata | None
-    """The raw ES-DE `gamelist.xml` metadata. Null when there is no entry, or when `with_provider_metadata` is false."""
+    """The raw ES-DE `gamelist.xml` metadata. An empty object when there is no entry, and null when `with_provider_metadata` is false."""
     manual_metadata: ManualMetadata | None
     """The metadata the user entered by hand. It takes precedence over provider metadata in `metadatum`."""
 
@@ -591,7 +591,7 @@ class RomSchema(BaseModel):
     save_target: str | None
     """The on-disk name an emulator gives the game's saves: a file stem, a folder or a nested path."""
     save_target_layout: SaveTargetLayout | None
-    """How `save_target` applies: as one folder, a folder prefix, a file prefix or a nested path."""
+    """How `save_target` applies: as one folder, one file, a folder prefix, a file prefix or a nested path."""
 
     has_simple_single_file: bool
     """True for a single file at the top level."""
@@ -626,7 +626,7 @@ class RomSchema(BaseModel):
     """The RetroAchievements metadata with its achievements sorted for display."""
 
     files: list[RomFileSchema] = Field(validation_alias="included_files")
-    """The rom's files, sorted by name. Lists include them only when `with_files` is true."""
+    """The rom's files. Lists include them only when `with_files` is true."""
     sibling_roms: list[SiblingRomSchema] = Field(
         validation_alias="included_sibling_roms"
     )
@@ -841,13 +841,10 @@ class DetailedRomSchema(RomSchema):
     """The caller's own saves and other users' public saves, each with its owner's name and avatar."""
     all_user_states: list[UserStateSchema]
     """The caller's own states and other users' public states, each with its owner's name and avatar."""
-    # The caller's own first, then other users' public ones.
     user_channels: list[ChannelSchema]
     """The caller's channels on the rom, then other users' public ones."""
-    # The file a new channel on this ROM keys to.
     channel_file_id: int | None
     """The ID of the file a new channel on this rom attaches to."""
-    # Channel-filed saves missing here are legacy slot uploads.
     snapshot_save_ids: list[int]
     """The IDs of the saves filed in a channel. A save not listed here is a legacy slot upload."""
     user_screenshots: list[ScreenshotSchema]
@@ -855,10 +852,9 @@ class DetailedRomSchema(RomSchema):
     all_user_screenshots: list[UserScreenshotSchema]
     """The gallery screenshots the caller can see: their own and other users' public ones. Thumbnails captured with saves and states are not included."""
     user_collections: list[UserCollectionSchema]
-    """The caller's collections that hold the rom, smart collections included."""
+    """The collections holding the rom that the caller can see: their own and other users' public ones, smart collections included."""
     all_user_notes: list[UserNoteSchema]
     """The notes the caller can see, most recently updated first."""
-    # What the caller can ask a `?format=` download of the rom's single file for.
     download_formats: list[str]
     """The formats the caller can request for the rom's single file with `?format=`."""
 

@@ -163,6 +163,61 @@ def remove_music_favorites(
     return {"removed": removed}
 
 
+ArtistFilterQuery = Annotated[
+    str | None,
+    Query(description="Only include tracks by this artist."),
+]
+AlbumFilterQuery = Annotated[
+    str | None,
+    Query(description="Only include tracks from this album."),
+]
+GenreFilterQuery = Annotated[
+    str | None,
+    Query(description="Only include tracks with this genre tag."),
+]
+GameGenreFilterQuery = Annotated[
+    str | None,
+    Query(description="Only include tracks from games of this genre."),
+]
+PlatformIdsFilterQuery = Annotated[
+    list[int] | None,
+    Query(
+        description=(
+            "Only include tracks from games on this platform. Repeat the"
+            " parameter for several platforms."
+        )
+    ),
+]
+YearFilterQuery = Annotated[
+    int | None,
+    Query(description="Only include tracks from this year, as tagged on the file."),
+]
+MinYearFilterQuery = Annotated[
+    int | None,
+    Query(
+        description=(
+            "Only include tracks from this year or later, as tagged on the file."
+        )
+    ),
+]
+MaxYearFilterQuery = Annotated[
+    int | None,
+    Query(
+        description=(
+            "Only include tracks from this year or earlier, as tagged on the file."
+        )
+    ),
+]
+MinDurationFilterQuery = Annotated[
+    float | None,
+    Query(description="Only include tracks at least this long, in seconds."),
+]
+MaxDurationFilterQuery = Annotated[
+    float | None,
+    Query(description="Only include tracks at most this long, in seconds."),
+]
+
+
 def _facet_page(
     field: str,
     request: Request,
@@ -205,33 +260,12 @@ def get_music_artists(
     request: Request,
     params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[str | None, Query(description="Typeahead on artist.")] = None,
-    album: Annotated[
-        str | None, Query(description="Only include tracks from this album.")
-    ] = None,
-    genre: Annotated[
-        str | None, Query(description="Only include tracks with this genre tag.")
-    ] = None,
-    platform_ids: Annotated[
-        list[int] | None,
-        Query(
-            description=(
-                "Only include tracks from games on this platform. Repeat the"
-                " parameter for several platforms."
-            )
-        ),
-    ] = None,
-    year: Annotated[
-        int | None,
-        Query(description="Only include tracks from this year, as tagged on the file."),
-    ] = None,
-    min_duration: Annotated[
-        float | None,
-        Query(description="Only include tracks at least this long, in seconds."),
-    ] = None,
-    max_duration: Annotated[
-        float | None,
-        Query(description="Only include tracks at most this long, in seconds."),
-    ] = None,
+    album: AlbumFilterQuery = None,
+    genre: GenreFilterQuery = None,
+    platform_ids: PlatformIdsFilterQuery = None,
+    year: YearFilterQuery = None,
+    min_duration: MinDurationFilterQuery = None,
+    max_duration: MaxDurationFilterQuery = None,
     order_by: Annotated[str, Query(description="count or value.")] = "count",
     order_dir: Annotated[
         str,
@@ -261,33 +295,12 @@ def get_music_albums(
     request: Request,
     params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[str | None, Query(description="Typeahead on album.")] = None,
-    artist: Annotated[
-        str | None, Query(description="Only include tracks by this artist.")
-    ] = None,
-    genre: Annotated[
-        str | None, Query(description="Only include tracks with this genre tag.")
-    ] = None,
-    platform_ids: Annotated[
-        list[int] | None,
-        Query(
-            description=(
-                "Only include tracks from games on this platform. Repeat the"
-                " parameter for several platforms."
-            )
-        ),
-    ] = None,
-    year: Annotated[
-        int | None,
-        Query(description="Only include tracks from this year, as tagged on the file."),
-    ] = None,
-    min_duration: Annotated[
-        float | None,
-        Query(description="Only include tracks at least this long, in seconds."),
-    ] = None,
-    max_duration: Annotated[
-        float | None,
-        Query(description="Only include tracks at most this long, in seconds."),
-    ] = None,
+    artist: ArtistFilterQuery = None,
+    genre: GenreFilterQuery = None,
+    platform_ids: PlatformIdsFilterQuery = None,
+    year: YearFilterQuery = None,
+    min_duration: MinDurationFilterQuery = None,
+    max_duration: MaxDurationFilterQuery = None,
     order_by: Annotated[str, Query(description="count or value.")] = "count",
     order_dir: Annotated[
         str,
@@ -317,33 +330,12 @@ def get_music_genres(
     request: Request,
     params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[str | None, Query(description="Typeahead on genre.")] = None,
-    artist: Annotated[
-        str | None, Query(description="Only include tracks by this artist.")
-    ] = None,
-    album: Annotated[
-        str | None, Query(description="Only include tracks from this album.")
-    ] = None,
-    platform_ids: Annotated[
-        list[int] | None,
-        Query(
-            description=(
-                "Only include tracks from games on this platform. Repeat the"
-                " parameter for several platforms."
-            )
-        ),
-    ] = None,
-    year: Annotated[
-        int | None,
-        Query(description="Only include tracks from this year, as tagged on the file."),
-    ] = None,
-    min_duration: Annotated[
-        float | None,
-        Query(description="Only include tracks at least this long, in seconds."),
-    ] = None,
-    max_duration: Annotated[
-        float | None,
-        Query(description="Only include tracks at most this long, in seconds."),
-    ] = None,
+    artist: ArtistFilterQuery = None,
+    album: AlbumFilterQuery = None,
+    platform_ids: PlatformIdsFilterQuery = None,
+    year: YearFilterQuery = None,
+    min_duration: MinDurationFilterQuery = None,
+    max_duration: MaxDurationFilterQuery = None,
     order_by: Annotated[str, Query(description="count or value.")] = "count",
     order_dir: Annotated[
         str,
@@ -373,32 +365,12 @@ def get_music_years(
     request: Request,
     params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[str | None, Query(description="Typeahead on year.")] = None,
-    artist: Annotated[
-        str | None, Query(description="Only include tracks by this artist.")
-    ] = None,
-    album: Annotated[
-        str | None, Query(description="Only include tracks from this album.")
-    ] = None,
-    genre: Annotated[
-        str | None, Query(description="Only include tracks with this genre tag.")
-    ] = None,
-    platform_ids: Annotated[
-        list[int] | None,
-        Query(
-            description=(
-                "Only include tracks from games on this platform. Repeat the"
-                " parameter for several platforms."
-            )
-        ),
-    ] = None,
-    min_duration: Annotated[
-        float | None,
-        Query(description="Only include tracks at least this long, in seconds."),
-    ] = None,
-    max_duration: Annotated[
-        float | None,
-        Query(description="Only include tracks at most this long, in seconds."),
-    ] = None,
+    artist: ArtistFilterQuery = None,
+    album: AlbumFilterQuery = None,
+    genre: GenreFilterQuery = None,
+    platform_ids: PlatformIdsFilterQuery = None,
+    min_duration: MinDurationFilterQuery = None,
+    max_duration: MaxDurationFilterQuery = None,
     order_by: Annotated[str, Query(description="count or value.")] = "count",
     order_dir: Annotated[
         str,
@@ -430,52 +402,15 @@ def get_music_game_genres(
     search: Annotated[
         str | None, Query(description="Typeahead on the game's genre.")
     ] = None,
-    artist: Annotated[
-        str | None, Query(description="Only include tracks by this artist.")
-    ] = None,
-    album: Annotated[
-        str | None, Query(description="Only include tracks from this album.")
-    ] = None,
-    genre: Annotated[
-        str | None, Query(description="Only include tracks with this genre tag.")
-    ] = None,
-    platform_ids: Annotated[
-        list[int] | None,
-        Query(
-            description=(
-                "Only include tracks from games on this platform. Repeat the"
-                " parameter for several platforms."
-            )
-        ),
-    ] = None,
-    year: Annotated[
-        int | None,
-        Query(description="Only include tracks from this year, as tagged on the file."),
-    ] = None,
-    min_year: Annotated[
-        int | None,
-        Query(
-            description=(
-                "Only include tracks from this year or later, as tagged on the file."
-            )
-        ),
-    ] = None,
-    max_year: Annotated[
-        int | None,
-        Query(
-            description=(
-                "Only include tracks from this year or earlier, as tagged on the file."
-            )
-        ),
-    ] = None,
-    min_duration: Annotated[
-        float | None,
-        Query(description="Only include tracks at least this long, in seconds."),
-    ] = None,
-    max_duration: Annotated[
-        float | None,
-        Query(description="Only include tracks at most this long, in seconds."),
-    ] = None,
+    artist: ArtistFilterQuery = None,
+    album: AlbumFilterQuery = None,
+    genre: GenreFilterQuery = None,
+    platform_ids: PlatformIdsFilterQuery = None,
+    year: YearFilterQuery = None,
+    min_year: MinYearFilterQuery = None,
+    max_year: MaxYearFilterQuery = None,
+    min_duration: MinDurationFilterQuery = None,
+    max_duration: MaxDurationFilterQuery = None,
     order_by: Annotated[str, Query(description="count or value.")] = "count",
     order_dir: Annotated[
         str,
@@ -513,47 +448,15 @@ def get_music_platforms(
     request: Request,
     params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[str | None, Query(description="Typeahead on platform.")] = None,
-    artist: Annotated[
-        str | None, Query(description="Only include tracks by this artist.")
-    ] = None,
-    album: Annotated[
-        str | None, Query(description="Only include tracks from this album.")
-    ] = None,
-    genre: Annotated[
-        str | None, Query(description="Only include tracks with this genre tag.")
-    ] = None,
-    game_genre: Annotated[
-        str | None,
-        Query(description="Only include tracks from games of this genre."),
-    ] = None,
-    year: Annotated[
-        int | None,
-        Query(description="Only include tracks from this year, as tagged on the file."),
-    ] = None,
-    min_year: Annotated[
-        int | None,
-        Query(
-            description=(
-                "Only include tracks from this year or later, as tagged on the file."
-            )
-        ),
-    ] = None,
-    max_year: Annotated[
-        int | None,
-        Query(
-            description=(
-                "Only include tracks from this year or earlier, as tagged on the file."
-            )
-        ),
-    ] = None,
-    min_duration: Annotated[
-        float | None,
-        Query(description="Only include tracks at least this long, in seconds."),
-    ] = None,
-    max_duration: Annotated[
-        float | None,
-        Query(description="Only include tracks at most this long, in seconds."),
-    ] = None,
+    artist: ArtistFilterQuery = None,
+    album: AlbumFilterQuery = None,
+    genre: GenreFilterQuery = None,
+    game_genre: GameGenreFilterQuery = None,
+    year: YearFilterQuery = None,
+    min_year: MinYearFilterQuery = None,
+    max_year: MaxYearFilterQuery = None,
+    min_duration: MinDurationFilterQuery = None,
+    max_duration: MaxDurationFilterQuery = None,
     order_by: Annotated[str, Query(description="count or value.")] = "value",
     order_dir: Annotated[
         str,
@@ -590,56 +493,16 @@ def get_music_games(
     search: Annotated[
         str | None, Query(description="Substring match on game/title/artist/album.")
     ] = None,
-    artist: Annotated[
-        str | None, Query(description="Only include tracks by this artist.")
-    ] = None,
-    album: Annotated[
-        str | None, Query(description="Only include tracks from this album.")
-    ] = None,
-    genre: Annotated[
-        str | None, Query(description="Only include tracks with this genre tag.")
-    ] = None,
-    game_genre: Annotated[
-        str | None,
-        Query(description="Only include tracks from games of this genre."),
-    ] = None,
-    platform_ids: Annotated[
-        list[int] | None,
-        Query(
-            description=(
-                "Only include tracks from games on this platform. Repeat the"
-                " parameter for several platforms."
-            )
-        ),
-    ] = None,
-    year: Annotated[
-        int | None,
-        Query(description="Only include tracks from this year, as tagged on the file."),
-    ] = None,
-    min_year: Annotated[
-        int | None,
-        Query(
-            description=(
-                "Only include tracks from this year or later, as tagged on the file."
-            )
-        ),
-    ] = None,
-    max_year: Annotated[
-        int | None,
-        Query(
-            description=(
-                "Only include tracks from this year or earlier, as tagged on the file."
-            )
-        ),
-    ] = None,
-    min_duration: Annotated[
-        float | None,
-        Query(description="Only include tracks at least this long, in seconds."),
-    ] = None,
-    max_duration: Annotated[
-        float | None,
-        Query(description="Only include tracks at most this long, in seconds."),
-    ] = None,
+    artist: ArtistFilterQuery = None,
+    album: AlbumFilterQuery = None,
+    genre: GenreFilterQuery = None,
+    game_genre: GameGenreFilterQuery = None,
+    platform_ids: PlatformIdsFilterQuery = None,
+    year: YearFilterQuery = None,
+    min_year: MinYearFilterQuery = None,
+    max_year: MaxYearFilterQuery = None,
+    min_duration: MinDurationFilterQuery = None,
+    max_duration: MaxDurationFilterQuery = None,
     order_by: Annotated[str, Query(description="count or value.")] = "value",
     order_dir: Annotated[
         str,

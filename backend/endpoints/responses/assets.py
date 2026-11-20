@@ -86,7 +86,6 @@ class UserScreenshotSchema(ScreenshotSchema):
 
 
 class ManagedAsset(BaseModel):
-    # The sync channel the row was pushed into. Null is a backup the user manages.
     channel_id: uuid.UUID | None = None
     """The ID of the sync channel the row was pushed into. Null means a backup the user manages."""
 
@@ -105,7 +104,7 @@ class SaveSchema(BaseAsset, AssetAnnotations, ManagedAsset):
     origin_device_id: str | None = None
     """The ID of the device the save came from."""
     device_syncs: list[DeviceSyncSchema] = []
-    """The sync state of the device the request named."""
+    """The sync state of every device that synced the save, the named device first. Empty when the request names no device."""
 
     @model_validator(mode="before")
     @classmethod

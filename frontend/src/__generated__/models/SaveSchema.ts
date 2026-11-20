@@ -98,7 +98,7 @@ export type SaveSchema = {
      */
     origin_device_id?: (string | null);
     /**
-     * The sync state of the device the request named.
+     * The sync state of every device that synced the save, the named device first. Empty when the request names no device.
      */
     device_syncs?: Array<DeviceSyncSchema>;
 };

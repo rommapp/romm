@@ -45,7 +45,7 @@ FirmwareIdPath = Annotated[int, PathVar(description="Firmware internal id.")]
 FirmwareFileNamePath = Annotated[
     str,
     PathVar(
-        description="The file name to send the file as. Required because of a bug in emulatorjs."
+        description="A file name for the URL, required because of a bug in emulatorjs. The download keeps the firmware's own file name."
     ),
 ]
 

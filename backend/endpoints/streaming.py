@@ -205,8 +205,10 @@ ContainerQuery = Annotated[
         max_length=CONTAINER_NAME_MAX_LENGTH,
         description=(
             "The key of the container, as returned when the session was"
-            " claimed. Required to act on another user's session, or when"
-            " several sessions are active. Otherwise the server finds your own."
+            " claimed. Required for a desktop session or a container outside"
+            " the platform's first pool. Unset, the server finds your own game"
+            " session in that pool, or for an admin the one other active"
+            " session, and returns 409 when there are several."
         ),
     ),
 ]

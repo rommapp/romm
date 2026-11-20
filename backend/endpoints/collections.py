@@ -363,7 +363,8 @@ def get_virtual_collections(
         Query(
             description=(
                 "The kind of collection: `genre`, `franchise`, `collection`,"
-                " `mode`, `company` or `all`. The library's metadata generates"
+                " `mode`, `company`, `publisher`, `developer` or `all`. The"
+                " library's metadata generates"
                 " them, one per distinct value."
             )
         ),

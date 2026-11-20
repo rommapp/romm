@@ -21,7 +21,7 @@ export type AuditPage_AuditEventSchema_ = {
      */
     offset: number;
     /**
-     * The highest event ID on the first page. Send it back as `max_id` to keep later pages on the same events.
+     * The highest ID among the matching events. Send it back as `max_id` to keep later pages on the same events.
      */
     max_id?: (number | null);
 };

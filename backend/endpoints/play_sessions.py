@@ -124,7 +124,8 @@ def get_play_sessions(
         Query(
             description=(
                 "Only sessions that started at or after this time. With this or"
-                " `end_before`, paging is off and every match is returned."
+                " `end_before`, `limit` is ignored and every match after"
+                " `offset` is returned."
             )
         ),
     ] = None,

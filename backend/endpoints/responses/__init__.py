@@ -106,7 +106,6 @@ TASK_META_DESCRIPTION = "Details specific to this kind of task."
 
 
 class TaskExecutionResponse(TypedDict):
-    # None on scans started outside the catalog, by a client or the watcher.
     task_key: Annotated[
         str | None,
         Field(

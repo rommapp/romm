@@ -257,8 +257,8 @@ DeviceIdReadQuery = Annotated[
     str | None,
     Query(
         description=(
-            "The ID of a registered device. When set, each save includes that"
-            " device's sync state."
+            "The ID of a registered device. When set, each save lists the sync"
+            " state of every device that synced it, this one first."
         )
     ),
 ]
@@ -266,8 +266,8 @@ DeviceIdWriteQuery = Annotated[
     str | None,
     Query(
         description=(
-            "The ID of a registered device. When set, the server compares the"
-            " request with the device's sync state and records the result."
+            "The ID of a registered device. When set, the server records the"
+            " device as synced to this save."
         )
     ),
 ]
@@ -275,8 +275,9 @@ ContentHashQuery = Annotated[
     str | None,
     Query(
         description=(
-            "The hash of the device's copy of the file. With `device_id`, the"
-            " server stores it as the device's last synced hash."
+            "The hash of the device's copy of the file. With `device_id` and an"
+            " uploaded file, the server stores it as the device's last synced"
+            " hash."
         )
     ),
 ]

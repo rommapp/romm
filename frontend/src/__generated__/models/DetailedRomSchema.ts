@@ -172,51 +172,51 @@ export type DetailedRomSchema = {
      */
     metadatum: RomMetadataSchema;
     /**
-     * The raw IGDB metadata. Null when there is no match, or when `with_provider_metadata` is false.
+     * The raw IGDB metadata. An empty object when there is no match, and null when `with_provider_metadata` is false.
      */
     igdb_metadata: (RomIGDBMetadata | null);
     /**
-     * The raw MobyGames metadata. Null when there is no match, or when `with_provider_metadata` is false.
+     * The raw MobyGames metadata. An empty object when there is no match, and null when `with_provider_metadata` is false.
      */
     moby_metadata: (RomMobyMetadata | null);
     /**
-     * The raw ScreenScraper metadata. Null when there is no match, or when `with_provider_metadata` is false.
+     * The raw ScreenScraper metadata. An empty object when there is no match, and null when `with_provider_metadata` is false.
      */
     ss_metadata: (RomSSMetadata | null);
     /**
-     * The raw LaunchBox metadata. Null when there is no match, or when `with_provider_metadata` is false.
+     * The raw LaunchBox metadata. An empty object when there is no match, and null when `with_provider_metadata` is false.
      */
     launchbox_metadata: (RomLaunchboxMetadata | null);
     /**
-     * The raw Hasheous metadata. Null when there is no match, or when `with_provider_metadata` is false.
+     * The raw Hasheous metadata. An empty object when there is no match, and null when `with_provider_metadata` is false.
      */
     hasheous_metadata: (RomHasheousMetadata | null);
     /**
-     * The raw Flashpoint Project metadata. Null when there is no match, or when `with_provider_metadata` is false.
+     * The raw Flashpoint Project metadata. An empty object when there is no match, and null when `with_provider_metadata` is false.
      */
     flashpoint_metadata: (RomFlashpointMetadata | null);
     /**
-     * The raw HowLongToBeat metadata. Null when there is no match, or when `with_provider_metadata` is false.
+     * The raw HowLongToBeat metadata. An empty object when there is no match, and null when `with_provider_metadata` is false.
      */
     hltb_metadata: (RomHLTBMetadata | null);
     /**
-     * The raw Demozoo metadata. Null when there is no match, or when `with_provider_metadata` is false.
+     * The raw Demozoo metadata. An empty object when there is no match, and null when `with_provider_metadata` is false.
      */
     demozoo_metadata: (RomDemozooMetadata | null);
     /**
-     * The raw Pouët metadata. Null when there is no match, or when `with_provider_metadata` is false.
+     * The raw Pouët metadata. An empty object when there is no match, and null when `with_provider_metadata` is false.
      */
     pouet_metadata: (RomPouetMetadata | null);
     /**
-     * The raw CSDb metadata. Null when there is no match, or when `with_provider_metadata` is false.
+     * The raw CSDb metadata. An empty object when there is no match, and null when `with_provider_metadata` is false.
      */
     csdb_metadata: (RomCsdbMetadata | null);
     /**
-     * The raw Steam metadata. Null when there is no match, or when `with_provider_metadata` is false.
+     * The raw Steam metadata. An empty object when there is no match, and null when `with_provider_metadata` is false.
      */
     steam_metadata: (RomSteamMetadata | null);
     /**
-     * The raw ES-DE `gamelist.xml` metadata. Null when there is no entry, or when `with_provider_metadata` is false.
+     * The raw ES-DE `gamelist.xml` metadata. An empty object when there is no entry, and null when `with_provider_metadata` is false.
      */
     gamelist_metadata: (RomGamelistMetadata | null);
     /**
@@ -312,7 +312,7 @@ export type DetailedRomSchema = {
      */
     save_target: (string | null);
     /**
-     * How `save_target` applies: as one folder, a folder prefix, a file prefix or a nested path.
+     * How `save_target` applies: as one folder, one file, a folder prefix, a file prefix or a nested path.
      */
     save_target_layout: (SaveTargetLayout | null);
     /**
@@ -376,7 +376,7 @@ export type DetailedRomSchema = {
      */
     merged_ra_metadata: (RomRAMetadata | null);
     /**
-     * The rom's files, sorted by name. Lists include them only when `with_files` is true.
+     * The rom's files. Lists include them only when `with_files` is true.
      */
     files: Array<RomFileSchema>;
     /**
@@ -420,7 +420,7 @@ export type DetailedRomSchema = {
      */
     all_user_screenshots: Array<UserScreenshotSchema>;
     /**
-     * The caller's collections that hold the rom, smart collections included.
+     * The collections holding the rom that the caller can see: their own and other users' public ones, smart collections included.
      */
     user_collections: Array<UserCollectionSchema>;
     /**

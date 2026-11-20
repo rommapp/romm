@@ -38,8 +38,6 @@ class StreamingContainerSchema(BaseModel):
     """Whether the container supports the save picker."""
     supports_live_states: bool
     """Whether the container supports live states."""
-    # Which foreign-emulator picks the broker declares it can import, empty when it
-    # declares none or cannot be asked.
     import_kinds: list[Literal["save", "state"]]
     """The kinds of picks from other emulators the broker can import. Empty when it declares none or cannot be asked."""
 

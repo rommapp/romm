@@ -75,7 +75,7 @@ class VirtualCollectionSchema(BaseCollectionSchema):
     id: str
     """The ID of the virtual collection."""
     type: str
-    """The kind of virtual collection: `genre`, `franchise`, `collection`, `mode` or `company`."""
+    """The kind of virtual collection: `genre`, `franchise`, `collection`, `mode`, `company`, `publisher` or `developer`."""
     is_virtual: bool = True
     """Always true."""
 
