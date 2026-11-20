@@ -449,6 +449,53 @@ class TestScanTotals:
         assert result.total_roms == 100
 
 
+class TestScanAutoExport:
+    """Auto-export after a scan only rewrites the platforms the scan covered."""
+
+    @pytest.fixture
+    def exported_ids(self, patched, mocker):
+        config = MagicMock()
+        config.GAMELIST_AUTO_EXPORT_ON_SCAN = True
+        config.PEGASUS_AUTO_EXPORT_ON_SCAN = False
+        mocker.patch.object(config_manager, "get_config", return_value=config)
+        existing = MagicMock(id=1, fs_slug="existing")
+        # Read once before the scan and again after it has added the new folders.
+        mocker.patch.object(
+            db_platform_handler,
+            "get_platforms",
+            side_effect=[
+                [existing],
+                [
+                    existing,
+                    MagicMock(id=2, fs_slug="new1"),
+                    MagicMock(id=3, fs_slug="new2"),
+                ],
+            ],
+        )
+        export = mocker.patch.object(
+            scan_module.GamelistExporter,
+            "export_platform_to_file",
+            AsyncMock(return_value=True),
+        )
+        return export
+
+    async def test_new_platforms_scan_skips_existing_platforms(self, exported_ids):
+        await scan_platforms(
+            platform_ids=[],
+            metadata_sources=[],
+            scan_type=ScanType.NEW_PLATFORMS,
+        )
+
+        assert sorted(c.args[0] for c in exported_ids.await_args_list) == [2, 3]
+
+    async def test_quick_scan_exports_every_scanned_platform(self, exported_ids):
+        await scan_platforms(
+            platform_ids=[], metadata_sources=[], scan_type=ScanType.QUICK
+        )
+
+        assert sorted(c.args[0] for c in exported_ids.await_args_list) == [1, 2, 3]
+
+
 class TestScreenScraperScanReporting:
     """The scan hands ScreenScraper's own bookkeeping to ss_handler, and only
     when the scan actually uses ScreenScraper."""
