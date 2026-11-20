@@ -1982,7 +1982,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         page_ids: Sequence[int],
         *,
-        visibility: RomVisibilityFilter = UNRESTRICTED,
+        visibility: RomVisibilityFilter,
         include_file_stats: bool = False,
     ) -> RomSelect:
         """The rows of one page, loaded by id with none of the filters re-run."""

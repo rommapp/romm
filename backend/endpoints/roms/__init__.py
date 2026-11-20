@@ -146,7 +146,12 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.audit_event import AuditAction, AuditTargetType
-from models.collection import Collection, SmartCollection, VirtualCollection
+from models.collection import (
+    Collection,
+    SmartCollection,
+    VirtualCollection,
+    VirtualCollectionId,
+)
 from models.permission import PermAction, PermEntity
 from models.rom import (
     HAS_FILE_ON_DISK_FILTERS,
@@ -1086,7 +1091,7 @@ def get_random_rom(
         Query(description="Collection internal id.", ge=1),
     ] = None,
     virtual_collection_id: Annotated[
-        str | None,
+        VirtualCollectionId,
         Query(description="Virtual collection internal id."),
     ] = None,
     smart_collection_id: Annotated[
@@ -1181,7 +1186,7 @@ async def download_roms(
         Query(description="Download every ROM in this collection as a zip file.", ge=1),
     ] = None,
     virtual_collection_id: Annotated[
-        str | None,
+        VirtualCollectionId,
         Query(
             description="Download every ROM in this virtual collection as a zip file.",
         ),

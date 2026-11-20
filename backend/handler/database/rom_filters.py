@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import QueryableAttribute
 
 from logger.logger import log
+from models.collection import VirtualCollectionId
 from models.rom import RomFacets
 
 
@@ -135,7 +136,7 @@ class RomFilterParams(BaseModel):
         Field(description="Collection internal id.", ge=1),
     ] = None
     virtual_collection_id: Annotated[
-        str | None,
+        VirtualCollectionId,
         Field(description="Virtual collection internal id."),
     ] = None
     smart_collection_id: Annotated[
