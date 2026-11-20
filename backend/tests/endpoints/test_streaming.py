@@ -6555,7 +6555,7 @@ def _pull_over_base(
                 base_save_id=base.id if base is not None else None,
             )
         )
-    return wf.call_args.kwargs["file"]
+    return cast(bytes, wf.call_args.kwargs["file"])
 
 
 def test_pull_saves_merges_the_exit_delta_over_the_restored_archive(
