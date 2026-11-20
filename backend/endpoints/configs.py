@@ -161,10 +161,7 @@ class ConvertoSettingsPayload(BaseModel):
 
 @router.get("")
 def get_config(request: Request) -> ConfigResponse:
-    """Get RomM's configuration.
-
-    Anonymous callers get no config parse error and no netplay ICE servers, since those can hold a file path or credentials.
-    """
+    """Get RomM's configuration. Anonymous callers get no config parse error and no netplay ICE servers, which can hold a file path or credentials."""
 
     cfg = cm.get_config()
     return ConfigResponse(

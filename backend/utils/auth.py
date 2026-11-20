@@ -73,6 +73,15 @@ def resolve_device(
     return require_device(request, device_id)
 
 
+# The 403 descriptions for a `device_id` that resolve_device refuses.
+DEVICE_READ_FORBIDDEN = (
+    f"The request sets `device_id` without the `{Scope.DEVICES_READ}` scope."
+)
+DEVICE_WRITE_FORBIDDEN = (
+    f"The request sets `device_id` without the `{Scope.DEVICES_WRITE}` scope."
+)
+
+
 def request_client_token_id(conn: HTTPConnection) -> int | None:
     """The id of the client token that authenticated the request, if any."""
     return getattr(conn.state, "client_token_id", None)

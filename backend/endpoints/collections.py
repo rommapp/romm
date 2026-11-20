@@ -546,10 +546,7 @@ async def update_collection(
     ),
     url_cover: str | None = Form(default=None, description="Updated remote cover URL."),
 ) -> CollectionSchema:
-    """Update one of the caller's collections, replacing its roms with `rom_ids`.
-
-    Roms hidden from the caller can be neither added nor removed.
-    """
+    """Update one of the caller's collections and replace its roms with `rom_ids`, leaving the roms the caller cannot see as they are."""
     collection = _owned_or_error(request, db_collection_handler.get_collection(id), id)
     reject_local_file_url("url_cover", url_cover, collection.url_cover)
 

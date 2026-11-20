@@ -42,7 +42,7 @@ from logger.logger import log
 from models.assets import EMULATOR_MAX_LENGTH, EMULATOR_VERSION_MAX_LENGTH, State
 from models.base import FILE_NAME_MAX_LENGTH
 from utils.assets import normalize_asset_labels
-from utils.auth import resolve_device
+from utils.auth import DEVICE_WRITE_FORBIDDEN, resolve_device
 from utils.router import APIRouter, RomIdQuery
 from utils.uploads import (
     check_asset_upload_size,
@@ -78,9 +78,6 @@ STATE_SCREENSHOT_UPDATE = File(default=None, description="Updated screenshot fil
 StateIdPath = Annotated[int, PathVar(description="The ID of the state.")]
 
 OWNED_STATE_NOT_FOUND = "The caller has no state with this ID that it can see."
-DEVICE_WRITE_FORBIDDEN = (
-    "The request sets `device_id` without the `devices.write` scope."
-)
 STATE_FILE_TOO_LARGE = "The state file or screenshot is larger than the server allows."
 STATE_IN_CHANNEL = "The state belongs to a sync channel."
 
