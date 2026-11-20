@@ -4,10 +4,10 @@ import type { Heartbeat } from "@/stores/heartbeat";
 import { ejsCoresFixture } from "./ejsCores.fixtures";
 import {
   getSupportedEJSCores,
+  hasJsDosBundle,
   isArcadeSystem,
   isEasyRpgEmulationSupported,
   isEasyRpgGame,
-  isJsDosBundle,
   isJsDosEmulationSupported,
   isPico8EmulationSupported,
   isPico8Rom,
@@ -72,15 +72,15 @@ describe("isJsDosEmulationSupported", () => {
   });
 });
 
-describe("isJsDosBundle", () => {
+describe("hasJsDosBundle", () => {
   it("follows the backend's bundle flag", () => {
-    expect(isJsDosBundle(romFixture({ has_jsdos_bundle: true }))).toBe(true);
-    expect(isJsDosBundle(romFixture({ has_jsdos_bundle: false }))).toBe(false);
+    expect(hasJsDosBundle(romFixture({ has_jsdos_bundle: true }))).toBe(true);
+    expect(hasJsDosBundle(romFixture({ has_jsdos_bundle: false }))).toBe(false);
   });
 
   it("rejects a missing rom", () => {
-    expect(isJsDosBundle(null)).toBe(false);
-    expect(isJsDosBundle(undefined)).toBe(false);
+    expect(hasJsDosBundle(null)).toBe(false);
+    expect(hasJsDosBundle(undefined)).toBe(false);
   });
 });
 

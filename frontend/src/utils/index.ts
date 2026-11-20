@@ -554,7 +554,7 @@ export function isJsDosEmulationSupported(
  * @param rom The ROM to check.
  * @returns True if the ROM has a js-dos bundle to boot, false otherwise.
  */
-export function isJsDosBundle(rom: SimpleRom | null | undefined) {
+export function hasJsDosBundle(rom: SimpleRom | null | undefined) {
   return rom?.has_jsdos_bundle === true;
 }
 
