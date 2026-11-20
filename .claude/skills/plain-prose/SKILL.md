@@ -93,9 +93,39 @@ API text repeats the same ideas. Use the same words each time.
 | A filter              | Only tracks from this year or later.                       |
 | A request boolean     | Whether to include each rom's `files`.                     |
 | A response boolean    | True when at least one provider has matched the rom.       |
-| An error              | Returns 404 if the rom is hidden from the caller.          |
+| A route error         | See below.                                                 |
+| A parameter error     | An unknown or expired code returns 404.                    |
 | A nullable field      | Null when `with_total` is false.                           |
 | An example            | such as `snes` (not "e.g.")                                |
+
+A route's error statuses go in `responses=` on its decorator, not in its
+docstring. FastAPI lists them in the Responses table, and the schema carries
+them as data:
+
+```python
+@protected_route(
+    router.get,
+    "/pkgj/psvita/games",
+    [Scope.ROMS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The library has no PlayStation Vita platform."
+        }
+    },
+)
+def pkgj_psv_games_feed(request: Request) -> Response:
+    """Get the PKGj feed of PlayStation Vita games as tab-separated text."""
+```
+
+Give each entry a `description`, since an empty `{}` shows only "Not Found".
+Keep an error in a parameter's description when that parameter causes it, as
+in the table. A hidden rom, platform or firmware answers like a missing one,
+so describe the 404 as "No rom the caller can see matches", never as "the rom
+is hidden".
+
+Route and schema docstrings take no `Args:`, `Returns:` or `Raises:` blocks.
+FastAPI and Pydantic publish the docstring verbatim, so those sections reach
+the API docs as plain text.
 
 ## How to run it
 
