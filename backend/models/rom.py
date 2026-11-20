@@ -1409,7 +1409,7 @@ class Rom(BaseModel):
 # Revisit (real columns, JOIN/aggregate, or added indexes) if gallery latency regresses
 _rom_full_path = func.concat(Rom.fs_path, "/", Rom.fs_name)
 
-# The rom's own file, or a file directly inside the rom's folder
+# `RomFile.is_top_level` in SQL.
 _is_top_level_file = or_(
     func.concat(RomFile.file_path, "/", RomFile.file_name) == _rom_full_path,
     RomFile.file_path == _rom_full_path,

@@ -181,6 +181,10 @@ async function mountPlayer(handle: JsDosProps): Promise<VueWrapper> {
   return wrapper;
 }
 
+function optionsOf(): Partial<JsDosOptions> {
+  return vi.mocked(window.Dos!).mock.calls[0]![1];
+}
+
 function makeHandle(saveResult = true) {
   return {
     save: vi.fn().mockResolvedValue(saveResult),
@@ -201,8 +205,7 @@ describe("JsDos runtime loading", () => {
     mocks.loadRuntime.mockResolvedValue(CDN_BASE);
     const wrapper = await mountPlayer(makeHandle());
 
-    const options = vi.mocked(window.Dos!).mock.calls[0]![1];
-    expect(options.pathPrefix).toBe(`${CDN_BASE}/emulators/`);
+    expect(optionsOf().pathPrefix).toBe(`${CDN_BASE}/emulators/`);
     wrapper.unmount();
   });
 
@@ -211,8 +214,7 @@ describe("JsDos runtime loading", () => {
     const wrapper = await mountPlayer(makeHandle());
 
     expect(mocks.jsDosBundleFileIds).toHaveBeenCalledWith(rom);
-    const options = vi.mocked(window.Dos!).mock.calls[0]![1];
-    expect(options.url).toContain("file_ids=42");
+    expect(optionsOf().url).toContain("file_ids=42");
     wrapper.unmount();
   });
 
@@ -525,10 +527,6 @@ describe("JsDos player exit", () => {
 });
 
 describe("JsDos save sync", () => {
-  function optionsOf(): Partial<JsDosOptions> {
-    return vi.mocked(window.Dos!).mock.calls[0]![1];
-  }
-
   it("boots from the synced changes instead of browser storage", async () => {
     const changes = new Uint8Array([80, 75]);
     saveSyncMocks.prepare.mockResolvedValue([

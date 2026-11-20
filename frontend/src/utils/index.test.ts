@@ -9,9 +9,9 @@ import {
   isEasyRpgGame,
   isJsDosBundle,
   isJsDosEmulationSupported,
-  jsDosBundleFileIds,
   isPico8EmulationSupported,
   isPico8Rom,
+  jsDosBundleFileIds,
   languageToEmoji,
 } from "./index";
 import { detailedRomFixture, romFileFixture, romFixture } from "./rom.fixtures";
