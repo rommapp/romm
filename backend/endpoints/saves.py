@@ -299,8 +299,49 @@ OptimisticQuery = Annotated[
     ),
 ]
 
+OWNED_SAVE_NOT_FOUND = "The caller has no save with this ID that it can see."
+OWNED_SAVE_OR_DEVICE_NOT_FOUND = (
+    "The caller has no save with this ID that it can see, or no device with this"
+    " `device_id`."
+)
+DEVICE_WRITE_FORBIDDEN = (
+    "The request sets `device_id` without the `devices.write` scope."
+)
+DEVICE_READ_FORBIDDEN = "The request sets `device_id` without the `devices.read` scope."
+SAVE_FILE_TOO_LARGE = "The save file or screenshot is larger than the server allows."
+CONVERSION_UNAVAILABLE = (
+    "Save conversion is not available because this server lacks sigil."
+)
 
-@protected_route(router.post, "", [Scope.ASSETS_WRITE])
+
+@protected_route(
+    router.post,
+    "",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "The save file has no name, the save or screenshot file name is not"
+                " valid, or `emulator` is not a valid folder name."
+            )
+        },
+        status.HTTP_403_FORBIDDEN: {"description": DEVICE_WRITE_FORBIDDEN},
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "No rom the caller can see has this ID, or the caller has no device"
+                " with this `device_id`."
+            )
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": (
+                "The slot or save changed since the device last synced it and"
+                " `overwrite` is false, or the upload would replace a save that"
+                " belongs to a sync channel."
+            )
+        },
+        status.HTTP_413_CONTENT_TOO_LARGE: {"description": SAVE_FILE_TOO_LARGE},
+    },
+)
 async def add_save(
     request: Request,
     rom_id: RomIdQuery,
@@ -616,7 +657,17 @@ async def add_save(
     return _build_save_schema(db_save, _syncs_for_save(db_save.id, device), device)
 
 
-@protected_route(router.get, "", [Scope.ASSETS_READ])
+@protected_route(
+    router.get,
+    "",
+    [Scope.ASSETS_READ],
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": DEVICE_READ_FORBIDDEN},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no device with this `device_id`."
+        },
+    },
+)
 def get_saves(
     request: Request,
     rom_id: int | None = None,
@@ -695,8 +746,10 @@ def get_saves_summary(request: Request, rom_id: RomIdQuery) -> SaveSummarySchema
     "/layouts",
     [Scope.ASSETS_READ],
     responses={
-        status.HTTP_400_BAD_REQUEST: {},
-        status.HTTP_503_SERVICE_UNAVAILABLE: {},
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Saves for this platform cannot be converted for an emulator."
+        },
+        status.HTTP_503_SERVICE_UNAVAILABLE: {"description": CONVERSION_UNAVAILABLE},
     },
 )
 def get_save_layouts(
@@ -715,7 +768,15 @@ def get_save_layouts(
     ]
 
 
-@protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
+@protected_route(
+    router.get,
+    "/{id}",
+    [Scope.ASSETS_READ],
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": DEVICE_READ_FORBIDDEN},
+        status.HTTP_404_NOT_FOUND: {"description": OWNED_SAVE_OR_DEVICE_NOT_FOUND},
+    },
+)
 def get_save(
     request: Request, id: SaveIdPath, device_id: DeviceIdReadQuery = None
 ) -> SaveSchema:
@@ -969,12 +1030,39 @@ def _restored_response(restored: RestoredFiles, save: Save) -> Response:
     )
 
 
+_CONVERSION_400 = (
+    f"An `option` or `profile` is malformed, more than {MAX_COMPANIONS} companions"
+    " are given, the save or a companion cannot be converted for an emulator, or"
+    " sigil finds no single valid target for the emulator, options and profile"
+)
+
 _DOWNLOAD_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
-    status.HTTP_400_BAD_REQUEST: {},
-    status.HTTP_404_NOT_FOUND: {},
-    status.HTTP_409_CONFLICT: {},
-    status.HTTP_422_UNPROCESSABLE_CONTENT: {},
-    status.HTTP_503_SERVICE_UNAVAILABLE: {},
+    status.HTTP_400_BAD_REQUEST: {
+        "description": (
+            f"{_CONVERSION_400}, or the target is a card or volume that every game"
+            " shares, which the client must send with `POST /saves/{id}/content`."
+        )
+    },
+    status.HTTP_403_FORBIDDEN: {"description": DEVICE_READ_FORBIDDEN},
+    status.HTTP_404_NOT_FOUND: {
+        "description": (
+            "No save the caller can read has this ID or a companion's ID, a save's"
+            " file is missing, or the caller has no device with this `device_id`."
+        )
+    },
+    status.HTTP_409_CONFLICT: {
+        "description": "Sigil refuses the conversion because of a conflict in the save."
+    },
+    status.HTTP_422_UNPROCESSABLE_CONTENT: {
+        "description": (
+            "Sigil cannot convert the save's content for this emulator, or the"
+            " request is not valid."
+        )
+    },
+    status.HTTP_500_INTERNAL_SERVER_ERROR: {
+        "description": "The conversion fails with a file or unexpected error."
+    },
+    status.HTTP_503_SERVICE_UNAVAILABLE: {"description": CONVERSION_UNAVAILABLE},
 }
 
 
@@ -1018,7 +1106,21 @@ async def download_save(
     [Scope.ASSETS_READ],
     responses={
         **_DOWNLOAD_RESPONSES,
-        status.HTTP_413_CONTENT_TOO_LARGE: {},
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                f"{_CONVERSION_400}, `container_path` leaves the save root, or the"
+                " conversion writes somewhere other than `container_path`."
+            )
+        },
+        status.HTTP_413_CONTENT_TOO_LARGE: {
+            "description": "The container is larger than a memory card can be."
+        },
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {
+            "description": (
+                "The request names no `core`, sigil cannot convert the save's"
+                " content for this emulator, or the request is not valid."
+            )
+        },
     },
 )
 async def merge_save_into_container(
@@ -1080,7 +1182,14 @@ async def merge_save_into_container(
     return _restored_response(restored, save)
 
 
-@protected_route(router.post, "/{id}/downloaded", [Scope.DEVICES_WRITE])
+@protected_route(
+    router.post,
+    "/{id}/downloaded",
+    [Scope.DEVICES_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": OWNED_SAVE_OR_DEVICE_NOT_FOUND}
+    },
+)
 def confirm_download(
     request: Request,
     id: SaveIdPath,
@@ -1116,7 +1225,25 @@ def confirm_download(
     return _build_save_schema(save, _syncs_for_save(save.id, device), device)
 
 
-@protected_route(router.put, "/{id}", [Scope.ASSETS_WRITE])
+@protected_route(
+    router.put,
+    "/{id}",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The screenshot file name is not valid."
+        },
+        status.HTTP_403_FORBIDDEN: {"description": DEVICE_WRITE_FORBIDDEN},
+        status.HTTP_404_NOT_FOUND: {"description": OWNED_SAVE_OR_DEVICE_NOT_FOUND},
+        status.HTTP_409_CONFLICT: {
+            "description": (
+                "The request uploads a save file, and the save belongs to a sync"
+                " channel."
+            )
+        },
+        status.HTTP_413_CONTENT_TOO_LARGE: {"description": SAVE_FILE_TOO_LARGE},
+    },
+)
 async def update_save(
     request: Request,
     id: SaveIdPath,
@@ -1195,7 +1322,12 @@ async def update_save(
     router.put,
     "/{id}/visibility",
     [Scope.ASSETS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": OWNED_SAVE_NOT_FOUND},
+        status.HTTP_409_CONFLICT: {
+            "description": "The save belongs to a sync channel."
+        },
+    },
 )
 def update_save_visibility(
     request: Request,
@@ -1232,7 +1364,7 @@ def update_save_visibility(
     router.put,
     "/{id}/favorite",
     [Scope.ASSETS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={status.HTTP_404_NOT_FOUND: {"description": OWNED_SAVE_NOT_FOUND}},
 )
 def update_save_favorite(
     request: Request,
@@ -1256,7 +1388,7 @@ def update_save_favorite(
     router.put,
     "/{id}/labels",
     [Scope.ASSETS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={status.HTTP_404_NOT_FOUND: {"description": OWNED_SAVE_NOT_FOUND}},
 )
 def update_save_labels(
     request: Request,
@@ -1286,9 +1418,21 @@ def update_save_labels(
     "/{id}/file-name",
     [Scope.ASSETS_WRITE],
     responses={
-        status.HTTP_400_BAD_REQUEST: {},
-        status.HTTP_404_NOT_FOUND: {},
-        status.HTTP_409_CONFLICT: {},
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The new file name is not valid or has no name before the extension."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "The caller has no save with this ID that it can see, or the save's"
+                " file is missing."
+            )
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": (
+                "Another save of the rom, or a screenshot that is not this save's,"
+                " already has the new name."
+            )
+        },
     },
 )
 async def rename_save(
@@ -1315,8 +1459,13 @@ async def rename_save(
     "/delete",
     [Scope.ASSETS_WRITE],
     responses={
-        status.HTTP_400_BAD_REQUEST: {},
-        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_400_BAD_REQUEST: {"description": "The list of saves is empty."},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no save that it can see for one of the IDs."
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "One of the saves belongs to a sync channel."
+        },
     },
 )
 async def delete_saves(
@@ -1358,7 +1507,14 @@ async def delete_saves(
     return saves
 
 
-@protected_route(router.post, "/{id}/track", [Scope.DEVICES_WRITE])
+@protected_route(
+    router.post,
+    "/{id}/track",
+    [Scope.DEVICES_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": OWNED_SAVE_OR_DEVICE_NOT_FOUND}
+    },
+)
 def track_save(
     request: Request,
     id: SaveIdPath,
@@ -1377,7 +1533,14 @@ def track_save(
     return _build_save_schema(save, _syncs_for_save(save.id, device), device)
 
 
-@protected_route(router.post, "/{id}/untrack", [Scope.DEVICES_WRITE])
+@protected_route(
+    router.post,
+    "/{id}/untrack",
+    [Scope.DEVICES_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": OWNED_SAVE_OR_DEVICE_NOT_FOUND}
+    },
+)
 def untrack_save(
     request: Request,
     id: SaveIdPath,

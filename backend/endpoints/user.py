@@ -136,6 +136,17 @@ def _assert_can_manage_user(request: Request, target: User) -> None:
     "",
     [],
     status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "A field is invalid, or the username or email is already taken."
+        },
+        status.HTTP_403_FORBIDDEN: {
+            "description": (
+                "An admin exists and the caller lacks the `users.write` scope, or"
+                " the new user is an admin and the caller is not one."
+            )
+        },
+    },
 )
 def add_user(
     request: Request,
@@ -144,18 +155,7 @@ def add_user(
     password: str = Body(..., embed=True),
     role: str = Body(..., embed=True),
 ) -> UserSchema:
-    """Create user endpoint
-
-    Args:
-        request (Request): Fastapi Requests object
-        username (str): User username
-        password (str): User password
-        email (str): User email
-        role (str): RomM Role object represented as string
-
-    Returns:
-        UserSchema: Newly created user
-    """
+    """Create a user. Before the first admin exists, any caller can create one."""
 
     admins_exist = len(db_user_handler.get_admin_users()) > 0
 
@@ -221,6 +221,17 @@ def add_user(
     "/invite-link",
     [],
     status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The role is not valid, or the expiration is not a positive number."
+        },
+        status.HTTP_403_FORBIDDEN: {
+            "description": (
+                "An admin exists and the caller lacks the `users.write` scope, or"
+                " the link is for an admin and the caller is not one."
+            )
+        },
+    },
 )
 def create_invite_link(
     request: Request,
@@ -243,11 +254,7 @@ def create_invite_link(
         ),
     ] = None,
 ) -> InviteLinkSchema:
-    """Create an invite link for a user.
-
-    Returns:
-        InviteLinkSchema: Invite link
-    """
+    """Create an invite link that lets someone register a user with the given role."""
 
     admins_exist = len(db_user_handler.get_admin_users()) > 0
 
@@ -286,7 +293,18 @@ def create_invite_link(
     return InviteLinkSchema.from_token(token)
 
 
-@router.post("/register", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "The invite token is not valid or already used, a field is invalid,"
+                " or the username or email is already taken."
+            )
+        }
+    },
+)
 def create_user_from_invite(
     request: Request,
     username: str = Body(..., embed=True),
@@ -294,17 +312,7 @@ def create_user_from_invite(
     password: str = Body(..., embed=True),
     token: str = Body(..., embed=True),
 ) -> UserSchema:
-    """Create user endpoint with invite link
-
-    Args:
-        username (str): User username
-        email (str): User email
-        password (str): User password
-        token (str): Invite link token
-
-    Returns:
-        UserSchema: Newly created user
-    """
+    """Register a user from an invite link. The new user gets the role the link was created for."""
 
     # Ahead of the "already exists" checks, which would otherwise enumerate
     # accounts for an invalid token. Not consumed, so a retry keeps the invite.
@@ -357,14 +365,7 @@ def create_user_from_invite(
 
 @protected_route(router.get, "", [Scope.USERS_READ])
 def get_users(request: Request) -> list[UserSchema]:
-    """Get all users endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        list[UserSchema]: All users stored in the RomM's database
-    """
+    """List all users."""
 
     return [UserSchema.model_validate(u) for u in db_user_handler.get_users()]
 
@@ -373,14 +374,7 @@ def get_users(request: Request) -> list[UserSchema]:
 def get_user_identifiers(
     request: Request,
 ) -> list[int]:
-    """Get all user identifiers endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        list[int]: All user ids stored in the RomM's database
-    """
+    """List the IDs of all users."""
 
     users = db_user_handler.get_users(only_fields=[User.id])
     return [u.id for u in users]
@@ -388,30 +382,21 @@ def get_user_identifiers(
 
 @protected_route(router.get, "/me", [Scope.ME_READ])
 def get_current_user(request: Request) -> UserSchema | None:
-    """Get current user endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        UserSchema | None: Current user
-    """
+    """Get the user making the request."""
 
     return UserSchema.from_orm_with_request(request.user, request)
 
 
-@protected_route(router.get, "/{id}", [Scope.USERS_READ])
+@protected_route(
+    router.get,
+    "/{id}",
+    [Scope.USERS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {"description": "No user has this ID."}},
+)
 def get_user(
     request: Request, id: Annotated[int, PathVar(description="The ID of the user.")]
 ) -> UserSchema:
-    """Get user endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        UserSchem: User stored in the RomM's database
-    """
+    """Get a user by ID."""
 
     user = db_user_handler.get_user(id)
     if not user:
@@ -424,7 +409,11 @@ def get_user(
     router.get,
     "/{id}/avatar",
     [Scope.ASSETS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No user has this ID, or the user has no avatar."
+        }
+    },
 )
 def get_user_avatar(
     request: Request,
@@ -735,8 +724,15 @@ async def delete_user(
     status_code=status.HTTP_202_ACCEPTED,
     summary="Refresh RetroAchievements",
     responses={
-        status.HTTP_404_NOT_FOUND: {},
-        status.HTTP_503_SERVICE_UNAVAILABLE: {},
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The user is not the caller, and the caller cannot manage this user."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No user has this ID, or the user has no RetroAchievements username."
+        },
+        status.HTTP_503_SERVICE_UNAVAILABLE: {
+            "description": "The sync job could not be added to the task queue."
+        },
     },
 )
 async def refresh_retro_achievements(

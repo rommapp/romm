@@ -57,7 +57,20 @@ class PlaySessionIngestPayload(BaseModel):
 
 
 @protected_route(
-    router.post, "", [Scope.ROMS_USER_WRITE], status_code=status.HTTP_201_CREATED
+    router.post,
+    "",
+    [Scope.ROMS_USER_WRITE],
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                f"The batch has no sessions or more than {MAX_BATCH_SIZE} of them."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The client token is bound to a device other than `device_id`."
+        },
+    },
 )
 def ingest_play_sessions(
     request: Request,
@@ -107,7 +120,19 @@ def ingest_play_sessions(
     )
 
 
-@protected_route(router.get, "", [Scope.ROMS_USER_READ])
+@protected_route(
+    router.get,
+    "",
+    [Scope.ROMS_USER_READ],
+    responses={
+        status.HTTP_403_FORBIDDEN: {
+            "description": (
+                "The request does not set `device_id` to the client token's own"
+                " device, and lacks the `devices.read` scope."
+            )
+        }
+    },
+)
 def get_play_sessions(
     request: Request,
     page: Annotated[PageParams, Depends(PAGE_QUERY)],
@@ -157,6 +182,11 @@ def get_play_sessions(
     "/{session_id}",
     [Scope.ROMS_USER_WRITE],
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no play session with this ID on a rom it can see."
+        }
+    },
 )
 def delete_play_session(
     request: Request,
