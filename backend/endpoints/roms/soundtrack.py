@@ -7,7 +7,7 @@ from fastapi.responses import Response
 
 from decorators.auth import protected_route
 from endpoints.responses.rom import SoundtrackTrackMetaSchema, TrackMetaSchema
-from endpoints.roms.upload import receive_rom_file
+from endpoints.roms.upload import ROM_FILE_UPLOAD_RESPONSES, receive_rom_file
 from handler.auth.constants import Scope
 from handler.auth.dependencies import visible_rom_or_404
 from handler.database import db_rom_handler
@@ -27,7 +27,11 @@ router = APIRouter()
     router.get,
     "/{id}/soundtracks/metadata",
     [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+    },
 )
 async def get_rom_soundtrack_metadata(
     request: Request,
@@ -59,7 +63,12 @@ async def get_rom_soundtrack_metadata(
     "/{id}/soundtracks",
     [Scope.ROMS_WRITE],
     status_code=status.HTTP_201_CREATED,
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        **ROM_FILE_UPLOAD_RESPONSES,
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+    },
 )
 async def add_rom_soundtracks(
     request: Request,
@@ -87,7 +96,14 @@ async def add_rom_soundtracks(
     router.delete,
     "/{id}/soundtracks/{file_id}",
     [Scope.ROMS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID, or the rom has no soundtrack with this file ID."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The soundtrack could not be removed from disk."
+        },
+    },
 )
 async def delete_rom_soundtrack(
     request: Request,
