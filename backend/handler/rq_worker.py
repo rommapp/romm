@@ -46,6 +46,11 @@ _job_peak_rss = _meter.create_histogram(
     "romm.rq.job.peak_rss",
     unit="By",
     description="Peak resident memory of the work horse that ran a job",
+    # The default buckets end at 10,000, which every byte count overflows.
+    explicit_bucket_boundaries_advisory=[
+        mib * 1024 * 1024
+        for mib in (64, 128, 192, 256, 384, 512, 768, 1024, 2048, 4096)
+    ],
 )
 
 
