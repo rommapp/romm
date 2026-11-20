@@ -211,12 +211,26 @@ def pair_status(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
 
-@router.post("/exchange")
+@router.post(
+    "/exchange",
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": "The token's owner is disabled."},
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "The code is unknown, expired or already used, or its token no"
+                " longer exists."
+            )
+        },
+        status.HTTP_429_TOO_MANY_REQUESTS: {
+            "description": "Too many exchange attempts from this IP address."
+        },
+    },
+)
 async def exchange_pair_code(
     request: Request,
     payload: ClientTokenExchangePayload,
 ) -> ClientTokenCreateSchema:
-    """Exchange a pairing code for a new secret for the token it was created for. The code cannot be used again, and the token's previous secret stops working."""
+    """Exchange a single-use pairing code for a new secret for the token it was created for. The token's previous secret stops working."""
     token = exchange(request, payload.code)
     await close_client_token_sockets([token.id])
     return token
