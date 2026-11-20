@@ -16,7 +16,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import RomFileCategory
-from utils.router import APIRouter
+from utils.router import APIRouter, RomIdPath
 
 router = APIRouter()
 
@@ -30,7 +30,7 @@ router = APIRouter()
 )
 async def add_rom_screenshots(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     filename: Annotated[
         str,
         Header(
@@ -58,7 +58,7 @@ async def add_rom_screenshots(
 )
 async def delete_rom_screenshot(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
 ) -> Response:
     """Delete a single screenshot file from a ROM."""

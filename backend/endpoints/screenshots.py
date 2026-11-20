@@ -24,7 +24,7 @@ from utils.media_types import (
     SCREENSHOT_UPLOAD_EXTENSIONS,
     is_allowed_screenshot_upload,
 )
-from utils.router import APIRouter
+from utils.router import APIRouter, RomIdQuery
 from utils.uploads import check_asset_upload_size, sanitize_asset_filename
 
 router = APIRouter(
@@ -38,7 +38,7 @@ SCREENSHOT_FILE_UPLOAD = File(..., description="Screenshot file to upload.")
 @protected_route(router.post, "", [Scope.ASSETS_WRITE])
 async def add_screenshot(
     request: Request,
-    rom_id: int,
+    rom_id: RomIdQuery,
     screenshotFile: UploadFile = SCREENSHOT_FILE_UPLOAD,
 ) -> ScreenshotSchema:
     """Upload a per-user gallery screenshot for a ROM.
@@ -167,7 +167,10 @@ def download_screenshot(
 async def update_screenshot(
     request: Request,
     id: Annotated[int, PathVar(description="Screenshot internal id.", ge=1)],
-    is_public: Annotated[bool, Body(embed=True)],
+    is_public: Annotated[
+        bool,
+        Body(embed=True),
+    ],
 ) -> ScreenshotSchema:
     """Toggle a gallery screenshot's public/private visibility (owner only)."""
     owned_rom_asset_or_404(

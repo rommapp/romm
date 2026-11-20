@@ -7,11 +7,17 @@ import type { SaveLayoutOptionSchema } from './SaveLayoutOptionSchema';
  * One of sigil's save layouts: `id` is what the content route takes as `core`.
  */
 export type SaveLayoutSchema = {
+    /**
+     * The ID of the layout, which the content route takes as `core`.
+     */
     id: string;
     /**
      * Sigil's platform slug, "" for any platform
      */
     platform: string;
+    /**
+     * The core options that the layout's files depend on.
+     */
     options: Array<SaveLayoutOptionSchema>;
     /**
      * The option that picks a shared file by the disc's region, or ""

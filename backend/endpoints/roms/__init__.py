@@ -34,11 +34,9 @@ from fastapi import Query, Request, UploadFile, status
 from fastapi.responses import Response
 from pydantic import (
     AfterValidator,
-    BaseModel,
-    Field,
-    StringConstraints,
-    TypeAdapter,
 )
+from pydantic import BaseModel as PydanticBaseModel
+from pydantic import Field, StringConstraints, TypeAdapter
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -53,7 +51,7 @@ from config import (
 from config.config_manager import MetadataMediaType
 from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
-from endpoints.responses.base import PAGE_QUERY, LimitOffsetPage, PageParams
+from endpoints.responses.base import PAGE_QUERY, BaseModel, LimitOffsetPage, PageParams
 from endpoints.responses.recommendation import SimilarRomSchema
 from endpoints.responses.rom import (
     DetailedRomSchema,
@@ -189,7 +187,7 @@ from utils.nginx import (
     ZipResponse,
     content_disposition,
 )
-from utils.router import APIRouter, as_query_dependency
+from utils.router import APIRouter, OrderDirQuery, RomIdPath, as_query_dependency
 from utils.screenshots import continue_playing_screenshot
 from utils.validation import (
     MAX_ROM_IDS_PER_QUERY,
@@ -320,61 +318,66 @@ def build_unscoped_filter_values_cache_key(
 
 
 class RomUpdateForm(BaseModel):
-    igdb_id: str | None = Field(default=None, description="IGDB game ID.")
-    sgdb_id: str | None = Field(default=None, description="SteamGridDB game ID.")
-    moby_id: str | None = Field(default=None, description="MobyGames game ID.")
-    ss_id: str | None = Field(default=None, description="ScreenScraper game ID.")
-    ra_id: str | None = Field(default=None, description="RetroAchievements game ID.")
-    launchbox_id: str | None = Field(default=None, description="LaunchBox game ID.")
-    hasheous_id: str | None = Field(default=None, description="Hasheous game ID.")
-    tgdb_id: str | None = Field(default=None, description="TheGamesDB game ID.")
-    flashpoint_id: str | None = Field(default=None, description="Flashpoint game ID.")
-    hltb_id: str | None = Field(default=None, description="HowLongToBeat game ID.")
-    demozoo_id: str | None = Field(default=None, description="Demozoo production ID.")
-    pouet_id: str | None = Field(default=None, description="Pouët production ID.")
-    csdb_id: str | None = Field(default=None, description="CSDb release ID.")
-    steam_id: str | None = Field(default=None, description="Steam app ID.")
-    libretro_id: str | None = Field(default=None, description="Libretro thumbnail ID.")
-    raw_igdb_metadata: str | None = Field(
-        default=None, description="Raw IGDB metadata as JSON string."
-    )
-    raw_moby_metadata: str | None = Field(
-        default=None, description="Raw MobyGames metadata as JSON string."
-    )
-    raw_ss_metadata: str | None = Field(
-        default=None, description="Raw ScreenScraper metadata as JSON string."
-    )
-    raw_launchbox_metadata: str | None = Field(
-        default=None, description="Raw LaunchBox metadata as JSON string."
-    )
-    raw_hasheous_metadata: str | None = Field(
-        default=None, description="Raw Hasheous metadata as JSON string."
-    )
-    raw_flashpoint_metadata: str | None = Field(
-        default=None, description="Raw Flashpoint metadata as JSON string."
-    )
-    raw_hltb_metadata: str | None = Field(
-        default=None, description="Raw HowLongToBeat metadata as JSON string."
-    )
-    raw_demozoo_metadata: str | None = Field(
-        default=None, description="Raw Demozoo metadata as JSON string."
-    )
-    raw_pouet_metadata: str | None = Field(
-        default=None, description="Raw Pouët metadata as JSON string."
-    )
-    raw_csdb_metadata: str | None = Field(
-        default=None, description="Raw CSDb metadata as JSON string."
-    )
-    raw_steam_metadata: str | None = Field(
-        default=None, description="Raw Steam metadata as JSON string."
-    )
-    raw_manual_metadata: str | None = Field(
-        default=None, description="Raw manual metadata as JSON string."
-    )
+    igdb_id: str | None = None
+    """IGDB game ID."""
+    sgdb_id: str | None = None
+    """SteamGridDB game ID."""
+    moby_id: str | None = None
+    """MobyGames game ID."""
+    ss_id: str | None = None
+    """ScreenScraper game ID."""
+    ra_id: str | None = None
+    """RetroAchievements game ID."""
+    launchbox_id: str | None = None
+    """LaunchBox game ID."""
+    hasheous_id: str | None = None
+    """Hasheous game ID."""
+    tgdb_id: str | None = None
+    """TheGamesDB game ID."""
+    flashpoint_id: str | None = None
+    """Flashpoint game ID."""
+    hltb_id: str | None = None
+    """HowLongToBeat game ID."""
+    demozoo_id: str | None = None
+    """Demozoo production ID."""
+    pouet_id: str | None = None
+    """Pouët production ID."""
+    csdb_id: str | None = None
+    """CSDb release ID."""
+    steam_id: str | None = None
+    """Steam app ID."""
+    libretro_id: str | None = None
+    """Libretro thumbnail ID."""
+    raw_igdb_metadata: str | None = None
+    """Raw IGDB metadata, as a JSON string."""
+    raw_moby_metadata: str | None = None
+    """Raw MobyGames metadata, as a JSON string."""
+    raw_ss_metadata: str | None = None
+    """Raw ScreenScraper metadata, as a JSON string."""
+    raw_launchbox_metadata: str | None = None
+    """Raw LaunchBox metadata, as a JSON string."""
+    raw_hasheous_metadata: str | None = None
+    """Raw Hasheous metadata, as a JSON string."""
+    raw_flashpoint_metadata: str | None = None
+    """Raw Flashpoint metadata, as a JSON string."""
+    raw_hltb_metadata: str | None = None
+    """Raw HowLongToBeat metadata, as a JSON string."""
+    raw_demozoo_metadata: str | None = None
+    """Raw Demozoo metadata, as a JSON string."""
+    raw_pouet_metadata: str | None = None
+    """Raw Pouët metadata, as a JSON string."""
+    raw_csdb_metadata: str | None = None
+    """Raw CSDb metadata, as a JSON string."""
+    raw_steam_metadata: str | None = None
+    """Raw Steam metadata, as a JSON string."""
+    raw_manual_metadata: str | None = None
+    """Raw manual metadata, as a JSON string."""
     name: str | None = None
     name_sort_key: str | None = None
+    """A custom sort key, used instead of the one derived from the name."""
     summary: str | None = None
     fs_name: str | None = None
+    """The new name of the file or folder."""
     url_cover: str | None = None
     url_manual: str | None = None
 
@@ -436,120 +439,39 @@ PinnedMediaKey = Annotated[
 
 
 class RomUserData(BaseModel):
-    is_main_sibling: bool | None = Field(
-        default=None, description="Whether this rom is the main sibling."
-    )
-    backlogged: bool | None = Field(
-        default=None, description="Whether this rom is in the backlog."
-    )
-    now_playing: bool | None = Field(
-        default=None, description="Whether this rom is currently being played."
-    )
-    hidden: bool | None = Field(default=None, description="Whether this rom is hidden.")
-    rating: int | None = Field(
-        default=None, description="User rating for this rom (0-10).", ge=0, le=10
-    )
-    difficulty: int | None = Field(
-        default=None,
-        description="User difficulty rating for this rom (0-10).",
-        ge=0,
-        le=10,
-    )
-    completion: int | None = Field(
-        default=None,
-        description="User completion percentage for this rom (0-100).",
-        ge=0,
-        le=100,
-    )
-    status: RomUserStatus | None = Field(
-        default=None, description="User play status for this rom."
-    )
+    is_main_sibling: bool | None = None
+    """Whether this rom is the main version of its game."""
+    backlogged: bool | None = None
+    """Whether this rom is in the backlog."""
+    now_playing: bool | None = None
+    """Whether this rom is currently being played."""
+    hidden: bool | None = None
+    """Whether this rom is hidden."""
+    rating: int | None = Field(default=None, ge=0, le=10)
+    """User rating for this rom (0-10)."""
+    difficulty: int | None = Field(default=None, ge=0, le=10)
+    """User difficulty rating for this rom (0-10)."""
+    completion: int | None = Field(default=None, ge=0, le=100)
+    """User completion percentage for this rom (0-100)."""
+    status: RomUserStatus | None = None
+    """User play status for this rom."""
     pinned_media: Annotated[
         list[PinnedMediaKey] | None, AfterValidator(dedupe_in_order)
-    ] = Field(
-        default=None,
-        description="Ordered media keys shown on the overview; null restores the default selection.",
-        max_length=PINNED_MEDIA_MAX_ITEMS,
-    )
+    ] = Field(default=None, max_length=PINNED_MEDIA_MAX_ITEMS)
+    """The media keys to show on the overview, in order. Null restores the default selection."""
+
+
+# A default keeps the body optional, since an edit may send only query flags.
+_EMPTY_ROM_UPDATE_FORM: Final = RomUpdateForm()
 
 
 async def parse_rom_update_form(
     request: Request,
-    igdb_id: str | None = Form(default=None),
-    sgdb_id: str | None = Form(default=None),
-    moby_id: str | None = Form(default=None),
-    ss_id: str | None = Form(default=None),
-    ra_id: str | None = Form(default=None),
-    launchbox_id: str | None = Form(default=None),
-    hasheous_id: str | None = Form(default=None),
-    tgdb_id: str | None = Form(default=None),
-    flashpoint_id: str | None = Form(default=None),
-    hltb_id: str | None = Form(default=None),
-    demozoo_id: str | None = Form(default=None),
-    pouet_id: str | None = Form(default=None),
-    csdb_id: str | None = Form(default=None),
-    steam_id: str | None = Form(default=None),
-    libretro_id: str | None = Form(default=None),
-    raw_igdb_metadata: str | None = Form(default=None),
-    raw_moby_metadata: str | None = Form(default=None),
-    raw_ss_metadata: str | None = Form(default=None),
-    raw_launchbox_metadata: str | None = Form(default=None),
-    raw_hasheous_metadata: str | None = Form(default=None),
-    raw_flashpoint_metadata: str | None = Form(default=None),
-    raw_hltb_metadata: str | None = Form(default=None),
-    raw_demozoo_metadata: str | None = Form(default=None),
-    raw_pouet_metadata: str | None = Form(default=None),
-    raw_csdb_metadata: str | None = Form(default=None),
-    raw_steam_metadata: str | None = Form(default=None),
-    raw_manual_metadata: str | None = Form(default=None),
-    name: str | None = Form(default=None),
-    name_sort_key: str | None = Form(default=None),
-    summary: str | None = Form(default=None),
-    fs_name: str | None = Form(default=None),
-    url_cover: str | None = Form(default=None),
-    url_manual: str | None = Form(default=None),
+    form: Annotated[RomUpdateForm, Form()] = _EMPTY_ROM_UPDATE_FORM,
 ) -> RomUpdateForm:
-    # Preserve "field was provided" behavior used by update logic.
-    form_keys = set((await request.form()).keys())
-    field_values = {
-        "igdb_id": igdb_id,
-        "sgdb_id": sgdb_id,
-        "moby_id": moby_id,
-        "ss_id": ss_id,
-        "ra_id": ra_id,
-        "launchbox_id": launchbox_id,
-        "hasheous_id": hasheous_id,
-        "tgdb_id": tgdb_id,
-        "flashpoint_id": flashpoint_id,
-        "hltb_id": hltb_id,
-        "demozoo_id": demozoo_id,
-        "pouet_id": pouet_id,
-        "csdb_id": csdb_id,
-        "steam_id": steam_id,
-        "libretro_id": libretro_id,
-        "raw_igdb_metadata": raw_igdb_metadata,
-        "raw_moby_metadata": raw_moby_metadata,
-        "raw_ss_metadata": raw_ss_metadata,
-        "raw_launchbox_metadata": raw_launchbox_metadata,
-        "raw_hasheous_metadata": raw_hasheous_metadata,
-        "raw_flashpoint_metadata": raw_flashpoint_metadata,
-        "raw_hltb_metadata": raw_hltb_metadata,
-        "raw_demozoo_metadata": raw_demozoo_metadata,
-        "raw_pouet_metadata": raw_pouet_metadata,
-        "raw_csdb_metadata": raw_csdb_metadata,
-        "raw_steam_metadata": raw_steam_metadata,
-        "raw_manual_metadata": raw_manual_metadata,
-        "name": name,
-        "name_sort_key": name_sort_key,
-        "summary": summary,
-        "fs_name": fs_name,
-        "url_cover": url_cover,
-        "url_manual": url_manual,
-    }
-
-    return RomUpdateForm.model_validate(
-        {field: value for field, value in field_values.items() if field in form_keys}
-    )
+    # Only sent keys count as provided; FastAPI reads an empty value as unset.
+    form_keys = (await request.form()).keys() & RomUpdateForm.model_fields.keys()
+    return RomUpdateForm.model_validate({key: getattr(form, key) for key in form_keys})
 
 
 def parse_raw_metadata(
@@ -667,12 +589,15 @@ def confine_provider_media(
             ]
 
 
-class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
-    # Null when the caller opts out of the count with `with_total=false`.
+class CustomLimitOffsetPage[T: PydanticBaseModel](LimitOffsetPage[T]):
     total: int | None = Field(ge=0)  # type: ignore[assignment]
+    """The number of roms across all pages. Null when `with_total` is false, unless `with_rom_id_index` is true."""
     char_index: dict[str, int]
+    """For each first letter, the position in the full result where roms starting with it begin. Empty when `with_char_index` is false, the sort is not alphabetical, or a search ranks by relevance."""
     rom_id_index: list[int]
+    """The IDs of every matching rom, in order. Empty when `with_rom_id_index` is false."""
     filter_values: RomFiltersDict
+    """The options for the filter dropdowns. Every list is empty when `with_filter_values` is false."""
 
 
 # Month 1-12 and day 1-31, so a match is already a calendar day.
@@ -720,16 +645,41 @@ def get_roms(
     params: Annotated[PageParams, Depends(PAGE_QUERY)],
     with_char_index: Annotated[
         bool,
-        Query(description="Whether to get the char index."),
+        Query(
+            description=(
+                "Whether to return `char_index`: a map from each first letter to"
+                " the position in the full result where it starts, for an A to Z"
+                ' jump bar. `{"A": 0, "B": 38}` means the first rom starting with'
+                " B is at position 38. It is empty when the sort is not"
+                " alphabetical or a search is ranked by relevance."
+            )
+        ),
     ] = True,
     with_filter_values: Annotated[
-        bool, Query(description="Whether to return filter values.")
+        bool,
+        Query(
+            description=(
+                "Whether to return `filter_values`: the options for the filter"
+                " dropdowns, as lists of the distinct genres, franchises,"
+                " collections, companies, publishers, developers, game modes, age"
+                " ratings, player counts, regions, languages, tags and platforms."
+                " The values come from all roms in the current platform, collection"
+                " or search, ignoring the other filters, so selecting a value"
+                " never removes the other options from the same dropdown."
+            )
+        ),
     ] = True,
     with_rom_id_index: Annotated[
         bool,
         Query(
             description=(
-                "Whether to return the full ordered rom id index that backs virtual scroll."
+                "Whether to return `rom_id_index`: the IDs of every matching rom,"
+                " in result order. With the whole ordered list up front, a client"
+                " can size a scrollbar and fetch any part of the list later. The"
+                " returned page is a slice of that list, and `total` is filled in"
+                " at no extra cost. The list grows with the number of results, so"
+                " turn it off for small lists and when fetching the next page of a"
+                " list you already have."
             )
         ),
     ] = True,
@@ -737,10 +687,10 @@ def get_roms(
         bool,
         Query(
             description=(
-                "Whether to count the full result set. Set to false when the caller"
-                " already knows the total, e.g. paging through a gallery it has"
-                " sized; total then comes back null, unless the rom id index is"
-                " being built and already carries it."
+                "Whether to count the matching roms and return the count in `total`."
+                " Set it to false when you already know the count, such as when"
+                " fetching the next page of a list. `total` is then null, unless"
+                " `with_rom_id_index` is true, in which case it is filled in anyway."
             )
         ),
     ] = True,
@@ -748,9 +698,12 @@ def get_roms(
         bool,
         Query(
             description=(
-                "Whether to include each rom's provider metadata. When false, every"
-                " `*_metadata` object but `manual_metadata` comes back null, meaning"
-                " not requested rather than no match; `metadatum` is unaffected."
+                "Whether to include the raw metadata from each provider, in fields"
+                " such as `igdb_metadata` and `ss_metadata`. Set it to false for a"
+                " smaller response. When false, those fields are null. When true,"
+                " a provider with no match gives an empty object."
+                " `manual_metadata` and the merged `metadatum` are always"
+                " included."
             )
         ),
     ] = True,
@@ -758,17 +711,17 @@ def get_roms(
         str,
         Query(
             description=(
-                "Field to order results by. Leave empty to order a search of "
-                "two or more words, or of at least three characters, by "
-                "relevance: exact name or alias matches first, then names "
-                "starting with the term, then phrase matches."
+                "The field to sort by, such as `name`, `created_at`,"
+                " `fs_size_bytes`, `first_release_date`, `average_rating` or"
+                " `last_played`. An unknown field sorts by name. When empty, results"
+                " are also sorted by name, except for a search of two or more"
+                " words or at least three characters, which is ranked by"
+                " relevance: exact name or alias matches first, then names that"
+                " start with the search term, then phrase matches."
             ),
         ),
     ] = "",
-    order_dir: Annotated[
-        str,
-        Query(description="Order direction, either 'asc' or 'desc'."),
-    ] = "asc",
+    order_dir: OrderDirQuery = "asc",
     updated_after: Annotated[
         datetime | None,
         Query(
@@ -797,7 +750,13 @@ def get_roms(
     ] = None,
     with_files: Annotated[
         bool,
-        Query(description="Whether to include each rom's file entries."),
+        Query(
+            description=(
+                "Whether to include each rom's `files`: the files that make it up,"
+                " with their sizes and hashes. Off by default, since lists rarely"
+                " need them."
+            )
+        ),
     ] = False,
     rom_ids: Annotated[
         RomIdScope,
@@ -1407,7 +1366,12 @@ def get_rom_by_metadata_provider(
     router.get,
     "/by-hash",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}, status.HTTP_400_BAD_REQUEST: {}},
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": "No hash is given."},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see matches the hashes."
+        },
+    },
 )
 def get_rom_by_hash(
     request: Request,
@@ -1418,6 +1382,7 @@ def get_rom_by_hash(
         str | None, Query(description="RetroAchievements hash value")
     ] = None,
 ) -> DetailedRomSchema:
+    """Find a rom by the hash of the rom or one of its files."""
     if not crc_hash and not md5_hash and not sha1_hash and not ra_hash:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1439,6 +1404,7 @@ def get_rom_by_hash(
 
 @protected_route(router.get, "/filters", [Scope.ROMS_READ])
 def get_rom_filters(request: Request) -> RomFiltersDict:
+    """List the values the filter dropdowns offer across the whole library, counting only roms the caller can see."""
     from handler.database import db_rom_handler
 
     return db_rom_handler.get_rom_filters(get_rom_visibility_filter(request))
@@ -1452,7 +1418,7 @@ def get_rom_filters(request: Request) -> RomFiltersDict:
 )
 def get_rom_simple(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
 ) -> SimpleRomSchema:
     """Retrieve a rom by ID with the lightweight schema — no eager-loaded
     `user_saves` / `user_states` / `user_screenshots` / `user_collections` /
@@ -1475,7 +1441,7 @@ def get_rom_simple(
 )
 def get_similar_roms(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     limit: Annotated[
         int, Query(ge=1, le=50, description="Maximum similar roms to return")
     ] = 12,
@@ -1506,7 +1472,7 @@ def get_similar_roms(
 )
 def get_rom(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
 ) -> DetailedRomSchema:
     """Retrieve a rom by ID."""
 
@@ -1600,7 +1566,7 @@ async def _negotiate_format(
 )
 async def head_rom_content(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     file_name: Annotated[str, PathVar(description="File name to download")],
     file_ids: Annotated[
         str | None,
@@ -1694,7 +1660,7 @@ async def head_rom_content(
 )
 async def get_rom_content(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     file_name: Annotated[str, PathVar(description="Zip file output name")],
     file_ids: Annotated[
         str | None,
@@ -1919,17 +1885,14 @@ async def get_rom_content(
 
 
 class PhysicalRomCreateForm(BaseModel):
-    platform_id: int = Field(..., ge=1, description="Platform the game belongs to.")
-    name: str | None = Field(
-        default=None, description="Game name to match metadata against."
-    )
-    upc: str | None = Field(
-        default=None, description="UPC/EAN/barcode of the physical copy."
-    )
-    metadata_sources: list[str] | None = Field(
-        default=None,
-        description="Metadata providers to match against; defaults to all enabled.",
-    )
+    platform_id: int = Field(..., ge=1)
+    """Platform the game belongs to."""
+    name: str | None = None
+    """Game name to match metadata against."""
+    upc: str | None = None
+    """UPC/EAN/barcode of the physical copy."""
+    metadata_sources: list[str] | None = None
+    """Metadata providers to match against; defaults to all enabled."""
 
 
 @protected_route(
@@ -2175,7 +2138,7 @@ async def _refetch_changed_matches(
 )
 async def update_rom(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     form_data: Annotated[RomUpdateForm, Depends(parse_rom_update_form)],
     artwork: Annotated[
         UploadFile | None,
@@ -2537,19 +2500,22 @@ async def update_rom(
     "/{id}/convert-to-folder",
     [Scope.ROMS_WRITE],
     responses={
-        status.HTTP_404_NOT_FOUND: {},
-        status.HTTP_409_CONFLICT: {},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "A folder with the new name already exists, or an `.m3u` beside the file lists it."
+        },
     },
 )
 async def convert_rom_to_folder(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
 ) -> DetailedRomSchema:
     """Promote a single-file ROM to a folder ROM in place.
 
     Keeps the same id and all relations; no rescan. A no-op (clean success) if
-    the ROM is already folder-based. Returns 409 on a folder-name collision, or
-    when an .m3u beside the file lists it.
+    the ROM is already folder-based.
     """
     rom = visible_rom_or_404(request, db_rom_handler.get_rom(id), id)
 
@@ -2690,7 +2656,7 @@ async def delete_roms(
 )
 async def update_rom_user(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     data: Annotated[RomUserData, Body()],
     update_last_played: Annotated[
         bool, Query(description="Set last played timestamp to now.")
@@ -2735,20 +2701,12 @@ async def update_rom_user(
 class RomIdentityData(BaseModel):
     """Binary identity a client extracted for a ROM that RomM cannot read itself."""
 
-    title_id: str | None = Field(
-        default=None,
-        description="Platform-native identity, e.g. 0100ABCD12340000 or SLUS-20152.",
-        max_length=TITLE_ID_MAX_LENGTH,
-    )
-    save_target: str | None = Field(
-        default=None,
-        description="On-disk name the emulator gives this game's saves.",
-        max_length=TITLE_ID_MAX_LENGTH,
-    )
-    save_target_layout: SaveTargetLayout | None = Field(
-        default=None,
-        description="How to apply save_target when locating saves on disk.",
-    )
+    title_id: str | None = Field(default=None, max_length=TITLE_ID_MAX_LENGTH)
+    """The game's ID on its own platform, such as `0100ABCD12340000` or `SLUS-20152`."""
+    save_target: str | None = Field(default=None, max_length=TITLE_ID_MAX_LENGTH)
+    """On-disk name the emulator gives this game's saves."""
+    save_target_layout: SaveTargetLayout | None = None
+    """How to read `save_target` when locating saves on disk."""
 
 
 @protected_route(
@@ -2759,7 +2717,7 @@ class RomIdentityData(BaseModel):
 )
 async def update_rom_identity(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     data: Annotated[RomIdentityData, Body()],
 ) -> DetailedRomSchema:
     """Store binary identity a client extracted from a ROM the scan cannot read."""

@@ -18,7 +18,7 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import RomFileCategory
 from utils.audio_tags import remove_persisted_cover
-from utils.router import APIRouter
+from utils.router import APIRouter, RomIdPath
 
 router = APIRouter()
 
@@ -31,7 +31,7 @@ router = APIRouter()
 )
 async def get_rom_soundtrack_metadata(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
 ) -> list[SoundtrackTrackMetaSchema]:
     """Return compact audio metadata for every soundtrack file of a ROM."""
 
@@ -63,7 +63,7 @@ async def get_rom_soundtrack_metadata(
 )
 async def add_rom_soundtracks(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     filename: Annotated[
         str,
         Header(
@@ -91,7 +91,7 @@ async def add_rom_soundtracks(
 )
 async def delete_rom_soundtrack(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
 ) -> Response:
     """Delete a single soundtrack file from a ROM."""

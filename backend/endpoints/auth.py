@@ -190,27 +190,24 @@ async def logout(request: Request) -> Optional[OIDCLogoutResponse]:
     return None
 
 
-@router.post("/token")
+@router.post(
+    "/token",
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "A required field is missing, or the grant type is not supported."
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "The username and password, or the refresh token, are not valid."
+        },
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The account is disabled, or the requested scopes are not granted to it."
+        },
+    },
+)
 async def token(
     request: Request, form_data: Annotated[OAuth2RequestForm, Depends()]
 ) -> TokenResponse:
-    """OAuth2 token endpoint
-
-    Args:
-        form_data (Annotated[OAuth2RequestForm, Depends): Form Data with OAuth2 info
-
-    Raises:
-        HTTPException: Missing refresh token
-        HTTPException: Invalid refresh token
-        HTTPException: Missing username or password
-        HTTPException: Invalid username or password
-        HTTPException: Client credentials are not yet supported
-        HTTPException: Invalid or unsupported grant type
-        HTTPException: Insufficient scope
-
-    Returns:
-        TokenResponse: TypedDict with the new generated token info
-    """
+    """Issue an access token and a refresh token, from a username and password or from a refresh token."""
 
     user: User | None
     # Read before any credential check, so a revocation that lands during the
@@ -376,22 +373,25 @@ async def login_via_openid(request: Request) -> RedirectResponse:
         return RedirectResponse(url="/login?bypass_autologin=true")
 
 
-@router.get("/oauth/openid")
+@router.get(
+    "/oauth/openid",
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The provider's token lacks the user info, email or username, or the email is not verified."
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "No user matches the identity, or the user is disabled."
+        },
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The user has no role for RomM, the account is linked to another identity, or registration is disabled."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "OIDC is disabled or not configured."
+        },
+    },
+)
 async def auth_openid(request: Request) -> RedirectResponse:
-    """OIDC callback endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Raises:
-        OIDCDisabledException: OAuth is disabled
-        OIDCNotConfiguredException: OAuth not configured
-        AuthCredentialsException: Invalid credentials
-        UserDisabledException: Auth is disabled
-
-    Returns:
-        RedirectResponse: Redirect to home, or to login if the provider rejects
-    """
+    """Complete an OIDC sign-in, then redirect to the home page, or to the login page if the provider rejects it."""
 
     if not OIDC_ENABLED:
         raise OIDCDisabledException
