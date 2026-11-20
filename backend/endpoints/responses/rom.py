@@ -318,6 +318,8 @@ class RomFileSchema(BaseModel):
     file_size_bytes: int
     full_path: str
     is_top_level: bool
+    missing_from_fs: bool
+    """True when the file is gone from disk."""
     created_at: UTCDatetime
     updated_at: UTCDatetime
     last_modified: UTCDatetime | None

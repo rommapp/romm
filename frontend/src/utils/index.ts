@@ -567,7 +567,9 @@ export function isJsDosBundle(rom: SimpleRom | null | undefined) {
 export function jsDosBundleFileIds(rom: DetailedRom): number[] {
   const bundle = rom.files.find(
     (file) =>
-      file.is_top_level && file.file_name.toLowerCase().endsWith(".jsdos"),
+      file.is_top_level &&
+      !file.missing_from_fs &&
+      file.file_name.toLowerCase().endsWith(".jsdos"),
   );
   return bundle ? [bundle.id] : [];
 }

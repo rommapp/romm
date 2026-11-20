@@ -103,6 +103,21 @@ describe("jsDosBundleFileIds", () => {
     const rom = detailedRomFixture({ files: [file(3, "extra.jsdos", false)] });
     expect(jsDosBundleFileIds(rom)).toEqual([]);
   });
+
+  it("skips a bundle missing from disk", () => {
+    const rom = detailedRomFixture({
+      files: [
+        romFileFixture({
+          id: 1,
+          file_name: "A.jsdos",
+          is_top_level: true,
+          missing_from_fs: true,
+        }),
+        file(2, "B.jsdos"),
+      ],
+    });
+    expect(jsDosBundleFileIds(rom)).toEqual([2]);
+  });
 });
 
 describe("PICO-8 support", () => {

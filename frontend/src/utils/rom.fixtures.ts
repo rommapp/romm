@@ -61,6 +61,7 @@ export function romFileFixture(
     file_size_bytes: 0,
     full_path: "",
     is_top_level: false,
+    missing_from_fs: false,
     created_at: WRITTEN_AT,
     updated_at: WRITTEN_AT,
     last_modified: null,
