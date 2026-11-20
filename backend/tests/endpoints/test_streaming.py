@@ -6531,9 +6531,17 @@ def test_archive_overlay_refuses_a_merge_past_the_size_limit():
 
 
 def _pull_over_base(
-    rom: Rom, user: User, base: Save | None, base_content: bytes, delta: bytes
+    rom: Rom,
+    user: User,
+    base: Save | None,
+    base_content: bytes,
+    delta: bytes,
+    launch_hash: str | None = None,
 ) -> bytes:
-    """Pull `delta` for a session that restored `base`, returning what was filed."""
+    """Pull `delta` for a session that restored `base`, returning what was filed.
+
+    `launch_hash` is the base's content hash at launch, its current one by default.
+    """
     container = _resolved({**_container_for(rom), "label": "PCSX2"})
     scanned = _save_for(
         rom, user, "Game [pcsx2 new].saves.zip", container.emulator, "merged"
@@ -6553,6 +6561,8 @@ def _pull_over_base(
                 rom.id,
                 container,
                 base_save_id=base.id if base is not None else None,
+                base_save_hash=launch_hash
+                or (base.content_hash if base is not None else None),
             )
         )
     return cast(bytes, wf.call_args.kwargs["file"])
@@ -6581,6 +6591,22 @@ def test_pull_saves_files_the_delta_alone_without_a_restored_archive(
     delta = _exit_archive({"state.bin": ("state", b"s2")})
 
     assert _pull_over_base(rom, admin_user, None, b"", delta) == delta
+
+
+def test_pull_saves_skips_a_restored_archive_replaced_during_the_session(
+    rom: Rom, admin_user: User
+):
+    """An upload over the base keeps its id, and the session never loaded those bytes."""
+    emulator = _resolved({**_container_for(rom), "label": "PCSX2"}).emulator
+    base = _add_save(rom, admin_user, "Game [base].saves.zip", emulator, "replaced")
+    base_content = _exit_archive({"data/save00": ("save", b"other")})
+    delta = _exit_archive({"state.bin": ("state", b"s2")})
+
+    filed = _pull_over_base(
+        rom, admin_user, base, base_content, delta, launch_hash="restored"
+    )
+
+    assert filed == delta
 
 
 def test_pull_saves_ignores_a_restored_archive_from_another_emulator(
@@ -7599,7 +7625,9 @@ def test_a_launch_records_the_archive_it_restored_on_the_session(
     )
 
     assert resp.status_code == 202
-    assert json.loads(session)["restored_save_id"] == zipped.id
+    stamped = json.loads(session)
+    assert stamped["restored_save_id"] == zipped.id
+    assert stamped["restored_save_hash"] == "h1"
 
 
 def test_newest_restorable_skips_an_archive_whose_file_is_missing(
@@ -9676,6 +9704,7 @@ def test_an_exit_save_pull_runs_on_the_streaming_worker(
         "disc_file_id": 42,
         "disc_swaps": [{"file_id": 42, "at": "2026-10-07T12:00:00+00:00"}],
         "restored_save_id": 7,
+        "restored_save_hash": "h7",
     }
     exit_pull_queue.enqueue.side_effect = None
 
@@ -9702,6 +9731,7 @@ def test_an_exit_save_pull_runs_on_the_streaming_worker(
             session_store.DiscSwap(42, datetime(2026, 10, 7, 12, tzinfo=timezone.utc))
         ],
         "base_save_id": 7,
+        "base_save_hash": "h7",
     }
     assert kwargs["job_timeout"] == saves.SAVE_PULL_TTL_SECONDS
 

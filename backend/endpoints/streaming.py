@@ -822,8 +822,11 @@ async def _hydrate_saves(
             path = await saves.hydrate_saves_to_webstation(
                 request.user.id, rom.id, container, restored
             )
+            kept = restored if path else None
             return imports.ImportHydration(
-                path, restored_save_id=restored.id if path and restored else None
+                path,
+                restored_save_id=kept.id if kept else None,
+                restored_save_hash=kept.content_hash if kept else None,
             )
         except Exception:
             log.exception("save hydration failed, continuing launch")
@@ -1131,6 +1134,7 @@ async def claim_session(
         gui_language=gui_language,
         archive_path=hydrated.path,
         restored_save_id=hydrated.restored_save_id,
+        restored_save_hash=hydrated.restored_save_hash,
         native_fallback=hydrated.native_fallback,
         resume_state=resume_state,
         resume_slot=resume_slot,

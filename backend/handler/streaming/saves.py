@@ -464,17 +464,23 @@ async def _store_raw_exit(
 
 
 async def _over_restored_archive(
-    user: User, rom: Rom, emulator: str, base_save_id: int | None, content: bytes
+    user: User,
+    rom: Rom,
+    emulator: str,
+    base_save_id: int | None,
+    base_save_hash: str | None,
+    content: bytes,
 ) -> bytes:
-    """The exit archive laid over the archive the session restored.
-
-    A webstation exit holds only what changed since launch, so filed alone it
-    would restore without the files the session left untouched.
-    """
+    """The exit delta (only what changed since launch) laid over the archive the session restored."""
     if base_save_id is None:
         return content
     base = db_save_handler.get_save(user_id=user.id, id=base_save_id)
-    if base is None or base.rom_id != rom.id or not _is_restorable(base, emulator):
+    if (
+        base is None
+        or base.rom_id != rom.id
+        or base.content_hash != base_save_hash
+        or not _is_restorable(base, emulator)
+    ):
         return content
     stored = await read_restorable_archive(base)
     if stored is None:
@@ -498,6 +504,7 @@ async def pull_saves_to_library(
     disc_file_id: int | None = None,
     disc_swaps: Sequence[DiscSwap] = (),
     base_save_id: int | None = None,
+    base_save_hash: str | None = None,
 ) -> bool:
     """Background task: pull in-game saves from the broker and store them.
 
@@ -511,6 +518,8 @@ async def pull_saves_to_library(
         disc_swaps: the session's swaps, to file each state on its own disc.
         base_save_id: the archive the session restored, which a kept zip is
             merged over.
+        base_save_hash: that archive's content hash at launch; a mismatch skips
+            the merge.
     """
     user = db_user_handler.get_user(user_id)
     rom = db_rom_handler.get_rom(rom_id)
@@ -538,7 +547,7 @@ async def pull_saves_to_library(
                     rom,
                     emulator,
                     await _over_restored_archive(
-                        user, rom, emulator, base_save_id, content
+                        user, rom, emulator, base_save_id, base_save_hash, content
                     ),
                 )
             )
