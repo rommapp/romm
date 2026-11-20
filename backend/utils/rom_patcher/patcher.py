@@ -27,7 +27,6 @@ from utils.archives import (
     read_zip_archive_files,
 )
 from utils.filesystem import COMPRESSED_FILE_EXTENSIONS
-from utils.zip_cache import ensure_zipfile_writable
 
 PATCHER_SCRIPT = Path(__file__).parent / "patcher.js"
 
@@ -189,7 +188,6 @@ def _rebuild_zip(
     except (EOFError, OSError, RuntimeError, zipfile.BadZipFile, zlib.error) as e:
         raise PatcherInputError("The ROM archive could not be read") from e
 
-    ensure_zipfile_writable()
     try:
         with (
             source_archive,
