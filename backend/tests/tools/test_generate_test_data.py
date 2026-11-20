@@ -12,6 +12,8 @@ from tools import generate_test_data
 
 from handler.database import db_rom_handler
 from handler.database.base_handler import sync_engine
+from handler.metadata.igdb_handler import IGDBMetadata
+from handler.metadata.ss_handler import SSMetadata
 from models.rom import SEARCH_TITLE_SEPARATOR, Rom, fold_search_title
 
 IMAGE_FIELDS = {"path_cover_s", "path_cover_l", "path_screenshots"}
@@ -216,3 +218,25 @@ def test_igdb_metadata_always_has_ten_similar_games() -> None:
     metadata = generate_test_data.build_igdb_metadata(random.Random(3), _facts(3))
 
     assert len(metadata["similar_games"]) == 10
+    for game in metadata["similar_games"]:
+        assert game["slug"] == generate_test_data.slugify(game["name"])
+
+
+def test_metadata_holds_every_key_a_scan_stores() -> None:
+    igdb = generate_test_data.build_igdb_metadata(random.Random(4), _facts(4))
+    ss = generate_test_data.build_ss_metadata(random.Random(4), _facts(4))
+
+    assert IGDBMetadata.__required_keys__ <= igdb.keys()
+    assert SSMetadata.__required_keys__ <= ss.keys()
+
+
+def test_metadata_builders_draw_a_fixed_count_from_the_main_stream() -> None:
+    rng = random.Random(11)
+    for _ in range(20):
+        facts = generate_test_data.make_facts(rng, {})
+        generate_test_data.build_igdb_metadata(rng, facts)
+        generate_test_data.build_ss_metadata(rng, facts)
+
+    # A new draw on `rng` shifts every later row for a given --seed; draw from
+    # `extra_rng` instead, or update this value if the shift is intended.
+    assert rng.random() == 0.7712019761851616

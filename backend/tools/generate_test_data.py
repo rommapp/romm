@@ -81,13 +81,12 @@ from models.rom import (  # noqa: E402
     RomUser,
     RomUserStatus,
     TrackMeta,
+    compute_derived_columns,
     compute_full_path_hash,
     compute_name_sort_key,
-    compute_search_titles,
 )
 from models.sync_session import SyncSession, SyncSessionStatus  # noqa: E402
 from models.user import Role, User  # noqa: E402
-from utils.age_ratings import compute_min_age  # noqa: E402
 from utils.database import is_postgresql  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -401,6 +400,16 @@ KEYWORDS = [
     *_KEYWORD_TOPICS,
     *(f"{q} {t}" for q in _KEYWORD_QUALIFIERS for t in _KEYWORD_TOPICS),
 ]
+IGDB_THEMES = [
+    "Action", "Fantasy", "Science fiction", "Horror", "Thriller", "Survival",
+    "Historical", "Stealth", "Comedy", "Business", "Drama", "Non-fiction",
+    "Sandbox", "Educational", "Kids", "Open world", "Warfare", "Party", "4X",
+    "Mystery", "Romance",
+]  # fmt: skip
+IGDB_PLAYER_PERSPECTIVES = [
+    "First person", "Third person", "Bird view / Isometric", "Side view",
+    "Text", "Auditory", "Virtual Reality",
+]  # fmt: skip
 IGDB_PLATFORMS = [
     {"igdb_id": p["id"], "name": p["name"]} for p in IGDB_PLATFORM_LIST.values()
 ]
@@ -570,10 +579,12 @@ def _cover_url(rng: random.Random) -> str:
 
 
 def _similar_game(rng: random.Random) -> dict[str, Any]:
+    game_id, name = rng.randint(1, 300000), make_title(rng)
+    make_title(rng)  # Discarded, to keep the main stream aligned for a given --seed.
     return {
-        "id": rng.randint(1, 300000),
-        "name": make_title(rng),
-        "slug": slugify(make_title(rng)),
+        "id": game_id,
+        "name": name,
+        "slug": slugify(name),
         "type": "similar",
         "cover_url": _cover_url(rng),
     }
@@ -596,15 +607,22 @@ def build_igdb_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]
     more = extra_rng(f, "igdb")
     return {
         "total_rating": str(f["rating"]),
+        "total_rating_count": more.randint(1, 1000),
         "aggregated_rating": str(round(f["rating"] - rng.uniform(0, 8), 2)),
         "first_release_date": f["release_ts"],
         "youtube_video_id": rand_hex(rng, 6),
         "genres": f["genres"],
         "keywords": more.sample(KEYWORDS, sample_length(more, "igdb.keywords")),
+        "themes": more.sample(IGDB_THEMES, more.randint(0, 3)),
+        "player_perspectives": more.sample(
+            IGDB_PLAYER_PERSPECTIVES, more.randint(1, 2)
+        ),
         "franchises": f["franchises"],
         "alternative_names": _alternative_names(more, f, "igdb.alternative_names"),
         "collections": [f["franchises"][0]] if f["franchises"] else [],
         "companies": f["companies"],
+        "publishers": f["companies"][-1:],
+        "developers": f["companies"][:1],
         "game_modes": f["game_modes"],
         "age_ratings": [
             {
@@ -652,6 +670,8 @@ def build_ss_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]:
     return {
         **{f"{kind}_url": f"{media_url}{kind}(wor)" for kind in SS_MEDIA_KINDS},
         **dict.fromkeys(f"{kind}_path" for kind in SS_PATH_KINDS),
+        "physical_disc": 1,
+        "physical_extra_discs": [],
         "ss_score": str(round(f["rating"] / 10, 1)),
         "first_release_date": f["release_ts"],
         "alternative_names": _alternative_names(more, f, "ss.alternative_names"),
@@ -660,6 +680,8 @@ def build_ss_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]:
             for r in f["age_ratings"]
         ],
         "companies": f["companies"],
+        "publishers": f["companies"][-1:],
+        "developers": f["companies"][:1],
         "franchises": f["franchises"],
         "game_modes": f["game_modes"],
         "genres": f["genres"],
@@ -1340,9 +1362,7 @@ def _seed(args: argparse.Namespace, image_pool: ProcessPoolExecutor | None) -> i
                 }
             )
             # A Core insert skips the mapper events that fill these on the model.
-            rom_row = rom_rows[-1]
-            rom_row["search_titles"] = compute_search_titles(rom_row["name"], rom_row)
-            rom_row["min_age"] = compute_min_age(rom_row)
+            rom_rows[-1].update(compute_derived_columns(rom_rows[-1]))
 
             # Rom files: one per disc, plus the occasional manual.
             n_files = rng.randint(2, 4) if multi_disc else 1
