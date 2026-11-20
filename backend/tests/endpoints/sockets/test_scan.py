@@ -3334,6 +3334,51 @@ class TestIdentifyRomEmitsNewFlag:
         assert [payload["is_new"] for payload in payloads] == [is_new, is_new]
 
 
+class TestScanningRomFileFlags:
+    """Every scan emit of a rom precedes the write of its file rows, so the file
+    flags in its payload come from the files the scan read."""
+
+    async def test_rebuilt_files_reach_every_emit(self, mocker, identify_harness):
+        scanned = [
+            RomFile(
+                file_name="game.jsdos", file_path="test/roms/Game", file_size_bytes=1
+            )
+        ]
+        identify_harness.get_rom_files.return_value = ParsedRomFiles(
+            rom_files=scanned, crc_hash="", md5_hash="", sha1_hash="", ra_hash=""
+        )
+        identify_harness.db.add_rom.return_value.is_identified = True
+        emit = mocker.patch.object(scan_module, "emit_scanning_rom", AsyncMock())
+
+        await identify_harness.run(None, ScanType.COMPLETE, [])
+
+        assert identify_harness.scan_rom.await_args.kwargs["scanned_files"] is scanned
+        assert [call.kwargs["files"] for call in emit.await_args_list] == [
+            scanned,
+            scanned,
+        ]
+
+    async def test_payload_flags_follow_the_scanned_files(self, rom: Rom):
+        loaded = db_rom_handler.get_rom(rom.id)
+        assert loaded is not None
+        files = [
+            RomFile(
+                file_name="game.jsdos",
+                file_path=loaded.full_path,
+                category=RomFileCategory.GAME,
+            )
+        ]
+        socket_manager = AsyncMock()
+
+        await scan_handler_module.emit_scanning_rom(
+            socket_manager, loaded, is_new=True, files=files
+        )
+
+        payload = socket_manager.emit.await_args.args[1]
+        assert payload["has_jsdos_bundle"] is True
+        assert payload["has_nested_single_file"] is True
+
+
 class TestIdentifyRomIncrementalHashing:
     """Selected-rom metadata scans hand the stored rows to the file rebuild so
     unchanged files keep their hashes; full rescans read every file."""

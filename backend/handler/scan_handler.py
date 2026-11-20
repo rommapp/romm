@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Final, NotRequired, TypedDict
 
 import socketio
@@ -75,7 +75,13 @@ from logger.logger import log
 from models.assets import MemoryCardVersion, Save, Screenshot, State
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import METADATA_SOURCE_COLUMNS, Rom, RomFile, RomFileCategory
+from models.rom import (
+    METADATA_SOURCE_COLUMNS,
+    Rom,
+    RomFile,
+    RomFileCategory,
+    apply_file_stats,
+)
 from models.user import User
 from utils import emoji
 from utils.audio_tags import persist_embedded_cover, remove_persisted_cover
@@ -288,9 +294,19 @@ _SCANNING_ROM_EXCLUDE: Final = {
 
 
 async def emit_scanning_rom(
-    socket_manager: socketio.AsyncRedisManager, rom: Rom, *, is_new: bool
+    socket_manager: socketio.AsyncRedisManager,
+    rom: Rom,
+    *,
+    is_new: bool,
+    files: Sequence[RomFile] | None = None,
 ) -> None:
-    """Report a scanned rom; `is_new` lets clients count only roms the scan added."""
+    """Report a scanned rom; `is_new` lets clients count only roms the scan added.
+
+    Args:
+        files: The rom's scanned files, when its stored file rows are not written yet.
+    """
+    if files is not None:
+        apply_file_stats(rom, files)
     payload = SimpleRomSchema.from_orm_with_factory(rom).model_dump(
         exclude=_SCANNING_ROM_EXCLUDE
     )
@@ -341,6 +357,7 @@ async def scan_rom(
     newly_added: bool,
     launchbox_remote_enabled: bool = True,
     socket_manager: socketio.AsyncRedisManager | None = None,
+    scanned_files: Sequence[RomFile] | None = None,
 ) -> Rom:
     rom_attrs = seed_rom_attrs(scan_type, platform, rom, fs_rom, newly_added)
     is_complete_rescan = not newly_added and scan_type == ScanType.COMPLETE
@@ -362,7 +379,9 @@ async def scan_rom(
     scanning_rom.is_identifying = True
 
     if socket_manager:
-        await emit_scanning_rom(socket_manager, scanning_rom, is_new=newly_added)
+        await emit_scanning_rom(
+            socket_manager, scanning_rom, is_new=newly_added, files=scanned_files
+        )
 
     # Run hash fetches concurrently
     (

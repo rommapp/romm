@@ -771,6 +771,9 @@ async def _identify_rom(
         if rom.fs_name != fs_rom["fs_name"]:
             rom.fs_name = fs_rom["fs_name"]
 
+    # The stored file rows only catch up after `sync_rom_files` below.
+    scanned_files = fs_rom["files"] if should_update_files else None
+
     log.debug(f"Scanning {rom.fs_name}...")
     scanned_rom = await scan_rom(
         scan_type=scan_type,
@@ -781,6 +784,7 @@ async def _identify_rom(
         newly_added=newly_added,
         launchbox_remote_enabled=launchbox_remote_enabled,
         socket_manager=socket_manager,
+        scanned_files=scanned_files,
     )
 
     await scan_stats.increment(
@@ -794,7 +798,9 @@ async def _identify_rom(
     scanned_rom_ids.add(_added_rom.id)
 
     if _added_rom.is_identified:
-        await emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)
+        await emit_scanning_rom(
+            socket_manager, _added_rom, is_new=newly_added, files=scanned_files
+        )
 
     if should_update_files:
         # Reconcile against the existing rows instead of replacing them, so file
@@ -823,7 +829,9 @@ async def _identify_rom(
         },
     )
 
-    await emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)
+    await emit_scanning_rom(
+        socket_manager, _added_rom, is_new=newly_added, files=scanned_files
+    )
 
 
 async def _scan_selected_roms(
