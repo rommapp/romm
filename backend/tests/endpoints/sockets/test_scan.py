@@ -68,6 +68,7 @@ from models.firmware import Firmware
 from models.notification import NotificationKind, NotificationLevel
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, RomIdentity
+from utils.gamelist_exporter import GamelistExporter
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 # A platform IGDB and MobyGames both cover, so rescans can consult either.
@@ -473,7 +474,7 @@ class TestScanAutoExport:
             ],
         )
         export = mocker.patch.object(
-            scan_module.GamelistExporter,
+            GamelistExporter,
             "export_platform_to_file",
             AsyncMock(return_value=True),
         )
