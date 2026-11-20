@@ -475,6 +475,7 @@ class RomSchema(BaseModel):
     has_nested_single_file: bool
     has_multiple_files: bool
     is_easyrpg_game: bool
+    has_jsdos_bundle: bool
     full_path: str
     created_at: UTCDatetime
     updated_at: UTCDatetime

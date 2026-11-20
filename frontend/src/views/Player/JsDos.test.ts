@@ -57,6 +57,7 @@ vi.mock("@/stores/roms", () => ({
 
 vi.mock("@/utils", () => ({
   getDownloadPath: () => "/api/roms/1/content/game.jsdos",
+  jsDosBundleFileIds: () => [],
 }));
 
 vi.mock("@/components/shared/GameCover.vue", () => ({

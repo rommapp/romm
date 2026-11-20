@@ -18,6 +18,7 @@ FILE_STAT_FIELDS = (
     "has_multiple_files",
     "has_soundtrack",
     "is_easyrpg_game",
+    "has_jsdos_bundle",
 )
 
 
@@ -101,6 +102,32 @@ def easyrpg_rom(admin_user: User, platform: Platform) -> Rom:
     return rom
 
 
+@pytest.fixture
+def jsdos_rom(admin_user: User, platform: Platform) -> Rom:
+    """A single js-dos bundle, its extension in upper case."""
+    rom = _add_rom(admin_user, platform, "dos_game", fs_extension="JSDOS")
+    _add_file(rom, "dos_game.JSDOS", file_path=rom.fs_path)
+    return rom
+
+
+@pytest.fixture
+def jsdos_folder_rom(admin_user: User, platform: Platform) -> Rom:
+    """A folder holding a js-dos bundle beside its manual."""
+    rom = _add_rom(admin_user, platform, "Dos Game (1996)", fs_extension="")
+    file_path = f"{rom.fs_path}/Dos Game (1996)"
+    _add_file(rom, "Dos Game (1996).jsdos", file_path=file_path)
+    _add_file(rom, "manual.pdf", file_path=file_path)
+    return rom
+
+
+@pytest.fixture
+def nested_jsdos_rom(admin_user: User, platform: Platform) -> Rom:
+    """A folder whose only bundle sits in a subdirectory."""
+    rom = _add_rom(admin_user, platform, "nested_dos", fs_extension="")
+    _add_file(rom, "game.jsdos", file_path=f"{rom.fs_path}/nested_dos/extras")
+    return rom
+
+
 def _fetch_one(
     client: TestClient, access_token: str, platform: Platform, *, with_files: bool
 ) -> dict[str, Any]:
@@ -124,6 +151,9 @@ def _fetch_one(
         "soundtrack_rom",
         "fileless_rom",
         "easyrpg_rom",
+        "jsdos_rom",
+        "jsdos_folder_rom",
+        "nested_jsdos_rom",
     ],
 )
 def test_file_stats_match_between_derived_and_sql_paths(
@@ -165,6 +195,32 @@ def test_is_easyrpg_game_needs_a_top_level_game_database(
     rom = _fetch_one(client, access_token, platform, with_files=with_files)
 
     assert rom["is_easyrpg_game"] is expected
+
+
+@pytest.mark.parametrize("with_files", [True, False])
+@pytest.mark.parametrize(
+    ("rom_fixture", "expected"),
+    [
+        ("jsdos_rom", True),
+        ("jsdos_folder_rom", True),
+        ("nested_jsdos_rom", False),
+        ("folder_rom", False),
+    ],
+)
+def test_has_jsdos_bundle_needs_a_top_level_bundle(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    rom_fixture: str,
+    expected: bool,
+    with_files: bool,
+    request: pytest.FixtureRequest,
+) -> None:
+    request.getfixturevalue(rom_fixture)
+
+    rom = _fetch_one(client, access_token, platform, with_files=with_files)
+
+    assert rom["has_jsdos_bundle"] is expected
 
 
 def test_with_files_query_count_does_not_scale_with_file_count(

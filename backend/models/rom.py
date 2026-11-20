@@ -335,6 +335,9 @@ IDENTITY_PROVIDER_ID_LENGTH: Final = 100
 # The database file at the root of every RPG Maker 2000/2003 game folder.
 EASYRPG_GAME_DATABASE: Final = "rpg_rt.ldb"
 
+# The extension of the bundles js-dos boots.
+JSDOS_BUNDLE_EXTENSION: Final = ".jsdos"
+
 
 class RomIdentityKey(BaseModel):
     """One row per (ROM, provider it has a match id for), scoped to a platform.
@@ -1263,6 +1266,7 @@ class Rom(BaseModel):
         multi_file: Mapped[bool]
         top_level_file_count: Mapped[int]
         is_easyrpg_game: Mapped[bool]
+        has_jsdos_bundle: Mapped[bool]
 
     @property
     def has_simple_single_file(self) -> bool:
@@ -1454,6 +1458,28 @@ Rom.is_easyrpg_game = column_property(
     deferred=True,
 )
 
+# A bundle file on its own, or one directly inside the rom's folder.
+Rom.has_jsdos_bundle = column_property(
+    select(RomFile.id)
+    .where(
+        and_(
+            RomFile.rom_id == Rom.id,
+            or_(
+                func.concat(RomFile.file_path, "/", RomFile.file_name)
+                == _rom_full_path,
+                RomFile.file_path == _rom_full_path,
+            ),
+            func.lower(RomFile.file_name).like(f"%{JSDOS_BUNDLE_EXTENSION}"),
+            RomFile.missing_from_fs.is_(False),
+        )
+    )
+    .correlate_except(RomFile)
+    .exists()
+    .select()
+    .scalar_subquery(),
+    deferred=True,
+)
+
 
 def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
     """Fill the deferred file-stat columns from an already-loaded file list."""
@@ -1480,6 +1506,16 @@ def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
         any(
             f.file_path == rom.full_path
             and f.file_name.lower() == EASYRPG_GAME_DATABASE
+            and not f.missing_from_fs
+            for f in files
+        ),
+    )
+    set_committed_value(
+        rom,
+        "has_jsdos_bundle",
+        any(
+            (f.full_path == rom.full_path or f.file_path == rom.full_path)
+            and f.file_name.lower().endswith(JSDOS_BUNDLE_EXTENSION)
             and not f.missing_from_fs
             for f in files
         ),

@@ -9,11 +9,12 @@ import {
   isEasyRpgGame,
   isJsDosBundle,
   isJsDosEmulationSupported,
+  jsDosBundleFileIds,
   isPico8EmulationSupported,
   isPico8Rom,
   languageToEmoji,
 } from "./index";
-import { romFixture } from "./rom.fixtures";
+import { detailedRomFixture, romFileFixture, romFixture } from "./rom.fixtures";
 
 function makeHeartbeat(
   emulation: Partial<Heartbeat["EMULATION"]> = {},
@@ -72,23 +73,35 @@ describe("isJsDosEmulationSupported", () => {
 });
 
 describe("isJsDosBundle", () => {
-  const withExt = (fs_extension: string) => romFixture({ fs_extension });
-
-  it("accepts a .jsdos bundle regardless of case", () => {
-    expect(isJsDosBundle(withExt("jsdos"))).toBe(true);
-    expect(isJsDosBundle(withExt("JSDOS"))).toBe(true);
-  });
-
-  // js-dos panics with "Broken bundle" on anything that is not its own format.
-  it("rejects plain archives, bare executables and folders", () => {
-    expect(isJsDosBundle(withExt("zip"))).toBe(false);
-    expect(isJsDosBundle(withExt("exe"))).toBe(false);
-    expect(isJsDosBundle(withExt(""))).toBe(false);
+  it("follows the backend's bundle flag", () => {
+    expect(isJsDosBundle(romFixture({ has_jsdos_bundle: true }))).toBe(true);
+    expect(isJsDosBundle(romFixture({ has_jsdos_bundle: false }))).toBe(false);
   });
 
   it("rejects a missing rom", () => {
     expect(isJsDosBundle(null)).toBe(false);
     expect(isJsDosBundle(undefined)).toBe(false);
+  });
+});
+
+describe("jsDosBundleFileIds", () => {
+  const file = (id: number, file_name: string, is_top_level = true) =>
+    romFileFixture({ id, file_name, is_top_level });
+
+  it("picks the top-level bundle beside other files", () => {
+    const rom = detailedRomFixture({
+      files: [
+        file(1, "manual.pdf"),
+        file(2, "Game (1996).JSDOS"),
+        file(3, "extra.jsdos", false),
+      ],
+    });
+    expect(jsDosBundleFileIds(rom)).toEqual([2]);
+  });
+
+  it("returns none without a top-level bundle", () => {
+    const rom = detailedRomFixture({ files: [file(3, "extra.jsdos", false)] });
+    expect(jsDosBundleFileIds(rom)).toEqual([]);
   });
 });
 

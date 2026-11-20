@@ -112,6 +112,7 @@ export const ROM_DEFAULTS: SimpleRom = {
   has_nested_single_file: false,
   has_multiple_files: false,
   is_easyrpg_game: false,
+  has_jsdos_bundle: false,
   full_path: "/romm/library/snes/Chrono Trigger.sfc",
   created_at: "2026-01-02T00:00:00Z",
   updated_at: "2026-01-02T00:00:00Z",
