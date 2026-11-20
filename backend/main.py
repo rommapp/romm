@@ -70,6 +70,7 @@ from handler.auth.constants import SESSION_COOKIE_NAME
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware.csrf_middleware import CSRFMiddleware
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
+from handler.health_handler import mark_not_ready, mark_ready
 from handler.middleware.upload_size_middleware import UploadSizeLimitMiddleware
 from handler.socket_handler import netplay_socket_handler, socket_handler
 from handler.streaming.session_store import start_restart_grace
@@ -102,9 +103,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
             log_forwarder_task = asyncio.create_task(start_log_forwarder())
 
+        mark_ready()
         try:
             yield
         finally:
+            mark_not_ready()
             await activity_handler.flush_refresh()
             if log_forwarder_task is not None:
                 log_forwarder_task.cancel()

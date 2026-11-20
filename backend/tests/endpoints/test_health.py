@@ -1,148 +1,59 @@
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
-from fastapi import status
-from redis.exceptions import ConnectionError as RedisConnectionError
+import pytest
+from fastapi import Response, status
+from fastapi.testclient import TestClient
+from main import app
 
-CHECKS = {"database", "valkey", "worker", "migration", "library", "resources"}
-
-
-def _healthy_ready(client):
-    with (
-        patch("handler.health_handler._count_workers", return_value=1),
-        patch("handler.health_handler.os.access", return_value=True),
-    ):
-        return client.get("/api/health/ready")
+from endpoints.health import ready
+from handler.activity_handler import activity_handler
+from handler.health_handler import is_ready, mark_not_ready
 
 
-def test_ready_when_every_check_passes(client):
-    # Act
-    response = _healthy_ready(client)
+@pytest.fixture(autouse=True)
+def fresh_process():
+    mark_not_ready()
 
-    # Assert
-    body = response.json()
+
+def test_probe_answers_503_until_ready():
+    response = Response()
+
+    assert ready(response) == {"ready": False}
+    assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+
+def test_ready_once_started(client):
+    response = client.get("/api/health/ready")
+
     assert response.status_code == status.HTTP_200_OK
-    assert set(body) == CHECKS
-    assert all(body[name]["ok"] for name in CHECKS)
+    assert response.json() == {"ready": True}
 
 
-def test_ready_reveals_no_timings_or_versions(client):
-    # Act
-    body = _healthy_ready(client).json()
-
-    # Assert
-    assert "latency_ms" not in body["database"]
-    assert "version" not in body
-    assert "queues" not in body["worker"]
-
-
-def test_ready_names_the_failing_check(client):
+def test_not_ready_while_starting_up():
     # Arrange
-    with (
-        patch("handler.health_handler._count_workers", return_value=1),
-        patch("handler.health_handler.os.access", return_value=True),
-        patch(
-            "handler.health_handler._probe_redis.ping",
-            side_effect=RedisConnectionError(),
-        ),
-    ):
-        # Act
-        response = client.get("/api/health/ready")
-
-    # Assert
-    assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
-    assert response.json()["valkey"] == {"ok": False, "error": "unreachable"}
-    assert response.json()["database"]["ok"] is True
-
-
-def test_ready_fails_without_a_worker(client):
-    # Arrange
-    with (
-        patch("handler.health_handler._count_workers", return_value=0),
-        patch("handler.health_handler.os.access", return_value=True),
-    ):
-        # Act
-        response = client.get("/api/health/ready")
-
-    # Assert
-    assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
-    assert response.json()["worker"] == {"ok": False, "error": "no_workers"}
-
-
-def test_migration_check_fails_when_database_is_behind(client):
-    # Arrange
-    with (
-        patch("handler.health_handler._count_workers", return_value=1),
-        patch("handler.health_handler.os.access", return_value=True),
-        patch("handler.health_handler._HEAD_REVISION", "not-a-revision"),
-    ):
-        # Act
-        response = client.get("/api/health/ready")
-
-    # Assert
-    assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
-    assert response.json()["migration"] == {"ok": False, "error": "behind"}
-
-
-def test_library_check_names_an_unreadable_folder(client):
-    # Arrange
-    with (
-        patch("handler.health_handler._count_workers", return_value=1),
-        patch("handler.health_handler.os.access", return_value=False),
-    ):
-        # Act
-        response = client.get("/api/health/ready")
-
-    # Assert
-    assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
-    assert response.json()["library"] == {
-        "ok": False,
-        "readable": False,
-        "error": "unreadable",
-    }
-
-
-def test_timed_checks_run_side_by_side():
-    # Arrange
-    import time
-
-    from handler.health_handler import ready_checks
-
-    def slow(result):
-        def run():
-            time.sleep(0.5)
-            return result
-
-        return run
-
-    ok = {"ok": True, "error": None}
-    with (
-        patch("handler.health_handler._database_check", slow(ok)),
-        patch("handler.health_handler._valkey_check", slow(ok)),
-        patch("handler.health_handler._worker_check", slow(ok)),
-        patch("handler.health_handler._migration_check", slow(ok)),
-        patch("handler.health_handler.os.access", return_value=True),
-    ):
-        # Act
-        started = time.perf_counter()
-        ready_checks()
-        elapsed = time.perf_counter() - started
-
-    # Assert
-    assert elapsed < 1.5
-
-
-def test_probe_connections_give_up_quickly():
-    # Arrange
-    from handler.health_handler import (
-        PROBE_TIMEOUT_SECONDS,
-        _probe_redis,
-        _worker_check,
-    )
+    ready_during_startup: list[bool] = []
+    grace = AsyncMock(side_effect=lambda: ready_during_startup.append(is_ready()))
 
     # Act
-    _worker_check()
-    kwargs = _probe_redis.connection_pool.connection_kwargs
+    with patch("main.start_restart_grace", grace), TestClient(app) as client:
+        serving = client.get("/api/health/ready")
 
     # Assert
-    assert kwargs["socket_timeout"] == PROBE_TIMEOUT_SECONDS
-    assert kwargs["socket_connect_timeout"] == PROBE_TIMEOUT_SECONDS
+    assert ready_during_startup == [False]
+    assert serving.status_code == status.HTTP_200_OK
+
+
+def test_not_ready_as_soon_as_shutdown_begins():
+    # Arrange
+    ready_during_cleanup: list[bool] = []
+    flush = AsyncMock(side_effect=lambda: ready_during_cleanup.append(is_ready()))
+
+    # Act
+    with patch.object(activity_handler, "flush_refresh", flush):
+        with TestClient(app) as client:
+            serving = client.get("/api/health/ready")
+
+    # Assert
+    assert serving.status_code == status.HTTP_200_OK
+    assert ready_during_cleanup == [False]
+    assert is_ready() is False
