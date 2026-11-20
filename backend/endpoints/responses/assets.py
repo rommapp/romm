@@ -72,12 +72,13 @@ class UserScreenshotSchema(ScreenshotSchema):
 class ManagedAsset(BaseModel):
     channel_id: uuid.UUID | None = None
     """The ID of the sync channel this was pushed to. Null for a backup that the user manages themselves."""
+    content_hash: str | None = None
+    """MD5 of the file's bytes, or for a zip, of its sorted `name:md5` entry lines. Null for a file never hashed."""
 
 
 class SaveSchema(BaseAsset, AssetAnnotations, ManagedAsset):
     emulator: str | None
     slot: str | None = None
-    content_hash: str | None = None
     is_public: bool = False
     screenshot: ScreenshotSchema | None
     origin_device_id: str | None = None
