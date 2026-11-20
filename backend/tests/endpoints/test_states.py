@@ -364,32 +364,23 @@ def test_kiosk_mode_anonymous_visitor_cannot_upload_state(client, rom: Rom):
 
 
 def test_state_list_detail_and_rom_detail_send_the_content_hash(
-    client, access_token: str, rom: Rom, platform: Platform, admin_user: User
+    client, access_token: str, rom: Rom, state: State
 ):
-    state = make_state(
-        rom,
-        admin_user,
-        "hashed.state",
-        emulator="test_emulator",
-        file_path=f"{platform.slug}/states/test_emulator",
-        file_size_bytes=2,
-        content_hash="0123456789abcdef0123456789abcdef",
-    )
+    content_hash = "a" * 32
+    db_state_handler.update_state(state.id, {"content_hash": content_hash})
 
     listed = client.get(f"/api/states?rom_id={rom.id}", headers=bearer(access_token))
     single = client.get(f"/api/states/{state.id}", headers=bearer(access_token))
     rom_detail = client.get(f"/api/roms/{rom.id}", headers=bearer(access_token))
 
     assert listed.status_code == status.HTTP_200_OK
-    assert [item["content_hash"] for item in listed.json()] == [
-        "0123456789abcdef0123456789abcdef"
-    ]
+    assert [item["content_hash"] for item in listed.json()] == [content_hash]
     assert single.status_code == status.HTTP_200_OK
-    assert single.json()["content_hash"] == "0123456789abcdef0123456789abcdef"
+    assert single.json()["content_hash"] == content_hash
     assert rom_detail.status_code == status.HTTP_200_OK
     for key in ("user_states", "all_user_states"):
         assert [item["content_hash"] for item in rom_detail.json()[key]] == [
-            "0123456789abcdef0123456789abcdef"
+            content_hash
         ]
 
 

@@ -5,6 +5,10 @@
 import type { ScreenshotSchema } from './ScreenshotSchema';
 export type StateSchema = {
     channel_id?: (string | null);
+    /**
+     * MD5 of the file's bytes, or for a zip, of its sorted `name:md5` entry lines. Null for a file never hashed.
+     */
+    content_hash?: (string | null);
     is_favorite?: boolean;
     labels?: Array<string>;
     id: number;
@@ -23,10 +27,6 @@ export type StateSchema = {
     updated_at: string;
     emulator: (string | null);
     core?: (string | null);
-    /**
-     * MD5 of the file's bytes, or for a zip, of its sorted `name:md5` entry lines. Null for a state never hashed.
-     */
-    content_hash?: (string | null);
     is_public?: boolean;
     screenshot: (ScreenshotSchema | null);
     origin_device_id?: (string | null);

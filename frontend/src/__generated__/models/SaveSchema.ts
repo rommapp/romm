@@ -6,6 +6,10 @@ import type { DeviceSyncSchema } from './DeviceSyncSchema';
 import type { ScreenshotSchema } from './ScreenshotSchema';
 export type SaveSchema = {
     channel_id?: (string | null);
+    /**
+     * MD5 of the file's bytes, or for a zip, of its sorted `name:md5` entry lines. Null for a file never hashed.
+     */
+    content_hash?: (string | null);
     is_favorite?: boolean;
     labels?: Array<string>;
     id: number;
@@ -24,7 +28,6 @@ export type SaveSchema = {
     updated_at: string;
     emulator: (string | null);
     slot?: (string | null);
-    content_hash?: (string | null);
     is_public?: boolean;
     screenshot: (ScreenshotSchema | null);
     origin_device_id?: (string | null);
