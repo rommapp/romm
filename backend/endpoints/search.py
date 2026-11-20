@@ -1,8 +1,8 @@
 import asyncio
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any, TypeVar
+from typing import Annotated, Any, TypeVar
 
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException, Query, Request, status
 
 from decorators.auth import protected_route
 from endpoints.responses.search import SearchCoverSchema, SearchRomSchema
@@ -96,19 +96,29 @@ def _resolved(
 @protected_route(router.get, "/roms", [Scope.ROMS_READ])
 async def search_rom(
     request: Request,
-    rom_id: int,
-    search_term: str | None = None,
-    search_by: str = "name",
+    rom_id: Annotated[
+        int,
+        Query(
+            description=(
+                "The ID of the rom to identify. A rom that is unknown or hidden"
+                " from the caller returns an empty list."
+            )
+        ),
+    ],
+    search_term: Annotated[
+        str | None,
+        Query(
+            description=(
+                "The title to search for. Defaults to the rom's file name"
+                " without its tags."
+            )
+        ),
+    ] = None,
+    search_by: Annotated[
+        str, Query(description="What to search by: `name` or `id`.")
+    ] = "name",
 ) -> list[SearchRomSchema]:
     """Search for rom in metadata providers
-
-    Args:
-        request (Request): FastAPI request
-        rom_id (int): Rom ID
-        source (str): Source of the rom
-        search_term (str, optional): Search term. Defaults to None.
-        search_by (str, optional): Search by name or ID. Defaults to "name".
-        search_extended (bool, optional): Search extended info. Defaults to False.
 
     Returns:
         list[SearchRomSchema]: List of matched roms

@@ -1537,9 +1537,26 @@ def rom_search_titles(rom: Rom) -> str:
     return compute_search_titles(rom.name, alternative_name_metadata(rom))
 
 
+DERIVED_SOURCE_COLUMNS = (*SEARCH_TITLE_COLUMNS, *MIN_AGE_SOURCE_COLUMNS)
+
+
+def compute_derived_columns(values: Mapping[str, Any]) -> dict[str, Any]:
+    """The columns a ROM insert derives from its own values.
+
+    Args:
+        values: Each `DERIVED_SOURCE_COLUMNS` column's value, by column name.
+    """
+    return {
+        "search_titles": compute_search_titles(values.get("name"), values),
+        "min_age": compute_min_age(values),
+    }
+
+
 @event.listens_for(Rom, "before_insert")
-def _set_search_titles(_mapper: Any, _connection: Any, rom: Rom) -> None:
-    rom.search_titles = rom_search_titles(rom)
+def _set_derived_columns(_mapper: Any, _connection: Any, rom: Rom) -> None:
+    values = {column: getattr(rom, column) for column in DERIVED_SOURCE_COLUMNS}
+    for column, value in compute_derived_columns(values).items():
+        setattr(rom, column, value)
 
 
 @event.listens_for(Rom, "before_update")
@@ -1556,11 +1573,6 @@ def rom_min_age(rom: Rom) -> int | None:
     return compute_min_age(
         {column: getattr(rom, column) for column in MIN_AGE_SOURCE_COLUMNS}
     )
-
-
-@event.listens_for(Rom, "before_insert")
-def _set_min_age(_mapper: Any, _connection: Any, rom: Rom) -> None:
-    rom.min_age = rom_min_age(rom)
 
 
 @event.listens_for(Rom, "before_update")

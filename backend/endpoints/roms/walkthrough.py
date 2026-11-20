@@ -28,7 +28,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import DocSource, RomFile, RomFileCategory
-from utils.router import APIRouter
+from utils.router import APIRouter, RomIdPath
 
 router = APIRouter()
 
@@ -60,7 +60,7 @@ def _decode_header(value: str | None) -> str | None:
 )
 async def add_rom_walkthrough_file(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     filename: Annotated[
         str,
         Header(
@@ -109,7 +109,7 @@ async def add_rom_walkthrough_file(
 )
 async def add_rom_gamefaqs_walkthrough(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     body: Annotated[dict[str, Any], Body()],
 ) -> Response:
     """Fetch a GameFAQs text guide by URL and store it as a walkthrough.
@@ -224,7 +224,7 @@ async def add_rom_gamefaqs_walkthrough(
 )
 async def delete_rom_walkthrough_file(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
 ) -> Response:
     """Delete a single walkthrough file from a ROM's walkthrough/ subfolder."""

@@ -40,7 +40,6 @@ from models.rom import Rom
 from models.user import User
 from utils.memory_cards import content_hash_of_bytes
 from utils.uploads import apply_datetime_tag
-from utils.zip_cache import ensure_zipfile_writable
 
 _IGNORED_CATEGORY = "SYSTEM"
 _SAVEDATA_CATEGORY = "SAVEDATA"
@@ -323,9 +322,6 @@ def _load_bundle_member_names(path: Path) -> list[str]:
 
 
 def _write_bundle(entries: dict[str, bytes]) -> bytes:
-    # `zipfile_inflate64` is imported elsewhere for ROM archive reading, and
-    # breaks `writestr()` until this runs.
-    ensure_zipfile_writable()
     buffer = BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         for name, data in entries.items():

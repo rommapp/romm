@@ -1314,6 +1314,7 @@ async def scan_platforms(
             db_platforms_by_id[platform_id].fs_slug
             for platform_id in scoped_roms_by_platform
         )
+        platforms_to_scan = platform_list
         total_platforms = len(scoped_roms_by_platform)
         total_roms = sum(len(roms) for roms in scoped_roms_by_platform.values())
     else:
@@ -1449,10 +1450,12 @@ async def scan_platforms(
         db_platforms = db_platform_handler.get_platforms()
         db_platforms_by_slug = {p.fs_slug: p for p in db_platforms}
 
+        # Export only what this scan touched: a new-platforms scan skips every
+        # platform already in the database, so rewriting those is wasted work.
         if config.GAMELIST_AUTO_EXPORT_ON_SCAN:
-            log.info("Auto-exporting gamelist.xml for all platforms...")
+            log.info("Auto-exporting gamelist.xml for the scanned platforms...")
             gamelist_exporter = GamelistExporter(local_export=True)
-            for platform_slug in platform_list:
+            for platform_slug in platforms_to_scan:
                 platform = db_platforms_by_slug.get(platform_slug)
                 if platform:
                     export_success = await gamelist_exporter.export_platform_to_file(
@@ -1470,9 +1473,9 @@ async def scan_platforms(
             log.info("Gamelist.xml auto-export completed.")
 
         if config.PEGASUS_AUTO_EXPORT_ON_SCAN:
-            log.info("Auto-exporting metadata.pegasus.txt for all platforms...")
+            log.info("Auto-exporting metadata.pegasus.txt for the scanned platforms...")
             pegasus_exporter = PegasusExporter(local_export=True)
-            for platform_slug in platform_list:
+            for platform_slug in platforms_to_scan:
                 platform = db_platforms_by_slug.get(platform_slug)
                 if platform:
                     export_success = await pegasus_exporter.export_platform_to_file(

@@ -14,7 +14,9 @@ device has no credentials yet). State lives exclusively in Redis with a hard
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException
+from fastapi import Path as PathVar
+from fastapi import Request, status
 
 from decorators.auth import protected_route
 from endpoints.responses.device.auth import (
@@ -109,7 +111,15 @@ def device_auth_init(
 
 
 @protected_route(router.get, "/pending/{user_code}", [Scope.ME_READ])
-def get_pending(request: Request, user_code: str) -> DeviceAuthPendingSchema:
+def get_pending(
+    request: Request,
+    user_code: str = PathVar(
+        description=(
+            "The short code the device displayed. An unknown or expired code"
+            " returns 404."
+        ),
+    ),
+) -> DeviceAuthPendingSchema:
     """Fetch a pending request's metadata for the approval screen."""
     normalized = normalize_user_code(user_code)
     device_code = resolve_device_code_from_user_code(normalized)
@@ -271,8 +281,21 @@ def approve(
     return DeviceAuthApproveResponse(device_id=device.id, device_name=device_name)
 
 
-@protected_route(router.post, "/deny", [Scope.ME_WRITE])
+@protected_route(
+    router.post,
+    "/deny",
+    [Scope.ME_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The code is unknown or has expired."
+        },
+        status.HTTP_410_GONE: {
+            "description": "The code was already approved or denied."
+        },
+    },
+)
 def deny(request: Request, payload: DeviceAuthDenyPayload) -> None:
+    """Deny a pending device authorization."""
     normalized = normalize_user_code(payload.user_code)
     device_code = resolve_device_code_from_user_code(normalized)
     if device_code is None:

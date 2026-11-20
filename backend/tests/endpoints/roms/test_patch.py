@@ -23,7 +23,6 @@ from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
 from utils.nginx import content_disposition
 from utils.rom_patcher import PatcherInputError
-from utils.zip_cache import ensure_zipfile_writable
 
 
 def _patch_file(rom: Rom) -> RomFile:
@@ -226,7 +225,6 @@ class TestPatchingALibraryFile:
         node: None,
     ):
         archive = io.BytesIO()
-        ensure_zipfile_writable()
         with zipfile.ZipFile(archive, "w") as zipped:
             zipped.writestr("game.sfc", b"rom")
             zipped.writestr("readme.txt", b"hi")

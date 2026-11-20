@@ -21,7 +21,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import RomFileCategory
-from utils.router import APIRouter
+from utils.router import APIRouter, RomIdPath
 
 router = APIRouter()
 
@@ -40,7 +40,7 @@ def _is_allowed_manual_file(file_name: str) -> bool:
 )
 async def add_rom_manuals(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     filename: Annotated[
         str,
         Header(
@@ -137,7 +137,7 @@ async def add_rom_manuals(
 )
 async def redownload_rom_manual(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
 ) -> Response:
     """Re-download a rom's manual from its scraped URL (e.g. screenscraper.fr)."""
 
@@ -189,7 +189,7 @@ async def redownload_rom_manual(
 )
 async def add_rom_manual_file(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     filename: Annotated[
         str,
         Header(
@@ -217,7 +217,7 @@ async def add_rom_manual_file(
 )
 async def delete_rom_manual_file(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
 ) -> Response:
     """Delete a single manual file from a ROM's manual/ subfolder."""
@@ -269,7 +269,7 @@ async def delete_rom_manual_file(
 )
 async def delete_rom_manuals(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
 ) -> Response:
     """Delete manuals for a rom."""
 

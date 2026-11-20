@@ -8,7 +8,7 @@ from typing import Annotated, Any
 
 from fastapi import HTTPException
 from fastapi import Path as PathVar
-from fastapi import Query, Request
+from fastapi import Query, Request, status
 from fastapi.responses import JSONResponse, Response
 from starlette.datastructures import URLPath
 
@@ -170,14 +170,11 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
 async def tinfoil_index_feed(
-    request: Request, slug: str = "switch"
+    request: Request,
+    slug: str = "switch",
 ) -> TinfoilFeedSchema:
     """Get tinfoil custom index feed endpoint
     https://blawar.github.io/tinfoil/custom_index/
-
-    Args:
-        request (Request): Fastapi Request object
-        slug (str, optional): Platform slug. Defaults to "switch".
 
     Returns:
         TinfoilFeedSchema: Tinfoil feed object schema
@@ -698,13 +695,12 @@ def fpkgi_feed(
     "/kekatsu/{platform_slug}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
-def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
+def kekatsu_ds_feed(
+    request: Request,
+    platform_slug: str,
+) -> Response:
     """Get Kekatsu DS feed endpoint
     https://github.com/cavv-dev/Kekatsu-DS
-
-    Args:
-        request (Request): Fastapi Request object
-        platform_slug (str): Platform slug (nds, nintendo-ds, ds, gba, etc.)
 
     Returns:
         Response: Text file with Kekatsu DS database format
@@ -770,8 +766,14 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
     router.get,
     "/pkgj/psp/games",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The library has no PlayStation Portable platform."
+        }
+    },
 )
 def pkgj_psp_games_feed(request: Request) -> Response:
+    """Get the PKGj feed of PlayStation Portable games as tab-separated text."""
     platform = _visible_platform_by_slug(request, UPS.PSP)
     if not platform:
         raise HTTPException(
@@ -834,8 +836,14 @@ def pkgj_psp_games_feed(request: Request) -> Response:
     router.get,
     "/pkgj/psp/dlc",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The library has no PlayStation Portable platform."
+        }
+    },
 )
 def pkgj_psp_dlcs_feed(request: Request) -> Response:
+    """Get the PKGj feed of PlayStation Portable DLC as tab-separated text."""
     platform = _visible_platform_by_slug(request, UPS.PSP)
     if not platform:
         raise HTTPException(
@@ -896,8 +904,14 @@ def pkgj_psp_dlcs_feed(request: Request) -> Response:
     router.get,
     "/pkgj/psvita/games",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The library has no PlayStation Vita platform."
+        }
+    },
 )
 def pkgj_psv_games_feed(request: Request) -> Response:
+    """Get the PKGj feed of PlayStation Vita games as tab-separated text."""
     platform = _visible_platform_by_slug(request, UPS.PSVITA)
     if not platform:
         raise HTTPException(
@@ -961,8 +975,14 @@ def pkgj_psv_games_feed(request: Request) -> Response:
     router.get,
     "/pkgj/psvita/dlc",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The library has no PlayStation Vita platform."
+        }
+    },
 )
 def pkgj_psv_dlcs_feed(request: Request) -> Response:
+    """Get the PKGj feed of PlayStation Vita DLC as tab-separated text."""
     platform = _visible_platform_by_slug(request, UPS.PSVITA)
     if not platform:
         raise HTTPException(
@@ -1020,8 +1040,14 @@ def pkgj_psv_dlcs_feed(request: Request) -> Response:
     router.get,
     "/pkgj/psx/games",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The library has no PlayStation platform."
+        }
+    },
 )
 def pkgj_psx_games_feed(request: Request) -> Response:
+    """Get the PKGj feed of PlayStation games as tab-separated text."""
     platform = _visible_platform_by_slug(request, UPS.PSX)
     if not platform:
         raise HTTPException(status_code=404, detail="PlayStation platform not found")

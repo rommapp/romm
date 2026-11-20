@@ -5,8 +5,14 @@
 import type { JobStatus } from './JobStatus';
 import type { ScanTaskMeta } from './ScanTaskMeta';
 export type ScanTaskStatusResponse = {
+    /**
+     * The key of the task in the catalog. Null for scans that a client or the file watcher started outside the catalog.
+     */
     task_key: (string | null);
     task_name: string;
+    /**
+     * The job ID, which `GET /tasks/{task_id}` takes.
+     */
     task_id: string;
     status: JobStatus;
     created_at: (string | null);

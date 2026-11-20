@@ -10,6 +10,9 @@ import type { PermEntity } from './PermEntity';
 export type GrantSchemaIO = {
     entity: PermEntity;
     action: PermAction;
+    /**
+     * Whether the grant covers only things the user owns.
+     */
     own_only?: boolean;
 };
 

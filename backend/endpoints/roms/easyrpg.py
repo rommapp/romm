@@ -19,7 +19,7 @@ from handler.easyrpg import INDEX_FILE, RTP_WEB_PATH, easyrpg_handler
 from handler.filesystem import fs_rom_handler
 from models.permission import PermAction, PermEntity
 from utils.nginx import FileRedirectResponse
-from utils.router import APIRouter
+from utils.router import APIRouter, RomIdPath
 
 router = APIRouter()
 
@@ -45,7 +45,7 @@ def _serve(disk_path: str | Path, web_path: PurePosixPath) -> Response:
 )
 async def get_easyrpg_file(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     path: Annotated[str, PathVar(description="File path inside the game folder.")],
 ) -> Response:
     """Serve a generated `index.json`, or a game or RTP file it names, to the EasyRPG web player."""

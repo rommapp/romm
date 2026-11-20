@@ -8,10 +8,11 @@ from typing import Annotated, Final
 from fastapi import HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, Response, status
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
 
 from config import DEVICE_INSTALL_ENABLED
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from endpoints.responses.device.install import (
     InstallReason,
     InstallRequestSchema,
@@ -317,14 +318,21 @@ async def update_install_request(
     router.delete,
     "/{device_id}/installs/{request_id}",
     [Scope.DEVICES_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}, status.HTTP_409_CONFLICT: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Installs are disabled, or the device or request is unknown or already ended."
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "The request cannot be cancelled in its current state."
+        },
+    },
 )
 async def cancel_install_request(
     request: Request,
     device_id: Annotated[str, PathVar(description="Target device id.")],
     request_id: Annotated[str, PathVar(description="Install request id.")],
 ) -> InstallRequestSchema:
-    """Cancel a request still pending or taken; one already ended is a 404."""
+    """Cancel a request that is still pending or taken."""
     if not DEVICE_INSTALL_ENABLED:
         raise DeviceInstallDisabledException()
     require_device(request, device_id)
