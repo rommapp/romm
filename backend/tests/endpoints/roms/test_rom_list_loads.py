@@ -36,6 +36,7 @@ def _add_file(
     *,
     file_path: str,
     category: RomFileCategory = RomFileCategory.GAME,
+    missing_from_fs: bool = False,
 ) -> None:
     db_rom_handler.add_rom_file(
         RomFile(
@@ -45,6 +46,7 @@ def _add_file(
             file_size_bytes=10,
             last_modified=LAST_MODIFIED,
             category=category,
+            missing_from_fs=missing_from_fs,
         )
     )
 
@@ -128,6 +130,16 @@ def nested_jsdos_rom(admin_user: User, platform: Platform) -> Rom:
     return rom
 
 
+@pytest.fixture
+def missing_jsdos_rom(admin_user: User, platform: Platform) -> Rom:
+    """A folder whose only bundle is gone from disk."""
+    rom = _add_rom(admin_user, platform, "gone_dos", fs_extension="")
+    file_path = f"{rom.fs_path}/gone_dos"
+    _add_file(rom, "game.jsdos", file_path=file_path, missing_from_fs=True)
+    _add_file(rom, "manual.pdf", file_path=file_path)
+    return rom
+
+
 def _fetch_one(
     client: TestClient, access_token: str, platform: Platform, *, with_files: bool
 ) -> dict[str, Any]:
@@ -154,6 +166,7 @@ def _fetch_one(
         "jsdos_rom",
         "jsdos_folder_rom",
         "nested_jsdos_rom",
+        "missing_jsdos_rom",
     ],
 )
 def test_file_stats_match_between_derived_and_sql_paths(
@@ -204,7 +217,9 @@ def test_is_easyrpg_game_needs_a_top_level_game_database(
         ("jsdos_rom", True),
         ("jsdos_folder_rom", True),
         ("nested_jsdos_rom", False),
+        ("missing_jsdos_rom", False),
         ("folder_rom", False),
+        ("flat_rom", False),
     ],
 )
 def test_has_jsdos_bundle_needs_a_top_level_bundle(
