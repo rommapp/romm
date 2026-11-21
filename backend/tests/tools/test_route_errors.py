@@ -1,10 +1,10 @@
 from fastapi import APIRouter, status
-from tests.tools import route_errors_fixture as fixture
+from tests.tools import route_errors_fixture as fixture_routes
 from tools.route_errors import UNREADABLE_STATUS, stale, statuses, undocumented
 
 from decorators.auth import SCOPE_ERRORS
 
-FIXTURE = fixture.__name__
+FIXTURE = fixture_routes.__name__
 
 
 def _raised(module: str, function: str) -> list[int]:
@@ -77,14 +77,16 @@ def test_flags_a_status_it_cannot_read():
 
 def test_skips_a_route_left_out_of_the_schema():
     router = APIRouter()
-    router.get("/hidden", include_in_schema=False)(fixture.route_that_returns_an_error)
+    router.get("/hidden", include_in_schema=False)(
+        fixture_routes.route_that_returns_an_error
+    )
     assert undocumented(router.routes) == {}
 
 
 def test_counts_422_as_documented_only_for_a_route_that_takes_input():
     router = APIRouter()
-    router.get("/bare")(fixture.route_that_refuses_input)
-    router.get("/input")(fixture.route_with_input_that_it_refuses)
+    router.get("/bare")(fixture_routes.route_that_refuses_input)
+    router.get("/input")(fixture_routes.route_with_input_that_it_refuses)
     assert undocumented(router.routes) == {f"{FIXTURE}:route_that_refuses_input": [422]}
 
 
@@ -111,17 +113,17 @@ def test_flags_a_documented_status_the_route_cannot_raise():
             status.HTTP_409_CONFLICT: {"description": "Raised."},
             status.HTTP_410_GONE: {"description": "No longer raised."},
         },
-    )(fixture.route_with_a_default)
+    )(fixture_routes.route_with_a_default)
     assert stale(router.routes) == {f"{FIXTURE}:route_with_a_default": [404, 410]}
 
 
 def test_counts_a_status_range_or_default_as_documented():
     router = APIRouter()
     router.get("/range", responses={"4XX": {"description": "A client error."}})(
-        fixture.route_with_a_default
+        fixture_routes.route_with_a_default
     )
     router.get("/default", responses={"default": {"description": "An error."}})(
-        fixture.route_with_an_alias
+        fixture_routes.route_with_an_alias
     )
     assert undocumented(router.routes) == {}
     assert stale(router.routes) == {}
@@ -137,7 +139,7 @@ def test_keeps_an_http_error_an_earlier_handler_reraises():
 
 def test_flags_a_status_taken_from_the_request():
     router = APIRouter()
-    router.get("/echo")(fixture.route_with_a_status_from_its_input)
+    router.get("/echo")(fixture_routes.route_with_a_status_from_its_input)
     assert undocumented(router.routes) == {
         f"{FIXTURE}:route_with_a_status_from_its_input": [UNREADABLE_STATUS]
     }
@@ -178,5 +180,5 @@ def test_skips_the_scope_guard_default_but_not_a_route_reason():
                 "description": f"Not the owner. {SCOPE_ERRORS[403][1]}"
             },
         },
-    )(fixture.route_with_a_default)
+    )(fixture_routes.route_with_a_default)
     assert stale(router.routes) == {f"{FIXTURE}:route_with_a_default": [403]}

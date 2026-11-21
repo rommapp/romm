@@ -38,7 +38,7 @@ UNREADABLE_STATUS = 0
 # on the line above, with the reason after it.
 IGNORE_MARKER = "# route-errors: ignore"
 # Declares the statuses a line raises, such as `# route-errors: raises 409, 423`, in
-# place of what the analyzer reads there. For a status it cannot follow or read.
+# place of what the analyzer reads there, for a status it cannot follow or read.
 RAISES_MARKER = re.compile(r"# route-errors: raises (\d{3}(?:, *\d{3})*)")
 
 
