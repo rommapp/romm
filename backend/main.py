@@ -40,6 +40,7 @@ from endpoints.device.auth import router as device_auth_router
 from endpoints.export import router as export_router
 from endpoints.feeds import router as feeds_router
 from endpoints.firmware import router as firmware_router
+from endpoints.health import router as health_router
 from endpoints.heartbeat import router as heartbeat_router
 from endpoints.logs import router as logs_router
 from endpoints.memory_cards import router as memory_cards_router
@@ -69,6 +70,7 @@ from handler.auth.constants import SESSION_COOKIE_NAME
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware.csrf_middleware import CSRFMiddleware
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
+from handler.health_handler import mark_not_ready, mark_ready
 from handler.middleware.upload_size_middleware import UploadSizeLimitMiddleware
 from handler.socket_handler import netplay_socket_handler, socket_handler
 from handler.streaming.session_store import start_restart_grace
@@ -101,9 +103,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
             log_forwarder_task = asyncio.create_task(start_log_forwarder())
 
+        mark_ready()
         try:
             yield
         finally:
+            mark_not_ready()
             await activity_handler.flush_refresh()
             if log_forwarder_task is not None:
                 log_forwarder_task.cancel()
@@ -160,6 +164,7 @@ if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
         cookie_name="romm_csrftoken",
         secret=ROMM_AUTH_SECRET_KEY,
         cookie_secure=ROMM_SESSION_SECURE_COOKIE,
+        cookieless_urls=[re.compile(r"^/api/health/")],
         exempt_urls=[
             re.compile(r"^/api/token.*"),
             re.compile(r"^/api/client-tokens/exchange"),
@@ -188,6 +193,7 @@ app.add_middleware(
 # Sets context vars in request-response cycle
 app.middleware("http")(set_context_middleware)
 
+app.include_router(health_router, prefix="/api")
 app.include_router(heartbeat_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(activity_router, prefix="/api")
