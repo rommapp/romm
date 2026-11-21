@@ -216,7 +216,7 @@ def _move_channels(
                 Channel.id.not_in(targets),
                 or_(*(_keyed_to(t) for ts in targets.values() for t in ts)),
             )
-        )
+        ).all()
     ]
     moving: dict[FileKey, list[uuid.UUID]] = {}
     # A channel with one target goes first, so a preferred target can't take its label.

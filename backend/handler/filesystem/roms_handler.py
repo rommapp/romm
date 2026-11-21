@@ -793,6 +793,7 @@ class FSRomsHandler(FSHandler):
         *,
         existing_files: Sequence[RomFile] | None = None,
         reuse_title_ids: bool = False,
+        rom_hashes: bool = True,
         cnfg: Config | None = None,
     ) -> ParsedRomFiles:
         """Build the ROM's file rows from disk.
@@ -804,6 +805,8 @@ class FSRomsHandler(FSHandler):
                 are only recomputed when a top-level file changed.
             reuse_title_ids: Keep the stored identity, without a parse, when no
                 file changed and sigil already read the ROM.
+            rom_hashes: False keeps a folder ROM's stored ROM-level hashes even
+                when its top level changed, so unchanged files are not reread.
             cnfg: The config to read, so a scan can load it once.
         """
         from adapters.services.rahasher import RAHasherService
@@ -913,6 +916,9 @@ class FSRomsHandler(FSHandler):
                 top_level_changed = _top_level_changed(
                     entries, rom_dir, rel_rom_dir, existing_by_key, hashable_platform
                 )
+            if not rom_hashes:
+                top_level_changed = False
+                rom_md5_h = rom_sha1_h = None
 
             # Calculate the RA hash if the platform has a slug that matches a known RA slug
             if calculate_hashes and top_level_changed:

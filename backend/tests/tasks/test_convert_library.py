@@ -98,6 +98,7 @@ def _rom(
                 last_modified=disk.stat().st_mtime,
                 category=RomFileCategory.GAME,
                 sha1_hash=hashlib.sha1(data, usedforsecurity=False).hexdigest(),
+                md5_hash=hashlib.md5(data, usedforsecurity=False).hexdigest(),
             )
         )
     refreshed = db_rom_handler.get_rom(rom.id)
@@ -225,10 +226,10 @@ async def test_one_roms_failure_does_not_stop_the_run(
     _rom(library, admin_user, make_platform("psx"), {"game.cue": b""}, folder=True)
     real_refresh = refresh_rom_files
 
-    async def refresh(rom: Rom):
+    async def refresh(rom: Rom, **kwargs):
         if rom.id == psp_rom.id:
             raise RuntimeError("lock timeout")
-        return await real_refresh(rom)
+        return await real_refresh(rom, **kwargs)
 
     mocker.patch(
         "tasks.manual.convert_library.refresh_rom_files", AsyncMock(side_effect=refresh)
@@ -678,10 +679,10 @@ async def test_channels_move_before_the_originals_are_deleted(
     original = library / rom.full_path
     real_refresh = refresh_rom_files
 
-    async def refresh(rom: Rom):
+    async def refresh(rom: Rom, **kwargs):
         if not original.exists():
             raise RuntimeError("lock timeout")
-        return await real_refresh(rom)
+        return await real_refresh(rom, **kwargs)
 
     mocker.patch(
         "tasks.manual.convert_library.refresh_rom_files", AsyncMock(side_effect=refresh)
@@ -760,3 +761,21 @@ async def test_a_failed_playlist_rewrite_removes_the_outputs(
     stats = await _run()
 
     assert stats["converted"] == 2
+
+
+async def test_the_originals_are_not_reread_and_the_rom_hash_covers_the_outputs(
+    library: Path, admin_user: User, converto, converted, mocker
+):
+    _distinct_outputs(mocker)
+    rom = _discs(library, admin_user)
+    hashed = mocker.spy(fs_rom_handler, "_calculate_rom_hashes")
+
+    await _run()
+
+    read = sorted(call.args[0].name for call in hashed.call_args_list)
+    assert not [name for name in read if name.endswith((".cue", ".bin"))]
+    # Each output is read once for its own hash and once for the ROM-level hash.
+    assert read.count("game (Disc 1).chd") == 2
+    after = _reload(rom)
+    full = await fs_rom_handler.get_rom_files(after)
+    assert after.sha1_hash == full.sha1_hash != ""

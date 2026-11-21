@@ -232,7 +232,8 @@ async def _move_to_outputs(rom: Rom, replaced: dict[Path, Path]) -> int:
     refreshed = db_rom_handler.get_rom(rom.id)
     if refreshed is None:
         raise LookupError(f"rom {rom.id} is gone")
-    await refresh_rom_files(refreshed)
+    # The ROM-level hashes wait for the refresh after the originals go.
+    await refresh_rom_files(refreshed, rom_hashes=False)
     after = db_rom_handler.rom_files_for_rom_id(rom.id)
     moves = _replacements(rom.files, after, replaced)
     return db_snapshot_handler.move_to_replacements(
