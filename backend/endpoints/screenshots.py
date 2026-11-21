@@ -35,7 +35,25 @@ router = APIRouter(
 SCREENSHOT_FILE_UPLOAD = File(..., description="Screenshot file to upload.")
 
 
-@protected_route(router.post, "", [Scope.ASSETS_WRITE])
+@protected_route(
+    router.post,
+    "",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "The screenshot file has no name, its name is not valid, or it is"
+                " not a supported image type."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+        status.HTTP_413_CONTENT_TOO_LARGE: {
+            "description": "The screenshot is larger than the server allows."
+        },
+    },
+)
 async def add_screenshot(
     request: Request,
     rom_id: RomIdQuery,
@@ -120,7 +138,14 @@ async def add_screenshot(
     router.get,
     "/{id}/content",
     [Scope.ASSETS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "No screenshot the caller can read has this ID, or the screenshot's"
+                " file is missing."
+            )
+        }
+    },
 )
 def download_screenshot(
     request: Request,
@@ -162,7 +187,11 @@ def download_screenshot(
     router.put,
     "/{id}",
     [Scope.ASSETS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no screenshot with this ID that it can see."
+        }
+    },
 )
 async def update_screenshot(
     request: Request,
@@ -185,7 +214,11 @@ async def update_screenshot(
     router.delete,
     "/{id}",
     [Scope.ASSETS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no screenshot with this ID that it can see."
+        }
+    },
 )
 async def delete_screenshot(
     request: Request,

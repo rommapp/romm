@@ -113,7 +113,25 @@ def list_tokens(request: Request) -> list[ClientTokenSchema]:
     return [build_schema(t) for t in tokens]
 
 
-@protected_route(router.delete, "/{token_id}")
+@protected_route(
+    router.delete,
+    "/{token_id}",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "The request has no valid credentials."
+        },
+        status.HTTP_403_FORBIDDEN: {
+            "description": (
+                "The caller lacks the `me.write` scope and is revoking a token other"
+                " than the one it authenticated with, or the token being revoked has"
+                " scopes the caller does not hold."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no token with this ID that it can see."
+        },
+    },
+)
 async def delete_token(
     request: Request,
     token_id: int,
@@ -141,7 +159,19 @@ async def delete_token(
     await close_client_token_sockets([token_id])
 
 
-@protected_route(router.put, "/{token_id}/regenerate", [Scope.ME_WRITE])
+@protected_route(
+    router.put,
+    "/{token_id}/regenerate",
+    [Scope.ME_WRITE],
+    responses={
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The token has scopes the caller no longer holds."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no token with this ID that it can see."
+        },
+    },
+)
 async def regenerate_token(
     request: Request,
     token_id: int,

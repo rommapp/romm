@@ -141,7 +141,11 @@ async def _notify_outcome(
     router.get,
     "/online",
     [Scope.DEVICES_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Installing on a device is disabled on this server."
+        }
+    },
 )
 async def get_online_devices(request: Request) -> list[str]:
     """Ids of the caller's devices holding an open device socket or that claimed lately."""
@@ -162,9 +166,25 @@ async def get_online_devices(request: Request) -> list[str]:
     status_code=status.HTTP_201_CREATED,
     responses={
         status.HTTP_200_OK: {"model": InstallRequestSchema},
-        status.HTTP_400_BAD_REQUEST: {},
-        status.HTTP_404_NOT_FOUND: {},
-        status.HTTP_409_CONFLICT: {},
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "The device does not accept remote installs, roms of this platform"
+                " cannot be installed on a device, or the rom has no installable"
+                " files."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "Installing on a device is disabled on this server, the caller has no device with"
+                " this ID that it can see, or no rom the caller can see has the ID"
+                " in `rom_id`."
+            )
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": (
+                "The request was not queued because concurrent changes to the device's install requests kept colliding."
+            )
+        },
     },
 )
 async def create_install_request(
@@ -233,7 +253,14 @@ async def create_install_request(
     router.get,
     "/{device_id}/installs",
     [Scope.DEVICES_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "Installing on a device is disabled on this server, or the caller has no device with"
+                " this ID that it can see."
+            )
+        },
+    },
 )
 async def list_install_requests(
     request: Request,
@@ -254,9 +281,20 @@ async def list_install_requests(
     "/{device_id}/installs/claim",
     [Scope.DEVICES_WRITE, Scope.ROMS_READ],
     responses={
-        status.HTTP_403_FORBIDDEN: {},
-        status.HTTP_404_NOT_FOUND: {},
-        status.HTTP_409_CONFLICT: {},
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The request does not use a client token bound to this device."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "Installing on a device is disabled on this server, or the caller has no device with"
+                " this ID that it can see."
+            )
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": (
+                "Nothing was claimed because concurrent changes to the device's install requests kept colliding."
+            )
+        },
     },
 )
 async def claim_install_requests(
@@ -287,9 +325,22 @@ async def claim_install_requests(
     "/{device_id}/installs/{request_id}",
     [Scope.DEVICES_WRITE],
     responses={
-        status.HTTP_403_FORBIDDEN: {},
-        status.HTTP_404_NOT_FOUND: {},
-        status.HTTP_409_CONFLICT: {},
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The request does not use a client token bound to this device."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "Installing on a device is disabled on this server, the caller has no device with"
+                " this ID that it can see, or the device has no unfinished install"
+                " request with this ID."
+            )
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": (
+                "The device has not claimed the request, or concurrent changes to"
+                " the request kept colliding."
+            )
+        },
     },
 )
 async def update_install_request(
@@ -298,7 +349,7 @@ async def update_install_request(
     request_id: Annotated[str, PathVar(description="Install request id.")],
     payload: InstallRequestUpdatePayload,
 ) -> InstallRequestSchema:
-    """The device reports the outcome of a request it has taken, which ends the request."""
+    """The device reports the outcome of a request it has claimed, which ends the request."""
     if not DEVICE_INSTALL_ENABLED:
         raise DeviceInstallDisabledException()
     device = require_device(request, device_id, device_only=True)
@@ -320,7 +371,11 @@ async def update_install_request(
     [Scope.DEVICES_WRITE],
     responses={
         status.HTTP_404_NOT_FOUND: {
-            "description": "Installs are disabled, or the device or request is unknown or already ended."
+            "description": (
+                "Installing on a device is disabled on this server, the caller has no"
+                " device with this ID that it can see, or the device has no unfinished"
+                " install request with this ID."
+            )
         },
         status.HTTP_409_CONFLICT: {
             "description": "The request cannot be cancelled in its current state."

@@ -1,5 +1,5 @@
 import asyncio
-from typing import Annotated, Any
+from typing import Annotated, Any, Final
 
 from fastapi import Body, HTTPException, Request, status
 
@@ -42,6 +42,16 @@ router = APIRouter(
     prefix="/permissions",
     tags=["permissions"],
 )
+
+ADMIN_ONLY_RESPONSE: Final[dict[int | str, dict[str, Any]]] = {
+    status.HTTP_403_FORBIDDEN: {"description": "The caller is not an admin."}
+}
+GROUP_NOT_FOUND_RESPONSE: Final[dict[int | str, dict[str, Any]]] = {
+    status.HTTP_404_NOT_FOUND: {"description": "No permission group has this ID."}
+}
+USER_NOT_FOUND_RESPONSE: Final[dict[int | str, dict[str, Any]]] = {
+    status.HTTP_404_NOT_FOUND: {"description": "No user has this ID."}
+}
 
 
 async def _broadcast_permissions_changed(user_id: int) -> None:
@@ -87,7 +97,9 @@ def get_my_permissions(request: Request) -> PermissionsResponse:
 # --- Admin: catalog -----------------------------------------------------------
 
 
-@protected_route(router.get, "/catalog", [Scope.USERS_READ])
+@protected_route(
+    router.get, "/catalog", [Scope.USERS_READ], responses=ADMIN_ONLY_RESPONSE
+)
 def get_permission_catalog(request: Request) -> PermissionCatalogSchema:
     """The entity/action vocabulary the admin UI renders its matrix from."""
     assert_admin(request)
@@ -158,7 +170,9 @@ def _principal(user_id: int | None, group_id: int | None) -> dict[str, Any]:
     return {"type": "group", "id": group_id, "name": _group_name(group_id)}
 
 
-@protected_route(router.get, "/groups", [Scope.USERS_READ])
+@protected_route(
+    router.get, "/groups", [Scope.USERS_READ], responses=ADMIN_ONLY_RESPONSE
+)
 def list_permission_groups(request: Request) -> list[PermissionGroupSchema]:
     """List all permission groups with their grants."""
     assert_admin(request)
@@ -166,7 +180,16 @@ def list_permission_groups(request: Request) -> list[PermissionGroupSchema]:
 
 
 @protected_route(
-    router.post, "/groups", [Scope.USERS_WRITE], status_code=status.HTTP_201_CREATED
+    router.post,
+    "/groups",
+    [Scope.USERS_WRITE],
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "A group with this name already exists."
+        },
+        **ADMIN_ONLY_RESPONSE,
+    },
 )
 async def create_permission_group(
     request: Request, body: PermissionGroupCreate
@@ -204,7 +227,16 @@ async def create_permission_group(
     router.put,
     "/groups/{id}",
     [Scope.USERS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "Another group has this name, or the request unsets the default"
+                " group without making another group the default."
+            )
+        },
+        **ADMIN_ONLY_RESPONSE,
+        **GROUP_NOT_FOUND_RESPONSE,
+    },
 )
 async def update_permission_group(
     request: Request,
@@ -269,7 +301,11 @@ async def update_permission_group(
     router.delete,
     "/groups/{id}",
     [Scope.USERS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": "The group is the default group."},
+        **ADMIN_ONLY_RESPONSE,
+        **GROUP_NOT_FOUND_RESPONSE,
+    },
 )
 async def delete_permission_group(
     request: Request,
@@ -333,7 +369,7 @@ def _user_permissions(
     router.get,
     "/users/{user_id}",
     [Scope.USERS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={**ADMIN_ONLY_RESPONSE, **USER_NOT_FOUND_RESPONSE},
 )
 def get_user_permissions(
     request: Request,
@@ -356,7 +392,7 @@ def get_user_permissions(
     router.put,
     "/users/{user_id}",
     [Scope.USERS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={**ADMIN_ONLY_RESPONSE, **USER_NOT_FOUND_RESPONSE},
 )
 async def update_user_permissions(
     request: Request,
@@ -409,7 +445,20 @@ async def update_user_permissions(
 # --- Admin: hidden entities ---------------------------------------------------
 
 
-@protected_route(router.post, "/hidden", [Scope.USERS_WRITE])
+@protected_route(
+    router.post,
+    "/hidden",
+    [Scope.USERS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "The request does not set exactly one of `user_id` and `group_id`,"
+                " or the entity is not a platform or a rom."
+            )
+        },
+        **ADMIN_ONLY_RESPONSE,
+    },
+)
 async def add_hidden_entity(
     request: Request, body: HiddenEntityCreate
 ) -> HiddenEntitySchema:
@@ -453,6 +502,12 @@ async def add_hidden_entity(
     "/hidden",
     [Scope.USERS_WRITE],
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The request does not set exactly one of `user_id` and `group_id`."
+        },
+        **ADMIN_ONLY_RESPONSE,
+    },
 )
 async def remove_hidden_entity(
     request: Request,

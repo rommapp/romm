@@ -216,6 +216,31 @@ def _record_upload(request: Request, rom: Rom | None, session: dict[str, Any]) -
     )
 
 
+# The statuses `receive_rom_file` raises, for the routes that call it.
+ROM_FILE_UPLOAD_RESPONSES: dict[int | str, dict[str, Any]] = {
+    status.HTTP_400_BAD_REQUEST: {
+        "description": (
+            "The file name is not a plain file name, the folder does not accept"
+            " this file type, the rom's single file cannot move into a folder"
+            " because a playlist lists it, or the"
+            " request body has no file part with this name."
+        )
+    },
+    status.HTTP_409_CONFLICT: {
+        "description": (
+            "A folder in the rom's folder has this file name, or the rom's single"
+            " file cannot move into a folder of its own because one with that"
+            " name exists."
+        )
+    },
+    status.HTTP_500_INTERNAL_SERVER_ERROR: {
+        "description": (
+            "The upload failed, or the file was saved but not yet added to the rom."
+        )
+    },
+}
+
+
 async def receive_rom_file(
     request: Request, rom: Rom, folder: str, filename: str
 ) -> RomFile | None:
@@ -305,6 +330,17 @@ class UploadTargetPayload(BaseModel):
     "/start",
     [Scope.ROMS_WRITE],
     status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The chunk count does not match the file size, no platform the caller can see has the ID in `x-upload-platform`, the file name or folder is not allowed, the rom is on another platform, or the platform folder already has a file with this name."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has the given `rom_id`."
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "The rom's folder already has a file with this name, and `overwrite` is not set."
+        },
+    },
 )
 async def start_chunked_upload(
     request: Request,
@@ -427,6 +463,23 @@ async def start_chunked_upload(
     router.put,
     "/{upload_id}",
     [Scope.ROMS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The upload ID is not a UUID, the chunk index is out of range, or the `Content-Length` header is not a number."
+        },
+        status.HTTP_403_FORBIDDEN: {
+            "description": "Another user started this upload session."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No upload session has this ID, or the session has expired."
+        },
+        status.HTTP_413_CONTENT_TOO_LARGE: {
+            "description": "The chunk is larger than the 64 MB limit."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The chunk could not be written to disk."
+        },
+    },
 )
 async def upload_chunk(
     request: Request,
@@ -562,6 +615,23 @@ async def _assemble_chunks(
     "/{upload_id}/complete",
     [Scope.ROMS_WRITE],
     status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The upload ID is not a UUID, chunks are missing, the assembled file has the wrong size, or the destination is no longer valid."
+        },
+        status.HTTP_403_FORBIDDEN: {
+            "description": "Another user started this upload session."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No upload session has this ID, the session has expired, or no rom the caller can see has the session's `rom_id`."
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "The upload is already being assembled or has completed, or a file with this name appeared in the destination."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The chunks could not be assembled, or the file was saved but not yet added to the rom."
+        },
+    },
 )
 async def complete_chunked_upload(
     request: Request,
@@ -612,6 +682,12 @@ async def complete_chunked_upload(
     "/{upload_id}/cancel",
     [Scope.ROMS_WRITE],
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": "The upload ID is not a UUID."},
+        status.HTTP_403_FORBIDDEN: {
+            "description": "Another user started this upload session."
+        },
+    },
 )
 async def cancel_chunked_upload(
     request: Request,

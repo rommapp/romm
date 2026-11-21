@@ -41,12 +41,14 @@ _UPLOAD_CHUNK_SIZE = 1024 * 1024
     [Scope.ROMS_READ],
     responses={
         status.HTTP_400_BAD_REQUEST: {
-            "description": "Not exactly one patch source is given, the ROM file is too large, or the patch does not apply."
+            "description": "The request does not give exactly one patch source, the patch format is not supported, the patch is empty, the rom file or the patch is too large, or the patch does not apply."
         },
         status.HTTP_404_NOT_FOUND: {
-            "description": "No ROM file the caller can see has this ID, or the file is missing from disk."
+            "description": "No rom file or patch file the caller can see has this ID, or either file is missing from disk."
         },
-        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Patching failed."},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The patcher failed on the server."
+        },
     },
 )
 async def patch_rom(

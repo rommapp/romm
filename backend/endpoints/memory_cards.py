@@ -97,7 +97,19 @@ def _apply_card_update(card_id: int, data: dict[str, Any]) -> MemoryCard:
     return updated
 
 
-@protected_route(router.post, "", [Scope.ASSETS_WRITE])
+@protected_route(
+    router.post,
+    "",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The name or the emulator is blank, or the emulator is not a valid folder name."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No platform the caller can see has the given `platform_id`."
+        },
+    },
+)
 def add_memory_card(
     request: Request,
     payload: MemoryCardCreatePayload,
@@ -222,7 +234,11 @@ def _version_file_or_404(version: MemoryCardVersion) -> Path:
     router.get,
     "/versions/{id}/content",
     [Scope.ASSETS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No memory card version the caller can see has this ID, or its file is missing from disk."
+        }
+    },
 )
 def download_memory_card_version(request: Request, id: int) -> FileResponse:
     """Download a version's card archive. Readable if the caller owns the parent
@@ -245,7 +261,11 @@ def download_memory_card_version(request: Request, id: int) -> FileResponse:
     router.get,
     "/{id}/content",
     [Scope.ASSETS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No memory card the caller can see has this ID, the card has no stored data yet, or its file is missing from disk."
+        }
+    },
 )
 def download_memory_card(request: Request, id: int) -> FileResponse:
     """Download the card as it stands now, without going through its history.
@@ -324,7 +344,16 @@ async def upload_memory_card_version(
     return MemoryCardVersionSchema.model_validate(version)
 
 
-@protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
+@protected_route(
+    router.get,
+    "/{id}",
+    [Scope.ASSETS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No memory card the caller can see has this ID."
+        }
+    },
+)
 def get_memory_card(request: Request, id: int) -> MemoryCardSchema:
     """A single card: the caller's own or another user's public one."""
     card = _card_or_404(request, id)
@@ -349,7 +378,16 @@ def _reconcile_missing(version: MemoryCardVersion) -> bool:
     return missing
 
 
-@protected_route(router.get, "/{id}/versions", [Scope.ASSETS_READ])
+@protected_route(
+    router.get,
+    "/{id}/versions",
+    [Scope.ASSETS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No memory card the caller can see has this ID."
+        }
+    },
+)
 def get_memory_card_versions(
     request: Request, id: int
 ) -> list[MemoryCardVersionSchema]:
@@ -368,7 +406,14 @@ def get_memory_card_versions(
     router.put,
     "/{id}",
     [Scope.ASSETS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The new name is empty or only whitespace."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no memory card with this ID."
+        },
+    },
 )
 def rename_memory_card(
     request: Request,
@@ -396,7 +441,11 @@ def rename_memory_card(
     router.put,
     "/{id}/visibility",
     [Scope.ASSETS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no memory card with this ID."
+        }
+    },
 )
 def update_memory_card_visibility(
     request: Request,
@@ -419,8 +468,12 @@ def update_memory_card_visibility(
     "/delete",
     [Scope.ASSETS_WRITE],
     responses={
-        status.HTTP_400_BAD_REQUEST: {},
-        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The request lists no memory cards."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "One of the IDs is not a memory card the caller owns, and no card is deleted."
+        },
     },
 )
 async def delete_memory_cards(

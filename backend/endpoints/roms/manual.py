@@ -10,7 +10,7 @@ from streaming_form_data import StreamingFormDataParser
 from streaming_form_data.targets import FileTarget, NullTarget
 
 from decorators.auth import protected_route
-from endpoints.roms.upload import receive_rom_file
+from endpoints.roms.upload import ROM_FILE_UPLOAD_RESPONSES, receive_rom_file
 from handler.auth.constants import Scope
 from handler.auth.dependencies import visible_rom_or_404
 from handler.database import db_rom_handler
@@ -36,7 +36,17 @@ def _is_allowed_manual_file(file_name: str) -> bool:
     "/{id}/manuals",
     [Scope.ROMS_WRITE],
     status_code=status.HTTP_201_CREATED,
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The file is not a supported manual type, or its name is not a valid file name."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The manual could not be saved."
+        },
+    },
 )
 async def add_rom_manuals(
     request: Request,
@@ -131,8 +141,15 @@ async def add_rom_manuals(
     "/{id}/manuals/redownload",
     [Scope.ROMS_WRITE],
     responses={
-        status.HTTP_404_NOT_FOUND: {},
-        status.HTTP_400_BAD_REQUEST: {},
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The rom has no scraped manual URL."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The manual could not be downloaded or saved."
+        },
     },
 )
 async def redownload_rom_manual(
@@ -183,8 +200,10 @@ async def redownload_rom_manual(
     [Scope.ROMS_WRITE],
     status_code=status.HTTP_201_CREATED,
     responses={
-        status.HTTP_404_NOT_FOUND: {},
-        status.HTTP_400_BAD_REQUEST: {},
+        **ROM_FILE_UPLOAD_RESPONSES,
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
     },
 )
 async def add_rom_manual_file(
@@ -213,7 +232,14 @@ async def add_rom_manual_file(
     router.delete,
     "/{id}/manuals/files/{file_id}",
     [Scope.ROMS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID, or the rom has no manual file with this file ID."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The manual file could not be removed from disk."
+        },
+    },
 )
 async def delete_rom_manual_file(
     request: Request,
@@ -265,7 +291,14 @@ async def delete_rom_manual_file(
     router.delete,
     "/{id}/manuals",
     [Scope.ROMS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID, or the rom has no manual."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The manual could not be removed from disk."
+        },
+    },
 )
 async def delete_rom_manuals(
     request: Request,

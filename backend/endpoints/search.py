@@ -93,7 +93,16 @@ def _resolved(
     return resolved
 
 
-@protected_route(router.get, "/roms", [Scope.ROMS_READ])
+@protected_route(
+    router.get,
+    "/roms",
+    [Scope.ROMS_READ],
+    responses={
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "No metadata provider is enabled, or `search_by` is `id` and `search_term` is not a number."
+        }
+    },
+)
 async def search_rom(
     request: Request,
     rom_id: Annotated[
@@ -118,11 +127,7 @@ async def search_rom(
         str, Query(description="What to search by: `name` or `id`.")
     ] = "name",
 ) -> list[SearchRomSchema]:
-    """Search for rom in metadata providers
-
-    Returns:
-        list[SearchRomSchema]: List of matched roms
-    """
+    """Search the enabled metadata providers for games that match a rom, by title or by provider ID."""
 
     if (
         not meta_igdb_handler.is_enabled()
@@ -349,7 +354,19 @@ async def search_rom(
     return [SearchRomSchema.model_validate(m_rom) for m_rom in matched_roms]
 
 
-@protected_route(router.get, "/cover", [Scope.ROMS_READ])
+@protected_route(
+    router.get,
+    "/cover",
+    [Scope.ROMS_READ],
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "SteamGridDB rejected the server's API key."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "No cover art provider is enabled."
+        },
+    },
+)
 async def search_cover(
     request: Request,
     search_term: str = "",

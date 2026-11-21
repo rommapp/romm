@@ -117,7 +117,11 @@ async def get_filesystem_platforms_endpoint(request: Request) -> list[PlatformSc
     router.get,
     "/{id}",
     [Scope.PLATFORMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No platform the caller can see has this ID."
+        }
+    },
 )
 def get_platform(
     request: Request,
@@ -136,7 +140,11 @@ def get_platform(
     router.put,
     "/{id}",
     [Scope.PLATFORMS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No platform the caller can see has this ID."
+        }
+    },
 )
 async def update_platform(
     request: Request,
@@ -195,7 +203,14 @@ async def update_platform(
     router.delete,
     "/{id}",
     [Scope.PLATFORMS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The caller is not allowed to delete platforms."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No platform the caller can see has this ID."
+        },
+    },
 )
 async def delete_platform(
     request: Request,
