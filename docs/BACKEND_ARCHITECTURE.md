@@ -681,9 +681,15 @@ one marked `single_instance` answers 409 while a job of it is queued or running.
 `convert_library` is both, and runs only with `ROM_CONVERTO_ENABLED` set. It
 only converts losslessly (no xiso) and only identified ROMs, since a converted
 file no longer hash-matches a DAT. It stages each output under a `.romm_tmp_`
-directory beside the ROM, deletes the originals (and a cue's tracks) once the
-output is in place, rewrites `.m3u` entries in folder ROMs, and refreshes the
-ROM's files, so the ROM keeps its id, saves and collections.
+directory beside the ROM, rewrites `.m3u` entries in folder ROMs, and refreshes
+the ROM's files while the originals are still on disk, so the ROM keeps its id,
+saves and collections. In one transaction it then moves every user's save
+channels, the ROM's snapshot hashes and its states' discs from each replaced
+file to the file that replaced it. A channel on the ROM's sync file (its
+`channel_file_id`) moves to the new sync file instead when this run wrote that
+file and the user has no channel of that label there. Only then are the
+originals (and a cue's tracks) deleted. A failure before that point removes the
+outputs and puts the playlists back.
 
 `cleanup_orphaned_resources` skips the cleanup when the database reports no
 platforms at all while artwork is still on disk, since that usually means the

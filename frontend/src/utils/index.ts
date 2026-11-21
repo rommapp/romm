@@ -546,16 +546,33 @@ export function isJsDosEmulationSupported(
 }
 
 /**
- * Check if a ROM file is a js-dos bundle.
+ * Check if a ROM is a js-dos bundle, or a folder with one at its top level.
  *
  * js-dos panics on anything that is not an archive carrying
  * `.jsdos/dosbox.conf`.
  *
  * @param rom The ROM to check.
- * @returns True if the file is a js-dos bundle, false otherwise.
+ * @returns True if the ROM has a js-dos bundle to boot, false otherwise.
  */
-export function isJsDosBundle(rom: SimpleRom | null | undefined) {
-  return rom?.fs_extension.toLowerCase() === "jsdos";
+export function hasJsDosBundle(rom: SimpleRom | null | undefined) {
+  return rom?.has_jsdos_bundle === true;
+}
+
+/**
+ * Pick the js-dos bundle to boot, so the server sends that file instead of
+ * zipping the folder.
+ *
+ * @param rom The ROM to boot.
+ * @returns The bundle's file ID in a list, or an empty list if there is none.
+ */
+export function jsDosBundleFileIds(rom: DetailedRom): number[] {
+  const bundle = rom.files.find(
+    (file) =>
+      file.is_top_level &&
+      !file.missing_from_fs &&
+      file.file_name.toLowerCase().endsWith(".jsdos"),
+  );
+  return bundle ? [bundle.id] : [];
 }
 
 /**

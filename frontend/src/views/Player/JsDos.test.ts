@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   routerReplace: vi.fn(() => Promise.resolve()),
   confirm: vi.fn(),
   galleryRom: null as Record<string, unknown> | null,
+  jsDosBundleFileIds: vi.fn((): number[] => []),
   routeLeaveGuard: null as ((to: { fullPath: string }) => unknown) | null,
   setPlaying: vi.fn(),
   setStageActive: vi.fn(),
@@ -56,7 +57,9 @@ vi.mock("@/stores/roms", () => ({
 }));
 
 vi.mock("@/utils", () => ({
-  getDownloadPath: () => "/api/roms/1/content/game.jsdos",
+  getDownloadPath: ({ fileIDs }: { fileIDs: number[] }) =>
+    `/api/roms/1/content/game.jsdos?file_ids=${fileIDs.join(",")}`,
+  jsDosBundleFileIds: mocks.jsDosBundleFileIds,
 }));
 
 vi.mock("@/components/shared/GameCover.vue", () => ({
@@ -135,6 +138,7 @@ beforeEach(() => {
   setIsolated(true);
   mocks.loadRuntime.mockResolvedValue(LOCAL_BASE);
   mocks.galleryRom = null;
+  mocks.jsDosBundleFileIds.mockReset().mockReturnValue([]);
   mocks.routeLeaveGuard = null;
   mocks.userId = 7;
   mocks.confirm.mockResolvedValue(false);
@@ -177,6 +181,10 @@ async function mountPlayer(handle: JsDosProps): Promise<VueWrapper> {
   return wrapper;
 }
 
+function optionsOf(): Partial<JsDosOptions> {
+  return vi.mocked(window.Dos!).mock.calls[0]![1];
+}
+
 function makeHandle(saveResult = true) {
   return {
     save: vi.fn().mockResolvedValue(saveResult),
@@ -197,8 +205,16 @@ describe("JsDos runtime loading", () => {
     mocks.loadRuntime.mockResolvedValue(CDN_BASE);
     const wrapper = await mountPlayer(makeHandle());
 
-    const options = vi.mocked(window.Dos!).mock.calls[0]![1];
-    expect(options.pathPrefix).toBe(`${CDN_BASE}/emulators/`);
+    expect(optionsOf().pathPrefix).toBe(`${CDN_BASE}/emulators/`);
+    wrapper.unmount();
+  });
+
+  it("downloads only the bundle file of a folder ROM", async () => {
+    mocks.jsDosBundleFileIds.mockReturnValue([42]);
+    const wrapper = await mountPlayer(makeHandle());
+
+    expect(mocks.jsDosBundleFileIds).toHaveBeenCalledWith(rom);
+    expect(optionsOf().url).toContain("file_ids=42");
     wrapper.unmount();
   });
 
@@ -511,10 +527,6 @@ describe("JsDos player exit", () => {
 });
 
 describe("JsDos save sync", () => {
-  function optionsOf(): Partial<JsDosOptions> {
-    return vi.mocked(window.Dos!).mock.calls[0]![1];
-  }
-
   it("boots from the synced changes instead of browser storage", async () => {
     const changes = new Uint8Array([80, 75]);
     saveSyncMocks.prepare.mockResolvedValue([

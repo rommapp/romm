@@ -2167,6 +2167,10 @@ SIGIL_PATCH_TARGET = "adapters.services.sigil.SigilService.extract_title_id"
 
 SWITCH_PLATFORM = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
 PS2_PLATFORM = Platform(name="PlayStation 2", slug="ps2", fs_slug="ps2")
+VITA_PLATFORM = Platform(name="PlayStation Vita", slug="psvita", fs_slug="psvita")
+VITA_EXTRACTION = SigilExtractionResult(
+    title_id="PCSE00640", save_target="PCSE00640", usage="folder-exact"
+)
 
 
 @pytest.fixture
@@ -2544,8 +2548,8 @@ class TestSigilTitleIdExtraction:
             ),
             # Turned off by config.
             (SWITCH_PLATFORM, "Game.nsp", True, False),
-            # An archive holds no ROM binary sigil can read.
-            (SWITCH_PLATFORM, "game.zip", True, True),
+            # Sigil opens no archive but a zip.
+            (SWITCH_PLATFORM, "game.7z", True, True),
         ],
     )
     async def test_extraction_is_skipped(
@@ -2574,7 +2578,7 @@ class TestSigilTitleIdExtraction:
         assert parsed.identity.save_target_layout is None
 
     @pytest.mark.asyncio
-    async def test_hashable_archive_rom_skips_extraction(
+    async def test_hashable_zip_rom_is_handed_to_sigil(
         self, tmp_path: Path, sigil_config: Config, stub_ra_hasher: None
     ):
         import io
@@ -2583,16 +2587,50 @@ class TestSigilTitleIdExtraction:
         reload_zipfile()
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
-            zf.writestr("game.bin", b"fake PSX disc content")
+            zf.writestr("app/PCSE00640/sce_sys/param.sfo", b"fake param.sfo")
 
-        platform = Platform(name="PlayStation", slug="psx", fs_slug="psx")
         handler = make_sigil_handler(tmp_path)
-        roms_path = tmp_path / "psx" / "roms"
+        roms_path = tmp_path / "psvita" / "roms"
         roms_path.mkdir(parents=True)
         (roms_path / "game.zip").write_bytes(buf.getvalue())
         rom = Rom(
             id=1,
             fs_name="game.zip",
+            fs_path="psvita/roms",
+            platform=VITA_PLATFORM,
+        )
+
+        mock_extract = AsyncMock(return_value=VITA_EXTRACTION)
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            parsed = await handler.get_rom_files(rom)
+
+        mock_extract.assert_awaited_once_with("psvita", str(roms_path / "game.zip"))
+        assert parsed.identity.title_id == "PCSE00640"
+        assert parsed.rom_files[0].archive_members is not None
+
+    @pytest.mark.asyncio
+    async def test_hashable_archive_sigil_cannot_open_skips_extraction(
+        self, tmp_path: Path, sigil_config: Config, stub_ra_hasher: None
+    ):
+        import io
+        import tarfile
+
+        content = b"fake PSX disc content"
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w") as tf:
+            member = tarfile.TarInfo("game.bin")
+            member.size = len(content)
+            tf.addfile(member, io.BytesIO(content))
+
+        platform = Platform(name="PlayStation", slug="psx", fs_slug="psx")
+        handler = make_sigil_handler(tmp_path)
+        roms_path = tmp_path / "psx" / "roms"
+        roms_path.mkdir(parents=True)
+        (roms_path / "game.tar").write_bytes(buf.getvalue())
+        rom = Rom(
+            id=1,
+            fs_name="game.tar",
             fs_path="psx/roms",
             platform=platform,
         )
@@ -2604,6 +2642,7 @@ class TestSigilTitleIdExtraction:
 
         mock_extract.assert_not_awaited()
         assert parsed.identity.title_id is None
+        assert parsed.rom_files[0].archive_members is not None
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -2750,6 +2789,30 @@ class TestSigilTitleIdExtraction:
             parsed = await handler.get_rom_files(rom, existing_files=[row])
 
         assert parsed.identity.title_id == "SLUS-00001"
+
+    @pytest.mark.asyncio
+    async def test_incremental_rescan_reads_an_unchanged_zip(
+        self, tmp_path: Path, sigil_config: Config, stub_ra_hasher: None
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, VITA_PLATFORM, "Game.zip")
+        path = tmp_path / "psvita/roms/Game.zip"
+        st = path.stat()
+        row = RomFile(
+            rom_id=rom.id,
+            file_name=path.name,
+            file_path="psvita/roms",
+            file_size_bytes=st.st_size,
+            last_modified=st.st_mtime,
+            md5_hash="stored-md5",
+        )
+        mock_extract = AsyncMock(return_value=VITA_EXTRACTION)
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            parsed = await handler.get_rom_files(rom, existing_files=[row])
+
+        mock_extract.assert_awaited_once_with("psvita", str(path))
+        assert parsed.identity.title_id == "PCSE00640"
 
     @pytest.mark.asyncio
     async def test_playlist_rom_is_handed_to_sigil(

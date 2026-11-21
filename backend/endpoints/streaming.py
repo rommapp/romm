@@ -807,8 +807,9 @@ async def _hydrate_saves(
 
     Returns:
         The container path of an uploaded archive (for the protocols that
-        restore one as part of the launch), and whether `import_state`
-        specifically made it onto the container.
+        restore one as part of the launch), whether `import_state`
+        specifically made it onto the container, and the native archive
+        it restores.
     """
     if card is not None:
         # Whole-card sync: hydrate (or wipe to blank) is REQUIRED. If it fails
@@ -865,10 +866,14 @@ async def _hydrate_saves(
         # last session ended on, which the card does not.
         # Best-effort: a failed upload just means the container keeps its own.
         try:
-            path = await saves.hydrate_saves_to_webstation(
-                request.user.id, rom.id, container, save
+            restored = await asyncio.to_thread(
+                saves.restorable_for, request.user.id, rom.id, container, save
             )
-            return imports.ImportHydration(path)
+            path = await saves.hydrate_saves_to_webstation(rom.id, container, restored)
+            restored_id, restored_hash = saves.restored_ref(restored, path)
+            return imports.ImportHydration(
+                path, restored_save_id=restored_id, restored_save_hash=restored_hash
+            )
         except Exception:
             log.exception("save hydration failed, continuing launch")
     elif card is None:
@@ -1192,6 +1197,9 @@ async def claim_session(
         rom_language=rom_language,
         gui_language=gui_language,
         archive_path=hydrated.path,
+        restored_save_id=hydrated.restored_save_id,
+        restored_save_hash=hydrated.restored_save_hash,
+        restored_without_state=hydrated.restored_without_state,
         native_fallback=hydrated.native_fallback,
         resume_state=resume_state,
         resume_slot=resume_slot,

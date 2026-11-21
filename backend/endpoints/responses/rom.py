@@ -318,6 +318,8 @@ class RomFileSchema(BaseModel):
     file_size_bytes: int
     full_path: str
     is_top_level: bool
+    missing_from_fs: bool
+    """True when the file is gone from disk."""
     created_at: UTCDatetime
     updated_at: UTCDatetime
     last_modified: UTCDatetime | None
@@ -543,6 +545,8 @@ class RomSchema(BaseModel):
     """True when more than one file or folder sits at the top level."""
     is_easyrpg_game: bool
     """True for an RPG Maker 2000 or 2003 game: a folder containing an `rpg_rt.ldb` database."""
+    has_jsdos_bundle: bool
+    """True when the ROM is a `.jsdos` bundle, or a folder with one at its top level."""
     full_path: str
     """The path of the file or folder relative to the library root: `fs_path` joined with `fs_name`."""
     created_at: UTCDatetime

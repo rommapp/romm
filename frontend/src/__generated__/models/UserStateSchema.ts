@@ -12,6 +12,10 @@ export type UserStateSchema = {
      * The ID of the sync channel this was pushed to. Null for a backup that the user manages themselves.
      */
     channel_id?: (string | null);
+    /**
+     * MD5 of the file's bytes, or for a zip, of its sorted `name:md5` entry lines. Null for a file never hashed.
+     */
+    content_hash?: (string | null);
     is_favorite?: boolean;
     /**
      * The owner's free-text labels.

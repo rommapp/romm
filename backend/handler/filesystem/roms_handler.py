@@ -19,6 +19,7 @@ from adapters.services.rom_converto import (
 from adapters.services.sigil import (
     SIGIL_EXTRACT_PLATFORM_SLUGS,
     SWITCH_PLATFORM_SLUGS,
+    UNREADABLE_ARCHIVE_SUFFIXES,
     SigilExtractionResult,
     SigilService,
 )
@@ -64,11 +65,7 @@ from utils.archives import (
     read_tar_archive_files,
     read_zip_archive_files,
 )
-from utils.filesystem import (
-    ARCHIVE_FORMAT_BY_SUFFIX,
-    COMPRESSED_FILE_SUFFIXES,
-    iter_files,
-)
+from utils.filesystem import ARCHIVE_FORMAT_BY_SUFFIX, iter_files
 from utils.hashing import crc32_to_hex
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.rom_patcher import is_patch_file_name
@@ -389,7 +386,7 @@ def _may_hold_title_id(path: Path, category: RomFileCategory | None) -> bool:
     """Whether sigil can read a title id from this file."""
     name = path.name.lower()
     return (
-        not name.endswith(COMPRESSED_FILE_SUFFIXES)
+        not name.endswith(UNREADABLE_ARCHIVE_SUFFIXES)
         and not name.endswith(SIDECAR_FILE_SUFFIXES)
         and category not in NON_BINARY_FILE_CATEGORIES
     )
@@ -796,6 +793,7 @@ class FSRomsHandler(FSHandler):
         *,
         existing_files: Sequence[RomFile] | None = None,
         reuse_title_ids: bool = False,
+        rom_hashes: bool = True,
         cnfg: Config | None = None,
     ) -> ParsedRomFiles:
         """Build the ROM's file rows from disk.
@@ -807,6 +805,8 @@ class FSRomsHandler(FSHandler):
                 are only recomputed when a top-level file changed.
             reuse_title_ids: Keep the stored identity, without a parse, when no
                 file changed and sigil already read the ROM.
+            rom_hashes: False keeps a folder ROM's stored ROM-level hashes even
+                when its top level changed, so unchanged files are not reread.
             cnfg: The config to read, so a scan can load it once.
         """
         from adapters.services.rahasher import RAHasherService
@@ -916,6 +916,9 @@ class FSRomsHandler(FSHandler):
                 top_level_changed = _top_level_changed(
                     entries, rom_dir, rel_rom_dir, existing_by_key, hashable_platform
                 )
+            if not rom_hashes:
+                top_level_changed = False
+                rom_md5_h = rom_sha1_h = None
 
             # Calculate the RA hash if the platform has a slug that matches a known RA slug
             if calculate_hashes and top_level_changed:
@@ -1093,14 +1096,12 @@ class FSRomsHandler(FSHandler):
 
             if members:
                 rom_md5_h, rom_sha1_h = archive_md5_h, archive_sha1_h
-                rom_files.append(
-                    self._build_rom_file(
-                        rom=rom,
-                        rom_path=Path(rel_roms_path),
-                        file_name=rom.fs_name,
-                        file_hash=_make_file_hash(rom_crc_c, rom_md5_h, rom_sha1_h),
-                        archive_members=members,
-                    )
+                rom_file = self._build_rom_file(
+                    rom=rom,
+                    rom_path=Path(rel_roms_path),
+                    file_name=rom.fs_name,
+                    file_hash=_make_file_hash(rom_crc_c, rom_md5_h, rom_sha1_h),
+                    archive_members=members,
                 )
             else:
                 # Empty, malformed, unreadable, or all-excluded archive: hash the archive
@@ -1118,14 +1119,14 @@ class FSRomsHandler(FSHandler):
                     return crc
 
                 rom_crc_c = await asyncio.to_thread(_hash_raw_archive, rom_crc_c)
-                rom_files.append(
-                    self._build_rom_file(
-                        rom=rom,
-                        rom_path=Path(rel_roms_path),
-                        file_name=rom.fs_name,
-                        file_hash=_make_file_hash(rom_crc_c, rom_md5_h, rom_sha1_h),
-                    )
+                rom_file = self._build_rom_file(
+                    rom=rom,
+                    rom_path=Path(rel_roms_path),
+                    file_name=rom.fs_name,
+                    file_hash=_make_file_hash(rom_crc_c, rom_md5_h, rom_sha1_h),
                 )
+            rom_files.append(rom_file)
+            _record_title_id_source(rom_dir, rom_file)
         else:
             if hashable_platform:
                 crc_c, _, md5_h, _, sha1_h, _, chd_sha1_hash = await asyncio.to_thread(

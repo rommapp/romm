@@ -725,6 +725,7 @@ def _rom_card_loaders(
             undefer(Rom.top_level_file_count),
             undefer(Rom.has_soundtrack),
             undefer(Rom.is_easyrpg_game),
+            undefer(Rom.has_jsdos_bundle),
         ]
     if siblings:
         options.append(

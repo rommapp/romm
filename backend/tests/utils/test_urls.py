@@ -3,7 +3,12 @@ from fastapi import Request
 from main import app
 
 from models.rom import Rom, RomFile
-from utils.urls import rom_content_url, rom_id_from_content_url, romfile_content_url
+from utils.urls import (
+    is_shareable_host,
+    rom_content_url,
+    rom_id_from_content_url,
+    romfile_content_url,
+)
 
 REQUEST = Request(
     {
@@ -46,3 +51,18 @@ def test_romfile_content_url_encodes_file_name() -> None:
 )
 def test_rom_id_from_content_url(value: str, rom_id: int | None) -> None:
     assert rom_id_from_content_url(value) == rom_id
+
+
+@pytest.mark.parametrize(
+    "host, shareable",
+    [
+        ("localhost", False),
+        ("localhost.", False),
+        ("LOCALHOST.", False),
+        ("127.0.0.1", False),
+        ("romm.example.com", True),
+        ("romm.example.com.", True),
+    ],
+)
+def test_is_shareable_host(host: str, shareable: bool) -> None:
+    assert is_shareable_host(host) is shareable

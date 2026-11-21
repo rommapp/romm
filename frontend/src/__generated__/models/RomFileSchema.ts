@@ -20,6 +20,10 @@ export type RomFileSchema = {
     file_size_bytes: number;
     full_path: string;
     is_top_level: boolean;
+    /**
+     * True when the file is gone from disk.
+     */
+    missing_from_fs: boolean;
     created_at: string;
     updated_at: string;
     /**
