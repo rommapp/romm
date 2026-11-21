@@ -115,8 +115,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 init_sentry()
 
+API_DESCRIPTION = """\
+Each route lists the errors it can return. A few come from middleware that runs
+before any route, so the routes don't list them:
+
+- **403**: a request that changes data and has no Bearer or Basic `Authorization`
+  header must send the token from the `romm_csrftoken` cookie in the
+  `x-csrftoken` header.
+- **400** or **413**: an upload to `/api/saves`, `/api/states`, `/api/screenshots`,
+  `/api/snapshots`, `/api/sync/retroarch` or `/api/memory-cards` has a
+  `Content-Length` header that is not valid, or is larger than the server allows.
+"""
+
 app = FastAPI(
     title="RomM API",
+    description=API_DESCRIPTION,
     version=get_version(),
     lifespan=lifespan,
     docs_url="/api/docs",

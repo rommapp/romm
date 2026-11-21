@@ -1,7 +1,7 @@
 """Checks that the OpenAPI document describes every operation."""
 
 from main import app
-from tools.route_errors import undocumented
+from tools.route_errors import UNREADABLE_STATUS, undocumented
 
 HTTP_METHODS = ("get", "post", "put", "patch", "delete", "head")
 
@@ -31,8 +31,10 @@ def test_raised_statuses_are_documented():
 
     # Assert
     assert not gaps, (
-        "These routes raise statuses their `responses=` does not describe. Document"
-        " each one, or mark code whose errors never reach the client with"
-        " `# route-errors: ignore`:\n"
+        "These routes raise or return statuses their `responses=` does not describe."
+        " Document each one, or mark code whose errors never reach the client with"
+        f" `# route-errors: ignore`. A status of {UNREADABLE_STATUS} is one the"
+        " analyzer cannot read: use a literal status, or ignore the line and"
+        " document the statuses it can take by hand:\n"
         + "\n".join(f"{route} {codes}" for route, codes in gaps.items())
     )

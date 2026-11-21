@@ -11,10 +11,27 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
+from fastapi.dependencies.utils import get_flat_params
 from fastapi.routing import APIRoute
 
 BACKEND = Path(__file__).resolve().parent.parent
 STATUS_ATTR = re.compile(r"HTTP_(\d{3})_")
+# Responses a route returns instead of raising, whose status reaches the client.
+RESPONSE_CLASSES = frozenset(
+    {
+        "FileResponse",
+        "HTMLResponse",
+        "JSONResponse",
+        "ORJSONResponse",
+        "PlainTextResponse",
+        "RedirectResponse",
+        "Response",
+        "StreamingResponse",
+    }
+)
+# Stands for a status the analyzer cannot read, such as one copied from an upstream
+# response. A route that reaches one fails the check until it is ignored.
+UNREADABLE_STATUS = 0
 # Marks code whose errors never reach the client. Put it at the end of the line, or
 # on the line above, with the reason after it.
 IGNORE_MARKER = "# route-errors: ignore"
@@ -180,6 +197,95 @@ def _status(node: ast.expr | None) -> int | None:
     return None
 
 
+@dataclass(frozen=True)
+class Codes:
+    """What a status expression can evaluate to."""
+
+    codes: frozenset[int] = frozenset()
+    # Parameters of the enclosing function that the status comes from.
+    params: frozenset[str] = frozenset()
+    # True when part of the expression cannot be read statically.
+    unreadable: bool = False
+
+    def __or__(self, other: Codes) -> Codes:
+        return Codes(
+            self.codes | other.codes,
+            self.params | other.params,
+            self.unreadable or other.unreadable,
+        )
+
+
+def _param_names(fn: ast.AST) -> list[str]:
+    if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return []
+    return [a.arg for a in [*fn.args.posonlyargs, *fn.args.args, *fn.args.kwonlyargs]]
+
+
+def _local_values(fn: ast.AST, name: str) -> list[ast.expr]:
+    """Every value assigned to the local `name` in `fn`."""
+    return [
+        node.value
+        for node in ast.walk(fn)
+        if isinstance(node, (ast.Assign, ast.AnnAssign))
+        and node.value is not None
+        and any(
+            isinstance(target, ast.Name) and target.id == name
+            for target in (
+                node.targets if isinstance(node, ast.Assign) else [node.target]
+            )
+        )
+    ]
+
+
+def _module_dict(module: str, expr: ast.expr) -> ast.Dict | None:
+    """The literal dict a module-level name holds, such as a map of errors to statuses."""
+    if not isinstance(expr, ast.Name):
+        return None
+    sym = resolve(module, expr.id)
+    mod = load(sym[1]) if sym and sym[0] == "value" else None
+    value = mod.assigns.get(sym[2]) if mod and sym else None
+    return value if isinstance(value, ast.Dict) else None
+
+
+def _codes(expr: ast.expr | None, module: str, fn: ast.AST, depth: int = 0) -> Codes:
+    """The statuses a `status_code` expression in `fn` can take."""
+    if expr is None or depth > 10:
+        return Codes(unreadable=True)
+    code = _status(expr)
+    if code is not None:
+        return Codes(frozenset({code}))
+    if isinstance(expr, ast.IfExp):
+        return _codes(expr.body, module, fn, depth + 1) | _codes(
+            expr.orelse, module, fn, depth + 1
+        )
+    lookup = None
+    default = None
+    if isinstance(expr, ast.Subscript):
+        lookup = _module_dict(module, expr.value)
+    elif (
+        isinstance(expr, ast.Call)
+        and isinstance(expr.func, ast.Attribute)
+        and expr.func.attr == "get"
+    ):
+        lookup = _module_dict(module, expr.func.value)
+        default = expr.args[1] if len(expr.args) > 1 else None
+    if lookup is not None:
+        found = Codes()
+        for value in [*lookup.values, *([default] if default else [])]:
+            found |= _codes(value, module, fn, depth + 1)
+        return found
+    if isinstance(expr, ast.Name):
+        if expr.id in _param_names(fn):
+            return Codes(params=frozenset({expr.id}))
+        values = _local_values(fn, expr.id)
+        if values:
+            found = Codes()
+            for value in values:
+                found |= _codes(value, module, fn, depth + 1)
+            return found
+    return Codes(unreadable=True)
+
+
 def _subclasses_http_exception(module: str, owner: str | None) -> bool:
     mod = load(module)
     cls = mod.classes.get(owner) if mod and owner else None
@@ -189,10 +295,10 @@ def _subclasses_http_exception(module: str, owner: str | None) -> bool:
     )
 
 
-def _http_exception_status(
+def _status_expr(
     call: ast.Call, module: str = "", owner: str | None = None
-) -> int | None:
-    """The status of `HTTPException(...)`, or of `super().__init__(...)` in a subclass."""
+) -> ast.expr | None:
+    """The status argument of an `HTTPException`, a subclass's `super().__init__` or a response."""
     func = call.func
     name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", None)
     is_super_init = (
@@ -202,12 +308,26 @@ def _http_exception_status(
         and getattr(func.value.func, "id", None) == "super"
         and _subclasses_http_exception(module, owner)
     )
-    if name != "HTTPException" and not is_super_init:
+    if name == "HTTPException" or is_super_init:
+        position = 0
+    elif name in RESPONSE_CLASSES:
+        position = 1
+    else:
         return None
     for kw in call.keywords:
         if kw.arg == "status_code":
-            return _status(kw.value)
-    return _status(call.args[0]) if call.args else None
+            return kw.value
+    return call.args[position] if len(call.args) > position else None
+
+
+def _http_exception_status(call: ast.Call) -> int | None:
+    """The status of a module-level `HTTPException(...)` instance."""
+    func = call.func
+    name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", None)
+    if name != "HTTPException":
+        return None
+    expr = _status_expr(call)
+    return _status(expr) if expr is not None else None
 
 
 def _function_node(sym: Symbol) -> tuple[ast.AST, str | None] | None:
@@ -263,6 +383,21 @@ def _body_nodes(fn: ast.AST, module: str) -> list[ast.AST]:
 
 
 _memo: dict[Symbol, frozenset[int]] = {}
+# The parameters of each function whose value becomes a raised or returned status.
+_forwarded: dict[Symbol, frozenset[str]] = {}
+
+
+def _argument(call: ast.Call, callee: Symbol, param: str) -> ast.expr | None:
+    """The expression `call` passes to the callee's parameter `param`."""
+    for kw in call.keywords:
+        if kw.arg == param:
+            return kw.value
+    located = _function_node(callee)
+    names = _param_names(located[0]) if located else []
+    if located and located[1] is not None and names[:1] in (["self"], ["cls"]):
+        names = names[1:]
+    index = names.index(param) if param in names else len(call.args)
+    return call.args[index] if index < len(call.args) else None
 
 
 def _dependency(node: ast.Call) -> ast.expr | None:
@@ -317,17 +452,30 @@ def statuses(sym: Symbol, stack: frozenset[Symbol] = frozenset()) -> frozenset[i
             found |= statuses(init, stack)
     elif kind == "func":
         located = _function_node(sym)
+        forwarded: set[str] = set()
         if located:
             fn, owner = located
+
+            def add(codes: Codes) -> None:
+                found.update(codes.codes)
+                forwarded.update(codes.params)
+                if codes.unreadable:
+                    found.add(UNREADABLE_STATUS)
+
             for node in _body_nodes(fn, module):
                 if isinstance(node, ast.Call):
-                    code = _http_exception_status(node, module, owner)
-                    if code:
-                        found.add(code)
+                    status_expr = _status_expr(node, module, owner)
+                    if status_expr is not None:
+                        add(_codes(status_expr, module, fn))
                         continue
                     target = _resolve_expr(module, owner, node.func)
                     if target and target[0] != "module":
                         found |= statuses(target, stack)
+                    if target and target[0] == "func":
+                        for param in _forwarded.get(target, frozenset()):
+                            arg = _argument(node, target, param)
+                            if arg is not None:
+                                add(_codes(arg, module, fn))
                     dependency = _dependency(node)
                     target = (
                         _resolve_expr(module, owner, dependency) if dependency else None
@@ -344,7 +492,8 @@ def statuses(sym: Symbol, stack: frozenset[Symbol] = frozenset()) -> frozenset[i
                 target = _resolve_expr(module, owner, name_node)
                 if target and target[0] == "value":
                     found |= statuses(target, stack)
-    result = frozenset(c for c in found if c >= 400)
+        _forwarded[sym] = frozenset(forwarded)
+    result = frozenset(c for c in found if c >= 400 or c == UNREADABLE_STATUS)
     _memo[sym] = result
     return result
 
@@ -362,8 +511,13 @@ def undocumented(routes: Iterable[Any]) -> dict[str, list[int]]:
     """Map each route's `module:function` to the statuses it raises that its `responses` leaves out."""
     gaps: dict[str, set[int]] = {}
     for route in api_routes(routes):
+        if not route.include_in_schema:
+            continue
         endpoint = inspect.unwrap(route.endpoint)
-        documented = {int(code) for code in route.responses} | {422}
+        documented = {int(code) for code in route.responses}
+        # FastAPI documents the validation 422 only for a route that takes input.
+        if get_flat_params(route.dependant) or route.body_field:
+            documented.add(422)
         raised = statuses(("func", endpoint.__module__, endpoint.__name__))
         missing = raised - documented
         if missing:
