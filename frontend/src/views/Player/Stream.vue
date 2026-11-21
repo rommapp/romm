@@ -310,16 +310,16 @@ const startDiscItems = computed<{ title: string; value: DiscSelection }[]>(
   ],
 );
 
-// A rom with a single swappable disc has nothing to swap to, whatever the
-// platform can do. A start disc outside the playlist boots on its own, with no
-// playlist loaded.
+// The disc sent with the claim, since the picker stays live while the game loads.
+const claimedStartDisc = ref<DiscSelection>(ALL_DISCS);
+// A start disc outside the playlist boots on its own, with no playlist loaded.
 const canSwapDisc = computed(
   () =>
     capabilities.value.supportsDiscSwap &&
     swapDiscOptions.value.length > 1 &&
     hasPlaylist.value &&
-    (startDisc.value === ALL_DISCS ||
-      swapDiscOptions.value.some((o) => o.value === startDisc.value)) &&
+    (claimedStartDisc.value === ALL_DISCS ||
+      swapDiscOptions.value.some((o) => o.value === claimedStartDisc.value)) &&
     !isJoining,
 );
 
@@ -999,6 +999,7 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
       // The backend derives the ROM's filesystem path and platform from the id.
       // It answers as soon as the container is reserved; the room URL follows
       // on the socket, so the state stays "loading" until launch-ready lands.
+      claimedStartDisc.value = startDisc.value;
       const launching = await streamingStore.claimSession(
         rom.value.id,
         selectedState.value?.id,

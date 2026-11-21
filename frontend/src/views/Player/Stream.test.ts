@@ -803,6 +803,10 @@ describe("Stream disc swap", () => {
 
   type DiscVm = { canSwapDisc: boolean; showManualDiscHint: boolean };
 
+  beforeEach(() => {
+    mocks.claimSession.mockResolvedValue(CLAIM);
+  });
+
   afterEach(() => {
     mocks.capabilities = {};
   });
@@ -819,7 +823,17 @@ describe("Stream disc swap", () => {
     const wrapper = await launch({ picker: false, files: PLAYLIST_SET });
 
     await discSelect(wrapper)!.vm.$emit("update:modelValue", 306);
+    await (wrapper.vm as unknown as { onPlay: () => Promise<void> }).onPlay();
     expect((wrapper.vm as unknown as DiscVm).canSwapDisc).toBe(false);
+  });
+
+  it("keeps the swap the claim was sent with when the pick changes afterwards", async () => {
+    mocks.capabilities = { supportsDiscSwap: true };
+    const wrapper = await launch({ picker: false, files: PLAYLIST_SET });
+
+    await (wrapper.vm as unknown as { onPlay: () => Promise<void> }).onPlay();
+    await discSelect(wrapper)!.vm.$emit("update:modelValue", 306);
+    expect((wrapper.vm as unknown as DiscVm).canSwapDisc).toBe(true);
   });
 
   it("offers no swap when only a variant ships the playlist", async () => {
