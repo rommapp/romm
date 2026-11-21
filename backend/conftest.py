@@ -1,14 +1,17 @@
+import hashlib
 import os
 import re
 from pathlib import Path
 
 
 def worktree_tag(start: Path) -> str:
-    """Name the linked git worktree (whose `.git` is a file) holding `start`, or ""."""
+    """Tag the linked git worktree (whose `.git` is a file) holding `start`, or ""."""
     for folder in (start, *start.parents):
         dot_git = folder / ".git"
         if dot_git.is_file():
-            return folder.name[:40]
+            # Folder names that sanitize or truncate alike still get separate databases.
+            digest = hashlib.sha256(str(folder).encode()).hexdigest()[:8]
+            return f"{folder.name[:31]}_{digest}"
         if dot_git.exists():
             return ""
     return ""

@@ -16,7 +16,7 @@ def test_worktree_tag_names_a_linked_worktree(tmp_path: Path) -> None:
     (worktree / "backend").mkdir(parents=True)
     (worktree / ".git").write_text("gitdir: /repo/.git/worktrees/x\n")
 
-    assert worktree_tag(worktree / "backend") == "resilient-imagining-clover"
+    assert worktree_tag(worktree / "backend").startswith("resilient-imagining-clover_")
 
 
 def test_worktree_tag_is_empty_in_the_main_checkout(tmp_path: Path) -> None:
@@ -36,3 +36,24 @@ def test_worktree_tag_fits_a_database_name(tmp_path: Path) -> None:
     (worktree / ".git").write_text("gitdir: /repo/.git/worktrees/x\n")
 
     assert len(worktree_tag(worktree)) == 40
+
+
+def test_worktree_tag_separates_names_that_sanitize_alike(tmp_path: Path) -> None:
+    for name in ("feature-auth", "feature_auth"):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / ".git").write_text("gitdir: /repo/.git/worktrees/x\n")
+
+    assert worktree_tag(tmp_path / "feature-auth") != worktree_tag(
+        tmp_path / "feature_auth"
+    )
+
+
+def test_worktree_tag_separates_names_that_truncate_alike(tmp_path: Path) -> None:
+    for suffix in ("a", "b"):
+        worktree = tmp_path / ("w" * 50 + suffix)
+        worktree.mkdir()
+        (worktree / ".git").write_text("gitdir: /repo/.git/worktrees/x\n")
+
+    assert worktree_tag(tmp_path / ("w" * 50 + "a")) != worktree_tag(
+        tmp_path / ("w" * 50 + "b")
+    )
