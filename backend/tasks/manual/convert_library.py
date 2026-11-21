@@ -173,13 +173,17 @@ def _channel_moves(
     before: list[RomFile], after: list[RomFile], replaced: dict[Path, Path]
 ) -> dict[FileKey, FileKey]:
     """Each replaced file's key, to the key of the file that replaced it."""
-    after_by_path = {fs_rom_handler.validate_path(f.full_path): f for f in after}
+    validate = fs_rom_handler.cached_path_validator()
+    after_by_path = {validate(f.full_path): f for f in after}
     moves: dict[FileKey, FileKey] = {}
     for rom_file in before:
-        new_path = replaced.get(fs_rom_handler.validate_path(rom_file.full_path))
+        new_path = replaced.get(validate(rom_file.full_path))
         new_file = after_by_path.get(new_path) if new_path else None
-        if new_file is not None:
-            moves[FileKey.of_file(rom_file)] = FileKey.of_file(new_file)
+        if new_file is None:
+            continue
+        old_key, new_key = FileKey.of_file(rom_file), FileKey.of_file(new_file)
+        if old_key != new_key:
+            moves[old_key] = new_key
     # Clients look a ROM's channels up on its sync file, which a conversion can change.
     old_sync, new_sync = sync_file(before), sync_file(after)
     if old_sync and new_sync and FileKey.of_file(old_sync) in moves:
