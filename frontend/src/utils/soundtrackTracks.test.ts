@@ -89,6 +89,14 @@ describe("panelTracksFromRom", () => {
     expect(track?.title).toBe("01 - Theme");
     expect(track?.subtitle).toBe("");
   });
+
+  it("falls back to the file name when the embedded title is empty", () => {
+    const [track] = panelTracksFromRom(
+      rom([romFile(1, "theme.mp3")]),
+      new Map([[1, { title: "" } as TrackMetaSchema]]),
+    );
+    expect(track?.title).toBe("theme");
+  });
 });
 
 describe("panelTracksFromCatalog", () => {
