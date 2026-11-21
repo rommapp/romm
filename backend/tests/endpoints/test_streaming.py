@@ -10,6 +10,7 @@ from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from typing import Any, NamedTuple, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -2937,6 +2938,16 @@ def test_containers_reports_a_container_that_can_never_be_claimed(client, access
         response = _containers(client, access_token)
     assert response.status_code == 200
     assert response.json()["containers"][0]["configured"] is False
+
+
+def test_put_binary_json_returns_none_without_a_broker_host():
+    container = SimpleNamespace(broker_host="")
+    assert (
+        broker.put_binary_json(
+            container, "/x", b"", "test", content_type="text/plain", timeout=1
+        )
+        is None
+    )
 
 
 def test_containers_shows_what_is_running(client, access_token):

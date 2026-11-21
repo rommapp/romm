@@ -1226,12 +1226,7 @@ async def claim_session(
     router.post,
     "/sessions/{platform}/save-and-exit",
     [Scope.ROMS_USER_WRITE],
-    responses={
-        **_CLAIM_ERRORS,
-        status.HTTP_502_BAD_GATEWAY: {
-            "description": "The container has no broker address configured."
-        },
-    },
+    responses=_CLAIM_ERRORS,
 )
 async def save_and_exit_session(
     request: Request,
