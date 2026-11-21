@@ -93,7 +93,7 @@ describe("panelTracksFromRom", () => {
   it("falls back to the file name when the embedded title is empty", () => {
     const [track] = panelTracksFromRom(
       rom([romFile(1, "theme.mp3")]),
-      new Map([[1, { title: "" } as TrackMetaSchema]]),
+      new Map<number, TrackMetaSchema>([[1, { title: "" }]]),
     );
     expect(track?.title).toBe("theme");
   });
