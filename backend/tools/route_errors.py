@@ -246,7 +246,7 @@ def _param_names(fn: ast.AST | None) -> list[str]:
 
 
 def _local_bindings(fn: ast.AST | None, name: str) -> tuple[list[ast.expr], bool]:
-    """The values plain assignments give the local `name` in `fn`, and whether anything else binds it."""
+    """The values plain assignments give to the local `name` in `fn`, and whether any other statement binds it."""
     if fn is None:
         return [], False
     values: list[ast.expr] = []
@@ -513,7 +513,7 @@ def _body_nodes(fn: ast.AST, module: str) -> list[ast.AST]:
     """Every node of a function except its decorators and the code whose errors never reach the caller."""
     mod = load(module)
     ignored = mod.ignored if mod else set()
-    # Each root says whether it sits in the body of a `try` that swallows errors.
+    # Each node to visit carries whether it sits in the body of a `try` that swallows errors.
     roots: list[tuple[ast.AST, bool]] = [
         (node, False)
         for node in (
@@ -562,7 +562,7 @@ def _argument(call: ast.Call, callee: Symbol, param: str) -> ast.expr | None:
 def _passed(
     call: ast.Call, callee: Symbol, param: str, module: str, fn: ast.AST
 ) -> Codes:
-    """The statuses `call`, made in `fn`, gives the callee's parameter `param`."""
+    """The statuses that `call`, made in `fn`, passes to the callee's parameter `param`."""
     arg = _argument(call, callee, param)
     if arg is not None:
         return _codes(arg, module, fn)
@@ -576,7 +576,7 @@ def _passed(
 
 
 def _injected(target: Symbol, stack: frozenset[Symbol]) -> frozenset[int]:
-    """The statuses of a function FastAPI calls, whose parameters come from the request."""
+    """The statuses of an endpoint or dependency. FastAPI fills its parameters from the request, so a status read from one is unreadable."""
     found = statuses(target, stack)
     if _forwarded.get(target):
         return found | {UNREADABLE_STATUS}
