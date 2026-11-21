@@ -233,10 +233,14 @@ class Codes:
         )
 
 
-def _param_names(fn: ast.AST | None) -> list[str]:
+def _params(fn: ast.AST | None) -> list[ast.arg]:
     if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
         return []
-    return [a.arg for a in [*fn.args.posonlyargs, *fn.args.args, *fn.args.kwonlyargs]]
+    return [*fn.args.posonlyargs, *fn.args.args, *fn.args.kwonlyargs]
+
+
+def _param_names(fn: ast.AST | None) -> list[str]:
+    return [param.arg for param in _params(fn)]
 
 
 def _local_bindings(fn: ast.AST | None, name: str) -> tuple[list[ast.expr], bool]:
@@ -308,6 +312,13 @@ def _codes(
     """The statuses a `status_code` expression in `fn`, or at module level when `fn` is None, can take."""
     if expr is None or depth > 10:
         return Codes(unreadable=True)
+
+    def union(exprs: Iterable[ast.expr]) -> Codes:
+        found = Codes()
+        for value in exprs:
+            found |= _codes(value, module, fn, depth + 1)
+        return found
+
     code = _status(expr)
     if code is not None:
         return Codes(frozenset({code}))
@@ -315,9 +326,7 @@ def _codes(
     if isinstance(expr, ast.Constant) and expr.value is None:
         return Codes()
     if isinstance(expr, ast.IfExp):
-        return _codes(expr.body, module, fn, depth + 1) | _codes(
-            expr.orelse, module, fn, depth + 1
-        )
+        return union([expr.body, expr.orelse])
     lookup = None
     default = None
     if isinstance(expr, ast.Subscript):
@@ -330,21 +339,15 @@ def _codes(
         lookup = _module_dict(module, expr.func.value)
         default = expr.args[1] if len(expr.args) > 1 else None
     if lookup is not None:
-        found = Codes()
-        for value in [*lookup.values, *([default] if default else [])]:
-            found |= _codes(value, module, fn, depth + 1)
-        return found
+        return union([*lookup.values, *([default] if default else [])])
     if isinstance(expr, ast.Name):
         is_param = expr.id in _param_names(fn)
         values, rebound = _local_bindings(fn, expr.id)
         if is_param or values or rebound:
-            found = Codes(
+            return Codes(
                 params=frozenset({expr.id}) if is_param else frozenset(),
                 unreadable=rebound,
-            )
-            for value in values:
-                found |= _codes(value, module, fn, depth + 1)
-            return found
+            ) | union(values)
         sym = resolve(module, expr.id)
         mod = load(sym[1]) if sym and sym[0] == "value" else None
         if mod and sym:
@@ -419,11 +422,9 @@ def _status_expr(
 
 def _http_exception_status(call: ast.Call) -> int | None:
     """The status of a module-level `HTTPException(...)` instance."""
-    name = _call_name(call)
-    if name != "HTTPException":
+    if _call_name(call) != "HTTPException":
         return None
-    expr = _status_expr(call)
-    return _status(expr) if expr is not None else None
+    return _status(_status_expr(call))
 
 
 def _function_node(sym: Symbol) -> tuple[ast.AST, str | None] | None:
@@ -593,12 +594,9 @@ def _dependency(node: ast.Call) -> ast.expr | None:
 
 def _annotation_names(fn: ast.AST) -> list[ast.Name]:
     """Names in a function's parameter annotations, where `Annotated` aliases sit."""
-    if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
-        return []
-    params = [*fn.args.posonlyargs, *fn.args.args, *fn.args.kwonlyargs]
     return [
         node
-        for param in params
+        for param in _params(fn)
         if param.annotation is not None
         for node in ast.walk(param.annotation)
         if isinstance(node, ast.Name)

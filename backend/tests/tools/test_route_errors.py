@@ -4,7 +4,7 @@ from tools.route_errors import UNREADABLE_STATUS, stale, statuses, undocumented
 
 from decorators.auth import SCOPE_ERRORS
 
-FIXTURE = "tests.tools.route_errors_fixture"
+FIXTURE = fixture.__name__
 
 
 def _raised(module: str, function: str) -> list[int]:
