@@ -1057,6 +1057,14 @@ async def claim_session(
                 boot_disc = state_disc or start_disc
                 rom_path = f"{library_base}/{boot_disc.full_path}"
                 booted_disc_id = boot_disc.id
+        # The firmware sits in the same library, so the same prefix applies.
+        firmware = (
+            await asyncio.to_thread(
+                webstation.firmware_payload, rom.platform_id, library_base
+            )
+            if container.is_webstation
+            else None
+        )
 
         # Nothing beats for the player until the stream is up, and on a slow
         # container these steps can outlast the window after which a claim is stale.
@@ -1136,6 +1144,7 @@ async def claim_session(
         blank_card_id=undo.blank_card_id,
         start_disc_id=start_disc_id,
         booted_disc_id=booted_disc_id,
+        firmware=firmware,
     )
 
     return LaunchingSessionSchema(
