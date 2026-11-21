@@ -27,7 +27,7 @@ from handler.database import db_platform_handler, db_rom_handler, db_snapshot_ha
 from handler.filesystem import fs_rom_handler
 from handler.rom_files import refresh_rom_files
 from handler.snapshots.file_key import FileKey
-from handler.snapshots.legacy import sync_file
+from handler.snapshots.legacy import sync_key
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom, RomFile, RomFileCategory
@@ -185,9 +185,9 @@ def _channel_moves(
         if old_key != new_key:
             moves[old_key] = new_key
     # Clients look a ROM's channels up on its sync file, which a conversion can change.
-    old_sync, new_sync = sync_file(before), sync_file(after)
-    if old_sync and new_sync and FileKey.of_file(old_sync) in moves:
-        moves[FileKey.of_file(old_sync)] = FileKey.of_file(new_sync)
+    old_sync, new_sync = sync_key(before), sync_key(after)
+    if old_sync and new_sync and old_sync in moves:
+        moves[old_sync] = new_sync
     return moves
 
 
@@ -263,10 +263,10 @@ class ConvertLibraryTask(Task):
             if single_file:
                 db_rom_handler.update_rom(rom.id, {"fs_name": renames[rom.fs_name]})
             else:
-                for playlist in await _rewrite_playlists(
+                playlists = await _rewrite_playlists(
                     fs_rom_handler.validate_path(rom.full_path), renames
-                ):
-                    replaced[playlist] = playlist
+                )
+                replaced.update((p, p) for p in playlists)
         except (OSError, SQLAlchemyError) as exc:
             log.warning(f"Kept the originals of {hl(rom.fs_name)}: {exc}")
             stats.failed += len(published)
