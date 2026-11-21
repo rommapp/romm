@@ -283,16 +283,19 @@ const hasM3uFile = computed(() =>
   streamHasPlaylist(rom.value?.files ?? [], patchExtensions.value),
 );
 
+function toDiscOption(file: { id: number; file_name: string }) {
+  return { title: file.file_name, value: file.id };
+}
+
 const discOptions = computed(() =>
-  streamDiscFiles(rom.value?.files ?? [], patchExtensions.value).map((f) => ({
-    title: f.file_name,
-    value: f.id,
-  })),
+  streamDiscFiles(rom.value?.files ?? [], patchExtensions.value).map(
+    toDiscOption,
+  ),
 );
 
 const swapDiscOptions = computed(() =>
   streamSwapDiscFiles(rom.value?.files ?? [], patchExtensions.value).map(
-    (f) => ({ title: f.file_name, value: f.id }),
+    toDiscOption,
   ),
 );
 
