@@ -277,10 +277,16 @@ const patchExtensions = computed(
   () => heartbeatStore.value.ROM_PATCHER.SUPPORTED_EXTENSIONS,
 );
 
+// Patches are told apart by the heartbeat's extensions, so until one arrives
+// no file is offered as a disc and the stream boots the whole set.
+const romDiscFiles = computed(() =>
+  heartbeatStore.loaded ? (rom.value?.files ?? []) : [],
+);
+
 // The emulator's disc-swap menu only exists for multi-disc sets that ship a
 // playlist.
 const hasPlaylist = computed(() =>
-  streamHasPlaylist(rom.value?.files ?? [], patchExtensions.value),
+  streamHasPlaylist(romDiscFiles.value, patchExtensions.value),
 );
 
 function toDiscOption(file: { id: number; file_name: string }) {
@@ -288,13 +294,11 @@ function toDiscOption(file: { id: number; file_name: string }) {
 }
 
 const discOptions = computed(() =>
-  streamDiscFiles(rom.value?.files ?? [], patchExtensions.value).map(
-    toDiscOption,
-  ),
+  streamDiscFiles(romDiscFiles.value, patchExtensions.value).map(toDiscOption),
 );
 
 const swapDiscOptions = computed(() =>
-  streamSwapDiscFiles(rom.value?.files ?? [], patchExtensions.value).map(
+  streamSwapDiscFiles(romDiscFiles.value, patchExtensions.value).map(
     toDiscOption,
   ),
 );

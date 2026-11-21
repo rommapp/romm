@@ -265,7 +265,9 @@ async function launch(opts: {
   // The backend's answer; every state is native unless a test says otherwise.
   picks?: StreamStatePicksSchema | Error | Promise<StreamStatePicksSchema>;
   files?: RomFileSchema[];
+  heartbeatLoaded?: boolean;
 }): Promise<VueWrapper> {
+  storeHeartbeat().loaded = opts.heartbeatLoaded ?? true;
   mocks.container = {
     name: "WEBSTATION-DEV",
     emulator: "retroarch",
@@ -765,6 +767,19 @@ describe("Stream starting disc", () => {
         romFileFixture({ id: 201, file_name: "Pool.cue" }),
         romFileFixture({ id: 202, file_name: "Pool.bin" }),
         romFileFixture({ id: 203, file_name: "Pool.ips" }),
+      ],
+    });
+
+    expect(discSelect(wrapper)).toBeUndefined();
+  });
+
+  it("offers no disc pick before the first heartbeat", async () => {
+    const wrapper = await launch({
+      picker: false,
+      heartbeatLoaded: false,
+      files: [
+        romFileFixture({ id: 201, file_name: "Pool (Disc 1).chd" }),
+        romFileFixture({ id: 202, file_name: "Pool (Disc 2).chd" }),
       ],
     });
 
