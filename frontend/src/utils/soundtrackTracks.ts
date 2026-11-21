@@ -86,7 +86,7 @@ export function panelTracksFromRom(
         id: file.id,
         romId: rom.id,
         fileName: file.file_name,
-        title: meta?.title ?? stripExtension(file.file_name),
+        title: meta?.title || stripExtension(file.file_name),
         subtitle: joinParts([meta?.artist, meta?.album]),
         url: romFileUrl(file.id, file.file_name),
         durationSeconds: meta?.duration_seconds ?? undefined,
