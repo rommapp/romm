@@ -11,6 +11,7 @@ import AssetPreview from "@/components/Player/AssetPreview.vue";
 import SaveDataPanel from "@/components/Player/SaveDataPanel.vue";
 import AssetList from "@/components/shared/AssetList.vue";
 import { RBtn, RSelect, RSlider } from "@/lib";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { DetailedRom } from "@/stores/roms";
 import { propOf } from "@/test-utils/propOf";
 import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
@@ -750,6 +751,24 @@ describe("Stream starting disc", () => {
       { title: "Pool (Disc 2).cue", value: 203 },
       { title: "Pool (Disc 3).chd", value: 205 },
     ]);
+  });
+
+  it("offers no patch as a disc", async () => {
+    const heartbeat = storeHeartbeat();
+    heartbeat.value = {
+      ...heartbeat.value,
+      ROM_PATCHER: { SUPPORTED_EXTENSIONS: [".ips"] },
+    };
+    const wrapper = await launch({
+      picker: false,
+      files: [
+        romFileFixture({ id: 201, file_name: "Pool.cue" }),
+        romFileFixture({ id: 202, file_name: "Pool.bin" }),
+        romFileFixture({ id: 203, file_name: "Pool.ips" }),
+      ],
+    });
+
+    expect(discSelect(wrapper)).toBeUndefined();
   });
 });
 

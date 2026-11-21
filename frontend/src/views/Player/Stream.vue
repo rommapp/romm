@@ -84,6 +84,7 @@ import streamingApi, {
 } from "@/services/api/streaming";
 import storeAuth from "@/stores/auth";
 import storeGalleryRoms from "@/stores/galleryRoms";
+import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import {
   type SessionStatus,
@@ -97,6 +98,7 @@ import {
   bootDiscId,
   type DiscSelection,
   streamDiscFiles,
+  streamSwapDiscFiles,
 } from "@/utils/playerDisc";
 import { fileExtension } from "@/utils/romFiles";
 
@@ -108,6 +110,7 @@ const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const auth = storeAuth();
+const heartbeatStore = storeHeartbeat();
 const streamingStore = useStreamingStore();
 const alive = useIsAlive();
 const snackbar = useSnackbar();
@@ -279,11 +282,21 @@ const hasM3uFile = computed(() =>
 
 const bootableRomFiles = computed(() => bootableFiles(rom.value?.files ?? []));
 
+const patchExtensions = computed(
+  () => heartbeatStore.value.ROM_PATCHER.SUPPORTED_EXTENSIONS,
+);
+
 const discOptions = computed(() =>
-  streamDiscFiles(rom.value?.files ?? []).map((f) => ({
+  streamDiscFiles(rom.value?.files ?? [], patchExtensions.value).map((f) => ({
     title: f.file_name,
     value: f.id,
   })),
+);
+
+const swapDiscOptions = computed(() =>
+  streamSwapDiscFiles(rom.value?.files ?? [], patchExtensions.value).map(
+    (f) => ({ title: f.file_name, value: f.id }),
+  ),
 );
 
 const startDiscItems = computed<{ title: string; value: DiscSelection }[]>(
@@ -298,7 +311,7 @@ const startDiscItems = computed<{ title: string; value: DiscSelection }[]>(
 const canSwapDisc = computed(
   () =>
     capabilities.value.supportsDiscSwap &&
-    discOptions.value.length > 1 &&
+    swapDiscOptions.value.length > 1 &&
     hasM3uFile.value &&
     !isJoining,
 );
@@ -1970,7 +1983,7 @@ onBeforeUnmount(() => {
           prepend-inner-icon="mdi-disc"
           hide-details
           :label="t('rom.file')"
-          :items="discOptions"
+          :items="swapDiscOptions"
         />
       </template>
       <template #footer>
