@@ -7712,6 +7712,16 @@ def test_newest_restorable_skips_an_archive_whose_file_is_missing(
     assert newest is not None and newest.id == kept.id
 
 
+def test_restored_ref_names_the_save_only_once_its_upload_landed(
+    rom: Rom, admin_user: User
+):
+    zipped = _add_save(rom, admin_user, "GAME.ZIP", "retroarch", "h1")
+
+    assert saves.restored_ref(zipped, "/saves/GAME.ZIP") == (zipped.id, "h1")
+    assert saves.restored_ref(zipped, None) == (None, None)
+    assert saves.restored_ref(None, "/saves/GAME.ZIP") == (None, None)
+
+
 def test_a_launch_with_no_pick_reads_an_upper_case_zip_as_an_archive(
     client, access_token, rom: Rom, admin_user: User
 ):

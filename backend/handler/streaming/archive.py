@@ -2,6 +2,8 @@
 
 import io
 import json
+import stat
+import time
 import zipfile
 from typing import Any
 
@@ -45,6 +47,26 @@ def manifest_files(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
     }
 
 
+def utf8_zipinfo(name: str, source: zipfile.ZipInfo | None) -> zipfile.ZipInfo:
+    """A member header named `name`, keeping a copied entry's timestamp and mode."""
+    if source is None:
+        info = zipfile.ZipInfo(name, date_time=time.localtime()[:6])
+    else:
+        info = zipfile.ZipInfo(name, date_time=source.date_time)
+        if source.create_system == info.create_system:
+            # Only the permission bits, so a symlink entry lands as a regular file.
+            info.external_attr = (
+                stat.S_IFREG | stat.S_IMODE(source.external_attr >> 16)
+            ) << 16
+        else:
+            # Another system's attributes read as Unix mode bits would be mode 0.
+            info.create_system = source.create_system
+            info.external_attr = source.external_attr
+    info.flag_bits |= 0x800  # UTF-8 filename flag
+    info.compress_type = zipfile.ZIP_DEFLATED
+    return info
+
+
 def overlay(base: bytes, top: bytes, max_bytes: int) -> bytes:
     """`base` with `top`'s members written over it, under one merged manifest.
 
@@ -80,13 +102,7 @@ def overlay(base: bytes, top: bytes, max_bytes: int) -> bytes:
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
         for name, (info, data) in members.items():
-            entry = zipfile.ZipInfo(name, date_time=info.date_time)
-            # The mode bits only mean what they say under the system that wrote them.
-            entry.create_system = info.create_system
-            entry.external_attr = info.external_attr
-            entry.flag_bits |= info.flag_bits & 0x800  # UTF-8 filename flag
-            entry.compress_type = zipfile.ZIP_DEFLATED
-            zf.writestr(entry, data)
+            zf.writestr(utf8_zipinfo(name, info), data)
         if manifest:
             files = [labels[name] for name in members]
             zf.writestr(MANIFEST_NAME, json.dumps({**manifest, "files": files}))

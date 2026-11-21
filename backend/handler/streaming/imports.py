@@ -5,7 +5,6 @@ launch's `activate` call sends, under `.import/<kind>/` for the broker to place.
 import asyncio
 import io
 import json
-import stat
 import time
 import zipfile
 from collections.abc import Callable
@@ -52,21 +51,6 @@ def _safe_name(name: str) -> str | None:
     if not parts or parts[0] == "__MACOSX" or any(p.startswith(".") for p in parts):
         return None
     return "/".join(parts)
-
-
-def _utf8_zipinfo(name: str, source: zipfile.ZipInfo | None) -> zipfile.ZipInfo:
-    """A member header named `name`, keeping a copied entry's timestamp and mode."""
-    if source is None:
-        info = zipfile.ZipInfo(name, date_time=time.localtime()[:6])
-    else:
-        info = zipfile.ZipInfo(name, date_time=source.date_time)
-        # Only the permission bits, so a symlink entry lands as a regular file.
-        info.external_attr = (
-            stat.S_IFREG | stat.S_IMODE(source.external_attr >> 16)
-        ) << 16
-    info.flag_bits |= 0x800  # UTF-8 filename flag
-    info.compress_type = zipfile.ZIP_DEFLATED
-    return info
 
 
 def _manifest_files(zf: zipfile.ZipFile) -> dict[str, dict[str, Any]]:
@@ -186,7 +170,7 @@ def build_import_archive(
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
         for path, (content, _entry, source) in staged.items():
-            zf.writestr(_utf8_zipinfo(path, source), content)
+            zf.writestr(archive.utf8_zipinfo(path, source), content)
         zf.writestr(
             archive.MANIFEST_NAME,
             json.dumps(
