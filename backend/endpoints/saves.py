@@ -761,9 +761,14 @@ def get_save_layouts(
     try:
         sigil_platform = restore_platform(platform)
     except NotConvertible as exc:
-        raise _restore_error(exc) from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
     if not SigilService.is_enabled():
-        raise _restore_error(ConversionUnavailable())
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(ConversionUnavailable()),
+        )
     return [
         SaveLayoutSchema.model_validate(row) for row in restore_layouts(sigil_platform)
     ]
@@ -1049,7 +1054,7 @@ _DOWNLOAD_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
     status.HTTP_403_FORBIDDEN: {"description": DEVICE_READ_FORBIDDEN},
     status.HTTP_404_NOT_FOUND: {
         "description": (
-            "No save the caller can read has this ID or a companion's ID, a save's"
+            "No save the caller can read has this ID or an ID in `companion`, a save's"
             " file is missing, or the caller has no device with this `device_id`."
         )
     },

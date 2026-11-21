@@ -194,7 +194,9 @@ def delete_play_session(
 ) -> None:
     """Delete one of the caller's play sessions."""
     deleted = db_play_session_handler.delete_session(
-        session_id=session_id, user_id=request.user.id
+        session_id=session_id,
+        user_id=request.user.id,
+        visibility=get_permissions(request).rom_visibility,
     )
     if not deleted:
         raise HTTPException(

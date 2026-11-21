@@ -281,7 +281,7 @@ def get_firmware_content(
     [Scope.FIRMWARE_WRITE],
     responses={
         status.HTTP_403_FORBIDDEN: {
-            "description": "The caller may not delete firmware."
+            "description": "The caller is not allowed to delete firmware."
         }
     },
 )

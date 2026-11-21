@@ -275,7 +275,7 @@ class TestDeleteCollection:
         assert response.status_code == status.HTTP_200_OK
         assert db_collection_handler.get_collection(collection.id) is None
 
-    def test_cannot_delete_other_users_collection(
+    def test_another_users_private_collection_answers_like_a_missing_one(
         self,
         client,
         access_token: str,
@@ -285,6 +285,23 @@ class TestDeleteCollection:
             f"/api/collections/{other_user_collection.id}",
             headers={"Authorization": f"Bearer {access_token}"},
         )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_cannot_delete_another_users_public_collection(
+        self,
+        client,
+        access_token: str,
+        other_user_collection: Collection,
+    ):
+        db_collection_handler.update_collection(
+            other_user_collection.id, {"is_public": True}
+        )
+
+        response = client.delete(
+            f"/api/collections/{other_user_collection.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_returns_404_for_missing_collection(self, client, access_token: str):
@@ -401,7 +418,7 @@ class TestAddRomsToCollection:
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    def test_returns_403_for_other_users_collection(
+    def test_returns_404_for_other_users_private_collection(
         self,
         client,
         access_token: str,
@@ -413,7 +430,7 @@ class TestAddRomsToCollection:
             json={"rom_ids": [rom.id]},
             headers={"Authorization": f"Bearer {access_token}"},
         )
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_requires_auth(self, client, collection: Collection, rom: Rom):
         response = client.post(
@@ -521,7 +538,7 @@ class TestRemoveRomsFromCollection:
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    def test_returns_403_for_other_users_collection(
+    def test_returns_404_for_other_users_private_collection(
         self,
         client,
         access_token: str,
@@ -534,7 +551,7 @@ class TestRemoveRomsFromCollection:
             json={"rom_ids": [rom.id]},
             headers={"Authorization": f"Bearer {access_token}"},
         )
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_requires_auth(self, client, collection: Collection, rom: Rom):
         response = client.request(
@@ -1024,7 +1041,7 @@ class TestCollectionVisibility:
             headers={"Authorization": f"Bearer {other_user_token}"},
         )
 
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_404_NOT_FOUND
         refreshed = db_collection_handler.get_collection(collection.id)
         assert refreshed is not None and refreshed.is_public is False
 

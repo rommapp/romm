@@ -253,9 +253,13 @@ async def test_notification_channel(
     request: Request, channel_id: int
 ) -> NotificationChannelTestResult:
     """Send a sample notification out on the channel right away."""
-    error = await _as_http(
-        channels.send_sample(_get_or_404(channel_id, request.user), request.user)
-    )
+    channel = _get_or_404(channel_id, request.user)
+    try:
+        error = await channels.send_sample(channel, request.user)
+    except ChannelError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
     return NotificationChannelTestResult(ok=error is None, error=error)
 
 
@@ -281,11 +285,13 @@ async def confirm_notification_channel(
     payload: NotificationChannelCodePayload,
 ) -> NotificationChannelSchema:
     """Confirm an email address with the code sent to it."""
-    confirmed = await _as_http(
-        channels.confirm_channel(
-            _get_or_404(channel_id, request.user), request.user, payload.code
-        )
-    )
+    channel = _get_or_404(channel_id, request.user)
+    try:
+        confirmed = await channels.confirm_channel(channel, request.user, payload.code)
+    except ChannelError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
     return NotificationChannelSchema.from_channel(confirmed)
 
 

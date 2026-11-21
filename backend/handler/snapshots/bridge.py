@@ -62,6 +62,7 @@ async def hold_legacy_upload(
     if shot is not None and shot.save_id is None and shot.state_id is None:
         db_screenshot_handler.update_screenshot(shot.id, {"save_id": save.id})
     try:
+        # route-errors: ignore, the write only reuses files already stored under valid names.
         await write_snapshot(
             SnapshotWrite(
                 author=user,
