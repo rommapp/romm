@@ -37,3 +37,15 @@ def test_follows_a_dependency_in_an_annotated_alias():
 def test_ignores_an_unrelated_function_with_the_same_name():
     # `os.path.join` must not resolve to the streaming `join` helper, which can 502.
     assert 502 not in _raised("endpoints.heartbeat", "get_setup_library_info")
+
+
+def test_skips_a_gather_that_returns_exceptions():
+    fixture = "tests.tools.route_errors_fixture"
+    assert _raised(fixture, "route_that_gathers_errors") == []
+    assert _raised(fixture, "route_that_gathers") == [409]
+
+
+def test_skips_code_marked_as_ignored():
+    fixture = "tests.tools.route_errors_fixture"
+    assert _raised(fixture, "route_with_an_ignored_call") == []
+    assert _raised(fixture, "route_with_an_ignored_trailing_call") == []

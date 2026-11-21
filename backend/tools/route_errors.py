@@ -15,6 +15,9 @@ from fastapi.routing import APIRoute
 
 BACKEND = Path(__file__).resolve().parent.parent
 STATUS_ATTR = re.compile(r"HTTP_(\d{3})_")
+# Marks code whose errors never reach the client. Put it at the end of the line, or
+# on the line above, with the reason after it.
+IGNORE_MARKER = "# route-errors: ignore"
 
 
 @dataclass
@@ -30,6 +33,8 @@ class Module:
     classes: dict[str, ast.ClassDef] = field(default_factory=dict)
     # The value of each module-level `name = value` assignment.
     assigns: dict[str, ast.expr] = field(default_factory=dict)
+    # Lines whose code `IGNORE_MARKER` leaves out of the analysis.
+    ignored: set[int] = field(default_factory=set)
 
 
 def _module_name(path: Path) -> str:
@@ -54,8 +59,12 @@ def load(name: str) -> Module | None:
             break
     else:
         return None
-    tree = ast.parse(path.read_text())
+    source = path.read_text()
+    tree = ast.parse(source)
     mod = Module(name, tree)
+    for number, line in enumerate(source.splitlines(), start=1):
+        if IGNORE_MARKER in line:
+            mod.ignored.add(number + 1 if line.lstrip().startswith("#") else number)
     is_package = path.name == "__init__.py"
     for node in tree.body:
         if isinstance(node, ast.ImportFrom):
@@ -220,12 +229,37 @@ def _function_node(sym: Symbol) -> tuple[ast.AST, str | None] | None:
     return None
 
 
-def _body_nodes(fn: ast.AST) -> list[ast.AST]:
-    """Every node of a function except its decorators."""
-    if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
-        roots: list[ast.AST] = [fn.args, *fn.body]
-        return [n for root in roots for n in ast.walk(root)]
-    return list(ast.walk(fn))
+def _returns_exceptions(node: ast.AST) -> bool:
+    """Whether `node` is an `asyncio.gather(...)` that returns errors instead of raising them."""
+    if not isinstance(node, ast.Call):
+        return False
+    func = node.func
+    name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", None)
+    return name == "gather" and any(
+        kw.arg == "return_exceptions"
+        and isinstance(kw.value, ast.Constant)
+        and kw.value.value is True
+        for kw in node.keywords
+    )
+
+
+def _body_nodes(fn: ast.AST, module: str) -> list[ast.AST]:
+    """Every node of a function except its decorators and the code whose errors never reach the caller."""
+    mod = load(module)
+    ignored = mod.ignored if mod else set()
+    roots: list[ast.AST] = (
+        [fn.args, *fn.body]
+        if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef))
+        else [fn]
+    )
+    nodes: list[ast.AST] = []
+    while roots:
+        node = roots.pop()
+        if getattr(node, "lineno", None) in ignored or _returns_exceptions(node):
+            continue
+        nodes.append(node)
+        roots.extend(ast.iter_child_nodes(node))
+    return nodes
 
 
 _memo: dict[Symbol, frozenset[int]] = {}
@@ -285,7 +319,7 @@ def statuses(sym: Symbol, stack: frozenset[Symbol] = frozenset()) -> frozenset[i
         located = _function_node(sym)
         if located:
             fn, owner = located
-            for node in _body_nodes(fn):
+            for node in _body_nodes(fn, module):
                 if isinstance(node, ast.Call):
                     code = _http_exception_status(node, module, owner)
                     if code:

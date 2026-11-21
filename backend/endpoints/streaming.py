@@ -2090,6 +2090,7 @@ async def force_release_all(
     # deleting only the Redis keys would leave the games running.
     grouped = containers_by_key()
 
+    # route-errors: ignore, the gather below logs each teardown's error instead of raising it.
     async def _teardown(container_key: str) -> None:
         session = await get_session(container_key)
         container = container_for_session(

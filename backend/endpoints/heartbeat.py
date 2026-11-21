@@ -275,6 +275,7 @@ async def metadata_heartbeat(
         if cached is not None:
             return bool(int(cached))
 
+        # route-errors: ignore, each provider's heartbeat turns its errors into False.
         is_alive = await _probe_metadata_source(metadata_source)
         sync_cache.set(
             cache_key, int(is_alive), ex=METADATA_HEARTBEAT_CACHE_TTL_SECONDS

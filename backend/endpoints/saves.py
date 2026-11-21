@@ -761,9 +761,14 @@ def get_save_layouts(
     try:
         sigil_platform = restore_platform(platform)
     except NotConvertible as exc:
-        raise _restore_error(exc) from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
     if not SigilService.is_enabled():
-        raise _restore_error(ConversionUnavailable())
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(ConversionUnavailable()),
+        )
     return [
         SaveLayoutSchema.model_validate(row) for row in restore_layouts(sigil_platform)
     ]

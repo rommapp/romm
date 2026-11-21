@@ -55,12 +55,6 @@ async def export_gamelist_xml(
     ] = False,
 ) -> Response:
     """Export platforms/ROMs to gamelist.xml format and write to platform directories"""
-    if not platform_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="At least one platform ID must be provided",
-        )
-
     _assert_platforms_exportable(request, platform_ids)
 
     try:
@@ -122,12 +116,6 @@ async def export_pegasus(
     ] = False,
 ) -> Response:
     """Export platforms/ROMs to Pegasus metadata.pegasus.txt format and write to platform directories"""
-    if not platform_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="At least one platform ID must be provided",
-        )
-
     _assert_platforms_exportable(request, platform_ids)
 
     try:
