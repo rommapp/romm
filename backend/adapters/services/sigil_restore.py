@@ -147,7 +147,8 @@ def _refusal(exc: Exception, companions: Sequence[RestoreCompanion]) -> SigilRef
     if code is RefusalCode.INVALID_ARG and companions:
         message = (
             "companions only go on cards and volumes: layouts with profiles and "
-            "cartridges (N64, GB, GBC) take none"
+            "cartridges (N64, GB, GBC, DS, Mega Drive, 32X, Master System, "
+            "Game Gear) take none"
         )
     profiles = tuple(
         RestoreProfile(id=p.id, name=p.name) for p in getattr(exc, "profiles", ())

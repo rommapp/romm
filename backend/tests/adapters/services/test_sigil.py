@@ -520,7 +520,16 @@ class TestStoredGame:
 
     @pytest.mark.parametrize(
         ("slug", "sigil_slug"),
-        [(UPS.GBC, "gbc"), (UPS.SATURN, "saturn"), (UPS.SEGACD, "segacd")],
+        [
+            (UPS.GBC, "gbc"),
+            (UPS.SATURN, "saturn"),
+            (UPS.SEGACD, "segacd"),
+            (UPS.NDS, "nds"),
+            (UPS.GENESIS, "genesis"),
+            (UPS.SEGA32, "32x"),
+            (UPS.SMS, "sms"),
+            (UPS.GAMEGEAR, "gamegear"),
+        ],
     )
     def test_a_platform_without_title_ids_still_restores(
         self, fake_sigil, slug: str, sigil_slug: str
