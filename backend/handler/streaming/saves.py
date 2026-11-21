@@ -471,7 +471,7 @@ async def _over_restored_archive(
     base_save_hash: str | None,
     content: bytes,
 ) -> bytes:
-    """The exit delta (only what changed since launch) laid over the archive the session restored."""
+    """Lay the exit delta, which holds only what changed since launch, over the restored archive."""
     if base_save_id is None:
         return content
     # The export is already gone from the container, so any failure files the delta.
@@ -517,8 +517,8 @@ async def pull_saves_to_library(
             retries would wait out one still writing.
         disc_file_id: the disc the session swapped to, for the states it files.
         disc_swaps: the session's swaps, to file each state on its own disc.
-        base_save_id: the archive the session restored, which a kept zip is
-            merged over.
+        base_save_id: the archive the session restored. An exit filed as a
+            zip is merged over it.
         base_save_hash: that archive's content hash at launch; a mismatch skips
             the merge.
     """
@@ -706,7 +706,7 @@ async def hydrate_saves_to_broker(
 def restorable_for(
     user_id: int, rom_id: int, container: ResolvedContainer, save: Save | None
 ) -> Save | None:
-    """The archive `hydrate_saves_to_webstation` restores: the pick, else the newest."""
+    """The archive `hydrate_saves_to_webstation` restores: the player's pick, or else the newest."""
     return save or newest_restorable(user_id, rom_id, container.emulator)
 
 

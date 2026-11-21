@@ -68,10 +68,10 @@ def utf8_zipinfo(name: str, source: zipfile.ZipInfo | None) -> zipfile.ZipInfo:
 
 
 def overlay(base: bytes, top: bytes, max_bytes: int) -> bytes:
-    """`base` with `top`'s members written over it, under one merged manifest.
+    """Return `base` with `top`'s members written over it, under one merged manifest.
 
     Raises:
-        zipfile.BadZipFile: either side is not a zip.
+        zipfile.BadZipFile: `base` or `top` is not a zip.
         ValueError: the merged members would expand past `max_bytes`.
     """
     members: dict[str, tuple[zipfile.ZipInfo, bytes]] = {}

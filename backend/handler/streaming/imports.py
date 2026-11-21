@@ -200,7 +200,7 @@ class ImportHydration(NamedTuple):
     state_imported: bool = False
     # The archive is a default save alone, so a refused import boots the newest archive.
     native_fallback: bool = False
-    # The native save archive the upload carries as its base, and its hash then.
+    # The native save archive the upload is built on, and its content hash at that time.
     restored_save_id: int | None = None
     restored_save_hash: str | None = None
 

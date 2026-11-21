@@ -6492,7 +6492,7 @@ def test_pull_saves_no_changes_returns_false(rom: Rom, admin_user: User):
 
 
 def _members(content: bytes) -> tuple[dict[str, bytes], dict[str, str]]:
-    """An archive's members by path, and the kind its manifest gives each."""
+    """Return an archive's members by path, and the kind its manifest gives each."""
     with zipfile.ZipFile(io.BytesIO(content)) as zf:
         manifest = json.loads(zf.read(".broker-manifest.json"))
         members = {n: zf.read(n) for n in zf.namelist() if n != ".broker-manifest.json"}
@@ -6586,7 +6586,7 @@ def _pull_over_base(
 ) -> bytes:
     """Pull `delta` for a session that restored `base`, returning what was filed.
 
-    `launch_hash` is the base's content hash at launch, its current one by default.
+    `launch_hash` is the base's content hash at launch. Defaults to its current hash.
     """
     container = _resolved({**_container_for(rom), "label": "PCSX2"})
     scanned = _save_for(
@@ -6660,7 +6660,8 @@ def test_pull_saves_files_the_delta_when_the_restored_archive_will_not_read(
 def test_pull_saves_skips_a_restored_archive_replaced_during_the_session(
     rom: Rom, admin_user: User
 ):
-    """An upload over the base keeps its id, and the session never loaded those bytes."""
+    """An upload that replaces the base keeps its ID, but the session never loaded
+    the new bytes, so the delta is filed alone."""
     emulator = _resolved({**_container_for(rom), "label": "PCSX2"}).emulator
     base = _add_save(rom, admin_user, "Game [base].saves.zip", emulator, "replaced")
     base_content = _exit_archive({"data/save00": ("save", b"other")})
