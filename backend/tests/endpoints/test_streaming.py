@@ -117,7 +117,6 @@ from models.rom import Rom, RomFile, RomFileCategory, SaveTargetLayout
 from models.user import Role, User
 from utils.memory_cards import content_hash_of_bytes
 from utils.uploads import apply_datetime_tag
-from utils.zip_cache import ensure_zipfile_writable
 
 # ── Fixtures / helpers ────────────────────────────────────────────────────────
 
@@ -6507,7 +6506,6 @@ def _exit_archive(
 ) -> bytes:
     """A webstation exit archive whose manifest labels each member with its kind,
     each member stamped with its `written` time when one is given."""
-    ensure_zipfile_writable()
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
         for path, (_kind, content) in members.items():

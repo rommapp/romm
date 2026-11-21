@@ -43,6 +43,7 @@ lint:
     - black@26.10.1
     - checkov@3.4.5
     - git-diff-check
+    - prose-check
     - isort@9.0.2
     - osv-scanner@2.7.1
     - prettier@3.10.1:
@@ -115,6 +116,25 @@ lint:
         - graphql
         - vue
         - prettier_supported_configs
+    # The regex-decidable rules of the plain-prose skill, run on comments,
+    # docstrings, API descriptions and en_US strings.
+    - name: prose-check
+      files: [python, typescript, vue, json]
+      description: Flags clipped sentences in comments and reader-facing text
+      runtime: python
+      commands:
+        - name: lint
+          output: regex
+          parse_regex: (?P<path>.*):(?P<line>\d+):(?P<col>\d+):\s+\[(?P<code>[^\]]+)\]\s+(?P<message>.*)
+          run: python3 ${workspace}/backend/tools/prose_check.py check ${target}
+          success_codes: [0, 1]
+          batch: true
+          cache_results: true
+          read_output_from: stdout
+      environment:
+        - name: PATH
+          list: ["${env.PATH}"]
+      known_good_version: ""
 actions:
   disabled:
     - trunk-check-pre-push

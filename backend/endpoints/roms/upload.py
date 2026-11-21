@@ -7,8 +7,10 @@ from uuid import UUID, uuid4
 
 from anyio import Path as AsyncPath
 from anyio import open_file
-from fastapi import Header, HTTPException, Request, status
-from pydantic import BaseModel, Field
+from fastapi import Header, HTTPException
+from fastapi import Path as PathVar
+from fastapi import Request, status
+from pydantic import Field
 from starlette.requests import ClientDisconnect
 from starlette.responses import Response
 from streaming_form_data import StreamingFormDataParser
@@ -16,6 +18,7 @@ from streaming_form_data.targets import FileTarget, NullTarget
 
 from config import ROM_UPLOAD_TMP_BASE, ROM_UPLOAD_TTL
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from exceptions.fs_exceptions import (
     RomAlreadyExistsException,
     RomListedByPlaylistException,
@@ -55,6 +58,17 @@ router = APIRouter(
 
 ROM_ASSEMBLY_CHUNK_SIZE = 8192  # 8KB read buffer during assembly
 ROM_UPLOAD_MAX_CHUNK_SIZE = 64 * 1024 * 1024  # 64MB hard cap per chunk
+
+
+UploadIdPath = Annotated[
+    str,
+    PathVar(
+        description=(
+            "The ID of the upload session, from `POST /roms/upload/start`. Only"
+            " the user who started it can use it, and it expires after 24 hours."
+        )
+    ),
+]
 
 
 def _session_key(upload_id: str) -> str:
@@ -276,23 +290,14 @@ class UploadTargetPayload(BaseModel):
     """Optional body of `/start`: upload into a ROM's folder instead of the
     platform folder, and name the file where the header cannot."""
 
-    rom_id: int | None = Field(
-        default=None,
-        ge=1,
-        description="Upload into this ROM's folder instead of the platform folder.",
-    )
-    folder: str = Field(
-        default="",
-        description="Subfolder inside the ROM's folder, relative and forward-slashed. Empty for the root.",
-    )
-    filename: str | None = Field(
-        default=None,
-        description="The file name. Takes precedence over the header, which cannot carry characters outside Latin-1.",
-    )
-    overwrite: bool = Field(
-        default=False,
-        description="Replace a file of the same name in the ROM's folder instead of refusing the upload.",
-    )
+    rom_id: int | None = Field(default=None, ge=1)
+    """Upload into this ROM's folder instead of the platform folder."""
+    folder: str = ""
+    """A subfolder of the ROM's folder, as a relative path with forward slashes. Empty for the ROM's folder itself."""
+    filename: str | None = None
+    """The file name. Overrides the `x-upload-filename` header, which can only hold Latin-1 characters."""
+    overwrite: bool = False
+    """Replace a file of the same name in the ROM's folder instead of refusing the upload."""
 
 
 @protected_route(
@@ -305,19 +310,44 @@ async def start_chunked_upload(
     request: Request,
     platform_id: Annotated[
         int,
-        Header(alias="x-upload-platform", ge=1),
+        Header(
+            alias="x-upload-platform",
+            ge=1,
+            description=(
+                "The ID of the platform to upload to. The caller must be able to"
+                " see it."
+            ),
+        ),
     ],
     filename: Annotated[
         str,
-        Header(alias="x-upload-filename"),
+        Header(
+            alias="x-upload-filename",
+            description="The name to store the file under. The server sanitizes it.",
+        ),
     ],
     total_size: Annotated[
         int,
-        Header(alias="x-upload-total-size", ge=0),
+        Header(
+            alias="x-upload-total-size",
+            ge=0,
+            description=(
+                "The size of the whole file, in bytes. Every chunk except the"
+                " last is `ceil(total_size / total_chunks)` bytes."
+            ),
+        ),
     ],
     total_chunks: Annotated[
         int,
-        Header(alias="x-upload-total-chunks", ge=0),
+        Header(
+            alias="x-upload-total-chunks",
+            ge=0,
+            description=(
+                "The number of chunks the file is sent in. A 10 MB file sent in"
+                " 2 MB chunks has 5. Zero only for an empty file, which skips the"
+                " chunk uploads and goes straight to `/complete`."
+            ),
+        ),
     ],
     target: UploadTargetPayload | None = None,
 ) -> dict[str, Any]:
@@ -400,10 +430,17 @@ async def start_chunked_upload(
 )
 async def upload_chunk(
     request: Request,
-    upload_id: str,
+    upload_id: UploadIdPath,
     chunk_index: Annotated[
         int,
-        Header(alias="x-chunk-index", ge=0),
+        Header(
+            alias="x-chunk-index",
+            ge=0,
+            description=(
+                "The zero-based position of this chunk. The request body must be"
+                " exactly the size expected at that position."
+            ),
+        ),
     ],
 ) -> dict[str, Any]:
     """Upload a single chunk of a ROM file."""
@@ -528,7 +565,7 @@ async def _assemble_chunks(
 )
 async def complete_chunked_upload(
     request: Request,
-    upload_id: str,
+    upload_id: UploadIdPath,
 ) -> Response:
     """Assemble all chunks into the final ROM file."""
 
@@ -578,7 +615,7 @@ async def complete_chunked_upload(
 )
 async def cancel_chunked_upload(
     request: Request,
-    upload_id: str,
+    upload_id: UploadIdPath,
 ) -> Response:
     """Cancel a chunked upload session and clean up temp files."""
 

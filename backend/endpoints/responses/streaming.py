@@ -24,16 +24,17 @@ class StreamingContainerSchema(BaseModel):
     """One platform the fleet can stream, as the play screen needs it."""
 
     platform: str
+    """The slug of the platform the container serves."""
     host: str
     label: str
+    """The display name of the container."""
     capabilities: SlotCapabilitiesSchema
     emulator: str
     supports_memory_cards: bool
     supports_save_picker: bool
     supports_live_states: bool
-    # Which foreign-emulator picks the broker declares it can import, empty when it
-    # declares none or cannot be asked.
     import_kinds: list[Literal["save", "state"]]
+    """The kinds of files from other emulators, saves or states, that the broker can import. Empty when the broker declares none or does not answer."""
 
 
 class StreamStatePicksSchema(BaseModel):

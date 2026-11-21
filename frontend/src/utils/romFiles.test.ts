@@ -15,6 +15,7 @@ const file: RomFileSchema = {
   file_size_bytes: 10,
   full_path: "platform/roms/game/screenshots/title screen #1.png",
   is_top_level: false,
+  missing_from_fs: false,
   created_at: "2024-01-01T00:00:00Z",
   updated_at: "2024-02-03T04:05:06+00:00",
   last_modified: "2024-01-01T00:00:00Z",

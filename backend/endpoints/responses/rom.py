@@ -247,14 +247,19 @@ class RomUserSchema(BaseModel):
     updated_at: UTCDatetime
     last_played: UTCDatetime | None
     is_main_sibling: bool
+    """Whether the user chose this version as the main one of its game."""
     backlogged: bool
     now_playing: bool
     hidden: bool
     rating: int
+    """The user's rating, from 0 to 10. 0 means unset."""
     difficulty: int
+    """The user's difficulty rating, from 0 to 10. 0 means unset."""
     completion: int
+    """The user's completion percentage, from 0 to 100. 0 means unset."""
     status: RomUserStatus | None
     pinned_media: list[str] | None
+    """The media keys pinned on the overview, in order. Null means the default selection."""
 
     @classmethod
     def for_user(cls, user_id: int, db_rom: Rom) -> RomUserSchema:
@@ -307,22 +312,30 @@ class RomFileSchema(BaseModel):
     id: int
     rom_id: int
     file_name: str
+    """The file name, extension included."""
     file_path: str
+    """The folder holding the file."""
     file_size_bytes: int
     full_path: str
     is_top_level: bool
+    missing_from_fs: bool
+    """True when the file is gone from disk."""
     created_at: UTCDatetime
     updated_at: UTCDatetime
     last_modified: UTCDatetime | None
+    """When the file was last modified on disk."""
     crc_hash: str | None
     md5_hash: str | None
     sha1_hash: str | None
     ra_hash: str | None
+    """The hash RetroAchievements uses to identify the file."""
     chd_sha1_hash: str | None
     archive_members: list[RomArchiveMember] | None
     category: RomFileCategory | None
     track_meta: TrackMetaSchema | None = None
+    """The audio tags of a soundtrack file."""
     doc_meta: DocMetaSchema | None = None
+    """The details of a manual or walkthrough file."""
 
     @model_validator(mode="after")
     def default_category_for_non_nested(self) -> RomFileSchema:
@@ -350,6 +363,7 @@ class RomMetadataSchema(BaseModel):
     genres: list[str]
     franchises: list[str]
     collections: list[str]
+    """The game collections the title belongs to, merged from the matched providers."""
     companies: list[str]
     publishers: list[str]
     developers: list[str]
@@ -357,7 +371,9 @@ class RomMetadataSchema(BaseModel):
     age_ratings: list[str]
     player_count: str
     first_release_date: int | None
+    """The first release date, as a Unix timestamp in milliseconds."""
     average_rating: float | None
+    """The average of the ratings the matched providers report."""
 
     @field_validator(
         "genres",
@@ -386,11 +402,14 @@ class RomMetadataSchema(BaseModel):
 
 
 class RomSchema(BaseModel):
+    """One version of a game on one platform: a ROM file or folder."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     igdb_id: int | None
     sgdb_id: int | None
+    """The SteamGridDB game ID, used to find artwork."""
     moby_id: int | None
     ss_id: int | None
     ra_id: int | None
@@ -400,98 +419,162 @@ class RomSchema(BaseModel):
     flashpoint_id: str | None
     hltb_id: int | None
     demozoo_id: int | None
+    """The Demozoo production ID, for demoscene releases."""
     pouet_id: int | None
+    """The Pouët production ID, for demoscene releases."""
     csdb_id: int | None
+    """The CSDb release ID, for Commodore 64 releases."""
     steam_id: int | None
     gamelist_id: str | None
+    """A random ID generated for the ES-DE `gamelist.xml` entry when it was read."""
     libretro_id: str | None
+    """The SHA-1 hash of the matched Libretro artwork's file name."""
 
     platform_id: int
     platform_slug: str
     platform_fs_slug: str
+    """The name of the platform's folder in the library."""
     platform_custom_name: str | None
     platform_display_name: str
+    """The custom name when set, otherwise the platform's own name."""
 
     fs_name: str
+    """The file or folder name, extension included."""
     fs_name_no_tags: str
+    """The name without its extension or any tags in parentheses or brackets. `Example Game (USA) (Rev 1).z64` becomes `Example Game`."""
     fs_name_no_ext: str
+    """The name without its extension. Tags are kept, so the same file becomes `Example Game (USA) (Rev 1)`."""
     fs_extension: str
+    """The file extension without the dot, such as `z64`. Empty for a folder."""
     fs_path: str
+    """The folder holding the rom, relative to the library root."""
     fs_size_bytes: int
+    """The total size of all the rom's files, in bytes."""
 
     name: str | None
+    """The display name, from the matched metadata or the file name."""
     name_sort_key: str | None
+    """The key used to sort by name: the name in lowercase, without a leading article. `The Old Game` becomes `old game`."""
     slug: str | None
     summary: str | None
 
     # Metadata fields
     alternative_names: list[str]
+    """Other titles the game is known by, excluding the display name. If the user has set titles by hand, only those are used. Otherwise they come from IGDB, MobyGames and ScreenScraper."""
     youtube_video_id: str | None
     metadatum: RomMetadataSchema
+    """The metadata merged from every matched provider, used for filtering and sorting."""
     igdb_metadata: RomIGDBMetadata | None
+    """The raw IGDB metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
     moby_metadata: RomMobyMetadata | None
+    """The raw MobyGames metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
     ss_metadata: RomSSMetadata | None
+    """The raw ScreenScraper metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
     launchbox_metadata: RomLaunchboxMetadata | None
+    """The raw LaunchBox metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
     hasheous_metadata: RomHasheousMetadata | None
+    """The raw Hasheous metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
     flashpoint_metadata: RomFlashpointMetadata | None
+    """The raw Flashpoint Project metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
     hltb_metadata: RomHLTBMetadata | None
+    """The raw HowLongToBeat metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
     demozoo_metadata: RomDemozooMetadata | None
+    """The raw Demozoo metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
     pouet_metadata: RomPouetMetadata | None
+    """The raw Pouët metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
     csdb_metadata: RomCsdbMetadata | None
+    """The raw CSDb metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
     steam_metadata: RomSteamMetadata | None
+    """The raw Steam metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
     gamelist_metadata: RomGamelistMetadata | None
+    """The raw ES-DE `gamelist.xml` metadata. An empty object when there is no entry, and null when `with_provider_metadata` is false."""
     manual_metadata: ManualMetadata | None
+    """The metadata the user entered by hand. It takes precedence over provider metadata in `metadatum`."""
 
     path_cover_small: str | None
+    """The path to the small cover, with a cache-busting timestamp. Empty when there is no cover."""
     path_cover_large: str | None
+    """The path to the large cover, with a cache-busting timestamp. Empty when there is no cover."""
     url_cover: str | None
+    """The remote URL the cover was fetched from."""
 
     has_manual: bool
     has_soundtrack: bool
     path_manual: str | None
     url_manual: str | None
+    """The remote URL the manual was fetched from."""
 
     path_video: str | None
+    """The path to a video, taken from the ScreenScraper, ES-DE or LaunchBox metadata, in that order of preference."""
 
     is_identifying: bool = False
+    """True while a scan is looking up metadata for the rom."""
     is_unidentified: bool
+    """True when no provider has matched the rom."""
     is_identified: bool
+    """True when at least one provider has matched the rom."""
 
     revision: str | None
+    """The revision read from the file name tags."""
     version: str | None
+    """The version read from the file name tags."""
     regions: list[str]
+    """The regions read from the file name tags, such as `Europe`."""
     languages: list[str]
+    """The languages read from the file name tags."""
     tags: list[str]
+    """The other tags read from the file name."""
 
     crc_hash: str | None
     md5_hash: str | None
     sha1_hash: str | None
     ra_hash: str | None
+    """The hash RetroAchievements uses to identify the rom. Empty if it has not been computed."""
     title_id: str | None
+    """The platform's own ID for the game, read from the rom file and normalized, such as `SLUS-20152`."""
     save_target: str | None
+    """The on-disk name an emulator gives the game's saves: a file stem, a folder or a nested path."""
     save_target_layout: SaveTargetLayout | None
+    """How to read `save_target`: as a single folder, a single file, a folder prefix, a file prefix or a nested path."""
 
     has_simple_single_file: bool
+    """True for a single file at the top level."""
     has_nested_single_file: bool
+    """True for a folder holding exactly one top-level file."""
     has_multiple_files: bool
+    """True when more than one file or folder sits at the top level."""
     is_easyrpg_game: bool
+    """True for an RPG Maker 2000 or 2003 game: a folder containing an `rpg_rt.ldb` database."""
+    has_jsdos_bundle: bool
+    """True when the ROM is a `.jsdos` bundle, or a folder with one at its top level."""
     full_path: str
+    """The path of the file or folder relative to the library root: `fs_path` joined with `fs_name`."""
     created_at: UTCDatetime
     updated_at: UTCDatetime
     missing_from_fs: bool
+    """True when the file or folder is gone from disk. The record stays until the missing-roms cleanup runs."""
     is_physical: bool
+    """True for a physical copy with no file."""
     has_file_on_disk: bool
+    """Whether a readable file backs the rom. False for physical games and for roms whose file is missing."""
     upc: str | None
+    """The barcode of a physical game, used to look up its title when no name is given."""
     has_notes: bool
+    """Whether the current user can see a note on the rom."""
 
     rom_user: RomUserSchema
+    """The current user's data for the rom, such as status and rating."""
     merged_screenshots: list[str]
+    """The paths of the screenshots a scan downloaded from the metadata providers."""
     merged_ra_metadata: RomRAMetadata | None
+    """The RetroAchievements metadata with its achievements sorted for display."""
 
     files: list[RomFileSchema] = Field(validation_alias="included_files")
+    """The rom's files. Lists include them only when `with_files` is true."""
     sibling_roms: list[SiblingRomSchema] = Field(
         validation_alias="included_sibling_roms"
     )
+    """The other versions of this game on the platform, excluding any the user cannot see."""
 
     # The filename parser stores "" when a name has no such tag.
     @field_validator("revision", "version")
@@ -542,12 +625,16 @@ class SiblingRomSchema(BaseModel):
     id: int
     name: str | None
     fs_name_no_tags: str
+    """The file name without its extension or any tags in parentheses or brackets."""
     fs_name_no_ext: str
+    """The file name without its extension. Tags are kept."""
     is_main_sibling: bool
+    """Whether the user chose this version as the main one."""
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def sort_comparator(self) -> str:
+        """The lowercase name the versions are sorted by."""
         return (
             SORT_COMPARE_REGEX.sub(
                 "",
@@ -594,6 +681,7 @@ PROVIDER_METADATA_FIELDS: Final = (
 
 class SimpleRomSchema(RomSchema):
     screenshot_path: str | None = None
+    """An image of where the user left off: the screenshot of the latest save, or else the title screen, or else the first gameplay screenshot. Only set when `last_played` is true."""
 
     @classmethod
     def from_orm_with_request(
@@ -688,21 +776,29 @@ class UserCollectionSchema(BaseModel):
 
 class DetailedRomSchema(RomSchema):
     user_saves: list[SaveSchema]
+    """The caller's own saves for the rom."""
     user_states: list[StateSchema]
+    """The caller's own states for the rom."""
     all_user_saves: list[UserSaveSchema]
+    """The caller's own saves and other users' public saves, each with its owner's name and avatar."""
     all_user_states: list[UserStateSchema]
-    # The caller's own first, then other users' public ones.
+    """The caller's own states and other users' public states, each with its owner's name and avatar."""
     user_channels: list[ChannelSchema]
-    # The file a new channel on this ROM keys to.
+    """The caller's sync channels for the rom, followed by other users' public channels."""
     channel_file_id: int | None
-    # Channel-filed saves missing here are legacy slot uploads.
+    """The ID of the file that a new channel for this rom is attached to."""
     snapshot_save_ids: list[int]
+    """The IDs of the saves that belong to a channel. Any save not listed here was uploaded to a slot the legacy way."""
     user_screenshots: list[ScreenshotSchema]
+    """The caller's own screenshots for the rom."""
     all_user_screenshots: list[UserScreenshotSchema]
+    """The gallery screenshots the caller can see: their own and other users' public ones. Thumbnails captured with saves and states are not included."""
     user_collections: list[UserCollectionSchema]
+    """The collections containing the rom that the caller can see, both their own and other users' public ones, including smart collections."""
     all_user_notes: list[UserNoteSchema]
-    # What the caller can ask a `?format=` download of the rom's single file for.
+    """The notes the caller can see, most recently updated first."""
     download_formats: list[str]
+    """The formats the caller can request with `?format=` when downloading the rom's file. Only set for roms with a single file."""
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:

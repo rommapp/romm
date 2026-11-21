@@ -4,7 +4,6 @@ from typing import Annotated, Any
 
 from fastapi import HTTPException, Request, Response, status
 from pydantic import (
-    BaseModel,
     Field,
     StrictBool,
     StringConstraints,
@@ -12,6 +11,7 @@ from pydantic import (
 )
 
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from endpoints.responses.device import DeviceCreateResponse, DeviceSchema
 from handler.auth.constants import Scope
 from handler.database import (
@@ -81,12 +81,26 @@ class DeviceUpdatePayload(BaseModel):
     capabilities: DeviceCapabilities | None = None
 
 
-@protected_route(router.post, "", [Scope.DEVICES_WRITE])
+@protected_route(
+    router.post,
+    "",
+    [Scope.DEVICES_WRITE],
+    responses={
+        status.HTTP_409_CONFLICT: {
+            "description": (
+                "The caller already has a device with the same MAC address,"
+                " hostname and platform, and neither `allow_existing` nor"
+                " `allow_duplicate` is set."
+            )
+        }
+    },
+)
 def register_device(
     request: Request,
     response: Response,
     payload: DeviceCreatePayload,
 ) -> DeviceCreateResponse:
+    """Register a device and return its ID."""
     existing_device = None
     if not payload.allow_duplicate:
         existing_device = db_device_handler.get_device_by_fingerprint(
@@ -173,6 +187,7 @@ def register_device(
 
 @protected_route(router.get, "", [Scope.DEVICES_READ])
 def get_devices(request: Request) -> list[DeviceSchema]:
+    """List the caller's devices that the client token has access to."""
     devices = db_device_handler.get_devices(user_id=request.user.id)
     return [
         DeviceSchema.model_validate(device)
@@ -183,6 +198,7 @@ def get_devices(request: Request) -> list[DeviceSchema]:
 
 @protected_route(router.get, "/{device_id}", [Scope.DEVICES_READ])
 def get_device(request: Request, device_id: str) -> DeviceSchema:
+    """Get one of the caller's devices."""
     device = require_device(request, device_id)
     return DeviceSchema.model_validate(device)
 
@@ -193,6 +209,7 @@ def update_device(
     device_id: str,
     payload: DeviceUpdatePayload,
 ) -> DeviceSchema:
+    """Update a device. Fields left out of the request keep their current values."""
     device: Device | None = require_device(request, device_id)
 
     update_data = payload.model_dump(exclude_unset=True)
@@ -213,6 +230,7 @@ def update_device(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_device(request: Request, device_id: str) -> None:
+    """Delete a device and the client tokens bound to it."""
     require_device(request, device_id)
 
     tokens = db_client_token_handler.get_tokens_by_device(device_id)

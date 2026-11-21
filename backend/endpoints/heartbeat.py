@@ -1,10 +1,12 @@
 import asyncio
 import os
 from collections import defaultdict
-from typing import Final
+from typing import Annotated, Final
 
 from anyio import Path as AnyioPath
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException
+from fastapi import Path as PathVar
+from fastapi import Request, status
 
 from adapters.services.rom_converto import rom_converto_service
 from adapters.services.sigil import SigilService
@@ -230,7 +232,18 @@ async def heartbeat() -> HeartbeatResponse:
 
 
 @router.get("/heartbeat/metadata/{source}")
-async def metadata_heartbeat(request: Request, source: str) -> bool:
+async def metadata_heartbeat(
+    request: Request,
+    source: Annotated[
+        str,
+        PathVar(
+            description=(
+                "The metadata source to check, such as `igdb`. An unknown source"
+                " returns 400."
+            )
+        ),
+    ],
+) -> bool:
     """Endpoint to return the heartbeat of the metadata sources"""
     try:
         metadata_source = MetadataSource(source)

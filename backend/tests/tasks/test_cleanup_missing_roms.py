@@ -7,6 +7,7 @@ from pytest_mock import MockerFixture
 from tests.factories import make_rom
 
 from handler.database import db_collection_handler, db_rom_handler
+from handler.database.roms_handler import DBRomsHandler
 from models.collection import SmartCollection
 from models.platform import Platform
 from models.rom import Rom
@@ -54,7 +55,7 @@ class TestCleanupMissingRomsTask:
         self, task: CleanupMissingRomsTask, platform: Platform, mocker: MockerFixture
     ):
         _add_rom(platform, "gone", missing=True)
-        invalidate = mocker.spy(db_rom_handler, "invalidate_filter_values_cache")
+        invalidate = mocker.spy(DBRomsHandler, "invalidate_filter_values_cache")
 
         await task.run()
 
@@ -90,7 +91,7 @@ class TestCleanupMissingRomsTask:
         self, task: CleanupMissingRomsTask, platform: Platform, mocker: MockerFixture
     ):
         _add_rom(platform, "present", missing=False)
-        invalidate = mocker.spy(db_rom_handler, "invalidate_filter_values_cache")
+        invalidate = mocker.spy(DBRomsHandler, "invalidate_filter_values_cache")
         refresh = mocker.spy(
             db_collection_handler, "refresh_smart_collections_for_roms"
         )
@@ -127,7 +128,7 @@ class TestCleanupMissingRomsTask:
     ):
         gone = _add_rom(platform, "gone", missing=True)
         resources.side_effect = PermissionError("read-only")
-        invalidate = mocker.spy(db_rom_handler, "invalidate_filter_values_cache")
+        invalidate = mocker.spy(DBRomsHandler, "invalidate_filter_values_cache")
         refresh = mocker.spy(
             db_collection_handler, "refresh_smart_collections_for_roms"
         )
@@ -159,7 +160,7 @@ class TestCleanupMissingRomsTask:
     ):
         rom = _add_rom(platform, "gone", missing=True)
         mocker.patch.object(
-            db_rom_handler,
+            DBRomsHandler,
             "invalidate_filter_values_cache",
             side_effect=RuntimeError("redis down"),
         )

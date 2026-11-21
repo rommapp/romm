@@ -8,7 +8,7 @@ import type { SaveTargetLayout } from './SaveTargetLayout';
  */
 export type RomIdentityData = {
     /**
-     * Platform-native identity, e.g. 0100ABCD12340000 or SLUS-20152.
+     * The game's ID on its own platform, such as `0100ABCD12340000` or `SLUS-20152`.
      */
     title_id?: (string | null);
     /**
@@ -16,7 +16,7 @@ export type RomIdentityData = {
      */
     save_target?: (string | null);
     /**
-     * How to apply save_target when locating saves on disk.
+     * How to read `save_target` when locating saves on disk.
      */
     save_target_layout?: (SaveTargetLayout | null);
 };

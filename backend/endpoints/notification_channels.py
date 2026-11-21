@@ -118,7 +118,9 @@ async def create_notification_channel(
 
 @protected_route(router.patch, "/{channel_id}", [Scope.ME_WRITE])
 async def update_notification_channel(
-    request: Request, channel_id: int, payload: NotificationChannelUpdatePayload
+    request: Request,
+    channel_id: int,
+    payload: NotificationChannelUpdatePayload,
 ) -> NotificationChannelSchema:
     """Change a channel; a new email address has to be confirmed again."""
     changes = {
@@ -146,8 +148,18 @@ async def update_notification_channel(
     return NotificationChannelSchema.from_channel(updated)
 
 
-@protected_route(router.delete, "/{channel_id}", [Scope.ME_WRITE])
+@protected_route(
+    router.delete,
+    "/{channel_id}",
+    [Scope.ME_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no notification channel with this ID."
+        }
+    },
+)
 def delete_notification_channel(request: Request, channel_id: int) -> None:
+    """Delete one of the caller's notification channels."""
     if not db_notification_channel_handler.delete_channel(channel_id, request.user.id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -168,7 +180,9 @@ async def test_notification_channel(
 
 @protected_route(router.post, "/{channel_id}/confirm", [Scope.ME_WRITE])
 async def confirm_notification_channel(
-    request: Request, channel_id: int, payload: NotificationChannelCodePayload
+    request: Request,
+    channel_id: int,
+    payload: NotificationChannelCodePayload,
 ) -> NotificationChannelSchema:
     """Confirm an email address with the code sent to it."""
     confirmed = await _as_http(
@@ -186,4 +200,5 @@ async def confirm_notification_channel(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def resend_notification_channel_code(request: Request, channel_id: int) -> None:
+    """Send a new confirmation code to the channel's email address."""
     await _as_http(channels.resend_code(_get_or_404(channel_id, request.user)))

@@ -95,6 +95,23 @@ class TestScopeOnly:
         assert scoped.matched is None
 
 
+class TestHasOnlyPlatformScope:
+    @pytest.mark.parametrize(
+        ("params", "expected"),
+        [
+            (RomFilterParams(platform_ids=[1, 2]), True),
+            (RomFilterParams(platform_ids=[1], genres=["Shooter"]), True),
+            (RomFilterParams(), False),
+            (RomFilterParams(platform_ids=[]), False),
+            (RomFilterParams(platform_ids=[1], search_term="mario"), False),
+            (RomFilterParams(platform_ids=[1], collection_id=3), False),
+            (RomFilterParams(collection_id=3), False),
+        ],
+    )
+    def test_only_platforms_count(self, params: RomFilterParams, expected: bool):
+        assert params.has_only_platform_scope() is expected
+
+
 def _criteria(stored: dict[str, Any]) -> RomFilterParams:
     """The stored criteria, narrowed: these rows are all well-formed."""
     criteria = RomFilterParams.from_stored_criteria(stored)

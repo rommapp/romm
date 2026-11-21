@@ -38,6 +38,12 @@
       "allowedVersions": "<0.30"
     },
     {
+      "description": "The rolldown override must stay inside Vite's own rolldown range (~1.2.18 for Vite 8.3). Rolldown 1.3 under Vite 8.3 builds chunks the browser can't parse. Raise this bound when a Vite update moves its rolldown range.",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["rolldown"],
+      "allowedVersions": "<1.3"
+    },
+    {
       "matchDatasources": ["docker"],
       "matchPackageNames": ["postgres"],
       "groupName": "postgres"

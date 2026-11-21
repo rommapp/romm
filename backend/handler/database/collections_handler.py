@@ -394,7 +394,10 @@ class DBCollectionsHandler(DBBaseHandler):
         visibility: RomVisibilityFilter = UNRESTRICTED,
         session: Session = INJECTED_SESSION,
     ) -> VirtualCollection | None:
-        name, type = VirtualCollection.from_id(id)
+        try:
+            name, type = VirtualCollection.from_id(id)
+        except ValueError:
+            return None
         collection = session.scalar(
             select(VirtualCollection).filter_by(name=name, type=type).limit(1)
         )
