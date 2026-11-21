@@ -1,3 +1,4 @@
+import functools
 import logging
 import time
 from typing import Any, cast
@@ -7,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 
 from config import DB_POOL_RECYCLE_SECONDS, DEV_SQL_ECHO
 from config.config_manager import ConfigManager
+from logger.logger import log
 from models import load_all_models
 
 # A ping on a socket the server already closed blocks the worker until TCP gives
@@ -18,6 +20,36 @@ sync_engine = create_engine(
     echo=False,
 )
 sync_session = sessionmaker(bind=sync_engine, expire_on_commit=False)
+
+
+@functools.cache
+def _warn_statement_binlog() -> None:
+    log.warning(
+        "binlog_format is STATEMENT, so database sessions stay at REPEATABLE READ; "
+        "concurrent writes may fail with 'Record has changed since last read'"
+    )
+
+
+def read_committed(dbapi_connection: Any, connection_record: Any) -> None:
+    """Run the session at READ COMMITTED, unless statement binary logging forbids it."""
+    cursor = dbapi_connection.cursor()
+    try:
+        cursor.execute("SELECT @@log_bin, @@binlog_format")
+        log_bin, binlog_format = cursor.fetchone()
+        # InnoDB refuses every write below REPEATABLE READ under STATEMENT logging.
+        if log_bin and binlog_format == "STATEMENT":
+            _warn_statement_binlog()
+        else:
+            cursor.execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
+    finally:
+        cursor.close()
+    dbapi_connection.commit()
+
+
+# MariaDB 11.6+ at REPEATABLE READ fails a write to a row the transaction read
+# before another one committed to it (error 1020). PostgreSQL defaults to this.
+if sync_engine.dialect.name in ("mariadb", "mysql"):
+    event.listen(sync_engine, "connect", read_committed)
 
 # Disable SQLAlchemy logging as echo will print the queries
 logging.getLogger("sqlalchemy.engine.Engine").handlers = [logging.NullHandler()]

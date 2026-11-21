@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type DeviceAuthTokenResponse = {
+    id: number;
     access_token: string;
     device_id: string;
     scopes: Array<string>;

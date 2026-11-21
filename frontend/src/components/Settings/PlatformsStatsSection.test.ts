@@ -39,7 +39,7 @@ function mountSection(
         RIcon: true,
         PlatformIcon: true,
         RProgressLinear: true,
-        RSliderBtnGroup: true,
+        RSegmentedControl: true,
         RTextField: true,
       },
     },

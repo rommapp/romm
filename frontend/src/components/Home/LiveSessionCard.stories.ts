@@ -4,6 +4,15 @@ import LiveSessionCard from "./LiveSessionCard.vue";
 const meta: Meta<typeof LiveSessionCard> = {
   title: "Home/LiveSessionCard",
   component: LiveSessionCard,
+  parameters: {
+    // The card's name is the join action; axe wants every visible word on the
+    // card (title, host, platform) in it, which no composite card can meet.
+    a11y: {
+      config: {
+        rules: [{ id: "label-content-name-mismatch", enabled: false }],
+      },
+    },
+  },
 };
 
 export default meta;

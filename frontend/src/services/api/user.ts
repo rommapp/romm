@@ -67,6 +67,7 @@ async function updateUser({
 }: Partial<UserSchema> & {
   avatar?: File;
   password?: string;
+  current_password?: string | undefined;
 }) {
   return api.put<UserSchema>(
     `/users/${id}`,
@@ -74,6 +75,7 @@ async function updateUser({
       avatar: avatar || null,
       username: attrs.username,
       password: attrs.password,
+      current_password: attrs.current_password,
       email: attrs.email,
       enabled: attrs.enabled,
       role: attrs.role,

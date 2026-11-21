@@ -2,7 +2,8 @@
 
 from typing import Any, Final, cast
 
-from rq.job import Callback, Job
+from rq import Callback
+from rq.job import Job
 from rq.queue import Queue
 from rq.utils import import_attribute
 from rq.worker import Worker
@@ -16,6 +17,7 @@ from config import (
     ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP,
     ENABLE_SCHEDULED_CLEANUP_ZIP_CACHE,
     ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
+    ENABLE_SCHEDULED_PRUNE_SNAPSHOTS,
     ENABLE_SCHEDULED_RESCAN,
     ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC,
     ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
@@ -33,10 +35,12 @@ from config import (
     SCHEDULED_CLEANUP_UPLOAD_TMP_CRON,
     SCHEDULED_CLEANUP_ZIP_CACHE_CRON,
     SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON,
+    SCHEDULED_PRUNE_SNAPSHOTS_CRON,
     SCHEDULED_RESCAN_CRON,
     SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON,
     SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
+    SNAPSHOT_BRANCH_LIFETIME_DAYS,
     SYNC_PUSH_PULL_CRON,
     TASK_TIMEOUT,
 )
@@ -102,6 +106,9 @@ BUILD_RECOMMENDATIONS_SPEC: Final = TaskSpec(
     enabled=ENABLE_SCHEDULED_BUILD_RECOMMENDATIONS,
     manual_run=True,
     cron_string=SCHEDULED_BUILD_RECOMMENDATIONS_CRON,
+    # The sweep costs several ms per ROM, so a library of tens of thousands
+    # overruns the default timeout.
+    timeout=max(TASK_TIMEOUT, 60 * 60),
 )
 
 CONVERT_IMAGES_TO_WEBP_SPEC: Final = TaskSpec(
@@ -184,6 +191,18 @@ CLEANUP_SYNC_SESSIONS_SPEC: Final = TaskSpec(
     cron_string=SCHEDULED_CLEANUP_SYNC_SESSIONS_CRON,
 )
 
+PRUNE_SNAPSHOTS_SPEC: Final = TaskSpec(
+    implementation="tasks.scheduled.prune_snapshots.prune_snapshots_task",
+    title="Scheduled snapshot pruning",
+    description=(
+        f"Drops save sync branches older than {SNAPSHOT_BRANCH_LIFETIME_DAYS} days, "
+        "with the files only they held"
+    ),
+    task_type=TaskType.CLEANUP,
+    enabled=ENABLE_SCHEDULED_PRUNE_SNAPSHOTS,
+    cron_string=SCHEDULED_PRUNE_SNAPSHOTS_CRON,
+)
+
 CLEANUP_AUDIT_LOG_SPEC: Final = TaskSpec(
     implementation="tasks.scheduled.cleanup_audit_log.cleanup_audit_log_task",
     title="Scheduled audit log cleanup",
@@ -249,6 +268,18 @@ SYNC_FOLDER_SCAN_SPEC: Final = TaskSpec(
     manual_run=True,
 )
 
+RECOMPUTE_NAME_SORT_KEYS_SPEC: Final = TaskSpec(
+    implementation="tasks.manual.recompute_name_sort_keys.recompute_name_sort_keys_task",
+    title="Recompute ROM sort keys",
+    description=(
+        "Re-derive each ROM's sort key from its name with the articles "
+        "sorting.articles names, keeping custom sort keys."
+    ),
+    task_type=TaskType.UPDATE,
+    enabled=True,
+    manual_run=True,
+)
+
 RECOMPUTE_SAVE_CONTENT_HASHES_SPEC: Final = TaskSpec(
     implementation="tasks.manual.recompute_save_content_hashes.recompute_save_content_hashes_task",
     title="Recompute save content hashes",
@@ -295,6 +326,7 @@ SCHEDULED_TASKS: Final[dict[str, TaskSpec]] = {
     "cleanup_upload_tmp": CLEANUP_UPLOAD_TMP_SPEC,
     "reap_streaming_sessions": REAP_STREAMING_SESSIONS_SPEC,
     "cleanup_sync_sessions": CLEANUP_SYNC_SESSIONS_SPEC,
+    "prune_snapshots": PRUNE_SNAPSHOTS_SPEC,
     "cleanup_audit_log": CLEANUP_AUDIT_LOG_SPEC,
     "sync_retroachievements_progress": SYNC_RETROACHIEVEMENTS_PROGRESS_SPEC,
     "sync_push_pull": SYNC_PUSH_PULL_SPEC,
@@ -306,6 +338,7 @@ MANUAL_TASKS: Final[dict[str, TaskSpec]] = {
     "cleanup_missing_firmware": CLEANUP_MISSING_FIRMWARE_SPEC,
     "sync_folder_scan": SYNC_FOLDER_SCAN_SPEC,
     "recompute_save_content_hashes": RECOMPUTE_SAVE_CONTENT_HASHES_SPEC,
+    "recompute_name_sort_keys": RECOMPUTE_NAME_SORT_KEYS_SPEC,
     "convert_library": CONVERT_LIBRARY_SPEC,
 }
 

@@ -1,5 +1,4 @@
 import os
-import re
 import time
 import uuid
 from collections.abc import Iterator
@@ -11,18 +10,21 @@ from unittest import mock
 import pytest
 from fastapi import status
 from sqlalchemy import update
-from tests.factories import make_save, make_screenshot, make_state
+from tests.auth_helpers import hide
+from tests.factories import make_device_token, make_save, make_screenshot, make_state
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
-from handler.asset_store import apply_datetime_tag, reserve_version_name
+from handler.asset_store import reserve_version_name
 from handler.auth.base_handler import oauth_handler
 from handler.auth.constants import Scope
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
     db_save_handler,
     db_screenshot_handler,
+    db_sync_session_handler,
 )
 from handler.database.base_handler import sync_session
 from handler.sync.comparison import compare_save_state
@@ -35,18 +37,14 @@ from models.assets import (
 )
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
-from models.permission import HiddenEntity, PermEntity
+from models.permission import PermEntity
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
 from utils import uploads
 from utils.datetime import to_utc
+from utils.uploads import DATETIME_TAG_PATTERN, apply_datetime_tag
 from utils.validation import MAX_ROM_IDS_PER_QUERY
-
-
-def _hide(entity: PermEntity, entity_id: int, user_id: int) -> None:
-    with sync_session.begin() as s:
-        s.add(HiddenEntity(entity=entity, entity_id=entity_id, user_id=user_id))
 
 
 @pytest.fixture
@@ -373,6 +371,88 @@ class TestSaveSyncEndpoints:
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert "nonexistent-device" in response.json()["detail"]
+
+
+class TestSaveDeviceTokenBinding:
+    @pytest.fixture
+    def other_device(self, admin_user: User) -> Device:
+        return db_device_handler.add_device(
+            Device(id="other-save-dev", user_id=admin_user.id)
+        )
+
+    @pytest.fixture
+    def bound_headers(self, admin_user: User, device: Device) -> dict[str, str]:
+        _, raw_token = make_device_token(
+            admin_user, device.id, scopes="assets.read devices.read devices.write"
+        )
+        return {"Authorization": f"Bearer {raw_token}"}
+
+    def test_reads_saves_as_its_own_device(
+        self, client, bound_headers, save: Save, device: Device
+    ):
+        response = client.get(
+            f"/api/saves?device_id={device.id}", headers=bound_headers
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_cannot_read_saves_as_another_device(
+        self, client, bound_headers, save: Save, other_device: Device
+    ):
+        response = client.get(
+            f"/api/saves?device_id={other_device.id}", headers=bound_headers
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_cannot_untrack_for_another_device(
+        self, client, bound_headers, save: Save, other_device: Device
+    ):
+        response = client.post(
+            f"/api/saves/{save.id}/untrack",
+            json={"device_id": other_device.id},
+            headers=bound_headers,
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert (
+            db_device_save_sync_handler.get_sync(
+                device_id=other_device.id, save_id=save.id
+            )
+            is None
+        )
+
+    @pytest.mark.parametrize("owner", ["own", "other"])
+    @mock.patch("endpoints.saves.fs_asset_handler.validate_path")
+    def test_counts_only_its_own_devices_session(
+        self,
+        mock_validate_path,
+        client,
+        admin_user: User,
+        bound_headers,
+        save: Save,
+        device: Device,
+        other_device: Device,
+        tmp_path,
+        owner: str,
+    ):
+        test_file = tmp_path / "test.sav"
+        test_file.write_bytes(b"save file content")
+        mock_validate_path.return_value = test_file
+        session_device = device if owner == "own" else other_device
+        sync_session = db_sync_session_handler.create_session(
+            session_device.id, admin_user.id
+        )
+
+        response = client.get(
+            f"/api/saves/{save.id}/content?session_id={sync_session.id}",
+            headers=bound_headers,
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        stored = db_sync_session_handler.get_session(sync_session.id, admin_user.id)
+        assert stored is not None
+        assert stored.operations_completed == (1 if owner == "own" else 0)
 
 
 class TestSaveUploadWithSync:
@@ -1546,7 +1626,6 @@ class TestDatetimeTagging:
         platform: Platform,
         admin_user: User,
     ):
-        import re
 
         mock_save = Save(
             file_name="test [2026-01-31_12-00-00].sav",
@@ -1572,9 +1651,9 @@ class TestDatetimeTagging:
         mock_write.assert_called_once()
         call_args = mock_write.call_args
         written_filename = call_args[1].get("filename") or call_args[0][2]
-        assert re.search(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]", written_filename)
+        assert DATETIME_TAG_PATTERN.search(written_filename)
 
-    @mock.patch("endpoints.saves.scan_screenshot", new_callable=mock.AsyncMock)
+    @mock.patch("handler.asset_store.scan_screenshot", new_callable=mock.AsyncMock)
     @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
     )
@@ -1629,7 +1708,8 @@ class TestDatetimeTagging:
         save_stem, _ = os.path.splitext(written[0])
         screenshot_stem, _ = os.path.splitext(written[1])
         assert save_stem == screenshot_stem
-        assert re.search(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]$", save_stem)
+        assert DATETIME_TAG_PATTERN.search(save_stem)
+        assert save_stem.endswith("]")
 
     @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
@@ -1726,7 +1806,6 @@ class TestDatetimeTagging:
         platform: Platform,
         admin_user: User,
     ):
-        import re
 
         mock_save = Save(
             file_name="test [2026-01-31_12-00-00].sav",
@@ -1758,9 +1837,7 @@ class TestDatetimeTagging:
         mock_write.assert_called_once()
         call_args = mock_write.call_args
         written_filename = call_args[1].get("filename") or call_args[0][2]
-        datetime_matches = re.findall(
-            r"\[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]", written_filename
-        )
+        datetime_matches = DATETIME_TAG_PATTERN.findall(written_filename)
         assert len(datetime_matches) == 1
         assert "2020-01-01" not in written_filename
 
@@ -1845,7 +1922,10 @@ class TestAutocleanup:
         from handler.database import db_save_handler
 
         initial_saves = db_save_handler.get_saves(
-            user_id=admin_user.id, rom_ids=[rom.id], slot="autosave"
+            user_id=admin_user.id,
+            rom_ids=[rom.id],
+            slot="autosave",
+            visibility=UNRESTRICTED,
         )
         assert len(initial_saves) == 15
 
@@ -2042,7 +2122,10 @@ class TestAutocleanup:
 
         assert response.status_code == status.HTTP_200_OK
         remaining = db_save_handler.get_saves(
-            user_id=admin_user.id, rom_ids=[rom.id], slot="autosave"
+            user_id=admin_user.id,
+            rom_ids=[rom.id],
+            slot="autosave",
+            visibility=UNRESTRICTED,
         )
         assert len(remaining) == 1
 
@@ -2155,7 +2238,10 @@ class TestSlotRetention:
         return [
             save.file_name_no_ext
             for save in db_save_handler.get_saves(
-                user_id=admin_user.id, rom_ids=[rom.id], slot=slot
+                user_id=admin_user.id,
+                rom_ids=[rom.id],
+                slot=slot,
+                visibility=UNRESTRICTED,
             )
         ]
 
@@ -2226,7 +2312,10 @@ class TestSlotRetention:
         assert {
             save.file_name
             for save in db_save_handler.get_saves(
-                user_id=admin_user.id, rom_ids=[rom.id], slot="main_quest"
+                user_id=admin_user.id,
+                rom_ids=[rom.id],
+                slot="main_quest",
+                visibility=UNRESTRICTED,
             )
         } == {"main_quest.srm", "main_quest.rtc", "main_quest_new.sav"}
 
@@ -2280,7 +2369,10 @@ class TestSlotRetention:
         assert [
             save.id
             for save in db_save_handler.get_saves(
-                user_id=admin_user.id, rom_ids=[rom.id], slot="side_quest"
+                user_id=admin_user.id,
+                rom_ids=[rom.id],
+                slot="side_quest",
+                visibility=UNRESTRICTED,
             )
         ] == [response.json()["id"]]
 
@@ -2510,7 +2602,10 @@ class TestAutocleanupScreenshots:
         remaining = {
             save.file_name_no_ext
             for save in db_save_handler.get_saves(
-                user_id=admin_user.id, rom_ids=[rom.id], slot="autosave"
+                user_id=admin_user.id,
+                rom_ids=[rom.id],
+                slot="autosave",
+                visibility=UNRESTRICTED,
             )
         }
         assert len(remaining) == 2
@@ -2825,6 +2920,29 @@ class TestSaveDownload:
         assert sync is None
 
     @mock.patch("endpoints.saves.fs_asset_handler.validate_path")
+    def test_download_save_through_its_download_path(
+        self,
+        mock_validate_path,
+        client,
+        access_token: str,
+        save: Save,
+        tmp_path,
+    ):
+        test_file = tmp_path / "test.sav"
+        test_file.write_bytes(b"save file content")
+        mock_validate_path.return_value = test_file
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        download_path = client.get(f"/api/saves/{save.id}", headers=headers).json()[
+            "download_path"
+        ]
+        response = client.get(download_path, headers=headers)
+
+        assert " " not in download_path
+        assert response.status_code == status.HTTP_200_OK
+        assert response.content == b"save file content"
+
+    @mock.patch("endpoints.saves.fs_asset_handler.validate_path")
     def test_download_save_with_device_returns_file(
         self,
         mock_validate_path,
@@ -2889,7 +3007,19 @@ class TestSaveDownload:
         # A public save on a ROM hidden from the caller must stay 404-masked;
         # sharing cannot override the hidden-resource boundary.
         db_save_handler.update_save(save.id, {"is_public": True})
-        _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+        hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
+
+        response = client.get(
+            f"/api/saves/{save.id}/content",
+            headers={"Authorization": f"Bearer {viewer_access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_another_users_detached_public_save_is_not_served(
+        self, client, viewer_access_token: str, save: Save
+    ):
+        db_save_handler.update_save(save.id, {"is_public": True, "rom_id": None})
 
         response = client.get(
             f"/api/saves/{save.id}/content",
@@ -2908,7 +3038,7 @@ class TestSaveDownload:
     ):
         # Hiding the parent platform cascades to its saves as well.
         db_save_handler.update_save(save.id, {"is_public": True})
-        _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
+        hide(PermEntity.PLATFORMS, platform.id, user_id=viewer_user.id)
 
         response = client.get(
             f"/api/saves/{save.id}/content",
@@ -3718,6 +3848,7 @@ class TestSlotScopedDedupeMatrix:
             rom_ids=[rom.id],
             slot="slot1",
             order_by="updated_at",
+            visibility=UNRESTRICTED,
         )
         assert head_ids[0] == old_id
         bumped = db_save_handler.get_save_by_id(old_id)
@@ -3998,6 +4129,43 @@ class TestSaveVisibilityPropagation:
         )
         refreshed = db_screenshot_handler.get_screenshot_by_id(thumb.id)
         assert refreshed is not None and refreshed.is_public is False
+
+    def test_a_screenshot_sent_with_a_shared_save_is_shared(
+        self,
+        client,
+        access_token: str,
+        editor_access_token: str,
+        rom: Rom,
+        _isolated_assets_dir,
+    ):
+        owner = {"Authorization": f"Bearer {access_token}"}
+        created = client.post(
+            f"/api/saves?rom_id={rom.id}",
+            files={
+                "saveFile": ("game.sav", BytesIO(b"SAVE"), "application/octet-stream")
+            },
+            headers=owner,
+        ).json()
+        client.put(
+            f"/api/saves/{created['id']}/visibility",
+            json={"is_public": True},
+            headers=owner,
+        )
+
+        updated = client.put(
+            f"/api/saves/{created['id']}",
+            files={
+                "saveFile": ("game.sav", BytesIO(b"SAVE2"), "application/octet-stream"),
+                "screenshotFile": ("game.png", BytesIO(b"png"), "image/png"),
+            },
+            headers=owner,
+        ).json()
+        shot = client.get(
+            updated["screenshot"]["download_path"],
+            headers={"Authorization": f"Bearer {editor_access_token}"},
+        )
+
+        assert shot.status_code == status.HTTP_200_OK
 
 
 class TestSaveFavoritesAndLabels:
@@ -4400,10 +4568,16 @@ class TestApplyDatetimeTag:
             def now(cls, tz=None):
                 return datetime.fromtimestamp(captured_at.timestamp(), tz)
 
-        with mock.patch("handler.asset_store.datetime", FrozenDatetime):
+        with mock.patch("utils.uploads.datetime", FrozenDatetime):
             tagged = apply_datetime_tag("suikoden [2020-01-01_00-00-00].srm")
 
-        assert tagged == "suikoden [2026-09-22_19-10-13].srm"
+        assert tagged == "suikoden [2026-09-22_19-10-13-000].srm"
+
+    def test_replaces_a_millisecond_tag(self):
+        tagged = apply_datetime_tag("suikoden [2020-01-01_00-00-00-123].srm")
+
+        assert tagged.count("[") == 1
+        assert "2020-01-01" not in tagged
 
     async def test_a_taken_or_claimed_name_moves_on_a_second(
         self, admin_user: User, rom: Rom
@@ -4413,7 +4587,7 @@ class TestApplyDatetimeTag:
         make_save(
             rom,
             admin_user,
-            "game [2026-01-01_12-00-00].srm",
+            "game [2026-01-01_12-00-00-000].srm",
             file_path=saves_path,
             slot="autosave",
         )
@@ -4428,8 +4602,8 @@ class TestApplyDatetimeTag:
             )
 
         assert (first, second) == (
-            "game [2026-01-01_12-00-01].srm",
-            "game [2026-01-01_12-00-02].srm",
+            "game [2026-01-01_12-00-01-000].srm",
+            "game [2026-01-01_12-00-02-000].srm",
         )
 
 
@@ -4749,7 +4923,7 @@ def test_update_save_rejects_a_screenshot_name_over_255_bytes_before_writing(
 def test_hidden_rom_masks_save_upload(
     mock_write, client, viewer_access_token: str, viewer_user: User, rom: Rom
 ):
-    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
 
     response = client.post(
         f"/api/saves?rom_id={rom.id}",

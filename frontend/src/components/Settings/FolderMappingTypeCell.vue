@@ -88,6 +88,7 @@ const label = computed(() => {
     v-if="isEditable"
     v-model="modelType"
     :items="items"
+    :aria-label="t('settings.type-header')"
     item-title="title"
     item-value="value"
     hide-details

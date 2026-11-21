@@ -7,6 +7,7 @@ from authlib.common.errors import AuthlibBaseError
 from fastapi import BackgroundTasks, Body, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.security.http import HTTPBasic, HTTPBasicCredentials
+from httpx2 import HTTPError
 from joserfc.errors import JoseError
 
 from config import (
@@ -117,21 +118,19 @@ def _record_password_reset_request(ip_address: str | None, user: User) -> None:
 
 
 # Session authentication endpoints
-@router.post("/login")
+@router.post(
+    "/login",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "The username and password are not valid, or the user is disabled."
+        }
+    },
+)
 def login(
     request: Request,
     credentials: HTTPBasicCredentials = Depends(HTTPBasic()),  # noqa
 ) -> None:
-    """Session login endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        credentials: Defaults to Depends(HTTPBasic()).
-
-    Raises:
-        CredentialsException: Invalid credentials
-        UserDisabledException: Auth is disabled
-    """
+    """Sign in with HTTP Basic credentials and start a session."""
 
     user = auth_handler.authenticate_user(credentials.username, credentials.password)
     if not user:
@@ -157,16 +156,7 @@ def login(
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
 async def logout(request: Request) -> Optional[OIDCLogoutResponse]:
-    """Session logout endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        Optional[dict]: When OIDC RP-Initiated Logout is enabled and the session
-        contains an OIDC id_token, returns a dict with the OIDC end-session URL
-        so the client can redirect the browser to log out of the OIDC provider.
-    """
+    """End the session. After an OIDC sign-in with RP-Initiated Logout enabled, the response holds the provider's end-session URL."""
 
     id_token = request.session.get("oidc_id_token")
     request.session.clear()
@@ -189,29 +179,32 @@ async def logout(request: Request) -> Optional[OIDCLogoutResponse]:
     return None
 
 
-@router.post("/token")
+@router.post(
+    "/token",
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "A required field is missing, or the grant type is not supported."
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": (
+                "The username and password are not valid, or the refresh token is"
+                " not valid or belongs to a disabled user."
+            )
+        },
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The account is disabled, or the requested scopes are not granted to it."
+        },
+    },
+)
 async def token(
     request: Request, form_data: Annotated[OAuth2RequestForm, Depends()]
 ) -> TokenResponse:
-    """OAuth2 token endpoint
-
-    Args:
-        form_data (Annotated[OAuth2RequestForm, Depends): Form Data with OAuth2 info
-
-    Raises:
-        HTTPException: Missing refresh token
-        HTTPException: Invalid refresh token
-        HTTPException: Missing username or password
-        HTTPException: Invalid username or password
-        HTTPException: Client credentials are not yet supported
-        HTTPException: Invalid or unsupported grant type
-        HTTPException: Insufficient scope
-
-    Returns:
-        TokenResponse: TypedDict with the new generated token info
-    """
+    """Issue an access token and a refresh token, from a username and password or from a refresh token."""
 
     user: User | None
+    # Read before any credential check, so a revocation that lands during the
+    # check still covers the tokens issued below.
+    issued_at = datetime.now(timezone.utc)
     # Support refreshing access tokens
     if form_data.grant_type == "refresh_token":
         token = form_data.refresh_token
@@ -238,6 +231,7 @@ async def token(
                 "scopes": claims.get("scopes"),
             },
             expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
+            issued_at=issued_at,
         )
 
         refresh_token = oauth_handler.create_refresh_token(
@@ -247,6 +241,7 @@ async def token(
                 "scopes": claims.get("scopes"),
             },
             expires_delta=timedelta(seconds=OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS),
+            issued_at=issued_at,
         )
 
         return {
@@ -309,6 +304,7 @@ async def token(
             "scopes": " ".join(form_data.scopes),
         },
         expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
+        issued_at=issued_at,
     )
 
     refresh_token = oauth_handler.create_refresh_token(
@@ -318,6 +314,7 @@ async def token(
             "scopes": " ".join(form_data.scopes),
         },
         expires_delta=timedelta(seconds=OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS),
+        issued_at=issued_at,
     )
     _record_login(request, user, "token")
 
@@ -331,20 +328,16 @@ async def token(
 
 
 # OIDC login and callback endpoints
-@router.get("/login/openid")
+@router.get(
+    "/login/openid",
+    responses={
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "OIDC is disabled or not configured."
+        }
+    },
+)
 async def login_via_openid(request: Request) -> RedirectResponse:
-    """OIDC login endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Raises:
-        OIDCDisabledException: OAuth is disabled
-        OIDCNotConfiguredException: OAuth not configured
-
-    Returns:
-        RedirectResponse: Redirect to OIDC provider
-    """
+    """Redirect to the OIDC provider to sign in, or to the login page if the provider cannot be reached."""
 
     if not OIDC_ENABLED:
         raise OIDCDisabledException
@@ -352,28 +345,47 @@ async def login_via_openid(request: Request) -> RedirectResponse:
     if not oauth.openid:
         raise OIDCNotConfiguredException
 
-    return cast(
-        RedirectResponse,
-        await oauth.openid.authorize_redirect(request, OIDC_REDIRECT_URI),
-    )
+    # Authlib fetches the provider's discovery document here, so a wrong
+    # OIDC_SERVER_APPLICATION_URL surfaces as an HTTP error
+    try:
+        return cast(
+            RedirectResponse,
+            await oauth.openid.authorize_redirect(request, OIDC_REDIRECT_URI),
+        )
+    except HTTPError as exc:
+        log.error(
+            f"OIDC provider discovery failed, check OIDC_SERVER_APPLICATION_URL: {exc!r}"
+        )
+        # Without the bypass, OIDC autologin would send the failure straight
+        # back here and loop
+        return RedirectResponse(url="/login?bypass_autologin=true")
 
 
-@router.get("/oauth/openid")
+@router.get(
+    "/oauth/openid",
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The provider's token lacks the user info, email or username, or the email is not verified."
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "No user matches the identity, or the user is disabled."
+        },
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The user has no role for RomM, the account is linked to another identity, or registration is disabled."
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": (
+                "The identity provider's username for a new user is already taken"
+                " by another account."
+            )
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "OIDC is disabled or not configured."
+        },
+    },
+)
 async def auth_openid(request: Request) -> RedirectResponse:
-    """OIDC callback endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Raises:
-        OIDCDisabledException: OAuth is disabled
-        OIDCNotConfiguredException: OAuth not configured
-        AuthCredentialsException: Invalid credentials
-        UserDisabledException: Auth is disabled
-
-    Returns:
-        RedirectResponse: Redirect to home, or to login if the provider rejects
-    """
+    """Complete an OIDC sign-in, then redirect to the home page, or to the login page if the provider rejects it."""
 
     if not OIDC_ENABLED:
         raise OIDCDisabledException
@@ -429,13 +441,7 @@ def request_password_reset(
     background_tasks: BackgroundTasks,
     username: str = Body(..., embed=True),
 ) -> None:
-    """Request a password reset link for the user.
-
-    Args:
-        username (str): Username of the user requesting the reset
-    Returns:
-        None: Returns 200 OK status
-    """
+    """Email a password reset link to the user. The response is the same whether or not the username exists."""
     user = db_user_handler.get_user_by_username(username)
 
     if user:
@@ -451,21 +457,27 @@ def request_password_reset(
         )
 
 
-@router.post("/reset-password", status_code=status.HTTP_200_OK)
+@router.post(
+    "/reset-password",
+    status_code=status.HTTP_200_OK,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "The new password is not valid, or the token is not valid, already"
+                " used or expired."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The user the token was issued for no longer exists."
+        },
+    },
+)
 async def reset_password(
     request: Request,
     token: str = Body(..., embed=True),
     new_password: str = Body(..., embed=True),
 ) -> None:
-    """Reset password using the token.
-
-    Args:
-        token (str): Reset token from the URL
-        new_password (str): New user password
-
-    Returns:
-        None: Returns 200 OK status
-    """
+    """Set a new password with the token from a password reset link. The token works once."""
     # Ahead of the token check, which spends the link: a rejected password
     # leaves it usable for another try.
     try:

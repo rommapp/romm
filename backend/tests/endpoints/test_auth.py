@@ -12,7 +12,7 @@ from joserfc.jwk import OctKey
 from tests.audit_events import recorded_events
 
 from handler.auth import base_handler as auth_handler_module
-from handler.auth.base_handler import auth_handler, oidc_handler
+from handler.auth.base_handler import auth_handler, oauth_handler, oidc_handler
 from handler.auth.constants import ALGORITHM, SESSION_COOKIE_NAME
 from handler.database import db_user_handler
 from handler.redis_handler import redis_client
@@ -127,6 +127,66 @@ def test_reset_password_rejects_an_expired_token(client, admin_user: User):
     assert response.json()["detail"] == "Token has expired"
 
 
+def test_reset_password_revokes_oauth_tokens(client, admin_user: User):
+    old = client.post(
+        "/api/token",
+        data={
+            "grant_type": "password",
+            "username": "test_admin",
+            "password": "test_admin_password",
+            "scope": "me.read",
+        },
+    ).json()
+
+    token = auth_handler.generate_password_reset_token(admin_user)
+    assert _reset_password(client, token).status_code == status.HTTP_200_OK
+
+    response = client.get(
+        "/api/users/me", headers={"Authorization": f"Bearer {old['access_token']}"}
+    )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    response = client.post(
+        "/api/token",
+        data={"grant_type": "refresh_token", "refresh_token": old["refresh_token"]},
+    )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_a_revocation_during_the_password_check_covers_the_login(
+    client, admin_user: User
+):
+    check = auth_handler.authenticate_user
+
+    def check_then_revoke(username: str, password: str) -> User | None:
+        user = check(username, password)
+        # The password changes while this login's check is still in flight.
+        oauth_handler.revoke_user_tokens(username)
+        return user
+
+    with mock.patch.object(
+        auth_handler, "authenticate_user", side_effect=check_then_revoke
+    ):
+        tokens = client.post(
+            "/api/token",
+            data={
+                "grant_type": "password",
+                "username": "test_admin",
+                "password": "test_admin_password",
+                "scope": "me.read",
+            },
+        ).json()
+
+    response = client.get(
+        "/api/users/me", headers={"Authorization": f"Bearer {tokens['access_token']}"}
+    )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    response = client.post(
+        "/api/token",
+        data={"grant_type": "refresh_token", "refresh_token": tokens["refresh_token"]},
+    )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
 def test_reset_password_for_a_deleted_user_is_not_found(client, viewer_user: User):
     token = auth_handler.generate_password_reset_token(viewer_user)
     db_user_handler.delete_user(viewer_user.id)
@@ -201,6 +261,26 @@ def test_oidc_callback_for_a_disabled_user_is_unauthorized(
     assert SESSION_COOKIE_NAME not in response.cookies
     [event] = recorded_events()
     assert (event.action, event.data["reason"]) == ("auth.login_failed", "disabled")
+
+
+def test_oidc_login_survives_an_unreachable_discovery_document(client: TestClient):
+    fake_oauth = mock.MagicMock()
+    fake_oauth.openid.authorize_redirect = mock.AsyncMock(
+        side_effect=httpx2.HTTPStatusError(
+            "404 Not Found",
+            request=httpx2.Request("GET", "https://idp.example/.well-known"),
+            response=httpx2.Response(404),
+        )
+    )
+    with (
+        mock.patch("endpoints.auth.OIDC_ENABLED", True),
+        mock.patch("endpoints.auth.oauth", fake_oauth),
+    ):
+        response = client.get("/api/login/openid", follow_redirects=False)
+
+    # Same landing as a rejected callback: no 500, and no autologin loop
+    assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT
+    assert response.headers["location"] == "/login?bypass_autologin=true"
 
 
 @pytest.mark.parametrize("path", ["/api/login/openid", "/api/oauth/openid"])

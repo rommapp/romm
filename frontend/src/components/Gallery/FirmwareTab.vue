@@ -50,6 +50,11 @@ const platformsStore = storePlatforms();
 const galleryRoms = storeGalleryRoms();
 const canWrite = useCan("platform.edit");
 
+// Switch key files are stored for clients and emulators; RomM never reads them.
+function isKeyFile(f: FirmwareSchema): boolean {
+  return f.file_name.toLowerCase().endsWith(".keys");
+}
+
 const firmwareList = computed<FirmwareSchema[]>(
   () => props.platform.firmware ?? [],
 );
@@ -391,6 +396,15 @@ async function performDelete(
                 "
               >
                 {{ t("platform.firmware-verified", "Verified") }}
+              </RChip>
+              <RChip
+                v-if="isKeyFile(f)"
+                size="x-small"
+                variant="translucent"
+                prepend-icon="mdi-key-outline"
+                :title="t('platform.firmware-keys-unused-tooltip')"
+              >
+                {{ t("platform.firmware-keys-unused") }}
               </RChip>
             </div>
           </div>

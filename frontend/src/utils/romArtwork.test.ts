@@ -196,6 +196,15 @@ describe("resolveRomArtwork — library media files", () => {
     expect(resolveRomArtwork(rom)).toHaveLength(0);
   });
 
+  // Chrome and Firefox render no JPEG XL, and the probe has not decoded here.
+  it("leaves out JPEG XL images until the browser shows it can render them", () => {
+    const rom = romWithFiles([
+      makeFile({ id: 1, file_name: "cover.jxl" }),
+      makeFile({ id: 2, file_name: "back.png" }),
+    ]);
+    expect(resolveRomArtwork(rom).map((i) => i.label)).toEqual(["back"]);
+  });
+
   it("skips categories that have their own surface", () => {
     const rom = romWithFiles([
       makeFile({ id: 1, file_name: "shot.png", category: "screenshot" }),
@@ -235,5 +244,42 @@ describe("resolveRomArtwork — library media files", () => {
     const entries = resolveRomArtwork(rom);
 
     expect(entries.map((e) => e.isVideo)).toEqual([false, true]);
+  });
+});
+
+describe("resolveRomArtwork (clip posters)", () => {
+  it("shows the title screen in every clip's box", () => {
+    const rom = romWithFiles([makeFile({ id: 3, file_name: "trailer.mp4" })], {
+      path_video: "roms/1/1/video/video.mp4",
+      ss_metadata: { title_screen_path: "roms/1/1/title_screen/title.png" },
+      merged_screenshots: ["/assets/romm/resources/roms/1/1/screenshots/0.jpg"],
+    });
+    const entries = resolveRomArtwork(rom);
+    const title = entries.find((e) => e.key === "artwork:title_screen")?.url;
+
+    expect(title).toBeDefined();
+    expect(entries.filter((e) => e.isVideo).map((e) => e.poster)).toEqual([
+      title,
+      title,
+    ]);
+  });
+
+  it("falls back to the first screenshot without a title screen", () => {
+    const rom = romWithFiles([], {
+      path_video: "roms/1/1/video/video.mp4",
+      merged_screenshots: ["/shots/0.jpg", "/shots/1.jpg"],
+    });
+
+    expect(resolveRomArtwork(rom).find((e) => e.isVideo)?.poster).toBe(
+      "/shots/0.jpg",
+    );
+  });
+
+  it("leaves a clip without a poster when the game has no still", () => {
+    const rom = romWithFiles([], { path_video: "roms/1/1/video/video.mp4" });
+
+    expect(
+      resolveRomArtwork(rom).find((e) => e.isVideo)?.poster,
+    ).toBeUndefined();
   });
 });

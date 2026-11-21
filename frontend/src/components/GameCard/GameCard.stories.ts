@@ -23,6 +23,15 @@ const meta: Meta<typeof GameCard> = {
   // Rendered as in the gallery: a link card with the multi-select checkbox,
   // so the a11y check covers both.
   args: { selectable: true, position: 0 },
+  parameters: {
+    // The card's name is its title; axe wants every visible word on the card
+    // (flags, rating, action buttons) in it, which no composite card can meet.
+    a11y: {
+      config: {
+        rules: [{ id: "label-content-name-mismatch", enabled: false }],
+      },
+    },
+  },
 };
 
 export default meta;

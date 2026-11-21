@@ -29,6 +29,7 @@ import {
   watchEffect,
 } from "vue";
 import { useChromeLabels } from "@/lib/a11y/chromeLabels";
+import { TONE_MAP } from "@/lib/style/tokenMaps";
 import { focusFromInput } from "@/utils/autofocus";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RProgressCircular from "../../primitives/RProgressCircular/RProgressCircular.vue";
@@ -108,6 +109,9 @@ interface Props {
    *  pairs with the field's value. The `#subtitle` slot wins over the
    *  prop when both are provided; use the slot to drop in an icon. */
   subtitle?: string | undefined;
+  /** Muted text after the value, before any append adornment (a unit, a
+   *  result count). Single-line only. */
+  suffix?: string | undefined;
   /** Wires the native input as a combobox owning a popup, putting the role
    *  on the input rather than the outer element (a `<label>` when this field
    *  owns its visible label). Single-line only: `role="combobox"` is not
@@ -119,6 +123,8 @@ interface Props {
         controls?: string | undefined;
         expanded: boolean;
         kind: "dialog" | "listbox" | "grid";
+        /** `id` of the option the popup's keyboard navigation is on. */
+        activedescendant?: string | undefined;
       }
     | undefined;
 }
@@ -157,6 +163,7 @@ const props = withDefaults(defineProps<Props>(), {
   rows: 4,
   mono: false,
   subtitle: undefined,
+  suffix: undefined,
   popup: undefined,
 });
 
@@ -199,20 +206,6 @@ const inputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(null);
 const fieldId = `r-tf-${getCurrentInstance()?.uid ?? Math.random().toString(36).slice(2)}`;
 
 // ── Tone resolver: same vocabulary as the rest of the lib ─────
-const TONE_MAP: Record<string, string> = {
-  primary: "var(--r-color-brand-primary)",
-  secondary: "var(--r-color-brand-secondary)",
-  accent: "var(--r-color-brand-accent)",
-  success: "var(--r-color-success)",
-  warning: "var(--r-color-warning)",
-  danger: "var(--r-color-danger)",
-  error: "var(--r-color-danger)",
-  info: "var(--r-color-info)",
-  "romm-red": "var(--r-color-romm-red)",
-  "romm-green": "var(--r-color-romm-green)",
-  "romm-blue": "var(--r-color-romm-blue)",
-  "romm-gold": "var(--r-color-romm-gold)",
-};
 const resolvedColor = computed<string>(
   () => TONE_MAP[props.color] ?? props.color ?? TONE_MAP.primary,
 );
@@ -526,11 +519,16 @@ function onAppendInnerClick(evt: MouseEvent) {
         :aria-haspopup="popup?.kind"
         :aria-expanded="popup ? popup.expanded : undefined"
         :aria-controls="popup?.controls"
+        :aria-activedescendant="popup?.activedescendant"
         @input="onInput"
         @focus="onFocus"
         @blur="onBlur"
       />
       <!-- eslint-enable vuejs-accessibility/no-autofocus -->
+
+      <span v-if="suffix && !multiline" class="r-text-field__suffix">{{
+        suffix
+      }}</span>
 
       <!-- Append-inner adornment (right of the input). Loading +
            clearable take priority over user content. Interactive when
@@ -704,7 +702,10 @@ function onAppendInnerClick(evt: MouseEvent) {
   border-color: transparent;
   background: var(--r-color-surface);
 }
-.r-text-field--variant-outlined:not(.r-text-field--disabled):hover
+.r-text-field--variant-outlined:not(
+    .r-text-field--disabled,
+    .r-text-field--readonly
+  ):hover
   .r-text-field__field {
   border-color: var(--r-color-border-strong);
   /* Whisper-thin currentColor halo on hover, felt more than seen.
@@ -713,7 +714,10 @@ function onAppendInnerClick(evt: MouseEvent) {
 }
 /* Filled hover: borderless, the whole pill lights up via a brand-tinted
    fill instead. Keeps the variant reading as a single solid element. */
-.r-text-field--variant-filled:not(.r-text-field--disabled):hover
+.r-text-field--variant-filled:not(
+    .r-text-field--disabled,
+    .r-text-field--readonly
+  ):hover
   .r-text-field__field {
   background: color-mix(
     in srgb,
@@ -726,15 +730,22 @@ function onAppendInnerClick(evt: MouseEvent) {
    chain bumps specificity above the hover rule so brand wins when the
    user hovers a focused field. */
 .r-text-field--variant-outlined.r-text-field--focused:not(
-    .r-text-field--disabled
+    .r-text-field--disabled,
+    .r-text-field--readonly
   )
   .r-text-field__field,
-.r-text-field--variant-filled.r-text-field--focused:not(.r-text-field--disabled)
+.r-text-field--variant-filled.r-text-field--focused:not(
+    .r-text-field--disabled,
+    .r-text-field--readonly
+  )
   .r-text-field__field {
   border-color: var(--r-tf-color);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--r-tf-color) 22%, transparent);
 }
-.r-text-field--variant-filled.r-text-field--focused:not(.r-text-field--disabled)
+.r-text-field--variant-filled.r-text-field--focused:not(
+    .r-text-field--disabled,
+    .r-text-field--readonly
+  )
   .r-text-field__field {
   /* Slightly stronger brand tint than hover so the transition into
      focus reads as "deeper" rather than a step back. */
@@ -751,7 +762,10 @@ function onAppendInnerClick(evt: MouseEvent) {
   background: transparent;
   border-bottom: 1px solid var(--r-color-border);
 }
-.r-text-field--variant-underlined:not(.r-text-field--disabled):hover
+.r-text-field--variant-underlined:not(
+    .r-text-field--disabled,
+    .r-text-field--readonly
+  ):hover
   .r-text-field__field {
   border-bottom-color: var(--r-color-border-strong);
 }
@@ -766,7 +780,9 @@ function onAppendInnerClick(evt: MouseEvent) {
   transition: width var(--r-motion-med) cubic-bezier(0.34, 1.56, 0.64, 1);
   pointer-events: none;
 }
-.r-text-field--variant-underlined.r-text-field--focused
+.r-text-field--variant-underlined.r-text-field--focused:not(
+    .r-text-field--readonly
+  )
   .r-text-field__underline {
   width: 100%;
 }
@@ -806,11 +822,27 @@ function onAppendInnerClick(evt: MouseEvent) {
   -webkit-text-fill-color: var(--r-color-fg-muted);
 }
 .r-text-field--disabled {
-  opacity: 0.55;
+  opacity: var(--r-opacity-inactive);
   cursor: not-allowed;
 }
 .r-text-field--disabled .r-text-field__input {
   cursor: not-allowed;
+}
+/* Read-only: flat dashed chrome and muted text that ignore hover and pointer
+   focus, so the value reads as shown rather than editable. Keyboard and
+   gamepad focus keep the modality-gated outline below. */
+.r-text-field--variant-outlined.r-text-field--readonly .r-text-field__field,
+.r-text-field--variant-filled.r-text-field--readonly .r-text-field__field {
+  border-style: dashed;
+  border-color: var(--r-color-border);
+  background: transparent;
+}
+.r-text-field--variant-underlined.r-text-field--readonly .r-text-field__field {
+  border-bottom-style: dashed;
+}
+.r-text-field--readonly .r-text-field__input {
+  color: var(--r-color-fg-muted);
+  -webkit-text-fill-color: var(--r-color-fg-muted);
 }
 
 /* ── Multiline ─────────────────────────────────────────────────── */
@@ -871,6 +903,16 @@ function onAppendInnerClick(evt: MouseEvent) {
   padding-inline-end: 6px;
 }
 
+/* ── Suffix ────────────────────────────────────────────────────── */
+.r-text-field__suffix {
+  flex-shrink: 0;
+  padding-inline-end: 6px;
+  color: var(--r-color-fg-muted);
+  font-size: var(--r-font-size-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 /* ── Adornments ────────────────────────────────────────────────── */
 .r-text-field__adornment {
   display: inline-flex;
@@ -889,7 +931,7 @@ function onAppendInnerClick(evt: MouseEvent) {
   padding-inline-start: 0;
   padding-inline-end: var(--r-tf-pad-x);
 }
-.r-text-field--focused .r-text-field__adornment {
+.r-text-field--focused:not(.r-text-field--readonly) .r-text-field__adornment {
   color: var(--r-color-fg-secondary);
 }
 
@@ -990,7 +1032,7 @@ function onAppendInnerClick(evt: MouseEvent) {
   color: var(--r-color-fg-muted);
   transition: color var(--r-motion-fast) var(--r-motion-ease-out);
 }
-.r-text-field--focused .r-text-field__label {
+.r-text-field--focused:not(.r-text-field--readonly) .r-text-field__label {
   color: var(--r-tf-color);
 }
 .r-text-field--error .r-text-field__label {
@@ -1033,7 +1075,8 @@ function onAppendInnerClick(evt: MouseEvent) {
     border-right-color var(--r-motion-fast) var(--r-motion-ease-out),
     color var(--r-motion-fast) var(--r-motion-ease-out);
 }
-.r-text-field--inline.r-text-field--focused .r-text-field__label--inline {
+.r-text-field--inline.r-text-field--focused:not(.r-text-field--readonly)
+  .r-text-field__label--inline {
   border-right-color: var(--r-tf-color);
 }
 .r-text-field--inline.r-text-field--error .r-text-field__label--inline {

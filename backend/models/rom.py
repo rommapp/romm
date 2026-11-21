@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 import enum
 import hashlib
 import re
@@ -8,7 +7,8 @@ import sys
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from functools import cached_property
+from functools import cache, cached_property
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any, Final, NamedTuple, TypedDict
 
 from sqlalchemy import (
@@ -27,6 +27,7 @@ from sqlalchemy import (
     UniqueConstraint,
     and_,
     event,
+    false,
     func,
     inspect,
     or_,
@@ -42,6 +43,7 @@ from sqlalchemy.orm import (
 )
 from sqlalchemy.orm.attributes import InstrumentedAttribute, set_committed_value
 from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.selectable import ScalarSelect
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import (
@@ -63,6 +65,24 @@ FULL_PATH_HASH_LENGTH = 64
 AUDIO_TAG_MAX_LENGTH = 512
 # Max length for the binary identity columns (title id and save target).
 TITLE_ID_MAX_LENGTH = 100
+ROM_SHA1_MAX_LENGTH = 100
+
+# Every provider's metadata column; `manual_metadata` holds the user's own overrides.
+PROVIDER_METADATA_COLUMNS: Final = (
+    "igdb_metadata",
+    "moby_metadata",
+    "ss_metadata",
+    "ra_metadata",
+    "launchbox_metadata",
+    "hasheous_metadata",
+    "flashpoint_metadata",
+    "hltb_metadata",
+    "demozoo_metadata",
+    "pouet_metadata",
+    "csdb_metadata",
+    "steam_metadata",
+    "gamelist_metadata",
+)
 
 # (metadata column, key) of each provider's alternative titles.
 PROVIDER_ALTERNATIVE_NAME_SOURCES = (
@@ -81,9 +101,8 @@ ALTERNATIVE_NAME_SOURCES = (
 PINNED_MEDIA_MAX_ITEMS = 100
 PINNED_MEDIA_KEY_MAX_LENGTH = 1024
 PINNED_MEDIA_KEY_PATTERN = r"^(scraped|file|screenshot|artwork):\S"
-# Articles ignored when sorting or bucketing a title, across the languages
-# No-Intro and LaunchBox name games in. Both patterns built from this are
-# anchored on the right, so "la" preceding "las" costs nothing.
+# Articles LaunchBox moves to the end of a title ("Boot, Das"), across the
+# languages No-Intro and LaunchBox name games in.
 ARTICLES = (
     "the",
     "a",
@@ -102,14 +121,39 @@ ARTICLES = (
     "das",
     "het",
 )
-ARTICLE_PREFIX_RE = re.compile(rf"^({'|'.join(ARTICLES)})\s+")
 DIGIT_RUN_RE = re.compile(r"\d+")
 
 
-def compute_name_sort_key(name: str | None) -> str:
-    """Precompute the natural-sort key stored in `Rom.name_sort_key`"""
-    value = (name or "").lower()
-    value = ARTICLE_PREFIX_RE.sub("", value).strip()
+@cache
+def _article_prefix_re(articles: tuple[str, ...]) -> re.Pattern[str] | None:
+    if not articles:
+        return None
+    return re.compile(rf"^({'|'.join(map(re.escape, articles))})\s+")
+
+
+def sort_articles() -> tuple[str, ...]:
+    """The leading words a title sorts without, from `sorting.articles`."""
+    # Imported here: the config manager imports this module.
+    from config.config_manager import config_manager as cm
+
+    return tuple(cm.config.SORT_ARTICLES)
+
+
+def compute_name_sort_key(
+    name: str | None, *, articles: Sequence[str] | None = None
+) -> str:
+    """Precompute the natural-sort key stored in `Rom.name_sort_key`.
+
+    Args:
+        articles: Leading words to drop, the configured ones by default. An
+            empty sequence keeps the name as given, for a custom sort key.
+    """
+    value = (name or "").lower().strip()
+    pattern = _article_prefix_re(
+        sort_articles() if articles is None else tuple(articles)
+    )
+    if pattern is not None:
+        value = pattern.sub("", value).strip()
     value = DIGIT_RUN_RE.sub(lambda m: m.group(0).zfill(12), value)
     return value[:NAME_SORT_KEY_MAX_LENGTH]
 
@@ -292,6 +336,8 @@ IDENTITY_PROVIDER_ID_LENGTH: Final = 100
 # The database file at the root of every RPG Maker 2000/2003 game folder.
 EASYRPG_GAME_DATABASE: Final = "rpg_rt.ldb"
 
+JSDOS_BUNDLE_EXTENSION: Final = ".jsdos"
+
 
 class RomIdentityKey(BaseModel):
     """One row per (ROM, provider it has a match id for), scoped to a platform.
@@ -395,7 +441,7 @@ class RomFile(BaseModel):
     last_modified: Mapped[float | None] = mapped_column(default=None)
     crc_hash: Mapped[str | None] = mapped_column(String(100))
     md5_hash: Mapped[str | None] = mapped_column(String(100))
-    sha1_hash: Mapped[str | None] = mapped_column(String(100))
+    sha1_hash: Mapped[str | None] = mapped_column(String(ROM_SHA1_MAX_LENGTH))
     ra_hash: Mapped[str | None] = mapped_column(String(100))
     chd_sha1_hash: Mapped[str | None] = mapped_column(String(100))
     title_id: Mapped[str | None] = mapped_column(String(length=TITLE_ID_MAX_LENGTH))
@@ -404,6 +450,25 @@ class RomFile(BaseModel):
     # When rom-converto last recognized the file; NULL queues it on the next scan.
     converto_read_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True), default=None
+    )
+    raw_serial: Mapped[str | None] = mapped_column(
+        String(length=TITLE_ID_MAX_LENGTH),
+        default=None,
+        doc="The serial as the binary spells it (SLUS_201.52), which some emulators name saves after",
+    )
+    # NULL until sigil reads the file. BigInteger: a u32 bitmask.
+    sigil_features: Mapped[int | None] = mapped_column(BigInteger, default=None)
+    # Standalone N64 emulators name saves after these; reading them takes the whole ROM.
+    n64_header: Mapped[str | None] = mapped_column(
+        String(length=TITLE_ID_MAX_LENGTH), default=None
+    )
+    n64_md5: Mapped[str | None] = mapped_column(String(100), default=None)
+    n64_md5_n64: Mapped[str | None] = mapped_column(String(100), default=None)
+    playlist_title_ids: Mapped[list[str] | None] = mapped_column(
+        CustomJSON(),
+        default=None,
+        nullable=True,
+        doc="Each listed disc's title id, in playlist order, when the file is an .m3u",
     )
     archive_members: Mapped[list[RomArchiveMember] | None] = mapped_column(
         CustomJSON(), default=None, nullable=True
@@ -473,6 +538,12 @@ class RomFile(BaseModel):
             )
 
         return LookupHashes(crc=self.crc_hash, md5=self.md5_hash, sha1=self.sha1_hash)
+
+    @property
+    def listing_order(self) -> tuple[PurePosixPath, str, str]:
+        """A folder's own files before its subfolders', each in natural name order."""
+        name = self.file_name
+        return PurePosixPath(self.file_path), compute_name_sort_key(name), name
 
     @cached_property
     def is_top_level(self) -> bool:
@@ -752,6 +823,17 @@ def rom_fs_resources_path(platform_id: int, id: int) -> str:
     return f"roms/{platform_id}/{id}"
 
 
+_ROM_RESOURCE_URL_ID = re.compile(
+    rf"^{re.escape(FRONTEND_RESOURCES_PATH)}/roms/\d+/(\d+)/"
+)
+
+
+def rom_id_from_resource_url(url: str) -> int | None:
+    """The rom id in a URL under `rom_fs_resources_path`, or None for any other URL."""
+    match = _ROM_RESOURCE_URL_ID.match(url)
+    return int(match[1]) if match else None
+
+
 class Rom(BaseModel):
     __tablename__ = "roms"
 
@@ -810,6 +892,8 @@ class Rom(BaseModel):
             "id",
         ),
         Index("idx_roms_platform_fs_size", "platform_id", "fs_size_bytes"),
+        # Covers a platform's age-hidden totals; InnoDB appends `id` for direct hides.
+        Index("idx_roms_platform_min_age", "platform_id", "min_age", "fs_size_bytes"),
         # The remaining gallery sorts, each paired with the `id` tiebreak the
         # gallery orders by; the key alone would not match its ORDER BY.
         Index("idx_roms_platform_id_sorted", "platform_id", "id"),
@@ -880,6 +964,10 @@ class Rom(BaseModel):
     name: Mapped[str | None] = mapped_column(String(length=350))
     name_sort_key: Mapped[str | None] = mapped_column(
         String(length=NAME_SORT_KEY_MAX_LENGTH), default=None
+    )
+    # Set by whoever writes a key on purpose; a derived key follows `name`.
+    name_sort_key_custom: Mapped[bool] = mapped_column(
+        default=False, server_default=false(), nullable=False
     )
     slug: Mapped[str | None] = mapped_column(String(length=400))
     summary: Mapped[str | None] = mapped_column(Text)
@@ -1090,11 +1178,12 @@ class Rom(BaseModel):
     def _sync_name_sort_key(self, key: str, value: str | None) -> str | None:
         """Keep the indexed `name_sort_key` in sync with `name`"""
         if key == "name_sort_key":
-            return compute_name_sort_key(value or self.name)
+            # A key that is set explicitly sorts as given, leading article included.
+            if value:
+                return compute_name_sort_key(value, articles=())
+            return compute_name_sort_key(self.name)
 
-        if self.name_sort_key is None or self.name_sort_key == compute_name_sort_key(
-            self.name
-        ):
+        if not self.name_sort_key_custom:
             self.name_sort_key = compute_name_sort_key(value)
 
         return value
@@ -1177,6 +1266,7 @@ class Rom(BaseModel):
         multi_file: Mapped[bool]
         top_level_file_count: Mapped[int]
         is_easyrpg_game: Mapped[bool]
+        has_jsdos_bundle: Mapped[bool]
 
     @property
     def has_simple_single_file(self) -> bool:
@@ -1253,11 +1343,11 @@ class Rom(BaseModel):
         return not self.is_physical and not self.missing_from_fs
 
     def has_m3u_file(self) -> bool:
-        """
-        Check if the ROM has an M3U file associated with it.
-        This is used for multi-disc games.
-        """
-        return any(file.file_extension.lower() == "m3u" for file in self.files)
+        """Whether the base game's discs come with their own .m3u playlist."""
+        # utils.m3u imports this module.
+        from utils.m3u import has_playlist, playlist_set
+
+        return has_playlist(playlist_set(self.files))
 
     # Metadata fields
     @property
@@ -1286,26 +1376,21 @@ class Rom(BaseModel):
 
     @cached_property
     def merged_ra_metadata(self) -> dict[str, Any] | None:
-        if self.ra_metadata and "achievements" in self.ra_metadata:
-            # Create a deep copy to avoid mutating the original metadata
-            # This ensures that badge paths remain relative for filesystem operations
-            # while the frontend receives absolute paths
-            metadata_copy = copy.deepcopy(self.ra_metadata)
-            # The provider returns achievements keyed by id, so the stored order
-            # is arbitrary.
-            achievements = sorted(
-                metadata_copy.get("achievements", []), key=_ra_achievement_sort_key
+        if not self.ra_metadata or "achievements" not in self.ra_metadata:
+            return self.ra_metadata
+        # New dicts keep the stored badge paths relative for the filesystem.
+        # The provider keys achievements by id, so the stored order is arbitrary.
+        achievements = [
+            {
+                **achievement,
+                "badge_path_lock": f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path_lock']}",
+                "badge_path": f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path']}",
+            }
+            for achievement in sorted(
+                self.ra_metadata["achievements"], key=_ra_achievement_sort_key
             )
-            for achievement in achievements:
-                achievement["badge_path_lock"] = (
-                    f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path_lock']}"
-                )
-                achievement["badge_path"] = (
-                    f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path']}"
-                )
-            metadata_copy["achievements"] = achievements
-            return metadata_copy
-        return self.ra_metadata
+        ]
+        return {**self.ra_metadata, "achievements": achievements}
 
     # Used only during scan process
     @property
@@ -1324,6 +1409,25 @@ class Rom(BaseModel):
 # Revisit (real columns, JOIN/aggregate, or added indexes) if gallery latency regresses
 _rom_full_path = func.concat(Rom.fs_path, "/", Rom.fs_name)
 
+# `RomFile.is_top_level` in SQL.
+_is_top_level_file = or_(
+    func.concat(RomFile.file_path, "/", RomFile.file_name) == _rom_full_path,
+    RomFile.file_path == _rom_full_path,
+)
+
+
+def _rom_has_present_file(*criteria: ColumnElement[bool]) -> ScalarSelect[bool]:
+    """Whether the rom has a file on disk matching every one of `criteria`."""
+    return (
+        select(RomFile.id)
+        .where(RomFile.rom_id == Rom.id, RomFile.missing_from_fs.is_(False), *criteria)
+        .correlate_except(RomFile)
+        .exists()
+        .select()
+        .scalar_subquery()
+    )
+
+
 Rom.multi_file = column_property(
     select(RomFile.id)
     .where(
@@ -1341,53 +1445,36 @@ Rom.multi_file = column_property(
 
 Rom.top_level_file_count = column_property(
     select(func.count(RomFile.id))
-    .where(
-        and_(
-            RomFile.rom_id == Rom.id,
-            or_(
-                func.concat(RomFile.file_path, "/", RomFile.file_name)
-                == _rom_full_path,
-                RomFile.file_path == _rom_full_path,
-            ),
-        )
-    )
+    .where(and_(RomFile.rom_id == Rom.id, _is_top_level_file))
     .correlate_except(RomFile)
     .scalar_subquery(),
     deferred=True,
 )
 
 Rom.is_easyrpg_game = column_property(
-    select(RomFile.id)
-    .where(
-        and_(
-            RomFile.rom_id == Rom.id,
-            RomFile.file_path == _rom_full_path,
-            func.lower(RomFile.file_name) == EASYRPG_GAME_DATABASE,
-            RomFile.missing_from_fs.is_(False),
-        )
-    )
-    .correlate_except(RomFile)
-    .exists()
-    .select()
-    .scalar_subquery(),
+    _rom_has_present_file(
+        RomFile.file_path == _rom_full_path,
+        func.lower(RomFile.file_name) == EASYRPG_GAME_DATABASE,
+    ),
+    deferred=True,
+)
+
+Rom.has_jsdos_bundle = column_property(
+    _rom_has_present_file(
+        _is_top_level_file,
+        func.lower(RomFile.file_name).like(f"%{JSDOS_BUNDLE_EXTENSION}"),
+    ),
     deferred=True,
 )
 
 
 def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
     """Fill the deferred file-stat columns from an already-loaded file list."""
+    top_level = [f for f in files if rom.full_path in (f.full_path, f.file_path)]
     set_committed_value(
         rom, "multi_file", any(f.file_path != rom.fs_path for f in files)
     )
-    set_committed_value(
-        rom,
-        "top_level_file_count",
-        sum(
-            1
-            for f in files
-            if f.full_path == rom.full_path or f.file_path == rom.full_path
-        ),
-    )
+    set_committed_value(rom, "top_level_file_count", len(top_level))
     set_committed_value(
         rom,
         "has_soundtrack",
@@ -1401,6 +1488,15 @@ def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
             and f.file_name.lower() == EASYRPG_GAME_DATABASE
             and not f.missing_from_fs
             for f in files
+        ),
+    )
+    set_committed_value(
+        rom,
+        "has_jsdos_bundle",
+        any(
+            f.file_name.lower().endswith(JSDOS_BUNDLE_EXTENSION)
+            and not f.missing_from_fs
+            for f in top_level
         ),
     )
 
@@ -1421,9 +1517,26 @@ def rom_search_titles(rom: Rom) -> str:
     return compute_search_titles(rom.name, alternative_name_metadata(rom))
 
 
+DERIVED_SOURCE_COLUMNS = (*SEARCH_TITLE_COLUMNS, *MIN_AGE_SOURCE_COLUMNS)
+
+
+def compute_derived_columns(values: Mapping[str, Any]) -> dict[str, Any]:
+    """The columns a ROM insert derives from its own values.
+
+    Args:
+        values: Each `DERIVED_SOURCE_COLUMNS` column's value, by column name.
+    """
+    return {
+        "search_titles": compute_search_titles(values.get("name"), values),
+        "min_age": compute_min_age(values),
+    }
+
+
 @event.listens_for(Rom, "before_insert")
-def _set_search_titles(_mapper: Any, _connection: Any, rom: Rom) -> None:
-    rom.search_titles = rom_search_titles(rom)
+def _set_derived_columns(_mapper: Any, _connection: Any, rom: Rom) -> None:
+    values = {column: getattr(rom, column) for column in DERIVED_SOURCE_COLUMNS}
+    for column, value in compute_derived_columns(values).items():
+        setattr(rom, column, value)
 
 
 @event.listens_for(Rom, "before_update")
@@ -1440,11 +1553,6 @@ def rom_min_age(rom: Rom) -> int | None:
     return compute_min_age(
         {column: getattr(rom, column) for column in MIN_AGE_SOURCE_COLUMNS}
     )
-
-
-@event.listens_for(Rom, "before_insert")
-def _set_min_age(_mapper: Any, _connection: Any, rom: Rom) -> None:
-    rom.min_age = rom_min_age(rom)
 
 
 @event.listens_for(Rom, "before_update")

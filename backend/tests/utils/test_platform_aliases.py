@@ -7,9 +7,12 @@ from config.config_manager import Config
 from utils.platform_aliases import (
     PLATFORM_FS_ALIASES,
     PLATFORM_SLUG_FOLDERS,
+    resolve_builtin_platform_slug,
     resolve_fs_folder,
     resolve_fs_slug,
     resolve_platform_slug,
+    unknown_binding_warning,
+    unknown_binding_warnings,
 )
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
@@ -51,10 +54,55 @@ def test_folder_without_alias_passes_through():
     assert resolve_platform_slug("my-custom-folder", config) == "my-custom-folder"
 
 
+def test_resolves_zc_folders_to_zelda_classic():
+    """zc210 (Batocera/libretro 2.10) and zc250 (2.50) both map to Zelda Classic."""
+    assert resolve_platform_slug("zc210", _config()) == UPS.ZELDA_CLASSIC.value
+    assert resolve_platform_slug("zc250", _config()) == UPS.ZELDA_CLASSIC.value
+    # Two folder names map here, so no single reverse folder is canonical.
+    assert resolve_fs_slug(UPS.ZELDA_CLASSIC.value, _config()) is None
+
+
 def test_resolves_easyrpg_to_rpg_maker():
     """Batocera, RetroBat and ES-DE all name the RPG Maker folder after the engine."""
     assert resolve_platform_slug("easyrpg", _config()) == UPS.RPG_MAKER.value
     assert resolve_fs_slug(UPS.RPG_MAKER.value, _config()) == "easyrpg"
+
+
+@pytest.mark.parametrize("folder", ["sgb", "sgb-msu1"])
+def test_super_game_boy_folders_stay_unidentified(folder: str):
+    """ES-DE and Batocera use sgb for the Super Game Boy, which has no RomM slug."""
+    assert resolve_builtin_platform_slug(folder) is None
+    assert resolve_platform_slug(folder, _config()) == folder
+
+
+@pytest.mark.parametrize(
+    ("folder", "slug"),
+    [
+        ("mame", UPS.MAME),
+        ("fbneo", UPS.FBNEO),
+        ("naomi", UPS.NAOMI),
+        ("lindbergh", UPS.LINDBERGH),
+        ("laserdisc", UPS.DAPHNE),
+        ("cps2", UPS.ARCADE),
+        ("system16", UPS.ARCADE),
+        ("model1", UPS.ARCADE),
+        ("namco22", UPS.ARCADE),
+        ("system-32", UPS.ARCADE),
+        ("typex", UPS.TYPE_X),
+        ("teknoparrot", UPS.TEKNOPARROT),
+    ],
+)
+def test_arcade_folders_resolve_by_emulator(folder: str, slug: UPS):
+    """Emulator families and boards with their own emulator keep a slug; MAME-only boards are Arcade."""
+    assert resolve_platform_slug(folder, _config()) == slug.value
+
+
+def test_a_binding_to_an_alias_resolves_to_its_platform():
+    config = _config(bindings={"capcom": "cps2"}, versions={"sega": "Mastersystem"})
+
+    assert resolve_platform_slug("capcom", config) == UPS.ARCADE.value
+    assert resolve_platform_slug("sega", config) == UPS.SMS.value
+    assert resolve_fs_slug(UPS.SMS.value, config) == "sega"
 
 
 def test_binding_and_version_win_over_alias():
@@ -66,6 +114,62 @@ def test_binding_and_version_win_over_alias():
 
     both = _config(bindings={"gamecube": "arcade"}, versions={"gamecube": "wii"})
     assert resolve_platform_slug("gamecube", both) == "arcade"
+
+
+def test_warns_about_a_binding_to_an_unknown_name():
+    config = _config(bindings={"snes-test": "snse"})
+
+    warning = unknown_binding_warning("SNES-Test", config)
+
+    assert warning is not None
+    assert "system.platforms.snes-test is snse" in warning
+    assert warning.endswith("Did you mean snes, singe?")
+
+
+def test_warns_about_a_version_to_an_unknown_name():
+    warning = unknown_binding_warning("cube", _config(versions={"cube": "gamcube"}))
+
+    assert warning is not None
+    assert "system.versions.cube is gamcube" in warning
+    assert "gamecube" in warning
+
+
+def test_leaves_out_the_suggestion_when_nothing_is_close():
+    warning = unknown_binding_warning("mine", _config(bindings={"mine": "qqqqqq"}))
+
+    assert warning is not None
+    assert "Did you mean" not in warning
+
+
+@pytest.mark.parametrize(
+    ("bindings", "versions", "folder"),
+    [
+        ({"nintendo-snes": "snes"}, {}, "nintendo-snes"),
+        ({"easyrpg-2000": "easyrpg"}, {}, "easyrpg-2000"),
+        ({}, {"sega": "Mastersystem"}, "sega"),
+        ({"a1200": "amiga-a-1200"}, {}, "a1200"),
+        ({}, {}, "my-homebrew"),
+        # The binding wins over the version, so only it is checked.
+        ({"gamecube": "arcade"}, {"gamecube": "gamcube"}, "gamecube"),
+    ],
+)
+def test_no_warning_for_known_names_or_unbound_folders(
+    bindings: dict[str, str], versions: dict[str, str], folder: str
+):
+    assert unknown_binding_warning(folder, _config(bindings, versions)) is None
+
+
+def test_lists_a_warning_for_each_unknown_binding():
+    config = _config(
+        bindings={"snes-test": "snse", "nintendo-snes": "snes"},
+        versions={"cube": "gamcube"},
+    )
+
+    warnings = unknown_binding_warnings(config)
+
+    assert len(warnings) == 2
+    assert "system.versions.cube" in warnings[0]
+    assert "system.platforms.snes-test" in warnings[1]
 
 
 def test_resolution_is_case_insensitive():
@@ -121,3 +225,11 @@ def test_example_configs_list_only_needed_overrides(config_file: Path):
         if resolve_platform_slug(fs_slug, empty) == slug
     }
     assert not redundant
+
+
+@pytest.mark.parametrize(
+    ("folder", "slug"),
+    [("gamecube", "ngc"), ("MegaDrive", "genesis"), ("N64", "n64"), ("mystery", None)],
+)
+def test_resolves_builtin_slug_without_config(folder: str, slug: str | None):
+    assert resolve_builtin_platform_slug(folder) == slug

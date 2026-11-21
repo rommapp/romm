@@ -14,7 +14,9 @@ device has no credentials yet). State lives exclusively in Redis with a hard
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException
+from fastapi import Path as PathVar
+from fastapi import Request, status
 
 from decorators.auth import protected_route
 from endpoints.responses.device.auth import (
@@ -66,7 +68,15 @@ def _device_code_prefix(device_code: str) -> str:
     return device_code[:8]
 
 
-@router.post("/init", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/init",
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_429_TOO_MANY_REQUESTS: {
+            "description": "This IP address started too many pairing flows recently."
+        },
+    },
+)
 def device_auth_init(
     request: Request, payload: DeviceAuthInitPayload
 ) -> DeviceAuthInitResponse:
@@ -108,8 +118,28 @@ def device_auth_init(
     )
 
 
-@protected_route(router.get, "/pending/{user_code}", [Scope.ME_READ])
-def get_pending(request: Request, user_code: str) -> DeviceAuthPendingSchema:
+@protected_route(
+    router.get,
+    "/pending/{user_code}",
+    [Scope.ME_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The code is unknown or has expired."
+        },
+        status.HTTP_410_GONE: {
+            "description": "The code was already approved or denied."
+        },
+    },
+)
+def get_pending(
+    request: Request,
+    user_code: str = PathVar(
+        description=(
+            "The short code the device displayed. An unknown or expired code"
+            " returns 404."
+        ),
+    ),
+) -> DeviceAuthPendingSchema:
     """Fetch a pending request's metadata for the approval screen."""
     normalized = normalize_user_code(user_code)
     device_code = resolve_device_code_from_user_code(normalized)
@@ -131,9 +161,9 @@ def get_pending(request: Request, user_code: str) -> DeviceAuthPendingSchema:
             detail=f"Code already {data.get('status')}",
         )
 
-    user_scopes = {str(s) for s in request.user.oauth_scopes}
+    caller_scopes = {str(s) for s in request.auth.scopes}
     requested = list(data.get("requested_scopes", []))
-    allowed = sorted(set(requested) & user_scopes)
+    allowed = sorted(set(requested) & caller_scopes)
 
     return DeviceAuthPendingSchema(
         client_device_identifier=data["client_device_identifier"],
@@ -147,7 +177,25 @@ def get_pending(request: Request, user_code: str) -> DeviceAuthPendingSchema:
     )
 
 
-@protected_route(router.post, "/approve", [Scope.ME_WRITE])
+@protected_route(
+    router.post,
+    "/approve",
+    [Scope.ME_WRITE],
+    responses={
+        status.HTTP_403_FORBIDDEN: {
+            "description": (
+                "No scope is approved, or an approved scope was not requested by the"
+                " device or is not held by the caller."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The code is unknown or has expired."
+        },
+        status.HTTP_410_GONE: {
+            "description": "The code was already approved or denied."
+        },
+    },
+)
 def approve(
     request: Request, payload: DeviceAuthApprovePayload
 ) -> DeviceAuthApproveResponse:
@@ -172,9 +220,9 @@ def approve(
             detail=f"Code already {data.get('status')}",
         )
 
-    user_scopes = {str(s) for s in request.user.oauth_scopes}
+    caller_scopes = {str(s) for s in request.auth.scopes}
     requested = set(data.get("requested_scopes", []))
-    allowed = requested & user_scopes
+    allowed = requested & caller_scopes
     approved_set = set(payload.approved_scopes)
     if not approved_set or not approved_set.issubset(allowed):
         raise HTTPException(
@@ -244,6 +292,7 @@ def approve(
     mark_approved(
         device_code,
         raw_token=raw_token,
+        token_id=token.id,
         device_id=device.id,
         scopes=sorted(approved_set),
         expires_at=token.expires_at,
@@ -270,8 +319,21 @@ def approve(
     return DeviceAuthApproveResponse(device_id=device.id, device_name=device_name)
 
 
-@protected_route(router.post, "/deny", [Scope.ME_WRITE])
+@protected_route(
+    router.post,
+    "/deny",
+    [Scope.ME_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The code is unknown or has expired."
+        },
+        status.HTTP_410_GONE: {
+            "description": "The code was already approved or denied."
+        },
+    },
+)
 def deny(request: Request, payload: DeviceAuthDenyPayload) -> None:
+    """Deny a pending device authorization."""
     normalized = normalize_user_code(payload.user_code)
     device_code = resolve_device_code_from_user_code(normalized)
     if device_code is None:
@@ -299,7 +361,23 @@ def deny(request: Request, payload: DeviceAuthDenyPayload) -> None:
     )
 
 
-@router.post("/token")
+@router.post(
+    "/token",
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "The `detail` is `authorization_pending` while the user has not"
+                " answered, `slow_down` when the device polls faster than its"
+                " interval, `access_denied` when the user denied the request, and"
+                " `expired_token` when the device code is unknown, expired or"
+                " already used."
+            )
+        },
+        status.HTTP_429_TOO_MANY_REQUESTS: {
+            "description": "This IP address polled too many times recently."
+        },
+    },
+)
 def token(request: Request, payload: DeviceAuthTokenPayload) -> DeviceAuthTokenResponse:
     """Device-facing polling endpoint. Open, rate-limited per-IP and per-code."""
     check_token_poll_rate_limit(request)
@@ -345,6 +423,7 @@ def token(request: Request, payload: DeviceAuthTokenPayload) -> DeviceAuthTokenR
             f"device_code_prefix={_device_code_prefix(payload.device_code)}"
         )
         return DeviceAuthTokenResponse(
+            id=approved["token_id"],
             access_token=approved["raw_token"],
             device_id=approved["device_id"],
             scopes=list(approved.get("scopes", [])),

@@ -13,6 +13,10 @@ export const colorBrand = {
   primary: "#8B74E8",
   primaryHover: "#A18FFF",
   primaryPressed: "#6043C8",
+  // Fill under on-primary text: `primary` is tuned as text on the page and
+  // gives white text only 3.6:1 as a fill.
+  primarySolid: "#7459E3",
+  onPrimary: "#FFFFFF",
   // Secondary mirrors v1's secondary purple for chips / inactive bits.
   secondary: "#9E8CD6",
   secondaryHover: "#EBE7FA",
@@ -40,13 +44,14 @@ export const colorBrand = {
 // the salmon accent and light-purple links worse), so light mode deepens
 // primary, secondary and accent to clear AA for brand-coloured text, links,
 // active-nav and chips. These keys share the brand CSS names, so the build
-// emits them inside .r-light and they override the shared values there.
+// pairs each with its dark value above as one `light-dark()` declaration.
 // Hover/pressed deepen further (a light page gains emphasis by going darker,
 // the inverse of dark mode where hover goes lighter).
 export const colorBrandLight = {
   primary: "#553E98",
   primaryHover: "#452788",
   primaryPressed: "#371F69",
+  primarySolid: "#553E98",
   secondary: "#6E5CA8",
   accent: "#A85530",
   // Rating stars (RRating) read as bright neon gold on dark; on the light
@@ -87,8 +92,7 @@ export const colorStatusBase = {
 // yellow and pale blue wash out (a green play-badge or a yellow rating
 // star barely registers). Light mode drops them ~one Tailwind tier deeper
 // so each still reads as its hue (icons, badges, solid buttons) on white.
-// Emitted into .r-light with the same CSS names, so they override the
-// shared values there.
+// Paired with the canonical values above, by CSS name, in `light-dark()`.
 export const colorStatusLight = {
   success: "#15A34A",
   // One tier brighter than a naive deepening (yellow-600, not -700) so the
@@ -364,6 +368,12 @@ export const motion = {
   easeBack: "cubic-bezier(0.34, 1.56, 0.64, 1)",
 } as const;
 
+// Dims something that is present but not in effect: a disabled control,
+// an unlinked provider, a locked achievement, an unmatched hash source.
+export const opacity = {
+  inactive: "0.55",
+} as const;
+
 export const focus = {
   ringWidthMouse: "2px",
   ringWidthKey: "2.5px",
@@ -395,11 +405,9 @@ export const layout = {
   // Pills in the top bar's right cluster (scan indicator, mini player, user
   // menu) share one height so they line up.
   navPillHeight: "38px",
-  // Fixed bottom tab bar shown on phones (xs). Mirrors navHeight so the
-  // top and bottom chrome read as a matched pair. Consumed as
-  // `--r-bottom-nav-h` to reserve space in AppLayout and offset the
-  // gallery scroll height on mobile.
-  bottomNavHeight: "58px",
+  // Bottom tab bar on sm-and-down: the 64px pill plus 8px gutters above and
+  // below. Layouts reserve it as `--r-bottom-nav-h` (safe-area inset excluded).
+  bottomNavHeight: "80px",
   // Cap for the bottom tab bar pill so it stays thumb-sized on large
   // tablets (the sm range reaches 959px) instead of stretching the four
   // destinations edge-to-edge. Below this width the pill just fills the
@@ -491,6 +499,7 @@ export const tokens = {
   radius,
   elevation,
   motion,
+  opacity,
   focus,
   layout,
   zIndex,

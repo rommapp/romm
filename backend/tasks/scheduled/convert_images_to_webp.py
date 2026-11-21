@@ -14,7 +14,7 @@ from config import (
 from logger.logger import log
 from tasks.registry import CONVERT_IMAGES_TO_WEBP_SPEC
 from tasks.tasks import JobMetaStats, PeriodicTask
-from utils.images import frame_durations, webp_loop
+from utils.images import WEBP_QUALITY, frame_durations, webp_loop
 from utils.media_types import ALLOWED_IMAGE_EXTENSIONS
 
 
@@ -41,7 +41,7 @@ class ImageConverter:
         "YCbCr": "RGB",  # YCbCr to RGB
     }
 
-    def __init__(self, quality: int = 90) -> None:
+    def __init__(self, quality: int = WEBP_QUALITY) -> None:
         self.quality = quality
 
     def _convert_image_mode(self, img: Image.Image) -> Image.Image:
@@ -89,7 +89,7 @@ class ImageConverter:
                     )
                 else:
                     self._convert_image_mode(img).save(
-                        webp_path, "WEBP", quality=self.quality, optimize=True
+                        webp_path, "WEBP", quality=self.quality
                     )
                 log.info(f"Created WebP version: {webp_path}")
                 return True

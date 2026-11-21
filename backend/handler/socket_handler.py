@@ -21,6 +21,22 @@ def client_token_sockets_key(token_id: int) -> str:
     return f"device_token_sockets:{token_id}"
 
 
+def user_room(user_id: int) -> str:
+    """The room every socket of the user joins on connect."""
+    return f"user:{user_id}"
+
+
+async def emit_to_rooms(
+    emitter: socketio.AsyncServer | socketio.AsyncRedisManager,
+    event: str,
+    payload: Any,
+    rooms: list[str],
+) -> None:
+    # An empty `to` would broadcast to every socket.
+    if rooms:
+        await emitter.emit(event, payload, to=rooms)
+
+
 class SocketHandler:
     def __init__(self, path: str, channel: str = "socketio") -> None:
         self.channel = channel
@@ -81,7 +97,7 @@ class SocketHandler:
     ) -> None:
         """Push an event to every open tab of one user, logging a failure."""
         try:
-            await self.write_manager().emit(event, payload, room=f"user:{user_id}")
+            await self.write_manager().emit(event, payload, room=user_room(user_id))
         except Exception:  # noqa: BLE001
             log.warning(f"Failed to push {event} to user {user_id}", exc_info=True)
 

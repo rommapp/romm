@@ -6,7 +6,7 @@ import storeAuth from "@/stores/auth";
 import storeCollections, { type Collection } from "@/stores/collections";
 import storeGalleryRoms from "@/stores/galleryRoms";
 import storeGallerySelection from "@/stores/gallerySelection";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
+import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { collectionFixture } from "@/utils/collection.fixtures";
 import { romFixture } from "@/utils/rom.fixtures";
@@ -130,7 +130,6 @@ describe("ManageCollectionsDialog gallery reconcile", () => {
     const galleryRemove = vi.spyOn(gallery, "remove").mockImplementation(() => {
       /* the real one refetches the gallery */
     });
-    const romsRemove = vi.spyOn(storeRoms(), "remove");
     const selection = storeGallerySelection();
     [rom(1), rom(2)].forEach((r, i) => selection.toggle(r, i));
 
@@ -139,7 +138,6 @@ describe("ManageCollectionsDialog gallery reconcile", () => {
     expect(removeRomsFromCollection).toHaveBeenCalledWith(12, [1, 2]);
     expect(galleryRemove).toHaveBeenCalledTimes(1);
     expect(galleryRemove.mock.calls[0]![0].map((r) => r.id)).toEqual([1, 2]);
-    expect(romsRemove).toHaveBeenCalledTimes(1);
     expect(selection.count).toBe(0);
   });
 

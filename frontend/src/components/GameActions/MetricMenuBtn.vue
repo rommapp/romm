@@ -10,7 +10,7 @@
 // the popup open.
 import { computed, ref } from "vue";
 import MetricSection from "@/components/GameActions/MetricSection.vue";
-import { RIcon, RMenu } from "@/lib";
+import { RIcon, RMenu, RTooltip } from "@/lib";
 
 defineOptions({ inheritAttrs: false });
 
@@ -69,6 +69,7 @@ const valueLabel = computed(() => {
       >
         <RIcon :icon="value > 0 ? iconFull : iconEmpty" />
         <span class="r-metric-btn__value">{{ valueLabel }}</span>
+        <RTooltip activator="parent" :text="label" location="top" />
       </button>
     </template>
 

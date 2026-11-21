@@ -728,13 +728,22 @@ function onClick(e: MouseEvent) {
    that lead somewhere different, so the second CTA takes colour rather
    than a second white pill. */
 .r-game-btn--brand {
-  background: var(--r-color-brand-primary) !important;
-  border-color: var(--r-color-brand-primary) !important;
-  color: white !important;
+  background: var(--r-color-brand-primary-solid) !important;
+  border-color: var(--r-color-brand-primary-solid) !important;
+  color: var(--r-color-brand-on-primary) !important;
 }
+/* Hover darkens: a lighter fill would drop the white label below AA. */
 .r-game-btn--brand:hover {
-  background: var(--r-color-brand-primary-hover) !important;
-  border-color: var(--r-color-brand-primary-hover) !important;
+  background: color-mix(
+    in srgb,
+    var(--r-color-brand-primary-solid) 88%,
+    black
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-brand-primary-solid) 88%,
+    black
+  ) !important;
   transform: translateY(-1px);
 }
 .r-game-btn--brand:active {

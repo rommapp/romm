@@ -381,7 +381,7 @@ useUnloadGuard(hasPendingEdits);
         :title="t('settings.scan-artwork-overrides')"
         icon="mdi-tune-variant"
       >
-        <p class="r-scan-settings__desc mb-4">
+        <p class="r-scan-settings__desc r-scan-settings__desc--spaced">
           {{ t("settings.scan-artwork-overrides-desc") }}
         </p>
         <SettingsToggleRow
@@ -566,6 +566,10 @@ useUnloadGuard(hasPendingEdits);
    padding so the field's own padding provides the gap. */
 .r-scan-settings__field .r-scan-settings__desc {
   padding: 0;
+}
+
+.r-scan-settings__desc--spaced {
+  margin-bottom: 16px;
 }
 
 .r-scan-settings__field {

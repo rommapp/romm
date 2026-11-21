@@ -7,7 +7,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from handler.metadata.steam_handler import SteamRom
-from handler.scan_handler import ScanType, resolve_steam_rom
+from handler.scan.lookups import resolve_steam_rom
+from handler.scan.sources import ScanType
 
 MATCH = SteamRom(steam_id=1091500, name="Cyberpunk 2077")
 NO_MATCH = SteamRom(steam_id=None)
@@ -25,11 +26,11 @@ def lookups():
     """Patch both Steam lookups, defaulting each to a miss."""
     with (
         patch(
-            "handler.scan_handler.meta_steam_handler.get_rom_by_id",
+            "handler.scan.lookups.meta_steam_handler.get_rom_by_id",
             new=AsyncMock(return_value=NO_MATCH),
         ) as by_id,
         patch(
-            "handler.scan_handler.meta_steam_handler.get_rom",
+            "handler.scan.lookups.meta_steam_handler.get_rom",
             new=AsyncMock(return_value=NO_MATCH),
         ) as by_name,
     ):

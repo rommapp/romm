@@ -284,6 +284,7 @@ export default withVueTs(
     plugins: { romm },
     rules: {
       "romm/no-color-literal": "error",
+      "romm/no-dynamic-mdi-name": "error",
       "romm/no-layout-media-query": "error",
       "romm/no-safe-area-env": "error",
     },

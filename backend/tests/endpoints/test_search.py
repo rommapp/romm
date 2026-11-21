@@ -16,7 +16,7 @@ from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.moby_handler import MobyGamesRom
 from handler.metadata.ss_handler import SSRom
 from handler.metadata.steam_handler import SteamRom
-from handler.scan_handler import MetadataSource
+from handler.scan.sources import MetadataSource
 
 DOWN = HTTPException(status_code=503, detail="provider is down")
 

@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import status
+from tests.auth_helpers import bearer
 
 from handler.database import db_notification_channel_handler
 from handler.email_handler import EmailError
@@ -14,10 +15,6 @@ from models.notification_channel import (
 )
 
 API = "/api/notification-channels"
-
-
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
 
 
 def _webhook(
@@ -52,7 +49,7 @@ def sent(mocker):
 class TestCreate:
     def test_a_webhook_hides_its_token(self, client, access_token):
         response = client.post(
-            API, json=_webhook(secret="k"), headers=_auth(access_token)
+            API, json=_webhook(secret="k"), headers=bearer(access_token)
         )
 
         assert response.status_code == status.HTTP_201_CREATED
@@ -65,7 +62,7 @@ class TestCreate:
 
     def test_an_admin_may_reach_the_local_network(self, client, access_token):
         response = client.post(
-            API, json=_webhook("http://192.168.1.2/hook"), headers=_auth(access_token)
+            API, json=_webhook("http://192.168.1.2/hook"), headers=bearer(access_token)
         )
 
         assert response.status_code == status.HTTP_201_CREATED
@@ -74,14 +71,14 @@ class TestCreate:
         response = client.post(
             API,
             json=_webhook("http://192.168.1.2/hook"),
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_an_admin_forwards_through_apprise(self, client, access_token):
         response = client.post(
-            API, json=_apprise(**_DISCORD, botname="RomM"), headers=_auth(access_token)
+            API, json=_apprise(**_DISCORD, botname="RomM"), headers=bearer(access_token)
         )
 
         assert response.status_code == status.HTTP_201_CREATED
@@ -97,7 +94,9 @@ class TestCreate:
         assert "abcdefghijklmnop" not in response.text
 
     def test_a_user_may_not_use_apprise(self, client, viewer_access_token):
-        response = client.post(API, json=_apprise(), headers=_auth(viewer_access_token))
+        response = client.post(
+            API, json=_apprise(), headers=bearer(viewer_access_token)
+        )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.json()["detail"] == "Only admins can use Apprise channels"
@@ -107,19 +106,19 @@ class TestCreate:
         [_apprise("syslog", host="localhost"), _apprise(webhook_id="1234567890")],
     )
     def test_fields_apprise_cannot_use_are_refused(self, client, access_token, payload):
-        response = client.post(API, json=payload, headers=_auth(access_token))
+        response = client.post(API, json=payload, headers=bearer(access_token))
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_a_user_has_at_most_so_many(self, client, access_token):
         for n in range(MAX_NOTIFICATION_CHANNELS_PER_USER):
             created = client.post(
-                API, json=_webhook(name=f"Hook {n}"), headers=_auth(access_token)
+                API, json=_webhook(name=f"Hook {n}"), headers=bearer(access_token)
             )
             assert created.status_code == status.HTTP_201_CREATED
 
         response = client.post(
-            API, json=_webhook(name="One more"), headers=_auth(access_token)
+            API, json=_webhook(name="One more"), headers=bearer(access_token)
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -136,7 +135,7 @@ class TestCreate:
         ],
     )
     def test_refuses_a_malformed_channel(self, client, access_token, payload):
-        response = client.post(API, json=payload, headers=_auth(access_token))
+        response = client.post(API, json=payload, headers=bearer(access_token))
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
@@ -146,7 +145,7 @@ class TestCreate:
         response = client.post(
             API,
             json={"type": "email", "name": "Mail", "address": "a@example.com"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -159,7 +158,7 @@ class TestCreate:
         response = client.post(
             API,
             json={"type": "email", "name": "Mail", "address": "a@example.com"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert response.status_code == status.HTTP_502_BAD_GATEWAY
@@ -168,7 +167,7 @@ class TestCreate:
 
 class TestAppriseServices:
     def test_an_admin_gets_each_service_with_its_fields(self, client, access_token):
-        response = client.get(f"{API}/apprise-services", headers=_auth(access_token))
+        response = client.get(f"{API}/apprise-services", headers=bearer(access_token))
 
         assert response.status_code == status.HTTP_200_OK
         discord = next(s for s in response.json() if s["id"] == "discord")
@@ -186,7 +185,7 @@ class TestAppriseServices:
             json={
                 "url": "https://discord.com/api/webhooks/1234567890/abcdefghijklmnop"
             },
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -196,19 +195,19 @@ class TestAppriseServices:
         response = client.post(
             f"{API}/apprise-services/parse",
             json={"url": "nowhere://romm"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_a_user_gets_none(self, client, viewer_access_token):
         listed = client.get(
-            f"{API}/apprise-services", headers=_auth(viewer_access_token)
+            f"{API}/apprise-services", headers=bearer(viewer_access_token)
         )
         parsed = client.post(
             f"{API}/apprise-services/parse",
             json={"url": "ntfys://ntfy.sh/romm"},
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
 
         assert listed.status_code == status.HTTP_403_FORBIDDEN
@@ -220,7 +219,7 @@ class TestEmailConfirmation:
         created = client.post(
             API,
             json={"type": "email", "name": "Mail", "address": "a@example.com"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         ).json()
         match = re.search(r"Your code is (\d{6})", emailed.call_args.args[2])
         assert match is not None
@@ -232,14 +231,14 @@ class TestEmailConfirmation:
         refused = client.post(
             f"{API}/{created['id']}/confirm",
             json={"code": wrong},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         assert refused.status_code == status.HTTP_400_BAD_REQUEST
 
         confirmed = client.post(
             f"{API}/{created['id']}/confirm",
             json={"code": code},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         assert confirmed.status_code == status.HTTP_200_OK
         assert confirmed.json()["confirmed"] is True
@@ -248,11 +247,11 @@ class TestEmailConfirmation:
         created = client.post(
             API,
             json={"type": "email", "name": "Mail", "address": "a@example.com"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         ).json()
 
         response = client.post(
-            f"{API}/{created['id']}/resend-code", headers=_auth(access_token)
+            f"{API}/{created['id']}/resend-code", headers=bearer(access_token)
         )
 
         assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
@@ -262,9 +261,9 @@ class TestOwnership:
     def test_each_user_sees_only_their_own(
         self, client, access_token, viewer_access_token
     ):
-        client.post(API, json=_webhook(), headers=_auth(access_token))
+        client.post(API, json=_webhook(), headers=bearer(access_token))
 
-        response = client.get(API, headers=_auth(viewer_access_token))
+        response = client.get(API, headers=bearer(viewer_access_token))
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == []
@@ -276,13 +275,13 @@ class TestOwnership:
     def test_someone_elses_is_not_found(
         self, client, access_token, viewer_access_token, method, suffix
     ):
-        created = client.post(API, json=_webhook(), headers=_auth(access_token)).json()
+        created = client.post(API, json=_webhook(), headers=bearer(access_token)).json()
 
         response = client.request(
             method,
             f"{API}/{created['id']}{suffix}",
             json={} if method == "patch" else None,
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -291,7 +290,7 @@ class TestOwnership:
 class TestUpdate:
     def test_changes_the_filters_and_drops_the_secret(self, client, access_token):
         created = client.post(
-            API, json=_webhook(secret="k"), headers=_auth(access_token)
+            API, json=_webhook(secret="k"), headers=bearer(access_token)
         ).json()
 
         response = client.patch(
@@ -302,7 +301,7 @@ class TestUpdate:
                 "secret": "",
                 "enabled": False,
             },
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -313,16 +312,16 @@ class TestUpdate:
         assert body["enabled"] is False
 
     def test_apprise_secrets_stay_until_given_again(self, client, access_token):
-        created = client.post(API, json=_apprise(), headers=_auth(access_token)).json()
+        created = client.post(API, json=_apprise(), headers=bearer(access_token)).json()
         path = f"{API}/{created['id']}"
 
         renamed = client.patch(
-            path, json={"name": "Phone"}, headers=_auth(access_token)
+            path, json={"name": "Phone"}, headers=bearer(access_token)
         )
         retitled = client.patch(
             path,
             json={"fields": {"webhook_id": "1234567890", "botname": "Bot"}},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert renamed.json()["target"] == created["target"]
@@ -330,11 +329,13 @@ class TestUpdate:
 
     def test_null_topics_forwards_everything_again(self, client, access_token):
         created = client.post(
-            API, json=_webhook(topics=["scans"]), headers=_auth(access_token)
+            API, json=_webhook(topics=["scans"]), headers=bearer(access_token)
         ).json()
 
         response = client.patch(
-            f"{API}/{created['id']}", json={"topics": None}, headers=_auth(access_token)
+            f"{API}/{created['id']}",
+            json={"topics": None},
+            headers=bearer(access_token),
         )
 
         assert response.json()["topics"] is None
@@ -342,33 +343,33 @@ class TestUpdate:
 
 class TestTest:
     def test_a_delivery_is_recorded(self, client, access_token, sent):
-        created = client.post(API, json=_webhook(), headers=_auth(access_token)).json()
+        created = client.post(API, json=_webhook(), headers=bearer(access_token)).json()
 
         response = client.post(
-            f"{API}/{created['id']}/test", headers=_auth(access_token)
+            f"{API}/{created['id']}/test", headers=bearer(access_token)
         )
 
         assert response.json() == {"ok": True, "error": None}
-        [listed] = client.get(API, headers=_auth(access_token)).json()
+        [listed] = client.get(API, headers=bearer(access_token)).json()
         assert listed["last_delivered_at"] is not None
 
     def test_a_failure_is_reported_but_not_counted(self, client, access_token, sent):
         sent.side_effect = EmailError("refused")
-        created = client.post(API, json=_webhook(), headers=_auth(access_token)).json()
+        created = client.post(API, json=_webhook(), headers=bearer(access_token)).json()
 
         response = client.post(
-            f"{API}/{created['id']}/test", headers=_auth(access_token)
+            f"{API}/{created['id']}/test", headers=bearer(access_token)
         )
 
         assert response.json() == {"ok": False, "error": "refused"}
-        [listed] = client.get(API, headers=_auth(access_token)).json()
+        [listed] = client.get(API, headers=bearer(access_token)).json()
         assert listed["last_error"] == "refused"
         assert listed["consecutive_failures"] == 0
 
 
 class TestDeliveryBookkeeping:
     def test_turns_off_once_it_failed_too_often(self, client, access_token, admin_user):
-        created = client.post(API, json=_webhook(), headers=_auth(access_token)).json()
+        created = client.post(API, json=_webhook(), headers=bearer(access_token)).json()
 
         for _ in range(MAX_CONSECUTIVE_DELIVERY_FAILURES - 1):
             db_notification_channel_handler.record_failure(
@@ -392,7 +393,7 @@ class TestDeliveryBookkeeping:
         client.post(
             API,
             json={"type": "email", "name": "Mail", "address": "a@example.com"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert (

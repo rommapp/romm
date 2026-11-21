@@ -397,6 +397,7 @@ async function onDelete() {
     :not-found="notFound"
     :not-found-message="t('collection.not-found')"
     :skeleton-row-count="4"
+    :scope-total="currentCollection?.rom_count"
   >
     <template #header>
       <CollectionHead

@@ -1,7 +1,7 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it } from "vitest";
-import { matchPreferredLocale } from "@/locales";
-import storeLanguage from "@/stores/language";
+import { availableLocales, matchPreferredLocale } from "@/locales";
+import storeLanguage, { LOCALE_NAMES } from "@/stores/language";
 
 describe("matchPreferredLocale", () => {
   const available = ["en_US", "en_GB", "fr_FR", "zh_CN", "zh_TW"];
@@ -38,10 +38,21 @@ describe("language store", () => {
     expect(store.detectBrowserLanguage(["de-AT", "en-US"]).value).toBe("de_DE");
   });
 
+  it("names exactly the locale folders", () => {
+    expect(Object.keys(LOCALE_NAMES).sort()).toEqual(
+      [...availableLocales].sort(),
+    );
+  });
+
   it("falls back to the default language", () => {
     const store = storeLanguage();
     expect(store.detectBrowserLanguage(["nl-NL"])).toEqual(
       store.defaultLanguage,
     );
+  });
+
+  it("detects Swedish from a Swedish browser", () => {
+    const store = storeLanguage();
+    expect(store.detectBrowserLanguage(["sv-SE"]).value).toBe("sv_SE");
   });
 });

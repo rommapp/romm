@@ -13,8 +13,9 @@ from handler.audit_handler import AuditTarget, changed_fields, record
 from handler.auth.constants import Scope
 from handler.auth.dependencies import (
     assert_can,
-    assert_platform_visible,
     get_permissions,
+    get_rom_visibility_filter,
+    visible_platform_or_404,
 )
 from handler.database import db_platform_handler
 from handler.filesystem import fs_platform_handler
@@ -77,12 +78,11 @@ def get_platforms(
 ) -> list[PlatformSchema]:
     """Retrieve platforms."""
 
-    perms = get_permissions(request)
     return [
         PlatformSchema.model_validate(p)
         for p in db_platform_handler.get_platforms(
             updated_after=updated_after,
-            hidden_platform_ids=perms.hidden_platform_ids,
+            visibility=get_rom_visibility_filter(request),
         )
     ]
 
@@ -103,7 +103,7 @@ def get_platform_identifiers(
 def get_supported_platforms_endpoint(request: Request) -> list[PlatformSchema]:
     """Retrieve the list of supported platforms."""
 
-    return get_supported_platforms()
+    return get_supported_platforms(get_rom_visibility_filter(request))
 
 
 @protected_route(router.get, "/filesystem", [Scope.PLATFORMS_READ])
@@ -117,7 +117,11 @@ async def get_filesystem_platforms_endpoint(request: Request) -> list[PlatformSc
     router.get,
     "/{id}",
     [Scope.PLATFORMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No platform the caller can see has this ID."
+        }
+    },
 )
 def get_platform(
     request: Request,
@@ -125,10 +129,10 @@ def get_platform(
 ) -> PlatformSchema:
     """Retrieve a platform by ID."""
 
-    platform = db_platform_handler.get_platform(id)
-    if not platform:
-        raise PlatformNotFoundInDatabaseException(id)
-    assert_platform_visible(request, platform)
+    platform = db_platform_handler.get_platform(
+        id, visibility=get_rom_visibility_filter(request)
+    )
+    platform = visible_platform_or_404(request, platform, id)
     return PlatformSchema.model_validate(platform)
 
 
@@ -136,7 +140,11 @@ def get_platform(
     router.put,
     "/{id}",
     [Scope.PLATFORMS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No platform the caller can see has this ID."
+        }
+    },
 )
 async def update_platform(
     request: Request,
@@ -160,10 +168,9 @@ async def update_platform(
 ) -> PlatformSchema:
     """Update a platform."""
 
-    platform_db = db_platform_handler.get_platform(id)
-    if not platform_db:
-        raise PlatformNotFoundInDatabaseException(id)
-    assert_platform_visible(request, platform_db)
+    platform_db = visible_platform_or_404(
+        request, db_platform_handler.get_platform(id), id
+    )
 
     submitted = {"custom_name": custom_name, "description": description}
     changed = changed_fields(
@@ -182,6 +189,13 @@ async def update_platform(
             {"changed": changed},
         )
 
+    visibility = get_rom_visibility_filter(request)
+    if not visibility.is_unrestricted:
+        # Re-read for the caller's totals; the saved row carries everyone's.
+        refreshed = db_platform_handler.get_platform(id, visibility=visibility)
+        if not refreshed:
+            raise PlatformNotFoundInDatabaseException(id)
+        platform_db = refreshed
     return PlatformSchema.model_validate(platform_db)
 
 
@@ -189,7 +203,14 @@ async def update_platform(
     router.delete,
     "/{id}",
     [Scope.PLATFORMS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The caller is not allowed to delete platforms."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No platform the caller can see has this ID."
+        },
+    },
 )
 async def delete_platform(
     request: Request,
@@ -198,10 +219,9 @@ async def delete_platform(
     """Delete a platform by ID."""
 
     perms = get_permissions(request)
-    platform = db_platform_handler.get_platform(id)
-    if not platform:
-        raise PlatformNotFoundInDatabaseException(id)
-    assert_platform_visible(request, platform)
+    platform = visible_platform_or_404(
+        request, db_platform_handler.get_platform(id), id
+    )
     assert_can(perms, PermEntity.PLATFORMS, PermAction.DELETE)
 
     log.info(

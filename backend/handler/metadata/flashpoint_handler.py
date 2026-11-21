@@ -10,7 +10,9 @@ from logger.logger import log
 from utils import get_version, is_valid_uuid
 from utils.context import ctx_httpx_client
 from utils.datetime import parse_utc_timestamp
+from utils.html_text import html_to_text
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.platform_slugs import fill_duplicate_slugs
 
 from .base_handler import HTTPX_REQUEST_ERRORS, MetadataHandler
 
@@ -274,7 +276,7 @@ class FlashpointHandler(MetadataHandler):
                 return FlashpointRom(
                     flashpoint_id=best_game["id"],
                     name=best_game["title"],
-                    summary=best_game["original_description"],
+                    summary=html_to_text(best_game["original_description"]),
                     url_cover=f"https://infinity.unstable.life/images/Logos/{best_game['id'][:2]}/{best_game['id'][2:4]}/{best_game['id']}?type=jpg",
                     url_screenshots=[
                         f"https://infinity.unstable.life/images/Screenshots/{best_game['id'][:2]}/{best_game['id'][2:4]}/{best_game['id']}?type=jpg"
@@ -311,7 +313,7 @@ class FlashpointHandler(MetadataHandler):
             FlashpointRom(
                 flashpoint_id=game["id"],
                 name=game["title"],
-                summary=game["original_description"],
+                summary=html_to_text(game["original_description"]),
                 url_cover=f"https://infinity.unstable.life/images/Logos/{game['id'][:2]}/{game['id'][2:4]}/{game['id']}?type=jpg",
                 url_screenshots=[
                     f"https://infinity.unstable.life/images/Screenshots/{game['id'][:2]}/{game['id'][2:4]}/{game['id']}?type=jpg"
@@ -387,7 +389,7 @@ class FlashpointHandler(MetadataHandler):
             return FlashpointRom(
                 flashpoint_id=game["id"],
                 name=game["title"],
-                summary=game["original_description"],
+                summary=html_to_text(game["original_description"]),
                 url_cover=f"https://infinity.unstable.life/images/Logos/{game['id'][:2]}/{game['id'][2:4]}/{game['id']}?type=jpg",
                 url_screenshots=[
                     f"https://infinity.unstable.life/images/Screenshots/{game['id'][:2]}/{game['id'][2:4]}/{game['id']}?type=jpg"
@@ -408,3 +410,5 @@ class SlugToFlashpointId(TypedDict):
 FLASHPOINT_PLATFORM_LIST: dict[UPS, SlugToFlashpointId] = {
     UPS.BROWSER: {"id": 1, "name": "Browser (Flash/HTML5)"}
 }
+
+fill_duplicate_slugs(FLASHPOINT_PLATFORM_LIST)

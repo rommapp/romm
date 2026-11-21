@@ -26,10 +26,10 @@ import {
   REmptyState,
   RIcon,
   RProgressLinear,
-  RSliderBtnGroup,
+  RSegmentedControl,
   RTextField,
 } from "@/lib";
-import type { SliderBtnGroupItem } from "@/lib";
+import type { SegmentedControlItem } from "@/lib";
 import storeConfig from "@/stores/config";
 import storePlatforms from "@/stores/platforms";
 import { formatBytes, regionToEmoji } from "@/utils";
@@ -56,7 +56,7 @@ type OrderBy = "name" | "size" | "count";
 const orderBy = ref<OrderBy>("name");
 const searchQuery = ref("");
 
-const orderItems = computed<SliderBtnGroupItem<OrderBy>[]>(() => [
+const orderItems = computed<SegmentedControlItem<OrderBy>[]>(() => [
   {
     id: "name",
     icon: "mdi-sort-alphabetical-variant",
@@ -213,7 +213,7 @@ function onRowClick(e: MouseEvent, platformId: number): void {
           <RIcon icon="mdi-magnify" size="16" />
         </template>
       </RTextField>
-      <RSliderBtnGroup
+      <RSegmentedControl
         :model-value="orderBy"
         :items="orderItems"
         variant="segmented"

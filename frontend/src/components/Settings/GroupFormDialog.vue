@@ -66,6 +66,7 @@ const sortedPlatforms = computed(() =>
 );
 
 const entities = ref<PermEntity[]>([]);
+const ownableEntities = ref<PermEntity[]>([]);
 const actions = ref<PermAction[]>([]);
 
 async function ensureCatalog() {
@@ -73,6 +74,7 @@ async function ensureCatalog() {
   try {
     const { data } = await permissionsApi.fetchCatalog();
     entities.value = data.entities;
+    ownableEntities.value = data.ownable_entities;
     actions.value = data.actions;
   } catch (err) {
     console.error("Failed to load permission catalog", err);
@@ -305,6 +307,7 @@ async function save() {
           <PermissionsMatrix
             v-model="grants"
             :entities="entities"
+            :ownable-entities="ownableEntities"
             :actions="actions"
           />
         </div>

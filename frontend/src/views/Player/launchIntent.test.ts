@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
+import type { SaveSchema, StateSchema } from "@/__generated__";
 import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
+import { firmwareFixture } from "@/utils/firmware.fixtures";
 import { existingSlot, NEW_SLOT_CHOICE } from "@/utils/saveSlots";
 import {
   isLaunchIntent,
@@ -30,13 +31,9 @@ function makeState(overrides: Partial<StateSchema> = {}): StateSchema {
   });
 }
 
-function makeFirmware(overrides: Partial<FirmwareSchema> = {}): FirmwareSchema {
-  return { id: 12, file_name: "bios.bin", ...overrides } as FirmwareSchema;
-}
-
 const save = makeSave();
 const state = makeState();
-const firmware = makeFirmware();
+const firmware = firmwareFixture({ id: 12, file_name: "bios.bin" });
 
 const OPTIONS: LaunchOptions = {
   saves: [save],
@@ -49,6 +46,7 @@ const SELECTION: LaunchSelection = {
   firmware,
   slot: existingSlot("slot-2"),
   customSlot: "",
+  snapshotId: 30,
 };
 
 const INTENT: LaunchIntent = {
@@ -57,6 +55,7 @@ const INTENT: LaunchIntent = {
   firmwareId: 12,
   slot: existingSlot("slot-2"),
   customSlot: "",
+  snapshotId: 30,
 };
 
 const EMPTY: LaunchSelection = {
@@ -64,6 +63,7 @@ const EMPTY: LaunchSelection = {
   firmware: null,
   slot: { kind: "new" },
   customSlot: "my slot",
+  snapshotId: null,
 };
 
 describe("launchIntentFor", () => {
@@ -84,6 +84,7 @@ describe("launchIntentFor", () => {
       firmwareId: null,
       slot: { kind: "new" },
       customSlot: "my slot",
+      snapshotId: null,
     });
   });
 });
@@ -139,6 +140,7 @@ describe("isLaunchIntent", () => {
     ["nothing", null],
     ["another shape", { core: "snes9x" }],
     ["a string id", { ...INTENT, saveId: "3" }],
+    ["a string snapshot id", { ...INTENT, snapshotId: "30" }],
     ["a bare slot name", { ...INTENT, slot: "slot-2" }],
     ["a missing slot name", { ...INTENT, customSlot: undefined }],
   ])("rejects %s", (_label, value) => {

@@ -17,11 +17,13 @@ from tests.handler.sync.console.fakes import (
 )
 
 from endpoints.sockets import sync as sync_sockets
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
     db_save_handler,
     db_sync_session_handler,
+    db_user_handler,
 )
 from handler.filesystem import fs_asset_handler
 from handler.redis_handler import async_cache
@@ -113,14 +115,18 @@ async def run_sync(
     device = db_device_handler.get_device_by_id(device.id) or device
     config = ConsoleSyncConfig.of(profile, device.sync_config)
     return await _ConsoleSync(
-        device, profile, console, config, platform, session.id
+        device, profile, console, config, platform, session.id, UNRESTRICTED
     ).run()
 
 
 def slot_versions(user: User, rom: Rom, slot: str = FOLDER) -> list[Save]:
     return list(
         db_save_handler.get_saves(
-            user_id=user.id, rom_ids=[rom.id], slot=slot, order_by="updated_at"
+            user_id=user.id,
+            rom_ids=[rom.id],
+            slot=slot,
+            order_by="updated_at",
+            visibility=UNRESTRICTED,
         )
     )
 
@@ -439,6 +445,14 @@ class TestSyncConsoleDevice:
         connect.assert_not_called()
 
     async def test_needs_a_ps3_platform(self, device, connect):
+        result = await sync_console_device(device)
+
+        assert result["status"] == "error"
+        connect.assert_not_called()
+
+    async def test_a_disabled_owner_syncs_nothing(self, device, connect, ps3):
+        db_user_handler.update_user(device.user_id, {"enabled": False})
+
         result = await sync_console_device(device)
 
         assert result["status"] == "error"

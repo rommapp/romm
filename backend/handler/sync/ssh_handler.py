@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import ipaddress
 import os
 import tempfile
 from dataclasses import dataclass
@@ -37,6 +38,27 @@ class RemoteSaveInfo:
     file_size: int
     mtime: datetime
     content_hash: str | None = None
+
+
+def _is_known_host(known_hosts: asyncssh.SSHKnownHosts, host: str, port: int) -> bool:
+    """Whether known_hosts trusts a key, a CA, or a certificate for this host and port."""
+    try:
+        addr = str(ipaddress.ip_address(host))
+    except ValueError:
+        addr = ""
+    if port and port != asyncssh.constants.DEFAULT_PORT:
+        # match() falls back to the bare host entry, which would admit every port.
+        names = dict.fromkeys(name for name in (host, addr) if name)
+        lookups = [(f"[{name}]:{port}", "") for name in names]
+    else:
+        lookups = [(host, addr)]
+    for name, address in lookups:
+        host_keys, ca_keys, _, x509_certs, _, x509_subjects, _ = known_hosts.match(
+            name, address, None
+        )
+        if host_keys or ca_keys or x509_certs or x509_subjects:
+            return True
+    return False
 
 
 class SSHSyncHandler:
@@ -89,12 +111,22 @@ class SSHSyncHandler:
                 f"SSH known_hosts file not found at {SYNC_SSH_KNOWN_HOSTS_PATH}. "
                 "Mount a known_hosts file or set SYNC_SSH_KNOWN_HOSTS_PATH."
             )
+        # Device owners pick ssh_host, so the admin's known_hosts is also the
+        # allowlist. Refusing before any TCP connect stops them probing the network.
+        known_hosts = await asyncio.to_thread(
+            asyncssh.read_known_hosts, SYNC_SSH_KNOWN_HOSTS_PATH
+        )
+        if not _is_known_host(known_hosts, host, port):
+            raise ValueError(
+                f"SSH host {host} port {port} is not in {SYNC_SSH_KNOWN_HOSTS_PATH}. "
+                "Add its host key there (as [host]:port for a port other than 22)."
+            )
 
         connect_kwargs: dict[str, Any] = {
             "host": host,
             "port": port,
             "username": username,
-            "known_hosts": SYNC_SSH_KNOWN_HOSTS_PATH,
+            "known_hosts": known_hosts,
         }
 
         if sync_config.get("ssh_key_path"):

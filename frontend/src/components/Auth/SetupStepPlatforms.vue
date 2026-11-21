@@ -25,11 +25,11 @@ import {
   RCollapsible,
   REmptyState,
   RIcon,
-  RSliderBtnGroup,
+  RSegmentedControl,
   RTag,
   RTextField,
 } from "@/lib";
-import type { SliderBtnGroupItem } from "@/lib";
+import type { SegmentedControlItem } from "@/lib";
 import type { Platform } from "@/stores/platforms";
 import { platformMatchesSearch } from "@/utils/platformSearch";
 
@@ -65,42 +65,33 @@ const SEARCH_LIMIT = 80;
 // through the cracks.
 
 const detectedSlugSet = computed(
-  () => new Set(props.libraryInfo.existing_platforms.map((p) => p.fs_slug)),
+  () => new Set(props.libraryInfo.existing_platforms.map((p) => p.slug)),
 );
 
-const romCountBySlug = computed(() => {
-  const map = new Map<string, number>();
-  for (const p of props.libraryInfo.existing_platforms)
-    map.set(p.fs_slug, p.rom_count);
-  return map;
-});
-
-const supportedSlugSet = computed(
-  () => new Set(props.libraryInfo.supported_platforms.map((p) => p.fs_slug)),
+const supportedBySlug = computed(
+  () => new Map(props.libraryInfo.supported_platforms.map((p) => [p.slug, p])),
 );
 
+// One row per folder, so an alias folder shows its own name and rom count.
 const detectedPlatforms = computed<Array<Platform & { unidentified: boolean }>>(
   () => {
     if (!props.libraryInfo.library_ready) return [];
-    const identified = props.libraryInfo.supported_platforms
-      .filter((p) => detectedSlugSet.value.has(p.fs_slug))
-      .map((p) => ({ ...p, unidentified: false }));
-    const unidentified = props.libraryInfo.existing_platforms
-      .filter((p) => !supportedSlugSet.value.has(p.fs_slug))
-      .map(
-        (p) =>
-          ({
-            fs_slug: p.fs_slug,
-            slug: p.fs_slug,
+    return props.libraryInfo.existing_platforms
+      .map((p) => {
+        const supported = supportedBySlug.value.get(p.slug);
+        return {
+          ...(supported ?? {
+            slug: p.slug,
             name: p.fs_slug,
             family_name: UNIDENTIFIED,
             generation: 999,
-            unidentified: true,
-          }) as Platform & { unidentified: boolean },
-      );
-    return [...identified, ...unidentified].sort((a, b) =>
-      (a.name ?? a.fs_slug).localeCompare(b.name ?? b.fs_slug),
-    );
+          }),
+          fs_slug: p.fs_slug,
+          rom_count: p.rom_count,
+          unidentified: !supported,
+        } as Platform & { unidentified: boolean };
+      })
+      .sort((a, b) => (a.name ?? a.fs_slug).localeCompare(b.name ?? b.fs_slug));
   },
 );
 
@@ -129,7 +120,7 @@ const showDetectedFilter = computed(
     identifiedDetectedCount.value > 0 && unidentifiedDetectedCount.value > 0,
 );
 
-const detectedFilterItems = computed<SliderBtnGroupItem<DetectedFilter>[]>(
+const detectedFilterItems = computed<SegmentedControlItem<DetectedFilter>[]>(
   () => [
     {
       id: "all",
@@ -163,11 +154,11 @@ const filteredDetectedPlatforms = computed(() => {
 // ── Supported (selectable) platforms ───────────────────────────────
 //
 // Filter out anything already on disk, since those are shown in the detected
-// section. We never present the same fs_slug twice.
+// section. We never present the same platform twice.
 
 const supportedAvailable = computed<Platform[]>(() =>
   props.libraryInfo.supported_platforms.filter(
-    (p) => !detectedSlugSet.value.has(p.fs_slug),
+    (p) => !detectedSlugSet.value.has(p.slug),
   ),
 );
 
@@ -230,7 +221,6 @@ function isSelected(slug: string): boolean {
 }
 
 function togglePlatform(slug: string, next: boolean) {
-  if (detectedSlugSet.value.has(slug)) return;
   const set = new Set(props.selectedNewPlatforms);
   if (next) set.add(slug);
   else set.delete(slug);
@@ -238,9 +228,7 @@ function togglePlatform(slug: string, next: boolean) {
 }
 
 function newSlugsInGroup(items: Platform[]): string[] {
-  return items
-    .filter((p) => !detectedSlugSet.value.has(p.fs_slug))
-    .map((p) => p.fs_slug);
+  return items.map((p) => p.fs_slug);
 }
 
 function groupSelectedState(items: Platform[]): boolean | null {
@@ -365,7 +353,7 @@ const detectedPlatformCount = computed(
             </RChip>
           </h3>
           <div v-if="showDetectedFilter" class="r-setup-platforms__toolbar">
-            <RSliderBtnGroup
+            <RSegmentedControl
               v-model="detectedFilter"
               :items="detectedFilterItems"
               variant="segmented"
@@ -404,29 +392,21 @@ const detectedPlatformCount = computed(
                 </span>
               </div>
               <div class="r-setup-platforms__item-state">
-                <template v-if="platform.unidentified">
-                  <RTag size="x-small" tone="warning">
-                    {{ t("setup.unidentified") }}
-                  </RTag>
-                  <RChip
-                    size="x-small"
-                    variant="translucent"
-                    color="warning"
-                    prepend-icon="mdi-disc"
-                    :aria-label="t('setup.games')"
-                  >
-                    {{ romCountBySlug.get(platform.fs_slug) ?? 0 }}
-                  </RChip>
-                </template>
+                <RTag
+                  v-if="platform.unidentified"
+                  size="x-small"
+                  tone="warning"
+                >
+                  {{ t("setup.unidentified") }}
+                </RTag>
                 <RChip
-                  v-else
                   size="x-small"
                   variant="translucent"
-                  color="primary"
+                  :color="platform.unidentified ? 'warning' : 'primary'"
                   prepend-icon="mdi-disc"
                   :aria-label="t('setup.games')"
                 >
-                  {{ romCountBySlug.get(platform.fs_slug) ?? 0 }}
+                  {{ platform.rom_count }}
                 </RChip>
               </div>
             </li>

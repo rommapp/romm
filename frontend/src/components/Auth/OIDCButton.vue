@@ -3,7 +3,7 @@
 // (falls back to a generic key if the icon can't be found).
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { RBtn, RIcon, RImg } from "@/lib";
+import { RBtn, RIcon, RImage } from "@/lib";
 
 defineOptions({ inheritAttrs: false });
 
@@ -34,7 +34,7 @@ defineExpose({ login, loading });
   >
     <template v-if="provider" #prepend>
       <RIcon size="20">
-        <RImg
+        <RImage
           :src="`/assets/dashboard-icons/${provider
             .toLowerCase()
             .replace(/ /g, '-')}.png`"
@@ -42,7 +42,7 @@ defineExpose({ login, loading });
           <template #error>
             <RIcon icon="mdi-key" size="20" />
           </template>
-        </RImg>
+        </RImage>
       </RIcon>
     </template>
     {{ t("login.login-oidc", { oidc: provider || "OIDC" }) }}

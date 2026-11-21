@@ -24,9 +24,12 @@ class UserSchema(BaseModel):
     username: str
     email: str | None
     enabled: bool
+    """Whether the user can sign in."""
     role: Role
     permission_group_id: int | None = None
     oauth_scopes: list[str]
+    has_password: bool
+    email_managed_by_oidc: bool
     avatar_path: str
     last_login: UTCDatetime | None
     last_active: UTCDatetime | None
@@ -34,6 +37,7 @@ class UserSchema(BaseModel):
     ra_progression: RAProgression | None = None
     ui_settings: dict[str, Any] | None = None
     current_device_id: str | None = None
+    """The ID of the device making the request, when there is one."""
 
     created_at: UTCDatetime
     updated_at: UTCDatetime

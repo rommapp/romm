@@ -236,14 +236,12 @@ describe("useRomSync", () => {
     expect(getRoms).not.toHaveBeenCalled();
   });
 
-  // The three caches a removed ROM has to leave. Missing any one of them is
+  // The caches a removed ROM has to leave. Missing any one of them is
   // what #4151 and #4204 each had to fix, one call site at a time.
-  it("removeCachedRoms drops the ROMs from the gallery, the v1 store and the selection", () => {
+  it("removeCachedRoms drops the ROMs from the gallery and the selection", () => {
     const removed = namedRom({ id: 1 });
     const kept = namedRom({ id: 2 });
     const gallery = seedGallery(removed);
-    const romsStore = storeRoms();
-    romsStore._allRoms = [removed, kept];
     const selection = storeGallerySelection();
     selection.setSelection([removed, kept]);
 
@@ -251,7 +249,6 @@ describe("useRomSync", () => {
 
     expect(gallery.byPosition.size).toBe(0);
     expect(getRoms).toHaveBeenCalled();
-    expect(romsStore._allRoms).toEqual([kept]);
     expect([...selection.selected.keys()]).toEqual([2]);
   });
 

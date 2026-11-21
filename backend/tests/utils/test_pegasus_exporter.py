@@ -313,6 +313,38 @@ class TestExportMetadata:
         assert "  ." in content
         assert "  Third line." in content
 
+    def test_line_breaks_cannot_add_fields(self, admin_user: User):
+        platform = make_platform(
+            "my-homebrew", name="Homebrew", custom_name="Homebrew\nlaunch: evil"
+        )
+        rom = make_rom(
+            platform,
+            "Innocent Game\nlaunch: /tmp/pwned.sh",
+            fs_stem="innocent",
+            fs_extension="nes",
+        )
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "manual_metadata": {
+                    "developers": ["Dev\r\nlaunch: dev"],
+                    "publishers": ["Pub launch: pub"],
+                    "genres": ["Action\rlaunch: genre"],
+                }
+            },
+        )
+
+        content = PegasusExporter(local_export=True).export_platform_to_pegasus(
+            platform.id, request=None
+        )
+        blocks = parse_pegasus(content)
+        assert all("launch" not in block.keys() for block in blocks)
+        assert "collection: Homebrew launch: evil" in content
+        assert "game: Innocent Game launch: /tmp/pwned.sh" in content
+        assert "developer: Dev launch: dev" in content
+        assert "publisher: Pub launch: pub" in content
+        assert "genre: Action launch: genre" in content
+
 
 class TestFormatHelpers:
     def test_format_rating(self):
@@ -755,6 +787,7 @@ asset.wheel: keep-logo.png
         monkeypatch,
         rom_fields: dict[str, object],
         sources: dict[str, bytes],
+        fs_stem: str = "Super Mario World (USA)",
     ) -> tuple[Path, str]:
         """Export one SNES ROM with ``rom_fields`` applied and ``sources``
         present under the resources base. Returns the platform dir and the
@@ -768,7 +801,7 @@ asset.wheel: keep-logo.png
         rom = make_rom(
             platform,
             "Super Mario World",
-            fs_stem="Super Mario World (USA)",
+            fs_stem=fs_stem,
             fs_extension="sfc",
             fs_name_no_tags="Super Mario World",
         )
@@ -834,6 +867,23 @@ asset.wheel: keep-logo.png
         written_dirs = [p.name for p in platform_dir.iterdir() if p.is_dir()]
         assert written_dirs
         assert fs_rom_handler.exclude_multi_roms(written_dirs) == []
+
+    async def test_line_breaks_in_file_names_cannot_add_fields(
+        self, admin_user: User, tmp_path, monkeypatch
+    ):
+        platform_dir, content = await self._export(
+            admin_user,
+            tmp_path,
+            monkeypatch,
+            {"path_cover_l": "snes/covers/smw.jpg"},
+            {"snes/covers/smw.jpg": b"cover"},
+            fs_stem="Game\nlaunch: evil\nend",
+        )
+
+        assert (platform_dir / "covers/Game\nlaunch: evil\nend.jpg").is_file()
+        assert all("launch" not in block.keys() for block in parse_pegasus(content))
+        assert "assets.box_front: covers/Game launch: evil end.jpg" in content
+        assert "file: Game launch: evil end.sfc" in content
 
     async def test_logo_and_marquee_both_survive(
         self, admin_user: User, tmp_path, monkeypatch

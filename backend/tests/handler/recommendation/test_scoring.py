@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 
 from handler.recommendation.scoring import (
@@ -163,6 +165,72 @@ def test_extract_tokens_skips_blanks_and_deduplicates():
 
     assert tokens.count(make_token(Facet.GENRE, "Action")) == 1
     assert not any(token.endswith(":") for token in tokens)
+
+
+@pytest.mark.parametrize(
+    "field,facet",
+    [
+        ("genres", Facet.GENRE),
+        ("franchises", Facet.FRANCHISE),
+        ("collections", Facet.COLLECTION),
+        ("companies", Facet.COMPANY),
+        ("developers", Facet.DEVELOPER),
+        ("publishers", Facet.PUBLISHER),
+        ("game_modes", Facet.GAME_MODE),
+        ("keywords", Facet.KEYWORD),
+        ("themes", Facet.THEME),
+        ("player_perspectives", Facet.PERSPECTIVE),
+    ],
+)
+def test_extract_tokens_accepts_named_metadata_objects(field, facet):
+    metadata: dict[str, Any] = {
+        field: ["Action", {"id": 1, "name": " Action "}, {"name": "Adventure"}]
+    }
+    tokens = extract_tokens(platform_id=1, **metadata)
+
+    assert tokens == (
+        make_token(facet, "Action"),
+        make_token(facet, "Adventure"),
+        make_token(Facet.PLATFORM, "1"),
+    )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        None,
+        42,
+        {"id": 1},
+        {"name": None},
+        {"name": 42},
+        {"name": "  "},
+    ],
+)
+def test_extract_tokens_skips_invalid_metadata_values(value):
+    tokens = extract_tokens(platform_id=1, genres=[value, "Action"])
+
+    assert tokens == (
+        make_token(Facet.GENRE, "Action"),
+        make_token(Facet.PLATFORM, "1"),
+    )
+
+
+@pytest.mark.parametrize("column", [42, True, {"id": 1, "name": "Action"}])
+def test_extract_tokens_skips_a_column_that_is_not_a_list(column):
+    assert extract_tokens(platform_id=1, genres=column) == (
+        make_token(Facet.PLATFORM, "1"),
+    )
+
+
+def test_extract_tokens_falls_back_to_companies_when_roles_have_no_names():
+    tokens = extract_tokens(
+        platform_id=1,
+        companies=["Nintendo"],
+        developers=[{"id": 5}, 1234],
+        publishers=["  "],
+    )
+
+    assert make_token(Facet.COMPANY, "Nintendo") in tokens
 
 
 def test_release_year_handles_seconds_and_millisecond_epochs():

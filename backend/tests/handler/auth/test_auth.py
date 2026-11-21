@@ -1,8 +1,10 @@
 import threading
 from base64 import b64encode
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
+from unittest.mock import MagicMock, patch
 
+import bcrypt
 import pytest
 from fastapi import status
 from fastapi.exceptions import HTTPException
@@ -68,6 +70,37 @@ def test_authenticate_user(admin_user: User):
 
     assert current_user
     assert current_user.id == admin_user.id
+
+
+def _assert_ran_real_bcrypt_check(checkpw: MagicMock) -> None:
+    # A placeholder hash is rejected before bcrypt runs, so check the last call.
+    hashed = checkpw.call_args.args[1]
+    assert bcrypt.checkpw(b"probe", hashed) is False
+
+
+def test_authenticate_user_unknown_username_runs_bcrypt():
+    with patch.object(bcrypt, "checkpw", wraps=bcrypt.checkpw) as checkpw:
+        assert auth_handler.authenticate_user("no_such_user", "password") is None
+
+    _assert_ran_real_bcrypt_check(checkpw)
+
+
+@pytest.mark.parametrize(
+    "stored_hash", ["3f2b1c7e-0c1d-4f5a-9a2b-8e7d6c5b4a39", "", None]
+)
+def test_authenticate_user_unusable_hash_runs_bcrypt(
+    admin_user: User, stored_hash: str | None
+):
+    db_user_handler.update_user(admin_user.id, {"hashed_password": stored_hash})
+
+    with patch.object(bcrypt, "checkpw", wraps=bcrypt.checkpw) as checkpw:
+        assert auth_handler.authenticate_user("test_admin", stored_hash or "") is None
+
+    _assert_ran_real_bcrypt_check(checkpw)
+
+
+def test_authenticate_user_wrong_password(admin_user: User):
+    assert auth_handler.authenticate_user("test_admin", "wrong_password") is None
 
 
 async def test_get_current_active_user_from_session(editor_user: User):
@@ -411,3 +444,33 @@ async def test_hybrid_auth_client_token_bound_sets_device_id_and_bumps_last_seen
     )
     assert refreshed is not None
     assert refreshed.last_seen is not None
+
+
+async def test_hybrid_auth_client_token_inside_the_debounce_window_writes_nothing(
+    editor_user: User, executed_statements: list[str]
+):
+    device = db_device_handler.add_device(
+        Device(id="debounced-device", user_id=editor_user.id)
+    )
+    now = datetime.now(timezone.utc)
+    _, raw_token = make_device_token(
+        editor_user,
+        device.id,
+        scopes=" ".join(editor_user.oauth_scopes[:3]),
+        last_used_at=now,
+    )
+    db_user_handler.update_user(editor_user.id, {"last_active": now})
+    executed_statements.clear()
+
+    class MockConnection(HTTPConnection):
+        def __init__(self):
+            self.scope: dict[str, dict[str, Any]] = {"session": {}, "state": {}}
+            self._headers = Headers({"Authorization": f"Bearer {raw_token}"})
+
+    result = await HybridAuthBackend().authenticate(MockConnection())
+
+    assert result is not None
+    updates = [
+        s for s in executed_statements if s.lstrip().upper().startswith("UPDATE")
+    ]
+    assert updates == []

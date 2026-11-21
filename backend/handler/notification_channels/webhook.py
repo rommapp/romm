@@ -23,6 +23,9 @@ SIGNATURE_HEADER: Final = "X-RomM-Signature"
 # How much of a refusal's body is read, for the error its owner sees.
 ERROR_DETAIL_BYTES: Final = 1024
 ERROR_DETAIL_CHARS: Final = 200
+# The admin's own Playmatch/Hasheous origins are trusted for RomM's requests,
+# not for a webhook that a non-admin points at them.
+NO_INTERNAL_ORIGINS: Final[frozenset[tuple[str, int]]] = frozenset()
 
 
 class WebhookError(RuntimeError):
@@ -57,7 +60,7 @@ def check_url(url: str, allow_private: bool) -> None:
         raise ValueError("The URL's port isn't valid")
     if not allow_private:
         try:
-            validate_url_for_http_request(url)
+            validate_url_for_http_request(url, allowlist=NO_INTERNAL_ORIGINS)
         except ValidationError as exc:
             raise ValueError(exc.message) from exc
 
@@ -97,7 +100,7 @@ def build_request(config: WebhookConfig, message: OutboundMessage) -> WebhookReq
 def _client(allow_private: bool) -> httpx2.AsyncClient:
     if allow_private:
         return httpx2.AsyncClient(trust_env=has_proxy_env(), timeout=TIMEOUT_SECONDS)
-    client = create_httpx_async_client()
+    client = create_httpx_async_client(allowlist=NO_INTERNAL_ORIGINS)
     client.timeout = httpx2.Timeout(TIMEOUT_SECONDS)
     return client
 

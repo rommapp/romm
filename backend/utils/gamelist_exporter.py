@@ -19,6 +19,7 @@ from starlette.datastructures import URLPath
 from config import FRONTEND_RESOURCES_PATH, YOUTUBE_BASE_URL
 from config.config_manager import PLATFORM_MEDIA_DIRS
 from config.config_manager import config_manager as cm
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_platform_handler, fs_resource_handler
 from handler.metadata.gamelist_handler import gamelist_path_to_rel_path
@@ -26,6 +27,7 @@ from logger.logger import log
 from models.rom import HAS_FILE_ON_DISK_FILTERS, Rom
 from utils.datetime import format_utc
 from utils.filesystem import join_rel_path, place_export_asset, rel_platform_folder
+from utils.urls import rom_content_url, rom_id_from_content_url
 
 # Each tag maps to the assets it can take, best first. RetroBat reads some of the
 # same media under its own names (cartridge, titleshot, mix), hence the repeats.
@@ -60,12 +62,13 @@ class ExistingGamelist:
     """What an on-disk gamelist.xml holds that RomM did not generate."""
 
     games: dict[str, Element] = field(default_factory=dict)
+    games_by_rom_id: dict[int, Element] = field(default_factory=dict)
     others: list[Element] = field(default_factory=list)
     root_siblings: list[Element] = field(default_factory=list)
 
 
 def parse_existing_gamelist(content: str) -> ExistingGamelist:
-    """Index a gamelist.xml by ROM path, keeping every element RomM does not own.
+    """Index a gamelist.xml by ROM path or content URL, keeping every other element.
 
     ES-DE writes <alternativeEmulator> beside <gameList>, so the document is
     parsed under a wrapper root to accept those siblings.
@@ -92,13 +95,13 @@ def parse_existing_gamelist(content: str) -> ExistingGamelist:
 
     for elem in gamelist:
         path_elem = elem.find("path") if elem.tag == "game" else None
-        rel_path = (
-            gamelist_path_to_rel_path(path_elem.text)
-            if path_elem is not None and path_elem.text
-            else None
-        )
-        # A second entry with the same path is carried over, not dropped.
-        if rel_path and rel_path not in existing.games:
+        raw_path = path_elem.text if path_elem is not None else None
+        rom_id = rom_id_from_content_url(raw_path) if raw_path else None
+        rel_path = gamelist_path_to_rel_path(raw_path) if raw_path else None
+        # A second entry with the same key is carried over, not dropped.
+        if rom_id is not None and rom_id not in existing.games_by_rom_id:
+            existing.games_by_rom_id[rom_id] = elem
+        elif rom_id is None and rel_path and rel_path not in existing.games:
             existing.games[rel_path] = elem
         else:
             existing.others.append(elem)
@@ -255,13 +258,7 @@ class GamelistExporter:
                 raise ValueError(
                     "Request object must be provided for non-local exports"
                 )
-            SubElement(game, "path").text = str(
-                request.url_for(
-                    "get_rom_content",
-                    id=rom.id,
-                    file_name=rom.fs_name,
-                )
-            )
+            SubElement(game, "path").text = rom_content_url(request, rom)
 
         SubElement(game, "name").text = rom.name or rom.fs_name
 
@@ -358,11 +355,14 @@ class GamelistExporter:
             raise ValueError(f"Platform with ID {platform_id} not found")
 
         roms = db_rom_handler.get_roms_scalar(
-            platform_ids=[platform_id], **HAS_FILE_ON_DISK_FILTERS
+            platform_ids=[platform_id],
+            visibility=UNRESTRICTED,
+            **HAS_FILE_ON_DISK_FILTERS,
         )
 
         existing = existing or ExistingGamelist()
         unmatched_games = dict(existing.games)
+        unmatched_by_rom_id = dict(existing.games_by_rom_id)
 
         root = Element("gameList")
         root.extend(existing.others)
@@ -394,15 +394,18 @@ class GamelistExporter:
                 media_thumbnail=media_thumbnail,
                 rel_folder=rel_folder,
             )
-            existing_game = unmatched_games.pop(
-                join_rel_path(rel_folder, rom.fs_name), None
-            )
+            existing_game = unmatched_by_rom_id.pop(rom.id, None)
+            if existing_game is None:
+                existing_game = unmatched_games.pop(
+                    join_rel_path(rel_folder, rom.fs_name), None
+                )
             if existing_game is not None:
                 merge_existing_game(game_element, existing_game)
             root.append(game_element)
             count += 1
 
         root.extend(unmatched_games.values())
+        root.extend(unmatched_by_rom_id.values())
 
         indent(root, space="  ", level=0)
         xml_str = tostring(root, encoding="unicode", xml_declaration=True)

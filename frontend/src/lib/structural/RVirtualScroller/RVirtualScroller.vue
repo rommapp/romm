@@ -302,11 +302,26 @@ function scrollToIndex(index: number, options: ScrollToIndexOptions = {}) {
   if (options.smooth) {
     root.scrollTo({ top: target, behavior: "smooth" });
   } else {
-    root.scrollTop = target;
+    scrollTo(target);
   }
 }
 
-defineExpose({ scrollToIndex, containerEl, scrollTop, innerOffsetTop });
+/** Jumps to `top` and updates the rendered range in the same tick, without
+ *  waiting for the scroll event. */
+function scrollTo(top: number) {
+  const root = containerEl.value;
+  if (!root) return;
+  root.scrollTop = top;
+  scrollTop.value = root.scrollTop;
+}
+
+defineExpose({
+  scrollToIndex,
+  scrollTo,
+  containerEl,
+  scrollTop,
+  innerOffsetTop,
+});
 
 const minContentWidthCss = computed(() => {
   const w = props.minContentWidth;
@@ -403,8 +418,5 @@ const innerStyle = computed(() => {
   top: 0;
   left: 0;
   right: 0;
-  /* `transform` triggers a compositor layer; the scroll-position-driven
-     re-positioning then bypasses paint costs. */
-  will-change: transform;
 }
 </style>

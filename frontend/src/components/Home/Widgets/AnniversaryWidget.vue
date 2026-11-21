@@ -66,10 +66,10 @@ const yearsAgo = computed(() => {
   return years >= 1 ? years : null;
 });
 
-const placeholder = computed(() =>
-  failed.value
-    ? t("home.widget-anniversaries-error")
-    : t("home.widget-anniversaries-empty"),
+// A day without anniversaries hides the card, but the component stays mounted
+// so the rollover check can bring it back.
+const visible = computed(
+  () => loading.value || failed.value || current.value !== null,
 );
 
 function btnEl(btn: Ref<ComponentPublicInstance | null>): HTMLElement | null {
@@ -94,7 +94,7 @@ function fetchPage(query: AnniversaryQuery, offset: number) {
   });
 }
 
-/** Drops the day's games, so the card falls back to its placeholder. */
+/** Drops the day's games, which hides the card unless the load failed. */
 function showEmptyDay() {
   roms.value = [];
   total.value = 0;
@@ -191,7 +191,11 @@ useIntervalFn(() => {
 </script>
 
 <template>
-  <WidgetCard :title="t('home.widget-anniversaries')" :loading="loading">
+  <WidgetCard
+    v-if="visible"
+    :title="t('home.widget-anniversaries')"
+    :loading="loading"
+  >
     <template #action>
       <div class="r-widget-anniv__nav">
         <RBtn
@@ -251,8 +255,8 @@ useIntervalFn(() => {
         </div>
       </div>
     </router-link>
-    <div v-else class="r-widget-anniv__empty">
-      {{ placeholder }}
+    <div v-else class="r-widget-anniv__error">
+      {{ t("home.widget-anniversaries-error") }}
     </div>
   </WidgetCard>
 </template>
@@ -345,7 +349,7 @@ html:not([data-input="pad"]) .r-widget-anniv__body:hover .r-widget-anniv__name,
   color: var(--r-color-fg-faint);
 }
 
-.r-widget-anniv__empty {
+.r-widget-anniv__error {
   font-size: 12px;
   color: var(--r-color-fg-faint);
   margin-top: auto;

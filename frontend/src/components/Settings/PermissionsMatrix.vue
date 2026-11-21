@@ -2,8 +2,9 @@
 // PermissionsMatrix: entity (rows) x action (columns) grid of tri-state
 // checkboxes for the group editor. Each cell cycles none -> full -> own ->
 // none: "none" is no grant, "full" is library-wide (primary), "own" limits
-// the grant to the user's own items (accent, own_only). The model is the list
-// of granted (entity, action) pairs; cycling rewrites the touched cell only.
+// the grant to the user's own items (accent, own_only), offered only on
+// entities whose rows have an owner. The model is the list of granted
+// (entity, action) pairs; cycling rewrites the touched cell only.
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { GrantSchemaIO, PermAction, PermEntity } from "@/__generated__";
@@ -14,6 +15,7 @@ defineOptions({ inheritAttrs: false });
 const props = defineProps<{
   modelValue: GrantSchemaIO[];
   entities: PermEntity[];
+  ownableEntities: PermEntity[];
   actions: PermAction[];
   readonly?: boolean;
 }>();
@@ -49,6 +51,7 @@ const PERM_STATES: RCheckboxState[] = [
   { value: "full", color: "primary" },
   { value: "own", color: "accent", icon: "mdi-account" },
 ];
+const OWNERLESS_PERM_STATES = PERM_STATES.filter((s) => s.value !== "own");
 
 function onState(entity: PermEntity, action: PermAction, value: string) {
   if (props.readonly) return;
@@ -142,7 +145,9 @@ function toggleColumn(a: PermAction, value: boolean) {
         <RCheckbox
           bare
           size="sm"
-          :states="PERM_STATES"
+          :states="
+            ownableEntities.includes(e) ? PERM_STATES : OWNERLESS_PERM_STATES
+          "
           :state-value="stateOf(e, a)"
           :disabled="readonly"
           :aria-label="`${entityLabel(e)} ${actionLabel(a)} ${stateLabel(stateOf(e, a))}`"

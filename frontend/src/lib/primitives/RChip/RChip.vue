@@ -18,6 +18,7 @@
 // you need a specific radius.
 import { computed, ref, useAttrs } from "vue";
 import { useChromeLabels } from "@/lib/a11y/chromeLabels";
+import { ROUNDED_MAP, TONE_MAP, solidFill } from "@/lib/style/tokenMaps";
 import RIcon from "../RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -69,37 +70,11 @@ function syncTruncatedTitle() {
     el.scrollWidth > el.clientWidth ? el.textContent?.trim() : undefined;
 }
 
-const TONE_MAP: Record<string, string> = {
-  primary: "var(--r-color-brand-primary)",
-  secondary: "var(--r-color-brand-secondary)",
-  accent: "var(--r-color-brand-accent)",
-  success: "var(--r-color-success)",
-  warning: "var(--r-color-warning)",
-  danger: "var(--r-color-danger)",
-  error: "var(--r-color-danger)",
-  info: "var(--r-color-info)",
-  "romm-red": "var(--r-color-romm-red)",
-  "romm-green": "var(--r-color-romm-green)",
-  "romm-blue": "var(--r-color-romm-blue)",
-  "romm-gold": "var(--r-color-romm-gold)",
-};
-
 const resolvedColor = computed<string | undefined>(() => {
   const c = props.color;
   if (!c) return undefined;
   return TONE_MAP[c] ?? c;
 });
-
-const ROUNDED_MAP: Record<string, string> = {
-  "0": "0",
-  sm: "4px",
-  md: "8px",
-  lg: "12px",
-  xl: "16px",
-  full: "999px",
-  pill: "999px",
-  circle: "50%",
-};
 
 const resolvedRounded = computed<string>(() => {
   const r = props.rounded;
@@ -129,12 +104,15 @@ function onClose(evt: MouseEvent) {
       `r-chip--${size}`,
       {
         'r-chip--has-color': !!resolvedColor,
+        'r-chip--solid':
+          !!resolvedColor && solidFill(resolvedColor) !== resolvedColor,
         'r-chip--label': label,
         'r-chip--disabled': disabled,
       },
     ]"
     :style="{
       '--r-chip-color': resolvedColor,
+      '--r-chip-solid': resolvedColor && solidFill(resolvedColor),
       borderRadius: resolvedRounded,
     }"
     :title="(attrs.title as string | undefined) ?? truncatedTitle"
@@ -192,6 +170,12 @@ function onClose(evt: MouseEvent) {
     transform var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-chip:hover:not(.r-chip--disabled) {
+  opacity: 1;
+}
+
+/* A fill darkened for white text loses that contrast to the rest-state mute. */
+.r-chip--flat.r-chip--solid:not(.r-chip--disabled),
+.r-chip--elevated.r-chip--solid:not(.r-chip--disabled) {
   opacity: 1;
 }
 
@@ -275,7 +259,7 @@ function onClose(evt: MouseEvent) {
 
 /* ── Variant: flat (solid colour fill) ─────────────────────────── */
 .r-chip--flat.r-chip--has-color {
-  background: var(--r-chip-color);
+  background: var(--r-chip-solid);
   color: white;
 }
 .r-chip--flat:not(.r-chip--has-color) {
@@ -285,7 +269,7 @@ function onClose(evt: MouseEvent) {
 
 /* ── Variant: elevated (solid + drop shadow) ───────────────────── */
 .r-chip--elevated.r-chip--has-color {
-  background: var(--r-chip-color);
+  background: var(--r-chip-solid);
   color: white;
   box-shadow: 0 2px 6px color-mix(in srgb, black 24%, transparent);
 }

@@ -21,6 +21,7 @@
 // line look (subtitle wraps under).
 import { computed, useAttrs, useSlots } from "vue";
 import { RouterLink, type RouteLocationRaw } from "vue-router";
+import { ROUNDED_MAP } from "@/lib/style/tokenMaps";
 import RAvatar from "../../primitives/RAvatar/RAvatar.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 
@@ -91,14 +92,6 @@ const dynamicAttrs = computed<Record<string, unknown>>(() => {
   return {};
 });
 
-const ROUNDED_MAP: Record<string, string> = {
-  "0": "0",
-  sm: "4px",
-  md: "8px",
-  lg: "12px",
-  xl: "16px",
-  full: "999px",
-};
 const resolvedRounded = computed<string>(() => {
   const r = props.rounded;
   if (r === undefined || r === null || r === "") return "6px";

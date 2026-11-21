@@ -43,6 +43,16 @@ class RedisSessionMiddleware:
         )
         await close_login_session_sockets(ids)
 
+    @staticmethod
+    async def _delete_session(session_id: str, user_id: str | None) -> None:
+        async with async_cache.pipeline() as pipe:
+            await pipe.delete(f"session:{session_id}")
+            if user_id:
+                await pipe.srem(f"user_sessions:{user_id}", session_id)
+            await pipe.execute()
+        if user_id:
+            await close_login_session_sockets([session_id])
+
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] not in ("http", "websocket"):
             await self.app(scope, receive, send)
@@ -74,6 +84,11 @@ class RedisSessionMiddleware:
 
                 if scope["session"]:
                     existing_id = scope["session"].pop("session_id", None)
+                    # A new identity gets a new id, so an id planted in the
+                    # browser before login never becomes the user's session.
+                    if existing_id and user_id != initial_user_id:
+                        await self._delete_session(existing_id, initial_user_id)
+                        existing_id = None
                     session_id = existing_id or str(uuid.uuid4())
                     session_data_json = json.dumps(scope["session"])
                     # Refreshed only while its record is still there, so a
@@ -93,20 +108,11 @@ class RedisSessionMiddleware:
                             )
 
                         header_value = f"{self.session_cookie}={session_id}; path=/; Max-Age={self.max_age}; {self.security_flags}"
-                    else:
-                        header_value = f"{self.session_cookie}=null; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; {self.security_flags}"
-
-                    headers.append("Set-Cookie", header_value)
+                        headers.append("Set-Cookie", header_value)
+                    # A failed refresh leaves the cookie alone, since the browser
+                    # may already hold the id a concurrent login rotated into.
                 elif session_id:
-                    async with async_cache.pipeline() as pipe:
-                        await pipe.delete(f"session:{session_id}")
-                        if initial_user_id:
-                            await pipe.srem(
-                                f"user_sessions:{initial_user_id}", session_id
-                            )
-                        await pipe.execute()
-                    if initial_user_id:
-                        await close_login_session_sockets([session_id])
+                    await self._delete_session(session_id, initial_user_id)
 
                     header_value = f"{self.session_cookie}=null; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; {self.security_flags}"
                     headers.append("Set-Cookie", header_value)

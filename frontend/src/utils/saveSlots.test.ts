@@ -7,6 +7,7 @@ import {
   preferredSlot,
   slotChoiceKey,
   slotChoices,
+  slotForChannel,
   slotForSave,
 } from "./saveSlots";
 
@@ -50,11 +51,21 @@ describe("slotChoices", () => {
     ]);
   });
 
-  it("matches slot names exactly, like the backend", () => {
-    expect(slotChoices([save(1, "Autosave")])).toEqual([
+  it("folds names into one channel as the backend does, ignoring case", () => {
+    expect(
+      slotChoices([save(1, "Autosave"), save(2, "Speedrun")], ["speedrun"]),
+    ).toEqual([
       NEW_SLOT_CHOICE,
       existingSlot("autosave"),
-      existingSlot("Autosave"),
+      existingSlot("Speedrun"),
+    ]);
+  });
+
+  it("offers the channels snapshot clients created", () => {
+    expect(slotChoices([], ["default", "Hard mode"])).toEqual([
+      NEW_SLOT_CHOICE,
+      existingSlot("autosave"),
+      existingSlot("Hard mode"),
     ]);
   });
 });
@@ -96,5 +107,12 @@ describe("slotForSave", () => {
       existingSlot("main"),
     );
     expect(slotForSave(save(2), NEW_SLOT_CHOICE)).toBe(NEW_SLOT_CHOICE);
+  });
+});
+
+describe("slotForChannel", () => {
+  it("names a channel's slot, with the default channel as autosave", () => {
+    expect(slotForChannel("Hard mode")).toEqual(existingSlot("Hard mode"));
+    expect(slotForChannel("default")).toEqual(existingSlot("autosave"));
   });
 });

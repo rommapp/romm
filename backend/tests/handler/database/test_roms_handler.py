@@ -101,6 +101,20 @@ class TestUpdateRomDerivedColumns:
         assert updated.name == "The New Name 2"
         assert updated.name_sort_key == "pinned"
 
+    def test_renaming_rederives_a_stale_key_that_is_not_custom(self, rom: Rom):
+        db_rom_handler.update_rom(
+            rom.id, {"name_sort_key": "hard arcade", "name_sort_key_custom": False}
+        )
+
+        updated = db_rom_handler.update_rom(rom.id, {"name": "Die Hard Trilogy"})
+
+        assert updated.name_sort_key == "die hard trilogy"
+
+    def test_an_explicit_key_is_custom(self, rom: Rom):
+        updated = db_rom_handler.update_rom(rom.id, {"name_sort_key": "zelda"})
+
+        assert updated.name_sort_key_custom
+
     def test_update_metadata_resyncs_min_age(self, rom: Rom):
         rated = db_rom_handler.update_rom(
             rom.id,
@@ -232,6 +246,21 @@ class TestUniquePlatformFullPath:
         second = make_rom(other, "Patched Game", fs_extension="gba")
 
         assert first.id != second.id
+
+
+class TestGetRomsByFileNamePrefixes:
+    def test_matches_a_prefix_in_another_case(self, rom: Rom, rom_file: RomFile):
+        assert [
+            (file_name, owner.id)
+            for file_name, owner in db_rom_handler.get_roms_by_file_name_prefixes(
+                ["TEST_ROM."]
+            )
+        ] == [("test_rom.zip", rom.id)]
+
+    def test_treats_like_wildcards_literally(self, rom: Rom, rom_file: RomFile):
+        assert (
+            db_rom_handler.get_roms_by_file_name_prefixes(["test%", "test_rom_"]) == []
+        )
 
 
 class TestGetRomsByFsNamesNoExt:
@@ -630,6 +659,70 @@ class TestSyncRomFiles:
         assert stored is not None
         assert stored.last_modified == scanned_mtime
         assert {column: getattr(stored, column) for column in metadata} == metadata
+
+    @pytest.mark.parametrize(
+        ("size", "inspected", "sigil_read", "expected"),
+        [
+            pytest.param(200, False, None, ("SLUS_200.01", 1), id="unchanged-keeps"),
+            pytest.param(200, True, None, ("SLUS_200.01", 1), id="converto-read-keeps"),
+            pytest.param(300, False, None, (None, None), id="changed-clears"),
+            pytest.param(
+                300, False, ("SLUS_200.02", 0), ("SLUS_200.02", 0), id="fresh-read"
+            ),
+        ],
+    )
+    def test_sigil_serial_tracks_content(
+        self,
+        rom: Rom,
+        size: int,
+        inspected: bool,
+        sigil_read: tuple[str, int] | None,
+        expected: tuple[str | None, int | None],
+    ):
+        scanned = _scanned_file(rom, "game.iso", size=200, sha1=None)
+        scanned.last_modified = 1000.0
+        scanned.raw_serial, scanned.sigil_features = "SLUS_200.01", 1
+        (first,) = _sync(rom, [scanned])
+
+        scanned = _scanned_file(rom, "game.iso", size=size, sha1=None)
+        scanned.last_modified = 1000.0
+        if inspected:
+            scanned.converto_read_at = datetime(2026, 2, 1, tzinfo=timezone.utc)
+        if sigil_read is not None:
+            scanned.raw_serial, scanned.sigil_features = sigil_read
+        db_rom_handler.sync_rom_files(rom.id, [scanned])
+
+        stored = db_rom_handler.get_rom_file_by_id(first.id)
+        assert stored is not None
+        assert (stored.raw_serial, stored.sigil_features) == expected
+
+    @pytest.mark.parametrize(
+        ("size", "kept"), [(200, True), (300, False)], ids=["unchanged", "changed"]
+    )
+    def test_the_n64_and_playlist_reads_track_content(
+        self, rom: Rom, size: int, kept: bool
+    ):
+        read = {
+            "n64_header": "1080 SNOWBOARDING",
+            "n64_md5": "FA27089C425DBAB99F19245C5C997613",
+            "n64_md5_n64": "10C93DD78B695CD32B6938534ED0EDD5",
+            "playlist_title_ids": ["SLUS-00892", "SLUS-00908"],
+        }
+        scanned = _scanned_file(rom, "game.z64", size=200, sha1=None)
+        scanned.last_modified = 1000.0
+        for column, value in read.items():
+            setattr(scanned, column, value)
+        (first,) = _sync(rom, [scanned])
+
+        rescanned = _scanned_file(rom, "game.z64", size=size, sha1=None)
+        rescanned.last_modified = 1000.0
+        db_rom_handler.sync_rom_files(rom.id, [rescanned])
+
+        stored = db_rom_handler.get_rom_file_by_id(first.id)
+        assert stored is not None
+        assert {column: getattr(stored, column) for column in read} == (
+            read if kept else dict.fromkeys(read)
+        )
 
     def test_new_hashes_clear_unread_title_ids_despite_a_kept_mtime(self, rom: Rom):
         scanned = _scanned_file(rom, "game.chd")

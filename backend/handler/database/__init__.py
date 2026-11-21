@@ -2,7 +2,7 @@ from .audit_events_handler import DBAuditEventsHandler
 from .client_tokens_handler import DBClientTokensHandler
 from .collections_handler import DBCollectionsHandler
 from .container_adoptions_handler import DBContainerAdoptionsHandler
-from .deleted_assets_handler import DBDeletedAssetsHandler
+from .deleted_assets_handler import db_deleted_asset_handler as db_deleted_asset_handler
 from .device_save_sync_handler import DBDeviceSaveSyncHandler
 from .devices_handler import DBDevicesHandler
 from .firmware_handler import DBFirmwareHandler
@@ -17,6 +17,7 @@ from .recommendations_handler import DBRecommendationsHandler
 from .roms_handler import DBRomsHandler
 from .saves_handler import DBSavesHandler
 from .screenshots_handler import DBScreenshotsHandler
+from .snapshots_handler import DBSnapshotsHandler
 from .states_handler import DBStatesHandler
 from .stats_handler import DBStatsHandler
 from .sync_sessions_handler import DBSyncSessionsHandler
@@ -26,7 +27,6 @@ db_audit_event_handler = DBAuditEventsHandler()
 db_client_token_handler = DBClientTokensHandler()
 db_collection_handler = DBCollectionsHandler()
 db_container_adoption_handler = DBContainerAdoptionsHandler()
-db_deleted_asset_handler = DBDeletedAssetsHandler()
 db_device_handler = DBDevicesHandler()
 db_device_save_sync_handler = DBDeviceSaveSyncHandler()
 db_firmware_handler = DBFirmwareHandler()
@@ -41,6 +41,7 @@ db_recommendation_handler = DBRecommendationsHandler()
 db_rom_handler = DBRomsHandler()
 db_save_handler = DBSavesHandler()
 db_screenshot_handler = DBScreenshotsHandler()
+db_snapshot_handler = DBSnapshotsHandler()
 db_state_handler = DBStatesHandler()
 db_stats_handler = DBStatsHandler()
 db_sync_session_handler = DBSyncSessionsHandler()

@@ -1,4 +1,6 @@
 import logging
+from collections.abc import Mapping
+from types import MappingProxyType
 from typing import Final
 
 from logger.formatter import redact_sensitive, resolve_module_name, strip_ansi
@@ -9,6 +11,11 @@ from logger.formatter import redact_sensitive, resolve_module_name, strip_ansi
 LOG_CHANNEL: Final = "romm:logs"
 LOG_BUFFER_KEY: Final = "romm:logs:buffer"
 LOG_BUFFER_SIZE: Final = 1000
+
+_STDOUT_ONLY_ATTR: Final = "stdout_only"
+# Pass as `extra=` on a record that carries a usable secret: stdout keeps it,
+# the buffer and stream that `logs.read` holders can see do not.
+STDOUT_ONLY: Final[Mapping[str, object]] = MappingProxyType({_STDOUT_ONLY_ATTR: True})
 
 
 class LogStreamHandler(logging.Handler):
@@ -30,6 +37,8 @@ class LogStreamHandler(logging.Handler):
     """
 
     def emit(self, record: logging.LogRecord) -> None:
+        if getattr(record, _STDOUT_ONLY_ATTR, False):
+            return
         try:
             from handler.redis_handler import redis_client
             from utils import json_module

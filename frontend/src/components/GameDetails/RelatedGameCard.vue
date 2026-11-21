@@ -146,6 +146,7 @@ const syntheticRom = computed<SimpleRom>(() => ({
   is_unidentified: false,
   is_identified: false,
   revision: null,
+  version: null,
   regions: [],
   languages: [],
   tags: [],
@@ -160,6 +161,7 @@ const syntheticRom = computed<SimpleRom>(() => ({
   has_nested_single_file: false,
   has_multiple_files: false,
   is_easyrpg_game: false,
+  has_jsdos_bundle: false,
   full_path: "",
   created_at: "",
   updated_at: "",
@@ -235,8 +237,8 @@ function onClick(e: MouseEvent) {
   font-weight: var(--r-font-weight-bold);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  background: var(--r-color-brand-primary);
-  color: var(--r-color-overlay-fg);
+  background: var(--r-color-brand-primary-solid);
+  color: var(--r-color-brand-on-primary);
   backdrop-filter: blur(4px);
   box-shadow: 0 1px 4px color-mix(in srgb, black 45%, transparent);
 }

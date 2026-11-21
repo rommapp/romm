@@ -17,6 +17,7 @@
 // sibling: useful when you want a list badge that reads like "Inbox
 // (4)" rather than an overlay.
 import { computed } from "vue";
+import { TONE_MAP, solidFill } from "@/lib/style/tokenMaps";
 import RIcon from "../RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -69,21 +70,6 @@ const props = withDefaults(defineProps<Props>(), {
   icon: undefined,
 });
 
-const TONE_MAP: Record<string, string> & { error: string } = {
-  primary: "var(--r-color-brand-primary)",
-  secondary: "var(--r-color-brand-secondary)",
-  accent: "var(--r-color-brand-accent)",
-  success: "var(--r-color-success)",
-  warning: "var(--r-color-warning)",
-  danger: "var(--r-color-danger)",
-  error: "var(--r-color-danger)",
-  info: "var(--r-color-info)",
-  "romm-red": "var(--r-color-romm-red)",
-  "romm-green": "var(--r-color-romm-green)",
-  "romm-blue": "var(--r-color-romm-blue)",
-  "romm-gold": "var(--r-color-romm-gold)",
-};
-
 const resolvedColor = computed<string>(() => {
   const c = props.color;
   if (!c) return TONE_MAP.error;
@@ -128,6 +114,7 @@ const locationClass = computed(
         ]"
         :style="{
           '--r-badge-color': resolvedColor,
+          '--r-badge-solid': resolvedColor && solidFill(resolvedColor),
           '--r-badge-inset': `${inset}px`,
         }"
         aria-hidden="true"
@@ -159,7 +146,7 @@ const locationClass = computed(
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--r-badge-color);
+  background: var(--r-badge-solid);
   color: white;
   font-size: 10px;
   font-weight: var(--r-font-weight-bold);

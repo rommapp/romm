@@ -17,12 +17,16 @@ export type SyncNegotiatePayload = {
      */
     rom_ids?: (Array<number> | null);
     /**
-     * Offer every current server save the client did not list as a download, even one this device already synced. For clients that never delete saves themselves (such as a browser, whose storage can be evicted), so a missing save means lost rather than deleted.
+     * Whether to offer every current server save the client did not list as a download, even one this device already synced. Set it on a client that never deletes saves itself, such as a browser whose storage can be evicted, where a missing save was lost and not deleted.
      */
     restore_unlisted?: boolean;
     /**
      * Emulators whose saves this client can load. When provided, only server saves written by one of them are paired or offered, so a save from another emulator in the same slot is left alone.
      */
     emulators?: (Array<string> | null);
+    /**
+     * Libretro cores whose saves this client can load. A save from a snapshot client that recorded its core is only offered to clients that list that core. Other saves are matched by emulator.
+     */
+    cores?: (Array<string> | null);
 };
 

@@ -19,7 +19,10 @@ vi.mock("@/services/socket", () => ({
   default: { connected: true, connect: vi.fn(), emit: vi.fn() },
 }));
 vi.mock("@/stores/heartbeat", () => ({
-  default: () => ({ getEnabledMetadataOptions: () => [] }),
+  default: () => ({
+    getEnabledMetadataOptions: () => [],
+    value: { ROM_PATCHER: { SUPPORTED_EXTENSIONS: [".bps", ".ips"] } },
+  }),
 }));
 vi.mock("@/stores/platforms", () => ({
   default: () => ({ filteredPlatforms: { value: [] } }),

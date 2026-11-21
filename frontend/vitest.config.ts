@@ -1,21 +1,38 @@
 import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
 import vue from "@vitejs/plugin-vue";
 import { playwright } from "@vitest/browser-playwright";
-import vuetify from "vite-plugin-vuetify";
 import { defineConfig } from "vitest/config";
 import { appAliases } from "./scripts/aliases";
 import { platformIconManifest } from "./scripts/platformIconManifest";
 
 export default defineConfig({
-  plugins: [vue(), vuetify({ autoImport: true }), platformIconManifest()],
+  plugins: [vue(), platformIconManifest()],
   resolve: {
     alias: appAliases,
   },
   test: {
     server: {
       deps: {
-        inline: ["vuetify", "@vueuse/integrations"],
+        inline: ["@vueuse/integrations"],
       },
+    },
+    coverage: {
+      provider: "v8",
+      // Listing sources reports files no test imports at 0% instead of omitting them.
+      include: ["src/**/*.{ts,js,vue}"],
+      exclude: [
+        "src/__generated__/**",
+        "src/locales/**",
+        "src/tokens/**",
+        "src/test-utils/**",
+        "src/**/*.{test,spec}.ts",
+        "src/**/*.stories.ts",
+        "src/**/*.fixtures.ts",
+        "src/**/*.plays.ts",
+        "src/**/*.d.ts",
+      ],
+      // projectRoot makes cobertura paths repo-relative (frontend/...), as code coverage expects.
+      reporter: ["text-summary", "html", ["cobertura", { projectRoot: ".." }]],
     },
     projects: [
       {
@@ -42,7 +59,7 @@ export default defineConfig({
         // A dependency found mid-run reloads the page and silently drops the
         // tests in flight, so pre-bundle everything stories reach up front.
         optimizeDeps: {
-          include: ["vuetify/components/*", "country-flag-emoji-polyfill"],
+          include: ["country-flag-emoji-polyfill"],
         },
         // Mirrors vite.config.js, which the router's `process.env.BASE_URL` needs.
         define: { "process.env": {} },

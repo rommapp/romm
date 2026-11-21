@@ -270,7 +270,7 @@ export const PopAnimation: Story = {
         </RBadge>
         <button
           type="button"
-          style="padding:8px 16px;background:var(--r-color-brand-primary);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer"
+          style="padding:8px 16px;background:var(--r-color-brand-primary-solid);color:var(--r-color-brand-on-primary);border:none;border-radius:8px;font-weight:600;cursor:pointer"
           @click="show = !show"
         >
           {{ show ? "Hide badge" : "Show badge" }}

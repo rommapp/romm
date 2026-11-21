@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.auth_helpers import bearer
 from tests.factories import make_rom
 
 from endpoints.roms import walkthrough as walkthrough_endpoint
@@ -20,10 +21,6 @@ from models.user import User
 MP3_BYTES = b"ID3\x03\x00\x00\x00\x00\x00\x21fake mp3 payload"
 PDF_BYTES = b"%PDF-1.4 fake pdf payload"
 PNG_BYTES = b"\x89PNG\r\n\x1a\n fake png payload"
-
-
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
 
 
 def _single_file_rom(
@@ -76,7 +73,7 @@ def test_convert_single_file_promotes_in_place(
     rom_id = rom.id
 
     response = client.post(
-        f"/api/roms/{rom_id}/convert-to-folder", headers=_auth(access_token)
+        f"/api/roms/{rom_id}/convert-to-folder", headers=bearer(access_token)
     )
     assert response.status_code == status.HTTP_200_OK
 
@@ -110,12 +107,12 @@ def test_convert_already_folder_is_clean_noop(
     )
     # First call converts; second call is a clean no-op on the now-folder ROM.
     first = client.post(
-        f"/api/roms/{rom.id}/convert-to-folder", headers=_auth(access_token)
+        f"/api/roms/{rom.id}/convert-to-folder", headers=bearer(access_token)
     )
     assert first.status_code == status.HTTP_200_OK
 
     second = client.post(
-        f"/api/roms/{rom.id}/convert-to-folder", headers=_auth(access_token)
+        f"/api/roms/{rom.id}/convert-to-folder", headers=bearer(access_token)
     )
     assert second.status_code == status.HTTP_200_OK
     after = db_rom_handler.get_rom(rom.id)
@@ -141,7 +138,7 @@ def test_convert_folder_collision_returns_409(
     (real_library / f"{platform.slug}/roms/test_rom").mkdir(parents=True)
 
     response = client.post(
-        f"/api/roms/{rom.id}/convert-to-folder", headers=_auth(access_token)
+        f"/api/roms/{rom.id}/convert-to-folder", headers=bearer(access_token)
     )
     assert response.status_code == status.HTTP_409_CONFLICT
 
@@ -166,7 +163,7 @@ def test_convert_extensionless_uses_staging(
     )
 
     response = client.post(
-        f"/api/roms/{rom.id}/convert-to-folder", headers=_auth(access_token)
+        f"/api/roms/{rom.id}/convert-to-folder", headers=bearer(access_token)
     )
     assert response.status_code == status.HTTP_200_OK
 
@@ -198,7 +195,7 @@ def test_convert_extensionless_dir_collision_returns_409(
     (lone / "already_here.txt").write_text("keep me")
 
     response = client.post(
-        f"/api/roms/{rom.id}/convert-to-folder", headers=_auth(access_token)
+        f"/api/roms/{rom.id}/convert-to-folder", headers=bearer(access_token)
     )
     assert response.status_code == status.HTTP_409_CONFLICT
 
@@ -231,7 +228,7 @@ def test_convert_rolls_back_fs_on_db_failure(
 
     with pytest.raises(RuntimeError, match="db down"):
         client.post(
-            f"/api/roms/{rom.id}/convert-to-folder", headers=_auth(access_token)
+            f"/api/roms/{rom.id}/convert-to-folder", headers=bearer(access_token)
         )
 
     base = real_library / f"{platform.slug}/roms"
@@ -263,7 +260,7 @@ def test_soundtrack_upload_auto_converts_single_file_rom(
     )
     response = client.post(
         f"/api/roms/{rom.id}/soundtracks",
-        headers={**_auth(access_token), "x-upload-filename": "track1.mp3"},
+        headers={**bearer(access_token), "x-upload-filename": "track1.mp3"},
         files={"track1.mp3": ("track1.mp3", MP3_BYTES, "audio/mpeg")},
     )
     assert response.status_code == status.HTTP_201_CREATED
@@ -294,7 +291,7 @@ def test_manual_upload_auto_converts_single_file_rom(
     )
     response = client.post(
         f"/api/roms/{rom.id}/manuals/files",
-        headers={**_auth(access_token), "x-upload-filename": "manual.pdf"},
+        headers={**bearer(access_token), "x-upload-filename": "manual.pdf"},
         files={"manual.pdf": ("manual.pdf", PDF_BYTES, "application/pdf")},
     )
     assert response.status_code == status.HTTP_201_CREATED
@@ -321,7 +318,7 @@ def test_screenshot_upload_auto_converts_single_file_rom(
     )
     response = client.post(
         f"/api/roms/{rom.id}/screenshots",
-        headers={**_auth(access_token), "x-upload-filename": "shot1.png"},
+        headers={**bearer(access_token), "x-upload-filename": "shot1.png"},
         files={"shot1.png": ("shot1.png", PNG_BYTES, "image/png")},
     )
     assert response.status_code == status.HTTP_201_CREATED
@@ -373,7 +370,7 @@ def test_upload_to_a_disc_a_playlist_lists_returns_400(
 
     response = client.post(
         f"/api/roms/{rom.id}/{route}",
-        headers={**_auth(access_token), "x-upload-filename": filename},
+        headers={**bearer(access_token), "x-upload-filename": filename},
         files={filename: (filename, data, mime)},
     )
 
@@ -405,7 +402,7 @@ def test_upload_to_a_lone_disc_no_playlist_lists_promotes_it(
 
     response = client.post(
         f"/api/roms/{rom.id}/{route}",
-        headers={**_auth(access_token), "x-upload-filename": filename},
+        headers={**bearer(access_token), "x-upload-filename": filename},
         files={filename: (filename, data, mime)},
     )
 
@@ -433,7 +430,7 @@ def test_gamefaqs_import_to_a_disc_a_playlist_lists_returns_400(
 
     response = client.post(
         f"/api/roms/{rom.id}/walkthroughs/gamefaqs",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         json={"url": "https://gamefaqs.gamespot.com/ps/196821-game/faqs/1"},
     )
 
@@ -549,7 +546,7 @@ def test_convert_a_disc_a_playlist_lists_returns_409(
     (roms_dir / "Game.m3u").write_text(f"{DISC_1}\nGame (Disc 2).chd\n")
 
     response = client.post(
-        f"/api/roms/{rom.id}/convert-to-folder", headers=_auth(access_token)
+        f"/api/roms/{rom.id}/convert-to-folder", headers=bearer(access_token)
     )
 
     assert response.status_code == status.HTTP_409_CONFLICT

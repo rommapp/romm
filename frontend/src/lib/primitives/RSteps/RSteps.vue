@@ -154,15 +154,15 @@ watch(
 }
 
 .r-steps__dot[data-state="past"] {
-  background: var(--r-color-brand-primary);
-  color: white;
-  border-color: var(--r-color-brand-primary);
+  background: var(--r-color-brand-primary-solid);
+  color: var(--r-color-brand-on-primary);
+  border-color: var(--r-color-brand-primary-solid);
 }
 
 .r-steps__dot[data-state="current"] {
-  background: var(--r-color-brand-primary);
-  color: white;
-  border-color: var(--r-color-brand-primary);
+  background: var(--r-color-brand-primary-solid);
+  color: var(--r-color-brand-on-primary);
+  border-color: var(--r-color-brand-primary-solid);
   transform: scale(1.1);
   animation: r-steps-pop 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }

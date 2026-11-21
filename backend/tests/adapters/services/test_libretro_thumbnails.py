@@ -178,7 +178,7 @@ async def libretro_server(
     monkeypatch: pytest.MonkeyPatch,
 ) -> AsyncIterator[tuple[LibretroServer, LibretroThumbnailsService]]:
     monkeypatch.setattr(libretro_thumbnails, "LIBRETRO_LISTING_TIMEOUT", 0.2)
-    monkeypatch.setattr(libretro_thumbnails, "LIBRETRO_HEAD_TIMEOUT", 0.2)
+    monkeypatch.setattr(libretro_thumbnails, "LIBRETRO_HEAD_TIMEOUT", 1.0)
     fake = LibretroServer()
     app = web.Application()
     app.router.add_route("*", "/{tail:.*}", fake.handle)

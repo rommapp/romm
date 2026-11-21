@@ -7,7 +7,6 @@ import {
   ref,
   watch,
 } from "vue";
-import { useTheme } from "vuetify";
 import { useBrowserLocale } from "@/composables/useBrowserLocale";
 import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 
@@ -19,7 +18,6 @@ const BackendStatusBanner = defineAsyncComponent(
   () => import("@/components/AppShell/BackendStatusBanner.vue"),
 );
 
-const vuetifyTheme = useTheme();
 useBrowserLocale();
 
 // Theme reads the raw localStorage ref: we stay off useUISettings here because
@@ -30,9 +28,8 @@ const themeSetting = useUserLocalStorage<"auto" | "dark" | "light">(
   "dark",
 );
 
-// Centralized theme resolution: Vuetify only knows the "dark" / "light"
-// pair. The app's own colour story is driven by tokens on the .r-*
-// classes below, not by Vuetify's runtime theme.
+// Centralized theme resolution: the colour story is driven by tokens on the
+// .r-* classes below.
 const mediaMatch = window.matchMedia("(prefers-color-scheme: dark)");
 const systemPrefersDark = ref(mediaMatch.matches);
 
@@ -54,25 +51,8 @@ const prefersDark = computed(
     (themeSetting.value === "auto" && systemPrefersDark.value),
 );
 
-const activeThemeName = computed<"dark" | "light">(() =>
-  prefersDark.value ? "dark" : "light",
-);
-
-watch(
-  activeThemeName,
-  (name) => {
-    if (vuetifyTheme.global.name.value !== name) {
-      void vuetifyTheme.change(name);
-    }
-  },
-  { immediate: true },
-);
-
-// Apply the token scope to <html>. Vuetify teleports overlays (VDialog,
-// VMenu) into `<body> > .v-overlay-container`, which sits OUTSIDE both the
-// AppLayout `.r-app` wrapper AND <v-app>. Putting the classes on <html> means
-// the entire document inherits the CSS custom properties so
-// `var(--r-color-...)` resolves inside any teleported dialog/menu.
+// Overlays (RDialog, RMenu, RTooltip) teleport outside the app root, so the
+// theme classes live on <html> for `var(--r-color-...)` to resolve there.
 watch(
   prefersDark,
   (dark) => {
@@ -86,19 +66,36 @@ watch(
 </script>
 
 <template>
-  <v-app id="application">
-    <v-main id="main" class="no-transition" tag="div">
-      <router-view />
-    </v-main>
-    <!-- Backend reachability strip. Mounted at the root so it covers both the
-         auth layout (login/setup) and the main shell, and owns the app-wide
-         connection poll + auto-recovery. -->
-    <BackendStatusBanner />
-  </v-app>
+  <div id="application">
+    <div class="r-app-wrap">
+      <div id="main">
+        <router-view />
+      </div>
+      <!-- Backend reachability strip. Mounted at the root so it covers both the
+           auth layout (login/setup) and the main shell, and owns the app-wide
+           connection poll + auto-recovery. -->
+      <BackendStatusBanner />
+    </div>
+  </div>
 </template>
 
 <style scoped>
-#main.no-transition {
-  transition: none;
+#application {
+  display: flex;
+}
+
+.r-app-wrap {
+  display: flex;
+  flex: auto;
+  flex-direction: column;
+  position: relative;
+  max-width: 100%;
+  min-height: 100dvh;
+  backface-visibility: hidden;
+}
+
+#main {
+  flex: 1 0 auto;
+  max-width: 100%;
 }
 </style>

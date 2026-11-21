@@ -55,11 +55,18 @@ const anyEnabled = computed(() => orderedWidgets.value.length > 0);
   /* Extra bottom padding so the rail breathes before the first
      CardRow underneath (Continue playing / Recently added). */
   padding: 16px var(--r-row-pad) 24px;
+  /* The top padding is focus-ring room inside the scroller, not space above it. */
+  margin-top: -16px;
   overflow-x: auto;
   overflow-y: visible;
   scrollbar-width: none;
 }
 .r-widget-bar::-webkit-scrollbar {
+  display: none;
+}
+/* A widget can hide its own card (Anniversaries on an empty day) while staying
+   mounted, so a rail with no cards collapses rather than leaving its padding. */
+.r-widget-bar:not(:has(> *)) {
   display: none;
 }
 </style>

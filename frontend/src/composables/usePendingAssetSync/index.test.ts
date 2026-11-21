@@ -224,35 +224,6 @@ describe("installPendingAssetSync", () => {
     expect(success).not.toHaveBeenCalled();
   });
 
-  // Another device's newer progress holds the slot, so the copy went aside.
-  it("says a save was kept apart from its slot", async () => {
-    syncPendingAssets.mockImplementation(() => {
-      queue.entries = [];
-      return Promise.resolve({
-        synced: [
-          {
-            kind: "save" as const,
-            romId: 1,
-            name: "Game",
-            cover: null,
-            archived: true as const,
-          },
-        ],
-        dropped: [],
-      });
-    });
-    queue.entries = [{ id: "1:a", romId: 1, kind: "save" as const }];
-
-    install();
-    await settle();
-
-    expect(warning).toHaveBeenCalledWith(
-      'play.save-kept-apart:{"game":"Game"}',
-      expect.anything(),
-    );
-    expect(success).not.toHaveBeenCalled();
-  });
-
   // Two tabs must not upload the same rows; the one without the lock waits.
   it("leaves the pass to the tab holding the lock", async () => {
     vi.stubGlobal("navigator", {

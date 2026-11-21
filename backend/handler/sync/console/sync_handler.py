@@ -16,10 +16,12 @@ from pydantic import ValidationError
 from redis.exceptions import RedisError
 
 from handler.asset_store import prune_save_slot, reserve_version_name
+from handler.auth.rom_visibility import RomVisibilityFilter
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
+    db_permission_handler,
     db_platform_handler,
     db_rom_handler,
     db_save_handler,
@@ -51,7 +53,6 @@ from models.sync_session import SyncSession, SyncSessionStatus
 from models.user import User
 from tasks.registry import SYNC_PUSH_PULL_SPEC
 from utils.datetime import to_utc
-from utils.zip_cache import ensure_zipfile_writable
 
 # A save folder holds a handful of files; anything past this is not one.
 _FOLDER_MAX_FILES = 128
@@ -182,6 +183,7 @@ class _ConsoleSync:
         config: ConsoleSyncConfig,
         platform: Platform,
         session_id: int,
+        visibility: RomVisibilityFilter,
     ) -> None:
         self.device = device
         self.profile = profile
@@ -189,6 +191,7 @@ class _ConsoleSync:
         self.config = config
         self.platform = platform
         self.session_id = session_id
+        self.visibility = visibility
         self.savedata = profile.savedata_path(config.user_id)
         self.emulator = profile.kind
         self.counts = ConsoleSyncCounts()
@@ -208,7 +211,11 @@ class _ConsoleSync:
         on_console |= {t for f in folders if (t := title_id_of(f.name))}
 
         roms = _RomIndex(
-            list(db_rom_handler.get_roms_scalar(platform_ids=[self.platform.id]))
+            list(
+                db_rom_handler.get_roms_scalar(
+                    platform_ids=[self.platform.id], visibility=self.visibility
+                )
+            )
         )
         self._load_heads()
 
@@ -256,6 +263,7 @@ class _ConsoleSync:
             platform_id=self.platform.id,
             slot_not_null=True,
             order_by="updated_at",
+            visibility=self.visibility,
         )
         for save in saves:
             if save.emulator == self.emulator and save.slot:
@@ -325,9 +333,6 @@ class _ConsoleSync:
 
     async def _download(self, folder: str, files: list[FtpEntry]) -> _Download | None:
         """The folder zipped, or None when the console rewrote it meanwhile."""
-        # `zipfile_inflate64` is imported elsewhere for ROM archive reading, and
-        # breaks writing until this runs.
-        ensure_zipfile_writable()
         archive: SpooledTemporaryFile[bytes] = SpooledTemporaryFile(
             max_size=_SPOOL_MAX_BYTES
         )
@@ -707,6 +712,11 @@ async def sync_console_device(
         config = ConsoleSyncConfig.of(profile, device.sync_config)
     except ValidationError as exc:
         return await fail(f"Invalid sync settings: {exc}", "error")
+    visibility = db_permission_handler.get_user_visibilities([device.user_id]).get(
+        device.user_id
+    )
+    if visibility is None:
+        return await fail("The console's owner is missing or disabled", "error")
     platform = db_platform_handler.get_platform_by_slug(profile.platform_slug)
     if not platform:
         return await fail(f"The library has no {profile.title} platform", "error")
@@ -731,7 +741,7 @@ async def sync_console_device(
 
         try:
             counts = await _ConsoleSync(
-                device, profile, ftp, config, platform, sync_session.id
+                device, profile, ftp, config, platform, sync_session.id, visibility
             ).run()
         except Exception as exc:
             log.error(f"Console sync failed for device {device.id}", exc_info=True)

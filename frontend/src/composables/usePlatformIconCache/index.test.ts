@@ -89,11 +89,11 @@ describe("prefetchPlatformIcons", () => {
     respondWith({});
     const { prefetchPlatformIcons, getCachedPlatformIcon } = await load();
 
-    prefetchPlatformIcons(["singe"]);
+    prefetchPlatformIcons(["not-a-platform"]);
     await settle();
 
     expect(urls()).toEqual([]);
-    expect(getCachedPlatformIcon("singe")).toBeUndefined();
+    expect(getCachedPlatformIcon("not-a-platform")).toBeUndefined();
   });
 
   it("does not re-fetch a slug it already cached", async () => {

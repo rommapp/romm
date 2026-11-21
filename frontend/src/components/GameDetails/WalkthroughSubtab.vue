@@ -203,6 +203,7 @@ async function requestDelete() {
         v-if="entries.length > 1"
         v-model="selectedId"
         :items="selectItems"
+        :aria-label="t('rom.walkthrough')"
         density="compact"
         variant="outlined"
         hide-details

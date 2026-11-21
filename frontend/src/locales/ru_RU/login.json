@@ -7,7 +7,6 @@
   "login-failed": "Ошибка входа",
   "login-oidc": "Войти с {oidc}",
   "new-password": "Новый пароль",
-  "or": "или",
   "password": "Пароль",
   "passwords-do-not-match": "Пароли не совпадают",
   "register": "Регистрация",

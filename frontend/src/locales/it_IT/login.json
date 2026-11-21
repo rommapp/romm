@@ -7,7 +7,6 @@
   "login-failed": "Accesso non riuscito",
   "login-oidc": "Login con {oidc}",
   "new-password": "Nuova password",
-  "or": "o",
   "password": "Password",
   "passwords-do-not-match": "Le password non corrispondono",
   "register": "Registrati",

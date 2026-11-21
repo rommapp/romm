@@ -536,15 +536,20 @@ class RomConvertoService:
             return True
         return path.suffix.lower() in self._info_extensions
 
-    async def read_infos(self, paths: list[Path]) -> dict[Path, RomConvertoInfo]:
-        """Inspect files in `info` runs of up to `INFO_RUN_MAX_FILES`, keyed by the paths it recognized; never raises."""
+    async def read_infos(self, paths: list[Path]) -> dict[Path, RomConvertoInfo | None]:
+        """Inspect files in `info` runs of up to `INFO_RUN_MAX_FILES`; never raises.
+
+        Returns:
+            Every path a run inspected, mapped to None when it wasn't recognized.
+            A path in a failed run is left out.
+        """
         listed = await asyncio.to_thread(lambda: [p for p in paths if _listable(p)])
-        infos: dict[Path, RomConvertoInfo] = {}
+        infos: dict[Path, RomConvertoInfo | None] = {}
         for chunk in batched(listed, INFO_RUN_MAX_FILES, strict=False):
             infos.update(await self._read_run(list(chunk)))
         return infos
 
-    async def _read_run(self, listed: list[Path]) -> dict[Path, RomConvertoInfo]:
+    async def _read_run(self, listed: list[Path]) -> dict[Path, RomConvertoInfo | None]:
         log.debug(
             f"Executing {hl('rom-converto', color=LIGHTMAGENTA)} info on {len(listed)} file(s)"
         )
@@ -576,7 +581,7 @@ class RomConvertoService:
         if not isinstance(records, list):
             return {}
 
-        infos: dict[Path, RomConvertoInfo] = {}
+        infos: dict[Path, RomConvertoInfo | None] = {}
         for record in records:
             if not isinstance(record, dict):
                 continue
@@ -584,6 +589,9 @@ class RomConvertoService:
             if record.get("ok") and isinstance(payload, dict):
                 infos[Path(str(record.get("path")))] = _parse_info(payload)
             else:
+                # Only an explicit miss is a read; a malformed record is retried.
+                if record.get("ok") is False:
+                    infos[Path(str(record.get("path")))] = None
                 log.debug(
                     f"rom-converto did not recognize {record.get('path')}: "
                     f"{record.get('error')}"

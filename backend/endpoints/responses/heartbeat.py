@@ -32,6 +32,7 @@ class MetadataSourcesDict(TypedDict):
 
 class FilesystemDict(TypedDict):
     FS_PLATFORMS: list[str]
+    FS_PLATFORM_SLUGS: dict[str, str]
     TITLE_ID_EXTRACTION_ENABLED: bool
 
 
@@ -41,6 +42,8 @@ class EmulationDict(TypedDict):
     DISABLE_JSDOS: bool
     DISABLE_PICO8: bool
     DISABLE_EASYRPG: bool
+    EJS_CORES: dict[str, list[str]]
+    EJS_NIGHTLY_CORES: dict[str, list[str]]
 
 
 class FrontendDict(TypedDict):
@@ -72,6 +75,15 @@ class ConvertoDict(TypedDict):
     ENABLED: bool
 
 
+class SaveSyncDict(TypedDict):
+    SNAPSHOT_RETENTION: int
+    SNAPSHOT_BRANCH_LIFETIME_DAYS: int
+
+
+class RomPatcherDict(TypedDict):
+    SUPPORTED_EXTENSIONS: list[str]
+
+
 class TasksDict(TypedDict):
     ENABLE_SCHEDULED_RESCAN: bool
     SCHEDULED_RESCAN_CRON: str
@@ -93,11 +105,14 @@ class HeartbeatResponse(TypedDict):
     NOTIFICATIONS: NotificationsDict
     DEVICE_INSTALL: DeviceInstallDict
     CONVERTO: ConvertoDict
+    SAVE_SYNC: SaveSyncDict
+    ROM_PATCHER: RomPatcherDict
     TASKS: TasksDict
 
 
 class SetupExistingPlatform(TypedDict):
     fs_slug: str
+    slug: str
     rom_count: int
 
 

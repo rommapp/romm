@@ -245,6 +245,17 @@ describe("useSpatialNav", () => {
     expect(document.activeElement).toBe(el("tab"));
   });
 
+  it("moves focus off a closed button-based combobox", () => {
+    el("tab").setAttribute("role", "combobox");
+    el("tab").setAttribute("aria-haspopup", "listbox");
+    el("tab").setAttribute("aria-expanded", "false");
+    el("tab").focus();
+
+    press("ArrowUp");
+
+    expect(document.activeElement).toBe(el("play"));
+  });
+
   it("stays out of the way while a game is running", () => {
     storePlaying().setPlaying(true);
     el("play").focus();

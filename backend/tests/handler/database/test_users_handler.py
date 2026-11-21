@@ -1,4 +1,5 @@
 import threading
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -6,6 +7,7 @@ from exceptions.database_exceptions import LastAdminError
 from handler.database import db_user_handler
 from handler.database.base_handler import sync_session
 from models.user import Role, User
+from utils.datetime import to_utc
 
 
 @pytest.fixture
@@ -100,3 +102,37 @@ class TestKeepAnAdmin:
         assert not second.is_alive()
         assert [type(error) for error in errors] == [LastAdminError]
         assert (_role(admin_user), _role(other_admin)) == (Role.ADMIN, Role.USER)
+
+
+class TestUpdateLastActive:
+    def test_bumps_a_user_never_active(self, admin_user: User):
+        db_user_handler.update_user(admin_user.id, {"last_active": None})
+
+        db_user_handler.update_last_active(admin_user.id)
+
+        current = db_user_handler.get_user(admin_user.id)
+        assert current is not None
+        assert current.last_active is not None
+
+    def test_skips_a_user_active_within_the_debounce_window(self, admin_user: User):
+        recent = datetime.now(timezone.utc) - timedelta(minutes=1)
+        db_user_handler.update_user(admin_user.id, {"last_active": recent})
+
+        db_user_handler.update_last_active(admin_user.id)
+
+        current = db_user_handler.get_user(admin_user.id)
+        assert current is not None
+        assert current.last_active is not None
+        assert abs((to_utc(current.last_active) - recent).total_seconds()) < 1
+
+    def test_set_last_active_writes_nothing_inside_the_window(
+        self, admin_user: User, executed_statements: list[str]
+    ):
+        user = db_user_handler.update_user(
+            admin_user.id, {"last_active": datetime.now(timezone.utc)}
+        )
+        executed_statements.clear()
+
+        user.set_last_active()
+
+        assert executed_statements == []

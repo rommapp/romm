@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import difflib
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Final
 
+from adapters.services.igdb import IGDB_PLATFORM_VERSIONS
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 if TYPE_CHECKING:
@@ -17,7 +19,7 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
     "amiga500": UPS.AMIGA,
     "amiga600": UPS.AMIGA,
     "amigacd32": UPS.AMIGA_CD32,
-    "amigacdtv": UPS.AMIGA_CD32,
+    "amigacdtv": UPS.COMMODORE_CDTV,
     "amstradcpc": UPS.ACPC,
     "apfm1000": UPS.APF,
     "apple2": UPS.APPLEII,
@@ -30,7 +32,6 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
     "atarilynx": UPS.LYNX,
     "atarist": UPS.ATARI_ST,
     "atarixe": UPS.ATARI_XEGS,
-    "atomiswave": UPS.ARCADE,
     "bbc": UPS.BBCMICRO,
     "c20": UPS.VIC_20,
     "camplynx": UPS.CAMPUTERS_LYNX,
@@ -42,13 +43,14 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
     "consolearcade": UPS.ARCADE,
     "cplus4": UPS.C_PLUS_4,
     "cps": UPS.ARCADE,
+    "cps1": UPS.ARCADE,
+    "cps2": UPS.ARCADE,
+    "cps3": UPS.ARCADE,
     "crvision": UPS.CREATIVISION,
     "dragon32": UPS.DRAGON_32_SLASH_64,
     "dreamcast": UPS.DC,
     "easyrpg": UPS.RPG_MAKER,
     "electron": UPS.ACORN_ELECTRON,
-    "fba": UPS.ARCADE,
-    "fbneo": UPS.ARCADE,
     "flash": UPS.BROWSER,
     "fm7": UPS.FM_7,
     "fmtowns": UPS.FM_TOWNS,
@@ -64,11 +66,9 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
     "gx4000": UPS.AMSTRAD_GX4000,
     "gzdoom": UPS.DOOM,
     "jaguarcd": UPS.ATARI_JAGUAR_CD,
+    "laserdisc": UPS.DAPHNE,
     "lcdgames": UPS.HANDHELD_ELECTRONIC_LCD,
-    "lindbergh": UPS.MODEL2,
     "macintosh": UPS.MAC,
-    "mame": UPS.ARCADE,
-    "mame-advmame": UPS.ARCADE,
     "mark3": UPS.SMS,
     "mastersystem": UPS.SMS,
     "megacd": UPS.SEGACD,
@@ -77,6 +77,7 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
     "megadrive-msu": UPS.GENESIS,
     "megadrivejp": UPS.GENESIS,
     "megaduck": UPS.MEGA_DUCK_SLASH_COUGAR_BOY,
+    "model1": UPS.ARCADE,
     "msu-md": UPS.GENESIS,
     "msx1": UPS.MSX,
     "msx2+": UPS.MSX2PLUS,
@@ -88,10 +89,6 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
     "n3ds": UPS.N3DS,
     "n64dd": UPS.N64DD,
     "namco22": UPS.ARCADE,
-    "namco2x6": UPS.ARCADE,
-    "naomi": UPS.ARCADE,
-    "naomi2": UPS.ARCADE,
-    "naomigd": UPS.ARCADE,
     "neogeo": UPS.NEOGEOAES,
     "neogeocd": UPS.NEO_GEO_CD,
     "ngp": UPS.NEO_GEO_POCKET,
@@ -120,17 +117,18 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
     "segastv": UPS.STV,
     "sfc": UPS.SFAM,
     "sg-1000": UPS.SG1000,
-    "sgb": UPS.GBC,
-    "sgb-msu1": UPS.GBC,
     "snes-msu1": UPS.SNES,
     "sufami": UPS.SUFAMI_TURBO,
     "supracan": UPS.SUPER_ACAN,
+    "system-32": UPS.ARCADE,
+    "system16": UPS.ARCADE,
+    "system32": UPS.ARCADE,
     "tg-cd": UPS.TURBOGRAFX_CD,
     "thomson": UPS.THOMSON_MO5,
     "ti99": UPS.TI_99,
     "tic80": UPS.TIC_80,
-    "triforce": UPS.ARCADE,
     "tutor": UPS.TOMY_TUTOR,
+    "typex": UPS.TYPE_X,
     "vc4000": UPS.VC_4000,
     "vic20": UPS.VIC_20,
     "videopac": UPS.VIDEOPAC_G7400,
@@ -146,6 +144,8 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
     "wswanc": UPS.WONDERSWAN_COLOR,
     "x68000": UPS.SHARP_X68000,
     "xegs": UPS.ATARI_XEGS,
+    "zc210": UPS.ZELDA_CLASSIC,
+    "zc250": UPS.ZELDA_CLASSIC,
     "zmachine": UPS.Z_MACHINE,
     "zxspectrum": UPS.ZXS,
 }
@@ -167,16 +167,80 @@ def _unambiguous_folders() -> dict[str, str]:
 PLATFORM_SLUG_FOLDERS: Final[dict[str, str]] = _unambiguous_folders()
 
 
-def resolve_platform_slug(fs_slug: str, config: Config) -> str:
-    """Resolve a platform folder name to a RomM platform slug."""
-    key = fs_slug.lower()
-    bound = config.PLATFORMS_BINDING.get(key) or config.PLATFORMS_VERSIONS.get(key)
-    if bound:
-        return bound
+def _to_slug(name: str) -> str:
+    key = name.lower()
     if key in UPS:
         return key
     alias = PLATFORM_FS_ALIASES.get(key)
-    return alias.value if alias else fs_slug
+    return alias.value if alias else name
+
+
+def resolve_builtin_platform_slug(fs_slug: str) -> str | None:
+    """Resolve a folder name to a platform slug by its name or built-in alias.
+
+    Returns:
+        The platform slug, or None when the folder needs a config mapping.
+    """
+    slug = _to_slug(fs_slug)
+    return slug if slug in UPS else None
+
+
+def _platform_binding(key: str, config: Config) -> tuple[str, str] | None:
+    """Return the config key and name a folder is bound to, binding before version."""
+    if bound := config.PLATFORMS_BINDING.get(key):
+        return "system.platforms", bound
+    if bound := config.PLATFORMS_VERSIONS.get(key):
+        return "system.versions", bound
+    return None
+
+
+# The names suggested for an unknown binding: RomM slugs and their folder aliases.
+_KNOWN_PLATFORM_NAMES: Final[list[str]] = sorted({*UPS, *PLATFORM_FS_ALIASES})
+
+
+def unknown_binding_warning(fs_slug: str, config: Config) -> str | None:
+    """Build the warning for a folder bound in config.yml to an unknown name.
+
+    Returns:
+        A warning naming the binding and the closest known slugs, or None when
+        the folder is unbound or bound to a known slug, alias or IGDB version.
+    """
+    key = fs_slug.lower()
+    binding = _platform_binding(key, config)
+    if binding is None:
+        return None
+
+    config_key, bound = binding
+    if (
+        resolve_builtin_platform_slug(bound) is not None
+        or bound in IGDB_PLATFORM_VERSIONS
+    ):
+        return None
+
+    closest = difflib.get_close_matches(bound.lower(), _KNOWN_PLATFORM_NAMES)
+    suggestion = f" Did you mean {', '.join(closest)}?" if closest else ""
+    return (
+        f"config.yml {config_key}.{key} is {bound}, which is not a known "
+        f"platform slug or alias, so the folder becomes a custom platform."
+        f"{suggestion}"
+    )
+
+
+def unknown_binding_warnings(config: Config) -> list[str]:
+    """List the warning for every folder bound in config.yml to an unknown name."""
+    folders = sorted({*config.PLATFORMS_BINDING, *config.PLATFORMS_VERSIONS})
+    return [
+        warning
+        for folder in folders
+        if (warning := unknown_binding_warning(folder, config)) is not None
+    ]
+
+
+def resolve_platform_slug(fs_slug: str, config: Config) -> str:
+    """Resolve a platform folder name to a RomM platform slug."""
+    binding = _platform_binding(fs_slug.lower(), config)
+    # A bound name resolves like a folder name, so it may be an alias too.
+    return _to_slug(binding[1] if binding else fs_slug)
 
 
 def resolve_fs_slug(slug: str, config: Config) -> str | None:
@@ -188,7 +252,7 @@ def resolve_fs_slug(slug: str, config: Config) -> str | None:
     """
     for mapping in (config.PLATFORMS_BINDING, config.PLATFORMS_VERSIONS):
         for fs_slug, bound in mapping.items():
-            if bound == slug:
+            if _to_slug(bound) == slug:
                 return fs_slug
     return PLATFORM_SLUG_FOLDERS.get(slug)
 

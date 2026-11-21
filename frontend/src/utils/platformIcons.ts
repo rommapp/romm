@@ -1,7 +1,7 @@
 import shippedIcons from "virtual:platform-icons";
 
 const PLATFORM_ICON_DIR = "/assets/platforms";
-export const DEFAULT_PLATFORM_ICON = `${PLATFORM_ICON_DIR}/default.ico`;
+export const DEFAULT_PLATFORM_ICON = `${PLATFORM_ICON_DIR}/default.svg`;
 
 export function platformSlugKey(slug: string): string {
   return slug.trim().toLowerCase();

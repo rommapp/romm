@@ -90,6 +90,36 @@ def test_add_platform_version_payload_shape(client, access_token: str):
     add_platform_version.assert_called_once_with("n64", "1.0")
 
 
+@pytest.mark.parametrize(
+    ("path", "method"),
+    [
+        ("/api/config/system/platforms", "add_platform_binding"),
+        ("/api/config/system/versions", "add_platform_version"),
+    ],
+)
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"fs_slug": "gc", "slug": ""},
+        {"fs_slug": "gc", "slug": "   "},
+        {"fs_slug": "", "slug": "ngc"},
+    ],
+)
+def test_empty_mapping_values_are_rejected(
+    client, access_token: str, path: str, method: str, payload: dict[str, str]
+):
+    """config.yml refuses to load an empty value, so it must never be written."""
+    with patch.object(cm, method) as add_mapping:
+        response = client.post(
+            path,
+            headers={"Authorization": f"Bearer {access_token}"},
+            json=payload,
+        )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    add_mapping.assert_not_called()
+
+
 def test_mapping_a_folder_with_a_case_variant_sibling_is_rejected(
     client, access_token: str
 ):

@@ -796,15 +796,14 @@ usePopoverDismiss(isOpen, close, {
   background: white;
 }
 
-/* Selected: full brand fill, white digits. Matches the rest of the
-   lib (RCheckbox icon, RBtn primary text) which use plain `white`
-   against the brand fill. */
+/* Selected: solid brand fill. Hover darkens, since lightening the fill
+   would drop the digits below text contrast. */
 .r-date-cal__day--selected {
-  background: var(--r-color-brand-primary);
-  color: white;
+  background: var(--r-color-brand-primary-solid);
+  color: var(--r-color-brand-on-primary);
 }
 .r-date-cal__day--selected:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--r-color-brand-primary) 90%, white);
+  background: color-mix(in srgb, var(--r-color-brand-primary-solid) 88%, black);
 }
 
 /* Disabled: past min / after max. */

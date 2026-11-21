@@ -20,7 +20,7 @@ from config.config_manager import config_manager as cm
 from endpoints.sockets.scan import report_scan_failure, scan_job_meta, scan_platforms
 from handler.database import db_platform_handler
 from handler.redis_handler import get_job_kwargs, scan_queue
-from handler.scan_handler import ScanType, get_enabled_metadata_sources
+from handler.scan.sources import ScanType, get_enabled_metadata_sources
 from handler.scan_jobs import get_pending_scan_jobs
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl

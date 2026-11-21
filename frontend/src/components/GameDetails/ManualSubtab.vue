@@ -190,6 +190,7 @@ function requestDeleteManual() {
         v-if="manualEntries.length > 1"
         v-model="selectedManualId"
         :items="manualItems"
+        :aria-label="t('rom.manual')"
         density="compact"
         variant="outlined"
         hide-details

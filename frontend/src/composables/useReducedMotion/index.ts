@@ -18,7 +18,7 @@
 // singleton rationale as useBreakpoint: the media query listener attaches once
 // at module load and every consumer shares the reactive refs.
 import { useMediaQuery } from "@vueuse/core";
-import { computed, type ComputedRef } from "vue";
+import { computed, type WritableComputedRef } from "vue";
 import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 
 // null = no explicit choice yet (follow the system); true/false = user
@@ -46,7 +46,7 @@ const enabled = computed<boolean>({
 });
 
 export function useReducedMotion(): {
-  enabled: ComputedRef<boolean>;
+  enabled: WritableComputedRef<boolean>;
   toggle: () => boolean;
 } {
   /** Flip reduced-motion mode and return the new state (true = now on).
@@ -56,5 +56,5 @@ export function useReducedMotion(): {
     return enabled.value;
   }
 
-  return { enabled: enabled as ComputedRef<boolean>, toggle };
+  return { enabled, toggle };
 }

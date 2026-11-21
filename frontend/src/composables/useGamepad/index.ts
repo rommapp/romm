@@ -31,18 +31,22 @@
 //     a pad exit by listening for it.
 //   * Controller-test screen (ACTIONS_DISABLED_PATHS): built-in actions
 //     are muted so every button can be pressed and inspected in place.
-import { useEventListener, useRafFn } from "@vueuse/core";
-import { onBeforeUnmount } from "vue";
+import { useEventListener } from "@vueuse/core";
+import { nextTick, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useInputModality } from "@/composables/useInputModality";
 import {
   NAV_TARGETS,
   navDestinationAt,
 } from "@/composables/useNavDestinations";
+import { usePadRafFn } from "@/composables/usePadRafFn";
 import { hasOpenEscapable } from "@/lib/overlays/RDialog/escapeStack.js";
 import storePlaying from "@/stores/playing";
-import { isEditable } from "@/utils/editable";
-import { isUsablePad } from "@/utils/gamepad";
+import {
+  hasUsablePad,
+  isUsablePad,
+  padActivationTarget,
+} from "@/utils/gamepad";
 
 // Routes where useGamepad's built-in actions (back, activate, section
 // nav, user menu) must NOT fire, so every button stays inspectable in
@@ -188,15 +192,12 @@ export function useGamepad() {
     if (next.to !== route.path) void router.push(next.to);
   }
 
-  // Activates the currently focused element. Router-links, submit
-  // buttons, custom [role=button] divs all navigate/trigger via .click()
-  // regardless of whether the event was trusted: that's the escape
-  // hatch synthetic KeyboardEvents don't give us.
+  // A is polled before the D-pad, so wait for that poll's arrows to queue
+  // their render, then for the render, before reading the active option.
   function activateFocused() {
-    const active = document.activeElement;
-    // Pressing A inside a field shouldn't re-submit the form on every press.
-    if (!(active instanceof HTMLElement) || isEditable(active)) return;
-    active.click();
+    queueMicrotask(() => {
+      void nextTick(() => padActivationTarget(document.activeElement)?.click());
+    });
   }
 
   // Opens the app-wide user menu. UserMenu.vue marks its activator with
@@ -240,7 +241,6 @@ export function useGamepad() {
 
     const states: Record<string, PadState> = {};
     const { setModality } = useInputModality();
-    let everSawPad = false;
     let chordHeldSince: number | null = null;
     // Cleared only on release, so a chord still held after its dialog is
     // cancelled doesn't reopen it.
@@ -248,31 +248,20 @@ export function useGamepad() {
 
     const onAnyInput = () => setModality("pad");
     useEventListener(window, "gamepadconnected", () => setModality("pad"));
+    // Polling pauses with the last pad gone, so release its held chord here.
+    useEventListener(window, "gamepaddisconnected", () => {
+      if (hasUsablePad()) return;
+      chordHeldSince = null;
+      chordFired = false;
+    });
 
-    // Initial poll: if the browser already exposes a pad at install time
-    // (Firefox, or Chrome on a reload where a pad was previously used),
-    // flip modality immediately so the grid-nav autofocus can land without
-    // waiting for a first press. Chrome hides pads until first interaction
-    // for privacy; in that case this no-ops and the gamepadconnected event
-    // or first button press takes over.
-    function detectPadPresence() {
-      const list = navigator.getGamepads?.() ?? [];
-      const hasPad = Array.from(list).some((p) => isUsablePad(p));
-      if (hasPad && !everSawPad) {
-        everSawPad = true;
-        setModality("pad");
-      }
-    }
-    detectPadPresence();
+    // A pad already exposed at install lets grid-nav autofocus land before a
+    // first press; a pad Chrome still hides is caught by gamepadconnected.
+    if (hasUsablePad()) setModality("pad");
 
     const loop = () => {
       const pads = navigator.getGamepads?.() ?? [];
       const t = performance.now();
-
-      // Keep checking while no pad has been seen yet: covers the case
-      // where a pad appears partway through the session (plugged in
-      // mid-browse, or Chrome exposes it once the user moves a stick).
-      if (!everSawPad) detectPadPresence();
 
       // While a game is running (or launching) the emulator owns the pad
       // directly. Translating presses into navigation here would, for
@@ -373,7 +362,7 @@ export function useGamepad() {
       }
     };
 
-    useRafFn(loop);
+    usePadRafFn(loop);
 
     onBeforeUnmount(() => {
       installed = false;

@@ -25,7 +25,7 @@ import {
   RIcon,
   RMenu,
   RMenuItem,
-  RSliderBtnGroup,
+  RSegmentedControl,
   RTextField,
 } from "@/lib";
 import { shouldAutofocusSearch } from "@/utils/autofocus";
@@ -92,6 +92,8 @@ const props = withDefaults(
     showSearch?: boolean;
     search?: string;
     searchPlaceholder?: string;
+    /** Muted text inside the search field, after the query (the result count). */
+    searchSuffix?: string | undefined;
     /** Ask for the search field to take focus on mount. Only honoured on
      *  precise-pointer, non-gamepad devices (see `autofocusSearchField`). */
     autofocusSearch?: boolean;
@@ -122,6 +124,7 @@ const props = withDefaults(
     showSearch: false,
     search: "",
     searchPlaceholder: "",
+    searchSuffix: undefined,
     autofocusSearch: false,
     segmentFilters: () => [],
     showFilter: false,
@@ -228,6 +231,14 @@ const autofocusSearchField = computed(
     shouldAutofocusSearch(),
 );
 
+// Two modes fit a segmented slider; more read better as a labelled menu.
+const groupByAsMenu = computed(() => effectiveGroupByItems.value.length > 2);
+const activeGroupByIcon = computed(
+  () =>
+    effectiveGroupByItems.value.find((i) => i.id === groupByValue.value)
+      ?.icon ?? "mdi-format-list-group",
+);
+
 function setGroupBy(value: GroupByMode) {
   emit("update:groupBy", value);
 }
@@ -278,6 +289,7 @@ const { smAndUp } = useBreakpoint();
       v-if="showSearch"
       :model-value="search"
       :placeholder="effectiveSearchPlaceholder"
+      :suffix="searchSuffix"
       density="comfortable"
       prefix-label="inline"
       clearable
@@ -315,7 +327,7 @@ const { smAndUp } = useBreakpoint();
     <slot name="actions" />
 
     <template v-if="smAndUp">
-      <RSliderBtnGroup
+      <RSegmentedControl
         v-for="sf in segmentFilters"
         :key="sf.key"
         :model-value="sf.value"
@@ -334,14 +346,38 @@ const { smAndUp } = useBreakpoint();
     <div class="gallery-toolbar__controls">
       <!-- Grouping and sort: list mode sorts from its column header instead. -->
       <template v-if="smAndUp && !listMode">
-        <RSliderBtnGroup
-          v-if="showGroupBy"
+        <RSegmentedControl
+          v-if="showGroupBy && !groupByAsMenu"
           :model-value="groupByValue"
           :items="effectiveGroupByItems"
           variant="segmented"
           :aria-label="t('settings.platforms-drawer-group-by')"
           @update:model-value="setGroupBy"
         />
+        <RMenu
+          v-else-if="showGroupBy"
+          location="bottom end"
+          :offset="8"
+          width="220px"
+        >
+          <template #activator="{ props: activatorProps }">
+            <RBtn
+              v-bind="activatorProps"
+              variant="outlined"
+              surface
+              :icon="activeGroupByIcon"
+              rounded="circle"
+              :aria-label="t('settings.platforms-drawer-group-by')"
+            />
+          </template>
+          <RMenuItem
+            v-for="item in effectiveGroupByItems"
+            :key="item.id"
+            :label="item.label ?? item.title ?? item.ariaLabel ?? item.id"
+            v-bind="selectionMark(groupByValue === item.id)"
+            @click="setGroupBy(item.id)"
+          />
+        </RMenu>
 
         <!-- A menu, not a slider: too many axes for the segmented pattern
              the neighbouring clusters use. -->
@@ -376,7 +412,7 @@ const { smAndUp } = useBreakpoint();
           />
         </RMenu>
 
-        <RSliderBtnGroup
+        <RSegmentedControl
           v-if="!unsorted"
           :model-value="sortDirValue"
           :items="sortDirItems"
@@ -386,7 +422,7 @@ const { smAndUp } = useBreakpoint();
         />
       </template>
 
-      <RSliderBtnGroup
+      <RSegmentedControl
         v-if="smAndUp"
         :model-value="layoutValue"
         :items="layoutItems"

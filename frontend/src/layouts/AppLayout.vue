@@ -70,9 +70,8 @@ installStageActiveClass();
 // Reduced-motion mode: mirror the flag onto <html> so global CSS can drop
 // its heaviest work via `html.r-reduced-motion .foo { … }` (background-art
 // blur, cover blur-up, the global animation/transition neutralize). On <html>
-// (not the shell root) for the same reason as the theme classes: Vuetify
-// teleports overlays outside the app tree, and this keeps the flag reachable
-// there too.
+// (not the shell root) for the same reason as the theme classes: overlays
+// teleport outside the app tree, and this keeps the flag reachable there too.
 const { enabled: reducedMotion } = useReducedMotion();
 watch(
   reducedMotion,
@@ -217,6 +216,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="r-app-shell">
     <BackgroundArt
+      v-if="!playingStore.stageActive"
       :layer-a="layerA"
       :layer-b="layerB"
       :active-layer="activeLayer"

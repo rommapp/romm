@@ -4,12 +4,14 @@ from unittest.mock import AsyncMock
 
 import pytest
 import startup
-from rq.exceptions import DuplicateJobError
-from rq.job import JOB_ID_PATTERN
+from rq.exceptions import DuplicateJobError, NoSuchJobError
+from rq.job import JOB_ID_PATTERN, Job, JobStatus
 
+from config.config_manager import config_manager
 from handler.database import db_save_handler
 from handler.metadata.launchbox_handler.types import LAUNCHBOX_METADATA_STORE
 from handler.redis_handler import default_queue, high_prio_queue, low_prio_queue
+from tasks.manual.recompute_name_sort_keys import articles_digest
 from tasks.registry import get_task
 from tasks.scheduled.update_switch_titledb import SWITCH_TITLEDB_STORE
 from utils.cache import VersionedCacheStore
@@ -45,6 +47,57 @@ def test_enqueue_recompute_fires_when_missing_hashes_present(mocker, enqueue_tas
         # RQ settles the duplicate check and the enqueue in one round trip
         unique=True,
     )
+
+
+@pytest.mark.parametrize(
+    ("applied", "queued"),
+    [(("the", "a", "an"), False), (("the", "die"), True), (None, True)],
+    ids=["unchanged", "changed", "unrecorded"],
+)
+def test_enqueue_recompute_name_sort_keys_when_the_articles_change(
+    mocker, enqueue_task, applied, queued
+):
+    mocker.patch.object(startup, "applied_sort_articles", return_value=applied)
+    mocker.patch.object(startup, "sort_articles", return_value=("the", "a", "an"))
+    mocker.patch.object(startup, "_free_finished_job_id")
+
+    startup._enqueue_recompute_name_sort_keys_if_needed()
+
+    if queued:
+        enqueue_task.assert_called_once_with(
+            "recompute_name_sort_keys",
+            job_id=(
+                f"{startup.RECOMPUTE_NAME_SORT_KEYS_JOB_ID}_"
+                f"{articles_digest(('the', 'a', 'an'))}"
+            ),
+            unique=True,
+        )
+    else:
+        enqueue_task.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("status", "freed"),
+    [
+        (JobStatus.FINISHED, True),
+        (JobStatus.FAILED, True),
+        (JobStatus.QUEUED, False),
+        (JobStatus.STARTED, False),
+    ],
+)
+def test_a_stopped_job_frees_its_id_and_a_live_one_keeps_it(mocker, status, freed):
+    job = mocker.Mock(get_status=mocker.Mock(return_value=status))
+    mocker.patch.object(Job, "fetch", return_value=job)
+
+    startup._free_finished_job_id("recompute_name_sort_keys_bootstrap_abc")
+
+    assert job.delete.called is freed
+
+
+def test_a_missing_job_leaves_nothing_to_free(mocker):
+    mocker.patch.object(Job, "fetch", side_effect=NoSuchJobError)
+
+    startup._free_finished_job_id("recompute_name_sort_keys_bootstrap_abc")
 
 
 def test_enqueue_convert_webp_fires_when_not_queued(enqueue_task):
@@ -208,3 +261,18 @@ class TestRebuildOutdatedMetadataStores:
         await startup._rebuild_outdated_metadata_stores()
 
         enqueue_task.assert_not_called()
+
+
+def test_warns_about_each_binding_to_an_unknown_platform(mocker):
+    warnings = mocker.patch.object(
+        startup, "unknown_binding_warnings", return_value=["first", "second"]
+    )
+    log = mocker.patch.object(startup, "log")
+
+    startup._warn_about_unknown_platform_bindings()
+
+    warnings.assert_called_once_with(config_manager.config)
+    assert [call.args[0] for call in log.warning.call_args_list] == [
+        "first",
+        "second",
+    ]

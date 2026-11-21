@@ -1,13 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
 import RBtn from "@/lib/primitives/RBtn/RBtn.vue";
-import { CONTRAST_TODO_PARAMETERS } from "@/utils/storyA11y";
 import RTextField from "./RTextField.vue";
 
 const meta: Meta<typeof RTextField> = {
   title: "Forms/RTextField",
   component: RTextField,
-  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     variant: {
       control: "inline-radio",
@@ -233,6 +232,18 @@ export const Readonly: Story = {
     readonly: true,
     appendInnerIcon: "mdi-content-copy",
   },
+  play: async ({ canvasElement }) => {
+    const input = within(canvasElement).getByDisplayValue("xxxxx-xxxxx-xxxxx");
+    await userEvent.type(input, "typed");
+    await expect(input).toHaveValue("xxxxx-xxxxx-xxxxx");
+
+    const field = canvasElement.querySelector<HTMLElement>(
+      ".r-text-field__field",
+    );
+    await expect(field && getComputedStyle(field).borderStyle).toBe("dashed");
+    // Focused by the click above, yet without the brand halo.
+    await expect(field && getComputedStyle(field).boxShadow).toBe("none");
+  },
 };
 
 // ── Clearable ──────────────────────────────────────────────────────
@@ -248,6 +259,24 @@ export const Clearable: Story = {
           prepend-inner-icon="mdi-pencil"
           clearable
           placeholder="Clearable input"
+        />
+      </div>
+    `,
+  }),
+};
+
+export const WithSuffix: Story = {
+  render: () => ({
+    components: { RTextField },
+    setup: () => ({ value: ref("astral") }),
+    template: `
+      <div style="width:360px">
+        <RTextField
+          v-model="value"
+          label="Search"
+          prepend-inner-icon="mdi-magnify"
+          suffix="16 of 627"
+          clearable
         />
       </div>
     `,

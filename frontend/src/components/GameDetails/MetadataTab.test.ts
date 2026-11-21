@@ -77,4 +77,57 @@ describe("MetadataTab verification chips", () => {
 
     expect(raChipTone(linkedOnly)).toBe("neutral");
   });
+
+  function raChipClasses(r: DetailedRom) {
+    return shallowMount(MetadataTab, { props: { rom: r } })
+      .findAllComponents({ name: "RTag" })
+      .find((c) => c.props("text") === "RetroAchievements")
+      ?.classes();
+  }
+
+  it("dims a verification source the ROM did not match", () => {
+    const miss = rom({
+      hasheous_metadata: { ra_match: false },
+      merged_ra_metadata: { hash_match: false },
+    });
+
+    const classes = raChipClasses(miss);
+
+    expect(classes).toContain("metadata-tab__verification--miss");
+  });
+
+  it("keeps a matched verification source at full strength", () => {
+    const matched = rom({ merged_ra_metadata: { hash_match: true } });
+
+    const classes = raChipClasses(matched);
+
+    expect(classes).not.toContain("metadata-tab__verification--miss");
+  });
+});
+
+describe("MetadataTab Switch title id", () => {
+  function text(r: DetailedRom) {
+    return shallowMount(MetadataTab, { props: { rom: r } }).text();
+  }
+
+  it("explains a missing title id on a Switch game", () => {
+    expect(text(rom({ platform_slug: "switch", title_id: null }))).toContain(
+      "rom.title-id-missing-switch",
+    );
+  });
+
+  it("shows no explanation once the title id is known", () => {
+    const body = text(
+      rom({ platform_slug: "switch", title_id: "0100ABCD12340000" }),
+    );
+
+    expect(body).toContain("0100ABCD12340000");
+    expect(body).not.toContain("rom.title-id-missing-switch");
+  });
+
+  it("leaves other platforms without a title id row", () => {
+    expect(text(rom({ platform_slug: "psx", title_id: null }))).not.toContain(
+      "rom.title-id",
+    );
+  });
 });

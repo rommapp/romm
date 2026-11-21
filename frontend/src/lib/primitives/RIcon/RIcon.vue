@@ -10,6 +10,7 @@
 // to `width`/`height` so the wrapper is a perfect square: keeps icon
 // + text alignment in flex rows tight.
 import { computed } from "vue";
+import { TONE_MAP } from "@/lib/style/tokenMaps";
 
 defineOptions({ inheritAttrs: false });
 
@@ -48,23 +49,6 @@ const resolvedSize = computed<string | undefined>(() => {
   if (/^\d+(\.\d+)?$/.test(s)) return `${s}px`;
   return SIZE_MAP[s] ?? s;
 });
-
-// Single source of truth for v2 tone aliasing. Other primitives will
-// share this once we extract it.
-const TONE_MAP: Record<string, string> = {
-  primary: "var(--r-color-brand-primary)",
-  secondary: "var(--r-color-brand-secondary)",
-  accent: "var(--r-color-brand-accent)",
-  success: "var(--r-color-success)",
-  warning: "var(--r-color-warning)",
-  danger: "var(--r-color-danger)",
-  error: "var(--r-color-danger)",
-  info: "var(--r-color-info)",
-  "romm-red": "var(--r-color-romm-red)",
-  "romm-green": "var(--r-color-romm-green)",
-  "romm-blue": "var(--r-color-romm-blue)",
-  "romm-gold": "var(--r-color-romm-gold)",
-};
 
 const resolvedColor = computed<string | undefined>(() => {
   const c = props.color;

@@ -1,12 +1,11 @@
 from collections.abc import Iterable, Sequence
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import Session, joinedload
 
 from decorators.database import INJECTED_SESSION, begin_session
 from models.client_token import ClientToken
-from utils.datetime import to_utc
 
 from .base_handler import DBBaseHandler, affected_rows
 
@@ -55,13 +54,13 @@ class DBClientTokensHandler(DBBaseHandler):
         ).all()
 
     @begin_session
-    def get_token_ids_by_device(
+    def get_tokens_by_device(
         self,
         device_id: str,
         session: Session = None,  # type: ignore[assignment]
-    ) -> Sequence[int]:
+    ) -> Sequence[ClientToken]:
         return session.scalars(
-            select(ClientToken.id).where(ClientToken.device_id == device_id)
+            select(ClientToken).where(ClientToken.device_id == device_id)
         ).all()
 
     @begin_session
@@ -100,21 +99,18 @@ class DBClientTokensHandler(DBBaseHandler):
         session: Session = INJECTED_SESSION,
     ) -> None:
         now = datetime.now(timezone.utc)
-        token = session.get(ClientToken, token_id)
-        if token is None:
-            return
-
-        if (
-            token.last_used_at
-            and (now - to_utc(token.last_used_at)) < LAST_USED_DEBOUNCE
-        ):
-            return
-
+        # Debounced in the WHERE clause, so concurrent bumps have no earlier read to race.
         session.execute(
             update(ClientToken)
-            .where(ClientToken.id == token_id)
+            .where(
+                ClientToken.id == token_id,
+                or_(
+                    ClientToken.last_used_at.is_(None),
+                    ClientToken.last_used_at < now - LAST_USED_DEBOUNCE,
+                ),
+            )
             .values(last_used_at=now)
-            .execution_options(synchronize_session="evaluate")
+            .execution_options(synchronize_session=False)
         )
 
     @begin_session

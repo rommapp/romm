@@ -197,6 +197,8 @@ BACKEND_ROOT = Path(__file__).resolve().parents[2]
             "can_run_manually",
             False,
         ),
+        ({"TASK_TIMEOUT": "300"}, "build_recommendations", "timeout", 60 * 60),
+        ({"TASK_TIMEOUT": "7200"}, "build_recommendations", "timeout", 7200),
         ({"ROM_CONVERTO_ENABLED": "true"}, "convert_library", "can_run_manually", True),
         (
             {"ROM_CONVERTO_ENABLED": "false"},

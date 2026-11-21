@@ -69,6 +69,36 @@ def test_direct_hides_alone_need_no_row_clause():
     assert UNRESTRICTED.row_hidden_clause() is None
 
 
+def test_hidden_on_visible_platforms_clause_skips_hidden_platforms():
+    visibility = RomVisibilityFilter(
+        hidden_platform_ids=frozenset({5}), hidden_rom_ids=frozenset({99})
+    )
+
+    hidden = visibility.hidden_on_visible_platforms_clause()
+
+    assert hidden is not None
+    assert compile_sql(hidden, MARIADB_DIALECT) == ("roms.id IN (__[POSTCOMPILE_id_1])")
+    assert (
+        RomVisibilityFilter(
+            hidden_platform_ids=frozenset({5})
+        ).hidden_on_visible_platforms_clause()
+        is None
+    )
+
+
+def test_the_hidden_age_clause_is_a_range_per_setting():
+    def sql(visibility: RomVisibilityFilter) -> str:
+        hidden = visibility.hidden_on_visible_platforms_clause()
+        assert hidden is not None
+        return compile_sql(hidden, MARIADB_DIALECT)
+
+    assert sql(RomVisibilityFilter(age_limit=12)) == "roms.min_age > :min_age_1"
+    assert sql(RomVisibilityFilter(age_limit=12, hide_unrated_roms=True)) == (
+        "roms.min_age IS NULL OR roms.min_age > :min_age_1"
+    )
+    assert sql(RomVisibilityFilter(hide_unrated_roms=True)) == "roms.min_age IS NULL"
+
+
 def test_admin_permissions_are_unrestricted():
     assert _perms(is_admin=True).rom_visibility is UNRESTRICTED
 

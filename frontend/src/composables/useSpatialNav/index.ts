@@ -58,6 +58,13 @@ function hasOpenPopup(el: HTMLElement): boolean {
 
 function ownsArrowKeys(el: HTMLElement): boolean {
   if (el.isContentEditable || hasOpenPopup(el)) return true;
+  // A button-based combobox (RSelect) only owns arrows while its list is open.
+  if (
+    el instanceof HTMLButtonElement &&
+    el.getAttribute("role") === "combobox"
+  ) {
+    return false;
+  }
   if (el instanceof HTMLInputElement) return !BUTTON_LIKE_INPUTS.has(el.type);
   if (el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) {
     return true;

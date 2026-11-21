@@ -7,10 +7,9 @@ from fastapi.responses import Response
 
 from decorators.auth import protected_route
 from endpoints.responses.rom import SoundtrackTrackMetaSchema, TrackMetaSchema
-from endpoints.roms.upload import receive_rom_file
-from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
+from endpoints.roms.upload import ROM_FILE_UPLOAD_RESPONSES, receive_rom_file
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
+from handler.auth.dependencies import visible_rom_or_404
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.rom_upload import CATEGORY_UPLOAD_FOLDERS
@@ -19,7 +18,7 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import RomFileCategory
 from utils.audio_tags import remove_persisted_cover
-from utils.router import APIRouter
+from utils.router import APIRouter, RomIdPath
 
 router = APIRouter()
 
@@ -28,19 +27,19 @@ router = APIRouter()
     router.get,
     "/{id}/soundtracks/metadata",
     [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+    },
 )
 async def get_rom_soundtrack_metadata(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
 ) -> list[SoundtrackTrackMetaSchema]:
     """Return compact audio metadata for every soundtrack file of a ROM."""
 
-    rom = db_rom_handler.get_rom_visibility(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom_visibility(id), id)
 
     tracks = db_rom_handler.get_rom_files_by_category(
         rom_id=rom.id, category=RomFileCategory.SOUNDTRACK
@@ -64,11 +63,16 @@ async def get_rom_soundtrack_metadata(
     "/{id}/soundtracks",
     [Scope.ROMS_WRITE],
     status_code=status.HTTP_201_CREATED,
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        **ROM_FILE_UPLOAD_RESPONSES,
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+    },
 )
 async def add_rom_soundtracks(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     filename: Annotated[
         str,
         Header(
@@ -79,11 +83,7 @@ async def add_rom_soundtracks(
 ) -> Response:
     """Upload a soundtrack audio file into the ROM's soundtrack/ subfolder."""
 
-    rom = db_rom_handler.get_rom(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(id), id)
 
     await receive_rom_file(
         request, rom, CATEGORY_UPLOAD_FOLDERS[RomFileCategory.SOUNDTRACK], filename
@@ -96,20 +96,23 @@ async def add_rom_soundtracks(
     router.delete,
     "/{id}/soundtracks/{file_id}",
     [Scope.ROMS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID, or the rom has no soundtrack with this file ID."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The soundtrack could not be removed from disk."
+        },
+    },
 )
 async def delete_rom_soundtrack(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
 ) -> Response:
     """Delete a single soundtrack file from a ROM."""
 
-    rom = db_rom_handler.get_rom_visibility_label(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom_visibility_label(id), id)
 
     rom_file = db_rom_handler.get_rom_file_by_id(file_id)
     if (

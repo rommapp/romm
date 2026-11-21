@@ -18,7 +18,8 @@ router = APIRouter(prefix="/audit-events", tags=["audit"])
 
 
 class AuditPageParams(PageParams):
-    limit: int = Field(50, ge=1, le=200, description="Page size limit")
+    limit: int = Field(50, ge=1, le=200)
+    """The maximum number of events per page."""
 
 
 AUDIT_PAGE_QUERY = as_query_dependency(AuditPageParams)
@@ -28,6 +29,7 @@ class AuditPage[T: BaseModel](LimitOffsetPage[T]):
     # Rows are ordered by when they happened, not by id, so later pages pin to
     # the highest id rather than to the first row's.
     max_id: int | None = None
+    """The highest ID among the matching events. Pass it as `max_id` when requesting later pages, so they page through the same set of events."""
 
 
 @protected_route(router.get, "", [Scope.ME_READ])
@@ -46,8 +48,18 @@ def get_audit_events(
     category: Annotated[
         list[AuditCategory] | None, Query(description="Only actions in these groups.")
     ] = None,
-    target_type: Annotated[str | None, Query()] = None,
-    target_id: Annotated[str | None, Query()] = None,
+    target_type: Annotated[
+        str | None,
+        Query(
+            description=(
+                "Only events on this kind of target: `rom`, `platform`,"
+                " `firmware`, `collection`, `smart_collection`,"
+                " `virtual_collection`, `user`, `permission_group`,"
+                " `client_token`, `device`, `task` or `config`."
+            )
+        ),
+    ] = None,
+    target_id: str | None = None,
     since: Annotated[datetime | None, Query(description="Inclusive.")] = None,
     until: Annotated[datetime | None, Query(description="Exclusive.")] = None,
     search: Annotated[

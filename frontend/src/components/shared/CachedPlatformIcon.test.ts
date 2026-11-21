@@ -12,7 +12,7 @@ describe("CachedPlatformIcon", () => {
     await wrapper.find("img").trigger("error");
 
     expect(wrapper.find("img").attributes("src")).toBe(
-      "/assets/platforms/default.ico",
+      "/assets/platforms/default.svg",
     );
   });
 
@@ -22,7 +22,7 @@ describe("CachedPlatformIcon", () => {
     });
 
     expect(wrapper.find("img").attributes("src")).toBe(
-      "/assets/platforms/default.ico",
+      "/assets/platforms/default.svg",
     );
   });
 });

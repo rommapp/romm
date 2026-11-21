@@ -16,7 +16,7 @@ from tests.scan_job_stubs import (
 from endpoints.sockets.scan import scan_platforms
 from endpoints.tasks import SINGLE_INSTANCE_LOCK_PREFIX
 from handler.redis_handler import low_prio_queue, redis_client, scan_queue
-from handler.scan_handler import ScanType
+from handler.scan.sources import ScanType
 from handler.scan_jobs import SCAN_PLATFORMS_FUNC
 from tasks.manual.cleanup_missing_firmware import CleanupMissingFirmwareStats
 from tasks.manual.cleanup_missing_roms import CleanupMissingRomsStats

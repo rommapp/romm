@@ -89,8 +89,8 @@ import { RBtn, RDialog } from "@/lib";
 import storeAuth from "@/stores/auth";
 ```
 
-- `@/lib`: primitives barrel. `@/...`: anything else under v2. `@/...`: canonical shared resources. Never relative paths (`../../foo`) when an alias exists.
-- Shared v2 types live in `src/types/`; backend types come from `src/__generated__/`; not `src/types/` (legacy).
+- `@/lib`: primitives barrel. `@/...`: anything else under `src/`. Never relative paths (`../../foo`) when an alias exists.
+- Shared types live in `src/types/`; backend types come from `src/__generated__/`.
 
 ### Composables
 
@@ -127,6 +127,6 @@ import storeAuth from "@/stores/auth";
 
 ## Known debt (focused follow-ups)
 
-- **Left over from v1**: drop `.r-*` scope classes (tokens move to `:root`); simplify `useUISettings` sync; drop the color-string→tone collapser in `NotificationHost`; remove the Vuetify rule arrays in `stores/users.ts`; remove the `@deprecated` gallery-list state in `stores/roms.ts` once its remaining v2 callers move to `useGalleryRoms`; drop Vuetify and the global Tailwind reset (`src/styles/tailwind.css`) once nothing needs them.
+- **Left over from v1**: drop `.r-*` scope classes (tokens move to `:root`); simplify `useUISettings` sync; drop the color-string→tone collapser in `NotificationHost`; remove the Vuetify rule arrays in `stores/users.ts`; remove the `@deprecated` gallery-list state in `stores/roms.ts` once its remaining v2 callers move to `useGalleryRoms`.
 
 Full reference: `docs/FRONTEND_ARCHITECTURE.md`.

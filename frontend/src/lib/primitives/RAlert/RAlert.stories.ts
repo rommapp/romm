@@ -203,7 +203,7 @@ export const Closable: Story = {
         />
         <button
           type="button"
-          style="padding:6px 12px;background:var(--r-color-brand-primary);color:white;border:none;border-radius:6px;font:12px/1 sans-serif;cursor:pointer"
+          style="padding:6px 12px;background:var(--r-color-brand-primary-solid);color:var(--r-color-brand-on-primary);border:none;border-radius:6px;font:12px/1 sans-serif;cursor:pointer"
           @click="reset"
         >
           Show again

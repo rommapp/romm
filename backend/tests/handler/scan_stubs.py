@@ -5,7 +5,8 @@ from typing import Any
 
 from tests.factories import make_platform, make_rom
 
-from handler.scan_handler import ScanType, scan_rom
+from handler.scan.sources import ScanType
+from handler.scan_handler import scan_rom
 from models.platform import Platform
 from models.rom import Rom
 from utils.context import initialize_context

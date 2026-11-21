@@ -3,7 +3,7 @@
 // (Login / Register / ResetPassword / Setup). Wraps RCard, the logo,
 // and the padded inner column. Views drop their form content into the
 // default slot.
-import { RCard, RImg } from "@/lib";
+import { RCard, RImage } from "@/lib";
 
 defineOptions({ inheritAttrs: false });
 </script>
@@ -11,7 +11,7 @@ defineOptions({ inheritAttrs: false });
 <template>
   <RCard v-bind="$attrs" class="auth-card" variant="elevated" elevation="4">
     <div class="auth-card__inner">
-      <RImg
+      <RImage
         src="/assets/isotipo.svg"
         :width="80"
         class="auth-card__logo"

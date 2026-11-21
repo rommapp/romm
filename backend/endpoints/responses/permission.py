@@ -14,10 +14,17 @@ from __future__ import annotations
 import enum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import Field, field_validator
 
+from endpoints.responses.base import BaseModel
 from handler.auth.permissions import ResolvedPermissions
-from models.permission import MAX_AGE_LIMIT, PermAction, PermEntity, SystemGroupKey
+from models.permission import (
+    MAX_AGE_LIMIT,
+    OWNABLE_PERM_ENTITIES,
+    PermAction,
+    PermEntity,
+    SystemGroupKey,
+)
 
 AgeLimit = Annotated[int, Field(ge=0, le=MAX_AGE_LIMIT)]
 
@@ -165,6 +172,20 @@ class GrantSchemaIO(BaseModel):
     entity: PermEntity
     action: PermAction
     own_only: bool = False
+    """Whether the grant covers only things the user owns."""
+
+
+def _reject_ownerless_own_only[T: GrantSchemaIO | OverrideSchemaIO](
+    items: list[T] | None,
+) -> list[T] | None:
+    """Reject ``own_only`` on entities with no owner, which have nothing to narrow it to."""
+    for item in items or ():
+        # A revoke override ignores own_only.
+        if isinstance(item, OverrideSchemaIO) and not item.granted:
+            continue
+        if item.own_only and item.entity not in OWNABLE_PERM_ENTITIES:
+            raise ValueError(f"own_only is not supported for {item.entity}")
+    return items
 
 
 class PermissionGroupSchema(BaseModel):
@@ -195,6 +216,8 @@ class PermissionGroupCreate(BaseModel):
     age_limit: AgeLimit | None = None
     hide_unrated_roms: bool = False
 
+    _check_grants = field_validator("grants")(_reject_ownerless_own_only)
+
 
 class PermissionGroupUpdate(BaseModel):
     name: str | None = None
@@ -207,12 +230,16 @@ class PermissionGroupUpdate(BaseModel):
     hide_unrated_roms: bool = False
     set_age_settings: bool = False
 
+    _check_grants = field_validator("grants")(_reject_ownerless_own_only)
+
 
 class OverrideSchemaIO(BaseModel):
     entity: PermEntity
     action: PermAction
     granted: bool
+    """True grants the action and false denies it."""
     own_only: bool = False
+    """Whether the override covers only things the user owns."""
 
 
 class HiddenEntitySchema(BaseModel):
@@ -225,7 +252,9 @@ class HiddenEntityCreate(BaseModel):
     entity_id: int
     # Exactly one principal must be set (validated by the endpoint).
     user_id: int | None = None
+    """The user to hide it from. Set exactly one of `user_id` and `group_id`."""
     group_id: int | None = None
+    """The group to hide it from. Set exactly one of `user_id` and `group_id`."""
 
 
 class UserPermissionsSchema(BaseModel):
@@ -251,9 +280,13 @@ class UserPermissionsUpdate(BaseModel):
     hide_unrated_roms: bool | None = None
     set_age_settings: bool = False
 
+    _check_overrides = field_validator("overrides")(_reject_ownerless_own_only)
+
 
 class PermissionCatalogSchema(BaseModel):
     """The vocabulary the admin UI renders the group/override matrix from."""
 
     entities: list[PermEntity]
     actions: list[PermAction]
+    # Entities that accept own_only; the matrix offers "own" only on these.
+    ownable_entities: list[PermEntity]

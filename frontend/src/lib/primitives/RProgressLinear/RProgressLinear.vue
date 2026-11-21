@@ -20,6 +20,7 @@
 // text inside the bar. Consumers compose the percentage / status text
 // as a sibling element.
 import { computed } from "vue";
+import { TONE_MAP } from "@/lib/style/tokenMaps";
 
 defineOptions({ inheritAttrs: false });
 
@@ -61,23 +62,6 @@ const props = withDefaults(defineProps<Props>(), {
   stream: false,
   ariaLabel: undefined,
 });
-
-// Shared with the rest of the lib: single source of truth so `color`
-// is interchangeable between RBtn, RTag, RProgressCircular, etc.
-const TONE_MAP: Record<string, string> = {
-  primary: "var(--r-color-brand-primary)",
-  secondary: "var(--r-color-brand-secondary)",
-  accent: "var(--r-color-brand-accent)",
-  success: "var(--r-color-success)",
-  warning: "var(--r-color-warning)",
-  danger: "var(--r-color-danger)",
-  error: "var(--r-color-danger)",
-  info: "var(--r-color-info)",
-  "romm-red": "var(--r-color-romm-red)",
-  "romm-green": "var(--r-color-romm-green)",
-  "romm-blue": "var(--r-color-romm-blue)",
-  "romm-gold": "var(--r-color-romm-gold)",
-};
 
 const resolvedColor = computed<string>(
   () => TONE_MAP[props.color] ?? props.color ?? TONE_MAP.primary,

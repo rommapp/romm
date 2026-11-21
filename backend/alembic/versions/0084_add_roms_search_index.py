@@ -23,10 +23,12 @@ Create Date: 2026-06-16 00:00:00.000000
 
 """
 
+import re
+
 import sqlalchemy as sa
 from alembic import op
 
-from models.rom import NAME_SORT_KEY_MAX_LENGTH, compute_name_sort_key
+from models.rom import NAME_SORT_KEY_MAX_LENGTH
 from utils.database import is_mariadb, is_mysql, is_postgresql
 
 # revision identifiers, used by Alembic.
@@ -40,6 +42,17 @@ PG_NAME_INDEX = "idx_roms_name_trgm"
 PG_FS_NAME_INDEX = "idx_roms_fs_name_trgm"
 
 _BACKFILL_BATCH = 1000
+
+# models.rom.compute_name_sort_key when this revision was written.
+_ARTICLE_PREFIX_RE = re.compile(r"^(the|a|an)\s+")
+_DIGIT_RUN_RE = re.compile(r"\d+")
+
+
+def _sort_key(name: str | None) -> str:
+    value = (name or "").lower()
+    value = _ARTICLE_PREFIX_RE.sub("", value).strip()
+    value = _DIGIT_RUN_RE.sub(lambda m: m.group(0).zfill(12), value)
+    return value[:NAME_SORT_KEY_MAX_LENGTH]
 
 
 def upgrade() -> None:
@@ -115,7 +128,7 @@ def upgrade() -> None:
             break
         bind.execute(
             update_stmt,
-            [{"_id": row.id, "_key": compute_name_sort_key(row.name)} for row in batch],
+            [{"_id": row.id, "_key": _sort_key(row.name)} for row in batch],
         )
 
     op.create_index(

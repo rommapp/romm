@@ -69,7 +69,7 @@
 
 #   # Asociate one platform to it's main version (IGDB only)
 #   versions:
-#     naomi: arcade
+#     playchoice10: arcade
 
 # filesystem:
 #   # Skip file hash calculations on low power devices (eg. Raspberry PI)
@@ -92,6 +92,18 @@
 #       - 'roms/{platform}/{category}/{game}'
 #     ps3: 'roms/{platform}/{category}/{game}'
 #     snes: 'roms/{platform}/{region}/{game}'
+
+# sorting:
+#   # Leading words a title sorts without, so "The Legend of Zelda" files under L.
+#   # Defaults to English; list your library's articles to change it. A custom
+#   # sort name set on a game is always used as typed.
+#   articles:
+#     - the
+#     - a
+#     - an
+#     - der
+#     - die
+#     - das
 
 # scan:
 #   # Metadata priority during scans
@@ -228,7 +240,7 @@
 #       host: https://192.168.1.56:3010  # browser-facing UI, must be https
 #       subfolder: /streaming            # matches the container's SUBFOLDER
 #       # library_path: /mnt/games/library  # only if the container can't mount the library at /romm/library
-#       broker_secret: change-me         # matches the container's BROKER_SECRET
+#       broker_secret: change-me         # the container's BROKER_SECRET (overrides STREAMING_BROKER_SECRET)
 #       label: Emulation station
 #       broker_host: http://192.168.1.56:3010  # server-to-broker URL, when RomM can't dial `host` itself
 #       platforms:

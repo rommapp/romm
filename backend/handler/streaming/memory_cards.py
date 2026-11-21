@@ -12,14 +12,16 @@ import io
 import urllib.error
 import zipfile
 from pathlib import PurePosixPath
-from typing import Any, TypedDict
+from typing import TypedDict
 
 from fastapi import HTTPException
 
+from handler.auth.rom_visibility import RomVisibilityFilter
 from handler.database import db_memory_card_handler, db_user_handler
 from handler.filesystem import fs_asset_handler
 from handler.streaming import broker
 from handler.streaming.config import ResolvedContainer
+from handler.streaming.session_store import StreamingSession
 from logger.logger import log
 from models.assets import MemoryCard
 from utils.memory_cards import MEMORY_CARD_MAX_BYTES, content_hash_of_bytes
@@ -147,7 +149,10 @@ def summarize_card(content: bytes) -> MemoryCardSummary:
 
 
 def resolve_card(
-    user_id: int, emulator: str, memory_card_id: int | None
+    user_id: int,
+    emulator: str,
+    memory_card_id: int | None,
+    visibility: RomVisibilityFilter,
 ) -> MemoryCard | None:
     """Pick the card to mount for a claim.
 
@@ -162,13 +167,19 @@ def resolve_card(
     """
     if memory_card_id is not None:
         card = db_memory_card_handler.get_card(user_id=user_id, id=memory_card_id)
-        if card is None or card.emulator != emulator:
+        if (
+            card is None
+            or card.emulator != emulator
+            or card.platform_id in visibility.hidden_platform_ids
+        ):
             raise HTTPException(
                 status_code=404, detail="Memory card not found for this emulator"
             )
         return card
 
-    cards = db_memory_card_handler.get_cards(user_id=user_id, emulator=emulator)
+    cards = db_memory_card_handler.get_cards(
+        user_id=user_id, emulator=emulator, visibility=visibility
+    )
     if cards:
         return cards[0]  # get_cards orders by updated_at desc
     return None
@@ -301,7 +312,7 @@ async def evacuate_card(
 
 
 async def evacuate_session_card(
-    session: dict[str, Any], container: ResolvedContainer
+    session: StreamingSession, container: ResolvedContainer
 ) -> bool:
     """Evacuate a whole-card-sync session's card before its container is freed.
 

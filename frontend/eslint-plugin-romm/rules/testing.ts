@@ -17,9 +17,21 @@ export const ruleTester = new RuleTester({
   },
 });
 
-export function sfc(style: string): { code: string; filename: string } {
+type VueCase = { code: string; filename: string };
+
+function vueCase(template: string, style?: string): VueCase {
+  const styleBlock =
+    style === undefined ? "" : `<style scoped>\n${style}\n</style>\n`;
   return {
-    code: `<script setup lang="ts"></script>\n<template><div /></template>\n<style scoped>\n${style}\n</style>\n`,
+    code: `<script setup lang="ts"></script>\n<template>${template}</template>\n${styleBlock}`,
     filename: "A.vue",
   };
+}
+
+export function sfc(style: string): VueCase {
+  return vueCase("<div />", style);
+}
+
+export function sfcTemplate(template: string): VueCase {
+  return vueCase(template);
 }

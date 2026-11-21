@@ -1,6 +1,7 @@
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from contextvars import ContextVar, Token
+from functools import partial
 from typing import TYPE_CHECKING, TypeVar
 
 import aiohttp
@@ -8,6 +9,7 @@ import httpx2
 
 from config import has_proxy_env
 from utils.ssrf import (
+    INTERNAL_ORIGIN_ALLOWLIST,
     install_async_ssrf_protection,
     install_sync_ssrf_protection,
     validate_url_for_http_request,
@@ -26,20 +28,27 @@ def _validate_request_url_sync(request: httpx2.Request) -> None:
     validate_url_for_http_request(str(request.url))
 
 
-async def _validate_request_url_async(request: httpx2.Request) -> None:
-    validate_url_for_http_request(str(request.url))
+async def _validate_request_url_async(
+    request: httpx2.Request, allowlist: frozenset[tuple[str, int]]
+) -> None:
+    validate_url_for_http_request(str(request.url), allowlist=allowlist)
 
 
 def create_aiohttp_session() -> aiohttp.ClientSession:
     return aiohttp.ClientSession(trust_env=has_proxy_env())
 
 
-def create_httpx_async_client() -> httpx2.AsyncClient:
+def create_httpx_async_client(
+    allowlist: frozenset[tuple[str, int]] = INTERNAL_ORIGIN_ALLOWLIST,
+) -> httpx2.AsyncClient:
+    """An SSRF-guarded client that lets only `allowlist` origins reach private addresses."""
     client = httpx2.AsyncClient(
         trust_env=has_proxy_env(),
-        event_hooks={"request": [_validate_request_url_async]},
+        event_hooks={
+            "request": [partial(_validate_request_url_async, allowlist=allowlist)]
+        },
     )
-    install_async_ssrf_protection(client)
+    install_async_ssrf_protection(client, allowlist=allowlist)
     return client
 
 

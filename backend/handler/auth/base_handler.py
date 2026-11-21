@@ -1,3 +1,4 @@
+import functools
 import hashlib
 import secrets
 import uuid
@@ -17,6 +18,8 @@ import models.user
 from config import (
     EMAIL_ENABLED,
     INVITE_TOKEN_EXPIRY_SECONDS,
+    OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS,
+    OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS,
     OIDC_ALLOW_REGISTRATION,
     OIDC_CLAIM_ROLES,
     OIDC_ENABLED,
@@ -37,9 +40,10 @@ from handler.auth.constants import (
 )
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.email_handler import EmailError, send_email
-from handler.redis_handler import redis_client
+from handler.redis_handler import async_cache, redis_client, sync_cache
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
+from logger.log_stream_handler import STDOUT_ONLY
 from logger.logger import log
 from utils.urls import get_public_base_url
 
@@ -105,12 +109,27 @@ def _invite_token_spent() -> HTTPException:
     )
 
 
+# Outlives every OAuth token, so a revoked one can't come back once the key expires.
+OAUTH_REVOCATION_TTL_SECONDS = max(
+    OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS, OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS
+)
+
+
+def _oauth_revoked_before_key(username: str) -> str:
+    return f"oauth-revoked-before:{username}"
+
+
 # bcrypt only reads the first 72 bytes and raises on longer secrets.
 BCRYPT_MAX_SECRET_BYTES = 72
 
 
 def _bcrypt_secret(password: str) -> bytes:
     return password.encode()[:BCRYPT_MAX_SECRET_BYTES]
+
+
+@functools.cache
+def _dummy_password_hash() -> str:
+    return bcrypt.hashpw(secrets.token_bytes(32), bcrypt.gensalt()).decode()
 
 
 class AuthHandler:
@@ -126,15 +145,16 @@ class AuthHandler:
         return hashlib.sha256(raw.encode()).hexdigest()
 
     def verify_password(self, plain_password: str, hashed_password: str | None) -> bool:
-        if not hashed_password:
-            return False
-        try:
-            return bcrypt.checkpw(
-                _bcrypt_secret(plain_password), hashed_password.encode()
-            )
-        except ValueError:
-            # OIDC-provisioned accounts hold a placeholder, not a bcrypt hash.
-            return False
+        secret = _bcrypt_secret(plain_password)
+        if hashed_password:
+            try:
+                return bcrypt.checkpw(secret, hashed_password.encode())
+            except ValueError:
+                # OIDC-provisioned accounts hold a placeholder, not a bcrypt hash.
+                pass
+        # Hash anyway so the response time can't tell an unusable hash from a real one.
+        bcrypt.checkpw(secret, _dummy_password_hash().encode())
+        return False
 
     def get_password_hash(self, password: str) -> str:
         return bcrypt.hashpw(_bcrypt_secret(password), bcrypt.gensalt()).decode()
@@ -146,6 +166,8 @@ class AuthHandler:
 
         user = db_user_handler.get_user_by_username(username)
         if not user:
+            # Still hash so the response time can't tell whether the user exists.
+            self.verify_password(password, None)
             return None
 
         if not self.verify_password(password, user.hashed_password):
@@ -178,6 +200,15 @@ class AuthHandler:
             return None
 
         return user
+
+    @staticmethod
+    def is_session_authenticated(conn: HTTPConnection, username: str) -> bool:
+        """Whether the request runs on the user's sign-in session rather than
+        a basic, bearer or client-token credential."""
+        return (
+            conn.session.get("iss") == "romm:auth"
+            and conn.session.get("sub") == username
+        )
 
     def generate_password_reset_token(self, user: Any) -> str:
         """A single-use reset token for the user, valid for a few minutes."""
@@ -248,7 +279,8 @@ class AuthHandler:
 
     def _log_password_reset_link(self, user: Any, token: str) -> None:
         log.info(
-            f"Reset password link requested for {hl(user.username, color=CYAN)}. Reset link: {hl(f'{ROMM_BASE_URL}/reset-password?token={token}')}"
+            f"Reset password link requested for {hl(user.username, color=CYAN)}. Reset link: {hl(f'{ROMM_BASE_URL}/reset-password?token={token}')}",
+            extra=STDOUT_ONLY,
         )
 
     def verify_password_reset_token(self, token: str) -> Any:
@@ -306,12 +338,13 @@ class AuthHandler:
         keep_an_admin: bool = False,
     ) -> None:
         """
-        Write an update to a user, revoking that account's sessions around it.
+        Write an update to a user, revoking the account's sessions and OAuth
+        tokens around it.
         Args:
             user_id (int): The user the update applies to.
             data (dict[str, Any]): The fields to write.
-            revoke_sessions_for (str | None): Username the sessions are keyed by,
-                or None to write without revoking.
+            revoke_sessions_for (str | None): Username the sessions and tokens
+                are keyed by, or None to write without revoking.
             keep_an_admin (bool): Refuse, with LastAdminError, a role change
                 that would leave no admin.
         """
@@ -328,23 +361,31 @@ class AuthHandler:
             if revoke_sessions_for:
                 # Ahead of the write: an unreachable Redis then aborts the change
                 # rather than committing it with the account's sessions left live.
-                await RedisSessionMiddleware.clear_user_sessions(revoke_sessions_for)
+                await self._revoke_user_credentials(revoke_sessions_for)
 
             db_user_handler.update_user(user_id, data, session=session)
 
         if revoke_sessions_for:
-            # After it, for a login the old password was still good for. The
-            # write has committed, so a failure here is logged, not raised.
-            try:
-                await RedisSessionMiddleware.clear_user_sessions(revoke_sessions_for)
-            except RedisError, OSError:
-                log.error(
-                    "Credentials for '%s' changed, but revoking its sessions "
-                    "afterwards failed; a session created during the update may "
-                    "still be live",
-                    hl(revoke_sessions_for, color=CYAN),
-                    exc_info=True,
-                )
+            # After it, for a login the old password was still good for.
+            await self.revoke_committed_credentials(revoke_sessions_for)
+
+    async def revoke_committed_credentials(self, username: str) -> None:
+        """Revoke the username's sessions and OAuth tokens after an account change
+        has committed, logging a failure since the change can't be undone."""
+        try:
+            await self._revoke_user_credentials(username)
+        except RedisError, OSError:
+            log.error(
+                "Account '%s' changed, but revoking its sessions and tokens "
+                "afterwards failed; one created during the change may still be live",
+                hl(username, color=CYAN),
+                exc_info=True,
+            )
+
+    @staticmethod
+    async def _revoke_user_credentials(username: str) -> None:
+        OAuthHandler.revoke_user_tokens(username)
+        await RedisSessionMiddleware.clear_user_sessions(username)
 
     async def set_user_new_password(self, user: Any, new_password: str) -> None:
         """
@@ -454,14 +495,36 @@ class OAuthHandler:
     def __init__(self) -> None:
         pass
 
+    @staticmethod
+    def revoke_user_tokens(username: str) -> None:
+        """Invalidate every OAuth token issued to the username until now."""
+        sync_cache.set(
+            _oauth_revoked_before_key(username),
+            repr(datetime.now(timezone.utc).timestamp()),
+            ex=OAUTH_REVOCATION_TTL_SECONDS,
+        )
+
+    @staticmethod
+    async def _assert_not_revoked(username: str, claims: dict[str, Any]) -> None:
+        revoked_before = await async_cache.get(_oauth_revoked_before_key(username))
+        if revoked_before is None:
+            return
+        # A token without `iat` predates revocation support, so it counts as old.
+        issued_at = claims.get("iat")
+        if not isinstance(issued_at, int | float) or issued_at <= float(revoked_before):
+            raise OAuthCredentialsException
+
     def _create_oauth_token(
         self,
         data: dict[str, Any],
         expires_delta: timedelta = DEFAULT_OAUTH_TOKEN_EXPIRY,
+        issued_at: datetime | None = None,
     ) -> str:
         to_encode = data.copy()
-        expire = int((datetime.now(timezone.utc) + expires_delta).timestamp())
-        to_encode["exp"] = expire
+        now = issued_at or datetime.now(timezone.utc)
+        # Sub-second, so a login right after a revocation outlives it.
+        to_encode["iat"] = now.timestamp()
+        to_encode["exp"] = int((now + expires_delta).timestamp())
 
         return jwt.encode(
             {"alg": ALGORITHM},
@@ -473,13 +536,17 @@ class OAuthHandler:
         self,
         data: dict[str, Any],
         expires_delta: timedelta = DEFAULT_OAUTH_TOKEN_EXPIRY,
+        issued_at: datetime | None = None,
     ) -> str:
         to_encode = data.copy()
         to_encode["type"] = "access"
-        return self._create_oauth_token(to_encode, expires_delta)
+        return self._create_oauth_token(to_encode, expires_delta, issued_at)
 
     def create_refresh_token(
-        self, data: dict[str, Any], expires_delta: timedelta
+        self,
+        data: dict[str, Any],
+        expires_delta: timedelta,
+        issued_at: datetime | None = None,
     ) -> str:
         if expires_delta <= timedelta(0):
             raise ValueError("expires_delta must be positive for refresh tokens")
@@ -493,7 +560,7 @@ class OAuthHandler:
             }
         )
 
-        token = self._create_oauth_token(to_encode, expires_delta)
+        token = self._create_oauth_token(to_encode, expires_delta, issued_at)
 
         redis_client.set(
             f"refresh-jti:{jti}", "valid", ex=int(expires_delta.total_seconds())
@@ -527,6 +594,8 @@ class OAuthHandler:
         if not username:
             raise OAuthCredentialsException
 
+        await self._assert_not_revoked(username, payload.claims)
+
         user = db_user_handler.get_user_by_username(username)
         if user is None:
             raise OAuthCredentialsException
@@ -557,6 +626,8 @@ class OAuthHandler:
         username = payload.claims.get("sub")
         if username is None:
             raise OAuthCredentialsException
+
+        await self._assert_not_revoked(username, payload.claims)
 
         user = db_user_handler.get_user_by_username(username)
         if user is None:

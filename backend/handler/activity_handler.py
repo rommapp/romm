@@ -26,7 +26,7 @@ from handler.database import (
     db_user_handler,
 )
 from handler.redis_handler import async_cache
-from handler.socket_handler import socket_handler
+from handler.socket_handler import emit_to_rooms, socket_handler, user_room
 from logger.logger import log
 from utils.screenshots import continue_playing_screenshot
 
@@ -169,17 +169,14 @@ class ActivityHandler:
     ) -> None:
         # The REST app shares this process with the Socket.IO server, so emit
         # through the already-initialised, Redis-backed server (it fans out
-        # across workers) rather than opening a manager per call. An empty
-        # `to` would reach every socket, so no audience sends nothing.
+        # across workers) rather than opening a manager per call.
         if rooms is None:
             # An unknown audience can't be sent the session; every client
             # re-lists what it may see instead.
             await self._queue_refresh()
             return
-        if not rooms:
-            return
         try:
-            await socket_handler.socket_server.emit(event, payload, to=rooms)
+            await emit_to_rooms(socket_handler.socket_server, event, payload, rooms)
         except Exception as e:  # noqa: BLE001
             log.warning(f"Failed to broadcast {event}: {e}")
 
@@ -363,12 +360,12 @@ async def _audience_rooms(rom_id: int) -> list[str] | None:
 
 
 def _audience(rom_id: int) -> list[str]:
-    """Sockets join their `user:{id}` room on connect; anonymous sockets join none."""
+    """Sockets join their `user_room` on connect; anonymous sockets join none."""
     rom = db_rom_handler.get_rom_visibility(rom_id)
     if rom is None:
         return []
     return [
-        f"user:{user_id}" for user_id in db_permission_handler.get_rom_audience(rom)
+        user_room(user_id) for user_id in db_permission_handler.get_rom_audience(rom)
     ]
 
 

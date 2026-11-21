@@ -1,12 +1,12 @@
 <script setup lang="ts">
 // AchievementsTab: RetroAchievements summary + filter row + per-achievement
 // list. The "earned" set comes from the parent (computed off
-// auth.user.ra_progression so it stays reactive); rows look up by
-// `badge_id` against the set in O(1).
+// auth.user.ra_progression so it stays reactive).
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { RAGameRomAchievement, RomRAMetadata } from "@/__generated__";
 import { REmptyState } from "@/lib";
+import { isAchievementEarned } from "@/utils/achievements";
 
 defineOptions({ inheritAttrs: false });
 
@@ -45,7 +45,7 @@ const missableCount = computed(
 );
 
 function isEarned(a: RAGameRomAchievement) {
-  return Boolean(a.badge_id && props.earnedAchievementIds.has(a.badge_id));
+  return isAchievementEarned(a, props.earnedAchievementIds);
 }
 const earnedCount = computed(() => achievements.value.filter(isEarned).length);
 
@@ -349,7 +349,7 @@ function achievementTypeLabel(type: string | null | undefined): string {
   border-radius: var(--r-radius-md);
 }
 .r-det-ach__row--locked {
-  opacity: 0.55;
+  opacity: var(--r-opacity-inactive);
 }
 
 .r-det-ach__badge {

@@ -25,7 +25,7 @@ import { useDebugMode } from "@/composables/useDebugMode";
 import { useReducedMotion } from "@/composables/useReducedMotion";
 import { useSnackbar } from "@/composables/useSnackbar";
 import { useUISettings } from "@/composables/useUISettings";
-import { RBtn, RIcon, RSelect, RSliderBtnGroup } from "@/lib";
+import { RBtn, RIcon, RSelect, RSegmentedControl } from "@/lib";
 import { canOpenNativeSettings, openNativeSettings } from "@/services/native";
 import storeCollections from "@/stores/collections";
 import { useNativeStore } from "@/stores/native";
@@ -321,7 +321,7 @@ function onVirtualCollectionTypeChange(value: unknown) {
                    are stopped by the slot wrapper in SettingsToggleRow
                    so toggling the segmented control doesn't also flip
                    the row's main switch. -->
-              <RSliderBtnGroup
+              <RSegmentedControl
                 v-model="libraryStatsMode"
                 :items="libraryStatsModeItems"
                 variant="segmented"

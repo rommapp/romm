@@ -1,7 +1,7 @@
 import functools
 import inspect
 from collections.abc import Callable
-from typing import Any
+from typing import Any, NoReturn
 
 from authlib.integrations.starlette_client import OAuth
 from authlib.oidc.discovery import get_well_known_url
@@ -15,6 +15,7 @@ from starlette.config import Config
 from starlette.requests import Request
 
 from config import (
+    OIDC_AUTH_PARAMS,
     OIDC_CLAIM_ROLES,
     OIDC_CLIENT_ID,
     OIDC_CLIENT_SECRET,
@@ -36,7 +37,7 @@ from utils.tls import build_ca_ssl_context
 
 # Using the internal password flow
 oauth2_password_bearer = OAuth2PasswordBearer(
-    tokenUrl="/token",
+    tokenUrl="/api/token",
     auto_error=False,
     # The maps are keyed by Scope, which is a StrEnum; FastAPI wants plain str.
     scopes={
@@ -76,10 +77,11 @@ oauth.register(
         # so providers that mandate PKCE refuse the code without it.
         "code_challenge_method": "S256",
     },
+    authorize_params=OIDC_AUTH_PARAMS or None,
 )
 
 
-def _raise_auth_error(request: Request) -> None:
+def raise_auth_error(request: Request) -> NoReturn:
     """Raise the status matching the caller's auth state.
 
     401 tells the client it has no valid credentials (so it can redirect to
@@ -120,9 +122,10 @@ def _requires_scopes(
                 request = kwargs.get("request", args[idx] if idx < len(args) else None)
                 assert isinstance(request, Request)
                 if not has_required_scope(request, scopes):
-                    _raise_auth_error(request)
+                    raise_auth_error(request)
                 return await func(*args, **kwargs)
 
+            async_wrapper.required_scopes = tuple(scopes)  # type: ignore[attr-defined]
             return async_wrapper  # type: ignore[return-value]
 
         @functools.wraps(func)
@@ -130,12 +133,39 @@ def _requires_scopes(
             request = kwargs.get("request", args[idx] if idx < len(args) else None)
             assert isinstance(request, Request)
             if not has_required_scope(request, scopes):
-                _raise_auth_error(request)
+                raise_auth_error(request)
             return func(*args, **kwargs)
 
+        sync_wrapper.required_scopes = tuple(scopes)  # type: ignore[attr-defined]
         return sync_wrapper  # type: ignore[return-value]
 
     return decorator
+
+
+# Maps each status to the description it gets on its own, and the sentence appended
+# when the route already describes that status.
+SCOPE_ERRORS: dict[int, tuple[str, str]] = {
+    status.HTTP_401_UNAUTHORIZED: (
+        "The request has no valid credentials.",
+        "Also returned when the request has no valid credentials.",
+    ),
+    status.HTTP_403_FORBIDDEN: (
+        "The token lacks a scope this route needs.",
+        "Also returned when the token lacks a scope this route needs.",
+    ),
+}
+
+
+def _with_scope_errors(
+    responses: dict[int | str, dict[str, Any]] | None,
+) -> dict[int | str, dict[str, Any]]:
+    """Add the scope guard's 401 and 403 to a route's documented responses."""
+    merged = {code: dict(entry) for code, entry in (responses or {}).items()}
+    for code, (alone, appended) in SCOPE_ERRORS.items():
+        entry = merged.setdefault(code, {})
+        own = entry.get("description")
+        entry["description"] = f"{own} {appended}" if own else alone
+    return merged
 
 
 def protected_route(
@@ -144,6 +174,9 @@ def protected_route(
     scopes: list[Scope] | None = None,
     **kwargs: Any,
 ) -> Callable[[DecoratedCallable], DecoratedCallable]:
+    if scopes:
+        kwargs["responses"] = _with_scope_errors(kwargs.get("responses"))
+
     def decorator(func: DecoratedCallable) -> DecoratedCallable:
         fn = _requires_scopes(scopes or [])(func)
         return method(

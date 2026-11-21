@@ -12,6 +12,7 @@ from adapters.services.provider_http import unavailable
 from adapters.services.response_validation import parse_response
 from config import HLTB_API_ENABLED
 from logger.logger import log
+from utils.arcade_platforms import arcade_fallbacks
 from utils.context import ctx_httpx_client
 from utils.hltb_search import (
     HLTB_API_URL_FIXTURE,
@@ -26,6 +27,7 @@ from utils.hltb_search import (
     search_headers,
 )
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.platform_slugs import fill_duplicate_slugs
 from utils.rate_limiter import RateLimiter
 from utils.update_hltb_api_url import discover_hltb_endpoint
 
@@ -523,7 +525,8 @@ class HLTBHandler(MetadataHandler):
         Get ROM information from HowLongToBeat.
 
         :param fs_name: The filename to search for.
-        :param platform_slug: The platform slug (not used for HLTB but required by interface).
+        :param platform_slug: The platform slug; only games HowLongToBeat lists on
+            that platform are searched.
         :return: A HLTBRom object.
         """
         from handler.filesystem import fs_rom_handler
@@ -771,7 +774,7 @@ HLTB_PLATFORM_LIST: dict[UPS, SlugToHLTBPlatform] = {
     UPS.COLECOVISION: {"name": "ColecoVision", "slug": "colecovision", "count": 105},
     UPS.C64: {"name": "Commodore 64", "slug": "commodore-64", "count": 1227},
     UPS.CPET: {"name": "Commodore PET", "slug": "commodore-pet", "count": 11},
-    UPS.C_PLUS_4: {"name": "Commodore VIC-20", "slug": "commodore-vic20", "count": 52},
+    UPS.VIC_20: {"name": "Commodore VIC-20", "slug": "commodore-vic20", "count": 52},
     UPS.DC: {"name": "Dreamcast", "slug": "dreamcast", "count": 465},
     UPS.EVERCADE: {"name": "Evercade", "slug": "evercade", "count": 10},
     UPS.FM_TOWNS: {"name": "FM Towns", "slug": "fm-towns", "count": 190},
@@ -829,20 +832,22 @@ HLTB_PLATFORM_LIST: dict[UPS, SlugToHLTBPlatform] = {
     UPS.PS3: {"name": "PlayStation 3", "slug": "playstation-3", "count": 2137},
     UPS.PS4: {"name": "PlayStation 4", "slug": "playstation-4", "count": 7444},
     UPS.PS5: {"name": "PlayStation 5", "slug": "playstation-5", "count": 3652},
-    UPS.PLAYSTATION_NOW: {
-        "name": "PlayStation Now",
-        "slug": "playstation-now",
-        "count": 5,
-    },
     UPS.PSP: {
         "name": "PlayStation Portable",
         "slug": "playstation-portable",
         "count": 1191,
     },
-    UPS.PSVR: {"name": "PlayStation VR", "slug": "playstation-vr", "count": 52},
+    # The name is the platform searched. HowLongToBeat lists PlayStation VR games
+    # under PlayStation 4, and has no PlayStation VR or PlayStation Now to search.
+    UPS.PSVR: {"name": "PlayStation 4", "slug": "playstation-vr", "count": 52},
     UPS.PSVITA: {"name": "PlayStation Vita", "slug": "playstation-vita", "count": 1289},
     UPS.PLAYDATE: {"name": "Playdate", "slug": "playdate", "count": 128},
     UPS.PLUG_AND_PLAY: {"name": "Plug & Play", "slug": "plug-and-play", "count": 18},
+    UPS.PLAYSTATION_MOBILE: {
+        "name": "PlayStation Mobile",
+        "slug": "playstation-mobile",
+        "count": 1,
+    },
     UPS.SG1000: {"name": "SG-1000", "slug": "sg-1000", "count": 75},
     UPS.SEGA32: {"name": "Sega 32X", "slug": "sega-32x", "count": 42},
     UPS.SEGACD: {"name": "Sega CD", "slug": "sega-cd", "count": 209},
@@ -879,3 +884,6 @@ HLTB_PLATFORM_LIST: dict[UPS, SlugToHLTBPlatform] = {
     UPS.ZX81: {"name": "ZX81", "slug": "zx81", "count": 41},
     UPS.ZEEBO: {"name": "Zeebo", "slug": "zeebo", "count": 9},
 }
+HLTB_PLATFORM_LIST |= arcade_fallbacks(HLTB_PLATFORM_LIST)
+
+fill_duplicate_slugs(HLTB_PLATFORM_LIST)

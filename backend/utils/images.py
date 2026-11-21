@@ -2,8 +2,10 @@ from collections.abc import Callable
 
 from PIL import Image, ImageSequence
 
+import utils.jxl  # noqa: F401  # registers the size-checked JPEG XL decoder
+
 # Multi-frame formats browsers play as animations (MPO/TIFF pages are not)
-ANIMATED_FORMATS = frozenset({"GIF", "PNG", "WEBP"})
+ANIMATED_FORMATS = frozenset({"GIF", "PNG", "WEBP", "AVIF"})
 
 # Pixels decoded across all frames past which an animation keeps only its
 # first frame, since re-encoding one holds every frame in memory.
@@ -11,6 +13,12 @@ MAX_ANIMATION_PIXELS = 100_000_000
 
 # Largest image a logo trim decodes; real wheels are about half a million pixels.
 MAX_TRIM_PIXELS = 16_000_000
+
+# Largest still cover decoded, far above any provider's box art.
+MAX_COVER_PIXELS = 40_000_000
+
+# Lossy WebP keeps chroma subsampled at any quality.
+WEBP_QUALITY = 95
 
 # Largest loop count a WebP animation can store
 _MAX_WEBP_LOOP = 0xFFFF
@@ -28,6 +36,11 @@ def is_animated(img: Image.Image) -> bool:
         and 1 < n_frames
         and n_frames * img.width * img.height <= MAX_ANIMATION_PIXELS
     )
+
+
+def is_oversized_cover(img: Image.Image) -> bool:
+    """True when the header declares more pixels than a cover may decode."""
+    return img.width * img.height > MAX_COVER_PIXELS
 
 
 def frame_durations(
