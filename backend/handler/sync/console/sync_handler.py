@@ -377,6 +377,13 @@ class _ConsoleSync:
         files = await self._list_files(name)
         if not files:
             return
+        # A game mid-save leaves a part of the save, which must not become a version.
+        if not self.profile.is_save({f.name for f in files}):
+            log.info(
+                f"Console sync: {hl(name)} is not a whole {self.profile.title} save, "
+                "left for next sync"
+            )
+            return
 
         rom = roms.by_title_id(title_id_of(name)) or roms.by_title(
             await self.profile.save_title(self.ftp, f"{self.savedata}/{name}", files)
@@ -580,6 +587,8 @@ class _ConsoleSync:
                 name = info.filename.rpartition("/")[2]
                 with zf.open(info) as member:
                     await self.ftp.upload(f"{staging}/{name}", member)
+        # Listed before the swap, so a save the game writes after it reads as a change.
+        staged = await self._list_files(f"{folder}{_STAGING_SUFFIX}")
         current = await self._fingerprint_now(folder)
         if current != expected:
             await self.ftp.remove_tree(staging)
@@ -595,9 +604,7 @@ class _ConsoleSync:
             await self.ftp.remove_tree(retired)
 
         if save.content_hash:
-            await self._remember_hash(
-                folder, await self._list_files(folder), save.content_hash
-            )
+            await self._remember_hash(folder, staged, save.content_hash)
         db_device_save_sync_handler.upsert_sync(
             device_id=self.device.id,
             save_id=save.id,

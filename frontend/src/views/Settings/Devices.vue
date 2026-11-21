@@ -13,6 +13,7 @@ import { RBtn, RChip, RSwitch, RTable, type RTableColumn } from "@/lib";
 import deviceApi from "@/services/api/device";
 import storeAuth from "@/stores/auth";
 import { formatRelativeDate } from "@/utils";
+import { consoleKindOf } from "@/utils/consoles";
 import { errorMessage } from "@/utils/errorMessage";
 import { cachedBrowserDeviceId } from "@/utils/saveSync/browserDevice";
 
@@ -78,11 +79,8 @@ function displayName(device: DeviceSchema): string {
   );
 }
 
-// Consoles synced over FTP, by the client each kind registers as.
-const CONSOLE_CLIENTS = new Set(["ps3", "ps4"]);
-
 function isConsole(device: DeviceSchema): boolean {
-  return CONSOLE_CLIENTS.has(device.client ?? "");
+  return consoleKindOf(device.client) !== null;
 }
 
 function detailLine(device: DeviceSchema): string {

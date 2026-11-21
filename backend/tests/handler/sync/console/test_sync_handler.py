@@ -197,6 +197,18 @@ class TestPull:
         )
         assert sync and sync.last_sync_hash == save.content_hash
 
+    async def test_skips_a_partly_written_save(
+        self, device, console, ps3, far_cry, admin_user
+    ):
+        console.add_save(FOLDER, {"SAVEDATA.000": b"progress"})
+
+        counts = await run_sync(device, console, ps3)
+
+        assert counts.pulled == 0
+        assert slot_versions(admin_user, far_cry) == []
+        console.add_save(FOLDER, {"PARAM.SFO": SFO})
+        assert (await run_sync(device, console, ps3)).pulled == 1
+
     async def test_an_unchanged_folder_is_not_downloaded_again(
         self, device, console, ps3, far_cry, admin_user
     ):
@@ -292,6 +304,36 @@ class TestPush:
             "SAVEDATA.000": b"restored",
         }
         assert {e.name for e in await console.list(PS3_SAVEDATA)} == {FOLDER}
+
+    async def test_pulls_a_save_the_game_writes_right_after_a_push(
+        self, device, console, ps3, far_cry, admin_user
+    ):
+        console.add_save(FOLDER, {"PARAM.SFO": SFO, "SAVEDATA.000": b"old"})
+        await run_sync(device, console, ps3)
+        await store_server_version(
+            admin_user,
+            far_cry,
+            {"PARAM.SFO": SFO, "SAVEDATA.000": b"restored"},
+            origin=device.id,
+            updated_at=datetime.now(timezone.utc) + timedelta(minutes=1),
+        )
+        swap = console.rename
+
+        async def rename_then_play(source: str, target: str) -> None:
+            await swap(source, target)
+            if target == f"{PS3_SAVEDATA}/{FOLDER}":
+                console.add_save(
+                    FOLDER, {"SAVEDATA.000": b"played"}, WRITTEN_AT + timedelta(hours=2)
+                )
+
+        with patch.object(console, "rename", rename_then_play):
+            assert (await run_sync(device, console, ps3)).pushed == 1
+        console.reads.clear()
+
+        counts = await run_sync(device, console, ps3)
+
+        assert counts.unchanged == 0
+        assert f"{PS3_SAVEDATA}/{FOLDER}/SAVEDATA.000" in console.reads
 
     async def test_does_not_push_a_version_from_another_device(
         self, device, console, ps3, far_cry, admin_user

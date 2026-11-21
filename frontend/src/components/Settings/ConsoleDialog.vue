@@ -9,10 +9,13 @@ import type {
 } from "@/__generated__";
 import { RAlert, RBtn, RDialog, RForm, RSelect, RTextField } from "@/lib";
 import deviceApi from "@/services/api/device";
+import {
+  CONSOLE_TITLES,
+  type ConsoleKind,
+  consoleKindOf,
+} from "@/utils/consoles";
 import { errorMessage } from "@/utils/errorMessage";
 import { integerBetween, notBlank, required } from "@/utils/validation";
-
-type ConsoleKind = ConsoleCreatePayload["console"];
 
 const props = withDefaults(
   defineProps<{
@@ -30,11 +33,6 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
-
-const CONSOLE_TITLES: Record<ConsoleKind, string> = {
-  ps3: "settings.console-ps3",
-  ps4: "settings.console-ps4",
-};
 
 const consoles = computed<{ title: string; value: ConsoleKind }[]>(() =>
   (Object.keys(CONSOLE_TITLES) as ConsoleKind[]).map((kind) => ({
@@ -61,8 +59,7 @@ interface Draft {
 }
 
 function kindOf(device: DeviceSchema | null): ConsoleKind {
-  const client = device?.client;
-  return client && client in CONSOLE_TITLES ? (client as ConsoleKind) : "ps3";
+  return consoleKindOf(device?.client) ?? "ps3";
 }
 
 function draftOf(device: DeviceSchema | null): Draft {
