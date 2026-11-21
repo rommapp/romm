@@ -1505,7 +1505,7 @@ class FSRomsHandler(FSHandler):
         the cartridge label/cover art.  When such a ROM is found we can use the
         file itself as the cover instead of fetching one from an external source.
         """
-        if platform_slug == UPS.PICO and fs_name.lower().endswith(
+        if platform_slug == UPS.PICO_8 and fs_name.lower().endswith(
             PICO8_CARTRIDGE_EXTENSION
         ):
             self.validate_path(f"{fs_path}/{fs_name}")

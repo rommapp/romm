@@ -38,7 +38,7 @@ def test_collects_other_providers_names_once() -> None:
 
 
 def test_skips_a_name_that_belongs_to_another_platform() -> None:
-    assert "Nintendo Entertainment System" not in platform_alternative_names("famicom")
+    assert "Nintendo 3DS" not in platform_alternative_names("new-nintendo-3ds")
     assert "Commodore VIC-20" not in platform_alternative_names("c-plus-4")
 
 

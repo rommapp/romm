@@ -1179,9 +1179,9 @@ async def test_a_rescan_keeps_the_stored_placeholder_of_an_unchanged_file(mocker
         ),
         roms_fs_structure="pico/roms",
         name_with_no_tags="celeste",
-        platform_slug="pico",
+        platform_slug=UPS.PICO_8,
     )
-    platform = Platform(name="pico", slug="pico", fs_slug="pico")
+    platform = Platform(name="PICO-8", slug=UPS.PICO_8, fs_slug="pico")
     platform.id = 1
     rom = Rom(fs_name="celeste.p8.png", fs_path="pico/roms", platform_id=1)
     rom.id = 7
@@ -2470,7 +2470,7 @@ class TestGetPico8CoverUrl:
 
     def test_returns_file_url_for_pico8_cartridge(self, handler: FSRomsHandler):
         url = handler.get_pico8_cover_url(
-            platform_slug=UPS.PICO,
+            platform_slug=UPS.PICO_8,
             fs_name="mygame.p8.png",
             fs_path="pico/roms",
         )
@@ -2488,7 +2488,7 @@ class TestGetPico8CoverUrl:
     def test_returns_none_for_plain_p8_text_file(self, handler: FSRomsHandler):
         """Plain .p8 files are text-only and have no embedded PNG image."""
         url = handler.get_pico8_cover_url(
-            platform_slug=UPS.PICO,
+            platform_slug=UPS.PICO_8,
             fs_name="mygame.p8",
             fs_path="pico/roms",
         )
@@ -2496,7 +2496,7 @@ class TestGetPico8CoverUrl:
 
     def test_returns_none_for_unrelated_extension(self, handler: FSRomsHandler):
         url = handler.get_pico8_cover_url(
-            platform_slug=UPS.PICO,
+            platform_slug=UPS.PICO_8,
             fs_name="mygame.zip",
             fs_path="pico/roms",
         )
@@ -2504,7 +2504,7 @@ class TestGetPico8CoverUrl:
 
     def test_url_starts_with_file_scheme(self, handler: FSRomsHandler):
         url = handler.get_pico8_cover_url(
-            platform_slug=UPS.PICO,
+            platform_slug=UPS.PICO_8,
             fs_name="cart.p8.png",
             fs_path="pico/roms",
         )
@@ -2515,7 +2515,7 @@ class TestGetPico8CoverUrl:
         fs_path = "pico/roms"
         fs_name = "celeste.p8.png"
         url = handler.get_pico8_cover_url(
-            platform_slug=UPS.PICO,
+            platform_slug=UPS.PICO_8,
             fs_name=fs_name,
             fs_path=fs_path,
         )

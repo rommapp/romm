@@ -81,13 +81,18 @@ async def test_scan_platform():
 
 
 @pytest.mark.parametrize(
-    ("fs_platforms", "expected_fs_slug"),
-    [([], "gbc"), (["gbc2players"], "gbc2players")],
+    ("slug", "fs_platforms", "expected_fs_slug"),
+    [
+        ("gbc", [], "gbc"),
+        # A sibling folder holds other games, so it never takes the platform over.
+        ("gbc", ["gbc2players"], "gbc"),
+        ("lynx", ["atarilynx"], "atarilynx"),
+    ],
 )
 async def test_scan_platform_keeps_missing_folder_unless_alias_exists(
-    fs_platforms: list[str], expected_fs_slug: str
+    slug: str, fs_platforms: list[str], expected_fs_slug: str
 ):
-    make_platform("gbc")
+    make_platform(slug)
     with patch.object(
         meta_igdb_handler,
         "get_platform_discovery",
@@ -95,7 +100,7 @@ async def test_scan_platform_keeps_missing_folder_unless_alias_exists(
         return_value={},
     ):
         async with initialize_context():
-            platform = await scan_platform("gbc", fs_platforms)
+            platform = await scan_platform(slug, fs_platforms)
 
     assert platform.fs_slug == expected_fs_slug
 

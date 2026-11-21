@@ -1369,7 +1369,6 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
         "name": "Atari 7800",
         "alternative_names": ["A7800", "7800"],
     },
-    UPS.ATARI800: {"id": 43, "name": "Atari 800"},
     UPS.ATARI_XEGS: {"id": 43, "name": "Atari XEGS"},
     UPS.ATARI8BIT: {"id": 43, "name": "Atari 8bit"},
     UPS.ATARI_JAGUAR_CD: {
@@ -1519,6 +1518,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
         "name": "Electron",
         "alternative_names": ["Acorn Electron"],
     },
+    UPS.EPOCH_CASSETTE_VISION: {"id": 300, "name": "Cassette Vision"},
     UPS.EPOCH_GAME_POCKET_COMPUTER: {
         "id": 95,
         "name": "Game Pocket Computer",
@@ -1675,6 +1675,8 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
         "alternative_names": ["Ace4000", "Jupiter Ace 4000", "Ace 4000"],
     },
     UPS.LINUX: {"id": 145, "name": "Linux"},
+    UPS.LOWRESNX: {"id": 244, "name": "LowRes NX"},
+    UPS.LUTRO: {"id": 206, "name": "Lutro"},
     UPS.LYNX: {"id": 28, "name": "Lynx", "alternative_names": ["Atari Lynx"]},
     UPS.MSX: {
         "id": 113,
@@ -1707,7 +1709,6 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     },
     UPS.NGAGE: {"id": 30, "name": "N-Gage", "alternative_names": ["Nokia N-Gage"]},
     UPS.NES: {"id": 3, "name": "NES"},
-    UPS.FAMICOM: {"id": 3, "name": "Famicom"},
     UPS.FDS: {
         "id": 106,
         "name": "Famicom",
@@ -1789,8 +1790,9 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     },
     UPS.PC_FX: {"id": 72, "name": "PC-FX", "alternative_names": ["NEC PC-FX"]},
     UPS.PEGASUS: {"id": 83, "name": "Aamber Pegasus"},
-    UPS.PICO: {"id": 234, "name": "Pico-8"},
+    UPS.PICO_8: {"id": 234, "name": "Pico-8"},
     UPS.PINBALL: {"id": 197, "name": "Pinball", "alternative_names": ["Flipper"]},
+    UPS.FPINBALL: {"id": 199, "name": "Future Pinball"},
     UPS.POCKET_CHALLENGE_V2: {
         "id": 237,
         "name": "Benesse Pocket Challenge V2",
@@ -1944,7 +1946,6 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
         ],
     },
     UPS.SNES: {"id": 4, "name": "Super Nintendo"},
-    UPS.SFAM: {"id": 4, "name": "Super Famicom"},
     UPS.SATELLAVIEW: {
         "id": 107,
         "name": "Satellaview",
@@ -1956,6 +1957,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
         "name": "Sharp X68000",
         "alternative_names": ["X68000", "Sharp X68k", "X68k"],
     },
+    UPS.SOLARUS: {"id": 223, "name": "Solarus"},
     UPS.SPECTRAVIDEO: {"id": 218, "name": "Spectravideo"},
     UPS.SUFAMI_TURBO: {
         "id": 108,
@@ -2025,6 +2027,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.VIC_20: {"id": 73, "name": "Vic-20", "alternative_names": ["Commodore Vic-20"]},
     UPS.VECTREX: {"id": 102, "name": "Vectrex", "alternative_names": ["GCE Vectrex"]},
     UPS.VIDEOPAC_G7400: {"id": 104, "name": "Videopac+ G7400"},
+    UPS.VIRCON32: {"id": 272, "name": "Vircon32"},
     UPS.VIRTUALBOY: {
         "id": 11,
         "name": "Virtual Boy",

@@ -825,7 +825,7 @@ HLTB_PLATFORM_LIST: dict[UPS, SlugToHLTBPlatform] = {
     UPS.ONLIVE_GAME_SYSTEM: {"name": "OnLive", "slug": "onlive", "count": 14},
     UPS.OUYA: {"name": "Ouya", "slug": "ouya", "count": 20},
     UPS.WIN: {"name": "PC", "slug": "pc", "count": 58016},
-    UPS.PICO: {"name": "PICO-8", "slug": "pico-8", "count": 3},
+    UPS.PICO_8: {"name": "PICO-8", "slug": "pico-8", "count": 3},
     UPS.PHILIPS_CD_I: {"name": "Philips CD-i", "slug": "philips-cd-i", "count": 68},
     UPS.PSX: {"name": "PlayStation", "slug": "playstation", "count": 2094},
     UPS.PS2: {"name": "PlayStation 2", "slug": "playstation-2", "count": 2733},

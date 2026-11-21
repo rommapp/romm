@@ -591,7 +591,7 @@ export function isPico8EmulationSupported(
   if (heartbeat.EMULATION.DISABLE_PICO8) return false;
 
   const slug = resolvePlatformSlug(platformSlug, config);
-  return slug.toLowerCase() === "pico";
+  return slug.toLowerCase() === "pico-8";
 }
 
 /**
