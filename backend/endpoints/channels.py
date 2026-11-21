@@ -60,8 +60,9 @@ class ChannelAttachPayload(BaseModel):
         },
         status.HTTP_404_NOT_FOUND: {
             "description": (
-                "A `rom_file_id` or `channel_id` names no file or channel the caller"
-                " can read, or the caller has no device with the ID in `device_id`."
+                "No rom file the caller can see has the ID in `rom_file_id`, no"
+                " channel the caller can read has the ID in `channel_id`, or the caller"
+                " has no device with the ID in `device_id`."
             )
         },
     },
@@ -146,7 +147,7 @@ def create_channel(request: Request, payload: ChannelCreatePayload) -> ChannelSc
     [Scope.ASSETS_WRITE],
     responses={
         status.HTTP_404_NOT_FOUND: {
-            "description": "No channel that the caller owns and can see has this ID."
+            "description": "No channel the caller owns and can see has this ID."
         }
     },
 )
@@ -170,7 +171,7 @@ def update_channel(
     responses={
         status.HTTP_404_NOT_FOUND: {
             "description": (
-                "No channel that the caller owns and can see has this ID, or no rom"
+                "No channel the caller owns and can see has this ID, or no rom"
                 " file the caller can see has the ID in `rom_file_id`."
             )
         },
@@ -252,7 +253,7 @@ def clear_held(
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
         status.HTTP_404_NOT_FOUND: {
-            "description": "No channel that the caller owns and can see has this ID."
+            "description": "No channel the caller owns and can see has this ID."
         }
     },
 )

@@ -535,7 +535,7 @@ async def rename_state(
     responses={
         status.HTTP_400_BAD_REQUEST: {"description": "The list of states is empty."},
         status.HTTP_404_NOT_FOUND: {
-            "description": "The caller has no state that it can see for one of the IDs."
+            "description": "The caller has no state that it can see with one of the given IDs."
         },
         status.HTTP_409_CONFLICT: {
             "description": "One of the states belongs to a sync channel."

@@ -221,7 +221,8 @@ ROM_FILE_UPLOAD_RESPONSES: dict[int | str, dict[str, Any]] = {
     status.HTTP_400_BAD_REQUEST: {
         "description": (
             "The file name is not a plain file name, the folder does not accept"
-            " this file type, a playlist lists the rom's single file, or the"
+            " this file type, the rom's single file cannot move into a folder"
+            " because a playlist lists it, or the"
             " request body has no file part with this name."
         )
     },
@@ -331,7 +332,7 @@ class UploadTargetPayload(BaseModel):
     status_code=status.HTTP_201_CREATED,
     responses={
         status.HTTP_400_BAD_REQUEST: {
-            "description": "The chunk count does not match the file size, no platform the caller can see has this ID, the file name or folder is not allowed, the rom is on another platform, or the platform folder already has a file with this name."
+            "description": "The chunk count does not match the file size, no platform the caller can see has the ID in `x-upload-platform`, the file name or folder is not allowed, the rom is on another platform, or the platform folder already has a file with this name."
         },
         status.HTTP_404_NOT_FOUND: {
             "description": "No rom the caller can see has the given `rom_id`."
@@ -622,7 +623,7 @@ async def _assemble_chunks(
             "description": "Another user started this upload session."
         },
         status.HTTP_404_NOT_FOUND: {
-            "description": "No upload session has this ID, the session has expired, or the caller can no longer see the target rom."
+            "description": "No upload session has this ID, the session has expired, or no rom the caller can see has the session's `rom_id`."
         },
         status.HTTP_409_CONFLICT: {
             "description": "The upload is already being assembled or has completed, or a file with this name appeared in the destination."

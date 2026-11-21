@@ -1505,7 +1505,7 @@ CONTENT_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
         "description": "The requested format is converting; retry after Retry-After."
     },
     status.HTTP_404_NOT_FOUND: {
-        "description": "No rom the caller can see has this ID, or it has no file to serve."
+        "description": "No rom the caller can see has this ID, or the rom has no file to serve."
     },
     status.HTTP_406_NOT_ACCEPTABLE: {
         "description": "No requested format can be served, or a format is requested for more than one file."

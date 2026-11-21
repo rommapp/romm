@@ -43,7 +43,9 @@ def _is_allowed_manual_file(file_name: str) -> bool:
         status.HTTP_404_NOT_FOUND: {
             "description": "No rom the caller can see has this ID."
         },
-        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "The upload failed."},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The manual could not be saved."
+        },
     },
 )
 async def add_rom_manuals(

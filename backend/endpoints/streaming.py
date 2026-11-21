@@ -894,13 +894,13 @@ async def _hydrate_saves(
     # parses, so it is declared rather than left as an undocumented `detail`.
     responses={
         status.HTTP_400_BAD_REQUEST: {
-            "description": "The chosen disc is not a disc of this ROM, or the container cannot restore the picked state or save."
+            "description": "The chosen disc is not a disc of this rom, or the container cannot restore the chosen state or save."
         },
         status.HTTP_403_FORBIDDEN: {
             "description": "The caller may not start a streaming session."
         },
         status.HTTP_404_NOT_FOUND: {
-            "description": "No rom the caller can see has this ID, no container serves its platform, or the picked state, save or memory card is not one the caller can use for this rom."
+            "description": "No rom the caller can see has this ID, no container serves its platform, or the chosen state, save or memory card is not one the caller can use for this rom."
         },
         status.HTTP_409_CONFLICT: {
             "model": ContainerBusyDetail,
@@ -914,7 +914,7 @@ async def _hydrate_saves(
             "description": "The container's memory card could not be imported or prepared."
         },
         status.HTTP_503_SERVICE_UNAVAILABLE: {
-            "description": "The container could not be reached to check whether it accepts the picked state or save."
+            "description": "The container could not be reached to check whether it accepts the chosen state or save."
         },
     },
     status_code=202,
@@ -1424,9 +1424,11 @@ async def session_status(
     platform: str,
     claimed_at: ClaimedAtQuery = None,
 ) -> SessionStatusSchema:
-    """Report whether the caller still holds this platform's session. Unlike the
-    heartbeat it has no side effects, so a client can call it on mount or after a
-    reconnect without extending a claim it may not own."""
+    """Report whether the caller still holds this platform's session.
+
+    Unlike the heartbeat, this route has no side effects, so a client can call it
+    on mount or after a reconnect without extending a session it may not hold.
+    """
     return SessionStatusSchema(
         **await _session_status(platform, request, claimed_at=claimed_at)
     )

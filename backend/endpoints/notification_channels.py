@@ -168,8 +168,8 @@ async def create_notification_channel(
             "description": (
                 "The new target is invalid, a new email address is given but email"
                 " is not set up on the server, a caller who is not an admin edits an"
-                " Apprise channel, or a webhook moves to another origin and keeps its"
-                " secret without sending it again."
+                " Apprise channel, or a webhook's URL changes to another origin and"
+                " the request does not send its secret again."
             )
         },
         status.HTTP_404_NOT_FOUND: {
@@ -297,8 +297,8 @@ async def confirm_notification_channel(
     responses={
         status.HTTP_400_BAD_REQUEST: {
             "description": (
-                "The channel is not an unconfirmed email channel, it has lost its"
-                " address, or email is not set up on the server."
+                "The channel is not an unconfirmed email channel, the channel has no"
+                " email address, or email is not set up on the server."
             )
         },
         status.HTTP_404_NOT_FOUND: {

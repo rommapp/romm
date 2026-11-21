@@ -105,7 +105,10 @@ async def add_rom_walkthrough_file(
     status_code=status.HTTP_201_CREATED,
     responses={
         status.HTTP_400_BAD_REQUEST: {
-            "description": "The URL is not an https GameFAQs URL, or a playlist lists the rom's single file."
+            "description": (
+                "The URL is not an https GameFAQs URL, or the rom's single file cannot"
+                " move into a folder because a playlist lists it."
+            )
         },
         status.HTTP_404_NOT_FOUND: {
             "description": "No rom the caller can see has this ID."
@@ -236,7 +239,7 @@ async def add_rom_gamefaqs_walkthrough(
     [Scope.ROMS_WRITE],
     responses={
         status.HTTP_404_NOT_FOUND: {
-            "description": "No rom the caller can see has this ID, or the rom has no walkthrough file with this file ID."
+            "description": "No rom the caller can see has this ID, or the rom has no walkthrough file with this `file_id`."
         },
         status.HTTP_500_INTERNAL_SERVER_ERROR: {
             "description": "The walkthrough file could not be removed from disk."
