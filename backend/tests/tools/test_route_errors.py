@@ -33,11 +33,11 @@ def test_follows_an_http_exception_subclass():
 
 
 def test_follows_a_dependency_in_a_default():
-    assert _raised("tests.tools.route_errors_fixture", "route_with_a_default") == [409]
+    assert _raised(FIXTURE, "route_with_a_default") == [409]
 
 
 def test_follows_a_dependency_in_an_annotated_alias():
-    assert _raised("tests.tools.route_errors_fixture", "route_with_an_alias") == [409]
+    assert _raised(FIXTURE, "route_with_an_alias") == [409]
 
 
 def test_ignores_an_unrelated_function_with_the_same_name():
@@ -46,15 +46,13 @@ def test_ignores_an_unrelated_function_with_the_same_name():
 
 
 def test_skips_a_gather_that_returns_exceptions():
-    fixture = "tests.tools.route_errors_fixture"
-    assert _raised(fixture, "route_that_gathers_errors") == []
-    assert _raised(fixture, "route_that_gathers") == [409]
+    assert _raised(FIXTURE, "route_that_gathers_errors") == []
+    assert _raised(FIXTURE, "route_that_gathers") == [409]
 
 
 def test_skips_code_marked_as_ignored():
-    fixture = "tests.tools.route_errors_fixture"
-    assert _raised(fixture, "route_with_an_ignored_call") == []
-    assert _raised(fixture, "route_with_an_ignored_trailing_call") == []
+    assert _raised(FIXTURE, "route_with_an_ignored_call") == []
+    assert _raised(FIXTURE, "route_with_an_ignored_trailing_call") == []
 
 
 def test_counts_a_returned_error_response():
@@ -109,11 +107,65 @@ def test_flags_a_documented_status_the_route_cannot_raise():
     router.get(
         "/stale",
         responses={
+            status.HTTP_404_NOT_FOUND: {},
             status.HTTP_409_CONFLICT: {"description": "Raised."},
             status.HTTP_410_GONE: {"description": "No longer raised."},
         },
     )(fixture.route_with_a_default)
-    assert stale(router.routes) == {f"{FIXTURE}:route_with_a_default": [410]}
+    assert stale(router.routes) == {f"{FIXTURE}:route_with_a_default": [404, 410]}
+
+
+def test_counts_a_status_range_or_default_as_documented():
+    router = APIRouter()
+    router.get("/range", responses={"4XX": {"description": "A client error."}})(
+        fixture.route_with_a_default
+    )
+    router.get("/default", responses={"default": {"description": "An error."}})(
+        fixture.route_with_an_alias
+    )
+    assert undocumented(router.routes) == {}
+    assert stale(router.routes) == {}
+
+
+def test_respects_markers_in_a_try_that_swallows_errors():
+    assert _raised(FIXTURE, "route_with_markers_in_a_swallowing_try") == [502]
+
+
+def test_keeps_an_http_error_an_earlier_handler_reraises():
+    assert _raised(FIXTURE, "route_that_reraises_http_errors_first") == [409]
+
+
+def test_flags_a_status_taken_from_the_request():
+    router = APIRouter()
+    router.get("/echo")(fixture.route_with_a_status_from_its_input)
+    assert undocumented(router.routes) == {
+        f"{FIXTURE}:route_with_a_status_from_its_input": [UNREADABLE_STATUS]
+    }
+
+
+def test_follows_a_status_passed_through_an_offload_or_a_class():
+    assert _raised(FIXTURE, "route_that_offloads_a_status") == [423]
+    assert _raised(FIXTURE, "route_that_raises_a_status_class") == [451]
+
+
+def test_reads_the_default_of_a_status_left_out():
+    assert _raised(FIXTURE, "route_that_uses_a_default_status") == [418]
+    assert _raised(FIXTURE, "route_that_falls_back_to_a_status") == [500]
+
+
+def test_flags_a_status_bound_in_a_way_it_cannot_read():
+    assert _raised(FIXTURE, "route_with_an_unpacked_status") == [
+        UNREADABLE_STATUS,
+        400,
+    ]
+
+
+def test_reads_a_module_level_status():
+    assert _raised(FIXTURE, "route_with_a_status_constant") == [503]
+
+
+def test_counts_a_set_status_and_a_response_subclass():
+    assert _raised(FIXTURE, "route_that_sets_a_status") == [404, 410]
 
 
 def test_skips_the_scope_guard_default_but_not_a_route_reason():

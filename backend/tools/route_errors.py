@@ -233,26 +233,63 @@ class Codes:
         )
 
 
-def _param_names(fn: ast.AST) -> list[str]:
+def _param_names(fn: ast.AST | None) -> list[str]:
     if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
         return []
     return [a.arg for a in [*fn.args.posonlyargs, *fn.args.args, *fn.args.kwonlyargs]]
 
 
-def _local_values(fn: ast.AST, name: str) -> list[ast.expr]:
-    """Every value assigned to the local `name` in `fn`."""
-    return [
-        node.value
+def _local_bindings(fn: ast.AST | None, name: str) -> tuple[list[ast.expr], bool]:
+    """The values plain assignments give the local `name` in `fn`, and whether anything else binds it."""
+    if fn is None:
+        return [], False
+    values: list[ast.expr] = []
+    plain: set[int] = set()
+    for node in ast.walk(fn):
+        targets: list[ast.expr]
+        value: ast.expr | None
+        if isinstance(node, ast.Assign):
+            targets, value = node.targets, node.value
+        elif isinstance(node, ast.AnnAssign):
+            targets, value = [node.target], node.value
+        else:
+            continue
+        for target in targets:
+            if isinstance(target, ast.Name) and target.id == name:
+                plain.add(id(target))
+                if value is not None:
+                    values.append(value)
+    # Tuple unpacking, `+=`, `for`, `with ... as` or `:=` give a value the
+    # analyzer does not read.
+    rebound = any(
+        isinstance(node, ast.Name)
+        and node.id == name
+        and isinstance(node.ctx, ast.Store)
+        and id(node) not in plain
         for node in ast.walk(fn)
-        if isinstance(node, (ast.Assign, ast.AnnAssign))
-        and node.value is not None
-        and any(
-            isinstance(target, ast.Name) and target.id == name
-            for target in (
-                node.targets if isinstance(node, ast.Assign) else [node.target]
-            )
+    )
+    return values, rebound
+
+
+def _default(callee: Symbol, param: str) -> ast.expr | None:
+    """The default value of the callee's parameter `param`."""
+    located = _function_node(callee)
+    fn = located[0] if located else None
+    if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return None
+    positional = [*fn.args.posonlyargs, *fn.args.args]
+    defaults = {
+        arg.arg: value
+        for arg, value in zip(
+            positional[len(positional) - len(fn.args.defaults) :],
+            fn.args.defaults,
+            strict=False,
         )
-    ]
+    }
+    for arg, value in zip(fn.args.kwonlyargs, fn.args.kw_defaults, strict=False):
+        if value is not None:
+            defaults[arg.arg] = value
+    return defaults.get(param)
 
 
 def _module_dict(module: str, expr: ast.expr) -> ast.Dict | None:
@@ -265,13 +302,18 @@ def _module_dict(module: str, expr: ast.expr) -> ast.Dict | None:
     return value if isinstance(value, ast.Dict) else None
 
 
-def _codes(expr: ast.expr | None, module: str, fn: ast.AST, depth: int = 0) -> Codes:
-    """The statuses a `status_code` expression in `fn` can take."""
+def _codes(
+    expr: ast.expr | None, module: str, fn: ast.AST | None, depth: int = 0
+) -> Codes:
+    """The statuses a `status_code` expression in `fn`, or at module level when `fn` is None, can take."""
     if expr is None or depth > 10:
         return Codes(unreadable=True)
     code = _status(expr)
     if code is not None:
         return Codes(frozenset({code}))
+    # A `None` default stands for a status the callee picks itself.
+    if isinstance(expr, ast.Constant) and expr.value is None:
+        return Codes()
     if isinstance(expr, ast.IfExp):
         return _codes(expr.body, module, fn, depth + 1) | _codes(
             expr.orelse, module, fn, depth + 1
@@ -293,14 +335,20 @@ def _codes(expr: ast.expr | None, module: str, fn: ast.AST, depth: int = 0) -> C
             found |= _codes(value, module, fn, depth + 1)
         return found
     if isinstance(expr, ast.Name):
-        if expr.id in _param_names(fn):
-            return Codes(params=frozenset({expr.id}))
-        values = _local_values(fn, expr.id)
-        if values:
-            found = Codes()
+        is_param = expr.id in _param_names(fn)
+        values, rebound = _local_bindings(fn, expr.id)
+        if is_param or values or rebound:
+            found = Codes(
+                params=frozenset({expr.id}) if is_param else frozenset(),
+                unreadable=rebound,
+            )
             for value in values:
                 found |= _codes(value, module, fn, depth + 1)
             return found
+        sym = resolve(module, expr.id)
+        mod = load(sym[1]) if sym and sym[0] == "value" else None
+        if mod and sym:
+            return _codes(mod.assigns[sym[2]], sym[1], None, depth + 1)
     return Codes(unreadable=True)
 
 
@@ -311,6 +359,31 @@ def _subclasses_http_exception(module: str, owner: str | None) -> bool:
         getattr(base, "id", getattr(base, "attr", None)) == "HTTPException"
         for base in cls.bases
     )
+
+
+def _subclasses_response(cls: Symbol, depth: int = 0) -> bool:
+    """Whether a class derives from one of `RESPONSE_CLASSES`."""
+    mod = load(cls[1])
+    node = mod.classes.get(cls[2]) if mod else None
+    if node is None or depth > 10:
+        return False
+    for base in node.bases:
+        if (
+            getattr(base, "id", None) or getattr(base, "attr", None)
+        ) in RESPONSE_CLASSES:
+            return True
+        sym = _resolve_expr(cls[1], None, base)
+        if sym and sym[0] == "class" and _subclasses_response(sym, depth + 1):
+            return True
+    return False
+
+
+def _builds_response(call: ast.Call, module: str, owner: str | None = None) -> bool:
+    """Whether `call` constructs a response, including one of the codebase's own subclasses."""
+    if _call_name(call) in RESPONSE_CLASSES:
+        return True
+    target = _resolve_expr(module, owner, call.func) if module else None
+    return bool(target and target[0] == "class" and _subclasses_response(target))
 
 
 def _status_expr(
@@ -326,16 +399,22 @@ def _status_expr(
         and getattr(func.value.func, "id", None) == "super"
         and _subclasses_http_exception(module, owner)
     )
+    position: int | None
     if name == "HTTPException" or is_super_init:
         position = 0
     elif name in RESPONSE_CLASSES:
         position = 1
+    elif _builds_response(call, module, owner):
+        # A subclass's own signature is unknown, so only `status_code=` is read.
+        position = None
     else:
         return None
     for kw in call.keywords:
         if kw.arg == "status_code":
             return kw.value
-    return call.args[position] if len(call.args) > position else None
+    if position is None or len(call.args) <= position:
+        return None
+    return call.args[position]
 
 
 def _http_exception_status(call: ast.Call) -> int | None:
@@ -371,20 +450,24 @@ def _function_node(sym: Symbol) -> tuple[ast.AST, str | None] | None:
 OFFLOADS = {"to_thread": 0, "run_in_threadpool": 0, "run_sync": 0, "run_in_executor": 1}
 
 
-def _offloaded(call: ast.Call) -> ast.expr | None:
-    """The function an offload such as `asyncio.to_thread(fn, ...)` runs."""
+def _offloaded(call: ast.Call) -> ast.Call | None:
+    """The call an offload such as `asyncio.to_thread(fn, *args)` makes, as `fn(*args)`."""
     name = _call_name(call)
     position = OFFLOADS.get(name or "")
     if position is None or len(call.args) <= position:
         return None
-    return call.args[position]
+    return ast.Call(
+        func=call.args[position],
+        args=call.args[position + 1 :],
+        keywords=call.keywords,
+    )
 
 
 BROAD_EXCEPTIONS = frozenset({"Exception", "BaseException", "HTTPException"})
 
 
 def _swallows_errors(node: ast.AST) -> bool:
-    """Whether `node` is a `try` with a handler that catches any HTTP error and never raises."""
+    """Whether `node` is a `try` whose first handler to catch an HTTP error never raises."""
     if not isinstance(node, (ast.Try, ast.TryStar)):
         return False
     for handler in node.handlers:
@@ -395,9 +478,19 @@ def _swallows_errors(node: ast.AST) -> bool:
             (getattr(t, "id", None) or getattr(t, "attr", None)) in BROAD_EXCEPTIONS
             for t in caught
         )
-        if broad and not any(isinstance(n, ast.Raise) for n in ast.walk(handler)):
-            return True
+        if broad:
+            return not any(isinstance(n, ast.Raise) for n in ast.walk(handler))
     return False
+
+
+def _sets_status(node: ast.AST, module: str) -> bool:
+    """Whether `node` builds a response or sets a `status_code`, which a swallowing `try` lets through."""
+    if isinstance(node, ast.Assign):
+        return any(
+            isinstance(target, ast.Attribute) and target.attr == "status_code"
+            for target in node.targets
+        )
+    return isinstance(node, ast.Call) and _builds_response(node, module)
 
 
 def _returns_exceptions(node: ast.AST) -> bool:
@@ -417,30 +510,31 @@ def _body_nodes(fn: ast.AST, module: str) -> list[ast.AST]:
     """Every node of a function except its decorators and the code whose errors never reach the caller."""
     mod = load(module)
     ignored = mod.ignored if mod else set()
-    roots: list[ast.AST] = (
-        [fn.args, *fn.body]
-        if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef))
-        else [fn]
-    )
+    # Each root says whether it sits in the body of a `try` that swallows errors.
+    roots: list[tuple[ast.AST, bool]] = [
+        (node, False)
+        for node in (
+            [fn.args, *fn.body]
+            if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef))
+            else [fn]
+        )
+    ]
     nodes: list[ast.AST] = []
     while roots:
-        node = roots.pop()
+        node, swallowed = roots.pop()
         if getattr(node, "lineno", None) in ignored or _returns_exceptions(node):
             continue
-        nodes.append(node)
-        if _swallows_errors(node):
-            # Only a response the body returns can still reach the caller.
-            nodes.extend(
-                n
-                for stmt in node.body  # type: ignore[attr-defined]
-                for n in ast.walk(stmt)
-                if isinstance(n, ast.Call) and _call_name(n) in RESPONSE_CLASSES
-            )
+        # Only a status the swallowed code returns can still reach the caller.
+        if not swallowed or _sets_status(node, module):
+            nodes.append(node)
+        if not swallowed and _swallows_errors(node):
+            roots.extend((stmt, True) for stmt in node.body)  # type: ignore[attr-defined]
             roots.extend(
-                [*node.handlers, *node.orelse, *node.finalbody]  # type: ignore[attr-defined]
+                (child, False)
+                for child in [*node.handlers, *node.orelse, *node.finalbody]  # type: ignore[attr-defined]
             )
             continue
-        roots.extend(ast.iter_child_nodes(node))
+        roots.extend((child, swallowed) for child in ast.iter_child_nodes(node))
     return nodes
 
 
@@ -460,6 +554,30 @@ def _argument(call: ast.Call, callee: Symbol, param: str) -> ast.expr | None:
         names = names[1:]
     index = names.index(param) if param in names else len(call.args)
     return call.args[index] if index < len(call.args) else None
+
+
+def _passed(
+    call: ast.Call, callee: Symbol, param: str, module: str, fn: ast.AST
+) -> Codes:
+    """The statuses `call`, made in `fn`, gives the callee's parameter `param`."""
+    arg = _argument(call, callee, param)
+    if arg is not None:
+        return _codes(arg, module, fn)
+    if any(isinstance(a, ast.Starred) for a in call.args) or any(
+        kw.arg is None for kw in call.keywords
+    ):
+        return Codes(unreadable=True)
+    default = _default(callee, param)
+    # A default is evaluated where the callee is defined.
+    return _codes(default, callee[1], None) if default is not None else Codes()
+
+
+def _injected(target: Symbol, stack: frozenset[Symbol]) -> frozenset[int]:
+    """The statuses of a function FastAPI calls, whose parameters come from the request."""
+    found = statuses(target, stack)
+    if _forwarded.get(target):
+        return found | {UNREADABLE_STATUS}
+    return found
 
 
 def _dependency(node: ast.Call) -> ast.expr | None:
@@ -506,7 +624,7 @@ def statuses(sym: Symbol, stack: frozenset[Symbol] = frozenset()) -> frozenset[i
             dependency = _dependency(node) if isinstance(node, ast.Call) else None
             target = _resolve_expr(module, None, dependency) if dependency else None
             if target and target[0] == "func":
-                found |= statuses(target, stack)
+                found |= _injected(target, stack)
     elif kind == "class":
         init = _method(sym, "__init__")
         if init:
@@ -529,21 +647,26 @@ def statuses(sym: Symbol, stack: frozenset[Symbol] = frozenset()) -> frozenset[i
                     if status_expr is not None:
                         add(_codes(status_expr, module, fn))
                         continue
-                    offloaded = _offloaded(node)
-                    target = _resolve_expr(module, owner, offloaded or node.func)
+                    call = _offloaded(node) or node
+                    target = _resolve_expr(module, owner, call.func)
                     if target and target[0] != "module":
                         found |= statuses(target, stack)
-                    if target and target[0] == "func" and offloaded is None:
-                        for param in _forwarded.get(target, frozenset()):
-                            arg = _argument(node, target, param)
-                            if arg is not None:
-                                add(_codes(arg, module, fn))
+                    callee = (
+                        _method(target, "__init__")
+                        if target and target[0] == "class"
+                        else target
+                    )
+                    if callee and callee[0] == "func":
+                        for param in _forwarded.get(callee, frozenset()):
+                            add(_passed(call, callee, param, module, fn))
                     dependency = _dependency(node)
                     target = (
                         _resolve_expr(module, owner, dependency) if dependency else None
                     )
                     if target and target[0] == "func":
-                        found |= statuses(target, stack)
+                        found |= _injected(target, stack)
+                elif isinstance(node, ast.Assign) and _sets_status(node, module):
+                    add(_codes(node.value, module, fn))
                 elif isinstance(node, ast.Raise) and isinstance(
                     node.exc, (ast.Name, ast.Attribute)
                 ):
@@ -573,21 +696,41 @@ def api_routes(routes: Iterable[Any]) -> Iterator[APIRoute]:
             yield route
 
 
+def _endpoint(route: APIRoute) -> tuple[str, frozenset[int]]:
+    """A route's `module:function` key and the statuses its endpoint can raise."""
+    endpoint = inspect.unwrap(route.endpoint)
+    sym = ("func", endpoint.__module__, endpoint.__name__)
+    return f"{endpoint.__module__}:{endpoint.__name__}", _injected(sym, frozenset())
+
+
+def _takes_input(route: APIRoute) -> bool:
+    """Whether FastAPI validates input for the route, and so documents its 422."""
+    return bool(get_flat_params(route.dependant) or route.body_field)
+
+
+def _documents(responses: dict[int | str, Any], code: int) -> bool:
+    """Whether `responses` describes `code`, by itself or through `4XX` or `default`."""
+    keys = {str(key).upper() for key in responses}
+    return code != UNREADABLE_STATUS and (
+        str(code) in keys or f"{code // 100}XX" in keys or "DEFAULT" in keys
+    )
+
+
 def undocumented(routes: Iterable[Any]) -> dict[str, list[int]]:
     """Map each route's `module:function` to the statuses it raises that its `responses` leaves out."""
     gaps: dict[str, set[int]] = {}
     for route in api_routes(routes):
         if not route.include_in_schema:
             continue
-        endpoint = inspect.unwrap(route.endpoint)
-        documented = {int(code) for code in route.responses}
-        # FastAPI documents the validation 422 only for a route that takes input.
-        if get_flat_params(route.dependant) or route.body_field:
-            documented.add(422)
-        raised = statuses(("func", endpoint.__module__, endpoint.__name__))
-        missing = raised - documented
+        key, raised = _endpoint(route)
+        takes_input = _takes_input(route)
+        missing = {
+            code
+            for code in raised
+            if not _documents(route.responses, code)
+            and not (code == 422 and takes_input)
+        }
         if missing:
-            key = f"{endpoint.__module__}:{endpoint.__name__}"
             gaps.setdefault(key, set()).update(missing)
     return {key: sorted(codes) for key, codes in sorted(gaps.items())}
 
@@ -599,19 +742,22 @@ def stale(routes: Iterable[Any]) -> dict[str, list[int]]:
     for route in api_routes(routes):
         if not route.include_in_schema:
             continue
-        endpoint = inspect.unwrap(route.endpoint)
-        raised = statuses(("func", endpoint.__module__, endpoint.__name__))
+        key, raised = _endpoint(route)
         if UNREADABLE_STATUS in raised:
             continue
-        takes_input = bool(get_flat_params(route.dependant) or route.body_field)
-        for code, entry in route.responses.items():
-            code = int(code)
+        takes_input = _takes_input(route)
+        for documented, entry in route.responses.items():
+            # A range such as `4XX`, or `default`, names no single status.
+            if not str(documented).isdigit():
+                continue
+            code = int(documented)
             if code < 400 or code in raised or (code == 422 and takes_input):
                 continue
             # The scope guard's own 401 and 403, with no reason of the route's added.
-            if entry.get("description") == scope_defaults.get(code):
+            if code in scope_defaults and entry.get("description") == (
+                scope_defaults[code]
+            ):
                 continue
-            key = f"{endpoint.__module__}:{endpoint.__name__}"
             gaps.setdefault(key, set()).add(code)
     return {key: sorted(codes) for key, codes in sorted(gaps.items())}
 
