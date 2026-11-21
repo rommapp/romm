@@ -21,13 +21,14 @@ STATUS_ATTR = re.compile(r"HTTP_(\d{3})_")
 class Module:
     name: str
     tree: ast.Module
-    # local name -> (module, name) it was imported from, or (module, None) for a module
+    # Maps a local name to the (module, name) it was imported from, or to
+    # (module, None) when it names a module.
     imports: dict[str, tuple[str, str | None]] = field(default_factory=dict)
     functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = field(
         default_factory=dict
     )
     classes: dict[str, ast.ClassDef] = field(default_factory=dict)
-    # module-level `name = value`
+    # The value of each module-level `name = value` assignment.
     assigns: dict[str, ast.expr] = field(default_factory=dict)
 
 
@@ -140,7 +141,7 @@ def _method(cls: Symbol, attr: str, depth: int = 0) -> Symbol | None:
 
 
 def _resolve_expr(module: str, owner: str | None, expr: ast.expr) -> Symbol | None:
-    """Resolve a call target. `owner` is the enclosing class, for `self`/`cls`."""
+    """Resolve a call target. `owner` is the enclosing class, used to resolve `self` and `cls`."""
     if isinstance(expr, ast.Name):
         if expr.id in ("self", "cls") and owner:
             return ("class", module, owner)
@@ -324,7 +325,7 @@ def api_routes(routes: Iterable[Any]) -> Iterator[APIRoute]:
 
 
 def undocumented(routes: Iterable[Any]) -> dict[str, list[int]]:
-    """`module:function` -> raised statuses the route's `responses` leaves out."""
+    """Map each route's `module:function` to the statuses it raises that its `responses` leaves out."""
     gaps: dict[str, set[int]] = {}
     for route in api_routes(routes):
         endpoint = inspect.unwrap(route.endpoint)

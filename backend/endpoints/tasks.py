@@ -432,7 +432,7 @@ SCAN_PAYLOAD = Body(default_factory=ScanPayload)
 async def start_scan(
     request: Request, payload: ScanPayload = SCAN_PAYLOAD
 ) -> TaskExecutionResponse:
-    """Queue a scan for clients without a session cookie; an empty body scans the whole library quickly. Follow it on `GET /api/tasks/{task_id}`."""
+    """Queue a scan for clients without a session cookie. An empty body runs a quick scan of the whole library. Follow the scan on `GET /api/tasks/{task_id}`."""
     try:
         job = await queue_scan(payload, started_by_user_id=request.user.id)
     except NoScanWorkerException as e:

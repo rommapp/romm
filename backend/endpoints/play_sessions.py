@@ -128,7 +128,7 @@ def ingest_play_sessions(
         status.HTTP_403_FORBIDDEN: {
             "description": (
                 "The request does not set `device_id` to the client token's own"
-                " device, and lacks the `devices.read` scope."
+                " device, and the caller lacks the `devices.read` scope."
             )
         }
     },

@@ -518,7 +518,7 @@ def negotiate_sync(
         },
         status.HTTP_403_FORBIDDEN: {
             "description": (
-                "The payload has play sessions, and the request lacks the"
+                "The payload has play sessions, and the caller lacks the"
                 " `roms.user.write` scope."
             )
         },

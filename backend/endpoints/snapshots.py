@@ -88,7 +88,7 @@ FEED_DEVICE_DESCRIPTION = (
 SnapshotIdPath = Annotated[int, PathVar(description="The ID of the snapshot.")]
 DEVICE_FORBIDDEN = (
     "The request sets `device_id` to a device other than the client token's own,"
-    " without the `devices.write` scope."
+    " and the caller lacks the `devices.write` scope."
 )
 SCREENSHOT_SUFFIX = ":screenshot"
 SAVE_SCREENSHOT_PART = "save_screenshot"

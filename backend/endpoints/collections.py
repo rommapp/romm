@@ -145,7 +145,7 @@ def _check_criteria_collection(
 def _visible_or_404[C: (Collection, SmartCollection)](
     request: Request, collection: C | None, id: int
 ) -> C:
-    """`collection` when it is the caller's or public, else one 404 for both cases."""
+    """Return `collection` if the caller owns it or it is public. Otherwise raise the same 404 as for a missing one."""
     if not collection or (
         collection.user_id != request.user.id and not collection.is_public
     ):
@@ -156,7 +156,7 @@ def _visible_or_404[C: (Collection, SmartCollection)](
 def _owned_or_error[C: (Collection, SmartCollection)](
     request: Request, collection: C | None, id: int
 ) -> C:
-    """`collection` when it is the caller's; 403 when it is only public."""
+    """Return `collection` if the caller owns it. Raise 403 if it is public but another user owns it."""
     collection = _visible_or_404(request, collection, id)
     if collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
@@ -774,7 +774,7 @@ async def remove_roms_from_collection(
         status.HTTP_400_BAD_REQUEST: {"description": FILTER_CRITERIA_400},
         status.HTTP_403_FORBIDDEN: NOT_OWNER_403,
         status.HTTP_404_NOT_FOUND: {
-            "description": "No smart collection has this ID, or the filter criteria name a collection the caller cannot see."
+            "description": "No smart collection the caller can see has this ID, or the filter criteria name a collection the caller cannot see."
         },
         status.HTTP_409_CONFLICT: SMART_NAME_TAKEN_409,
     },

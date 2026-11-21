@@ -1047,7 +1047,7 @@ _DOWNLOAD_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
     status.HTTP_403_FORBIDDEN: {"description": DEVICE_READ_FORBIDDEN},
     status.HTTP_404_NOT_FOUND: {
         "description": (
-            "No save the caller can read has this ID or a companion's ID, a save's"
+            "No save the caller can read has this ID or an ID in `companion`, a save's"
             " file is missing, or the caller has no device with this `device_id`."
         )
     },
@@ -1061,7 +1061,7 @@ _DOWNLOAD_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
         )
     },
     status.HTTP_500_INTERNAL_SERVER_ERROR: {
-        "description": "The conversion fails with a file or unexpected error."
+        "description": "The conversion failed because of a file error or an unexpected error."
     },
     status.HTTP_503_SERVICE_UNAVAILABLE: {"description": CONVERSION_UNAVAILABLE},
 }

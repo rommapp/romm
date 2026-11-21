@@ -6,7 +6,8 @@ from pathlib import Path
 from main import app
 from tools.route_errors import undocumented
 
-# Statuses routes raised without documenting them when this check landed. It only shrinks.
+# The statuses routes raised without documenting them when this check was added.
+# Entries may be removed from it, never added.
 BASELINE = Path(__file__).with_name("route_error_baseline.json")
 
 HTTP_METHODS = ("get", "post", "put", "patch", "delete", "head")

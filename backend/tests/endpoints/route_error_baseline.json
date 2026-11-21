@@ -1,31 +1,11 @@
 {
-  "endpoints.export:export_gamelist_xml": [
-    400
-  ],
-  "endpoints.export:export_pegasus": [
-    400
-  ],
-  "endpoints.heartbeat:metadata_heartbeat": [
-    503
-  ],
-  "endpoints.notification_channels:confirm_notification_channel": [
-    429,
-    502
-  ],
-  "endpoints.notification_channels:test_notification_channel": [
-    429,
-    502
-  ],
-  "endpoints.saves:get_save_layouts": [
-    500
-  ],
-  "endpoints.search:search_rom": [
-    503
-  ],
-  "endpoints.streaming:force_release_all": [
-    409
-  ],
-  "endpoints.sync.retroarch:retroarch_sync_put": [
-    400
-  ]
+  "endpoints.export:export_gamelist_xml": [400],
+  "endpoints.export:export_pegasus": [400],
+  "endpoints.heartbeat:metadata_heartbeat": [503],
+  "endpoints.notification_channels:confirm_notification_channel": [429, 502],
+  "endpoints.notification_channels:test_notification_channel": [429, 502],
+  "endpoints.saves:get_save_layouts": [500],
+  "endpoints.search:search_rom": [503],
+  "endpoints.streaming:force_release_all": [409],
+  "endpoints.sync.retroarch:retroarch_sync_put": [400]
 }

@@ -205,7 +205,7 @@ async def update_platform(
     [Scope.PLATFORMS_WRITE],
     responses={
         status.HTTP_403_FORBIDDEN: {
-            "description": "The caller may not delete platforms."
+            "description": "The caller is not allowed to delete platforms."
         },
         status.HTTP_404_NOT_FOUND: {
             "description": "No platform the caller can see has this ID."

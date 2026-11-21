@@ -142,7 +142,8 @@ def _requires_scopes(
     return decorator
 
 
-# Status -> (description alone, sentence appended to a route's own description).
+# Maps each status to the description it gets on its own, and the sentence appended
+# when the route already describes that status.
 SCOPE_ERRORS: dict[int, tuple[str, str]] = {
     status.HTTP_401_UNAUTHORIZED: (
         "The request has no valid credentials.",
