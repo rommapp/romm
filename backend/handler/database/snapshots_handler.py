@@ -193,6 +193,57 @@ def reattach_archival_snapshots(
         _reattach(session, Snapshot.id.in_(ids), rom_id)
 
 
+def _move_channels(
+    session: Session, rom_id: int, moves: Mapping[FileKey, Sequence[FileKey]]
+) -> int:
+    """Move the ROM's channels on each replaced file to the first of its targets
+    where the user has no channel of that label yet, or else to the last one."""
+    if not moves:
+        return 0
+    targets: dict[uuid.UUID, Sequence[FileKey]] = {}
+    channels = session.scalars(select(Channel).where(Channel.rom_id == rom_id)).all()
+    for channel in channels:
+        key = FileKey.of_channel(channel)
+        found = next((new for old, new in moves.items() if key.matches(old)), None)
+        if found:
+            targets[channel.id] = found
+    if not targets:
+        return 0
+    taken = [
+        (c.user_id, c.platform_id, c.label.lower(), FileKey.of_channel(c))
+        for c in session.scalars(
+            select(Channel).where(
+                Channel.id.not_in(targets),
+                or_(*(_keyed_to(t) for ts in targets.values() for t in ts)),
+            )
+        ).all()
+    ]
+    moving: dict[FileKey, list[uuid.UUID]] = {}
+    # A channel with one target goes first, so a preferred target can't take its label.
+    for channel in sorted(
+        (c for c in channels if c.id in targets), key=lambda c: len(targets[c.id])
+    ):
+        claim = (channel.user_id, channel.platform_id, channel.label.lower())
+        target = next(
+            (
+                t
+                for t in targets[channel.id]
+                if not any(o[:3] == claim and o[3].matches(t) for o in taken)
+            ),
+            targets[channel.id][-1],
+        )
+        taken.append((*claim, target))
+        moving.setdefault(target, []).append(channel.id)
+    for target, ids in moving.items():
+        session.execute(
+            update(Channel)
+            .where(Channel.id.in_(ids))
+            .values(**target.channel_columns(), updated_at=Channel.updated_at)
+            .execution_options(synchronize_session=False)
+        )
+    return sum(len(ids) for ids in moving.values())
+
+
 def _stored_contents(
     session: Session, snapshots: Sequence[Snapshot]
 ) -> dict[int, StoredContent]:
@@ -697,6 +748,44 @@ class DBSnapshotsHandler(DBBaseHandler):
         )
         session.flush()
         return channel
+
+    @begin_session
+    def move_to_replacements(
+        self,
+        rom_id: int,
+        channels: Mapping[FileKey, Sequence[FileKey]],
+        hashes: Mapping[str, str],
+        file_ids: Mapping[int, int],
+        session: Session = INJECTED_SESSION,
+    ) -> int:
+        """Move what the ROM keys to its replaced files onto their replacements,
+        all in one transaction, keeping `updated_at` since a move is not a play.
+
+        Args:
+            channels: Maps each replaced file's key to the keys its channels can
+                move to, most preferred first.
+            hashes: Maps each replaced file's SHA-1 to its replacement's, for
+                the ROM's snapshots.
+            file_ids: Maps each replaced file's row id to its replacement's,
+                for the disc each of the ROM's states was captured on.
+        Returns:
+            The number of channels moved.
+        """
+        for old_hash, new_hash in hashes.items():
+            session.execute(
+                update(Snapshot)
+                .where(Snapshot.rom_id == rom_id, Snapshot.rom_sha1 == old_hash)
+                .values(rom_sha1=new_hash, updated_at=Snapshot.updated_at)
+                .execution_options(synchronize_session=False)
+            )
+        for old_id, new_id in file_ids.items():
+            session.execute(
+                update(State)
+                .where(State.rom_id == rom_id, State.disc_file_id == old_id)
+                .values(disc_file_id=new_id, updated_at=State.updated_at)
+                .execution_options(synchronize_session=False)
+            )
+        return _move_channels(session, rom_id, channels)
 
     @begin_session
     def count_snapshots_by_channel(
