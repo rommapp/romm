@@ -6,6 +6,7 @@ import {
   bootFileIds,
   bootableFiles,
   defaultDisc,
+  discNumber,
   offersAllDiscs,
   rememberDisc,
   resolveRememberedDisc,
@@ -417,6 +418,45 @@ describe("streamDiscFiles", () => {
         PATCHES,
       ),
     ).toEqual([]);
+  });
+});
+
+describe("streamDiscFiles order", () => {
+  it("sorts numbered discs by number, then the rest by name", () => {
+    const names = streamDiscFiles(
+      [
+        file(1, "Game (Disc 10).chd"),
+        file(2, "Extra.chd"),
+        file(3, "Game (Disc 2).chd"),
+        file(4, "Game (Disc B).chd"),
+        file(5, "Bonus.chd"),
+        file(6, "Game (Disc 1).chd"),
+      ],
+      [],
+    ).map((f) => f.file_name);
+
+    expect(names).toEqual([
+      "Game (Disc 1).chd",
+      "Game (Disc 2).chd",
+      "Game (Disc B).chd",
+      "Game (Disc 10).chd",
+      "Bonus.chd",
+      "Extra.chd",
+    ]);
+  });
+});
+
+describe("discNumber", () => {
+  it.each([
+    ["Game (Disc 2).cue", 2],
+    ["Game (CD 3).chd", 3],
+    ["Game (Disk 1 of 2).chd", 1],
+    ["Game (Disc 2A).cue", 2],
+    ["Game (disc c).cue", 3],
+    ["Game (CDi).chd", null],
+    ["Game.chd", null],
+  ])("reads %s as %s", (name, expected) => {
+    expect(discNumber(name)).toBe(expected);
   });
 });
 
