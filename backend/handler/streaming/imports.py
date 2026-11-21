@@ -5,7 +5,6 @@ launch's `activate` call sends, under `.import/<kind>/` for the broker to place.
 import asyncio
 import io
 import json
-import stat
 import time
 import zipfile
 from collections.abc import Callable
@@ -52,21 +51,6 @@ def _safe_name(name: str) -> str | None:
     if not parts or parts[0] == "__MACOSX" or any(p.startswith(".") for p in parts):
         return None
     return "/".join(parts)
-
-
-def _utf8_zipinfo(name: str, source: zipfile.ZipInfo | None) -> zipfile.ZipInfo:
-    """A member header named `name`, keeping a copied entry's timestamp and mode."""
-    if source is None:
-        info = zipfile.ZipInfo(name, date_time=time.localtime()[:6])
-    else:
-        info = zipfile.ZipInfo(name, date_time=source.date_time)
-        # Only the permission bits, so a symlink entry lands as a regular file.
-        info.external_attr = (
-            stat.S_IFREG | stat.S_IMODE(source.external_attr >> 16)
-        ) << 16
-    info.flag_bits |= 0x800  # UTF-8 filename flag
-    info.compress_type = zipfile.ZIP_DEFLATED
-    return info
 
 
 def _manifest_files(zf: zipfile.ZipFile) -> dict[str, dict[str, Any]]:
@@ -186,7 +170,7 @@ def build_import_archive(
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
         for path, (content, _entry, source) in staged.items():
-            zf.writestr(_utf8_zipinfo(path, source), content)
+            zf.writestr(archive.utf8_zipinfo(path, source), content)
         zf.writestr(
             archive.MANIFEST_NAME,
             json.dumps(
@@ -216,6 +200,11 @@ class ImportHydration(NamedTuple):
     state_imported: bool = False
     # The archive is a default save alone, so a refused import boots the newest archive.
     native_fallback: bool = False
+    # The native save archive the upload is built on, and its content hash at that time.
+    restored_save_id: int | None = None
+    restored_save_hash: str | None = None
+    # The import left the base's states off the container for the one it carries.
+    restored_without_state: bool = False
 
 
 async def hydrate_import_archive(
@@ -236,8 +225,9 @@ async def hydrate_import_archive(
 
     Returns:
         The container path `activate`'s `save.archive` wants (None when
-        there is nothing to send through the import path), and whether
-        `state` specifically made it into the uploaded archive.
+        there is nothing to send through the import path), whether
+        `state` specifically made it into the uploaded archive, and the
+        native archive it carries as its base.
     """
     members: list[ForeignMember] = []
     if save is not None and save_is_foreign:
@@ -269,6 +259,7 @@ async def hydrate_import_archive(
         return ImportHydration()
 
     base: tuple[str, bytes] | None = None
+    base_save: Save | None = None
     save_lost = save_is_foreign and not any(m.kind == "save" for m in members)
     if not save_is_foreign or (native_fallback and save_lost):
         native = (None if save_is_foreign else save) or await asyncio.to_thread(
@@ -276,6 +267,7 @@ async def hydrate_import_archive(
         )
         if native is not None:
             base = await saves.read_restorable_archive(native)
+            base_save = native if base is not None else None
 
     archive_bytes, carried = await asyncio.to_thread(
         build_import_archive, rom.id, base, members
@@ -285,4 +277,11 @@ async def hydrate_import_archive(
     )
     # A member whose inner zip held only junk never lands in `carried`.
     state_included = path is not None and any(f.get("kind") == "state" for f in carried)
-    return ImportHydration(path, state_included)
+    restored_id, restored_hash = saves.restored_ref(base_save, path)
+    return ImportHydration(
+        path,
+        state_included,
+        restored_save_id=restored_id,
+        restored_save_hash=restored_hash,
+        restored_without_state=any(m.kind == "state" for m in members),
+    )
