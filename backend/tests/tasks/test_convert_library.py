@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy import update
 from sqlalchemy.exc import SQLAlchemyError
-from tests.factories import make_platform, make_rom
+from tests.factories import make_platform, make_rom, make_state
 from tests.handler.snapshots.pushes import first_push, part, push, save_entry
 
 from adapters.services.rom_converto import (
@@ -19,10 +19,12 @@ from config.config_manager import config_manager as cm
 from handler.database import db_rom_handler, db_snapshot_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_asset_handler, fs_rom_handler
+from handler.rom_files import refresh_rom_files
 from handler.snapshots.file_key import FileKey
 from handler.snapshots.legacy import sync_file
 from handler.snapshots.manifest import Manifest
 from handler.snapshots.write import SAVE_PART, Outcome, write_snapshot
+from models.assets import State
 from models.channel import Channel
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
@@ -219,17 +221,26 @@ async def test_a_bom_cue_and_playlist_still_follow_the_conversion(
 async def test_one_roms_failure_does_not_stop_the_run(
     library: Path, admin_user: User, converto, converted, mocker
 ):
-    _rom(library, admin_user, make_platform("psp"), {"game.iso": b"x"})
+    psp_rom = _rom(library, admin_user, make_platform("psp"), {"game.iso": b"x"})
     _rom(library, admin_user, make_platform("psx"), {"game.cue": b""}, folder=True)
+    real_refresh = refresh_rom_files
+
+    async def refresh(rom: Rom):
+        if rom.id == psp_rom.id:
+            raise RuntimeError("lock timeout")
+        return await real_refresh(rom)
+
     mocker.patch(
-        "tasks.manual.convert_library.refresh_rom_files",
-        AsyncMock(side_effect=[RuntimeError("lock timeout"), None]),
+        "tasks.manual.convert_library.refresh_rom_files", AsyncMock(side_effect=refresh)
     )
 
     stats = await _run()
 
     assert stats["failed"] == 1
+    assert stats["converted"] == 1
     assert sorted(src for src, _ in converted) == ["game.cue", "game.iso"]
+    assert sorted(p.name for p in (library / psp_rom.fs_path).iterdir()) == ["game.iso"]
+    assert _reload(psp_rom).fs_name == "game.iso"
 
 
 async def test_a_file_already_in_the_library_format_is_left_alone(
@@ -590,3 +601,162 @@ async def test_a_failed_conversion_leaves_the_channels_on_the_original(
     await _run()
 
     assert _channel_file(channel) == "game.iso"
+
+
+def _discs(library: Path, admin_user: User) -> Rom:
+    return _rom(
+        library,
+        admin_user,
+        make_platform("psx"),
+        {
+            "game (Disc 1).cue": b'FILE "game (Disc 1).bin" BINARY\n',
+            "game (Disc 1).bin": b"1" * 50,
+            "game (Disc 2).cue": b'FILE "game (Disc 2).bin" BINARY\n',
+            "game (Disc 2).bin": b"2" * 50,
+            "game.m3u": b"game (Disc 1).cue\ngame (Disc 2).cue\n",
+        },
+        folder=True,
+    )
+
+
+def _distinct_outputs(mocker, fail: str | None = None) -> None:
+    """Fake rom-converto writing each output from its source's name, failing on `fail`."""
+
+    def convert(operation, src: Path, out: Path) -> None:
+        if src.name == fail:
+            raise RomConvertoOperationError("boom")
+        out.write_bytes(src.name.encode())
+
+    mocker.patch.object(rom_converto_service, "convert", AsyncMock(side_effect=convert))
+
+
+async def test_a_disc_left_unconverted_does_not_take_the_converted_discs_channels(
+    library: Path, admin_user: User, converto, converted, mocker
+):
+    _distinct_outputs(mocker, fail="game (Disc 2).cue")
+    rom = _discs(library, admin_user)
+    _channel(admin_user, rom, "game (Disc 1).cue", "Disc 1 run")
+    _channel(admin_user, rom, "game (Disc 2).cue", "Disc 2 run")
+
+    await _run()
+    _distinct_outputs(mocker)
+    await _run()
+
+    assert _listed(admin_user, rom, "game (Disc 1).chd") == ["Disc 1 run"]
+    assert _listed(admin_user, rom, "game (Disc 2).chd") == ["Disc 2 run"]
+
+
+async def test_a_sync_file_channel_keeps_its_disc_when_its_label_is_taken(
+    library: Path, admin_user: User, converto, converted
+):
+    rom = _rom(
+        library,
+        admin_user,
+        make_platform("psx"),
+        {
+            "game_disc1.cue": b'FILE "game_disc1.bin" BINARY\n',
+            "game_disc1.bin": b"x" * 50,
+            "game.m3u": b"game_disc1.cue\n",
+        },
+        folder=True,
+    )
+    on_disc = _channel(admin_user, rom, "game_disc1.cue")
+    on_playlist = _channel(admin_user, rom, "game.m3u", "DEFAULT")
+
+    await _run()
+
+    assert _listed(admin_user, rom, "game.m3u") == ["DEFAULT"]
+    assert _channel_file(on_playlist) == "game.m3u"
+    assert _channel_file(on_disc) == "game_disc1.chd"
+
+
+async def test_channels_move_before_the_originals_are_deleted(
+    library: Path, admin_user: User, converto, converted, mocker
+):
+    rom = _rom(library, admin_user, make_platform("psp"), {"game.iso": b"x" * 100})
+    channel = _channel(admin_user, rom, "game.iso")
+    original = library / rom.full_path
+    real_refresh = refresh_rom_files
+
+    async def refresh(rom: Rom):
+        if not original.exists():
+            raise RuntimeError("lock timeout")
+        return await real_refresh(rom)
+
+    mocker.patch(
+        "tasks.manual.convert_library.refresh_rom_files", AsyncMock(side_effect=refresh)
+    )
+
+    await _run()
+
+    assert sorted(p.name for p in (library / rom.fs_path).iterdir()) == ["game.chd"]
+    assert _channel_file(channel) == "game.chd"
+
+
+async def test_a_refresh_missing_the_output_keeps_the_originals_and_channels(
+    library: Path, admin_user: User, converto, converted, mocker
+):
+    rom = _rom(library, admin_user, make_platform("psp"), {"game.iso": b"x" * 100})
+    channel = _channel(admin_user, rom, "game.iso")
+    # A refresh that keeps the old rows, as one does when the mount drops out.
+    mocker.patch("tasks.manual.convert_library.refresh_rom_files", AsyncMock())
+
+    stats = await _run()
+
+    assert stats["failed"] == 1
+    assert sorted(p.name for p in (library / rom.fs_path).iterdir()) == ["game.iso"]
+    assert _reload(rom).fs_name == "game.iso"
+    assert _channel_file(channel) == "game.iso"
+
+
+async def test_snapshots_take_the_converted_files_hash(
+    library: Path, tmp_path: Path, admin_user: User, converto, converted, monkeypatch
+):
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    monkeypatch.setattr(fs_asset_handler, "base_path", assets.resolve())
+    rom = _rom(library, admin_user, make_platform("psp"), {"game.iso": b"x" * 100})
+    first = await first_push(admin_user, rom, _file(rom, "game.iso"))
+
+    await _run()
+
+    snapshot = db_snapshot_handler.get_snapshot(first.snapshot.id)
+    assert snapshot is not None
+    assert snapshot.rom_sha1 == _file(rom, "game.chd").sha1_hash
+
+
+async def test_a_state_keeps_the_disc_it_was_captured_on(
+    library: Path, admin_user: User, converto, converted, mocker
+):
+    _distinct_outputs(mocker)
+    rom = _discs(library, admin_user)
+    state = make_state(
+        rom, admin_user, "disc2.state", disc_file_id=_file(rom, "game (Disc 2).cue").id
+    )
+
+    await _run()
+
+    with sync_session.begin() as session:
+        stored = session.get_one(State, state.id)
+        assert stored.disc_file_id == _file(rom, "game (Disc 2).chd").id
+
+
+async def test_a_failed_playlist_rewrite_removes_the_outputs(
+    library: Path, admin_user: User, converto, converted, mocker
+):
+    rom = _discs(library, admin_user)
+    folder = library / rom.full_path
+    before = sorted(p.name for p in folder.iterdir())
+    read_only = mocker.patch.object(
+        fs_rom_handler, "_atomic_write", side_effect=OSError("read-only")
+    )
+
+    stats = await _run()
+
+    assert stats["failed"] == 2
+    assert sorted(p.name for p in folder.iterdir()) == before
+
+    mocker.stop(read_only)
+    stats = await _run()
+
+    assert stats["converted"] == 2
