@@ -123,8 +123,8 @@ def list_tokens(request: Request) -> list[ClientTokenSchema]:
         status.HTTP_403_FORBIDDEN: {
             "description": (
                 "The caller lacks the `me.write` scope and is revoking a token other"
-                " than the one it authenticated with, or the token has scopes the"
-                " caller does not hold."
+                " than the one it authenticated with, or the token being revoked has"
+                " scopes the caller does not hold."
             )
         },
         status.HTTP_404_NOT_FOUND: {

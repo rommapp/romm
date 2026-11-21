@@ -328,8 +328,8 @@ def required_device(request: Request, device_id: str | None) -> Device:
         status.HTTP_403_FORBIDDEN: {"description": DEVICE_FORBIDDEN},
         status.HTTP_404_NOT_FOUND: {
             "description": (
-                "No channel the caller can read has this ID, or the caller has no"
-                " device with this `device_id`."
+                "No channel the caller can read has this `channel_id`, or the caller"
+                " has no device with this `device_id`."
             )
         },
     },
@@ -621,8 +621,8 @@ def _respond(result: WriteResult, viewer: User) -> JSONResponse:
         status.HTTP_409_CONFLICT: {
             "model": SnapshotConflictSchema,
             "description": (
-                "The channel moved past the snapshot the push expected, so the push"
-                " is kept as a branch, or the push would replace a hardcore save and"
+                "The channel has a newer snapshot than the one the push expected, so"
+                " the push is kept as a branch, or the push would replace a hardcore save and"
                 " `approve_hardcore_downgrade` is false."
             ),
         },

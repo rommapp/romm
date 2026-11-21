@@ -306,12 +306,12 @@ OptimisticQuery = Annotated[
 
 OWNED_SAVE_NOT_FOUND = "The caller has no save with this ID that it can see."
 OWNED_SAVE_OR_DEVICE_NOT_FOUND = (
-    "The caller has no save with this ID that it can see, or no device with this"
-    " `device_id`."
+    "The caller has no save with this ID that it can see, or has no device with"
+    " this `device_id`."
 )
 SAVE_FILE_TOO_LARGE = "The save file or screenshot is larger than the server allows."
 CONVERSION_UNAVAILABLE = (
-    "Save conversion is not available because this server lacks sigil."
+    "Save conversion is not available because sigil is not installed on this server."
 )
 
 
@@ -1032,16 +1032,18 @@ def _restored_response(restored: RestoredFiles, save: Save) -> Response:
 
 
 _CONVERSION_400 = (
-    f"An `option` or `profile` is malformed, more than {MAX_COMPANIONS} companions"
-    " are given, the save or a companion cannot be converted for an emulator, or"
-    " sigil finds no single valid target for the emulator, options and profile"
+    f"An `option` or `profile` is malformed, or more than {MAX_COMPANIONS}"
+    " companions are given. Also returned when the save or a companion cannot be"
+    " converted for the emulator, or when sigil finds no single valid target for"
+    " the emulator, options and profile."
 )
 
 _DOWNLOAD_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
     status.HTTP_400_BAD_REQUEST: {
         "description": (
-            f"{_CONVERSION_400}, or the target is a card or volume that every game"
-            " shares, which the client must send with `POST /saves/{id}/content`."
+            f"{_CONVERSION_400} Also returned when the target is a card or volume"
+            " that every game shares, which the client must restore with"
+            " `POST /saves/{id}/content` instead."
         )
     },
     status.HTTP_403_FORBIDDEN: {"description": DEVICE_READ_FORBIDDEN},
@@ -1061,7 +1063,7 @@ _DOWNLOAD_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
         )
     },
     status.HTTP_500_INTERNAL_SERVER_ERROR: {
-        "description": "The conversion failed because of a file error or an unexpected error."
+        "description": "The conversion fails with a file error or an unexpected error."
     },
     status.HTTP_503_SERVICE_UNAVAILABLE: {"description": CONVERSION_UNAVAILABLE},
 }
@@ -1109,8 +1111,9 @@ async def download_save(
         **_DOWNLOAD_RESPONSES,
         status.HTTP_400_BAD_REQUEST: {
             "description": (
-                f"{_CONVERSION_400}, `container_path` leaves the save root, or the"
-                " conversion writes somewhere other than `container_path`."
+                f"{_CONVERSION_400} Also returned when `container_path` leaves the"
+                " save root, or when the conversion writes somewhere other than"
+                " `container_path`."
             )
         },
         status.HTTP_413_CONTENT_TOO_LARGE: {
@@ -1462,7 +1465,7 @@ async def rename_save(
     responses={
         status.HTTP_400_BAD_REQUEST: {"description": "The list of saves is empty."},
         status.HTTP_404_NOT_FOUND: {
-            "description": "The caller has no save that it can see for one of the IDs."
+            "description": "The caller has no save that it can see with one of the given IDs."
         },
         status.HTTP_409_CONFLICT: {
             "description": "One of the saves belongs to a sync channel."

@@ -141,8 +141,8 @@ async def add_screenshot(
     responses={
         status.HTTP_404_NOT_FOUND: {
             "description": (
-                "No screenshot the caller can read has this ID, or its file is"
-                " missing."
+                "No screenshot the caller can read has this ID, or the screenshot's"
+                " file is missing."
             )
         }
     },

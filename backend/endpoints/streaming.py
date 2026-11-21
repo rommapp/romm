@@ -1424,9 +1424,11 @@ async def session_status(
     platform: str,
     claimed_at: ClaimedAtQuery = None,
 ) -> SessionStatusSchema:
-    """Report whether the caller still holds this platform's session. Unlike the
-    heartbeat it has no side effects, so a client can call it on mount or after a
-    reconnect without extending a claim it may not own."""
+    """Report whether the caller still holds this platform's session.
+
+    Unlike the heartbeat, this route has no side effects, so a client can call it
+    on mount or after a reconnect without extending a session it may not hold.
+    """
     return SessionStatusSchema(
         **await _session_status(platform, request, claimed_at=claimed_at)
     )

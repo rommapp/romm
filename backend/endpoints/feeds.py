@@ -388,7 +388,7 @@ def pkgi_psvita_feed(
     request: Request,
     content_type: Annotated[str, PathVar(description="Content type")],
 ) -> Response:
-    """Get the PKGi database (https://github.com/mmozeiko/pkgi) of the PlayStation Vita files of one content type, a file category such as `game` or `dlc`, as text."""
+    """Get the PKGi database (https://github.com/mmozeiko/pkgi) of the PlayStation Vita files of one content type, such as `game` or `dlc`, as text."""
     psvita_platform = _visible_platform_by_slug(request, UPS.PSVITA)
     if not psvita_platform:
         raise HTTPException(

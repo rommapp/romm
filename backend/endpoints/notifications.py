@@ -43,7 +43,7 @@ def get_notifications(request: Request) -> list[NotificationSchema]:
         status.HTTP_403_FORBIDDEN: {
             "description": (
                 "The notification is for other users, and the caller is not an admin"
-                " or its credential lacks the `users.write` scope."
+                " or lacks the `users.write` scope."
             )
         },
         status.HTTP_404_NOT_FOUND: {

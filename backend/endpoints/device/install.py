@@ -331,14 +331,14 @@ async def claim_install_requests(
         status.HTTP_404_NOT_FOUND: {
             "description": (
                 "Installing on a device is disabled on this server, the caller has no device with"
-                " this ID that it can see, or the device has no live install request"
-                " with this ID."
+                " this ID that it can see, or the device has no unfinished install"
+                " request with this ID."
             )
         },
         status.HTTP_409_CONFLICT: {
             "description": (
-                "The device has not taken the request, or concurrent changes to it"
-                " kept colliding."
+                "The device has not claimed the request, or concurrent changes to"
+                " the request kept colliding."
             )
         },
     },
@@ -349,7 +349,7 @@ async def update_install_request(
     request_id: Annotated[str, PathVar(description="Install request id.")],
     payload: InstallRequestUpdatePayload,
 ) -> InstallRequestSchema:
-    """The device reports the outcome of a request it has taken, which ends the request."""
+    """The device reports the outcome of a request it has claimed, which ends the request."""
     if not DEVICE_INSTALL_ENABLED:
         raise DeviceInstallDisabledException()
     device = require_device(request, device_id, device_only=True)
@@ -371,7 +371,11 @@ async def update_install_request(
     [Scope.DEVICES_WRITE],
     responses={
         status.HTTP_404_NOT_FOUND: {
-            "description": "Installs are disabled, or the device or request is unknown or already ended."
+            "description": (
+                "Installing on a device is disabled on this server, the caller has no"
+                " device with this ID that it can see, or the device has no unfinished"
+                " install request with this ID."
+            )
         },
         status.HTTP_409_CONFLICT: {
             "description": "The request cannot be cancelled in its current state."
