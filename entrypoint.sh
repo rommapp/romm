@@ -59,6 +59,98 @@ if [[ -z ${ROMM_AUTH_SECRET_KEY-} ]]; then
 	export ROMM_AUTH_SECRET_KEY
 fi
 
+# Mirrors otel_prefix in docker/init_scripts/init: instrument only when an
+# OTEL_ variable is set and the SDK isn't disabled.
+otel_enabled="false"
+if printenv | grep -q '^OTEL_' && [[ ${OTEL_SDK_DISABLED:-false} != "true" ]]; then
+	otel_enabled="true"
+	# Same defaults as docker/init_scripts/init.
+	export OTEL_PYTHON_SYSTEM_METRICS_EXCLUDED_METRICS="${OTEL_PYTHON_SYSTEM_METRICS_EXCLUDED_METRICS:-system.*,process.runtime.*}"
+	export OTEL_EXPERIMENTAL_RESOURCE_DETECTORS="${OTEL_EXPERIMENTAL_RESOURCE_DETECTORS:-otel,process}"
+fi
+
+# Fill array "$1" with the opentelemetry-instrument argv for service "$2", or
+# leave it empty when OTel is off.
+otel_prefix() {
+	local -n out_arr="$1"
+	if [[ ${otel_enabled} != "true" ]]; then return 0; fi
+	# shellcheck disable=SC2034  # nameref binds out_arr to caller variable
+	out_arr=(opentelemetry-instrument --service_name "${OTEL_SERVICE_NAME_PREFIX-}$2")
+}
+
+# REDIS_SSL is a boolean to the app, so "false" and "0" mean plaintext.
+build_redis_url() {
+	local scheme="redis" userinfo=""
+	case "${REDIS_SSL,,}" in
+	1 | true | yes | on) scheme="rediss" ;;
+	*) ;;
+	esac
+	if [[ -n ${REDIS_PASSWORD-} ]]; then
+		userinfo="${REDIS_USERNAME-}:${REDIS_PASSWORD}@"
+	elif [[ -n ${REDIS_USERNAME-} ]]; then
+		userinfo="${REDIS_USERNAME}@"
+	fi
+	echo "${scheme}://${userinfo}${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+}
+
+start_backend() {
+	local -a wrap=()
+	otel_prefix wrap api
+	if [[ ${DEV_MODE:-false} == "true" ]]; then
+		echo "Starting backend under debugpy on :5678..."
+		# Add --wait-for-client after --listen to pause until VSCode attaches.
+		uv run "${wrap[@]}" python -m debugpy --listen 0.0.0.0:5678 main.py &
+	else
+		echo "Starting backend..."
+		uv run "${wrap[@]}" python main.py &
+	fi
+}
+
+# The URL carries the password, so it goes through RQ_REDIS_URL rather than
+# --url, which would put it on a world-readable command line.
+start_rq_cron() {
+	local -a wrap=()
+	otel_prefix wrap rq_cron
+	echo "Starting RQ cron scheduler..."
+	PYTHONPATH="/app/backend:${PYTHONPATH-}" \
+		RQ_REDIS_URL="${REDIS_URL}" \
+		"${wrap[@]}" rq cron \
+		--path /app/backend \
+		--logging-level "${LOGLEVEL:-INFO}" \
+		tasks.cron_config &
+}
+
+# Use a worker class that drops the noisy per-sweep "cleaning registries for
+# queue" log line. The maintenance interval keeps its default (~10 min) so
+# orphaned STARTED jobs and stale workers are still pruned promptly.
+# --with-scheduler releases delayed jobs, which is how the watcher's rescans
+# wait out their delay.
+start_rq_worker() {
+	local name="$1" worker_class="$2"
+	shift 2
+	local -a wrap=()
+	otel_prefix wrap "${name}"
+	echo "Starting ${name}..."
+	PYTHONPATH="/app/backend:${PYTHONPATH-}" \
+		RQ_REDIS_URL="${REDIS_URL}" \
+		"${wrap[@]}" rq worker \
+		--path /app/backend \
+		--worker-class "handler.rq_worker.${worker_class}" \
+		--pid "/tmp/${name}.pid" \
+		--logging_level "${LOGLEVEL:-INFO}" \
+		--with-scheduler \
+		"$@" &
+}
+
+# Rerun backend script "$2" whenever directory "$3" changes, as service "$1".
+start_watcher() {
+	local service="$1" script="$2" dir="$3"
+	local -a wrap=()
+	otel_prefix wrap "${service}"
+	echo "Starting ${service}..."
+	watchfiles --target-type command "uv run ${wrap[*]@Q} python ${script}" "${dir}" &
+}
+
 # Read before the backend starts: its startup can rewrite config.yml.
 streaming_worker_enabled="false"
 if (cd /app/backend && uv run python -c "
@@ -69,96 +161,30 @@ sys.exit(0 if config_manager.get_config().STREAMING_ENABLED else 1)
 	streaming_worker_enabled="true"
 fi
 
-# Start all services in the background
-echo "Starting backend..."
+REDIS_URL="$(build_redis_url)"
+
+# Backend services run from /app/backend; the frontend from /app/frontend.
 cd /app/backend
-if [[ ${DEV_MODE:-false} == "true" ]]; then
-	echo "Starting backend under debugpy on :5678..."
-	# Add --wait-for-client after --listen to pause until VSCode attaches.
-	uv run python -m debugpy --listen 0.0.0.0:5678 main.py &
-else
-	uv run python main.py &
-fi
-
-# REDIS_SSL is a boolean to the app, so "false" and "0" mean plaintext.
-REDIS_USERINFO=""
-REDIS_SSL_VALUE="${REDIS_SSL-}"
-case "${REDIS_SSL_VALUE,,}" in
-1 | true | yes | on) REDIS_SCHEME="rediss" ;;
-*) REDIS_SCHEME="redis" ;;
-esac
-if [[ -n ${REDIS_PASSWORD-} ]]; then
-	REDIS_USERINFO="${REDIS_USERNAME-}:${REDIS_PASSWORD}@"
-elif [[ -n ${REDIS_USERNAME-} ]]; then
-	REDIS_USERINFO="${REDIS_USERNAME}@"
-fi
-REDIS_URL="${REDIS_SCHEME}://${REDIS_USERINFO}${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
-
-echo "Starting RQ cron scheduler..."
-# The URL carries the password, so it goes through RQ_REDIS_URL rather than
-# --url, which would put it on a world-readable command line.
-PYTHONPATH="/app/backend:${PYTHONPATH-}" \
-	RQ_REDIS_URL="${REDIS_URL}" \
-	rq cron \
-	--path /app/backend \
-	--logging-level "${LOGLEVEL:-INFO}" \
-	tasks.cron_config &
-
-# Set PYTHONPATH so RQ can find the tasks module.
-# Use a worker class that drops the noisy per-sweep "cleaning registries for
-# queue" log line. The maintenance interval keeps its default (~10 min) so
-# orphaned STARTED jobs and stale workers are still pruned promptly.
-# --with-scheduler releases delayed jobs, which is how the watcher's rescans
-# wait out their delay.
-start_rq_worker() {
-	local name="$1"
-	local worker_class="$2"
-	shift 2
-
-	PYTHONPATH="/app/backend:${PYTHONPATH-}" \
-		RQ_REDIS_URL="${REDIS_URL}" \
-		rq worker \
-		--path /app/backend \
-		--worker-class "handler.rq_worker.${worker_class}" \
-		--pid "/tmp/${name}.pid" \
-		--logging_level "${LOGLEVEL:-INFO}" \
-		--with-scheduler \
-		"$@" &
-}
-
-echo "Starting RQ worker..."
+start_backend
+start_rq_cron
 start_rq_worker rq_worker RomMWorker high default low
-
 # Scans get a worker of their own, see SCAN_QUEUE_NAME.
-echo "Starting RQ scan worker..."
 start_rq_worker rq_scan_worker RomMWorker scans
-
 # Streaming teardowns get a worker of their own, see STREAMING_QUEUE_NAME. It
 # preloads the reaper, which runs every minute when streaming is on.
 if [[ ${streaming_worker_enabled} == "true" ]]; then
-	echo "Starting RQ streaming worker..."
 	start_rq_worker rq_streaming_worker PreloadingWorker streaming
 fi
 
-echo "Starting watcher..."
-watchfiles \
-	--target-type command \
-	'uv run python watcher.py' \
-	/app/romm/library &
-
+start_watcher watcher watcher.py /app/romm/library
 if [[ ${ENABLE_SYNC_FOLDER_WATCHER:-false} == "true" ]]; then
-	echo "Starting sync folder watcher..."
 	sync_base_path="${ROMM_BASE_PATH:-/romm}/sync"
 	mkdir -p "${sync_base_path}"
-	watchfiles \
-		--target-type command \
-		'uv run python sync_watcher.py' \
-		"${sync_base_path}" &
+	start_watcher sync_watcher sync_watcher.py "${sync_base_path}"
 fi
 
-# Start the frontend dev server
+echo "Starting frontend dev server..."
 cd /app/frontend
 npm run dev &
 
-# Wait for all background processes
 wait

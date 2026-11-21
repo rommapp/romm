@@ -334,6 +334,7 @@ COPY ./docker/nginx/js/ /etc/nginx/js/
 COPY ./docker/nginx/templates/ /etc/nginx/templates/
 COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
 COPY ./docker/gunicorn/logging.conf /etc/gunicorn/logging.conf
+COPY ./docker/gunicorn/otel_hooks.py /etc/gunicorn/otel_hooks.py
 
 # User permissions
 # - Create default user `romm` (1000) and group `romm` (1000).

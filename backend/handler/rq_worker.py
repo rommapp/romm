@@ -1,15 +1,23 @@
 import contextlib
 import logging
+import os
 import sys
+import weakref
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, Final, cast
 
+import psutil
 import rq.scheduler
+from opentelemetry import metrics, trace
+from opentelemetry.metrics import CallbackOptions, Observation
+from opentelemetry.trace import SpanKind
 from rq import Queue, Worker, worker_registration
 from rq.callbacks import execute_failure_callback
 from rq.exceptions import AbandonedJobError
 from rq.executions import Execution
 from rq.job import Job
 
+from handler.redis_handler import get_job_func_name
 from tasks.tasks import report_task_failure
 
 if TYPE_CHECKING:
@@ -26,6 +34,70 @@ _PERIODIC_NOISE: Final[tuple[str, ...]] = (
 # Looked up in sys.modules rather than imported, so a job that never loaded the
 # ORM does not load it just to clean it up.
 _DATABASE_MODULE: Final = "handler.database.base_handler"
+
+
+_tracer = trace.get_tracer(__name__)
+_meter = metrics.get_meter(__name__)
+_live_workers: "weakref.WeakSet[RomMWorker]" = weakref.WeakSet()
+
+# The kernel's peak for the whole horse, so it holds even when the horse was
+# OOM-killed. A horse starts as a fork of its worker, so it includes those pages.
+_job_peak_rss = _meter.create_histogram(
+    "romm.rq.job.peak_rss",
+    unit="By",
+    description="Peak resident memory of the work horse that ran a job",
+    # The default buckets end at 10,000, which every byte count overflows.
+    explicit_bucket_boundaries_advisory=[
+        mib * 1024 * 1024
+        for mib in (64, 128, 192, 256, 384, 512, 768, 1024, 2048, 4096)
+    ],
+)
+
+
+def _job_attributes(job: Job, queue: Queue) -> dict[str, str]:
+    return {
+        "messaging.system": "rq",
+        "messaging.destination.name": queue.name,
+        "rq.job.func_name": get_job_func_name(job, "unknown"),
+    }
+
+
+def _observe_horse_rss(_: CallbackOptions) -> Iterable[Observation]:
+    for worker in list(_live_workers):
+        monitored = worker.monitored_job
+        if monitored is None or not worker.horse_pid:
+            continue
+        with contextlib.suppress(psutil.Error):
+            rss = psutil.Process(worker.horse_pid).memory_info().rss
+            yield Observation(rss, _job_attributes(*monitored))
+
+
+_meter.create_observable_gauge(
+    "romm.rq.horse.rss",
+    [_observe_horse_rss],
+    unit="By",
+    description="Resident memory of each running work horse, sampled by its worker",
+)
+
+
+def _stop_inherited_metrics() -> None:
+    """Stop the horse re-exporting its worker's metrics under the worker's pid.
+
+    The worker measures the horse from outside, so nothing is lost. Capped so a
+    down collector can't hold up the job.
+    """
+    shutdown = getattr(metrics.get_meter_provider(), "shutdown", None)
+    if shutdown is not None:
+        with contextlib.suppress(Exception):
+            shutdown(timeout_millis=1000)
+
+
+def _flush_spans() -> None:
+    """Export the horse's spans; RQ ends it with os._exit, which skips atexit."""
+    flush = getattr(trace.get_tracer_provider(), "force_flush", None)
+    if flush is not None:
+        with contextlib.suppress(Exception):
+            flush(timeout_millis=2000)
 
 
 def _database_engine() -> "Engine | None":
@@ -60,6 +132,9 @@ class RomMWorker(Worker):
         _silence_periodic_noise(logging.getLogger(rq.scheduler.__name__))
         self.push_exc_handler(report_task_failure)
         self._inherited_db_pool: Pool | None = None
+        self._worker_pid = os.getpid()
+        self.monitored_job: tuple[Job, Queue] | None = None
+        _live_workers.add(self)
 
     def heartbeat(
         self, timeout: int | None = None, pipeline: "Pipeline | None" = None
@@ -99,7 +174,29 @@ class RomMWorker(Worker):
             worker_registration.register(self, pipeline)
             pipeline.execute()
 
+    def monitor_work_horse(self, job: Job, queue: Queue, execution: Execution) -> None:
+        self.monitored_job = (job, queue)
+        try:
+            super().monitor_work_horse(job, queue, execution)
+        finally:
+            self.monitored_job = None
+
+    def wait_for_horse(self) -> tuple[int | None, int | None, Any]:
+        pid, stat, rusage = super().wait_for_horse()
+        # The kill path waits a second time, after the horse was already reaped.
+        if rusage is not None and self.monitored_job is not None:
+            killed = stat is not None and os.WIFSIGNALED(stat)
+            _job_peak_rss.record(
+                # ru_maxrss is in KiB on Linux.
+                rusage.ru_maxrss * 1024,
+                {**_job_attributes(*self.monitored_job), "rq.job.killed": killed},
+            )
+        return pid, stat, rusage
+
     def perform_job(self, job: Job, queue: Queue, execution: Execution) -> bool:
+        in_horse = os.getpid() != self._worker_pid
+        if in_horse:
+            _stop_inherited_metrics()
         engine = _database_engine()
         if engine is not None:
             # The forked pool holds the worker's connections. Closing them, or letting
@@ -107,7 +204,16 @@ class RomMWorker(Worker):
             self._inherited_db_pool = engine.pool
             engine.dispose(close=False)
         try:
-            return super().perform_job(job, queue, execution)
+            with _tracer.start_as_current_span(
+                f"process {queue.name}",
+                kind=SpanKind.CONSUMER,
+                attributes={
+                    **_job_attributes(job, queue),
+                    "messaging.operation.type": "process",
+                    "messaging.message.id": job.id,
+                },
+            ):
+                return super().perform_job(job, queue, execution)
         finally:
             # RQ exits the work horse with os._exit, bypassing pool finalizers.
             engine = _database_engine()
@@ -116,6 +222,8 @@ class RomMWorker(Worker):
                     engine.dispose()
                 except Exception:
                     self.log.exception("Could not close the work horse database pool")
+            if in_horse:
+                _flush_spans()
 
     def handle_work_horse_killed(
         self, job: Job, retpid: int, ret_val: int, rusage: Any

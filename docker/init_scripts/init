@@ -137,9 +137,12 @@ start_bin_gunicorn() {
 	export PYTHONUNBUFFERED=1
 	export PYTHONDONTWRITEBYTECODE=1
 
-	local -a wrap=()
-	otel_prefix wrap api
-	"${wrap[@]}" gunicorn \
+	# Each worker starts OpenTelemetry after the fork, see otel_hooks.py.
+	local -a otel_config=()
+	if [[ ${OTEL_SDK_DISABLED:-false} != "true" ]]; then
+		otel_config=(--config /etc/gunicorn/otel_hooks.py)
+	fi
+	OTEL_SERVICE_NAME="${OTEL_SERVICE_NAME_PREFIX-}api" gunicorn "${otel_config[@]}" \
 		--bind=0.0.0.0:"${DEV_PORT:-5000}" \
 		--pid=/tmp/gunicorn.pid \
 		--no-control-socket \
@@ -256,10 +259,12 @@ start_bin_rq_cron() {
 
 	local redis_url
 	redis_url="$(build_redis_url)"
+	local -a wrap=()
+	otel_prefix wrap rq_cron
 
 	PYTHONPATH="/backend:${PYTHONPATH-}" \
 		RQ_REDIS_URL="${redis_url}" \
-		rq cron \
+		"${wrap[@]}" rq cron \
 		--path /backend \
 		--connection-class handler.redis_handler.RomMRedis \
 		--logging-level "${LOGLEVEL}" \
@@ -299,10 +304,12 @@ start_rq_worker() {
 
 	local redis_url
 	redis_url="$(build_redis_url)"
+	local -a wrap=()
+	otel_prefix wrap "${name}"
 
 	PYTHONPATH="/backend:${PYTHONPATH-}" \
 		RQ_REDIS_URL="${redis_url}" \
-		rq worker \
+		"${wrap[@]}" rq worker \
 		--path /backend \
 		--worker-class "handler.rq_worker.${worker_class}" \
 		--connection-class handler.redis_handler.RomMRedis \
@@ -395,6 +402,11 @@ rm /tmp/*.pid -f
 if ! printenv | grep -q '^OTEL_'; then
 	info_log "No OpenTelemetry environment variables found, disabling OpenTelemetry SDK"
 	export OTEL_SDK_DISABLED=true
+else
+	# Every process would repeat the host-wide system.* metrics, and
+	# process.runtime.* duplicates process.*. The pid tells processes apart.
+	export OTEL_PYTHON_SYSTEM_METRICS_EXCLUDED_METRICS="${OTEL_PYTHON_SYSTEM_METRICS_EXCLUDED_METRICS:-system.*,process.runtime.*}"
+	export OTEL_EXPERIMENTAL_RESOURCE_DETECTORS="${OTEL_EXPERIMENTAL_RESOURCE_DETECTORS:-otel,process}"
 fi
 
 # Set ROMM_AUTH_SECRET_KEY if not already set

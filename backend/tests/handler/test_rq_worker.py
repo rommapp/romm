@@ -1,10 +1,15 @@
 import contextlib
 import logging
+import os
+import signal
 import sqlite3
 import sys
+import weakref
 from collections.abc import Iterator
 from contextlib import AbstractContextManager
 from dataclasses import replace
+from types import SimpleNamespace
+from typing import cast
 from unittest.mock import MagicMock, call
 
 import pytest
@@ -12,6 +17,7 @@ import rq.scheduler
 from fakeredis import FakeRedis
 from rq import Queue, Worker
 from rq.exceptions import AbandonedJobError
+from rq.job import Job
 from rq.worker import WorkerStatus
 from rq.worker_registration import clean_worker_registry
 from sqlalchemy import create_engine, event
@@ -22,6 +28,7 @@ from handler.rq_worker import (
     PreloadingWorker,
     RomMWorker,
     _DropPeriodicNoiseFilter,
+    _observe_horse_rss,
 )
 from tasks.registry import REAP_STREAMING_SESSIONS_SPEC
 from tasks.tasks import report_task_failure
@@ -192,6 +199,80 @@ def test_a_failing_callback_still_reaches_the_handlers(mocker) -> None:
     worker.handle_work_horse_killed(MagicMock(), 123, 9, None)
 
     handle_exception.assert_called_once()
+
+
+def _monitoring(worker: RomMWorker) -> dict[str, str]:
+    job = cast(Job, MagicMock(func_name="tasks.scheduled.scan_library.run"))
+    worker.monitored_job = (job, Queue("scans", connection=FakeRedis(version=7)))
+    return {
+        "messaging.system": "rq",
+        "messaging.destination.name": "scans",
+        "rq.job.func_name": "tasks.scheduled.scan_library.run",
+    }
+
+
+@pytest.mark.parametrize(
+    "stat,killed", [(0, False), (signal.SIGKILL, True)], ids=["exited", "killed"]
+)
+def test_a_finished_horse_records_its_peak_memory(mocker, stat, killed) -> None:
+    mocker.patch(
+        "rq.Worker.wait_for_horse",
+        return_value=(123, stat, SimpleNamespace(ru_maxrss=2048)),
+    )
+    peak = mocker.patch("handler.rq_worker._job_peak_rss")
+    worker = RomMWorker(["scans"], connection=FakeRedis(version=7))
+    attributes = _monitoring(worker)
+
+    worker.wait_for_horse()
+
+    peak.record.assert_called_once_with(
+        2048 * 1024, {**attributes, "rq.job.killed": killed}
+    )
+
+
+def test_an_already_reaped_horse_records_nothing(mocker) -> None:
+    mocker.patch("rq.Worker.wait_for_horse", return_value=(None, None, None))
+    peak = mocker.patch("handler.rq_worker._job_peak_rss")
+    worker = RomMWorker(["scans"], connection=FakeRedis(version=7))
+    _monitoring(worker)
+
+    worker.wait_for_horse()
+
+    peak.record.assert_not_called()
+
+
+def test_a_running_horse_reports_its_memory(monkeypatch) -> None:
+    worker = RomMWorker(["scans"], connection=FakeRedis(version=7))
+    monkeypatch.setattr("handler.rq_worker._live_workers", weakref.WeakSet([worker]))
+    attributes = _monitoring(worker)
+    worker._horse_pid = os.getpid()
+
+    (observation,) = _observe_horse_rss(MagicMock())
+
+    assert observation.attributes == attributes
+    assert observation.value > 0
+
+
+def test_an_idle_worker_reports_no_horse_memory(monkeypatch) -> None:
+    worker = RomMWorker(["scans"], connection=FakeRedis(version=7))
+    monkeypatch.setattr("handler.rq_worker._live_workers", weakref.WeakSet([worker]))
+    worker._horse_pid = os.getpid()
+
+    assert list(_observe_horse_rss(MagicMock())) == []
+
+
+@pytest.mark.parametrize("in_horse", [True, False], ids=["horse", "worker"])
+def test_only_a_horse_stops_metrics_and_flushes_spans(mocker, in_horse) -> None:
+    mocker.patch("rq.Worker.perform_job", return_value=True)
+    stop = mocker.patch("handler.rq_worker._stop_inherited_metrics")
+    flush = mocker.patch("handler.rq_worker._flush_spans")
+    worker = RomMWorker(["default"], connection=FakeRedis(version=7))
+    if in_horse:
+        worker._worker_pid = -1
+
+    assert worker.perform_job(MagicMock(), MagicMock(), MagicMock()) is True
+
+    assert stop.call_count == flush.call_count == int(in_horse)
 
 
 class TestPreloadingWorker:

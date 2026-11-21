@@ -43,6 +43,13 @@
       "path": "frontend",
       "script": "storybook",
       "problemMatcher": []
+    },
+    {
+      "label": "Kill backend and workers",
+      "type": "shell",
+      "command": "fuser -k 5000/tcp || true",
+      "presentation": { "reveal": "silent" },
+      "problemMatcher": []
     }
   ]
 }
