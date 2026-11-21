@@ -11,9 +11,11 @@ import AssetPreview from "@/components/Player/AssetPreview.vue";
 import SaveDataPanel from "@/components/Player/SaveDataPanel.vue";
 import AssetList from "@/components/shared/AssetList.vue";
 import { RBtn, RSelect, RSlider } from "@/lib";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { DetailedRom } from "@/stores/roms";
 import { propOf } from "@/test-utils/propOf";
 import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
+import { ALL_DISCS } from "@/utils/playerDisc";
 import { detailedRomFixture, romFileFixture } from "@/utils/rom.fixtures";
 import Stream from "./Stream.vue";
 
@@ -715,6 +717,58 @@ describe("Stream starting disc", () => {
     await discSelect(wrapper)!.vm.$emit("update:modelValue", 102);
     await (wrapper.vm as unknown as { onPlay: () => Promise<void> }).onPlay();
     expect(mocks.claimSession.mock.calls[0]![6]).toBe(102);
+  });
+
+  it("offers no disc pick for a single disc sheet with its tracks", async () => {
+    const wrapper = await launch({
+      picker: false,
+      files: [
+        romFileFixture({ id: 201, file_name: "Pool.gdi" }),
+        romFileFixture({ id: 202, file_name: "track01.bin" }),
+        romFileFixture({ id: 203, file_name: "track02.raw" }),
+      ],
+    });
+
+    expect(discSelect(wrapper)).toBeUndefined();
+  });
+
+  it("offers each disc sheet, not the tracks it points at", async () => {
+    const wrapper = await launch({
+      picker: false,
+      files: [
+        romFileFixture({ id: 201, file_name: "Pool (Disc 1).gdi" }),
+        romFileFixture({ id: 202, file_name: "track01.bin" }),
+        romFileFixture({ id: 203, file_name: "Pool (Disc 2).cue" }),
+        romFileFixture({ id: 204, file_name: "Pool (Disc 2).img" }),
+        romFileFixture({ id: 205, file_name: "Pool (Disc 3).chd" }),
+      ],
+    });
+
+    const select = discSelect(wrapper);
+    expect(select && propOf(select, "items")).toEqual([
+      expect.objectContaining({ value: ALL_DISCS }),
+      { title: "Pool (Disc 1).gdi", value: 201 },
+      { title: "Pool (Disc 2).cue", value: 203 },
+      { title: "Pool (Disc 3).chd", value: 205 },
+    ]);
+  });
+
+  it("offers no patch as a disc", async () => {
+    const heartbeat = storeHeartbeat();
+    heartbeat.value = {
+      ...heartbeat.value,
+      ROM_PATCHER: { SUPPORTED_EXTENSIONS: [".ips"] },
+    };
+    const wrapper = await launch({
+      picker: false,
+      files: [
+        romFileFixture({ id: 201, file_name: "Pool.cue" }),
+        romFileFixture({ id: 202, file_name: "Pool.bin" }),
+        romFileFixture({ id: 203, file_name: "Pool.ips" }),
+      ],
+    });
+
+    expect(discSelect(wrapper)).toBeUndefined();
   });
 });
 

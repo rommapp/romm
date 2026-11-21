@@ -115,11 +115,52 @@ export function selectableDiscFiles<T extends DiscFile>(
 // boots alone (issue #4209). Kept in step with backend/utils/m3u.py.
 const DESCRIPTOR_EXTENSIONS: readonly string[] = ["cue", "gdi", "ccd", "mds"];
 
+// The raw tracks those sheets point at. Kept in step with backend/utils/m3u.py.
+const COMPANION_EXTENSIONS: readonly string[] = [
+  "bin",
+  "raw",
+  "img",
+  "sub",
+  "mdf",
+  "wav",
+  "ogg",
+  "flac",
+  "mp3",
+];
+
 function isDescriptorFile(file: DiscFile): boolean {
   return (
     isM3uFile(file) ||
     DESCRIPTOR_EXTENSIONS.includes(fileExtension(file.file_name))
   );
+}
+
+/** The discs a streaming session can start on, as the backend's `disc_files`
+ *  picks them: no patches, and a disc sheet stands in for its raw tracks.
+ *  `patchExtensions` is the heartbeat's `ROM_PATCHER.SUPPORTED_EXTENSIONS`. */
+export function streamDiscFiles<T extends DiscFile>(
+  files: readonly T[],
+  patchExtensions: readonly string[],
+): readonly T[] {
+  const discs = bootableFiles(files).filter(
+    (f) =>
+      !isM3uFile(f) &&
+      !patchExtensions.includes(`.${fileExtension(f.file_name)}`),
+  );
+  if (!discs.some(isDescriptorFile)) return discs;
+  return discs.filter(
+    (f) => !COMPANION_EXTENSIONS.includes(fileExtension(f.file_name)),
+  );
+}
+
+/** The discs a running session can swap to, as the backend's `playlist_files`
+ *  picks them: the base game's, or every file's when the base has none. */
+export function streamSwapDiscFiles<T extends DiscFile>(
+  files: readonly T[],
+  patchExtensions: readonly string[],
+): readonly T[] {
+  const base = streamDiscFiles(files.filter(isBaseGameFile), patchExtensions);
+  return base.length > 0 ? base : streamDiscFiles(files, patchExtensions);
 }
 
 // A set carrying a playlist or disc sheet only boots whole; anything else boots

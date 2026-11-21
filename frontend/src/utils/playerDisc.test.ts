@@ -11,6 +11,8 @@ import {
   resolveRememberedDisc,
   resolveStoredDisc,
   selectableDiscFiles,
+  streamDiscFiles,
+  streamSwapDiscFiles,
 } from "./playerDisc";
 
 // Only `id`, `file_name` and `category` are read off each file; minimal stubs
@@ -376,5 +378,62 @@ describe("bootFileIds", () => {
         file(2, "Game (Disc 2).chd", "hack"),
       ]),
     ).toEqual([]);
+  });
+});
+
+describe("streamDiscFiles", () => {
+  const PATCHES = [".ips", ".bps"];
+
+  it("keeps each disc sheet and drops the tracks it points at", () => {
+    const ids = streamDiscFiles(
+      [
+        file(1, "Game (Disc 1).gdi"),
+        file(2, "track01.bin"),
+        file(3, "Game (Disc 2).ccd"),
+        file(4, "Game (Disc 2).img"),
+        file(5, "Game (Disc 3).chd"),
+        file(6, "Game.m3u"),
+      ],
+      PATCHES,
+    ).map((f) => f.id);
+
+    expect(ids).toEqual([1, 3, 5]);
+  });
+
+  it("drops patches named by extension", () => {
+    const ids = streamDiscFiles(
+      [file(1, "Game.cue"), file(2, "Game.bin"), file(3, "Game.IPS")],
+      PATCHES,
+    ).map((f) => f.id);
+
+    expect(ids).toEqual([1]);
+  });
+});
+
+describe("streamSwapDiscFiles", () => {
+  it("swaps between the base game's discs only", () => {
+    const ids = streamSwapDiscFiles(
+      [
+        file(1, "Game (Disc 1).cue"),
+        file(2, "Game (Disc 2).cue"),
+        file(3, "Game.m3u"),
+        file(4, "Game (Translated).chd", "translation"),
+      ],
+      [],
+    ).map((f) => f.id);
+
+    expect(ids).toEqual([1, 2]);
+  });
+
+  it("falls back to every disc when the base game has none", () => {
+    const ids = streamSwapDiscFiles(
+      [
+        file(1, "Game (Disc 1).chd", "hack"),
+        file(2, "Game (Disc 2).chd", "hack"),
+      ],
+      [],
+    ).map((f) => f.id);
+
+    expect(ids).toEqual([1, 2]);
   });
 });
