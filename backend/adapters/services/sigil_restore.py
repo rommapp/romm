@@ -5,7 +5,7 @@ import os
 import re
 import tempfile
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Final, Literal
@@ -16,6 +16,14 @@ from utils.memory_cards import MEMORY_CARD_MAX_BYTES
 
 # Saves on these carry no game id, so a merge claims the unit's save names.
 VOLUME_PLATFORMS: Final = frozenset({"saturn", "segacd", "dreamcast"})
+
+# Saves on these sit inside the emulator's hard-disk image, which sigil never
+# makes: a restore into an empty save root is refused naming the image.
+DRIVE_IMAGE_PLATFORMS: Final = frozenset({"xbox"})
+
+# The core option that names the image. xemu has no default for it, so sigil
+# takes no drive from a request without it.
+DRIVE_IMAGE_OPTION: Final = "hdd_path"
 
 _UNMANAGED: Final = "unmanaged"
 
@@ -102,7 +110,7 @@ class SigilRefusal(SaveRestoreError):
 
 
 class SharedContainerRequired(SaveRestoreError):
-    """The target is a card or volume every game shares, so the client must send its own."""
+    """The target is a card, volume or drive image every game shares, so the client must send its own."""
 
     def __init__(self, container_path: str) -> None:
         super().__init__(
@@ -221,7 +229,22 @@ def _restore_per_game(
     binding = _binding()
     with tempfile.TemporaryDirectory(prefix="romm-restore-") as tmp:
         root = Path(tmp)
-        _restore(unit, game, target, root, companions)
+        try:
+            _restore(unit, game, target, root, companions)
+        except SigilRefusal as refusal:
+            if game.result.platform not in DRIVE_IMAGE_PLATFORMS:
+                raise
+            if refusal.code is RefusalCode.NO_TARGET and refusal.problem:
+                raise SharedContainerRequired(refusal.problem) from refusal
+            if refusal.code is RefusalCode.INVALID_ARG and not target.options.get(
+                DRIVE_IMAGE_OPTION
+            ):
+                raise SigilRefusal(
+                    RefusalCode.INVALID_ARG,
+                    f"{target.core} keeps every game's saves in one hard-disk image "
+                    f"and has no default one: send its path as {DRIVE_IMAGE_OPTION}",
+                ) from refusal
+            raise
         written = _files_under(root)
         if not written:
             raise SigilRefusal(RefusalCode.NOT_FOUND, "The restore wrote no files")
@@ -308,6 +331,13 @@ def _merge_into_container(
         sent.write_bytes(container)
         # Sigil writes only a file whose bytes change, and writing sets the mtime.
         os.utime(sent, ns=(0, 0))
+        if game.result.platform in DRIVE_IMAGE_PLATFORMS and not target.options.get(
+            DRIVE_IMAGE_OPTION
+        ):
+            # The client named its image by sending it.
+            target = replace(
+                target, options={**target.options, DRIVE_IMAGE_OPTION: container_path}
+            )
 
         try:
             located = _locate(binding, game, target, root)
@@ -365,7 +395,8 @@ async def restore_per_game(
     """Restore a unit into an empty save root and return what lands there.
 
     Raises:
-        SharedContainerRequired: the target is a card or volume every game shares.
+        SharedContainerRequired: the target is a card, volume or drive image
+            every game shares.
         SigilRefusal: sigil refused the restore.
     """
     return await asyncio.to_thread(_restore_per_game, unit, game, target, companions)
@@ -379,7 +410,7 @@ async def merge_into_container(
     container: bytes,
     companions: Sequence[RestoreCompanion] = (),
 ) -> RestoredFiles:
-    """Merge a unit into the client's own card or volume and return it rewritten.
+    """Merge a unit into the client's own card, volume or drive image and return it rewritten.
 
     Args:
         container_path: where the container sits under the save root; the caller
