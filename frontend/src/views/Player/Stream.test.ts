@@ -11,9 +11,11 @@ import AssetPreview from "@/components/Player/AssetPreview.vue";
 import SaveDataPanel from "@/components/Player/SaveDataPanel.vue";
 import AssetList from "@/components/shared/AssetList.vue";
 import { RBtn, RSelect, RSlider } from "@/lib";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { DetailedRom } from "@/stores/roms";
 import { propOf } from "@/test-utils/propOf";
 import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
+import { ALL_DISCS } from "@/utils/playerDisc";
 import { detailedRomFixture, romFileFixture } from "@/utils/rom.fixtures";
 import Stream from "./Stream.vue";
 
@@ -263,7 +265,9 @@ async function launch(opts: {
   // The backend's answer; every state is native unless a test says otherwise.
   picks?: StreamStatePicksSchema | Error | Promise<StreamStatePicksSchema>;
   files?: RomFileSchema[];
+  heartbeatLoaded?: boolean;
 }): Promise<VueWrapper> {
+  storeHeartbeat().loaded = opts.heartbeatLoaded ?? true;
   mocks.container = {
     name: "WEBSTATION-DEV",
     emulator: "retroarch",
@@ -715,6 +719,149 @@ describe("Stream starting disc", () => {
     await discSelect(wrapper)!.vm.$emit("update:modelValue", 102);
     await (wrapper.vm as unknown as { onPlay: () => Promise<void> }).onPlay();
     expect(mocks.claimSession.mock.calls[0]![6]).toBe(102);
+  });
+
+  it("offers no disc pick for a single disc sheet with its tracks", async () => {
+    const wrapper = await launch({
+      picker: false,
+      files: [
+        romFileFixture({ id: 201, file_name: "Pool.gdi" }),
+        romFileFixture({ id: 202, file_name: "track01.bin" }),
+        romFileFixture({ id: 203, file_name: "track02.raw" }),
+      ],
+    });
+
+    expect(discSelect(wrapper)).toBeUndefined();
+  });
+
+  it("offers each disc sheet, not the tracks it points at", async () => {
+    const wrapper = await launch({
+      picker: false,
+      files: [
+        romFileFixture({ id: 201, file_name: "Pool (Disc 1).gdi" }),
+        romFileFixture({ id: 202, file_name: "track01.bin" }),
+        romFileFixture({ id: 203, file_name: "Pool (Disc 2).cue" }),
+        romFileFixture({ id: 204, file_name: "Pool (Disc 2).img" }),
+        romFileFixture({ id: 205, file_name: "Pool (Disc 3).chd" }),
+      ],
+    });
+
+    const select = discSelect(wrapper);
+    expect(select && propOf(select, "items")).toEqual([
+      expect.objectContaining({ value: ALL_DISCS }),
+      { title: "Pool (Disc 1).gdi", value: 201 },
+      { title: "Pool (Disc 2).cue", value: 203 },
+      { title: "Pool (Disc 3).chd", value: 205 },
+    ]);
+  });
+
+  it("offers no patch as a disc", async () => {
+    const heartbeat = storeHeartbeat();
+    heartbeat.value = {
+      ...heartbeat.value,
+      ROM_PATCHER: { SUPPORTED_EXTENSIONS: [".ips"] },
+    };
+    const wrapper = await launch({
+      picker: false,
+      files: [
+        romFileFixture({ id: 201, file_name: "Pool.cue" }),
+        romFileFixture({ id: 202, file_name: "Pool.bin" }),
+        romFileFixture({ id: 203, file_name: "Pool.ips" }),
+      ],
+    });
+
+    expect(discSelect(wrapper)).toBeUndefined();
+  });
+
+  it("offers no disc pick before the first heartbeat", async () => {
+    const wrapper = await launch({
+      picker: false,
+      heartbeatLoaded: false,
+      files: [
+        romFileFixture({ id: 201, file_name: "Pool (Disc 1).chd" }),
+        romFileFixture({ id: 202, file_name: "Pool (Disc 2).chd" }),
+      ],
+    });
+
+    expect(discSelect(wrapper)).toBeUndefined();
+  });
+});
+
+describe("Stream disc swap", () => {
+  const PLAYLIST_SET = [
+    romFileFixture({ id: 301, file_name: "Pool (Disc 1).cue" }),
+    romFileFixture({ id: 302, file_name: "Pool (Disc 1).bin" }),
+    romFileFixture({ id: 303, file_name: "Pool (Disc 2).cue" }),
+    romFileFixture({ id: 304, file_name: "Pool (Disc 2).bin" }),
+    romFileFixture({ id: 305, file_name: "Pool.m3u" }),
+    romFileFixture({
+      id: 306,
+      file_name: "Pool (Translated).chd",
+      category: "translation",
+    }),
+  ];
+
+  type DiscVm = { canSwapDisc: boolean; showManualDiscHint: boolean };
+
+  beforeEach(() => {
+    mocks.claimSession.mockResolvedValue(CLAIM);
+  });
+
+  afterEach(() => {
+    mocks.capabilities = {};
+  });
+
+  it("swaps between the playlist's disc sheets", async () => {
+    mocks.capabilities = { supportsDiscSwap: true };
+    const wrapper = await launch({ picker: false, files: PLAYLIST_SET });
+
+    expect((wrapper.vm as unknown as DiscVm).canSwapDisc).toBe(true);
+  });
+
+  it("offers no swap once a disc outside the playlist is picked to start", async () => {
+    mocks.capabilities = { supportsDiscSwap: true };
+    const wrapper = await launch({ picker: false, files: PLAYLIST_SET });
+
+    await discSelect(wrapper)!.vm.$emit("update:modelValue", 306);
+    await (wrapper.vm as unknown as { onPlay: () => Promise<void> }).onPlay();
+    expect((wrapper.vm as unknown as DiscVm).canSwapDisc).toBe(false);
+  });
+
+  it("keeps the swap the claim was sent with when the pick changes afterwards", async () => {
+    mocks.capabilities = { supportsDiscSwap: true };
+    const wrapper = await launch({ picker: false, files: PLAYLIST_SET });
+
+    await (wrapper.vm as unknown as { onPlay: () => Promise<void> }).onPlay();
+    await discSelect(wrapper)!.vm.$emit("update:modelValue", 306);
+    expect((wrapper.vm as unknown as DiscVm).canSwapDisc).toBe(true);
+  });
+
+  it("offers no swap when only a variant ships the playlist", async () => {
+    mocks.capabilities = { supportsDiscSwap: true };
+    const wrapper = await launch({
+      picker: false,
+      files: [
+        romFileFixture({ id: 301, file_name: "Pool (Disc 1).chd" }),
+        romFileFixture({ id: 302, file_name: "Pool (Disc 2).chd" }),
+        romFileFixture({ id: 303, file_name: "Hack.m3u", category: "hack" }),
+      ],
+    });
+
+    expect((wrapper.vm as unknown as DiscVm).canSwapDisc).toBe(false);
+  });
+
+  it("gives no manual swap hint for a single disc sheet with its tracks", async () => {
+    mocks.capabilities = { hasManualDiscSwap: true };
+    const wrapper = await launch({
+      picker: false,
+      files: [
+        romFileFixture({ id: 301, file_name: "Pool.cue" }),
+        romFileFixture({ id: 302, file_name: "Pool (Track 1).bin" }),
+        romFileFixture({ id: 303, file_name: "Pool (Track 2).bin" }),
+      ],
+    });
+
+    expect((wrapper.vm as unknown as DiscVm).showManualDiscHint).toBe(false);
   });
 });
 
