@@ -1,6 +1,14 @@
+import importlib.util
 from pathlib import Path
 
-from conftest import worktree_tag
+# Loaded by path: under a full run `conftest` resolves to whichever one pytest cached first.
+_spec = importlib.util.spec_from_file_location(
+    "rootdir_conftest", Path(__file__).resolve().parents[1] / "conftest.py"
+)
+assert _spec and _spec.loader
+_rootdir_conftest = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_rootdir_conftest)
+worktree_tag = _rootdir_conftest.worktree_tag
 
 
 def test_worktree_tag_names_a_linked_worktree(tmp_path: Path) -> None:
