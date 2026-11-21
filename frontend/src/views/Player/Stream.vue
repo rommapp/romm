@@ -307,7 +307,8 @@ const startDiscItems = computed<{ title: string; value: DiscSelection }[]>(
 );
 
 // A rom with a single swappable disc has nothing to swap to, whatever the
-// platform can do. A start disc outside the playlist boots alone, without one.
+// platform can do. A start disc outside the playlist boots on its own, with no
+// playlist loaded.
 const canSwapDisc = computed(
   () =>
     capabilities.value.supportsDiscSwap &&

@@ -135,8 +135,8 @@ function isDescriptorFile(file: DiscFile): boolean {
   );
 }
 
-/** The discs a stream can start on, as the backend's `disc_files` picks them:
- *  no media or `patchExtensions` file, and a disc sheet in place of its tracks. */
+/** The discs a stream can start on, picked like the backend's `disc_files`:
+ *  media and patches are left out, and a disc sheet replaces its tracks. */
 export function streamDiscFiles<T extends DiscFile>(
   files: readonly T[],
   patchExtensions: readonly string[],
