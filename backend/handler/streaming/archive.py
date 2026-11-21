@@ -93,8 +93,8 @@ def overlay(base: bytes, top: bytes, max_bytes: int) -> bytes:
                 if expanded > max_bytes:
                     raise ValueError("merged archive exceeds its size limit")
                 members[info.filename] = (info, read_member(zf, info))
-                # A label travels with its own archive's bytes, unlabelled ones
-                # as a save, as an import archive labels its base.
+                # A member keeps the label of the archive its bytes came from.
+                # An unlabelled one counts as a save, as in an import archive.
                 labels[info.filename] = own_labels.get(
                     info.filename, {"path": info.filename, "kind": "save"}
                 )
