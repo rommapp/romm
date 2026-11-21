@@ -823,11 +823,9 @@ async def _hydrate_saves(
             path = await saves.hydrate_saves_to_webstation(
                 request.user.id, rom.id, container, restored
             )
-            kept = restored if path else None
+            restored_id, restored_hash = saves.restored_ref(restored, path)
             return imports.ImportHydration(
-                path,
-                restored_save_id=kept.id if kept else None,
-                restored_save_hash=kept.content_hash if kept else None,
+                path, restored_save_id=restored_id, restored_save_hash=restored_hash
             )
         except Exception:
             log.exception("save hydration failed, continuing launch")

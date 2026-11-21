@@ -291,10 +291,10 @@ async def hydrate_import_archive(
     )
     # A member whose inner zip held only junk never lands in `carried`.
     state_included = path is not None and any(f.get("kind") == "state" for f in carried)
-    kept = base_save if path else None
+    restored_id, restored_hash = saves.restored_ref(base_save, path)
     return ImportHydration(
         path,
         state_included,
-        restored_save_id=kept.id if kept else None,
-        restored_save_hash=kept.content_hash if kept else None,
+        restored_save_id=restored_id,
+        restored_save_hash=restored_hash,
     )

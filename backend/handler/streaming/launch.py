@@ -136,9 +136,9 @@ async def run_launch(
                 archive_path = await saves.hydrate_saves_to_webstation(
                     user.id, rom.id, container, restored
                 )
-                kept = restored if archive_path else None
-                restored_save_id = kept.id if kept else None
-                restored_save_hash = kept.content_hash if kept else None
+                restored_save_id, restored_save_hash = saves.restored_ref(
+                    restored, archive_path
+                )
                 resume_on_activate = resume_on_activate and not (
                     container.resumes_from_archive and archive_path is None
                 )

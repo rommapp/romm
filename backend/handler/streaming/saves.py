@@ -710,6 +710,13 @@ def restorable_for(
     return save or newest_restorable(user_id, rom_id, container.emulator)
 
 
+def restored_ref(save: Save | None, path: str | None) -> tuple[int | None, str | None]:
+    """The id and content hash of `save` when its upload to `path` went through."""
+    if save is None or not path:
+        return None, None
+    return save.id, save.content_hash
+
+
 async def hydrate_saves_to_webstation(
     user_id: int, rom_id: int, container: ResolvedContainer, save: Save | None = None
 ) -> str | None:
