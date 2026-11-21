@@ -79,3 +79,35 @@ def route_that_refuses_input() -> None:
 
 def route_with_input_that_it_refuses(name: str) -> None:
     raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
+
+
+def refuse_in_a_thread() -> None:
+    raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT)
+
+
+async def route_that_offloads() -> None:
+    await asyncio.to_thread(refuse_in_a_thread)
+
+
+def route_that_swallows_errors() -> Response:
+    try:
+        refuse()
+        return JSONResponse({}, status_code=status.HTTP_410_GONE)
+    except Exception:
+        return Response()
+
+
+def route_that_reraises() -> None:
+    try:
+        refuse()
+    except Exception:
+        raise
+
+
+def route_with_a_declared_status(upstream: Response) -> Response:
+    return Response(status_code=upstream.status_code)  # route-errors: raises 502
+
+
+def route_with_a_declared_status_above(upstream: Response) -> Response:
+    # route-errors: raises 502, 503
+    return Response(status_code=upstream.status_code)

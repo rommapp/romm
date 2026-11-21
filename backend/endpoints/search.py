@@ -395,7 +395,7 @@ async def search_cover(
         isinstance(sgdb_result, HTTPException)
         and sgdb_result.status_code == status.HTTP_401_UNAUTHORIZED
     ):
-        raise sgdb_result
+        raise sgdb_result  # route-errors: raises 401
 
     ordered_sources = get_priority_ordered_metadata_sources(
         metadata_sources=list(lookups.keys()), priority_type="url_cover"

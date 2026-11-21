@@ -14,6 +14,8 @@ from typing import Any
 from fastapi.dependencies.utils import get_flat_params
 from fastapi.routing import APIRoute
 
+from decorators.auth import SCOPE_ERRORS
+
 BACKEND = Path(__file__).resolve().parent.parent
 STATUS_ATTR = re.compile(r"HTTP_(\d{3})_")
 # Responses a route returns instead of raising, whose status reaches the client.
@@ -30,11 +32,14 @@ RESPONSE_CLASSES = frozenset(
     }
 )
 # Stands for a status the analyzer cannot read, such as one copied from an upstream
-# response. A route that reaches one fails the check until it is ignored.
+# response. A route that reaches one fails the check until the line declares it.
 UNREADABLE_STATUS = 0
 # Marks code whose errors never reach the client. Put it at the end of the line, or
 # on the line above, with the reason after it.
 IGNORE_MARKER = "# route-errors: ignore"
+# Declares the statuses a line raises, such as `# route-errors: raises 409, 423`, in
+# place of what the analyzer reads there. For a status it cannot follow or read.
+RAISES_MARKER = re.compile(r"# route-errors: raises (\d{3}(?:, *\d{3})*)")
 
 
 @dataclass
@@ -52,6 +57,8 @@ class Module:
     assigns: dict[str, ast.expr] = field(default_factory=dict)
     # Lines whose code `IGNORE_MARKER` leaves out of the analysis.
     ignored: set[int] = field(default_factory=set)
+    # The statuses `RAISES_MARKER` declares, by line.
+    declared: dict[int, set[int]] = field(default_factory=dict)
 
 
 def _module_name(path: Path) -> str:
@@ -80,8 +87,13 @@ def load(name: str) -> Module | None:
     tree = ast.parse(source)
     mod = Module(name, tree)
     for number, line in enumerate(source.splitlines(), start=1):
-        if IGNORE_MARKER in line:
-            mod.ignored.add(number + 1 if line.lstrip().startswith("#") else number)
+        marked = number + 1 if line.lstrip().startswith("#") else number
+        match = RAISES_MARKER.search(line)
+        if IGNORE_MARKER in line or match:
+            mod.ignored.add(marked)
+        if match:
+            codes = {int(code) for code in re.findall(r"\d{3}", match.group(1))}
+            mod.declared.setdefault(marked, set()).update(codes)
     is_package = path.name == "__init__.py"
     for node in tree.body:
         if isinstance(node, ast.ImportFrom):
@@ -185,6 +197,12 @@ def _resolve_expr(module: str, owner: str | None, expr: ast.expr) -> Symbol | No
         if kind == "class":
             return _method(base, expr.attr)
     return None
+
+
+def _call_name(call: ast.Call) -> str | None:
+    """The name a call ends in, such as `to_thread` for `asyncio.to_thread(...)`."""
+    func = call.func
+    return func.id if isinstance(func, ast.Name) else getattr(func, "attr", None)
 
 
 def _status(node: ast.expr | None) -> int | None:
@@ -300,7 +318,7 @@ def _status_expr(
 ) -> ast.expr | None:
     """The status argument of an `HTTPException`, a subclass's `super().__init__` or a response."""
     func = call.func
-    name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", None)
+    name = _call_name(call)
     is_super_init = (
         name == "__init__"
         and isinstance(func, ast.Attribute)
@@ -322,8 +340,7 @@ def _status_expr(
 
 def _http_exception_status(call: ast.Call) -> int | None:
     """The status of a module-level `HTTPException(...)` instance."""
-    func = call.func
-    name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", None)
+    name = _call_name(call)
     if name != "HTTPException":
         return None
     expr = _status_expr(call)
@@ -349,12 +366,45 @@ def _function_node(sym: Symbol) -> tuple[ast.AST, str | None] | None:
     return None
 
 
+# Calls that run the function in one of their arguments and re-raise its errors,
+# mapped to that argument's position.
+OFFLOADS = {"to_thread": 0, "run_in_threadpool": 0, "run_sync": 0, "run_in_executor": 1}
+
+
+def _offloaded(call: ast.Call) -> ast.expr | None:
+    """The function an offload such as `asyncio.to_thread(fn, ...)` runs."""
+    name = _call_name(call)
+    position = OFFLOADS.get(name or "")
+    if position is None or len(call.args) <= position:
+        return None
+    return call.args[position]
+
+
+BROAD_EXCEPTIONS = frozenset({"Exception", "BaseException", "HTTPException"})
+
+
+def _swallows_errors(node: ast.AST) -> bool:
+    """Whether `node` is a `try` with a handler that catches any HTTP error and never raises."""
+    if not isinstance(node, (ast.Try, ast.TryStar)):
+        return False
+    for handler in node.handlers:
+        caught = (
+            handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
+        )
+        broad = handler.type is None or any(
+            (getattr(t, "id", None) or getattr(t, "attr", None)) in BROAD_EXCEPTIONS
+            for t in caught
+        )
+        if broad and not any(isinstance(n, ast.Raise) for n in ast.walk(handler)):
+            return True
+    return False
+
+
 def _returns_exceptions(node: ast.AST) -> bool:
     """Whether `node` is an `asyncio.gather(...)` that returns errors instead of raising them."""
     if not isinstance(node, ast.Call):
         return False
-    func = node.func
-    name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", None)
+    name = _call_name(node)
     return name == "gather" and any(
         kw.arg == "return_exceptions"
         and isinstance(kw.value, ast.Constant)
@@ -378,6 +428,18 @@ def _body_nodes(fn: ast.AST, module: str) -> list[ast.AST]:
         if getattr(node, "lineno", None) in ignored or _returns_exceptions(node):
             continue
         nodes.append(node)
+        if _swallows_errors(node):
+            # Only a response the body returns can still reach the caller.
+            nodes.extend(
+                n
+                for stmt in node.body  # type: ignore[attr-defined]
+                for n in ast.walk(stmt)
+                if isinstance(n, ast.Call) and _call_name(n) in RESPONSE_CLASSES
+            )
+            roots.extend(
+                [*node.handlers, *node.orelse, *node.finalbody]  # type: ignore[attr-defined]
+            )
+            continue
         roots.extend(ast.iter_child_nodes(node))
     return nodes
 
@@ -402,8 +464,7 @@ def _argument(call: ast.Call, callee: Symbol, param: str) -> ast.expr | None:
 
 def _dependency(node: ast.Call) -> ast.expr | None:
     """The callable a `Depends(...)` or `Security(...)` call injects."""
-    func = node.func
-    name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", None)
+    name = _call_name(node)
     if name not in ("Depends", "Security"):
         return None
     for kw in node.keywords:
@@ -468,10 +529,11 @@ def statuses(sym: Symbol, stack: frozenset[Symbol] = frozenset()) -> frozenset[i
                     if status_expr is not None:
                         add(_codes(status_expr, module, fn))
                         continue
-                    target = _resolve_expr(module, owner, node.func)
+                    offloaded = _offloaded(node)
+                    target = _resolve_expr(module, owner, offloaded or node.func)
                     if target and target[0] != "module":
                         found |= statuses(target, stack)
-                    if target and target[0] == "func":
+                    if target and target[0] == "func" and offloaded is None:
                         for param in _forwarded.get(target, frozenset()):
                             arg = _argument(node, target, param)
                             if arg is not None:
@@ -492,6 +554,10 @@ def statuses(sym: Symbol, stack: frozenset[Symbol] = frozenset()) -> frozenset[i
                 target = _resolve_expr(module, owner, name_node)
                 if target and target[0] == "value":
                     found |= statuses(target, stack)
+            mod = load(module)
+            for line, codes in (mod.declared if mod else {}).items():
+                if fn.lineno <= line <= (fn.end_lineno or fn.lineno):  # type: ignore[attr-defined]
+                    found |= codes
         _forwarded[sym] = frozenset(forwarded)
     result = frozenset(c for c in found if c >= 400 or c == UNREADABLE_STATUS)
     _memo[sym] = result
@@ -526,11 +592,37 @@ def undocumented(routes: Iterable[Any]) -> dict[str, list[int]]:
     return {key: sorted(codes) for key, codes in sorted(gaps.items())}
 
 
+def stale(routes: Iterable[Any]) -> dict[str, list[int]]:
+    """Map each route's `module:function` to the error statuses its `responses` lists but it cannot raise."""
+    scope_defaults = {code: alone for code, (alone, _) in SCOPE_ERRORS.items()}
+    gaps: dict[str, set[int]] = {}
+    for route in api_routes(routes):
+        if not route.include_in_schema:
+            continue
+        endpoint = inspect.unwrap(route.endpoint)
+        raised = statuses(("func", endpoint.__module__, endpoint.__name__))
+        if UNREADABLE_STATUS in raised:
+            continue
+        takes_input = bool(get_flat_params(route.dependant) or route.body_field)
+        for code, entry in route.responses.items():
+            code = int(code)
+            if code < 400 or code in raised or (code == 422 and takes_input):
+                continue
+            # The scope guard's own 401 and 403, with no reason of the route's added.
+            if entry.get("description") == scope_defaults.get(code):
+                continue
+            key = f"{endpoint.__module__}:{endpoint.__name__}"
+            gaps.setdefault(key, set()).add(code)
+    return {key: sorted(codes) for key, codes in sorted(gaps.items())}
+
+
 def main() -> int:
     from main import app  # noqa: PLC0415
 
     for key, codes in undocumented(app.routes).items():
-        print(key, codes)
+        print("undocumented", key, codes)
+    for key, codes in stale(app.routes).items():
+        print("stale", key, codes)
     return 0
 
 
