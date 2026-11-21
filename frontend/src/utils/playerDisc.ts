@@ -115,10 +115,35 @@ export function selectableDiscFiles<T extends DiscFile>(
 // boots alone (issue #4209). Kept in step with backend/utils/m3u.py.
 const DESCRIPTOR_EXTENSIONS: readonly string[] = ["cue", "gdi", "ccd", "mds"];
 
+// The raw tracks those sheets point at. Kept in step with backend/utils/m3u.py.
+const COMPANION_EXTENSIONS: readonly string[] = [
+  "bin",
+  "raw",
+  "img",
+  "sub",
+  "mdf",
+  "wav",
+  "ogg",
+  "flac",
+  "mp3",
+];
+
 function isDescriptorFile(file: DiscFile): boolean {
   return (
     isM3uFile(file) ||
     DESCRIPTOR_EXTENSIONS.includes(fileExtension(file.file_name))
+  );
+}
+
+/** The discs a streaming session can start on or swap to. Like the backend's
+ *  `disc_files`, a disc sheet stands in for the raw tracks it points at. */
+export function streamDiscFiles<T extends DiscFile>(
+  files: readonly T[],
+): readonly T[] {
+  const discs = bootableFiles(files).filter((f) => !isM3uFile(f));
+  if (!discs.some(isDescriptorFile)) return discs;
+  return discs.filter(
+    (f) => !COMPANION_EXTENSIONS.includes(fileExtension(f.file_name)),
   );
 }
 

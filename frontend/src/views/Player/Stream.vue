@@ -96,6 +96,7 @@ import {
   bootableFiles,
   bootDiscId,
   type DiscSelection,
+  streamDiscFiles,
 } from "@/utils/playerDisc";
 import { fileExtension } from "@/utils/romFiles";
 
@@ -278,17 +279,12 @@ const hasM3uFile = computed(() =>
 
 const bootableRomFiles = computed(() => bootableFiles(rom.value?.files ?? []));
 
-// Mirrors the download endpoint's playlist filtering: when .cue files are
-// present only those are valid swap targets (raw .bin tracks are not), and
-// the .m3u itself is never something to swap to.
-const discOptions = computed(() => {
-  const files = bootableRomFiles.value.filter(
-    (f) => fileExtension(f.file_name) !== "m3u",
-  );
-  const cueFiles = files.filter((f) => fileExtension(f.file_name) === "cue");
-  const listed = cueFiles.length > 0 ? cueFiles : files;
-  return listed.map((f) => ({ title: f.file_name, value: f.id }));
-});
+const discOptions = computed(() =>
+  streamDiscFiles(rom.value?.files ?? []).map((f) => ({
+    title: f.file_name,
+    value: f.id,
+  })),
+);
 
 const startDiscItems = computed<{ title: string; value: DiscSelection }[]>(
   () => [
