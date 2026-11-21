@@ -46,8 +46,8 @@ def test_documented_statuses_are_raised():
 
     # Assert
     assert not gaps, (
-        "These routes document statuses they can no longer raise. Remove each"
-        " entry, or, if the route does raise it in a way the analyzer cannot"
-        " follow, declare it on that line with `# route-errors: raises <codes>`:\n"
+        "These routes document statuses they cannot raise. Remove each entry, or,"
+        " if the route does raise it in a way the analyzer cannot follow, declare"
+        " it on the line that raises it with `# route-errors: raises <codes>`:\n"
         + "\n".join(f"{route} {codes}" for route, codes in gaps.items())
     )

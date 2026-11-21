@@ -18,7 +18,8 @@ from decorators.auth import SCOPE_ERRORS
 
 BACKEND = Path(__file__).resolve().parent.parent
 STATUS_ATTR = re.compile(r"HTTP_(\d{3})_")
-# Responses a route returns instead of raising, whose status reaches the client.
+# Response classes a route can return instead of raising. Their status reaches the
+# client.
 RESPONSE_CLASSES = frozenset(
     {
         "FileResponse",
@@ -32,13 +33,14 @@ RESPONSE_CLASSES = frozenset(
     }
 )
 # Stands for a status the analyzer cannot read, such as one copied from an upstream
-# response. A route that reaches one fails the check until the line declares it.
+# response. A route that reaches one fails the check until that line declares its
+# statuses with `RAISES_MARKER`.
 UNREADABLE_STATUS = 0
 # Marks code whose errors never reach the client. Put it at the end of the line, or
 # on the line above, with the reason after it.
 IGNORE_MARKER = "# route-errors: ignore"
-# Declares the statuses a line raises, such as `# route-errors: raises 409, 423`, in
-# place of what the analyzer reads there, for a status it cannot follow or read.
+# Declares the statuses a line raises when the analyzer cannot follow or read them,
+# such as `# route-errors: raises 409, 423`. It replaces what the analyzer reads there.
 RAISES_MARKER = re.compile(r"# route-errors: raises (\d{3}(?:, *\d{3})*)")
 
 
@@ -446,8 +448,8 @@ def _function_node(sym: Symbol) -> tuple[ast.AST, str | None] | None:
     return None
 
 
-# Calls that run the function in one of their arguments and re-raise its errors,
-# mapped to that argument's position.
+# Calls that run a function passed as an argument and re-raise its errors, mapped
+# to the position of that argument.
 OFFLOADS = {"to_thread": 0, "run_in_threadpool": 0, "run_sync": 0, "run_in_executor": 1}
 
 
@@ -540,7 +542,7 @@ def _body_nodes(fn: ast.AST, module: str) -> list[ast.AST]:
 
 
 _memo: dict[Symbol, frozenset[int]] = {}
-# The parameters of each function whose value becomes a raised or returned status.
+# For each function, the parameters whose value becomes a raised or returned status.
 _forwarded: dict[Symbol, frozenset[str]] = {}
 
 
@@ -751,7 +753,8 @@ def stale(routes: Iterable[Any]) -> dict[str, list[int]]:
             code = int(documented)
             if code < 400 or code in raised or (code == 422 and takes_input):
                 continue
-            # The scope guard's own 401 and 403, with no reason of the route's added.
+            # The scope guard documents its own 401 and 403. Skip them unless the
+            # route added a reason to the description.
             if code in scope_defaults and entry.get("description") == (
                 scope_defaults[code]
             ):

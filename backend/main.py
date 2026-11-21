@@ -119,7 +119,7 @@ API_DESCRIPTION = """\
 Each route lists the errors it can return. A few come from middleware that runs
 before any route, so the routes don't list them:
 
-- **403**: a request that changes data must send the token from the
+- **403**: a request that changes data does not send the token from the
   `romm_csrftoken` cookie in the `x-csrftoken` header. A request that signs in
   with a Bearer or Basic `Authorization` header and has no signed-in session is
   exempt, and so are the token routes such as `/api/token`.
