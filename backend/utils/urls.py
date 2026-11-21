@@ -19,7 +19,7 @@ ROM_CONTENT_PATH_RE: Final = re.compile(r"/api/roms/(\d+)/content/[^/]*$")
 
 def is_shareable_host(host: str) -> bool:
     """Whether a host resolves to something other than the instance itself."""
-    if host.lower() == "localhost":
+    if host.lower().rstrip(".") == "localhost":
         return False
     try:
         address = ipaddress.ip_address(host)
