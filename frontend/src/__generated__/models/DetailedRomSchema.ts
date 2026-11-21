@@ -263,6 +263,10 @@ export type DetailedRomSchema = {
      */
     is_easyrpg_game: boolean;
     /**
+     * True when the ROM is a `.jsdos` bundle, or a folder with one at its top level.
+     */
+    has_jsdos_bundle: boolean;
+    /**
      * The path of the file or folder relative to the library root: `fs_path` joined with `fs_name`.
      */
     full_path: string;
