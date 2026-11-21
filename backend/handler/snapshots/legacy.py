@@ -48,17 +48,19 @@ def may_load(
     return True
 
 
+def channel_files(files: Iterable[RomFile]) -> list[RomFile]:
+    """The ROM's files a channel can key to: its game files still on disk."""
+    return [
+        f
+        for f in files
+        if f.category in (None, RomFileCategory.GAME) and not f.missing_from_fs
+    ]
+
+
 def sync_file(files: Iterable[RomFile]) -> RomFile | None:
     """The file a ROM's channels key to: the one an emulator loads, such as a
     `.cue`, else the first by name."""
-    games = sorted(
-        (
-            f
-            for f in files
-            if f.category in (None, RomFileCategory.GAME) and not f.missing_from_fs
-        ),
-        key=lambda f: f.file_name.lower(),
-    )
+    games = sorted(channel_files(files), key=lambda f: f.file_name.lower())
     loaders = [
         f for f in games if f.file_name.rsplit(".", 1)[-1].lower() in LOADER_EXTENSIONS
     ]
