@@ -21,6 +21,7 @@ from main import app
 from sqlalchemy import update
 from tests.auth_helpers import bearer, hide
 from tests.factories import (
+    make_firmware,
     make_platform,
     make_rom,
     make_save,
@@ -12937,6 +12938,91 @@ def test_the_interface_language_sits_beside_the_rom_not_inside_it(
     body = _activate_body(client, access_token, rom)
 
     assert "gui_language" not in body["rom"]
+
+
+def _firmware_activate_body(client, token, rom: Rom, **container) -> dict[str, Any]:
+    """Like `_activate_body`, with overrides on the webstation container entry."""
+    with _streaming({**_ws_for(rom), **container}):
+        with patch(
+            "handler.streaming.broker.request", return_value={"url": "/room/x"}
+        ) as request:
+            client.post(
+                "/api/streaming/sessions",
+                json={"rom_id": rom.id},
+                headers=bearer(token),
+            )
+    return cast(dict[str, Any], request.call_args.kwargs["body"])
+
+
+def test_the_activate_body_carries_the_platforms_firmware(
+    client, access_token, rom: Rom, platform: Platform
+):
+    """The broker copies each BIOS to where the emulator looks for it, so a
+    player who uploaded them to the platform has nothing to set up by hand."""
+    make_firmware(
+        platform,
+        "dc_boot.bin",
+        md5_hash="e10c53c2f8b90bab96ead2d368858623",
+        sha1_hash="8951d1bb219ab2ff8583033d2119c899cc81f18c",
+        file_size_bytes=2097152,
+    )
+
+    body = _activate_body(client, access_token, rom)
+
+    assert body["firmware"] == [
+        {
+            "file_name": "dc_boot.bin",
+            "path": f"{LIBRARY_BASE_PATH}/{platform.fs_slug}/bios/dc_boot.bin",
+            "size": 2097152,
+            "md5": "e10c53c2f8b90bab96ead2d368858623",
+            "sha1": "8951d1bb219ab2ff8583033d2119c899cc81f18c",
+        }
+    ]
+
+
+def test_firmware_paths_follow_the_containers_library_path(
+    client, access_token, rom: Rom, platform: Platform
+):
+    """A container that mounts the library elsewhere gets paths valid inside it,
+    the same as the rom path."""
+    make_firmware(platform, "bios.bin")
+
+    body = _firmware_activate_body(
+        client, access_token, rom, library_path="/mnt/games/"
+    )
+
+    assert body["firmware"][0]["path"] == f"/mnt/games/{platform.fs_slug}/bios/bios.bin"
+
+
+def test_firmware_missing_from_the_library_is_left_out(
+    client, access_token, rom: Rom, firmware, missing_firmware
+):
+    """A file the last scan could not find would only fail on the broker."""
+    body = _activate_body(client, access_token, rom)
+
+    assert [entry["file_name"] for entry in body["firmware"]] == ["present.bin"]
+
+
+def test_firmware_of_other_platforms_is_left_out(
+    client, access_token, rom: Rom, other_platform: Platform
+):
+    """Only the launched game's platform is copied in."""
+    make_firmware(other_platform, "other.bin")
+
+    assert _activate_body(client, access_token, rom)["firmware"] == []
+
+
+def test_firmware_without_hashes_sends_none(
+    client, access_token, rom: Rom, platform: Platform
+):
+    """An empty hash column is no hash, so the broker reads the file instead of
+    checking it against an empty string."""
+    make_firmware(platform, "bios.bin", md5_hash="", sha1_hash="")
+
+    entry = _activate_body(client, access_token, rom)["firmware"][0]
+
+    assert entry["md5"] is None
+    assert entry["sha1"] is None
 
 
 def test_a_claim_on_a_container_that_cannot_seat_a_joiner_stays_solo(

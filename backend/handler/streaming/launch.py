@@ -65,6 +65,7 @@ async def run_launch(
     native_fallback: bool = False,
     start_disc_id: int | None = None,
     booted_disc_id: int | None = None,
+    firmware: list[dict[str, Any]] | None = None,
 ) -> None:
     """Start the game, then tell the player's tabs where to find it.
 
@@ -77,6 +78,8 @@ async def run_launch(
         start_disc_id: the disc the player picked to start on, if any.
         booted_disc_id: the disc `rom_path` boots directly, recorded so states
             saved on it remember their disc.
+        firmware: The platform's firmware for the broker to put in place, from
+            `webstation.firmware_payload`.
     """
     # Nothing beats for the player until the stream is up, so without this the
     # next claimant reads the record as abandoned and tears the container down
@@ -114,6 +117,7 @@ async def run_launch(
             resume_slot=resume_slot if resume_on_activate else None,
             memory_card_synced=memory_card_synced,
             multiplayer=multiplayer,
+            firmware=firmware,
         )
 
     try:
