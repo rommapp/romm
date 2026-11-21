@@ -39,3 +39,26 @@ describe("cs_CZ messages", () => {
     ]);
   });
 });
+
+describe("firmware tab messages", () => {
+  afterEach(() => {
+    i18n.global.locale.value = "en_US";
+  });
+
+  it.each([
+    ["platform.firmware-missing-from-fs", "Missing from filesystem"],
+    [
+      "platform.firmware-toggle-all-fs",
+      "Also delete all files from filesystem",
+    ],
+    [
+      "platform.firmware-verified-tooltip",
+      "Passed size, SHA1 and MD5 checksum checks",
+    ],
+  ])("translates %s instead of its English fallback", async (key, fallback) => {
+    await loadLocale("de_DE");
+    i18n.global.locale.value = "de_DE";
+
+    expect(i18n.global.t(key, fallback)).not.toBe(fallback);
+  });
+});
