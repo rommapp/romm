@@ -85,7 +85,7 @@ async def _rewrite_playlists(folder: Path, renames: dict[str, str]) -> list[Path
     """Point each playlist entry for a converted file at its new name.
 
     Returns:
-        The playlists rewritten.
+        The paths of the rewritten playlists.
     """
     rewrites = await asyncio.to_thread(_rewritten_playlists, folder, renames)
     for playlist, text in rewrites.items():
@@ -172,7 +172,7 @@ def _names_taken(rom: Rom, names: list[str]) -> list[str]:
 def _channel_moves(
     before: list[RomFile], after: list[RomFile], replaced: dict[Path, Path]
 ) -> dict[FileKey, FileKey]:
-    """Each replaced file's key, to the key of the file that replaced it."""
+    """Map each replaced file's key to the key of the file that replaced it."""
     validate = fs_rom_handler.cached_path_validator()
     after_by_path = {validate(f.full_path): f for f in after}
     moves: dict[FileKey, FileKey] = {}
@@ -184,7 +184,7 @@ def _channel_moves(
         old_key, new_key = FileKey.of_file(rom_file), FileKey.of_file(new_file)
         if old_key != new_key:
             moves[old_key] = new_key
-    # Clients look a ROM's channels up on its sync file, which a conversion can change.
+    # Clients look up a ROM's channels by its sync file, which a conversion can change.
     old_sync, new_sync = sync_key(before), sync_key(after)
     if old_sync and new_sync and old_sync in moves:
         moves[old_sync] = new_sync

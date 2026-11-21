@@ -455,7 +455,7 @@ async def test_every_users_channels_follow_a_converted_file(
     assert _channel_file(ours) == _channel_file(theirs) == "game.chd"
     assert _listed(admin_user, rom, "game.chd") == ["default"]
     assert _listed(editor_user, rom, "game.chd") == ["Second run"]
-    # The move is no play, so the channel keeps its place in the user's list.
+    # Moving a channel is not a play, so it keeps its place in the user's list.
     moved = db_snapshot_handler.get_channel(ours.id)
     assert played is not None and moved is not None
     assert moved.updated_at == played.updated_at
@@ -532,7 +532,7 @@ async def test_each_disc_and_playlist_channel_follows_its_own_file(
 async def test_a_channel_on_the_sync_file_moves_to_the_roms_new_sync_file(
     library: Path, admin_user: User, converto, converted
 ):
-    # With the cue gone, name order picks the sync file, and this playlist sorts first.
+    # With the cue gone, the first file by name is the sync file, and this playlist sorts first.
     rom = _rom(
         library,
         admin_user,

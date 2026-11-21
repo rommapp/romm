@@ -684,8 +684,8 @@ file no longer hash-matches a DAT. It stages each output under a `.romm_tmp_`
 directory beside the ROM, deletes the originals (and a cue's tracks) once the
 output is in place, rewrites `.m3u` entries in folder ROMs, and refreshes the
 ROM's files, so the ROM keeps its id, saves and collections. Every user's save
-channels on a replaced file move to the file that replaced it, and those on the
-ROM's sync file (its `channel_file_id`) to its new sync file.
+channels on a replaced file move to the file that replaced it, and channels on
+the ROM's sync file (its `channel_file_id`) move to its new sync file.
 
 `cleanup_orphaned_resources` skips the cleanup when the database reports no
 platforms at all while artwork is still on disk, since that usually means the

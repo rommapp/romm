@@ -694,13 +694,13 @@ class DBSnapshotsHandler(DBBaseHandler):
         moves: Mapping[FileKey, FileKey],
         session: Session = INJECTED_SESSION,
     ) -> int:
-        """Key every user's channels on the ROM's replaced files to the files
-        that replaced them, keeping `updated_at`, which orders channels by play.
+        """Move every user's channels on the ROM's replaced files to their
+        replacements, keeping `updated_at` since it orders channels by last play.
 
         Args:
-            moves: Each replaced file's key, to the key of its replacement.
+            moves: Maps each replaced file's key to the key of its replacement.
         Returns:
-            How many channels moved.
+            The number of channels moved.
         """
         if not moves:
             return 0
