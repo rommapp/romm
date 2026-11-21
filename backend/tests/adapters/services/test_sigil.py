@@ -550,9 +550,24 @@ class TestStoredGame:
         assert game.result["save_id"] == save_target
         assert game.game_ids == (title_id,)
 
-    @pytest.mark.parametrize("slug", [UPS.NES, UPS.XBOX, UPS.XBOX360])
+    @pytest.mark.parametrize("slug", [UPS.NES, UPS.XBOX])
     def test_none_where_sigil_restores_no_saves(self, fake_sigil, slug: str):
         assert SigilService.stored_game(make_rom(slug), []) is None
+
+    def test_an_xbox_360_game_restores_by_its_title_id(self, fake_sigil):
+        files = [make_disc("Forza Horizon 2.iso", "4D530AA4", features=0)]
+
+        game = SigilService.stored_game(
+            make_rom(UPS.XBOX360, "4D530AA4", "4D530AA4"), files
+        )
+
+        assert game is not None
+        assert game.result["platform"] == "xbox360"
+        assert (game.result["title_id"], game.result["save_id"]) == (
+            "4D530AA4",
+            "4D530AA4",
+        )
+        assert game.game_ids == ("4D530AA4",)
 
     def test_none_when_binding_absent(self, monkeypatch):
         monkeypatch.setattr(sigil_adapter, "sigil", None)
