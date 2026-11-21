@@ -285,7 +285,7 @@ class TestGetWithCore:
 
         assert _awaited_args(restore)[2].content_path == "Chrono Cross (USA).bin"
 
-    @pytest.mark.parametrize("slug", ["nes", "snes", "genesis", "gba", "nds"])
+    @pytest.mark.parametrize("slug", ["nes", "snes", "genesis", "gba"])
     def test_a_platform_without_a_converter_serves_the_stored_file(
         self, client, headers, admin_user: User, restore, slug: str
     ):
@@ -350,6 +350,18 @@ class TestGetWithCore:
 
         assert response.status_code == status.HTTP_200_OK
         assert _awaited_args(restore)[2].core == "dolphin"
+
+    def test_a_ds_save_converts_for_desmume(
+        self, client, headers, admin_user: User, stored_game, restore
+    ):
+        save = _stored(
+            make_save(_rom_on("nds", "Game", admin_user), admin_user, "Game.sav")
+        )
+
+        response = _get(client, save, headers, "core=desmume")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert _awaited_args(restore)[2].core == "desmume"
 
     @pytest.mark.parametrize("slug", ["neogeoaes", "turbografx-cd", "unknown"])
     def test_a_platform_sigil_does_not_sync_is_refused(
