@@ -94,13 +94,12 @@ import {
 import { emulatorKey } from "@/utils/assets";
 import {
   ALL_DISCS,
-  bootableFiles,
   bootDiscId,
   type DiscSelection,
   streamDiscFiles,
+  streamHasPlaylist,
   streamSwapDiscFiles,
 } from "@/utils/playerDisc";
-import { fileExtension } from "@/utils/romFiles";
 
 type PlayerState = "idle" | "loading" | "playing" | "error" | "exited";
 type ErrorType =
@@ -274,16 +273,14 @@ const supportsStates = computed(
   () => capabilities.value.maxSlots > 0 || capabilities.value.hasAutosave,
 );
 
-// Mirrors the backend's Rom.has_m3u_file(): the emulator's disc-swap menu
-// only exists for multi-disc sets that ship a playlist.
-const hasM3uFile = computed(() =>
-  (rom.value?.files ?? []).some((f) => fileExtension(f.file_name) === "m3u"),
-);
-
-const bootableRomFiles = computed(() => bootableFiles(rom.value?.files ?? []));
-
 const patchExtensions = computed(
   () => heartbeatStore.value.ROM_PATCHER.SUPPORTED_EXTENSIONS,
+);
+
+// The emulator's disc-swap menu only exists for multi-disc sets that ship a
+// playlist.
+const hasM3uFile = computed(() =>
+  streamHasPlaylist(rom.value?.files ?? [], patchExtensions.value),
 );
 
 const discOptions = computed(() =>
@@ -307,12 +304,14 @@ const startDiscItems = computed<{ title: string; value: DiscSelection }[]>(
 );
 
 // A rom with a single swappable disc has nothing to swap to, whatever the
-// platform can do.
+// platform can do. A start disc outside the playlist boots alone, without one.
 const canSwapDisc = computed(
   () =>
     capabilities.value.supportsDiscSwap &&
     swapDiscOptions.value.length > 1 &&
     hasM3uFile.value &&
+    (startDisc.value === ALL_DISCS ||
+      swapDiscOptions.value.some((o) => o.value === startDisc.value)) &&
     !isJoining,
 );
 
@@ -321,7 +320,7 @@ const canSwapDisc = computed(
 const showManualDiscHint = computed(
   () =>
     capabilities.value.hasManualDiscSwap &&
-    bootableRomFiles.value.length > 1 &&
+    discOptions.value.length > 1 &&
     !isJoining,
 );
 

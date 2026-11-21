@@ -135,15 +135,15 @@ function isDescriptorFile(file: DiscFile): boolean {
   );
 }
 
-/** The discs a streaming session can start on, as the backend's `disc_files`
- *  picks them: no patches, and a disc sheet stands in for its raw tracks.
- *  `patchExtensions` is the heartbeat's `ROM_PATCHER.SUPPORTED_EXTENSIONS`. */
+/** The discs a stream can start on, as the backend's `disc_files` picks them:
+ *  no media or `patchExtensions` file, and a disc sheet in place of its tracks. */
 export function streamDiscFiles<T extends DiscFile>(
   files: readonly T[],
   patchExtensions: readonly string[],
 ): readonly T[] {
-  const discs = bootableFiles(files).filter(
+  const discs = files.filter(
     (f) =>
+      isBootableFile(f) &&
       !isM3uFile(f) &&
       !patchExtensions.includes(`.${fileExtension(f.file_name)}`),
   );
@@ -153,14 +153,33 @@ export function streamDiscFiles<T extends DiscFile>(
   );
 }
 
-/** The discs a running session can swap to, as the backend's `playlist_files`
- *  picks them: the base game's, or every file's when the base has none. */
+// The backend's `playlist_set`: the base game's files, or every file when the
+// base has no disc.
+function streamPlaylistSet<T extends DiscFile>(
+  files: readonly T[],
+  patchExtensions: readonly string[],
+): readonly T[] {
+  const base = files.filter(isBaseGameFile);
+  return streamDiscFiles(base, patchExtensions).length > 0 ? base : files;
+}
+
+/** The discs a running stream can swap to, as the backend's `playlist_files` picks them. */
 export function streamSwapDiscFiles<T extends DiscFile>(
   files: readonly T[],
   patchExtensions: readonly string[],
 ): readonly T[] {
-  const base = streamDiscFiles(files.filter(isBaseGameFile), patchExtensions);
-  return base.length > 0 ? base : streamDiscFiles(files, patchExtensions);
+  return streamDiscFiles(
+    streamPlaylistSet(files, patchExtensions),
+    patchExtensions,
+  );
+}
+
+/** Whether the stream's playlist set ships its own .m3u, as `Rom.has_m3u_file` checks. */
+export function streamHasPlaylist(
+  files: readonly DiscFile[],
+  patchExtensions: readonly string[],
+): boolean {
+  return streamPlaylistSet(files, patchExtensions).some(isM3uFile);
 }
 
 // A set carrying a playlist or disc sheet only boots whole; anything else boots

@@ -12,6 +12,7 @@ import {
   resolveStoredDisc,
   selectableDiscFiles,
   streamDiscFiles,
+  streamHasPlaylist,
   streamSwapDiscFiles,
 } from "./playerDisc";
 
@@ -408,6 +409,15 @@ describe("streamDiscFiles", () => {
 
     expect(ids).toEqual([1]);
   });
+
+  it("offers no disc when the rom holds only media", () => {
+    expect(
+      streamDiscFiles(
+        [file(1, "Manual.pdf", "manual"), file(2, "Theme.mp3", "soundtrack")],
+        PATCHES,
+      ),
+    ).toEqual([]);
+  });
 });
 
 describe("streamSwapDiscFiles", () => {
@@ -435,5 +445,33 @@ describe("streamSwapDiscFiles", () => {
     ).map((f) => f.id);
 
     expect(ids).toEqual([1, 2]);
+  });
+});
+
+describe("streamHasPlaylist", () => {
+  it("ignores a variant's playlist when the base game has discs", () => {
+    expect(
+      streamHasPlaylist(
+        [
+          file(1, "Game (Disc 1).chd"),
+          file(2, "Game (Disc 2).chd"),
+          file(3, "Hack.m3u", "hack"),
+        ],
+        [],
+      ),
+    ).toBe(false);
+  });
+
+  it("reads the variants' playlist when the base game has no disc", () => {
+    expect(
+      streamHasPlaylist(
+        [
+          file(1, "Hack (Disc 1).chd", "hack"),
+          file(2, "Hack (Disc 2).chd", "hack"),
+          file(3, "Hack.m3u", "hack"),
+        ],
+        [],
+      ),
+    ).toBe(true);
   });
 });
