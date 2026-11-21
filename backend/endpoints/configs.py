@@ -1,7 +1,9 @@
 from typing import Annotated
 
-from fastapi import HTTPException, Request, status
-from pydantic import BaseModel, Field, StringConstraints, field_validator
+from fastapi import HTTPException
+from fastapi import Path as PathVar
+from fastapi import Request, status
+from pydantic import Field, StringConstraints, field_validator
 
 from adapters.services.rom_converto import (
     LIBRARY_TARGETS_BY_PLATFORM,
@@ -22,6 +24,7 @@ from config.config_manager import (
 )
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from endpoints.responses.config import ConfigResponse
 from exceptions.config_exceptions import ConfigNotWritableException
 from handler.audit_handler import AuditTarget, record
@@ -245,7 +248,12 @@ async def add_platform_binding(
 
 
 @protected_route(router.delete, "/system/platforms/{fs_slug}", [Scope.PLATFORMS_WRITE])
-async def delete_platform_binding(request: Request, fs_slug: str) -> None:
+async def delete_platform_binding(
+    request: Request,
+    fs_slug: Annotated[
+        str, PathVar(description="The name of the platform's folder in the library.")
+    ],
+) -> None:
     """Delete platform binding from the configuration"""
 
     try:
@@ -279,7 +287,12 @@ async def add_platform_version(
 
 
 @protected_route(router.delete, "/system/versions/{fs_slug}", [Scope.PLATFORMS_WRITE])
-async def delete_platform_version(request: Request, fs_slug: str) -> None:
+async def delete_platform_version(
+    request: Request,
+    fs_slug: Annotated[
+        str, PathVar(description="The name of the platform's folder in the library.")
+    ],
+) -> None:
     """Delete platform version from the configuration"""
 
     try:
@@ -316,7 +329,9 @@ async def add_exclusion(request: Request, payload: ExclusionPayload) -> None:
     [Scope.PLATFORMS_WRITE],
 )
 async def delete_exclusion(
-    request: Request, exclusion_type: ExclusionType, exclusion_value: str
+    request: Request,
+    exclusion_type: ExclusionType,
+    exclusion_value: str,
 ) -> None:
     """Delete platform binding from the configuration"""
 

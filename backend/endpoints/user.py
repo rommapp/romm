@@ -4,7 +4,7 @@ from typing import Annotated, Any, Final
 
 from fastapi import Body, Form, HTTPException
 from fastapi import Path as PathVar
-from fastapi import Request, status
+from fastapi import Query, Request, status
 from fastapi.responses import FileResponse
 
 from decorators.auth import protected_route
@@ -223,15 +223,27 @@ def add_user(
     status_code=status.HTTP_201_CREATED,
 )
 def create_invite_link(
-    request: Request, role: str, expiration: int | None = None
+    request: Request,
+    role: Annotated[
+        str,
+        Query(
+            description=(
+                "The role of the invited user: `user` or `admin`. Only an admin"
+                " can invite an admin, unless no admin exists yet."
+            )
+        ),
+    ],
+    expiration: Annotated[
+        int | None,
+        Query(
+            description=(
+                "The lifetime of the link, in seconds. Defaults to"
+                " `INVITE_TOKEN_EXPIRY_SECONDS`, which is 600 unless changed."
+            )
+        ),
+    ] = None,
 ) -> InviteLinkSchema:
     """Create an invite link for a user.
-
-    Args:
-        request (Request): FastAPI Request object
-        role (str): The role of the user
-        expiration (int | None): Token expiration in seconds. Defaults to
-            the INVITE_TOKEN_EXPIRY_SECONDS environment variable.
 
     Returns:
         InviteLinkSchema: Invite link
@@ -389,7 +401,9 @@ def get_current_user(request: Request) -> UserSchema | None:
 
 
 @protected_route(router.get, "/{id}", [Scope.USERS_READ])
-def get_user(request: Request, id: int) -> UserSchema:
+def get_user(
+    request: Request, id: Annotated[int, PathVar(description="The ID of the user.")]
+) -> UserSchema:
     """Get user endpoint
 
     Args:
@@ -414,7 +428,7 @@ def get_user(request: Request, id: int) -> UserSchema:
 )
 def get_user_avatar(
     request: Request,
-    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+    id: Annotated[int, PathVar(description="The ID of the user.", ge=1)],
 ) -> FileResponse:
     """Serve a user's avatar image. Avatars are public to any authenticated
     user (rendered next to community content, activity, and user lists)."""
@@ -439,24 +453,26 @@ def get_user_avatar(
     return build_asset_file_response(file_path)
 
 
-@protected_route(router.put, "/{id}", [Scope.ME_WRITE])
+@protected_route(
+    router.put,
+    "/{id}",
+    [Scope.ME_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "A field is invalid or already taken, the current password is missing, or the change would demote the last admin."
+        },
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The caller cannot manage this user, the current password is wrong, or the email is managed by the identity provider."
+        },
+        status.HTTP_404_NOT_FOUND: {"description": "No user has this ID."},
+    },
+)
 async def update_user(
-    request: Request, id: int, form_data: Annotated[UserForm, Form()]
+    request: Request,
+    id: Annotated[int, PathVar(description="The ID of the user.")],
+    form_data: Annotated[UserForm, Form()],
 ) -> UserSchema:
-    """Update user endpoint
-
-    Args:
-        request (Request): Fastapi Requests object
-        user_id (int): User internal id
-        form_data (Annotated[UserUpdateForm, Depends): Form Data with user updated info
-
-    Raises:
-        HTTPException: User is not found in database
-        HTTPException: Username already in use by another user
-
-    Returns:
-        UserSchema: Updated user info
-    """
+    """Update a user. Changing your own username, password or email needs your current password."""
 
     db_user = db_user_handler.get_user(id)
     if not db_user:
@@ -659,21 +675,20 @@ async def update_user(
     "/{id}",
     [Scope.USERS_WRITE],
     responses={
-        status.HTTP_400_BAD_REQUEST: {},
-        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The user is the caller, or the last admin."
+        },
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The user is an admin, and the caller is not one."
+        },
+        status.HTTP_404_NOT_FOUND: {"description": "No user has this ID."},
     },
 )
 async def delete_user(
     request: Request,
-    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+    id: Annotated[int, PathVar(description="The ID of the user.", ge=1)],
 ) -> None:
-    """Delete a user by ID.
-
-    Raises:
-        HTTPException: User is not found in database
-        HTTPException: User deleting itself
-        HTTPException: User is the last admin user
-    """
+    """Delete a user by ID."""
 
     user = db_user_handler.get_user(id)
     if not user:
@@ -726,7 +741,7 @@ async def delete_user(
 )
 async def refresh_retro_achievements(
     request: Request,
-    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+    id: Annotated[int, PathVar(description="The ID of the user.", ge=1)],
     incremental: Annotated[
         bool,
         Body(

@@ -5,10 +5,11 @@ import uuid
 from collections.abc import Iterable
 from typing import Annotated, Any, Self
 
-from fastapi import HTTPException, Query, Request, status
+from fastapi import HTTPException
+from fastapi import Path as PathVar
+from fastapi import Query, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import (
-    BaseModel,
     Field,
     StringConstraints,
     ValidationError,
@@ -17,6 +18,7 @@ from pydantic import (
 from starlette.datastructures import UploadFile
 
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from endpoints.responses.snapshots import (
     MissingContentSchema,
     SnapshotConflictSchema,
@@ -83,6 +85,7 @@ FEED_DEVICE_DESCRIPTION = (
     "current for a device records it as the current the device knows, which a "
     "push without `expected_current_id` expects. Naming one takes `devices.write`."
 )
+SnapshotIdPath = Annotated[int, PathVar(description="The ID of the snapshot.")]
 SCREENSHOT_SUFFIX = ":screenshot"
 SAVE_SCREENSHOT_PART = "save_screenshot"
 STATE_PART_PATTERN = re.compile(r"^state:([^:]+):([^:]+)$")
@@ -121,14 +124,8 @@ class ManifestPayload(BaseModel):
     label: str | None = Field(
         default=None, min_length=1, max_length=CHANNEL_LABEL_MAX_LENGTH
     )
-    expected_current_id: int | None = Field(
-        default=None,
-        description=(
-            "The current snapshot the push builds on; null expects an empty channel. "
-            "Left out, the push expects the latest current its device knows from a "
-            "feed, push or download, else its parent, else an empty channel."
-        ),
-    )
+    expected_current_id: int | None = None
+    """The ID of the snapshot the push expects to be the channel's current one. Null means the push expects an empty channel. If left out, the server uses the latest current snapshot the device has seen through a feed, push or download, or else `parent_snapshot_id`, or else expects an empty channel."""
     parent_snapshot_id: int | None = None
     save: SaveEntryPayload | None = None
     states: dict[CoreName, dict[SlotName, ContentHash]] = {}
@@ -319,10 +316,32 @@ def required_device(request: Request, device_id: str | None) -> Device:
 @protected_route(router.get, "", [Scope.ASSETS_READ])
 def get_snapshots(
     request: Request,
-    channel_id: uuid.UUID,
+    channel_id: Annotated[
+        uuid.UUID,
+        Query(
+            description=(
+                "The ID of the channel whose history to list. A channel is one"
+                " playthrough of one rom file."
+            )
+        ),
+    ],
     save_target: str | None = None,
-    limit: Annotated[int, Query(ge=1, le=HISTORY_PAGE_MAX)] = 50,
-    cursor: str | None = None,
+    limit: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=HISTORY_PAGE_MAX,
+        ),
+    ] = 50,
+    cursor: Annotated[
+        str | None,
+        Query(
+            description=(
+                "The ID of the last snapshot on the previous page. The response"
+                " holds the snapshots older than it. Omit it for the first page."
+            )
+        ),
+    ] = None,
     device_id: Annotated[str | None, Query(description=FEED_DEVICE_DESCRIPTION)] = None,
 ) -> list[SnapshotSchema]:
     """One channel's history, newest first. A first page that shows the current records it as the device's latest known."""
@@ -355,7 +374,7 @@ def get_snapshots(
 @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
 def get_snapshot(
     request: Request,
-    id: int,
+    id: SnapshotIdPath,
     device_id: Annotated[
         str | None,
         Query(
@@ -549,7 +568,19 @@ def _respond(result: WriteResult, viewer: User) -> JSONResponse:
         status.HTTP_409_CONFLICT: {"model": SnapshotConflictSchema},
     },
 )
-async def push_snapshot(request: Request, device_id: str | None = None) -> JSONResponse:
+async def push_snapshot(
+    request: Request,
+    device_id: Annotated[
+        str | None,
+        Query(
+            description=(
+                "The ID of the device pushing the snapshot. Defaults to the"
+                " device bound to the client token. Any other device needs the"
+                " `devices.write` scope."
+            )
+        ),
+    ] = None,
+) -> JSONResponse:
     """Write a snapshot into a channel: a `manifest` part plus `save`, `state:<core>:<slot>` and screenshot parts for hashes the server lacks."""
     viewer = request.user
     device = request_device(request, device_id)
@@ -636,7 +667,7 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
 
 @protected_route(router.patch, "/{id}", [Scope.ASSETS_WRITE])
 def update_snapshot(
-    request: Request, id: int, payload: SnapshotUpdatePayload
+    request: Request, id: SnapshotIdPath, payload: SnapshotUpdatePayload
 ) -> SnapshotSchema:
     """Pin or unpin a snapshot for the caller, which any reader may do, or share
     an archival one, which only its owner may do."""

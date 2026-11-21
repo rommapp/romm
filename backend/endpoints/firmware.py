@@ -1,7 +1,9 @@
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Body, File, HTTPException, Query, Request, UploadFile, status
+from fastapi import Body, File, HTTPException
+from fastapi import Path as PathVar
+from fastapi import Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
 from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH
@@ -39,6 +41,15 @@ router = APIRouter(
 )
 
 
+FirmwareIdPath = Annotated[int, PathVar(description="The ID of the firmware file.")]
+FirmwareFileNamePath = Annotated[
+    str,
+    PathVar(
+        description="A file name to end the URL with, which EmulatorJS needs because of a bug. It does not change the name of the downloaded file."
+    ),
+]
+
+
 @protected_route(router.post, "", [Scope.FIRMWARE_WRITE])
 async def add_firmware(
     request: Request,
@@ -46,11 +57,6 @@ async def add_firmware(
     files: list[UploadFile] = File(...),  # noqa: B008
 ) -> AddFirmwareResponse:
     """Upload firmware files endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        platform_slug (str): Slug of the platform where to upload the files
-        files (list[UploadFile], optional): List of files to upload
 
     Raises:
         HTTPException
@@ -197,12 +203,8 @@ def get_firmware_identifiers(
     "/{id}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.FIRMWARE_READ],
 )
-def get_firmware(request: Request, id: int) -> FirmwareSchema:
+def get_firmware(request: Request, id: FirmwareIdPath) -> FirmwareSchema:
     """Get firmware endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Firmware internal id
 
     Returns:
         FirmwareSchema: Firmware stored in the database
@@ -245,13 +247,10 @@ def _resolve_firmware_content(request: Request, id: int) -> tuple[Firmware, Path
     "/{id}/content/{file_name}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.FIRMWARE_READ],
 )
-def head_firmware_content(request: Request, id: int, file_name: str) -> FileResponse:
+def head_firmware_content(
+    request: Request, id: FirmwareIdPath, file_name: FirmwareFileNamePath
+) -> FileResponse:
     """Head firmware content endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Rom internal id
-        file_name (str): Required due to a bug in emulatorjs
 
     Returns:
         FileResponse: Returns the response with headers
@@ -275,15 +274,10 @@ def head_firmware_content(request: Request, id: int, file_name: str) -> FileResp
 )
 def get_firmware_content(
     request: Request,
-    id: int,
-    file_name: str,
+    id: FirmwareIdPath,
+    file_name: FirmwareFileNamePath,
 ) -> FileResponse:
     """Download firmware endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Rom internal id
-        file_name (str): Required due to a bug in emulatorjs
 
     Returns:
         FileResponse: Returns the firmware file

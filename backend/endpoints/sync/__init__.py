@@ -70,45 +70,27 @@ CONFLICT_NOTIFY_TIMEOUT_S = 2.0
 
 
 class ClientSaveState(BaseModel):
-    rom_id: int = Field(description="ID of the ROM this save belongs to.")
-    file_name: str = Field(description="Name of the save file on the client.")
-    slot: str | None = Field(
-        default=None,
-        description=(
-            "Save slot name. Saves are paired between client and server on "
-            "(rom_id, slot), so provide a stable slot name (e.g. 'autosave') to "
-            "keep a save in sync across negotiations. A null slot is treated as "
-            "an archival, manual-upload save: it is never paired with slotted "
-            "server saves, so a null-slot client save always negotiates as an "
-            "'upload' even when an identical file already exists on the server "
-            "under a slot."
-        ),
-    )
-    emulator: str | None = Field(
-        default=None, description="Emulator that produced the save, if known."
-    )
-    content_hash: str | None = Field(
-        default=None,
-        description="Hash of the save contents, used to detect identical saves.",
-    )
-    updated_at: datetime = Field(
-        description="Last-modified timestamp of the save on the client."
-    )
-    file_size_bytes: int = Field(description="Size of the save file in bytes.")
+    rom_id: int
+    """ID of the ROM this save belongs to."""
+    file_name: str
+    """Name of the save file on the client."""
+    slot: str | None = None
+    """The save slot name. Client and server saves pair on (rom_id, slot), so a stable name such as `autosave` keeps a save in sync across negotiations. A null slot marks an archival, manual-upload save that never pairs with a slotted server save, so it always negotiates as an `upload`, even when the server holds an identical file in a slot."""
+    emulator: str | None = None
+    """Emulator that produced the save, if known."""
+    content_hash: str | None = None
+    """Hash of the save contents, used to detect identical saves."""
+    updated_at: datetime
+    """Last-modified timestamp of the save on the client."""
+    file_size_bytes: int
+    """Size of the save file in bytes."""
 
 
 class SyncNegotiatePayload(BaseModel):
-    device_id: str | None = Field(
-        default=None,
-        description=(
-            "ID of the syncing device. Optional when the request uses a "
-            "device-bound client token, in which case the device is inferred "
-            "from the token."
-        ),
-    )
-    saves: list[ClientSaveState] = Field(
-        description="Current save state on the client."
-    )
+    device_id: str | None = None
+    """ID of the syncing device. Optional when the request uses a device-bound client token, in which case the device is inferred from the token."""
+    saves: list[ClientSaveState]
+    """Current save state on the client."""
     rom_ids: RomIdScope = Field(
         default=None,
         description=(
@@ -119,31 +101,12 @@ class SyncNegotiatePayload(BaseModel):
             f"saves. At most {MAX_ROM_IDS_PER_QUERY} IDs per request."
         ),
     )
-    restore_unlisted: bool = Field(
-        default=False,
-        description=(
-            "Offer every current server save the client did not list as a "
-            "download, even one this device already synced. For clients that "
-            "never delete saves themselves (such as a browser, whose storage "
-            "can be evicted), so a missing save means lost rather than deleted."
-        ),
-    )
-    emulators: list[str] | None = Field(
-        default=None,
-        description=(
-            "Emulators whose saves this client can load. When provided, only "
-            "server saves written by one of them are paired or offered, so a "
-            "save from another emulator in the same slot is left alone."
-        ),
-    )
-    cores: list[str] | None = Field(
-        default=None,
-        description=(
-            "Libretro cores whose saves this client can load. A save from a "
-            "snapshot client that names its core is offered only to a client "
-            "listing that core, and is matched by emulator otherwise."
-        ),
-    )
+    restore_unlisted: bool = False
+    """Whether to offer every current server save the client did not list as a download, even one this device already synced. Set it on a client that never deletes saves itself, such as a browser whose storage can be evicted, where a missing save was lost and not deleted."""
+    emulators: list[str] | None = None
+    """Emulators whose saves this client can load. When provided, only server saves written by one of them are paired or offered, so a save from another emulator in the same slot is left alone."""
+    cores: list[str] | None = None
+    """Libretro cores whose saves this client can load. A save from a snapshot client that recorded its core is only offered to clients that list that core. Other saves are matched by emulator."""
 
 
 # Its own class so the OpenAPI schema keeps the name clients generate from.

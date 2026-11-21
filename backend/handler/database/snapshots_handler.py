@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from decorators.database import INJECTED_SESSION, begin_session
 from handler.snapshots.file_key import FileKey
 from handler.snapshots.legacy import (
+    channel_files,
     channel_label,
     may_load,
     slot_for_label,
@@ -295,21 +296,31 @@ def channel_for_slot(
         return linked
 
     platform_id = session.scalar(select(Rom.platform_id).where(Rom.id == rom_id))
-    key = sync_key(session.scalars(select(RomFile).where(RomFile.rom_id == rom_id)))
+    files = channel_files(
+        session.scalars(select(RomFile).where(RomFile.rom_id == rom_id))
+    )
+    key = sync_key(files)
     if platform_id is None or key is None:
         return None
-    existing = session.scalar(
+    named = (
         select(Channel.id)
         .where(
             Channel.user_id == user_id,
             Channel.platform_id == platform_id,
             # Clients vary a slot's case; MariaDB's collation ignores it, PostgreSQL's doesn't.
             func.lower(Channel.label) == label.lower(),
-            _keyed_to(key),
         )
         .order_by(Channel.created_at)
         .limit(1)
     )
+    existing = session.scalar(named.where(_keyed_to(key)))
+    # A file added to the ROM can move its sync file, and the ROM's channel
+    # on another of its files is still the slot's.
+    others = [k for k in map(FileKey.of_file, files) if k != key]
+    if existing is None and others:
+        existing = session.scalar(
+            named.where(Channel.rom_id == rom_id, or_(*map(_keyed_to, others)))
+        )
     if existing is not None or not create:
         return existing
     channel = key.new_channel(user_id, rom_id, platform_id, label)

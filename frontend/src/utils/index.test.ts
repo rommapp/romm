@@ -4,16 +4,17 @@ import type { Heartbeat } from "@/stores/heartbeat";
 import { ejsCoresFixture } from "./ejsCores.fixtures";
 import {
   getSupportedEJSCores,
+  hasJsDosBundle,
   isArcadeSystem,
   isEasyRpgEmulationSupported,
   isEasyRpgGame,
-  isJsDosBundle,
   isJsDosEmulationSupported,
   isPico8EmulationSupported,
   isPico8Rom,
+  jsDosBundleFileIds,
   languageToEmoji,
 } from "./index";
-import { romFixture } from "./rom.fixtures";
+import { detailedRomFixture, romFileFixture, romFixture } from "./rom.fixtures";
 
 function makeHeartbeat(
   emulation: Partial<Heartbeat["EMULATION"]> = {},
@@ -71,24 +72,51 @@ describe("isJsDosEmulationSupported", () => {
   });
 });
 
-describe("isJsDosBundle", () => {
-  const withExt = (fs_extension: string) => romFixture({ fs_extension });
-
-  it("accepts a .jsdos bundle regardless of case", () => {
-    expect(isJsDosBundle(withExt("jsdos"))).toBe(true);
-    expect(isJsDosBundle(withExt("JSDOS"))).toBe(true);
-  });
-
-  // js-dos panics with "Broken bundle" on anything that is not its own format.
-  it("rejects plain archives, bare executables and folders", () => {
-    expect(isJsDosBundle(withExt("zip"))).toBe(false);
-    expect(isJsDosBundle(withExt("exe"))).toBe(false);
-    expect(isJsDosBundle(withExt(""))).toBe(false);
+describe("hasJsDosBundle", () => {
+  it("follows the backend's bundle flag", () => {
+    expect(hasJsDosBundle(romFixture({ has_jsdos_bundle: true }))).toBe(true);
+    expect(hasJsDosBundle(romFixture({ has_jsdos_bundle: false }))).toBe(false);
   });
 
   it("rejects a missing rom", () => {
-    expect(isJsDosBundle(null)).toBe(false);
-    expect(isJsDosBundle(undefined)).toBe(false);
+    expect(hasJsDosBundle(null)).toBe(false);
+    expect(hasJsDosBundle(undefined)).toBe(false);
+  });
+});
+
+describe("jsDosBundleFileIds", () => {
+  const file = (id: number, file_name: string, is_top_level = true) =>
+    romFileFixture({ id, file_name, is_top_level });
+
+  it("picks the top-level bundle beside other files", () => {
+    const rom = detailedRomFixture({
+      files: [
+        file(1, "manual.pdf"),
+        file(2, "Game (1996).JSDOS"),
+        file(3, "extra.jsdos", false),
+      ],
+    });
+    expect(jsDosBundleFileIds(rom)).toEqual([2]);
+  });
+
+  it("returns none without a top-level bundle", () => {
+    const rom = detailedRomFixture({ files: [file(3, "extra.jsdos", false)] });
+    expect(jsDosBundleFileIds(rom)).toEqual([]);
+  });
+
+  it("skips a bundle missing from disk", () => {
+    const rom = detailedRomFixture({
+      files: [
+        romFileFixture({
+          id: 1,
+          file_name: "A.jsdos",
+          is_top_level: true,
+          missing_from_fs: true,
+        }),
+        file(2, "B.jsdos"),
+      ],
+    });
+    expect(jsDosBundleFileIds(rom)).toEqual([2]);
   });
 });
 

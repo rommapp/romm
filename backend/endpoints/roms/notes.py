@@ -9,7 +9,7 @@ from endpoints.responses.rom import UserNoteSchema
 from handler.auth.constants import Scope
 from handler.auth.dependencies import visible_rom_or_404
 from handler.database import db_rom_handler
-from utils.router import APIRouter
+from utils.router import APIRouter, RomIdPath
 
 router = APIRouter()
 
@@ -26,7 +26,7 @@ DEFAULT_TAGS = Query(None, description="Filter by tags")
 )
 async def get_rom_notes(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     public_only: bool = DEFAULT_PUBLIC_ONLY,
     search: str = DEFAULT_SEARCH,
     tags: list[str] = DEFAULT_TAGS,
@@ -56,7 +56,7 @@ async def get_rom_notes(
 )
 async def get_rom_note_identifiers(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
 ) -> list[int]:
     """Get all note identifiers for a ROM."""
     visible_rom_or_404(request, db_rom_handler.get_rom_visibility(id), id)
@@ -75,7 +75,7 @@ async def get_rom_note_identifiers(
 )
 async def create_rom_note(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     note_data: Annotated[dict[str, Any], Body()],
 ) -> UserNoteSchema:
     """Create a new note for a ROM."""
@@ -105,7 +105,7 @@ async def create_rom_note(
 )
 async def update_rom_note(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     note_id: Annotated[int, PathVar(description="Note id.", ge=1)],
     note_data: Annotated[dict[str, Any], Body()],
 ) -> UserNoteSchema:
@@ -143,7 +143,7 @@ async def update_rom_note(
 )
 async def delete_rom_note(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     note_id: Annotated[int, PathVar(description="Note id.", ge=1)],
 ) -> dict[str, Any]:
     """Delete a ROM note."""

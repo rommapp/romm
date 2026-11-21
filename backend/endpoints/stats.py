@@ -1,4 +1,6 @@
-from fastapi import Request
+from typing import Annotated
+
+from fastapi import Query, Request
 
 from decorators.auth import protected_route
 from endpoints.responses.stats import StatsReturn
@@ -14,7 +16,18 @@ router = APIRouter(
 
 
 @protected_route(router.get, "", [Scope.ROMS_READ])
-def stats(request: Request, include_platform_stats: bool = False) -> StatsReturn:
+def stats(
+    request: Request,
+    include_platform_stats: Annotated[
+        bool,
+        Query(
+            description=(
+                "Whether to add `METADATA_COVERAGE` and `REGION_BREAKDOWN`, each"
+                " broken down by platform."
+            )
+        ),
+    ] = False,
+) -> StatsReturn:
     """Endpoint to return the current RomM stats
 
     Returns:

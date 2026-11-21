@@ -1,4 +1,4 @@
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException, Query, Request, status
 
 from config import DISABLE_LOGS_VIEWER
 from decorators.auth import protected_route
@@ -20,13 +20,17 @@ MAX_LOG_LIMIT = LOG_BUFFER_SIZE
 
 @protected_route(router.get, "", [Scope.LOGS_READ])
 async def get_logs(
-    request: Request, limit: int = MAX_LOG_LIMIT
+    request: Request,
+    limit: int = Query(
+        MAX_LOG_LIMIT,
+        description=(
+            "The number of recent log lines to return, from 1 up to the log buffer"
+            " size. Values outside that range are clamped. Defaults to the log"
+            " buffer size."
+        ),
+    ),
 ) -> list[LogEntrySchema]:
     """Return the most recent backend log lines for backfill.
-
-    Args:
-        request (Request): FastAPI Request object.
-        limit (int): Maximum number of recent lines to return.
 
     Returns:
         list[LogEntrySchema]: Recent log lines, oldest-first.

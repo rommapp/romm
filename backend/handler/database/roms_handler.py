@@ -725,6 +725,7 @@ def _rom_card_loaders(
             undefer(Rom.top_level_file_count),
             undefer(Rom.has_soundtrack),
             undefer(Rom.is_easyrpg_game),
+            undefer(Rom.has_jsdos_bundle),
         ]
     if siblings:
         options.append(
@@ -1982,11 +1983,12 @@ class DBRomsHandler(DBBaseHandler):
         self,
         page_ids: Sequence[int],
         *,
-        visibility: RomVisibilityFilter = UNRESTRICTED,
+        visibility: RomVisibilityFilter,
         include_file_stats: bool = False,
     ) -> RomSelect:
         """The rows of one page, loaded by id with none of the filters re-run."""
-        # Visibility is re-checked in case a cached id index predates a rule change.
+        # The only access check on caller-supplied ids, and it also catches a
+        # cached id index that predates a rule change.
         return (
             select(Rom)
             .where(Rom.id.in_(page_ids), *visibility.clauses())
