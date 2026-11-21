@@ -474,23 +474,24 @@ async def _over_restored_archive(
     """The exit delta (only what changed since launch) laid over the archive the session restored."""
     if base_save_id is None:
         return content
-    base = db_save_handler.get_save(user_id=user.id, id=base_save_id)
-    if (
-        base is None
-        or base.rom_id != rom.id
-        or base.content_hash != base_save_hash
-        or not _is_restorable(base, emulator)
-    ):
-        return content
-    stored = await read_restorable_archive(base)
-    if stored is None:
-        return content
+    # The export is already gone from the container, so any failure files the delta.
     try:
+        base = db_save_handler.get_save(user_id=user.id, id=base_save_id)
+        if (
+            base is None
+            or base.rom_id != rom.id
+            or base.content_hash != base_save_hash
+            or not _is_restorable(base, emulator)
+        ):
+            return content
+        stored = await read_restorable_archive(base)
+        if stored is None:
+            return content
         return await asyncio.to_thread(
             archive.overlay, stored[1], content, broker.SAVE_FILE_MAX_BYTES
         )
     except Exception:
-        log.exception("could not merge the exit archive over %s", base.file_name)
+        log.exception("could not merge the exit archive over save %s", base_save_id)
         return content
 
 

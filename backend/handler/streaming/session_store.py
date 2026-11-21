@@ -477,8 +477,9 @@ async def stamp_launched(
     write would stamp a stranger's session or bring a short drain marker back
     with a six-hour TTL that no release path owns.
 
-    Best-effort: a stamp that never lands only costs a few redundant broker
-    round trips, and failing a session that is already up would be worse.
+    Best-effort: a stamp that never lands costs a few redundant broker round
+    trips and files the exit delta without the restored archive under it, and
+    failing a session that is already up would be worse.
 
     Args:
         host: a game's room URL, for the status poll to hand a tab that missed

@@ -60,7 +60,7 @@ def overlay(base: bytes, top: bytes, max_bytes: int) -> bytes:
         with zipfile.ZipFile(io.BytesIO(content)) as zf:
             own = read_manifest(zf)
             manifest = own or manifest
-            labels.update(manifest_files(own))
+            own_labels = manifest_files(own)
             for info in zf.infolist():
                 if info.is_dir() or info.filename == MANIFEST_NAME:
                     continue
@@ -71,16 +71,23 @@ def overlay(base: bytes, top: bytes, max_bytes: int) -> bytes:
                 if expanded > max_bytes:
                     raise ValueError("merged archive exceeds its size limit")
                 members[info.filename] = (info, read_member(zf, info))
+                # A label travels with its own archive's bytes, unlabelled ones
+                # as a save, as an import archive labels its base.
+                labels[info.filename] = own_labels.get(
+                    info.filename, {"path": info.filename, "kind": "save"}
+                )
 
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
         for name, (info, data) in members.items():
             entry = zipfile.ZipInfo(name, date_time=info.date_time)
+            # The mode bits only mean what they say under the system that wrote them.
+            entry.create_system = info.create_system
             entry.external_attr = info.external_attr
             entry.flag_bits |= info.flag_bits & 0x800  # UTF-8 filename flag
             entry.compress_type = zipfile.ZIP_DEFLATED
             zf.writestr(entry, data)
-        if manifest or labels:
-            files = [labels[name] for name in members if name in labels]
+        if manifest:
+            files = [labels[name] for name in members]
             zf.writestr(MANIFEST_NAME, json.dumps({**manifest, "files": files}))
     return out.getvalue()

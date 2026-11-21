@@ -6529,6 +6529,53 @@ def test_archive_overlay_refuses_a_merge_past_the_size_limit():
         archive.overlay(base, top, 12)
 
 
+def test_archive_overlay_labels_every_member_by_its_own_archive():
+    """A base member the manifest never named still gets an entry, and a
+    replaced member drops the base's entry for the bytes it no longer holds."""
+    base_buf = io.BytesIO()
+    with zipfile.ZipFile(base_buf, "w") as zf:
+        zf.writestr("data/save00", b"old0")
+        zf.writestr("data/save01", b"old1")
+        zf.writestr(
+            ".broker-manifest.json",
+            json.dumps({"files": [{"path": "data/save01", "kind": "save", "x": 1}]}),
+        )
+    top_buf = io.BytesIO()
+    with zipfile.ZipFile(top_buf, "w") as zf:
+        zf.writestr("data/save01", b"new1")
+        zf.writestr("state.bin", b"s2")
+        zf.writestr(
+            ".broker-manifest.json",
+            json.dumps({"files": [{"path": "state.bin", "kind": "state"}]}),
+        )
+
+    merged = archive.overlay(base_buf.getvalue(), top_buf.getvalue(), 1024)
+
+    with zipfile.ZipFile(io.BytesIO(merged)) as zf:
+        files = json.loads(zf.read(".broker-manifest.json"))["files"]
+    assert sorted(files, key=lambda f: f["path"]) == [
+        {"path": "data/save00", "kind": "save"},
+        {"path": "data/save01", "kind": "save"},
+        {"path": "state.bin", "kind": "state"},
+    ]
+
+
+def test_archive_overlay_keeps_the_system_a_member_was_written_on():
+    """DOS attributes read as Unix mode bits would land the file unreadable."""
+    base_buf = io.BytesIO()
+    with zipfile.ZipFile(base_buf, "w") as zf:
+        info = zipfile.ZipInfo("data/save00", date_time=(2020, 1, 1, 0, 0, 0))
+        info.create_system = 0
+        info.external_attr = 0x20
+        zf.writestr(info, b"old0")
+    top = _exit_archive({"state.bin": ("state", b"s2")})
+
+    merged = archive.overlay(base_buf.getvalue(), top, 1024)
+
+    with zipfile.ZipFile(io.BytesIO(merged)) as zf:
+        assert zf.getinfo("data/save00").create_system == 0
+
+
 def _pull_over_base(
     rom: Rom,
     user: User,
@@ -6590,6 +6637,24 @@ def test_pull_saves_files_the_delta_alone_without_a_restored_archive(
     delta = _exit_archive({"state.bin": ("state", b"s2")})
 
     assert _pull_over_base(rom, admin_user, None, b"", delta) == delta
+
+
+def test_pull_saves_files_the_delta_when_the_restored_archive_will_not_read(
+    rom: Rom, admin_user: User
+):
+    """The container dropped its copy of the export, so a base that errors on
+    read must not cost the session its saves."""
+    emulator = _resolved({**_container_for(rom), "label": "PCSX2"}).emulator
+    base = _add_save(rom, admin_user, "Game [base].saves.zip", emulator, "base")
+    delta = _exit_archive({"state.bin": ("state", b"s2")})
+
+    with patch(
+        "handler.streaming.saves.read_restorable_archive",
+        new=AsyncMock(side_effect=PermissionError),
+    ):
+        filed = _pull_over_base(rom, admin_user, base, b"", delta)
+
+    assert filed == delta
 
 
 def test_pull_saves_skips_a_restored_archive_replaced_during_the_session(
@@ -7468,8 +7533,9 @@ def _refused_save(member: str) -> broker.ImportRefusedError:
 
 def _claim_refused_once(
     client, token, rom: Rom, refused: broker.ImportRefusedError, save_id: int | None
-) -> tuple[Any, MagicMock, AsyncMock, list[tuple[str, dict[str, Any]]]]:
-    """Claim against a broker that refuses the first activate's import."""
+) -> tuple[Any, MagicMock, AsyncMock, list[tuple[str, dict[str, Any]]], Any]:
+    """Claim against a broker that refuses the first activate's import,
+    returning the session record the claim left behind last."""
     activate = MagicMock(side_effect=[refused, {"url": "/r"}])
     hydrate_native = AsyncMock(return_value="/config/native.zip")
     with _streaming(_clearing_webstation(rom)):
@@ -7491,17 +7557,20 @@ def _claim_refused_once(
         ):
             with _pushes() as sent:
                 resp = _claim(client, token, rom.id, save_id=save_id)
-    return resp, activate, hydrate_native, sent
+        session = _session_raw(_clearing_webstation(rom))
+    return resp, activate, hydrate_native, sent, session
 
 
 def test_a_launch_with_no_pick_boots_the_archive_when_the_broker_refuses_the_raw_save(
     client, access_token, rom: Rom, admin_user: User
 ):
     """The broker refuses an import at activate, after the upload went through."""
-    _add_save(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    zipped = _add_save(
+        rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1"
+    )
     _add_save(rom, admin_user, "Game [2026-10-06_10-00-00].srm", "mgba", "h2")
 
-    resp, activate, hydrate_native, sent = _claim_refused_once(
+    resp, activate, hydrate_native, sent, session = _claim_refused_once(
         client, access_token, rom, _refused_save(".import/save/Game.srm"), None
     )
 
@@ -7512,6 +7581,9 @@ def test_a_launch_with_no_pick_boots_the_archive_when_the_broker_refuses_the_raw
         "/config/native.zip",
     ]
     hydrate_native.assert_awaited_once()
+    stamped = json.loads(session)
+    assert stamped["restored_save_id"] == zipped.id
+    assert stamped["restored_save_hash"] == "h1"
 
 
 def test_a_refused_raw_save_the_player_picked_still_fails_the_launch(
@@ -7520,7 +7592,7 @@ def test_a_refused_raw_save_the_player_picked_still_fails_the_launch(
     _add_save(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
     raw = _add_save(rom, admin_user, "Game [2026-10-06_10-00-00].srm", "mgba", "h2")
 
-    resp, activate, hydrate_native, sent = _claim_refused_once(
+    resp, activate, hydrate_native, sent, _session = _claim_refused_once(
         client, access_token, rom, _refused_save(".import/save/Game.srm"), raw.id
     )
 
@@ -8480,6 +8552,7 @@ def test_hydrate_import_archive_uploads_a_foreign_save_with_no_native_base(
         )
     assert result.path == "rom-1.zip"
     assert result.state_imported is False
+    assert result.restored_save_id is None
     upload.assert_called_once()
     uploaded_bytes = upload.call_args.args[2]
     with zipfile.ZipFile(io.BytesIO(uploaded_bytes)) as zf:
@@ -8558,6 +8631,8 @@ def test_a_defaulted_foreign_save_that_fails_to_read_leaves_the_native_base(
             )
         )
     assert result.path == "rom-1.zip"
+    assert result.restored_save_id == native.id
+    assert result.restored_save_hash == "h1"
     _rom_id, base, members = build.call_args.args
     assert base == (native.file_name, native.full_path.encode())
     assert [m.kind for m in members] == ["state"]

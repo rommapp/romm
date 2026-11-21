@@ -239,8 +239,9 @@ async def hydrate_import_archive(
 
     Returns:
         The container path `activate`'s `save.archive` wants (None when
-        there is nothing to send through the import path), and whether
-        `state` specifically made it into the uploaded archive.
+        there is nothing to send through the import path), whether
+        `state` specifically made it into the uploaded archive, and the
+        native archive it carries as its base.
     """
     members: list[ForeignMember] = []
     if save is not None and save_is_foreign:

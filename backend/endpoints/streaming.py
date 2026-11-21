@@ -758,8 +758,9 @@ async def _hydrate_saves(
 
     Returns:
         The container path of an uploaded archive (for the protocols that
-        restore one as part of the launch), and whether `import_state`
-        specifically made it onto the container.
+        restore one as part of the launch), whether `import_state`
+        specifically made it onto the container, and the native archive
+        it restores.
     """
     if card is not None:
         # Whole-card sync: hydrate (or wipe to blank) is REQUIRED. If it fails
