@@ -1,9 +1,13 @@
 import asyncio
+import hashlib
+import struct
 import types
+import zipfile
 from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+from tests._zipfile_shim import reload_zipfile
 
 import adapters.services.sigil as sigil_adapter
 from adapters.services.sigil import SigilExtractionResult, SigilService
@@ -298,14 +302,14 @@ class TestSigilService:
         "entry",
         [
             pytest.param("Game (Disc 1).chd", id="missing-disc"),
-            pytest.param("Game.zip", id="archive-disc"),
+            pytest.param("Game.7z", id="archive-disc"),
             pytest.param("Game.tar.gz", id="tarball-disc"),
         ],
     )
     async def test_playlist_without_a_readable_disc_is_not_read(
         self, service: SigilService, monkeypatch, tmp_path: Path, entry: str
     ):
-        (tmp_path / "Game.zip").write_bytes(b"archive")
+        (tmp_path / "Game.7z").write_bytes(b"archive")
         (tmp_path / "Game.tar.gz").write_bytes(b"archive")
         playlist = tmp_path / "Game.m3u"
         playlist.write_text(f"{entry}\n")
@@ -313,6 +317,37 @@ class TestSigilService:
         monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
 
         result = await service.extract_title_id(UPS.PS2, str(playlist))
+
+        assert result is None
+        extract.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("name", ["Game.zip", "GAME.ZIP"])
+    async def test_a_zip_is_handed_to_sigil(
+        self, service: SigilService, monkeypatch, name: str
+    ):
+        extract = Mock(return_value=make_result("PCSE00640", "PCSE00640"))
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+
+        result = await service.extract_title_id(UPS.PSVITA, f"/roms/psvita/{name}")
+
+        assert result is not None
+        assert result.title_id == "PCSE00640"
+        extract.assert_called_once_with(
+            f"/roms/psvita/{name}", platform="psvita", filename_fallback=False
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "name", ["Game.7z", "Game.rar", "Game.tar", "Game.tar.gz", "Game.gz"]
+    )
+    async def test_an_archive_sigil_cannot_open_is_not_read(
+        self, service: SigilService, monkeypatch, name: str
+    ):
+        extract = Mock(return_value=make_result())
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+
+        result = await service.extract_title_id(UPS.N3DS, f"/roms/3ds/{name}")
 
         assert result is None
         extract.assert_not_called()
@@ -588,6 +623,97 @@ class TestStoredGameAgainstTheBinding:
         assert result is not None
         assert result.title_id == "T-9701N"
         assert result.playlist_title_ids == ("T-9701N", "T-9702N")
+
+    @pytest.mark.asyncio
+    async def test_a_vita_zip_is_read_by_its_param_sfo(self, tmp_path: Path):
+        pytest.importorskip("sigil")
+        # No serial in the name, so the id can only come from the dump.
+        dump = write_zip(
+            tmp_path / "Game.zip",
+            {
+                "app/PCSE00640/eboot.bin": bytes(64 * 1024),
+                "app/PCSE00640/sce_sys/param.sfo": vita_param_sfo("PCSE00640"),
+            },
+        )
+
+        result = await SigilService().extract_title_id(UPS.PSVITA, str(dump))
+
+        assert result is not None
+        assert (result.title_id, result.save_target, result.usage) == (
+            "PCSE00640",
+            "PCSE00640",
+            "folder-exact",
+        )
+
+    @pytest.mark.asyncio
+    async def test_a_zipped_game_boy_cart_reads_its_clock(self, tmp_path: Path):
+        binding = pytest.importorskip("sigil")
+        # MBC3 with a timer, RAM and a battery, beside a smaller file.
+        cart = write_zip(
+            tmp_path / "Game.zip",
+            {"Game (USA).gb": game_boy_cart(0x10), "readme.txt": b"notes"},
+        )
+
+        result = await SigilService().extract_title_id(UPS.GB, str(cart))
+
+        assert result is not None
+        assert result.features & binding.FEATURE_RTC
+
+    @pytest.mark.asyncio
+    async def test_a_zipped_n64_cart_reads_its_code_and_hashes_the_whole_rom(
+        self, tmp_path: Path
+    ):
+        pytest.importorskip("sigil")
+        rom = n64_cart("NZTE")
+        cart = write_zip(tmp_path / "Game.zip", {"Game (USA).z64": rom})
+
+        result = await SigilService().extract_title_id(UPS.N64, str(cart))
+
+        whole_rom_md5 = hashlib.md5(rom, usedforsecurity=False).hexdigest().upper()
+        assert result is not None
+        assert result.title_id == "NZTE"
+        assert result.n64_md5 == whole_rom_md5
+
+
+def write_zip(path: Path, members: dict[str, bytes]) -> Path:
+    """A deflated zip of `members`, by name."""
+    reload_zipfile()
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name, data in members.items():
+            zf.writestr(name, data)
+    return path
+
+
+def vita_param_sfo(title_id: str) -> bytes:
+    """A PARAM.SFO holding only TITLE_ID."""
+    key = b"TITLE_ID\0"
+    value = title_id.encode() + b"\0"
+    key_table_offset = 20 + 16
+    header = b"\0PSF" + struct.pack(
+        "<IIII", 0x0101, key_table_offset, key_table_offset + len(key), 1
+    )
+    entry = struct.pack("<HHIII", 0, 0x0204, len(value), len(value), 0)
+    return header + entry + key + value
+
+
+def game_boy_cart(cart_type: int) -> bytes:
+    """A 32 KiB Game Boy ROM of `cart_type` whose header checksum holds."""
+    rom = bytearray(32 * 1024)
+    rom[0x147] = cart_type
+    checksum = 0
+    for byte in rom[0x134:0x14D]:
+        checksum = (checksum - byte - 1) & 0xFF
+    rom[0x14D] = checksum
+    return bytes(rom)
+
+
+def n64_cart(game_code: str) -> bytes:
+    """A 1 MiB N64 ROM in .z64 byte order naming `game_code`, its body not blank."""
+    rom = bytearray(bytes(range(256)) * 4096)
+    rom[0:4] = b"\x80\x37\x12\x40"
+    rom[0x20:0x34] = b"ZIP TEST".ljust(20)
+    rom[0x3B:0x3F] = game_code.encode()
+    return bytes(rom)
 
 
 def write_dc_track(path: Path, product: str | None) -> None:

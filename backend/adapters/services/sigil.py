@@ -74,6 +74,11 @@ NATIVE_SAVE_PLATFORM_SLUGS: Final = frozenset(
 # and it is the only family whose files may carry their title id in the filename.
 SWITCH_PLATFORM_SLUGS: Final = frozenset({UPS.SWITCH, UPS.SWITCH_2})
 
+# Sigil reads the binary inside a zip in place, but opens no other archive.
+UNREADABLE_ARCHIVE_SUFFIXES: Final = tuple(
+    suffix for suffix in COMPRESSED_FILE_SUFFIXES if suffix != ".zip"
+)
+
 
 # The SigilResult fields a scan stores on each RomFile, by column.
 _SIGIL_RESULT_COLUMNS: Final[dict[str, str]] = {
@@ -204,8 +209,7 @@ class SigilService:
 
     @staticmethod
     async def _extract(sigil_slug: str, file_path: str) -> "sigil.SigilResult | None":
-        # Sigil reads a binary, never the container holding one.
-        if file_path.lower().endswith(COMPRESSED_FILE_SUFFIXES):
+        if file_path.lower().endswith(UNREADABLE_ARCHIVE_SUFFIXES):
             return None
         try:
             return await asyncio.to_thread(
