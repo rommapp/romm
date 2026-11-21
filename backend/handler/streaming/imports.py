@@ -203,6 +203,8 @@ class ImportHydration(NamedTuple):
     # The native save archive the upload is built on, and its content hash at that time.
     restored_save_id: int | None = None
     restored_save_hash: str | None = None
+    # The import left the base's states off the container for the one it carries.
+    restored_without_state: bool = False
 
 
 async def hydrate_import_archive(
@@ -281,4 +283,5 @@ async def hydrate_import_archive(
         state_included,
         restored_save_id=restored_id,
         restored_save_hash=restored_hash,
+        restored_without_state=any(m.kind == "state" for m in members),
     )

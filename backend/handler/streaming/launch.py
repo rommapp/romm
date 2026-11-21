@@ -67,6 +67,7 @@ async def run_launch(
     booted_disc_id: int | None = None,
     restored_save_id: int | None = None,
     restored_save_hash: str | None = None,
+    restored_without_state: bool = False,
 ) -> None:
     """Start the game, then tell the player's tabs where to find it.
 
@@ -81,6 +82,7 @@ async def run_launch(
             saved on it remember their disc.
         restored_save_id: the native save archive `archive_path` restores.
         restored_save_hash: that archive's content hash when it was restored.
+        restored_without_state: the archive's states stayed off the container.
     """
     # Nothing beats for the player until the stream is up, so without this the
     # next claimant reads the record as abandoned and tears the container down
@@ -134,11 +136,12 @@ async def run_launch(
                     saves.restorable_for, user.id, rom.id, container, None
                 )
                 archive_path = await saves.hydrate_saves_to_webstation(
-                    user.id, rom.id, container, restored
+                    rom.id, container, restored
                 )
                 restored_save_id, restored_save_hash = saves.restored_ref(
                     restored, archive_path
                 )
+                restored_without_state = False
                 resume_on_activate = resume_on_activate and not (
                     container.resumes_from_archive and archive_path is None
                 )
@@ -199,6 +202,7 @@ async def run_launch(
         core_tier=core_tier,
         restored_save_id=restored_save_id,
         restored_save_hash=restored_save_hash,
+        restored_without_state=restored_without_state,
     )
     await lifecycle.publish_session_activity(session_key, session)
 

@@ -820,9 +820,7 @@ async def _hydrate_saves(
             restored = await asyncio.to_thread(
                 saves.restorable_for, request.user.id, rom.id, container, save
             )
-            path = await saves.hydrate_saves_to_webstation(
-                request.user.id, rom.id, container, restored
-            )
+            path = await saves.hydrate_saves_to_webstation(rom.id, container, restored)
             restored_id, restored_hash = saves.restored_ref(restored, path)
             return imports.ImportHydration(
                 path, restored_save_id=restored_id, restored_save_hash=restored_hash
@@ -1134,6 +1132,7 @@ async def claim_session(
         archive_path=hydrated.path,
         restored_save_id=hydrated.restored_save_id,
         restored_save_hash=hydrated.restored_save_hash,
+        restored_without_state=hydrated.restored_without_state,
         native_fallback=hydrated.native_fallback,
         resume_state=resume_state,
         resume_slot=resume_slot,

@@ -6511,7 +6511,7 @@ def test_archive_overlay_keeps_the_base_files_the_top_leaves_out():
         {"data/save01": ("save", b"new1"), "state.bin": ("state", b"s2")}
     )
 
-    members, kinds = _members(archive.overlay(base, top, 1024))
+    members, kinds = _members(archive.overlay(base, top, 1024, 100))
 
     assert members == {
         "data/save00": b"old0",
@@ -6521,12 +6521,34 @@ def test_archive_overlay_keeps_the_base_files_the_top_leaves_out():
     assert kinds == {"data/save00": "save", "data/save01": "save", "state.bin": "state"}
 
 
+def test_archive_overlay_refuses_a_merge_past_the_entry_limit():
+    """Past the hashing limit the archive would get no content hash."""
+    base = _exit_archive({"a": ("save", b"x")})
+    top = _exit_archive({"b": ("save", b"y")})
+
+    with pytest.raises(ValueError):
+        archive.overlay(base, top, 1024, 2)
+
+
+def test_archive_overlay_keeps_both_archives_folders():
+    base_buf = io.BytesIO()
+    with zipfile.ZipFile(base_buf, "w") as zf:
+        zf.mkdir("memcards/empty")
+        zf.writestr("data/save00", b"old0")
+    top = _exit_archive({"state.bin": ("state", b"s2")})
+
+    merged = archive.overlay(base_buf.getvalue(), top, 1024, 100)
+
+    with zipfile.ZipFile(io.BytesIO(merged)) as zf:
+        assert zf.getinfo("memcards/empty/").is_dir()
+
+
 def test_archive_overlay_refuses_a_merge_past_the_size_limit():
     base = _exit_archive({"a": ("save", b"x" * 8)})
     top = _exit_archive({"b": ("save", b"y" * 8)})
 
     with pytest.raises(ValueError):
-        archive.overlay(base, top, 12)
+        archive.overlay(base, top, 12, 100)
 
 
 def test_archive_overlay_labels_every_member_by_its_own_archive():
@@ -6549,7 +6571,7 @@ def test_archive_overlay_labels_every_member_by_its_own_archive():
             json.dumps({"files": [{"path": "state.bin", "kind": "state"}]}),
         )
 
-    merged = archive.overlay(base_buf.getvalue(), top_buf.getvalue(), 1024)
+    merged = archive.overlay(base_buf.getvalue(), top_buf.getvalue(), 1024, 100)
 
     with zipfile.ZipFile(io.BytesIO(merged)) as zf:
         files = json.loads(zf.read(".broker-manifest.json"))["files"]
@@ -6570,7 +6592,7 @@ def test_archive_overlay_keeps_the_system_a_member_was_written_on():
         zf.writestr(info, b"old0")
     top = _exit_archive({"state.bin": ("state", b"s2")})
 
-    merged = archive.overlay(base_buf.getvalue(), top, 1024)
+    merged = archive.overlay(base_buf.getvalue(), top, 1024, 100)
 
     with zipfile.ZipFile(io.BytesIO(merged)) as zf:
         assert zf.getinfo("data/save00").create_system == 0
@@ -6583,6 +6605,7 @@ def _pull_over_base(
     base_content: bytes,
     delta: bytes,
     launch_hash: str | None = None,
+    without_state: bool = False,
 ) -> bytes:
     """Pull `delta` for a session that restored `base`, returning what was filed.
 
@@ -6609,6 +6632,7 @@ def _pull_over_base(
                 base_save_id=base.id if base is not None else None,
                 base_save_hash=launch_hash
                 or (base.content_hash if base is not None else None),
+                base_without_state=without_state,
             )
         )
     return cast(bytes, wf.call_args.kwargs["file"])
@@ -6629,6 +6653,25 @@ def test_pull_saves_merges_the_exit_delta_over_the_restored_archive(
     filed = _pull_over_base(rom, admin_user, base, base_content, delta)
 
     assert _members(filed)[0] == {"data/save00": b"old0", "state.bin": b"s2"}
+
+
+def test_pull_saves_leaves_out_the_base_state_an_imported_state_replaced(
+    rom: Rom, admin_user: User
+):
+    """The launch never put the base's state on the container, so an exit that
+    saved no state must not bring it back over the one the player picked."""
+    emulator = _resolved({**_container_for(rom), "label": "PCSX2"}).emulator
+    base = _add_save(rom, admin_user, "Game [base].saves.zip", emulator, "base")
+    base_content = _exit_archive(
+        {"data/save00": ("save", b"old0"), "state.bin": ("state", b"s1")}
+    )
+    delta = _exit_archive({"data/save00": ("save", b"new0")})
+
+    filed = _pull_over_base(
+        rom, admin_user, base, base_content, delta, without_state=True
+    )
+
+    assert _members(filed)[0] == {"data/save00": b"new0"}
 
 
 def test_pull_saves_files_the_delta_alone_without_a_restored_archive(
@@ -7513,7 +7556,7 @@ def test_a_launch_with_no_pick_restores_the_archive_when_the_raw_save_fails_to_i
     assert resp.status_code == 202
     hydrate_import.assert_awaited_once()
     hydrate_native.assert_awaited_once()
-    assert hydrate_native.call_args.args[3].file_name.endswith(".saves.zip")
+    assert hydrate_native.call_args.args[2].file_name.endswith(".saves.zip")
 
 
 def _refused_save(member: str) -> broker.ImportRefusedError:
@@ -7682,7 +7725,7 @@ def test_a_launch_with_no_pick_skips_a_raw_save_whose_file_is_missing(
     assert resp.status_code == 202
     hydrate_import.assert_not_awaited()
     hydrate_native.assert_awaited_once()
-    assert hydrate_native.call_args.args[3].id == zipped.id
+    assert hydrate_native.call_args.args[2].id == zipped.id
 
 
 def test_a_launch_records_the_archive_it_restored_on_the_session(
@@ -7734,7 +7777,7 @@ def test_a_launch_with_no_pick_reads_an_upper_case_zip_as_an_archive(
 
     assert resp.status_code == 202
     hydrate_native.assert_awaited_once()
-    assert hydrate_native.call_args.args[3].id == zipped.id
+    assert hydrate_native.call_args.args[2].id == zipped.id
 
 
 def test_a_launch_with_no_pick_restores_the_archive_where_saves_cannot_import(
@@ -7841,34 +7884,21 @@ def test_hydrate_saves_uploads_the_picked_archive(rom: Rom, admin_user: User):
     ):
         path = asyncio.run(
             saves.hydrate_saves_to_webstation(
-                admin_user.id,
-                rom.id,
-                _resolved(_clearing_webstation(rom)),
-                oldest,
+                rom.id, _resolved(_clearing_webstation(rom)), oldest
             )
         )
     assert path == "/config/x.zip"
     assert upload.call_args[0][2] == oldest.full_path.encode()
 
 
-def test_hydrate_saves_without_a_pick_uploads_the_newest(rom: Rom, admin_user: User):
+def test_restorable_for_without_a_pick_is_the_newest(rom: Rom, admin_user: User):
     """No pick keeps the behaviour every container had before the picker."""
-    *_, newest = _three_archives(rom, admin_user)
-    with (
-        patch(
-            "handler.filesystem.fs_asset_handler.read_file",
-            new=AsyncMock(side_effect=lambda path: path.encode()),
-        ),
-        patch(
-            "handler.streaming.webstation.upload_archive", return_value="/config/x.zip"
-        ) as upload,
-    ):
-        asyncio.run(
-            saves.hydrate_saves_to_webstation(
-                admin_user.id, rom.id, _resolved(_clearing_webstation(rom))
-            )
-        )
-    assert upload.call_args[0][2] == newest.full_path.encode()
+    oldest, _, newest = _three_archives(rom, admin_user)
+    container = _resolved(_clearing_webstation(rom))
+
+    picked = saves.restorable_for(admin_user.id, rom.id, container, None)
+    assert picked is not None and picked.id == newest.id
+    assert saves.restorable_for(admin_user.id, rom.id, container, oldest) is oldest
 
 
 def test_hydrate_saves_uploads_nothing_when_the_pick_left_the_disk(
@@ -7886,7 +7916,7 @@ def test_hydrate_saves_uploads_nothing_when_the_pick_left_the_disk(
     ):
         path = asyncio.run(
             saves.hydrate_saves_to_webstation(
-                admin_user.id, rom.id, _resolved(_clearing_webstation(rom)), oldest
+                rom.id, _resolved(_clearing_webstation(rom)), oldest
             )
         )
     assert path is None
@@ -8644,6 +8674,7 @@ def test_a_defaulted_foreign_save_that_fails_to_read_leaves_the_native_base(
     assert result.path == "rom-1.zip"
     assert result.restored_save_id == native.id
     assert result.restored_save_hash == "h1"
+    assert result.restored_without_state is True
     _rom_id, base, members = build.call_args.args
     assert base == (native.file_name, native.full_path.encode())
     assert [m.kind for m in members] == ["state"]
@@ -9789,6 +9820,7 @@ def test_an_exit_save_pull_runs_on_the_streaming_worker(
         "disc_swaps": [{"file_id": 42, "at": "2026-10-07T12:00:00+00:00"}],
         "restored_save_id": 7,
         "restored_save_hash": "h7",
+        "restored_without_state": True,
     }
     exit_pull_queue.enqueue.side_effect = None
 
@@ -9816,6 +9848,7 @@ def test_an_exit_save_pull_runs_on_the_streaming_worker(
         ],
         "base_save_id": 7,
         "base_save_hash": "h7",
+        "base_without_state": True,
     }
     assert kwargs["job_timeout"] == saves.SAVE_PULL_TTL_SECONDS
 

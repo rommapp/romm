@@ -106,6 +106,8 @@ class StreamingSession(TypedDict, total=False):
     restored_save_id: int | None
     # Its content hash at launch, so an archive replaced mid-session is not merged over.
     restored_save_hash: str | None
+    # The launch left the archive's states off the container, so the merge does too.
+    restored_without_state: bool
     draining: bool
     drain_token: str
 
@@ -468,6 +470,7 @@ async def stamp_launched(
     core_tier: str | None = None,
     restored_save_id: int | None = None,
     restored_save_hash: str | None = None,
+    restored_without_state: bool = False,
 ) -> None:
     """Record that the activate returned, so the status poll stops asking the
     broker for an extraction phase.
@@ -488,6 +491,7 @@ async def stamp_launched(
             hears the warning launch-ready carried.
         restored_save_id: the save archive the activate restored.
         restored_save_hash: that archive's content hash when it was restored.
+        restored_without_state: the activate restored the archive without its states.
     """
     try:
         await mutate_session(
@@ -500,6 +504,7 @@ async def stamp_launched(
                     {
                         "restored_save_id": restored_save_id,
                         "restored_save_hash": restored_save_hash,
+                        "restored_without_state": restored_without_state,
                     }
                     if restored_save_id is not None
                     else {}

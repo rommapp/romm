@@ -25,6 +25,7 @@ from handler.asset_store import reserve_version_name
 from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import db_rom_handler, db_save_handler, db_user_handler
 from handler.filesystem import fs_asset_handler
+from handler.filesystem.assets_handler import MAX_ARCHIVE_ENTRIES
 from handler.redis_handler import async_cache
 from handler.scan_handler import scan_save
 from handler.streaming import archive, broker, states, webstation
@@ -469,6 +470,7 @@ async def _over_restored_archive(
     emulator: str,
     base_save_id: int | None,
     base_save_hash: str | None,
+    base_without_state: bool,
     content: bytes,
 ) -> bytes:
     """Lay the exit delta, which holds only what changed since launch, over the restored archive."""
@@ -488,7 +490,12 @@ async def _over_restored_archive(
         if stored is None:
             return content
         return await asyncio.to_thread(
-            archive.overlay, stored[1], content, broker.SAVE_FILE_MAX_BYTES
+            archive.overlay,
+            stored[1],
+            content,
+            broker.SAVE_FILE_MAX_BYTES,
+            MAX_ARCHIVE_ENTRIES,
+            base_without_state,
         )
     except Exception:
         log.exception("could not merge the exit archive over save %s", base_save_id)
@@ -506,6 +513,7 @@ async def pull_saves_to_library(
     disc_swaps: Sequence[DiscSwap] = (),
     base_save_id: int | None = None,
     base_save_hash: str | None = None,
+    base_without_state: bool = False,
 ) -> bool:
     """Background task: pull in-game saves from the broker and store them.
 
@@ -521,6 +529,8 @@ async def pull_saves_to_library(
             zip is merged over it.
         base_save_hash: that archive's content hash at launch; a mismatch skips
             the merge.
+        base_without_state: the launch restored that archive without its
+            states, so the merge leaves them out too.
     """
     user = db_user_handler.get_user(user_id)
     rom = db_rom_handler.get_rom(rom_id)
@@ -548,7 +558,13 @@ async def pull_saves_to_library(
                     rom,
                     emulator,
                     await _over_restored_archive(
-                        user, rom, emulator, base_save_id, base_save_hash, content
+                        user,
+                        rom,
+                        emulator,
+                        base_save_id,
+                        base_save_hash,
+                        base_without_state,
+                        content,
                     ),
                 )
             )
@@ -718,17 +734,16 @@ def restored_ref(save: Save | None, path: str | None) -> tuple[int | None, str |
 
 
 async def hydrate_saves_to_webstation(
-    user_id: int, rom_id: int, container: ResolvedContainer, save: Save | None = None
+    rom_id: int, container: ResolvedContainer, save: Save | None
 ) -> str | None:
-    """Upload the stored save archive to restore and return the container path.
+    """Upload `save`, from `restorable_for`, and return its container path.
 
     The webstation broker restores as part of activate, so hydration only gets
-    the bytes into place. `save` is the player's pick, newest when absent.
+    the bytes into place.
     """
-    picked = restorable_for(user_id, rom_id, container, save)
-    if picked is None:
+    if save is None:
         return None
-    stored = await read_restorable_archive(picked)
+    stored = await read_restorable_archive(save)
     if stored is None:
         return None
     file_name, content = stored
