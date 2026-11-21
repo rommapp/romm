@@ -279,7 +279,7 @@ const patchExtensions = computed(
 
 // The emulator's disc-swap menu only exists for multi-disc sets that ship a
 // playlist.
-const hasM3uFile = computed(() =>
+const hasPlaylist = computed(() =>
   streamHasPlaylist(rom.value?.files ?? [], patchExtensions.value),
 );
 
@@ -312,7 +312,7 @@ const canSwapDisc = computed(
   () =>
     capabilities.value.supportsDiscSwap &&
     swapDiscOptions.value.length > 1 &&
-    hasM3uFile.value &&
+    hasPlaylist.value &&
     (startDisc.value === ALL_DISCS ||
       swapDiscOptions.value.some((o) => o.value === startDisc.value)) &&
     !isJoining,
