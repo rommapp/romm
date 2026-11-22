@@ -3,6 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { PluginActionSchema } from './PluginActionSchema';
+/**
+ * A plugin manifest, as the UI reads it.
+ */
 export type PluginSchema = {
     id: string;
     name: string;
@@ -12,3 +15,4 @@ export type PluginSchema = {
     homepage?: (string | null);
     actions?: Array<PluginActionSchema>;
 };
+

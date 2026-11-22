@@ -7,11 +7,13 @@ from handler.plugin_handler import list_plugins
 
 
 def write_plugin(base: Path, folder: str, manifest: dict | str) -> Path:
+    """Write one plugin folder and answer the manifest path it wrote."""
     path = base / folder
     path.mkdir(parents=True)
     text = manifest if isinstance(manifest, str) else json.dumps(manifest)
-    (path / plugin_handler.MANIFEST_NAME).write_text(text, encoding="utf-8")
-    return path
+    manifest_path = path / plugin_handler.MANIFEST_NAME
+    manifest_path.write_text(text, encoding="utf-8")
+    return manifest_path
 
 
 def manifest(plugin_id: str = "rommdeck", **overrides) -> dict:
@@ -145,7 +147,7 @@ def test_homepage_must_be_web(shelf):
 
 
 def test_same_tab_is_kept_and_anything_else_is_a_new_tab(shelf):
-    data = manifest()
+    data = manifest("same")
     data["actions"][0]["open"] = "same-tab"
     write_plugin(shelf, "same", data)
 

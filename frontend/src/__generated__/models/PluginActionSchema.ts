@@ -2,6 +2,9 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+/**
+ * One button a plugin adds to a game, with its URL template unexpanded.
+ */
 export type PluginActionSchema = {
     id: string;
     label: string;
@@ -9,3 +12,4 @@ export type PluginActionSchema = {
     url: string;
     open?: 'new-tab' | 'same-tab';
 };
+
