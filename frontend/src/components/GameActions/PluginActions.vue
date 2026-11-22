@@ -3,7 +3,6 @@
 // action ribbon. Each opens the URL its manifest declares, so a custom scheme
 // reaches the OS handler and a web URL opens like any link. The label, icon and
 // logo come from the manifest, which is why they are not translated.
-import { toRef } from "vue";
 import { usePluginActions } from "@/composables/usePluginActions";
 import { RIcon, RTooltip } from "@/lib";
 import type { SimpleRom } from "@/stores/roms";
@@ -13,7 +12,7 @@ const props = defineProps<{
   size: "default" | "large";
 }>();
 
-const { actions, open } = usePluginActions(toRef(props, "rom"));
+const { actions, open } = usePluginActions(() => props.rom);
 </script>
 
 <template>

@@ -90,6 +90,8 @@ Any other placeholder is refused, so a manifest cannot ask for values the UI doe
 
 A custom scheme only resolves on machines that have registered a handler. Elsewhere the browser asks what to do with the link, which is the behaviour a user expects from an app link.
 
+The UI reads the shelf when a game page opens and keeps it for the session, so a plugin added while a tab is open appears on the next full page load.
+
 ## Example: RommDeck
 
 [RommDeck](https://github.com/s0liton/RommDeck) downloads and syncs your RomM library to a machine with the emulators, and keeps your saves in step. The manifest in `examples/plugins/rommdeck` adds an "Open in RommDeck" button that hands the game to a `rommdeck://` handler on the machine running RommDeck.
