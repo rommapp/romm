@@ -405,7 +405,7 @@ class DemozooStub:
 async def demozoo(
     monkeypatch: pytest.MonkeyPatch,
 ) -> AsyncIterator[tuple[DemozooHandler, DemozooStub]]:
-    monkeypatch.setattr(demozoo_handler, "DEMOZOO_API_ENABLED", True)
+    monkeypatch.setattr(demozoo_handler, "DEMOZOO_API_KEY", "test-key")
     monkeypatch.setattr(demozoo_handler._rate_limiter, "acquire", AsyncMock())
     stub = DemozooStub()
     client = httpx2.AsyncClient(transport=httpx2.MockTransport(stub))
@@ -425,7 +425,7 @@ SECOND_REALITY = {"id": 108, "title": "Second Reality"}
 
 
 class TestRequest:
-    async def test_asks_for_json_as_romm(
+    async def test_asks_for_json_as_romm_with_the_api_key(
         self, demozoo: tuple[DemozooHandler, DemozooStub]
     ):
         handler, stub = demozoo
@@ -436,6 +436,8 @@ class TestRequest:
         [request] = stub.requests
         assert request.headers["User-Agent"] == f"RomM/{get_version()}"
         assert request.headers["Accept"] == "application/json"
+        assert request.headers["Authorization"] == "Api-Key test-key"
+        assert "api_key" not in request.url.params
 
     async def test_a_missing_production_is_empty(
         self, demozoo: tuple[DemozooHandler, DemozooStub]
@@ -523,7 +525,7 @@ class TestHeartbeat:
         monkeypatch: pytest.MonkeyPatch,
     ):
         handler, stub = demozoo
-        monkeypatch.setattr(demozoo_handler, "DEMOZOO_API_ENABLED", False)
+        monkeypatch.setattr(demozoo_handler, "DEMOZOO_API_KEY", None)
 
         assert await handler.heartbeat() is False
         assert stub.requests == []
@@ -680,7 +682,7 @@ class TestSearch:
     ):
         handler, stub = demozoo
         assert await handler.get_matched_roms_by_name("", "dos") == []
-        monkeypatch.setattr(demozoo_handler, "DEMOZOO_API_ENABLED", False)
+        monkeypatch.setattr(demozoo_handler, "DEMOZOO_API_KEY", None)
         assert await handler.get_matched_roms_by_name("x", "dos") == []
         assert stub.requests == []
 

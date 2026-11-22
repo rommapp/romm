@@ -149,7 +149,7 @@ export const METADATA_PROVIDER_INFO: readonly MetadataProviderInfo[] = [
     logo: "/assets/scrappers/demozoo.png",
     website: "https://demozoo.org",
     docsUrl: "https://demozoo.org/api/docs/",
-    requiresKey: false,
+    requiresKey: true,
     enabledFlag: "DEMOZOO_API_ENABLED",
     descKey: "setup.provider-demozoo-desc",
     setupKey: "setup.provider-demozoo-setup",
