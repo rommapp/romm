@@ -4,7 +4,11 @@ import { defineComponent, h } from "vue";
 import { mount } from "@vue/test-utils";
 import type { PluginSchema } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
-import { expandPluginUrl, usePluginActions } from "@/composables/usePluginActions";
+import {
+  DEFAULT_PLUGIN_ICON,
+  expandPluginUrl,
+  usePluginActions,
+} from "@/composables/usePluginActions";
 import { usePluginStore } from "@/stores/plugins";
 import { romFixture } from "@/utils/rom.fixtures";
 
@@ -100,7 +104,7 @@ describe("usePluginActions", () => {
 
     const { actions } = withPluginActions((api) => api);
 
-    expect(actions.value[0]?.icon).toBe("mdi-puzzle-outline");
+    expect(actions.value[0]?.icon).toBe(DEFAULT_PLUGIN_ICON);
   });
 
   it("opens a new-tab action in a new tab", () => {
@@ -197,8 +201,8 @@ describe("expandPluginUrl", () => {
   });
 
   it("leaves an empty value empty rather than the placeholder", () => {
-    expect(expandPluginUrl("rommdeck://open?file={file_name}", romFixture())).toBe(
-      "rommdeck://open?file=",
-    );
+    expect(
+      expandPluginUrl("rommdeck://open?file={file_name}", romFixture()),
+    ).toBe("rommdeck://open?file=");
   });
 });

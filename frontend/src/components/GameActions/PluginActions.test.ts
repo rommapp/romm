@@ -6,7 +6,11 @@ import { usePluginStore } from "@/stores/plugins";
 import { romFixture } from "@/utils/rom.fixtures";
 import PluginActions from "./PluginActions.vue";
 
-const rom = romFixture({ id: 42, name: "Luigi's Mansion", platform_slug: "ngc" });
+const rom = romFixture({
+  id: 42,
+  name: "Luigi's Mansion",
+  platform_slug: "ngc",
+});
 
 const plugin = (action: Record<string, unknown> = {}): PluginSchema => ({
   id: "rommdeck",

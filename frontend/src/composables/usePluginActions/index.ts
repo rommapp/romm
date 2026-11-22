@@ -4,6 +4,9 @@ import { usePluginStore } from "@/stores/plugins";
 import type { SimpleRom } from "@/stores/roms";
 import { getSoleRomFile } from "@/utils";
 
+/** The icon a manifest that names none falls back to. */
+export const DEFAULT_PLUGIN_ICON = "mdi-puzzle-outline";
+
 /** One plugin action with its URL template filled in for this rom. */
 export interface PluginAction extends PluginActionSchema {
   pluginId: string;
@@ -75,7 +78,7 @@ export function usePluginActions(getRom: () => SimpleRom | null | undefined): {
         .filter((action) => offersPlatform(action.platforms ?? [], rom))
         .map((action) => ({
           ...action,
-          icon: action.icon ?? "mdi-puzzle-outline",
+          icon: action.icon ?? DEFAULT_PLUGIN_ICON,
           pluginId: plugin.id,
           pluginName: plugin.name,
           href: expandPluginUrl(action.url, rom),
