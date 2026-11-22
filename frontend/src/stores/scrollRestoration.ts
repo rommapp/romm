@@ -1,14 +1,5 @@
-// scrollRestoration (v2): remembers each gallery route's last page scroll.
-//
-// Why this exists: Vue Router's `scrollBehavior` restores the offset as soon
-// as the route renders, before a gallery's virtualised rows have their full
-// height, so the browser clamps it short. This store captures the offset per
-// fullPath; views save on `onBeforeRouteLeave` and reapply it once the first
-// window has resolved.
-//
-// Restoration is non-destructive: re-reading the same key keeps the
-// value so a user that navigates away and back-and-forth keeps landing
-// at the last saved position.
+// Each gallery route's last page scroll, reapplied once the first window has
+// loaded: the router's own restore runs before the rows have their height.
 import { defineStore } from "pinia";
 
 interface State {
