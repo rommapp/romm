@@ -2258,7 +2258,6 @@ class DBRomsHandler(DBBaseHandler):
         self,
         platform_id: int,
         fs_names: Iterable[str],
-        with_files: bool = False,
         session: Session = INJECTED_SESSION,
     ) -> dict[str, Rom]:
         """Retrieve a dictionary of roms keyed by their full path (fs_path/fs_name).
@@ -2270,21 +2269,14 @@ class DBRomsHandler(DBBaseHandler):
         Eager-loads only `platform` (used downstream by the scan loop via
         `rom.platform_slug` / `rom.platform.fs_slug`). This deliberately
         avoids `with_details`, whose full relationship eager-load is
-        wasted work for the scan-skip decision on large platforms. Scans that
-        reconcile files opt into `with_files` to load them once per batch
-        instead of once per rom.
+        wasted work for the scan-skip decision on large platforms. Files are
+        left unloaded so a batch never holds every file row of its roms at once.
         """
-        query = select(Rom).options(selectinload(Rom.platform))
-        if with_files:
-            query = query.options(
-                selectinload(Rom.files).options(
-                    joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
-                    selectinload(RomFile.track_meta),
-                )
-            )
         roms = (
             session.scalars(
-                query.where(
+                select(Rom)
+                .options(selectinload(Rom.platform))
+                .where(
                     and_(
                         Rom.platform_id == platform_id,
                         Rom.fs_name.in_(fs_names),
