@@ -1,6 +1,7 @@
 import base64
 import time
 from http import HTTPStatus
+from typing import Any
 from unittest import mock
 
 import httpx2
@@ -195,7 +196,7 @@ def test_reset_password_for_a_deleted_user_is_not_found(client, viewer_user: Use
 
 
 def _oidc_callback(
-    client: TestClient, user: User | None, userinfo: dict | None = None
+    client: TestClient, user: User | None, userinfo: dict[str, Any] | None = None
 ) -> httpx2.Response:
     fake_oauth = mock.MagicMock()
     fake_oauth.openid.authorize_access_token = mock.AsyncMock(

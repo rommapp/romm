@@ -1,4 +1,5 @@
 import io
+from collections.abc import Callable
 from pathlib import Path
 
 import httpx2
@@ -27,7 +28,9 @@ def assets_dir(tmp_path, monkeypatch) -> Path:
     return base
 
 
-def _serve(monkeypatch, handler) -> list[httpx2.Request]:
+def _serve(
+    monkeypatch, handler: Callable[[httpx2.Request], httpx2.Response]
+) -> list[httpx2.Request]:
     requests: list[httpx2.Request] = []
 
     def record(request: httpx2.Request) -> httpx2.Response:
