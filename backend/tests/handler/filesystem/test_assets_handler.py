@@ -569,8 +569,11 @@ class TestHashSaveFile:
         )
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "archive_longer", [False, True], ids=["state-longer", "archive-longer"]
+    )
     async def test_bytes_that_only_end_like_a_zip_hash_as_one_file(
-        self, temp_base: Path
+        self, temp_base: Path, archive_longer: bool
     ):
         """An emulator state can carry the tail of the game's own archive."""
         from utils.memory_cards import content_hash_of_bytes
@@ -579,8 +582,9 @@ class TestHashSaveFile:
         archive = (temp_base / "game.zip").read_bytes()
         with zipfile.ZipFile(temp_base / "game.zip") as zf:
             tail = archive[zf.start_dir :]
+            lead = zf.start_dir // 2 if archive_longer else zf.start_dir + 4096
         path = temp_base / "game.state"
-        path.write_bytes(b"\x00" * 4096 + tail + b"\xff" * 120)
+        path.write_bytes(b"\x00" * lead + tail + b"\xff" * 120)
         assert zipfile.is_zipfile(path)
         handler = FSAssetsHandler()
         handler.base_path = temp_base

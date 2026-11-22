@@ -218,6 +218,9 @@ def readable_zip_hash(source: str | os.PathLike[str] | IO[bytes]) -> str | None:
     an emulator state holding the tail of the game's own archive does."""
     try:
         with zipfile.ZipFile(source, "r") as zf:
+            # The tail of a longer archive points its entries before the bytes start.
+            if any(info.header_offset < 0 for info in zf.infolist()):
+                raise zipfile.BadZipFile("an entry starts before the bytes do")
             return hash_zip_contents(zf)
     except zipfile.BadZipFile as e:
         log.debug(f"Hashing the bytes, not a zip: {e}")
