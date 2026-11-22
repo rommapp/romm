@@ -252,6 +252,45 @@ describe("RVirtualScroller pageScroll", () => {
     wrapper.unmount();
   });
 
+  it("tracks how far down the page the list starts", async () => {
+    const ro = stubResizeObserver();
+    const wrapper = await mountPage();
+    const inner = wrapper.get(".r-virtual-scroller__inner").element;
+    // The list's page offset: whatever sits above it in the document.
+    let above = 0;
+    vi.spyOn(inner, "getBoundingClientRect").mockImplementation(
+      () => ({ top: above - window.scrollY }) as DOMRect,
+    );
+
+    above = 1000;
+    ro.resize(document.body, 0, 6000);
+    setPageScroll(1300);
+    window.dispatchEvent(new Event("scroll"));
+    await nextTick();
+    expect(tops(wrapper)[0]).toBe(300);
+
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    wrapper.vm.scrollToIndex(10);
+    expect(scrollTo).toHaveBeenLastCalledWith({
+      top: 2000,
+      behavior: "instant",
+    });
+
+    // Content above the list grows: the rows and the jump target follow it.
+    above = 1500;
+    ro.resize(document.body, 0, 6500);
+    await nextTick();
+    expect(tops(wrapper)[0]).toBe(0);
+    wrapper.vm.scrollToIndex(10);
+    expect(scrollTo).toHaveBeenLastCalledWith({
+      top: 2500,
+      behavior: "instant",
+    });
+
+    scrollTo.mockRestore();
+    wrapper.unmount();
+  });
+
   it("scrolls the window", async () => {
     const wrapper = await mountPage();
     const scrollTo = vi
