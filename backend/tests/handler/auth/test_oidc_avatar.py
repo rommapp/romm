@@ -24,14 +24,15 @@ def _png() -> bytes:
 
 
 @pytest.fixture(autouse=True)
-def assets_dir(tmp_path, monkeypatch) -> Path:
-    base = Path(tmp_path).resolve()
+def assets_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    base = tmp_path.resolve()
     monkeypatch.setattr(fs_asset_handler, "base_path", base)
     return base
 
 
 def _serve(
-    monkeypatch, handler: Callable[[httpx2.Request], httpx2.Response]
+    monkeypatch: pytest.MonkeyPatch,
+    handler: Callable[[httpx2.Request], httpx2.Response],
 ) -> list[httpx2.Request]:
     requests: list[httpx2.Request] = []
 
@@ -54,7 +55,7 @@ def _reload(user: User) -> User:
 
 
 async def test_stores_the_picture_as_the_avatar(
-    monkeypatch, assets_dir: Path, viewer_user: User
+    monkeypatch: pytest.MonkeyPatch, assets_dir: Path, viewer_user: User
 ):
     png = _png()
     _serve(monkeypatch, lambda _: httpx2.Response(200, content=png))
@@ -66,7 +67,9 @@ async def test_stores_the_picture_as_the_avatar(
     assert (assets_dir / avatar_path).read_bytes() == png
 
 
-async def test_keeps_an_uploaded_avatar(monkeypatch, viewer_user: User):
+async def test_keeps_an_uploaded_avatar(
+    monkeypatch: pytest.MonkeyPatch, viewer_user: User
+):
     db_user_handler.update_user(
         viewer_user.id, {"avatar_path": "users/x/profile/avatar.png"}
     )
@@ -79,7 +82,7 @@ async def test_keeps_an_uploaded_avatar(monkeypatch, viewer_user: User):
 
 
 async def test_replaces_a_previous_oidc_avatar(
-    monkeypatch, assets_dir: Path, viewer_user: User
+    monkeypatch: pytest.MonkeyPatch, assets_dir: Path, viewer_user: User
 ):
     avatar_dir = fs_asset_handler.build_avatar_path(user=viewer_user)
     old_path = f"{avatar_dir}/oidc-avatar.gif"
@@ -104,7 +107,7 @@ async def test_replaces_a_previous_oidc_avatar(
     ids=["http-error", "not-an-image", "too-large"],
 )
 async def test_leaves_the_avatar_unset_on_a_bad_picture(
-    monkeypatch, viewer_user: User, response: httpx2.Response
+    monkeypatch: pytest.MonkeyPatch, viewer_user: User, response: httpx2.Response
 ):
     _serve(monkeypatch, lambda _: response)
 
@@ -123,7 +126,7 @@ async def test_leaves_the_avatar_unset_on_a_bad_picture(
     ],
 )
 async def test_refuses_unsafe_urls_without_a_request(
-    monkeypatch, viewer_user: User, picture: str
+    monkeypatch: pytest.MonkeyPatch, viewer_user: User, picture: str
 ):
     monkeypatch.setattr(
         oidc_avatar, "OIDC_AVATAR_ORIGIN_ALLOWLIST", frozenset({("192.168.1.5", 9000)})
@@ -137,7 +140,7 @@ async def test_refuses_unsafe_urls_without_a_request(
 
 
 async def test_reaches_the_provider_on_a_private_address(
-    monkeypatch, viewer_user: User
+    monkeypatch: pytest.MonkeyPatch, viewer_user: User
 ):
     monkeypatch.setattr(
         oidc_avatar, "OIDC_AVATAR_ORIGIN_ALLOWLIST", frozenset({("192.168.1.5", 9000)})
@@ -159,7 +162,7 @@ async def test_reaches_the_provider_on_a_private_address(
     ids=["connect-error", "unexpected-value-error"],
 )
 async def test_a_failed_request_does_not_raise(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     viewer_user: User,
     error: Callable[[httpx2.Request], Exception],
 ):
@@ -173,7 +176,9 @@ async def test_a_failed_request_does_not_raise(
     assert not _reload(viewer_user).avatar_path
 
 
-async def test_a_stalled_download_gives_up(monkeypatch, viewer_user: User):
+async def test_a_stalled_download_gives_up(
+    monkeypatch: pytest.MonkeyPatch, viewer_user: User
+):
     async def stall(_: httpx2.Request) -> httpx2.Response:
         await asyncio.sleep(5)
         return httpx2.Response(200, content=_png())
@@ -191,7 +196,9 @@ async def test_a_stalled_download_gives_up(monkeypatch, viewer_user: User):
     assert not _reload(viewer_user).avatar_path
 
 
-async def test_trusts_the_oidc_ca_bundle(monkeypatch, viewer_user: User):
+async def test_trusts_the_oidc_ca_bundle(
+    monkeypatch: pytest.MonkeyPatch, viewer_user: User
+):
     ca_context = ssl.create_default_context()
     factory_kwargs: dict[str, object] = {}
 
@@ -211,7 +218,9 @@ async def test_trusts_the_oidc_ca_bundle(monkeypatch, viewer_user: User):
     assert factory_kwargs["verify"] is ca_context
 
 
-async def test_without_a_picture_claim_does_nothing(monkeypatch, viewer_user: User):
+async def test_without_a_picture_claim_does_nothing(
+    monkeypatch: pytest.MonkeyPatch, viewer_user: User
+):
     requests = _serve(monkeypatch, lambda _: httpx2.Response(200, content=_png()))
 
     await sync_oidc_avatar(viewer_user, {})
@@ -221,7 +230,7 @@ async def test_without_a_picture_claim_does_nothing(monkeypatch, viewer_user: Us
 
 
 async def test_an_upload_during_the_download_wins(
-    monkeypatch, assets_dir: Path, viewer_user: User
+    monkeypatch: pytest.MonkeyPatch, assets_dir: Path, viewer_user: User
 ):
     uploaded = "users/x/profile/avatar.png"
 
