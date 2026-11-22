@@ -16,6 +16,7 @@ import { computed, ref, toRef } from "vue";
 import { useI18n } from "vue-i18n";
 import GameActionBtn from "@/components/GameActions/GameActionBtn.vue";
 import MetricMenuBtn from "@/components/GameActions/MetricMenuBtn.vue";
+import PluginActions from "@/components/GameActions/PluginActions.vue";
 import { METRICS } from "@/components/GameActions/metrics";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import { useGameActions } from "@/composables/useGameActions";
@@ -131,6 +132,8 @@ useGridNav(rootEl, {
       variant="surface"
       with-metrics
     />
+    <!-- Installed plugins: one button per action their manifests declare. -->
+    <PluginActions :rom="rom" :size="btnSize" />
     <GameActionBtn :rom="rom" action="more" :size="btnSize" variant="surface" />
 
     <!-- Desktop only: the metric pills sit in the ribbon. On phones they

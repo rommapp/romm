@@ -1,0 +1,16 @@
+{
+  "id": "rommdeck",
+  "name": "RommDeck",
+  "version": "1.0.0",
+  "description": "Open a game on the machine RommDeck keeps in sync.",
+  "homepage": "https://github.com/s0liton/RommDeck",
+  "actions": [
+    {
+      "id": "open",
+      "label": "Open in RommDeck",
+      "icon": "mdi-monitor-dashboard",
+      "url": "rommdeck://open?rom={rom_id}&platform={platform_slug}&name={rom_name}",
+      "open": "new-tab"
+    }
+  ]
+}

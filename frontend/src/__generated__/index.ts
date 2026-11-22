@@ -225,6 +225,8 @@ export type { PlaySessionIngestPayload } from './models/PlaySessionIngestPayload
 export type { PlaySessionIngestResponse } from './models/PlaySessionIngestResponse';
 export type { PlaySessionIngestResult } from './models/PlaySessionIngestResult';
 export type { PlaySessionSchema } from './models/PlaySessionSchema';
+export type { PluginActionSchema } from './models/PluginActionSchema';
+export type { PluginSchema } from './models/PluginSchema';
 export type { PouetCredit } from './models/PouetCredit';
 export type { RAGameRomAchievement } from './models/RAGameRomAchievement';
 export type { RAProgression } from './models/RAProgression';

@@ -50,6 +50,7 @@ from endpoints.notification_channels import router as notification_channels_rout
 from endpoints.notifications import router as notifications_router
 from endpoints.permissions import router as permissions_router
 from endpoints.platform import router as platform_router
+from endpoints.plugins import router as plugins_router
 from endpoints.play_sessions import router as play_sessions_router
 from endpoints.recommendations import router as recommendations_router
 from endpoints.responses.streaming import SOCKET_PAYLOADS as STREAMING_SOCKET_PAYLOADS
@@ -228,6 +229,7 @@ app.include_router(sync_router, prefix="/api")
 app.include_router(tasks_router, prefix="/api")
 app.include_router(feeds_router, prefix="/api")
 app.include_router(configs_router, prefix="/api")
+app.include_router(plugins_router, prefix="/api")
 app.include_router(stats_router, prefix="/api")
 app.include_router(logs_router, prefix="/api")
 app.include_router(screenshots_router, prefix="/api")

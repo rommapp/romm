@@ -48,6 +48,10 @@ ROMM_TMP_PATH: Final[str | None] = _get_env("ROMM_TMP_PATH")
 LIBRARY_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/library"
 RESOURCES_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/resources"
 ASSETS_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/assets"
+# Manifests dropped here add actions to the game UI. See docs/PLUGINS.md.
+PLUGINS_BASE_PATH: Final[str] = _get_env(
+    "PLUGINS_BASE_PATH", f"{ROMM_BASE_PATH}/plugins"
+)
 CACHE_BASE_PATH: Final[str] = (
     f"{ROMM_TMP_PATH or '/tmp/romm'}/cache"  # trunk-ignore(bandit/B108)
 )
