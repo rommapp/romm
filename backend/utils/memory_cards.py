@@ -14,7 +14,7 @@ from handler.filesystem.assets_handler import (
     is_symlink_entry,
     iter_zip_entry,
     leaves_save_folder,
-    readable_zip_hash,
+    zip_archive_hash,
 )
 from handler.scan_handler import scan_memory_card_version
 from logger.logger import log
@@ -34,8 +34,7 @@ def content_hash_of_bytes(content: bytes) -> str | None:
     values.
     """
     try:
-        buf = io.BytesIO(content)
-        if zipfile.is_zipfile(buf) and (zip_hash := readable_zip_hash(buf)) is not None:
+        if (zip_hash := zip_archive_hash(io.BytesIO(content))) is not None:
             return zip_hash
         return hashlib.md5(content, usedforsecurity=False).hexdigest()
     except Exception as exc:
