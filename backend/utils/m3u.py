@@ -93,6 +93,11 @@ def playlist_entries(m3u_path: Path) -> list[list[Path]] | None:
     return entries
 
 
+def entry_on_disk(candidates: Iterable[Path]) -> Path | None:
+    """The first of a playlist entry's possible paths that is a file on disk."""
+    return next((path for path in candidates if path.is_file()), None)
+
+
 def first_playlist_entry(m3u_path: Path) -> Path | None:
     """Resolve an .m3u playlist to the first disc file it lists.
 
@@ -103,7 +108,7 @@ def first_playlist_entry(m3u_path: Path) -> Path | None:
     entries = playlist_entries(m3u_path)
     if not entries:
         return None
-    return next((path for path in entries[0] if path.is_file()), None)
+    return entry_on_disk(entries[0])
 
 
 def playlist_discs(m3u_path: Path) -> list[Path]:
@@ -111,7 +116,7 @@ def playlist_discs(m3u_path: Path) -> list[Path]:
     return [
         disc
         for candidates in playlist_entries(m3u_path) or []
-        if (disc := next((path for path in candidates if path.is_file()), None))
+        if (disc := entry_on_disk(candidates))
     ]
 
 
@@ -167,7 +172,7 @@ def listing_playlist(disc: Path) -> str | None:
     for playlist in playlists:
         for candidates in playlist_entries(playlist) or []:
             # The path an emulator would open, as first_playlist_entry picks it.
-            on_disk = next((path for path in candidates if path.is_file()), None)
+            on_disk = entry_on_disk(candidates)
             if on_disk:
                 if _leads_to(on_disk, disc):
                     return playlist.name

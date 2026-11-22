@@ -69,7 +69,7 @@ from utils.archives import (
 )
 from utils.filesystem import ARCHIVE_FORMAT_BY_SUFFIX, iter_files
 from utils.hashing import crc32_to_hex
-from utils.m3u import PLAYLIST_EXT, playlist_entries
+from utils.m3u import PLAYLIST_EXT, entry_on_disk, playlist_entries
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.rom_patcher import is_patch_file_name
 
@@ -401,7 +401,7 @@ def playlist_disc_paths(m3u_path: Path) -> list[Path]:
                 f"Skipping {m3u_path} entry outside its folder: {candidates[0]}"
             )
             continue
-        disc = next((path for path in inside if path.is_file()), None)
+        disc = entry_on_disk(inside)
         if disc is None:
             log.warning(f"Skipping {m3u_path} entry missing on disk: {inside[0]}")
             continue
