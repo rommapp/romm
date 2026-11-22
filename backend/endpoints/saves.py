@@ -75,6 +75,7 @@ from handler.snapshots.restore import (
     restore_for_core,
     restore_platform,
 )
+from handler.streaming.saves import keep_broker_suffix
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -1460,6 +1461,7 @@ async def rename_save(
         request, db_save_handler.get_save_by_id(id), f"Save with ID {id} not found"
     )
 
+    file_name = keep_broker_suffix(save.file_name, file_name)
     return _build_save_schema(await rename_asset(save, file_name))
 
 

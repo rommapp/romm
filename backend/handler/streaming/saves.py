@@ -597,6 +597,18 @@ def _is_archive(save: Save) -> bool:
     return save.file_name.lower().endswith(BROKER_ARCHIVE_SUFFIX)
 
 
+def keep_broker_suffix(old_name: str, new_name: str) -> str:
+    """Keep a broker archive's suffix when a rename to another `.zip` drops it."""
+    lowered = new_name.lower()
+    if (
+        not old_name.lower().endswith(BROKER_ARCHIVE_SUFFIX)
+        or lowered.endswith(BROKER_ARCHIVE_SUFFIX)
+        or not lowered.endswith(".zip")
+    ):
+        return new_name
+    return new_name[: -len(".zip")] + BROKER_ARCHIVE_SUFFIX
+
+
 def _is_restorable(save: Save, emulator: str) -> bool:
     """Whether the broker can put this stored save back on the container."""
     return _written_by(save, emulator) and _is_archive(save)
