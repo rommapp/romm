@@ -9,7 +9,7 @@ import pytest
 from PIL import Image
 
 from handler.auth import oidc_avatar
-from handler.auth.oidc_avatar import sync_oidc_avatar
+from handler.auth.oidc_avatar import discard_oidc_avatar, sync_oidc_avatar
 from handler.database import db_user_handler
 from handler.filesystem import fs_asset_handler
 from models.user import User
@@ -245,3 +245,18 @@ async def test_an_upload_during_the_download_wins(
     assert _reload(viewer_user).avatar_path == uploaded
     avatar_dir = fs_asset_handler.build_avatar_path(user=viewer_user)
     assert not (assets_dir / avatar_dir / "oidc-avatar.png").exists()
+
+
+@pytest.mark.parametrize(
+    ("file_name", "removed"), [("oidc-avatar.png", True), ("avatar.png", False)]
+)
+async def test_discard_removes_only_a_synced_avatar(
+    assets_dir: Path, viewer_user: User, file_name: str, removed: bool
+):
+    avatar_dir = fs_asset_handler.build_avatar_path(user=viewer_user)
+    (assets_dir / avatar_dir).mkdir(parents=True)
+    (assets_dir / avatar_dir / file_name).write_bytes(_png())
+
+    await discard_oidc_avatar(f"{avatar_dir}/{file_name}")
+
+    assert (assets_dir / avatar_dir / file_name).exists() is not removed

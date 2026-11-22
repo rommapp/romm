@@ -70,6 +70,12 @@ async def _remove_quietly(path: str) -> None:
         log.debug(f"Could not remove the unused OIDC avatar {path}")
 
 
+async def discard_oidc_avatar(avatar_path: str) -> None:
+    """Delete a synced avatar's file once an uploaded avatar has replaced it."""
+    if avatar_path and is_oidc_avatar(avatar_path):
+        await _remove_quietly(avatar_path)
+
+
 async def sync_oidc_avatar(user: User, userinfo: dict[str, Any] | None) -> None:
     """Store the provider's picture as the avatar unless the user uploaded one; failures are logged and never block sign-in."""
     picture = (userinfo or {}).get("picture")
