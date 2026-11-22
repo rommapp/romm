@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
-import i18n, { czechPluralIndex, loadLocale } from "@/locales";
+import i18n, {
+  availableLocales,
+  czechPluralIndex,
+  loadLocale,
+  matchPreferredLocale,
+  ukrainianPluralIndex,
+} from "@/locales";
 
 describe("czechPluralIndex", () => {
   it("maps counts onto four forms", () => {
@@ -37,6 +43,32 @@ describe("cs_CZ messages", () => {
       "3 soubory k nahrání",
       "5 souborů k nahrání",
     ]);
+  });
+});
+
+describe("uk_UA messages", () => {
+  afterEach(() => {
+    i18n.global.locale.value = "en_US";
+  });
+
+  it("maps simple and explicit-zero plurals", () => {
+    expect([0, 1, 2, 21].map((n) => ukrainianPluralIndex(n, 2))).toEqual([
+      1, 0, 1, 1,
+    ]);
+    expect(
+      [0, 1, 2, 5, 11, 14, 21, 22, 1.5].map((n) => ukrainianPluralIndex(n, 4)),
+    ).toEqual([0, 1, 2, 3, 3, 3, 1, 2, 3]);
+  });
+
+  it("selects the Ukrainian browser locale and renders game counts", async () => {
+    expect(matchPreferredLocale(["uk-UA"], availableLocales)).toBe("uk_UA");
+    await loadLocale("uk_UA");
+    i18n.global.locale.value = "uk_UA";
+    const { t } = i18n.global;
+    expect(
+      [1, 2, 11, 21, 25].map((n) => t("collection.games-count", n)),
+    ).toEqual(["1 гра", "2 гри", "11 ігор", "21 гра", "25 ігор"]);
+    expect(t("audit.detail-new-games", 0)).toBe("Нових ігор немає");
   });
 });
 
