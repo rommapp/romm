@@ -2876,7 +2876,7 @@ class TestStandalonePlaylistDiscs:
         assert disc.file_size_bytes == len(b"disc one")
         assert disc.sha1_hash == hashlib.sha1(b"disc one").hexdigest()
         assert disc.category is None
-        # The ROM-level hash stays the playlist's, as nested files don't feed it.
+        # The ROM-level hash stays the playlist's, since nested files don't feed it.
         assert parsed.sha1_hash == hashlib.sha1(playlist.encode()).hexdigest()
 
     async def test_cue_tracks_come_with_their_sheet(

@@ -275,7 +275,7 @@ def _cue_file_name(line: str) -> str | None:
 
 
 def cue_track_names(cue: Path) -> list[str]:
-    """The track names a cue sheet's `FILE` lines reference, unvalidated."""
+    """The track names a cue sheet's `FILE` lines reference, before any path check."""
     lines = cue.read_text(encoding="utf-8-sig", errors="replace").splitlines()
     return [name for name in map(_cue_file_name, lines) if name is not None]
 

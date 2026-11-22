@@ -386,11 +386,11 @@ SIDECAR_FILE_SUFFIXES: Final = (
 
 
 def playlist_disc_paths(m3u_path: Path) -> list[Path]:
-    """The files a standalone .m3u lists in or below its folder, with each listed cue's tracks."""
+    """The files a standalone .m3u lists in or below its folder, plus the tracks of each listed cue."""
     root = m3u_path.parent
     paths: dict[Path, None] = {}
     for candidates in playlist_entries(m3u_path) or []:
-        # Lexical, so `..` can't escape while a symlinked disc folder still counts.
+        # Normalize lexically so `..` can't escape, but a symlinked disc folder still counts.
         inside = [
             normalized
             for normalized in (Path(os.path.normpath(c)) for c in candidates)
@@ -418,7 +418,7 @@ def playlist_disc_paths(m3u_path: Path) -> list[Path]:
                     listed.append(track)
                 else:
                     log.warning(
-                        f"Skipping {disc} track outside its folder or missing: {name}"
+                        f"Skipping {disc} track that is outside its folder or missing: {name}"
                     )
         paths.update(dict.fromkeys(path for path in listed if path != m3u_path))
     return list(paths)
@@ -1317,7 +1317,7 @@ class FSRomsHandler(FSHandler):
         existing_by_key: Mapping[RomFileKey, RomFile] | None,
         hashable_platform: bool,
     ) -> list[RomFile]:
-        """Rows for the discs a standalone .m3u lists, each hashed on its own."""
+        """Build the rom files for the discs a standalone .m3u lists, each hashed on its own."""
         disc_files: list[RomFile] = []
         for path in await asyncio.to_thread(playlist_disc_paths, m3u_path):
             try:
