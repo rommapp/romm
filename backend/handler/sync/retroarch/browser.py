@@ -11,7 +11,7 @@ from urllib.parse import quote
 from handler.auth.permissions import ResolvedPermissions
 from handler.database import db_platform_handler, db_rom_handler
 from models.platform import Platform
-from models.rom import Rom, apply_file_stats
+from models.rom import Rom
 
 
 @dataclass(frozen=True)
@@ -82,11 +82,11 @@ def build_multistatus(entries: list[PropfindEntry]) -> str:
 
 def _display_name(rom: Rom) -> str:
     """The name the content endpoint downloads a rom as: a zip when multi-file."""
-    if rom.has_multiple_files:
+    # The endpoint zips every file, nested extras and a playlist's discs included.
+    if len(rom.files) > 1:
         return f"{rom.fs_name_no_ext}.zip"
     # A nested single file's `fs_name` is its folder; the file has the real name.
-    files = sorted(rom.files, key=lambda f: f.file_name)
-    return files[0].file_name if files else rom.fs_name
+    return rom.files[0].file_name if rom.files else rom.fs_name
 
 
 def list_platforms(permissions: ResolvedPermissions) -> list[Platform]:
@@ -115,7 +115,6 @@ def list_rom_files(
     )
     rom_files = []
     for rom in roms:
-        apply_file_stats(rom, rom.files)
         rom_files.append(
             RomFile(
                 rom_id=rom.id,

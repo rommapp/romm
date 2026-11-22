@@ -2935,6 +2935,30 @@ class TestStandalonePlaylistDiscs:
         assert [id(f) for f in parsed.rom_files] == [id(f) for f in first.rom_files]
         hasher.assert_not_called()
 
+    async def test_a_changed_disc_rereads_the_title_id(
+        self, handler: FSRomsHandler, tmp_path: Path
+    ):
+        rom = self._playlist_rom(tmp_path, "discs/Game (Disc 1).chd\n")
+        mock_extract = AsyncMock(side_effect=disc_serial_extract)
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            first = await handler.get_rom_files(rom)
+            rom.title_id = first.identity.title_id
+            rom.save_target_layout = first.identity.save_target_layout
+            mock_extract.reset_mock()
+
+            unchanged = await handler.get_rom_files(
+                rom, existing_files=first.rom_files, reuse_title_ids=True
+            )
+            mock_extract.assert_not_awaited()
+
+            disc = tmp_path / "ps2/roms/discs/Game (Disc 1).chd"
+            disc.write_bytes(b"another disc")
+            await handler.get_rom_files(
+                rom, existing_files=unchanged.rom_files, reuse_title_ids=True
+            )
+
+        mock_extract.assert_awaited_once()
+
     def test_skips_comments_missing_and_escaping_entries(self, tmp_path: Path):
         roms_path = tmp_path / "ps2/roms"
         (roms_path / "discs").mkdir(parents=True)

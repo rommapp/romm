@@ -160,7 +160,7 @@ def listing_playlist(disc: Path) -> str | None:
         playlists = [
             entry
             for entry in disc.parent.iterdir()
-            if entry.suffix.lower() == ".m3u" and entry.is_file()
+            if entry.suffix.lower() == PLAYLIST_EXT and entry.is_file()
         ]
     except OSError:
         return None

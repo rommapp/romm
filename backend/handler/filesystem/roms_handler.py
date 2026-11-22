@@ -940,7 +940,6 @@ class FSRomsHandler(FSHandler):
         )
 
         stored_categories: dict[int, RomFileCategory | None] = {}
-        flat_reused = False
 
         rom_crc_c = 0
         rom_md5_h = hashlib.md5(usedforsecurity=False) if calculate_hashes else None
@@ -1070,7 +1069,6 @@ class FSRomsHandler(FSHandler):
             and await _flat_file_unchanged(flat_row, rom_dir, hashable_platform)
         ):
             rom_files.append(flat_row)
-            flat_reused = True
             top_level_changed = False
             _record_title_id_source(rom_dir, flat_row)
         elif hashable_platform and rom_ext in ARCHIVE_READERS:
@@ -1236,7 +1234,7 @@ class FSRomsHandler(FSHandler):
         files_unchanged = (
             existing_by_key is not None
             and len(rom_files) == len(existing_by_key)
-            and (flat_reused or len(stored_categories) == len(rom_files))
+            and all(existing_by_key.get(rom_file_key(f)) is f for f in rom_files)
         )
         # Only sigil writes a save target layout, so one marks a completed read.
         # A Switch file sigil left without an id has no category settled yet.
@@ -1323,7 +1321,7 @@ class FSRomsHandler(FSHandler):
         disc_files: list[RomFile] = []
         for path in await asyncio.to_thread(playlist_disc_paths, m3u_path):
             try:
-                st = os.stat(path)
+                st = await asyncio.to_thread(os.stat, path)
             except OSError as exc:
                 log.warning(f"Skipping unreadable file {path}: {exc}")
                 continue

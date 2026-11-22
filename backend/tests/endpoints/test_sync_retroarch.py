@@ -3733,6 +3733,31 @@ class TestRetroArchSyncBrowsing:
             in response.text
         )
 
+    def test_propfind_lists_a_playlist_with_its_discs_as_a_zip(
+        self, client, admin_user: User, platform: Platform
+    ):
+        rom = make_rom(platform, "Game", fs_extension="m3u")
+        db_rom_handler.add_rom_file(
+            RomFile(rom_id=rom.id, file_name=rom.fs_name, file_path=rom.fs_path)
+        )
+        db_rom_handler.add_rom_file(
+            RomFile(
+                rom_id=rom.id,
+                file_name="Game (Disc 1).chd",
+                file_path=f"{rom.fs_path}/discs",
+            )
+        )
+
+        response = client.request(
+            "PROPFIND",
+            f"/api/sync/retroarch/roms/{platform.fs_slug}/",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == 207
+        assert f"/roms/{platform.fs_slug}/Game.zip</D:href>" in response.text
+        assert "Disc%201" not in response.text
+
     def test_propfind_unknown_platform_is_not_found(self, client, admin_user: User):
         response = client.request(
             "PROPFIND", "/api/sync/retroarch/roms/nope/", auth=ADMIN_AUTH
