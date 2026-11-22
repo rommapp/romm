@@ -4,7 +4,7 @@ import os
 import struct
 import threading
 import zlib
-from collections.abc import Container
+from collections.abc import AsyncIterator, Container
 from io import BytesIO
 from pathlib import Path
 from typing import Any, cast
@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import httpx2
 import pytest
+from fastapi import HTTPException
 from PIL import Image, ImageFile, ImageSequence
 from PIL.PngImagePlugin import Blend
 from tests.concurrency_stubs import InFlight
@@ -20,6 +21,8 @@ from tests.utils.test_images import (
     FRAME_SIZE,
     animated_image_bytes,
     encode_animation,
+    jxl_image_bytes,
+    png_header_bytes,
     truncated_animation_bytes,
 )
 
@@ -280,7 +283,7 @@ class TestFSResourcesHandler:
         mock_image.resize.assert_called_once_with((expected_width, expected_height))
         mock_image.save.assert_called_once_with(save_path)
 
-    @pytest.mark.parametrize("fmt", ["GIF", "PNG", "WEBP"])
+    @pytest.mark.parametrize("fmt", ["GIF", "PNG", "WEBP", "AVIF"])
     def test_resize_cover_to_small_keeps_animation(
         self, handler: FSResourcesHandler, tmp_path: Path, fmt: str
     ):
@@ -310,6 +313,7 @@ class TestFSResourcesHandler:
         "fmt, source_params",
         [
             ("GIF", {"disposal": 2}),
+            ("AVIF", {}),
             ("PNG", {"blend": [Blend.OP_OVER, Blend.OP_SOURCE, Blend.OP_SOURCE]}),
         ],
     )
@@ -371,6 +375,36 @@ class TestFSResourcesHandler:
         with Image.open(tmp_path / path_cover_s) as small:
             assert small.format == "WEBP"
             assert frame_durations(small) == DURATIONS
+
+    async def test_store_artwork_reencodes_jpeg_xl_as_png(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+
+        with patch(
+            "handler.filesystem.resources_handler.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP",
+            False,
+        ):
+            path_cover_l, path_cover_s = await handler.store_artwork(
+                rom, BytesIO(jxl_image_bytes()), "png"
+            )
+
+        assert path_cover_l is not None and path_cover_l.endswith("big.png")
+        assert path_cover_s is not None
+        with Image.open(tmp_path / path_cover_l) as big:
+            assert big.format == "PNG"
+            assert big.size == FRAME_SIZE
+        assert (tmp_path / path_cover_s).is_file()
+
+    async def test_store_artwork_rejects_a_corrupt_jpeg_xl(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+        data = jxl_image_bytes()
+
+        paths = await handler.store_artwork(rom, BytesIO(data[: len(data) // 2]), "png")
+
+        assert paths == (None, None)
 
     def test_get_cover_path_no_cover(
         self, handler: FSResourcesHandler, rom: Rom, tmp_path
@@ -1984,6 +2018,259 @@ class TestDiskFullHandling:
             await handler.store_ra_badge("http://example.com/badge.png", rel)
 
         assert not target.exists()
+
+
+class _ChunkStream(httpx2.AsyncByteStream):
+    def __init__(self, chunks: list[bytes]) -> None:
+        self._chunks = chunks
+
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        for chunk in self._chunks:
+            yield chunk
+
+
+def _chunked_response(
+    chunks: list[bytes], headers: dict[str, str] | None = None
+) -> httpx2.Response:
+    """A 200 response streaming `chunks` raw, an image unless `headers` say otherwise."""
+    return httpx2.Response(
+        200,
+        headers={"content-type": "image/png", **(headers or {})},
+        stream=_ChunkStream(chunks),
+    )
+
+
+def _gzip_chunks(data: bytes, size: int = 1024) -> list[bytes]:
+    compressor = zlib.compressobj(wbits=16 + zlib.MAX_WBITS)
+    body = compressor.compress(data) + compressor.flush()
+    return [body[i : i + size] for i in range(0, len(body), size)]
+
+
+class TestDownloadLimits:
+    """Downloads and decodes stay bounded whatever a remote server sends."""
+
+    @pytest.fixture
+    def handler(self):
+        return FSResourcesHandler()
+
+    @pytest.fixture
+    def rom(self):
+        rom = Mock(spec=Rom)
+        rom.id = 1
+        rom.platform_id = 1
+        rom.fs_resources_path = "roms/1/1"
+        return rom
+
+    async def _store_cover(
+        self, handler: FSResourcesHandler, rom: Rom, response: httpx2.Response
+    ) -> None:
+        with (
+            patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx,
+            patch(
+                "handler.filesystem.resources_handler.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP",
+                False,
+            ),
+        ):
+            mock_ctx.get.return_value = _FakeHttpxClient(response)
+            await handler._store_cover(rom, "http://example.com/cover.png")
+
+    @pytest.mark.asyncio
+    async def test_cover_past_the_byte_cap_is_dropped(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+        cover_dir = tmp_path / "roms/1/1/cover"
+
+        with patch(
+            "handler.filesystem.resources_handler.MAX_ASSET_UPLOAD_SIZE_BYTES", 1000
+        ):
+            await self._store_cover(handler, rom, _chunked_response([b"x" * 400] * 3))
+
+        assert list(cover_dir.iterdir()) == []
+
+    @pytest.mark.asyncio
+    async def test_cover_past_the_byte_cap_keeps_the_existing_cover(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+        target = tmp_path / "roms/1/1/cover/big.png"
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b"the good cover")
+
+        with patch(
+            "handler.filesystem.resources_handler.MAX_ASSET_UPLOAD_SIZE_BYTES", 1000
+        ):
+            await self._store_cover(handler, rom, _chunked_response([b"x" * 400] * 3))
+
+        assert target.read_bytes() == b"the good cover"
+
+    @pytest.mark.asyncio
+    async def test_gzip_bomb_is_dropped(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+        cover_dir = tmp_path / "roms/1/1/cover"
+        # A few KiB that inflate to 10 MiB
+        chunks = _gzip_chunks(b"\0" * (10 * 1024 * 1024))
+
+        with patch(
+            "handler.filesystem.resources_handler.MAX_ASSET_UPLOAD_SIZE_BYTES",
+            64 * 1024,
+        ):
+            await self._store_cover(
+                handler, rom, _chunked_response(chunks, {"content-encoding": "gzip"})
+            )
+
+        assert list(cover_dir.iterdir()) == []
+
+    @pytest.mark.asyncio
+    async def test_gzipped_cover_is_inflated(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+        png = _png_bytes()
+
+        await self._store_cover(
+            handler,
+            rom,
+            _chunked_response(_gzip_chunks(png, 64), {"content-encoding": "gzip"}),
+        )
+
+        assert (tmp_path / "roms/1/1/cover/big.png").read_bytes() == png
+
+    @pytest.mark.asyncio
+    async def test_truncated_gzip_keeps_the_existing_cover(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+        target = tmp_path / "roms/1/1/cover/big.png"
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b"the good cover")
+        chunks = _gzip_chunks(_png_bytes(), 64)
+
+        await self._store_cover(
+            handler,
+            rom,
+            _chunked_response(chunks[:-1], {"content-encoding": "gzip"}),
+        )
+
+        assert target.read_bytes() == b"the good cover"
+
+    @pytest.mark.asyncio
+    async def test_multi_member_gzip_is_inflated_whole(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+        png = _png_bytes()
+        half = len(png) // 2
+        body = b"".join(
+            b"".join(_gzip_chunks(part)) for part in (png[:half], png[half:])
+        )
+
+        await self._store_cover(
+            handler,
+            rom,
+            _chunked_response(
+                [body[i : i + 64] for i in range(0, len(body), 64)],
+                {"content-encoding": "gzip"},
+            ),
+        )
+
+        assert (tmp_path / "roms/1/1/cover/big.png").read_bytes() == png
+
+    @pytest.mark.asyncio
+    async def test_plain_cover_labelled_gzip_is_kept_as_sent(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+        png = _png_bytes()
+
+        await self._store_cover(
+            handler, rom, _chunked_response([png], {"content-encoding": "gzip"})
+        )
+
+        assert (tmp_path / "roms/1/1/cover/big.png").read_bytes() == png
+
+    @pytest.mark.asyncio
+    async def test_cover_with_oversized_dimensions_is_dropped(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+        cover_dir = tmp_path / "roms/1/1/cover"
+
+        await self._store_cover(
+            handler, rom, _chunked_response([png_header_bytes(10000, 8000)])
+        )
+
+        assert list(cover_dir.iterdir()) == []
+
+    @pytest.mark.asyncio
+    async def test_decompression_bomb_cover_is_dropped(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+        cover_dir = tmp_path / "roms/1/1/cover"
+
+        with patch.object(
+            handler,
+            "_write_derived_covers",
+            side_effect=Image.DecompressionBombError("too many pixels"),
+        ):
+            await self._store_cover(handler, rom, _chunked_response([_png_bytes()]))
+
+        assert list(cover_dir.iterdir()) == []
+
+    @pytest.mark.asyncio
+    async def test_media_file_past_the_byte_cap_is_dropped(
+        self, handler: FSResourcesHandler, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+        rel = "roms/1/1/video/video.mp4"
+
+        with (
+            patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx,
+            patch(
+                "handler.filesystem.resources_handler.MAX_ASSET_UPLOAD_SIZE_BYTES", 1000
+            ),
+        ):
+            mock_ctx.get.return_value = _FakeHttpxClient(
+                _chunked_response([b"x" * 400] * 3, {"content-type": "video/mp4"})
+            )
+            stored = await handler.store_media_file("http://example.com/v.mp4", rel)
+
+        assert stored is False
+        assert list((tmp_path / "roms/1/1/video").iterdir()) == []
+
+    @pytest.mark.asyncio
+    async def test_gzipped_media_file_is_inflated(
+        self, handler: FSResourcesHandler, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+        rel = "roms/1/1/box2d_back/box2d_back.png"
+        png = _png_bytes()
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = _FakeHttpxClient(
+                _chunked_response(_gzip_chunks(png, 64), {"content-encoding": "gzip"})
+            )
+            stored = await handler.store_media_file("http://example.com/x.png", rel)
+
+        assert stored is True
+        assert (tmp_path / rel).read_bytes() == png
+
+    @pytest.mark.asyncio
+    async def test_artwork_with_oversized_dimensions_is_refused(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path: Path
+    ):
+        handler.base_path = tmp_path
+
+        with pytest.raises(HTTPException) as exc_info:
+            await handler.store_artwork(
+                rom, BytesIO(png_header_bytes(10000, 8000)), "png"
+            )
+
+        assert exc_info.value.status_code == 400
+        assert list((tmp_path / "roms/1/1/cover").iterdir()) == []
 
 
 class _SlotAwareClient:

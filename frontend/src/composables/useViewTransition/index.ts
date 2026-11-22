@@ -26,7 +26,10 @@ import { nextTick, ref } from "vue";
 import type { RouteLocationNormalized, Router } from "vue-router";
 import { useReducedMotion } from "@/composables/useReducedMotion";
 import { ROUTES } from "@/plugins/router";
-import { absorbPreemptionSkip } from "@/plugins/transition";
+import {
+  absorbPreemptionSkip,
+  isTransitionSkipped,
+} from "@/plugins/transition";
 
 // Routes that paint a `rom-cover-<id>` hero, so any pair of them can morph.
 const MORPH_ROM_ROUTES: ReadonlySet<string> = new Set([
@@ -59,7 +62,12 @@ export const pendingMorphName = ref<string | null>(null);
 // transition starting from `beforeResolve`.
 let forwardTransitionActive = false;
 
-function isSupported(): boolean {
+/** True while a forward or back morph owns the page's view transition. */
+export function isMorphRunning(): boolean {
+  return forwardTransitionActive || pendingMorphName.value !== null;
+}
+
+export function isSupported(): boolean {
   return (
     typeof document !== "undefined" &&
     typeof document.startViewTransition === "function"
@@ -161,7 +169,7 @@ function morphNameForRoute(route: RouteLocationNormalized): string | null {
 // don't fight over `document.startViewTransition`.
 export function installBackMorph(router: Router): () => void {
   const removeGuard = router.beforeResolve(async (to, from) => {
-    if (forwardTransitionActive) return true;
+    if (forwardTransitionActive || isTransitionSkipped(to)) return true;
     if (!isSupported() || useReducedMotion().enabled.value) return true;
     // No morph between two views of the same kind (e.g. /platform/A →
     // /platform/B): that would compete with the in-route transition

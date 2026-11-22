@@ -1,3 +1,6 @@
+import ssl
+from typing import Any
+
 from config import has_proxy_env
 from utils.context import (
     create_aiohttp_session,
@@ -44,3 +47,14 @@ class TestProxyAwareHttpClients:
         finally:
             await async_client.aclose()
             client.close()
+
+    async def test_create_httpx_async_client_uses_the_given_ssl_context(self):
+        ssl_context = ssl.create_default_context()
+
+        client = create_httpx_async_client(verify=ssl_context)
+
+        try:
+            transport: Any = client._transport
+            assert transport._pool._ssl_context is ssl_context
+        finally:
+            await client.aclose()

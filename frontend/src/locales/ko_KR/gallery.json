@@ -7,6 +7,7 @@
   "firmware-selected-count": "{count}개 선택됨",
   "jump-to": "{letter}(으)로 이동",
   "jump-to-letter": "글자로 이동",
+  "results-of-total": "{count} / {total}",
   "selection-clear": "선택 해제",
   "selection-collections": "모음집 관리",
   "selection-delete": "삭제",

@@ -21,6 +21,7 @@ from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
 from adapters.services.sigil import begin_scan as begin_sigil_scan
 from adapters.services.sigil import log_scan_summary as log_sigil_scan_summary
 from config import DEV_MODE, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
+from config.config_manager import Config
 from config.config_manager import config_manager as cm
 from endpoints.responses.platform import PlatformSchema
 from endpoints.sockets.activity import get_authenticated_user
@@ -559,6 +560,7 @@ async def _rebuild_rom_files(
     extract_title_ids: bool,
     embed_title_ids: bool,
     existing_files: Sequence[RomFile] | None = None,
+    cnfg: Config | None = None,
 ) -> ParsedRomFiles:
     """Re-read a rom's files onto `fs_rom`, embedding title ids when enabled."""
     parsed = await fs_rom_handler.get_rom_files(
@@ -566,6 +568,7 @@ async def _rebuild_rom_files(
         calculate_hashes=calculate_hashes,
         extract_title_ids=extract_title_ids,
         existing_files=existing_files,
+        cnfg=cnfg,
     )
 
     renamed_rom_fs_name = (
@@ -605,15 +608,19 @@ async def _identify_rom(
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
     scanned_rom_ids: set[int],
+    cnfg: Config | None = None,
 ) -> None:
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
         return
 
+    # Each load re-reads config.yml, so a library scan passes one in.
+    cnfg = cnfg or cm.get_config()
+
     # A quick scan only reconciles an existing entry's files with disk, so it
     # needs none of the metadata prelude below.
     if rom is not None and scan_type == ScanType.QUICK:
-        refreshed = await refresh_rom_files(rom)
+        refreshed = await refresh_rom_files(rom, cnfg)
         await scan_stats.increment(
             socket_manager=socket_manager,
             scanned_roms=1,
@@ -652,7 +659,6 @@ async def _identify_rom(
         "url_screenshots": [],
     }
 
-    cnfg = cm.get_config()
     calculate_hashes = not cnfg.SKIP_HASH_CALCULATION
     extract_title_ids = not cnfg.SKIP_TITLE_ID_EXTRACTION
     embed_title_ids = cnfg.EMBED_SWITCH_TITLE_IDS
@@ -675,6 +681,7 @@ async def _identify_rom(
             calculate_hashes=calculate_hashes,
             extract_title_ids=extract_title_ids,
             embed_title_ids=embed_title_ids,
+            cnfg=cnfg,
         )
         # The new-entry insert reads its name from rom_attrs, not fs_rom.
         rom_attrs["fs_name"] = fs_rom["fs_name"]
@@ -752,6 +759,7 @@ async def _identify_rom(
             extract_title_ids=extract_title_ids
             and _should_extract_title_ids(scan_type, rom),
             embed_title_ids=embed_title_ids,
+            cnfg=cnfg,
             existing_files=(
                 loaded_rom_files(rom)
                 if _should_hash_incrementally(scan_type, rom, roms_ids)
@@ -763,6 +771,9 @@ async def _identify_rom(
         if rom.fs_name != fs_rom["fs_name"]:
             rom.fs_name = fs_rom["fs_name"]
 
+    # The stored file rows only catch up after `sync_rom_files` below.
+    scanned_files = fs_rom["files"] if should_update_files else None
+
     log.debug(f"Scanning {rom.fs_name}...")
     scanned_rom = await scan_rom(
         scan_type=scan_type,
@@ -773,6 +784,7 @@ async def _identify_rom(
         newly_added=newly_added,
         launchbox_remote_enabled=launchbox_remote_enabled,
         socket_manager=socket_manager,
+        scanned_files=scanned_files,
     )
 
     await scan_stats.increment(
@@ -786,7 +798,9 @@ async def _identify_rom(
     scanned_rom_ids.add(_added_rom.id)
 
     if _added_rom.is_identified:
-        await emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)
+        await emit_scanning_rom(
+            socket_manager, _added_rom, is_new=newly_added, files=scanned_files
+        )
 
     if should_update_files:
         # Reconcile against the existing rows instead of replacing them, so file
@@ -815,7 +829,9 @@ async def _identify_rom(
         },
     )
 
-    await emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)
+    await emit_scanning_rom(
+        socket_manager, _added_rom, is_new=newly_added, files=scanned_files
+    )
 
 
 async def _scan_selected_roms(
@@ -1038,6 +1054,7 @@ async def _identify_platform(
 
     # Create semaphore to limit concurrent ROM scanning
     scan_semaphore = asyncio.Semaphore(SCAN_WORKERS)
+    cnfg = cm.get_config()
 
     async def scan_rom_with_semaphore(fs_rom: FSRom, rom: Rom | None) -> None:
         """Scan a single ROM with semaphore limiting"""
@@ -1053,16 +1070,15 @@ async def _identify_platform(
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
                 scanned_rom_ids=scanned_rom_ids,
+                cnfg=cnfg,
             )
 
     for fs_roms_batch in batched(fs_roms, 200, strict=False):
-        # Key matches on the rom's full path (fs_path/fs_name), not just the
-        # file name, so identically-named files in different folders don't
-        # collide under a custom library structure.
+        # Keyed by full path so same-named files in different folders don't collide.
+        # File rows load per rom under the semaphore, so at most SCAN_WORKERS roms' rows are held.
         roms_by_full_path = db_rom_handler.get_roms_by_fs_name(
             platform_id=platform.id,
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
-            with_files=scan_type == ScanType.QUICK,
         )
 
         # Separate skipped ROMs from those that need scanning
@@ -1304,6 +1320,7 @@ async def scan_platforms(
             db_platforms_by_id[platform_id].fs_slug
             for platform_id in scoped_roms_by_platform
         )
+        platforms_to_scan = platform_list
         total_platforms = len(scoped_roms_by_platform)
         total_roms = sum(len(roms) for roms in scoped_roms_by_platform.values())
     else:
@@ -1439,10 +1456,12 @@ async def scan_platforms(
         db_platforms = db_platform_handler.get_platforms()
         db_platforms_by_slug = {p.fs_slug: p for p in db_platforms}
 
+        # Export only what this scan touched: a new-platforms scan skips every
+        # platform already in the database, so rewriting those is wasted work.
         if config.GAMELIST_AUTO_EXPORT_ON_SCAN:
-            log.info("Auto-exporting gamelist.xml for all platforms...")
+            log.info("Auto-exporting gamelist.xml for the scanned platforms...")
             gamelist_exporter = GamelistExporter(local_export=True)
-            for platform_slug in platform_list:
+            for platform_slug in platforms_to_scan:
                 platform = db_platforms_by_slug.get(platform_slug)
                 if platform:
                     export_success = await gamelist_exporter.export_platform_to_file(
@@ -1460,9 +1479,9 @@ async def scan_platforms(
             log.info("Gamelist.xml auto-export completed.")
 
         if config.PEGASUS_AUTO_EXPORT_ON_SCAN:
-            log.info("Auto-exporting metadata.pegasus.txt for all platforms...")
+            log.info("Auto-exporting metadata.pegasus.txt for the scanned platforms...")
             pegasus_exporter = PegasusExporter(local_export=True)
-            for platform_slug in platform_list:
+            for platform_slug in platforms_to_scan:
                 platform = db_platforms_by_slug.get(platform_slug)
                 if platform:
                     export_success = await pegasus_exporter.export_platform_to_file(

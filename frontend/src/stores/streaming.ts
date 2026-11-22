@@ -189,6 +189,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     memoryCardId?: number,
     cardImport?: MemoryCardImport,
     multiplayer?: boolean,
+    discFileId?: number,
   ): Promise<LaunchingSession> {
     const { data } = await streamingApi.claimSession(
       romId,
@@ -197,6 +198,7 @@ export const useStreamingStore = defineStore("streaming", () => {
       memoryCardId,
       cardImport,
       multiplayer,
+      discFileId,
     );
     return data;
   }

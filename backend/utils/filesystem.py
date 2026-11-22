@@ -4,14 +4,34 @@ import re
 import shutil
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Final, Literal
 
 from logger.logger import log
+
+ArchiveFormat = Literal["zip", "tar", "gzip", "bz2", "xz", "7z", "rar"]
+
+# Longest suffix first, so a .tar.gz is not taken for a plain .gz.
+ARCHIVE_FORMAT_BY_SUFFIX: Final[tuple[tuple[str, ArchiveFormat], ...]] = (
+    (".tar.gz", "tar"),
+    (".tar.bz2", "tar"),
+    (".tar.xz", "tar"),
+    (".tgz", "tar"),
+    (".tbz2", "tar"),
+    (".txz", "tar"),
+    (".tar", "tar"),
+    (".zip", "zip"),
+    (".gz", "gzip"),
+    (".bz2", "bz2"),
+    (".xz", "xz"),
+    (".7z", "7z"),
+    (".rar", "rar"),
+)
 
 # Container file extensions treated as compressed archives across modules
 # (roms_handler for hashing decisions, rahasher for skipping disc-platform
 # buffer-hash attempts, feeds for PKGi passthrough).
 COMPRESSED_FILE_EXTENSIONS: frozenset[str] = frozenset(
-    (".7z", ".bz2", ".gz", ".rar", ".tar", ".zip", ".xz", ".tgz", ".tbz2", ".txz")
+    suffix for suffix, _ in ARCHIVE_FORMAT_BY_SUFFIX
 )
 
 # str.endswith takes a tuple, never a set, so it is built once here.

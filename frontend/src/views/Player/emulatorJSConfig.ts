@@ -10,6 +10,7 @@ import {
   getControlSchemeForPlatform,
   getDownloadPath,
   getSupportedEJSCores,
+  type EJSCoresMaps,
 } from "@/utils";
 import { firmwareExternalFiles } from "@/utils/playerFirmware";
 
@@ -124,10 +125,13 @@ export interface EjsConfigInput {
   rom: DetailedRom;
   /** The core the player picked, if any; an unsupported one falls back. */
   core: string | null;
-  disc: number | null;
+  /** The files to boot, or none for the whole rom. */
+  fileIds: number[];
   bios: FirmwareSchema | null;
   firmware: FirmwareSchema[];
   loadStateLabel?: string | undefined;
+  /** The heartbeat's `EMULATION`, which carries the core maps. */
+  emulation: EJSCoresMaps;
   config: Pick<
     ConfigResponse,
     | "EJS_DEBUG"
@@ -152,6 +156,7 @@ export function buildEjsConfig(input: EjsConfigInput): EjsConfig {
   const { rom, config, t } = input;
   const supportedCores = getSupportedEJSCores(
     rom.platform_slug,
+    input.emulation,
     config.EJS_NETPLAY_ENABLED,
   );
   const core =
@@ -165,7 +170,7 @@ export function buildEjsConfig(input: EjsConfigInput): EjsConfig {
     EJS_gameID: rom.id,
     EJS_gameUrl: getDownloadPath({
       rom,
-      fileIDs: input.disc ? [input.disc] : [],
+      fileIDs: input.fileIds,
       purpose: "play",
     }),
     EJS_biosUrl: input.bios

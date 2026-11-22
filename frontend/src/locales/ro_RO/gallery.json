@@ -7,6 +7,7 @@
   "firmware-selected-count": "{count} selectate",
   "jump-to": "Sari la {letter}",
   "jump-to-letter": "Sari la literă",
+  "results-of-total": "{count} din {total}",
   "selection-clear": "Șterge selecția",
   "selection-collections": "Gestionează colecțiile",
   "selection-delete": "Șterge",

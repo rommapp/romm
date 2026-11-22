@@ -1,0 +1,13 @@
+# Written by coherence hooks install; hooks uninstall removes it.
+# Commit this file, .gitattributes and the folders it keeps: the journal,
+# runs and work orders are durable records, and hooks holds the project's
+# own hook voice. Everything else here is regenerated (feed cursors, read
+# traces, practice firings, the warm server, structure and lexicon
+# readings), so git ignores it.
+/*
+!/.gitignore
+!/.gitattributes
+!/journal/
+!/runs/
+!/work/
+!/hooks/

@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+from tests._embedded_archives import EMBEDDINGS, embedded_archive, game_archive
 from tests._zipfile_shim import reload_zipfile
 
 from config import ASSETS_BASE_PATH
@@ -17,6 +18,7 @@ from handler.filesystem.assets_handler import (
     hash_save_content,
     hash_save_file,
 )
+from models.assets import SaveShape
 from models.user import User
 
 
@@ -569,16 +571,88 @@ class TestHashSaveFile:
         )
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("embedding", EMBEDDINGS)
+    async def test_bytes_that_only_end_like_a_zip_hash_as_one_file(
+        self, temp_base: Path, embedding: str
+    ):
+        """An emulator state can carry the game's own archive, or only its tail."""
+        from utils.memory_cards import content_hash_of_bytes
+
+        path = temp_base / "game.state"
+        path.write_bytes(embedded_archive(embedding))
+        assert zipfile.is_zipfile(path)
+        handler = FSAssetsHandler()
+        handler.base_path = temp_base
+        raw = _md5(path.read_bytes())
+
+        assert await handler.compute_content_hash("game.state") == raw
+        assert hash_save_file(path) == raw
+        assert content_hash_of_bytes(path.read_bytes()) == raw
+
+    @pytest.mark.asyncio
+    async def test_an_archive_with_a_corrupt_entry_is_unknown(self, temp_base: Path):
+        from utils.memory_cards import content_hash_of_bytes
+
+        reload_zipfile()
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_STORED) as zf:
+            zf.writestr("save.bin", b"A" * 100)
+        corrupt = bytearray(buffer.getvalue())
+        # A byte of the entry's data, past its 30-byte local header and name.
+        corrupt[30 + len("save.bin") + 10] ^= 0xFF
+        path = temp_base / "save.zip"
+        path.write_bytes(bytes(corrupt))
+        handler = FSAssetsHandler()
+        handler.base_path = temp_base
+
+        assert await handler.compute_content_hash("save.zip") is None
+        assert hash_save_file(path) is None
+        assert content_hash_of_bytes(bytes(corrupt)) is None
+
+    @pytest.mark.asyncio
     async def test_an_unreadable_zip_is_unknown_like_compute_content_hash(
         self, temp_base: Path, monkeypatch: pytest.MonkeyPatch
     ):
         self._write_zip(temp_base / "save.zip", zipfile.ZIP_DEFLATED)
-        monkeypatch.setattr(assets_handler, "MAX_DECOMPRESSED_ENTRY_BYTES", 8)
+        monkeypatch.setattr(assets_handler, "MAX_DECOMPRESSED_ARCHIVE_BYTES", 8)
         handler = FSAssetsHandler()
         handler.base_path = temp_base
 
         assert hash_save_file(temp_base / "save.zip") is None
         assert await handler.compute_content_hash("save.zip") is None
+
+    @pytest.mark.asyncio
+    async def test_entries_under_the_budget_alone_but_over_it_together_are_unknown(
+        self, temp_base: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        reload_zipfile()
+        path = temp_base / "save.zip"
+        with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for i in range(4):
+                zf.writestr(f"part{i}.bin", b"\x00" * 1000)
+        handler = FSAssetsHandler()
+        handler.base_path = temp_base
+
+        monkeypatch.setattr(assets_handler, "MAX_DECOMPRESSED_ARCHIVE_BYTES", 4000)
+        assert hash_save_file(path) is not None
+
+        monkeypatch.setattr(assets_handler, "MAX_DECOMPRESSED_ARCHIVE_BYTES", 3999)
+        with zipfile.ZipFile(path) as zf, pytest.raises(assets_handler.ArchiveTooLarge):
+            assets_handler.hash_zip_contents(zf)
+        assert hash_save_file(path) is None
+        assert await handler.compute_content_hash("save.zip") is None
+
+    def test_too_many_entries_is_unknown(
+        self, temp_base: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        path = temp_base / "save.zip"
+        self._write_zip(path, zipfile.ZIP_DEFLATED)
+
+        monkeypatch.setattr(assets_handler, "MAX_ARCHIVE_ENTRIES", 2)
+        assert hash_save_file(path) is not None
+
+        monkeypatch.setattr(assets_handler, "MAX_ARCHIVE_ENTRIES", 1)
+        assert hash_save_file(path) is None
 
     @pytest.mark.parametrize("error", [RuntimeError, NotImplementedError])
     def test_an_entry_that_cannot_be_opened_is_unknown(
@@ -594,3 +668,117 @@ class TestHashSaveFile:
         monkeypatch.setattr(assets_handler, "hash_zip_contents", fail)
 
         assert hash_save_file(path) is None
+
+
+def _md5(data: bytes) -> str:
+    return hashlib.md5(data, usedforsecurity=False).hexdigest()
+
+
+def _zip(members: dict[str, bytes]) -> zipfile.ZipFile:
+    reload_zipfile()
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        for name, data in members.items():
+            zf.writestr(name, data)
+    return zipfile.ZipFile(io.BytesIO(buffer.getvalue()))
+
+
+class TestCheckZip:
+    @pytest.mark.parametrize(
+        "name",
+        ["../escape.sav", "/abs.sav", "C:/drive.sav", "dir\\back.sav", "a/../../b.sav"],
+    )
+    def test_an_entry_leaving_the_folder_is_refused(self, name: str):
+        with pytest.raises(assets_handler.UnsafeArchive):
+            assets_handler.check_zip(_zip({name: b"x"}))
+
+    def test_a_symlink_entry_is_refused(self):
+        reload_zipfile()
+        link = zipfile.ZipInfo("SAVE01/link")
+        link.external_attr = 0o120777 << 16
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as zf:
+            zf.writestr(link, "/etc/passwd")
+
+        with pytest.raises(assets_handler.UnsafeArchive):
+            assets_handler.check_zip(zipfile.ZipFile(io.BytesIO(buffer.getvalue())))
+
+    def test_too_many_entries_is_refused(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr(assets_handler, "MAX_ARCHIVE_ENTRIES", 2)
+
+        with pytest.raises(assets_handler.UnsafeArchive):
+            assets_handler.check_zip(_zip({"a": b"1", "b": b"2", "c": b"3"}))
+
+    def test_expanding_past_the_limit_is_refused(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr(assets_handler, "MAX_ARCHIVE_EXPANDED_BYTES", 5)
+
+        with pytest.raises(assets_handler.UnsafeArchive):
+            assets_handler.check_zip(_zip({"a": b"123", "b": b"456"}))
+
+    def test_a_safe_archive_lists_its_files(self):
+        archive = _zip({"SAVE01/": b"", "SAVE01/data.bin": b"d", "icon.png": b"i"})
+
+        assert assets_handler.check_zip(archive) == ["SAVE01/data.bin", "icon.png"]
+
+    @pytest.mark.parametrize("embedding", EMBEDDINGS)
+    def test_bytes_that_only_end_like_a_zip_upload_raw(self, embedding: str):
+        assert (
+            assets_handler.check_upload(io.BytesIO(embedded_archive(embedding))) is None
+        )
+
+    def test_a_raw_upload_is_no_archive_and_keeps_its_position(self):
+        stream = io.BytesIO(b"raw sram")
+        stream.seek(3)
+
+        assert assets_handler.check_upload(stream) is None
+        assert stream.tell() == 3
+
+
+class TestSaveUnitArchive:
+    @pytest.mark.parametrize("embedding", EMBEDDINGS)
+    def test_bytes_that_only_end_like_a_zip_are_a_single_raw_unit(
+        self, tmp_path: Path, embedding: str
+    ):
+        unit = embedded_archive(embedding)
+        path = tmp_path / "game.srm"
+        path.write_bytes(unit)
+
+        assert assets_handler.save_shape_of(path) == SaveShape.SINGLE
+        unpacked = assets_handler.unpack_save_unit(unit, tmp_path)
+        assert unpacked == assets_handler.UnpackedUnit(
+            [assets_handler.RAW_UNIT_NAME], archived=False
+        )
+        assert (tmp_path / assets_handler.RAW_UNIT_NAME).read_bytes() == unit
+
+    def test_an_archive_is_a_multi_unit(self, tmp_path: Path):
+        path = tmp_path / "game.zip"
+        path.write_bytes(game_archive())
+
+        assert assets_handler.save_shape_of(path) == SaveShape.MULTI
+
+
+class TestZipIdentityHash:
+    """Sigil's identity hash: content without RTC members, one member left hashing raw."""
+
+    @pytest.mark.parametrize(
+        "members",
+        [
+            {"game.srm": b"sram", "game.rtc": b"tick"},
+            {"save.sram": b"sram", "clock.rtc": b"tick"},
+        ],
+    )
+    def test_a_clock_member_is_left_out(self, members: dict[str, bytes]):
+        assert assets_handler.zip_identity_hash(_zip(members)) == _md5(b"sram")
+
+    def test_one_member_hashes_as_itself(self):
+        with_folder = _zip({"SAVE01/data.bin": b"data"})
+
+        assert assets_handler.zip_identity_hash(with_folder) == _md5(b"data")
+
+    def test_several_members_hash_as_the_content_does(self):
+        archive = _zip({"eeprom": b"e", "pak1": b"p", "game.rtc": b"tick"})
+        without_clock = _zip({"eeprom": b"e", "pak1": b"p"})
+
+        assert assets_handler.zip_identity_hash(
+            archive
+        ) == assets_handler.hash_zip_contents(without_clock)

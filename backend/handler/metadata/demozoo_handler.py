@@ -3,7 +3,7 @@
 Match by production id (filename tag ``(demozoo-N)`` or Edit-ROM id / URL), or by
 title search via ``?title=`` (never ``?search=``) ranked with Jaro-Winkler.
 
-Public JSON API, no key.
+Demozoo's JSON API requires an API key, sent in the ``Authorization`` header.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any, Final, NotRequired, TypedDict
 from urllib.parse import parse_qs, urlencode, urlparse
 
-from config import DEMOZOO_API_ENABLED
+from config import DEMOZOO_API_KEY
 from logger.logger import log
 from utils import int_or_none, valid_youtube_id
 from utils.datetime import parse_utc_timestamp
@@ -38,8 +38,8 @@ POUET_PROD_PAGE: Final[str] = "https://www.pouet.net/prod.php?which={id}"
 YOUTUBE_WATCH: Final[str] = "https://www.youtube.com/watch?v={id}"
 # Overview notes stay one clause; Demozoo editorial text is rare and long.
 _NOTES_MAX_LEN: Final[int] = 80
-# Demozoo asks for a polite UA; stay well under burst.
-_rate_limiter = RateLimiter(2.0)
+# Demozoo asks for a one second pause between repeated API requests.
+_rate_limiter = RateLimiter(1.0)
 
 
 class DemozooCredit(TypedDict, total=False):
@@ -497,7 +497,7 @@ class DemozooHandler(MetadataHandler):
 
     @classmethod
     def is_enabled(cls) -> bool:
-        return DEMOZOO_API_ENABLED
+        return bool(DEMOZOO_API_KEY)
 
     async def _request(self, url: str, *, missing_ok: bool = False) -> dict[str, Any]:
         """Fetch a Demozoo API URL.
@@ -508,7 +508,10 @@ class DemozooHandler(MetadataHandler):
         """
         await _rate_limiter.acquire()
         return await self._get_capped_json(
-            url, provider="Demozoo API", missing_ok=missing_ok
+            url,
+            provider="Demozoo API",
+            missing_ok=missing_ok,
+            extra_headers={"Authorization": f"Api-Key {DEMOZOO_API_KEY}"},
         )
 
     async def heartbeat(self) -> bool:

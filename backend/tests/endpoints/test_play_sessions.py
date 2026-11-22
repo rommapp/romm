@@ -124,7 +124,10 @@ class TestPlaySessionIngest:
             enqueue.assert_not_called()
         else:
             enqueue.assert_called_once()
-            assert enqueue.call_args.kwargs["kwargs"] == {"user_id": admin_user.id}
+            assert enqueue.call_args.kwargs["kwargs"] == {
+                "user_id": admin_user.id,
+                "refresh_all": False,
+            }
             assert enqueue.call_args.kwargs["unique"] is True
 
     def test_a_queued_progress_sync_is_not_queued_twice(
@@ -920,3 +923,31 @@ class TestPlaySessionDelete:
             headers={"Authorization": f"Bearer {access_token}"},
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_a_session_on_a_hidden_rom_answers_like_a_missing_one(
+        self, client, editor_user: User, editor_access_token: str, rom: Rom
+    ):
+        # Arrange
+        resp = client.post(
+            "/api/play-sessions",
+            json=_ingest(sessions=[_session(rom_id=rom.id)]),
+            headers={"Authorization": f"Bearer {editor_access_token}"},
+        )
+        session_id = resp.json()["results"][0]["id"]
+        with sync_session.begin() as session:
+            session.add(
+                HiddenEntity(
+                    entity=PermEntity.ROMS, entity_id=rom.id, user_id=editor_user.id
+                )
+            )
+
+        # Act
+        response = client.delete(
+            f"/api/play-sessions/{session_id}",
+            headers={"Authorization": f"Bearer {editor_access_token}"},
+        )
+
+        # Assert
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        [kept] = db_play_session_handler.get_sessions(user_id=editor_user.id)
+        assert kept.id == session_id

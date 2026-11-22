@@ -15,10 +15,12 @@
 // (Platform / Collection / Search) get the same separator regardless
 // of which header they render. The InfoPanel just provides the inner
 // content and its own padding for breathing.
+import { ref } from "vue";
+import { useCollapsingTitle } from "@/composables/useNavTitle";
 
 defineOptions({ inheritAttrs: false });
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     title?: string | undefined;
   }>(),
@@ -26,6 +28,8 @@ withDefaults(
     title: undefined,
   },
 );
+const headingEl = ref<HTMLElement | null>(null);
+useCollapsingTitle(headingEl, () => props.title);
 </script>
 
 <template>
@@ -37,7 +41,7 @@ withDefaults(
       <div v-if="$slots.eyebrow" class="info-panel__eyebrow">
         <slot name="eyebrow" />
       </div>
-      <h1 class="info-panel__title">
+      <h1 ref="headingEl" class="info-panel__title">
         <slot name="title">{{ title }}</slot>
       </h1>
       <div v-if="$slots.tags" class="info-panel__tags">

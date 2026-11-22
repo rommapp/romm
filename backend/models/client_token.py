@@ -28,7 +28,7 @@ class ClientToken(BaseModel):
     last_used_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
 
     device_id: Mapped[str | None] = mapped_column(
-        ForeignKey("devices.id", ondelete="SET NULL"), nullable=True, index=True
+        ForeignKey("devices.id", ondelete="CASCADE"), nullable=True, index=True
     )
 
     user: Mapped[User] = relationship(lazy="joined", back_populates="client_tokens")

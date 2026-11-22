@@ -5,6 +5,7 @@ from handler.database import db_audit_event_handler, db_device_handler
 from handler.database.audit_events_handler import AuditEventFilters
 from models.audit_event import AuditAction, AuditActorKind, AuditCategory, AuditEvent
 from models.device import Device
+from models.firmware import Firmware
 from models.rom import Rom
 from models.user import User
 
@@ -61,6 +62,21 @@ class TestHiddenTargets:
         assert hidden_rom.id not in ids
         assert hidden_platform.id not in ids
         assert set(ids) == {visible_rom.id, no_target.id}
+
+    def test_drops_events_on_firmware_of_a_hidden_platform(self, firmware: Firmware):
+        on_hidden = _add(target_type="firmware", target_id=str(firmware.id))
+        elsewhere = _add(target_type="firmware", target_id="999999")
+
+        ids = _ids(
+            AuditEventFilters(
+                visibility=RomVisibilityFilter(
+                    hidden_platform_ids=frozenset({firmware.platform_id})
+                )
+            )
+        )
+
+        assert on_hidden.id not in ids
+        assert elsewhere.id in ids
 
     def test_an_age_rule_drops_events_on_roms_it_can_no_longer_rate(self, rom: Rom):
         shown = _add(target_type="rom", target_id=str(rom.id))

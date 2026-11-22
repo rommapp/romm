@@ -78,17 +78,60 @@ export function keepArcadeBiosWhole(emulator: ArcadeBiosEmulator): void {
   // EmulatorJS 4.2.3 (the build with downloadGameFile) unpacks every BIOS
   // archive, but these cores only find a romset like neogeo.zip as a zip.
   if (typeof emulator.downloadGameFile !== "function") return;
-  if (!["arcade", "mame"].includes(emulator.getCore(true))) return;
+  // same_cdi is MAME-based and looks for cdimono1.zip the same way.
+  if (!["arcade", "mame", "same_cdi"].includes(emulator.getCore(true))) return;
 
   const { biosUrl } = emulator.config;
   const name = biosUrl?.split("/").pop()?.split(/[?#]/)[0];
   if (!biosUrl || !name || !ARCHIVE_EXTENSION.test(name)) return;
 
   // EJS_externalFiles writes an archive raw on 4.2.3. The root is the content
-  // directory the game zip sits in, which both cores search.
+  // directory the game sits in, which these cores search.
   emulator.config.externalFiles = {
     ...emulator.config.externalFiles,
     [`/${name}`]: biosUrl,
   };
   emulator.config.biosUrl = "";
+}
+
+const RETROARCH_CFG = "/home/web_user/.config/retroarch/retroarch.cfg";
+
+interface GameManagerLike {
+  FS: {
+    readFile(path: string, opts: { encoding: "utf8" }): string;
+    writeFile(path: string, data: string): void;
+  };
+}
+
+interface SystemDirectoryEmulator {
+  config: { externalFiles?: Record<string, string> | undefined };
+  gameManager?: GameManagerLike | undefined;
+}
+
+/** Points RetroArch's system directory at the firmware firmwareExternalFiles writes. */
+export function pointSystemDirectoryAtFirmware(
+  emulator: SystemDirectoryEmulator,
+): void {
+  // EJS_biosUrl and keepArcadeBiosWhole put BIOS files in the content directory,
+  // RetroArch's fallback, so only firmware written to SYSTEM_DIRECTORY moves it.
+  const paths = Object.keys(emulator.config.externalFiles ?? {});
+  if (!paths.some((path) => path.startsWith(`${SYSTEM_DIRECTORY}/`))) return;
+
+  let manager = emulator.gameManager;
+  // EmulatorJS assigns gameManager after writing retroarch.cfg and before it
+  // loads EJS_externalFiles or boots the core.
+  Object.defineProperty(emulator, "gameManager", {
+    configurable: true,
+    get: () => manager,
+    set: (value: GameManagerLike | undefined) => {
+      manager = value;
+      if (!value) return;
+      const cfg = value.FS.readFile(RETROARCH_CFG, { encoding: "utf8" });
+      if (/^system_directory\s*=/m.test(cfg)) return;
+      value.FS.writeFile(
+        RETROARCH_CFG,
+        `${cfg}system_directory = "${SYSTEM_DIRECTORY}"\n`,
+      );
+    },
+  });
 }

@@ -120,36 +120,6 @@ def _namespace_build_lock(namespace_dir: Path) -> Generator[None]:
         os.close(fd)
 
 
-def ensure_zipfile_writable() -> None:
-    """Restore ``zipfile._get_compressor`` to a writable signature.
-
-    ``zipfile_inflate64`` (imported in ``handler/filesystem/roms_handler.py``
-    to support Enhanced Deflate) replaces ``zipfile._get_compressor`` with a
-    wrapper that only accepts ``compress_type``. CPython 3.13 calls it with
-    ``(compress_type, compresslevel)``, so ``ZipFile.write()``/``writestr()``
-    raise ``TypeError``. Wrap it once with a signature-compatible shim that
-    drops the extra arg, matching inflate64's own behavior (it already ignores
-    ``compresslevel``). Idempotent and safe to call from any thread.
-    """
-    current = zipfile._get_compressor  # type: ignore[attr-defined]
-    if getattr(current, "_romm_compresslevel_safe", False):
-        return
-
-    # Probe with two args: the stdlib accepts them, inflate64's wrapper does not.
-    try:
-        current(zipfile.ZIP_STORED, None)
-        return
-    except TypeError:
-        pass
-
-    @functools.wraps(current)
-    def _get_compressor(compress_type: int, compresslevel: int | None = None) -> object:
-        return current(compress_type)
-
-    _get_compressor._romm_compresslevel_safe = True  # type: ignore[attr-defined]
-    zipfile._get_compressor = _get_compressor  # type: ignore[attr-defined]
-
-
 def build_cached_zip(
     namespace: str,
     entries: list[ZipFileEntry],
@@ -184,7 +154,6 @@ def _write_cached_zip(
     os.close(fd)
     try:
         os.chmod(tmp_path, SERVED_FILE_MODE)
-        ensure_zipfile_writable()
         with zipfile.ZipFile(tmp_path, "w") as zf:
             for entry in entries:
                 src = Path(LIBRARY_BASE_PATH) / entry.full_path

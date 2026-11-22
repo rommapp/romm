@@ -1,13 +1,28 @@
 from collections.abc import Sequence
 from typing import Any
 
-from sqlalchemy import delete, desc, or_, select, update
+from sqlalchemy import Select, delete, desc, or_, select, update
 from sqlalchemy.orm import Session
 
 from decorators.database import INJECTED_SESSION, begin_session
+from handler.auth.rom_visibility import RomVisibilityFilter
 from models.assets import MemoryCard, MemoryCardVersion
 
 from .base_handler import DBBaseHandler
+
+
+def _without_hidden_platforms(
+    query: Select[MemoryCard], visibility: RomVisibilityFilter
+) -> Select[MemoryCard]:
+    hidden_platform_ids = visibility.hidden_platform_ids
+    if not hidden_platform_ids:
+        return query
+    return query.filter(
+        or_(
+            MemoryCard.platform_id.is_(None),
+            MemoryCard.platform_id.not_in(hidden_platform_ids),
+        )
+    )
 
 
 class DBMemoryCardsHandler(DBBaseHandler):
@@ -51,6 +66,8 @@ class DBMemoryCardsHandler(DBBaseHandler):
         self,
         user_id: int,
         emulator: str | None = None,
+        *,
+        visibility: RomVisibilityFilter,
         session: Session = INJECTED_SESSION,
     ) -> Sequence[MemoryCard]:
         """A user's own cards, optionally filtered to one emulator (the pick
@@ -58,6 +75,7 @@ class DBMemoryCardsHandler(DBBaseHandler):
         query = select(MemoryCard).filter_by(user_id=user_id)
         if emulator is not None:
             query = query.filter(MemoryCard.emulator == emulator)
+        query = _without_hidden_platforms(query, visibility)
         return session.scalars(query.order_by(desc(MemoryCard.updated_at))).all()
 
     @begin_session
@@ -65,6 +83,8 @@ class DBMemoryCardsHandler(DBBaseHandler):
         self,
         emulator: str,
         user_id: int,
+        *,
+        visibility: RomVisibilityFilter,
         session: Session = INJECTED_SESSION,
     ) -> Sequence[MemoryCard]:
         """Cards for an emulator visible to the requesting user: their own plus
@@ -77,6 +97,7 @@ class DBMemoryCardsHandler(DBBaseHandler):
             .filter(or_(MemoryCard.user_id == user_id, MemoryCard.is_public))
             .order_by(desc(MemoryCard.updated_at))
         )
+        query = _without_hidden_platforms(query, visibility)
         return session.scalars(query).all()
 
     @begin_session

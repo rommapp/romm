@@ -13,7 +13,7 @@
     <a href="https://trendshift.io/repositories/14133?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-14133" target="_blank" rel="noopener noreferrer"><img src=".github/resources/trendshift-badge.svg" alt="Trendshift" width="250" height="58"/></a>
     <a href="https://news.ycombinator.com/item?id=44247964" target="_blank" rel="noopener noreferrer"><img src=".github/resources/hackernews-badge.svg" width="250px" alt="hackernews badge"></a>
     <br />
-    <a href="https://selfh.st/survey/2025-results/" target="_blank" rel="noopener noreferrer"><img src=".github/resources/selfhst-badge.svg" width="250px" alt="selfh.st badge"></a>
+    <a href="https://selfh.st/survey/2026-results/#favorite-software" target="_blank" rel="noopener noreferrer"><img src=".github/resources/selfhst-badge.svg" width="250px" alt="selfh.st badge"></a>
     <a href="https://discord.gg/invite/romm" target="_blank" rel="noopener noreferrer"><img src=".github/resources/discord-badge.svg" alt="Discord" width="250" height="58"/></a>
   </div>
 </div>
@@ -106,10 +106,11 @@ Here are some cool projects maintained by members of our community. Please note 
 
 ### Desktop
 
-- [Freegosy][freegosy]: Cross-platform game manager with save sync by [@abduznik](https://github.com/abduznik)
+- [Freegosy][freegosy]: Cross-platform game manager with save sync by [@abduznik1](https://gitlab.com/abduznik1)
 - [RetroVault][retrovault]: Native macOS library and player by [@kennethreitz](https://github.com/kennethreitz)
 - [romm-client][romm-client]: Desktop client by [@chaun14](https://github.com/chaun14)
 - [RomMate][rommate]: Desktop app for browsing your collection by [@brenoprata10](https://github.com/brenoprata10)
+- [RomP][romp]: Desktop player for Windows, macOS and Linux that runs each game in its own sandbox by [@RompEmu](https://github.com/RompEmu)
 
 ### Handhelds and Steam Deck
 
@@ -119,10 +120,13 @@ Here are some cool projects maintained by members of our community. Please note 
 - [Tender][romm-tender]: Decky Loader plugin with library and save sync for Steam Deck by [@danielcopper](https://github.com/danielcopper)
 - [Vita RomM][vita-romm]: PS Vita homebrew client for browsing and downloading games by [@denkacn](https://github.com/denkacn)
 
+### Consoles
+
+- [RommPS][rommps]: Client for jailbroken PS5s with game downloads and save sync by [@s0liton](https://github.com/s0liton)
+
 ### Sync
 
 - [RetroArch Sync][romm-retroarch-sync]: Sync RetroArch library with RomM by [@Covin90](https://github.com/Covin90)
-- [Syncthing sync][syncthing-sync]: Small tool to push a Syncthing library to RomM by [@amn-96](https://github.com/amn-96)
 
 ### Integrations
 
@@ -168,6 +172,15 @@ Here are a few projects that we think you might like:
 - [NextUI](https://nextui.loveretro.games/): MinUI-based custom firmware for TrimUI handhelds
 - [RetroAchievements](https://retroachievements.org/): Achievements for retro games
 
+## Disclaimer
+
+> [!NOTE]
+> RomM is a library manager and player. It does not include, distribute, or link to ROMs, BIOS, firmware, or decryption keys.
+>
+> - Only use files you have the right to use, such as your own dumps, homebrew, or freeware, and follow the laws where you live.
+> - **The project does not condone piracy.** Requests for or links to copyrighted material are not allowed in any project space.
+> - All trademarks belong to their respective owners and are used only to describe compatibility.
+
 <!-- docs links -->
 
 [docs-quick-start-guide]: https://docs.romm.app/latest/Getting-Started/Quick-Start-Guide/
@@ -192,11 +205,10 @@ Here are a few projects that we think you might like:
 [romm-tender]: https://github.com/danielcopper/romm-tender
 [playnite-app]: https://github.com/rommapp/playnite-plugin
 [ggrequestz]: https://github.com/XTREEMMAK/ggrequestz
-[syncthing-sync]: https://github.com/amn-96/romm_syncthing_sync
 [romm-client]: https://github.com/chaun14/romm-client
 [romm-retroarch-sync]: https://github.com/Covin90/romm-retroarch-sync
 [rommate]: https://github.com/brenoprata10/rommate
-[freegosy]: https://github.com/abduznik/freegosy
+[freegosy]: https://gitlab.com/abduznik1/Freegosy
 [rommulus]: https://github.com/DEV-DUFORD/rommulus
 [retrovault]: https://github.com/kennethreitz/RetroVault
 [gameflow-deck]: https://github.com/simeonradivoev/gameflow-deck
@@ -207,4 +219,6 @@ Here are a few projects that we think you might like:
 [konsoru]: https://github.com/FabianZettl/konsoru-launcher-releases
 [grout]: https://github.com/rommapp/grout
 [romm-ios-app]: https://github.com/ilyas-hallak/romm-ios-app
+[romp]: https://github.com/RompEmu/RomP
+[rommps]: https://github.com/s0liton/RommPS
 [argosy-launcher]: https://github.com/rommapp/argosy-launcher

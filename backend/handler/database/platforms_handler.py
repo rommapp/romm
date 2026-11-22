@@ -13,6 +13,7 @@ from models.platform import Platform
 from models.rom import Rom
 
 from .base_handler import DBBaseHandler
+from .roms_handler import FILTER_VALUES_BUMP_KEY
 
 # Default for a `query` parameter that with_firmware fills before the body runs.
 INJECTED_PLATFORM_QUERY = cast(Select[Platform], None)
@@ -178,10 +179,15 @@ class DBPlatformsHandler(DBBaseHandler):
     def get_platform_by_slug(
         self,
         slug: str,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
         query: Select[Platform] = INJECTED_PLATFORM_QUERY,
         session: Session = INJECTED_SESSION,
     ) -> Platform | None:
-        return session.scalar(query.filter_by(slug=slug).limit(1))
+        """A platform with `slug` that `visibility` doesn't hide."""
+        query = query.filter_by(slug=slug)
+        if visibility.hidden_platform_ids:
+            query = query.filter(Platform.id.not_in(visibility.hidden_platform_ids))
+        return session.scalar(query.limit(1))
 
     @begin_session
     def delete_platform(
@@ -201,6 +207,7 @@ class DBPlatformsHandler(DBBaseHandler):
             .where(Platform.id == id)
             .execution_options(synchronize_session="evaluate")
         )
+        session.info[FILTER_VALUES_BUMP_KEY] = True
 
     @begin_session
     def mark_missing_platforms(

@@ -17,8 +17,8 @@ class ValidationError(Exception):
 
 
 # Pre-compiled regex patterns for better performance
-USERNAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
-EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+USERNAME_PATTERN = re.compile(r"[a-zA-Z0-9_-]+")
+EMAIL_PATTERN = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
 
 # Upper bound on a `rom_ids` request scope, so one request maps to a bounded
 # query and response. Documented so clients can batch a large library.
@@ -114,7 +114,7 @@ def validate_username(username: str) -> None:
         log.error(msg)
         raise ValidationError(msg, "Username")
 
-    if not USERNAME_PATTERN.match(username):
+    if not USERNAME_PATTERN.fullmatch(username):
         msg = "Username can only contain letters, numbers, underscores, and hyphens"
         log.error(f"Validation failed: {msg} for username: {username}")
         raise ValidationError(msg, "Username")
@@ -194,7 +194,7 @@ def validate_email(email: str) -> None:
         log.error(msg)
         raise ValidationError(msg, "Email")
 
-    if not EMAIL_PATTERN.match(email):
+    if not EMAIL_PATTERN.fullmatch(email):
         msg = "Invalid email format"
         log.error(f"Validation failed: {msg} for email: {email}")
         raise ValidationError(msg, "Email")

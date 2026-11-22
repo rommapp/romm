@@ -261,19 +261,19 @@ def put_binary_json(
     PUT a binary body to the broker and return its parsed JSON reply, or None
     on failure. Best-effort, logs but never raises.
     """
-    req = urllib.request.Request(
-        broker_url(container, path),
-        data=content,
-        method="PUT",
-        headers={
-            "Content-Type": content_type,
-            "Content-Length": str(len(content)),
-            **broker_headers(container),
-            **(extra_headers or {}),
-        },
-    )
     deadline = time.monotonic() + timeout
     try:
+        req = urllib.request.Request(
+            broker_url(container, path),
+            data=content,
+            method="PUT",
+            headers={
+                "Content-Type": content_type,
+                "Content-Length": str(len(content)),
+                **broker_headers(container),
+                **(extra_headers or {}),
+            },
+        )
         with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
             body = json.loads(_read_bounded(resp, _BROKER_JSON_MAX_BYTES, deadline))
         return body if isinstance(body, dict) else {}

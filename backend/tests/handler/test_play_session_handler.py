@@ -5,7 +5,7 @@ import pytest
 from rq import Queue, SimpleWorker
 
 from handler import play_session_handler
-from handler.play_session_handler import _queue_ra_progress_sync
+from handler.play_session_handler import queue_ra_progress_sync
 from handler.redis_handler import redis_client
 from tasks.registry import SYNC_RETROACHIEVEMENTS_PROGRESS_SPEC
 
@@ -37,11 +37,13 @@ class TestQueueRAProgressSync:
         self, queue: Queue, user_ids: tuple[int, int]
     ):
         first, second = user_ids
-        _queue_ra_progress_sync(first)
-        _queue_ra_progress_sync(first)
-        _queue_ra_progress_sync(second)
+        assert queue_ra_progress_sync(first, refresh_all=True)
+        assert queue_ra_progress_sync(first)
+        assert queue_ra_progress_sync(second)
 
-        assert sorted(job.kwargs["user_id"] for job in queue.jobs) == [first, second]
+        assert sorted(
+            (job.kwargs["user_id"], job.kwargs["refresh_all"]) for job in queue.jobs
+        ) == [(first, True), (second, False)]
         assert {job.timeout for job in queue.jobs} == {
             SYNC_RETROACHIEVEMENTS_PROGRESS_SPEC.timeout
         }
@@ -55,10 +57,17 @@ class TestQueueRAProgressSync:
             f"{JOB_PATH}._sync_user_progress_by_id",
             side_effect=RuntimeError("RetroAchievements is down") if fails else None,
         )
-        _queue_ra_progress_sync(user_id)
+        queue_ra_progress_sync(user_id)
         run_queued_jobs(queue)
 
-        _queue_ra_progress_sync(user_id)
+        queue_ra_progress_sync(user_id)
 
-        sync.assert_called_once_with(user_id)
+        sync.assert_called_once_with(user_id, refresh_all=False)
         assert [job.kwargs["user_id"] for job in queue.jobs] == [user_id]
+
+    def test_a_sync_that_cannot_be_queued_is_reported(self, queue: Queue, mocker):
+        mocker.patch.object(
+            queue, "enqueue", side_effect=ConnectionError("Redis is down")
+        )
+
+        assert not queue_ra_progress_sync(1)

@@ -14,9 +14,9 @@ from hypothesis import strategies as st
 from utils.ssrf import (
     SSRFProtectedAsyncBackend,
     SSRFProtectedSyncBackend,
-    _parse_origin,
     is_forbidden_ip,
     parse_ip_literal,
+    parse_origin,
     validate_url_for_http_request,
 )
 from utils.validation import ValidationError
@@ -243,8 +243,24 @@ class TestSSRFProtectedAsyncBackend:
             await backend.connect_tcp("nonexistent.invalid", 80)
         inner.connect_tcp.assert_not_called()
 
+    async def test_overlong_label_propagates_as_connect_error(self):
+        inner = _stub_async_inner([])
+        backend = SSRFProtectedAsyncBackend(inner=inner)
+
+        with pytest.raises(httpcore2.ConnectError, match="DNS resolution failed"):
+            await backend.connect_tcp(f"{'a' * 64}.example.com", 80)
+        inner.connect_tcp.assert_not_called()
+
 
 class TestSSRFProtectedSyncBackend:
+    def test_overlong_label_propagates_as_connect_error(self):
+        inner = _stub_sync_inner([])
+        backend = SSRFProtectedSyncBackend(inner=inner)
+
+        with pytest.raises(httpcore2.ConnectError, match="DNS resolution failed"):
+            backend.connect_tcp(f"{'a' * 64}.example.com", 80)
+        inner.connect_tcp.assert_not_called()
+
     def test_safe_hostname_connects_to_pinned_ip(self, monkeypatch):
         calls: list[ConnectCall] = []
         inner = _stub_sync_inner(calls)
@@ -284,13 +300,13 @@ class TestInternalOriginAllowlist:
     but only for the exact host:port that was trusted."""
 
     def test_parse_origin_normalizes(self):
-        assert _parse_origin("http://playmatch:8000/api/v2") == ("playmatch", 8000)
-        assert _parse_origin("https://pm.example.com/api") == ("pm.example.com", 443)
-        assert _parse_origin("http://LAN-HOST/") == ("lan-host", 80)
+        assert parse_origin("http://playmatch:8000/api/v2") == ("playmatch", 8000)
+        assert parse_origin("https://pm.example.com/api") == ("pm.example.com", 443)
+        assert parse_origin("http://LAN-HOST/") == ("lan-host", 80)
 
     def test_parse_origin_rejects_invalid(self):
-        assert _parse_origin("") is None  # empty is skipped
-        assert _parse_origin("ftp://nope") is None  # non-http scheme is skipped
+        assert parse_origin("") is None  # empty is skipped
+        assert parse_origin("ftp://nope") is None  # non-http scheme is skipped
 
     async def test_async_allowlisted_ip_connects_without_validation(self):
         """A trusted private LAN IP:port connects directly, no rebinding check."""

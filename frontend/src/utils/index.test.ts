@@ -1,17 +1,20 @@
 import { describe, expect, it } from "vitest";
 import type { Config } from "@/stores/config";
 import type { Heartbeat } from "@/stores/heartbeat";
+import { ejsCoresFixture } from "./ejsCores.fixtures";
 import {
   getSupportedEJSCores,
+  hasJsDosBundle,
   isArcadeSystem,
   isEasyRpgEmulationSupported,
   isEasyRpgGame,
-  isJsDosBundle,
   isJsDosEmulationSupported,
   isPico8EmulationSupported,
   isPico8Rom,
+  jsDosBundleFileIds,
+  languageToEmoji,
 } from "./index";
-import { romFixture } from "./rom.fixtures";
+import { detailedRomFixture, romFileFixture, romFixture } from "./rom.fixtures";
 
 function makeHeartbeat(
   emulation: Partial<Heartbeat["EMULATION"]> = {},
@@ -23,6 +26,7 @@ function makeHeartbeat(
       DISABLE_JSDOS: false,
       DISABLE_PICO8: false,
       DISABLE_EASYRPG: false,
+      ...ejsCoresFixture(),
       ...emulation,
     },
   } as Heartbeat;
@@ -68,24 +72,51 @@ describe("isJsDosEmulationSupported", () => {
   });
 });
 
-describe("isJsDosBundle", () => {
-  const withExt = (fs_extension: string) => romFixture({ fs_extension });
-
-  it("accepts a .jsdos bundle regardless of case", () => {
-    expect(isJsDosBundle(withExt("jsdos"))).toBe(true);
-    expect(isJsDosBundle(withExt("JSDOS"))).toBe(true);
-  });
-
-  // js-dos panics with "Broken bundle" on anything that is not its own format.
-  it("rejects plain archives, bare executables and folders", () => {
-    expect(isJsDosBundle(withExt("zip"))).toBe(false);
-    expect(isJsDosBundle(withExt("exe"))).toBe(false);
-    expect(isJsDosBundle(withExt(""))).toBe(false);
+describe("hasJsDosBundle", () => {
+  it("follows the backend's bundle flag", () => {
+    expect(hasJsDosBundle(romFixture({ has_jsdos_bundle: true }))).toBe(true);
+    expect(hasJsDosBundle(romFixture({ has_jsdos_bundle: false }))).toBe(false);
   });
 
   it("rejects a missing rom", () => {
-    expect(isJsDosBundle(null)).toBe(false);
-    expect(isJsDosBundle(undefined)).toBe(false);
+    expect(hasJsDosBundle(null)).toBe(false);
+    expect(hasJsDosBundle(undefined)).toBe(false);
+  });
+});
+
+describe("jsDosBundleFileIds", () => {
+  const file = (id: number, file_name: string, is_top_level = true) =>
+    romFileFixture({ id, file_name, is_top_level });
+
+  it("picks the top-level bundle beside other files", () => {
+    const rom = detailedRomFixture({
+      files: [
+        file(1, "manual.pdf"),
+        file(2, "Game (1996).JSDOS"),
+        file(3, "extra.jsdos", false),
+      ],
+    });
+    expect(jsDosBundleFileIds(rom)).toEqual([2]);
+  });
+
+  it("returns none without a top-level bundle", () => {
+    const rom = detailedRomFixture({ files: [file(3, "extra.jsdos", false)] });
+    expect(jsDosBundleFileIds(rom)).toEqual([]);
+  });
+
+  it("skips a bundle missing from disk", () => {
+    const rom = detailedRomFixture({
+      files: [
+        romFileFixture({
+          id: 1,
+          file_name: "A.jsdos",
+          is_top_level: true,
+          missing_from_fs: true,
+        }),
+        file(2, "B.jsdos"),
+      ],
+    });
+    expect(jsDosBundleFileIds(rom)).toEqual([2]);
   });
 });
 
@@ -165,26 +196,43 @@ describe("EasyRPG support", () => {
   });
 });
 
-describe("arcade platforms", () => {
-  it("offers each emulator family the cores that run its sets", () => {
-    expect(getSupportedEJSCores("mame")).toEqual(["mame2003_plus", "mame2003"]);
-    expect(getSupportedEJSCores("fbneo")).toEqual(["fbneo"]);
-    expect(getSupportedEJSCores("fba")).toEqual([
-      "fbneo",
-      "fbalpha2012_cps1",
-      "fbalpha2012_cps2",
+describe("getSupportedEJSCores", () => {
+  const maps = ejsCoresFixture();
+
+  it("reads the platform's cores from the served map, in any case", () => {
+    expect(getSupportedEJSCores("PSX", maps)).toEqual([
+      "pcsx_rearmed",
+      "mednafen_psx_hw",
     ]);
-    expect(getSupportedEJSCores("arcade")).toContain("fbneo");
   });
 
-  it("offers no core for a board EmulatorJS can't run", () => {
-    expect(getSupportedEJSCores("naomi")).toEqual([]);
-    expect(getSupportedEJSCores("mame-advmame")).toEqual([]);
+  it("layers the nightly cores on when netplay is on", () => {
+    expect(getSupportedEJSCores("snes", maps)).toEqual(["snes9x"]);
+    expect(getSupportedEJSCores("snes", maps, true)).toEqual([
+      "snes9x",
+      "bsnes",
+    ]);
+    expect(getSupportedEJSCores("3ds", maps)).toEqual([]);
+    expect(getSupportedEJSCores("3ds", maps, true)).toEqual(["azahar"]);
   });
 
+  it("offers no core for a platform the map leaves out", () => {
+    expect(getSupportedEJSCores("naomi", maps)).toEqual([]);
+  });
+});
+
+describe("arcade platforms", () => {
   it("treats every arcade board as arcade hardware", () => {
     expect(isArcadeSystem("naomi")).toBe(true);
     expect(isArcadeSystem("model2")).toBe(true);
     expect(isArcadeSystem("snes")).toBe(false);
+  });
+});
+
+describe("languageToEmoji", () => {
+  it("tells Brazilian from European Portuguese", () => {
+    expect(languageToEmoji("Brazilian Portuguese")).toBe("🇧🇷");
+    expect(languageToEmoji("pt-BR")).toBe("🇧🇷");
+    expect(languageToEmoji("Portuguese")).toBe("🇵🇹");
   });
 });

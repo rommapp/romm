@@ -21,23 +21,6 @@ export function sessionStateName(
   return `${rom.fs_name_no_ext.trim()} [${date} ${time}]`;
 }
 
-/** A state and its picture, both named after the moment of the capture. */
-export function sessionStateFiles(
-  rom: { fs_name_no_ext: string },
-  capturedAt: Date,
-  stateBytes: ArrayBuffer,
-  screenshotBytes?: ArrayBuffer,
-): { stateFile: File; screenshotFile?: File | undefined } {
-  const name = sessionStateName(rom, capturedAt);
-  const type = "application/octet-stream";
-  return {
-    stateFile: new File([stateBytes], `${name}.state`, { type }),
-    screenshotFile: screenshotBytes
-      ? new File([screenshotBytes], `${name}.png`, { type })
-      : undefined,
-  };
-}
-
 type StateUploadInput = Omit<AddStateInput, "stateFile" | "screenshotFile"> & {
   stateFile: File;
   screenshotFile?: File | undefined;
@@ -55,10 +38,12 @@ async function uploadStates({
   rom,
   statesToUpload,
   emulator,
+  deviceId,
 }: {
   rom: Pick<DetailedRomSchema, "id">;
   statesToUpload: StateUploadInput[];
   emulator?: string | undefined;
+  deviceId?: string | undefined;
 }) {
   const promises = statesToUpload.map(({ stateFile, screenshotFile }) => {
     const formData = buildFormInput<StateUploadInput>([
@@ -72,7 +57,7 @@ async function uploadStates({
           headers: {
             "Content-Type": "multipart/form-data",
           },
-          params: { rom_id: rom.id, emulator },
+          params: { rom_id: rom.id, emulator, device_id: deviceId },
         })
         .then(({ data }) => {
           resolve(data);

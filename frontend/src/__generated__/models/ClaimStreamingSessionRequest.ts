@@ -8,6 +8,7 @@ export type ClaimStreamingSessionRequest = {
     save_id?: (number | null);
     memory_card_id?: (number | null);
     card_import?: ('adopt' | 'discard' | null);
+    disc_file_id?: (number | null);
     multiplayer?: boolean;
 };
 

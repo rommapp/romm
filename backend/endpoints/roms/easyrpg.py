@@ -9,15 +9,17 @@ from starlette.responses import FileResponse
 
 from config import DEV_MODE, DISABLE_EASYRPG
 from decorators.auth import protected_route
-from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible, get_permissions
+from handler.auth.dependencies import (
+    get_permissions,
+    visible_rom_or_404,
+)
 from handler.database import db_rom_handler
 from handler.easyrpg import INDEX_FILE, RTP_WEB_PATH, easyrpg_handler
 from handler.filesystem import fs_rom_handler
 from models.permission import PermAction, PermEntity
 from utils.nginx import FileRedirectResponse
-from utils.router import APIRouter
+from utils.router import APIRouter, RomIdPath
 
 router = APIRouter()
 
@@ -39,11 +41,18 @@ def _serve(disk_path: str | Path, web_path: PurePosixPath) -> Response:
     router.get,
     "/{id}/easyrpg/{path:path}",
     [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The caller is not allowed to play games in the browser."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "EasyRPG is disabled, no rom the caller can see has this ID, the rom is not an RPG Maker 2000 or 2003 game, or neither the game nor the RTP has a file at this path."
+        },
+    },
 )
 async def get_easyrpg_file(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     path: Annotated[str, PathVar(description="File path inside the game folder.")],
 ) -> Response:
     """Serve a generated `index.json`, or a game or RTP file it names, to the EasyRPG web player."""
@@ -58,11 +67,7 @@ async def get_easyrpg_file(
         )
 
     # The player fetches every asset through here, so the full rom is never loaded.
-    rom = db_rom_handler.get_rom_visibility(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    visible_rom_or_404(request, db_rom_handler.get_rom_visibility(id), id)
 
     game_files = easyrpg_handler.game_files(db_rom_handler.present_rom_file_paths(id))
     if not easyrpg_handler.is_game(game_files):

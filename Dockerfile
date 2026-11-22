@@ -8,12 +8,12 @@
 # Same bases as docker/Dockerfile, so system tools (7zip, libmagic, libarchive)
 # match production. Keep these pins in sync with its ARGUMENT DECLARATIONS.
 ARG ALPINE_VERSION=3.24
-ARG ALPINE_DIGEST=sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
+ARG ALPINE_DIGEST=sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
 # Pins the base image tag, so it cannot read .python-version; keep the two in sync.
 ARG PYTHON_VERSION=3.14
-ARG PYTHON_ALPINE_DIGEST=sha256:eb2c62658b8d51bff0acc408504b76521d02030de56a8a3c1e830083e89b89d2
-ARG NODE_VERSION=24.22
-ARG NODE_ALPINE_DIGEST=sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85
+ARG PYTHON_ALPINE_DIGEST=sha256:5862d971d1f0ae26b258cefa4e893556b1d3aba81bd2ff30888704ad378bab67
+ARG NODE_VERSION=26.13
+ARG NODE_ALPINE_DIGEST=sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5
 ARG UV_VERSION=0.13.4
 ARG UV_SHA256=0cb69bb18ffcd57db04f045010b0234132a111da70dde5a393d26ad288d38e13
 ARG EMSDK_VERSION=4.0.12
@@ -75,7 +75,7 @@ RUN apk add --no-cache \
     make \
     musl-dev
 
-ARG SIGIL_VERSION=8a3b0089676e07f74da2d9ad08979dedf5cae7c0
+ARG SIGIL_VERSION=85f88a85b7e8cfe5c685ec3cde100570c6ee6ed8
 ADD "https://github.com/rommapp/argosy-sigil.git#${SIGIL_VERSION}" /argosy-sigil
 WORKDIR /argosy-sigil
 RUN cmake -B ./build-python -S . -DSIGIL_BUILD_CLI=OFF -DSIGIL_BUILD_TESTS=OFF && \
@@ -125,18 +125,18 @@ ADD --checksum=sha256:${RUFFLE_SHA256} \
     /downloads/ruffle.zip
 RUN 7zz x -y /downloads/ruffle.zip -o/emulators/ruffle
 
-ARG JSDOS_VERSION=8.4.1
-ARG JSDOS_SHA256=26118692bbb180aec78ec1697eb1ea6b28ff410101870cfa3e68309914c7eaa6
+ARG JSDOS_VERSION=8.5.4
+ARG JSDOS_SHA256=6cd8a379556ada7da8a6a49d3ba2fde1783ce3e481c1cd645e13ebc83419a5b8
 
 ADD --checksum=sha256:${JSDOS_SHA256} \
     "https://github.com/caiiiycuk/js-dos/releases/download/v${JSDOS_VERSION}/release.zip" \
     /downloads/jsdos.zip
-# The bundled index.html is a js-dos demo page that would be served unauthenticated;
-# source maps, Emscripten symbol files and type declarations are unused at runtime.
+# index.html is a demo page that would be served unauthenticated; source maps, symbols,
+# type declarations and the opt-in DOSBox-X debugger build are unused at runtime.
 RUN 7zz x -y /downloads/jsdos.zip -o/tmp/jsdos \
     && mv /tmp/jsdos/dist /emulators/jsdos \
     && rm -rf /emulators/jsdos/index.html /emulators/jsdos/emulators/types \
-    && find /emulators/jsdos \( -name '*.map' -o -name '*.symbols' \) -exec rm -f {} +
+    && find /emulators/jsdos \( -name '*.map' -o -name '*.symbols' -o -name '*-dbg.*' \) -exec rm -f {} +
 
 # FAKE-08 (MIT) publishes no web build, so these come from p3a (Apache-2.0),
 # which compiled them. Pinned by commit and checksum: that tree has no tags.

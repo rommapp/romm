@@ -8,7 +8,7 @@ The frontend talks to the backend over `/api/*` (REST) and `/ws` (Socket.IO). Ty
 
 ## Deep-dive references
 
-- **`docs/BACKEND_ARCHITECTURE.md`** - directory map, ER diagram, every endpoint, auth/scopes, tasks.
+- **`docs/BACKEND_ARCHITECTURE.md`** - layers, request flow, auth and visibility model, scanning, sockets, tasks. Routes, columns and env vars live in the code it points to.
 - **`docs/FRONTEND_ARCHITECTURE.md`** - routing, stores, services, theming, build tooling.
 - **`DEVELOPER_SETUP.md`** - Docker and manual local setup (mock library, `.env`, services).
 - **`CONTRIBUTING.md`** - contribution flow, **AI-assistance disclosure**, translations.
@@ -41,12 +41,13 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 **Keep comments short.** Comments should be concise, and focus on the "why" rather than the "what" (the code itself is the "what"). A comment is one or two lines; a docstring is one sentence plus `Args:`/`Returns:` when the signature needs it. Three or more lines of prose means you are explaining, not commenting. See `review-polish` for what to cut.
 **Don't restate the code.** The code is self-documenting, so skip comments that narrate what a reader can already see (which button sits where, that something is disabled when empty, obvious ordering). Comment only non-obvious "why" that the code can't convey on its own.
 **One home per value.** Before declaring a constant, type, limit, regex, or store getter, search for an existing one and import it. Validation limits live on the model and are imported by endpoints; a type lives in the component that owns it and is exported. Don't add a near-duplicate that differs only by sorting, and don't invent an identity scheme where a foreign key already exists.
+**ROM and platform visibility is access control.** A ROM or platform hidden from a user, directly or by age limit, must be unreachable for them, not only absent from lists. Any route, task or socket event that reaches a ROM-, platform- or firmware-linked resource checks visibility: `visible_rom_or_404`/`visible_platform_or_404`/`visible_firmware_or_404` on a single fetch (one 404 for missing and hidden), a `visibility` filter in SQL (before any limit) on a list, and the ROM's audience on a broadcast. Handler queries take `visibility` as a required argument, and a system caller passes `UNRESTRICTED` explicitly. A hidden resource answers like a missing one. Files under `/assets/romm/resources/` are served by nginx without auth and are out of scope.
 **Never commit secrets.** Never commit secrets (API keys, passwords, tokens, etc.) to the repo. Use environment variables or secret management tools instead.
 **Don't explain a change.** Avoid comments that explain why a change was made to the code, or that record what the code used to do. Focus instead on the current behaviour of the code and how it works. Reasons for a change go in the commit message and the PR body.
 **Python tools live in `backend/tools/`.** Standalone dev/test utilities and scripts (not part of the app runtime) go in `backend/tools/`, not scattered across `backend/`.
 **Link PRs to issues.** In the PR description, use `Fixes #XXXX` for issue/bug fixes and `Closes #XXXX` for feature implementations.
 **Use the PR template.** Base every PR description on `.github/PULL_REQUEST_TEMPLATE.md`.
-**Show UI changes in the PR.** A PR that touches anything visible ships with at least one screenshot under the template's `Screenshots` heading, captured from the running app during the `review-polish` browser pass. Enough shots to convey what changed, not a catalogue of every state. Save the files outside the repo and never commit them, and upload them with `gh pr create --attach` (or `gh pr edit --attach` on an existing PR) rather than handing the paths to the user.
+**Show UI changes in the PR.** A PR that touches anything visible ships with at least one screenshot under the template's `Screenshots` heading, captured from the running app during the `review-polish` browser pass. Enough shots to convey what changed, not a catalogue of every state. Save the files outside the repo and never commit them, and upload them with `gh pr create --attach` (or `gh pr edit --attach` on an existing PR) rather than handing the paths to the user. `--attach` needs gh 2.99.0 or later (check `gh --version`). Claude Code cloud sessions block the GraphQL API that `gh pr create` and `gh pr edit` use, so there `--attach` fails whatever the version: send the files to the user to attach instead.
 **Diagram architectural changes in the PR.** When a change moves a boundary (a new service, task, or provider in a path, a model relationship, a different call path across layers, an auth or socket flow), the PR description carries a `mermaid` block showing it. GitHub renders them. Draw what changed, not the whole system. See `review-polish`.
 
 ---
@@ -80,13 +81,12 @@ place for full-suite coverage; local runs stay scoped.
 
 **In a git worktree, run tests against a temporary database.** Every checkout shares
 `romm_test`, and one on another branch can migrate it to a revision yours lacks, so
-every test errors in setup with `Can't locate revision`. Set `ROMM_TEST_DB_TAG` to a
-tag unique to the worktree: the run creates and migrates `romm_test_tmp_<tag>` (one per
-xdist worker), then drops it at the end. Never `stamp` or downgrade the shared `romm_test`.
-
-```bash
-ROMM_TEST_DB_TAG=my_worktree uv run pytest -n auto tests/handler/
-```
+every test errors in setup with `Can't locate revision`. In a linked worktree,
+`backend/conftest.py` sets `ROMM_TEST_DB_TAG` to the worktree's folder name plus a
+short hash of its path: the run creates and migrates `romm_test_tmp_<tag>` (one per
+xdist worker), then drops it at the end. Set the variable yourself to pick another tag,
+for example to run two suites in one worktree at once. Never `stamp` or downgrade the
+shared `romm_test`.
 
 ---
 

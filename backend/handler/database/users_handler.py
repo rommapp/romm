@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Collection, Mapping, Sequence
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -8,9 +8,10 @@ from sqlalchemy.sql import Delete, Select, Update
 
 from decorators.database import INJECTED_SESSION, begin_session
 from exceptions.database_exceptions import LastAdminError
+from models.snapshot import Snapshot
 from models.user import Role, User
 
-from .base_handler import DBBaseHandler
+from .base_handler import DBBaseHandler, affected_rows
 
 LAST_ACTIVE_DEBOUNCE = timedelta(minutes=5)
 
@@ -20,11 +21,14 @@ class DBUsersHandler(DBBaseHandler):
         self,
         query: QueryT,
         *,
+        ids: Collection[int] = (),
         usernames: Sequence[str] = (),
         emails: Sequence[str] = (),
         roles: Sequence[Role] = (),
         has_ra_username: bool | None = None,
     ) -> QueryT:
+        if ids:
+            query = query.filter(User.id.in_(ids))
         if usernames:
             query = query.filter(
                 func.lower(User.username).in_([u.lower() for u in usernames])
@@ -127,6 +131,48 @@ class DBUsersHandler(DBBaseHandler):
         return session.scalars(select(User).filter_by(id=id)).one()
 
     @begin_session
+    def set_ra_progression(
+        self,
+        id: int,
+        ra_username: str,
+        progression: Mapping[str, object],
+        session: Session = INJECTED_SESSION,
+    ) -> bool:
+        """Store progression fetched for `ra_username` if the user still links that profile.
+
+        Returns:
+            Whether the progression was stored.
+        """
+        result = session.execute(
+            update(User)
+            .where(User.id == id, User.ra_username == ra_username)
+            .values(ra_progression=progression)
+            .execution_options(synchronize_session=False)
+        )
+        return affected_rows(result) > 0
+
+    @begin_session
+    def replace_avatar_path(
+        self,
+        id: int,
+        expected: str,
+        avatar_path: str,
+        session: Session = INJECTED_SESSION,
+    ) -> bool:
+        """Set the avatar path if the user's current one is still `expected`.
+
+        Returns:
+            Whether the avatar path was set.
+        """
+        result = session.execute(
+            update(User)
+            .where(User.id == id, User.avatar_path == expected)
+            .values(avatar_path=avatar_path)
+            .execution_options(synchronize_session=False)
+        )
+        return affected_rows(result) > 0
+
+    @begin_session
     def update_last_active(
         self,
         id: int,
@@ -151,6 +197,7 @@ class DBUsersHandler(DBBaseHandler):
     def get_users(
         self,
         *,
+        ids: Collection[int] = (),
         usernames: Sequence[str] = (),
         emails: Sequence[str] = (),
         roles: Sequence[Role] = (),
@@ -160,6 +207,7 @@ class DBUsersHandler(DBBaseHandler):
     ) -> Sequence[User]:
         query = self.filter(
             select(User),
+            ids=ids,
             usernames=usernames,
             emails=emails,
             roles=roles,
@@ -181,6 +229,13 @@ class DBUsersHandler(DBBaseHandler):
     ) -> Result[*tuple[Any, ...]]:
         if keep_an_admin:
             self.refuse_removing_the_last_admin(id, session=session)
+        # PostgreSQL checks the snapshots' RESTRICT keys inside the cascade, before
+        # it reaches the snapshots, so they go first.
+        session.execute(
+            delete(Snapshot)
+            .where(Snapshot.user_id == id)
+            .execution_options(synchronize_session=False)
+        )
         return session.execute(
             delete(User)
             .where(User.id == id)

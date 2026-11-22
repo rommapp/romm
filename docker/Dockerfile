@@ -16,16 +16,16 @@
 
 # ARGUMENT DECLARATIONS
 ARG ALPINE_VERSION=3.24
-ARG ALPINE_DIGEST=sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
+ARG ALPINE_DIGEST=sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
 # Pins the base image tag, so it cannot read ../.python-version; keep the two in sync.
 ARG PYTHON_VERSION=3.14
-ARG PYTHON_ALPINE_DIGEST=sha256:eb2c62658b8d51bff0acc408504b76521d02030de56a8a3c1e830083e89b89d2
+ARG PYTHON_ALPINE_DIGEST=sha256:5862d971d1f0ae26b258cefa4e893556b1d3aba81bd2ff30888704ad378bab67
 # Build stages get pip from CPython's bundled ensurepip, which lags pip's security releases.
 ARG PIP_VERSION=26.2.2
-ARG NODE_VERSION=24.22
-ARG NODE_ALPINE_DIGEST=sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85
-ARG NGINX_VERSION=1.30.6
-ARG NGINX_SHA256=47928bf67eb62a1863cb08d9ecb52d3e704304ba614eaee17884204677702951
+ARG NODE_VERSION=26.13
+ARG NODE_ALPINE_DIGEST=sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5
+ARG NGINX_VERSION=1.30.7
+ARG NGINX_SHA256=bef154735288bc38d99fac41ae63730684bcc661503673a04a0f9bc526ba8598
 ARG UV_VERSION=0.13.4
 ARG UV_SHA256=0cb69bb18ffcd57db04f045010b0234132a111da70dde5a393d26ad288d38e13
 ARG EMSDK_VERSION=4.0.12
@@ -134,7 +134,7 @@ RUN apk add --no-cache \
     musl-dev
 
 # Keep this pin in sync with the dev image's SIGIL_VERSION in ../Dockerfile.
-ARG SIGIL_VERSION=8a3b0089676e07f74da2d9ad08979dedf5cae7c0
+ARG SIGIL_VERSION=85f88a85b7e8cfe5c685ec3cde100570c6ee6ed8
 
 # checkov:skip=CKV_DOCKER_4:the ADD below is a Git URL pinned to a commit
 ADD "https://github.com/rommapp/argosy-sigil.git#${SIGIL_VERSION}" /argosy-sigil
@@ -211,17 +211,17 @@ ADD --checksum=sha256:${RUFFLE_SHA256} \
     /downloads/ruffle.zip
 RUN unzip -o /downloads/ruffle.zip -d /ruffle
 
-ARG JSDOS_VERSION=8.4.1
-ARG JSDOS_SHA256=26118692bbb180aec78ec1697eb1ea6b28ff410101870cfa3e68309914c7eaa6
+ARG JSDOS_VERSION=8.5.4
+ARG JSDOS_SHA256=6cd8a379556ada7da8a6a49d3ba2fde1783ce3e481c1cd645e13ebc83419a5b8
 
 ADD --checksum=sha256:${JSDOS_SHA256} \
     "https://github.com/caiiiycuk/js-dos/releases/download/v${JSDOS_VERSION}/release.zip" \
     /downloads/jsdos.zip
-# The bundled index.html is a js-dos demo page that would be served unauthenticated;
-# source maps, Emscripten symbol files and type declarations are unused at runtime.
+# index.html is a demo page that would be served unauthenticated; source maps, symbols,
+# type declarations and the opt-in DOSBox-X debugger build are unused at runtime.
 RUN unzip -o /downloads/jsdos.zip -d /jsdos && \
     rm -rf /jsdos/dist/index.html /jsdos/dist/emulators/types && \
-    find /jsdos/dist \( -name '*.map' -o -name '*.symbols' \) -exec rm -f {} +
+    find /jsdos/dist \( -name '*.map' -o -name '*.symbols' -o -name '*-dbg.*' \) -exec rm -f {} +
 
 # FAKE-08 (MIT) publishes no web build, so these come from p3a (Apache-2.0),
 # which compiled them. Pinned by commit and checksum: that tree has no tags.

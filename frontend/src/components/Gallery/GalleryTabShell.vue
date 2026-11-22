@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // GalleryTabShell: the non-Library tab branch of Platform / Collection. The
 // head scrolls with the page; on desktop the panel reaches the viewport bottom.
-import { RDivider } from "@/lib";
+import PageHeadBand from "@/components/shared/PageHeadBand.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -13,8 +13,9 @@ defineSlots<{
 
 <template>
   <section v-bind="$attrs" class="gallery-tab-shell">
-    <slot name="head" />
-    <RDivider class="gallery-tab-shell__divider" />
+    <PageHeadBand>
+      <slot name="head" />
+    </PageHeadBand>
     <div class="gallery-tab-shell__panel">
       <slot />
     </div>
@@ -25,15 +26,7 @@ defineSlots<{
 /* Plain document flow, so the page scrolls under the translucent top bar like
    Home; AppLayout's bottom padding clears the phone tab bar. */
 .gallery-tab-shell {
-  padding: 32px var(--r-row-pad) 24px;
-}
-/* GalleryShell's phone header gap, so the head holds still across tabs. */
-html[data-bp~="xs"] .gallery-tab-shell {
-  padding-top: 16px;
-}
-
-.gallery-tab-shell__divider {
-  margin: 0 0 24px;
+  padding: 0 var(--r-row-pad) 24px;
 }
 
 /* Desktop: fill at least the viewport so the panel, and a `fill` child such as

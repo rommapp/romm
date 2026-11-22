@@ -56,6 +56,7 @@ import {
   type ListSortKey,
 } from "@/components/Gallery/listColumns";
 import { GameCard, GameCardSkeleton } from "@/components/GameCard";
+import PageHeadBand from "@/components/shared/PageHeadBand.vue";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import { coverRatio, isBoxartStyle } from "@/composables/useCoverArt";
 import { useCssLength } from "@/composables/useCssLength";
@@ -76,10 +77,14 @@ import { useGridNav } from "@/composables/useGridNav";
 import { useListExpansion } from "@/composables/useListExpansion";
 import { usePinnedToolbar } from "@/composables/usePinnedToolbar";
 import { useResponsiveColumns } from "@/composables/useResponsiveColumns";
+import {
+  RESULT_ID_ATTR,
+  useResultsTransition,
+} from "@/composables/useResultsTransition";
 import { useUISettings } from "@/composables/useUISettings";
 import { useVirtualScrollDebug } from "@/composables/useVirtualScrollDebug";
 import { useWebpSupport } from "@/composables/useWebpSupport";
-import { RDivider, REmptyState, RLetterHeading, RVirtualScroller } from "@/lib";
+import { REmptyState, RLetterHeading, RVirtualScroller } from "@/lib";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryRoms, {
   DEFAULT_ORDER_BY,
@@ -122,6 +127,9 @@ interface Props {
   /** Sort applied while the URL names none. `null` orders by search
    * relevance (Search). */
   defaultOrderBy?: GalleryOrderKey | null;
+  /** Game count of the unfiltered gallery, shown against the result count
+   *  while a search or filter narrows it. Unset hides the count. */
+  scopeTotal?: number | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -134,13 +142,14 @@ const props = withDefaults(defineProps<Props>(), {
   showPlatformsInFilter: true,
   showPlatformColumn: true,
   defaultOrderBy: DEFAULT_ORDER_BY,
+  scopeTotal: undefined,
 });
 
 defineSlots<{
   /** View-specific header (InfoPanel / PageHeader / etc). Rendered in
    * the scroller's `#prepend` slot, so it scrolls naturally with the rest
-   * of the content. Must NOT carry a divider of its own; the shell
-   * paints the single divider at the bottom of the prepend band. */
+   * of the content. Must NOT carry a divider of its own; the shell sets it
+   * in a PageHeadBand, which paints the divider. */
   header(): unknown;
 }>();
 
@@ -293,16 +302,27 @@ watch(
     selectedLengthMaxHours,
   ],
   () => {
-    galleryRoms.invalidateWindows();
-    void galleryRoms.fetchInitialMetadata();
+    void galleryRoms.refreshResults(commitRefresh);
   },
   { deep: true },
 );
 
 const { supportsWebp } = useWebpSupport();
 
-const { total, reorderTotal, charIndex, initialFetching, orderBy, orderDir } =
+const { total, charIndex, initialFetching, refreshing, orderBy, orderDir } =
   storeToRefs(galleryRoms);
+
+// A narrowed gallery shows how many of its games match inside the search field.
+const searchSuffix = computed(() =>
+  props.scopeTotal !== undefined &&
+  (filterActiveCount.value > 0 || searchTerm.value) &&
+  galleryRoms.metadataLoaded
+    ? t("gallery.results-of-total", {
+        count: total.value,
+        total: props.scopeTotal,
+      })
+    : undefined,
+);
 
 const { groupBy, layout, toolbarPosition } = useGalleryMode();
 
@@ -367,14 +387,9 @@ const listMinWidth = computed(
 // Compact list rows (phones / tablets) open one detail panel at a time; the
 // virtualiser reads the same position to give that row its taller slot.
 const listExpansion = useListExpansion();
+// A new result puts another game at the open panel's position.
 watch(
-  [
-    layout,
-    smAndDown,
-    () => galleryRoms.total,
-    () => galleryRoms.orderBy,
-    () => galleryRoms.orderDir,
-  ],
+  [layout, smAndDown, () => galleryRoms.resultEpoch],
   listExpansion.collapse,
 );
 
@@ -404,15 +419,23 @@ useGridNav(sectionEl, {
   revealEdge,
 });
 
+// A known result, empty included, stays on screen through a refresh.
 const loadingInitial = computed(
-  () => initialFetching.value && total.value === 0,
+  () =>
+    (initialFetching.value || refreshing.value) &&
+    total.value === 0 &&
+    !galleryRoms.metadataLoaded,
 );
 
 const notFoundRef = computed(() => props.notFound);
 // An empty result under a search or filters says why, not that the view is empty.
 const emptyMessageRef = computed(() => {
-  if (searchTerm.value) {
-    return t("rom.no-games-match-query", { query: searchTerm.value });
+  // Names the search the displayed result answers, not one still loading.
+  const shownTerm = galleryRoms.resultParams
+    ? galleryRoms.resultParams.searchTerm
+    : searchTerm.value;
+  if (shownTerm) {
+    return t("rom.no-games-match-query", { query: shownTerm });
   }
   if (filterActiveCount.value > 0) return t("rom.no-games-match-filters");
   return props.emptyMessage;
@@ -433,7 +456,6 @@ const { virtualItems, letterToIndex, availableLetters, getItemHeight } =
     notFound: notFoundRef,
     notFoundMessage: notFoundMessageRef,
     skeletonRowCount: props.skeletonRowCount,
-    skeletonTotal: reorderTotal,
     cardHeight,
     rowWidth: usableWidth,
     gap: CARD_GAP_PX,
@@ -525,25 +547,22 @@ function onViewportRangeChange(range: { first: number; last: number }) {
   void scheduleFetchSync(range);
 }
 
-// Rows kept rendered beyond the viewport. Adaptive so the rendered CARD count
-// stays bounded regardless of how many columns fit: a fixed row overscan on a
-// wide screen (~9 cards/row) mounts hundreds of off-screen cards, and each
-// card is an expensive subtree (cover + hover overlay + shared game actions).
-// We target a roughly constant overscan-card budget per side, clamped so a
-// single-column phone keeps enough rows for smooth scrolling without
-// overshooting. List rows are one item each → a flat row count is fine.
-const GRID_OVERSCAN_CARDS = 60;
-const virtualOverscan = computed(() =>
-  layout.value === "list"
-    ? 12
-    : Math.min(
-        20,
-        Math.max(
-          4,
-          Math.round(GRID_OVERSCAN_CARDS / Math.max(1, columns.value)),
-        ),
-      ),
-);
+// A budget in cards, not rows: every mounted card is restyled each frame, so a
+// row count would cost far more on wide screens than on phones.
+const GRID_OVERSCAN_CARDS = 12;
+const GRID_OVERSCAN_MIN_ROWS = 2;
+const GRID_OVERSCAN_MAX_ROWS = 20;
+const LIST_OVERSCAN_ROWS = 12;
+
+const virtualOverscan = computed(() => {
+  if (layout.value === "list") return LIST_OVERSCAN_ROWS;
+
+  const cardsPerRow = Math.max(1, columns.value);
+  const rows = Math.round(GRID_OVERSCAN_CARDS / cardsPerRow);
+  if (rows < GRID_OVERSCAN_MIN_ROWS) return GRID_OVERSCAN_MIN_ROWS;
+  if (rows > GRID_OVERSCAN_MAX_ROWS) return GRID_OVERSCAN_MAX_ROWS;
+  return rows;
+});
 
 // ── Debug overlay bridge ────────────────────────────────────────────
 // Publish the virtual scroller's window stats so the global DebugOverlay
@@ -662,11 +681,17 @@ const scheduleFetchSync = useDebounceFn(syncFetches, FETCH_DEBOUNCE_MS);
 // search invalidate), drop the pending debounced sync. The store's
 // `invalidateWindows` / `resetGallery` already aborts every in-flight
 // request, so we just clear local state.
-watch(virtualItems, () => {
+watch(virtualItems, async (_items, _prev, onCleanup) => {
   scheduleFetchSync.cancel();
   // Re-sync against the current viewport so visible rows in the new
   // context start fetching immediately (no debounce: items just
   // changed, the user is staring at skeletons).
+  let superseded = false;
+  onCleanup(() => (superseded = true));
+  // Lets a scroll reset in the same swap report its range first.
+  await nextTick();
+  // A rerun owns the sync, and an unmount already aborted the fetches.
+  if (superseded) return;
   syncFetches(viewportRange.value);
 });
 
@@ -683,13 +708,43 @@ function anchorLetter(letter: string, smooth: boolean) {
   scrollToItem(idx, smooth);
 }
 
-function scrollToItem(idx: number, smooth: boolean) {
-  // The section runs under the top bar, so rows land below it in either dock.
-  const stickyOffset =
+// The section runs under the top bar, so rows land below it in either dock.
+function stickyOffset(): number {
+  return (
     navHeight.value +
     toolbarHeight.value +
-    (layout.value === "list" ? LIST_HEADER_HEIGHT_PX : 0);
-  scrollerRef.value?.scrollToIndex(idx, { smooth, stickyOffset });
+    (layout.value === "list" ? LIST_HEADER_HEIGHT_PX : 0)
+  );
+}
+
+function scrollToItem(idx: number, smooth: boolean) {
+  scrollerRef.value?.scrollToIndex(idx, {
+    smooth,
+    stickyOffset: stickyOffset(),
+  });
+}
+
+// Content scrolls under the phone bottom nav, which only renders below md.
+const bottomChromeHeight = useCssLength(
+  "calc(var(--r-bottom-nav-h) + var(--r-safe-b))",
+);
+
+const resultsTransition = useResultsTransition({
+  container: () => scrollerRef.value?.containerEl ?? null,
+  visibleTop: stickyOffset,
+  visibleBottom: () =>
+    window.innerHeight - (smAndDown.value ? bottomChromeHeight.value : 0),
+  rows: () => layout.value === "list",
+});
+
+function commitRefresh(apply: () => boolean): Promise<void> {
+  return resultsTransition.run(() => {
+    if (!apply()) return false;
+    endLetterJump();
+    // A new result reads from its first row, not the old scroll depth.
+    scrollerRef.value?.scrollTo(0);
+    return true;
+  });
 }
 
 function scrollToLetter(letter: string) {
@@ -769,8 +824,7 @@ const sortOptions = computed(() => getSortOptions(props.showPlatformColumn));
 // initial URL hydration runs before this watch is set up, so it does
 // not echo here.
 watch([orderBy, orderDir], () => {
-  galleryRoms.invalidateWindows({ reorder: true });
-  void galleryRoms.fetchInitialMetadata();
+  void galleryRoms.refreshResults(commitRefresh);
 });
 
 // ── Scroll restoration ─────────────────────────────────────────────
@@ -859,8 +913,10 @@ onBeforeUnmount(() => {
 });
 
 // ── Slot helpers ────────────────────────────────────────────────────
+// Read the map directly: the store action's wrapper is a cost per call, and
+// each card calls this several times per render.
 function getRomAt(p: number) {
-  return galleryRoms.getRomAt(p);
+  return galleryRoms.byPosition.get(p) ?? null;
 }
 
 function rowPositions(row: {
@@ -883,6 +939,8 @@ const asEmpty = (i: GalleryItem) => i as EmptyItem;
 const asListRow = (i: GalleryItem) => i as ListRowItem;
 const asSkeletonRow = (i: GalleryItem) => i as SkeletonRowItem;
 const itemKind = (i: GalleryItem) => i.kind;
+const listRowRomId = (i: GalleryItem) =>
+  i.kind === "list-row" ? getRomAt(i.position)?.id : undefined;
 
 // The desktop list header is the grid's first row; the compact one is a
 // toolbar above the grid.
@@ -899,7 +957,9 @@ const gridAttrs = computed(() => {
     role: "grid",
     "aria-label": t("common.games"),
     "aria-multiselectable": true,
-    "aria-busy": !loaded && !items.some((i) => i.kind === "empty"),
+    "aria-busy":
+      refreshing.value || (!loaded && !items.some((i) => i.kind === "empty")),
+    "data-stale": refreshing.value || undefined,
     "aria-rowcount": items.length + (listHeaderInGrid.value ? 1 : 0),
     "aria-colcount": listHeaderInGrid.value
       ? getListColumns(props.showPlatformColumn).length
@@ -992,12 +1052,13 @@ defineExpose({
            scroller's flow: the header scrolls away under the top bar, and
            the toolbar pins right below the top bar as a glass strip. -->
       <template #prepend>
-        <template v-if="hasHeader">
-          <div class="r-shell__header">
-            <slot name="header" />
-          </div>
-          <RDivider class="r-shell__header-divider" />
-        </template>
+        <PageHeadBand
+          v-if="hasHeader"
+          class="r-shell__header"
+          :followed-by="toolbarPosition === 'header' ? 'toolbar' : 'content'"
+        >
+          <slot name="header" />
+        </PageHeadBand>
         <div v-else class="r-shell__nav-spacer" />
 
         <template v-if="toolbarPosition === 'header'">
@@ -1019,6 +1080,7 @@ defineExpose({
               show-search
               :search="searchInput"
               :search-placeholder="searchPlaceholder"
+              :search-suffix="searchSuffix"
               :autofocus-search="autofocusSearch"
               show-filter
               :filter-active-count="filterActiveCount"
@@ -1095,6 +1157,7 @@ defineExpose({
         <div
           class="r-shell__item"
           v-bind="itemAttrs(item as GalleryItem, index)"
+          :[RESULT_ID_ATTR]="listRowRomId(item as GalleryItem)"
         >
           <RLetterHeading
             v-if="itemKind(item as GalleryItem) === 'letter-header'"
@@ -1108,13 +1171,14 @@ defineExpose({
           >
             <div
               v-for="(p, slotIdx) in rowPositions(asRow(item as GalleryItem))"
-              :key="p"
+              :key="`${p}-${getRomAt(p)?.id ?? 'sk'}`"
               role="gridcell"
               class="r-shell__cell"
               :aria-selected="getRomAt(p) ? isRomSelected(p) : undefined"
             >
               <GameCard
                 v-if="getRomAt(p)"
+                :[RESULT_ID_ATTR]="getRomAt(p)!.id"
                 class="r-card-fade"
                 :style="{ '--card-fade-i': slotIdx }"
                 :rom="getRomAt(p)!"
@@ -1255,6 +1319,12 @@ defineExpose({
   --r-shell-strip: calc(var(--r-alpha-strip-w) + var(--r-alpha-strip-gap));
   /* Where the right-anchored overlays sit: clear of the scrollbar and the inset. */
   --r-shell-edge-r: calc(var(--r-shell-scrollbar-w, 0px) + var(--r-safe-r));
+  /* The right gutter less the scrollbar it sits beside, so content ends where
+     the top bar and the document-scrolled pages do. */
+  --r-shell-pad-r: max(
+    0px,
+    calc(var(--r-gutter-r) - var(--r-shell-scrollbar-w, 0px))
+  );
   /* Lets the strip (a sibling) animate against the scroller's scroll. */
   timeline-scope: --r-shell-scroll;
   flex: 1;
@@ -1304,6 +1374,8 @@ html[data-bp~="sm-and-down"] .r-shell {
    class name is load-bearing in here. */
 html[data-bp~="sm-and-down"] .r-shell {
   --r-list-bleed: var(--r-row-pad);
+  /* The rows bleed by the full gutter, so a narrower pad would overflow it. */
+  --r-shell-pad-r: var(--r-gutter-r);
 }
 html[data-bp~="sm-and-down"] .r-shell__list-header {
   margin-inline: calc(-1 * var(--r-list-bleed, 0px));
@@ -1330,7 +1402,7 @@ html[data-bp~="md-and-up"] .r-shell__list-header {
   /* A stable gutter keeps the row packing from shifting when the content
      starts or stops overflowing. */
   scrollbar-gutter: stable;
-  padding: 0 calc(var(--r-gutter-r) + var(--r-shell-strip)) 60px
+  padding: 0 calc(var(--r-shell-pad-r) + var(--r-shell-strip)) 60px
     var(--r-gutter-l);
 }
 
@@ -1338,21 +1410,14 @@ html[data-bp~="md-and-up"] .r-shell__list-header {
   width: 100%;
 }
 
-/* Header band: `display: flow-root` establishes a new block-formatting
-   context so child margins don't collapse out visually. */
+/* The scroller starts under the top bar, so the band clears it. */
 .r-shell__header {
-  display: flow-root;
-  padding-top: calc(var(--r-nav-h) + 32px);
+  --r-page-head-band-offset: var(--r-nav-h);
 }
 /* Without a header this clears the top bar instead; the scroller's padding
    can't, as it would also offset the sticky toolbar. */
 .r-shell__nav-spacer {
   height: var(--r-nav-h);
-}
-
-/* Divider between header and toolbar; scrolls away with the header. */
-.r-shell__header-divider {
-  margin-bottom: 16px;
 }
 
 /* Flow-packed wrapping row: same-height, natural-width cards. The packer
@@ -1376,6 +1441,16 @@ html[data-bp~="md-and-up"] .r-shell__list-header {
   flex-shrink: 0;
 }
 
+/* Stale results fade only when a refetch outlasts the delay, so a quick
+   one never flickers. */
+.r-shell__scroller :deep(.r-virtual-scroller__body) {
+  transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-shell__scroller :deep(.r-virtual-scroller__body[data-stale]) {
+  opacity: 0.6;
+  transition-delay: 150ms;
+}
+
 /* Card reveal animation (.r-card-fade) lives in global.css, shared
    with the Home dashboard rows. */
 
@@ -1383,21 +1458,19 @@ html[data-bp~="md-and-up"] .r-shell__list-header {
   padding: var(--r-space-6) 0;
 }
 
-/* Only the rows share their width with the strip column; the header, the
-   divider and the toolbar run to the right edge over it. */
+/* Only the rows share their width with the strip column; the header band
+   and the toolbar run to the right edge over it. */
 .r-shell__header,
-.r-shell__header-divider,
 .r-shell__toolbar {
   margin-right: calc(-1 * var(--r-shell-strip));
 }
 
 /* When the list scrolls horizontally (columns wider than the viewport), the
-   page chrome (view header, divider and in-flow toolbar) belongs to the
+   page chrome (header band and in-flow toolbar) belongs to the
    page, not the table, so pin them to the left (`left: 0`). They stay in place
    while only the column header and rows scroll sideways. `left` engages only
    while the scroller has horizontal overflow, i.e. in list mode. */
 .r-shell--list .r-shell__header,
-.r-shell--list .r-shell__header-divider,
 .r-shell--list .r-shell__toolbar {
   position: sticky;
   left: 0;
@@ -1412,7 +1485,7 @@ html[data-bp~="md-and-up"] .r-shell__list-header {
 }
 /* Its pinned glass also runs under the strip column, out to the right edge. */
 .r-shell__list-header::before {
-  right: calc(-1 * (var(--r-gutter-r) + var(--r-shell-strip)));
+  right: calc(-1 * (var(--r-shell-pad-r) + var(--r-shell-strip)));
 }
 
 /* The strip overlays the scroller's right gutter from the pinned toolbar's
@@ -1478,7 +1551,7 @@ html[data-bp~="md-and-up"] .r-shell__list-header {
 }
 /* No strip: line up with the cards' right edge instead. */
 .r-shell--no-strip .r-shell__back-to-top {
-  right: calc(var(--r-row-pad) + var(--r-shell-edge-r));
+  right: calc(var(--r-shell-scrollbar-w, 0px) + var(--r-shell-pad-r));
 }
 html[data-bp~="sm-and-down"] .r-shell__back-to-top {
   bottom: calc(var(--r-bottom-nav-h) + var(--r-safe-b) + var(--r-space-4));
@@ -1504,9 +1577,6 @@ html[data-bp~="sm-and-down"] .r-shell__scroller::after {
   content: "";
   display: block;
   height: calc(var(--r-bottom-nav-h) + var(--r-safe-b) + 24px);
-}
-html[data-bp~="xs"] .r-shell__header {
-  padding-top: calc(var(--r-nav-h) + 16px);
 }
 html[data-bp~="xs"] .r-shell__row {
   gap: 12px;

@@ -1,6 +1,7 @@
 import pytest
 from sqlalchemy.exc import IntegrityError
 
+from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
 from handler.database import db_music_playlist_handler, db_rom_handler, db_user_handler
 from models.music import MusicPlaylist
 from models.rom import Rom, RomFile, RomFileCategory
@@ -145,10 +146,20 @@ def test_track_counts(track_ids, playlist: MusicPlaylist, admin_user: User):
     )
     db_music_playlist_handler.add_tracks_to_playlist(playlist.id, track_ids[:2])
     counts = db_music_playlist_handler.get_playlist_track_counts(
-        [playlist.id, other.id]
+        [playlist.id, other.id], UNRESTRICTED
     )
     assert counts == {playlist.id: 2}
-    assert db_music_playlist_handler.get_playlist_track_counts([]) == {}
+    assert db_music_playlist_handler.get_playlist_track_counts([], UNRESTRICTED) == {}
+
+
+def test_track_counts_leave_out_hidden_roms(
+    track_ids, playlist: MusicPlaylist, rom: Rom
+):
+    db_music_playlist_handler.add_tracks_to_playlist(playlist.id, track_ids)
+    hidden = RomVisibilityFilter(hidden_rom_ids=frozenset({rom.id}))
+    assert (
+        db_music_playlist_handler.get_playlist_track_counts([playlist.id], hidden) == {}
+    )
 
 
 def test_favorites_add_remove_idempotent(track_ids, admin_user: User):

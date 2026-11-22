@@ -85,7 +85,7 @@ function tipText(matcher: HashMatcher): string {
   border: 1px solid var(--r-color-border);
 }
 .r-hash-matchers__matcher--off {
-  opacity: 0.55;
+  opacity: var(--r-opacity-inactive);
 }
 /* A disabled button swallows taps, so let them reach the pill's tooltip. */
 .r-hash-matchers__matcher--off .r-hash-matchers__switch {

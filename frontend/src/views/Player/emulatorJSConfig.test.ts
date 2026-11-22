@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { ejsCoresFixture } from "@/utils/ejsCores.fixtures";
 import { firmwareFixture } from "@/utils/firmware.fixtures";
 import { detailedRomFixture } from "@/utils/rom.fixtures";
 import {
@@ -21,9 +22,10 @@ function input(overrides: Partial<EjsConfigInput> = {}): EjsConfigInput {
   return {
     rom,
     core: null,
-    disc: null,
+    fileIds: [],
     bios: null,
     firmware: [],
+    emulation: ejsCoresFixture(),
     config: {
       EJS_DEBUG: false,
       EJS_CACHE_LIMIT: null,
@@ -67,7 +69,7 @@ describe("buildEjsConfig", () => {
       buildEjsConfig(
         input({
           core: "mednafen_psx_hw",
-          disc: 42,
+          fileIds: [42],
           bios,
           loadStateLabel: "Load from RomM",
           controls: { 0: { 0: { value: "x" } } },

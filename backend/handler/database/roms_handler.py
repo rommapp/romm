@@ -49,6 +49,7 @@ from sqlalchemy.sql.dml import Insert
 from sqlalchemy.sql.elements import ColumnElement, UnaryExpression
 from sqlalchemy.sql.selectable import Select
 
+from adapters.services.sigil import SIGIL_FILE_COLUMNS
 from config.config_manager import config_manager as cm
 from decorators.database import INJECTED_SESSION, begin_session
 from exceptions.database_exceptions import RomFileOwnerChangedError
@@ -129,6 +130,7 @@ from utils.sql_dialect import (
 )
 
 from .base_handler import DBBaseHandler, affected_rows, sync_engine
+from .snapshots_handler import link_channels_to_files
 
 type RomSelect = Select[Rom]
 
@@ -371,6 +373,7 @@ ROM_FILE_SCANNED_COLUMNS = (
     "title_id",
     "title_version",
     "converto_read_at",
+    *SIGIL_FILE_COLUMNS,
     "archive_members",
     "category",
 )
@@ -503,7 +506,40 @@ def _char_index_redis_key(cache_key: str, version: str) -> str:
 
 
 def _rom_id_index_redis_key(cache_key: str, version: str) -> str:
-    return _sidecar_redis_key("rom_id_index", cache_key, version)
+    return _sidecar_redis_key("rom_id_list", cache_key, version)
+
+
+# Bounds the arguments of each RPUSH that writes a cached id list.
+ROM_ID_LIST_PUSH_CHUNK = 10_000
+
+
+def _store_versioned_id_list(redis_key: str, version: str, ids: list[int]) -> None:
+    """Like `_store_versioned_cache`, as a Redis list a page can range over.
+
+    An empty list is not stored, since Redis has no empty list to tell it from a miss.
+    """
+    if not ids:
+        return
+    version_keys_set = _filter_values_cache_keys_key(version)
+    with sync_cache.pipeline() as pipe:
+        try:
+            pipe.watch(ROM_FILTERS_CACHE_VERSION_KEY)
+            current_version = (
+                _cache_value_to_str(pipe.get(ROM_FILTERS_CACHE_VERSION_KEY)) or "0"
+            )
+            if current_version != version:
+                pipe.unwatch()
+            else:
+                pipe.multi()
+                pipe.delete(redis_key)
+                for start in range(0, len(ids), ROM_ID_LIST_PUSH_CHUNK):
+                    pipe.rpush(redis_key, *ids[start : start + ROM_ID_LIST_PUSH_CHUNK])
+                pipe.expire(redis_key, ROM_FILTERS_CACHE_TTL)
+                pipe.sadd(version_keys_set, redis_key)
+                pipe.expire(version_keys_set, ROM_FILTERS_CACHE_TTL)
+                pipe.execute()
+        except WatchError:
+            pass
 
 
 def _store_versioned_cache(redis_key: str, version: str, result: Any) -> None:
@@ -689,6 +725,7 @@ def _rom_card_loaders(
             undefer(Rom.top_level_file_count),
             undefer(Rom.has_soundtrack),
             undefer(Rom.is_easyrpg_game),
+            undefer(Rom.has_jsdos_bundle),
         ]
     if siblings:
         options.append(
@@ -1946,11 +1983,12 @@ class DBRomsHandler(DBBaseHandler):
         self,
         page_ids: Sequence[int],
         *,
-        visibility: RomVisibilityFilter = UNRESTRICTED,
+        visibility: RomVisibilityFilter,
         include_file_stats: bool = False,
     ) -> RomSelect:
         """The rows of one page, loaded by id with none of the filters re-run."""
-        # Visibility is re-checked in case a cached id index predates a rule change.
+        # The only access check on caller-supplied ids, and it also catches a
+        # cached id index that predates a rule change.
         return (
             select(Rom)
             .where(Rom.id.in_(page_ids), *visibility.clauses())
@@ -2113,26 +2151,42 @@ class DBRomsHandler(DBBaseHandler):
         """Return every matching rom id in query order.
 
         The list backs the gallery's virtual scroll, so it spans the whole
-        result set (not a page) and is recomputed on every request. Building it
-        runs the sibling-dedup window over the full library, so the unscoped
-        case is memoised under the same versioned cache as the other gallery
-        sidecars.
+        result set (not a page). Building it can run the sibling-dedup window
+        over the full set, so a keyed list is memoised under the same versioned
+        cache as the other gallery sidecars.
         """
         redis_key: str | None = None
         version: str | None = None
         if cache_key:
             version = _filter_values_cache_version()
             redis_key = _rom_id_index_redis_key(cache_key, version)
-            cached = sync_cache.get(redis_key)
-            if cached is not None:
-                rom_ids: list[int] = json.loads(cached)
-                return rom_ids
+            cached = sync_cache.lrange(redis_key, 0, -1)
+            if cached:
+                return [int(rom_id) for rom_id in cached]
 
         ids = list(session.scalars(query.with_only_columns(Rom.id)).all())
 
         if redis_key is not None and version is not None:
-            _store_versioned_cache(redis_key, version, ids)
+            _store_versioned_id_list(redis_key, version, ids)
         return ids
+
+    @staticmethod
+    def get_cached_rom_id_page(
+        cache_key: str, offset: int, limit: int
+    ) -> tuple[list[int], int] | None:
+        """One window of a cached id list and the list's length, without building it.
+
+        Returns:
+            None on a miss; only `get_rom_id_index` writes the list.
+        """
+        redis_key = _rom_id_index_redis_key(cache_key, _filter_values_cache_version())
+        with sync_cache.pipeline(transaction=False) as pipe:
+            pipe.lrange(redis_key, offset, offset + limit - 1)
+            pipe.llen(redis_key)
+            window, length = pipe.execute()
+        if not length:
+            return None
+        return [int(rom_id) for rom_id in window], int(length)
 
     @begin_session
     def get_rom_count(
@@ -2204,7 +2258,6 @@ class DBRomsHandler(DBBaseHandler):
         self,
         platform_id: int,
         fs_names: Iterable[str],
-        with_files: bool = False,
         session: Session = INJECTED_SESSION,
     ) -> dict[str, Rom]:
         """Retrieve a dictionary of roms keyed by their full path (fs_path/fs_name).
@@ -2216,21 +2269,14 @@ class DBRomsHandler(DBBaseHandler):
         Eager-loads only `platform` (used downstream by the scan loop via
         `rom.platform_slug` / `rom.platform.fs_slug`). This deliberately
         avoids `with_details`, whose full relationship eager-load is
-        wasted work for the scan-skip decision on large platforms. Scans that
-        reconcile files opt into `with_files` to load them once per batch
-        instead of once per rom.
+        wasted work for the scan-skip decision on large platforms. Files are
+        left unloaded so a batch never holds every file row of its roms at once.
         """
-        query = select(Rom).options(selectinload(Rom.platform))
-        if with_files:
-            query = query.options(
-                selectinload(Rom.files).options(
-                    joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
-                    selectinload(RomFile.track_meta),
-                )
-            )
         roms = (
             session.scalars(
-                query.where(
+                select(Rom)
+                .options(selectinload(Rom.platform))
+                .where(
                     and_(
                         Rom.platform_id == platform_id,
                         Rom.fs_name.in_(fs_names),
@@ -2268,6 +2314,36 @@ class DBRomsHandler(DBBaseHandler):
 
         # Id order keeps an ambiguous name resolving the same way on every sync.
         return sorted(roms, key=lambda rom: rom.id)
+
+    @begin_session
+    def get_roms_by_file_name_prefixes(
+        self,
+        prefixes: Iterable[str],
+        session: Session = INJECTED_SESSION,
+    ) -> list[tuple[str, Rom]]:
+        """Each file whose name starts with one of `prefixes`, in any case, with its ROM.
+
+        Returns:
+            (file name, owning ROM) pairs, in ROM id order.
+        """
+        unique = list(dict.fromkeys(prefixes))
+        rows: list[tuple[str, Rom]] = []
+        for batch in batched(unique, 100, strict=False):
+            rows += session.execute(
+                select(RomFile.file_name, Rom)
+                .join(Rom, Rom.id == RomFile.rom_id)
+                .options(selectinload(Rom.platform))
+                .where(
+                    or_(
+                        *(
+                            RomFile.file_name.istartswith(prefix, autoescape=True)
+                            for prefix in batch
+                        )
+                    )
+                )
+            ).all()
+
+        return sorted(rows, key=lambda row: (row[1].id, row[0]))
 
     @begin_session
     def update_rom(
@@ -2380,6 +2456,7 @@ class DBRomsHandler(DBBaseHandler):
             .where(Rom.id == id)
             .execution_options(synchronize_session="evaluate")
         )
+        session.info[FILTER_VALUES_BUMP_KEY] = True
 
     @begin_session
     def get_missing_rom_ids(
@@ -2767,19 +2844,20 @@ class DBRomsHandler(DBBaseHandler):
 
         Returns the cover path this update orphaned, if any.
         """
-        # Title ids rom-converto didn't read this pass are reusable only when
+        # Ids rom-converto or sigil didn't read this pass are reusable only when
         # they still describe the same content.
-        keep_converto = scanned.converto_read_at is None and _same_content(row, scanned)
+        same_content = _same_content(row, scanned)
+        keep_when_unset: frozenset[str] = frozenset()
+        if same_content:
+            keep_when_unset |= frozenset(SIGIL_FILE_COLUMNS)
+            if scanned.converto_read_at is None:
+                keep_when_unset |= {"title_id", "title_version", "converto_read_at"}
         _copy_scanned_columns(
             scanned,
             row,
             ROM_FILE_SCANNED_COLUMNS,
             RomFile,
-            keep_when_unset=(
-                frozenset({"title_id", "title_version", "converto_read_at"})
-                if keep_converto
-                else frozenset()
-            ),
+            keep_when_unset=keep_when_unset,
         )
 
         if row.missing_from_fs:
@@ -2901,6 +2979,9 @@ class DBRomsHandler(DBBaseHandler):
             )
 
         session.flush()
+        platform_id = session.scalar(select(Rom.platform_id).where(Rom.id == rom_id))
+        if platform_id is not None:
+            link_channels_to_files(session, rom_id, platform_id, saved)
         return SyncedRomFiles(files=saved, orphaned_cover_paths=orphaned_cover_paths)
 
     @begin_session
@@ -4035,9 +4116,10 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def get_rom_filters(
         self,
+        visibility: RomVisibilityFilter,
         session: Session = INJECTED_SESSION,
     ) -> RomFiltersDict:
-        """
-        Returns all filter values across all ROM metadata
-        """
-        return self._collect_filter_values(session, _FILTER_VALUES_SELECT)
+        """Every filter value across the ROMs `visibility` lets the caller see."""
+        return self._collect_filter_values(
+            session, _FILTER_VALUES_SELECT.where(*visibility.facets_clauses())
+        )

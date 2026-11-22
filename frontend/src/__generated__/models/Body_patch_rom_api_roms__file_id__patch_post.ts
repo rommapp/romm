@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type Body_patch_rom_api_roms__id__patch_post = {
+export type Body_patch_rom_api_roms__file_id__patch_post = {
     /**
      * ID of a library patch file (RomFile) to apply.
      */

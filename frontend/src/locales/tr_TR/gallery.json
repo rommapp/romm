@@ -7,6 +7,7 @@
   "firmware-selected-count": "{count} seçildi",
   "jump-to": "{letter} harfine git",
   "jump-to-letter": "Harfe git",
+  "results-of-total": "{count} / {total}",
   "selection-clear": "Seçimi temizle",
   "selection-collections": "Koleksiyonları yönet",
   "selection-delete": "Sil",

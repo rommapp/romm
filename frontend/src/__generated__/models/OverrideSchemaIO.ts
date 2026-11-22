@@ -7,7 +7,13 @@ import type { PermEntity } from './PermEntity';
 export type OverrideSchemaIO = {
     entity: PermEntity;
     action: PermAction;
+    /**
+     * True grants the action and false denies it.
+     */
     granted: boolean;
+    /**
+     * Whether the override covers only things the user owns.
+     */
     own_only?: boolean;
 };
 

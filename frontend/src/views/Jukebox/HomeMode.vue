@@ -210,7 +210,9 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
   min-height: 0;
   overflow-y: auto;
   scrollbar-gutter: stable;
-  padding: var(--r-space-5) 0 60px;
+  /* The pane meets the header band's divider, so it pads the 24px every page
+     leaves under it. */
+  padding: var(--r-space-6) 0 60px;
 }
 
 /* Neutral medallion behind each launch icon. */
@@ -226,6 +228,6 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
 }
 
 html[data-bp~="xs"] .jukebox__home {
-  padding: var(--r-space-4) 0 40px;
+  padding-bottom: 40px;
 }
 </style>

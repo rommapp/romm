@@ -8,9 +8,10 @@ cannot see, cap by series, truncate) is shared.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import replace
 
 from handler.auth.permissions import ResolvedPermissions
-from handler.database import db_recommendation_handler
+from handler.database import db_recommendation_handler, db_rom_handler
 from handler.recommendation.diversity import OVERFETCH_FACTOR, cap_by_series
 from handler.recommendation.feed import (
     FeedBuilder,
@@ -70,8 +71,19 @@ def recommended_roms(
 
     # Visibility is applied after the cache so a permission change takes effect
     # without waiting for the entry to expire.
-    visible = [item for item in feed if permissions.can_see_rom(item.rom)]
-    return visible[:limit]
+    visible = [item for item in feed if permissions.can_see_rom(item.rom)][:limit]
+    hidden_seeds = db_rom_handler.get_hidden_rom_ids_among(
+        [item.seed_rom_id for item in visible if item.seed_rom_id is not None],
+        permissions.rom_visibility,
+    )
+    return [
+        (
+            replace(item, seed_rom_id=None, seed_rom_name=None)
+            if item.seed_rom_id in hidden_seeds
+            else item
+        )
+        for item in visible
+    ]
 
 
 def _ranked_depth(limit: int, permissions: ResolvedPermissions) -> int:

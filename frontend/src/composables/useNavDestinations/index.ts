@@ -17,8 +17,7 @@ export type NavDestinationId = "home" | "platforms" | "collections" | "search";
 export interface NavDestination {
   id: NavDestinationId;
   label: string;
-  // Mirrors `label` so the icon-only variants (xs top pill, bottom bar)
-  // still name each link to screen readers / focus rings.
+  // Mirrors `label`; RSegmentedControl sets it as each link's `aria-label`.
   ariaLabel: string;
   icon: string;
   to: string;
@@ -39,6 +38,12 @@ const NAV_META: Record<NavDestinationId, { labelKey: string; icon: string }> = {
   // keeps the icon stable across every generic "Collections" surface.
   collections: { labelKey: "common.collections", icon: "mdi-bookmark-outline" },
   search: { labelKey: "common.search", icon: "mdi-magnify" },
+};
+
+/** Filled glyphs the bottom tab bar uses, as Apple's tab bar guidance prefers. */
+export const NAV_FILLED_ICONS: Partial<Record<NavDestinationId, string>> = {
+  home: "mdi-home",
+  collections: "mdi-bookmark",
 };
 
 // `path` is `base` itself or a page under it, so "/platform-x" isn't.

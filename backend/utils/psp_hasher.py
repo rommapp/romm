@@ -78,9 +78,10 @@ def _lz4_decompress_block(src: bytes, max_size: int) -> bytes:
                 literal_len += b
                 if b != 0xFF:
                     break
-        out += src[i : i + literal_len]
+        # Lengths are unbounded in the format, so each copy is clamped to the room left.
+        out += src[i : i + min(literal_len, max_size - len(out))]
         i += literal_len
-        if i >= n:
+        if i + 2 > n or len(out) >= max_size:
             break  # trailing literals: end of block
 
         offset = src[i] | (src[i + 1] << 8)
@@ -97,14 +98,18 @@ def _lz4_decompress_block(src: bytes, max_size: int) -> bytes:
                 if b != 0xFF:
                     break
 
+        match_len = min(match_len, max_size - len(out))
         start = len(out) - offset
-        for _ in range(match_len):
-            out.append(out[start])
-            start += 1
+        if offset >= match_len:
+            out += out[start : start + match_len]
+        else:
+            # An overlapping match repeats the last `offset` bytes.
+            pattern = out[start:]
+            out += (pattern * (match_len // offset + 1))[:match_len]
         if len(out) >= max_size:
             break
 
-    return bytes(out[:max_size])
+    return bytes(out)
 
 
 class _BlockDiscImage:

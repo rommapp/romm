@@ -1,5 +1,9 @@
-from fastapi import HTTPException, Request, status
-from pydantic import BaseModel, Field, field_validator
+from typing import Annotated, Any, Final
+
+from fastapi import HTTPException
+from fastapi import Path as PathVar
+from fastapi import Request, status
+from pydantic import Field, StringConstraints, field_validator
 
 from adapters.services.rom_converto import (
     LIBRARY_TARGETS_BY_PLATFORM,
@@ -20,6 +24,7 @@ from config.config_manager import (
 )
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from endpoints.responses.config import ConfigResponse
 from exceptions.config_exceptions import ConfigNotWritableException
 from handler.audit_handler import AuditTarget, record
@@ -35,10 +40,28 @@ router = APIRouter(
     tags=["config"],
 )
 
+CONFIG_NOT_WRITABLE_RESPONSE: Final[dict[int | str, dict[str, Any]]] = {
+    status.HTTP_500_INTERNAL_SERVER_ERROR: {
+        "description": "The config file is not writable."
+    }
+}
+AMBIGUOUS_FOLDER_RESPONSE: Final[dict[int | str, dict[str, Any]]] = {
+    status.HTTP_409_CONFLICT: {
+        "description": (
+            "Several folders in the library have this name with different"
+            " letter case."
+        )
+    }
+}
+
+
+# config.yml refuses to load an empty mapping value, so one must never be written.
+NonEmptySlug = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
 
 class PlatformBindingPayload(BaseModel):
-    fs_slug: str
-    slug: str
+    fs_slug: NonEmptySlug
+    slug: NonEmptySlug
 
 
 class ExclusionPayload(BaseModel):
@@ -138,11 +161,7 @@ class ConvertoSettingsPayload(BaseModel):
 
 @router.get("")
 def get_config(request: Request) -> ConfigResponse:
-    """Get config endpoint
-
-    Returns:
-        ConfigResponse: RomM's configuration
-    """
+    """Get RomM's configuration. Anonymous callers get no config parse error and no netplay ICE servers, which can hold a file path or credentials."""
 
     cfg = cm.get_config()
     return ConfigResponse(
@@ -218,7 +237,12 @@ def _record_config(request: Request, setting: str, op: str, **values: str) -> No
     )
 
 
-@protected_route(router.post, "/system/platforms", [Scope.PLATFORMS_WRITE])
+@protected_route(
+    router.post,
+    "/system/platforms",
+    [Scope.PLATFORMS_WRITE],
+    responses={**AMBIGUOUS_FOLDER_RESPONSE, **CONFIG_NOT_WRITABLE_RESPONSE},
+)
 async def add_platform_binding(
     request: Request, payload: PlatformBindingPayload
 ) -> None:
@@ -238,8 +262,18 @@ async def add_platform_binding(
     _record_config(request, "platform_binding", "add", fs_slug=fs_slug, slug=slug)
 
 
-@protected_route(router.delete, "/system/platforms/{fs_slug}", [Scope.PLATFORMS_WRITE])
-async def delete_platform_binding(request: Request, fs_slug: str) -> None:
+@protected_route(
+    router.delete,
+    "/system/platforms/{fs_slug}",
+    [Scope.PLATFORMS_WRITE],
+    responses=CONFIG_NOT_WRITABLE_RESPONSE,
+)
+async def delete_platform_binding(
+    request: Request,
+    fs_slug: Annotated[
+        str, PathVar(description="The name of the platform's folder in the library.")
+    ],
+) -> None:
     """Delete platform binding from the configuration"""
 
     try:
@@ -252,7 +286,12 @@ async def delete_platform_binding(request: Request, fs_slug: str) -> None:
     _record_config(request, "platform_binding", "remove", fs_slug=fs_slug)
 
 
-@protected_route(router.post, "/system/versions", [Scope.PLATFORMS_WRITE])
+@protected_route(
+    router.post,
+    "/system/versions",
+    [Scope.PLATFORMS_WRITE],
+    responses={**AMBIGUOUS_FOLDER_RESPONSE, **CONFIG_NOT_WRITABLE_RESPONSE},
+)
 async def add_platform_version(
     request: Request, payload: PlatformBindingPayload
 ) -> None:
@@ -272,8 +311,18 @@ async def add_platform_version(
     _record_config(request, "platform_version", "add", fs_slug=fs_slug, slug=slug)
 
 
-@protected_route(router.delete, "/system/versions/{fs_slug}", [Scope.PLATFORMS_WRITE])
-async def delete_platform_version(request: Request, fs_slug: str) -> None:
+@protected_route(
+    router.delete,
+    "/system/versions/{fs_slug}",
+    [Scope.PLATFORMS_WRITE],
+    responses=CONFIG_NOT_WRITABLE_RESPONSE,
+)
+async def delete_platform_version(
+    request: Request,
+    fs_slug: Annotated[
+        str, PathVar(description="The name of the platform's folder in the library.")
+    ],
+) -> None:
     """Delete platform version from the configuration"""
 
     try:
@@ -286,7 +335,12 @@ async def delete_platform_version(request: Request, fs_slug: str) -> None:
     _record_config(request, "platform_version", "remove", fs_slug=fs_slug)
 
 
-@protected_route(router.post, "/exclude", [Scope.PLATFORMS_WRITE])
+@protected_route(
+    router.post,
+    "/exclude",
+    [Scope.PLATFORMS_WRITE],
+    responses=CONFIG_NOT_WRITABLE_RESPONSE,
+)
 async def add_exclusion(request: Request, payload: ExclusionPayload) -> None:
     """Add platform exclusion to the configuration"""
 
@@ -308,9 +362,12 @@ async def add_exclusion(request: Request, payload: ExclusionPayload) -> None:
     router.delete,
     "/exclude/{exclusion_type}/{exclusion_value}",
     [Scope.PLATFORMS_WRITE],
+    responses=CONFIG_NOT_WRITABLE_RESPONSE,
 )
 async def delete_exclusion(
-    request: Request, exclusion_type: ExclusionType, exclusion_value: str
+    request: Request,
+    exclusion_type: ExclusionType,
+    exclusion_value: str,
 ) -> None:
     """Delete platform binding from the configuration"""
 
@@ -326,7 +383,12 @@ async def delete_exclusion(
     )
 
 
-@protected_route(router.put, "/scan", [Scope.PLATFORMS_WRITE])
+@protected_route(
+    router.put,
+    "/scan",
+    [Scope.PLATFORMS_WRITE],
+    responses=CONFIG_NOT_WRITABLE_RESPONSE,
+)
 async def update_scan_settings(request: Request, payload: ScanSettingsPayload) -> None:
     """Replace the scan.* section of the configuration"""
 
@@ -364,7 +426,12 @@ async def update_scan_settings(request: Request, payload: ScanSettingsPayload) -
         db_rom_handler.invalidate_filter_values_cache()
 
 
-@protected_route(router.put, "/converto_settings", [Scope.PLATFORMS_WRITE])
+@protected_route(
+    router.put,
+    "/converto_settings",
+    [Scope.PLATFORMS_WRITE],
+    responses=CONFIG_NOT_WRITABLE_RESPONSE,
+)
 async def update_converto_settings(
     request: Request, payload: ConvertoSettingsPayload
 ) -> None:

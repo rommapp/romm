@@ -14,6 +14,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from joserfc.errors import InvalidClaimError
 from tests.factories import make_device_token
+from tests.utils.test_images import jxl_image_bytes
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import permissions as permissions_endpoints
@@ -271,6 +272,18 @@ def test_update_user_rejects_non_image_avatar(
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "PNG, JPEG, WebP, or GIF" in response.json()["detail"]
+
+
+def test_update_user_rejects_jpeg_xl_avatar(
+    client, access_token: str, editor_user: User
+):
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        files={"avatar": ("avatar.jxl", jxl_image_bytes(), "image/jxl")},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "PNG, JPEG, WebP, or GIF image" in response.json()["detail"]
 
 
 def test_update_user_accepts_png_avatar(
@@ -747,6 +760,127 @@ async def test_password_change_invalidates_sessions(client, admin_user: User):
     assert response.status_code == HTTPStatus.OK
 
     await RedisSessionMiddleware.clear_user_sessions(admin_user.username)
+
+
+def _password_grant(client, username: str, password: str) -> httpx2.Response:
+    response: httpx2.Response = client.post(
+        "/api/token",
+        data={
+            "grant_type": "password",
+            "username": username,
+            "password": password,
+            "scope": "me.read me.write",
+        },
+    )
+    return response
+
+
+def test_password_change_revokes_oauth_tokens(
+    client, admin_user: User, editor_user: User
+):
+    old = _password_grant(client, admin_user.username, "test_admin_password").json()
+    other = _password_grant(client, editor_user.username, "test_editor_password")
+    other_tokens = other.json()
+
+    response = client.put(
+        f"/api/users/{admin_user.id}",
+        data={
+            "password": "new_admin_password",
+            "current_password": "test_admin_password",
+        },
+        headers={"Authorization": f"Bearer {old['access_token']}"},
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    response = client.get(
+        "/api/users/me", headers={"Authorization": f"Bearer {old['access_token']}"}
+    )
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    response = client.post(
+        "/api/token",
+        data={"grant_type": "refresh_token", "refresh_token": old["refresh_token"]},
+    )
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+    new = _password_grant(client, admin_user.username, "new_admin_password")
+    assert new.status_code == HTTPStatus.OK
+    new_tokens = new.json()
+    response = client.get(
+        "/api/users/me",
+        headers={"Authorization": f"Bearer {new_tokens['access_token']}"},
+    )
+    assert response.status_code == HTTPStatus.OK
+    response = client.post(
+        "/api/token",
+        data={
+            "grant_type": "refresh_token",
+            "refresh_token": new_tokens["refresh_token"],
+        },
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    response = client.get(
+        "/api/users/me",
+        headers={"Authorization": f"Bearer {other_tokens['access_token']}"},
+    )
+    assert response.status_code == HTTPStatus.OK
+    response = client.post(
+        "/api/token",
+        data={
+            "grant_type": "refresh_token",
+            "refresh_token": other_tokens["refresh_token"],
+        },
+    )
+    assert response.status_code == HTTPStatus.OK
+
+
+def test_a_rename_revokes_tokens_for_whoever_takes_the_old_username(
+    client, access_token: str, editor_user: User
+):
+    old = _password_grant(client, editor_user.username, "test_editor_password").json()
+
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"username": "renamed_editor"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == HTTPStatus.OK
+    DBUsersHandler().add_user(
+        User(username=editor_user.username, hashed_password="x", role=Role.USER)
+    )
+
+    response = client.post(
+        "/api/token",
+        data={"grant_type": "refresh_token", "refresh_token": old["refresh_token"]},
+    )
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    new = _password_grant(client, "renamed_editor", "test_editor_password")
+    assert new.status_code == HTTPStatus.OK
+
+
+def test_a_deletion_revokes_tokens_for_whoever_takes_the_username(
+    client, access_token: str, editor_user: User
+):
+    old = _password_grant(client, editor_user.username, "test_editor_password").json()
+
+    response = client.delete(
+        f"/api/users/{editor_user.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == HTTPStatus.OK
+    DBUsersHandler().add_user(
+        User(username=editor_user.username, hashed_password="x", role=Role.USER)
+    )
+
+    response = client.get(
+        "/api/users/me", headers={"Authorization": f"Bearer {old['access_token']}"}
+    )
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    response = client.post(
+        "/api/token",
+        data={"grant_type": "refresh_token", "refresh_token": old["refresh_token"]},
+    )
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
 
 
 @pytest.mark.asyncio

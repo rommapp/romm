@@ -36,7 +36,7 @@ from handler.redis_handler import (
 )
 from handler.scan_jobs import drop_stale_scheduled_scans
 from logger.logger import log
-from models.firmware import FIRMWARE_FIXTURES_DIR, KNOWN_BIOS_KEY
+from models.firmware import KNOWN_BIOS_FILE, KNOWN_BIOS_KEY
 from models.rom import sort_articles
 from tasks.manual.recompute_name_sort_keys import (
     applied_sort_articles,
@@ -46,6 +46,7 @@ from tasks.registry import enqueue_task
 from tasks.scheduled.update_switch_titledb import SWITCH_TITLEDB_STORE
 from utils.cache import conditionally_set_cache, drop_stale_cache_store
 from utils.context import initialize_context
+from utils.platform_aliases import unknown_binding_warnings
 from utils.sentry import init_sentry
 
 tracer = trace.get_tracer(__name__)
@@ -208,6 +209,11 @@ def _drop_legacy_scheduler_state() -> None:
         log.exception("Failed to clear the old scheduler's leftovers")
 
 
+def _warn_about_unknown_platform_bindings() -> None:
+    for warning in unknown_binding_warnings(cm.config):
+        log.warning(warning)
+
+
 @tracer.start_as_current_span("main")
 async def main() -> None:
     """Run startup tasks."""
@@ -217,6 +223,7 @@ async def main() -> None:
 
         cm.migrate_retired_filesystem_keys()
         cm.check_library_layout()
+        _warn_about_unknown_platform_bindings()
 
         if SMTP_HOST and SMTP_SECURITY not in SMTP_SECURITY_MODES:
             log.warning(
@@ -269,9 +276,7 @@ async def main() -> None:
             PSP_SERIAL_INDEX_KEY,
             METADATA_FIXTURES_DIR / "psp_serial_index.json",
         )
-        await conditionally_set_cache(
-            async_cache, KNOWN_BIOS_KEY, FIRMWARE_FIXTURES_DIR / "known_bios_files.json"
-        )
+        await conditionally_set_cache(async_cache, KNOWN_BIOS_KEY, KNOWN_BIOS_FILE)
 
         log.info("Startup tasks completed")
 

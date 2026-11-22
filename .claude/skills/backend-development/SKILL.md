@@ -7,7 +7,7 @@ description: Working on the RomM Python backend (backend/), a FastAPI app with S
 
 Python 3.14+, FastAPI, SQLAlchemy 2.1 (MariaDB default; MySQL/PostgreSQL supported), Alembic, Redis + RQ for jobs/cache/sessions, Socket.IO for real-time. Managed with **uv**.
 
-Full reference: **`docs/BACKEND_ARCHITECTURE.md`** (directory map, ER diagram, every endpoint, auth flows). Read it before non-trivial changes.
+Architecture reference: **`docs/BACKEND_ARCHITECTURE.md`** (layers, request flow, auth and visibility model, scanning, sockets, tasks). Read it before non-trivial changes. For routes, scopes and response shapes read `/api/docs` or `endpoints/`; for columns read `models/`.
 
 ---
 

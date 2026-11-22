@@ -1,5 +1,4 @@
 import axios from "axios";
-import { uniqBy } from "lodash";
 import { defineStore } from "pinia";
 import type {
   CollectionSchema,
@@ -9,6 +8,7 @@ import type {
 import collectionApi from "@/services/api/collection";
 import storeAuth from "@/stores/auth";
 import { toError } from "@/utils/toError";
+import { uniqueBy } from "@/utils/uniqueBy";
 import type { SimpleRom } from "./roms";
 
 export type Collection = CollectionSchema;
@@ -63,19 +63,22 @@ export default defineStore("collections", {
   },
   actions: {
     _reorderCollections() {
-      this.allCollections = uniqBy(this.allCollections, "id").sort((a, b) => {
-        return a.name.localeCompare(b.name);
-      });
-    },
-    _reorderVirtualCollection() {
-      this.virtualCollections = uniqBy(this.virtualCollections, "id").sort(
+      this.allCollections = uniqueBy(this.allCollections, (c) => c.id).sort(
         (a, b) => {
           return a.name.localeCompare(b.name);
         },
       );
     },
+    _reorderVirtualCollection() {
+      this.virtualCollections = uniqueBy(
+        this.virtualCollections,
+        (c) => c.id,
+      ).sort((a, b) => {
+        return a.name.localeCompare(b.name);
+      });
+    },
     _reorderSmartCollections() {
-      this.smartCollections = uniqBy(this.smartCollections, "id").sort(
+      this.smartCollections = uniqueBy(this.smartCollections, (c) => c.id).sort(
         (a, b) => {
           return a.name.localeCompare(b.name);
         },

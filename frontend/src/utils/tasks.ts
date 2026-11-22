@@ -35,6 +35,18 @@ export const TaskStatusItem: Record<
     status: "queued",
     text: t("settings.queued"),
   },
+  rate_limited: {
+    color: "orange",
+    icon: "mdi-clock-outline",
+    status: "queued",
+    text: t("settings.queued"),
+  },
+  ready_to_enqueue: {
+    color: "orange",
+    icon: "mdi-clock-outline",
+    status: "queued",
+    text: t("settings.queued"),
+  },
   started: {
     color: "blue",
     icon: "mdi-loading",

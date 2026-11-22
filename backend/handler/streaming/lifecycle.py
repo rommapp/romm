@@ -140,6 +140,9 @@ async def pull_exit_saves(
     settled: bool,
     disc_file_id: int | None = None,
     disc_swaps: list[DiscSwap] | None = None,
+    base_save_id: int | None = None,
+    base_save_hash: str | None = None,
+    base_without_state: bool = False,
 ) -> None:
     """The RQ job behind `collect_exit_saves`, which lets the next claim through
     however the pull ended."""
@@ -156,6 +159,9 @@ async def pull_exit_saves(
             settled=settled,
             disc_file_id=disc_file_id,
             disc_swaps=disc_swaps or [],
+            base_save_id=base_save_id,
+            base_save_hash=base_save_hash,
+            base_without_state=base_without_state,
         )
     finally:
         await saves.clear_save_pull_pending(saves.SavePullMark(user_id, rom_id, token))
@@ -213,6 +219,9 @@ async def collect_exit_saves(
                 "settled": settled,
                 "disc_file_id": session_disc_id(session),
                 "disc_swaps": session_disc_swaps(session),
+                "base_save_id": session.get("restored_save_id"),
+                "base_save_hash": session.get("restored_save_hash"),
+                "base_without_state": session.get("restored_without_state", False),
             },
             job_timeout=saves.SAVE_PULL_TTL_SECONDS,
             result_ttl=0,

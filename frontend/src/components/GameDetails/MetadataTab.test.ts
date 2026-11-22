@@ -77,6 +77,32 @@ describe("MetadataTab verification chips", () => {
 
     expect(raChipTone(linkedOnly)).toBe("neutral");
   });
+
+  function raChipClasses(r: DetailedRom) {
+    return shallowMount(MetadataTab, { props: { rom: r } })
+      .findAllComponents({ name: "RTag" })
+      .find((c) => c.props("text") === "RetroAchievements")
+      ?.classes();
+  }
+
+  it("dims a verification source the ROM did not match", () => {
+    const miss = rom({
+      hasheous_metadata: { ra_match: false },
+      merged_ra_metadata: { hash_match: false },
+    });
+
+    const classes = raChipClasses(miss);
+
+    expect(classes).toContain("metadata-tab__verification--miss");
+  });
+
+  it("keeps a matched verification source at full strength", () => {
+    const matched = rom({ merged_ra_metadata: { hash_match: true } });
+
+    const classes = raChipClasses(matched);
+
+    expect(classes).not.toContain("metadata-tab__verification--miss");
+  });
 });
 
 describe("MetadataTab Switch title id", () => {

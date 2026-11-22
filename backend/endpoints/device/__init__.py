@@ -4,7 +4,6 @@ from typing import Annotated, Any
 
 from fastapi import HTTPException, Request, Response, status
 from pydantic import (
-    BaseModel,
     Field,
     StrictBool,
     StringConstraints,
@@ -12,6 +11,7 @@ from pydantic import (
 )
 
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from endpoints.responses.device import DeviceCreateResponse, DeviceSchema
 from handler.auth.constants import Scope
 from handler.database import (
@@ -23,7 +23,10 @@ from handler.device_install import device_install_handler
 from handler.filesystem import get_fs_sync_handler
 from handler.socket_handler import close_client_token_sockets
 from logger.logger import log
+from models.audit_event import AuditAction
 from models.device import Device, SyncMode
+from utils.auth import require_device, token_reaches_device
+from utils.client_tokens import record_token_event
 from utils.router import APIRouter
 
 from .install import router as install_router
@@ -78,12 +81,26 @@ class DeviceUpdatePayload(BaseModel):
     capabilities: DeviceCapabilities | None = None
 
 
-@protected_route(router.post, "", [Scope.DEVICES_WRITE])
+@protected_route(
+    router.post,
+    "",
+    [Scope.DEVICES_WRITE],
+    responses={
+        status.HTTP_409_CONFLICT: {
+            "description": (
+                "The caller already has a device with the same MAC address,"
+                " hostname and platform, and neither `allow_existing` nor"
+                " `allow_duplicate` is set."
+            )
+        }
+    },
+)
 def register_device(
     request: Request,
     response: Response,
     payload: DeviceCreatePayload,
 ) -> DeviceCreateResponse:
+    """Register a device and return its ID."""
     existing_device = None
     if not payload.allow_duplicate:
         existing_device = db_device_handler.get_device_by_fingerprint(
@@ -92,6 +109,8 @@ def register_device(
             hostname=payload.hostname,
             platform=payload.platform,
         )
+        if existing_device and not token_reaches_device(request, existing_device.id):
+            existing_device = None
 
     if existing_device:
         if not payload.allow_existing:
@@ -168,33 +187,48 @@ def register_device(
 
 @protected_route(router.get, "", [Scope.DEVICES_READ])
 def get_devices(request: Request) -> list[DeviceSchema]:
+    """List the caller's devices that the client token has access to."""
     devices = db_device_handler.get_devices(user_id=request.user.id)
-    return [DeviceSchema.model_validate(device) for device in devices]
+    return [
+        DeviceSchema.model_validate(device)
+        for device in devices
+        if token_reaches_device(request, device.id)
+    ]
 
 
-@protected_route(router.get, "/{device_id}", [Scope.DEVICES_READ])
+@protected_route(
+    router.get,
+    "/{device_id}",
+    [Scope.DEVICES_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no device with this ID that it can see."
+        }
+    },
+)
 def get_device(request: Request, device_id: str) -> DeviceSchema:
-    device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
-    if not device:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device with ID {device_id} not found",
-        )
+    """Get one of the caller's devices."""
+    device = require_device(request, device_id)
     return DeviceSchema.model_validate(device)
 
 
-@protected_route(router.put, "/{device_id}", [Scope.DEVICES_WRITE])
+@protected_route(
+    router.put,
+    "/{device_id}",
+    [Scope.DEVICES_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no device with this ID that it can see."
+        }
+    },
+)
 def update_device(
     request: Request,
     device_id: str,
     payload: DeviceUpdatePayload,
 ) -> DeviceSchema:
-    device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
-    if not device:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device with ID {device_id} not found",
-        )
+    """Update a device. Fields left out of the request keep their current values."""
+    device: Device | None = require_device(request, device_id)
 
     update_data = payload.model_dump(exclude_unset=True)
     if update_data:
@@ -212,17 +246,20 @@ def update_device(
     "/{device_id}",
     [Scope.DEVICES_WRITE],
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no device with this ID that it can see."
+        }
+    },
 )
 async def delete_device(request: Request, device_id: str) -> None:
-    device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
-    if not device:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device with ID {device_id} not found",
-        )
+    """Delete a device and the client tokens bound to it."""
+    require_device(request, device_id)
 
-    token_ids = db_client_token_handler.get_token_ids_by_device(device_id)
+    tokens = db_client_token_handler.get_tokens_by_device(device_id)
     db_device_handler.delete_device(device_id=device_id, user_id=request.user.id)
     log.info(f"Deleted device {device_id} for user {request.user.username}")
-    await close_client_token_sockets(token_ids)
+    for token in tokens:
+        record_token_event(request, AuditAction.CLIENT_TOKEN_REVOKE, token)
+    await close_client_token_sockets([token.id for token in tokens])
     await device_install_handler.discard_for_device(device_id)

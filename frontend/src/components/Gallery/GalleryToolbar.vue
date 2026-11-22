@@ -92,6 +92,8 @@ const props = withDefaults(
     showSearch?: boolean;
     search?: string;
     searchPlaceholder?: string;
+    /** Muted text inside the search field, after the query (the result count). */
+    searchSuffix?: string | undefined;
     /** Ask for the search field to take focus on mount. Only honoured on
      *  precise-pointer, non-gamepad devices (see `autofocusSearchField`). */
     autofocusSearch?: boolean;
@@ -122,6 +124,7 @@ const props = withDefaults(
     showSearch: false,
     search: "",
     searchPlaceholder: "",
+    searchSuffix: undefined,
     autofocusSearch: false,
     segmentFilters: () => [],
     showFilter: false,
@@ -286,6 +289,7 @@ const { smAndUp } = useBreakpoint();
       v-if="showSearch"
       :model-value="search"
       :placeholder="effectiveSearchPlaceholder"
+      :suffix="searchSuffix"
       density="comfortable"
       prefix-label="inline"
       clearable
