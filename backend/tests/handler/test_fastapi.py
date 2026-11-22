@@ -33,7 +33,7 @@ from handler.metadata.ss_handler import (
     ScreenScraperExhaustedError,
     SSRom,
     _scan_state,
-    get_exhausted_rom_names,
+    get_exhausted_rom_paths,
     get_rate_limited_rom_names,
     reset_rate_limited_roms,
 )
@@ -1660,7 +1660,7 @@ async def test_scan_rom_records_a_rom_the_ss_breaker_answered_for(
         )
 
     assert result.ss_id is None
-    assert get_exhausted_rom_names() == ["game.sfc"]
+    assert get_exhausted_rom_paths() == ["snes/game.sfc"]
 
     _scan_state.reset()
 
@@ -1691,7 +1691,7 @@ async def test_scan_rom_does_not_record_a_rom_ss_answered_by_name(
         )
 
     assert result.ss_id == 321
-    assert get_exhausted_rom_names() == []
+    assert get_exhausted_rom_paths() == []
 
     _scan_state.reset()
 

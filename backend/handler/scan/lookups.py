@@ -2,6 +2,7 @@
 
 import dataclasses
 import functools
+import posixpath
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Final
@@ -491,7 +492,9 @@ class RomLookups:
                     ),
                 )
             except ScreenScraperExhaustedError as exc:
-                note_exhausted_rom(self.rom_attrs["fs_name"])
+                note_exhausted_rom(
+                    posixpath.join(self.rom_attrs["fs_path"], self.rom_attrs["fs_name"])
+                )
                 short_circuited = True
                 return exc.fallback
             except ScreenScraperRateLimitError:

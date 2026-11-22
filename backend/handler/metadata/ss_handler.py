@@ -70,14 +70,14 @@ class _ScanState:
 
     # ROMs a breaker answered for (daily quota spent or credentials refused),
     # so ScreenScraper was never asked and a later scan can still match them.
-    exhausted_rom_names: set[str] = field(default_factory=set)
+    exhausted_rom_paths: set[str] = field(default_factory=set)
 
     # The quota line last logged, so an unchanged one is not repeated.
     last_quota_logged: str | None = None
 
     def reset(self) -> None:
         self.rate_limited_rom_names.clear()
-        self.exhausted_rom_names.clear()
+        self.exhausted_rom_paths.clear()
         self.last_quota_logged = None
 
 
@@ -102,13 +102,13 @@ def reset_rate_limited_roms() -> None:
     _scan_state.rate_limited_rom_names.clear()
 
 
-def note_exhausted_rom(fs_name: str) -> None:
+def note_exhausted_rom(rom_path: str) -> None:
     # Not logged per ROM: once the breaker trips, every remaining ROM lands here.
-    _scan_state.exhausted_rom_names.add(fs_name)
+    _scan_state.exhausted_rom_paths.add(rom_path)
 
 
-def get_exhausted_rom_names() -> list[str]:
-    return sorted(_scan_state.exhausted_rom_names)
+def get_exhausted_rom_paths() -> list[str]:
+    return sorted(_scan_state.exhausted_rom_paths)
 
 
 async def begin_scan() -> None:
@@ -159,15 +159,15 @@ def log_scan_summary() -> None:
         for fs_name in skipped_roms:
             log.warning(f" - {fs_name}")
 
-    exhausted_roms = get_exhausted_rom_names()
+    exhausted_roms = get_exhausted_rom_paths()
     if exhausted_roms:
         log.warning(
             f"{hl('Skipped')} ScreenScraper for {hl(str(len(exhausted_roms)))} roms "
             f"it was never asked about, because the daily quota ran out or the "
             f"credentials were refused. A later scan can still match them:"
         )
-        for fs_name in exhausted_roms:
-            log.warning(f" - {fs_name}")
+        for rom_path in exhausted_roms:
+            log.warning(f" - {rom_path}")
 
 
 def add_ss_auth_to_url(url: str | None) -> str:
