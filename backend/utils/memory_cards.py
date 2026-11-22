@@ -11,10 +11,10 @@ from handler.database import db_memory_card_handler
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import (
     ArchiveTooLarge,
-    hash_zip_contents,
     is_symlink_entry,
     iter_zip_entry,
     leaves_save_folder,
+    zip_archive_hash,
 )
 from handler.scan_handler import scan_memory_card_version
 from logger.logger import log
@@ -34,10 +34,8 @@ def content_hash_of_bytes(content: bytes) -> str | None:
     values.
     """
     try:
-        buf = io.BytesIO(content)
-        if zipfile.is_zipfile(buf):
-            with zipfile.ZipFile(buf, "r") as zf:
-                return hash_zip_contents(zf)
+        if (zip_hash := zip_archive_hash(io.BytesIO(content))) is not None:
+            return zip_hash
         return hashlib.md5(content, usedforsecurity=False).hexdigest()
     except Exception as exc:
         log.debug("could not hash memory card in memory, %s", exc)

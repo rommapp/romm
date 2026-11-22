@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from fastapi import UploadFile as StarletteUploadFile
 from sqlalchemy import select, update
+from tests._embedded_archives import EMBEDDINGS, embedded_archive
 from tests._zipfile_shim import reload_zipfile
 from tests.handler.snapshots.pushes import (
     SRAM,
@@ -261,6 +262,58 @@ async def test_hashing_a_parents_unhashed_save_keeps_its_updated_at(
     assert result.snapshot.save_id == save_id
     assert save.content_hash == md5(SRAM)
     assert to_utc(save.updated_at) == stamp
+
+
+@pytest.mark.parametrize("embedding", EMBEDDINGS)
+async def test_a_state_that_only_ends_like_a_zip_is_stored_by_its_bytes(
+    admin_user: User, rom: Rom, hashed_file: RomFile, embedding: str
+):
+    # A Flycast Naomi state can hold the end of the game's TorrentZip archive.
+    state = embedded_archive(embedding)
+
+    result = await write_snapshot(
+        push(
+            admin_user,
+            rom,
+            hashed_file,
+            Manifest(save=save_entry(), states={"flycast": {"1": md5(state)}}),
+            expected=None,
+            parts={
+                SAVE_PART: part(SRAM),
+                state_part("flycast", "1"): part(state, "game.state"),
+            },
+        )
+    )
+
+    assert result.outcome == Outcome.CREATED
+    with sync_session() as session:
+        stored = session.get_one(State, result.snapshot.states[0].state_id)
+    assert stored.content_hash == md5(state)
+    assert stored_bytes(stored.full_path) == state
+
+
+@pytest.mark.parametrize("embedding", EMBEDDINGS)
+async def test_a_save_that_only_ends_like_a_zip_is_a_single_unit(
+    admin_user: User, rom: Rom, hashed_file: RomFile, embedding: str
+):
+    data = embedded_archive(embedding)
+
+    result = await write_snapshot(
+        push(
+            admin_user,
+            rom,
+            hashed_file,
+            Manifest(save=save_entry(data)),
+            expected=None,
+            parts={SAVE_PART: part(data)},
+        )
+    )
+
+    assert result.outcome == Outcome.CREATED
+    with sync_session() as session:
+        save = session.get_one(Save, result.snapshot.save_id)
+    assert save.content_hash == md5(data)
+    assert save.identity_hash == md5(data)
 
 
 async def test_unknown_content_without_a_part_is_reported_and_nothing_is_stored(
