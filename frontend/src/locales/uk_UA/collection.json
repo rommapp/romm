@@ -8,7 +8,7 @@
   "delete-collection": "Видалити добірку",
   "delete-collection-body": "Добірку «{name}» буде видалено. Кількість ROM у добірці: {count}. Самі файли залишаться.",
   "delete-collection-failed": "Не вдалося видалити добірку: {error}",
-  "delete-collection-hint": "Прибирає добірку з RomM. Самі файли ROM залишаються.",
+  "delete-collection-hint": "Вилучає добірку з RomM. Самі файли ROM не видаляються.",
   "description": "Опис",
   "download-collection": "Завантажити добірку",
   "empty": "Ця добірка порожня.",
