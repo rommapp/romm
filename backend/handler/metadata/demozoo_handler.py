@@ -3,7 +3,7 @@
 Match by production id (filename tag ``(demozoo-N)`` or Edit-ROM id / URL), or by
 title search via ``?title=`` (never ``?search=``) ranked with Jaro-Winkler.
 
-Public JSON API, read with a user's API key.
+JSON API, read with a user's API key.
 """
 
 from __future__ import annotations
@@ -38,8 +38,8 @@ POUET_PROD_PAGE: Final[str] = "https://www.pouet.net/prod.php?which={id}"
 YOUTUBE_WATCH: Final[str] = "https://www.youtube.com/watch?v={id}"
 # Overview notes stay one clause; Demozoo editorial text is rare and long.
 _NOTES_MAX_LEN: Final[int] = 80
-# Demozoo asks for a polite UA; stay well under burst.
-_rate_limiter = RateLimiter(2.0)
+# Demozoo asks for a one second pause between repeated API requests.
+_rate_limiter = RateLimiter(1.0)
 
 
 class DemozooCredit(TypedDict, total=False):

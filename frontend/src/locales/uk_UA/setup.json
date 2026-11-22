@@ -47,7 +47,7 @@
   "provider-csdb-caveat": "Відкритий вебсервіс XML. Пошук лише за ідентифікатором: міткою (csdb-75330) у назві файлу або посиланням CsdbRelease з Demozoo.",
   "provider-csdb-desc": "Зображення з Commodore 64 Scene Database, якщо в Demozoo немає знімків екрана.",
   "provider-csdb-setup": "Ключ API не потрібен. Типово вимкнено (CSDB_API_ENABLED).",
-  "provider-demozoo-caveat": "Відкритий REST API. Мітки в назвах файлів, наприклад (demozoo-2), задають точний збіг.",
+  "provider-demozoo-caveat": "Мітки в назвах файлів, наприклад (demozoo-2), задають точний збіг.",
   "provider-demozoo-desc": "Назви й автори робіт демосцени, результати конкурсів, знімки екрана та відео з YouTube.",
   "provider-demozoo-setup": "Потрібен акаунт Demozoo. Задайте DEMOZOO_API_KEY.",
   "provider-flashpoint-desc": "Метадані для понад 180 000 ігор на Flash та інших браузерних ігор.",

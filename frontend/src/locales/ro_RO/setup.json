@@ -47,7 +47,7 @@
   "provider-csdb-caveat": "Serviciu web XML public; doar după ID (fără căutare după titlu). Numele fișierului (csdb-75330) sau linkul CsdbRelease de la Demozoo.",
   "provider-csdb-desc": "Imagini din Commodore 64 Scene Database când Demozoo nu are capturi de ecran.",
   "provider-csdb-setup": "Fără cheie API. Dezactivat implicit (CSDB_API_ENABLED).",
-  "provider-demozoo-caveat": "API REST public. Etichetele din numele fișierului, precum (demozoo-2), fixează potrivirea.",
+  "provider-demozoo-caveat": "Etichetele din numele fișierului, precum (demozoo-2), fixează potrivirea.",
   "provider-demozoo-desc": "Titluri, credite, rezultate de la party-uri, capturi de ecran și înregistrări YouTube pentru producții demoscene.",
   "provider-demozoo-setup": "Necesită un cont Demozoo. Setează DEMOZOO_API_KEY.",
   "provider-flashpoint-desc": "Metadate pentru peste 180.000 de jocuri Flash și bazate pe browser.",

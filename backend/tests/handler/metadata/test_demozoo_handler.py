@@ -469,6 +469,7 @@ class TestRequest:
             _json({}, status_code=500),
             _json({}, status_code=429),
             _json({}, status_code=404),
+            _json({}, status_code=403),
             httpx2.ConnectError("refused"),
             httpx2.ConnectTimeout("slow"),
             httpx2.ReadTimeout("slow"),
@@ -478,6 +479,7 @@ class TestRequest:
             "server_error",
             "rate_limited",
             "route_gone",
+            "key_rejected",
             "refused",
             "connect_timeout",
             "read_timeout",
@@ -505,8 +507,9 @@ class TestHeartbeat:
             (_json({"results": [SECOND_REALITY]}), True),
             (_json({"results": []}), False),
             (httpx2.ConnectError("down"), False),
+            (_json({}, status_code=403), False),
         ],
-        ids=["results", "empty", "down"],
+        ids=["results", "empty", "down", "key_rejected"],
     )
     async def test_reports_whether_demozoo_answers(
         self,
