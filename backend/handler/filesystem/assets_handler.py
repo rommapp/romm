@@ -214,8 +214,8 @@ def hash_zip_contents(zf: zipfile.ZipFile) -> str:
 
 
 def readable_zip_hash(source: str | os.PathLike[str] | IO[bytes]) -> str | None:
-    """`hash_zip_contents` of a zip, or None for bytes that only end like one, as
-    an emulator state holding the tail of the game's own archive does."""
+    """Hash a zip like `hash_zip_contents`, or return None when its entries can't be
+    read, as in an emulator state that holds only the tail of the game's archive."""
     try:
         with zipfile.ZipFile(source, "r") as zf:
             # The tail of a longer archive points its entries before the bytes start.
