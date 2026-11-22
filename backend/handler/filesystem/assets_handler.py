@@ -305,11 +305,7 @@ def hash_save_file(path: str | os.PathLike[str]) -> str | None:
 
 
 def sniff_mime_type(header: bytes) -> str:
-    """Detect a MIME type from a file's leading bytes with libmagic.
-
-    Raises:
-        magic.MagicException: If libmagic fails to sniff the bytes.
-    """
+    """Detect a MIME type from a file's leading bytes with libmagic."""
     with _MIME_DETECTOR_LOCK:
         return _MIME_DETECTOR.from_buffer(header)
 

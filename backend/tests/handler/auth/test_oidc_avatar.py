@@ -141,3 +141,21 @@ async def test_without_a_picture_claim_does_nothing(monkeypatch, viewer_user: Us
     await sync_oidc_avatar(viewer_user, None)
 
     assert requests == []
+
+
+async def test_an_upload_during_the_download_wins(
+    monkeypatch, assets_dir: Path, viewer_user: User
+):
+    uploaded = "users/x/profile/avatar.png"
+
+    def upload_then_serve(_: httpx2.Request) -> httpx2.Response:
+        db_user_handler.update_user(viewer_user.id, {"avatar_path": uploaded})
+        return httpx2.Response(200, content=_png())
+
+    _serve(monkeypatch, upload_then_serve)
+
+    await sync_oidc_avatar(viewer_user, {"picture": PICTURE_URL})
+
+    assert _reload(viewer_user).avatar_path == uploaded
+    avatar_dir = fs_asset_handler.build_avatar_path(user=viewer_user)
+    assert not (assets_dir / avatar_dir / "oidc-avatar.png").exists()

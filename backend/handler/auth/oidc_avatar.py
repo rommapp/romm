@@ -15,11 +15,7 @@ from logger.logger import log
 from models.user import User
 from utils.context import create_httpx_async_client
 from utils.media_types import IMAGE_EXT_BY_MIME_TYPE
-from utils.ssrf import (
-    INTERNAL_ORIGIN_ALLOWLIST,
-    parse_origin,
-    validate_url_for_http_request,
-)
+from utils.ssrf import parse_origin, validate_url_for_http_request
 from utils.validation import ValidationError
 
 # The file name marks an avatar as synced from the provider, so a later sign-in
@@ -28,17 +24,14 @@ OIDC_AVATAR_STEM = "oidc-avatar"
 MAX_OIDC_AVATAR_BYTES = 5 * 1024 * 1024
 OIDC_AVATAR_TIMEOUT_SECONDS = 10
 
-# Self-hosted providers often serve pictures from a LAN address, so the
-# provider the admin configured may reach one, like other configured origins.
-OIDC_AVATAR_ORIGIN_ALLOWLIST: frozenset[tuple[str, int]] = (
-    INTERNAL_ORIGIN_ALLOWLIST
-    | frozenset(
-        pydash.compact(
-            [
-                parse_origin(OIDC_SERVER_APPLICATION_URL),
-                parse_origin(OIDC_SERVER_METADATA_URL or ""),
-            ]
-        )
+# Self-hosted providers often serve pictures from a LAN address, so only the
+# provider the admin configured may reach one.
+OIDC_AVATAR_ORIGIN_ALLOWLIST: frozenset[tuple[str, int]] = frozenset(
+    pydash.compact(
+        [
+            parse_origin(OIDC_SERVER_APPLICATION_URL),
+            parse_origin(OIDC_SERVER_METADATA_URL or ""),
+        ]
     )
 )
 
@@ -65,10 +58,7 @@ async def _download_picture(url: str) -> bytes | None:
 
 
 async def sync_oidc_avatar(user: User, userinfo: dict[str, Any] | None) -> None:
-    """Store the provider's picture as the user's avatar, unless they uploaded one.
-
-    Failures are logged and swallowed so they never block the sign-in.
-    """
+    """Store the provider's picture as the avatar unless the user uploaded one, never failing the sign-in."""
     picture = (userinfo or {}).get("picture")
     if not picture or not isinstance(picture, str):
         return
@@ -109,6 +99,15 @@ async def sync_oidc_avatar(user: User, userinfo: dict[str, Any] | None) -> None:
         return
 
     previous_path = user.avatar_path
+    # The user may have uploaded an avatar while the picture downloaded.
+    current = db_user_handler.get_user(user.id)
+    if current is None or current.avatar_path != previous_path:
+        if current is None or current.avatar_path != file_location:
+            try:
+                await fs_asset_handler.remove_file(file_location)
+            except OSError:
+                log.debug(f"Could not remove the unused OIDC avatar {file_location}")
+        return
     db_user_handler.update_user(user.id, {"avatar_path": file_location})
     if previous_path and previous_path != file_location:
         try:

@@ -249,7 +249,9 @@ def test_oidc_callback_syncs_the_picture_claim(client: TestClient, admin_user: U
 
     assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT
     sync.assert_awaited_once()
-    assert sync.await_args.args[1] == userinfo
+    await_args = sync.await_args
+    assert await_args is not None
+    assert await_args.args[1] == userinfo
 
 
 def test_oidc_callback_for_an_unknown_user_is_unauthorized(client: TestClient):
