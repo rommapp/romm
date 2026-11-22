@@ -47,6 +47,8 @@ _ZIP_READ_CHUNK_BYTES = 64 * 1024
 # a lying entry still hits the decompressed budget while hashing.
 MAX_ARCHIVE_EXPANDED_BYTES = 4 * 1024 * 1024 * 1024
 
+MIME_SNIFF_BYTES = 4096
+
 _DRIVE_PREFIX = re.compile(r"^[A-Za-z]:")
 
 
@@ -304,10 +306,10 @@ def hash_save_file(path: str | os.PathLike[str]) -> str | None:
         return None
 
 
-def sniff_mime_type(header: bytes) -> str:
+def sniff_mime_type(content: bytes) -> str:
     """Detect a MIME type from a file's leading bytes with libmagic."""
     with _MIME_DETECTOR_LOCK:
-        return _MIME_DETECTOR.from_buffer(header)
+        return _MIME_DETECTOR.from_buffer(content[:MIME_SNIFF_BYTES])
 
 
 def validate_image_upload(
@@ -325,7 +327,7 @@ def validate_image_upload(
             (JPEG XL), returning the extension they are re-encoded to.
     """
     upload.file.seek(0)
-    header = upload.file.read(4096)
+    header = upload.file.read(MIME_SNIFF_BYTES)
     upload.file.seek(0)
 
     try:

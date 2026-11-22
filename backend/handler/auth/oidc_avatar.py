@@ -63,10 +63,17 @@ async def _download_picture(url: str) -> bytes | None:
     return bytes(content)
 
 
+async def _remove_quietly(path: str) -> None:
+    try:
+        await fs_asset_handler.remove_file(path)
+    except OSError:
+        log.debug(f"Could not remove the unused OIDC avatar {path}")
+
+
 async def sync_oidc_avatar(user: User, userinfo: dict[str, Any] | None) -> None:
     """Store the provider's picture as the avatar unless the user uploaded one, never failing the sign-in."""
     picture = (userinfo or {}).get("picture")
-    if not picture or not isinstance(picture, str):
+    if not isinstance(picture, str) or not picture:
         return
     if user.avatar_path and not is_oidc_avatar(user.avatar_path):
         return
@@ -88,7 +95,7 @@ async def sync_oidc_avatar(user: User, userinfo: dict[str, Any] | None) -> None:
         return
 
     try:
-        extension = IMAGE_EXT_BY_MIME_TYPE.get(sniff_mime_type(content[:4096]))
+        extension = IMAGE_EXT_BY_MIME_TYPE.get(sniff_mime_type(content))
     except magic.MagicException as exc:
         log.warning(f"Could not detect the OIDC picture's file type: {exc}")
         return
@@ -112,13 +119,7 @@ async def sync_oidc_avatar(user: User, userinfo: dict[str, Any] | None) -> None:
     if not db_user_handler.replace_avatar_path(user.id, previous_path, file_location):
         current = db_user_handler.get_user(user.id)
         if current is None or current.avatar_path != file_location:
-            try:
-                await fs_asset_handler.remove_file(file_location)
-            except OSError:
-                log.debug(f"Could not remove the unused OIDC avatar {file_location}")
+            await _remove_quietly(file_location)
         return
     if previous_path and previous_path != file_location:
-        try:
-            await fs_asset_handler.remove_file(previous_path)
-        except OSError:
-            log.debug(f"Could not remove the previous OIDC avatar {previous_path}")
+        await _remove_quietly(previous_path)
