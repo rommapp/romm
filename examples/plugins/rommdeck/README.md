@@ -21,3 +21,15 @@ The URL means nothing until the machine that runs RommDeck knows the scheme. On
 Linux, a `.desktop` entry with `MimeType=x-scheme-handler/rommdeck` that runs
 `rommdeck-open %u`, registered with `xdg-mime default`, is enough; the script
 receives the URL on the command line and opens RommDeck.
+
+## Offer it only where RommDeck can play
+
+RommDeck launches whatever emulators that machine has mapped, so a button on a
+platform it cannot run is a dead end. Name those platforms on the action and the
+button appears only on their games:
+
+```json
+"platforms": ["ngc", "wii"]
+```
+
+Leave `platforms` out to offer the button on every game.

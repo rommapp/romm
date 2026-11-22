@@ -23,7 +23,7 @@ services:
       - ./plugins:/romm/plugins
 ```
 
-The shelf is read on every request, so a manifest dropped in shows up on the next page load. No restart, no scan, no migration. A manifest that fails validation is skipped and logged, and the rest of the shelf still loads.
+The shelf is read on every request and cached until a manifest changes, so a folder dropped in shows up on the next page load. No restart, no scan, no migration. A manifest that fails validation is skipped and logged, and the rest of the shelf still loads. A plugin folder is capped at 32 KiB, eight actions, 64 platform slugs and 64 plugins on the shelf, and a manifest that resolves outside the plugins folder (a symlink to somewhere else on disk) is refused.
 
 ## The manifest
 
@@ -56,6 +56,7 @@ The shelf is read on every request, so a manifest dropped in shows up on the nex
 | `author` | no | Free text. |
 | `homepage` | no | `http` or `https` only. |
 | `actions` | yes | One to eight actions; a plugin without a usable action is skipped. |
+| `enabled` | no | `false` parks the plugin: its folder stays, and it adds nothing to the UI. |
 
 ### Actions
 
@@ -64,8 +65,10 @@ The shelf is read on every request, so a manifest dropped in shows up on the nex
 | `id` | yes | Lowercase slug, unique within the plugin. |
 | `label` | yes | The button's tooltip and accessible name, 48 characters at most. Plugin labels are not translated. |
 | `icon` | no | An `mdi-` icon name. Defaults to `mdi-puzzle-outline`. |
+| `image` | no | A logo URL (`http` or `https`) painted instead of the icon. |
 | `url` | yes | See placeholders below. |
 | `open` | no | `new-tab` (default) or `same-tab`. |
+| `platforms` | no | Platform slugs the action is offered on, e.g. `["ngc", "wii"]`. Omitted means every platform. A slug the game is also known by (`gc` for `ngc`) matches too. |
 
 ### Placeholders
 

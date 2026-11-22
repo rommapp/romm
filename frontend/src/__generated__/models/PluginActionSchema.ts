@@ -9,7 +9,9 @@ export type PluginActionSchema = {
     id: string;
     label: string;
     icon?: (string | null);
+    image?: (string | null);
     url: string;
     open?: 'new-tab' | 'same-tab';
+    platforms?: Array<string>;
 };
 

@@ -37,6 +37,24 @@ export function expandPluginUrl(template: string, rom: SimpleRom): string {
   );
 }
 
+/** Whether an action's platform list covers this rom. An empty list is every
+ *  platform, and either slug a platform is known by counts.
+ *
+ * Args:
+ *   platforms: The manifest's slugs.
+ *   rom: The rom the action is offered on.
+ *
+ * Returns:
+ *   boolean: True when the action belongs on this rom.
+ */
+export function offersPlatform(platforms: string[], rom: SimpleRom): boolean {
+  if (!platforms?.length) return true;
+  const slugs = [rom.platform_slug, rom.platform_fs_slug]
+    .filter((slug): slug is string => Boolean(slug))
+    .map((slug) => slug.toLowerCase());
+  return platforms.some((platform) => slugs.includes(platform.toLowerCase()));
+}
+
 /** The plugin actions offered on one rom, and the way to open them.
  *
  * Args:
@@ -53,13 +71,15 @@ export function usePluginActions(getRom: () => SimpleRom | null | undefined): {
     const rom = getRom();
     if (!rom) return [];
     return store.plugins.flatMap((plugin) =>
-      plugin.actions.map((action) => ({
-        ...action,
-        icon: action.icon ?? "mdi-puzzle-outline",
-        pluginId: plugin.id,
-        pluginName: plugin.name,
-        href: expandPluginUrl(action.url, rom),
-      })),
+      plugin.actions
+        .filter((action) => offersPlatform(action.platforms ?? [], rom))
+        .map((action) => ({
+          ...action,
+          icon: action.icon ?? "mdi-puzzle-outline",
+          pluginId: plugin.id,
+          pluginName: plugin.name,
+          href: expandPluginUrl(action.url, rom),
+        })),
     );
   });
 

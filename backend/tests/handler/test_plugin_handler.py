@@ -159,3 +159,85 @@ def test_same_tab_is_kept_and_anything_else_is_a_new_tab(shelf):
 
     assert plugins["same"].actions[0].open == "same-tab"
     assert plugins["other"].actions[0].open == "new-tab"
+
+
+def test_an_action_can_name_the_platforms_it_is_offered_on(shelf):
+    data = manifest()
+    data["actions"][0]["platforms"] = ["NGC", "wii", "ngc"]
+    write_plugin(shelf, "rommdeck", data)
+
+    action = list_plugins()[0].actions[0]
+
+    assert action.platforms == ["ngc", "wii"]
+
+
+def test_an_action_without_platforms_is_offered_everywhere(shelf):
+    write_plugin(shelf, "rommdeck", manifest())
+
+    assert list_plugins()[0].actions[0].platforms == []
+
+
+@pytest.mark.parametrize(
+    "platforms",
+    ["ngc", [1], [""], ["no spaces allowed"], ["ok"] * 65],
+)
+def test_a_malformed_platform_list_drops_the_action(shelf, platforms):
+    data = manifest()
+    data["actions"][0]["platforms"] = platforms
+    write_plugin(shelf, "rommdeck", data)
+
+    assert list_plugins() == []
+
+
+def test_an_image_is_kept_only_when_it_is_a_web_url(shelf):
+    data = manifest("web")
+    data["actions"][0]["image"] = "https://example.com/logo.png"
+    write_plugin(shelf, "web", data)
+
+    data = manifest("bad")
+    data["actions"][0]["image"] = "javascript:alert(1)"
+    write_plugin(shelf, "bad", data)
+
+    plugins = {plugin.id: plugin for plugin in list_plugins()}
+
+    assert plugins["web"].actions[0].image == "https://example.com/logo.png"
+    assert plugins["bad"].actions[0].image is None
+
+
+def test_a_parked_plugin_adds_nothing(shelf):
+    write_plugin(shelf, "rommdeck", manifest(enabled=False))
+
+    assert list_plugins() == []
+
+
+def test_an_enabled_plugin_is_listed(shelf):
+    write_plugin(shelf, "rommdeck", manifest(enabled=True))
+
+    assert [plugin.id for plugin in list_plugins()] == ["rommdeck"]
+
+
+def test_a_folder_without_a_manifest_is_not_a_plugin(shelf):
+    (shelf / "notes").mkdir()
+    write_plugin(shelf, "rommdeck", manifest())
+
+    assert [plugin.id for plugin in list_plugins()] == ["rommdeck"]
+
+
+def test_a_manifest_symlinked_out_of_the_shelf_is_refused(shelf, tmp_path_factory):
+    outside = tmp_path_factory.mktemp("outside") / "plugin.json"
+    outside.write_text(json.dumps(manifest()), encoding="utf-8")
+    folder = shelf / "rommdeck"
+    folder.mkdir()
+    (folder / plugin_handler.MANIFEST_NAME).symlink_to(outside)
+
+    assert list_plugins() == []
+
+
+def test_a_manifest_in_place_is_read_again_once_it_changes(shelf):
+    path = write_plugin(shelf, "rommdeck", manifest())
+    assert list_plugins()[0].name == "RommDeck"
+
+    renamed = manifest(name="RommDeck Two")
+    path.write_text(json.dumps(renamed), encoding="utf-8")
+
+    assert list_plugins()[0].name == "RommDeck Two"

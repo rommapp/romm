@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // PluginActions: the buttons installed plugins add to a game, in the details
 // action ribbon. Each opens the URL its manifest declares, so a custom scheme
-// reaches the OS handler and a web URL opens like any link. The label and icon
-// come from the manifest, which is why they are not translated.
+// reaches the OS handler and a web URL opens like any link. The label, icon and
+// logo come from the manifest, which is why they are not translated.
 import { toRef } from "vue";
 import { usePluginActions } from "@/composables/usePluginActions";
 import { RIcon, RTooltip } from "@/lib";
@@ -26,7 +26,13 @@ const { actions, open } = usePluginActions(toRef(props, "rom"));
     :aria-label="action.label"
     @click="open(action)"
   >
-    <RIcon :icon="action.icon" />
+    <img
+      v-if="action.image"
+      :src="action.image"
+      :alt="action.label"
+      class="r-game-btn__img"
+    />
+    <RIcon v-else :icon="action.icon" />
     <RTooltip activator="parent" :text="action.label" location="top" />
   </button>
 </template>

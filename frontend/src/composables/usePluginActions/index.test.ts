@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h } from "vue";
 import { mount } from "@vue/test-utils";
 import type { PluginSchema } from "@/__generated__";
+import type { SimpleRom } from "@/stores/roms";
 import { expandPluginUrl, usePluginActions } from "@/composables/usePluginActions";
 import { usePluginStore } from "@/stores/plugins";
 import { romFixture } from "@/utils/rom.fixtures";
@@ -41,11 +42,14 @@ const plugin = (overrides: Partial<PluginSchema> = {}): PluginSchema => ({
 });
 
 /** The composable needs a component to run `onMounted` in. */
-function withPluginActions<T>(run: (api: ReturnType<typeof usePluginActions>) => T) {
+function withPluginActions<T>(
+  run: (api: ReturnType<typeof usePluginActions>) => T,
+  on: SimpleRom = rom,
+) {
   let seen: T | undefined;
   const Probe = defineComponent({
     setup() {
-      seen = run(usePluginActions(() => rom));
+      seen = run(usePluginActions(() => on));
       return () => h("div");
     },
   });
@@ -111,6 +115,77 @@ describe("usePluginActions", () => {
       "_blank",
       "noopener,noreferrer",
     );
+  });
+
+  it("offers an action only on the platforms its manifest names", () => {
+    usePluginStore().plugins = [
+      plugin({
+        actions: [
+          {
+            id: "open",
+            label: "Open in RommDeck",
+            icon: null,
+            url: "rommdeck://open?rom={rom_id}",
+            open: "new-tab",
+            platforms: ["ngc", "wii"],
+          },
+        ],
+      }),
+    ];
+
+    const onGenesis = withPluginActions((api) => api);
+    const onGameCube = withPluginActions(
+      (api) => api,
+      romFixture({ id: 7, platform_slug: "ngc" }),
+    );
+
+    expect(onGenesis.actions.value).toEqual([]);
+    expect(onGameCube.actions.value).toHaveLength(1);
+  });
+
+  it("matches a platform by the slug its filesystem folder uses", () => {
+    usePluginStore().plugins = [
+      plugin({
+        actions: [
+          {
+            id: "open",
+            label: "Open in RommDeck",
+            icon: null,
+            url: "rommdeck://open?rom={rom_id}",
+            open: "new-tab",
+            platforms: ["gc"],
+          },
+        ],
+      }),
+    ];
+
+    const { actions } = withPluginActions(
+      (api) => api,
+      romFixture({ id: 7, platform_slug: "ngc", platform_fs_slug: "gc" }),
+    );
+
+    expect(actions.value).toHaveLength(1);
+  });
+
+  it("carries the manifest's logo through to the button", () => {
+    usePluginStore().plugins = [
+      plugin({
+        actions: [
+          {
+            id: "open",
+            label: "Open in RommDeck",
+            icon: null,
+            image: "https://example.com/logo.png",
+            url: "rommdeck://open?rom={rom_id}",
+            open: "new-tab",
+          },
+        ],
+      }),
+    ];
+
+    const { actions } = withPluginActions((api) => api);
+
+    expect(actions.value[0]?.image).toBe("https://example.com/logo.png");
   });
 });
 

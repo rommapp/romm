@@ -9,8 +9,11 @@ class PluginActionSchema(BaseModel):
     id: str
     label: str
     icon: str | None = None
+    image: str | None = None
     url: str
     open: Literal["new-tab", "same-tab"] = "new-tab"
+    # Empty means every platform; the UI compares these against the game's slug.
+    platforms: list[str] = Field(default_factory=list)
 
 
 class PluginSchema(BaseModel):

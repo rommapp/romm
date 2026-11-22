@@ -42,6 +42,7 @@ def test_get_plugins_returns_the_manifest(client, access_token, tmp_path, monkey
                         "icon": "mdi-monitor",
                         "url": "rommdeck://open?rom={rom_id}&platform={platform_slug}",
                         "open": "new-tab",
+                        "platforms": ["ngc", "wii"],
                     }
                 ],
             }
@@ -57,6 +58,7 @@ def test_get_plugins_returns_the_manifest(client, access_token, tmp_path, monkey
     plugins = response.json()
     assert len(plugins) == 1
     assert plugins[0]["id"] == "rommdeck"
-    assert plugins[0]["actions"][0]["url"] == (
-        "rommdeck://open?rom={rom_id}&platform={platform_slug}"
-    )
+    action = plugins[0]["actions"][0]
+    assert action["url"] == "rommdeck://open?rom={rom_id}&platform={platform_slug}"
+    assert action["platforms"] == ["ngc", "wii"]
+    assert action["image"] is None
