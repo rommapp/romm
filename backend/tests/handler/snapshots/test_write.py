@@ -263,6 +263,41 @@ async def test_hashing_a_parents_unhashed_save_keeps_its_updated_at(
     assert to_utc(save.updated_at) == stamp
 
 
+async def test_a_state_that_only_ends_like_a_zip_is_stored_by_its_bytes(
+    admin_user: User, rom: Rom, hashed_file: RomFile
+):
+    reload_zipfile()
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        zf.writestr("game.bin", b"rom bytes" * 64)
+        zf.comment = b"TORRENTZIPPED-00000000"
+    archive = buffer.getvalue()
+    with zipfile.ZipFile(io.BytesIO(archive)) as zf:
+        tail = archive[zf.start_dir :]
+    # A Flycast Naomi state can hold the end of the game's TorrentZip archive.
+    state = b"\x00" * 4096 + tail + b"\xff" * 120
+
+    result = await write_snapshot(
+        push(
+            admin_user,
+            rom,
+            hashed_file,
+            Manifest(save=save_entry(), states={"flycast": {"1": md5(state)}}),
+            expected=None,
+            parts={
+                SAVE_PART: part(SRAM),
+                state_part("flycast", "1"): part(state, "game.state"),
+            },
+        )
+    )
+
+    assert result.outcome == Outcome.CREATED
+    with sync_session() as session:
+        stored = session.get_one(State, result.snapshot.states[0].state_id)
+    assert stored.content_hash == md5(state)
+    assert stored_bytes(stored.full_path) == state
+
+
 async def test_unknown_content_without_a_part_is_reported_and_nothing_is_stored(
     admin_user: User, rom: Rom, hashed_file: RomFile, _assets_dir: Path
 ):

@@ -213,6 +213,17 @@ def hash_zip_contents(zf: zipfile.ZipFile) -> str:
     return _combined_hash(_entry_hashes(zf, _file_entries(zf)))
 
 
+def readable_zip_hash(source: str | os.PathLike[str] | IO[bytes]) -> str | None:
+    """`hash_zip_contents` of a zip, or None for bytes that only end like one, as
+    an emulator state holding the tail of the game's own archive does."""
+    try:
+        with zipfile.ZipFile(source, "r") as zf:
+            return hash_zip_contents(zf)
+    except zipfile.BadZipFile as e:
+        log.debug(f"Hashing the bytes, not a zip: {e}")
+        return None
+
+
 def is_clock_member(name: str) -> bool:
     """Whether sigil gives an entry the RTC role: `{stem}.rtc` or `clock.rtc`."""
     return name.endswith(".rtc")
@@ -232,9 +243,11 @@ def hash_save_content(content: IO[bytes]) -> str | None:
     """Hash seekable save bytes like ``Save.content_hash``, leaving them at the start."""
     try:
         content.seek(0)
-        if zipfile.is_zipfile(content):
-            with zipfile.ZipFile(content, "r") as zf:
-                return hash_zip_contents(zf)
+        if (
+            zipfile.is_zipfile(content)
+            and (zip_hash := readable_zip_hash(content)) is not None
+        ):
+            return zip_hash
         content.seek(0)
         hash_obj = hashlib.md5(usedforsecurity=False)
         while chunk := content.read(65536):
@@ -403,19 +416,18 @@ class FSAssetsHandler(FSHandler):
             self.user_folder_path(user), "memory_cards", emulator, str(card_id)
         )
 
-    async def _compute_zip_hash(self, zip_path: str) -> str:
-        def digest() -> str:
-            with zipfile.ZipFile(self.base_path / zip_path, "r") as zf:
-                return hash_zip_contents(zf)
-
+    async def _compute_zip_hash(self, zip_path: str) -> str | None:
         # Off the loop, as _compute_file_hash is: a state archive runs to tens of MB.
-        return await asyncio.to_thread(digest)
+        return await asyncio.to_thread(readable_zip_hash, self.base_path / zip_path)
 
     async def compute_content_hash(self, file_path: str) -> str | None:
         try:
             full_path = self.base_path / file_path
-            if zipfile.is_zipfile(full_path):
-                return await self._compute_zip_hash(file_path)
+            if (
+                zipfile.is_zipfile(full_path)
+                and (zip_hash := await self._compute_zip_hash(file_path)) is not None
+            ):
+                return zip_hash
             return await self._compute_file_hash(file_path)
         except Exception as e:
             log.debug(f"Failed to compute content hash for {file_path}: {e}")

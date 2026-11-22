@@ -569,6 +569,28 @@ class TestHashSaveFile:
         )
 
     @pytest.mark.asyncio
+    async def test_bytes_that_only_end_like_a_zip_hash_as_one_file(
+        self, temp_base: Path
+    ):
+        """An emulator state can carry the tail of the game's own archive."""
+        from utils.memory_cards import content_hash_of_bytes
+
+        self._write_zip(temp_base / "game.zip", zipfile.ZIP_DEFLATED)
+        archive = (temp_base / "game.zip").read_bytes()
+        with zipfile.ZipFile(temp_base / "game.zip") as zf:
+            tail = archive[zf.start_dir :]
+        path = temp_base / "game.state"
+        path.write_bytes(b"\x00" * 4096 + tail + b"\xff" * 120)
+        assert zipfile.is_zipfile(path)
+        handler = FSAssetsHandler()
+        handler.base_path = temp_base
+        raw = hashlib.md5(path.read_bytes(), usedforsecurity=False).hexdigest()
+
+        assert await handler.compute_content_hash("game.state") == raw
+        assert hash_save_file(path) == raw
+        assert content_hash_of_bytes(path.read_bytes()) == raw
+
+    @pytest.mark.asyncio
     async def test_an_unreadable_zip_is_unknown_like_compute_content_hash(
         self, temp_base: Path, monkeypatch: pytest.MonkeyPatch
     ):
