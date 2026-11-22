@@ -26,8 +26,8 @@ OIDC_AVATAR_STEM = "oidc-avatar"
 MAX_OIDC_AVATAR_BYTES = 5 * 1024 * 1024
 OIDC_AVATAR_TIMEOUT_SECONDS = 10
 
-# Self-hosted providers often serve pictures from a LAN address, so only the
-# provider the admin configured may reach one.
+# Self-hosted providers often serve pictures from a LAN address, so private
+# addresses are allowed only for the provider the admin configured.
 OIDC_AVATAR_ORIGIN_ALLOWLIST: frozenset[tuple[str, int]] = frozenset(
     pydash.compact(
         [
@@ -43,7 +43,7 @@ def is_oidc_avatar(avatar_path: str) -> bool:
 
 
 async def _download_picture(url: str) -> bytes | None:
-    """Download the picture within OIDC_AVATAR_TIMEOUT_SECONDS in all, or None past the size limit."""
+    """Download the picture in at most OIDC_AVATAR_TIMEOUT_SECONDS overall; None if it exceeds the size limit."""
     async with (
         asyncio.timeout(OIDC_AVATAR_TIMEOUT_SECONDS),
         create_httpx_async_client(
@@ -71,7 +71,7 @@ async def _remove_quietly(path: str) -> None:
 
 
 async def sync_oidc_avatar(user: User, userinfo: dict[str, Any] | None) -> None:
-    """Store the provider's picture as the avatar unless the user uploaded one, never failing the sign-in."""
+    """Store the provider's picture as the avatar unless the user uploaded one; failures are logged and never block sign-in."""
     picture = (userinfo or {}).get("picture")
     if not isinstance(picture, str) or not picture:
         return
@@ -115,7 +115,7 @@ async def sync_oidc_avatar(user: User, userinfo: dict[str, Any] | None) -> None:
         return
 
     previous_path = user.avatar_path
-    # The user may have uploaded an avatar while the picture downloaded.
+    # The user may have uploaded an avatar while the picture was downloading.
     if not db_user_handler.replace_avatar_path(user.id, previous_path, file_location):
         current = db_user_handler.get_user(user.id)
         if current is None or current.avatar_path != file_location:
