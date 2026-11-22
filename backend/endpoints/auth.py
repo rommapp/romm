@@ -1,4 +1,6 @@
 import asyncio
+import hashlib
+import hmac
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Final, Literal, Optional, cast
 from urllib.parse import urlencode
@@ -17,6 +19,7 @@ from config import (
     OIDC_END_SESSION_ENDPOINT,
     OIDC_REDIRECT_URI,
     OIDC_RP_INITIATED_LOGOUT,
+    ROMM_AUTH_SECRET_KEY,
 )
 from decorators.auth import oauth
 from endpoints.forms.identity import OAuth2RequestForm
@@ -74,6 +77,38 @@ def _record_login(
     )
 
 
+def _log_safe(value: str) -> str:
+    """The value as one log token, with whitespace and control characters escaped."""
+    return "".join(
+        c if c.isprintable() and not c.isspace() else f"\\x{ord(c):02x}" for c in value
+    )
+
+
+def _log_login_failure(
+    ip_address: str | None,
+    username: str | None,
+    user: User | None,
+    method: LoginMethod,
+    reason: Literal["credentials", "disabled"],
+) -> None:
+    """Log every failed sign-in on one parseable line, for tools like fail2ban."""
+    # A name matching no account may be a mistyped password, so it is logged as
+    # a keyed hash that still lets repeats of one name be matched.
+    if user:
+        name = _log_safe(user.username)
+    elif username:
+        digest = hmac.new(
+            ROMM_AUTH_SECRET_KEY.encode(), username.encode(), hashlib.sha256
+        ).hexdigest()
+        name = f"unknown:{digest[:12]}"
+    else:
+        name = "-"
+    log.warning(
+        f"auth.login_failed method={method} reason={reason} "
+        f"username={name} ip={ip_address or '-'}"
+    )
+
+
 def _record_login_failure(
     request: Request,
     username: str | None,
@@ -81,6 +116,8 @@ def _record_login_failure(
     reason: Literal["credentials", "disabled"],
 ) -> None:
     ip_address = client_ip(request)
+    user = db_user_handler.get_user_by_username(username) if username else None
+    _log_login_failure(ip_address, username, user, method, reason)
     key = f"login_failed:{ip_address}:{username}"
     if not claim_once(key, LOGIN_FAILURE_WINDOW_SECONDS) or not within_budget(
         f"login_failed:{ip_address}",
@@ -88,7 +125,6 @@ def _record_login_failure(
         LOGIN_FAILURE_ADDRESS_WINDOW_SECONDS,
     ):
         return
-    user = db_user_handler.get_user_by_username(username) if username else None
     # A name that matches no account may be a password typed in the wrong box,
     # so only an account's own name is kept.
     if not record(

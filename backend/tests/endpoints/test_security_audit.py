@@ -55,6 +55,72 @@ class TestLogin:
         assert event.actor_kind == "anonymous"
         assert event.data["username"] is None
 
+    def test_every_failure_logs_the_account_name(
+        self, client: TestClient, admin_user: User, mocker
+    ):
+        log = mocker.patch.object(auth_endpoints, "log")
+
+        for _ in range(3):
+            client.post("/api/login", headers=_basic("test_admin", "s3cret-guess"))
+
+        lines = [c.args[0] for c in log.warning.call_args_list]
+        assert (
+            lines
+            == [
+                "auth.login_failed method=password reason=credentials "
+                "username=test_admin ip=testclient"
+            ]
+            * 3
+        )
+
+    def test_a_disabled_account_logs_its_reason(
+        self, client: TestClient, admin_user: User, mocker
+    ):
+        log = mocker.patch.object(auth_endpoints, "log")
+        mocker.patch.object(
+            auth_handler, "authenticate_user", return_value=Mock(enabled=False)
+        )
+
+        client.post("/api/login", headers=_basic("test_admin", "test_admin_password"))
+
+        [line] = [c.args[0] for c in log.warning.call_args_list]
+        assert "reason=disabled username=test_admin " in line
+
+    def test_an_unknown_name_is_logged_as_a_stable_hash(
+        self, client: TestClient, mocker
+    ):
+        log = mocker.patch.object(auth_endpoints, "log")
+
+        client.post("/api/login", headers=_basic("hunter2", "wrong"))
+        client.post("/api/login", headers=_basic("hunter2", "wrong"))
+        client.post("/api/login", headers=_basic("hunter3", "wrong"))
+
+        lines = [c.args[0] for c in log.warning.call_args_list]
+        assert not any("hunter" in line for line in lines)
+        names = [line.split("username=")[1].split()[0] for line in lines]
+        assert names[0] == names[1] != names[2]
+        assert names[0].startswith("unknown:")
+
+    def test_a_token_grant_failure_logs_its_method(
+        self, client: TestClient, admin_user: User, mocker
+    ):
+        log = mocker.patch.object(auth_endpoints, "log")
+
+        client.post(
+            "/api/token",
+            data={
+                "grant_type": "password",
+                "username": "test_admin",
+                "password": "wrong",
+            },
+        )
+
+        [line] = [c.args[0] for c in log.warning.call_args_list]
+        assert line.startswith("auth.login_failed method=token reason=credentials ")
+
+    def test_log_safe_keeps_a_name_on_one_token(self):
+        assert auth_endpoints._log_safe("a b\nc\x1bd") == "a\\x20b\\x0ac\\x1bd"
+
     def test_one_address_cycling_usernames_is_capped(self, client: TestClient, mocker):
         mocker.patch.object(auth_endpoints, "LOGIN_FAILURES_PER_ADDRESS", 3)
 
