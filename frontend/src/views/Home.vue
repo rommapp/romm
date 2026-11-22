@@ -37,6 +37,7 @@ import romApi, {
 } from "@/services/api/rom";
 import setupApi from "@/services/api/setup";
 import storeCollections from "@/stores/collections";
+import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { useStreamingStore } from "@/stores/streaming";
@@ -56,9 +57,15 @@ const {
   showPlatforms,
   showCollections,
   showSmartCollections,
-  showVirtualCollections,
+  showVirtualCollections: virtualCollectionsSetting,
   virtualCollectionType,
 } = useUISettings();
+const heartbeat = storeHeartbeat();
+const showVirtualCollections = computed(
+  () =>
+    !heartbeat.value.FRONTEND.DISABLE_VIRTUAL_COLLECTIONS &&
+    virtualCollectionsSetting.value,
+);
 
 const { recentRoms, continuePlayingRoms } = storeToRefs(romsStore);
 const { filledPlatforms, fetchingPlatforms } = storeToRefs(platformsStore);

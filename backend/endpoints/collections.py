@@ -10,6 +10,7 @@ from fastapi import Query, Request, UploadFile, status
 from pydantic import TypeAdapter
 from pydantic import ValidationError as PydanticValidationError
 
+from config import DISABLE_VIRTUAL_COLLECTIONS
 from decorators.auth import protected_route
 from endpoints.responses.base import BaseModel
 from endpoints.responses.collection import (
@@ -394,6 +395,8 @@ def get_virtual_collections(
     ] = None,
 ) -> list[VirtualCollectionSchema]:
     """List the virtual collections of one kind that hold roms the caller can see."""
+    if DISABLE_VIRTUAL_COLLECTIONS:
+        return []
 
     virtual_collections = db_collection_handler.get_virtual_collections(
         type=type, limit=limit, visibility=get_rom_visibility_filter(request)
@@ -407,6 +410,8 @@ def get_virtual_collection_identifiers(
     request: Request,
 ) -> list[str]:
     """List the IDs of the virtual collections that hold roms the caller can see."""
+    if DISABLE_VIRTUAL_COLLECTIONS:
+        return []
 
     virtual_collections = db_collection_handler.get_virtual_collections(
         type="all",
@@ -479,6 +484,8 @@ def get_virtual_collection(
     request: Request, id: VirtualCollectionIdPath
 ) -> VirtualCollectionSchema:
     """Get a virtual collection, leaving out the roms hidden from the caller."""
+    if DISABLE_VIRTUAL_COLLECTIONS:
+        raise CollectionNotFoundInDatabaseException(id)
 
     virtual_collection = db_collection_handler.get_virtual_collection(
         id, visibility=get_rom_visibility_filter(request)

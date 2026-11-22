@@ -483,6 +483,9 @@ DISABLE_EASYRPG: Final[bool] = safe_str_to_bool(_get_env("DISABLE_EASYRPG"))
 # FRONTEND
 KIOSK_MODE: Final[bool] = safe_str_to_bool(_get_env("KIOSK_MODE"))
 DISABLE_LOGS_VIEWER: Final[bool] = safe_str_to_bool(_get_env("DISABLE_LOGS_VIEWER"))
+DISABLE_VIRTUAL_COLLECTIONS: Final[bool] = safe_str_to_bool(
+    _get_env("DISABLE_VIRTUAL_COLLECTIONS")
+)
 
 # ASSETS
 MAX_ASSET_UPLOAD_SIZE_BYTES: Final[int] = safe_int(

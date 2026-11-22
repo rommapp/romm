@@ -1,6 +1,7 @@
 """Hidden and age-limited ROMs stay out of virtual collections and stats totals."""
 
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 from fastapi import status
@@ -143,6 +144,23 @@ class TestVirtualCollections:
             headers=user_headers(viewer_user),
         )
         assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_the_instance_switch_turns_every_route_off(
+        self, client, admin_user, library
+    ):
+        with patch("endpoints.collections.DISABLE_VIRTUAL_COLLECTIONS", True):
+            assert _genres(client, admin_user) == {}
+            identifiers = client.get(
+                "/api/collections/virtual/identifiers", headers=user_headers(admin_user)
+            )
+            single = client.get(
+                f"/api/collections/virtual/{_genre_id('Ccc Visible')}",
+                headers=user_headers(admin_user),
+            )
+
+        assert identifiers.status_code == status.HTTP_200_OK
+        assert identifiers.json() == []
+        assert single.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_stats_asset_totals_skip_hidden_roms(

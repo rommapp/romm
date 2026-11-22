@@ -28,6 +28,7 @@ import { useUISettings } from "@/composables/useUISettings";
 import { RBtn, RIcon, RSelect, RSegmentedControl } from "@/lib";
 import { canOpenNativeSettings, openNativeSettings } from "@/services/native";
 import storeCollections from "@/stores/collections";
+import storeHeartbeat from "@/stores/heartbeat";
 import { useNativeStore } from "@/stores/native";
 
 const { t } = useI18n();
@@ -82,6 +83,10 @@ const {
   // Gameplay
   confirmProtectedLaunch,
 } = useUISettings();
+const heartbeat = storeHeartbeat();
+const virtualCollectionsAllowed = computed(
+  () => !heartbeat.value.FRONTEND.DISABLE_VIRTUAL_COLLECTIONS,
+);
 
 type Theme = "dark" | "light" | "auto";
 const themeOptions: { value: Theme; label: string; icon: string }[] = [
@@ -280,6 +285,7 @@ function onVirtualCollectionTypeChange(value: unknown) {
             :description="t('settings.show-smart-collections-desc')"
           />
           <SettingsToggleRow
+            v-if="virtualCollectionsAllowed"
             v-model="showVirtualCollections"
             :title="t('settings.show-virtual-collections')"
             :description="t('settings.show-virtual-collections-desc')"
@@ -491,6 +497,7 @@ function onVirtualCollectionTypeChange(value: unknown) {
 
     <!-- Virtual collections -->
     <SettingsSection
+      v-if="virtualCollectionsAllowed"
       :title="t('common.virtual-collections')"
       icon="mdi-bookmark-box-multiple"
     >

@@ -55,6 +55,7 @@ const defaultHeartbeat: Heartbeat = {
   FRONTEND: {
     DISABLE_USERPASS_LOGIN: false,
     DISABLE_LOGS_VIEWER: false,
+    DISABLE_VIRTUAL_COLLECTIONS: false,
     YOUTUBE_BASE_URL: "https://www.youtube.com",
   },
   OIDC: {

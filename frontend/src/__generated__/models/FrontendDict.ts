@@ -5,6 +5,7 @@
 export type FrontendDict = {
     DISABLE_USERPASS_LOGIN: boolean;
     DISABLE_LOGS_VIEWER: boolean;
+    DISABLE_VIRTUAL_COLLECTIONS: boolean;
     YOUTUBE_BASE_URL: string;
 };
 

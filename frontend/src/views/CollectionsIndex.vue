@@ -7,7 +7,8 @@
 // no Pinia store is warranted.
 //
 // Virtual collections are gated on the `showVirtualCollections` UI
-// setting, the same toggle the home page honors.
+// setting, the same toggle the home page honors, and on the
+// instance-wide DISABLE_VIRTUAL_COLLECTIONS switch.
 //
 // Visual hierarchy: regular + smart collections live inside a
 // translucent panel (mirrors the related-games surface in the game
@@ -42,6 +43,7 @@ import storeCollections, {
   type SmartCollection,
   type VirtualCollection,
 } from "@/stores/collections";
+import storeHeartbeat from "@/stores/heartbeat";
 import { collectionCoverList } from "@/utils/collectionCovers";
 
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
@@ -62,7 +64,16 @@ type CollectionTileEntry = {
 const { t } = useI18n();
 const collectionsStore = storeCollections();
 const { toWebp } = useWebpSupport();
-const { showVirtualCollections, virtualCollectionType } = useUISettings();
+const {
+  showVirtualCollections: virtualCollectionsSetting,
+  virtualCollectionType,
+} = useUISettings();
+const heartbeat = storeHeartbeat();
+const showVirtualCollections = computed(
+  () =>
+    !heartbeat.value.FRONTEND.DISABLE_VIRTUAL_COLLECTIONS &&
+    virtualCollectionsSetting.value,
+);
 const {
   allCollections,
   virtualCollections,

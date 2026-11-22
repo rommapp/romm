@@ -60,6 +60,7 @@ def test_heartbeat(client):
     assert "FRONTEND" in heartbeat
     frontend = heartbeat["FRONTEND"]
     assert isinstance(frontend["DISABLE_USERPASS_LOGIN"], bool)
+    assert frontend["DISABLE_VIRTUAL_COLLECTIONS"] is False
 
     assert "OIDC" in heartbeat
     oidc = heartbeat["OIDC"]

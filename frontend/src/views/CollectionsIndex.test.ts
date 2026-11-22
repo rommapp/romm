@@ -7,6 +7,7 @@ import storeCollections, {
   type SmartCollection,
   type VirtualCollection,
 } from "@/stores/collections";
+import storeHeartbeat from "@/stores/heartbeat";
 import { collectionFixture } from "@/utils/collection.fixtures";
 import CollectionsIndex from "./CollectionsIndex.vue";
 
@@ -154,6 +155,7 @@ describe("CollectionsIndex", () => {
     searchState.term = "";
     showVirtualCollections.value = false;
     segmentFilterIds.value = [];
+    storeHeartbeat().value.FRONTEND.DISABLE_VIRTUAL_COLLECTIONS = false;
   });
 
   it("hides virtual collections when the setting is off", () => {
@@ -259,6 +261,21 @@ describe("CollectionsIndex", () => {
       path: "/collections",
       query: {},
     });
+  });
+
+  it("hides virtual collections when the instance turns them off", () => {
+    showVirtualCollections.value = true;
+    storeHeartbeat().value.FRONTEND.DISABLE_VIRTUAL_COLLECTIONS = true;
+    const collections = seed();
+    const fetchVirtual = vi
+      .spyOn(collections, "fetchVirtualCollections")
+      .mockResolvedValue([]);
+
+    const wrapper = mount(CollectionsIndex);
+
+    expect(wrapper.text()).not.toContain("Nintendo");
+    expect(segmentFilterIds.value).toEqual(["all", "regular", "smart"]);
+    expect(fetchVirtual).not.toHaveBeenCalled();
   });
 
   it("honors ?kind=virtual when the setting is on", () => {
