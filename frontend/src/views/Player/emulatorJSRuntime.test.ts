@@ -715,7 +715,7 @@ describe("captureScreenshot", () => {
     delete (window as any).EJS_emulator;
   });
 
-  it("reads the live canvas through the game manager", async () => {
+  it("takes RetroArch's capture through the game manager", async () => {
     const shot = new ArrayBuffer(8);
     (window as any).EJS_emulator = {
       gameManager: { screenshot: () => Promise.resolve(shot) },
@@ -747,6 +747,73 @@ describe("captureScreenshot", () => {
     };
 
     await expect(captureScreenshot()).resolves.toBeUndefined();
+  });
+
+  describe("on an all-black readback", () => {
+    let pixels: Uint8ClampedArray;
+
+    beforeEach(() => {
+      pixels = new Uint8ClampedArray(16);
+      vi.stubGlobal(
+        "createImageBitmap",
+        vi.fn(async () => ({ width: 2, height: 2, close: vi.fn() })),
+      );
+      vi.stubGlobal("requestAnimationFrame", (callback: () => void) => {
+        callback();
+        return 0;
+      });
+      vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+        drawImage: vi.fn(),
+        getImageData: () => ({ data: pixels }),
+      } as any);
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    });
+
+    function liveCanvas(frame: ArrayBuffer | null) {
+      return {
+        toBlob: (callback: (blob: Blob | null) => void) =>
+          callback(frame ? new Blob([frame]) : null),
+      };
+    }
+
+    it("reads the frame off the live canvas", async () => {
+      const frame = new Uint8Array([1, 2, 3]).buffer;
+      (window as any).EJS_emulator = {
+        canvas: liveCanvas(frame),
+        gameManager: { screenshot: () => Promise.resolve(new ArrayBuffer(8)) },
+      };
+
+      const shot = await captureScreenshot();
+
+      expect(new Uint8Array(shot!)).toEqual(new Uint8Array([1, 2, 3]));
+    });
+
+    it("keeps the readback when the canvas yields nothing", async () => {
+      const black = new ArrayBuffer(8);
+      (window as any).EJS_emulator = {
+        canvas: liveCanvas(null),
+        gameManager: { screenshot: () => Promise.resolve(black) },
+      };
+
+      await expect(captureScreenshot()).resolves.toBe(black);
+    });
+
+    it("leaves a frame with any lit pixel alone", async () => {
+      pixels[6] = 40;
+      const shot = new ArrayBuffer(8);
+      const toBlob = vi.fn();
+      (window as any).EJS_emulator = {
+        canvas: { toBlob },
+        gameManager: { screenshot: () => Promise.resolve(shot) },
+      };
+
+      await expect(captureScreenshot()).resolves.toBe(shot);
+      expect(toBlob).not.toHaveBeenCalled();
+    });
   });
 
   // EmulatorJS waits for its screenshot by polling the filesystem forever, and

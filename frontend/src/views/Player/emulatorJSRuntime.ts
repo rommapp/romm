@@ -26,7 +26,7 @@ const SCREENSHOT_TIMEOUT_MS = 3000;
 let capturing: Promise<ArrayBuffer | undefined> = Promise.resolve(undefined);
 
 // EmulatorJS 4.2.3 hands `EJS_onSaveState` no screenshot and its own capture
-// renders a slice of the frame, so pictures are read off the live canvas.
+// renders a slice of the frame, so pictures come from RetroArch's capture.
 export function captureScreenshot(): Promise<ArrayBuffer | undefined> {
   capturing = capturing.catch(() => undefined).then(takeScreenshot);
   return capturing;
@@ -34,23 +34,76 @@ export function captureScreenshot(): Promise<ArrayBuffer | undefined> {
 
 async function takeScreenshot(): Promise<ArrayBuffer | undefined> {
   const gameManager = window.EJS_emulator?.gameManager;
+  try {
+    const screenshot = await withTimeout<ArrayBuffer>(
+      gameManager?.screenshot(),
+    );
+    // An empty buffer is a failed readback, not a picture.
+    if (screenshot?.byteLength) {
+      if (!(await isBlackFrame(screenshot))) return screenshot;
+      return (await withTimeout(readCanvasFrame())) ?? screenshot;
+    }
+  } catch (error) {
+    console.error("Failed to capture a screenshot", error);
+  }
+  releaseScreenshotWait(gameManager);
+  return undefined;
+}
+
+async function withTimeout<T>(
+  promise: Promise<T> | undefined,
+): Promise<T | undefined> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const screenshot = await Promise.race([
-      gameManager?.screenshot(),
+    return await Promise.race([
+      promise,
       new Promise<undefined>((resolve) => {
         timer = setTimeout(() => resolve(undefined), SCREENSHOT_TIMEOUT_MS);
       }),
     ]);
-    // An empty buffer is a failed readback, not a picture.
-    if (screenshot?.byteLength) return screenshot;
-  } catch (error) {
-    console.error("Failed to capture a screenshot", error);
   } finally {
     clearTimeout(timer);
   }
-  releaseScreenshotWait(gameManager);
-  return undefined;
+}
+
+// Hardware-rendered cores (N64) can hand RetroArch's capture an all-black
+// viewport readback on some browsers (#5238).
+async function isBlackFrame(png: ArrayBuffer): Promise<boolean> {
+  if (typeof createImageBitmap !== "function") return false;
+  try {
+    const bitmap = await createImageBitmap(
+      new Blob([png], { type: "image/png" }),
+    );
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const context = canvas.getContext("2d");
+    if (!context) return false;
+    context.drawImage(bitmap, 0, 0);
+    bitmap.close();
+    const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i] || data[i + 1] || data[i + 2]) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// A WebGL canvas only holds the frame until the browser composites it, so it is
+// read from an animation frame callback queued after the emulator's own.
+function readCanvasFrame(): Promise<ArrayBuffer | undefined> {
+  const canvas: HTMLCanvasElement | undefined = window.EJS_emulator?.canvas;
+  if (!canvas) return Promise.resolve(undefined);
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      canvas.toBlob((blob) => {
+        if (!blob) return resolve(undefined);
+        blob.arrayBuffer().then(resolve, () => resolve(undefined));
+      }, "image/png");
+    });
+  });
 }
 
 // The poll behind a capture that never arrived runs for the rest of the
