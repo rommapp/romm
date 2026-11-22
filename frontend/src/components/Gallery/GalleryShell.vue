@@ -1319,12 +1319,9 @@ defineExpose({
   --r-shell-strip: calc(var(--r-alpha-strip-w) + var(--r-alpha-strip-gap));
   /* Where the right-anchored overlays sit: clear of the scrollbar and the inset. */
   --r-shell-edge-r: calc(var(--r-shell-scrollbar-w, 0px) + var(--r-safe-r));
-  /* The right gutter less the scrollbar it sits beside, so content ends where
-     the top bar and the document-scrolled pages do. */
-  --r-shell-pad-r: max(
-    0px,
-    calc(var(--r-gutter-r) - var(--r-shell-scrollbar-w, 0px))
-  );
+  /* The scrollbar sits outside this pad, where the document's does on other
+     pages, so content ends where theirs does. */
+  --r-shell-pad-r: var(--r-gutter-r);
   /* Lets the strip (a sibling) animate against the scroller's scroll. */
   timeline-scope: --r-shell-scroll;
   flex: 1;
@@ -1374,8 +1371,6 @@ html[data-bp~="sm-and-down"] .r-shell {
    class name is load-bearing in here. */
 html[data-bp~="sm-and-down"] .r-shell {
   --r-list-bleed: var(--r-row-pad);
-  /* The rows bleed by the full gutter, so a narrower pad would overflow it. */
-  --r-shell-pad-r: var(--r-gutter-r);
 }
 html[data-bp~="sm-and-down"] .r-shell__list-header {
   margin-inline: calc(-1 * var(--r-list-bleed, 0px));

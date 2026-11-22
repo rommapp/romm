@@ -114,7 +114,8 @@ const scrolled = computed(
   position: fixed;
   top: 0;
   left: 0;
-  /* Clears a gallery scroller's scrollbar, which runs up under the bar. */
+  /* Clears a gallery scroller's scrollbar, which runs up under the bar, so the
+     bar spans the same width as on a page with a document scrollbar. */
   right: var(--r-shell-scrollbar-w, 0px);
   z-index: 100;
   height: var(--r-nav-h);
@@ -165,10 +166,7 @@ const scrolled = computed(
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  /* The bar stops short of a gallery's scrollbar; the right pad gives that
-     width back so the pill and user menu hold still across routes. */
-  padding: 0 max(0px, var(--r-row-pad) - var(--r-shell-scrollbar-w, 0px)) 0
-    var(--r-row-pad);
+  padding: 0 var(--r-row-pad);
   gap: 0;
 }
 
