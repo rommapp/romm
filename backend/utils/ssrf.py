@@ -214,10 +214,11 @@ class SSRFProtectedAsyncBackend(AsyncNetworkBackend):
             )
 
         loop = asyncio.get_running_loop()
+        # An empty or over-long label fails IDNA encoding with a UnicodeError.
         try:
             async with asyncio.timeout(timeout):
                 addr_infos = await loop.getaddrinfo(host, port, type=socket.SOCK_STREAM)
-        except socket.gaierror as exc:
+        except (socket.gaierror, UnicodeError) as exc:
             raise httpcore2.ConnectError(
                 f"DNS resolution failed for {host!r}: {exc}"
             ) from exc
@@ -275,7 +276,7 @@ class SSRFProtectedSyncBackend(NetworkBackend):
 
         try:
             addr_infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
-        except socket.gaierror as exc:
+        except (socket.gaierror, UnicodeError) as exc:
             raise httpcore2.ConnectError(
                 f"DNS resolution failed for {host!r}: {exc}"
             ) from exc

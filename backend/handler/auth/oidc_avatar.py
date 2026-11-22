@@ -1,5 +1,6 @@
 """Use the OIDC `picture` claim as a user's avatar."""
 
+import asyncio
 import os
 from typing import Any
 
@@ -8,6 +9,7 @@ import magic
 import pydash
 
 from config import OIDC_SERVER_APPLICATION_URL, OIDC_SERVER_METADATA_URL
+from decorators.auth import OIDC_SSL_CONTEXT
 from handler.database import db_user_handler
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import sniff_mime_type
@@ -41,8 +43,12 @@ def is_oidc_avatar(avatar_path: str) -> bool:
 
 
 async def _download_picture(url: str) -> bytes | None:
+    """Download the picture within OIDC_AVATAR_TIMEOUT_SECONDS in all, or None past the size limit."""
     async with (
-        create_httpx_async_client(allowlist=OIDC_AVATAR_ORIGIN_ALLOWLIST) as client,
+        asyncio.timeout(OIDC_AVATAR_TIMEOUT_SECONDS),
+        create_httpx_async_client(
+            allowlist=OIDC_AVATAR_ORIGIN_ALLOWLIST, verify=OIDC_SSL_CONTEXT or True
+        ) as client,
         client.stream(
             "GET", url, follow_redirects=True, timeout=OIDC_AVATAR_TIMEOUT_SECONDS
         ) as res,
@@ -72,7 +78,10 @@ async def sync_oidc_avatar(user: User, userinfo: dict[str, Any] | None) -> None:
             allowlist=OIDC_AVATAR_ORIGIN_ALLOWLIST,
         )
         content = await _download_picture(picture)
-    except (ValidationError, httpx2.HTTPError, httpx2.InvalidURL) as exc:
+    except TimeoutError:
+        log.warning(f"Timed out fetching the OIDC picture for {user.username}")
+        return
+    except (ValidationError, ValueError, httpx2.HTTPError, httpx2.InvalidURL) as exc:
         log.warning(f"Could not fetch the OIDC picture for {user.username}: {exc}")
         return
     if not content:
@@ -100,15 +109,14 @@ async def sync_oidc_avatar(user: User, userinfo: dict[str, Any] | None) -> None:
 
     previous_path = user.avatar_path
     # The user may have uploaded an avatar while the picture downloaded.
-    current = db_user_handler.get_user(user.id)
-    if current is None or current.avatar_path != previous_path:
+    if not db_user_handler.replace_avatar_path(user.id, previous_path, file_location):
+        current = db_user_handler.get_user(user.id)
         if current is None or current.avatar_path != file_location:
             try:
                 await fs_asset_handler.remove_file(file_location)
             except OSError:
                 log.debug(f"Could not remove the unused OIDC avatar {file_location}")
         return
-    db_user_handler.update_user(user.id, {"avatar_path": file_location})
     if previous_path and previous_path != file_location:
         try:
             await fs_asset_handler.remove_file(previous_path)

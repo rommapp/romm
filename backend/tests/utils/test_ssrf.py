@@ -243,8 +243,24 @@ class TestSSRFProtectedAsyncBackend:
             await backend.connect_tcp("nonexistent.invalid", 80)
         inner.connect_tcp.assert_not_called()
 
+    async def test_overlong_label_propagates_as_connect_error(self):
+        inner = _stub_async_inner([])
+        backend = SSRFProtectedAsyncBackend(inner=inner)
+
+        with pytest.raises(httpcore2.ConnectError, match="DNS resolution failed"):
+            await backend.connect_tcp(f"{'a' * 64}.example.com", 80)
+        inner.connect_tcp.assert_not_called()
+
 
 class TestSSRFProtectedSyncBackend:
+    def test_overlong_label_propagates_as_connect_error(self):
+        inner = _stub_sync_inner([])
+        backend = SSRFProtectedSyncBackend(inner=inner)
+
+        with pytest.raises(httpcore2.ConnectError, match="DNS resolution failed"):
+            backend.connect_tcp(f"{'a' * 64}.example.com", 80)
+        inner.connect_tcp.assert_not_called()
+
     def test_safe_hostname_connects_to_pinned_ip(self, monkeypatch):
         calls: list[ConnectCall] = []
         inner = _stub_sync_inner(calls)
