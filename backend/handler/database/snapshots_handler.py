@@ -1032,10 +1032,12 @@ class DBSnapshotsHandler(DBBaseHandler):
             (Screenshot, Screenshot.state_id, state_ids, public_states),
         ):
             if ids:
+                # Keeps `updated_at`, as `touch=False` does: sharing is not a write,
+                # and clients take the newest row by it.
                 session.execute(
                     update(model)
                     .where(column.in_(ids))
-                    .values(is_public=column.in_(public))
+                    .values(is_public=column.in_(public), updated_at=model.updated_at)
                     .execution_options(synchronize_session=False)
                 )
 
