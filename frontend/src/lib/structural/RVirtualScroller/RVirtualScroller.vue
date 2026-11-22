@@ -181,8 +181,13 @@ const viewportRange = computed<{ first: number; last: number }>(() => {
   }
   // The viewport, in inner-relative coordinates: subtract whatever
   // space the prepend / sticky bands take above the inner.
-  const top = Math.max(0, scrollTop.value - innerOffsetTop.value);
-  const bottom = top + containerHeight.value;
+  const viewTop = scrollTop.value - innerOffsetTop.value;
+  const bottom = viewTop + containerHeight.value;
+  // The list starts below the viewport, or ends above it.
+  if (bottom <= 0 || viewTop >= totalHeight.value) {
+    return { first: 0, last: -1 };
+  }
+  const top = Math.max(0, viewTop);
   const first = findFirstVisible(offsets.value, top);
   const last = findLastVisible(offsets.value, bottom);
   return { first, last };

@@ -291,6 +291,31 @@ describe("RVirtualScroller pageScroll", () => {
     wrapper.unmount();
   });
 
+  it("counts only the rows inside the viewport when the list starts below its top", async () => {
+    const ro = stubResizeObserver();
+    const wrapper = await mountPage();
+    const inner = wrapper.get(".r-virtual-scroller__inner").element;
+    let above = 350;
+    vi.spyOn(inner, "getBoundingClientRect").mockImplementation(
+      () => ({ top: above - window.scrollY }) as DOMRect,
+    );
+    ro.resize(document.body, 0, 6000);
+    await nextTick();
+    // 150px of a 500px viewport shows the list: rows 0 and 1.
+    expect(tops(wrapper)).toEqual([0, 100]);
+
+    // Entirely below the viewport: nothing to render or fetch.
+    above = 800;
+    ro.resize(document.body, 0, 6000);
+    await nextTick();
+    expect(tops(wrapper)).toEqual([]);
+    expect(wrapper.emitted("update:viewportRange")?.at(-1)?.[0]).toEqual({
+      first: 0,
+      last: -1,
+    });
+    wrapper.unmount();
+  });
+
   it("scrolls the window", async () => {
     const wrapper = await mountPage();
     const scrollTo = vi
