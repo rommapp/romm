@@ -82,6 +82,19 @@ async def test_the_first_push_creates_the_channel_and_points_it_at_the_snapshot(
     assert sync.base_snapshot_id == snapshot.id
 
 
+async def test_the_pushed_save_and_states_carry_the_device_that_wrote_them(
+    admin_user: User, rom: Rom, hashed_file: RomFile, device: Device
+):
+    result = await first_push(admin_user, rom, hashed_file, device_id=device.id)
+
+    with sync_session() as session:
+        save = session.get_one(Save, result.snapshot.save_id)
+        state = session.get_one(State, result.snapshot.states[0].state_id)
+    assert result.snapshot.origin_device_id == device.id
+    assert save.origin_device_id == device.id
+    assert state.origin_device_id == device.id
+
+
 async def test_a_client_supplied_channel_id_creates_that_channel(
     admin_user: User, rom: Rom, hashed_file: RomFile
 ):
