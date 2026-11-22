@@ -1074,10 +1074,8 @@ async def _identify_platform(
             )
 
     for fs_roms_batch in batched(fs_roms, 200, strict=False):
-        # Key matches on the rom's full path (fs_path/fs_name), not just the
-        # file name, so identically-named files in different folders don't
-        # collide under a custom library structure. Files are fetched per rom
-        # under the semaphore, which caps the rows held to SCAN_WORKERS roms.
+        # Keyed by full path so same-named files in different folders don't collide.
+        # File rows load per rom under the semaphore, so at most SCAN_WORKERS roms' rows are held.
         roms_by_full_path = db_rom_handler.get_roms_by_fs_name(
             platform_id=platform.id,
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
