@@ -4,7 +4,7 @@ import os
 import re
 from collections.abc import Iterable
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from models.rom import RomFileCategory
 from utils.rom_patcher import is_patch_file_name
@@ -12,7 +12,7 @@ from utils.rom_patcher import is_patch_file_name
 if TYPE_CHECKING:
     from models.rom import RomFile
 
-PLAYLIST_EXT = ".m3u"
+PLAYLIST_EXT: Final = ".m3u"
 
 # Files that ride along with a game but never boot as a disc.
 NON_DISC_CATEGORIES = frozenset(

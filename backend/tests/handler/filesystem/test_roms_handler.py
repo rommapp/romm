@@ -6,6 +6,7 @@ import shutil
 import struct
 import tempfile
 import zipfile
+from collections.abc import Iterator
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
@@ -13,6 +14,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
+from pytest_mock import MockerFixture
 from tests._zipfile_shim import reload_zipfile
 
 from adapters.services.sigil import SigilExtractionResult
@@ -2836,7 +2838,9 @@ class TestStandalonePlaylistDiscs:
     """A standalone .m3u brings the discs it lists along as its own files."""
 
     @pytest.fixture
-    def handler(self, tmp_path: Path, sigil_config: Config, stub_ra_hasher: None):
+    def handler(
+        self, tmp_path: Path, sigil_config: Config, stub_ra_hasher: None
+    ) -> Iterator[FSRomsHandler]:
         handler = make_sigil_handler(tmp_path)
         with patch.object(handler, "converto_active", AsyncMock(return_value=False)):
             yield handler
@@ -2922,7 +2926,7 @@ class TestStandalonePlaylistDiscs:
         assert [f.file_name for f in parsed.rom_files] == ["Game.m3u"]
 
     async def test_unchanged_discs_are_reused_without_hashing(
-        self, handler: FSRomsHandler, tmp_path: Path, mocker
+        self, handler: FSRomsHandler, tmp_path: Path, mocker: MockerFixture
     ):
         rom = self._playlist_rom(tmp_path, "discs/Game (Disc 1).chd\n")
         first = await handler.get_rom_files(rom, extract_title_ids=False)
