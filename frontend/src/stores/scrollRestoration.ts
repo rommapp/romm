@@ -1,12 +1,9 @@
-// scrollRestoration (v2): remembers each route's last scrollTop on the
-// gallery views' custom scroll containers (RVirtualScroller's
-// containerEl).
+// scrollRestoration (v2): remembers each gallery route's last page scroll.
 //
-// Why this exists: Vue Router's built-in `scrollBehavior` only restores
-// `window` scroll. Gallery views use a child scroller: going back from
-// GameDetails would otherwise dump the user at the top instead of where
-// they left off. This store captures `scrollTop` per fullPath; views
-// save on `onBeforeRouteLeave` and read in `onMounted` after the first
+// Why this exists: Vue Router's `scrollBehavior` restores the offset as soon
+// as the route renders, before a gallery's virtualised rows have their full
+// height, so the browser clamps it short. This store captures the offset per
+// fullPath; views save on `onBeforeRouteLeave` and reapply it once the first
 // window has resolved.
 //
 // Restoration is non-destructive: re-reading the same key keeps the

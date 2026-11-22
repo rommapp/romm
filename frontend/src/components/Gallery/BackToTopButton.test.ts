@@ -1,15 +1,16 @@
 import { mount } from "@vue/test-utils";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ref } from "vue";
 import BackToTopButton from "./BackToTopButton.vue";
 
 vi.mock("vue-i18n");
 
-const { resized } = vi.hoisted(() => ({ resized: { callback: () => {} } }));
+const { viewport } = vi.hoisted(() => ({
+  viewport: { height: null as unknown as { value: number } },
+}));
 vi.mock("@vueuse/core", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@vueuse/core")>()),
-  useResizeObserver: (_target: unknown, callback: () => void) => {
-    resized.callback = callback;
-  },
+  useWindowSize: () => ({ width: ref(1280), height: viewport.height }),
 }));
 
 const reducedMotion = { value: false };
@@ -17,13 +18,18 @@ vi.mock("@/composables/useReducedMotion", () => ({
   useReducedMotion: () => ({ enabled: reducedMotion }),
 }));
 
-function makeScroller(clientHeight = 800) {
+let scrollTo: ReturnType<typeof vi.fn>;
+
+beforeEach(() => {
+  viewport.height = ref(800);
+  scrollTo = vi.fn();
+  vi.spyOn(window, "scrollTo").mockImplementation(
+    scrollTo as unknown as typeof window.scrollTo,
+  );
+});
+
+function makeRoot() {
   const el = document.createElement("div");
-  Object.defineProperty(el, "clientHeight", {
-    value: clientHeight,
-    configurable: true,
-  });
-  el.scrollTo = vi.fn() as typeof el.scrollTo;
   const first = document.createElement("button");
   first.className = "first";
   el.appendChild(first);
@@ -31,77 +37,70 @@ function makeScroller(clientHeight = 800) {
   return el;
 }
 
-function mountButton(scroller: HTMLElement, scrollTop: number) {
+function mountButton(root: HTMLElement, scrollTop: number) {
   return mount(BackToTopButton, {
     attachTo: document.body,
-    props: { scroller, scrollTop },
+    props: { root, scrollTop },
     global: { stubs: { transition: false } },
   });
+}
+
+function setPageScroll(top: number) {
+  Object.defineProperty(window, "scrollY", { value: top, configurable: true });
 }
 
 afterEach(() => {
   document.body.innerHTML = "";
   reducedMotion.value = false;
+  setPageScroll(0);
+  vi.restoreAllMocks();
 });
 
 describe("BackToTopButton", () => {
   it("stays hidden within the first viewport", () => {
-    const wrapper = mountButton(makeScroller(), 400);
+    const wrapper = mountButton(makeRoot(), 400);
     expect(wrapper.find("button").exists()).toBe(false);
   });
 
   it("shows once scrolled past a viewport", async () => {
-    const wrapper = mountButton(makeScroller(), 400);
+    const wrapper = mountButton(makeRoot(), 400);
     await wrapper.setProps({ scrollTop: 1200 });
     expect(wrapper.get("button").attributes("aria-label")).toBe(
       "gallery.back-to-top",
     );
   });
 
-  it("smooth-scrolls the scroller to the top and emits", async () => {
-    const scroller = makeScroller();
-    const wrapper = mountButton(scroller, 1200);
+  it("smooth-scrolls the page to the top and emits", async () => {
+    const wrapper = mountButton(makeRoot(), 1200);
     await wrapper.get("button").trigger("click");
-    expect(scroller.scrollTo).toHaveBeenCalledWith({
-      top: 0,
-      behavior: "smooth",
-    });
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "smooth" });
     expect(wrapper.emitted("scroll-to-top")).toHaveLength(1);
   });
 
   it("jumps without animation under reduced motion", async () => {
     reducedMotion.value = true;
-    const scroller = makeScroller();
-    const wrapper = mountButton(scroller, 1200);
+    const wrapper = mountButton(makeRoot(), 1200);
     await wrapper.get("button").trigger("click");
-    expect(scroller.scrollTo).toHaveBeenCalledWith({
-      top: 0,
-      behavior: "auto",
-    });
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "auto" });
   });
 
   it("follows a viewport resize without a scroll", async () => {
-    const scroller = makeScroller();
-    const wrapper = mountButton(scroller, 1000);
+    const wrapper = mountButton(makeRoot(), 1000);
     expect(wrapper.find("button").exists()).toBe(true);
 
-    Object.defineProperty(scroller, "clientHeight", {
-      value: 1200,
-      configurable: true,
-    });
-    resized.callback();
+    viewport.height.value = 1200;
     await wrapper.vm.$nextTick();
 
     expect(wrapper.find("button").exists()).toBe(false);
   });
 
   it("hands keyboard focus to the first control once at the top", async () => {
-    const scroller = makeScroller();
-    const wrapper = mountButton(scroller, 1200);
+    const root = makeRoot();
+    const wrapper = mountButton(root, 1200);
     const btn = wrapper.get("button");
     (btn.element as HTMLElement).focus();
     await btn.trigger("click");
-    const first = scroller.querySelector(".first");
+    const first = root.querySelector(".first");
     expect(document.activeElement).not.toBe(first);
 
     await wrapper.setProps({ scrollTop: 300 });
@@ -111,23 +110,23 @@ describe("BackToTopButton", () => {
   });
 
   it("drops the handoff when the scroll stops short of the top", async () => {
-    const scroller = makeScroller();
-    const wrapper = mountButton(scroller, 1200);
+    const root = makeRoot();
+    const wrapper = mountButton(root, 1200);
     const btn = wrapper.get("button");
     (btn.element as HTMLElement).focus();
     await btn.trigger("click");
-    scroller.scrollTop = 500;
-    scroller.dispatchEvent(new Event("scrollend"));
+    setPageScroll(500);
+    document.dispatchEvent(new Event("scrollend"));
 
     await wrapper.setProps({ scrollTop: 0 });
-    expect(document.activeElement).not.toBe(scroller.querySelector(".first"));
+    expect(document.activeElement).not.toBe(root.querySelector(".first"));
   });
 
   it("drops the handoff when focus moves elsewhere mid-scroll", async () => {
-    const scroller = makeScroller();
+    const root = makeRoot();
     const other = document.createElement("button");
     document.body.appendChild(other);
-    const wrapper = mountButton(scroller, 1200);
+    const wrapper = mountButton(root, 1200);
     const btn = wrapper.get("button");
     (btn.element as HTMLElement).focus();
     await btn.trigger("click");
@@ -138,10 +137,10 @@ describe("BackToTopButton", () => {
   });
 
   it("leaves focus alone on a pointer click", async () => {
-    const scroller = makeScroller();
-    const wrapper = mountButton(scroller, 1200);
+    const root = makeRoot();
+    const wrapper = mountButton(root, 1200);
     await wrapper.get("button").trigger("click");
     await wrapper.setProps({ scrollTop: 0 });
-    expect(document.activeElement).not.toBe(scroller.querySelector(".first"));
+    expect(document.activeElement).not.toBe(root.querySelector(".first"));
   });
 });

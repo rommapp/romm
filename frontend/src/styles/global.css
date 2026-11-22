@@ -30,10 +30,9 @@ html.r-app {
     var(--r-color-bg);
 }
 
-/* Document-scrolled pages that share the top nav with a gallery always keep a
-   scrollbar's width free, as the gallery's own scroller does, so a short page
-   lays out like a long one and like the gallery. */
-html.r-app:has(.r-home, .r-idx-shell, .gallery-tab-shell) {
+/* The top-nav pages keep a scrollbar's width free even when they fit, so a
+   short page lays out like a long one and switching between them holds still. */
+html.r-app:has(.r-home, .r-idx-shell, .r-shell, .gallery-tab-shell) {
   scrollbar-gutter: stable;
 }
 
