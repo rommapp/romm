@@ -175,7 +175,7 @@ class TestProcessChanges:
         assert kwargs["scan_type"] == ScanType.QUICK
         assert kwargs["meta"]["task_name"] == "Quick Scan"
 
-    def test_a_platform_directory_change_schedules_a_full_rescan(
+    def test_a_platform_directory_change_schedules_a_quick_scan_of_that_platform(
         self, mocker, platform, enqueue_in
     ):
         patch_pending_jobs(mocker)
@@ -184,8 +184,39 @@ class TestProcessChanges:
 
         enqueue_in.assert_called_once()
         kwargs = enqueue_in.call_args.kwargs
+        assert kwargs["platform_ids"] == [platform.id]
+        assert kwargs["platform_fs_slugs"] == []
+        assert kwargs["scan_type"] == ScanType.QUICK
+
+    def test_a_new_platform_folder_is_quick_scanned_by_slug(self, mocker, enqueue_in):
+        patch_pending_jobs(mocker)
+        mocker.patch.object(
+            db_platform_handler,
+            "get_platform_by_fs_slug",
+            return_value=None,
+        )
+
+        process_changes([self.platform_dir_change("n64"), self.rom_change("n64")])
+
+        enqueue_in.assert_called_once()
+        kwargs = enqueue_in.call_args.kwargs
         assert kwargs["platform_ids"] == []
-        assert kwargs["scan_type"] == ScanType.UPDATE
+        assert kwargs["platform_fs_slugs"] == ["n64"]
+        assert kwargs["scan_type"] == ScanType.QUICK
+
+    def test_a_pending_scan_of_a_new_platform_folder_is_not_duplicated(
+        self, mocker, enqueue_in
+    ):
+        patch_pending_jobs(mocker, make_job(platform_fs_slugs=["n64"]))
+        mocker.patch.object(
+            db_platform_handler,
+            "get_platform_by_fs_slug",
+            return_value=None,
+        )
+
+        process_changes([self.rom_change("n64")])
+
+        enqueue_in.assert_not_called()
 
     def test_a_pending_full_rescan_absorbs_every_change(
         self, mocker, platform, enqueue_in
@@ -231,18 +262,6 @@ class TestProcessChanges:
         process_changes([self.rom_change()])
 
         enqueue_in.assert_called_once()
-
-    def test_a_platform_missing_from_the_database_is_skipped(self, mocker, enqueue_in):
-        patch_pending_jobs(mocker)
-        mocker.patch.object(
-            db_platform_handler,
-            "get_platform_by_fs_slug",
-            return_value=None,
-        )
-
-        process_changes([self.rom_change()])
-
-        enqueue_in.assert_not_called()
 
     def test_a_pending_scan_scoped_to_another_slug_does_not_block(
         self, mocker, platform, enqueue_in

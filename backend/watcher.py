@@ -141,7 +141,6 @@ def process_changes(changes: Sequence[Change]) -> None:
     with tracer.start_as_current_span("process_changes"):
         # Find affected platform slugs
         fs_slugs: set[str] = set()
-        changes_platform_directory = False
         for change in changes:
             event_type, change_path = change
             src_path = os.fsdecode(change_path)
@@ -152,9 +151,6 @@ def process_changes(changes: Sequence[Change]) -> None:
                     f"Filesystem event path '{event_src}' has no platform segment. Skipping event."
                 )
                 continue
-
-            if len(event_src_parts) == platform_segment + 1:
-                changes_platform_directory = True
 
             log.info(f"Filesystem event: {event_type} {event_src}")
             fs_slugs.add(event_src_parts[platform_segment])
@@ -176,41 +172,39 @@ def process_changes(changes: Sequence[Change]) -> None:
         time_delta = timedelta(minutes=RESCAN_ON_FILESYSTEM_CHANGE_DELAY)
         rescan_in_msg = f"rescanning in {hl(str(RESCAN_ON_FILESYSTEM_CHANGE_DELAY), color=CYAN)} minutes."
 
-        def schedule_rescan(platform_ids: list[int], scan_type: ScanType) -> None:
+        def schedule_rescan(
+            platform_ids: list[int], platform_fs_slugs: list[str]
+        ) -> None:
             scan_queue.enqueue_in(
                 time_delta,
                 scan_platforms,
                 platform_ids=platform_ids,
+                platform_fs_slugs=platform_fs_slugs,
                 metadata_sources=metadata_sources,
-                scan_type=scan_type,
+                scan_type=ScanType.QUICK,
                 on_failure=report_scan_failure,
                 job_timeout=SCAN_TIMEOUT,
                 result_ttl=TASK_RESULT_TTL,
-                meta=scan_job_meta(scan_type),
+                meta=scan_job_meta(ScanType.QUICK),
             )
 
-        # Any change to a platform directory should trigger a full rescan
-        if changes_platform_directory:
-            log.info(f"Platform directory changed, {rescan_in_msg}")
-            schedule_rescan([], ScanType.UPDATE)
-            return
-
-        # Otherwise, process each platform slug
         for fs_slug in fs_slugs:
-            # TODO: Query platforms from the database in bulk
-            db_platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
-            if not db_platform:
+            if fs_slug in pending.platform_fs_slugs:
+                log.info(f"Scan already pending for {hl(fs_slug)}")
                 continue
 
-            if (
-                db_platform.id in pending.platform_ids
-                or fs_slug in pending.platform_fs_slugs
-            ):
+            # TODO: Query platforms from the database in bulk
+            db_platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
+            if db_platform and db_platform.id in pending.platform_ids:
                 log.info(f"Scan already pending for {hl(fs_slug)}")
                 continue
 
             log.info(f"Change detected in {hl(fs_slug)} folder, {rescan_in_msg}")
-            schedule_rescan([db_platform.id], ScanType.QUICK)
+            if db_platform:
+                schedule_rescan([db_platform.id], [])
+            else:
+                # A folder with no platform row is scanned by slug, which creates the platform.
+                schedule_rescan([], [fs_slug])
 
 
 if __name__ == "__main__":
