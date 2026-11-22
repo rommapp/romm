@@ -2841,6 +2841,7 @@ class TestStandalonePlaylistDiscs:
     def handler(
         self, tmp_path: Path, sigil_config: Config, stub_ra_hasher: None
     ) -> Iterator[FSRomsHandler]:
+        sigil_config.EXCLUDED_MULTI_FILES = ["discs"]
         handler = make_sigil_handler(tmp_path)
         with patch.object(handler, "converto_active", AsyncMock(return_value=False)):
             yield handler
@@ -2914,7 +2915,7 @@ class TestStandalonePlaylistDiscs:
         m3u = roms_path / "Game.m3u"
         m3u.write_text("discs/Game.cue\n")
 
-        assert playlist_disc_paths(m3u) == [cue, track]
+        assert playlist_disc_paths(m3u, lambda _: False) == [cue, track]
 
     async def test_without_resolvable_entries_only_the_playlist_remains(
         self, handler: FSRomsHandler, tmp_path: Path
@@ -2963,6 +2964,40 @@ class TestStandalonePlaylistDiscs:
 
         mock_extract.assert_awaited_once()
 
+    async def test_skips_entries_that_are_other_roms(
+        self, handler: FSRomsHandler, tmp_path: Path
+    ):
+        rom = self._playlist_rom(
+            tmp_path,
+            "Other.chd\nOtherGame/disc.chd\n.hidden/disc.chd\ndiscs/Game (Disc 1).chd\n",
+        )
+        roms_path = tmp_path / "ps2/roms"
+        (roms_path / "Other.chd").write_bytes(b"other")
+        (roms_path / "OtherGame").mkdir()
+        (roms_path / "OtherGame/disc.chd").write_bytes(b"other game")
+        (roms_path / ".hidden").mkdir()
+        (roms_path / ".hidden/disc.chd").write_bytes(b"hidden")
+
+        parsed = await handler.get_rom_files(rom, extract_title_ids=False)
+
+        assert [(f.file_path, f.file_name) for f in parsed.rom_files] == [
+            ("ps2/roms", "Game.m3u"),
+            ("ps2/roms/.hidden", "disc.chd"),
+            ("ps2/roms/discs", "Game (Disc 1).chd"),
+        ]
+
+    async def test_skips_cue_tracks_that_are_other_roms(
+        self, handler: FSRomsHandler, tmp_path: Path
+    ):
+        rom = self._playlist_rom(tmp_path, "discs/Game.cue\n")
+        roms_path = tmp_path / "ps2/roms"
+        (roms_path / "discs/Game.cue").write_text('FILE "../Other.bin" BINARY\n')
+        (roms_path / "Other.bin").write_bytes(b"other")
+
+        parsed = await handler.get_rom_files(rom, extract_title_ids=False)
+
+        assert [f.file_name for f in parsed.rom_files] == ["Game.m3u", "Game.cue"]
+
     def test_skips_comments_missing_and_escaping_entries(self, tmp_path: Path):
         roms_path = tmp_path / "ps2/roms"
         (roms_path / "discs").mkdir(parents=True)
@@ -2979,7 +3014,7 @@ class TestStandalonePlaylistDiscs:
             b"discs\\Game (Disc 1).chd\ndiscs/Game (Disc 1).chd\n\xff\xfe\n"
         )
 
-        assert playlist_disc_paths(m3u) == [disc]
+        assert playlist_disc_paths(m3u, lambda _: False) == [disc]
 
 
 class TestEmbedSwitchTitleIdInName:

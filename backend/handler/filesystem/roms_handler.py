@@ -385,9 +385,24 @@ SIDECAR_FILE_SUFFIXES: Final = (
 )
 
 
-def playlist_disc_paths(m3u_path: Path) -> list[Path]:
-    """The files a standalone .m3u lists in or below its folder, plus the tracks of each listed cue."""
+def playlist_disc_paths(
+    m3u_path: Path, is_other_rom: Callable[[Path], bool]
+) -> list[Path]:
+    """The files a standalone .m3u lists in or below its folder, plus the tracks of each listed cue.
+
+    Args:
+        m3u_path: The playlist.
+        is_other_rom: Whether the scan makes a path, relative to the playlist's
+            folder, part of another rom. Those paths are skipped.
+    """
     root = m3u_path.parent
+
+    def claimable(path: Path) -> bool:
+        if not is_other_rom(path.relative_to(root)):
+            return True
+        log.warning(f"Skipping {m3u_path} entry that is another rom: {path}")
+        return False
+
     paths: dict[Path, None] = {}
     for candidates in playlist_entries(m3u_path) or []:
         # Normalize lexically so `..` can't escape, but a symlinked disc folder still counts.
@@ -405,6 +420,8 @@ def playlist_disc_paths(m3u_path: Path) -> list[Path]:
         if disc is None:
             log.warning(f"Skipping {m3u_path} entry missing on disk: {inside[0]}")
             continue
+        if disc == m3u_path or not claimable(disc):
+            continue
         listed = [disc]
         if disc.suffix.lower() == CUE_EXT:
             try:
@@ -414,12 +431,12 @@ def playlist_disc_paths(m3u_path: Path) -> list[Path]:
                 names = []
             for name in names:
                 track = Path(os.path.normpath(disc.parent / name))
-                if track.is_relative_to(root) and track.is_file():
-                    listed.append(track)
-                else:
+                if not (track.is_relative_to(root) and track.is_file()):
                     log.warning(
                         f"Skipping {disc} track that is outside its folder or missing: {name}"
                     )
+                elif claimable(track):
+                    listed.append(track)
         paths.update(dict.fromkeys(path for path in listed if path != m3u_path))
     return list(paths)
 
@@ -1310,6 +1327,14 @@ class FSRomsHandler(FSHandler):
             embed_candidates=embed_candidates,
         )
 
+    def _is_other_rom(self, rel_path: Path) -> bool:
+        """Whether discovery makes the top entry of a path in a game folder a rom."""
+        # Claiming one would serve that rom's files past its own visibility.
+        top, *nested = rel_path.parts
+        if nested:
+            return bool(self.exclude_multi_roms([top]))
+        return bool(self.exclude_single_files([top]))
+
     async def _playlist_disc_files(
         self,
         rom: Rom,
@@ -1319,7 +1344,9 @@ class FSRomsHandler(FSHandler):
     ) -> list[RomFile]:
         """Build the rom files for the discs a standalone .m3u lists, each hashed on its own."""
         disc_files: list[RomFile] = []
-        for path in await asyncio.to_thread(playlist_disc_paths, m3u_path):
+        for path in await asyncio.to_thread(
+            playlist_disc_paths, m3u_path, self._is_other_rom
+        ):
             try:
                 st = await asyncio.to_thread(os.stat, path)
             except OSError as exc:
