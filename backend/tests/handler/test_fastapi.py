@@ -30,7 +30,10 @@ from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.libretro_handler import LibretroRom
 from handler.metadata.ra_handler import RAGameRom
 from handler.metadata.ss_handler import (
+    ScreenScraperExhaustedError,
     SSRom,
+    _scan_state,
+    get_exhausted_rom_paths,
     get_rate_limited_rom_names,
     reset_rate_limited_roms,
 )
@@ -1631,6 +1634,66 @@ async def test_scan_rom_ss_rate_limit_skips_the_rom_without_further_lookups(
     assert get_rate_limited_rom_names() == ["game.sfc"]
 
     reset_rate_limited_roms()
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ss_handler, "get_rom", new_callable=AsyncMock)
+@patch.object(meta_ss_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_records_a_rom_the_ss_breaker_answered_for(
+    mock_ss_lookup, mock_ss_get_rom, mock_playmatch_enabled
+):
+    _scan_state.reset()
+    mock_ss_lookup.side_effect = ScreenScraperExhaustedError(SSRom(ss_id=None))
+    mock_ss_get_rom.side_effect = ScreenScraperExhaustedError(SSRom(ss_id=None))
+
+    platform = make_platform("snes", id=1, name="SNES", ss_id=4)
+    rom = make_rom(platform, "game", fs_extension="sfc", fs_path="snes", tags=[])
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom=_ss_quota_fs_rom("game.sfc"),
+            metadata_sources=[MetadataSource.SS],
+            newly_added=True,
+        )
+
+    assert result.ss_id is None
+    assert get_exhausted_rom_paths() == ["snes/game.sfc"]
+
+    _scan_state.reset()
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ss_handler, "get_rom", new_callable=AsyncMock)
+@patch.object(meta_ss_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_does_not_record_a_rom_ss_answered_by_name(
+    mock_ss_lookup, mock_ss_get_rom, mock_playmatch_enabled
+):
+    """The breaker can clear between the hash and name lookups, and a ROM
+    ScreenScraper did answer for must not be listed as skipped."""
+    _scan_state.reset()
+    mock_ss_lookup.side_effect = ScreenScraperExhaustedError(SSRom(ss_id=None))
+    mock_ss_get_rom.return_value = SSRom(ss_id=321, name="Game")
+
+    platform = make_platform("snes", id=1, name="SNES", ss_id=4)
+    rom = make_rom(platform, "game", fs_extension="sfc", fs_path="snes", tags=[])
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom=_ss_quota_fs_rom("game.sfc"),
+            metadata_sources=[MetadataSource.SS],
+            newly_added=True,
+        )
+
+    assert result.ss_id == 321
+    assert get_exhausted_rom_paths() == []
+
+    _scan_state.reset()
 
 
 def _amiga_platform() -> Platform:
