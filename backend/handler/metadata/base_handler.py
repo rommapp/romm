@@ -245,7 +245,7 @@ class MetadataHandler(abc.ABC):
 
         Args:
             missing_ok: Read a 404 as no answer rather than as the provider failing.
-            extra_headers: Sent with the request, such as a provider's API key.
+            extra_headers: Extra headers to send, such as a provider's API key.
         """
         headers = {
             "User-Agent": f"RomM/{get_version()}",

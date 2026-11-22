@@ -3,7 +3,7 @@
 Match by production id (filename tag ``(demozoo-N)`` or Edit-ROM id / URL), or by
 title search via ``?title=`` (never ``?search=``) ranked with Jaro-Winkler.
 
-JSON API, read with a user's API key.
+Demozoo's JSON API requires an API key, sent in the ``Authorization`` header.
 """
 
 from __future__ import annotations
