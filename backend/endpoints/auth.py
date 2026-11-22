@@ -40,6 +40,7 @@ from handler.audit_handler import (
     within_budget,
 )
 from handler.auth.base_handler import auth_handler, oauth_handler, oidc_handler
+from handler.auth.oidc_avatar import sync_oidc_avatar
 from handler.database import db_user_handler
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
@@ -440,7 +441,7 @@ async def auth_openid(request: Request) -> RedirectResponse:
         # Without the bypass, OIDC autologin would send a persistent failure
         # straight back to the provider and loop
         return RedirectResponse(url="/login?bypass_autologin=true")
-    potential_user, _userinfo = (
+    potential_user, userinfo = (
         await oidc_handler.get_current_active_user_from_openid_token(token)
     )
 
@@ -451,6 +452,8 @@ async def auth_openid(request: Request) -> RedirectResponse:
     if not potential_user.enabled:
         _record_login_failure(request, potential_user.username, "oidc", "disabled")
         raise UserDisabledException
+
+    await sync_oidc_avatar(potential_user, userinfo)
 
     request.session["iss"] = "romm:auth"
     request.session["sub"] = potential_user.username

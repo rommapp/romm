@@ -644,7 +644,13 @@ class OpenIDHandler:
         self, token: Any, id_claims: dict[str, Any]
     ) -> dict[str, Any]:
         """Fill claims missing from the ID token from the UserInfo endpoint (OIDC Core 5.4)."""
-        wanted = ("email", "email_verified", OIDC_USERNAME_ATTRIBUTE, OIDC_CLAIM_ROLES)
+        wanted = (
+            "email",
+            "email_verified",
+            "picture",
+            OIDC_USERNAME_ATTRIBUTE,
+            OIDC_CLAIM_ROLES,
+        )
         missing = [claim for claim in wanted if claim and claim not in id_claims]
         if not missing or not token.get("access_token"):
             return id_claims
