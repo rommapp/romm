@@ -6,6 +6,10 @@ import i18n, {
   matchPreferredLocale,
   ukrainianPluralIndex,
 } from "@/locales";
+import englishSettings from "./en_US/settings.json";
+import englishSetup from "./en_US/setup.json";
+import ukrainianSettings from "./uk_UA/settings.json";
+import ukrainianSetup from "./uk_UA/setup.json";
 
 describe("czechPluralIndex", () => {
   it("maps counts onto four forms", () => {
@@ -69,6 +73,50 @@ describe("uk_UA messages", () => {
       [1, 2, 11, 21, 25].map((n) => t("collection.games-count", n)),
     ).toEqual(["1 гра", "2 гри", "11 ігор", "21 гра", "25 ігор"]);
     expect(t("audit.detail-new-games", 0)).toBe("Нових ігор немає");
+  });
+
+  it.each([
+    ["setup", englishSetup, ukrainianSetup],
+    ["settings", englishSettings, ukrainianSettings],
+  ])(
+    "preserves environment variable names and assignments in %s",
+    (namespace, english, ukrainian) => {
+      const translated: Record<string, unknown> = ukrainian;
+      const configToken = /\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+(?:=true)?\b/g;
+      for (const [key, message] of Object.entries(english)) {
+        if (typeof message !== "string") continue;
+        const tokens = message.match(configToken);
+        if (!tokens) continue;
+        const value = translated[key];
+        expect(
+          typeof value === "string" ? value.match(configToken) : undefined,
+          `${namespace}.${key}`,
+        ).toEqual(tokens);
+      }
+    },
+  );
+
+  it("renders the correct elapsed-time units", async () => {
+    await loadLocale("uk_UA");
+    i18n.global.locale.value = "uk_UA";
+    const { t } = i18n.global;
+    expect(t("activity.days-ago", { n: 2 })).toBe("2 дн. тому");
+    expect(t("activity.hours-ago", { n: 1 })).toBe("1 год тому");
+    expect(t("activity.hours-minutes-ago", { h: 3, m: 5 })).toBe(
+      "3 год 5 хв тому",
+    );
+    expect(t("activity.minutes-ago", { n: 5 })).toBe("5 хв тому");
+  });
+
+  it("warns that a blocked core and its saves may not work", async () => {
+    await loadLocale("uk_UA");
+    i18n.global.locale.value = "uk_UA";
+    const warning = i18n.global.t("play.core-blocked", { core: "Test core" });
+    expect(warning).toContain("ядро Test core несправне");
+    expect(warning).toContain("ввімкнено експериментальні ядра");
+    expect(warning).toContain(
+      "Збереження й збережені стани можуть не працювати.",
+    );
   });
 });
 
