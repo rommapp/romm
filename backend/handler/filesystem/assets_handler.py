@@ -304,6 +304,16 @@ def hash_save_file(path: str | os.PathLike[str]) -> str | None:
         return None
 
 
+def sniff_mime_type(header: bytes) -> str:
+    """Detect a MIME type from a file's leading bytes with libmagic.
+
+    Raises:
+        magic.MagicException: If libmagic fails to sniff the bytes.
+    """
+    with _MIME_DETECTOR_LOCK:
+        return _MIME_DETECTOR.from_buffer(header)
+
+
 def validate_image_upload(
     upload: UploadFile, *, label: str = "Image", allow_converted: bool = False
 ) -> str:
@@ -323,8 +333,7 @@ def validate_image_upload(
     upload.file.seek(0)
 
     try:
-        with _MIME_DETECTOR_LOCK:
-            detected_mime = _MIME_DETECTOR.from_buffer(header)
+        detected_mime = sniff_mime_type(header)
     except magic.MagicException as exc:
         log.error(f"libmagic failed to sniff uploaded {label.lower()}: {exc}")
         raise HTTPException(

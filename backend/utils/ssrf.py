@@ -98,7 +98,7 @@ def parse_ip_literal(
     return ipaddress.IPv4Address(packed)
 
 
-def _parse_origin(origin: str) -> tuple[str, int] | None:
+def parse_origin(origin: str) -> tuple[str, int] | None:
     """Return the (lowercased host, port) of an http(s) origin, else None."""
     parts = urlparse(origin)
     if parts.scheme not in ("http", "https") or not parts.hostname:
@@ -118,7 +118,7 @@ def _parse_origin(origin: str) -> tuple[str, int] | None:
 # Origins the admin explicitly configured are trusted to reach private addresses.
 # Matched by exact host and port so the exception stays as narrow as possible.
 INTERNAL_ORIGIN_ALLOWLIST: frozenset[tuple[str, int]] = frozenset(
-    pydash.compact([_parse_origin(PLAYMATCH_API_URL), _parse_origin(HASHEOUS_API_URL)])
+    pydash.compact([parse_origin(PLAYMATCH_API_URL), parse_origin(HASHEOUS_API_URL)])
 )
 
 
