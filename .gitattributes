@@ -8,4 +8,4 @@
 # Without this, Windows checkouts produce CRLF scripts that fail to
 # execute inside Linux containers with "no such file or directory".
 *.sh text eol=lf
-docker/init_scripts/init text eol=lf
+docker/s6-overlay/** text eol=lf

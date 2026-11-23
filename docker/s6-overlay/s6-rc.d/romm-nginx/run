@@ -13,7 +13,7 @@ record_process_group
 
 info_log "Starting nginx"
 
-: "${ROMM_BASE_URL:=http://0.0.0.0:8080}"
+: "${ROMM_BASE_URL:=http://0.0.0.0:${ROMM_PORT:-8080}}"
 info_log "🚀 RomM is now available at ${ROMM_BASE_URL}"
 
 if [[ ${EUID} -ne 0 ]]; then

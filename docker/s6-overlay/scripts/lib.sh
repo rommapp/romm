@@ -103,3 +103,48 @@ disable_service() {
 	s6-svc -O .
 	exit 0
 }
+
+# The values the backend's safe_str_to_bool reads as true, matched lowercased.
+is_truthy() {
+	[[ ${1,,} =~ ^(1|true|yes|on)$ ]]
+}
+
+# The URL carries the password, so callers pass it through RQ_REDIS_URL rather
+# than --url, which would put it on a world-readable command line.
+build_redis_url() {
+	local scheme="redis" userinfo=""
+
+	if is_truthy "${REDIS_SSL-}"; then
+		scheme="rediss"
+	fi
+
+	if [[ -n ${REDIS_PASSWORD-} ]]; then
+		userinfo="${REDIS_USERNAME-}:${REDIS_PASSWORD}@"
+	elif [[ -n ${REDIS_USERNAME-} ]]; then
+		userinfo="${REDIS_USERNAME}@"
+	fi
+
+	echo "${scheme}://${userinfo}${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+}
+
+# Replace the run script with an RQ worker of class "$1" on the queues that
+# follow. The worker classes drop the noisy "cleaning registries" log line, and
+# --with-scheduler releases delayed jobs, which is how the watcher's rescans
+# wait out their delay.
+exec_rq_worker() {
+	local worker_class="$1"
+	shift
+
+	RQ_REDIS_URL="$(build_redis_url)"
+	export RQ_REDIS_URL
+	export PYTHONPATH="/backend:${PYTHONPATH-}"
+
+	exec rq worker \
+		--path /backend \
+		--worker-class "handler.rq_worker.${worker_class}" \
+		--connection-class handler.redis_handler.RomMRedis \
+		--results-ttl "${TASK_RESULT_TTL:-86400}" \
+		--logging_level "${LOGLEVEL}" \
+		--with-scheduler \
+		"$@"
+}

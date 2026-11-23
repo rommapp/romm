@@ -29,13 +29,16 @@ cd /backend || error_log "/backend directory doesn't seem to exist"
 declare -a wrap=()
 otel_prefix wrap api
 
+# WEB_SERVER_KEEPALIVE must outlive nginx's upstream idle timeout (60s), or the
+# pooled connection is reaped before nginx can reuse it.
 exec "${wrap[@]}" gunicorn \
 	--bind=0.0.0.0:"${DEV_PORT:-5000}" \
-	--forwarded-allow-ips="*" \
+	--no-control-socket \
+	--forwarded-allow-ips="${FORWARDED_ALLOW_IPS:-127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,100.64.0.0/10,fc00::/7}" \
 	--worker-class uvicorn_worker.UvicornWorker \
-	--workers "${WEB_SERVER_CONCURRENCY:-1}" \
+	--workers "${WEB_SERVER_CONCURRENCY:-4}" \
 	--timeout "${WEB_SERVER_TIMEOUT:-300}" \
-	--keep-alive "${WEB_SERVER_KEEPALIVE:-2}" \
+	--keep-alive "${WEB_SERVER_KEEPALIVE:-65}" \
 	--max-requests "${WEB_SERVER_MAX_REQUESTS:-1000}" \
 	--max-requests-jitter "${WEB_SERVER_MAX_REQUESTS_JITTER:-100}" \
 	--worker-connections "${WEB_SERVER_WORKER_CONNECTIONS:-1000}" \

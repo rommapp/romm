@@ -11,7 +11,7 @@ source /etc/s6-overlay/scripts/lib.sh
 
 record_process_group
 
-if [[ ${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:-false} != "true" ]]; then
+if ! is_truthy "${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:-false}"; then
 	debug_log "Rescan on filesystem change is disabled, not starting the watcher"
 	disable_service
 fi

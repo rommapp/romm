@@ -11,7 +11,7 @@ source /etc/s6-overlay/scripts/lib.sh
 
 record_process_group
 
-if [[ ${ENABLE_SYNC_FOLDER_WATCHER:-false} != "true" ]]; then
+if ! is_truthy "${ENABLE_SYNC_FOLDER_WATCHER:-false}"; then
 	debug_log "Sync folder watcher is disabled, not starting it"
 	disable_service
 fi
@@ -19,7 +19,6 @@ fi
 info_log "Starting sync folder watcher"
 
 sync_base_path="${ROMM_BASE_PATH:-/romm}/sync"
-mkdir -p "${sync_base_path}"
 
 cd /backend || error_log "/backend directory doesn't seem to exist"
 

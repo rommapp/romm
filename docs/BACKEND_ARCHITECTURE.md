@@ -154,7 +154,7 @@ Endpoints call handlers; handlers own every query, file write and provider call.
 The image runs several processes, supervised by [s6-overlay](https://github.com/just-containers/s6-overlay) as PID 1. Service definitions live in `docker/s6-overlay/`, and `s6-rc` starts them in dependency order:
 
 ```text
-romm-init            oneshot   banner, OTEL detection, ROMM_AUTH_SECRET_KEY
+romm-init            oneshot   banner, OTEL detection, ROMM_AUTH_SECRET_KEY, sync folder checks
   └── romm-valkey        longrun   internal cache (skipped when REDIS_HOST is set)
       └── romm-valkey-ready    oneshot   polls 127.0.0.1:6379
           └── romm-migrations      oneshot   alembic upgrade head
@@ -162,8 +162,10 @@ romm-init            oneshot   banner, OTEL detection, ROMM_AUTH_SECRET_KEY
                   ├── romm-gunicorn        longrun   ASGI server
                   │   └── romm-gunicorn-ready  oneshot   polls DEV_PORT
                   │       └── romm-nginx           longrun   reverse proxy on ROMM_PORT
-                  ├── romm-rq-worker       longrun
-                  ├── romm-rq-scheduler    longrun   (only with a scheduled task enabled)
+                  ├── romm-rq-worker       longrun   high, default and low queues
+                  ├── romm-rq-scan-worker  longrun   scans queue
+                  ├── romm-rq-streaming-worker  longrun   streaming queue (only with streaming enabled)
+                  ├── romm-rq-cron         longrun   periodic tasks from tasks/cron_config.py
                   ├── romm-watcher         longrun   (ENABLE_RESCAN_ON_FILESYSTEM_CHANGE)
                   └── romm-sync-watcher    longrun   (ENABLE_SYNC_FOLDER_WATCHER)
 ```
