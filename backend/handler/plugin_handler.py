@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from config import PLUGINS_BASE_PATH
-from endpoints.responses.plugin import PluginActionSchema, PluginSchema
+from endpoints.responses.plugin import PluginActionSchema, PluginSchema, PluginSlot
 from logger.logger import log
 
 MANIFEST_NAME: Final[str] = "plugin.json"
@@ -55,6 +55,13 @@ ALLOWED_PLACEHOLDERS: Final[frozenset[str]] = frozenset(
 )
 
 WEB_SCHEMES: Final[frozenset[str]] = frozenset({"http", "https"})
+
+# Every place a manifest may put an action. A slot the UI does not render would
+# be a button nobody sees, so an unknown one is refused rather than kept.
+SLOTS: Final[frozenset[str]] = frozenset(
+    {"game.details", "game.play", "app.nav", "settings.page"}
+)
+DEFAULT_SLOT: Final[str] = "game.details"
 
 # One parse per shelf state: every mounted game view asks for this list, and the
 # shelf can sit on a network share. Keyed by the resolved base path.
@@ -235,6 +242,10 @@ def _parse_action(raw: dict[str, Any], plugin_id: str) -> PluginActionSchema | N
     if platforms is None:
         return None
 
+    slot = _slot(raw, plugin_id, action_id)
+    if slot is None:
+        return None
+
     open_mode = raw.get("open")
     return PluginActionSchema(
         id=action_id,
@@ -243,6 +254,7 @@ def _parse_action(raw: dict[str, Any], plugin_id: str) -> PluginActionSchema | N
         image=_image(raw.get("image")),
         url=url,
         open="same-tab" if open_mode == "same-tab" else "new-tab",
+        slot=slot,
         platforms=platforms,
     )
 
@@ -274,6 +286,30 @@ def _platforms(value: Any, plugin_id: str, action_id: str) -> list[str] | None:
         if slug not in slugs:
             slugs.append(slug)
     return slugs
+
+
+def _slot(raw: dict[str, Any], plugin_id: str, action_id: str) -> PluginSlot | None:
+    """Where the action belongs, or None when the manifest names nowhere.
+
+    `play: true` from the first cut of this feature means the Play menu, so it
+    keeps working as that slot rather than being a second field to explain.
+
+    Args:
+        raw: The action, as written.
+        plugin_id: The owning plugin, for the log line.
+        action_id: The action, for the log line.
+
+    Returns:
+        PluginSlot | None: The slot to render into.
+    """
+    if raw.get("play") is True and "slot" not in raw:
+        return "game.play"
+
+    slot = raw.get("slot", DEFAULT_SLOT)
+    if not isinstance(slot, str) or slot not in SLOTS:
+        log.warning(f"Plugins: {plugin_id}.{action_id} names an unknown slot {slot!r}")
+        return None
+    return slot  # type: ignore[return-value]  # narrowed by the membership check
 
 
 def _url_refusal(url: str) -> str | None:

@@ -68,7 +68,21 @@ The shelf is read on every request and cached until a manifest changes, so a fol
 | `image` | no | A logo URL (`http` or `https`) painted instead of the icon. |
 | `url` | yes | See placeholders below. |
 | `open` | no | `new-tab` (default) or `same-tab`. |
+| `slot` | no | Where the action is drawn; `game.details` by default. See below. |
 | `platforms` | no | Platform slugs the action is offered on, e.g. `["ngc", "wii"]`. Omitted means every platform. A slug the game is also known by (`gc` for `ngc`) matches too. |
+
+### Slots
+
+A slot is one place in RomM that renders whatever plugins declare for it, so the same manifest can put a button on a game, an entry in the Play menu, or a link in Settings:
+
+| Slot | Where it lands |
+| --- | --- |
+| `game.details` | The action row on a game, beside Play and Download. The default. |
+| `game.play` | A way to start the game, offered in the Play menu next to RomM's own. |
+| `app.nav` | An entry in the Settings navigation. |
+| `settings.page` | A row on Settings, Plugins. |
+
+A slot the UI does not render would be a button nobody can press, so an unknown one drops the action and logs it. `"play": true` from before slots existed still means `game.play`.
 
 ### Placeholders
 

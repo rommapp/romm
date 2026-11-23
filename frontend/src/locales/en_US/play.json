@@ -164,6 +164,7 @@
   "play-native": "Play on this device",
   "play-native-in": "Play in {emulator}",
   "play-on": "Stream on {label}",
+  "play-with": "Play with",
   "powered-by": "Powered by",
   "quick-state-loaded": "Quick state loaded",
   "quit": "Quit",

@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
- * One button a plugin adds to a game, with its URL template unexpanded.
+ * One thing a plugin adds to the UI, with its URL template unexpanded.
  */
 export type PluginActionSchema = {
     id: string;
@@ -12,6 +12,7 @@ export type PluginActionSchema = {
     image?: (string | null);
     url: string;
     open?: 'new-tab' | 'same-tab';
+    slot?: 'game.details' | 'game.play' | 'app.nav' | 'settings.page';
     platforms?: Array<string>;
 };
 

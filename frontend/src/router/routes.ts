@@ -59,6 +59,7 @@ export const routeComponents: Partial<Record<RouteName, RouteViewLoader>> = {
   [ROUTES.ADMINISTRATION]: () => import("@/views/Settings/Administration.vue"),
   [ROUTES.SERVER_STATS]: () => import("@/views/Settings/ServerStats.vue"),
   [ROUTES.LOGS]: () => import("@/views/Settings/Logs.vue"),
+  [ROUTES.PLUGINS]: () => import("@/views/Settings/Plugins.vue"),
   [ROUTES.PLATFORMS_INDEX]: () => import("@/views/PlatformsIndex.vue"),
   [ROUTES.COLLECTIONS_INDEX]: () => import("@/views/CollectionsIndex.vue"),
   // Dev tool: live gamepad input inspector.

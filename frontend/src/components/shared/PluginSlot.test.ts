@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PluginSchema } from "@/__generated__";
 import { usePluginStore } from "@/stores/plugins";
 import { romFixture } from "@/utils/rom.fixtures";
-import PluginActions from "./PluginActions.vue";
+import PluginSlot from "./PluginSlot.vue";
 
 const rom = romFixture({
   id: 42,
@@ -32,11 +32,13 @@ const plugin = (action: Record<string, unknown> = {}): PluginSchema => ({
   ],
 });
 
-function render() {
-  return mount(PluginActions, { props: { rom, size: "default" } });
+function render(props: Record<string, unknown> = {}) {
+  return mount(PluginSlot, {
+    props: { slot: "game.details", rom, size: "default", ...props },
+  });
 }
 
-describe("PluginActions", () => {
+describe("PluginSlot", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
   });

@@ -346,6 +346,15 @@ const routes = [
             component: routeComponent(ROUTES.LOGS),
           },
           {
+            path: "plugins",
+            name: ROUTES.PLUGINS,
+            meta: {
+              title: "settings.plugins",
+              bare: true,
+            },
+            component: routeComponent(ROUTES.PLUGINS),
+          },
+          {
             // Controller-debug lives outside the Settings sidebar
             // but reuses the same chrome (sidebar layout + bare
             // body) so the input system inspector reads as another

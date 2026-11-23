@@ -10,7 +10,8 @@
       "label": "Open in RommDeck",
       "icon": "mdi-monitor-dashboard",
       "url": "rommdeck://open?rom={rom_id}&platform={platform_slug}&name={rom_name}",
-      "open": "new-tab"
+      "open": "new-tab",
+      "slot": "game.play"
     }
   ]
 }

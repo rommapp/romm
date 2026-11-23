@@ -16,7 +16,8 @@ import { computed, ref, toRef } from "vue";
 import { useI18n } from "vue-i18n";
 import GameActionBtn from "@/components/GameActions/GameActionBtn.vue";
 import MetricMenuBtn from "@/components/GameActions/MetricMenuBtn.vue";
-import PluginActions from "@/components/GameActions/PluginActions.vue";
+import PlayButton from "@/components/GameActions/PlayButton.vue";
+import PluginSlot from "@/components/shared/PluginSlot.vue";
 import { METRICS } from "@/components/GameActions/metrics";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import { useGameActions } from "@/composables/useGameActions";
@@ -56,15 +57,9 @@ useGridNav(rootEl, {
 
 <template>
   <div ref="rootEl" class="game-actions">
-    <GameActionBtn
-      v-if="actions.canPlayLocally.value"
-      :rom="rom"
-      action="play"
-      :size="btnSize"
-      variant="emphasized"
-      with-label
-      link
-    />
+    <!-- Play, from RomM or a plugin. The button hides itself when neither can
+         start the game, so a platform a plugin handles still gets one. -->
+    <PlayButton :rom="rom" :size="btnSize" />
     <GameActionBtn
       v-if="actions.canPlayStream.value"
       :rom="rom"
@@ -132,8 +127,8 @@ useGridNav(rootEl, {
       variant="surface"
       with-metrics
     />
-    <!-- Installed plugins: one button per action their manifests declare. -->
-    <PluginActions :rom="rom" :size="btnSize" />
+    <!-- Plugins that put an action on a game. -->
+    <PluginSlot slot="game.details" :rom="rom" :size="btnSize" />
     <GameActionBtn :rom="rom" action="more" :size="btnSize" variant="surface" />
 
     <!-- Desktop only: the metric pills sit in the ribbon. On phones they

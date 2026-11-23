@@ -27,13 +27,16 @@ export interface PluginAction extends PluginActionSchema {
  * Returns:
  *   string: The URL to open.
  */
-export function expandPluginUrl(template: string, rom: SimpleRom): string {
+export function expandPluginUrl(
+  template: string,
+  rom: SimpleRom | null,
+): string {
   const values: Record<string, string> = {
-    rom_id: String(rom.id),
-    rom_name: rom.name ?? "",
-    platform_slug: rom.platform_slug ?? "",
-    platform_name: rom.platform_display_name ?? "",
-    file_name: getSoleRomFile(rom)?.file_name ?? "",
+    rom_id: rom ? String(rom.id) : "",
+    rom_name: rom?.name ?? "",
+    platform_slug: rom?.platform_slug ?? "",
+    platform_name: rom?.platform_display_name ?? "",
+    file_name: rom ? (getSoleRomFile(rom)?.file_name ?? "") : "",
   };
   return template.replace(/\{([a-z_]+)\}/g, (_match, key: string) =>
     encodeURIComponent(values[key] ?? ""),
@@ -50,8 +53,12 @@ export function expandPluginUrl(template: string, rom: SimpleRom): string {
  * Returns:
  *   boolean: True when the action belongs on this rom.
  */
-export function offersPlatform(platforms: string[], rom: SimpleRom): boolean {
+export function offersPlatform(
+  platforms: string[],
+  rom: SimpleRom | null,
+): boolean {
   if (!platforms?.length) return true;
+  if (!rom) return false;
   const slugs = [rom.platform_slug, rom.platform_fs_slug]
     .filter((slug): slug is string => Boolean(slug))
     .map((slug) => slug.toLowerCase());
@@ -65,14 +72,15 @@ export function offersPlatform(platforms: string[], rom: SimpleRom): boolean {
  */
 export function usePluginActions(getRom: () => SimpleRom | null | undefined): {
   actions: ComputedRef<PluginAction[]>;
+  playActions: ComputedRef<PluginAction[]>;
+  forSlot: (slot: string) => PluginAction[];
   open: (action: PluginAction) => void;
 } {
   const store = usePluginStore();
   onMounted(() => void store.load());
 
   const actions = computed<PluginAction[]>(() => {
-    const rom = getRom();
-    if (!rom) return [];
+    const rom = getRom() ?? null;
     return store.plugins.flatMap((plugin) =>
       plugin.actions
         .filter((action) => offersPlatform(action.platforms ?? [], rom))
@@ -85,6 +93,16 @@ export function usePluginActions(getRom: () => SimpleRom | null | undefined): {
         })),
     );
   });
+
+  /** The actions for one surface: `game.details`, `game.play` and the rest. */
+  function forSlot(slot: string): PluginAction[] {
+    return actions.value.filter(
+      (action) => (action.slot ?? "game.details") === slot,
+    );
+  }
+
+  /** The actions that offer a way to start the game, for the Play menu. */
+  const playActions = computed<PluginAction[]>(() => forSlot("game.play"));
 
   /** Hand the URL to the browser, which hands a custom scheme to the OS.
    *
@@ -99,5 +117,5 @@ export function usePluginActions(getRom: () => SimpleRom | null | undefined): {
     window.open(action.href, "_blank", "noopener,noreferrer");
   }
 
-  return { actions, open };
+  return { actions, playActions, forSlot, open };
 }

@@ -21,11 +21,13 @@ import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useCan } from "@/composables/useCan";
+import PluginSlot from "@/components/shared/PluginSlot.vue";
 import { RBadge, RChip, RIcon } from "@/lib";
 import { ROUTES } from "@/plugins/router";
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeNotificationInbox from "@/stores/notificationInbox";
+import { usePluginStore } from "@/stores/plugins";
 
 defineOptions({ inheritAttrs: false });
 
@@ -35,6 +37,14 @@ const { user, scopes } = storeToRefs(auth);
 const isAdmin = useCan("app.admin");
 const heartbeat = storeHeartbeat();
 const { unreadCount } = storeToRefs(storeNotificationInbox());
+// A plugin entry in the navigation is a URL, so it sits below the sections
+// rather than inside one.
+const pluginStore = usePluginStore();
+const hasPluginNav = computed(() =>
+  pluginStore.plugins.some((plugin) =>
+    plugin.actions.some((action) => action.slot === "app.nav"),
+  ),
+);
 interface Entry {
   icon: string;
   label: string;
@@ -186,6 +196,12 @@ const groups = computed<Group[]>(() => {
           visible: true,
           badge: t("common.beta"),
         },
+        {
+          icon: "mdi-puzzle-outline",
+          label: t("settings.plugins"),
+          to: { name: ROUTES.PLUGINS },
+          visible: true,
+        },
       ],
     },
   ];
@@ -236,6 +252,15 @@ const groups = computed<Group[]>(() => {
           </router-link>
         </li>
       </ul>
+    </div>
+
+    <!-- Navigation a plugin contributes. These leave RomM, so they are links
+         rather than routes. -->
+    <div v-if="hasPluginNav" class="r-settings-sidebar__group">
+      <div class="r-settings-sidebar__group-label">
+        {{ t("settings.plugins") }}
+      </div>
+      <PluginSlot slot="app.nav" labelled />
     </div>
   </nav>
 </template>

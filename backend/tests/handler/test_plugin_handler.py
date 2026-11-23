@@ -204,6 +204,37 @@ def test_an_image_is_kept_only_when_it_is_a_web_url(shelf):
     assert plugins["bad"].actions[0].image is None
 
 
+def test_an_action_without_a_slot_lands_on_the_game(shelf):
+    write_plugin(shelf, "rommdeck", manifest())
+
+    assert list_plugins()[0].actions[0].slot == "game.details"
+
+
+def test_a_named_slot_is_kept(shelf):
+    data = manifest("nav")
+    data["actions"][0]["slot"] = "app.nav"
+    write_plugin(shelf, "nav", data)
+
+    assert list_plugins()[0].actions[0].slot == "app.nav"
+
+
+def test_a_legacy_play_flag_means_the_play_slot(shelf):
+    data = manifest("playable")
+    data["actions"][0]["play"] = True
+    write_plugin(shelf, "playable", data)
+
+    assert list_plugins()[0].actions[0].slot == "game.play"
+
+
+@pytest.mark.parametrize("slot", ["game.sidebar", "", 7])
+def test_an_unknown_slot_drops_the_action(shelf, slot):
+    data = manifest("nowhere")
+    data["actions"][0]["slot"] = slot
+    write_plugin(shelf, "nowhere", data)
+
+    assert list_plugins() == []
+
+
 def test_a_parked_plugin_adds_nothing(shelf):
     write_plugin(shelf, "rommdeck", manifest(enabled=False))
 
