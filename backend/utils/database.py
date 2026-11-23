@@ -1,6 +1,4 @@
 from datetime import date
-from functools import reduce
-from operator import getitem
 from typing import Any, Sequence
 from uuid import uuid4
 
@@ -338,14 +336,6 @@ def safe_int(value: Any, default: int = 0) -> int:
     try:
         return int(value)
     except ValueError, TypeError:
-        return default
-
-
-def get_nested(obj: Any, path: str, default: Any = None) -> Any:
-    """Read a dot-separated key path from nested dicts, returning default if any step is missing."""
-    try:
-        return reduce(getitem, path.split("."), obj)
-    except KeyError, TypeError:
         return default
 
 
