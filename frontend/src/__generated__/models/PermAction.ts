@@ -2,4 +2,4 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type PermAction = 'read' | 'write' | 'delete';
+export type PermAction = "read" | "write" | "delete";

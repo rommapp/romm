@@ -3,12 +3,11 @@
 /* tslint:disable */
 /* eslint-disable */
 export type ClaimStreamingSessionRequest = {
-    rom_id: number;
-    state_id?: (number | null);
-    save_id?: (number | null);
-    memory_card_id?: (number | null);
-    card_import?: ('adopt' | 'discard' | null);
-    disc_file_id?: (number | null);
-    multiplayer?: boolean;
+  rom_id: number;
+  state_id?: number | null;
+  save_id?: number | null;
+  memory_card_id?: number | null;
+  card_import?: "adopt" | "discard" | null;
+  disc_file_id?: number | null;
+  multiplayer?: boolean;
 };
-

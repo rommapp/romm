@@ -3,9 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type Body_refresh_retro_achievements_api_users__id__ra_refresh_post = {
-    /**
-     * Whether to only retrieve RetroAchievements progression incrementally.
-     */
-    incremental?: boolean;
+  /**
+   * Whether to only retrieve RetroAchievements progression incrementally.
+   */
+  incremental?: boolean;
 };
-

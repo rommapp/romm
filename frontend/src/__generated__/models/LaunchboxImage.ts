@@ -3,8 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type LaunchboxImage = {
-    url: string;
-    type?: string;
-    region?: string;
+  url: string;
+  type?: string;
+  region?: string;
 };
-

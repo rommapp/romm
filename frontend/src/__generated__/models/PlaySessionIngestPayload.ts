@@ -2,9 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { PlaySessionEntry } from './PlaySessionEntry';
+import type { PlaySessionEntry } from "./PlaySessionEntry";
 export type PlaySessionIngestPayload = {
-    device_id?: (string | null);
-    sessions: Array<PlaySessionEntry>;
+  device_id?: string | null;
+  sessions: Array<PlaySessionEntry>;
 };
-

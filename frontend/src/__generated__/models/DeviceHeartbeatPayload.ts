@@ -3,7 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type DeviceHeartbeatPayload = {
-    rom_id: number;
-    device_id: string;
+  rom_id: number;
+  device_id: string;
 };
-

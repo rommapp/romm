@@ -2,11 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { DocSource } from './DocSource';
+import type { DocSource } from "./DocSource";
 export type DocMetaSchema = {
-    source: DocSource;
-    source_url?: (string | null);
-    author?: (string | null);
-    title?: (string | null);
+  source: DocSource;
+  source_url?: string | null;
+  author?: string | null;
+  title?: string | null;
 };
-

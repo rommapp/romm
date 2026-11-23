@@ -3,8 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type IGDBAgeRating = {
-    rating: string;
-    category: string;
-    rating_cover_url: string;
+  rating: string;
+  category: string;
+  rating_cover_url: string;
 };
-

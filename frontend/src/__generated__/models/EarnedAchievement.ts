@@ -3,13 +3,12 @@
 /* tslint:disable */
 /* eslint-disable */
 export type EarnedAchievement = {
-    /**
-     * The badge name. Several achievements can share one, so use `ra_id` to identify an achievement.
-     * @deprecated
-     */
-    id: string;
-    ra_id?: number;
-    date: string;
-    date_hardcore?: string;
+  /**
+   * The badge name. Several achievements can share one, so use `ra_id` to identify an achievement.
+   * @deprecated
+   */
+  id: string;
+  ra_id?: number;
+  date: string;
+  date_hardcore?: string;
 };
-

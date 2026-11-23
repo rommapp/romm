@@ -3,8 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type SSPhysicalDisc = {
-    disc: number;
-    url: string;
-    path: (string | null);
+  disc: number;
+  url: string;
+  path: string | null;
 };
-

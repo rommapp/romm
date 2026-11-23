@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { MemoryCardSummarySchema } from './MemoryCardSummarySchema';
+import type { MemoryCardSummarySchema } from "./MemoryCardSummarySchema";
 /**
  * The 428 body: a container still holds a card nobody has decided about.
  *
@@ -10,9 +10,8 @@ import type { MemoryCardSummarySchema } from './MemoryCardSummarySchema';
  * fresh claim as `card_import`.
  */
 export type MemoryCardImportRequired = {
-    code: string;
-    outcome: 'found' | 'unreadable';
-    summary?: (MemoryCardSummarySchema | null);
-    reason?: (string | null);
+  code: string;
+  outcome: "found" | "unreadable";
+  summary?: MemoryCardSummarySchema | null;
+  reason?: string | null;
 };
-

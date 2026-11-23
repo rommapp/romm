@@ -6,9 +6,8 @@
  * A single backend log line streamed to the admin log viewer.
  */
 export type LogEntrySchema = {
-    ts: number;
-    level: string;
-    module: string;
-    message: string;
+  ts: number;
+  level: string;
+  module: string;
+  message: string;
 };
-

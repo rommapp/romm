@@ -3,8 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type SaveStateResponse = {
-    status: string;
-    slot: number;
-    platform: string;
+  status: string;
+  slot: number;
+  platform: string;
 };
-

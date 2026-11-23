@@ -3,10 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export type JoinedSessionSchema = {
-    platform: string;
-    host: string;
-    label: string;
-    rom_id?: (number | null);
-    rom_name?: (string | null);
+  platform: string;
+  host: string;
+  label: string;
+  rom_id?: number | null;
+  rom_name?: string | null;
 };
-

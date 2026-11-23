@@ -3,9 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type PlaySessionIngestResult = {
-    index: number;
-    status: 'created' | 'duplicate' | 'error';
-    id?: (number | null);
-    detail?: (string | null);
+  index: number;
+  status: "created" | "duplicate" | "error";
+  id?: number | null;
+  detail?: string | null;
 };
-

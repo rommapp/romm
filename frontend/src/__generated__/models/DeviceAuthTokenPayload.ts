@@ -3,6 +3,5 @@
 /* tslint:disable */
 /* eslint-disable */
 export type DeviceAuthTokenPayload = {
-    device_code: string;
+  device_code: string;
 };
-

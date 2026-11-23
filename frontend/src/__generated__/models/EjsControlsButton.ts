@@ -3,7 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type EjsControlsButton = {
-    value?: string;
-    value2?: string;
+  value?: string;
+  value2?: string;
 };
-

@@ -3,6 +3,5 @@
 /* tslint:disable */
 /* eslint-disable */
 export type Body_track_save_api_saves__id__track_post = {
-    device_id: string;
+  device_id: string;
 };
-

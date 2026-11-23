@@ -3,6 +3,5 @@
 /* tslint:disable */
 /* eslint-disable */
 export type ConvertoDict = {
-    ENABLED: boolean;
+  ENABLED: boolean;
 };
-

@@ -3,8 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type MuteResponse = {
-    status: string;
-    mute?: (boolean | null);
-    platform: string;
+  status: string;
+  mute?: boolean | null;
+  platform: string;
 };
-

@@ -3,6 +3,5 @@
 /* tslint:disable */
 /* eslint-disable */
 export type AppriseUrlPayload = {
-    url: string;
+  url: string;
 };
-

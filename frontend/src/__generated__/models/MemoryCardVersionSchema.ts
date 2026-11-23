@@ -7,14 +7,13 @@
  * has no rom_id/user_id, so it does not reuse the shared BaseAsset schema.
  */
 export type MemoryCardVersionSchema = {
-    id: number;
-    memory_card_id: number;
-    file_name: string;
-    file_size_bytes: number;
-    content_hash?: (string | null);
-    download_path: string;
-    missing_from_fs: boolean;
-    created_at: string;
-    updated_at: string;
+  id: number;
+  memory_card_id: number;
+  file_name: string;
+  file_size_bytes: number;
+  content_hash?: string | null;
+  download_path: string;
+  missing_from_fs: boolean;
+  created_at: string;
+  updated_at: string;
 };
-

@@ -3,9 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type OIDCDict = {
-    ENABLED: boolean;
-    AUTOLOGIN: boolean;
-    PROVIDER: string;
-    RP_INITIATED_LOGOUT: boolean;
+  ENABLED: boolean;
+  AUTOLOGIN: boolean;
+  PROVIDER: string;
+  RP_INITIATED_LOGOUT: boolean;
 };
-

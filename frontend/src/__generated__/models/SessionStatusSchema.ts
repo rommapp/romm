@@ -2,14 +2,13 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { SessionTerminationSchema } from './SessionTerminationSchema';
+import type { SessionTerminationSchema } from "./SessionTerminationSchema";
 export type SessionStatusSchema = {
-    status: 'active' | 'ended';
-    platform: string;
-    extraction_phase?: (string | null);
-    host?: (string | null);
-    core?: (string | null);
-    core_tier?: (string | null);
-    termination?: (SessionTerminationSchema | null);
+  status: "active" | "ended";
+  platform: string;
+  extraction_phase?: string | null;
+  host?: string | null;
+  core?: string | null;
+  core_tier?: string | null;
+  termination?: SessionTerminationSchema | null;
 };
-

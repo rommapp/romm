@@ -3,7 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type NotificationChannelTestResult = {
-    ok: boolean;
-    error: (string | null);
+  ok: boolean;
+  error: string | null;
 };
-

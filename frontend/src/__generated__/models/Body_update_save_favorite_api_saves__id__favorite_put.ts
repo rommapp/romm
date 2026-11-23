@@ -3,6 +3,5 @@
 /* tslint:disable */
 /* eslint-disable */
 export type Body_update_save_favorite_api_saves__id__favorite_put = {
-    is_favorite: boolean;
+  is_favorite: boolean;
 };
-

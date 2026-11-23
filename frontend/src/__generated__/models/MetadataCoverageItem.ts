@@ -3,7 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type MetadataCoverageItem = {
-    source: string;
-    matched: number;
+  source: string;
+  matched: number;
 };
-

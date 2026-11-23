@@ -2,10 +2,9 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { TaskInfo } from './TaskInfo';
+import type { TaskInfo } from "./TaskInfo";
 export type GroupedTasksDict = {
-    scheduled: Array<TaskInfo>;
-    manual: Array<TaskInfo>;
-    watcher: Array<TaskInfo>;
+  scheduled: Array<TaskInfo>;
+  manual: Array<TaskInfo>;
+  watcher: Array<TaskInfo>;
 };
-

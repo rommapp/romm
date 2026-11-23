@@ -3,7 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type ExclusionPayload = {
-    exclusion_value: string;
-    exclusion_type: string;
+  exclusion_value: string;
+  exclusion_type: string;
 };
-

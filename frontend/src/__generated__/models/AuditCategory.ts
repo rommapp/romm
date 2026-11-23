@@ -2,4 +2,5 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type AuditCategory = 'consumption' | 'library' | 'collections' | 'operations' | 'security';
+export type AuditCategory =
+  "consumption" | "library" | "collections" | "operations" | "security";

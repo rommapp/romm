@@ -3,7 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type PouetCredit = {
-    name?: string;
-    role?: string;
+  name?: string;
+  role?: string;
 };
-

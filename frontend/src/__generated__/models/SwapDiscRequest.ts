@@ -3,6 +3,5 @@
 /* tslint:disable */
 /* eslint-disable */
 export type SwapDiscRequest = {
-    file_id: number;
+  file_id: number;
 };
-

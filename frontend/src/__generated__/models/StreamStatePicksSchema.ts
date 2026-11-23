@@ -6,7 +6,6 @@
  * Which of a ROM's states the stream's resume picker offers, by id.
  */
 export type StreamStatePicksSchema = {
-    native: Array<number>;
-    pickable: Array<number>;
+  native: Array<number>;
+  pickable: Array<number>;
 };
-

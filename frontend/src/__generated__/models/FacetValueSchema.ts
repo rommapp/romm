@@ -6,7 +6,6 @@
  * A distinct value of a track field plus how many tracks carry it.
  */
 export type FacetValueSchema = {
-    value: (string | number);
-    count: number;
+  value: string | number;
+  count: number;
 };
-

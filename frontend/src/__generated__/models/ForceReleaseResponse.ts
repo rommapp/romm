@@ -3,7 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type ForceReleaseResponse = {
-    status: string;
-    platforms: Array<string>;
+  status: string;
+  platforms: Array<string>;
 };
-

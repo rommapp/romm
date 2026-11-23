@@ -3,7 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type PlatformBindingPayload = {
-    fs_slug: string;
-    slug: string;
+  fs_slug: string;
+  slug: string;
 };
-

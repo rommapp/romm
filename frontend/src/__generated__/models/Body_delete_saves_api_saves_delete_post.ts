@@ -3,9 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type Body_delete_saves_api_saves_delete_post = {
-    /**
-     * List of save ids to delete from database.
-     */
-    saves: Array<number>;
+  /**
+   * List of save ids to delete from database.
+   */
+  saves: Array<number>;
 };
-

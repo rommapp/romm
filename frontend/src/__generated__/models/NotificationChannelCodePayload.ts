@@ -3,6 +3,5 @@
 /* tslint:disable */
 /* eslint-disable */
 export type NotificationChannelCodePayload = {
-    code: string;
+  code: string;
 };
-

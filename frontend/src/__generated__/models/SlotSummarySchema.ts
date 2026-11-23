@@ -2,10 +2,9 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { SaveSchema } from './SaveSchema';
+import type { SaveSchema } from "./SaveSchema";
 export type SlotSummarySchema = {
-    slot: (string | null);
-    count: number;
-    latest: SaveSchema;
+  slot: string | null;
+  count: number;
+  latest: SaveSchema;
 };
-

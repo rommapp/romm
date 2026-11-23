@@ -3,7 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type ClientTokenPairSchema = {
-    code: string;
-    expires_in: number;
+  code: string;
+  expires_in: number;
 };
-

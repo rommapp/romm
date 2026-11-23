@@ -3,7 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type InviteLinkSchema = {
-    token: string;
-    url?: (string | null);
+  token: string;
+  url?: string | null;
 };
-

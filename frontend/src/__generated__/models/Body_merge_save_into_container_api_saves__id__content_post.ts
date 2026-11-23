@@ -3,9 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type Body_merge_save_into_container_api_saves__id__content_post = {
-    /**
-     * The client's current card or volume at container_path.
-     */
-    container: string;
+  /**
+   * The client's current card or volume at container_path.
+   */
+  container: string;
 };
-

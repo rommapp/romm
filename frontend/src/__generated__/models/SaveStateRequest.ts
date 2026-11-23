@@ -3,6 +3,5 @@
 /* tslint:disable */
 /* eslint-disable */
 export type SaveStateRequest = {
-    slot?: number;
+  slot?: number;
 };
-

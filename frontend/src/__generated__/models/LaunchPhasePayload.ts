@@ -6,9 +6,8 @@
  * `streaming:launch-phase`, while a broker unpacks a large title.
  */
 export type LaunchPhasePayload = {
-    platform: string;
-    container: string;
-    claimed_at: string;
-    phase?: (string | null);
+  platform: string;
+  container: string;
+  claimed_at: string;
+  phase?: string | null;
 };
-

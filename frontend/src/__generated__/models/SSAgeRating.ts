@@ -3,7 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type SSAgeRating = {
-    rating: string;
-    category: string;
+  rating: string;
+  category: string;
 };
-

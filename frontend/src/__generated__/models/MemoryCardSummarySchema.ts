@@ -7,8 +7,7 @@
  * recognise it before deciding whether to keep it.
  */
 export type MemoryCardSummarySchema = {
-    file_count: number;
-    total_bytes: number;
-    game_codes: Array<string>;
+  file_count: number;
+  total_bytes: number;
+  game_codes: Array<string>;
 };
-

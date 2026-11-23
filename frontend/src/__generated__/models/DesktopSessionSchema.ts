@@ -3,10 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export type DesktopSessionSchema = {
-    container: string;
-    platform: string;
-    host: string;
-    label: string;
-    claimed_at: string;
+  container: string;
+  platform: string;
+  host: string;
+  label: string;
+  claimed_at: string;
 };
-

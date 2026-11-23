@@ -6,9 +6,8 @@
  * The 409 body when a claim finds its container held.
  */
 export type ContainerBusyDetail = {
-    message: string;
-    draining: boolean;
-    rom_name: (string | null);
-    claimed_at: (string | null);
+  message: string;
+  draining: boolean;
+  rom_name: string | null;
+  claimed_at: string | null;
 };
-

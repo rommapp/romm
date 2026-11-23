@@ -6,12 +6,11 @@
  * `streaming:launch-ready`, pushed once the game is up.
  */
 export type LaunchReadyPayload = {
-    platform: string;
-    container: string;
-    claimed_at: string;
-    host: string;
-    resume?: (boolean | null);
-    core?: (string | null);
-    core_tier?: (string | null);
+  platform: string;
+  container: string;
+  claimed_at: string;
+  host: string;
+  resume?: boolean | null;
+  core?: string | null;
+  core_tier?: string | null;
 };
-

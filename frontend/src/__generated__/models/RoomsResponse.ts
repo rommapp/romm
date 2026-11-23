@@ -3,10 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export type RoomsResponse = {
-    room_name: string;
-    current: number;
-    max: number;
-    player_name: string;
-    hasPassword: boolean;
+  room_name: string;
+  current: number;
+  max: number;
+  player_name: string;
+  hasPassword: boolean;
 };
-

@@ -2,9 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { RAUserGameProgression } from './RAUserGameProgression';
+import type { RAUserGameProgression } from "./RAUserGameProgression";
 export type RAProgression = {
-    total?: number;
-    results?: Array<RAUserGameProgression>;
+  total?: number;
+  results?: Array<RAUserGameProgression>;
 };
-

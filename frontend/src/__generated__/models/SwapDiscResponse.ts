@@ -3,8 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type SwapDiscResponse = {
-    status: string;
-    file_id: number;
-    platform: string;
+  status: string;
+  file_id: number;
+  platform: string;
 };
-

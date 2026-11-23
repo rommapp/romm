@@ -3,9 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type Body_add_screenshot_api_screenshots_post = {
-    /**
-     * Screenshot file to upload.
-     */
-    screenshotFile: string;
+  /**
+   * Screenshot file to upload.
+   */
+  screenshotFile: string;
 };
-

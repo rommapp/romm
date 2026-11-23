@@ -3,7 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type DeviceInstallDict = {
-    ENABLED: boolean;
-    EXCLUDED_PLATFORM_SLUGS: Array<string>;
+  ENABLED: boolean;
+  EXCLUDED_PLATFORM_SLUGS: Array<string>;
 };
-

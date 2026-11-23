@@ -3,6 +3,5 @@
 /* tslint:disable */
 /* eslint-disable */
 export type VolumeRequest = {
-    level: number;
+  level: number;
 };
-

@@ -6,7 +6,6 @@
  * Library-wide soundtrack totals.
  */
 export type MusicStatsSchema = {
-    total_tracks: number;
-    total_duration_seconds: number;
+  total_tracks: number;
+  total_duration_seconds: number;
 };
-

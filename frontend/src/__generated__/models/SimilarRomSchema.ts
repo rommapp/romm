@@ -2,11 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { SimilarityReasonSchema } from './SimilarityReasonSchema';
-import type { SimpleRomSchema } from './SimpleRomSchema';
+import type { SimilarityReasonSchema } from "./SimilarityReasonSchema";
+import type { SimpleRomSchema } from "./SimpleRomSchema";
 export type SimilarRomSchema = {
-    rom: SimpleRomSchema;
-    score: number;
-    reasons: Array<SimilarityReasonSchema>;
+  rom: SimpleRomSchema;
+  score: number;
+  reasons: Array<SimilarityReasonSchema>;
 };
-

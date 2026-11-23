@@ -6,9 +6,8 @@
  * A device as one viewer sees it: another user's device is never identified.
  */
 export type DeviceRefSchema = {
-    id: (string | null);
-    name: (string | null);
-    client: (string | null);
-    is_own: boolean;
+  id: string | null;
+  name: string | null;
+  client: string | null;
+  is_own: boolean;
 };
-

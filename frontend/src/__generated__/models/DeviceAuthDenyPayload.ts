@@ -3,6 +3,5 @@
 /* tslint:disable */
 /* eslint-disable */
 export type DeviceAuthDenyPayload = {
-    user_code: string;
+  user_code: string;
 };
-

@@ -3,8 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type NetplayICEServer = {
-    urls: string;
-    username?: string;
-    credential?: string;
+  urls: string;
+  username?: string;
+  credential?: string;
 };
-

@@ -3,6 +3,5 @@
 /* tslint:disable */
 /* eslint-disable */
 export type WebrcadeFeedItemPropsSchema = {
-    rom: string;
+  rom: string;
 };
-

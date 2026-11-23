@@ -8,14 +8,13 @@
  * never touches the lazy="raise" relationship.
  */
 export type MemoryCardSchema = {
-    id: number;
-    user_id: number;
-    emulator: string;
-    platform_id?: (number | null);
-    name: string;
-    slot: number;
-    is_public?: boolean;
-    created_at: string;
-    updated_at: string;
+  id: number;
+  user_id: number;
+  emulator: string;
+  platform_id?: number | null;
+  name: string;
+  slot: number;
+  is_public?: boolean;
+  created_at: string;
+  updated_at: string;
 };
-

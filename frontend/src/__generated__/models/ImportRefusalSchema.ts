@@ -6,11 +6,10 @@
  * One `.import/` member the broker's activate declined to place.
  */
 export type ImportRefusalSchema = {
-    reason: string;
-    member?: (string | null);
-    expected?: (string | null);
-    detail?: (string | null);
-    suggest_emulator?: (string | null);
-    docs?: (string | null);
+  reason: string;
+  member?: string | null;
+  expected?: string | null;
+  detail?: string | null;
+  suggest_emulator?: string | null;
+  docs?: string | null;
 };
-

@@ -2,4 +2,4 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type SaveFormat = 'neutral' | 'native';
+export type SaveFormat = "neutral" | "native";

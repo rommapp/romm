@@ -3,21 +3,20 @@
 /* tslint:disable */
 /* eslint-disable */
 export type FirmwareSchema = {
-    id: number;
-    platform_id: number;
-    file_name: string;
-    file_name_no_tags: string;
-    file_name_no_ext: string;
-    file_extension: string;
-    file_path: string;
-    file_size_bytes: number;
-    full_path: string;
-    is_verified: boolean;
-    crc_hash: string;
-    md5_hash: string;
-    sha1_hash: string;
-    missing_from_fs: boolean;
-    created_at: string;
-    updated_at: string;
+  id: number;
+  platform_id: number;
+  file_name: string;
+  file_name_no_tags: string;
+  file_name_no_ext: string;
+  file_extension: string;
+  file_path: string;
+  file_size_bytes: number;
+  full_path: string;
+  is_verified: boolean;
+  crc_hash: string;
+  md5_hash: string;
+  sha1_hash: string;
+  missing_from_fs: boolean;
+  created_at: string;
+  updated_at: string;
 };
-

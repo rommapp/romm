@@ -3,9 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type SaveAndExitResponse = {
-    status: 'ok' | 'not_found';
-    saved: boolean;
-    platform: string;
-    released: boolean;
+  status: "ok" | "not_found";
+  saved: boolean;
+  platform: string;
+  released: boolean;
 };
-

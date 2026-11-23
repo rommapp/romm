@@ -2,4 +2,4 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type NotificationLevel = 'info' | 'success' | 'warning' | 'error';
+export type NotificationLevel = "info" | "success" | "warning" | "error";
