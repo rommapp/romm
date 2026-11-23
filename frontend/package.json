@@ -100,7 +100,7 @@
     "fake-indexeddb": "^6.2.5",
     "globals": "^17.0.0",
     "happy-dom": "^21.0.0",
-    "openapi-typescript-codegen": "^0.31.0",
+    "openapi-typescript-codegen": "^0.29.0",
     "postcss": "^8.5.33",
     "sirv": "^3.0.2",
     "storybook": "^10.6.7",
