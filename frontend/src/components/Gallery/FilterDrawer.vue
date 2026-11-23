@@ -6,8 +6,9 @@
 //   • Tri-state boolean filters: matched / favourites / duplicates /
 //     playables / missing / physical / verified / RA. Each maps null → "all",
 //     true → positive, false → negative.
-//   • Optional platform multi-select (only on Search / Collection views
-//     where you can mix platforms).
+//   • Optional platform multi-select with an ANY/NONE toggle, the first
+//     attribute row (only on Search / Collection views where you can mix
+//     platforms).
 //   • 11 multi-select filter groups (genres / franchises / collections /
 //     companies / age-ratings / regions / languages / tags /
 //     player-counts / metadata-providers / statuses): each paired with
@@ -574,42 +575,37 @@ function saveAsSmartCollection() {
       </div>
     </section>
 
-    <!-- ── Platforms (optional) ─────────────────────────────── -->
-    <section v-if="showPlatformsFilter" class="r-fd__section">
-      <h3 class="r-fd__heading">{{ t("common.platforms") }}</h3>
-      <div class="r-fd__multi-row">
-        <PlatformSelect
-          v-model="selectedPlatformIds"
-          :items="allPlatforms"
-          multiple
-          clearable
-          hide-details
-          promote-filled
-          prefix-label="stacked"
-          :placeholder="t('common.all-platforms')"
-          class="r-fd__multi-select"
-        >
-          <template #prefix-label>
-            <RIcon icon="mdi-monitor" size="14" />
-            {{ t("common.platforms") }}
-          </template>
-        </PlatformSelect>
-        <RSegmentedControl
-          :model-value="platformsLogic"
-          :items="PLATFORM_LOGIC_ITEMS"
-          size="small"
-          class="r-fd__logic"
-          @update:model-value="
-            (v: PlatformFilterLogic) => filter.setPlatformsLogic(v)
-          "
-        />
-      </div>
-    </section>
-
-    <!-- ── Multi-select groups + logic toggle ──────────────── -->
+    <!-- ── Attributes: multi-selects + logic toggle ────────── -->
     <section class="r-fd__section">
-      <h3 class="r-fd__heading">{{ t("platform.tags") }}</h3>
+      <h3 class="r-fd__heading">{{ t("platform.attributes") }}</h3>
       <div class="r-fd__multi-rows">
+        <div v-if="showPlatformsFilter" class="r-fd__multi-row">
+          <PlatformSelect
+            v-model="selectedPlatformIds"
+            :items="allPlatforms"
+            multiple
+            clearable
+            hide-details
+            promote-filled
+            prefix-label="stacked"
+            :placeholder="t('common.all-platforms')"
+            class="r-fd__multi-select"
+          >
+            <template #prefix-label>
+              <RIcon icon="mdi-monitor" size="14" />
+              {{ t("common.platforms") }}
+            </template>
+          </PlatformSelect>
+          <RSegmentedControl
+            :model-value="platformsLogic"
+            :items="PLATFORM_LOGIC_ITEMS"
+            size="small"
+            class="r-fd__logic"
+            @update:model-value="
+              (v: PlatformFilterLogic) => filter.setPlatformsLogic(v)
+            "
+          />
+        </div>
         <div v-for="s in multiSections" :key="s.label" class="r-fd__multi-row">
           <RSelect
             :model-value="s.selected.value"
@@ -757,16 +753,26 @@ function saveAsSmartCollection() {
 }
 
 /* ── Multi-select rows ───────────────────────────────────────── */
+/* Rows share one column grid so the selects line up even though the
+   platforms toggle has one button fewer. */
 .r-fd__multi-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 8px;
+  row-gap: 14px;
 }
 .r-fd__multi-row {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: end;
-  gap: 8px;
+}
+/* Chrome and Edge below 117 ignore subgrid: size each row on its own. */
+@supports not (grid-template-columns: subgrid) {
+  .r-fd__multi-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 8px;
+  }
 }
 .r-fd__multi-select {
   min-width: 0;
@@ -788,6 +794,7 @@ function saveAsSmartCollection() {
 
 .r-fd__logic {
   flex-shrink: 0;
+  justify-self: end;
   /* Visually align with the select's field box (the stacked label
      sits above, so the row baseline is the field, not the label). */
 }

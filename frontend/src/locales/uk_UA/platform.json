@@ -1,5 +1,6 @@
 {
   "age-rating": "Віковий рейтинг",
+  "attributes": "Атрибути",
   "browse-platform": "Переглянути {platform}",
   "category": "Категорія",
   "change-view": "Змінити вигляд",
@@ -128,7 +129,6 @@
   "show-verified-only": "Лише ROM, перевірені за хешем",
   "status": "Статус",
   "tag": "Позначка",
-  "tags": "Позначки",
   "update-platform-failed": "Не вдалося оновити платформу: {error}",
   "updated": "Платформу оновлено",
   "upload-firmware": "Вивантажити прошивки",

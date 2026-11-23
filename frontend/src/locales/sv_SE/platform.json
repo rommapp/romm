@@ -1,5 +1,6 @@
 {
   "age-rating": "Åldersgradering",
+  "attributes": "Attribut",
   "browse-platform": "Bläddra i {platform}",
   "category": "Kategori",
   "change-view": "Byt vy",
@@ -128,7 +129,6 @@
   "show-verified-only": "Visa bara hashverifierade ROM-filer",
   "status": "Status",
   "tag": "Etikett",
-  "tags": "Etiketter",
   "update-platform-failed": "Kunde inte uppdatera plattformen: {error}",
   "updated": "Plattformen uppdaterades",
   "upload-firmware": "Ladda upp firmware",

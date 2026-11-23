@@ -1,5 +1,6 @@
 {
   "age-rating": "Age rating",
+  "attributes": "Attributes",
   "browse-platform": "Browse {platform}",
   "category": "Category",
   "change-view": "Change view",
@@ -128,7 +129,6 @@
   "show-verified-only": "Show hash-verified ROMs only",
   "status": "Status",
   "tag": "Tag",
-  "tags": "Tags",
   "update-platform-failed": "Failed to update platform: {error}",
   "updated": "Platform updated",
   "upload-firmware": "Upload firmware",
