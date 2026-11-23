@@ -51,6 +51,8 @@ services:
       - MARIADB_DATABASE=${DB_NAME:-romm}
       - MARIADB_USER=${DB_USER:-romm}
       - MARIADB_PASSWORD=${DB_PASSWD:-romm}
+      # Creates the healthcheck user on a volume initialized before it existed.
+      - MARIADB_AUTO_UPGRADE=1
     volumes:
       - romm-db-dev:/var/lib/mysql
     ports:
@@ -60,7 +62,7 @@ services:
       start_period: 30s
       interval: 10s
       timeout: 5s
-      retries: 2
+      retries: 5
 
   romm-valkey-dev:
     image: valkey/valkey:9.0.7
@@ -70,7 +72,7 @@ services:
     ports:
       - "${REDIS_PORT:-6379}:6379"
     healthcheck:
-      test: ["CMD", "valkey-cli", "ping"]
+      test: ["CMD-SHELL", "valkey-cli ping | grep -q PONG"]
       interval: 10s
       timeout: 2s
       retries: 2

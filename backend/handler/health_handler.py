@@ -1,8 +1,4 @@
-"""Whether this API process is serving requests, for the readiness probe.
-
-Each gunicorn worker holds its own flag. It reads nothing, so a probe costs
-nothing and a dependency outage can't get RomM itself restarted.
-"""
+"""Whether this gunicorn worker serves requests, held in memory so a probe reads nothing."""
 
 _ready = False
 

@@ -197,6 +197,18 @@ class TestCSRFMiddleware:
         resp = client.post("/post")
         assert resp.status_code == 200
 
+    def test_cookieless_urls_get_no_csrf_cookie(self) -> None:
+        """A cookieless URL answers without a CSRF cookie, other URLs still get one."""
+        cookieless = TestClient(
+            create_test_app(cookieless_urls=[re.compile(r"^/get$")])
+        )
+        other = TestClient(create_test_app(cookieless_urls=[re.compile(r"^/post$")]))
+
+        resp = cookieless.get("/get")
+        assert resp.status_code == 200
+        assert "csrftoken" not in resp.cookies
+        assert "csrftoken" in other.get("/get").cookies
+
     def test_required_urls(self) -> None:
         """POST to required URLs should always require CSRF even for safe methods."""
         app = create_test_app(required_urls=[re.compile(r"^/get$")], safe_methods=set())
