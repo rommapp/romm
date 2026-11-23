@@ -334,3 +334,213 @@ def test_a_traversal_id_cannot_be_removed(shelf):
         plugin_handler.remove_plugin("../elsewhere")
 
     assert outside.exists()
+
+
+def with_settings(**extra) -> dict:
+    data = manifest()
+    data["settings"] = [
+        {
+            "key": "bridge_url",
+            "label": "Bridge URL",
+            "type": "url",
+            "default": "http://127.0.0.1:8050",
+        },
+        {
+            "key": "limit",
+            "label": "Streams",
+            "type": "number",
+            "default": 2,
+            "min": 1,
+            "max": 16,
+        },
+        {"key": "debug", "label": "Debug", "type": "boolean", "default": False},
+        {
+            "key": "profile",
+            "label": "Profile",
+            "type": "select",
+            "default": "proxy",
+            "options": [{"value": "proxy", "label": "Proxy"}, {"value": "direct"}],
+        },
+    ]
+    data["settings"].append(extra) if extra else None
+    return data
+
+
+def test_a_manifest_describes_the_settings_its_form_shows(shelf):
+    write_plugin(shelf, "rommdeck", with_settings())
+
+    plugin = list_plugins()[0]
+
+    assert [s.key for s in plugin.settings] == [
+        "bridge_url",
+        "limit",
+        "debug",
+        "profile",
+    ]
+    assert plugin.settings[0].type == "url"
+    assert plugin.settings[1].min == 1
+    assert [o.value for o in plugin.settings[3].options] == ["proxy", "direct"]
+
+
+def test_a_setting_without_a_key_is_dropped(shelf):
+    data = with_settings()
+    data["settings"].append({"label": "Nowhere", "type": "text"})
+    write_plugin(shelf, "rommdeck", data)
+
+    assert len(list_plugins()[0].settings) == 4
+
+
+def test_an_unknown_setting_type_drops_the_field(shelf):
+    data = with_settings()
+    data["settings"].append({"key": "odd", "label": "Odd", "type": "color"})
+    write_plugin(shelf, "rommdeck", data)
+
+    assert [s.key for s in list_plugins()[0].settings] == [
+        "bridge_url",
+        "limit",
+        "debug",
+        "profile",
+    ]
+
+
+def test_settings_start_at_the_manifests_defaults(shelf):
+    write_plugin(shelf, "rommdeck", with_settings())
+
+    values = plugin_handler.plugin_settings(list_plugins()[0])
+
+    assert values == {
+        "bridge_url": "http://127.0.0.1:8050",
+        "limit": 2,
+        "debug": False,
+        "profile": "proxy",
+    }
+
+
+def test_saving_settings_writes_them_beside_the_manifest(shelf):
+    write_plugin(shelf, "rommdeck", with_settings())
+    plugin = list_plugins()[0]
+
+    stored = plugin_handler.save_plugin_settings(
+        plugin, {"bridge_url": "http://192.168.86.30:8050", "limit": 4, "debug": True}
+    )
+
+    assert stored["bridge_url"] == "http://192.168.86.30:8050"
+    assert (shelf / "rommdeck" / "settings.json").is_file()
+    assert plugin_handler.plugin_settings(plugin)["limit"] == 4
+    # Left out of the form, so it keeps its default rather than vanishing.
+    assert stored["profile"] == "proxy"
+
+
+def test_a_setting_the_manifest_does_not_declare_is_refused(shelf):
+    write_plugin(shelf, "rommdeck", with_settings())
+
+    with pytest.raises(plugin_handler.PluginRefused):
+        plugin_handler.save_plugin_settings(list_plugins()[0], {"nope": "x"})
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"limit": "four"},
+        {"limit": 99},
+        {"debug": "yes"},
+        {"profile": "other"},
+        {"bridge_url": "not a url"},
+    ],
+)
+def test_a_value_of_the_wrong_shape_is_refused(shelf, values):
+    write_plugin(shelf, "rommdeck", with_settings())
+
+    with pytest.raises(plugin_handler.PluginRefused):
+        plugin_handler.save_plugin_settings(list_plugins()[0], values)
+
+
+def test_a_settings_file_from_another_version_is_pruned(shelf):
+    write_plugin(shelf, "rommdeck", with_settings())
+    (shelf / "rommdeck" / "settings.json").write_text(
+        json.dumps({"bridge_url": 5, "gone": "x", "limit": 3}), encoding="utf-8"
+    )
+
+    values = plugin_handler.plugin_settings(list_plugins()[0])
+
+    assert values["bridge_url"] == "http://127.0.0.1:8050"  # wrong type, default kept
+    assert values["limit"] == 3
+    assert "gone" not in values
+
+
+def test_an_action_can_be_switched_by_a_boolean_setting(shelf):
+    data = with_settings()
+    data["actions"][0]["enabled_by"] = "debug"
+    write_plugin(shelf, "rommdeck", data)
+
+    assert list_plugins()[0].actions[0].enabled_by == "debug"
+
+
+def test_an_action_switched_by_something_that_is_not_a_setting_is_ungated(shelf):
+    data = with_settings()
+    data["actions"][0]["enabled_by"] = "nowhere"
+    write_plugin(shelf, "rommdeck", data)
+
+    assert list_plugins()[0].actions[0].enabled_by is None
+
+
+STORE = {
+    "version": 1,
+    "plugins": [
+        {
+            "id": "rommdeck",
+            "name": "RommDeck",
+            "version": "1.0.0",
+            "description": "Open a game on the machine RommDeck manages.",
+            "manifest_url": "https://example.com/rommdeck/plugin.json",
+            "tags": ["launcher"],
+        },
+        {"id": "broken", "name": "Broken", "manifest_url": "file:///etc/passwd"},
+        {"name": "No id", "manifest_url": "https://example.com/x.json"},
+    ],
+}
+
+
+def test_the_store_lists_what_its_index_names(shelf, monkeypatch):
+    monkeypatch.setattr(plugin_handler, "_fetch_json", lambda url, limit, what: STORE)
+
+    entries = plugin_handler.store_plugins()
+
+    assert [e.id for e in entries] == ["rommdeck"]
+    assert entries[0].manifest_url == "https://example.com/rommdeck/plugin.json"
+    assert entries[0].tags == ["launcher"]
+
+
+def test_an_index_entry_that_is_not_a_web_url_is_skipped(shelf, monkeypatch):
+    monkeypatch.setattr(plugin_handler, "_fetch_json", lambda url, limit, what: STORE)
+
+    assert "broken" not in [e.id for e in plugin_handler.store_plugins()]
+
+
+def test_installing_from_the_store_fetches_its_manifest(shelf, monkeypatch):
+    calls = []
+
+    def fetch(url, limit, what):
+        calls.append(url)
+        if "index" in url:
+            return STORE
+        return manifest()
+
+    monkeypatch.setattr(plugin_handler, "_fetch_json", fetch)
+    monkeypatch.setattr(plugin_handler, "STORE_URL", "https://example.com/index.json")
+
+    installed = plugin_handler.install_from_store("rommdeck")
+
+    assert installed.id == "rommdeck"
+    assert calls == [
+        "https://example.com/index.json",
+        "https://example.com/rommdeck/plugin.json",
+    ]
+    assert [p.id for p in list_plugins()] == ["rommdeck"]
+
+
+def test_the_store_refuses_an_id_it_does_not_list(shelf, monkeypatch):
+    monkeypatch.setattr(plugin_handler, "_fetch_json", lambda url, limit, what: STORE)
+
+    with pytest.raises(plugin_handler.PluginRefused):
+        plugin_handler.install_from_store("nowhere")

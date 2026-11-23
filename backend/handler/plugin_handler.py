@@ -13,6 +13,7 @@ answering even when one folder on the shelf is broken.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import threading
@@ -21,12 +22,34 @@ from typing import Any, Final
 from urllib.parse import urlsplit
 
 import httpx
-
 from config import PLUGINS_BASE_PATH
-from endpoints.responses.plugin import PluginActionSchema, PluginSchema, PluginSlot
+from endpoints.responses.plugin import (
+    PluginActionSchema,
+    PluginSchema,
+    PluginSettingOptionSchema,
+    PluginSettingSchema,
+    PluginSlot,
+    StorePluginSchema,
+)
 from logger.logger import log
 
 MANIFEST_NAME: Final[str] = "plugin.json"
+SETTINGS_NAME: Final[str] = "settings.json"
+
+# The curated index a server offers in Settings, Plugins, Add plugin. A store is
+# a JSON file listing manifests by URL; nothing is fetched until someone opens
+# the store or installs from it.
+STORE_URL: Final[str] = (
+    "https://raw.githubusercontent.com/jkoehler11/romm-plugins/main/index.json"
+)
+MAX_STORE_BYTES: Final[int] = 256 * 1024
+MAX_SETTINGS: Final[int] = 16
+MAX_SETTING_OPTIONS: Final[int] = 12
+MAX_STORE_PLUGINS: Final[int] = 100
+MAX_STORE_TAGS: Final[int] = 6
+SETTING_TYPES: Final[frozenset[str]] = frozenset(
+    {"text", "url", "number", "boolean", "select", "password"}
+)
 
 # A shelf, not a registry: this bounds the directory walk on a share the user
 # controls.
@@ -216,6 +239,30 @@ def _parse_plugin(raw: dict[str, Any], folder: Path) -> PluginSchema | None:
     if homepage and not _is_web_url(homepage):
         homepage = None
 
+    settings: list[PluginSettingSchema] = []
+    raw_settings = raw.get("settings")
+    if isinstance(raw_settings, list):
+        keys: set[str] = set()
+        for raw_setting in raw_settings[:MAX_SETTINGS]:
+            setting = _parse_setting(raw_setting, plugin_id)
+            if setting is None or setting.key in keys:
+                continue
+            keys.add(setting.key)
+            settings.append(setting)
+
+    # An action switched off by a setting needs a boolean setting to switch.
+    for action in actions:
+        gate = action.enabled_by
+        if gate is None:
+            continue
+        setting = next((s for s in settings if s.key == gate), None)
+        if setting is None or setting.type != "boolean":
+            log.warning(
+                f"Plugins: {plugin_id}.{action.id} is switched by {gate!r}, which is "
+                "not a boolean setting"
+            )
+            action.enabled_by = None
+
     return PluginSchema(
         id=plugin_id,
         name=name,
@@ -224,6 +271,7 @@ def _parse_plugin(raw: dict[str, Any], folder: Path) -> PluginSchema | None:
         author=_text(raw.get("author"), MAX_TEXT_LENGTH),
         homepage=homepage,
         actions=actions,
+        settings=settings,
     )
 
 
@@ -260,6 +308,7 @@ def _parse_action(raw: dict[str, Any], plugin_id: str) -> PluginActionSchema | N
         open="same-tab" if open_mode == "same-tab" else "new-tab",
         slot=slot,
         platforms=platforms,
+        enabled_by=_slug(raw.get("enabled_by")) or None,
     )
 
 
@@ -414,7 +463,7 @@ def install_plugin(
     if manifest is None:
         if not url:
             raise PluginRefused("Name a URL or send a manifest")
-        manifest = _fetch_manifest(url)
+        manifest = _fetch_json(url, MAX_MANIFEST_BYTES, "that URL")
 
     folder_name = _slug(manifest.get("id"))
     if not folder_name:
@@ -485,47 +534,293 @@ def remove_plugin(plugin_id: str) -> None:
     log.info(f"Plugins: removed {plugin_id}")
 
 
-def _fetch_manifest(url: str) -> dict[str, Any]:
-    """Read a manifest over the network, refusing anything but a small JSON page.
-
-    Args:
-        url: Where the manifest lives.
-
-    Returns:
-        dict[str, Any]: The manifest body.
-
-    Raises:
-        PluginRefused: The scheme, the status, the size or the JSON is not
-            acceptable.
-    """
-    parsed = urlsplit(url)
-    if parsed.scheme not in WEB_SCHEMES or not parsed.netloc:
-        raise PluginRefused("Only http and https URLs can be fetched")
-
-    try:
-        with httpx.stream("GET", url, timeout=10, follow_redirects=True) as response:
-            if response.status_code != 200:
-                raise PluginRefused(f"The URL answered {response.status_code}")
-            body = b""
-            for chunk in response.iter_bytes():
-                body += chunk
-                if len(body) > MAX_MANIFEST_BYTES:
-                    raise PluginRefused("The URL is larger than a manifest")
-    except PluginRefused:
-        raise
-    except httpx.HTTPError as exc:
-        raise PluginRefused(f"Cannot fetch that URL: {exc}") from exc
-
-    try:
-        raw = json.loads(body.decode("utf-8"))
-    except (UnicodeDecodeError, ValueError) as exc:
-        raise PluginRefused("That URL is not JSON") from exc
-    if not isinstance(raw, dict):
-        raise PluginRefused("A manifest is a JSON object")
-    return raw
-
-
 def _forget(base: Path) -> None:
     """Drop the parsed shelf so the next read sees the new state."""
     with _CACHE_LOCK:
         _CACHE.pop(str(base), None)
+
+
+def _parse_setting(raw: Any, plugin_id: str) -> PluginSettingSchema | None:
+    """One field of a plugin's settings form, as the UI will render it.
+
+    Args:
+        raw: The field, as written.
+        plugin_id: The owning plugin, for the log line.
+
+    Returns:
+        PluginSettingSchema | None: The field, or None when it is unusable.
+    """
+    if not isinstance(raw, dict):
+        return None
+    key = _slug(raw.get("key"))
+    label = _text(raw.get("label"), MAX_LABEL_LENGTH)
+    if not key or not label:
+        log.warning(f"Plugins: {plugin_id} has a setting without a 'key' or 'label'")
+        return None
+
+    kind = raw.get("type", "text")
+    if kind not in SETTING_TYPES:
+        log.warning(f"Plugins: {plugin_id}.{key} has an unknown type {kind!r}")
+        return None
+
+    options: list[PluginSettingOptionSchema] = []
+    if kind == "select":
+        raw_options = raw.get("options")
+        if not isinstance(raw_options, list) or not raw_options:
+            log.warning(f"Plugins: {plugin_id}.{key} is a select with no options")
+            return None
+        for entry in raw_options[:MAX_SETTING_OPTIONS]:
+            if not isinstance(entry, dict):
+                continue
+            value = _text(entry.get("value"), MAX_TEXT_LENGTH)
+            if not value:
+                continue
+            options.append(
+                PluginSettingOptionSchema(
+                    value=value,
+                    label=_text(entry.get("label"), MAX_LABEL_LENGTH) or value,
+                )
+            )
+        if not options:
+            log.warning(f"Plugins: {plugin_id}.{key} has no usable option")
+            return None
+
+    default = raw.get("default")
+    if kind == "boolean":
+        default = bool(default) if default is not None else False
+    elif kind == "number":
+        default = default if isinstance(default, (int, float)) else None
+    else:
+        default = _text(default, MAX_TEXT_LENGTH) if default is not None else None
+
+    return PluginSettingSchema(
+        key=key,
+        label=label,
+        type=kind,
+        default=default,
+        help=_text(raw.get("help"), MAX_TEXT_LENGTH),
+        placeholder=_text(raw.get("placeholder"), MAX_TEXT_LENGTH),
+        options=options,
+        min=raw.get("min") if isinstance(raw.get("min"), (int, float)) else None,
+        max=raw.get("max") if isinstance(raw.get("max"), (int, float)) else None,
+        required=raw.get("required") is True,
+    )
+
+
+def plugin_settings(plugin: PluginSchema) -> dict[str, Any]:
+    """The plugin's saved values, with the manifest's defaults filled in.
+
+    A value the file no longer describes, or one of the wrong type, is dropped:
+    the manifest is the shape, and a settings file outlives the version that
+    wrote it.
+
+    Args:
+        plugin: The plugin as the shelf read it.
+
+    Returns:
+        dict[str, Any]: One value per setting the manifest declares.
+    """
+    saved = _read_settings(Path(PLUGINS_BASE_PATH) / plugin.id / SETTINGS_NAME)
+    values: dict[str, Any] = {}
+    for setting in plugin.settings:
+        # No saved value, or one this version can't use: the manifest's default.
+        if setting.key in saved and _value_fits(setting, saved[setting.key]):
+            values[setting.key] = saved[setting.key]
+        else:
+            values[setting.key] = setting.default
+    return values
+
+
+def save_plugin_settings(
+    plugin: PluginSchema, values: dict[str, Any]
+) -> dict[str, Any]:
+    """Validate values against the manifest and write them beside it.
+
+    Args:
+        plugin: The plugin the values belong to.
+        values: What the form sent, keyed by setting key.
+
+    Returns:
+        dict[str, Any]: The values as they were stored.
+
+    Raises:
+        PluginRefused: A key the manifest doesn't declare, or a value of the
+            wrong type, or the folder can't be written.
+    """
+    known = {setting.key: setting for setting in plugin.settings}
+    stored: dict[str, Any] = {}
+    for key, value in values.items():
+        setting = known.get(key)
+        if setting is None:
+            raise PluginRefused(f"{plugin.name} has no setting called {key}")
+        if not _value_fits(setting, value):
+            raise PluginRefused(f"{setting.label} is not a valid {setting.type}")
+        stored[key] = value
+
+    # Settings the manifest declares but the form left out keep their default,
+    # so a client that knows only half the fields cannot erase the rest.
+    for setting in plugin.settings:
+        if setting.key not in stored:
+            stored[setting.key] = setting.default
+
+    folder = Path(PLUGINS_BASE_PATH) / plugin.id
+    path = folder / SETTINGS_NAME
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        tmp = folder / f".{SETTINGS_NAME}.tmp"
+        tmp.write_text(
+            json.dumps(stored, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        tmp.replace(path)
+    except OSError as exc:
+        raise PluginRefused(f"Cannot save {plugin.name}'s settings: {exc}") from exc
+    log.info(f"Plugins: saved {len(stored)} settings for {plugin.id}")
+    return stored
+
+
+def _read_settings(path: Path) -> dict[str, Any]:
+    """The settings file, or an empty mapping when it is missing or unreadable."""
+    try:
+        if path.stat().st_size > MAX_MANIFEST_BYTES:
+            return {}
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except OSError, ValueError:
+        return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def _value_fits(setting: PluginSettingSchema, value: Any) -> bool:
+    """Whether a value is one this setting can hold.
+
+    Args:
+        setting: The field the value is for.
+        value: What was stored or sent.
+
+    Returns:
+        bool: True when the value matches the field's type.
+    """
+    if value is None:
+        return not setting.required
+    if setting.type == "boolean":
+        return isinstance(value, bool)
+    if setting.type == "number":
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return False
+        if setting.min is not None and value < setting.min:
+            return False
+        return setting.max is None or value <= setting.max
+    if setting.type == "select":
+        return isinstance(value, str) and any(o.value == value for o in setting.options)
+    if setting.type == "url":
+        return isinstance(value, str) and (not value or _is_web_url(value))
+    return isinstance(value, str) and len(value) <= MAX_TEXT_LENGTH
+
+
+def store_plugins() -> list[StorePluginSchema]:
+    """The curated index, as Settings, Plugins lists it.
+
+    The index is a JSON file a repository maintains; a submission there is the
+    only review a plugin gets, which is why installing from it is the same
+    act as installing any other manifest.
+
+    Returns:
+        list[StorePluginSchema]: The plugins the store offers.
+
+    Raises:
+        PluginRefused: The index cannot be fetched or read.
+    """
+    url = os.environ.get("ROMM_PLUGIN_STORE", STORE_URL)
+    raw = _fetch_json(url, MAX_STORE_BYTES, "the plugin store")
+    entries = raw.get("plugins")
+    if not isinstance(entries, list):
+        raise PluginRefused("The plugin store's index lists no plugins")
+
+    plugins: list[StorePluginSchema] = []
+    for entry in entries[:MAX_STORE_PLUGINS]:
+        if not isinstance(entry, dict):
+            continue
+        plugin_id = _slug(entry.get("id"))
+        name = _text(entry.get("name"), MAX_TEXT_LENGTH)
+        manifest_url = _text(entry.get("manifest_url"), MAX_URL_LENGTH)
+        if (
+            not plugin_id
+            or not name
+            or not manifest_url
+            or not _is_web_url(manifest_url)
+        ):
+            continue
+        tags = [
+            _text(tag, MAX_LABEL_LENGTH)
+            for tag in (entry.get("tags") or [])[:MAX_STORE_TAGS]
+            if isinstance(tag, str)
+        ]
+        plugins.append(
+            StorePluginSchema(
+                id=plugin_id,
+                name=name,
+                version=_text(entry.get("version"), MAX_TEXT_LENGTH) or "0.0.0",
+                description=_text(entry.get("description"), MAX_TEXT_LENGTH),
+                author=_text(entry.get("author"), MAX_TEXT_LENGTH),
+                homepage=_text(entry.get("homepage"), MAX_URL_LENGTH),
+                manifest_url=manifest_url,
+                tags=[tag for tag in tags if tag],
+            )
+        )
+    return plugins
+
+
+def install_from_store(plugin_id: str) -> PluginSchema:
+    """Install the store's manifest for this id.
+
+    Args:
+        plugin_id: The id the store lists.
+
+    Returns:
+        PluginSchema: The installed plugin.
+
+    Raises:
+        PluginRefused: The store has no such plugin, or it won't install.
+    """
+    for entry in store_plugins():
+        if entry.id == plugin_id:
+            return install_plugin(url=entry.manifest_url)
+    raise PluginRefused(f"The store has no plugin called {plugin_id}")
+
+
+def _fetch_json(url: str, limit: int, what: str) -> dict[str, Any]:
+    """Read a small JSON document over http(s).
+
+    Args:
+        url: Where it lives.
+        limit: The largest body to accept.
+        what: What the document is, for the refusal message.
+
+    Returns:
+        dict[str, Any]: The body.
+
+    Raises:
+        PluginRefused: The scheme, status, size or JSON is not acceptable.
+    """
+    parsed = urlsplit(url)
+    if parsed.scheme not in WEB_SCHEMES or not parsed.netloc:
+        raise PluginRefused(f"{what} must be an http or https URL")
+    try:
+        with httpx.stream("GET", url, timeout=10, follow_redirects=True) as response:
+            if response.status_code != 200:
+                raise PluginRefused(f"{what} answered {response.status_code}")
+            body = b""
+            for chunk in response.iter_bytes():
+                body += chunk
+                if len(body) > limit:
+                    raise PluginRefused(f"{what} is larger than it should be")
+    except PluginRefused:
+        raise
+    except httpx.HTTPError as exc:
+        raise PluginRefused(f"Cannot fetch {what}: {exc}") from exc
+    try:
+        raw = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise PluginRefused(f"{what} is not JSON") from exc
+    if not isinstance(raw, dict):
+        raise PluginRefused(f"{what} is not a JSON object")
+    return raw
