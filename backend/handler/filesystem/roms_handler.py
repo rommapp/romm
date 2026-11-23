@@ -71,6 +71,7 @@ from utils.filesystem import (
     iter_files,
 )
 from utils.hashing import crc32_to_hex
+from utils.m3u import disc_name_order
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.rom_patcher import is_patch_file_name
 
@@ -377,6 +378,39 @@ def _arcade_set_archive(
     named = [a for a in archives if a[1].stem.lower() == set_name.lower()]
     picked = max(named or archives, key=lambda a: a[0], default=None)
     return picked[1] if picked else None
+
+
+# Disc sheets RAHasher reads with its default CD reader.
+RA_DISC_SHEET_SUFFIXES: Final = (".cue", ".gdi")
+
+
+def _folder_ra_hash_file(
+    entries: Sequence[DirEntry], rom_dir: Path, set_name: str, is_arcade: bool
+) -> Path | None:
+    """Return the file in a folder ROM that RAHasher should hash, or None if it has none.
+
+    RAHasher takes one file and, on Linux, does not expand a wildcard.
+    """
+    if is_arcade and (set_archive := _arcade_set_archive(entries, rom_dir, set_name)):
+        return set_archive
+
+    top_level = [
+        (st.st_size, Path(f_path, file_name))
+        for f_path, file_name, st in entries
+        if f_path == rom_dir and not is_patch_file_name(file_name)
+    ]
+    chds = [f for f in top_level if is_chd_file(f[1])]
+    if chds:
+        return max(chds, key=lambda f: f[0])[1]
+
+    sheets = [
+        f[1] for f in top_level if f[1].name.lower().endswith(RA_DISC_SHEET_SUFFIXES)
+    ]
+    if sheets:
+        return min(sheets, key=lambda p: disc_name_order(p.name))
+
+    largest = max(top_level, key=lambda f: f[0], default=None)
+    return largest[1] if largest else None
 
 
 # File categories that never hold a ROM binary, so sigil has nothing to read.
@@ -945,32 +979,16 @@ class FSRomsHandler(FSHandler):
             if calculate_hashes and top_level_changed:
                 ra_platform = meta_ra_handler.get_platform(rom.platform_slug)
                 if ra_platform and ra_platform["ra_id"]:
-                    # Arcade is hashed by the set's name, which its archive carries. The
-                    # CHD beside it is named after the disc.
-                    set_archive = (
-                        _arcade_set_archive(entries, rom_dir, rom.fs_name)
-                        if ra_platform["ra_id"] == ARCADE_RA_ID
-                        else None
+                    ra_file = _folder_ra_hash_file(
+                        entries,
+                        rom_dir,
+                        rom.fs_name,
+                        is_arcade=ra_platform["ra_id"] == ARCADE_RA_ID,
                     )
-                    # RAHasher can't process CHD files via the /* wildcard and instead expects
-                    # track files (bin/cue/etc.). For a folder holding a CHD, pass the largest
-                    # one directly, matching single-file CHD behaviour.
-                    top_level_chds = [
-                        (st.st_size, Path(f_path, file_name))
-                        for f_path, file_name, st in entries
-                        if f_path == rom_dir and is_chd_file(Path(f_path, file_name))
-                    ]
-                    largest_chd = max(top_level_chds, key=lambda c: c[0], default=None)
-                    if set_archive is not None:
-                        ra_path = str(set_archive)
-                    elif largest_chd:
-                        ra_path = str(largest_chd[1])
-                    else:
-                        ra_path = f"{abs_fs_path}/{rom.fs_name}/*"
-                    rom_ra_h = await RAHasherService().calculate_hash(
-                        ra_platform,
-                        ra_path,
-                    )
+                    if ra_file:
+                        rom_ra_h = await RAHasherService().calculate_hash(
+                            ra_platform, str(ra_file)
+                        )
 
             for f_path, file_name, st in entries:
                 is_top_level = f_path == rom_dir

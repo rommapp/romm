@@ -52,19 +52,27 @@ DISC_TAG_REGEX = re.compile(
 )
 
 
-def disc_number(file: RomFile) -> int | None:
-    """The disc a file's name claims to be (A counts as 1), or None."""
-    match = DISC_TAG_REGEX.search(file.file_name)
+def _name_disc_number(file_name: str) -> int | None:
+    match = DISC_TAG_REGEX.search(file_name)
     if not match:
         return None
     number, letter = match.groups()
     return int(number) if number else ord(letter.lower()) - ord("a") + 1
 
 
-def _disc_order(file: RomFile) -> tuple[bool, int, str]:
+def disc_number(file: RomFile) -> int | None:
+    """The disc a file's name claims to be (A counts as 1), or None."""
+    return _name_disc_number(file.file_name)
+
+
+def disc_name_order(file_name: str) -> tuple[bool, int, str]:
     """Sort numbered discs first and in order, then the rest by name."""
-    number = disc_number(file)
-    return (number is None, number or 0, file.file_name)
+    number = _name_disc_number(file_name)
+    return (number is None, number or 0, file_name)
+
+
+def _disc_order(file: RomFile) -> tuple[bool, int, str]:
+    return disc_name_order(file.file_name)
 
 
 def _playlist_entries(m3u_path: Path) -> list[list[Path]] | None:

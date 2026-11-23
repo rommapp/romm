@@ -1798,12 +1798,25 @@ class TestFSRomsHandler:
             ("arcade", {"azumanga.zip": 4, "naomi.zip": 32}, "azumanga.zip"),
             ("arcade", {"gdl-0018.chd": 64}, "gdl-0018.chd"),
             ("psx", {"bonus.zip": 4, "game.chd": 64}, "game.chd"),
+            ("psx", {"game.cue": 4, "game.bin": 64}, "game.cue"),
+            (
+                "psx",
+                {"game (Disc 2).cue": 4, "game (Disc 1).cue": 4, "game.bin": 64},
+                "game (Disc 1).cue",
+            ),
+            ("dc", {"game.gdi": 4, "track01.bin": 64}, "game.gdi"),
+            ("nes", {"game.nes": 32, "readme.txt": 4, "fix.ips": 64}, "game.nes"),
+            ("nes", {}, None),
         ],
     )
-    async def test_get_rom_files_folder_ra_hash_is_the_arcade_sets(
-        self, tmp_path: Path, slug: str, file_sizes: dict[str, int], hashed: str
+    async def test_get_rom_files_folder_ra_hash_file(
+        self,
+        tmp_path: Path,
+        slug: str,
+        file_sizes: dict[str, int],
+        hashed: str | None,
     ):
-        """An arcade set's RA hash comes from its archive, not the CHD or BIOS beside it."""
+        """A folder ROM's RA hash comes from one file in it, never a wildcard."""
         platform = Platform(name=slug, slug=slug, fs_slug=slug)
         game_dir = tmp_path / slug / "roms" / "azumanga"
         game_dir.mkdir(parents=True)
@@ -1828,8 +1841,11 @@ class TestFSRomsHandler:
         ) as mock_calculate:
             await test_handler.get_rom_files(rom)
 
-        mock_calculate.assert_called_once()
-        assert mock_calculate.call_args.args[1] == f"{game_dir}/{hashed}"
+        if hashed is None:
+            mock_calculate.assert_not_called()
+        else:
+            mock_calculate.assert_called_once()
+            assert mock_calculate.call_args.args[1] == f"{game_dir}/{hashed}"
 
     @staticmethod
     def _setup_archive_rom(
