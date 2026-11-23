@@ -772,6 +772,13 @@ def test_emulatorjs_cache_rejects_non_boolean(tmp_path, value):
     assert excinfo.value.code == 3
 
 
+@pytest.mark.parametrize("value", ["false", "true", "[]", '"off"'])
+def test_emulatorjs_cache_block_rejects_non_mapping(tmp_path, value):
+    with pytest.raises(SystemExit) as excinfo:
+        _write_emulatorjs_config(tmp_path, f"  cache: {value}\n")
+    assert excinfo.value.code == 3
+
+
 def test_null_default_cores_block_means_empty(tmp_path):
     loader = _write_emulatorjs_config(tmp_path, "  default_cores:\n")
 

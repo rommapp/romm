@@ -1174,8 +1174,16 @@ class ConfigManager:
             log.critical("Invalid config.yml: emulatorjs.debug must be a boolean")
             sys.exit(3)
 
+        # A scalar `cache` block would otherwise fall back to the default unnoticed.
+        cache_block = get_nested(self._raw_config, "emulatorjs.cache")
+        if cache_block is not None and not isinstance(cache_block, dict):
+            log.critical("Invalid config.yml: emulatorjs.cache must be a dictionary")
+            sys.exit(3)
+
         if not isinstance(self.config.EJS_CACHE_ENABLED, bool):
-            log.critical("Invalid config.yml: emulatorjs.cache.enabled must be a boolean")
+            log.critical(
+                "Invalid config.yml: emulatorjs.cache.enabled must be a boolean"
+            )
             sys.exit(3)
 
         if not isinstance(self.config.EJS_NETPLAY_ENABLED, bool):

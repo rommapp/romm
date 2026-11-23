@@ -118,6 +118,7 @@ export type EjsConfig = Pick<
   | "EJS_netplayICEServers"
   | "EJS_DEBUG_XX"
   | "EJS_cacheConfig"
+  | "EJS_disableDatabases"
   | "EJS_disableAutoUnload"
   | "EJS_disableBatchBootup"
 > &
@@ -225,7 +226,9 @@ export function buildEjsConfig(input: EjsConfigInput): EjsConfig {
       ? config.EJS_NETPLAY_ICE_SERVERS
       : [],
     EJS_DEBUG_XX: config.EJS_DEBUG,
+    // Nightly reads the cache switch from EJS_cacheConfig, 4.2.3 only from EJS_disableDatabases.
     EJS_cacheConfig: { enabled: config.EJS_CACHE_ENABLED },
+    EJS_disableDatabases: !config.EJS_CACHE_ENABLED,
     EJS_disableAutoUnload: config.EJS_DISABLE_AUTO_UNLOAD,
     EJS_disableBatchBootup: config.EJS_DISABLE_BATCH_BOOTUP,
     ...(config.EJS_CACHE_LIMIT !== null
