@@ -53,6 +53,7 @@ from models.base import (
     BaseModel,
     compute_file_name_parts,
 )
+from models.limits import ROM_SHA1_MAX_LENGTH, TITLE_ID_MAX_LENGTH
 from utils import valid_youtube_id
 from utils.age_ratings import MIN_AGE_SOURCE_COLUMNS, compute_min_age
 from utils.database import CustomJSON, is_non_blank
@@ -63,9 +64,6 @@ NAME_SORT_KEY_MAX_LENGTH = 500
 FULL_PATH_HASH_LENGTH = 64
 # Max length for free-text audio tag columns (title/artist/album).
 AUDIO_TAG_MAX_LENGTH = 512
-# Max length for the binary identity columns (title id and save target).
-TITLE_ID_MAX_LENGTH = 100
-ROM_SHA1_MAX_LENGTH = 100
 
 # Every provider's metadata column; `manual_metadata` holds the user's own overrides.
 PROVIDER_METADATA_COLUMNS: Final = (

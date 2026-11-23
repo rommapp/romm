@@ -14,7 +14,7 @@ from config import ROM_CONVERTO_ENABLED, ROM_CONVERTO_TIMEOUT
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import TITLE_ID_MAX_LENGTH
+from models.limits import TITLE_ID_MAX_LENGTH
 from utils.filesystem import SERVED_FILE_MODE
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
