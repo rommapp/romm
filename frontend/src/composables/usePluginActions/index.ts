@@ -53,14 +53,17 @@ export function expandPluginUrl(
   );
 }
 
-/** Whether a setting that gates an action is switched on. An action with no
- *  gate is always offered; one gated by a setting that doesn't exist is not. */
+/** Whether a setting that gates an action is switched on.
+ *
+ *  Only an explicit `false` closes the gate. A setting that has not been read
+ *  yet is not a user saying no, and hiding a button the moment a page renders
+ *  would make the same plugin appear on one page and not the next. */
 export function gateOpen(
   enabledBy: string | null | undefined,
   settings: Record<string, unknown>,
 ): boolean {
   if (!enabledBy) return true;
-  return settings[enabledBy] === true;
+  return settings[enabledBy] !== false;
 }
 
 /** Whether an action's platform list covers this rom. An empty list is every
@@ -125,7 +128,6 @@ export function usePluginActions(getRom: () => SimpleRom | null | undefined): {
 
   /** The actions that offer a way to start the game, for the Play menu. */
   const playActions = computed<PluginAction[]>(() => forSlot("game.play"));
-
   /** Hand the URL to the browser, which hands a custom scheme to the OS.
    *
    * Args:

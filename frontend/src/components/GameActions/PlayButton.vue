@@ -20,6 +20,8 @@ import type { SimpleRom } from "@/stores/roms";
 const props = defineProps<{
   rom: SimpleRom;
   size: "default" | "large";
+  /** Draw the button without its label, for a card overlay or a ribbon. */
+  labelled?: boolean;
 }>();
 
 const { t } = useI18n();
@@ -94,9 +96,9 @@ function onPlay(): void {
     v-if="targets.length > 0"
     :rom="rom"
     action="play"
+    :with-label="labelled !== false"
     :size="size"
     variant="emphasized"
-    with-label
     :link="rommOnly"
     :manual="!rommOnly"
     :chevron="targets.length > 1"

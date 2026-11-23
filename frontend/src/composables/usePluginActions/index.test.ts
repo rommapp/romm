@@ -147,9 +147,13 @@ describe("usePluginActions: settings", () => {
     expect(gateOpen(undefined, {})).toBe(true);
   });
 
-  it("treats a gate whose setting is missing as closed", () => {
-    expect(gateOpen("show", {})).toBe(false);
-    expect(gateOpen("show", { show: "true" })).toBe(false);
+  it("treats a gate whose setting has not been read as open", () => {
+    expect(gateOpen("show", {})).toBe(true);
+  });
+
+  it("closes only on an explicit no", () => {
+    expect(gateOpen("show", { show: false })).toBe(false);
+    expect(gateOpen("show", { show: true })).toBe(true);
   });
 });
 

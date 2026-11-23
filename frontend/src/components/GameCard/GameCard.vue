@@ -42,6 +42,7 @@ import { computed, provide, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import GameActionBtn from "@/components/GameActions/GameActionBtn.vue";
+import PlayButton from "@/components/GameActions/PlayButton.vue";
 import CardFlags from "@/components/GameCard/CardFlags.vue";
 import SiblingBadge from "@/components/GameCard/SiblingBadge.vue";
 import CoverArtPip from "@/components/shared/CoverArtPip.vue";
@@ -476,12 +477,11 @@ function onCardKeydown(e: KeyboardEvent) {
         <!-- Hover overlay: action buttons are the shared GameActionBtn. -->
         <div class="r-gc__overlay">
           <div class="r-gc__overlay-center">
-            <GameActionBtn
-              v-if="actions?.canPlayLocally.value"
-              :rom="rom"
-              action="play"
-              variant="emphasized"
-            />
+            <!-- Play, from RomM or a plugin: the shared button decides
+                 between playing here and handing the game to something else,
+                 so a card whose platform the browser cannot run still gets one
+                 when a plugin handles it. -->
+            <PlayButton :rom="rom" size="default" :labelled="false" />
             <GameActionBtn
               v-if="actions?.canPlayStream.value"
               :rom="rom"

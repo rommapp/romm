@@ -363,6 +363,15 @@ function clearAllStatus() {
 // Modified and non-primary clicks on a launch anchor stay with the browser
 // (new tab); plain ones still go through `play()` for its confirmation and
 // cover morph.
+/** Hand a press to the parent, without letting the card around this button
+ *  also act on it: on a card the whole cover is a link, so a Play that opens a
+ *  choice has to keep the press to itself. */
+function onActivate(e: MouseEvent): void {
+  e.preventDefault();
+  e.stopPropagation();
+  emit("activate");
+}
+
 function onClick(e: MouseEvent) {
   if (props.action === "more" || props.action === "status") return;
   if (linkHref.value && (e.button !== 0 || opensInNewContext(e))) return;
@@ -553,7 +562,7 @@ function onClick(e: MouseEvent) {
       },
     ]"
     :aria-label="label ?? preset.label"
-    @click="manual ? emit('activate') : onClick()"
+    @click="manual ? onActivate($event) : onClick()"
   >
     <img
       v-if="preset.image"
