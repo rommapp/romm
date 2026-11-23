@@ -1784,6 +1784,46 @@ class TestFSRomsHandler:
             "Final Fantasy VII.m3u": "",
         }
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("slug", "file_names", "hashed"),
+        [
+            ("arcade", ["azumanga.zip", "gdl-0018.chd"], "*"),
+            ("arcade", ["azumanga.7z", "gdl-0018.chd"], "*"),
+            ("arcade", ["gdl-0018.chd"], "gdl-0018.chd"),
+            ("psx", ["bonus.zip", "game.chd"], "game.chd"),
+        ],
+    )
+    async def test_get_rom_files_folder_ra_hash_is_the_arcade_sets(
+        self, tmp_path: Path, slug: str, file_names: list[str], hashed: str
+    ):
+        """An arcade set's RA hash comes from its archive, not the CHD beside it."""
+        platform = Platform(name=slug, slug=slug, fs_slug=slug)
+        game_dir = tmp_path / slug / "roms" / "azumanga"
+        game_dir.mkdir(parents=True)
+        for file_name in file_names:
+            (game_dir / file_name).write_bytes(b"MComprHD")
+
+        test_handler = FSRomsHandler()
+        test_handler.base_path = tmp_path
+
+        rom = Rom(
+            id=1,
+            fs_name="azumanga",
+            fs_extension="",
+            fs_path=f"{slug}/roms",
+            platform=platform,
+        )
+
+        with patch(
+            "adapters.services.rahasher.RAHasherService.calculate_hash",
+            return_value="",
+        ) as mock_calculate:
+            await test_handler.get_rom_files(rom)
+
+        mock_calculate.assert_called_once()
+        assert mock_calculate.call_args.args[1] == f"{game_dir}/{hashed}"
+
     @staticmethod
     def _setup_archive_rom(
         tmp_path: Path, platform: Platform, fs_name: str, fs_extension: str, data: bytes

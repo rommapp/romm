@@ -65,7 +65,11 @@ from utils.archives import (
     read_tar_archive_files,
     read_zip_archive_files,
 )
-from utils.filesystem import ARCHIVE_FORMAT_BY_SUFFIX, iter_files
+from utils.filesystem import (
+    ARCHIVE_FORMAT_BY_SUFFIX,
+    COMPRESSED_FILE_SUFFIXES,
+    iter_files,
+)
 from utils.hashing import crc32_to_hex
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.rom_patcher import is_patch_file_name
@@ -809,7 +813,7 @@ class FSRomsHandler(FSHandler):
                 when its top level changed, so unchanged files are not reread.
             cnfg: The config to read, so a scan can load it once.
         """
-        from adapters.services.rahasher import RAHasherService
+        from adapters.services.rahasher import ARCADE_RA_ID, RAHasherService
         from handler.metadata import meta_ra_handler
 
         # The rom's stored directory is the source of truth for its location, so
@@ -933,9 +937,16 @@ class FSRomsHandler(FSHandler):
                         if f_path == rom_dir and is_chd_file(Path(f_path, file_name))
                     ]
                     largest_chd = max(top_level_chds, key=lambda c: c[0], default=None)
+                    # Arcade is hashed by the set's name, which its archive carries. The
+                    # CHD beside it is named after the disc.
+                    hash_archive = ra_platform["ra_id"] == ARCADE_RA_ID and any(
+                        f_path == rom_dir
+                        and file_name.lower().endswith(COMPRESSED_FILE_SUFFIXES)
+                        for f_path, file_name, _ in entries
+                    )
                     ra_path = (
                         str(largest_chd[1])
-                        if largest_chd
+                        if largest_chd and not hash_archive
                         else f"{abs_fs_path}/{rom.fs_name}/*"
                     )
                     rom_ra_h = await RAHasherService().calculate_hash(
