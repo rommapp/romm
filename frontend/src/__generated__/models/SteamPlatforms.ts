@@ -3,7 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type SteamPlatforms = {
-  windows: boolean;
-  mac: boolean;
-  linux: boolean;
+    windows: boolean;
+    mac: boolean;
+    linux: boolean;
 };
+

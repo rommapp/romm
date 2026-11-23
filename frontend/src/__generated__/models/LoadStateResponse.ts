@@ -3,8 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export type LoadStateResponse = {
-  status: string;
-  loaded: boolean;
-  slot: number;
-  platform: string;
+    status: string;
+    loaded: boolean;
+    slot: number;
+    platform: string;
 };
+

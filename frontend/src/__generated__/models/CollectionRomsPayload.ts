@@ -3,5 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type CollectionRomsPayload = {
-  rom_ids: Array<number>;
+    rom_ids: Array<number>;
 };
+

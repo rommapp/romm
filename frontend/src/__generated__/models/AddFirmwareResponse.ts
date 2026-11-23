@@ -2,8 +2,9 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { FirmwareSchema } from "./FirmwareSchema";
+import type { FirmwareSchema } from './FirmwareSchema';
 export type AddFirmwareResponse = {
-  uploaded: number;
-  firmware: Array<FirmwareSchema>;
+    uploaded: number;
+    firmware: Array<FirmwareSchema>;
 };
+

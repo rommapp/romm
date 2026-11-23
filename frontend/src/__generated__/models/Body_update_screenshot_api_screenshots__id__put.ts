@@ -3,5 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type Body_update_screenshot_api_screenshots__id__put = {
-  is_public: boolean;
+    is_public: boolean;
 };
+

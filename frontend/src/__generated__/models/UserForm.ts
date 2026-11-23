@@ -3,13 +3,14 @@
 /* tslint:disable */
 /* eslint-disable */
 export type UserForm = {
-  username?: string | null;
-  password?: string | null;
-  current_password?: string | null;
-  email?: string | null;
-  role?: string | null;
-  enabled?: boolean | null;
-  ra_username?: string | null;
-  avatar?: string | null;
-  ui_settings?: string | null;
+    username?: (string | null);
+    password?: (string | null);
+    current_password?: (string | null);
+    email?: (string | null);
+    role?: (string | null);
+    enabled?: (boolean | null);
+    ra_username?: (string | null);
+    avatar?: (string | null);
+    ui_settings?: (string | null);
 };
+

@@ -3,8 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export type MemoryCardCreatePayload = {
-  name: string;
-  emulator: string;
-  platform_id?: number | null;
-  is_public?: boolean;
+    name: string;
+    emulator: string;
+    platform_id?: (number | null);
+    is_public?: boolean;
 };
+

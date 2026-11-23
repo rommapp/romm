@@ -3,9 +3,10 @@
 /* tslint:disable */
 /* eslint-disable */
 export type DeviceSyncSchema = {
-  device_id: string;
-  device_name: string | null;
-  last_synced_at: string;
-  is_untracked: boolean;
-  is_current: boolean;
+    device_id: string;
+    device_name: (string | null);
+    last_synced_at: string;
+    is_untracked: boolean;
+    is_current: boolean;
 };
+

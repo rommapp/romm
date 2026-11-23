@@ -2,7 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { ScanStats } from "./ScanStats";
+import type { ScanStats } from './ScanStats';
 export type ScanTaskMeta = {
-  scan_stats: ScanStats | null;
+    scan_stats: (ScanStats | null);
 };
+

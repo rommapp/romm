@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type SaveAndExitRequest = {
-  slot?: number;
-  wait?: boolean;
+    slot?: number;
+    wait?: boolean;
 };
+

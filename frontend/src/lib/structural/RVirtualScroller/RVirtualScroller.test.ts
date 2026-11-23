@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import { stubResizeObserver } from "@/test-utils/resizeObserver";
 import RVirtualScroller from "./RVirtualScroller.vue";
@@ -195,6 +195,144 @@ describe("RVirtualScroller scrollTo", () => {
 
     expect(wrapper.element.scrollTop).toBe(0);
     expect(wrapper.vm.scrollTop).toBe(0);
+    wrapper.unmount();
+  });
+});
+
+describe("RVirtualScroller pageScroll", () => {
+  const many = Array.from({ length: 50 }, (_, id) => ({ id }));
+  let pageY = 0;
+
+  function setPageScroll(top: number) {
+    pageY = top;
+    Object.defineProperty(window, "scrollY", {
+      configurable: true,
+      get: () => pageY,
+    });
+  }
+
+  async function mountPage() {
+    setPageScroll(0);
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      value: VIEWPORT_H,
+    });
+    const wrapper = mount(RVirtualScroller, {
+      attachTo: document.body,
+      props: {
+        items: many,
+        getItemHeight: () => ROW_H,
+        overscan: 0,
+        pageScroll: true,
+      },
+      slots: { default: `<div class="row" />` },
+    });
+    await nextTick();
+    return wrapper;
+  }
+
+  it("windows the rows on the document's scroll", async () => {
+    const wrapper = await mountPage();
+    expect(tops(wrapper)).toEqual([0, 100, 200, 300, 400]);
+
+    setPageScroll(2000);
+    window.dispatchEvent(new Event("scroll"));
+    await nextTick();
+
+    expect(wrapper.vm.scrollTop).toBe(2000);
+    expect(tops(wrapper)[0]).toBe(2000);
+    wrapper.unmount();
+  });
+
+  it("lets the list take its full height instead of scrolling itself", async () => {
+    const wrapper = await mountPage();
+    const style = wrapper.attributes("style") ?? "";
+    expect(style).toContain("overflow: visible");
+    expect(style).not.toContain("height");
+    wrapper.unmount();
+  });
+
+  it("tracks how far down the page the list starts", async () => {
+    const ro = stubResizeObserver();
+    const wrapper = await mountPage();
+    const inner = wrapper.get(".r-virtual-scroller__inner").element;
+    // The list's page offset: whatever sits above it in the document.
+    let above = 0;
+    vi.spyOn(inner, "getBoundingClientRect").mockImplementation(
+      () => ({ top: above - window.scrollY }) as DOMRect,
+    );
+
+    above = 1000;
+    ro.resize(document.body, 0, 6000);
+    setPageScroll(1300);
+    window.dispatchEvent(new Event("scroll"));
+    await nextTick();
+    expect(tops(wrapper)[0]).toBe(300);
+
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    wrapper.vm.scrollToIndex(10);
+    expect(scrollTo).toHaveBeenLastCalledWith({
+      top: 2000,
+      behavior: "instant",
+    });
+
+    // Content above the list grows: the rows and the jump target follow it.
+    above = 1500;
+    ro.resize(document.body, 0, 6500);
+    await nextTick();
+    expect(tops(wrapper)[0]).toBe(0);
+    wrapper.vm.scrollToIndex(10);
+    expect(scrollTo).toHaveBeenLastCalledWith({
+      top: 2500,
+      behavior: "instant",
+    });
+
+    scrollTo.mockRestore();
+    wrapper.unmount();
+  });
+
+  it("counts only the rows inside the viewport when the list starts below its top", async () => {
+    const ro = stubResizeObserver();
+    const wrapper = await mountPage();
+    const inner = wrapper.get(".r-virtual-scroller__inner").element;
+    let above = 350;
+    vi.spyOn(inner, "getBoundingClientRect").mockImplementation(
+      () => ({ top: above - window.scrollY }) as DOMRect,
+    );
+    ro.resize(document.body, 0, 6000);
+    await nextTick();
+    // 150px of a 500px viewport shows the list: rows 0 and 1.
+    expect(tops(wrapper)).toEqual([0, 100]);
+
+    // Entirely below the viewport: nothing to render or fetch.
+    above = 800;
+    ro.resize(document.body, 0, 6000);
+    await nextTick();
+    expect(tops(wrapper)).toEqual([]);
+    expect(wrapper.emitted("update:viewportRange")?.at(-1)?.[0]).toEqual({
+      first: 0,
+      last: -1,
+    });
+    wrapper.unmount();
+  });
+
+  it("scrolls the window", async () => {
+    const wrapper = await mountPage();
+    const scrollTo = vi
+      .spyOn(window, "scrollTo")
+      .mockImplementation(((opts: ScrollToOptions) =>
+        setPageScroll(opts.top ?? 0)) as typeof window.scrollTo);
+
+    wrapper.vm.scrollTo(700);
+    expect(scrollTo).toHaveBeenCalledWith({ top: 700, behavior: "instant" });
+    expect(wrapper.vm.scrollTop).toBe(700);
+
+    wrapper.vm.scrollToIndex(10, { smooth: true, stickyOffset: 50 });
+    expect(scrollTo).toHaveBeenLastCalledWith({
+      top: 950,
+      behavior: "smooth",
+    });
+    scrollTo.mockRestore();
     wrapper.unmount();
   });
 });

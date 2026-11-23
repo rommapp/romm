@@ -3,7 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type ConversionStats = {
-  processed: number;
-  errors: number;
-  total: number;
+    processed: number;
+    errors: number;
+    total: number;
 };
+

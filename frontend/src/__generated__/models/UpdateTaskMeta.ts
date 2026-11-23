@@ -2,7 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { UpdateStats } from "./UpdateStats";
+import type { UpdateStats } from './UpdateStats';
 export type UpdateTaskMeta = {
-  update_stats: UpdateStats | null;
+    update_stats: (UpdateStats | null);
 };
+

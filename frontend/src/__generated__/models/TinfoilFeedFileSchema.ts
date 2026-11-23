@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type TinfoilFeedFileSchema = {
-  url: string;
-  size: number;
+    url: string;
+    size: number;
 };
+

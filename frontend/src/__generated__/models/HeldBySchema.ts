@@ -2,8 +2,9 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { DeviceRefSchema } from "./DeviceRefSchema";
+import type { DeviceRefSchema } from './DeviceRefSchema';
 export type HeldBySchema = {
-  device: DeviceRefSchema;
-  synced_at: string;
+    device: DeviceRefSchema;
+    synced_at: string;
 };
+

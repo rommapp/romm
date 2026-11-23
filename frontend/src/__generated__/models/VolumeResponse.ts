@@ -3,7 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type VolumeResponse = {
-  status: string;
-  level: number;
-  platform: string;
+    status: string;
+    level: number;
+    platform: string;
 };
+

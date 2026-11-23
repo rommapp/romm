@@ -3,7 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type DeviceCreateResponse = {
-  device_id: string;
-  name: string | null;
-  created_at: string;
+    device_id: string;
+    name: (string | null);
+    created_at: string;
 };
+

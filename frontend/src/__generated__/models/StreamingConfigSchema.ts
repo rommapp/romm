@@ -2,9 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { StreamingContainerSchema } from "./StreamingContainerSchema";
+import type { StreamingContainerSchema } from './StreamingContainerSchema';
 export type StreamingConfigSchema = {
-  enabled: boolean;
-  containers: Array<StreamingContainerSchema>;
-  emulator_labels: Record<string, string>;
+    enabled: boolean;
+    containers: Array<StreamingContainerSchema>;
+    emulator_labels: Record<string, string>;
 };
+

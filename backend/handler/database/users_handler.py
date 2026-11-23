@@ -152,6 +152,27 @@ class DBUsersHandler(DBBaseHandler):
         return affected_rows(result) > 0
 
     @begin_session
+    def replace_avatar_path(
+        self,
+        id: int,
+        expected: str,
+        avatar_path: str,
+        session: Session = INJECTED_SESSION,
+    ) -> bool:
+        """Set the avatar path if the user's current one is still `expected`.
+
+        Returns:
+            Whether the avatar path was set.
+        """
+        result = session.execute(
+            update(User)
+            .where(User.id == id, User.avatar_path == expected)
+            .values(avatar_path=avatar_path)
+            .execution_options(synchronize_session=False)
+        )
+        return affected_rows(result) > 0
+
+    @begin_session
     def update_last_active(
         self,
         id: int,

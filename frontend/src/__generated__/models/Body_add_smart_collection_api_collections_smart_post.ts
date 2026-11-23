@@ -3,16 +3,17 @@
 /* tslint:disable */
 /* eslint-disable */
 export type Body_add_smart_collection_api_collections_smart_post = {
-  /**
-   * The name of the collection.
-   */
-  name?: string;
-  /**
-   * The description of the collection.
-   */
-  description?: string;
-  /**
-   * Smart collection filters as a JSON string.
-   */
-  filter_criteria?: string;
+    /**
+     * The name of the collection.
+     */
+    name?: string;
+    /**
+     * The description of the collection.
+     */
+    description?: string;
+    /**
+     * Smart collection filters as a JSON string.
+     */
+    filter_criteria?: string;
 };
+

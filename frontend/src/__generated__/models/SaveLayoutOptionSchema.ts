@@ -7,13 +7,14 @@
  * value; a `default` of "" means the files need the option set.
  */
 export type SaveLayoutOptionSchema = {
-  key: string;
-  /**
-   * The allowed values. Empty for a free-form value.
-   */
-  values: Array<string>;
-  /**
-   * The default value. Empty when the option has no default and must be set.
-   */
-  default: string;
+    key: string;
+    /**
+     * The allowed values. Empty for a free-form value.
+     */
+    values: Array<string>;
+    /**
+     * The default value. Empty when the option has no default and must be set.
+     */
+    default: string;
 };
+

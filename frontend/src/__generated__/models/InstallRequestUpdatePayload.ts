@@ -2,8 +2,9 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { InstallStatus } from "./InstallStatus";
+import type { InstallStatus } from './InstallStatus';
 export type InstallRequestUpdatePayload = {
-  status: InstallStatus;
-  reason?: string | null;
+    status: InstallStatus;
+    reason?: (string | null);
 };
+

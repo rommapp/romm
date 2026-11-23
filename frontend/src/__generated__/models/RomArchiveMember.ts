@@ -3,9 +3,10 @@
 /* tslint:disable */
 /* eslint-disable */
 export type RomArchiveMember = {
-  name: string;
-  size: number;
-  crc_hash: string;
-  md5_hash: string;
-  sha1_hash: string;
+    name: string;
+    size: number;
+    crc_hash: string;
+    md5_hash: string;
+    sha1_hash: string;
 };
+

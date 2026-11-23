@@ -2,5 +2,4 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type ScanType =
-  "new_platforms" | "quick" | "update" | "unmatched" | "complete" | "hashes";
+export type ScanType = 'new_platforms' | 'quick' | 'update' | 'unmatched' | 'complete' | 'hashes';

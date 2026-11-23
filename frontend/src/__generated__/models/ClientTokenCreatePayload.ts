@@ -3,7 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type ClientTokenCreatePayload = {
-  name: string;
-  scopes: Array<string>;
-  expires_in?: string | null;
+    name: string;
+    scopes: Array<string>;
+    expires_in?: (string | null);
 };
+

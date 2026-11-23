@@ -2,4 +2,4 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type SyncMode = "api" | "file_transfer" | "push_pull";
+export type SyncMode = 'api' | 'file_transfer' | 'push_pull';

@@ -3,7 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type SetupPlatformsResponse = {
-  success: boolean;
-  created_count: number;
-  message: string;
+    success: boolean;
+    created_count: number;
+    message: string;
 };
+

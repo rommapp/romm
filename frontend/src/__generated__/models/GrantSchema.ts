@@ -2,9 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { ActionKey } from "./ActionKey";
-import type { PermissionScopeSchema } from "./PermissionScopeSchema";
+import type { ActionKey } from './ActionKey';
+import type { PermissionScopeSchema } from './PermissionScopeSchema';
 export type GrantSchema = {
-  action: ActionKey;
-  scope: PermissionScopeSchema;
+    action: ActionKey;
+    scope: PermissionScopeSchema;
 };
+

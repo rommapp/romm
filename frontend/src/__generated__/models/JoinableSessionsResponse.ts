@@ -2,7 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { JoinableSessionSchema } from "./JoinableSessionSchema";
+import type { JoinableSessionSchema } from './JoinableSessionSchema';
 export type JoinableSessionsResponse = {
-  sessions: Array<JoinableSessionSchema>;
+    sessions: Array<JoinableSessionSchema>;
 };
+

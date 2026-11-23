@@ -2,4 +2,4 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type AuditActorKind = "user" | "anonymous" | "system";
+export type AuditActorKind = 'user' | 'anonymous' | 'system';

@@ -5,4 +5,4 @@
 /**
  * The least severe notification a channel forwards; success ranks as info.
  */
-export type NotificationChannelMinLevel = "info" | "warning" | "error";
+export type NotificationChannelMinLevel = 'info' | 'warning' | 'error';

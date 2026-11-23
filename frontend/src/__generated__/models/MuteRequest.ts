@@ -3,5 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type MuteRequest = {
-  mute?: boolean | null;
+    mute?: (boolean | null);
 };
+

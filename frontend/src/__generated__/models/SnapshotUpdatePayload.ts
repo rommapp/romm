@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type SnapshotUpdatePayload = {
-  is_pinned?: boolean | null;
-  is_public?: boolean | null;
+    is_pinned?: (boolean | null);
+    is_public?: (boolean | null);
 };
+

@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type DeviceAuthApproveResponse = {
-  device_id: string;
-  device_name: string | null;
+    device_id: string;
+    device_name: (string | null);
 };
+

@@ -3,9 +3,10 @@
 /* tslint:disable */
 /* eslint-disable */
 export type SyncPlaySessionEntry = {
-  rom_id?: number | null;
-  save_slot?: string | null;
-  start_time: string;
-  end_time: string;
-  duration_ms: number;
+    rom_id?: (number | null);
+    save_slot?: (string | null);
+    start_time: string;
+    end_time: string;
+    duration_ms: number;
 };
+

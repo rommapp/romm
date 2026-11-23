@@ -2,4 +2,4 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type SnapshotKind = "channel" | "archival" | "branch";
+export type SnapshotKind = 'channel' | 'archival' | 'branch';

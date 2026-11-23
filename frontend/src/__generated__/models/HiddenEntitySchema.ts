@@ -2,8 +2,9 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { PermEntity } from "./PermEntity";
+import type { PermEntity } from './PermEntity';
 export type HiddenEntitySchema = {
-  entity: PermEntity;
-  entity_id: number;
+    entity: PermEntity;
+    entity_id: number;
 };
+

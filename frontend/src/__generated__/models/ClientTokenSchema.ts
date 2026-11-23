@@ -3,12 +3,13 @@
 /* tslint:disable */
 /* eslint-disable */
 export type ClientTokenSchema = {
-  id: number;
-  name: string;
-  scopes: Array<string>;
-  expires_at: string | null;
-  last_used_at: string | null;
-  created_at: string;
-  user_id: number;
-  device_id?: string | null;
+    id: number;
+    name: string;
+    scopes: Array<string>;
+    expires_at: (string | null);
+    last_used_at: (string | null);
+    created_at: string;
+    user_id: number;
+    device_id?: (string | null);
 };
+

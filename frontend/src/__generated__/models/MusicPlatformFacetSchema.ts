@@ -6,8 +6,9 @@
  * A platform that has soundtrack tracks, plus how many it has.
  */
 export type MusicPlatformFacetSchema = {
-  id: number;
-  slug: string;
-  name: string;
-  count: number;
+    id: number;
+    slug: string;
+    name: string;
+    count: number;
 };
+

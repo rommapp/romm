@@ -3,7 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type SystemDict = {
-  VERSION: string;
-  GIT_BRANCH: string | null;
-  SHOW_SETUP_WIZARD: boolean;
+    VERSION: string;
+    GIT_BRANCH: (string | null);
+    SHOW_SETUP_WIZARD: boolean;
 };
+

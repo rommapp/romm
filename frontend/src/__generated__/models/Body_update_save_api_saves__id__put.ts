@@ -3,12 +3,13 @@
 /* tslint:disable */
 /* eslint-disable */
 export type Body_update_save_api_saves__id__put = {
-  /**
-   * Updated save file content.
-   */
-  saveFile?: string | null;
-  /**
-   * Updated screenshot file.
-   */
-  screenshotFile?: string | null;
+    /**
+     * Updated save file content.
+     */
+    saveFile?: (string | null);
+    /**
+     * Updated screenshot file.
+     */
+    screenshotFile?: (string | null);
 };
+

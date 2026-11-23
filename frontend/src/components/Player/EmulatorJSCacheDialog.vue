@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // v2 EmulatorJSCacheDialog: confirmation for clearing the EJS IndexedDB
-// caches (saves / roms / core / states). Emitter-driven.
+// caches (saves, states, and the 4.2.3 and nightly download caches). Emitter-driven.
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useEmitterEvent } from "@/composables/useEmitterEvent";
@@ -19,8 +19,10 @@ useEmitterEvent("openEmulatorJSCacheDialog", openHandler);
 function clearIndexDB() {
   window.indexedDB.deleteDatabase("/data/saves");
   window.indexedDB.deleteDatabase("EmulatorJS-roms");
+  window.indexedDB.deleteDatabase("EmulatorJS-bios");
   window.indexedDB.deleteDatabase("EmulatorJS-core");
   window.indexedDB.deleteDatabase("EmulatorJS-states");
+  window.indexedDB.deleteDatabase("EmulatorJS-Cache");
   closeDialog();
 }
 

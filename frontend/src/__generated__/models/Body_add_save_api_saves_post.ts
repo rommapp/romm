@@ -3,12 +3,13 @@
 /* tslint:disable */
 /* eslint-disable */
 export type Body_add_save_api_saves_post = {
-  /**
-   * Save file to upload.
-   */
-  saveFile: string;
-  /**
-   * Screenshot file associated with this save.
-   */
-  screenshotFile?: string | null;
+    /**
+     * Save file to upload.
+     */
+    saveFile: string;
+    /**
+     * Screenshot file associated with this save.
+     */
+    screenshotFile?: (string | null);
 };
+

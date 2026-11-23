@@ -9,13 +9,14 @@
  * that simply expired leaves no notice.
  */
 export type SessionTerminationSchema = {
-  ended_by?: string | null;
-  reason?: string | null;
-  ended_at?: string | null;
-  platform?: string | null;
-  rom_id?: number | null;
-  rom_name?: string | null;
-  container?: string | null;
-  claimed_at?: string | null;
-  desktop?: boolean;
+    ended_by?: (string | null);
+    reason?: (string | null);
+    ended_at?: (string | null);
+    platform?: (string | null);
+    rom_id?: (number | null);
+    rom_name?: (string | null);
+    container?: (string | null);
+    claimed_at?: (string | null);
+    desktop?: boolean;
 };
+

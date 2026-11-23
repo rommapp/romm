@@ -3,5 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type ClientTokenExchangePayload = {
-  code: string;
+    code: string;
 };
+

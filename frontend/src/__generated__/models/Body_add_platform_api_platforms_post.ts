@@ -3,8 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export type Body_add_platform_api_platforms_post = {
-  /**
-   * Platform slug.
-   */
-  fs_slug: string;
+    /**
+     * Platform slug.
+     */
+    fs_slug: string;
 };
+

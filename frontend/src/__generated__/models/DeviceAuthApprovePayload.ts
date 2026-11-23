@@ -3,8 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export type DeviceAuthApprovePayload = {
-  user_code: string;
-  approved_scopes: Array<string>;
-  device_name?: string | null;
-  expires_in?: string | null;
+    user_code: string;
+    approved_scopes: Array<string>;
+    device_name?: (string | null);
+    expires_in?: (string | null);
 };
+

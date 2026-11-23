@@ -3,8 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export type Body_delete_memory_cards_api_memory_cards_delete_post = {
-  /**
-   * List of memory card ids to delete.
-   */
-  cards: Array<number>;
+    /**
+     * List of memory card ids to delete.
+     */
+    cards: Array<number>;
 };
+

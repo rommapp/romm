@@ -3,7 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type MusicPlaylistUpdateRequest = {
-  name?: string | null;
-  description?: string | null;
-  is_public?: boolean | null;
+    name?: (string | null);
+    description?: (string | null);
+    is_public?: (boolean | null);
 };
+

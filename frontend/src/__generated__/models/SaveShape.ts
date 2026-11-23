@@ -5,4 +5,4 @@
 /**
  * How a save unit travels, as sigil packs it.
  */
-export type SaveShape = "SINGLE" | "MULTI" | "FOLDER";
+export type SaveShape = 'SINGLE' | 'MULTI' | 'FOLDER';

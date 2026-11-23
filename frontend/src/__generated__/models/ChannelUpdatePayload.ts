@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type ChannelUpdatePayload = {
-  label?: string | null;
-  is_public?: boolean | null;
+    label?: (string | null);
+    is_public?: (boolean | null);
 };
+

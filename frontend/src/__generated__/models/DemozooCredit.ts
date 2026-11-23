@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type DemozooCredit = {
-  name?: string;
-  role?: string;
+    name?: string;
+    role?: string;
 };
+

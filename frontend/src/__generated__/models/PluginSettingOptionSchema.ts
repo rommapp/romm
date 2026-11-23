@@ -6,6 +6,7 @@
  * One choice of a `select` field.
  */
 export type PluginSettingOptionSchema = {
-  value: string;
-  label: string;
+    value: string;
+    label: string;
 };
+

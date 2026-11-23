@@ -3,5 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type Body_rename_save_api_saves__id__file_name_put = {
-  file_name: string;
+    file_name: string;
 };
+

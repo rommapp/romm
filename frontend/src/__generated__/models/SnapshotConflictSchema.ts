@@ -2,16 +2,17 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { ConflictReason } from "./ConflictReason";
-import type { SnapshotSchema } from "./SnapshotSchema";
+import type { ConflictReason } from './ConflictReason';
+import type { SnapshotSchema } from './SnapshotSchema';
 export type SnapshotConflictSchema = {
-  current: SnapshotSchema | null;
-  /**
-   * The pushed snapshot, which the server stored as a branch.
-   */
-  branch: SnapshotSchema;
-  /**
-   * `moved`: the channel moved on from the current the push built on. `moved_from_older`: the push built on a snapshot older than the current it expected, and the channel moved on from that current too.
-   */
-  reason: ConflictReason;
+    current: (SnapshotSchema | null);
+    /**
+     * The pushed snapshot, which the server stored as a branch.
+     */
+    branch: SnapshotSchema;
+    /**
+     * `moved`: the channel moved on from the current the push built on. `moved_from_older`: the push built on a snapshot older than the current it expected, and the channel moved on from that current too.
+     */
+    reason: ConflictReason;
 };
+

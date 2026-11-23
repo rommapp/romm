@@ -6,5 +6,6 @@
  * Targets some of the caller's notifications, or all of them when `ids` is null.
  */
 export type NotificationIdsPayload = {
-  ids?: Array<number> | null;
+    ids?: (Array<number> | null);
 };
+

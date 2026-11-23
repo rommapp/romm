@@ -2,12 +2,13 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { WebrcadeFeedItemSchema } from "./WebrcadeFeedItemSchema";
+import type { WebrcadeFeedItemSchema } from './WebrcadeFeedItemSchema';
 export type WebrcadeFeedCategorySchema = {
-  title: string;
-  longTitle?: string;
-  background?: string;
-  thumbnail?: string;
-  description?: string;
-  items: Array<WebrcadeFeedItemSchema>;
+    title: string;
+    longTitle?: string;
+    background?: string;
+    thumbnail?: string;
+    description?: string;
+    items: Array<WebrcadeFeedItemSchema>;
 };
+

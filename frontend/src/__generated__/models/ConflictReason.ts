@@ -5,4 +5,4 @@
 /**
  * Why a push into a channel was kept as a branch.
  */
-export type ConflictReason = "moved" | "moved_from_older";
+export type ConflictReason = 'moved' | 'moved_from_older';

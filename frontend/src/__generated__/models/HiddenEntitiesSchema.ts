@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type HiddenEntitiesSchema = {
-  platforms: Array<number>;
-  roms: Array<number>;
+    platforms: Array<number>;
+    roms: Array<number>;
 };
+

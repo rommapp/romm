@@ -6,12 +6,13 @@
  * One entry of the plugin store's index: enough to install it.
  */
 export type StorePluginSchema = {
-  id: string;
-  name: string;
-  version?: string;
-  description?: string | null;
-  author?: string | null;
-  homepage?: string | null;
-  manifest_url: string;
-  tags?: Array<string>;
+    id: string;
+    name: string;
+    version?: string;
+    description?: (string | null);
+    author?: (string | null);
+    homepage?: (string | null);
+    manifest_url: string;
+    tags?: Array<string>;
 };
+

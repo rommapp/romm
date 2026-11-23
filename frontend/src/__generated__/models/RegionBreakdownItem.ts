@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type RegionBreakdownItem = {
-  region: string;
-  count: number;
+    region: string;
+    count: number;
 };
+

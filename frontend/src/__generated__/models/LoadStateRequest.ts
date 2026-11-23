@@ -3,5 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type LoadStateRequest = {
-  slot?: number;
+    slot?: number;
 };
+

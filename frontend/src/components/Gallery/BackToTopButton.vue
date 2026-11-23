@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // BackToTopButton: floating control that returns a long gallery scroll to
-// its top, shown once the viewer is more than a viewport down.
-import { useEventListener, useResizeObserver } from "@vueuse/core";
-import { computed, ref, toRef, watch } from "vue";
+// the page's top, shown once the viewer is more than a viewport down.
+import { useEventListener, useWindowSize } from "@vueuse/core";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useReducedMotion } from "@/composables/useReducedMotion";
 import { RBtn } from "@/lib";
@@ -10,7 +10,9 @@ import { focusFromInput } from "@/utils/autofocus";
 import { FOCUSABLE_SELECTOR } from "@/utils/spatialNav";
 
 interface Props {
-  scroller: HTMLElement | null;
+  /** The gallery, whose first control takes focus at the top. */
+  root: HTMLElement | null;
+  /** The document's scroll offset. */
   scrollTop: number;
 }
 
@@ -22,22 +24,9 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 const { enabled: reducedMotion } = useReducedMotion();
+const { height: viewportHeight } = useWindowSize();
 
-const viewportHeight = ref(0);
-useResizeObserver(toRef(props, "scroller"), () => {
-  viewportHeight.value = props.scroller?.clientHeight ?? 0;
-});
-watch(
-  () => props.scroller,
-  (el) => {
-    viewportHeight.value = el?.clientHeight ?? 0;
-  },
-  { immediate: true },
-);
-
-const visible = computed(
-  () => !!props.scroller && props.scrollTop > viewportHeight.value,
-);
+const visible = computed(() => props.scrollTop > viewportHeight.value);
 
 // Set while a keyboard or pad user rides the scroll up; cleared once focus
 // lands on a control at the top.
@@ -47,24 +36,21 @@ watch(
   (top) => {
     if (!focusOnArrival.value || top > 0) return;
     focusOnArrival.value = false;
-    focusFromInput(
-      props.scroller?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR),
-      { preventScroll: true },
-    );
+    focusFromInput(props.root?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR), {
+      preventScroll: true,
+    });
   },
 );
 // A ride that stops short of the top, or focus the user moves elsewhere
 // meanwhile, cancels the handoff.
-useEventListener(toRef(props, "scroller"), "scrollend", () => {
-  if ((props.scroller?.scrollTop ?? 0) > 0) focusOnArrival.value = false;
+useEventListener(document, "scrollend", () => {
+  if (window.scrollY > 0) focusOnArrival.value = false;
 });
 useEventListener(document, "focusin", () => {
   focusOnArrival.value = false;
 });
 
 function scrollToTop(event: MouseEvent) {
-  const el = props.scroller;
-  if (!el) return;
   emit("scroll-to-top");
   const hadFocus =
     event.currentTarget instanceof HTMLElement &&
@@ -72,7 +58,10 @@ function scrollToTop(event: MouseEvent) {
   // The button unmounts at the top, so keyboard and pad focus moves to the
   // first control there. Rows mid-scroll may be virtualised away, so wait.
   focusOnArrival.value = hadFocus;
-  el.scrollTo({ top: 0, behavior: reducedMotion.value ? "auto" : "smooth" });
+  window.scrollTo({
+    top: 0,
+    behavior: reducedMotion.value ? "auto" : "smooth",
+  });
 }
 </script>
 

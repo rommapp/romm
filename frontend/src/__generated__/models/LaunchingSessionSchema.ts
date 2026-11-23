@@ -8,9 +8,10 @@
  * broker's launch reply carries it.
  */
 export type LaunchingSessionSchema = {
-  platform: string;
-  container: string;
-  label: string;
-  rom_name: string;
-  claimed_at: string;
+    platform: string;
+    container: string;
+    label: string;
+    rom_name: string;
+    claimed_at: string;
 };
+

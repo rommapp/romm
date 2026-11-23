@@ -3,5 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type RomPatcherDict = {
-  SUPPORTED_EXTENSIONS: Array<string>;
+    SUPPORTED_EXTENSIONS: Array<string>;
 };
+

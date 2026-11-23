@@ -5,4 +5,4 @@
 /**
  * Where a document (manual/walkthrough) came from.
  */
-export type DocSource = "upload" | "gamefaqs" | "scraper";
+export type DocSource = 'upload' | 'gamefaqs' | 'scraper';

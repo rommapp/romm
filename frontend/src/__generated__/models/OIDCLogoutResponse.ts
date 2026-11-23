@@ -3,5 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type OIDCLogoutResponse = {
-  oidc_logout_url: string;
+    oidc_logout_url: string;
 };
+

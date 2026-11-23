@@ -2,13 +2,14 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { EarnedAchievement } from "./EarnedAchievement";
+import type { EarnedAchievement } from './EarnedAchievement';
 export type RAUserGameProgression = {
-  rom_ra_id: number | null;
-  max_possible: number | null;
-  num_awarded: number | null;
-  num_awarded_hardcore: number | null;
-  most_recent_awarded_date?: string | null;
-  highest_award_kind?: string | null;
-  earned_achievements: Array<EarnedAchievement>;
+    rom_ra_id: (number | null);
+    max_possible: (number | null);
+    num_awarded: (number | null);
+    num_awarded_hardcore: (number | null);
+    most_recent_awarded_date?: (string | null);
+    highest_award_kind?: (string | null);
+    earned_achievements: Array<EarnedAchievement>;
 };
+

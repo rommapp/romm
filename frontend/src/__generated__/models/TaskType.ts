@@ -5,5 +5,4 @@
 /**
  * Enumeration of task types for categorization and UI display.
  */
-export type TaskType =
-  "scan" | "conversion" | "cleanup" | "update" | "sync" | "watcher" | "generic";
+export type TaskType = 'scan' | 'conversion' | 'cleanup' | 'update' | 'sync' | 'watcher' | 'generic';

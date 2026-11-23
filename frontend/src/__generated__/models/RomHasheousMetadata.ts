@@ -3,17 +3,18 @@
 /* tslint:disable */
 /* eslint-disable */
 export type RomHasheousMetadata = {
-  tosec_match?: boolean;
-  mame_arcade_match?: boolean;
-  mame_mess_match?: boolean;
-  nointro_match?: boolean;
-  redump_match?: boolean;
-  mame_redump_match?: boolean;
-  whdload_match?: boolean;
-  ra_match?: boolean;
-  fbneo_match?: boolean;
-  puredos_match?: boolean;
-  dump_regions?: Array<string>;
-  dump_languages?: Array<string>;
-  dump_tags?: Array<string>;
+    tosec_match?: boolean;
+    mame_arcade_match?: boolean;
+    mame_mess_match?: boolean;
+    nointro_match?: boolean;
+    redump_match?: boolean;
+    mame_redump_match?: boolean;
+    whdload_match?: boolean;
+    ra_match?: boolean;
+    fbneo_match?: boolean;
+    puredos_match?: boolean;
+    dump_regions?: Array<string>;
+    dump_languages?: Array<string>;
+    dump_tags?: Array<string>;
 };
+

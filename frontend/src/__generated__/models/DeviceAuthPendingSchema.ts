@@ -3,12 +3,13 @@
 /* tslint:disable */
 /* eslint-disable */
 export type DeviceAuthPendingSchema = {
-  client_device_identifier: string;
-  name: string;
-  client: string;
-  platform: string | null;
-  client_version: string | null;
-  requested_scopes: Array<string>;
-  allowed_scopes: Array<string>;
-  expires_at: string;
+    client_device_identifier: string;
+    name: string;
+    client: string;
+    platform: (string | null);
+    client_version: (string | null);
+    requested_scopes: Array<string>;
+    allowed_scopes: Array<string>;
+    expires_at: string;
 };
+

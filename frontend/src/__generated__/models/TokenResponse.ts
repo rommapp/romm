@@ -3,9 +3,10 @@
 /* tslint:disable */
 /* eslint-disable */
 export type TokenResponse = {
-  access_token: string;
-  token_type: string;
-  expires: number;
-  refresh_token?: string;
-  refresh_expires?: number;
+    access_token: string;
+    token_type: string;
+    expires: number;
+    refresh_token?: string;
+    refresh_expires?: number;
 };
+

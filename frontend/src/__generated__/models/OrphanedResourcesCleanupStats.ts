@@ -3,10 +3,11 @@
 /* tslint:disable */
 /* eslint-disable */
 export type OrphanedResourcesCleanupStats = {
-  platforms_in_db: number;
-  roms_in_db: number;
-  platforms_in_fs: number;
-  roms_in_fs: number;
-  removed_fs_platforms: number;
-  removed_fs_roms: number;
+    platforms_in_db: number;
+    roms_in_db: number;
+    platforms_in_fs: number;
+    roms_in_fs: number;
+    removed_fs_platforms: number;
+    removed_fs_roms: number;
 };
+

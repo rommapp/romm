@@ -3,5 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type ChannelAttachPayload = {
-  rom_file_id: number;
+    rom_file_id: number;
 };
+

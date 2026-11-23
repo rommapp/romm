@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type ReleaseSessionResponse = {
-  status: "released" | "not_found";
-  platform: string;
+    status: 'released' | 'not_found';
+    platform: string;
 };
+

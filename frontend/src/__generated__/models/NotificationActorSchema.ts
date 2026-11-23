@@ -3,8 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export type NotificationActorSchema = {
-  id: number;
-  username: string;
-  avatar_path: string;
-  updated_at: string;
+    id: number;
+    username: string;
+    avatar_path: string;
+    updated_at: string;
 };
+

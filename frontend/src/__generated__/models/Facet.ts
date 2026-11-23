@@ -8,18 +8,4 @@
  * Reaches the API as a similarity reason's `facet`, so a new member fails
  * the frontend typecheck until the UI maps it.
  */
-export type Facet =
-  | "collection"
-  | "franchise"
-  | "genre"
-  | "perspective"
-  | "theme"
-  | "keyword"
-  | "developer"
-  | "publisher"
-  | "company"
-  | "game_mode"
-  | "platform"
-  | "decade"
-  | "igdb"
-  | "top_rated";
+export type Facet = 'collection' | 'franchise' | 'genre' | 'perspective' | 'theme' | 'keyword' | 'developer' | 'publisher' | 'company' | 'game_mode' | 'platform' | 'decade' | 'igdb' | 'top_rated';

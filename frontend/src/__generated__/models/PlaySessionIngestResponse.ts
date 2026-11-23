@@ -2,9 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { PlaySessionIngestResult } from "./PlaySessionIngestResult";
+import type { PlaySessionIngestResult } from './PlaySessionIngestResult';
 export type PlaySessionIngestResponse = {
-  results: Array<PlaySessionIngestResult>;
-  created_count: number;
-  skipped_count: number;
+    results: Array<PlaySessionIngestResult>;
+    created_count: number;
+    skipped_count: number;
 };
+

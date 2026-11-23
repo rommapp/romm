@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type Body_update_collection_visibility_api_collections__id__visibility_put =
-  {
+export type Body_update_collection_visibility_api_collections__id__visibility_put = {
     is_public: boolean;
-  };
+};
+

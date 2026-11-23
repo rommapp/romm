@@ -2,7 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { ConversionStats } from "./ConversionStats";
+import type { ConversionStats } from './ConversionStats';
 export type ConversionTaskMeta = {
-  conversion_stats: ConversionStats | null;
+    conversion_stats: (ConversionStats | null);
 };
+

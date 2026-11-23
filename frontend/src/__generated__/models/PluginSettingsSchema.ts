@@ -6,5 +6,6 @@
  * A plugin's saved values, keyed by the manifest's setting keys.
  */
 export type PluginSettingsSchema = {
-  values?: Record<string, string | number | boolean | null>;
+    values?: Record<string, (string | number | boolean | null)>;
 };
+

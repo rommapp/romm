@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type ScreenshotRefSchema = {
-  id: number;
-  download_path: string;
+    id: number;
+    download_path: string;
 };
+

@@ -5,5 +5,4 @@
 /**
  * The groups a notification channel picks what it forwards by.
  */
-export type NotificationTopic =
-  "scans" | "tasks" | "streaming" | "devices" | "account" | "custom";
+export type NotificationTopic = 'scans' | 'tasks' | 'streaming' | 'devices' | 'account' | 'custom';
