@@ -261,7 +261,7 @@ const verticalListeners = computed(() =>
 }
 
 .r-slider--disabled {
-  opacity: 0.55;
+  opacity: var(--r-opacity-inactive);
   cursor: not-allowed;
 }
 

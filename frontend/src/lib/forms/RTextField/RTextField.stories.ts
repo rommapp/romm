@@ -265,6 +265,24 @@ export const Clearable: Story = {
   }),
 };
 
+export const WithSuffix: Story = {
+  render: () => ({
+    components: { RTextField },
+    setup: () => ({ value: ref("astral") }),
+    template: `
+      <div style="width:360px">
+        <RTextField
+          v-model="value"
+          label="Search"
+          prepend-inner-icon="mdi-magnify"
+          suffix="16 of 627"
+          clearable
+        />
+      </div>
+    `,
+  }),
+};
+
 // ── Color tones ────────────────────────────────────────────────────
 
 export const ColorLadder: Story = {

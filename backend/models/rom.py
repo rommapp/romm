@@ -43,6 +43,7 @@ from sqlalchemy.orm import (
 )
 from sqlalchemy.orm.attributes import InstrumentedAttribute, set_committed_value
 from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.selectable import ScalarSelect
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import (
@@ -334,6 +335,8 @@ IDENTITY_PROVIDER_ID_LENGTH: Final = 100
 
 # The database file at the root of every RPG Maker 2000/2003 game folder.
 EASYRPG_GAME_DATABASE: Final = "rpg_rt.ldb"
+
+JSDOS_BUNDLE_EXTENSION: Final = ".jsdos"
 
 
 class RomIdentityKey(BaseModel):
@@ -1263,6 +1266,7 @@ class Rom(BaseModel):
         multi_file: Mapped[bool]
         top_level_file_count: Mapped[int]
         is_easyrpg_game: Mapped[bool]
+        has_jsdos_bundle: Mapped[bool]
 
     @property
     def has_simple_single_file(self) -> bool:
@@ -1405,6 +1409,25 @@ class Rom(BaseModel):
 # Revisit (real columns, JOIN/aggregate, or added indexes) if gallery latency regresses
 _rom_full_path = func.concat(Rom.fs_path, "/", Rom.fs_name)
 
+# `RomFile.is_top_level` in SQL.
+_is_top_level_file = or_(
+    func.concat(RomFile.file_path, "/", RomFile.file_name) == _rom_full_path,
+    RomFile.file_path == _rom_full_path,
+)
+
+
+def _rom_has_present_file(*criteria: ColumnElement[bool]) -> ScalarSelect[bool]:
+    """Whether the rom has a file on disk matching every one of `criteria`."""
+    return (
+        select(RomFile.id)
+        .where(RomFile.rom_id == Rom.id, RomFile.missing_from_fs.is_(False), *criteria)
+        .correlate_except(RomFile)
+        .exists()
+        .select()
+        .scalar_subquery()
+    )
+
+
 Rom.multi_file = column_property(
     select(RomFile.id)
     .where(
@@ -1422,53 +1445,36 @@ Rom.multi_file = column_property(
 
 Rom.top_level_file_count = column_property(
     select(func.count(RomFile.id))
-    .where(
-        and_(
-            RomFile.rom_id == Rom.id,
-            or_(
-                func.concat(RomFile.file_path, "/", RomFile.file_name)
-                == _rom_full_path,
-                RomFile.file_path == _rom_full_path,
-            ),
-        )
-    )
+    .where(and_(RomFile.rom_id == Rom.id, _is_top_level_file))
     .correlate_except(RomFile)
     .scalar_subquery(),
     deferred=True,
 )
 
 Rom.is_easyrpg_game = column_property(
-    select(RomFile.id)
-    .where(
-        and_(
-            RomFile.rom_id == Rom.id,
-            RomFile.file_path == _rom_full_path,
-            func.lower(RomFile.file_name) == EASYRPG_GAME_DATABASE,
-            RomFile.missing_from_fs.is_(False),
-        )
-    )
-    .correlate_except(RomFile)
-    .exists()
-    .select()
-    .scalar_subquery(),
+    _rom_has_present_file(
+        RomFile.file_path == _rom_full_path,
+        func.lower(RomFile.file_name) == EASYRPG_GAME_DATABASE,
+    ),
+    deferred=True,
+)
+
+Rom.has_jsdos_bundle = column_property(
+    _rom_has_present_file(
+        _is_top_level_file,
+        func.lower(RomFile.file_name).like(f"%{JSDOS_BUNDLE_EXTENSION}"),
+    ),
     deferred=True,
 )
 
 
 def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
     """Fill the deferred file-stat columns from an already-loaded file list."""
+    top_level = [f for f in files if rom.full_path in (f.full_path, f.file_path)]
     set_committed_value(
         rom, "multi_file", any(f.file_path != rom.fs_path for f in files)
     )
-    set_committed_value(
-        rom,
-        "top_level_file_count",
-        sum(
-            1
-            for f in files
-            if f.full_path == rom.full_path or f.file_path == rom.full_path
-        ),
-    )
+    set_committed_value(rom, "top_level_file_count", len(top_level))
     set_committed_value(
         rom,
         "has_soundtrack",
@@ -1482,6 +1488,15 @@ def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
             and f.file_name.lower() == EASYRPG_GAME_DATABASE
             and not f.missing_from_fs
             for f in files
+        ),
+    )
+    set_committed_value(
+        rom,
+        "has_jsdos_bundle",
+        any(
+            f.file_name.lower().endswith(JSDOS_BUNDLE_EXTENSION)
+            and not f.missing_from_fs
+            for f in top_level
         ),
     )
 
@@ -1502,9 +1517,26 @@ def rom_search_titles(rom: Rom) -> str:
     return compute_search_titles(rom.name, alternative_name_metadata(rom))
 
 
+DERIVED_SOURCE_COLUMNS = (*SEARCH_TITLE_COLUMNS, *MIN_AGE_SOURCE_COLUMNS)
+
+
+def compute_derived_columns(values: Mapping[str, Any]) -> dict[str, Any]:
+    """The columns a ROM insert derives from its own values.
+
+    Args:
+        values: Each `DERIVED_SOURCE_COLUMNS` column's value, by column name.
+    """
+    return {
+        "search_titles": compute_search_titles(values.get("name"), values),
+        "min_age": compute_min_age(values),
+    }
+
+
 @event.listens_for(Rom, "before_insert")
-def _set_search_titles(_mapper: Any, _connection: Any, rom: Rom) -> None:
-    rom.search_titles = rom_search_titles(rom)
+def _set_derived_columns(_mapper: Any, _connection: Any, rom: Rom) -> None:
+    values = {column: getattr(rom, column) for column in DERIVED_SOURCE_COLUMNS}
+    for column, value in compute_derived_columns(values).items():
+        setattr(rom, column, value)
 
 
 @event.listens_for(Rom, "before_update")
@@ -1521,11 +1553,6 @@ def rom_min_age(rom: Rom) -> int | None:
     return compute_min_age(
         {column: getattr(rom, column) for column in MIN_AGE_SOURCE_COLUMNS}
     )
-
-
-@event.listens_for(Rom, "before_insert")
-def _set_min_age(_mapper: Any, _connection: Any, rom: Rom) -> None:
-    rom.min_age = rom_min_age(rom)
 
 
 @event.listens_for(Rom, "before_update")

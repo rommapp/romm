@@ -451,6 +451,7 @@ async function onDelete() {
     :show-platforms-in-filter="false"
     :show-platform-column="false"
     :skeleton-row-count="4"
+    :scope-total="currentPlatform?.rom_count"
   >
     <template #header>
       <PlatformHead

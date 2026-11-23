@@ -7,6 +7,7 @@ import stat
 import threading
 import zipfile
 from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from mimetypes import guess_type
 from pathlib import Path
@@ -46,6 +47,8 @@ _ZIP_READ_CHUNK_BYTES = 64 * 1024
 # a lying entry still hits the decompressed budget while hashing.
 MAX_ARCHIVE_EXPANDED_BYTES = 4 * 1024 * 1024 * 1024
 
+MIME_SNIFF_BYTES = 4096
+
 _DRIVE_PREFIX = re.compile(r"^[A-Za-z]:")
 
 
@@ -68,6 +71,39 @@ def leaves_save_folder(path: str) -> bool:
         or bool(_DRIVE_PREFIX.match(path))
         or ".." in path.split("/")
     )
+
+
+def _starts_at_first_byte(zf: zipfile.ZipFile) -> bool:
+    infos = zf.infolist()
+    if not infos:
+        return zf.start_dir == 0
+    return min(info.header_offset for info in infos) == 0
+
+
+@contextmanager
+def open_zip_archive(
+    source: str | os.PathLike[str] | IO[bytes],
+) -> Iterator[zipfile.ZipFile | None]:
+    """Open the bytes as a zip archive, or yield None when they aren't one.
+
+    Bytes that hold another archive, whole or only its tail, after data of their
+    own (as an emulator state can) are not an archive: their entries don't start
+    at the first byte.
+
+    Raises:
+        zipfile.BadZipFile: the bytes end like an archive whose directory can't be read.
+    """
+    if isinstance(source, str | os.PathLike):
+        is_zip = zipfile.is_zipfile(source)
+    else:
+        position = source.tell()
+        is_zip = zipfile.is_zipfile(source)
+        source.seek(position)
+    if not is_zip:
+        yield None
+        return
+    with zipfile.ZipFile(source) as zf:
+        yield zf if _starts_at_first_byte(zf) else None
 
 
 def check_zip(zf: zipfile.ZipFile) -> list[str]:
@@ -113,10 +149,10 @@ def unpack_save_unit(
     Raises:
         UnsafeArchive: `check_zip` refuses the zip.
     """
-    if not zipfile.is_zipfile(io.BytesIO(unit)):
-        (root / RAW_UNIT_NAME).write_bytes(unit)
-        return UnpackedUnit([RAW_UNIT_NAME], archived=False)
-    with zipfile.ZipFile(io.BytesIO(unit)) as zf:
+    with open_zip_archive(io.BytesIO(unit)) as zf:
+        if zf is None:
+            (root / RAW_UNIT_NAME).write_bytes(unit)
+            return UnpackedUnit([RAW_UNIT_NAME], archived=False)
         names = [
             name
             for name in check_zip(zf)
@@ -132,12 +168,9 @@ def check_upload(stream: BinaryIO) -> list[str] | None:
     Leaves the stream where it was."""
     position = stream.tell()
     try:
-        if not zipfile.is_zipfile(stream):
-            return None
-        stream.seek(position)
         try:
-            with zipfile.ZipFile(stream) as zf:
-                return check_zip(zf)
+            with open_zip_archive(stream) as zf:
+                return None if zf is None else check_zip(zf)
         except zipfile.BadZipFile as exc:
             raise UnsafeArchive("the archive can't be read") from exc
     finally:
@@ -146,7 +179,12 @@ def check_upload(stream: BinaryIO) -> list[str] | None:
 
 def save_shape_of(path: Path) -> SaveShape:
     """A stored save's shape: an archive holds several members, a raw file one."""
-    return SaveShape.MULTI if zipfile.is_zipfile(path) else SaveShape.SINGLE
+    try:
+        with open_zip_archive(path) as zf:
+            return SaveShape.SINGLE if zf is None else SaveShape.MULTI
+    except zipfile.BadZipFile:
+        # An archive that can't be read is still an archive.
+        return SaveShape.MULTI
 
 
 def check_upload_archive(upload: UploadFile | None, label: str) -> None:
@@ -213,6 +251,18 @@ def hash_zip_contents(zf: zipfile.ZipFile) -> str:
     return _combined_hash(_entry_hashes(zf, _file_entries(zf)))
 
 
+def zip_archive_hash(source: str | os.PathLike[str] | IO[bytes]) -> str | None:
+    """Hash a zip archive like `hash_zip_contents`, or return None when the bytes
+    aren't one (see `open_zip_archive`).
+
+    Raises:
+        zipfile.BadZipFile: the archive can't be read.
+        ArchiveTooLarge: the archive is past the limits it is hashed against.
+    """
+    with open_zip_archive(source) as zf:
+        return None if zf is None else hash_zip_contents(zf)
+
+
 def is_clock_member(name: str) -> bool:
     """Whether sigil gives an entry the RTC role: `{stem}.rtc` or `clock.rtc`."""
     return name.endswith(".rtc")
@@ -232,9 +282,8 @@ def hash_save_content(content: IO[bytes]) -> str | None:
     """Hash seekable save bytes like ``Save.content_hash``, leaving them at the start."""
     try:
         content.seek(0)
-        if zipfile.is_zipfile(content):
-            with zipfile.ZipFile(content, "r") as zf:
-                return hash_zip_contents(zf)
+        if (zip_hash := zip_archive_hash(content)) is not None:
+            return zip_hash
         content.seek(0)
         hash_obj = hashlib.md5(usedforsecurity=False)
         while chunk := content.read(65536):
@@ -257,6 +306,12 @@ def hash_save_file(path: str | os.PathLike[str]) -> str | None:
         return None
 
 
+def sniff_mime_type(content: bytes) -> str:
+    """Detect a MIME type from a file's leading bytes with libmagic."""
+    with _MIME_DETECTOR_LOCK:
+        return _MIME_DETECTOR.from_buffer(content[:MIME_SNIFF_BYTES])
+
+
 def validate_image_upload(
     upload: UploadFile, *, label: str = "Image", allow_converted: bool = False
 ) -> str:
@@ -272,12 +327,11 @@ def validate_image_upload(
             (JPEG XL), returning the extension they are re-encoded to.
     """
     upload.file.seek(0)
-    header = upload.file.read(4096)
+    header = upload.file.read(MIME_SNIFF_BYTES)
     upload.file.seek(0)
 
     try:
-        with _MIME_DETECTOR_LOCK:
-            detected_mime = _MIME_DETECTOR.from_buffer(header)
+        detected_mime = sniff_mime_type(header)
     except magic.MagicException as exc:
         log.error(f"libmagic failed to sniff uploaded {label.lower()}: {exc}")
         raise HTTPException(
@@ -403,19 +457,18 @@ class FSAssetsHandler(FSHandler):
             self.user_folder_path(user), "memory_cards", emulator, str(card_id)
         )
 
-    async def _compute_zip_hash(self, zip_path: str) -> str:
-        def digest() -> str:
-            with zipfile.ZipFile(self.base_path / zip_path, "r") as zf:
-                return hash_zip_contents(zf)
-
+    async def _compute_zip_hash(self, zip_path: str) -> str | None:
         # Off the loop, as _compute_file_hash is: a state archive runs to tens of MB.
-        return await asyncio.to_thread(digest)
+        return await asyncio.to_thread(zip_archive_hash, self.base_path / zip_path)
 
     async def compute_content_hash(self, file_path: str) -> str | None:
         try:
             full_path = self.base_path / file_path
-            if zipfile.is_zipfile(full_path):
-                return await self._compute_zip_hash(file_path)
+            if (
+                zipfile.is_zipfile(full_path)
+                and (zip_hash := await self._compute_zip_hash(file_path)) is not None
+            ):
+                return zip_hash
             return await self._compute_file_hash(file_path)
         except Exception as e:
             log.debug(f"Failed to compute content hash for {file_path}: {e}")

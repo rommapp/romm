@@ -173,8 +173,10 @@ FLASHPOINT_API_ENABLED: Final[bool] = safe_str_to_bool(
 # HOWLONGTOBEAT
 HLTB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("HLTB_API_ENABLED"))
 
-# DEMOZOO / POUET (public JSON, no API key)
-DEMOZOO_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("DEMOZOO_API_ENABLED"))
+# DEMOZOO
+DEMOZOO_API_KEY: Final[str | None] = _get_env("DEMOZOO_API_KEY")
+
+# POUET (public JSON, no API key)
 POUET_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("POUET_API_ENABLED"))
 # CSDb XML webservice, C64 stills
 CSDB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("CSDB_API_ENABLED"))

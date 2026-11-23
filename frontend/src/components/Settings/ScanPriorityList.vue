@@ -265,7 +265,7 @@ function onDragEnd() {
   padding: 16px;
 }
 .r-spl--disabled {
-  opacity: 0.55;
+  opacity: var(--r-opacity-inactive);
   pointer-events: none;
 }
 

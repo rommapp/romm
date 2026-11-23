@@ -2920,6 +2920,29 @@ class TestSaveDownload:
         assert sync is None
 
     @mock.patch("endpoints.saves.fs_asset_handler.validate_path")
+    def test_download_save_through_its_download_path(
+        self,
+        mock_validate_path,
+        client,
+        access_token: str,
+        save: Save,
+        tmp_path,
+    ):
+        test_file = tmp_path / "test.sav"
+        test_file.write_bytes(b"save file content")
+        mock_validate_path.return_value = test_file
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        download_path = client.get(f"/api/saves/{save.id}", headers=headers).json()[
+            "download_path"
+        ]
+        response = client.get(download_path, headers=headers)
+
+        assert " " not in download_path
+        assert response.status_code == status.HTTP_200_OK
+        assert response.content == b"save file content"
+
+    @mock.patch("endpoints.saves.fs_asset_handler.validate_path")
     def test_download_save_with_device_returns_file(
         self,
         mock_validate_path,
@@ -4515,6 +4538,32 @@ class TestSaveRename:
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["file_name"] == "test_save.sav"
         assert save_file.exists()
+
+    @pytest.mark.parametrize(
+        "new_name, stored_name",
+        [
+            ("Before boss.zip", "Before boss.saves.zip"),
+            ("Before boss.saves.zip", "Before boss.saves.zip"),
+            ("Before boss.sav", "Before boss.sav"),
+        ],
+    )
+    def test_broker_archive_keeps_its_suffix_through_a_rename(
+        self,
+        client,
+        access_token: str,
+        save: Save,
+        save_file,
+        new_name: str,
+        stored_name: str,
+    ):
+        broker_name = "test_save [eden 2026-11-22 10-00-00].saves.zip"
+        save_file.rename(save_file.with_name(broker_name))
+        db_save_handler.update_save(save.id, {"file_name": broker_name})
+
+        response = self._rename(client, access_token, save.id, new_name)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["file_name"] == stored_name
 
     def test_non_owner_cannot_rename_a_save(
         self, client, viewer_access_token: str, save: Save, save_file

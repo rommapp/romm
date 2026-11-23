@@ -115,7 +115,7 @@ function toggle() {
 }
 .r-switch--disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+  opacity: var(--r-opacity-inactive);
 }
 
 /* Static mode: the switch is just a visual state indicator inside a

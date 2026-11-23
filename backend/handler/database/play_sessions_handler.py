@@ -123,11 +123,16 @@ class DBPlaySessionsHandler(DBBaseHandler):
         self,
         session_id: int,
         user_id: int,
+        visibility: RomVisibilityFilter,
         session: Session = INJECTED_SESSION,
     ) -> bool:
-        result = session.execute(
-            delete(PlaySession)
-            .where(PlaySession.id == session_id, PlaySession.user_id == user_id)
-            .execution_options(synchronize_session="evaluate")
+        stmt = delete(PlaySession).where(
+            PlaySession.id == session_id, PlaySession.user_id == user_id
         )
+        if not visibility.is_unrestricted:
+            visible_roms = select(Rom.id).where(and_(*visibility.clauses()))
+            stmt = stmt.where(
+                or_(PlaySession.rom_id.is_(None), PlaySession.rom_id.in_(visible_roms))
+            )
+        result = session.execute(stmt.execution_options(synchronize_session=False))
         return affected_rows(result) > 0

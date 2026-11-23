@@ -60,17 +60,21 @@ class NotificationChannelSchema(BaseModel):
     name: str
     enabled: bool
     min_level: NotificationChannelMinLevel
-    # None forwards every topic.
     topics: list[NotificationTopic] | None
-    # The URL with its secrets hidden, or an email address.
+    """The topics the channel forwards. Null forwards every topic."""
     target: str
+    """Where the channel sends notifications: its URL with the secrets hidden, or an email address."""
     # An Apprise channel's; `fields` leaves its secrets out, `stored_secrets` names them.
     service: str | None
+    """The Apprise service ID, for an Apprise channel."""
     service_name: str | None
     fields: dict[str, AppriseFieldValue] | None
+    """The Apprise service's settings, without its secrets."""
     stored_secrets: list[str] | None
+    """The names of the secret settings that have a stored value."""
     has_secret: bool
     confirmed: bool
+    """Whether the channel is confirmed. A new email address has to be confirmed with a code first."""
     last_delivered_at: UTCDatetime | None
     last_error: str | None
     consecutive_failures: int
@@ -120,6 +124,7 @@ class NotificationChannelSchema(BaseModel):
 class _ChannelFilters(BaseModel):
     min_level: NotificationChannelMinLevel = NotificationChannelMinLevel.INFO
     topics: list[NotificationTopic] | None = None
+    """The topics the channel forwards. Null forwards every topic."""
 
 
 class AppriseChannelCreatePayload(_ChannelFilters):
@@ -133,14 +138,15 @@ class WebhookChannelCreatePayload(_ChannelFilters):
     type: Literal["webhook"]
     name: ChannelName
     url: ChannelUrl
-    # The key the payload is signed with.
     secret: ChannelSecret | None = None
+    """The key the payload is signed with."""
 
 
 class EmailChannelCreatePayload(_ChannelFilters):
     type: Literal["email"]
     name: ChannelName
     address: EmailAddress
+    """The email address notifications are sent to. A confirmation code is sent to it first."""
 
     check_address = field_validator("address")(_check_address)
 

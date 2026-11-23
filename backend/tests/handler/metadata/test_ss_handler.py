@@ -38,10 +38,12 @@ from handler.metadata.ss_handler import (
     extract_regions_from_ss_dump,
     extract_tags_from_ss_dump,
     find_ss_dump,
+    get_exhausted_rom_paths,
     get_preferred_languages,
     get_preferred_regions,
     get_rate_limited_rom_names,
     get_taxonomy_languages,
+    note_exhausted_rom,
     note_rate_limited_rom,
     reset_rate_limited_roms,
 )
@@ -1971,11 +1973,13 @@ class TestScanReporting:
         )
         reset_scan_state = mocker.patch.object(ss_handler, "reset_scan_state")
         note_rate_limited_rom("Sonic (USA).md")
+        note_exhausted_rom("Streets of Rage (USA).md")
 
         await ss_handler.begin_scan()
 
         reset_scan_state.assert_called_once()
         assert get_rate_limited_rom_names() == []
+        assert get_exhausted_rom_paths() == []
 
     async def test_begin_scan_primes_the_account_limits(self, mocker):
         """Reading the limits up front means the first ROMs are already paced
@@ -2047,6 +2051,23 @@ class TestScanReporting:
         assert "1700" in info
         assert "Sonic (USA).md" in warnings
         assert "Streets of Rage (USA).md" in warnings
+
+    def test_summary_lists_roms_a_breaker_answered_for(self, mocker, mock_log):
+        mocker.patch.object(ss_handler, "get_account_limits", return_value=None)
+        note_exhausted_rom("genesis/roms/Streets of Rage (USA).md")
+        note_exhausted_rom("genesis/roms/Sonic (USA).md")
+        note_exhausted_rom("genesis/roms/Sonic (USA).md")
+        note_exhausted_rom("megadrive/roms/Sonic (USA).md")
+
+        ss_handler.log_scan_summary()
+
+        warnings = [str(call) for call in mock_log.warning.call_args_list]
+        assert "never asked" in warnings[0]
+        assert warnings[1:] == [
+            str(mocker.call(" - genesis/roms/Sonic (USA).md")),
+            str(mocker.call(" - genesis/roms/Streets of Rage (USA).md")),
+            str(mocker.call(" - megadrive/roms/Sonic (USA).md")),
+        ]
 
     def test_summary_skips_the_rom_list_when_nothing_was_skipped(
         self, mocker, mock_log

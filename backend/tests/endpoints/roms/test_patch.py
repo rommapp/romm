@@ -23,7 +23,6 @@ from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
 from utils.nginx import content_disposition
 from utils.rom_patcher import PatcherInputError
-from utils.zip_cache import ensure_zipfile_writable
 
 
 def _patch_file(rom: Rom) -> RomFile:
@@ -226,7 +225,6 @@ class TestPatchingALibraryFile:
         node: None,
     ):
         archive = io.BytesIO()
-        ensure_zipfile_writable()
         with zipfile.ZipFile(archive, "w") as zipped:
             zipped.writestr("game.sfc", b"rom")
             zipped.writestr("readme.txt", b"hi")
@@ -540,6 +538,31 @@ class TestPatcherFailures:
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
         assert response.json() == {"detail": "Patching failed"}
         assert len(scratch.made) == 1
+        assert scratch.all_removed()
+
+    def test_a_patch_declaring_too_large_an_output_is_rejected(
+        self,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+        library: Path,
+        scratch: Scratch,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        install_fake_node(tmp_path, monkeypatch, "sys.exit(3)")
+        game = _file(library, rom, "game.sfc", b"rom")
+
+        response = client.post(
+            f"/api/roms/{game.id}/patch",
+            headers=bearer(access_token),
+            files={"patch_file": ("bomb.ups", b"UPS1")},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.json() == {
+            "detail": "The patch would produce a ROM that is too large"
+        }
         assert scratch.all_removed()
 
     def test_an_unexpected_error_is_a_500(

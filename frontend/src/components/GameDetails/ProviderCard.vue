@@ -98,7 +98,7 @@ const isClickable = computed(() => isLinked.value && Boolean(props.href));
   transform: translateY(-1px);
 }
 .provider-card--unlinked {
-  opacity: 0.55;
+  opacity: var(--r-opacity-inactive);
 }
 
 .provider-card__head {

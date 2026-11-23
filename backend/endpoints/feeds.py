@@ -5,11 +5,10 @@ from collections import Counter
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Annotated, Any
-from urllib.parse import quote
 
 from fastapi import HTTPException
 from fastapi import Path as PathVar
-from fastapi import Query, Request
+from fastapi import Query, Request, status
 from fastapi.responses import JSONResponse, Response
 from starlette.datastructures import URLPath
 
@@ -59,32 +58,16 @@ from utils.archives import is_compressed_file
 from utils.datetime import format_utc
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.router import APIRouter
-
-
-def generate_rom_download_url(request: Request, rom: Rom) -> str:
-    return str(
-        request.url_for(
-            "get_rom_content",
-            id=rom.id,
-            file_name=quote(rom.fs_name, safe="/"),
-        )
-    )
-
-
-def generate_romfile_download_url(request: Request, file: RomFile) -> str:
-    return str(
-        request.url_for(
-            "get_romfile_content",
-            file_id=file.id,
-            file_name=quote(file.file_name, safe="/"),
-        )
-    )
-
+from utils.urls import rom_content_url, romfile_content_url
 
 router = APIRouter(
     prefix="/feeds",
     tags=["feeds"],
 )
+
+
+PKGI_CONTENT_TYPE_400 = "The content type is not one this feed supports."
+PLATFORM_SLUG_404 = "No platform the caller can see has this slug."
 
 
 def _visible_platform_by_slug(request: Request, slug: str) -> Platform | None:
@@ -113,15 +96,7 @@ def _platform_roms(
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
 def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
-    """Get webrcade feed endpoint
-    https://docs.webrcade.com/feeds/format/
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        WebrcadeFeedSchema: Webrcade feed object schema
-    """
+    """Get the webRcade feed of the library, in the format described at https://docs.webrcade.com/feeds/format/."""
 
     visibility = get_rom_visibility_filter(request)
     platforms = db_platform_handler.get_platforms(visibility=visibility)
@@ -138,7 +113,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
             **HAS_FILE_ON_DISK_FILTERS,
         )
         for rom in roms:
-            download_url = generate_rom_download_url(request, rom)
+            download_url = rom_content_url(request, rom)
             category_item = WebrcadeFeedItemSchema(
                 title=rom.name or rom.fs_name_no_tags,
                 description=rom.summary or "",
@@ -191,18 +166,10 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
 async def tinfoil_index_feed(
-    request: Request, slug: str = "switch"
+    request: Request,
+    slug: str = "switch",
 ) -> TinfoilFeedSchema:
-    """Get tinfoil custom index feed endpoint
-    https://blawar.github.io/tinfoil/custom_index/
-
-    Args:
-        request (Request): Fastapi Request object
-        slug (str, optional): Platform slug. Defaults to "switch".
-
-    Returns:
-        TinfoilFeedSchema: Tinfoil feed object schema
-    """
+    """Get the Tinfoil custom index (https://blawar.github.io/tinfoil/custom_index/) of a Nintendo Switch platform. When the caller can see no platform with `slug`, the index has no files and an error message."""
     switch = _visible_platform_by_slug(request, slug)
     if not switch:
         return TinfoilFeedSchema(
@@ -254,7 +221,7 @@ async def tinfoil_index_feed(
     return TinfoilFeedSchema(
         files=[
             TinfoilFeedFileSchema(
-                url=generate_romfile_download_url(request, rom_file),
+                url=romfile_content_url(request, rom_file),
                 size=rom_file.file_size_bytes,
             )
             for rom in roms
@@ -311,7 +278,7 @@ def get_rap_data(request: Request, rom: Rom) -> tuple[str, str]:
     for file in rom.files:
         if file.file_extension.lower() == "rap":
             rap_hash = file.sha1_hash or ""
-            rap_download_url = generate_romfile_download_url(request, file)
+            rap_download_url = romfile_content_url(request, file)
             return rap_hash, rap_download_url
 
     return "", ""
@@ -338,21 +305,18 @@ def text_response(lines: list[str], filename: str) -> Response:
     router.get,
     "/pkgi/ps3/{content_type}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": PKGI_CONTENT_TYPE_400},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The library has no PlayStation 3 platform."
+        },
+    },
 )
 def pkgi_ps3_feed(
     request: Request,
     content_type: Annotated[str, PathVar(description="Content type")],
 ) -> Response:
-    """Get PKGi PS3 feed endpoint
-    https://github.com/bucanero/pkgi-ps3
-
-    Args:
-        request (Request): Fastapi Request object
-        content_type (str): Content type (game, dlc, demo, update, patch, mod, translation, prototype)
-
-    Returns:
-        Response: txt file with PKGi PS3 database format
-    """
+    """Get the PKGi PS3 database (https://github.com/bucanero/pkgi-ps3) of the PlayStation 3 files of one content type (`game`, `dlc`, `demo`, `update` or `patch`), as text."""
     ps3_platform = _visible_platform_by_slug(request, UPS.PS3)
     if not ps3_platform:
         raise HTTPException(status_code=404, detail="PlayStation 3 platform not found")
@@ -375,7 +339,7 @@ def pkgi_ps3_feed(
                 continue
 
             content_id = generate_content_id(file)
-            download_url = generate_romfile_download_url(request, file)
+            download_url = romfile_content_url(request, file)
 
             # Validate the item schema
             pkgi_item = PKGiFeedPS3ItemSchema(
@@ -413,21 +377,18 @@ def pkgi_ps3_feed(
     router.get,
     "/pkgi/psvita/{content_type}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": PKGI_CONTENT_TYPE_400},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The library has no PlayStation Vita platform."
+        },
+    },
 )
 def pkgi_psvita_feed(
     request: Request,
     content_type: Annotated[str, PathVar(description="Content type")],
 ) -> Response:
-    """Get PKGi PS Vita feed endpoint
-    https://github.com/mmozeiko/pkgi
-
-    Args:
-        request (Request): Fastapi Request object
-        content_type (str): Content type (game, dlc, demo, update, patch, mod, translation, prototype)
-
-    Returns:
-        Response: txt file with PKGi PS Vita database format
-    """
+    """Get the PKGi database (https://github.com/mmozeiko/pkgi) of the PlayStation Vita files of one content type, such as `game` or `dlc`, as text."""
     psvita_platform = _visible_platform_by_slug(request, UPS.PSVITA)
     if not psvita_platform:
         raise HTTPException(
@@ -450,7 +411,7 @@ def pkgi_psvita_feed(
                 continue
 
             content_id = generate_content_id(file)
-            download_url = generate_romfile_download_url(request, file)
+            download_url = romfile_content_url(request, file)
 
             pkgi_item = PKGiFeedPSVitaItemSchema(
                 contentid=content_id,
@@ -487,21 +448,18 @@ def pkgi_psvita_feed(
     router.get,
     "/pkgi/psp/{content_type}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": PKGI_CONTENT_TYPE_400},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The library has no PlayStation Portable platform."
+        },
+    },
 )
 def pkgi_psp_feed(
     request: Request,
     content_type: Annotated[str, PathVar(description="Content type")],
 ) -> Response:
-    """Get PKGi PSP feed endpoint
-    https://github.com/bucanero/pkgi-psp
-
-    Args:
-        request (Request): Fastapi Request object
-        content_type (str): Content type (game, dlc, demo, update, patch, mod, translation, prototype)
-
-    Returns:
-        Response: txt file with PKGi PSP database format
-    """
+    """Get the PKGi PSP database (https://github.com/bucanero/pkgi-psp) of the PlayStation Portable files of one content type (`game`, `dlc`, `demo`, `update` or `patch`), as text."""
     psp_platform = _visible_platform_by_slug(request, UPS.PSP)
     if not psp_platform:
         raise HTTPException(
@@ -526,7 +484,7 @@ def pkgi_psp_feed(
                 continue
 
             content_id = generate_content_id(file)
-            download_url = generate_romfile_download_url(request, file)
+            download_url = romfile_content_url(request, file)
 
             # Validate the item schema
             pkgi_item = PKGiFeedPSPItemSchema(
@@ -635,6 +593,12 @@ def fpkgi_title_id(rom: Rom, files: list[RomFile]) -> str:
     router.get,
     "/fpkgi/{platform_slug}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The content type is not a known file category."
+        },
+        status.HTTP_404_NOT_FOUND: {"description": PLATFORM_SLUG_404},
+    },
 )
 def fpkgi_feed(
     request: Request,
@@ -646,17 +610,7 @@ def fpkgi_feed(
         ),
     ] = None,
 ) -> Response:
-    """
-    https://github.com/ItsJokerZz/FPKGi
-
-    Args:
-        request (Request): Fastapi Request object
-        platform_slug (str): Platform slug (ps4, ps5)
-        content_type (str | None): Optional rom file category filter
-
-    Returns:
-        Response: JSON file in FPKGi format
-    """
+    """Get the FPKGi feed (https://github.com/ItsJokerZz/FPKGi) of a platform's `.pkg` files as JSON, usually for `ps4` or `ps5`."""
     platform = _visible_platform_by_slug(request, platform_slug)
     if not platform:
         raise HTTPException(
@@ -696,7 +650,7 @@ def fpkgi_feed(
             if category_filter and category != category_filter:
                 continue
 
-            download_url = generate_romfile_download_url(request, file)
+            download_url = romfile_content_url(request, file)
             response_data[download_url] = FPKGiFeedItemSchema(
                 name=item_names[file.id],
                 size=file.file_size_bytes,
@@ -718,18 +672,13 @@ def fpkgi_feed(
     router.get,
     "/kekatsu/{platform_slug}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {"description": PLATFORM_SLUG_404}},
 )
-def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
-    """Get Kekatsu DS feed endpoint
-    https://github.com/cavv-dev/Kekatsu-DS
-
-    Args:
-        request (Request): Fastapi Request object
-        platform_slug (str): Platform slug (nds, nintendo-ds, ds, gba, etc.)
-
-    Returns:
-        Response: Text file with Kekatsu DS database format
-    """
+def kekatsu_ds_feed(
+    request: Request,
+    platform_slug: str,
+) -> Response:
+    """Get the Kekatsu DS database of a platform's roms as tab-separated text, as described at https://github.com/cavv-dev/Kekatsu-DS."""
     platform = _visible_platform_by_slug(request, platform_slug)
     if not platform:
         raise HTTPException(
@@ -744,7 +693,7 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
     txt_lines.append("\t")
 
     for rom in roms:
-        download_url = generate_rom_download_url(request, rom)
+        download_url = rom_content_url(request, rom)
 
         # Generate box art URL if cover exists
         box_art_url = ""
@@ -791,8 +740,14 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
     router.get,
     "/pkgj/psp/games",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The library has no PlayStation Portable platform."
+        }
+    },
 )
 def pkgj_psp_games_feed(request: Request) -> Response:
+    """Get the PKGj feed of PlayStation Portable games as tab-separated text."""
     platform = _visible_platform_by_slug(request, UPS.PSP)
     if not platform:
         raise HTTPException(
@@ -811,7 +766,7 @@ def pkgj_psp_games_feed(request: Request) -> Response:
             if not validate_pkgi_file(file, RomFileCategory.GAME):
                 continue
 
-            download_url = generate_romfile_download_url(request, file)
+            download_url = romfile_content_url(request, file)
             content_id = generate_content_id(file)
             last_modified = format_pkgj_datetime(file.updated_at)
 
@@ -855,8 +810,14 @@ def pkgj_psp_games_feed(request: Request) -> Response:
     router.get,
     "/pkgj/psp/dlc",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The library has no PlayStation Portable platform."
+        }
+    },
 )
 def pkgj_psp_dlcs_feed(request: Request) -> Response:
+    """Get the PKGj feed of PlayStation Portable DLC as tab-separated text."""
     platform = _visible_platform_by_slug(request, UPS.PSP)
     if not platform:
         raise HTTPException(
@@ -875,7 +836,7 @@ def pkgj_psp_dlcs_feed(request: Request) -> Response:
             if not validate_pkgi_file(file, RomFileCategory.DLC):
                 continue
 
-            download_url = generate_romfile_download_url(request, file)
+            download_url = romfile_content_url(request, file)
             content_id = generate_content_id(file)
             last_modified = format_pkgj_datetime(file.updated_at)
 
@@ -917,8 +878,14 @@ def pkgj_psp_dlcs_feed(request: Request) -> Response:
     router.get,
     "/pkgj/psvita/games",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The library has no PlayStation Vita platform."
+        }
+    },
 )
 def pkgj_psv_games_feed(request: Request) -> Response:
+    """Get the PKGj feed of PlayStation Vita games as tab-separated text."""
     platform = _visible_platform_by_slug(request, UPS.PSVITA)
     if not platform:
         raise HTTPException(
@@ -936,7 +903,7 @@ def pkgj_psv_games_feed(request: Request) -> Response:
             if not validate_pkgi_file(file, RomFileCategory.GAME):
                 continue
 
-            download_url = generate_romfile_download_url(request, file)
+            download_url = romfile_content_url(request, file)
             content_id = generate_content_id(file)
             last_modified = format_pkgj_datetime(file.updated_at)
 
@@ -982,8 +949,14 @@ def pkgj_psv_games_feed(request: Request) -> Response:
     router.get,
     "/pkgj/psvita/dlc",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The library has no PlayStation Vita platform."
+        }
+    },
 )
 def pkgj_psv_dlcs_feed(request: Request) -> Response:
+    """Get the PKGj feed of PlayStation Vita DLC as tab-separated text."""
     platform = _visible_platform_by_slug(request, UPS.PSVITA)
     if not platform:
         raise HTTPException(
@@ -1001,7 +974,7 @@ def pkgj_psv_dlcs_feed(request: Request) -> Response:
             if not validate_pkgi_file(file, RomFileCategory.DLC):
                 continue
 
-            download_url = generate_romfile_download_url(request, file)
+            download_url = romfile_content_url(request, file)
             content_id = generate_content_id(file)
             last_modified = format_pkgj_datetime(file.updated_at)
 
@@ -1041,8 +1014,14 @@ def pkgj_psv_dlcs_feed(request: Request) -> Response:
     router.get,
     "/pkgj/psx/games",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The library has no PlayStation platform."
+        }
+    },
 )
 def pkgj_psx_games_feed(request: Request) -> Response:
+    """Get the PKGj feed of PlayStation games as tab-separated text."""
     platform = _visible_platform_by_slug(request, UPS.PSX)
     if not platform:
         raise HTTPException(status_code=404, detail="PlayStation platform not found")
@@ -1058,7 +1037,7 @@ def pkgj_psx_games_feed(request: Request) -> Response:
             if not validate_pkgi_file(file, RomFileCategory.GAME):
                 continue
 
-            download_url = generate_romfile_download_url(request, file)
+            download_url = romfile_content_url(request, file)
             content_id = generate_content_id(file)
             last_modified = format_pkgj_datetime(file.updated_at)
 

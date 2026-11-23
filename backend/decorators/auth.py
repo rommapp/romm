@@ -53,6 +53,7 @@ oauth2_password_bearer = OAuth2PasswordBearer(
 )
 
 # Using an OIDC authorization code flow
+OIDC_SSL_CONTEXT = build_ca_ssl_context(OIDC_TLS_CACERTFILE)
 config = Config(
     environ={
         "OIDC_ENABLED": str(OIDC_ENABLED),
@@ -72,7 +73,7 @@ oauth.register(
     or get_well_known_url(config.get("OIDC_SERVER_APPLICATION_URL"), external=True),
     client_kwargs={
         "scope": f"openid profile email {OIDC_CLAIM_ROLES}".strip(),
-        "verify": build_ca_ssl_context(OIDC_TLS_CACERTFILE),
+        "verify": OIDC_SSL_CONTEXT,
         # Authlib only derives a code_verifier when code_challenge_method is set,
         # so providers that mandate PKCE refuse the code without it.
         "code_challenge_method": "S256",
@@ -142,12 +143,41 @@ def _requires_scopes(
     return decorator
 
 
+# Maps each status to the description it gets on its own, and the sentence appended
+# when the route already describes that status.
+SCOPE_ERRORS: dict[int, tuple[str, str]] = {
+    status.HTTP_401_UNAUTHORIZED: (
+        "The request has no valid credentials.",
+        "Also returned when the request has no valid credentials.",
+    ),
+    status.HTTP_403_FORBIDDEN: (
+        "The token lacks a scope this route needs.",
+        "Also returned when the token lacks a scope this route needs.",
+    ),
+}
+
+
+def _with_scope_errors(
+    responses: dict[int | str, dict[str, Any]] | None,
+) -> dict[int | str, dict[str, Any]]:
+    """Add the scope guard's 401 and 403 to a route's documented responses."""
+    merged = {code: dict(entry) for code, entry in (responses or {}).items()}
+    for code, (alone, appended) in SCOPE_ERRORS.items():
+        entry = merged.setdefault(code, {})
+        own = entry.get("description")
+        entry["description"] = f"{own} {appended}" if own else alone
+    return merged
+
+
 def protected_route(
     method: Callable[..., Callable[[DecoratedCallable], DecoratedCallable]],
     path: str,
     scopes: list[Scope] | None = None,
     **kwargs: Any,
 ) -> Callable[[DecoratedCallable], DecoratedCallable]:
+    if scopes:
+        kwargs["responses"] = _with_scope_errors(kwargs.get("responses"))
+
     def decorator(func: DecoratedCallable) -> DecoratedCallable:
         fn = _requires_scopes(scopes or [])(func)
         return method(

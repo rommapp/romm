@@ -1,10 +1,12 @@
 import asyncio
 import os
 from collections import defaultdict
-from typing import Final
+from typing import Annotated, Final
 
 from anyio import Path as AnyioPath
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException
+from fastapi import Path as PathVar
+from fastapi import Request, status
 
 from adapters.services.rom_converto import rom_converto_service
 from adapters.services.sigil import SigilService
@@ -103,11 +105,7 @@ router = APIRouter(
 
 @router.get("/heartbeat")
 async def heartbeat() -> HeartbeatResponse:
-    """Endpoint to set the CSRF token in cache and return all the basic RomM config
-
-    Returns:
-        HeartbeatReturn: TypedDict structure with all the defined values in the HeartbeatReturn class.
-    """
+    """Return the server's version and the configuration a client reads at startup."""
     title_id_extraction_enabled = (
         SigilService.is_enabled() and not cm.get_config().SKIP_TITLE_ID_EXTRACTION
     )
@@ -229,8 +227,31 @@ async def heartbeat() -> HeartbeatResponse:
     }
 
 
-@router.get("/heartbeat/metadata/{source}")
-async def metadata_heartbeat(request: Request, source: str) -> bool:
+@router.get(
+    "/heartbeat/metadata/{source}",
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "No metadata source has this name."
+        },
+        status.HTTP_429_TOO_MANY_REQUESTS: {
+            "description": (
+                "Too many checks of this source came from this IP address recently."
+            )
+        },
+    },
+)
+async def metadata_heartbeat(
+    request: Request,
+    source: Annotated[
+        str,
+        PathVar(
+            description=(
+                "The metadata source to check, such as `igdb`. An unknown source"
+                " returns 400."
+            )
+        ),
+    ],
+) -> bool:
     """Endpoint to return the heartbeat of the metadata sources"""
     try:
         metadata_source = MetadataSource(source)
@@ -254,6 +275,7 @@ async def metadata_heartbeat(request: Request, source: str) -> bool:
         if cached is not None:
             return bool(int(cached))
 
+        # route-errors: ignore, each provider's heartbeat turns its errors into False.
         is_alive = await _probe_metadata_source(metadata_source)
         sync_cache.set(
             cache_key, int(is_alive), ex=METADATA_HEARTBEAT_CACHE_TTL_SECONDS
@@ -305,15 +327,17 @@ async def _probe_metadata_source(metadata_source: MetadataSource) -> bool:
     router.get,
     "/setup/library",
     [],
+    responses={
+        status.HTTP_403_FORBIDDEN: {
+            "description": (
+                "The server already has an admin user, and the caller lacks the"
+                " `platforms.read` scope."
+            )
+        },
+    },
 )
 async def get_setup_library_info(request: Request) -> SetupLibraryResponse:
-    """Get library structure information for setup wizard.
-
-    Only accessible during initial setup (no admin users) or with authentication.
-
-    Returns:
-        SetupLibraryResponse: The library folder state and the platforms to offer.
-    """
+    """Describe the library folder and the platforms to offer in the setup wizard. Anyone can call it until the first admin user exists."""
 
     # Check authentication - only allow public access if no admin users
     # If admin users exist, this would need authentication (but won't be called during setup)
@@ -404,20 +428,25 @@ async def get_setup_library_info(request: Request) -> SetupLibraryResponse:
     "/setup/platforms",
     [],
     status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_403_FORBIDDEN: {
+            "description": (
+                "The server already has an admin user, and the caller lacks the"
+                " `platforms.write` scope."
+            )
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": (
+                "The server could not create the library folder or some of the"
+                " platform folders."
+            )
+        },
+    },
 )
 async def create_setup_platforms(
     request: Request, platform_slugs: list[str]
 ) -> SetupPlatformsResponse:
-    """Create platform folders during setup wizard.
-
-    Only accessible during initial setup (no admin users) or with authentication.
-
-    Args:
-        platform_slugs: List of platform fs_slugs to create
-
-    Returns:
-        SetupPlatformsResponse: How many platform folders were created.
-    """
+    """Create a library folder for each platform folder name in the body. Anyone can call it until the first admin user exists."""
 
     if (
         Scope.PLATFORMS_WRITE not in request.auth.scopes

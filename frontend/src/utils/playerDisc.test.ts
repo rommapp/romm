@@ -6,11 +6,15 @@ import {
   bootFileIds,
   bootableFiles,
   defaultDisc,
+  discNumber,
   offersAllDiscs,
   rememberDisc,
   resolveRememberedDisc,
   resolveStoredDisc,
   selectableDiscFiles,
+  streamDiscFiles,
+  streamHasPlaylist,
+  streamSwapDiscFiles,
 } from "./playerDisc";
 
 // Only `id`, `file_name` and `category` are read off each file; minimal stubs
@@ -376,5 +380,138 @@ describe("bootFileIds", () => {
         file(2, "Game (Disc 2).chd", "hack"),
       ]),
     ).toEqual([]);
+  });
+});
+
+describe("streamDiscFiles", () => {
+  const PATCHES = [".ips", ".bps"];
+
+  it("keeps each disc sheet and drops the tracks it points at", () => {
+    const ids = streamDiscFiles(
+      [
+        file(1, "Game (Disc 1).gdi"),
+        file(2, "track01.bin"),
+        file(3, "Game (Disc 2).ccd"),
+        file(4, "Game (Disc 2).img"),
+        file(5, "Game (Disc 3).chd"),
+        file(6, "Game.m3u"),
+      ],
+      PATCHES,
+    ).map((f) => f.id);
+
+    expect(ids).toEqual([1, 3, 5]);
+  });
+
+  it("drops patches named by extension", () => {
+    const ids = streamDiscFiles(
+      [file(1, "Game.cue"), file(2, "Game.bin"), file(3, "Game.IPS")],
+      PATCHES,
+    ).map((f) => f.id);
+
+    expect(ids).toEqual([1]);
+  });
+
+  it("offers no disc when the rom holds only media", () => {
+    expect(
+      streamDiscFiles(
+        [file(1, "Manual.pdf", "manual"), file(2, "Theme.mp3", "soundtrack")],
+        PATCHES,
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("streamDiscFiles order", () => {
+  it("sorts numbered discs by number, then the rest by name", () => {
+    const names = streamDiscFiles(
+      [
+        file(1, "Game (Disc 10).chd"),
+        file(2, "Extra.chd"),
+        file(3, "Game (Disc 2).chd"),
+        file(4, "Game (Disc B).chd"),
+        file(5, "Bonus.chd"),
+        file(6, "Game (Disc 1).chd"),
+      ],
+      [],
+    ).map((f) => f.file_name);
+
+    expect(names).toEqual([
+      "Game (Disc 1).chd",
+      "Game (Disc 2).chd",
+      "Game (Disc B).chd",
+      "Game (Disc 10).chd",
+      "Bonus.chd",
+      "Extra.chd",
+    ]);
+  });
+});
+
+describe("discNumber", () => {
+  it.each([
+    ["Game (Disc 2).cue", 2],
+    ["Game (CD 3).chd", 3],
+    ["Game (Disk 1 of 2).chd", 1],
+    ["Game (Disc 2A).cue", 2],
+    ["Game (disc c).cue", 3],
+    ["Game (CDi).chd", null],
+    ["Game.chd", null],
+  ])("reads %s as %s", (name, expected) => {
+    expect(discNumber(name)).toBe(expected);
+  });
+});
+
+describe("streamSwapDiscFiles", () => {
+  it("swaps between the base game's discs only", () => {
+    const ids = streamSwapDiscFiles(
+      [
+        file(1, "Game (Disc 1).cue"),
+        file(2, "Game (Disc 2).cue"),
+        file(3, "Game.m3u"),
+        file(4, "Game (Translated).chd", "translation"),
+      ],
+      [],
+    ).map((f) => f.id);
+
+    expect(ids).toEqual([1, 2]);
+  });
+
+  it("falls back to every disc when the base game has none", () => {
+    const ids = streamSwapDiscFiles(
+      [
+        file(1, "Game (Disc 1).chd", "hack"),
+        file(2, "Game (Disc 2).chd", "hack"),
+      ],
+      [],
+    ).map((f) => f.id);
+
+    expect(ids).toEqual([1, 2]);
+  });
+});
+
+describe("streamHasPlaylist", () => {
+  it("ignores a variant's playlist when the base game has discs", () => {
+    expect(
+      streamHasPlaylist(
+        [
+          file(1, "Game (Disc 1).chd"),
+          file(2, "Game (Disc 2).chd"),
+          file(3, "Hack.m3u", "hack"),
+        ],
+        [],
+      ),
+    ).toBe(false);
+  });
+
+  it("reads the variants' playlist when the base game has no disc", () => {
+    expect(
+      streamHasPlaylist(
+        [
+          file(1, "Hack (Disc 1).chd", "hack"),
+          file(2, "Hack (Disc 2).chd", "hack"),
+          file(3, "Hack.m3u", "hack"),
+        ],
+        [],
+      ),
+    ).toBe(true);
   });
 });

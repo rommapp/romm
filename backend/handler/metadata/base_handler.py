@@ -233,14 +233,25 @@ class MetadataHandler(abc.ABC):
         return bytes(body)
 
     async def _get_capped(
-        self, url: str, *, provider: str, accept: str, missing_ok: bool = False
+        self,
+        url: str,
+        *,
+        provider: str,
+        accept: str,
+        missing_ok: bool = False,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> bytes | None:
         """Fetch a provider URL under the size cap, raising a 503 when it fails.
 
         Args:
             missing_ok: Read a 404 as no answer rather than as the provider failing.
+            extra_headers: Extra headers to send, such as a provider's API key.
         """
-        headers = {"User-Agent": f"RomM/{get_version()}", "Accept": accept}
+        headers = {
+            "User-Agent": f"RomM/{get_version()}",
+            "Accept": accept,
+            **(extra_headers or {}),
+        }
         try:
             return await self._fetch_capped(url, headers=headers)
         except HTTPX_REQUEST_ERRORS as exc:
@@ -254,11 +265,20 @@ class MetadataHandler(abc.ABC):
             raise unavailable(provider) from exc
 
     async def _get_capped_json(
-        self, url: str, *, provider: str, missing_ok: bool = False
+        self,
+        url: str,
+        *,
+        provider: str,
+        missing_ok: bool = False,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> dict[str, Any]:
         """Fetch a provider's JSON object, or an empty one when the reply isn't one."""
         body = await self._get_capped(
-            url, provider=provider, accept="application/json", missing_ok=missing_ok
+            url,
+            provider=provider,
+            accept="application/json",
+            missing_ok=missing_ok,
+            extra_headers=extra_headers,
         )
         if body is None:
             return {}

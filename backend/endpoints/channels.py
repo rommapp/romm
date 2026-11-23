@@ -2,9 +2,10 @@ import uuid
 from typing import Annotated
 
 from fastapi import HTTPException, Query, Request, status
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from endpoints.responses.snapshots import (
     ChannelSchema,
     build_channel_schema,
@@ -46,11 +47,47 @@ class ChannelAttachPayload(BaseModel):
     rom_file_id: int
 
 
-@protected_route(router.get, "", [Scope.ASSETS_READ])
+@protected_route(
+    router.get,
+    "",
+    [Scope.ASSETS_READ],
+    responses={
+        status.HTTP_403_FORBIDDEN: {
+            "description": (
+                "The `device_id` is not the client token's device, and the caller"
+                " lacks the `devices.write` scope."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "No rom file the caller can see has the ID in `rom_file_id`, no"
+                " channel the caller can read has the ID in `channel_id`, or the caller"
+                " has no device with the ID in `device_id`."
+            )
+        },
+    },
+)
 def get_channels(
     request: Request,
-    rom_file_id: Annotated[list[int] | None, Query()] = None,
-    channel_id: Annotated[list[uuid.UUID] | None, Query()] = None,
+    rom_file_id: Annotated[
+        list[int] | None,
+        Query(
+            description=(
+                "The ID of a rom file whose channels to list. Repeat the"
+                " parameter for several files. A file that is unknown or hidden"
+                " returns 404."
+            )
+        ),
+    ] = None,
+    channel_id: Annotated[
+        list[uuid.UUID] | None,
+        Query(
+            description=(
+                "The ID of a channel to include. Repeat the parameter for"
+                " several channels. A channel you cannot read returns 404."
+            )
+        ),
+    ] = None,
     detached_platform_id: Annotated[
         int | None,
         Query(description="Your channels on this platform whose ROM was removed."),
@@ -76,7 +113,18 @@ def get_channels(
 
 
 @protected_route(
-    router.post, "", [Scope.ASSETS_WRITE], status_code=status.HTTP_201_CREATED
+    router.post,
+    "",
+    [Scope.ASSETS_WRITE],
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom file the caller can see has the ID in `rom_file_id`."
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "A channel with the requested `id` already exists."
+        },
+    },
 )
 def create_channel(request: Request, payload: ChannelCreatePayload) -> ChannelSchema:
     """Create an empty channel on a ROM file. A device's first push into an
@@ -93,9 +141,20 @@ def create_channel(request: Request, payload: ChannelCreatePayload) -> ChannelSc
     return build_channel_schema(db_snapshot_handler.add_channel(channel), viewer)
 
 
-@protected_route(router.patch, "/{id}", [Scope.ASSETS_WRITE])
+@protected_route(
+    router.patch,
+    "/{id}",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No channel the caller owns and can see has this ID."
+        }
+    },
+)
 def update_channel(
-    request: Request, id: uuid.UUID, payload: ChannelUpdatePayload
+    request: Request,
+    id: uuid.UUID,
+    payload: ChannelUpdatePayload,
 ) -> ChannelSchema:
     """Rename a channel or open it to every user. Owner only."""
     channel = readable_channel_or_404(request, id, owner_only=True)
@@ -105,9 +164,26 @@ def update_channel(
     return build_channel_schema(channel, request.user)
 
 
-@protected_route(router.post, "/{id}/attach", [Scope.ASSETS_WRITE])
+@protected_route(
+    router.post,
+    "/{id}/attach",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "No channel the caller owns and can see has this ID, or no rom"
+                " file the caller can see has the ID in `rom_file_id`."
+            )
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "The channel is already attached to a rom."
+        },
+    },
+)
 def attach_channel(
-    request: Request, id: uuid.UUID, payload: ChannelAttachPayload
+    request: Request,
+    id: uuid.UUID,
+    payload: ChannelAttachPayload,
 ) -> ChannelSchema:
     """Attach a channel whose ROM was removed to a file of the same platform.
     Owner only."""
@@ -132,6 +208,26 @@ def attach_channel(
     "/{id}/held",
     [Scope.ASSETS_READ],
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "The request has no `device_id`, and the client token is not bound"
+                " to a device."
+            )
+        },
+        status.HTTP_403_FORBIDDEN: {
+            "description": (
+                "The `device_id` is not the client token's device, and the caller"
+                " lacks the `devices.write` scope."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "No channel the caller can read has this ID, or the caller has no"
+                " device with the ID in `device_id`."
+            )
+        },
+    },
 )
 def clear_held(
     request: Request,
@@ -151,9 +247,20 @@ def clear_held(
 
 
 @protected_route(
-    router.delete, "/{id}", [Scope.ASSETS_WRITE], status_code=status.HTTP_204_NO_CONTENT
+    router.delete,
+    "/{id}",
+    [Scope.ASSETS_WRITE],
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No channel the caller owns and can see has this ID."
+        }
+    },
 )
-async def delete_channel(request: Request, id: uuid.UUID) -> None:
+async def delete_channel(
+    request: Request,
+    id: uuid.UUID,
+) -> None:
     """Delete a channel. Its current and pinned snapshots stay as archival backups,
     except on a detached channel, whose ROM is gone, which keeps nothing."""
     channel = readable_channel_or_404(request, id, owner_only=True)

@@ -64,23 +64,27 @@ def loaded_rom_files(rom: Rom) -> list[RomFile]:
     return db_rom_handler.rom_files_for_rom_id(rom.id)
 
 
-async def refresh_rom_files(rom: Rom, cnfg: Config | None = None) -> RomFilesRefresh:
+async def refresh_rom_files(
+    rom: Rom, cnfg: Config | None = None, *, rom_hashes: bool = True
+) -> RomFilesRefresh:
     """Reconcile a ROM's file rows with what is on disk, keeping the stored
     hashes of files whose size and mtime are unchanged.
 
     Args:
         rom: A persisted ROM whose folder or file exists on disk.
         cnfg: The config to read, so a scan can load it once.
+        rom_hashes: False keeps a folder ROM's stored ROM-level hashes, for a
+            caller that refreshes again once the files settle.
     Returns:
         What changed, so callers can report it.
     """
     async with redis_lock(
         f"rom_files_refresh:{rom.id}", timeout_seconds=REFRESH_LOCK_TIMEOUT_SECONDS
     ):
-        return await _refresh(rom, cnfg or cm.get_config())
+        return await _refresh(rom, cnfg or cm.get_config(), rom_hashes)
 
 
-async def _refresh(rom: Rom, cnfg: Config) -> RomFilesRefresh:
+async def _refresh(rom: Rom, cnfg: Config, rom_hashes: bool) -> RomFilesRefresh:
     existing = loaded_rom_files(rom)
     # Extraction can settle a reused row's category, title id and read time in
     # place, so that row is compared against the values it was loaded with.
@@ -92,6 +96,7 @@ async def _refresh(rom: Rom, cnfg: Config) -> RomFilesRefresh:
         extract_title_ids=not cnfg.SKIP_TITLE_ID_EXTRACTION,
         existing_files=existing,
         reuse_title_ids=True,
+        rom_hashes=rom_hashes,
         cnfg=cnfg,
     )
     if existing and not parsed.rom_files:

@@ -29,20 +29,22 @@ BASE_GAME_CATEGORIES = frozenset({None, RomFileCategory.GAME})
 
 # Sheet formats that describe a disc by pointing at raw track files: .cue for
 # BIN/CUE, .gdi for Dreamcast, .ccd for CloneCD and .mds for Alcohol. No one
-# format is privileged over the others.
+# format is privileged over the others. Mirrored in frontend/src/utils/playerDisc.ts.
 DESCRIPTOR_EXTENSIONS = frozenset({"cue", "gdi", "ccd", "mds"})
 
 # The raw tracks those sheets point at, data and CDDA audio alike. None of them
 # is loadable on its own, so a sheet in the set means its tracks are data rather
 # than discs -- but only those tracks. Anything else present stays a disc in its
-# own right. Kept in step with the shell's own list in src/main/discs/m3u.ts.
+# own right. Kept in step with the shell's own list in src/main/discs/m3u.ts
+# and with frontend/src/utils/playerDisc.ts.
 COMPANION_EXTENSIONS = frozenset(
     {"bin", "raw", "img", "sub", "mdf", "wav", "ogg", "flac", "mp3"}
 )
 
 
 # "(Disc 2)", "(CD 2)", TOSEC's "(Disk 1 of 2)", split "(Disc 2A)", lettered
-# "(Disc B)". A letter needs a space, so "(CDi)" isn't disc 9.
+# "(Disc B)". A letter needs a space, so "(CDi)" isn't disc 9. Mirrored in
+# frontend/src/utils/playerDisc.ts.
 DISC_TAG_REGEX = re.compile(
     r"\((?:disc|disk|cd|disque)(?:\s*([0-9]+)[a-z]?|\s+((?a:[a-z])))"
     r"(?:\s+of\s+[0-9]+)?\)",

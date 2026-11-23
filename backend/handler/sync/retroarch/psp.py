@@ -40,7 +40,6 @@ from models.rom import Rom
 from models.user import User
 from utils.memory_cards import content_hash_of_bytes
 from utils.uploads import apply_datetime_tag
-from utils.zip_cache import ensure_zipfile_writable
 
 _IGNORED_CATEGORY = "SYSTEM"
 _SAVEDATA_CATEGORY = "SAVEDATA"
@@ -51,6 +50,11 @@ _PENDING_CATEGORY = "psp_pending"
 # not one, and inflating it on every manifest build would exhaust memory.
 _BUNDLE_MAX_MEMBERS = 64
 BUNDLE_MAX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024
+
+# A PSP save's PARAM.SFO is under 5 KiB and its TITLE field holds 128 bytes, so
+# anything larger is crafted, and a longer title would become a huge ROM search.
+_SFO_MAX_BYTES = 64 * 1024
+_SFO_TITLE_MAX_LENGTH = 128
 
 _BUNDLE_FOLDER_PATTERN = re.compile(r"^PSP-(.+?)(?: \[.*])?\.zip$")
 
@@ -166,6 +170,8 @@ def parse_sfo(data: bytes) -> dict[str, str | int]:
     """
     if len(data) < 20 or data[0:4] != b"\x00PSF":
         raise ValueError("Not a PARAM.SFO file (bad magic)")
+    if len(data) > _SFO_MAX_BYTES:
+        raise ValueError(f"PARAM.SFO file too large ({len(data)} bytes)")
 
     try:
         return _parse_sfo_tables(data)
@@ -316,9 +322,6 @@ def _load_bundle_member_names(path: Path) -> list[str]:
 
 
 def _write_bundle(entries: dict[str, bytes]) -> bytes:
-    # `zipfile_inflate64` is imported elsewhere for ROM archive reading, and
-    # breaks `writestr()` until this runs.
-    ensure_zipfile_writable()
     buffer = BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         for name, data in entries.items():
@@ -379,6 +382,9 @@ async def _resolve_folder_rom(
             log.warning(f"Failed to parse PARAM.SFO: {exc}")
         else:
             sfo_title = title if isinstance(title, str) else None
+            if sfo_title and len(sfo_title) > _SFO_TITLE_MAX_LENGTH:
+                log.warning(f"Ignoring PARAM.SFO TITLE of {len(sfo_title)} characters")
+                sfo_title = None
 
     rom = await asyncio.to_thread(_resolve_rom, info.save_folder, sfo_title, can_see)
     if rom:

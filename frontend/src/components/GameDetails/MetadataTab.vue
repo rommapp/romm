@@ -139,6 +139,7 @@ const downloadUrls = computed(() => {
           :icon="v.match ? 'mdi-check-circle' : 'mdi-close-circle-outline'"
           :text="v.label"
           :tone="v.match ? 'success' : 'neutral'"
+          :class="{ 'metadata-tab__verification--miss': !v.match }"
         />
       </div>
     </section>
@@ -218,6 +219,11 @@ const downloadUrls = computed(() => {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+/* A miss dims like an unlinked provider below, so it can't read as verified. */
+.metadata-tab__verification--miss {
+  opacity: var(--r-opacity-inactive);
 }
 
 .metadata-tab__downloads {

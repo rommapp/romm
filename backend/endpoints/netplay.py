@@ -1,6 +1,6 @@
-from typing import Dict, TypedDict
+from typing import Annotated, Dict, TypedDict
 
-from fastapi import Request
+from fastapi import Query, Request, status
 
 from decorators.auth import protected_route
 from handler.auth.constants import Scope
@@ -52,8 +52,29 @@ class RoomsResponse(TypedDict):
     hasPassword: bool
 
 
-@protected_route(router.get, "/list", [Scope.ROMS_READ])
-async def get_rooms(request: Request, game_id: int) -> Dict[str, RoomsResponse]:
+@protected_route(
+    router.get,
+    "/list",
+    [Scope.ROMS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        }
+    },
+)
+async def get_rooms(
+    request: Request,
+    game_id: Annotated[
+        int,
+        Query(
+            description=(
+                "The internal ID of the rom. A rom that is unknown or hidden"
+                " returns 404."
+            )
+        ),
+    ],
+) -> Dict[str, RoomsResponse]:
+    """List the open netplay rooms for a game. The list is empty when the caller cannot use emulation."""
     visible_rom_or_404(request, db_rom_handler.get_rom_visibility(game_id), game_id)
 
     # Empty rather than 403, like the streaming joinable list.

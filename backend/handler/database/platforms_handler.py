@@ -13,6 +13,7 @@ from models.platform import Platform
 from models.rom import Rom
 
 from .base_handler import DBBaseHandler
+from .roms_handler import FILTER_VALUES_BUMP_KEY
 
 # Default for a `query` parameter that with_firmware fills before the body runs.
 INJECTED_PLATFORM_QUERY = cast(Select[Platform], None)
@@ -206,6 +207,7 @@ class DBPlatformsHandler(DBBaseHandler):
             .where(Platform.id == id)
             .execution_options(synchronize_session="evaluate")
         )
+        session.info[FILTER_VALUES_BUMP_KEY] = True
 
     @begin_session
     def mark_missing_platforms(

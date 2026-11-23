@@ -4,16 +4,35 @@
 /* eslint-disable */
 import type { ScreenshotSchema } from './ScreenshotSchema';
 export type StateSchema = {
+    /**
+     * The ID of the sync channel this was pushed to. Null for a backup that the user manages themselves.
+     */
     channel_id?: (string | null);
+    /**
+     * MD5 of the file's bytes, or for a zip, of its sorted `name:md5` entry lines. Null for a file never hashed.
+     */
+    content_hash?: (string | null);
     is_favorite?: boolean;
+    /**
+     * The owner's free-text labels.
+     */
     labels?: Array<string>;
     id: number;
     rom_id: number;
     user_id: number;
+    /**
+     * The file name, extension included.
+     */
     file_name: string;
+    /**
+     * The file name without its extension or any tags in parentheses or brackets.
+     */
     file_name_no_tags: string;
     file_name_no_ext: string;
     file_extension: string;
+    /**
+     * The folder holding the file.
+     */
     file_path: string;
     file_size_bytes: number;
     full_path: string;
@@ -22,6 +41,9 @@ export type StateSchema = {
     created_at: string;
     updated_at: string;
     emulator: (string | null);
+    /**
+     * The libretro core that wrote the state.
+     */
     core?: (string | null);
     is_public?: boolean;
     screenshot: (ScreenshotSchema | null);

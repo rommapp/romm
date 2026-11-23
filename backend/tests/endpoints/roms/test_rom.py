@@ -980,8 +980,8 @@ def test_get_romfile_nested_file_is_not_top_level(
     nested = db_rom_handler.add_rom_file(
         RomFile(
             rom_id=rom.id,
-            file_name="manual.txt",
-            file_path=f"{rom.fs_path}/{rom.fs_name}/extras",
+            file_name="EBOOT.BIN",
+            file_path=f"{rom.fs_path}/{rom.fs_name}/PS3_GAME/USRDIR",
             file_size_bytes=10,
         )
     )
@@ -994,8 +994,30 @@ def test_get_romfile_nested_file_is_not_top_level(
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
     assert body["is_top_level"] is False
-    # Only a top-level file picks up the game-file default.
-    assert body["category"] is None
+    # A nested file below no category folder is part of the game too.
+    assert body["category"] == "game"
+
+
+def test_get_romfile_keeps_a_category_folder_category(
+    client: TestClient, access_token: str, rom: Rom
+):
+    manual = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="manual.pdf",
+            file_path=f"{rom.fs_path}/{rom.fs_name}/manual",
+            file_size_bytes=10,
+            category=RomFileCategory.MANUAL,
+        )
+    )
+
+    response = client.get(
+        f"/api/roms/{manual.id}/files",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["category"] == "manual"
 
 
 def test_get_romfile_reads_a_patch_format_as_a_patch(
@@ -1086,6 +1108,23 @@ def test_update_rom_keeps_a_custom_sort_keys_leading_article(
     assert response.status_code == status.HTTP_200_OK
 
     assert response.json()["name_sort_key"] == "the simpsons"
+
+
+def test_update_rom_leaves_unsent_fields_alone(
+    client: TestClient, access_token: str, rom: Rom
+):
+    db_rom_handler.update_rom(rom.id, {"steam_id": 620, "summary": "Portals."})
+
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"name_sort_key": "portal"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["steam_id"] == 620
+    assert body["summary"] == "Portals."
 
 
 @patch.object(FSRomsHandler, "rename_fs_rom")

@@ -1,11 +1,11 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Request, status
-from pydantic import BaseModel, Field, model_validator
+from fastapi import Depends, HTTPException, Query, Request, status
+from pydantic import Field, model_validator
 
 from decorators.auth import protected_route
-from endpoints.responses.base import PAGE_QUERY, PageParams
+from endpoints.responses.base import PAGE_QUERY, BaseModel, PageParams
 from endpoints.responses.play_session import (
     PlaySessionIngestResponse,
     PlaySessionIngestResult,
@@ -57,12 +57,26 @@ class PlaySessionIngestPayload(BaseModel):
 
 
 @protected_route(
-    router.post, "", [Scope.ROMS_USER_WRITE], status_code=status.HTTP_201_CREATED
+    router.post,
+    "",
+    [Scope.ROMS_USER_WRITE],
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                f"The batch has no sessions or more than {MAX_BATCH_SIZE} of them."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The client token is bound to a device other than `device_id`."
+        },
+    },
 )
 def ingest_play_sessions(
     request: Request,
     payload: PlaySessionIngestPayload,
 ) -> PlaySessionIngestResponse:
+    """Record a batch of play sessions reported by a client. The sessions are recorded for the payload's `device_id`, or for the client token's device when it is not set."""
     if not payload.sessions:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -106,15 +120,45 @@ def ingest_play_sessions(
     )
 
 
-@protected_route(router.get, "", [Scope.ROMS_USER_READ])
+@protected_route(
+    router.get,
+    "",
+    [Scope.ROMS_USER_READ],
+    responses={
+        status.HTTP_403_FORBIDDEN: {
+            "description": (
+                "The request does not set `device_id` to the client token's own"
+                " device, and the caller lacks the `devices.read` scope."
+            )
+        }
+    },
+)
 def get_play_sessions(
     request: Request,
     page: Annotated[PageParams, Depends(PAGE_QUERY)],
     rom_id: int | None = None,
     device_id: str | None = None,
-    start_after: datetime | None = None,
-    end_before: datetime | None = None,
+    start_after: Annotated[
+        datetime | None,
+        Query(
+            description=(
+                "Only sessions that started at or after this time. When this or"
+                " `end_before` is set, `limit` is ignored and every match after"
+                " `offset` is returned."
+            )
+        ),
+    ] = None,
+    end_before: Annotated[
+        datetime | None,
+        Query(
+            description=(
+                "Only sessions that started at or before this time. The end time"
+                " of a session is not considered."
+            )
+        ),
+    ] = None,
 ) -> list[PlaySessionSchema]:
+    """List the caller's play sessions. A client may read its own device's sessions with `roms.user.read`; any other device needs `devices.read`."""
     # A device-bound client may read its own device with roms.user.read alone.
     if (
         device_id is None or device_id != token_device_id(request)
@@ -138,10 +182,21 @@ def get_play_sessions(
     "/{session_id}",
     [Scope.ROMS_USER_WRITE],
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no play session with this ID on a rom it can see."
+        }
+    },
 )
-def delete_play_session(request: Request, session_id: int) -> None:
+def delete_play_session(
+    request: Request,
+    session_id: int,
+) -> None:
+    """Delete one of the caller's play sessions."""
     deleted = db_play_session_handler.delete_session(
-        session_id=session_id, user_id=request.user.id
+        session_id=session_id,
+        user_id=request.user.id,
+        visibility=get_permissions(request).rom_visibility,
     )
     if not deleted:
         raise HTTPException(

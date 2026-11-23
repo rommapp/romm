@@ -127,6 +127,9 @@ interface Props {
   /** Sort applied while the URL names none. `null` orders by search
    * relevance (Search). */
   defaultOrderBy?: GalleryOrderKey | null;
+  /** Game count of the unfiltered gallery, shown against the result count
+   *  while a search or filter narrows it. Unset hides the count. */
+  scopeTotal?: number | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -139,6 +142,7 @@ const props = withDefaults(defineProps<Props>(), {
   showPlatformsInFilter: true,
   showPlatformColumn: true,
   defaultOrderBy: DEFAULT_ORDER_BY,
+  scopeTotal: undefined,
 });
 
 defineSlots<{
@@ -307,6 +311,18 @@ const { supportsWebp } = useWebpSupport();
 
 const { total, charIndex, initialFetching, refreshing, orderBy, orderDir } =
   storeToRefs(galleryRoms);
+
+// A narrowed gallery shows how many of its games match inside the search field.
+const searchSuffix = computed(() =>
+  props.scopeTotal !== undefined &&
+  (filterActiveCount.value > 0 || searchTerm.value) &&
+  galleryRoms.metadataLoaded
+    ? t("gallery.results-of-total", {
+        count: total.value,
+        total: props.scopeTotal,
+      })
+    : undefined,
+);
 
 const { groupBy, layout, toolbarPosition } = useGalleryMode();
 
@@ -531,25 +547,22 @@ function onViewportRangeChange(range: { first: number; last: number }) {
   void scheduleFetchSync(range);
 }
 
-// Rows kept rendered beyond the viewport. Adaptive so the rendered CARD count
-// stays bounded regardless of how many columns fit: a fixed row overscan on a
-// wide screen (~9 cards/row) mounts hundreds of off-screen cards, and each
-// card is an expensive subtree (cover + hover overlay + shared game actions).
-// We target a roughly constant overscan-card budget per side, clamped so a
-// single-column phone keeps enough rows for smooth scrolling without
-// overshooting. List rows are one item each → a flat row count is fine.
-const GRID_OVERSCAN_CARDS = 60;
-const virtualOverscan = computed(() =>
-  layout.value === "list"
-    ? 12
-    : Math.min(
-        20,
-        Math.max(
-          4,
-          Math.round(GRID_OVERSCAN_CARDS / Math.max(1, columns.value)),
-        ),
-      ),
-);
+// A budget in cards, not rows: every mounted card is restyled each frame, so a
+// row count would cost far more on wide screens than on phones.
+const GRID_OVERSCAN_CARDS = 12;
+const GRID_OVERSCAN_MIN_ROWS = 2;
+const GRID_OVERSCAN_MAX_ROWS = 20;
+const LIST_OVERSCAN_ROWS = 12;
+
+const virtualOverscan = computed(() => {
+  if (layout.value === "list") return LIST_OVERSCAN_ROWS;
+
+  const cardsPerRow = Math.max(1, columns.value);
+  const rows = Math.round(GRID_OVERSCAN_CARDS / cardsPerRow);
+  if (rows < GRID_OVERSCAN_MIN_ROWS) return GRID_OVERSCAN_MIN_ROWS;
+  if (rows > GRID_OVERSCAN_MAX_ROWS) return GRID_OVERSCAN_MAX_ROWS;
+  return rows;
+});
 
 // ── Debug overlay bridge ────────────────────────────────────────────
 // Publish the virtual scroller's window stats so the global DebugOverlay
@@ -1067,6 +1080,7 @@ defineExpose({
               show-search
               :search="searchInput"
               :search-placeholder="searchPlaceholder"
+              :search-suffix="searchSuffix"
               :autofocus-search="autofocusSearch"
               show-filter
               :filter-active-count="filterActiveCount"
@@ -1305,6 +1319,12 @@ defineExpose({
   --r-shell-strip: calc(var(--r-alpha-strip-w) + var(--r-alpha-strip-gap));
   /* Where the right-anchored overlays sit: clear of the scrollbar and the inset. */
   --r-shell-edge-r: calc(var(--r-shell-scrollbar-w, 0px) + var(--r-safe-r));
+  /* The right gutter less the scrollbar it sits beside, so content ends where
+     the top bar and the document-scrolled pages do. */
+  --r-shell-pad-r: max(
+    0px,
+    calc(var(--r-gutter-r) - var(--r-shell-scrollbar-w, 0px))
+  );
   /* Lets the strip (a sibling) animate against the scroller's scroll. */
   timeline-scope: --r-shell-scroll;
   flex: 1;
@@ -1354,6 +1374,8 @@ html[data-bp~="sm-and-down"] .r-shell {
    class name is load-bearing in here. */
 html[data-bp~="sm-and-down"] .r-shell {
   --r-list-bleed: var(--r-row-pad);
+  /* The rows bleed by the full gutter, so a narrower pad would overflow it. */
+  --r-shell-pad-r: var(--r-gutter-r);
 }
 html[data-bp~="sm-and-down"] .r-shell__list-header {
   margin-inline: calc(-1 * var(--r-list-bleed, 0px));
@@ -1380,7 +1402,7 @@ html[data-bp~="md-and-up"] .r-shell__list-header {
   /* A stable gutter keeps the row packing from shifting when the content
      starts or stops overflowing. */
   scrollbar-gutter: stable;
-  padding: 0 calc(var(--r-gutter-r) + var(--r-shell-strip)) 60px
+  padding: 0 calc(var(--r-shell-pad-r) + var(--r-shell-strip)) 60px
     var(--r-gutter-l);
 }
 
@@ -1463,7 +1485,7 @@ html[data-bp~="md-and-up"] .r-shell__list-header {
 }
 /* Its pinned glass also runs under the strip column, out to the right edge. */
 .r-shell__list-header::before {
-  right: calc(-1 * (var(--r-gutter-r) + var(--r-shell-strip)));
+  right: calc(-1 * (var(--r-shell-pad-r) + var(--r-shell-strip)));
 }
 
 /* The strip overlays the scroller's right gutter from the pinned toolbar's
@@ -1529,7 +1551,7 @@ html[data-bp~="md-and-up"] .r-shell__list-header {
 }
 /* No strip: line up with the cards' right edge instead. */
 .r-shell--no-strip .r-shell__back-to-top {
-  right: calc(var(--r-row-pad) + var(--r-shell-edge-r));
+  right: calc(var(--r-shell-scrollbar-w, 0px) + var(--r-shell-pad-r));
 }
 html[data-bp~="sm-and-down"] .r-shell__back-to-top {
   bottom: calc(var(--r-bottom-nav-h) + var(--r-safe-b) + var(--r-space-4));

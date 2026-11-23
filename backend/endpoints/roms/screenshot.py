@@ -6,7 +6,7 @@ from fastapi import Request, status
 from fastapi.responses import Response
 
 from decorators.auth import protected_route
-from endpoints.roms.upload import receive_rom_file
+from endpoints.roms.upload import ROM_FILE_UPLOAD_RESPONSES, receive_rom_file
 from handler.auth.constants import Scope
 from handler.auth.dependencies import visible_rom_or_404
 from handler.database import db_rom_handler
@@ -16,7 +16,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import RomFileCategory
-from utils.router import APIRouter
+from utils.router import APIRouter, RomIdPath
 
 router = APIRouter()
 
@@ -26,11 +26,16 @@ router = APIRouter()
     "/{id}/screenshots",
     [Scope.ROMS_WRITE],
     status_code=status.HTTP_201_CREATED,
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        **ROM_FILE_UPLOAD_RESPONSES,
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+    },
 )
 async def add_rom_screenshots(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     filename: Annotated[
         str,
         Header(
@@ -54,11 +59,18 @@ async def add_rom_screenshots(
     router.delete,
     "/{id}/screenshots/{file_id}",
     [Scope.ROMS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID, or the rom has no screenshot with this file ID."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The screenshot could not be removed from disk."
+        },
+    },
 )
 async def delete_rom_screenshot(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
 ) -> Response:
     """Delete a single screenshot file from a ROM."""

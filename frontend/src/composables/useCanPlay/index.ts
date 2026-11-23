@@ -21,10 +21,10 @@ import { useNativeStore } from "@/stores/native";
 import type { SimpleRom } from "@/stores/roms";
 import { useStreamingStore } from "@/stores/streaming";
 import {
+  hasJsDosBundle,
   isEasyRpgEmulationSupported,
   isEasyRpgGame,
   isEJSEmulationSupported,
-  isJsDosBundle,
   isJsDosEmulationSupported,
   isPico8EmulationSupported,
   isPico8Rom,
@@ -64,7 +64,7 @@ export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
   // offer Play on files the player panics on.
   const onJsDosPlatform = supportedBy(isJsDosEmulationSupported);
   const canPlayJsDos = computed(
-    () => onJsDosPlatform.value && isJsDosBundle(getRom()),
+    () => onJsDosPlatform.value && hasJsDosBundle(getRom()),
   );
 
   const onPico8Platform = supportedBy(isPico8EmulationSupported);
