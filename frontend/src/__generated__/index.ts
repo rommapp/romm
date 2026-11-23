@@ -134,7 +134,7 @@ export type { GenericTaskStatusResponse } from './models/GenericTaskStatusRespon
 export type { GrantSchema } from './models/GrantSchema';
 export type { GrantSchemaIO } from './models/GrantSchemaIO';
 export type { GroupedTasksDict } from './models/GroupedTasksDict';
-export type { HealthReadyResponse } from './models/HealthReadyResponse';
+export type { HealthLiveResponse } from './models/HealthLiveResponse';
 export type { HeartbeatResponse } from './models/HeartbeatResponse';
 export type { HeldBySchema } from './models/HeldBySchema';
 export type { HiddenEntitiesSchema } from './models/HiddenEntitiesSchema';

@@ -1,5 +1,5 @@
-from typing import TypedDict
+from typing import Literal, TypedDict
 
 
-class HealthReadyResponse(TypedDict):
-    ready: bool
+class HealthLiveResponse(TypedDict):
+    status: Literal["ok"]
