@@ -114,6 +114,7 @@ export default defineConfig(({ mode }) => {
       },
       proxy,
       port: httpsMode ? 8443 : 3000,
+      strictPort: true,
       allowedHosts: ["localhost", "127.0.0.1", "romm.dev"],
       ...(httpsMode
         ? {
@@ -125,6 +126,8 @@ export default defineConfig(({ mode }) => {
         : {}),
     },
     preview: {
+      port: 4173,
+      strictPort: true,
       proxy,
     },
   };
