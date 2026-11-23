@@ -772,11 +772,49 @@ def test_emulatorjs_cache_rejects_non_boolean(tmp_path, value):
     assert excinfo.value.code == 3
 
 
-@pytest.mark.parametrize("value", ["false", "[]"])
-def test_emulatorjs_cache_block_rejects_non_mapping(tmp_path, value):
+def test_emulatorjs_legacy_cache_limit_is_read_with_a_warning(caplog, tmp_path):
+    with capture_romm_logs(caplog):
+        loader = _write_emulatorjs_config(tmp_path, "  cache_limit: 2048\n")
+
+    assert loader.config.EJS_CACHE_LIMIT == 2048
+    assert "emulatorjs.cache_limit is deprecated" in caplog.text
+
+
+def test_emulatorjs_cache_limit_wins_over_legacy_key(caplog, tmp_path):
+    with capture_romm_logs(caplog):
+        loader = _write_emulatorjs_config(
+            tmp_path, "  cache_limit: 2048\n  cache:\n    limit: 4096\n"
+        )
+
+    assert loader.config.EJS_CACHE_LIMIT == 4096
+
+
+@pytest.mark.parametrize(
+    "contents",
+    [
+        "emulatorjs:\n  cache: false\n",
+        "emulatorjs:\n  netplay: true\n",
+        "emulatorjs: []\n",
+        "scan:\n  priority: igdb\n",
+        "just a string\n",
+    ],
+)
+def test_non_mapping_parent_block_exits(tmp_path, contents):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(contents)
+
     with pytest.raises(SystemExit) as excinfo:
-        _write_emulatorjs_config(tmp_path, f"  cache: {value}\n")
+        ConfigManager(str(config_file))
+
     assert excinfo.value.code == 3
+
+
+def test_empty_parent_block_uses_defaults(tmp_path):
+    loader = _write_emulatorjs_config(tmp_path, "  cache:\n  netplay:\n")
+
+    assert loader.config.EJS_CACHE_ENABLED
+    assert loader.config.EJS_CACHE_LIMIT is None
+    assert not loader.config.EJS_NETPLAY_ENABLED
 
 
 def test_null_default_cores_block_means_empty(tmp_path):

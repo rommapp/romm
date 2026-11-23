@@ -72,7 +72,7 @@ emulatorjs:
   debug: true
   cache:
     enabled: false
-  cache_limit: 1000
+    limit: 1000
   disable_auto_unload: true
   disable_batch_bootup: true
   auto_save_sync: false
