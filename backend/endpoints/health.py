@@ -12,7 +12,7 @@ router = APIRouter(prefix="/health", tags=["system"])
     responses={status.HTTP_503_SERVICE_UNAVAILABLE: {"model": HealthReadyResponse}},
 )
 async def ready(response: Response) -> HealthReadyResponse:
-    ready = is_ready()
-    if not ready:
+    serving = is_ready()
+    if not serving:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-    return {"ready": ready}
+    return {"ready": serving}

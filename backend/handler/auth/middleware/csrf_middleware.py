@@ -21,6 +21,10 @@ def _session_authenticated(request: Request) -> bool:
     return bool((request.scope.get("session") or {}).get("sub"))
 
 
+def _url_matches(url: URL, patterns: Optional[list[Pattern[str]]]) -> bool:
+    return any(pattern.match(url.path) for pattern in patterns or ())
+
+
 class CSRFMiddleware:
     def __init__(
         self,
@@ -76,9 +80,9 @@ class CSRFMiddleware:
 
         csrf_cookie = request.cookies.get(self.cookie_name)
 
-        if self._url_is_required(request.url) or (
+        if _url_matches(request.url, self.required_urls) or (
             request.method not in self.safe_methods
-            and not self._url_is_exempt(request.url)
+            and not _url_matches(request.url, self.exempt_urls)
             and self._has_sensitive_cookies(request.cookies)
         ):
             submitted_csrf_token = await self._get_submitted_csrf_token(request)
@@ -94,7 +98,8 @@ class CSRFMiddleware:
                 await response(scope, receive, send)
                 return
 
-        send = functools.partial(self.send, send=send, scope=scope)
+        if not _url_matches(request.url, self.cookieless_urls):
+            send = functools.partial(self.send, send=send, scope=scope)
         await self.app(scope, receive, send)
 
     async def send(self, message: Message, send: Send, scope: Scope) -> None:
@@ -103,10 +108,6 @@ class CSRFMiddleware:
             return
 
         request = Request(scope)
-        if self._url_is_cookieless(request.url):
-            await send(message)
-            return
-
         csrf_cookie = request.cookies.get(self.cookie_name)
         current_user_id = request.user.id if request.user.is_authenticated else None
 
@@ -132,27 +133,6 @@ class CSRFMiddleware:
             return True
         for sensitive_cookie in self.sensitive_cookies:
             if sensitive_cookie in cookies:
-                return True
-        return False
-
-    def _url_is_required(self, url: URL) -> bool:
-        if not self.required_urls:
-            return False
-        for required_url in self.required_urls:
-            if required_url.match(url.path):
-                return True
-        return False
-
-    def _url_is_cookieless(self, url: URL) -> bool:
-        if not self.cookieless_urls:
-            return False
-        return any(pattern.match(url.path) for pattern in self.cookieless_urls)
-
-    def _url_is_exempt(self, url: URL) -> bool:
-        if not self.exempt_urls:
-            return False
-        for exempt_url in self.exempt_urls:
-            if exempt_url.match(url.path):
                 return True
         return False
 
