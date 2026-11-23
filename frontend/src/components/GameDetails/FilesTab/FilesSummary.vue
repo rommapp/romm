@@ -27,7 +27,7 @@ const hashes = computed<RomHash[]>(() => {
   // CHD SHA-1 lives on the file, not the ROM: surface it at ROM level
   // only when the ROM is a single CHD file (mirrors v1's FileInfo).
   const chdSha1 = props.rom.has_simple_single_file
-    ? (props.rom.files[0]?.chd_sha1_hash ?? null)
+    ? (props.rom.files.find((f) => f.is_top_level)?.chd_sha1_hash ?? null)
     : null;
   return [
     { label: "SHA-1", value: props.rom.sha1_hash },

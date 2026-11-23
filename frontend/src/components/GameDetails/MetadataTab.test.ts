@@ -44,10 +44,24 @@ describe("MetadataTab hash rows", () => {
   // Not reachable in the browser: the mock library holds no CHD.
   it("slots CHD SHA-1 directly after SHA-1 when the ROM is a CHD", () => {
     const chd = rom({
-      files: [romFileFixture({ chd_sha1_hash: CHD_SHA1 })],
+      files: [romFileFixture({ chd_sha1_hash: CHD_SHA1, is_top_level: true })],
     });
 
     expect(hashLabels(chd)).toEqual(["SHA-1", "CHD SHA-1", "MD5", "CRC", "RA"]);
+  });
+
+  it("reads CHD SHA-1 from the ROM's own file, not a playlist's disc", () => {
+    const playlist = rom({
+      files: [
+        romFileFixture({
+          file_name: "Game (Disc 1).chd",
+          chd_sha1_hash: CHD_SHA1,
+        }),
+        romFileFixture({ file_name: "Game.m3u", is_top_level: true }),
+      ],
+    });
+
+    expect(hashLabels(playlist)).toEqual(["SHA-1", "MD5", "CRC", "RA"]);
   });
 });
 

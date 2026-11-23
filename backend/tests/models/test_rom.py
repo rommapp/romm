@@ -1,6 +1,7 @@
 from typing import Any
 
 import pytest
+from sqlalchemy.orm import selectinload, undefer
 from tests.factories import make_rom
 
 from config import FRONTEND_RESOURCES_PATH
@@ -12,6 +13,7 @@ from models.rom import (
     LookupHashes,
     Rom,
     RomFile,
+    apply_file_stats,
     compute_full_path_hash,
     compute_search_titles,
     rom_id_from_resource_url,
@@ -107,6 +109,48 @@ def test_file_name_for_download_is_relative_to_the_rom(
     file = RomFile(rom=rom, file_path=file_path, file_name=file_name)
 
     assert file.file_name_for_download(hidden_folder) == expected
+
+
+@pytest.mark.parametrize(
+    "fs_extension, file_paths, simple_single, nested_single",
+    [
+        pytest.param("iso", [""], True, False, id="single-file"),
+        pytest.param("", ["/Game"], False, True, id="folder-one-file"),
+        pytest.param("", ["/Game/dlc"], False, False, id="folder-nested-only"),
+        pytest.param("m3u", ["", "/discs"], True, False, id="playlist-subfolder"),
+        pytest.param("m3u", ["", ""], True, False, id="playlist-beside"),
+    ],
+)
+def test_file_stats_count_only_files_in_the_roms_own_folder(
+    platform: Platform,
+    fs_extension: str,
+    file_paths: list[str],
+    simple_single: bool,
+    nested_single: bool,
+):
+    rom = make_rom(platform, "Game", fs_extension=fs_extension)
+    for index, suffix in enumerate(file_paths):
+        file_name = rom.fs_name if index == 0 and not suffix else f"disc{index}.chd"
+        db_rom_handler.add_rom_file(
+            RomFile(rom_id=rom.id, file_name=file_name, file_path=rom.fs_path + suffix)
+        )
+
+    with sync_session.begin() as session:
+        stored = session.get_one(
+            Rom,
+            rom.id,
+            options=[
+                undefer(Rom.multi_file),
+                undefer(Rom.top_level_file_count),
+                selectinload(Rom.files),
+            ],
+        )
+        from_sql = (stored.has_simple_single_file, stored.has_nested_single_file)
+        apply_file_stats(stored, stored.files)
+        from_files = (stored.has_simple_single_file, stored.has_nested_single_file)
+
+    assert from_sql == (simple_single, nested_single)
+    assert from_files == (simple_single, nested_single)
 
 
 def _archive(**kwargs) -> RomFile:

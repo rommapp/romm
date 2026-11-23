@@ -52,6 +52,17 @@ class RomListedByPlaylistException(Exception):
         return self.message
 
 
+class PlaylistListsFilesException(RomListedByPlaylistException):
+    """Moving a playlist away from the files it lists would break the playlist."""
+
+    def __init__(self, playlist: str) -> None:
+        self.message = (
+            f"{playlist} lists its discs by relative path, so moving it into a "
+            "folder would break the playlist. Move the set into a folder of its own first"
+        )
+        Exception.__init__(self, self.message)
+
+
 class FirmwareNotFoundException(Exception):
     def __init__(self, platform: str) -> None:
         self.message = f"Firmware not found for platform {hl(platform, color=BLUE)}. {FOLDER_STRUCT_MSG }"

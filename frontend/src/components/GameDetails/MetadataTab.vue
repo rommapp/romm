@@ -55,7 +55,7 @@ const hashRows = computed<{ label: string; value: string | null }[]>(() => {
   // only when the ROM is a single CHD file. Skipped (not dashed) when
   // not applicable since most ROMs aren't CHDs.
   const chdSha1 = r.has_simple_single_file
-    ? (r.files[0]?.chd_sha1_hash ?? null)
+    ? (r.files.find((f) => f.is_top_level)?.chd_sha1_hash ?? null)
     : null;
   const rows: { label: string; value: string | null }[] = [
     { label: "SHA-1", value: r.sha1_hash },

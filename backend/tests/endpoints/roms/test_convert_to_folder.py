@@ -558,6 +558,37 @@ def test_convert_a_disc_a_playlist_lists_returns_409(
     assert after.fs_name == DISC_1
 
 
+def test_convert_a_playlist_listing_its_discs_returns_409(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    real_library: Path,
+):
+    rom = _single_file_rom(
+        platform, admin_user, real_library, "Game", fs_extension="m3u"
+    )
+    roms_dir = real_library / rom.fs_path
+    (roms_dir / "discs").mkdir()
+    (roms_dir / "discs" / DISC_1).write_bytes(b"disc1")
+    (roms_dir / "Game.m3u").write_text(f"discs/{DISC_1}\n")
+    db_rom_handler.add_rom_file(
+        RomFile(rom_id=rom.id, file_name=DISC_1, file_path=f"{rom.fs_path}/discs")
+    )
+
+    detail = client.get(f"/api/roms/{rom.id}", headers=bearer(access_token)).json()
+    assert detail["has_simple_single_file"] is True
+
+    response = client.post(
+        f"/api/roms/{rom.id}/convert-to-folder", headers=bearer(access_token)
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert "Game.m3u" in response.json()["detail"]
+    assert (roms_dir / "Game.m3u").is_file()
+    assert not (roms_dir / "Game").exists()
+
+
 async def test_promotion_waits_for_a_lock_held_by_another_worker(
     platform: Platform,
     admin_user: User,

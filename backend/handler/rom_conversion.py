@@ -1,6 +1,7 @@
 import asyncio
 
 from exceptions.fs_exceptions import (
+    PlaylistListsFilesException,
     RomAlreadyExistsException,
     RomListedByPlaylistException,
 )
@@ -12,7 +13,7 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom
 from utils.filesystem import TEMP_FILE_PREFIX
-from utils.m3u import listing_playlist
+from utils.m3u import PLAYLIST_EXT, listing_playlist, playlist_discs
 
 # Parallel uploads each promote the ROM, maybe on different gunicorn workers.
 # Keyed by the target folder, since lone files sharing a stem promote into one.
@@ -24,14 +25,18 @@ def promotion_lock_key(rom: Rom) -> str:
 
 
 def assert_promotable(rom: Rom) -> None:
-    """Refuse to move a lone file into a folder when a playlist beside it lists it.
+    """Refuse to move a lone file into a folder when that would break a playlist.
 
     Raises:
+        PlaylistListsFilesException: The file is an .m3u listing files on disk.
         RomListedByPlaylistException: An .m3u in the file's folder lists it.
     """
     if not rom.has_simple_single_file:
         return
-    playlist = listing_playlist(fs_rom_handler.validate_path(rom.full_path))
+    path = fs_rom_handler.validate_path(rom.full_path)
+    if path.suffix.lower() == PLAYLIST_EXT and playlist_discs(path):
+        raise PlaylistListsFilesException(rom.fs_name)
+    playlist = listing_playlist(path)
     if playlist:
         raise RomListedByPlaylistException(playlist)
 

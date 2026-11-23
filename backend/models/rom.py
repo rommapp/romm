@@ -1430,12 +1430,19 @@ def _rom_has_present_file(*criteria: ColumnElement[bool]) -> ScalarSelect[bool]:
     )
 
 
+_rom_dir_prefix = func.concat(_rom_full_path, "/")
+
+# A file in or below the rom's own folder; a playlist's discs elsewhere don't count.
 Rom.multi_file = column_property(
     select(RomFile.id)
     .where(
         and_(
             RomFile.rom_id == Rom.id,
-            RomFile.file_path != Rom.fs_path,
+            or_(
+                RomFile.file_path == _rom_full_path,
+                func.substr(RomFile.file_path, 1, func.char_length(_rom_dir_prefix))
+                == _rom_dir_prefix,
+            ),
         )
     )
     .correlate_except(RomFile)
@@ -1474,7 +1481,12 @@ def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
     """Fill the deferred file-stat columns from an already-loaded file list."""
     top_level = [f for f in files if rom.full_path in (f.full_path, f.file_path)]
     set_committed_value(
-        rom, "multi_file", any(f.file_path != rom.fs_path for f in files)
+        rom,
+        "multi_file",
+        any(
+            f.file_path == rom.full_path or f.file_path.startswith(f"{rom.full_path}/")
+            for f in files
+        ),
     )
     set_committed_value(rom, "top_level_file_count", len(top_level))
     set_committed_value(
